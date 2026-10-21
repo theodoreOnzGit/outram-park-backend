@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use outram_mc_libs::rng::{distributions::sample_exp, lcg::prn};
@@ -53,8 +54,8 @@ fn _sample_isotropic_direction(seed: &mut u64) -> Vec3 {
     let phi: f64 = prn(seed) * 2.0 * PI;
     let sin_theta: f64 = (1.0_f64 - mu * mu).sqrt();
     Vec3 {
-        x: sin_theta * phi.cos(),
-        y: sin_theta * phi.sin(),
+        x: sin_theta * phi.r_cos(),
+        y: sin_theta * phi.r_sin(),
         z: mu,
     }
 }
@@ -66,8 +67,8 @@ pub(crate) fn sample_isotropic_direction_into_array(seed: &mut u64) -> [Ratio; 3
     let phi: f64 = prn(seed) * 2.0 * PI;
     let sin_theta: f64 = (1.0_f64 - mu * mu).sqrt();
     [
-        Ratio::new::<ratio>(sin_theta * phi.cos()),
-        Ratio::new::<ratio>(sin_theta * phi.sin()),
+        Ratio::new::<ratio>(sin_theta * phi.r_cos()),
+        Ratio::new::<ratio>(sin_theta * phi.r_sin()),
         Ratio::new::<ratio>(mu),
     ]
 }

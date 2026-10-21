@@ -77,6 +77,7 @@
 //!   safety-critical, or licensing decisions. Independent OUTRAM PARK fork, not
 //!   the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{CubicEos, Phase};
 use crate::thermo::flash::{
     nested_loops_flash, wilson_k_values, FlashError, FlashResult, NestedLoopsOptions,
@@ -193,7 +194,7 @@ impl PropertyPackageModel {
                         let k: Vec<f64> = l
                             .iter()
                             .zip(v.iter())
-                            .map(|(&li, &vi)| (li - vi).exp())
+                            .map(|(&li, &vi)| (li - vi).r_exp())
                             .collect();
                         // Belt and braces over `ln_phi`'s own `Z > B` guard: a
                         // K-value that is not finite and positive cannot be used

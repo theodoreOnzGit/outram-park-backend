@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conductivity loss</title>
+<meta name="description" content="Fission products, lesson 26: burnup lowers UO2's thermal conductivity, so the kernel runs hotter and releases faster. The workspace's conductivity is fresh-fuel only.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 26. tampines'
+     uranium_dioxide_thermal_conductivity is the zero-burnup branch of the
+     VTB HTR-PM deck (its doc says so); the burnup effect is source pending
+     and the bend ILLUSTRATIVE. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Complication 7: conductivity falls, the kernel heats up</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Fission products and radiation damage scatter the vibrations that carry heat through UO<sub>2</sub>, so its <b>thermal conductivity falls with burnup</b> <span class="pending">source pending</span>. With the same power, a poorer conductor runs hotter inside, and a hotter kernel has a higher D everywhere.</p>
+
+<section class="widget-card">
+  <h3>How a hotter kernel bends the clean curve</h3>
+  <div class="widget" data-bend="conductivity">
+    <canvas aria-label="Released fraction against time: the clean curve and a faster curve for a hotter kernel."></canvas>
+  </div>
+</section>
+
+<p>The workspace&rsquo;s UO<sub>2</sub> conductivity, in tampines, is the <b>fresh-fuel</b> branch of the Virtual Test Bed HTR-PM model; its documentation says burnup is not modelled and that this is optimistic (too cool) for burnt fuel. In a TRISO kernel the temperature rise inside the kernel is tiny anyway (lesson 17), so here the bigger effect is on everything around it. Link back: the <a href="kernel-many-spheres.html">many-spheres model</a>&rsquo;s temperature shift slider.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<p>OFFBEAT&rsquo;s ported MATPRO and NFIR UO<sub>2</sub> conductivities carry burnup terms; they are in <code>outram-park-fork-offbeat</code>, which this lesson&rsquo;s generator does not depend on.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

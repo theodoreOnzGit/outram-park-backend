@@ -1,0 +1,500 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Zenzo Lusaba",
+						"lastName": "Dube",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Gloria Rosi",
+						"lastName": "Murahwe",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "An analysis of corporate governance practices in government controlled versus private banking institutions in Zimbabwe",
+				"rights": "Creative Commons Attribution 4.0 International, Open Access",
+				"publisher": "Zenodo",
+				"date": "2015-01-01",
+				"DOI": "10.5281/zenodo.2548653"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [],
+				"tags": [],
+				"title": "Bolognese: a Ruby library for conversion of DOI Metadata",
+				"company": "DataCite",
+				"date": "2017-02-25",
+				"DOI": "10.5438/n138-z3mk"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Natascha",
+						"lastName": "Miljković",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Mehr Schaden als Nutzen? Problematischer Einsatz von Textvergleichsprogrammen zur vermeintlichen Plagiatsvermeidung",
+				"rights": "Dieser Artikel ist ein Open-Access-Artikel und steht unter den Lizenzbedingungen der Creative Commons Attribution 4.0 License (Namensnennung).",
+				"publisher": "German Medical Science GMS Publishing House",
+				"date": "2015-08-12",
+				"ISSN": "1865-066X",
+				"DOI": "10.3205/mbi000337"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "dataset",
+				"creators": [
+					{
+						"firstName": "Bernhard",
+						"lastName": "Fritsch",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "3D model of object V 1.2-71: Structured-light Scan, Staatliche Museen zu Berlin -  Antikensammlung",
+				"repository": "Edition Topoi",
+				"date": "2016",
+				"DOI": "10.17171/2-3-12-1"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Irina",
+						"lastName": "Mostovaia",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Nonverbale graphische Ressourcen bei Reparaturen in der interaktionalen informellen Schriftlichkeit am Beispiel der deutschen Chat-Kommunikation via IRC-Chat und WhatsApp",
+				"rights": "Dieses Werk steht unter der Lizenz Creative Commons Namensnennung - Weitergabe unter gleichen Bedingungen 4.0 International.",
+				"publisher": "Journal für Medienlinguistik",
+				"date": "2018-12-04",
+				"DOI": "10.21248/jfml.2018.6"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Wynn",
+						"lastName": "Gadkar-Wilcox",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919",
+				"rights": "This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.",
+				"publisher": "The Journal of Transcultural Studies",
+				"date": "2018-12-20",
+				"DOI": "10.17885/heiup.jts.2018.1-2.23812"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Elliot",
+						"lastName": "Hogg",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Michele",
+						"lastName": "Tagliati",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Overuse Cervical Dystonia: A Case Report and Literature Review",
+				"publisher": "Tremor and Other Hyperkinetic Movements",
+				"date": "2016-09-14",
+				"DOI": "10.7916/D8959HR1"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Wynn",
+						"lastName": "Gadkar-Wilcox",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919",
+				"rights": "This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.",
+				"publisher": "The Journal of Transcultural Studies",
+				"date": "2018-12-20",
+				"DOI": "10.17885/heiup.jts.2018.1-2.23812"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "preprint",
+				"creators": [
+					{
+						"firstName": "Michael",
+						"lastName": "Walsh",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Non-healthcare occupational exposure to SARS-CoV-2 across industries in the United States before March 2020: a dataset generating protocol",
+				"rights": "Creative Commons Attribution 4.0 International, Open Access",
+				"repository": "Zenodo",
+				"date": "2021-09-17",
+				"DOI": "10.5281/ZENODO.5513598"
+			}
+		]
+	},
+	"testCase09": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Daniel",
+						"lastName": "Walter",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ulrich",
+						"lastName": "Schwätzer",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Mathematikapps für die Grundschule analysieren",
+				"rights": "Creative Commons Attribution Share Alike 4.0 International",
+				"publisher": "Gesellschaft für Didaktik der Mathematik e.V.",
+				"date": "2023",
+				"ISSN": "2701-9012",
+				"DOI": "10.48648/YHP7-0G75"
+			}
+		]
+	},
+	"testCase10": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Anne",
+						"lastName": "Barron",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Sorry Miss, I Completely Forgot about It: Apologies and Vocatives in Ireland and England",
+				"rights": "Anonymous, Creative Commons Attribution 4.0 International",
+				"publisher": "Medien- und Informationszentrum, Leuphana Universität Lüneburg",
+				"date": "2022",
+				"ISBN": "978-0-367-85639-7",
+				"DOI": "10.48548/PUBDATA-155"
+			}
+		]
+	},
+	"testCase11": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Andreas",
+						"lastName": "Bonnet",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Elena",
+						"lastName": "Bakels",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Uwe",
+						"lastName": "Hericks",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Die Professionalisierung von Lehrpersonen aus praxeologischer Perspektive. Professionelles Handeln als Entscheiden",
+				"rights": "Creative Commons Namensnennung - Nicht kommerziell - Keine Bearbeitungen 4.0 International",
+				"publisher": "Verlag Julius Klinkhardt : Bad Heilbrunn",
+				"date": "2023",
+				"ISBN": "978-3-7815-6043-7",
+				"DOI": "10.25656/01:28324"
+			}
+		]
+	},
+	"testCase12": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Adelheid",
+						"lastName": "Rasche",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "G. Ulrich",
+						"lastName": "Großmann",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Luxury in Silk. Eighteenth-Century Fashion: English summary of the book Luxus in Seide",
+				"publisher": "arthistoricum.net",
+				"date": "2023",
+				"DOI": "10.11588/ARTHISTORICUM.1141.C16127"
+			}
+		]
+	},
+	"testCase13": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Viliamu",
+						"lastName": "Iese",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Tolu",
+						"lastName": "Muliaina",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Rahul",
+						"lastName": "Prasad",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Moleen",
+						"lastName": "Nand",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Melanie",
+						"lastName": "Pill",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sivendra",
+						"lastName": "Michael",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Roslyn",
+						"lastName": "Dass-Nand",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vasiti",
+						"lastName": "Soko",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Filomena",
+						"lastName": "Nelson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Filipe",
+						"lastName": "Veisa",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ratu Tevita",
+						"lastName": "Rarokolutu",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Salote",
+						"lastName": "Nasalo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Otto",
+						"lastName": "Navunicagi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Christian Yves",
+						"lastName": "Amato-Ali",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Michael",
+						"lastName": "Ha’apio",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Morgan",
+						"lastName": "Wairiu",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Elisabeth",
+						"lastName": "Holland",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Louise Marie",
+						"lastName": "Malaki-Faaofo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Nasoni",
+						"lastName": "Roko",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Alastair",
+						"lastName": "Ward",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Loss and Damage: Save the Pacific, Save the World",
+				"rights": "All rights reserved. This book is in copyright. No part must be republished without permission of the publishers.",
+				"publisher": "The Macmillan Brown Centre for Pacific Studies Press and the Pacific Centre for Environment and Sustainable Development",
+				"date": "2024",
+				"DOI": "10.26021/15688"
+			}
+		]
+	},
+	"testCase14": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "preprint",
+				"creators": [
+					{
+						"firstName": "Małgorzata",
+						"lastName": "Możdżonek",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Piotr",
+						"lastName": "Caban",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jarosław",
+						"lastName": "Gaca",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Marek",
+						"lastName": "Wójcik",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Anna",
+						"lastName": "Piątkowska",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Determination of the thickness of BN layers on the Al2O3 substrate by FT-IR spectroscopy",
+				"repository": "Łukasiewicz Research Network - Institute of Electronic Materials Technology",
+				"date": "2020",
+				"DOI": "10.34769/AZKM-Y326"
+			}
+		]
+	}
+}

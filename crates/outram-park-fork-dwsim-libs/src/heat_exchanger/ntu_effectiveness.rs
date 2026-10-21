@@ -13,6 +13,7 @@
 //! linearised `C = W (H2-H1)/(T2-T1)` the same way DWSIM does, or a plain
 //! `W * Cp` for ideal/near-ideal fluids.
 
+use petir::mathf::RealMath;
 use super::lmtd::FlowArrangement;
 use uom::si::f64::{Power, Ratio, TemperatureInterval, ThermalConductance};
 use uom::si::ratio::ratio;
@@ -49,12 +50,12 @@ pub fn evaluate(
     let ntu = ua.get::<watt_per_kelvin>() / c_min;
 
     let effectiveness = match arrangement {
-        FlowArrangement::CoCurrent => (1.0 - (-ntu * (1.0 + c_r)).exp()) / (1.0 + c_r),
+        FlowArrangement::CoCurrent => (1.0 - (-ntu * (1.0 + c_r)).r_exp()) / (1.0 + c_r),
         FlowArrangement::CounterCurrent => {
             if (c_r - 1.0).abs() < 1e-9 {
                 ntu / (1.0 + ntu)
             } else {
-                let e = (-ntu * (1.0 - c_r)).exp();
+                let e = (-ntu * (1.0 - c_r)).r_exp();
                 (1.0 - e) / (1.0 - c_r * e)
             }
         }

@@ -11,6 +11,25 @@ use crate::prelude::decay_library::DecayLibrary;
 ///
 /// See if the surviving_fraction of nuclides over time is
 /// equal to the analytical solution to within 1%
+///
+/// # Methodology (written up 2026-10-04, gh:#531)
+///
+/// Verification of `get_time_to_decay_stochastic` against the analytic decay
+/// law. Draws lifetimes for a 30 s half-life with `Lcg64` seed 77. The loop
+/// runs `1..100000`, so **99 999** lifetimes are drawn, not 100 000. At every
+/// whole second from 0 to 100 s, the counted surviving fraction is compared
+/// with `2^(-t/30)` (tabulated below). Pass: every point within 0.9 %
+/// relative (`max_relative = 9e-3`).
+///
+/// # Results
+///
+/// 2026-10-04, `develop` atop `5e802df3a4`, `--release`, one thread: pass.
+/// Worst point **8.43·10⁻³ relative at t = 60 s, 1.54 binomial standard
+/// deviations**. One binomial sigma at t = 100 s is 9.53·10⁻³ relative,
+/// **larger than the tolerance**, so the tail points are tested at about one
+/// sigma: the test passes for this seed and would fail on some other seeds
+/// with nothing wrong in the sampler. That is recorded here rather than
+/// "fixed" by widening the tolerance.
 #[test]
 fn stochastic_half_life_calculator() {
     let half_life = Time::new::<second>(30.0);
@@ -157,11 +176,31 @@ fn stochastic_half_life_calculator() {
         (100_f64, 0.0992125657480125_f64),
     ];
 
+    // Report the worst point, in relative terms and in binomial standard
+    // deviations, so a `--nocapture` run supplies the numbers for the doc
+    // comment above (gh:#531). The assertion itself is unchanged.
+    let n_samples = time_to_live_vec.len() as f64;
+    let mut worst_rel = 0.0_f64;
+    let mut worst_sigmas = 0.0_f64;
+    let mut worst_t = 0.0_f64;
     for (simulated_time, analytical_surviving_fraction_libreoffice) in
         decay_vec_30s_halflife_reference
     {
         let test_surviving_fraction =
             determine_surviving_fraction(Time::new::<second>(simulated_time), &time_to_live_vec);
+
+        let p = analytical_surviving_fraction_libreoffice;
+        let rel = (test_surviving_fraction - p).abs() / p;
+        let sigma = (p * (1.0 - p) / n_samples).sqrt();
+        if rel > worst_rel {
+            worst_rel = rel;
+            worst_t = simulated_time;
+            worst_sigmas = if sigma > 0.0 {
+                (test_surviving_fraction - p).abs() / sigma
+            } else {
+                0.0
+            };
+        }
 
         approx::assert_relative_eq!(
             test_surviving_fraction,
@@ -169,6 +208,17 @@ fn stochastic_half_life_calculator() {
             max_relative = 9e-3
         );
     }
+    let p_tail = 0.0992125657480125_f64;
+    let tail_rel_sigma = (p_tail * (1.0 - p_tail) / n_samples).sqrt() / p_tail;
+    println!(
+        "surviving fraction, {} samples, seed 77: worst |rel. error| {:.3e} at t = {} s \
+         ({:.2} binomial sigma); one sigma at t = 100 s is {:.3e} relative",
+        time_to_live_vec.len(),
+        worst_rel,
+        worst_t,
+        worst_sigmas,
+        tail_rel_sigma
+    );
 }
 
 // in this case, thorium 232 goes via a series of decays, well known

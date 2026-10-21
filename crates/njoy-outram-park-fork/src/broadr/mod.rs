@@ -32,7 +32,9 @@
 //!   *absolute*), which the `1/y²` weights of `s1`/`s2` amplified into a
 //!   1.9 % deficit at `y = 0.03` — H-2 capture 2.3 % low at 1e-5 eV against
 //!   NJOY (bead `op-0xv5`); see `one_over_v_is_preserved_at_low_y`.
-//! - The `hnabb` Taylor-series refinement from the Fortran is not implemented;
+//! - (This bullet is about `bsigma_scalar`, the per-reaction kernel. The
+//!   pipeline's kernel, `joint`, ports SLATEC `erfc` and `hnabb` exactly.)
+//!   The `hnabb` Taylor-series refinement from the Fortran is not implemented;
 //!   the direct difference `h = f_old - f_new` is used throughout. It only
 //!   engages for panels narrower than ~1e-5 in `a` (upstream `toler`), where
 //!   the cancellation error is ~1e-16/Δa of an already-small contribution.
@@ -42,8 +44,10 @@
 //!   it pulls the broadened value back down toward the physical result.
 
 pub mod broadn;
+pub mod joint;
 pub use broadn::{broadn_section, lab_threshold, BroadnTolerances};
 
+use petir::mathf::RealMath;
 use crate::{
     common::phys::BK_EV_PER_K,
     reconr::{ReconrResult, ReconrSection},
@@ -87,7 +91,7 @@ fn erfc_nonneg(x: f64) -> f64 {
                 break;
             }
         }
-        1.0 - two_over_sqrt_pi * (-x2).exp() * sum
+        1.0 - two_over_sqrt_pi * (-x2).r_exp() * sum
     } else {
         // Continued fraction evaluated bottom-up: erfc(x) = e^{-x²}/(x√π) K,
         // K = 1/(1 + (1/2)/x² /(1 + (2/2)/x² /(1 + ...))).
@@ -96,7 +100,7 @@ fn erfc_nonneg(x: f64) -> f64 {
         for m in (1..=80).rev() {
             k = 1.0 + (m as f64) * inv_2x2 / k;
         }
-        (-x * x).exp() / (x * SQRT_PI) / k
+        (-x * x).r_exp() / (x * SQRT_PI) / k
     }
 }
 
@@ -115,7 +119,7 @@ fn f_funcs(a: f64) -> [f64; 5] {
         return [0.0; 5];
     }
     let asq = a * a;
-    let expo = (-asq).exp() / SQRT_PI; // exp(-a²)/√π
+    let expo = (-asq).r_exp() / SQRT_PI; // exp(-a²)/√π
     let f0 = 0.5 * erfc_nonneg(a);
     let f1 = 0.5 * expo;
     let expoa = expo * a; // a·exp(-a²)/√π
@@ -352,6 +356,7 @@ const EMIN_DEFAULT: f64 = 1.0;
 /// unresolved side of the seam. That destroyed U-238's 20 keV seam in this
 /// port (`op-sdbk`: MT=102 45 % low at the seam) until this limit was added.
 #[must_use]
+// ANCHOR: lesson_thnmax
 pub fn broadening_limit(result: &ReconrResult) -> f64 {
     let mut thnmax = result.resonance_upper_limit.unwrap_or(0.0).min(E6PT5);
     // broadr.f90:441 — never above the input file's own emax.
@@ -383,6 +388,7 @@ pub fn broadening_limit(result: &ReconrResult) -> f64 {
     }
     thnmax
 }
+// ANCHOR_END: lesson_thnmax
 
 /// Reactions upstream's reaction loop (`broadr.f90:465-530`) considers when
 /// choosing `thnmax` for a non-resonance nuclide — i.e. everything it does
@@ -458,6 +464,7 @@ pub fn doppler_broaden_below_with(
 
             if pairs.first().is_some_and(|&(e, _)| e > thnmax) {
                 return ReconrSection {
+                    lr: sec.lr,
                     mt: sec.mt,
                     qi: sec.qi,
                     pairs,
@@ -471,6 +478,7 @@ pub fn doppler_broaden_below_with(
             let emtr = lab_threshold(sec.qi, awr);
             let out = broadn_section(&e, &s, alpha, tol, thnmax, emtr);
             ReconrSection {
+                lr: sec.lr,
                 mt: sec.mt,
                 qi: sec.qi,
                 pairs: out,
@@ -483,12 +491,47 @@ pub fn doppler_broaden_below_with(
 /// upper limit ([`broadening_limit`]). The result carries the same material
 /// header and limit, so it can be broadened again (bootstrap style) if wanted.
 #[must_use]
+///
+/// Since 2026-09-26 this is upstream's own form, [`joint::broadr_joint`]. It
+/// reads the PENDF as text first, as BROADR does
+/// ([`ReconrResult::through_pendf_text`]). It then broadens every
+/// low-threshold reaction together on MT=1's grid, with card 3's defaults
+/// (`errthn = 0.001`, `thnmax = 6.5e6`). The per-reaction walk below remains
+/// only as the fallback for a result with no MT=1 section.
 pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
+    broaden_result_with_tolerance(result, temp_k, BroadnTolerances::default().errthn)
+}
+
+/// [`broaden_result`] with BROADR's fractional thinning tolerance `errthn`
+/// (card 3) set by the caller instead of upstream's `0.001`.
+///
+/// `errmax` and `errint` follow from it by upstream's own rule
+/// ([`BroadnTolerances::with_errthn`]: `10 x` and `/ 20000`). A larger
+/// `errthn` keeps fewer broadened points, so the table is smaller and faster
+/// to build and to search, and less accurate between points: an
+/// **approximation**, not an optimization. `broaden_result(r, t)` is exactly
+/// `broaden_result_with_tolerance(r, t, 0.001)`.
+///
+/// `errthn` is dimensionless and must be positive; `0.001` is NJOY's default
+/// and what every reference deck in this workspace uses. It applies to the
+/// joint walk only: the per-reaction fallback, taken when the result has no
+/// MT=1 section, keeps its own fixed tolerance.
+pub fn broaden_result_with_tolerance(result: &ReconrResult, temp_k: f64, errthn: f64) -> ReconrResult {
+    let pendf = result.through_pendf_text();
+    if let Some(r) = joint::broadr_joint(&pendf, temp_k, &BroadnTolerances::with_errthn(errthn), E6PT5) {
+        // BROADR writes a PENDF: energies copied above `thnmax` have been
+        // through `e(k)**2/alpha` (`broadn` label 190) and are printed.
+        return r.through_pendf_text();
+    }
     let thnmax = broadening_limit(result);
     ReconrResult {
         material: result.material.clone(),
         sections: doppler_broaden_below(&result.sections, result.material.awr, temp_k, thnmax),
         resonance_upper_limit: result.resonance_upper_limit,
+        // BROADR does not touch MF=2, so the 0 K unresolved table rides
+        // through unchanged -- matching upstream, where UNRESR/PURR are what
+        // replace it with a temperature-dependent one.
+        unresolved_table: result.unresolved_table.clone(),
     }
 }
 
@@ -583,6 +626,7 @@ pub fn doppler_broaden(sections: &[ReconrSection], awr: f64, temp_k: f64) -> Vec
                 .collect();
 
             ReconrSection {
+                lr: sec.lr,
                 mt: sec.mt,
                 qi: sec.qi,
                 pairs,
@@ -651,7 +695,7 @@ mod tests {
                 break;
             }
             let w = if k == 0 || k == n { 0.5 } else { 1.0 };
-            let kern = (-(x - y).powi(2)).exp() - (-(x + y).powi(2)).exp();
+            let kern = (-(x - y).r_powi(2)).r_exp() - (-(x + y).r_powi(2)).r_exp();
             acc += w * sig(x) * x * x * kern;
         }
         acc * dx / (y * y * SQRT_PI)
@@ -772,6 +816,7 @@ mod tests {
         // early on temp_k ≤ 0.
         let pairs = vec![(0.01, 10.0), (1.0, 5.0), (10.0, 2.0)];
         let sec = ReconrSection {
+            lr: 0,
             mt: MtReaction::Mt2Elastic,
             qi: 0.0,
             pairs,
@@ -794,7 +839,12 @@ mod tests {
     }
 
     fn section(mt: MtReaction, pairs: Vec<(f64, f64)>) -> ReconrSection {
-        ReconrSection { mt, qi: 0.0, pairs }
+        ReconrSection {
+            lr: 0,
+            mt,
+            qi: 0.0,
+            pairs,
+        }
     }
 
     #[test]
@@ -804,6 +854,7 @@ mod tests {
             material: material(1, 3.0e7),
             sections: vec![],
             resonance_upper_limit: Some(2.0e4),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 2.0e4);
         // Cap at e6pt5 (broadr.f90:423-425).
@@ -811,6 +862,7 @@ mod tests {
             material: material(1, 3.0e7),
             sections: vec![],
             resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
         // Never above the evaluation's emax (broadr.f90:441).
@@ -818,6 +870,7 @@ mod tests {
             material: material(1, 1.5e6),
             sections: vec![],
             resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 1.5e6);
         // No MF=2 at all: eresh = thnmax = 0 → e6pt5 fallback (broadr.f90:562).
@@ -825,6 +878,7 @@ mod tests {
             material: material(0, 2.0e7),
             sections: vec![],
             resonance_upper_limit: None,
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
     }
@@ -844,6 +898,7 @@ mod tests {
             material: material(0, 2.0e7),
             sections: secs.clone(),
             resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 0.99999 * 4.5e4);
         // Same sections but lrp = 1: thresholds are not consulted at all.
@@ -851,6 +906,7 @@ mod tests {
             material: material(1, 2.0e7),
             sections: secs,
             resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
     }

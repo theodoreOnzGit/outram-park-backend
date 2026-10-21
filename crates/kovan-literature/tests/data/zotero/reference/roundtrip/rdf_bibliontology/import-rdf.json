@@ -1,0 +1,582 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					}
+				],
+				"format": "<http://rdaregistry.info/termList/RDACarrierType/1044>",
+				"language": "<http://id.loc.gov/vocabulary/iso639-2/ger>",
+				"ISBN": "9783658060268, 3658060263"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Richard P.",
+						"lastName": "Smiraglia",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Catalog",
+						"type": 1
+					},
+					{
+						"tag": "Works",
+						"type": 1
+					}
+				],
+				"title": "Be Careful What You Wish For: FRBR, Some Lacunae, A Review",
+				"pages": "360-368",
+				"url": "http://dx.doi.org/10.1080/01639374.2012.682254",
+				"abstractNote": "The library catalog as a catalog of works was an infectious idea, which together with research led to reconceptualization in the form of the FRBR conceptual model. Two categories of lacunae emerge--the expression entity, and gaps in the model such as aggregates and dynamic documents. Evidence needed to extend the FRBR model is available in contemporary research on instantiation. The challenge for the bibliographic community is to begin to think of FRBR as a form of knowledge organization system, adding a final dimension to classification. The articles in the present special issue offer a compendium of the promise of the FRBR model.",
+				"volume": "50",
+				"issue": "5",
+				"publicationTitle": "Cataloging & Classification Quarterly",
+				"publisher": "Taylor & Francis Group",
+				"ISSN": "1544-4554"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [
+					{
+						"firstName": "Carl",
+						"lastName": "Boettiger",
+						"creatorType": "programmer"
+					},
+					{
+						"firstName": "Matthew B.",
+						"lastName": "Jones",
+						"creatorType": "programmer"
+					},
+					{
+						"firstName": "Stephan",
+						"lastName": "Druskat",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Ashley",
+						"lastName": "Sands",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Patricia",
+						"lastName": "Cruse",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Martin",
+						"lastName": "Fenner",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Neil",
+						"lastName": "Chue Hong",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Yolanda",
+						"lastName": "Gil",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Mark",
+						"lastName": "Hahnel",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Dan",
+						"lastName": "Katz",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Carl",
+						"lastName": "Boettiger",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Carole",
+						"lastName": "Goble",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Arfon",
+						"lastName": "Smith",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Alice",
+						"lastName": "Allen",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Mercè",
+						"lastName": "Crosas",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Luke",
+						"lastName": "Coy",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Kyle",
+						"lastName": "Niemeyer",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Peter",
+						"lastName": "Slaughter",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "software",
+						"type": 1
+					},
+					{
+						"tag": "metadata",
+						"type": 1
+					}
+				],
+				"rights": "https://spdx.org/licenses/Apache-2.0",
+				"title": "CodeMeta: Minimal metadata schemas for science software and code, in JSON-LD",
+				"programmingLanguage": "JSON-LD",
+				"abstractNote": "CodeMeta is a concept vocabulary that can be used to standardize the exchange of software metadata across repositories and organizations.",
+				"date": "2017-06-05",
+				"versionNumber": "2.0"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [],
+				"tags": [],
+				"title": "Test",
+				"reportNumber": "NLR-TP-96-464"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "document",
+				"creators": [
+					{
+						"name": "Int'l Mar. Org.",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "International Code for Ships Operating in Polar Waters (Polar Code)",
+				"extra": "Type: treaty",
+				"date": "2017"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [
+					{
+						"firstName": "Firstname",
+						"lastName": "Lastname",
+						"creatorType": "creator"
+					}
+				],
+				"tags": [],
+				"libraryCatalog": "Example.com",
+				"title": "Video",
+				"url": "https://example.com/video",
+				"abstractNote": "Example video",
+				"date": "2026-06-17"
+			}
+		]
+	},
+	"rdf_dc_prism_article": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Jane Q.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kovan Probe",
+						"lastName": "Consortium",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "thermal hydraulics",
+						"type": 1
+					},
+					{
+						"tag": "probes",
+						"type": 1
+					}
+				],
+				"rights": "CC BY 4.0",
+				"pages": "11-19",
+				"DOI": "10.5555/probe.42",
+				"url": "http://example.org/articles/42",
+				"abstractNote": "An abstract, with a comma.",
+				"language": "en-GB",
+				"volume": "7",
+				"issue": "3",
+				"date": "2019-02-30",
+				"callNumber": "TK9202 .P76",
+				"publicationTitle": "Journal of Probes",
+				"ISSN": "1234-5679",
+				"journalAbbreviation": "J. Probes"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A Book with an ISBN in its URI",
+				"date": "2001",
+				"place": "Singapore",
+				"publisher": "Probe Press",
+				"series": "Probe Series",
+				"seriesNumber": "12",
+				"ISBN": "978-0-306-40615-7"
+			}
+		]
+	},
+	"rdf_eprints_og_schema": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "presentation",
+				"creators": [
+					{
+						"firstName": "Sam",
+						"lastName": "Speaker",
+						"creatorType": "presenter"
+					},
+					{
+						"firstName": "Sue",
+						"lastName": "Second",
+						"creatorType": "presenter"
+					}
+				],
+				"tags": [],
+				"title": "An Unpublished Conference Talk",
+				"url": "http://eprints.example.org/1/talk",
+				"abstractNote": "Talk abstract.",
+				"presentationType": "Keynote",
+				"meetingName": "Probe Conference 2024",
+				"date": "2024-03-05",
+				"sessionTitle": "An Unpublished Conference Talk",
+				"place": "Kent Ridge"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Stella",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Thesis from eprints",
+				"numPages": "321",
+				"thesisType": "PhD",
+				"university": "Probe University",
+				"ISBN": "0-306-40615-2"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [],
+				"tags": [],
+				"title": "A Film via Open Graph",
+				"url": "http://video.example.org/clip?ref=og",
+				"abstractNote": "Open Graph description."
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "blogPost",
+				"creators": [
+					{
+						"firstName": "Will",
+						"lastName": "Writer",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					}
+				],
+				"title": "A schema.org blog post",
+				"language": "en",
+				"date": "2022-11-30"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "report",
+				"creators": [],
+				"tags": [],
+				"title": "A vCard Organisation Record",
+				"reportType": "report"
+			}
+		]
+	},
+	"rdf_parser_quirks": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "automatic tag",
+						"type": 1
+					},
+					{
+						"tag": "plain tag",
+						"type": 1
+					}
+				],
+				"numPages": "250",
+				"shortTitle": "Alias short title",
+				"extra": "Comes after a parseType=\"Resource\" arc.",
+				"date": "1999",
+				"publisher": "Attribute Press"
+			}
+		]
+	},
+	"rdf_zotero_library": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Ada",
+						"lastName": "Ng",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "manual tag",
+						"type": 1
+					},
+					{
+						"tag": "automatic tag",
+						"type": 1
+					}
+				],
+				"accessDate": "2021-02-03T04:05:06Z",
+				"libraryCatalog": "Probe Catalog",
+				"title": "An Article in a Library",
+				"pages": "1-9",
+				"shortTitle": "Article",
+				"url": "http://example.org/a1",
+				"extra": "Extra line one\nExtra line two",
+				"volume": "3",
+				"date": "2020-01-02",
+				"publicationTitle": "Journal of Libraries",
+				"ISSN": "0000-0019"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [],
+				"title": "A Related Book"
+			}
+		]
+	}
+}

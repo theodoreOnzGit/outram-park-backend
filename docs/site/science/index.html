@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn the science</title>
+<meta name="description" content="The science behind OUTRAM PARK as an interactive textbook: physical intuition, a demo, the explanation, then the mathematics and the model.">
+<link rel="stylesheet" href="../style.css">
+<script src="../search.js" defer></script>
+</head>
+<body>
+<!-- Learn the Science (gh:#906 spec §5.1, maintainer 2026-10-16): domain
+     buttons and a science search, no curriculum list. A domain button opens
+     that domain's short list below it (CSS :target, no script). Each lesson
+     link marked data-kind="science" is a search entry
+     (scripts/build-search-index.sh): keep each on one line. A long domain
+     groups its lessons in collapsible chapters (<details class="chapter">);
+     the script at the foot opens the chapter a link's #hash points into. -->
+<main>
+<header class="top">
+  <h1>Learn the science</h1>
+  <p class="lede">An interactive textbook: physical intuition first, then a demo you can run, the explanation, the mathematics and the model. The code comes later, from <a href="../code/">Learn to code</a>.</p>
+</header>
+  <h2 class="ask">What are you interested in?</h2>
+  <nav class="chips big" aria-label="Science domains">
+    <a class="chip" href="#nuclear-data-and-neutronics">Nuclear Data and Neutronics</a>
+    <a class="chip" href="#transport">Neutron transport</a>
+    <a class="chip" href="#fission-products">Fission products</a>
+    <a class="chip" href="#thermal-hydraulics">Thermal hydraulics</a>
+    <a class="chip" href="#cfd">Fluid mechanics &amp; CFD</a>
+    <a class="chip" href="#particle-mechanics">Particle mechanics</a>
+    <a class="chip" href="#fuel-materials">Fuel &amp; materials</a>
+    <a class="chip" href="#dispersion">Dispersion</a>
+    <a class="chip" href="#multiphysics">Multiphysics</a>
+  </nav>
+
+  <form class="site-search" data-scope="science" role="search">
+    <label class="visually-hidden" for="q">Search the science</label>
+    <input id="q" type="search" placeholder="Search the science…" autocomplete="off">
+    <button type="submit">Search</button>
+  </form>
+  <div class="search-results" aria-live="polite"></div>
+
+  <section class="domain" id="nuclear-data-and-neutronics">
+    <!-- The old Neutronics and Nuclear data sections, merged (maintainer,
+         2026-10-20). Their ids are kept as anchors so old links still land
+         here: #neutronics at the top, #nuclear-data on chapter 4. -->
+    <span id="neutronics" class="anchor"></span>
+    <h2>Nuclear Data and Neutronics</h2>
+    <p>How neutrons move through matter, and how a reactor keeps a chain reaction going; and where a cross section comes from: from the evaluator&rsquo;s resonance parameters to the table a transport code reads.</p>
+    <details class="chapter" id="ch-basic-nuclear-physics" open>
+      <summary>Chapter 1 · Basic nuclear physics <span class="range">(lessons 1&ndash;11)</span></summary>
+      <div class="chips">
+        <a class="demo featured" href="neutronics/meet-the-neutron.html" data-kind="science" data-terms="neutron neutronics scattering absorption fission leakage random walk natural uranium">1 · Meet the neutron</a>
+        <a class="demo" href="neutronics/why-it-scatters.html" data-kind="science" data-terms="elastic scattering collision kinematics momentum energy moderation H-1 C-12 U-238">2 · Why does a neutron bounce?</a>
+        <a class="demo" href="neutronics/moving-nuclei.html" data-kind="science" data-terms="thermal motion temperature relative velocity Maxwell-Boltzmann free gas Doppler broadening">3 · The nucleus is moving too</a>
+        <a class="demo" href="neutronics/matter-waves.html" data-kind="science" data-terms="de Broglie wavelength wave packet Heisenberg uncertainty matter wave energy levels">4 · Why not billiard balls?</a>
+        <a class="demo" href="neutronics/quantum-scattering.html" data-kind="science" data-terms="quantum scattering partial waves phase shift interference angular distribution anisotropic isotropic hard sphere scattering radius nuclear data">5 · A neutron wave at a nucleus</a>
+        <a class="demo" href="neutronics/storing-shapes.html" data-kind="science" data-terms="representation interpolation points shape functions basis functions Fourier series Bessel functions spherical harmonics Legendre">6 · How do we store a shape?</a>
+        <a class="demo" href="neutronics/scattering-angles.html" data-kind="science" data-terms="scattering cosine mu Legendre polynomials coefficients ENDF MF4 angular distribution NJOY ACER ptleg2 ACE table sampling">7 · How are scattering angles stored?</a>
+        <a class="demo" href="neutronics/why-energy-matters.html" data-kind="science" data-terms="resonance allowed levels energy compound nucleus binding energy standing wave Breit-Wigner">8 · Why does the neutron's energy matter?</a>
+        <a class="demo" href="neutronics/nuclear-levels.html" data-kind="science" data-terms="shell model harmonic oscillator Woods-Saxon magic numbers spin-orbit pairing collective motion level density total cross section He-4 Mn-55 U-238 resonances RECONR">9 · Why are nuclear levels so complicated?</a>
+        <a class="demo" href="neutronics/what-can-happen.html" data-kind="science" data-terms="reaction channels compound nucleus elastic inelastic (n,n') capture (n,gamma) (n,p) (n,alpha) (n,2n) fission Q-value threshold MT number binding energy">10 · What can happen when a neutron meets a nucleus?</a>
+        <a class="demo" href="neutronics/fission.html" data-kind="science" data-terms="fission fissile fissionable U-235 U-238 pairing fission barrier threshold">11 · Fission: fissile and fissionable</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-resonances-doppler">
+      <summary>Chapter 2 · Resonances and Doppler broadening <span class="range">(lessons 12&ndash;22)</span></summary>
+      <div class="chips">
+        <a class="demo" href="neutronics/resonance-shape.html" data-kind="science" data-terms="resonance shape SLBW single-level Breit-Wigner width lifetime partial widths capture elastic dip U-238 6.67 eV">12 · What shapes a resonance peak?</a>
+        <a class="demo" href="neutronics/r-matrix.html" data-kind="science" data-terms="R-matrix interference amplitudes spin group same J channels matrix inversion brute force Wigner Eisenbud">13 · Do neighbouring peaks interfere?</a>
+        <a class="demo" href="neutronics/reich-moore.html" data-kind="science" data-terms="Reich-Moore eliminated width gamma channels capture fission interference R-Matrix Limited LRF 3 LRF 7">14 · Can we skip the gamma paths?</a>
+        <a class="demo" href="neutronics/mlbw.html" data-kind="science" data-terms="MLBW multi-level Breit-Wigner elastic interference capture fission single-level LRF 2 Gamma/D">15 · Can we drop the matrix?</a>
+        <a class="demo" href="neutronics/adler-adler.html" data-kind="science" data-terms="Adler-Adler semi-empirical Kapur-Peierls fitted coefficients LRF 4 formalism ladder">16 · Cheaper still: fit the curves?</a>
+        <a class="demo" href="neutronics/log-scales.html" data-kind="science" data-terms="log scale logarithmic lethargy xi mean logarithmic energy decrement slowing down moderation collisions 1/v B-10 resonance bunching unresolved range">17 · Why are cross sections drawn on log scales?</a>
+        <a class="demo" href="neutronics/unresolved.html" data-kind="science" data-terms="unresolved resonance range URR average parameters level spacing infinitely dilute smearing LSSF File 3 fluctuation integral chi-square U-238 U-234">18 · The double whammy: unresolved resonances</a>
+        <a class="demo" href="neutronics/purr.html" data-kind="science" data-terms="PURR probability table resonance ladder Wigner distribution chi-square widths sampling unresolved range infinitely dilute fluctuation factor LSSF temperature correlations">19 · PURR: make up the resonances</a>
+        <a class="demo" href="neutronics/bound-atoms.html" data-kind="science" data-terms="bound atoms free gas lattice molecule binding vibration energies thermal scattering S(alpha,beta) moderator graphite water ZrH quartz Bragg">20 · But the atoms are bound!</a>
+        <a class="demo" href="neutronics/lattice-scattering.html" data-kind="science" data-terms="lattice scattering Bragg edges coherent elastic diffraction plane spacing graphite Debye-Waller temperature phonon frequency spectrum S(alpha,beta) incoherent elastic inelastic detailed balance">21 · What does lattice scattering depend on?</a>
+        <a class="demo" href="neutronics/doppler.html" data-kind="science" data-terms="Doppler broadening temperature free gas Maxwell-Boltzmann relative speed BROADR SIGMA1 kernel resonance area 1/v U-238 6.67 eV">22 · Doppler broadening: lone atoms, warm</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-phonons">
+      <summary>Chapter 3 · Scattering with phonons <span class="range">(lessons 23&ndash;41)</span></summary>
+      <div class="chips">
+        <a class="demo" href="neutronics/phonons.html" data-kind="science" data-terms="phonon lattice vibration spring mass normal mode acoustic optical quasiparticle boson polarisation longitudinal transverse wavevector crystal momentum dispersion neutron phonon creation absorption">23 · What is a phonon?</a>
+        <a class="demo" href="neutronics/many-phonons.html" data-kind="science" data-terms="many phonons density of states rho vibration spectrum polycrystalline incoherent alpha-quartz water band gap semiconductor Debye beta squared">24 · Can we have more than one phonon?</a>
+        <a class="demo" href="neutronics/structure.html" data-kind="science" data-terms="structure molecule water normal modes 3N-6 stretch bend crystal bands acoustic optical gap anisotropy graphite layers polycrystalline cubic approximation">25 · How does structure shape the phonons?</a>
+        <a class="demo" href="neutronics/alpha-beta.html" data-kind="science" data-terms="alpha beta kick energy transfer recoil line scattering law S(alpha,beta) detailed balance">26 · Maths 1: two numbers for a collision</a>
+        <a class="demo" href="neutronics/jiggle.html" data-kind="science" data-terms="thermal motion jiggle Doppler broadening Maxwell-Boltzmann Gaussian bell curve exponential">27 · Maths 1½: let the nucleus jiggle</a>
+        <a class="demo" href="neutronics/free-gas.html" data-kind="science" data-terms="free gas scattering law closed form Gaussian sum rule normalisation">28 · Maths 2: the free gas, exactly</a>
+        <a class="demo" href="neutronics/one-spring.html" data-kind="science" data-terms="oscillator swing phonon Poisson upscatter downscatter detailed balance phonon expansion Bessel Debye-Waller elastic">29 · Maths 3: one swing</a>
+        <a class="demo" href="neutronics/convolution.html" data-kind="science" data-terms="convolution dice sum of random variables flip slide independence">30 · Maths 3½: what is a convolution?</a>
+        <a class="demo" href="neutronics/many-modes.html" data-kind="science" data-terms="phonon expansion density of states convolution sampling Monte Carlo Poisson central limit theorem LEAPR">31 · Maths 4: many modes, many phonons</a>
+        <a class="demo" href="neutronics/big-kicks.html" data-kind="science" data-terms="short-collision-time approximation SCT bell curve LEAPR">32 · Maths 5: big kicks, use the bell</a>
+        <a class="demo" href="neutronics/bell-shape.html" data-kind="science" data-terms="bell curve centre width free recoil effective temperature">33 · Maths 5a: what shapes the bell curve?</a>
+        <a class="demo" href="neutronics/zero-point.html" data-kind="science" data-terms="zero-point motion ground state third law Fermi energy effective temperature">34 · Maths 5b: why can't atoms sit still?</a>
+        <a class="demo" href="neutronics/stiff-soft.html" data-kind="science" data-terms="effective temperature coth stiff soft spring kT density of states">35 · Maths 5c: stiff springs, soft springs</a>
+        <a class="demo" href="neutronics/snapshot.html" data-kind="science" data-terms="snapshot impulse Doppler shift big kick">36 · Maths 5d: what does a hard kick see?</a>
+        <a class="demo" href="neutronics/why-bell.html" data-kind="science" data-terms="Gaussian Maxwell-Boltzmann ground state momentum bell curve">37 · Maths 5e: why is it a bell curve?</a>
+        <a class="demo" href="neutronics/width.html" data-kind="science" data-terms="width variance effective temperature kinetic energy">38 · Maths 5f: what sets the width?</a>
+        <a class="demo" href="neutronics/one-spring-check.html" data-kind="science" data-terms="impulse approximation effective temperature coth LEAPR check">39 · Maths 5g: checking it, one spring then a crystal</a>
+        <a class="demo" href="neutronics/coherent.html" data-kind="science" data-terms="coherent incoherent scattering interference Bragg hydrogen carbon oxygen spin">40 · Maths 5h: do the waves add up?</a>
+        <a class="demo" href="neutronics/spin.html" data-kind="science" data-terms="nuclear spin triplet singlet scattering length hydrogen incoherent carbon-12 oxygen-16 spin zero Sears">41 · Maths 5i: why does each hydrogen scatter differently?</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-nuclear-data">
+      <summary>Chapter 4 · Nuclear data for the transport code <span class="range">(lessons 42&ndash;45)</span></summary>
+      <span id="nuclear-data" class="anchor"></span>
+      <div class="chips">
+        <a class="demo" href="neutronics/which-nucleus.html" data-kind="science" data-terms="free gas target velocity sampling relative speed Maxwell-Boltzmann constant cross-section approximation CXS BROADR rate partner collision kinematics up-scatter">42 · Which nucleus did the neutron hit?</a>
+        <a class="demo" href="neutronics/dbrc.html" data-kind="science" data-terms="DBRC Doppler Broadening Rejection Correction resonance elastic scattering 0 K cross section rejection sampling U-238 6.67 eV up-scatter capture k-eff OpenMC">43 · DBRC: let the resonance choose the partner</a>
+        <a class="demo" href="neutronics/ace-files.html" data-kind="science" data-terms="ACE file continuous-energy thermal RECONR BROADR HEATR PURR ACER LEAPR THERMR S(alpha,beta) block NXS JXS emax">44 · How is each ACE file put together?</a>
+        <a class="demo" href="neutronics/two-files.html" data-kind="science" data-terms="free gas bound atom thermal cutoff S(alpha,beta) hand-over continuous-energy file thermal file hydrogen water graphite capture elastic OpenMC">45 · Free gas or bound atom?</a>
+        <a class="demo" href="../deep-dives/nuclear-data/where-sigma-comes-from.html" data-kind="science" data-terms="cross section sigma(E) resonances ENDF evaluation">Where does &sigma;(E) come from?</a>
+      </div>
+    </details>
+    <div class="chips">
+      <a class="demo" href="neutronics/glossary.html" data-kind="science" data-terms="glossary terms definitions jargon">Neutronics glossary</a>
+      <a class="demo" href="../tutorials/monte-carlo/">Monte Carlo, one rung at a time</a>
+    </div>
+  </section>
+
+  <section class="domain" id="transport">
+    <h2>Neutron transport</h2>
+    <p>How a Monte Carlo code follows neutrons, one step at a time, up to a bare uranium sphere and the HTR-10 pebble-bed core.</p>
+    <div class="chips">
+      <a class="demo featured" href="transport/free-flight.html" data-kind="science" data-terms="exponential flight distance mean free path macroscopic cross section sampling inverse transform random number">1 · How far to the next collision?</a>
+      <a class="demo" href="transport/moving.html" data-kind="science" data-terms="move along direction time of flight track-length estimator Godiva demo">2 · Moving to the collision</a>
+      <a class="demo" href="transport/surfaces.html" data-kind="science" data-terms="surface tracking distance to boundary boundary conditions vacuum reflective white periodic leakage round-off nudge coincident surface">3 · Surfaces: where the flight ends</a>
+      <a class="demo" href="transport/random-numbers.html" data-kind="science" data-terms="random number generator LCG PCG jump-ahead stream seed reproducible parallel history">4 · Where do the random numbers come from?</a>
+      <a class="demo" href="transport/at-a-collision.html" data-kind="science" data-terms="collision nuclide selection reaction ladder fission capture elastic inelastic scattering outgoing energy direction">5 · At a collision: who, what, where to?</a>
+      <a class="demo" href="transport/a-history.html" data-kind="science" data-terms="neutron history loop track capture fission leak Godiva TRISO">6 · Repeat: one neutron, birth to death</a>
+      <a class="demo" href="transport/triso-problem.html" data-kind="science" data-terms="TRISO particle pebble kernel layers surface tracking cost double heterogeneity">7 · TRISO: too many surfaces</a>
+      <a class="demo" href="transport/delta-tracking.html" data-kind="science" data-terms="delta tracking Woodcock majorant virtual collision rejection Serpent Leppanen">8 · Delta tracking: stop looking at surfaces</a>
+      <a class="demo" href="transport/fission-bank.html" data-kind="science" data-terms="fission bank source sites power iteration generation k-effective Shannon entropy comb resampling">9 · The fission bank and k</a>
+      <a class="demo" href="transport/why-statistics.html" data-kind="science" data-terms="error bar central limit theorem correlation generations seeds confidence interval standard error">10 · Why can the error bar be trusted?</a>
+      <a class="demo" href="transport/whole-picture.html" data-kind="science" data-terms="Godiva TRISO HTR-10 core full-core k-effective recorded results demos">11 · Godiva, a TRISO pebble, the HTR-10 core</a>
+      <a class="demo" href="../tutorials/monte-carlo/">Monte Carlo, one rung at a time</a>
+    </div>
+  </section>
+
+
+  <section class="domain" id="fission-products">
+    <!-- The Fission products track (maintainer design, 2026-10-20): the
+         foundations of nuclear MATERIALS. What one fission throws into a
+         material, why each particle does what it does, where the fragments
+         land, and how fast the neutrons leave. Lessons in
+         docs/site/science/fission-products/, data from
+         crates/outram-mc-libs/examples/lesson_fission_products. -->
+    <h2>Fission products</h2>
+    <p>The foundations of nuclear materials: what one fission throws into the fuel and the material around it, which particle damages or activates it, and why.</p>
+    <details class="chapter" id="ch-fp-one-fission" open>
+      <summary>Chapter 1 · What one fission throws out <span class="range">(lessons 1&ndash;3)</span></summary>
+      <div class="chips">
+        <a class="demo featured" href="fission-products/one-fission.html" data-kind="science" data-terms="fission fragments compound nucleus scission prompt neutrons prompt gamma beta decay delayed neutrons neutrino ternary alpha MT458 energy release particle shower radiation damage activation lattice">1 · One fission, step by step</a>
+        <a class="demo" href="fission-products/split-atoms.html" data-kind="science" data-terms="fission yields mass yield curve independent yields two humps asymmetric fission peak-to-valley shell effects magic numbers U-235 U-238 Pu-239 U-233">2 · Split atoms: where do the fragments land?</a>
+        <a class="demo" href="fission-products/prompt-spectrum.html" data-kind="science" data-terms="prompt fission neutron spectrum MF5 MT18 LF=1 Watt mean energy most probable energy multi-chance fission unit-base interpolation sampling">3 · How fast are the prompt neutrons?</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-fp-fragment-story">
+      <summary>Chapter 2 · A fragment's story <span class="range">(lessons 4&ndash;9)</span></summary>
+      <div class="chips">
+        <a class="demo" href="fission-products/fragment-flight.html" data-kind="science" data-terms="fission fragment range stopping power electronic stopping nuclear stopping ionisation heat RustBCA binary collision UO2">4 · A fragment's flight</a>
+        <a class="demo" href="fission-products/lattice-cascade.html" data-kind="science" data-terms="primary knock-on PKA collision cascade vacancy interstitial Frenkel pair displacement energy thermal spike recombination radiation damage NRT Kinchin-Pease damage energy MT444">5 · The lattice's side: cascade and recombination</a>
+        <a class="demo" href="fission-products/decay-again.html" data-kind="science" data-terms="decay chain half-life beta decay recoil gamma recoil delayed neutron alpha recoil self-damage Q-value decay Monte Carlo timescales">6 · Then it decays: the same story again</a>
+        <a class="demo" href="fission-products/decay-or-move.html" data-kind="science" data-terms="diffusion half-life diffusion length Arrhenius TRISO kernel decay or move race">7 · Settled: decay or move?</a>
+        <a class="demo" href="fission-products/atom-hop.html" data-kind="science" data-terms="migration hop barrier attempt frequency Boltzmann factor Arrhenius kinetic Monte Carlo random walk Gaussian central limit theorem diffusion coefficient">8 · How an atom hops</a>
+        <a class="demo" href="fission-products/atoms-swap.html" data-kind="science" data-terms="vacancy mechanism interstitial interstitialcy push-out direct exchange ring traps radiation-enhanced diffusion Turnbull SCIANTIX xenon UO2 correlation">9 · Atoms swapping: how hops become diffusion</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-fp-triso-kernel">
+      <summary>Chapter 3 · TRISO kernel: how fission products leave a bare UO<sub>2</sub> sphere <span class="range">(lessons 10&ndash;28)</span></summary>
+      <div class="chips">
+        <a class="demo" href="fission-products/kernel-polycrystal.html" data-kind="science" data-terms="polycrystal grain grain boundary point defect stoichiometry UO2+x UCO kernel">10 · Real UO2 is not neat rows</a>
+        <a class="demo" href="fission-products/kernel-chemistry.html" data-kind="science" data-terms="chemical family noble gas volatile alkaline earth noble metal lanthanide silver oxygen potential CO UCO">11 · Chemistry decides the fate</a>
+        <a class="demo" href="fission-products/kernel-grain-growth.html" data-kind="science" data-terms="grain growth coarsening Potts boundary energy voids vacancy clusters">12 · Boundaries move, defects gather</a>
+        <a class="demo" href="fission-products/kernel-pores.html" data-kind="science" data-terms="pore migration temperature gradient columnar grains central void amoeba effect">13 · Voids climb the temperature gradient</a>
+        <a class="demo" href="fission-products/kernel-in-out.html" data-kind="science" data-terms="intragranular intergranular bubbles venting interconnection SCIANTIX caesium iodine palladium">14 · In the grain, and out of it</a>
+        <a class="demo" href="fission-products/kernel-lumping.html" data-kind="science" data-terms="lumping element group diffusion class periodic table volatility plate-out NUREG-1465 TRISO-ATOPS">15 · Lump by chemistry and volatility</a>
+        <a class="demo" href="fission-products/kernel-booth-grain.html" data-kind="science" data-terms="Booth sphere release fraction random walk CRP-6 Monte Carlo verification">16 · Booth on one grain</a>
+        <a class="demo" href="fission-products/kernel-many-spheres.html" data-kind="science" data-terms="many spheres grain size distribution radial temperature kernel conductivity equivalent sphere">17 · Many Booth spheres</a>
+        <a class="demo" href="fission-products/kernel-two-scales.html" data-kind="science" data-terms="open path closed path equivalent sphere radius grain kernel TRISO-ATOPS">18 · From the boundary to the kernel surface</a>
+        <a class="demo" href="fission-products/kernel-rb.html" data-kind="science" data-terms="release to birth ratio R/B decay constant slope recoil short-lived gas">19 · The R/B fingerprint</a>
+        <a class="demo" href="fission-products/kernel-recoil.html" data-kind="science" data-terms="recoil skin fragment range release">20 · Complication 1: recoil</a>
+        <a class="demo" href="fission-products/kernel-knockout.html" data-kind="science" data-terms="knockout athermal release">21 · Complication 2: knockout</a>
+        <a class="demo" href="fission-products/kernel-sweeping.html" data-kind="science" data-terms="grain boundary sweeping grain growth helium">22 · Complication 3: grain-boundary sweeping</a>
+        <a class="demo" href="fission-products/kernel-precursors.html" data-kind="science" data-terms="precursor decay chain parent decay xenon caesium">23 · Complication 4: precursors</a>
+        <a class="demo" href="fission-products/kernel-bursts.html" data-kind="science" data-terms="burst release transient heating microcracking">24 · Complication 5: bursts on heating</a>
+        <a class="demo" href="fission-products/kernel-burnup-oxygen.html" data-kind="science" data-terms="burnup oxygen balance CO UCO stoichiometry">25 · Complication 6: burnup and the oxygen balance</a>
+        <a class="demo" href="fission-products/kernel-conductivity.html" data-kind="science" data-terms="thermal conductivity burnup degradation kernel temperature">26 · Complication 7: conductivity falls</a>
+        <a class="demo" href="fission-products/kernel-hbs.html" data-kind="science" data-terms="high burnup structure restructuring rim">27 · Complication 8: the high-burnup structure</a>
+        <a class="demo" href="fission-products/kernel-swelling.html" data-kind="science" data-terms="kernel swelling buffer porosity free volume">28 · Complication 9: the kernel swells</a>
+      </div>
+    </details>
+  </section>
+
+  <section class="domain" id="thermal-hydraulics">
+    <h2>Thermal hydraulics</h2>
+    <p class="status">No lessons yet.</p>
+  </section>
+
+  <section class="domain" id="cfd">
+    <h2>Fluid mechanics &amp; CFD</h2>
+    <p class="status">No lessons yet.</p>
+  </section>
+
+  <section class="domain" id="particle-mechanics">
+    <h2>Particle mechanics</h2>
+    <p>How a pebble bed packs: pebbles poured and settled by the discrete element method.</p>
+    <div class="chips">
+      <a class="demo" href="../tutorials/monte-carlo/dem.html">Pouring the HTR-10 bed</a>
+    </div>
+  </section>
+
+  <section class="domain" id="fuel-materials">
+    <!-- The TRISO lessons, one link each, in collapsible chapters (maintainer,
+         2026-10-20). Chapters 1-2 are the TRISO-ATOPS ladder
+         (tutorials/triso-atops/, crates/boon-lay/docs/tutorial), 3-5 the
+         theory book (tutorials/fp-transport-theory/, crates/boon-lay/docs/theory);
+         lessons 1-28 number them in that order. Both books are tutorial books,
+         so scripts/build-search-index.sh already indexes every chapter as
+         "science": their links carry no data-kind, which would list each
+         twice. The deep dives (deep-dives/triso-atops/, crates/boon-lay/docs/lessons)
+         are indexed as "code", so their links are marked science here too,
+         as the nuclear-data deep dive is above. -->
+    <h2>Fuel &amp; materials</h2>
+    <p>The TRISO particle: how its layers hold fission products in, and what happens when they fail.</p>
+    <details class="chapter" id="ch-triso-particle" open>
+      <summary>Chapter 1 · The particle, and how an atom moves through it <span class="range">(lessons 1&ndash;4)</span></summary>
+      <div class="chips">
+        <a class="demo" href="../tutorials/triso-atops/">How these lessons work</a>
+        <a class="demo featured" href="../tutorials/triso-atops/triso.html">1 · The particle: five layers</a>
+        <a class="demo" href="../tutorials/triso-atops/decay.html">2 · An atom&rsquo;s clock: decay by Monte Carlo</a>
+        <a class="demo" href="../tutorials/triso-atops/walk.html">3 · An atom&rsquo;s walk: diffusion as a random walk</a>
+        <a class="demo" href="../tutorials/triso-atops/layers.html">4 · Through the layers: D(T), interfaces, Booth</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-triso-failure">
+      <summary>Chapter 2 · Failure, attack and release <span class="range">(lessons 5&ndash;8)</span></summary>
+      <div class="chips">
+        <a class="demo" href="../tutorials/triso-atops/failure.html">5 · When the shell breaks: fuel failure</a>
+        <a class="demo" href="../tutorials/triso-atops/chemistry.html">6 · Air and steam: chemical attack</a>
+        <a class="demo" href="../tutorials/triso-atops/coolant.html">7 · To the coolant: release</a>
+        <a class="demo" href="../tutorials/triso-atops/handoff.html">8 · Into the source term</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-fp-inside">
+      <summary>Chapter 3 · Theory: inside the particle, and how we compute diffusion <span class="range">(lessons 9&ndash;15)</span></summary>
+      <div class="chips">
+        <a class="demo" href="../tutorials/fp-transport-theory/">How this book works</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/01-generation.html">9 · Where fission products come from: burnup and transmutation</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/02-recoil.html">10 · The first micrometres: recoil and stopping</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/03-layers-chemistry.html">11 · Through the layers: diffusion, and why some layers trap</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/04-sic.html">12 · Silicon carbide: the barrier that matters most</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/05-random-walk.html">13 · One atom at a time: the random walk</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/06-eulerian-fresco.html">14 · The aggregate view: Eulerian diffusion, Booth and FRESCO</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/07-ray-equations.html">15 · Ray&rsquo;s equations: how this crate does it</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-fp-pressure">
+      <summary>Chapter 4 · Theory: when the particle is pressurised <span class="range">(lessons 16&ndash;18)</span></summary>
+      <div class="chips">
+        <a class="demo" href="../tutorials/fp-transport-theory/08-pressure-stress.html">16 · Gas, pressure and stress from first principles</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/09-panama.html">17 · PANAMA&rsquo;s simplification, and ours</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/10-stacy-boon-lay.html">18 · After FRESCO and PANAMA: STACY in HCP, and what boon-lay aims for</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-fp-outside">
+      <summary>Chapter 5 · Theory: out of the particle, to the site and beyond <span class="range">(lessons 19&ndash;28)</span></summary>
+      <div class="chips">
+        <a class="demo" href="../tutorials/fp-transport-theory/11-into-the-coolant.html">19 · Into the coolant: fission products, tramp uranium and dust</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/12-escape-and-removal.html">20 · Escape and removal: purification, leak, plate-out and lift-off</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/13-brute-force-cfd.html">21 · The brute-force model: CFD for every species</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/14-triso-atops.html">22 · TRISO-ATOPS: the cheap model</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/15-dlofc.html">23 · A loss-of-cooling accident, and what TRISO-ATOPS leaves out</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/16-building-and-bounds.html">24 · Outside the vessel: the building, and bounding assumptions</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/17-dispersion-reality.html">25 · Beyond the site: how a release travels, and what it costs to compute</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/18-puff-and-plume.html">26 · The Gaussian puff, then the Gaussian plume</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/19-levels-of-fidelity.html">27 · Levels of fidelity</a>
+        <a class="demo" href="../tutorials/fp-transport-theory/20-htgr-sim-v1-chain.html">28 · The whole chain in one worked example: htgr_sim_v1</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-triso-deep-dives">
+      <summary>Chapter 6 · Deep dives: boon-lay in full</summary>
+      <div class="chips">
+        <a class="demo" href="../deep-dives/triso-atops/" data-kind="science" data-terms="TRISO-ATOPS boon-lay deep dive how to read">How to read the deep dive</a>
+        <a class="demo" href="../deep-dives/triso-atops/architecture.html" data-kind="science" data-terms="boon-lay architecture three models Lagrangian Eulerian offsite chain provenance decay data examples">Architecture: three models in one crate</a>
+        <a class="demo" href="../deep-dives/triso-atops/fuel-failure.html" data-kind="science" data-terms="TRISO fuel failure survival pressure vessel thermal decomposition grain-boundary corrosion HTR-10">When the particle breaks: fuel failure in full</a>
+        <a class="demo" href="../deep-dives/triso-atops/htr10.html" data-kind="science" data-terms="HTR-10 extrapolation qualification data German fuel validation results">HTR-10: an extrapolation and its qualification data</a>
+        <a class="demo" href="../deep-dives/triso-atops/release.html" data-kind="science" data-terms="fission product diffusion release Booth equivalent sphere TRISO-ATOPS random walk Walk-on-Spheres">Getting out: diffusion and release in depth</a>
+        <a class="demo" href="../deep-dives/triso-atops/source-term.html" data-kind="science" data-terms="source term failure fraction release-to-birth graphite hold-up loop pools accident">Into the source term in depth</a>
+        <a class="demo" href="../deep-dives/triso-atops/running-triso-atops.html" data-kind="science" data-terms="TRISO-ATOPS run file 84 nuclides transport groups selection">Running TRISO-ATOPS: nuclides, selection, run files</a>
+        <a class="demo" href="../deep-dives/triso-atops/transmutation.html" data-kind="science" data-terms="transmutation decay competing clocks random walk hop matrix method">Transmutation while walking</a>
+        <a class="demo" href="../deep-dives/triso-atops/decay-data.html" data-kind="science" data-terms="decay data XML library decay table">Decay-data plumbing</a>
+        <a class="demo" href="../deep-dives/triso-atops/compute-backends.html" data-kind="science" data-terms="ensemble compute backend threads cores GPU browser wasm independent streams">Ensembles and compute backends</a>
+        <a class="demo" href="../deep-dives/triso-atops/legacy-gaussian.html" data-kind="science" data-terms="legacy Gaussian engine forks">The legacy Gaussian engine</a>
+      </div>
+    </details>
+    <details class="chapter" id="ch-triso-reference">
+      <summary>Chapter 7 · Reference: what is checked, and what is left out</summary>
+      <div class="chips">
+        <a class="demo" href="../deep-dives/triso-atops/vv-status.html" data-kind="science" data-terms="verification validation status TRISO-ATOPS boon-lay">V&amp;V status: what has been checked, against what</a>
+        <a class="demo" href="../deep-dives/triso-atops/limitations.html" data-kind="science" data-terms="limitations deliberate omissions TRISO-ATOPS boon-lay">Limitations and deliberate omissions</a>
+        <a class="demo" href="../deep-dives/triso-atops/coverage.html" data-kind="science" data-terms="coverage module lesson check boon-lay">Coverage: every module, its lesson, its check</a>
+        <a class="demo" href="../deep-dives/triso-atops/call-trees.html" data-kind="science" data-terms="call tree appendix boon-lay functions">Call-tree appendices</a>
+      </div>
+    </details>
+  </section>
+
+  <section class="domain" id="dispersion">
+    <h2>Dispersion</h2>
+    <p>From a release to air concentration and dose downwind.</p>
+    <div class="chips">
+      <a class="demo" href="../deep-dives/dispersion/">Gaussian plume and puff</a>
+    </div>
+  </section>
+
+  <section class="domain" id="multiphysics">
+    <h2>Multiphysics</h2>
+    <p class="status">No lessons yet. The nearest is the dispersion capstone, where TRISO release feeds a dose calculation.</p>
+  </section>
+
+  <p class="status">Every lesson is an AI-assisted first draft until a human has reviewed it; each page states its review status. Research, education and V&amp;V only.</p>
+</main>
+<script>
+// Collapsible chapters (maintainer, 2026-10-20). Plain <details> collapse
+// with no script; this only (a) opens the chapter that a #hash points into
+// (an old #nuclear-data link, a chapter id, anything inside one) and scrolls
+// to it, and (b) folds every chapter on a phone, so a narrow screen opens with
+// every chapter closed. Desktop opens with each section's chapter 1 open (the
+// `open` attribute in the markup). It handles every details.chapter on the
+// page: Nuclear Data and Neutronics, Fission products, and Fuel & materials
+// (TRISO).
+(function () {
+  if (!window.matchMedia("(min-width: 640px)").matches) {
+    var all = document.querySelectorAll("details.chapter");
+    for (var i = 0; i < all.length; i++) all[i].open = false;
+  }
+  function reveal() {
+    var id = decodeURIComponent(location.hash.slice(1));
+    var el = id && document.getElementById(id);
+    if (!el) return;
+    for (var d = el.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
+    // An old section id kept as an anchor inside a chapter: show the chapter's title too.
+    var ch = el.classList.contains("anchor") && el.closest("details.chapter");
+    (ch || el).scrollIntoView({ block: "start" });
+  }
+  window.addEventListener("hashchange", reveal);
+  reveal();
+})();
+</script>
+</body>
+</html>

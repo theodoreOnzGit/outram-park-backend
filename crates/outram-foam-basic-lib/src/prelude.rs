@@ -104,6 +104,9 @@ pub use crate::ldu_matrix::{FvMatrix, FvVectorMatrix, LduMatrix, SolverPerforman
 // --- FV operators (Layer 3) ---
 pub use crate::fv_operators::{adjust_phi, fvc, fvm};
 
+// --- KNP central-upwind face flux (rhoCentralFoam kernel, Layer 3) ---
+pub use crate::fv_operators::fvc::central_upwind::{KnpFaceFlux, KnpFaceState, KnpWaveSpeeds};
+
 // --- Non-orthogonal (mesh-quality) correction for the Laplacian ---
 pub use crate::fv_operators::fvc::grad_least_squares;
 pub use crate::fv_operators::fvm::{
@@ -143,6 +146,13 @@ pub use crate::krylov::{
 // Basically, OpenFOAM primitives aren't easy to use.
 // But I want some functions that can help construct and use them
 pub use crate::interface;
+
+// Steady heat conduction with an energy balance (gh:#949)
+pub use crate::steady_conduction::{
+    radial_mesh, voxel_mesh, ConductionMesh, EnergyBalance, PatchCondition, RadialClosedForm,
+    RadialGeometry, RadialLayer, RadialShell, SteadyConductionError, SteadyConductionProblem,
+    SteadyConductionSettings, SteadyConductionSolution, ThermalBoundary, VoxelGrid, VoxelMesh,
+};
 
 // TVD flux limiters (translated from OpenFOAM limitedSchemes)
 pub use crate::limiters::FluxLimiter;

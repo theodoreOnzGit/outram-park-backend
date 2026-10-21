@@ -35,7 +35,7 @@
 //! / discontinuity conventions including the `shade` extrapolation just past
 //! the last point.
 
-use crate::endf::interp::{terp1, IntLaw};
+use petir::mathf::RealMath;
 use crate::groupr::kinematics::legndr;
 use crate::NjoyError;
 
@@ -58,10 +58,6 @@ const RNDOFF: f64 = 1.0000001;
 pub const EMAX: f64 = 1.0e12;
 /// `close` (`:1210`).
 const CLOSE: f64 = 0.99999;
-/// `shade` in `terpa` (`endf.f90`).
-const SHADE: f64 = 1.00001;
-/// `xbig` in `terpa`.
-const XBIG: f64 = 1.0e12;
 
 /// `epair` (`phys.f90:49`): the electron rest energy `m_e c^2` \[eV\],
 /// `amasse * amu * c^2 / ev` with `amasse = 5.48579909065e-4` amu and
@@ -88,50 +84,12 @@ impl PhotonTab1 {
     /// `shade` times it `y = y_np` with `xnext = shade^2 x_np` (`xbig` if
     /// `y_np = 0`); beyond that `y = 0`, `xnext = xbig`. `idis = 1` for a
     /// histogram region or a duplicated `xnext`.
+    ///
+    /// Delegates to [`crate::endf::interp::terpa`], the generic port of
+    /// `endf.f90`'s routine — MF=27 is one TAB1 among many and does not need
+    /// its own copy of the boundary conventions.
     pub fn terpa(&self, x: f64) -> (f64, f64, bool) {
-        let p = &self.pairs;
-        let np = p.len();
-        if np == 0 {
-            return (0.0, XBIG, false);
-        }
-        if x < p[0].0 {
-            return (0.0, p[0].0, true);
-        }
-        let last = p[np - 1];
-        if x >= last.0 {
-            if x < SHADE * last.0 {
-                let xnext = if last.1 > 0.0 {
-                    SHADE * SHADE * last.0
-                } else {
-                    XBIG
-                };
-                return (last.1, xnext, false);
-            }
-            return (0.0, XBIG, false);
-        }
-        // Bracket: 1-based ip with x(ip-1) <= x < x(ip).
-        let ip = p.partition_point(|q| q.0 <= x) + 1; // 1-based upper point
-        let ip = ip.max(2).min(np);
-        // Region: the first with nbt >= ip.
-        let mut law = 2u32;
-        for &(nbt, int) in &self.interp {
-            if ip as u32 <= nbt {
-                law = int;
-                break;
-            }
-        }
-        let (x1, y1) = p[ip - 2];
-        let (x2, y2) = p[ip - 1];
-        let y = if x == x1 {
-            y1
-        } else {
-            terp1(x1, y1, x2, y2, x, IntLaw::from_code(law)).unwrap_or(y1)
-        };
-        let mut idis = law == 1;
-        if ip < np && p[ip].0 == x2 {
-            idis = true;
-        }
-        (y, x2, idis)
+        crate::endf::interp::terpa(&self.interp, &self.pairs, x)
     }
 }
 
@@ -205,7 +163,7 @@ pub fn gtff_coherent(e: f64, egg: &[f64], nl: usize, ff_table: &PhotonTab1) -> P
     let (mut snow, mut xnext, _) = ff_table.terpa(xnow);
     let fact = 2.0 * C2 / (C1 * C1 * e * e);
     let xlim = 2.0f64.sqrt() * C1 * e;
-    let c1e = 1.0 / (C1 * e).powi(2);
+    let c1e = 1.0 / (C1 * e).r_powi(2);
     let mut arg = vec![2.0 * snow * snow; nl];
     let stest = TOLER * snow;
     let nq = if nl > 4 { 10 } else { 6 };
@@ -272,7 +230,7 @@ pub fn gtff_incoherent(e: f64, egg: &[f64], nl: usize, sf_table: &PhotonTab1) ->
     let mut pnow = enow;
     let mut xnow = 0.0f64;
     let xzz = C5 * (enow / 500.0).sqrt();
-    let q2m = (2.0 * enow * (1.0 + enow) / (1.0 + 2.0 * enow)).powi(2);
+    let q2m = (2.0 * enow * (1.0 + enow) / (1.0 + 2.0 * enow)).r_powi(2);
     let use_table = xzz <= zz;
     let (mut snow, mut xnext) = if use_table {
         let (s, xn, _) = sf_table.terpa(xnow);
@@ -300,7 +258,7 @@ pub fn gtff_incoherent(e: f64, egg: &[f64], nl: usize, sf_table: &PhotonTab1) ->
     loop {
         // Panel upper bound in mu from the S(x) grid (`:1330-1349`).
         loop {
-            let q2 = (C4 * xnext).powi(2);
+            let q2 = (C4 * xnext).r_powi(2);
             unext = -1.0;
             if q2 > q2m {
                 break;
@@ -498,6 +456,7 @@ const QW10: [f64; 10] = [
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::endf::interp::{TERPA_SHADE as SHADE, TERPA_XBIG as XBIG};
 
     fn form_factor(z: f64) -> PhotonTab1 {
         let xs = [0.0, 0.01, 0.1, 0.5, 1.0, 5.0, 100.0, 1.0e9];
@@ -506,7 +465,7 @@ mod tests {
             interp: vec![(xs.len() as u32, 2)],
             pairs: xs
                 .iter()
-                .map(|&x| (x, z / (1.0 + (x / 0.6f64).powi(2)).powi(2)))
+                .map(|&x| (x, z / (1.0 + (x / 0.6f64).r_powi(2)).r_powi(2)))
                 .collect(),
         }
     }
@@ -550,7 +509,7 @@ mod tests {
             interp: vec![(xs.len() as u32, 2)],
             pairs: xs
                 .iter()
-                .map(|&x| (x, 6.0 / (1.0 + (x / 0.6f64).powi(2)).powi(2)))
+                .map(|&x| (x, 6.0 / (1.0 + (x / 0.6f64).r_powi(2)).r_powi(2)))
                 .collect(),
         };
         let egg = [10.0, 1.0e3, 1.0e4];

@@ -1,0 +1,609 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/tests"
+
+[module."genfoam_gfhr_pebble_conduction.rs"]
+path = "test:genfoam_gfhr_pebble_conduction"
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:c5b00046a58ac10b"
+name = "REACTOR_POWER"
+qual = "REACTOR_POWER"
+item = "const"
+shape = "const"
+lines = [
+    98,
+    99,
+]
+hash = "sha256:1d31a1895da2b5ac2be0211e8ca0b09b4be47d00a744384cf510a4f9760bde5c"
+doc_hash = "sha256:c2f54156d19bf28d80b792c322f4fed2d7c2c0e2a1f77b11e31507dd5f382bdb"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:20b47e36f8392687"
+name = "PEBBLES"
+qual = "PEBBLES"
+item = "const"
+shape = "const"
+lines = [
+    100,
+    101,
+]
+hash = "sha256:cbc7531284d9f9d65812586566c89aa5745276a788f3334c4f96f1a5297792ba"
+doc_hash = "sha256:d413a9402fa2e92259993ec7870ac626d351c3833cc7f73ac0e787598fdd4e38"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:ff257ac97e5abae0"
+name = "TRISO_PER_PEBBLE"
+qual = "TRISO_PER_PEBBLE"
+item = "const"
+shape = "const"
+lines = [
+    102,
+    103,
+]
+hash = "sha256:a87a29595fd0ae270282a283f82b4d0363e1812229173b9e214f6cc4876d2427"
+doc_hash = "sha256:8d7b6f7de8e8f3df149551f3f2eec13a0c5619666b0a6bae0c4f6c7d7c826cca"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:50a2de713539ad0b"
+name = "R_CORE"
+qual = "R_CORE"
+item = "const"
+shape = "const"
+lines = [
+    105,
+    106,
+]
+hash = "sha256:b0c2b370ac2fd3124fda6e58533fe7effd8685ff0c68e588d381ed801a6e2c18"
+doc_hash = "sha256:21164af703b6fc4bdbf50b5c27edef3196c9b0556a1b9f4748248c2709602818"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:a82b24cf4be7811e"
+name = "R_MATRIX"
+qual = "R_MATRIX"
+item = "const"
+shape = "const"
+lines = [
+    107,
+    108,
+]
+hash = "sha256:13125caa737184e9aa73a7fe56bb32d274f2a218101f06b0128f1ebff48ecf2c"
+doc_hash = "sha256:6587ecc898770f4008165e8acfcc7e925d7537614f0bc9c91f2b4fd29710aae9"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:42e49f91c9d369e6"
+name = "R_SHELL"
+qual = "R_SHELL"
+item = "const"
+shape = "const"
+lines = [
+    109,
+    110,
+]
+hash = "sha256:0af81446be97f0c32c90fea797f03737ce82b0d6aad49cd2ad5d98c320a496af"
+doc_hash = "sha256:c486fd913029a1fa011816a0e5cbeab6b39ce1597ee8d198a87c957780f5e345"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:111c1188e8050b2a"
+name = "R_FUEL"
+qual = "R_FUEL"
+item = "const"
+shape = "const"
+lines = [
+    112,
+    113,
+]
+hash = "sha256:e5800e771ccdd4f202a7228d7a2c8fb52d757749c9c1960666bf9725911a7f0d"
+doc_hash = "sha256:83c4338e4e5bf8da1923eb7e55dce8fcfc16fc77b92965cbab323cb9a80e8cbd"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:7a5135aa61e3f359"
+name = "R_BUFFER"
+qual = "R_BUFFER"
+item = "const"
+shape = "const"
+lines = [
+    114,
+    114,
+]
+hash = "sha256:f5795117e7b088f24761f78b2305e4aafc434fdd3deb6e9f994235cfa9867a64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:3da4f4800ee7b8d9"
+name = "R_IPYC"
+qual = "R_IPYC"
+item = "const"
+shape = "const"
+lines = [
+    115,
+    115,
+]
+hash = "sha256:3b49a1af5400f3df60dcbc1707bf5ba84f1825b1e8df4571f74fec4143fc052a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:4ed21359dbed0848"
+name = "R_SIC"
+qual = "R_SIC"
+item = "const"
+shape = "const"
+lines = [
+    116,
+    116,
+]
+hash = "sha256:3ffcd0b16a86c210300145c34463bb507c6c6d9e8df99dbe958c62a92761e83f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:b9876db884970cdc"
+name = "R_OPYC"
+qual = "R_OPYC"
+item = "const"
+shape = "const"
+lines = [
+    117,
+    117,
+]
+hash = "sha256:54610b6ce227bc6b4d28395c63263536382de9f8fcf485be8eb7206d60a1c0d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:6c8b676478a9288a"
+name = "K_FUEL"
+qual = "K_FUEL"
+item = "const"
+shape = "const"
+lines = [
+    119,
+    121,
+]
+hash = "sha256:e98e9b89be5f3d4f5768e9e1147c9f899beafae1ad031f799e83c1b9f3105b35"
+doc_hash = "sha256:dcfe55f61b599871959698a96705411ed9a35a1ec375a85c6512e3051a56c0a2"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:e16e298e62b1104f"
+name = "K_BUFFER"
+qual = "K_BUFFER"
+item = "const"
+shape = "const"
+lines = [
+    122,
+    122,
+]
+hash = "sha256:d53d7677334b0d6550653c4b0c58aac9c7f1a1fe1fe1b39251b3bc7553ef06e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:4c4e24e38517fb4c"
+name = "K_PYC"
+qual = "K_PYC"
+item = "const"
+shape = "const"
+lines = [
+    123,
+    123,
+]
+hash = "sha256:f3c90a16623787a3eb8737480d9adaf0be73969a4c5362aa9b1887d17ee8f412"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:0b45864a49620d63"
+name = "K_SIC"
+qual = "K_SIC"
+item = "const"
+shape = "const"
+lines = [
+    124,
+    124,
+]
+hash = "sha256:12d345be76cd7c9fac7b6cded8d041107eee7e052569e0dd80be268b71010dc3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:9d44cbc1362e692a"
+name = "K_GRAPHITE_SHELL"
+qual = "K_GRAPHITE_SHELL"
+item = "const"
+shape = "const"
+lines = [
+    125,
+    125,
+]
+hash = "sha256:3f2428e55ce5a1a1d54c6b65e574f72ceb858b511814ca1d833b499dfe83da62"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:7f6fa052474b9235"
+name = "K_MATRIX"
+qual = "K_MATRIX"
+item = "const"
+shape = "const"
+lines = [
+    126,
+    133,
+]
+hash = "sha256:de333a011d27ea58febb3287b26bd72c79cb71f861d83963c98f636abb980b41"
+doc_hash = "sha256:64b7ea999a074770e1673b5c0d3e1c6de9d0eb23a9e861bb52c9715e69d14a8c"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:8ff9446347636567"
+name = "T_COOLANT_INLET"
+qual = "T_COOLANT_INLET"
+item = "const"
+shape = "const"
+lines = [
+    135,
+    137,
+]
+hash = "sha256:cf058bbfcb131b41bd24fb7e442169f799097b9de2720e0077b337479f40d3fc"
+doc_hash = "sha256:d4969d9184dbfa97a68a2c1a4141742c314e8a7be51e9ac2b968869a285d12ac"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:df28ccca90ce0feb"
+name = "TFMAX_AVG"
+qual = "TFMAX_AVG"
+item = "const"
+shape = "const"
+lines = [
+    139,
+    140,
+]
+hash = "sha256:ce5ffc6d503c79421a656cca74425ac0cb05f428e83ea1fce25667930428142f"
+doc_hash = "sha256:5b3268286af7896477e0657de8ad79cd414217fefc0ecf0505234a4a26c219db"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:92237279f86f8ab3"
+name = "TFMAX_MIN"
+qual = "TFMAX_MIN"
+item = "const"
+shape = "const"
+lines = [
+    141,
+    141,
+]
+hash = "sha256:47f337ebc08ff335bede1f00606810188433e350868be7cccbdc33c8ddad812f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:4f9ba12178e3897c"
+name = "TFMAX_MAX"
+qual = "TFMAX_MAX"
+item = "const"
+shape = "const"
+lines = [
+    142,
+    142,
+]
+hash = "sha256:f14d30330e0f9eb8ef67c7cdc908b09be0a8dff76717b0028579cf273f953c05"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:757e41909b78ead1"
+name = "watts"
+qual = "watts"
+lines = [
+    144,
+    146,
+]
+hash = "sha256:fe71340ce05242c73d7bd8760a930173bdbc6485442140b8f0a92a9a9edeca0c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:5ed35625406a139c"
+name = "metres"
+qual = "metres"
+lines = [
+    147,
+    149,
+]
+hash = "sha256:12d93f4cfa558480f631aebdd46bbae812f955d45a9aa5faf81fcd390aacd21c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:5a7aaca507148490"
+name = "conductivity"
+qual = "conductivity"
+lines = [
+    150,
+    152,
+]
+hash = "sha256:329655ab1043614e273dede6cac8dcc11c312a90c3d8052b24f525d56315c771"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:0577806f0794baf9"
+name = "heated_annulus_rise"
+qual = "heated_annulus_rise"
+lines = [
+    154,
+    180,
+]
+hash = "sha256:d80f53e3eff821563be7fd08a3770caf75a209d388f61cbb87c48509d3c08210"
+doc_hash = "sha256:a6b01d5f85320c0b03317923d0885479c4e568e0c5dc80be2f9789e5a6891456"
+uses = [
+    "fn:50a2de713539ad0b",
+    "fn:7f6fa052474b9235",
+    "fn:a82b24cf4be7811e",
+]
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:96b5a2ced2d9f6a4"
+name = "gfhr_reference_fuel_temperature_is_consistent_with_upstream_pebble_data"
+qual = "gfhr_reference_fuel_temperature_is_consistent_with_upstream_pebble_data"
+lines = [
+    182,
+    347,
+]
+hash = "sha256:86a8485a7235581421e4ab7ef36eb21665f6ffb1d54098952cee478009cc255c"
+doc_hash = "sha256:10a4f0b32d3aa736075f12bb46277a925036a50abd1ec37d45ad1a0f78d4eda8"
+callees = [
+    "fn:0577806f0794baf9",
+    "fn:5a7aaca507148490",
+    "fn:5ed35625406a139c",
+    "fn:757e41909b78ead1",
+    "fn:7673c752ddfae92a",
+    "fn:96a084fb9844ba1f",
+]
+uses = [
+    "fn:0b45864a49620d63",
+    "fn:111c1188e8050b2a",
+    "fn:20b47e36f8392687",
+    "fn:3da4f4800ee7b8d9",
+    "fn:42e49f91c9d369e6",
+    "fn:4c4e24e38517fb4c",
+    "fn:4ed21359dbed0848",
+    "fn:4f9ba12178e3897c",
+    "fn:6c8b676478a9288a",
+    "fn:7a5135aa61e3f359",
+    "fn:8ff9446347636567",
+    "fn:92237279f86f8ab3",
+    "fn:9d44cbc1362e692a",
+    "fn:a82b24cf4be7811e",
+    "fn:b9876db884970cdc",
+    "fn:c5b00046a58ac10b",
+    "fn:df28ccca90ce0feb",
+    "fn:e16e298e62b1104f",
+    "fn:ff257ac97e5abae0",
+]
+test = true
+
+[[module."genfoam_gfhr_pebble_conduction.rs".function]]
+id = "fn:acc89c569b47d761"
+name = "the_shell_conductance_matches_upstreams_lumped_structure_formula"
+qual = "the_shell_conductance_matches_upstreams_lumped_structure_formula"
+lines = [
+    349,
+    402,
+]
+hash = "sha256:7511c1f6b50cf2f55818ad30b7e813aed32a39b1b99967f128953afd49455ec8"
+doc_hash = "sha256:2a8c0a7e36a800fa6804500c391e40bb44f53e633e570e9308b7a45ed921c611"
+callees = [
+    "fn:5a7aaca507148490",
+    "fn:5ed35625406a139c",
+    "fn:757e41909b78ead1",
+    "fn:7673c752ddfae92a",
+]
+uses = [
+    "fn:42e49f91c9d369e6",
+    "fn:9d44cbc1362e692a",
+    "fn:a82b24cf4be7811e",
+]
+test = true
+
+[module."wasm_smoke.rs"]
+path = "test:wasm_smoke"
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:65385c3115eb0f04"
+name = "NODES"
+qual = "NODES"
+item = "const"
+shape = "const"
+lines = [
+    66,
+    67,
+]
+hash = "sha256:8bd333d5daab5f53bb45fddb7e8e8fcc8f1adf9fdfdf5b2e0aeb75f70c9212ba"
+doc_hash = "sha256:25854614fb47bedb4c9640abde363f739c98764579dc6e36ddcf0f2d94c5840f"
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:706683e5864f2652"
+name = "HOT_P_PA"
+qual = "HOT_P_PA"
+item = "const"
+shape = "const"
+lines = [
+    68,
+    69,
+]
+hash = "sha256:14ed1b57cf486d1ca7d8b572217d1a102cc4b1e98da854827dde69ad110b6597"
+doc_hash = "sha256:eb99cc1577633bd932a0f2218c74f4046fc43d1b65b10b67d407c2eee4b27b13"
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:c2638c3939799e37"
+name = "COLD_P_PA"
+qual = "COLD_P_PA"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    71,
+]
+hash = "sha256:d8e07db97e663f11a5e409109e4923f6322b8be4876ca8e036469b3b997b0a20"
+doc_hash = "sha256:d8429d719dc7fa5e2fd7e7006a75c6bff031ada04fcf7424d2e977139a77ae6d"
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:4a204674d700e561"
+name = "HOT_IN_K"
+qual = "HOT_IN_K"
+item = "const"
+shape = "const"
+lines = [
+    72,
+    73,
+]
+hash = "sha256:9b0990a440551ef557e9c93da553abaa9325a97c1c8a6cf54bad938e2a312b9b"
+doc_hash = "sha256:e812252ef169b724b26e03f6c5f36f52f6c6f47eb0c63d5d244c1f0bb8348f45"
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:a70084e53cbe26ac"
+name = "HOT_OUT_K"
+qual = "HOT_OUT_K"
+item = "const"
+shape = "const"
+lines = [
+    74,
+    75,
+]
+hash = "sha256:0245ce65ef9ee6fe81b2b96c98098cc904b47d9936b4a4dd4717f78a03781722"
+doc_hash = "sha256:25e6d2611a7035c2608e31f59aadee0fafac11b29a91865f2e59caafa1266646"
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:68eb083904174e3d"
+name = "COLD_IN_K"
+qual = "COLD_IN_K"
+item = "const"
+shape = "const"
+lines = [
+    76,
+    77,
+]
+hash = "sha256:b1cb2454469b63ab40211ac675afabdab1bc457b382639a0a6f9f6f7aea61901"
+doc_hash = "sha256:9d2a93581185d7ff917a2800d65f867bc4f6158eb90383f8702f1ea36e9ceb32"
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:6f899f181be9e4e6"
+name = "COLD_OUT_K"
+qual = "COLD_OUT_K"
+item = "const"
+shape = "const"
+lines = [
+    78,
+    79,
+]
+hash = "sha256:89f2bb92568fa155f8a0087d378e00bfce9f3e305ed09a55f6ab9cfe40c5e432"
+doc_hash = "sha256:44505ee35f0b5d5af949e1112ab7fa83754ac4f6a2c75cef4006958ddbf73b92"
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:f463b411cd9c81ef"
+name = "linear_seed"
+qual = "linear_seed"
+lines = [
+    81,
+    95,
+]
+hash = "sha256:9456b22fcf879e817d21f0e6ce1cb4e0ab37cce01e234e9d12e5cbfa13f2fa6e"
+doc_hash = "sha256:9fd4fad18dc92ffa4dc5c82945d827374d6c48920f413bfead55be361bb6ebc1"
+test = true
+physical_interface = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:c6a8708be4545c7f"
+name = "build_exchanger"
+qual = "build_exchanger"
+lines = [
+    97,
+    149,
+]
+hash = "sha256:b8a41c9e216282f7bf7a5e34ff327a8c09b4507f12e077aa16def6bc53d93da9"
+doc_hash = "sha256:cab0e921e256961ef880bd850cd0d9d2b85001446987d81c080272a9a235864d"
+callees = [
+    "fn:0f481d1ef07f297d",
+    "fn:1b3f6d56027dbc51",
+    "fn:1d2865f3c3a06a45",
+    "fn:8d4119880af67bb8",
+    "fn:90e8d2fa032ed2b4",
+    "fn:e14e270bde8aa9cf",
+    "fn:e3b184e79e6044fe",
+    "fn:f463b411cd9c81ef",
+]
+uses = [
+    "fn:4a204674d700e561",
+    "fn:5811ccd622a4f7ee",
+    "fn:5f496290cf807444",
+    "fn:65385c3115eb0f04",
+    "fn:68eb083904174e3d",
+    "fn:6f899f181be9e4e6",
+    "fn:706683e5864f2652",
+    "fn:76b3c86a3f053867",
+    "fn:9447740069e81383",
+    "fn:a70084e53cbe26ac",
+    "fn:c2638c3939799e37",
+    "fn:ed7d6d3f3ea52b6e",
+]
+test = true
+physical_interface = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:7e7ee650fac97e46"
+name = "helium_steam_generator_builds_and_advances_under_wasm"
+qual = "helium_steam_generator_builds_and_advances_under_wasm"
+lines = [
+    151,
+    183,
+]
+hash = "sha256:3e4527ccae1609dbdd40461edf1d75f34de46c6277d1e800eda036e665128cd9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:09632ebb2b55664e",
+    "fn:365b4ebf95314225",
+    "fn:39275fb42f14b896",
+    "fn:9aba352809b5f2a4",
+    "fn:c6a8708be4545c7f",
+]
+uses = ["fn:65385c3115eb0f04"]
+test = true
+
+[[module."wasm_smoke.rs".function]]
+id = "fn:3cc277708ca9f3de"
+name = "helium_properties_evaluate_under_wasm"
+qual = "helium_properties_evaluate_under_wasm"
+lines = [
+    185,
+    205,
+]
+hash = "sha256:709a1d49f9ad7c85a66fc74d1eb53e8da7304bf0b594d55a4b62c25db13bb453"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:09632ebb2b55664e",
+    "fn:c6a8708be4545c7f",
+]
+uses = ["fn:65385c3115eb0f04"]
+test = true

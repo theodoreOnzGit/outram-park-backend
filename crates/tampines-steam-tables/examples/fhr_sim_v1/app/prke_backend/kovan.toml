@@ -1,0 +1,207 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/fhr_sim_v1/app/prke_backend"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v1::app::prke_backend"
+
+[[module."mod.rs".function]]
+id = "fn:d19166635ce5937a"
+name = "calculate_prke_loop"
+qual = "FHRSimulatorApp::calculate_prke_loop"
+lines = [
+    29,
+    162,
+]
+hash = "sha256:08c7175772933d74432acd9682eb0b1a690dd2f5bff3ec2d8e48d5fe13e16d10"
+doc_hash = "sha256:878a57df57178be45f50baba724c370ec1d06cb1493ab70417539fbf97835771"
+callees = [
+    "fn:04f2fa589675757a",
+    "fn:5743007aa3a9b4de",
+    "fn:7b85bda50c243eb6",
+    "fn:8a6dd7869c10830a",
+    "fn:a2c8eae17645314a",
+    "fn:c3de694177dbbc26",
+]
+uses = [
+    "fn:273d771359223f8f",
+    "fn:4e148532c3ff40e3",
+    "fn:6b19536341e5322d",
+    "fn:a5d599a6fb8c8dbb",
+    "fn:aa11b87dc61e5c93",
+    "fn:e79b6a5ba032cc45",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5743007aa3a9b4de"
+name = "calculate_prke_for_one_timestep"
+qual = "FHRSimulatorApp::calculate_prke_for_one_timestep"
+lines = [
+    163,
+    378,
+]
+hash = "sha256:e8a87aae224860b557192c8aade608abf8767b56d9562132f2b5cbbd5e9d7251"
+doc_hash = "sha256:bc961cdf1b6f4e2576107cc41a65429387cdacb20cf12a6c9ba365031f0ab8f3"
+callees = [
+    "fn:057b18c63bdf9669",
+    "fn:0b9d7ab7ba5e9d37",
+    "fn:190cada34abc9786",
+    "fn:1ef2bc7d7cd82147",
+    "fn:20bf562c654e15b1",
+    "fn:2abb9faaa2d323ca",
+    "fn:477ba38e9e5c84fa",
+    "fn:488f83882ac919e7",
+    "fn:51f88657b29e96b9",
+    "fn:73d965f197337473",
+    "fn:83af8f382fd466ee",
+    "fn:90efc94f128575d4",
+    "fn:b12622c7ec7d2d84",
+    "fn:b3bb11ef6decce3c",
+    "fn:cfccc409a6575b06",
+    "fn:ef0e68fb37998d86",
+    "fn:f0359aa96835b306",
+    "fn:f79aa9e6e321cdec",
+]
+uses = [
+    "fn:118a5c79ed67493a",
+    "fn:1a8002bb19b4233c",
+    "fn:273d771359223f8f",
+    "fn:4e148532c3ff40e3",
+    "fn:6b19536341e5322d",
+    "fn:a5d599a6fb8c8dbb",
+    "fn:aa11b87dc61e5c93",
+    "fn:e79b6a5ba032cc45",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:190cada34abc9786"
+name = "fuel_temp_resonance_esc_feedback_linear"
+qual = "FHRSimulatorApp::fuel_temp_resonance_esc_feedback_linear"
+lines = [
+    380,
+    413,
+]
+hash = "sha256:4ca26d462e88a61f381ff33af5962cb1544456058f631ba7b7a36ba0be1d92d5"
+doc_hash = "sha256:09de807cc1d2d7cdacc3cbdab5340293d674a4f63944ef239278d8c7717fbf9b"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:73d965f197337473"
+name = "fuel_utilisation_factor_chg_for_control_rod_polynomial"
+qual = "FHRSimulatorApp::fuel_utilisation_factor_chg_for_control_rod_polynomial"
+lines = [
+    415,
+    442,
+]
+hash = "sha256:6fa475ae04e476987c679c32f8adc78cacf6f7f02de6e3ddd8e5244c27659b98"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:51912df203fbc303"
+name = "constant_ratio_no_change_function"
+qual = "FHRSimulatorApp::constant_ratio_no_change_function"
+lines = [
+    446,
+    448,
+]
+hash = "sha256:d80f49669f281b6eeea9f7faf004d12fce53f5561201fa9d1ffa7ba296dc7265"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[module."pebble_bed_thermal_hydraulics.rs"]
+path = "example:fhr_sim_v1::app::prke_backend::pebble_bed_thermal_hydraulics"
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:6b19536341e5322d"
+name = "PebbleBedThermalHydraulics"
+qual = "PebbleBedThermalHydraulics"
+item = "type"
+shape = "struct"
+lines = [
+    6,
+    18,
+]
+hash = "sha256:40a2263d54dd1a1c78ddaca55831360529e19b8e9232ad4d60296a29a184b2f3"
+doc_hash = "sha256:e8e6b9a02f478a2ad31b442c43966bf4b538ffb405ab30c93800e583961e3a9d"
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:f0359aa96835b306"
+name = "calc_th_and_return_heat_removal_from_pebble_bed"
+qual = "PebbleBedThermalHydraulics::calc_th_and_return_heat_removal_from_pebble_bed"
+lines = [
+    21,
+    49,
+]
+hash = "sha256:9afc372020a3ae7e48957f7ecff9ca7fafde6dc2298ccab58de14f2c80b55613"
+doc_hash = "sha256:f020aae1675dad6802814018720c5c28354c9474df5231b951a1badf81c47a04"
+callees = ["fn:057b18c63bdf9669"]
+uses = ["fn:6b19536341e5322d"]
+physical_interface = true
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:a2c8eae17645314a"
+name = "new"
+qual = "PebbleBedThermalHydraulics::new"
+lines = [
+    51,
+    60,
+]
+hash = "sha256:7c75edd2d1c2ecc631e3ec6a7ecd282b0fb2a71bd271288e6da1d700710f06f6"
+doc_hash = "sha256:66b50aa8ccba956bb11da5f85bfa8e43c296038d56d36fd1870a6628f11b0ede"
+callees = ["fn:ee5bcce556282c85"]
+uses = ["fn:6b19536341e5322d"]
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:6c9ff327950b777c"
+name = "get_enthalpy_from_temperature_uo2_heuristic"
+qual = "PebbleBedThermalHydraulics::get_enthalpy_from_temperature_uo2_heuristic"
+lines = [
+    62,
+    71,
+]
+hash = "sha256:c0c91839370b97ae08328f98fdfe42465e4092a3a9753d6963eb525170fd5178"
+doc_hash = "sha256:05c3ca26bb911746ce36d954faef599c8df6501aab2ff386ae28b9786d2623ae"
+uses = ["fn:6b19536341e5322d"]
+physical_interface = true
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:057b18c63bdf9669"
+name = "get_temperature_from_enthalpy_uo2_heuristic"
+qual = "PebbleBedThermalHydraulics::get_temperature_from_enthalpy_uo2_heuristic"
+lines = [
+    72,
+    88,
+]
+hash = "sha256:662d3a3ecddf5d468aec03eed26254c7deed22d9540851b78d962775e7c91dc6"
+doc_hash = "sha256:05c3ca26bb911746ce36d954faef599c8df6501aab2ff386ae28b9786d2623ae"
+uses = ["fn:6b19536341e5322d"]
+physical_interface = true
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:ee5bcce556282c85"
+name = "get_enthalpy_from_temperature_uo2"
+qual = "PebbleBedThermalHydraulics::get_enthalpy_from_temperature_uo2"
+lines = [
+    90,
+    135,
+]
+hash = "sha256:3df203168b2500e1f006993272d11e4455aa9c5093327ef78ed4fc0d2fd13f85"
+doc_hash = "sha256:55b6a70661477d5673f5bf62c324632e53a836e9ea808e61f41c25c69938c4f7"
+uses = ["fn:6b19536341e5322d"]
+physical_interface = true
+
+[[module."pebble_bed_thermal_hydraulics.rs".function]]
+id = "fn:23b049d55193165b"
+name = "get_current_temeperature_uo2"
+qual = "PebbleBedThermalHydraulics::get_current_temeperature_uo2"
+lines = [
+    137,
+    141,
+]
+hash = "sha256:bf62b12ba2663816a8932f5a29fa3e9709c7520535fc7faafcb10eb1390d0e92"
+doc_hash = "sha256:a1f68c53de058089e09a23b2001c7940c42abefe24d975a983fcaefc91f899bb"
+uses = ["fn:6b19536341e5322d"]
+physical_interface = true

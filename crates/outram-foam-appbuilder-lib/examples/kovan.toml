@@ -1,0 +1,362 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/examples"
+
+[module."reacting_two_phase_euler_combustion.rs"]
+path = "example:reacting_two_phase_euler_combustion"
+
+[[module."reacting_two_phase_euler_combustion.rs".function]]
+id = "fn:72bf9f675a594404"
+name = "column_mesh"
+qual = "column_mesh"
+lines = [
+    57,
+    89,
+]
+hash = "sha256:f48ce3bf111510aa5976ff0fcd7d2ae1b7016d176fd5e3af2e720ba37fbf0325"
+doc_hash = "sha256:f8bde89f503ddb7508f5d1bb9880ea55ed06167caa5ceb6a5550425830b8084b"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+
+[[module."reacting_two_phase_euler_combustion.rs".function]]
+id = "fn:66311bdd51e4ef69"
+name = "main"
+qual = "main"
+lines = [
+    91,
+    208,
+]
+hash = "sha256:78a0c95c8483b416baafcac7bab2684f2798b7b2441f96aac9d22ed47e706cdc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0938405a51285eea",
+    "fn:12aa8f4b6cd5e5eb",
+    "fn:14f480c94a59d045",
+    "fn:1673122341d93e80",
+    "fn:25026aef8dc412e6",
+    "fn:57b55e90f8c5c494",
+    "fn:5ae359ba203efd28",
+    "fn:72bf9f675a594404",
+    "fn:8f8585a4c31e5c8a",
+    "fn:9707668a29a7996b",
+    "fn:a3fd91816be417e9",
+    "fn:cc7161c44d3c70d8",
+    "fn:f8bf8efa3e1f4377",
+]
+uses = [
+    "fn:153c3b514da9dfe4",
+    "fn:302c4eebe8967304",
+    "fn:44dd425f0d990f52",
+    "fn:7206e53f1d00ea97",
+    "fn:788fcd5dd9a7ce18",
+    "fn:9a4ac5a6426dc2d4",
+    "fn:a5a8ffb24531b7cb",
+    "fn:d123b2075a2465e3",
+    "fn:d2ead96d46ec8fe2",
+    "fn:dc16a8fd6a6c6548",
+]
+
+[module."tutorial_run_a_solver.rs"]
+path = "example:tutorial_run_a_solver"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:e35ade32ed8ee020"
+name = "CASE_DIR"
+qual = "CASE_DIR"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    61,
+]
+hash = "sha256:6664eb6d04a9f7098022bae997a4227f54d2d3dcd45dac78ffd159dd77554b4f"
+doc_hash = "sha256:d32c648830c79583bd4c255376439c5a1e3ec3a3deda1afa104f5a202991d09b"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:3c50b8e1c10c2c61"
+name = "GAMMA"
+qual = "GAMMA"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    64,
+]
+hash = "sha256:e94c14cbcbd1607276777a07036c987c9aa1eb1b39156e42d98e410a657f40e0"
+doc_hash = "sha256:9520cbda77c063e488b27997371093315f52cef0ba0c39cc68108590c5955f73"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:e21dcdf16d9eadbe"
+name = "X_DIAPHRAGM"
+qual = "X_DIAPHRAGM"
+item = "const"
+shape = "const"
+lines = [
+    66,
+    67,
+]
+hash = "sha256:b3018280af5e7034ba0691207878498a84783aa3653b125be64c7c0cc3c031ad"
+doc_hash = "sha256:bba89d62381d00707268cdfde1e69ee1f1a5b6848ccd011cccc957aa30a70872"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:c7f630f79b915074"
+name = "RHO_LEFT"
+qual = "RHO_LEFT"
+item = "const"
+shape = "const"
+lines = [
+    69,
+    70,
+]
+hash = "sha256:c85e08d0f76d15774d404a50091f00773b3b7be837f37edf3baa865a9eea7d53"
+doc_hash = "sha256:35b9f6d67ba2699f3e67215f7f27f53eaee76c2f7dbd0d620ad3ac4fdd412b43"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:e5c71ccfedf381ce"
+name = "P_LEFT"
+qual = "P_LEFT"
+item = "const"
+shape = "const"
+lines = [
+    71,
+    71,
+]
+hash = "sha256:5949151ea1cca5e806af3f84012335f5f33e92ae4d4c67dd36643a9850bb7c85"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:af52a7e52ae39325"
+name = "RHO_RIGHT"
+qual = "RHO_RIGHT"
+item = "const"
+shape = "const"
+lines = [
+    73,
+    74,
+]
+hash = "sha256:c85e08d0f76d15774d404a50091f00773b3b7be837f37edf3baa865a9eea7d53"
+doc_hash = "sha256:0389fef4204a34daf803508543bc3fb5560e352df05107f543261d766a702bdb"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:9800aef7c32ee70c"
+name = "P_RIGHT"
+qual = "P_RIGHT"
+item = "const"
+shape = "const"
+lines = [
+    75,
+    75,
+]
+hash = "sha256:5949151ea1cca5e806af3f84012335f5f33e92ae4d4c67dd36643a9850bb7c85"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:a3ef0523e0c816e9"
+name = "RHO_CENTER"
+qual = "RHO_CENTER"
+item = "const"
+shape = "const"
+lines = [
+    77,
+    78,
+]
+hash = "sha256:f851f55e16b2857b6f8941083542219d2565fe749e7a739aa151177cedb01393"
+doc_hash = "sha256:d880774a30cc97b6ea1ca31aec9f9099a22ac425812e5d54ebbaa0d1e9d02f2a"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:7e2447cfd3e71f2b"
+name = "P_CENTER"
+qual = "P_CENTER"
+item = "const"
+shape = "const"
+lines = [
+    79,
+    79,
+]
+hash = "sha256:c1178c5ccae57df0c02d171baeaab68d148693f81a72b43357abae3c26b919f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:aaa5ba52788fd865"
+name = "T_END"
+qual = "T_END"
+item = "const"
+shape = "const"
+lines = [
+    81,
+    82,
+]
+hash = "sha256:9043bfb938ffa6c5ea2f0b5e6064ec7abe4365f28b8ff8d1a14f74b7293f51d6"
+doc_hash = "sha256:ecf168b550f6e9faabd09bbc36a58156db40eb047c9b317dddcd954107eb783d"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:d2323f282197a87b"
+name = "DT"
+qual = "DT"
+item = "const"
+shape = "const"
+lines = [
+    83,
+    83,
+]
+hash = "sha256:f364de570f9746c8f4685ca69afaa49ee498675814ee7c46edbdee7b1eb1818d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:f6a441665ade3497"
+name = "case_dir"
+qual = "case_dir"
+lines = [
+    89,
+    92,
+]
+hash = "sha256:037388cda53dc732fec3f02e2cdfa76e95b05ded344ff4a58362313638e70942"
+doc_hash = "sha256:a0a28ef81a49cc788c373a427041e0ff8c654b84db4a773e93110ce18c7c6d98"
+uses = ["fn:e35ade32ed8ee020"]
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:4b2e5c646e5ddbf9"
+name = "mesh_is_available"
+qual = "mesh_is_available"
+lines = [
+    94,
+    100,
+]
+hash = "sha256:ae7a46943a2955ef79ddbd038229b8818bc55b4509e5345f5192ac0893d1ba7a"
+doc_hash = "sha256:d33c23053199f509bce17875b3fc7feffbc7da45bb9db3a0b8ce89b154f56ff2"
+callees = ["fn:f6a441665ade3497"]
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:e5b894fcc237c2cd"
+name = "total_mass"
+qual = "total_mass"
+lines = [
+    102,
+    111,
+]
+hash = "sha256:4d014e89ab1b65510c8226ea7e3ecea6ec74ffb95bec13dd12f419ff381a63e1"
+doc_hash = "sha256:119e15ed816aa98fcd33f6f3d1b3dd331a879e8426c30c24c2b5121b81ba2c3d"
+callees = ["fn:da83a902c2e8f462"]
+uses = ["fn:d35627c0b0130167"]
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:0c87489fa945fb47"
+name = "total_internal_energy"
+qual = "total_internal_energy"
+lines = [
+    113,
+    126,
+]
+hash = "sha256:1ddc9961648c18b4456bbbd388c9aed37e8498fd297672cc68f3bef6bdf467bc"
+doc_hash = "sha256:387327e6b7f10594f63356ca4982c0c640851382e0ee66aa25c12b21e8a3dcb8"
+callees = ["fn:da83a902c2e8f462"]
+uses = ["fn:d35627c0b0130167"]
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:f58137d77447d53c"
+name = "total_energy"
+qual = "total_energy"
+lines = [
+    128,
+    154,
+]
+hash = "sha256:bc0851efcaaf68407b06deaf6cb8c0518bc8482c4e258c45cab514cc3dbf26bf"
+doc_hash = "sha256:5d30f10ffc98c17339bc2f25369c51a8f2333cc010c0a22189b6d25c76fba7a1"
+callees = [
+    "fn:927492c9c3315b25",
+    "fn:da83a902c2e8f462",
+]
+uses = ["fn:d35627c0b0130167"]
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:bfa7ffc891683e0b"
+name = "build_double_expansion_solver"
+qual = "build_double_expansion_solver"
+lines = [
+    160,
+    241,
+]
+hash = "sha256:63f1691d44ba90146b6ab5726fbada71e0e974c49be981ad83870044408a0d1d"
+doc_hash = "sha256:43d03600096fa03f1c116df36a4c17e752021734de6e6d867ab708d9a80844bc"
+callees = [
+    "fn:14f480c94a59d045",
+    "fn:25026aef8dc412e6",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:98aa935bd7a6a8b2",
+    "fn:abf4b590a1b83263",
+    "fn:f6a441665ade3497",
+    "fn:f8bf8efa3e1f4377",
+]
+uses = [
+    "fn:3c50b8e1c10c2c61",
+    "fn:3f165bca5d68b785",
+    "fn:6ba3358f6a29c123",
+    "fn:7e2447cfd3e71f2b",
+    "fn:9800aef7c32ee70c",
+    "fn:a3ef0523e0c816e9",
+    "fn:aaa5ba52788fd865",
+    "fn:af52a7e52ae39325",
+    "fn:b0768c6e7263ae77",
+    "fn:c7f630f79b915074",
+    "fn:d2323f282197a87b",
+    "fn:d35627c0b0130167",
+    "fn:e0ff37b7796b05a6",
+    "fn:e21dcdf16d9eadbe",
+    "fn:e5c71ccfedf381ce",
+    "fn:f11bcf88c9cf8afa",
+]
+
+[[module."tutorial_run_a_solver.rs".function]]
+id = "fn:2012878f9c10054f"
+name = "main"
+qual = "main"
+lines = [
+    247,
+    479,
+]
+hash = "sha256:983627e6c7c7710d943aee322964fc9be81bed1e6c8c7aa15ba11e5a9b0c3896"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0c87489fa945fb47",
+    "fn:448a39d881d9a479",
+    "fn:4aea3161a87c6021",
+    "fn:4b2e5c646e5ddbf9",
+    "fn:bfa7ffc891683e0b",
+    "fn:da83a902c2e8f462",
+    "fn:e5b894fcc237c2cd",
+    "fn:f58137d77447d53c",
+    "fn:f6a441665ade3497",
+]
+uses = [
+    "fn:3c50b8e1c10c2c61",
+    "fn:7e2447cfd3e71f2b",
+    "fn:9800aef7c32ee70c",
+    "fn:a3ef0523e0c816e9",
+    "fn:aaa5ba52788fd865",
+    "fn:af52a7e52ae39325",
+    "fn:c7f630f79b915074",
+    "fn:d2323f282197a87b",
+    "fn:e5c71ccfedf381ce",
+]

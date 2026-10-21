@@ -74,12 +74,42 @@
 //! other two were being paid for nothing. See
 //! [`crate::physics::steam_generator::PimpleCorrectors`].
 //!
-//! Measured with the whole-plant test run **alone** (`--test-threads=1`), four
-//! runs: **0.9646-0.9677** compute per plant second, **real-time ratio
-//! 1.033-1.037**. Under load
-//! -- the rest of the suite on the other eleven cores -- the same test reads
-//! 0.562, so the readout on the schematic will move with what else the machine
-//! is doing. That is the readout doing its job.
+//! ~~Measured with the whole-plant test run **alone** (`--test-threads=1`),
+//! four runs: **0.9646-0.9677** compute per plant second, **real-time ratio
+//! 1.033-1.037**.~~ **CORRECTED 2026-09-25 -- the plant is now ~3.8x faster
+//! than this says.** `physics::tests::where_the_plant_step_spends_its_time`,
+//! run alone on the same host, gives **0.265 s of compute per second of plant
+//! time, real-time ratio 3.78**. The 0.96 figure predates the steam
+//! generator's substep reduction
+//! (`physics::STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP` is 2, and the
+//! measurement above was taken while the arrays ran 8 substeps per plant
+//! step), so it was a correct record of a plant that no longer exists.
+//!
+//! The consequence is not cosmetic: at ratio 1.03 a 100 ms tick was ~96 %
+//! spent, and every scheduling decision downstream -- including the Map
+//! field's resolution ceiling -- was sized against that. At 3.78 the plant
+//! step costs ~26 ms of the tick.
+//!
+//! Under load -- the rest of the suite on the other cores -- the same test
+//! reads well below this, so the readout on the schematic will move with what
+//! else the machine is doing. That is the readout doing its job.
+//!
+//! ## What the step is actually spent on -- measured 2026-09-25
+//!
+//! Same instrument, same run:
+//!
+//! | Component | Share of the plant step |
+//! |---|---|
+//! | TRISO-ATOPS release channel (`boon-lay`) | **0.07 %** |
+//! | Gaussian puff dispersion (`changi`) | **0.59 %** |
+//! | everything else (kinetics, pebble bed, primary loop, **steam generator**, secondary, shaft) | **99.33 %** |
+//!
+//! So neither of the two channels that *look* expensive -- a TRISO release
+//! model and a puff dispersion run -- is where the time goes. Both are
+//! quasi-steady and throttled (1 s and 60 s of plant time respectively), and
+//! together they are under 0.7 % of the step. The cost is the steam
+//! generator, as the 2026-08-13 table above already found, and moving either
+//! channel onto its own thread would buy nothing measurable.
 //!
 //! ## Why the substep cannot go further, and why more correctors do not help
 //!
@@ -93,8 +123,13 @@
 //! arrays' enthalpy convection is an explicit source inside the corrector loop,
 //! so the loop's Picard contraction factor *is* the Courant number.
 
-pub mod geometry_tab;
+pub mod map_tab;
 pub mod panels;
+pub mod plant_v1_1;
+pub mod thermal_tab;
+// The v1 drawing is no longer on screen (v1.1 replaced it on 2026-09-22) but
+// is kept: its helpers, tracer state and tests are still used by v1.1.
+#[allow(dead_code)]
 pub mod schematic;
 pub mod state;
 
@@ -116,8 +151,8 @@ use outram_park_digital_twin_engine::components::LegendUnit;
 use crate::physics::secondary_loop::{FeedwaterCommand, SecondaryCommands};
 use crate::physics::{HtgrPlant, PlantCommands};
 use panels::{
-    draw_controls, draw_diagnostics_panel, draw_geometry_panel, draw_plots_csv_panel,
-    draw_plots_panel, draw_schematic_panel, Panel,
+    draw_controls, draw_diagnostics_panel, draw_plots_csv_panel, draw_plots_panel,
+    draw_schematic_panel, Panel,
 };
 use schematic::SchematicTracers;
 use state::{HtgrPlotData, HtgrSnapshot};
@@ -136,10 +171,39 @@ use state::{HtgrPlotData, HtgrSnapshot};
 /// Nothing is clamped here on purpose: the physics clamps every field itself
 /// (see [`PlantCommands`]), so a value arriving from an OPC-UA write or a test
 /// gets exactly the same bounds as one from a slider.
-fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
+pub(crate) fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
     PlantCommands {
         control_rod_insertion_fraction: s.control_rod_insertion_fraction,
         helium_flow_setpoint: MassRate::new::<kilogram_per_second>(s.helium_flow_setpoint_kg_per_s),
+        // ~~Wind is weather, not plant state -- the operator dials it in the
+        // way they would read it off a met mast. Nothing is clamped here~~
+        // CHANGED 2026-09-29 (maintainer: "that is to be the puff model used
+        // for the map"): the map's ONE puff-model configuration -- fixed
+        // inter-monsoon regime and class, speed clamped to 0.5-5 m/s,
+        // direction only rotates -- built by `map_puff_model::map_meteorology`
+        // and nowhere else, so every map basis and table reads the same
+        // channel run. Limitations: gh:#384.
+        meteorology: crate::physics::map_puff_model::map_meteorology(
+            s.wind_speed_m_per_s,
+            s.wind_from_deg,
+        ),
+        // What the Map tab wants of the dispersion field: ~~one cell per screen
+        // pixel of the map square~~ a fixed cell count since 2026-10-01
+        // (`map_tab::MAP_REQUESTED_CELLS`), and the operator's plume-clock
+        // fast-forward. Travels as a command for the same reason the wind
+        // does -- see `MapFieldRequest`. Nothing is clamped here; the
+        // dispersion channel bounds the resolution to what this host can
+        // afford.
+        map_field: crate::physics::atmospheric_dispersion::MapFieldRequest {
+            cells: s.map_field_cells_requested,
+            plume_clock_offset: Time::new::<second>(s.plume_clock_offset_s),
+            weighting: s.map_field_weighting,
+        },
+        scenario: crate::physics::scenario_from(
+            s.circulator_tripped,
+            s.water_ingress_triggered,
+            s.dlofc_triggered,
+        ),
         secondary: SecondaryCommands {
             feedwater: if s.feedwater_manual {
                 FeedwaterCommand::Manual {
@@ -192,9 +256,12 @@ const SUBSTEPS_PER_TICK: usize = 1;
 /// time is unreachable for any nonzero compute cost (kopi-beans `op-v5zb`).
 ///
 /// 100 ms, matching `PHYSICS_DT_S * SUBSTEPS_PER_TICK`. The GUI's displayed
-/// scalars therefore refresh at 10 Hz; the schematic's flow tracers are
+/// scalars therefore refresh at 10 Hz. ~~The schematic's flow tracers are
 /// unaffected because they are advanced from the plant clock at the repaint
-/// rate, not at this one.
+/// rate.~~ **CORRECTED 2026-09-22**: they were affected. The plant clock only
+/// moves when a snapshot is published, so plant-clock tracers stepped at
+/// 10 Hz and looked choppy. They now advance by frame time, at the speed the
+/// published residence time sets (see `HtgrSimApp::ui`).
 const PHYSICS_TICK: Duration = Duration::from_millis(100);
 /// Defensive cap on how many `plant.step` calls one fast-forward burst may
 /// make in a single [`PHYSICS_TICK`] window.
@@ -245,15 +312,22 @@ pub struct HtgrSimApp {
     /// Owned here, not rebuilt per frame, so "Update CSV Data" clicks and the
     /// interval slider persist across repaints.
     plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel,
-    /// The HTR-10 Geometry tab's zoom level -- see
-    /// [`geometry_tab::ZoomLevel`]. Owned here so a zoom-button click
-    /// persists across repaints instead of resetting every frame.
-    geometry_zoom: geometry_tab::ZoomLevel,
     /// Flow-tracer trains for the schematic's connector runs. Owned here (not
     /// by the widgets, which are rebuilt every repaint) and advanced once per
-    /// frame from the real loop residence times -- see
+    /// frame from ~~the real loop residence times~~ each drawn run's own
+    /// transit time (2026-10-01; see [`SchematicTracers`]) -- see
     /// [`outram_park_digital_twin_engine::animation`].
     tracers: SchematicTracers,
+    /// The plant clock's current rate, measured between snapshots, which sets
+    /// how fast the tracers advance per frame -- see [`PlantClockRate`].
+    plant_clock_rate: PlantClockRate,
+    /// The Map tab's own retained state: the `chi/Q` field texture and the
+    /// key it was built for.
+    ///
+    /// Owned here rather than rebuilt per repaint because a texture is a GPU
+    /// resource -- uploading a 512 x 512 image on every frame would cost more
+    /// than computing the field does. See [`map_tab::MapTabState`].
+    map_state: map_tab::MapTabState,
     /// Temperature display unit for **every readout on screen** -- the
     /// operator's degC/K toggle (kopi-beans `op-qpgw`).
     ///
@@ -271,12 +345,6 @@ pub struct HtgrSimApp {
     /// `fhr_sim_v2` already used. It opened in kelvin until then; the snapshot
     /// itself is unaffected either way, being kelvin throughout.
     display_unit: LegendUnit,
-    /// Plant clock reading at the previous repaint \[s\].
-    ///
-    /// The tracers are advanced by the **simulated** time that elapsed between
-    /// frames, so a mark travels at the transport speed of the plant it depicts
-    /// even when the physics thread is not keeping up with wall clock.
-    last_sim_time_s: f64,
 }
 
 /// The shared state and crash flag belonging to **one run** of the simulator.
@@ -334,7 +402,10 @@ fn start_simulation() -> SimulationRun {
     // from the shared state, steps the plant, writes outputs back. Spawned
     // *monitored* so a panic (e.g. a steam-property call out of range) trips
     // the shared crash flag instead of silently freezing the sim.
-    let mut plant = HtgrPlant::new();
+    // `with_live_map_field`: this is the GUI path, so a Map tab exists and an
+    // adapter does too (eframe would not have started otherwise). Headless
+    // runs deliberately do not take this -- see `HtgrPlant::map_field_live`.
+    let mut plant = HtgrPlant::new().with_live_map_field();
     let dt = Time::new::<second>(PHYSICS_DT_S);
     // Real-time pacing, in the workspace house pattern lifted from
     // `fhr_sim_v2`: each tick gets PHYSICS_TICK of wall clock for its work
@@ -372,6 +443,13 @@ fn start_simulation() -> SimulationRun {
             if reset_requested {
                 plant.protection.reset();
                 state.update(|s| s.trip_reset_requested = false);
+            }
+            // Reset peak (gh:#964): restart the running maximum of the peak
+            // kernel from its current value; the request is cleared so one
+            // click resets once.
+            if state.read_with(|s| s.peak_fuel_reset_requested) {
+                plant.reset_peak_fuel_to_current();
+                state.update(|s| s.peak_fuel_reset_requested = false);
             }
             // Fast-forward: keep calling `plant.step` back to back, with no
             // sleep between calls, until this tick's wall-clock budget is
@@ -484,18 +562,22 @@ impl HtgrSimApp {
             open_panel: Panel::Schematic,
             plots_side_panel: panels::PlotsSidePanel::default(),
             plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
-            geometry_zoom: geometry_tab::ZoomLevel::default(),
+            map_state: map_tab::MapTabState::default(),
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
-            last_sim_time_s: 0.0,
+            plant_clock_rate: PlantClockRate::default(),
         }
     }
 
     /// Discard the crashed run and start a new plant from defaults, in-app,
     /// without the operator closing the window.
     ///
-    /// Called only from the crash modal's **Restart simulation** button (see
-    /// [`show_crash_modal_with_restart`]).
+    /// Called from the crash modal's **Restart simulation** button (see
+    /// [`show_crash_modal_with_restart`]) and from the Map tab's **Reset
+    /// plant** button ([`map_tab::MapAction::ResetPlant`], gh:#400) -- one
+    /// reset path, so a reset plant is identical to a freshly launched one.
+    /// The Map tab's display state (`map_state`) is a display preference and
+    /// is kept, like the open panel.
     ///
     /// # Why this is safe after a panic
     ///
@@ -520,10 +602,8 @@ impl HtgrSimApp {
     /// **Plant state resets** -- power, temperatures, the simulated clock, the
     /// plot histories and the operator's commands all return to
     /// [`HtgrSnapshot::default`] (the published HTR-10 design point). So do the
-    /// schematic's flow tracers and [`Self::last_sim_time_s`], because a tracer
-    /// phase carried across a restart would animate the new plant from the dead
-    /// one's position, and a stale `last_sim_time_s` would hand the first frame
-    /// a large negative plant-time delta.
+    /// schematic's flow tracers, because a tracer phase carried across a restart
+    /// would animate the new plant from the dead one's position.
     ///
     /// **Display preferences do not reset** -- the open panel and the degC/K
     /// toggle are the operator's own view settings, not plant state. Resetting
@@ -538,7 +618,79 @@ impl HtgrSimApp {
         self.plots = run.plots;
         self.thread_health = run.thread_health;
         self.tracers = SchematicTracers::new();
-        self.last_sim_time_s = 0.0;
+        self.plant_clock_rate = PlantClockRate::default();
+    }
+
+    /// Act on what the Map tab asked for this frame (gh:#400).
+    fn apply_map_action(&mut self, action: map_tab::MapAction) {
+        match action {
+            map_tab::MapAction::None => {}
+            map_tab::MapAction::ResetPlant => self.restart_simulation(),
+            map_tab::MapAction::StartWaterIngress => {
+                self.physics.update(|s| s.water_ingress_triggered = true)
+            }
+            map_tab::MapAction::StartDlofc => self.physics.update(|s| s.dlofc_triggered = true),
+        }
+    }
+}
+
+/// The right-hand controls panel's body, in a vertical scroll area, so every
+/// control stays reachable when the window is shorter than the panel
+/// (maintainer direction, 2026-09-22). The CSV view is not wrapped: it has its
+/// own scroll area, and nesting two would leave the inner one unbounded.
+fn scrollable_controls(ui: &mut egui::Ui, body: impl FnOnce(&mut egui::Ui)) {
+    egui::ScrollArea::vertical()
+        .id_salt("htgr_controls_scroll")
+        .auto_shrink([false, false])
+        .show(ui, body);
+}
+
+/// Wall time over which [`PlantClockRate`] measures the plant clock, seconds:
+/// five snapshot publishes ([`PHYSICS_TICK`]). Long enough that the frame at
+/// which a publish is noticed (about 16 ms of jitter) moves the rate by only
+/// about 3 %, short enough that switching fast-forward on shows within half a
+/// second. A measurement window, nothing physical.
+const PLANT_RATE_WINDOW_S: f64 = 5.0 * PHYSICS_TICK.as_secs_f64();
+
+/// The plant clock's current rate, plant seconds per wall second, measured on
+/// the GUI side from the snapshots it receives.
+///
+/// The physics thread's own `real_time_ratio` is cumulative since the run
+/// began, so it hardly moves when fast-forward is switched on; this measures
+/// the rate over the last [`PLANT_RATE_WINDOW_S`] instead. It reads about 1
+/// at real time, the burst factor under fast-forward, less than 1 when the
+/// model lags, and 0 when the plant clock stops (paused or stalled), because
+/// then no plant time passes in the window. It reads 0 until the first window
+/// has been measured, rather than assuming real time.
+#[derive(Debug, Clone, Copy, Default)]
+struct PlantClockRate {
+    /// Plant and wall time, seconds, at the start of the current window.
+    window_start: Option<(f64, f64)>,
+    /// Rate measured over the last complete window.
+    rate: f64,
+}
+
+impl PlantClockRate {
+    /// Record this frame's plant time `sim_time_s` at wall time `wall_s`, both
+    /// seconds, and return the current rate.
+    fn observe(&mut self, sim_time_s: f64, wall_s: f64) -> f64 {
+        match self.window_start {
+            // First sample, or the plant clock went backwards (a restart):
+            // start a fresh window.
+            None => self.window_start = Some((sim_time_s, wall_s)),
+            Some((sim0, _)) if sim_time_s < sim0 => {
+                *self = Self::default();
+                self.window_start = Some((sim_time_s, wall_s));
+            }
+            Some((sim0, wall0)) => {
+                let wall_elapsed = wall_s - wall0;
+                if wall_elapsed >= PLANT_RATE_WINDOW_S {
+                    self.rate = ((sim_time_s - sim0) / wall_elapsed).max(0.0);
+                    self.window_start = Some((sim_time_s, wall_s));
+                }
+            }
+        }
+        self.rate
     }
 }
 
@@ -561,20 +713,29 @@ impl eframe::App for HtgrSimApp {
 
         let snapshot = self.physics.snapshot();
 
-        // Advance the schematic's flow tracers by the PLANT time that elapsed
-        // between frames, read from the snapshot's own clock -- not by GUI
-        // frame time. Frame time was the wrong clock: it made the tracers run
-        // at wall-clock speed while the physics thread ran slower than wall
-        // clock, so the marks moved faster than the plant they depict
-        // (kopi-beans `op-v5zb`). Taking the delta of the plant clock is exact
-        // and self-correcting: if the physics falls behind, so do the tracers.
-        let sim_dt = Time::new::<second>((snapshot.sim_time_s - self.last_sim_time_s).max(0.0));
-        self.last_sim_time_s = snapshot.sim_time_s;
-        self.tracers.advance(sim_dt, &snapshot);
+        // Advance the flow tracers every frame by the PLANT time that frame
+        // stands for: the frame's wall time times the plant clock's current
+        // rate. The speed along a run still comes only from the snapshot's
+        // residence time and the direction from the sign of its mass flow.
+        //
+        // History: first by the plant-clock delta between frames (op-v5zb),
+        // which stepped at the 10 Hz snapshot rate and looked choppy; then
+        // (2026-09-22, maintainer direction) by bare frame time, which was
+        // smooth but ignored fast-forward and a lagging model. Frame time
+        // times the measured rate (2026-09-22, maintainer direction: "the
+        // tracers should also move faster when fast forward is applied") is
+        // smooth AND follows the plant clock: 20x under a 20x fast-forward,
+        // slower when the model falls behind, stopped when it stalls.
+        // `stable_dt` is clamped so a stalled frame cannot fling the marks.
+        let wall_s = ui.input(|i| i.time);
+        let rate = self.plant_clock_rate.observe(snapshot.sim_time_s, wall_s);
+        let frame_dt = ui.input(|i| i.stable_dt).clamp(0.0, 0.1) as f64;
+        self.tracers
+            .advance(Time::new::<second>(frame_dt * rate), &snapshot);
 
         egui::Panel::top("htgr_top").show(ui, |ui| {
             ui.heading(
-                "HTGR Educational Simulator v1 -- scaffold (OUTRAM PARK digital-twin engine)",
+                "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
             );
             ui.horizontal(|ui| {
                 egui::global_theme_preference_buttons(ui);
@@ -608,30 +769,69 @@ impl eframe::App for HtgrSimApp {
                 ui.separator();
                 match self.plots_side_panel {
                     panels::PlotsSidePanel::ReactorControls => {
-                        draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
+                        scrollable_controls(ui, |ui| {
+                            draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit)
+                        });
                     }
                     panels::PlotsSidePanel::Csv => {
                         draw_plots_csv_panel(ui, &mut self.plots_csv_panel, &plots);
                     }
                 }
             } else {
-                draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
+                scrollable_controls(ui, |ui| {
+                    draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit)
+                });
             }
         });
 
         // Copied out before the closures below borrow `self` -- the unit is a
         // `Copy` display setting, so the panels take it by value.
         let display_unit = self.display_unit;
+        // What the Map tab asked for this frame, acted on after the panel
+        // closure releases its borrow of `self` (gh:#400).
+        let mut map_action = map_tab::MapAction::None;
         egui::CentralPanel::default().show(ui, |ui| {
-            egui::ScrollArea::both().show(ui, |ui| match self.open_panel {
-                Panel::Schematic => {
-                    draw_schematic_panel(ui, &snapshot, &self.tracers, display_unit)
-                }
-                Panel::Plots => draw_plots_panel(ui, &plots, display_unit),
-                Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
-                Panel::Geometry => draw_geometry_panel(ui, &mut self.geometry_zoom),
-            });
+            // The schematic tab brings its own pan-and-zoom viewport, so it is
+            // kept out of the outer scroll area (nesting two two-axis scroll
+            // areas would leave the inner one unbounded).
+            if self.open_panel == Panel::Schematic {
+                draw_schematic_panel(ui, &self.physics, &snapshot, &self.tracers, display_unit);
+                return;
+            }
+            // The viewport height, measured BEFORE entering the scroll area.
+            // Inside one, `available_height` is the scrolled content's own
+            // budget rather than the window's, so a panel that sized itself
+            // from in there would grow every frame it filled.
+            let view = ui.available_size();
+            // The Map tab is wider than the window at its minimum sizes (map
+            // + graph, the wide tables), so its scroll bars are SOLID there:
+            // always drawn when the content overflows, rather than egui's
+            // default floating bars that appear only on hover and read as "it
+            // does not scroll sideways" (maintainer, 2026-10-01). The tables
+            // inside inherit the style for their own horizontal scrolls.
+            if self.open_panel == Panel::Map {
+                ui.style_mut().spacing.scroll = egui::style::ScrollStyle::solid();
+            }
+            egui::ScrollArea::both()
+                .auto_shrink([false; 2])
+                .show(ui, |ui| match self.open_panel {
+                    Panel::Schematic => {} // drawn above, outside this scroll area
+                    Panel::Plots => draw_plots_panel(ui, &plots, display_unit, view),
+                    Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
+                    Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot, display_unit),
+                    Panel::Map => {
+                        map_action = map_tab::draw_map(
+                            ui,
+                            &self.physics,
+                            &snapshot,
+                            &mut self.map_state,
+                            view,
+                        )
+                    }
+                });
         });
+
+        self.apply_map_action(map_action);
 
         // Keep animating while physics runs on its own threads.
         ui.ctx().request_repaint();
@@ -641,6 +841,32 @@ impl eframe::App for HtgrSimApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The tracers' clock follows the plant clock: about 1 at real time, the
+    /// burst factor under fast-forward, 0 when the plant stops, and it starts
+    /// again cleanly after a restart takes the plant clock back to zero.
+    #[test]
+    fn the_plant_clock_rate_follows_fast_forward_and_stops_with_the_plant() {
+        let mut rate = PlantClockRate::default();
+        assert_eq!(rate.observe(0.0, 0.0), 0.0, "nothing measured yet");
+        let w = PLANT_RATE_WINDOW_S;
+        // Real time for one window.
+        assert!((rate.observe(w, w) - 1.0).abs() < 1e-12);
+        // 20x fast-forward for one window.
+        assert!((rate.observe(w + 20.0 * w, 2.0 * w) - 20.0).abs() < 1e-9);
+        // Mid-window samples keep the last measured rate.
+        assert!((rate.observe(w + 30.0 * w, 2.5 * w) - 20.0).abs() < 1e-9);
+        // The plant clock stops at 21 w of plant time, reached halfway through
+        // this window: the window closing at 3 w still holds that plant time.
+        let stopped_at = w + 40.0 * w;
+        assert!((rate.observe(stopped_at, 3.0 * w) - 20.0).abs() < 1e-9);
+        // The next complete window, with the clock stopped throughout, reads
+        // zero, so the tracers stop with the plant.
+        assert_eq!(rate.observe(stopped_at, 4.0 * w), 0.0);
+        // A restart takes the plant clock back to zero: a fresh window.
+        assert_eq!(rate.observe(0.0, 10.0 * w), 0.0);
+        assert!((rate.observe(w, 11.0 * w) - 1.0).abs() < 1e-12);
+    }
 
     /// V&V: **restarting starts a new plant; it never resumes the crashed one.**
     ///
@@ -654,22 +880,19 @@ mod tests {
     /// display a half-updated plant as though it were real, which is worse. A
     /// restart that reused *any* of the three handles would do exactly that, and
     /// would do it silently. This pins that all three are replaced, and that the
-    /// GUI-side clock and tracer phase are reset with them.
+    /// tracer phase is reset with them.
     ///
     /// # Methodology
     ///
     /// Build the app (which starts run 1), let the physics thread advance the
-    /// plant clock past zero, and dirty the GUI-side frame state the way a
-    /// running simulator would (`last_sim_time_s`) and an operator would
-    /// (`open_panel`, `display_unit`). Then call `restart_simulation` and check:
+    /// plant clock past zero, and dirty the GUI-side view settings the way an
+    /// operator would (`open_panel`, `display_unit`). Then call `restart_simulation` and check:
     ///
     /// - the simulated clock went backwards (a resumed run could only go
     ///   forwards) and the plot histories are empty again;
     /// - the *old* run reports itself no longer running, and the *new* one does
     ///   -- i.e. the health handle was swapped, not shared, and retiring the old
     ///   run did not leave the new one dead on arrival;
-    /// - the frame-to-frame plant clock is back at zero, so the first frame
-    ///   after a restart cannot compute a huge negative tracer step;
     /// - the operator's display preferences survived, because a crash is no
     ///   reason to undo them.
     ///
@@ -685,6 +908,39 @@ mod tests {
     /// true`, and the panel/unit selections unchanged. Interpretation: the
     /// restart is a genuine start-from-defaults, and the crashed run's state is
     /// unreachable from the app afterwards.
+    ///
+    /// **2026-09-22:** the `last_sim_time_s` check was removed with the field
+    /// itself, when the tracers moved from the plant clock to frame time.
+    /// **The Map tab's Reset plant button starts the plant from defaults; no
+    /// action leaves the run alone** (gh:#400).
+    ///
+    /// Methodology: a real app; let run 1 advance; apply `MapAction::None`
+    /// and check the same run is still live; then apply `ResetPlant` (the
+    /// button's path) and check the plant clock went back, the old run was
+    /// retired and the new run is live. Result (2026-09-29): pass.
+    #[test]
+    fn the_map_reset_button_restarts_the_plant_and_keeps_the_map_view() {
+        let mut app = HtgrSimApp::start();
+        let mut advanced_to = 0.0;
+        for _ in 0..40 {
+            thread::sleep(Duration::from_millis(50));
+            advanced_to = app.physics.snapshot().sim_time_s;
+            if advanced_to > 0.0 {
+                break;
+            }
+        }
+        assert!(advanced_to > 0.0, "run 1 never advanced");
+        let run_1 = app.thread_health.clone();
+        app.apply_map_action(map_tab::MapAction::None);
+        assert!(run_1.is_running(), "no action must not touch the run");
+
+        app.apply_map_action(map_tab::MapAction::ResetPlant);
+        assert!(!run_1.is_running(), "the reset run must be retired");
+        assert!(app.thread_health.is_running());
+        assert!(app.physics.snapshot().sim_time_s < advanced_to);
+        app.thread_health.retire();
+    }
+
     #[test]
     fn restarting_starts_a_fresh_run_and_abandons_the_old_one() {
         let mut app = HtgrSimApp::start();
@@ -706,8 +962,7 @@ mod tests {
              would pass even if restart did nothing"
         );
 
-        // Frame state a running simulator and an operator would have left.
-        app.last_sim_time_s = advanced_to;
+        // Frame state an operator would have left.
         app.open_panel = Panel::Diagnostics;
         app.display_unit = LegendUnit::Celsius;
 
@@ -724,12 +979,6 @@ mod tests {
             app.plots.snapshot().reactor_power_mw.is_empty(),
             "the restarted run must not inherit run 1's plot history"
         );
-        assert_eq!(
-            app.last_sim_time_s, 0.0,
-            "a stale last_sim_time_s would hand the first frame a large negative \
-             plant-time delta"
-        );
-
         // The health flag was swapped, and the old run was told to stop.
         assert!(
             !old_health.is_running(),
@@ -829,12 +1078,63 @@ mod tests {
     /// # Results (measured 2026-08-17, feedwater default changed from AUTO to
     /// MANUAL)
     ///
-    /// The default snapshot maps to exactly `PlantCommands::default()`: rods
-    /// 0.6035, helium 4.3 kg/s, feedwater **MANUAL at 10.0 kg/s**, condenser
-    /// 7.000 kPa. Flipping `feedwater_manual` to `false` yields
-    /// `Auto { target_steam_temperature: 713.15 K }`. Interpretation: the
-    /// opening frame commands the plant's current default, and the mode
-    /// boolean is read in the right direction.
+    /// ~~"The default snapshot maps to exactly `PlantCommands::default()`:
+    /// rods 0.6035, helium 4.3 kg/s, feedwater **MANUAL at 10.0 kg/s**,
+    /// condenser 7.000 kPa."~~
+    ///
+    /// # CORRECTED 2026-09-22 -- this test had been FAILING, and it was right to
+    ///
+    /// The recorded result above was stale on two counts (rods are 0.50 now,
+    /// not 0.6035), and more importantly **the two sides had genuinely come
+    /// apart**. Measured at `ef6733295`, before the change that found this:
+    ///
+    /// | Field | GUI snapshot | `PlantCommands::default()` |
+    /// |---|---|---|
+    /// | helium flow | 4.3 kg/s | **1.29 kg/s** |
+    /// | feedwater demand | 4.0 kg/s | **10.0 kg/s** |
+    ///
+    /// Neither drift was harmless. `GUI_INITIAL_HELIUM_FLOW_FRACTION` (then
+    /// named `GUI_INITIAL_HELIUM_FLOW_KG_PER_S`; renamed 2026-10-01) is a
+    /// *fraction* of rated (0.30, despite the `KG_PER_S` suffix its doc
+    /// comment then apologised for), so the physics opened at **part load** while
+    /// the GUI opened at **rated** — and that constant's doc says in terms
+    /// that [`crate::physics::GUI_INITIAL_ROD_INSERTION`] "was bisected
+    /// against settled power AT this flow. The two are a matched pair and must
+    /// be changed together." The GUI was opening the bisected rod position at
+    /// the wrong flow, so it did not open at the intended initial condition at
+    /// all. The feedwater demand had simply never been updated when the
+    /// default moved to MANUAL at 10.0 kg/s on 2026-08-17.
+    ///
+    /// **The fix is to delete the second copy, not to re-sync it.** Both
+    /// fields in `HtgrSnapshot::default()` are now *derived* from the physics
+    /// constants they are supposed to mirror, so they cannot drift again —
+    /// which is the workspace rule about two copies of an operating point,
+    /// arriving exactly as advertised.
+    ///
+    /// **Results (2026-09-22, after the fix).** The default snapshot maps to
+    /// exactly `PlantCommands::default()`: rods 0.50, helium **1.29 kg/s**,
+    /// feedwater **MANUAL at 10.0 kg/s**, condenser 7.000 kPa, ~~wind 3.0 m/s
+    /// from 0 deg at hour 12~~ **(2026-09-29)** the map puff model: wind
+    /// 1.0 m/s from 0 deg at hour 12, class B fixed (`map_puff_model`). This
+    /// test caught the plant default still on the old 3 m/s speed-derived
+    /// meteorology when the map moved -- a second copy, removed. Flipping
+    /// `feedwater_manual` to `false` yields
+    /// `Auto { target_steam_temperature: 713.15 K }`.
+    ///
+    /// **2026-10-01:** rods are 0.45 now, and the helium flow, rated 4.3 kg/s
+    /// from 2026-09-27, is back at **1.29 kg/s** by maintainer direction (the
+    /// HTR-10 test's experimental flow). The test now also asserts that value
+    /// directly, since matching the two sides alone cannot catch both moving
+    /// together. Also 2026-10-01: the Map tab opens on the dose-rate basis,
+    /// so both sides now carry `map_field.weighting = DoseRateUsvPerH` (this
+    /// test failed until `PlantCommands::default()` was moved with it).
+    ///
+    /// **Interpretation.** The opening frame commands the plant's current
+    /// default, and the mode boolean is read in the right direction. Note what
+    /// this test bought by comparing the *whole struct* with `PartialEq`: it
+    /// caught a drift in two fields nobody was looking at, and it will catch
+    /// the next one. A field-by-field comparison written for the fields that
+    /// mattered in August would not have.
     #[test]
     fn the_gui_defaults_are_the_plant_command_defaults() {
         let snapshot = HtgrSnapshot::default();
@@ -843,6 +1143,14 @@ mod tests {
             commands,
             PlantCommands::default(),
             "the GUI's opening state must be the plant's default command set"
+        );
+
+        // The opening flow is the HTR-10 test's experimental 1.29 kg/s
+        // (0.30 of the rated 4.3 kg/s; maintainer direction 2026-10-01).
+        assert!(
+            (commands.helium_flow_setpoint.get::<kilogram_per_second>() - 1.29).abs() < 1e-9,
+            "the plant must open at the experimental 1.29 kg/s, got {} kg/s",
+            commands.helium_flow_setpoint.get::<kilogram_per_second>()
         );
 
         // The scalars really did survive their unit conversions.

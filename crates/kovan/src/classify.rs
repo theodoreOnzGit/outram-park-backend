@@ -19,7 +19,12 @@
 //!   selection, or the PDF reader's "Save page annotations" flow.
 //! - [`save_digitised_csv`] — from either digitiser tab's "save into notes".
 //! - [`replace_artifact_body`] — the page-context panel's inline block
-//!   editor, and a re-digitise replacing its source block in place.
+//!   editor (body only, metadata kept verbatim).
+//! - [`replace_artifact_region`] — the PDF reader's drag-a-corner box
+//!   correction (`[source] region` only, body and other metadata kept).
+//! - [`replace_digitisation`] — a re-digitise replacing its block in place,
+//!   body **and** `[extraction]` (CORRECTED 2026-09-28: this used to go
+//!   through [`replace_artifact_body`] and kept the stale extraction).
 //!
 //! The interactive triggers live in `crate::app` (the PDF reader's
 //! annotate/crop canvas and the digitiser tabs); this module is UI-free.
@@ -43,8 +48,8 @@ pub enum ClassifyError {
     /// `heading` produced no usable id (e.g. it was empty or entirely
     /// punctuation).
     NoUsableId,
-    /// [`replace_artifact_body`] was asked for an id no artifact in the
-    /// document has.
+    /// [`replace_artifact_body`] (or [`replace_artifact_region`]) was asked
+    /// for an id no artifact in the document has.
     UnknownId(String),
     /// The `[source]` anchor violates §15's invariants — see
     /// `SourceAnchor::validate`'s own error text.
@@ -240,12 +245,15 @@ pub fn insert_artifact(
     let before = session.markdown().to_string();
 
     let toml = ArtifactToml {
+        extra: Default::default(),
         kovan: ArtifactMeta {
+            extra: Default::default(),
             id: id.clone(),
             kind,
             created: now.clone(),
             modified: now,
             reviewed: None,
+            origin: None,
         },
         source: anchor,
         classification,
@@ -432,15 +440,248 @@ pub fn replace_artifact_body(
     Ok(refreshed.get(id).expect("just replaced").clone())
 }
 
+/// Move the `[source] region` box of the artifact with stable id `id` to
+/// `region` — the PDF reader's drag-a-corner correction (maintainer,
+/// 2026-10-01: "when i edit annotations, i should be able to drag the
+/// corners of the boxes to correct them").
+///
+/// The same re-render path as [`replace_artifact_body`]: the block is
+/// rendered back through [`render_artifact_block`] with its **existing**
+/// body, `[kovan] modified` is bumped, and nothing else changes — `id`,
+/// `kind`, `created`, `[source] page`, classification, relation, connections
+/// and extraction are all kept, as is every other line of the document.
+///
+/// # Errors
+///
+/// [`ClassifyError::UnknownId`] if no artifact has that id;
+/// [`ClassifyError::BadAnchor`] if it has no `[source]` anchor or the new
+/// anchor fails `SourceAnchor::validate` (no `page`, or an invalid region);
+/// [`ClassifyError::Render`] if re-serialising its metadata fails.
+pub fn replace_artifact_region(
+    session: &mut PaperSession,
+    id: &str,
+    region: Region,
+) -> Result<Artifact, ClassifyError> {
+    let md = session.markdown().to_string();
+    let parsed = parse_document(&md);
+    let artifact = parsed
+        .get(id)
+        .ok_or_else(|| ClassifyError::UnknownId(id.to_string()))?;
+
+    let mut toml = artifact.toml.clone();
+    let source = toml
+        .source
+        .as_mut()
+        .ok_or_else(|| ClassifyError::BadAnchor(format!("{id} has no [source] anchor")))?;
+    source.region = Some(region);
+    source.validate().map_err(ClassifyError::BadAnchor)?;
+    toml.kovan.modified = utc_now_iso8601();
+    let rendered = render_artifact_block(artifact.level, &artifact.heading, &toml, &artifact.body)
+        .map_err(ClassifyError::Render)?;
+
+    let span = block_span(&md, artifact);
+    session.set_markdown(splice_lines(&md, span, &rendered));
+
+    let refreshed = ResearchRecordIndex::from_session(session);
+    Ok(refreshed.get(id).expect("just replaced").clone())
+}
+
+/// Re-save a **digitisation** over the artifact with stable id `id`: swap its
+/// body AND, when one is supplied, its `[extraction]` provenance.
+///
+/// [`replace_artifact_body`] keeps the old metadata verbatim, which is right
+/// for a prose edit and wrong for a re-digitisation: the calibration strings,
+/// labels, `digitised_by` and `digitised_at` describe how the data were
+/// produced, so keeping the old ones after the data changed makes the
+/// artifact's provenance contradict its CSV (maintainer, 2026-09-28: PANAMA
+/// Figs. 6 and 7 re-digitised with the y top corrected to 10^0 still read
+/// `px 88.03 = 10` and `digitised_at = 2026-09-24`).
+///
+/// - `extraction` `Some`: replaces `[extraction]` wholesale, with
+///   `digitised_at` stamped to **now** (the re-save time). `None` keeps the
+///   old `[extraction]`, as before.
+/// - `[kovan]` `id`/`kind`/`created`, `[source]`, classification, relation
+///   and connections are kept; `modified` is bumped.
+/// - `[kovan].reviewed` is **cleared when the body changed**: a human review
+///   vouched for data that no longer exist, and leaving the stamp would claim
+///   the new numbers were checked. An unchanged body keeps it.
+///
+/// # Errors
+///
+/// As [`replace_artifact_body`].
+pub fn replace_digitisation(
+    session: &mut PaperSession,
+    id: &str,
+    new_body: &str,
+    extraction: Option<Extraction>,
+) -> Result<Artifact, ClassifyError> {
+    let md = session.markdown().to_string();
+    let parsed = parse_document(&md);
+    let artifact = parsed
+        .get(id)
+        .ok_or_else(|| ClassifyError::UnknownId(id.to_string()))?;
+
+    let now = utc_now_iso8601();
+    let mut toml = artifact.toml.clone();
+    toml.kovan.modified = now.clone();
+    if artifact.body.trim() != new_body.trim() {
+        toml.kovan.reviewed = None;
+    }
+    if let Some(mut ex) = extraction {
+        ex.digitised_at = Some(now);
+        toml.extraction = Some(ex);
+    }
+    let rendered = render_artifact_block(artifact.level, &artifact.heading, &toml, new_body)
+        .map_err(ClassifyError::Render)?;
+
+    let span = block_span(&md, artifact);
+    session.set_markdown(splice_lines(&md, span, &rendered));
+
+    let refreshed = ResearchRecordIndex::from_session(session);
+    Ok(refreshed.get(id).expect("just replaced").clone())
+}
+
+/// What should happen to one classification path or relation endpoint when a
+/// concept is renamed, moved or deleted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PathChange {
+    /// Not affected by this operation.
+    Keep,
+    /// Now lives at this path.
+    To(String),
+    /// The concept is gone; drop the reference.
+    Remove,
+}
+
+/// Rewrite every concept path a markdown document refers to, returning the
+/// new document, or `None` when nothing referred to anything that changed.
+///
+/// A concept path appears in two places inside an artifact block, and both
+/// are rewritten here:
+///
+/// - its `[classification]` topics and projects;
+/// - a `[relation]` endpoint naming a collection (`collection:<path>`),
+///   which is how a connection from an artifact to a concept is stored.
+///
+/// Wiki links are deliberately **not** touched: `[[target]]` and
+/// `[[target#artifact]]` name a citekey, never a collection
+/// ([`crate::graph::WikiLinkRef`]), so a concept rename cannot invalidate
+/// one.
+///
+/// Each block is re-rendered through the same
+/// [`render_artifact_block`] path [`replace_artifact_body`] uses, so the
+/// `[kovan]` TOML stays exactly as `parse_document` expects and no block is
+/// ever hand-edited as raw text. `modified` is bumped on each block that
+/// actually changes, and only on those.
+///
+/// # Errors
+///
+/// [`ClassifyError::Render`] if re-serialising a block's metadata fails.
+/// The document is returned unchanged in that case — nothing is written
+/// here, so a caller that stops on the error has altered nothing.
+pub fn retarget_document<F>(md: &str, map: F) -> Result<Option<String>, ClassifyError>
+where
+    F: Fn(&str) -> PathChange,
+{
+    // Which collection path, if any, this endpoint names.
+    let endpoint_path = |node: &str| node.strip_prefix("collection:").map(str::to_string);
+
+    let ids: Vec<String> = parse_document(md)
+        .artifacts
+        .iter()
+        .map(|a| a.id().to_string())
+        .collect();
+
+    let mut current = md.to_string();
+    let mut changed_any = false;
+
+    for id in ids {
+        // Re-parse each time: an earlier splice moved every later span.
+        // Documents are small and this is a rare, deliberate operation, so
+        // correctness is worth more here than one pass.
+        let parsed = parse_document(&current);
+        let Some(artifact) = parsed.get(&id) else {
+            continue;
+        };
+        let mut toml = artifact.toml.clone();
+        let mut changed = false;
+
+        for list in [
+            &mut toml.classification.topics,
+            &mut toml.classification.projects,
+        ] {
+            let mut out = Vec::with_capacity(list.len());
+            for path in list.iter() {
+                match map(path) {
+                    PathChange::Keep => out.push(path.clone()),
+                    PathChange::To(q) => {
+                        changed = true;
+                        // A rename can collide with a path already listed.
+                        if !out.contains(&q) {
+                            out.push(q);
+                        }
+                    }
+                    PathChange::Remove => changed = true,
+                }
+            }
+            if out.len() != list.len() || &out != list {
+                *list = out;
+            }
+        }
+
+        // Both shapes: a relation artifact's one `[relation]` and another
+        // artifact's `[[relation]]` anchors (GH issue #743). An anchor's
+        // empty `source` and a `code:` target are not collection paths, so
+        // `endpoint_path` leaves them alone.
+        let records = toml
+            .relation
+            .as_mut()
+            .map_or(&mut [][..], crate::relation::Relations::records_mut);
+        for rel in records.iter_mut() {
+            for end in [&mut rel.source, &mut rel.target] {
+                if let Some(path) = endpoint_path(end) {
+                    match map(&path) {
+                        PathChange::Keep => {}
+                        PathChange::To(q) => {
+                            *end = format!("collection:{q}");
+                            changed = true;
+                        }
+                        // A relation with a deleted endpoint is dangling;
+                        // the caller drops the whole relation artifact
+                        // rather than leaving half of one, so this is only
+                        // reached for a relation the caller keeps.
+                        PathChange::Remove => changed = true,
+                    }
+                }
+            }
+        }
+
+        if !changed {
+            continue;
+        }
+        toml.kovan.modified = utc_now_iso8601();
+        let rendered = render_artifact_block(artifact.level, &artifact.heading, &toml, &artifact.body)
+            .map_err(ClassifyError::Render)?;
+        let span = block_span(&current, artifact);
+        current = splice_lines(&current, span, &rendered);
+        changed_any = true;
+    }
+
+    Ok(changed_any.then_some(current))
+}
+
 /// Save a digitised table/graph's CSV into `session`'s buffer as a
 /// `[kovan]` artifact — the single path both digitiser tabs' "save into
 /// notes" goes through (GH issue #35 2026-09-02: digitised blocks become
 /// real fenced-TOML artifacts so the page-context panel can re-open them).
 ///
 /// When `replace_id` names an existing artifact — a *re-digitise* of a
-/// block the panel double-click re-cropped — only its body is swapped
-/// ([`replace_artifact_body`]), keeping the original `[source]`/`[extraction]`
-/// and not appending a duplicate. Otherwise a new artifact is inserted with
+/// block the panel double-click re-cropped — ~~only its body is swapped
+/// ([`replace_artifact_body`]), keeping the original `[source]`/`[extraction]`~~
+/// **CORRECTED 2026-09-28**: its body and `[extraction]` are swapped
+/// ([`replace_digitisation`]; the old extraction is kept only when
+/// `extraction` is `None`), `[source]` is kept, and nothing is appended.
+/// The same-heading overwrite below goes through the same function. Otherwise a new artifact is inserted with
 /// `kind`, `anchor`, and an `[extraction]` block
 /// (`method = "manual_digitisation"`).
 ///
@@ -456,9 +697,64 @@ pub fn save_digitised_csv(
 ) -> Result<Artifact, ClassifyError> {
     if let Some(id) = replace_id {
         if parse_document(session.markdown()).get(id).is_some() {
-            return replace_artifact_body(session, id, csv_body);
+            return replace_digitisation(session, id, csv_body, extraction);
         }
     }
+
+    // **Re-saving the same figure OVERWRITES it** (maintainer, 2026-09-24:
+    // "it should save over all existing csv, not add to it. Because there may
+    // have been some errors").
+    //
+    // Without this, `unique_id` suffixes on collision, so saving "Fig. 7"
+    // three times left `fig-7`, `fig-7-2` and `fig-7-3` side by side -- and
+    // the earliest, which is the one a reader meets first, is the one with
+    // the mistake in it. A re-digitisation is a correction, not a second
+    // measurement.
+    //
+    // `replace_id` above only fires when the crop was re-opened from an
+    // existing artifact; this covers the ordinary case of digitising the same
+    // figure again from the PDF.
+    //
+    // Guarded on the kind matching: an annotation that happens to share a
+    // heading with a figure must never be silently replaced by CSV.
+    let base = slugify(heading);
+    if !base.is_empty() {
+        let doc = parse_document(session.markdown());
+        let same_kind = doc.get(&base).is_some_and(|a| a.kind() == kind);
+        if same_kind {
+            // Remove the numbered duplicates this bug already produced, so
+            // "save over all existing csv" is true of a document that has
+            // accumulated them. Only exact `<base>-<n>` ids of the SAME kind
+            // and the SAME heading -- a differently-titled artifact is
+            // someone else's work, whatever its id looks like.
+            let mut stale: Vec<(usize, String)> = doc
+                .artifacts
+                .iter()
+                .filter(|a| {
+                    a.kind() == kind
+                        && a.heading.trim() == heading.trim()
+                        && a.id()
+                            .strip_prefix(&format!("{base}-"))
+                            .is_some_and(|n| n.parse::<u32>().is_ok())
+                })
+                .map(|a| (a.line, a.heading.clone()))
+                .collect();
+            // Highest line first: removing a later block cannot shift an
+            // earlier one's line number.
+            stale.sort_by(|x, y| y.0.cmp(&x.0));
+            if !stale.is_empty() {
+                let mut md = session.markdown().to_string();
+                for (line, head) in stale {
+                    if let Some(next) = crate::artifact::remove_block(&md, line, &head) {
+                        md = next;
+                    }
+                }
+                session.set_markdown(&md);
+            }
+            return replace_digitisation(session, &base, csv_body, extraction);
+        }
+    }
+
     let index = ResearchRecordIndex::from_session(session);
     insert_artifact(
         session,
@@ -1016,6 +1312,100 @@ x,y
         );
     }
 
+    /// Maintainer, 2026-10-01: "when i edit annotations, i should be able to
+    /// drag the corners of the boxes to correct them." A dragged box is
+    /// written back through [`replace_artifact_region`], saved, and read back
+    /// off disk by a fresh session: the region is the new one, `created` and
+    /// the body are unchanged, and only the `[source] region` and `modified`
+    /// lines differ from the file before the edit.
+    #[test]
+    fn replace_artifact_region_round_trips_through_disk_and_keeps_created() {
+        let (dir, mut session) = open_session();
+        let index = ResearchRecordIndex::from_session(&session);
+        let art = classify_selection(
+            &mut session,
+            &index,
+            "Gaussian plume equation",
+            ArtifactKind::Annotation,
+            SourceAnchor {
+                page: Some(4),
+                pages: None,
+                region: Some(Region::from([0.5, 0.6, 0.9, 0.9])),
+            },
+            Classification::default(),
+            "the plume note",
+        )
+        .unwrap();
+        session.save_document().unwrap();
+        let created = art.toml.kovan.created.clone();
+        let before = session.markdown().to_string();
+
+        let moved = Region::from([0.25, 0.125, 0.75, 0.875]);
+        let updated = replace_artifact_region(&mut session, art.id(), moved).unwrap();
+        assert_eq!(updated.toml.source.as_ref().unwrap().region, Some(moved));
+        session.save_document().unwrap();
+
+        let root = KovanRoot::open(dir.path()).unwrap();
+        let reopened = PaperSession::open(&root, session.citekey()).unwrap();
+        let back = ResearchRecordIndex::from_session(&reopened);
+        let a = back.get(art.id()).expect("still there after reload");
+        let source = a.toml.source.as_ref().unwrap();
+        assert_eq!(source.region, Some(moved));
+        assert_eq!(source.page, Some(4), "the page is kept");
+        assert_eq!(a.toml.kovan.created, created, "created is stable");
+        assert_eq!(a.body.trim(), "the plume note", "the body is kept");
+        assert_eq!(a.kind(), ArtifactKind::Annotation);
+
+        // Nothing but the region's four numbers and `modified` changed.
+        let after = reopened.markdown();
+        let changed: Vec<(&str, &str)> = before
+            .lines()
+            .zip(after.lines())
+            .filter(|(b, a)| b != a)
+            .collect();
+        assert_eq!(before.lines().count(), after.lines().count());
+        assert!(
+            changed.iter().all(|(b, _)| b.starts_with("modified =")
+                || b.trim_start().starts_with(|c: char| c.is_ascii_digit())),
+            "only `modified` and the region numbers may change: {changed:?}"
+        );
+    }
+
+    #[test]
+    fn replace_artifact_region_rejects_an_invalid_region_and_an_unknown_id() {
+        let (_dir, mut session) = open_session();
+        let index = ResearchRecordIndex::from_session(&session);
+        let art = classify_selection(
+            &mut session,
+            &index,
+            "A boxed note",
+            ArtifactKind::Annotation,
+            SourceAnchor {
+                page: Some(1),
+                pages: None,
+                region: Some(Region::from([0.1, 0.1, 0.2, 0.2])),
+            },
+            Classification::default(),
+            "body",
+        )
+        .unwrap();
+        let before = session.markdown().to_string();
+        let inverted = Region::from([0.8, 0.1, 0.2, 0.2]);
+        assert!(matches!(
+            replace_artifact_region(&mut session, art.id(), inverted),
+            Err(ClassifyError::BadAnchor(_))
+        ));
+        assert!(matches!(
+            replace_artifact_region(
+                &mut session,
+                "no-such-id",
+                Region::from([0.1, 0.1, 0.2, 0.2])
+            ),
+            Err(ClassifyError::UnknownId(_))
+        ));
+        assert_eq!(session.markdown(), before, "a rejected edit writes nothing");
+    }
+
     /// Maintainer, 2026-09-02: "when saving annotations, i want them auto
     /// organised by page number. Not saved one after another."
     #[test]
@@ -1160,6 +1550,188 @@ x,y
         );
     }
 
+    /// An extraction as a digitiser writes one, with a given y calibration.
+    fn graph_extraction(y_axis: &str, at: &str) -> Extraction {
+        let mut ex = Extraction::new("manual_digitisation", None);
+        ex.figure = Some("Fig. 6".into());
+        ex.x_label = Some("Time (h)".into());
+        ex.y_label = Some("Fraction".into());
+        ex.x_axis = Some("linear scale, px 10 = 0 , px 400 = 100".into());
+        ex.y_axis = Some(y_axis.into());
+        ex.digitised_by = Some("tester via kovan (gui, hand-placed)".into());
+        ex.digitised_at = Some(at.into());
+        ex
+    }
+
+    /// Stamp `[kovan].reviewed` onto artifact `id` the way a human review
+    /// would, by editing the Markdown.
+    fn mark_reviewed(session: &mut PaperSession, id: &str) {
+        let md = session.markdown().to_string();
+        let a = parse_document(&md).get(id).unwrap().clone();
+        let mut toml = a.toml.clone();
+        toml.kovan.reviewed = Some("2026-09-25T00:00:00Z".into());
+        let rendered = render_artifact_block(a.level, &a.heading, &toml, &a.body).unwrap();
+        session.set_markdown(&splice_lines(&md, block_span(&md, &a), &rendered));
+    }
+
+    /// Maintainer, 2026-09-28: a re-digitised figure kept its OLD
+    /// `[extraction]` (PANAMA Figs. 6/7 still read `px 88.03 = 10` after the
+    /// y top was corrected to 10^0). A re-save with `replace_id` must write
+    /// the new calibration and a fresh `digitised_at`, keep identity and
+    /// `[source]`, and drop a review that vouched for the old numbers.
+    #[test]
+    fn a_re_digitise_rewrites_the_extraction_and_keeps_identity_and_source() {
+        let (_dir, mut session) = open_session();
+        let anchor = SourceAnchor {
+            page: Some(9),
+            pages: None,
+            region: Some(crate::artifact::Region::from([0.1, 0.2, 0.6, 0.7])),
+        };
+        let old_at = "2026-09-24T00:00:00Z";
+        let first = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 6",
+            Some(anchor.clone()),
+            Some(graph_extraction("log scale, px 300 = 0.001 , px 88.03 = 10", old_at)),
+            None,
+            "```csv\nt,f\n1,0.1\n```\n",
+        )
+        .unwrap();
+        mark_reviewed(&mut session, first.id());
+
+        let again = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 6",
+            Some(anchor.clone()),
+            Some(graph_extraction("log scale, px 300 = 0.001 , px 88.03 = 1", old_at)),
+            Some(first.id()),
+            "```csv\nt,f\n1,0.01\n```\n",
+        )
+        .unwrap();
+        assert_eq!(again.id(), first.id());
+        assert_eq!(again.toml.kovan.created, first.toml.kovan.created);
+        assert_eq!(again.toml.kovan.kind, ArtifactKind::DigitisedGraph);
+        assert_eq!(again.toml.source.as_ref(), Some(&anchor), "[source] kept");
+        let ex = again.toml.extraction.as_ref().unwrap();
+        assert_eq!(
+            ex.y_axis.as_deref(),
+            Some("log scale, px 300 = 0.001 , px 88.03 = 1"),
+            "the new calibration is written"
+        );
+        assert_ne!(ex.digitised_at.as_deref(), Some(old_at), "re-save time");
+        assert!(again.body.contains("1,0.01"));
+        assert!(
+            again.toml.kovan.reviewed.is_none(),
+            "a review of numbers that no longer exist is dropped"
+        );
+        assert_eq!(
+            ResearchRecordIndex::from_session(&session).artifacts().len(),
+            2,
+            "header + the one graph: replaced, not appended"
+        );
+    }
+
+    /// An untouched re-save changes nothing but `digitised_at` (and
+    /// `modified`): same body, same extraction otherwise, review kept.
+    #[test]
+    fn an_untouched_re_save_differs_only_in_digitised_at() {
+        let (_dir, mut session) = open_session();
+        let body = "```csv\nt,f\n1,0.1\n```\n";
+        let ex = graph_extraction(
+            "log scale, px 300 = 0.001 , px 88.03 = 10",
+            "2026-09-24T00:00:00Z",
+        );
+        let first = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 7",
+            None,
+            Some(ex.clone()),
+            None,
+            body,
+        )
+        .unwrap();
+        mark_reviewed(&mut session, first.id());
+        let before = ResearchRecordIndex::from_session(&session)
+            .get(first.id())
+            .unwrap()
+            .clone();
+
+        let again = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 7",
+            None,
+            Some(ex.clone()),
+            Some(first.id()),
+            body,
+        )
+        .unwrap();
+        assert_eq!(again.body, before.body, "identical body");
+        let mut new_ex = again.toml.extraction.clone().unwrap();
+        assert_ne!(new_ex.digitised_at, ex.digitised_at);
+        new_ex.digitised_at = ex.digitised_at.clone();
+        assert_eq!(new_ex, ex, "only digitised_at differs");
+        assert_eq!(again.toml.kovan.reviewed, before.toml.kovan.reviewed, "review kept");
+    }
+
+    /// The table digitiser's save passes an extraction too; a table re-save
+    /// (and the same-heading overwrite, the other replace branch) must write
+    /// it.
+    #[test]
+    fn a_table_re_save_and_a_same_heading_overwrite_update_the_extraction() {
+        let (_dir, mut session) = open_session();
+        let table_ex = |by: &str| {
+            let mut ex = Extraction::new("pdf_native", None);
+            ex.figure = Some("Table 5".into());
+            ex.digitised_by = Some(by.into());
+            ex.digitised_at = Some("2026-09-24T00:00:00Z".into());
+            ex
+        };
+        let first = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedTable,
+            "Table 5",
+            None,
+            Some(table_ex("alice via kovan")),
+            None,
+            "```csv\na,b\n1,2\n```\n",
+        )
+        .unwrap();
+        let again = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedTable,
+            "Table 5",
+            None,
+            Some(table_ex("bob via kovan")),
+            Some(first.id()),
+            "```csv\na,b\n1,3\n```\n",
+        )
+        .unwrap();
+        let ex = again.toml.extraction.as_ref().unwrap();
+        assert_eq!(ex.digitised_by.as_deref(), Some("bob via kovan"));
+        assert_ne!(ex.digitised_at.as_deref(), Some("2026-09-24T00:00:00Z"));
+
+        // Same heading, no replace_id: the overwrite branch.
+        let third = save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedTable,
+            "Table 5",
+            None,
+            Some(table_ex("carol via kovan")),
+            None,
+            "```csv\na,b\n1,4\n```\n",
+        )
+        .unwrap();
+        assert_eq!(third.id(), first.id());
+        assert_eq!(
+            third.toml.extraction.as_ref().unwrap().digitised_by.as_deref(),
+            Some("carol via kovan")
+        );
+    }
+
     // -----------------------------------------------------------------
     // delete_artifact_cascade (op-30um.2)
     // -----------------------------------------------------------------
@@ -1262,6 +1834,148 @@ x,y
         let text = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
         assert!(parse_document(&text).get("note-a").is_some());
     }
+
+    /// **Re-digitising a figure corrects it; it does not add a second one.**
+    ///
+    /// `unique_id` suffixes on collision, so before this a third save of
+    /// "Fig. 7" left `fig-7`, `fig-7-2` and `fig-7-3` side by side -- and the
+    /// first one, which a reader meets first, held the earliest mistake.
+    #[test]
+    fn re_saving_a_figure_overwrites_it_instead_of_accumulating() {
+        let (_dir, mut session) = open_session();
+
+        for csv in ["x,y\n1,1\n", "x,y\n2,2\n", "x,y\n3,3\n"] {
+            save_digitised_csv(
+                &mut session,
+                ArtifactKind::DigitisedGraph,
+                "Fig. 7",
+                None,
+                None,
+                None,
+                &crate::artifact::render_csv_body(csv),
+            )
+            .expect("saves");
+        }
+
+        let doc = parse_document(session.markdown());
+        let graphs: Vec<_> = doc
+            .artifacts
+            .iter()
+            .filter(|a| a.kind() == ArtifactKind::DigitisedGraph)
+            .collect();
+        assert_eq!(graphs.len(), 1, "three saves must leave ONE figure");
+        assert_eq!(graphs[0].id(), "fig-7", "and it keeps the unsuffixed id");
+        assert_eq!(
+            graphs[0].csv_export().unwrap(),
+            "x,y\n3,3\n",
+            "the surviving copy is the LATEST, not the first"
+        );
+        assert!(
+            !session.markdown().contains("fig-7-2"),
+            "no suffixed duplicate survives:\n{}",
+            session.markdown()
+        );
+    }
+
+    /// A document that already accumulated duplicates is collapsed on the
+    /// next save -- "save over all existing csv" has to be true of the mess
+    /// the bug already made, not just of new documents.
+    #[test]
+    fn an_already_duplicated_figure_is_collapsed_on_the_next_save() {
+        let (_dir, mut session) = open_session();
+        // Two blocks with the same heading, as the old behaviour produced.
+        // The index is re-derived per insert, as the real callers do -- a
+        // stale snapshot would hand both the same id.
+        for csv in ["x,y\n1,1\n", "x,y\n2,2\n"] {
+            let index = ResearchRecordIndex::from_session(&session);
+            insert_artifact(
+                &mut session,
+                &index,
+                "Fig. 9",
+                ArtifactKind::DigitisedGraph,
+                None,
+                Classification::default(),
+                None,
+                &crate::artifact::render_csv_body(csv),
+            )
+            .expect("inserted");
+        }
+        assert_eq!(
+            parse_document(session.markdown())
+                .artifacts
+                .iter()
+                .filter(|a| a.kind() == ArtifactKind::DigitisedGraph)
+                .count(),
+            2,
+            "precondition: two duplicates exist"
+        );
+
+        save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 9",
+            None,
+            None,
+            None,
+            &crate::artifact::render_csv_body("x,y\n9,9\n"),
+        )
+        .expect("saves");
+
+        let doc = parse_document(session.markdown());
+        let graphs: Vec<_> = doc
+            .artifacts
+            .iter()
+            .filter(|a| a.kind() == ArtifactKind::DigitisedGraph)
+            .collect();
+        assert_eq!(graphs.len(), 1, "the duplicates are collapsed");
+        assert_eq!(graphs[0].csv_export().unwrap(), "x,y\n9,9\n");
+    }
+
+    /// An artifact of a DIFFERENT kind that happens to share the heading must
+    /// never be silently replaced by CSV. Someone's annotation is not a stale
+    /// copy of a figure.
+    #[test]
+    fn a_different_kind_sharing_the_heading_is_not_clobbered() {
+        let (_dir, mut session) = open_session();
+        let index = ResearchRecordIndex::from_session(&session);
+        insert_artifact(
+            &mut session,
+            &index,
+            "Fig. 3",
+            ArtifactKind::Annotation,
+            None,
+            Classification::default(),
+            None,
+            "a hand-written note",
+        )
+        .expect("annotation inserted");
+
+        save_digitised_csv(
+            &mut session,
+            ArtifactKind::DigitisedGraph,
+            "Fig. 3",
+            None,
+            None,
+            None,
+            &crate::artifact::render_csv_body("x,y\n1,2\n"),
+        )
+        .expect("saves");
+
+        let doc = parse_document(session.markdown());
+        assert!(
+            session.markdown().contains("a hand-written note"),
+            "the annotation must survive untouched"
+        );
+        assert_eq!(
+            doc.artifacts
+                .iter()
+                .filter(|a| a.kind() == ArtifactKind::DigitisedGraph)
+                .count(),
+            1,
+            "the graph is inserted alongside it, with a suffixed id"
+        );
+    }
+
 }
 
 /// Give `session`'s document its paper header artifact if it has none:
@@ -1293,12 +2007,15 @@ pub fn ensure_paper_header(
 
     let now = utc_now_iso8601();
     let toml = ArtifactToml {
+        extra: Default::default(),
         kovan: ArtifactMeta {
+            extra: Default::default(),
             id: citekey.clone(),
             kind: ArtifactKind::Paper,
             created: now.clone(),
             modified: now,
             reviewed: None,
+            origin: None,
         },
         source: None,
         classification: Classification::default(),
@@ -1344,13 +2061,13 @@ pub fn ensure_paper_header(
 /// and table digitisers wrote when no paper was active, as a plain Markdown
 /// heading plus a bare ```csv fence and no `[kovan]` block at all:
 ///
-/// ```text
+/// ````text
 /// ### Fig 1. — page 3, pixel bbox [38.6, 71.9, 1215.4, 797.4], 2026-09-02T02:31:04Z, unnamed
 ///
 /// ```csv
 /// …
 /// ```
-/// ```
+/// ````
 ///
 /// Because such a section carries no fenced TOML, [`parse_document`] does not
 /// see it as an artifact at all: it has no id, no kind and no `[source]`, so
@@ -1534,4 +2251,6 @@ pub fn migrate_legacy_csv_sections(
         migrated += 1;
     }
     Ok(migrated)
+
+
 }

@@ -71,6 +71,32 @@ pub enum TampinesSteamArrayError {
         /// The offending timestep, in seconds.
         seconds: f64,
     },
+    /// Under the guarded fixed step ([`super::TimeStepControl::Fixed`]) a
+    /// cell's **outflow Courant number** `dt·Σφ_out/(ρ_old·V)` exceeded 1:
+    /// the step would export more mass from the cell than it held at the start
+    /// of the step. The array is left in its start-of-step state; retry with a
+    /// smaller step or select [`super::TimeStepControl::AdaptiveCourant`].
+    ///
+    /// Added 2026-10-16 (gh:#900). It replaces, under the fixed control, the
+    /// drained-cell enthalpy hold that used to let such a step continue.
+    CourantViolation {
+        /// Index of the cell with the largest offending outflow Courant number.
+        cell: usize,
+        /// That cell's outflow Courant number (dimensionless, > 1, or NaN).
+        outflow_courant: f64,
+        /// The step that produced it, in seconds.
+        delta_t_seconds: f64,
+    },
+    /// A cell's `(p, h)` state left the IAPWS-IF97 `(p,h)` envelope during
+    /// [`super::TampinesSteamArray::correct_thermo`]. Reported from the checked
+    /// flash facade instead of the panic the unchecked flash raised before
+    /// 2026-10-16 (gh:#900).
+    ThermoOutOfRange {
+        /// Index of the first offending cell.
+        cell: usize,
+        /// The facade's description of which bound was broken, with values.
+        source: crate::interfaces::checked::SteamTablesError,
+    },
 }
 
 impl std::fmt::Display for TampinesSteamArrayError {
@@ -88,6 +114,18 @@ impl std::fmt::Display for TampinesSteamArrayError {
                 f,
                 "timestep must be a positive, finite duration; got {seconds} s"
             ),
+            Self::CourantViolation {
+                cell,
+                outflow_courant,
+                delta_t_seconds,
+            } => write!(
+                f,
+                "outflow Courant number {outflow_courant} > 1 in cell {cell} at a fixed \
+                 timestep of {delta_t_seconds} s: the step would drain the cell past empty"
+            ),
+            Self::ThermoOutOfRange { cell, source } => {
+                write!(f, "cell {cell}: (p,h) state outside the IAPWS-IF97 envelope: {source}")
+            }
         }
     }
 }
@@ -470,6 +508,7 @@ impl TampinesSteamArray {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use uom::si::area::square_meter;
     use uom::si::f64::{Area, Time};
     use uom::si::length::meter;
@@ -513,13 +552,20 @@ mod tests {
     /// even from a uniform equilibrium field. See the workspace beads
     /// tracker (`op-21g.12`) for the full debugging trail.
     ///
-    /// A remaining sharp edge (not exercised here): near the saturation
+    /// ~~A remaining sharp edge (not exercised here): near the saturation
     /// boundary, `correct_thermo`'s `(p,h)` region classification and
     /// `thermal_conductivity`'s internal `(T,p)` re-classification can
     /// disagree, hitting `pt_flash_eqm::cp_tp_eqm_single_phase`'s
     /// `FwdEqnRegion::Region4 => todo!(...)`. A real boiling steam-generator
     /// tube passes through that boundary, so it must be addressed before
-    /// this array can model one -- still tracked on `op-21g.12`.
+    /// this array can model one -- still tracked on `op-21g.12`.~~
+    /// **CORRECTED 2026-10-16** -- the boiling case is now exercised: the
+    /// steam-generator test further down this module heats feedwater into
+    /// the two-phase region and asserts it gets there ("the case that used
+    /// to `todo!()`-panic before the two-phase λ fix"). The `Region4` arm in
+    /// `pt_flash_eqm` is now a `panic!` with an explanatory message, not a
+    /// `todo!()`; a caller that hands `(T,p)` a saturated state still hits
+    /// it. The (p,h)/(T,p) 17.7 mK floor mismatch is gh:#342.
     #[test]
     fn inlet_outlet_bcs_drive_flow_and_outlet_pressure_settles_near_imposed_value() {
         let mut arr = TampinesSteamArray::new(
@@ -557,7 +603,7 @@ mod tests {
         arr.set_inlet_enthalpy(inlet_enthalpy);
         arr.set_outlet_pressure(outlet_pressure);
 
-        arr.run(200);
+        arr.run(200).unwrap();
 
         let all_finite = arr
             .u
@@ -643,7 +689,7 @@ mod tests {
         arr.set_outlet_pressure(outlet_pressure);
 
         for _ in 0..100 {
-            arr.step();
+            arr.step().unwrap();
             for (c, &pv) in arr.p.internal.as_slice().iter().enumerate() {
                 assert!(pv.is_finite(), "cell {c} pressure went non-finite");
                 assert!(
@@ -738,7 +784,7 @@ mod tests {
         for i in 0..30_000 {
             arr.lateral_link_new_power_vector(total_heat, q_fraction.clone())
                 .unwrap();
-            arr.step();
+            arr.step().unwrap();
             let x_out = x_ph_flash(arr.get_outlet_pressure(), arr.get_outlet_enthalpy());
             if x_out > 0.0 && x_out < 1.0 {
                 reached_two_phase = true;
@@ -829,7 +875,7 @@ mod tests {
         let fractions = vec![0.2; 5];
         arr.lateral_link_new_power_vector(Power::new::<watt>(100.0), fractions)
             .unwrap();
-        arr.step();
+        arr.step().unwrap();
         assert!(arr.q_vector.is_empty());
         assert!(arr.q_fraction_vector.is_empty());
         assert!(arr.lateral_adjacent_array_temperature_vector.is_empty());
@@ -993,7 +1039,7 @@ mod tests {
                     inlet_enthalpy_j,
                 ));
                 arr.set_outlet_pressure(steam_pressure);
-                arr.step();
+                arr.step().unwrap();
             }
 
             let final_enthalpy = arr.he.internal[0];
@@ -1133,7 +1179,7 @@ mod tests {
         right.set_inlet_velocity(Velocity::new::<meter_per_second>(
             target / (rho_right * AREA_M2),
         ));
-        right.run(2000);
+        right.run(2000).unwrap();
         let m_right = actual_inlet_flow(&right);
 
         // 2. Velocity from a wrong density.
@@ -1142,14 +1188,14 @@ mod tests {
         wrong.set_inlet_velocity(Velocity::new::<meter_per_second>(
             target / (rho_wrong * AREA_M2),
         ));
-        wrong.run(2000);
+        wrong.run(2000).unwrap();
         let m_wrong = actual_inlet_flow(&wrong);
 
         // 3. Prescribed mass-flow inlet.
         let mut prescribed = build();
         prescribed.set_inlet_enthalpy(h_seed);
         prescribed.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(target));
-        prescribed.run(2000);
+        prescribed.run(2000).unwrap();
         let m_prescribed = actual_inlet_flow(&prescribed);
 
         println!(
@@ -1228,7 +1274,24 @@ mod tests {
     /// is no boundary through which energy can enter or leave, so the global
     /// balance cannot even be posed".
     ///
-    /// **The excursion is a pre-existing solver defect, not a boundary defect,
+    /// **Re-measured 2026-09-29 (gh:#319) after the energy convection moved
+    /// from the unlimited linear `fvc::div` to `fvc::div_limited` with the van
+    /// Leer default** (`EnergyConvectionScheme`):
+    ///
+    /// | Arm | Worst excursion | Reversed mean `he` | Miss from the 450 K junction |
+    /// |---|---|---|---|
+    /// | forward control | **0.015 kJ/kg (0.01 % of span)** | n/a | n/a |
+    /// | reversal, outlet prescribed | **0.198 kJ/kg (0.09 %)** | 750.9 kJ/kg | **0.00 % of span** |
+    /// | reversal, outlet unset | **0.198 kJ/kg (0.09 %)** | 544.3 kJ/kg | **95.92 % of span** |
+    ///
+    /// The unset arm now drifts 536.7 -> 544.3 kJ/kg (+7.6, about +1.8 K)
+    /// rather than +135.6 kJ/kg (+32 K) -- most of the "drift with no energy
+    /// source" in the 2026-08-12 table was the same unbounded scheme. The
+    /// relative gate `worst <= 1.5 x forward control` was replaced by an
+    /// absolute 1 kJ/kg pressure-work bound (see the assertion), which is
+    /// tighter in every arm.
+    ///
+    /// ~~**The excursion is a pre-existing solver defect, not a boundary defect,
     /// and it is not tuned away here.** It is a single-cell odd-even spike that
     /// parks at the **second-to-last cell** and does **not** converge under mesh
     /// refinement -- measured on a forward-only front at 39.20 % (n = 8),
@@ -1237,7 +1300,13 @@ mod tests {
     /// (commit `d9abc55616`), so this change neither causes nor worsens it.
     /// Filed as its own bead; it is distinct from `op-1fyp` (central-differenced
     /// `fvc::div(phi, he)`, 10-15 % and mesh-convergent at a *travelling* front)
-    /// because this one is boundary-localised, 3-4x larger, and mesh-invariant.
+    /// because this one is boundary-localised, 3-4x larger, and mesh-invariant.~~
+    /// **CORRECTED 2026-09-29 (gh:#319)** -- it was not distinct: this array
+    /// never received `op-1fyp`'s fix (only the sibling `outram-park-fork-coolprop`
+    /// array did), and replacing its central-differenced `fvc::div(phi, he)` with
+    /// the limited scheme removed the spike (39.20 % -> 0.01 % of span). The
+    /// mesh-invariance measured above is what a central scheme at cell
+    /// Péclet >> 1 does at a boundary where the upwind terminal meets it.
     ///
     /// The boundedness assertion is therefore made **relative to that measured
     /// floor** rather than against a number chosen to pass: reversing the flow
@@ -1307,14 +1376,14 @@ mod tests {
         fwd.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(mdot));
         let mut forward_worst = 0.0_f64;
         for _ in 0..(FORWARD_STEPS + REVERSE_STEPS) {
-            fwd.step();
+            fwd.step().unwrap();
             forward_worst = forward_worst.max(excursion(&fwd));
         }
         println!(
             "flow reversal V&V, available range [{:.1}, {:.1}] kJ/kg (span {:.1}):\n  \
              forward control (no reversal, 50 K front from the inlet): worst \
-             excursion {:.3} kJ/kg = {:.2}% of span -- this is the solver's own \
-             outlet odd-even oscillation, pre-existing and mesh-invariant",
+             excursion {:.3} kJ/kg = {:.2}% of span -- the solver's own boundedness \
+             floor (39.20% under the pre-2026-09-29 linear scheme)",
             h_lo / 1e3,
             h_hi / 1e3,
             span / 1e3,
@@ -1339,7 +1408,7 @@ mod tests {
             // Forward: fluid enters at the inlet terminal.
             arr.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(mdot));
             for _ in 0..FORWARD_STEPS {
-                arr.step();
+                arr.step().unwrap();
                 worst = worst.max(excursion(&arr));
             }
             let h_after_forward = mean_he(&arr);
@@ -1348,7 +1417,7 @@ mod tests {
             // upstream state is what governs.
             arr.set_inlet_mass_flowrate(MassRate::new::<kilogram_per_second>(-mdot));
             for _ in 0..REVERSE_STEPS {
-                arr.step();
+                arr.step().unwrap();
                 worst = worst.max(excursion(&arr));
             }
             let h_after_reverse = mean_he(&arr);
@@ -1390,18 +1459,23 @@ mod tests {
                 worst / 1e3,
                 span / 1e3,
             );
-            // Relative to the measured floor: reversing must not make boundedness
-            // materially worse than the solver's own outlet oscillation already
-            // does. Deliberately NOT an absolute number chosen to pass -- see the
-            // doc comment.
+            // ~~Relative to the measured floor: `worst <= 1.5 * forward_worst`~~
+            // -- REPLACED 2026-09-29 (gh:#319) by an absolute bound, which is
+            // TIGHTER in every arm. The relative gate existed only because the
+            // forward control itself rang by 39 % of span; that ringing was the
+            // unbounded linear `fvc::div` (see the doc comment), and with the
+            // bounded default it fell 5600x to 0.015 kJ/kg, so a ratio against
+            // it now measures rounding noise. The physical allowance is the
+            // reversible pressure work `dh = dp / rho` of the reversal's own
+            // pressure transient: 1 kJ/kg is a 1 MPa swing in liquid, 0.46 % of
+            // this span.
+            const PRESSURE_WORK_ALLOWANCE_J_PER_KG: f64 = 1.0e3;
             assert!(
-                worst <= 1.5 * forward_worst,
-                "reversing the flow made the enthalpy excursion {:.2}x the \
-                 forward-only control ({:.3} vs {:.3} kJ/kg, {label}). The forward \
-                 control shares the same 50 K front amplitude and never reverses, so \
-                 anything materially above it is attributable to the TERMINAL \
-                 treatment rather than to the pre-existing outlet oscillation.",
-                worst / forward_worst.max(f64::MIN_POSITIVE),
+                worst <= PRESSURE_WORK_ALLOWANCE_J_PER_KG,
+                "the enthalpy left the range spanned by its two terminals and its \
+                 initial state by {:.3} kJ/kg ({label}), more than the 1 kJ/kg of \
+                 reversible pressure work a reversal transient can account for. \
+                 (Forward-only control: {:.3} kJ/kg.)",
                 worst / 1e3,
                 forward_worst / 1e3,
             );
@@ -1534,7 +1608,7 @@ mod tests {
         let dx = L_M / N as f64;
         let k = std::f64::consts::PI / L_M;
         // Cell-centre value of the mode, reused for seeding and for projection.
-        let mode = |c: usize| (k * (c as f64 + 0.5) * dx).cos();
+        let mode = |c: usize| (k * (c as f64 + 0.5) * dx).r_cos();
 
         let mut arr = TampinesSteamArray::new(
             Length::new::<meter>(L_M),
@@ -1581,11 +1655,11 @@ mod tests {
         let diffusivity = lambda / (rho_mean * cp);
 
         let a0 = amplitude(&arr);
-        arr.run(STEPS);
+        arr.run(STEPS).unwrap();
         let a1 = amplitude(&arr);
 
         let elapsed = STEPS as f64 * DT_S;
-        let analytical_ratio = (-diffusivity * k * k * elapsed).exp();
+        let analytical_ratio = (-diffusivity * k * k * elapsed).r_exp();
         let measured_ratio = a1 / a0;
         let relative_error = (measured_ratio - analytical_ratio) / analytical_ratio;
 
@@ -1726,7 +1800,7 @@ mod tests {
         for _ in 0..4000 {
             arr.lateral_link_new_power_vector(duty, q_fraction.clone())
                 .unwrap();
-            arr.step();
+            arr.step().unwrap();
         }
 
         let peclet: Vec<f64> = arr
@@ -1949,7 +2023,7 @@ mod tests {
             let stored_before = stored(&arr);
             arr.lateral_link_new_power_vector(source_w, q_fraction.clone())
                 .unwrap();
-            arr.step();
+            arr.step().unwrap();
             let stored_after = stored(&arr);
 
             // Solved boundary mass fluxes. The inlet normal is -x, so an
@@ -1974,7 +2048,7 @@ mod tests {
         let stored_before = stored(&arr);
         arr.lateral_link_new_power_vector(source_w, q_fraction.clone())
             .unwrap();
-        arr.step();
+        arr.step().unwrap();
         let storage_rate = (stored(&arr) - stored_before) / dt_s;
 
         let mdot_in = -arr.phi.boundary[INLET].values[0];

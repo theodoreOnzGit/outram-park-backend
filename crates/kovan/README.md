@@ -1,5 +1,18 @@
 # kovan
 
+**KOVAN** — **K**nowledge **O**riented **V**&V **A**nalysis for **N**uclear
+**S**ciences.
+
+> **On crates.io (2026-10-07):** the KOVAN app is published as
+> `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`, its backronym
+> spelled out (`kovan` on crates.io is an unrelated crate). Install it with
+> `cargo install knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`;
+> the binaries are still `kovan`, `kovan-cli` and `kovan-tui`, and the library
+> is still `kovan`.
+
+The startup screen carries this expansion (`src/app/home.rs`); everywhere else
+the plain "KOVAN" is used, per GH issue #35's 2026-09-01 checkpoint §1.
+
 Exactly three binaries in one crate, per the final interface spec on GitHub
 issue #30 (2026-08-21): `kovan` (human-facing GUI — the graph digitiser
 window), `kovan-cli` (agent-facing CLI), `kovan-tui` (human-facing terminal
@@ -22,23 +35,131 @@ plain `kovan`, the old `kovan` (CLI) was renamed to `kovan-cli` and gained a
 Digitiser tab absorbing `kovan-digitise-tui`'s interactive review screen.
 
 See [`docs/kovan.md`](../../docs/kovan.md) for KOVAN's overall design
-principles (deterministic-first, local-first, Android-first) and mission.
+principles (deterministic-first, local-first, leak-before-break, Android-first) and mission.
 
 > Unverified until validated — see the workspace root `RESPONSIBLE_USE.md`.
 > This crate is at the "Prototype" / "Unit Tested" V&V stage: wired to real
 > library functionality and covered by unit + end-to-end tests, but not yet
 > exercised against a real literature/repository corpus by a human reviewer.
 
-## License — AGPL-3.0-only (differs from the workspace default)
+## The Markdown schema (notes, lessons, walkthroughs, recipes)
 
-`kovan` is licensed **AGPL-3.0-only**, not the workspace's usual
-GPL-3.0-only — the one deliberate exception in this repository. It depends
+Every Kovan document is plain Markdown: a `#` heading followed by a fenced
+`toml` block with a `[kovan]` table is an **artifact**; `##` is prose; `###`
+is data (CSV series or embedded code); the last `##` is the review sign-off.
+The same rules cover literature notes, lessons, deep dives, review
+walkthroughs and recipes (GitHub #743). The kinds are `paper`, `note`,
+`annotation`, `source_reference`, `formula`, `digitised_table`,
+`digitised_graph`, `relation`, `mindmap` and, since 2026-10-06,
+`lesson_section`, `walk_step`, `code_walk` and `recipe_step`.
+`[kovan] origin = "ai" | "human"` (human when absent) records who wrote it,
+and `[[relation]]` tables anchor an artifact to literature or to code
+(`code:<file>::<Type::name>[@L<line>]`, optional `page`, `quote`, `commit`).
+Existing notes parse and re-serialise unchanged. The reference with worked
+examples is `docs/site/kovan-schema/index.html`, published on the workspace's
+GitHub Pages site; the parser's own docs are in `src/artifact.rs`.
+
+## License — AGPL-3.0-only (~~differs from the workspace default~~ **the workspace default since 2026-10-20, gh:#973**)
+
+`kovan` is licensed **AGPL-3.0-only**, ~~not the workspace's usual
+GPL-3.0-only — the one deliberate exception in this repository~~ (**CORRECTED 2026-10-20:** all 48 crates are AGPL-3.0-only now). It depends
 on [`kopitiam-pdf`](https://github.com/theodoreOnzGit/kopitiam) (also
 AGPL-3.0-only), the pure-Rust PDF page rasterizer this crate's PDF-reader
 work (GitHub issue #30) is built on. See [`NOTICE`](./NOTICE) for the full
 relicense record, `kopitiam-pdf`'s provenance, and — importantly — the
 workspace-boundary rule it sets: no other crate in this repository may take
 `kovan` as a dependency without re-examining that boundary first.
+
+## The concept tree: four levels
+
+**Decided by the maintainer on 2026-10-06 (GitHub #724, #726, #727, #729).**
+Kovan organises nuclear knowledge in one concept tree, shared by its two
+master tabs: **Literature** (the default) and **Code Review**. Every node is
+a concept; code never appears as a node.
+
+| Level | What it is | Where it comes from | Path segment | Who changes it |
+|---|---|---|---|---|
+| **1** | The **19 IAEA infrastructure issues** | IAEA Nuclear Energy Series NG-G-3.1 (Rev. 1), *Milestones in the Development of a National Infrastructure for Nuclear Power*, 2015, §3.1–3.19 | numbered so `NN` is §3.NN: `02-nuclear-safety` | frozen |
+| **2** | **Regulatory review categories**: the chapters a regulator reviews under each issue | NUREG-0800 (SRP), NUREG-1537 Part 1, NUREG-1520, NUREG-1555, NUREG-0654/FEMA-REP-1, RG 1.232, ORNL/TM-2018/976 (MSR), 10 CFR 50/52/53; where the NRC is silent, the Milestones text itself | plain words, no number: `nuclear-design` | the maintainer, rarely |
+| **3** | **Concepts**, nesting as deep as needed | the sub-sections of those documents, plus concepts outram-park's code needs that they only imply (`origin = "outram-park"`, each with a `why`) | plain words: `neutron-transport/delta-tracking/majorant` | agents propose, the maintainer approves; backwards compatible once published |
+| **4** | **Implementations**: which code implements a concept | generated by kovan from `kovan-concept: <path>` lines in each module's doc comment; world implementations (OpenMC, NJOY2016, GeN-Foam, …) listed first and credited, outram-park's after, each with its maturity rung | crate and module | the code itself; bleeding edge, follows `develop` |
+
+A full path reads:
+
+```text
+02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking/majorant
+└ L1 (IAEA §3.2)  └ L2 (SRP 4.3,    └ L3 concept ……………………………
+                    NUREG-1537 4.5)
+```
+
+**Rules that bind the tree**
+
+- **Every node cites its source** by document and section (and page where
+  the document gives one). A source names a `[[document]]` whose file is in
+  the standard corpus (`reactor-literature/kovan-standard-open-corpus/`) or,
+  for documents that may not be redistributed (the IAEA ones), the
+  maintainer's private corpus, cited only.
+- **One home, many links.** Each concept has one home path; `cross_links`
+  (dotted on the map) name every other node it belongs to. An
+  **aspiration** link (dashed) marks what outram-park work aims to support but
+  is not validated, risk-assessed or licensed for, with its prerequisites
+  stated.
+- **Empty is greyed, not hidden.** A node with nothing classified under it is
+  greyed; a "show empty nodes" toggle hides or reveals them. "Greyed" is per
+  tab: no literature in Literature, no outram-park implementation in Code
+  Review.
+- **outram-park appears in Literature only through peer-reviewed
+  publications** (today: TUAS, Ong, Xiao & Peterson 2025,
+  doi:10.1016/j.jandt.2025.03.006), which enter the standard corpus. Unpublished
+  work is visible only in Code Review.
+- **Implementation maturity** (level 4) is shown as one of ~~four~~ five
+  rungs: (1) AI translated or constructed, (2) AI V&V, (3) human reviewed,
+  (4) human V&V (a human builds a code-to-code verification or validation case
+  through the API or GUI), **(5) independent V&V (IV&V)** (**CORRECTED
+  2026-10-08**, GitHub #809: the review engine derives rung 5, which this
+  list omitted): a rung-4 V&V case written and verified by hand by a
+  qualified reviewer from an organisation "both technically and managerially
+  separate from the organization responsible for developing the software"
+  (NUREG/BR-0167 §3.1 p. 6), shown by registry organisations and the
+  reviewer's signed separation attestation with a GitHub issue as its audit
+  record. ~~Rung 5 was a second independent review stamp~~ (the 2026-10-07
+  rule, never used). Rules: `kovan_common::review::ivv`. Handwritten code
+  starts at rung 3.
+- **Compatibility.** Levels 1–2 change rarely; level 3 never breaks a
+  published path (a move leaves an alias, a deletion becomes `deprecated`);
+  level 4 follows the code and is regenerated, with a staleness check.
+
+**Where it lives: in `kovan-literature`** (`crates/kovan-literature/`, beside the
+corpus it cites; that crate builds for `wasm32-unknown-unknown`, which the
+browser build of Code Review needs, and this crate does not)
+
+| File | Holds | Checked by |
+|---|---|---|
+| `../kovan-literature/src/concept_skeleton.toml` | levels 1–2 and the `[[document]]` list | `tests/concept_skeleton.rs`: 19 L1 nodes in IAEA order, unique paths, parents exist, L2 unnumbered, every source a declared document, every standard-tier file present in the corpus, every cross-link resolves |
+| `../kovan-literature/src/concept_proposals.toml` | level-3 concepts (`status`: proposed / approved / deferred) and the seed `kovan-concept` tags for level 4 | `tests/concept_proposals.rs`: parents and sources exist, origins valid, cross-links and aspirations resolve, every tagged module exists on `develop` |
+| `../kovan-literature/docs/concept-proposals.md` | the review document, generated from the TOML (`KOVAN_REGENERATE_PROPOSALS=1 cargo test --release -p kovan-literature --test concept_proposals`) | the same test fails if it is stale |
+
+**Status (2026-10-06).** Levels 1–3 are reviewed and approved: 19 issues,
+89 level-2 categories and 263 concepts (3 deferred awaiting sources), with
+over 90 cross-links. ~~**Kovan does not read the tree yet**~~ **Since
+2026-10-06 Kovan's standard mind map is levels 1–3 of this tree**, replacing
+the 44 hand-written `nuclear-engineering/...` topics: `kovan-literature`'s
+`concept_tree` module parses both TOML files once into a typed `ConceptTree`,
+and Kovan's `corpus.rs` draws it under one virtual root, "Nuclear knowledge
+(IAEA Milestones)" (id `corpus:concept/iaea_milestones`), in the map's
+existing style. Node ids are the concept paths themselves, so a `kovan.toml`
+classification such as `02-nuclear-safety/nuclear-design/neutron-transport`
+resolves directly; cross-links are drawn as built-in, read-only link cards;
+deferred concepts are in the tree and flagged. Every `[[document]]` the tree
+cites is a standard-corpus literature entry (its metadata is compiled into
+Kovan; the PDF opens from the `reactor-literature` checkout when one is
+present), the two IAEA ones as citation-only entries, so the map needs
+neither the corpus checkout nor the private repository. A user's own
+`topics/` folders (including old `nuclear-engineering/...` ones) keep working
+as the user's topics. Still to do: the Code Review tab, level-4 generation
+from code tags, the drift report, the maturity rungs (#729), the "show empty
+nodes" toggle (the model's `corpus::has_literature` /
+`has_classified_literature` are the hook), and source hyperlinks on cards.
 
 ## Install / run
 
@@ -48,15 +169,15 @@ cargo install --path crates/kovan --bin kovan-cli
 kovan-cli --help
 
 # or without installing to ~/.cargo/bin:
-cargo build --release -p kovan --bin kovan-cli
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli
 ./target/release/kovan-cli --help
 
 # TUI (human-facing)
-cargo build --release -p kovan --bin kovan-tui
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-tui
 ./target/release/kovan-tui
 
 # GUI (the graph digitiser window — see "Graph digitiser" below)
-cargo build --release -p kovan --bin kovan --features gui
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan --features gui
 ./target/release/kovan
 ```
 
@@ -71,6 +192,21 @@ kovan-cli setup --dry-run   # report what would be installed, without installing
 `kovan-cli setup` is an explicit, online, desktop-scope convenience — see
 "`setup`" below. It never runs automatically and has no bearing on the rest
 of this crate's offline/Android-clean operation (see "Android").
+
+### Windows: local drives only, not network shares
+
+**On Windows, kovan is not supported on a network share** (a `\\host\share`
+path, mapped to a drive letter or not). Keep the workspace, the kovan folder
+and the literature on a local drive; any drive letter works.
+
+The reason is the path form (GitHub #834). On Windows a resolved path comes
+back as `\\?\C:\...`. kovan resolves paths with `dunce::canonicalize`, which
+returns the ordinary `C:\...` for a local drive and leaves a share as
+`\\?\UNC\host\share\...`. Given a `\\?\` workspace root, `cargo metadata`
+spells the members two ways and `rust-analyzer scip` indexed 31 of this
+workspace's 48 crates (measured 2026-10-11; with the plain root, 48 of 48).
+A share has not been tested and is expected to fail the same way. Linux and
+macOS have one path form and are not affected.
 
 ## `kovan-cli` — CLI commands
 
@@ -87,9 +223,22 @@ kovan-cli gen root newton-raphson
 kovan-cli lit import paper.pdf --json-out doc.json
 kovan-cli lit bibtex doc.json
 kovan-cli lit outline paper.pdf
+kovan-cli zotero formats
+kovan-cli zotero import ~/Zotero --to ~/my-kovan-folder --dry-run
+kovan-cli zotero import ~/Zotero --to ~/my-kovan-folder
+kovan-cli zotero import library.ris --to ~/my-kovan-folder
+kovan-cli zotero export --format bibtex --from ~/my-kovan-folder -o library.bib
+kovan-cli zotero duplicates ~/my-kovan-folder
+kovan-cli zotero search ~/my-kovan-folder "pebble bed"
 kovan-cli setup --dry-run
 kovan-cli digitise --image fig7.png --x-scale log --x-range 1,1e6 \
     --y-scale log --y-range 0.1,10 --figure "Fig. 7" --json fig7.json
+kovan-cli code-walk --from crates/x/examples/demo.rs::main --to crates/x/src/geom.rs::Sphere::distance
+kovan-cli code-walk-check crates/x/docs/lessons --update
+kovan-cli code-map --format svg -o code_map.svg
+kovan-cli code-map --format json -o code_map.json
+kovan-cli call-graph --crates outram-park-digital-twin-engine,boon-lay -o call_graph.json
+kovan-cli review ivv
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -176,6 +325,93 @@ from it, never the reverse.
   documented result of `kovan-literature`'s deliberately conservative heading
   detection (see its crate docs), not a CLI bug.
 
+### `zotero` — Zotero import and export (`commands::zotero`, `kovan::zotero`, GitHub #752)
+
+Wires the Zotero port (epic #747) into a Kovan folder. Nothing here
+re-implements Zotero: the data folder is read by
+`kovan_literature::zotero::local_library`, files by the ported Zotero
+translators (`kovan_literature::zotero::translators::Translator`), items
+become `KovanDocument`s through kovan-common's conversion, the loss report
+is kovan-metrics', duplicates are kovan-semantics' port of Zotero's
+duplicate detection and the search is kovan-discovery's port of the quick
+search. The CLI only acts on the paths you give it.
+
+- `zotero formats` — every translator, one per line:
+  `format-name<TAB>import|export|import,export<TAB>label<TAB>.ext`. Listed
+  from `Translator::ALL`, so a newly ported translator appears with no CLI
+  change.
+- `zotero import <source> --to <kovan folder>` — `<source>` is a Zotero data
+  folder (the folder holding `zotero.sqlite`; read through an in-memory
+  copy, so Zotero may stay open, but close it for an exact snapshot) or a
+  file in any importable format (detected as the translation-server does,
+  or named with `--format`). Options: `--include-trashed`,
+  `--copy-attachments` (copy each PDF into the folder's proprietary
+  repository; default: reference it where Zotero keeps it), `--dry-run`
+  (print the counts, write nothing), `--init` (create the Kovan folder),
+  `--topic <path>` (file the papers under a topic; default `unsorted`),
+  `--base-attachment-path <dir>` (Zotero's linked-attachment base
+  directory). Prints `papers`, `already_present`, `renamed`, `written`,
+  `attachments_copied`/`_referenced` and the report path.
+- `zotero export --format <name> [--from <kovan folder | .json | folder>...]
+  [-o <file>] [--force]` — every export translator. A paper imported from
+  Zotero exports **losslessly** (its stored Zotero item); a `.json`
+  `KovanDocument` goes through the KovanDocument → Zotero item conversion;
+  a paper ingested from a PDF (no document file) goes through its
+  bibliography entry and the ported BibTeX import. `-o` is never
+  overwritten without `--force`; without `-o` the export goes to stdout.
+- `zotero duplicates <corpus>...` — report the sets of probable duplicates
+  (report only; nothing is merged).
+- `zotero search <corpus> <text> [--mode title-creator-year|fields|everything]`
+  — Zotero's quick search; prints `citekey<TAB>title` per match.
+
+**Where imported items land** — the layout ingestion already uses, so the
+index, Wiki, mind map and PDF reader see them unchanged:
+
+```text
+<kovan folder>/
+├── bibliography.bib                      one entry per paper, appended (existing bytes kept)
+├── papers/<year|undated>/<citekey>/
+│   ├── kovan.toml                         paper entity: access "restricted", topic "unsorted"
+│   ├── <citekey>.md                       the usual Markdown stub
+│   └── <citekey>.kovan-document.json      the full KovanDocument, Zotero item included (new, additive)
+├── literature/proprietary/<citekey>.pdf   only with --copy-attachments
+└── zotero-imports/<UTC time>.md           the import report
+```
+
+The citekey is the item's `citationKey`, else `<first author><year>`
+(sanitised), with `a`, `b`, … appended when taken. **Never overwrites**:
+every file is created new, a document already in the folder (same
+`zotero:<KEY>` id) is reported and skipped, and the bibliography is appended
+to rather than re-rendered. **Schema-safe** (maintainer rule, #747): no
+existing file format changed; the document file is kovan-common's existing
+`KovanDocument` JSON. **Data policy:** a target inside the outram-park-backend
+repository or a `reactor-literature` folder is refused unless
+`--allow-inside-repo` is given; imported papers are `restricted`.
+
+#### Importing your Zotero library
+
+1. Find your Zotero data folder: Zotero, *Settings → Advanced → Files and
+   Folders → Data Directory Location* (usually `~/Zotero`).
+2. Preview: `kovan-cli zotero import ~/Zotero --to ~/my-kovan-folder --dry-run`
+   (add `--init` if `~/my-kovan-folder` is not a Kovan folder yet). Nothing
+   is written.
+3. Import: the same command without `--dry-run`. Read the report it names
+   under `zotero-imports/`: what was imported, skipped (trash, standalone
+   notes, annotations, collections, saved searches) and which fields kovan's
+   own document fields do not carry (all of them are still in the document
+   file, so an export gives them back).
+4. Re-running is safe: items already imported are skipped.
+5. Export any time: `kovan-cli zotero export --format ris --from ~/my-kovan-folder -o all.ris`.
+
+To check the import against your real library without writing into any
+Kovan folder, run the opt-in test, which imports into a temporary folder
+(deleted afterwards) and prints counts only:
+
+```bash
+KOVAN_ZOTERO_DATA_DIR=~/Zotero cargo test --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --test zotero_cli \
+    opt_in_real_library_import_counts -- --nocapture
+```
+
 ### `setup` — curated external CLI tools (`commands::setup`)
 
 `setup [--dry-run] [--force]` installs a small, hard-coded, easily-extended
@@ -204,6 +440,414 @@ subcommand calls it, it is never run automatically, and it does not affect
 the rest of this crate's offline/Android-clean core operation (below). On
 Android it detects PATH presence normally but no-ops the actual install
 (there is no meaningful `cargo install`-a-dev-tool host on-device).
+
+### `code-walk` / `code-walk-check` — call chains for the lessons (`commands::code_walk`)
+
+Rust-analyzer-backed (needs `rust-analyzer` on PATH; uses the same warm
+`lsp-daemon` as `def`/`sig`/`refs`). GitHub issue #523.
+
+```text
+# concept path: the shortest chain(s) of workspace calls between two functions
+kovan-cli code-walk --from crates/outram-mc-libs/examples/godiva_keff_endf_local.rs::main \
+    --to crates/outram-mc-libs/src/physics/keff.rs::transport_history
+# exhaustive tree: everything an entry point reaches within --depth hops
+kovan-cli code-walk --from crates/outram-mc-libs/src/physics/keff.rs::transport_history --depth 2
+# formats: --format markdown (default) | mermaid | both | json
+# a hop filled in by hand (repeatable):
+kovan-cli code-walk --from A.rs::f --to B.rs::g --hand "A.rs::f -> B.rs::Impl::m | trait dispatch, read by hand"
+# lessons: regenerate every <!-- code-walk: ... --> block, fail if stale
+kovan-cli code-walk-check crates/outram-mc-libs/docs/lessons [--update]
+```
+
+- A function is `path/to/file.rs::name`, or `path/to/file.rs::Type::name`
+  when the bare name is ambiguous in that file. Only workspace code is
+  walked; calls into std and dependencies are filtered out (counted in the
+  JSON as `external_calls`).
+- Each hop: a permalink (`.../blob/@@COMMIT@@/<file>#L<n>`, filled in by
+  `scripts/build-pages.sh`), the signature, the first doc sentence, and the
+  line it is called from. In tree mode each function is expanded once; later
+  calls to it are back-references.
+- **Code inline in lessons (since 2026-10-05).** A concept path written into
+  a lesson block is rendered as numbered steps, each followed by its code as
+  mdBook `{{#include <file>:<start>:<end>}}` (relative to the page): the whole
+  function for the last hop (up to 40 lines), and for each caller its
+  signature and the lines around the call (or everything down to the call
+  when that fits in 30 lines). The reader sees the code without clicking.
+  Each snippet carries `<!-- snippet-check: <file>:<line> <text> -->`
+  comments, which `scripts/build-pages.sh` verifies without rust-analyzer: a
+  range that drifted since the walk was regenerated fails the site build.
+  ~~The command line (`code-walk`) and tree-mode blocks (the exhaustive call
+  tree, an architecture map) stay link-only.~~ **Since 2026-10-06**
+  (maintainer request: every walk on the site shows its code inline as well
+  as its links) tree-mode blocks in a lesson show each expanded function's
+  code too, with the same ranges and `snippet-check` comments: the signature
+  and the lines around each call the tree shows, or the whole function (up to
+  40 lines) when it calls nothing shown. A tree is rendered as blocks indented
+  by depth rather than a Markdown list, because an included line starts at
+  column 0 and would end a list item. Each function's code sits in a
+  `<details>` toggle, open for a tree of 15 functions or fewer and folded for
+  a larger one so the page stays usable on a phone. The command line
+  (`code-walk`) stays link-only.
+- **Gaps are explicit.** A call the tool cannot follow is printed as
+  `UNRESOLVED(<kind>)` (JSON: `gaps[].kind`): `trait` (resolves to a trait
+  method declaration), `closure` (a closure, fn-typed binding or
+  `(expr)(..)` call), `macro` (a workspace macro), `no-definition`
+  (rust-analyzer found nothing), `other`. Calls *inside* closures, including
+  `rayon` closures, are followed; a function passed by name (`.map(f)`) is
+  resolved as a function value.
+- **Lesson blocks** keep the walk's parameters and the hand-filled hops in the
+  opening comment, which the tool never rewrites; only the text between it and
+  `<!-- /code-walk -->` is regenerated:
+
+  ```text
+  <!-- code-walk: from=crates/x/examples/demo.rs::main to=crates/x/src/geom.rs::Sphere::distance
+  hand: crates/x/src/keff.rs::step -> crates/x/src/geom.rs::Sphere::distance | Godiva is a Sphere
+  -->
+  <!-- /code-walk -->
+  ```
+
+  Keys: `from=` (required), `to=` (omit for the tree), `depth=`,
+  `format=markdown|mermaid|both`, `max-paths=`. `code-walk-check` fails when
+  a block's regenerated output differs (a hop moved, appeared or vanished), a
+  path no longer connects, or a hand-filled hop names a function that is
+  gone; it notes a hand hop the tool now resolves itself. `--update` writes
+  the regenerated blocks instead of failing on a difference.
+  `scripts/build-pages.sh` runs the check when a deep dive has a block.
+- Ported from `kopitiam callees` (the maintainer's kopitiam, commit
+  `dfdf1c4`): breadth-first instead of depth-first, callee bodies found from
+  source text instead of `documentSymbol` (whose flat shape here broke
+  kopitiam's recursion past hop 1), comments/literals/attributes blanked
+  before scanning, every call site resolved. `callers` and `impls` are not
+  implemented.
+
+### Human review stamps — signed `review.md` entries, stamped in desktop kovan (GitHub #739, #740)
+
+**CORRECTED 2026-10-10** (#825, maintainer: "there's no review to be
+backwards compatible with"): ~~`kovan-cli stamps-check` / `stamps-levels` /
+`stamp` and `review/stamps.toml`~~ were removed with `src/review_stamps/`
+(the `git` helpers stamping still uses moved to `src/stamping/git.rs`).
+~~`review/stamps.toml` at the workspace root records one `[[stamp]]` per
+function~~ A review stamp is a **signed** entry in the function's folder
+`review.md`, one per function a **human** reviewed (rung 3) or whose V&V a
+human checked (rung 4), hashed over its code and `///` docs
+(`kovan_common::review`). Its signature is over the one v3 signed-bytes
+format, pinned by a committed fixture (`kovan_common::review::signing`).
+Rung 5 (IV&V, GitHub #809) is never a stamp's rung: the review engine
+derives it per function (`kovan_common::review::ivv`).
+**AI agents never stamp**; stamping is the maintainer's, ~~in desktop kovan
+(#740) or~~ with `kovan-cli stamp ... --i-am-the-reviewer`. **CORRECTED
+2026-10-10** (#770): desktop kovan's Code Review tab does not write
+`review/stamps.toml`; its Stamp button opens the stamp dialog, which writes
+a **signed** entry into the function's folder `review.md` (key set-up on
+first use, the review wizard, the passphrase; `src/stamping/`), and the
+tab's states come from `review.md` (`stamping::stamp_states`). ~~The
+`call-graph --split-dir` data still carries the `stamps.toml` states; the
+tab replaces them once loaded.~~ Since 2026-10-10 (maintainer) the
+`call-graph --split-dir` data, and so web-kovan on Pages, carries the
+`review.md` states too; ~~`review/stamps.toml` is read only by
+`stamps-check`, `stamps-levels` and `stamp`~~ (removed, #825). ~~kovan commits nothing: commit `review.md`
+yourself (#771).~~ **CORRECTED 2026-10-10** (#771): the tab's **⚑ need you**
+panel lists what needs you (directly stale stamps on top, re-confirms,
+fixes, moves with batch acknowledge, deletions, and new functions folded
+into one row per commit, filtered by agent or human authorship from the
+commit trailers), a **Recently reviewed** corner tab and each crate's
+maturity in plain English. **Commit and push** (in the panel and on the
+stamp dialog's last step) commits only the `review.md` files, and the
+`kovan_root.toml` when the dialog registered a key, that kovan wrote in
+this session, with a generated message and no agent trailer, and pushes the
+current branch; `main` is refused, and a rejected push is merged and pushed
+again, never reset (#502's `push_keeping_local`). Logic: `src/stamping/`
+(`queue`, `new_code`, `relocate`, `recent`, `commit_push`, `authorship`).
+
+**Review mode (2026-10-10, #770, #740).** On the Code Review tab, select a
+function and press **Review >** (or **Review this walk >** for everything
+under it, bottom-up, with the walk's size and a huge-walk warning shown
+first). The map gives way to the function's source, or its unified diff
+since the last review (and each changed callee's diff for an inherited
+stale), with the folder's `review.md` on the right: only this function's
+entries are editable, and only their comments. Line numbers select lines
+for a highlight (an annotation entry anchored with Hypothesis selectors);
+Upstream opens the ported-from file in the browser; Quick fix edits the
+function's own lines in kvim. Stamp is refused while a callee lacks a valid
+stamp (bottom-up is enforced) and when the code changed while it was
+reviewed. Save keeps what was written to `review.md`; Cancel puts it back
+as it was on entering. Logic: `src/stamping/review_mode/`; drawing:
+`src/app/review_mode_panel.rs`.
+
+Added 2026-10-13 (#857): the reviewed source is drawn with syntax colours
+(also in kovan-web's source panel), and the quick-fix editor is a code
+buffer: syntax colours, new lines indented with spaces for Rust, and names
+completed on Ctrl+N / Ctrl+P (Enter accepts, Esc closes; the list never
+opens by itself. ~~It opened as you typed, with Tab to accept~~, changed
+the same day on the maintainer's word).
+In it `:w` saves and stays open, `:q` closes, `:wq` saves and closes.
+Right-click a function whose stamp is stale only because something it
+calls or uses changed (a function, a type or a constant) and choose
+**Quick stamp**: it shows what changed there and renews the stamp with the
+same answers, without the wizard. It is refused while a reaching test
+fails or while the changed item has no valid review of its own.
+**No language server is started**: colours come from the `kopitiam-syntax`
+line lexer and completion from the cached index (`kovan.toml`), so
+completion knows names in this workspace, nearest first, but not types:
+after `x.` it does not narrow to the methods of `x`'s type, it knows
+nothing from `std` or crates.io, and there are no live diagnostics.
+
+Added 2026-10-12 (#839): right-click a function with a valid stamp and
+choose **Add connection…** to connect it to a concept of the standard
+corpus. The link is written to the code repository's
+`docs/mindmap/connections.toml` (created on the first one; a corrupted
+file is replaced fresh, never repaired) and joins the files Commit and push
+commits. It is unsigned and not part of the stamp (`src/code_connections.rs`,
+`src/app/connection_picker.rs`). The review wizard offers, and starts
+with, "this is a test" answers for a test function (limits, error
+handling, test reach, V&V evidence); they are refused on any other
+function.
+
+Added 2026-10-13 (#843, first step): a module's **types and constants**
+(structs, enums, unions, traits, type aliases, constants and statics) are
+on the Code Review map beside its functions, each card saying what it is
+in plain words (record, list of cases, interface, shorthand name, named
+number); selecting one shows its definition. `kovan-cli index` and
+`--refresh` write them into `kovan.toml` with `item` and `shape`; a
+struct's or enum's hash also covers the methods written for it in the same
+file, so a method change makes its review stale. Not built yet: the
+questions a review of one asks (asking to stamp one is refused with that
+reason), ~~which functions use which type,~~ and methods written for a type
+in another file. **Added 2026-10-13 (step 2):** the index run reads from
+rust-analyzer's SCIP index which workspace types and constants each
+function names and writes them as `uses` in `kovan.toml` (and in the map
+data, where a type unfolds to the functions that use it). The bottom-up
+rule covers them: a function cannot be stamped until the types it uses have
+a valid review, and a new stamp records their hashes, so a later change to
+a type asks for a re-confirm of its users. A review written before this
+keeps its state. A type's `reached_by` lists the tests that use it.
+**Added 2026-10-13 (step 3):** types and constants are stamped through the
+same wizard with their own questions (~~asking to stamp one is refused~~),
+worded without software jargon and each with an engineering example: does
+it hold what its description says, can it hold a physically impossible
+value (records and lists of cases), is every case listed (lists of cases),
+where does the value come from (named numbers), what must every model
+behind it guarantee (interfaces), does a test use it. "What happens when
+something goes wrong" and "numerical hazards" are not asked of them.
+
+**Rung 4 checks two axes (#855, 2026-10-13):** choosing "a human wrote the
+V&V case and verified its result by hand" makes the review a rung 4 review,
+and five more questions appear: three on physical accuracy (do the reaching
+tests pass, pre-filled from the recorded full test run; would the test fail
+if the physics were wrong; is the tolerance justified) and two on usability
+(could you use it without reading its source; could you give it a wrong
+quantity by accident). An answer that fails an axis leaves the stamp at
+rung 3. A rung 4 review written before these questions keeps rung 4 and is
+listed in the need-you queue as "rung 4 axes not recorded" until it is
+stamped again.
+
+**A skipped number guard can be waived, at a cost (2026-10-14):** "Are the
+allowable input ranges guarded?" has one more answer, "No guard, accepted
+for research use (not for a safety decision), because: ____". It needs a
+typed reason every time. The stamp is allowed, but it is capped at rung 3
+whatever the V&V answers say, and the function is listed in the need-you
+queue as "a check was waived: capped at rung 3" until a guard is added and
+it is stamped again. "A guard is missing" still refuses the stamp. Basis,
+read in the standard corpus: NUREG/BR-0167 grades software by use (§1.2;
+Level 1 is software "used in a safety decision by the NRC") and lists
+"proper handling of boundary conditions, including extreme inputs" among
+the objectives of requirements-driven testing (§3.2.4.1, p. 11), so code without
+a guard is reviewed and not V&V'd; DOE G 414.1-4 F.5.6 asks safety
+software to document "allowable or prescribed ranges for inputs and
+outputs". The older "Other: ____" and "No limits apply, explained: ____"
+answers are unchanged and carry no cap.
+
+**Code reviews on the mindmap (#844, 2026-10-13):** when the Kovan folder
+mounts a code repository (Repository management, `[[repos.code]]`), each
+entry a reviewer tied to a standard corpus concept is listed on that
+concept's right-click menu, beside its literature artefacts: the entry, the
+repository, and the review in words ("rung 3, valid", "changed since
+review"). Choosing one opens Code Review on that repository at that entry.
+An entry is tied to a concept in Code Review, by **Add connection…** or by
+the concept link chosen while stamping; both are stored in the code
+repository, nothing in the Kovan folder. The list is collected on a
+background thread and again after Code Review was shown
+(`src/code_review_artifacts.rs`). Map data written before this change is rebuilt the next time
+the Code Review view opens (no rust-analyzer run needed).
+
+Added 2026-10-12 (#838): after a **squash merge or rebase**, the commit a
+stamp certifies is no longer in the branch's history, and the stamp shows
+as unverified with that reason (a shallow clone shows the same; there the
+remedy is a full fetch). The need-you panel lists one **Re-anchor** row per
+module (source file). Its window shows your reviews of that module whose
+code, doc comment, callees and `Cargo.lock` are unchanged, and signs them
+all again at `HEAD` with one passphrase entry, checklists carried over; a
+function that changed is listed with the reason and needs Stamp. Commit
+the result after the squash (`src/stamping/reanchor.rs`,
+`src/stamping/reanchor_flow.rs`). **Do not squash or rebase a branch that
+holds stamps unless you mean to re-anchor them.**
+
+Added 2026-10-10 (#770): an inherited-stale function (only callees
+changed) offers **Re-confirm**: the dialog shows each changed callee's
+diff and signs your previous answers again at `HEAD`, without the wizard
+(disabled while a reaching test fails; the comments note the re-confirm;
+`src/stamping/reconfirm.rs`). The wizard's **concept finder** links the
+concept a function implements (`[[relation]] kind = "implements"`, the
+standard concept tree plus the workspace's own topics, seeded concepts
+first); a stamp needs either a concept or a no-concept reason, and the
+review panel shows the linked concept with its implemented formula, or "no
+formula recorded for this concept" (`src/stamping/concepts.rs`). Review
+mode **watches the function's file**: a saved fix re-evaluates the state,
+so an open needs fix turns into "fixed, awaiting re-review" without
+reopening it (`src/stamping/review_mode/watch.rs`).
+
+- The hash covers the function's code tokens (parsed with `syn`) and its
+  `///` doc text; `//` comments, whitespace and the function's position do
+  not count. The exact rule is in ~~`src/review_stamps/parse.rs`~~
+  `crates/kovan-common/src/review/rust_items.rs` and
+  `crates/kovan-common/src/review/hash.rs` (moved 2026-10-07, #764).
+- ~~`stamps-check` prints `VALID`, or `VOID` with the reason, and exits
+  non-zero on any `VOID`; `stamps-levels` reports which rung-3/4 tags stamps
+  support.~~ Removed (#825). The staleness engine judges every signed
+  stamp (`kovan_common::review::engine`); `kovan-cli review ivv` prints
+  rung 5.
+- One standing review per function and reviewer: a re-review replaces it in
+  place, and the earlier one lives only in git history.
+
+### `review ivv` — rung 5, independent V&V, per function (`commands::review_ivv`, GitHub #810)
+
+`kovan-cli review ivv [<function>] [--workspace <dir>]` prints, from
+`review.md` judged with signatures enforced, each reviewed function's rung-5
+headline (passed, not reached, or "independent V&V not counted"), every
+review with its reasons in plain English, the separation attestation's
+audit record labelled "audit record (not verified by kovan)" (never
+fetched), the `kovan_root.toml` records that do not verify, and the rung-5
+rows of the need-you queue. It is read-only: kovan-cli has no signing
+command. The same summary is drawn in the review bar of kovan-web and of
+desktop kovan's Code Review tab.
+
+Signing happens in desktop kovan. The Code Review tab's **Organisations &
+IV&V** window lets a maintainer sign developing-organisation and
+reviewer-organisation records, and an independent reviewer sign a separation
+attestation naming a GitHub issue as its audit record. The stamp dialog lets
+the reviewer pick which of their own signed attestations a review relies on
+(none by default). Every record is appended to `kovan_root.toml` as text,
+with comments kept. ~~Kovan does not resolve concept areas yet, so desktop
+kovan, kovan-web and this command show "the function has no known concept
+area" on every review, and no function reaches rung 5 there.~~
+**CORRECTED 2026-10-10** (#770, #810): a function's concept areas are the
+concepts its reviews link with an `implements` relation, chosen in the stamp
+dialog's concept finder (a qualification covers a concept at its node or
+any ancestor). A function whose reviews link no concept still shows "the
+function has no known concept area" and cannot reach rung 5.
+
+### `site-index` — full-text search of the built Pages site (`site_search`, GitHub #876 item 8)
+
+```bash
+kovan-cli site-index target/pages      # writes target/pages/search-text.json
+```
+
+Walks the built site, skipping `api/`, `code-review/` and mdBook's
+`print.html`, `404.html` and `toc.html`. For each page it reads `<main>`, with
+the sidebar, scripts and the site banner removed, and writes the pages, a
+first-paragraph preview and an inverted index (term → `[page, weight]`,
+weighted title > heading > body). The landing page's search box
+(`docs/site/search.js`) answers a query from it by prefix-AND.
+`scripts/build-pages.sh` runs it after every page is built. The tokeniser is
+shared with `search.js` through `docs/site/search-tokenise-fixture.json`,
+which is checked on both sides.
+
+### `code-map` — the workspace's code map (`commands::code_map`, GitHub #734)
+
+Every crate placed by the `[package.metadata.kovan]` tag in its
+`Cargo.toml` (row, topic, fidelity, maturity, higher-rated modules and,
+optionally, the crate's backronym (#815); the tags are documented in
+`tests/code_map_tags.rs`), with its required dependencies.
+`--format json` (default) writes the data, `--format svg` the drawn map:
+the outram-park root, one box per row-4 app, the topic boxes as columns
+through rows 3 and 2 with fidelity high to low left to right, the shared
+utilities base and the knowledge-management side box. Built from
+`cargo metadata --no-deps`; **rust-analyzer is not used**. The same
+`Cargo.toml`s give byte-identical files. The library is `kovan::code_map`
+(model, `layout::layout`, `svg::render`), plain serde + std. The Pages
+build (`scripts/build-pages.sh`) writes both files for the site's
+`code-map/` page; the desktop app's **Code Map** view draws the same layout.
+Since #780 that view opens any Rust workspace or crate (untagged crates are
+greyed placeholders in the base row) and keeps a recent-workspaces list of
+its own; `kovan-cli code-map` still requires the tags.
+
+### `call-graph` — crate → module → function call graph with source (`commands::call_graph`, GitHub #737)
+
+The data behind the code-review UI (#735): per crate its lib target and every
+example, each a tree of modules (one per source file, read from the `mod`
+declarations, so multi-file examples like `examples/htgr_sim_v1/` are trees
+too), each module's functions (free, inherent, trait impl, trait declaration)
+with file, start/identifier/end lines, signature, first doc sentence and
+source text; every resolved call with all its call-site lines (within and
+across crates; targets outside `--crates` are listed in `outside`); each
+function's `UNRESOLVED(<kind>)` calls; and module→module and crate→crate
+aggregates with site and pair counts. Calls are resolved by rust-analyzer
+with `code-walk`'s machinery (`Workspace::expand`), so nothing is guessed.
+Function ids are `code-walk`'s `file.rs::name` / `file.rs::Type::name` (a
+`#k` suffix only when that is not unique in its file), the key review stamps
+use. The same commit gives byte-identical JSON. The model is
+`kovan::call_graph` (plain serde + std).
+
+**Schema 2 (#746, additions only).** Integration-test targets (`tests/*.rs`)
+are built too, in `CrateGraph::tests`; each non-test function lists the
+tests and examples that reach it through resolved calls, nearest 10 by hop
+count with totals (`reached_by`, a lower bound: unresolved calls are not
+followed); each file records its upstream counterpart from its attribution
+header (`upstream`, with a link only when a github/gitlab repository and a
+commit are both recorded, never guessed), its newest 10 commits from one
+history pass (`history`) and its `kovan-concept:` tags; each function lists
+the lesson, deep-dive and tutorial pages whose code-walk blocks pass
+through it (`cited_by`, with the Pages-site path and heading anchor); the
+document records the `commit` it was built at. On the measured pair:
+14.0 MB, 37 s warm.
+
+Measured 2026-10-06 (16-core desktop, rust-analyzer 1.98.0) on
+`outram-park-digital-twin-engine` (lib + 4 examples) and `boon-lay` (lib + 5
+examples): 3632 functions, 7288 calls (10536 sites), 1728 unresolved, 37641
+definition queries; 127 s with a cold rust-analyzer (about 60 s of it
+indexing), 50 s warm; 10.5 MB of JSON. The whole workspace is
+correspondingly slower, so restrict with `--crates`.
+
+**SCIP backend (#757, schema 3).** `--backend scip` runs `rust-analyzer
+scip` once over the whole workspace into `target/kovan-scip/index.scip`
+(never committed) and resolves every call from that index in memory;
+`--scip <file>` reuses an index written earlier. The function list, ids and
+every other field still come from the source scanner, and the index is
+asked the same positions the LSP is, so the two backends share every
+classification. SCIP also finds what the text scanner cannot: calls through
+**operators** (call kind `operator`, `a + b` on a workspace `impl Add`) and
+functions **passed as paths** (`.map(T::f)`, kind `fn_value`). Schema 3
+adds that kind and `generator` (`{backend, rust_analyzer}`: SCIP is an
+unstable rust-analyzer subcommand, so the version that wrote the index is
+recorded); schema-2 documents still load and merge. `kovan-cli
+call-graph-diff A B` compares two documents edge by edge. Agreement with the
+LSP backend and the timings: `docs/call-graph-scip-vs-lsp.md`.
+
+### `index` — per-folder `kovan.toml` and per-crate link index (`commands::index`, GitHub #767)
+
+One `rust-analyzer scip` run (or `--scip <file>`) becomes every folder's
+`kovan.toml` (stable `fn:` ids recovered from `review.md`, hashes, callees,
+every reaching test, `physical_interface`, the carried-over `[test_run]`)
+and each crate's `kovan_links.json` (go-to-definition and references
+without rust-analyzer). Missing, malformed, conflicted, stale or
+hand-edited `kovan.toml` files are regenerated and orphans removed, each
+listed with its reason; `review.md` is never written. The output is
+byte-identical for the same inputs (`--check` fails when anything would
+change). rust-analyzer is needed only to regenerate: without it the
+command stops with a typed error and `--refresh` updates hashes of edited
+files with the `syn` hasher, marking what it cannot recompute "index out of
+date". `--draft-upstream` prints proposed `[upstream]` entries from
+provenance headers for a human to confirm. Formats, the id rule and the
+2026-10-07 measurements (njoy-outram-park-fork link file 0.58 MB gzipped;
+5 s from an existing index): [`docs/code-index.md`](docs/code-index.md).
+
+`--fresh --workspace <dir>` (GitHub #780) indexes ANY Rust workspace or
+single crate into that repository itself, and is what the desktop Code Map
+view's **"Index fresh…"** button runs: it also creates `kovan_root.toml`
+when missing (a valid one is kept; a corrupt one is never silently
+overwritten: `--corrupt-root restore|fresh`, the bad file kept as
+`kovan_root.toml.corrupt-<date>`) and a `review.md` skeleton in each
+indexed folder that has none. Nothing is committed.
 
 ### Determinism & offline guarantees
 
@@ -299,10 +943,13 @@ Screen-specific:
 `src/digitiser/`) — see `NOTICE` for why: only the digitiser needs
 `kopitiam-pdf` (GitHub issue #30's PDF-native work), which is why this
 crate alone is relicensed AGPL-3.0-only, and `kovan-literature` — used well
-beyond the GUI — must not be dragged into that. See the workspace
+beyond the GUI — must not be dragged into that. (~~must not be dragged into
+that~~ **2026-10-07:** `kovan-literature` and the rest of the kovan family are
+AGPL-3.0-only too, by maintainer direction; see `NOTICE`. The digitiser stays
+here.) See the workspace
 `CLAUDE.md` "Graph digitisation: dogfood kovan-digitise" for the
 mandated-tool context; that section's `-p kovan-literature` invocations now
-read `-p kovan`.
+read `-p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`.
 
 Extract `(x, y)` data points from a plot image with a full calibration +
 provenance record (`DigitisedDataset`): load an image, calibrate the axes
@@ -326,7 +973,7 @@ crate — collapsed from five standalone binaries to three later the same day
   below for why):
 
   ```bash
-  cargo run --release -p kovan --bin kovan --features gui [image-path]
+  cargo run --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan --features gui [image-path]
   ```
 
   Used to have a same-behaviour twin, `kovan-digitise-gui`, back when
@@ -343,13 +990,22 @@ The `kovan` binary is one window with a top-bar view switch, growing beyond
 the plot digitiser per GitHub issue #30's wider "PDF-native literature
 workbench" ask (epic `op-9c2e`) — the pieces landed so far:
 
+- **Top bar: three major tabs** (maintainer, 2026-10-12;
+  `src/app/tab_groups.rs`). The top row has **Mindmap**, **Code Map** and
+  **Code Review**; a second row shows the tabs under the selected one.
+  Mindmap: Home, Wiki, Repository management (~~Save Repository~~, renamed
+  2026-10-12), Digitiser, Table Digitiser, PDF
+  Reader, Kvim Editor, Bibliography. Code Map: a "Go to Code Review" button.
+  Code Review: PDF Reader, Bibliography (the same pages as under Mindmap;
+  the major tab they were opened from stays selected) and a "Back to map"
+  button to the Code Map.
 - **File picker** (`Browse…` next to the digitiser's image path field, and
   `Open PDF…` in the PDF reader) — a shared
   [`egui-file-dialog`](https://crates.io/crates/egui-file-dialog) instance
   with Image (`png`/`jpg`/`jpeg`) and PDF filters, reused rather than
   hand-rolled (op-689u). Desktop-only, target-gated off Android alongside
   `eframe`/`egui`.
-- **PDF reader** (top bar → "PDF Reader") — open a PDF, page through it,
+- **PDF reader** (~~top bar → "PDF Reader"~~ **CORRECTED 2026-10-12**: second row, under the Mindmap or Code Review major tab) — open a PDF, page through it,
   zoom (op-95x6). Renders through `kopitiam_pdf::mupdf::rasterize_page`
   (op-6ez3's page-rendering-engine decision — see this crate's `Cargo.toml`
   for the record), one page rasterized and cached at a time so opening a
@@ -357,7 +1013,56 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
   a cropped page region into the digitiser as a plot-image source; that
   draw-box-then-digitise interaction is separate, not-yet-implemented work
   (op-p17q for plots, op-hnhp for OCR'd tables — the latter blocked on an
-  OCR-tooling decision, op-9bvi, not yet made).
+  OCR-tooling decision, op-9bvi, not yet made). ~~(above)~~ **CORRECTED
+  2026-09-28**: both exist now. The reader crops a region into the digitiser,
+  and tables are digitised with no OCR, in a spreadsheet grid beside the PDF
+  (GH #353).
+- **Repository management** (GitHub #840, #841; 2026-10-12; second row,
+  under the Mindmap major tab; `src/repo_management.rs`,
+  `src/app/repo_management_view.rs`). Lists the Kovan folder's
+  repositories and has **Add repository…**: an open corpus, a proprietary
+  corpus or a Rust code repository, added as a git submodule when it is
+  kovan compatible (code: a `Cargo.toml` at its root; a corpus: not a Rust
+  code repository; proprietary: the remote is not public). Several of each
+  kind are allowed. Code repositories are the **code corpus**
+  (`[[repos.code]]` in `kovan_root.toml`). **Save Repository never commits
+  or pushes a code repository.** Each one has **Force add, commit and
+  push…**, which shows a warning, the branch and every change it would add,
+  and asks before doing it; it never pushes `main`, never force-pushes and
+  never adds ignored files.
+- **Save Repository** (~~top bar → the Save Repository tab~~ **CORRECTED 2026-10-12**: the main button of the Repository management page) — commits every
+  proprietary and open corpus repository and the Kovan folder, with an
+  optional note, then (default ON, "Push after save" checkbox, persisted as
+  `[save] push_after_save` in `kovan_root.toml`) pushes each corpus
+  repository to its own configured remote and then the Kovan folder:
+  fast-forward only, never forced, never to a remote other than the one
+  configured for that repository, and a proprietary repository never to a
+  public one. Per-repository results are shown under the button. See
+  `DECISIONS.md` (2026-09-28, 2026-09-30) and `src/save_push.rs`.
+- **Several repositories per corpus tier** (GitHub issue #458) — a Kovan
+  folder may hold any number of standard, open and proprietary repositories
+  (for example one per topic, once a repository nears GitHub's recommended
+  1 GB). Each is a `[[repos.<tier>]]` entry in `kovan_root.toml`; the older
+  single-repository settings stay each tier's first repository, so an
+  existing folder needs no change:
+
+  ```toml
+  [[repos.open]]
+  name = "open-thermal-hydraulics"
+  remote = "https://github.com/example/open-th.git"
+  path = "literature/open-th"
+  default = true        # the Ingest form's preselected open repository
+
+  [[repos.proprietary]]
+  name = "proprietary-books"
+  remote = "https://github.com/example/private-books.git"
+  path = "literature/proprietary-books"
+  ```
+
+  The Ingest form picks the repository (restricted documents only ever go
+  to a proprietary one) and records it in the paper's `[source] repo`.
+  Standard repositories are read-only unless `writable = true`. See
+  `src/corpus_tiers.rs`.
 - **Gruvbox theming** (top bar → theme dropdown) — Gruvbox Dark / Gruvbox
   Light, ported from `tampines-steam-tables-gui`'s `theme.rs` (op-t5sq); see
   that crate's own attribution for the palette's MIT provenance
@@ -366,7 +1071,7 @@ workbench" ask (epic `op-9c2e`) — the pieces landed so far:
 Still open on the `op-9c2e` epic and not implemented: the bibliography
 management window, the "kovan folder" project format (`kovan.toml`), and
 structured markdown section editing — each needs a design/decision pass
-before implementation (see `bn show op-9c2e` for the full child-issue graph).
+before implementation (retired tracker epic `op-9c2e`).
 
 ## Android
 
@@ -375,10 +1080,30 @@ Android/Termux-usable, not just buildable** — every screen and subcommand,
 including the Digitiser tab, actually runs there:
 
 ```bash
-cargo check -p kovan --bin kovan-cli --target aarch64-linux-android
-cargo check -p kovan --bin kovan-tui --target aarch64-linux-android
-cargo check -p kovan --all-targets --target aarch64-linux-android
+cargo check --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli --target aarch64-linux-android
+cargo check --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-tui --target aarch64-linux-android
+cargo check --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --all-targets --target aarch64-linux-android
 ```
+
+> **CORRECTED 2026-09-18 — the third command above did NOT pass until that
+> date.** `pub mod mindmap;` was declared unconditionally in `src/lib.rs` while
+> its contents use `egui` and `egui_graphs`, both `optional = true` behind the
+> `gui` feature. So the crate failed for Android with 13 errors
+> (`cannot find module or crate egui` / `egui_graphs`), directly contradicting
+> this section and the workspace `CLAUDE.md`'s claim that the GUI is gated off
+> Android "so it never affects the other two's Android build".
+>
+> It now carries the same `#[cfg(all(feature = "gui", not(target_os =
+> "android")))]` gate as `app`, and all three commands pass.
+> `mindmap_layout` and `mindmap_model` are deliberately left ungated — they are
+> the headless path and mention `egui` only in prose.
+>
+> **Why it went unnoticed:** the two `--bin` commands above were the ones
+> actually run, and they pass, because neither binary reaches `mindmap`. Only
+> `--all-targets` compiles the library's full module tree. This is the same
+> `--lib`-versus-`--all-targets` gap the workspace `CLAUDE.md` already records
+> for the `godiva_gpu_benchmark` example. Now enforced continuously by
+> `.github/workflows/fast-tests.yml`.
 
 `ratatui` (and its bundled `crossterm`) is an **unconditional** dependency of
 this crate — not target-gated off Android. Until 2026-08-21 it *was*
@@ -393,7 +1118,7 @@ and that same change removed the *technical* reason for gating `pub mod
 tui;` at all. The gate was dropped in the same change: `kovan-tui` is now a
 single, ungated `main()` with no Android stub, and the whole seven-tab TUI
 — not just the digitiser — is Android-buildable and Android-runnable.
-Confirmed 2026-08-21: `cargo check -p kovan --all-targets --target
+Confirmed 2026-08-21: `cargo check -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --all-targets --target
 aarch64-linux-android` is clean. This directly serves GitHub issue #30's
 stated reason for wanting exactly `kovan`/`kovan-cli`/`kovan-tui`: Android
 usability.
@@ -402,7 +1127,7 @@ usability.
 and sits behind the `gui` feature — a **default** feature everywhere except
 Android, where its `eframe`/`egui` dependencies are additionally
 target-gated off, so building this crate with its default feature set —
-what a plain `cargo build -p kovan` or an Android/Termux build does — never
+what a plain `cargo build -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` or an Android/Termux build does — never
 pulls egui/eframe into the dependency graph there. `kovan` itself has no
 Android build (the redirect message it *would* print lives inside
 [`kovan::digitiser::gui::run`], since that function is used on Android by
@@ -411,7 +1136,7 @@ nothing — no binary in this crate calls it there).
 ## Testing
 
 ```bash
-cargo test --release -p kovan
+cargo test --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
 ```
 
 - `src/bin/kovan-cli.rs` unit tests — `clap` argument-parsing coverage for
@@ -424,6 +1149,47 @@ cargo test --release -p kovan
   proprietary PDF ever ships as a fixture) and assert on stdout/stderr/exit
   code. Targets `kovan-cli` specifically — `kovan` is the GUI binary and
   needs a display, so it cannot run headlessly here.
+- `tests/zotero_cli.rs` — `kovan-cli zotero` end to end (GitHub #752):
+  a Zotero data folder built from upstream's own schema files imported,
+  loaded back losslessly, exported in every export format and re-imported;
+  never-overwrite, refuse-inside-repo, and a folder written before the
+  change left byte-identical (the schema-compatibility proof). The opt-in
+  `opt_in_real_library_import_counts` reads `KOVAN_ZOTERO_DATA_DIR`.
+- `tests/code_map_tags.rs` — every member's code-map tag is well formed,
+  agrees with the dependency graph, and the real workspace lays out with no
+  overlapping cards, each crate once, fidelity in order and raffles across
+  the Risk box. The parser, layout and SVG determinism are unit-tested in
+  ~~`src/code_map/`~~ `crates/kovan-common/src/code_map/` (**moved
+  2026-10-06**, #736, for web-kovan; `kovan::code_map` re-exports it).
+- `tests/call_graph_rust_analyzer.rs` — `call-graph` end to end against a
+  real rust-analyzer on a throwaway two-crate workspace: lib and multi-file
+  example module trees, a `#[cfg(test)]` module, a cross-crate method call
+  from an example with both call-site lines, a function value, a trait gap,
+  the module and crate aggregates, and byte-identical output on a second
+  run; schema 2's integration-test target, reach, header link and lesson
+  citation. Skips when `rust-analyzer` is not on PATH. Assembly
+  order-independence, the module-file rules, reach, header parsing,
+  citations and history parsing are unit-tested in ~~`src/call_graph/`~~
+  `crates/kovan-common/src/call_graph/` (**moved 2026-10-06**, #736;
+  `kovan::call_graph` re-exports it).
+- `tests/call_graph_scip.rs` — `call-graph --backend scip` against
+  `--backend lsp` on a throwaway workspace (#757): every LSP edge is in the
+  SCIP graph with the same lines, and the SCIP graph adds exactly the
+  operator call and the function passed as a path; a call through a
+  fn-typed parameter is `UNRESOLVED(closure)` in both (not a recursive
+  edge), a derived `default()` is `UNRESOLVED(other)` in both, and a symbol
+  defined in both the lib and an example resolves per target. The SCIP
+  reader and the comparison are unit-tested in `src/scip.rs` and
+  `crates/kovan-common/src/call_graph/compare.rs`.
+- `tests/upstream_header_survey.rs` (`--ignored`, a measuring instrument) —
+  the attribution-header parser over every `.rs` file in `crates/`, with
+  per-crate counts and every unparsed header.
+- `tests/code_walk_rust_analyzer.rs` — `code-walk` and `code-walk-check`
+  end to end against a real rust-analyzer on a throwaway crate (shortest
+  chain, method resolution, trait and closure gaps, a lesson block with a
+  hand-filled hop, failure when that hop's target is renamed). Skips, and
+  says so, when `rust-analyzer` is not on PATH. The graph searches themselves
+  are unit-tested on synthetic graphs in `src/commands/code_walk/graph.rs`.
 - `src/tui/**` unit tests — state-update ("reducer") tests that construct a
   tab's state struct and call its `handle_key(key, ..)` directly, plus
   `ratatui::backend::TestBackend` render tests, plus fixture-backed tests
@@ -443,6 +1209,7 @@ src/
 │   ├── symbols.rs          `kovan-cli symbols` / `kovan-cli summary`
 │   ├── gen.rs              `kovan-cli gen <family> <method>`
 │   ├── lit.rs              `kovan-cli lit import|bibtex|outline`
+│   ├── zotero.rs           `kovan-cli zotero formats|import|export|duplicates|search`
 │   └── setup.rs            `kovan-cli setup` (curated external-tool installer)
 ├── digitiser/             graph digitiser engine, shared by all three binaries
 │   ├── mod.rs              `DigitiserError`, module map

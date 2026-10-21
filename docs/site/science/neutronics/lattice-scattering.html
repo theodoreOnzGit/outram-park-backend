@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What does lattice scattering depend on?</title>
+<meta name="description" content="Neutronics, page 21: scattering from a bound lattice depends on the energy and momentum the neutron exchanges, the crystal's plane spacings (Bragg diffraction: graphite's coherent elastic edges, from ENDF/B-VIII.0 through OUTRAM PARK's THERMR port), the temperature, and the lattice's vibration fingerprint. S(alpha, beta) holds all of it.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="bragg.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 21 of the design comment of 2026-10-16, in the maintainer's order (energy and momentum transfer, then the plane spacing, then temperature, then the vibration fingerprint), and the maths-track note that every page states which S it uses: here ENDF's symmetric S with e^(-beta/2) (NJOY2016 manual eq. 230). No LEAPR/THERMR plumbing. Numbers: bound-data.js (examples/lesson_bound.rs), checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>What does lattice scattering depend on?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Page 20 asked how scattering from a bound lattice differs from free atoms. It depends on five things. Two of them you have met already:</p>
+<ol>
+  <li><b>The energy transfer.</b> How much energy the neutron gives to the material, or takes from it. That is new: on page 2 the struck nucleus was at rest, so the neutron could only lose energy. A lattice that is already vibrating can <b>give</b> energy to the neutron.</li>
+  <li><b>The momentum transfer.</b> How hard the neutron is kicked, which depends on the scattering angle (page 7's &mu;).</li>
+</ol>
+
+<h2>The crystal's structure: planes of atoms</h2>
+<p>A thermal neutron's wavelength, about 1.8 &Aring; (page 4), is about the spacing between planes of atoms in a crystal. So the neutron wave can <b>diffract</b>: waves reflected off successive planes add up when the extra path between them is a whole number of wavelengths (Bragg's law, n&lambda; = 2d sin&theta;). The longest wavelength a set of planes can diffract is twice their spacing d. This is <b>coherent elastic</b> scattering, NJOY's "zero-phonon term": there is "no energy loss in such scattering" <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. The neutron bounces off the whole crystal, whose mass is, in effect, enormous.</p>
+
+<section class="widget-card">
+  <h3>Graphite's Bragg edges</h3>
+  <div class="widget" id="bragg">
+    <canvas aria-label="Graphite's coherent elastic cross section against neutron energy on log-log axes, a staircase of Bragg edges, with a marker for a chosen neutron wavelength"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-t="296">296 K</button> <button type="button" class="btn ghost" data-t="1200">1200 K</button></p>
+  <label class="energy-control"><span>Neutron wavelength <b data-lam-out></b></span>
+    <input type="range" data-lam min="0.3" max="12" step="0.01" value="1.8" aria-label="Neutron wavelength in angstroms"></label>
+  <p class="note">ENDF/B-VIII.0 crystalline graphite <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, coherent elastic (MF=7/MT=2), through OUTRAM PARK's THERMR port. Shaded: wavelengths too long to diffract.</p>
+</section>
+
+<p>Graphite's evaluation lists <b data-nedges>221</b> Bragg edges. Each is the energy at which the wavelength becomes short enough for one more set of planes to diffract. Below the first, at <b data-ecut>1.82</b> meV, the wavelength is longer than <b data-lcut>6.70</b> &Aring;, twice the widest spacing of planes that diffract (<b data-dmax>3.35</b> &Aring;), and nothing diffracts at all. The manual's rule of thumb: the first edge is "typically about 2 to 5 meV" (§7.1). Between edges the cross section falls as 1/E; above about an electronvolt the steps have shrunk away.</p>
+
+<h2>But we need thermal effects too</h2>
+<ol start="4">
+  <li><b>The temperature.</b> The atoms are already vibrating, more so when hot, and that changes how much energy the neutron can give or receive. Switch the widget to 1200 K: the edges stay where they are, set by the plane spacings, but the steps shrink, from <b data-s01="296">3.20</b> b to <b data-s01="1200">1.27</b> b at 0.1 eV. A crystal that shakes more diffracts less cleanly.</li>
+  <li><b>The vibration fingerprint.</b> The atoms do not vibrate as free particles: they are tied to each other, so the lattice vibrates <b>together</b>, in collective patterns. A bound atom can only exchange energy through those patterns, in steps of a quantum of vibration (a <b>phonon</b>, page 23). Each pattern's steps are quantised, but a real crystal has a continuous spread of patterns, and its <b>spectrum of vibration frequencies</b> &rho; is the material's fingerprint. Page 20 read two of them from their decks: Si in quartz, and H in water.</li>
+</ol>
+
+<h2>One table holds all of it: S(&alpha;, &beta;)</h2>
+<p>All five sit in one function of two numbers, the <b>scattering law</b> S(&alpha;, &beta;): &alpha; measures the momentum transfer and &beta; the energy transfer, both scaled by kT. The structure, the temperature and the vibrations are all in S; the evaluation stores it as a table. For the inelastic part, in ENDF's form (NJOY2016 manual, eq. 230):</p>
+<p class="eq-block">&sigma;(E &rarr; E&prime;, &mu;) = (&sigma;<sub>b</sub>/2kT) &radic;(E&prime;/E) e<sup>&minus;&beta;/2</sup> S(&alpha;, &beta;)</p>
+<details class="optional">
+  <summary>Deeper: &alpha;, &beta; and detailed balance</summary>
+  <p>From the NJOY2016 manual, §7.2 (eqs. 231&ndash;232), with A the scatterer's mass ratio and &mu; the laboratory scattering cosine:</p>
+  <p class="eq-block">&beta; = (E&prime; &minus; E)/kT, &nbsp; &alpha; = (E&prime; + E &minus; 2&mu;&radic;(EE&prime;))/(AkT)</p>
+  <p>The S in the formula above is ENDF's <b>symmetric</b> S, which is why the factor e<sup>&minus;&beta;/2</sup> appears; LEAPR's own asymmetric form folds it in. Symmetric means S(&alpha;, &beta;) = S(&alpha;, &minus;&beta;): with the e<sup>&minus;&beta;/2</sup> factor, a neutron gains a given energy less often than it loses it, by e<sup>&minus;&beta;</sup>. That is detailed balance, the condition that lets neutrons come into thermal equilibrium with the material.</p>
+  <p>The Bragg steps also depend on temperature: the more the atoms shake about their places, the less cleanly the planes reflect. The factor that measures this weakening is called the <b>Debye&ndash;Waller factor</b>, e<sup>&minus;2WE<sub>i</sub></sup> in the manual's coherent elastic formula (eq. 225). So "structure first, temperature later" is the teaching order, not a physical separation.</p>
+</details>
+
+<div class="misconception" role="note"><b>Common misconception: "S(&alpha;, &beta;) = e<sup>&minus;&beta;</sup> S(&alpha;, &minus;&beta;) is what S is."</b>
+  <p>No. That equation (in LEAPR's asymmetric form) is <b>detailed balance</b>: a rule every scattering law obeys, linking gaining energy to losing it. It does not tell you S; S itself depends on the material's structure, temperature and vibrations.</p></div>
+
+<h2>Three kinds of thermal scattering</h2>
+<ul>
+  <li><b>Coherent elastic</b>: no energy change, Bragg diffraction off the crystal's planes. Crystals such as graphite and beryllium.</li>
+  <li><b>Incoherent elastic</b>: no energy change, but no Bragg edges. Hydrogenous solids such as ZrH.</li>
+  <li><b>Inelastic</b>: the neutron gains or loses energy by exciting or absorbing vibrations. Every material.</li>
+</ul>
+<p>Which kinds an evaluation carries is in its data. Of the local ENDF/B-VIII.0 tapes, graphite and SiC have coherent elastic data and Bragg edges; H in H<sub>2</sub>O has none: water is a liquid, with no planes to diffract from.</p>
+
+<h2>Why is this so? Start with the simplest case</h2>
+<p>Thermal effects come first. But a lattice is complicated, so let's break it down, and think about a simpler case first: <b>lone atoms</b>.</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

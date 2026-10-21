@@ -1,20 +1,53 @@
 [package]
 name = "outram-park-digital-twin-engine"
-version = "0.0.2"
+version = "0.0.3"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+# `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
+# write-ups. Excluded so it never ships to crates.io (size, and it is
+# not part of the published API surface).
+exclude = ["docs"]
 description = "Reusable visualization framework for OUTRAM PARK digital twins -- visual process objects whose rendering derives directly from physics state"
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 4
+topic = "app"
+fidelity = [0, 1]
+maturity = 1
+
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Physics backends this framework visualizes. Real (non-dev) dependencies --
 # unlike tampines, this crate's whole purpose is presentation, so it makes no
 # Android-portability claim and GUI deps are not confined to examples/.
 tampines.workspace = true
 nee_soon.workspace = true
+
+# REAL (non-dev) dependencies on the Monte Carlo stack, by maintainer direction
+# (2026-09-29: "digital twin engine can use outram-mc-libs/nee-soon as a
+# dependency ... so no dev there"). Both are already compiled beneath `nee_soon`,
+# so this adds no build work. First consumer: the HIGH-tier Godiva case in
+# `tests/ci_smoke/` (GitHub #415). `njoy-outram-park-fork` is named directly only
+# for `reference_data::reference_endf`, which `outram-mc-libs` does not re-export.
+outram-mc-libs.workspace = true
+njoy-outram-park-fork.workspace = true
 chem-eng-real-time-process-control-simulator.workspace = true
 
 # REAL (non-dev) dependency: `components::TurbineVisual` renders
@@ -55,8 +88,9 @@ csv.workspace = true
 # crate -- tampines does not re-export it. The widget must be able to name the
 # type to map it onto `HeatExchangerKind`; without it the physics-backed path
 # could only guess an arrangement, which is exactly the kind of fabrication
-# this library forbids. Pure Rust (thiserror/ndarray/uom/roots/zip with only
-# `deflate`), so promoting it does not endanger the Android build. The
+# this library forbids. Pure Rust (thiserror/ndarray/uom/zip with only
+# `deflate`, and petir, which replaced `roots` there on 2026-10-20, gh:#991),
+# so promoting it does not endanger the Android build. The
 # examples (htgr_sim_v1's schematic, widget_studio's heat-exchanger tab) reach
 # it through this entry, so it is no longer declared as a dev-dependency.
 outram-park-fork-dwsim-libs.workspace = true
@@ -106,13 +140,15 @@ egui_extras.workspace = true
 # balance solve now uses outram-foam-basic-lib's pure-Rust dense LU `SquareMatrix`
 # (an OpenFOAM port) instead of a BLAS/LAPACK linear solver.
 [dev-dependencies]
+# `tests/ci_smoke/edwards.rs` (GitHub #415) names `SlipModel`. The crate is
+# already compiled beneath `tampines`, so this adds no build work.
+outram-foam-multiphase.workspace = true
 teh-o-prke.workspace = true
 # tampines-steam-tables is now a REAL dependency above (TurbineVisual renders
 # its generator model from the library, and libraries cannot see dev-deps); it
 # stays usable from examples/tests either way.
 # tuas_boussinesq_solver is now a REAL dependency above (the CIET v2 binary needs
 # it and bins cannot see dev-deps); it stays usable from examples/tests either way.
-roots.workspace = true
 ndarray.workspace = true
 outram-foam-basic-lib.workspace = true
 serde.workspace = true
@@ -132,6 +168,87 @@ serde.workspace = true
 # precedent as outram-park-fork-dwsim-libs above. Promoting a property
 # accessor into tampines is the tidier long-term home.
 outram-park-fork-coolprop.workspace = true
+
+# htgr_sim_v1's TRISO fission-product release channel
+# (`physics::fission_product_release`) drives `boon-lay`'s Rust fork of Idaho
+# National Laboratory's TRISO-ATOPS off the resolved fuel-kernel temperature.
+# A DEV-dependency, not a real one: only the example uses it, and this crate's
+# own CLAUDE.md forbids new physics in the library. No new weight in the tree
+# either -- `tampines` already depends on `boon-lay` (its `TrisoParticle`
+# converts to and from that crate's `TrisoCell`), so this entry makes an
+# existing transitive dependency nameable from the example rather than adding
+# one. AGPL/GPL note: `boon-lay` is GPL-3.0 like this crate, and the TRISO-ATOPS
+# fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
+boon-lay.workspace = true
+# The reactor-building CV between the primary leak and the stack (gh:#400).
+bishan.workspace = true
+
+# htgr_sim_v1's fuel node (gh:#360, 2026-09-28) needs the heat capacity of the
+# TRISO kernel and SiC coating: `outram-park-fork-offbeat`'s MATPRO UO2 and
+# Snead SiC correlations, reused rather than re-entered. DEV-dependency for the
+# same reason as `boon-lay`: example-only, and this crate's CLAUDE.md forbids
+# new physics in the library. Pure Rust (uom, thiserror, outram-foam-basic-lib,
+# which this crate already uses), so Android and wasm stay clean.
+outram-park-fork-offbeat.workspace = true
+
+# htgr_sim_v1's atmospheric dispersion channel
+# (`physics::atmospheric_dispersion`) takes the TRISO release channel's
+# circulating activity out of the primary circuit and downwind, using
+# `changi`'s Gaussian puff model (a port of the R package `puff` 0.1.1) and its
+# activity layer. DEV-dependency for the same reasons as `boon-lay` above:
+# example-only, and this crate's CLAUDE.md forbids new physics in the library.
+#
+# SCOPE (RESPONSIBLE_USE.md, and `changi::activity`'s own binding scope limit):
+# research, education and V&V only. Never for emergency planning, emergency
+# response, dose assessment for real populations, or Level 3 PSA. ~~No dose
+# quantity of any kind is computed.~~ CHANGED 2026-09-29: changi computes
+# none; the map's INDICATIVE dose rate is buangkok's (see below).
+#
+# `gpu`: dispatches `changi::puff::wgsl::field_auto`'s WGSL kernel through
+# PETIR's headless runner. htgr_sim_v1's Map tab evaluates the dispersion
+# field once per screen pixel at 10 Hz -- 31.5 M kernel evaluations a frame at
+# 512 cells. Measured 2026-09-25 (`cargo run --release -p changi --example
+# field_timing --features gpu`, 16 cores, one adapter): 1.33 ms on the GPU
+# against 19.6 ms pooled. Both fit the 100 ms physics tick on their own, but
+# the plant step already spends ~96 ms of it, so only the GPU figure is small
+# enough to leave real-time pacing alone at full resolution.
+#
+# The CPU path stays mandatory and is what runs when this host has no usable
+# adapter: `outram-mc-libs/CLAUDE.md`'s GPU policy is a hard rule across this
+# workspace (detection at run time, CI must never need a GPU), and
+# `physics::atmospheric_dispersion::max_grid_cells` probes the adapter to pick
+# a resolution the CPU path can also meet. Both paths compute the same field.
+#
+# Android/wasm are unaffected: `petir/wgpu`'s `wgpu` dependency is itself
+# target-gated off both, so enabling this feature there activates nothing.
+changi = { workspace = true, features = ["gpu"] }
+
+# htgr_sim_v1's map "Dose rate" basis (maintainer direction 2026-09-29):
+# `physics::dose_rate` turns the live air concentration and the dry deposit
+# into an INDICATIVE effective dose rate through buangkok's pathway functions
+# (`submersion_dose_rate_msv_per_s`, `ground_shine_dose_rate_msv_per_s`,
+# `inhalation_committed_dose_rate_msv_per_s`) and buangkok's shipped EPA
+# coefficients (FGR-15 2025, FGR-11). DEV-dependency, example-only, for the
+# same reasons as changi above. Direction: buangkok -> changi, petir, uom;
+# nothing depends on this crate, so no cycle. buangkok is pure Rust (petir is
+# no_std), so Android and wasm stay clean.
+# SCOPE: research/education only -- never a dose to any real person, never for
+# emergency or regulatory use (RESPONSIBLE_USE.md, buangkok's CLAUDE.md).
+# Also the map's optional steady Gaussian-plume overlay (gh:#470,
+# `physics::steady_plume_overlay`): buangkok's pyDOSEIA single-plume master
+# equation evaluated per grid cell.
+buangkok = { workspace = true }
+
+# htgr_sim_v1's map "Bounding air ingress" button (#453): the HTR-10 bounding
+# air-ingress case (1400 C / 140 h, KORA f_ox from IAEA-TECDOC-978 Table 5-7,
+# TRISO-ATOPS release with sembawang's venting, #446) and its LWR comparison
+# (RG 1.183 per unit leak rate, WASH-1400 PWR 8), from
+# `sembawang::lwr_comparison::bounding_comparison` -- the SAME function the
+# #452 example calls, so the map cannot drift from it. DEV-dependency,
+# example-only, like buangkok. Direction: sembawang -> boon-lay, changi,
+# buangkok, uom (and outram-mc-libs since 2026-10-17, gh:#951, already a
+# dependency here); nothing in sembawang depends on this crate, so no cycle.
+sembawang = { workspace = true }
 
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
 # this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
@@ -181,6 +298,17 @@ path = "src/bin/ciet_educational_simulator_v2/main.rs"
 [[bin]]
 name = "ciet_v2_opcua_client"
 path = "src/bin/ciet_v2_opcua_client/main.rs"
+
+# CIET Educational Simulator v2 in the browser (gh:#924): the v2 physics
+# stepper (`full_simulation::stepper`, included by path, so one copy of the
+# physics) compiled to wasm and driven from a Web Worker by a plain-JS page
+# (`web/ciet/`). Native builds carry its tests.
+[[example]]
+name = "ciet_web"
+path = "examples/ciet_web/main.rs"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = { workspace = true }
 
 # ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────
 # None of this can work in a browser: async-opcua and tokio want sockets,

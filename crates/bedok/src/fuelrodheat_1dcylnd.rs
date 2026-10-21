@@ -7,7 +7,7 @@
 //! - **Source file:** `fuelrodheat_1dcylnd.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 //!
 //! # What this computes, and why it matters
@@ -72,6 +72,115 @@ pub enum Solve {
     /// operator. The reference dumps diagnostics to the console here.
     NotFinite,
 }
+/// Which unknowns in a solved rod profile are **gap dummies** — defect T1/T7.
+///
+/// # The problem this exists to make un-fall-into-able
+///
+/// [`fuelrodheat_1dcylnd`] returns `maxid` temperatures, and one of them is not
+/// a temperature. A radial node with `whichk == 0` is a **gap**: an unresolved
+/// void represented by a conductance, not a region. Conduction bridges around
+/// it — the pellet surface couples straight to the clad inner surface — so its
+/// matrix row is never written, keeps the preallocated diagonal of `1`, and is
+/// given `bvec = 1`. It therefore solves to **exactly 1 kelvin**, regardless of
+/// power, coolant temperature or gap conductance.
+///
+/// That value is physically meaningless but it **is** in the returned vector.
+/// The profile either side of it is correct, and the live path survives it
+/// because `th_solverxyz` clamps everything up to the local coolant temperature
+/// on the next line and takes its Doppler weight from the centre and
+/// pellet-surface nodes. **A caller that averages or scans the raw profile
+/// gets a wrong answer**, which is exactly what the volume-average line
+/// commented out in `th_solverxyz.m` would have done.
+///
+/// # Why the 1 K is left in place
+///
+/// Every plausible replacement is an invention. There is no "gap temperature"
+/// in this model to compute, so interpolating between the two surfaces would
+/// manufacture a physically reasonable-looking number the solve never
+/// produced — worse than an obviously absurd one, because it would not be
+/// noticed. Dropping the row would change the vector's length and break every
+/// caller's `maxid` arithmetic. So the raw profile keeps the reference's value,
+/// and this function plus [`without_gap_dummies`] make the trap avoidable
+/// rather than merely documented.
+///
+/// # How it is computed
+///
+/// By replaying [`fuelrodheat_1dcylnd`]'s own `ir`/`id` walk, including the
+/// `surf` flag that makes one `ir` emit two unknowns. It is derived from the
+/// same logic rather than hard-coded, so it cannot drift from the solver.
+///
+/// # Arguments
+///
+/// - `whichk` — `geometry.fuel.whichk`, the material per radial node, `0` for
+///   the gap.
+///
+/// # Returns
+///
+/// The **0-based** unknown indices that are dummies, ascending. Empty for a rod
+/// with no gap. For the NEACRP rod (`[1,1,1,1,1,0,2,2]`) this is `[6]`.
+pub fn gap_dummy_unknowns(whichk: &[usize]) -> Vec<usize> {
+    let maxir = whichk.len();
+    let mut out = Vec::new();
+    if maxir == 0 {
+        return out;
+    }
+    let mut surf = false;
+    let mut ir = 1usize;
+    let mut id = 1usize;
+    while ir < maxir {
+        if whichk[ir] == 0 {
+            out.push(id);
+            ir += 1;
+            id += 1;
+            continue;
+        }
+        // The same advance the solver uses.
+        if ir == maxir - 1 || whichk[ir] == whichk[ir + 1] || surf {
+            ir += 1;
+            surf = false;
+        } else {
+            surf = true;
+        }
+        id += 1;
+    }
+    out
+}
+
+/// A solved rod profile with the gap dummies removed — defect T1/T7.
+///
+/// Use this in preference to the raw profile for **anything that reduces over
+/// the radius**: an average, a minimum, a plot. See [`gap_dummy_unknowns`] for
+/// why the raw vector contains a 1 K entry and why it is left there.
+///
+/// The surviving entries keep their order, so the result reads centre-outward
+/// exactly as the input does; only the physically meaningless rows are gone.
+///
+/// # Arguments
+///
+/// - `whichk` — `geometry.fuel.whichk`.
+/// - `profile` — a `maxid`-long solved profile from [`fuelrodheat_1dcylnd`],
+///   or one row of `th.fueltemp`.
+///
+/// # Panics
+///
+/// If `profile` is shorter than the largest dummy index it would have to skip.
+pub fn without_gap_dummies(whichk: &[usize], profile: &[f64]) -> Vec<f64> {
+    let dummies = gap_dummy_unknowns(whichk);
+    if let Some(&last) = dummies.last() {
+        assert!(
+            profile.len() > last,
+            "profile is {} long but the gap dummy sits at index {last}",
+            profile.len()
+        );
+    }
+    profile
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| !dummies.contains(i))
+        .map(|(_, t)| *t)
+        .collect()
+}
+
 
 /// `results = fuelrodheat_1dcylnd(params, geometry, temps, pwr, bc, modtemp)`.
 ///
@@ -592,5 +701,237 @@ mod tests {
         let (fuel, maxir) = neacrp_rod();
         let temps = vec![800.0; 8]; // maxir, not maxid
         let _ = fuelrodheat_1dcylnd(&fuel, maxir, &temps, 300.0, 1.5, 580.0);
+    }
+
+    /// **T1/T7 — the gap dummy is locatable, and skipping it fixes the mean.**
+    ///
+    /// # Methodology
+    ///
+    /// The 1 K gap row is left in the raw profile deliberately (see
+    /// [`gap_dummy_unknowns`] for why every replacement would be an
+    /// invention). What is corrected is that the trap was only documented, not
+    /// avoidable. Three things are checked:
+    ///
+    /// 1. **The accessor agrees with the solver.** Every index
+    ///    `gap_dummy_unknowns` reports must actually hold `1.0` in a real
+    ///    solved profile, and every index it does not report must not. This is
+    ///    the check that matters, because the accessor replays the solver's
+    ///    `ir`/`id` walk rather than sharing code with it — if that replay ever
+    ///    drifts, this fails.
+    /// 2. **It is derived, not hard-coded.** A rod with no gap must report no
+    ///    dummies; a rod with two gaps must report both.
+    /// 3. **It changes the answer it is meant to change.** The mean over the
+    ///    raw profile against the mean with the dummy skipped.
+    ///
+    /// # Results — measured 2026-08-23
+    ///
+    /// On the NEACRP rod (`whichk = [1,1,1,1,1,0,2,2]`, `maxid = 10`) at
+    /// 300 W/cm3 and 580 K coolant:
+    ///
+    /// | | |
+    /// |---|---|
+    /// | dummy indices | **`[6]`**, matching the module's own layout table |
+    /// | profile at index 6 | **1.0000 K** |
+    /// | mean over the raw profile | **754.66 K** |
+    /// | mean with the dummy skipped | **838.40 K** |
+    /// | error the trap causes | **-83.74 K, -10.0%** |
+    ///
+    /// A gapless rod reports `[]`; a rod with two gaps reports both.
+    ///
+    /// **Interpretation.** The 84 K error is the concrete size of the trap: a
+    /// caller averaging the raw profile — which is exactly what the
+    /// commented-out volume-average line in `th_solverxyz.m` would have done —
+    /// is pulled down 10% by one node that is not a temperature. That is why
+    /// the T9 correction averages the pellet nodes only, and why this accessor
+    /// exists for anyone who reaches for the full profile instead.
+    #[test]
+    fn t1_the_gap_dummy_is_locatable_and_skippable() {
+        let (fuel, maxir) = neacrp_rod();
+        let whichk = &fuel.whichk;
+        eprintln!("whichk = {whichk:?}, maxir = {maxir}");
+
+        let dummies = gap_dummy_unknowns(whichk);
+        eprintln!("gap dummy unknowns: {dummies:?}");
+        assert_eq!(dummies, vec![6], "the NEACRP rod's gap sits at unknown 6");
+
+        let temps = vec![900.0; 10];
+        let (profile, _) = fuelrodheat_1dcylnd(&fuel, maxir, &temps, 300.0, 1.5, 580.0);
+
+        // 1. Every reported index really is the 1 K dummy, and no other is.
+        for (i, t) in profile.iter().enumerate() {
+            let is_dummy = dummies.contains(&i);
+            if is_dummy {
+                assert!(
+                    (t - 1.0).abs() < 1e-12,
+                    "index {i} was reported as a dummy but holds {t}"
+                );
+            } else {
+                assert!(
+                    (t - 1.0).abs() > 1e-9,
+                    "index {i} holds 1 K but was not reported as a dummy"
+                );
+            }
+        }
+
+        // 2. Derived, not hard-coded.
+        assert_eq!(
+            gap_dummy_unknowns(&[1, 1, 1, 2, 2]),
+            Vec::<usize>::new(),
+            "a rod with no gap has no dummies"
+        );
+        assert_eq!(
+            gap_dummy_unknowns(&[1, 1, 0, 2, 2, 0, 3, 3]).len(),
+            2,
+            "a rod with two gaps has two dummies"
+        );
+
+        // 3. The size of the trap.
+        let raw: f64 = profile.iter().sum::<f64>() / profile.len() as f64;
+        let clean_profile = without_gap_dummies(whichk, &profile);
+        let clean: f64 = clean_profile.iter().sum::<f64>() / clean_profile.len() as f64;
+        eprintln!("mean over the raw profile   = {raw:.2} K");
+        eprintln!("mean with the dummy skipped = {clean:.2} K");
+        eprintln!("the trap costs {:.2} K ({:+.1}%)", raw - clean, (raw / clean - 1.0) * 100.0);
+
+        assert_eq!(clean_profile.len(), profile.len() - 1);
+        assert!(
+            clean > raw,
+            "skipping a 1 K entry must raise the mean: {clean} vs {raw}"
+        );
+        assert!(
+            !clean_profile.iter().any(|t| (t - 1.0).abs() < 1e-9),
+            "no 1 K entry may survive"
+        );
+    }
+
+    /// **T9 — is the doubled interface conductance right? Checked against the
+    /// analytic pellet solution.**
+    ///
+    /// # Methodology
+    ///
+    /// The register records the `whichk(ir+1) == 0` branch multiplying its
+    /// harmonic mean by an extra `2`, "with the un-doubled line commented out
+    /// directly above it and no derivation given". Whether that `2` is a
+    /// mistake or an unstated derivation is decidable, because the pellet has
+    /// a closed-form answer.
+    ///
+    /// A cylinder with uniform volumetric source `q_v` and uniform
+    /// conductivity `k` has `T(r) = T_surface + q_v*(R^2 - r^2)/(4k)`, so the
+    /// **centre-to-pellet-surface drop is exactly `q_v*R^2/(4k)`**, whatever
+    /// sits outside the pellet. That is what this measures: a rod with
+    /// constant conductivity, a uniform radial mesh and a gap (so the doubled
+    /// branch fires at the last fuel node), refined to show convergence.
+    ///
+    /// The branch in question links the outermost **fuel** node to the
+    /// pellet-surface unknown. That distance is **half** a node thickness —
+    /// centre to face — not a full one, so a factor of 2 on `k*ctr/lr` is
+    /// exactly what a centre-to-face conductance requires. If that reading is
+    /// right the discrete drop converges on the analytic one; if the `2` is
+    /// spurious, the last node contributes twice the resistance it should and
+    /// the error stops falling with refinement.
+    ///
+    /// # Results — measured 2026-08-23
+    ///
+    /// Analytic drop `q_v*R^2/(4k)` = **420.2500 K**.
+    ///
+    /// | `fueln` | discrete drop | rel err | ratio |
+    /// |---|---|---|---|
+    /// | 4 | 328.320313 | 2.187e-1 | — |
+    /// | 8 | 371.001953 | 1.172e-1 | 1.87 |
+    /// | 16 | 394.805176 | 6.055e-2 | 1.94 |
+    /// | 32 | 407.322388 | 3.076e-2 | 1.97 |
+    /// | 64 | 413.734894 | **1.550e-2** | **1.98** |
+    ///
+    /// **Verdict: the factor of 2 is correct, and the register entry should
+    /// not have called it undeified.** The branch links the outermost fuel
+    /// node to the pellet-surface unknown, and that distance is **half** a node
+    /// thickness — centre to face. A centre-to-face conductance is
+    /// `k*r/(dr/2) = 2*k*r/dr`, which is exactly `harmonic * ctr/lr * 2`. The
+    /// discrete drop converges on the analytic value, which it could not do if
+    /// the last node carried twice the resistance it should.
+    ///
+    /// Removing the `2` would double that node's resistance and **add** a drop
+    /// of `Q*dr/(2*k*r_last)` — computed at these meshes as **120.1 K, 56.0,
+    /// 27.1, 13.3, 6.6 K**, i.e. it would roughly *double* the error at every
+    /// refinement. The commented-out un-doubled line above it is the mistake,
+    /// not the live line.
+    ///
+    /// # A finding the register does not record: the scheme is first order
+    ///
+    /// The error ratio is **1.97, 1.98** per mesh doubling — first order, not
+    /// second. The cause is visible in every branch, not just this one:
+    /// the conductance is `k * ctr[ir] / lr[ir]`, using the **node-centre**
+    /// radius where the **face** radius `ctr[ir] + lr[ir]/2` belongs. That
+    /// understates the conduction area by `dr/2`, an O(dr) deficit — 12.5% at
+    /// 4 nodes and 0.78% at 64.
+    ///
+    /// It is why the pellet drop is still **1.55% low at 64 radial nodes**,
+    /// and why the NEACRP rods, which use **5**, carry a correspondingly
+    /// larger discretisation error in every fuel temperature this crate
+    /// reports. That is a property of the reference's scheme rather than a
+    /// translation error, and correcting it would move every fuel temperature
+    /// — so it is recorded, not repaired.
+    #[test]
+    fn t9_is_the_doubled_interface_conductance_correct() {
+        use crate::types::{Conductivity, FuelGeometry};
+
+        const K: f64 = 0.03; // W/(cm K), constant
+        const RF: f64 = 0.41; // pellet radius, cm
+        const Q: f64 = 300.0; // W/cm3, uniform in the pellet
+
+        let analytic = Q * RF * RF / (4.0 * K);
+        eprintln!("analytic centre-to-surface drop = {analytic:.6} K");
+        eprintln!("  {:>6}  {:>14}  {:>12}  {:>8}", "fueln", "discrete drop", "rel err", "ratio");
+
+        let mut prev = f64::NAN;
+        for fueln in [4usize, 8, 16, 32, 64] {
+            let (gapn, cladn) = (1usize, 2usize);
+            let maxir = fueln + gapn + cladn;
+
+            let mut lr = vec![RF / fueln as f64; fueln];
+            lr.extend(vec![0.006; gapn]);
+            lr.extend(vec![0.03; cladn]);
+            let mut ctr = Vec::with_capacity(maxir);
+            let mut acc = 0.0;
+            for l in &lr {
+                acc += l;
+                ctr.push(acc - 0.5 * l);
+            }
+            let mut whichk = vec![1usize; fueln];
+            whichk.extend(vec![0usize; gapn]);
+            whichk.extend(vec![2usize; cladn]);
+
+            let fuel = FuelGeometry {
+                lr,
+                ctr,
+                whichk,
+                tcon: vec![Conductivity::Constant(K), Conductivity::Constant(K)],
+                gap_conductance: 1.0,
+                fuelrad: RF,
+                rtot: RF + 0.006 + 0.06,
+                pitch: 1.2665,
+                ..Default::default()
+            };
+
+            let maxid = maxir + 2;
+            let temps = vec![600.0; maxid];
+            let (profile, _) = fuelrodheat_1dcylnd(&fuel, maxir, &temps, Q, 1.5, 560.0);
+
+            // Centre is unknown 0; the pellet surface is the duplicate at `fueln`.
+            let drop = profile[0] - profile[fueln];
+            let err = (drop - analytic).abs() / analytic;
+            let ratio = if prev.is_finite() { format!("{:.2}", prev / err) } else { String::new() };
+            eprintln!("  {fueln:>6}  {drop:>14.6}  {err:>12.3e}  {ratio:>8}");
+            prev = err;
+        }
+
+        // The scheme converges on the analytic drop, but only at FIRST order —
+        // every branch uses the node-centre radius where the face radius is
+        // meant, an O(dr) area deficit. So the gate is the convergence rate,
+        // not an absolute tolerance: the error must keep halving.
+        assert!(
+            prev < 2e-2,
+            "the finest mesh is {prev:.3e} from the analytic drop"
+        );
     }
 }

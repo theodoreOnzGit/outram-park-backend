@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: GPL-3.0
+
+//! Radionuclide activity in air and on the ground, from a released source term.
+//!
+//! This module is **not a port**. Everything under it was written here, and it
+//! therefore has **no upstream and no code-to-code verification**. ~~The
+//! strongest evidence it can carry is internal consistency, which is what its
+//! tests assert.~~ **CORRECTED 2026-09-29** (gh:#380): [`chi_over_q`] now has an
+//! **independent** check, `crates/buangkok/tests/changi_puff_train_vs_plume.rs`.
+//! At constant wind and fixed stability class, `dilution_factors` matches an
+//! age sum written without any of this module's code to <= 3.9e-16, and in the
+//! steady limit reproduces buangkok's pyDOSEIA Gaussian plume with the
+//! residual a second-order expansion predicts. Varying wind, `FromWind`
+//! stability, deposition and the survey are still covered by internal
+//! consistency only (`tests/activity_properties.rs`). Read every number it
+//! produces in that light. `changi`'s two ported
+//! modules ([`crate::puff`] and [`crate::flexpart`]) keep their own harnesses
+//! and are untouched by this one.
+//!
+//! ## What it computes
+//!
+//! Given a release of activity at a point, over one or more time windows:
+//!
+//! | Quantity | Unit | Where |
+//! |---|---|---|
+//! | dilution factor, `chi/Q` | s/m^3 | [`chi_over_q`] |
+//! | time-integrated air concentration | Bq·s/m^3 | [`units`] |
+//! | dry ground deposition | Bq/m^2 | [`deposition`] |
+//!
+//! [`source`] is the input side — what was released, over which windows — and
+//! [`survey`] is the one call that puts the three together.
+//!
+//! **It computes no dose quantity of any kind**, and none is planned here. See
+//! the scope limit below, which is binding.
+//!
+//! ~~One published dose table is~~ ~~two published dose tables are *stored*
+//! here as cited reference data~~ **MOVED 2026-09-28** (maintainer: "move
+//! table 7 and 9 to buangkok"): the published HTR-10 dose tables (Liu and Cao
+//! 2002, Tables 7 and 9) now live in the dose crate, `buangkok::published`.
+//! This module holds no dose data. The accident releases (Table 8) stay here
+//! as a nuclide table, and `AccidentCase` is defined in
+//! [`accident_airborne_release`].
+//!
+//! ## Relationship to the two ports — a consumer, not a shared abstraction
+//!
+//! The crate rule is to keep `puff` and `flexpart` separate, because merging
+//! their shared-looking pieces would make each one's comparison against *its
+//! own* upstream harder to read. This module **consumes** both — [`crate::puff`]
+//! for dispersion and [`crate::flexpart::decay`] for decay in transit — and that
+//! is deliberately a different thing:
+//!
+//! - It sits **above** both and defines no type either port uses.
+//! - It changes **no ported signature**. The only edits it required in
+//!   `puff::simulate` were widening `Puff` to `pub(crate)`, splitting
+//!   `emit_with_classes` out of the existing `emit`, and adding
+//!   `puff_unit_response` beside `sum_over_puffs`. Nothing was removed,
+//!   generalised, or made to serve two upstreams at once.
+//! - Neither fixture, tolerance, or reference script moved.
+//!   `tests/puff_code_to_code.rs` and `tests/flexpart_code_to_code.rs` are the
+//!   check on that claim, and both must stay green.
+//!
+//! If a future change here would require a *common* stability class, a *common*
+//! dispersion coefficient, or any other type spanning the two ports, that is the
+//! rule biting and the answer is to duplicate rather than unify.
+//!
+//! ## Which dispersion model actually runs
+//!
+//! [`crate::puff`], which is ported from the **R package `puff` 0.1.1**
+//! (Hammerling Research Group, MIT) — a Gaussian puff model with empirical
+//! Pasquill-Gifford sigmas, written for **methane** leak detection, fitted over
+//! roughly 0.1-10 km and carrying no turbulence closure.
+//!
+//! It is **not FLEXPART**. ~~`changi::flexpart` is four scalar-kernel modules that
+//! its own documentation calls *"the first verified slice of a port"*; it cannot
+//! transport a plume~~ **CORRECTED 2026-10-03:** `changi::flexpart` is a port in
+//! progress (34 modules declared in `flexpart/mod.rs`, including `advance`), but
+//! it is not used for transport here. Say which model ran
+//! when reporting a number from this module.
+//!
+//! ## Scope limit — binding, do not soften
+//!
+//! Research, education and V&V only, exactly as the crate root states. Nothing
+//! in this module may be described, in code, docs, commit messages or chat, as
+//! supporting emergency planning, emergency response, dose assessment for real
+//! populations, or Level 3 PSA. Implementing the physics is not what promotes
+//! an item out of the crate's *future* scope list; that is a maintainer
+//! decision taken in `RESPONSIBLE_USE.md`.
+
+/// Published HTR-10 annual airborne release to the environment under normal
+/// operation (Liu and Cao 2002, Table 5). Reference data only; nothing in this
+/// crate consumes it.
+pub mod airborne_release;
+/// Published HTR-10 airborne release for two design-basis accidents
+/// (depressurization, water ingress; Liu and Cao 2002, Table 8), in Bq per
+/// accident. Reference data only; nothing in this crate consumes it.
+/// Added 2026-09-28.
+pub mod accident_airborne_release;
+pub mod decay_transfer;
+/// A published HTR-10 core inventory, so a source term can be built from
+/// measured magnitudes rather than round illustrative numbers. An inventory
+/// is NOT a source term -- see the module docs.
+pub mod fuel_release;
+pub mod inventory;
+/// Published HTR-10 primary-helium activity at the end of a 20-year full-power
+/// life (Liu and Cao 2002, Table 3). Reference data only; nothing in this
+/// crate consumes it.
+pub mod primary_helium;
+pub mod chi_over_q;
+pub mod deposition;
+pub mod source;
+pub mod survey;
+pub mod units;

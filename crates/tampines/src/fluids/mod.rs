@@ -38,20 +38,25 @@ use outram_park_fork_coolprop::Fluid as CoolPropFluid;
 ///   mass-flux log10 tolerance 0.05. Caveat: the reference curves are
 ///   graph-read HEM curves digitised from Saha (1978) NUREG/CR-0417, **not**
 ///   raw experimental data.
-/// - **Marviken is NOT validated.** The digitised NUREG/CR-2671 test-23/24
+/// - ~~**Marviken is NOT validated.** The digitised NUREG/CR-2671 test-23/24
 ///   data sits in `marviken_tests.rs`, but the single test is
 ///   `#[ignore = "skip first, Marviken is more complex"]`, its only
-///   assertion is commented out, and the body ends in `todo!()`. Marviken is
-///   **not** a basis for choosing this backend. Status as of 2026-08-11:
-///   gating is being implemented in `tampines-steam-tables` (the follow-up
-///   to op-bcg/op-4ily); re-check that crate's test suite for the current
-///   result rather than treating this line as permanent.
+///   assertion is commented out, and the body ends in `todo!()`.~~
+///   **CORRECTED 2026-10-16** (checked by reading
+///   `steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs`:
+///   6 `#[test]`s, no `#[ignore]`, no `todo!()`): Marviken is gated, with a
+///   split result recorded in `tampines-steam-tables/CLAUDE.md` -- test 23
+///   (3 K subcooling) validated, test 24 (33 K subcooling) **not** validated
+///   (mean -48.5 %). Marviken is **not** a basis for choosing this backend
+///   for subcooled stagnation states.
 ///
 /// Separately, the Edwards-O'Brien blowdown benchmark **is** genuinely gated
 /// -- 2 active, passing tests in `tampines-steam-tables`'s
-/// `tests/edwards_blowdown.rs` -- but that exercises the transient pipe
-/// solver in [`crate::multiphase_1d`], not the property backend selected
-/// here.
+/// `tests/edwards_blowdown.rs` -- but that exercises ~~the transient pipe
+/// solver in [`crate::multiphase_1d`]~~ **(CORRECTED 2026-10-16)** that
+/// crate's own `TampinesSteamArray` PIMPLE/KNP pipe array, not the property
+/// backend selected here. The [`crate::multiphase_1d`] solvers have their own
+/// Edwards case in `multiphase_1d/edwards_tests.rs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TampinesFluid {
     /// Evaluate via the CoolProp-derived backend (`outram-park-fork-coolprop`).

@@ -573,6 +573,10 @@ pub fn regression_long_test_calibrated_ver2_set_c8() {
 /// that is, STHE calibration and parasitic heat loss calibration over the loop
 /// the vertical TCHX is not split into equal halves
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 458 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn regression_long_test_calibrated_ver2_set_c9() {
     use regression_dracs_loop_v2::*;
 

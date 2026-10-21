@@ -113,6 +113,7 @@
 //! published theory), and the regime-map's non-obvious boundary behaviour is
 //! pinned down by regression test rather than left as an undocumented risk.
 
+use petir::mathf::RealMath;
 use super::area::InterfacialArea;
 use super::contact_partition::ContactPartition;
 use super::diameter::{BubbleDiameter, FilmDiameter};
@@ -291,7 +292,7 @@ fn bubble_diameter_reproduces_ideal_gas_scaling() {
     let d = isomolar
         .diameter(pa(p0), kelvin_of(2.0 * t0))
         .get::<meter>();
-    assert_relative_eq!(d, d0 * 2.0_f64.cbrt(), max_relative = 1e-10);
+    assert_relative_eq!(d, d0 * 2.0_f64.r_cbrt(), max_relative = 1e-10);
 
     // At the reference state exactly, d == d0.
     let d_ref = isomolar.diameter(pa(p0), kelvin_of(t0)).get::<meter>();

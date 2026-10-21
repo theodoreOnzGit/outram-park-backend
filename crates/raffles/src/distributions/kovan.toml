@@ -1,0 +1,206 @@
+schema_version = 1
+kind = "code_folder"
+crate = "raffles"
+dir = "crates/raffles/src/distributions"
+test_ids = [
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator.rs::diffusion_gaussian_sum",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_normal_dist_central_limit_theorem_simulator_time_based.rs::isotropic_scattering_time_summation",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/chatgpt_5_diffusion_simulator.rs::chat_gpt_sim",
+    "crates/changi/tests/flexpart_stochastic_advance.rs::advance_statistics_match_flexpart_real4",
+    "crates/changi/tests/flexpart_stochastic_advance.rs::advance_statistics_match_flexpart_real8",
+    "crates/outram-mc-libs/src/stats/convergence.rs::drifting_entropy_is_flagged_and_settled_entropy_passes",
+    "crates/outram-mc-libs/src/stats/convergence.rs::missing_entropy_is_reported",
+    "crates/outram-mc-libs/tests/stats_move_fingerprints.rs::pure_statistics_are_bit_identical",
+    "crates/raffles/src/distributions/seeded.rs::sample_exp_mean",
+    "crates/raffles/src/distributions/seeded.rs::sample_normal_mean_and_variance",
+    "crates/raffles/src/distributions/seeded.rs::uniform_stays_in_range",
+    "crates/raffles/src/estimators/autocorrelation.rs::ar1_recovers_the_exact_autocorrelation_time",
+    "crates/raffles/src/estimators/autocorrelation.rs::white_noise_is_not_inflated",
+    "crates/raffles/src/estimators/stationarity.rs::step_change_is_located",
+    "crates/raffles/src/estimators/stationarity.rs::transient_is_found_and_tail_passes",
+]
+
+[module."seeded.rs"]
+path = "crate::distributions::seeded"
+
+[[module."seeded.rs".function]]
+id = "fn:3660a9d4d0c10167"
+name = "ln"
+qual = "ln"
+lines = [
+    40,
+    43,
+]
+hash = "sha256:c476bd6646604fd36cad7d377cee68358bf1e92f4b889a3ff48fae2608a7a1bd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f420940c421868d5"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."seeded.rs".function]]
+id = "fn:5a927102a1aeba1b"
+name = "cos"
+qual = "cos#1"
+lines = [
+    45,
+    49,
+]
+hash = "sha256:287ff031165ebf8542ac935ba58c9956c595ffa23d704ca1485fa5bf27febfa5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."seeded.rs".function]]
+id = "fn:4283c54b8ed60ed0"
+name = "cos"
+qual = "cos#2"
+lines = [
+    51,
+    55,
+]
+hash = "sha256:6d5303dad29abbb0c2dcda6116e4e3bb13d24aa3036dda8a988bd277f64b9fb9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2767a7374d0917fb"]
+
+[[module."seeded.rs".function]]
+id = "fn:69b82be4e3b98232"
+name = "uniform"
+qual = "uniform"
+lines = [
+    57,
+    61,
+]
+hash = "sha256:75f540b65fc7cde1e46fa6fd0757e43d4363f85490cebc324acba5198ae12632"
+doc_hash = "sha256:4a205d4e6032432259ec044686009a14925f3f4ee0a0e0bc8dfbf07d81ad0315"
+callees = ["fn:681ddf6544e7b60b"]
+reached_by = [
+    "#7",
+    "#10",
+]
+
+[[module."seeded.rs".function]]
+id = "fn:96ab1fac00ee309f"
+name = "sample_normal"
+qual = "sample_normal"
+lines = [
+    63,
+    73,
+]
+hash = "sha256:45c6ea2f9d032481f2ce5a320e950649ee2d296f24da965d5b089eb52ccad96e"
+doc_hash = "sha256:89a19473852a83bf4d13f90d71aaf671de341833667d78ee8d800e2d17a267ee"
+callees = [
+    "fn:3660a9d4d0c10167",
+    "fn:5a927102a1aeba1b",
+    "fn:681ddf6544e7b60b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."seeded.rs".function]]
+id = "fn:3ce1fb0d589a4805"
+name = "sample_normal_3d"
+qual = "sample_normal_3d"
+lines = [
+    75,
+    84,
+]
+hash = "sha256:38287c2b38c3da135bedeb66584ad6848816ce9a6362646e719973b7866f337f"
+doc_hash = "sha256:7cf5b6df24954aaeb756f8898f14fda41a16c1d9a9246decc0316c8a8ee68bb2"
+callees = ["fn:96ab1fac00ee309f"]
+
+[[module."seeded.rs".function]]
+id = "fn:f69b878a074f12f5"
+name = "sample_exp"
+qual = "sample_exp"
+lines = [
+    86,
+    91,
+]
+hash = "sha256:a9ceceb95d5923a5b70121799e4ed3755b0738db9c27c8f92b20f70a74695e80"
+doc_hash = "sha256:aef64814b160c92d561c645dfa4ff0b54a5bf0f39381d53b6a3c3f24529c64f7"
+callees = [
+    "fn:3660a9d4d0c10167",
+    "fn:681ddf6544e7b60b",
+]
+reached_by = [
+    "#2",
+    "#7",
+    "#8",
+]
+
+[[module."seeded.rs".function]]
+id = "fn:09834bec3d760c71"
+name = "sample_normal_mean_and_variance"
+qual = "sample_normal_mean_and_variance"
+lines = [
+    97,
+    106,
+]
+hash = "sha256:3bf55c7b9c95fdb409b42ac7e4c803c600835304890dad92ff0e7d23ee4e8d2b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:96ab1fac00ee309f"]
+test = true
+
+[[module."seeded.rs".function]]
+id = "fn:55d1d647a0260b3f"
+name = "sample_exp_mean"
+qual = "sample_exp_mean"
+lines = [
+    108,
+    119,
+]
+hash = "sha256:6f9efbe4d3d93053eec16ccd8da6ca38351909c208a47c44214a1c48721892ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f69b878a074f12f5"]
+test = true
+
+[[module."seeded.rs".function]]
+id = "fn:9de06af7bf397b40"
+name = "uniform_stays_in_range"
+qual = "uniform_stays_in_range"
+lines = [
+    121,
+    128,
+]
+hash = "sha256:eff9d48ef49946a57392a88a1bc152272923ef5d9eb9d718de17812f9bdb9f7f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:69b82be4e3b98232"]
+test = true

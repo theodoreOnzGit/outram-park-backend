@@ -5,6 +5,13 @@
 # Bead op-okqo.6. Shell, not Python, per the workspace "No Python for
 # documentation or accounting" rule and to keep the gate dependency-free.
 #
+# RUNS IN RELEASE, like everything else in this workspace (maintainer
+# direction, 2026-09-19; the check-in-release rule dates from 2026-09-17).
+# A type-check reports the same diagnostics either way, but a dev-profile one
+# builds a whole second set of artifacts: this gate alone had grown
+# target/wasm32-unknown-unknown to 5.7 GB across 34 crates -- larger than the
+# entire release tree -- for no diagnostic gain.
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # WHAT THIS CHECKS, AND WHAT IT DOES NOT
 #
@@ -62,18 +69,27 @@ VERBOSE=0
 #       gating them costs nothing and protects the pure-data half of the kovan
 #       layer from regressing.
 #
-#   bedok, outram-blender
-#       Not wanted as wasm targets. Both fail only on faer's default feature set
+#   ~~bedok~~ CORRECTED 2026-10-20 (gh #994): no longer excluded.
+#       ~~Not wanted as a wasm target. Fails only on faer's default feature set
 #       (faer's `rayon` feature pulls spindle -> atomic-wait, which has no wasm
-#       backend); the fix is known and small but not worth making. Bead
-#       op-okqo.2 (cancelled).
+#       backend). Bead op-okqo.2 (cancelled).~~ bedok dropped faer for
+#       petir::sparse, and `cargo check --release -p bedok --lib --target
+#       wasm32-unknown-unknown` passes (checked 2026-10-20), so it is gated
+#       like every other member. That is compilation only, not a claim that
+#       bedok is a useful wasm target.
+#
+#   ~~outram-blender~~ CORRECTED 2026-10-02 (GitHub #486): no longer excluded.
+#       outram-mc-libs takes its CSG description from it (#486), so it must
+#       build for wasm. Its faer dependency is target-split in its Cargo.toml:
+#       on wasm32 it drops faer's `rayon` and `rand` features (the root faer
+#       entry is `default-features = false`); native builds keep them. ~~bedok
+#       still takes faer's full default set and stays excluded above.~~ bedok
+#       has no faer since 2026-10-20 (gh #994) and is no longer excluded.
 EXCLUDED=(
   kovan
   kovan-discovery
   kovan-metrics
   kovan-semantics
-  bedok
-  outram-blender
 )
 
 is_excluded() {
@@ -116,7 +132,7 @@ for c in $MEMBERS; do
     skipped=$((skipped + 1))
     continue
   fi
-  err=$(cargo check -q -p "$c" --lib --target wasm32-unknown-unknown 2>&1)
+  err=$(cargo check -q --release -p "$c" --lib --target wasm32-unknown-unknown 2>&1)
   if echo "$err" | grep -qE '^error'; then
     printf '  FAIL  %-40s\n' "$c"
     [ "$VERBOSE" = "1" ] && echo "$err" | grep -E '^error' | head -3 | sed 's/^/          /'
@@ -135,7 +151,7 @@ if [ "$fail" -gt 0 ]; then
   echo
   echo "Failed: ${failed_names[*]}"
   echo "Re-run with -v for the first error lines, or:"
-  echo "  cargo check -p <crate> --lib --target wasm32-unknown-unknown"
+  echo "  cargo check --release -p <crate> --lib --target wasm32-unknown-unknown"
   echo
   echo "Common causes and the fix this workspace uses (bead op-okqo):"
   echo "  * rayon        — target-gate OFF WASM ONLY, never feature-gate and"

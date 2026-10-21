@@ -1,0 +1,10 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "{{Cite book| publisher = Springer| isbn = 978-3-642-32156-6| volume = 2058| last = Bachar| first = Mostafa| title = Stochastic biomathematical models: With applications to neuronal modeling| location = Heidelberg| series = Lecture notes in mathematics| date = 2013-01-01}}"
+	},
+	"csl_ranges": {
+		"status": 200,
+		"output": "{{Cite journal| volume = 7| pages = 1–10| last1 = Smith| first1 = John| last2 = Kovan Collaboration| title = A range and a circa date| journal = Journal of Testing| date = 2010}}\r\n{{Cite book| publisher = Kovan Press| title = A literal date| location = Singapore| date = 2021}}\r\n{{Cite book| editors = Ed Editor (ed.)| title = A Book| chapter = A season| date = 2021}}"
+	}
+}

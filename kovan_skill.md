@@ -70,6 +70,21 @@ kovan-cli refs foo --file src/lib.rs     # every reference site, as coordinates
 kovan-cli lsp-daemon-stop --root .       # stop the warm daemon for this root
 ```
 
+Call chains for lessons and architecture maps (same daemon). A function is
+`path/to/file.rs::name` or `path/to/file.rs::Type::name`. Calls the tool
+cannot follow are printed `UNRESOLVED(trait|closure|macro|no-definition|other)`
+— read the code, then record the hop with `--hand` (or a `hand:` line in the
+lesson block), which is labelled "filled by hand":
+
+```bash
+kovan-cli code-walk --from crates/x/examples/demo.rs::main --to crates/x/src/geom.rs::Sphere::distance
+kovan-cli code-walk --from crates/x/src/keff.rs::transport_history --depth 2   # exhaustive tree
+kovan-cli code-walk --from A.rs::f --to B.rs::g --format json                  # or mermaid / both
+kovan-cli code-walk --from A.rs::f --to B.rs::g --hand "A.rs::f -> B.rs::T::m | why"
+kovan-cli code-walk-check crates/x/docs/lessons            # fail on stale <!-- code-walk: --> blocks
+kovan-cli code-walk-check crates/x/docs/lessons --update   # regenerate them
+```
+
 Discover files under a root, honouring `.gitignore`:
 
 ```bash
@@ -99,6 +114,20 @@ kovan-cli lit bibtex doc.json
 kovan-cli lit outline paper.pdf
 ```
 
+Zotero: import a Zotero data folder or a BibTeX/RIS/CSL JSON/... file into
+a Kovan folder the user names, export to any Zotero format. Only ever act on
+paths the user gives; never point `--to` or `-o` inside this repository (it
+is refused) and never read a user's Zotero library unasked:
+
+```bash
+kovan-cli zotero formats                                   # translators + directions
+kovan-cli zotero import ~/Zotero --to ~/kovan-folder --dry-run
+kovan-cli zotero import library.ris --to ~/kovan-folder
+kovan-cli zotero export --format bibtex --from ~/kovan-folder -o out.bib
+kovan-cli zotero duplicates ~/kovan-folder
+kovan-cli zotero search ~/kovan-folder "pebble bed"
+```
+
 Generate numerical-method source from the codegen catalogue:
 
 ```bash
@@ -124,10 +153,12 @@ The emitted dataset is always `UNREVIEWED` — a human marks it reviewed in
 | `outline` | yes | Declarations-only skeleton, ripgrep-first |
 | `slice` | yes | Print one line range |
 | `def` / `sig` / `refs` | yes, but needs `rust-analyzer` | Semantic queries (definition/signature/references); kept warm by a background daemon until `lsp-daemon-stop` |
+| `code-walk` / `code-walk-check` | yes, but needs `rust-analyzer` | Shortest call chains / exhaustive call trees with explicit UNRESOLVED gaps; staleness check for lesson blocks |
 | `lsp-daemon-stop` | yes | Stops the warm rust-analyzer daemon for a root |
 | `discover` / `search` / `scan` | yes | Repository discovery/search |
 | `symbols` / `summary` | yes | Symbol catalogue / Markdown artifact |
 | `lit` | yes | PDF import / BibTeX / literature outline |
+| `zotero` | yes | Zotero import into a Kovan folder, export to every Zotero format, duplicates, quick search |
 | `gen` / `methods` | yes | Numerical-method code generation |
 | `digitise` | yes | Fully automatic graph digitiser |
 | `tokens` / `historian` | yes | Per-commit API-token accounting |

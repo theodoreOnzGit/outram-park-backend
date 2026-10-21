@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use super::SimpleShellAndTubeHeatExchanger;
@@ -255,7 +256,7 @@ impl SimpleShellAndTubeHeatExchanger {
         let shell_conductivity_average: ThermalConductivity =
             solid_material.try_get_thermal_conductivity(pipe_shell_surf_temperature)?;
 
-        let ln_d_o_by_d_i: f64 = d_o_by_d_i.get::<ratio>().ln();
+        let ln_d_o_by_d_i: f64 = d_o_by_d_i.get::<ratio>().r_ln();
 
         // d_o/(2 lambda_w) * ln (d_o_by_d_i)
 

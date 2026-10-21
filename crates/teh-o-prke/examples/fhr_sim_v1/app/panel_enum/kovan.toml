@@ -1,0 +1,20 @@
+schema_version = 1
+kind = "code_folder"
+crate = "teh-o-prke"
+dir = "crates/teh-o-prke/examples/fhr_sim_v1/app/panel_enum"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v1::app::panel_enum"
+
+[[module."mod.rs".function]]
+id = "fn:93ae0cbbb1308bdc"
+name = "Panel"
+qual = "Panel"
+item = "type"
+shape = "enum"
+lines = [
+    1,
+    6,
+]
+hash = "sha256:19959dec2d0d0c021b7b23d81a9744fd92b254f0eec9ab52e7be4e5dbcc34d89"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

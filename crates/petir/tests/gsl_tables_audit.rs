@@ -1,0 +1,940 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Theodore Ong and the outram-park contributors.
+
+//! Re-derives every GSL-ported coefficient table in `src/specfunc/` from the
+//! vendored GSL C sources and compares them **bit for bit**.
+//!
+//! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs`, `airy.rs`,
+//! `lambert.rs`, `clausen.rs`, `transport.rs`, `atanint.rs`,
+//! `synchrotron.rs`, `fermi_dirac.rs`, `dawson.rs`, `expint3.rs`,
+//! `sinint.rs`, `shint.rs` and `gamma.rs` — 101 file-scope tables plus two
+//! local ones, **2413 literals**.
+//!
+//! `gamma.rs` is the odd one out and was the odd one *missing*: its
+//! `LANCZOS_7_C` is not a Chebyshev series but the Lanczos `g=7, n=9`
+//! coefficients, and it had never been audited at all. It was found on
+//! 2026-09-20 by `every_module_with_a_table_is_in_the_audited_list`, added
+//! the same day after `shint.rs` slipped past the hand-maintained module
+//! list below. All nine values matched the vendored `lanczos_7_c` on the
+//! first run.
+//!
+//! # Why a table audit and not just the numerical tests
+//!
+//! Each module's own tests check the *functions* against identities that
+//! share no table with them — Wronskians, recurrences, reflection formulas,
+//! integral representations. That is the stronger check in principle, but a
+//! single mistyped digit in a high-order Chebyshev coefficient perturbs the
+//! result by far less than those tolerances, and would pass silently while
+//! leaving the port no longer a port.
+//!
+//! This test closes that: it parses both files as text, converts every
+//! literal on both sides to `f64`, and requires exact equality. It needs no
+//! GSL build and no linker — just the vendored tree.
+//!
+//! # Three of GSL's table entries are macro expressions
+//!
+//! `psi_table[1]` is `-M_EULER`, `psi_1_table[1]` is `M_PI*M_PI/6.0`, and
+//! `eta_pos_int_table[1]` is `M_LN2`. The Rust side carries the `f64` a C
+//! compiler produces for each; [`MACROS`] performs the same substitution on
+//! the C text before parsing, so the comparison stays bit-for-bit rather than
+//! being exempted.
+//!
+//! # It skips when the vendored tree is absent, deliberately
+//!
+//! `upstream_source/GSL` is gitignored (see `upstream_source/README.md`), so a
+//! fresh container will not have it and this test would otherwise fail for a
+//! reason that has nothing to do with the code. It prints a skip line instead,
+//! matching `tests/gsl_cheb_mode_code_to_code.rs`. The functional tests in
+//! `src/specfunc/bessel.rs` run unconditionally and are what a clone without
+//! the upstream tree relies on.
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::PathBuf;
+
+/// GSL macro expressions that appear inside the tables, with the exact `f64`
+/// a C compiler produces for each. Applied to the C text before parsing.
+///
+/// `M_PI*M_PI/6.0` must come first: the substitution is textual, so replacing
+/// `M_PI` alone would leave `3.14159...*3.14159.../6.0`, which parses as
+/// three literals rather than one.
+const MACROS: &[(&str, &str)] = &[
+    ("M_PI*M_PI/6.0", "1.6449340668482264"),
+    (
+        "M_EULER",
+        "0.57721566490153286060651209008240243104215933593992",
+    ),
+    (
+        "M_LN2",
+        "0.69314718055994530941723212145817656807550013436026",
+    ),
+    (
+        "M_PI",
+        "3.14159265358979323846264338327950288419716939937511",
+    ),
+];
+
+/// (Rust source file, Rust `const` name, upstream C file, upstream array).
+///
+/// The full inventory. If a table is added to one of these modules without a
+/// row here, `every_rust_table_is_audited` fails.
+const TABLES: &[(&str, &str, &str, &str)] = &[
+    ("bessel.rs", "BI0", "bessel_I0.c", "bi0_data"),
+    ("bessel.rs", "AI0", "bessel_I0.c", "ai0_data"),
+    ("bessel.rs", "AI02", "bessel_I0.c", "ai02_data"),
+    ("bessel.rs", "BI1", "bessel_I1.c", "bi1_data"),
+    ("bessel.rs", "AI1", "bessel_I1.c", "ai1_data"),
+    ("bessel.rs", "AI12", "bessel_I1.c", "ai12_data"),
+    ("bessel.rs", "BJ0", "bessel_J0.c", "bj0_data"),
+    ("bessel.rs", "BJ1", "bessel_J1.c", "bj1_data"),
+    ("bessel.rs", "BY0", "bessel_Y0.c", "by0_data"),
+    ("bessel.rs", "BY1", "bessel_Y1.c", "by1_data"),
+    ("bessel.rs", "K0_POLY", "bessel_K0.c", "k0_poly"),
+    ("bessel.rs", "I0_POLY", "bessel_K0.c", "i0_poly"),
+    ("bessel.rs", "AK0", "bessel_K0.c", "ak0_data"),
+    ("bessel.rs", "AK02", "bessel_K0.c", "ak02_data"),
+    ("bessel.rs", "K1_POLY", "bessel_K1.c", "k1_poly"),
+    ("bessel.rs", "I1_POLY", "bessel_K1.c", "i1_poly"),
+    ("bessel.rs", "AK1", "bessel_K1.c", "ak1_data"),
+    ("bessel.rs", "AK12", "bessel_K1.c", "ak12_data"),
+    ("bessel.rs", "BM0", "bessel_amp_phase.c", "bm0_data"),
+    ("bessel.rs", "BTH0", "bessel_amp_phase.c", "bth0_data"),
+    ("bessel.rs", "BM1", "bessel_amp_phase.c", "bm1_data"),
+    ("bessel.rs", "BTH1", "bessel_amp_phase.c", "bth1_data"),
+    ("psi.rs", "R1PY", "psi.c", "r1py_data"),
+    ("psi.rs", "PSI_CS", "psi.c", "psics_data"),
+    ("psi.rs", "APSI_CS", "psi.c", "apsics_data"),
+    ("psi.rs", "PSI_TABLE", "psi.c", "psi_table"),
+    ("psi.rs", "PSI_1_TABLE", "psi.c", "psi_1_table"),
+    ("zeta.rs", "ZETA_XLT1", "zeta.c", "zeta_xlt1_data"),
+    ("zeta.rs", "ZETA_XGT1", "zeta.c", "zeta_xgt1_data"),
+    ("zeta.rs", "ZETAM1_INTER", "zeta.c", "zetam1_inter_data"),
+    ("zeta.rs", "HZETA_C", "zeta.c", "hzeta_c"),
+    ("zeta.rs", "ZETA_NEG_INT", "zeta.c", "zeta_neg_int_table"),
+    (
+        "zeta.rs",
+        "ZETAM1_POS_INT",
+        "zeta.c",
+        "zetam1_pos_int_table",
+    ),
+    ("zeta.rs", "ETA_POS_INT", "zeta.c", "eta_pos_int_table"),
+    ("zeta.rs", "ETA_NEG_INT", "zeta.c", "eta_neg_int_table"),
+    ("debye.rs", "ADEB1", "debye.c", "adeb1_data"),
+    ("debye.rs", "ADEB2", "debye.c", "adeb2_data"),
+    ("debye.rs", "ADEB3", "debye.c", "adeb3_data"),
+    ("debye.rs", "ADEB4", "debye.c", "adeb4_data"),
+    ("debye.rs", "ADEB5", "debye.c", "adeb5_data"),
+    ("debye.rs", "ADEB6", "debye.c", "adeb6_data"),
+    ("airy.rs", "AM21", "airy.c", "am21_data"),
+    ("airy.rs", "ATH1", "airy.c", "ath1_data"),
+    ("airy.rs", "AM22", "airy.c", "am22_data"),
+    ("airy.rs", "ATH2", "airy.c", "ath2_data"),
+    ("airy.rs", "AIF", "airy.c", "ai_data_f"),
+    ("airy.rs", "AIG", "airy.c", "ai_data_g"),
+    ("airy.rs", "BIF", "airy.c", "data_bif"),
+    ("airy.rs", "BIG", "airy.c", "data_big"),
+    ("airy.rs", "BIF2", "airy.c", "data_bif2"),
+    ("airy.rs", "BIG2", "airy.c", "data_big2"),
+    ("airy.rs", "AIP", "airy.c", "data_aip"),
+    ("airy.rs", "BIP", "airy.c", "data_bip"),
+    ("airy.rs", "BIP2", "airy.c", "data_bip2"),
+    ("clausen.rs", "ACLAUS", "clausen.c", "aclaus_data"),
+    (
+        "transport.rs",
+        "TRANSPORT2",
+        "transport.c",
+        "transport2_data",
+    ),
+    (
+        "transport.rs",
+        "TRANSPORT3",
+        "transport.c",
+        "transport3_data",
+    ),
+    (
+        "transport.rs",
+        "TRANSPORT4",
+        "transport.c",
+        "transport4_data",
+    ),
+    (
+        "transport.rs",
+        "TRANSPORT5",
+        "transport.c",
+        "transport5_data",
+    ),
+    ("atanint.rs", "ATANINT", "atanint.c", "atanint_data"),
+    (
+        "synchrotron.rs",
+        "SYNCH1",
+        "synchrotron.c",
+        "synchrotron1_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH2",
+        "synchrotron.c",
+        "synchrotron2_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH1A",
+        "synchrotron.c",
+        "synchrotron1a_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH21",
+        "synchrotron.c",
+        "synchrotron21_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH22",
+        "synchrotron.c",
+        "synchrotron22_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH2A",
+        "synchrotron.c",
+        "synchrotron2a_data",
+    ),
+    ("fermi_dirac.rs", "FD_1_A", "fermi_dirac.c", "fd_1_a_data"),
+    ("fermi_dirac.rs", "FD_1_B", "fermi_dirac.c", "fd_1_b_data"),
+    ("fermi_dirac.rs", "FD_1_C", "fermi_dirac.c", "fd_1_c_data"),
+    ("fermi_dirac.rs", "FD_1_D", "fermi_dirac.c", "fd_1_d_data"),
+    ("fermi_dirac.rs", "FD_1_E", "fermi_dirac.c", "fd_1_e_data"),
+    ("fermi_dirac.rs", "FD_2_A", "fermi_dirac.c", "fd_2_a_data"),
+    ("fermi_dirac.rs", "FD_2_B", "fermi_dirac.c", "fd_2_b_data"),
+    ("fermi_dirac.rs", "FD_2_C", "fermi_dirac.c", "fd_2_c_data"),
+    ("fermi_dirac.rs", "FD_2_D", "fermi_dirac.c", "fd_2_d_data"),
+    ("fermi_dirac.rs", "FD_2_E", "fermi_dirac.c", "fd_2_e_data"),
+    (
+        "fermi_dirac.rs",
+        "FD_MHALF_A",
+        "fermi_dirac.c",
+        "fd_mhalf_a_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_MHALF_B",
+        "fermi_dirac.c",
+        "fd_mhalf_b_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_MHALF_C",
+        "fermi_dirac.c",
+        "fd_mhalf_c_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_MHALF_D",
+        "fermi_dirac.c",
+        "fd_mhalf_d_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_HALF_A",
+        "fermi_dirac.c",
+        "fd_half_a_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_HALF_B",
+        "fermi_dirac.c",
+        "fd_half_b_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_HALF_C",
+        "fermi_dirac.c",
+        "fd_half_c_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_HALF_D",
+        "fermi_dirac.c",
+        "fd_half_d_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_3HALF_A",
+        "fermi_dirac.c",
+        "fd_3half_a_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_3HALF_B",
+        "fermi_dirac.c",
+        "fd_3half_b_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_3HALF_C",
+        "fermi_dirac.c",
+        "fd_3half_c_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_3HALF_D",
+        "fermi_dirac.c",
+        "fd_3half_d_data",
+    ),
+    ("dawson.rs", "DAW", "dawson.c", "daw_data"),
+    ("dawson.rs", "DAW2", "dawson.c", "daw2_data"),
+    ("dawson.rs", "DAWA", "dawson.c", "dawa_data"),
+    ("expint3.rs", "EXPINT3", "expint3.c", "expint3_data"),
+    ("expint3.rs", "EXPINT3A", "expint3.c", "expint3a_data"),
+    // gamma.c -- NOT a Chebyshev series: the Lanczos g=7, n=9 coefficients.
+    // Found unaudited on 2026-09-20 by
+    // `every_module_with_a_table_is_in_the_audited_list`, which was itself
+    // written after `shint.rs` slipped past the hand-maintained module list.
+    ("gamma.rs", "LANCZOS_7_C", "gamma.c", "lanczos_7_c"),
+    // shint.c -- one series, the only one whose order_sp equals its
+    // f64 order.
+    ("shint.rs", "SHI", "shint.c", "shi_data"),
+    ("sinint.rs", "F1", "sinint.c", "f1_data"),
+    ("sinint.rs", "F2", "sinint.c", "f2_data"),
+    ("sinint.rs", "G1", "sinint.c", "g1_data"),
+    ("sinint.rs", "G2", "sinint.c", "g2_data"),
+    ("sinint.rs", "SI", "sinint.c", "si_data"),
+    ("sinint.rs", "CI", "sinint.c", "ci_data"),
+];
+
+/// `TWOPI_POW` in `zeta.rs` is a LOCAL array inside `gsl_sf_zeta_e`'s
+/// reflection branch rather than a file-scope declaration, so the parser
+/// above cannot find it by name. It is audited by
+/// [`the_local_twopi_table_matches_upstream`] instead, which searches the
+/// function body. Listed here so `every_rust_table_is_audited` knows it is
+/// not an omission.
+///
+/// **That test did not exist until 2026-09-19.** The comment above claimed it
+/// did, `AUDITED_ELSEWHERE` made `every_rust_table_is_audited` accept the
+/// table as covered on the strength of the claim, and nothing checked the 18
+/// coefficients at all. This is exactly the failure mode an "audited
+/// elsewhere" list invites: it is an assertion that something else is doing
+/// the work. The test below now does it, and the entry is only honest
+/// because of that.
+const AUDITED_ELSEWHERE: &[(&str, &str)] = &[("zeta.rs", "TWOPI_POW"), ("lambert.rs", "SERIES_C")];
+
+fn crate_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+fn upstream_dir() -> PathBuf {
+    crate_root().join("upstream_source/GSL/specfunc")
+}
+
+/// Strip `/* ... */` comments, which GSL's tables carry inline.
+fn strip_block_comments(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find("/*") {
+        out.push_str(&rest[..start]);
+        match rest[start + 2..].find("*/") {
+            Some(end) => rest = &rest[start + 2 + end + 2..],
+            None => return out,
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Every float literal in `body`, as `f64`. Fortran-style `d` exponents are
+/// normalised to `e`; GSL's tables do not use them today but SLATEC-derived
+/// files elsewhere in the tree do.
+fn parse_floats(body: &str) -> Vec<f64> {
+    let mut out = Vec::new();
+    let bytes: Vec<char> = body.chars().collect();
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i];
+        let starts = c.is_ascii_digit()
+            || ((c == '.' || c == '-' || c == '+')
+                && bytes
+                    .get(i + 1)
+                    .is_some_and(|n| n.is_ascii_digit() || *n == '.'));
+        if !starts {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        if bytes[i] == '-' || bytes[i] == '+' {
+            i += 1;
+        }
+        // `_` is Rust's digit separator; rustfmt writes it into hand-edited
+        // tables such as gamma.rs's Lanczos coefficients, and without this
+        // the scanner splits one literal into several. It is not valid in C,
+        // so accepting it on both sides costs nothing.
+        while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == '.' || bytes[i] == '_') {
+            i += 1;
+        }
+        if i < bytes.len() && matches!(bytes[i], 'e' | 'E' | 'd' | 'D') {
+            let save = i;
+            i += 1;
+            if i < bytes.len() && (bytes[i] == '-' || bytes[i] == '+') {
+                i += 1;
+            }
+            if i < bytes.len() && bytes[i].is_ascii_digit() {
+                while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == '_') {
+                    i += 1;
+                }
+            } else {
+                i = save;
+            }
+        }
+        let lit: String = bytes[start..i]
+            .iter()
+            .collect::<String>()
+            .replace(['d', 'D'], "e")
+            .replace('_', "");
+        // A bare "12" from an array dimension is a float too; the caller only
+        // ever hands us an initialiser body, so that cannot occur.
+        out.push(lit.parse::<f64>().expect("literal in a numeric table"));
+    }
+    out
+}
+
+/// Extract the body delimited by `open`/`close` that follows `decl_needle`.
+///
+/// C initialisers are braced (`= { ... };`) and Rust array literals are
+/// bracketed (`= [ ... ];`), so the delimiters are a parameter. Neither side
+/// nests, so a first-`open`-to-first-`close` scan is enough — and a wrong
+/// delimiter does not silently half-work, because the length check in
+/// [`every_bessel_coefficient_is_bit_identical_to_the_vendored_gsl`] rejects
+/// whatever it picks up instead.
+fn extract_delimited(text: &str, decl_needle: &str, open: char, close: char) -> Option<String> {
+    let at = text.find(decl_needle)?;
+    let rest = &text[at..];
+    let o = rest.find(open)?;
+    let c = rest[o..].find(close)?;
+    Some(rest[o + 1..o + c].to_string())
+}
+
+fn upstream_table(file: &str, array: &str) -> Option<Vec<f64>> {
+    let text = fs::read_to_string(upstream_dir().join(file)).ok()?;
+    let text = strip_block_comments(&text);
+    // `static double ak0_data[24] = {` / `double bm0_data[21] = {`.
+    // psi.c writes `r1py_data[]` with no dimension, so the bracket contents
+    // are skipped rather than matched.
+    let at = text.find(&format!("double {array}["))?;
+    let body = extract_delimited(&text[at..], "", '{', '}')?;
+    Some(parse_floats(&expand_macros(&body)))
+}
+
+/// Replace every GSL macro in [`MACROS`] with its `f64` spelling.
+fn expand_macros(body: &str) -> String {
+    let mut out = body.to_string();
+    for (macro_name, value) in MACROS {
+        out = out.replace(macro_name, value);
+    }
+    assert!(
+        !out.contains("M_"),
+        "an unhandled GSL macro remains in a table: {:?}",
+        out.split_whitespace()
+            .find(|t| t.contains("M_"))
+            .unwrap_or("?")
+    );
+    out
+}
+
+/// The module source with every `//` comment removed.
+///
+/// Stripping up front rather than per-table matters: one generated table
+/// carries an inline note mentioning `[7]`, and a bracket inside a comment
+/// terminates the array scan early. The file has no string literal containing
+/// `//`, so a line-wise strip is exact here.
+fn rust_source(module: &str) -> String {
+    let raw = fs::read_to_string(crate_root().join("src/specfunc").join(module))
+        .unwrap_or_else(|e| panic!("src/specfunc/{module} is part of this crate: {e}"));
+    raw.lines()
+        .map(|l| l.split("//").next().unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn rust_table(src: &str, name: &str) -> Option<Vec<f64>> {
+    // The declaration itself contains brackets (`const BI0: [f64; 12] = [`),
+    // so the scan starts after the `= `, not after the name.
+    let at = src.find(&format!("const {name}: [f64; "))?;
+    let eq = src[at..].find("] = [")? + at + 4;
+    let body = extract_delimited(&src[eq..], "", '[', ']')?;
+    Some(parse_floats(&body))
+}
+
+/// Every coefficient must be bit-identical to the vendored C.
+///
+/// Bit-identical, not "close": both sides are decimal literals read by the
+/// same `f64` parser, so anything other than equality means a digit differs.
+///
+/// # What this deliberately does NOT catch
+///
+/// It compares the parsed `f64`, not the text. Several GSL tables carry ~30
+/// decimal digits where `f64` holds about 17, and a change past the 17th is
+/// invisible here — correctly so, because it does not change the compiled
+/// constant either. Verified by injection: altering the 30th digit of
+/// `zetam1_pos_int_table[2]` passes, altering the 16th fails with
+/// `PSI_TABLE[2] = 4.2278433509846725e-1 but psi.c/psi_table[2] =
+/// 4.2278433509846713e-1`.
+///
+/// So this is a guarantee about the *values* the port compiles to, which is
+/// the thing that matters. If the trailing digits themselves ever need to
+/// match — for a higher-precision port — that is a different test.
+#[test]
+fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
+    let dir = upstream_dir();
+    if !dir.is_dir() {
+        eprintln!("skipping: vendored GSL not present at {dir:?}");
+        return;
+    }
+    let mut checked = 0usize;
+    for (module, rust_name, file, array) in TABLES {
+        let src = rust_source(module);
+        let ours = rust_table(&src, rust_name)
+            .unwrap_or_else(|| panic!("no `const {rust_name}` in src/specfunc/{module}"));
+        let theirs = upstream_table(file, array)
+            .unwrap_or_else(|| panic!("no `{array}` in specfunc/{file}"));
+        // `i1_poly` is declared `[7]` upstream with six initialisers and used
+        // with n=6, so the Rust side legitimately holds six. Any other length
+        // mismatch is a transcription error.
+        assert_eq!(
+            ours.len(),
+            theirs.len(),
+            "{rust_name} has {} values, {array} has {}",
+            ours.len(),
+            theirs.len()
+        );
+        for (k, (a, b)) in ours.iter().zip(theirs.iter()).enumerate() {
+            assert_eq!(
+                a.to_bits(),
+                b.to_bits(),
+                "{rust_name}[{k}] = {a:e} but {file}/{array}[{k}] = {b:e}"
+            );
+        }
+        checked += ours.len();
+    }
+    assert_eq!(
+        checked,
+        2413,
+        "expected 2413 coefficients across {} tables, audited {checked}",
+        TABLES.len()
+    );
+}
+
+/// The modules `every_rust_table_is_audited` walks.
+///
+/// Kept as a named constant so `every_module_with_a_table_is_in_the_audited_list`
+/// can check it against the directory rather than against nobody.
+const AUDITED_MODULES: [&str; 16] = [
+    "bessel.rs",
+    "psi.rs",
+    "zeta.rs",
+    "debye.rs",
+    "airy.rs",
+    "lambert.rs",
+    "clausen.rs",
+    "transport.rs",
+    "atanint.rs",
+    "synchrotron.rs",
+    "fermi_dirac.rs",
+    "dawson.rs",
+    "expint3.rs",
+    "sinint.rs",
+    "shint.rs",
+    "gamma.rs",
+];
+
+/// **Every module under `src/specfunc/` that declares a `[f64; N]` table is
+/// in the list `every_rust_table_is_audited` walks**, because the directory
+/// is the authority and not a hand-maintained array of filenames.
+///
+/// # This caught a table that was audited by nothing
+///
+/// `every_rust_table_is_audited` sweeps a literal list of module names. A
+/// module absent from that list is not a failure — its tables are simply
+/// never looked at, and the audit stays green while covering one fewer
+/// series. `shint.rs` landed that way on 2026-09-20 and its seven
+/// coefficients went unchecked against the vendored `shi_data` until the
+/// list was extended by hand.
+///
+/// That is the same shape as `tests/wgsl_validation.rs`'s
+/// `every_shader_file_is_listed_here`, found the day before: a registry
+/// maintained by counting, next to a directory that already knows the
+/// answer. Both now read the directory.
+#[test]
+fn every_module_with_a_table_is_in_the_audited_list() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/specfunc");
+    let mut with_tables: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()))
+        .map(|e| e.expect("directory entry").file_name())
+        .filter_map(|n| {
+            let name = n.to_string_lossy().into_owned();
+            if !name.ends_with(".rs") {
+                return None;
+            }
+            let body = std::fs::read_to_string(dir.join(&name)).ok()?;
+            body.lines()
+                .filter_map(|l| l.strip_prefix("const "))
+                .any(|l| l.contains(": [f64; "))
+                .then_some(name)
+        })
+        .collect();
+    with_tables.sort();
+    assert!(
+        !with_tables.is_empty(),
+        "no table-bearing modules found under {}",
+        dir.display()
+    );
+    for name in &with_tables {
+        assert!(
+            AUDITED_MODULES.contains(&name.as_str()),
+            "src/specfunc/{name} declares a [f64; N] table but is not in \
+             AUDITED_MODULES, so nothing checks its coefficients against the \
+             vendored GSL. Add it there and give each table a TABLES row"
+        );
+    }
+    for name in AUDITED_MODULES {
+        assert!(
+            with_tables.iter().any(|n| n == name),
+            "AUDITED_MODULES lists {name}, which declares no [f64; N] table"
+        );
+    }
+}
+
+/// No table may exist in the module without a row in [`TABLES`]. Without this
+/// the audit would silently shrink as tables were added.
+#[test]
+fn every_rust_table_is_audited() {
+    let mut total_declared = 0usize;
+    for module in AUDITED_MODULES {
+        let src = rust_source(module);
+        let declared: Vec<String> = src
+            .lines()
+            .filter_map(|l| l.strip_prefix("const "))
+            .filter(|l| l.contains(": [f64; "))
+            .filter_map(|l| l.split(':').next())
+            .map(str::to_string)
+            .collect();
+        let audited: BTreeMap<(&str, &str), ()> = TABLES
+            .iter()
+            .map(|(m, n, _, _)| ((*m, *n), ()))
+            .chain(AUDITED_ELSEWHERE.iter().map(|(m, n)| ((*m, *n), ())))
+            .collect();
+        for name in &declared {
+            assert!(
+                audited.contains_key(&(module, name.as_str())),
+                "`const {name}` in src/specfunc/{module} is not in TABLES -- add \
+                 its upstream file and array name so the audit covers it, or \
+                 list it in AUDITED_ELSEWHERE with the test that does"
+            );
+        }
+        total_declared += declared.len();
+    }
+    assert_eq!(
+        total_declared,
+        TABLES.len() + AUDITED_ELSEWHERE.len(),
+        "TABLES + AUDITED_ELSEWHERE list {} tables, the modules declare {total_declared}",
+        TABLES.len() + AUDITED_ELSEWHERE.len()
+    );
+}
+
+/// Each `cheb_series` in GSL names an `order`, and `cheb_eval_e` reads
+/// `c[0 ..= order]`. The port evaluates whole slices instead, which is only
+/// correct because every array's length is exactly `order + 1`. If upstream
+/// ever shortened a series without shrinking its array, the port would
+/// silently include a coefficient GSL ignores.
+#[test]
+fn every_series_uses_its_whole_array() {
+    let dir = upstream_dir();
+    if !dir.is_dir() {
+        eprintln!("skipping: vendored GSL not present at {dir:?}");
+        return;
+    }
+    // (file, cheb_series name, data array)
+    //
+    // FOUR series are DELIBERATELY absent, because their order is smaller
+    // than their array: `zeta.c`'s `zetam1_inter_cs` and all three of
+    // `dawson.c`'s. Each is covered where it lives --
+    // `zeta::tests::the_intermediate_series_stops_at_the_order_gsl_declares`
+    // and `dawson::tests::upstreams_truncation_costs_at_most_eight_ulp` --
+    // and `the_series_shorter_than_their_arrays` below pins that those four
+    // are the complete set.
+    //
+    // ~~`zetam1_inter_cs` is the one series~~ CORRECTED 2026-09-19: it was
+    // the only one until `dawson.c` was ported, which brought three more.
+    let series: &[(&str, &str, &str)] = &[
+        ("bessel_I0.c", "bi0_cs", "bi0_data"),
+        ("bessel_I0.c", "ai0_cs", "ai0_data"),
+        ("bessel_I0.c", "ai02_cs", "ai02_data"),
+        ("bessel_I1.c", "bi1_cs", "bi1_data"),
+        ("bessel_I1.c", "ai1_cs", "ai1_data"),
+        ("bessel_I1.c", "ai12_cs", "ai12_data"),
+        ("bessel_J0.c", "bj0_cs", "bj0_data"),
+        ("bessel_J1.c", "bj1_cs", "bj1_data"),
+        ("bessel_Y0.c", "by0_cs", "by0_data"),
+        ("bessel_Y1.c", "by1_cs", "by1_data"),
+        ("bessel_K0.c", "ak0_cs", "ak0_data"),
+        ("bessel_K0.c", "ak02_cs", "ak02_data"),
+        ("bessel_K1.c", "ak1_cs", "ak1_data"),
+        ("bessel_K1.c", "ak12_cs", "ak12_data"),
+        (
+            "bessel_amp_phase.c",
+            "_gsl_sf_bessel_amp_phase_bm0_cs",
+            "bm0_data",
+        ),
+        (
+            "bessel_amp_phase.c",
+            "_gsl_sf_bessel_amp_phase_bth0_cs",
+            "bth0_data",
+        ),
+        (
+            "bessel_amp_phase.c",
+            "_gsl_sf_bessel_amp_phase_bm1_cs",
+            "bm1_data",
+        ),
+        (
+            "bessel_amp_phase.c",
+            "_gsl_sf_bessel_amp_phase_bth1_cs",
+            "bth1_data",
+        ),
+        ("psi.c", "r1py_cs", "r1py_data"),
+        ("psi.c", "psi_cs", "psics_data"),
+        ("psi.c", "apsi_cs", "apsics_data"),
+        ("expint3.c", "expint3_cs", "expint3_data"),
+        ("expint3.c", "expint3a_cs", "expint3a_data"),
+        ("sinint.c", "f1_cs", "f1_data"),
+        ("sinint.c", "f2_cs", "f2_data"),
+        ("sinint.c", "g1_cs", "g1_data"),
+        ("sinint.c", "g2_cs", "g2_data"),
+        ("sinint.c", "si_cs", "si_data"),
+        ("sinint.c", "ci_cs", "ci_data"),
+        ("zeta.c", "zeta_xlt1_cs", "zeta_xlt1_data"),
+        ("zeta.c", "zeta_xgt1_cs", "zeta_xgt1_data"),
+        ("debye.c", "adeb1_cs", "adeb1_data"),
+        ("debye.c", "adeb2_cs", "adeb2_data"),
+        ("debye.c", "adeb3_cs", "adeb3_data"),
+        ("debye.c", "adeb4_cs", "adeb4_data"),
+        ("debye.c", "adeb5_cs", "adeb5_data"),
+        ("debye.c", "adeb6_cs", "adeb6_data"),
+    ];
+    for (file, cs, array) in series {
+        let text = fs::read_to_string(upstream_dir().join(file)).expect("vendored source");
+        let text = strip_block_comments(&text);
+        let body = extract_delimited(&text, &format!("cheb_series {cs} ="), '{', '}')
+            .unwrap_or_else(|| panic!("no `cheb_series {cs}` in specfunc/{file}"));
+        // { data, order, a, b, order_sp }
+        let fields: Vec<&str> = body.split(',').map(str::trim).collect();
+        let order: usize = fields
+            .get(1)
+            .and_then(|f| f.parse().ok())
+            .unwrap_or_else(|| panic!("cannot read order from `{cs}`: {body:?}"));
+        let n = upstream_table(file, array)
+            .unwrap_or_else(|| panic!("no `{array}`"))
+            .len();
+        assert_eq!(
+            n,
+            order + 1,
+            "{cs} has order {order} but {array} holds {n} values -- the port \
+             evaluates the whole slice and would include a coefficient GSL \
+             does not"
+        );
+    }
+}
+
+/// **Every GSL series whose declared order is smaller than its array**, and
+/// the assertion that this is the complete list.
+///
+/// ~~`zetam1_inter_cs` is the one series shorter than its array.~~
+/// **CORRECTED 2026-09-19** — it was, until `dawson.c` was ported, which
+/// brought three more. More to the point, the previous version of this test
+/// checked `zetam1_inter_cs` alone while its comment claimed it "pins that it
+/// really is the only one". It did not: nothing scanned for others, so a new
+/// truncated series could arrive silently and `every_series_uses_its_whole_
+/// array` would simply not know about it.
+///
+/// This version scans **every upstream file this crate ports from**, finds
+/// each `cheb_series` whose order is below `len - 1`, and compares the set
+/// against the expected list. Adding a module with a truncated series now
+/// fails here until it is acknowledged.
+///
+/// The four, as of 2026-09-19:
+///
+/// | file | series | array | order | evaluates |
+/// |---|---|---|---|---|
+/// | `zeta.c` | `zetam1_inter_cs` | 24 | 22 | 23 |
+/// | `dawson.c` | `daw_cs` | 21 | 15 | 16 |
+/// | `dawson.c` | `daw2_cs` | 45 | 32 | 33 |
+/// | `dawson.c` | `dawa_cs` | 75 | 34 | 35 |
+///
+/// All four are SLATEC's `initds` convention, which GSL inherited: the array
+/// carries enough coefficients for the highest precision anyone might want
+/// and the order selects what `double` needs. GSL leaves the full order
+/// beside each in a comment (`34, /* 74, */`).
+#[test]
+fn the_series_shorter_than_their_arrays() {
+    let dir = upstream_dir();
+    if !dir.is_dir() {
+        eprintln!("skipping: vendored GSL not present at {dir:?}");
+        return;
+    }
+
+    // Every upstream file behind a TABLES row, deduplicated.
+    let files: BTreeSet<&str> = TABLES.iter().map(|(_, _, f, _)| *f).collect();
+
+    let mut found: Vec<(String, String, usize, usize)> = Vec::new();
+    for file in files {
+        let text = strip_block_comments(
+            &fs::read_to_string(dir.join(file)).unwrap_or_else(|e| panic!("{file}: {e}")),
+        );
+        let mut rest = text.as_str();
+        while let Some(at) = rest.find("cheb_series ") {
+            rest = &rest[at + "cheb_series ".len()..];
+            let name: String = rest
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            let Some(body) = extract_delimited(rest, "", '{', '}') else {
+                break;
+            };
+            let fields: Vec<&str> = body.split(',').map(str::trim).collect();
+            let (Some(array), Some(order)) = (
+                fields.first().map(|f| f.trim_end_matches("_data")),
+                fields.get(1).and_then(|f| f.parse::<usize>().ok()),
+            ) else {
+                continue;
+            };
+            if let Some(n) = upstream_table(file, &format!("{array}_data")) {
+                if order + 1 < n.len() {
+                    found.push((file.to_string(), name, n.len(), order));
+                }
+            }
+        }
+    }
+    found.sort();
+
+    let expected: &[(&str, &str, usize, usize)] = &[
+        ("dawson.c", "daw2_cs", 45, 32),
+        ("dawson.c", "daw_cs", 21, 15),
+        ("dawson.c", "dawa_cs", 75, 34),
+        ("zeta.c", "zetam1_inter_cs", 24, 22),
+    ];
+    let got: Vec<(&str, &str, usize, usize)> = found
+        .iter()
+        .map(|(f, n, l, o)| (f.as_str(), n.as_str(), *l, *o))
+        .collect();
+    assert_eq!(
+        got, expected,
+        "the set of GSL series shorter than their arrays has changed. Each \
+         one must be left out of `every_series_uses_its_whole_array` and \
+         covered by its own module's test"
+    );
+}
+
+/// **`TWOPI_POW` against upstream's local `twopi_pow[18]`.**
+///
+/// The array lives inside `gsl_sf_zeta_e`'s reflection branch in `zeta.c`
+/// rather than at file scope, so `every_coefficient_is_bit_identical_to_the_
+/// vendored_gsl`'s parser cannot reach it by name. This one searches the
+/// function body for the declaration instead and compares bit-for-bit, as the
+/// file-scope audit does.
+///
+/// It is the check `AUDITED_ELSEWHERE` has always claimed existed and, until
+/// 2026-09-19, did not — see the comment on that constant.
+#[test]
+fn the_local_twopi_table_matches_upstream() {
+    // The module-level skip contract ("It skips when the vendored tree is
+    // absent, deliberately"); this test and the lambert one below were added
+    // without it and failed on any clone lacking the gitignored GSL tree.
+    let dir = upstream_dir();
+    if !dir.is_dir() {
+        eprintln!("skipping: vendored GSL not present at {dir:?}");
+        return;
+    }
+    let c = fs::read_to_string(dir.join("zeta.c")).expect("vendored specfunc/zeta.c");
+    let at = c
+        .find("const double twopi_pow[18] = {")
+        .expect("upstream's local twopi_pow[18] declaration moved or was renamed");
+    let rest = &c[at..];
+    let open = rest.find('{').expect("no { after the declaration");
+    let close = rest[open..]
+        .find('}')
+        .expect("no } closing the initialiser");
+    let upstream: Vec<f64> = rest[open + 1..open + close]
+        .split(',')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            t.parse::<f64>()
+                .unwrap_or_else(|_| panic!("not a literal in twopi_pow: {t:?}"))
+        })
+        .collect();
+
+    let r = rust_source("zeta.rs");
+    let ours = rust_table(&r, "TWOPI_POW")
+        .expect("TWOPI_POW is no longer declared in src/specfunc/zeta.rs");
+
+    assert_eq!(
+        ours.len(),
+        upstream.len(),
+        "TWOPI_POW has {} coefficients, upstream's twopi_pow has {}",
+        ours.len(),
+        upstream.len()
+    );
+    assert_eq!(upstream.len(), 18, "upstream twopi_pow is declared [18]");
+    for (i, (a, b)) in ours.iter().zip(upstream.iter()).enumerate() {
+        assert_eq!(
+            a.to_bits(),
+            b.to_bits(),
+            "TWOPI_POW[{i}]: ours {a:e}, upstream {b:e}"
+        );
+    }
+}
+
+/// **`SERIES_C` against upstream's local `c[12]` in `series_eval`.**
+///
+/// Like `TWOPI_POW`, the array is declared inside a function in `lambert.c`
+/// rather than at file scope, so the name-based parser cannot reach it.
+///
+/// These twelve coefficients carry ~30 decimal digits where `f64` holds about
+/// 17, so the comparison is on the parsed value, as everywhere else in this
+/// file — see `every_coefficient_is_bit_identical_to_the_vendored_gsl`'s note
+/// on what that deliberately does not catch.
+#[test]
+fn the_local_lambert_series_matches_upstream() {
+    let dir = upstream_dir();
+    if !dir.is_dir() {
+        eprintln!("skipping: vendored GSL not present at {dir:?}");
+        return;
+    }
+    let c = fs::read_to_string(dir.join("lambert.c")).expect("vendored specfunc/lambert.c");
+    let at = c
+        .find("static const double c[12] = {")
+        .expect("upstream's local c[12] in series_eval moved or was renamed");
+    let rest = &c[at..];
+    let open = rest.find('{').expect("no { after the declaration");
+    let close = rest[open..]
+        .find('}')
+        .expect("no } closing the initialiser");
+    let upstream = parse_floats(&strip_block_comments(&rest[open + 1..open + close]));
+
+    let r = rust_source("lambert.rs");
+    let ours =
+        rust_table(&r, "SERIES_C").expect("SERIES_C is no longer declared in specfunc/lambert.rs");
+
+    assert_eq!(ours.len(), 12, "SERIES_C has {} coefficients", ours.len());
+    assert_eq!(
+        upstream.len(),
+        12,
+        "upstream c[12] parsed to {} values",
+        upstream.len()
+    );
+    for (i, (a, b)) in ours.iter().zip(upstream.iter()).enumerate() {
+        assert_eq!(
+            a.to_bits(),
+            b.to_bits(),
+            "SERIES_C[{i}]: ours {a:e}, upstream {b:e}"
+        );
+    }
+}

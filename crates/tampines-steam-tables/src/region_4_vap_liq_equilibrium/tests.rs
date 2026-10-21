@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
@@ -172,8 +173,8 @@ pub fn w_px_eqm_1_bar() {
         dbg!(&(x, w_test, w_expected));
         // assert within tolerance
         approx::assert_abs_diff_eq!(
-            w_test.get::<meter_per_second>().log10(),
-            w_expected.log10(),
+            w_test.get::<meter_per_second>().r_log10(),
+            w_expected.r_log10(),
             epsilon = 0.1
         );
     }
@@ -213,8 +214,8 @@ pub fn w_px_eqm_1_bar_finite_diff_vol() {
         dbg!(&(x, w_test, w_expected));
         // assert within tolerance
         approx::assert_abs_diff_eq!(
-            w_test.get::<meter_per_second>().log10(),
-            w_expected.log10(),
+            w_test.get::<meter_per_second>().r_log10(),
+            w_expected.r_log10(),
             epsilon = 0.1
         );
     }
@@ -251,8 +252,8 @@ pub fn w_px_eqm_5_bar() {
         let w_test = w_ps_eqm_region4_finite_diff_vol(p, s);
         dbg!(&(x, w_test, w_expected));
         approx::assert_abs_diff_eq!(
-            w_test.get::<meter_per_second>().log10(),
-            w_expected.log10(),
+            w_test.get::<meter_per_second>().r_log10(),
+            w_expected.r_log10(),
             epsilon = 0.1
         );
     }
@@ -288,8 +289,8 @@ pub fn w_px_eqm_10_bar() {
         let w_test = w_ps_eqm_region4_finite_diff_vol(p, s);
         dbg!(&(x, w_test, w_expected));
         approx::assert_abs_diff_eq!(
-            w_test.get::<meter_per_second>().log10(),
-            w_expected.log10(),
+            w_test.get::<meter_per_second>().r_log10(),
+            w_expected.r_log10(),
             epsilon = 0.1
         );
     }
@@ -325,8 +326,8 @@ pub fn w_px_eqm_50_bar() {
         let w_test = w_ps_eqm_region4_finite_diff_vol(p, s);
         dbg!(&(x, w_test, w_expected));
         approx::assert_abs_diff_eq!(
-            w_test.get::<meter_per_second>().log10(),
-            w_expected.log10(),
+            w_test.get::<meter_per_second>().r_log10(),
+            w_expected.r_log10(),
             epsilon = 0.1
         );
     }
@@ -360,8 +361,8 @@ pub fn w_px_eqm_100_bar() {
         let w_test = w_ps_eqm_region4_finite_diff_vol(p, s);
         dbg!(&(x, w_test, w_expected));
         approx::assert_abs_diff_eq!(
-            w_test.get::<meter_per_second>().log10(),
-            w_expected.log10(),
+            w_test.get::<meter_per_second>().r_log10(),
+            w_expected.r_log10(),
             epsilon = 0.2
         );
     }
@@ -392,8 +393,8 @@ pub fn w_px_eqm_200_bar() {
         let w_test = w_ps_eqm_region4_finite_diff_vol(p, s);
         dbg!(&(x, w_test, w_expected));
         approx::assert_abs_diff_eq!(
-            w_test.get::<meter_per_second>().log10(),
-            w_expected.log10(),
+            w_test.get::<meter_per_second>().r_log10(),
+            w_expected.r_log10(),
             epsilon = 0.2
         );
     }

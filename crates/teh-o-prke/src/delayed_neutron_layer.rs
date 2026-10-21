@@ -338,6 +338,62 @@ impl DelayedNeutronLayer {
             .expect("DelayedNeutronLayer::u235_five_group: Lambda > 0 and all lambda_i > 0")
     }
 
+    /// [`Self::u235_five_group`]'s decay constants and **relative**
+    /// abundances `beta_i / beta`, rescaled so the groups sum to a
+    /// caller-supplied total `beta` -- typically a reactor's published
+    /// **effective** delayed fraction, which folds in the importance and
+    /// spectrum effects a bare-U-235 total does not (e.g. HTR-10's 7.26e-3
+    /// against bare U-235's 0.0065). The group structure is unchanged: only
+    /// the total moves, so each `beta_i` scales by `beta / 0.0065`.
+    ///
+    /// # Errors
+    /// [`TehOPrkeError::NonPositivePromptNeutronGenerationTime`] if
+    /// `Lambda <= 0`; [`TehOPrkeError::GenericStringError`] if `beta` is not
+    /// finite and in `(0, 1)`.
+    pub fn u235_five_group_with_total_fraction(
+        prompt_generation_time: Time,
+        total_delayed_fraction: Ratio,
+    ) -> Result<Self, TehOPrkeError> {
+        let beta = total_delayed_fraction.get::<ratio>();
+        if !(beta.is_finite() && beta > 0.0 && beta < 1.0) {
+            return Err(TehOPrkeError::GenericStringError(format!(
+                "DelayedNeutronLayer: total delayed fraction {beta} is not in (0, 1)"
+            )));
+        }
+        let reference = Self::u235_five_group(Time::new::<second>(1.0));
+        let scale = beta / reference.total_delayed_fraction.get::<ratio>();
+        let groups: [(Ratio, Frequency); NUM_DELAYED_GROUPS] = core::array::from_fn(|i| {
+            (
+                reference.groups[i].delayed_fraction * scale,
+                reference.groups[i].decay_constant,
+            )
+        });
+        Self::new(prompt_generation_time, groups)
+    }
+
+    /// Set every precursor group to its **equilibrium** at a constant power
+    /// `P`: `C_i = (beta_i / Lambda) P / lambda_i`, the fixed point of
+    /// [`Self::advance`] (see the module doc), so `S = (beta / Lambda) P`.
+    ///
+    /// The layer is built with **empty** groups; this is the opt-in for a
+    /// caller that wants to open at a steady operating point instead of
+    /// building the precursors up from zero.
+    pub fn seed_at_equilibrium(&mut self, reactor_power: Power) {
+        let lambda_gen = self.prompt_generation_time.get::<second>();
+        let p_mw = reactor_power.get::<megawatt>();
+        for group in self.groups.iter_mut() {
+            let beta_i = group.delayed_fraction.get::<ratio>();
+            let lambda_i = group.decay_constant.get::<hertz>();
+            group.precursor_mw = (beta_i / lambda_gen) * p_mw / lambda_i;
+        }
+    }
+
+    /// The precursor inventory summed over groups, in the layer's power form
+    /// \[MW s\] (`sum_i C_i`). Zero for a freshly built layer.
+    pub fn precursor_inventory(&self) -> f64 {
+        self.groups.iter().map(|g| g.precursor_mw).sum()
+    }
+
     /// Total delayed-neutron fraction `beta = sum_i beta_i` (dimensionless).
     pub fn total_delayed_neutron_fraction(&self) -> Ratio {
         self.total_delayed_fraction
@@ -428,6 +484,53 @@ mod tests {
     /// U-235 illustrative prompt generation time used across this crate.
     fn lambda() -> Time {
         Time::new::<second>(2.31e-4)
+    }
+
+    /// Rescaling to a supplied total keeps the relative abundances and the
+    /// decay constants, and the total is exact (HTR-10's 7.26e-3, Chen et al.
+    /// 2009 Table 1); a total outside (0, 1) is refused.
+    #[test]
+    fn a_rescaled_bank_keeps_its_shape_and_sums_to_the_supplied_total() {
+        let base = DelayedNeutronLayer::u235_five_group(lambda());
+        let scaled = DelayedNeutronLayer::u235_five_group_with_total_fraction(
+            lambda(),
+            Ratio::new::<ratio>(7.26e-3),
+        )
+        .unwrap();
+        assert_relative_eq!(
+            scaled.total_delayed_neutron_fraction().get::<ratio>(),
+            7.26e-3,
+            max_relative = 1e-14
+        );
+        for i in 0..NUM_DELAYED_GROUPS {
+            assert_eq!(scaled.decay_constants()[i], base.decay_constants()[i]);
+            assert_relative_eq!(
+                scaled.delayed_fractions()[i].get::<ratio>() / 7.26e-3,
+                base.delayed_fractions()[i].get::<ratio>() / 0.0065,
+                max_relative = 1e-12
+            );
+        }
+        assert!(DelayedNeutronLayer::u235_five_group_with_total_fraction(
+            lambda(),
+            Ratio::new::<ratio>(0.0)
+        )
+        .is_err());
+    }
+
+    /// A bank seeded at equilibrium stays there under constant power: one
+    /// backward-Euler step returns `S dt = (beta/Lambda) P dt` and leaves the
+    /// inventory unchanged, to round-off.
+    #[test]
+    fn a_bank_seeded_at_equilibrium_is_a_fixed_point() {
+        let mut layer = DelayedNeutronLayer::u235_five_group(lambda());
+        assert_eq!(layer.precursor_inventory(), 0.0);
+        let p = Power::new::<megawatt>(10.0);
+        layer.seed_at_equilibrium(p);
+        let before = layer.precursor_inventory();
+        let dt = Time::new::<second>(1e-3);
+        let inc = layer.advance(p, dt).get::<megawatt>();
+        assert_relative_eq!(inc, 0.0065 / 2.31e-4 * 10.0 * 1e-3, max_relative = 1e-12);
+        assert_relative_eq!(layer.precursor_inventory(), before, max_relative = 1e-12);
     }
 
     /// The five-group U-235 dataset sums to the standard total delayed

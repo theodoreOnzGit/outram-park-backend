@@ -34,6 +34,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod app {
+    use petir::mathf::RealMath;
     use boon_lay::compute::ComputeType;
     use boon_lay::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::live::{
         LiveEnsemble, Snapshot,
@@ -197,7 +198,7 @@ mod app {
         (0..=72)
             .map(|k| {
                 let a = std::f64::consts::TAU * k as f64 / 72.0;
-                [radius_um * a.cos(), radius_um * a.sin()]
+                [radius_um * a.r_cos(), radius_um * a.r_sin()]
             })
             .collect()
     }
@@ -235,7 +236,7 @@ mod app {
                 )
             };
 
-            egui::TopBottomPanel::top("controls").show(&ctx, |ui| {
+            egui::Panel::top("controls").show(ui, |ui| {
                 ui.heading("Walk-on-Spheres real-time TRISO diffusion (Cs-137, 1600 \u{b0}C)");
                 ui.horizontal(|ui| {
                     if ui
@@ -294,9 +295,9 @@ mod app {
                 });
             });
 
-            egui::SidePanel::right("release_panel")
-                .min_width(360.0)
-                .show(&ctx, |ui| {
+            egui::Panel::right("release_panel")
+                .min_size(360.0)
+                .show(ui, |ui| {
                     ui.heading("Release fraction over time");
                     Plot::new("release_fraction")
                         .legend(Legend::default())
@@ -315,7 +316,7 @@ mod app {
                     );
                 });
 
-            egui::CentralPanel::default().show(&ctx, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 Plot::new("positions")
                     .legend(Legend::default())
                     .data_aspect(1.0)

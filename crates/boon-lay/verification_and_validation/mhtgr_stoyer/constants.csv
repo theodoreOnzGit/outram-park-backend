@@ -1,0 +1,19 @@
+# Stoyer et al., "TRISO-ATOPS: A Mechanistic Source Term Model for Gas-Cooled Reactors", Nuclear Technology (2026). Proprietary tier: cited values, PDF not redistributed.
+# Transcribed 2026-09-29 from the pdftotext -raw text layer of the named table and checked against the rendered page. Upstream run-file key names in column 1.
+# Case A = Tables 2 and 3 (printed p.7, pdf p.8). Case B = Table 12 (printed p.21, pdf p.22) for the six fractions; everything else as Case A except x_liftoff = 0.005 (s.III.B.1, printed p.19, pdf p.20).
+key,case_a,case_b,unit,source_case_a,source_case_b
+f_hm,2.00E-05,1.00E-05,,Table 2,Table 12
+f_sic,1.00E-04,1.00E-05,,Table 2,Table 12
+f_inc,2.30E-05,7.00E-06,,Table 2,Table 12
+f_inc_sic,3.60E-05,0.00,,Table 2,Table 12
+f_inc_acc,6.60E-05,3.00E-05,,Table 2,Table 12
+f_inc_sic_acc,1.70E-04,0.00,,Table 2,Table 12
+a_graph,4.50E-03,4.50E-03,m,Table 3,Table 3 (not restated for Case B; assumed unchanged)
+a_grain,1.00E-05,1.00E-05,m,Table 3,Table 3 (assumed unchanged)
+k_plate,7.50E-05,7.50E-05,s^-1,Table 3,Table 3 (assumed unchanged)
+run_time,4.00E+01,4.00E+01,yr,Table 3,s.III.B.1 ("operate for 40 years")
+irradiation_time,3.00E+00,3.00E+00,yr,Table 3,Table 3 (assumed unchanged)
+k_clean,8.77E-05,8.77E-05,s^-1,Table 3,Table 3 (assumed unchanged)
+r_kernel,2.13E-04,2.13E-04,m,Table 3,Table 3 (assumed unchanged)
+a_SiC,3.50E-05,3.50E-05,m,Table 3,Table 3 (assumed unchanged)
+x_liftoff,5.00E-02,5.00E-03,,Table 3,s.III.B.1 ("the liftoff fraction was set to 0.005")

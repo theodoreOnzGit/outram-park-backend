@@ -1,0 +1,423 @@
+// SPDX-License-Identifier: GPL-3.0
+
+//! **The regression pin for GitHub #258** — adding variance reduction must not
+//! move a single bit of an analog run.
+//!
+//! # Why this shape, and why a recorded number rather than a self-comparison
+//!
+//! #258 threads a statistical weight and a variance-reduction configuration
+//! through `transport_history`, which is the routine every recorded V&V number
+//! in this crate was measured with — the Godiva `+16 ± 11 pcm`, the `op-tm9f`
+//! and `op-og56` ablations, the ICSBEP residuals. If that threading perturbed
+//! the RNG stream by so much as one extra draw, every one of those numbers
+//! would silently become unreproducible, and nothing else in the suite would
+//! notice: a shifted stream gives a *different but equally plausible* `k`.
+//!
+//! Comparing the new code against itself cannot detect that. So the reference
+//! below was measured on the **parent commit** `9b861a861`, before any of #258
+//! existed, and is hard-coded here to all 17 significant figures. The test is
+//! an exact `f64` equality, not a tolerance — a tolerance would hide exactly
+//! the failure this exists to catch.
+//!
+//! # Methodology
+//!
+//! Bare HEU sphere at Godiva's critical radius (8.7407 cm), U-235 + U-238 from
+//! `reference-data/endf/` at 293.6 K, 2000 histories × [15 inactive + 40
+//! active], seed 20260922, single-thread CPU backend, analog settings
+//! (`KeffSettings::default()`'s `variance_reduction`).
+//!
+//! # Results
+//!
+//! Recorded 2026-09-22 on `9b861a861`:
+//!
+//! | quantity | value |
+//! |---|---|
+//! | `k_mean` | `9.91850110380556260e-1` |
+//! | `k_std` | `4.20512201888097875e-3` |
+//! | first generation | `9.34800339898639976e-1` |
+//! | last generation | `9.65455778325547076e-1` |
+//!
+//! Reproduced bit-for-bit on the #258 tree, and on every later commit up to
+//! and including `fa807985f`.
+//!
+//! ## Re-recorded 2026-09-27: the data moved, not the analog path
+//!
+//! The pin fingerprints the data as well as the RNG stream. U-235 and U-238
+//! come from `reference-data/endf/` through this workspace's own
+//! RECONR/BROADR/PURR, and the unresolved-range probability tables are applied
+//! by default. So a correction to the data processing moves it, just as an
+//! extra RNG draw would. The test was not in the per-commit suite that
+//! #325 ran, and was found red on 2026-09-27.
+//!
+//! **Bisected** over the 220 commits `27d919bad..9cde16109` (restricted to
+//! commits touching `njoy-outram-park-fork`, `outram-mc-libs` or the
+//! manifests). The first commit giving the new value is `3f141992e`
+//! ("write the ACE UNR block, and fix the PURR energy grid it exposed",
+//! #325). Its parent `fa807985f` reproduces the table above bit for bit.
+//! `3f141992e` changes **no file under `crates/outram-mc-libs/src`**. It moves
+//! PURR's unresolved-range energy grid onto NJOY's (`unresr.f90` `rdunf2`:
+//! U-235 goes from 14 to 19 energies, U-238's endpoints shift in the 7th
+//! figure), so U-235's and U-238's self-shielding factors change and every
+//! history that reaches the unresolved range afterwards diverges.
+//! Consistent with that, the **first generation is unchanged to the bit**;
+//! the streams split later.
+//!
+//! Recorded on `3f141992e`, and reproduced bit for bit on `9cde16109` and on
+//! the #349 `SpeedTier` tree, both at the default `Fast` tier and with the
+//! nuclides forced to `Standard`:
+//!
+//! | quantity | ~~`9b861a861`~~ superseded | from `3f141992e` |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.91850110380556260e-1`~~ | `9.95570887535907723e-1` |
+//! | `k_std` | ~~`4.20512201888097875e-3`~~ | `4.30366582278130655e-3` |
+//! | first generation | `9.34800339898639976e-1` | `9.34800339898639976e-1` (unchanged) |
+//! | last generation | ~~`9.65455778325547076e-1`~~ | `1.00505888346187144e0` |
+//!
+//! ## Re-recorded 2026-09-29: URR sampling now follows OpenMC (GitHub #365 audit)
+//!
+//! Found red after `UrrProbabilityTables::sample` started interpolating
+//! between table energies and `Nuclide::xs_at_energy_urr` started rebuilding
+//! the total from its partials, both as OpenMC's `calculate_urr_xs` does
+//! (verified bit-equal against it in `tests/urr_sampling_vs_openmc.rs`). The
+//! same suite was green on the tree immediately before that change, and
+//! nothing else in the change touches the ENDF route or the history loop.
+//! This is a change in how the unresolved-range data is *applied*, the same
+//! class as the #325 re-record above. As then, the **first generation is
+//! unchanged to the bit**; the streams split at the first unresolved-range
+//! collision.
+//!
+//! | quantity | from `3f141992e` (superseded) | from the #365 URR change |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.95570887535907723e-1`~~ | `9.87846147443726119e-1` |
+//! | `k_std` | ~~`4.30366582278130655e-3`~~ | `4.45222639842739534e-3` |
+//! | first generation | `9.34800339898639976e-1` | `9.34800339898639976e-1` (unchanged) |
+//! | last generation | ~~`1.00505888346187144e0`~~ | `1.01397122631396086e0` |
+//!
+//! The 772 pcm move of this single 2000-history run is one draw's worth of
+//! re-randomisation (its `k_std` is 445 pcm and generations are correlated);
+//! the 32-seed measurement of the change is `+29 ± 33 pcm` on Godiva, route 4.
+//!
+//! ## Re-recorded 2026-09-29 (later): delayed-neutron spectra (GitHub #365 audit)
+//!
+//! Delayed neutrons are now born from their MF=5/455 spectra, which costs one
+//! extra uniform per fission, so the stream splits at the first fission and
+//! the **first generation moves too**. The cause is proved, not inferred: with
+//! the nuclides built through `without_delayed_spectra()` the test reproduces
+//! the previous row below **bit for bit**, all four values.
+//!
+//! | quantity | URR change (superseded) | delayed spectra |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.87846147443726119e-1`~~ | `9.80966055782988677e-1` |
+//! | `k_std` | ~~`4.45222639842739534e-3`~~ | `3.94301558460743561e-3` |
+//! | first generation | ~~`9.34800339898639976e-1`~~ | `8.90099543330054144e-1` |
+//! | last generation | ~~`1.01397122631396086e0`~~ | `9.88192314096006386e-1` |
+//!
+//! One 2000-history draw; the 32-seed measurement of the change on Godiva's
+//! ENDF route is `+87 ± 37 pcm`.
+//!
+//! ## Re-recorded 2026-09-29 (later still): correlated angle laws as OpenMC (GitHub #365 audit)
+//!
+//! Three changes came in together:
+//! - the continuum cosine row is now the **nearer** cdf edge of the `E'` bin,
+//!   as OpenMC's `CorrelatedAngleEnergy` picks it;
+//! - the row's cosine inverse is now OpenMC's quadratic `Tabular::sample`;
+//! - Kalbach-Mann `r` and `a` are interpolated.
+//!
+//! This reaches the ENDF route through the linearised MF=6 Legendre rows of
+//! U-235 and U-238 MT=91/16. **No variate is added or removed**, so the first
+//! generation moves only in its ninth digit, as the cosines of its continuum
+//! collisions shift. The cause is proved, not inferred: with those three
+//! changes reverted in place (row `k` always, linear-cdf inverse, no `r`/`a`
+//! interpolation), the test reproduces the previous row below **bit for bit**,
+//! all four values. The same build carries the interpolation-region port,
+//! which is therefore bit-neutral here, as it must be on lin-lin tables.
+//!
+//! | quantity | delayed spectra (superseded) | correlated angles |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.80966055782988677e-1`~~ | `9.92702845023975877e-1` |
+//! | `k_std` | ~~`3.94301558460743561e-3`~~ | `5.09258853928865312e-3` |
+//! | first generation | ~~`8.90099543330054144e-1`~~ | `8.90099531919115061e-1` |
+//! | last generation | ~~`9.88192314096006386e-1`~~ | `9.89550193757308016e-1` |
+//!
+//! This is one 2000-history draw, so the 1174 pcm move is re-randomisation, not
+//! the worth of the change. The worth is measured by paired ensembles and
+//! recorded in
+//! `verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`.
+//!
+//! ## Re-recorded 2026-09-29 (evening): URR band per energy and DBRC as OpenMC (GitHub #407)
+//!
+//! The URR band now comes from its own stream (`STREAM_URR_PTABLE`, one band
+//! per nuclide and energy serving the flight, the nuclide choice and the
+//! reaction). The collision no longer draws `prn(seed)` for it, so the
+//! transport stream shifts at the first unresolved-range collision. The first
+//! generation moves too. DBRC now follows OpenMC's gate and window. **Cause
+//! proved:** with `physics/transport_csg.rs` and `physics/scatter.rs` put back
+//! to their previous versions (everything else as it now is), the test
+//! reproduces the previous row **bit for bit**, all four values.
+//!
+//! | quantity | correlated angles (superseded) | #407 URR + DBRC |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.92702845023975877e-1`~~ | `9.89128190214768388e-1` |
+//! | `k_std` | ~~`5.09258853928865312e-3`~~ | `5.49770408934844787e-3` |
+//! | first generation | ~~`8.90099531919115061e-1`~~ | `9.35484563494561105e-1` |
+//! | last generation | ~~`9.89550193757308016e-1`~~ | `9.82661289061869225e-1` |
+//!
+//! It is one 2000-history draw. The paired worth is on #407.
+//!
+//! ## Re-recorded 2026-09-30: fission-source combing (GitHub #460)
+//!
+//! The next generation's source is now drawn by OpenMC's uniform comb
+//! (`synchronize_bank`), one variate per generation, instead of `n`
+//! independent draws with replacement. That is a transport change, and a
+//! deliberate one. The first generation is unchanged, as it must be: the
+//! comb acts only between generations. **Cause proved:** with only
+//! `transport_csg.rs`'s `resample` put back to the with-replacement draw
+//! (the #313, #461 and #463 changes of the same day left in place), the
+//! test reproduces the previous row **bit for bit**, all four values.
+//!
+//! | quantity | #407 URR + DBRC (superseded) | #460 comb |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.89128190214768388e-1`~~ | `9.88088405842273865e-1` |
+//! | `k_std` | ~~`5.49770408934844787e-3`~~ | `3.74932273347360848e-3` |
+//! | first generation | `9.35484563494561105e-1` | `9.35484563494561105e-1` (unchanged) |
+//! | last generation | ~~`9.82661289061869225e-1`~~ | `1.00328075246550052e0` |
+//!
+//! The smaller `k_std` is one draw and is not evidence of lower variance.
+//!
+//! ## Re-recorded 2026-10-18: route 4's data now come from njoy's `process` (GitHub #931)
+//!
+//! `Nuclide::from_endf_file` now builds its data with `process`. PURR runs at
+//! 20 bands / 64 ladders / 10 000 samples after HEATR, where it ran at
+//! 20 / 16 / 2000 without HEATR. That is a data change, not a transport
+//! change. As with #325, the **first generation is unchanged to the bit**,
+//! and the streams split at the first unresolved-range collision.
+//!
+//! **Cause proved:** with `heu()` building the nuclides through
+//! `Nuclide::process_evaluation_pre_931` + `from_processed` (everything else
+//! as it now is), the test reproduces the previous row **bit for bit**, all
+//! four values (2026-10-18, release, i9-13900K, 67.7 s).
+//!
+//! | quantity | #460 comb (superseded) | #931 `process` data |
+//! |---|---|---|
+//! | `k_mean` | ~~`9.88088405842273865e-1`~~ | `9.87289394503252482e-1` |
+//! | `k_std` | ~~`3.74932273347360848e-3`~~ | `4.03421054981321567e-3` |
+//! | first generation | `9.35484563494561105e-1` | `9.35484563494561105e-1` (unchanged) |
+//! | last generation | ~~`1.00328075246550052e0`~~ | `9.83194544269015980e-1` |
+//!
+//! This is one 2000-history draw. The paired worth on Godiva's route 4 is
+//! −0.2 ± 11 pcm over 512 seeds
+//! (`verification_and_validation/route4_process_931/README.md`).
+//!
+//! **What this means for the next failure.** An analog-path regression and a
+//! data correction look the same to this test. When it fails, bisect before
+//! re-recording, and re-record only when the first bad commit changes data
+//! and not transport. The test prints all four values, so re-recording takes
+//! one run.
+//!
+//! The `k` itself is **not** a
+//! physics claim — 55 active generations of 2000 histories on a bare sphere is
+//! far too noisy to say anything about Godiva, and this file makes no such
+//! claim. It is a fingerprint of the RNG stream.
+//!
+//! # What this does NOT pin
+//!
+//! That survival biasing is *correct*. It pins only that leaving it off
+//! changes nothing. The estimator's unbiasedness is measured separately by
+//! `examples/variance_reduction_ablation.rs`.
+
+use petir::mathf::RealMath;
+use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
+use outram_mc_libs::geometry::geometry::Geometry;
+use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
+use outram_mc_libs::geometry::universe::Universe;
+use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::nuclide::Nuclide;
+use outram_mc_libs::physics::keff::{ComputeType, KeffSettings};
+use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use outram_mc_libs::physics::variance_reduction::VarianceReduction;
+
+const R_FUEL: f64 = 8.7407;
+const TEMP: f64 = 293.6;
+
+/// The pre-#258 analog path on the data as of #931 (`process`, 2026-10-18;
+/// re-recorded, see the module docs). Exact, not
+/// approximate. The values measured on `9b861a861` itself are kept in the
+/// module docs; see "Re-recorded 2026-09-27" there for why these differ.
+const K_MEAN_PRE_258: f64 = 9.872_893_945_032_524_82e-1;
+const K_STD_PRE_258: f64 = 4.034_210_549_813_215_67e-3;
+const K_GEN_FIRST_PRE_258: f64 = 9.354_845_634_945_611_05e-1;
+const K_GEN_LAST_PRE_258: f64 = 9.831_945_442_690_159_80e-1;
+
+fn heu() -> Option<Vec<Nuclide>> {
+    let base =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let load = |name: &str, f: &str| -> Option<Nuclide> {
+        let p = base.join(f);
+        p.exists().then_some(())?;
+        Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3).ok()
+    };
+    Some(vec![
+        load("U235", "n-092_U_235-ENDF8.0.endf")?,
+        load("U238", "n-092_U_238.endf")?,
+    ])
+}
+
+fn model() -> (Geometry, Vec<Material>) {
+    let geom = Geometry {
+        surfaces: vec![SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: R_FUEL,
+            bc: BoundaryType::Vacuum,
+        })],
+        cells: vec![Cell::material(
+            1,
+            vec![RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Inside,
+            }],
+            0,
+            TEMP,
+        )],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }],
+        lattices: vec![],
+        root_universe: 0,
+    };
+    let mats = vec![Material {
+        id: 1,
+        name: "HEU".into(),
+        components: vec![
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.4994e-2,
+            },
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 2.4984e-3,
+            },
+        ],
+        temperature: TEMP,
+    }];
+    (geom, mats)
+}
+
+fn settings() -> KeffSettings {
+    KeffSettings {
+        n_particles: 2000,
+        n_inactive: 15,
+        n_active: 40,
+        temperature_k: TEMP,
+        seed: 20260922,
+        compute: ComputeType::CpuSingleThread,
+        ..KeffSettings::default()
+    }
+}
+
+fn source() -> SourceBox {
+    SourceBox {
+        lower: Position::new(-R_FUEL, -R_FUEL, -R_FUEL),
+        upper: Position::new(R_FUEL, R_FUEL, R_FUEL),
+    }
+}
+
+/// **THE PIN.** An analog run on the #258 tree must reproduce the pre-#258
+/// eigenvalue to the last bit.
+#[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "reconstructs U-235 and U-238 from ENDF (~2 min); runs by default"
+)]
+fn the_analog_path_is_bit_identical_to_the_pre_258_build() {
+    let Some(nucs) = heu() else {
+        eprintln!("SKIP: ENDF tapes not in this checkout");
+        return;
+    };
+    let (geom, mats) = model();
+    let st = settings();
+    assert!(
+        st.variance_reduction.is_analog(),
+        "KeffSettings::default() must be analog; if this changed it is a \
+         maintainer decision and every recorded V&V number needs re-measuring"
+    );
+
+    let r = run_keff_csg(&geom, &mats, &nucs, source(), &st, None);
+    println!("k_mean = {:.17e} (recorded {K_MEAN_PRE_258:.17e})", r.k_mean);
+    println!("k_std = {:.17e} (recorded {K_STD_PRE_258:.17e})", r.k_std);
+    println!("first generation = {:.17e} (recorded {K_GEN_FIRST_PRE_258:.17e})", r.k_by_generation[0]);
+    println!(
+        "last generation = {:.17e} (recorded {K_GEN_LAST_PRE_258:.17e})",
+        r.k_by_generation.last().unwrap()
+    );
+
+    assert_eq!(
+        r.k_mean, K_MEAN_PRE_258,
+        "the analog eigenvalue moved. #258 threads a weight and a \
+         variance-reduction config through the history loop; if the analog \
+         path now consumes the RNG stream differently, every recorded V&V \
+         number in this crate is unreproducible and none of them would say so."
+    );
+    assert_eq!(r.k_std, K_STD_PRE_258, "the per-generation spread moved");
+    assert_eq!(r.k_by_generation[0], K_GEN_FIRST_PRE_258);
+    assert_eq!(
+        *r.k_by_generation.last().unwrap(),
+        K_GEN_LAST_PRE_258,
+        "the last generation moved: the streams diverge somewhere after the start"
+    );
+    assert_eq!(r.k_by_generation.len(), 55);
+}
+
+/// Turning survival biasing on must actually change the run — otherwise the
+/// wiring is dead and the ablation below would be comparing a thing to itself.
+///
+/// This asserts only that the two differ, **not** which is right; unbiasedness
+/// is a separate, statistical question measured by the ablation example.
+#[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "reconstructs U-235 and U-238 from ENDF (~4 min); runs by default"
+)]
+fn survival_biasing_is_actually_reachable_from_settings() {
+    let Some(nucs) = heu() else {
+        eprintln!("SKIP: ENDF tapes not in this checkout");
+        return;
+    };
+    let (geom, mats) = model();
+
+    let analog = run_keff_csg(&geom, &mats, &nucs, source(), &settings(), None);
+    let biased_settings = KeffSettings {
+        variance_reduction: VarianceReduction {
+            survival_biasing: true,
+            ..VarianceReduction::default()
+        },
+        ..settings()
+    };
+    assert!(!biased_settings.variance_reduction.is_analog());
+    let biased = run_keff_csg(&geom, &mats, &nucs, source(), &biased_settings, None);
+
+    println!(
+        "analog k = {:.6} +/- {:.6}; survival-biased k = {:.6} +/- {:.6}",
+        analog.k_mean, analog.k_std, biased.k_mean, biased.k_std
+    );
+    assert_ne!(
+        analog.k_mean, biased.k_mean,
+        "survival biasing changed nothing at all — the setting is not wired to \
+         the transport kernel, and the ablation would be measuring noise"
+    );
+    // A sanity bound, deliberately loose: the two are different ESTIMATORS of
+    // the same eigenvalue, so they must land in the same neighbourhood. This
+    // is not the unbiasedness measurement.
+    let sigma = (analog.k_std.r_powi(2) + biased.k_std.r_powi(2)).sqrt();
+    let dev = (analog.k_mean - biased.k_mean).abs() / sigma;
+    println!("difference = {:+.0} pcm ({dev:.2} sigma)", 1.0e5 * (biased.k_mean - analog.k_mean));
+    assert!(
+        dev < 5.0,
+        "survival biasing moved k by {dev:.2} sigma. The two estimators must \
+         agree within statistics; a resolved difference is a BIAS, not a \
+         variance saving."
+    );
+}

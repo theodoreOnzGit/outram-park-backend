@@ -63,12 +63,15 @@
 //! comparison against an NJOY ACE oracle — see the REVIEW_MANIFEST for the
 //! human-verify list.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
 use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
-const DEFAULT_PATH: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../../reference-data/endf/tsl-HinH2O.endf");
+const DEFAULT_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../reference-data/endf/tsl-HinH2O.endf"
+);
 const HINH2O_MAT: i32 = 1;
 const BK_EV_PER_K: f64 = 8.617_333_262e-5;
 
@@ -165,7 +168,7 @@ fn double_differential_obeys_detailed_balance() {
         "both directions must be tabulated, got {fwd} {rev}"
     );
     let ratio = fwd / rev;
-    let analytic = (ep / e) * (-(ep - e) / kt).exp();
+    let analytic = (ep / e) * (-(ep - e) / kt).r_exp();
     let rel = (ratio - analytic).abs() / analytic;
     assert!(
         rel < 0.01,

@@ -1,0 +1,221 @@
+{
+	"name": "pmid",
+	"kind": "identifier",
+	"text": "31978945",
+	"identifiers": [
+		{
+			"PMID": "31978945"
+		}
+	],
+	"detected": [
+		"3d0231ce-fd4b-478c-b1d3-840389e5b68c"
+	],
+	"status": 200,
+	"translatorUsed": "3d0231ce-fd4b-478c-b1d3-840389e5b68c",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "journalArticle",
+			"creators": [
+				{
+					"firstName": "Na",
+					"lastName": "Zhu",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Dingyu",
+					"lastName": "Zhang",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Wenling",
+					"lastName": "Wang",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Xingwang",
+					"lastName": "Li",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Bo",
+					"lastName": "Yang",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Jingdong",
+					"lastName": "Song",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Xiang",
+					"lastName": "Zhao",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Baoying",
+					"lastName": "Huang",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Weifeng",
+					"lastName": "Shi",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Roujian",
+					"lastName": "Lu",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Peihua",
+					"lastName": "Niu",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Faxian",
+					"lastName": "Zhan",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Xuejun",
+					"lastName": "Ma",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Dayan",
+					"lastName": "Wang",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Wenbo",
+					"lastName": "Xu",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Guizhen",
+					"lastName": "Wu",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "George F.",
+					"lastName": "Gao",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Wenjie",
+					"lastName": "Tan",
+					"creatorType": "author"
+				},
+				{
+					"name": "China Novel Coronavirus Investigating and Research Team",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Adult",
+					"type": 1
+				},
+				{
+					"tag": "Betacoronavirus",
+					"type": 1
+				},
+				{
+					"tag": "Bronchoalveolar Lavage Fluid",
+					"type": 1
+				},
+				{
+					"tag": "COVID-19",
+					"type": 1
+				},
+				{
+					"tag": "Cells, Cultured",
+					"type": 1
+				},
+				{
+					"tag": "China",
+					"type": 1
+				},
+				{
+					"tag": "Coronavirus Infections",
+					"type": 1
+				},
+				{
+					"tag": "Epithelial Cells",
+					"type": 1
+				},
+				{
+					"tag": "Female",
+					"type": 1
+				},
+				{
+					"tag": "Genome, Viral",
+					"type": 1
+				},
+				{
+					"tag": "Humans",
+					"type": 1
+				},
+				{
+					"tag": "Lung",
+					"type": 1
+				},
+				{
+					"tag": "Male",
+					"type": 1
+				},
+				{
+					"tag": "Microscopy, Electron, Transmission",
+					"type": 1
+				},
+				{
+					"tag": "Middle Aged",
+					"type": 1
+				},
+				{
+					"tag": "Phylogeny",
+					"type": 1
+				},
+				{
+					"tag": "Pneumonia, Viral",
+					"type": 1
+				},
+				{
+					"tag": "Radiography, Thoracic",
+					"type": 1
+				},
+				{
+					"tag": "Respiratory System",
+					"type": 1
+				},
+				{
+					"tag": "SARS-CoV-2",
+					"type": 1
+				}
+			],
+			"title": "A Novel Coronavirus from Patients with Pneumonia in China, 2019",
+			"pages": "727-733",
+			"ISSN": "1533-4406",
+			"journalAbbreviation": "N Engl J Med",
+			"publicationTitle": "The New England Journal of Medicine",
+			"volume": "382",
+			"issue": "8",
+			"date": "2020-02-20",
+			"language": "eng",
+			"abstractNote": "In December 2019, a cluster of patients with pneumonia of unknown cause was linked to a seafood wholesale market in Wuhan, China. A previously unknown betacoronavirus was discovered through the use of unbiased sequencing in samples from patients with pneumonia. Human airway epithelial cells were used to isolate a novel coronavirus, named 2019-nCoV, which formed a clade within the subgenus sarbecovirus, Orthocoronavirinae subfamily. Different from both MERS-CoV and SARS-CoV, 2019-nCoV is the seventh member of the family of coronaviruses that infect humans. Enhanced surveillance and further investigation are ongoing. (Funded by the National Key Research and Development Program of China and the National Major Project for Control and Prevention of Infectious Disease in China.).",
+			"DOI": "10.1056/NEJMoa2001017",
+			"PMID": "31978945",
+			"PMCID": "PMC7092803",
+			"libraryCatalog": "PubMed"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=PubMed&tool=Zotero&retmode=xml&rettype=citation&id=31978945",
+			"body": null
+		}
+	]
+}

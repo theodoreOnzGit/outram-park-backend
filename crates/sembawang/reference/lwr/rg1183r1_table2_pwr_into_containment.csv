@@ -1,0 +1,15 @@
+# US NRC Regulatory Guide 1.183, Rev. 1 (October 2023), Table 2 "PWR Core Inventory Fraction Released into Containment Atmosphere",
+# printed p. 20. Open corpus: theodore-open-corpus/2023regulatory.pdf; transcribed 2026-09-30 from the PDF text layer. MHA LOCA.
+# Phase timing (Table 5, p. 24, PWRs): gap 0.5 min -> 0.23 h; early in-vessel 0.23 h -> 4.5 h; release linear over each phase.
+# Groups (Table 6, p. 24): noble gases Xe Kr; halogens I Br; alkali metals Cs Rb; tellurium Te Sb Se; barium_strontium Ba Sr;
+# noble metals Ru Rh Pd Co; lanthanides La Nd Eu Pm Pr Sm Y Cm Am; cerium Ce Pu Np Zr; molybdenum Mo Tc Nb.
+group,gap,early_in_vessel,gap_onset_h,gap_end_h,early_end_h
+noble_gases,0.022,0.94,0.008333333,0.23,4.5
+halogens,0.007,0.37,0.008333333,0.23,4.5
+alkali_metals,0.005,0.23,0.008333333,0.23,4.5
+tellurium,0.007,0.30,0.008333333,0.23,4.5
+barium_strontium,1.4e-3,0.004,0.008333333,0.23,4.5
+noble_metals,0,0.006,0.008333333,0.23,4.5
+cerium,0,1.5e-7,0.008333333,0.23,4.5
+lanthanides,0,1.5e-7,0.008333333,0.23,4.5
+molybdenum,0,0.10,0.008333333,0.23,4.5

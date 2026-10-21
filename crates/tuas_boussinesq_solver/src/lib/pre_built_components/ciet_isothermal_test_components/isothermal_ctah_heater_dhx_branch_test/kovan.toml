@@ -1,0 +1,24 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_dhx_branch_test"
+
+[module."debugging_tests.rs"]
+path = "crate::pre_built_components::ciet_isothermal_test_components::isothermal_ctah_heater_dhx_branch_test::debugging_tests"
+
+[[module."debugging_tests.rs".function]]
+id = "fn:e936a014c22d312d"
+name = "dhx_branch_pressure_change_regression_test"
+qual = "dhx_branch_pressure_change_regression_test"
+lines = [
+    1,
+    44,
+]
+hash = "sha256:9bc1c4ad1c099b4b33b60c7e234137700c2f02bff30caa1c34f9afc04bb47337"
+doc_hash = "sha256:e0dc12930d6390ff794deab78f9233a7ebefce18e068acba435222a4bbe505cf"
+callees = [
+    "fn:288f9cb36b686daf",
+    "fn:a76ca3577573a8e2",
+]
+uses = ["fn:f340400526996cc5"]
+test = true

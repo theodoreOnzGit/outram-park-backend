@@ -39,6 +39,7 @@
 //! \[mol/m³\], `p` \[Pa\], molar energies \[J/mol\], molar entropies/heat
 //! capacities \[J/(mol·K)\].
 
+use petir::mathf::RealMath;
 pub mod binary_pairs;
 pub mod departure;
 pub mod predefined;
@@ -223,7 +224,7 @@ impl Mixture {
             let tau_i = eos_i.t_reducing / t;
             let di = eos_i.ideal_derivs(delta_i, tau_i);
             add_weighted(&mut ide, &di, xi);
-            mixing_entropy_term += xi * xi.ln();
+            mixing_entropy_term += xi * xi.r_ln();
         }
 
         let one_plus_dad = 1.0 + delta * res.ad;
@@ -234,7 +235,7 @@ impl Mixture {
         let s = R * (tau * (ide.at + res.at) - (ide.a + res.a) - mixing_entropy_term);
 
         let cv = -R * tau * tau * (ide.att + res.att);
-        let num = (1.0 + delta * res.ad - delta * tau * res.adt).powi(2);
+        let num = (1.0 + delta * res.ad - delta * tau * res.adt).r_powi(2);
         let den = 1.0 + 2.0 * delta * res.ad + delta * delta * res.add;
         let cp = cv + R * num / den;
 

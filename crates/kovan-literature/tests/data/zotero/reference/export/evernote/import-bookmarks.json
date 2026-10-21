@@ -1,0 +1,6 @@
+{
+	"testCase00": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	}
+}

@@ -110,6 +110,39 @@ pub enum BoundaryCondition<T: Clone> {
         /// Neumann reference normal gradient (`[T]·m⁻¹`).
         ref_grad: T,
     },
+    /// Robin / mixed boundary condition with **per-face** coefficients — the
+    /// non-uniform counterpart of [`Mixed`](Self::Mixed).
+    ///
+    /// Same algebra, face by face: with `w = value_fraction[i]`, `delta` the
+    /// owner-cell-to-face distance of face `i` and `φ_c` the owner cell value,
+    ///
+    /// ```text
+    ///   φ_face[i] = w·ref_value[i] + (1 − w)·(φ_c + ref_grad[i]·delta)
+    /// ```
+    ///
+    /// # When the uniform form will not do
+    ///
+    /// A Robin coefficient is rarely constant along a patch, because it is built
+    /// from quantities that are not: the cell-to-face distance on a graded mesh,
+    /// a heat-transfer coefficient that tracks the local flow, or — the case
+    /// this was added for — a **neutron albedo**, whose weight
+    /// `w = (γ·delta/D)/(1 + γ·delta/D)` carries both the local mesh spacing and
+    /// the local diffusion coefficient. Collapsing that to one number per patch
+    /// is an approximation, and an unquantified one, which is exactly what a
+    /// code-to-code comparison must not contain.
+    ///
+    /// All three fields are sized to the patch. Use [`Mixed`](Self::Mixed) when
+    /// the coefficients genuinely are uniform; it is cheaper and reads better.
+    ///
+    /// OpenFOAM: `mixedFvPatchField` with non-uniform `valueFraction`.
+    MixedField {
+        /// Per-face Dirichlet/Neumann blend weight, dimensionless, each `∈ [0, 1]`.
+        value_fraction: Field<f64>,
+        /// Per-face Dirichlet reference value (`[T]`).
+        ref_value: Field<T>,
+        /// Per-face Neumann reference normal gradient (`[T]·m⁻¹`).
+        ref_grad: Field<T>,
+    },
     /// Flux-switched inflow/outflow BC: behaves as
     /// [`FixedValue`](Self::FixedValue)`(inlet_value)` on **inflow** faces and
     /// [`ZeroGradient`](Self::ZeroGradient) on **outflow** faces.

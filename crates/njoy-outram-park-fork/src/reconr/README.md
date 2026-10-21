@@ -131,12 +131,25 @@ was +6.3 % in elastic at thermal and −8.2 % at 1 keV against NJOY's own
 `reference-data/reconr/ar37-tendl2023-0K.pendf`: elastic and capture
 within 1e-5 below 100 eV and 1e-3 on the resonance wings.
 
-**LRF=7 (R-Matrix-Limited) wiring is untested** — `add_rml_range` compiles and
-type-checks (workspace build + full test suite pass as a regression check,
-zero regressions) but has never been run against a real LRF=7 evaluation.
-`samm` itself (the R-matrix engine this wiring calls into) is also untested
-end-to-end — see `../samm/README.md` for its own caveats, most importantly
-the still-unresolved eliminated-channel-reorder question in `samm::mf2`.
+**LRF=7 (R-Matrix-Limited) is verified against NJOY2016 on both LRF=7
+evaluations held.** This paragraph previously read "wiring is untested … has
+never been run against a real LRF=7 evaluation"; that stopped being true on
+2026-09-11 and the note was not updated, which is worth recording because the
+gap it described was real and did hide a defect.
+
+- **Cl-35** (ENDF/B-VII.1, MAT 1725 — 3 particle pairs, charged proton exit
+  channel, `KBK=0`): `tests/reconr_cl35_rml_njoy_golden.rs`, kernel agreement
+  4.9e-7 at all 10,417 NJOY nodes below 1.2 MeV.
+- **Sr-88** (ENDF/B-VIII.1, MAT 3837 — 2 pairs, single-channel groups,
+  `KBK=1`/`LBK=2`): `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`, worst relative
+  deviation 1.00e-2 across 44,326 NJOY grid points at `err=0.001`, 9.97e-4 at
+  `err=0.0001`.
+
+Sr-88 is the case that exposed gh:#202 / `bn:op-hb9l` — the background
+R-matrix was parsed and discarded, leaving elastic at the bare potential term.
+See `../samm/README.md` for the remaining LRF=7 caveats (`LBK=1`/`LBK=3`
+unverified, multi-channel groups with a background untested, `KRM≠3`,
+`IFG=1`, and the eliminated-channel-reorder question in `samm::mf2`).
 
 **LRF=4 (Adler-Adler) is also untested** — `aa::eval_aa_range`/
 `add_aa_range` compile and type-check (same regression-check basis) but

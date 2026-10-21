@@ -1,0 +1,35 @@
+FLEXPART attribution
+====================
+
+The `changi::flexpart` module is a Rust port of parts of FLEXPART.
+
+| Field | Value |
+|---|---|
+| Upstream project | FLEXPART (FLEXible PARTicle dispersion model) |
+| Upstream URL | https://github.com/flexpart/flexpart |
+| Upstream version | 10.4 (2019-11-12) |
+| Upstream commit | `3d7eebf` |
+| Date accessed | 2026-09-15 |
+| Upstream licence | GPL-3.0-or-later (`SPDX-License-Identifier: GPL-3.0-or-later` on every source file; full text in `LICENSE.flexpart`) |
+| Upstream copyright | FLEXPART 1998-2019 (see the upstream `flexpart_license.txt`) |
+| Maintainer contact | ignacio.pisso@nilu.no (NILU) |
+
+FLEXPART is developed at NILU (Norwegian Institute for Air Research) and by the
+wider FLEXPART community. `changi` is an **independent fork** and is not
+affiliated with, nor endorsed by, NILU or the FLEXPART developers.
+
+Licence compatibility
+---------------------
+
+FLEXPART is GPL-3.0-or-later and this workspace is GPL-3.0, so the port carries
+no licence friction: GPL-3.0-or-later code may be combined into a GPL-3.0 work.
+Every ported file keeps a provenance header naming the upstream file it came
+from, so the two can be read side by side and cannot drift unnoticed.
+
+What is NOT ported
+------------------
+
+`upstream_source/FLEXPART/` holds a reference-only clone. It is gitignored,
+never compiled into this crate, and never packaged. FLEXPART's own `erf.f90` is
+deliberately **not** ported: `petir`'s GSL-derived `erf`/`erfc` already cover it
+and carry their own test suite, per the workspace "reuse before porting" rule.

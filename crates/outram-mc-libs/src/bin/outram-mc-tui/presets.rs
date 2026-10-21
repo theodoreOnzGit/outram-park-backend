@@ -515,6 +515,7 @@ fn build_lwr_cell() -> Result<BuiltCase, String> {
         fill: outram_mc_libs::geometry::cell::CellFill::Void,
         temperature: T,
         translation: Position::ZERO,
+        tracking: None,
     };
     let clad = Cell::material(
         3,

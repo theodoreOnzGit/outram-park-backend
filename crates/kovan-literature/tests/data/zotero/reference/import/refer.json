@@ -1,0 +1,303 @@
+[
+	{
+		"name": "testCase00",
+		"source": "translators/ReferBibIX.js testCases[0]",
+		"input": "%0 Journal Article\n%A 余敏\n%A 朱江\n%A 丁照蕾\n%H Yu Min\n%H Zhu Jiang\n%H Ding Zhaolei\n%+ 中科院国家科学图书馆成都分馆,四川,成都,610041;中国科学院研究生院,北京,100049\n%+ 中科院国家科学图书馆成都分馆,四川,成都,610041\n%+ 四川大学公共管理学院,四川,成都,610064\n%T 参考文献管理工具研究\n%J 现代情报\n%J JOURNAL OF MODERN INFORMATION\n%@ 1008-0821\n%G chi\n%D 2009\n%N 2\n%V 29\n%P 94-98,93\n%K 参考文献管理 文献管理软件 学术书签网站 Zotero\n%X 介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.\n%U http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx\n%R 10.3969/j.issn.1008-0821.2009.02.027\n%W 北京万方数据股份有限公司",
+		"upstreamTestItems": [
+			{
+				"itemType": "journalArticle",
+				"title": "参考文献管理工具研究",
+				"creators": [
+					{
+						"firstName": "",
+						"lastName": "余敏",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "",
+						"lastName": "朱江",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "",
+						"lastName": "丁照蕾",
+						"creatorType": "author"
+					}
+				],
+				"date": "2009",
+				"abstractNote": "介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.",
+				"archiveLocation": "北京万方数据股份有限公司",
+				"extra": "Yu Min\nZhu Jiang\nDing Zhaolei",
+				"issue": "2",
+				"language": "chi",
+				"pages": "94-98,93",
+				"publicationTitle": "JOURNAL OF MODERN INFORMATION",
+				"url": "http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx",
+				"volume": "29",
+				"attachments": [],
+				"tags": [
+					"参考文献管理 文献管理软件 学术书签网站 Zotero"
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"name": "余敏",
+						"creatorType": "author"
+					},
+					{
+						"name": "朱江",
+						"creatorType": "author"
+					},
+					{
+						"name": "丁照蕾",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "参考文献管理 文献管理软件 学术书签网站 Zotero",
+						"type": 1
+					}
+				],
+				"extra": "Yu Min\nZhu Jiang\nDing Zhaolei",
+				"title": "参考文献管理工具研究",
+				"publicationTitle": "JOURNAL OF MODERN INFORMATION",
+				"language": "chi",
+				"date": "2009",
+				"issue": "2",
+				"volume": "29",
+				"pages": "94-98,93",
+				"abstractNote": "介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.",
+				"url": "http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx",
+				"archiveLocation": "北京万方数据股份有限公司"
+			}
+		],
+		"via": "in-process, translator forced (zotero-reference.mjs inProcessImport)",
+		"serverTranslatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d"
+	},
+	{
+		"name": "testCase01",
+		"source": "translators/ReferBibIX.js testCases[1]",
+		"input": "%0 Book\n%R oai:nb.bibsys.no:998320569524702202\n%R URN:NBN:no-nb_digibok_2016062048105\n%U https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105\n%T Usynlige byer\n%A Calvino, Italo\n%Y Aardal, Jorunn\n%E Stender Clausen, Jørgen\n%D 1982\n%G Flerspråklig\n%G Norsk (Bokmål)\n%G Italiensk\n%G Dansk\n%Z Elektronisk reproduksjon [Norge] Nasjonalbiblioteket Digital 2016-11-03\n%I Aschehoug\n%C Oslo\n%@ 8203107354\n%K Italiensk litteratur\n%K Idealbyer\n%K kjernelitteratur\n%P 173 s.",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "Usynlige byer",
+				"creators": [
+					{
+						"firstName": "Italo",
+						"lastName": "Calvino",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jorunn",
+						"lastName": "Aardal",
+						"creatorType": "translator"
+					},
+					{
+						"firstName": "Jørgen",
+						"lastName": "Stender Clausen",
+						"creatorType": "editor"
+					}
+				],
+				"date": "1982",
+				"ISBN": "8203107354",
+				"language": "Flerspråklig, Norsk (Bokmål), Italiensk, Dansk",
+				"place": "Oslo",
+				"publisher": "Aschehoug",
+				"url": "https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "Idealbyer"
+					},
+					{
+						"tag": "Italiensk litteratur"
+					},
+					{
+						"tag": "kjernelitteratur"
+					}
+				],
+				"notes": [
+					{
+						"note": "Elektronisk reproduksjon [Norge] Nasjonalbiblioteket Digital 2016-11-03"
+					}
+				],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Italo",
+						"lastName": "Calvino",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jorunn",
+						"lastName": "Aardal",
+						"creatorType": "translator"
+					},
+					{
+						"firstName": "Jørgen",
+						"lastName": "Stender Clausen",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Italiensk litteratur",
+						"type": 1
+					},
+					{
+						"tag": "Idealbyer",
+						"type": 1
+					},
+					{
+						"tag": "kjernelitteratur",
+						"type": 1
+					}
+				],
+				"url": "https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105",
+				"title": "Usynlige byer",
+				"date": "1982",
+				"language": "Flerspråklig, Norsk (Bokmål), Italiensk, Dansk",
+				"publisher": "Aschehoug",
+				"place": "Oslo",
+				"ISBN": "8203107354"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "Elektronisk reproduksjon [Norge] Nasjonalbiblioteket Digital 2016-11-03"
+			}
+		],
+		"via": "in-process, translator forced (zotero-reference.mjs inProcessImport)",
+		"serverTranslatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d"
+	},
+	{
+		"name": "testCase02",
+		"source": "translators/ReferBibIX.js testCases[2]",
+		"input": "%T Corn\n%A Newman, W. H.\n%I Uniontown, Ala. : Canebrake Agricultural Experiment Station\n%D 1891\n%K Corn -- Yields\n%K Corn -- Varieties\n%K Corn -- Field experiments\n\n",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "Corn",
+				"creators": [
+					{
+						"firstName": "W. H.",
+						"lastName": "Newman",
+						"creatorType": "author"
+					}
+				],
+				"date": "1891",
+				"publisher": "Uniontown, Ala. : Canebrake Agricultural Experiment Station",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "Corn -- Field experiments"
+					},
+					{
+						"tag": "Corn -- Varieties"
+					},
+					{
+						"tag": "Corn -- Yields"
+					}
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "W. H.",
+						"lastName": "Newman",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Corn -- Yields",
+						"type": 1
+					},
+					{
+						"tag": "Corn -- Varieties",
+						"type": 1
+					},
+					{
+						"tag": "Corn -- Field experiments",
+						"type": 1
+					}
+				],
+				"title": "Corn",
+				"publisher": "Uniontown, Ala. : Canebrake Agricultural Experiment Station",
+				"date": "1891"
+			}
+		],
+		"via": "in-process, translator forced (zotero-reference.mjs inProcessImport)",
+		"serverTranslatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d"
+	},
+	{
+		"name": "testCase03",
+		"source": "translators/ReferBibIX.js testCases[3]",
+		"input": "%0 Serial\n%0 Audio\n%I Studio Omega, Verein für Christliche Radioarbeit\n%D 2021\n%C Wien\n%G German\n%T Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols\n%U https://diesseits.theopodcast.at/home",
+		"upstreamTestItems": [
+			{
+				"itemType": "audioRecording",
+				"title": "Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols",
+				"creators": [],
+				"date": "2021",
+				"label": "Studio Omega, Verein für Christliche Radioarbeit",
+				"language": "German",
+				"place": "Wien",
+				"url": "https://diesseits.theopodcast.at/home",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [],
+				"tags": [],
+				"label": "Studio Omega, Verein für Christliche Radioarbeit",
+				"date": "2021",
+				"place": "Wien",
+				"language": "German",
+				"title": "Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols",
+				"url": "https://diesseits.theopodcast.at/home"
+			}
+		],
+		"via": "in-process, translator forced (zotero-reference.mjs inProcessImport)",
+		"serverTranslatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d"
+	}
+]

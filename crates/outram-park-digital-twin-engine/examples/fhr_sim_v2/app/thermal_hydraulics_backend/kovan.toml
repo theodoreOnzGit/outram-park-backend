@@ -1,0 +1,1293 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::cloning_the_whole_fhr_state_is_not_the_bottleneck",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_first_frame_pays_the_pebble_bed_bake_and_no_later_frame_does",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_whole_render_body_costs_a_small_fraction_of_a_frame",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/mod.rs::the_ua_slider_crossed_partway_up_at_the_nominal_operating_point",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::a_frozen_loop_is_detected_named_and_located",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::a_healthy_plant_is_not_reported_as_frozen",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::a_melt_request_is_consumed_exactly_once",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::freeze_thresholds_come_from_the_tuas_liquid_database",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::re_recording_while_frozen_keeps_the_first_event",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::the_coldest_node_is_reported_when_both_loops_freeze",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/salt_freeze_guard.rs::the_simulation_pauses_on_freeze_and_resumes_after_a_melt",
+]
+
+[module."components.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::components"
+
+[[module."components.rs".function]]
+id = "fn:8562f9ef3628fda0"
+name = "new_reactor_vessel_pipe_1"
+qual = "new_reactor_vessel_pipe_1"
+lines = [
+    22,
+    187,
+]
+hash = "sha256:d236b79d2378ad555e02f957175f94439924a4dc7e5f6c26f89d22cb7e44fed5"
+doc_hash = "sha256:9dd08afd2b97399fbdb2c4272ae1d2ab68b0cad8749e2d85bfcdde8fca89444b"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:bf02854623f920f7"
+name = "new_downcomer_pipe_2"
+qual = "new_downcomer_pipe_2"
+lines = [
+    188,
+    263,
+]
+hash = "sha256:24b332ff4b435ef40cedc8ef3e89f453d30cf51c05770bf6c8ef9a0bdb35823e"
+doc_hash = "sha256:73dbc7c1aa4a1bbc9929f03cb2e62b5994180db8131e1e15169ea9939da583db"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:15a55640239e886e"
+name = "new_downcomer_pipe_3"
+qual = "new_downcomer_pipe_3"
+lines = [
+    265,
+    346,
+]
+hash = "sha256:e708bb6af52b655b89f08d4ddeb7955fa2dc32d3540391140e650b9edd93801c"
+doc_hash = "sha256:53613920205e247a0eed373bd2f34564664ecc4e330dd0a2a21695e53e395037"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:abf799515dd6bb2d"
+name = "new_fhr_pipe_11"
+qual = "new_fhr_pipe_11"
+lines = [
+    348,
+    407,
+]
+hash = "sha256:438c111b877a5e491a0341cef6527ab95e2c895cdbfe9be5c1e7fe37fe9f6af1"
+doc_hash = "sha256:d95c008e21682ac98bf9b1bdcf7e1aa32ef9bc11855c3f3fdc134ad2d185213d"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:41d495641e5f4521"
+name = "new_fhr_pipe_10"
+qual = "new_fhr_pipe_10"
+lines = [
+    408,
+    462,
+]
+hash = "sha256:36ad64fff8361b0cc86a235b19ed4da71081e405418c1c27a03c99e3a3336083"
+doc_hash = "sha256:62d2a815a82c7d54402e8ceeaaf0a8262c57a50e6b1cacbcff63e1ce9aeb70e1"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:c47ac1cc0dbff022"
+name = "new_fhr_pri_loop_pump_9"
+qual = "new_fhr_pri_loop_pump_9"
+lines = [
+    464,
+    517,
+]
+hash = "sha256:e5644d44efaff42a48fe027c201eeafff97dfa9c0dda92c0444aca7776184ed3"
+doc_hash = "sha256:c2d979b65d47b9b2c1c476eb2af3702b34f832a791a26b566f3a252e6606734a"
+callees = ["fn:c79fa136163d3697"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:d94d40cd541a802b"
+name = "new_fhr_pipe_8"
+qual = "new_fhr_pipe_8"
+lines = [
+    519,
+    568,
+]
+hash = "sha256:6fac8873f05aafc6b8a6a80a5d151c760c829badacd94d5c4d84716821d2ce4d"
+doc_hash = "sha256:858b817ebed2df38b1e8aa602d8f1b646ac16774d08b396e7aed2badf72f7243"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:333132beae531f5b"
+name = "new_fhr_pipe_7"
+qual = "new_fhr_pipe_7"
+lines = [
+    570,
+    624,
+]
+hash = "sha256:025a6e0e3fa1a9f3ab7ef4f417da8110b9d305d9a961532879f04cdf6d49f074"
+doc_hash = "sha256:316d46a96e728ddaa28d1f51742525f25d2b7761b887799d41c3467b20b6304f"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:8146e4cc34243ad8"
+name = "new_ihx_sthe_6_version_1"
+qual = "new_ihx_sthe_6_version_1"
+lines = [
+    626,
+    763,
+]
+hash = "sha256:50071aa89790bfca74beb4152a96b9efeef3796490bb178d48f8919b3df620df"
+doc_hash = "sha256:cdcad1a6c6107418e082d9a489be5bd3f616c9c9ae7fc979c15cd26cb4ddb209"
+callees = [
+    "fn:5809a771c2fb7658",
+    "fn:61571eb5e1cd42ad",
+    "fn:ec1bb94e3b0efdfb",
+]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:68ae150e37a870db",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:4d4996f6376204e2"
+name = "new_fhr_pipe_5"
+qual = "new_fhr_pipe_5"
+lines = [
+    765,
+    814,
+]
+hash = "sha256:a75321a3dcc37910c64a736c559fd9406d92f9efbd5970fef970cb52b7f6ece6"
+doc_hash = "sha256:27a87d7e2af3a010efd4c3d4dee25d86a54775aa17bbe336bd949ad015ee2f1c"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:491d25071dd1f38d"
+name = "new_fhr_pipe_4_ver_1"
+qual = "new_fhr_pipe_4_ver_1"
+lines = [
+    816,
+    868,
+]
+hash = "sha256:1aea477302aff306fb8736751f59ed17efc908a7a40fb6d49406cd0491431d6e"
+doc_hash = "sha256:418a5cd147a10442ae096effcd30865fef372efc09de96e9dd9d62411651b2f5"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:11a2e9e670effbaf"
+name = "new_fhr_pipe_4_ver_2"
+qual = "new_fhr_pipe_4_ver_2"
+lines = [
+    869,
+    920,
+]
+hash = "sha256:e722b8269db33e5b0d710514d03db1dce031b85f2af1bbe397ce2298a09ce4e6"
+doc_hash = "sha256:69b9cb88f6e4a18e4b04210ca4e52ef74450aaf31ca26f89a33d9de99c628471"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:50133ccf26bbf074"
+name = "new_fhr_pipe_17"
+qual = "new_fhr_pipe_17"
+lines = [
+    922,
+    973,
+]
+hash = "sha256:98982800e8c63bd495aa5fc40b2b74d0c356710af90c595f0b43480d7dc368c2"
+doc_hash = "sha256:3bf511c2405c7128d6b6c3a2b7c18eacc78410ed67c46d01bdee6e5d09f92ce5"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:62aaa7843c4434fe"
+name = "new_fhr_pipe_12"
+qual = "new_fhr_pipe_12"
+lines = [
+    975,
+    1026,
+]
+hash = "sha256:dfb7415a3a0f7bd79330dabebc0f5bf668c9899c2ce8d4311c04c353121d11ee"
+doc_hash = "sha256:ecfcccf288137328a34e6133db1f95a657ee63cad7d6d57a8388e4b400aef648"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:42f9852899e294d2"
+name = "new_fhr_intermediate_loop_pump_16"
+qual = "new_fhr_intermediate_loop_pump_16"
+lines = [
+    1028,
+    1084,
+]
+hash = "sha256:345cd59e6a6af658d760b0d70d62d38c21c0095aecef5d8c84a5ab2453d3239d"
+doc_hash = "sha256:972995dc6f73f8055f7b552211a98a41286a846c1afabc6d6f776468e1692ffa"
+callees = ["fn:c79fa136163d3697"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:0c483d61e0e1f22e"
+name = "new_fhr_pipe_15"
+qual = "new_fhr_pipe_15"
+lines = [
+    1086,
+    1137,
+]
+hash = "sha256:d9a3ae7c5ba546ebcf07b0cc011fbb367c764e49aa60b36921de86e7f027af07"
+doc_hash = "sha256:c64b6a92ba5bf5a5ace81a5137bbd9ea92182168f2fa42834136a2c7fff99e82"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:0265447e0d9dc353"
+name = "new_fhr_intermediate_loop_steam_generator_shell_side_14"
+qual = "new_fhr_intermediate_loop_steam_generator_shell_side_14"
+lines = [
+    1139,
+    1209,
+]
+hash = "sha256:0325d6bb5d157d6e0acc6de96dbf15bf725fb4db5204df17816e689b28d2bef2"
+doc_hash = "sha256:d248acb114c58fd58c992042f8a9d2b8e5a66964de9b7cb87c59ad1de413bfe4"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:c79fa136163d3697",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:dcca5c7bf1295ed4"
+name = "new_fhr_pipe_13"
+qual = "new_fhr_pipe_13"
+lines = [
+    1211,
+    1264,
+]
+hash = "sha256:98982800e8c63bd495aa5fc40b2b74d0c356710af90c595f0b43480d7dc368c2"
+doc_hash = "sha256:74a0bbf209ba8bfbe295670c27d54e1f2085793976b3b10dd7d9e772db7ccdc8"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:aca5777d6dac05cb"
+name = "gfhr_bottom_mixing_node_pri_loop"
+qual = "gfhr_bottom_mixing_node_pri_loop"
+lines = [
+    1266,
+    1281,
+]
+hash = "sha256:cce4e3adb708ca3122dfa7f235d549b5be4df293b15f568bbf623f0377a0ca5c"
+doc_hash = "sha256:bb91a8f90e7a46428cd324300890732063189eb4dc0b5d86fad519a7f17db1e8"
+callees = [
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:19fc1d6cff1407db"
+name = "gfhr_top_mixing_node_pri_loop"
+qual = "gfhr_top_mixing_node_pri_loop"
+lines = [
+    1282,
+    1297,
+]
+hash = "sha256:cce4e3adb708ca3122dfa7f235d549b5be4df293b15f568bbf623f0377a0ca5c"
+doc_hash = "sha256:9f069c0a759a7a49ad06717e5dfb7ec10436112dc50f9ea168398f6b42c629df"
+callees = [
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:d0e3e19f384411ec"
+name = "gfhr_bottom_mixing_node_intrmd_loop"
+qual = "gfhr_bottom_mixing_node_intrmd_loop"
+lines = [
+    1299,
+    1314,
+]
+hash = "sha256:cf13ad5439819d689b699eb694508970ff5a39e2aaa8b8d10558c41cd426ed4b"
+doc_hash = "sha256:bc71c13462c9aff1bc8ae1187a38672ac490d114dfaf5f208716d9fe50e4b13a"
+callees = [
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:4151ef9ad7189293"
+name = "gfhr_top_mixing_node_intrmd_loop"
+qual = "gfhr_top_mixing_node_intrmd_loop"
+lines = [
+    1315,
+    1330,
+]
+hash = "sha256:cf13ad5439819d689b699eb694508970ff5a39e2aaa8b8d10558c41cd426ed4b"
+doc_hash = "sha256:ce22f9013925da52b13eed846c97cb012c55054bfc0f61e24a4591c420e48cee"
+callees = [
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[module."fhr_thermal_hydraulics_state.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::fhr_thermal_hydraulics_state"
+
+[[module."fhr_thermal_hydraulics_state.rs".function]]
+id = "fn:41062386b2648e49"
+name = "FHRThermalHydraulicsState"
+qual = "FHRThermalHydraulicsState"
+item = "type"
+shape = "struct"
+lines = [
+    4,
+    107,
+]
+hash = "sha256:cffafdb091a9ba4fc5ecea9c9484702079ecd00bde572070fe4d9afc7c0e5cc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7c5ee630dddc8820"]
+reached_by = [
+    "#6",
+    "#7",
+    "#11",
+    "#12",
+]
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend"
+
+[[module."mod.rs".function]]
+id = "fn:5aa4e6e6700da895"
+name = "four_branch_pri_and_intermediate_loop_single_time_step"
+qual = "FHRSimulatorApp::four_branch_pri_and_intermediate_loop_single_time_step"
+lines = [
+    54,
+    897,
+]
+hash = "sha256:214acfefaec6a4c02e8ba5b574e63ee3b4d2231746377a4e5178dc9bba5810ab"
+doc_hash = "sha256:3d03a5f257ad012337640d0140313f1f20dda3cd5d11282850ef6c96773779e0"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:126ee82fa03643bf",
+    "fn:1386e5e0d1b81226",
+    "fn:18061d1bc20e125e",
+    "fn:2d7b8ddc9930a271",
+    "fn:3ab99241909cec96",
+    "fn:3f6427f87e7e0f62",
+    "fn:3f80312760c570d3",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:71e0b3e056618526",
+    "fn:75b2bf19978d095f",
+    "fn:84b7870b4d7c7d91",
+    "fn:a3a04100486196dc",
+    "fn:b113f725d215f11b",
+    "fn:be40085a8ed290cd",
+    "fn:cdbcbad941544795",
+    "fn:d29f0cb22c120e5f",
+    "fn:f66c6613b2fa9c0c",
+    "fn:fa5c92d5b6a14105",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:1be8442ab54a492c",
+    "fn:41062386b2648e49",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:97fc8cbae769968e",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:c63f881c6e77c9a9"
+name = "calculate_thermal_hydraulics_loop"
+qual = "FHRSimulatorApp::calculate_thermal_hydraulics_loop"
+lines = [
+    899,
+    1622,
+]
+hash = "sha256:c1e60e9d588131019cda27dacaac9528308a55b2884113bd7caf0b7e7fbc8dd7"
+doc_hash = "sha256:74f4d179689e64a71bfc88cef62b08e8415db6e7d512a6f1abf5f3e36de80d71"
+callees = [
+    "fn:0265447e0d9dc353",
+    "fn:03f26730e256b140",
+    "fn:0a7f37ddc2a338e4",
+    "fn:0c483d61e0e1f22e",
+    "fn:11a2e9e670effbaf",
+    "fn:15a55640239e886e",
+    "fn:18061d1bc20e125e",
+    "fn:19fc1d6cff1407db",
+    "fn:333132beae531f5b",
+    "fn:4151ef9ad7189293",
+    "fn:41d495641e5f4521",
+    "fn:42f9852899e294d2",
+    "fn:494f13688b89c833",
+    "fn:4d4996f6376204e2",
+    "fn:50133ccf26bbf074",
+    "fn:5aa4e6e6700da895",
+    "fn:5ab090248217cfe1",
+    "fn:62aaa7843c4434fe",
+    "fn:763a45fd979111da",
+    "fn:8146e4cc34243ad8",
+    "fn:8562f9ef3628fda0",
+    "fn:9c172d4fd2ac8184",
+    "fn:abf799515dd6bb2d",
+    "fn:aca5777d6dac05cb",
+    "fn:bf02854623f920f7",
+    "fn:c36e78cec3b22e6e",
+    "fn:c47ac1cc0dbff022",
+    "fn:d0e3e19f384411ec",
+    "fn:d1c084d9ef78b882",
+    "fn:d8c7243358140d33",
+    "fn:d94d40cd541a802b",
+    "fn:dcca5c7bf1295ed4",
+    "fn:deeae77b220ce784",
+    "fn:f241daed20aed39e",
+]
+uses = [
+    "fn:1e9e054cc5b5a361",
+    "fn:41062386b2648e49",
+    "fn:5244d7529c279542",
+    "fn:666d5a4fb0c09257",
+    "fn:68428a981ede0f7d",
+    "fn:7c5ee630dddc8820",
+    "fn:87bb457a9eec06de",
+    "fn:8fa1d61f79295f85",
+    "fn:97fc8cbae769968e",
+    "fn:eab1b85d88915df0",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b998b9037e024539"
+name = "nominal_steam_generator_branch_salt_flow"
+qual = "nominal_steam_generator_branch_salt_flow"
+lines = [
+    1663,
+    1700,
+]
+hash = "sha256:8e556b9d2c2700a56119d063121bdf7219196f359b4232e6c1543e3ae5559dcd"
+doc_hash = "sha256:c46189d038ba3d927240237a36b349fd42119d14d61df891b9a3c20cc2634fea"
+callees = [
+    "fn:0265447e0d9dc353",
+    "fn:0c483d61e0e1f22e",
+    "fn:11a2e9e670effbaf",
+    "fn:15a55640239e886e",
+    "fn:18061d1bc20e125e",
+    "fn:333132beae531f5b",
+    "fn:41d495641e5f4521",
+    "fn:42f9852899e294d2",
+    "fn:4d4996f6376204e2",
+    "fn:50133ccf26bbf074",
+    "fn:62aaa7843c4434fe",
+    "fn:8146e4cc34243ad8",
+    "fn:8562f9ef3628fda0",
+    "fn:abf799515dd6bb2d",
+    "fn:bf02854623f920f7",
+    "fn:c47ac1cc0dbff022",
+    "fn:d94d40cd541a802b",
+    "fn:dcca5c7bf1295ed4",
+]
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:1b9bed394a22d9e0"
+name = "the_ua_slider_crossed_partway_up_at_the_nominal_operating_point"
+qual = "the_ua_slider_crossed_partway_up_at_the_nominal_operating_point"
+lines = [
+    1702,
+    1927,
+]
+hash = "sha256:44113309a1e0b18a7442949f3e8c7ffec64b57f47712606f4b90c75417228f9a"
+doc_hash = "sha256:3dae52df421e120bf8e2573baac4d5c68b8d74bbeac54d57857ea9658d184fca"
+callees = [
+    "fn:126ee82fa03643bf",
+    "fn:b998b9037e024539",
+    "fn:cdbcbad941544795",
+    "fn:d1c084d9ef78b882",
+    "fn:f09f00cc4fcef6cc",
+]
+uses = [
+    "fn:7c5ee630dddc8820",
+    "fn:de020efa1d48c9ac",
+]
+test = true
+
+[module."salt_freeze_guard.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::salt_freeze_guard"
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:68428a981ede0f7d"
+name = "MELT_RESTORE_TEMPERATURE_DEGC"
+qual = "MELT_RESTORE_TEMPERATURE_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    88,
+    97,
+]
+hash = "sha256:9aed2d960a1b837000b5ec951cb30d95cbca17697417dbeb871d58ec0948338d"
+doc_hash = "sha256:af0da6de3ea7b7dd7bf797d3426ab075dc8517f0ed86f1c0775e9822ae69ff7f"
+reached_by = [
+    "#9",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:eab1b85d88915df0"
+name = "FREEZE_PAUSE_POLL_INTERVAL_MS"
+qual = "FREEZE_PAUSE_POLL_INTERVAL_MS"
+item = "const"
+shape = "const"
+lines = [
+    99,
+    102,
+]
+hash = "sha256:54a7f1d46b88ce10f36abbeb096ebb519d5536d8823557c1bde064739de12c0b"
+doc_hash = "sha256:2a80a63dffed173546af3c9a693a8541e023a040b1b2411c4396adddd8795f01"
+reached_by = ["#12"]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:666d5a4fb0c09257"
+name = "FrozenLoop"
+qual = "FrozenLoop"
+item = "type"
+shape = "enum"
+lines = [
+    104,
+    114,
+]
+hash = "sha256:b1d48205c5c09da56d77ad4e16bcf5fa04535968002316e9adbe556fe96d00dc"
+doc_hash = "sha256:9e8c28eb7b65ab7350ed20953ca5e088f706db83c75eb520d392f4371c832698"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:58aaacd5cd564e61"
+name = "salt"
+qual = "FrozenLoop::salt"
+lines = [
+    117,
+    124,
+]
+hash = "sha256:c558e4b2e07ca6fedd3f22ddb1076f10bdd08fd2607abae475e0a198157abe66"
+doc_hash = "sha256:3eb70e9edfdcc69e38bd1459b8d9f189045aa520d913fc0b36c01ba3d42e7242"
+uses = [
+    "fn:666d5a4fb0c09257",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:ee70a6d50439f167"
+name = "salt_name"
+qual = "FrozenLoop::salt_name"
+lines = [
+    126,
+    132,
+]
+hash = "sha256:094d8e1e32cf959a4f6ed8e2045e3882f61553676d526d81219dc70dc285bf3c"
+doc_hash = "sha256:9d83ff15f01951f1618b865119c0ce617d91dab9b366c48be8d1f75843669a5a"
+uses = ["fn:666d5a4fb0c09257"]
+reached_by = ["#6"]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:2b743454959d0def"
+name = "loop_name"
+qual = "FrozenLoop::loop_name"
+lines = [
+    134,
+    140,
+]
+hash = "sha256:631f8ce2c4b8820e94f7525dd6aa66f39b9ea9bd434566d97d9a5c8a17ed5d1d"
+doc_hash = "sha256:a70b025aadb9e9546c9caa9986b87299038e6778dabdac92a1bce64d2014ab57"
+uses = ["fn:666d5a4fb0c09257"]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:243933a20b9a5927"
+name = "freeze_threshold"
+qual = "FrozenLoop::freeze_threshold"
+lines = [
+    142,
+    149,
+]
+hash = "sha256:fae270d925f8e9330b3e83e67c3da0843d0b3a48e7dca0d659d520a6dd10feb5"
+doc_hash = "sha256:bd5e3d22e40994d95b7341c133e6a80b34482f1f4f058bff0b6bd63a63da0539"
+callees = [
+    "fn:26aff73e30f8632a",
+    "fn:58aaacd5cd564e61",
+]
+uses = ["fn:666d5a4fb0c09257"]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+physical_interface = true
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:8f3061641269887f"
+name = "freeze_threshold_degc"
+qual = "FrozenLoop::freeze_threshold_degc"
+lines = [
+    151,
+    155,
+]
+hash = "sha256:ce5f8179931688cd579a09f037b308f60ec1ab567c46fc4fbf3cdaac8b89c5d6"
+doc_hash = "sha256:782bb7c8859cc6f14133cca857f85477287055dfcd8132e96a3edaf41d76f8b0"
+callees = ["fn:243933a20b9a5927"]
+uses = ["fn:666d5a4fb0c09257"]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:89da5fca2c7e8b72"
+name = "SaltFreezeEvent"
+qual = "SaltFreezeEvent"
+item = "type"
+shape = "struct"
+lines = [
+    158,
+    175,
+]
+hash = "sha256:739d887182971374c5e9bf2698181f1c21800c6cd0109e603c422a50b5645be5"
+doc_hash = "sha256:6786271572eba8c8bc56637cab5799753e5d606249a20ca185e9223fe6b8db79"
+uses = ["fn:666d5a4fb0c09257"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:ddb0eb067b163e2d"
+name = "headline"
+qual = "SaltFreezeEvent::headline"
+lines = [
+    178,
+    196,
+]
+hash = "sha256:a16f13fee051fbfa8e1fbdc41d6f5c70f86c93932d246ad46fa4461cd0ec9bab"
+doc_hash = "sha256:3fab6c1aeca6d418e7eacca27fa92a848c1ed697d5c3946d26054441c43200b8"
+callees = ["fn:ee70a6d50439f167"]
+uses = ["fn:89da5fca2c7e8b72"]
+reached_by = ["#6"]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:a09641700168eb20"
+name = "undershoot_kelvin"
+qual = "SaltFreezeEvent::undershoot_kelvin"
+lines = [
+    198,
+    202,
+]
+hash = "sha256:2e386f955e8acaed4865b6eb8588ca30c56ebf37b97eae08efa8188d53a3b086"
+doc_hash = "sha256:f2d8a990d74d394a080f5c4da962fd45dbf5840cd34478701d81a195ab4515ea"
+uses = ["fn:89da5fca2c7e8b72"]
+reached_by = ["#6"]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:f383f986d3b6d64e"
+name = "labelled_profiles"
+qual = "labelled_profiles"
+lines = [
+    205,
+    286,
+]
+hash = "sha256:887119cd8f3535487552342d38e9c405ad8a5efbec8b0cdadb276e11f525c671"
+doc_hash = "sha256:77aa8c8444137c82267fae8f306b2fd7d71ce0a94f738d99f11df03cb7e5c401"
+uses = [
+    "fn:41062386b2648e49",
+    "fn:666d5a4fb0c09257",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#11",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:763a45fd979111da"
+name = "detect_salt_freeze"
+qual = "detect_salt_freeze"
+lines = [
+    288,
+    329,
+]
+hash = "sha256:83ab294ff30f88c4179356a64a24d61fe127498260af6aab8268832f7ac8ad53"
+doc_hash = "sha256:eacca93f27d689e1dc1d3ce4f24874ec39123b42db2a3de6886763c86a4570a7"
+callees = [
+    "fn:8f3061641269887f",
+    "fn:f383f986d3b6d64e",
+]
+uses = [
+    "fn:41062386b2648e49",
+    "fn:89da5fca2c7e8b72",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#11",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:5244d7529c279542"
+name = "SaltFreezeMonitor"
+qual = "SaltFreezeMonitor"
+item = "type"
+shape = "struct"
+lines = [
+    331,
+    346,
+]
+hash = "sha256:1cc4ed0f261c3740e2bc17e3a5f6ac8017dd99fdd549269477a3c269cd90cc6a"
+doc_hash = "sha256:61423dea67e51dda785ae54f587ea71ece7c1d5c18fe6011e38b17c67fd36105"
+uses = ["fn:48c4404a1ab18882"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#10",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:48c4404a1ab18882"
+name = "SaltFreezeMonitorInner"
+qual = "SaltFreezeMonitorInner"
+item = "type"
+shape = "struct"
+lines = [
+    348,
+    359,
+]
+hash = "sha256:9b8f19608db31d9b307b9e2b0c56861f87d6f97e5d11cc0c3bf4e108aec7cb0e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:89da5fca2c7e8b72"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#10",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:8574c272754a100e"
+name = "new"
+qual = "SaltFreezeMonitor::new"
+lines = [
+    362,
+    371,
+]
+hash = "sha256:ccb668d49144fbf45a6be4a56c47f7102f923154019bafa78a72f617e5548045"
+doc_hash = "sha256:de9e18c44876cee7de737b20d26355f029b66131421827fc41fd29286fa7efb4"
+uses = [
+    "fn:48c4404a1ab18882",
+    "fn:5244d7529c279542",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#8",
+    "#10",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:9e12e35312203ea7"
+name = "is_frozen"
+qual = "SaltFreezeMonitor::is_frozen"
+lines = [
+    373,
+    377,
+]
+hash = "sha256:1dc88608353a38710e78f6a86c9bed2d010c518b2018c7ab5f7c029bb06b607f"
+doc_hash = "sha256:924e536dc79642f58eda0c2994bdec6747f3eec39e61084dc0bccdfb527f6380"
+uses = ["fn:5244d7529c279542"]
+reached_by = [
+    "#8",
+    "#10",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:c36e78cec3b22e6e"
+name = "event"
+qual = "SaltFreezeMonitor::event"
+lines = [
+    379,
+    389,
+]
+hash = "sha256:fcf2f4484265d6a5a197326b807515dc76153830f02807d9899c5af603a6d679"
+doc_hash = "sha256:6635e170aaedac7c98fbdd323b39755833a284f56e5b9cf2412fec08e13bdeb6"
+callees = ["fn:9e12e35312203ea7"]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:89da5fca2c7e8b72",
+]
+reached_by = [
+    "#8",
+    "#10",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:494f13688b89c833"
+name = "record"
+qual = "SaltFreezeMonitor::record"
+lines = [
+    391,
+    406,
+]
+hash = "sha256:c04b81b6d228e51a6a4f4f9a936975c3a67b3a738457ea6819b48a89b3f4ce23"
+doc_hash = "sha256:53275fe2ed3870cc956ad88a85068aaf5ab061bb991e7fe3010c9cf81e09be0a"
+uses = [
+    "fn:5244d7529c279542",
+    "fn:89da5fca2c7e8b72",
+]
+reached_by = [
+    "#8",
+    "#10",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:d938d84e52273ffb"
+name = "request_melt"
+qual = "SaltFreezeMonitor::request_melt"
+lines = [
+    408,
+    414,
+]
+hash = "sha256:1f257aeae7d2ad3d1c72cd6aafdabd07847b24312aded1038673fbdb3eb7c18a"
+doc_hash = "sha256:5733733b16ad0c3dfc7c9d679bc2f94d66f1cdf63d91edd707ec302b052b9305"
+uses = ["fn:5244d7529c279542"]
+reached_by = [
+    "#8",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:03f26730e256b140"
+name = "take_melt_request"
+qual = "SaltFreezeMonitor::take_melt_request"
+lines = [
+    416,
+    435,
+]
+hash = "sha256:1e5cb81f0903213fb6054b72a0c2669f44f42697abb32fc83e3a725d8171b426"
+doc_hash = "sha256:bdbc39fda90444bfe01bbc9c969e9fd120a4d25af28861e02940fb8338784259"
+uses = ["fn:5244d7529c279542"]
+reached_by = [
+    "#8",
+    "#12",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:32b39b2ad3d559a5"
+name = "default"
+qual = "SaltFreezeMonitor::default"
+lines = [
+    439,
+    441,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8574c272754a100e"]
+uses = ["fn:5244d7529c279542"]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:5ab090248217cfe1"
+name = "reset_profiles_after_melt"
+qual = "reset_profiles_after_melt"
+lines = [
+    444,
+    490,
+]
+hash = "sha256:132ac03ccb2b9292ca025a076dd83ef0e365dae59bc90c7d0368e0292ec9412d"
+doc_hash = "sha256:99305aa528b40d790b9f4f962483406358e56799c6be1d5a882c971e29478b4c"
+uses = [
+    "fn:41062386b2648e49",
+    "fn:666d5a4fb0c09257",
+    "fn:68428a981ede0f7d",
+]
+reached_by = ["#12"]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:a18ace2dfae76343"
+name = "show_salt_freeze_modal"
+qual = "show_salt_freeze_modal"
+lines = [
+    492,
+    590,
+]
+hash = "sha256:606cad457f2d20029e5c1bbada22abd40a97af4556b386fdae44116b36d42db1"
+doc_hash = "sha256:b3dc3092676260ba315f863babe5a5542dbed9eaccd6812023bf79f1b7a7b255"
+callees = [
+    "fn:2b743454959d0def",
+    "fn:a09641700168eb20",
+    "fn:c36e78cec3b22e6e",
+    "fn:d938d84e52273ffb",
+    "fn:ddb0eb067b163e2d",
+    "fn:ee70a6d50439f167",
+]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:68428a981ede0f7d",
+]
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:5f429154b173314e"
+name = "healthy_state"
+qual = "healthy_state"
+lines = [
+    600,
+    635,
+]
+hash = "sha256:421d62c9255f0c84f5e53aa1f8f0d11fece6df4b162e88f119dc34ade9e078bc"
+doc_hash = "sha256:642fbddf5f52de193bcd2858f248661ec7d20285c8afb4e08f800eb96f25375a"
+uses = [
+    "fn:41062386b2648e49",
+    "fn:7c5ee630dddc8820",
+]
+test = true
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:f9d7ccd0dce027ea"
+name = "freeze_thresholds_come_from_the_tuas_liquid_database"
+qual = "freeze_thresholds_come_from_the_tuas_liquid_database"
+lines = [
+    637,
+    692,
+]
+hash = "sha256:0427eaa573ec24caa6b688f4ac794b85fb99d423d807412ac65a48da007c84fa"
+doc_hash = "sha256:051d0b179ed26d1aa89d237699f21df65b33b69eb60e7880c31ecce483a8878a"
+callees = [
+    "fn:243933a20b9a5927",
+    "fn:8f3061641269887f",
+]
+uses = [
+    "fn:666d5a4fb0c09257",
+    "fn:68428a981ede0f7d",
+]
+test = true
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:658ad1da83008262"
+name = "a_healthy_plant_is_not_reported_as_frozen"
+qual = "a_healthy_plant_is_not_reported_as_frozen"
+lines = [
+    694,
+    717,
+]
+hash = "sha256:3a363c6693de014b0bd082a945357778f90304fcb2f1d5daf1d9f7abc6f308ff"
+doc_hash = "sha256:4ada13776add1626b133f190c29d2c0535c39f3101f9322133285fcb6afe102d"
+callees = [
+    "fn:5f429154b173314e",
+    "fn:763a45fd979111da",
+]
+test = true
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:a67da40e0c7a40e1"
+name = "a_frozen_loop_is_detected_named_and_located"
+qual = "a_frozen_loop_is_detected_named_and_located"
+lines = [
+    719,
+    788,
+]
+hash = "sha256:358f0b19805858f37b5adad0ea39f6a4492d2d3e15b41c1cea21b91affecc041"
+doc_hash = "sha256:297f05a320b137f81df488e9288a0fa13d3f515128456da09adbba943d5e21e9"
+callees = [
+    "fn:5f429154b173314e",
+    "fn:763a45fd979111da",
+    "fn:a09641700168eb20",
+    "fn:ddb0eb067b163e2d",
+    "fn:ee70a6d50439f167",
+]
+uses = ["fn:666d5a4fb0c09257"]
+test = true
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:6e59f5af7188794a"
+name = "the_coldest_node_is_reported_when_both_loops_freeze"
+qual = "the_coldest_node_is_reported_when_both_loops_freeze"
+lines = [
+    790,
+    814,
+]
+hash = "sha256:b9080ea8ce48187f91ff63fcbf13003ef5469b469a7a46eb7c43ed3b1bd6b6ef"
+doc_hash = "sha256:ec429496a32fada516cffeaa4c4a0ae07c6c5d5cc08e52aa1da8f20aa9b70ec2"
+callees = [
+    "fn:5f429154b173314e",
+    "fn:763a45fd979111da",
+]
+uses = ["fn:666d5a4fb0c09257"]
+test = true
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:5eb10f00da2b1659"
+name = "the_simulation_pauses_on_freeze_and_resumes_after_a_melt"
+qual = "the_simulation_pauses_on_freeze_and_resumes_after_a_melt"
+lines = [
+    816,
+    936,
+]
+hash = "sha256:240e0fc73c9767dc5aab90a83985f4ba4cc7bc8df80068696ab67bfd7b2d7a38"
+doc_hash = "sha256:9088de79c825f8a5a5c9333b2a51c17e3086f9d9373b66a184770320cf470c80"
+callees = [
+    "fn:03f26730e256b140",
+    "fn:494f13688b89c833",
+    "fn:5ab090248217cfe1",
+    "fn:5f429154b173314e",
+    "fn:763a45fd979111da",
+    "fn:8574c272754a100e",
+    "fn:9e12e35312203ea7",
+    "fn:c36e78cec3b22e6e",
+    "fn:d938d84e52273ffb",
+]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:666d5a4fb0c09257",
+    "fn:68428a981ede0f7d",
+    "fn:eab1b85d88915df0",
+]
+test = true
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:03eb45a3ae8b3a65"
+name = "a_melt_request_is_consumed_exactly_once"
+qual = "a_melt_request_is_consumed_exactly_once"
+lines = [
+    938,
+    972,
+]
+hash = "sha256:0aa626a55e4adad64c6a088fc90d77c009a58419118fdd51a1514224066ffd73"
+doc_hash = "sha256:bbaafc8a8f5c03a2ad8ac87c78a3b308e72e6f84151530f1e951e0fe73b6eb5f"
+callees = [
+    "fn:03f26730e256b140",
+    "fn:494f13688b89c833",
+    "fn:8574c272754a100e",
+    "fn:8f3061641269887f",
+    "fn:9e12e35312203ea7",
+    "fn:c36e78cec3b22e6e",
+    "fn:d938d84e52273ffb",
+]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:666d5a4fb0c09257",
+    "fn:89da5fca2c7e8b72",
+]
+test = true
+
+[[module."salt_freeze_guard.rs".function]]
+id = "fn:1c5f7c8236115aeb"
+name = "re_recording_while_frozen_keeps_the_first_event"
+qual = "re_recording_while_frozen_keeps_the_first_event"
+lines = [
+    974,
+    1009,
+]
+hash = "sha256:cb4221869c032ddda36bb922bfc1876f3d216e107d9c1e2571fdf130ecf70df5"
+doc_hash = "sha256:6daa795a2a763002920eac6728dffa6b643acf997fc0b07375c5c7dbb7514421"
+callees = [
+    "fn:494f13688b89c833",
+    "fn:8574c272754a100e",
+    "fn:8f3061641269887f",
+    "fn:c36e78cec3b22e6e",
+]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:666d5a4fb0c09257",
+    "fn:89da5fca2c7e8b72",
+]
+test = true

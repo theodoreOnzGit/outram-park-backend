@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures"
+
+[module."mod.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures"

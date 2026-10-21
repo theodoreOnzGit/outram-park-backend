@@ -100,9 +100,6 @@ impl WimsrInput {
             jcc = 2;
         }
         let n = jcc / 2;
-        (
-            (0..n).map(|i| (yield_[i], ifisp[i])).collect(),
-            jcc,
-        )
+        ((0..n).map(|i| (yield_[i], ifisp[i])).collect(), jcc)
     }
 }

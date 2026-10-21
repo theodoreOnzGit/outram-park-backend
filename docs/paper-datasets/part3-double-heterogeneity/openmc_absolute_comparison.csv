@@ -1,8 +1,12 @@
 case,tracking_method,outram_mc_keff,outram_mc_sigma,openmc_keff,openmc_sigma,delta_pcm,combined_sigma_pcm,sigma_distance,measured,source_record
-explicit TRISO,delta (Woodcock),1.36547,0.00229,1.36510,0.00063,+37,238,0.2,2026-09-13,ring_rpt/ring_rpt_vs_openmc.md
-ring-RPT,delta (Woodcock),1.36363,0.00216,1.36479,0.00067,-116,226,0.5,2026-09-13,ring_rpt/ring_rpt_vs_openmc.md
-ring-RPT,CSG surface-tracked,1.36810,0.00213,1.36479,0.00067,+331,223,1.5,2026-09-13,ring_rpt/ring_rpt_vs_openmc.md
-naive homogenised,delta (Woodcock),1.32971,0.00237,,,,,,2026-09-13,ring_rpt/ring_rpt_vs_openmc.md
+explicit TRISO,delta (Woodcock),1.36050,0.00200,1.36510,0.00063,-460,210,2.2,2026-09-14,ring_rpt/ring_rpt_vs_openmc.md
+ring-RPT,delta (Woodcock),1.36311,0.00228,1.36479,0.00067,-168,238,0.7,2026-09-14,ring_rpt/ring_rpt_vs_openmc.md
+ring-RPT,CSG surface-tracked,1.36752,0.00210,1.36479,0.00067,+273,220,1.2,2026-09-14,ring_rpt/ring_rpt_vs_openmc.md
+naive homogenised,delta (Woodcock),1.32645,0.00216,,,,,,2026-09-14,ring_rpt/ring_rpt_vs_openmc.md
+explicit TRISO (SUPERSEDED - Weisskopf stand-in for MT=91/MT=16),delta (Woodcock),1.36547,0.00229,1.36510,0.00063,+37,238,0.2,2026-09-13,ring_rpt/ring_rpt_vs_openmc.md
+ring-RPT (SUPERSEDED - Weisskopf stand-in for MT=91/MT=16),delta (Woodcock),1.36363,0.00216,1.36479,0.00067,-116,226,0.5,2026-09-13,ring_rpt/ring_rpt_vs_openmc.md
+ring-RPT (SUPERSEDED - Weisskopf stand-in for MT=91/MT=16),CSG surface-tracked,1.36810,0.00213,1.36479,0.00067,+331,223,1.5,2026-09-13,ring_rpt/ring_rpt_vs_openmc.md
+naive homogenised (SUPERSEDED - Weisskopf stand-in for MT=91/MT=16),delta (Woodcock),1.32971,0.00237,,,,,,2026-09-13,ring_rpt/ring_rpt_vs_openmc.md
 explicit TRISO (SUPERSEDED - discrete thermal kernel),delta (Woodcock),1.36041,0.00207,1.36510,0.00063,-469,216,2.2,2026-09-12,ring_rpt/ring_rpt_vs_openmc.md
 ring-RPT (SUPERSEDED - discrete thermal kernel),delta (Woodcock),1.36394,0.00204,1.36479,0.00067,-85,215,0.4,2026-09-12,ring_rpt/ring_rpt_vs_openmc.md
 ring-RPT (SUPERSEDED - discrete thermal kernel),CSG surface-tracked,1.36140,0.00229,1.36479,0.00067,-339,239,1.4,2026-09-12,ring_rpt/ring_rpt_vs_openmc.md

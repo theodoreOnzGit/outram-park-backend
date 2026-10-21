@@ -71,9 +71,29 @@
 //! pinned to `petir::real::{exp, ln, powf}` output at full `f64` precision
 //! needs re-baselining once, in the same way the `libm` swap itself did.
 //!
+//! **`hypot` takes a fourth route since 2026-10-20** (gh:#997): [`hypot`],
+//! [`hypotf`] and `Real::hypot` (both float types) go to [`crate::hypot`], a
+//! port of CORE-MATH's correctly rounded `cr_hypot` / `cr_hypotf`, because
+//! the `libm` crate's `hypot` misrounds by one ulp on some inputs.
+//!
 //! Everything else here stays on `libm`: ARM publishes no scalar double
 //! `log10`, `cbrt`, `cos`, `sin`, `tanh` or `atan2`, and the special functions
 //! (`erf`, `erfc`, `tgamma`, `lgamma`) are not in its scope at all.
+
+/// `sqrt(x^2 + y^2)`, **correctly rounded**, without spurious overflow or
+/// underflow: CORE-MATH's `cr_hypot`, ported in [`crate::hypot`] (gh:#997,
+/// 2026-10-20). Before that date every PETIR `hypot` route went to the
+/// `libm` crate's (musl's), which is off by one ulp on some inputs.
+#[inline]
+pub fn hypot(x: f64, y: f64) -> f64 {
+    crate::hypot::hypot(x, y)
+}
+
+/// `f32` [`hypot`]: CORE-MATH's `cr_hypotf`, correctly rounded.
+#[inline]
+pub fn hypotf(x: f32, y: f32) -> f32 {
+    crate::hypot::hypotf(x, y)
+}
 
 /// The error function `erf(x)`. Not in Rust's `std`.
 #[inline]
@@ -118,6 +138,15 @@ pub fn lgamma(x: f64) -> f64 {
 // the same 200 000 points. Routing them through `libm` would buy nothing and
 // cost real time: `libm::sqrt` benchmarks 3.73x slower than the hardware
 // instruction. Use the `std` methods for those.
+//
+// **CORRECTED 2026-10-20 (gh #1001), for PETIR's own code:** finite `sqrt`
+// results are bit-identical, but the NaN that `sqrt` of a negative returns is
+// not: its sign depends on whether the instruction or libm's software path ran,
+// which libm's `arch` feature and std's presence in the graph decide. PETIR's
+// library therefore calls `Real::sqrt` (UFCS), which canonicalises the NaN; on
+// a build where libm's `arch` is off (none of the workspace's graphs) that is
+// the software sqrt and costs the 3.73x above, not re-measured. The advice to
+// consumers stands for finite values.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Natural logarithm. (`std`: `f64::ln`.)
@@ -159,6 +188,37 @@ pub fn powf(x: f64, y: f64) -> f64 {
     crate::fast_pow::powf_ieee(x, y)
 }
 
+/// `x` to the integer power `m`, with the same operations on every target:
+/// libgcc's `__powidf2` (square-and-multiply on `|m|`, then one reciprocal
+/// for `m < 0`), which is also what gfortran compiles `real**integer` to.
+///
+/// `f64::powi` is lowered by each target's backend, so its last bit is not
+/// pinned: on `x86_64-pc-windows-msvc` it gave a different `10**(-23)` from
+/// Linux, and 27 words of an ACE table differed from NJOY2016's on Windows
+/// only (njoy-outram-park-fork's `sigfig`, 2026-10-15). Use this where a
+/// result must match Fortran, or itself, bit for bit across platforms.
+#[inline]
+pub fn powi(x: f64, m: i32) -> f64 {
+    let mut n = m.unsigned_abs();
+    let mut x = x;
+    let mut y = if n % 2 == 1 { x } else { 1.0 };
+    loop {
+        n >>= 1;
+        if n == 0 {
+            break;
+        }
+        x *= x;
+        if n % 2 == 1 {
+            y *= x;
+        }
+    }
+    if m < 0 {
+        1.0 / y
+    } else {
+        y
+    }
+}
+
 /// Cosine. (`std`: `f64::cos`.)
 #[inline]
 pub fn cos(x: f64) -> f64 {
@@ -183,9 +243,531 @@ pub fn atan2(y: f64, x: f64) -> f64 {
     libm::atan2(y, x)
 }
 
+// ---------------------------------------------------------------------------
+// The method-syntax half: everything `core` omits, as a trait.
+// ---------------------------------------------------------------------------
+//
+// The free functions above exist for two reasons: `std` does not HAVE
+// erf/erfc/tgamma/lgamma at all, and exp/ln/powf are routed deliberately
+// through the ARM optimized-routines ports rather than through libm.
+//
+// The trait below exists for a third: `core` withholds the elementary
+// operations as METHODS. `sqrt`, `exp`, `ln`, `powf` and the trig and rounding
+// families are defined on `f64` by `std`, not by `core`, so a `no_std` crate
+// cannot write `x.sqrt()`.
+//
+// WHICH TO REACH FOR. Prefer the FREE FUNCTIONS in new code: they are the
+// routed, verified path, and for exp/ln/powf they are the ARM ports that are
+// bit-identical to upstream. The trait is what lets PETIR carry kernels LIFTED
+// VERBATIM from elsewhere in this workspace without rewriting every call site,
+// and that byte-for-byte property is the whole value of a lift (see
+// `tests/verbatim_provenance.rs`).
+//
+// NOTE the deliberate asymmetry: `Real::exp`, `Real::ln` and `Real::powf` go to
+// `libm`, NOT to the ARM ports, because a verbatim lift must behave exactly as
+// it did in the crate it came from. Changing the method path would silently
+// change the numerics of lifted code. Routing a consumer onto the ARM port is
+// an explicit, per-call-site decision (bn:op-j57z), not something a lift should
+// inherit by accident.
+
+/// The float operations `core` lacks, provided for `no_std` builds.
+///
+/// ~~Implemented for [`f64`] only — PETIR is a double-precision library
+/// throughout, matching GSL's and Octave's default storage type.~~
+/// **CORRECTED 2026-10-20** — implemented for [`f64`] and, since 2026-09-19
+/// (commit `4b9a9a52d1`, the WGSL kernels), for [`f32`] too: the `impl Real
+/// for f32` below routes to `libm`'s single-precision functions (`sinf`,
+/// `expf`, …) and backs the `f32` CPU mirrors in [`crate::wgsl`]. The
+/// numerics layers remain `f64`. Every method
+/// has the same contract, argument order and edge-case behaviour as the
+/// identically named [`f64`] inherent method in `std`.
+pub trait Real: Copy {
+    /// Square root. `NaN` for negative arguments; `-0.0` for `-0.0`.
+    fn sqrt(self) -> Self;
+    /// Cube root, defined for negative arguments (`(-8).cbrt() == -2`).
+    fn cbrt(self) -> Self;
+    /// `e^self`.
+    fn exp(self) -> Self;
+    /// `2^self`.
+    fn exp2(self) -> Self;
+    /// `e^self - 1`, accurate for `self` near zero.
+    fn exp_m1(self) -> Self;
+    /// Natural logarithm. `NaN` for negative arguments, `-inf` at zero.
+    fn ln(self) -> Self;
+    /// `ln(1 + self)`, accurate for `self` near zero.
+    fn ln_1p(self) -> Self;
+    /// Base-10 logarithm.
+    fn log10(self) -> Self;
+    /// Base-2 logarithm.
+    fn log2(self) -> Self;
+    /// Logarithm to an arbitrary `base`, computed as `self.ln() / base.ln()`.
+    fn log(self, base: Self) -> Self;
+    /// `self^n` for a real exponent.
+    fn powf(self, n: Self) -> Self;
+    /// `self^n` for an integer exponent, by exponentiation-by-squaring.
+    fn powi(self, n: i32) -> Self;
+    /// Sine of an angle in radians.
+    fn sin(self) -> Self;
+    /// Cosine of an angle in radians.
+    fn cos(self) -> Self;
+    /// Tangent of an angle in radians.
+    fn tan(self) -> Self;
+    /// Sine and cosine together, in one call.
+    fn sin_cos(self) -> (Self, Self);
+    /// Arcsine, in radians over `[-pi/2, pi/2]`.
+    fn asin(self) -> Self;
+    /// Arccosine, in radians over `[0, pi]`.
+    fn acos(self) -> Self;
+    /// Arctangent, in radians over `(-pi/2, pi/2)`.
+    fn atan(self) -> Self;
+    /// Four-quadrant arctangent of `self / other`, in radians over `(-pi, pi]`.
+    fn atan2(self, other: Self) -> Self;
+    /// Hyperbolic sine.
+    fn sinh(self) -> Self;
+    /// Hyperbolic cosine.
+    fn cosh(self) -> Self;
+    /// Hyperbolic tangent.
+    fn tanh(self) -> Self;
+    /// Inverse hyperbolic sine.
+    fn asinh(self) -> Self;
+    /// Inverse hyperbolic cosine.
+    fn acosh(self) -> Self;
+    /// Inverse hyperbolic tangent.
+    fn atanh(self) -> Self;
+    /// `sqrt(self^2 + other^2)` without intermediate overflow or underflow.
+    fn hypot(self, other: Self) -> Self;
+    /// Largest integer less than or equal to `self`.
+    fn floor(self) -> Self;
+    /// Smallest integer greater than or equal to `self`.
+    fn ceil(self) -> Self;
+    /// Nearest integer, halfway cases rounded away from zero.
+    fn round(self) -> Self;
+    /// Integer part, truncating toward zero.
+    fn trunc(self) -> Self;
+    /// Fractional part, `self - self.trunc()`, carrying `self`'s sign.
+    fn fract(self) -> Self;
+    /// `self * a + b` with a single rounding (fused multiply-add).
+    fn mul_add(self, a: Self, b: Self) -> Self;
+    /// Least non-negative remainder of `self (mod rhs)`.
+    fn rem_euclid(self, rhs: Self) -> Self;
+}
+
+/// `x`, or PETIR's canonical quiet NaN, `0xfff8_0000_0000_0000`, when `x` is
+/// any NaN.
+///
+/// IEEE 754 leaves a generated NaN's sign and payload unspecified, and the
+/// `libm` crate's `sqrt` and `fma` really do differ by build: with its `arch`
+/// feature they are the x86 instructions, which return the NEGATIVE default
+/// NaN (`sqrt(-1)` = `0xfff8...`); with `force-soft-floats` (or `arch` off)
+/// they are software, which returns the positive one (`0x7ff8...`). Measured
+/// 2026-10-20, gh #1001. Cargo feature unification decides which a build
+/// gets, so [`Real::sqrt`] and [`Real::mul_add`] canonicalise to keep
+/// PETIR's output bit-identical across build graphs (maintainer direction,
+/// gh #1001: bit-identical, not "within tolerance").
+///
+/// The canonical value is the NEGATIVE one, x86 SSE's default NaN, because
+/// that is what PETIR returned before (the test graphs had `arch` on) and what
+/// the committed GSL references contain: `svd-gsl-2.8-reference.txt` holds 40
+/// `-nan` values that `gsl_svd_code_to_code` compares bit for bit. Choosing
+/// `f64::NAN` (positive) was tried first and failed those 40.
+#[inline]
+fn canonical_nan_f64(x: f64) -> f64 {
+    if x.is_nan() {
+        f64::from_bits(0xfff8_0000_0000_0000)
+    } else {
+        x
+    }
+}
+
+/// `f32` [`canonical_nan_f64`]: `0xffc0_0000` for any NaN.
+#[inline]
+fn canonical_nan_f32(x: f32) -> f32 {
+    if x.is_nan() {
+        f32::from_bits(0xffc0_0000)
+    } else {
+        x
+    }
+}
+
+impl Real for f64 {
+    #[inline]
+    fn sqrt(self) -> f64 {
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f64(libm::sqrt(self))
+    }
+    #[inline]
+    fn cbrt(self) -> f64 {
+        libm::cbrt(self)
+    }
+    #[inline]
+    fn exp(self) -> f64 {
+        libm::exp(self)
+    }
+    #[inline]
+    fn exp2(self) -> f64 {
+        libm::exp2(self)
+    }
+    #[inline]
+    fn exp_m1(self) -> f64 {
+        libm::expm1(self)
+    }
+    #[inline]
+    fn ln(self) -> f64 {
+        libm::log(self)
+    }
+    #[inline]
+    fn ln_1p(self) -> f64 {
+        libm::log1p(self)
+    }
+    #[inline]
+    fn log10(self) -> f64 {
+        libm::log10(self)
+    }
+    #[inline]
+    fn log2(self) -> f64 {
+        libm::log2(self)
+    }
+    #[inline]
+    fn log(self, base: f64) -> f64 {
+        libm::log(self) / libm::log(base)
+    }
+    #[inline]
+    fn powf(self, n: f64) -> f64 {
+        libm::pow(self, n)
+    }
+    /// Exponentiation by squaring, mirroring what `std` lowers `powi` to.
+    ///
+    /// A negative exponent is handled as `1 / self^|n|`. `i32::MIN` cannot be
+    /// negated in two's complement, so it is widened to `i64` before the
+    /// absolute value is taken.
+    #[inline]
+    fn powi(self, n: i32) -> f64 {
+        let mut e = (n as i64).unsigned_abs();
+        let mut base = self;
+        let mut acc = 1.0_f64;
+        while e > 0 {
+            if e & 1 == 1 {
+                acc *= base;
+            }
+            base *= base;
+            e >>= 1;
+        }
+        if n < 0 {
+            1.0 / acc
+        } else {
+            acc
+        }
+    }
+    #[inline]
+    fn sin(self) -> f64 {
+        libm::sin(self)
+    }
+    #[inline]
+    fn cos(self) -> f64 {
+        libm::cos(self)
+    }
+    #[inline]
+    fn tan(self) -> f64 {
+        libm::tan(self)
+    }
+    #[inline]
+    fn sin_cos(self) -> (f64, f64) {
+        libm::sincos(self)
+    }
+    #[inline]
+    fn asin(self) -> f64 {
+        libm::asin(self)
+    }
+    #[inline]
+    fn acos(self) -> f64 {
+        libm::acos(self)
+    }
+    #[inline]
+    fn atan(self) -> f64 {
+        libm::atan(self)
+    }
+    #[inline]
+    fn atan2(self, other: f64) -> f64 {
+        libm::atan2(self, other)
+    }
+    #[inline]
+    fn sinh(self) -> f64 {
+        libm::sinh(self)
+    }
+    #[inline]
+    fn cosh(self) -> f64 {
+        libm::cosh(self)
+    }
+    #[inline]
+    fn tanh(self) -> f64 {
+        libm::tanh(self)
+    }
+    #[inline]
+    fn asinh(self) -> f64 {
+        libm::asinh(self)
+    }
+    #[inline]
+    fn acosh(self) -> f64 {
+        libm::acosh(self)
+    }
+    #[inline]
+    fn atanh(self) -> f64 {
+        libm::atanh(self)
+    }
+    #[inline]
+    fn hypot(self, other: f64) -> f64 {
+        crate::hypot::hypot(self, other)
+    }
+    #[inline]
+    fn floor(self) -> f64 {
+        libm::floor(self)
+    }
+    #[inline]
+    fn ceil(self) -> f64 {
+        libm::ceil(self)
+    }
+    #[inline]
+    fn round(self) -> f64 {
+        libm::round(self)
+    }
+    #[inline]
+    fn trunc(self) -> f64 {
+        libm::trunc(self)
+    }
+    #[inline]
+    fn fract(self) -> f64 {
+        self - libm::trunc(self)
+    }
+    #[inline]
+    fn mul_add(self, a: f64, b: f64) -> f64 {
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f64(libm::fma(self, a, b))
+    }
+    /// `self - rhs * (self / rhs).floor()`, clamped into `[0, |rhs|)`.
+    ///
+    /// Matches `f64::rem_euclid`: the result is never negative, and rounding
+    /// can only push it to `|rhs|` at the very edge, which is folded back to
+    /// zero.
+    #[inline]
+    fn rem_euclid(self, rhs: f64) -> f64 {
+        let r = libm::fmod(self, rhs);
+        if r < 0.0 {
+            r + libm::fabs(rhs)
+        } else {
+            r
+        }
+    }
+}
+/// `f32` float maths, from `libm`'s single-precision entry points.
+///
+/// Added 2026-09-19 for the GPU path: WGSL's `f32` is the only float type a
+/// baseline WebGPU device is guaranteed to have, so every CPU mirror of a
+/// WGSL kernel in [`crate::wgsl`] needs `no_std` `f32` maths to compare
+/// against. Nothing in the crate's `f64` numerics changed.
+///
+/// # This is NOT a lower-precision alias for the `f64` impl
+///
+/// Each method calls `libm`'s **`f32` routine** (`sqrtf`, `expf`, `logf`, …),
+/// not the `f64` one with a cast. That matters: `libm::expf` is its own
+/// polynomial, so `(x as f64).exp() as f32` and `x.exp()` are *different
+/// functions* and disagree in the last ulp. The mirror must use this one,
+/// because it is the one whose error budget matches a GPU's.
+///
+/// # Accuracy, stated plainly
+///
+/// `f32` carries about 7.2 decimal digits. A relative error near `1e-7` is
+/// the floor for any single operation here, and a composed expression is
+/// worse. Do not compare an `f32` result against an `f64` reference at an
+/// `f64` tolerance — [`crate::wgsl`]'s tests state the budget they use.
+impl Real for f32 {
+    #[inline]
+    fn sqrt(self) -> f32 {
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f32(libm::sqrtf(self))
+    }
+    #[inline]
+    fn cbrt(self) -> f32 {
+        libm::cbrtf(self)
+    }
+    #[inline]
+    fn exp(self) -> f32 {
+        libm::expf(self)
+    }
+    #[inline]
+    fn exp2(self) -> f32 {
+        libm::exp2f(self)
+    }
+    #[inline]
+    fn exp_m1(self) -> f32 {
+        libm::expm1f(self)
+    }
+    #[inline]
+    fn ln(self) -> f32 {
+        libm::logf(self)
+    }
+    #[inline]
+    fn ln_1p(self) -> f32 {
+        libm::log1pf(self)
+    }
+    #[inline]
+    fn log10(self) -> f32 {
+        libm::log10f(self)
+    }
+    #[inline]
+    fn log2(self) -> f32 {
+        libm::log2f(self)
+    }
+    #[inline]
+    fn log(self, base: f32) -> f32 {
+        libm::logf(self) / libm::logf(base)
+    }
+    #[inline]
+    fn powf(self, n: f32) -> f32 {
+        libm::powf(self, n)
+    }
+    /// Exponentiation by squaring, mirroring the `f64` impl exactly — the
+    /// same loop, so the two agree on operation count and association.
+    #[inline]
+    fn powi(self, n: i32) -> f32 {
+        let mut e = (n as i64).unsigned_abs();
+        let mut base = self;
+        let mut acc = 1.0_f32;
+        while e > 0 {
+            if e & 1 == 1 {
+                acc *= base;
+            }
+            base *= base;
+            e >>= 1;
+        }
+        if n < 0 {
+            1.0 / acc
+        } else {
+            acc
+        }
+    }
+    #[inline]
+    fn sin(self) -> f32 {
+        libm::sinf(self)
+    }
+    #[inline]
+    fn cos(self) -> f32 {
+        libm::cosf(self)
+    }
+    #[inline]
+    fn tan(self) -> f32 {
+        libm::tanf(self)
+    }
+    #[inline]
+    fn sin_cos(self) -> (f32, f32) {
+        libm::sincosf(self)
+    }
+    #[inline]
+    fn asin(self) -> f32 {
+        libm::asinf(self)
+    }
+    #[inline]
+    fn acos(self) -> f32 {
+        libm::acosf(self)
+    }
+    #[inline]
+    fn atan(self) -> f32 {
+        libm::atanf(self)
+    }
+    #[inline]
+    fn atan2(self, other: f32) -> f32 {
+        libm::atan2f(self, other)
+    }
+    #[inline]
+    fn sinh(self) -> f32 {
+        libm::sinhf(self)
+    }
+    #[inline]
+    fn cosh(self) -> f32 {
+        libm::coshf(self)
+    }
+    #[inline]
+    fn tanh(self) -> f32 {
+        libm::tanhf(self)
+    }
+    #[inline]
+    fn asinh(self) -> f32 {
+        libm::asinhf(self)
+    }
+    #[inline]
+    fn acosh(self) -> f32 {
+        libm::acoshf(self)
+    }
+    #[inline]
+    fn atanh(self) -> f32 {
+        libm::atanhf(self)
+    }
+    #[inline]
+    fn hypot(self, other: f32) -> f32 {
+        crate::hypot::hypotf(self, other)
+    }
+    #[inline]
+    fn floor(self) -> f32 {
+        libm::floorf(self)
+    }
+    #[inline]
+    fn ceil(self) -> f32 {
+        libm::ceilf(self)
+    }
+    #[inline]
+    fn round(self) -> f32 {
+        libm::roundf(self)
+    }
+    #[inline]
+    fn trunc(self) -> f32 {
+        libm::truncf(self)
+    }
+    #[inline]
+    fn fract(self) -> f32 {
+        self - libm::truncf(self)
+    }
+    #[inline]
+    fn mul_add(self, a: f32, b: f32) -> f32 {
+        // gh #1001: a NaN result is returned as the canonical NaN. libm's
+        // `arch` feature switches this between the `sqrtsd`/`vfmadd`
+        // instruction (negative default NaN) and software (positive NaN),
+        // and the maintainer wants PETIR's bits independent of that.
+        canonical_nan_f32(libm::fmaf(self, a, b))
+    }
+    /// Matches `f32::rem_euclid`, mirroring the `f64` impl.
+    #[inline]
+    fn rem_euclid(self, rhs: f32) -> f32 {
+        let r = libm::fmodf(self, rhs);
+        if r < 0.0 {
+            r + libm::fabsf(rhs)
+        } else {
+            r
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn powi_is_libgcc_square_and_multiply_then_one_reciprocal() {
+        assert_eq!(powi(10.0, 0), 1.0);
+        assert_eq!(powi(10.0, 1), 10.0);
+        assert_eq!(powi(10.0, 23), 1.0e23);
+        // One reciprocal of the positive power, not a product of 0.1s.
+        assert_eq!(powi(10.0, -23).to_bits(), (1.0 / 1.0e23_f64).to_bits());
+        assert_eq!(powi(10.0, -4), 1.0 / 10_000.0);
+        assert_eq!(powi(-3.0, 3), -27.0);
+    }
 
     /// Anchor values that do not depend on which libm is underneath.
     #[test]

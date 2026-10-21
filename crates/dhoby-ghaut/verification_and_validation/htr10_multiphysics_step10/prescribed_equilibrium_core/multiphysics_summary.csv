@@ -1,0 +1,2 @@
+converged,iterations,core_exit_c,vessel_outlet_c,max_helium_c,max_surface_c,max_kernel_c,dp_kpa,t_feedback_c,rho_pcm,k_vs_cold_critical
+true,10,760.9,695.9,869.3,922.8,958.7,0.510,583.1,-7785,0.9278

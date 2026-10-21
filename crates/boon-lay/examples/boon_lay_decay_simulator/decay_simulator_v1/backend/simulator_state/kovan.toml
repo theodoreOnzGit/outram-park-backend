@@ -1,0 +1,27 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/examples/boon_lay_decay_simulator/decay_simulator_v1/backend/simulator_state"
+
+[module."graphing.rs"]
+path = "example:boon_lay_decay_simulator::decay_simulator_v1::backend::simulator_state::graphing"
+
+[[module."graphing.rs".function]]
+id = "fn:d6d6d935d50c60fe"
+name = "update_fractions_using_decay_sim_thread_ptrs"
+qual = "SimulatorState::update_fractions_using_decay_sim_thread_ptrs"
+lines = [
+    11,
+    151,
+]
+hash = "sha256:58998f804e34e877040934e54238b9413009795265e514f2adfc09b0bc731e18"
+doc_hash = "sha256:0c4ea8aabc57d948b70fcaf497cc8480fcb34fbc3207bb818c35eacd122d1224"
+callees = [
+    "fn:3603c07b0f462410",
+    "fn:6c33a4dba4de56c9",
+    "fn:c97b84611ab981de",
+]
+uses = [
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+]

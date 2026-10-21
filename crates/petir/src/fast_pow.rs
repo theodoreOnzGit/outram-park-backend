@@ -505,9 +505,21 @@ fn log_inline(ix: u64) -> (f64, f64) {
     let z = f64::from_bits(iz);
     let kd = k as f64;
 
-    let invc = f64::from_bits(POW_TAB[3 * i]);
-    let logc = f64::from_bits(POW_TAB[3 * i + 1]);
-    let logctail = f64::from_bits(POW_TAB[3 * i + 2]);
+    // `i = (...) % LOG_N` and `POW_TAB` holds `3 * LOG_N` entries, so all
+    // three reads are in range -- by arithmetic the compiler cannot follow.
+    // `log_inline` has no error channel (upstream's `log_inline` returns a
+    // double-double), so the unreachable arm yields NaN, which propagates
+    // loudly through `pow` rather than ending the program.
+    let (Some(&t_invc), Some(&t_logc), Some(&t_tail)) = (
+        POW_TAB.get(3 * i),
+        POW_TAB.get(3 * i + 1),
+        POW_TAB.get(3 * i + 2),
+    ) else {
+        return (f64::NAN, f64::NAN);
+    };
+    let invc = f64::from_bits(t_invc);
+    let logc = f64::from_bits(t_logc);
+    let logctail = f64::from_bits(t_tail);
 
     // 1/c is j/N or j/N/2 for an integer j in [N, 2N), and |z/c - 1| < 1/N, so
     // r = z/c - 1 is exactly representable.
@@ -574,7 +586,7 @@ fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (
         // deliberately not transcribed.
         let y = y * P1009;
         return if y.is_infinite() {
-            Err((PetirError::ZeroDivide, y)) // check_oflow
+            Err((PetirError::Overflow, y)) // check_oflow
         } else {
             Ok(y)
         };
@@ -600,7 +612,7 @@ fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (
     }
     let y = P_M1022 * y;
     if y == 0.0 {
-        Err((PetirError::Tolerance, y)) // check_uflow
+        Err((PetirError::Underflow, y)) // check_uflow
     } else {
         Ok(y)
     }
@@ -631,10 +643,10 @@ fn exp_inline(x: f64, xtail: f64, sign_bias: u32) -> core::result::Result<f64, (
             // the sign taken from `sign_bias` being non-zero.
             let neg = sign_bias != 0;
             return if x.to_bits() >> 63 != 0 {
-                Err((PetirError::Tolerance, if neg { -0.0 } else { 0.0 }))
+                Err((PetirError::Underflow, if neg { -0.0 } else { 0.0 }))
             } else {
                 Err((
-                    PetirError::ZeroDivide,
+                    PetirError::Overflow,
                     if neg {
                         f64::NEG_INFINITY
                     } else {
@@ -661,9 +673,17 @@ fn exp_inline(x: f64, xtail: f64, sign_bias: u32) -> core::result::Result<f64, (
 
     let idx = (2 * (ki % EXP_N)) as usize;
     let top = (ki.wrapping_add(u64::from(sign_bias))) << (52 - EXP_TABLE_BITS);
-    let tail = f64::from_bits(EXP_TAB[idx]);
+    // `idx = 2 * (ki % EXP_N)` and `EXP_TAB` holds `2 * EXP_N` entries, so
+    // both reads are in range for every input -- by arithmetic the compiler
+    // cannot follow. `get` keeps the values, and therefore the bit-identity
+    // with upstream pinned by tests/fast_pow_vs_arm_optimized_routines.rs,
+    // exactly as they were.
+    let (Some(&tab_lo), Some(&tab_hi)) = (EXP_TAB.get(idx), EXP_TAB.get(idx + 1)) else {
+        return Err((PetirError::Range, f64::NAN));
+    };
+    let tail = f64::from_bits(tab_lo);
     // Valid as a scale only for -1023*N < k < 1024*N.
-    let sbits = EXP_TAB[idx + 1].wrapping_add(top);
+    let sbits = tab_hi.wrapping_add(top);
 
     let r2 = r * r;
     // EXP_POLY_ORDER == 5.
@@ -830,16 +850,18 @@ fn powf_inner(x: f64, y: f64) -> core::result::Result<f64, (PetirError, f64)> {
                 });
             }
             return if (ix > 1.0f64.to_bits()) == (topy < 0x800) {
-                Err((PetirError::ZeroDivide, f64::INFINITY)) // __math_oflow(0)
+                Err((PetirError::Overflow, f64::INFINITY)) // __math_oflow(0)
             } else {
-                Err((PetirError::Tolerance, 0.0)) // __math_uflow(0)
+                Err((PetirError::Underflow, 0.0)) // __math_uflow(0)
             };
         }
         if topx == 0 {
             // Normalise subnormal x so its exponent becomes negative.
             ix = (x * f64::from_bits(0x4330000000000000)).to_bits(); // 0x1p52
             ix &= 0x7fff_ffff_ffff_ffff;
-            ix -= 52u64 << 52;
+            // Wraps ON PURPOSE (#761): upstream's `uint64_t` subtraction
+            // (`pow.c:328`) is modular; the exponent is meant to go negative.
+            ix = ix.wrapping_sub(52u64 << 52);
         }
     }
 
@@ -861,9 +883,12 @@ fn powf_inner(x: f64, y: f64) -> core::result::Result<f64, (PetirError, f64)> {
 ///
 /// # Errors
 ///
-/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the
-/// result exceeds the double range) or `__math_divzero` (`0^negative`), and
-/// [`PetirError::Tolerance`] where it returns `__math_uflow`.
+/// [`PetirError::Overflow`] where upstream returns `__math_oflow` (the
+/// result exceeds the double range), [`PetirError::ZeroDivide`] where it
+/// returns `__math_divzero` (`0^negative`), and [`PetirError::Underflow`]
+/// where it returns `__math_uflow`. The first two were a single variant
+/// until 2026-09-20; they are different conditions and are now reported as
+/// such.
 /// [`PetirError::Domain`] for a negative base raised to a non-integer
 /// exponent, where upstream returns `__math_invalid` (a NaN, with the invalid
 /// flag). The IEEE special cases that have a finite or infinite answer —

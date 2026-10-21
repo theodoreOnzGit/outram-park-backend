@@ -1,0 +1,10 @@
+# Standard toolchain for this workspace (maintainer direction, 2026-10-20:
+# "make 1.99 the standard"). rustup picks this up for every cargo command run
+# inside the repo, on every machine and in CI, and installs it if missing.
+# The Pages build overrides it on purpose (RUSTUP_TOOLCHAIN in
+# .github/workflows/pages.yml), because its rust-analyzer is pinned (gh:#772).
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

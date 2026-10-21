@@ -1,0 +1,5 @@
+# Reference-only upstream clone: read for provenance and to generate V&V
+# reference values, never compiled into the crate and never committed.
+/upstream_source/*/
+# Build products of the Fortran reference harness.
+/dev/build/

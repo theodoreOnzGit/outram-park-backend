@@ -15,6 +15,12 @@
 //! | Solver | Equations | Slip between phases | Thermal non-equilibrium |
 //! |---|---|---|---|
 //! | [`crate::hem`] (HEM) | 3 | none (`u_g = u_l`) | none (both saturated) |
+//!
+//! **CORRECTED 2026-10-16:** the HEM row names a *model level*, not a solver
+//! in this crate. [`crate::hem`] holds only a re-export of the steam-table
+//! control volume (`HemSteamCv`); the HEM pipe solver lives in
+//! `tampines-steam-tables` (`TampinesSteamArray`). Exporting a HEM pipe solver
+//! from `tampines` is gh:#896.
 //! | [`drift_flux::DriftFlux1d`] | 4 | **algebraic** (`u_g − j = U_dm`) | none |
 //! | [`two_fluid::TwoFluid1d`] | 6 | **dynamic** (own momentum equation) | **yes** (own energy equation) |
 //!
@@ -104,7 +110,11 @@
 //!   dispatcher, so the *break* is HEM even when the *pipe* is drift-flux or
 //!   two-fluid. This is a real modelling inconsistency and it is called out
 //!   again at the boundary condition itself.
-//! - **One validation case, and only one.** As of 2026-08-11
+//! - ~~**One validation case, and only one.**~~ **CORRECTED 2026-10-16** —
+//!   there are two: Edwards (below) and Marviken test 23, where
+//!   `marviken_test_23_drift_flux_critical_mass_flux` (a plain `#[test]` in
+//!   `marviken_tests.rs`) is recorded VALIDATED at 8.9 % mean |dev|; test 24 is
+//!   characterisation only. See that file's header. As of 2026-08-11
 //!   [`drift_flux::DriftFlux1d`] is compared against the digitised
 //!   Edwards–O'Brien experimental GS-1 pressure curve by
 //!   `edwards_drift_flux_gs1_pressure_history` (see `edwards_tests.rs` for the

@@ -1,0 +1,48 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections"
+
+[module."conductance_array_functions.rs"]
+path = "crate::array_fluid_collections::conductance_array_functions"
+
+[[module."conductance_array_functions.rs".function]]
+id = "fn:ae882eea739e46a2"
+name = "_advance_timestep_for_externally_cooled_array_cv_no_insulation"
+qual = "_advance_timestep_for_externally_cooled_array_cv_no_insulation"
+lines = [
+    14,
+    198,
+]
+hash = "sha256:26ced2f937a05397e5611057e0be64fd01e752ff37e1169fa190537b03bfa4e3"
+doc_hash = "sha256:e8eeaae8267db1417d4cc32636033068a6144ae757c5aaa9ac2779ad4391413d"
+callees = [
+    "fn:a0b4115d2681280f",
+    "fn:e04a45132823706f",
+    "fn:eedc38381fcfd405",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+]
+physical_interface = true
+
+[[module."conductance_array_functions.rs".function]]
+id = "fn:58b49e9d7e031392"
+name = "advance_timestep_for_specified_conductance_array_cv"
+qual = "advance_timestep_for_specified_conductance_array_cv"
+lines = [
+    200,
+    381,
+]
+hash = "sha256:257db7516262852fe72702891d18678234ed48d96b503671479e0e398d6fb2e5"
+doc_hash = "sha256:097b7bdec23bdb4285b1c060abfcecc27ef8974c9573473eafc4430a1c37d7fe"
+callees = ["fn:a0b4115d2681280f"]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::array_fluid_collections"

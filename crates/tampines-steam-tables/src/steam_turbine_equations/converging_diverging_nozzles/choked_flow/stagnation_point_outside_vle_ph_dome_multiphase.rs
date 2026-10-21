@@ -19,6 +19,9 @@
 //! the isentrope — so no sound speed (and no finite-difference
 //! `mass_flux_ps_eqm_throat`) is ever evaluated.
 
+use petir::uom_math::QuantityMath;
+use petir::mathf::RealMath;
+
 use std::sync::OnceLock;
 
 use uom::ConstZero;
@@ -260,7 +263,7 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
             return 0.0; // over-expanded guard
         }
         let rho = v_ps_eqm(p, s0).recip();
-        (rho * (2.0 * ke).sqrt()).get::<kilogram_per_square_meter_second>()
+        (rho * (2.0 * ke).r_sqrt()).get::<kilogram_per_square_meter_second>()
     };
     let p_bubble = bubble_point_pressure_from_entropy(s0);
 
@@ -334,7 +337,7 @@ pub fn get_critical_pressure_and_mass_flux_subcooled_liquid_ph(
     let rho_f = v_tp_eqm_two_phase(t_bubble, p_bubble, 0.0).recip();
     let h_f_bubble = h_tp_eqm_two_phase(t_bubble, p_bubble, 0.0);
     let dh_bubble = (h0 - h_f_bubble).max(AvailableEnergy::ZERO);
-    let v_bubble = (2.0 * dh_bubble).sqrt();
+    let v_bubble = (2.0 * dh_bubble).r_sqrt();
     let subcooling_ratio = (v_bubble * rho_f / g_sonic_bubble).get::<uom::si::ratio::ratio>();
     if subcooling_ratio > DEEP_SUBCOOLING_RATIO {
         return (
@@ -387,7 +390,7 @@ fn saturation_line_sonic_map() -> &'static Vec<(f64, f64)> {
         (0..n)
             .map(|i| {
                 let f = i as f64 / (n - 1) as f64;
-                let p_pa = p_lo * (p_hi / p_lo).powf(f);
+                let p_pa = p_lo * (p_hi / p_lo).r_powf(f);
                 let p = Pressure::new::<pascal>(p_pa);
                 let s_f = s_tp_eqm_two_phase(sat_temp_4(p), p, 0.0);
                 let g = mass_flux_ps_eqm_throat(p, s_f).get::<kilogram_per_square_meter_second>();
@@ -402,22 +405,22 @@ fn saturation_line_sonic_map() -> &'static Vec<(f64, f64)> {
 fn saturation_line_sonic_mass_flux(p_bubble: Pressure) -> MassFlux {
     let map = saturation_line_sonic_map();
     let n = map.len();
-    let lp = p_bubble.get::<pascal>().ln();
+    let lp = p_bubble.get::<pascal>().r_ln();
 
-    if lp <= map[0].0.ln() {
+    if lp <= map[0].0.r_ln() {
         return MassFlux::new::<kilogram_per_square_meter_second>(map[0].1);
     }
-    if lp >= map[n - 1].0.ln() {
+    if lp >= map[n - 1].0.r_ln() {
         return MassFlux::new::<kilogram_per_square_meter_second>(map[n - 1].1);
     }
     for w in map.windows(2) {
         let (p0, g0) = w[0];
         let (p1, g1) = w[1];
-        let (lp0, lp1) = (p0.ln(), p1.ln());
+        let (lp0, lp1) = (p0.r_ln(), p1.r_ln());
         if lp >= lp0 && lp <= lp1 {
             let t = (lp - lp0) / (lp1 - lp0);
-            let lg = g0.ln() * (1.0 - t) + g1.ln() * t;
-            return MassFlux::new::<kilogram_per_square_meter_second>(lg.exp());
+            let lg = g0.r_ln() * (1.0 - t) + g1.r_ln() * t;
+            return MassFlux::new::<kilogram_per_square_meter_second>(lg.r_exp());
         }
     }
     MassFlux::new::<kilogram_per_square_meter_second>(map[n - 1].1)
@@ -483,7 +486,7 @@ pub fn get_critical_pressure_and_mass_flux_superheated_vapour_ph(
             return MassFlux::ZERO; // over-expanded guard
         }
         let rho = v_ps_eqm(p, s0).recip();
-        rho * (2.0 * ke).sqrt() // = rho * u
+        rho * (2.0 * ke).r_sqrt() // = rho * u
     };
 
     // dew point: where the isentrope first reaches saturation (x = 1) on

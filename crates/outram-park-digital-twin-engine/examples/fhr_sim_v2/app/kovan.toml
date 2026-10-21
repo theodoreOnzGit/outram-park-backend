@@ -1,0 +1,300 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_first_frame_pays_the_pebble_bed_bake_and_no_later_frame_does",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_whole_render_body_costs_a_small_fraction_of_a_frame",
+]
+
+[module."frame_cost.rs"]
+path = "example:fhr_sim_v2::app::frame_cost"
+
+[[module."frame_cost.rs".function]]
+id = "fn:fdb1f08f476d7064"
+name = "SCREEN"
+qual = "SCREEN"
+item = "const"
+shape = "const"
+lines = [
+    93,
+    97,
+]
+hash = "sha256:c861b00676568f5a2a3e8aa93cb76b594b40098ee6322e773388e88af4f02dc8"
+doc_hash = "sha256:2a7597228db4f9d2e877edce33d83482cfce967039417d597d30ca9fea4bc0d0"
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:4a9281b19d8e1f92"
+name = "headless_context"
+qual = "headless_context"
+lines = [
+    99,
+    112,
+]
+hash = "sha256:5145fa34ba876e94d83644646d4dc38803327adda5714e80700b25cb24be62b7"
+doc_hash = "sha256:a34ca23f9b8b86b0a991569ef9a90ff85e07105a940367626f285aacbb02bfb5"
+uses = ["fn:fdb1f08f476d7064"]
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:193ddbee2aa25ea8"
+name = "FrameCost"
+qual = "FrameCost"
+item = "type"
+shape = "struct"
+lines = [
+    114,
+    122,
+]
+hash = "sha256:4411af6c7f2da5e5a9a99811d6435f31009167073ea3b983a554adb17ff049a3"
+doc_hash = "sha256:818674137a44baa7ee5f7201fb58d6351477247f81a91912723952e1934806e9"
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:8cb74857228c9d2d"
+name = "Part"
+qual = "Part"
+item = "type"
+shape = "enum"
+lines = [
+    124,
+    139,
+]
+hash = "sha256:4a0992c45966452256a071f370ca965a6cf10bd310f18a4e1fa7fa385cf2c913"
+doc_hash = "sha256:6d09cdabfa893ab6f634c6333486305ce67fa03b39a1ec247fae87af74af3972"
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:0f21ec8102c2beeb"
+name = "measure"
+qual = "measure"
+lines = [
+    141,
+    178,
+]
+hash = "sha256:5a6c0040f51e5988012ae010065c774cb3566cbc022c86825a2ef3e6bc246283"
+doc_hash = "sha256:f970c816d60b33a4d85a2e79b4627516d4bc73e2fc812132c3b0d367cffa656e"
+callees = [
+    "fn:4ef3c9a2cd0d62eb",
+    "fn:94143b462e93f315",
+    "fn:a1bdc69ffa9d4fed",
+]
+uses = [
+    "fn:193ddbee2aa25ea8",
+    "fn:8cb74857228c9d2d",
+    "fn:a70fc38a274a1899",
+]
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:9aef3d5657dc4930"
+name = "steady_state"
+qual = "steady_state"
+lines = [
+    180,
+    203,
+]
+hash = "sha256:13f6c9db735579aaae2604fa8f1083fb0aeda7132fd532da0ba93c2342b95a9d"
+doc_hash = "sha256:8bd23334f5bc33f02ef0e578cadfce147efa1e2c6bed86013f29058fa6b91f85"
+callees = ["fn:0f21ec8102c2beeb"]
+uses = [
+    "fn:193ddbee2aa25ea8",
+    "fn:8cb74857228c9d2d",
+    "fn:a70fc38a274a1899",
+]
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:b33d5be5c3168ae3"
+name = "state_with_realistic_node_counts"
+qual = "state_with_realistic_node_counts"
+lines = [
+    205,
+    234,
+]
+hash = "sha256:382319e47e6d6c77d99684fe70714a16d43c69de45db262631918123e4827a0f"
+doc_hash = "sha256:cd31cd660ac92afdee8ec3ba5545adfa8f723e7887bd8d83a698ae0f01ec7507"
+callees = ["fn:a3264904f4da2ab9"]
+uses = ["fn:8fa1d61f79295f85"]
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:e8992e06514e1115"
+name = "app_ready_to_render"
+qual = "app_ready_to_render"
+lines = [
+    236,
+    248,
+]
+hash = "sha256:287be529f60e5a100815e755597c04384104cb63050d49a133c7bdeee1a95efd"
+doc_hash = "sha256:be3ff7f81db18300a1f24912b6c05791b41f51a0c49f379a23ab326616501885"
+callees = [
+    "fn:50405425c945732b",
+    "fn:b33d5be5c3168ae3",
+]
+uses = ["fn:a70fc38a274a1899"]
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:0b810786535a438f"
+name = "the_whole_render_body_costs_a_small_fraction_of_a_frame"
+qual = "the_whole_render_body_costs_a_small_fraction_of_a_frame"
+lines = [
+    250,
+    338,
+]
+hash = "sha256:1ff48e3009be6aaa935d3900be4619db08c945ead415cbba142b0ce37cbb7b40"
+doc_hash = "sha256:64c59c42671059f6d3a2d8d247ce90f93f898b2d4a4bd52830ba62fb7c2c3c33"
+callees = [
+    "fn:4a9281b19d8e1f92",
+    "fn:9aef3d5657dc4930",
+    "fn:e8992e06514e1115",
+]
+uses = [
+    "fn:193ddbee2aa25ea8",
+    "fn:8cb74857228c9d2d",
+]
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:c89cf31fd392e317"
+name = "cloning_the_whole_fhr_state_is_not_the_bottleneck"
+qual = "cloning_the_whole_fhr_state_is_not_the_bottleneck"
+lines = [
+    340,
+    421,
+]
+hash = "sha256:7046116bc6e50541eba0891c9ba437d29d6b18f5696c9aaa506de5b764c3d2fd"
+doc_hash = "sha256:a792e8ecca9cb1d4784f5f2d353885a6386849f17a0f84c0299168313831da15"
+callees = [
+    "fn:9aa6a2ec87e1c839",
+    "fn:e8992e06514e1115",
+]
+uses = ["fn:5d225cbd74f7f43d"]
+test = true
+
+[[module."frame_cost.rs".function]]
+id = "fn:2f8099e226d08b41"
+name = "the_first_frame_pays_the_pebble_bed_bake_and_no_later_frame_does"
+qual = "the_first_frame_pays_the_pebble_bed_bake_and_no_later_frame_does"
+lines = [
+    423,
+    474,
+]
+hash = "sha256:b19008eff1552b1eab6defc279b8f97a528c2287a26e7c2cfbc7c7b23aca4509"
+doc_hash = "sha256:d097ff23c48211463d7f780d2be4baf1b60ea6d2de582c467b78bf9c1b6a6746"
+callees = [
+    "fn:0f21ec8102c2beeb",
+    "fn:4a9281b19d8e1f92",
+    "fn:9aef3d5657dc4930",
+    "fn:e8992e06514e1115",
+]
+uses = ["fn:8cb74857228c9d2d"]
+test = true
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app"
+
+[[module."mod.rs".function]]
+id = "fn:40dd4909788ca580"
+name = "save"
+qual = "FHRSimulatorApp::save"
+lines = [
+    32,
+    35,
+]
+hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
+doc_hash = "sha256:05c1f790602727e494c4b0061fcf288c7b4f4052fcc9a030b2fafe7b89c27aad"
+
+[[module."mod.rs".function]]
+id = "fn:6bd082276b9a9a91"
+name = "ui"
+qual = "FHRSimulatorApp::ui"
+lines = [
+    37,
+    134,
+]
+hash = "sha256:70cf0d9035e3bbb5d4b4547cb4597d071bddb5677ce93afd0444d32e5bb2ea12"
+doc_hash = "sha256:b582ab9c4712fc1dbdfe425b9eb4cb806dfc87f9ca904ab0c49fbcad65755b06"
+callees = [
+    "fn:28565f0621e704ed",
+    "fn:2cbdd9b8136c55a6",
+    "fn:4918952818eac181",
+    "fn:4ef3c9a2cd0d62eb",
+    "fn:94143b462e93f315",
+    "fn:a18ace2dfae76343",
+    "fn:a1bdc69ffa9d4fed",
+    "fn:ee95e92deaf7a204",
+]
+uses = ["fn:0256baab788d6320"]
+
+[[module."mod.rs".function]]
+id = "fn:94143b462e93f315"
+name = "main_page"
+qual = "FHRSimulatorApp::main_page"
+lines = [
+    138,
+    1046,
+]
+hash = "sha256:11a5d13f9f148392941306cc31ad65b14eb8f8c263891a57fea73d533522e895"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f7341877557ee22",
+    "fn:51fccbc8271c260e",
+    "fn:a2e9cdb8663f304e",
+    "fn:b275174d34d3979e",
+    "fn:c2b1db5aa20c11f6",
+    "fn:e9acb4c6bf02d080",
+    "fn:ff7479c87285cd8e",
+]
+uses = [
+    "fn:4f1ecf71274288d9",
+    "fn:8bc029c647a9bcb5",
+    "fn:8fa1d61f79295f85",
+    "fn:9648355dc7b4c05b",
+    "fn:dcc069fb05e667fb",
+    "fn:eb0e4e3b97fe92f9",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ee95e92deaf7a204"
+name = "powered_by_egui_and_eframe"
+qual = "powered_by_egui_and_eframe"
+lines = [
+    1049,
+    1061,
+]
+hash = "sha256:1ce2c849c23f39f3a1c5e893be8b4a165089abf5391f3b79ebb3f03836f89609"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."side_panel.rs"]
+path = "example:fhr_sim_v2::app::side_panel"
+
+[[module."side_panel.rs".function]]
+id = "fn:4ef3c9a2cd0d62eb"
+name = "side_panel"
+qual = "FHRSimulatorApp::side_panel"
+lines = [
+    10,
+    551,
+]
+hash = "sha256:1be948fb3e124b0459322e0deb447d2e5e0701e575a352abf62d86715714c754"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1b50a3c23c077cf1",
+    "fn:25a32e268aee8bef",
+    "fn:26e94fdf4f4b781d",
+    "fn:545bba729ca252ea",
+    "fn:b1cb312f3056a106",
+    "fn:fd61efaa92101915",
+]
+uses = ["fn:8fa1d61f79295f85"]
+reached_by = [
+    "#0",
+    "#1",
+]

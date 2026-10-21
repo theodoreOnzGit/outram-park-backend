@@ -1,9 +1,114 @@
 # CLAUDE.md — outram-mc-libs
 
+
 Pure-Rust port of the OpenMC Monte Carlo neutron transport kernels.
 
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openmc/`
+
+## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
+
+**Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
+`CLAUDE.md` of `outram-mc-libs`, `nee_soon`, every `outram-foam-*` crate and
+every crate downstream of them; a crate that newly depends on one of those
+takes the rule into its own `CLAUDE.md` (check with `cargo metadata`).
+
+**Whenever you build or change a complex reactor geometry** — CSG cells and
+surfaces, lattices, pebble beds, TRISO particles, reflector zones, control-rod
+bands, a CFD/FEM mesh, anything a solver will transport or integrate through —
+**draw it, as images a human can open (PNG, or JPG/SVG), and hand them over**
+before any result computed on it is reported as more than tentative.
+
+- **Draw what the solver sees, not what you meant.** Render from the ASSEMBLED
+  geometry (cell / material lookup at each pixel, or the mesh itself), never
+  from the named constants. A picture of the constants hides exactly the
+  defects this rule exists to catch.
+- **Minimum set:** an axial slice (R-Z / x-z) of the whole model; radial (x-y)
+  slices at the heights that matter; and, for nested geometry, zoomed slices at
+  every level down to the smallest (pebble, TRISO particle). Colour by
+  material, with a legend and the key dimensions marked.
+- **Commit the images with the change** (beside the V&V record or the
+  manuscript package) and point the human at them by path in your summary.
+  Regenerate them whenever the geometry changes.
+- **Say what you checked in them, and what you could not** — an image nobody
+  was told to look at checks nothing.
+
+### SHOW the pictures to the maintainer, every time (HARD RULE, this crate)
+
+**Maintainer direction, 2026-09-27:** *"whenever u make changes to geometry or
+new geometry, show me visuals of what the geometry is like."* Binds
+`outram-mc-libs` only (geometry built with this crate's CSG, lattices, TRISO
+and pebble-bed types, including models assembled in other crates such as
+`nee_soon::htr10_rmc`).
+
+- **Trigger:** any change to an existing geometry, or any new geometry. That
+  covers surfaces, cells, universes, lattices, fills, pebble or TRISO
+  arrangements, reflector zones, and channels. A refactor that should not
+  change the geometry counts too: show the before and after so the "no
+  change" is visible.
+- **Committing the images is not showing them.** Hand them over in the
+  conversation itself: send the PNGs to the maintainer (e.g. `SendUserFile`
+  with `display: "render"`), or publish a page that shows them. Do this
+  **before** reporting any result computed on the geometry, and before calling
+  the change done.
+- **Draw with the ported plotter** (`geometry::plot`: `ModelPlot` for the
+  OpenMC-`Model.plot` look, or `render_material_slice`) from the assembled
+  geometry. Colour by material, with a legend and cm axes. For nested
+  geometry, go down to the smallest level.
+- **One line per image** saying what it shows and what you checked in it. Say
+  what you could not check.
+- **Not a substitute for tests.** The pictures are for a human to catch what no
+  diagnostic reports. Keep the tests.
+
+**Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom reflector
+mirrored from the top and up to 107 cm short; a core cavity that grew with the
+bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
+(gh:#309, #310); and a TRISO lattice holding 8240 particles while reporting
+8340 (gh:#316, +353 pcm). Every run completed with green diagnostics. Each was
+found by looking at the built geometry, not by the eigenvalue.
+
+**Tools.** ~~`outram_mc_libs::geometry::plot` samples a slice of an assembled
+CSG geometry; OpenMC-parity image output (PNG/JPG) is the preferred path once
+it lands.~~ **UPDATED 2026-09-25 — it has landed (gh:#268):**
+`outram_mc_libs::geometry::plot` is a port of OpenMC's plotter that writes PNG
+directly — slices, wireframe and solid ray traces — verified pixel-for-pixel
+against `openmc --plot`
+(`crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+`render_material_slice` draws a material-coloured slice with a legend and cm
+axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
+worked example. For meshes, plot the mesh itself (cells, patches, zones).
+
+## Every timing carries its hardware (HARD RULE, this crate)
+
+**Maintainer direction, 2026-09-27:** *"when doing timing runs, make sure to
+record hardware specs. Otherwise timing numbers r useless."* This binds
+`outram-mc-libs`, including models from other crates that run on its
+transport (e.g. `nee_soon::htr10_rmc`) and the V&V records under this crate.
+
+- **Trigger:** any wall-clock, throughput or speed-up number that gets
+  recorded or quoted. That covers V&V docs, doc comments, issue comments,
+  `CLAUDE.md` and summaries to the maintainer.
+- **Record, next to the number:** CPU model, logical cores, the thread count
+  the run actually used, RAM, OS, and GPU (or "CPU only"). Add whether the
+  machine was shared or loaded when that is known.
+  `perf_report::HardwareInfo::headline()` gives all of these except threads
+  and load. CPU model and RAM are **detected on Linux only**. Elsewhere they
+  read "unknown", and you write them in by hand.
+- **Automatic for `RunDiagnostics`:** since 2026-09-27 every record, and the
+  console summary, carries a `hardware` line. It is pinned by
+  `run_diagnostics::tests::every_record_names_its_hardware`. Copy that line
+  into the V&V doc with the timing. The record itself is gitignored.
+- **Compare timings across machines only as ratios measured on the same
+  machine.** For example, "3.2× faster" is only meaningful when both arms ran
+  on one host. Never compare absolute seconds from two hosts.
+- **Timings recorded before this rule mostly have no hardware.** Some were
+  taken on a faster desktop and some in cloud containers. When you quote one,
+  mark it `hardware not recorded`. Do not guess the host.
+
+**Why.** Seconds are a property of the machine as much as of the code. HTR-10
+runs in this crate were timed on both the maintainer's desktop and 4-core
+cloud containers, and without the host a slowdown or a speed-up cannot be told
+apart from a change of computer.
 
 ## Maturity: DECLARED MATURE (2026-09-05)
 
@@ -130,8 +235,248 @@ maturity gate in that file for what this means and how the bar is revised.
   `examples/godiva_keff_endf_local.rs` records `RECORDED_PCM = 214.0`.
 
 
-**Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
-per the workspace default; the port constitutes new copyrightable expression.
+- **2026-09-15 — `+214` superseded by `+16 ± 11 pcm`. The bar stays at 500 pcm;
+  moving it is a maintainer decision and has not been made.**
+
+  **What changed.** Every inelastic collision drew `mu_cm = 2*prn − 1` —
+  isotropic in the centre of mass — while elastic correctly used the
+  evaluation's ENDF MF=4 tabulated cosine. The discrete levels are not
+  isotropic (U-238 MT=51 has CM `⟨μ⟩` from `+0.033` at 1 MeV to `+0.510` at
+  14 MeV; 39 of 40 levels carry anisotropic data on each of U-235 and U-238).
+  Sampling them isotropically understates `⟨μ⟩`, inflates
+  `Σ_tr = Σ_t(1 − ⟨μ⟩)`, suppresses leakage and raises `k`. Godiva is 55.8 %
+  leakage. Wiring in MF=4/MT=51…90 is bead `op-tm9f`.
+
+  **Current evidence: `+16 pcm, sem ±11, sd 173` over 256 seeds**, via the new
+  `examples/godiva_keff_ensemble.rs` at the same settings as before (5000
+  histories × [40 inactive + 120 active], all three ICSBEP nuclides,
+  ENDF/B-VIII.0 from `reference-data/endf/`). That is a **−198 pcm** move from
+  `+214`, against **−168 / −181 / −219 pcm predicted three independent ways
+  before the work** — from the elastic ablation scaled by the `⟨μ⟩` budget,
+  from the `k_eff`/`k_inf` leakage split, and from one-group diffusion on the
+  measured `P_NL`. A prediction of sign and magnitude made in advance and then
+  met is the reason to believe this, more than the size of what is left.
+
+  **Against the 500 pcm bar:** `+16 ± 11 pcm` is 44 sigma inside it. **For the
+  first time this case is also inside the ICSBEP ±100 pcm band**, which it had
+  been outside of throughout its history.
+
+  **Re-measured 2026-09-16 at 16 seeds: `+46 ± 44 pcm`**, 0.7 sigma from the
+  256-seed `+16 ± 11` and 1.0 sigma from the benchmark. Both gates in
+  `examples/godiva_keff_ensemble.rs` pass. Quote the 256-seed number; this one
+  exists to show the result reproduces at a seed count someone will actually
+  run.
+
+  **The diagnosis was checked, not only the answer.** Four confirmations, the
+  first two specified on `op-tm9f` before the work and the last two added when
+  "is the physics right" was asked directly:
+
+  - **`k_inf` must not move.** It uses a reflective boundary, so it has no
+    leakage; a leakage fix has to leave it alone. Measured `2.26558 → 2.26587`,
+    i.e. **`+13 ± 71 pcm`, 0.2 sigma** — consistent with zero while `k_eff`
+    moved `−198 pcm`. Had `k_inf` moved materially, the `k_eff` agreement would
+    be two errors cancelling rather than one removed.
+  - **Direct ablation.** `examples/godiva_inelastic_anisotropy_ablation.rs`,
+    32 seeds per arm: ANISO `+45 ± 32`, ISO `+269 ± 30`, difference
+    **`−224 ± 44 pcm` (5.1 sigma)**. The ISO arm reproduces the old `+214 ± 20`
+    to 1.5 sigma, which checks the harness.
+  - **Per-level `⟨μ_cm⟩` against OpenMC's ACE**
+    (`tests/inelastic_mubar_vs_openmc.rs`): worst **3.1e-3** over 32 points,
+    differences random in sign. Both codes independently agree that U-235's
+    MT=51/52/54/55 are near-isotropic while its MT=53/56 and all of U-238's low
+    levels are not — the structural fact a naive parse would flatten.
+  - **Aggregate `⟨μ⟩` and `Σ_tr`** (`tests/ablation_suite.rs`): `⟨μ_elastic⟩`
+    0.2631 vs 0.2645, `⟨μ_inelastic⟩` 0.0236 vs 0.0245, and the **MT=91
+    continuum share 0.3135 vs 0.3140** — the last being the one that makes the
+    `⟨μ⟩` comparison meaningful at all, since the continuum scores `μ = 0` on
+    both sides and dilutes the mean directly.
+
+  **A correction to this study's own reference values, found by that check.**
+  `transport_decomposition.py` read OpenMC's angular tables at the bracketing
+  index rather than interpolating, which biased `⟨μ_el⟩` to 0.2740 (true 0.2645)
+  and `⟨μ_inel⟩` to 0.0254 (true 0.0245), and `Σ_tr` to 0.37141 (true 0.37457).
+  This is the **fourth** appearance of the nearest-point trap in this study and
+  the first in our own script. The one-group diffusion price moves +219 → +209
+  pcm against −198 measured, so the conclusion is robust — but a reference is
+  not right merely for being external.
+
+  **Four qualifications, none of which the number above should be read past.**
+
+  1. **±11 pcm is our sampling uncertainty, not the comparison's.** ICSBEP
+     quotes `1.0000 ± 0.0010`. Nothing on our side sees past a ±100 pcm band on
+     the reference, so `+16` is agreement but is **not meaningfully better than
+     `+80`**. Do not quote this as "16 pcm accuracy".
+  2. **The physics underneath is not cleared.** The `~69 pcm` spectral residual
+     found by the OpenMC cross-code study lives in `k_inf`, has no leakage
+     component, and is untouched by this — our flux spectrum is still 0.45 %
+     harder than OpenMC's in mean `E` (3.5 sigma), with 1.31 % less flux below
+     300 keV (5.2 sigma) — **re-measured after the fix and unchanged**: mean `E`
+     still +0.45 %, mean `ln E` still +0.05 %, exactly as a leakage-only fix
+     predicts. `k_inf` against OpenMC is `+82 ± 55 pcm` after this
+     change against `+69 ± 23 pcm` before — the same number within statistics,
+     i.e. untouched. Tracked as `op-os8x`. **Two offsetting errors land on the
+
+
+     **Re-measured again 2026-09-16 on HEAD, and LOCALISED.** Both codes were
+     rebuilt in-session (NJOY2016 `ac5adf5f` → ACE → HDF5 → OpenMC 0.15.3
+     `27e38e89`) and run 8 seeds a side: mean `E` **+0.42 %** (4.6 sigma), mean
+     `ln E` **+0.05 %** (8.9 sigma), flux below 300 keV **−1.22 %** (6.0
+     sigma). So `op-os8x` survives `op-og56` intact, as that change's own
+     spectral ablation predicted it would.
+
+     The per-bin comparison now says **where**: we carry **+0.88 % too much
+     flux at 1.9–3.0 MeV** (4.7 sigma, 13.8 % of the flux) and **1.4–1.9 % too
+     little at 67–174 keV**. That is a deficit of down-scatter out of the MeV
+     window, and the only channel that moves a 2 MeV neutron to ~100 keV in one
+     collision is **inelastic** — elastic off U-238 loses at most 1.7 % per
+     collision. It is *not* the angular law (both `op-tm9f` and `op-og56` are
+     in) and *not* the cross sections (≤ 0.06 % flux-weighted). The leading
+     suspect was the MT=91 continuum `f₀(E→E')` shape.
+
+     **That suspect is now measured and REJECTED (2026-09-17).** The transfer
+     comparison had run on **U-238 only**, while Godiva is **93.7 % U-235**;
+     `tests/mt91_transfer_vs_openmc.rs` now runs both, and over 1.5–10 MeV both
+     agree with OpenMC to **0.0000 %** in `⟨E'⟩`, median and `P(E' < 300 keV)`
+     — 37 rows on U-238, 25 on U-235. Exactly equal, not merely consistent. It
+     is the fifth time in this study that an exclusion proved only as wide as
+     the window it was measured in, and the first where the missing axis was
+     the **nuclide**; the two laws are genuinely unalike (at 2 MeV U-235 puts
+     18.4 % below 300 keV against U-238's ~30 %), so the substitution was never
+     safe.
+
+     Also checked and worth having: **no U-235 or U-238 discrete level has
+     `|Q|` in 1.75–2.95 MeV** (39 levels each, MT=51–89; MT=90 is absent from
+     both evaluations), so no discrete level can move a 2.5 MeV neutron to
+     ~100 keV in one collision. That is what made MT=91 the leading suspect,
+     and is why rejecting it leaves the **mechanism genuinely open** rather
+     than merely narrowed. The suspect list is now competing-channel branching
+     on U-235, **U-234** (which has never appeared in any oracle), the discrete
+     levels' `Q` and selection probabilities, and the MT=16/17/5 spectra above
+     ~6 MeV. Full record:
+     `verification_and_validation/openmc_godiva_cross_code/README.md`.
+     right `k` too**; what rules that out *here* is the `k_inf` check above, not
+     the size of the residual.
+  3. **The continuum angular correlation is still dropped** (MF=6 LANG=1/2,
+     `op-og56`), as is the `EnergyAngular` interpolation flag. This fixed the
+     *discrete* levels only.
+
+     **Partly resolved 2026-09-16 — `LANG = 1` (Legendre) is now read and
+     sampled; `LANG = 2` (Kalbach-Mann) is not.** The MF=6 parser was
+     discarding `f₁ … f_NA` at parse time and never reading `LANG`, so every
+     MT=91 and MT=16 neutron left isotropically. It now carries the
+     coefficients, linearises them through the same routine MF=4 uses, and
+     samples the cosine correlated with the outgoing-energy row actually drawn.
+     `ContinuumAngular` distinguishes *evaluated-isotropic* from *unported*
+     from *ablated*, which the old `0.0` could not.
+
+     Measured on ENDF/B-VIII.0: 8652 of U-238's 8654 MT=91 rows carry
+     `NA > 0`. But weighted by each row's own `f₀` the law is **exactly
+     isotropic below 1.2 MeV** and only reaches `⟨μ_cm⟩ = +0.073` at 8.5 MeV
+     and `+0.272` at 14 MeV — so unlike `op-tm9f`'s discrete levels this is a
+     *high-energy* correction and the predicted worth on Godiva is small
+     (recorded before measuring: down, well under 50 pcm).
+
+     **Priced 2026-09-16 at `−38 ± 23 pcm`** (128 seeds per arm,
+     `examples/godiva_continuum_anisotropy_ablation.rs`): ANISO `−26 ± 17`
+     against ISO `+11 ± 15`. The prediction held on direction and magnitude,
+     **but at 1.6 σ this is a bound, not a measurement** — consistent with zero,
+     and excluding an `op-tm9f`-sized effect at 7 σ. Do not quote `−38` as the
+     worth; quote it as *bounded below 70 pcm at 3 σ*. Resolving it to 3 σ needs
+     ~400 seeds per arm. (An earlier 32-seed run gave `−41 ± 43`; its seeds are
+     a **subset** of these, so it is superseded, not confirmatory.)
+
+     **Re-measured 2026-09-26 at 400 seeds per arm** (commit `3f141992e`):
+     ANISO `−1 ± 9`, ISO `−2 ± 10`, difference **`+2 ± 13 pcm` (0.1 σ)**,
+     unpaired. That supersedes `−38 ± 23`: the worth is consistent with zero
+     and **bounded below 40 pcm at 3 σ**; the predicted negative sign is not
+     supported. Arm means are not comparable with 2026-09-16's -- URR/DBRC
+     became default in between -- only the difference is.
+
+     The ISO arm independently reproduces the pre-`op-og56` `+16 ± 11 pcm` to
+     **0.3 σ**, which checks the instrument. `RECORDED_PCM = 16.0` predates
+     `op-og56` and ~~this says the current mean is near `−22`~~ (**CORRECTED
+     2026-09-26**: the 400-seed ANISO arm puts the current mean at `−1 ± 9`,
+     0.1 σ from zero and 1.4 σ from 16); it is **not**
+     changed on a 1.6 σ shift, and the drift gate built on it (~693 pcm for a
+     single run) is nowhere near tripping.
+
+     **A predicted sign that did not survive measurement.** This was recorded
+     as hardening the spectrum (for a CM law `⟨E'_lab⟩` rises with `⟨μ_cm⟩`) and
+     therefore moving `op-os8x` the wrong way. Measured 2026-09-16
+     (`examples/godiva_continuum_spectrum_ablation.rs`, 8 seeds per arm): mean
+     `E` **−0.076 % ± 0.109**, mean `ln E` **−0.008 % ± 0.008**, flux below
+     300 keV **+0.157 % ± 0.226** — nothing resolved at 2 σ and every central
+     value pointing the *other* way. The prediction is **not supported**, and
+     the honest statement is a bound: below ~0.22 % in mean `E`, against
+     `op-os8x`'s +0.45 %. **This law is not the explanation for `op-os8x` in
+     either direction.** The discriminating follow-up is the same comparison
+     under a reflective boundary, where only the per-collision term survives.
+
+     **`LANG = 2` (Kalbach-Mann) landed the same day**, reusing
+     `groupr::kinematics::bach` (already in the crate as an NJOY port) for the
+     slope and inverting the Kalbach cumulative in closed form, one variate, so
+     the ablation's RNG-stream invariant still holds. Verified against the
+     density's own closed-form mean `⟨μ⟩ = r(coth a − 1/a)`. O-16's MT=91
+     threshold is ~10 MeV, far above a fission spectrum, so this changes
+     nothing for the reactor cases here — it closes the representation gap.
+
+     Still dropped: the `EnergyAngular` interpolation flag, and `LANG = 11…15`
+     (tabulated cosines), which no evaluation in `reference-data/endf/` uses on
+     a neutron subsection.
+  4. **One benchmark.** A bare fast HEU metal sphere, one geometry, one
+     temperature. Says nothing about thermal systems or the crate's other cases.
+
+  **`RECORDED_PCM` now lives in `examples/godiva_keff_ensemble.rs`** and is
+  ~~`16.0`~~ `-6.0` since 2026-10-05 (see that date's entry below). That example is new and closes a real gap: the previous `+214` and
+  `+314` rested on pooled studies run ad hoc that **nothing in the repository
+  could reproduce**. Its gates are sized off what a run can resolve rather than
+  off the accuracy achieved — a `|mean| ≤ 30 pcm` gate would fail a correct
+  build about a third of the time at the default 32 seeds.
+
+  ~~`examples/godiva_keff_endf_local.rs` still records `RECORDED_PCM = 214.0`
+  and is **stale**; re-pointing it is follow-up work.~~ **CORRECTED 2026-09-18
+  — this claim was itself stale.** Verified on that date: the file records
+  `RECORDED_PCM = 16.0` and `RECORDED_SEM_PCM = 11.0` (`:267`, `:269`) and
+  gates through `RecordedKeff::pooled` (`:192`), i.e. it was re-pointed at the
+  256-seed pooled result at some point after this paragraph was written. The
+  follow-up it describes is **done**. (Both constants were re-pointed again on
+  2026-10-05, to `-6.0` / `5.0`; see below.)
+
+  It remains a **single-seed tutorial** whose own docs say it cannot resolve
+  the 500 pcm bar — that part was and is true, and is why it gates against the
+  pooled number rather than its own draw.
+
+- **2026-10-05 — `+16 ± 11` superseded by `−6 ± 5 pcm` over 1024 seeds
+  (GitHub #546). The bar stays at 500 pcm; moving it is a maintainer
+  decision and has not been made.**
+
+  **Why re-measured.** `+16` predates the URR/DBRC defaults (2026-09-20) and
+  the OpenMC-parity audit (#407), and the five-route study's route 4 had
+  recorded `−52 ± 27` (32 seeds, 2026-09-30) on the same model.
+
+  **Measured:** `examples/godiva_keff_ensemble.rs`, `OUTRAM_GODIVA_SEEDS=1024`,
+  commit `6faff1ed8`, 5000 × [40 + 120], ENDF/B-VIII.0, single-threaded per
+  seed: **mean −6 pcm, sd 165, sem ±5** (`k = 0.99994 ± 0.00005`);
+  `χ²/dof 0.97`, no outlier seed. Intel Xeon @ 2.10 GHz, 2 of 4 shared
+  logical cores (two seed workers), 15.7 GB RAM, Linux 6.18, CPU only; data
+  114 s, transport 2995 s.
+
+  **The route-4 `−52 ± 27` was a 32-seed low draw, checked:** the route
+  driver at `8b17079bc` reproduces its 32 per-seed `k` to every printed digit
+  (the code did not move), and seeds 33–288 give `−5 ± 12` (all 288:
+  `−10 ± 11`). Against `+16 ± 11` the new value is `−22 ± 12` (1.8 σ), not
+  decomposed. Against OpenMC (route 1, `+16 ± 21`): `−22 ± 22`, 1.0 σ.
+
+  **Against the 500 pcm bar:** inside it with ~100 σ of margin. Inside the
+  ICSBEP ±100 pcm band; the same caveat as before applies — `−6` is not "6 pcm
+  accuracy" against a reference known to ±100.
+
+  `godiva_keff_endf_local.rs` (and its CI smoke copy) gate against
+  `RECORDED_PCM = -6.0`, `RECORDED_SEM_PCM = 5.0`; the ensemble's own
+  `RECORDED_PCM` / `RECORDED_SD` are `-6.0` / `165.0`.
+
+**Upstream license:** OpenMC is MIT-licensed. This Rust port is ~~GPL-3.0-only~~
+**AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) per the workspace default; the port constitutes new copyrightable expression.
 
 ## Standing goal: OpenMC-like API + notebooks-as-verification-tests (MANDATORY)
 
@@ -151,7 +496,7 @@ the OUTRAM PARK Monte Carlo path. This is a durable direction, not a one-off.
 - Approach: a notebook→test→required-API **mapping doc**, then a
   `tests/openmc_notebooks/` harness — tractable notebooks as live tests, the
   rest `#[ignore]` with a documented "requires API X" reason + a per-notebook
-  bead. `pincell`/Godiva k_eff (op-u6s.1) is the natural first live case.
+  issue. `pincell`/Godiva k_eff (op-u6s.1) is the natural first live case.
 - Notebooks are OpenMC-project open-source (MIT) — cite provenance
   (source notebook + commit) per RESPONSIBLE_USE.md; V&V docs state methodology
   **and** measured results. Tracked under beads epic **op-6tz**.
@@ -170,7 +515,7 @@ the OUTRAM PARK Monte Carlo path. This is a durable direction, not a one-off.
   combined σ, σ-distance, data used on each side, stats note). That folder is
   **gitignored** — the CSVs are reproducible generated outputs, kept local, not
   committed. The interpretation/write-up still goes in the committed V&V docs +
-  the relevant bead.
+  the relevant issue.
 
 ### Code-to-code verification: commit the OpenMC input scripts (MANDATORY)
 
@@ -230,8 +575,9 @@ a translation of it.
 ### In scope
 | Module | C++ source | What it does |
 |---|---|---|
-| RNG | `src/random_lcg.cpp` | LCG with O(log n) jump-ahead for particle splitting |
+| RNG | `src/random_lcg.cpp` | LCG with O(log n) jump-ahead for particle splitting. **Moved 2026-10-02 to `petir::rng::lcg`** (Rust) and `petir::wgsl::LCG` (WGSL), re-exported here as `rng::lcg`; see "The RNG lives in PETIR" below |
 | Distributions | `src/random_dist.cpp` | Maxwell, Watt, tabulated samplers |
+| Geometry (all six rows below) | — | **MOVED 2026-10-02 to `outram_blender::csg` (GitHub #486)** with the pure navigation kernel; re-exported here under the same `geometry::*` paths. Transport-state work stays here: see "Geometry lives in outram-blender" below |
 | Geometry / position | `include/openmc/position.h` | 3-D position and direction vectors (cm) |
 | Geometry / surfaces | `src/surface.cpp` | Quadric CSG surfaces + distance/sense |
 | Geometry / cells | `src/cell.cpp` | Boolean RPN region evaluation |
@@ -251,22 +597,138 @@ a translation of it.
 | Transport loop | `src/physics.cpp` | `collision()`, `transport_history_based()` |
 | Scattering | `src/physics_common.cpp` | Elastic, inelastic, CM-frame kinematics |
 | Fission | `src/physics.cpp` | ν sampling, fission bank creation |
-| Multigroup | `src/physics_mg.cpp` | Group-averaged cross-section transport (stub — pending) |
-| Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`); live one-group burnup test vs the `depletion` notebook |
+| Multigroup | `src/physics_mg.cpp`, `src/mgxs.cpp` | Group-averaged cross-section transport — ~~stub — pending~~ **CORRECTED 2026-09-22**: implemented in `src/physics/physics_mg.rs` (771 lines) as `Mgxs` / `MgxsLibrary` + `run_keff_mg`, exercised live by `tests/openmc_notebooks/mg_mode_part_i.rs`. ~~Still absent: anisotropic MG scattering (`src/scattdata.cpp`, `max_order`)~~ **CORRECTED 2026-09-22 (gh:#265)** — anisotropic MG scattering is ported: `src/physics/scattdata.rs` carries `LegendreKernel` (rejection sampling, upstream's 10 % bounding-box margin and its `f > 0` negativity truncation) and `TabularKernel` (`convert_legendre_to_tabular`, the clamp-and-renormalise path), and `Mgxs::with_legendre_scattering` wires them into `run_keff_mg`. Paired P0-vs-P3 worth on a bare 35 cm cube: **−4371 ± 44 pcm (99.6 σ)** at 128 seeds against **−4200 predicted before the run**, with the zero-leakage control at −1 ± 38 pcm (0.0 σ), and agreement with OpenMC's own MG mode within 1.3 σ on every arm (~~a 32-seed first pass gave −4308 ± 93~~ superseded by the 128-seed run, which it agrees with) — `verification_and_validation/mg_anisotropic_scattering/`. Still absent: MGXS *generation* from CE data (the `njoy-outram-park-fork` track). **(n,xn) scattering multiplicity since 2026-10-13 (gh:#682):** `Mgxs::with_scattering_multiplicity` takes upstream's per-transfer `multiplicity_matrix`. The kernel then weights each scatter by the **row** multiplicity `nu_row / s_row`, where upstream uses `wgt *= mult[g][g']` (`src/scattdata.cpp:367`). That is a deliberate divergence: upstream samples g' from the nu-scatter row, so its weighting is exact only for a row-uniform multiplicity. On a two-group set it would give 1.578 against the analytic 1.517; this port gives 1.516 ± 0.003 (`physics_mg::tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf`). A non-fissile set may carry chi = 0 (gh:#848, as `src/xsdata.cpp:40-63`) |
+| Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`, `integrators.rs`); live one-group burnup test vs the `depletion` notebook. **The math moved to PETIR 2026-10-17 (gh:#950, maintainer: "All math moved to petir")**: `petir::depletion` holds the burnup matrix type, IPF CRAM and all eight OpenMC integrators; this crate keeps the chain, `build_matrix`, the operators (`OneGroupOperator` implements PETIR's `TransportOperator`) and transfer rates, and re-exports the moved items at their old paths. `tests/depletion_move_fingerprints.rs` pins the move bit-identical; CF4 deliberately changed (it had followed upstream's docstring, not its code: order 1.94 → 3.93) |
 
 ### Out of scope (will NOT be ported)
 - **ENDF nuclear data parsing** — `src/endf.cpp`, `include/openmc/endf.h`
-- **HDF5 I/O** — cross-section library loading; data arrives pre-loaded
+- ~~**HDF5 I/O** — cross-section library loading; data arrives pre-loaded~~
+  **CORRECTED 2026-09-22 (maintainer direction), and the claim moved again on
+  2026-09-23.** HDF5 read *and* write is in scope **for the workspace**, and
+  lives in `njoy-outram-park-fork`, "cos it deals with nuclear data"
+  (gh:#270) — that crate depends on the pure-Rust `hdf5-pure`, so no C
+  toolchain, Android or wasm problem.
+
+  ~~writing does not exist anywhere in the workspace yet~~ — **that was true
+  when written and is no longer.** `njoy-outram-park-fork::hdf5` now has
+  `mgxs.h5` and nuclide `.h5` writers (both verified by **OpenMC reading them
+  back and transporting**), a `cross_sections.xml` reader, and
+  statepoint/summary/source writers.
+
+  **The part that still holds for this crate:** it takes its data pre-loaded,
+  captures run state (`physics::state_point`) and hands it to that codec at
+  the **run boundary**. Its inner transport loop opens no file.
 - **XML configuration parsing** — `src/xml_interface.cpp`
 - **CMFD accelerator** — `src/cmfd_solver.cpp`
 - **Random ray extension** — `src/random_ray/`
-- **Photon/electron transport** — `src/photon.cpp`
+- ~~**Photon/electron transport** — `src/photon.cpp`~~ **CORRECTED 2026-10-16 (maintainer decision): photons are IN scope here, electrons are not.** "Charged particles go thru boon lay, uncharged thru OutramMC." Photon transport (`src/photon.cpp`, `src/bremsstrahlung.cpp`) may be ported into this crate; electrons and every other charged particle go to `boon-lay` (see "Particle split" below). Nothing is ported yet. **CORRECTED AGAIN 2026-10-20 (maintainer): this crate is neutrons only.** Photons, electrons and positrons go to **PUNGGOL** (`punggol`); ions stay in `boon-lay`. See "Particle split" below.
 - **Python/ctypes C API** — `openmc/lib/` Python package
-- **Geometry overlap checker** — `src/geometry_aux.cpp` (overlap detection only; the core intersection logic is in scope)
+- **Geometry overlap checker** — `src/geometry_aux.cpp` (overlap detection only; the core intersection logic is in scope). *Note 2026-09-25:* the plotter's per-pixel overlap test (`check_cell_overlap`, `src/geometry.cpp:38-90`) IS ported, as `geometry::plot::slice::check_cell_overlap`, because `<show_overlaps>` needs it; transport still does no overlap checking.
+
+**Brought INTO scope 2026-09-22 (maintainer direction), tracked under the
+capability-parity epic gh:#257:**
+
+- **Track files, state points and particle restart** — `src/track_output.cpp`,
+  `src/state_point.cpp`, `src/particle_restart.cpp` (gh:#271). This crate
+  captures the run state; the file codec is `njoy-outram-park-fork`'s
+  (gh:#270), so the transport loop still does no file I/O itself.
+- **Geometry plotting** — ~~but **only** as a generated standalone matplotlib
+  Python script (gh:#268). OpenMC's native rasteriser `src/plot.cpp` stays out
+  of scope.~~ **REVERSED 2026-09-25 (maintainer direction: "make sure the
+  plotting capabilities of openmc are properly ported over (to jpg or PNG)").**
+  `src/plot.cpp`'s slice and ray-trace rasterisers, its default colour stream
+  and a PNG/PPM writer are ported in ~~`src/geometry/plot/`~~
+  `outram_blender::csg::plot` (moved 2026-10-02, GitHub #486; re-exported here
+  as `geometry::plot`) and match
+  `openmc --plot` pixel-for-pixel on 17 reference images
+  (`verification_and_validation/geometry_plotting/README.md`). Voxel plots
+  (HDF5 output) remain out of scope; the matplotlib-script emitter is kept.
+
+The other gaps that audit found are enhancements to things already in scope, not
+scope changes: variance reduction (#258), the White/Periodic boundary-condition
+defect (#259), curvilinear tally meshes (#260), the 16 missing filters (#261),
+the 11 missing scores including the kinetics group (#262), tally triggers and
+derivatives (#263), source types (#264), anisotropic multigroup scattering
+(#265), depletion integrators and transfer rates (#266), stochastic volume
+calculation (#267), and multi-temperature treatment (#269, P3 — NJOY is the
+standing workaround).
 
 ---
 
 ## Design decisions
+
+### The CHEAPEST correct path is the default, not an opt-in (HARD RULE)
+
+**Maintainer direction, 2026-09-25: "the optimisations shld be default in
+future."** This is the performance twin of the root `CLAUDE.md`'s "correct
+physics is the default" rule, and it works the same way: an optimisation
+nobody reaches for is, in practice, an optimisation the code does not have.
+
+**Concretely, for cross sections:**
+
+- **Need only `Σ_t`? Call [`Nuclide::total_at_energy`], never
+  `xs_at_energy(..).total`.** The latter fills every channel eagerly — on the
+  `Pointwise` tier that is **~46 grid evaluations** for U-235 or U-238 (MT=1,
+  MT=2, MT=18, all 40 inelastic levels, MT=16/17/5, MT=27) — and then throws
+  45 of them away. `Material::macro_xs_total` already does this, so the
+  flight-distance path and all five delta-tracking sites are covered.
+- **Measured worth, LCT-008, 11 nuclides, 5000 × [30 + 70]:** transport
+  **64.2 s → 20.1 s (3.2×)**, `k_eff` **byte-identical** (hardware not recorded). That closed most of
+  the 8.4× gap against OpenMC the 2026-09-24 sweep measured.
+- **An optimisation that changes the answer is a bug, not a trade.**
+  `tests/total_fast_path_matches_full.rs` asserts the two paths are **exactly**
+  equal — no tolerance — across 501 energies for U-235, U-238, H-1 free-gas
+  and H-1 carrying `c_H_in_H2O`. Add the equivalent test before adding the
+  equivalent shortcut.
+- **Watch the S(α,β) branch.** Below the cutoff the total is *not* MT=1: the
+  bound-atom law replaces elastic and the total is rebuilt as
+  `absorption + inelastic + n2n + σ_sab`. A fast path that misses this shifts
+  `k` on a thermal lattice in the way that is hardest to notice.
+
+**If you find another eager evaluation on a hot path, the same three steps
+apply:** make the cheap path the default, prove it exact with a test, and
+record the measured worth rather than asserting one.
+
+### `SpeedTier`: Standard / Fast / VeryFast (2026-09-27, gh:#349)
+
+Maintainer request: one selector for a faster transport and nuclear-data
+path. `material::speed::SpeedTier`, chosen per nuclide with
+`Nuclide::from_endf_file_with_speed` (or `with_speed`, lookup only), and by
+`OUTRAM_SPEED=standard|fast|very-fast` in the four ICSBEP examples.
+
+- **`Fast` is the default**, by the rule above: it is exact. Two changes, both
+  in the lookup:
+  - `Material::sample_nuclide` uses `total_at_energy` (the rule above was not
+    applied there; it evaluated every nuclide's full set **twice** per
+    collision to read `.total`);
+  - reaction sections are found by position resolved at construction
+    (`ReconrResult::section_index` / `eval_section`), not by a linear search
+    per call. `eval_mt` delegates to the same `eval_section`, so both tiers
+    run one interpolation.
+- **`Standard`** is the unoptimized reference, kept so `Fast` can be checked
+  against it. `tests/speed_tier_fast_is_exact.rs` requires **bit identity**:
+  every `MicroXS` field, `total_at_energy`, `sample_inelastic`, and
+  `sample_nuclide`'s picks, on U-238, U-234, F-19 and H-1 with
+  `c_H_in_H2O`.
+- **`VeryFast`** is `Fast` plus RECONR and BROADR at tolerance **0.01**
+  instead of NJOY's 0.001. That is an approximation, so it is never a
+  default. `0.01` was fixed in advance as "one decade coarser" and not tuned.
+  Its measured Δk per benchmark is in `docs/profiling/speed_tiers_2026_09_27.md`;
+  read it before quoting a `VeryFast` k. From 32-seed ensembles:
+  - fast systems: Godiva +7 ± 41 pcm, Jemima −18 ± 42 pcm, no shift;
+  - thermal systems: HST-009 −57 ± 35 pcm and LCT-008 −65 ± 40 pcm, both
+    low, combined −61 ± 26 pcm (a combination chosen after seeing the
+    data).
+
+**Decision recorded:** the maintainer's first framing was "Standard, Fast,
+VeryFast" with Standard implicitly the default. The rule above ("the
+cheapest correct path is the default") was applied instead, because `Fast`
+is exact. ~~Flip `#[default]` in `speed.rs` if that is not what was meant~~
+**CONFIRMED 2026-09-28:** the maintainer chose `Fast` as the default ("Fast
+lah"). `ordinary_constructors_default_to_the_exact_fast_tier` in
+`tests/speed_tier_fast_is_exact.rs` pins it. The exactness test does not
+depend on which tier is the default.
+
 
 ### Units: raw `f64`, not `uom`
 Unlike `outram-foam-basic-lib` (which uses `uom` for thermophysics), this crate uses
@@ -287,20 +749,325 @@ Documented unit conventions (enforced by naming, not types):
 | Temperature | eV (1 eV ≈ 11604 K) |
 | Particle weight | dimensionless (1.0 = fully weighted) |
 
+**Public handoff types are `uom` (2026-10-17, gh:#951).** The raw-`f64`
+rule is for the transport loop. A type that crosses into another crate and is
+not on a hot path carries `uom` quantities, per the workspace rule: the
+beginner `model` API, `thermal_profile`, and `inventory::RadionuclideInventory`
+(activity as `Radioactivity`, atoms as `AmountOfSubstance` in `particle`s,
+time and burnup).
+
+### Radionuclide inventory: the handoff to `sembawang` (2026-10-17, gh:#951)
+
+**Maintainer decision:** the inventory type comes **from outram-mc and goes to
+sembawang**, and it is the one inventory type in the workspace.
+`src/inventory/` holds `RadionuclideInventory`: nuclides by
+`model::Isotope` (Z, A, metastable state; `zai`/`za` integers), amounts per
+region (`Regions::{WholeCore, RadialRings, Named}`), the point
+(`InventoryPoint`: step, time, burnup) and provenance (`InventorySource`:
+prescribed with a reference, or depletion with code and run).
+
+- **Not a port.** OpenMC has no single equivalent (its `deplete.Results`
+  carries atoms per material); this is new work, and says so.
+- **From depletion:** `from_burnup_step` / `from_burnup_result` turn a
+  `BurnupStep`'s densities into atoms (`N * 1e24 * V`) and activities
+  (`lambda * N`, `lambda` from the same chain). Every chain nuclide is kept,
+  stable ones at zero activity; a negative density is refused, not clipped.
+- **Dependency direction:** `sembawang -> outram-mc-libs`. **This crate must
+  never depend on `sembawang`.**
+- `sembawang` reads it in TRISO-ATOPS terms (`sembawang::inventory`), and
+  `sembawang/tests/inventory_handoff_fingerprints.rs` pins that the type change
+  moved none of its numbers.
+
 ### No HDF5 dependency in this crate
 Cross-section data is loaded externally and passed in by value or reference.
 This crate is pure algorithmic: no file I/O, no XML, no HDF5.
 
-### Neutron-only initially
-Photon and electron physics (`src/photon.cpp`) are deferred.  The `ParticleType`
-enum reserves slots for them, but only `Neutron` transport is implemented.
+**REFINED 2026-09-22 (maintainer direction).** This still holds *for the
+transport loop*, and it is why the HDF5 codec was placed in
+`njoy-outram-park-fork` rather than here (gh:#270). What changed is that the
+workspace as a whole now does HDF5 **write** as well as read, and that this
+crate will grow run-state output — track files, state points, particle restart
+(gh:#271). The rule to keep is the seam: this crate produces and consumes
+**structured data at the run boundary**, and something else turns that into
+bytes on disk. `no file I/O in the inner loop` is the invariant; `no HDF5
+anywhere in the workspace` never was one.
+
+**One exception, noted 2026-09-25:** the geometry plotter
+(~~`src/geometry/plot/`~~ `outram_blender::csg::plot` since 2026-10-02,
+GitHub #486) encodes PNG/PPM itself — `ImageData::to_png_bytes` is
+the pure path, and `ImageData::write_png` is a one-line `std::fs::write`
+convenience at the end of a plot, never inside transport. The DEFLATE codec is
+`miniz_oxide`, already in this crate's tree via `njoy-outram-park-fork`.
+
+### Neutron-only
+~~Photon and electron physics (`src/photon.cpp`) are deferred.~~ ~~**CORRECTED
+2026-10-16:** photon physics is deferred but in scope; electron physics is not
+this crate's (next section).~~ **CORRECTED 2026-10-20:** this crate transports
+neutrons only, by design. Photon and electron physics belong to PUNGGOL (next
+section). The `ParticleType` enum reserves slots for them,
+but only `Neutron` transport is implemented.
+
+### Particle split (maintainer decisions, 2026-10-16 and 2026-10-20)
+
+**Current split, 2026-10-20 (maintainer):** "outramMC will take care of
+neutrons, PUNGGOL takes care of gammas and other things".
+
+| Particle | Crate |
+|---|---|
+| Neutrons | **this crate**, and only neutrons |
+| Photons (gammas), electrons, positrons | **`punggol`** (PUNGGOL domain, `docs/ecosystem-naming.md`): the OpenMC photon port (gh:#975) and the EGSnrc electron/positron port as a module with provenance (gh:#976) |
+| Ions: fission fragments, alphas, recoil knock-ons | **`boon-lay`** (its RustBCA copy) |
+
+- **Coupled neutron–photon transport:** this crate records where secondary
+  photons are born in its collision loop (as OpenMC does), and `punggol`
+  transports them. **`punggol` depends on this crate, never the reverse.**
+- General numerics from those ports (alias tables, RANMAR/RANLUX, fast
+  interpolation) go to `petir`.
+
+The 2026-10-16 record below is kept as history. Where it says photons are
+ported "here" or electrons go to `boon-lay`, the table above supersedes it.
+
+#### 2026-10-16: uncharged here, charged in `boon-lay` (superseded in part)
+
+> "Charged particles go thru boon lay, uncharged thru OutramMC."
+
+- **This crate:** neutral particles, which means neutrons now and photons when
+  OpenMC's photon transport is ported. Secondary photons from neutron
+  collisions are born in this crate's collision loop, as in OpenMC.
+- **`boon-lay`:** every charged particle. That covers fission fragments,
+  alphas, recoil knock-ons and electrons, starting with the RustBCA copy
+  (gh:#876, item 7).
+- ~~**Electrons are the seam.** … Whether a photon port here keeps that local
+  approximation, or hands every electron to `boon-lay`, is **not yet decided**.
+  Ask the maintainer before porting it.~~ **DECIDED 2026-10-16 (maintainer):
+  this crate carries its upstream.** A photon port brings OpenMC's
+  thick-target bremsstrahlung (TTB) treatment with it (`photon.cpp`,
+  `bremsstrahlung.cpp`). Electrons and positrons produced by photons are
+  **not transported**. Their kinetic energy is deposited where they are born,
+  and they emit only bremsstrahlung photons. A positron annihilates at its
+  birth point into two 0.511 MeV photons. This is local deposition plus
+  secondary-photon production, not charged-particle transport, so it does not
+  break the split. It holds because a MeV electron's range (millimetres in
+  graphite, a fraction of a millimetre in UO2) is short against photon mean
+  free paths of centimetres. If electron tracks themselves are ever needed
+  (dose at an interface, a thin detector), they go to `boon-lay`.
 
 ### Parallelism: per-particle RNG streams
 OpenMC's reproducibility guarantee relies on each particle having a completely
 independent LCG stream obtained by jump-ahead.  This Rust port preserves that
 design: `init_seed(id, offset, master)` derives a unique starting seed for each
 particle.  The jump-ahead in `future_seed(n, seed)` is O(log n), implemented in
-`src/rng/lcg.rs`.
+~~`src/rng/lcg.rs`~~ `crates/petir/src/rng/lcg.rs` (**CORRECTED 2026-10-02**,
+see below).
+
+### The RNG lives in PETIR (2026-10-02, maintainer direction)
+
+The LCG this crate ported (`random_lcg.cpp`) now lives in `petir`:
+`petir::rng::lcg` for the Rust and `petir::wgsl::LCG` (`lcg.wgsl`) for the
+WGSL state advance, with its CPU mirror in `petir::wgsl::mirror_lcg`. **Keep
+using `crate::rng::lcg`** — it is a `pub use` of PETIR's module, so every call
+site here, in `boon-lay` and in `nee_soon` is unchanged.
+
+- **Why.** `raffles` used this crate only for the RNG and a CSG graph adapter.
+  That edge closed a cycle once this crate depended on
+  `outram-park-fork-liggghts` (whose default `gnn` feature depends on
+  `raffles`). The RNG went to PETIR; the adapter went to
+  `outram_blender::gnn_graph` (GitHub issue #486). **`raffles` must never
+  depend on this crate again.** The reverse edge, this crate -> `raffles`, is
+  **allowed** (maintainer, 2026-10-02: RAFFLES is a statistics crate that can
+  speed up Monte Carlo) now that `raffles` depends only on `petir`, and it was
+  added the same day with real consumers — see the next section.
+- **No random number moved.** `petir::rng::lcg`'s `moved_stream_is_pinned`
+  pins values printed by the pre-move file compiled standalone.
+- **The GPU kernels compose, they do not copy.** `batched_flight.wgsl` and
+  `batched_event.wgsl` no longer define the LCG; `gpu::batched_flight::shader_source()`
+  and `gpu::batched_event::shader_source()` prepend `petir::wgsl::LCG` and the
+  kernels call `petir_lcg_next`. Test probes must use `shader_source()`, not
+  `include_str!` of the kernel file, which no longer compiles on its own.
+- **`rng::distributions` did not go to PETIR**: ~~it calls `cos`/`sin` through
+  this crate's `mathf` route (platform libm by default), which a `no_std`
+  PETIR copy could not reproduce bit for bit.~~ **CORRECTED 2026-10-20 (gh:#985)**: `mathf` is PETIR's
+  `RealMath` on every build now, so that reason no longer holds; the samplers
+  simply have not moved. (Its generic samplers later went
+  to RAFFLES instead, with the routing preserved — next section.)
+
+### Geometry lives in outram-blender (2026-10-02, GitHub #486)
+
+**The CSG description, its pure navigation kernel, the geometry plotter and
+the tally-mesh description live in `outram-blender`; this crate keeps the
+transport-state work and re-exports everything under the old paths.**
+Maintainer decisions recorded on GitHub #486.
+
+| moved to `outram_blender` | stays here |
+|---|---|
+| `csg::{position, surface, cell, universe, lattice, geometry, triso_particle}` (re-exported as `geometry::*`) | `geometry::crossing`: `GeometryExt` (`cross_surface`, `cross_surface_in_frame`, `distance_out_of_level`, `sigma_t_at`, `validate_boundary_conditions`), `SurfaceKindExt` (`diffuse_reflect`, `sphere_centre_radius`, `overlaps_voxel`), nudging and corner reflection |
+| `csg::plot` (re-exported as `geometry::plot`; `ModelPlot` is generic over `MaterialIdentity`, implemented for `Material` in `geometry/plot.rs`) | the plot-parity V&V (`tests/*plot_parity.rs`, `verification_and_validation/geometry_plotting/`) |
+| `spatial_mesh` (re-exported as `tally::mesh::*`) | `tally::mesh`: `RegularMeshExt`, `RectilinearMeshExt`, `CylindricalMeshExt`, `SphericalMeshExt`, `MeshKindExt` — bin lookup, `count_sites`, `shannon_entropy`, mesh-surface crossings |
+| `unstructured::UnstructuredMesh` (2026-10-03, #492; re-exported as `tally::mesh_unstructured::UnstructuredMesh`, held by `MeshKind::Unstructured`) — the neutral FV/FE/MC mesh, its geometry and `CellLocator` | `tally::mesh_unstructured::UnstructuredMeshExt` — point location (winding number of each cell's bounding fan triangles), track-length `bins_crossed` (port of `MOABMesh::bins_crossed`), `sample_in_cell`; the split branch of `score_track_length`. V&V plan: `verification_and_validation/unstructured_mesh_tally/` (**NOT YET MEASURED**) |
+| — | distribcell, `virtual_lattice`, `volume_calc`, GPU encoders and WGSL |
+
+- **The `*Ext` traits are in the prelude.** Code that names `Geometry` or a
+  mesh by path needs one more `use` (e.g. `use
+  outram_mc_libs::geometry::crossing::GeometryExt;`); the compiler names the
+  trait when it is missing.
+- **outram-blender must never depend on this crate** (Cargo counts optional
+  deps for cycles). The workspace entry is `default-features = false` (no
+  wgpu); blender's mesh authoring and `faer` are still compiled, by
+  maintainer decision — the cost is in the `cargo tree` count.
+- **A change to the moved code is a change to this crate's transport.** The
+  bit-identity gate is `tests/stats_move_fingerprints.rs` (three #486 cases:
+  nested hex/rect-lattice TRISO navigation and crossings, a k run on it, and
+  all four tally meshes); the plot-parity tests stay here.
+- **Publishing:** a crates.io release of this crate needs `outram-blender`
+  and `petir` published at compatible versions (accepted by the maintainer).
+
+### Generic statistics live in RAFFLES (2026-10-02, GitHub #500)
+
+**The maths on numbers lives in `raffles`; deciding what is counted stays
+here.** Moved, byte for byte, and re-exported at the old paths:
+
+| was | now | what stays here |
+|---|---|---|
+| `mean_and_stderr`, four identical private copies (`physics/keff.rs`, `physics/transport_csg.rs`, `physics/physics_mg.rs`, `pebble_beds/keff_delta.rs`) | `raffles::estimators::mean_and_stderr` | choice of active generations |
+| `tally::mesh::RegularMesh::shannon_entropy`'s formula | `raffles::estimators::shannon_entropy_bits` | `count_sites` (binning the bank) |
+| `vv::pooled` | `raffles::estimators::pooled` (re-exported) | `bench_seeds`, `bench_run_size`, `bench_speed` |
+| `tally::trigger::{BinStats, bin_uncertainty, predict_batches}` | `raffles::estimators` (re-exported) | `Trigger`, `TriggerMetric`, `bin_ratio`, `limiting_ratio`, `satisfied` |
+| `tally::arithmetic` propagation formulas | `raffles::estimators::{sigma_sum, product_with_sigma, quotient_with_sigma, sum_with_sigma}` | `DerivedTally` readout and selection |
+| `rng::distributions::{uniform, sample_normal, sample_normal_3d, sample_exp}` | `raffles::distributions::seeded` (re-exported) | `maxwell`, `watt`, `isotropic_direction` |
+
+- **Bit-identical, measured.** `tests/stats_move_fingerprints.rs` pins six
+  fingerprints (Godiva `run_keff`; Godiva CSG with entropy mesh and a k
+  trigger; a two-group MG sphere; the FHR explicit-TRISO delta-tracking
+  pebble; pure statistics; Shannon entropy), printed before the move and
+  unchanged after it, on the host that printed them. ~~The 900 K thermal
+  cases (FHR delta pebble, #486's nested-lattice k) depend on the platform
+  libm and give other bits on another host with no code change (#578).~~
+  **CORRECTED 2026-10-20 (gh:#985)**: no platform libm is called any more; the gate was re-pinned
+  once, one pin per case (see the test's docs).
+- **`mean_and_stderr` and `pooled` are deliberately NOT merged**:
+  `sqrt(var / n)` and `sqrt(var) / sqrt(n)` differ in the last bit.
+- ~~**`deterministic-math` forwards to `raffles/deterministic-math`**, so
+  `sample_normal`'s `cos` keeps this crate's routing.~~ **CORRECTED 2026-10-20 (gh:#985)**: both
+  features were removed; `sample_normal`'s `cos` is `petir::real::cos` always.
+- ~~**Not moved, because it does not exist:** a χ²/dof consistency check of
+  seed values against their internal σ. `vv.rs` has no such function; it
+  belongs with #494 when that lands.~~ **CORRECTED 2026-10-03** — #494 added
+  it: `raffles::estimators::seed_consistency` (the maths) and
+  `stats::ensemble` here (the seed runner, `EnsembleReport`). `vv.rs` still
+  has no such function and keeps only the bench knobs.
+- RAFFLES is Adolphus Lye's crate; the move was the workspace maintainer's
+  direction and is recorded in `crates/raffles/CLAUDE.md` with their review
+  outstanding.
+
+### Statistics on top of RAFFLES: `stats` (2026-10-03, epic GitHub #493)
+
+`src/stats/` holds the **drivers and adapters**; the maths is in
+`raffles::estimators` / `raffles::surrogate`. **No driver calls anything in
+`stats`**, so a default run is bit-identical with or without it. What is
+there, and its V&V state (every gate **NOT YET MEASURED** — testing deferred by
+the maintainer, 2026-10-03; protocols in
+`verification_and_validation/stats_epic_493/`):
+
+- `stats::ensemble` (#494) — `run_seeds` / `run_seeds_with_progress` (seeds
+  chunked in order, worker-count independent), `EnsembleReport` (pooled
+  mean/sd/sem exactly as `vv::pooled`, `χ²/dof` seed consistency, outlier
+  seeds, disjoint-group `1/√N` check). `examples/godiva_keff_ensemble.rs` uses
+  it; the remaining per-example ensembles (`OUTRAM_BENCH_SEEDS`) are not
+  migrated yet.
+- `stats::correlated_sigma` (#495) — `KeffUncertainty::from_result`: batch
+  means and `τ_int`/ESS over the active generations, reported **beside** the
+  run's own `k_std`, which is carried bit for bit and never replaced.
+  `TallyBatchRecorder` differences a `Tally`'s running sums per batch; no
+  driver exposes a per-batch hook yet, so it serves caller-stepped loops only.
+- `stats::convergence` (#496) — `SourceConvergence::from_result`: MSER-5,
+  Geweke and change-point on the entropy and `k` traces (all generations);
+  recommends an inactive count only when every analysed trace has settled,
+  otherwise says so. Complements `vv::report_source_convergence` (active-half
+  drift), which it does not replace. Report-only.
+- `stats::learned_importance` (#497) — `learned_weight_windows`: MAGIC where
+  the early tally resolves the flux, a RAFFLES polynomial in `ln φ(x,y,z)`
+  filling the cells MAGIC leaves without a window (extrapolation clamped,
+  leave-one-out error reported); `VrArm` / `FomComparison` for
+  `FOM = 1/(R²T)` and the unbiasedness gate (`|z| ≤ 2`). **Off by default**:
+  it only builds a `WeightWindows`; transport changes only if a caller
+  attaches it to a `VarianceReduction`, whose default stays analog. Source
+  biasing is not implemented.
+- `stats::uq` (#498) — `UqDesign::{sampled, sobol, evaluate}` with
+  `raffles` distributions / samplers, `UqReport::analyse` (total sd, the runs'
+  own MC-noise variance separated out, quantiles, Pearson / Spearman /
+  marginal least-squares slope per input, or Sobol indices), and
+  `DirectPerturbation` for the #498 gate. Quantification only — no
+  calibration.
+- `stats::sweep` (#499) — `SweepSurrogate` (RAFFLES polynomial + leave-one-out
+  refits), `predict` → `SurrogatePrediction` with a jackknife+ interval (its
+  own type: **a surrogate value is never a transport result**), `loo_gate`
+  (literal and noise-floor-aware readings — the literal one is expected to
+  fail for a perfect surrogate; flagged on #499), `propose_next_runs`
+  (active sampling heuristic). `examples/stats_sweep_loo.rs` runs the gate on
+  the committed HTR-10 sweep CSV without transport. **Measured 2026-10-07
+  (gh:#782), the one exception to "every gate NOT YET MEASURED" above:** on
+  the `htr10_seker_2026_10_07_10k` record the gated degree-2 surrogate FAILS
+  both readings on both libraries (LOO RMSE 352 / 330 pcm against rms σ
+  107 / 106 pcm); see `stats_epic_493/499_surrogate_sweeps.md`.
+
+### Beginner API diagnostics, report and `advanced` (2026-10-17, gh #940-#942)
+
+`model::Diagnostics` (a `Vec<MCDiagnostic>`, presets `default()` and
+`reactor_physics()`) **orchestrates existing tallies**; it adds no physics.
+Read these before touching it:
+
+- **Several tallies on one run** go through
+  `transport_csg::ExtraScoring` and `CsgPowerIteration::step_scored`;
+  scoring draws no random number, so k is the k of a run without them, and a
+  diagnostic alone equals itself beside others **bit for bit**
+  (`tests/model_diagnostics.rs`). Extras are scored under surface tracking
+  only (the power iteration has no majorants).
+- **IFP** (`physics::ifp`) is wired into `CsgPowerIteration::enable_ifp`
+  (lineage beside the source, combed with it). Λ is OpenMC's
+  `time / (denominator × k)`; `IfpTallies::generation_time` alone is the
+  lifetime (doc corrected).
+- **The six factors are undefined for a fast system** (no thermal
+  absorption): NaN with `undefined_because`, never zeros.
+- **Godiva against OpenMC** (β_eff, Λ, EALF, three-group rates, leakage):
+  `verification_and_validation/diagnostics/README.md`, deck committed.
+  Diagnostics cost 3.5× transport time on Godiva (measured, not optimised).
+- **The report** (`report.md` + CSV + PNG in a zip) is built in memory; the
+  zip writer is `model::report::zip` over `miniz_oxide`, the PNGs are
+  outram-blender's encoder and 5×7 font. `examples/diagnostics_report_in_memory.rs`
+  runs on `wasm32-wasip1`.
+- **Physics ablation only through `model.advanced()`** (`without_dbrc`,
+  `without_urr`, `without_thermal_scattering`); the run's
+  `provenance.ablations` names each.
+
+### Beginner repeated structures (2026-10-18, gh #926)
+
+`model::{Cube, Cuboid, Boundary, Lattice, Census}` are a **shell over the
+existing CSG**: a TRISO particle is concentric `Sphere`s, a unit cell a
+`Cube` containing it (`.boundary(Boundary::Reflective)` on the outermost
+shape only), a `Lattice` lowers each distinct tile once to a universe plus a
+CSG `RectLattice` (lowering in `model/lower.rs`). Row order is named by the
+constructor (`from_rows_top_down` vs `from_natural_order`).
+
+- **Bit for bit** against `build_triso_particle` + `homogeneous_cube`'s
+  planes + a hand-built `RectLattice`: `tests/model_repeated_structures.rs`
+  (structure and per-generation k). Keep it passing on any lowering change.
+- **Count from the assembled geometry**: `AssembledModel::census()` walks the
+  universe/lattice graph (`DistribcellOffsets`, plus each lattice's `outer`
+  once per placement). Never report a particle count from a constant (gh:#316).
+- **Not yet**: a lattice in a sphere (whole-particle rejection), random
+  packing and `DhRegion` (tutorial 5), hex lattices, per-lattice delta
+  tracking (the beginner run carries no majorants).
+
+### DEM pebble beds: `pebble_beds::dem_bed` (2026-10-02)
+
+`outram-park-fork-liggghts` is a dependency (with none of its default
+features) so a bed settled by granular DEM can be handed to transport.
+`DemBed::from_granular_system` / `from_dem_simulation` / `from_particles`
+convert to pebble centres in **cm**, refuse a polydisperse bed, and **report**
+the soft-sphere overlap rather than hiding it. It does **not** build a CSG
+geometry; whoever does must draw it (rule at the top of this file). Use
+liggghts' `GranularSystem` to settle — it is the engine verified against
+LIGGGHTS.
 
 ### RNG goal: statistical correctness, NOT particle-for-particle parity
 
@@ -343,12 +1110,65 @@ The full Rust-module → OpenMC C++ source map, the bottom-up porting order (wit
 per-module implementation status), and the prioritised test backlog all live in
 **`docs/port-reference.md`**.
 
+## GPU policy: CI is GPU-INDEPENDENT; detection is at run time (HARD RULE)
+
+**Maintainer direction, 2026-09-19.** These are requirements, not preferences:
+
+- **CI must never fail merely because no GPU is exposed** — Windows, Linux or
+  macOS.
+- **GPU availability is detected at RUN TIME**, by `gpu::probe()`, never by a
+  build-time assumption.
+- **CPU / reference tests are mandatory on every platform.** They are the
+  trusted path and must run everywhere.
+- **GPU tests are conditional** on an available, compatible adapter, and must
+  `SKIP` cleanly without one.
+- **`SplitPolicy::Auto` must fall back to CPU gracefully** when no GPU backend
+  or device exists. `hybrid_without_a_gpu_runs_everything_on_the_cpu` is the
+  test that pins this; do not weaken it.
+
+Verified 2026-09-19 by running the suites with the Vulkan loader hidden
+(`VK_ICD_FILENAMES=/nonexistent VK_DRIVER_FILES=/nonexistent`): every GPU test
+prints `SKIP` and passes, and nothing else changes.
+
+### A software ICD is a LOCAL convenience, never a CI requirement
+
+Because every `gpu::*` test skips without an adapter, a host with no Vulkan
+driver runs the whole GPU suite green while executing none of it. That is
+correct for CI and useless for development — so when you want the shaders to
+actually run *locally*, install Mesa's software rasteriser:
+
+```bash
+apt-get update && apt-get install -y mesa-vulkan-drivers   # provides lvp_icd.json
+```
+
+`gpu::probe()` then returns `llvmpipe (LLVM …)` and the WGSL genuinely
+executes. **Do not make this a CI dependency** and do not write a test that
+requires it.
+
+**This is not hypothetical value.** Doing it on 2026-09-19 immediately exposed
+`hybrid_splits_work_across_both_devices` as broken: it asserted
+`SplitReason::Split` whenever *any* adapter existed, while `SplitPolicy::Auto`
+correctly returns a zero GPU share for `DeviceClass::Cpu` — handing work to a
+software rasteriser costs buffer copies to run the same arithmetic on the same
+cores. The library was right and the test was wrong, and the test had **never
+executed on any host**.
+
+**Two things follow for anyone adding a GPU test here.**
+
+- **Do not assert on `SplitPolicy::Auto`'s choice** unless the test also
+  handles a CPU-class adapter. Force the share with
+  `SplitPolicy::GpuFraction(..)` when the point is to exercise the split
+  machinery rather than the heuristic.
+- **A software adapter is `DeviceClass::Cpu`, not `Virtual`.** Code that
+  branches on device class will take the CPU path on it, which is correct and
+  is also why such a test can pass vacuously.
+
 ## Build and test
 
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ```bash
-cargo check -p outram-mc-libs --lib
+cargo check --release -p outram-mc-libs --lib
 cargo test  -p outram-mc-libs --lib --release
 ```
 

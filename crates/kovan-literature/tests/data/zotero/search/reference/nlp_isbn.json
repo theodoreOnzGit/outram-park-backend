@@ -1,0 +1,65 @@
+{
+	"name": "nlp_isbn",
+	"kind": "forced",
+	"translator": "aa7f310e-10d3-4209-91dc-88301e7070c6",
+	"search": {
+		"itemType": "book",
+		"ISBN": "8301136545"
+	},
+	"status": 200,
+	"translatorUsed": "aa7f310e-10d3-4209-91dc-88301e7070c6",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"firstName": "Adam",
+					"lastName": "Bielański",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Chemia nieorganiczna",
+					"type": 1
+				},
+				{
+					"tag": "Chemistry, Inorganic",
+					"type": 1
+				},
+				{
+					"tag": "Chemia nieorganiczna",
+					"type": 1
+				},
+				{
+					"tag": "Podręcznik",
+					"type": 1
+				}
+			],
+			"ISBN": "9788301136543",
+			"language": "pol",
+			"title": "Podstawy chemii nieorganicznej",
+			"edition": "Wyd. 5 zm. i popr",
+			"place": "Warszawa",
+			"publisher": "Wydaw. Naukowe PWN",
+			"date": "2002",
+			"numPages": "1064",
+			"callNumber": "2.508.889",
+			"libraryCatalog": "National Library of Poland ISBN"
+		},
+		{
+			"itemType": "note",
+			"parentItem": "KVN22222",
+			"note": "Indeks"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://data.bn.org.pl/api/institutions/bibs.marcxml?isbnIssn=8301136545",
+			"body": null
+		}
+	]
+}

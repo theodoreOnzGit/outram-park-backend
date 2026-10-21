@@ -1,226 +1,403 @@
-//! User-friendly OOP API for the NJOY nuclear-data processing pipeline.
+//! The object-style way in: [`NuclearDataLibrary`], a struct that holds an
+//! evaluation and what has been made from it, with chained methods.
 //!
-//! The entry point is [`NuclearDataLibrary`], a builder-pattern struct that reads
-//! an ENDF file, runs RECONR to reconstruct pointwise cross sections, and can
-//! query or export the result.
+//! **Functional core, OOP shell** (maintainer decision, 2026-10-17, GitHub
+//! #925 / #933). All processing lives in the free functions of
+//! [`crate::process`]. Every method here that processes is a thin
+//! `#[inline]` call into one of them, and stores the result so the next call
+//! can use it. Nothing is computed twice in two styles, so the two cannot
+//! drift: `tests/nuclear_data_library_is_process.rs` pins that the object
+//! gives the free functions' result **bit for bit**, with the same physics
+//! defaults (PURR, HEATR and the 0 K elastic DBRC needs, all on).
 //!
 //! ## Quick start
 //!
 //! ```no_run
 //! use njoy_outram_park_fork::interface::NuclearDataLibrary;
-//! use uom::si::energy::electronvolt;
-//! use uom::si::area::barn;
+//! use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
+//! use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 //!
-//! // Load Ar-37 and reconstruct cross sections
-//! let lib = NuclearDataLibrary::from_file("n-018_Ar_37-tendl2023.endf", 1828)
-//!     .expect("load failed")
-//!     .reconstruct(0.001)
-//!     .expect("RECONR failed");
+//! # fn demo() -> Result<(), njoy_outram_park_fork::NjoyError> {
+//! // MAT, ZA and AWR are read from the tape.
+//! let lib = NuclearDataLibrary::from_file("n-092_U_238.endf")?
+//!     .reconstruct(0.001)?                                  // RECONR, 0 K
+//!     .broaden(Temperature::new::<kelvin>(293.6))?;         // BROADR, PURR, HEATR
 //!
-//! // Query at 1540 eV (near the first Ar-37 resonance peak)
-//! let e = uom::si::f64::Energy::new::<electronvolt>(1540.0);
-//! let xs = lib.elastic_xs(e);
-//! println!("σ_el(1540 eV) ≈ {:.1} b", xs.get::<barn>());
+//! let e = NeutronEnergy::new::<electronvolt>(6.67);
+//! println!("σ_γ(6.67 eV) = {:.1} b", lib.capture_xs(e).get::<barn>());
+//! let ace_text = lib.to_ace()?.to_type1_text()?;             // ACER
+//! # let _ = ace_text; Ok(())
+//! # }
 //! ```
+//!
+//! The same three steps in the functional style are
+//! `process::reconstruct`, `process::cross_sections_at` and
+//! `NuclearCrossSections::to_ace` (or `process::ace` in one call).
+//!
+//! ## What the object adds
+//!
+//! - **State between calls.** The [`Reconstruction`] (RECONR at 0 K) is kept,
+//!   so each [`NuclearDataLibrary::broaden`] starts again **from the 0 K
+//!   reconstruction**, never from the last broadened table (#617): broadening
+//!   to 600 K and then to 293.6 K gives the 293.6 K data, not a twice-broadened
+//!   table. Several temperatures from one RECONR:
+//!   [`NuclearDataLibrary::cross_sections_at_temperatures`].
+//! - **Bytes in.** [`NuclearDataLibrary::from_bytes`] and
+//!   [`NuclearDataLibrary::from_tape`] read no file, and no method that
+//!   processes reads a file, starts a thread or reads a clock, so the object
+//!   runs on `wasm32-unknown-unknown` as `process` does. The path methods
+//!   ([`NuclearDataLibrary::from_file`], `write_*`) are native conveniences
+//!   that wrap them.
 
-use std::{fs::File, path::Path};
+use std::path::Path;
+use std::sync::Arc;
 
 use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
 use crate::{
-    broadr::broaden_result,
+    acer::AceTable,
     endf::{tape::Tape, MtReaction},
-    reconr::{eval_lin_lin, reconr, ReconrConfig, ReconrResult},
+    process::{self, CrossSectionSettings, NuclearCrossSections, Reconstruction},
+    purr::UrrProbabilityTables,
+    reconr::{eval_lin_lin, ReconrResult},
     units::{CrossSection, NeutronEnergy, Temperature},
     NjoyError,
 };
 
 // ── Main struct ───────────────────────────────────────────────────────────────
 
-/// An ENDF nuclear-data evaluation processed through the NJOY pipeline.
-///
-/// Created with [`from_file`][Self::from_file] (or [`from_tape`][Self::from_tape]
-/// for testing), then stepped through the pipeline with consuming methods:
+/// One ENDF evaluation and the products [`crate::process`] has made from it.
 ///
 /// ```text
-/// NuclearDataLibrary::from_file(path, mat)?
-///     .reconstruct(tolerance)?         // RECONR (pointwise XS)
-///     .broaden(temperature)?           // BROADR (Doppler, Phase 3)
+/// NuclearDataLibrary::from_file(path)?     // or from_bytes / from_tape; MAT from the tape
+///     .reconstruct(tolerance)?             // process::reconstruct      (RECONR, 0 K)
+///     .broaden(temperature)?               // process::cross_sections_at (BROADR, PURR, HEATR)
 /// ```
 ///
-/// Query the processed data with [`elastic_xs`][Self::elastic_xs],
-/// [`fission_xs`][Self::fission_xs], etc., or export it with
-/// [`to_continuous_energy_data`][Self::to_continuous_energy_data].
-#[derive(Debug)]
+/// Query with [`elastic_xs`][Self::elastic_xs], [`capture_xs`][Self::capture_xs]
+/// and the rest, read the products with
+/// [`cross_sections`][Self::cross_sections], or export with
+/// [`to_ace`][Self::to_ace] and [`to_pendf_tape`][Self::to_pendf_tape].
+///
+/// **Physics on by default**, the same defaults as
+/// [`CrossSectionSettings::default`]; the `without_*` methods ablate, as the
+/// settings builders do.
+#[derive(Debug, Clone)]
 pub struct NuclearDataLibrary {
-    tape: Tape,
+    tape: Arc<Tape>,
     mat: i32,
+    za: f64,
+    awr: f64,
+    settings: CrossSectionSettings,
     temperature: Temperature,
-    reconr: Option<ReconrResult>,
+    reconstruction: Option<Reconstruction>,
+    processed: Option<NuclearCrossSections>,
 }
 
 impl NuclearDataLibrary {
     // ── Constructors ──────────────────────────────────────────────────────────
 
-    /// Load an ENDF-6 file from `path` for material `mat`.
+    /// Load an ENDF-6 evaluation from `path` (plain or gzipped).
     ///
-    /// `mat` is the ENDF material number (e.g. 1828 for Ar-37, 9228 for U-235,
-    /// 128 for H-2). The file must contain an MF=1/MT=451 header for `mat`.
+    /// **Native convenience:** reads the file, then [`Self::from_tape`]. In a
+    /// browser use [`Self::from_bytes`].
     ///
     /// # Errors
     ///
-    /// Returns [`NjoyError::Io`] if the file cannot be opened, or
-    /// [`NjoyError::EndfParse`] if the ENDF tape format is invalid.
-    pub fn from_file<P: AsRef<Path>>(path: P, mat: i32) -> Result<Self, NjoyError> {
-        let f = File::open(path).map_err(NjoyError::Io)?;
-        let tape = Tape::read(f)?;
-        Ok(Self::from_tape(tape, mat))
+    /// [`NjoyError::Io`] if the file cannot be read, [`NjoyError::EndfParse`]
+    /// if the tape is malformed, and those of [`Self::from_tape`].
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, NjoyError> {
+        Self::from_tape(Tape::read_file(path.as_ref())?)
     }
 
-    /// Build a [`NuclearDataLibrary`] from a pre-parsed [`Tape`].
+    /// An evaluation from the bytes of an ENDF-6 text tape (an upload, an
+    /// `include_bytes!`). Reads no file.
     ///
-    /// Used in tests to avoid re-parsing the file for every step.
-    pub fn from_tape(tape: Tape, mat: i32) -> Self {
-        NuclearDataLibrary {
-            tape,
+    /// # Errors
+    ///
+    /// [`NjoyError::EndfParse`] for a malformed tape, and those of
+    /// [`Self::from_tape`].
+    #[inline]
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, NjoyError> {
+        Self::from_tape(Tape::read(bytes)?)
+    }
+
+    /// An evaluation from a parsed [`Tape`]. The tape must hold one material;
+    /// its MAT, and the ZA and AWR of its MF=1/MT=451 HEAD record, are read
+    /// from it.
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError::InvalidInput`] for a tape with no material or several,
+    /// and [`NjoyError::SectionNotFound`] without an MF=1/MT=451 section.
+    pub fn from_tape(tape: Tape) -> Result<Self, NjoyError> {
+        let mat = process::single_material(&tape)?;
+        let head = tape
+            .section(mat, 1, 451)
+            .and_then(|s| s.rows.first().copied())
+            .ok_or(NjoyError::SectionNotFound {
+                mat,
+                mf: 1,
+                mt: 451,
+            })?;
+        Ok(NuclearDataLibrary {
+            tape: Arc::new(tape),
             mat,
+            za: head[0],
+            awr: head[1],
+            settings: CrossSectionSettings::default(),
             temperature: Temperature::new::<kelvin>(0.0),
-            reconr: None,
+            reconstruction: None,
+            processed: None,
+        })
+    }
+
+    // ── Settings ──────────────────────────────────────────────────────────────
+
+    /// Process with `settings` from now on. Products made under other
+    /// settings are dropped (the reconstruction too, if the RECONR tolerance
+    /// changed), so nothing held can disagree with [`Self::settings`]; call
+    /// [`Self::broaden`] again.
+    pub fn with_settings(mut self, settings: CrossSectionSettings) -> Self {
+        if settings.reconr_tolerance.to_bits() != self.settings.reconr_tolerance.to_bits() {
+            self.reconstruction = None;
         }
+        if settings != self.settings {
+            self.processed = None;
+        }
+        self.settings = settings;
+        self
+    }
+
+    /// Ablate PURR ([`CrossSectionSettings::without_purr`]).
+    #[inline]
+    pub fn without_purr(self) -> Self {
+        let s = self.settings.clone().without_purr();
+        self.with_settings(s)
+    }
+
+    /// Ablate HEATR ([`CrossSectionSettings::without_heatr`]).
+    #[inline]
+    pub fn without_heatr(self) -> Self {
+        let s = self.settings.clone().without_heatr();
+        self.with_settings(s)
+    }
+
+    /// Ablate the 0 K elastic ([`CrossSectionSettings::without_elastic_0k`]).
+    #[inline]
+    pub fn without_elastic_0k(self) -> Self {
+        let s = self.settings.clone().without_elastic_0k();
+        self.with_settings(s)
+    }
+
+    /// The settings the next processing step uses.
+    #[inline]
+    pub fn settings(&self) -> &CrossSectionSettings {
+        &self.settings
     }
 
     // ── Pipeline steps ────────────────────────────────────────────────────────
 
-    /// Run RECONR to reconstruct fully pointwise (lin-lin) cross sections.
-    ///
-    /// `tolerance` is the fractional reconstruction accuracy; NJOY default is
-    /// `0.001` (0.1%). Resonance contributions from MF=2 (SLBW/MLBW) are added
-    /// to the MF=3 background for materials with LRU=1 evaluated resonances.
-    ///
-    /// Consumes and returns `self` so pipeline steps can be chained.
+    /// RECONR at 0 K with fractional `tolerance` (NJOY's default is `0.001`):
+    /// [`process::reconstruct`]. Sets [`CrossSectionSettings::reconr_tolerance`],
+    /// and drops any broadened product, so the temperature is 0 K until
+    /// [`Self::broaden`].
     ///
     /// # Errors
     ///
-    /// Returns [`NjoyError::NotPorted`] for resonance formalisms not yet ported
-    /// (LRF ≥ 3: Reich-Moore, R-Matrix Limited).
+    /// Those of [`process::reconstruct`] (a non-positive tolerance, RECONR's
+    /// own refusals).
+    #[inline]
     pub fn reconstruct(mut self, tolerance: f64) -> Result<Self, NjoyError> {
-        let config = ReconrConfig {
-            mat: self.mat,
-            tolerance,
-            temperature: 0.0,
-        };
-        self.reconr = Some(reconr(&self.tape, &config)?);
+        self.settings.reconr_tolerance = tolerance;
+        let recon = process::reconstruct(&self.tape, &self.settings)?;
+        // Share the reconstruction's copy of the tape, so only one is held.
+        self.tape = Arc::clone(&recon.tape);
+        self.reconstruction = Some(recon);
+        self.processed = None;
+        self.temperature = Temperature::new::<kelvin>(0.0);
         Ok(self)
     }
 
-    /// Apply Doppler broadening at temperature `t` using the SIGMA1 free-gas method.
-    ///
-    /// Requires [`reconstruct`][Self::reconstruct] to have been called first.
-    /// Broadens the reconstructed cross sections up to upstream BROADR's
-    /// default `thnmax` — the top of the resolved resonance region (see
-    /// [`crate::broadr::broadening_limit`]) — and leaves everything above it
-    /// exactly as RECONR produced it, using the effective target temperature
-    /// `t` \[K\].
+    /// The cross sections at temperature `t`: [`process::cross_sections_at`]
+    /// on the held 0 K reconstruction (BROADR above 0 K, PURR, HEATR, the 0 K
+    /// elastic). Each call starts from the 0 K reconstruction, so a second
+    /// `broaden` replaces the first rather than broadening it again (#617).
     ///
     /// # Errors
     ///
-    /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first.
+    /// [`NjoyError::InvalidInput`] before [`Self::reconstruct`], and those of
+    /// [`process::cross_sections_at`].
+    #[inline]
     pub fn broaden(mut self, t: Temperature) -> Result<Self, NjoyError> {
-        self.awr().ok_or(NjoyError::NotPorted(
-            "call .reconstruct() before .broaden()",
-        ))?;
-        let temp_k = t.get::<kelvin>();
+        let recon = self
+            .reconstruction
+            .as_ref()
+            .ok_or_else(Self::not_reconstructed)?;
+        self.processed = Some(process::cross_sections_at(recon, t, &self.settings)?);
         self.temperature = t;
+        Ok(self)
+    }
 
-        if temp_k > 0.0 {
-            if let Some(r) = &mut self.reconr {
-                *r = broaden_result(r, temp_k);
+    /// The cross sections at each of `temperatures` from one RECONR, without
+    /// changing what this object holds: [`process::cross_sections_at`] on the
+    /// held reconstruction, or [`process::cross_sections_at_temperatures`]
+    /// (which runs RECONR once) when there is none yet.
+    ///
+    /// # Errors
+    ///
+    /// Those of the `process` function called.
+    #[inline]
+    pub fn cross_sections_at_temperatures(
+        &self,
+        temperatures: &[Temperature],
+    ) -> Result<Vec<NuclearCrossSections>, NjoyError> {
+        match &self.reconstruction {
+            Some(recon) => temperatures
+                .iter()
+                .map(|&t| process::cross_sections_at(recon, t, &self.settings))
+                .collect(),
+            None => {
+                process::cross_sections_at_temperatures(&self.tape, temperatures, &self.settings)
             }
         }
-        Ok(self)
+    }
+
+    // ── Products ──────────────────────────────────────────────────────────────
+
+    /// RECONR's 0 K result, once [`Self::reconstruct`] has run.
+    #[inline]
+    pub fn reconstruction(&self) -> Option<&Reconstruction> {
+        self.reconstruction.as_ref()
+    }
+
+    /// The processed cross sections, once [`Self::broaden`] has run.
+    #[inline]
+    pub fn cross_sections(&self) -> Option<&NuclearCrossSections> {
+        self.processed.as_ref()
+    }
+
+    /// The processed cross sections, by value.
+    #[inline]
+    pub fn into_cross_sections(self) -> Option<NuclearCrossSections> {
+        self.processed
+    }
+
+    /// The 0 K elastic DBRC needs ([`NuclearCrossSections::elastic_0k`]),
+    /// once [`Self::broaden`] has run.
+    #[inline]
+    pub fn elastic_0k(&self) -> Option<&[(f64, f64)]> {
+        self.processed.as_ref()?.elastic_0k.as_deref()
+    }
+
+    /// PURR's probability tables, once [`Self::broaden`] has run above 0 K
+    /// for an evaluation with an unresolved range.
+    #[inline]
+    pub fn urr(&self) -> Option<&UrrProbabilityTables> {
+        self.processed.as_ref()?.urr.as_ref()
+    }
+
+    /// The evaluation.
+    #[inline]
+    pub fn tape(&self) -> &Tape {
+        &self.tape
     }
 
     // ── Cross-section queries ──────────────────────────────────────────────────
 
     /// Total cross section \[barns\] at incident neutron energy `e` (MT=1).
     ///
-    /// Returns zero if RECONR has not been run or the energy is out of range.
+    /// Read from the processed (PENDF) sections after [`Self::broaden`], from
+    /// RECONR's 0 K result after [`Self::reconstruct`] alone; zero before
+    /// either, or outside the tabulated range.
+    #[inline]
     pub fn total_xs(&self, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(MtReaction::Mt1Total, e.get::<electronvolt>()))
+        self.xs_for_reaction(MtReaction::Mt1Total, e)
     }
 
     /// Elastic scattering cross section \[barns\] at energy `e` (MT=2).
+    #[inline]
     pub fn elastic_xs(&self, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(MtReaction::Mt2Elastic, e.get::<electronvolt>()))
+        self.xs_for_reaction(MtReaction::Mt2Elastic, e)
     }
 
-    /// Fission cross section \[barns\] at energy `e` (MT=18).
-    ///
-    /// Returns zero for non-fissile materials.
+    /// Fission cross section \[barns\] at energy `e` (MT=18); zero for a
+    /// non-fissile material.
+    #[inline]
     pub fn fission_xs(&self, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(MtReaction::Mt18Fission, e.get::<electronvolt>()))
+        self.xs_for_reaction(MtReaction::Mt18Fission, e)
     }
 
     /// Radiative capture cross section \[barns\] at energy `e` (MT=102).
+    #[inline]
     pub fn capture_xs(&self, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(MtReaction::Mt102Capture, e.get::<electronvolt>()))
+        self.xs_for_reaction(MtReaction::Mt102Capture, e)
     }
 
-    /// Cross section \[barns\] for a named ENDF reaction at energy `e`.
+    /// Cross section \[barns\] for a named ENDF reaction at energy `e`, by
+    /// lin-lin interpolation.
     ///
     /// ```
     /// # use njoy_outram_park_fork::{interface::NuclearDataLibrary, MtReaction};
     /// # use uom::si::energy::electronvolt;
     /// # let lib = NuclearDataLibrary::from_file(
-    /// #     "../../reference-data/endf/n-018_Ar_37-tendl2023.endf", 1828
+    /// #     "../../reference-data/endf/n-018_Ar_37-tendl2023.endf"
     /// # ).unwrap().reconstruct(0.001).unwrap();
     /// let e = uom::si::f64::Energy::new::<electronvolt>(1540.0);
     /// let xs = lib.xs_for_reaction(MtReaction::Mt2Elastic, e);
     /// ```
     pub fn xs_for_reaction(&self, mt: MtReaction, e: NeutronEnergy) -> CrossSection {
-        CrossSection::new::<barn>(self.eval(mt, e.get::<electronvolt>()))
+        let e_ev = e.get::<electronvolt>();
+        let sigma = self
+            .sections()
+            .and_then(|r| r.sections.iter().find(|s| s.mt == mt))
+            .map_or(0.0, |s| eval_lin_lin(&s.pairs, e_ev));
+        CrossSection::new::<barn>(sigma)
     }
 
-    /// Processing temperature \[K\] set by [`broaden`][Self::broaden].
+    /// The temperature of the held products: the last [`Self::broaden`], or
+    /// 0 K.
+    #[inline]
     pub fn temperature(&self) -> Temperature {
         self.temperature
     }
 
-    /// Material number (MAT).
+    /// Material number (MAT), read from the tape.
+    #[inline]
     pub fn mat(&self) -> i32 {
         self.mat
     }
 
-    /// Return ZA (Z×1000 + A) of this material, or `None` if RECONR has not run.
-    pub fn za(&self) -> Option<f64> {
-        self.reconr.as_ref().map(|r| r.material.za)
+    /// ZA (Z×1000 + A), from the tape's MF=1/MT=451 HEAD record.
+    #[inline]
+    pub fn za(&self) -> f64 {
+        self.za
     }
 
-    /// Return AWR (atomic weight ratio) of this material, or `None` if RECONR has not run.
-    pub fn awr(&self) -> Option<f64> {
-        self.reconr.as_ref().map(|r| r.material.awr)
+    /// AWR (target mass / neutron mass), from the tape's MF=1/MT=451 HEAD
+    /// record.
+    #[inline]
+    pub fn awr(&self) -> f64 {
+        self.awr
     }
 
     // ── Export ────────────────────────────────────────────────────────────────
 
-    /// Convert to an in-memory [`ContinuousEnergyData`] struct for use with OpenMC.
-    ///
-    /// The returned struct owns the (energy, σ) tables as uom-typed values and can
-    /// be passed directly to a future OpenMC Rust binding without parsing ACE files.
+    /// The held sections as `uom`-typed tables ([`ContinuousEnergyData`]):
+    /// the processed ones after [`Self::broaden`], RECONR's 0 K ones after
+    /// [`Self::reconstruct`] alone.
     ///
     /// # Errors
     ///
-    /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first.
+    /// [`NjoyError::InvalidInput`] before [`Self::reconstruct`].
     pub fn to_continuous_energy_data(&self) -> Result<ContinuousEnergyData, NjoyError> {
-        let r = self.reconr.as_ref().ok_or(NjoyError::NotPorted(
-            "call .reconstruct() before .to_continuous_energy_data()",
-        ))?;
-
+        let r = self.sections().ok_or_else(Self::not_reconstructed)?;
         let reactions = r
             .sections
             .iter()
-            .map(|sec| {
-                let data = sec
+            .map(|sec| ReactionCrossSection {
+                mt: sec.mt,
+                data: sec
                     .pairs
                     .iter()
                     .map(|&(e, sigma)| {
@@ -229,11 +406,9 @@ impl NuclearDataLibrary {
                             CrossSection::new::<barn>(sigma),
                         )
                     })
-                    .collect();
-                ReactionCrossSection { mt: sec.mt, data }
+                    .collect(),
             })
             .collect();
-
         Ok(ContinuousEnergyData {
             za: r.material.za,
             awr: r.material.awr,
@@ -242,90 +417,115 @@ impl NuclearDataLibrary {
         })
     }
 
-    /// Write a PENDF-style text file (stub — Phase 2b milestone output).
+    /// The continuous-energy ACE table of the processed cross sections:
+    /// [`NuclearCrossSections::to_ace`], the second half of [`process::ace`].
     ///
-    /// Returns [`NjoyError::NotPorted`] until the PENDF writer is implemented.
-    pub fn write_pendf<P: AsRef<Path>>(&self, _path: P) -> Result<(), NjoyError> {
-        Err(NjoyError::NotPorted("PENDF writer (future work)"))
-    }
-
-    /// Write a continuous-energy **ACE** file (Type-1 ASCII) for this material.
-    ///
-    /// Builds the cross-section core of the ACE table — the ESZ block (energy
-    /// grid, total, disappearance, elastic, heating) and the MTR/LQR/TYR/LSIG/SIG
-    /// reaction blocks — from the reconstructed (and optionally broadened) cross
-    /// sections, then serialises it. The ZAID suffix and class letter follow the
-    /// MCNP convention (e.g. `92235.00c`).
-    ///
-    /// When MF=4/MT=2 is present, the **elastic** angular distribution is written
-    /// to the LAND/AND blocks, and the neutron-producing reactions get their
-    /// TYR/LDLW/DLW energy distributions. The **ESZ heating column** is filled
-    /// from the HEATR KERMA — H1–H5 kinematic terms (ν̄ from MF=1/452, χ from
-    /// MF=5/18, and the (n,2n)/(n,3n)/continuum emission spectra from MF=6/MF=5)
-    /// **plus the H6 energy-balance correction** (escaping photon energy from
-    /// MF=12/13/15 subtracted). Still not written: the fission ν̄ (NU) block and
-    /// non-elastic angular distributions — see [`crate::acer`] for the scope.
+    /// ~~Builds the cross-section core of the ACE table~~ **CHANGED
+    /// 2026-10-17 (GitHub #933):** until then this object assembled its own
+    /// table through `AceTable::from_reconr_full` with no PURR, delayed,
+    /// GPD or charged-particle blocks and no PENDF rounding. It is now
+    /// `process`'s table, NJOY2016's word for word where `process::ace` is
+    /// (`tests/process_api.rs`).
     ///
     /// # Errors
     ///
-    /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first,
-    /// [`NjoyError::EndfParse`] if the MF=4 section is malformed, or
-    /// [`NjoyError::Io`] if the file cannot be written.
+    /// [`NjoyError::InvalidInput`] before [`Self::broaden`], and ACER's.
+    #[inline]
+    pub fn to_ace(&self) -> Result<AceTable, NjoyError> {
+        self.processed()?.to_ace()
+    }
+
+    /// Write [`Self::to_ace`] as a Type-1 (text) ACE file. Native
+    /// convenience; in a browser use [`AceTable::to_type1_text`].
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::to_ace`], or [`NjoyError::Io`].
     pub fn write_ace<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
-        let r = self.reconr.as_ref().ok_or(NjoyError::NotPorted(
-            "call .reconstruct() before .write_ace()",
-        ))?;
-        // tz = k_B·T expressed in MeV (NJOY's `tz`).
-        let kt_mev = crate::common::phys::BK_EV_PER_K * self.temperature.get::<kelvin>() / 1.0e6;
+        self.to_ace()?.write_type1(path).map_err(NjoyError::Io)
+    }
 
-        // Secondary-neutron energy distributions (TYR / LDLW / DLW) for the
-        // producing reactions: Law 3 for discrete levels, Law 4 from MF=6.
-        let partials: Vec<(i32, f64)> =
-            r.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
-        let emissions =
-            crate::acer::energy::build_emissions(&self.tape, self.mat, r.material.awr, &partials);
+    /// Write [`Self::to_ace`] as a Type-2 (Fortran unformatted, `itype = 2`)
+    /// ACE file. Native convenience; in a browser use
+    /// [`AceTable::to_type2_bytes`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::write_ace`].
+    pub fn write_ace_type2<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
+        self.to_ace()?.write_type2(path)
+    }
 
-        let ang = self
+    /// The processed cross sections as a **PENDF tape**: MF=1/MT=451 (ZA,
+    /// AWR, and the temperature in the record NJOY's GROUPR and ERRORR read
+    /// it from) and one MF=3 section per reaction, built by
+    /// [`Tape::pendf_from_pointwise`]. The values are already PENDF-rounded,
+    /// so they survive [`Tape::write`] and [`Tape::read`] unchanged.
+    ///
+    /// **Scope, stated:** this is the pointwise content of NJOY's PENDF, not
+    /// a byte copy of it. NJOY's RECONR/BROADR tape also carries the MF=1
+    /// description text, MF=2 with `LRU = 0`, each MF=3 section's `QM` and
+    /// `LR`, and the MF=12/13 photon sections; those are not written. HEATR's
+    /// MT=301 and PURR's MT=152/153 are not written either; they are on
+    /// [`NuclearCrossSections::heating`] and [`NuclearCrossSections::urr`].
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError::InvalidInput`] before [`Self::broaden`].
+    pub fn to_pendf_tape(&self) -> Result<Tape, NjoyError> {
+        let xs = self.processed()?;
+        let iverf = self
             .tape
-            .section(self.mat, 4, 2)
-            .map(crate::acer::angular::parse_elastic_angular)
-            .transpose()?;
+            .section(self.mat, 1, 451)
+            .map_or(6, |s| crate::moder::layout::iverf_from_mf1(&s.rows));
+        Ok(Tape::pendf_from_pointwise(
+            self.mat,
+            iverf,
+            xs.za(),
+            xs.awr(),
+            xs.temperature.get::<kelvin>(),
+            xs.pendf
+                .sections
+                .iter()
+                .map(|s| (s.mt.number(), s.pairs.as_slice())),
+        ))
+    }
 
-        // HEATR MT=301 heating (KERMA) for the ESZ heating column: H1–H5.
-        // ν̄/χ drive the fission term (H4); the emission spectra drive H5. All
-        // default to a benign no-op for materials that lack the corresponding
-        // data (non-fissionable ⇒ MT=18 absent ⇒ ν̄/χ never evaluated).
-        let nu = crate::nuclear_data::secondary::NuBar::from_endf(&self.tape, self.mat)?
-            .unwrap_or_default();
-        let chi =
-            crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(&self.tape, self.mat)?
-                .unwrap_or_default();
-        let emission = crate::heatr::build_emission_spectra(&self.tape, self.mat);
-        let photons = crate::photon::PhotonProduction::from_endf(&self.tape, self.mat, r);
-        let kerma = crate::heatr::Kerma::from_reconr(r, &nu, &chi, &emission)
-            .with_energy_balance(&photons, r);
-
-        let ace = crate::acer::AceTable::from_reconr_full(
-            r,
-            kt_mev,
-            0,
-            ang.as_ref(),
-            &emissions,
-            Some(&kerma),
-        );
-        ace.write_type1(path).map_err(NjoyError::Io)
+    /// Write [`Self::to_pendf_tape`] as ENDF text with [`Tape::write`]
+    /// (MODER's formatting). Native convenience.
+    ///
+    /// ~~Returns [`NjoyError::NotPorted`] until the PENDF writer is
+    /// implemented.~~ **CHANGED 2026-10-17 (GitHub #933):** writes the
+    /// pointwise PENDF content described on [`Self::to_pendf_tape`].
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::to_pendf_tape`], or [`NjoyError::Io`].
+    pub fn write_pendf<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
+        let mut text = Vec::new();
+        self.to_pendf_tape()?.write(&mut text)?;
+        std::fs::write(path, text).map_err(NjoyError::Io)
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    fn eval(&self, mt: MtReaction, e_ev: f64) -> f64 {
-        match &self.reconr {
-            None => 0.0,
-            Some(r) => {
-                let sec = r.sections.iter().find(|s| s.mt == mt);
-                sec.map_or(0.0, |s| eval_lin_lin(&s.pairs, e_ev))
-            }
+    /// The sections queries read: processed if there are any, else RECONR's.
+    fn sections(&self) -> Option<&ReconrResult> {
+        match (&self.processed, &self.reconstruction) {
+            (Some(p), _) => Some(&p.pendf),
+            (None, Some(r)) => Some(&r.reconr),
+            (None, None) => None,
         }
+    }
+
+    fn processed(&self) -> Result<&NuclearCrossSections, NjoyError> {
+        self.processed.as_ref().ok_or_else(|| {
+            NjoyError::InvalidInput("call .reconstruct() and .broaden() first".into())
+        })
+    }
+
+    fn not_reconstructed() -> NjoyError {
+        NjoyError::InvalidInput("call .reconstruct() first".into())
     }
 }
 
@@ -334,13 +534,9 @@ impl NuclearDataLibrary {
 /// In-memory continuous-energy nuclear data for one material.
 ///
 /// Returned by [`NuclearDataLibrary::to_continuous_energy_data`]. Contains
-/// the fully reconstructed, Doppler-broadened cross sections as uom-typed
-/// (energy, σ) tables — the same data that would live in an ACE file, but
-/// accessible without parsing text formats.
-///
-/// Designed for direct consumption by a future OpenMC Rust binding in this
-/// workspace (`outram-mc-libs`), where the material data is loaded once and queried
-/// many times during transport.
+/// the reconstructed (and, after `broaden`, Doppler-broadened) cross sections
+/// as uom-typed (energy, σ) tables — the same data that would live in an ACE
+/// file, but accessible without parsing text formats.
 #[derive(Debug, Clone)]
 pub struct ContinuousEnergyData {
     /// Z×1000 + A (e.g. 1828 for Ar-37, 9228 for U-235).

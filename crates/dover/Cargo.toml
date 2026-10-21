@@ -1,0 +1,51 @@
+[package]
+name = "deck-based-open-source-visualisation-engine-for-reactors-dover"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "DOVER (Deck-based Open-source Visualisation Engine for Reactors) — low-fidelity reactor models driven by TOML input decks, headless. First case: steam methane reforming in a CSTR."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 4
+topic = "app"
+fidelity = 0
+maturity = 1
+backronym = "Deck-based Open-source Visualisation Engine for Reactors"
+
+# Dependencies arrive only when code here calls into them (the crate rule from
+# when this was an empty skeleton still holds). Each of these is called.
+#
+# All three are pure Rust with no system BLAS, C toolchain or windowing stack,
+# so the library stays Android- and wasm-buildable per the workspace rules.
+[dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
+# The reactor stack DOVER composes: Cstr, Reaction, EquilibriumConstant,
+# ReactorFeed/Outcome. Reused rather than reimplemented -- see src/lib.rs.
+outram-park-fork-dwsim-libs = { workspace = true }
+# The deck is a typed, validated document; serde derives it and toml parses it.
+serde = { workspace = true }
+toml = { workspace = true }
+
+# The package name spells out the backronym (`dover` on crates.io belongs to
+# another project); the library keeps the short name, so `use dover::...` works.
+[lib]
+name = "dover"
+path = "src/lib.rs"

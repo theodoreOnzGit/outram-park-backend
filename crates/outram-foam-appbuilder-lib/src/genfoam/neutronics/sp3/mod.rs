@@ -101,7 +101,9 @@ mod tests;
 
 use std::sync::Arc;
 
-use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField};
+use outram_foam_basic_lib::prelude::{
+    fvm::DeltaCoeff, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
+};
 
 use crate::genfoam::neutronics::state::NeutronicsState;
 use crate::genfoam::neutronics::xs::CrossSectionData;
@@ -125,6 +127,13 @@ pub struct Sp3Settings {
     pub max_outer_iterations: usize,
     /// Inner linear-solver settings (one moment-equation solve).
     pub linear: SolverSettings,
+    /// Which face-distance coefficient the moment Laplacians divide by.
+    ///
+    /// Same meaning and same default as
+    /// [`DiffusionSettings::delta_coeff`](crate::genfoam::neutronics::DiffusionSettings::delta_coeff):
+    /// GeN-Foam's neutronics `fvSchemes` asks for `uncorrected`, so the faithful
+    /// setting is [`DeltaCoeff::NonOrthogonal`].
+    pub delta_coeff: DeltaCoeff,
 }
 
 impl Default for Sp3Settings {
@@ -137,6 +146,7 @@ impl Default for Sp3Settings {
                 tolerance: 1e-9,
                 max_iter: 2000,
             },
+            delta_coeff: DeltaCoeff::NonOrthogonal,
         }
     }
 }

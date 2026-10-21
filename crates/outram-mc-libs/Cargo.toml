@@ -1,6 +1,6 @@
 [package]
 name = "outram-mc-libs"
-version = "0.0.4"
+version = "0.0.6"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,23 +9,46 @@ homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
-# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
-# and never shipped in the packaged crate. `docs/` (incl. the generated
-# docs/api.md rustdoc mirror) isn't crate content either.
-exclude = [
-    "verification_and_validation/*.csv",
-    "verification_and_validation/**/*.csv",
-    # OpenMC input-script snapshots: committed to git for reproducibility, but
-    # they are third-party (BSD-3) reference decks, not crate source — keep them
-    # out of the published tarball.
-    "verification_and_validation/**/openmc_inputs/**",
-    "docs",
+# What crates.io gets: an ALLOW-LIST (maintainer direction 2026-10-16;
+# was an `exclude` list, which shipped 707 files, 5.9 MiB compressed of the
+# 10 MiB limit, mostly V&V figures, .npy references and kovan metadata).
+# Patterns are anchored with a leading / (gitignore rules: an unanchored
+# "README.md" matches every README in the tree). Only the library source, its embedded WGSL shaders (under src/), the
+# licences and the provenance notes ship. tests/, examples/,
+# verification_and_validation/, docs/ and the kovan files stay in git.
+include = [
+    "/src/**/*.rs",
+    "/src/**/*.wgsl",
+    "/src/**/README.md",
+    "/README.md",
+    "/LICENSE",
+    "/LICENSE.openmc",
+    "/NOTICE",
+    "/TRADEMARKS.md",
+    "/NUCLEAR_DATA.md",
+    "/upstream_source/README.md",
 ]
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "neutronics"
+fidelity = 4
+maturity = 2
+
 [dependencies]
-# Routed float maths (bn:op-chyp.5); see src/mathf.rs. no_std. exp/ln/powf go
-# through it in every build (ARM optimized-routines ports); the rest is gated
-# behind the `deterministic-math` feature below.
+# Routed float maths; see src/mathf.rs. no_std. EVERY transcendental call goes
+# through PETIR in every build, no feature (gh:#985).
 petir.workspace = true
 thiserror = { workspace = true }
 ndarray = { workspace = true }
@@ -33,8 +56,68 @@ ndarray = { workspace = true }
 # microscopic cross sections from this crate's provider surface. See
 # docs/architecture.md.
 njoy-outram-park-fork = { workspace = true }
-# Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
-# `material::thermal`), which speaks dimensioned `uom` types. The transport hot
+# Granular DEM (LIGGGHTS port), so a pebble bed can be SETTLED physically and
+# handed to transport: `pebble_beds::dem_bed` converts a settled
+# `GranularSystem` / `DemSimulation` into pebble centres in this crate's cm
+# convention (maintainer direction, 2026-10-02: "so it is easier to model
+# pebble beds"). Before 2026-10-02 this edge was impossible -- liggghts' default
+# `gnn` feature depends on `raffles`, which depended on this crate for its RNG
+# and a CSG adapter; both moved out (to `petir::rng` and
+# `outram_blender::gnn_graph`) so the graph is acyclic.
+#
+# FEATURES: NONE of liggghts' defaults, deliberately (the root entry sets
+# `default-features = false`). `long-tests` gates liggghts' OWN slow tests and
+# means nothing to a dependent; `gnn` pulls `raffles` (a UQ / graph-network
+# crate) that nothing here uses -- the bridge needs only particle positions and
+# radii. What does come in unconditionally: `rayon` (already a dependency
+# here) and, on desktop only, `wgpu` (target-gated off Android and wasm by
+# liggghts exactly as this crate gates its own; already in this tree). Pure
+# Rust, no BLAS, Android- and wasm-clean.
+outram-park-fork-liggghts = { workspace = true }
+# Generic statistics (GitHub issue #500, 2026-10-02): the sample mean/stderr of
+# the active generations, seed pooling, Shannon entropy over mesh counts, the
+# trigger's running-sum statistics, tally error propagation and the generic
+# seed-driven samplers now live in `raffles::estimators` and
+# `raffles::distributions::seeded`. The rule: the maths on numbers lives in
+# RAFFLES; deciding WHAT is counted stays here. Allowed edge (maintainer,
+# 2026-10-02) because `raffles` depends only on `petir` -- it must never depend
+# on this crate. Default features: `long-tests` gates raffles' own slow tests
+# and costs a dependent nothing; `burn` stays off. Pure Rust, Android/wasm-clean.
+raffles = { workspace = true }
+# CSG geometry DESCRIPTION and its pure navigation kernel (GitHub #486,
+# maintainer decision 2026-10-02): position, surfaces, cells, universes,
+# lattices, `Geometry::locate` / `distance_to_boundary`, the TRISO particle
+# builder and the tally-mesh description live in `outram_blender::csg` (and
+# `spatial_mesh`), re-exported here under the old `geometry::*` /
+# `tally::mesh::*` paths. Transport-state work stays here on `*Ext` traits
+# (`geometry::crossing`). The root workspace entry is `default-features =
+# false`, so blender's `gpu` (wgpu) feature is not pulled; this crate has its
+# own GPU path. outram-blender must never depend on this crate.
+outram-blender = { workspace = true }
+# Coarse-mesh steady conduction + energy balance for the beginner thermal
+# profile (maintainer decision, gh:#949; see also gh:#945, epic #925). Edge
+# ADDED 2026-10-17 with no code using it yet. No cycle: outram-foam-basic-lib
+# depends only on petir (checked with `cargo tree -i`), and no outram-foam-*
+# crate depends on this crate. Features: the crate's defaults are EMPTY, so
+# `parallel` (rayon) and `gpu` (wgpu) stay off and nothing is pulled in that
+# this tree did not already carry; no `default-features = false` is needed.
+outram-foam-basic-lib = { workspace = true }
+# IAPWS-IF97 water density for the beginner `model::Material::water(T, p)`
+# (maintainer decision on gh #925, 2026-10-17: "using existing helps"; water
+# from the existing steam tables, as OpenMC's `borated_water` takes T and p).
+# Edge ADDED 2026-10-17 (gh #937). No cycle: tampines-steam-tables depends on
+# approx, petir, ndarray, thiserror, uom and outram-foam-basic-lib, all
+# already in this crate's tree, and nothing it depends on depends on this
+# crate. No features. Pure Rust, Android- and wasm-clean (it is in
+# scripts/check-wasm.sh's scope).
+tampines-steam-tables = { workspace = true }
+# ~~Used ONLY at the njoy nuclear-data boundary (S(α,β) thermal scattering import in
+# `material::thermal`), which speaks dimensioned `uom` types.~~ CORRECTED
+# 2026-10-17 (gh:#951, checked by grep over src/): `uom` is used at every
+# public boundary that is not the transport loop -- the njoy data boundary
+# (`material::thermal`, `material::nuclide`, `plotter::xs`), the beginner
+# `model` API, `thermal_profile`, `pebble_beds::dem_bed`, and the
+# `inventory::RadionuclideInventory` handoff to sembawang. The transport hot
 # loop stays raw `f64` — see this crate's CLAUDE.md "Units" note.
 uom = { workspace = true }
 # Depletion / transmutation data — CONSUMED, not rebuilt. All pure-Rust
@@ -55,6 +138,14 @@ fission-yields-data = { workspace = true }
 #     `ComputeType::Gpu` is requested but no GPU adapter is available.
 # rayon / ratatui: see the wasm target table at the end of this manifest.
 log = { workspace = true }
+# Pure-Rust DEFLATE, used by `src/plotter/script.rs`. ~~for the geometry
+# plotter's PNG writer (`src/geometry/plot/image.rs`, gh:#268)~~ -- that writer
+# moved to `outram_blender::csg::plot::image` on 2026-10-02 (GitHub #486),
+# which names miniz_oxide itself. NOT a new crate in the build: it is
+# already a non-optional dependency of `njoy-outram-park-fork` above, and builds
+# for Android/Termux and wasm32 there. Named here only so the plot module can
+# call it directly instead of re-exporting it through the data crate.
+miniz_oxide = { workspace = true }
 # Terminal-UI stack for the `outram-mc-tui` binary (see [[bin]] below). An
 # unconditional (non-gated, non-target-gated) dependency: a terminal UI is
 # Android-in-scope per the workspace CLAUDE.md ("Android portability": only
@@ -64,18 +155,15 @@ log = { workspace = true }
 # (ratatui moved to the wasm target table at the end of this manifest.)
 
 [features]
-# Route the REMAINING transcendentals -- log10, cbrt, cos, sin, tanh, atan2 --
-# through PETIR instead of std's platform libm, making them BIT-IDENTICAL
-# across platforms.
-#
-# NOTE the narrowed scope (2026-09-14): exp, ln and powf no longer depend on
-# this feature. They go to PETIR in EVERY build, because PETIR now routes them
-# to its ports of ARM optimized-routines (the implementation glibc itself
-# ships) rather than to musl-derived libm -- which made determinism free or
-# better on those three: ~1.8x faster than the old libm route on exp, ~2.1x on
-# powf, and exp is now faster than the platform. Only the six functions above
-# still carry a cost worth opting into. See src/mathf.rs.
-deterministic-math = []
+# Tests that individually exceed 5 minutes (workspace CLAUDE.md hard rule).
+# DEFAULT-ON, deliberately: a long test that is off by default is a test that
+# rots. `cargo quick-test` (--no-default-features) is the iteration escape
+# hatch; work is not done on a quick-test run.
+default = ["long-tests"]
+long-tests = []
+
+# `deterministic-math` was REMOVED 2026-10-20 (gh:#985): deterministic maths
+# is compiled in unconditionally; see src/mathf.rs.
 # HIGH-fidelity nuclear data. Forwards to njoy's `net-fetch` tier so
 # `Nuclide::from_endf` can download raw ENDF tapes and reconstruct pointwise
 # σ(E) on device (RECONR + BROADR). Off by default — the LOW tier
@@ -143,6 +231,15 @@ path = "src/bin/outram-mc-tui/main.rs"
 [[example]]
 name = "fhr_pebble_quickstart"
 
+# Nuclear-data loading probe (gh #935, #936): a cdylib whose plain `extern "C"`
+# exports a web page drives in headless Chromium, to show the folder/zip/ACE
+# loaders RUN in a browser and give the native fingerprints. See
+# verification_and_validation/nuclear_data_loading_web/.
+[[example]]
+name = "nd_wasm_probe"
+path = "examples/nd_wasm_probe/lib.rs"
+crate-type = ["cdylib"]
+
 # Gated V&V example — see the `endf-pebble-cases` feature above.
 [[example]]
 name = "fhr_ring_rpt_endf"
@@ -174,6 +271,13 @@ required-features = ["endf-pebble-cases"]
 # the discriminator for self-shielded U-238 resonance escape (op-mzvp.2.12).
 [[example]]
 name = "lct008_keff"
+required-features = ["endf-pebble-cases"]
+
+# Tutorial rung 4 (GitHub #526): LCT-008's pin in a reflective square cell,
+# k-infinity and six factors against pitch (under-/over-moderation). Needs the
+# reference ENDF tapes, so it is gated like the other LCT-008 examples.
+[[example]]
+name = "lct008_pitch_sweep"
 required-features = ["endf-pebble-cases"]
 
 [[example]]
@@ -213,6 +317,18 @@ required-features = ["endf-pebble-cases"]
 name = "godiva_keff_endf_local"
 required-features = ["endf-pebble-cases"]
 
+# The four ICSBEP cases by nuclear-data route (ENDF direct, NJOY2016 ACE,
+# Rust-NJOY ACE): the outram-mc half of the five-route study in
+# verification_and_validation/icsbep/five_route_keff/.
+[[example]]
+name = "icsbep_five_route_keff"
+required-features = ["endf-pebble-cases"]
+
+# Localiser for the ACE-vs-ENDF route gap found by the five-route study.
+[[example]]
+name = "ace_vs_endf_nuclide_probe"
+required-features = ["endf-pebble-cases"]
+
 # Oracle: our graphite S(a,b) OUTGOING-ENERGY distribution vs NJOY2016's THERMR
 # scattering matrix -- the kernel, not the cross section (op-mzvp.2.12).
 [[example]]
@@ -236,6 +352,18 @@ required-features = ["endf-pebble-cases"]
 # infinite-dilution limit -- tests transport, not data (op-mzvp.2.12).
 [[example]]
 name = "u238_resonance_escape"
+required-features = ["endf-pebble-cases"]
+
+# Tutorial rung 2 (GitHub #524): homogeneous uranium in graphite, the four-factor
+# formula from the six-factor tallies, and the natural-U k_inf sweep.
+[[example]]
+name = "ugraphite_four_factor"
+required-features = ["endf-pebble-cases"]
+
+# Tutorial rung 3 (GitHub #525): natural-uranium metal lumps in graphite,
+# k_inf vs lump radius at fixed C/U, Wigner-Seitz cell with a white boundary.
+[[example]]
+name = "lumped_ugraphite_kinf"
 required-features = ["endf-pebble-cases"]
 
 # Oracle: resonance integral (area under the resonances, not point values) vs

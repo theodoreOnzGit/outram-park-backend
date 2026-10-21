@@ -1,0 +1,170 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/dielectric_constant"
+test_ids = [
+    "crates/tampines-steam-tables/src/dielectric_constant/tests.rs::dielectric_constant_test_1",
+    "crates/tampines-steam-tables/src/dielectric_constant/tests.rs::dielectric_constant_test_2",
+    "crates/tampines-steam-tables/src/dielectric_constant/tests.rs::dielectric_constant_test_3",
+]
+
+[module."mod.rs"]
+path = "crate::dielectric_constant"
+
+[[module."mod.rs".function]]
+id = "fn:92588aac7e2d2d6c"
+name = "water_dielectric_const_rho_t"
+qual = "water_dielectric_const_rho_t"
+lines = [
+    16,
+    34,
+]
+hash = "sha256:47e1839af47faf0de5982ee9da81dd2de5a7147ec022b966b161d2ecb49a8ba6"
+doc_hash = "sha256:5b8fa041508ac271683ef92c19ec9af96324b8411d562f73b003ed80095d27f6"
+callees = [
+    "fn:25b3213346edb6e2",
+    "fn:2879649211044056",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:879724af5f1e7bff"
+name = "molar_mass_water_for_dielectric_const"
+qual = "molar_mass_water_for_dielectric_const"
+lines = [
+    36,
+    41,
+]
+hash = "sha256:e532499b376ff29ed19689d3b0b91e100aa566d331345cc221102b2d84c75473"
+doc_hash = "sha256:7c91a98a59033b33f1d2b486664af1132234af7548779706f71c18b5ba63f5fe"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:198239456736a3fd"
+name = "G_BAR_COEFFS_DIELECTRIC_CONST"
+qual = "G_BAR_COEFFS_DIELECTRIC_CONST"
+item = "const"
+shape = "const"
+lines = [
+    43,
+    56,
+]
+hash = "sha256:ea92f7502ff12f17c4e0be5b45ed2563f2a87fb318a893cd3c4c9bef0d3490fd"
+doc_hash = "sha256:775ac4d5a8525009c6e0e8ed86d1370ba9ab3c5588909ce3ba903157920d93ec"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2879649211044056"
+name = "captial_a"
+qual = "captial_a"
+lines = [
+    58,
+    97,
+]
+hash = "sha256:34688bc41171e5334023b9ea734b1d77fa75c66f8ba7f323ef91f325289282fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:091fa665325c059d",
+    "fn:0ca2f8691d9aeb88",
+    "fn:4ebf34fbe6969275",
+    "fn:879724af5f1e7bff",
+    "fn:89dd813310599ab0",
+    "fn:d8294c63e54d49a1",
+    "fn:da6310ce1d5d4c41",
+    "fn:fc5c518e6262a46c",
+]
+uses = ["fn:198239456736a3fd"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:25b3213346edb6e2"
+name = "captial_b"
+qual = "captial_b"
+lines = [
+    99,
+    110,
+]
+hash = "sha256:2e9ffc0b0d27106fac9ca500616b54bbd609b2683e01cc4cd0170595aa95d73e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4ebf34fbe6969275",
+    "fn:6ebd54b059d855b8",
+    "fn:879724af5f1e7bff",
+    "fn:d8294c63e54d49a1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+physical_interface = true
+
+[module."tests.rs"]
+path = "crate::dielectric_constant::tests"
+
+[[module."tests.rs".function]]
+id = "fn:d13b8df17a0e0cac"
+name = "dielectric_constant_test_1"
+qual = "dielectric_constant_test_1"
+lines = [
+    9,
+    24,
+]
+hash = "sha256:97c1df5210e9ae6cb363a492f0b75218cd08327c29c6b64ef4d9b401999d5a21"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:60bc9505f708a609",
+    "fn:92588aac7e2d2d6c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:fe85d6cb34a0fae8"
+name = "dielectric_constant_test_2"
+qual = "dielectric_constant_test_2"
+lines = [
+    25,
+    41,
+]
+hash = "sha256:355b656ce068e1a647cef60a6afc60830c5d350800a0fd35864254ee47683c6a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:60bc9505f708a609",
+    "fn:92588aac7e2d2d6c",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:fd839c8025aee029"
+name = "dielectric_constant_test_3"
+qual = "dielectric_constant_test_3"
+lines = [
+    42,
+    58,
+]
+hash = "sha256:b12c1a6e9a41d28d56509228b7f2b7cc228fd65df2ae9c355466457a537e1bc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:60bc9505f708a609",
+    "fn:92588aac7e2d2d6c",
+]
+test = true

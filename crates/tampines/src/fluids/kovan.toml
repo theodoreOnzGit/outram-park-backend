@@ -1,0 +1,21 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src/fluids"
+
+[module."mod.rs"]
+path = "crate::fluids"
+
+[[module."mod.rs".function]]
+id = "fn:556c64d84907ee9c"
+name = "TampinesFluid"
+qual = "TampinesFluid"
+item = "type"
+shape = "enum"
+lines = [
+    11,
+    61,
+]
+hash = "sha256:aa2f2c1ea7ec59190b8345541c17492825e8f4f30255c3382a9197cec13c773f"
+doc_hash = "sha256:24fe19001ac4bd063ba5df10b1bbab5c3853bd80f9303627a0436f0b3464d1df"
+uses = ["fn:76b3c86a3f053867"]

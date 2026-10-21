@@ -66,6 +66,7 @@
 //! (`r = tan(theta/2) a` for a rotation of `theta` about the unit axis `a`).
 //! Euler angles are in radians unless the constructor's name says degrees.
 
+use petir::mathf::RealMath;
 use crate::error::{FemError, Result};
 use crate::tensor::Voigt6;
 
@@ -212,9 +213,9 @@ impl Orientation {
     /// `(0, 0, 0)` is the cube orientation.
     #[must_use]
     pub fn from_bunge_euler_radians(phi1: f64, cap_phi: f64, phi2: f64) -> Self {
-        let (s1, c1) = phi1.sin_cos();
-        let (s, c) = cap_phi.sin_cos();
-        let (s2, c2) = phi2.sin_cos();
+        let (s1, c1) = phi1.r_sin_cos();
+        let (s, c) = cap_phi.r_sin_cos();
+        let (s2, c2) = phi2.r_sin_cos();
         // g: sample -> crystal, Bunge ZXZ.
         let g = [
             [c1 * c2 - s1 * s2 * c, s1 * c2 + c1 * s2 * c, s2 * s],
@@ -308,10 +309,10 @@ impl Orientation {
         let two_pi = 2.0 * std::f64::consts::PI;
         let (a, b) = ((1.0 - u[0]).max(0.0).sqrt(), u[0].max(0.0).sqrt());
         Orientation::from_quaternion(
-            a * (two_pi * u[1]).sin(),
-            a * (two_pi * u[1]).cos(),
-            b * (two_pi * u[2]).sin(),
-            b * (two_pi * u[2]).cos(),
+            a * (two_pi * u[1]).r_sin(),
+            a * (two_pi * u[1]).r_cos(),
+            b * (two_pi * u[2]).r_sin(),
+            b * (two_pi * u[2]).r_cos(),
         )
     }
 
@@ -396,6 +397,15 @@ impl Orientation {
 
     /// The inverse (sample-to-crystal) rotation, i.e. `R^T` stored as an
     /// [`Orientation`] in its own right. Dimensionless.
+    ///
+    /// Deliberately **not** `petir::linalg::inverse` (gh:#992, 2026-10-20):
+    /// `from_matrix` guarantees `R` is orthonormal, so its inverse is its
+    /// transpose — a copy with no arithmetic and no rounding. An LU inverse
+    /// would add rounding and break the exact `inverse().inverse() == R`
+    /// that `orientation_constructors_agree_and_are_proper_rotations` asserts. The `det R`
+    /// check in `from_matrix` is likewise kept as a 3x3 cofactor expansion:
+    /// it only gates `+1` against `-1` at `1e-10`, and an LU determinant
+    /// would buy nothing there.
     #[must_use]
     pub fn inverse(&self) -> Orientation {
         let mut m = [[0.0_f64; 3]; 3];
@@ -467,10 +477,14 @@ mod tests {
         let mut worst = 0.0f64;
         for degrees in [10.0, 37.0, 90.0, 155.0] {
             let theta: f64 = degrees * std::f64::consts::PI / 180.0;
-            let rodrigues = Orientation::from_rodrigues([0.0, 0.0, (theta / 2.0).tan()]);
+            let rodrigues = Orientation::from_rodrigues([0.0, 0.0, (theta / 2.0).r_tan()]);
             let bunge = Orientation::from_bunge_euler_degrees(degrees, 0.0, 0.0);
-            let quaternion =
-                Orientation::from_quaternion((theta / 2.0).cos(), 0.0, 0.0, (theta / 2.0).sin());
+            let quaternion = Orientation::from_quaternion(
+                (theta / 2.0).r_cos(),
+                0.0,
+                0.0,
+                (theta / 2.0).r_sin(),
+            );
             worst = worst.max(worst_entry(&rodrigues, &bunge));
             worst = worst.max(worst_entry(&rodrigues, &quaternion));
             assert!(Orientation::from_matrix(rodrigues.matrix()).is_ok());

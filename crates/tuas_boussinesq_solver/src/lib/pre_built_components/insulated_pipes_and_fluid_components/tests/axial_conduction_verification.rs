@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use crate::array_fluid_collections::fluid_array_lateral_coupling::FluidArray;
 use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boundary_conditions::BCType;
@@ -152,7 +153,7 @@ pub fn static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua() {
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * Ratio::new::<ratio>((-ua / m_cp).value.r_exp()).get::<ratio>()
         + ambient_temp_degc;
 
     // now this is the simulation
@@ -425,7 +426,7 @@ pub fn static_mixer_41_label_6_1_meter_test_reduced_thickness_increased_ua_fluid
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * Ratio::new::<ratio>((-ua / m_cp).value.r_exp()).get::<ratio>()
         + ambient_temp_degc;
 
     // now this is the simulation
@@ -726,7 +727,7 @@ pub fn reduced_thickness_increased_ua_test_interal_thermal_resistance_check_flui
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * Ratio::new::<ratio>((-ua / m_cp).value.r_exp()).get::<ratio>()
         + ambient_temp_degc;
 
     // now this is the simulation
@@ -1042,7 +1043,7 @@ pub fn reduced_thickness_increased_ua_test_check_fluid_array_and_insulation_arra
     let m_cp = mass_flowrate * pipe_fluid.try_get_cp(average_expected_temp).unwrap();
 
     let analytical_outlet_temp_degc = (inlet_temp_degc - ambient_temp_degc)
-        * (-ua / m_cp).exp().get::<ratio>()
+        * Ratio::new::<ratio>((-ua / m_cp).value.r_exp()).get::<ratio>()
         + ambient_temp_degc;
 
     // now this is the simulation

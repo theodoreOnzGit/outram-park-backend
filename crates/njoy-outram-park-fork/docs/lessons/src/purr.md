@@ -1,0 +1,164 @@
+# Rung 4 — UNRESR and PURR: the unresolved range
+
+> **Research, education and V&V only.** Not for reactor operation, licensing,
+> safety decisions or emergency response.
+
+> **Review status: first draft, 2026-10-04, AI-assisted, not yet reviewed by a
+> human.**
+
+**Modules:** `unresr`, `purr` (and RECONR's unresolved table, `reconr::urr`).
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=purr): PURR's probability bands for U-238 in the unresolved range, at a temperature you choose.
+
+## The question
+
+Above 20 keV, U-238's resonances are too close together and too narrow for
+experiments to resolve one by one. The evaluation gives only **averages**:
+mean spacing, mean widths and how the widths fluctuate. The resonances are
+still there in nature. **What cross section should a neutron at 50 keV see?**
+
+## The shortest answer
+
+Two different answers, for two different users:
+
+- **Infinitely dilute** (a trace of U-238 in a huge background): the plain
+  average, ⟨σ⟩. RECONR computes it (or finds it in MF=3, see `LSSF` below).
+- **Self-shielded** (lots of U-238): fewer neutrons survive at the peaks, so
+  the flux-weighted cross section is **lower** than the average. Deterministic
+  codes want a table of effective σ versus background cross section σ₀
+  (UNRESR, Bondarenko method; [MacFarlane et al., 2017](#ref-njoy2016)). Monte Carlo codes want **probability tables**
+  (PURR): "at this energy, σ_t lies in band *b* with probability *p_b*, and
+  then the partials are …".
+
+## The formulas
+
+The Bondarenko self-shielded cross section, for a nuclide diluted in a
+background `σ₀` (barns per atom of this nuclide):
+
+```text
+σ_x,eff(σ₀) = ⟨ σ_x / (σ_t + σ₀) ⟩  /  ⟨ 1 / (σ_t + σ₀) ⟩
+```
+
+where ⟨ ⟩ averages over the resonance statistics. As σ₀ → ∞ it tends to ⟨σ_x⟩.
+
+A probability table replaces the average by a distribution. PURR samples
+**resonance ladders** (Wigner-distributed spacings, Porter–Thomas (χ²)
+widths) around each energy, Doppler-broadens them, evaluates σ at random
+energies, and sorts the samples into `nbin` bands of σ_t:
+
+```text
+band b:  probability p_b,  conditional means  σ_t,b, σ_el,b, σ_f,b, σ_γ,b,  heating_b
+```
+
+At a collision the transport code draws ξ and takes the first band whose
+cumulative probability exceeds it. The port's lookup (used by
+`outram-mc-libs` on every flight in the unresolved range):
+
+```rust,ignore
+{{#include ../../../src/purr/tables.rs:lesson_band}}
+```
+
+## `LSSF`: the same flag, two opposite consequences
+
+Rung 1 quoted the manual: with `LSSF = 1` the MF=3 values *are* the dilute
+cross sections and the unresolved parameters supply only a self-shielding
+factor; with `LSSF = 0` MF=3 holds a background and the parameters must supply
+the rest.
+
+- **U-238 and U-235 (ENDF/B-VIII.0) are `LSSF = 1`.** Adding a reconstructed
+  dilute cross section on top of MF=3 would double-count; that was the
+  hypothesis "read upstream first" killed (rung 1).
+- **U-234 (ENDF/B-VIII.0, MAT 9225) is `LSSF = 0`.** Until 2026-09-14 the port
+  skipped RECONR's unresolved table, so **7 of 10 log-spaced samples of MT=1
+  across 1.5–100 keV came back 0.0**, against NJOY2016's 20.32567 b at
+  1700 eV. A zero total cross section is an infinite flight, and U-234 is one
+  of Godiva's three nuclides. It went unnoticed because every case before then
+  was built on `LSSF = 1` materials. Record:
+  [`reconr/urr.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/reconr/urr.rs)
+  module doc and
+  [`tests/reconr_urr_kernel_vs_njoy2016.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/tests/reconr_urr_kernel_vs_njoy2016.rs).
+
+**Reuse, not a port.** RECONR's own dilute-cross-section routines
+(`csunr1`/`csunr2`, 491 lines) were never ported: UNRESR's kernel
+`unresr::unresolved_cross_sections`, handed a single dilution of 1e10, gives
+the same numbers, identical to all 7 figures NJOY prints at 1.7, 5 and 10 keV
+on all four reactions (same record).
+
+**A deliberate divergence.** RECONR's and PURR's `unfac` have no `l ≥ 3`
+branch, so on an evaluation with more than three `l`-states NJOY inflates the
+`l ≥ 3` neutron width; on Fe-58 (ENDF/B-VIII.0 Beta4) NJOY stores 1.42e4 b at
+350 keV. The port follows UNRESR's `uunfac`, which clamps `l ≥ 2` correctly,
+and gives 4.57 b. The test reproduces NJOY's number from the defective
+recurrence to 2.7e-7, so this is a diagnosis, not a difference of opinion
+(same module doc).
+
+## In the code: from an ENDF tape to probability tables
+
+> **On the [Code Review map](../../code-review/):** start at [`UrrProbabilityTables::from_endf`](../../code-review/#crates/njoy-outram-park-fork/src/purr/tables.rs::UrrProbabilityTables::from_endf) and follow its callees (▸) to [`generate_ladder`](../../code-review/#crates/njoy-outram-park-fork/src/purr/ladder.rs::generate_ladder). Each card opens the function's source and shows its review stamp.
+
+> **The physics functions:** [Where the physics is](./physics-functions.md#purr) lists only the functions on the map that compute this rung's physics, without the entry point and plumbing above it (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
+**Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
+
+| hop | function | what it does | resolved (kopitiam pass, 2026-10-04) |
+|---|---|---|---|
+| 0 | `UrrProbabilityTables::from_endf` | the entry: `(tape, mat, T, nbin, nladr, nsamp)`; `Ok(None)` without an `LRU = 2` range | entry point ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/purr/tables.rs#@@L:crates/njoy-outram-park-fork/src/purr/tables.rs:fn=from_endf@@)) |
+| 1 | `Tape::section`, `unresr::mf2::parse_lru2_ranges`, `mf2::background_cross_sections` | the average parameters (Cases A/B/C) and the MF=3 background | kopitiam |
+| 1 | `urr_energy_grid` | the table energies, with `rdunf2`'s added nodes | kopitiam |
+| 1 | `infinite_dilution_reference` (`unresx`) | the analytic dilute σ, a convergence check | kopitiam |
+| 1 | `probability_table` (`unrest`) | the Monte Carlo core: ladders, samples, bands | kopitiam |
+| 2 | `Rng` (`rann`, seed `PURR_SEED`), `generate_ladder` (`ladr2`), `unrest::line_shape` + `DopplerTable` (`uwtab2`) | NJOY's random sequence; one sampled ladder; the Doppler line shape in four precision tiers | filled by hand |
+| 1 | `competition_flags`, `lssf_reduced_background`, `mt153` | ACE `ILF`/`IOA`; the `LSSF = 1` division by the dilute σ; the MT=153 text hand-off | kopitiam |
+
+
+## The checks
+
+**1. NJOY's bands, word for word.** Because `rann` and its seed are ported,
+the port's ladders are NJOY's ladders, so a stochastic table can be compared
+**exactly**. Recorded 2026-09-26 in
+[`tests/unr_block_write_vs_njoy2016.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs)
+(`purr_generates_njoys_bands_word_for_word`) and
+[`unr_block_write_2026_09_26.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/unr_block_write/unr_block_write_2026_09_26.md),
+NJOY2016's U-234/235/238 ACE at 293.6 K, PURR 20 bins / 64 ladders:
+
+| nuclide | ACE UNR words | energies ours / NJOY | value mismatches |
+|---|---|---|---|
+| U-234 | 3 152 | 26 / 26 | **0** |
+| U-235 | 2 305 | 19 / 19 | **0** |
+| U-238 | 10 049 | 83 / 83 | **0** |
+
+Six divergences were found and fixed on the way, among them the temperature,
+a bin-edge tie, and `ladr2`'s crossing resonance that is sampled but not used.
+The temperature and the crossing resonance were localised with an
+**instrumented NJOY2016 build** that printed every sample of one ladder:
+when two stochastic codes disagree, print both codes' intermediates rather
+than reasoning about the statistics.
+
+**2. The grid defect it exposed.** The port's PURR had built U-234's tables on
+10 energies (NJOY: 26) and U-235's on 14 (NJOY: 19): `rdunf2`'s "add extra
+nodes" pass had never been ported, and U-238's grid is fine enough that the
+pass inserts nothing there, so the only comparison that existed passed. This
+changed the ENDF route's default physics for U-234 and U-235.
+
+Re-measured for this page on 2026-10-04: 0 differing words on all three
+nuclides, read back and generated ([re-measurement log](./remeasured.md)).
+
+**Not ported, stated:** PURR's and UNRESR's PENDF output sections (MT=152/153
+on a tape) and their card-deck `run()`. The tables go to ACER and to the
+transport code in memory instead.
+
+## Predict
+
+Everything so far treats the target as a **free** atom. Below about 1 eV a
+neutron's wavelength is comparable to the spacing between atoms in graphite or
+the size of a water molecule. **Will a neutron at 0.025 eV scatter off a carbon
+atom in graphite the way it would off a free carbon atom? What could be
+different?**
+
+**Next:** [Rung 5 — THERMR and LEAPR: thermal scattering](./thermr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->

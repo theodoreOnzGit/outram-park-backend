@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!-- kovan-authored probe (#749): the RDF/XML parser's corners. -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:dcterms="http://purl.org/dc/terms/"
+         xmlns:z="http://www.zotero.org/namespaces/export#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/"
+         xmlns:bib="http://purl.org/net/biblio#"
+         xml:base="http://example.org/base/">
+  <!-- A typed node that also has an rdf:type attribute, a property
+       attribute, a title split by a comment, and an xml:lang. -->
+  <bib:Book rdf:ID="quirky" rdf:type="http://purl.org/net/biblio#Thesis" dc:publisher="Attribute Press">
+    <dc:title>Split <!-- a comment --> title</dc:title>
+    <dcterms:alternative xml:lang="fr">Titre court</dcterms:alternative>
+    <z:itemType>book</z:itemType>
+    <z:numPages>  250  </z:numPages>
+    <dc:date rdf:datatype="http://www.w3.org/2001/XMLSchema#gYear">1999</dc:date>
+    <bib:authors rdf:parseType="Resource">
+      <rdf:value>ignored</rdf:value>
+    </bib:authors>
+    <dc:description>Comes after a parseType="Resource" arc.</dc:description>
+    <dc:identifier rdf:parseType="Literal"><b>bold</b></dc:identifier>
+    <dc:subject rdf:nodeID="shared"/>
+    <dc:subject>plain tag</dc:subject>
+    <owl:sameAs rdf:resource="http://example.org/zz-alias"/>
+  </bib:Book>
+  <rdf:Description rdf:nodeID="shared">
+    <rdf:type rdf:resource="http://www.zotero.org/namespaces/export#AutomaticTag"/>
+    <rdf:value>automatic tag</rdf:value>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://example.org/zz-alias">
+    <z:shortTitle>Alias short title</z:shortTitle>
+  </rdf:Description>
+  <bib:Article rdf:about="#list">
+    <dc:title>Creators in a parseType="Collection"</dc:title>
+    <bib:authors rdf:parseType="Collection">
+      <foaf:Person><foaf:surname>First</foaf:surname></foaf:Person>
+      <foaf:Person><foaf:surname>Second</foaf:surname></foaf:Person>
+    </bib:authors>
+    <dc:subject><![CDATA[cdata <tag>]]></dc:subject>
+    <dc:subject></dc:subject>
+  </bib:Article>
+</rdf:RDF>

@@ -26,7 +26,7 @@
 //! `determinism_same_config_same_trace` in this module asserts it.
 
 use crate::app::state::HtgrSnapshot;
-use crate::physics::PLANT_TIMESTEP_S;
+use crate::physics::{PeakFuelRecord, PLANT_TIMESTEP_S};
 use crate::runtime::{PlantControls, PlantRuntime};
 use outram_park_digital_twin_engine::prelude::{HeadlessModel, HeadlessRun};
 use uom::si::f64::Time;
@@ -41,8 +41,12 @@ pub struct HeadlessConfig {
     pub sample_every: usize,
     /// Operator controls, held constant for the whole run.
     ///
-    /// `PlantCommands::default()` is the published operating point with the
-    /// rods at their critical insertion.
+    /// ~~`PlantCommands::default()` is the published operating point with the
+    /// rods at their critical insertion.~~ **CORRECTED 2026-10-01**: it is the
+    /// simulator's opening state -- rods at `GUI_INITIAL_ROD_INSERTION` (0.45,
+    /// shallower than cold-clean critical 0.6045) and helium at 1.29 kg/s (30 %
+    /// of rated). The 2026-09-06 measurement below predates both and is not
+    /// re-measured; pending validation work.
     ///
     /// Its docstring in `physics` claims this starts *"near steady state
     /// rather than on a prompt excursion"*. **Measured 2026-09-06, it does
@@ -68,9 +72,19 @@ impl Default for HeadlessConfig {
 
 /// One sampled row of a headless run.
 ///
-/// A deliberately narrow projection of [`HtgrSnapshot`]'s 66 fields: enough to
+/// A deliberately narrow projection of [`HtgrSnapshot`]'s fields: enough to
 /// detect a behavioural change across the whole plant, few enough that the
 /// committed fixture stays readable and a diff is interpretable.
+///
+/// **Widened 2026-09-29 (gh:#394)** from the kinetics and bed temperatures
+/// alone to the whole primary circuit and the plant's energy ledger, so a
+/// global energy balance can be computed **from the CSV**: the six `e_*_j`
+/// columns are cumulative since construction, and
+/// `e_source_j + e_circulator_work_j - e_stored_j - e_to_steam_generator_j -
+/// e_to_rccs_j = e_residual_j` holds row by row (see
+/// `crate::physics::PlantEnergyLedger` for the boundary: the steam
+/// generator is outside it, and the boundary on that side is the helium
+/// stream).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TraceRow {
     pub step: usize,
@@ -80,21 +94,65 @@ pub struct TraceRow {
     pub delayed_power_mw: f64,
     pub fuel_temperature_k: f64,
     pub bed_temperature_k: f64,
+    /// Circulator helium mass flow \[kg/s\].
+    pub helium_flow_kg_per_s: f64,
+    /// Core inlet (RPV-annuli CV; the cold-return CV until 2026-10-01) helium
+    /// temperature \[K\].
+    pub core_inlet_k: f64,
+    /// Core outlet (bed fluid node) helium temperature \[K\].
+    pub core_outlet_k: f64,
+    /// Hot-duct CV helium temperature \[K\] -- the steam generator's inlet.
+    pub hot_duct_k: f64,
+    /// Steam-generator helium outlet temperature \[K\].
+    pub sg_helium_outlet_k: f64,
+    /// Steam-generator duty leaving the helium \[MW\].
+    pub sg_helium_duty_mw: f64,
+    /// Steam-generator duty entering the water/steam \[MW\].
+    pub sg_secondary_duty_mw: f64,
+    /// Passive loss from the bed to the reflector \[MW\].
+    pub passive_loss_mw: f64,
+    /// Circulator work delivered to the helium \[MW\].
+    pub circulator_work_mw: f64,
+    /// Reflector -> riser helium heat \[MW\] (gh:#397; internal to the
+    /// ledger: it leaves the reflector and enters the RPV-annuli CV).
+    pub riser_heat_mw: f64,
+    /// Lumped reflector temperature \[K\].
+    pub reflector_k: f64,
+    /// Lumped RPV temperature \[K\].
+    pub rpv_k: f64,
+    /// Cumulative fission + decay heat deposited in the fuel \[J\].
+    pub e_source_j: f64,
+    /// Cumulative stored-energy change in every lumped CV \[J\].
+    pub e_stored_j: f64,
+    /// Cumulative enthalpy handed from the helium to the steam generator \[J\].
+    pub e_to_steam_generator_j: f64,
+    /// Cumulative heat to the RCCS \[J\].
+    pub e_to_rccs_j: f64,
+    /// Cumulative circulator work delivered to the helium \[J\].
+    pub e_circulator_work_j: f64,
+    /// Cumulative ledger residual \[J\].
+    pub e_residual_j: f64,
 }
 
 impl TraceRow {
     /// CSV header matching [`Self::to_csv`].
     pub fn csv_header() -> &'static str {
-        "step,sim_time_s,reactor_power_mw,prompt_power_mw,delayed_power_mw,fuel_temperature_k,bed_temperature_k"
+        "step,sim_time_s,reactor_power_mw,prompt_power_mw,delayed_power_mw,fuel_temperature_k,bed_temperature_k,\
+helium_flow_kg_per_s,core_inlet_k,core_outlet_k,hot_duct_k,sg_helium_outlet_k,sg_helium_duty_mw,\
+sg_secondary_duty_mw,passive_loss_mw,circulator_work_mw,riser_heat_mw,reflector_k,rpv_k,e_source_j,e_stored_j,\
+e_to_steam_generator_j,e_to_rccs_j,e_circulator_work_j,e_residual_j"
     }
 
     /// One CSV row.
     ///
-    /// `{:.9}` throughout: enough digits that a real behavioural change is
-    /// visible, and a fixed width so a committed fixture diffs cleanly.
+    /// `{:.9}` throughout for the state columns: enough digits that a real
+    /// behavioural change is visible, and a fixed width so a committed fixture
+    /// diffs cleanly. The cumulative energies are `{:.12e}` -- a fixed
+    /// thirteen significant figures, since they grow to 1e10 J and more.
     pub fn to_csv(&self) -> String {
         format!(
-            "{},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9}",
+            "{},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},\
+             {:.9},{:.9},{:.9},{:.9},{:.9},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e},{:.12e}",
             self.step,
             self.sim_time_s,
             self.reactor_power_mw,
@@ -102,6 +160,24 @@ impl TraceRow {
             self.delayed_power_mw,
             self.fuel_temperature_k,
             self.bed_temperature_k,
+            self.helium_flow_kg_per_s,
+            self.core_inlet_k,
+            self.core_outlet_k,
+            self.hot_duct_k,
+            self.sg_helium_outlet_k,
+            self.sg_helium_duty_mw,
+            self.sg_secondary_duty_mw,
+            self.passive_loss_mw,
+            self.circulator_work_mw,
+            self.riser_heat_mw,
+            self.reflector_k,
+            self.rpv_k,
+            self.e_source_j,
+            self.e_stored_j,
+            self.e_to_steam_generator_j,
+            self.e_to_rccs_j,
+            self.e_circulator_work_j,
+            self.e_residual_j,
         )
     }
 }
@@ -156,6 +232,24 @@ impl HeadlessModel for HtgrHeadless {
             delayed_power_mw: snap.delayed_power_mw,
             fuel_temperature_k: snap.fuel_temperature_k,
             bed_temperature_k: snap.bed_temperature_k,
+            helium_flow_kg_per_s: snap.helium_mass_flow_kg_per_s,
+            core_inlet_k: snap.core_inlet_temp_k,
+            core_outlet_k: snap.core_outlet_temp_k,
+            hot_duct_k: snap.hot_duct_temp_k,
+            sg_helium_outlet_k: snap.ihx_outlet_temp_k,
+            sg_helium_duty_mw: snap.ihx_duty_mw,
+            sg_secondary_duty_mw: snap.sg_secondary_duty_mw,
+            passive_loss_mw: snap.passive_heat_loss_mw,
+            circulator_work_mw: snap.circulator_power_mw,
+            riser_heat_mw: snap.riser_heat_mw,
+            reflector_k: snap.reflector_temp_k,
+            rpv_k: snap.rpv_temp_k,
+            e_source_j: snap.energy_source_j,
+            e_stored_j: snap.energy_stored_j,
+            e_to_steam_generator_j: snap.energy_to_steam_generator_j,
+            e_to_rccs_j: snap.energy_to_rccs_j,
+            e_circulator_work_j: snap.energy_circulator_work_j,
+            e_residual_j: snap.energy_residual_j,
         }
     }
 
@@ -165,6 +259,14 @@ impl HeadlessModel for HtgrHeadless {
 
     fn sample_csv(s: &TraceRow) -> String {
         s.to_csv()
+    }
+}
+
+impl HtgrHeadless {
+    /// The running maximum of the peak fuel kernel (gh:#964), as the main
+    /// page's indicator shows it. Headless mode's access to the same record.
+    pub fn peak_fuel(&self) -> PeakFuelRecord {
+        self.runtime.plant().peak_fuel_record()
     }
 }
 
@@ -183,11 +285,92 @@ pub fn run(cfg: &HeadlessConfig) -> Vec<TraceRow> {
     )
 }
 
+/// [`run`], also returning the peak-fuel record (gh:#964) at the end of the
+/// run. The trace is identical to [`run`]'s.
+pub fn run_with_peak(cfg: &HeadlessConfig) -> (Vec<TraceRow>, PeakFuelRecord) {
+    let mut model = HtgrHeadless::new();
+    let rows = outram_park_digital_twin_engine::prelude::run(
+        &mut model,
+        cfg.controls.clone(),
+        HeadlessRun {
+            steps: cfg.steps,
+            sample_every: cfg.sample_every,
+        },
+    );
+    (rows, model.peak_fuel())
+}
+
 /// Run and print the trace as CSV on stdout. The `--headless` entry point.
+///
+/// The peak-fuel record is printed on stderr (not stdout, so the CSV stays
+/// clean for the committed-fixture consumers).
 pub fn run_and_print(cfg: &HeadlessConfig) {
+    let (rows, peak) = run_with_peak(cfg);
     println!("{}", TraceRow::csv_header());
-    for row in run(cfg) {
+    for row in rows {
         println!("{}", row.to_csv());
+    }
+    eprintln!("{}", peak_line(&peak));
+}
+
+/// The one-line peak-fuel report of a headless run.
+pub fn peak_line(p: &PeakFuelRecord) -> String {
+    if p.peak_k.is_finite() {
+        format!(
+            "peak fuel (kernel of a core-average pebble, NOT the core hot spot): {:.2} K = {:.2} degC at t = {:.1} s",
+            p.peak_k,
+            p.peak_k - 273.15,
+            p.time_s
+        )
+    } else {
+        "peak fuel (kernel of a core-average pebble): not resolved by this tier".to_string()
+    }
+}
+
+/// Print the Map tab's **Bounding air ingress** table (#453) as CSV: the
+/// `--bounding-air-ingress` entry point. It is a bounding case, not a
+/// transient (#420), so it runs no plant; the numbers are
+/// `sembawang::lwr_comparison::bounding_comparison`'s, cached by
+/// [`crate::physics::bounding_air_ingress::comparison`].
+pub fn print_bounding_air_ingress() {
+    use crate::physics::bounding_air_ingress as b;
+    use sembawang::lwr_comparison::{Tier, ARM_COLUMNS};
+    println!("# {}", b::CASE_LABEL);
+    println!("# basis: {}", b::BASIS_LABEL);
+    println!("# tier 1, {}", Tier::DesignBasis.label());
+    println!("#   {}", b::DBA_LABEL);
+    println!("#   {}", b::LWR_LABEL);
+    println!("# tier 2, {}", Tier::BeyondDesignBasis.label());
+    println!("#   HTR-10 KORA bound ({})", b::CASE_LABEL);
+    println!("#   {}", b::SEVERE_LABEL);
+    println!("#   assumption: {}", b::CONTAINED_LABEL);
+    println!("# {}", b::WASH_LABEL);
+    println!(
+        "# natural deposition (both LWR LOCA arms): {}",
+        b::DEPOSITION_LABEL
+    );
+    println!("# {}", b::f_ox_provenance());
+    match b::comparison() {
+        Err(e) => println!("# unavailable: {e}"),
+        Ok(c) => {
+            let i = c.incomplete;
+            println!(
+                "# FGR-incomplete share of released Bq (dose is a LOWER BOUND where > 0, #456): \
+                 htr10_dba {:.4}, lwr_dba {:.4}, htr10_bound {:.4}, lwr_severe_loca {:.4}, \
+                 wash1400 {:.4}",
+                i.htr10_dba, i.lwr_dba, i.htr10_bound, i.lwr_severe_loca, i.wash1400
+            );
+            let keys: Vec<&str> = ARM_COLUMNS.iter().map(|k| k.csv_key).collect();
+            println!("distance_m,class,{}", keys.join(","));
+            for r in &c.rows {
+                let cells: Vec<String> = r
+                    .arm_doses_sv()
+                    .iter()
+                    .map(|v| v.map_or("pending".to_string(), |s| format!("{:.6e}", 1e3 * s)))
+                    .collect();
+                println!("{:.0},{:?},{}", r.distance_m, r.class, cells.join(","));
+            }
+        }
     }
 }
 
@@ -219,11 +402,106 @@ mod tests {
     /// legitimately changes, add a *separate* tolerance-based comparison rather
     /// than loosening this one.
     ///
-    /// **This is a baseline of the current PRISMATIC model, and of what it does
+    /// **This is a baseline of the current PEBBLE-BED model, and of what it does
     /// rather than what it should do.** It is not an HTR-10 reference and must
     /// never be cited as one — see `op-jyyp.11` for that. It becomes
     /// intentionally obsolete when `op-jyyp` rewrites the physics.
+    ///
+    /// ## Why the comparison is numeric rather than byte-exact (2026-09-10)
+    ///
+    /// It was byte-exact as originally written. That held only for as long as
+    /// the compiler did not change. Upgrading the toolchain to satisfy
+    /// `egui 0.36`'s MSRV (rustc 1.94.1 -> 1.98.1) moved **3 of the 121 rows by
+    /// exactly one unit in the ninth printed decimal**:
+    ///
+    /// | row | field | reference | rustc 1.98.1 |
+    /// |---|---|---|---|
+    /// | 49 | `fuel_temperature_k` | 958.886919432 | 958.886919433 |
+    /// | 57 | `reactor_power_mw` | 13.606869492 | 13.606869491 |
+    /// | 119 | `fuel_temperature_k` | 952.091743384 | 952.091743385 |
+    ///
+    /// That is a relative difference of ~1e-12 — a handful of f64 ULP,
+    /// consistent with a codegen change (instruction selection / FMA
+    /// contraction) and inconsistent with any change in the physics, which
+    /// would move these values in their leading digits, not their last. The
+    /// two toolchains could not be A/B'd directly: rustc 1.94.1 can no longer
+    /// build this crate at all, which is why it was replaced.
+    ///
+    /// So the comparison is now **field-by-field to 2e-9 absolute**, one unit
+    /// in the last printed place. `step` still matches exactly, and so does
+    /// the header. This keeps every bit of the test's original power — the
+    /// refactor it guards would have to change a value by less than a
+    /// part in 1e12 to slip through, which is not a thing an execution change
+    /// does — while not making a compiler upgrade look like a physics
+    /// regression.
+    ///
+    /// ## Regenerated 2026-09-29 (gh:#388, #391-#394) -- an intended physics change
+    ///
+    /// Regenerated with the command in the assertion message after the
+    /// primary helium circuit became enthalpy-balance CVs (core-outlet lag and
+    /// clamp deleted, cold-return CV with circulator work, bed fluid row on
+    /// enthalpy over the 197 cm bed) and the trace gained 17 columns. The
+    /// kinetics/bed columns moved (before -> after, same build otherwise):
+    ///
+    /// | t | power | fuel node | bed |
+    /// |---|---|---|---|
+    /// | 0.1 s | 134.836987 -> 134.832263 MW | 972.4238 -> 972.4267 K | 950.0836 -> 950.0941 K |
+    /// | 2.6 s | 334.397946 -> 334.476671 MW | 1396.5857 -> 1396.6020 K | 1050.6255 -> 1050.5726 K |
+    /// | 100.1 s | 12.515127 -> 12.465065 MW | 1329.6669 -> 1329.6947 K | 1313.6666 -> 1313.7537 K |
+    /// | 297.6 s | 16.162937 -> **16.115180 MW (-0.30 %)** | 1323.4121 -> 1323.3959 K | 1303.4258 -> **1303.4671 K** |
+    ///
+    /// The late-time power falls by ~48 kW: the 52 kW of circulator work now
+    /// reaches the helium (it was computed and discarded), so the core needs
+    /// that much less fission power at the same feedback balance. At 300 s the
+    /// new columns read core inlet 522.67 K, core outlet 1206.47 K, SG helium
+    /// duty 15.3168 MW, passive loss 0.7345 MW, circulator work 0.0519 MW, and
+    /// a cumulative ledger residual of -4.0e-4 J on 8.16e9 J of source.
+    ///
+    /// ## Regenerated again 2026-09-29 (gh:#395, #396) -- the passive path in the bed's solve
+    ///
+    /// | t | power | bed | passive loss | reflector |
+    /// |---|---|---|---|---|
+    /// | 0.1 s | 134.832263 -> 134.831961 MW | 950.0941 -> 950.0948 K | 0.2541 -> 0.2859 MW | 684.74 -> 736.19 K |
+    /// | 100.1 s | 12.465065 -> 12.478451 MW | 1313.7537 -> 1313.7282 K | 0.7505 -> 0.8027 MW | 685.00 -> 736.58 K |
+    /// | 297.6 s | 16.115180 -> **16.125588 MW (+0.06 %)** | 1303.4671 -> 1303.4583 K | 0.7345 -> **0.7848 MW (+6.8 %)** | 685.53 -> 737.38 K |
+    ///
+    /// The passive loss at power rises by the Achenbach flow-dispersion and
+    /// wall-film legs (the bed -> reflector leg is more conductive under
+    /// forced flow), and the reflector opens in equilibrium with that, 51 K
+    /// hotter. Ledger residual at 300 s: +3.1e-4 J on 8.16e9 J.
+    ///
+    /// ## Regenerated again 2026-09-29 (gh:#397) -- the riser leg
+    ///
+    /// | t | power | core inlet | passive loss / to risers | reflector / RPV |
+    /// |---|---|---|---|---|
+    /// | 0.1 s | 134.831961 -> 134.832817 MW | 515.98 -> 516.79 K | 0.2859 -> 0.5559 / 0.4451 MW | 736.2 -> 569.0 / 500.6 -> 426.1 K |
+    /// | 297.6 s | 16.125588 -> **16.114366 MW** | 522.24 -> **537.40 K** | 0.7848 -> 1.0936 / 0.3334 MW | 737.4 -> 571.0 / 500.6 -> 426.1 K |
+    ///
+    /// The risers hold the reflector ~166 K cooler, so more heat leaves the
+    /// bed sideways; about a third of it returns to the core inlet through the
+    /// cold return. Ledger residual at 300 s: -1.4e-4 J on 8.16e9 J.
+    ///
+    /// ## Not regenerated since the gh:#403 inventory change, the SG merge
+    /// (gh:#319), the single beta (gh:#387) and the uncredited building
+    /// (gh:#409)
+    ///
+    /// Also not re-measured since af7991ca2a (cold return split into cold-duct + RPV-annuli CVs); pending validation work.
+    ///
+    /// Nor since the default helium flow moved from 4.3 to 1.29 kg/s
+    /// (2026-10-01, maintainer direction): the fixture was captured at the
+    /// old default commands and the run now starts from a different state.
+    /// Pending validation work.
+    ///
+    /// The fixture is stale against all four; per the maintainer's
+    /// 2026-09-29 direction it is **not re-measured; pending validation
+    /// work**. Expect this ignored test to fail until then.
+    ///
+    /// **This is not the loosening the note below warns against.** When
+    /// parallel execution lands and reduction order legitimately changes,
+    /// *that* still wants its own separate, deliberately-tolerant comparison;
+    /// this tolerance is far too tight to absorb it.
     #[test]
+    #[ignore = "over the 1-minute headless budget (maintainer direction, 2026-09-27): settles or sweeps the WHOLE plant, which runs at ~4.5x real time, so this is minutes to tens of minutes. Run explicitly with --ignored when the transient itself is the subject."]
     fn matches_the_recorded_reference_baseline() {
         let fixture = include_str!("reference/baseline_default_commands.csv");
         let cfg = HeadlessConfig {
@@ -245,14 +523,94 @@ mod tests {
             expected.len()
         );
 
-        for (i, (got, want)) in produced.iter().zip(expected.iter()).enumerate() {
+        /// One unit in the last place printed by [`TraceRow::to_csv`]'s
+        /// `{:.9}`. Two rows that agree to this have the same physics; see the
+        /// toolchain note on the enclosing test for why exact string equality
+        /// is not the right bar.
+        const LAST_PRINTED_PLACE: f64 = 2e-9;
+
+        let regenerate = "If this is an intended physics change, regenerate with:\n  \
+             cargo run --release --example htgr_sim_v1 -- --headless 3000 25 \
+             > examples/htgr_sim_v1/reference/baseline_default_commands.csv\n  \
+             If it is NOT intended, the execution refactor changed the physics.";
+
+        // Row 0 is the header: no numbers in it, so it must match verbatim.
+        assert_eq!(
+            produced[0], expected[0],
+            "trace header changed\n  produced: {}\n  reference: {}\n{regenerate}",
+            produced[0], expected[0]
+        );
+
+        for (i, (got, want)) in produced.iter().zip(expected.iter()).enumerate().skip(1) {
+            let got_fields: Vec<&str> = got.split(',').collect();
+            let want_fields: Vec<&str> = want.split(',').collect();
             assert_eq!(
-                got, want,
-                "reference baseline diverged at row {i}\n  produced: {got}\n  reference: {want}\n\
-                 If this is an intended physics change, regenerate with:\n  \
-                 cargo run --release --example htgr_sim_v1 -- --headless 3000 25 \
-                 > examples/htgr_sim_v1/reference/baseline_default_commands.csv\n  \
-                 If it is NOT intended, the execution refactor changed the physics."
+                got_fields.len(),
+                want_fields.len(),
+                "field count changed at row {i}\n  produced: {got}\n  reference: {want}"
+            );
+
+            // `step` is an integer index, not a measurement -- exact or bust.
+            assert_eq!(
+                got_fields[0], want_fields[0],
+                "step index diverged at row {i}\n  produced: {got}\n  reference: {want}"
+            );
+
+            for (column, (g, w)) in got_fields.iter().zip(want_fields.iter()).enumerate().skip(1) {
+                let g: f64 = g.parse().expect("produced field is not a number");
+                let w: f64 = w.parse().expect("reference field is not a number");
+                assert!(
+                    (g - w).abs() <= LAST_PRINTED_PLACE,
+                    "reference baseline diverged at row {i}, column {column} \
+                     ({g} vs {w}, delta {:.3e} > {LAST_PRINTED_PLACE:.0e})\n  \
+                     produced: {got}\n  reference: {want}\n{regenerate}",
+                    g - w
+                );
+            }
+        }
+    }
+
+    /// **The global energy balance closes from the CSV itself** (gh:#394).
+    ///
+    /// Methodology: 60 s headless run from the default commands, sampled every
+    /// 10 steps; re-parse each printed row and require `e_source +
+    /// e_circulator_work - e_stored - e_to_steam_generator - e_to_rccs` to
+    /// equal `e_residual` to the printing precision (13 significant figures
+    /// of the largest term), and `|e_residual|` below 1e-9 of `e_source`. This
+    /// checks that the columns are the ledger's, not merely that the plant
+    /// conserves energy (that is `physics::tests::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator`).
+    #[test]
+    fn the_trace_carries_a_closing_energy_balance() {
+        let rows = run(&HeadlessConfig {
+            steps: 600,
+            sample_every: 10,
+            ..Default::default()
+        });
+        for row in &rows {
+            let fields: Vec<f64> = row
+                .to_csv()
+                .split(',')
+                .map(|f| f.parse().expect("numeric field"))
+                .collect();
+            let n = fields.len();
+            let (src, stored, sg, rccs, work, res) = (
+                fields[n - 6],
+                fields[n - 5],
+                fields[n - 4],
+                fields[n - 3],
+                fields[n - 2],
+                fields[n - 1],
+            );
+            let scale = src.abs().max(stored.abs()).max(sg.abs()).max(1.0);
+            assert!(
+                (src + work - stored - sg - rccs - res).abs() <= 1e-11 * scale,
+                "row {}: the printed ledger does not close",
+                row.step
+            );
+            assert!(
+                res.abs() <= 1e-9 * src.abs().max(1.0),
+                "row {}: residual {res} J",
+                row.step
             );
         }
     }
@@ -282,5 +640,25 @@ mod tests {
                 row.fuel_temperature_k
             );
         }
+    }
+
+    /// The headless path exposes the peak-fuel record (gh:#964): `run_with_peak`
+    /// returns the same trace as `run`, a finite maximum at a time inside the
+    /// run, no lower than the last sampled kernel-bearing state implies, and
+    /// the report line says what the number is.
+    #[test]
+    fn headless_exposes_the_peak_fuel_record() {
+        let cfg = HeadlessConfig {
+            steps: 300,
+            sample_every: 50,
+            ..Default::default()
+        };
+        let (rows, peak) = run_with_peak(&cfg);
+        assert_eq!(rows, run(&cfg));
+        assert!(peak.peak_k.is_finite() && peak.peak_k > 400.0);
+        assert!(peak.time_s > 0.0 && peak.time_s <= 300.0 * PLANT_TIMESTEP_S + 1e-9);
+        let line = peak_line(&peak);
+        assert!(line.contains("core-average pebble") && line.contains("NOT the core hot spot"));
+        assert!(peak_line(&PeakFuelRecord::empty()).contains("not resolved by this tier"));
     }
 }

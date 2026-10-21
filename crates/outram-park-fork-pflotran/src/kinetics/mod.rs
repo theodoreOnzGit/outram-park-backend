@@ -113,6 +113,7 @@
 //! material until a human reviews it; no validation against published
 //! reactive-transport benchmarks has been performed.
 
+use petir::mathf::RealMath;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -308,7 +309,7 @@ impl KineticSystem {
         let m = &self.minerals[mineral];
         let mut log10_q = 0.0;
         for j in 0..self.n_primary {
-            log10_q += m.stoich[j] * primary[j].log10();
+            log10_q += m.stoich[j] * primary[j].r_log10();
         }
         log10_q - m.log10_ksp
     }
@@ -514,10 +515,10 @@ impl OdeSystem for KineticOde {
             let m = &self.minerals[i];
             let mut log10_q = 0.0;
             for j in 0..nc {
-                log10_q += m.stoich[j] * c_prim[j].log10();
+                log10_q += m.stoich[j] * c_prim[j].r_log10();
             }
             let si = log10_q - m.log10_ksp;
-            let omega = 10f64.powf(si);
+            let omega = 10f64.r_powf(si);
             let mut r = m.rate_constant * m.surface_area * (1.0 - omega);
             // Absent mineral cannot dissolve: clamp a dissolution rate to zero.
             if y[nc + i] <= 0.0 && r > 0.0 {

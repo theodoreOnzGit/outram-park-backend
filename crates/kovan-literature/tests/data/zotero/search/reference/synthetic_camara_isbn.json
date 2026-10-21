@@ -1,0 +1,68 @@
+{
+	"name": "synthetic_camara_isbn",
+	"kind": "forced",
+	"synthetic": true,
+	"translator": "cdb5c893-ab69-4e96-9b5c-f4456d49ddd8",
+	"search": {
+		"itemType": "book",
+		"ISBN": "8532511015"
+	},
+	"status": 200,
+	"translatorUsed": "cdb5c893-ab69-4e96-9b5c-f4456d49ddd8",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"firstName": "João Carlos Da",
+					"lastName": "Silva Filho",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Maria",
+					"lastName": "Souza",
+					"creatorType": "translator"
+				},
+				{
+					"firstName": "Pedro",
+					"lastName": "Alves",
+					"creatorType": "editor"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Física nuclear",
+					"type": 1
+				},
+				{
+					"tag": "Reatores",
+					"type": 1
+				},
+				{
+					"tag": "Energia nuclear",
+					"type": 1
+				}
+			],
+			"title": "INTRODUÇÃO À FÍSICA DE REATORES: teoria e prática",
+			"abstractNote": "Um texto introdutório de exemplo.",
+			"series": "Coleção Engenharia",
+			"place": "Rio de Janeiro, RJ",
+			"publisher": "Editora Exemplo",
+			"date": "2001-05-01",
+			"numPages": "240",
+			"language": "pt-BR",
+			"ISBN": "9788532511010",
+			"libraryCatalog": "Câmara Brasileira do Livro ISBN",
+			"shortTitle": "INTRODUÇÃO À FÍSICA DE REATORES"
+		}
+	],
+	"requests": [
+		{
+			"method": "POST",
+			"url": "https://isbn-search-br.search.windows.net/indexes/isbn-index/docs/search?api-version=2016-09-01",
+			"body": "{\"count\":true,\"facets\":[],\"filter\":\"\",\"orderby\":null,\"queryType\":\"full\",\"search\":\"8532511015 OR 9788532511010\",\"searchFields\":\"FormattedKey,RowKey\",\"searchMode\":\"any\",\"select\":\"*\",\"skip\":0,\"top\":1}"
+		}
+	]
+}

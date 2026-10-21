@@ -71,7 +71,7 @@ safeguards-sensitive analysis, or real-time plant monitoring.
 
 ## License
 
-GPL-3.0-only. The full licence text ships with this crate as `LICENSE`.
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). The AGPL-3.0 text ships with this crate as `LICENSE`.
 
 ## Copyright
 

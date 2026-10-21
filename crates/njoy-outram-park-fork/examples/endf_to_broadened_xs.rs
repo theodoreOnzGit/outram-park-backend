@@ -20,9 +20,13 @@
 //!
 //! ## Physical Interpretation
 //!
-//! U-238 has strong resolved resonances in the keV range. When you compare
-//! 293.6 K (room temperature) and 900 K (elevated), the narrower, deeper
-//! resonances at 900 K reflect the higher thermal motion blurring out the peaks.
+//! U-238 has strong resolved resonances from 6.67 eV into the keV range. When
+//! you compare 293.6 K (room temperature) and 900 K (elevated), the resonances
+//! at 900 K are **broader and lower**, and the dips between them shallower:
+//! the higher thermal motion blurs out the peaks while conserving their area.
+//! (~~narrower, deeper resonances at 900 K~~ **CORRECTED 2026-10-04**: that
+//! sentence had the sign backwards; this file's own `vv_gate` asserts the peak
+//! falls and the valley rises.)
 //!
 //! ## Usage
 //!
@@ -318,13 +322,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// broadening kernel that lost 5 % of the area would pass 2 and 3 and be badly
 /// wrong — which is why all three are asserted rather than just the visible ones.
 ///
-/// # Results (2026-09-11, U-238 ENDF/B-VIII.0, 293.6 K vs 900 K)
+/// # Results (re-measured 2026-10-04, U-238 ENDF/B-VIII.0, 293.6 K vs 900 K)
+///
+/// Develop `3c41d99f5b` (plus doc-comment-only edits), release build, two
+/// threads (`taskset -c 10-11`, `RAYON_NUM_THREADS=2`), 1 037 s wall
+/// including the build. 52 reactions reconstructed; the 293.6 K MT=1 table has
+/// 103 908 points.
 ///
 /// ```text
 ///   area under sigma(E)   1.924489e8 -> 1.924490e8 b.eV    +0.000 %
-///   peak   at 36.683 eV      13450.04 b ->  8464.77 b      -37.07 %
-///   valley at 2.5437 keV         0.5007 b ->    1.7698 b   +253.44 %
+///   peak   at 36.683 eV    13449.7704 b ->  8464.6361 b    -37.06 %
+///   valley at 2.5438 keV      0.5004 b ->     1.9161 b    +282.94 %
 /// ```
+///
+/// ~~Results (2026-09-11): peak 13450.04 b -> 8464.77 b (-37.07 %); valley at
+/// 2.5437 keV 0.5007 b -> 1.7698 b (+253.44 %); 50 reactions.~~ Superseded by
+/// the re-measurement above. Area conservation is unchanged. The peak moved in
+/// the fifth figure and the valley's 900 K value by 8 %: the RECONR grid
+/// changed on 2026-09-26 (GitHub #340, word-for-word NJOY2016 grid), and the
+/// valley is the 900 K curve interpolated onto the 293.6 K grid at its lowest
+/// point, so it is grid-sensitive by construction. The gate's claims (area
+/// within 0.5 %, peak falls, valley rises) hold on both.
 ///
 /// Area is conserved to **the printed precision** — five significant figures
 /// apart on a number that individual points move by 37 % and 253 %. That is the

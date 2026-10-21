@@ -709,7 +709,11 @@ fn ln_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
         }
         // x is subnormal: normalise it.
         ix = (x * f64::from_bits(0x4330000000000000)).to_bits(); // 0x1p52
-        ix -= 52u64 << 52;
+
+        // Wraps ON PURPOSE (#761): upstream's `uint64_t` subtraction
+        // (`log.c:111`) is modular, leaving a "negative" exponent field that
+        // the arithmetic shift for `k` below recovers.
+        ix = ix.wrapping_sub(52u64 << 52);
     }
 
     // x = 2^k z, with z in [OFF, 2*OFF) and exact. The range is split into N
@@ -718,15 +722,26 @@ fn ln_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
     let i = ((tmp >> (52 - TABLE_BITS)) % N) as usize;
     let k = (tmp as i64) >> 52; // arithmetic shift
     let iz = ix.wrapping_sub(tmp & (0xfffu64 << 52));
-    let invc = f64::from_bits(TAB[2 * i]);
-    let logc = f64::from_bits(TAB[2 * i + 1]);
+    // `i = (... ) % N` and `TAB`/`TAB2` each hold `2 * N` entries, so every
+    // read below is in range -- by arithmetic the compiler cannot follow.
+    // `get` keeps the values, and therefore the bit-identity with upstream
+    // pinned by tests/fast_log_vs_arm_optimized_routines.rs, exactly as they
+    // were, while removing the panic the subscripts carried.
+    let (Some(&tab_invc), Some(&tab_logc)) = (TAB.get(2 * i), TAB.get(2 * i + 1)) else {
+        return Err((PetirError::Range, f64::NAN));
+    };
+    let invc = f64::from_bits(tab_invc);
+    let logc = f64::from_bits(tab_logc);
     let z = f64::from_bits(iz);
 
     // log(x) = log1p(z/c - 1) + log(c) + k*Ln2, with |r| < 1/(2N).
     // HAVE_FAST_FMA == 0, so the tab2 form (`log.c:126`); rounding error
     // 0x1p-55/N + 0x1p-66 against 0x1p-55/N for the fma form.
-    let chi = f64::from_bits(TAB2[2 * i]);
-    let clo = f64::from_bits(TAB2[2 * i + 1]);
+    let (Some(&tab2_chi), Some(&tab2_clo)) = (TAB2.get(2 * i), TAB2.get(2 * i + 1)) else {
+        return Err((PetirError::Range, f64::NAN));
+    };
+    let chi = f64::from_bits(tab2_chi);
+    let clo = f64::from_bits(tab2_clo);
     let r = (z - chi - clo) * invc;
     let kd = k as f64;
 

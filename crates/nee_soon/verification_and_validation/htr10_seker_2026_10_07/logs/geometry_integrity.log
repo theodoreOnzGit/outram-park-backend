@@ -1,0 +1,28 @@
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:170:19
+    |
+158 | impl Site {
+    | --------- associated function in this implementation
+...
+170 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 1 warning
+   Compiling nee_soon v0.0.2 (/home/user/outram-park-backend/crates/nee_soon)
+    Finished `release` profile [optimized] target(s) in 1.33s
+     Running tests/htr10_geometry_integrity.rs (target/release/deps/htr10_geometry_integrity-3d2efca1a16a0c01)
+
+running 4 tests
+bed: 27038 balls total -> 15412 fuelled + 11626 dummy; stated 27000 (+0.142 %)
+test the_bed_reproduces_the_published_ball_inventory ... ok
+82 of 83 zones have a composition; absent: [5]
+test the_reflector_covers_every_zone_the_model_can_reference ... ok
+continuum fuel fraction 0.570000, discrete 0.569989
+test the_tile_assignment_agrees_with_the_continuum_split ... ok
+TRISO: 8340 particles at pitch 0.194963 cm (+0.060 % vs 8335)
+test the_triso_array_matches_the_adjudicated_geometry ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+

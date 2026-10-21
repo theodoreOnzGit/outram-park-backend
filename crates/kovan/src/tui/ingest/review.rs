@@ -648,6 +648,21 @@ mod tests {
         assert!(state.advisories().is_empty(), "{:?}", state.advisories());
     }
 
+    // IGNORED ON WINDOWS (maintainer decision, 2026-09-18).
+    //
+    // Found by the first CI run of this workspace
+    // (`.github/workflows/fast-tests.yml`): both of these fail on
+    // `windows-latest` and pass on Linux and macOS. They are
+    // path-handling tests -- a storage-layout default and an
+    // unwritable-path error -- and Windows differs on separators and
+    // on what makes a path unwritable. Nothing about the FEATURE is
+    // Windows-specific; the assertions are.
+    //
+    // Gated rather than fixed because the maintainer chose to ignore
+    // them, and gated with `cfg_attr(..., ignore)` rather than `cfg`
+    // so they still COMPILE on Windows and report as `ignored` -- a
+    // test that silently vanishes is a test that rots.
+    #[cfg_attr(windows, ignore = "path assertions are POSIX-shaped; fails on Windows (CI, 2026-09-18)")]
     #[test]
     fn output_defaults_follow_the_storage_layout_and_track_the_slug() {
         let mut state = review();
@@ -744,6 +759,21 @@ mod tests {
         assert!(state.save_report.iter().any(|l| l.contains("cannot save")));
     }
 
+    // IGNORED ON WINDOWS (maintainer decision, 2026-09-18).
+    //
+    // Found by the first CI run of this workspace
+    // (`.github/workflows/fast-tests.yml`): both of these fail on
+    // `windows-latest` and pass on Linux and macOS. They are
+    // path-handling tests -- a storage-layout default and an
+    // unwritable-path error -- and Windows differs on separators and
+    // on what makes a path unwritable. Nothing about the FEATURE is
+    // Windows-specific; the assertions are.
+    //
+    // Gated rather than fixed because the maintainer chose to ignore
+    // them, and gated with `cfg_attr(..., ignore)` rather than `cfg`
+    // so they still COMPILE on Windows and report as `ignored` -- a
+    // test that silently vanishes is a test that rots.
+    #[cfg_attr(windows, ignore = "path assertions are POSIX-shaped; fails on Windows (CI, 2026-09-18)")]
     #[test]
     fn save_reports_an_unwritable_path_instead_of_panicking() {
         let mut state = review();

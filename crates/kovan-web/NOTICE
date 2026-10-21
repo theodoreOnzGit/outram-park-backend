@@ -1,0 +1,49 @@
+NOTICE — kovan-web
+==================
+
+Licence: AGPL-3.0-only (from its creation, 2026-10-06)
+------------------------------------------------------
+
+kovan-web is web-kovan, the Code Review UI of the kovan family (GitHub
+#736). ~~The maintainer directed that it be AGPL-3.0-only "since it is part of
+the kovan family"~~ **CORRECTED 2026-10-06:** AGPL-3.0-only was set by the
+session's brief to the building agent ("like the kovan family"), not by a
+maintainer direction. **Confirmed AGPL-3.0-only by the maintainer the same
+day:** "I thought kovan web needed pdf reader that's why I did AGPLv3".
+web-kovan is to open literature PDFs in kovan's own reader, fetched from the
+corpus repository's raw GitHub URL (decided on #729), which means carrying
+`kopitiam-pdf`, MuPDF-derived and AGPL-3.0-only. The PDF reader is not in
+this crate yet; the licence anticipates it. Whether `kopitiam-pdf` builds
+for wasm32 has not been checked.
+
+It does NOT depend on `kovan`: its data and layout types come from
+`kovan-common`, which desktop kovan will also use. ~~It does not depend on any
+other AGPL crate; `kovan-common` is GPL-3.0-only.~~ **UPDATED 2026-10-07:**
+`kovan-common` is AGPL-3.0-only too, as is the whole kovan family, by
+maintainer direction (see `crates/kovan-common/NOTICE`). Desktop kovan is expected to depend on this crate to embed the same UI,
+so this crate must never depend on `kovan` or `dhoby-ghaut` (that would be a
+cycle).
+
+Code moved into kovan-common for it (2026-10-06)
+------------------------------------------------
+
+To build for wasm32, the pure data and layout modules this UI needs were moved
+out of `kovan` (AGPL-3.0-only) into `kovan-common` (GPL-3.0-only):
+`code_map` (model, layout, SVG), `call_graph` (model, module scanner),
+`mindmap_view` (star layout, canvas arithmetic), `fuzzy` (the finders'
+scorer), and `Point` / `Bounds` (now `kovan_common::geometry`). The
+maintainer is the copyright holder of that code and directed on #743 that
+the kovan family's shared schema live in kovan-common; `kovan` re-exports
+each module under its old path. **CONFIRMED by the maintainer 2026-10-06:**
+"Kovan common is GPLv3, it doesn't have mupdf there" -- kovan's AGPL comes
+only from MuPDF (via kopitiam-pdf), which none of the moved code uses.
+**SUPERSEDED 2026-10-07:** the maintainer relicensed kovan-common, with the
+rest of the kovan family, to AGPL-3.0-only ("I want all kovan to be
+AGPLv3"), ahead of porting Zotero (AGPL-3.0) into kovan and its libraries.
+
+Ported pieces
+-------------
+
+`src/ui/camera.rs` ports the pan/zoom view, zoom buttons and canvas-size fix
+of `dhoby_ghaut::web_demo` (same workspace, same copyright holder) rather
+than depending on dhoby-ghaut, which depends on `kovan`.

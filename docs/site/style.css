@@ -1,0 +1,252 @@
+:root {
+  --bg: #fbfaf7; --fg: #1d2125; --muted: #5b636b; --line: #d9d6cf;
+  --accent: #1f6f78; --accent-fg: #ffffff; --panel: #ffffff; --warn-bg: #fff4e0; --warn-line: #e7b45a;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181b; --fg: #e6e3dd; --muted: #a3a9ae; --line: #33393e;
+    --accent: #5fb7c0; --accent-fg: #0d1214; --panel: #1c2024; --warn-bg: #2b2414; --warn-line: #8a6a2a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--accent); }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 0.92em; }
+.top, main, footer { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+.top h1 { margin: 32px 0 8px; font-size: 1.8rem; }
+.lede { color: var(--muted); margin: 0 0 16px; }
+.banner { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; padding: 10px 14px; font-size: 0.92rem; }
+
+/* CSS-only tabs: radios drive which panel is shown. */
+.tabs { display: flex; flex-wrap: wrap; margin-top: 24px; }
+.tabs input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs label { padding: 10px 16px; border: 1px solid var(--line); border-bottom: none;
+  border-radius: 6px 6px 0 0; margin-right: 4px; cursor: pointer; color: var(--muted); background: transparent; }
+.tabs input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs input:checked + label { background: var(--panel); color: var(--fg); font-weight: 600; }
+.panel { display: none; order: 99; width: 100%; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 0 6px 6px 6px; padding: 8px 20px 20px; }
+#t-mc:checked ~ #p-mc, #t-nd:checked ~ #p-nd, #t-plume:checked ~ #p-plume, #t-triso:checked ~ #p-triso { display: block; }
+.panel h2 { font-size: 1.25rem; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 8px 14px; border-radius: 6px; background: var(--accent); color: var(--accent-fg); text-decoration: none; font-weight: 600; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.status { color: var(--muted); font-size: 0.9rem; }
+.status.planned { font-style: italic; }
+footer { margin: 32px auto; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 600px) { .tabs label { flex: 1 1 45%; text-align: center; margin-bottom: 4px; border-radius: 6px; border-bottom: 1px solid var(--line); } .panel { border-radius: 6px; } }
+
+/* Credits and upstream code (#credits): cards in a grid that collapses to one
+   column on a phone; BibTeX scrolls inside its own box, never the page. */
+.credits { margin-top: 40px; }
+.credits h2 { font-size: 1.5rem; margin-bottom: 8px; }
+.credits h3 { font-size: 1.15rem; margin: 32px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.credits .track { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
+.credits-lede { font-size: 1.02rem; }
+.credits .banner { margin: 12px 0; }
+.note { color: var(--muted); font-size: 0.86rem; font-style: italic; overflow-wrap: anywhere; }
+.credit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 14px; }
+.credit { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; }
+.credit h4 { margin: 0 0 8px; font-size: 1.05rem; }
+.credit dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; margin: 0 0 10px; font-size: 0.9rem; }
+.credit dt { color: var(--muted); }
+.credit dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.credit .cite { font-size: 0.9rem; margin: 8px 0; overflow-wrap: anywhere; }
+.credit details { margin-top: 8px; }
+.credit summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 0.9rem; }
+.credit pre { max-width: 100%; overflow-x: auto; margin: 8px 0 0; padding: 10px 12px; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; font-size: 0.8rem; line-height: 1.45; }
+.credit pre code { font-size: inherit; }
+.tool-list li { margin: 4px 0; }
+@media (max-width: 600px) {
+  .credit dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .credit dd { margin-bottom: 6px; }
+  .credit { padding: 10px 12px; }
+}
+
+/* The code map preview at the top of the main menu (gh:#734): the whole SVG
+   at the page's width; the full page has zoom, pan and details. */
+.codemap-preview { margin-top: 24px; }
+.codemap-preview h2 { font-size: 1.3rem; margin-bottom: 4px; }
+.codemap-img { display: block; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 6px; }
+.codemap-img img { display: block; width: 100%; height: auto; }
+
+/* The landing page and the three pathways (gh:#906, #909). Mobile first:
+   one column, finger-sized targets (at least 44 px), nothing on hover only;
+   a wide screen gets more room, not more on screen. */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body.landing { min-height: 100vh; display: flex; flex-direction: column; }
+.hero { flex: 1 0 auto; min-height: 88vh; display: flex; flex-direction: column; justify-content: center;
+  max-width: 680px; margin: 0 auto; padding: 24px 16px; width: 100%; }
+.wordmark { text-align: center; font-size: clamp(2rem, 9vw, 3.4rem); letter-spacing: 0.08em; margin: 0 0 6px; }
+.tagline { text-align: center; color: var(--muted); margin: 0 0 24px; }
+.site-search { display: flex; gap: 8px; margin: 12px 0 4px; }
+.site-search input { flex: 1 1 auto; min-width: 0; min-height: 48px; padding: 0 16px; font: inherit;
+  color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 24px; }
+.site-search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.site-search button { min-height: 48px; padding: 0 18px; font: inherit; font-weight: 600; border: 0; border-radius: 24px;
+  background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+.search-results:empty { display: none; }
+.search-results { margin: 8px 0 16px; padding: 4px 16px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.search-group h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 14px 0 4px; }
+.search-group .n { font-weight: 400; }
+.search-group ul { list-style: none; margin: 0; padding: 0; }
+.search-group li a { display: block; padding: 10px 2px; min-height: 44px; border-bottom: 1px solid var(--line); text-decoration: none; }
+.search-more { margin-top: 8px; min-height: 40px; padding: 0 14px; font: inherit; background: transparent; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 20px; cursor: pointer; }
+.search-none { color: var(--muted); }
+.pathways { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 20px; }
+@media (min-width: 640px) { .pathways { grid-template-columns: repeat(3, 1fr); } }
+.pathway { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; min-height: 64px; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--panel); text-decoration: none; color: var(--fg); }
+.pathway b { color: var(--accent); font-size: 1.1rem; }
+.pathway span { color: var(--muted); font-size: 0.92rem; }
+.pathway:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.landing-foot { max-width: 680px; margin: 0 auto; padding: 16px; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); }
+
+/* Wrapping tap-target buttons: domain tabs, the demo library, contents. */
+.chips, .domains { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+.chip, .demo { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px; border-radius: 22px;
+  text-decoration: none; font-weight: 600; line-height: 1.3; }
+.chip { border: 1px solid var(--accent); color: var(--accent); background: transparent; }
+.demo { background: var(--panel); color: var(--fg); border: 1px solid var(--line); }
+.demo.featured { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.chips.big .chip { font-size: 1.05rem; padding: 10px 18px; }
+.contents h2, .ask { font-size: 1.15rem; margin: 20px 0 4px; }
+.lib { margin-top: 28px; scroll-margin-top: 48px; }
+.lib h2 { font-size: 1.6rem; margin: 0 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+/* Learn the science: a domain's list shows when its button is followed, or
+   when a link targets anything inside it (an old anchor, a chapter id). */
+.domain { display: none; margin-top: 20px; padding: 4px 16px 8px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; scroll-margin-top: 48px; }
+.domain:target, .domain:has(:target) { display: block; }
+.domain h2 { font-size: 1.3rem; }
+/* A domain's lessons grouped in collapsible chapters; the summary is a 44px tap target. */
+details.chapter { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  scroll-margin-top: 48px; }
+details.chapter > summary { cursor: pointer; font-weight: 600; line-height: 1.4; min-height: 44px; box-sizing: border-box;
+  padding: 11px 14px 11px 34px; position: relative; list-style: none; }
+details.chapter > summary::-webkit-details-marker { display: none; }
+details.chapter > summary::before { content: "\25B8"; color: var(--accent); position: absolute; left: 14px; top: 11px; }
+details.chapter[open] > summary::before { content: "\25BE"; }
+details.chapter > summary .range { color: var(--muted); font-weight: 400; }
+details.chapter > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details.chapter > .chips { margin: 0 0 4px; padding: 0 12px 10px; }
+
+/* Science lessons (gh:#906 spec §5, §16): one column of readable prose; on a
+   phone the reader meets one concept, one picture or one control at a time. */
+.lesson-body { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
+.lesson-body h1 { font-size: 2rem; margin: 20px 0 0; }
+.kicker { color: var(--muted); margin: 2px 0 20px; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.85rem; }
+.lesson-body h2 { font-size: 1.4rem; margin-top: 36px; }
+.predict { border-left: 4px solid var(--accent); padding: 6px 12px; background: var(--panel); }
+.eq { font-family: "Cambria Math", "STIX Two Math", serif; white-space: nowrap; }
+.eq-block { font-family: "Cambria Math", "STIX Two Math", serif; font-size: 1.15rem; text-align: center; margin: 12px 0;
+  overflow-x: auto; }
+/* A lesson table (page 16's formalism ladder): scrolls inside its own box on a phone. */
+.table-wrap { overflow-x: auto; margin: 12px 0; }
+.table-wrap table { border-collapse: collapse; min-width: 520px; font-size: 0.92rem; }
+.table-wrap th, .table-wrap td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.table-wrap th { color: var(--muted); font-weight: 600; }
+/* On a phone each row becomes a small card, its column names from data-label. */
+@media (max-width: 560px) {
+  .table-wrap table { min-width: 0; width: 100%; }
+  .table-wrap thead { display: none; }
+  .table-wrap tr, .table-wrap td { display: block; }
+  .table-wrap tr { border-bottom: 1px solid var(--line); padding: 6px 0; }
+  .table-wrap td { border: 0; padding: 2px 0; }
+  .table-wrap td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-weight: 600; }
+  .table-wrap td:first-child::before { content: ""; }
+}
+/* A misconception a reader held (gh:#906 reader tests): always visible, never folded. */
+.misconception { border-left: 4px solid var(--warn-line); background: var(--warn-bg); border-radius: 0 6px 6px 0; padding: 8px 12px; margin: 16px 0; }
+.misconception > b:first-child { display: block; margin-bottom: 4px; }
+/* The neutronics glossary (gh:#906 no-jargon rule). */
+.glossary dt { font-weight: 700; margin-top: 14px; scroll-margin-top: 16px; }
+.glossary dd { margin: 4px 0 0 0; }
+a.gl-term { color: inherit; text-decoration: underline dotted var(--accent); text-underline-offset: 3px; }
+.widget-card { margin: 20px 0; padding: 4px 0; }
+.widget-card h3 { margin: 8px 0; }
+.legend-list { padding-left: 0; list-style: none; }
+.legend-list li { margin: 10px 0; padding-left: 30px; position: relative; }
+.mk { position: absolute; left: 4px; top: 6px; width: 14px; height: 14px; }
+.mk-scatter::before { content: ""; position: absolute; left: 5px; top: 5px; width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+.mk-capture::before, .mk-capture::after { content: ""; position: absolute; left: 6px; top: -1px; width: 2.5px; height: 16px; background: #e04646; }
+.mk-capture::before { transform: rotate(45deg); } .mk-capture::after { transform: rotate(-45deg); }
+.mk-fission { border-radius: 50%; border: 1.5px solid #e0b800; }
+.mk-fission::before { content: ""; position: absolute; left: 3px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: #e0b800; }
+.mk-leak { border-radius: 50%; border: 2px solid #9a6cf0; }
+.two-q li { margin: 8px 0; }
+.summary-pair { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 640px) { .summary-pair { grid-template-columns: 1fr 1fr; } }
+.summary-pair p { margin: 0; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.btn.disabled, .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.next-row { justify-content: flex-end; margin-top: 24px; }
+details.optional { margin: 16px 0; padding: 4px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+details.optional summary { cursor: pointer; font-weight: 600; min-height: 40px; line-height: 40px; }
+/* Reference entries: long DOIs and URLs wrap instead of widening a phone page. */
+.csl-entry { overflow-wrap: anywhere; }
+/* A claim or number still waiting for a source (Fission products lessons). */
+.pending { display: inline-block; padding: 0 6px; border: 1px dashed var(--muted); border-radius: 6px; color: var(--muted); font-size: 0.86em; font-style: italic; }
+.mu-map { max-width: 360px; margin: 8px auto; }
+.mu-map p { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 0; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.mu-map span:last-child { color: var(--muted); }
+.chain { text-align: center; color: var(--muted); font-weight: 600; }
+/* The lesson navigation (lesson-kit.js): previous / next, and a Contents
+   list folded under them, never a sidebar (addendum §15). */
+.lesson-nav { margin-top: 32px; border-top: 1px solid var(--line); padding-top: 8px; }
+.lesson-steps { justify-content: space-between; }
+.lesson-contents summary { cursor: pointer; font-weight: 600; min-height: 40px; line-height: 40px; }
+.lesson-contents ol { margin: 0 0 8px; }
+.lesson-contents li { margin: 6px 0; }
+.lesson-foot { margin-top: 32px; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); }
+.iframe-slot { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--panel); text-align: center; }
+.iframe-slot.live { padding: 0; }
+.iframe-slot iframe { display: block; width: 100%; height: min(75vh, 640px); border: 0; border-radius: 8px; }
+.start-demo { min-height: 48px; padding: 0 22px; font: inherit; font-weight: 600; border: 0; border-radius: 24px;
+  background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+
+/* The widget frame (science/neutronics/lesson-kit.js): the picture fills the
+   widget, + / − / Reset / full screen on it, controls in a folding panel. */
+.widget { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); overflow: hidden; }
+.widget canvas { display: block; width: 100%; height: min(62vh, 420px); touch-action: manipulation; }
+.widget.short canvas { height: min(48vh, 320px); }
+.widget.full { position: fixed; inset: 0; z-index: 2000; border-radius: 0; border: 0; }
+.widget.full canvas { height: calc(100vh - 56px); }
+body.w-noscroll { overflow: hidden; }
+.w-bar { position: absolute; top: 6px; left: 6px; right: 6px; display: flex; justify-content: space-between; gap: 6px; pointer-events: none; }
+.w-bar > * { pointer-events: auto; }
+.w-right { display: flex; gap: 6px; margin-left: auto; }
+.w-btn { min-width: 40px; min-height: 40px; padding: 0 10px; font: inherit; font-weight: 600; color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; opacity: 0.94; }
+.w-panel { position: absolute; top: 0; left: 0; bottom: 56px; width: min(300px, 88%); overflow-y: auto; padding: 8px 12px;
+  background: var(--bg); border-right: 1px solid var(--line); opacity: 0.97; }
+.widget.folded .w-panel { display: none; }
+.w-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.w-group { display: block; margin: 10px 0; }
+.w-label { display: block; font-weight: 600; font-size: 0.92rem; }
+.w-val { float: right; color: var(--muted); font-size: 0.9rem; }
+.w-group input[type=range] { width: 100%; min-height: 36px; }
+.w-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.w-opt { min-height: 40px; padding: 0 12px; font: inherit; border: 1px solid var(--accent); border-radius: 20px;
+  background: transparent; color: var(--accent); cursor: pointer; }
+.w-opt.on { background: var(--accent); color: var(--accent-fg); }
+.w-opt.wide { width: 100%; margin-top: 6px; }
+.w-check { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.w-check input { width: 20px; height: 20px; }
+.w-note { color: var(--muted); font-size: 0.85rem; }
+.w-status { min-height: 56px; padding: 8px 12px; font-size: 0.9rem; border-top: 1px solid var(--line); background: var(--panel); }
+main > .top { padding: 0; }
+/* On a wide screen an open panel sits beside the picture, not over it. */
+@media (min-width: 700px) {
+  .widget:not(.folded) { padding-left: 300px; }
+  .widget:not(.folded) .w-panel { width: 300px; }
+  .widget:not(.folded) .w-bar { left: 306px; }
+}
+/* Full-text search result preview (gh:#876 item 8). */
+.search-preview { color: var(--muted); font-size: 0.85rem; line-height: 1.35; }
+/* A lesson widget's main control kept outside its folding panel, under the
+   picture, so it is there on a phone (gh:#906 review, 2026-10-16). */
+.energy-control { display: block; margin: 8px 0; font-weight: 600; }
+.energy-control input[type=range] { display: block; width: 100%; min-height: 44px; }

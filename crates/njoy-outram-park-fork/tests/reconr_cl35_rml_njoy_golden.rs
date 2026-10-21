@@ -118,10 +118,7 @@ fn cl35_rml_kernel_matches_njoy_reconr_at_its_nodes() {
 
     let mf2 = endf.section(MAT, 2, 151).expect("MF=2");
     let info = parse_resonance_info(mf2).expect("MF=2 parses");
-    let range = info
-        .resolved_rml_ranges()
-        .next()
-        .expect("one LRF=7 range");
+    let range = info.resolved_rml_ranges().next().expect("one LRF=7 range");
     let rml = range.rml.as_ref().unwrap();
     assert_eq!(rml.section.spin_groups.len(), 8);
     assert_eq!(rml.section.particle_pairs.len(), 3);
@@ -131,8 +128,18 @@ fn cl35_rml_kernel_matches_njoy_reconr_at_its_nodes() {
 
     // ENDF backgrounds (MT=2 is identically zero below 1.2 MeV; MT=1 and
     // MT=102 share a 1/v log-log curve; MT=600 is 1e-20 below 1 MeV).
-    let bg = [tab1(&endf, 1), tab1(&endf, 2), tab1(&endf, 102), tab1(&endf, 600)];
-    let nj = [tab1(&njoy, 1), tab1(&njoy, 2), tab1(&njoy, 102), tab1(&njoy, 600)];
+    let bg = [
+        tab1(&endf, 1),
+        tab1(&endf, 2),
+        tab1(&endf, 102),
+        tab1(&endf, 600),
+    ];
+    let nj = [
+        tab1(&njoy, 1),
+        tab1(&njoy, 2),
+        tab1(&njoy, 102),
+        tab1(&njoy, 600),
+    ];
     for t in &nj {
         assert_eq!(t.pairs.len(), 10730, "NJOY grid is unionised");
     }
@@ -155,7 +162,11 @@ fn cl35_rml_kernel_matches_njoy_reconr_at_its_nodes() {
             &st.quantum_info,
             e,
         );
-        let sig_p = r.other.iter().find(|(mt, _)| *mt == 600).map_or(0.0, |x| x.1);
+        let sig_p = r
+            .other
+            .iter()
+            .find(|(mt, _)| *mt == 600)
+            .map_or(0.0, |x| x.1);
         // the kernel's total is elastic + the whole non-elastic bucket
         assert!(
             (r.total - (r.elastic + r.capture + sig_p)).abs() <= 1e-12 * r.total.abs(),
@@ -256,7 +267,12 @@ fn cl35_crate_reconr_end_to_end_reported() {
             worst.1
         );
         if mt == 2 || mt == 102 {
-            assert!(worst.0 < 3e-3, "MT={mt} worst {:.3e} at {:.3e} eV", worst.0, worst.1);
+            assert!(
+                worst.0 < 3e-3,
+                "MT={mt} worst {:.3e} at {:.3e} eV",
+                worst.0,
+                worst.1
+            );
         }
     }
 }

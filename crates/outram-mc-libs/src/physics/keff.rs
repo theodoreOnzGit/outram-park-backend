@@ -41,7 +41,9 @@
 //!
 //! # Fidelity
 //!
-//! Analog transport (no implicit capture / weight windows), target at rest. Both
+//! ~~Analog transport (no implicit capture / weight windows)~~ **CORRECTED
+//! 2026-09-22 (gh:#258)** — analog by default, with both available through
+//! `KeffSettings::variance_reduction`. Target at rest. Both
 //! data tiers now model inelastic down-scatter and forward-peaked elastic; they
 //! differ in how finely that physics is resolved:
 //!
@@ -97,6 +99,7 @@
 use crate::geometry::position::{stream, Direction, Position};
 use crate::geometry::surface::{BoundaryType, Sphere, Surface};
 use crate::material::material::Material;
+use crate::material::nuclide::library_energy_max_ev;
 use crate::material::nuclide::{Inelastic, Nuclide};
 // `KeffSettings` has a `compute: ComputeType` field, so the same re-export
 // argument applies here as in pebble_beds::fhr_pebble: the same dogfood run
@@ -105,8 +108,7 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 pub use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated, rotate_direction,
-    two_body_scatter,
+    free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
 use crate::gpu::batched_event::{EventBatch, EventSphere, EventTablesF32, FISS_NONE};
 use crate::gpu::collision_grid::CollisionTables;
@@ -115,7 +117,10 @@ use crate::rng::lcg::{future_seed, prn};
 use crate::mathf::RealMath;
 
 /// Settings for a [`run_keff`] power iteration.
-#[derive(Debug, Clone, Copy)]
+/// Not `Copy`: since GitHub #258 this carries an optional `Arc` to a weight
+/// window set, which is bulk data rather than a scalar setting. Clone it
+/// explicitly where a copy was previously implicit.
+#[derive(Debug, Clone)]
 pub struct KeffSettings {
     /// Neutron histories per generation. More ⇒ lower per-generation noise.
     pub n_particles: usize,
@@ -123,7 +128,21 @@ pub struct KeffSettings {
     pub n_inactive: usize,
     /// Active generations averaged into the reported eigenvalue.
     pub n_active: usize,
-    /// Material/data temperature \[K\] used for Doppler-broadened lookups.
+    /// Run temperature \[K\].
+    ///
+    /// **What it does depends on the driver** (see `docs/temperatures.md`):
+    /// - in the CSG drivers (`transport_csg`) it is **not read**. Cross
+    ///   sections are looked up at each material's own temperature, and the
+    ///   free-gas kinematics take the nuclide's data temperature (pointwise) or
+    ///   the collision material's (multipole), as OpenMC does
+    ///   (`Nuclide::free_gas_kt`). ~~It is the free-gas elastic kinematics
+    ///   temperature only~~ **CORRECTED 2026-09-30 (GitHub #313)**;
+    /// - in the simple drivers of this module it is the temperature cross
+    ///   sections are looked up at, and the multipole free-gas temperature.
+    ///
+    /// In neither does it re-broaden a pointwise nuclide. ~~Material/data
+    /// temperature used for Doppler-broadened lookups.~~ (Clarified
+    /// 2026-09-27.)
     pub temperature_k: f64,
     /// Master RNG seed. Fixed seed ⇒ bit-reproducible run.
     pub seed: u64,
@@ -148,6 +167,41 @@ pub struct KeffSettings {
     ///   no GPU adapter is available. The GPU is `f32` acceleration only; the CPU
     ///   single-thread path stays the trusted reference.
     pub compute: ComputeType,
+    /// Variance reduction for the CSG transport path (GitHub #258).
+    ///
+    /// The [`Default`] is **analog** — survival biasing off, no roulette —
+    /// and that is deliberate. This is not a physics term the data supplies
+    /// (which the workspace rule would require on by default); it is a choice
+    /// of *estimator*, and the analog estimator is the reference every
+    /// recorded V&V number in this crate was measured with. Turning it on is
+    /// a named act, and
+    /// `tests/variance_reduction_is_bit_identical_when_analog.rs` pins that
+    /// leaving it alone changes nothing at all.
+    pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
+    /// **Run until `k` reaches a target precision** rather than for a fixed
+    /// generation count — GitHub #263 scope items 1, 2 and 4.
+    ///
+    /// `None` (the default) runs exactly `n_active` active generations, which
+    /// is what every recorded result in this crate was measured with. With a
+    /// trigger, `n_active` becomes the **maximum**: the run stops early once
+    /// the metric is met, and still stops at `n_active` if it never is.
+    ///
+    /// A trigger cannot make a run go longer than `n_active`. Upstream has a
+    /// separate `n_max_batches` for that; conflating the two here would let a
+    /// tightened threshold silently multiply the cost of a study, which is
+    /// the opposite of what this feature is for.
+    pub keff_trigger: Option<crate::tally::trigger::Trigger>,
+    /// **How a tally is scored inside a delta-tracked region** (gh:#598).
+    ///
+    /// The default, [`DeltaTallyEstimator::TentativeCollision`], scores
+    /// `w/Σ_maj` (flux) and `w·Σ_x/Σ_maj` (reaction rates) at every
+    /// tentative collision site, virtual and real: unbiased everywhere in the
+    /// region, the near-void helium between pebbles included.
+    /// [`DeltaTallyEstimator::RealCollision`] (`w/Σ_t` at real collisions
+    /// only) is the explicit ablation. Neither draws random numbers, so the
+    /// eigenvalue does not depend on this choice; only the tallies do.
+    /// Surface-tracked regions always use the track-length estimator.
+    pub delta_tally_estimator: crate::physics::transport_csg::DeltaTallyEstimator,
 }
 
 impl Default for KeffSettings {
@@ -164,6 +218,9 @@ impl Default for KeffSettings {
             watt_a: 0.988e6,
             watt_b: 2.249e-6,
             compute: ComputeType::CpuSingleThread,
+            variance_reduction: Default::default(),
+            keff_trigger: None,
+            delta_tally_estimator: Default::default(),
         }
     }
 }
@@ -177,7 +234,10 @@ impl KeffSettings {
     /// single-thread reference and then the multi-thread backend is
     /// `run_keff(r, &mat, &nuc, &settings.with_compute(ComputeType::CpuSingleThread))`
     /// followed by `run_keff(r, &mat, &nuc, &settings.with_compute(ComputeType::CpuMultiThread))`
-    /// — `KeffSettings` is `Copy`, so `settings` is untouched and can be reused.
+    /// ~~— `KeffSettings` is `Copy`, so `settings` is untouched and can be reused.~~
+    /// **CORRECTED 2026-09-22 (gh:#258)** — it is `Clone`, not `Copy`, since it
+    /// gained an optional `Arc` to a weight-window set. Call it on a clone
+    /// (`settings.clone().with_compute(..)`) where the original is still needed.
     pub fn with_compute(mut self, compute: ComputeType) -> Self {
         self.compute = compute;
         self
@@ -193,10 +253,175 @@ pub struct KeffResult {
     pub k_std: f64,
     /// Per-generation eigenvalue estimates, all generations (inactive first).
     pub k_by_generation: Vec<f64>,
+    /// **Shannon entropy of the fission source, one value per generation.**
+    ///
+    /// Empty unless an entropy mesh was supplied to
+    /// [`crate::physics::transport_csg::run_keff_csg_hybrid`]. Ported
+    /// diagnostic: `H = -sum p_i log2 p_i` over the fission bank binned on a
+    /// regular mesh (OpenMC `src/eigenvalue.cpp:587`), in **bits**.
+    ///
+    /// # Why it matters more than it looks
+    ///
+    /// `H` rises from a concentrated initial guess and **plateaus once the
+    /// source has converged**, which is how you choose how many inactive
+    /// generations to discard. A `k` quoted without it is a number whose source
+    /// convergence nobody checked — and on a large, loosely-coupled core such
+    /// as a pebble bed, that is exactly where the bias hides. The HTR-10 RMC
+    /// reference used **5** inactive cycles on a 1.8 m core; this field is how
+    /// you avoid copying that.
+    pub entropy: Vec<f64>,
+    /// **Virtual collisions rejected inside delta-tracked regions** over the
+    /// whole run — the measured price of the majorant (`bn:op-867c.5`).
+    ///
+    /// `0` for a purely surface-tracked model, which is every model predating
+    /// `bn:op-867c`. A large value relative to the history count means the
+    /// majorant is badly over-bounding the region: measured 2026-09-17, adding
+    /// one B4C control rod to a globally-bounded set costs **26.3x** at the
+    /// thermal peak (`examples/majorant_absorber_price.rs`). Scoping the
+    /// majorant to its region is what recovers that, and this field is how you
+    /// see whether it did.
+    ///
+    /// Reported rather than discarded: `keff_delta.rs`'s `delta_flight` throws
+    /// the count away, so no HTR-10 run in this crate has ever had a measured
+    /// rejection rate.
+    pub virtual_collisions: u64,
+    /// **Tentative collision sites where `Σ_t > Σ_maj`** over the whole run:
+    /// places where the majorant did not bound the cross section, so the
+    /// accept probability was clamped to 1 and collisions were silently lost.
+    /// Must be `0`; anything else means the majorant is not a bound for the
+    /// materials as they are now (e.g. built at another temperature, gh:#721)
+    /// and the run is biased. The hybrid CSG driver counts it; the
+    /// `keff_delta` drivers report `0` (not instrumented).
+    pub majorant_violations: u64,
+    /// **Histories lost inside a delta-tracked region**: the virtual-collision
+    /// budget ran out, or a tentative site could not be placed by
+    /// `Geometry::locate`. Scored as leaks so the balance closes, and so,
+    /// like [`Self::lost_locate`], invisible in `k` alone (gh:#721; counted
+    /// nowhere before). Hybrid CSG driver only.
+    pub delta_lost: u64,
+    /// **Real collisions over the whole run.** Divided by the history count
+    /// this is the mean collisions per neutron, which separates a model that
+    /// absorbs its neutrons from one that loses them before they interact.
+    pub collisions: u64,
+    /// Histories ended by a failed `Geometry::locate`. Scored as leaks in the
+    /// neutron balance, so `k` alone cannot reveal them.
+    pub lost_locate: u64,
+    /// Histories ended by exhausting the per-history event budget.
+    pub stuck_events: u64,
+    /// Total path \[cm\] travelled by stuck histories — near zero means they
+    /// were oscillating on a surface, large means real tile traversal.
+    pub stuck_path_cm: f64,
+    /// Last-known energy \[eV\] of a stuck history.
+    pub stuck_last_e: f64,
+    /// Times `distance_to_boundary` returned a negative distance — a geometry
+    /// defect that makes the neutron step backwards and oscillate.
+    pub neg_dist: u64,
+    /// Coordinate (nesting) level of the most recent negative distance.
+    pub neg_level: u64,
+    /// Most negative distance \[cm\] observed.
+    pub neg_worst: f64,
+    /// Negative distances coming from a lattice tile crossing.
+    pub neg_from_lattice: u64,
+    /// Negative distances coming from a CSG surface.
+    pub neg_from_surface: u64,
+    /// Histories leaking across a genuine vacuum boundary.
+    pub leak_vacuum: u64,
+    /// Histories that streamed to infinity with no surface ahead — a geometry
+    /// defect, not physics, whenever the model is closed.
+    pub leak_infinity: u64,
+    /// **Histories actually transported.** The denominator for every counter
+    /// above. It is NOT `n_particles x n_generations` when a run dies early,
+    /// and using the planned figure understates every rate — which is exactly
+    /// how a 68 % stuck-history rate first read as 2.7 %.
+    pub histories: u64,
+}
+
+/// **Analog counts of how neutrons ended**, from the bare-sphere transport
+/// itself (gh:#521: the Godiva lesson teaches leakage and fast fission by
+/// counting).
+///
+/// Every neutron the transport follows ends exactly one way, so
+/// `leaked + captured + fissions() == tracked`. `tracked` counts the source
+/// neutrons **and** the same-generation `(n,2n)`, `(n,3n)` and `(n,anything)`
+/// secondaries (they are followed to the end like any other neutron), so it is
+/// slightly more than the number of source neutrons. Counting draws no random
+/// numbers: `k` is unchanged
+/// (`stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit`).
+///
+/// - **leaked**: crossed the vacuum boundary (the sphere's surface), or had
+///   `Σ_t = 0` and would have streamed out.
+/// - **captured**: absorbed without fission: radiative capture, or an
+///   `(n,anything)` / other emission arm whose sampled neutron yield is zero.
+/// - **fissions**: binned by the INCIDENT neutron's energy at
+///   [`Self::FISSION_BIN_EDGES_EV`] (0.625 eV, the cadmium cut-off, and
+///   100 keV).
+///
+/// What the counts give, per generation or summed: the non-leakage
+/// probability `P_NL = 1 - leaked / tracked`, and `k_inf = nu_bar F / (F + C)`,
+/// so that `k_inf * P_NL = nu_bar F / tracked`, which is `k` up to the ratio
+/// `tracked / n_particles` (the secondaries). These are tallies of one run;
+/// their statistical uncertainty is the caller's to estimate.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct HistoryCounts {
+    /// Neutrons followed to the end: source neutrons plus same-generation
+    /// secondaries.
+    pub tracked: u64,
+    /// Ended by leaking out through the surface.
+    pub leaked: u64,
+    /// Ended by absorption without fission.
+    pub captured: u64,
+    /// Ended in fission, by incident energy: `[< 0.625 eV, 0.625 eV - 100 keV, > 100 keV]`.
+    pub fissions_by_energy: [u64; 3],
+}
+
+impl HistoryCounts {
+    /// Bin edges of [`Self::fissions_by_energy`] \[eV\]: the conventional
+    /// thermal cut-off (cadmium, 0.625 eV) and 100 keV.
+    pub const FISSION_BIN_EDGES_EV: [f64; 2] = [0.625, 1.0e5];
+
+    /// All fissions.
+    pub fn fissions(&self) -> u64 {
+        self.fissions_by_energy.iter().sum()
+    }
+
+    /// Add another set of counts (e.g. one generation's) to these.
+    pub fn add(&mut self, other: &HistoryCounts) {
+        self.tracked += other.tracked;
+        self.leaked += other.leaked;
+        self.captured += other.captured;
+        for (a, b) in self.fissions_by_energy.iter_mut().zip(other.fissions_by_energy) {
+            *a += b;
+        }
+    }
+
+    /// One neutron ended by leaking (or by an end scored as a leak).
+    pub(crate) fn record_leak(&mut self) {
+        self.tracked += 1;
+        self.leaked += 1;
+    }
+
+    /// One neutron ended by capture (absorption without fission).
+    pub(crate) fn record_capture(&mut self) {
+        self.tracked += 1;
+        self.captured += 1;
+    }
+
+    /// One neutron ended in fission at incident energy `e_incident_ev`
+    /// (counted in `tracked` too).
+    pub(crate) fn record_fission_end(&mut self, e_incident_ev: f64) {
+        self.tracked += 1;
+        self.record_fission(e_incident_ev);
+    }
+
+    fn record_fission(&mut self, e_incident_ev: f64) {
+        let [lo, hi] = Self::FISSION_BIN_EDGES_EV;
+        let bin = if e_incident_ev < lo { 0 } else if e_incident_ev < hi { 1 } else { 2 };
+        self.fissions_by_energy[bin] += 1;
+    }
 }
 
 /// A fission-source neutron awaiting transport in the next generation.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Site {
     r: Position,
     u: Direction,
@@ -267,71 +492,303 @@ pub fn run_keff_cpu_single(
     nuclides: &[Nuclide],
     settings: &KeffSettings,
 ) -> KeffResult {
-    let sphere = Sphere {
-        x0: 0.0,
-        y0: 0.0,
-        z0: 0.0,
-        r: radius_cm,
-        bc: BoundaryType::Vacuum,
-    };
-    let mut seed = settings.seed;
-    let temp = settings.temperature_k;
+    let mut it = PowerIteration::new(radius_cm, settings);
+    while it.step(material, nuclides).is_some() {}
+    it.result()
+}
 
-    // Initial source: uniform in the sphere volume, isotropic, Watt energy.
-    let mut source: Vec<Site> = (0..settings.n_particles)
-        .map(|_| {
-            let (dx, dy, dz) = isotropic_direction(&mut seed);
-            let rr = radius_cm * prn(&mut seed).r_cbrt(); // uniform-in-volume radius
-            Site {
-                r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
-                e: watt(&mut seed, settings.watt_a, settings.watt_b),
-            }
-        })
-        .collect();
+/// What one generation of a [`PowerIteration`] produced.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GenerationReport {
+    /// Generation index, from 0. Generations `0..n_inactive` are inactive.
+    pub index: usize,
+    /// Whether this generation counts towards the reported `k`.
+    pub active: bool,
+    /// This generation's estimate, `k_gen = (sum of nu-bar over fissions) / n_particles`.
+    pub k: f64,
+    /// Shannon entropy \[bits\] of this generation's fission bank, before it
+    /// is resampled (OpenMC `src/eigenvalue.cpp:587` takes it at the same
+    /// point). `None` without an entropy mesh, or for an empty bank.
+    pub entropy: Option<f64>,
+    /// Mean and standard error of the mean over the active generations so
+    /// far, this one included; `None` while still inactive. The error is 0
+    /// after the first active generation (one sample has no spread).
+    pub k_mean: Option<(f64, f64)>,
+    /// Fission sites banked this generation, before resampling.
+    pub bank_size: usize,
+    /// Fission production, `sum of nu-bar` over this generation's fissions
+    /// (so `k = production / n_particles`, and the mean `nu-bar` is
+    /// `production / counts.fissions()`).
+    pub production: f64,
+    /// How this generation's neutrons ended: leaked, captured, fissioned.
+    pub counts: HistoryCounts,
+}
 
-    let n_gen = settings.n_inactive + settings.n_active;
-    let mut k_by_generation = Vec::with_capacity(n_gen);
-    let mut k_running = 1.0; // guess feeding the site-count normalisation
-    let mut active_k = Vec::with_capacity(settings.n_active);
+/// The single-thread power iteration of [`run_keff_cpu_single`], **one
+/// generation at a time**.
+///
+/// [`run_keff_cpu_single`] is exactly [`Self::new`], [`Self::step`] until it
+/// returns `None`, then [`Self::result`]. So this is the reference backend
+/// itself, not a copy of it: the same random numbers are drawn in the same
+/// order and the eigenvalue is bit-for-bit the same. It exists for callers
+/// that need to see a run as it happens: a live console printing one line per
+/// generation the way `openmc.run()` does, a convergence plot, or a run that
+/// pauses between generations. The `dhoby-ghaut` Monte Carlo web demo runs
+/// Godiva this way, in a browser worker (gh:#521).
+///
+/// It holds no reference to the material or the nuclides (the workspace
+/// forbids lifetime parameters on structs). Pass the same ones to every
+/// [`Self::step`].
+///
+/// ```no_run
+/// # use outram_mc_libs::material::material::Material;
+/// # use outram_mc_libs::material::nuclide::Nuclide;
+/// use outram_mc_libs::physics::keff::{KeffSettings, PowerIteration};
+/// # fn demo(material: &Material, nuclides: &[Nuclide]) {
+/// let r = 8.7407; // Godiva, cm
+/// let mut it = PowerIteration::new(r, &KeffSettings::default())
+///     .with_entropy_mesh(PowerIteration::bounding_box_mesh(r, 5));
+/// while let Some(g) = it.step(material, nuclides) {
+///     println!("{:>5}  {:.5}  {:?}  {:?}", g.index + 1, g.k, g.entropy, g.k_mean);
+/// }
+/// let result = it.result();
+/// # }
+/// ```
+#[derive(Debug, Clone)]
+pub struct PowerIteration {
+    sphere: Sphere,
+    settings: KeffSettings,
+    seed: u64,
+    source: Vec<Site>,
+    k_running: f64,
+    k_by_generation: Vec<f64>,
+    active_k: Vec<f64>,
+    entropy_mesh: Option<crate::tally::mesh::RegularMesh>,
+    entropy: Vec<f64>,
+    generation: usize,
+    finished: bool,
+}
 
-    for gen in 0..n_gen {
-        let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
+impl PowerIteration {
+    /// Start a run on a bare sphere of radius `radius_cm` (centred at the
+    /// origin, vacuum outside), from the initial source
+    /// [`run_keff_cpu_single`] uses: uniform in the volume,
+    /// isotropic, Watt energy.
+    pub fn new(radius_cm: f64, settings: &KeffSettings) -> Self {
+        let mut seed = settings.seed;
+        // ANCHOR: initial_source
+        // Initial source: uniform in the sphere volume, isotropic, Watt energy.
+        // The position's direction and the flight direction are two
+        // INDEPENDENT isotropic draws (gh:#527, fixed 2026-10-05): until then
+        // one draw did both, so every first-generation neutron flew radially
+        // outward and generation 1 leaked far too much (Godiva: k_1 = 0.468
+        // at 5000 neutrons, seed 1).
+        let source: Vec<Site> = (0..settings.n_particles)
+            .map(|_| {
+                let (dx, dy, dz) = isotropic_direction(&mut seed);
+                let rr = radius_cm * prn(&mut seed).r_cbrt(); // uniform-in-volume radius
+                // Aim independently of the position (gh:#527).
+                let (ux, uy, uz) = isotropic_direction(&mut seed);
+                Site {
+                    r: Position::new(rr * dx, rr * dy, rr * dz),
+                    u: Direction::new(ux, uy, uz),
+                    e: watt(&mut seed, settings.watt_a, settings.watt_b),
+                }
+            })
+            .collect();
+        // ANCHOR_END: initial_source
+        Self::from_source(radius_cm, settings, source, seed)
+    }
+
+    /// Start with every neutron at one point `at` (isotropic, Watt energy)
+    /// instead of spread through the volume: a deliberately bad first guess,
+    /// so the source can be watched spreading to its converged shape and its
+    /// entropy rising to a plateau. Same driver, same physics. Only the first
+    /// generation's source differs, which is what inactive generations exist
+    /// to forget.
+    pub fn new_point_source(radius_cm: f64, settings: &KeffSettings, at: Position) -> Self {
+        let mut seed = settings.seed;
+        let source: Vec<Site> = (0..settings.n_particles)
+            .map(|_| {
+                let (dx, dy, dz) = isotropic_direction(&mut seed);
+                Site {
+                    r: at,
+                    u: Direction::new(dx, dy, dz),
+                    e: watt(&mut seed, settings.watt_a, settings.watt_b),
+                }
+            })
+            .collect();
+        Self::from_source(radius_cm, settings, source, seed)
+    }
+
+    fn from_source(radius_cm: f64, settings: &KeffSettings, source: Vec<Site>, seed: u64) -> Self {
+        let n_gen = settings.n_inactive + settings.n_active;
+        Self {
+            sphere: Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r: radius_cm,
+                bc: BoundaryType::Vacuum,
+            },
+            settings: settings.clone(),
+            seed,
+            source,
+            k_running: 1.0, // guess feeding the site-count normalisation
+            k_by_generation: Vec::with_capacity(n_gen),
+            active_k: Vec::with_capacity(settings.n_active),
+            entropy_mesh: None,
+            entropy: Vec::new(),
+            generation: 0,
+            finished: n_gen == 0,
+        }
+    }
+
+    /// Also compute the Shannon entropy of every generation's fission bank
+    /// on `mesh` ([`crate::tally::mesh::RegularMeshExt::shannon_entropy`],
+    /// the port verified against OpenMC). It draws no random numbers, so `k`
+    /// is unchanged.
+    pub fn with_entropy_mesh(mut self, mesh: crate::tally::mesh::RegularMesh) -> Self {
+        self.entropy_mesh = Some(mesh);
+        self
+    }
+
+    /// An `n x n x n` mesh on the sphere's bounding box `[-R, R]^3`. With
+    /// `n = 5` it is the mesh of the Shannon-entropy verification against
+    /// OpenMC (`tests/shannon_entropy_vs_openmc.rs`). The ceiling is
+    /// `log2(n^3)` bits (6.97 for `n = 5`); a converged source stays below
+    /// it, because the corner bins lie outside the sphere.
+    pub fn bounding_box_mesh(radius_cm: f64, n: usize) -> crate::tally::mesh::RegularMesh {
+        crate::tally::mesh::RegularMesh {
+            lower_left: [-radius_cm; 3],
+            upper_right: [radius_cm; 3],
+            dimension: [n; 3],
+        }
+    }
+
+    /// Transport one generation and resample its fission bank into the next
+    /// source. Returns `None` once every generation has run, or the
+    /// population has died out; [`Self::result`] then holds the answer.
+    pub fn step(&mut self, material: &Material, nuclides: &[Nuclide]) -> Option<GenerationReport> {
+        if self.finished {
+            return None;
+        }
+        let gen = self.generation;
+        let n_particles = self.settings.n_particles;
+        let temp = self.settings.temperature_k;
+        // ANCHOR: generation
+        let mut next_bank: Vec<Site> = Vec::with_capacity(n_particles);
         let mut production = 0.0_f64;
+        let mut counts = HistoryCounts::default();
 
-        for site in &source {
+        for site in &self.source {
             production += transport_history(
                 *site,
-                &sphere,
+                &self.sphere,
                 material,
                 nuclides,
                 temp,
-                k_running,
+                self.k_running,
                 &mut next_bank,
-                &mut seed,
+                &mut self.seed,
+                &mut counts,
             );
         }
 
-        let k_gen = production / settings.n_particles as f64;
-        k_by_generation.push(k_gen);
-        k_running = k_gen;
-        if gen >= settings.n_inactive {
-            active_k.push(k_gen);
+        let k_gen = production / n_particles as f64;
+        // ANCHOR_END: generation
+        self.k_by_generation.push(k_gen);
+        self.k_running = k_gen;
+        let active = gen >= self.settings.n_inactive;
+        if active {
+            self.active_k.push(k_gen);
+        }
+        let entropy = self.entropy_mesh.as_ref().and_then(|mesh| {
+            use crate::tally::mesh::RegularMeshExt;
+            let sites: Vec<crate::particle::bank::BankSite> = next_bank
+                .iter()
+                .map(|b| crate::particle::bank::BankSite { r: b.r, u: b.u, e: b.e, wgt: 1.0, seed: 0 })
+                .collect();
+            mesh.shannon_entropy(&sites)
+        });
+        if let Some(h) = entropy {
+            self.entropy.push(h);
+        }
+        let bank_size = next_bank.len();
+        self.generation += 1;
+        if self.generation == self.settings.n_inactive + self.settings.n_active {
+            self.finished = true;
         }
 
         // Resample the next generation's source to exactly n_particles sites.
         if next_bank.is_empty() {
             // Sub-critical to extinction (or no data): nothing left to iterate.
-            break;
+            self.finished = true;
+        } else {
+            self.source = resample(&next_bank, n_particles, &mut self.seed);
         }
-        source = resample(&next_bank, settings.n_particles, &mut seed);
+        Some(GenerationReport {
+            index: gen,
+            active,
+            k: k_gen,
+            entropy,
+            k_mean: active.then(|| mean_and_stderr(&self.active_k)),
+            bank_size,
+            production,
+            counts,
+        })
     }
 
-    let (k_mean, k_std) = mean_and_stderr(&active_k);
-    KeffResult {
-        k_mean,
-        k_std,
-        k_by_generation,
+    /// Generations run so far.
+    pub fn generations_done(&self) -> usize {
+        self.generation
+    }
+
+    /// Whether every generation has run (or the population died out).
+    pub fn finished(&self) -> bool {
+        self.finished
+    }
+
+    /// The settings this run was started with.
+    pub fn settings(&self) -> &KeffSettings {
+        &self.settings
+    }
+
+    /// Where the neutrons of the NEXT generation start: the resampled
+    /// fission bank of the last generation, or the initial source before the
+    /// first [`Self::step`].
+    pub fn source_positions(&self) -> Vec<Position> {
+        self.source.iter().map(|s| s.r).collect()
+    }
+
+    /// The result so far, as [`run_keff_cpu_single`] returns it: mean and
+    /// standard error over the active generations run, the per-generation
+    /// `k` trace, and the entropy trace when a mesh was given.
+    pub fn result(&self) -> KeffResult {
+        let (k_mean, k_std) = mean_and_stderr(&self.active_k);
+        KeffResult {
+            // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+            collisions: 0,
+            lost_locate: 0,
+            stuck_events: 0,
+            stuck_path_cm: 0.0,
+            stuck_last_e: 0.0,
+            neg_dist: 0,
+            neg_level: 0,
+            neg_worst: 0.0,
+            neg_from_lattice: 0,
+            neg_from_surface: 0,
+            leak_vacuum: 0,
+            leak_infinity: 0,
+            histories: 0,
+            k_mean,
+            k_std,
+            k_by_generation: self.k_by_generation.clone(),
+            entropy: self.entropy.clone(),
+            virtual_collisions: 0,
+            majorant_violations: 0,
+            delta_lost: 0,
+        }
     }
 }
 
@@ -445,9 +902,11 @@ pub fn run_keff_cpu_multi(
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
             let rr = radius_cm * prn(&mut src_seed).r_cbrt(); // uniform-in-volume radius
+            // Aim independently of the position (gh:#527).
+            let (ux, uy, uz) = isotropic_direction(&mut src_seed);
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
+                u: Direction::new(ux, uy, uz),
                 e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
             }
         })
@@ -487,6 +946,8 @@ pub fn run_keff_cpu_multi(
                         k_running,
                         &mut local_bank,
                         &mut seed,
+                        // Not reported by this backend (see `PowerIteration`).
+                        &mut HistoryCounts::default(),
                     );
                     (production, local_bank)
                 })
@@ -517,9 +978,27 @@ pub fn run_keff_cpu_multi(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
+        virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 
@@ -628,9 +1107,11 @@ pub fn run_keff_gpu_inner(
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut seed);
             let rr = radius_cm * prn(&mut seed).r_cbrt();
+            // Aim independently of the position (gh:#527).
+            let (ux, uy, uz) = isotropic_direction(&mut seed);
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
+                u: Direction::new(ux, uy, uz),
                 e: watt(&mut seed, settings.watt_a, settings.watt_b),
             }
         })
@@ -681,9 +1162,27 @@ pub fn run_keff_gpu_inner(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
+        virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 
@@ -806,9 +1305,11 @@ pub fn run_keff_gpu_batched(
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
             let rr = radius_cm * prn(&mut src_seed).r_cbrt();
+            // Aim independently of the position (gh:#527).
+            let (ux, uy, uz) = isotropic_direction(&mut src_seed);
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
+                u: Direction::new(ux, uy, uz),
                 e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
             }
         })
@@ -908,11 +1409,11 @@ pub fn run_keff_gpu_batched(
                                     seed,
                                 });
                             }
-                            CollisionResult::ScatterWithSecondary {
+                            CollisionResult::ScatterWithSecondaries {
                                 e: e2,
                                 u: u2,
-                                sec_e,
-                                sec_u,
+                                sec,
+                                n_sec,
                             } => {
                                 survivors.push(LiveNeutron {
                                     r,
@@ -920,15 +1421,21 @@ pub fn run_keff_gpu_batched(
                                     e: e2,
                                     seed,
                                 });
-                                // The (n,2n) extra neutron gets its own sub-stream
-                                // (jump-ahead off the parent's post-collision seed).
-                                let sec_seed = future_seed(BATCH_SECONDARY_STRIDE, seed);
-                                survivors.push(LiveNeutron {
-                                    r,
-                                    u: sec_u,
-                                    e: sec_e,
-                                    seed: sec_seed,
-                                });
+                                // Each extra neutron gets its own sub-stream
+                                // (jump-ahead off the parent's post-collision
+                                // seed). The multiplier `j + 1` keeps the two
+                                // (n,3n) extras on distinct streams rather than
+                                // an identical one.
+                                for (j, &(sec_e, sec_u)) in sec.iter().take(n_sec).enumerate() {
+                                    let sec_seed =
+                                        future_seed(BATCH_SECONDARY_STRIDE * (j as u64 + 1), seed);
+                                    survivors.push(LiveNeutron {
+                                        r,
+                                        u: sec_u,
+                                        e: sec_e,
+                                        seed: sec_seed,
+                                    });
+                                }
                             }
                         }
                     }
@@ -952,9 +1459,27 @@ pub fn run_keff_gpu_batched(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
+        virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 
@@ -1019,6 +1544,8 @@ fn bank_event_fission(
     nuclides: &[Nuclide],
     k_running: f64,
 ) -> (f64, Vec<Site>) {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     let n = batch.len();
     let mut production = 0.0_f64;
     let mut next_bank: Vec<Site> = Vec::new();
@@ -1043,7 +1570,7 @@ fn bank_event_fission(
             next_bank.push(Site {
                 r,
                 u: Direction::new(dx, dy, dz),
-                e: nuc.sample_fission_energy(e_in, &mut seed),
+                e: nuc.sample_fission_energy_below(e_in, e_cap_fission, &mut seed),
             });
         }
     }
@@ -1159,9 +1686,11 @@ fn run_event_power_iteration(
         .map(|_| {
             let (dx, dy, dz) = isotropic_direction(&mut src_seed);
             let rr = radius_cm * prn(&mut src_seed).r_cbrt();
+            // Aim independently of the position (gh:#527).
+            let (ux, uy, uz) = isotropic_direction(&mut src_seed);
             Site {
                 r: Position::new(rr * dx, rr * dy, rr * dz),
-                u: Direction::new(dx, dy, dz),
+                u: Direction::new(ux, uy, uz),
                 e: watt(&mut src_seed, settings.watt_a, settings.watt_b),
             }
         })
@@ -1225,9 +1754,27 @@ fn run_event_power_iteration(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
+        virtual_collisions: 0,
+        majorant_violations: 0,
+        delta_lost: 0,
     }
 }
 
@@ -1242,13 +1789,19 @@ enum CollisionResult {
     Dead,
     /// Scattered (elastic or inelastic) → stays live with new energy/direction.
     Scatter { e: f64, u: Direction },
-    /// Scattered **and** emitted one extra same-generation neutron (`(n,2n)`,
-    /// yield 2) → both the down-scattered primary and the secondary stay live.
-    ScatterWithSecondary {
+    /// Scattered **and** emitted extra same-generation neutrons — `(n,2n)`
+    /// (yield 2, one extra) or `(n,3n)` (yield 3, two extra). The
+    /// down-scattered primary and every extra stay live.
+    ///
+    /// The extras are a fixed-size array rather than a `Vec` because this is
+    /// the hot loop and the count is at most three ((n,4n), MT=37, via the
+    /// other-channel arm; GitHub #365 audit); `n_sec` says how many of `sec`
+    /// are live.
+    ScatterWithSecondaries {
         e: f64,
         u: Direction,
-        sec_e: f64,
-        sec_u: Direction,
+        sec: [(f64, Direction); 3],
+        n_sec: usize,
     },
 }
 
@@ -1279,9 +1832,23 @@ fn collide_batched(
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> (f64, CollisionResult) {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     let ci = material.sample_nuclide(e, seed, nuclides);
     let nuc = &nuclides[material.components[ci].nuclide_idx];
-    let x = nuc.xs_at_energy(e, temp);
+    let x = if nuc.needs_urr_draw(e) {
+        // Unresolved-resonance self-shielding: draw one band.
+        //
+        // **Not OpenMC's scheme here (GitHub #407).** The CPU kernels use one
+        // band per nuclide and energy for the flight, the nuclide choice and
+        // the reaction (`Material::macro_xs_total_urr`, `urr_xi`). This GPU
+        // path flies on a union-grid table of the smooth total and draws the
+        // band only at the collision, from the transport stream. Carrying the
+        // URR stream across the GPU flight is not ported.
+        nuc.xs_at_energy_urr(e, temp, prn(seed))
+    } else {
+        nuc.xs_at_energy(e, temp)
+    };
 
     let xi = prn(seed) * x.total;
     if xi < x.fission {
@@ -1296,7 +1863,7 @@ fn collide_batched(
             next_bank.push(Site {
                 r,
                 u: Direction::new(dx, dy, dz),
-                e: nuc.sample_fission_energy(e, seed),
+                e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
             });
         }
         (nu_bar, CollisionResult::Dead)
@@ -1304,15 +1871,16 @@ fn collide_batched(
         (0.0, CollisionResult::Dead) // radiative capture
     } else if xi < x.absorption + x.inelastic {
         let (e2, u2) = match nuc.sample_inelastic(e, seed) {
-            Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-            Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
-                    e,
-                    u,
-                    nuc.awr,
-                    q,
-                    nuc.continuum_law(91),
-                    seed,
-                ),
+            // Discrete level: the CM angular law is the level's own ENDF
+            // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
+            // carries none for this level -- sampling every inelastic
+            // collision isotropically understates <mu>, inflating
+            // Sigma_tr, suppressing leakage and raising k.
+            Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
+                Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
+                None => two_body_scatter(e, u, nuc.awr, q, seed),
+            },
+            Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
     } else if xi < x.absorption + x.inelastic + x.n2n {
@@ -1320,32 +1888,137 @@ fn collide_batched(
         // sharing the sampled outgoing state (Weisskopf stand-in for the emission
         // law, as in transport_history).
         // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
-                    // elastic CM energy as before. Sharing the available energy between
-                    // the two emitted neutrons is a separate gap (GitHub #192).
-                    let law16 = nuc.continuum_law(16);
-                    let (e2, u2) =
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
-                    // Second neutron: an **independent draw** from the same
-                    // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
-                    // neutron, so two independent draws is what the evaluation
-                    // means — duplicating the primary's outgoing state (what this
-                    // did before, and what it still does with no MF=6 law to
-                    // read) correlates the pair perfectly and is GitHub #192's
-                    // second open item.
-                    let (sec_e2, sec_u2) = if law16.is_some() {
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
-                    } else {
-                        (e2, u2)
-                    };
-        (
-            0.0,
-            CollisionResult::ScatterWithSecondary {
-                e: e2,
-                u: u2,
-                sec_e: sec_e2,
-                sec_u: sec_u2,
-            },
-        )
+        // elastic CM energy as before. Sharing the available energy between
+        // the two emitted neutrons is a separate gap (GitHub #192).
+        let has16 = nuc.has_evaluated_emission(16);
+        let (e2, u2) = nuc.sample_inelastic_emission(16, e, u, 0.0, seed);
+        // Second neutron: an **independent draw** from the same
+        // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
+        // neutron, so two independent draws is what the evaluation
+        // means — duplicating the primary's outgoing state (what this
+        // did before, and what it still does with no MF=6 law to
+        // read) correlates the pair perfectly and is GitHub #192's
+        // second open item.
+        let (sec_e2, sec_u2) = if has16 {
+            nuc.sample_inelastic_emission(16, e, u, 0.0, seed)
+        } else {
+            (e2, u2)
+        };
+        // The secondary is drawn above unconditionally and only its EMISSION
+        // is gated, so the yield-2 ablation
+        // (`Nuclide::with_unit_n2n_multiplicity`) leaves both arms' RNG streams
+        // in exact lockstep.
+        if nuc.emits_n2n_secondary() {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: e2,
+                    u: u2,
+                    sec: [(sec_e2, sec_u2); 3],
+                    n_sec: 1,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+        // (n,3n): yield 3. Kept in lockstep with `transport_history`'s arm --
+        // the two differ only in that this one RETURNS the extras instead of
+        // pushing them onto a local stack. Below the MT=17 threshold `x.n3n` is
+        // exactly 0, so this condition coincides with the old `else` boundary
+        // and the partition is unchanged for any reactor spectrum.
+        let has17 = nuc.has_evaluated_emission(17);
+        let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
+        // Three slots (the array holds (n,4n)'s extras too); two are drawn, as
+        // before, so the RNG stream is unchanged.
+        let mut sec = [(e2, u2); 3];
+        for slot in sec.iter_mut().take(2) {
+            if has17 {
+                *slot = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
+            }
+        }
+        if nuc.emits_n2n_secondary() {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: e2,
+                    u: u2,
+                    sec,
+                    n_sec: 2,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+        // MT=5, "(n,anything)": the lumped high-energy channels. Unlike (n,2n)
+        // and (n,3n) its multiplicity is a TABULATED y(E), so the integer count
+        // is drawn from it (`sample_mt5_multiplicity`) rather than fixed.
+        //
+        // Wired 2026-09-17. Before that MT=5 had no arm at all: it is inside
+        // MT=1, so the collision happened and then fell through to the elastic
+        // branch below, which both mis-scattered it and dropped its extra
+        // neutrons. It is exactly zero below ~5 MeV, so this condition coincides
+        // with the previous boundary for any fission spectrum and no reactor
+        // result moves; at 14 MeV it is 0.27 % of all collisions.
+        let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+        let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+        // Every extra neutron is an independent draw from the same law, as for
+        // (n,2n)/(n,3n). Drawn unconditionally so the count, not the draw
+        // sequence, is what varies -- keeping the RNG stream aligned between
+        // multiplicities.
+        let mut sec = [(e2, u2); 3];
+        for slot in sec.iter_mut().take(2) {
+            *slot = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+        }
+        // `y(E) = 0` is a real state, not an edge case: ENDF/B-VIII.0's U-235
+        // MT=5 emits NO neutron below ~100 keV (it is exothermic, QM = +11.1 MeV,
+        // and is lumping charged-particle channels there), and even at 20 MeV
+        // `y = 0.47`, so more than half of those collisions emit nothing. A
+        // sampled multiplicity of zero must therefore KILL the neutron. Scattering
+        // it instead -- which the first version of this arm did -- would create
+        // neutrons the evaluation says do not exist.
+        if n_emit == 0 {
+            return (0.0, CollisionResult::Dead);
+        }
+        let n_sec = n_emit.saturating_sub(1).min(2);
+        if n_sec > 0 {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: e2,
+                    u: u2,
+                    sec,
+                    n_sec,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+        // The other neutron-emitting reactions -- (n,n alpha), (n,np), (n,4n),
+        // ... (GitHub #365 audit). Inside MT=1 like the arms above, so before
+        // this they fell through to ELASTIC and lost their extra neutrons.
+        // `x.other` is 0 below their thresholds (>= several MeV on every held
+        // nuclide), so the partition is unchanged for a fission spectrum below.
+        let o = nuc.sample_other_emission(e, u, seed);
+        if o.n_emit == 0 {
+            return (0.0, CollisionResult::Dead);
+        }
+        let n_sec = o.n_emit.saturating_sub(1).min(3);
+        if n_sec > 0 {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: o.e,
+                    u: o.u,
+                    sec: o.extras,
+                    n_sec,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: o.e, u: o.u })
+        }
     } else {
         // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
         // see the equivalent branch in [`transport_history`].
@@ -1357,11 +2030,11 @@ fn collide_batched(
                 // sampled, so the neutron can gain energy and the population has
                 // a Maxwellian fixed point (bead op-50vu). Above it this is the
                 // old target-at-rest kinematics.
-                let kt = K_BOLTZMANN_EV_PER_K * temp;
+                let kt = nuc.free_gas_kt(temp);
                 let mu_cm = nuc
                     .sample_elastic_mu_cm(e, seed)
                     .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
             }
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
@@ -1387,33 +2060,56 @@ fn transport_history(
     k_running: f64,
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
+    counts: &mut HistoryCounts,
 ) -> f64 {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     let mut production = 0.0;
     // Same-generation work stack: the source neutron plus any (n,2n) secondaries.
     let mut stack: Vec<Site> = vec![site];
+    // The URR probability-table stream, OpenMC's `STREAM_URR_PTABLE`: see
+    // `transport_csg::transport_history_vr`, which this mirrors (GitHub #407).
+    let mut urr_seed = future_seed(5 * crate::rng::lcg::DEFAULT_STRIDE, *seed);
 
     while let Some(start) = stack.pop() {
+        counts.tracked += 1;
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
+        let mut urr_e_last = e;
 
         loop {
-            let sigma_t = material.macro_xs_total(e, nuclides);
+            if e != urr_e_last {
+                urr_seed = future_seed(nuclides.len() as u64, urr_seed);
+                urr_e_last = e;
+            }
+            // ANCHOR: free_flight
+            let sigma_t = material.macro_xs_total_urr(e, nuclides, urr_seed);
             if !(sigma_t > 0.0) {
+                counts.leaked += 1;
                 break; // no interaction possible; treat as escape
             }
             let d_col = -prn(seed).r_ln() / sigma_t;
             let d_bound = sphere.distance(r, u, false);
 
             if d_col >= d_bound {
+                counts.leaked += 1;
                 break; // reaches the vacuum boundary first → leaks
             }
+            // ANCHOR_END: free_flight
 
             // Collide: advance to the collision site and pick the target nuclide.
             r = stream(r, u, d_col);
-            let ci = material.sample_nuclide(e, seed, nuclides);
-            let nuc = &nuclides[material.components[ci].nuclide_idx];
-            let x = nuc.xs_at_energy(e, temp);
+            let ci = material.sample_nuclide_urr(e, seed, nuclides, urr_seed);
+            let nuc_idx = material.components[ci].nuclide_idx;
+            let nuc = &nuclides[nuc_idx];
+            let x = if nuc.needs_urr_draw(e) {
+                // The same band the flight and the nuclide choice used
+                // (GitHub #407; OpenMC `calculate_urr_xs`).
+                nuc.xs_at_energy_urr(e, temp, crate::material::material::urr_xi(nuc_idx, urr_seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
 
             // Reaction partition on the *total*:
             //   fission | capture | inelastic | (n,2n) | elastic.
@@ -1422,8 +2118,10 @@ fn transport_history(
             // the HIGH tier, so the LOW tier collapses to the fission | capture |
             // elastic split. The final elastic bucket (total − absorption −
             // inelastic − n2n) sweeps up any remaining scattering as elastic-like.
+            // ANCHOR: reaction_choice
             let xi = prn(seed) * x.total;
             if xi < x.fission {
+                // ANCHOR: fission_bank
                 let nu_bar = if x.fission > 0.0 {
                     x.nu_fission / x.fission
                 } else {
@@ -1439,27 +2137,34 @@ fn transport_history(
                         // Birth from the fissioning nuclide's χ at the incident
                         // energy `e` — the HIGH tier's energy-dependent ENDF MF=5
                         // spectrum, or the thermal-Watt stand-in for the LOW tier.
-                        e: nuc.sample_fission_energy(e, seed),
+                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
+                // ANCHOR_END: fission_bank
+                counts.record_fission(e);
                 break; // fission is a terminal absorption for the incident neutron
             } else if xi < x.absorption {
+                counts.captured += 1;
                 break; // radiative capture → dead
+            // ANCHOR_END: reaction_choice
             } else if xi < x.absorption + x.inelastic {
                 // Inelastic scatter with a real energy-loss law: a discrete level's
                 // two-body kinematics (Q-value) or continuum evaporation. This is
                 // the dominant fast-spectrum down-scatter off heavy nuclei.
+                // ANCHOR: inelastic
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
-                    Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                    Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
-                    e,
-                    u,
-                    nuc.awr,
-                    q,
-                    nuc.continuum_law(91),
-                    seed,
-                ),
+                    // Discrete level: the CM angular law is the level's own ENDF
+                    // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
+                    // carries none for this level -- sampling every inelastic
+                    // collision isotropically understates <mu>, inflating
+                    // Sigma_tr, suppressing leakage and raising k.
+                    Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
+                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
+                        None => two_body_scatter(e, u, nuc.awr, q, seed),
+                    },
+                    Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
                 };
+                // ANCHOR_END: inelastic
                 e = e2;
                 u = u2;
             } else if xi < x.absorption + x.inelastic + x.n2n {
@@ -1478,31 +2183,106 @@ fn transport_history(
                 // the Weisskopf stand-in (mirror OpenMC's UncorrelatedAngleEnergy /
                 // CorrelatedAngleEnergy in src/distribution_energy.cpp).
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
-                    // elastic CM energy as before. Sharing the available energy between
-                    // the two emitted neutrons is a separate gap (GitHub #192).
-                    let law16 = nuc.continuum_law(16);
-                    let (e2, u2) =
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
-                    // Second neutron: an **independent draw** from the same
-                    // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
-                    // neutron, so two independent draws is what the evaluation
-                    // means — duplicating the primary's outgoing state (what this
-                    // did before, and what it still does with no MF=6 law to
-                    // read) correlates the pair perfectly and is GitHub #192's
-                    // second open item.
-                    let (sec_e2, sec_u2) = if law16.is_some() {
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                // elastic CM energy as before. Sharing the available energy between
+                // the two emitted neutrons is a separate gap (GitHub #192).
+                let has16 = nuc.has_evaluated_emission(16);
+                let (e2, u2) = nuc.sample_inelastic_emission(16, e, u, 0.0, seed);
+                // Second neutron: an **independent draw** from the same
+                // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
+                // neutron, so two independent draws is what the evaluation
+                // means — duplicating the primary's outgoing state (what this
+                // did before, and what it still does with no MF=6 law to
+                // read) correlates the pair perfectly and is GitHub #192's
+                // second open item.
+                let (sec_e2, sec_u2) = if has16 {
+                    nuc.sample_inelastic_emission(16, e, u, 0.0, seed)
+                } else {
+                    (e2, u2)
+                };
+                // yield − 1 = 1 secondary. The secondary is drawn above
+                // unconditionally and only its EMISSION is gated, so the
+                // yield-2 ablation (`Nuclide::with_unit_n2n_multiplicity`)
+                // leaves both arms' RNG streams in exact lockstep.
+                if nuc.emits_n2n_secondary() {
+                    stack.push(Site {
+                        r,
+                        u: sec_u2,
+                        e: sec_e2,
+                    });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
+                // are emitted. Before 2026-09-16 there was no branch here at all:
+                // MT=17 is inside MT=1, so the collision still happened but fell
+                // through to the ELASTIC arm and both extras were silently lost.
+                //
+                // Below the MT=17 threshold `x.n3n` is exactly 0, so this condition
+                // coincides with the old `else` boundary and the partition is
+                // bit-identical to before -- which is why adding it does not move any
+                // reactor-spectrum result.
+                let has17 = nuc.has_evaluated_emission(17);
+                let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
+                // Two independent draws from the same evaluated law, for the same
+                // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
+                // `f0` per emitted neutron.
+                for _ in 0..2 {
+                    let (se, su) = if has17 {
+                        nuc.sample_inelastic_emission(17, e, u, 0.0, seed)
                     } else {
                         (e2, u2)
                     };
-                // yield − 1 = 1 secondary
-                stack.push(Site {
-                    r,
-                    u: sec_u2,
-                    e: sec_e2,
-                });
+                    if nuc.emits_n2n_secondary() {
+                        stack.push(Site { r, u: su, e: se });
+                    }
+                }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                // MT=5, "(n,anything)" -- the lumped high-energy channels, wired
+                // 2026-09-17. Same history as the (n,3n) arm above: MT=5 is
+                // inside MT=1, so before this the collision happened and fell
+                // through to the ELASTIC arm, mis-scattering it and dropping its
+                // extra neutrons. Its multiplicity is a TABULATED y(E), not a
+                // fixed integer, so the count is drawn from it.
+                //
+                // `x.mt5` is exactly 0 below ~5 MeV, so this condition coincides
+                // with the previous boundary for any fission spectrum and the
+                // partition is bit-identical there.
+                let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                // Draw both possible extras unconditionally so the RNG stream
+                // depends on the law and not on the sampled multiplicity, then
+                // emit only as many as were drawn.
+                let extras = [
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                ];
+                // `y(E) = 0` kills the neutron -- see the equivalent arm in
+                // `collide`. Below ~100 keV U-235's MT=5 emits nothing at all.
+                if n_emit == 0 {
+                    counts.captured += 1; // absorbed without fission
+                    break;
+                }
+                for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                // Other neutron-emitting reactions (GitHub #365 audit); see the
+                // equivalent arm in `collide`.
+                let o = nuc.sample_other_emission(e, u, seed);
+                if o.n_emit == 0 {
+                    counts.captured += 1; // absorbed without fission
+                    break;
+                }
+                for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = o.e;
+                u = o.u;
             } else {
                 // Scattering. A moderator nuclide carrying an S(alpha, beta)
                 // table thermalizes via the bound-atom law below its cutoff
@@ -1520,11 +2300,19 @@ fn transport_history(
                         // is sampled, so the neutron can gain energy and the
                         // population has a Maxwellian fixed point (bead op-50vu).
                         // Above it this is the old target-at-rest kinematics.
-                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let kt = nuc.free_gas_kt(temp);
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                        free_gas_elastic_scatter_dbrc(
+                            e,
+                            u,
+                            nuc.awr,
+                            kt,
+                            mu_cm,
+                            seed,
+                            nuc.dbrc_table(),
+                        )
                     }
                 };
                 e = e2;
@@ -1567,6 +2355,8 @@ fn transport_history_tabulated(
     next_bank: &mut Vec<Site>,
     seed: &mut u64,
 ) -> f64 {
+    // OpenMC's `data::energy_max[neutron]` (GitHub #463 item 2).
+    let e_cap_fission = library_energy_max_ev(nuclides);
     let mut production = 0.0;
     // Consumed once, on the very first Sigma_t lookup of the whole history (the
     // source neutron's first flight); `None` thereafter.
@@ -1599,7 +2389,14 @@ fn transport_history_tabulated(
             r = stream(r, u, d_col);
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
-            let x = nuc.xs_at_energy(e, temp);
+            let x = if nuc.needs_urr_draw(e) {
+                // Unresolved-resonance self-shielding: draw one band. As in
+                // `collide_batched`, this GPU path does not carry OpenMC's URR
+                // stream (GitHub #407): it flies on the smooth total.
+                nuc.xs_at_energy_urr(e, temp, prn(seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
 
             // Reaction partition — VERBATIM from `transport_history`; only the
             // Sigma_t *source* above differs, never the RNG draws below.
@@ -1617,7 +2414,7 @@ fn transport_history_tabulated(
                     next_bank.push(Site {
                         r,
                         u: Direction::new(dx, dy, dz),
-                        e: nuc.sample_fission_energy(e, seed),
+                        e: nuc.sample_fission_energy_below(e, e_cap_fission, seed),
                     });
                 }
                 break;
@@ -1625,44 +2422,119 @@ fn transport_history_tabulated(
                 break;
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, seed) {
-                    Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
-                    Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
-                    e,
-                    u,
-                    nuc.awr,
-                    q,
-                    nuc.continuum_law(91),
-                    seed,
-                ),
+                    // Discrete level: the CM angular law is the level's own ENDF
+                    // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
+                    // carries none for this level -- sampling every inelastic
+                    // collision isotropically understates <mu>, inflating
+                    // Sigma_tr, suppressing leakage and raising k.
+                    Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed) {
+                        Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
+                        None => two_body_scatter(e, u, nuc.awr, q, seed),
+                    },
+                    Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
                 };
                 e = e2;
                 u = u2;
             } else if xi < x.absorption + x.inelastic + x.n2n {
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
-                    // elastic CM energy as before. Sharing the available energy between
-                    // the two emitted neutrons is a separate gap (GitHub #192).
-                    let law16 = nuc.continuum_law(16);
-                    let (e2, u2) =
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
-                    // Second neutron: an **independent draw** from the same
-                    // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
-                    // neutron, so two independent draws is what the evaluation
-                    // means — duplicating the primary's outgoing state (what this
-                    // did before, and what it still does with no MF=6 law to
-                    // read) correlates the pair perfectly and is GitHub #192's
-                    // second open item.
-                    let (sec_e2, sec_u2) = if law16.is_some() {
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                // elastic CM energy as before. Sharing the available energy between
+                // the two emitted neutrons is a separate gap (GitHub #192).
+                let has16 = nuc.has_evaluated_emission(16);
+                let (e2, u2) = nuc.sample_inelastic_emission(16, e, u, 0.0, seed);
+                // Second neutron: an **independent draw** from the same
+                // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
+                // neutron, so two independent draws is what the evaluation
+                // means — duplicating the primary's outgoing state (what this
+                // did before, and what it still does with no MF=6 law to
+                // read) correlates the pair perfectly and is GitHub #192's
+                // second open item.
+                let (sec_e2, sec_u2) = if has16 {
+                    nuc.sample_inelastic_emission(16, e, u, 0.0, seed)
+                } else {
+                    (e2, u2)
+                };
+                // The secondary is drawn above unconditionally and only its
+                // EMISSION is gated, so the yield-2 ablation
+                // (`Nuclide::with_unit_n2n_multiplicity`) leaves both arms'
+                // RNG streams in exact lockstep.
+                if nuc.emits_n2n_secondary() {
+                    stack.push(Site {
+                        r,
+                        u: sec_u2,
+                        e: sec_e2,
+                    });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
+                // are emitted. Before 2026-09-16 there was no branch here at all:
+                // MT=17 is inside MT=1, so the collision still happened but fell
+                // through to the ELASTIC arm and both extras were silently lost.
+                //
+                // Below the MT=17 threshold `x.n3n` is exactly 0, so this condition
+                // coincides with the old `else` boundary and the partition is
+                // bit-identical to before -- which is why adding it does not move any
+                // reactor-spectrum result.
+                let has17 = nuc.has_evaluated_emission(17);
+                let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
+                // Two independent draws from the same evaluated law, for the same
+                // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
+                // `f0` per emitted neutron.
+                for _ in 0..2 {
+                    let (se, su) = if has17 {
+                        nuc.sample_inelastic_emission(17, e, u, 0.0, seed)
                     } else {
                         (e2, u2)
                     };
-                stack.push(Site {
-                    r,
-                    u: sec_u2,
-                    e: sec_e2,
-                });
+                    if nuc.emits_n2n_secondary() {
+                        stack.push(Site { r, u: su, e: se });
+                    }
+                }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                // MT=5, "(n,anything)" -- the lumped high-energy channels, wired
+                // 2026-09-17. Same history as the (n,3n) arm above: MT=5 is
+                // inside MT=1, so before this the collision happened and fell
+                // through to the ELASTIC arm, mis-scattering it and dropping its
+                // extra neutrons. Its multiplicity is a TABULATED y(E), not a
+                // fixed integer, so the count is drawn from it.
+                //
+                // `x.mt5` is exactly 0 below ~5 MeV, so this condition coincides
+                // with the previous boundary for any fission spectrum and the
+                // partition is bit-identical there.
+                let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                // Draw both possible extras unconditionally so the RNG stream
+                // depends on the law and not on the sampled multiplicity, then
+                // emit only as many as were drawn.
+                let extras = [
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                ];
+                // `y(E) = 0` kills the neutron -- see the equivalent arm in
+                // `collide`. Below ~100 keV U-235's MT=5 emits nothing at all.
+                if n_emit == 0 {
+                    break;
+                }
+                for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 + x.other {
+                // Other neutron-emitting reactions (GitHub #365 audit); see the
+                // equivalent arm in `collide`.
+                let o = nuc.sample_other_emission(e, u, seed);
+                if o.n_emit == 0 {
+                    break;
+                }
+                for (se, su) in o.extras.iter().take(o.n_emit.saturating_sub(1).min(3)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
+                e = o.e;
+                u = o.u;
             } else {
                 // Kept in lockstep with [`transport_history`] — the two differ
                 // only in where Sigma_t comes from, so the bound-atom
@@ -1675,11 +2547,19 @@ fn transport_history_tabulated(
                         // is sampled, so the neutron can gain energy and the
                         // population has a Maxwellian fixed point (bead op-50vu).
                         // Above it this is the old target-at-rest kinematics.
-                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let kt = nuc.free_gas_kt(temp);
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                        free_gas_elastic_scatter_dbrc(
+                            e,
+                            u,
+                            nuc.awr,
+                            kt,
+                            mu_cm,
+                            seed,
+                            nuc.dbrc_table(),
+                        )
                     }
                 };
                 e = e2;
@@ -1690,32 +2570,23 @@ fn transport_history_tabulated(
     production
 }
 
-/// Resample `n` sites uniformly with replacement from `bank` — the crude
-/// population control that renormalises the fission bank back to a fixed source
-/// size each generation.
+/// Resample `n` sites for the next generation by uniform combing
+/// ([`crate::physics::fission::comb_resample`], GitHub #460).
 fn resample(bank: &[Site], n: usize, seed: &mut u64) -> Vec<Site> {
-    let len = bank.len();
-    (0..n)
-        .map(|_| {
-            let idx = ((prn(seed) * len as f64) as usize).min(len - 1);
-            bank[idx]
-        })
-        .collect()
+    // Uniform combing, as OpenMC's `synchronize_bank` (GitHub #460). ~~Each of
+    // the `n` sites was drawn independently with replacement~~ until
+    // 2026-09-30.
+    crate::physics::fission::comb_resample(bank, n, seed)
 }
 
-/// Mean and standard error of the mean (1σ) of the active-generation eigenvalues.
-fn mean_and_stderr(k: &[f64]) -> (f64, f64) {
-    let n = k.len();
-    if n == 0 {
-        return (0.0, 0.0);
-    }
-    let mean = k.iter().sum::<f64>() / n as f64;
-    if n < 2 {
-        return (mean, 0.0);
-    }
-    let var = k.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n as f64 - 1.0);
-    (mean, (var / n as f64).sqrt())
-}
+/// Mean and standard error of the mean (1σ) of the active-generation
+/// eigenvalues — [`raffles::estimators::mean_and_stderr`]. ~~Four identical
+/// private copies of this function lived in `physics::keff`,
+/// `physics::transport_csg`, `physics::physics_mg` and
+/// `pebble_beds::keff_delta`.~~ **MOVED 2026-10-02** (GitHub #500) after the
+/// four were diffed and found character-identical; this driver still decides
+/// which generations are active.
+use raffles::estimators::mean_and_stderr;
 
 #[cfg(test)]
 mod tests {
@@ -1751,6 +2622,63 @@ mod tests {
             ],
         };
         (material, nuclides)
+    }
+
+    /// `PowerIteration` stepped by hand is `run_keff_cpu_single`, bit for bit,
+    /// with and without an entropy mesh (which must draw no random numbers).
+    /// Small LOW-tier Godiva run: 300 histories x [5 + 10].
+    #[test]
+    fn stepping_the_power_iteration_is_the_single_thread_run_bit_for_bit() {
+        let (material, nuclides) = godiva();
+        let settings = KeffSettings { n_particles: 300, n_inactive: 5, n_active: 10, ..KeffSettings::default() };
+        let whole = run_keff_cpu_single(8.7407, &material, &nuclides, &settings);
+        for mesh in [None, Some(PowerIteration::bounding_box_mesh(8.7407, 5))] {
+            let mut it = PowerIteration::new(8.7407, &settings);
+            if let Some(m) = mesh.clone() {
+                it = it.with_entropy_mesh(m);
+            }
+            let mut reports = Vec::new();
+            while let Some(g) = it.step(&material, &nuclides) {
+                reports.push(g);
+            }
+            let stepped = it.result();
+            assert_eq!(reports.len(), 15);
+            assert_eq!(stepped.k_mean.to_bits(), whole.k_mean.to_bits());
+            assert_eq!(stepped.k_std.to_bits(), whole.k_std.to_bits());
+            for (g, k) in reports.iter().zip(&whole.k_by_generation) {
+                assert_eq!(g.k.to_bits(), k.to_bits(), "generation {}", g.index);
+                assert_eq!(g.active, g.index >= 5);
+                // Every neutron ends exactly one way; each source neutron is
+                // tracked, plus any (n,xn) secondaries.
+                let c = g.counts;
+                assert_eq!(c.leaked + c.captured + c.fissions(), c.tracked, "generation {}", g.index);
+                assert!(c.tracked >= 300 && c.fissions() > 0 && c.leaked > 0);
+                assert_eq!((g.production / 300.0).to_bits(), g.k.to_bits());
+            }
+            let last = reports.last().unwrap().k_mean.unwrap();
+            assert_eq!((last.0.to_bits(), last.1.to_bits()), (whole.k_mean.to_bits(), whole.k_std.to_bits()));
+            assert_eq!(stepped.entropy.len(), if mesh.is_some() { 15 } else { 0 });
+            assert!(it.step(&material, &nuclides).is_none());
+        }
+    }
+
+    /// From a point source at the centre, the fission source must spread:
+    /// entropy starts low (every first-generation fission is near the centre)
+    /// and ends higher. A harness check of `new_point_source` and the entropy
+    /// hook, not validation.
+    #[test]
+    fn a_point_source_spreads_and_its_entropy_rises() {
+        let (material, nuclides) = godiva();
+        let settings = KeffSettings { n_particles: 400, n_inactive: 8, n_active: 2, ..KeffSettings::default() };
+        let mut it = PowerIteration::new_point_source(8.7407, &settings, Position::ZERO)
+            .with_entropy_mesh(PowerIteration::bounding_box_mesh(8.7407, 5));
+        assert!(it.source_positions().iter().all(|p| *p == Position::ZERO));
+        let h: Vec<f64> = std::iter::from_fn(|| it.step(&material, &nuclides)).filter_map(|g| g.entropy).collect();
+        assert_eq!(h.len(), 10);
+        let first = h[0];
+        let late = h[6..].iter().sum::<f64>() / 4.0;
+        assert!(late > first + 0.5, "entropy did not rise: {h:?}");
+        assert!(late < (125f64).r_log2(), "entropy above the mesh ceiling: {h:?}");
     }
 
     /// **LOW-fidelity Godiva V&V** (HEU-MET-FAST-001).
@@ -1916,13 +2844,13 @@ mod tests {
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuSingleThread),
+            &base.clone().with_compute(ComputeType::CpuSingleThread),
         );
         let multi = run_keff(
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Auto)),
+            &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Auto)),
         );
 
         eprintln!(
@@ -1932,7 +2860,7 @@ mod tests {
 
         // single vs multi: statistical comparison (different RNG streams).
         let d_sm = (single.k_mean - multi.k_mean).abs();
-        let sig_sm = (single.k_std.powi(2) + multi.k_std.powi(2)).sqrt();
+        let sig_sm = (single.k_std.r_powi(2) + multi.k_std.r_powi(2)).sqrt();
         eprintln!(
             "single-vs-multi: |Δk| = {:.5} ({:.2}σ, band {:.5})",
             d_sm,
@@ -1959,12 +2887,12 @@ mod tests {
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::Gpu),
+            &base.clone().with_compute(ComputeType::Gpu),
         );
         eprintln!("k_gpu = {:.5} ± {:.5}", gpu.k_mean, gpu.k_std);
 
         let d_sg = (single.k_mean - gpu.k_mean).abs();
-        let sig_sg = (single.k_std.powi(2) + gpu.k_std.powi(2)).sqrt();
+        let sig_sg = (single.k_std.r_powi(2) + gpu.k_std.r_powi(2)).sqrt();
         eprintln!(
             "single-vs-gpu: |Δk| = {:.5} ({:.2}σ, band {:.5})",
             d_sg,
@@ -2015,21 +2943,21 @@ mod tests {
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
+            &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
         )
         .k_mean;
         let one_b = run_keff(
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
+            &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(1))),
         )
         .k_mean;
         let four = run_keff(
             8.7407,
             &material,
             &nuclides,
-            &base.with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(4))),
+            &base.clone().with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(4))),
         )
         .k_mean;
 
@@ -2270,7 +3198,7 @@ mod tests {
 
             for (name, compute) in runs {
                 let t0 = Instant::now();
-                let res = run_keff(radius, &material, &nuclides, &base.with_compute(compute));
+                let res = run_keff(radius, &material, &nuclides, &base.clone().with_compute(compute));
                 let dt = t0.elapsed().as_secs_f64();
                 report.push(PerfRow {
                     batch_size: n_particles,
@@ -2343,7 +3271,7 @@ mod tests {
         for &n in &[10_000usize, 100_000, 1_000_000] {
             let s = KeffSettings {
                 n_particles: n,
-                ..base
+                ..base.clone()
             };
 
             let t0 = Instant::now();

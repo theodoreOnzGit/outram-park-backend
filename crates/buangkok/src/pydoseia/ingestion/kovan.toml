@@ -1,0 +1,1741 @@
+schema_version = 1
+kind = "code_folder"
+crate = "buangkok"
+dir = "crates/buangkok/src/pydoseia/ingestion"
+test_ids = [
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::every_fixture_value_is_reproduced_within_its_group_tolerance",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_age_bracket_shift_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_corrected_calm_correction_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_corrected_ingestion_driver_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_daughter_lookup_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_gamma_line_lookup_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_sector_width_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_intended_zeroing_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_petir_qag_instead_of_dqagse_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_single_counted_summary_ingestion_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_true_ln2_is_rejected",
+    "crates/buangkok/tests/pydoseia_code_to_code.rs::petir_plume_shine_also_reproduces_the_fixture",
+]
+
+[module."corrected.rs"]
+path = "crate::pydoseia::ingestion::corrected"
+
+[[module."corrected.rs".function]]
+id = "fn:d8d9670dbc84f206"
+name = "IngestionModel"
+qual = "IngestionModel"
+item = "type"
+shape = "enum"
+lines = [
+    31,
+    48,
+]
+hash = "sha256:9bd0c1a0cc26427622811396f6cbfb33a49cfa7e0412596f8401da2bf2760311"
+doc_hash = "sha256:a20e6ce1343e7c6c20a58af1b5fb6b8d2738b77089f5d78002f468928c97e362"
+uses = ["fn:b168153cf4845c6b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."corrected.rs".function]]
+id = "fn:23f22667d17d88c8"
+name = "IngestionNuclide"
+qual = "IngestionNuclide"
+item = "type"
+shape = "struct"
+lines = [
+    50,
+    61,
+]
+hash = "sha256:fedee86e278b7e599d9ff973a4c4e9944602bed7353bd761307791b3aee1475c"
+doc_hash = "sha256:5401d81b8d4d2c4a5ad3e348d1d7c87e1edf3f152f5fe268948b5fdc8c6969c7"
+uses = [
+    "fn:b7b0fbe5b80a7ab6",
+    "fn:d8d9670dbc84f206",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."corrected.rs".function]]
+id = "fn:05c20d1ba1011c15"
+name = "IngestionSettings"
+qual = "IngestionSettings"
+item = "type"
+shape = "struct"
+lines = [
+    63,
+    84,
+]
+hash = "sha256:5b130122c3aaa6ea6ea8b1591ab956631fe33ec39efe913bdd7707c180f06838"
+doc_hash = "sha256:93c276e0d732754df0cb7b68ae0d60c236af848b769c6f6be3478988299b2b4c"
+uses = [
+    "fn:43c05a7551ea365d",
+    "fn:50e5c010e8c54b3a",
+    "fn:6f285a4ea5803881",
+    "fn:875db37ff1e7d0df",
+    "fn:96bd592d1d91855f",
+    "fn:acc4fb06d16085cd",
+    "fn:caaf446e1511001c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."corrected.rs".function]]
+id = "fn:7cd97599fef127d1"
+name = "IngestionDoseByRoute"
+qual = "IngestionDoseByRoute"
+item = "type"
+shape = "struct"
+lines = [
+    86,
+    95,
+]
+hash = "sha256:e626cc24a808610a8a36946909a75c165daeefd43cab4e5079f35052b659d1e1"
+doc_hash = "sha256:5fd1b5ab0b51023a149f695953adb9a155997b5dfbe6483db9c55c6caff98b13"
+uses = ["fn:473b05cc7e36072c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."corrected.rs".function]]
+id = "fn:809db633cb079d70"
+name = "total"
+qual = "IngestionDoseByRoute::total"
+lines = [
+    98,
+    104,
+]
+hash = "sha256:ee658eb346692d3776e2f7b1618ab9440125d43f78d1a47d7f4dfdde250ad326"
+doc_hash = "sha256:168dfc02ca47e8c3b77e59435649af3cfe8e9743b921c72c06ac821fd2ac512b"
+callees = [
+    "fn:5e8124ae89e1f520",
+    "fn:9b8bf17615909a35",
+]
+uses = [
+    "fn:473b05cc7e36072c",
+    "fn:7cd97599fef127d1",
+]
+
+[[module."corrected.rs".function]]
+id = "fn:a0f6ba65f4d5a8db"
+name = "msv"
+qual = "msv"
+lines = [
+    107,
+    109,
+]
+hash = "sha256:b5e02a3d15a253a9e32ae35bf37f6f437fdadef425116610470eaabb183ac907"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9b8bf17615909a35"]
+uses = ["fn:473b05cc7e36072c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."corrected.rs".function]]
+id = "fn:af09c5d510613c84"
+name = "ingestion_dose_per_nuclide"
+qual = "ingestion_dose_per_nuclide"
+lines = [
+    111,
+    250,
+]
+hash = "sha256:f48b81a006314dcdff89494dac9d710a07ea13c5c8343c8672564262b95be8ba"
+doc_hash = "sha256:83daaf2647475ed3bf3c7eca1e8c5feebe6e84911e3e2b2d834e56946e362f8a"
+callees = [
+    "fn:11a6b7778f472333",
+    "fn:1c85f5e9256a3a90",
+    "fn:2222102b0ac667e9",
+    "fn:43ad02399e33ef6d",
+    "fn:53a35eb15ca07eae",
+    "fn:58b91a31775295a2",
+    "fn:6a226c47d4c4f053",
+    "fn:7ef5d12a1f30b9ab",
+    "fn:84a52cc6e4910020",
+    "fn:a0f6ba65f4d5a8db",
+    "fn:b3731663cc350a19",
+    "fn:cb476b878ca5419f",
+    "fn:ce42673cbb55ed79",
+    "fn:e0d04464f6461020",
+]
+uses = [
+    "fn:05c20d1ba1011c15",
+    "fn:23f22667d17d88c8",
+    "fn:25e42230ec819b5a",
+    "fn:2d210e222bb78695",
+    "fn:67cb76cca6a49a88",
+    "fn:7cd97599fef127d1",
+    "fn:8e7952028b105a09",
+    "fn:acc4fb06d16085cd",
+    "fn:b047ea4211e00d6c",
+    "fn:b7b0fbe5b80a7ab6",
+    "fn:d8d9670dbc84f206",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[module."food_chain.rs"]
+path = "crate::pydoseia::ingestion::food_chain"
+
+[[module."food_chain.rs".function]]
+id = "fn:7ef5d12a1f30b9ab"
+name = "deposition_rate_per_day"
+qual = "deposition_rate_per_day"
+lines = [
+    12,
+    18,
+]
+hash = "sha256:35a987ceef7fff9dae562624f7fc0e62011cb96c46d019c53ec741055aa65c2d"
+doc_hash = "sha256:916a242e4befd3ece0a7a8bca6c05d8a8c82d11c24af3c2f5b167ed304ab6c83"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:84a52cc6e4910020"
+name = "effective_removal_rates"
+qual = "effective_removal_rates"
+lines = [
+    20,
+    29,
+]
+hash = "sha256:cd72b602d6fe80cf11d63ccecf34881f45129e55f8b12e623724ae8e6e75bbf1"
+doc_hash = "sha256:c33282dbe377a7a74082fce28c5e5086dcebdb685d608b73d3e3a0f209c6a80e"
+uses = ["fn:b168153cf4845c6b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:cb476b878ca5419f"
+name = "per_day"
+qual = "per_day"
+lines = [
+    31,
+    35,
+]
+hash = "sha256:a15fd6eb835eaeb6cd88d434920d35c66c0e6866fc656b5a1aad2885968d18be"
+doc_hash = "sha256:cb7a62b99e7dcb363303995a4477435cf0f6a3c0c041216b626936dff01bf211"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:6eae83917b1d7fb9"
+name = "CropConcentrations"
+qual = "CropConcentrations"
+item = "type"
+shape = "struct"
+lines = [
+    37,
+    48,
+]
+hash = "sha256:310ebf15f4fafa813589607055c6305998d6f527f4c193506b11131862995fb4"
+doc_hash = "sha256:92f44ed0a70e0aa5bf41ff000408c1141b02e0fc28499c628c3144aa80865081"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:1c85f5e9256a3a90"
+name = "food_crop"
+qual = "food_crop"
+lines = [
+    50,
+    72,
+]
+hash = "sha256:fcf6e98dc91b00343f89507d1e276c484b3d3f0d4c8b8ff6b529962ad9b3b388"
+doc_hash = "sha256:e33084c71687f71bf7dfd8690ec20ee82d361395b97d3686e52d4b6e69cbbd72"
+uses = [
+    "fn:6eae83917b1d7fb9",
+    "fn:96bd592d1d91855f",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:2dde613d944bb410"
+name = "AnimalConcentrations"
+qual = "AnimalConcentrations"
+item = "type"
+shape = "struct"
+lines = [
+    74,
+    93,
+]
+hash = "sha256:444b353542ccadc6acd06342d78d6971acba8986d9f2aed9765cfb4df6a96212"
+doc_hash = "sha256:d6fe7108cbdc9976d2af420af0af0dd3b8c659cf4bc5cdb639c80571ec4c21df"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:43ad02399e33ef6d"
+name = "animal_products"
+qual = "animal_products"
+lines = [
+    95,
+    129,
+]
+hash = "sha256:1789bea7f136739e68106e9512362e1d42e80dc8a7d5ecad8f012f3268052ee6"
+doc_hash = "sha256:64e0e132c8ab78e76f8471c107802816f181daabde7a33c0cff658c7aa21feb4"
+uses = [
+    "fn:2dde613d944bb410",
+    "fn:96bd592d1d91855f",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:caaf446e1511001c"
+name = "Climate"
+qual = "Climate"
+item = "type"
+shape = "enum"
+lines = [
+    131,
+    144,
+]
+hash = "sha256:225eac9cf96b396afcc63adff0d86c338d3b52ae241f46cd03705003ed0083a3"
+doc_hash = "sha256:3a03e8c8102de7a5e54b116421ae0f963a2683a43598066473c0cc73409337f5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:f00fa173f98d4e28"
+name = "humidity"
+qual = "Climate::humidity"
+lines = [
+    147,
+    156,
+]
+hash = "sha256:72db188b40d96d1dd0ac7f4882146bef838b12ae97b8f81d88f3b6174f2f4155"
+doc_hash = "sha256:b2c67cba1669155e1cf1e6e8e77fe7882530fc63d9268acfea453ac2d7174916"
+uses = ["fn:caaf446e1511001c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:43c05a7551ea365d"
+name = "VegetationType"
+qual = "VegetationType"
+item = "type"
+shape = "enum"
+lines = [
+    159,
+    170,
+]
+hash = "sha256:8e3ec2477db04cbd27c57e74eda59ef403d5788c2325faff713cf1b450741938"
+doc_hash = "sha256:0636489c49460c6cd77bd1174252dbd1a188ed0546e9d32e20c96c649bc0ace1"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:8bd215eaea105427"
+name = "weq_wcp"
+qual = "VegetationType::weq_wcp"
+lines = [
+    173,
+    183,
+]
+hash = "sha256:8b4fdcd27aa13da47d9f3213f08d3c8016e4ea964986be85a2eddb0b99219b34"
+doc_hash = "sha256:5c6d681dbc1cf26157b5596ad0c52f268effa3cd1d624f6f4a89f6a6def9e7f8"
+uses = ["fn:43c05a7551ea365d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:7166ee70adb96757"
+name = "stable_carbon"
+qual = "VegetationType::stable_carbon"
+lines = [
+    185,
+    194,
+]
+hash = "sha256:9571e9d67d52f7fde501cda76d7f6eaa811fae6e168436cd8da4e9efc1fcfcb9"
+doc_hash = "sha256:2286fed99fe201b29205c26013c5dc7676c6a08d1d7116b9c1fb81f821735388"
+uses = ["fn:43c05a7551ea365d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:50e5c010e8c54b3a"
+name = "AnimalProduct"
+qual = "AnimalProduct"
+item = "type"
+shape = "enum"
+lines = [
+    197,
+    216,
+]
+hash = "sha256:8a4b0bc37b1277e259a41462953f9ecf1360ad788b5f909b94c63358436d0ea6"
+doc_hash = "sha256:6f400e083dc6e3eed2bc340b1ef043539737d9e2f59bd8b452c0bdd0d0d63600"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:c9d038172a08310d"
+name = "cr_hto"
+qual = "AnimalProduct::cr_hto"
+lines = [
+    219,
+    230,
+]
+hash = "sha256:8df992fb9b58647cec6e2c8b976ac6d354e0b932bbea8a20800e953cc079fc39"
+doc_hash = "sha256:8f39e69a7b4a6f32357f801c97bf014cc1eb6405c47aaaa8ecbc76f97b2f5168"
+uses = ["fn:50e5c010e8c54b3a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:999cc701485a096e"
+name = "cr_obt"
+qual = "AnimalProduct::cr_obt"
+lines = [
+    232,
+    244,
+]
+hash = "sha256:c99f521fdbe7cb10167318664144f850bc38d65c2349aa255142d54151aab2b7"
+doc_hash = "sha256:f676907422453661ad05af62a336e342d41d144e5ebbac1b80e88b4f18c13c7f"
+uses = ["fn:50e5c010e8c54b3a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:7d83a1118ffe6c17"
+name = "stable_carbon"
+qual = "AnimalProduct::stable_carbon"
+lines = [
+    246,
+    259,
+]
+hash = "sha256:97ceec208689b1242b1a175332d2a04c58c50204b172d7086731c62e9566df13"
+doc_hash = "sha256:406c7dbe68a975fd9be80a640d68e6d5de60ab3369ab89fba4be6f2a0ca0c5c6"
+uses = ["fn:50e5c010e8c54b3a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:58b91a31775295a2"
+name = "is_milk"
+qual = "AnimalProduct::is_milk"
+lines = [
+    261,
+    265,
+]
+hash = "sha256:18d23bb53fabad74775f4c65b23cabc721eee7201f199343d4f964f541945d28"
+doc_hash = "sha256:36a2c98c8b5557d76fde1984f587ff2f7d66ebf988a1639cbd36823cb7cd2232"
+uses = ["fn:50e5c010e8c54b3a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:b3731663cc350a19"
+name = "is_meat"
+qual = "AnimalProduct::is_meat"
+lines = [
+    267,
+    276,
+]
+hash = "sha256:24e9b5ac216ed4622edc59aabb61348f5c2132f4e8ac4ddfec83054f2886c3fe"
+doc_hash = "sha256:c33d6182a87b6a1337874c6dbc694111f7bbc2f953c76e6ce554eba52f12775a"
+uses = ["fn:50e5c010e8c54b3a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:25e42230ec819b5a"
+name = "TRITIUM_CR_S"
+qual = "TRITIUM_CR_S"
+item = "const"
+shape = "const"
+lines = [
+    279,
+    281,
+]
+hash = "sha256:271668290a921be8b92cbfb8fab6e53086525aa347d8c2e02657bd44fc66f0e4"
+doc_hash = "sha256:83ce079d408bab0a0f8c3bdfdb684eaca792829befd5b8213ebca44c8e53a3c2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:8e7952028b105a09"
+name = "TRITIUM_GAMMA"
+qual = "TRITIUM_GAMMA"
+item = "const"
+shape = "const"
+lines = [
+    282,
+    283,
+]
+hash = "sha256:6c3b9b5c06cb2b48b4252766a438db3822209273ac6a87125e18114950b10173"
+doc_hash = "sha256:5ca936d0f370d383763aac4f3dd0fcfee1474a154fd1c264c2e9011ab5ada173"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:2d210e222bb78695"
+name = "TRITIUM_R_P"
+qual = "TRITIUM_R_P"
+item = "const"
+shape = "const"
+lines = [
+    284,
+    285,
+]
+hash = "sha256:e98e10fb3bd84261db81a84a82f45c3ce67f73f37ac037753449b85be33160fc"
+doc_hash = "sha256:b23f6dbb3687978365af7fd4cee72cfc81404b7e5bbdaebe5be77e966d27d7eb"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:b047ea4211e00d6c"
+name = "C14_S_AIR"
+qual = "C14_S_AIR"
+item = "const"
+shape = "const"
+lines = [
+    286,
+    287,
+]
+hash = "sha256:fbb83e7b879fb66449978248e8e48111538871eeb03a835c3329569cda525c56"
+doc_hash = "sha256:57c6c3be6c085c2cc96754fa500f2484fadf8cc0e666e3043a1e058f5c0cf434"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:2ef4e732baa887b1"
+name = "TritiumPlant"
+qual = "TritiumPlant"
+item = "type"
+shape = "struct"
+lines = [
+    289,
+    302,
+]
+hash = "sha256:ee249f3c6fabd77bff9bb9ed77e117f2b2f802a3e609f353b6646d0fc7dfff9b"
+doc_hash = "sha256:b489301a94c27c9592a8ea37c2a8bd6a34b352a196bf97e356ac693e8214f104"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:53a35eb15ca07eae"
+name = "tritium_in_plant"
+qual = "tritium_in_plant"
+lines = [
+    304,
+    335,
+]
+hash = "sha256:b345600f8df380e6e98c2816340414e2c7d2a3a3204d6c562c77fe5d61ea8b03"
+doc_hash = "sha256:84a7e49208e4153ba0c1f9888a29e4cbbc24da691134dcdfdf404686c5baaf01"
+callees = [
+    "fn:8bd215eaea105427",
+    "fn:f00fa173f98d4e28",
+]
+uses = [
+    "fn:2ef4e732baa887b1",
+    "fn:43c05a7551ea365d",
+    "fn:caaf446e1511001c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:6a226c47d4c4f053"
+name = "tritium_in_animal"
+qual = "tritium_in_animal"
+lines = [
+    337,
+    353,
+]
+hash = "sha256:26c133d5e0e0c5584a26eee0f08be60f13aae930684587d79aa636fe18613c25"
+doc_hash = "sha256:58a1d2a8899b31813ca7e0da117f15867d861c861c7b4466948c3667ce2dd1fd"
+callees = [
+    "fn:8bd215eaea105427",
+    "fn:999cc701485a096e",
+    "fn:c9d038172a08310d",
+]
+uses = [
+    "fn:43c05a7551ea365d",
+    "fn:50e5c010e8c54b3a",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:11a6b7778f472333"
+name = "c14_in_plant"
+qual = "c14_in_plant"
+lines = [
+    355,
+    359,
+]
+hash = "sha256:05235539e3905c50e98ef3810aa6d99c437e3e4dac8c12e0ac881bff53cccec7"
+doc_hash = "sha256:965f508e7bd546fbfd7df56caf7b72a7d354c59f8363fe1e83814a7974703dec"
+callees = ["fn:7166ee70adb96757"]
+uses = ["fn:43c05a7551ea365d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:e0d04464f6461020"
+name = "c14_in_animal"
+qual = "c14_in_animal"
+lines = [
+    361,
+    366,
+]
+hash = "sha256:e1dce35eea36865082fb1249382d3931cc410d2b0d4f7489b3b4efead82892e7"
+doc_hash = "sha256:b892198fc72c08b5761f7601ae4332d69aadbaf1907b535c7f65b358aaffc2dc"
+callees = [
+    "fn:7166ee70adb96757",
+    "fn:7d83a1118ffe6c17",
+]
+uses = [
+    "fn:43c05a7551ea365d",
+    "fn:50e5c010e8c54b3a",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."food_chain.rs".function]]
+id = "fn:69856e9d3ebe6d8d"
+name = "c14_in_fish"
+qual = "c14_in_fish"
+lines = [
+    368,
+    377,
+]
+hash = "sha256:ad45529e5cb8bff8bf114f205a2a4fd4ac1728eeb3f4528e6797d83740ef4f8f"
+doc_hash = "sha256:5691f9e6922816230534ded2a4cfe0d4873a2f11b95af45d356d097a895a95be"
+
+[module."mod.rs"]
+path = "crate::pydoseia::ingestion"
+
+[[module."mod.rs".function]]
+id = "fn:96bd592d1d91855f"
+name = "IngestionParameters"
+qual = "IngestionParameters"
+item = "type"
+shape = "struct"
+lines = [
+    56,
+    96,
+]
+hash = "sha256:a728e9df66b247942cc6d7fa7168140d5647206bf9b17919326fda5de2846733"
+doc_hash = "sha256:74e053b51c7e95cd7ce152a7a4d81c4aa5987394bb67dc99ee833d3c647ee9ed"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:875db37ff1e7d0df"
+name = "DietaryIntake"
+qual = "DietaryIntake"
+item = "type"
+shape = "struct"
+lines = [
+    130,
+    152,
+]
+hash = "sha256:d716a5630fc3f66eed1758ef10e22d822659968e5667a38965eabc09273eeb29"
+doc_hash = "sha256:d7fc79d28f8682c8949dfd3b33530595a963ed74fb711fb4ea89f011c1b0fd96"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fe01e3d7c6a0524d"
+name = "Receiver"
+qual = "Receiver"
+item = "type"
+shape = "enum"
+lines = [
+    190,
+    198,
+]
+hash = "sha256:725b3fb4823d3b073fbbded5de9c7d7366c75c288d4f1ade9220bc7a7f9513e8"
+doc_hash = "sha256:c9f646237ea0903c365d514872c9f4d3a08c599ededf5abf41e5e72942522b15"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:72b92cf29483a143"
+name = "age_years"
+qual = "Receiver::age_years"
+lines = [
+    201,
+    208,
+]
+hash = "sha256:61061ebaa9d332bccd9356d1371cd5e62abb15569e1a500427720d791089a6fa"
+doc_hash = "sha256:053e30a78c54eddbcec30b9b9752c913ccad25694acd6b0c8117c502bfb0b962"
+uses = ["fn:fe01e3d7c6a0524d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ef98378929afbf00"
+name = "from_driver_age"
+qual = "Receiver::from_driver_age"
+lines = [
+    210,
+    222,
+]
+hash = "sha256:763ea5a1326cb1747281a4f78f3ae04c66f9595741c4c51a33f454e742bf4269"
+doc_hash = "sha256:5c441d759f7238a64a965a0c118bc4c2cb26b5c2d58095278e1d23f1998b93d9"
+uses = ["fn:fe01e3d7c6a0524d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6f285a4ea5803881"
+name = "SoilType"
+qual = "SoilType"
+item = "type"
+shape = "enum"
+lines = [
+    225,
+    232,
+]
+hash = "sha256:36e4005ca2a158e4d2cdee1f77a1fd030ee039e08de18caa2c68651ed827fed9"
+doc_hash = "sha256:3dfd59cf5ecf7134b483db145afbf095a1f644b64b0adee8d37043061f992b6d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2222102b0ac667e9"
+name = "surface_densities"
+qual = "SoilType::surface_densities"
+lines = [
+    235,
+    242,
+]
+hash = "sha256:19cc2f48abe13015a931ebccc5ff3b9722c1fa108a99beb2366f959d20d54903"
+doc_hash = "sha256:bbf21461f069e5f8cd733e060f8379dd4da08257df5035d6d0050b38133af4af"
+uses = ["fn:6f285a4ea5803881"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b168153cf4845c6b"
+name = "TransferFactors"
+qual = "TransferFactors"
+item = "type"
+shape = "struct"
+lines = [
+    245,
+    260,
+]
+hash = "sha256:55cd5ea7163100db37a2e768a9b2ed1b7a2ceab5c9edcaaf086afa2d9ce2514a"
+doc_hash = "sha256:cb52a173a67e64af679b1e111af38306aa3b69f26ed682301868f883d7eec181"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7b43a317aa5ad08b"
+name = "EcoParamTable"
+qual = "EcoParamTable"
+item = "type"
+shape = "struct"
+lines = [
+    274,
+    279,
+]
+hash = "sha256:bd141ba95b77dc53ca4d89c4280868da27651d9c1a24064572f7f84d5d8eebd1"
+doc_hash = "sha256:64a460f4f6b40786170880647daae2144999180191c055148f01d4ecd672533b"
+uses = ["fn:b168153cf4845c6b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ef604687781b63ec"
+name = "from_csv"
+qual = "EcoParamTable::from_csv"
+lines = [
+    282,
+    316,
+]
+hash = "sha256:b30121dcf8d40179f4ceeffbdc968efe55a5c2c6ce01ef6dbe33f0d6b62877e4"
+doc_hash = "sha256:a29aa9567db93234a234addbc76b9700492fc954473bf80b8989b1dc4277e0c2"
+callees = [
+    "fn:62ed4e64629a2cc0",
+    "fn:a11f4483f8a81604",
+    "fn:fdbaa38808afd1ec",
+]
+uses = [
+    "fn:7b43a317aa5ad08b",
+    "fn:b168153cf4845c6b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:514209425313f1e8"
+name = "lookup"
+qual = "EcoParamTable::lookup"
+lines = [
+    318,
+    331,
+]
+hash = "sha256:9ab9745ce5f876a0538129695f9c8c1b367eaa13c2ccf4541938c9a28dafc4d8"
+doc_hash = "sha256:c9e89d7c3079ee25b8f2d11f202183cad8d8594297257c099d132802d17c73e0"
+uses = [
+    "fn:7b43a317aa5ad08b",
+    "fn:b168153cf4845c6b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b7b0fbe5b80a7ab6"
+name = "IngestionDcf"
+qual = "IngestionDcf"
+item = "type"
+shape = "enum"
+lines = [
+    334,
+    346,
+]
+hash = "sha256:9cd1d6792d003bd07c8e18ba0747edf6981ba12638af5c9f823a81549d7dcd6f"
+doc_hash = "sha256:9f5546fa11ebd742b37a9574f8d1c952be2abe60d54486868cdb8974b00d85d4"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1ad9e6f9fdbfabc5"
+name = "IngestionDcfTable"
+qual = "IngestionDcfTable"
+item = "type"
+shape = "struct"
+lines = [
+    348,
+    354,
+]
+hash = "sha256:392573a595b51e6465f2c50ca8bc97452f9b343bda8d65d20353214a5d74f69f"
+doc_hash = "sha256:f787e1b53156117a859049d22009add57a19c20a58cfb923c2d1779c8ae37745"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5d6cab740d4c48ae"
+name = "from_csv"
+qual = "IngestionDcfTable::from_csv"
+lines = [
+    357,
+    379,
+]
+hash = "sha256:5e72eddcd3ada3c53573e36a706b95de41c10b039e6731136eb7ed99afda0525"
+doc_hash = "sha256:47f0684ea237f3d19371cd4964d4d1edcf61da7e3c394a0539be677965d56899"
+callees = [
+    "fn:62ed4e64629a2cc0",
+    "fn:a11f4483f8a81604",
+    "fn:fdbaa38808afd1ec",
+]
+uses = [
+    "fn:1ad9e6f9fdbfabc5",
+    "fn:74845a06c9c517de",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9707295b05e322fa"
+name = "max_for"
+qual = "IngestionDcfTable::max_for"
+lines = [
+    381,
+    388,
+]
+hash = "sha256:4c56b4a500e41dc7dcf41b2e069da5d75211e4f7260fd64976193a780827a5d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:117ac7a9da5a25c2",
+    "fn:d029385d7dd9b713",
+]
+uses = [
+    "fn:1ad9e6f9fdbfabc5",
+    "fn:5bfff7a62db55d26",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:03c1f01a6916805e"
+name = "lookup"
+qual = "IngestionDcfTable::lookup"
+lines = [
+    390,
+    403,
+]
+hash = "sha256:52bac5d7d6ac7c60eb6e88c97534ca9bcb80e42d948ded94cb8394383ad5b776"
+doc_hash = "sha256:b18ce7a8b3d7baf03175842a4e9a72c276fc46ddf5015cab9ae464969f3f532f"
+callees = ["fn:9707295b05e322fa"]
+uses = [
+    "fn:1ad9e6f9fdbfabc5",
+    "fn:5bfff7a62db55d26",
+    "fn:b7b0fbe5b80a7ab6",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0dc9270c9b369ac5"
+name = "ingestion_weathering_correction_unused"
+qual = "ingestion_weathering_correction_unused"
+lines = [
+    406,
+    423,
+]
+hash = "sha256:95a78451a6c87f0c9e159f2cd1248cf1bf977e1c220912df4cea58763cdb2760"
+doc_hash = "sha256:9f5bc750903c7baf7816a80ac211720158060bed7486386763dc16a4e82bbeb2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1228bf34230c2cd2"
+name = "zero_milk_and_meat"
+qual = "zero_milk_and_meat"
+lines = [
+    425,
+    440,
+]
+hash = "sha256:38bb4db4effa7a94d04583fcb108edb29107e5d6fe7e94bab9bf3e1ce9de2dde"
+doc_hash = "sha256:d3637a368f0db830ededb227af5d5ba217c08f8bac704d718a8aea86522fd6c2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[module."upstream.rs"]
+path = "crate::pydoseia::ingestion::upstream"
+
+[[module."upstream.rs".function]]
+id = "fn:acc4fb06d16085cd"
+name = "IngestionReleaseMode"
+qual = "IngestionReleaseMode"
+item = "type"
+shape = "enum"
+lines = [
+    23,
+    33,
+]
+hash = "sha256:25eb5f28d1e74c4a357a3943a06572638c7e48fa7b5c33c35f118e2188bb4f28"
+doc_hash = "sha256:778ddff1868727cd18c3ea7f5976f6b0d2fbef4ce9623db740f8bad92a6d443a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."upstream.rs".function]]
+id = "fn:031373541248f508"
+name = "UpstreamIngestionInputs"
+qual = "UpstreamIngestionInputs"
+item = "type"
+shape = "struct"
+lines = [
+    35,
+    70,
+]
+hash = "sha256:da273b02d4b0ddc1978354663eb34b3da10d3d8ebf062cd63778bc9211b0bc54"
+doc_hash = "sha256:c62ef423190edae708db11a9635c23347093a70a8da6ddd97e50176cd0a919a2"
+uses = [
+    "fn:43c05a7551ea365d",
+    "fn:50e5c010e8c54b3a",
+    "fn:6f285a4ea5803881",
+    "fn:875db37ff1e7d0df",
+    "fn:96bd592d1d91855f",
+    "fn:acc4fb06d16085cd",
+    "fn:caaf446e1511001c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."upstream.rs".function]]
+id = "fn:1c2f50f3c25a74dc"
+name = "UpstreamIngestionError"
+qual = "UpstreamIngestionError"
+item = "type"
+shape = "enum"
+lines = [
+    72,
+    87,
+]
+hash = "sha256:3a2aa5bfd12dc623c4f3b4199cf70a36c7a4067c17f282d2cfd922371325a21d"
+doc_hash = "sha256:08cf380979a1db77d5cd98eeff5c0809d75a3a6f01c69241481de01d98656897"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."upstream.rs".function]]
+id = "fn:da0665418f810717"
+name = "at"
+qual = "at"
+lines = [
+    89,
+    93,
+]
+hash = "sha256:acf10c050db16873d99040b6cb76b95eb20afe7ed39816854476f19e4f608430"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1c2f50f3c25a74dc"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."upstream.rs".function]]
+id = "fn:f7d3cc581e7b3423"
+name = "Routes"
+qual = "Routes"
+item = "type"
+shape = "alias"
+lines = [
+    95,
+    97,
+]
+hash = "sha256:68991817173f777ee14df219685e9e7b0d290747f96036814256a694b5a79cd2"
+doc_hash = "sha256:e32bde5271eedc72ebeea405e25c7968ab22cf1a9d6317e8cc7c95f0fbfefac7"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."upstream.rs".function]]
+id = "fn:3044f2b6cf5f5be4"
+name = "UpstreamIngestionOutput"
+qual = "UpstreamIngestionOutput"
+item = "type"
+shape = "struct"
+lines = [
+    99,
+    113,
+]
+hash = "sha256:d96f81dacedc20fcdc293f31969eac65735001dfc86d5bb13deaa13ca17b2751"
+doc_hash = "sha256:570583604dc270bea319540905baf0b59a228e54cf66334baac04afbf90f3afb"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."upstream.rs".function]]
+id = "fn:961c03eaafac6149"
+name = "ingestion_dose_upstream"
+qual = "ingestion_dose_upstream"
+lines = [
+    115,
+    370,
+]
+hash = "sha256:dd21262405ca133b8d826dabed012cd6de99b079772e7d536fa1bd8a53f89e11"
+doc_hash = "sha256:69dd66212ad8293a63b538a268ba61000cce5ec9fe7d889abce68d9c6dd09d13"
+callees = [
+    "fn:03c1f01a6916805e",
+    "fn:11a6b7778f472333",
+    "fn:1c85f5e9256a3a90",
+    "fn:2222102b0ac667e9",
+    "fn:43ad02399e33ef6d",
+    "fn:514209425313f1e8",
+    "fn:53a35eb15ca07eae",
+    "fn:58b91a31775295a2",
+    "fn:5bbec45fdcdcf54b",
+    "fn:6a226c47d4c4f053",
+    "fn:72b92cf29483a143",
+    "fn:7ef5d12a1f30b9ab",
+    "fn:b3731663cc350a19",
+    "fn:cb476b878ca5419f",
+    "fn:da0665418f810717",
+    "fn:e0d04464f6461020",
+    "fn:e141bf4714fd410e",
+]
+uses = [
+    "fn:031373541248f508",
+    "fn:1ad9e6f9fdbfabc5",
+    "fn:1c2f50f3c25a74dc",
+    "fn:25e42230ec819b5a",
+    "fn:2d210e222bb78695",
+    "fn:3044f2b6cf5f5be4",
+    "fn:5bfff7a62db55d26",
+    "fn:7b43a317aa5ad08b",
+    "fn:8e7952028b105a09",
+    "fn:acc4fb06d16085cd",
+    "fn:b047ea4211e00d6c",
+    "fn:b168153cf4845c6b",
+    "fn:b7b0fbe5b80a7ab6",
+    "fn:f7d3cc581e7b3423",
+    "fn:fe01e3d7c6a0524d",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]

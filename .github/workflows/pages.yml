@@ -1,0 +1,162 @@
+# Backend GitHub Pages: the code deep dives and their API reference
+# (gh:#509 epic, #518). Published at
+# https://theodoreonzgit.github.io/outram-park-backend/
+#
+# Every push to `develop` rebuilds and redeploys, so the deep dives always
+# match the code they describe (maintainer decision 2026-10-03: continuous
+# publishing, no snapshots). A failed build leaves the last good site live.
+#
+# What it builds: `scripts/build-pages.sh`, ~~the tabbed main menu~~ the
+# landing page, its three pathways and the search index (docs/site/; the
+# tabbed menu moved to docs/site/code/ on 2026-10-16, gh:#906), each deep-dive mdBook listed in docs/site/deep-dives.txt, and
+# rustdoc (release, no source pages) for the crates in
+# docs/site/lesson-crates.txt, i.e. only crates that have lessons, and the
+# browser demos (gh:#519): a wasm32 build plus the wasm-bindgen CLI, whose
+# version is read from Cargo.lock because the two must match exactly.
+#
+# Separate from `fast tests`: a broken page fails this workflow only.
+
+name: pages
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish: with several agents pushing every few minutes,
+# cancel-in-progress starved the site (eight consecutive cancellations on
+# 2026-10-04, each deploy taking 3-4 min). GitHub keeps only the newest
+# pending run in the group, so the site still converges on the latest commit.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # The repo's rust-toolchain.toml (1.99.1, the workspace standard since
+    # 2026-10-20) would otherwise override the pinned 1.98.0 below; keep the
+    # Pages build on its pinned rust-analyzer until it is bumped deliberately.
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.0
+    # 90, not 60: a cold cache now also builds the demo natively (to prepare
+    # its data) and for wasm32.
+    timeout-minutes: 90
+    steps:
+      # Full history: a review stamp is checked against the commit it
+      # certifies (`git merge-base --is-ancestor`, kovan::stamping::states).
+      # A depth-1 clone lacks that commit, and every stamp then shows as
+      # "unverified: NotAfterCertifiedCommit" on the site (2026-10-12).
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # The HTR-10 core demo (gh:#786) publishes the rod steel's nickel tapes,
+      # which live in the ACE submodule (145 MB), not reference-data/endf/.
+      - name: Fetch the reference-data/ace submodule (nickel tapes)
+        run: git submodule update --init --depth 1 reference-data/ace
+      # Pinned (gh:#772): web-kovan's call graph comes from `rust-analyzer
+      # scip`, an unstable subcommand, and the SCIP backend was verified
+      # against the LSP one with rust-analyzer 1.98.0 (88d9e12 2026-08-18)
+      # (crates/kovan/docs/call-graph-scip-vs-lsp.md). The whole Pages build
+      # uses the same toolchain, so the code walks' rust-analyzer matches too.
+      # Bump it deliberately, and re-run that comparison when you do.
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+          targets: wasm32-unknown-unknown
+          components: rust-analyzer
+      - name: rust-analyzer version (recorded in the build log)
+        run: rust-analyzer --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: pages
+      # web-kovan's per-crate call-graph cache: a crate is re-built only
+      # when its key changes (kovan-cli call-graph-keys), and rust-analyzer
+      # is not run at all when no key changed. Restored from the newest,
+      # saved by the step after the build even when the build fails; it is
+      # also what data.sh falls back to, loudly, if rust-analyzer fails.
+      # Never committed. The 350 MB SCIP index itself is not cached: it is
+      # valid for one set of keys only, i.e. one commit.
+      - uses: actions/cache/restore@v4
+        with:
+          path: target/kovan-index
+          key: kovan-index-${{ github.sha }}
+          restore-keys: kovan-index-
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
+      - name: wasm-bindgen version pinned by Cargo.lock
+        id: wb
+        run: |
+          v=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ steps.wb.outputs.version }}
+      # Memory for `rust-analyzer scip` (gh:#772). Its peak resident memory
+      # over this workspace was 16.4 GiB (VmHWM, 2026-10-07, rust-analyzer
+      # 1.98.0, with 1 or with 8 threads alike); a 15 GiB cap killed it.
+      # ubuntu-latest on a public repository has 16 GB of RAM and a 4 GB swap
+      # file, which is not enough, so add 16 GiB of swap on the runner's
+      # scratch disk (/mnt). If it is still not enough, data.sh says so in
+      # the log, as a warning annotation and on the page, and publishes the
+      # last cached graphs of the crates that changed (Leak Before Break).
+      - name: Swap for rust-analyzer scip
+        run: |
+          free -m
+          dir=/mnt; [ -d /mnt ] && [ -w /mnt ] || dir=/
+          sudo fallocate -l 16G "$dir/kovan-swap" \
+            && sudo chmod 600 "$dir/kovan-swap" \
+            && sudo mkswap "$dir/kovan-swap" >/dev/null \
+            && sudo swapon "$dir/kovan-swap" \
+            || echo "::warning title=web-kovan call graph::could not add swap; rust-analyzer scip may run out of memory"
+          free -m
+      - name: Build the site
+        # The call graph uses the SCIP backend (data.sh default, gh:#772):
+        # one `rust-analyzer scip` run (about 4 min locally; more on 4 cores)
+        # then 1-3 s a changed crate. KOVAN_INDEX_BUDGET applies only to the
+        # LSP backend (KOVAN_CALL_GRAPH_BACKEND=lsp), kept for comparison.
+        env:
+          KOVAN_CALL_GRAPH_BACKEND: scip
+          KOVAN_INDEX_BUDGET: "2400"
+        run: scripts/build-pages.sh target/pages
+      - name: Drop the SCIP index (not for rust-cache)
+        if: always()
+        run: rm -rf target/kovan-scip
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: target/kovan-index
+          key: kovan-index-${{ github.sha }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      # The site must actually serve this commit, not a stale copy.
+      - name: Check the live site serves this build
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "${{ steps.deployment.outputs.page_url }}" | grep -q "${GITHUB_SHA:0:10}"; then
+              echo "live site shows ${GITHUB_SHA:0:10}"; exit 0
+            fi
+            sleep 20
+          done
+          echo "live site does not show ${GITHUB_SHA:0:10}" >&2; exit 1

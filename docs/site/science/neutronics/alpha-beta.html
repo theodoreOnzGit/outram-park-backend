@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 1: two numbers for a collision</title>
+<meta name="description" content="Neutronics maths track, rung 1: rename page 2's elastic collision with two numbers, the kick alpha and the energy change beta. A nucleus at rest puts every collision on one line, beta = -alpha. S(alpha, beta) is the map of which (kick, energy change) pairs can happen.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 1 of the LEAPR-to-THERMR maths design, one rung per page; the recorded misconception about detailed balance; conventions stated. Widget: mathtrack.js #abmap at stage "line". -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 1: two numbers for a collision</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>The physics pages ended with phonons, densities of states and structure. Now the maths that turns them into numbers, built up from the one collision you already know: page 2's neutron hitting a free nucleus <b>at rest</b>. Given the angle, the kinematics fixes the outgoing energy: <b>one angle gives one E&prime;</b>.</p>
+<p>Describe that collision with two numbers instead of an angle and an energy:</p>
+<ul>
+  <li><b>How much energy did the neutron gain or lose?</b> Measured in units of kT: &beta; = (E&prime; &minus; E)/kT. Positive is a gain, negative a loss.</li>
+  <li><b>How hard was it kicked?</b> The momentum the neutron handed over, written as an energy in units of kT: &alpha; = (E&prime; + E &minus; 2&mu;&radic;(EE&prime;))/(AkT), with &mu; the cosine of the scattering angle and A the nucleus's mass ratio. In fact &alpha; is exactly the recoil energy a <b>free</b> nucleus would take from that kick, divided by kT.</li>
+</ul>
+<p>For page 2's collision the neutron loses exactly the nucleus's recoil energy, so <b>&beta; = &minus;&alpha;, always</b>. Every possible collision lands on one line in the (&alpha;, &beta;) plane: the <b>recoil line</b>.</p>
+
+<section class="widget-card">
+  <h3>The (&alpha;, &beta;) map</h3>
+  <div class="widget" id="abmap" data-abstage="line">
+    <canvas aria-label="The alpha-beta plane with the recoil line beta = minus alpha"></canvas>
+  </div>
+</section>
+
+<p><b>The scattering law S(&alpha;, &beta;) (page 21) is a map of which (kick, energy-change) pairs can happen, and how likely each is.</b> For a nucleus at rest, everything sits on the line. The next pages fill the map in, one idea at a time.</p>
+<p class="note"><b>Conventions on these pages.</b> &beta; = (E&prime; &minus; E)/kT is positive when the neutron <b>gains</b> energy; &alpha; measures the size of the kick. S is LEAPR's asymmetric scattering law (the NJOY2016 manual's script S); ENDF stores the symmetric S = e<sup>&beta;/2</sup> times it (page 21).</p>
+<div class="misconception" role="note"><b>Common misconception: "S(&alpha;, &beta;) = e<sup>&minus;&beta;</sup> S(&alpha;, &minus;&beta;) is what S is."</b>
+  <p>No. That equation is <b>detailed balance</b>: a rule every scattering law obeys, linking gaining an energy to losing it. It does not say what S is; the material decides that.</p></div>
+<h2>Why is this so? What if the nucleus moves?</h2>
+<p>Page 22's nuclei were never at rest. <b>What happens to the line if the nucleus jiggles?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

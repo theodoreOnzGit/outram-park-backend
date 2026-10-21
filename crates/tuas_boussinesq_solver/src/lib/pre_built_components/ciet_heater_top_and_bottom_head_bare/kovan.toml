@@ -1,0 +1,846 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_heater_top_and_bottom_head_bare"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads.rs::test_inclusive_heater_top_bottom_head",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads_and_mx10.rs::heater_plus_mx_10_without_supports",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
+]
+
+[module."calculation.rs"]
+path = "crate::pre_built_components::ciet_heater_top_and_bottom_head_bare::calculation"
+
+[[module."calculation.rs".function]]
+id = "fn:abee16dc54804485"
+name = "_advance_timestep"
+qual = "HeaterTopBottomHead::_advance_timestep"
+lines = [
+    11,
+    24,
+]
+hash = "sha256:cc766c379d043ff4867233c2ea8250bed65718dda536a71828e0856c7740eef0"
+doc_hash = "sha256:60d855c23eb6771363e695fede2a2bf1d9c4b9672e2c698d8cdc11564822ebf1"
+callees = ["fn:03e08a20b60594d7"]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:ca2b7cc5524b5e61"
+name = "_advance_timestep_parallel_buggy"
+qual = "HeaterTopBottomHead::_advance_timestep_parallel_buggy"
+lines = [
+    26,
+    108,
+]
+hash = "sha256:1921cf5999bc7ad634fc60f27fc54323853cb6b74c7867b838cb9e83600eaf6b"
+doc_hash = "sha256:9c4be286249752d85dce174608fbc2d1a15b6c435528731f64c184e2debe074c"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:f8fcd27da58670ac",
+]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:6e9387b90d786372"
+name = "advance_timestep_thread_spawn"
+qual = "HeaterTopBottomHead::advance_timestep_thread_spawn"
+lines = [
+    109,
+    136,
+]
+hash = "sha256:fe0076e327fd9c11941782a1baf3ed0c95682b2891707e100e6151ed05f8b062"
+doc_hash = "sha256:f6b97d5858d2a24b2396910d03d659356c98470f623432ebd6490099af38727c"
+callees = ["fn:03e08a20b60594d7"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[module."fluid_entity.rs"]
+path = "crate::pre_built_components::ciet_heater_top_and_bottom_head_bare::fluid_entity"
+
+[[module."fluid_entity.rs".function]]
+id = "fn:7b622e4be6d12e07"
+name = "get_mass_flowrate"
+qual = "HeaterTopBottomHead::get_mass_flowrate"
+lines = [
+    8,
+    12,
+]
+hash = "sha256:9b10900b1dcd49585a2757531f278a80a99c8c6639180fd4d7789eca673eed72"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:4ad24f16ad69bc46"
+name = "set_mass_flowrate"
+qual = "HeaterTopBottomHead::set_mass_flowrate"
+lines = [
+    14,
+    26,
+]
+hash = "sha256:3ec382fa3f88a7b797b93c1610872ae27a627af0ae7f677194b879f6df2f4039"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:9212f011bf144631",
+    "fn:f8fcd27da58670ac",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:61c4c6dbc6d318f1"
+name = "get_mass_flowrate_from_pressure_loss_immutable"
+qual = "HeaterTopBottomHead::get_mass_flowrate_from_pressure_loss_immutable"
+lines = [
+    28,
+    32,
+]
+hash = "sha256:8296c88ba252e5db9d2fe7fdf3b8dc63cc3b2a5175aef8a741e8ceaf7f76e483"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e49a2c708f64bed",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:3b1d28cb09862b3b"
+name = "get_pressure_loss"
+qual = "HeaterTopBottomHead::get_pressure_loss"
+lines = [
+    34,
+    38,
+]
+hash = "sha256:ef3f306a88b42433cee32841307837c209c22a7fb8d3ece24451da814e37109b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:c1cd743e200a5b68",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:020279800a2742f1"
+name = "set_pressure_loss"
+qual = "HeaterTopBottomHead::set_pressure_loss"
+lines = [
+    40,
+    44,
+]
+hash = "sha256:68bbbf853f0c5ad5dc925a186e959b03a9c384733e62b7d67a30813109dff24d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5d36a8426cb919e3",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:f47d9aeac41c80d2"
+name = "get_pressure_loss_immutable"
+qual = "HeaterTopBottomHead::get_pressure_loss_immutable"
+lines = [
+    46,
+    50,
+]
+hash = "sha256:32950d031920412a91d26475fbea78f759401441efacfff88fff80256b3f4163"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5cc3a78cc9d2e79a",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:d47ffa2ba83d95dc"
+name = "get_cross_sectional_area"
+qual = "HeaterTopBottomHead::get_cross_sectional_area"
+lines = [
+    52,
+    56,
+]
+hash = "sha256:3e77a5aa258c9967d1d0673b99e9698d3e9a788486cb7df00b55705e42d2db0c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:36e9cfbe2c25acbf"
+name = "get_cross_sectional_area_immutable"
+qual = "HeaterTopBottomHead::get_cross_sectional_area_immutable"
+lines = [
+    58,
+    62,
+]
+hash = "sha256:81e32f76cc2391c4e57f8301b6b12318f8a3066bdeff62b0c9baaea3444d3894"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:435ca118da4ae43c"
+name = "get_hydraulic_diameter"
+qual = "HeaterTopBottomHead::get_hydraulic_diameter"
+lines = [
+    64,
+    68,
+]
+hash = "sha256:f1a9de6b2d0e82e82069f46ab692c50ff50047c9a3712e1ab5525f48be51ab9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:43a357e8a333e3fe"
+name = "get_hydraulic_diameter_immutable"
+qual = "HeaterTopBottomHead::get_hydraulic_diameter_immutable"
+lines = [
+    70,
+    74,
+]
+hash = "sha256:6a81af005c17799d1dfa173e40f4206bfc0c2f524dc9d93c87b4ed1ce372a6ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:45de4cf1b695b105"
+name = "get_fluid_viscosity_at_ref_temperature"
+qual = "HeaterTopBottomHead::get_fluid_viscosity_at_ref_temperature"
+lines = [
+    76,
+    80,
+]
+hash = "sha256:57dfa0019edee270965e224671a0bae8157c36e0a1b3745159699f5f6e63e36b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:fc6902d09d396585"
+name = "get_fluid_viscosity_immutable_at_ref_temperature"
+qual = "HeaterTopBottomHead::get_fluid_viscosity_immutable_at_ref_temperature"
+lines = [
+    82,
+    86,
+]
+hash = "sha256:ca13992db8e8a1d18ed23de8b51e266118085d0fa54ccbc06e92530bcf723974"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:85a048afe15c0a8a"
+name = "get_fluid_density_at_ref_temperature"
+qual = "HeaterTopBottomHead::get_fluid_density_at_ref_temperature"
+lines = [
+    88,
+    92,
+]
+hash = "sha256:a46b1f9e4f5387c9e3524257f2a8b4d9ede69a504b7a31adb421cd21254ed774"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:abf808dd57f05c2c"
+name = "get_fluid_density_immutable_at_ref_temperature"
+qual = "HeaterTopBottomHead::get_fluid_density_immutable_at_ref_temperature"
+lines = [
+    94,
+    98,
+]
+hash = "sha256:a4bb1e4927f859a4d13c3efb664bdd7f6970329a0d07294c8dcd342367f8970b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:17119986c05eaa19"
+name = "get_component_length"
+qual = "HeaterTopBottomHead::get_component_length"
+lines = [
+    100,
+    104,
+]
+hash = "sha256:56abf016a3ba4cac92ea1991b3d216056e9b9ca3e194b26a9cfa16a615d7d617"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:f99824c3a9364faa"
+name = "get_component_length_immutable"
+qual = "HeaterTopBottomHead::get_component_length_immutable"
+lines = [
+    106,
+    110,
+]
+hash = "sha256:a61229e770ea0c3bb3a9c978db6b5f6b469329689a4627cd594de68fdc5feee9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:8879fc4258bf1830"
+name = "get_incline_angle"
+qual = "HeaterTopBottomHead::get_incline_angle"
+lines = [
+    112,
+    116,
+]
+hash = "sha256:d64a7182a6cfbd36c7c8fb2d08e2d5b7923e7e46dd37bdedcc2c068bd02e23b6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:f22fbd62cf09e35e"
+name = "get_incline_angle_immutable"
+qual = "HeaterTopBottomHead::get_incline_angle_immutable"
+lines = [
+    118,
+    122,
+]
+hash = "sha256:44f8b54765dacc416a10b1ec70c104e33d995fedfface9bf1795bc48f4c22fbb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:3387e1c1c76e19d4"
+name = "get_internal_pressure_source"
+qual = "HeaterTopBottomHead::get_internal_pressure_source"
+lines = [
+    124,
+    128,
+]
+hash = "sha256:f8e4fc8fceaf2069bb3198d1d711f76c3fd12e590b5e7f1a799d2402388ba89c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:b7e577fe04d10294"
+name = "get_internal_pressure_source_immutable"
+qual = "HeaterTopBottomHead::get_internal_pressure_source_immutable"
+lines = [
+    130,
+    134,
+]
+hash = "sha256:d194bd6cb1675868780a189827bd5cafa3fbe7abaa1f3ef8068aaa738aedac19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_entity.rs".function]]
+id = "fn:f990ee83c054b7a9"
+name = "set_internal_pressure_source"
+qual = "HeaterTopBottomHead::set_internal_pressure_source"
+lines = [
+    136,
+    140,
+]
+hash = "sha256:e837dc4e81aa3d326b1e9db2ba54511e9fc0d0d83eeffe4be5d22ef200f12df6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5d36a8426cb919e3",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_heater_top_and_bottom_head_bare"
+
+[[module."mod.rs".function]]
+id = "fn:6e28c469f6c425b7"
+name = "HeaterTopBottomHead"
+qual = "HeaterTopBottomHead"
+item = "type"
+shape = "struct"
+lines = [
+    28,
+    66,
+]
+hash = "sha256:88ee27344647c53490b2823c28902accddcbaf167407f38174dba9b8c75c5f75"
+doc_hash = "sha256:f567773969754921407b9cebc54bd476443d31e4fbb1b6d7fc6864a69fd20226"
+uses = ["fn:a6efe5f766b47fef"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a1861a5fc37447a9"
+name = "new_top_head"
+qual = "HeaterTopBottomHead::new_top_head"
+lines = [
+    69,
+    162,
+]
+hash = "sha256:9dc7dd738ee2de46d8fc046fbe2471a35498dc2e2839c25c3c77989b44b46933"
+doc_hash = "sha256:9501f10f9a8b7c03eb52e544b945dfd22536cb6731a3450fa8fc3c42b9ba4f2d"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:8d4119880af67bb8",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:6e28c469f6c425b7",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:9c07208b99e5d656"
+name = "_new_user_callibrated_top_head"
+qual = "HeaterTopBottomHead::_new_user_callibrated_top_head"
+lines = [
+    163,
+    256,
+]
+hash = "sha256:9db73caa6959a696c9dbb8d37dbf7ec52c1ea75343eb3be872cf6aaa6751de8b"
+doc_hash = "sha256:bd57df6d499b9a1e8797520ebcc17dff7d764499fd3a4fd1530041c76e1cd416"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:8d4119880af67bb8",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:6e28c469f6c425b7",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#3",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:20e8408a9edc172c"
+name = "new_bottom_head"
+qual = "HeaterTopBottomHead::new_bottom_head"
+lines = [
+    258,
+    343,
+]
+hash = "sha256:8c77882fb6401e1eb5c242f0df1468a915a0c57cf468c56dcb62f012729f70ca"
+doc_hash = "sha256:d98463e1c6eeadc20018dbfecb4d557c9986e69908949d761dd169708be5a1a5"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:8d4119880af67bb8",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:6e28c469f6c425b7",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ab5a3106dfdf5839"
+name = "_new_user_callibrated_bottom_head"
+qual = "HeaterTopBottomHead::_new_user_callibrated_bottom_head"
+lines = [
+    344,
+    430,
+]
+hash = "sha256:72cf0c6f09ac190162fcfdfe66d2f11eb0e80ec4cc305af7db4ba1fce0fe8735"
+doc_hash = "sha256:9ef03a2890f5dd81645e0a3bb570e60cef1a88148b80eec174038bbd31ebc4ef"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:8d4119880af67bb8",
+    "fn:9cf2732f8b0c6890",
+    "fn:a7684adf457511e5",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:6e28c469f6c425b7",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#3",
+]
+physical_interface = true
+
+[module."postprocessing.rs"]
+path = "crate::pre_built_components::ciet_heater_top_and_bottom_head_bare::postprocessing"
+
+[[module."postprocessing.rs".function]]
+id = "fn:4d59c3cc7ec47598"
+name = "steel_shell_temperature"
+qual = "HeaterTopBottomHead::steel_shell_temperature"
+lines = [
+    6,
+    10,
+]
+hash = "sha256:3de11a52f62d478d881b3c7184c301aad9b9127cb65deed5901cdc3a685aedb1"
+doc_hash = "sha256:6a020861f09bd6b2eeed5928b4cdc6be69fa8777a975e3cf213e190e32d030d3"
+callees = ["fn:81ebbad2a6b015cb"]
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:9db88745257b8602"
+name = "therminol_array_temperature"
+qual = "HeaterTopBottomHead::therminol_array_temperature"
+lines = [
+    12,
+    16,
+]
+hash = "sha256:442af858f16ff29d2252ab95ac61b36c84d53a3479b6225932b72354b2ec78ef"
+doc_hash = "sha256:1ac9b78a611a15e9454b7092e87a05ee52f879403ddcb8b5cb5c0fd6ff3478df"
+callees = ["fn:81ebbad2a6b015cb"]
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:311ec93d2395273c"
+name = "twisted_tape_temperature"
+qual = "HeaterTopBottomHead::twisted_tape_temperature"
+lines = [
+    18,
+    22,
+]
+hash = "sha256:eb5d154c04c4d6b4a1318ff8c09d3fcb1e9c7ada337ea27e1cef2da35f14476c"
+doc_hash = "sha256:854e03d05e55216454e39b77a86ab7edaa017e71b77971cc699048df55101b3c"
+callees = ["fn:81ebbad2a6b015cb"]
+physical_interface = true
+
+[module."preprocessing.rs"]
+path = "crate::pre_built_components::ciet_heater_top_and_bottom_head_bare::preprocessing"
+
+[[module."preprocessing.rs".function]]
+id = "fn:ba9b2c8728e3a522"
+name = "lateral_and_miscellaneous_connections"
+qual = "HeaterTopBottomHead::lateral_and_miscellaneous_connections"
+lines = [
+    24,
+    161,
+]
+hash = "sha256:b2da155438e69a2b65fba122449f4c68cda71822e2d610eb40514a134129c9f3"
+doc_hash = "sha256:dc18c2dd4344460390005075879d6ce4658da52c81f8eb2f4f8ef9800fa0998b"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:3df9a41abb893faa",
+    "fn:4ad24f16ad69bc46",
+    "fn:4f08e35087543a15",
+    "fn:86b7775079c503a5",
+    "fn:8a180ca0986c72b8",
+    "fn:9212f011bf144631",
+    "fn:94d1a0d727592cf9",
+    "fn:9cf2732f8b0c6890",
+    "fn:a5016d77314ec973",
+    "fn:abafd5a5e42d6a30",
+    "fn:be40085a8ed290cd",
+    "fn:d28fe8c6b4138e11",
+    "fn:d929eb22edceb192",
+    "fn:eb89be045205dc88",
+    "fn:f8fcd27da58670ac",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:d28fe8c6b4138e11"
+name = "zero_power_bc_connection"
+qual = "HeaterTopBottomHead::zero_power_bc_connection"
+lines = [
+    163,
+    208,
+]
+hash = "sha256:d9bacd0c42446207cba455fab6baed0f66423bbddbbb3d3138ecfdcd9ff7aa33"
+doc_hash = "sha256:2c57eaa96f2f1c03aaaf91822a49c22d4809f6412a93e7b67ad87ccfafb7424a"
+callees = [
+    "fn:2d0477b1a1450172",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+]
+uses = [
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."preprocessing.rs".function]]
+id = "fn:94d1a0d727592cf9"
+name = "get_air_steel_shell_conductance"
+qual = "HeaterTopBottomHead::get_air_steel_shell_conductance"
+lines = [
+    210,
+    259,
+]
+hash = "sha256:4f722a9c02db81c9c72f868bcab87d44d38f2f64f02acc1419c4191a1e1c5f01"
+doc_hash = "sha256:5ed87302e0cc1a182782002c2323a3287201c61aed05320c387ea5bed2885655"
+callees = [
+    "fn:12e1a066661e37f1",
+    "fn:25614892f3618c5c",
+    "fn:4f08e35087543a15",
+    "fn:721fa91849e08cd0",
+    "fn:a2275733c3fa6168",
+    "fn:eb89be045205dc88",
+    "fn:feec71215f335f20",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:3df9a41abb893faa"
+name = "get_therminol_node_steel_shell_conductance"
+qual = "HeaterTopBottomHead::get_therminol_node_steel_shell_conductance"
+lines = [
+    261,
+    380,
+]
+hash = "sha256:7864d86fa094f55367759e2f22821d2a34e4c04fc82e457b5d805321949ea59d"
+doc_hash = "sha256:a85a96d66395d19576af631ffd067ac99f4e39ea4c5783d312c66df60df59adf"
+callees = [
+    "fn:12e1a066661e37f1",
+    "fn:45f247d501d1431a",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:6e00abb03521f424",
+    "fn:721fa91849e08cd0",
+    "fn:84b7870b4d7c7d91",
+    "fn:89feb71c7a73a1df",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:d2ef60a016252736",
+    "fn:eb89be045205dc88",
+    "fn:feec71215f335f20",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:5ea8fd594a61fae6",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:45f247d501d1431a"
+name = "heater_v2_hydraulic_diameter_reynolds"
+qual = "HeaterTopBottomHead::heater_v2_hydraulic_diameter_reynolds"
+lines = [
+    382,
+    410,
+]
+hash = "sha256:14beb15a800f57c0309633f74dbeabd6c0e0592c0ce30bc995c2dd8a31d58059"
+doc_hash = "sha256:f04465c521ca88184948147b722f1bd6512754112ad88c88c1f7df1db6f7b5e6"
+callees = [
+    "fn:12e1a066661e37f1",
+    "fn:4f08e35087543a15",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:699fa23379f66832",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:d929eb22edceb192"
+name = "get_therminol_node_twisted_tape_conductance"
+qual = "HeaterTopBottomHead::get_therminol_node_twisted_tape_conductance"
+lines = [
+    412,
+    578,
+]
+hash = "sha256:da0f06412bffbd4eb957d8ce84af8c57623dae377eff71341c4d1c2b92ee0483"
+doc_hash = "sha256:5fd9a643ac1f4fae56a6c97fa673048846a94f1302dffd9a4b35444b49914e2f"
+callees = [
+    "fn:12e1a066661e37f1",
+    "fn:25614892f3618c5c",
+    "fn:281e000f5919abf9",
+    "fn:484a6e38fea0d402",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:699fa23379f66832",
+    "fn:84b7870b4d7c7d91",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:bf4245b1c0d9cf88",
+    "fn:d2ef60a016252736",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:8b81e4e78b0c2d20"
+name = "lateral_connection_thread_spawn"
+qual = "HeaterTopBottomHead::lateral_connection_thread_spawn"
+lines = [
+    580,
+    599,
+]
+hash = "sha256:152fbcd26ac736e4ca3b39e9018da905890926061e1c672ef8b6864984b8f0cd"
+doc_hash = "sha256:df4f069438a991398c55b5072319d1e7d7210a57bc7ee8bfd6db2db2b08ef9ad"
+callees = ["fn:ba9b2c8728e3a522"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+physical_interface = true

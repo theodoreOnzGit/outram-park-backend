@@ -1,5 +1,9 @@
 # TAMPINES Steam Tables
 
+Part of **TAMPINES** — **T**hermal-hydraulic **A**rtificial-intelligence
+**M**ulti-**P**hase **IN**tegrated **E**mulator **S**ystem. This crate is its
+IAPWS-IF97 steam/water property library.
+
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
@@ -206,6 +210,24 @@ cargo test --release -p tampines-steam-tables --lib
 cargo test --release -p tampines-steam-tables --test edwards_blowdown
 ```
 
+**KNOWN LIMITATION, not an endorsement (maintainer, 2026-09-29, gh:#406).**
+~~The Edwards numbers (plateau 359.0 psia, GS-1 RMSE 42.8 psia) are valid **only
+under the unbounded linear enthalpy scheme** (`EnergyConvectionScheme::Linear`,
+`Gauss linear`), which the array no longer uses by default. Under the bounded
+default (van Leer) the break cell over-drains to the IF97 273.15 K floor and the
+run panics; under upwind the hybrid-ringing check fails. The linear scheme
+likely **masks** the break-cell over-drain rather than resolving it.~~
+**CORRECTED 2026-10-16 (gh:#900):** with the array's new defaults (implicit
+energy convection, kinetic-energy terms, `psi` once per outer corrector,
+guarded fixed Δt) the case runs the full 600 ms under **both** schemes:
+Linear plateau 360.5 psia / GS-1 RMSE 17.2 psia, van Leer 358.3 / 19.9 psia,
+0 pressure-bound events and 0 drained-cell holds in both. The old
+359.0 / 42.8 psia pins are reproduced only on the ablated pre-2026-10-16 path.
+The over-drain was caused mainly by rebuilding `psi` on every inner corrector,
+not by the scheme (`tests/edwards_blowdown.rs` header, rows 2–18). The test
+stays pinned to Linear until the maintainer decides otherwise. The pin is
+kept deliberately, as a save point. Future work: gh:#406.
+
 **Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
 14 ignored**. List the ignored ones with
 `cargo test --release -p tampines-steam-tables --lib -- --ignored --list`.
@@ -300,11 +322,16 @@ Every arrow points **down** to `outram-foam-basic-lib`. **Note (verified
 against `Cargo.toml`, 2026-08-11): that edge was never actually drawn.**
 The OpenFOAM primitives `TampinesSteamArray` needs were instead **vendored
 in-crate** under `src/openfoam_algorithms/openfoam_source/` as
-`pub(crate)` modules (see "Current choice" below), so this crate's
+`pub(crate)` modules (see "Current choice" below), so ~~this crate's
 `[dependencies]` are only `approx`, `ndarray`, `thiserror`, `uom` — no
-`outram-foam-basic-lib`, and nothing depends on `tampines-steam-tables`
-from the OpenFOAM stack yet. The cycle analysis below still documents the
-constraint any future real dependency edge must respect.
+`outram-foam-basic-lib`~~ **CORRECTED 2026-10-03 (GitHub #492):** this
+crate now depends **downward** on `outram-foam-basic-lib` (Solution A's
+edge direction) for the `FvMesh`, `MeshError`, 1-D mesher and tensor
+primitives, which were code-identical copies and are now re-exports; the
+rest of `openfoam_source/` is still vendored. Nothing depends on
+`tampines-steam-tables` from the OpenFOAM stack, so there is no cycle. The
+cycle analysis below still documents the constraint every dependency edge
+must respect.
 
 ### The invariant
 
@@ -423,14 +450,25 @@ tables one layer up.
 operators, LDU matrix, interpolation, thermophysics kernels, …) were
 **vendored into this crate** as a copy under
 `src/openfoam_algorithms/openfoam_source/`, kept `pub(crate)` so none of it
-leaks into the public API. This crate's `[dependencies]` are therefore only
+leaks into the public API. ~~This crate's `[dependencies]` are therefore only
 `approx`, `ndarray`, `thiserror`, `uom` — property-only consumers get a lean
 crate with no OpenFOAM dependency (the outcome Solution **D** aimed for),
 while `TampinesSteamArray` still builds on OpenFOAM-style primitives
 in-crate. The forbidden `outram-foam-basic-lib → tampines` edge is never
 drawn, and in fact no dependency edge exists between the two crates in
-either direction; Solutions **A**/**B** remain the plan for wiring the
-steam tables into `outram-foam-appbuilder-lib`-level solvers.
+either direction~~ **CORRECTED 2026-10-03 (GitHub #492, maintainer default
+"merge the FvMesh copies where identical or trivially compatible"):** the
+`FvMesh`/`MeshError` (a strict subset of foam-basic-lib's), the 1-D mesher
+and the five tensor-primitive modules (code-identical) were deleted here and
+are re-exported from `outram-foam-basic-lib` (5,917 lines removed across this
+crate and `outram-park-fork-coolprop`). The cost: property-only consumers now
+compile `outram-foam-basic-lib` (about 59k lines; the crate count goes from
+18 to 19, since its own dependencies were already ours). That gives up the
+"lean, no OpenFOAM dependency" outcome Solution **D** aimed for; it is one
+commit and can be reverted if that weight matters more. The forbidden
+`outram-foam-basic-lib → tampines` edge is still not drawn. Solutions
+**A**/**B** remain the plan for wiring the steam tables into
+`outram-foam-appbuilder-lib`-level solvers.
 
 
 # Changelog
@@ -485,9 +523,10 @@ are untouched.
 
 ## Transient variant — `mean_flow_stages::transient`
 
-The same stage chain driven in time by the crate's **1-D HEM KNP hybrid
-solver** (`TampinesSteamArray` in `SolverMode::HybridAllMach`), meshed **one
-cell per stage**. What the steady model is told, the solver now owns:
+The same stage chain driven in time by the crate's **1-D HEM PIMPLE array**
+(`TampinesSteamArray`), meshed **one cell per stage**. ~~1-D HEM KNP hybrid
+solver (`TampinesSteamArray` in `SolverMode::HybridAllMach`)~~ — **corrected
+2026-10-16**: the KNP hybrid was retired (gh:#914). What the steady model is told, the solver now owns:
 
 - **Pressure is solved**, from the boundary conditions, rather than supplied
   per stage.
@@ -498,10 +537,16 @@ cell per stage**. What the steady model is told, the solver now owns:
   becomes a power from the local mass flux and is registered as a negative
   per-cell power source, so the shaft work is an energy sink the solver sees.
 
-The KNP hybrid is selected by the constructor rather than inherited: turbine
+~~The KNP hybrid is selected by the constructor rather than inherited: turbine
 passages run near-sonic at the nozzle throats and the last stages expand into
 the dome, which is the regime the plain pressure-based path rings in. The mode
-is public, so the historical bit-identical `Pimple` path is still reachable.
+is public, so the historical bit-identical `Pimple` path is still reachable.~~
+**Retired 2026-10-16.** The machine now runs plain PIMPLE. Before the hybrid
+was deleted, every transient-turbine test scenario was run in both modes and
+gave identical numbers: the HEM Mach number reached 0.70, but the 6–14 kg/m³
+superheated steam sat below the hybrid's 50 kg/m³ density taper, so the KNP
+dissipation never acted on this machine. The table is in the
+`mean_flow_stages::transient` module docs.
 
 Because pressure is solved, there is no interstage station to read a degree of
 reaction off, so the rotor's share of the local drop is a per-stage input
@@ -1043,7 +1088,7 @@ Starting the h,s flash algorithms.
 Also, copied some openfoam algorithms which will form the basis for which 
 the steam tables in tampines are used to solve two phase flow in transient 
 scenarios. Since OpenFOAM is licensed under 
-GNU GPLv3, tampines-steam-tables will also be licensed under GNU GPL v3.
+GNU GPLv3, tampines-steam-tables ~~will also be licensed under GNU GPL v3~~ is licensed **AGPL-3.0-only** as a combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`).
 
 Note that for points near boundaries, correction factors have not been 
 applied for (p,h) and (p,s) flashes. (h,s) flashes have only been 

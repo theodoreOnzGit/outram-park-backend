@@ -160,7 +160,13 @@ pub fn reference_data_required() -> bool {
 /// process-global from inside a test binary whose tests run concurrently on
 /// threads — which is racy, and would leave this guard in the same
 /// never-actually-executed state as the tests it exists to catch.
-fn missing_reference(required: bool, label: &str, file: &str, dir: &Path, hint: &str) -> Option<PathBuf> {
+fn missing_reference(
+    required: bool,
+    label: &str,
+    file: &str,
+    dir: &Path,
+    hint: &str,
+) -> Option<PathBuf> {
     assert!(
         !required,
         "[{label}] reference file {file} not found in {}, and \
@@ -168,7 +174,10 @@ fn missing_reference(required: bool, label: &str, file: &str, dir: &Path, hint: 
          passed without asserting anything",
         dir.display()
     );
-    println!("[{label}] SKIP: reference file {file} not found in {} ({hint})", dir.display());
+    println!(
+        "[{label}] SKIP: reference file {file} not found in {} ({hint})",
+        dir.display()
+    );
     None
 }
 
@@ -214,6 +223,25 @@ pub fn is_endf_tape(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
+    /// A linked worktree's `.git` file names the main checkout; the main
+    /// checkout's own `.git` directory does not resolve to anything.
+    #[test]
+    fn a_linked_worktree_resolves_to_its_main_checkout() {
+        let base = std::env::temp_dir().join(format!("refdata-wt-{}", std::process::id()));
+        let main = base.join("main");
+        let wt = base.join("wt");
+        std::fs::create_dir_all(main.join(".git/worktrees/agent-x")).unwrap();
+        std::fs::create_dir_all(&wt).unwrap();
+        std::fs::write(
+            wt.join(".git"),
+            format!("gitdir: {}\n", main.join(".git/worktrees/agent-x").display()),
+        )
+        .unwrap();
+        assert_eq!(main_checkout_of_worktree(&wt), Some(main.clone()));
+        assert_eq!(main_checkout_of_worktree(&main), None);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     use super::*;
 
     #[test]
@@ -306,6 +334,14 @@ pub const REFERENCE_DATA_ROOT_ENV: &str = "OUTRAM_PARK_REFERENCE_DATA_DIR";
 /// exists: `$OUTRAM_PARK_REFERENCE_DATA_DIR/<subdir>` when set, else the
 /// in-repo `<crate>/../../reference-data/<subdir>`.
 ///
+/// **Linked git worktrees** (since 2026-10-06): when the in-repo directory is
+/// missing or empty and this checkout is a linked worktree (`git worktree
+/// add`, which is how agent sessions are isolated), the main checkout's
+/// `reference-data/<subdir>` is used instead if it has content. A worktree
+/// leaves the `reference-data/ace` submodule as an empty directory, and
+/// before this every ACE-gated test in a worktree skipped or failed until
+/// someone set `OUTRAM_PARK_REFERENCE_DATA_DIR` by hand.
+///
 /// `subdir` is a bare directory name such as `"gendf"`; the raw ENDF tapes keep
 /// their own accessor ([`reference_endf_dir`]) because they have a separate
 /// override variable and the library-suffix tolerance.
@@ -315,10 +351,33 @@ pub fn reference_data_dir(subdir: &str) -> PathBuf {
             return PathBuf::from(root).join(subdir);
         }
     }
-    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("../../reference-data");
-    p.push(subdir);
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let p = repo.join("reference-data").join(subdir);
+    if !dir_has_entries(&p) {
+        if let Some(main) = main_checkout_of_worktree(&repo) {
+            let q = main.join("reference-data").join(subdir);
+            if dir_has_entries(&q) {
+                return q;
+            }
+        }
+    }
     p
+}
+
+/// Whether `dir` exists and holds at least one entry.
+fn dir_has_entries(dir: &Path) -> bool {
+    std::fs::read_dir(dir).is_ok_and(|mut d| d.next().is_some())
+}
+
+/// The main checkout's root when `repo` is a linked git worktree, read from
+/// its `.git` FILE (`gitdir: <main>/.git/worktrees/<name>`); `None` for the
+/// main checkout itself (whose `.git` is a directory) or a non-git tree.
+fn main_checkout_of_worktree(repo: &Path) -> Option<PathBuf> {
+    let text = std::fs::read_to_string(repo.join(".git")).ok()?;
+    let gitdir = PathBuf::from(text.strip_prefix("gitdir:")?.trim());
+    // <main>/.git/worktrees/<name> -> <main>
+    let dot_git = gitdir.parent()?.parent()?;
+    (dot_git.file_name()? == ".git").then(|| dot_git.parent().map(Path::to_path_buf))?
 }
 
 /// Absolute path of `reference-data/<subdir>/<file>` (e.g. a golden GENDF tape
@@ -344,4 +403,133 @@ pub fn reference_file_or_skip(subdir: &str, file: &str, label: &str) -> Option<P
             &format!("set {REFERENCE_DATA_ROOT_ENV} to the reference-data root holding it"),
         ),
     }
+}
+
+// ── The `reference-data/ace` submodule ──────────────────────────────────────
+
+/// Opt **out** of the automatic `git submodule update --init`.
+///
+/// Set to `1`/`true` to make [`ensure_ace_submodule`] report the submodule as
+/// absent rather than fetching it. For an air-gapped machine, or when the
+/// ~102 MB fetch is not wanted in a particular run.
+pub const NO_SUBMODULE_INIT_ENV: &str = "OUTRAM_PARK_NO_SUBMODULE_INIT";
+
+/// A file that exists in the submodule and **only** in the submodule, used to
+/// tell "checked out" from "empty directory".
+///
+/// This is the whole reason the check cannot be `path.exists()`: a plain
+/// `git clone` without `--recurse-submodules` leaves `reference-data/ace` as an
+/// **empty directory rather than an error** (the workspace `CLAUDE.md` says so
+/// explicitly), so every ACE-gated test skips, silently, and a green suite
+/// means nothing was run.
+const ACE_SUBMODULE_SENTINEL: &str = "MANIFEST.tsv";
+
+/// The `reference-data/ace` checkout path, whether or not it is populated.
+pub fn ace_submodule_dir() -> PathBuf {
+    reference_data_dir("ace")
+}
+
+/// Whether the ACE submodule is checked out (not merely present as an empty
+/// mount point).
+pub fn ace_submodule_is_populated() -> bool {
+    ace_submodule_dir().join(ACE_SUBMODULE_SENTINEL).is_file()
+}
+
+/// Ensure `reference-data/ace` is checked out, running
+/// `git submodule update --init` for it if it is not.
+///
+/// Returns `true` when the submodule is usable afterwards.
+///
+/// # Why a test calls this instead of just checking for its file
+///
+/// An un-initialised submodule is an **empty directory, not an error**. Every
+/// data-gated test then takes its skip branch and the suite passes while
+/// verifying nothing. Calling this first turns "silently skipped" into either
+/// "fetched and ran" or "could not fetch, and said why".
+///
+/// # Behaviour
+///
+/// - Already populated: returns `true` immediately, no subprocess.
+/// - Not populated: runs `git submodule update --init -- reference-data/ace`
+///   from the repository root **once per process** (a `Once`, so the parallel
+///   test threads cannot race each other into concurrent clones of the same
+///   ~102 MB repository), then re-checks.
+/// - `OUTRAM_PARK_NO_SUBMODULE_INIT` set: never fetches.
+/// - No git, no network, or not a git checkout (e.g. a crates.io consumer, or
+///   a vendored tarball): returns `false`. That is not an error — it is the
+///   same "no reference data here" the skip path already handles.
+///
+/// Not compiled for wasm32, which has no process spawning.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn ensure_ace_submodule() -> bool {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+
+    if ace_submodule_is_populated() {
+        return true;
+    }
+    if matches!(
+        std::env::var(NO_SUBMODULE_INIT_ENV).as_deref(),
+        Ok("1") | Ok("true") | Ok("TRUE")
+    ) {
+        return false;
+    }
+
+    INIT.call_once(|| {
+        // The repository root is the submodule path's grandparent, since the
+        // submodule is mounted at `reference-data/ace`.
+        let dir = ace_submodule_dir();
+        let Some(root) = dir.parent().and_then(|p| p.parent()) else {
+            return;
+        };
+        if !root.join(".gitmodules").is_file() {
+            return; // not a git checkout of this workspace; nothing to init
+        }
+        eprintln!(
+            "[reference-data] reference-data/ace is not checked out; running \
+             `git submodule update --init` (~102 MB). Set \
+             {NO_SUBMODULE_INIT_ENV}=1 to skip instead."
+        );
+        match std::process::Command::new("git")
+            .current_dir(root)
+            .args(["submodule", "update", "--init", "--", "reference-data/ace"])
+            .status()
+        {
+            Ok(s) if s.success() => {}
+            Ok(s) => eprintln!("[reference-data] submodule init exited with {s}"),
+            Err(e) => eprintln!("[reference-data] could not run git: {e}"),
+        }
+    });
+
+    ace_submodule_is_populated()
+}
+
+/// wasm has no process spawning, so the submodule can only be reported, never
+/// fetched.
+#[cfg(target_arch = "wasm32")]
+pub fn ensure_ace_submodule() -> bool {
+    ace_submodule_is_populated()
+}
+
+/// [`ensure_ace_submodule`] followed by [`reference_file`] under `ace/`, with
+/// the usual skip note when the data is still not there.
+///
+/// This is the accessor an ACE-gated regression test should use: it initialises
+/// the submodule **before** deciding the data is missing, so a fresh clone runs
+/// the test instead of skipping it.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn ace_reference_file_or_skip(rel: &str, label: &str) -> Option<PathBuf> {
+    if ensure_ace_submodule() {
+        let p = ace_submodule_dir().join(rel);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    missing_reference(
+        reference_data_required(),
+        label,
+        rel,
+        &ace_submodule_dir(),
+        "run `git submodule update --init` to fetch reference-data/ace",
+    )
 }

@@ -1,0 +1,6 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"https://pond.imperialviolet.org\">\n       <dc:title>Pond - Pond</dc:title><dc:type>webpage</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
+	}
+}

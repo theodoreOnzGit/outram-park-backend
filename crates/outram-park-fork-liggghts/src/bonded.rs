@@ -154,6 +154,7 @@
 //!   assemblies," *Géotechnique* **29**(1), 47–65 (1979) — the incremental
 //!   small-strain DEM force–displacement philosophy the bond update follows.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Pressure};
 use uom::si::length::meter;
 use uom::si::pressure::pascal;
@@ -335,14 +336,14 @@ impl Bond {
     /// resistance of the circular cross-section to bending.
     #[must_use]
     pub fn bending_inertia(&self) -> f64 {
-        std::f64::consts::PI * self.radius.powi(4) / 4.0
+        std::f64::consts::PI * self.radius.r_powi(4) / 4.0
     }
 
     /// Bond polar moment of area (twisting) `J = π R̄⁴ / 2 = 2·I` `[m⁴]` — the
     /// resistance of the circular cross-section to torsion about `n̂`.
     #[must_use]
     pub fn polar_inertia(&self) -> f64 {
-        std::f64::consts::PI * self.radius.powi(4) / 2.0
+        std::f64::consts::PI * self.radius.r_powi(4) / 2.0
     }
 
     /// Accumulated normal force `F̄_n` `[N]`, tension positive.

@@ -1,0 +1,13 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/prelude"
+
+[module."alpha_nightly.rs"]
+path = "crate::prelude::alpha_nightly"
+
+[module."beta_testing.rs"]
+path = "crate::prelude::beta_testing"
+
+[module."mod.rs"]
+path = "crate::prelude"

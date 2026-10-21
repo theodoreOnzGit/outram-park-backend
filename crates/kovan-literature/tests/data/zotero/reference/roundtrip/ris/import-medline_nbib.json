@@ -1,0 +1,1363 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Mickey",
+						"lastName": "Mouse",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Mickey Mouse had an O-some day!",
+				"abstractNote": "Mickey Mouse had a quiet day until something happened and SAMD9L was caught in the end."
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "M. J.",
+						"lastName": "van Raaij",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J. P.",
+						"lastName": "Abrahams",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "A. G.",
+						"lastName": "Leslie",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J. E.",
+						"lastName": "Walker",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Adenylyl Imidodiphosphate/pharmacology",
+						"type": 1
+					},
+					{
+						"tag": "Animals",
+						"type": 1
+					},
+					{
+						"tag": "Arginine",
+						"type": 1
+					},
+					{
+						"tag": "Aurovertins/*chemistry/*metabolism",
+						"type": 1
+					},
+					{
+						"tag": "Binding Sites",
+						"type": 1
+					},
+					{
+						"tag": "Cattle",
+						"type": 1
+					},
+					{
+						"tag": "Crystallography, X-Ray",
+						"type": 1
+					},
+					{
+						"tag": "Enzyme Inhibitors/chemistry/metabolism",
+						"type": 1
+					},
+					{
+						"tag": "Glutamic Acid",
+						"type": 1
+					},
+					{
+						"tag": "Macromolecular Substances",
+						"type": 1
+					},
+					{
+						"tag": "Models, Molecular",
+						"type": 1
+					},
+					{
+						"tag": "Molecular Structure",
+						"type": 1
+					},
+					{
+						"tag": "Myocardium/enzymology",
+						"type": 1
+					},
+					{
+						"tag": "*Protein Structure, Secondary",
+						"type": 1
+					},
+					{
+						"tag": "Proton-Translocating ATPases/*chemistry/*metabolism",
+						"type": 1
+					}
+				],
+				"title": "The structure of bovine F1-ATPase complexed with the antibiotic inhibitor aurovertin B.",
+				"abstractNote": "In the structure of bovine mitochondrial F1-ATPase that was previously determined with crystals grown in the presence of adenylyl-imidodiphosphate (AMP-PNP) and ADP, the three catalytic beta-subunits have different conformations and nucleotide occupancies. Adenylyl-imidodiphosphate is bound to one beta-subunit (betaTP), ADP is bound to the second (betaDP), and no nucleotide is bound to the  third (betaE). Here we show that the uncompetitive inhibitor aurovertin B binds to bovine F1 at two equivalent sites in betaTP and betaE, in a cleft between the  nucleotide binding and C-terminal domains. In betaDP, the aurovertin B pocket is  incomplete and is inaccessible to the inhibitor. The aurovertin B bound to betaTP interacts with alpha-Glu399 in the adjacent alphaTP subunit, whereas the aurovertin B bound to betaE is too distant from alphaE to make an equivalent interaction. Both sites encompass betaArg-412, which was shown by mutational studies to be involved in binding aurovertin. Except for minor changes around the aurovertin pockets, the structure of bovine F1-ATPase is the same as determined previously. Aurovertin B appears to act by preventing closure of the catalytic interfaces, which is essential for a catalytic mechanism involving cyclic interconversion of catalytic sites.",
+				"date": "1996-07-09",
+				"pages": "6913-6917",
+				"journalAbbreviation": "Proc Natl Acad Sci U S A",
+				"language": "eng",
+				"ISSN": "0027-8424",
+				"publicationTitle": "Proceedings of the National Academy of Sciences of the United States of America",
+				"place": "UNITED STATES",
+				"volume": "93",
+				"issue": "14"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Douglas",
+						"lastName": "Riegert-Johnson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ferga C.",
+						"lastName": "Gleeson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Wytske",
+						"lastName": "Westra",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Timothy",
+						"lastName": "Hefferon",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Louis M.",
+						"lastName": "Wong Kee Song",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Lauren",
+						"lastName": "Spurck",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Lisa A.",
+						"lastName": "Boardman",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Douglas L.",
+						"lastName": "Riegert-Johnson",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Lisa A.",
+						"lastName": "Boardman",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Timothy",
+						"lastName": "Hefferon",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Maegan",
+						"lastName": "Roberts",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "Peutz-Jeghers Syndrome",
+				"abstractNote": "PJS is a rare disease. (\"Peutz-Jeghers syndrome is no frequent nosological unit\". (1)) There are no high-quality estimates of the prevalence or incidence of PJS. Estimates have included 1 in 8,500 to 23,000 live births (2), 1 in 50,000 to 1 in 100,000 in Finland (3), and 1 in 200,000 (4). A report on the incidence of PJS is available at www.peutz-jeghers.com. At Mayo Clinic from 1945 to 1996 the incidence of PJS was 0.9 PJS patients per 100,000 patients. PJS has been reported in Western Europeans (5), African Americans (5), Nigerians (6), Japanese (7), Chinese (8, 9), Indians (10, 11), and other populations (12-15). PJS occurs equally in males and females (7).",
+				"date": "2009",
+				"language": "eng",
+				"publisher": "National Center for Biotechnology Information (US)",
+				"bookTitle": "Cancer Syndromes",
+				"place": "Bethesda (MD)"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "I.",
+						"lastName": "Gout",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "R.",
+						"lastName": "Dhand",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "I. D.",
+						"lastName": "Hiles",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "M. J.",
+						"lastName": "Fry",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "G.",
+						"lastName": "Panayotou",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "P.",
+						"lastName": "Das",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "O.",
+						"lastName": "Truong",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "N. F.",
+						"lastName": "Totty",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J.",
+						"lastName": "Hsuan",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "G. W.",
+						"lastName": "Booker",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Amino Acid Sequence",
+						"type": 1
+					},
+					{
+						"tag": "Animals",
+						"type": 1
+					},
+					{
+						"tag": "Binding Sites",
+						"type": 1
+					},
+					{
+						"tag": "Brain/*enzymology",
+						"type": 1
+					},
+					{
+						"tag": "Drosophila/genetics",
+						"type": 1
+					},
+					{
+						"tag": "Dynamins",
+						"type": 1
+					},
+					{
+						"tag": "Enzyme Activation",
+						"type": 1
+					},
+					{
+						"tag": "GTP Phosphohydrolases/isolation & purification/*metabolism",
+						"type": 1
+					},
+					{
+						"tag": "Glutathione Transferase/metabolism",
+						"type": 1
+					},
+					{
+						"tag": "Humans",
+						"type": 1
+					},
+					{
+						"tag": "Kinetics",
+						"type": 1
+					},
+					{
+						"tag": "Mice",
+						"type": 1
+					},
+					{
+						"tag": "Molecular Sequence Data",
+						"type": 1
+					},
+					{
+						"tag": "Rats",
+						"type": 1
+					},
+					{
+						"tag": "Recombinant Fusion Proteins/metabolism",
+						"type": 1
+					},
+					{
+						"tag": "Recombinant Proteins/isolation & purification/metabolism",
+						"type": 1
+					},
+					{
+						"tag": "Sequence Homology, Amino Acid",
+						"type": 1
+					},
+					{
+						"tag": "Signal Transduction",
+						"type": 1
+					}
+				],
+				"title": "The GTPase dynamin binds to and is activated by a subset of SH3 domains.",
+				"abstractNote": "Src homology 3 (SH3) domains have been implicated in mediating protein-protein interactions in receptor signaling processes; however, the precise role of this domain remains unclear. In this report, affinity purification techniques were used to identify the GTPase dynamin as an SH3 domain-binding protein. Selective binding to a subset of 15 different recombinant SH3 domains occurs through proline-rich sequence motifs similar to those that mediate the interaction of the SH3 domains of Grb2 and Abl proteins to the guanine nucleotide exchange protein,  Sos, and to the 3BP1 protein, respectively. Dynamin GTPase activity is stimulated by several of the bound SH3 domains, suggesting that the function of the SH3 module is not restricted to protein-protein interactions but may also include the interactive regulation of GTP-binding proteins.",
+				"date": "1993-10-08",
+				"pages": "25-36",
+				"journalAbbreviation": "Cell",
+				"language": "eng",
+				"ISSN": "0092-8674",
+				"publicationTitle": "Cell",
+				"place": "UNITED STATES",
+				"volume": "75",
+				"issue": "1"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "T.",
+						"lastName": "Fujiwara",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Adolescent",
+						"type": 1
+					},
+					{
+						"tag": "Adult",
+						"type": 1
+					},
+					{
+						"tag": "Caregivers/*education/psychology/statistics & numerical data",
+						"type": 1
+					},
+					{
+						"tag": "Child Abuse/*prevention & control",
+						"type": 1
+					},
+					{
+						"tag": "Craniocerebral Trauma/*prevention & control",
+						"type": 1
+					},
+					{
+						"tag": "Cross-Sectional Studies",
+						"type": 1
+					},
+					{
+						"tag": "Crying/psychology",
+						"type": 1
+					},
+					{
+						"tag": "Female",
+						"type": 1
+					},
+					{
+						"tag": "Follow-Up Studies",
+						"type": 1
+					},
+					{
+						"tag": "*Health Knowledge, Attitudes, Practice",
+						"type": 1
+					},
+					{
+						"tag": "Humans",
+						"type": 1
+					},
+					{
+						"tag": "Infant",
+						"type": 1
+					},
+					{
+						"tag": "Infant, Newborn",
+						"type": 1
+					},
+					{
+						"tag": "Japan",
+						"type": 1
+					},
+					{
+						"tag": "Male",
+						"type": 1
+					},
+					{
+						"tag": "Pamphlets",
+						"type": 1
+					},
+					{
+						"tag": "Parents/*education/psychology",
+						"type": 1
+					},
+					{
+						"tag": "Program Evaluation",
+						"type": 1
+					},
+					{
+						"tag": "*Public Health Practice",
+						"type": 1
+					},
+					{
+						"tag": "Questionnaires",
+						"type": 1
+					},
+					{
+						"tag": "Shaken Baby Syndrome/*prevention & control",
+						"type": 1
+					},
+					{
+						"tag": "Videodisc Recording",
+						"type": 1
+					},
+					{
+						"tag": "Young Adult",
+						"type": 1
+					},
+					{
+						"tag": "Abusive head trauma",
+						"type": 1
+					},
+					{
+						"tag": "Crying",
+						"type": 1
+					},
+					{
+						"tag": "Intervention",
+						"type": 1
+					},
+					{
+						"tag": "Japan",
+						"type": 1
+					},
+					{
+						"tag": "Public health",
+						"type": 1
+					},
+					{
+						"tag": "Shaken baby syndrome",
+						"type": 1
+					}
+				],
+				"title": "Effectiveness of public health practices against shaken baby syndrome/abusive head trauma in Japan.",
+				"abstractNote": "OBJECTIVES: Previous studies have demonstrated the effectiveness of educational materials on infant crying to change caregivers' knowledge and behaviours related to shaken baby syndrome or abusive head trauma (SBS/AHT) using selected samples in randomized controlled trials. This study investigated the impact of public health practices to prevent SBS/AHT in Japan through the use of educational materials. STUDY DESIGN: Cross-sectional study. METHODS: The intervention was comprised of two parts: (1) the screening of an educational DVD at a prenatal class; and (2) the distribution of a public health pamphlet at a postnatal home visit. Expectant parents watched a DVD (The Period of PURPLE Crying) about the features of infant crying and recommended behaviours (walking away if frustrated  in the event of unsoothable crying, sharing information on crying with other caregivers) at a preterm parenting class held at eight months' gestation. A postnatal home-visit service was implemented in which a maternity nurse distributed a pamphlet to explain information about infant crying. Before the four-month health check-up, a self-administered questionnaire was distributed to  assess exposure to these public health practices and outcome variables (i.e. infant crying knowledge, walk-away and information-sharing behaviours), and responses were collected at the four-month health check-up (n = 1316). The impacts of these interventions on outcome variables were analysed by comparing those exposed to both interventions, either intervention and neither intervention after adjusting for covariates. RESULTS: Crying and shaking knowledge were significantly higher among women exposed to the public health practices, with a dose-response relationship (both P < 0.001). Further, walk-away behaviour during  periods of unsoothable crying was higher among the intervention group. However, sharing information about infant crying with other caregivers was less likely among the intervention group. CONCLUSIONS: The impact of educational materials in public health practice on knowledge of crying and shaking, and walk-away behaviour in Japan had a dose-response relationship; however, an increase in sharing information with other caregivers was not observed.",
+				"date": "2015-05",
+				"DOI": "10.1016/j.puhe.2015.01.018",
+				"pages": "475-482",
+				"journalAbbreviation": "Public Health",
+				"language": "eng",
+				"ISSN": "1476-5616 0033-3506",
+				"publicationTitle": "Public health",
+				"place": "Netherlands",
+				"volume": "129",
+				"issue": "5"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Maaike M.",
+						"lastName": "van Groen",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Theo J. H. M.",
+						"lastName": "Eggen",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Computer Assisted Testing",
+						"type": 1
+					},
+					{
+						"tag": "Formative Evaluation",
+						"type": 1
+					},
+					{
+						"tag": "Summative Evaluation",
+						"type": 1
+					},
+					{
+						"tag": "Adaptive Testing",
+						"type": 1
+					},
+					{
+						"tag": "Educational Games",
+						"type": 1
+					},
+					{
+						"tag": "Computer Simulation",
+						"type": 1
+					},
+					{
+						"tag": "Automation",
+						"type": 1
+					},
+					{
+						"tag": "Educational Testing",
+						"type": 1
+					}
+				],
+				"title": "Educational Test Approaches: The Suitability of Computer-Based Test Types for Assessment and Evaluation in Formative and Summative Contexts",
+				"abstractNote": "When developing a digital test, one of the first decisions that need to be made is which type of Computer-Based Test (CBT) to develop. Six different CBT types are considered here: linear tests, automatically generated tests, computerized adaptive tests, adaptive learning environments, educational simulations, and educational games. The selection of a CBT type needs to be guided by the intended purposes of the test. The test approach determines which purposes can be achieved by using a particular test. Four different test approaches are discussed here: formative assessment, formative evaluation, summative assessment, and summative evaluation. The suitability of each CBT type to measure performance for the different test approaches is evaluated based on four test characteristics: test purpose, test length, level of interest for measurement (student, class, school, system), and test report. This article aims to provide some guidance in the selection of the most appropriate type of CBT.",
+				"date": "2020",
+				"pages": "12-24",
+				"language": "English",
+				"ISSN": "2375-5636",
+				"publicationTitle": "Journal of Applied Testing Technology",
+				"volume": "21",
+				"issue": "1"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Yujia",
+						"lastName": "Zhou",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Asako",
+						"lastName": "Yoshitomi",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Computer Literacy",
+						"type": 1
+					},
+					{
+						"tag": "Computer Assisted Testing",
+						"type": 1
+					},
+					{
+						"tag": "College Students",
+						"type": 1
+					},
+					{
+						"tag": "Language Tests",
+						"type": 1
+					},
+					{
+						"tag": "English (Second Language)",
+						"type": 1
+					},
+					{
+						"tag": "Second Language Learning",
+						"type": 1
+					},
+					{
+						"tag": "Speech Communication",
+						"type": 1
+					},
+					{
+						"tag": "Test Validity",
+						"type": 1
+					},
+					{
+						"tag": "Foreign Countries",
+						"type": 1
+					},
+					{
+						"tag": "Student Attitudes",
+						"type": 1
+					},
+					{
+						"tag": "Correlation",
+						"type": 1
+					},
+					{
+						"tag": "Test Construction",
+						"type": 1
+					},
+					{
+						"tag": "Student Motivation",
+						"type": 1
+					}
+				],
+				"title": "Test-Taker Perception of and Test Performance on Computer-Delivered Speaking Tests: The Mediational Role of Test-Taking Motivation",
+				"abstractNote": "Background: Research on the test-taker perception of assessments has been conducted under the assumption that negative test-taker perception may influence test performance by decreasing test-taking motivation. This assumption, however, has not been verified in the field of language testing. Building on expectancy-value theory, this study explored the relationships between test-taker perception, test-taking motivation, and test performance in the context of a computer-delivered speaking test. Methods: Sixty-four Japanese university students took the TOEIC Speaking test and completed a questionnaire that included statements about their test perception, test-taking motivation, and self-perceived test performance. Five students participated in follow-up interviews. Results: Questionnaire results showed that students regarded the TOEIC Speaking test positively in terms of test validity but showed reservations about computer delivery, and that they felt sufficiently motivated during the test. Interview results revealed various reasons for their reservations about computer delivery and factors that distracted them during the test. According to correlation analysis, the effects of test-taker perception and test-taking motivation seemed to be minimal on test performance, and participants' perception of computer delivery was directly related to test-taking effort, but their perception of test validity seemed to be related to test-taking effort only indirectly through the mediation of perceived test importance. Conclusion: Our findings not only provide empirical evidence for the relationship between test-taker perception and test performance but also highlight the importance of considering test-taker reactions in developing tests.",
+				"date": "2019",
+				"language": "English",
+				"ISSN": "2229-0443",
+				"publicationTitle": "Language Testing in Asia",
+				"volume": "9"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "Raeal",
+						"lastName": "Moore",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Edgar",
+						"lastName": "Sanchez",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sweet",
+						"lastName": "San Pedro",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "College Entrance Examinations",
+						"type": 1
+					},
+					{
+						"tag": "Test Preparation",
+						"type": 1
+					},
+					{
+						"tag": "Scores",
+						"type": 1
+					},
+					{
+						"tag": "Achievement Gains",
+						"type": 1
+					},
+					{
+						"tag": "Pretests Posttests",
+						"type": 1
+					},
+					{
+						"tag": "Tutoring",
+						"type": 1
+					},
+					{
+						"tag": "High School Students",
+						"type": 1
+					},
+					{
+						"tag": "Outcomes of Education",
+						"type": 1
+					}
+				],
+				"title": "College Entrance Exams: How Does Test Preparation Affect Retest Scores? Research Report 2019-2",
+				"abstractNote": "As test preparation becomes widely accessible through different delivery systems, large-scale studies of test preparation efficacy that involve a variety of test preparation activities become more important to understanding the value and impact of test preparation activities on both the ACT and SAT. In this paper, the authors examine the impact of participating in test preparation prior to retaking the ACT test. The study focused on addressing three questions: (1) Using a pretest-posttest design, do students who participate in test preparation have larger score gains relative to students who did not participate in test preparation; does the test preparation effect depend on students' pretest scores?; (2) Among students who participated in test preparation, is the number of hours spent participating in each of 10 test preparation activities related to retest scores?; and (3) Among students who participated in test preparation, do their own beliefs that they might have been ill-prepared to take the test, regardless of the test preparation activities they engaged in, impact retest scores? The study findings showed that test preparation improved students' retest scores, and this effect did not differ depending on students' first ACT score. Among specific test prep activities, only the number of hours using a private tutor resulted in increased score gains above the overall effect of test prep. Students who reported feeling inadequately prepared for the second test had ACT Composite scores that were lower than those students who felt adequately prepared.",
+				"date": "2019",
+				"institution": "ACT, Inc."
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Pollie",
+						"lastName": "Bith-Melander",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jack",
+						"lastName": "Ratliff",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Chelsey",
+						"lastName": "Poisson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Charulata",
+						"lastName": "Jindal",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Yuk",
+						"lastName": "Ming Choi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jimmy T.",
+						"lastName": "Efird",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Burn pits",
+						"type": 1
+					},
+					{
+						"tag": "Deployment anthropology",
+						"type": 1
+					},
+					{
+						"tag": "Explanatory models",
+						"type": 1
+					},
+					{
+						"tag": "Military exposures",
+						"type": 1
+					},
+					{
+						"tag": "Oil well fires",
+						"type": 1
+					},
+					{
+						"tag": "Qualitative analysis",
+						"type": 1
+					}
+				],
+				"title": "Slow Burns: A Qualitative Study of Burn Pit and Toxic Exposures Among Military Veterans Serving in Afghanistan, Iraq and Throughout the Middle East.",
+				"abstractNote": "During deployment to the Persian Gulf War and Southwest Asia theatre of operations, Veterans often experienced various hazards, foremost being open-air burn pits and  oil well fires. While over 23 presumptive conditions (ranging from brain cancer,  interstitial lung disease, and lymphomas to sleep/mood disorders, depression, and  cognitive impairment) have been studied in connection with their military-related  exposures, there is a paucity of qualitative research on this topic. This is  especially true in the context of explanatory models and health belief systems,  vis-à-vis underlying social and cultural factors. The current paper provides a  balanced conceptual framework (summarizing causal virtues and shortcomings) about  the challenges that Veterans encounter when seeking medical care, screening  assessments and subsequent treatments.",
+				"date": "2021",
+				"pages": "1042",
+				"journalAbbreviation": "Ann Psychiatry Clin Neurosci",
+				"language": "eng",
+				"ISSN": "2641-9157",
+				"publicationTitle": "Annals of psychiatry and clinical neuroscience",
+				"volume": "4",
+				"issue": "1"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "International Assessment",
+						"type": 1
+					},
+					{
+						"tag": "Secondary School Students",
+						"type": 1
+					},
+					{
+						"tag": "Foreign Countries",
+						"type": 1
+					},
+					{
+						"tag": "Achievement Tests",
+						"type": 1
+					},
+					{
+						"tag": "Field Tests",
+						"type": 1
+					},
+					{
+						"tag": "Educational Assessment",
+						"type": 1
+					},
+					{
+						"tag": "Cognitive Tests",
+						"type": 1
+					},
+					{
+						"tag": "Reading Tests",
+						"type": 1
+					},
+					{
+						"tag": "Mathematics Tests",
+						"type": 1
+					},
+					{
+						"tag": "Science Tests",
+						"type": 1
+					},
+					{
+						"tag": "Developing Nations",
+						"type": 1
+					}
+				],
+				"title": "Findings from the PISA for Development Field Trial of the School-Based Assessment. PISA for Development Brief 16",
+				"abstractNote": "The PISA for Development (PISA-D) project aims to make PISA more accessible and relevant to middle- and low-income countries by introducing new features to the assessment, including tests that are specially designed to measure lower levels of performance, contextual questionnaires that better reflect the situations of 15-year-olds across a diverse group of countries, and approaches to include out-of-school youth. The PISA-D school-based tests and contextual questionnaires are being piloted in eight countries: Bhutan, Cambodia, Ecuador, Guatemala, Honduras, Paraguay, Senegal, and Zambia. The field trial of the school-based assessment instruments took place from August to December 2016 in seven countries. Based on results of the field trial, the instruments and survey operations were modified as necessary for the main study. The PISA-D school-based assessment field trial reveals that the instruments work as intended. Findings from the analysis of the PISA-D cognitive test field trial data are organised around three major goals and are summarised in the table provided. The test covers reading, mathematics and science. Findings include: (1) The results of the field trial of the PISA for Development (PISA-D) school-based component confirm that the initiative is on track to deliver an assessment that is more relevant to middleand low-income countries; (2) PISA-D instruments work: they capture a wider range of student performance and the diverse contexts found in middle- and low-income countries while ensuring that results are comparable to those of the main PISA test; and (3) Lessons from the field trial are used to inform preparations for the main data collection, which will take place from August to December 2017.",
+				"date": "2017",
+				"institution": "OECD Publishing"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Taylyn",
+						"lastName": "Hulse",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Maria",
+						"lastName": "Daigle",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Daniel",
+						"lastName": "Manzo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Lindsay",
+						"lastName": "Braith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Avery",
+						"lastName": "Harrison",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Erin",
+						"lastName": "Ottmar",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Mathematics Instruction",
+						"type": 1
+					},
+					{
+						"tag": "Educational Technology",
+						"type": 1
+					},
+					{
+						"tag": "Technology Uses in Education",
+						"type": 1
+					},
+					{
+						"tag": "Algebra",
+						"type": 1
+					},
+					{
+						"tag": "Mathematical Concepts",
+						"type": 1
+					},
+					{
+						"tag": "Concept Formation",
+						"type": 1
+					},
+					{
+						"tag": "Educational Games",
+						"type": 1
+					},
+					{
+						"tag": "Interaction",
+						"type": 1
+					},
+					{
+						"tag": "Problem Solving",
+						"type": 1
+					},
+					{
+						"tag": "Student Behavior",
+						"type": 1
+					},
+					{
+						"tag": "Teaching Methods",
+						"type": 1
+					},
+					{
+						"tag": "Instructional Effectiveness",
+						"type": 1
+					},
+					{
+						"tag": "Mathematics Achievement",
+						"type": 1
+					}
+				],
+				"title": "From Here to There! Elementary: A Game-Based Approach to Developing Number Sense and Early Algebraic Understanding",
+				"abstractNote": "This paper examines whether using \"From Here to There!\" (FH2T:E), a dynamic game-based mathematics learning technology relates to improved early algebraic understanding. We use student log files within FH2T to explore the possible benefits of student behaviors and gamification on learning gains. Using in app measures of student interactions (mouse clicks, resets, errors, problem solving steps, and completions), 19 variables were identified to summarize overall problem solving processes. An exploratory factor analysis identified five clear factors including engagement in problem solving, progress, strategic flexibility, strategic efficiency, and speed. Regression analyses reveal that after accounting for behavior within the app, playing the gamified version of the app contributed to higher learning gains than playing a nongamified version. Next, completing more problems within the game related to higher achievement on the post-test. Third, two significant interactions were found between progress and prior knowledge and engagement in problem solving and prior knowledge, where low performing students gained more when they completed more problems and engaged more with those problems.",
+				"date": "2019-04",
+				"pages": "423-441",
+				"language": "English",
+				"ISSN": "1042-1629",
+				"publicationTitle": "Educational Technology Research and Development",
+				"volume": "67",
+				"issue": "2"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "F. Tony",
+						"lastName": "Di Giacomo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Bethany G.",
+						"lastName": "Fishbein",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vanessa W.",
+						"lastName": "Buckley",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Comparative Testing",
+						"type": 1
+					},
+					{
+						"tag": "International Assessment",
+						"type": 1
+					},
+					{
+						"tag": "Relevance (Education)",
+						"type": 1
+					},
+					{
+						"tag": "Testing Programs",
+						"type": 1
+					},
+					{
+						"tag": "Program Descriptions",
+						"type": 1
+					},
+					{
+						"tag": "Best Practices",
+						"type": 1
+					},
+					{
+						"tag": "Adoption (Ideas)",
+						"type": 1
+					},
+					{
+						"tag": "Technology Transfer",
+						"type": 1
+					},
+					{
+						"tag": "Economic Impact",
+						"type": 1
+					},
+					{
+						"tag": "Academic Achievement",
+						"type": 1
+					},
+					{
+						"tag": "Educational Assessment",
+						"type": 1
+					},
+					{
+						"tag": "Educational Indicators",
+						"type": 1
+					},
+					{
+						"tag": "Comparative Education",
+						"type": 1
+					},
+					{
+						"tag": "Comparative Analysis",
+						"type": 1
+					},
+					{
+						"tag": "Common Core State Standards",
+						"type": 1
+					},
+					{
+						"tag": "Educational Policy",
+						"type": 1
+					},
+					{
+						"tag": "Tables (Data)",
+						"type": 1
+					},
+					{
+						"tag": "Educational Change",
+						"type": 1
+					},
+					{
+						"tag": "Educational Practices",
+						"type": 1
+					},
+					{
+						"tag": "National Competency Tests",
+						"type": 1
+					},
+					{
+						"tag": "Foreign Countries",
+						"type": 1
+					},
+					{
+						"tag": "Mathematics Tests",
+						"type": 1
+					},
+					{
+						"tag": "Science Tests",
+						"type": 1
+					},
+					{
+						"tag": "Mathematics Achievement",
+						"type": 1
+					},
+					{
+						"tag": "Elementary Secondary Education",
+						"type": 1
+					},
+					{
+						"tag": "Science Achievement",
+						"type": 1
+					},
+					{
+						"tag": "Reading Tests",
+						"type": 1
+					},
+					{
+						"tag": "Achievement Tests",
+						"type": 1
+					},
+					{
+						"tag": "Reading Achievement",
+						"type": 1
+					},
+					{
+						"tag": "Grade 4",
+						"type": 1
+					}
+				],
+				"title": "International Comparative Assessments: Broadening the Interpretability, Application and Relevance to the United States. Research in Review 2012-5",
+				"abstractNote": "Many articles and reports have reviewed, researched, and commented on international assessments from the perspective of exploring what is relevant for the United States' education systems. Researchers make claims about whether the top-performing systems have transferable practices or policies that could be applied to the United States. However, looking only at top-performing education systems may omit important knowledge that could be applied from countries with similar demographic, geographic, linguistic, or economic characteristics--even if these countries do not perform highly on comparative assessments. Moreover, by exploring only the top performers, a presumption exists that these international assessments are in alignment with a country's curricular, pedagogic, political, and economic goals, which may falsely lead to the conclusion that by copying top performers, test scores would invariably increase and also meet the nation's needs. While international comparative assessments can be valuable when developing national or state policies, the way in which they are interpreted can be broadened cautiously to better inform their interpretability, relevance, and application to countries such as the United States--all while considering the purpose of each international assessment in the context of a nation's priorities. Ultimately, this report serves as a reference guide for various international assessments, as well as a review of literature that explores a possible relationship between national economies and international assessment performance. In addition, this review will discuss how policymakers might use international assessment results from various systems to adapt successful policies in the United States. Tables are appended.",
+				"date": "2013",
+				"institution": "College Board"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Barbara",
+						"lastName": "Bernhardt",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Content Validity",
+						"type": 1
+					},
+					{
+						"tag": "Elementary Education",
+						"type": 1
+					},
+					{
+						"tag": "Language Handicaps",
+						"type": 1
+					},
+					{
+						"tag": "Language Tests",
+						"type": 1
+					},
+					{
+						"tag": "Linguistics",
+						"type": 1
+					},
+					{
+						"tag": "Problem Solving",
+						"type": 1
+					},
+					{
+						"tag": "Semantics",
+						"type": 1
+					},
+					{
+						"tag": "Speech Therapy",
+						"type": 1
+					},
+					{
+						"tag": "Test Validity",
+						"type": 1
+					},
+					{
+						"tag": "Thinking Skills",
+						"type": 1
+					}
+				],
+				"title": "A Test of the Test of Problem Solving (TOPS).",
+				"abstractNote": "The Test of Problem Solving (TOPS) was evaluated by 20 speech-language clinicians based on designer claims that the test assesses integration of semantic, linguistic, and reasoning ability and taps skills needed for academic and social acceptance. Results challenged the content validity of the test. (Author/DB)",
+				"date": "1990-04",
+				"pages": "98-101",
+				"publicationTitle": "Language, Speech, and Hearing Services in Schools",
+				"volume": "21",
+				"issue": "2"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Jeremy",
+						"lastName": "Leipzig",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Robustness (Statistics)",
+						"type": 1
+					},
+					{
+						"tag": "Peer Evaluation",
+						"type": 1
+					},
+					{
+						"tag": "Data Analysis",
+						"type": 1
+					},
+					{
+						"tag": "Computer Software",
+						"type": 1
+					},
+					{
+						"tag": "Evaluation Methods",
+						"type": 1
+					},
+					{
+						"tag": "Research Methodology",
+						"type": 1
+					}
+				],
+				"title": "Tests of Robustness in Peer Review",
+				"abstractNote": "Purpose: The purpose of this dissertation is to investigate the feasibility of using tests of robustness in peer review. This study involved selecting three high-impact papers which featured open data and utilized bioinformatic analyses but provided no source code and refactoring these to allow external survey participants to swap tools, parameters, and data subsets to evaluate the robustness and underlying validity of these analyses. Technical advances that have taken place in recent years--scientific computing infrastructure has matured to support the distribution of reproducible computational analyses--enable this approach. These advances, along with cultural shifts encompassing open data and open code initiatives, promise to address technical stumbling blocks that have contributed to the \"reproducibility crisis.\" To take full advantage of these developments toward improving scientific quality, authors, reviewers, and publishers must integrate reproducible analysis into the peer review process. Seven existing major case study types - reproduction, replication, refactor, robustness test, survey, census, and case narrative - have been invaluable toward establishing reproducibility as a serious and independent area of research. Of particular interest are refactors, in which an existing analysis with abstract methods is reimplemented by a third party, and robustness tests, which involve the manipulation of tools, parameters, and data to assess the scientific validity of an analysis. This thesis describes efforts to test the feasibility of robustness testing in the context of in silico peer review. The contributions described are complemented with extensive source code. Design and Methods: A multi-method approach was employed for this study consisting of user surveys and tests of robustness--hands-on, self-directed software development exercises. Three high-impact genomics publications with open data, but no source code, were selected, refactored, and distributed to active study participants who acted as quasi-external reviewers. The process of the refactor was used to evaluate the limitations of reproducibility using conventional tools and to study how best to present analyses for peer review, and the tests of robustness were employed under the hypothesis this practice would help to evaluate the underlying validity of an analysis. Three different approaches were taken in these tests of robustness--a faithful reproduction of the original manuscript into a framework that could be manipulated by participants, a workflow-library approach in which participants were encouraged to employ modern \"off-the-shelf\" pre-built pipelines to triangulate tests, and an advisor-led approach in which senior experts suggested alternate tools to be implemented and I generated a report for their evaluation. Findings: The refactors and tests of robustness produced numerous discoveries both in terms of the underlying scientific content and, more importantly, into the strengths and weakness of the three robustness approaches (faithful/workflow-library/advisor-led) and pain points in the analytic stack, which may be addressed with appropriate software and metadata. The principal findings are that the faithful approach may often discourage aggressive robustness testing because of the inertia imposed by the existing framework, the workflow-library approach is efficient but can prove inconclusive, and the advisor-led approach may be most practical for journals but requires a higher level of communication to be effective. The vast majority of time in all these refactors was spent on sample metadata management, particularly organizing sample groups of biological and technical replicates to produce the numerous and varied tool input manifests. Practical Implications: Reproducibility-enabled in silico peer review is substantially more time-consuming than traditional manuscript peer review and will require economic, cultural, and technical change to bring to reality. The work presented here could contribute to developing new models to minimize the increased effort of this type of peer review while incentivizing reproducibility. Value: This study provides practical guidance toward designing the future of reproducibility-enabled in silico peer review, which is a logical extension of the computational reproducibility afforded by technical advances in dependency management, containerization, pipeline frameworks, and notebooks. [The dissertation citations contained here are published with the permission of ProQuest LLC. Further reproduction is prohibited without permission. Copies of dissertations may be obtained by Telephone (800) 1-800-521-0600. Web page: http://www.proquest.com/en-US/products/dissertations/individuals.shtml.]",
+				"date": "2021",
+				"language": "English",
+				"university": "Drexel University",
+				"ISBN": "9798209887621",
+				"archive": "ProQuest LLC"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "David W.",
+						"lastName": "Test",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Adolescents",
+						"type": 1
+					},
+					{
+						"tag": "Young Adults",
+						"type": 1
+					},
+					{
+						"tag": "Disabilities",
+						"type": 1
+					},
+					{
+						"tag": "Transitional Programs",
+						"type": 1
+					},
+					{
+						"tag": "Special Education Teachers",
+						"type": 1
+					},
+					{
+						"tag": "School Counselors",
+						"type": 1
+					},
+					{
+						"tag": "Specialists",
+						"type": 1
+					},
+					{
+						"tag": "Related Services (Special Education)",
+						"type": 1
+					},
+					{
+						"tag": "Alignment (Education)",
+						"type": 1
+					},
+					{
+						"tag": "Student Needs",
+						"type": 1
+					},
+					{
+						"tag": "Student Interests",
+						"type": 1
+					},
+					{
+						"tag": "Informal Assessment",
+						"type": 1
+					},
+					{
+						"tag": "Educational Objectives",
+						"type": 1
+					},
+					{
+						"tag": "Skill Development",
+						"type": 1
+					},
+					{
+						"tag": "Job Application",
+						"type": 1
+					},
+					{
+						"tag": "Interpersonal Competence",
+						"type": 1
+					},
+					{
+						"tag": "Instructional Effectiveness",
+						"type": 1
+					},
+					{
+						"tag": "Educational Strategies",
+						"type": 1
+					},
+					{
+						"tag": "Family Involvement",
+						"type": 1
+					},
+					{
+						"tag": "Evidence",
+						"type": 1
+					}
+				],
+				"abstractNote": "To meet the high-stakes requirements of IDEA's Indicator 13, professionals need proven and practical ways to support successful transitions for young adults with significant disabilities. Now there's a single guidebook to help them meet that critical goal--straight from David Test, one of today's most highly respected authorities on transitions to adulthood. Packed with down-to-earth, immediately useful transition strategies, this book has the evidence-based guidance readers need to help students with moderate and severe disabilities prepare for every aspect of adult life, from applying for a job to improving social skills. Special educators, transition specialists, guidance counselors, and other professionals will discover how to: (1) align instruction with IDEA requirements; (2) pinpoint student needs and interests with formal and informal assessment strategies; (3) strengthen IEPs with measurable, relevant, and specific postsecondary goals; (4) teach students the skills needed to succeed; (5) use the most effective instructional strategies, such as mnemonics, response prompting, peer assistance, visual displays, and computer-assisted instruction; (6) assess effectiveness of instruction; (7) increase student and family involvement in transition planning--the best way to ensure positive outcomes that reflect a student's individual choices. Readers will help make transition as seamless as possible with practical materials that guide the planning process, including IEP templates and worksheets, checklists and key questions, thumbnails of key research studies, and sample scenarios that show teaching strategies in action. An essential road map for all professionals involved in transition planning, this book will help ensure that students with moderate and severe disabilities reach their destination: a successful adult life that reflects their goals and dreams. Contents of this book include: (1) Transition-Focused Education (David W. Test); (2) Transition Assessment for Instruction (Dawn A. Rowe, Larry Kortering, and David W. Test); (3) Teaching Strategies (Sharon M. Richter, April L. Mustian, and David W. Test); (4) Data Collection Strategies (Valerie L. Mazzotti and David W. Test); (5) Student-Focused Planning (Nicole Uphold and Melissa Hudson); (6) Student Development: Employment Skills (Allison Walker and Audrey Bartholomew); (7) Bound for Success: Teaching Life Skills (April L. Mustian and Sharon L. Richter); and (8) Strategies for Teaching Academic Skills (Allison Walker and Kelly Kelley). An index is included.",
+				"date": "2012",
+				"publisher": "Brookes Publishing Company",
+				"ISBN": "9781598571929"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Syrine Azza",
+						"lastName": "Manoubi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Maha",
+						"lastName": "Shimi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Meriem",
+						"lastName": "Gharbaoui",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Mohamed",
+						"lastName": "Allouche",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "autopsy",
+						"type": 1
+					},
+					{
+						"tag": "forensic pathology",
+						"type": 1
+					},
+					{
+						"tag": "lightning injury",
+						"type": 1
+					},
+					{
+						"tag": "natural disaster",
+						"type": 1
+					},
+					{
+						"tag": "skin manifestation",
+						"type": 1
+					}
+				],
+				"title": "Lichtenberg Figures: How a Cutaneous Sign Can Solve Suspicious Death Cases.",
+				"abstractNote": "Lightning is a natural weather phenomenon that occurs most commonly during the summer months in the afternoon or early evening. Lightning strikes can cause  accidental deaths. In developed countries, lightning fatalities occur almost  exclusively outdoors. Deaths from lightning may be in remote places with no  witnesses. Forensic pathologists may not be able to reach the scene of death  because it is too hazardous or inaccessible. Bodies may have neither evidence of  skin burns nor torn areas on their clothes. The presumption of accidental death  may be difficult to prove. We present 3 cases in which neither the examination of  the death scene nor the examination of the bodies by those who attested to the  death were performed. The bodies were transported to the morgue for a forensic  autopsy because the deaths were considered suspicious. Physicians who attest to  death in open spaces during weather that could produce lightning should actively  search for Lichtenberg figures, which are considered irrefutable proof of fatal  lightning in such settings. They should also photograph them and submit them as  evidence. Nevertheless, physicians should keep in mind that Lichtenberg figures  are not considered pathognomonic of lightning because some skin manifestations  may mimic them.",
+				"date": "2022-10-07",
+				"DOI": "10.1016/j.wem.2022.07.008",
+				"pages": "S1080-6032(22)00139-9",
+				"journalAbbreviation": "Wilderness Environ Med",
+				"language": "eng",
+				"ISSN": "1545-1534 1080-6032",
+				"publicationTitle": "Wilderness & environmental medicine",
+				"place": "United States"
+			}
+		]
+	}
+}

@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/uw_madison_flibe_loop_components/flibe_loop_iteration_two/clamshell_radiative_heater/tests"
+
+[module."mod.rs"]
+path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater::tests"

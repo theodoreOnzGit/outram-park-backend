@@ -1,0 +1,289 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/central_limit_theorem"
+test_ids = [
+    "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::decay_changes_nuclide_to_higher_z_daughter",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_kernel_release_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_run_is_reproducible",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::snapshot_starts_full_in_kernel",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::absorbing_sphere_release_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::hop_releases_at_outer_surface",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::multilayer_walk_transmits_across_interfaces",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1a_cs_release_1200c_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
+    "crates/boon-lay/tests/wasm_fallback.rs::ensemble_is_reproducible_across_repeated_runs",
+    "crates/boon-lay/tests/wasm_fallback.rs::parallel_ensemble_runs_and_is_physical",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::multilayer_bounce_cost_probe",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::central_limit_theorem"
+
+[[module."mod.rs".function]]
+id = "fn:0764c49ecae831ef"
+name = "per_component_variance_from_second_moment_u64"
+qual = "per_component_variance_from_second_moment_u64"
+lines = [
+    4,
+    11,
+]
+hash = "sha256:f4de349a6355026d5e3cee6b46259ad83c9e144fc6ca7318dd7b00bec88e7b6b"
+doc_hash = "sha256:ec14ff467d802c192b542dcdb27e142aa96cd55aec6a636b67f371f41037f5f0"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:2d8cc520595b89ed"
+name = "per_component_variance_exponential_for_3d_vector_u64"
+qual = "per_component_variance_exponential_for_3d_vector_u64"
+lines = [
+    13,
+    26,
+]
+hash = "sha256:298a50683f369f25beddcf329f4ac85765f62d3438ad6c3b8b8cbf4dd9bde5c6"
+doc_hash = "sha256:29382e51f0561c1ccca6850aa7a63f6a703fa283d056dc4609d07cce532ed966"
+callees = ["fn:0764c49ecae831ef"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:8c1d76731d5ed431"
+name = "per_component_variance_from_second_moment"
+qual = "per_component_variance_from_second_moment"
+lines = [
+    28,
+    35,
+]
+hash = "sha256:f1c06e121c61b8b226d7c98f095ef1dd80bfc9498bae4b30dc812121fac5ebfb"
+doc_hash = "sha256:ec14ff467d802c192b542dcdb27e142aa96cd55aec6a636b67f371f41037f5f0"
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:decc848d43afec77"
+name = "per_component_variance_exponential_for_3d_vector"
+qual = "per_component_variance_exponential_for_3d_vector"
+lines = [
+    37,
+    50,
+]
+hash = "sha256:600bbb951b6bbd3a7831033c068d8cdf397c87986867d3a032069f23a35c68c7"
+doc_hash = "sha256:29382e51f0561c1ccca6850aa7a63f6a703fa283d056dc4609d07cce532ed966"
+callees = ["fn:8c1d76731d5ed431"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:a1bf7e1c579cb7f6"
+name = "sample_dimensioned_gaussian_vector"
+qual = "sample_dimensioned_gaussian_vector"
+lines = [
+    52,
+    63,
+]
+hash = "sha256:e3d1bf914c14bcd3e79cf398eab5dc5bbeff34e158d20d1acbb86ea86e68e241"
+doc_hash = "sha256:5cd1dbb867e876f183ffbdec17eabb12eb2f06daade8a0690f4938f174046d2f"
+callees = ["fn:96ab1fac00ee309f"]
+physical_interface = true
+
+[module."oorandom_rng.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::central_limit_theorem::oorandom_rng"
+
+[[module."oorandom_rng.rs".function]]
+id = "fn:c609ec17a374f2d4"
+name = "OoRng64"
+qual = "OoRng64"
+item = "type"
+shape = "struct"
+lines = [
+    3,
+    11,
+]
+hash = "sha256:fde6c3a6e7bbaf72d17e19fbd815ee3ee54761a03bfdec1792a5d53a8294585b"
+doc_hash = "sha256:66267195a74206e5c168a96c335e3e304d3a29eafb8b8a1a09a40a416eaf9004"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]
+
+[[module."oorandom_rng.rs".function]]
+id = "fn:7219c0f3c4ac548c"
+name = "from_u128"
+qual = "OoRng64::from_u128"
+lines = [
+    14,
+    19,
+]
+hash = "sha256:dd18c546433443a9239609cf5eeb5ed7ccbae9f60937b0edfa06ad1f90046e65"
+doc_hash = "sha256:6d226bcf8ad7c5b0a922d224e1dd7caf556a3ab6c25ea40f2a4613afd7348201"
+uses = [
+    "fn:753a37cf1d65784f",
+    "fn:a4ea8cdd8a0e37b1",
+    "fn:c609ec17a374f2d4",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]
+
+[[module."oorandom_rng.rs".function]]
+id = "fn:5e3bc59ae3f50ddc"
+name = "from_u64"
+qual = "OoRng64::from_u64"
+lines = [
+    21,
+    24,
+]
+hash = "sha256:c7a3415ccde6ae5a29c9d006f1e372b983a25a2c7fcf55b6d1ce0803601bb41c"
+doc_hash = "sha256:9bb0102ea6822baa85a2e26e30aad23b1133de09430c2ce24d6a0ee2d7cf9688"
+callees = ["fn:7219c0f3c4ac548c"]
+uses = ["fn:c609ec17a374f2d4"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]
+
+[[module."oorandom_rng.rs".function]]
+id = "fn:51a99e927be2a5c8"
+name = "rand_float"
+qual = "OoRng64::rand_float"
+lines = [
+    26,
+    30,
+]
+hash = "sha256:255db194e674d39489a76467f84132afa6a86177890c1d370832cd70939e1e35"
+doc_hash = "sha256:e7499d64e6b72bffc0f2712525aebf5feb1eb82c5a5313890972887dd2fbeb69"
+callees = ["fn:681ddf6544e7b60b"]
+uses = ["fn:c609ec17a374f2d4"]
+reached_by = [
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]
+
+[[module."oorandom_rng.rs".function]]
+id = "fn:1f2e5b6c50cdd294"
+name = "next_u64"
+qual = "OoRng64::next_u64"
+lines = [
+    32,
+    37,
+]
+hash = "sha256:1cb86a53adfb8965e136fd874b0eee5557187be178a734f70678e11456727473"
+doc_hash = "sha256:660994e55cc9a0177983dd2fc0a2ff4aa81ef916f394029c93a814809bf0f292"
+uses = [
+    "fn:753a37cf1d65784f",
+    "fn:a4ea8cdd8a0e37b1",
+    "fn:c609ec17a374f2d4",
+]
+reached_by = [
+    "#0",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]

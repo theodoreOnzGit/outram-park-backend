@@ -1,0 +1,42 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "{{Cite| last1 = Walsdorf| first1 = Neill B.| last2 = Wabner| first2 = Cindy L.| last3 = Alexandrides| first3 = George| title = Dietary supplements containing ultradense calcium citrate and carbonyl iron| date = 2004-11-16}}\r\n{{Cite journal| issn = 0378-1127| volume = 201| issue = 2-3| pages = 327–334| last1 = Werner| first1 = S. M.| last2 = E-mail: shahlawerner@yahoo. com| last3 = Nordheim| first3 = E. V.| last4 = Raffa| first4 = K. F.| title = Comparison of methods for sampling Thysanoptera on basswood (Tilia americana L.) trees in mixed northern hardwood deciduous forests| journal = Forest Ecology & Management| date = 2004-11}}\r\n{{Cite book| isbn = 3540202226| pages = 371–397| editors = Roza Maria Kamp, Juan J. Calvete, Theodora Choli-Papadopoulou (eds.)| last1 = Gaertner| first1 = Alfred L.| last2 = E-mail: agaertner@genecor. com| last3 = Chow| first3 = Nicole L.| last4 = Fryksdale| first4 = Beth G.| last5 = Jedrzejewski| first5 = Paul| last6 = Miller| first6 = Brian S.| last7 = Paech| first7 = Sigrid| last8 = Wong| first8 = David L.| title = Methods in proteome and protein analysis| chapter = Increasing throughput and data quality for proteomics| date = 2004}}\r\n{{Cite book| isbn = 3540202226| pages = 359–370| editors = Roza Maria Kamp, Juan J. Calvete, Theodora Choli-Papadopoulou (eds.)| last1 = Hjerno| first1 = Karin| last2 = Hojrup| first2 = Peter| last3 = E-mail: php@bmb. sdu.dk| title = Methods in proteome and protein analysis| chapter = Peak Erazor: A Windows-based program for improving peptide mass searches| date = 2004}}"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "{{Cite journal| pages = 7–14| last = Ahmed| first = Mughees| title = Legitimacy crises in Pakistan| journal = Journal of Political Studies 12| date = 2007}}\r\n{{Cite journal| issn = 1868-1034| volume = 2013| issue = 1| pages = 3–28| last = Wijers| first = Gea D. M.| title = Contributions to transformative change in Cambodia: a study on returnees as institutional entrepreneurs| journal = Journal of Current Southeast Asian Affairs| date = 2013}}"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1249/FIT.0b013e3181c6723d| issn = 1091-5397| volume = 14| issue = 1| last = Peterson| first = James A.| title = Take Ten: Need-to-Know Facts About Breast Cancer| journal = ACSM'S Health & Fitness Journal| date = 2010-02}}\r\n{{Cite journal| doi = 10.1093/abbs/gmr050| issn = 1672-9145| volume = 43| issue = 8| pages = 647–653| last1 = Zhang| first1 = Weijia| last2 = Ding| first2 = Wei| last3 = Chen| first3 = Ye| last4 = Feng| first4 = Meilin| last5 = Ouyang| first5 = Yongmei| last6 = Yu| first6 = Yanhui| last7 = He| first7 = Zhimin| title = Up-regulation of breast cancer resistance protein plays a role in HER2-mediated chemoresistance through PI3K/Akt and nuclear factor-kappa B signaling pathways in MCF7 breast cancer cells| journal = Acta Biochimica et Biophysica Sinica| date = 2011-08}}\r\n{{Cite journal| issn = 0001-5458| volume = 6| pages = 611–613| last1 = Simon| first1 = Ph| last2 = Dept| first2 = S.| last3 = Lefranc| first3 = F.| last4 = Noel| first4 = J. C.| title = Brain Metastasis after Breast Cancer and Hysterectomy for a Benign Leiomyoma| journal = Acta Chirurgica Belgica| date = 2010-12}}\r\n{{Cite journal| doi = 10.1097/DAD.0b013e31820d9c0e| issn = 0193-1091| volume = 33| issue = 8| pages = 845–849| last1 = Gazic| first1 = Barbara| last2 = Pizem| first2 = Joze| title = Lobular Breast Carcinoma Metastasis to a Superficial Plexiform Schwannoma as the First Evidence of an Occult Breast Cancer| journal = American Journal of Dermatopathology| date = 2011-12}}"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "{{Cite book| publisher = International Sakhalin Island Project| last1 = Marusik| first1 = YuM| last2 = Eskov| first2 = KYu| last3 = Logunov| first3 = D. V.| last4 = Basarukin| first4 = A. M.| title = Spiders (Arachnida, Aranei) from Sakhalin and the Kuril Islands| location = place of publication not given}}\r\n{{Cite journal| last1 = Benz| first1 = George W.| last2 = Bullard| first2 = Stephen A.| title = Parasites of fishes: list of and dichotomous key to the identification of major metazoan groups| journal = Association of Zoos and Aquariums Regional Meetings Proceedings| date = 2005}}\r\n{{Cite book| publisher = University of the South Pacific| last = Morrison| first = Clare| title = Key to the herpetofauna of Fiji| location = Institute of Applied Sciences, Suva| date = 2006}}\r\n{{Cite journal| issn = 0018-8158| last1 = Kangur| first1 = Andu| last2 = Kangur| first2 = Peeter| last3 = Kangur| first3 = Kulli| last4 = Mols| first4 = Tonu| title = The role of temperature in the population dynamics of smelt Osmerus eperlanus eperlanus m. spirinchus Pallas in Lake Peipsi (Estonia/Russia)| journal = Hydrobiologia| date = 2007-06}}"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "{{Cite book| publisher = ISiEZH SO RAN| pages = 1–234| editors = V. D. Guliaev (ed.)| last1 = Shedko| last2 = Vinogradov| first2 = S. A.| last3 = Shedko| first3 = S. V.| title = [Parasitological research in Siberia and the Far East: materials of the first interregional scientific conference in memory of Professor A| chapter = [Parasitic copepods of the genera Salmincola and Tracheliastes (Lernaeopodidae) from freshwater fish of the Sakhalin Island.]| location = Novosibirsk| date = 2002}}"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1017/S1352465814000277| issn = 1352-4658| volume = 43| issue = 5| pages = 623–634| last1 = Kobori| first1 = Osamu| last2 = Sawamiya| first2 = Yoko| last3 = Iyo| first3 = Masaomi| last4 = Shimizu| first4 = Eiji| title = A comparison of manifestations and impact of reassurance seeking among Japanese individuals with OCD and depression| journal = Behavioural and Cognitive Psychotherapy| date = 2015-09}}\r\n{{Cite journal| doi = 10.1017/S1352465813001094| issn = 1352-4658| volume = 43| issue = 5| pages = 562–577| last1 = Ewing| first1 = Donna L.| last2 = Monsen| first2 = Jeremy J.| last3 = Thompson| first3 = Ellen J.| last4 = Cartwright-Hatton| first4 = Sam| last5 = Field| first5 = Andy| title = A meta-analysis of transdiagnostic cognitive behavioural therapy in the treatment of child and young person anxiety disorders| journal = Behavioural and Cognitive Psychotherapy| date = 2015-09}}"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "{{Cite paper| publisher = St. John's U. (New York), US| isbn = 9781303529245| issn = 0419-4209| last = Sudler| first = Eric L.| title = Academic procrastination as mediated by executive functioning, perfectionism, and frustration intolerance in college students| date = 2014}}\r\n{{Cite book| publisher = Routledge/Taylor & Francis Group; US| isbn = 9780415472630| pages = 11–31| editors = Michael Neenan, Stephen ; Palmer (eds.)| last = Neenan| first = Michael| title = Cognitive behavioural coaching in practice: An evidence based approach| chapter = Understanding and tackling procrastination| date = 2012}}"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1002/ajim.22459| issn = 0271-3586| volume = 58| issue = 6| pages = 688–696| last1 = Lefkowitz| first1 = Rafael Y.| last2 = Slade| first2 = Martin D.| last3 = Redlich| first3 = Carrie A.| title = Injury, Illness, and Work Restriction in Merchant Seafarers| journal = American Journal Of Industrial Medicine| date = 2015-06}}"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "{{Cite journal| volume = 1| issue = 6| pages = 123–456| title = Test| journal = A Nonexistent Journal of Marriage and Family Therapy: With a Subtitle| date = 2019-06}}"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "{{Cite book| publisher = CABI Publishing| isbn = 9781800627345| others = John W. McGarry, Hany M. Elsheikha, Suzanne Taylor (eds.)| title = Colour Atlas of Companion Animal Parasites, A: Life Cycles and Morphological Identification| date = 2024}}\r\n{{Cite book| publisher = Facts and Comparisons| isbn = 9781574393682| others = Ara DerMarderosian, Cydney E. McQueen (eds.)| title = Review of Natural Products, The| date = 2016}}"
+	}
+}

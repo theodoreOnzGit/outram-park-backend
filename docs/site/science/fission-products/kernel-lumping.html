@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lump by chemistry</title>
+<meta name="description" content="Fission products, lesson 15: data exist for few elements, so codes lump them: similar chemistry, one Arrhenius class. The classes TRISO-ATOPS uses, read from boon-lay's code itself, and volatility as a second axis.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 15. The classes come from the code:
+     the lesson_triso_kernel generator calls boon-lay's diffusion_coefficient
+     for Z = 1..100 and groups identical outputs; groups from
+     ElementGroup::from_atomic_number; plate-out from RemovalRates::upstream.
+     NUREG-1465 Table 3.8 for comparison. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Lump by chemistry and volatility</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Fission makes dozens of elements, but diffusion data exist for only a few. The working answer: <b>assume elements with similar chemistry move alike, and give them one Arrhenius law between them.</b></p>
+
+<section class="widget-card">
+  <h3>The periodic table as the code sees it</h3>
+  <div class="widget" id="ptable">
+    <canvas aria-label="A periodic table coloured by which diffusion coefficient each element shares in boon-lay's TRISO-ATOPS port; tapping an element highlights its class's diffusion curve against temperature below the table."></canvas>
+  </div>
+  <p class="note">Classes found by calling boon-lay&rsquo;s <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient"><code>diffusion_coefficient</code></a> for every element and grouping identical answers (generator <code>lesson_triso_kernel</code>); groups from <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::from_atomic_number"><code>ElementGroup::from_atomic_number</code></a>.</p>
+</section>
+
+<p><b>Predict first.</b> How many different diffusion coefficients does the code use for all hundred elements?</p>
+
+<h2>Five classes, read from the code</h2>
+<p>Asking the code for every element&rsquo;s D gives <b data-kd="nClasses">&hellip;</b> distinct answers: <span data-kd="namedClasses">&hellip;</span>, and the remaining <span data-kd="nominalCount">&hellip;</span> elements all get one fixed nominal value, <span data-kd="nominalD">&hellip;</span>. For Kr, Xe, I, Te and Se the graphite D is the kernel D. (boon-lay&rsquo;s other path, the Lagrangian walker, falls back to silver&rsquo;s coefficients for elements without their own, as its documentation says.)</p>
+
+<h2>A second axis: volatility</h2>
+<p>Moving through the solid is one thing; what happens once out is another. A volatile species can travel as vapour through porosity and cracks, and stick (<b>plate out</b>) on cooler surfaces further on. In TRISO-ATOPS&rsquo;s own routing, every group plates out except the noble gases (<span data-kd="nonPlating">&hellip;</span>, marked &lsquo;~&rsquo; in the table). Light-water reactor source terms group the elements by release behaviour instead: NUREG-1465&rsquo;s Table 3.8 <a href="#ref-soffer1995nureg1465">(Soffer et al., 1995)</a>, p. 10 (colour by &ldquo;NUREG-1465 group&rdquo;).</p>
+
+<p><b>Next question:</b> with a D in hand, how much gets out of one grain?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Where lumping fails</h3>
+<ul>
+<li><b>Pd shares Ag&rsquo;s D</b>, but palladium also attacks SiC chemically, which a diffusion coefficient cannot say: <span class="pending">source pending</span> for the attack.</li>
+<li><b>Eu sits with Sr and Ba</b>, a lanthanide grouped with alkaline earths.</li>
+<li><b>Te and Se sit with the halogens</b> and the noble gases; TRISO-ATOPS calls the group &ldquo;halogens&rdquo; but includes the chalcogens (its <code>ElementGroup</code> documentation says so).</li>
+<li><b>The groups are partly set by data</b>: the elements with measured coefficients get their own class; the rest get a nominal value. A class is a statement about data as much as about chemistry.</li>
+</ul>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-soffer1995nureg1465" style="padding-left: 2em; text-indent: -2em;">Soffer, L., Burson, S. B., Ferrell, C. M., Lee, R. Y., &#38; Ridgely, J. N. (1995). <i>Accident Source Terms for Light-Water Nuclear Power Plants, Final Report</i> (Report NUREG-1465). U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

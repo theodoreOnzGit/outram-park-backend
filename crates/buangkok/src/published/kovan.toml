@@ -1,0 +1,457 @@
+schema_version = 1
+kind = "code_folder"
+crate = "buangkok"
+dir = "crates/buangkok/src/published"
+test_ids = [
+    "crates/buangkok/src/published/accident_dose_by_distance.rs::every_column_falls_strictly_from_0_25_km",
+    "crates/buangkok/src/published/accident_dose_by_distance.rs::every_dose_is_below_the_lowest_sheltering_level_the_paper_compares_against",
+    "crates/buangkok/src/published/accident_dose_by_distance.rs::every_entry_is_positive_and_finite",
+    "crates/buangkok/src/published/accident_dose_by_distance.rs::spot_checks_against_the_published_table",
+    "crates/buangkok/src/published/accident_dose_by_distance.rs::the_table_has_all_thirteen_published_distances",
+    "crates/buangkok/src/published/accident_dose_by_distance.rs::water_ingress_exceeds_depressurization_and_thyroid_exceeds_whole_body",
+    "crates/buangkok/src/published/normal_operation_dose_by_distance.rs::every_entry_is_positive_and_finite",
+    "crates/buangkok/src/published/normal_operation_dose_by_distance.rs::spot_checks_against_the_published_table",
+    "crates/buangkok/src/published/normal_operation_dose_by_distance.rs::the_curve_rises_to_1_5_km_then_falls_strictly",
+    "crates/buangkok/src/published/normal_operation_dose_by_distance.rs::the_maximum_is_the_value_the_text_states_and_sits_at_1_5_km",
+    "crates/buangkok/src/published/normal_operation_dose_by_distance.rs::the_table_has_all_twelve_published_distances",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::accident_external_band_against_table_9_whole_body",
+    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::normal_operation_external_band_against_table_7",
+    "crates/dhoby-ghaut/examples/dispersion_web/engine.rs::messages_round_trip_through_the_wire_format",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::at_10_mwth_the_graph_is_unchanged_and_the_nrc_line_is_never_scaled",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_crossings_recompute_at_600_mwth",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_liu_cao_overlays_are_table_9_whole_body",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_x_range_is_2_km_by_default_and_20_km_in_full",
+    "crates/sembawang/src/lwr_comparison.rs::htr10_dba_arm_is_table_8_and_meets_table_9_distances",
+]
+
+[module."accident_dose_by_distance.rs"]
+path = "crate::published::accident_dose_by_distance"
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:9b2637c85010cab1"
+name = "HTR10_ACCIDENT_DOSE_BY_DISTANCE_CSV"
+qual = "HTR10_ACCIDENT_DOSE_BY_DISTANCE_CSV"
+item = "const"
+shape = "const"
+lines = [
+    117,
+    120,
+]
+hash = "sha256:82cf7a5d27ddfaaaecf17408daf37b9352c11b0f4f249cbd217735def3cb275d"
+doc_hash = "sha256:c68b6ca5e58e62ccaf16fb55c313f5608fd0a350c27dfe6fafcb2e4280ef7edf"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:0070bf3650acf75c"
+name = "PublishedAccidentDoses"
+qual = "PublishedAccidentDoses"
+item = "type"
+shape = "struct"
+lines = [
+    127,
+    136,
+]
+hash = "sha256:31b7f050e13110c8824e5ee8f78bec37e6ed5e1aa3c5bf82bd7356c5a77735b1"
+doc_hash = "sha256:22db0e292aae96189cf6b8b19b1e6b36823729d4b097a77ab8d75fb676b269f5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:478d37bf941833bd"
+name = "PublishedAccidentDoseAtDistance"
+qual = "PublishedAccidentDoseAtDistance"
+item = "type"
+shape = "struct"
+lines = [
+    138,
+    148,
+]
+hash = "sha256:da0fe7cfd427523da8110c673fffe66758f745bef3760efb4e6a7af44cb5e84c"
+doc_hash = "sha256:1d1f3d198c6781ed7ac7625a796d17817f159b8c5a010146f44f6d12cb01ec92"
+uses = ["fn:0070bf3650acf75c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:ab0a4f1d338819da"
+name = "doses"
+qual = "PublishedAccidentDoseAtDistance::doses"
+lines = [
+    151,
+    158,
+]
+hash = "sha256:07570aa858448e759f4450d287d080a00a43a28d7c1388b05df0da4b230e9d99"
+doc_hash = "sha256:f2428dc25d5f938420050c7a1a3208c4fc2e0a4b111cf7d687f016c0414ff5a0"
+uses = [
+    "fn:0070bf3650acf75c",
+    "fn:478d37bf941833bd",
+    "fn:9ad99c82037c06c5",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:8e97ab60a978035d"
+name = "htr10_accident_dose_by_distance"
+qual = "htr10_accident_dose_by_distance"
+lines = [
+    161,
+    192,
+]
+hash = "sha256:f96f4af7293e808976887a406986b0c6cf0937647ec821bd8f9aa5f3570172b8"
+doc_hash = "sha256:47eca40001dc2dad6d5f42c1a8935c68d99c0026562314807f415074c4ec70cb"
+uses = [
+    "fn:0070bf3650acf75c",
+    "fn:478d37bf941833bd",
+    "fn:9b2637c85010cab1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:70a567ccea48858d"
+name = "CASES"
+qual = "CASES"
+item = "const"
+shape = "const"
+lines = [
+    198,
+    198,
+]
+hash = "sha256:123c8b37e183641f5c24c774bb93c6865250f1d9b8bf1ebfe1825342849d5c9f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9ad99c82037c06c5"]
+test = true
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:0e1ff38ed2e93a7d"
+name = "km"
+qual = "km"
+lines = [
+    200,
+    202,
+]
+hash = "sha256:99edb727df8e365377e114a1f40f1bae4a9692410e5bc941ec90caa4a8b5d6dd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:478d37bf941833bd"]
+test = true
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:590801960ece9c6f"
+name = "the_table_has_all_thirteen_published_distances"
+qual = "the_table_has_all_thirteen_published_distances"
+lines = [
+    204,
+    212,
+]
+hash = "sha256:294a56a9ff9b788edb09237f757845aae70e73478665c04c0b5ded6216d99c1b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e1ff38ed2e93a7d",
+    "fn:8e97ab60a978035d",
+]
+test = true
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:5c45c0da234a5d0f"
+name = "spot_checks_against_the_published_table"
+qual = "spot_checks_against_the_published_table"
+lines = [
+    214,
+    238,
+]
+hash = "sha256:76aea7b65d7505d6f79005a0c73edc6fb155522681f5130dd6d50008035acbe0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e1ff38ed2e93a7d",
+    "fn:8e97ab60a978035d",
+    "fn:ab0a4f1d338819da",
+]
+uses = [
+    "fn:0070bf3650acf75c",
+    "fn:9ad99c82037c06c5",
+]
+test = true
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:6731ec51f0d09cf2"
+name = "every_dose_is_below_the_lowest_sheltering_level_the_paper_compares_against"
+qual = "every_dose_is_below_the_lowest_sheltering_level_the_paper_compares_against"
+lines = [
+    240,
+    267,
+]
+hash = "sha256:c87e9a9037be66e80d992d174f87836318fa2ed618b914f873046609f2f496fc"
+doc_hash = "sha256:6302a70871e8ec843e4ea6d0ca6c7d5274f2eea0625bf3016300a0388eb8bfe9"
+callees = [
+    "fn:8e97ab60a978035d",
+    "fn:ab0a4f1d338819da",
+]
+uses = [
+    "fn:0070bf3650acf75c",
+    "fn:70a567ccea48858d",
+]
+test = true
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:4ab6d0776469fb36"
+name = "every_column_falls_strictly_from_0_25_km"
+qual = "every_column_falls_strictly_from_0_25_km"
+lines = [
+    269,
+    295,
+]
+hash = "sha256:e132b48ba44030fc34f76b3bbefebaafd48d7bcb30a528a15b4754dc40974831"
+doc_hash = "sha256:788def7f2bc47a7f5bbd1480dfb546e4ef3df8f43294f106718a21534127ea79"
+callees = [
+    "fn:0e1ff38ed2e93a7d",
+    "fn:8e97ab60a978035d",
+    "fn:ab0a4f1d338819da",
+]
+uses = ["fn:70a567ccea48858d"]
+test = true
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:36bc2d47be365e54"
+name = "water_ingress_exceeds_depressurization_and_thyroid_exceeds_whole_body"
+qual = "water_ingress_exceeds_depressurization_and_thyroid_exceeds_whole_body"
+lines = [
+    297,
+    313,
+]
+hash = "sha256:1d05f5001d362e6d4c84ac4f780e7c21b88681824ef0abc0c8454b340559ef19"
+doc_hash = "sha256:6ea9da8076622e19c09394b03a95f9b1e714bddb2d3a35faed9253e13e5fd48c"
+callees = [
+    "fn:0e1ff38ed2e93a7d",
+    "fn:8e97ab60a978035d",
+]
+test = true
+
+[[module."accident_dose_by_distance.rs".function]]
+id = "fn:b6d21b4a10c45a43"
+name = "every_entry_is_positive_and_finite"
+qual = "every_entry_is_positive_and_finite"
+lines = [
+    315,
+    325,
+]
+hash = "sha256:af543943844b91ae09d314bcb6e9322e668bdbad84d2739d1b9bc9b96ee41efa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e1ff38ed2e93a7d",
+    "fn:8e97ab60a978035d",
+    "fn:ab0a4f1d338819da",
+]
+uses = ["fn:70a567ccea48858d"]
+test = true
+
+[module."mod.rs"]
+path = "crate::published"
+
+[module."normal_operation_dose_by_distance.rs"]
+path = "crate::published::normal_operation_dose_by_distance"
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:b3b086591e5b708c"
+name = "HTR10_NORMAL_OPERATION_DOSE_BY_DISTANCE_CSV"
+qual = "HTR10_NORMAL_OPERATION_DOSE_BY_DISTANCE_CSV"
+item = "const"
+shape = "const"
+lines = [
+    74,
+    77,
+]
+hash = "sha256:cfc12462bbd1ef319851673e74bba4831f92f6370569b0f89582a90c2e1e101c"
+doc_hash = "sha256:c68b6ca5e58e62ccaf16fb55c313f5608fd0a350c27dfe6fafcb2e4280ef7edf"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+]
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:4c1136390c89aa8d"
+name = "PublishedDoseAtDistance"
+qual = "PublishedDoseAtDistance"
+item = "type"
+shape = "struct"
+lines = [
+    79,
+    89,
+]
+hash = "sha256:afac74ab9cd5325a8c002c1d734a56cf065e1b3699995e465e5e40f6e9c0967d"
+doc_hash = "sha256:10ea1f1dd03c300a6b660cae8765297dcb69c0a66092038a4bbea7255336f49e"
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+]
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:48aadfd1336c0315"
+name = "htr10_normal_operation_dose_by_distance"
+qual = "htr10_normal_operation_dose_by_distance"
+lines = [
+    91,
+    110,
+]
+hash = "sha256:86175d8802654001fc0ba62c7dc14a2a5eed935146aa43285359b473e8e5ca0b"
+doc_hash = "sha256:198f483291a4579c87064143a3bebd40585060cfc0cda916a9d925d0d4207fe3"
+uses = [
+    "fn:4c1136390c89aa8d",
+    "fn:b3b086591e5b708c",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+]
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:af827cb421ee6c89"
+name = "rows"
+qual = "rows"
+lines = [
+    116,
+    121,
+]
+hash = "sha256:8a8981ce3cd637a16d8a109e6aaa788c0a7b6eea4d6136ef399bd1fb47478db4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:48aadfd1336c0315"]
+test = true
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:daaf3abf50f2bd0f"
+name = "the_table_has_all_twelve_published_distances"
+qual = "the_table_has_all_twelve_published_distances"
+lines = [
+    123,
+    131,
+]
+hash = "sha256:e089f9f8d5ccbe12da6239a55866866588a3c81ccdede7fe85200271f26097eb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:af827cb421ee6c89"]
+test = true
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:44546969a8305831"
+name = "spot_checks_against_the_published_table"
+qual = "spot_checks_against_the_published_table"
+lines = [
+    133,
+    140,
+]
+hash = "sha256:e637e172b5f038057e2d3005a6b46f87b6a872f9066f9838113e78da0f1c1b87"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:af827cb421ee6c89"]
+test = true
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:ec550eb09fe83607"
+name = "the_maximum_is_the_value_the_text_states_and_sits_at_1_5_km"
+qual = "the_maximum_is_the_value_the_text_states_and_sits_at_1_5_km"
+lines = [
+    142,
+    157,
+]
+hash = "sha256:39e3f0553a55a65b43084266ea44845d064b8a67a11fded2845bdfa6d6dc78f4"
+doc_hash = "sha256:f7d44c7ac3b2668ae0277de6c188b52d88e103410a59b9d2bbd1d23b725169cc"
+callees = ["fn:af827cb421ee6c89"]
+test = true
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:60abe5df1e7fc262"
+name = "the_curve_rises_to_1_5_km_then_falls_strictly"
+qual = "the_curve_rises_to_1_5_km_then_falls_strictly"
+lines = [
+    159,
+    174,
+]
+hash = "sha256:e1dcb73ae4611d561847eed7244bde28b34dd848124e1a2ed9ca5fc059661034"
+doc_hash = "sha256:90cf72328d45c490a42139cc95bee62c203ea1d322c2d29d6175571a7aeb02eb"
+callees = ["fn:af827cb421ee6c89"]
+test = true
+
+[[module."normal_operation_dose_by_distance.rs".function]]
+id = "fn:424da4e4595f2f5f"
+name = "every_entry_is_positive_and_finite"
+qual = "every_entry_is_positive_and_finite"
+lines = [
+    176,
+    182,
+]
+hash = "sha256:374d23eb74a0a0e87c55086ca0005b8ab8d825ea4f5d8454d0757750ff4bdbd4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:af827cb421ee6c89"]
+test = true

@@ -1,0 +1,532 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/distillation_sim_v1/physics"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/distillation_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/distillation_sim_v1/physics/mod.rs::plant_relaxes_to_the_validated_steady_profile",
+    "crates/outram-park-digital-twin-engine/examples/distillation_sim_v1/physics/mod.rs::same_commands_are_a_no_op_rebuild",
+]
+
+[module."column_config.rs"]
+path = "example:distillation_sim_v1::physics::column_config"
+
+[[module."column_config.rs".function]]
+id = "fn:1c691f5c8966eea6"
+name = "PRESSURE_PA"
+qual = "PRESSURE_PA"
+item = "const"
+shape = "const"
+lines = [
+    50,
+    51,
+]
+hash = "sha256:fca6e0210279f461d8c9f3c08b877e6d67479de2a34b197770ae0260eaf6064a"
+doc_hash = "sha256:f22353e3318e41553473b74a908266c655fce84c590baf7d0a860032e37cf5b2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:70f5daf8df5d99ff"
+name = "N_STAGES"
+qual = "N_STAGES"
+item = "const"
+shape = "const"
+lines = [
+    52,
+    53,
+]
+hash = "sha256:e71188550680b8ca1f603958f1eb01f4101a8088dedc7e2fdbc0054fe2d63f89"
+doc_hash = "sha256:81e1cff24b3d44544b91127e2ed49b5fcdbf719aa155be6b6d4c639393a46923"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:dd9d116d5dd9607e"
+name = "FEED_STAGE"
+qual = "FEED_STAGE"
+item = "const"
+shape = "const"
+lines = [
+    54,
+    55,
+]
+hash = "sha256:e88d304eca91608047cd8f2c2583152859b824dfe51939cc6ff4af5a3067b5fe"
+doc_hash = "sha256:0f863ce798ee80fe160695a2e67df48600d317313590c28fee2dad7cde14c28f"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:8a67e1933974a95d"
+name = "FEED_FLOW_MOL_S"
+qual = "FEED_FLOW_MOL_S"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    57,
+]
+hash = "sha256:6d7f3683adbc5710b2aaffb354990a41ab3caa190ef3b61aabf11c026e496398"
+doc_hash = "sha256:a49dd711c78c9cf4a01f7ca01ef03711b93ccdd4dd1a174754d0fe877eb2da31"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:8d67e743573b6b73"
+name = "FEED_Z_BENZENE"
+qual = "FEED_Z_BENZENE"
+item = "const"
+shape = "const"
+lines = [
+    58,
+    60,
+]
+hash = "sha256:827af758a332f6ec5f9d09307bc457f7cf4562030c7ffa1e9d1d0efa23ee09c3"
+doc_hash = "sha256:ade5930213e09dd1ec99b35c7134c12b1bd61570cf84366dd2b0832f76692e0d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:48a9eb279bb0bae7"
+name = "DEFAULT_REFLUX_RATIO"
+qual = "DEFAULT_REFLUX_RATIO"
+item = "const"
+shape = "const"
+lines = [
+    61,
+    63,
+]
+hash = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
+doc_hash = "sha256:96bc4a85f8f26e5236aef194cb052cfb27e0f6b9d17db3df28acf26762e7feea"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:f22cbdf7e3aa51ba"
+name = "DEFAULT_BOTTOMS_MOL_S"
+qual = "DEFAULT_BOTTOMS_MOL_S"
+item = "const"
+shape = "const"
+lines = [
+    64,
+    67,
+]
+hash = "sha256:827af758a332f6ec5f9d09307bc457f7cf4562030c7ffa1e9d1d0efa23ee09c3"
+doc_hash = "sha256:5a7102dfe11614638bd74cab4a9b22df47cde8e00d0ef74bc2b285d3622f49d9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:fec3b0e8d5bcecd8"
+name = "TRAY_TAU_S"
+qual = "TRAY_TAU_S"
+item = "const"
+shape = "const"
+lines = [
+    68,
+    69,
+]
+hash = "sha256:96ba14c135a7e142bcccc5faf90c41804716a77f22a565a651fa60d11e43c9f5"
+doc_hash = "sha256:502d94926e49abd615867b5b82428a7130673c8cb30bbf28a09634f3693c63fa"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:a9d67058d22989eb"
+name = "DRUM_HOLDUP_MOL"
+qual = "DRUM_HOLDUP_MOL"
+item = "const"
+shape = "const"
+lines = [
+    70,
+    71,
+]
+hash = "sha256:d584f749830a2dc53b2426b4bff9b16e19b71c64e954ae15533793225da30b19"
+doc_hash = "sha256:40e630d632c31aa1922e12363399987cbbac761416f441cc0de7d99641f4aa64"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:077e45068c516eec"
+name = "SUMP_HOLDUP_MOL"
+qual = "SUMP_HOLDUP_MOL"
+item = "const"
+shape = "const"
+lines = [
+    72,
+    73,
+]
+hash = "sha256:d584f749830a2dc53b2426b4bff9b16e19b71c64e954ae15533793225da30b19"
+doc_hash = "sha256:ea108cfa362eaeac5b2eb8f498039dfd7290803ec74a0b4f5730cde3379eec21"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:79b0281f6fa64fd4"
+name = "column_input"
+qual = "column_input"
+lines = [
+    75,
+    118,
+]
+hash = "sha256:161665b9466d528e4d248f5a2cb9e91c868ba157c8604f6915694a69e9a4ee01"
+doc_hash = "sha256:11bb2261004c00d2e0cf2819e0733d7161144ffecbb047b41184087eb5bb5d09"
+callees = [
+    "fn:036d3ed7a4aa5498",
+    "fn:104dacd375331203",
+    "fn:294bf5cc6e728123",
+    "fn:306a6c2735ed928c",
+    "fn:92002dfdc484360e",
+    "fn:9c0ea8aca0858b7e",
+    "fn:aa2532ec30df1bc6",
+    "fn:ad25f7d3c474847e",
+    "fn:b17b3e221ebd680f",
+    "fn:ca2071fa639eb8a3",
+    "fn:ccf05150596a62c8",
+    "fn:d5bb35a0780ecab2",
+    "fn:d8a9d9dfe0b4de8d",
+]
+uses = [
+    "fn:0525c88e61c0af17",
+    "fn:11e06b8268881263",
+    "fn:1c691f5c8966eea6",
+    "fn:3fb66ee82767752e",
+    "fn:43f6682bedfd9ed5",
+    "fn:48a9eb279bb0bae7",
+    "fn:6bed2e5294b452f2",
+    "fn:70f5daf8df5d99ff",
+    "fn:8a67e1933974a95d",
+    "fn:8cfa6fa838266b9e",
+    "fn:8d67e743573b6b73",
+    "fn:9b1bda88f9d95185",
+    "fn:b531aa19b2f5ff7d",
+    "fn:dd9d116d5dd9607e",
+    "fn:f22cbdf7e3aa51ba",
+    "fn:f575f4aaff342210",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:2b9005ce9a47d33b"
+name = "steady_reboiler_duty_watts"
+qual = "steady_reboiler_duty_watts"
+lines = [
+    120,
+    141,
+]
+hash = "sha256:7eb2aed84d90488d7a033b62ec0fb6d479bd720976f66743355604f3a4d5c28c"
+doc_hash = "sha256:c4aa98931e319b9821ee8c98fe29ff04411a4d8c2f06f8085821740af204dced"
+callees = [
+    "fn:351b46d769fa8873",
+    "fn:51872d9773971008",
+    "fn:79b0281f6fa64fd4",
+    "fn:a8f050c8d5a1d953",
+    "fn:add96df3bf2d3fa4",
+]
+uses = [
+    "fn:0e10122eb97360bd",
+    "fn:43f6682bedfd9ed5",
+    "fn:b531aa19b2f5ff7d",
+    "fn:f22cbdf7e3aa51ba",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."column_config.rs".function]]
+id = "fn:551b9173efb7720c"
+name = "default_operating"
+qual = "default_operating"
+lines = [
+    143,
+    156,
+]
+hash = "sha256:e2fd825fb1f6048a5fd9a3d7f62ee90c150986cdf9800359b8dcb84649f8dfda"
+doc_hash = "sha256:c9d53dd45cfc1be56602d17d217c69942e09d5fd3880d0a8b3fd6ae92cf3ee6d"
+uses = [
+    "fn:077e45068c516eec",
+    "fn:48a9eb279bb0bae7",
+    "fn:87015a33ea9d57a4",
+    "fn:a39ed1ffac7a8017",
+    "fn:a9d67058d22989eb",
+    "fn:fec3b0e8d5bcecd8",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[module."mod.rs"]
+path = "example:distillation_sim_v1::physics"
+
+[[module."mod.rs".function]]
+id = "fn:afa07b51d5072cce"
+name = "RK4_DT_S"
+qual = "RK4_DT_S"
+item = "const"
+shape = "const"
+lines = [
+    50,
+    51,
+]
+hash = "sha256:827af758a332f6ec5f9d09307bc457f7cf4562030c7ffa1e9d1d0efa23ee09c3"
+doc_hash = "sha256:51dd09514e123e5fa8eddf5a6f009ba27ee88c246f1ef8dc1212131b09598ffc"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ab2016d847da28e4"
+name = "SUBSTEPS_PER_TICK"
+qual = "SUBSTEPS_PER_TICK"
+item = "const"
+shape = "const"
+lines = [
+    52,
+    58,
+]
+hash = "sha256:71d11b5092b6b271b6e71f65f11c2be06aaa3972f0055da0ad35bc1056ef01f6"
+doc_hash = "sha256:ecca785602d48af6c4ec2331af7e3cdc803edc289384d15d1d158803b870393d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:87466884351c903b"
+name = "PlantCommands"
+qual = "PlantCommands"
+item = "type"
+shape = "struct"
+lines = [
+    60,
+    68,
+]
+hash = "sha256:86a750d603865d857b33099d8c522a9625c54e33739da98750c7ec2a9fad0386"
+doc_hash = "sha256:7a217129a9e203b78f167eff4cac8689edcea2f7647c55128d59f14e3110fdd6"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:aa65a48ea1984dc4"
+name = "default"
+qual = "PlantCommands::default"
+lines = [
+    71,
+    78,
+]
+hash = "sha256:0940d5c6a367622b36ed1377d82a28eeacb14050cff1ccf327ec069c7cc6757f"
+doc_hash = "sha256:39ecb272e87ec4455f7d737195a266803839abcc83d5030227d7dd4e6e5c1d70"
+callees = ["fn:2b9005ce9a47d33b"]
+uses = [
+    "fn:48a9eb279bb0bae7",
+    "fn:87466884351c903b",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1ba0784c7e271c18"
+name = "DistillationPlant"
+qual = "DistillationPlant"
+item = "type"
+shape = "struct"
+lines = [
+    81,
+    91,
+]
+hash = "sha256:bca1db73ac74d20edf48b35ee60a51a884abebaef712dc6e2863290d8b603618"
+doc_hash = "sha256:658955f77e4143af84d99f3a5d495cba78ffc8eab94d86be275e7b9b34342d73"
+uses = [
+    "fn:31d094b5b1da84a7",
+    "fn:87015a33ea9d57a4",
+    "fn:8cfa6fa838266b9e",
+    "fn:a4967005d0054bb3",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2b7c97d8e775cbb6"
+name = "new"
+qual = "DistillationPlant::new"
+lines = [
+    94,
+    126,
+]
+hash = "sha256:f08e85e0739cd1f9f6851b508911b13b06bdab73282542fc35afb59173d7aef9"
+doc_hash = "sha256:9c3aefd8861b42f85d128c2b11a7dbc54ce3446cacecba9cb87990d1c5870b59"
+callees = [
+    "fn:0b84124eb9abf6dd",
+    "fn:2b9005ce9a47d33b",
+    "fn:551b9173efb7720c",
+    "fn:79b0281f6fa64fd4",
+    "fn:919023de689645e1",
+]
+uses = [
+    "fn:1ba0784c7e271c18",
+    "fn:8a67e1933974a95d",
+    "fn:8d67e743573b6b73",
+    "fn:a4967005d0054bb3",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:541ad47b331ad34e"
+name = "step"
+qual = "DistillationPlant::step"
+lines = [
+    128,
+    161,
+]
+hash = "sha256:024d3adf52f077f1714ae60f235344e574ebb745f5fece90aafea1e0e3be4947"
+doc_hash = "sha256:54996108a5879e126b92069c95da3c7e7417743b5e47284d18198aca30ebd9f5"
+callees = [
+    "fn:0b84124eb9abf6dd",
+    "fn:a1b7eb1ca047d726",
+]
+uses = [
+    "fn:1ba0784c7e271c18",
+    "fn:87015a33ea9d57a4",
+    "fn:87466884351c903b",
+    "fn:a4967005d0054bb3",
+    "fn:ab2016d847da28e4",
+    "fn:afa07b51d5072cce",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:332dcc0a427347a6"
+name = "write_snapshot"
+qual = "DistillationPlant::write_snapshot"
+lines = [
+    163,
+    181,
+]
+hash = "sha256:b3f26704fd76127d02d3cb63face5c6b06e7fc7df7efa0e684460bd42612e7f0"
+doc_hash = "sha256:939aa3b54cbed6d078875e073c871cf69e39a384168bc8dc6a7cd5e041b7f6bc"
+callees = [
+    "fn:1a1102a15a832d33",
+    "fn:265238534558ae4a",
+]
+uses = [
+    "fn:1ba0784c7e271c18",
+    "fn:ca20cdd04e906fd1",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:5aca6a81894c3bbd"
+name = "default"
+qual = "DistillationPlant::default"
+lines = [
+    185,
+    187,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2b7c97d8e775cbb6"]
+uses = ["fn:1ba0784c7e271c18"]
+
+[[module."mod.rs".function]]
+id = "fn:773fa29090553f14"
+name = "plant_relaxes_to_the_validated_steady_profile"
+qual = "plant_relaxes_to_the_validated_steady_profile"
+lines = [
+    194,
+    285,
+]
+hash = "sha256:3809f3866911825b3e7c38692357f7fc63fdc40ec5c3269d6f71933aecbb3db8"
+doc_hash = "sha256:2fc0595ce2932c0a42e987a67c347b9acc434cc9f9dccb728c70844f6898f18d"
+callees = [
+    "fn:265238534558ae4a",
+    "fn:2b7c97d8e775cbb6",
+    "fn:351b46d769fa8873",
+    "fn:51872d9773971008",
+    "fn:541ad47b331ad34e",
+    "fn:79b0281f6fa64fd4",
+    "fn:add96df3bf2d3fa4",
+]
+uses = [
+    "fn:0e10122eb97360bd",
+    "fn:1ba0784c7e271c18",
+    "fn:43f6682bedfd9ed5",
+    "fn:48a9eb279bb0bae7",
+    "fn:70f5daf8df5d99ff",
+    "fn:87466884351c903b",
+    "fn:b531aa19b2f5ff7d",
+    "fn:f22cbdf7e3aa51ba",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3af4af64da96cdd9"
+name = "same_commands_are_a_no_op_rebuild"
+qual = "same_commands_are_a_no_op_rebuild"
+lines = [
+    287,
+    304,
+]
+hash = "sha256:ec2ed20fa33a508c7036093b8d100e2b1cd59ebbe27677297afd4bea68be2e90"
+doc_hash = "sha256:b0c75c0f67707f9332ed655b43878655357a595c13c1eab72dc79e399c59f022"
+callees = [
+    "fn:2b7c97d8e775cbb6",
+    "fn:541ad47b331ad34e",
+]
+uses = [
+    "fn:1ba0784c7e271c18",
+    "fn:87466884351c903b",
+]
+test = true

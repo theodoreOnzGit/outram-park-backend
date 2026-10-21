@@ -1,0 +1,595 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/eos_co2_brine"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/brine.rs::brine_density_increases_with_salinity",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/brine.rs::brine_rejects_invalid_inputs",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/brine.rs::brine_seawater_density_about_1024",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/brine.rs::brine_viscosity_salinity_and_temperature_trends",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_compressibility_approaches_unity_at_low_pressure",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_density_decreases_with_temperature",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_density_increases_with_pressure",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_density_supercritical_40c_10mpa_rk_underpredicts",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_rejects_invalid_inputs",
+    "crates/outram-park-fork-pflotran/src/eos_co2_brine/co2.rs::co2_viscosity_dilute_gas_value_and_temperature_trend",
+]
+
+[module."brine.rs"]
+path = "crate::eos_co2_brine::brine"
+
+[[module."brine.rs".function]]
+id = "fn:fe5c20a17632af6b"
+name = "W_MAX"
+qual = "W_MAX"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    56,
+]
+hash = "sha256:cfcb538787eca075c263133c4528e27a2ca9b1e1624aee8b63943c95c1d5c703"
+doc_hash = "sha256:071177d01c544f39a5b3e0190d8ab194565b4e085672e9a354b2636b951de6ce"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."brine.rs".function]]
+id = "fn:09cddac62cecd0dd"
+name = "T_MIN_C"
+qual = "T_MIN_C"
+item = "const"
+shape = "const"
+lines = [
+    58,
+    59,
+]
+hash = "sha256:b3018280af5e7034ba0691207878498a84783aa3653b125be64c7c0cc3c031ad"
+doc_hash = "sha256:75d41164ee27bc077385ad276c1926d317e31afb40fca40a7c47af76360f22fb"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."brine.rs".function]]
+id = "fn:bdf4d6ae5f600cbc"
+name = "T_MAX_C"
+qual = "T_MAX_C"
+item = "const"
+shape = "const"
+lines = [
+    61,
+    62,
+]
+hash = "sha256:112f5091ff0caf51f8519c5a0e1f99ef7084be544795704eac77bb79757fb25f"
+doc_hash = "sha256:793c5b1d16df2a40ee4b050762ead729cb9d7ecedf5921126f654a693b7ab20c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."brine.rs".function]]
+id = "fn:75252abbdc22d3a4"
+name = "P_MAX_MPA"
+qual = "P_MAX_MPA"
+item = "const"
+shape = "const"
+lines = [
+    64,
+    65,
+]
+hash = "sha256:715ff62dc298d9b0b1c992033f85e725b78807b021b2d6b50f66325ae4e8ed6f"
+doc_hash = "sha256:5aaa7a086d11cf993906c8213fe750339e0167216a44328e681478b4665b4940"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."brine.rs".function]]
+id = "fn:8c1603a31aa27ad0"
+name = "Brine"
+qual = "Brine"
+item = "type"
+shape = "struct"
+lines = [
+    67,
+    81,
+]
+hash = "sha256:31b04d54f6f7aaeb608ace00e0517f144d11c9cb61b1062324ddd8ad3db22590"
+doc_hash = "sha256:e7b8ba7c2a4723d41c2d520f70b3b2d58fb14e2132d032d5cfe58745d120af77"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."brine.rs".function]]
+id = "fn:ce4ef5ed2618094f"
+name = "new"
+qual = "Brine::new"
+lines = [
+    84,
+    92,
+]
+hash = "sha256:72b686e364c24e51ea56a9f16f22dbc03ce1a2de07f2d8fbbd34c97705b1c86e"
+doc_hash = "sha256:7cc7cdf9ae3ce8f899c6f718a5a7f35bf8599ca86e51d08f79006388f28086bb"
+uses = ["fn:8c1603a31aa27ad0"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."brine.rs".function]]
+id = "fn:ddb338faa545f26f"
+name = "density"
+qual = "Brine::density"
+lines = [
+    94,
+    132,
+]
+hash = "sha256:91a0201046def8e2c5f5b5f459b766ba344040ecea5fe85493396d532ddd86dd"
+doc_hash = "sha256:481ed7b3d5dcbf69780fdcaf1c2d9ed206ff98c65e20c3c3d6a5c7f1256d4a36"
+callees = ["fn:466b15b7c70dbb20"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:8c1603a31aa27ad0",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."brine.rs".function]]
+id = "fn:1d36e90ba0484aec"
+name = "viscosity"
+qual = "Brine::viscosity"
+lines = [
+    134,
+    158,
+]
+hash = "sha256:a6a3ac4f7b294f5c70892d34efcfc054a6e3260ac2dabfb6d35e3c0fa108ae0a"
+doc_hash = "sha256:a2ac1df27c4ec6d6d151b5c8490d45ebcc928602ddc89aa03fcc60a4aa55079f"
+callees = ["fn:466b15b7c70dbb20"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:8c1603a31aa27ad0",
+]
+reached_by = [
+    "#1",
+    "#3",
+]
+
+[[module."brine.rs".function]]
+id = "fn:466b15b7c70dbb20"
+name = "validate"
+qual = "Brine::validate"
+lines = [
+    160,
+    190,
+]
+hash = "sha256:585ebcef06a29822c5e998ce627cca3124741112cdb6a0c5165cb84b664a1f45"
+doc_hash = "sha256:827c8588b412056ff4ee64e8286310f6ac473f302ba5c6f726de03677b0bf2af"
+uses = [
+    "fn:09cddac62cecd0dd",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:75252abbdc22d3a4",
+    "fn:8c1603a31aa27ad0",
+    "fn:bdf4d6ae5f600cbc",
+    "fn:fe5c20a17632af6b",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."brine.rs".function]]
+id = "fn:4c6c1000fcad07d5"
+name = "brine_seawater_density_about_1024"
+qual = "brine_seawater_density_about_1024"
+lines = [
+    197,
+    216,
+]
+hash = "sha256:003fe98cf37748d6797937fc21142b7d0b39ad6eb5cf8f7965753e51a7137f69"
+doc_hash = "sha256:5184ab0f0c38b63758b79b667fe8c983eeb17944df01d87b8bb6bc6c94f08962"
+callees = [
+    "fn:ce4ef5ed2618094f",
+    "fn:ddb338faa545f26f",
+]
+uses = ["fn:8c1603a31aa27ad0"]
+test = true
+
+[[module."brine.rs".function]]
+id = "fn:9da7f16ae9d3c71e"
+name = "brine_density_increases_with_salinity"
+qual = "brine_density_increases_with_salinity"
+lines = [
+    218,
+    238,
+]
+hash = "sha256:2973758fe550d1eef27772a82f92cfe0344a7353ce4508fd4f8fd17f96928a93"
+doc_hash = "sha256:22b9c729c498615e5f156fdf606720dd4a7412b892367ff0b091447de651097c"
+callees = [
+    "fn:ce4ef5ed2618094f",
+    "fn:ddb338faa545f26f",
+]
+uses = ["fn:8c1603a31aa27ad0"]
+test = true
+
+[[module."brine.rs".function]]
+id = "fn:95f2999cc227b3f6"
+name = "brine_viscosity_salinity_and_temperature_trends"
+qual = "brine_viscosity_salinity_and_temperature_trends"
+lines = [
+    240,
+    259,
+]
+hash = "sha256:b91403d4701415a1a2d96f206b2657cfd3249049ed903614ef13c6ec27cf5918"
+doc_hash = "sha256:e75a30f6dca297209145599418a1b80d357ea8176864c74ee86ce9191c31aa1d"
+callees = [
+    "fn:1d36e90ba0484aec",
+    "fn:ce4ef5ed2618094f",
+]
+uses = ["fn:8c1603a31aa27ad0"]
+test = true
+
+[[module."brine.rs".function]]
+id = "fn:75f97b33d9232235"
+name = "brine_rejects_invalid_inputs"
+qual = "brine_rejects_invalid_inputs"
+lines = [
+    261,
+    273,
+]
+hash = "sha256:099cc4a25554258afa9f5272a657bc7b2af885e2d355b264bd377b16c0ee418b"
+doc_hash = "sha256:f13e32a7200dfe91131a7304ab6749b8556b51aee0b3e5f210476df356357ddb"
+callees = [
+    "fn:1d36e90ba0484aec",
+    "fn:ce4ef5ed2618094f",
+    "fn:ddb338faa545f26f",
+]
+uses = ["fn:8c1603a31aa27ad0"]
+test = true
+
+[module."co2.rs"]
+path = "crate::eos_co2_brine::co2"
+
+[[module."co2.rs".function]]
+id = "fn:1f5bbd51211aa8b7"
+name = "R_GAS"
+qual = "R_GAS"
+item = "const"
+shape = "const"
+lines = [
+    76,
+    77,
+]
+hash = "sha256:855d723db87afd2e97738937e3cc31bde34bf86c1ee952a6c5f7f112402c10a6"
+doc_hash = "sha256:9bce1dbdfba4db7bebe1c7f48e6a3272dc074658190e5d0ed5899bdca8993d90"
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."co2.rs".function]]
+id = "fn:4ae8812ad70753bf"
+name = "M_CO2"
+qual = "M_CO2"
+item = "const"
+shape = "const"
+lines = [
+    79,
+    80,
+]
+hash = "sha256:8d7397f289d3cf8fc48af4ae1017efdcf8f3a143e8e1c63fd7bcbbaea8dd750b"
+doc_hash = "sha256:a2a998d5c62f14450d582607f68bae0cf94d08cd011edd8959437e22565bbb79"
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."co2.rs".function]]
+id = "fn:4b56253ddf5aad8e"
+name = "TC_CO2"
+qual = "TC_CO2"
+item = "const"
+shape = "const"
+lines = [
+    82,
+    83,
+]
+hash = "sha256:9f9a1b7ed531c813aac2c6e8382d0ca08f4ffefaa5476b6e11293a408810dcce"
+doc_hash = "sha256:6cc9ed5c32430648497dc168698b9897890bb57f9f8ce4b32520a8272c187e79"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."co2.rs".function]]
+id = "fn:eaaf5a81b4e4d43e"
+name = "PC_CO2"
+qual = "PC_CO2"
+item = "const"
+shape = "const"
+lines = [
+    85,
+    86,
+]
+hash = "sha256:434a4dccb2023de12080bdced09ba159c3af79c0374377eb6225a009e8c8e122"
+doc_hash = "sha256:da0c1fe52c8a6f5fa7acd2a5f7928a54126f41ea92b518101254f36dd99757fb"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."co2.rs".function]]
+id = "fn:1ace3e094d138ff3"
+name = "P_MAX_PA"
+qual = "P_MAX_PA"
+item = "const"
+shape = "const"
+lines = [
+    88,
+    91,
+]
+hash = "sha256:cd11f0629ae2b59277091215e940d85e037f8643380d4e9d6a815e5463b8ec0c"
+doc_hash = "sha256:b8b020dd58cdb5607a12f48b265f0296e72d291bde0f4068aff1b58b64cfe7f3"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."co2.rs".function]]
+id = "fn:8a6a489be95d6aaa"
+name = "Co2Properties"
+qual = "Co2Properties"
+item = "type"
+shape = "struct"
+lines = [
+    93,
+    102,
+]
+hash = "sha256:f6da31dc18b5e74f59073ed65da9570cd4083d2f4e5796dd464678148884257e"
+doc_hash = "sha256:66407dd6af9315bbff372453d5995ec2775e02c6aaa63b6dce728aead35771bb"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."co2.rs".function]]
+id = "fn:9240843bccfd02d2"
+name = "compressibility"
+qual = "Co2Properties::compressibility"
+lines = [
+    105,
+    144,
+]
+hash = "sha256:3236bdecd6d49e53cc7419eb03f6dd036d56cf382d4f577247f58b6814b4ee05"
+doc_hash = "sha256:2a7674e6e55112766d7467b4e664c325215dc87b1b96a818e171900955418f52"
+callees = [
+    "fn:44223d7f2b49f003",
+    "fn:cf7a5d051c9d5cb3",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:4b56253ddf5aad8e",
+    "fn:8a6a489be95d6aaa",
+    "fn:eaaf5a81b4e4d43e",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."co2.rs".function]]
+id = "fn:ff07d411fc2cc347"
+name = "density"
+qual = "Co2Properties::density"
+lines = [
+    146,
+    163,
+]
+hash = "sha256:c24982eb73e4f1cc819bdaf270bfcf76be2581e3a16cfb30292cfbe9fb74bc65"
+doc_hash = "sha256:63767db2a937e89c6cf9ab935089b5b14263276b5f6fd66f62bc0f4272f5afa7"
+callees = ["fn:9240843bccfd02d2"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:1f5bbd51211aa8b7",
+    "fn:4ae8812ad70753bf",
+    "fn:8a6a489be95d6aaa",
+]
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."co2.rs".function]]
+id = "fn:95f7b487daf37e17"
+name = "viscosity"
+qual = "Co2Properties::viscosity"
+lines = [
+    165,
+    204,
+]
+hash = "sha256:ead9dc00b669dd243060770aae703eacbf32ff1b1e4b3ce6c3333d530b47e766"
+doc_hash = "sha256:817f61ed02a3e1831d15be143fa7020293a9d9b10cf81602a8011ee82343568e"
+callees = ["fn:cf7a5d051c9d5cb3"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:8a6a489be95d6aaa",
+]
+reached_by = [
+    "#8",
+    "#9",
+]
+
+[[module."co2.rs".function]]
+id = "fn:cf7a5d051c9d5cb3"
+name = "validate"
+qual = "Co2Properties::validate"
+lines = [
+    206,
+    231,
+]
+hash = "sha256:1e4c68e1b427b5824d5f595e74bb03946ce234d3998c795846e3165b8c2e64e4"
+doc_hash = "sha256:2f6d64302733f4a7a10ec842d841220c69e102a0141e724e8880b34460614395"
+uses = [
+    "fn:1ace3e094d138ff3",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:8a6a489be95d6aaa",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+]
+
+[[module."co2.rs".function]]
+id = "fn:44223d7f2b49f003"
+name = "largest_real_cubic_root"
+qual = "largest_real_cubic_root"
+lines = [
+    234,
+    271,
+]
+hash = "sha256:8b0cbaad807c5bb9eb9a295fecafa8bdffc94a3dbf2f29290c634264e3c6ca6b"
+doc_hash = "sha256:7d13dfcc83f06061dbefdc045cd8011fb298bccc47c4be5159230a47362d44e9"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."co2.rs".function]]
+id = "fn:e228f05024173e93"
+name = "co2_density_supercritical_40c_10mpa_rk_underpredicts"
+qual = "co2_density_supercritical_40c_10mpa_rk_underpredicts"
+lines = [
+    277,
+    303,
+]
+hash = "sha256:f2da413dcea00b2e436c753a1e0564a4c6e89d81579b51fea1b9cc821fe0cbf6"
+doc_hash = "sha256:cf4dc94b1471b7df2b79e8b6e3501ba2a822678d4d12f929ab0b838568e71a48"
+callees = ["fn:ff07d411fc2cc347"]
+uses = ["fn:8a6a489be95d6aaa"]
+test = true
+
+[[module."co2.rs".function]]
+id = "fn:630fec5c53526dca"
+name = "co2_compressibility_approaches_unity_at_low_pressure"
+qual = "co2_compressibility_approaches_unity_at_low_pressure"
+lines = [
+    305,
+    313,
+]
+hash = "sha256:ae283b8b195c6045a57378c8a4293d22996920dfebb69d4e1ac723e4162d6701"
+doc_hash = "sha256:28fdf495d3859fdc87593c0cebf0c03c9e3093192ef1c5023121ef2f32e2803b"
+callees = ["fn:9240843bccfd02d2"]
+uses = ["fn:8a6a489be95d6aaa"]
+test = true
+
+[[module."co2.rs".function]]
+id = "fn:0a600a0bf08b6efe"
+name = "co2_density_increases_with_pressure"
+qual = "co2_density_increases_with_pressure"
+lines = [
+    315,
+    324,
+]
+hash = "sha256:901a7e409bebb397bad838cbdaf3ff055124dd7acb481776dd990c0032a3335c"
+doc_hash = "sha256:b8ea7f47a83419c736cffacf697e6c927e21b46de540954d98598e11ca94bb57"
+callees = ["fn:ff07d411fc2cc347"]
+uses = ["fn:8a6a489be95d6aaa"]
+test = true
+
+[[module."co2.rs".function]]
+id = "fn:f369d3c7726bc066"
+name = "co2_density_decreases_with_temperature"
+qual = "co2_density_decreases_with_temperature"
+lines = [
+    326,
+    335,
+]
+hash = "sha256:4d3a8c3d803247c2543393860b84dc8e8debb701dc6dd5aafe8f6931f3d280c5"
+doc_hash = "sha256:997d41d3e708b89d83f7ba9345720ef06ea334a52ce6bf6381b7e069126196e6"
+callees = ["fn:ff07d411fc2cc347"]
+uses = ["fn:8a6a489be95d6aaa"]
+test = true
+
+[[module."co2.rs".function]]
+id = "fn:553bd1a411814df9"
+name = "co2_viscosity_dilute_gas_value_and_temperature_trend"
+qual = "co2_viscosity_dilute_gas_value_and_temperature_trend"
+lines = [
+    337,
+    361,
+]
+hash = "sha256:eea333d6b552a2bbd9c701221725eb71056a9c9ac6cc76214bf0ee4e34dace35"
+doc_hash = "sha256:0fe7a664f1f1109d7adae1aabc5fad6e4e5ec8e270910de1e1400916ce335984"
+callees = ["fn:95f7b487daf37e17"]
+uses = ["fn:8a6a489be95d6aaa"]
+test = true
+
+[[module."co2.rs".function]]
+id = "fn:c1353aecb106f1ea"
+name = "co2_rejects_invalid_inputs"
+qual = "co2_rejects_invalid_inputs"
+lines = [
+    363,
+    372,
+]
+hash = "sha256:bc0d431239720ef3b5ea7734a955b43568e66bf31ce2ff970bca27caadde34d3"
+doc_hash = "sha256:58831e9b0801926c58a414d1d75dab766199085ba13147af625f5a2e3f7ff25f"
+callees = [
+    "fn:9240843bccfd02d2",
+    "fn:95f7b487daf37e17",
+    "fn:ff07d411fc2cc347",
+]
+uses = ["fn:8a6a489be95d6aaa"]
+test = true
+
+[module."mod.rs"]
+path = "crate::eos_co2_brine"

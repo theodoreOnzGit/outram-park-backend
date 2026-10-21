@@ -1,0 +1,129 @@
+# kovan daily: the kovan desktop build and tests on Linux, Windows and macOS,
+# and the kovan-web build for wasm32. Maintainer request, 2026-10-11 (GitHub
+# #834): "make sure kovan desktop runs on windows macos and linux, kovan-web
+# runs on wasm", tested once per day.
+#
+# WHY IT EXISTS. `fast tests` is disabled (`gh workflow list --all`, checked
+# 2026-10-11) and `pages` builds kovan on Linux only, so nothing on CI
+# compiled or tested kovan on Windows or macOS. #834 was a Windows-only
+# defect (a path form `std::fs::canonicalize` returns only there) that every
+# Linux run passed.
+#
+# ── What it runs ─────────────────────────────────────────────────────────────
+#
+# 1. DESKTOP, on ubuntu / windows / macos: builds the three binaries (`kovan`
+#    the desktop app, `kovan-cli`, `kovan-tui`) with default features, then
+#    runs `--lib --tests` of kovan, kovan-common and kovan-web.
+# 2. WEB, on ubuntu: builds kovan-web's `web` example for
+#    `wasm32-unknown-unknown`, the command `crates/kovan-web/web/build.sh`
+#    uses.
+#
+# WHAT A GREEN RUN DOES NOT SHOW.
+# - That the desktop app OPENS. No job starts the window: the runners have no
+#   display and kovan has no headless start. Green means "it builds and its
+#   tests pass" on that OS.
+# - That kovan-web WORKS in a browser. The wasm job is compilation only (root
+#   CLAUDE.md: never call a crate wasm-ready on the strength of it).
+# - Android and iOS, left out at the maintainer's direction.
+#
+# EXPECTED RED ON ARRIVAL: on 2026-10-10 six kovan lib tests and two
+# kovan-common tests failed on the maintainer's Windows laptop (#820). They
+# are not excluded here; a red Windows leg is that record until each is fixed.
+#
+# ── When it runs ─────────────────────────────────────────────────────────────
+#
+# `schedule` and `workflow_dispatch` fire only for a workflow file on the
+# DEFAULT branch (`main`). `main` has no `.github/workflows/` (checked
+# 2026-10-11), so THE DAILY RUN DOES NOT START until this file is on `main`.
+# Until then, start it by pushing a tree to a `ci-kovan/**` branch, which
+# runs this file from the pushed ref:
+#
+#     git push -f origin develop:ci-kovan/develop
+#
+# `ci-kovan/**` branches are disposable triggers, like `ci-run/**` in
+# `manual-tests.yml` (a separate prefix, so this does not start the full
+# workspace suite).
+#
+# RELEASE MODE, as everywhere in this workspace.
+
+name: kovan daily
+
+on:
+  schedule:
+    # 19:00 UTC = 03:00 in Singapore, once a day.
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - "ci-kovan/**"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+  KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    name: desktop / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # A ceiling, not a measurement: this job has never run. Replace it with a
+    # measured figure after the first runs.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false # one platform's failure must not hide the others'
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A scheduled run starts from `main` (the default branch) and tests
+          # `develop`; a push or a dispatch tests the ref it was started on.
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+
+      # rust-analyzer: the SCIP and call-graph tests look for it on PATH.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rust-analyzer
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: kovan-daily-${{ matrix.os }}
+          cache-on-failure: true
+
+      - name: Build the desktop app, the CLI and the TUI
+        shell: bash
+        run: cargo build --release -p "$KOVAN_PKG" --bin kovan --bin kovan-cli --bin kovan-tui
+
+      # --no-fail-fast: a failing test binary must not hide the ones after it.
+      # The first run (2026-10-11) stopped at kovan's lib tests on Windows, so
+      # no integration test ran there.
+      - name: Test kovan, kovan-common and kovan-web
+        shell: bash
+        run: cargo test --release --no-fail-fast -p "$KOVAN_PKG" -p kovan-common -p kovan-web --lib --tests
+
+  web:
+    name: web / wasm32
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: kovan-daily-wasm
+          cache-on-failure: true
+
+      # Compilation only. The browser bundle (wasm-bindgen) is `pages.yml`'s.
+      - name: Build kovan-web for wasm32
+        run: cargo build --release --target wasm32-unknown-unknown -p kovan-web --example web

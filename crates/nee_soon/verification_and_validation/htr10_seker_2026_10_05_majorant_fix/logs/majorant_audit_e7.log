@@ -1,0 +1,56 @@
+HTR-10 core k-eff vs Li, Yu & Wei (2014), RMC 1.004288
+=========================================================
+  ENDF/B-VII.0 (the library Li, Yu & Wei state for RMC)
+  explicit TRISO, hybrid delta/surface tracking, TECDOC reflector
+
+Reconstructing cross sections:
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  SiC S(a,b) not applied: ENDF/B-VII.0 has no SiC thermal evaluation
+  carbon: ENDF/B-VII.0 elemental natural carbon (MAT 600)
+  coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+  helium is ENDF/B-VIII.0 in this ENDF/B-VII.0 arm: no VII.0 helium tape in reference-data/endf
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  rod-metal nuclides (Fe, Cr, Ni, Mn, Ti, free Si) are ENDF/B-VIII.0 in this ENDF/B-VII.0 arm: no VII.0 tapes for them
+  U_UO2    LEAPR 17.0s
+  O_UO2    LEAPR 22.3s
+  graphite S(a,b): tsl-graphite-ENDF7.0.endf (MAT 31)
+  U235   53.4s
+  U238   70.4s
+  O16    414.7ms
+  Cnat   95.7ms
+  Cnat   94.7ms
+  Si28   504.3ms
+  B10    175.8ms
+  Cnat   104.3ms
+  Si29   319.6ms
+  Si30   261.3ms
+  B11    212.1ms
+  He3    74.2ms
+  He4    38.2ms
+  Fe54   3.8s
+  Fe56   3.2s
+  Fe57   1.6s
+  Fe58   1.9s
+  Cr50   1.8s
+  Cr52   1.5s
+  Cr53   1.4s
+  Cr54   611.5ms
+  Ni58   2.5s
+  Ni60   2.8s
+  Ni61   493.7ms
+  Ni62   717.0ms
+  Ni64   364.3ms
+  Mn55   1.8s
+  Ti46   689.0ms
+  Ti47   192.7ms
+  Ti48   576.7ms
+  Ti49   254.1ms
+  Ti50   189.3ms
+  Si28   355.1ms
+  Si29   419.4ms
+  Si30   224.7ms
+  reflector zone: 22 (C 8.8242e-2 x1.000, natural B 4.7377e-7)
+  fuel zone: explicit TRISO lattice
+  tracking: hybrid (delta bed)
+  geometry: 24068 tiles, 44611 cells, 1537 universes
+MAJORANT-AUDIT htr10_rmc_keff bed_majorant | worst 0.7697 at 1.40597e-5 eV in 'UO2 kernel' | 253872 nodes | 2999976 energies

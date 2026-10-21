@@ -1,0 +1,42 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"urn:isbn:9783658060268, 3658060263\">\n        <dc:type>book</dc:type>\n        <dc:identifier>ISBN 9783658060268, 3658060263</dc:identifier>\n        <dc:format>&lt;http://rdaregistry.info/termList/RDACarrierType/1044&gt;</dc:format>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"http://dx.doi.org/10.1080/01639374.2012.682254\">\n        <dc:title>Be Careful What You Wish For: FRBR, Some Lacunae, A Review</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Smiraglia, Richard P.</dc:creator>\n        <dc:publisher>Taylor &amp; Francis Group</dc:publisher>\n        <dc:identifier>ISSN 1544-4554</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42514\">\n        <dc:title>CodeMeta: Minimal metadata schemas for science software and code, in JSON-LD</dc:title>\n        <dc:type>computerProgram</dc:type>\n        <dc:contributor>Boettiger, Carl</dc:contributor>\n        <dc:contributor>Jones, Matthew B.</dc:contributor>\n        <dc:contributor>Druskat, Stephan</dc:contributor>\n        <dc:contributor>Sands, Ashley</dc:contributor>\n        <dc:contributor>Cruse, Patricia</dc:contributor>\n        <dc:contributor>Fenner, Martin</dc:contributor>\n        <dc:contributor>Chue Hong, Neil</dc:contributor>\n        <dc:contributor>Gil, Yolanda</dc:contributor>\n        <dc:contributor>Hahnel, Mark</dc:contributor>\n        <dc:contributor>Katz, Dan</dc:contributor>\n        <dc:contributor>Boettiger, Carl</dc:contributor>\n        <dc:contributor>Goble, Carole</dc:contributor>\n        <dc:contributor>Smith, Arfon</dc:contributor>\n        <dc:contributor>Allen, Alice</dc:contributor>\n        <dc:contributor>Crosas, Mercè</dc:contributor>\n        <dc:contributor>Coy, Luke</dc:contributor>\n        <dc:contributor>Niemeyer, Kyle</dc:contributor>\n        <dc:contributor>Slaughter, Peter</dc:contributor>\n        <dc:rights>https://spdx.org/licenses/Apache-2.0</dc:rights>\n        <dc:date>2017-06-05</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42518\">\n       <dc:title>Test</dc:title><dc:type>report</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42522\">\n        <dc:title>International Code for Ships Operating in Polar Waters (Polar Code)</dc:title>\n        <dc:type>document</dc:type>\n        <dc:creator>Int'l Mar. Org.</dc:creator>\n        <dc:date>2017</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"https://example.com/video\">\n        <dc:title>Video</dc:title>\n        <dc:type>videoRecording</dc:type>\n        <dc:contributor>Lastname, Firstname</dc:contributor>\n        <dc:date>2026-06-17</dc:date>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"rdf_dc_prism_article": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"http://example.org/articles/42\">\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Smith, Jane Q.</dc:creator>\n        <dc:creator>Consortium, Kovan Probe</dc:creator>\n        <dc:rights>CC BY 4.0</dc:rights>\n        <dc:date>2019-02-30</dc:date>\n        <dc:identifier>ISSN 1234-5679</dc:identifier>\n        <dc:identifier>DOI 10.5555/probe.42</dc:identifier>\n        <dc:identifier>TK9202 .P76</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:about=\"urn:isbn:978-0-306-40615-7\">\n        <dc:title>A Book with an ISBN in its URI</dc:title>\n        <dc:type>book</dc:type>\n        <dc:creator>Author, Ann</dc:creator>\n        <dc:contributor>Editor, Ed</dc:contributor>\n        <dc:publisher>Probe Press</dc:publisher>\n        <dc:date>2001</dc:date>\n        <dc:identifier>ISBN 978-0-306-40615-7</dc:identifier>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"rdf_eprints_og_schema": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"http://eprints.example.org/1/talk\">\n        <dc:title>An Unpublished Conference Talk</dc:title>\n        <dc:type>presentation</dc:type>\n        <dc:contributor>Speaker, Sam</dc:contributor>\n        <dc:contributor>Second, Sue</dc:contributor>\n        <dc:date>2024-03-05</dc:date>\n    </rdf:Description>\n    <rdf:Description rdf:about=\"urn:isbn:0-306-40615-2\">\n        <dc:title>A Thesis from eprints</dc:title>\n        <dc:type>thesis</dc:type>\n        <dc:creator>Student, Stella</dc:creator>\n        <dc:publisher>Probe University</dc:publisher>\n        <dc:identifier>ISBN 0-306-40615-2</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:about=\"http://video.example.org/clip?ref=og\">\n       <dc:title>A Film via Open Graph</dc:title><dc:type>videoRecording</dc:type>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n42526\">\n        <dc:title>A schema.org blog post</dc:title>\n        <dc:type>blogPost</dc:type>\n        <dc:creator>Writer, Will</dc:creator>\n        <dc:date>2022-11-30</dc:date>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n42527\">\n       <dc:title>A vCard Organisation Record</dc:title><dc:type>report</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"rdf_parser_quirks": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:nodeID=\"n42534\">\n        <dc:type>book</dc:type>\n        <dc:publisher>Attribute Press</dc:publisher>\n        <dc:date>1999</dc:date>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n42535\">\n        <dc:title>Creators in a parseType=&quot;Collection&quot;</dc:title>\n        <dc:type>journalArticle</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
+	},
+	"rdf_zotero_library": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"http://example.org/a1\">\n        <dc:title>An Article in a Library</dc:title>\n        <dc:type>journalArticle</dc:type>\n        <dc:creator>Ng, Ada</dc:creator>\n        <dc:date>2020-01-02</dc:date>\n        <dc:identifier>ISSN 0000-0019</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n42542\">\n       <dc:title>A Related Book</dc:title><dc:type>book</dc:type>\n    </rdf:Description>\n</rdf:RDF>\n"
+	}
+}

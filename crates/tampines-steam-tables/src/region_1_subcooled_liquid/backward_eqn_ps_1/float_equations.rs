@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use crate::region_1_subcooled_liquid::REGION_1_BACK_COEFFS_PS;
 
 /// Region-1 backward equation `T(p,s)` (Table 8) on bare `f64`s: `p` in Pa,
@@ -10,7 +11,7 @@ pub(crate) fn t_ps_1_kelvin(p: f64, s: f64) -> f64 {
         let ii = coefficient[0] as i32;
         let ji = coefficient[1] as i32;
         let ni = coefficient[2];
-        sum += ni * pi.powi(ii) * (sig + 2.0).powi(ji);
+        sum += ni * pi.r_powi(ii) * (sig + 2.0).r_powi(ji);
     }
     sum
 }

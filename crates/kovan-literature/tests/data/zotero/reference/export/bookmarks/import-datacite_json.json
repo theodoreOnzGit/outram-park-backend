@@ -1,0 +1,62 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://zenodo.org/record/2548653\" TAGS=\"corporate governance,private banking\">An analysis of corporate governance practices in government controlled versus private banking institutions in Zimbabwe</A>\n</DL>"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://github.com/datacite/bolognese\" TAGS=\"doi,metadata,crossref,datacite,schema.org,bibtex,codemeta\">Bolognese: a Ruby library for conversion of DOI Metadata</A>\n</DL>"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"http://www.egms.de/en/journals/mbi/2015-15/mbi000337.shtml\" TAGS=\"plagiarism detection,plagiarism detection software,text matching analysis,scientific writing,forms of plagiarism,misconceptions,Plagiatsprüfung,Plagiatsprüfprogramme,Textvergleichsanalysen,wissenschaftlich Schreiben,Plagiatsformen,Falschannahmen,610 Medical sciences; Medicine\">Mehr Schaden als Nutzen? Problematischer Einsatz von Textvergleichsprogrammen zur vermeintlichen Plagiatsvermeidung</A>\n</DL>"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"http://repository.edition-topoi.org/collection/MAGN/single/0012/0\" TAGS=\"101 Ancient Cultures,410-01 Building and Construction History\">3D model of object V 1.2-71: Structured-light Scan, Staatliche Museen zu Berlin -  Antikensammlung</A>\n</DL>"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://jfml.org/article/view/6\">Nonverbale graphische Ressourcen bei Reparaturen in der interaktionalen informellen Schriftlichkeit am Beispiel der deutschen Chat-Kommunikation via IRC-Chat und WhatsApp</A>\n</DL>"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://heiup.uni-heidelberg.de/journals/index.php/transcultural/article/view/23812\">Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919</A>\n</DL>"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://tremorjournal.org/index.php/tremor/article/view/413\">Overuse Cervical Dystonia: A Case Report and Literature Review</A>\n</DL>"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://heiup.uni-heidelberg.de/journals/index.php/transcultural/article/view/23812\">Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919</A>\n</DL>"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://zenodo.org/record/5513598\" TAGS=\"applied epidemiology,COVID-19,SARS-CoV-2,emerging infectious disease,global health,occupational health,environmental health,pandemic,united states\">Non-healthcare occupational exposure to SARS-CoV-2 across industries in the United States before March 2020: a dataset generating protocol</A>\n</DL>"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://zmfp.de/beitraege/mathematikapps-fuer-die-grundschule-analysieren\" TAGS=\"FOS: Educational sciences\">Mathematikapps für die Grundschule analysieren</A>\n</DL>"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://pubdata.leuphana.de/handle/20.500.14123/175\">Sorry Miss, I Completely Forgot about It: Apologies and Vocatives in Ireland and England</A>\n</DL>"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://www.pedocs.de/frontdoor.php?source_opus=28324\" TAGS=\"370 Education,370 Erziehung, Schul- und Bildungswesen,Professionalität,Professionalisierung,Lehrer,Lehramtsstudent,Praxeologie,Entscheidung,Erwartung,Habitus,Norm,Standardisierung,Mathematikunterricht,Englischunterricht,Pädagogisches Handeln,Professionalism,Professionality,Professionalization,Teacher,Student teachers,Expectancy,Habits,Standard setting,Standards,Mathematics lessons,Teaching of mathematics,English language lessons,Teaching of English,Mathematics,FOS: Mathematics\">Die Professionalisierung von Lehrpersonen aus praxeologischer Perspektive. Professionelles Handeln als Entscheiden</A>\n</DL>"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://books.ub.uni-heidelberg.de//arthistoricum/catalog/book/1141/chapter/16127\" TAGS=\"gnd/4054289-0,gnd/4039792-0,gnd/4031011-5\">Luxury in Silk. Eighteenth-Century Fashion: English summary of the book Luxus in Seide</A>\n</DL>"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://ir.canterbury.ac.nz/handle/10092/108154\" TAGS=\"Climate Change,Pacific Ocean\">Loss and Damage: Save the Pacific, Save the World</A>\n</DL>"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"http://www2.ite.waw.pl//docs/imif/20210121_M_Mozdzonek_2020.pdf\">Determination of the thickness of BN layers on the Al2O3 substrate by FT-IR spectroscopy</A>\n</DL>"
+	}
+}

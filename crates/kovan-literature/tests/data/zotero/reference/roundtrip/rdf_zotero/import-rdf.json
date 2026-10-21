@@ -1,0 +1,547 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					},
+					{
+						"tag": "Smith, Adam",
+						"type": 1
+					},
+					{
+						"tag": "Liberalismus",
+						"type": 1
+					},
+					{
+						"tag": "Rechtsordnung",
+						"type": 1
+					},
+					{
+						"tag": "Foucault, Michel",
+						"type": 1
+					},
+					{
+						"tag": "Macht",
+						"type": 1
+					},
+					{
+						"tag": "Politische Philosophie",
+						"type": 1
+					},
+					{
+						"tag": "<http://dewey.info/class/320.512092/e22/>",
+						"type": 1
+					}
+				],
+				"ISBN": "9783658060268, 3658060263",
+				"language": "<http://id.loc.gov/vocabulary/iso639-2/ger>",
+				"format": "<http://rdaregistry.info/termList/RDACarrierType/1044>"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Richard P.",
+						"lastName": "Smiraglia",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Catalog",
+						"type": 1
+					},
+					{
+						"tag": "Works",
+						"type": 1
+					}
+				],
+				"title": "Be Careful What You Wish For: FRBR, Some Lacunae, A Review",
+				"publicationTitle": "Cataloging & Classification Quarterly",
+				"volume": "50",
+				"issue": "5",
+				"pages": "360-368",
+				"publisher": "Taylor & Francis Group",
+				"url": "http://dx.doi.org/10.1080/01639374.2012.682254",
+				"ISSN": "1544-4554",
+				"abstractNote": "The library catalog as a catalog of works was an infectious idea, which together with research led to reconceptualization in the form of the FRBR conceptual model. Two categories of lacunae emerge--the expression entity, and gaps in the model such as aggregates and dynamic documents. Evidence needed to extend the FRBR model is available in contemporary research on instantiation. The challenge for the bibliographic community is to begin to think of FRBR as a form of knowledge organization system, adding a final dimension to classification. The articles in the present special issue offer a compendium of the promise of the FRBR model."
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [
+					{
+						"firstName": "Carl",
+						"lastName": "Boettiger",
+						"creatorType": "programmer"
+					},
+					{
+						"firstName": "Matthew B.",
+						"lastName": "Jones",
+						"creatorType": "programmer"
+					},
+					{
+						"firstName": "Stephan",
+						"lastName": "Druskat",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Ashley",
+						"lastName": "Sands",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Patricia",
+						"lastName": "Cruse",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Martin",
+						"lastName": "Fenner",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Neil",
+						"lastName": "Chue Hong",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Yolanda",
+						"lastName": "Gil",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Mark",
+						"lastName": "Hahnel",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Dan",
+						"lastName": "Katz",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Carl",
+						"lastName": "Boettiger",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Carole",
+						"lastName": "Goble",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Arfon",
+						"lastName": "Smith",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Alice",
+						"lastName": "Allen",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Mercè",
+						"lastName": "Crosas",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Luke",
+						"lastName": "Coy",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Kyle",
+						"lastName": "Niemeyer",
+						"creatorType": "contributor"
+					},
+					{
+						"firstName": "Peter",
+						"lastName": "Slaughter",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "software",
+						"type": 1
+					},
+					{
+						"tag": "metadata",
+						"type": 1
+					}
+				],
+				"title": "CodeMeta: Minimal metadata schemas for science software and code, in JSON-LD",
+				"rights": "https://spdx.org/licenses/Apache-2.0",
+				"versionNumber": "2.0",
+				"programmingLanguage": "JSON-LD",
+				"date": "2017-06-05",
+				"abstractNote": "CodeMeta is a concept vocabulary that can be used to standardize the exchange of software metadata across repositories and organizations."
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [],
+				"tags": [],
+				"title": "Test",
+				"reportNumber": "NLR-TP-96-464"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "document",
+				"creators": [
+					{
+						"name": "Int'l Mar. Org.",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "International Code for Ships Operating in Polar Waters (Polar Code)",
+				"date": "2017",
+				"extra": "Type: treaty"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [
+					{
+						"firstName": "Firstname",
+						"lastName": "Lastname",
+						"creatorType": "creator"
+					}
+				],
+				"tags": [],
+				"title": "Video",
+				"date": "2026-06-17",
+				"url": "https://example.com/video",
+				"abstractNote": "Example video",
+				"libraryCatalog": "Example.com"
+			}
+		]
+	},
+	"rdf_dc_prism_article": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Jane Q.",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kovan Probe",
+						"lastName": "Consortium",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "thermal hydraulics",
+						"type": 1
+					},
+					{
+						"tag": "probes",
+						"type": 1
+					}
+				],
+				"publicationTitle": "Journal of Probes",
+				"rights": "CC BY 4.0",
+				"volume": "7",
+				"issue": "3",
+				"pages": "11-19",
+				"date": "2019-02-30",
+				"url": "http://example.org/articles/42",
+				"DOI": "10.5555/probe.42",
+				"ISSN": "1234-5679",
+				"abstractNote": "An abstract, with a comma.",
+				"journalAbbreviation": "J. Probes",
+				"language": "en-GB",
+				"callNumber": "TK9202 .P76"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A Book with an ISBN in its URI",
+				"series": "Probe Series",
+				"seriesNumber": "12",
+				"publisher": "Probe Press",
+				"place": "Singapore",
+				"date": "2001",
+				"ISBN": "978-0-306-40615-7"
+			}
+		]
+	},
+	"rdf_eprints_og_schema": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "presentation",
+				"creators": [
+					{
+						"firstName": "Sam",
+						"lastName": "Speaker",
+						"creatorType": "presenter"
+					},
+					{
+						"firstName": "Sue",
+						"lastName": "Second",
+						"creatorType": "presenter"
+					}
+				],
+				"tags": [],
+				"title": "An Unpublished Conference Talk",
+				"place": "Kent Ridge",
+				"date": "2024-03-05",
+				"url": "http://eprints.example.org/1/talk",
+				"abstractNote": "Talk abstract.",
+				"meetingName": "Probe Conference 2024",
+				"presentationType": "Keynote"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Stella",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Thesis from eprints",
+				"numPages": "321",
+				"university": "Probe University",
+				"ISBN": "0-306-40615-2",
+				"thesisType": "PhD"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [],
+				"tags": [],
+				"title": "A Film via Open Graph",
+				"url": "http://video.example.org/clip?ref=og",
+				"abstractNote": "Open Graph description."
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "blogPost",
+				"creators": [
+					{
+						"firstName": "Will",
+						"lastName": "Writer",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					}
+				],
+				"title": "A schema.org blog post",
+				"date": "2022-11-30",
+				"language": "en"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "report",
+				"creators": [],
+				"tags": [],
+				"title": "A vCard Organisation Record",
+				"reportType": "report"
+			}
+		]
+	},
+	"rdf_parser_quirks": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "automatic tag",
+						"type": 1
+					},
+					{
+						"tag": "plain tag",
+						"type": 1
+					}
+				],
+				"numPages": "250",
+				"shortTitle": "Alias short title",
+				"publisher": "Attribute Press",
+				"date": "1999",
+				"extra": "Comes after a parseType=\"Resource\" arc."
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "cdata <tag>",
+						"type": 1
+					}
+				],
+				"title": "Creators in a parseType=\"Collection\""
+			}
+		]
+	}
+}

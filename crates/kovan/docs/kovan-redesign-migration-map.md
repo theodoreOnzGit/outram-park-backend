@@ -135,4 +135,4 @@ artifact-append path should be adapted from it, not written fresh.
    already in the tree.
 4. §47.7's "migrate in small compilable stages" plus this workspace's
    release-mode rule means `cargo check --workspace --lib --tests` and
-   `cargo test --release -p kovan` gate every stage, not just the last.
+   `cargo test --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` gate every stage, not just the last.

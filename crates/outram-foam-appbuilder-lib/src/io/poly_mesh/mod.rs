@@ -594,3 +594,224 @@ pub(crate) fn compute_cell_geometry(
 fn pt(points: &[[f64; 3]], i: usize) -> Vector3 {
     Vector3::new(points[i][0], points[i][1], points[i][2])
 }
+
+// ── cellZones ────────────────────────────────────────────────────────────────
+
+/// One named cell zone: the material region a neutronics or thermal-hydraulic
+/// solver looks up its per-zone properties by.
+///
+/// Mirrors one entry of `constant/<region>/polyMesh/cellZones`. Cell indices are
+/// the same 0-based indices an [`FvMesh`] uses, so `cells` indexes straight into
+/// a field's internal array.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CellZone {
+    /// Zone name, matching a zone declared in the case's `nuclearData`.
+    pub name: String,
+    /// The cells belonging to this zone, in file order.
+    pub cells: Vec<usize>,
+}
+
+/// Parse an OpenFOAM `cellZones` file.
+///
+/// # Format
+///
+/// ```text
+/// N
+/// (
+///     zoneName
+///     {
+///         type cellZone;
+///         cellLabels List<label> M ( 0 1 2 … );
+///     }
+///     …
+/// )
+/// ```
+///
+/// # Errors
+///
+/// [`AppBuilderError::Parse`] if the list header is malformed, a zone body is
+/// unclosed, `cellLabels` is missing, or the declared zone count does not match
+/// the number parsed.
+///
+/// # Note on overlap
+///
+/// OpenFOAM does not forbid a cell appearing in two zones, and this function
+/// does not either — it reports what the file says. Use
+/// [`zone_of_cell`] when a single zone per cell is required; that is where the
+/// ambiguity is resolved and reported.
+pub fn parse_cell_zones(text: &str, file: &str) -> Result<Vec<CellZone>, AppBuilderError> {
+    let stripped = strip_foam_comments(text);
+    let section = data_section(&stripped);
+    let (count, body) = extract_list_body(section, file)?;
+    let mut zones = Vec::with_capacity(count);
+
+    let mut s = body.trim();
+    while !s.is_empty() {
+        s = s.trim_start();
+        if s.is_empty() {
+            break;
+        }
+        let name_end = s
+            .find(|c: char| c.is_whitespace() || c == '{')
+            .unwrap_or(s.len());
+        let name = s[..name_end].trim().to_string();
+        if name.is_empty() {
+            break;
+        }
+        s = s[name_end..].trim_start();
+        if !s.starts_with('{') {
+            return Err(AppBuilderError::Parse {
+                file: file.to_string(),
+                line: 0,
+                msg: format!("expected '{{' after cell-zone name {name:?}"),
+            });
+        }
+        let close = find_block_end(s).ok_or_else(|| AppBuilderError::Parse {
+            file: file.to_string(),
+            line: 0,
+            msg: format!("unclosed '{{' for cell zone {name:?}"),
+        })?;
+        let block = &s[1..close];
+        let cells = parse_cell_labels(block, &name, file)?;
+        zones.push(CellZone { name, cells });
+        s = &s[close + 1..];
+    }
+
+    if zones.len() != count {
+        return Err(AppBuilderError::Parse {
+            file: file.to_string(),
+            line: 0,
+            msg: format!("expected {count} cell zones, parsed {}", zones.len()),
+        });
+    }
+    Ok(zones)
+}
+
+/// The `cellLabels  List<label>  M ( … )` entry inside one zone block.
+fn parse_cell_labels(block: &str, zone: &str, file: &str) -> Result<Vec<usize>, AppBuilderError> {
+    let pos = block
+        .find("cellLabels")
+        .ok_or_else(|| AppBuilderError::Parse {
+            file: file.to_string(),
+            line: 0,
+            msg: format!("cell zone {zone:?} has no `cellLabels` entry"),
+        })?;
+    // OpenFOAM writes `cellLabels  List<label>  M ( … )`; the type tag is
+    // optional in the format and absent from some writers, so it is skipped
+    // rather than required.
+    let rest = block[pos + "cellLabels".len()..].trim_start();
+    let rest = rest.strip_prefix("List<label>").unwrap_or(rest);
+    let (declared, body) = extract_list_body(rest, file)?;
+    let mut cells = Vec::with_capacity(declared);
+    for tok in body.split_whitespace() {
+        cells.push(tok.parse::<usize>().map_err(|_| AppBuilderError::Parse {
+            file: file.to_string(),
+            line: 0,
+            msg: format!("cell zone {zone:?}: `{tok}` is not a cell index"),
+        })?);
+    }
+    if cells.len() != declared {
+        return Err(AppBuilderError::Parse {
+            file: file.to_string(),
+            line: 0,
+            msg: format!(
+                "cell zone {zone:?}: declared {declared} cell labels, found {}",
+                cells.len()
+            ),
+        });
+    }
+    Ok(cells)
+}
+
+/// Read and parse `<polyMesh>/cellZones`.
+///
+/// # Errors
+///
+/// [`AppBuilderError::Io`] if the file cannot be read, or
+/// [`AppBuilderError::Parse`] per [`parse_cell_zones`].
+///
+/// # Note
+///
+/// Only the uncompressed file is read. OpenFOAM commonly writes
+/// `cellZones.gz`; decompress it first (`gzip -d`), as one would to inspect the
+/// case by hand.
+pub fn read_cell_zones(poly_mesh_dir: &Path) -> Result<Vec<CellZone>, AppBuilderError> {
+    let p = poly_mesh_dir.join("cellZones");
+    let text = std::fs::read_to_string(&p).map_err(|e| AppBuilderError::Io {
+        path: p.clone(),
+        source: e,
+    })?;
+    parse_cell_zones(&text, "cellZones")
+}
+
+/// Build the per-cell zone index a neutronics solver needs, from the zone list
+/// and the zone ordering the cross-section data uses.
+///
+/// Returns `zone_of_cell[c]` = the index into `zone_order` of the zone owning
+/// cell `c`, which is exactly the `zone_of_cell` argument of
+/// [`DiffusionNeutronics::new`].
+///
+/// # Parameters
+///
+/// - `zones` — as read by [`read_cell_zones`].
+/// - `zone_order` — the zone names in the order the cross-section data holds
+///   them (`CrossSectionData::zone_index`). A zone present in the mesh but
+///   absent here is an error, not a silent skip.
+/// - `n_cells` — the mesh cell count.
+///
+/// # Errors
+///
+/// [`AppBuilderError::Parse`] if a mesh zone is not in `zone_order`, if a cell
+/// index is out of range, if a cell is claimed by two zones, or if any cell is
+/// left unassigned. All four are conditions under which a solve would otherwise
+/// run and produce a quietly wrong answer: an unassigned cell would take
+/// whatever zone 0 happens to be.
+///
+/// [`DiffusionNeutronics::new`]: crate::genfoam::neutronics::diffusion::DiffusionNeutronics::new
+pub fn zone_of_cell(
+    zones: &[CellZone],
+    zone_order: &[&str],
+    n_cells: usize,
+) -> Result<Vec<usize>, AppBuilderError> {
+    let err = |msg: String| AppBuilderError::Parse {
+        file: "cellZones".to_string(),
+        line: 0,
+        msg,
+    };
+    let mut out = vec![usize::MAX; n_cells];
+    for z in zones {
+        let idx = zone_order
+            .iter()
+            .position(|n| *n == z.name)
+            .ok_or_else(|| {
+                err(format!(
+                    "mesh cell zone `{}` has no cross-section data (known zones: {})",
+                    z.name,
+                    zone_order.join(", ")
+                ))
+            })?;
+        for &c in &z.cells {
+            if c >= n_cells {
+                return Err(err(format!(
+                    "cell zone `{}` names cell {c}, but the mesh has {n_cells} cells",
+                    z.name
+                )));
+            }
+            if out[c] != usize::MAX && out[c] != idx {
+                return Err(err(format!(
+                    "cell {c} is claimed by both `{}` and `{}`",
+                    zone_order[out[c]], z.name
+                )));
+            }
+            out[c] = idx;
+        }
+    }
+    if let Some(c) = out.iter().position(|&z| z == usize::MAX) {
+        let unassigned = out.iter().filter(|&&z| z == usize::MAX).count();
+        return Err(err(format!(
+            "{unassigned} of {n_cells} cells are in no cell zone (first is cell {c}); \
+             every cell needs cross-section data"
+        )));
+    }
+    Ok(out)
+}

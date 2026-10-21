@@ -1,0 +1,464 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/splitter"
+test_ids = [
+    "crates/outram-park-fork-dwsim-libs/src/splitter/mod.rs::empty_mass_flow_spec_is_passthrough",
+    "crates/outram-park-fork-dwsim-libs/src/splitter/mod.rs::fraction_split_conserves_total_flow",
+    "crates/outram-park-fork-dwsim-libs/src/splitter/mod.rs::fractions_not_summing_to_one_error",
+    "crates/outram-park-fork-dwsim-libs/src/splitter/mod.rs::intensive_state_preserved_on_every_outlet",
+    "crates/outram-park-fork-dwsim-libs/src/splitter/mod.rs::mass_flow_spec_routes_remainder",
+    "crates/outram-park-fork-dwsim-libs/src/splitter/mod.rs::mole_flow_spec_routes_remainder",
+    "crates/outram-park-fork-dwsim-libs/src/splitter/mod.rs::overdrawn_fixed_flow_errors",
+    "crates/outram-park-fork-dwsim-libs/src/splitter/mod.rs::thirty_seventy_fraction_split",
+]
+
+[module."mod.rs"]
+path = "crate::splitter"
+
+[[module."mod.rs".function]]
+id = "fn:9489684f7a6b8b15"
+name = "MolarFlowRate"
+qual = "MolarFlowRate"
+item = "type"
+shape = "alias"
+lines = [
+    74,
+    82,
+]
+hash = "sha256:77c9fa65ae57cc6b197e13bccd7d918cb7f36514a4bcb68f76e4b97462f12097"
+doc_hash = "sha256:befbb94c8107b85316dc01546612dc31971bf4c4ee1e2db9a61a60565da51289"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:77e5e5035a1f00ba"
+name = "FRACTION_SUM_TOLERANCE"
+qual = "FRACTION_SUM_TOLERANCE"
+item = "const"
+shape = "const"
+lines = [
+    84,
+    91,
+]
+hash = "sha256:f806bdf4df8ce95b38fd765d029b46e263f13bc5a7e646a12496277fb00307c9"
+doc_hash = "sha256:bc35ac9577c65692fefaa58c29a37ab4c36548f2e39f5a4f1874aef6f82d9483"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9db204aba076299a"
+name = "IntensiveState"
+qual = "IntensiveState"
+item = "type"
+shape = "struct"
+lines = [
+    93,
+    119,
+]
+hash = "sha256:4c97ebe13c8068dacb5f316eead1ca4b7d9fc4340a235ed172784ff548f41a70"
+doc_hash = "sha256:98c5b65bd45237c16668d73a3d39beacbcc2f3864712f90cc64c24aede90689e"
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:9e5d9520e26ef7a2"
+name = "from_si"
+qual = "IntensiveState::from_si"
+lines = [
+    122,
+    140,
+]
+hash = "sha256:2df10f80f8add955409ac16939e88866bff18f50ea502d6d9a9bea050fdbb190"
+doc_hash = "sha256:fda42db11956cc1e108655a13a37e5f61fab385a417e979e8174c07e3eb272bc"
+uses = ["fn:9db204aba076299a"]
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:5d09d1180195f5c4"
+name = "SplitSpec"
+qual = "SplitSpec"
+item = "type"
+shape = "enum"
+lines = [
+    143,
+    171,
+]
+hash = "sha256:17db044e6e2eb426c3ac171a8ccdcc2a062dffa7a51a249fa29b8c0936465dd3"
+doc_hash = "sha256:9d4b44ca6a167c28ea07fa31f84982ba93102b07cd4da0f13969e5b4c3fca2d8"
+uses = ["fn:9489684f7a6b8b15"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c3ce28741978dba7"
+name = "SplitError"
+qual = "SplitError"
+item = "type"
+shape = "enum"
+lines = [
+    173,
+    233,
+]
+hash = "sha256:f9ffd4e57cae03742dec960c6624907ab5b7ae046716d63ca38662c800824a86"
+doc_hash = "sha256:be203cfbb28435bc79f488f324aaaa6682e101cceb3deef11bb33b70c21c781e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ee5f1814f347d17c"
+name = "SplitResult"
+qual = "SplitResult"
+item = "type"
+shape = "struct"
+lines = [
+    235,
+    250,
+]
+hash = "sha256:85339e9a9e90f5f17f4282256209e819cf3dc8b19fc5e4e104320a28595131fd"
+doc_hash = "sha256:e35aa486cd53adf465c764157bb87eb43460784b88db15d350da07760928170b"
+uses = ["fn:9489684f7a6b8b15"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3831a1e808b3484a"
+name = "OutletStream"
+qual = "OutletStream"
+item = "type"
+shape = "struct"
+lines = [
+    252,
+    267,
+]
+hash = "sha256:7deebfdbf61e851e53a9bbd379feaeb6198f088959edc09224863b32912d299f"
+doc_hash = "sha256:8e25bb85cf31d709189ad69f9ccb8bf7376a13ca50b0761f6a8c51941175235a"
+uses = [
+    "fn:9489684f7a6b8b15",
+    "fn:9db204aba076299a",
+]
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:855cce61d2583760"
+name = "resolve_fractions"
+qual = "resolve_fractions"
+lines = [
+    269,
+    325,
+]
+hash = "sha256:8a2b09aabfc5318e5fc6cc32c7e579e14d169686780afff8f0952c6fe1b44bac"
+doc_hash = "sha256:75912e1f1647ba5a81e149ca41add855025c91f668bdb46d86caea7a7e449e1f"
+callees = ["fn:ee111bb508bd44c0"]
+uses = [
+    "fn:5d09d1180195f5c4",
+    "fn:77e5e5035a1f00ba",
+    "fn:c3ce28741978dba7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ee111bb508bd44c0"
+name = "fractions_from_fixed_flows"
+qual = "fractions_from_fixed_flows"
+lines = [
+    327,
+    357,
+]
+hash = "sha256:6e298b07bae3a41792148287d0cd75ab046fbbce08c793c6952381b1dc31bdf0"
+doc_hash = "sha256:3257294bed7e34067e0501b21b4054cbc3c9943eb55c549f4dcdb903938698d7"
+uses = [
+    "fn:77e5e5035a1f00ba",
+    "fn:c3ce28741978dba7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:942cde2ae9783a88"
+name = "split"
+qual = "split"
+lines = [
+    359,
+    395,
+]
+hash = "sha256:f1f691ed6ca5755ebf6acdcb3f46b07d3775dbc1c32004c70fcafad6da44434b"
+doc_hash = "sha256:8759ed584e82f4128e4cc7b186b8deb11eb14b61eb938e83a8eefb188381c46e"
+callees = ["fn:855cce61d2583760"]
+uses = [
+    "fn:5d09d1180195f5c4",
+    "fn:9489684f7a6b8b15",
+    "fn:c3ce28741978dba7",
+    "fn:ee5f1814f347d17c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b29bca4a4e539bd9"
+name = "split_streams"
+qual = "split_streams"
+lines = [
+    397,
+    430,
+]
+hash = "sha256:e50cb51ed0c2e5faac994cc201f7942878d36f4b15e3e92c172f5980d0f866d3"
+doc_hash = "sha256:a963a0f1c59fa1e6733ae57fa8583221aad3c8a6b6617f5f8ae1c892428c2616"
+callees = ["fn:942cde2ae9783a88"]
+uses = [
+    "fn:3831a1e808b3484a",
+    "fn:5d09d1180195f5c4",
+    "fn:9489684f7a6b8b15",
+    "fn:9db204aba076299a",
+    "fn:c3ce28741978dba7",
+]
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4293b29aeac2069a"
+name = "mass"
+qual = "mass"
+lines = [
+    444,
+    446,
+]
+hash = "sha256:cbe2d8617fed0ea1c374fee4d46528f55ee2b84ce72beff4423430657ff4f8f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:368f1c2f84a9fc93"
+name = "mole"
+qual = "mole"
+lines = [
+    447,
+    449,
+]
+hash = "sha256:a6476bce2c95013a595e37d35b6cfb734daba0b7a719b676b9ff695a5867e2ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9489684f7a6b8b15"]
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:87302ef90a94eb94"
+name = "thirty_seventy_fraction_split"
+qual = "thirty_seventy_fraction_split"
+lines = [
+    451,
+    473,
+]
+hash = "sha256:9e4d5e32618613d3bdabc7300e141156618cad2e97a8ab77f5a85de4fc36a506"
+doc_hash = "sha256:f653e7a3c0eab70f35fd714d5d5013c9a3b19df38e5149190d597fe0cd2ff192"
+callees = [
+    "fn:368f1c2f84a9fc93",
+    "fn:4293b29aeac2069a",
+    "fn:942cde2ae9783a88",
+]
+uses = ["fn:5d09d1180195f5c4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b09ac1f3984b4740"
+name = "fraction_split_conserves_total_flow"
+qual = "fraction_split_conserves_total_flow"
+lines = [
+    475,
+    509,
+]
+hash = "sha256:2ac7874be9c53aac3cb72f359f7ba4b1b6756a8c07f95c5975db63000df59700"
+doc_hash = "sha256:42b35f0eed336bcacef0c32bf6da1902e5394d2fd5077cdcf0b43a509343dc69"
+callees = [
+    "fn:368f1c2f84a9fc93",
+    "fn:4293b29aeac2069a",
+    "fn:942cde2ae9783a88",
+]
+uses = ["fn:5d09d1180195f5c4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:28209a1f77d6f323"
+name = "mass_flow_spec_routes_remainder"
+qual = "mass_flow_spec_routes_remainder"
+lines = [
+    511,
+    552,
+]
+hash = "sha256:ed7b90c0d3f1d8df54d71337d73c20631dd70c8ebd8a720681ab5a6b9fda7029"
+doc_hash = "sha256:82176b7b33e381c0fab6c7905054c3907773df949303ebd8ce58ae7183e51c3e"
+callees = [
+    "fn:368f1c2f84a9fc93",
+    "fn:4293b29aeac2069a",
+    "fn:942cde2ae9783a88",
+]
+uses = ["fn:5d09d1180195f5c4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a598798e176c814f"
+name = "mole_flow_spec_routes_remainder"
+qual = "mole_flow_spec_routes_remainder"
+lines = [
+    554,
+    577,
+]
+hash = "sha256:b37f895849db345aba7f45b95bafa7bae04dd77b24d6459e8f137f26c0794794"
+doc_hash = "sha256:d0c09bbe2f9e64464a7a0e0afa860dd625ed2b602bc1b6f61cd1d59f5db16c18"
+callees = [
+    "fn:368f1c2f84a9fc93",
+    "fn:4293b29aeac2069a",
+    "fn:942cde2ae9783a88",
+]
+uses = ["fn:5d09d1180195f5c4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:336d13475029dcd7"
+name = "fractions_not_summing_to_one_error"
+qual = "fractions_not_summing_to_one_error"
+lines = [
+    579,
+    606,
+]
+hash = "sha256:5953006b1b26ff9a09d6df8322c454f7c4163425428432f50050916583ad2130"
+doc_hash = "sha256:e5dbed0923f1c4d74bcca907842cffdd953f802dc39d5546e923a4f9dc2dd1b1"
+callees = [
+    "fn:368f1c2f84a9fc93",
+    "fn:4293b29aeac2069a",
+    "fn:942cde2ae9783a88",
+]
+uses = [
+    "fn:5d09d1180195f5c4",
+    "fn:c3ce28741978dba7",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5076248304aa52af"
+name = "overdrawn_fixed_flow_errors"
+qual = "overdrawn_fixed_flow_errors"
+lines = [
+    608,
+    622,
+]
+hash = "sha256:d06126df61f552c4b25aa75bb0f4b02c4eb7f99ed49caedebd7b6c23c5573011"
+doc_hash = "sha256:7738a4bf8516e490e0c01d63cd29aa3a9df6ffe827661da324e4e54790313528"
+callees = [
+    "fn:368f1c2f84a9fc93",
+    "fn:4293b29aeac2069a",
+    "fn:942cde2ae9783a88",
+]
+uses = [
+    "fn:5d09d1180195f5c4",
+    "fn:c3ce28741978dba7",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:286de2d0e7cd6bd6"
+name = "intensive_state_preserved_on_every_outlet"
+qual = "intensive_state_preserved_on_every_outlet"
+lines = [
+    624,
+    659,
+]
+hash = "sha256:fe046a6623a3985e0f8b8dbf9d9bf155f8bbfa049d7f31661312e29d83b79598"
+doc_hash = "sha256:2652b30b673262d1973683ee3c27fdb73b7169f4dec650dc4fcbd4ad554d031f"
+callees = [
+    "fn:368f1c2f84a9fc93",
+    "fn:4293b29aeac2069a",
+    "fn:9e5d9520e26ef7a2",
+    "fn:b29bca4a4e539bd9",
+]
+uses = [
+    "fn:5d09d1180195f5c4",
+    "fn:9db204aba076299a",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:8b0db5bff476252d"
+name = "empty_mass_flow_spec_is_passthrough"
+qual = "empty_mass_flow_spec_is_passthrough"
+lines = [
+    661,
+    677,
+]
+hash = "sha256:b8b619b5b4b07182f460fc50ddc0a216e1175888b769b51adb898e791dd905c3"
+doc_hash = "sha256:fe3e7d3266bb8594d354acd66c2597d487d6c906cf78d1e2256a9fc2690eaea9"
+callees = [
+    "fn:368f1c2f84a9fc93",
+    "fn:4293b29aeac2069a",
+    "fn:942cde2ae9783a88",
+]
+uses = ["fn:5d09d1180195f5c4"]
+test = true

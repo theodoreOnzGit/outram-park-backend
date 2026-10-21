@@ -1,0 +1,69 @@
+{
+	"name": "doi_other_ra",
+	"kind": "identifier",
+	"text": "10.12763/ONA1045",
+	"identifiers": [
+		{
+			"DOI": "10.12763/ONA1045"
+		}
+	],
+	"detected": [
+		"b28d0d42-8549-4c6d-83fc-8382874a5cb9"
+	],
+	"status": 200,
+	"translatorUsed": "b28d0d42-8549-4c6d-83fc-8382874a5cb9",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "journalArticle",
+			"creators": [
+				{
+					"name": "Heiliges Römisches Reich Deutscher Nation",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Franz Adam. Éditeur Scientifique",
+					"lastName": "Vogel",
+					"creatorType": "contributor"
+				},
+				{
+					"firstName": "Simon, Claude (167 ?-1752) Éditeur",
+					"lastName": "Commercial",
+					"creatorType": "contributor"
+				},
+				{
+					"name": "Université De Lorraine-Direction De La Documentation Et De L'Edition",
+					"creatorType": "contributor"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Droit",
+					"type": 1
+				}
+			],
+			"title": "Code criminel de l'empereur Charles V vulgairement appellé la Caroline contenant les loix qui sont suivies dans les jurisdictions criminelles de l'Empire et à l'usage des conseils de guerre des troupes suisses.",
+			"publisher": "de l'imprimerie de Claude Simon (A Paris)",
+			"date": "1734",
+			"DOI": "10.12763/ONA1045",
+			"url": "http://docnum.univ-lorraine.fr/pulsar/RCR_543952102_NA1045.pdf",
+			"language": "fr",
+			"pages": "39.79 MB, 402 pages",
+			"libraryCatalog": "DOI.org (Datacite)",
+			"accessDate": "NOW"
+		},
+		{
+			"itemType": "note",
+			"parentItem": "KVN22222",
+			"note": "<h2>Other</h2>\nLe code est accompagné de commentaires de F. A. Vogel, qui signe l'épitre dédicatoire<h2>Other</h2>\nReliure 18è siècle<h2>Other</h2>\nEx-libris manuscrit \"Ex libris Dufour\""
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://doi.org/10.12763%2FONA1045",
+			"body": null
+		}
+	]
+}

@@ -1,0 +1,1372 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-common"
+dir = "crates/kovan-common/src/anchoring/tests"
+
+[module."kovan_uses.rs"]
+path = "crate::anchoring::tests::kovan_uses"
+
+[[module."kovan_uses.rs".function]]
+id = "fn:c3ee630085f6cb1b"
+name = "slice"
+qual = "slice"
+lines = [
+    21,
+    23,
+]
+hash = "sha256:58c39d43228de79da7b3e73617fb671a894433d05da51c227af6def871ac78d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:d205f167eef19d71"
+name = "char_index"
+qual = "char_index"
+lines = [
+    25,
+    27,
+]
+hash = "sha256:1cb6ffda8c67b84b8fcdd4b96ce2be68719a8b08a7bdf4a401a76c17aadb7f75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:dd837b50eec311b1"
+name = "pdf_old"
+qual = "pdf_old"
+lines = [
+    31,
+    42,
+]
+hash = "sha256:bdef5446e4d7f5b020933f7691e9321bc056d635329eec8fbb2fd918e6f5c0fc"
+doc_hash = "sha256:558e39b381c2ad92513d2a183359003f2fed4ecf7fa7b9528728691d0352c237"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:ccfe39dea2dd156b"
+name = "pdf_new"
+qual = "pdf_new"
+lines = [
+    44,
+    58,
+]
+hash = "sha256:e83ad9554059f247fa34c3441a506e57812cf94c7da83f79df5bddf54abf6ab3"
+doc_hash = "sha256:6736e753d37959066e28caa76c32878b6f3f4d23cf333331c6762f37845eab13"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:4257c193306353d1"
+name = "a_pdf_quote_survives_reextraction_with_hyphenation"
+qual = "a_pdf_quote_survives_reextraction_with_hyphenation"
+lines = [
+    60,
+    95,
+]
+hash = "sha256:18dc81be21d5d667747f501d0cc769f4ad7b6d9a09aee6ae3ae7d9c20bcc1fdf"
+doc_hash = "sha256:a05396b262e05f7a26979f9013abfbc41e9c4fb65c6a9a42c2d17126b5ae9de1"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:7f683d2159ccf960",
+    "fn:c3ee630085f6cb1b",
+    "fn:ccfe39dea2dd156b",
+    "fn:d205f167eef19d71",
+    "fn:dd837b50eec311b1",
+    "fn:ed84994966fff317",
+]
+uses = ["fn:eef8bf94b31cd31a"]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:4249831c46adbeec"
+name = "a_pdf_quote_survives_whitespace_only_changes"
+qual = "a_pdf_quote_survives_whitespace_only_changes"
+lines = [
+    97,
+    128,
+]
+hash = "sha256:58cc2ff3972700abc8bb518a261eceb172a10e6d4b193ca54de98ce16dc2b29e"
+doc_hash = "sha256:3917ddd39e38e0082b3b2598b74a8e298c0c1d122f622fddfe3c05790c8a3632"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:7f683d2159ccf960",
+    "fn:c3ee630085f6cb1b",
+    "fn:ccfe39dea2dd156b",
+    "fn:d205f167eef19d71",
+    "fn:dd837b50eec311b1",
+    "fn:ed84994966fff317",
+]
+uses = ["fn:eef8bf94b31cd31a"]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:e8ad292e83fb9a8c"
+name = "NOTE_OLD"
+qual = "NOTE_OLD"
+item = "const"
+shape = "const"
+lines = [
+    132,
+    136,
+]
+hash = "sha256:d1ec263dc6279f9341771672c21e103962106eb835b3ed1ffd2450650298685f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:13e8f99bc853d239"
+name = "NOTE_NEW"
+qual = "NOTE_NEW"
+item = "const"
+shape = "const"
+lines = [
+    138,
+    143,
+]
+hash = "sha256:70578cc7b0ce00511bc5a342548543e2f7c1140b36037600c7b3fefacc7b4874"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:4e05d6410612cc1e"
+name = "b_note_quote_survives_edits_around_it"
+qual = "b_note_quote_survives_edits_around_it"
+lines = [
+    145,
+    195,
+]
+hash = "sha256:b0a1483bf798c7d48c55c73690afa78b54d8709f53048405ce91001fb46f2984"
+doc_hash = "sha256:5d5b0d0868eccd09a8874cf8f37f18370738a068777659010aefcdb7ffdcfeef"
+callees = [
+    "fn:7f683d2159ccf960",
+    "fn:b95be94e0d1c5ead",
+    "fn:f5819b875a04029b",
+]
+uses = [
+    "fn:13e8f99bc853d239",
+    "fn:e8ad292e83fb9a8c",
+    "fn:eef8bf94b31cd31a",
+]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:2de84341b38128ef"
+name = "b_note_quote_survives_an_edit_inside_it"
+qual = "b_note_quote_survives_an_edit_inside_it"
+lines = [
+    197,
+    231,
+]
+hash = "sha256:c77951dca0b64d7b99f939e8c65989fa133db65b14e295a80ede117f9fdada5c"
+doc_hash = "sha256:2fb13852118499d02f721bb3132fe6d3e70c1d793a82ac87efb4d6db41179c35"
+callees = [
+    "fn:7f683d2159ccf960",
+    "fn:b95be94e0d1c5ead",
+    "fn:f5819b875a04029b",
+]
+uses = [
+    "fn:13e8f99bc853d239",
+    "fn:e8ad292e83fb9a8c",
+    "fn:eef8bf94b31cd31a",
+]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:bd3333837d0611dc"
+name = "CODE_OLD"
+qual = "CODE_OLD"
+item = "const"
+shape = "const"
+lines = [
+    235,
+    249,
+]
+hash = "sha256:fa6a8c98953fc2f23a148b85ad92e905c88b59aa671fe4fa6ba3c5ac4e157bf9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:57fd4fdd16e9e836"
+name = "CODE_NEW"
+qual = "CODE_NEW"
+item = "const"
+shape = "const"
+lines = [
+    251,
+    269,
+]
+hash = "sha256:4ec8635693b21cba39da72c884a17e3ca669f0f7a3853083989357a732fa6222"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:a7b20d8450c8e6dc"
+name = "c_function_lines_survive_insertions_above_and_light_edits"
+qual = "c_function_lines_survive_insertions_above_and_light_edits"
+lines = [
+    271,
+    304,
+]
+hash = "sha256:8a7af393e6472aca4d9ad6538bb7e17aafda217070f7f0eeea872f3a6f932091"
+doc_hash = "sha256:3daf4e00b60a89addf669e530a42bf0860f8be5462d2e01c8e40c781cd9f4cb8"
+callees = [
+    "fn:618f6b2cde539ba7",
+    "fn:7f683d2159ccf960",
+    "fn:b95be94e0d1c5ead",
+    "fn:c3ee630085f6cb1b",
+    "fn:c9e2267f80d5a1ff",
+    "fn:f5819b875a04029b",
+]
+uses = [
+    "fn:57fd4fdd16e9e836",
+    "fn:bd3333837d0611dc",
+    "fn:eef8bf94b31cd31a",
+]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:bd8a51ab661329a2"
+name = "selectors_serialise_in_w3c_shape"
+qual = "selectors_serialise_in_w3c_shape"
+lines = [
+    308,
+    339,
+]
+hash = "sha256:d0bd474d81664aaa336399e4c5292c2acc0ebaf25b421a5b842f26250f1155a6"
+doc_hash = "sha256:da5b2d230fb72d1c0a056a15393ffcd7d30a8b1f9f7336405610e7a620683d1e"
+callees = [
+    "fn:ed84994966fff317",
+    "fn:f5819b875a04029b",
+]
+uses = ["fn:5ea3c9fbfec15423"]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:c204ea24168a4926"
+name = "line_helpers"
+qual = "line_helpers"
+lines = [
+    341,
+    354,
+]
+hash = "sha256:2865c3151a34b81e814a1c305e9b40c6d53b192084206dd4f3b3a3d0883fbf6f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:618f6b2cde539ba7",
+    "fn:c9e2267f80d5a1ff",
+]
+test = true
+
+[[module."kovan_uses.rs".function]]
+id = "fn:c62e8ea54891b534"
+name = "position_is_tried_first_and_checked_against_the_quote"
+qual = "position_is_tried_first_and_checked_against_the_quote"
+lines = [
+    356,
+    372,
+]
+hash = "sha256:8f96aff83935c48894d7acb8c2a6934ca88c20af9c1bde25dc5ab8e0327a38ad"
+doc_hash = "sha256:94f0b2a9fc8d63272da51ed3e2deb9cc3215fa82f357189abb39f60368a97a10"
+callees = [
+    "fn:7f683d2159ccf960",
+    "fn:b95be94e0d1c5ead",
+    "fn:f5819b875a04029b",
+]
+uses = ["fn:eef8bf94b31cd31a"]
+test = true
+
+[module."mod.rs"]
+path = "crate::anchoring::tests"
+
+[module."upstream_approx.rs"]
+path = "crate::anchoring::tests::upstream_approx"
+
+[[module."upstream_approx.rs".function]]
+id = "fn:4ddf3505f368ff6d"
+name = "repeat"
+qual = "repeat"
+lines = [
+    10,
+    12,
+]
+hash = "sha256:73b04ea3484243f2d525f1ad53ab5bd5fd96fb9907ebf47dedef36113a868021"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:b3fb2588296da82a"
+name = "m"
+qual = "m"
+lines = [
+    14,
+    16,
+]
+hash = "sha256:11d7297055b29133a003346109cdc2c0dc6d0b0238c5149b42a222432d345693"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0288416ca7eec353"]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:f63840ceb2bec2bf"
+name = "check"
+qual = "check"
+lines = [
+    18,
+    34,
+]
+hash = "sha256:faadbf7b40971283340379afc5276db348a0a5c406b14b4db0e0a980576c65ac"
+doc_hash = "sha256:0722c4e273419359204eb1521b91368a62a3b391cc7b464545e3ad0824b02f1e"
+callees = ["fn:b2c4c4e4f742cf77"]
+uses = ["fn:0288416ca7eec353"]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:d9d820dcc86f00c0"
+name = "exact_match"
+qual = "exact_match"
+lines = [
+    36,
+    40,
+]
+hash = "sha256:bdaa2a574ddade321184a27840d02eeafb09a0ed2a92bc4c6217ea1fd997047c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b3fb2588296da82a",
+    "fn:f63840ceb2bec2bf",
+]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:7c244c8e937097a4"
+name = "one_error"
+qual = "one_error"
+lines = [
+    42,
+    49,
+]
+hash = "sha256:224db09ae9a09438c333b9aa7e6755360bf83ae342a57653e5d66797dd0984b2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b3fb2588296da82a",
+    "fn:f63840ceb2bec2bf",
+]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:3880a649d321c94f"
+name = "many_errors"
+qual = "many_errors"
+lines = [
+    51,
+    59,
+]
+hash = "sha256:825f2941de6b8ba84f976aa883fbc9c4d7124423b78bb93833a3a8d80ed2f72f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b3fb2588296da82a",
+    "fn:f63840ceb2bec2bf",
+]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:c09b2d1c76062d50"
+name = "unicode_counts_chars_not_utf16_units"
+qual = "unicode_counts_chars_not_utf16_units"
+lines = [
+    61,
+    69,
+]
+hash = "sha256:b0a824d8180e7ba8d0b149392a5e62cfb32ed3c462a851539a6bb5444014da43"
+doc_hash = "sha256:6a6c4b791ab2e549679af3f2c7f5e92d27bffcabdc3d596181267c5d1d9b2355"
+callees = [
+    "fn:b3fb2588296da82a",
+    "fn:f63840ceb2bec2bf",
+]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:e1df6fb240865885"
+name = "long_pattern"
+qual = "long_pattern"
+lines = [
+    71,
+    78,
+]
+hash = "sha256:70d24b353a07d1fe7e61ff7cbce221048cc1cfa6da22b3458ca5e1e845b1a885"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4ddf3505f368ff6d",
+    "fn:b3fb2588296da82a",
+    "fn:f63840ceb2bec2bf",
+]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:4944b3ab193f804d"
+name = "no_match_returns_empty"
+qual = "no_match_returns_empty"
+lines = [
+    80,
+    83,
+]
+hash = "sha256:7503dba99f4185e6539406379afd269fecbd8f06a48b1bc929083b4ab26ca3c6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b2c4c4e4f742cf77"]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:23fe0fd90b086ddd"
+name = "long_text_short_pattern"
+qual = "long_text_short_pattern"
+lines = [
+    85,
+    97,
+]
+hash = "sha256:40af97def853524c4c895cda19168983d0ceed04c4823d627b41e49d76b60d1b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b2c4c4e4f742cf77"]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:fc117143cb0d0b74"
+name = "max_errors_exceeding_pattern_length_by_word_size"
+qual = "max_errors_exceeding_pattern_length_by_word_size"
+lines = [
+    99,
+    102,
+]
+hash = "sha256:8e27077463a2666d15112247b7c8eb6fa467d624d70e70ca5a1b9e24a1bfd0ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b2c4c4e4f742cf77",
+    "fn:b3fb2588296da82a",
+]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:f686ef3618e99886"
+name = "returns_all_matches"
+qual = "returns_all_matches"
+lines = [
+    104,
+    107,
+]
+hash = "sha256:ca00ede782ad5aec5da8edc22237256b994a77fd95a4a856e36021904b4299f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4ddf3505f368ff6d",
+    "fn:b2c4c4e4f742cf77",
+]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:af862b348c22024f"
+name = "empty_text_and_empty_pattern"
+qual = "empty_text_and_empty_pattern"
+lines = [
+    109,
+    113,
+]
+hash = "sha256:8c44e3ba158c42e12d552675faa80ed253f11a449d83bdf0af603655a77930cb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b2c4c4e4f742cf77"]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:a2281f19c1c2b5ab"
+name = "WORD_SIZE_TEXT"
+qual = "WORD_SIZE_TEXT"
+item = "const"
+shape = "const"
+lines = [
+    115,
+    115,
+]
+hash = "sha256:8834f3de7d00a76e5690881a343355d153c00a3726904e968e41bf90ffdebbaf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:2eee17334e419964"
+name = "pattern_length_equals_block_size"
+qual = "pattern_length_equals_block_size"
+lines = [
+    117,
+    121,
+]
+hash = "sha256:e6dd426d92deaed512a20628ad8fb05aef3e9e7b9ea7cdaee8d362becfb8f8cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b2c4c4e4f742cf77",
+    "fn:b3fb2588296da82a",
+]
+uses = ["fn:a2281f19c1c2b5ab"]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:b8c6f846aa966061"
+name = "pattern_length_exceeds_block_size"
+qual = "pattern_length_exceeds_block_size"
+lines = [
+    123,
+    129,
+]
+hash = "sha256:7114589bd0855096acad0b27ff46c13da253250ac397ab9fc598649ae504d8c2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4ddf3505f368ff6d",
+    "fn:b2c4c4e4f742cf77",
+    "fn:b3fb2588296da82a",
+]
+uses = ["fn:a2281f19c1c2b5ab"]
+test = true
+
+[[module."upstream_approx.rs".function]]
+id = "fn:7e195137f79d78e0"
+name = "pattern_length_multiple_of_block_size"
+qual = "pattern_length_multiple_of_block_size"
+lines = [
+    131,
+    143,
+]
+hash = "sha256:559d8dc110eb942ae7cc485f8cb18a38b2d9384c3de881db34b642b30de8dd80"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b2c4c4e4f742cf77",
+    "fn:b3fb2588296da82a",
+]
+test = true
+
+[module."upstream_match_quote.rs"]
+path = "crate::anchoring::tests::upstream_match_quote"
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:7e92f41b8b1062de"
+name = "normalize"
+qual = "normalize"
+lines = [
+    8,
+    11,
+]
+hash = "sha256:3c6cd70524e25915f3ce21354835086d029f6d5c1ff3817b768cda86c9c73806"
+doc_hash = "sha256:1dd54ee86fa97b9473283717f7c8d88059608db401403b8f540d6c02b6f10b33"
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:cf3c159e24b2b0c1"
+name = "solitude"
+qual = "solitude"
+lines = [
+    13,
+    19,
+]
+hash = "sha256:1a692942f965ab5afb78a9bc97c18409a920a0cae1c0c04b438543b314739023"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7e92f41b8b1062de"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:417953f586b78a9c"
+name = "two_cities"
+qual = "two_cities"
+lines = [
+    21,
+    30,
+]
+hash = "sha256:1ddba736175d8586fe650ccbc24817ed6f583807c3131f90c164ef81c7337e4b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7e92f41b8b1062de"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:3432bad39bba64dd"
+name = "slice"
+qual = "slice"
+lines = [
+    32,
+    34,
+]
+hash = "sha256:58c39d43228de79da7b3e73617fb671a894433d05da51c227af6def871ac78d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:b2ffbf3f87228f48"
+name = "index_of"
+qual = "index_of"
+lines = [
+    36,
+    40,
+]
+hash = "sha256:1cb6ffda8c67b84b8fcdd4b96ce2be68719a8b08a7bdf4a401a76c17aadb7f75"
+doc_hash = "sha256:f81ca1d5fff2bfbf39ecce8948d245c610b0ba5ad2b0a9ce0709bfbab7d8ccce"
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:1e1e73d3712d9ae2"
+name = "ctx"
+qual = "ctx"
+lines = [
+    42,
+    48,
+]
+hash = "sha256:de7b8b965af1f1e30b6f44851923e7e40cfd054d964269600ed390b4366c5f77"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0b4ca42acda67689"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:ae5d8fa9d67aa4cf"
+name = "finds_exact_match"
+qual = "finds_exact_match"
+lines = [
+    50,
+    56,
+]
+hash = "sha256:bb2dcc8829ae99f3ef0d2c90b1768e16dbbb0a8311176aa94a57201dbd5dd0be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3432bad39bba64dd",
+    "fn:cf3c159e24b2b0c1",
+    "fn:f5f8f64a8d99abd3",
+]
+uses = ["fn:0b4ca42acda67689"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:b7ab32f735ab1eba"
+name = "finds_best_approximate_match_if_no_exact_match"
+qual = "finds_best_approximate_match_if_no_exact_match"
+lines = [
+    58,
+    64,
+]
+hash = "sha256:0817056283b355d2ab57c7de87f404b93768a0bc01c2779c61a05323f69a52a2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3432bad39bba64dd",
+    "fn:cf3c159e24b2b0c1",
+    "fn:f5f8f64a8d99abd3",
+]
+uses = ["fn:0b4ca42acda67689"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:36d09659c5aef28f"
+name = "assert_descending"
+qual = "assert_descending"
+lines = [
+    66,
+    70,
+]
+hash = "sha256:099cd92c9189cff4da209ce0534406fe7ac48487bea6581599d9368a8ab11d41"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:e6125c39ed687072"
+name = "scores_matches_based_on_quote_similarity"
+qual = "scores_matches_based_on_quote_similarity"
+lines = [
+    72,
+    86,
+]
+hash = "sha256:12cfc9a8f302ba38428e29176364e7739fd39870ddf9718c31d3fe8cbdb57bd7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:36d09659c5aef28f",
+    "fn:cf3c159e24b2b0c1",
+    "fn:f5f8f64a8d99abd3",
+]
+uses = ["fn:0b4ca42acda67689"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:6eb0bed6c7b72bef"
+name = "scores_matches_based_on_prefix_similarity"
+qual = "scores_matches_based_on_prefix_similarity"
+lines = [
+    88,
+    107,
+]
+hash = "sha256:d72be7f74a3da25002e5924ab3c72bba464c6f1870fd59f9104287e0c6237619"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e1e73d3712d9ae2",
+    "fn:36d09659c5aef28f",
+    "fn:cf3c159e24b2b0c1",
+    "fn:f5f8f64a8d99abd3",
+]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:94e5f2a379e64306"
+name = "scores_matches_based_on_suffix_similarity"
+qual = "scores_matches_based_on_suffix_similarity"
+lines = [
+    109,
+    128,
+]
+hash = "sha256:ec732c9f92a2463a5b5a808e25ac0b9e423e7e905ca436980779d73f64a3ba61"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e1e73d3712d9ae2",
+    "fn:36d09659c5aef28f",
+    "fn:cf3c159e24b2b0c1",
+    "fn:f5f8f64a8d99abd3",
+]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:df83423939e838d4"
+name = "returns_none_if_no_acceptable_approximate_match"
+qual = "returns_none_if_no_acceptable_approximate_match"
+lines = [
+    130,
+    136,
+]
+hash = "sha256:d20b623ece5d8af2a97686ab0b3d418d721003cd0523e56fb0b4be90e6cdcb27"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:417953f586b78a9c",
+    "fn:cf3c159e24b2b0c1",
+    "fn:f5f8f64a8d99abd3",
+]
+uses = ["fn:0b4ca42acda67689"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:779ad1b6f158aea9"
+name = "returns_none_if_quote_or_text_empty"
+qual = "returns_none_if_quote_or_text_empty"
+lines = [
+    138,
+    142,
+]
+hash = "sha256:36e3b5299480ed6ad8783fd75d789f01c656d53c695d4d68dccf6eb0463fc8d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f5f8f64a8d99abd3"]
+uses = ["fn:0b4ca42acda67689"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:d198cb7fdff12ea7"
+name = "finds_match_with_best_context_match"
+qual = "finds_match_with_best_context_match"
+lines = [
+    144,
+    186,
+]
+hash = "sha256:b718539d90a73fef145e6be183b9c3bfe9998dc26dd0a7e050a1710b972ed5a2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e1e73d3712d9ae2",
+    "fn:3432bad39bba64dd",
+    "fn:417953f586b78a9c",
+    "fn:b2ffbf3f87228f48",
+    "fn:f5f8f64a8d99abd3",
+]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:620806b35d52e052"
+name = "uses_hint_as_tie_breaker"
+qual = "uses_hint_as_tie_breaker"
+lines = [
+    188,
+    199,
+]
+hash = "sha256:76db972220574525ffa97ca49ea28671d8be78f8ed520f05628fde8aacd0d1a1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e1e73d3712d9ae2",
+    "fn:417953f586b78a9c",
+    "fn:b2ffbf3f87228f48",
+    "fn:f5f8f64a8d99abd3",
+]
+uses = ["fn:0b4ca42acda67689"]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:5d71c49920c4eb63"
+name = "matches_when_prefix_longer_than_match_start"
+qual = "matches_when_prefix_longer_than_match_start"
+lines = [
+    201,
+    208,
+]
+hash = "sha256:5a4a131aa166cc8b689866d8e452247df633cd97fd7240047c7d8fefc5f0589d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e1e73d3712d9ae2",
+    "fn:3432bad39bba64dd",
+    "fn:cf3c159e24b2b0c1",
+    "fn:f5f8f64a8d99abd3",
+]
+test = true
+
+[[module."upstream_match_quote.rs".function]]
+id = "fn:d9cc93d4750f1664"
+name = "matches_at_end_of_text_with_nonempty_suffix"
+qual = "matches_at_end_of_text_with_nonempty_suffix"
+lines = [
+    210,
+    215,
+]
+hash = "sha256:31cab01d5cb2f833b50780cbbe3ed53b27b2b60f56ea9c86494f773f1660c1a6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e1e73d3712d9ae2",
+    "fn:3432bad39bba64dd",
+    "fn:f5f8f64a8d99abd3",
+]
+test = true
+
+[module."upstream_misc.rs"]
+path = "crate::anchoring::tests::upstream_misc"
+
+[[module."upstream_misc.rs".function]]
+id = "fn:9c35155981ce4cdf"
+name = "gettysburg"
+qual = "gettysburg"
+lines = [
+    23,
+    30,
+]
+hash = "sha256:e03cac464dd517deea016486acab9398b806ec2f09b40cd11708e5d4cd6d119a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:9346f7c3edf2b34e"
+name = "quote_from_range_has_32_chars_of_context"
+qual = "quote_from_range_has_32_chars_of_context"
+lines = [
+    32,
+    47,
+]
+hash = "sha256:393c34ae57a832d9c3c011baac18f246aebaae0afbaeeb3e54ebc3e1263d5a5c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9c35155981ce4cdf",
+    "fn:f369677b993623ba",
+]
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:f15f496ac4cfb60b"
+name = "quote_round_trip_at_start_of_text"
+qual = "quote_round_trip_at_start_of_text"
+lines = [
+    49,
+    64,
+]
+hash = "sha256:4c0bf16da0ed30c0360bea149a5bcc1f20bd0a37668e4b5dd866ae0d5911893f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7f683d2159ccf960",
+    "fn:9c35155981ce4cdf",
+    "fn:b95be94e0d1c5ead",
+    "fn:f369677b993623ba",
+]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:fbe95a1dc9f81333",
+]
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:f8b2655504aed408"
+name = "position_round_trip"
+qual = "position_round_trip"
+lines = [
+    66,
+    76,
+]
+hash = "sha256:5faec8b28f919e9089337fec0e7f3d77cafaed4a6baf6cd65ad6c63747a61821"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7f683d2159ccf960",
+    "fn:9c35155981ce4cdf",
+    "fn:b95be94e0d1c5ead",
+    "fn:f5819b875a04029b",
+]
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:f302d45089d94e05"
+name = "LOREM"
+qual = "LOREM"
+item = "const"
+shape = "const"
+lines = [
+    78,
+    79,
+]
+hash = "sha256:333d75b7c557986908cc32adae16a4bd3599a5d271a9f909a6e426b7378e868c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:a3c22c990f2b9ade"
+name = "valid_quote"
+qual = "valid_quote"
+lines = [
+    81,
+    87,
+]
+hash = "sha256:7b519b827120e1bff3bb7f324f10024f0a6bcf04e9f4f8dbcf53d3480f5b8243"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:fbe95a1dc9f81333",
+]
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:51d437672fadb551"
+name = "quote_that_does_not_appear_is_orphaned"
+qual = "quote_that_does_not_appear_is_orphaned"
+lines = [
+    89,
+    100,
+]
+hash = "sha256:c9859713043a50c92bab64aac32a1d0fbef0000f483ad8c658ae0bed0a21595b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b95be94e0d1c5ead"]
+uses = [
+    "fn:3c0fc445d34a60cf",
+    "fn:5ea3c9fbfec15423",
+    "fn:853986f62ed2c3a7",
+    "fn:f302d45089d94e05",
+    "fn:fbe95a1dc9f81333",
+]
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:c64d87d486ba3114"
+name = "failed_position_falls_back_to_quote"
+qual = "failed_position_falls_back_to_quote"
+lines = [
+    102,
+    114,
+]
+hash = "sha256:d55414fd13e9a129cd7a9f7b59ab185b5078750dc0177464a42109a776e9dec8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7f683d2159ccf960",
+    "fn:a3c22c990f2b9ade",
+    "fn:b95be94e0d1c5ead",
+]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:5ea3c9fbfec15423",
+    "fn:eef8bf94b31cd31a",
+    "fn:f302d45089d94e05",
+]
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:7b0b48b90257e088"
+name = "unsupported_selector_is_ignored"
+qual = "unsupported_selector_is_ignored"
+lines = [
+    116,
+    126,
+]
+hash = "sha256:ad9e61eed54988e631756993aaf26bbe46e5c76df4e804551175b919a370f446"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7f683d2159ccf960",
+    "fn:a3c22c990f2b9ade",
+    "fn:b95be94e0d1c5ead",
+]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:f302d45089d94e05",
+]
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:b99a9fa2526729da"
+name = "chars"
+qual = "chars"
+lines = [
+    128,
+    130,
+]
+hash = "sha256:8ed952b8d7741ce73afe5342ca8be30b2598974ba4c6fcbb8948f673dad4bd7d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:ec2beedc530cc71f"
+name = "not_ws"
+qual = "not_ws"
+lines = [
+    132,
+    134,
+]
+hash = "sha256:393f3335fe33112be1d94bc1b4b14bc9acde261c137109c01273de1547657071"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:6d2e3f010f39bee3"
+name = "translate_offsets_cases"
+qual = "translate_offsets_cases"
+lines = [
+    136,
+    165,
+]
+hash = "sha256:0cdc9cf5f69f02b9db612bbf72b5fd74c1097e03bccbb113938d06ef2fc4ab2e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9ed406609ca3ac82",
+    "fn:b99a9fa2526729da",
+    "fn:ec2beedc530cc71f",
+]
+test = true
+
+[[module."upstream_misc.rs".function]]
+id = "fn:48059d0139435ec9"
+name = "translate_offsets_edge_cases"
+qual = "translate_offsets_edge_cases"
+lines = [
+    167,
+    207,
+]
+hash = "sha256:acab6c44dc4ba29452480dad033b89ef283f091edc4006fc5233e4c5b11d2b9d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:9ed406609ca3ac82",
+    "fn:b99a9fa2526729da",
+    "fn:ec2beedc530cc71f",
+]
+test = true
+
+[module."upstream_pdf.rs"]
+path = "crate::anchoring::tests::upstream_pdf"
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:a9c6579b4b49a744"
+name = "pages"
+qual = "pages"
+lines = [
+    22,
+    36,
+]
+hash = "sha256:2da7265c342bbd8d0e1c10c805f89444c86115c070af0c557279968be8af5b51"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:07c924bae2d1ee6b"
+name = "describe_text"
+qual = "describe_text"
+lines = [
+    38,
+    43,
+]
+hash = "sha256:ee2767294cc01d86905cddf531b6627d6d5ad7cb2793335e1d50a89874b498bc"
+doc_hash = "sha256:b3dcce7353eaba40cea72849fef4e7711c8cfd1fed47334bcc0bdf6023c06da5"
+callees = ["fn:ed84994966fff317"]
+uses = ["fn:5ea3c9fbfec15423"]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:41bcd1c226427bc7"
+name = "anchored_text"
+qual = "anchored_text"
+lines = [
+    45,
+    56,
+]
+hash = "sha256:7c2fc8a84d773af0f3330a798479cb7c8e3d5b97297a68325ebe4f84c8daff6e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7f683d2159ccf960"]
+uses = ["fn:3c0fc445d34a60cf"]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:2a7674de45fe2f90"
+name = "quote"
+qual = "quote"
+lines = [
+    58,
+    64,
+]
+hash = "sha256:484a281c294891be58e996ac7207597c4fbc8037538748974a6dd47fe002a607"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:fbe95a1dc9f81333",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:8cd81aefb56aa649"
+name = "describe_returns_position_quote_and_page_selectors"
+qual = "describe_returns_position_quote_and_page_selectors"
+lines = [
+    66,
+    84,
+]
+hash = "sha256:0ebe1712794a58dc7a188f22362e5caadd53563e6caf090df017d26f0d4c888a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:07c924bae2d1ee6b",
+    "fn:a9c6579b4b49a744",
+]
+uses = ["fn:5ea3c9fbfec15423"]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:5d862730ed415433"
+name = "describe_position_offsets_are_document_wide"
+qual = "describe_position_offsets_are_document_wide"
+lines = [
+    86,
+    100,
+]
+hash = "sha256:f084ff0912e6d940311134d0c29297864237ac71eae4ef8f4e75f47577a5c803"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:07c924bae2d1ee6b",
+    "fn:3e702e62c634a9b8",
+    "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:5ea3c9fbfec15423",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:e873fccbc724aa2e"
+name = "describe_quote_has_32_chars_of_page_context"
+qual = "describe_quote_has_32_chars_of_page_context"
+lines = [
+    102,
+    114,
+]
+hash = "sha256:4f445432182a27fd8be8642f1cfccae0e550812d0159dbaedd60b6ffe7fdebd0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:07c924bae2d1ee6b",
+    "fn:6ba2cb04d06eff83",
+    "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:fbe95a1dc9f81333",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:e4031d6a4a2b5f08"
+name = "describe_page_selector_labels"
+qual = "describe_page_selector_labels"
+lines = [
+    116,
+    136,
+]
+hash = "sha256:62e9f679e7f2398ccf0784ba69e31844695100452c6e928a6b65e4fb7ae6dc93"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:07c924bae2d1ee6b",
+    "fn:66fb8504b8fc6006",
+    "fn:a9c6579b4b49a744",
+    "fn:ed84994966fff317",
+]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:eb7cf71e554a77ee",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:fea0ce6a4e7db1a3"
+name = "anchors_previously_created_selectors"
+qual = "anchors_previously_created_selectors"
+lines = [
+    138,
+    153,
+]
+hash = "sha256:280aa54373c0f9296d050b4d95916ea793bcd57c83a57b48e642c26aeb83b654"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:07c924bae2d1ee6b",
+    "fn:25d1a93623993f4f",
+    "fn:3e702e62c634a9b8",
+    "fn:41bcd1c226427bc7",
+    "fn:6ba2cb04d06eff83",
+    "fn:7f683d2159ccf960",
+    "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:5ea3c9fbfec15423",
+    "fn:eef8bf94b31cd31a",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:2ec05f650adb9e68"
+name = "fails_without_a_quote_selector"
+qual = "fails_without_a_quote_selector"
+lines = [
+    155,
+    170,
+]
+hash = "sha256:48502dc4fc8adc1971b1db745119209e58c6598771698e5dbbb13bfd9f3b0e26"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:3c0fc445d34a60cf",
+    "fn:5ea3c9fbfec15423",
+    "fn:853986f62ed2c3a7",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:e24b2759cea7a5c5"
+name = "anchors_quote_on_page_with_blank_items"
+qual = "anchors_quote_on_page_with_blank_items"
+lines = [
+    172,
+    177,
+]
+hash = "sha256:fcb1e2571c2999d5683bd60e295ce6ffb3a0eded6f524a200b95fc2d825730db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:2a7674de45fe2f90",
+    "fn:41bcd1c226427bc7",
+    "fn:a9c6579b4b49a744",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:b33a51dbfbe2890f"
+name = "anchors_quotes_to_best_match_across_all_pages"
+qual = "anchors_quotes_to_best_match_across_all_pages"
+lines = [
+    179,
+    197,
+]
+hash = "sha256:a21abeb21e6f9191eaa2efdd09018b6925bc711deffabc020845e10a5bf69392"
+doc_hash = "sha256:fd3ffa5a37c1512eafc911dd41debccdf57189bc3344ae11922360281bd4b02e"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:2a7674de45fe2f90",
+    "fn:41bcd1c226427bc7",
+    "fn:a9c6579b4b49a744",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:bf5fd9831dc15cc8"
+name = "prefers_a_context_match"
+qual = "prefers_a_context_match"
+lines = [
+    199,
+    243,
+]
+hash = "sha256:3090a319b99e578d817998e8c74f544deb9910b729af714651df2ce2ac92c4d4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:2a7674de45fe2f90",
+    "fn:41bcd1c226427bc7",
+    "fn:a9c6579b4b49a744",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:0ca56c3f7efccbbd"
+name = "ignores_spaces_when_searching"
+qual = "ignores_spaces_when_searching"
+lines = [
+    245,
+    267,
+]
+hash = "sha256:6d03eaaf7696a63debaebee5b93d822789e03eb35cc50c27f0a4cdb33066251a"
+doc_hash = "sha256:eb6f871e1ec58ec8e8135dbcac826014fadbee29140fdae10b881d9e26058c2e"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:41bcd1c226427bc7",
+    "fn:7f683d2159ccf960",
+    "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:5ea3c9fbfec15423",
+    "fn:eef8bf94b31cd31a",
+    "fn:fbe95a1dc9f81333",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:492754ce0fe69844"
+name = "anchors_the_last_text_on_a_page"
+qual = "anchors_the_last_text_on_a_page"
+lines = [
+    269,
+    278,
+]
+hash = "sha256:fd7383bbe5bedb617c65f747d9f8b45aff525d3ab98812c6af169d6403236713"
+doc_hash = "sha256:1ce6fb86637a92192b1096dba5ac8cd35294b1cd19bd3f283abd74064656f2dc"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:2a7674de45fe2f90",
+    "fn:41bcd1c226427bc7",
+    "fn:a9c6579b4b49a744",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:489c474918d7954b"
+name = "anchors_using_quote_when_position_fails"
+qual = "anchors_using_quote_when_position_fails"
+lines = [
+    280,
+    301,
+]
+hash = "sha256:7d12e1026bfa4423c2dad9ca811a7fb9651fa44e7d02085426bdf3da228697b2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:07c924bae2d1ee6b",
+    "fn:25d1a93623993f4f",
+    "fn:41bcd1c226427bc7",
+    "fn:6ba2cb04d06eff83",
+    "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:29660130ed3aff05",
+    "fn:5ea3c9fbfec15423",
+]
+test = true
+
+[[module."upstream_pdf.rs".function]]
+id = "fn:b241f0c16675fe5d"
+name = "quote_not_in_document_is_orphaned"
+qual = "quote_not_in_document_is_orphaned"
+lines = [
+    303,
+    318,
+]
+hash = "sha256:7af361d760128452e26ccf99a12dadb04993d001a7a0203271d7ed2af77a9e06"
+doc_hash = "sha256:5530d95cbe0fbc2476aee6a97461334522701410906462f3fd5a4abc113b1799"
+callees = [
+    "fn:25d1a93623993f4f",
+    "fn:2a7674de45fe2f90",
+    "fn:a9c6579b4b49a744",
+]
+uses = [
+    "fn:3c0fc445d34a60cf",
+    "fn:853986f62ed2c3a7",
+]
+test = true

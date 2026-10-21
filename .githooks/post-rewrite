@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# After `git pull --rebase` (or any rebase): sync submodules to the new
+# pointers. `git commit --amend` also calls this hook; it is skipped.
+[ "${1:-}" = rebase ] || exit 0
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+"$ROOT/.githooks/submodule-sync.sh" || true
+exit 0

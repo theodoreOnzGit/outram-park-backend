@@ -186,5 +186,8 @@ pub mod cached_normals;
 /// for CRP 6 case 1a and 1b we can compare the Monte Carlo simulation
 /// to the analytical solution
 ///
-/// TO BE DONE
+/// ~~TO BE DONE~~ **CORRECTED 2026-10-04 (gh:#531):** done. The
+/// Walk-on-Spheres comparison (`simulation_code::mc_kernel_release_fraction`
+/// against Crank, `monte_carlo_test.rs`) is recorded in
+/// `verification_and_validation/crp6_case1_kernel_release_vs_crank.md`.
 pub mod release_fraction_crp_6_case_1a_1b;

@@ -45,6 +45,12 @@
 //! only). See that module's docs for the library-first / binary-fallback
 //! design and the Android story.
 //!
+//! ## Zotero search ([`zotero`])
+//!
+//! The [`zotero`] module ports Zotero's search engine (conditions, groups,
+//! result levels, quick search; Zotero is AGPL-3.0, see `NOTICE`) and
+//! evaluates it in memory over a `kovan_common::zotero::ZoteroLibrary`.
+//!
 //! ## What it does *not* do
 //!
 //! No index is persisted anywhere — every call re-walks the filesystem and
@@ -56,6 +62,7 @@
 #![forbid(unsafe_code)]
 
 pub mod git;
+pub mod zotero;
 
 use std::path::{Path, PathBuf};
 

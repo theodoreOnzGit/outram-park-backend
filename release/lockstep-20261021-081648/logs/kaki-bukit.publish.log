@@ -1,0 +1,13 @@
+    Updating crates.io index
+   Packaging kaki-bukit v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kaki-bukit)
+    Updating crates.io index
+    Packaged 58 files, 1.4MiB (369.0KiB compressed)
+   Verifying kaki-bukit v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kaki-bukit)
+   Compiling petir v0.0.3
+   Compiling kaki-bukit v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/kaki-bukit-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.97s
+   Uploading kaki-bukit v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kaki-bukit)
+    Uploaded kaki-bukit v0.0.2 to registry `crates-io`
+note: waiting for kaki-bukit v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published kaki-bukit v0.0.2 at registry `crates-io`

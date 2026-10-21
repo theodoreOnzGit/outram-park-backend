@@ -2,12 +2,38 @@
 //! ([`outram_park_digital_twin_engine::components`]) in the arrangement an
 //! HTR-10-style pebble-bed HTGR actually has.
 //!
+//! # SUPERSEDED -- [`draw_schematic`] IS NOT DRAWN ANY MORE (verified 2026-09-27)
+//!
+//! **Read this before editing anything below.** The v1 schematic this module
+//! draws was replaced by the v1.1 plant view on 2026-09-22, and
+//! [`draw_schematic`] now has **no callers anywhere in the workspace** --
+//! verified by grepping every `*.rs` and `*.md` outside `target/` on
+//! 2026-09-27, which finds only its own definition and one passing mention in a
+//! comment further down this file. `rustc` does not warn about it, because a
+//! free `pub fn` in a `pub mod` of a *binary* crate escapes the `dead_code`
+//! lint, so the file looks live and is not.
+//!
+//! **The panel a reader sees is [`crate::app::plant_v1_1::draw_plant_v1_1`]**,
+//! reached through [`crate::app::panels::draw_schematic_panel`], and it builds
+//! [`Htr10ReactorSchematic`](outram_park_digital_twin_engine::components::Htr10ReactorSchematic)
+//! -- the *simplified* HTR-10 widget with the refuelling and defuelling chutes
+//! -- not the [`Htr10ReactorVesselVisual`] cut-away this module uses. A change
+//! to what the plant schematic shows belongs there. Adding it here draws
+//! nothing: that is exactly the trap GitHub issue #347's first session walked
+//! into.
+//!
+//! What still earns this file its place: [`SchematicTracers`] and
+//! [`feed_and_condensate_temps`] are used by `plant_v1_1`, and the tests at the
+//! bottom still run. Kept rather than deleted for those, and because the
+//! layout reasoning in these module docs is the record of how the arrangement
+//! was corrected (GitHub issue #154).
+//!
 //! ## The arrangement is the point
 //!
 //! The defining feature of this plant is not the equipment list, it is the
 //! layout. Following the description in IAEA-TECDOC-1382 (ingested into this
 //! workspace's literature layer at
-//! `crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`)
+//! `iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`)
 //! and the corrected topology of GitHub issue #154:
 //!
 //! - The reactor and the steam generator sit in **two separate pressure
@@ -123,7 +149,18 @@
 //! Each run carries a [`TracerTrain`] whose marks travel at `1/residence_time`
 //! of the run per second, so the animation is a direct readout of the physical
 //! transport time: raise the helium flow and the primary tracers visibly speed
-//! up. The trains live in [`SchematicTracers`], owned by the app and advanced
+//! up. ~~The residence time is the loop's (`helium_residence_time_s`,
+//! `secondary_residence_time_s`).~~ **CORRECTED 2026-10-01**: each run uses
+//! **its own** transit time, from its own CV or volume -- the hot pipe the
+//! hot-duct CV's (~0.36 s at rated flow), the coaxial cold pipe the cold-duct
+//! CV's (~1.1 s), the SG portions their own arrays' masses, each secondary run
+//! its own line -- because the whole-loop time (~49 s since gh:#403) made a
+//! 3 m duct take 49 s to cross. The whole-loop figures remain as panel
+//! readouts labelled "whole loop". See [`SchematicTracers`] for the table and
+//! the runs that share a timing. The tracer clock is frame time times the
+//! measured plant-clock rate (`HtgrSimApp::ui`); it was not changed.
+//!
+//! The trains live in [`SchematicTracers`], owned by the app and advanced
 //! once per frame -- widgets are rebuilt every repaint, so a train owned by a
 //! widget would reset its phase each frame.
 //!
@@ -175,9 +212,11 @@
 //!   rather than predicting it.
 //!
 //! - **No turbine casing colour.** A consequence of the above.
-//!   `TurbineVisualState` has no variant carrying both a shaft speed and a
-//!   steam state, and the generator variant reports no casing temperature, so
-//!   the turbine draws neutral grey. Rotation was judged the more informative
+//!   ~~`TurbineVisualState` has no variant carrying both a shaft speed and a
+//!   steam state~~ **CORRECTED 2026-09-22**: `TurbineVisualState::Scalars` now
+//!   carries both (`TurbineVisual::from_scalars`), so this can be lifted; this
+//!   simulator has not been switched to it yet. The generator variant reports
+//!   no casing temperature, so the turbine still draws neutral grey. Rotation was judged the more informative
 //!   of the two; the steam temperature is still shown as the `T_steam`
 //!   readout.
 //! - **No feedwater control valve.** The secondary loop controls feed *flow*,
@@ -206,15 +245,15 @@ use outram_park_digital_twin_engine::animation::TracerTrain;
 use outram_park_digital_twin_engine::components::htr10_reactor_vessel::{
     self, Htr10FlowAnchors, Htr10ReactorVesselVisual,
 };
+use outram_park_digital_twin_engine::components::pipe_route::{route, PipeStream};
 use outram_park_digital_twin_engine::components::pump::PumpKind;
 use outram_park_digital_twin_engine::components::steam_generator::{
     SteamGeneratorKind, SteamGeneratorScalars,
 };
 use outram_park_digital_twin_engine::components::control_rod_drive::slewed_control_rod_insertion;
 use outram_park_digital_twin_engine::components::{
-    CondenserVisual, InstrumentationVisual, LegendUnit, PipeBendVisual, PipeScalars, PipeScale,
-    PipeVisual, PumpVisual, SteamGeneratorVisual, TemperatureLegend, TurbineFlowPath,
-    TurbineVisual,
+    CondenserVisual, InstrumentationVisual, LegendUnit, PumpVisual, SteamGeneratorVisual,
+    TemperatureLegend, TurbineFlowPath, TurbineVisual,
 };
 
 use tampines::components::Condenser;
@@ -386,44 +425,141 @@ const NOZZLE_SEAM_OVERLAP: f32 = 3.0;
 /// Flow-tracer state for the schematic's connector runs, owned by the app and
 /// advanced once per frame.
 ///
-/// Two trains, one per loop: every primary run shares the helium train and
+/// ~~Two trains, one per loop: every primary run shares the helium train and
 /// every secondary run shares the steam train, so marks stay in step around
-/// each loop. See [`crate::app::schematic`]'s module docs for why these are
-/// app-owned rather than widget-owned.
+/// each loop.~~ **CHANGED 2026-10-01** (maintainer-approved): **one train per
+/// distinct run timing**, each advanced with its own run's transit time. The
+/// single helium train was advanced with the whole-loop `inventory / m_dot`
+/// (about 49 s at rated flow once gh:#403 sized the cold side to the
+/// published 210 kg), so a 3 m duct took 49 s to cross. Marks therefore no
+/// longer stay in step around a loop -- they move at each run's own speed,
+/// which is the point.
+///
+/// | Train | Transit time (snapshot field) | Drawn runs |
+/// |---|---|---|
+/// | `hot_duct` | `hot_duct_residence_time_s`, hot-duct CV `M/m_dot` | hot pipe, hot-gas plenum, SG hot elbow and centre riser |
+/// | `cold_duct` | `cold_duct_residence_time_s`, cold-duct CV (coaxial annulus) | coaxial cold pipe; SG cold legs and the SG-outlet -> circulator run (shared, see below) |
+/// | `rpv_annuli` | `rpv_annuli_residence_time_s`, RPV-annuli CV | downcomer, top cold plenum |
+/// | `riser` | `riser_residence_time_s`, published borehole volume | side-reflector risers |
+/// | `sg_shell` | `sg_shell_residence_time_s`, SG helium array mass | SG shell-side helium |
+/// | `sg_tube` | `sg_tube_residence_time_s`, SG water/steam array mass | SG coil water |
+/// | `main_steam` | `main_steam_line_residence_time_s` | main steam line, SG steam nozzle |
+/// | `exhaust` | `exhaust_duct_residence_time_s` | turbine exhaust |
+/// | `feedwater` | `feedwater_line_residence_time_s` | condensate and feed lines, SG feed nozzle |
+///
+/// **Shared timings, stated.** The six SG-outlet connection tubes, the
+/// circulator casing and the SG vessel/sleeve annulus are not dimensioned in
+/// any source (`docs/reactor-scoping/htr10-plant-data.md` section 4.4) and
+/// have no CV of their own, so the runs drawn for them use the cold-duct
+/// timing, the nearest CV on the same cold stream. The SG centre riser has no
+/// volume in the model (the SG's helium array is the shell side only) and is
+/// the continuation of the hot duct's centre tube, so it uses the hot-duct
+/// timing. The downcomer and top cold plenum share the RPV-annuli CV they are
+/// part of; that CV is mostly undivided vessel free volume, so their ~46 s is
+/// the CV's, not a measured per-passage time. The condensate and feed
+/// segments are one invented line.
+///
+/// See [`crate::app::schematic`]'s module docs for why these are app-owned
+/// rather than widget-owned.
 #[derive(Debug, Clone, Copy)]
 pub struct SchematicTracers {
-    /// Marks on the helium primary runs.
-    pub primary: TracerTrain,
-    /// Marks on the water/steam secondary runs.
-    pub secondary: TracerTrain,
+    /// Hot-duct CV timing.
+    pub hot_duct: TracerTrain,
+    /// Cold-duct CV (coaxial annulus) timing.
+    pub cold_duct: TracerTrain,
+    /// RPV-annuli CV timing.
+    pub rpv_annuli: TracerTrain,
+    /// Side-reflector riser boreholes.
+    pub riser: TracerTrain,
+    /// Steam-generator helium shell side.
+    pub sg_shell: TracerTrain,
+    /// Steam-generator water/steam tube side (the coil).
+    pub sg_tube: TracerTrain,
+    /// Main steam line.
+    pub main_steam: TracerTrain,
+    /// Turbine exhaust duct.
+    pub exhaust: TracerTrain,
+    /// Condensate/feedwater line.
+    pub feedwater: TracerTrain,
 }
 
 impl SchematicTracers {
     /// Fresh, stagnant trains.
     pub fn new() -> Self {
+        let t = TracerTrain::new(TRACER_MARKS);
         Self {
-            primary: TracerTrain::new(TRACER_MARKS),
-            secondary: TracerTrain::new(TRACER_MARKS),
+            hot_duct: t,
+            cold_duct: t,
+            rpv_annuli: t,
+            riser: t,
+            sg_shell: t,
+            sg_tube: t,
+            main_steam: t,
+            exhaust: t,
+            feedwater: t,
         }
     }
 
-    /// Advance both trains by one animation frame of `dt`, using the loop
-    /// residence times and mass flows the physics thread published.
+    /// Advance every train by one animation frame of `dt`, each with **its
+    /// own run's** transit time and its loop's mass flow, as the physics
+    /// thread published them.
     ///
     /// Because the marks move at `1/residence_time` of a run per second, the
-    /// on-screen speed is the real transport speed: at zero flow the residence
-    /// time is unbounded and the trains freeze.
+    /// on-screen speed is the real transport speed of that run: at zero flow
+    /// the residence time is unbounded and the trains freeze, and a reversed
+    /// flow runs them backwards ([`TracerTrain::advance`]).
+    ///
+    /// `dt` is the frame's wall time times the measured plant-clock rate
+    /// (`HtgrSimApp::ui`, unchanged by the 2026-10-01 fix), so fast-forward
+    /// speeds every train up by the same factor. At high fast-forward a
+    /// sub-second run (the hot duct, ~0.36 s) advances more than a mark
+    /// spacing per frame and can strobe; that is the display rate, not the
+    /// transit time.
     pub fn advance(&mut self, dt: Time, snapshot: &HtgrSnapshot) {
-        self.primary.advance(
-            dt,
-            Time::new::<second>(snapshot.helium_residence_time_s),
-            MassRate::new::<kilogram_per_second>(snapshot.helium_mass_flow_kg_per_s),
-        );
-        self.secondary.advance(
-            dt,
-            Time::new::<second>(snapshot.secondary_residence_time_s),
-            MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s),
-        );
+        let helium = MassRate::new::<kilogram_per_second>(snapshot.helium_mass_flow_kg_per_s);
+        let water = MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s);
+        let s = Time::new::<second>;
+        for (train, tau, flow) in [
+            (
+                &mut self.hot_duct,
+                snapshot.hot_duct_residence_time_s,
+                helium,
+            ),
+            (
+                &mut self.cold_duct,
+                snapshot.cold_duct_residence_time_s,
+                helium,
+            ),
+            (
+                &mut self.rpv_annuli,
+                snapshot.rpv_annuli_residence_time_s,
+                helium,
+            ),
+            (&mut self.riser, snapshot.riser_residence_time_s, helium),
+            (
+                &mut self.sg_shell,
+                snapshot.sg_shell_residence_time_s,
+                helium,
+            ),
+            (&mut self.sg_tube, snapshot.sg_tube_residence_time_s, water),
+            (
+                &mut self.main_steam,
+                snapshot.main_steam_line_residence_time_s,
+                water,
+            ),
+            (
+                &mut self.exhaust,
+                snapshot.exhaust_duct_residence_time_s,
+                water,
+            ),
+            (
+                &mut self.feedwater,
+                snapshot.feedwater_line_residence_time_s,
+                water,
+            ),
+        ] {
+            train.advance(dt, s(tau), flow);
+        }
     }
 }
 
@@ -440,128 +576,29 @@ fn k(value_k: f64) -> ThermodynamicTemperature {
     ThermodynamicTemperature::new::<kelvin>(value_k)
 }
 
-/// One fluid stream's real state, everything a connector run needs to draw
-/// itself.
-///
-/// Every field is read from [`HtgrSnapshot`] -- this is the caller-supplies-
-/// real-state contract [`PipeVisual::from_scalars`] documents, not a stub.
-#[derive(Debug, Clone, Copy)]
-struct Stream {
-    /// Bulk fluid temperature \[K\].
-    temperature_k: f64,
-    /// Mass flow \[kg/s\], which sets the tracer direction.
-    mass_flow_kg_per_s: f64,
-    /// Loop residence time \[s\], which sets the tracer speed.
-    residence_time_s: f64,
-    /// Drawn pipe thickness in points -- see [`HELIUM_PIPE_THICKNESS`].
-    thickness: f32,
-    /// The app-owned tracer train this stream's runs carry.
-    tracer: TracerTrain,
+/// Feedwater and condensate temperatures from the snapshot's enthalpies, by
+/// a (p, h) flash on the steam tables: feedwater at the steam pressure,
+/// condensate at the condenser pressure. Shared by the v1 schematic and the
+/// v1.1 plant view, so both colour the same streams the same way.
+pub(crate) fn feed_and_condensate_temps(
+    snapshot: &HtgrSnapshot,
+) -> (ThermodynamicTemperature, ThermodynamicTemperature) {
+    let reference_volume = Volume::new::<cubic_meter>(1.0);
+    let feedwater: HemSteamCv = HemSteamCv::new_from_ph(
+        Pressure::new::<megapascal>(snapshot.steam_pressure_mpa),
+        AvailableEnergy::new::<joule_per_kilogram>(snapshot.feedwater_enthalpy_j_per_kg),
+        reference_volume,
+    );
+    let condensate: HemSteamCv = HemSteamCv::new_from_ph(
+        Pressure::new::<kilopascal>(snapshot.condenser_pressure_kpa),
+        AvailableEnergy::new::<joule_per_kilogram>(snapshot.condensate_enthalpy_j_per_kg),
+        reference_volume,
+    );
+    (feedwater.get_temperature(), condensate.get_temperature())
 }
 
-impl Stream {
-    /// Build one straight run of this stream, from `from` to `to`.
-    fn run(&self, from: Pos2, to: Pos2) -> PipeVisual {
-        PipeVisual::from_scalars(
-            PipeScalars {
-                temperature: k(self.temperature_k),
-                mass_flow: MassRate::new::<kilogram_per_second>(self.mass_flow_kg_per_s),
-                residence_time: Time::new::<second>(self.residence_time_s),
-            },
-            from,
-            to - from,
-            k(DISPLAY_MIN_K),
-            k(DISPLAY_MAX_K),
-        )
-        .with_scale(PipeScale {
-            min_thickness_points: self.thickness,
-            ..PipeScale::default()
-        })
-        .with_tracer(self.tracer)
-    }
-}
-
-/// Draw one elbow at `corner`, turning from `d_in` to `d_out`.
-///
-/// The two runs' inner corners are made coincident at a single point, which is
-/// the construction [`PipeBendVisual`] documents: each run's centreline stops
-/// half a thickness short of the geometric corner, and the inner corner sits
-/// half a thickness inboard of that on the inside of the turn. Getting this
-/// wrong is what makes elbows read as two rectangles butted together.
-fn elbow(
-    ui: &mut Ui,
-    corner: Pos2,
-    d_in: Vec2,
-    d_out: Vec2,
-    thickness: f32,
-    upstream_k: f64,
-    downstream_k: f64,
-) {
-    let half = 0.5 * thickness;
-    // Outward normal of the incoming run, on the OUTSIDE of the turn. Screen y
-    // grows downward, so a positive cross product is a clockwise turn.
-    let cross = d_in.x * d_out.y - d_in.y * d_out.x;
-    let sign = if cross >= 0.0 { -1.0 } else { 1.0 };
-    let normal_in = Vec2::new(-d_in.y, d_in.x) * sign;
-
-    let inlet_end = corner - d_in * half;
-    let inner_corner = inlet_end - normal_in * half;
-
-    ui.add(PipeBendVisual::new(
-        inner_corner,
-        d_in,
-        d_out,
-        thickness,
-        k(upstream_k),
-        k(downstream_k),
-        k(DISPLAY_MIN_K),
-        k(DISPLAY_MAX_K),
-    ));
-}
-
-/// Draw a whole routed pipe path: one [`PipeVisual`] per straight leg and one
-/// [`PipeBendVisual`] per interior corner.
-///
-/// `path` is the run's **centreline**, corner to corner. Every leg is trimmed
-/// back by half a pipe thickness at each interior corner so the elbow sector
-/// meets it flush. `trim_start`/`trim_end` do the same at the two ends, for a
-/// path that is continued by another path through a shared elbow.
-fn route(ui: &mut Ui, stream: &Stream, path: &[Pos2], trim_start: bool, trim_end: bool) {
-    if path.len() < 2 {
-        return;
-    }
-    let half = 0.5 * stream.thickness;
-    let directions: Vec<Vec2> = path
-        .windows(2)
-        .map(|leg| (leg[1] - leg[0]).normalized())
-        .collect();
-    let last = directions.len() - 1;
-
-    for (i, leg) in path.windows(2).enumerate() {
-        let direction = directions[i];
-        let mut from = leg[0];
-        let mut to = leg[1];
-        if i > 0 || trim_start {
-            from += direction * half;
-        }
-        if i < last || trim_end {
-            to -= direction * half;
-        }
-        ui.add(stream.run(from, to));
-    }
-
-    for i in 1..directions.len() {
-        elbow(
-            ui,
-            path[i],
-            directions[i - 1],
-            directions[i],
-            stream.thickness,
-            stream.temperature_k,
-            stream.temperature_k,
-        );
-    }
-}
+// Pipework is drawn with `route` and `PipeStream`, moved to the engine's
+// `components::pipe_route` on 2026-09-22 so the widget studio can share it.
 
 /// Draw `count` small arrowheads evenly along the segment `from` -> `to`, each
 /// pointing the way the segment runs, in `colour`.
@@ -918,8 +955,6 @@ pub fn draw_schematic(
     // rebuilt here from the pressures and enthalpies the plant model actually
     // published. These are genuine IAPWS-IF97 flashes of real model state, not
     // stand-ins.
-    let reference_volume = Volume::new::<cubic_meter>(1.0);
-    let steam_pressure = Pressure::new::<megapascal>(snapshot.steam_pressure_mpa);
     let condenser_pressure = Pressure::new::<kilopascal>(snapshot.condenser_pressure_kpa);
 
     // (The live steam state used to be flashed here to colour the turbine
@@ -927,56 +962,59 @@ pub fn draw_schematic(
     // It is now generator-backed so the rotor can turn, and that variant
     // carries no steam path -- see section 7. The steam temperature reaches the
     // screen through the `T_steam` readout instead.)
-    let feedwater: HemSteamCv = HemSteamCv::new_from_ph(
-        steam_pressure,
-        AvailableEnergy::new::<joule_per_kilogram>(snapshot.feedwater_enthalpy_j_per_kg),
-        reference_volume,
-    );
     // The hotwell condensate is the saturated liquid at condenser pressure, so
     // its temperature is also the turbine exhaust temperature: the exhaust is
     // two-phase at that same pressure.
-    let condensate: HemSteamCv = HemSteamCv::new_from_ph(
-        condenser_pressure,
-        AvailableEnergy::new::<joule_per_kilogram>(snapshot.condensate_enthalpy_j_per_kg),
-        reference_volume,
-    );
-    let feedwater_temp = feedwater.get_temperature();
-    let condensate_temp = condensate.get_temperature();
+    let (feedwater_temp, condensate_temp) = feed_and_condensate_temps(snapshot);
 
     // ── Streams ─────────────────────────────────────────────────────────
-    let hot_helium = Stream {
-        temperature_k: snapshot.core_outlet_temp_k,
-        mass_flow_kg_per_s: snapshot.helium_mass_flow_kg_per_s,
-        residence_time_s: snapshot.helium_residence_time_s,
+    // Each run carries its own train and its own transit time (2026-10-01,
+    // see `SchematicTracers`), never the whole-loop residence time.
+    let hot_helium = PipeStream {
+        temperature: k(snapshot.core_outlet_temp_k),
+        mass_flow: MassRate::new::<kilogram_per_second>(snapshot.helium_mass_flow_kg_per_s),
+        residence_time: Time::new::<second>(snapshot.hot_duct_residence_time_s),
         thickness: HELIUM_PIPE_THICKNESS,
-        tracer: tracers.primary,
+        tracer: tracers.hot_duct,
+        min_temp: k(DISPLAY_MIN_K),
+        max_temp: k(DISPLAY_MAX_K),
     };
-    // Leaving the steam generator: this is what the circulator lifts.
-    let cold_helium = Stream {
-        temperature_k: snapshot.ihx_outlet_temp_k,
+    // Leaving the steam generator: this is what the circulator lifts. The
+    // connection tubes are undimensioned and have no CV, so this run shares
+    // the cold-duct timing (stated in `SchematicTracers`).
+    let cold_helium = PipeStream {
+        temperature: k(snapshot.ihx_outlet_temp_k),
+        residence_time: Time::new::<second>(snapshot.cold_duct_residence_time_s),
+        tracer: tracers.cold_duct,
         ..hot_helium
     };
-    // Arriving at the core: the model's core inlet lags the SG outlet by the
-    // loop transport time, so the last leg of the return really is a different
-    // temperature during a transient.
-    let core_inlet_helium = Stream {
-        temperature_k: snapshot.core_inlet_temp_k,
-        ..hot_helium
+    // Circulator discharge to the reactor through the coaxial duct's annulus:
+    // the cold-duct CV. Coloured at the core inlet (the RPV-annuli CV just
+    // downstream), as before.
+    let core_inlet_helium = PipeStream {
+        temperature: k(snapshot.core_inlet_temp_k),
+        ..cold_helium
     };
 
-    let main_steam = Stream {
-        temperature_k: snapshot.sg_steam_outlet_temp_k,
-        mass_flow_kg_per_s: snapshot.secondary_mass_flow_kg_per_s,
-        residence_time_s: snapshot.secondary_residence_time_s,
+    let main_steam = PipeStream {
+        temperature: k(snapshot.sg_steam_outlet_temp_k),
+        mass_flow: MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s),
+        residence_time: Time::new::<second>(snapshot.main_steam_line_residence_time_s),
         thickness: STEAM_PIPE_THICKNESS,
-        tracer: tracers.secondary,
+        tracer: tracers.main_steam,
+        min_temp: k(DISPLAY_MIN_K),
+        max_temp: k(DISPLAY_MAX_K),
     };
-    let exhaust = Stream {
-        temperature_k: condensate_temp.get::<kelvin>(),
+    let exhaust = PipeStream {
+        temperature: condensate_temp,
+        residence_time: Time::new::<second>(snapshot.exhaust_duct_residence_time_s),
+        tracer: tracers.exhaust,
         ..main_steam
     };
-    let feed = Stream {
-        temperature_k: feedwater_temp.get::<kelvin>(),
+    let feed = PipeStream {
+        temperature: feedwater_temp,
+        residence_time: Time::new::<second>(snapshot.feedwater_line_residence_time_s),
+        tracer: tracers.feedwater,
         ..main_steam
     };
 
@@ -1398,8 +1436,9 @@ pub fn draw_schematic(
     // and not an animation constant.
     //
     // TRADE-OFF, stated because it is a real loss of information: the widget's
-    // `TurbineVisualState` enum has no variant carrying BOTH a shaft speed and
-    // a steam state, and the generator variant deliberately reports no casing
+    // `TurbineVisualState` enum ~~has no variant carrying BOTH a shaft speed
+    // and a steam state~~ (CORRECTED 2026-09-22: `Scalars` now does, via
+    // `TurbineVisual::from_scalars`; not yet adopted here), and the generator variant deliberately reports no casing
     // temperature (it is an electromechanical model with no steam path). So
     // the casing here draws neutral grey instead of at the live steam
     // temperature, which is what the thermo-backed variant used to give. The
@@ -1700,6 +1739,80 @@ mod tests {
     //! when you want to look at it rather than assert on it.
 
     use super::*;
+
+    /// **Each tracer train advances with its own run's transit time**, not
+    /// the whole loop's (2026-10-01). A snapshot with a distinct transit time
+    /// per run and a deliberately huge whole-loop figure: after one 0.1 s
+    /// frame every train's phase must be exactly `0.1 / tau_run` (mod 1), and
+    /// none may be `0.1 / tau_whole`. A reversed helium flow must run the
+    /// helium trains backwards and leave the water trains forward; zero
+    /// helium flow must freeze the helium trains.
+    #[test]
+    fn each_tracer_train_advances_with_its_own_runs_transit_time() {
+        let mut snap = HtgrSnapshot::default();
+        snap.helium_mass_flow_kg_per_s = 4.3;
+        snap.secondary_mass_flow_kg_per_s = 3.2;
+        snap.helium_residence_time_s = 1000.0;
+        snap.secondary_residence_time_s = 1000.0;
+        snap.hot_duct_residence_time_s = 0.4;
+        snap.cold_duct_residence_time_s = 1.1;
+        snap.rpv_annuli_residence_time_s = 46.0;
+        snap.riser_residence_time_s = 0.37;
+        snap.sg_shell_residence_time_s = 1.3;
+        snap.sg_tube_residence_time_s = 14.0;
+        snap.main_steam_line_residence_time_s = 0.6;
+        snap.exhaust_duct_residence_time_s = 0.2;
+        snap.feedwater_line_residence_time_s = 15.0;
+        let dt = Time::new::<second>(0.1);
+        let mut t = SchematicTracers::new();
+        t.advance(dt, &snap);
+        let expect = |tau: f64| (0.1 / tau).rem_euclid(1.0);
+        for (name, train, tau) in [
+            ("hot duct", t.hot_duct, snap.hot_duct_residence_time_s),
+            ("cold duct", t.cold_duct, snap.cold_duct_residence_time_s),
+            ("RPV annuli", t.rpv_annuli, snap.rpv_annuli_residence_time_s),
+            ("riser", t.riser, snap.riser_residence_time_s),
+            ("SG shell", t.sg_shell, snap.sg_shell_residence_time_s),
+            ("SG tube", t.sg_tube, snap.sg_tube_residence_time_s),
+            (
+                "main steam",
+                t.main_steam,
+                snap.main_steam_line_residence_time_s,
+            ),
+            ("exhaust", t.exhaust, snap.exhaust_duct_residence_time_s),
+            (
+                "feedwater",
+                t.feedwater,
+                snap.feedwater_line_residence_time_s,
+            ),
+        ] {
+            assert!(
+                (train.phase() - expect(tau)).abs() < 1e-12,
+                "{name}: phase {} vs {} for its own tau {tau} s",
+                train.phase(),
+                expect(tau)
+            );
+            assert!(
+                (train.phase() - expect(1000.0)).abs() > 1e-6,
+                "{name} used the whole loop"
+            );
+        }
+
+        // Reversed helium: helium trains step back by the same amount.
+        snap.helium_mass_flow_kg_per_s = -4.3;
+        let mut r = SchematicTracers::new();
+        r.advance(dt, &snap);
+        assert!((r.hot_duct.phase() - (-0.1f64 / 0.4).rem_euclid(1.0)).abs() < 1e-12);
+        assert!((r.main_steam.phase() - expect(0.6)).abs() < 1e-12);
+
+        // Stagnant helium: helium trains freeze where they are.
+        snap.helium_mass_flow_kg_per_s = 0.0;
+        let before = t;
+        t.advance(dt, &snap);
+        assert_eq!(t.hot_duct.phase(), before.hot_duct.phase());
+        assert_eq!(t.cold_duct.phase(), before.cold_duct.phase());
+        assert_ne!(t.sg_tube.phase(), before.sg_tube.phase());
+    }
 
     /// **Helium and water/steam must traverse the SG coil region in OPPOSITE
     /// vertical directions** -- the counter-current arrangement the physics

@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging outram-park-fork-onix v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-onix)
+    Updating crates.io index
+    Packaged 25 files, 180.3KiB (59.3KiB compressed)
+   Verifying outram-park-fork-onix v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-onix)
+   Compiling outram-park-fork-onix v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/outram-park-fork-onix-0.0.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.07s
+   Uploading outram-park-fork-onix v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-onix)
+    Uploaded outram-park-fork-onix v0.0.1 to registry `crates-io`
+note: waiting for outram-park-fork-onix v0.0.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-onix v0.0.1 at registry `crates-io`

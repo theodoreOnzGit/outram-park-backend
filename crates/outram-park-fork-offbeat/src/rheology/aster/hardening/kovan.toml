@@ -1,0 +1,145 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-offbeat"
+dir = "crates/outram-park-fork-offbeat/src/rheology/aster/hardening"
+
+[module."tests.rs"]
+path = "crate::rheology::aster::hardening::tests"
+
+[[module."tests.rs".function]]
+id = "fn:f164902bf557d3e1"
+name = "ludwik"
+qual = "ludwik"
+lines = [
+    22,
+    28,
+]
+hash = "sha256:98aa08f4d2b1e7bf905d8ee25188420609db98d2fdb291892e15df91c7e4b0e7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ccb95a4489b65e60"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8ecc2e0d30eca200"
+name = "aster_power"
+qual = "aster_power"
+lines = [
+    30,
+    37,
+]
+hash = "sha256:52ad384f8f80e1e8ccbd1283595923422f7a07d9e80b234a635e006494c85208"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ccb95a4489b65e60"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:84b814c8f150534d"
+name = "every_slope_is_the_derivative_of_its_value"
+qual = "every_slope_is_the_derivative_of_its_value"
+lines = [
+    39,
+    100,
+]
+hash = "sha256:237db6ef9f3415c61c1e94e6d9a25810a043dae0328de7e9335fda75a60430ff"
+doc_hash = "sha256:ba07774a07c3539d065208898820bab26f1d1c84a501ca060e168eb86109d0ba"
+callees = [
+    "fn:04f257a4338ecc34",
+    "fn:8ecc2e0d30eca200",
+    "fn:9908717fa8b604ab",
+    "fn:f164902bf557d3e1",
+]
+uses = ["fn:ccb95a4489b65e60"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3c7a530d4c5733a4"
+name = "the_two_power_law_families_are_genuinely_different"
+qual = "the_two_power_law_families_are_genuinely_different"
+lines = [
+    102,
+    145,
+]
+hash = "sha256:eb37e2cbcf7c1c6ee5dd3d313344cff9974510276537a0581596dd0452855f31"
+doc_hash = "sha256:542949427cfdbfa301b1174ca2ad0a503ff500bec77a10fddb63bbc55a862734"
+callees = [
+    "fn:04f257a4338ecc34",
+    "fn:8ecc2e0d30eca200",
+    "fn:f164902bf557d3e1",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:48eab6ab03a12944"
+name = "the_aster_power_curve_is_linearised_below_the_upstream_cutoff"
+qual = "the_aster_power_curve_is_linearised_below_the_upstream_cutoff"
+lines = [
+    147,
+    186,
+]
+hash = "sha256:71b782dea0d3903ec9e1addb412666ac1223b16bac3505fc5da1579e9e3f2966"
+doc_hash = "sha256:b381d35c1b61a14efa4305d58e95b0da57ccb96158fe57c1ea7402f4f0b42eba"
+callees = [
+    "fn:04f257a4338ecc34",
+    "fn:8ecc2e0d30eca200",
+    "fn:9908717fa8b604ab",
+]
+uses = ["fn:50c196b117e8fd0d"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:498ee2c29dfee461"
+name = "each_variant_reproduces_its_closed_form"
+qual = "each_variant_reproduces_its_closed_form"
+lines = [
+    188,
+    250,
+]
+hash = "sha256:88b2384e37b627bd34dde6589ecb6bb8af9f5fd819948eaa6d8a2dafc046464d"
+doc_hash = "sha256:847dfa638f1c489f904b210c255467f3da0ac4b43e9805f67c279d176088d589"
+callees = [
+    "fn:04f257a4338ecc34",
+    "fn:f164902bf557d3e1",
+]
+uses = ["fn:ccb95a4489b65e60"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:95899f88baa2ff42"
+name = "unphysical_parameters_are_refused"
+qual = "unphysical_parameters_are_refused"
+lines = [
+    252,
+    312,
+]
+hash = "sha256:903256735364e0372d6a514379468f6dec8e1473f60ad1a116285ae2647d0d70"
+doc_hash = "sha256:71759c57e5cd37165a60f4a54deaaca07390cfd96f504f45caadd1540df1acf9"
+callees = [
+    "fn:7cbc4440f5882e1d",
+    "fn:8ecc2e0d30eca200",
+]
+uses = [
+    "fn:a3d963a4f0e4783d",
+    "fn:ccb95a4489b65e60",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1d8277e52cd7df29"
+name = "the_slope_guard_keeps_singular_curves_finite_at_the_origin"
+qual = "the_slope_guard_keeps_singular_curves_finite_at_the_origin"
+lines = [
+    314,
+    397,
+]
+hash = "sha256:a0bfc2e80e462242e1b8ae335630730411a0cdbf3665de3307d0c451f8514f8c"
+doc_hash = "sha256:a31c9ac7edb66c2a793f4b355afcfb3e16fdf3256985e11ddd32b0f64aa85c4c"
+callees = [
+    "fn:04f257a4338ecc34",
+    "fn:9908717fa8b604ab",
+    "fn:f164902bf557d3e1",
+]
+uses = [
+    "fn:5073ed97ca66f73e",
+    "fn:ccb95a4489b65e60",
+]
+test = true

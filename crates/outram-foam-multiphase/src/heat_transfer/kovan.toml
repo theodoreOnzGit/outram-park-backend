@@ -1,0 +1,76 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-multiphase"
+dir = "crates/outram-foam-multiphase/src/heat_transfer"
+
+[module."tests.rs"]
+path = "crate::heat_transfer::tests"
+
+[[module."tests.rs".function]]
+id = "fn:ea4aec670b9793cc"
+name = "ranz_marshall_recovers_the_stagnant_sphere_limit"
+qual = "ranz_marshall_recovers_the_stagnant_sphere_limit"
+lines = [
+    16,
+    52,
+]
+hash = "sha256:270b2b79b821afbb862d4f43404359b65d76b1c81361899455828f86d59a089c"
+doc_hash = "sha256:36a4c77f0d7ebeb92ca9fc0322a0802539cea76772b58fe3b37757e9ce1ffe67"
+callees = [
+    "fn:7edc9337f878e39f",
+    "fn:e4a851e93ca9e627",
+]
+uses = ["fn:c9f50c1073e9ddea"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:871c74275e7f953c"
+name = "spherical_conduction_reads_only_the_dispersed_side"
+qual = "spherical_conduction_reads_only_the_dispersed_side"
+lines = [
+    54,
+    98,
+]
+hash = "sha256:6b93857bd7e323624c65a4c001190bf2697c9912fcad609ece0a2557c37e3925"
+doc_hash = "sha256:8adfab2e745fd7f25f9d6c5e4371a96a555f2b86e5f0794a3281b83bbf4de1b8"
+callees = [
+    "fn:76fb88ad413dd539",
+    "fn:7edc9337f878e39f",
+    "fn:e4a851e93ca9e627",
+]
+uses = [
+    "fn:c3d0bb7954fbedbe",
+    "fn:c9f50c1073e9ddea",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e0f8e624176254f7"
+name = "gunn_collapses_to_the_stagnant_limit_in_the_dilute_limit"
+qual = "gunn_collapses_to_the_stagnant_limit_in_the_dilute_limit"
+lines = [
+    100,
+    144,
+]
+hash = "sha256:8a7ef1f72de87c7f555d5a7d6d44a16703545726c3a31680ce8bb5f55cb87a2a"
+doc_hash = "sha256:d6b7fdafe0f06eb12d2d5eeaa4319b106ab87b095d08418c6553be791d2af048"
+callees = ["fn:e4a851e93ca9e627"]
+uses = ["fn:c9f50c1073e9ddea"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ec7aea9faee203fc"
+name = "unphysical_inputs_are_refused"
+qual = "unphysical_inputs_are_refused"
+lines = [
+    146,
+    179,
+]
+hash = "sha256:f88c8f009ce27f7bcecf86bd2f163c73c189ba35ab2f593c1991c4895cd84880"
+doc_hash = "sha256:ead14e698ad2ed10d0d3e904e5bfa85fecc080f1ad5db72cf8f8c497934f7bd5"
+callees = ["fn:7edc9337f878e39f"]
+uses = [
+    "fn:2045a374f299a83d",
+    "fn:c9f50c1073e9ddea",
+]
+test = true

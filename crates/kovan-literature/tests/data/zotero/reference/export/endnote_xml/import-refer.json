@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xml><records><record><database name=\"MyLibrary\">MyLibrary</database><source-app name=\"Zotero\">Zotero</source-app><ref-type name=\"Journal Article\">17</ref-type><contributors><authors><author>余敏</author><author>朱江</author><author>丁照蕾</author></authors></contributors><titles><title>参考文献管理工具研究</title><secondary-title>JOURNAL OF MODERN INFORMATION</secondary-title></titles><periodical><full-title>JOURNAL OF MODERN INFORMATION</full-title></periodical><pages>94-98,93</pages><volume>29</volume><number>2</number><issue>2</issue><keywords><keyword>参考文献管理 文献管理软件 学术书签网站 Zotero</keyword></keywords><dates><year>2009</year><pub-dates><date>2009</date></pub-dates></dates><abstract>介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.</abstract><language>chi</language><urls><web-urls><url>http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx</url></web-urls></urls></record></records></xml>"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xml><records><record><database name=\"MyLibrary\">MyLibrary</database><source-app name=\"Zotero\">Zotero</source-app><ref-type name=\"Book\">6</ref-type><contributors><authors><author>Calvino, Italo</author></authors><tertiary-authors><author>Stender Clausen, Jørgen</author></tertiary-authors><subsidiary-authors><author>Aardal, Jorunn</author></subsidiary-authors></contributors><titles><title>Usynlige byer</title></titles><keywords><keyword>Italiensk litteratur</keyword><keyword>Idealbyer</keyword><keyword>kjernelitteratur</keyword></keywords><dates><year>1982</year><pub-dates><date>1982</date></pub-dates></dates><pub-location>Oslo</pub-location><publisher>Aschehoug</publisher><isbn>8203107354</isbn><research-notes>Elektronisk reproduksjon [Norge] Nasjonalbiblioteket Digital 2016-11-03</research-notes><language>Flerspråklig, Norsk (Bokmål), Italiensk, Dansk</language><urls><web-urls><url>https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105</url></web-urls></urls></record></records></xml>"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xml><records><record><database name=\"MyLibrary\">MyLibrary</database><source-app name=\"Zotero\">Zotero</source-app><ref-type name=\"Book\">6</ref-type><contributors><authors><author>Newman, W. H.</author></authors></contributors><titles><title>Corn</title></titles><keywords><keyword>Corn -- Yields</keyword><keyword>Corn -- Varieties</keyword><keyword>Corn -- Field experiments</keyword></keywords><dates><year>1891</year><pub-dates><date>1891</date></pub-dates></dates><publisher>Uniontown, Ala. : Canebrake Agricultural Experiment Station</publisher></record></records></xml>"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xml><records><record><database name=\"MyLibrary\">MyLibrary</database><source-app name=\"Zotero\">Zotero</source-app><ref-type name=\"Music\">61</ref-type><titles><title>Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs &amp; Südtirols</title></titles><dates><year>2021</year><pub-dates><date>2021</date></pub-dates></dates><pub-location>Wien</pub-location><publisher>Studio Omega, Verein für Christliche Radioarbeit</publisher><language>German</language><urls><web-urls><url>https://diesseits.theopodcast.at/home</url></web-urls></urls></record></records></xml>"
+	}
+}

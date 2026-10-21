@@ -1,0 +1,260 @@
+# Rung 7 — To the coolant: normal operation and accident release
+
+> **Research, education and V&V only.** Nothing here is for reactor
+> operation, licensing, safety-critical decisions or emergency response
+> ([`RESPONSIBLE_USE.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/RESPONSIBLE_USE.md)).
+> An accident release is the number most easily misused; nothing on this
+> page is a source term for any facility.
+> **Review status:** AI-assisted draft, 2026-10-04, not yet human-reviewed.
+> [Something doesn't tally?](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=boon-lay%20lesson%20rung%207%20doesn%27t%20tally)
+
+**Core lesson, rung 7 of 8.** Rungs 3–4 gave a release fraction per
+particle; rung 5 said how many particles have failed. This rung turns those
+into activity in the helium coolant, on the circuit walls, and what leaves
+the core in an accident. All of it is the
+[TRISO-ATOPS port](../../api/boon_lay/triso_atops_fork/index.html), a Rust
+fork of INL's MIT-licensed Python at commit `de374c8`. The extended page
+[Into the source term](../../deep-dives/triso-atops/source-term.html) goes deeper.
+
+## The hook
+
+> **The problem.** A core's fission products are nearly all inside intact
+> particles. *How much is in the coolant during normal
+> operation, and how much leaves the core when it depressurises and heats
+> up?*
+
+**Demo:** [open this rung](../../demos/triso-atops/?rung=release). Rung 5's accident hold carried
+into the helium for ~~Kr-88, Xe-133 or I-131~~ **(since 2026-10-05) every
+nuclide of Liu & Cao's HTR-10 core inventory that TRISO-ATOPS's nuclide table
+carries, 19 of 22** (H-3, Xe-135m and Rb-88 are not in it), as a live
+diagram from a TRISO particle in its fuel element to the circulating helium
+and its plated-out, purification-system and leaked pools, coloured by
+transport group and filterable to one group or one nuclide. Computed in your
+browser with ~~`rb_fail_noble_gases`~~ `diffusion_coefficient`, `rb_fail`,
+`release_rate`, `base_activities` (the chain `normal_operation_node` runs)
+and `live_pools::step`. The MHTGR workflow of step 3 is too heavy for a browser and is
+quoted below, not recomputed.
+
+---
+
+## Step 1. From a release fraction to a release rate
+
+**The question.** `rb_fail` (rung 4) is a release-to-birth ratio *for a
+failed particle*. How many atoms per second actually reach the fuel element's
+graphite?
+
+**The shortest answer.** Multiply by how many particles are failed, in the
+classes of rung 5, and by the birth rate. Which classes count depends on the
+transport group.
+
+**The formula.** With birth rate $B$ (the inventory activity for a
+short-lived nuclide at secular equilibrium; $A/(1 - e^{-\lambda t})$ for a
+long-lived one),
+
+| Group | Release rate |
+|---|---|
+| noble gas, halogen | $(f_{hm} + f_{inc})\ \langle R/B\rangle\ B$ |
+| silver | $\langle R/B\rangle\ B$ (its breakthrough model already includes the SiC) |
+| metals | all four fractions |
+
+**In the code.**
+
+*In words, read from the source by hand:*
+
+<!-- walk-in-words: from=crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node to=crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::release_rate -->
+1. [`normal_operation_node`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs:fn=normal_operation_node@@): the whole chain for one nuclide in one core node;
+2. → [`diffusion_coefficient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:fn=diffusion_coefficient@@) at the node's kernel and graphite temperatures;
+3. → [`rb_fail`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:fn=rb_fail@@) (rung 4, step 3);
+4. → [`release_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#@@L:crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:fn=release_rate@@): the table above.
+<!-- /walk-in-words -->
+
+
+> **On the [Code Review map](../../code-review/):** start at [`normal_operation_node`](../../code-review/#crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node) and follow its callees (▸) to [`release_rate`](../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::release_rate). Each card opens the function's source and shows its review stamp.
+
+**Predict.** Halve `f_hm`. Which groups' release rates halve, and which barely
+move?
+
+---
+
+## Step 2. Through the graphite and into the helium
+
+**The question.** Atoms leaving a particle are still inside the fuel
+element's graphite. How many get through, and where do they go then?
+
+**The shortest answer.** Metals are partly held back by the graphite (an
+attenuation factor $A_f$, from diffusion through the graphite thickness;
+non-metal "other" nuclides get $A_f = 10^8$, effectively all held). What
+reaches the coolant feeds three pools: circulating $C$, plated out on
+surfaces $P$, and taken up by the helium purification system $H$.
+
+**The formulas.** With source $S$ into the coolant,
+
+$$\frac{\mathrm dC}{\mathrm dt} = S - (\lambda + k_{\text{plate}} + k_{\text{clean}})\ C,\quad \frac{\mathrm dP}{\mathrm dt} = k_{\text{plate}}C - \lambda P,\quad \frac{\mathrm dH}{\mathrm dt} = k_{\text{clean}}C - \lambda H.$$
+
+Noble gases do not plate out; only noble gases and halogens are cleaned up by
+the purification system, as upstream routes them.
+
+**The illustration** (JavaScript; the three pools filling from empty with a
+constant source; move the rates):
+
+<div class="bl-anim" data-anim="pools"></div>
+
+**In the code.**
+
+*In words, read from the source by hand:*
+
+<!-- walk-in-words: from=crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node to=crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::clean_up -->
+1. `normal_operation_node` (continued)
+2. → [`base_activities`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs#@@L:crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs:fn=base_activities@@): coolant source and graphite hold-up, with [`attenuation_factor`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs#@@L:crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs:fn=attenuation_factor@@);
+3. **branch by group** for $(k_{\text{plate}}, k_{\text{clean}})$: noble gas $(0, k_{\text{clean}})$, halogen $(k_{\text{plate}}, k_{\text{clean}})$, others $(k_{\text{plate}}, 0)$; `hps_enabled = false` zeroes $k_{\text{clean}}$;
+4. → [`circulating`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#@@L:crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:fn=circulating@@), [`plate_out`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#@@L:crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:fn=plate_out@@) (not for noble gases), [`clean_up`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs#@@L:crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs:fn=clean_up@@) (noble gases and halogens only): the closed-form solutions from empty, with parent in-growth.
+<!-- /walk-in-words -->
+
+
+> **On the [Code Review map](../../code-review/):** start at [`normal_operation_node`](../../code-review/#crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node) and follow its callees (▸) to [`clean_up`](../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::clean_up). Each card opens the function's source and shows its review stamp.
+
+A simulator needs the pools carried while the source
+changes, not only from empty. That is
+[`live_pools::step`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs#@@L:crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs:fn=step@@),
+which is **not a port**: it steps the same three balances exactly over an
+interval with constant source, adds a leak sink, and reproduces the ported
+closed forms when started from empty (gh:#399).
+
+**Units: one decision, made explicitly.** Upstream mixes atoms, atoms/s, Ci
+and Bq through hard-coded factors. The port makes activity a `uom` frequency
+and Ci↔Bq one named constant (`BQ_PER_CI`); atom counts stay plain `f64`
+because "atoms/s" has the same dimension as a decay constant
+([`activities/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/activities/mod.rs#L31-L56)).
+
+**The check: code to code against the upstream Python.** Reference values
+come from *running* upstream at `de374c8`, not from its manual. Three
+passes, the last on 2026-09-21: **14 130 cases in 51 tests**. The worst group
+is `accident_case.nodal_kernel` at 2.44·10⁻⁹ relative over 180 cases, above
+the 10⁻⁹ group tolerance and admitted only by a per-case widening for an
+ill-conditioned Ag-110m row; `normal_operation_node` agrees to 3.1·10⁻¹¹
+([`docs/triso-atops-code-to-code.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/docs/triso-atops-code-to-code.md)).
+This is **verification** that the port reproduces upstream; upstream is the
+specification. Porting found ten upstream defects (gh:#219, not yet reported
+to INL), each a named, selectable divergence.
+
+**Re-run 2026-10-04** (this track's run, `develop` atop `5e802df3a4`,
+`--release`, one core): all **51** code-to-code tests pass in 1.3 s;
+`accident_case.nodal_kernel` worst 2.44·10⁻⁹ over 180 rows (19 % of its
+widened tolerance), unchanged. Name normalisation: 28 cases agree with
+upstream's regex and 3 are deliberate, documented divergences.
+
+**Predict.** Raise $k_{\text{plate}}$ tenfold. What happens to $C$ and to $P$
+at steady state?
+
+---
+
+## Step 3. The accident: heat-up and venting
+
+**The question.** The helium leaks out (depressurisation), the core heats
+for days, and diffusion speeds up. How much activity leaves the core?
+
+**The shortest answer.** Integrate $D(T)$ over the temperature history, use
+the transient release models, and let the coolant carry out the fraction
+that **thermal expansion of the gas pushes out while the core heats**.
+
+**The formulas.** Products $Dt$ become $\int D\ \mathrm dt$; the vented
+fraction of the coolant inventory is driven by $\mathrm dT/\mathrm dt \ge 0$.
+For an ideal gas heated from $T_0$ to $T_{\text{peak}}$ at constant pressure
+the vented fraction tends to $1 - T_0/T_{\text{peak}}$.
+
+**In the code.** Upstream has no single `accident_case` to port; the port
+supplies the pieces, and callers compose them (gh:#447):
+
+*In words, read from the source by hand:*
+
+<!-- walk-in-words: from=crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity depth=2 -->
+1. [`integrate_diffusion_over_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs:fn=integrate_diffusion_over_time@@): $\int D\ \mathrm dt$ per material over the history;
+2. → [`release_fraction_transient`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:fn=release_fraction_transient@@) → `booth_transient`, `breakthrough_model_transient` or `rf_graph` by group;
+3. → [`release_activity`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/accident/mod.rs:fn=release_activity@@): what is released, by failure class ([`AccidentFractions`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/accident/mod.rs:struct=AccidentFractions@@));
+4. → [`mean_temperature_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/accident/mod.rs:fn=mean_temperature_rate@@) and [`coolant_release`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/accident/mod.rs:fn=coolant_release@@): the vented fraction, only over samples with $\mathrm dT/\mathrm dt \ge 0$;
+5. → [`accident_release_curies`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/accident/mod.rs:fn=accident_release_curies@@): kernel and graphite release times the vented fraction, plus circulating activity and plate-out lift-off.
+<!-- /walk-in-words -->
+
+
+> **On the [Code Review map](../../code-review/):** start at [`release_activity`](../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity). Each card opens the function's source and shows its review stamp.
+
+
+**The check: the MHTGR workflow of Stoyer et al. (2026), gh:#413.** The
+paper's two MHTGR cases, run through the port and through upstream on the
+same cited inputs
+([record](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/verification_and_validation/mhtgr_stoyer/README.md)):
+
+- **Port against upstream:** worst relative difference 5.6·10⁻¹² in normal
+  operation.
+- **Against the paper's normal-operation tables**, with `k_plate` as printed
+  (7.5·10⁻⁵ s⁻¹): graphite 40/40, but circulating only 11/64 and purification
+  10/24. With 7.5·10⁻⁴ s⁻¹, upstream's own default, every printed value is
+  within 2 %. The table's value looks like a misprint; the committed inputs
+  keep the printed one and label the other run a diagnostic.
+- **Accident heat-up releases**, against the maintainer's digitisation of
+  Fig. 5, densely resampled (reported 2026-09-30): final over paper
+  **0.903** for all nuclides in Case A (range 0.84–0.94) and 0.904 in Case B
+  (0.67–1.74). **A common factor of about 0.90 remains and is not
+  diagnosed.** Case B outliers: Cs-134 0.67, Kr-85 0.68, Ag-111 1.74 (0.70 at
+  the other `k_plate`).
+
+This compares a port with another code's published workflow: **verification**,
+not validation. No measured release from a reactor enters it.
+
+**Re-run 2026-10-04** (this track's run, `develop` atop `5e802df3a4`,
+`--release`, one core; the four workflow tests took **1550 s**, which is why
+it is quoted here and not recomputed in the demo):
+pass. Port against upstream: 5.58·10⁻¹² in normal operation, 3.9·10⁻¹¹ on
+the accident path. The final-over-paper ratios printed by the run match the
+2026-09-30 record.
+
+---
+
+## Step 4. What this model cannot do: air ingress (gh:#446)
+
+**The question.** In an air ingress the core may sit at a roughly constant
+temperature for days while air flows through it. What does the accident
+model release then?
+
+**The shortest answer.** **Exactly zero.** Not because nothing is released
+from the fuel, but because the only way activity leaves the core in this
+model is venting while the gas heats. A flat hold never heats.
+
+Found 2026-09-30 by `sembawang`'s bounding air-ingress example: a 1400 °C
+isothermal hold for 140 h with a full-failure fraction of 2.0·10⁻³ released
+**0 Bq for every nuclide**. Only the first sample vents (forced to 1, an
+upstream quirk), and at $t = 0$ nothing has yet diffused out. The DLOFC case
+is unaffected because its transient heats for 30 h.
+
+So TRISO-ATOPS, here and upstream, is a **depressurisation** model: no air-
+or water-ingress transport, no building, dust or purification term in the
+accident release. `sembawang` adds flow-through options on top and labels
+them as not upstream
+([`accident/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/accident/mod.rs#L31-L49)).
+gh:#446 lists the options and asks first for a check that upstream has no
+ingress option either, as the workspace's port-debugging rule requires.
+
+**Predict.** A transient heats for 20 h, then holds for 100 h. Which part of
+the fuel's release does this model let out, and which does it keep in the
+core forever?
+
+---
+
+## Deliberate liberties on this rung
+
+- **It reproduces upstream, choices included:** the 84-nuclide table with
+  its own half-lives, the 5000-term Booth series and its floor (gh:#385), and
+  the venting-only accident.
+- **Constants not published for a reactor are stand-ins** in every caller
+  (`k_plate`, `k_clean`, grain size, lift-off), and each caller must say so.
+
+## Use, modify, create
+
+- **Use:** `cargo test --release -p boon-lay --test mhtgr_stoyer_workflow -- --nocapture`.
+- **Modify:** in `normal_operation_node`'s unit test, turn the purification
+  system off (`hps_enabled = false`). Which nuclides' circulating activity
+  moves, and by how much? Predict first.
+- **Create:** compose a heat-up-then-hold history from the accident pieces
+  and measure how much of the fuel release the vented fraction lets out.
+
+**Next:** [rung 8, into the source term](./handoff.md).

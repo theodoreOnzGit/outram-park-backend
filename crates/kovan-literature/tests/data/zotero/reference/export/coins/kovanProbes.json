@@ -1,0 +1,22 @@
+{
+	"all": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1234%2FABC.def&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Dates%20%26%20markup%3A%20a%20%3Ci%3Ekovan%3C%2Fi%3E%20probe&amp;rft.jtitle=Journal%20of%20Testing%20%26%20Probing&amp;rft.stitle=J.%20Test.&amp;rft.volume=12&amp;rft.issue=3&amp;rft.aufirst=John&amp;rft.aulast=Smith&amp;rft.au=John%20Smith&amp;rft.au=Jean%20de%20la%20Fontaine&amp;rft.au=Kovan%20Collaboration&amp;rft.au=Ed%20Editor&amp;rft.date=2021-05&amp;rft.pages=101-110&amp;rft.spage=101&amp;rft.epage=110&amp;rft.issn=1234-5678&amp;rft.language=en'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A978-3-16-148410-0%203161484100&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=A%20Second%20Record&amp;rft.place=Singapore&amp;rft.publisher=Kovan%20Press&amp;rft.aufirst=Ed&amp;rft.aulast=Editor&amp;rft.au=Ed%20Editor&amp;rft.date=1999-12-31&amp;rft.tpages=300&amp;rft.isbn=978-3-16-148410-0%203161484100'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adissertation&amp;rft.title=Ranges%20and%20seasons&amp;rft.inst=Kovan%20University&amp;rft.degree=PhD%20Thesis&amp;rft.aufirst=Ann&amp;rft.aulast=Student&amp;rft.au=Ann%20Student&amp;rft.date=2010'></span>\n<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=proceeding&amp;rft.atitle=Summer%20proceedings&amp;rft.btitle=Proceedings%20of%20the%20Kovan%20Conference&amp;rft.place=Singapore&amp;rft.date=2015&amp;rft.pages=5'></span>\n"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1234%2FABC.def&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Dates%20%26%20markup%3A%20a%20%3Ci%3Ekovan%3C%2Fi%3E%20probe&amp;rft.jtitle=Journal%20of%20Testing%20%26%20Probing&amp;rft.stitle=J.%20Test.&amp;rft.volume=12&amp;rft.issue=3&amp;rft.aufirst=John&amp;rft.aulast=Smith&amp;rft.au=John%20Smith&amp;rft.au=Jean%20de%20la%20Fontaine&amp;rft.au=Kovan%20Collaboration&amp;rft.au=Ed%20Editor&amp;rft.date=2021-05&amp;rft.pages=101-110&amp;rft.spage=101&amp;rft.epage=110&amp;rft.issn=1234-5678&amp;rft.language=en'></span>\n"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A978-3-16-148410-0%203161484100&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=book&amp;rft.btitle=A%20Second%20Record&amp;rft.place=Singapore&amp;rft.publisher=Kovan%20Press&amp;rft.aufirst=Ed&amp;rft.aulast=Editor&amp;rft.au=Ed%20Editor&amp;rft.date=1999-12-31&amp;rft.tpages=300&amp;rft.isbn=978-3-16-148410-0%203161484100'></span>\n"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adissertation&amp;rft.title=Ranges%20and%20seasons&amp;rft.inst=Kovan%20University&amp;rft.degree=PhD%20Thesis&amp;rft.aufirst=Ann&amp;rft.aulast=Student&amp;rft.au=Ann%20Student&amp;rft.date=2010'></span>\n"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=proceeding&amp;rft.atitle=Summer%20proceedings&amp;rft.btitle=Proceedings%20of%20the%20Kovan%20Conference&amp;rft.place=Singapore&amp;rft.date=2015&amp;rft.pages=5'></span>\n"
+	}
+}

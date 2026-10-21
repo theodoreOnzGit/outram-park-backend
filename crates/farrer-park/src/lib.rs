@@ -1,7 +1,7 @@
 //! # FARRER PARK — FEM structural mechanics
 //!
 //! **F**inite-element **A**nalysis for **R**eactor **R**eliability,
-//! **E**ngineering **R**esponse, **P**lasticity **A**nd **R**isk.
+//! **E**ngineering **R**esponse, **P**lasticity **A**nd **R**is**K**. (Lettering corrected 2026-10-13: the K was not marked.)
 //!
 //! Small-strain solid mechanics on unstructured meshes: linear elasticity,
 //! J2 (von Mises) plasticity and rate-dependent **crystal plasticity**, solved

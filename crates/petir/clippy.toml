@@ -1,0 +1,46 @@
+# gh #1001 (2026-10-20): std's inherent float maths is FORBIDDEN in petir's
+# library code. Read this before adding to or trimming the list.
+#
+# `petir` is `#![no_std]`, but once ANY crate in the build graph links `std`
+# (for example `num-traits` with its `std` feature, which `uom` depends on and
+# almost every downstream graph -- and petir's own `faer` dev-dependency --
+# turns on), rustc can see std's inherent `f64`/`f32` methods, and an inherent
+# method always beats a trait method of the same name. `x.hypot(y)` then calls
+# the platform C library (glibc, MSVC, ...) instead of `real::Real::hypot`
+# (CORE-MATH), silently, and PETIR's answer depends on the consumer's
+# dependency graph. Measured: `eigen_nonsymm` moved 84 of 320 eigenvalue
+# components (worst 5.2e-15) when `faer` joined petir's dev-dependencies.
+#
+# Inside petir write UFCS -- `Real::exp(x)`, never `x.exp()` -- or a
+# `mathf::RealMath` `r_` method, which std cannot shadow.
+#
+# `sqrt` IS listed although IEEE 754 fixes its finite results (0 differences
+# between libm and `sqrtsd` on 10 million inputs, gh #1001): the NaN it
+# generates for a negative argument differs in sign between the instruction
+# (std, or libm with `arch`) and libm's software path, and the maintainer
+# wants PETIR's bits identical across builds. `Real::sqrt` canonicalises it.
+#
+# NOT listed, on purpose: `floor`, `ceil`, `round`, `trunc`, `fract` and
+# `rem_euclid`. Their results are exact and they generate no NaN (a NaN input
+# passes through), so std's and `Real`'s give the same bits whichever one
+# resolves; the four-graph digest in `check-std-shadowing.sh` confirms it.
+# Everything else here can differ in the last ulp between libm, glibc and
+# MSVC.
+#
+# `scripts/check-std-shadowing.sh` runs clippy with std forced into the graph
+# (`--features uom/std`), which is the only configuration in which this list
+# can fire, and then checks the compiled rlib for C maths symbols.
+disallowed-methods = [
+  "f64::acos", "f64::acosh", "f64::asin", "f64::asinh", "f64::atan",
+  "f64::atan2", "f64::atanh", "f64::cbrt", "f64::cos", "f64::cosh",
+  "f64::exp", "f64::exp2", "f64::exp_m1", "f64::hypot", "f64::ln",
+  "f64::ln_1p", "f64::log", "f64::log10", "f64::log2", "f64::mul_add",
+  "f64::powf", "f64::powi", "f64::sin", "f64::sin_cos", "f64::sinh",
+  "f64::sqrt", "f64::tan", "f64::tanh",
+  "f32::acos", "f32::acosh", "f32::asin", "f32::asinh", "f32::atan",
+  "f32::atan2", "f32::atanh", "f32::cbrt", "f32::cos", "f32::cosh",
+  "f32::exp", "f32::exp2", "f32::exp_m1", "f32::hypot", "f32::ln",
+  "f32::ln_1p", "f32::log", "f32::log10", "f32::log2", "f32::mul_add",
+  "f32::powf", "f32::powi", "f32::sin", "f32::sin_cos", "f32::sinh",
+  "f32::sqrt", "f32::tan", "f32::tanh",
+]

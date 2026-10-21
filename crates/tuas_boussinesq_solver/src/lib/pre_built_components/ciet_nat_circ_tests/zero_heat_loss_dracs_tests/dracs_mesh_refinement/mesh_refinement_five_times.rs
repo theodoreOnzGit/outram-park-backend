@@ -12,6 +12,10 @@ use crate::pre_built_components::non_insulated_parallel_fluid_components::NonIns
 /// Drives 582.6 W through the DHX; asserts the steady-state loop mass flow rate
 /// matches the SAM reference 2.8033e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 786 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius() {
     verify_isolated_dhx_sam_solution(
@@ -32,6 +36,10 @@ pub fn mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius() {
 /// Drives 785.9 W through the DHX; asserts the steady-state loop mass flow rate
 /// matches the SAM reference 3.1807e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 783 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius() {
     verify_isolated_dhx_sam_solution(
@@ -51,6 +59,10 @@ pub fn mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius() {
 /// Drives 971.4 W through the DHX; asserts the steady-state loop mass flow rate
 /// matches the SAM reference 3.4690e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 775 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius() {
     verify_isolated_dhx_sam_solution(
@@ -67,6 +79,10 @@ pub fn mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius() {
 /// Drives 1185.2 W through the DHX; asserts the steady-state loop mass flow rate
 /// matches the SAM reference 3.7765e-2 kg/s within 2.6% (plus a 0.1% regression check).
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 781 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 //#[ignore = "comment out for debugging"]
 pub fn mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius() {
     verify_isolated_dhx_sam_solution(

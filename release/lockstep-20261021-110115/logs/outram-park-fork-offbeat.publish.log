@@ -1,0 +1,15 @@
+    Updating crates.io index
+   Packaging outram-park-fork-offbeat v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-offbeat)
+    Updating crates.io index
+    Packaged 130 files, 4.2MiB (1.1MiB compressed)
+   Verifying outram-park-fork-offbeat v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-offbeat)
+ Downloading crates ...
+  Downloaded outram-foam-basic-lib v0.1.7
+   Compiling outram-foam-basic-lib v0.1.7
+   Compiling outram-park-fork-offbeat v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/target/package/outram-park-fork-offbeat-0.0.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.55s
+   Uploading outram-park-fork-offbeat v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-offbeat)
+    Uploaded outram-park-fork-offbeat v0.0.1 to registry `crates-io`
+note: waiting for outram-park-fork-offbeat v0.0.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-offbeat v0.0.1 at registry `crates-io`

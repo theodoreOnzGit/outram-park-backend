@@ -12,6 +12,7 @@
 //! than the near-saturation IF97 special case — the same simplification
 //! CoolProp itself offers as an equivalent alternative.
 
+use petir::mathf::RealMath;
 use super::HumidAirError;
 use crate::fluid::Fluid;
 use crate::vle::saturation_at_temperature;
@@ -59,14 +60,14 @@ pub fn henry_constant(t: f64) -> f64 {
         .map(|s| s.pressure)
         .unwrap_or(f64::NAN);
     let beta_n2 = p_ws
-        * (-9.67578 / tr + 4.72162 * tau.powf(0.355) / tr + 11.70585 * tr.powf(-0.41) * tau.exp())
-            .exp();
+        * (-9.67578 / tr + 4.72162 * tau.r_powf(0.355) / tr + 11.70585 * tr.r_powf(-0.41) * tau.r_exp())
+            .r_exp();
     let beta_o2 = p_ws
-        * (-9.44833 / tr + 4.43822 * tau.powf(0.355) / tr + 11.42005 * tr.powf(-0.41) * tau.exp())
-            .exp();
+        * (-9.44833 / tr + 4.43822 * tau.r_powf(0.355) / tr + 11.42005 * tr.r_powf(-0.41) * tau.r_exp())
+            .r_exp();
     let beta_ar = p_ws
-        * (-8.40954 / tr + 4.29587 * tau.powf(0.355) / tr + 10.52779 * tr.powf(-0.41) * tau.exp())
-            .exp();
+        * (-8.40954 / tr + 4.29587 * tau.r_powf(0.355) / tr + 10.52779 * tr.r_powf(-0.41) * tau.r_exp())
+            .r_exp();
     let beta_a = 1.0 / (0.7812 / beta_n2 + 0.2095 / beta_o2 + 0.0093 / beta_ar);
     1.0 / (1.01325 * beta_a)
 }
@@ -74,9 +75,9 @@ pub fn henry_constant(t: f64) -> f64 {
 /// Isothermal compressibility of liquid water `k_T(T)` \[1/Pa\] — CoolProp's
 /// polynomial surrogate (`FlagUseIsothermCompressCorrelation`).
 fn isothermal_compressibility(t: f64) -> f64 {
-    1.6261876614e-22 * t.powi(6) - 3.3016385196e-19 * t.powi(5) + 2.7978984577e-16 * t.powi(4)
-        - 1.2672392901e-13 * t.powi(3)
-        + 3.2382864853e-11 * t.powi(2)
+    1.6261876614e-22 * t.r_powi(6) - 3.3016385196e-19 * t.r_powi(5) + 2.7978984577e-16 * t.r_powi(4)
+        - 1.2672392901e-13 * t.r_powi(3)
+        + 3.2382864853e-11 * t.r_powi(2)
         - 4.4318979503e-09 * t
         + 2.5455947289e-07
 }
@@ -113,37 +114,37 @@ pub fn enhancement_factor(t: f64, p: f64) -> Result<f64, HumidAirError> {
         let rt = R_BAR * t;
         let line1 = ((1.0 + k_t * p_ws) * (p - p_ws) - k_t * (p * p - p_ws * p_ws) / 2.0) / rt
             * vbar_ws
-            + (1.0 - beta_h * (1.0 - psi_ws) * p).ln();
-        let line2 = (1.0 - psi_ws).powi(2) * p / rt * b_aa
-            - 2.0 * (1.0 - psi_ws).powi(2) * p / rt * b_aw
-            - (p - p_ws - (1.0 - psi_ws).powi(2) * p) / rt * b_ww;
-        let line3 = (1.0 - psi_ws).powi(3) * p * p / (rt * rt) * c_aaa
-            + (3.0 * (1.0 - psi_ws).powi(2) * (1.0 - 2.0 * (1.0 - psi_ws)) * p * p)
+            + (1.0 - beta_h * (1.0 - psi_ws) * p).r_ln();
+        let line2 = (1.0 - psi_ws).r_powi(2) * p / rt * b_aa
+            - 2.0 * (1.0 - psi_ws).r_powi(2) * p / rt * b_aw
+            - (p - p_ws - (1.0 - psi_ws).r_powi(2) * p) / rt * b_ww;
+        let line3 = (1.0 - psi_ws).r_powi(3) * p * p / (rt * rt) * c_aaa
+            + (3.0 * (1.0 - psi_ws).r_powi(2) * (1.0 - 2.0 * (1.0 - psi_ws)) * p * p)
                 / (2.0 * rt * rt)
                 * c_aaw;
-        let line4 = -3.0 * (1.0 - psi_ws).powi(2) * psi_ws * p * p / (rt * rt) * c_aww
+        let line4 = -3.0 * (1.0 - psi_ws).r_powi(2) * psi_ws * p * p / (rt * rt) * c_aww
             - ((3.0 - 2.0 * psi_ws) * psi_ws * psi_ws * p * p - p_ws * p_ws) / (2.0 * rt * rt)
                 * c_www;
-        let line5 = -((1.0 - psi_ws).powi(2) * (-2.0 + 3.0 * psi_ws) * psi_ws * p * p) / (rt * rt)
+        let line5 = -((1.0 - psi_ws).r_powi(2) * (-2.0 + 3.0 * psi_ws) * psi_ws * p * p) / (rt * rt)
             * b_aa
             * b_ww;
-        let line6 = -(2.0 * (1.0 - psi_ws).powi(3) * (-1.0 + 3.0 * psi_ws) * p * p) / (rt * rt)
+        let line6 = -(2.0 * (1.0 - psi_ws).r_powi(3) * (-1.0 + 3.0 * psi_ws) * p * p) / (rt * rt)
             * b_aa
             * b_aw;
         let line7 =
-            (6.0 * (1.0 - psi_ws).powi(2) * psi_ws * psi_ws * p * p) / (rt * rt) * b_ww * b_aw
-                - (3.0 * (1.0 - psi_ws).powi(4) * p * p) / (2.0 * rt * rt) * b_aa * b_aa;
-        let line8 = -(2.0 * (1.0 - psi_ws).powi(2) * psi_ws * (-2.0 + 3.0 * psi_ws) * p * p)
+            (6.0 * (1.0 - psi_ws).r_powi(2) * psi_ws * psi_ws * p * p) / (rt * rt) * b_ww * b_aw
+                - (3.0 * (1.0 - psi_ws).r_powi(4) * p * p) / (2.0 * rt * rt) * b_aa * b_aa;
+        let line8 = -(2.0 * (1.0 - psi_ws).r_powi(2) * psi_ws * (-2.0 + 3.0 * psi_ws) * p * p)
             / (rt * rt)
             * b_aw
             * b_aw
-            - (p_ws * p_ws - (4.0 - 3.0 * psi_ws) * psi_ws.powi(3) * p * p) / (2.0 * rt * rt)
+            - (p_ws * p_ws - (4.0 - 3.0 * psi_ws) * psi_ws.r_powi(3) * p * p) / (2.0 * rt * rt)
                 * b_ww
                 * b_ww;
         line1 + line2 + line3 + line4 + line5 + line6 + line7 + line8
     };
 
-    let residual = |f: f64| f.ln() - rhs(f);
+    let residual = |f: f64| f.r_ln() - rhs(f);
     let mut x1 = 1.0_f64;
     let mut x2 = 1.0 + 1e-6;
     let mut y1 = residual(x1);

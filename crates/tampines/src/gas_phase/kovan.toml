@@ -1,0 +1,2066 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src/gas_phase"
+test_ids = [
+    "crates/tampines/src/gas_phase/circulator.rs::invalid_inputs_are_rejected",
+    "crates/tampines/src/gas_phase/circulator.rs::lower_efficiency_means_more_work_and_more_heating",
+    "crates/tampines/src/gas_phase/circulator.rs::measure_htr10_circulator",
+    "crates/tampines/src/gas_phase/circulator.rs::pressure_rise_and_pressure_ratio_duties_agree",
+    "crates/tampines/src/gas_phase/circulator.rs::unit_efficiency_is_exactly_isentropic",
+    "crates/tampines/src/gas_phase/kta_bed.rs::friction_factor_has_the_right_asymptotes",
+    "crates/tampines/src/gas_phase/kta_bed.rs::htr10_core_pressure_drop_is_a_small_fraction_of_system_pressure",
+    "crates/tampines/src/gas_phase/kta_bed.rs::kta_friction_factor_reproduces_vtb_gold_value",
+    "crates/tampines/src/gas_phase/kta_bed.rs::kta_pressure_gradient_reproduces_vtb_gold_values",
+    "crates/tampines/src/gas_phase/kta_bed.rs::measure_htr10_core_pressure_drop",
+    "crates/tampines/src/gas_phase/kta_bed.rs::out_of_range_inputs_are_rejected",
+    "crates/tampines/src/gas_phase/kta_bed.rs::vtb_mass_flow_reynolds_inconsistency_is_reproduced",
+    "crates/tampines/src/gas_phase/pipe.rs::acceleration_term_changes_sign_with_heating",
+    "crates/tampines/src/gas_phase/pipe.rs::churchill_agrees_with_colebrook_white_in_the_turbulent_region",
+    "crates/tampines/src/gas_phase/pipe.rs::churchill_reaches_the_fully_rough_asymptote",
+    "crates/tampines/src/gas_phase/pipe.rs::churchill_reduces_to_laminar_64_over_re",
+    "crates/tampines/src/gas_phase/pipe.rs::energy_balance_closes_on_enthalpy",
+    "crates/tampines/src/gas_phase/pipe.rs::gnielinski_and_dittus_boelter_agree_within_correlation_spread",
+    "crates/tampines/src/gas_phase/pipe.rs::htr10_hot_duct_is_deeply_subsonic",
+    "crates/tampines/src/gas_phase/pipe.rs::invalid_inputs_are_rejected",
+    "crates/tampines/src/gas_phase/pipe.rs::measure_htr10_hot_duct",
+    "crates/tampines/src/gas_phase/pipe.rs::wall_temperature_boundary_never_overshoots",
+    "crates/tampines/src/gas_phase/properties.rs::cp_matches_the_htr10_anchor_and_the_ideal_monatomic_value",
+    "crates/tampines/src/gas_phase/properties.rs::density_ratio_across_the_core_rules_out_boussinesq",
+    "crates/tampines/src/gas_phase/properties.rs::density_reproduces_coolprop_htr10_anchor_states",
+    "crates/tampines/src/gas_phase/properties.rs::measure_htr10_states",
+    "crates/tampines/src/gas_phase/properties.rs::out_of_envelope_states_are_rejected",
+    "crates/tampines/src/gas_phase/properties.rs::prandtl_stays_in_the_monatomic_band_across_the_core",
+    "crates/tampines/src/gas_phase/properties.rs::state_ph_inverts_state_pt",
+    "crates/tampines/src/gas_phase/properties.rs::transport_properties_match_the_cited_nist_literature_values",
+]
+
+[module."circulator.rs"]
+path = "crate::gas_phase::circulator"
+
+[[module."circulator.rs".function]]
+id = "fn:f92aae8691dac9e6"
+name = "CirculatorDuty"
+qual = "CirculatorDuty"
+item = "type"
+shape = "enum"
+lines = [
+    72,
+    83,
+]
+hash = "sha256:46d5ecc7b9c2181003f83ff1ce4c30af8be595da997d46accf4933431a58721e"
+doc_hash = "sha256:df8cf9288f7c937602f94cecfc214ee37c220e1d190284de66933666a8ac05b3"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."circulator.rs".function]]
+id = "fn:fdad444c0fb7a121"
+name = "Circulator"
+qual = "Circulator"
+item = "type"
+shape = "struct"
+lines = [
+    85,
+    97,
+]
+hash = "sha256:043ef29a7e39bc1d974d29305d6645db9fb82b52b7fa6c185fb21b7c57726957"
+doc_hash = "sha256:4ed83f65bf70b5e083e234fdb7b0ec6589b3a84a28ca1ad9861c2d85a5179e4f"
+uses = ["fn:f92aae8691dac9e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."circulator.rs".function]]
+id = "fn:8608ae7eb629cc89"
+name = "CirculatorResult"
+qual = "CirculatorResult"
+item = "type"
+shape = "struct"
+lines = [
+    99,
+    118,
+]
+hash = "sha256:f108ff95e542673437519fc378ef64cd4e3c591bdb760157e69cb64a5f21d0c8"
+doc_hash = "sha256:ca9587cfd3576cad229ed429d522ff440fe7f713a0c3f1c2a3d73f1d17ee52e6"
+uses = [
+    "fn:43adf4f222c6dbbc",
+    "fn:d0af4ed5dcc86306",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."circulator.rs".function]]
+id = "fn:21a0f23b4bebd441"
+name = "new_fixed_pressure_rise"
+qual = "Circulator::new_fixed_pressure_rise"
+lines = [
+    121,
+    128,
+]
+hash = "sha256:74901dbdfe9deac68cc1f7ff96798fa51adec8828035cd10264d602d259a27be"
+doc_hash = "sha256:40f153de047919bf50643854501746f3428856fb6d8bdfe019ef7bd38d8581ab"
+uses = [
+    "fn:f92aae8691dac9e6",
+    "fn:fdad444c0fb7a121",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."circulator.rs".function]]
+id = "fn:17f2b53a1a0af0a6"
+name = "new_fixed_pressure_ratio"
+qual = "Circulator::new_fixed_pressure_ratio"
+lines = [
+    130,
+    137,
+]
+hash = "sha256:335a8aa403bcf75e1693d3d9f96ebad4c7c3db82eb9489a790b6d7e3ac25f9e4"
+doc_hash = "sha256:a761cd449e2a233464aab0500d37b326f0eb7e1b67db32d918349ca2940f05d3"
+uses = [
+    "fn:f92aae8691dac9e6",
+    "fn:fdad444c0fb7a121",
+]
+reached_by = [
+    "#0",
+    "#3",
+]
+physical_interface = true
+
+[[module."circulator.rs".function]]
+id = "fn:5f64a058c34e9166"
+name = "outlet_pressure"
+qual = "Circulator::outlet_pressure"
+lines = [
+    139,
+    167,
+]
+hash = "sha256:2c0116aabd4a533daf0ba12b85757ef07c901be2fef3d47bb6477b6fcb03fdc9"
+doc_hash = "sha256:8ec03c8f778ff07b154d4bb599fadb1d8a8d67374fd9d1681c50f4abf07af764"
+uses = [
+    "fn:68b34d3619147766",
+    "fn:f92aae8691dac9e6",
+    "fn:fdad444c0fb7a121",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."circulator.rs".function]]
+id = "fn:980dfcad4f1be268"
+name = "compress_helium"
+qual = "Circulator::compress_helium"
+lines = [
+    169,
+    245,
+]
+hash = "sha256:038b6e5004db60726ef8777689f96fe4d6ed139a6bb8b86b3600b419b257593d"
+doc_hash = "sha256:f3d1ad524d751b77dab69ea49a16b31ca2c6faef69766c0a699b7098fd2aa3de"
+callees = [
+    "fn:0234a0c54f286b68",
+    "fn:5f64a058c34e9166",
+    "fn:a9e5181d9a48d7b4",
+    "fn:be470f754b63111f",
+    "fn:dc4ddc3f6635a0f8",
+]
+uses = [
+    "fn:68b34d3619147766",
+    "fn:76b3c86a3f053867",
+    "fn:8608ae7eb629cc89",
+    "fn:d0af4ed5dcc86306",
+    "fn:fdad444c0fb7a121",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."circulator.rs".function]]
+id = "fn:b9b92c58f7828838"
+name = "measure_htr10_circulator"
+qual = "measure_htr10_circulator"
+lines = [
+    254,
+    282,
+]
+hash = "sha256:2ef142d192885d48e1ea095a6f23848491e323cc90eed5b7fa7d1cf721207f48"
+doc_hash = "sha256:90d69bfaccba93434a6b81f444effc2d05f2ec418dabd1812e5fabc57d26119c"
+callees = [
+    "fn:21a0f23b4bebd441",
+    "fn:73b0d1c394de28a8",
+    "fn:7c6f68ace4a46069",
+    "fn:980dfcad4f1be268",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:fdad444c0fb7a121"]
+test = true
+
+[[module."circulator.rs".function]]
+id = "fn:bc6204390e1c96ef"
+name = "unit_efficiency_is_exactly_isentropic"
+qual = "unit_efficiency_is_exactly_isentropic"
+lines = [
+    284,
+    315,
+]
+hash = "sha256:41a1929a74b59e71ab4911fab3e5af8eea48150058456dbb7aa80175cc060219"
+doc_hash = "sha256:e75c4857e53bcb48504ae27c9156ba7d763dcc74cf04a5b7dede5dc2a29fd9fc"
+callees = [
+    "fn:21a0f23b4bebd441",
+    "fn:73b0d1c394de28a8",
+    "fn:7c6f68ace4a46069",
+    "fn:980dfcad4f1be268",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:fdad444c0fb7a121"]
+test = true
+
+[[module."circulator.rs".function]]
+id = "fn:cda9fa7fe1450f31"
+name = "lower_efficiency_means_more_work_and_more_heating"
+qual = "lower_efficiency_means_more_work_and_more_heating"
+lines = [
+    317,
+    373,
+]
+hash = "sha256:ff5145e9cc45d802f29722393d5d5c7cbe45719ca4f9e24bcdffc461e3eba4a6"
+doc_hash = "sha256:1776167722f2b047b8e9195136207912649c63caf028edc5a93f52dd4a3e56ea"
+callees = [
+    "fn:21a0f23b4bebd441",
+    "fn:73b0d1c394de28a8",
+    "fn:7c6f68ace4a46069",
+    "fn:980dfcad4f1be268",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:fdad444c0fb7a121"]
+test = true
+
+[[module."circulator.rs".function]]
+id = "fn:db0767ed7a0b2166"
+name = "pressure_rise_and_pressure_ratio_duties_agree"
+qual = "pressure_rise_and_pressure_ratio_duties_agree"
+lines = [
+    375,
+    409,
+]
+hash = "sha256:a9c5f13d2e7988fae1f6e62804e2656ba35f7ac6c4057b5bc199c7fe0233dcf1"
+doc_hash = "sha256:7ca161c03e05c66f46ca7990fc72e89ca32b8a2bc22a8a9268aadb61c091d129"
+callees = [
+    "fn:17f2b53a1a0af0a6",
+    "fn:21a0f23b4bebd441",
+    "fn:73b0d1c394de28a8",
+    "fn:7c6f68ace4a46069",
+    "fn:980dfcad4f1be268",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:fdad444c0fb7a121"]
+test = true
+
+[[module."circulator.rs".function]]
+id = "fn:efe3143067093da5"
+name = "invalid_inputs_are_rejected"
+qual = "invalid_inputs_are_rejected"
+lines = [
+    411,
+    444,
+]
+hash = "sha256:8bc289c9cfc3124503f5d13190db5290e3903792982f631f7a53571a54eba0ef"
+doc_hash = "sha256:d887ea97e864d3a4157eb25b7ca971f743f8ad164ebc167411daccecddc907a4"
+callees = [
+    "fn:17f2b53a1a0af0a6",
+    "fn:21a0f23b4bebd441",
+    "fn:73b0d1c394de28a8",
+    "fn:7c6f68ace4a46069",
+    "fn:980dfcad4f1be268",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:fdad444c0fb7a121"]
+test = true
+
+[module."kta_bed.rs"]
+path = "crate::gas_phase::kta_bed"
+
+[[module."kta_bed.rs".function]]
+id = "fn:373f3ff19854307c"
+name = "superficial_mass_flux"
+qual = "superficial_mass_flux"
+lines = [
+    105,
+    113,
+]
+hash = "sha256:52cc7a59122528b8c7990032c19e4b88620cf109c32ad658e4dcb00566bda4a8"
+doc_hash = "sha256:e13e2ba152e45b9b12012b2e1ed09539cfb747c134f7908d9c28c4d6a977b086"
+uses = ["fn:80bc007aabd2f27b"]
+reached_by = [
+    "#6",
+    "#8",
+    "#9",
+    "#11",
+]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:8307cf806c81302e"
+name = "packed_bed_reynolds"
+qual = "packed_bed_reynolds"
+lines = [
+    115,
+    125,
+]
+hash = "sha256:b2f73d4f95f78370de267e1f32b9e1494cddf89a767e98884a00c11cfac792b0"
+doc_hash = "sha256:4134d1317a79e740048adb601783ce1e2b3f57f95080f1f23884f693e11243bd"
+uses = ["fn:80bc007aabd2f27b"]
+reached_by = [
+    "#6",
+    "#8",
+    "#9",
+    "#11",
+]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:82f3e5d4108e5f61"
+name = "kta_friction_factor"
+qual = "kta_friction_factor"
+lines = [
+    127,
+    157,
+]
+hash = "sha256:d0b8fd90acd4155b1f55d4bb2c503160066c211a02d2788fa1bf8d3418d391bf"
+doc_hash = "sha256:a5798344cb2efa57d6615a0454b666b9380a2e9c4035d5ffbb88d704bf8fd546"
+uses = ["fn:68b34d3619147766"]
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:1b46f314b815f445"
+name = "KtaBed"
+qual = "KtaBed"
+item = "type"
+shape = "struct"
+lines = [
+    159,
+    179,
+]
+hash = "sha256:8ca79862060745e91caa9205f7ab12e43d1188f3a2d9488de1e334bea00dc849"
+doc_hash = "sha256:87d92eb3000b1bb1edbc622cb99094c3e7d67ffcfd3d9878d9db62edb1ba04d9"
+reached_by = [
+    "#6",
+    "#8",
+    "#9",
+]
+
+[[module."kta_bed.rs".function]]
+id = "fn:aeac9109c8d92fd0"
+name = "KtaBedResult"
+qual = "KtaBedResult"
+item = "type"
+shape = "struct"
+lines = [
+    181,
+    197,
+]
+hash = "sha256:2263ffad91a41979458cc901b2b33d0b7e5e391a1f4cfdeb2bae2b2fb180ec65"
+doc_hash = "sha256:0cd2e5af559a706961c666bc1eed16d3eee7c6c2017a410a696303e10a9a9f44"
+uses = [
+    "fn:125e1756aea0489e",
+    "fn:80bc007aabd2f27b",
+]
+reached_by = [
+    "#6",
+    "#8",
+    "#9",
+]
+
+[[module."kta_bed.rs".function]]
+id = "fn:0260a3572b1631d8"
+name = "new"
+qual = "KtaBed::new"
+lines = [
+    200,
+    208,
+]
+hash = "sha256:261377ccb5d4587d707a489a495e6a460aba23fd01b5dc4fa43f1717a7222614"
+doc_hash = "sha256:4eb58b526fad342b11892158754beab34edb1900da43be4aa5a85e5c1d87b0ef"
+uses = ["fn:1b46f314b815f445"]
+reached_by = [
+    "#6",
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:02b7e09988942706"
+name = "htr10"
+qual = "KtaBed::htr10"
+lines = [
+    210,
+    226,
+]
+hash = "sha256:f17793054970dd3e3613fe8adf97e8e6530e748684929a87a4d56794dedfe888"
+doc_hash = "sha256:84d2ef37e01992d70a92e6512b2762a5864bd67ba256b04f02a3b2b10d57b2bf"
+callees = ["fn:0260a3572b1631d8"]
+uses = ["fn:1b46f314b815f445"]
+reached_by = [
+    "#6",
+    "#9",
+]
+
+[[module."kta_bed.rs".function]]
+id = "fn:0dcc80bb4a8d07ca"
+name = "free_flow_area"
+qual = "KtaBed::free_flow_area"
+lines = [
+    228,
+    235,
+]
+hash = "sha256:3084af0d1bc88bbb306b5756359dbac51001480a9c519485d5bf6e6cd3f8838f"
+doc_hash = "sha256:b22974f7fbbaea0a9805f7f984ccddec6e84eb3d933de918eaae7f8dc0694bbc"
+uses = ["fn:1b46f314b815f445"]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:55525bd8c173da1e"
+name = "pressure_gradient_detailed"
+qual = "KtaBed::pressure_gradient_detailed"
+lines = [
+    237,
+    292,
+]
+hash = "sha256:f2c6c18abe51270a03184b191a529d0f7f4509491940428b8bc5222788c74515"
+doc_hash = "sha256:14b918468238803d039c35129e193212d258ff781b16bc59eba80b1df34ee455"
+callees = [
+    "fn:373f3ff19854307c",
+    "fn:82f3e5d4108e5f61",
+    "fn:8307cf806c81302e",
+]
+uses = [
+    "fn:125e1756aea0489e",
+    "fn:1b46f314b815f445",
+    "fn:68b34d3619147766",
+    "fn:aeac9109c8d92fd0",
+]
+reached_by = [
+    "#6",
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:a58a5aa9fe2cebfd"
+name = "pressure_gradient"
+qual = "KtaBed::pressure_gradient"
+lines = [
+    294,
+    305,
+]
+hash = "sha256:b16eda3598c8430e21348ed46b72df9901ef6bdd674ee789b49c89065e5d6a42"
+doc_hash = "sha256:1c0f69dc9ec2f9c6603e747103f30a664aba4b81dcacffdd71eea2c80d08fd6b"
+callees = ["fn:55525bd8c173da1e"]
+uses = [
+    "fn:125e1756aea0489e",
+    "fn:1b46f314b815f445",
+    "fn:68b34d3619147766",
+]
+reached_by = [
+    "#6",
+    "#9",
+]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:e0427553c5f5c2d4"
+name = "pressure_drop"
+qual = "KtaBed::pressure_drop"
+lines = [
+    307,
+    322,
+]
+hash = "sha256:3f6b33f34611a94b9d9b71b3f0e2d3b82a9d473e57283b8dc33d4d69c506e8b2"
+doc_hash = "sha256:5bc8ee8c3be607abaa82c1e2ba2512d271ddba9a9d14c6f877510ed26bcc17d7"
+callees = ["fn:a58a5aa9fe2cebfd"]
+uses = [
+    "fn:1b46f314b815f445",
+    "fn:68b34d3619147766",
+]
+reached_by = [
+    "#6",
+    "#9",
+]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:022942a96efae5c3"
+name = "pressure_drop_helium_marched"
+qual = "KtaBed::pressure_drop_helium_marched"
+lines = [
+    324,
+    378,
+]
+hash = "sha256:2c671419d986f5595e66ca65d76d1ed75027099acea91efafb3594da35c42f99"
+doc_hash = "sha256:58153969c959caae6ad0fb8f2840a745ec8c5b3a80e85d6f4e189c5be5a47996"
+callees = [
+    "fn:be470f754b63111f",
+    "fn:e0427553c5f5c2d4",
+]
+uses = [
+    "fn:1b46f314b815f445",
+    "fn:68b34d3619147766",
+]
+reached_by = [
+    "#6",
+    "#9",
+]
+physical_interface = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:0a17bbc196eda560"
+name = "VTB_REYNOLDS"
+qual = "VTB_REYNOLDS"
+item = "const"
+shape = "const"
+lines = [
+    391,
+    396,
+]
+hash = "sha256:3743b19c38280ab6a90083efa9cf781e975f90e306647dc10aab89c2da8fd173"
+doc_hash = "sha256:77066461894e6019d59833d6f69934c4f755ebcf41dd0c742e897e433f8059a7"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:7d9d14fd7dd4abb9"
+name = "VTB_POROSITY"
+qual = "VTB_POROSITY"
+item = "const"
+shape = "const"
+lines = [
+    397,
+    398,
+]
+hash = "sha256:4910c2d7d3a3228d7899fe8129334e4fcba36b1b0dcddba7dd9fb1b0709f79cf"
+doc_hash = "sha256:83a9b01c08557d5182c39ff7f250a2cba597e4fc87bb50a6afcc83ac2a579a13"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:fe29d8eb31c907d5"
+name = "VTB_D_H_M"
+qual = "VTB_D_H_M"
+item = "const"
+shape = "const"
+lines = [
+    399,
+    400,
+]
+hash = "sha256:ad8875e7273b74a217636ea2ff8626feeae88936cbc4c22f1e2388010625a471"
+doc_hash = "sha256:89f7dc584a7d194ee58d0ec1e8e794ad0f10a1f1f8f5f90debdeba4c861257ea"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:894331a1be24097f"
+name = "VTB_MU_PA_S"
+qual = "VTB_MU_PA_S"
+item = "const"
+shape = "const"
+lines = [
+    401,
+    402,
+]
+hash = "sha256:e947f930798cf203be6de86a2de49dbb8026cd3bed7184e8625a9d378ec396c7"
+doc_hash = "sha256:1054b0fb32d25a3dbb370610f2a7bb434ffc74ccc3628573d5183cee01738ca1"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:e8aa2aeae406e78a"
+name = "VTB_RHO_KG_M3"
+qual = "VTB_RHO_KG_M3"
+item = "const"
+shape = "const"
+lines = [
+    403,
+    404,
+]
+hash = "sha256:378cd2295db4b082279219eed432524b209c9fd543f106b3eb80356b64da6fd6"
+doc_hash = "sha256:1f519f6a69bb862f9c39c7e1d4e19cb5f76374a86897d5c8a66a99085e297b36"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:f49416bcd85a88bf"
+name = "VTB_BED_LENGTH_M"
+qual = "VTB_BED_LENGTH_M"
+item = "const"
+shape = "const"
+lines = [
+    405,
+    406,
+]
+hash = "sha256:24d4b673907ebba2647f36dfd90c864f2bd3d94a0a4209a99c4ed575cf00ef39"
+doc_hash = "sha256:394e00569d049cb02016621185824f0d1fb717b27b463daaa92c1ee82bd4b68d"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:462288d8a3a18197"
+name = "VTB_PSI"
+qual = "VTB_PSI"
+item = "const"
+shape = "const"
+lines = [
+    407,
+    408,
+]
+hash = "sha256:2b8c028032ccb2c71b48e0d58590e32b635abf1e508618b8ae6e31b4e6252e15"
+doc_hash = "sha256:0dfcb97e691e085e2620b8d30f7649e2a3403890fbcc16d457439c6bc945947a"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:73e8252b7bc58966"
+name = "VTB_GRADIENT_PA_PER_M"
+qual = "VTB_GRADIENT_PA_PER_M"
+item = "const"
+shape = "const"
+lines = [
+    409,
+    410,
+]
+hash = "sha256:c7a0c6bc451c6c73e2236b8071f47f5c9636d957625cd4fdc4e4116992140771"
+doc_hash = "sha256:1fa40c0bfceca3dfd2f516428607708e65f84bdc07785fdc08a18aec30b6c607"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:9a93647a41461d68"
+name = "VTB_DROP_KPA"
+qual = "VTB_DROP_KPA"
+item = "const"
+shape = "const"
+lines = [
+    411,
+    413,
+]
+hash = "sha256:75580d198f898b4636fc497ff0755442d119230cb3ee0e8099513b084f6a403b"
+doc_hash = "sha256:bb4df8f87491f2c88e02eed4f4202d7e33166220e7c2070992e76ae898170505"
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:72feddee56ff6da3"
+name = "kta_friction_factor_reproduces_vtb_gold_value"
+qual = "kta_friction_factor_reproduces_vtb_gold_value"
+lines = [
+    415,
+    441,
+]
+hash = "sha256:542d032aa5badd6f437390041ac587f3ebb2bdffc22f80f1172c33b7c82619f0"
+doc_hash = "sha256:19686853749daf20cef9e2149dba39b9937252675fc71502a4788c4648a60f15"
+callees = ["fn:82f3e5d4108e5f61"]
+uses = [
+    "fn:0a17bbc196eda560",
+    "fn:462288d8a3a18197",
+    "fn:7d9d14fd7dd4abb9",
+]
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:7c8b93d27c8cd943"
+name = "kta_pressure_gradient_reproduces_vtb_gold_values"
+qual = "kta_pressure_gradient_reproduces_vtb_gold_values"
+lines = [
+    443,
+    521,
+]
+hash = "sha256:764f748dbda8361984ee583ee484d8a4f062d97e78fae33bd51af74415be7058"
+doc_hash = "sha256:94ba2b690354ccf0cc140c0ddf4844294b446d519f065043ffe9c4a1bc793d92"
+callees = [
+    "fn:0260a3572b1631d8",
+    "fn:55525bd8c173da1e",
+]
+uses = [
+    "fn:0a17bbc196eda560",
+    "fn:1b46f314b815f445",
+    "fn:73e8252b7bc58966",
+    "fn:7d9d14fd7dd4abb9",
+    "fn:80bc007aabd2f27b",
+    "fn:894331a1be24097f",
+    "fn:9a93647a41461d68",
+    "fn:e8aa2aeae406e78a",
+    "fn:f49416bcd85a88bf",
+    "fn:fe29d8eb31c907d5",
+]
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:693d5b6821a25485"
+name = "vtb_mass_flow_reynolds_inconsistency_is_reproduced"
+qual = "vtb_mass_flow_reynolds_inconsistency_is_reproduced"
+lines = [
+    523,
+    562,
+]
+hash = "sha256:4ec22f07a62b67824c344a44f74482215dff7cb5be024bef90b178443229aa86"
+doc_hash = "sha256:d6e8b1eefe0f1cedff58d11b5c2189b7064456aa4a43c85a99fe852121bd5776"
+callees = [
+    "fn:373f3ff19854307c",
+    "fn:8307cf806c81302e",
+]
+uses = [
+    "fn:0a17bbc196eda560",
+    "fn:894331a1be24097f",
+    "fn:fe29d8eb31c907d5",
+]
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:894b01743bad474b"
+name = "friction_factor_has_the_right_asymptotes"
+qual = "friction_factor_has_the_right_asymptotes"
+lines = [
+    564,
+    586,
+]
+hash = "sha256:0871f24a2f133b6446857b7f27ef246d57ddaeee05f0daaa7e821e7cca39c894"
+doc_hash = "sha256:7de174ecd8f7226462dbcb819a0bb681e72ce7e0e659448b480af91eaf9831ed"
+callees = ["fn:82f3e5d4108e5f61"]
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:0419d7dac0299b20"
+name = "out_of_range_inputs_are_rejected"
+qual = "out_of_range_inputs_are_rejected"
+lines = [
+    588,
+    600,
+]
+hash = "sha256:94726faccb44a4dd4c3b8cd7b93b95d1720d2868801193eada5eb4a06302f643"
+doc_hash = "sha256:dc4fd1795434bba0262c84c98bf9021d30122d61e93cf753d7bc7d1d28d66d4d"
+callees = ["fn:82f3e5d4108e5f61"]
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:db08e2f583e2a082"
+name = "measure_htr10_core_pressure_drop"
+qual = "measure_htr10_core_pressure_drop"
+lines = [
+    602,
+    648,
+]
+hash = "sha256:8971f36d68698695d80e9bc6e95aac6b112f49ac64a36e1181bf7ef1f49b1434"
+doc_hash = "sha256:9bec38cdaecaa4097320c3c7e749643f0389473c486e95dccd65cacd481ef571"
+callees = [
+    "fn:022942a96efae5c3",
+    "fn:02b7e09988942706",
+    "fn:396e4660c0eeb2b7",
+    "fn:55525bd8c173da1e",
+    "fn:73b0d1c394de28a8",
+    "fn:7c6f68ace4a46069",
+    "fn:be470f754b63111f",
+    "fn:e0427553c5f5c2d4",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:1b46f314b815f445"]
+test = true
+
+[[module."kta_bed.rs".function]]
+id = "fn:0ec3c9996c3de28e"
+name = "htr10_core_pressure_drop_is_a_small_fraction_of_system_pressure"
+qual = "htr10_core_pressure_drop_is_a_small_fraction_of_system_pressure"
+lines = [
+    650,
+    733,
+]
+hash = "sha256:d742ae782581863d15772f309d37820a8c1194a117a67d78eaa63fbae0a9e6b0"
+doc_hash = "sha256:0513ab2062e00f22514ae99df6b589838397767baf682494517c49a578119e3b"
+callees = [
+    "fn:022942a96efae5c3",
+    "fn:02b7e09988942706",
+    "fn:396e4660c0eeb2b7",
+    "fn:55525bd8c173da1e",
+    "fn:73b0d1c394de28a8",
+    "fn:7c6f68ace4a46069",
+    "fn:be470f754b63111f",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:1b46f314b815f445"]
+test = true
+
+[module."mod.rs"]
+path = "crate::gas_phase"
+
+[[module."mod.rs".function]]
+id = "fn:80bc007aabd2f27b"
+name = "MassFlux"
+qual = "MassFlux"
+item = "type"
+shape = "alias"
+lines = [
+    97,
+    103,
+]
+hash = "sha256:5996f482113bc64573ea79b3f452210742319064bf48fb35b082904d5c2c3528"
+doc_hash = "sha256:aade5a17123f5d0ac316c3434eb9a45a0f9129ce1e2b8184fa5af73296ace7ad"
+reached_by = [
+    "#6",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."mod.rs".function]]
+id = "fn:125e1756aea0489e"
+name = "PressureGradient"
+qual = "PressureGradient"
+item = "type"
+shape = "alias"
+lines = [
+    105,
+    109,
+]
+hash = "sha256:987b1ffb1063527476eb779b3d0cc65192196fdb2e9735e3847a31161d8edbd7"
+doc_hash = "sha256:65d69170c773a359a1187f47de1ae8141de5dcc86409306fc7ec5835e4423e05"
+reached_by = [
+    "#6",
+    "#8",
+    "#9",
+]
+
+[module."pipe.rs"]
+path = "crate::gas_phase::pipe"
+
+[[module."pipe.rs".function]]
+id = "fn:6d25149b2ba17844"
+name = "HeatTransferCorrelation"
+qual = "HeatTransferCorrelation"
+item = "type"
+shape = "enum"
+lines = [
+    115,
+    133,
+]
+hash = "sha256:fcab98ce20f7a177a122d148e078162416085bbc47a2458b4d30a97ae4fad310"
+doc_hash = "sha256:04936c62dc16d56af3d803fdcab0b1a0cae97cbbce793a15f03a654cac712fe8"
+reached_by = [
+    "#12",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."pipe.rs".function]]
+id = "fn:0321a1313c0c7d00"
+name = "DuctThermalBoundary"
+qual = "DuctThermalBoundary"
+item = "type"
+shape = "enum"
+lines = [
+    135,
+    155,
+]
+hash = "sha256:fc0b9e4184bbbbd42b224fe5782645db394722a15401622b1a4d94ced17403eb"
+doc_hash = "sha256:582a8666bceb636462863e8a3468cdd3d064c85dbafe57aa34842d1c3b60425b"
+reached_by = [
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."pipe.rs".function]]
+id = "fn:5f29b84d1caccf29"
+name = "GasDuct"
+qual = "GasDuct"
+item = "type"
+shape = "struct"
+lines = [
+    157,
+    181,
+]
+hash = "sha256:2c0ecbe943b646aac4302d8861b2933fd25b646d924968d0987cecc203846084"
+doc_hash = "sha256:a414bcb4fd50c3690f0173391c0494f1e1dd60573fe8c4f2c9300ba570825434"
+uses = ["fn:6d25149b2ba17844"]
+reached_by = [
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."pipe.rs".function]]
+id = "fn:2696ebadd26088b7"
+name = "GasDuctResult"
+qual = "GasDuctResult"
+item = "type"
+shape = "struct"
+lines = [
+    183,
+    230,
+]
+hash = "sha256:c5afb61abe4551df1a8bd60b92ab406128d6a6bd5555cbc01b941c32bb6fb2b0"
+doc_hash = "sha256:560704e7a76ec15946b4aaad9af6626afbfd8333f2241d6d2c3015c8b1686c87"
+uses = [
+    "fn:43adf4f222c6dbbc",
+    "fn:80bc007aabd2f27b",
+]
+reached_by = [
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."pipe.rs".function]]
+id = "fn:8d2426c4249823a0"
+name = "heat_transfer_correlation_in_range"
+qual = "GasDuctResult::heat_transfer_correlation_in_range"
+lines = [
+    233,
+    252,
+]
+hash = "sha256:a854958b605be71618c94b4633764ede89947147f713542f3856796d1d3b0e05"
+doc_hash = "sha256:5cc4c81c1d3dacae81d9ddad748473790eea8acc3a8cb910a47cab9a13244483"
+uses = [
+    "fn:2696ebadd26088b7",
+    "fn:6d25149b2ba17844",
+]
+reached_by = ["#20"]
+
+[[module."pipe.rs".function]]
+id = "fn:b51193d80959882e"
+name = "churchill_friction_factor"
+qual = "churchill_friction_factor"
+lines = [
+    255,
+    284,
+]
+hash = "sha256:049a822f51cc4e9fcdd6dccd491bcb59c2688744a1e2cba7c76e5410cef07ac5"
+doc_hash = "sha256:12672277f59772698ff7b4bd913a9151357d55c3cb8bdc5ef091784fceda4c14"
+uses = ["fn:68b34d3619147766"]
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."pipe.rs".function]]
+id = "fn:370562d518dab660"
+name = "nusselt_number"
+qual = "nusselt_number"
+lines = [
+    286,
+    328,
+]
+hash = "sha256:6173778ba36d76290af760c0bb5060791346cfede0256b30e58b3590bf613131"
+doc_hash = "sha256:e0ef06a8e59e7b5a742e5ee85f6d4f302a5cf2b85ac946fa90b5a380b50dfaa5"
+uses = [
+    "fn:68b34d3619147766",
+    "fn:6d25149b2ba17844",
+]
+reached_by = [
+    "#12",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."pipe.rs".function]]
+id = "fn:b72f01e30bb7f3b8"
+name = "new_circular"
+qual = "GasDuct::new_circular"
+lines = [
+    331,
+    348,
+]
+hash = "sha256:c23621566cfa92ed4d403d2f07331a84b62a300a6f181ead955f24ccc139fb48"
+doc_hash = "sha256:e23ea60c87afcfed0899ab8b130f97b7a173825b74e68e03e47f11bc7c643a12"
+uses = [
+    "fn:5f29b84d1caccf29",
+    "fn:6d25149b2ba17844",
+]
+reached_by = [
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."pipe.rs".function]]
+id = "fn:f94367fa6ccc67c5"
+name = "wall_area"
+qual = "GasDuct::wall_area"
+lines = [
+    350,
+    353,
+]
+hash = "sha256:755b3cdba268ffdc32611ad682bcff16360931d7de2b944f49c07ceac4e6d7f3"
+doc_hash = "sha256:4d1025493ce887b00a74c180c28b20a5eeb00fef3dfa2dd7e8266069e08919bf"
+uses = ["fn:5f29b84d1caccf29"]
+reached_by = [
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."pipe.rs".function]]
+id = "fn:52fad11fb4b737e7"
+name = "relative_roughness"
+qual = "GasDuct::relative_roughness"
+lines = [
+    355,
+    358,
+]
+hash = "sha256:8072c735df706e3c4eae3652991f724cecbfe463475c6e2e596d81969a0a44b6"
+doc_hash = "sha256:93ef702ef8fa49991afad3308e0be2d1631625e66129cc8d1a823e3f9affd96d"
+uses = ["fn:5f29b84d1caccf29"]
+reached_by = [
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."pipe.rs".function]]
+id = "fn:ba1291e73355d625"
+name = "solve_helium"
+qual = "GasDuct::solve_helium"
+lines = [
+    360,
+    533,
+]
+hash = "sha256:51465a21919c20c8e64325265b4727660fae5c027dff286fc9f27c0928176393"
+doc_hash = "sha256:a01b31cfb33b50e46c769d1932d5fc3ee3fe41fa6f3ed8c57b4e2e38d1de1894"
+callees = [
+    "fn:370562d518dab660",
+    "fn:52fad11fb4b737e7",
+    "fn:985fa7224c7d9e8e",
+    "fn:b51193d80959882e",
+    "fn:be470f754b63111f",
+    "fn:dc4ddc3f6635a0f8",
+    "fn:f94367fa6ccc67c5",
+]
+uses = [
+    "fn:0321a1313c0c7d00",
+    "fn:2696ebadd26088b7",
+    "fn:5f29b84d1caccf29",
+    "fn:68b34d3619147766",
+    "fn:80bc007aabd2f27b",
+    "fn:d0af4ed5dcc86306",
+]
+reached_by = [
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."pipe.rs".function]]
+id = "fn:401b2fe4671eeb2d"
+name = "htr10_hot_duct"
+qual = "htr10_hot_duct"
+lines = [
+    541,
+    551,
+]
+hash = "sha256:a859832592bcf1723c495e67d67a29ee987124d687fc12df8b8cf722c8a7f630"
+doc_hash = "sha256:fe3f1c9215dd2d15972d46011f221a4620036e99867d16dc945a523aee249205"
+callees = ["fn:b72f01e30bb7f3b8"]
+uses = ["fn:5f29b84d1caccf29"]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:15d51d75f98d5e68"
+name = "churchill_reduces_to_laminar_64_over_re"
+qual = "churchill_reduces_to_laminar_64_over_re"
+lines = [
+    553,
+    569,
+]
+hash = "sha256:e4156e7177e34a50f95786e656cd611f8077d0b7d3e1f01a4803df821d6024d2"
+doc_hash = "sha256:f66a16e4f8517f5891557d471af13999f908443d40a134ff8e02f1c1ffc280d7"
+callees = ["fn:b51193d80959882e"]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:1594cb1d39df2f0a"
+name = "churchill_reaches_the_fully_rough_asymptote"
+qual = "churchill_reaches_the_fully_rough_asymptote"
+lines = [
+    571,
+    588,
+]
+hash = "sha256:329b41c8054125c455092e3e9f2bf4b6bfa6d7007a88e8c2b60b6cfb4fb2e49c"
+doc_hash = "sha256:a1edb23a686896b0d0c2a727f8b86b170b530d278654994f0540aad5269a9b37"
+callees = ["fn:b51193d80959882e"]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:2f2fa697792076a1"
+name = "churchill_agrees_with_colebrook_white_in_the_turbulent_region"
+qual = "churchill_agrees_with_colebrook_white_in_the_turbulent_region"
+lines = [
+    590,
+    611,
+]
+hash = "sha256:a37b198e71bebf7066e77f48cd2e046761164152b885a3afd7d7fb34a3a6739f"
+doc_hash = "sha256:6ddc4c222a3a1d5b92d8ae5b7850c447f55d1443e023bab4a6d55360fc7e2944"
+callees = ["fn:b51193d80959882e"]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:452367e3cc7574fa"
+name = "measure_htr10_hot_duct"
+qual = "measure_htr10_hot_duct"
+lines = [
+    613,
+    652,
+]
+hash = "sha256:fd7efa7ca0230f4a7085db984c5bcc6d75688796befaebc58bf772d95ca8b7a9"
+doc_hash = "sha256:09acd78238cbf468e358aaed23ab681ebf0ae72edee759ae10e08fd722195f69"
+callees = [
+    "fn:396e4660c0eeb2b7",
+    "fn:401b2fe4671eeb2d",
+    "fn:73b0d1c394de28a8",
+    "fn:8d2426c4249823a0",
+    "fn:ba1291e73355d625",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:0321a1313c0c7d00"]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:f87ddab086424a07"
+name = "htr10_hot_duct_is_deeply_subsonic"
+qual = "htr10_hot_duct_is_deeply_subsonic"
+lines = [
+    654,
+    695,
+]
+hash = "sha256:390138c0f03931f6815e67d959f7553d5fc7e9c634e6209aa272bba3b11f58ed"
+doc_hash = "sha256:07485d22bfddfa236204c3e689ca3106084b33425da58b5dc205ad69f8248f6e"
+callees = [
+    "fn:396e4660c0eeb2b7",
+    "fn:401b2fe4671eeb2d",
+    "fn:73b0d1c394de28a8",
+    "fn:ba1291e73355d625",
+    "fn:fa6c4f488d29696f",
+]
+uses = ["fn:0321a1313c0c7d00"]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:178927580074907c"
+name = "energy_balance_closes_on_enthalpy"
+qual = "energy_balance_closes_on_enthalpy"
+lines = [
+    697,
+    755,
+]
+hash = "sha256:ff990250ad3c5a2723a8bc99a78d4754e2219f55ce0efdb4f5fd80a12fcd89cf"
+doc_hash = "sha256:c52d87c1acd59f2cbcd12662065d4bd1761c4221ea793bda3f7c3edde4292b0a"
+callees = [
+    "fn:365d0c6960906e86",
+    "fn:73b0d1c394de28a8",
+    "fn:7c6f68ace4a46069",
+    "fn:b72f01e30bb7f3b8",
+    "fn:ba1291e73355d625",
+    "fn:fa6c4f488d29696f",
+]
+uses = [
+    "fn:0321a1313c0c7d00",
+    "fn:5f29b84d1caccf29",
+]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:b762a371733d2bc0"
+name = "wall_temperature_boundary_never_overshoots"
+qual = "wall_temperature_boundary_never_overshoots"
+lines = [
+    757,
+    806,
+]
+hash = "sha256:c8724bee492efcbdb54b6b27f88f99e6f3064a54de01036d19fe3b294106d6d8"
+doc_hash = "sha256:2bffe69f716d6fda44913b55c65e7b89a86b2b2f0d24c3cbd18f84b236f8a71c"
+callees = [
+    "fn:73b0d1c394de28a8",
+    "fn:b72f01e30bb7f3b8",
+    "fn:ba1291e73355d625",
+]
+uses = [
+    "fn:0321a1313c0c7d00",
+    "fn:5f29b84d1caccf29",
+]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:1ad7bad7c2cca0bc"
+name = "acceleration_term_changes_sign_with_heating"
+qual = "acceleration_term_changes_sign_with_heating"
+lines = [
+    808,
+    847,
+]
+hash = "sha256:7e086e63ca8105928a1d05e528052a31a83e0822a95fbb303797ff6471b18167"
+doc_hash = "sha256:80b32b0fafe07b4bdc3f64c9c393af86b9bdfefaf01c785c787be6aee150b61f"
+callees = [
+    "fn:73b0d1c394de28a8",
+    "fn:b72f01e30bb7f3b8",
+    "fn:ba1291e73355d625",
+]
+uses = [
+    "fn:0321a1313c0c7d00",
+    "fn:5f29b84d1caccf29",
+]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:e0032a3aebb9a53a"
+name = "gnielinski_and_dittus_boelter_agree_within_correlation_spread"
+qual = "gnielinski_and_dittus_boelter_agree_within_correlation_spread"
+lines = [
+    849,
+    867,
+]
+hash = "sha256:d231e2bd3e494147342517991a9b79b0798f31e9e963082ebbf80caf57ef8d72"
+doc_hash = "sha256:e0daabaa71671f4c535f605094595d2a48ff77fcf427e55de8ab866ec8662fd1"
+callees = [
+    "fn:370562d518dab660",
+    "fn:b51193d80959882e",
+]
+uses = ["fn:6d25149b2ba17844"]
+test = true
+
+[[module."pipe.rs".function]]
+id = "fn:a5a7bf698b284c75"
+name = "invalid_inputs_are_rejected"
+qual = "invalid_inputs_are_rejected"
+lines = [
+    869,
+    901,
+]
+hash = "sha256:b6946c0e38671922196aa6b73bb186c14bf82f5bb901f1cdfde178b46e9763b0"
+doc_hash = "sha256:6e85c870df7ed69d769c855236b2976532ac571c46e4bd7439a327b0b06d6e35"
+callees = [
+    "fn:370562d518dab660",
+    "fn:396e4660c0eeb2b7",
+    "fn:401b2fe4671eeb2d",
+    "fn:73b0d1c394de28a8",
+    "fn:b51193d80959882e",
+    "fn:ba1291e73355d625",
+]
+uses = [
+    "fn:0321a1313c0c7d00",
+    "fn:6d25149b2ba17844",
+]
+test = true
+
+[module."properties.rs"]
+path = "crate::gas_phase::properties"
+
+[[module."properties.rs".function]]
+id = "fn:d0af4ed5dcc86306"
+name = "SpecificEnthalpy"
+qual = "SpecificEnthalpy"
+item = "type"
+shape = "alias"
+lines = [
+    91,
+    95,
+]
+hash = "sha256:871d8798d14f2399723fe830b739c3e878db94ac83edd5979daf09ff73f8a8fb"
+doc_hash = "sha256:07345f11d3ffcf3ea9280720e6220ffacac6c2df82943ee620291440323ca70a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."properties.rs".function]]
+id = "fn:340ec20fef4f5da5"
+name = "T_MIN_K"
+qual = "T_MIN_K"
+item = "const"
+shape = "const"
+lines = [
+    97,
+    99,
+]
+hash = "sha256:951e7fe290878329f2f773c125c7bc6811a2a8ad3ce11da8e32da6a7cb3e6806"
+doc_hash = "sha256:12fa76d821f81dc56dbbdacb3182e1fda7346fff298ffd0180835d1690735abf"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."properties.rs".function]]
+id = "fn:75caad5b5e5bc25a"
+name = "T_MAX_K"
+qual = "T_MAX_K"
+item = "const"
+shape = "const"
+lines = [
+    100,
+    102,
+]
+hash = "sha256:7c0826d2b1bc70e04c65adaa83296b1ea09a3ac3829b3b11d6ae7f3b75317ff1"
+doc_hash = "sha256:89ff68ae5cd5fd4a19a4dfa8f66cd56a44eab325ab0062925fdea0d0b94ccf3c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."properties.rs".function]]
+id = "fn:59ad897b66a6d283"
+name = "P_MIN_PA"
+qual = "P_MIN_PA"
+item = "const"
+shape = "const"
+lines = [
+    103,
+    104,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:e0ba814db592ccbf9f39b91ef7141bcdca17b7a3176c52b72269823cf9901319"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."properties.rs".function]]
+id = "fn:58bd32a737cd9cdd"
+name = "P_MAX_PA"
+qual = "P_MAX_PA"
+item = "const"
+shape = "const"
+lines = [
+    105,
+    106,
+]
+hash = "sha256:0eb4f41dad13a1ea098bde48060a3d0b41d75d3a102be9d80a6f3185b7ce6f23"
+doc_hash = "sha256:fec3178b0be79539e67e7073c4ee4e5f07cf3cc046596d34d87491718fceb7ce"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."properties.rs".function]]
+id = "fn:43adf4f222c6dbbc"
+name = "HeliumState"
+qual = "HeliumState"
+item = "type"
+shape = "struct"
+lines = [
+    108,
+    139,
+]
+hash = "sha256:18c8c28e49fb636df0eaf390e4c8ec8bb930acfa35919c137289960700c495f1"
+doc_hash = "sha256:09e6f188b652e0d205cff5c15649cdc051f9fc4fe4a97ce6091256907acb2d2e"
+uses = ["fn:d0af4ed5dcc86306"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."properties.rs".function]]
+id = "fn:985fa7224c7d9e8e"
+name = "prandtl"
+qual = "HeliumState::prandtl"
+lines = [
+    142,
+    153,
+]
+hash = "sha256:4c52b1c816402791bd643c3516f3ea4ec8982fbc558f2de7fdad17ae2dd119bd"
+doc_hash = "sha256:90694e9c7a1bbb991b36fee0fb6d6477958831fed5749b4f51b65db5f911d46e"
+uses = ["fn:43adf4f222c6dbbc"]
+reached_by = [
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#25",
+    "#27",
+]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:078e4d47bfb47c24"
+name = "kinematic_viscosity_m2_per_s"
+qual = "HeliumState::kinematic_viscosity_m2_per_s"
+lines = [
+    155,
+    164,
+]
+hash = "sha256:a6ab147eac7409e4d389b6e274ce72f086844609f19ff2243dcf4d673a17bd3c"
+doc_hash = "sha256:30703a52ff405a596ceb23d24f45bdada31126a786bc2178fca6640638719257"
+uses = ["fn:43adf4f222c6dbbc"]
+
+[[module."properties.rs".function]]
+id = "fn:a2c124188c51765d"
+name = "check_state"
+qual = "check_state"
+lines = [
+    167,
+    187,
+]
+hash = "sha256:b36164ec847b37265b6a0fb613b2ce4925397464d82762ca862c89e1da5dbe9e"
+doc_hash = "sha256:f0fa5218eae90abe25762ec1a0fa0ff56f09478c897bcddb3be31d2c17a4dead"
+uses = [
+    "fn:340ec20fef4f5da5",
+    "fn:58bd32a737cd9cdd",
+    "fn:59ad897b66a6d283",
+    "fn:68b34d3619147766",
+    "fn:75caad5b5e5bc25a",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."properties.rs".function]]
+id = "fn:be470f754b63111f"
+name = "helium_state"
+qual = "helium_state"
+lines = [
+    189,
+    238,
+]
+hash = "sha256:39aada9dbdd0800d2558c09fb7c268f7c3988139dcce8f31930a535f8fad7bfc"
+doc_hash = "sha256:406f49524be0ca4543b93d6786456d345765302c51aa1147e4f1610fe3f40dfc"
+callees = [
+    "fn:49f6be0b866f24e0",
+    "fn:5f3d464522cb768d",
+    "fn:a2c124188c51765d",
+    "fn:a9e5181d9a48d7b4",
+]
+uses = [
+    "fn:43adf4f222c6dbbc",
+    "fn:68b34d3619147766",
+    "fn:76b3c86a3f053867",
+    "fn:d0af4ed5dcc86306",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:dc4ddc3f6635a0f8"
+name = "helium_state_ph"
+qual = "helium_state_ph"
+lines = [
+    240,
+    276,
+]
+hash = "sha256:5afd030a2e58a1816f7327f05c699afdea98eaa5b11dbd9a86772c8f64a7fc84"
+doc_hash = "sha256:13827581c6a111fe013aa7bc925457c93a0c9cf4606a39721ccd96210fad7e6b"
+callees = [
+    "fn:3cc8c82ac6ef64c6",
+    "fn:be470f754b63111f",
+]
+uses = [
+    "fn:43adf4f222c6dbbc",
+    "fn:68b34d3619147766",
+    "fn:76b3c86a3f053867",
+    "fn:d0af4ed5dcc86306",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#28",
+]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:9b75424f1bb9fc8b"
+name = "helium_density"
+qual = "helium_density"
+lines = [
+    278,
+    285,
+]
+hash = "sha256:519e6f59aeb43a997b7fb1dbab7923f8e4cb531ee5761c7a39fe54ba1761b357"
+doc_hash = "sha256:e2db79a208f805a734d3ddec6b22e8c5eb8149e005e9046dff1d482db5284241"
+callees = ["fn:be470f754b63111f"]
+uses = ["fn:68b34d3619147766"]
+reached_by = [
+    "#23",
+    "#24",
+]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:4e0b881e1652baa9"
+name = "helium_viscosity"
+qual = "helium_viscosity"
+lines = [
+    287,
+    297,
+]
+hash = "sha256:abfdf188936eb308176f00ea3f1b4a6b62a03fa3d931ab13aba2a325aeecafca"
+doc_hash = "sha256:e46660342aaf7b881d1f5f08ac5e5fff682b1f3e6e94ddf03a43a4fb22a35e0d"
+callees = ["fn:be470f754b63111f"]
+uses = ["fn:68b34d3619147766"]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:00067bcc775d5761"
+name = "helium_thermal_conductivity"
+qual = "helium_thermal_conductivity"
+lines = [
+    299,
+    306,
+]
+hash = "sha256:d6d2a4f6574de6feb43219bb31f003f2ab785c61707f724ec5997d0cda4dd521"
+doc_hash = "sha256:5e0fee84e5015b27450a24d982af99c504e77856654f492e88bf60b2688a7e19"
+callees = ["fn:be470f754b63111f"]
+uses = ["fn:68b34d3619147766"]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:0b40283bc66e5882"
+name = "helium_cp"
+qual = "helium_cp"
+lines = [
+    308,
+    315,
+]
+hash = "sha256:a7c4cf524dd5f63d27e29a021d68d39b2bdac4792039a3cd68517136b49b5c27"
+doc_hash = "sha256:91d3c46b6ca386f473565bf15d04c199f6287d0d272fdd65f7b5fe819f7c1764"
+callees = ["fn:be470f754b63111f"]
+uses = ["fn:68b34d3619147766"]
+reached_by = ["#22"]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:6774101175491769"
+name = "helium_prandtl"
+qual = "helium_prandtl"
+lines = [
+    317,
+    321,
+]
+hash = "sha256:a66986dcc3b2c905328a913486cddfb81803707e36135bf84195b1820927d572"
+doc_hash = "sha256:0904606fe5573295de4001b27714b6d5eeccea9c3f7b16f727edacbec7666b1c"
+callees = [
+    "fn:985fa7224c7d9e8e",
+    "fn:be470f754b63111f",
+]
+uses = ["fn:68b34d3619147766"]
+reached_by = ["#27"]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:9f98300a438147f1"
+name = "reynolds_number"
+qual = "reynolds_number"
+lines = [
+    323,
+    338,
+]
+hash = "sha256:3cd4bd2cb23a08c189867c416f63eb43eb7f533e59c349aeb8b5bb661eeedb5b"
+doc_hash = "sha256:a6f9fad8c89464bb9fa38fee8b142ea238ea420982c74bbe4c9004898b259d48"
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:73b0d1c394de28a8"
+name = "pressure"
+qual = "pressure"
+lines = [
+    349,
+    352,
+]
+hash = "sha256:072a7a4fbc23e151b27172d6822717e8bf5507c87be4a56beeaea308ac43404c"
+doc_hash = "sha256:6d92e26a61bf16c4e29b56b965c1cff84963d9ece84ea1a59223b33a8e0de975"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#12",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#25",
+]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:7c6f68ace4a46069"
+name = "core_inlet_temperature"
+qual = "core_inlet_temperature"
+lines = [
+    354,
+    357,
+]
+hash = "sha256:98cf0191742997899c8e917fb4fea486eb94ad797749d5c79767c5f41482ae57"
+doc_hash = "sha256:1bcc89cc27e2ee3ac70e63d4b12cf68baa6ab0417bfbb0c3fd05b23b022e10ff"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#16",
+]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:396e4660c0eeb2b7"
+name = "core_outlet_temperature"
+qual = "core_outlet_temperature"
+lines = [
+    359,
+    362,
+]
+hash = "sha256:5dfba750f01edf5626eac90a4e2628bd6d3116d069133db0fd511e86f131b2e5"
+doc_hash = "sha256:f515564e7935e96711fd291d64f81591bacde80b027fb9ba53fb4895861626f7"
+reached_by = [
+    "#6",
+    "#9",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:fa6c4f488d29696f"
+name = "mass_flow_rate"
+qual = "mass_flow_rate"
+lines = [
+    364,
+    367,
+]
+hash = "sha256:77f9ebfa6538063532f0a7a4b7368c52aff7327c3212d28b0f135971ada2ea14"
+doc_hash = "sha256:0b1ff1b048b8a1bdea9876de7dfcb656f022e8388d2ea103a19a8e72c5301086"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#9",
+    "#16",
+    "#18",
+    "#20",
+]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:365d0c6960906e86"
+name = "thermal_power"
+qual = "thermal_power"
+lines = [
+    369,
+    372,
+]
+hash = "sha256:2a7b9e34c5f1e4d267e1ecc4637368188ec963fa4ffcfc6fe47f05e1064ba3fc"
+doc_hash = "sha256:898de8cbb5116eb4b475988d0cf5978f9a26ccdcb4d3f8deb86c9c6608bd8252"
+reached_by = ["#16"]
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:397de686b864fcf8"
+name = "t"
+qual = "t"
+lines = [
+    379,
+    381,
+]
+hash = "sha256:4d9d465dd584cdd2589533317505e310cc4e849d223074972bbc090679b9db95"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:ef78c649b18bd305"
+name = "p"
+qual = "p"
+lines = [
+    382,
+    384,
+]
+hash = "sha256:14bdfaf682a699d4a7f55f594a2ddb946c8e5d01ffa6dc3ce8e74ecb8af86725"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."properties.rs".function]]
+id = "fn:72480283347bfb95"
+name = "density_reproduces_coolprop_htr10_anchor_states"
+qual = "density_reproduces_coolprop_htr10_anchor_states"
+lines = [
+    386,
+    433,
+]
+hash = "sha256:03c75ca00f828c8320699806bc46e5e0a54d0d4ed213fe19a37331a0d7c2cf16"
+doc_hash = "sha256:da8aa281ae747e073ef6347bbde4238578a171e8d7911416a6bec7aefd21ee71"
+callees = [
+    "fn:397de686b864fcf8",
+    "fn:9b75424f1bb9fc8b",
+    "fn:ef78c649b18bd305",
+]
+test = true
+
+[[module."properties.rs".function]]
+id = "fn:5e6f8709b222fa37"
+name = "transport_properties_match_the_cited_nist_literature_values"
+qual = "transport_properties_match_the_cited_nist_literature_values"
+lines = [
+    435,
+    491,
+]
+hash = "sha256:1d7ffe465e96281a880eb98184c923daffe1d649ca2f281eb9a3acc0dc492662"
+doc_hash = "sha256:a8973fe46208bfee271d074cf1b87dc517178aefca42f64faef4a56b24eac4ab"
+callees = [
+    "fn:397de686b864fcf8",
+    "fn:be470f754b63111f",
+    "fn:ef78c649b18bd305",
+]
+test = true
+
+[[module."properties.rs".function]]
+id = "fn:5d3514a4951886d5"
+name = "cp_matches_the_htr10_anchor_and_the_ideal_monatomic_value"
+qual = "cp_matches_the_htr10_anchor_and_the_ideal_monatomic_value"
+lines = [
+    493,
+    534,
+]
+hash = "sha256:98cc4544db239590f2fbdccdda9f1ca9609fe7ee07aa7a42a957018b4c07cf33"
+doc_hash = "sha256:c37bb719bac40e0e306924afd11dfdd11118647cf2f6134cddefe696981af1ef"
+callees = [
+    "fn:0b40283bc66e5882",
+    "fn:397de686b864fcf8",
+    "fn:ef78c649b18bd305",
+]
+test = true
+
+[[module."properties.rs".function]]
+id = "fn:319b2e81096db514"
+name = "density_ratio_across_the_core_rules_out_boussinesq"
+qual = "density_ratio_across_the_core_rules_out_boussinesq"
+lines = [
+    536,
+    570,
+]
+hash = "sha256:14ad84842cdc9bb8339cb76b23a4ac935933991bd7da96df47018b6e30c883c2"
+doc_hash = "sha256:f4f5aa0e9626f39d4bb339094edbb2eada8cefd5ec27b0b1d671a630537aca16"
+callees = [
+    "fn:397de686b864fcf8",
+    "fn:9b75424f1bb9fc8b",
+    "fn:ef78c649b18bd305",
+]
+test = true
+
+[[module."properties.rs".function]]
+id = "fn:eb75fbe7acdf8214"
+name = "prandtl_stays_in_the_monatomic_band_across_the_core"
+qual = "prandtl_stays_in_the_monatomic_band_across_the_core"
+lines = [
+    572,
+    603,
+]
+hash = "sha256:6bc0a003d963c32a234ffc99cc9b1f4d760188fb88e957a20a718c488b81d130"
+doc_hash = "sha256:d9d88ad8ca32c41b797e040f0661b7005bd5056de0cb5ef60e28aee4493d9de6"
+callees = [
+    "fn:397de686b864fcf8",
+    "fn:6774101175491769",
+    "fn:ef78c649b18bd305",
+]
+test = true
+
+[[module."properties.rs".function]]
+id = "fn:855de395cd011ad7"
+name = "state_ph_inverts_state_pt"
+qual = "state_ph_inverts_state_pt"
+lines = [
+    605,
+    615,
+]
+hash = "sha256:a8df67503b0a3493f5b236ae3b78874b9c94043c5d94b1f0f7bcb6a2fa803a2d"
+doc_hash = "sha256:d5b56e10f864cbe30f51691ec302b704cc726631849cda02d720f27dc2ec463c"
+callees = [
+    "fn:397de686b864fcf8",
+    "fn:be470f754b63111f",
+    "fn:dc4ddc3f6635a0f8",
+    "fn:ef78c649b18bd305",
+]
+test = true
+
+[[module."properties.rs".function]]
+id = "fn:0d2fe1b6ae51ef06"
+name = "out_of_envelope_states_are_rejected"
+qual = "out_of_envelope_states_are_rejected"
+lines = [
+    617,
+    636,
+]
+hash = "sha256:a609df7ee326d3fe6815dc207d4ffe8e0c7a99e401cce0bb51d09cb8de898475"
+doc_hash = "sha256:9862132a0c87f50283e14b09a328c7ec811e09c4c0b29f014100ba2f7225b750"
+callees = [
+    "fn:397de686b864fcf8",
+    "fn:be470f754b63111f",
+    "fn:ef78c649b18bd305",
+]
+test = true
+
+[[module."properties.rs".function]]
+id = "fn:da0d3b24d9c3fe49"
+name = "measure_htr10_states"
+qual = "measure_htr10_states"
+lines = [
+    638,
+    657,
+]
+hash = "sha256:0d7eeabfaa13b49a72db3fc3a91e47d5a367f42ca7e7b0471684011ac7af46a4"
+doc_hash = "sha256:62076e50496b427ac40164b5a7394fc2c7205f4d9bed0e55a202c31df1caf8e8"
+callees = [
+    "fn:397de686b864fcf8",
+    "fn:73b0d1c394de28a8",
+    "fn:985fa7224c7d9e8e",
+    "fn:be470f754b63111f",
+]
+test = true

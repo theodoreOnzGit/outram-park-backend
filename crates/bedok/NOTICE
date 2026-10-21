@@ -1,7 +1,21 @@
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-20)
+------------------------------------------------------
+
+At the maintainer direction 2026-10-20 ("All crates AGPLv3"; "they are colleagues";
+"i know them"), given in the coordinating session in place of the
+per-person recorded consent the HELD entry asked for, this crate is licensed AGPL-3.0-only from this
+date, and `LICENSE` is the AGPL-3.0 text. The maintainer vouches for the
+other copyright holders: Than Yan Ren and Xiao SiCong (the MATLAB implementation's authors).
+
+Every upstream notice and attribution header is kept unchanged. Versions
+already published to crates.io keep the licence they were published
+under, forever; this affects future versions only. No version was bumped.
+Record: `docs/relicensing-agpl-2026-10-20.md`; gh:#973.
+
 BEDOK — third-party attribution
 ===============================
 
-This crate is licensed GPL-3.0-only. It contains code translated from a
+This crate is licensed ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). It contains code translated from a
 third-party BSD-2-Clause work, whose licence terms are reproduced below as
 that licence requires.
 
@@ -29,8 +43,8 @@ snapshot renders the copyright line as "Mark Mifofski". The upstream repository
 and its licence file both give "Mark Mikofski", which is used here as the
 correct spelling.
 
-BSD-2-Clause is compatible with GPL-3.0, so the combined work is distributed
-under GPL-3.0-only while these terms continue to govern the translated
+BSD-2-Clause is compatible with AGPL-3.0, so the combined work is distributed
+under ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) while these terms continue to govern the translated
 material.
 
 --- verbatim licence text, from https://github.com/mikofski/IAPWS_IF97/blob/master/license.txt ---

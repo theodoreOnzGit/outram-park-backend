@@ -1,0 +1,105 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Timotheus Chang-whae",
+						"lastName": "Kim",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Philipp",
+						"lastName": "Zumstein",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"accessDate": "2017-05-28T14:08:38Z",
+				"libraryCatalog": "libreas.eu",
+				"url": "http://libreas.eu/ausgabe29/05kim/",
+				"language": "de",
+				"abstractNote": "Im Folgenden soll aufgezeigt werden, wie derzeit das Literaturverwaltungsprogramm Zotero innerhalb des Index Theologicus genutzt wird, um unselbstständige Literatur in einem bibliothekarischen Katalogisierungssystem zu erfassen. Die modulare und flexible Architektur der Open Source Software erlaubt es, die bereits kollaborativ zusammengetragene Programmierarbeit zur Datenextraktion mitzunutzen. Das vorgestellte semiautomatische Verfahren bringt auch bei der Verknüpfung von Normdaten erhebliche Vorteile für die Medienbearbeitung. </br> <b>Schlüsselwörter</b>: Literaturverwaltungsprogramm, Zotero, Katalogisierung, Unselbständige Werke, Aufsatzliteratur, Index Theologicus, Online-Bibliographie, WinIBW, Fachinformationsdienst Theologie <hr> This article presents an approach to use the reference management software Zotero within the theological article database Index Theologicus to catalogue article metadata for a library management system. Zotero's Open Source nature and flexible architecture allowed us to seamlessly reuse the vast amount of data extraction routines collaboratively developed for the software. We will show how the semi-automatic workflow we developed will make authority linking fun again. </br> <b>Keywords:</b> Reference Management System, Zotero, Cataloguing, Journal articles, Index Theologicus, Theological database, Academic Information Services for Theology",
+				"title": "Semiautomatische Katalogisierung und Normdatenverknüpfung mit Zotero im Index Theologicus",
+				"issue": "29",
+				"date": "2016",
+				"publicationTitle": "LIBREAS. Library Ideas",
+				"ISSN": "1860-7950"
+			}
+		]
+	},
+	"bibo_chapter_and_tags.bibo": {
+		"status": 200,
+		"translatorID": "14763d25-8ba0-45df-8f52-b8d1108e7ac9",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Author",
+						"creatorType": "author"
+					},
+					{
+						"name": "List-only Organisation",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Eve",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "user subject",
+						"type": 1
+					},
+					{
+						"tag": "user tag",
+						"type": 1
+					},
+					{
+						"tag": "auto tag",
+						"type": 1
+					},
+					{
+						"tag": "item subject",
+						"type": 1
+					}
+				],
+				"accessDate": "2022-04-05T06:07:08Z",
+				"libraryCatalog": "Probe Catalog",
+				"title": "A Chapter",
+				"pages": "10-20",
+				"date": "2018",
+				"bookTitle": "The Edited Book",
+				"place": "Kent Ridge",
+				"publisher": "Probe Press",
+				"series": "The Series",
+				"seriesNumber": "4",
+				"ISBN": "9780306406157, 0306406152"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"name": "Recipient",
+						"creatorType": "recipient"
+					}
+				],
+				"tags": [],
+				"title": "A Letter"
+			}
+		]
+	}
+}

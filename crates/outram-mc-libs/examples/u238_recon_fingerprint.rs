@@ -30,6 +30,7 @@
 //!     --example u238_recon_fingerprint
 //! ```
 
+use petir::mathf::RealMath;
 fn main() {
     use outram_mc_libs::material::nuclide::Nuclide;
     use std::path::Path;
@@ -37,7 +38,7 @@ fn main() {
     let path = Path::new("reference-data/endf/n-092_U_238.endf");
     let t0 = std::time::Instant::now();
     let u238 =
-        Nuclide::from_endf_file(path, "U238", 600.0, 1e-3).expect("U-238 reconstruction failed");
+        Nuclide::from_endf_file(path, "U238", uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(600.0), 1e-3).expect("U-238 reconstruction failed");
     let elapsed = t0.elapsed();
 
     // Grid size across the whole range, and within the resolved-resonance band
@@ -75,7 +76,7 @@ fn main() {
         let (a, b) = (w[0], w[1]);
         let em = (a * b).sqrt();
         let x = u238.xs_at_energy(em, 600.0);
-        ri += (x.absorption - x.fission) * (b / a).ln();
+        ri += (x.absorption - x.fission) * (b / a).r_ln();
     }
     println!("\ncapture_RI_1eV_20keV_b   {ri:.6}");
 

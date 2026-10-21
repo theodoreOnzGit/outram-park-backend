@@ -1,0 +1,6499 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::a_below_floor_dose_rate_field_is_announced",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::absolute_falls_back_to_per_ci_and_per_ci_carries_the_anchors",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::missing_and_below_floor_cells_are_never_zero",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_chi_over_q_basis_keeps_the_four_decade_default",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_chi_over_q_table_is_the_maps_dilution_factor",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_defaults_are_the_maintainers_anchors",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_table_is_deterministic",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_table_is_the_pixel_and_the_buangkok_sum",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_map_opens_on_the_dose_rate_basis",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_plume_overlay_is_labelled_and_contoured_per_cell",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_slider_defaults_are_the_cited_anchors",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_tede_centreline_is_the_sector_maximum_per_ring",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_gui_defaults_are_the_plant_command_defaults",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/plant_v1_1.rs::the_feed_pump_speed_is_proportional_to_the_feedwater_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/schematic.rs::each_tracer_train_advances_with_its_own_runs_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/state.rs::to_rows_at_max_csv_rows_measures_a_realistic_byte_size",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/state.rs::to_rows_round_trips_every_pushed_sample",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/thermal_tab.rs::every_published_zone_is_drawable",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/thermal_tab.rs::only_modelled_zones_are_coloured",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::determinism_same_config_same_trace",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::matches_the_recorded_reference_baseline",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::the_trace_carries_a_closing_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::a_rate_change_reaches_only_puffs_emitted_after_it",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::absolute_arm_is_per_ci_times_inventory_at_every_receptor",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::chi_over_q_is_independent_of_the_source",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::decay_in_transit_is_negligible_over_one_puff_lifetime",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::every_map_basis_reads_the_one_map_puff_model",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::peak_ring_dose_rate_by_regime",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::rotating_the_direction_only_rotates_the_plume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_dose_rate_field_agrees_gpu_vs_cpu",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_per_ci_columns_are_unchanged_by_the_absolute_arm",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_plume_goes_downwind_and_thins_with_distance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_throttle_holds_and_an_empty_release_produces_nothing",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::turning_the_wind_turns_the_plume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::what_one_dispersion_evaluation_costs",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::a_huge_step_lands_on_the_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::heat_flows_downhill_and_reverses_rather_than_over_cooling",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_bed_to_reflector_legs_follow_achenbach",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_chain_conserves_energy_over_a_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_chain_opens_in_equilibrium_at_its_design_heat",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_rccs_is_a_fixed_50_c_sink_fed_by_vessel_radiation",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_reflector_and_rpv_capacities_are_derived",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_riser_leg_uses_gnielinski_and_vanishes_without_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::circulating_activity_against_liu_and_cao_table_3",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::release_is_strongly_increasing_in_kernel_temperature",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::sic_only_failures_release_metals_but_keep_gases_and_halogens",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_absolute_arm_is_linear_in_inventory",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_accident_pool_operations_conserve_atoms",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_activities_are_linear_in_inventory",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_default_stack_rate_is_the_uncredited_circuit_leak",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_depressurisation_lift_off_conserves_atoms",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_free_uranium_split_bounds_the_gas_release",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_live_pools_open_carry_the_leak_and_follow_the_kernel",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_throttle_holds_and_a_missing_kernel_does_not_fall_back",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::decay_heat_at_equilibrium_does_not_move_the_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::decay_heat_survives_a_shutdown",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::how_long_the_empty_precursor_bank_takes_to_fill",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_design_point_is_neutral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_fuel_node_ledger_closes_against_the_true_enthalpy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_fuel_node_relaxes_to_the_bed_exactly",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_fuel_share_is_ablated_across_its_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_reactivity_budget_sums_to_the_net_in_kinetics_dollars",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_split_channels_sum_to_the_published_isothermal_coefficient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::zero_net_dollars_with_equilibrium_precursors_is_stationary",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_against_liu_and_cao_table_8",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_conserves_energy_and_vents_the_published_mass",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_with_air_ingress_indicative_30_min",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::kinetics_fuel_node_tracks_the_bed_node_after_a_scram",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_at_the_published_test_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_reactor_shuts_itself_down",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_with_and_without_xenon",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_rod_position_that_holds_three_megawatts",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_steady_state_bed_temperature_at_the_opening_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::reproduce_issue_22_scram_cooldown_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_core_side_energy_chain_conserves_energy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_helium_never_leaves_the_core_hotter_than_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_live_map_field_is_off_by_default_and_only_the_gui_builder_turns_it_on",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_opening_rod_position_commands_a_known_reactivity",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_passive_path_conserves_energy_through_a_full_plant_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_test_rod_position_matches_the_gui_default",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_against_gao_shi_and_liu_cao",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_conserves_energy_and_follows_the_published_sequence",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::where_the_plant_step_spends_its_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::commanded_flow_is_clamped_to_the_circulator_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::core_inlet_responds_to_secondary_heat_removal",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::core_temperature_rise_matches_the_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::each_drawn_run_has_its_own_transit_time_from_its_own_volume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::helium_inventory_includes_the_bed_void_volume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::helium_properties_are_near_the_ideal_gas_limit",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::kta_bed_drop_reproduces_the_vtb_gold_and_is_checked_against_htr10",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::loop_pressure_drop_sits_on_the_published_budget_and_rises_with_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::published_operating_point_closes_on_the_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::steam_generator_has_no_node_by_node_temperature_cross",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_conductance_split_reproduces_the_series_ua",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_cv_volumes_hold_the_published_inventory_without_double_counting_the_shell",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_primary_loop_closes_its_own_balance_and_hands_the_exchanger_its_enthalpy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_return_leg_residence_time_scales_with_flow_and_carries_the_circulator_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::every_helium_volume_function_is_positive_and_finite",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::every_rectangle_zone_has_a_positive_footprint",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::middle_discharge_tube_volume_is_the_sum_of_its_two_drawn_sub_bands",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::pebble_bed_helium_volume_is_the_bed_geometric_volume_times_porosity",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::rectangle_boundaries_match_the_source_scripts_axis_ticks",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::top_cavity_volume_matches_a_plain_cylinder_formula",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::vertices_m_is_a_faithful_unit_conversion_of_vertices_cm",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::volume_of_revolution_matches_the_annulus_formula_for_a_rectangle",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/mod.rs::kind_round_trips_through_new_and_kind",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/mod.rs::placeholder_tiers_reproduce_one_node_porous_media_exactly",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::bed_geometry_reproduces_the_published_core",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::enthalpy_round_trips_and_htc_scales_with_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_bed_step_closes_its_own_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_evaluated_coefficient_beats_the_old_invented_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_fluid_and_graphite_nodes_describe_the_same_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_fuel_bed_coupling_is_read_off_the_start_of_step_profile",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_fuel_node_capacity_is_the_particles_and_nothing_else",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_inverted_profile_reproduces_the_node_temperature",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_kernel_offset_is_linear_in_power",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_resolved_pebble_beats_the_uniform_ball",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::two_node_balance_settles_with_all_power_leaving_via_helium_throughflow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::why_the_resolved_kernel_goes_none_on_a_hot_core",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::zbs_conduction_is_negligible_beside_convection_at_power",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::condenser_energy_balance_closes_onto_the_cooling_water",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::feedwater_enthalpy_is_condensate_plus_real_pump_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::feedwater_flow_tracks_duty_and_stays_in_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::manual_feedwater_holds_the_commanded_flow_and_auto_does_not",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::manual_rebuilds_the_controller",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::net_power_nets_off_the_feed_pump",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::no_duty_can_drive_a_temperature_cross_on_the_steam_side",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::raising_the_condenser_pressure_costs_turbine_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::saturation_temperature_matches_if97_reference",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_absorbable_duty_cap_no_longer_binds",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_auto_setpoint_moves_the_settled_steam_temperature",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_condenser_pressure_range_keeps_a_cooling_water_approach",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_feedback_only_loop_holds_setpoint",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_gui_ranges_match_the_physics_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_secondary_piping_residence_time_is_a_real_transport_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::turbine_work_never_exceeds_heat_input",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::a_fresh_shaft_starts_at_synchronous_speed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::electrical_output_is_efficiency_times_shaft_power_at_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::equilibrium_speed_follows_the_square_root_of_load",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::losing_steam_coasts_the_shaft_down_on_the_electrical_drag",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::shaft_power_is_exactly_the_enthalpy_drop_power",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_generator_is_time_invariant",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_plant_settles_the_shaft_a_little_under_synchronous_speed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_torque_floor_never_binds_in_normal_operation",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::default_controls_do_not_change_the_plants_initial_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::trip_reset_is_consumed_not_latched",
+]
+
+[module."axial_seven_node.rs"]
+path = "example:htgr_sim_v1::physics::reactor_model::axial_seven_node"
+
+[[module."axial_seven_node.rs".function]]
+id = "fn:647912f15ecd30d3"
+name = "AxialSevenNodeCore"
+qual = "AxialSevenNodeCore"
+item = "type"
+shape = "struct"
+lines = [
+    70,
+    81,
+]
+hash = "sha256:f1e0d78fbebf351bc65464094e57512c8ff626a634949592b70bd4ac4a67839d"
+doc_hash = "sha256:201871f5ed16189a67321133ed9e2c66e9a1371cd8464cea02ca85cdd874e3bc"
+uses = ["fn:0da2d931f598e177"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."axial_seven_node.rs".function]]
+id = "fn:6eddc5f142a41569"
+name = "new"
+qual = "AxialSevenNodeCore::new"
+lines = [
+    84,
+    89,
+]
+hash = "sha256:77988fc92898571a747c1bd084b4f640c3637b0f62f4f54557b438ca9050974a"
+doc_hash = "sha256:7475b3bed16b9dca1aac870fdfbceac470f8443954a2a7917450829a0e927492"
+callees = ["fn:6c7f6cc3b163ef0a"]
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:647912f15ecd30d3",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."axial_seven_node.rs".function]]
+id = "fn:a53681168fc974dd"
+name = "step"
+qual = "AxialSevenNodeCore::step"
+lines = [
+    91,
+    116,
+]
+hash = "sha256:55883ee6bcea891ca3a68babb0e47ca1cc775e5c9766c275d9a3311767754a57"
+doc_hash = "sha256:5e2043b5ffa3d720d047db4552d3885dbbcf5c15727011382a96ee6b9e5419c4"
+callees = ["fn:a5bca0d7b68fb22c"]
+uses = [
+    "fn:60c9df62d486df65",
+    "fn:647912f15ecd30d3",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."axial_seven_node.rs".function]]
+id = "fn:b438e7b7b89fab24"
+name = "fuel_bed_coupling"
+qual = "AxialSevenNodeCore::fuel_bed_coupling"
+lines = [
+    118,
+    124,
+]
+hash = "sha256:e582101dd6092c5550f4bd6a3e7eaeeed29e3c27640eb42dc024be8049a2c935"
+doc_hash = "sha256:2b452286e26ad43e85d098afd5c46741f8740f31dbab54ad2072e8fd83c8fe2d"
+callees = ["fn:7ecbdac3e45bb30f"]
+uses = [
+    "fn:13bc15e78fa0a620",
+    "fn:647912f15ecd30d3",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#158",
+    "#159",
+]
+
+[[module."axial_seven_node.rs".function]]
+id = "fn:6a65a613a5a7a38d"
+name = "last_step_energy"
+qual = "AxialSevenNodeCore::last_step_energy"
+lines = [
+    126,
+    129,
+]
+hash = "sha256:4586bc33b2db818aa6f23d10afaa1b9a16f1e1faec43a5e87c58609ad924144e"
+doc_hash = "sha256:8807dbb2c493aef2814eaf53e65fb95a9802bc522149a16de1767cd2abadffbd"
+callees = ["fn:589cd2fa4e141309"]
+uses = [
+    "fn:647912f15ecd30d3",
+    "fn:92fc22069b888fc6",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#159",
+]
+
+[[module."axial_seven_node.rs".function]]
+id = "fn:142039f0f1b52eab"
+name = "temperature"
+qual = "AxialSevenNodeCore::temperature"
+lines = [
+    131,
+    138,
+]
+hash = "sha256:5d0c92dc8cd14c4f5a6e5275d012b3549ad3cdc6f766e6560b428ab2e3528964"
+doc_hash = "sha256:4bd52735471e948f1a27c9702b679ca1531eccf278405a28da4dc00d3b06cec4"
+callees = ["fn:5b78d09355141990"]
+uses = ["fn:647912f15ecd30d3"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."axial_seven_node.rs".function]]
+id = "fn:275804ccaa75383a"
+name = "helium_outlet_enthalpy"
+qual = "AxialSevenNodeCore::helium_outlet_enthalpy"
+lines = [
+    140,
+    143,
+]
+hash = "sha256:41cb4f7a109ecda921329709a768f08957effa51864b7a0cfc88a0596ff9927a"
+doc_hash = "sha256:559361bde4f1f8df7331966d3046c5f224b0604a960df1ed8cdbff7f774b651e"
+callees = ["fn:5bfe4a928060dc9a"]
+uses = ["fn:647912f15ecd30d3"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."axial_seven_node.rs".function]]
+id = "fn:6d5a9984359a2131"
+name = "default"
+qual = "AxialSevenNodeCore::default"
+lines = [
+    147,
+    149,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6eddc5f142a41569"]
+uses = ["fn:647912f15ecd30d3"]
+
+[module."coarse_mesh_genfoam.rs"]
+path = "example:htgr_sim_v1::physics::reactor_model::coarse_mesh_genfoam"
+
+[[module."coarse_mesh_genfoam.rs".function]]
+id = "fn:d584ccefede72d78"
+name = "CoarseMeshGenFoamCore"
+qual = "CoarseMeshGenFoamCore"
+item = "type"
+shape = "struct"
+lines = [
+    82,
+    94,
+]
+hash = "sha256:9caab0de7cd70b995e8b659828280db5257c306cb236a31dcd9d9938b3776aca"
+doc_hash = "sha256:c93cb3bdb7e96061683b0fe06caa8f2b76343f2a000f8f884c8167850c58a6e3"
+uses = ["fn:0da2d931f598e177"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."coarse_mesh_genfoam.rs".function]]
+id = "fn:6326ac29cce74494"
+name = "new"
+qual = "CoarseMeshGenFoamCore::new"
+lines = [
+    97,
+    102,
+]
+hash = "sha256:77988fc92898571a747c1bd084b4f640c3637b0f62f4f54557b438ca9050974a"
+doc_hash = "sha256:7475b3bed16b9dca1aac870fdfbceac470f8443954a2a7917450829a0e927492"
+callees = ["fn:6c7f6cc3b163ef0a"]
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:d584ccefede72d78",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."coarse_mesh_genfoam.rs".function]]
+id = "fn:fd9f8220043b36f7"
+name = "step"
+qual = "CoarseMeshGenFoamCore::step"
+lines = [
+    104,
+    130,
+]
+hash = "sha256:55883ee6bcea891ca3a68babb0e47ca1cc775e5c9766c275d9a3311767754a57"
+doc_hash = "sha256:7dbd7fcac12a79936317e3a2fe583aeaadd46bee792b3abc89f4840dc5dd6382"
+callees = ["fn:a5bca0d7b68fb22c"]
+uses = [
+    "fn:60c9df62d486df65",
+    "fn:d584ccefede72d78",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."coarse_mesh_genfoam.rs".function]]
+id = "fn:0a83a62a7cc57983"
+name = "fuel_bed_coupling"
+qual = "CoarseMeshGenFoamCore::fuel_bed_coupling"
+lines = [
+    132,
+    138,
+]
+hash = "sha256:e582101dd6092c5550f4bd6a3e7eaeeed29e3c27640eb42dc024be8049a2c935"
+doc_hash = "sha256:2b452286e26ad43e85d098afd5c46741f8740f31dbab54ad2072e8fd83c8fe2d"
+callees = ["fn:7ecbdac3e45bb30f"]
+uses = [
+    "fn:13bc15e78fa0a620",
+    "fn:d584ccefede72d78",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#158",
+    "#159",
+]
+
+[[module."coarse_mesh_genfoam.rs".function]]
+id = "fn:29203c6264588d93"
+name = "last_step_energy"
+qual = "CoarseMeshGenFoamCore::last_step_energy"
+lines = [
+    140,
+    143,
+]
+hash = "sha256:4586bc33b2db818aa6f23d10afaa1b9a16f1e1faec43a5e87c58609ad924144e"
+doc_hash = "sha256:8807dbb2c493aef2814eaf53e65fb95a9802bc522149a16de1767cd2abadffbd"
+callees = ["fn:589cd2fa4e141309"]
+uses = [
+    "fn:92fc22069b888fc6",
+    "fn:d584ccefede72d78",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#159",
+]
+
+[[module."coarse_mesh_genfoam.rs".function]]
+id = "fn:3adf9530ac4aaf6d"
+name = "temperature"
+qual = "CoarseMeshGenFoamCore::temperature"
+lines = [
+    145,
+    151,
+]
+hash = "sha256:5d0c92dc8cd14c4f5a6e5275d012b3549ad3cdc6f766e6560b428ab2e3528964"
+doc_hash = "sha256:3c91712074eb08f6bc419e7e411e5ad76a5feefa2e1f5bf3f1aa3c2fd67383f0"
+callees = ["fn:5b78d09355141990"]
+uses = ["fn:d584ccefede72d78"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."coarse_mesh_genfoam.rs".function]]
+id = "fn:ef46f7fdf531e862"
+name = "helium_outlet_enthalpy"
+qual = "CoarseMeshGenFoamCore::helium_outlet_enthalpy"
+lines = [
+    153,
+    156,
+]
+hash = "sha256:41cb4f7a109ecda921329709a768f08957effa51864b7a0cfc88a0596ff9927a"
+doc_hash = "sha256:559361bde4f1f8df7331966d3046c5f224b0604a960df1ed8cdbff7f774b651e"
+callees = ["fn:5bfe4a928060dc9a"]
+uses = ["fn:d584ccefede72d78"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."coarse_mesh_genfoam.rs".function]]
+id = "fn:bd7d920c4486b766"
+name = "default"
+qual = "CoarseMeshGenFoamCore::default"
+lines = [
+    160,
+    162,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6326ac29cce74494"]
+uses = ["fn:d584ccefede72d78"]
+
+[module."htr10_rz_geometry.rs"]
+path = "example:htgr_sim_v1::physics::reactor_model::htr10_rz_geometry"
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:e115afeced2bd875"
+name = "ZoneMaterial"
+qual = "ZoneMaterial"
+item = "type"
+shape = "enum"
+lines = [
+    103,
+    147,
+]
+hash = "sha256:b36611b3d3fe707d2fdd50b3d775df03ac59163f38e06e4c6e102cf9bf439f7a"
+doc_hash = "sha256:02e178be1f5261c5e09bccaf924874bb26c044242094af400d07578e707217bd"
+reached_by = [
+    "#19",
+    "#20",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#123",
+]
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:6d8f27cb02ebb0d6"
+name = "Htr10RzZone"
+qual = "Htr10RzZone"
+item = "type"
+shape = "struct"
+lines = [
+    149,
+    170,
+]
+hash = "sha256:4d96293a145d13584bd5bbfe8b5b6755360bc6a0e3c86708445c4011b33bd57f"
+doc_hash = "sha256:0b7532520316357dd3bcdf2430bc340f65b74da00acd6a609f7a51d4ae16dd5c"
+uses = ["fn:e115afeced2bd875"]
+reached_by = [
+    "#19",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#123",
+]
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:dce3157a74875086"
+name = "vertices_m"
+qual = "Htr10RzZone::vertices_m"
+lines = [
+    173,
+    186,
+]
+hash = "sha256:718cbf443d399d6293a4fcb02148b5b4a7b4cd4a15f9a864c8e31662a5ea0e52"
+doc_hash = "sha256:e2b9eda20cf2c208b74c233058102c2faf550947cef2a6fd31c196bbefed6565"
+uses = ["fn:6d8f27cb02ebb0d6"]
+reached_by = ["#115"]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:a54412d3df9f9f74"
+name = "volume_of_revolution"
+qual = "Htr10RzZone::volume_of_revolution"
+lines = [
+    188,
+    214,
+]
+hash = "sha256:be3bf6acd92146bd8a798f8cd6e6cb3d87ed3f1ece5248d8df666075aa6a7e62"
+doc_hash = "sha256:2f1e8d542516e7c75f939cc22647cd2dec820ef67726ab98c87da34c87d5d59c"
+uses = ["fn:6d8f27cb02ebb0d6"]
+reached_by = [
+    "#109",
+    "#111",
+    "#112",
+    "#114",
+    "#116",
+    "#123",
+]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:0c85813ee4421818"
+name = "zone_geometric_volume"
+qual = "zone_geometric_volume"
+lines = [
+    217,
+    228,
+]
+hash = "sha256:dd2be65f0077fca8d57e45711954429cac1e1563fe4b40f04ccd5fda02dcd129"
+doc_hash = "sha256:774aed774af8b86d51258f34dfece9bc7b75dc0492dcf2d99bc9051b51baa0ff"
+callees = [
+    "fn:4c414cf7dee34872",
+    "fn:a54412d3df9f9f74",
+]
+reached_by = [
+    "#109",
+    "#111",
+    "#112",
+    "#114",
+    "#123",
+]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:0f4959309a6d496a"
+name = "bed_void_fraction"
+qual = "bed_void_fraction"
+lines = [
+    230,
+    237,
+]
+hash = "sha256:a25d07075c22d9cf1e905363213e66bdee555bf54b6adb6364d8b7aa7adb246b"
+doc_hash = "sha256:255178d1d46167088fa778dd3b9ba4e8a5fd4068cee39efcaf16f6d5a2c58627"
+callees = ["fn:953bcd94154cc74f"]
+reached_by = [
+    "#109",
+    "#111",
+    "#112",
+    "#123",
+]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:ade58906b7330489"
+name = "top_cavity_helium_volume"
+qual = "top_cavity_helium_volume"
+lines = [
+    239,
+    248,
+]
+hash = "sha256:132158f368964728fbd3d4e31307381756651dae8e7ce57ea45406b67dc2fe92"
+doc_hash = "sha256:dae3e33377b323d00c8809742f6c77f004c9599496fb2545d8a12b7b76b158da"
+callees = ["fn:0c85813ee4421818"]
+reached_by = [
+    "#109",
+    "#114",
+]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:2d91f42759325473"
+name = "pebble_bed_helium_volume"
+qual = "pebble_bed_helium_volume"
+lines = [
+    250,
+    265,
+]
+hash = "sha256:3237ee179120051089227922c2c49bfa3c448869718a843fec5fe47e6304728e"
+doc_hash = "sha256:57f15aef2057c301b3b51b24035f8b5480bb8a5fcfa719e1e30e920fa4169879"
+callees = [
+    "fn:0c85813ee4421818",
+    "fn:0f4959309a6d496a",
+]
+reached_by = [
+    "#109",
+    "#112",
+    "#123",
+]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:8dbc19a8f9d9deae"
+name = "dummy_pebble_helium_volume_conus"
+qual = "dummy_pebble_helium_volume_conus"
+lines = [
+    267,
+    276,
+]
+hash = "sha256:2150d54c003b7222102d97886785bb9c37e038125523293cc63d6002834a2d87"
+doc_hash = "sha256:5f13a1916208e75cef485cb9dff4d12cdd9366cb146299c1503962329e2d5cff"
+callees = [
+    "fn:0c85813ee4421818",
+    "fn:0f4959309a6d496a",
+]
+reached_by = ["#109"]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:f3f8ea7ab111e0e3"
+name = "dummy_pebble_helium_volume_upper_discharge_tube"
+qual = "dummy_pebble_helium_volume_upper_discharge_tube"
+lines = [
+    278,
+    286,
+]
+hash = "sha256:c43d2cdeb3e10ffde6f8fb6a7c8f9764a65e415e87654cfd6979be7e874b5144"
+doc_hash = "sha256:c5f251456eac814573aa8484aa4be9495f4374de00fe99271689228ffb53bc2a"
+callees = [
+    "fn:0c85813ee4421818",
+    "fn:0f4959309a6d496a",
+]
+reached_by = ["#109"]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:6160291f1b495781"
+name = "dummy_pebble_helium_volume_middle_discharge_tube"
+qual = "dummy_pebble_helium_volume_middle_discharge_tube"
+lines = [
+    288,
+    297,
+]
+hash = "sha256:73e8a065b18628701a3e7ed2634c0c125d8cbbe973d5f7276d0f20f307de6948"
+doc_hash = "sha256:4099a83d80e93c980a98ff0e4e5e46b60cc3cdba7099ca811d2eb0887df2eb52"
+callees = [
+    "fn:0c85813ee4421818",
+    "fn:0f4959309a6d496a",
+]
+reached_by = [
+    "#109",
+    "#111",
+]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:f281c66447fec3ab"
+name = "dummy_pebble_helium_volume_lower_discharge_tube"
+qual = "dummy_pebble_helium_volume_lower_discharge_tube"
+lines = [
+    299,
+    307,
+]
+hash = "sha256:9969b4dd81443f266b060f3622d275fe5ed6bef1159330267ab19120b5384cb5"
+doc_hash = "sha256:5244c9f4c1f3c77a4e5d768b4650c26287a2d1eff26081868f617f715b7d02ac"
+callees = [
+    "fn:0c85813ee4421818",
+    "fn:0f4959309a6d496a",
+]
+reached_by = ["#109"]
+physical_interface = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:94742d57846fe3d2"
+name = "rectangle"
+qual = "rectangle"
+lines = [
+    309,
+    327,
+]
+hash = "sha256:28fa4e17a7534649289db89d76408343b6c11de1c35c1c7224118967e58ddd3f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6d8f27cb02ebb0d6",
+    "fn:e115afeced2bd875",
+]
+reached_by = [
+    "#19",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#123",
+]
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:092769f9f53c5826"
+name = "polygon"
+qual = "polygon"
+lines = [
+    329,
+    335,
+]
+hash = "sha256:010f1ba7317cb1c35060e3962939d1c2a1c9ee6123d59adfa1e27761bd44b38c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6d8f27cb02ebb0d6",
+    "fn:e115afeced2bd875",
+]
+reached_by = [
+    "#19",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#123",
+]
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:7fa3e5c5f626462c"
+name = "radial_ticks_cm"
+qual = "radial_ticks_cm"
+lines = [
+    337,
+    347,
+]
+hash = "sha256:73a9477a34237146fea2d8f67cb7b1738052a53626eba5fefa13c9f0eec8ce2c"
+doc_hash = "sha256:5bf77ee64da71af13fbc27a2e22e20b3bc55819f88d55c0582d025142d6681c2"
+reached_by = ["#113"]
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:08e486c8103809e6"
+name = "axial_ticks_cm"
+qual = "axial_ticks_cm"
+lines = [
+    349,
+    360,
+]
+hash = "sha256:1f242b39ac908792f7d1494eff543a521e1b1ca56dc22733afb8e0a2255245cb"
+doc_hash = "sha256:784c9383de1d3b1b637f00928fc95bad5d8b2e4be92a562fa6c5a1a7c5ce3ba7"
+reached_by = ["#113"]
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:4c414cf7dee34872"
+name = "htr10_rz_zones"
+qual = "htr10_rz_zones"
+lines = [
+    362,
+    555,
+]
+hash = "sha256:4224b2cb678759794cfd9a0326520289c1ad40a3a3b9bb01f147c9fd3d8e2143"
+doc_hash = "sha256:f84c8737b07eb618bf8ee6158ab9c37d7af9c78459ca6ecf4f916581823d071d"
+callees = [
+    "fn:092769f9f53c5826",
+    "fn:94742d57846fe3d2",
+]
+uses = [
+    "fn:6d8f27cb02ebb0d6",
+    "fn:e115afeced2bd875",
+]
+reached_by = [
+    "#19",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#123",
+]
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:d06eb956b9974a10"
+name = "every_rectangle_zone_has_a_positive_footprint"
+qual = "every_rectangle_zone_has_a_positive_footprint"
+lines = [
+    561,
+    589,
+]
+hash = "sha256:f7395a3008bfcf754653ada7411271449519001af302208094a5b1e225ee806d"
+doc_hash = "sha256:4817c35b84917cad454f22b045971181d1dd8da7c0c40825aaeaef4f509ee7ff"
+callees = ["fn:4c414cf7dee34872"]
+test = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:bed44d4ace1e67b4"
+name = "rectangle_boundaries_match_the_source_scripts_axis_ticks"
+qual = "rectangle_boundaries_match_the_source_scripts_axis_ticks"
+lines = [
+    591,
+    635,
+]
+hash = "sha256:af096244ce6684153f24896d435421873c0cf4868ac4c4d6d78e4b60c0c52816"
+doc_hash = "sha256:75da80071cffcb33516f5c083d9c9fead99b13245709d3d5b6ddc73cb83d2d38"
+callees = [
+    "fn:08e486c8103809e6",
+    "fn:4c414cf7dee34872",
+    "fn:7fa3e5c5f626462c",
+]
+test = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:363ca9a247502f32"
+name = "vertices_m_is_a_faithful_unit_conversion_of_vertices_cm"
+qual = "vertices_m_is_a_faithful_unit_conversion_of_vertices_cm"
+lines = [
+    637,
+    650,
+]
+hash = "sha256:f6b7a57462a0a1b40ce789207f05afe2836606bb25e4f7d2cd635ca29affeb38"
+doc_hash = "sha256:ecb253b71f6399fb71bdf62ee7fde68ae0a5cdeaa581a5cd40bb850630e520d1"
+callees = [
+    "fn:4c414cf7dee34872",
+    "fn:dce3157a74875086",
+]
+test = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:57feb20769055819"
+name = "volume_of_revolution_matches_the_annulus_formula_for_a_rectangle"
+qual = "volume_of_revolution_matches_the_annulus_formula_for_a_rectangle"
+lines = [
+    652,
+    673,
+]
+hash = "sha256:8deaf45882740b5f60912c7f0357f86a44e77b81b407cb31647085204bc0a630"
+doc_hash = "sha256:bc02a6a3c3ff2cc3703c529c4eae53b02b73c6f0b8bcb5a23e6f94cf2baeacdf"
+callees = [
+    "fn:94742d57846fe3d2",
+    "fn:a54412d3df9f9f74",
+]
+uses = ["fn:e115afeced2bd875"]
+test = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:151a65b8417395f2"
+name = "top_cavity_volume_matches_a_plain_cylinder_formula"
+qual = "top_cavity_volume_matches_a_plain_cylinder_formula"
+lines = [
+    675,
+    691,
+]
+hash = "sha256:9e4d658619614eb68977469be83c4d23971120fc74143261acf00a587dc830d2"
+doc_hash = "sha256:25902bfd3a7352dbf35e831bb67743e01a9dfba06b045a7119d0825e0ed1321f"
+callees = ["fn:ade58906b7330489"]
+test = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:d3a043e4088c5391"
+name = "pebble_bed_helium_volume_is_the_bed_geometric_volume_times_porosity"
+qual = "pebble_bed_helium_volume_is_the_bed_geometric_volume_times_porosity"
+lines = [
+    693,
+    712,
+]
+hash = "sha256:6b77de57bb89fb0a155ae4715d481e2c0f3db38d1f60130adcfb1d515e655d15"
+doc_hash = "sha256:80b4ae66990e84b0cfeb09e7e4adf4105e8d2a15841feb3186fcfdeadd480f65"
+callees = [
+    "fn:2d91f42759325473",
+    "fn:953bcd94154cc74f",
+]
+test = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:d59ebb9c1153ad70"
+name = "middle_discharge_tube_volume_is_the_sum_of_its_two_drawn_sub_bands"
+qual = "middle_discharge_tube_volume_is_the_sum_of_its_two_drawn_sub_bands"
+lines = [
+    714,
+    734,
+]
+hash = "sha256:c77e59cddef99f361ff66e4097921859a387f4a332ca84a121a4ebe4da6e0332"
+doc_hash = "sha256:5b81dfdb9c08ac0be65221509b577b11ade1cb566e75c8d0e46916c1c5e4c9ff"
+callees = [
+    "fn:6160291f1b495781",
+    "fn:953bcd94154cc74f",
+]
+test = true
+
+[[module."htr10_rz_geometry.rs".function]]
+id = "fn:e75238c85ebee03b"
+name = "every_helium_volume_function_is_positive_and_finite"
+qual = "every_helium_volume_function_is_positive_and_finite"
+lines = [
+    736,
+    757,
+]
+hash = "sha256:0e450c6cf4fa036f8ab5c36b13a8b0a4a9f3d5bcb31fdbdc3e100197fcb8c618"
+doc_hash = "sha256:4d140c0fa3acd69cc4a1c895d880e7aaec45be75d6d0372adc7ef6b6b51d0f9b"
+callees = [
+    "fn:2d91f42759325473",
+    "fn:6160291f1b495781",
+    "fn:8dbc19a8f9d9deae",
+    "fn:ade58906b7330489",
+    "fn:f281c66447fec3ab",
+    "fn:f3f8ea7ab111e0e3",
+]
+test = true
+
+[module."mod.rs"]
+path = "example:htgr_sim_v1::physics::reactor_model"
+
+[[module."mod.rs".function]]
+id = "fn:dec78b63c460b1a4"
+name = "ReactorModelKind"
+qual = "ReactorModelKind"
+item = "type"
+shape = "enum"
+lines = [
+    95,
+    125,
+]
+hash = "sha256:b58f09e06bb1d3cd278520f9d093d55d90357c1d50bee701fda2d55dd0be269f"
+doc_hash = "sha256:7c92a1e39b0a45404f5af39dc8c068e4e1d05acb037dc89bd1347b8fd6389e17"
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."mod.rs".function]]
+id = "fn:720a00a45eba0f0e"
+name = "fmt"
+qual = "ReactorModelKind::fmt"
+lines = [
+    128,
+    130,
+]
+hash = "sha256:6680d0e3036a7cb992376f9532b0066192154428f98dfe2b809f007c9c332115"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:dec78b63c460b1a4"]
+
+[[module."mod.rs".function]]
+id = "fn:58cd2d9bf4158ea8"
+name = "menu_label"
+qual = "ReactorModelKind::menu_label"
+lines = [
+    134,
+    144,
+]
+hash = "sha256:9b14b87dff4061fbc7e9a585415470c1c95f466dce48ee367adb21122165c7b6"
+doc_hash = "sha256:e10f95427e1bc7fbba0d44a50435b7bb34f32808b0ad8a609d5ce4723fb1fb41"
+uses = ["fn:dec78b63c460b1a4"]
+
+[[module."mod.rs".function]]
+id = "fn:3e2ab0862d308b54"
+name = "is_implemented"
+qual = "ReactorModelKind::is_implemented"
+lines = [
+    146,
+    155,
+]
+hash = "sha256:0111845ec71ed0f1e59c2a18fd24baff5b66d6f981c0fc282ff4c9dce416f96c"
+doc_hash = "sha256:5fe5158780e05bcba118e78985d8d8a8a85bca36c5eaec778744577acba1e6a6"
+uses = ["fn:dec78b63c460b1a4"]
+
+[[module."mod.rs".function]]
+id = "fn:b46864fb03133db3"
+name = "ReactorModel"
+qual = "ReactorModel"
+item = "type"
+shape = "enum"
+lines = [
+    158,
+    180,
+]
+hash = "sha256:2e9b91ed96aa7a2594ab83833b00fde31a44a75aab20c5dfa08624128a42d5fe"
+doc_hash = "sha256:6387e32f49b894f405a60f83160744e25ade655dbab67649721d787a5ab79f68"
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:647912f15ecd30d3",
+    "fn:d584ccefede72d78",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e63a86aaf5d9339c"
+name = "new"
+qual = "ReactorModel::new"
+lines = [
+    183,
+    196,
+]
+hash = "sha256:1519940c0c5dbb1009f10303bbfe9e5e28faf167c7c8bddf4b538bef3a466876"
+doc_hash = "sha256:cef0bc8559cfe6e0d99234b30a1123ddff70ff2470775ee366f49f9de745d10b"
+callees = [
+    "fn:6326ac29cce74494",
+    "fn:6c7f6cc3b163ef0a",
+    "fn:6eddc5f142a41569",
+]
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:647912f15ecd30d3",
+    "fn:b46864fb03133db3",
+    "fn:d584ccefede72d78",
+    "fn:dec78b63c460b1a4",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0e0375e543549b24"
+name = "kind"
+qual = "ReactorModel::kind"
+lines = [
+    198,
+    205,
+]
+hash = "sha256:e1bdc7e01cd5b543dd3c1d774001d6f380bee530caa3a8ff09dc24a3de0cbcfd"
+doc_hash = "sha256:ec2cf1606d3b40a2c10f4a4aa4a3dfb2e26caff3709c9019f9d169db6b714426"
+uses = [
+    "fn:b46864fb03133db3",
+    "fn:dec78b63c460b1a4",
+]
+reached_by = ["#117"]
+
+[[module."mod.rs".function]]
+id = "fn:965e5acd8243bc14"
+name = "step"
+qual = "ReactorModel::step"
+lines = [
+    207,
+    256,
+]
+hash = "sha256:0434588a2e8eba04290aac4db82a6382fad44adf646b4df68f60a39ace8c1a1e"
+doc_hash = "sha256:4d4fda0cecf5e2205fd57a9bb9814410aabc8f071cec0f3c9c9555eb67e6c32d"
+callees = [
+    "fn:a53681168fc974dd",
+    "fn:a5bca0d7b68fb22c",
+    "fn:fd9f8220043b36f7",
+]
+uses = [
+    "fn:60c9df62d486df65",
+    "fn:b46864fb03133db3",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:71794b9a734736ca"
+name = "temperature"
+qual = "ReactorModel::temperature"
+lines = [
+    258,
+    266,
+]
+hash = "sha256:b2aff306181254c00e2396dadd22d39b1ec8b7446ae1e3460dc60b365500cef7"
+doc_hash = "sha256:17200ed6339df83cd7dc9b4710922762652505a23ff5b7c6485e04fa5cfd2d5f"
+callees = [
+    "fn:142039f0f1b52eab",
+    "fn:3adf9530ac4aaf6d",
+    "fn:5b78d09355141990",
+]
+uses = ["fn:b46864fb03133db3"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:dba57ac72f8410a6"
+name = "helium_outlet_enthalpy"
+qual = "ReactorModel::helium_outlet_enthalpy"
+lines = [
+    273,
+    283,
+]
+hash = "sha256:798afe7026e974ace9c4ab7a0da096a759af73d6085782fb12708334fe66f5f1"
+doc_hash = "sha256:6ae9fe1d066d8a76c2a13564829183c55cd6c7021f5a2bc055434136159dc0d1"
+callees = [
+    "fn:275804ccaa75383a",
+    "fn:5bfe4a928060dc9a",
+    "fn:ef46f7fdf531e862",
+]
+uses = ["fn:b46864fb03133db3"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:cd9fc21a489dd5a4"
+name = "pebble_profile"
+qual = "ReactorModel::pebble_profile"
+lines = [
+    291,
+    304,
+]
+hash = "sha256:195f1ef0ffe47e065226d8a108d410ecd592a9122220890033bb66dc388d60aa"
+doc_hash = "sha256:2d2bf52769b5ecc90a842417340592bf3a54fbfde1e492608c250a48807698b0"
+callees = ["fn:173ea934c268e714"]
+uses = [
+    "fn:774c96b3c4478048",
+    "fn:b46864fb03133db3",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#75",
+    "#87",
+    "#88",
+    "#91",
+    "#148",
+    "#158",
+]
+
+[[module."mod.rs".function]]
+id = "fn:79b18a3635220887"
+name = "fuel_bed_coupling"
+qual = "ReactorModel::fuel_bed_coupling"
+lines = [
+    306,
+    315,
+]
+hash = "sha256:92e8a5cdbea512bdb3905bd8cb4d03855e1215bc4af32c872408fd14a2d31172"
+doc_hash = "sha256:7d195fcfa64242a1269aa520ebdc61a12e54245d732273942950a3dc2dd97b0c"
+callees = [
+    "fn:0a83a62a7cc57983",
+    "fn:7ecbdac3e45bb30f",
+    "fn:b438e7b7b89fab24",
+]
+uses = [
+    "fn:13bc15e78fa0a620",
+    "fn:b46864fb03133db3",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#158",
+    "#159",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8a456680a92f1423"
+name = "last_step_energy"
+qual = "ReactorModel::last_step_energy"
+lines = [
+    317,
+    325,
+]
+hash = "sha256:e2efdd5fd7bf20dc8d6544770fb55ed295818a213d90ac5185345320693b062c"
+doc_hash = "sha256:5b85fa332a57b637d7351fd30646c62360af384a908a7daa3a5cd6c234f6fd83"
+callees = [
+    "fn:29203c6264588d93",
+    "fn:589cd2fa4e141309",
+    "fn:6a65a613a5a7a38d",
+]
+uses = [
+    "fn:92fc22069b888fc6",
+    "fn:b46864fb03133db3",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#159",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c6c7745066831817"
+name = "default"
+qual = "ReactorModel::default"
+lines = [
+    329,
+    331,
+]
+hash = "sha256:7d7962bd729728f0fda23acd369dc31ac5f00cc4f99a980f073db07063c79185"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:e63a86aaf5d9339c"]
+uses = [
+    "fn:b46864fb03133db3",
+    "fn:dec78b63c460b1a4",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5b78d332035366b0"
+name = "placeholder_tiers_reproduce_one_node_porous_media_exactly"
+qual = "placeholder_tiers_reproduce_one_node_porous_media_exactly"
+lines = [
+    342,
+    401,
+]
+hash = "sha256:34ea3b88503ef8522c0159df9c68be634d30a1df1e22931c05ac9382c3cb2a9b"
+doc_hash = "sha256:01d269a1ee70c31480c73091e260d878b01ed0a3f9969572b96495899efa7d33"
+callees = [
+    "fn:21042cc91fc85081",
+    "fn:6572a14aa8f162c3",
+    "fn:71794b9a734736ca",
+    "fn:965e5acd8243bc14",
+    "fn:c7cd472a1dda695b",
+    "fn:dba57ac72f8410a6",
+    "fn:e63a86aaf5d9339c",
+]
+uses = [
+    "fn:60c9df62d486df65",
+    "fn:b46864fb03133db3",
+    "fn:dec78b63c460b1a4",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a0217c98be948cd6"
+name = "kind_round_trips_through_new_and_kind"
+qual = "kind_round_trips_through_new_and_kind"
+lines = [
+    403,
+    412,
+]
+hash = "sha256:99ed1ba4c3c6c10ab8f0bd6279b6cf7a10ac6f2f7377e746a13387414c522055"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e0375e543549b24",
+    "fn:e63a86aaf5d9339c",
+]
+uses = [
+    "fn:b46864fb03133db3",
+    "fn:dec78b63c460b1a4",
+]
+test = true
+
+[module."one_node.rs"]
+path = "example:htgr_sim_v1::physics::reactor_model::one_node"
+
+[[module."one_node.rs".function]]
+id = "fn:924edac2a4205dbe"
+name = "design"
+qual = "design"
+lines = [
+    262,
+    267,
+]
+hash = "sha256:3b9e0245e4a6cb5504e36a80a6eb062c86a072f3216292242d6129203cf5f5d1"
+doc_hash = "sha256:1e888b589a1855237ec85b8f57be31e29f5ff1f12b9d973d9dab1214c1f701f8"
+callees = ["fn:ca59bf2147252c84"]
+uses = ["fn:fe49cac594f9fb2e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#111",
+    "#112",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:9648be91970bcc95"
+name = "core_diameter"
+qual = "core_diameter"
+lines = [
+    269,
+    272,
+]
+hash = "sha256:1d163e0a48b5dacc657f876df038369e545bbed89f6c45545618bea512da6050"
+doc_hash = "sha256:9bbdd0b6a3ebad8051471a896ecc7834e3840e129b32488f98a95afcd2a655d5"
+callees = ["fn:924edac2a4205dbe"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#101",
+    "#102",
+    "#104",
+    "#106",
+    "#107",
+    "#108",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#128",
+    "#129",
+    "#131",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:cd999e3904372557"
+name = "core_mean_height"
+qual = "core_mean_height"
+lines = [
+    274,
+    278,
+]
+hash = "sha256:b8be70aa6efbb78e3020a41d92a97a963954bd49648e67e673495b47997c060a"
+doc_hash = "sha256:a58b31e2b8062fff589357a2b2439e5694fb794e0c170937e5a4b8375bd023b9"
+callees = ["fn:924edac2a4205dbe"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#101",
+    "#102",
+    "#104",
+    "#106",
+    "#107",
+    "#108",
+    "#117",
+    "#118",
+    "#119",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#131",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:45ce63821ee879a7"
+name = "pebble_count"
+qual = "pebble_count"
+lines = [
+    280,
+    284,
+]
+hash = "sha256:b35def5d68ab19a02003a59a6d690c37fd2b2dff0477c76e98526ab42bb4fb54"
+doc_hash = "sha256:e72851db9447bbcfc082318abaaee910a7ad948438944df814808c7b2044d864"
+callees = ["fn:924edac2a4205dbe"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:99b0422761b9db93"
+name = "pebble_diameter"
+qual = "pebble_diameter"
+lines = [
+    286,
+    290,
+]
+hash = "sha256:fdaace14a03903edc3d4e539463da6cf5f1e4cb98e8731c771475b5db902181a"
+doc_hash = "sha256:4e6081f1208bf1f9f02b1164b91092062cb4eda1bd86e07ca9476c2ba421a329"
+callees = ["fn:924edac2a4205dbe"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#101",
+    "#102",
+    "#104",
+    "#107",
+    "#108",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#125",
+    "#128",
+    "#129",
+    "#141",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:953bcd94154cc74f"
+name = "bed_porosity"
+qual = "bed_porosity"
+lines = [
+    292,
+    301,
+]
+hash = "sha256:4be8afdce066dd6a721ec700e74f516513359edee701634806e0901b098c1269"
+doc_hash = "sha256:c5b90577e3ba912ae1a2ecbd6dead4f610f5a476c372d719119a4d5bed2b802f"
+callees = [
+    "fn:924edac2a4205dbe",
+    "fn:bad4d909998c641e",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#101",
+    "#102",
+    "#104",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#111",
+    "#112",
+    "#117",
+    "#118",
+    "#119",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:489e24019d4a917a"
+name = "graphite_density"
+qual = "graphite_density"
+lines = [
+    303,
+    307,
+]
+hash = "sha256:d00df61b781959eb73cc0fc84227a85b1a1829c7f7631955932d7f549d9d5fa9"
+doc_hash = "sha256:1563c62f8c42c792b7f7fbb3a62c9242f5db5a867303ab9187b44870abc2a559"
+callees = ["fn:924edac2a4205dbe"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#119",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:b1e8a025692d9be2"
+name = "heavy_metal_per_pebble"
+qual = "heavy_metal_per_pebble"
+lines = [
+    309,
+    314,
+]
+hash = "sha256:ee0922b62390cbe5f6fa1d1118f08b04b66ff94d4499dbaa60dd17b9f33d57e6"
+doc_hash = "sha256:f9eb3c7a3a6e0a9d0c7a6e8ffbb4dc8509001673af3c0433dfc64273248d1dee"
+callees = ["fn:924edac2a4205dbe"]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:6dc3713b0499a0fd"
+name = "LEGACY_GRAPHITE_CP_J_PER_KG_K"
+qual = "LEGACY_GRAPHITE_CP_J_PER_KG_K"
+item = "const"
+shape = "const"
+lines = [
+    320,
+    337,
+]
+hash = "sha256:a53fbfe69ad2473569cb510b6948931662f21f7270adf4e825c35e8eb3516819"
+doc_hash = "sha256:a3d6df8339e5ed9bfebf21a55bedd8b11b52953cbd376927f40bac67244a9f36"
+
+[[module."one_node.rs".function]]
+id = "fn:25f8d0ea64dc5928"
+name = "PEBBLE_GRAPHITE"
+qual = "PEBBLE_GRAPHITE"
+item = "const"
+shape = "const"
+lines = [
+    339,
+    350,
+]
+hash = "sha256:f9352b734d8797d8dcf4fa13a8b1af2f8172a5e675ebe33930da0e170f5b2f0d"
+doc_hash = "sha256:efb19d22b36b0c9b0e3967a3e21cee69bafdb7ba678b85d8dbd30af3238916f7"
+uses = ["fn:9447740069e81383"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:4e97545e6b6c30c4"
+name = "property_pressure"
+qual = "property_pressure"
+lines = [
+    352,
+    357,
+]
+hash = "sha256:5952cf4efa7f295ba1bb436922d76ef150676b474940021b8c4a692b42be6ee3"
+doc_hash = "sha256:b0f20fab978318eb6239488f0b22d6502bdca36870f6f95ae8cb9cfea27516ce"
+callees = ["fn:924edac2a4205dbe"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:61b8f91037e9456f"
+name = "graphite_specific_heat"
+qual = "graphite_specific_heat"
+lines = [
+    359,
+    383,
+]
+hash = "sha256:0750a97fd4ccadab0cdaee9a0f7bf7a5da0b2b85555c3c7a1f0eb7376f3bc7f4"
+doc_hash = "sha256:eea46d942732a63e337d339c164e663f79f8b275387fa9224093806a451508bc"
+callees = [
+    "fn:4e97545e6b6c30c4",
+    "fn:618d751fd16b16d4",
+]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:25f8d0ea64dc5928",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:8ef243d1b55f559f"
+name = "LEGACY_LUMPED_HTC_W_PER_M2_K"
+qual = "LEGACY_LUMPED_HTC_W_PER_M2_K"
+item = "const"
+shape = "const"
+lines = [
+    385,
+    400,
+]
+hash = "sha256:a3b9515309839273dac49ba5e56e8bcb55788d5da20ad7a0f87f857de92b7cd3"
+doc_hash = "sha256:463a14b768346f8cb92e58301ed9b34c7eaee51902a33f8fa812f91381bd6d6a"
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:446e40bf81602970"
+name = "LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K"
+qual = "LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K"
+item = "const"
+shape = "const"
+lines = [
+    402,
+    426,
+]
+hash = "sha256:8cd02e09f23b7385795a8c017d7317fa8978ee70037119a353ad8cf4037d8428"
+doc_hash = "sha256:752e3c14c51a2212b7276a66011a2b5c505c643c3b23e673931c661ecb0263e9"
+reached_by = ["#128"]
+
+[[module."one_node.rs".function]]
+id = "fn:6ed56ef095e783da"
+name = "HTC_FLOW_EXPONENT"
+qual = "HTC_FLOW_EXPONENT"
+item = "const"
+shape = "const"
+lines = [
+    428,
+    435,
+]
+hash = "sha256:9a2169909cdc114b6650e208f9452f16cc69f6288232ee82dc207dbbbac9ccd5"
+doc_hash = "sha256:cffcc693f9c439beac8eabef521bdcf4f803567ad4b8aeff708b3b7b2f761088"
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#148",
+    "#159",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:08c995ec00d16951"
+name = "nominal_helium_flow"
+qual = "nominal_helium_flow"
+lines = [
+    437,
+    443,
+]
+hash = "sha256:e057ef9464baab0909d642506dbeadd33bc82cad561e0378516caf8c2b277ef8"
+doc_hash = "sha256:85851d0ce5ccb3262c9757814fd56a559449e9ddc8f062b54c355a763845b967"
+callees = ["fn:924edac2a4205dbe"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#107",
+    "#108",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:1bd17fe6239da439"
+name = "nominal_helium_flow_kg_per_s"
+qual = "nominal_helium_flow_kg_per_s"
+lines = [
+    445,
+    449,
+]
+hash = "sha256:3540b0df055b7fcd538b919edf54b475ced84e9ce6048af8f9427af3e3b34a7c"
+doc_hash = "sha256:1cc5a3968905a570bb331fdc561be415d5b297f1ec004e2e8fa6a33bd696db88"
+callees = ["fn:08c995ec00d16951"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#107",
+    "#108",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#141",
+    "#148",
+    "#159",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:0acc7961ec549a33"
+name = "SEED_BED_TEMPERATURE_K"
+qual = "SEED_BED_TEMPERATURE_K"
+item = "const"
+shape = "const"
+lines = [
+    451,
+    456,
+]
+hash = "sha256:c8e48fd33630845bb753d269303778b20e196377c77ee925e84555658bd2e9e3"
+doc_hash = "sha256:2fdddbe3d58d27fae286dc3892fc80dfc897ee838bb1737a719bcc5f0ddb0677"
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:68ba93e85af35d43"
+name = "SEED_BED_PRESSURE_PA"
+qual = "SEED_BED_PRESSURE_PA"
+item = "const"
+shape = "const"
+lines = [
+    458,
+    461,
+]
+hash = "sha256:9943bf184189dd1d7cfd9f1a33855bb7faaba2511f716d61eebcd6b6ab86931c"
+doc_hash = "sha256:bfe24f9946bd756c1f2b17cb90a5bf3d6f79de4aac88ac2795e8c8c373f48a09"
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:7cf2061635dc85ab"
+name = "bed_volume"
+qual = "bed_volume"
+lines = [
+    467,
+    475,
+]
+hash = "sha256:33fecf94e71a0c9c1d60582b48d43bd5d8a7ddf5523be444b22cdce27626a721"
+doc_hash = "sha256:f09a15b1beae713e8258e55bf4cc052b11034e6eed6906ca89750408e7fe03ab"
+callees = [
+    "fn:9648be91970bcc95",
+    "fn:cd999e3904372557",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#102",
+    "#104",
+    "#106",
+    "#107",
+    "#108",
+    "#117",
+    "#118",
+    "#119",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:62af925e5c7a6f4a"
+name = "bed_void_volume"
+qual = "bed_void_volume"
+lines = [
+    477,
+    480,
+]
+hash = "sha256:b745d364b9e7bf552d51fe9c75c2d734182cf8bd48a305faa0545cbeec2d9141"
+doc_hash = "sha256:e4f6873d7d24ca5a40336bd2c9a8dd218daff891e31be33b3b9c6d534e7f3761"
+callees = [
+    "fn:7cf2061635dc85ab",
+    "fn:953bcd94154cc74f",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#102",
+    "#104",
+    "#106",
+    "#107",
+    "#108",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:a44cce707d3acfd6"
+name = "superficial_area"
+qual = "superficial_area"
+lines = [
+    482,
+    487,
+]
+hash = "sha256:8f373bdbb951a47a3c44fe76ac93962c1522ac88af07469fad54cfc6232f673d"
+doc_hash = "sha256:f0d25e8db7248b4785c46e5b894e86ea7667bacf91de17352dbcdc358dc61c98"
+callees = ["fn:9648be91970bcc95"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#101",
+    "#102",
+    "#104",
+    "#107",
+    "#108",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#131",
+    "#141",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:747ae62077ab2652"
+name = "free_flow_area"
+qual = "free_flow_area"
+lines = [
+    489,
+    495,
+]
+hash = "sha256:2e4d85ce3d75e268e50f4a815e0b6912cb83fd014a00359559fdc8a428e3dc8f"
+doc_hash = "sha256:1bac6a2435f77c156b7d5674ee5eaa12d4c1e0e9ff9f1476e95c960a3b5a2a53"
+callees = [
+    "fn:953bcd94154cc74f",
+    "fn:a44cce707d3acfd6",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:f0410cc27ddd87c1"
+name = "pebble_volume"
+qual = "pebble_volume"
+lines = [
+    497,
+    503,
+]
+hash = "sha256:4569169afe86694f3faa7a46aba8c28786e910fd3282f598043f1de8c1bdedd6"
+doc_hash = "sha256:54dc6407c0ca879bf91d071bc4d3b7c193d379e39d4c9562dc670a9103bc3575"
+callees = ["fn:99b0422761b9db93"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#119",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:d45d0fc679a8afd8"
+name = "pebble_graphite_volume"
+qual = "pebble_graphite_volume"
+lines = [
+    505,
+    517,
+]
+hash = "sha256:0df65f94090d6124c89b5fabd4fafb76d6a06b2f988de10a919ab6105d756849"
+doc_hash = "sha256:c21753b80350da10e53f7fc41a50812baf7abb74602de9daed71b7e4e13216fb"
+callees = [
+    "fn:5c74d0d06d3f533c",
+    "fn:d17241b8401033f6",
+    "fn:f0410cc27ddd87c1",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#119",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:ed9d56d3945401f4"
+name = "pebble_mass"
+qual = "pebble_mass"
+lines = [
+    519,
+    523,
+]
+hash = "sha256:e9ed0b3ddffdeff596e2002e753f4901f5ffa193858c1751c875d1f0cf83d29e"
+doc_hash = "sha256:c3762e50c09071dc65a5f863c5710be2b984125159c60b9158ca6fa2ef6ecea5"
+callees = [
+    "fn:489e24019d4a917a",
+    "fn:d45d0fc679a8afd8",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#119",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:4b6e9cb1cacae1d7"
+name = "graphite_mass"
+qual = "graphite_mass"
+lines = [
+    525,
+    528,
+]
+hash = "sha256:b5c86f765d8672b0d3431c43c5be96128f278fc5250d073ff10af25eccb76a33"
+doc_hash = "sha256:b5a3ca5d6b1743706f7c742ed24df885cd9ce74b3618cb113317238b68fbde6d"
+callees = [
+    "fn:45ce63821ee879a7",
+    "fn:ed9d56d3945401f4",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#119",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:bff4ba57164b73ac"
+name = "heat_transfer_area"
+qual = "heat_transfer_area"
+lines = [
+    530,
+    536,
+]
+hash = "sha256:1736d4ede03b5ea8656a0a1af9df95e0147b902adc4e1cb558f81e8438d1a7e3"
+doc_hash = "sha256:64ca3e924eaf71e3ccdd937d155dd87f3d8b979de68871b502240819faf1e480"
+callees = [
+    "fn:45ce63821ee879a7",
+    "fn:99b0422761b9db93",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:20a38f7fef0e6abd"
+name = "bed_heat_capacity"
+qual = "bed_heat_capacity"
+lines = [
+    538,
+    550,
+]
+hash = "sha256:585ad7d05cf406ede4d78429c25986d80fe022f0bc8204f7f0e44a582f937943"
+doc_hash = "sha256:0cd17a03daa51319dfbf944a20f52fa2e60922fd31e689a3e054867b6b8c7cb6"
+callees = [
+    "fn:4b6e9cb1cacae1d7",
+    "fn:61b8f91037e9456f",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#121",
+    "#124",
+    "#125",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:2f0f75b38ba9dfae"
+name = "derived_filling_fraction"
+qual = "derived_filling_fraction"
+lines = [
+    552,
+    557,
+]
+hash = "sha256:977246fa10429ddb3b89698fd72198107ad822b6285c0a5bd84f4b6b3556052a"
+doc_hash = "sha256:7b22da79f4d188b2795ea97d5627080b4c0896a81b7a37dab7caef7ace182c4d"
+callees = [
+    "fn:45ce63821ee879a7",
+    "fn:7cf2061635dc85ab",
+    "fn:f0410cc27ddd87c1",
+]
+reached_by = ["#119"]
+
+[[module."one_node.rs".function]]
+id = "fn:466366edf4fea6d7"
+name = "conduction_only_axial_heat_rate"
+qual = "conduction_only_axial_heat_rate"
+lines = [
+    559,
+    587,
+]
+hash = "sha256:9b94c04b253850c40b4d77fbbef4a88aae24866e6bd196168e2be84989186e95"
+doc_hash = "sha256:626f19a8e3c2f03c8a6fe5238cecba18a8d37ac3281168cf88072fb5fcbaf53d"
+callees = [
+    "fn:676940776297fb6c",
+    "fn:a44cce707d3acfd6",
+    "fn:cd999e3904372557",
+]
+reached_by = ["#131"]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:9e75f107bf763e4f"
+name = "wakao_nusselt"
+qual = "wakao_nusselt"
+lines = [
+    594,
+    610,
+]
+hash = "sha256:240e83d777ed7d424b329ef67770c223094b0aceb6bcb0caf25b70c92d1ecf90"
+doc_hash = "sha256:f9934eadf85b19317fbf4dc93f89126a62f8f263dc115e5a8831e2fcd5c293c5"
+uses = ["fn:6ed56ef095e783da"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#148",
+    "#159",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:d17241b8401033f6"
+name = "resolved_pebble"
+qual = "resolved_pebble"
+lines = [
+    612,
+    633,
+]
+hash = "sha256:6f064efe32de80f4397ac567dfa850f936a60db5f2fd89d6e1f9e33cb1c04f65"
+doc_hash = "sha256:020a5c6e0c29b4684d82862339890aed1358ccbed2eca609b058db918c65da69"
+callees = ["fn:db2da3cd6735d360"]
+uses = ["fn:e00c88d7db9a615c"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:95a361232b74f98d"
+name = "fuel_node_heat_capacity"
+qual = "fuel_node_heat_capacity"
+lines = [
+    639,
+    732,
+]
+hash = "sha256:7a5cbddaab630f8d57164a8e5c20978e9b709dcab73bb0f7d8a0460c0a6501e8"
+doc_hash = "sha256:d0d8d13c064629dbdc538352ad673bd0433e31632c2e8179c046d3ee732160e6"
+callees = [
+    "fn:44d7adbd77172ad1",
+    "fn:45ce63821ee879a7",
+    "fn:59fe5b1ed5211786",
+    "fn:61b8f91037e9456f",
+    "fn:685bceb2debd5734",
+    "fn:d17241b8401033f6",
+    "fn:d378fdf3cf43bb31",
+    "fn:dba58c31d25081fb",
+]
+uses = [
+    "fn:3afa5092f77baa96",
+    "fn:8cf471b3dfcde8e5",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#125",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:8c627471faa9a844"
+name = "FuelStackTemperatures"
+qual = "FuelStackTemperatures"
+item = "type"
+shape = "struct"
+lines = [
+    734,
+    763,
+]
+hash = "sha256:246202a1943adb686aa1cc46e13e3032728faa22a1e97d814e04d5732ea7f4b6"
+doc_hash = "sha256:6522ba07f0d8ca3d91c6d7cb713256887313f6c884c342d68288b126fd2a5e3d"
+reached_by = [
+    "#0",
+    "#4",
+    "#6",
+    "#7",
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:13bc15e78fa0a620"
+name = "FuelBedCoupling"
+qual = "FuelBedCoupling"
+item = "type"
+shape = "struct"
+lines = [
+    765,
+    836,
+]
+hash = "sha256:b8b4332108dc58d8fe27ffe62a53b93b143c432ef56b00d7912cbdce55f47c09"
+doc_hash = "sha256:dfc0ec2020bccf48a2f5daf40d6968d3be7fbd44cee14aa421eaa99af40aa50d"
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:e41b7fdee69a05fd"
+name = "from_profile"
+qual = "FuelBedCoupling::from_profile"
+lines = [
+    839,
+    874,
+]
+hash = "sha256:97c126efd52747604b635f52dbbaffee3cbf559584e055a49cbb3d300322bd7f"
+doc_hash = "sha256:775a0945026d1c369fdc13b849e48c07a79428e10a5bb5c338507b2461b5dc53"
+callees = [
+    "fn:45ce63821ee879a7",
+    "fn:d17241b8401033f6",
+    "fn:e078c8b0317209f4",
+]
+uses = [
+    "fn:13bc15e78fa0a620",
+    "fn:774c96b3c4478048",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:4de3cdba7895363c"
+name = "at_design_point"
+qual = "FuelBedCoupling::at_design_point"
+lines = [
+    876,
+    893,
+]
+hash = "sha256:6cc3a21e2ce7fe25125777a632e163f8c9536beae1df98280955d835b182c8de"
+doc_hash = "sha256:ae602317c1d447b9e34322dab5e5763f543a7826942da5e6705ce06ff6774e84"
+callees = [
+    "fn:09800b33acc18060",
+    "fn:529b91a07c422b32",
+    "fn:e41b7fdee69a05fd",
+]
+uses = [
+    "fn:0acc7961ec549a33",
+    "fn:13bc15e78fa0a620",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:e04967878ec14598"
+name = "stack"
+qual = "FuelBedCoupling::stack"
+lines = [
+    895,
+    909,
+]
+hash = "sha256:b19065f7a4dd40e68797b66f511cd0a1bf9f6a8be410e3f1fcc86fb60950e1bd"
+doc_hash = "sha256:ff3d269d6aa51b116edf3b77728e1a0849ca7054af7a7f2e47be40b268fbcc20"
+callees = ["fn:299088c80277df45"]
+uses = [
+    "fn:13bc15e78fa0a620",
+    "fn:8c627471faa9a844",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#46",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#158",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:299088c80277df45"
+name = "interpolate"
+qual = "FuelBedCoupling::interpolate"
+lines = [
+    911,
+    919,
+]
+hash = "sha256:05f6b61c651591d10e07264832c513a2b20fc1ce9bb7cc9238f583def3d4d646"
+doc_hash = "sha256:3aa429fa41f31ab75847bec1170065f290d8a00fdfb3851c820818f6139dbd47"
+uses = ["fn:13bc15e78fa0a620"]
+reached_by = [
+    "#12",
+    "#14",
+    "#46",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#148",
+    "#158",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:09800b33acc18060"
+name = "core_average_pebble_power"
+qual = "core_average_pebble_power"
+lines = [
+    922,
+    926,
+]
+hash = "sha256:cce8cad50106a959480f566582e29af57616364f0f315ea08a850c92d5f03dfb"
+doc_hash = "sha256:01960380fec9a8f3fc43ad0a7dbb0abad42f782e3ce6d24c27b2b30cf2261840"
+callees = [
+    "fn:45ce63821ee879a7",
+    "fn:924edac2a4205dbe",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:d71826e614fb41a2"
+name = "intra_pebble_conduction_coefficient"
+qual = "intra_pebble_conduction_coefficient"
+lines = [
+    928,
+    1002,
+]
+hash = "sha256:122a7c8a6456dcf60c49d5376c866bf76d6e95577e715fa0157c48a5bf854733"
+doc_hash = "sha256:b71cc56cc81c3915d546d39381906de6ed317bf629c834e3a3512312a0262245"
+callees = [
+    "fn:a2f10d3d9382f7fb",
+    "fn:ad8298878e9edd59",
+    "fn:d5f5823420ca75ba",
+]
+reached_by = [
+    "#120",
+    "#122",
+    "#128",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:a2f10d3d9382f7fb"
+name = "floored_pebble_power"
+qual = "floored_pebble_power"
+lines = [
+    1004,
+    1014,
+]
+hash = "sha256:b15f72f6b278ea46b516e266cbc59835bf0925513eb41fbad119bc35f80fa1d6"
+doc_hash = "sha256:d22e3606991dcd928c54f1b8604e06ffb81155e1122ce2197905f6ee21967c72"
+callees = ["fn:09800b33acc18060"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:529b91a07c422b32"
+name = "resolved_pebble_profile"
+qual = "resolved_pebble_profile"
+lines = [
+    1016,
+    1065,
+]
+hash = "sha256:a8fd805e5cddef150c61f2d913842d36e05cdb1f034586fda3083596ba6a4994"
+doc_hash = "sha256:abb59af9f1aaef31504ed925c060742cb8e89814a49642bd089b3624187442c8"
+callees = ["fn:d5f5823420ca75ba"]
+uses = ["fn:774c96b3c4478048"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:d5f5823420ca75ba"
+name = "resolved_pebble_profile_checked"
+qual = "resolved_pebble_profile_checked"
+lines = [
+    1067,
+    1167,
+]
+hash = "sha256:6150cc65952066f4cc62dbc29dccfc932adf146087e67e8b518215cb3ded04a4"
+doc_hash = "sha256:4f30eeb1ff0d6ee03a92df4ab378f6cdae6d4c4510be51846ebdb4c50c401470"
+callees = [
+    "fn:09800b33acc18060",
+    "fn:a2f10d3d9382f7fb",
+    "fn:d17241b8401033f6",
+    "fn:e078c8b0317209f4",
+    "fn:ed3b71bd6d54b3b5",
+]
+uses = ["fn:774c96b3c4478048"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:ad8298878e9edd59"
+name = "conduction_coefficient_from"
+qual = "conduction_coefficient_from"
+lines = [
+    1169,
+    1209,
+]
+hash = "sha256:3c10295272737fa6fc920ef560c7faf2b06bc5536f7b5f1389a6c75cf3c94cd0"
+doc_hash = "sha256:82654ad6d817ade9fd0aec1b51c4232d4f1c99bb095366ab09885776f72bcba7"
+callees = [
+    "fn:45ce63821ee879a7",
+    "fn:a2f10d3d9382f7fb",
+    "fn:bff4ba57164b73ac",
+    "fn:d17241b8401033f6",
+    "fn:e078c8b0317209f4",
+]
+uses = ["fn:774c96b3c4478048"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:6560845e281d328c"
+name = "overall_htc_at_flow"
+qual = "overall_htc_at_flow"
+lines = [
+    1211,
+    1254,
+]
+hash = "sha256:5c8023b57c461bf30a7e7cdae6974f9af03ef7f14d9fd85fcdbf7fcce4dd39c8"
+doc_hash = "sha256:02393de14f64226cbaf4d9a579e7b1e902f9199db3d7d30677c0b52874c2631c"
+callees = [
+    "fn:332c6b93b43b326b",
+    "fn:45ce63821ee879a7",
+    "fn:d3dcde3e3ff30d4f",
+    "fn:d71826e614fb41a2",
+]
+reached_by = [
+    "#120",
+    "#122",
+    "#128",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:d3dcde3e3ff30d4f"
+name = "film_htc_at_flow"
+qual = "film_htc_at_flow"
+lines = [
+    1256,
+    1288,
+]
+hash = "sha256:a9b6f011f75ed0c05c92e4c3a0b10e36c5b317a734c95055c9c8848fd3a8f126"
+doc_hash = "sha256:03a6578ba6bac9ff7612829a7e834b43799892f592727c89cd6c64bf7b742de4"
+callees = [
+    "fn:19c65a8e4c44c11d",
+    "fn:1bd17fe6239da439",
+    "fn:7e3d095859b9214f",
+    "fn:8cfdbed81abcead5",
+    "fn:99b0422761b9db93",
+    "fn:9e75f107bf763e4f",
+    "fn:a44cce707d3acfd6",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:332c6b93b43b326b"
+name = "series_coefficient"
+qual = "series_coefficient"
+lines = [
+    1290,
+    1306,
+]
+hash = "sha256:322e4c5a475d14b0db03fb599091864d457332311a8b84d8e850af262024157b"
+doc_hash = "sha256:d2672c05d6e23f7cdc57f9bce1de8f3a0a4dcb3a7703041925339073caf52436"
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:a2088d72427a4782"
+name = "helium_specific_heat"
+qual = "helium_specific_heat"
+lines = [
+    1308,
+    1337,
+]
+hash = "sha256:db7cbf1dc7659645caa6ca648d0988e3c51a2c1371877b828b36640cf178c4a7"
+doc_hash = "sha256:e9f60dd542bda422e3aa4beb6b53c717ad3022231af6a45e0f5da82272b49cc2"
+callees = [
+    "fn:924edac2a4205dbe",
+    "fn:a9e5181d9a48d7b4",
+]
+uses = ["fn:76b3c86a3f053867"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#121",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:c7cd472a1dda695b"
+name = "helium_enthalpy_at"
+qual = "helium_enthalpy_at"
+lines = [
+    1339,
+    1359,
+]
+hash = "sha256:23a62ae0870bcf3e4f58d6878cf08bb228a62b197c3ec0a676300c065d4d6c1c"
+doc_hash = "sha256:d995caea44973198cd0be54fce6ab7e2790b068c3a3f76f74bfa70e19cd94459"
+callees = [
+    "fn:924edac2a4205dbe",
+    "fn:a9e5181d9a48d7b4",
+]
+uses = ["fn:76b3c86a3f053867"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#102",
+    "#104",
+    "#105",
+    "#107",
+    "#108",
+    "#118",
+    "#121",
+    "#124",
+    "#129",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:87b872704a5b6933"
+name = "helium_state_at"
+qual = "helium_state_at"
+lines = [
+    1361,
+    1372,
+]
+hash = "sha256:5017833b7ef7656f9b548017466dc01952e1defc3da21837521c2fee9f96d3ff"
+doc_hash = "sha256:325696deae8910320cc283a2438fd1d63bd6244ba4f5ddecd419ddada2e8312f"
+callees = ["fn:03c771cd2ed6cad5"]
+uses = ["fn:e0f37a91a1b50ee4"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#102",
+    "#104",
+    "#105",
+    "#107",
+    "#108",
+    "#118",
+    "#121",
+    "#124",
+    "#129",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:03c771cd2ed6cad5"
+name = "helium_state_at_seeded"
+qual = "helium_state_at_seeded"
+lines = [
+    1374,
+    1421,
+]
+hash = "sha256:1a839ac6084f47c81be0c13d47fc182159b38d1a228371de8ba56c4cd302b1ce"
+doc_hash = "sha256:33dd48e35372105e8d1a5d9d7e965014c39c1f411699181b43685f998064b488"
+callees = [
+    "fn:3cc8c82ac6ef64c6",
+    "fn:924edac2a4205dbe",
+    "fn:a9e5181d9a48d7b4",
+]
+uses = [
+    "fn:76b3c86a3f053867",
+    "fn:e0f37a91a1b50ee4",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#102",
+    "#104",
+    "#105",
+    "#107",
+    "#108",
+    "#118",
+    "#121",
+    "#124",
+    "#129",
+    "#141",
+    "#146",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:19c65a8e4c44c11d"
+name = "helium_transport"
+qual = "helium_transport"
+lines = [
+    1423,
+    1462,
+]
+hash = "sha256:ea0bf66efdc9d814b281bbd3e515e1fb2ebd85967305ac42d6ac85144ea68265"
+doc_hash = "sha256:fc0329ac63d1bb8c088a0dd650abf7cc898cd83d7dbd4c79bee779aed4c304cf"
+callees = [
+    "fn:49f6be0b866f24e0",
+    "fn:5f3d464522cb768d",
+    "fn:924edac2a4205dbe",
+    "fn:a9e5181d9a48d7b4",
+]
+uses = ["fn:76b3c86a3f053867"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#128",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:f4a6fb9b6c869025"
+name = "pebble_bed_specific_enthalpy_from_temperature"
+qual = "pebble_bed_specific_enthalpy_from_temperature"
+lines = [
+    1464,
+    1488,
+]
+hash = "sha256:c83fd16ff2ef0b29a39f4972bb13440864c1c979f3e09544dad0ec18b69c084f"
+doc_hash = "sha256:45bd5679899ff0ed9e619767aa33999a7de35b375392735f1b80932698d7fc96"
+callees = [
+    "fn:4e97545e6b6c30c4",
+    "fn:e04a45132823706f",
+]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:25f8d0ea64dc5928",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#120",
+    "#121",
+    "#124",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:ec3b2250b0dc1a1f"
+name = "temperature_from_specific_enthalpy"
+qual = "temperature_from_specific_enthalpy"
+lines = [
+    1490,
+    1502,
+]
+hash = "sha256:6a686c170537fbc3ae0c9972dfa9faa4f4cff6c23324731191d47e526524e527"
+doc_hash = "sha256:bd199f90aca925a9fce95d4870e23f46974a9d2b00abc646ecb9b1fc91f93c3f"
+callees = [
+    "fn:4e97545e6b6c30c4",
+    "fn:5740a9cd9ae0d032",
+]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:25f8d0ea64dc5928",
+]
+reached_by = ["#120"]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:0da2d931f598e177"
+name = "PebbleBedPorousMediaNode"
+qual = "PebbleBedPorousMediaNode"
+item = "type"
+shape = "struct"
+lines = [
+    1551,
+    1714,
+]
+hash = "sha256:1331727087647b9dc6f64f85bda4d81f786d4c977675cec9595de223970ec37f"
+doc_hash = "sha256:ffb383cb5b67601e0fb13c1de690580c1ae3b6c21362d9e14069de80c17feae4"
+uses = [
+    "fn:13bc15e78fa0a620",
+    "fn:774c96b3c4478048",
+    "fn:92fc22069b888fc6",
+    "fn:e0f37a91a1b50ee4",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:92fc22069b888fc6"
+name = "BedStepEnergy"
+qual = "BedStepEnergy"
+item = "type"
+shape = "struct"
+lines = [
+    1716,
+    1742,
+]
+hash = "sha256:0a7aff574a87ec6ea0d1cb67c4435f70bcc30509306fdb7a787a36cbd0ca17a1"
+doc_hash = "sha256:8bc65e12eda81f6b0733c8f1263dd56d6307294618ce1c269e0ec38030a3d6ca"
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:6c7f6cc3b163ef0a"
+name = "new"
+qual = "PebbleBedPorousMediaNode::new"
+lines = [
+    1745,
+    1776,
+]
+hash = "sha256:3b47e093507ec946ebc1608806c7072a2ce479b3dbe90c0ce3e09abbbf24112d"
+doc_hash = "sha256:25c0610330f16ec52ee6ab1494c7dc4121faffa8fe68d6eb8166e39d058b880c"
+callees = [
+    "fn:4de3cdba7895363c",
+    "fn:62af925e5c7a6f4a",
+    "fn:a9e5181d9a48d7b4",
+]
+uses = [
+    "fn:0acc7961ec549a33",
+    "fn:0da2d931f598e177",
+    "fn:13bc15e78fa0a620",
+    "fn:68ba93e85af35d43",
+    "fn:76b3c86a3f053867",
+    "fn:8ef243d1b55f559f",
+    "fn:92fc22069b888fc6",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#117",
+    "#118",
+    "#121",
+    "#123",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:a5bca0d7b68fb22c"
+name = "step"
+qual = "PebbleBedPorousMediaNode::step"
+lines = [
+    1778,
+    2094,
+]
+hash = "sha256:fd3bd64393aeef61964b19fed479ddbee0549d074b1bd3995c10d2f2852941ad"
+doc_hash = "sha256:0d6d9936d8e44cd123c9a94fa7fa7a47eff0718b49575910a44870996c1a7d9a"
+callees = [
+    "fn:03c771cd2ed6cad5",
+    "fn:09800b33acc18060",
+    "fn:19b6ae27ae452ffa",
+    "fn:20a38f7fef0e6abd",
+    "fn:21042cc91fc85081",
+    "fn:23e39a8bae9231bf",
+    "fn:332c6b93b43b326b",
+    "fn:45ce63821ee879a7",
+    "fn:4b6e9cb1cacae1d7",
+    "fn:529b91a07c422b32",
+    "fn:6dc82a6475c2f1e2",
+    "fn:75380d6c074ffb31",
+    "fn:87b872704a5b6933",
+    "fn:9cda0779dd35cb0c",
+    "fn:ad8298878e9edd59",
+    "fn:bff4ba57164b73ac",
+    "fn:d3dcde3e3ff30d4f",
+    "fn:d5f5823420ca75ba",
+    "fn:e41b7fdee69a05fd",
+    "fn:f4a6fb9b6c869025",
+    "fn:f5898c8e23229242",
+]
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:13bc15e78fa0a620",
+    "fn:60c9df62d486df65",
+    "fn:92fc22069b888fc6",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#121",
+    "#124",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:5b78d09355141990"
+name = "pebble_temperature"
+qual = "PebbleBedPorousMediaNode::pebble_temperature"
+lines = [
+    2096,
+    2105,
+]
+hash = "sha256:e8c7aa027e34ed919d4593e4b657cded323f937d7d0958b03c6ad50174ce88bb"
+doc_hash = "sha256:10e5b207585401d215a187120778fd3b9dab0a717abcf88210af869acf5f12df"
+uses = ["fn:0da2d931f598e177"]
+reached_by = [
+    "#12",
+    "#14",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#46",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#121",
+    "#124",
+    "#129",
+    "#148",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:cfb6970b549ae6e7"
+name = "peak_kernel_temperature"
+qual = "PebbleBedPorousMediaNode::peak_kernel_temperature"
+lines = [
+    2107,
+    2145,
+]
+hash = "sha256:7ac5bf8a76763e18684b3bafe308b96d2f864ad9feb37cea2dc882f4c9e87528"
+doc_hash = "sha256:84be7e8f5b5c771f8ab9853cb72ac39e2f3cd713cc72020294dc58c6b2d0b143"
+uses = ["fn:0da2d931f598e177"]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:173ea934c268e714"
+name = "pebble_profile"
+qual = "PebbleBedPorousMediaNode::pebble_profile"
+lines = [
+    2147,
+    2156,
+]
+hash = "sha256:3a5f1c5c7284c16f143968079fd4f10836d3ea44f5c82cf6368bf00984ee762b"
+doc_hash = "sha256:5a551d92745e5c98092276730e4eb6a692c5e6b500eac38dbf2f685ff8cb4789"
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:774c96b3c4478048",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#75",
+    "#87",
+    "#88",
+    "#91",
+    "#148",
+    "#158",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:7ecbdac3e45bb30f"
+name = "fuel_bed_coupling"
+qual = "PebbleBedPorousMediaNode::fuel_bed_coupling"
+lines = [
+    2158,
+    2172,
+]
+hash = "sha256:ec7284807a916789f74ce3dc9b995562441c65a379e63b3863743b8027baeade"
+doc_hash = "sha256:5a07e2d380b832f424d18f8e8e673a768f7fbd23baafaef7a138bbe085186ba2"
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:13bc15e78fa0a620",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#124",
+    "#148",
+    "#158",
+    "#159",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:cae742048a3b30ce"
+name = "fuel_bed_coupling_is_current"
+qual = "PebbleBedPorousMediaNode::fuel_bed_coupling_is_current"
+lines = [
+    2174,
+    2178,
+]
+hash = "sha256:ca0e9c37fe641258b7d0beab676a6b53f9cc5711ff6961afecfd2960d7ee142e"
+doc_hash = "sha256:4b529b9c761f67adc30c7e9de29c4f85463344f3895a685c9b2d6609d66b04d8"
+uses = ["fn:0da2d931f598e177"]
+reached_by = ["#124"]
+
+[[module."one_node.rs".function]]
+id = "fn:589cd2fa4e141309"
+name = "last_step_energy"
+qual = "PebbleBedPorousMediaNode::last_step_energy"
+lines = [
+    2180,
+    2183,
+]
+hash = "sha256:3ad17632b77be498fb747a851b735892dba37416bee074b0104599f41c7947ea"
+doc_hash = "sha256:0a962fba9fdad6b4083203ad7e17a853177a2f099cc729cc81644672043c6896"
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:92fc22069b888fc6",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#121",
+    "#148",
+    "#159",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:1c31a6cca7c28634"
+name = "helium_state"
+qual = "PebbleBedPorousMediaNode::helium_state"
+lines = [
+    2185,
+    2190,
+]
+hash = "sha256:d276a447258c5ef6fe1e28179e177646e014914094843d0a95917231a3e12730"
+doc_hash = "sha256:d7e003f4ac4cc5f0946436aaee0b7a498b745f6e4cd73967db4dbc083f16faf8"
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:e0f37a91a1b50ee4",
+]
+
+[[module."one_node.rs".function]]
+id = "fn:b2a3b682b197a116"
+name = "helium_temperature"
+qual = "PebbleBedPorousMediaNode::helium_temperature"
+lines = [
+    2192,
+    2198,
+]
+hash = "sha256:7c4117b5c29c12b5f84ad37faae2513db85106eb6f8a4b726dfb487657649662"
+doc_hash = "sha256:9cf8ccfa7f69b3cd41c6120b91741158948727052b6b719e4f7c63b19382f38b"
+uses = ["fn:0da2d931f598e177"]
+reached_by = [
+    "#121",
+    "#124",
+    "#129",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:69107d633bd3e97f"
+name = "helium_void_volume"
+qual = "PebbleBedPorousMediaNode::helium_void_volume"
+lines = [
+    2200,
+    2205,
+]
+hash = "sha256:0088ee8cb8d0f12ff73dc383fa7ec05fa32b46e6219b9196aa9ed3ea866d4af6"
+doc_hash = "sha256:8995e9b5741345139ca878b3a0268097028afbe50ed84db0c530852727f0cea4"
+uses = ["fn:0da2d931f598e177"]
+reached_by = ["#123"]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:5bfe4a928060dc9a"
+name = "helium_outlet_enthalpy"
+qual = "PebbleBedPorousMediaNode::helium_outlet_enthalpy"
+lines = [
+    2207,
+    2212,
+]
+hash = "sha256:d68d545b17d692965455d0d793eb72667dc38e8aecc41d0b234cb8909d5048cd"
+doc_hash = "sha256:4c4e7ffde5fc6546a8bb0bd42574df9c8f07eea9e82f8e9723168772695b4692"
+uses = ["fn:0da2d931f598e177"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:18656eaecfe783b0"
+name = "heat_to_helium"
+qual = "PebbleBedPorousMediaNode::heat_to_helium"
+lines = [
+    2214,
+    2218,
+]
+hash = "sha256:26cf33646a5c31c6c3a12f38aab55dd29d86a629eb35c47ff98e8eb25b750c69"
+doc_hash = "sha256:c4c6c3233b3944e6b401b2de0e37f6ee37f9fea208405c0434fdf347b6814f6a"
+uses = ["fn:0da2d931f598e177"]
+reached_by = ["#129"]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:ccdc0eaa325f9df4"
+name = "default"
+qual = "PebbleBedPorousMediaNode::default"
+lines = [
+    2222,
+    2224,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6c7f6cc3b163ef0a"]
+uses = ["fn:0da2d931f598e177"]
+
+[[module."one_node.rs".function]]
+id = "fn:f5898c8e23229242"
+name = "helium_void_mass"
+qual = "helium_void_mass"
+lines = [
+    2227,
+    2236,
+]
+hash = "sha256:97c69948b39a28c6d5ee2b0baee640dba32603d9b6dca3e0761ac92b3899ce21"
+doc_hash = "sha256:4ef86284995b0e04b94ee2416928d6f1df1eec849c774c2a0bc054c1cc2660cd"
+uses = ["fn:e0f37a91a1b50ee4"]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#121",
+    "#124",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:9cda0779dd35cb0c"
+name = "assemble_backward_euler_system"
+qual = "assemble_backward_euler_system"
+lines = [
+    2238,
+    2329,
+]
+hash = "sha256:025eba881f7bd45cf97aad5691e2abd4badc416e1d8ddf861bec21d8844d31c4"
+doc_hash = "sha256:22796c4a6fc6006ba9ec069748ed25c1e32617df2b6619fa053d9e1a40002cbe"
+callees = [
+    "fn:04372eb2cb9f9bc3",
+    "fn:151aad4ebbbcd1a5",
+    "fn:19b6ae27ae452ffa",
+    "fn:21042cc91fc85081",
+]
+uses = [
+    "fn:33a2eb8456953def",
+    "fn:4565b0b661c03055",
+    "fn:60c9df62d486df65",
+    "fn:e0f37a91a1b50ee4",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#86",
+    "#87",
+    "#88",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#118",
+    "#121",
+    "#124",
+    "#129",
+    "#148",
+    "#159",
+]
+physical_interface = true
+
+[[module."one_node.rs".function]]
+id = "fn:6cf30bde2b64a3f5"
+name = "seeded_passive_path"
+qual = "seeded_passive_path"
+lines = [
+    2335,
+    2345,
+]
+hash = "sha256:75643a475c6f2f8477517443110df38224e5398f8e75ff2904ea0e1f755b9988"
+doc_hash = "sha256:2032d3c4a11f29468d3066cd0621acb21498e1a172c748771283127ac0f66044"
+callees = [
+    "fn:5b78d09355141990",
+    "fn:6572a14aa8f162c3",
+    "fn:b2a3b682b197a116",
+]
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:60c9df62d486df65",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:023b57730c420c2b"
+name = "the_fuel_bed_coupling_is_read_off_the_start_of_step_profile"
+qual = "the_fuel_bed_coupling_is_read_off_the_start_of_step_profile"
+lines = [
+    2347,
+    2416,
+]
+hash = "sha256:0700d6a0931e967622d014fe8933f754582c298b3dc8a9cfb25245c42c2ca86c"
+doc_hash = "sha256:d7f6c61275b1dcca4ad76919ec68db0eb266e4e2fcb8e5db9aecefa9ba52ef20"
+callees = [
+    "fn:08c995ec00d16951",
+    "fn:09800b33acc18060",
+    "fn:529b91a07c422b32",
+    "fn:5b78d09355141990",
+    "fn:6c7f6cc3b163ef0a",
+    "fn:6cf30bde2b64a3f5",
+    "fn:7ecbdac3e45bb30f",
+    "fn:a5bca0d7b68fb22c",
+    "fn:c7cd472a1dda695b",
+    "fn:cae742048a3b30ce",
+    "fn:d17241b8401033f6",
+    "fn:e078c8b0317209f4",
+    "fn:e41b7fdee69a05fd",
+]
+uses = [
+    "fn:0da2d931f598e177",
+    "fn:13bc15e78fa0a620",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:f8e3d314d6d902f0"
+name = "the_fuel_node_capacity_is_the_particles_and_nothing_else"
+qual = "the_fuel_node_capacity_is_the_particles_and_nothing_else"
+lines = [
+    2418,
+    2461,
+]
+hash = "sha256:2277072198794b16f29607a16db8679e75145534c015b0380f577ed4cb2d376f"
+doc_hash = "sha256:1ed523cfe97777dc814b79f29e241445f5a7eb73869bf2682edb64224f09846f"
+callees = [
+    "fn:20a38f7fef0e6abd",
+    "fn:4b6e9cb1cacae1d7",
+    "fn:59fe5b1ed5211786",
+    "fn:61b8f91037e9456f",
+    "fn:95a361232b74f98d",
+    "fn:dba58c31d25081fb",
+]
+uses = [
+    "fn:3afa5092f77baa96",
+    "fn:8cf471b3dfcde8e5",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:9e34af0684ff8970"
+name = "why_the_resolved_kernel_goes_none_on_a_hot_core"
+qual = "why_the_resolved_kernel_goes_none_on_a_hot_core"
+lines = [
+    2463,
+    2573,
+]
+hash = "sha256:f947e7207cdd69872f010a8f24146473713d0ace0f6267653ecdbbd9de771a84"
+doc_hash = "sha256:6a18683d9ba8f110675977e04ac6fbecb2a185d49eb7fc9296125db3ef563b06"
+callees = [
+    "fn:45ce63821ee879a7",
+    "fn:924edac2a4205dbe",
+    "fn:a2f10d3d9382f7fb",
+    "fn:d17241b8401033f6",
+    "fn:ed3b71bd6d54b3b5",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:1a3dbbd28d423946"
+name = "bed_geometry_reproduces_the_published_core"
+qual = "bed_geometry_reproduces_the_published_core"
+lines = [
+    2576,
+    2636,
+]
+hash = "sha256:b8a63911dc824b3b34b9f202530c7dfc907703e7604f3b129d0e0694fceb2c80"
+doc_hash = "sha256:89e6c4149e4bdc582e447822d6d54c52cd3e954ec5e93a0683baccb624416179"
+callees = [
+    "fn:2f0f75b38ba9dfae",
+    "fn:4b6e9cb1cacae1d7",
+    "fn:7cf2061635dc85ab",
+    "fn:953bcd94154cc74f",
+    "fn:bff4ba57164b73ac",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:beb0a3354df96886"
+name = "zbs_conduction_is_negligible_beside_convection_at_power"
+qual = "zbs_conduction_is_negligible_beside_convection_at_power"
+lines = [
+    2638,
+    2714,
+]
+hash = "sha256:c0b05baf8c96da36c7ed8a2bf4c323a32bdae7861d5425da41919c7f0e4ff01f"
+doc_hash = "sha256:805c5eb93c7dbf3f92eec7dd4a278677b58b70958cdfa94d3444e65cc0ea676e"
+callees = [
+    "fn:466366edf4fea6d7",
+    "fn:676940776297fb6c",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:03358cc172b0e56c"
+name = "the_evaluated_coefficient_beats_the_old_invented_one"
+qual = "the_evaluated_coefficient_beats_the_old_invented_one"
+lines = [
+    2716,
+    2807,
+]
+hash = "sha256:98841db544513efc0aafdb1e110ee5e7950840457a8568734893295f72f003e0"
+doc_hash = "sha256:d1e13ae9e00655b016bba8850761964805477dbcc1d080f7bd4cdcc3cfc9778a"
+callees = [
+    "fn:08c995ec00d16951",
+    "fn:19c65a8e4c44c11d",
+    "fn:45ce63821ee879a7",
+    "fn:6560845e281d328c",
+    "fn:7e3d095859b9214f",
+    "fn:8cfdbed81abcead5",
+    "fn:99b0422761b9db93",
+    "fn:9e75f107bf763e4f",
+    "fn:a44cce707d3acfd6",
+    "fn:bff4ba57164b73ac",
+    "fn:d71826e614fb41a2",
+]
+uses = ["fn:8ef243d1b55f559f"]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:d8fdf2a7b6f0bc3e"
+name = "the_resolved_pebble_beats_the_uniform_ball"
+qual = "the_resolved_pebble_beats_the_uniform_ball"
+lines = [
+    2809,
+    2930,
+]
+hash = "sha256:a4d5066eae03dcae1837e5828a601aedf274df7860ff69791c5d4b457b77e1d2"
+doc_hash = "sha256:fea2a5eca2a4b6b1d12db5b465435295ef78f0144bd8b57db6f01584b0f5ddae"
+callees = [
+    "fn:08c995ec00d16951",
+    "fn:45ce63821ee879a7",
+    "fn:529b91a07c422b32",
+    "fn:6560845e281d328c",
+    "fn:99b0422761b9db93",
+    "fn:bff4ba57164b73ac",
+    "fn:d3dcde3e3ff30d4f",
+    "fn:d71826e614fb41a2",
+]
+uses = ["fn:446e40bf81602970"]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:510f855fdbff3c2f"
+name = "the_kernel_offset_is_linear_in_power"
+qual = "the_kernel_offset_is_linear_in_power"
+lines = [
+    2932,
+    3047,
+]
+hash = "sha256:7bfcddea4bdb30ebec43b981a0f6f902c8b8e3f13ce8249d42663327a42f6fa2"
+doc_hash = "sha256:0eabe202d356fe08c4ff9fb9986394abcfa04d34a284b8e9bbe8f65af2f543bb"
+callees = [
+    "fn:09800b33acc18060",
+    "fn:529b91a07c422b32",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:b0816c98f1faa0b8"
+name = "the_inverted_profile_reproduces_the_node_temperature"
+qual = "the_inverted_profile_reproduces_the_node_temperature"
+lines = [
+    3049,
+    3102,
+]
+hash = "sha256:c1b79ddf248ecd19998483138e9ddcf6dcf32f790bd0be52c9fcb662607dfd9b"
+doc_hash = "sha256:41827773c3a2dff5e2d207319e25f5a1a7287732dfa0167307e8eae3e2ccc76a"
+callees = [
+    "fn:09800b33acc18060",
+    "fn:529b91a07c422b32",
+    "fn:d17241b8401033f6",
+    "fn:e078c8b0317209f4",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:4425e62850d76ae2"
+name = "enthalpy_round_trips_and_htc_scales_with_flow"
+qual = "enthalpy_round_trips_and_htc_scales_with_flow"
+lines = [
+    3104,
+    3159,
+]
+hash = "sha256:42374db386a33088169eafbea0e1a1e3f4e29a9fa1c648c0516191ffc93bb6f8"
+doc_hash = "sha256:f2566bb934ff9e5511fc7d4e20495f9ceb39bfbb6ad45a19896cf0a8015b8122"
+callees = [
+    "fn:08c995ec00d16951",
+    "fn:1bd17fe6239da439",
+    "fn:45ce63821ee879a7",
+    "fn:6560845e281d328c",
+    "fn:d71826e614fb41a2",
+    "fn:ec3b2250b0dc1a1f",
+    "fn:f4a6fb9b6c869025",
+]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:96eade0ba354e1f3"
+name = "two_node_balance_settles_with_all_power_leaving_via_helium_throughflow"
+qual = "two_node_balance_settles_with_all_power_leaving_via_helium_throughflow"
+lines = [
+    3161,
+    3279,
+]
+hash = "sha256:4f88965395a935bbbb884734fc32c90d1bc9ae7e73f218758bd74d2ea345a8ec"
+doc_hash = "sha256:ef4dbabbab6e23c6bab480ea89f853a1017ee89a4a7e16433f065512104f0065"
+callees = [
+    "fn:08c995ec00d16951",
+    "fn:18656eaecfe783b0",
+    "fn:5b78d09355141990",
+    "fn:5bfe4a928060dc9a",
+    "fn:6c7f6cc3b163ef0a",
+    "fn:6cf30bde2b64a3f5",
+    "fn:6d31d89ee781651b",
+    "fn:a5bca0d7b68fb22c",
+    "fn:b2a3b682b197a116",
+    "fn:c7cd472a1dda695b",
+]
+uses = ["fn:0da2d931f598e177"]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:ecd8e73b0a3e32e3"
+name = "the_fluid_and_graphite_nodes_describe_the_same_bed"
+qual = "the_fluid_and_graphite_nodes_describe_the_same_bed"
+lines = [
+    3281,
+    3303,
+]
+hash = "sha256:4b6e6082a9f2ae9bcb0b52af6e5fe34747612f5ba1eeff27fa76841724004c14"
+doc_hash = "sha256:3423ede90386ba0b72ba4e34bfb763511f7a466478ce9a8f2df05d99109a5736"
+callees = [
+    "fn:2d91f42759325473",
+    "fn:62af925e5c7a6f4a",
+    "fn:69107d633bd3e97f",
+    "fn:6c7f6cc3b163ef0a",
+]
+uses = ["fn:0da2d931f598e177"]
+test = true
+
+[[module."one_node.rs".function]]
+id = "fn:584cf0865c5b7186"
+name = "the_bed_step_closes_its_own_energy_balance"
+qual = "the_bed_step_closes_its_own_energy_balance"
+lines = [
+    3305,
+    3386,
+]
+hash = "sha256:12dd89e85a410a27a34063621860a982308874eb29dac107d648fc6865156261"
+doc_hash = "sha256:b9f0f71370a8f3e775a12e23251f1a4357c6fd6439eb3a3c26ced286cd36e42f"
+callees = [
+    "fn:1bd17fe6239da439",
+    "fn:3e8cdcc6a6d73308",
+    "fn:4b6e9cb1cacae1d7",
+    "fn:589cd2fa4e141309",
+    "fn:5b78d09355141990",
+    "fn:6c7f6cc3b163ef0a",
+    "fn:6cf30bde2b64a3f5",
+    "fn:997f66e0e186c484",
+    "fn:a5bca0d7b68fb22c",
+    "fn:c7cd472a1dda695b",
+    "fn:e17e7fdffc2060ac",
+    "fn:f4a6fb9b6c869025",
+]
+uses = ["fn:0da2d931f598e177"]
+test = true

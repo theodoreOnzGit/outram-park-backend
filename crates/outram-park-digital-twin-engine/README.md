@@ -96,12 +96,46 @@ cargo run --release --example fhr_sim_v2
 
 ### `htgr_sim_v1`
 
-A helium-cooled, graphite-moderated prismatic-block HTGR: reactor kinetics, a
+**Status: ~~scaffold~~ demo** (CHANGED 2026-09-28, maintainer: "no longer a
+scaffold, but a demo"). A demo is an offline demonstration for education and
+research, not a validated or operational tool (`RESPONSIBLE_USE.md`).
+
+> **Read this first (2026-09-29, gh:#387, #408, #409).**
+> - **One delayed-neutron fraction everywhere**, beta_eff = 7.26e-3 (Chen et
+>   al. 2009), for the rods, the prompt layer and the delayed bank.
+> - **The delayed-neutron precursors start EMPTY** and fill over the first
+>   minutes (the longest group's ~56 s half-life sets the scale; within 1 % of
+>   equilibrium after 245 s at 10 MW). From a cold start at net 0 $ the power
+>   first drops. Early-transient numbers are the precursors filling, not plant
+>   behaviour.
+> - **Decay heat starts at equilibrium**, a conservative choice (more decay
+>   heat early).
+> - **Rod worth vs the feedback reference is demo-grade** (cold-clean worth
+>   against an illustrative 950 K feedback zero; gh:#408).
+> - **The reactor building is not credited** (conservative): the primary leak
+>   goes straight to the stack (gh:#409).
+
+A helium-cooled, graphite-moderated ~~prismatic-block~~ **pebble-bed**
+(HTR-10-shaped; CORRECTED 2026-09-28 — the prismatic core was replaced by the
+pebble bed in `physics/reactor_model/one_node.rs`) HTGR: reactor kinetics, a
 helium primary loop, and a steam secondary loop, drawn entirely on this crate's
 reusable widgets.
 
 **What is real:**
 
+> **Not re-checked in full (2026-09-28).** Parts of this list predate the
+> pebble-bed rewrite and are known stale — e.g. ~~Haaland pipe friction~~ was
+> removed in favour of the KTA packed-bed correlation, and the IHX is now a
+> nodalised counter-flow steam generator (`physics/steam_generator.rs`), not an
+> effectiveness-NTU lump. The module doc comments are the authority.
+
+- **Core energy chain (2026-09-28, gh:#360):** fission (prompt share) and decay
+  heat are deposited in a **fuel node** (the TRISO kernels and coatings, the
+  Nordheim-Fuchs node), which conducts to the **pebble bed** through the
+  resolved two-zone pebble; the bed loses to the helium and, in parallel, to
+  the reflector -> vessel -> RCCS chain. Graphite `c_p` and conductivity come
+  from `tuas_boussinesq_solver` (`NuclearGraphiteMatrixA3HighTemp`, IG-110 for
+  the reflector annulus); conductivity above 2000 K is **extrapolated**.
 - Kinetics wired to `teh-o-prke`'s prompt-excursion layer and
   `DelayedNeutronLayer`.
 - Helium `c_p` and density from the CoolProp-derived Helmholtz EOS
@@ -158,8 +192,11 @@ cargo run --release --bin ciet_v2_opcua_client
 
 The shared interface between them is the `ciet_opcua` **library** module —
 `state`, `node_map`, `server`, `discovery`, `pki_paths`. It holds no physics and
-no GUI, so it compiles everywhere the workspace targets, including headless for
-`aarch64-linux-android`; `async-opcua` uses RustCrypto rather than `openssl-sys`
+no GUI, so it compiles ~~everywhere the workspace targets~~ on every native
+target, including headless for
+`aarch64-linux-android` (**CORRECTED 2026-10-17**: it was gated off `wasm32`
+entirely; since gh:#924 only its `state` submodule builds there, for the
+browser demo below); `async-opcua` uses RustCrypto rather than `openssl-sys`
 for exactly that reason. The address space is 36 variables (21 read-only
 signals, 8 writable continuous controls, 7 writable switches) at
 `opc.tcp://<host>:4840/ciet`, all derived from three enums in
@@ -193,6 +230,22 @@ validity), which verify the contract and say nothing about the physics. Termux
 support is **unverified**: the `aarch64-linux-android` `cargo check` is only a
 proxy and no native on-device Termux build has been run.
 
+### In the browser (gh:#924)
+
+The same simulator runs on the Pages site at `demos/ciet/`: a plain-JS page that
+only draws, and the v2 physics compiled to wasm on three Web Workers, mirroring
+v2's threads (a plant worker for the heat transfer and real-time pacing, and a
+DRACS-flow and a primary-flow worker for the flow solves). One copy of the
+physics: the loop body moved into `full_simulation/stepper.rs` (`CietLoop`),
+which the desktop thread and `examples/ciet_web` both call. Build with
+`web/ciet/build.sh`; record and measurements in
+[`verification_and_validation/ciet_web/README.md`](verification_and_validation/ciet_web/README.md).
+
+```bash
+cargo run --release --example ciet_web -- --headless 600 10 8   # CSV trace, 8 kW
+crates/outram-park-digital-twin-engine/web/ciet/build.sh        # the browser demo
+```
+
 Documentation:
 
 - [`src/bin/ciet_educational_simulator_v2/README.md`](src/bin/ciet_educational_simulator_v2/README.md)
@@ -220,7 +273,7 @@ cargo test --release -p outram-park-digital-twin-engine --lib --tests --examples
 
 ## Licence
 
-GPL-3.0. See the workspace root for the full licence text and
+~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973). See the workspace root for the full licence text and
 `RESEARCH_INTEGRITY_AND_PROVENANCE.md` for attribution expectations.
 
 ## Copyright

@@ -1,0 +1,226 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c9",
+]
+
+[module."calibration_version_1.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::calibration_version_1"
+
+[[module."calibration_version_1.rs".function]]
+id = "fn:399468c222404d35"
+name = "dhx_calibration_validation_test_v1"
+qual = "dhx_calibration_validation_test_v1"
+lines = [
+    1,
+    361,
+]
+hash = "sha256:e00b8ca03aabdd05dae53f5abae2b80820a0f8da45f109d1ce532e4b46821f9b"
+doc_hash = "sha256:2f96ab5d50b64e075a965627547e7b39063fb40db65cdc328a73b56f23c0fe58"
+callees = [
+    "fn:29d3c7e4a86d3e41",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:794447db2cba5037",
+    "fn:835ea69942f39c9e",
+    "fn:86b916a07dca81de",
+    "fn:a30a4ebf70996f01",
+    "fn:a37f18cbee9ad2f1",
+    "fn:b113f725d215f11b",
+    "fn:cb686a3a508b4a07",
+    "fn:dda41651835c793f",
+    "fn:e4bff9f30142b5cc",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = ["#8"]
+
+[module."calibration_version_2.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration::calibration_version_2"
+
+[[module."calibration_version_2.rs".function]]
+id = "fn:f7d3e584015468d0"
+name = "dhx_calibration_validation_test_v2"
+qual = "dhx_calibration_validation_test_v2"
+lines = [
+    1,
+    368,
+]
+hash = "sha256:6ccba8bf5fc550bc1621a745ee1875d2f4b6762a4325d17afe827a9589012f0b"
+doc_hash = "sha256:2f96ab5d50b64e075a965627547e7b39063fb40db65cdc328a73b56f23c0fe58"
+callees = [
+    "fn:29d3c7e4a86d3e41",
+    "fn:3ab99241909cec96",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:75b2bf19978d095f",
+    "fn:794447db2cba5037",
+    "fn:835ea69942f39c9e",
+    "fn:86b916a07dca81de",
+    "fn:a30a4ebf70996f01",
+    "fn:a37f18cbee9ad2f1",
+    "fn:b113f725d215f11b",
+    "fn:cb686a3a508b4a07",
+    "fn:dda41651835c793f",
+    "fn:e4bff9f30142b5cc",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dhx_sthe_calibration"
+
+[[module."mod.rs".function]]
+id = "fn:8aac6ad5eee77d06"
+name = "dhx_regression_set_c1"
+qual = "dhx_regression_set_c1"
+lines = [
+    14,
+    58,
+]
+hash = "sha256:5bf59dd4598a167ecac21d1b013edd2d78395e92126ba9eb94485ed4dc8a1d09"
+doc_hash = "sha256:2ddc357a77463688d2e19c5086da7af22c5b447ae5cab6fb2417d2b77d6ee416"
+callees = ["fn:f7d3e584015468d0"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:188aa0b738e6c619"
+name = "dhx_regression_set_c2"
+qual = "dhx_regression_set_c2"
+lines = [
+    59,
+    103,
+]
+hash = "sha256:8e2b4dd9dbdc1114814e353bdeb275e45c998790420dfda22280d4465a78b961"
+doc_hash = "sha256:c13e90f488f9b2c13d11ba7013579b48e3facca0f7ba3bf57954d5a9ace4b820"
+callees = ["fn:f7d3e584015468d0"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b80331547e7d9b2c"
+name = "dhx_regression_set_c3"
+qual = "dhx_regression_set_c3"
+lines = [
+    104,
+    153,
+]
+hash = "sha256:9fedc0cad5f8552e47c50e753916a21294822692091a79f477669d639e7a3cc0"
+doc_hash = "sha256:2ed2eb0324ede80a7820e22bd4f5d22e00ab7b50bf2253ba9493506948c6caa0"
+callees = ["fn:f7d3e584015468d0"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c0b8bce6804c2644"
+name = "dhx_regression_set_c4"
+qual = "dhx_regression_set_c4"
+lines = [
+    154,
+    198,
+]
+hash = "sha256:e00cacfcec2475294425bf250e1439a3673c97c94af4052cded74d9e14bfb047"
+doc_hash = "sha256:84657068df57a0cd3f4ec1c468e121443ac819b1339dae548b998c89b1c84f1f"
+callees = ["fn:f7d3e584015468d0"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d8bfc21e07f16ed1"
+name = "dhx_regression_set_c5"
+qual = "dhx_regression_set_c5"
+lines = [
+    199,
+    244,
+]
+hash = "sha256:0525eb5b7bc46fb35c44b8c9b677a62e137348f20cdded8520e8934e2f353539"
+doc_hash = "sha256:1d15f25d805866a7a6230f91f8de13f5c28b5b341d037e3f728e471a7345b7f9"
+callees = ["fn:f7d3e584015468d0"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e49b0ce87555564a"
+name = "dhx_regression_set_c6"
+qual = "dhx_regression_set_c6"
+lines = [
+    245,
+    290,
+]
+hash = "sha256:83d820246e224fd1c6683861322443dcea564e707842c617e2e7d357b80ac7d7"
+doc_hash = "sha256:528d03aacb41d8625e44ad8f4bd2a09c11ec00a15a8620e7178549986a967b82"
+callees = ["fn:f7d3e584015468d0"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:986cb0af80239be1"
+name = "dhx_regression_set_c7"
+qual = "dhx_regression_set_c7"
+lines = [
+    291,
+    336,
+]
+hash = "sha256:e14c1f1045f8e59b1838694800e202f02f8d760bebb7f946d474a420098988b6"
+doc_hash = "sha256:62e560483be24fd6c454f6c2aab46160b43e0aae8623542efe63a71e46986823"
+callees = ["fn:f7d3e584015468d0"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d89c245a8a00ff87"
+name = "dhx_regression_set_c8"
+qual = "dhx_regression_set_c8"
+lines = [
+    337,
+    388,
+]
+hash = "sha256:007eaa0dd544f7471610036ae670d3ce8819dbea9034a958942cf0125414ec2f"
+doc_hash = "sha256:3bb05a7396439437b5c1eaf2050acd18b2ac78b963decc298d66d79c6445a74a"
+callees = ["fn:f7d3e584015468d0"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cd18632e789ca110"
+name = "dhx_regression_set_c9"
+qual = "dhx_regression_set_c9"
+lines = [
+    389,
+    435,
+]
+hash = "sha256:08b016a07234446b883d4e85c504c106d735d6e6838bf51fce1c5e4282d0653c"
+doc_hash = "sha256:8257cae2e26826950ea17d441cf31a8553f8b57ab1f08ca4c4f07f3f89449729"
+callees = ["fn:399468c222404d35"]
+test = true

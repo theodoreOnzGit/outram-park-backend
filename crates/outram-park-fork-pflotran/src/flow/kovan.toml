@@ -1,0 +1,1293 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/flow"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/flow/mod.rs::flow_mode_reports_its_name",
+    "crates/outram-park-fork-pflotran/src/flow/mod.rs::flow_mode_step_advances_time",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_box_uniform_field_is_stationary",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_domain_conserves_total_mass",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::haverkamp_sand_column_runs_and_wets_up",
+    "crates/outram-park-fork-pflotran/src/flow/richards.rs::saturated_1d_steady_state_is_linear",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::flow_mode_run_matches_direct_simulation",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::infiltration_column_runs_and_is_physically_sensible",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::output_writers_produce_wellformed_csv_and_vtk",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::richards_transport_coupling_advects_a_tracer",
+    "crates/outram-park-fork-pflotran/tests/integration.rs::th_coupling_advects_a_thermal_front",
+    "crates/outram-park-fork-pflotran/tests/regression.rs::print_baseline",
+    "crates/outram-park-fork-pflotran/tests/regression.rs::transient_column_matches_frozen_baseline",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::hydrostatic_column_matches_analytical_gravity",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::mms_saturated_operator_is_second_order",
+    "crates/outram-park-fork-pflotran/tests/verification.rs::saturated_linear_profile_is_exact",
+]
+
+[module."mod.rs"]
+path = "crate::flow"
+
+[[module."mod.rs".function]]
+id = "fn:b8168a7bc2186b97"
+name = "FlowMode"
+qual = "FlowMode"
+item = "type"
+shape = "enum"
+lines = [
+    27,
+    38,
+]
+hash = "sha256:a9d777570023ad4860651b7a7afff103ff20cb0a5d7cc18cd9e2b4449ddc9512"
+doc_hash = "sha256:bb984da5154d5eeb4c166896ea03604136f31171fe2b07e6cef1c06bf00649ff"
+uses = ["fn:b586c1998d48841b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e0621c33b5028a43"
+name = "name"
+qual = "FlowMode::name"
+lines = [
+    41,
+    46,
+]
+hash = "sha256:a5963806bdfb143b20ed065347f83feebe37587ac0de2910151191b09b9de313"
+doc_hash = "sha256:ee8139490a29d5674175ad2b26bf565bbaf76b2d0f21fea820a11dc6bb62a0d8"
+uses = ["fn:b8168a7bc2186b97"]
+reached_by = [
+    "#0",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:525e20e12b9b86c0"
+name = "step"
+qual = "FlowMode::step"
+lines = [
+    48,
+    55,
+]
+hash = "sha256:61ff300cf0cc5137cd879ac61248d6b64b7f3b4ee1afb90a8a4c6eb5cced18ea"
+doc_hash = "sha256:98fb011308a620aec4fe6ef5a32c22f984fc8c2fb061267a9ac15dcc1909dfed"
+callees = ["fn:99666e8490f40c24"]
+uses = [
+    "fn:b8168a7bc2186b97",
+    "fn:c3a19bb77dd3ba50",
+    "fn:c3ce6803d2775afb",
+]
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:6397de5b764cc4aa"
+name = "run"
+qual = "FlowMode::run"
+lines = [
+    57,
+    64,
+]
+hash = "sha256:ab841cd03d4226a540bc46b4145f451af73afdf6db706c10120d297ec56230dc"
+doc_hash = "sha256:4ed7f1ca772ebb83fea488be26af2747a89332156de75e6537755f4f5097010d"
+callees = ["fn:4499c8b925e4307c"]
+uses = [
+    "fn:9ba1123e947c6cf1",
+    "fn:b8168a7bc2186b97",
+    "fn:c3ce6803d2775afb",
+]
+reached_by = ["#6"]
+
+[[module."mod.rs".function]]
+id = "fn:faf93eb28f7f42c2"
+name = "DECK"
+qual = "DECK"
+item = "const"
+shape = "const"
+lines = [
+    72,
+    97,
+]
+hash = "sha256:8216344946bbf3dc8cf27c078ee66190a906cbd426be0f1163b7bddce3906d0a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b0c097ca650e1f1e"
+name = "flow_mode_reports_its_name"
+qual = "flow_mode_reports_its_name"
+lines = [
+    99,
+    105,
+]
+hash = "sha256:aa25260d64344bac7f6fc6b783d8e9d4719e781b1d503a2d51e0e5a6958d7c2a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25fab8269bbef0ed",
+    "fn:cfde839e2f7c2ea5",
+    "fn:e0621c33b5028a43",
+]
+uses = [
+    "fn:b586c1998d48841b",
+    "fn:b8168a7bc2186b97",
+    "fn:faf93eb28f7f42c2",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:359212658e472701"
+name = "flow_mode_step_advances_time"
+qual = "flow_mode_step_advances_time"
+lines = [
+    107,
+    115,
+]
+hash = "sha256:6951b7af1677ae3a866cbc4b734e6306d214bf8846293873ce6730a774f0ba36"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25fab8269bbef0ed",
+    "fn:525e20e12b9b86c0",
+    "fn:cfde839e2f7c2ea5",
+]
+uses = [
+    "fn:b586c1998d48841b",
+    "fn:b8168a7bc2186b97",
+    "fn:faf93eb28f7f42c2",
+]
+test = true
+
+[module."richards.rs"]
+path = "crate::flow::richards"
+
+[[module."richards.rs".function]]
+id = "fn:178635667f6c7c06"
+name = "STANDARD_GRAVITY"
+qual = "STANDARD_GRAVITY"
+item = "const"
+shape = "const"
+lines = [
+    50,
+    51,
+]
+hash = "sha256:faf5517249a098b5e7a65a74119361cdefbbe61b0233824f906e1130f0e6431f"
+doc_hash = "sha256:3ec9e08b55240912c66d3662c33ed7c218fbab85fc07d21ad6d98c81d2305b0a"
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:3ba2eaa60c3145d9"
+name = "ATMOSPHERIC_PRESSURE"
+qual = "ATMOSPHERIC_PRESSURE"
+item = "const"
+shape = "const"
+lines = [
+    52,
+    53,
+]
+hash = "sha256:fca6e0210279f461d8c9f3c08b877e6d67479de2a34b197770ae0260eaf6064a"
+doc_hash = "sha256:77131d52340f05d1f13bfdee55f6cab9e288057443ec228054caa3ab398aa308"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:7fd31fcfffc266f1"
+name = "BoundaryConditionKind"
+qual = "BoundaryConditionKind"
+item = "type"
+shape = "enum"
+lines = [
+    55,
+    65,
+]
+hash = "sha256:6baae8f93fa06a76d5b2fce43362c92dc586571fc07006143e0957e081397f20"
+doc_hash = "sha256:dcc038c49520dad75d7fc4d18b6cdd98eb08c2ec1c451f4346874a6b8256f0ec"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:3ddb3ae363aa8786"
+name = "BoundaryCondition"
+qual = "BoundaryCondition"
+item = "type"
+shape = "struct"
+lines = [
+    67,
+    73,
+]
+hash = "sha256:743dff34f147af4f3395788cecb2fdf408852d42b6ed171ec6ae8a975cb2d891"
+doc_hash = "sha256:462d7a79376d18f3a7429b85bd2e018eccfb19cbee5aad556f6ae19df0ac8e79"
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:7fd31fcfffc266f1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:802b4f7c20e9fd38"
+name = "location_index"
+qual = "location_index"
+lines = [
+    75,
+    85,
+]
+hash = "sha256:0eea3875b873bdc1d9c6656f9aee7df670533568f9e4491e0f55a41f3edeb79a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1ded25b48be00a9e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:f6129abc482d9044"
+name = "RichardsProblem"
+qual = "RichardsProblem"
+item = "type"
+shape = "struct"
+lines = [
+    87,
+    115,
+]
+hash = "sha256:3e997e84ac689038bf7203dd4956b5135e6d24d15aba365a6b611b9097691b1f"
+doc_hash = "sha256:1bf346edbb8705f0ee051e256b5b75871eb8dc195837f6f06893d375caa57532"
+uses = [
+    "fn:2961d7646334f912",
+    "fn:7fd31fcfffc266f1",
+    "fn:bef06f63e37dba1c",
+    "fn:f8cc13e0467bdd14",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:2345fa6e9a670d92"
+name = "new"
+qual = "RichardsProblem::new"
+lines = [
+    118,
+    190,
+]
+hash = "sha256:645a6393079e7fa7776e65032b4a3c86b112ae90060ee4447804ec0e7a3380ad"
+doc_hash = "sha256:f583d70a9cb13786e933cdf98b640c44df3edb8653458c2a75acdb22e0f5cd6f"
+callees = [
+    "fn:50ee5fc701cfa1bb",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:7678e9ebaa44ff77",
+    "fn:802b4f7c20e9fd38",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:2961d7646334f912",
+    "fn:3ddb3ae363aa8786",
+    "fn:7fd31fcfffc266f1",
+    "fn:bef06f63e37dba1c",
+    "fn:f6129abc482d9044",
+    "fn:f8cc13e0467bdd14",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:6c3f3b8b437bb2ab"
+name = "set_timestep"
+qual = "RichardsProblem::set_timestep"
+lines = [
+    192,
+    196,
+]
+hash = "sha256:df6ef712d4e95bbc6e646e9dce5a955a993e27b94d067123a0b18dd67140f863"
+doc_hash = "sha256:b0782fbe6d4df88a3b14c2bba25cfd5c8892eea40be063cd995b15f42d98d475"
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:264160ebf990dc4b"
+name = "set_previous"
+qual = "RichardsProblem::set_previous"
+lines = [
+    198,
+    201,
+]
+hash = "sha256:58a9359a6375496fcc4f991630b496e62c840f82f7e54b250c26172d43702e8c"
+doc_hash = "sha256:227d474b858b35b259ec83650874798ffacc16275d075844e0ae604e1bddafb3"
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:10e52661d6e31f73"
+name = "set_source"
+qual = "RichardsProblem::set_source"
+lines = [
+    203,
+    206,
+]
+hash = "sha256:d2e003c56f0fa1ee9ff9f74ddbf364c45eecf951289e48e8b02a84b05b436b0a"
+doc_hash = "sha256:9e5eaa5736519e63f7345ca9e1ba66dbb24a921b9a507c8fd92c9454587c86e2"
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:fe34d28aca4b139a"
+name = "grid"
+qual = "RichardsProblem::grid"
+lines = [
+    208,
+    211,
+]
+hash = "sha256:329ce82ff4246863e2d59c1df365be6384d519ba3cf4d7af0effa378963820c3"
+doc_hash = "sha256:69c94fa5589bce0f22fc55695a5a92d756787407aaeeb52f9fce3155bf2116cd"
+uses = [
+    "fn:bef06f63e37dba1c",
+    "fn:f6129abc482d9044",
+]
+
+[[module."richards.rs".function]]
+id = "fn:c1ac173e2a05c623"
+name = "total_mass"
+qual = "RichardsProblem::total_mass"
+lines = [
+    213,
+    224,
+]
+hash = "sha256:d50fd61953068413a5b93d3888cd729e5721f396276ff5d78d146ce82c59c836"
+doc_hash = "sha256:6c52893f88274e5d2c03c431defe3b0d782672220e73fbea8f57ac86310b6b35"
+callees = [
+    "fn:417586cedef290ff",
+    "fn:b5318e4ac165be1f",
+    "fn:cc21726779f422b1",
+]
+uses = ["fn:f6129abc482d9044"]
+reached_by = ["#3"]
+
+[[module."richards.rs".function]]
+id = "fn:dda7fbf121005844"
+name = "rho"
+qual = "RichardsProblem::rho"
+lines = [
+    228,
+    233,
+]
+hash = "sha256:1174c0c707643866516961f5297ba299af5f4dd965526077b040c932e1e6cf22"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:970680ebb495a85e"]
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#3",
+    "#9",
+    "#10",
+]
+
+[[module."richards.rs".function]]
+id = "fn:5ab355fb073a0941"
+name = "se"
+qual = "RichardsProblem::se"
+lines = [
+    235,
+    242,
+]
+hash = "sha256:700242fe0b38185e888ecfc23e57773656b38d059479c4b4366f0d3ac3c31335"
+doc_hash = "sha256:e86b36b6297850efd3e3081b7b60d4d60f651350c9da6ca0d97c18ae71945f0c"
+callees = ["fn:b67bf54573dacd38"]
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#3",
+    "#4",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:efd8f721bc04e67c"
+name = "saturation"
+qual = "RichardsProblem::saturation"
+lines = [
+    244,
+    249,
+]
+hash = "sha256:7110750e703496016a3fc6e4af22e8d235a0745d76d6acb63f7238df0a9c15ce"
+doc_hash = "sha256:cfdd105d9c5fb5e82d301dba40d96c2ee67f2e5c65b54e769eec33bcae9d6025"
+callees = [
+    "fn:5ab355fb073a0941",
+    "fn:db0f9fa08db0bb77",
+]
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#3",
+    "#4",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:e3501ca447cb6f49"
+name = "kr"
+qual = "RichardsProblem::kr"
+lines = [
+    251,
+    258,
+]
+hash = "sha256:5df7ae0bf4515185b2c576002ce6227d1720b87a960e3333c059e15e0e03293a"
+doc_hash = "sha256:45b2df4ef4dc5b475996d6d8c5c1cf945668fe320620eea4e872a589c8510cf8"
+callees = [
+    "fn:202b5538182435ea",
+    "fn:5ab355fb073a0941",
+]
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#9",
+    "#10",
+]
+
+[[module."richards.rs".function]]
+id = "fn:b5318e4ac165be1f"
+name = "theta"
+qual = "RichardsProblem::theta"
+lines = [
+    260,
+    264,
+]
+hash = "sha256:8537069b4e0198fc23cf343ff253ddd34dbebcea1e0ae054dec5ff6ea4300594"
+doc_hash = "sha256:914857e1929dce75c7d62d1b52f849d2331de9b5db27329c1ee45c08b3816658"
+callees = [
+    "fn:dda7fbf121005844",
+    "fn:efd8f721bc04e67c",
+]
+uses = ["fn:f6129abc482d9044"]
+reached_by = ["#3"]
+
+[[module."richards.rs".function]]
+id = "fn:d3c6b1c57a908d0f"
+name = "two_point_flux"
+qual = "RichardsProblem::two_point_flux"
+lines = [
+    266,
+    282,
+]
+hash = "sha256:82751d8531abcd4186709a8ea7c59ee89ecbb8e607ab7874684919b8a051e7a8"
+doc_hash = "sha256:13b488e1c1dffbbd3cabe7c66453bf2d9fa75f3242e38909f5bfdb0bb89f9b4e"
+callees = [
+    "fn:dda7fbf121005844",
+    "fn:e3501ca447cb6f49",
+]
+uses = ["fn:f6129abc482d9044"]
+
+[[module."richards.rs".function]]
+id = "fn:183f83b100839d38"
+name = "volumetric_flux"
+qual = "RichardsProblem::volumetric_flux"
+lines = [
+    284,
+    298,
+]
+hash = "sha256:1b9e85e27da5e899db74a320717606752530e6b0d8966a13c09a9e7238c24442"
+doc_hash = "sha256:d76e6b354a59317bcfc64b3238bfc907651263be587aab12adef5371d15ac8f7"
+callees = [
+    "fn:dda7fbf121005844",
+    "fn:e3501ca447cb6f49",
+]
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#9",
+    "#10",
+]
+
+[[module."richards.rs".function]]
+id = "fn:34ea0e8e60b0340f"
+name = "flow_field"
+qual = "RichardsProblem::flow_field"
+lines = [
+    300,
+    356,
+]
+hash = "sha256:277cd2ad2914d65e17b7df2f80aac5f9f7f59098a7da3419c760437b39d92cf3"
+doc_hash = "sha256:7d9dbc94bd2d39f4b28a225fd5cb07202bfd59d4d6b6ee378888a5e1c7ec3799"
+callees = [
+    "fn:183f83b100839d38",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:802b4f7c20e9fd38",
+    "fn:cc21726779f422b1",
+    "fn:efd8f721bc04e67c",
+]
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:7fd31fcfffc266f1",
+    "fn:8409fe6932191614",
+    "fn:f6129abc482d9044",
+]
+reached_by = [
+    "#9",
+    "#10",
+]
+
+[[module."richards.rs".function]]
+id = "fn:43690267bc0eb2c0"
+name = "cell_residual"
+qual = "RichardsProblem::cell_residual"
+lines = [
+    358,
+    412,
+]
+hash = "sha256:095851b726cea04f6e48a1d1e9d742c03897343efe9c4e959c0c81da109649b3"
+doc_hash = "sha256:ee146d400aa49f115034e70429c2f847fb3d98cfe30ff87c3e3fa18c63b40f2b"
+callees = [
+    "fn:417586cedef290ff",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:802b4f7c20e9fd38",
+    "fn:b5318e4ac165be1f",
+    "fn:d3c6b1c57a908d0f",
+    "fn:dda7fbf121005844",
+]
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:7fd31fcfffc266f1",
+    "fn:f6129abc482d9044",
+]
+
+[[module."richards.rs".function]]
+id = "fn:40d49511a926d75c"
+name = "n_dof"
+qual = "RichardsProblem::n_dof"
+lines = [
+    416,
+    418,
+]
+hash = "sha256:b82d3816e9b65cf3604cec465a2543bd28f2e3e0bf61d44b6675d5822e5b097d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cc21726779f422b1"]
+uses = ["fn:f6129abc482d9044"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+]
+
+[[module."richards.rs".function]]
+id = "fn:da9c72b599f48ed8"
+name = "ldu_addressing"
+qual = "RichardsProblem::ldu_addressing"
+lines = [
+    420,
+    422,
+]
+hash = "sha256:b7ccc3d2b709004f6492f8dc6f387e54aedb48242d36b4cf426a2eb9706e9535"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:62fc954337041036"]
+uses = ["fn:f6129abc482d9044"]
+
+[[module."richards.rs".function]]
+id = "fn:af883c0977294833"
+name = "assemble_residual"
+qual = "RichardsProblem::assemble_residual"
+lines = [
+    424,
+    437,
+]
+hash = "sha256:6505a8cf85081bb65cd76a65b3ff8f900559f90c516fdc03579612dc8678bea6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:43690267bc0eb2c0",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:f6129abc482d9044",
+]
+
+[[module."richards.rs".function]]
+id = "fn:9ea5ed33482248f6"
+name = "assemble_jacobian"
+qual = "RichardsProblem::assemble_jacobian"
+lines = [
+    439,
+    516,
+]
+hash = "sha256:d8f1bac849e338d873a8551992c4cd8d634a170f37c929abdda4a6ad25a07c84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:43690267bc0eb2c0",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:368781e5fb3bc135",
+    "fn:f6129abc482d9044",
+]
+
+[[module."richards.rs".function]]
+id = "fn:0d0870cd3eec9cb5"
+name = "TimeControls"
+qual = "TimeControls"
+item = "type"
+shape = "struct"
+lines = [
+    519,
+    537,
+]
+hash = "sha256:51b4191d716636df2f40bd1420ca17a7262d38586d7aca2805164f6738b0ee18"
+doc_hash = "sha256:e8791ceea1ca50a30bcaa0a0eea01e34276384fb5afc7a907ccb92f8ba925a36"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:693c834abf9ca474"
+name = "from_time_spec"
+qual = "TimeControls::from_time_spec"
+lines = [
+    540,
+    551,
+]
+hash = "sha256:bfc9b4e5b320a2abf0b4990224fb73e0a8e5794b1bdc1bc996df6c9fe73b7551"
+doc_hash = "sha256:66eb8f8f39401765191ef087716f0d22427e2bc1e176f9766a00a8ffd3b0d6dd"
+uses = ["fn:0d0870cd3eec9cb5"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:c3a19bb77dd3ba50"
+name = "StepReport"
+qual = "StepReport"
+item = "type"
+shape = "struct"
+lines = [
+    554,
+    565,
+]
+hash = "sha256:ffd1ac9f0c67c35a563f97495417cf48416fb872316492514489cfd0fa6c4b25"
+doc_hash = "sha256:634f85e3db11814ef6af167be4e0a1a3eed9c0ee1c4faa760a0b6337c6daad7c"
+reached_by = [
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:9ba1123e947c6cf1"
+name = "RunReport"
+qual = "RunReport"
+item = "type"
+shape = "struct"
+lines = [
+    567,
+    576,
+]
+hash = "sha256:43ba556f68c23a9255b4fb500417dfd4149df3258a2f048ed4c50a0d4fe77121"
+doc_hash = "sha256:daad6580e38dac8e0a9b16e6244c3f686224e237c03475acf95a4307faaf8403"
+reached_by = [
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:b586c1998d48841b"
+name = "RichardsSimulation"
+qual = "RichardsSimulation"
+item = "type"
+shape = "struct"
+lines = [
+    578,
+    589,
+]
+hash = "sha256:8c4788e70a016e78d9d5a958b0f185496484bba8252b87f1f48d176d58bd336a"
+doc_hash = "sha256:7cfb146896c2efa53c33c4001c9ceddc99b1affb6b25c1c51c16ea890eb48173"
+uses = [
+    "fn:0d0870cd3eec9cb5",
+    "fn:3e22fd948a0f97c4",
+    "fn:f6129abc482d9044",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:8fddc7368b4e83b2"
+name = "new"
+qual = "RichardsSimulation::new"
+lines = [
+    592,
+    612,
+]
+hash = "sha256:e0cba51e2b7b750d0be6580fdd5a671508f857d45464238456a23383351048d1"
+doc_hash = "sha256:e90d15ca5b4402e989b0f087aa05bf98f436c0679b7dc2ab40522d04907fbf15"
+callees = [
+    "fn:40d49511a926d75c",
+    "fn:8897008b789072ea",
+]
+uses = [
+    "fn:0d0870cd3eec9cb5",
+    "fn:27c1cc67a97219c4",
+    "fn:3e22fd948a0f97c4",
+    "fn:b586c1998d48841b",
+    "fn:f6129abc482d9044",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:cfde839e2f7c2ea5"
+name = "from_input_deck"
+qual = "RichardsSimulation::from_input_deck"
+lines = [
+    614,
+    686,
+]
+hash = "sha256:2ee799fd16462a725dd84814f2f68d2ddd5c78d37b047074fb8ec0bc928b9297"
+doc_hash = "sha256:bee11980552b736a6ebaaf9d0aa41f882a1cde7e24e3b802865cb0b8e91aad99"
+callees = [
+    "fn:2345fa6e9a670d92",
+    "fn:2767d8f4a3c9f6f1",
+    "fn:3314477cb8c66b97",
+    "fn:4c7f4c9ed1a4c950",
+    "fn:693c834abf9ca474",
+    "fn:8fddc7368b4e83b2",
+    "fn:9e37996c217c2f29",
+    "fn:c168d02c76e7c884",
+]
+uses = [
+    "fn:0d0870cd3eec9cb5",
+    "fn:178635667f6c7c06",
+    "fn:1817c0d3e09dca5d",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:1ded25b48be00a9e",
+    "fn:27c1cc67a97219c4",
+    "fn:2961d7646334f912",
+    "fn:3ba2eaa60c3145d9",
+    "fn:3ddb3ae363aa8786",
+    "fn:4240dd0cb995b938",
+    "fn:7fd31fcfffc266f1",
+    "fn:b586c1998d48841b",
+    "fn:b9efc1fb017fdf2d",
+    "fn:bef06f63e37dba1c",
+    "fn:d490c188b0312be6",
+    "fn:d7460c115a5beb61",
+    "fn:e0448c2216167ed3",
+    "fn:f6129abc482d9044",
+    "fn:f8cc13e0467bdd14",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:d16f1a22bc4a5abf"
+name = "pressure"
+qual = "RichardsSimulation::pressure"
+lines = [
+    688,
+    691,
+]
+hash = "sha256:2c84f4d31bc56873c1fe6d10e3c75426164fd541069d7375a7d86cffc5ca33bd"
+doc_hash = "sha256:b9d1f4aead951bd42b79cad36fa61c52ed7b7822ff0cd28c22803d1f2b329a79"
+uses = ["fn:b586c1998d48841b"]
+reached_by = [
+    "#2",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:12494c9c8d787268"
+name = "saturation"
+qual = "RichardsSimulation::saturation"
+lines = [
+    693,
+    698,
+]
+hash = "sha256:ef1c8c43da2b112bfcdd6398a4486c80a7b15f9045fc2ae96986ee620a40d52c"
+doc_hash = "sha256:38e0d428e3b838a2da9b817a6eb436d4a8d5fed9343c86763cdd652e975ccb7e"
+callees = ["fn:efd8f721bc04e67c"]
+uses = ["fn:b586c1998d48841b"]
+reached_by = [
+    "#4",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:bb872988f316dbbc"
+name = "current_time"
+qual = "RichardsSimulation::current_time"
+lines = [
+    700,
+    703,
+]
+hash = "sha256:861838b593cee303b958009d5b79c55c28615adaa1f0ce3c2ebf4563f02a4cd3"
+doc_hash = "sha256:b18c4be242a16cef272e99f105564a3d2a77c4ed00617e24fa83ea344977a34d"
+uses = ["fn:b586c1998d48841b"]
+
+[[module."richards.rs".function]]
+id = "fn:12689b2af21e8d91"
+name = "problem"
+qual = "RichardsSimulation::problem"
+lines = [
+    705,
+    708,
+]
+hash = "sha256:6e87b2fbee1d27fc77b98fef1b2acae05f140b5ebd2cd097d815ff0ad7ba1dc8"
+doc_hash = "sha256:42b6e49d40f5e4f4d091cf85d64c4de95d3a474103f2664fe5cc536b3074bb94"
+uses = [
+    "fn:b586c1998d48841b",
+    "fn:f6129abc482d9044",
+]
+
+[[module."richards.rs".function]]
+id = "fn:91f52d56e0d9a350"
+name = "total_mass"
+qual = "RichardsSimulation::total_mass"
+lines = [
+    710,
+    714,
+]
+hash = "sha256:be4fae31ad8ee7d9cb1ffbb355f43097551f939c75b6dc80c4608970d13bac1c"
+doc_hash = "sha256:e0ab51b4635e5ab2bee421b1185e178c3546fed105580af73217d0fdd79dcaee"
+callees = ["fn:c1ac173e2a05c623"]
+uses = ["fn:b586c1998d48841b"]
+
+[[module."richards.rs".function]]
+id = "fn:981a46111541d7d1"
+name = "flow_field"
+qual = "RichardsSimulation::flow_field"
+lines = [
+    716,
+    721,
+]
+hash = "sha256:375042c8171c879aa0c3af5a8ac302552380dfd36b1664699b3a11c027ac85ae"
+doc_hash = "sha256:e182fca37beffc065d9c44aae5dd0773647c81c0689219069a9487195e71ae8a"
+callees = ["fn:34ea0e8e60b0340f"]
+uses = [
+    "fn:8409fe6932191614",
+    "fn:b586c1998d48841b",
+]
+reached_by = [
+    "#9",
+    "#10",
+]
+
+[[module."richards.rs".function]]
+id = "fn:99666e8490f40c24"
+name = "step"
+qual = "RichardsSimulation::step"
+lines = [
+    723,
+    765,
+]
+hash = "sha256:d533e98b10b443a94b09d8467108bda379c41b1cc44dc5746e41e25f151aaa21"
+doc_hash = "sha256:16492498718787dbc937e1cc2f17bd88a373bc86ff8469031b8354f4626cc0b2"
+callees = [
+    "fn:264160ebf990dc4b",
+    "fn:6c3f3b8b437bb2ab",
+    "fn:948ccbd72de462b9",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:b586c1998d48841b",
+    "fn:c3a19bb77dd3ba50",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:4499c8b925e4307c"
+name = "run"
+qual = "RichardsSimulation::run"
+lines = [
+    767,
+    784,
+]
+hash = "sha256:207a767c6476ae8b178149b153f2c9f9a19a9bba1db709c668e31179b86d2d2e"
+doc_hash = "sha256:57ec73c867b4b99fa7da887288cb520a7cb54b7b639b814b648353ac07c1ef2b"
+callees = ["fn:99666e8490f40c24"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:9ba1123e947c6cf1",
+    "fn:b586c1998d48841b",
+]
+reached_by = [
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."richards.rs".function]]
+id = "fn:2dff388c48211a37"
+name = "saturated_1d_steady_state_is_linear"
+qual = "saturated_1d_steady_state_is_linear"
+lines = [
+    793,
+    874,
+]
+hash = "sha256:a11211e47abeb50d0081add71a85d9dd35f7dd37408409067ee63652d7d13d1b"
+doc_hash = "sha256:933f611e42ac6c4a37d729c7305939672b1df8f06274e94ffcec3b4e04b2bb38"
+callees = [
+    "fn:2345fa6e9a670d92",
+    "fn:264160ebf990dc4b",
+    "fn:2767d8f4a3c9f6f1",
+    "fn:3314477cb8c66b97",
+    "fn:40d49511a926d75c",
+    "fn:6c3f3b8b437bb2ab",
+    "fn:8897008b789072ea",
+    "fn:948ccbd72de462b9",
+    "fn:9e37996c217c2f29",
+]
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:27c1cc67a97219c4",
+    "fn:2961d7646334f912",
+    "fn:2df9a9b46faf09cb",
+    "fn:3ddb3ae363aa8786",
+    "fn:3e22fd948a0f97c4",
+    "fn:7fd31fcfffc266f1",
+    "fn:974d04f73ccdca29",
+    "fn:9e87fc5f41a51af3",
+    "fn:bef06f63e37dba1c",
+    "fn:d7460c115a5beb61",
+    "fn:f6129abc482d9044",
+    "fn:f8cc13e0467bdd14",
+]
+test = true
+
+[[module."richards.rs".function]]
+id = "fn:f11375662d2958cc"
+name = "closed_domain_conserves_total_mass"
+qual = "closed_domain_conserves_total_mass"
+lines = [
+    876,
+    931,
+]
+hash = "sha256:fe844593ddbbe675cc0100bff817771d3a5b44083803f0ba9396128c6e29a154"
+doc_hash = "sha256:12d70b3d9019309e6674b7261130255cae179f8e5e812c8c6b3aa766b93d84bc"
+callees = [
+    "fn:2345fa6e9a670d92",
+    "fn:264160ebf990dc4b",
+    "fn:2767d8f4a3c9f6f1",
+    "fn:3314477cb8c66b97",
+    "fn:6c3f3b8b437bb2ab",
+    "fn:8897008b789072ea",
+    "fn:948ccbd72de462b9",
+    "fn:9e37996c217c2f29",
+    "fn:c168d02c76e7c884",
+    "fn:c1ac173e2a05c623",
+]
+uses = [
+    "fn:27c1cc67a97219c4",
+    "fn:2961d7646334f912",
+    "fn:3ba2eaa60c3145d9",
+    "fn:3e22fd948a0f97c4",
+    "fn:bef06f63e37dba1c",
+    "fn:d7460c115a5beb61",
+    "fn:f6129abc482d9044",
+    "fn:f8cc13e0467bdd14",
+]
+test = true
+
+[[module."richards.rs".function]]
+id = "fn:dfe557c7f614677d"
+name = "haverkamp_sand_column_runs_and_wets_up"
+qual = "haverkamp_sand_column_runs_and_wets_up"
+lines = [
+    933,
+    986,
+]
+hash = "sha256:03588a0035447c2aa7e3571765819317a985d31d8617b1b7929aefde82c1ca8f"
+doc_hash = "sha256:7be29d82c66e0c1393ee1240482fa84c1b85c2b44b8b6bee4aceaa5ebb57473b"
+callees = [
+    "fn:12494c9c8d787268",
+    "fn:2345fa6e9a670d92",
+    "fn:2767d8f4a3c9f6f1",
+    "fn:3314477cb8c66b97",
+    "fn:4499c8b925e4307c",
+    "fn:693c834abf9ca474",
+    "fn:8e62ee23c38b213f",
+    "fn:8fddc7368b4e83b2",
+    "fn:c168d02c76e7c884",
+]
+uses = [
+    "fn:0d0870cd3eec9cb5",
+    "fn:178635667f6c7c06",
+    "fn:1ded25b48be00a9e",
+    "fn:27c1cc67a97219c4",
+    "fn:2961d7646334f912",
+    "fn:3ba2eaa60c3145d9",
+    "fn:3ddb3ae363aa8786",
+    "fn:689eaae84e347b61",
+    "fn:7fd31fcfffc266f1",
+    "fn:b586c1998d48841b",
+    "fn:bef06f63e37dba1c",
+    "fn:f6129abc482d9044",
+    "fn:f8cc13e0467bdd14",
+]
+test = true
+
+[[module."richards.rs".function]]
+id = "fn:cd4386db802452a9"
+name = "closed_box_uniform_field_is_stationary"
+qual = "closed_box_uniform_field_is_stationary"
+lines = [
+    988,
+    1026,
+]
+hash = "sha256:a2568b1cda3cf5b20f201ff715c68da9e32410e8c329051abf98643b0017914b"
+doc_hash = "sha256:873e1984357a39cab444e8eb29b0abe702cb6879db6a72283a6b5b5d97e77151"
+callees = [
+    "fn:2345fa6e9a670d92",
+    "fn:2767d8f4a3c9f6f1",
+    "fn:3314477cb8c66b97",
+    "fn:693c834abf9ca474",
+    "fn:8fddc7368b4e83b2",
+    "fn:99666e8490f40c24",
+    "fn:9e37996c217c2f29",
+    "fn:c168d02c76e7c884",
+    "fn:d16f1a22bc4a5abf",
+]
+uses = [
+    "fn:0d0870cd3eec9cb5",
+    "fn:27c1cc67a97219c4",
+    "fn:2961d7646334f912",
+    "fn:3ba2eaa60c3145d9",
+    "fn:b586c1998d48841b",
+    "fn:bef06f63e37dba1c",
+    "fn:d7460c115a5beb61",
+    "fn:f6129abc482d9044",
+    "fn:f8cc13e0467bdd14",
+]
+test = true

@@ -1,0 +1,102 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"http://www.americanrightsatwork.org/blogcategory-275/\">Public Service Research Foundation</A>\n</DL>"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://forums.zotero.org/discussion/28347/unable-to-get-pdfs-stored-on-computer-into-zotero-standalone/\">Mendeley: single attachment</A>\n    <DT><A HREF=\"https://forums.zotero.org/discussion/35909/bibtex-import-from-citavi-including-pdf-attachments/\">Citavi: single attachment</A>\n</DL>"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"http://dblp.uni-trier.de/papers/DiplomarbeitOliverHoffmann.pdf\">Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen</A>\n    <DT><A HREF=\"http://digital.ub.uni-paderborn.de/hs/content/titleinfo/1561\">Algorithms for the Bregman k-Median problem</A>\n</DL>"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"http://doi.acm.org/10.1145/1281192.1281230\" TAGS=\"spatio-temporal data mining,trajectory patterns\">Trajectory Pattern Mining</A>\n</DL>"
+	},
+	"testCase15": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://madoc.bib.uni-mannheim.de/40756/\">Die Alterung der Gesellschaft und der Generationenkonflikt in Europa</A>\n    <DT><A HREF=\"http://dx.doi.org/10.1016/j.aim.2013.04.020\">Higher-order Erdős-Szekeres theorems</A>\n</DL>"
+	},
+	"testCase16": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase17": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://www.zotero.org/\">Zotero's Homepage</A>\n</DL>"
+	},
+	"testCase18": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"testCase19": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://www.cs.dartmouth.edu/~kotz/research/batsis-rural/index.html\">A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity</A>\n</DL>"
+	},
+	"testCase20": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://datatracker.ietf.org/doc/html/draft-ietf-bmwg-evpntest-09\">Benchmarking Methodology for EVPN and PBB-EVPN</A>\n</DL>"
+	},
+	"testCase21": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://proceedings.neurips.cc/paper/2009/file/0188e8b8b014829e2fa0f430f0a95961-Paper.pdf\">White Functionals for Anomaly Detection in Dynamical Systems</A>\n</DL>"
+	},
+	"testCase22": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"https://cds.cern.ch/record/2855446\">Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at LHC with ALICE</A>\n</DL>"
+	},
+	"testCase23": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n</DL>"
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"output": "<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<!-- This is an automatically generated file.\n     It will be read and overwritten.\n     DO NOT EDIT! -->\n<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks Menu</H1>\n<DL>\n    <DT><A HREF=\"http://example.com/a?b=c&d=e\" TAGS=\"alpha,beta,gamma\">Dates and Markup in \\emphBib\\TeX: a kovan probe</A>\n</DL>"
+	}
+}

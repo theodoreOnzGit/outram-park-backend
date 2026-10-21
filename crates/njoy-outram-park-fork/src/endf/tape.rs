@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 
-use crate::endf::parse::{format_line, parse_line};
+use crate::endf::parse::parse_line;
 use crate::endf::EndfKey;
 use crate::NjoyError;
 
@@ -41,7 +41,10 @@ pub struct Section {
 /// let sec = tape.section(228, 3, 2).unwrap();  // He-4 elastic cross section
 /// println!("{} rows in MF=3 MT=2", sec.rows.len());
 /// ```
-#[derive(Debug)]
+///
+/// `Clone` since 2026-10-14 (GitHub #871): [`crate::process::NuclearCrossSections`]
+/// keeps the evaluation it was made from, for ACER.
+#[derive(Debug, Clone)]
 pub struct Tape {
     /// First line of the tape (free-text tape identification, MAT=1 MF=0 MT=0).
     pub tpid: String,
@@ -49,19 +52,24 @@ pub struct Tape {
     sections: Vec<Section>,
     /// Fast lookup by key.
     index: HashMap<EndfKey, usize>,
-    /// The raw text (columns 1-66) of every MF=32 data row, one entry per
-    /// row of the parsed section — the INTG records of a compact
-    /// (`LCOMP=2`) covariance are `2i5,1x,18i3`-style integer lines that
-    /// the six-float row parser cannot represent. Only MF=32 is kept so
-    /// the tape's memory footprint does not double.
+    /// The raw text (columns 1-66) of every row of the sections whose lines
+    /// the six-float row parser cannot represent, one entry per row:
+    ///
+    /// - **MF=32**: the INTG records of a compact (`LCOMP=2`) covariance are
+    ///   `2i5,1x,18i3`-style integer lines;
+    /// - **MF=1/MT=451** (since 2026-10-05, GitHub #553): the evaluation's
+    ///   descriptive text, which [`Tape::write`] writes back verbatim.
+    ///
+    /// Only these are kept so the tape's memory footprint does not double.
     raw_mf32: HashMap<EndfKey, Vec<String>>,
 }
 
+/// Whether [`Tape::read`] keeps a section's raw line text (see `raw_mf32`).
+fn keeps_raw(key: EndfKey) -> bool {
+    key.mf == 32 || (key.mf == 1 && key.mt == 451)
+}
+
 impl Tape {
-    /// Parse an ENDF ASCII tape from any [`Read`] source.
-    ///
-    /// Line length must be 80 characters (padded with spaces if shorter is fine).
-    /// Binary (blocked-binary) tapes are not supported in this version.
     /// Parse an ENDF ASCII tape from a file on disk.
     ///
     /// [`Tape::read`] is generic over [`Read`], which is right for Rust and
@@ -87,11 +95,24 @@ impl Tape {
     /// Prefer this over `File::open` + [`Tape::read`] for a file on disk. The
     /// generic [`Tape::read`] is for the cases this cannot serve — a socket, a
     /// decompressor, an in-memory buffer.
+    ///
+    /// A gzipped file (the `1f 8b` magic bytes) is inflated first (since
+    /// 2026-10-05), with the same pure-Rust decoder the ACE reader uses.
     pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError> {
-        let file = std::fs::File::open(path).map_err(NjoyError::Io)?;
-        Self::read(file)
+        let bytes = std::fs::read(path).map_err(NjoyError::Io)?;
+        if bytes.len() > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b {
+            let text = crate::acer::read::gunzip(&bytes, path)?;
+            return Self::read(&text[..]);
+        }
+        Self::read(&bytes[..])
     }
 
+    /// Parse an ENDF ASCII tape from any [`Read`] source.
+    ///
+    /// Line length must be 80 characters (padded with spaces if shorter is fine).
+    /// Binary (blocked-binary) tapes are not supported in this version.
+    /// (CORRECTED 2026-10-04: these three lines used to sit above
+    /// [`Tape::read_file`], so rustdoc showed them on the wrong function.)
     pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError> {
         let mut lines = BufReader::new(reader).lines();
         let mut tpid = String::new();
@@ -126,8 +147,10 @@ impl Tape {
                         rows: std::mem::take(&mut current_rows),
                     });
                     index.entry(key).or_insert(idx);
-                    if key.mf == 32 {
-                        raw_mf32.entry(key).or_insert(std::mem::take(&mut current_raw));
+                    if keeps_raw(key) {
+                        raw_mf32
+                            .entry(key)
+                            .or_insert(std::mem::take(&mut current_raw));
                     }
                     current_raw.clear();
                 }
@@ -149,8 +172,10 @@ impl Tape {
                         rows: std::mem::take(&mut current_rows),
                     });
                     index.entry(prev_key).or_insert(idx);
-                    if prev_key.mf == 32 {
-                        raw_mf32.entry(prev_key).or_insert(std::mem::take(&mut current_raw));
+                    if keeps_raw(prev_key) {
+                        raw_mf32
+                            .entry(prev_key)
+                            .or_insert(std::mem::take(&mut current_raw));
                     }
                     current_raw.clear();
                 }
@@ -158,7 +183,7 @@ impl Tape {
             }
 
             current_rows.push(rl.fields);
-            if key.mf == 32 {
+            if keeps_raw(key) {
                 let n = line.len().min(66);
                 current_raw.push(line[..n].to_string());
             }
@@ -172,8 +197,10 @@ impl Tape {
                 rows: std::mem::take(&mut current_rows),
             });
             index.entry(key).or_insert(idx);
-            if key.mf == 32 {
-                raw_mf32.entry(key).or_insert(std::mem::take(&mut current_raw));
+            if keeps_raw(key) {
+                raw_mf32
+                    .entry(key)
+                    .or_insert(std::mem::take(&mut current_raw));
             }
         }
 
@@ -191,7 +218,6 @@ impl Tape {
         self.index.get(&key).map(|&i| &self.sections[i])
     }
 
-    /// Iterate over all sections in file order.
     /// Every ENDF material number on this tape, ascending and deduplicated.
     ///
     /// A tape carries its own MAT numbers, so a caller should never have to
@@ -206,6 +232,8 @@ impl Tape {
         mats
     }
 
+    /// All sections in file order. (CORRECTED 2026-10-04: this line used to
+    /// sit above [`Tape::materials`].)
     pub fn sections(&self) -> &[Section] {
         &self.sections
     }
@@ -236,8 +264,9 @@ impl Tape {
         }
     }
 
-    /// Carry another tape's raw MF=32 text over (a tape rebuilt with
-    /// [`Tape::from_sections`] from `other`'s sections — `errorr::covadd`).
+    /// Carry another tape's raw text over (MF=32 rows and MF=1/MT=451 text)
+    /// to a tape rebuilt with [`Tape::from_sections`] from `other`'s sections
+    /// (`errorr::covadd`, `moder::select_materials`).
     pub fn copy_raw_mf32_from(&mut self, other: &Tape) {
         for (k, v) in &other.raw_mf32 {
             self.raw_mf32.entry(*k).or_insert_with(|| v.clone());
@@ -316,76 +345,127 @@ impl Tape {
 
     /// Write this tape back out in ENDF ASCII (formatted) mode — the write
     /// side of [`Tape::read`], and the core of what NJOY's **MODER** module
-    /// does when converting mode (`endf.f90`'s `contio`/`lineio` write paths,
-    /// sequenced the way `moder.f90` walks a tape: emit each section's data
-    /// rows, then the sentinel records marking section/file/material/tape
-    /// boundaries).
+    /// does when converting mode.
     ///
-    /// Sentinel emission mirrors the table in this module's docs: a **SEND**
-    /// (`MT=0`) always follows a section's data rows; a **FEND** (`MF=0`)
-    /// follows when the next section changes `MF` or `MAT` (or there is no
-    /// next section); a **MEND** (`MAT=0`) follows when the next section
-    /// changes `MAT` (or there is no next section); a final **TEND**
-    /// (`MAT=-1`) always closes the tape.
+    /// Each section's lines are written as MODER writes them (GitHub #553):
+    /// [`crate::moder`]'s record-layout port (`moder.f90`'s `file1` …
+    /// `file40`) says which line is a CONT head, data, an interpolation
+    /// table, MF=1/MT=451 text or a directory entry, and each is formatted
+    /// with `endf.f90`'s own edit descriptors:
     ///
-    /// **Known simplifications** (see [`crate::endf::parse::format_line`] for
-    /// the CONT-vs-LIST field-encoding caveat):
-    /// - Only ASCII (formatted) output is produced; there is no NJOY
-    ///   blocked-binary writer (see `src/moder/README.md` — a fully in-memory
-    ///   Rust pipeline does not need one).
-    /// - `format_line` writes every row's six fields in exponential `a11`
-    ///   form rather than NJOY's plain right-justified `i11` integers for
-    ///   CONT records' L1/L2/N1/N2 fields — the written *value* round-trips
-    ///   exactly through this crate's own reader, but the column layout does
-    ///   not byte-match genuine NJOY output for those four fields.
-    /// - Sequence numbers (columns 76-80) are a simple monotonically
-    ///   increasing counter across the whole tape, not NJOY's per-file
-    ///   `nsh`/`nsp`/`nsc` reset convention — `parse_line` (and every ENDF
-    ///   reader) documents this column as cosmetic/ignored on read.
+    /// - CONT: `C1, C2` as `a11`, `L1, L2, N1, N2` as `i11` (`contio`);
+    /// - data: `a11`, with the fields past a record's count left blank
+    ///   (`lineio`);
+    /// - interpolation tables: `i11` pairs, the rest blank (`tablio`);
+    /// - MF=1/MT=451 text: the 66 columns read from the input tape, verbatim
+    ///   (`hdatio`); blank for a tape not read from text;
+    /// - directory: 22 blanks and four `i11` (`dictio`).
+    ///
+    /// Sentinels are blank in columns 1-66, as `asend`/`afend`/`amend`/
+    /// `atend` write them, and the sequence number follows NJOY: each section
+    /// counts from 1, a SEND carries 99999, a FEND/MEND/TEND carries 0, and
+    /// the count wraps from 99999 to 1.
+    ///
+    /// **Not byte-faithful yet:** MF=32 (resonance covariances; MODER's
+    /// `file32` is not ported), GENDF and ERRORR-output materials (which
+    /// MODER copies through a separate path), any section whose records do
+    /// not walk to its last row, and any section where the layout would
+    /// blank a non-zero field, are written with every field as `a11`, as
+    /// before. A value is never dropped to match a format.
+    ///
+    /// Only ASCII (formatted) output is produced; there is no NJOY
+    /// blocked-binary writer (see `src/moder/README.md` — a fully in-memory
+    /// Rust pipeline does not need one).
+    ///
+    /// ~~**Measured against NJOY2016's MODER** (2026-10-05, GitHub #536 …):
+    /// only 1 line is byte-identical~~ **CHANGED 2026-10-05 (#553):** see
+    /// `tests/moder_vs_njoy2016.rs` for the current comparison.
     pub fn write<W: Write>(&self, mut w: W) -> Result<(), NjoyError> {
-        writeln!(w, "{}", self.tpid).map_err(NjoyError::Io)?;
+        use crate::endf::parse::format_endf_float;
+        use crate::moder::layout::{
+            is_group_material, iverf_from_mf1, layout_keeps_every_value, section_layout, LineKind,
+        };
+
+        let io = NjoyError::Io;
+        let blank66 = " ".repeat(66);
+        let i11 = |x: f64| format!("{:>11}", x.round() as i64);
+        writeln!(w, "{}", self.tpid).map_err(io)?;
 
         let mut seq: i32 = 1;
+        let mut iverf = 6;
+        let mut group_material = false;
         let mut iter = self.sections.iter().peekable();
         while let Some(sec) = iter.next() {
-            for row in &sec.rows {
-                writeln!(
-                    w,
-                    "{}",
-                    format_line(row, sec.key.mat, sec.key.mf, sec.key.mt, seq)
-                )
-                .map_err(NjoyError::Io)?;
-                seq += 1;
+            let k = sec.key;
+            if k.mf == 1 && k.mt == 451 {
+                // `moder.f90:184-195`: the format version, and `nsh = 1`.
+                iverf = iverf_from_mf1(&sec.rows);
+                group_material = is_group_material(&sec.rows);
+                seq = 1;
+            }
+            let layout = if group_material {
+                None
+            } else {
+                section_layout(k.mf, k.mt, &sec.rows, iverf).filter(|l| layout_keeps_every_value(&sec.rows, l))
+            };
+            let raw = self.raw_mf32.get(&k);
+            for (i, row) in sec.rows.iter().enumerate() {
+                let body: String = match layout.as_ref().map(|l| l[i]) {
+                    Some(LineKind::Cont) => {
+                        let mut b = format_endf_float(row[0]);
+                        b.push_str(&format_endf_float(row[1]));
+                        for &x in &row[2..] {
+                            b.push_str(&i11(x));
+                        }
+                        b
+                    }
+                    Some(LineKind::Data(n)) => (0..6)
+                        .map(|j| if j < n as usize { format_endf_float(row[j]) } else { " ".repeat(11) })
+                        .collect(),
+                    Some(LineKind::Ints(n)) => {
+                        (0..6).map(|j| if j < n as usize { i11(row[j]) } else { " ".repeat(11) }).collect()
+                    }
+                    Some(LineKind::Text) => match raw.and_then(|r| r.get(i)) {
+                        Some(t) => format!("{t:<66.66}"),
+                        None => blank66.clone(),
+                    },
+                    Some(LineKind::Dir) => {
+                        let mut b = " ".repeat(22);
+                        for &x in &row[2..] {
+                            b.push_str(&i11(x));
+                        }
+                        b
+                    }
+                    None => row.iter().map(|&x| format_endf_float(x)).collect(),
+                };
+                writeln!(w, "{body}{:4}{:2}{:3}{:5}", k.mat, k.mf, k.mt, seq).map_err(io)?;
+                seq = if seq >= 99_999 { 1 } else { seq + 1 };
             }
 
-            // SEND — end of section (always follows a section's data rows).
-            writeln!(
-                w,
-                "{}",
-                format_line(&[0.0; 6], sec.key.mat, sec.key.mf, 0, seq)
-            )
-            .map_err(NjoyError::Io)?;
-            seq += 1;
+            // SEND (`asend`): sequence 99999, then the next section starts at 1.
+            writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, k.mf, 0, 99_999).map_err(io)?;
+            seq = 1;
 
             let next_key = iter.peek().map(|s| s.key);
-            let file_ends = next_key.is_none_or(|k| k.mf != sec.key.mf || k.mat != sec.key.mat);
-            let material_ends = next_key.is_none_or(|k| k.mat != sec.key.mat);
-
-            if file_ends {
-                // FEND — end of file (MF=0).
-                writeln!(w, "{}", format_line(&[0.0; 6], sec.key.mat, 0, 0, seq))
-                    .map_err(NjoyError::Io)?;
-                seq += 1;
+            // A material repeats on a multi-temperature PENDF: its next
+            // occurrence starts at MF=1/MT=451, and the previous one is
+            // closed with FEND and MEND, as on NJOY's tapes (since
+            // 2026-10-05; before, the two temperatures ran together).
+            let new_occurrence = |n: crate::endf::EndfKey| n.mf == 1 && n.mt == 451;
+            if next_key.is_none_or(|n| n.mf != k.mf || n.mat != k.mat || new_occurrence(n)) {
+                // FEND (`afend`): sequence 0.
+                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", k.mat, 0, 0, 0).map_err(io)?;
+                seq = 1;
             }
-            if material_ends {
-                // MEND — end of material (MAT=0).
-                writeln!(w, "{}", format_line(&[0.0; 6], 0, 0, 0, seq)).map_err(NjoyError::Io)?;
-                seq += 1;
+            if next_key.is_none_or(|n| n.mat != k.mat || new_occurrence(n)) {
+                // MEND (`amend`).
+                writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", 0, 0, 0, 0).map_err(io)?;
+                seq = 1;
             }
         }
 
-        // TEND — end of tape (MAT=-1).
-        writeln!(w, "{}", format_line(&[0.0; 6], -1, 0, 0, seq)).map_err(NjoyError::Io)?;
+        // TEND (`atend`).
+        writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", -1, 0, 0, 0).map_err(io)?;
         Ok(())
     }
 }

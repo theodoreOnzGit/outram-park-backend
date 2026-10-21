@@ -96,13 +96,16 @@ mod tests;
 
 use std::sync::Arc;
 
-use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField};
+use outram_foam_basic_lib::prelude::{
+    fvm::DeltaCoeff, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
+};
 
 use crate::genfoam::neutronics::state::NeutronicsState;
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::neutronics::NeutronicsError;
 
 pub use fields::DiffusionXsFields;
+pub use precursor_drift::PrecursorTransport;
 
 /// Convergence and linear-solver controls for a diffusion solve.
 ///
@@ -119,6 +122,16 @@ pub struct DiffusionSettings {
     pub max_outer_iterations: usize,
     /// Inner linear-solver settings (one group solve).
     pub linear: SolverSettings,
+    /// Which face-distance coefficient the flux Laplacian divides by.
+    ///
+    /// GeN-Foam's neutronics regions ship
+    /// `laplacianSchemes { default Gauss linear uncorrected; }`, so the faithful
+    /// setting — and the default here — is
+    /// [`DeltaCoeff::NonOrthogonal`](outram_foam_basic_lib::prelude::fvm::DeltaCoeff::NonOrthogonal),
+    /// OpenFOAM's `nonOrthDeltaCoeffs`. On an orthogonal mesh the two choices
+    /// coincide; on the `2D_MSFR` tutorial mesh the orthogonal one under-states
+    /// the leakage by 580 pcm.
+    pub delta_coeff: DeltaCoeff,
 }
 
 impl Default for DiffusionSettings {
@@ -131,6 +144,7 @@ impl Default for DiffusionSettings {
                 tolerance: 1e-9,
                 max_iter: 2000,
             },
+            delta_coeff: DeltaCoeff::NonOrthogonal,
         }
     }
 }
@@ -162,6 +176,12 @@ pub struct DiffusionNeutronics {
     state: NeutronicsState,
     xs: DiffusionXsFields,
     settings: DiffusionSettings,
+    /// Circulating-fuel precursor transport, when the fuel moves.
+    ///
+    /// `None` is stationary fuel (GeN-Foam's `liquidFuel false`), where the
+    /// delayed source collapses into `chi_eff`. `Some` is `liquidFuel true`;
+    /// set it with [`Self::set_precursor_drift`].
+    drift: Option<PrecursorTransport>,
 }
 
 impl DiffusionNeutronics {
@@ -203,12 +223,54 @@ impl DiffusionNeutronics {
             });
         }
         let xs_fields = DiffusionXsFields::materialize(&mesh, xs, zone_of_cell, raw_parameters)?;
+        Self::assemble(mesh, xs, xs_fields, flux_boundary, settings)
+    }
+
+    /// As [`new`](Self::new), but evaluating the cross sections at **each
+    /// cell's own** feedback state — the way GeN-Foam does it.
+    ///
+    /// `cell_parameters` is `n_cells x n_variables`, row-major; see
+    /// [`DiffusionXsFields::materialize_per_cell`] for why a single global
+    /// parameter vector is not equivalent.
+    ///
+    /// # Errors
+    ///
+    /// [`NeutronicsError::PatchCountMismatch`] if `flux_boundary` does not cover
+    /// every patch, or an [`XsError`](crate::genfoam::neutronics::xs::XsError)
+    /// from the cross-section evaluation.
+    pub fn new_with_cell_parameters(
+        mesh: Arc<FvMesh>,
+        xs: &CrossSectionData,
+        zone_of_cell: &[usize],
+        cell_parameters: &[f64],
+        flux_boundary: &[BoundaryCondition<f64>],
+        settings: DiffusionSettings,
+    ) -> Result<Self, NeutronicsError> {
+        if flux_boundary.len() != mesh.patches.len() {
+            return Err(NeutronicsError::PatchCountMismatch {
+                given: flux_boundary.len(),
+                patches: mesh.patches.len(),
+            });
+        }
+        let xs_fields =
+            DiffusionXsFields::materialize_per_cell(&mesh, xs, zone_of_cell, cell_parameters)?;
+        Self::assemble(mesh, xs, xs_fields, flux_boundary, settings)
+    }
+
+    fn assemble(
+        mesh: Arc<FvMesh>,
+        xs: &CrossSectionData,
+        xs_fields: DiffusionXsFields,
+        flux_boundary: &[BoundaryCondition<f64>],
+        settings: DiffusionSettings,
+    ) -> Result<Self, NeutronicsError> {
         let mut state = NeutronicsState::new(mesh, xs.energy_groups(), xs.prec_groups());
         Self::apply_flux_boundary(&mut state, flux_boundary);
         Ok(Self {
             state,
             xs: xs_fields,
             settings,
+            drift: None,
         })
     }
 
@@ -227,10 +289,124 @@ impl DiffusionNeutronics {
         }
     }
 
+    /// Impose an **albedo** (partially reflecting) boundary on one patch, for
+    /// every energy group.
+    ///
+    /// This is GeN-Foam's `albedoSP3` condition as the diffusion solver uses it
+    /// — see [`crate::genfoam::neutronics::albedo`] for the derivation and for
+    /// what of upstream's patch class is SP3-only and deliberately absent.
+    ///
+    /// # Why this is a method and not a constructor argument
+    ///
+    /// The Robin weight depends on the group's own diffusion coefficient, so a
+    /// single `BoundaryCondition` handed to [`Self::new`] cannot express it —
+    /// that argument is applied to every group alike. Upstream has the same
+    /// requirement and meets it the same way, resetting its `Dalbedo` field to
+    /// `D[energyI]` before each group's solve
+    /// (`diffusion/include/fluxEq.H`). Here the per-group weight is built once,
+    /// from the cross-section fields the solver already holds, because they do
+    /// not change during an eigenvalue solve.
+    ///
+    /// Call it after [`Self::new`] and before solving. It overwrites whatever
+    /// condition that patch previously carried, in every group.
+    ///
+    /// # Parameters
+    ///
+    /// - `patch_index` — index into the mesh's patch list.
+    /// - `gamma` — the albedo coefficient, as GeN-Foam case dictionaries state
+    ///   it directly. `0` is a perfect reflector, `0.5` a vacuum; convert from a
+    ///   reflection fraction with
+    ///   [`gamma_from_albedo`](crate::genfoam::neutronics::albedo::gamma_from_albedo).
+    /// - `linearisation` — which `phi` the leakage current is evaluated at; see
+    ///   [`AlbedoLinearisation`](crate::genfoam::neutronics::albedo::AlbedoLinearisation).
+    ///   Pass `CellValue` to match GeN-Foam.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `patch_index` is out of range or `gamma` is negative or
+    /// non-finite.
+    pub fn set_albedo_boundary(
+        &mut self,
+        patch_index: usize,
+        gamma: f64,
+        linearisation: crate::genfoam::neutronics::albedo::AlbedoLinearisation,
+    ) {
+        let mesh = self.state.mesh().clone();
+        let patches: Vec<_> = (0..self.energy_groups())
+            .map(|g| {
+                crate::genfoam::neutronics::albedo::albedo_patch_field(
+                    &mesh,
+                    patch_index,
+                    gamma,
+                    &self.xs.d[g],
+                    linearisation,
+                    self.settings.delta_coeff,
+                )
+            })
+            .collect();
+        for (g, field) in self.state.flux_mut().iter_mut().enumerate() {
+            field.boundary[patch_index] = patches[g].clone();
+        }
+    }
+
+    /// Turn on **circulating-fuel precursor drift** — GeN-Foam's
+    /// `liquidFuel true`.
+    ///
+    /// With this set, [`Self::solve_eigenvalue`] transports each delayed-neutron
+    /// precursor group through the moving fuel and sources the delayed neutrons
+    /// where the precursors have actually reached, instead of assuming they
+    /// decay where they were born. See
+    /// [`precursor_drift`] for the equation, the reduction to the stationary
+    /// case, and the measured worth on the MSFR tutorial.
+    ///
+    /// Call it before solving. Passing the fields for a stationary fuel (zero
+    /// `phi`, zero diffusivity) is allowed and reproduces the `chi_eff`
+    /// collapse, but is wasted work — leave it unset instead.
+    ///
+    /// # Note
+    ///
+    /// Only the eigenvalue solve honours this. [`Self::step`] (the transient)
+    /// still uses the `chi_eff` collapse, because the transient precursor
+    /// equation keeps a time derivative this does not yet carry.
+    pub fn set_precursor_drift(&mut self, transport: PrecursorTransport) {
+        self.drift = Some(transport);
+    }
+
+    /// The circulating-fuel precursor transport fields, if set.
+    #[must_use]
+    pub fn precursor_drift(&self) -> Option<&PrecursorTransport> {
+        self.drift.as_ref()
+    }
+
     /// The shared neutronics state (flux, precursors, power density, `k_eff`).
     #[must_use]
     pub fn state(&self) -> &NeutronicsState {
         &self.state
+    }
+
+    /// Seed the next [`Self::solve_eigenvalue`] with a previous solution — a
+    /// **warm start**: the group fluxes (internal values, one `Vec` per group,
+    /// one value per cell) and `k_eff`. Upstream gets this for free, because
+    /// GeN-Foam's flux fields persist between coupling iterations and time
+    /// steps and each power iteration starts from them; a model rebuilt with
+    /// new cross sections here would otherwise restart from a flat flux.
+    ///
+    /// The amplitude does not matter (the power iteration renormalises), and
+    /// the boundary conditions are kept.
+    ///
+    /// # Panics
+    ///
+    /// If `flux` does not hold one vector per energy group, each one value per
+    /// mesh cell, or if `k_eff` is not positive and finite.
+    pub fn set_initial_guess(&mut self, flux: &[Vec<f64>], k_eff: f64) {
+        let n = self.state.mesh().n_cells;
+        assert_eq!(flux.len(), self.energy_groups(), "one flux per energy group");
+        assert!(k_eff.is_finite() && k_eff > 0.0, "k_eff must be positive");
+        for (field, values) in self.state.flux_mut().iter_mut().zip(flux) {
+            assert_eq!(values.len(), n, "one flux value per cell");
+            field.internal.as_mut_slice().copy_from_slice(values);
+        }
+        self.state.set_k_eff_raw(k_eff);
     }
 
     /// The materialised cross-section fields.
@@ -373,4 +549,5 @@ impl WithInternal for VolScalarField {
 }
 
 mod eigenvalue;
+pub mod precursor_drift;
 mod transient;

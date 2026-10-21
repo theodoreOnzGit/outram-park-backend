@@ -1,0 +1,2 @@
+# Build output of build.sh: wasm, its JS glue, and the prepared tapes.
+dist/

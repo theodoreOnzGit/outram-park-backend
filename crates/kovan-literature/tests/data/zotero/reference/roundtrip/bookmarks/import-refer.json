@@ -1,0 +1,70 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "参考文献管理 文献管理软件 学术书签网站 Zotero",
+						"type": 1
+					}
+				],
+				"title": "参考文献管理工具研究",
+				"url": "http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Italiensk litteratur",
+						"type": 1
+					},
+					{
+						"tag": "Idealbyer",
+						"type": 1
+					},
+					{
+						"tag": "kjernelitteratur",
+						"type": 1
+					}
+				],
+				"title": "Usynlige byer",
+				"url": "https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols",
+				"url": "https://diesseits.theopodcast.at/home"
+			}
+		]
+	}
+}

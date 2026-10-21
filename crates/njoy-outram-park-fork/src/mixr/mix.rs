@@ -68,21 +68,23 @@ pub fn sigfig(x: f64, ndig: i32, idig: i32) -> f64 {
     const TEN: f64 = 10.0;
     let mut xx = 0.0f64;
     if x != 0.0 {
-        let aa = x.abs().log10();
+        // `log10` and `**` through PETIR, so the result is the same on every
+        // platform (2026-10-15: Windows' `f64::powi` moved a last bit).
+        let aa = petir::real::log10(x.abs());
         let mut ipwr = aa as i32; // Fortran int(): truncate toward zero
         if aa < 0.0 {
             ipwr -= 1;
         }
         ipwr = ndig - 1 - ipwr;
         // nint(): round half away from zero, matching Fortran and f64::round.
-        let mut ii = (x * TEN.powi(ipwr) + TEN.powi(ndig - 11)).round() as i64;
+        let mut ii = (x * petir::real::powi(TEN, ipwr) + petir::real::powi(TEN, ndig - 11)).round() as i64;
         let mut ipwr2 = ipwr;
         if ii >= 10i64.pow(ndig as u32) {
             ii /= 10;
             ipwr2 -= 1;
         }
         ii += idig as i64;
-        xx = (ii as f64) * TEN.powi(-ipwr2);
+        xx = (ii as f64) * petir::real::powi(TEN, -ipwr2);
     }
     xx *= BIAS;
     xx
@@ -488,6 +490,13 @@ mod tests {
     }
 
     // ----- sigfig --------------------------------------------------------
+
+    #[test]
+    fn sigfig_power_of_ten_is_libgcc_on_every_platform() {
+        // NJOY2016 (gfortran, `__powidf2`) writes this Zn-70 word as
+        // 8.033120000000803e-17; Windows' `f64::powi` gave ...802e-17.
+        assert_eq!(sigfig(8.03312e-17, 7, 0).to_bits(), 8.033120000000803e-17_f64.to_bits());
+    }
 
     #[test]
     fn sigfig_rounds_to_seven_figures() {

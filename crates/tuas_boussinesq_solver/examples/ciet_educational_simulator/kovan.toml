@@ -1,0 +1,30 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/examples/ciet_educational_simulator"
+
+[module."main.rs"]
+path = "example:ciet_educational_simulator"
+
+[[module."main.rs".function]]
+id = "fn:c92fb617a3a5faed"
+name = "main"
+qual = "main#1"
+lines = [
+    7,
+    11,
+]
+hash = "sha256:fa7fbeebf67cf484deac7fd70d0c4ffd618daa967cae0987cdb89f6345c516fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9da27eddc16deaf7"]
+
+[[module."main.rs".function]]
+id = "fn:3b9162078424409a"
+name = "main"
+qual = "main#2"
+lines = [
+    16,
+    17,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

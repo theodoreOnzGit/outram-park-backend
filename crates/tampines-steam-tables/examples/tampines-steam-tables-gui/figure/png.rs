@@ -21,6 +21,7 @@
 //! That is not gamma-correct blending; it is what essentially every 2-D
 //! rasteriser does, and at these stroke widths the difference is invisible.
 
+use petir::mathf::RealMath;
 use super::layout::{DrawOp, PageSize};
 use super::{FigurePalette, Rgb, Scene};
 
@@ -254,7 +255,7 @@ fn dash_polyline(points: &[[f64; 2]], on: f64, off: f64) -> Vec<Vec<[f64; 2]>> {
     let mut travelled = 0.0_f64;
     for segment in points.windows(2) {
         let (a, b) = (segment[0], segment[1]);
-        let length = ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
+        let length = ((b[0] - a[0]).r_powi(2) + (b[1] - a[1]).r_powi(2)).sqrt();
         if length <= f64::EPSILON {
             continue;
         }

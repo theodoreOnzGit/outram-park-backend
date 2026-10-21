@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-dwsim-libs"
-version = "0.0.3"
+version = "0.0.4"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,13 +11,31 @@ readme = "README.md"
 categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate.
-exclude = ["verification_and_validation/*.csv"]
+exclude = ["docs", "verification_and_validation/*.csv"]
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 0
+topic = "utility"
+maturity = 2
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 thiserror = { workspace = true }
 ndarray = { workspace = true }
 uom = { workspace = true }
-roots = { workspace = true }
 # Read-only reader for DWSIM's zipped `.dwxmz` reference flowsheets
 # (`flowsheet::import`). Workspace-inherited with default features off and only
 # `deflate` enabled -- pure Rust (miniz_oxide), no C toolchain, so the library

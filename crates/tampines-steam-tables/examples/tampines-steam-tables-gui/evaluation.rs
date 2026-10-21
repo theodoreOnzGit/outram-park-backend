@@ -33,6 +33,7 @@
 //! `uom` trap this crate's own commit history already flags: a temperature
 //! *interval* multiplies cleanly, a temperature *point* does not).
 
+use petir::mathf::RealMath;
 use uom::si::available_energy::{joule_per_kilogram, kilojoule_per_kilogram};
 use uom::si::f64::*;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -218,7 +219,7 @@ pub fn evaluate_diagram_point(
 }
 
 fn pressure_from_y(y: f64, y_is_log: bool) -> Pressure {
-    let p_bar = if y_is_log { 10.0_f64.powf(y) } else { y };
+    let p_bar = if y_is_log { 10.0_f64.r_powf(y) } else { y };
     Pressure::new::<bar>(p_bar)
 }
 

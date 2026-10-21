@@ -665,6 +665,7 @@ pub fn feed_matrix<F: GroupFeed + ?Sized>(
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::endf::tape::{Section, Tape};
     use crate::endf::EndfKey;
@@ -781,7 +782,10 @@ mod tests {
             emaxx: 2.0e7,
         };
         let sec = feed_matrix(&sigma, &flux, &mut feed, 1, &header).expect("matrix builds");
-        assert!(!sec.records.is_empty(), "the continuum feed produced no rows");
+        assert!(
+            !sec.records.is_empty(),
+            "the continuum feed produced no rows"
+        );
         // The feed's label-700 normalisation scales it to the YIELD, not to 1
         // (`groupr.f90:8128-8132`; the hand-derived rows in
         // `groupr::mf6_feed::tests` sum to yld = 2). That is precisely why the
@@ -839,8 +843,8 @@ mod tests {
     fn constant_xs_heavy_target_is_diagonal() {
         let egn = [1.0, 10.0, 100.0, 1000.0];
         let awr = 100.0f64;
-        let alpha = ((awr - 1.0) / (awr + 1.0)).powi(2);
-        let lost = 4.0 * ((1.0 / alpha).ln() / (1.0 - alpha) - 1.0) / 9.0;
+        let alpha = ((awr - 1.0) / (awr + 1.0)).r_powi(2);
+        let lost = 4.0 * ((1.0 / alpha).r_ln() / (1.0 - alpha) - 1.0) / 9.0;
         let mut feed = TwoBodyFeed::new(isotropic_angular(), &egn, awr, 0.0, 0).unwrap();
         let sigma = PointwiseXs::LinLin(Arc::new(vec![(1.0e-5, 4.0), (2.0e7, 4.0)]));
         let flux = FluxComponents::p0(vec![GroupFlux::Flat]);

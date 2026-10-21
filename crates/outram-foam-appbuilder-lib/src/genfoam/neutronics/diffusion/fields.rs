@@ -142,6 +142,57 @@ impl DiffusionXsFields {
         zone_of_cell: &[usize],
         raw_parameters: &[f64],
     ) -> Result<Self, XsError> {
+        Self::materialize_inner(mesh, xs, zone_of_cell, &|_| raw_parameters)
+    }
+
+    /// As [`materialize`](Self::materialize), but evaluating the cross sections
+    /// at **each cell's own** feedback state.
+    ///
+    /// # Why this exists
+    ///
+    /// GeN-Foam evaluates the parametrised cross sections per cell, at that
+    /// cell's local `TFuel`, `rhoCool` and so on. Collapsing the field to one
+    /// global parameter vector is not equivalent, and not conservatively so: the
+    /// Doppler parametrisation is logarithmic in temperature, so the mean of the
+    /// cross sections is not the cross section at the mean. On the MSFR tutorial,
+    /// whose `TFuel` spans 991-1188 K, the difference is worth hundreds of pcm.
+    ///
+    /// # Parameters
+    ///
+    /// `cell_parameters` is `n_cells x n_variables`, laid out row-major: cell
+    /// `c`'s values occupy `[c * n_variables .. (c + 1) * n_variables]`, in the
+    /// same order as [`CrossSectionData::variables`].
+    ///
+    /// # Errors
+    ///
+    /// [`XsError`] if `zone_of_cell` or `cell_parameters` is not sized to the
+    /// mesh, or if a cell's parameters leave the parametrisation's domain.
+    pub fn materialize_per_cell(
+        mesh: &Arc<FvMesh>,
+        xs: &CrossSectionData,
+        zone_of_cell: &[usize],
+        cell_parameters: &[f64],
+    ) -> Result<Self, XsError> {
+        let n_vars = xs.variables().len();
+        let expected = mesh.n_cells * n_vars;
+        if cell_parameters.len() != expected {
+            return Err(XsError::IndexOutOfRange {
+                what: "cell_parameters length vs n_cells * n_variables",
+                index: cell_parameters.len(),
+                count: expected,
+            });
+        }
+        Self::materialize_inner(mesh, xs, zone_of_cell, &|c| {
+            &cell_parameters[c * n_vars..(c + 1) * n_vars]
+        })
+    }
+
+    fn materialize_inner<'a>(
+        mesh: &Arc<FvMesh>,
+        xs: &CrossSectionData,
+        zone_of_cell: &[usize],
+        parameters_of_cell: &dyn Fn(usize) -> &'a [f64],
+    ) -> Result<Self, XsError> {
         let n_cells = mesh.n_cells;
         if zone_of_cell.len() != n_cells {
             return Err(XsError::IndexOutOfRange {
@@ -171,7 +222,8 @@ impl DiffusionXsFields {
             let mut vcd = vec![0.0; n_cells];
             let mut viv = vec![0.0; n_cells];
             for c in 0..n_cells {
-                let gc = xs.evaluate_group_constants(zone_of_cell[c], group, raw_parameters)?;
+                let gc =
+                    xs.evaluate_group_constants(zone_of_cell[c], group, parameters_of_cell(c))?;
                 vd[c] = gc.diffusion_coefficient.value;
                 vnf[c] = gc.nu_sigma_f.value;
                 vsp[c] = gc.sigma_pow.value;
@@ -194,7 +246,7 @@ impl DiffusionXsFields {
         // Scattering matrices per cell, re-laid-out as scattering[j][i].
         let mut scattering: Vec<Vec<Vec<f64>>> = vec![vec![vec![0.0; n_cells]; g]; g];
         for c in 0..n_cells {
-            let m = xs.scattering_matrix(zone_of_cell[c], 0, raw_parameters)?;
+            let m = xs.scattering_matrix(zone_of_cell[c], 0, parameters_of_cell(c))?;
             for (j, row) in scattering.iter_mut().enumerate() {
                 for (i, cell_vec) in row.iter_mut().enumerate() {
                     cell_vec[c] = m.get(j, i);

@@ -76,8 +76,9 @@ Both constraints point the same way, which is a good sign the shape is right.
 
 ## 2. The benchmark problems, and the trap in B1
 
-All four are defined in IAEA-TECDOC-1382 Chapter 4 (Open tier;
-`crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`).
+All four are defined in IAEA-TECDOC-1382 Chapter 4 (~~Open tier;~~
+**CORRECTED 2026-10-01 (gh:#428):** proprietary tier;
+`iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`).
 
 > **Source deduplication (resolved 2026-08-11).** An earlier ingest of the
 > *same Chapter 4* without TECDOC provenance (`htr-10-iaea.md` / `.json`) has
@@ -170,10 +171,18 @@ published values, each carrying its source and that source's access tier:
 
 | Set | Count | Source | Tier |
 |---|---|---|---|
-| INET VSOP/MCNP B1 loading curves (4 tables, original + deviated) | 31 points | IAEA-TECDOC-1382 | Open |
-| INET B2 full-core k_eff, both variants | 7 | IAEA-TECDOC-1382 | Open |
-| INET B3/B4 rod worths + the B42 differential curve | 14 + 7 | IAEA-TECDOC-1382 | Open |
+| INET VSOP/MCNP B1 loading curves (4 tables, original + deviated) | 31 points | IAEA-TECDOC-1382 | ~~Open~~ **Proprietary** |
+| INET B2 full-core k_eff, both variants | 7 | IAEA-TECDOC-1382 | ~~Open~~ **Proprietary** |
+| INET B3/B4 rod worths + the B42 differential curve | 14 + 7 | IAEA-TECDOC-1382 | ~~Open~~ **Proprietary** |
 | Choo and Xiao (2024) Serpent 2 and HCP, B1 + B2, both variants | 16 | Choo and Xiao 2024 | Open |
+
+**CORRECTED 2026-10-01 (gh:#428):** the three IAEA-TECDOC-1382 rows were
+"Open". `crates/kovan-literature/CATALOGUE.md` records the TECDOC as
+*"RECLASSIFIED 2026-09-22 → proprietary (maintainer decision: no verified
+reuse licence)"*. The code has not followed: `LiteratureSource::access_tier` in
+`crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs` still returns
+`AccessTier::Open` for `IaeaHtgrBenchmark`, although that file's own module
+table says Proprietary. That code inconsistency is outside this doc fix.
 | Wang et al. (2014) continuous-energy MCNP5 and SCALE6 | 6 | Wang 2014 | **Proprietary** |
 | Wang et al. (2014) unit-cell homogenisation biases | 6 | Wang 2014 | **Proprietary** |
 | Tantillo et al. (2020) infinite-pebble-bed k_inf | 2 | Tantillo 2020 | **Proprietary** |
@@ -210,15 +219,15 @@ Audited 2026-08-11. Every claim carries a `file:line`.
 
 | Capability | Where | Notes |
 |---|---|---|
-| **Woodcock delta tracking** | `crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs:270` | `track_to_collision` takes geometry as a closure `Fn(Position) -> Option<f64>` returning local total macroscopic cross section. Generic, no trait object |
-| **Resonance-safe majorant** | `.../delta_tracking.rs:125` | `Majorant::bounding` sub-samples each bin for the max. Use this, not `from_materials` (`:75`), which under-bounds across U-238 resonances — its own doc says so at `:99-103` |
+| **Woodcock delta tracking** | `crates/outram-mc-libs/src/physics/delta_tracking/flight.rs:103` (moved from `pebble_beds/delta_tracking.rs` 2026-10-06, gh:#718) | `track_to_collision` takes geometry as a closure `Fn(Position) -> Option<f64>` returning local total macroscopic cross section. Generic, no trait object |
+| **Resonance-safe majorant** | `.../delta_tracking.rs:125` | ~~`Majorant::bounding` sub-samples each bin for the max.~~ **CORRECTED 2026-10-05 (GitHub #585):** that sampling under-bounded ENDF data by 18 %; `bounding` now tabulates on every nuclide breakpoint (line numbers here not re-checked). Use this, not ~~`from_materials` (`:75`), which under-bounds across U-238 resonances~~ (**CORRECTED 2026-10-05, GitHub #589:** `from_materials` now also adds every nuclide breakpoint; before that it was 14x under on the HTR-10 bed) |
 | **Delta-tracked k-eigenvalue with sigma** | `.../pebble_beds/keff_delta.rs:239` | `run_keff_delta` returns `KeffResult { k_mean, k_std, k_by_generation }` (`crates/outram-mc-libs/src/physics/keff.rs:183`). Sequential (`:285`) and rayon (`:382`) backends, thread-count-invariant by seed jump-ahead |
 | **RSA sphere packing** | `.../pebble_beds/sphere_packing.rs:205` | `pack_spheres(radius, half_width, packing_fraction, seed)`, plus O(1) membership `PackedSpheres::is_inside_kernel` (`:376`). Line-by-line port of OpenMC's `model/triso.py` |
 | **Full CSG geometry** | `crates/outram-mc-libs/src/geometry/surface.rs:1021` | `SurfaceKind` enum covers sphere, X/Y/Z cylinder, X/Y/Z cone, planes, quadric — enough to express an HTR-10 core, conus and reflector |
 | **Surface-tracked CSG k-eff with tallies** | `crates/outram-mc-libs/src/physics/transport_csg.rs:150` | `run_keff_csg(geom, materials, nuclides, source_box, settings, tally)`. This is the path that can express leakage; `run_keff_delta` cannot |
 | **Materials and nuclides at two fidelity tiers** | `crates/outram-mc-libs/src/material/nuclide.rs:187`, `:253` | `from_core` (embedded WMP, LOW) and `from_endf` (download + RECONR/BROADR, HIGH, behind `net-fetch`) |
 | **Carbon nuclear data** | `crates/njoy-outram-park-fork/src/acquire.rs:180-181`; `crates/njoy-outram-park-fork/docs/wmp-nuclide-manifest.md:26` | **Bead `op-h23` is stale.** C-12 (MAT 625) and C-13 (MAT 628) *are* in `well_known_mat`, and `C0` (C-nat) is in the embedded CORE WMP blob. See section 7.1 |
-| **Incoherent-inelastic S(alpha,beta) reaching transport** | `crates/outram-mc-libs/src/material/thermal.rs:122` -> `nuclide.rs:221` -> `nuclide.rs:333-341` | Works; but it is the wrong channel for graphite. See section 7.2 |
+| **S(alpha,beta) thermal scattering reaching transport, all three MF=7 channels** | `crates/outram-mc-libs/src/material/thermal.rs:122` -> `nuclide.rs:221` -> `nuclide.rs:333-341` | ~~Works; but it is the wrong channel for graphite~~ **CORRECTED 2026-09-17** — coherent elastic (Bragg) and incoherent elastic now also reach transport, not incoherent-inelastic alone; graphite's dominant channel is covered. See section 7.2 |
 | **Benchmark specification as typed data** | `crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs` | Added by this work |
 | **PRKE with a properly documented decay-heat model** | `crates/teh-o-prke/src/decay_heat.rs` | Replaced 2026-08-11 with the 23-group 1978 draft ANS standard fit; this is the doc/test standard rung 4 should match |
 
@@ -253,8 +262,8 @@ Audited 2026-08-11. Every claim carries a `file:line`.
 |---|---|---|
 | **Cylindrical packing bounds** | `sphere_packing.rs:205`, `:98-104` — one cube `half_width` | Cannot pack the 180 cm cylindrical bed |
 | **Two pebble species** | `sphere_packing.rs:99`, `:195` — one scalar `radius`, "all particles equal-radius" | Cannot represent the 57:43 fuel/dummy mixture, which *is* the initial core |
-| **Packing fraction above 0.38** | `MAX_PF_RSA = 0.38` at `sphere_packing.rs:63`, rejection at `:211-216`; `RsaDem`/`OdrDem` return `Err(NotImplemented)` at `:160`, proved by the test at `:546` | HTR-10's bed is **0.61**. Plain RSA cannot reach it — this is the single hardest missing piece for an explicit-bed model |
-| **Graphite S(alpha,beta) reaching transport** | `crates/outram-mc-libs/src/material/thermal.rs:24-26`: "Coherent / incoherent-elastic bound scattering (graphite, ZrH) is deliberately not wired here yet"; `crates/njoy-outram-park-fork/src/acquire.rs:172-177`: the `tsl-crystalline-graphite` MAT 30 tape is "**not** reachable through this table" | First-order physics error on a graphite-moderated thermal system. See section 7.2 |
+| ~~**Packing fraction above 0.38**~~ **PARTIALLY CLOSED — verified 2026-09-17** | `MAX_PF_RSA = 0.38` at `sphere_packing.rs:63`, rejection at `:211-216`; `RsaDem`/`OdrDem` still return `Err(NotImplemented)` at `:160`, proved by the test at `:546` — but a *third*, non-RSA method has since landed: `pack_spheres_crp` in `crates/outram-mc-libs/src/pebble_beds/crp_packing.rs` (Jodrey–Tory Concurrent Rearrangement), `MAX_PF_CRP = 0.62` (`:123`), measured **0.5796** realized on a seed-42 release run (`:63-68`) | ~~HTR-10's bed is **0.61**. Plain RSA cannot reach it — this is the single hardest missing piece for an explicit-bed model.~~ The *magnitude* ceiling is closed: CRP reaches 0.61-0.62. What is **still genuinely missing** — CRP is a cube, one-radius packer exactly like RSA (`pack_spheres_crp(radius, half_width, packing_fraction, seed)`, no cylinder, no second species) — is items 1 and 2 of this same table (cylindrical bounds, two pebble species) and wiring CRP into an actual HTR-10 packing. Bead `op-5c5r` is still `Todo` in `bn` and still scopes items 1–3 together; only item 3's algorithmic blocker is resolved |
+| ~~**Graphite S(alpha,beta) reaching transport**~~ **CLOSED — verified 2026-09-17, see section 7.2** | ~~`crates/outram-mc-libs/src/material/thermal.rs:24-26`: "Coherent / incoherent-elastic bound scattering (graphite, ZrH) is deliberately not wired here yet"; `crates/njoy-outram-park-fork/src/acquire.rs:172-177`: the `tsl-crystalline-graphite` MAT 30 tape is "**not** reachable through this table"~~ | ~~First-order physics error on a graphite-moderated thermal system.~~ Not applicable: `thermal.rs` now implements all three MF=7 channels and the graphite tape resolves a real URL. Callers must still opt in via `with_thermal_scattering`; see section 7.2's correction |
 | **B-10 / B-11 / Si-28-30 in `well_known_mat`** | `crates/njoy-outram-park-fork/src/acquire.rs:179-195` | HIGH-tier fetch of the boron poison and the SiC coating is blocked; LOW tier via `from_core` is unaffected |
 | **Any MGXS generation path** | see rung 2, section 4.2 | No rung-2 output exists |
 | **The Figure 4.10 zone geometry** | IAEA part 2 line 189 is a bare figure caption; Table 4-3 (lines 179-187) gives only zone number, carbon and boron atom density, and a remark | The R-Z model's zone boundaries are **not recoverable from the text**. See section 7.3 |
@@ -573,7 +582,7 @@ system is **not a criticality result** and must never be presented as one.
 
 Current state, precisely:
 
-- The bound-atom machinery exists in the nuclear-data crate: coherent elastic
+~~- The bound-atom machinery exists in the nuclear-data crate: coherent elastic
   (`crates/njoy-outram-park-fork/src/thermr/coherent.rs:29`, `:53`), incoherent
   elastic (`.../thermr/incoherent_elastic.rs`), incoherent inelastic
   (`.../thermr/scattering.rs:81`), a full LEAPR port (`.../src/leapr/`), and a
@@ -597,17 +606,73 @@ already works on the njoy side, per that bead: MF=7 parsing of all three
 graphite evaluations (MAT 30/31/32), coherent-elastic sigma(E) with the Bragg
 cutoff at 1.83e-3 eV and sigma = 4.55 b at 0.0253 eV, and incoherent-inelastic
 reaching the free-atom limit. THERMR is real (~1.4k lines); only its card-input
-driver is unported.
+driver is unported.~~
 
-Its ordered blockers are `op-h23` (done, see 7.1), then **`op-1y4y`** —
+**CORRECTED 2026-09-17 — this whole subsection is stale; the blocker it
+describes has been closed.** Verified against the current tree:
+
+- **All three ENDF MF=7 thermal channels now reach transport, not just
+  incoherent-inelastic.** `crates/outram-mc-libs/src/material/thermal.rs`'s
+  module doc states "Scope — all three ENDF MF=7 thermal channels: Incoherent
+  inelastic (MT=4, every `tsl` evaluation), Coherent elastic (Bragg, MT=2
+  LTHR=1/3, graphite/Be/BeO/SiC/Al), Incoherent elastic (MT=2 LTHR=2/3, H in
+  ZrH/polyethylene)". `Nuclide::with_thermal_scattering`
+  (`crates/outram-mc-libs/src/material/nuclide.rs:358-374`) attaches it to a
+  material, and the collision kernels in both
+  `crates/outram-mc-libs/src/pebble_beds/keff_delta.rs` (~:1023-1033) and
+  `crates/outram-mc-libs/src/physics/transport_csg.rs` branch on
+  `nuc.sample_thermal` — directly contradicting the "zero references to
+  thermal scattering" claim attributed to `op-hc2o` above. Exercised by
+  `crates/outram-mc-libs/tests/thermal_graphite_elastic.rs` and
+  `tests/htr10_graphite_thermal_scattering_pebble_bed.rs` among others.
+- **The graphite thermal tape IS downloadable.**
+  `crates/njoy-outram-park-fork/src/acquire.rs` now resolves
+  `"graphite"`/`"crystalline-graphite"`/`"tsl-crystalline-graphite"` (and the
+  10P/30P reactor-graphite variants) to a `TslMaterial` with a real
+  `thermal_url` (verified: `EndfLibrary::EndfBVIII0.thermal_url(
+  "tsl-crystalline-graphite")` resolves to
+  `https://www-nds.iaea.org/public/download-endf/ENDF-B-VIII.0/tsl/tsl-crystalline-graphite.zip`,
+  asserted by that file's own unit test).
+- Separately, **all 33 ENDF/B-VIII.0 LEAPR decks are now embedded in-crate**
+  (git commit `e4afd51779`, "embed all 33 ENDF/B-VIII.0 LEAPR decks; wire
+  graphite S(alpha,beta) toward outram-mc"), so graphite S(alpha,beta) can be
+  regenerated with no network fetch and no tape download at all — LEAPR
+  regeneration is the *default* source (commit `53fa574eba`).
+- `op-1y4y` (the coherent-elastic multi-temperature retention defect this
+  section names as the first ordered blocker) is recorded **Done** in `bn`
+  (verified via `bn show op-1y4y`, closed 2026-08-13, with measured
+  Debye-Waller suppression figures in the closing comment).
+- **Not independently re-verified**: whether `XsProvider` gained an
+  S(alpha,beta) variant. A grep for "Sab"/"thermal" near every `XsProvider`
+  reference found none, so that specific claim (thermal scattering bypasses
+  `XsProvider`) still appears accurate, but was not exhaustively re-audited
+  here.
+
+The free-gas caveat in the rest of this document (and in
+`crates/outram-mc-libs/examples/htr10_fuel_zone_kinf.rs`) still stands **for
+those specific programs**, because they do not call
+`with_thermal_scattering` — but that is those callers' own choice, not a
+capability gap in the crate.
+
+~~Its ordered blockers are `op-h23` (done, see 7.1), then **`op-1y4y`** —
 coherent-elastic is retained **only at 296 K**, which is a hard blocker for
 **B2 at 120 C and 250 C** and for B3/B4 — then `op-u5ju` and `op-nhoa`.
 `op-hc2o` also flags that 393 K and 523 K snap to 400 K and 500 K, a 23 K
 error at the B22/B23 states.
 
 **Another agent is actively working exactly the `op-1y4y` temperature problem**
-in `njoy-outram-park-fork`. **Stay out of that crate.** See also `op-6tz.35`
-for the full TRISO shell stack plus graphite S(alpha,beta).
+in `njoy-outram-park-fork`. **Stay out of that crate.**~~ **CORRECTED
+2026-09-17** — `op-1y4y` is closed (recorded `Done` in `bn`, closing comment
+dated 2026-08-13). `CoherentElastic` in
+`crates/njoy-outram-park-fork/src/thermr/coherent.rs` now carries
+`cross_section(e_ev, temp_k)` / `bragg_reflections(e_ev, temp_k)` /
+`s_of_e_at(temp_k)`, each resolving against every tabulated temperature via
+`select_temperature` (exact match within NJOY's `T/1000+5 K` tolerance, else
+`LI`-law interpolation between bracketing temperatures, else
+`NjoyError::TemperatureOutOfRange`) — verified: these methods take `temp_k`
+as a parameter, not a fixed 296 K. The remaining ordered blockers, `op-u5ju`
+and `op-nhoa`, were not independently re-checked in this sweep. See also
+`op-6tz.35` for the full TRISO shell stack plus graphite S(alpha,beta).
 
 One further data-version caution, relevant to any comparison: Tantillo et al.
 (2020) record that large differences have been reported between ENDF/B-VII.0
@@ -656,7 +721,7 @@ encodes the geometry directly.
 
 ### 7.4 The two RNG defects — prerequisites for rung 1
 
-Both are **open P1 defects in `outram-mc-libs`**. Their actual blast radius
+~~Both are **open P1 defects in `outram-mc-libs`**. Their actual blast radius
 differs, and the difference matters — do not overstate either.
 
 - **`op-rbo`** — `init_seed` derives streams one LCG *step* apart rather than
@@ -675,20 +740,41 @@ differs, and the difference matters — do not overstate either.
   jump-ahead and the GPU mirror tests are unaffected — only the state-to-double
   mapping diverges. Measured evidence is in the bead: from seed 1 the two
   generators' first five draws differ entirely while the state after five draws
-  is `0xCBA276B4B881A9F0` either way.
+  is `0xCBA276B4B881A9F0` either way.~~
+
+**CORRECTED 2026-09-17 — both are fixed and committed, not open.** Verified in
+the current tree, not merely claimed:
+
+- **`op-rbo`** — `init_seed` (now ~~`crates/outram-mc-libs/src/rng/lcg.rs:233`~~
+  **CORRECTED 2026-10-02**: the module moved unchanged to
+  `crates/petir/src/rng/lcg.rs:249`; `outram_mc_libs::rng::lcg` re-exports it)
+  reads `future_seed((id as u64).wrapping_mul(DEFAULT_STRIDE), ...)`, matching
+  upstream's `id * prn_stride`. Committed as `9f4ff6d470` ("rng: fix init_seed
+  to match OpenMC (op-rbo)"); working tree is clean at this file
+  (`git diff` empty, `git status --porcelain` empty).
+- **`op-jis`** — `prn` (now ~~`crates/outram-mc-libs/src/rng/lcg.rs:111-122`~~
+  **CORRECTED 2026-10-02**: `crates/petir/src/rng/lcg.rs:127-138`)
+  applies the PCG-RXS-M-XS permutation (`PCG_PERM_MULT`, the `>> 43 ^` step)
+  before scaling by `2^-64`, matching upstream's `random_lcg.cpp:32-44`.
+  Committed as `e71f1f97fa` ("rng: port OpenMC's PCG output permutation
+  (op-jis)").
+- `bn show op-rbo` / `bn show op-jis` both still report **`Status: Todo`** as
+  of this check — that is bead-tracker staleness, not a claim this document
+  should repeat. Recorded here rather than silently corrected, since closing a
+  bead is a maintainer action this sweep does not take (workspace `CLAUDE.md`,
+  bookkeeping-pass rule: "beads are closed by the maintainer's decision").
+  `op-1y4y`, by contrast, *is* recorded `Done` in `bn` (see the section 7.2
+  correction above) — so the staleness is per-bead, not systemic to the tracker.
 
 **Framing, per the crate's own maintainer decision (`outram-mc-libs/CLAUDE.md`,
 2026-08-06): bit-for-bit parity with OpenMC is explicitly NOT required — what
 is required is that the statistics are right, and that stream separation
-holds.** On that standard `op-jis` is a fidelity and reproducibility issue
-(this crate can never reproduce an OpenMC sequence bit-for-bit, and the PCG
-permutation exists *for* statistical quality so should be ported), while
-`op-rbo` was the one that actually threatened a reported sigma. Fixing `op-jis`
-means re-running every recorded statistic in the crate plus the WGSL shaders
-and `crates/raffles`, so it needs a planned change, not a drive-by.
+holds.** That framing still applies to why `op-jis` mattered even though it
+never changed a central value on its own.
 
-**Do not fix either from here.** Report any MC number with these caveats
-attached, and do not assume the reference is trustworthy until they close.
+**Do not re-fix either from here — they are already fixed.** Any MC number
+computed before these commits landed should still carry the old caveats;
+anything computed after them should not.
 
 ### 7.5 Mesh quality — `op-79c`
 
@@ -878,7 +964,8 @@ result, and it is not an HTR-10 criticality result.**
 An infinite medium of the *fuelled zone* of an HTR-10 fuel pebble, run twice:
 once with the UO2 kernels resolved explicitly as randomly packed spheres, and
 once with exactly the same nuclide inventory homogenised into one medium. Atom
-densities come straight from IAEA-TECDOC-1382 Table 4-38 (Open tier, part 2
+densities come straight from IAEA-TECDOC-1382 Table 4-38 (~~Open tier~~
+proprietary since 2026-09-22, corrected 2026-10-01; part 2
 line 1101) — kernel U-235 3.992067E-03, U-238 1.924449E-02, O 4.647329E-02,
 B-10 1.849637E-08, B-11 7.445022E-08; matrix graphite C 8.674169E-02 (which is
 exactly 1.73 g/cm^3 of carbon), B-10 2.244010E-08, B-11 9.032424E-08. The
@@ -996,7 +1083,12 @@ copyrightable; the restriction attaches to reproducing the document, not to
 measurements of a reactor. Terry §1 further states that all descriptive data
 "were obtained from published documents, mainly two IAEA TECDOC reports" — both
 of which this workspace already holds in the **open** tier. So these values have
-an open provenance path.
+an open provenance path. **CORRECTED 2026-10-01 (gh:#428):** IAEA-TECDOC-1382
+was reclassified proprietary on 2026-09-22 (`CATALOGUE.md`), so ~~"holds in
+the open tier"~~ no longer holds for it, and the "open provenance path"
+argument is Not re-checked: whether facts transcribed from a proprietary
+document may be recorded is a maintainer decision, which `CATALOGUE.md`
+answers only for the derived control-rod record.
 
 **Citation caution.** The no-citation-without-permission clause is a
 publication-ethics constraint. For any publication, cite the underlying IRPhEP

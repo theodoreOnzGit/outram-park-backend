@@ -25,6 +25,7 @@
 //! answer. A reaction stage uses the same triangle but reads work off a blade
 //! lift coefficient instead — see [`super::stage::StageKind`].
 
+use petir::mathf::RealMath;
 use uom::si::angle::radian;
 use uom::si::f64::*;
 use uom::si::velocity::meter_per_second;
@@ -80,15 +81,15 @@ impl VelocityTriangle {
         relative_exit_angle: Angle,
         blade_velocity_coefficient: Ratio,
     ) -> Self {
-        let axial_velocity: Velocity = absolute_velocity_in * nozzle_angle.cos();
-        let absolute_tangential_in: Velocity = absolute_velocity_in * nozzle_angle.sin();
+        let axial_velocity: Velocity = absolute_velocity_in * Ratio::from(nozzle_angle.value.r_cos());
+        let absolute_tangential_in: Velocity = absolute_velocity_in * Ratio::from(nozzle_angle.value.r_sin());
         let relative_tangential_in: Velocity = absolute_tangential_in - blade_speed;
 
         // The rotor turns the relative flow to its own exit angle. The axial
         // component is unchanged by the mean-line assumption, so the exit
         // relative tangential component is fixed by beta2, and the velocity
         // coefficient then scales the whole relative vector for passage loss.
-        let relative_tangential_ideal: Velocity = axial_velocity * relative_exit_angle.tan();
+        let relative_tangential_ideal: Velocity = axial_velocity * Ratio::from(relative_exit_angle.value.r_tan());
         let relative_tangential_out: Velocity =
             relative_tangential_ideal * blade_velocity_coefficient;
 
@@ -202,7 +203,7 @@ impl VelocityTriangle {
     pub fn get_mean_relative_speed(&self) -> Velocity {
         let mean_angle = self.get_mean_relative_angle();
 
-        self.axial_velocity / mean_angle.cos()
+        self.axial_velocity / Ratio::from(mean_angle.value.r_cos())
     }
 
     /// Degree of reaction inferred from the kinematics,
@@ -222,13 +223,13 @@ impl VelocityTriangle {
         let tangential_value = tangential.get::<meter_per_second>();
         let axial_value = axial.get::<meter_per_second>();
 
-        Angle::new::<radian>(tangential_value.atan2(axial_value))
+        Angle::new::<radian>(tangential_value.r_atan2(axial_value))
     }
 
     fn magnitude(tangential: Velocity, axial: Velocity) -> Velocity {
         let tangential_value = tangential.get::<meter_per_second>();
         let axial_value = axial.get::<meter_per_second>();
 
-        Velocity::new::<meter_per_second>(tangential_value.hypot(axial_value))
+        Velocity::new::<meter_per_second>(tangential_value.r_hypot(axial_value))
     }
 }

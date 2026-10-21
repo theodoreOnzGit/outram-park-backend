@@ -50,6 +50,7 @@ pub use crate::io::field_reader::{
     read_vol_vector_field_full,
 };
 pub use crate::io::poly_mesh::read_poly_mesh;
+pub use crate::io::nuclear_data::{read_nuclear_data, write_nuclear_data};
 
 // GeN-Foam neutronics — point kinetics (0-D)
 pub use crate::genfoam::neutronics::point_kinetics::{

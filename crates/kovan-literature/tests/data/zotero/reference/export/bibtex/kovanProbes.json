@@ -1,0 +1,22 @@
+{
+	"all": {
+		"status": 200,
+		"output": "\n@article{smith2021probe,\n\ttitle = {Dates \\& markup: a \\textit{kovan} probe},\n\tvolume = {12},\n\tissn = {1234-5678},\n\turl = {http://example.com/a?b=c&d=e},\n\tdoi = {10.1234/ABC.def},\n\tabstract = {An abstract with \"quotes\", \\{braces\\} and 100\\% \\$pecial\\_chars\\#.},\n\tlanguage = {en},\n\tnumber = {3},\n\turldate = {2020-03-04},\n\tjournal = {Journal of Testing \\& Probing},\n\tauthor = {Smith, John and de la Fontaine, Jean and {Kovan Collaboration}},\n\teditor = {Editor, Ed},\n\tmonth = may,\n\tyear = {2021},\n\tnote = {Original Date: 1999},\n\tkeywords = {alpha, beta gamma},\n\tpages = {101--110},\n\tannote = {A child note \\& an entity.},\n}\n\n@book{editor_second_1999,\n\taddress = {Singapore},\n\ttitle = {A {Second} {Record}},\n\tisbn = {978-3-16-148410-0 3161484100},\n\tpublisher = {Kovan Press},\n\teditor = {Editor, Ed},\n\tmonth = dec,\n\tyear = {1999},\n}\n\n@phdthesis{student_ranges_2010,\n\taddress = {Kovan},\n\ttype = {{PhD} {Thesis}},\n\ttitle = {Ranges and seasons},\n\tschool = {Kovan University},\n\tauthor = {Student, Ann},\n\tyear = {2010},\n\tnote = {issued: 2010/2012},\n}\n\n@inproceedings{noauthor_summer_2015,\n\taddress = {Singapore},\n\ttitle = {Summer proceedings},\n\tbooktitle = {Proceedings of the {Kovan} {Conference}},\n\tyear = {2015},\n\tpages = {5},\n}\n"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "\n@article{smith2021probe,\n\ttitle = {Dates \\& markup: a \\textit{kovan} probe},\n\tvolume = {12},\n\tissn = {1234-5678},\n\turl = {http://example.com/a?b=c&d=e},\n\tdoi = {10.1234/ABC.def},\n\tabstract = {An abstract with \"quotes\", \\{braces\\} and 100\\% \\$pecial\\_chars\\#.},\n\tlanguage = {en},\n\tnumber = {3},\n\turldate = {2020-03-04},\n\tjournal = {Journal of Testing \\& Probing},\n\tauthor = {Smith, John and de la Fontaine, Jean and {Kovan Collaboration}},\n\teditor = {Editor, Ed},\n\tmonth = may,\n\tyear = {2021},\n\tnote = {Original Date: 1999},\n\tkeywords = {alpha, beta gamma},\n\tpages = {101--110},\n\tannote = {A child note \\& an entity.},\n}\n"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "\n@book{editor_second_1999,\n\taddress = {Singapore},\n\ttitle = {A {Second} {Record}},\n\tisbn = {978-3-16-148410-0 3161484100},\n\tpublisher = {Kovan Press},\n\teditor = {Editor, Ed},\n\tmonth = dec,\n\tyear = {1999},\n}\n"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "\n@phdthesis{student_ranges_2010,\n\taddress = {Kovan},\n\ttype = {{PhD} {Thesis}},\n\ttitle = {Ranges and seasons},\n\tschool = {Kovan University},\n\tauthor = {Student, Ann},\n\tyear = {2010},\n\tnote = {issued: 2010/2012},\n}\n"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "\n@inproceedings{noauthor_summer_2015,\n\taddress = {Singapore},\n\ttitle = {Summer proceedings},\n\tbooktitle = {Proceedings of the {Kovan} {Conference}},\n\tyear = {2015},\n\tpages = {5},\n}\n"
+	}
+}

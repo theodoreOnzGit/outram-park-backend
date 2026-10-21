@@ -158,6 +158,9 @@ fn add_point(pts: &[Vec3], faces: &mut Vec<[usize; 3]>, pi: usize) {
             horizon.push((a, b));
         }
     }
+    // The set's iteration order is randomly seeded; sort so the new faces,
+    // and so the hull's face order, are reproducible (gh #1002).
+    horizon.sort_unstable();
 
     // Keep only non-visible faces, then cone the horizon to p.
     let mut kept: Vec<[usize; 3]> = faces

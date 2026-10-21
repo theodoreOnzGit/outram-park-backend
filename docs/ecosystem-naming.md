@@ -17,16 +17,36 @@ Singapore MRT station names identify **domains**, not crates.
 
 | Domain | Scope | Rests on |
 |---|---|---|
-| **TUAS** | Boussinesq thermal hydraulics — incompressible, natural and forced circulation, buoyancy-driven flow, molten salt, pipe networks, heat exchangers | `tuas_boussinesq_solver` |
+| **TUAS** — *Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows* (the title of its peer-reviewed paper, doi:10.1016/j.jandt.2025.03.006) | Boussinesq thermal hydraulics — incompressible, natural and forced circulation, buoyancy-driven flow, molten salt, pipe networks, heat exchangers | `tuas_boussinesq_solver` |
 | **TAMPINES** | Thermophysical properties, steam tables, EOS, compressible-flow infrastructure, HEM, balance-of-plant, TH framework | `tampines`, `tampines-steam-tables`, `outram-park-fork-coolprop` |
 | **NEE SOON** | **Neutronics and nuclear data** — the integration crate for that domain, and only that domain | `nee_soon`, composing `njoy-outram-park-fork`, `outram-mc-libs`, `teh-o-prke` |
 | **BEDOK** | **Multiphysics coupling at system level** — TH and neutronics coupled, above 1-D neutronics fidelity but **below CFD fidelity** (CFD-level coupling stays with GeN-Foam in `outram-foam-appbuilder-lib`) | *new* |
-| **SEMBAWANG** | Severe accident progression — melt behaviour, relocation, vessel failure, MCCI, hydrogen, aerosols, source term. *"What gets released?"* | *new* — scoped in `docs/melcor-scoping.md` |
-| **CHANGI** | Atmospheric dispersion, plume transport, deposition, ground contamination. *"What happens after release?"* | *new* — depends on a FLEXPART port |
-| **REDHILL** | Groundwater and geological transport, subsurface radionuclide migration, porous-media flow. *"What happens after deposition?"* | *new* — depends on `outram-park-fork-pflotran` |
+| **SEMBAWANG** — *Severe-accident Evolution and Melt Behaviour Analysis Workbench for Advanced Nuclear Geometries* | **Severe accident and source term, and orchestrator of the offsite chain** (maintainer decision 2026-09-21). *Its own physics:* the fission-product source term (TRISO release on `boon-lay`'s TRISO-ATOPS fork — implemented) and severe-accident progression — melt behaviour, relocation, vessel failure, MCCI, hydrogen, aerosols (not yet implemented). *Orchestrates:* CHANGI (dispersion, deposition), REDHILL (ground transport), RAFFLES (uncertainty propagation). The chain ends at activity released, air concentration and deposition — **no dose**. *"What gets released, and where does it go?"* | `sembawang` — exists 2026-09-21 (TRISO release + CHANGI join); progression scoped in `docs/melcor-scoping.md` |
+| **CHANGI** — *Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts* | **Now (research/educational):** atmospheric dispersion, plume transport, radionuclide deposition, ground contamination. **Future, not current:** radiological consequence assessment, dose assessment, emergency-planning support, Level 3 PSA support. Input: source terms from SEMBAWANG. *"What happens after release?"* | `changi` — FLEXPART v10.4 port begun 2026-09-15; surface-layer + deposition kernels verified code-to-code, the rest not yet ported |
+| **REDHILL** — *Radionuclide Effluent Dispersion solver for Hydrogeological Infiltration and Leaching through Layers* | Groundwater transport, geological migration, subsurface radionuclide transport, PFLOTRAN-based workflows, porous-media flow, repository assessment, long-term environmental transport. *"What happens after deposition and infiltration?"* | *new* — depends on `outram-park-fork-pflotran` |
+| **BISHAN** — *Building Internal Source-term and Hazard Analysis Network* | **Level 2 PSA**: in-plant severe-accident progression, containment and reactor-building response, in-building aerosol transport and pool scrubbing, release categories. Depends on RAFFLES for the probabilistic machinery (roadmap slides, 2026-09-14). **Boundary with SEMBAWANG's severe-accident scope is not decided.** No dose. *"What leaves the building, how, and how often?"* | `bishan` — ~~placeholder, 2026-09-28~~ one component (building CV) since 2026-09-29 |
+| **PASIR RIS** — *Probabilistic Assessment of Safety In Reactors: Risk & Reliability Integrated Studio* | **Integrated risk and reliability GUI** over RAFFLES (fault trees, UQ), BISHAN, SEMBAWANG, CHANGI and BUANGKOK: the top of the safety column in kovan's code map. "Probabilistic" in the name does not promote anything to "Level 1/2/3 PSA" (see decision 3 below). *"How do the safety pieces fit together, on one screen?"* | `pasir-ris` — placeholder, 2026-10-06 |
+| **BUANGKOK** — *Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge* | **Radiation dose and its biological effects**, for research-grade safety analysis: dose from air concentration and deposition (cloudshine, groundshine, inhalation, ingestion), dose coefficients, dose uncertainty, ALARA. The one crate that holds dose, so the source-term and dispersion crates keep their "no dose" boundary (maintainer, 2026-09-28). *"What dose follows from what was released and where it went?"* | `buangkok` — ~~placeholder, 2026-09-28~~ ~~partial pyDOSEIA port (inhalation, ground shine, submersion)~~ pyDOSEIA port (all computation: five pathways, driver), code-to-code verified, 2026-09-28 |
+| **PUNGGOL** — *Particle transport, UNcertainty, Geometry, Gamma transport, Optimization Library* (backronym set by the maintainer, 2026-10-20) | **Radiation transport beyond neutrons**: photons (gammas), electrons and positrons, coupled to OutramMC's neutrons, for heating, ionisation and shielding. Maintainer, 2026-10-20: "outramMC will take care of neutrons, PUNGGOL takes care of gammas and other things". Ions (fission fragments, alphas, recoils) stay in BOON LAY's RustBCA copy. *"Where do the gammas and betas go, and where do they deposit their energy?"* | `punggol` — *new*, not created yet. Will hold the OpenMC photon port (gh:#975) and the EGSnrc electron/positron port as a module with provenance (gh:#976); depends on `outram-mc-libs`, never the reverse. General numerics from those ports go to `petir`. ~~Downstream Geant4 consumer outside this repo (gh:#731)~~: superseded 2026-10-20, since Geant4's licence is most likely GPL/AGPL-incompatible |
+
+**BEDOK, SEMBAWANG, BOON LAY and DOVER names.** SEMBAWANG's backronym was set by the maintainer
+on 2026-09-21. ~~BEDOK carries **no backronym**~~ **CORRECTED 2026-09-25** —
+the maintainer set BEDOK's backronym: **B**road-scope **E**nvironment for
+**D**ual-phase advanced reactor **O**peration simulation **K**it. The name is
+also established by its publication, Than, Y. R., & Xiao, S. (2026). *BEDOK:
+An In-House Numerical Reactor Simulator Effort in Singapore.* Energy
+Engineering, 123(9). Cite that paper for BEDOK.
+BOON LAY's backronym, also set 2026-09-21: **BO**mbardment of neutrons **O**n
+**N**uclides with **L**agrangian transport **a**nd transmutation **Y**ields.
+DOVER's backronym, set 2026-09-25: **D**eck-based **O**pen-source
+**V**isualisation **E**ngine for **R**eactors (crate `dover`; no domain
+assigned. ~~An empty skeleton.~~ **CORRECTED 2026-09-30**: its first model, a
+deck-driven steam-methane-reforming CSTR, is merged). Its role, also set
+2026-09-25: the
+**low-fidelity equivalent of DHOBY GHAUT**; the details are undecided.
 
 Neutronics, fuel performance, CFD, meshing, KOVAN and the remaining crates are
-not yet assigned a domain. That is deliberate: the seven names above cover
+not yet assigned a domain. That is deliberate: the ~~seven~~ **eleven (CORRECTED 2026-10-20: the table had grown to ten before PUNGGOL was added)** names above cover
 roughly a third of the workspace, and unassigned crates are not thereby
 orphaned — they simply have no domain label yet.
 
@@ -53,8 +73,21 @@ orphaned — they simply have no domain label yet.
    assessment for real populations, or operational Level 3 PSA support —
    `RESPONSIBLE_USE.md` excludes those, and the draft's original wording
    contradicted it. The capability is in scope; that framing is not.
+
+   > **Reaffirmed 2026-09-15.** The maintainer supplied CHANGI's acronym and a
+   > scope list naming radiological consequence assessment, dose assessment,
+   > emergency-planning support and Level 3 PSA support, then confirmed that
+   > **the PSA and consequence use is future work and CHANGI stays research and
+   > educational for now**. Those four are therefore recorded in the crate as a
+   > *future* scope list, explicitly not current capability, and this decision
+   > stands unchanged. Promoting any of them to current scope is a deliberate
+   > edit to `RESPONSIBLE_USE.md`, never something implied by a scope bullet or
+   > by having implemented the physics.
+
 4. **Dependency directions fixed:**
    - **REDHILL depends on `outram-park-fork-pflotran`.**
+   - **SEMBAWANG depends on BOON LAY and CHANGI** today, and takes RAFFLES
+     (#238) and REDHILL as each is wired in (decision 7); never the reverse.
    - **CHANGI depends on the FLEXPART port** (GPL-3.0; see
      `docs/melcor-scoping.md` §4 Tier A).
 5. **BEDOK is the systems-level multiphysics coupling engine** — thermal
@@ -66,6 +99,20 @@ orphaned — they simply have no domain label yet.
    within neutronics and nuclear data. BEDOK couples *across* physics — TH to
    neutronics — at system level. A neutronics-only integration belongs in NEE
    SOON; anything reaching into thermal hydraulics belongs in BEDOK.
+7. **SEMBAWANG orchestrates the offsite chain** (maintainer decision,
+   2026-09-21, GitHub #235). It keeps its own physics (the source term,
+   and in time severe-accident progression) and drives the rest: CHANGI for
+   dispersion and deposition, REDHILL for ground transport, RAFFLES for
+   uncertainty propagation. Library dependencies run **one way**:
+   `sembawang → {boon-lay, changi, raffles, redhill}`, never back (as of this
+   decision only `boon-lay` and `changi` are wired in). RAFFLES
+   (owner: Adolphus Lye) is consumed, not redirected. Anything it would
+   need to *gain*, such as event and fault trees for Level 1 (#237), is
+   proposed to its owner. **Dose stays out of scope**; the chain ends at
+   activity released, air concentration and deposition. **Nothing here is
+   called PSA.** The CHANGI fence in decision 3 still stands, and promoting
+   any of this to "Level 1/2/3 PSA" wording is a separate, deliberate
+   `RESPONSIBLE_USE.md` edit.
 
 ---
 

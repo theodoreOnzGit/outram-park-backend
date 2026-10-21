@@ -1,0 +1,210 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions"
+test_ids = [
+    "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_kernel_release_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_run_is_reproducible",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::hop_releases_at_outer_surface",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::multilayer_walk_transmits_across_interfaces",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/interaction_with_decaying_nuclide_simulator/tests_for_auto_timestepping.rs::diffusion_fourier_number_calc",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1a_cs_release_1200c_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_buffer",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_kernel",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_pyc",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_sic",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs::boltzmann_test",
+    "crates/boon-lay/tests/triso_atops_booth_vs_crp6.rs::crp6_case1_booth_equals_the_crank_series",
+    "crates/boon-lay/tests/wasm_fallback.rs::ensemble_is_reproducible_across_repeated_runs",
+    "crates/boon-lay/tests/wasm_fallback.rs::parallel_ensemble_runs_and_is_physical",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::multilayer_bounce_cost_probe",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions"
+
+[[module."mod.rs".function]]
+id = "fn:00b02544ed3837b7"
+name = "mean_speed"
+qual = "mean_speed"
+lines = [
+    10,
+    21,
+]
+hash = "sha256:bb70755e8187c6438a5e00b3e801762c8c5cf4977829885fbb0060369f3e350a"
+doc_hash = "sha256:43f3df791175ee67afba1456a93b6d9f2eca20d622e57a4ea5496ae0737dfd33"
+reached_by = ["#24"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:fb1baee19eb25b2a"
+name = "expected_collisions_atomic_jumps"
+qual = "expected_collisions_atomic_jumps"
+lines = [
+    23,
+    48,
+]
+hash = "sha256:0c82fb6f97316b9819ef3ae2085539c4211d6951c244c6481e3e5cc2a9195af1"
+doc_hash = "sha256:7e9ea5ed29bc6a79f47fba1c71a5eef32a40c6c3cf2b35b9d3f439ac6956666e"
+callees = ["fn:00b02544ed3837b7"]
+reached_by = ["#24"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4bdea64528f551f6"
+name = "try_get_diffusion_coeff_jiang"
+qual = "try_get_diffusion_coeff_jiang"
+lines = [
+    50,
+    165,
+]
+hash = "sha256:bce08405506ba1231a62a45e85043e1a23f3a129ba6bc1275b3b9d75f8510b97"
+doc_hash = "sha256:c42b903c63f5996b47e34daf9acc58bc654fb5a3351682b079d8259f856989c1"
+callees = [
+    "fn:276704a175fea00f",
+    "fn:31464d09516fe216",
+    "fn:32008d34f3658b2b",
+    "fn:32729abf9a906a48",
+    "fn:5f7c5ca7f1e90cc1",
+    "fn:6384b933d6a3c8d2",
+    "fn:77f79ad0b87ac0f6",
+    "fn:8e48f530cd7cc6d7",
+    "fn:95a9ba49df6d1211",
+    "fn:b29122a4f7714bf3",
+    "fn:bceda333bb1970d3",
+    "fn:cdbfa11a8dfe9ade",
+    "fn:eb9b9e6d7b0f9a9c",
+    "fn:f6f96e9259dea849",
+]
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:359972b9e99804c1"
+name = "TrisoPebbleLayerMaterial"
+qual = "TrisoPebbleLayerMaterial"
+item = "type"
+shape = "enum"
+lines = [
+    170,
+    190,
+]
+hash = "sha256:119b93b427498c60884d91557ceb0e1c78e37ade04eedddac043312faa950c34"
+doc_hash = "sha256:b82840c4dbdc4b6d72b66686e34a08c8c93f1c8ac7179db052bbecbf2ac73d75"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d0b95c10084eeb1e"
+name = "boltzmann_test"
+qual = "boltzmann_test"
+lines = [
+    192,
+    232,
+]
+hash = "sha256:16555704b50b761f1caaa759dd431476036c7c4f15613ec800d9ad2562acf76a"
+doc_hash = "sha256:df43360362d15933bcd65eec43652b51a484f6947e0b0c240d8d58cd1dbcfcf2"
+callees = [
+    "fn:00b02544ed3837b7",
+    "fn:fb1baee19eb25b2a",
+]
+test = true

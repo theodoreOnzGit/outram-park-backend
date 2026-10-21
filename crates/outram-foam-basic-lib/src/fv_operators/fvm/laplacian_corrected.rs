@@ -93,6 +93,7 @@
 //!   `tests/non_orthogonal_laplacian.rs` are verification against an analytic
 //!   field, not validation against an external code or experiment.
 
+use petir::mathf::RealMath;
 use crate::fields::boundary::bc::BoundaryCondition;
 use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::{VolScalarField, VolVectorField};
@@ -193,7 +194,7 @@ pub fn non_ortho_geometry(sf: Vector3, d: Vector3) -> Option<NonOrthoGeometry> {
     let n = sf * (1.0 / mag_sf);
     let n_dot_d = n.dot(d);
     let cos_theta = (n_dot_d / mag_d).clamp(-1.0, 1.0);
-    let angle_deg = cos_theta.acos().to_degrees();
+    let angle_deg = cos_theta.r_acos().to_degrees();
     let delta_coeff = 1.0 / n_dot_d.max(NON_ORTH_FLOOR * mag_d);
     let corr_vec = n - d * delta_coeff;
     Some(NonOrthoGeometry {

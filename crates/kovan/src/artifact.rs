@@ -15,7 +15,7 @@
 //! anything about Kovan.
 //!
 //! ````markdown
-//! ## Graphite temperature assumption
+//! # Graphite temperature assumption
 //!
 //! ```toml
 //! [kovan]
@@ -34,6 +34,42 @@
 //!
 //! Graphite temperature here appears to represent nominal operating conditions.
 //! ````
+//!
+//! ~~`## Graphite temperature assumption`~~ **CORRECTED 2026-10-06**: the
+//! example above used a level-2 heading, which [`parse_document`] has not
+//! read as an artifact since GH issue #35 (2026-09-08) made a single `#` the
+//! only artifact level ([`ARTIFACT_LEVEL`]).
+//!
+//! # Heading levels: one schema for notes, lessons, walkthroughs and recipes
+//!
+//! Decided in GH issue #743 (2026-10-06). The same rules hold for a
+//! literature note, a lesson, a deep dive, a review walkthrough and a recipe:
+//!
+//! | Heading | Meaning |
+//! |---|---|
+//! | `#` + a fenced `toml` block holding `[kovan]` | **An artifact.** The page's own `#` title is always the **header artifact** (`# <citekey>` with `kind = "paper"` for a literature note). There is no level-2 artifact. |
+//! | `##` | Free prose structure inside the artifact. |
+//! | `###` | **Data**: a CSV series ([`SERIES_START`], [`SERIES_PREFIX`], [`SERIES_END`]) or an embedded code block (a walk step's snippet, a code walk's hops). |
+//! | the **last** `##` | The **review sign-off**, e.g. `## Review: ⚠ AI draft, not reviewed`. It is to be *generated* from ~~`review/stamps.toml`~~ the signed `review.md` stamps (**CORRECTED 2026-10-10**, #825: `stamps.toml` was removed) (GH issue #739) and excluded from the content hash; nothing here generates or checks it yet. It closes the artifact. |
+//!
+//! All of these are body text to the parser: only a `#` starts a block, so
+//! `##`/`###` (and a fence's own `#` lines) never split an artifact.
+//!
+//! # Who wrote it: `origin`
+//!
+//! `[kovan] origin = "ai" | "human"` ([`Origin`], GH issue #743) records
+//! authorship. It is optional, **human when absent**, and written back only
+//! when it was set, so a note from before the field existed re-serialises
+//! byte for byte.
+//!
+//! # Anchors: `[[relation]]`
+//!
+//! An artifact names the code it explains and the literature it cites with
+//! `[[relation]]` tables ([`crate::relation::Relations`]): the existing
+//! relation kinds, a target that may be a `code:` path
+//! (`code:<file>::<Type::name>[@L<line>]`, [`crate::relation::CodeTarget`]),
+//! and optional `page`, `quote` and `commit`. A relation artifact in
+//! `mindmap.md` keeps its single `[relation]` table.
 //!
 //! # An ordinary TOML fence stays ordinary
 //!
@@ -54,7 +90,7 @@
 //! # The source document is implicit
 //!
 //! §15: an artifact does **not** repeat its paper's cite key. It lives inside
-//! `papers/<citekey>/<citekey>.md`, so the containing directory already says
+//! `papers/<year>/<citekey>/<citekey>.md`, so the containing directory already says
 //! which document it belongs to. Only the *location within* that document is
 //! recorded here.
 
@@ -68,9 +104,11 @@ use serde::{Deserialize, Serialize};
 /// runs to the line before the next `#`. Deeper headings inside that span
 /// are the operator's own prose structure, not boundaries (maintainer
 /// direction, GH issue #35, 2026-09-08).
-pub const ARTIFACT_LEVEL: u8 = 1;
+pub const ARTIFACT_LEVEL: u8 = kovan_common::artifact::ARTIFACT_LEVEL;
 
-/// The kinds of artifact §14 defines.
+/// The kinds of artifact §14 defines, plus the four GH issue #743 added for
+/// lessons, walkthroughs, code walks and recipes (2026-10-06, added for the
+/// maintainer to dogfood).
 ///
 /// Deliberately a small vocabulary — §14: "Keep the vocabulary small until
 /// dogfooding proves more types necessary." Adding a variant forces every
@@ -109,6 +147,134 @@ pub enum ArtifactKind {
     /// A saved mindmap — its own metadata in the same `[kovan]`/TOML shape
     /// as every other artifact, rather than a private file format.
     Mindmap,
+    /// One section of a lesson (a tutorial rung page or a deep-dive
+    /// chapter): prose that teaches, anchored by `[[relation]]` links to the
+    /// code and literature it explains (GH issue #743, 2026-10-06).
+    LessonSection,
+    /// One step of a review walkthrough: a claim about one piece of code,
+    /// its `code:` anchor and the literature that backs it, with the source
+    /// snippet as a `###` data block (GH issue #743).
+    WalkStep,
+    /// A code walk: a chain of calls through the code, each hop a `code:`
+    /// target, its generated hops carried as `###` data (GH issue #743; the
+    /// artifact form of a lesson's `<!-- code-walk: -->` block).
+    CodeWalk,
+    /// One step of a recipe (an input deck or workflow a reader follows by
+    /// hand), anchored to the code it drives (GH issue #743).
+    RecipeStep,
+    /// Code review (GH issues #739, #764; the schema is
+    /// `kovan_common::review::review_md`): one reviewer's standing review of
+    /// one function, its data in a `[review]` table. Added 2026-10-07 so
+    /// desktop kovan reads `review.md` instead of reporting it malformed.
+    Review,
+    /// Code review: an open or resolved concern about a function
+    /// (`[needs_fix]`).
+    NeedsFix,
+    /// Code review: a folder's upstream confirmation (`[upstream]`).
+    Upstream,
+    /// Code review: a folder's deleted-functions history (`[[deleted]]`).
+    DeletedFunctions,
+    /// Code review: an architecture node in a crate-level `review.md`
+    /// (`[architecture]`).
+    Architecture,
+}
+
+impl ArtifactKind {
+    /// Every kind, in declaration order.
+    pub const ALL: [ArtifactKind; 18] = [
+        Self::Paper,
+        Self::Note,
+        Self::Annotation,
+        Self::SourceReference,
+        Self::Formula,
+        Self::DigitisedTable,
+        Self::DigitisedGraph,
+        Self::Relation,
+        Self::Mindmap,
+        Self::LessonSection,
+        Self::WalkStep,
+        Self::CodeWalk,
+        Self::RecipeStep,
+        Self::Review,
+        Self::NeedsFix,
+        Self::Upstream,
+        Self::DeletedFunctions,
+        Self::Architecture,
+    ];
+
+    /// The snake_case wire name, as written in `[kovan] kind`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Paper => "paper",
+            Self::Note => "note",
+            Self::Annotation => "annotation",
+            Self::SourceReference => "source_reference",
+            Self::Formula => "formula",
+            Self::DigitisedTable => "digitised_table",
+            Self::DigitisedGraph => "digitised_graph",
+            Self::Relation => "relation",
+            Self::Mindmap => "mindmap",
+            Self::LessonSection => "lesson_section",
+            Self::WalkStep => "walk_step",
+            Self::CodeWalk => "code_walk",
+            Self::RecipeStep => "recipe_step",
+            Self::Review => "review",
+            Self::NeedsFix => "needs_fix",
+            Self::Upstream => "upstream",
+            Self::DeletedFunctions => "deleted_functions",
+            Self::Architecture => "architecture",
+        }
+    }
+
+    /// Whether this is one of the code-review kinds (GH issue #764) that
+    /// live in a folder's `review.md`. (`annotation` is shared with
+    /// literature notes and is not counted here.)
+    pub fn is_review_kind(self) -> bool {
+        matches!(
+            self,
+            Self::Review
+                | Self::NeedsFix
+                | Self::Upstream
+                | Self::DeletedFunctions
+                | Self::Architecture
+        )
+    }
+
+    /// Whether this is one of the prose kinds GH issue #743 added for
+    /// lessons, walkthroughs, code walks and recipes. They are text
+    /// artifacts like a note: no page region, no CSV payload.
+    pub fn is_lesson_kind(self) -> bool {
+        matches!(
+            self,
+            Self::LessonSection | Self::WalkStep | Self::CodeWalk | Self::RecipeStep
+        )
+    }
+}
+
+/// Who wrote an artifact: `[kovan] origin = "ai" | "human"` (GH issue #743).
+///
+/// Optional on disk, and **human when absent**, so every note written before
+/// the field existed reads as it always did. It records authorship, not
+/// review: an AI-written artifact a human has reviewed is still `ai`; its
+/// review state is the generated `## Review:` sign-off (GH issue #739).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Origin {
+    /// Written by an AI assistant (an untrusted draft until reviewed).
+    Ai,
+    /// Written by a person. The default.
+    #[default]
+    Human,
+}
+
+impl Origin {
+    /// The wire name, `"ai"` or `"human"`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ai => "ai",
+            Self::Human => "human",
+        }
+    }
 }
 
 /// Errors from reading one artifact's metadata.
@@ -129,6 +295,48 @@ pub enum ArtifactError {
         line: usize,
         message: String,
     },
+}
+
+impl ArtifactError {
+    /// The heading of the block that could not be read.
+    pub fn heading(&self) -> &str {
+        match self {
+            Self::Malformed { heading, .. } | Self::BadAnchor { heading, .. } => heading,
+        }
+    }
+
+    /// The 1-based line of that heading.
+    pub fn line(&self) -> usize {
+        match self {
+            Self::Malformed { line, .. } | Self::BadAnchor { line, .. } => *line,
+        }
+    }
+
+    /// What is wrong with it.
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Malformed { message, .. } | Self::BadAnchor { message, .. } => message,
+        }
+    }
+}
+
+/// `md` without the level-1 block whose heading, `# {heading}`, is on
+/// 1-based `line` ([`heading_span`]), or `None` when that line no longer
+/// holds that heading (the document changed since it was parsed), so
+/// nothing is removed from the wrong place.
+pub fn remove_block(md: &str, line: usize, heading: &str) -> Option<String> {
+    let lines: Vec<&str> = md.lines().collect();
+    let at = lines.get(line.checked_sub(1)?)?;
+    let text = at.strip_prefix("# ")?;
+    if text.trim() != heading.trim() {
+        return None;
+    }
+    let span = heading_span(md, line, ARTIFACT_LEVEL);
+    let mut kept: Vec<&str> = lines[..span.start].to_vec();
+    kept.extend_from_slice(&lines[span.end..]);
+    let mut out = kept.join("\n").trim_end().to_string();
+    out.push('\n');
+    Some(out)
 }
 
 impl std::fmt::Display for ArtifactError {
@@ -208,11 +416,28 @@ impl Region {
         if w <= 0.0 || h <= 0.0 {
             return None;
         }
+        Self::from_corners(
+            ((min.0 / w) as f64, (min.1 / h) as f64),
+            ((max.0 / w) as f64, (max.1 / h) as f64),
+        )
+    }
+
+    /// This rectangle from two opposite corners **already in normalised page
+    /// fractions**, given in any order — they are sorted here, so a box whose
+    /// corners were dragged past each other comes back as `x0 < x1`,
+    /// `y0 < y1`. `None` exactly when the result would fail
+    /// [`Region::is_valid`].
+    ///
+    /// [`Region::from_pixels`] divides by the page size and delegates here,
+    /// so the sort-then-validate step lives in one place; the PDF reader's
+    /// corner-drag edit (`app::box_handles`) builds its result through it
+    /// too.
+    pub fn from_corners(a: (f64, f64), b: (f64, f64)) -> Option<Self> {
         let r = Self {
-            x0: (min.0.min(max.0) / w) as f64,
-            y0: (min.1.min(max.1) / h) as f64,
-            x1: (min.0.max(max.0) / w) as f64,
-            y1: (min.1.max(max.1) / h) as f64,
+            x0: a.0.min(b.0),
+            y0: a.1.min(b.1),
+            x1: a.0.max(b.0),
+            y1: a.1.max(b.1),
         };
         r.is_valid().then_some(r)
     }
@@ -377,6 +602,29 @@ impl Extraction {
     }
 }
 
+/// Keys a reader does not know, kept so that re-rendering an artifact never
+/// drops them (GitHub #764, 2026-10-07). Before this, unknown keys were
+/// tolerated on read but silently lost when kovan rewrote the block; a
+/// code-review entry (`[kovan] target`, `[review]`, `[needs_fix]`, …) would
+/// have lost its whole review on any edit through the literature path.
+/// Empty for every note written with known keys only, so those re-render
+/// byte for byte as before.
+///
+/// `Eq` is asserted by hand: TOML values compare as equal or not, and the
+/// only non-reflexive case, a NaN float, does not occur in kovan metadata.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ExtraKeys(pub toml::Table);
+
+impl Eq for ExtraKeys {}
+
+impl ExtraKeys {
+    /// Whether there are none (then nothing extra is written).
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 /// The mandatory `[kovan]` table (§14).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactMeta {
@@ -397,6 +645,24 @@ pub struct ArtifactMeta {
     /// state a machine may ever write.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviewed: Option<String>,
+    /// Who wrote it, as written (GH issue #743). `None` when the key is
+    /// absent, which means human ([`ArtifactMeta::origin`]); kept as an
+    /// `Option` so a note without the key re-serialises without it, byte for
+    /// byte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
+    /// Any other `[kovan]` key (e.g. a code review's `target`), kept as
+    /// written ([`ExtraKeys`]).
+    #[serde(flatten, default, skip_serializing_if = "ExtraKeys::is_empty")]
+    pub extra: ExtraKeys,
+}
+
+impl ArtifactMeta {
+    /// Who wrote the artifact, with an absent `origin` read as
+    /// [`Origin::Human`].
+    pub fn origin(&self) -> Origin {
+        self.origin.unwrap_or_default()
+    }
 }
 
 /// The full fenced-TOML payload of one artifact.
@@ -414,16 +680,24 @@ pub struct ArtifactToml {
     /// Extraction provenance (§19, §20). Digitised kinds only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extraction: Option<Extraction>,
-    /// User-authored relations to other nodes, **sourced from this
-    /// artifact** (op-30um.1) — one `[[relation]]` table per
-    /// [`crate::relation::UserRelation`], with the `source` half of that
-    /// triple implicit (it is always the artifact this TOML belongs to).
-    /// Omitted from the written TOML when empty, so an artifact with no
-    /// hand-drawn connections stays exactly as terse as it was before this
-    /// field existed. See `crate::relation`'s module docs for why this is
-    /// the relation's on-disk home rather than a separate store.
+    /// The artifact's relations, in either of two shapes
+    /// ([`crate::relation::Relations`]):
+    ///
+    /// - a single `[relation]` table, the body of a `kind = "relation"`
+    ///   artifact in `mindmap.md`, with both `source` and `target` explicit;
+    /// - one or more `[[relation]]` tables, the **anchors** of any other
+    ///   artifact (GH issue #743): the code it explains (`code:` targets) and
+    ///   the literature it cites, `source` omitted because it is this
+    ///   artifact.
+    ///
+    /// ~~One `[[relation]]` table per `UserRelation`, with the `source`
+    /// implicit.~~ **CORRECTED 2026-10-06**: the field held a single
+    /// `[relation]` table with an explicit `source` (GH issue #35,
+    /// 2026-09-08); the array form was added by GH issue #743. Omitted from
+    /// the written TOML when absent, and each shape re-serialises as the
+    /// shape it was read in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relation: Option<crate::relation::RelationRecord>,
+    pub relation: Option<crate::relation::Relations>,
     /// Ids of the relation artifacts in the mindmap document that name this
     /// artifact at either end — the back half of a two-way reference.
     ///
@@ -434,6 +708,12 @@ pub struct ArtifactToml {
     /// should reference each other").
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub connections: Vec<String>,
+    /// Any other top-level table or key (a code review's `[review]`,
+    /// `[needs_fix]`, `[upstream]`, `[architecture]`, `[[deleted]]`, or a
+    /// literature annotation's future additions), kept as written
+    /// ([`ExtraKeys`]).
+    #[serde(flatten, default, skip_serializing_if = "ExtraKeys::is_empty")]
+    pub extra: ExtraKeys,
 }
 
 /// One artifact, as found in a Markdown document.
@@ -468,6 +748,21 @@ impl Artifact {
     /// Whether a human has marked this reviewed (§14).
     pub fn is_reviewed(&self) -> bool {
         self.toml.kovan.reviewed.is_some()
+    }
+
+    /// Who wrote it (GH issue #743); human when `origin` is absent.
+    pub fn origin(&self) -> Origin {
+        self.toml.kovan.origin()
+    }
+
+    /// Every relation record this artifact carries, in file order: the one
+    /// `[relation]` of a relation artifact, or the `[[relation]]` anchors of
+    /// any other kind. Empty when it has none.
+    pub fn relations(&self) -> &[crate::relation::RelationRecord] {
+        self.toml
+            .relation
+            .as_ref()
+            .map_or(&[], crate::relation::Relations::records)
     }
 
     /// The first fenced `csv` block in the body, if any — the payload of a
@@ -543,15 +838,6 @@ impl ParsedDocument {
     }
 }
 
-/// 1-based line number of `byte_offset` within `text`.
-fn line_of(text: &str, byte_offset: usize) -> usize {
-    text[..byte_offset.min(text.len())]
-        .bytes()
-        .filter(|b| *b == b'\n')
-        .count()
-        + 1
-}
-
 /// Scan a Markdown document for Kovan artifacts (§13).
 ///
 /// Recognises a heading immediately followed by a fenced `toml` block whose
@@ -559,151 +845,51 @@ fn line_of(text: &str, byte_offset: usize) -> usize {
 /// the fence is the next block in the document — blank lines between them are
 /// Markdown whitespace and do not count as intervening content.
 ///
+/// The Markdown half moved to [`kovan_common::artifact::scan_blocks`] on
+/// 2026-10-07 (GitHub #764, placement decided on #743) so that web-kovan and
+/// code review read artifacts with the same scanner; this function supplies
+/// the literature reader (the [`ArtifactToml`] schema and the `[source]`
+/// anchor check). Behaviour is unchanged: every test below runs through it.
+///
 /// Never fails: see [`ParsedDocument`] and the module docs.
 pub fn parse_document(markdown: &str) -> ParsedDocument {
-    use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
-
-    let mut out = ParsedDocument::default();
-
-    // (heading text, level, byte offset of the heading)
-    let mut pending: Option<(String, u8, usize)> = None;
-    let mut heading_text = String::new();
-    let mut in_heading = false;
-    let mut heading_start = 0usize;
-    let mut heading_level = 1u8;
-
-    // Set while inside a fenced `toml` block that directly follows a heading.
-    let mut toml_buf: Option<String> = None;
-    let mut fence_end = 0usize;
-
-    let parser = Parser::new_ext(
-        markdown,
-        Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH,
-    );
-    for (event, range) in parser.into_offset_iter() {
-        match event {
-            Event::Start(Tag::Heading { level, .. }) => {
-                // Only a level-1 heading closes the previous artifact: `##`
-                // and below are the operator's own subdivisions *inside* an
-                // artifact's prose and belong to its body (maintainer
-                // direction, GH issue #35, 2026-09-08 — "can be subdivided
-                // by ## or ### or any markdown ... till the next artifact
-                // denoted by #").
-                if level as u8 == ARTIFACT_LEVEL {
-                    if let Some(a) = out.artifacts.last_mut() {
-                        if a.body.is_empty() && fence_end > 0 && fence_end <= range.start {
-                            a.body = markdown[fence_end..range.start].trim().to_string();
-                        }
+    let scan = kovan_common::artifact::scan_blocks(markdown, |heading, line, text| {
+        match toml::from_str::<ArtifactToml>(text) {
+            Ok(parsed) => {
+                if let Some(anchor) = &parsed.source {
+                    if let Err(message) = anchor.validate() {
+                        return Err(ArtifactError::BadAnchor {
+                            heading: heading.to_string(),
+                            line,
+                            message,
+                        });
                     }
                 }
-                in_heading = true;
-                heading_text.clear();
-                heading_start = range.start;
-                heading_level = level as u8;
+                Ok(parsed)
             }
-            Event::Text(t) | Event::Code(t) if in_heading => heading_text.push_str(&t),
-            Event::End(TagEnd::Heading(_)) => {
-                in_heading = false;
-                // Only a level-1 heading can open an artifact, so a `##`
-                // followed by a ```toml fence stays ordinary prose.
-                pending = (heading_level == ARTIFACT_LEVEL).then(|| {
-                    (
-                        heading_text.trim().to_string(),
-                        heading_level,
-                        heading_start,
-                    )
-                });
-            }
-            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang)))
-                if pending.is_some() && lang.split(',').next().unwrap_or("").trim() == "toml" =>
-            {
-                toml_buf = Some(String::new());
-            }
-            Event::Text(t) if toml_buf.is_some() => {
-                if let Some(buf) = toml_buf.as_mut() {
-                    buf.push_str(&t);
-                }
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                if let (Some(buf), Some((heading, level, offset))) =
-                    (toml_buf.take(), pending.take())
-                {
-                    let line = line_of(markdown, offset);
-                    // §13: no `[kovan]` table means an ordinary code example.
-                    // Checked structurally, not by substring match, so a
-                    // string value containing "[kovan]" is not mistaken for one.
-                    let is_artifact = toml::from_str::<toml::Value>(&buf)
-                        .ok()
-                        .and_then(|v| v.get("kovan").cloned())
-                        .is_some();
-                    if is_artifact {
-                        match toml::from_str::<ArtifactToml>(&buf) {
-                            Ok(parsed) => {
-                                if let Some(anchor) = &parsed.source {
-                                    if let Err(message) = anchor.validate() {
-                                        out.problems.push(ArtifactError::BadAnchor {
-                                            heading: heading.clone(),
-                                            line,
-                                            message,
-                                        });
-                                        continue;
-                                    }
-                                }
-                                fence_end = range.end;
-                                out.artifacts.push(Artifact {
-                                    heading,
-                                    level,
-                                    line,
-                                    toml: parsed,
-                                    body: String::new(),
-                                });
-                            }
-                            Err(e) => out.problems.push(ArtifactError::Malformed {
-                                heading,
-                                line,
-                                message: e.to_string(),
-                            }),
-                        }
-                    }
-                }
-            }
-            // Any other block between a heading and a fence breaks the
-            // "immediately followed by" rule (§13).
-            Event::Start(Tag::Paragraph)
-            | Event::Start(Tag::BlockQuote(_))
-            | Event::Start(Tag::List(_))
-            | Event::Start(Tag::Table(_))
-                if toml_buf.is_none() =>
-            {
-                pending = None;
-            }
-            _ => {}
+            Err(e) => Err(ArtifactError::Malformed {
+                heading: heading.to_string(),
+                line,
+                message: e.to_string(),
+            }),
         }
+    });
+    ParsedDocument {
+        artifacts: scan
+            .blocks
+            .into_iter()
+            .map(|b| Artifact {
+                heading: b.heading,
+                level: b.level,
+                line: b.line,
+                toml: b.payload,
+                body: b.body,
+            })
+            .collect(),
+        problems: scan.problems,
     }
-
-    // The final artifact's body runs to the end of the document.
-    if let Some(a) = out.artifacts.last_mut() {
-        if a.body.is_empty() && fence_end > 0 && fence_end <= markdown.len() {
-            a.body = markdown[fence_end..].trim().to_string();
-        }
-    }
-
-    out
 }
 
-/// Render `heading`/`toml`/`body` as the Markdown block §13 defines:
-/// heading, immediately followed by a fenced `toml` block, followed by the
-/// body. The exact counterpart to [`parse_document`] — text produced here
-/// re-parses to an equivalent [`Artifact`] (see the round-trip test below).
-///
-/// `level` is the heading depth, 1 for `#` through 6 for `######` — same
-/// meaning as [`Artifact::level`].
-///
-/// # Errors
-///
-/// Only if `toml`'s own TOML serialisation fails, which cannot happen for
-/// its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
-/// callers an `unwrap`.
 /// Wrap `csv_data` — the header row plus data rows, and nothing else — as a
 /// sentinel-delimited fenced CSV body ready for
 /// [`render_artifact_block`].
@@ -716,6 +902,127 @@ pub fn render_csv_body(csv_data: &str) -> String {
     format!("```csv\n{}\n```\n", csv_data.trim_end())
 }
 
+/// Opens a multi-series digitised-graph body.
+pub const SERIES_START: &str = "### start of data series";
+/// Closes a multi-series digitised-graph body.
+pub const SERIES_END: &str = "### end of series";
+/// Prefix of each series heading; the rest of the line is the series name.
+pub const SERIES_PREFIX: &str = "### Series:";
+
+/// One curve inside a multi-series digitised-graph artifact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeriesBlock {
+    /// The name after `### Series:`, trimmed.
+    pub name: String,
+    /// The CSV between this series' fences, verbatim.
+    pub csv: String,
+}
+
+/// Render several curves as one artifact body (maintainer, 2026-09-24).
+///
+/// ````markdown
+/// ### start of data series
+///
+/// ### Series: 235U thermal
+///
+/// ```csv
+/// x,y
+/// 1,2
+/// ```
+///
+/// ### end of series
+/// ````
+///
+/// # Why `###`, and why this does not disturb anything
+///
+/// [`ARTIFACT_LEVEL`] is 1, so an artifact is a `#` heading and
+/// [`heading_span`] ends its block at the next heading of depth **<= 1**. A
+/// `###` is depth 3, so every series heading sits *inside* the artifact --
+/// the sentinels delimit the series without ever splitting the block that
+/// contains them. CRUD keeps operating on the whole isolated artifact, as it
+/// did before, and the `#`-delimiter isolation it relies on is unchanged.
+///
+/// Each curve stays in its own ```csv fence, so [`Artifact::csv_block`] still
+/// returns a single, ordinary CSV table -- the sentinels sit *outside* the
+/// fences, which is why scanning for a fence finds the data either way.
+pub fn render_multi_series_body(series: &[SeriesBlock]) -> String {
+    if series.is_empty() {
+        return String::new();
+    }
+    let mut out = String::new();
+    out.push_str(SERIES_START);
+    out.push_str("\n\n");
+    for s in series {
+        out.push_str(SERIES_PREFIX);
+        out.push(' ');
+        out.push_str(s.name.trim());
+        out.push_str("\n\n");
+        out.push_str(&render_csv_body(&s.csv));
+        out.push('\n');
+    }
+    out.push_str(SERIES_END);
+    out.push('\n');
+    out
+}
+
+/// Read the curves back out of a multi-series body.
+///
+/// Returns empty for an ordinary single-CSV body, which is how a caller tells
+/// the two apart without a flag: a body with no `### Series:` heading has no
+/// series, and [`Artifact::csv_block`] is the right way to read it.
+///
+/// Tolerant by design, like [`parse_document`]: a series heading whose fence
+/// is missing or unterminated is skipped rather than failing the parse, so
+/// one malformed curve cannot make the other three unreadable.
+pub fn parse_series_blocks(body: &str) -> Vec<SeriesBlock> {
+    let mut out = Vec::new();
+    let lines: Vec<&str> = body.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i].trim_start();
+        let Some(rest) = line.strip_prefix(SERIES_PREFIX) else {
+            i += 1;
+            continue;
+        };
+        let name = rest.trim().to_string();
+        // Find this series' opening fence, stopping at the next series or the
+        // end sentinel so a fence-less heading cannot swallow its neighbour's
+        // data.
+        let mut j = i + 1;
+        let mut csv = None;
+        while j < lines.len() {
+            let l = lines[j].trim_start();
+            if l.starts_with(SERIES_PREFIX) || l.starts_with(SERIES_END) {
+                break;
+            }
+            if l.starts_with("```csv") {
+                let mut k = j + 1;
+                let mut body_lines = Vec::new();
+                let mut closed = false;
+                while k < lines.len() {
+                    if lines[k].trim_start().starts_with("```") {
+                        closed = true;
+                        break;
+                    }
+                    body_lines.push(lines[k]);
+                    k += 1;
+                }
+                if closed {
+                    csv = Some(body_lines.join("\n"));
+                    j = k;
+                }
+                break;
+            }
+            j += 1;
+        }
+        if let Some(csv) = csv {
+            out.push(SeriesBlock { name, csv });
+        }
+        i = j.max(i + 1);
+    }
+    out
+}
+
 /// Wrap `latex` — a BibTeX record or a formula — as a fenced ```latex
 /// block, the schema's third block type alongside ```toml (metadata) and
 /// ```csv (data).
@@ -723,23 +1030,32 @@ pub fn render_latex_body(latex: &str) -> String {
     format!("```latex\n{}\n```\n", latex.trim_end())
 }
 
+/// Render `heading`/`toml`/`body` as the Markdown block §13 defines:
+/// heading, immediately followed by a fenced `toml` block, followed by the
+/// body. The exact counterpart to [`parse_document`] — text produced here
+/// re-parses to an equivalent [`Artifact`] (see the round-trip test below).
+///
+/// `level` is the heading depth, 1 for `#` through 6 for `######` — same
+/// meaning as [`Artifact::level`].
+///
+/// (This comment used to sit on [`render_csv_body`] by mistake; moved
+/// 2026-10-06.)
+///
+/// # Errors
+///
+/// Only if `toml`'s own TOML serialisation fails, which cannot happen for
+/// its field types (see [`ArtifactToml`]'s fields) — the `Result` spares
+/// callers an `unwrap`.
 pub fn render_artifact_block(
     level: u8,
     heading: &str,
     payload: &ArtifactToml,
     body: &str,
 ) -> Result<String, String> {
-    let level = level.clamp(1, 6);
-    let hashes = "#".repeat(level as usize);
     let toml_text = toml::to_string_pretty(payload).map_err(|e| e.to_string())?;
-    let mut out = format!("{hashes} {heading}\n\n```toml\n{toml_text}```\n");
-    let body = body.trim();
-    if !body.is_empty() {
-        out.push('\n');
-        out.push_str(body);
-        out.push('\n');
-    }
-    Ok(out)
+    Ok(kovan_common::artifact::render_block(
+        level, heading, &toml_text, body,
+    ))
 }
 
 /// The 0-based, end-exclusive line range of `artifact`'s whole Markdown
@@ -752,33 +1068,17 @@ pub fn render_artifact_block(
 /// replace_artifact_body`) and a "which block is this line in?" hit test
 /// operate on.
 pub fn block_span(md: &str, artifact: &Artifact) -> std::ops::Range<usize> {
-    let start = artifact.line.saturating_sub(1);
-    let lines: Vec<&str> = md.lines().collect();
-    let mut end = lines.len();
-    // Fence tracking is not optional here. A `#` at the start of a line
-    // inside a ```csv or ```toml block is data or a TOML comment, not a
-    // heading — and a digitised artifact's CSV used to begin with
-    // `# kovan digitiser dataset (schema v1)`. Without this, deleting such
-    // an artifact truncated its span at that line and left the rest of the
-    // block orphaned in the document: the "delete annotation isn't working
-    // properly" report (GH issue #35, 2026-09-08).
-    let mut in_fence = false;
-    for (i, line) in lines.iter().enumerate().skip(start + 1) {
-        if line.trim_start().starts_with("```") {
-            in_fence = !in_fence;
-            continue;
-        }
-        if in_fence {
-            continue;
-        }
-        let hashes = line.chars().take_while(|c| *c == '#').count();
-        if hashes >= 1 && hashes <= artifact.level as usize && line.chars().nth(hashes) == Some(' ')
-        {
-            end = i;
-            break;
-        }
-    }
-    start..end
+    heading_span(md, artifact.line, artifact.level)
+}
+
+/// [`block_span`] for any heading: the 0-based, end-exclusive line range
+/// from the heading on 1-based `line` up to the next heading of depth
+/// `<= level` outside a fence, or the end of the document. Every `#`
+/// heading delimits a block, readable or not, so this also spans a block
+/// [`parse_document`] could not read (an [`ArtifactError`]).
+pub fn heading_span(md: &str, line: usize, level: u8) -> std::ops::Range<usize> {
+    // Moved to kovan-common with the scanner (GitHub #764, 2026-10-07).
+    kovan_common::artifact::heading_span(md, line, level)
 }
 
 #[cfg(test)]
@@ -805,12 +1105,15 @@ mod tests {
     #[test]
     fn a_sentinel_wrapped_body_round_trips_through_the_parser() {
         let toml = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: "fig-1".into(),
                 kind: ArtifactKind::DigitisedGraph,
                 created: "t".into(),
                 modified: "t".into(),
                 reviewed: None,
+                origin: None,
             },
             source: None,
             classification: Classification::default(),
@@ -818,9 +1121,13 @@ mod tests {
             relation: None,
             connections: Vec::new(),
         };
-        let md =
-            render_artifact_block(ARTIFACT_LEVEL, "Fig 1.", &toml, &render_csv_body("a,b\n1,2\n"))
-                .unwrap();
+        let md = render_artifact_block(
+            ARTIFACT_LEVEL,
+            "Fig 1.",
+            &toml,
+            &render_csv_body("a,b\n1,2\n"),
+        )
+        .unwrap();
         let doc = parse_document(&md);
         let art = doc.get("fig-1").expect("artifact parses");
         assert_eq!(art.csv_block().unwrap().trim(), "a,b\n1,2");
@@ -837,20 +1144,25 @@ mod tests {
             level: ARTIFACT_LEVEL,
             line: 1,
             toml: ArtifactToml {
+                extra: Default::default(),
                 kovan: ArtifactMeta {
+                    extra: Default::default(),
                     id: "fig-1".into(),
                     kind: ArtifactKind::DigitisedGraph,
                     created: "t".into(),
                     modified: "t".into(),
                     reviewed: None,
+                    origin: None,
                 },
                 source: None,
                 classification: Classification::default(),
                 extraction: None,
                 relation: None,
-            connections: Vec::new(),
+                connections: Vec::new(),
             },
-            body: "```csv\n# kovan digitiser dataset (schema v1)\n# figure: Fig 1.\nx,y\n1,2\n```\n".into(),
+            body:
+                "```csv\n# kovan digitiser dataset (schema v1)\n# figure: Fig 1.\nx,y\n1,2\n```\n"
+                    .into(),
         };
         assert_eq!(art.csv_export().unwrap(), "x,y\n1,2\n");
     }
@@ -1324,6 +1636,26 @@ modified = "m"
         );
     }
 
+    /// An unreadable block is its own `#`-delimited unit: removing it takes
+    /// its heading through to the next `#`, and leaves its neighbours whole.
+    #[test]
+    fn an_unreadable_block_is_removed_by_its_heading() {
+        let md = "# a\n\n```toml\n[kovan]\nid = \"a\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\nkeep a\n# broken\n\n```toml\n[kovan]\nid = 3\n```\n\nbroken body\n\n## sub\n\nstill broken\n# c\n\n```toml\n[kovan]\nid = \"c\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\nkeep c\n";
+        let doc = parse_document(md);
+        assert_eq!(doc.artifacts.len(), 2);
+        let problem = &doc.problems[0];
+        assert_eq!(problem.heading(), "broken");
+        let out = remove_block(md, problem.line(), problem.heading()).unwrap();
+        assert!(!out.contains("broken"), "{out}");
+        assert!(out.contains("keep a") && out.contains("# c") && out.contains("keep c"));
+        let after = parse_document(&out);
+        assert!(after.problems.is_empty());
+        assert_eq!(after.artifacts.len(), 2);
+        // A stale line or heading removes nothing.
+        assert_eq!(remove_block(md, problem.line(), "other"), None);
+        assert_eq!(remove_block(md, 1, "broken"), None);
+    }
+
     #[test]
     fn block_span_covers_the_heading_through_the_body() {
         // `##` subheadings belong to the artifact's prose; only the next
@@ -1349,12 +1681,15 @@ modified = "m"
     #[test]
     fn render_artifact_block_round_trips_through_parse_document() {
         let payload = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: "coupled-neutronics-methodology".to_string(),
                 kind: ArtifactKind::SourceReference,
                 created: "2026-08-31T15:10:12+08:00".to_string(),
                 modified: "2026-08-31T15:10:12+08:00".to_string(),
                 reviewed: None,
+                origin: None,
             },
             source: Some(SourceAnchor {
                 page: None,
@@ -1369,8 +1704,13 @@ modified = "m"
             relation: None,
             connections: Vec::new(),
         };
-        let rendered =
-            render_artifact_block(ARTIFACT_LEVEL, "Coupled neutronics methodology", &payload, "").unwrap();
+        let rendered = render_artifact_block(
+            ARTIFACT_LEVEL,
+            "Coupled neutronics methodology",
+            &payload,
+            "",
+        )
+        .unwrap();
 
         let doc = parse_document(&rendered);
         assert!(doc.problems.is_empty(), "{:?}", doc.problems);
@@ -1384,12 +1724,15 @@ modified = "m"
     #[test]
     fn render_artifact_block_keeps_a_non_empty_body() {
         let payload = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: "a-note".to_string(),
                 kind: ArtifactKind::Note,
                 created: "c".to_string(),
                 modified: "m".to_string(),
                 reviewed: None,
+                origin: None,
             },
             source: None,
             classification: Classification::default(),
@@ -1398,8 +1741,167 @@ modified = "m"
             connections: Vec::new(),
         };
         let rendered =
-            render_artifact_block(ARTIFACT_LEVEL, "A note", &payload, "Some prose about it.").unwrap();
+            render_artifact_block(ARTIFACT_LEVEL, "A note", &payload, "Some prose about it.")
+                .unwrap();
         let doc = parse_document(&rendered);
         assert_eq!(doc.artifacts[0].body, "Some prose about it.");
+    }
+
+    // ------------------------------------------------------------------
+    // Multi-series digitised graphs (maintainer, 2026-09-24).
+    // ------------------------------------------------------------------
+
+    fn series(name: &str, csv: &str) -> SeriesBlock {
+        SeriesBlock {
+            name: name.to_string(),
+            csv: csv.to_string(),
+        }
+    }
+
+    fn multi_series_artifact() -> String {
+        let toml = ArtifactToml {
+            extra: Default::default(),
+            kovan: ArtifactMeta {
+                extra: Default::default(),
+                id: "fig-7".into(),
+                kind: ArtifactKind::DigitisedGraph,
+                created: "t".into(),
+                modified: "t".into(),
+                reviewed: None,
+                origin: None,
+            },
+            source: None,
+            classification: Classification::default(),
+            extraction: Some(Extraction::new("manual_digitisation", None)),
+            relation: None,
+            connections: Vec::new(),
+        };
+        let body = render_multi_series_body(&[
+            series("235U thermal", "x,y\n1,2\n3,4"),
+            series("238U", "x,y\n5,6"),
+        ]);
+        render_artifact_block(ARTIFACT_LEVEL, "Fig 7.", &toml, &body).unwrap()
+    }
+
+    /// The body carries the sentinels the maintainer specified, in order.
+    #[test]
+    fn a_multi_series_body_is_sentinel_delimited() {
+        let body = render_multi_series_body(&[series("A", "x,y\n1,2"), series("B", "x,y\n3,4")]);
+        let start = body.find(SERIES_START).expect("start sentinel");
+        let a = body.find("### Series: A").expect("series A");
+        let b = body.find("### Series: B").expect("series B");
+        let end = body.find(SERIES_END).expect("end sentinel");
+        assert!(
+            start < a && a < b && b < end,
+            "sentinels must bracket the curves in order:\n{body}"
+        );
+        assert_eq!(body.matches("```csv").count(), 2, "one fence per curve");
+    }
+
+    #[test]
+    fn series_round_trip_through_the_parser() {
+        let md = multi_series_artifact();
+        let doc = parse_document(&md);
+        let art = doc.get("fig-7").expect("artifact parses");
+        let found = parse_series_blocks(&art.body);
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].name, "235U thermal");
+        assert_eq!(found[0].csv, "x,y\n1,2\n3,4");
+        assert_eq!(found[1].name, "238U");
+        assert_eq!(found[1].csv, "x,y\n5,6");
+    }
+
+    /// A ```csv fence must still read as a single, ordinary CSV table --
+    /// the maintainer's explicit requirement. The sentinels sit OUTSIDE the
+    /// fences, so nothing that scans for a fence is disturbed by them.
+    #[test]
+    fn csv_block_still_returns_one_plain_table() {
+        let md = multi_series_artifact();
+        let art = parse_document(&md).get("fig-7").cloned().expect("parses");
+        assert_eq!(art.csv_block().unwrap().trim(), "x,y\n1,2\n3,4");
+        assert_eq!(art.csv_export().unwrap(), "x,y\n1,2\n3,4\n");
+        assert!(
+            !art.csv_block().unwrap().contains("###"),
+            "a sentinel must never leak inside a fence"
+        );
+    }
+
+    /// An ordinary single-CSV artifact has no series -- that is how a reader
+    /// tells the two apart, with no flag.
+    #[test]
+    fn a_plain_csv_artifact_reports_no_series() {
+        assert!(parse_series_blocks(&render_csv_body("a,b\n1,2")).is_empty());
+    }
+
+    /// **The isolation requirement.** `###` series headings are depth 3 and
+    /// `ARTIFACT_LEVEL` is 1, so they must not end the artifact's block --
+    /// and the NEXT `#` artifact must still end it exactly where it always
+    /// did. Without this, CRUD on a multi-series graph would either truncate
+    /// at its own first series or run on into the following artifact.
+    #[test]
+    fn series_headings_do_not_split_the_artifact_and_the_next_one_still_does() {
+        let mut md = multi_series_artifact();
+        md.push_str("\n# Another artifact\n\n```toml\n[kovan]\nid = \"other\"\nkind = \"annotation\"\ncreated = \"t\"\nmodified = \"t\"\n```\n\nbody\n");
+        let doc = parse_document(&md);
+        let art = doc.get("fig-7").expect("first artifact");
+        let span = block_span(&md, art);
+        let lines: Vec<&str> = md.lines().collect();
+
+        // Every series heading is INSIDE the span.
+        for (i, l) in lines.iter().enumerate() {
+            if l.starts_with("### Series:") || *l == SERIES_START || *l == SERIES_END {
+                assert!(
+                    span.contains(&i),
+                    "line {i} ({l:?}) must stay inside the artifact's block"
+                );
+            }
+        }
+        // And the span stops at the next `#` artifact, not before or after.
+        let next = lines
+            .iter()
+            .position(|l| *l == "# Another artifact")
+            .expect("second artifact");
+        assert_eq!(span.end, next, "the block must end exactly at the next `#`");
+        assert!(
+            doc.get("other").is_some(),
+            "the second artifact still parses"
+        );
+    }
+
+    /// Deleting a multi-series artifact removes all of it and leaves its
+    /// neighbour untouched -- the failure mode `heading_span`'s fence
+    /// tracking was added for, now with `###` sentinels in the body too.
+    #[test]
+    fn removing_a_multi_series_artifact_leaves_the_next_one_intact() {
+        let mut md = multi_series_artifact();
+        md.push_str("\n# Another artifact\n\n```toml\n[kovan]\nid = \"other\"\nkind = \"annotation\"\ncreated = \"t\"\nmodified = \"t\"\n```\n\nbody\n");
+        let art = parse_document(&md).get("fig-7").cloned().expect("parses");
+        let after = remove_block(&md, art.line, "Fig 7.").expect("removed");
+        assert!(
+            !after.contains("### Series:"),
+            "no series survives:\n{after}"
+        );
+        assert!(!after.contains(SERIES_START) && !after.contains(SERIES_END));
+        assert!(after.contains("# Another artifact"), "the neighbour stays");
+        assert!(parse_document(&after).get("other").is_some());
+    }
+
+    /// A series whose fence is missing is skipped, and must not swallow the
+    /// next series' data -- one malformed curve cannot corrupt its
+    /// neighbours.
+    #[test]
+    fn a_series_without_a_fence_is_skipped_not_merged() {
+        let body = format!(
+            "{SERIES_START}\n\n### Series: broken\n\n### Series: good\n\n```csv\nx,y\n9,9\n```\n\n{SERIES_END}\n"
+        );
+        let found = parse_series_blocks(&body);
+        assert_eq!(found.len(), 1, "only the well-formed curve is returned");
+        assert_eq!(found[0].name, "good");
+        assert_eq!(found[0].csv, "x,y\n9,9");
+    }
+
+    #[test]
+    fn no_series_renders_an_empty_body() {
+        assert_eq!(render_multi_series_body(&[]), "");
     }
 }

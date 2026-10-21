@@ -40,6 +40,41 @@ psychrometrics, and multiphase thermal-hydraulics. It is distinct from
   (`teh-o-prke`, `outram-mc-libs`, `njoy-outram-park-fork`), or GUI /
   visualization code (`outram-park-digital-twin-gui`).
 
+## Reaching real time: evaluate a surrogate, not the full model
+
+This crate holds the physics a transient evaluates *most often* — fluid
+properties, HEM critical flow, drift-flux closures, packed-bed conjugate
+heat transfer, the KTA and ZBS correlations. That makes it the inner loop
+of every coupled run, and a digital twin at interactive rates cannot afford
+a full property or closure solve per tick per node.
+
+**The intended answer is a surrogate, and it is [`raffles`].** `raffles` is
+this workspace's port of RAVEN's uncertainty-quantification core, where a
+reduced-order model is a first-class object: sample the expensive model
+over its state space once, fit a cheap stand-in, evaluate that per tick.
+
+This is written down because it is not the obvious move. The natural
+reaction to a slow closure is to put a lookup table next to it, and a dozen
+bespoke tables scattered through this crate is precisely the outcome to
+avoid — they drift from the correlations they approximate, and none of them
+carries an error estimate. Prefer a `raffles` surrogate over a local table,
+and if you find yourself writing a table anyway, treat it as a stopgap and
+say so at the call site.
+
+Two constraints on any implementation:
+
+- **The surrogate must stay Android-clean.** Dense linear algebra for
+  fitting comes from the pure-Rust `faer` already in the workspace
+  dependencies — never a system BLAS or `ndarray-linalg`, per the
+  workspace's Android/Termux rule.
+- **A surrogate without an error bound is not usable here.** These feed
+  safety-relevant transients, and a fast wrong answer is worse than a slow
+  right one.
+
+The ROM layer itself does not exist yet — `raffles::surrogate` is currently
+a stub. Tracked in the workspace beads as `op-38my`; the dependency is
+wired ahead of it so the intent is visible from the manifest.
+
 ## Status
 
 **Scaffold only.** This crate is being built out incrementally; see the
@@ -112,6 +147,7 @@ pub struct RankineCycle {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -122,10 +158,15 @@ pub struct RankineCycle {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RankineCycle { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -139,6 +180,7 @@ pub struct RankineCycle {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -151,6 +193,7 @@ pub struct RankineCycle {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -160,7 +203,7 @@ pub struct RankineCycle {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RankineCycle) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -197,7 +240,7 @@ pub struct RankineCycle {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -336,6 +379,7 @@ pub struct Condenser {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -346,10 +390,15 @@ pub struct Condenser {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Condenser { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -363,6 +412,7 @@ pub struct Condenser {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -375,6 +425,7 @@ pub struct Condenser {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -384,7 +435,7 @@ pub struct Condenser {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Condenser) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -421,7 +472,7 @@ pub struct Condenser {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -508,6 +559,7 @@ pub struct CoolingTower {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -518,10 +570,15 @@ pub struct CoolingTower {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CoolingTower { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -535,6 +592,7 @@ pub struct CoolingTower {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -547,6 +605,7 @@ pub struct CoolingTower {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -556,7 +615,7 @@ pub struct CoolingTower {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CoolingTower) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -593,7 +652,7 @@ pub struct CoolingTower {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -675,6 +734,7 @@ pub struct HeatExchanger {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -685,10 +745,15 @@ pub struct HeatExchanger {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatExchanger { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -702,6 +767,7 @@ pub struct HeatExchanger {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -714,6 +780,7 @@ pub struct HeatExchanger {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -723,7 +790,7 @@ pub struct HeatExchanger {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeatExchanger) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -760,7 +827,2121 @@ pub struct HeatExchanger {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+## Module `helical_coil_sg_standalone`
+
+**Standalone helical-coil steam-generator harness** — the exchanger alone,
+with no plant attached.
+
+# Why this exists (GitHub #343, the instrument for #319)
+
+`htgr_sim_v1` panics in the IAPWS-IF97 flash because this exchanger's cold
+side reaches **273.15 K at 4 MPa**. The maintainer's objection is the one
+that matters and the steam tables do not answer it: **a 4 MPa cold side has
+no physical route to 273 K when feedwater enters at 313.15 K.** Feedwater
+enthalpy at the design point is ~171 kJ/kg; the panicking cell sits at
+~4 kJ/kg — a factor of 42 of energy unaccounted for. Something removes energy
+that is not there to remove.
+
+Inside a whole plant that is undiagnosable: point kinetics, the helium loop,
+the outer correctors, a feedwater controller, a protection system, a
+secondary-isolation interlock and a timestep accumulator all reach the
+exchanger. This harness drives
+[`NodalisedCounterFlowSteamGenerator`] and **nothing else**, with boundary
+conditions held rigidly constant, so whatever it does is a property of the
+exchanger.
+
+**Maintainer direction, 2026-09-27: the standalone steam generator lives in a
+`tampines` library file and is tested here.** That is why both this harness
+and the exchanger itself now live in this crate rather than in the example.
+
+# The boundary conditions are DELIBERATELY steady
+
+Every default is the published HTR-10 design point. Holding them constant is
+the experiment: a steady exchanger at its design point must reach a steady
+state and stay there, so **any drift is the exchanger's own**. Driven with a
+transient instead, it would be impossible to say whether a cooling cold side
+was the boundary condition or the model.
+
+The feedwater enthalpy comes from the **forward** region-1 equation
+`h_tp_1(T_feed, p_cold)`, not from a `(p,h)` inverse. Deliberate, given what
+is being chased: the backward equations disagree with the forward ones by
+~18 mK at this pressure (#342), and the harness must not inherit that
+residual in its own boundary condition.
+
+# The substep is the knob this harness exists to turn
+
+[`SteamGeneratorConfig::substep`]'s own table records the arrays as
+**unstable both above and below** a window, ~~with **0.05 s marked "fails …
+enthalpy goes odd-even and clamps"** and 0.0125 s marked stable~~ and
+0.0125 s marked stable. `htgr_sim_v1` ships 0.05 s.
+[`SgStandaloneConfig::substep_s`] defaults to 0.0125 s and is settable, so
+the two can be compared directly rather than argued about.
+
+**CORRECTED 2026-09-27 — the 0.05 s "fails" row was stale and has been
+struck.** This harness is what settled it:
+[`tests::how_far_the_implicit_coupling_raises_the_stable_substep`] (244.81 s)
+measures 0.05 s and ~~0.075 s~~ both **completing** (0.075 s panics since
+2026-09-29, when the cold side's convection became bounded -- gh:#319; see
+that test's re-measured table), at 1 coupling iteration and
+at 8; 0.1 s panics. The row was written at 10:12 on 2026-08-13, 15 minutes
+before commit `68e35551c2` put the helium side's energy convection on
+`EnergyBalanceMode::Implicit` and removed the ceiling it was measuring, and
+was never re-measured. So the shipped 0.05 s substep was never "in the
+failing row" — the row was simply out of date. See that test's third finding
+for the full timeline.
+
+**Measured 2026-09-27, and the substep turned out NOT to be the cause of
+#319** — the two agree on the coldest water node to **0.014 K** over 200 s of
+steady operation and neither approaches the floor. See
+[`tests::the_substep_is_not_what_walks_the_cold_side_down`] for the numbers and
+for what that excludes. The exchanger alone is stable at its design point, so
+#319's cause is in the plant coupling or in the transient the plant imposes.
+
+# Determinism
+
+No wall clock, no RNG, no I/O inside the loop. Same config in, byte-identical
+trace out — [`tests::the_standalone_harness_is_deterministic`].
+
+# Scope
+
+Illustrative geometry and conductances, **not** a licensed design's, and not
+validated against a measured HTR-10 steam generator. Research, education and
+V&V only.
+
+```rust
+pub mod helical_coil_sg_standalone { /* ... */ }
+```
+
+### Types
+
+#### Struct `SgStandaloneConfig`
+
+How to run the standalone exchanger.
+
+```rust
+pub struct SgStandaloneConfig {
+    pub steps: usize,
+    pub caller_dt_s: f64,
+    pub substep_s: f64,
+    pub sample_every: usize,
+    pub hot_inlet_k: f64,
+    pub hot_flow_kg_per_s: f64,
+    pub feedwater_k: f64,
+    pub cold_flow_kg_per_s: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steps` | `usize` | Number of caller timesteps to advance. |
+| `caller_dt_s` | `f64` | Caller timestep \[s\] — what a plant would hand `advance_timestep`. |
+| `substep_s` | `f64` | The **array** substep \[s\]. See [`SHIPPED_SUBSTEP_S`] and<br>[`STABLE_SUBSTEP_S`]. |
+| `sample_every` | `usize` | Emit one row every `sample_every` steps. |
+| `hot_inlet_k` | `f64` | Hot-side (helium) inlet temperature \[K\]. |
+| `hot_flow_kg_per_s` | `f64` | Hot-side mass flow \[kg/s\]. |
+| `feedwater_k` | `f64` | Cold-side (feedwater) inlet temperature \[K\]. |
+| `cold_flow_kg_per_s` | `f64` | Cold-side mass flow \[kg/s\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    The published HTR-10 design point, at the **stable** substep.
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SgTraceRow`
+
+One sampled row.
+
+```rust
+pub struct SgTraceRow {
+    pub step: usize,
+    pub time_s: f64,
+    pub hot_duty_w: f64,
+    pub cold_duty_w: f64,
+    pub hot_outlet_k: f64,
+    pub cold_outlet_k: f64,
+    pub min_cold_k: f64,
+    pub min_metal_k: f64,
+    pub worst_cross_k: f64,
+    pub odd_even_k: f64,
+    pub coupling_iterations: usize,
+    pub coupling_residual_k: f64,
+    pub cold_nodes_k: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `step` | `usize` | Step index. |
+| `time_s` | `f64` | Elapsed time \[s\]. |
+| `hot_duty_w` | `f64` | Hot-side duty \[W\]. |
+| `cold_duty_w` | `f64` | Cold-side duty \[W\]. |
+| `hot_outlet_k` | `f64` | Helium outlet temperature \[K\]. |
+| `cold_outlet_k` | `f64` | Steam outlet temperature \[K\]. |
+| `min_cold_k` | `f64` | **Coldest water/steam node** \[K\] — the quantity this harness watches. |
+| `min_metal_k` | `f64` | Coldest tube-metal node \[K\]. The SS304L correlation's lower bound is<br>300 K and is its own failure mode. |
+| `worst_cross_k` | `f64` | Worst node temperature cross \[K\]. |
+| `odd_even_k` | `f64` | **Odd-even roughness** of the cold-node profile \[K\] — see<br>[`odd_even_roughness`]. The signature the stability table describes. |
+| `coupling_iterations` | `usize` | Lateral-coupling (Picard) iterations the step used. |
+| `coupling_residual_k` | `f64` | Coupling convergence residual \[K\]. |
+| `cold_nodes_k` | `Vec<f64>` | Every cold-side node temperature \[K\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SgStop`
+
+Why a run stopped.
+
+```rust
+pub enum SgStop {
+    Completed,
+    Error {
+        step: usize,
+        message: String,
+    },
+    NearIf97Floor {
+        step: usize,
+        min_cold_k: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Completed`
+
+Ran every requested step.
+
+###### `Error`
+
+The exchanger returned an error.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `step` | `usize` | Step at which it failed. |
+| `message` | `String` | The exchanger's own message. |
+
+###### `NearIf97Floor`
+
+A water/steam node came within [`FLOOR_MARGIN_K`] of the IF97 floor.
+Detected **before** the steam tables are asked anything further, so the
+harness reports the state instead of dying inside a flash.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `step` | `usize` | Step at which it happened. |
+| `min_cold_k` | `f64` | The coldest node \[K\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `htr10_illustrative_config`
+
+The exchanger configuration the harness drives — the HTR-10-illustrative one.
+
+Mirrors `htgr_sim_v1`'s `primary_loop::steam_generator_config` field for
+field, with the substep supplied so it can be swept. The `UA` of 4.26e4 W/K
+and the 75 % hot-side resistance split are that simulator's illustrative
+numbers.
+
+```rust
+pub fn htr10_illustrative_config(substep_s: f64, node_count: usize) -> crate::components::helical_coil_steam_generator::SteamGeneratorConfig { /* ... */ }
+```
+
+#### Function `odd_even_roughness`
+
+A scalar measure of **odd-even (checkerboard) oscillation** in a node profile
+\[K\].
+
+The mean absolute second difference, `|T[i-1] - 2 T[i] + T[i+1]|`. A smooth
+monotone profile — which a counter-flow exchanger at steady state must have —
+gives a small number set by real curvature. A profile alternating node to
+node gives a large one, and it grows as the oscillation does.
+
+This is the quantity to watch rather than the minimum temperature alone,
+because it distinguishes *how* the cold side is failing: a uniformly cooling
+profile is an energy-balance error, whereas a checkerboard is a numerical
+instability. ~~`SteamGeneratorConfig::substep`'s table names the second one
+explicitly at 0.05 s.~~ **CORRECTED 2026-09-27** — that table row was stale
+and has been struck: 0.05 s does **not** fail, verified by running
+[`tests::how_far_the_implicit_coupling_raises_the_stable_substep`] (244.81 s;
+0.05 s and 0.075 s both complete at 1 and at 8 coupling iterations, 0.1 s
+panics). So there is currently **no measured substep at which this metric has
+been shown to diagnose a checkerboard** — it is a sound instrument with no
+calibrated reading yet. A 0.075 s run reported 75.3475 K (before
+2026-09-29; 0.075 s panics under the bounded cold-side scheme, gh:#319), but with no
+smooth-profile baseline for this 8-node dome-crossing cold side that number
+cannot yet be attributed to oscillation rather than real curvature.
+
+```rust
+pub fn odd_even_roughness(profile: &[f64]) -> f64 { /* ... */ }
+```
+
+#### Function `run_with_iterations`
+
+Drive the exchanger alone with an explicit coupling-iteration ceiling.
+
+`1` is the old block-Jacobi single sweep; higher values are Picard on the
+helium-tube-steam system. Exists so a sweep can compare the two on identical
+boundary conditions rather than by argument.
+
+```rust
+pub fn run_with_iterations(cfg: &SgStandaloneConfig, max_coupling_iterations: usize) -> (Vec<SgTraceRow>, SgStop) { /* ... */ }
+```
+
+#### Function `run`
+
+Drive the exchanger alone. Deterministic.
+
+```rust
+pub fn run(cfg: &SgStandaloneConfig) -> (Vec<SgTraceRow>, SgStop) { /* ... */ }
+```
+
+#### Function `coldest_over_run`
+
+The coldest water/steam node reached over a whole run \[K\], with its stop
+reason — the one-line summary a sweep wants.
+
+```rust
+pub fn coldest_over_run(cfg: &SgStandaloneConfig) -> (f64, f64, SgStop) { /* ... */ }
+```
+
+#### Function `feedwater_enthalpy_j_per_kg`
+
+Feedwater enthalpy at the harness's cold-side conditions \[J/kg\], for
+reporting.
+
+```rust
+pub fn feedwater_enthalpy_j_per_kg(cfg: &SgStandaloneConfig) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `IF97_MIN_TEMPERATURE_K`
+
+IF97's lower temperature bound \[K\] — the triple point.
+
+```rust
+pub const IF97_MIN_TEMPERATURE_K: f64 = 273.15;
+```
+
+#### Constant `FLOOR_MARGIN_K`
+
+Margin above the IF97 floor at which the harness stops \[K\].
+
+Stopping *at* the floor is too late: the panic in #342 comes from a `(p,h)`
+point whose **backward** temperature is ~18 mK below the floor while its
+forward temperature sits on it, so a node at 273.16 K can already crash a
+flash. One kelvin of margin catches the approach and leaves the state
+readable instead of dying inside a property call.
+
+```rust
+pub const FLOOR_MARGIN_K: f64 = 1.0;
+```
+
+#### Constant `SHIPPED_SUBSTEP_S`
+
+The array substep `htgr_sim_v1` actually ships \[s\].
+
+`PLANT_TIMESTEP_S / STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP` = `0.1 / 2`.
+Commit `c0e85a503e` (2026-08-13) cut that divisor from 8 to 2 to reach 4.1x
+real time, moving the substep from 0.0125 s to this. **The exchanger's own
+stability table marks this row "fails — enthalpy goes odd-even and clamps",**
+and the module doc still describes 0.0125 s as "the shipped substep".
+
+```rust
+pub const SHIPPED_SUBSTEP_S: f64 = 0.05;
+```
+
+#### Constant `STABLE_SUBSTEP_S`
+
+The array substep the exchanger's stability table records as stable \[s\].
+
+`Co_hot = 0.222`, settled `Q_hot = 9.6854 MW`, +0.003 % off a 0.00625 s
+reference.
+
+```rust
+pub const STABLE_SUBSTEP_S: f64 = 0.0125;
+```
+
+## Module `helical_coil_steam_generator`
+
+**Helical-coil once-through steam generator** -- spatially resolved,
+counter-flow, hot fluid <-> tube metal <-> water/steam.
+
+# Provenance: moved here from `htgr_sim_v1` on 2026-09-27
+
+This exchanger was written and lived in
+`outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs`.
+**Maintainer direction, 2026-09-27: it belongs in a `tampines` library
+file, and is to be tested here.** It is thermal-hydraulic component physics,
+which is what this crate is for, and the engine crate's own `CLAUDE.md` says
+in the first place that no new physics belongs in *its* library -- so moving
+it out satisfies both rules at once.
+
+The move was **mechanical**: the 1 303 lines of production code carried
+**zero** references to anything in the example (verified by grep for
+`crate::physics` and `super::` across the whole of it), so nothing had to be
+redesigned to make it portable. Only three things changed:
+
+1. `use tampines::compressible::...` became `use crate::compressible::...`;
+2. doc links into the example's modules were rewritten, since they no longer
+   resolve from here;
+3. the array substep, which the example held as a physics constant, is now
+   [`DEFAULT_SUBSTEP_SECONDS`] here -- it is a property of *these arrays*,
+   not of any particular plant, and keeping it beside them is what stops the
+   two copies drifting.
+
+The example now re-exports this module rather than owning a second copy.
+
+# Why it was moved: it is the subject of an open defect
+
+GitHub #319 -- `htgr_sim_v1`'s cold side reaches 273.15 K at 4 MPa and
+panics the IF97 flash. The maintainer's objection is the one that matters:
+**a 4 MPa cold side has no physical route to 273 K when feedwater enters at
+313.15 K.** Feedwater enthalpy at the design point is ~171 kJ/kg; the
+panicking cell sits at ~4 kJ/kg, a factor of 42 of energy unaccounted for.
+
+Diagnosing that inside a whole plant is hopeless -- point kinetics, the
+helium loop, outer correctors, a feedwater controller, a protection system
+and a timestep accumulator all reach the exchanger. [`standalone`] drives
+**this** exchanger with fixed boundary conditions and nothing else, so what
+it does is a property of the exchanger. That harness is the reason the move
+happened now.
+
+# Scope
+
+Illustrative geometry and conductances (see
+[`SteamGeneratorGeometry::htr10_illustrative`]), **not** a licensed design's,
+and not validated against a measured HTR-10 steam generator. Research,
+education and V&V only.
+Nodalised counter-flow steam generator: hot fluid <-> tube metal <-> water/steam.
+
+A **spatially resolved** once-through steam generator, built by composing
+three axial arrays that already exist in the workspace and coupling them
+laterally through real thermal conductances:
+
+```text
+  hot fluid  (CompressibleFluidArray)   ---->  flows +x
+       |  UA_hot / node
+  tube metal (SolidColumn, SteelSS304L) ---- thermal mass, no flow
+       |  UA_cold / node
+  water/steam (TampinesSteamArray)      <----  flows -x  (COUNTER-FLOW)
+```
+
+## The defect this replaces
+
+Until 2026-08-12 `htgr_sim_v1`'s primary loop modelled the secondary side as an
+**isothermal sink at saturation** and took the duty from an
+effectiveness-NTU lump:
+
+```text
+Q = eps * m_dot * c_p * (T_hot - T_sat)
+```
+
+That is the correct shape for an *evaporator*, where the cold side really is
+isothermal. It is wrong for a **once-through** unit, which is an economiser,
+an evaporator **and a superheater** in series: as the steam superheats, the
+local driving temperature difference collapses toward zero, but against a
+fixed saturation sink it never does. With helium near 973 K and saturation at
+523 K the model saw a permanent ~450 K driver, over-predicted the duty, and
+the steam outlet -- computed downstream as `h_feed + Q/m_dot` -- ran far too
+hot. A `max_absorbable_duty` cap in [`super::secondary_loop`] then clamped the
+outlet at the *hot-side inlet temperature*, which turned a crash into a
+visibly wrong number.
+
+Here the driving difference is evaluated **node by node at local
+temperatures**, so the superheater's collapsing pinch is represented rather
+than assumed away.
+
+## No temperature cross, structurally
+
+Lateral heat between any two adjacent arrays is
+
+```text
+q_i = UA_i * (T_upstream_array_i - T_this_array_i)
+```
+
+at the **local node temperatures** of the two arrays. If the cold stream ever
+became hotter than the hot stream at some station, `q_i` simply **changes
+sign** -- heat flows back the other way, which is what the second law
+requires. Nothing is clamped, nothing is capped, and no branch tests for a
+cross. This is the property the effectiveness-NTU lump could never have had,
+because a lump has only one temperature per side and therefore no local
+difference to take the sign of.
+
+[`SteamGeneratorState::worst_node_cross_kelvin`] reports the measured margin.
+
+## Counter-flow is expressed as an index mapping, not a negative flow
+
+Both fluid arrays run **forward in their own frame** (positive mass flow,
+inlet at cell 0). The counter-flow arrangement is carried by the *lateral
+index map*: cold cell `j` sits at the same physical station as hot cell
+`n-1-j`, so the temperature vector handed to each array is reversed on the
+way across.
+
+TUAS's own [`SimpleShellAndTubeHeatExchanger`] instead gives its shell side a
+**negative** mass flowrate and swaps which terminal carries the inlet
+boundary condition. Both are correct and they are the same exchanger; the
+index map was chosen here because it keeps each array on the numerically
+well-exercised forward-flow path, and because a counter-flow arrangement
+genuinely *is* nothing more than a permutation of which node faces which.
+[`tests::counter_flow_index_map_is_its_own_inverse`] pins the mapping.
+
+[`SimpleShellAndTubeHeatExchanger`]:
+    tuas_boussinesq_solver::pre_built_components::shell_and_tube_heat_exchanger::SimpleShellAndTubeHeatExchanger
+
+## The metal is a real thermal mass, and that is the point
+
+The tube wall is a [`SolidColumn`] of [`SolidMaterial::SteelSS304L`], whose
+mass is **derived from the tube geometry** and whose specific heat comes from
+the TUAS solid-property database. It therefore has a real thermal time
+constant, and a step change in duty cannot be tracked instantly by the steam
+outlet. Before this module the secondary loop's only integrated state was its
+mass flow; the metal is what makes it genuinely transient.
+
+## What is real
+
+- **Both fluids are real equations of state.** The hot side is a CoolProp
+  Helmholtz EOS through [`CompressibleFluidArray`]; the cold side is
+  IAPWS-IF97 through [`TampinesSteamArray`], which carries the water/steam
+  phase change including the latent heat.
+- **The metal is real steel.** Density and specific heat come from
+  `SolidMaterial::SteelSS304L`, so the thermal capacity is derived, not typed
+  in.
+- **Both streams are advection-driven** through prescribed mass-flow inlets
+  and TUAS upwind-advection junction terminals (see
+  `crates/tampines-steam-tables/docs/boundary-conditions-convention.md`), so
+  each stream develops a genuine axial temperature profile.
+- **The energy balance closes** across all three arrays -- see
+  [`tests::energy_balance_closes_across_the_exchanger`].
+
+## What is illustrative
+
+- **The conductances are a calibration, not a correlation.** `UA_hot` and
+  `UA_cold` are constructor parameters. The HTGR caller supplies values whose
+  *series* combination is the same 1.0e5 W/K the previous effectiveness-NTU
+  lump used -- deliberately **not** re-tuned as part of this change, so any
+  movement in the design point is attributable to the nodalisation and not to
+  a fitted number. There is no Dittus-Boelter / Gnielinski evaluation per
+  node here, and no helical-coil correlation.
+- **The tube geometry is part published, part invented.** See
+  [`SteamGeneratorGeometry::htr10_illustrative`].
+- **The steam pressure is held fixed**, so there is no sliding-pressure or
+  inventory dynamics; the cold array's outlet pressure is prescribed.
+- **The node count is small** (see [`SteamGeneratorConfig::node_count`]), so
+  this resolves *that the zones exist and where the pinch is*, not a
+  converged axial profile.
+- **The coupling is explicit (Lie-split), so the energy balance closes to
+  about 0.34%, not to round-off.** Each array's lateral conductance is
+  evaluated against its neighbours' previous sub-timestep temperatures, and
+  the two fluid arrays treat that source differently from the implicit solid.
+  The residual converges with the sub-timestep and is measured, not assumed:
+  see [`tests::energy_balance_closes_across_the_exchanger`].
+
+## Two hard limits you will hit before the physics gets interesting
+
+Both are **panics in dependencies**, not errors this module can return, and
+both are documented rather than guarded because guarding them would mean
+silently continuing with a nonphysical state:
+
+- **The tube metal is tabulated to 1000 K.** `SolidMaterial::SteelSS304L`
+  carries properties to 726.85 degC and TUAS panics rather than
+  extrapolating. At the HTR-10 design point the hottest metal node sits at
+  **765.5 K**, a 235 K margin, and the reactor protection system's
+  core-outlet trip is at 750 degC = 1023 K -- but the protection system is
+  *disarmed by default* in this simulator, so a deliberate excursion with it
+  off can reach the ceiling. Measured 2026-08-12: throttling the feedwater to
+  1.0 kg/s at full power for 100 s does it.
+- ~~**The water side is tabulated to 1073.15 K** (IAPWS-IF97 regions 1, 2, 4),
+  and `tampines-steam-tables` panics rather than returning an error. The
+  exchanger cannot itself drive the steam past the helium, so this is only
+  reachable via a hot side above 800 degC.~~
+  **CORRECTED 2026-09-27 — the ceiling is 2273.15 K, and it IS reachable
+  without a hot helium side.** Two separate errors:
+  1. **The ceiling moved.** `tampines-steam-tables` commit `2ab91fefc3`
+     (2026-09-14) gave the `(p,h)` flash an IF97 **Region 5** arm, so the
+     water side now runs to **2273.15 K**, not 1073.15 K. The panic message
+     the exchanger actually produces says so verbatim: `(p,h) point lies
+     above the 2273.15 K isotherm, the upper temperature bound of
+     IAPWS-IF97 Region 5.` It still panics rather than erring — that half
+     stands.
+  2. **"only reachable via a hot side above 800 degC" is false**, and this is
+     the half that matters. Verified by running
+     [`super::helical_coil_sg_standalone::tests::how_far_the_implicit_coupling_raises_the_stable_substep`]
+     (244.81 s): at the **steady design point**, with the hot side at its
+     ordinary temperature, a **0.1 s substep** drives a cold cell past
+     2273.15 K and hits exactly that panic — at 1 coupling iteration and at
+     8 alike. A numerical instability, not a hot inlet, is what reaches the
+     ceiling. Above Region 5 there is **no IF97 formulation at all**, so the
+     panic is the correct behaviour; what was wrong was the claim about how
+     one gets there.
+  The Region 5 temperatures the flash returns *below* 2273.15 K are this
+  crate's in-house Chebyshev fits, not IAPWS values — IAPWS publishes no
+  Region 5 backward `(p,h)` equation. See
+  `tampines-steam-tables`'s `ph_flash_eqm::t_ph_eqm`.
+
+The plant's crash modal names the failing component, so either shows up as
+"steam generator + secondary steam loop" rather than an anonymous panic.
+
+## Cost -- this module *is* the simulator's cost
+
+Each `advance_timestep` runs three coupled array solves per sub-timestep,
+and each solve's outer correctors each run the array's equation of state
+over every cell. Those EOS flashes -- a CoolProp Helmholtz solve on the hot
+side, an IAPWS-IF97 `(p, h)` flash on the cold -- are where essentially all
+of the wall clock goes.
+
+**Measured 2026-08-13** (release, 8 nodes, a ~~the shipped 0.0125 s~~
+**0.0125 s** substep, then 4 outer correctors): **1.9585 s of compute per second of
+simulated time** on its own, against **1.9469** for the whole plant around
+it. The exchanger is therefore about **96% of `htgr_sim_v1`'s compute**, and
+the remaining 4% is everything else in the plant put together.
+
+**CORRECTED 2026-09-27 — 0.0125 s is NOT "the shipped substep".** The shipped
+substep is **0.05 s**: `htgr_sim_v1` computes it as `PLANT_TIMESTEP_S /
+STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP` = `0.1 / 2`, verified at
+`crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs:641`
+(`PLANT_TIMESTEP_S = 0.1`) and `:720`
+(`STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP = 2`) — cited, not edited, that
+file is outside this crate. The divisor was cut 8 → 2 by commit
+`c0e85a503e` on 2026-08-13 at **10:59**, *after* the measurement above was
+taken, and this sentence was never updated.
+
+**Which way the error goes matters:** the figures above were taken at a
+substep **4x smaller** than ships, and cost is very nearly linear in
+`1/substep` (see the next bullet), so they are roughly a **4x
+over**-estimate of the shipped exchanger's cost — and the "96% of compute"
+share is likewise an over-estimate. **Nobody has re-measured the cost at
+0.05 s**; that is stated as open rather than scaled by hand, because the
+linearity was itself only measured over 0.0125-0.025 s. See
+[`SteamGeneratorConfig::substep`] for the stability sweep that *was* re-run.
+
+Two consequences, both important:
+
+- **Its cost does not depend on the plant timestep.** It is a multi-rate
+  sub-model on its own clock, so raising the plant step from 1 ms to 0.1 s
+  moved the whole-plant real-time ratio only from 0.492 to 0.514.
+- **Cost is very nearly exactly linear in `n_outer / substep`.** Measured
+  the same day: 0.51 at (1 corrector, 0.0125 s), 0.99 at (2, 0.0125 s), 1.96
+  at (4, 0.0125 s), 0.50 at (2, 0.025 s). Dropping the shipped corrector
+  count from 4 to 2 halved the cost and moved the settled duty by nothing
+  measurable -- see
+  [`tests::the_corrector_substep_trade_is_measured`].
+
+The substep cannot be raised further because of the hot side's **Courant**
+limit, and more correctors do not lift it -- see
+`tests::the_courant_number_bounds_the_array_substep`.
+
+This is a demonstration model, **not a validated steam-generator model**.
+
+## Promotion
+
+This module is written to be moved into `tampines` unchanged (bead
+`op-szmi.14`): it imports nothing from the example (`crate::`), knows nothing
+about `HtgrSnapshot` or the GUI, and takes geometry, conductances, node count
+and **both fluids** as constructor parameters. The hot side does not assume
+helium -- `fhr_sim_v2` will pass a molten salt through the same
+[`CoolPropFluid`] parameter.
+
+```rust
+pub mod helical_coil_steam_generator { /* ... */ }
+```
+
+### Types
+
+#### Struct `SteamGeneratorGeometry`
+
+Tube-bundle geometry of a once-through steam generator.
+
+Everything here is an **aggregate over the whole unit** -- all modules, all
+tubes -- because the model resolves the exchanger axially, not tube by tube.
+
+Units are spelled out even though `uom` enforces them:
+
+| Field | Quantity | Unit |
+|---|---|---|
+| `tube_count` | number of parallel tubes (dimensionless) | - |
+| `tube_length` | developed length of **one** tube | m |
+| `tube_inner_diameter` | tube bore | m |
+| `tube_outer_diameter` | tube outside diameter | m |
+| `shell_flow_area` | aggregate hot-side free-flow area | m^2 |
+| `shell_flow_length` | hot-side flow path length through the unit | m |
+
+Valid ranges: every field must be strictly positive, and
+`tube_outer_diameter > tube_inner_diameter`. [`Self::validate`] checks this.
+
+```rust
+pub struct SteamGeneratorGeometry {
+    pub tube_count: f64,
+    pub tube_length: uom::si::f64::Length,
+    pub tube_inner_diameter: uom::si::f64::Length,
+    pub tube_outer_diameter: uom::si::f64::Length,
+    pub shell_flow_area: uom::si::f64::Area,
+    pub shell_flow_length: uom::si::f64::Length,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tube_count` | `f64` | Number of parallel heat-transfer tubes in the whole unit. |
+| `tube_length` | `uom::si::f64::Length` | Developed length of one tube \[m\]. For a helical-coil unit this is the<br>wound length, not the module height. |
+| `tube_inner_diameter` | `uom::si::f64::Length` | Tube bore \[m\] -- the water/steam side. |
+| `tube_outer_diameter` | `uom::si::f64::Length` | Tube outside diameter \[m\] -- the hot-fluid side. |
+| `shell_flow_area` | `uom::si::f64::Area` | Aggregate free-flow area seen by the hot fluid \[m^2\]. |
+| `shell_flow_length` | `uom::si::f64::Length` | Hot-fluid flow path length through the unit \[m\]. Distinct from<br>`tube_length` for a helical-coil unit, where the tubes are much longer<br>than the shell they are wound inside. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn htr10_illustrative() -> Self { /* ... */ }
+  ```
+  The HTR-10 steam generator, **part published and part invented**.
+
+- ```rust
+  pub fn tube_flow_area(self: &Self) -> Area { /* ... */ }
+  ```
+  Aggregate bore cross-section the water/steam flows through \[m^2\].
+
+- ```rust
+  pub fn metal_cross_section(self: &Self) -> Area { /* ... */ }
+  ```
+  Aggregate **metal** cross-section of the tube walls \[m^2\]: the annulus
+
+- ```rust
+  pub fn metal_volume(self: &Self) -> Volume { /* ... */ }
+  ```
+  Total volume of tube metal \[m^3\] = metal cross-section x tube length.
+
+- ```rust
+  pub fn metal_mass(self: &Self, material: SolidMaterial, temperature: ThermodynamicTemperature, pressure: Pressure) -> Mass { /* ... */ }
+  ```
+  Mass of tube metal \[kg\], **derived** from [`Self::metal_volume`] and the
+
+- ```rust
+  pub fn metal_thermal_capacity(self: &Self, material: SolidMaterial, temperature: ThermodynamicTemperature, pressure: Pressure) -> HeatCapacity { /* ... */ }
+  ```
+  Thermal capacity of the tube metal \[J/K\] = `m c_p`, both derived from
+
+- ```rust
+  pub fn outer_heat_transfer_area(self: &Self) -> Area { /* ... */ }
+  ```
+  Outside heat-transfer area \[m^2\] -- the hot-fluid-wetted surface,
+
+- ```rust
+  pub fn inner_heat_transfer_area(self: &Self) -> Area { /* ... */ }
+  ```
+  Inside heat-transfer area \[m^2\] -- the water/steam-wetted surface.
+
+- ```rust
+  pub fn validate(self: &Self) -> Result<(), SteamGeneratorError> { /* ... */ }
+  ```
+  `Ok(())` if the geometry is physically constructible: every dimension
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SteamGeneratorConfig`
+
+Everything needed to build a [`NodalisedCounterFlowSteamGenerator`].
+
+Deliberately a plain parameter struct with no defaults sourced from any one
+plant: the same exchanger serves the HTGR (helium hot side) and the FHR
+(molten salt hot side), so nothing here may assume a working fluid.
+
+```rust
+pub struct SteamGeneratorConfig {
+    pub geometry: SteamGeneratorGeometry,
+    pub hot_fluid: crate::compressible::CoolPropFluid,
+    pub hot_pressure: uom::si::f64::Pressure,
+    pub cold_pressure: uom::si::f64::Pressure,
+    pub metal: tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial,
+    pub hot_side_conductance: uom::si::f64::ThermalConductance,
+    pub cold_side_conductance: uom::si::f64::ThermalConductance,
+    pub node_count: usize,
+    pub substep: uom::si::f64::Time,
+    pub max_coupling_iterations: usize,
+    pub coupling_tolerance_kelvin: f64,
+    pub initial_hot_end_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub initial_cold_end_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub initial_cold_outlet_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub hot_correctors: PimpleCorrectors,
+    pub cold_correctors: PimpleCorrectors,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `geometry` | `SteamGeneratorGeometry` | Tube-bundle geometry. |
+| `hot_fluid` | `crate::compressible::CoolPropFluid` | Hot-side working fluid. **Not assumed to be helium** -- this is the<br>parameter that lets the FHR pass a salt through the same exchanger. |
+| `hot_pressure` | `uom::si::f64::Pressure` | Hot-side operating pressure \[Pa\]. Held fixed; the hot array's outlet<br>pressure is prescribed at this value. |
+| `cold_pressure` | `uom::si::f64::Pressure` | Cold-side (water/steam) operating pressure \[Pa\]. Held fixed. |
+| `metal` | `tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial` | Tube-wall material. |
+| `hot_side_conductance` | `uom::si::f64::ThermalConductance` | Total conductance between the **hot fluid and the metal** \[W/K\], summed<br>over the whole exchanger. Divided equally between nodes internally. |
+| `cold_side_conductance` | `uom::si::f64::ThermalConductance` | Total conductance between the **metal and the water/steam** \[W/K\]. |
+| `node_count` | `usize` | Number of axial nodes. Must be at least 3 (the [`SolidColumn`] carries a<br>back node, a front node and at least one interior node). |
+| `substep` | `uom::si::f64::Time` | The **fixed timestep the three arrays are advanced with** \[s\].<br><br>The exchanger runs on its own clock. Whatever `dt` the caller passes to<br>[`NodalisedCounterFlowSteamGenerator::advance_timestep`] is accumulated,<br>and the arrays are advanced in whole steps of exactly this size; any<br>remainder is carried to the next call, so no simulated time is lost or<br>double-counted.<br><br># Why a fixed step and not "at most this large"<br><br>**The arrays are unstable both above and below a window**, so a caller's<br>timestep cannot simply be subdivided or passed through. Measured<br>2026-08-12, with the duty column re-measured 2026-08-13 against a<br>0.00625 s reference:<br><br>| Array timestep | `Co_hot` | Settled `Q_hot` | Outcome |<br>|---|---|---|---|<br>| 0.1 s | 1.776 | -- | **fails** (also at 8 and 32 outer correctors) |<br>| ~~0.05 s~~ | ~~0.888~~ | ~~--~~ | ~~**fails** (also at 4, 8, 16 outer correctors); enthalpy goes odd-even and clamps~~ **CORRECTED 2026-09-27 — 0.05 s COMPLETES CLEANLY, and so does 0.075 s** |<br>| 0.025 s | 0.444 | 9.8244 MW | stable, but **+1.44%** off converged |<br>| **0.0125 s** | **0.222** | **9.6854 MW** | **stable, +0.003% off converged** |<br>| 0.00625 s | 0.111 | 9.6851 MW | reference |<br>| 0.001 s | 0.018 | -- | water side resolves its own acoustic transient; the IF97 `(p,h)` flash leaves Region 5 range and **panics** |<br><br>## ~~0.05 s fails~~ — **CORRECTED 2026-09-27**<br><br>**What was verified, by running rather than reading.**<br>[`super::helical_coil_sg_standalone::tests::how_far_the_implicit_coupling_raises_the_stable_substep`]<br>(`#[ignore]`d for cost; `cargo test --release -j 3 -p tampines --lib<br>how_far_the_implicit_coupling_raises_the_stable_substep -- --ignored<br>--nocapture`, **244.81 s**) sweeps the substep at the steady design point<br>with 1 coupling iteration (the old block-Jacobi behaviour) and with 8:<br><br>```text<br>substep  0.0125 s  | n=1: Completed coldest=320.2K iters=1 | n=8: Completed coldest=320.2K iters=3<br>substep  0.0250 s  | n=1: Completed coldest=320.2K iters=1 | n=8: Completed coldest=320.2K iters=4<br>substep  0.0500 s  | n=1: Completed coldest=320.2K iters=1 | n=8: Completed coldest=320.2K iters=4<br>substep  0.0750 s  | n=1: Completed coldest=320.2K iters=1 | n=8: Completed coldest=320.2K iters=6<br>substep  0.1000 s  | n=1: PANIC                            | n=8: PANIC<br>```<br><br>The 0.1 s row still fails, and fails the way the table says — the panic is<br>`(p,h) point lies above the 2273.15 K isotherm`, i.e. the cold side leaves<br>IF97 entirely, which is the odd-even blow-up's signature. **0.05 s and<br>0.075 s complete**, and complete even at `n=1`, so the coupling iterations<br>added on 2026-09-27 are *not* what rescued them.<br><br>**RE-MEASURED 2026-09-29 (gh:#319) — the 0.075 s row no longer holds.**<br>`TampinesSteamArray`'s energy convection moved that day from an<br>unbounded linear face value to a bounded van Leer scheme (the linear one<br>walked the cold side's inlet cell to the IF97 273.15 K floor). The same<br>sweep, 115.74 s, `cargo test --release -j2 -p tampines --lib<br>how_far_the_implicit_coupling_raises_the_stable_substep -- --ignored<br>--nocapture`:<br><br>```text<br>substep  0.0125 s  | n=1: Completed coldest=320.3K iters=1 | n=8: Completed coldest=320.3K iters=3<br>substep  0.0250 s  | n=1: Completed coldest=320.3K iters=1 | n=8: Completed coldest=320.4K iters=4<br>substep  0.0500 s  | n=1: Completed coldest=320.3K iters=1 | n=8: Completed coldest=320.3K iters=4<br>substep  0.0750 s  | n=1: PANIC                            | n=8: PANIC<br>substep  0.1000 s  | n=1: PANIC                            | n=8: PANIC<br>```<br><br>The ceiling moved from (0.075, 0.1) s to **(0.05, 0.075) s**. The<br>0.1 s panic is preceded by a drained-cell hold in vapour cell 6<br>(`rho_old = 9.59 kg/m3`, `rho_old - dt div(phi) = -2.67 kg/m3`): the<br>array's **explicit continuity** is over-draining a low-density cell, a<br>mass-Courant limit inside the array. 0.05 s, which `htgr_sim_v1`<br>ships, still completes.<br><br>**Why the row was wrong, confirmed from the history.** Three commits<br>landed within 47 minutes on 2026-08-13 (`git log -1 --date=iso`):<br><br>| Time | Commit | What it did |<br>|---|---|---|<br>| 10:12 | `3acc95362e` | **wrote this table**, including the `0.05 s … fails` row (`git show 3acc95362e` adds the line verbatim) |<br>| 10:27 | `68e35551c2` | put the helium side's energy convection on **`EnergyBalanceMode::Implicit`** — 26 added lines, removing exactly the `Co < 1` ceiling the row was measuring |<br>| 10:59 | `c0e85a503e` | cut the substep divisor **8 → 2**, i.e. 0.0125 s → 0.05 s, on the strength of that |<br><br>So the row was measured **15 minutes before** the fix that made 0.05 s<br>viable, the caller was moved onto 0.05 s 32 minutes after the fix, and the<br>table was never re-measured. The row has been contradicted by the shipped<br>configuration ever since.<br><br>**The shipped substep is 0.05 s**, not the 0.0125 s this doc used to claim:<br>`htgr_sim_v1` computes it as `PLANT_TIMESTEP_S /<br>STEAM_GENERATOR_SUBSTEPS_PER_PLANT_STEP` = `0.1 / 2`<br>(`crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs:641`<br>and `:720` — cited, not edited; that file is outside this crate).<br><br>**Completing is NOT the same as being clean.** The corrected reading is<br>*"0.05 s and 0.075 s complete"*, **not** *"0.05 s and 0.075 s are good"*.<br>The sibling test<br>[`super::helical_coil_sg_standalone::tests::the_implicit_coupling_converges_and_beats_real_time_at_the_largest_stable_substep`]<br>runs 60 s at the 0.075 s substep and reports **`odd-even roughness =<br>75.3475 K`**<br>([`super::helical_coil_sg_standalone::odd_even_roughness`] — the mean<br>`|T[i-1] - 2 T[i] + T[i+1]|` over the cold nodes). **That number is<br>recorded, not interpreted**: no smooth-profile baseline has been measured<br>for this 8-node cold side, which crosses the saturation dome and so<br>carries large *genuine* curvature, and without one it cannot be said<br>whether 75 K is checkerboard or physics. Measuring that baseline is open<br>work; guessing which it is would be exactly the kind of<br>reason-from-the-answer this table already got wrong once.<br><br>**What is NOT claimed.** Nothing here re-measures the *accuracy* columns.<br>0.05 s completing is not 0.05 s being converged: the surviving<br>`0.025 s → +1.44%` row is evidence the duty is still moving at four times<br>the shipped step, so the shipped configuration is very likely *further*<br>from converged than +1.44%, and nobody has measured by how much. That is<br>an open question, not a resolved one.<br><br>The **upper** bound is a Courant limit on the hot gas side and is not<br>negotiable by raising the outer-corrector count -- see<br>[`PimpleCorrectors`] and<br>`tests::the_courant_number_bounds_the_array_substep`.<br><br>The **lower** bound used to be the one that bit in practice: until<br>2026-08-13 `htgr_sim_v1`'s GUI stepped its plant at **1 ms**, and handed<br>straight to the arrays that is the panicking case -- which is what the<br>simulator did on its first wiring, dying in the crash modal within 30 s<br>of launch. The plant now steps at<br>the caller's plant timestep = 0.1 s, which is above the window<br>rather than below it, so the accumulator is now protecting against the<br>*upper* bound; either way it is needed.<br><br>Accumulating to a fixed substep makes the exchanger a **multi-rate**<br>sub-model, which is also what its physics wants: nothing in it moves on a<br>millisecond scale, the fastest thing being the shell transport at a few<br>hundred milliseconds and the slowest the 38 s tube metal. It is also what<br>makes the exchanger's cost independent of the plant timestep -- and,<br>since it is 96% of that cost, what made raising the plant timestep worth<br>so little on its own. |
+| `max_coupling_iterations` | `usize` | **Maximum lateral-coupling (Picard) iterations per substep.**<br><br># Why this exists: the coupling used to be explicit, and that is what<br># capped the timestep<br><br>The three arrays are linked by<br>`lateral_link_new_temperature_vector_avg_conductance`, and TUAS puts that<br>conductance **on the coefficient matrix diagonal** while the *neighbour's*<br>temperature enters as a **source term** from a snapshot<br>(`calculation.rs`: `coefficient_matrix[[i,i]] += sum_of_lateral_conductances[i]`<br>against `power_source_vector[i] = sum_of_lateral_conductance_times_lateral_temperatures[i]`).<br>Each array is therefore implicit in **its own** temperature and explicit<br>in its neighbour's — **block Jacobi**, one sweep per substep.<br><br>That lag is one thing bounding the stable timestep, and it is why raising<br>the PIMPLE outer-corrector count never bought a larger one: those<br>correctors iterate *inside* one array and never touch the coupling<br>*between* arrays.<br><br>~~Measured before this change: 0.05 s "fails -- enthalpy goes odd-even and<br>clamps", and 0.05 s panicked at 4, 8 and 16 correctors alike.~~<br>**CORRECTED 2026-09-27** — that quote was repeated here from<br>[`SteamGeneratorConfig::substep`]'s table, which had been stale since<br>2026-08-13. **It was never the "before this change" state.** Verified by<br>running the sweep this doc cites<br>([`super::helical_coil_sg_standalone::tests::how_far_the_implicit_coupling_raises_the_stable_substep`],<br>244.81 s): at **1** coupling iteration — which *is* the old single-sweep<br>block Jacobi — 0.05 s and 0.075 s both complete, `coldest = 320.2 K`,<br>`iters = 1`. So the coupling lag was **not** what stopped 0.05 s, and<br>this mechanism must not be credited with having rescued it. What the<br>iterations measurably do buy is recorded in the sweep's own output<br>(`iters` rises 3 → 4 → 4 → 6 as the substep grows, i.e. the coupling<br>residual genuinely needs more sweeps at a larger step); what bounds the<br>substep between 0.075 s and 0.1 s is **not identified**, and both counts<br>fail at 0.1 s alike.<br><br># What iterating buys<br><br>Repeating the sweep, each time restarting from the **start-of-substep**<br>state and re-linking from the **latest** iterate, is block Gauss-Seidel /<br>Picard on the helium-tube-steam system. At convergence the lagged<br>neighbour temperature equals the new one, which **is** the solution of the<br>monolithic implicit three-way matrix — without assembling one, and reusing<br>every array's own solver unchanged.<br><br>Maintainer direction, 2026-09-27: the exchanger is to run at the caller's<br>0.1 s timestep with **no substepping**, via an implicit<br>helium-tube-steam solve. This is that solve.<br><br>`1` reproduces the old single-sweep Jacobi behaviour exactly, which is how<br>the before/after comparison is made. |
+| `coupling_tolerance_kelvin` | `f64` | Convergence tolerance for the coupling iteration \[K\]: the largest node<br>temperature change between successive iterates that counts as converged.<br><br>Compared against the **maximum over all three arrays and all nodes**, so<br>it is a worst-node criterion rather than an average. A residual this test<br>cannot reach within [`Self::max_coupling_iterations`] is reported on<br>[`SteamGeneratorState::coupling_residual_kelvin`] rather than silently<br>accepted -- a non-converged step must be visible. |
+| `initial_hot_end_temperature` | `uom::si::f64::ThermodynamicTemperature` | Temperature the **hot-inlet end** of the exchanger is seeded at.<br><br>All three arrays are seeded on one linear *station* profile running from<br>this value at station 0 to [`Self::initial_cold_end_temperature`] at<br>station `n-1`. Seeding all three on the same profile means every node<br>starts at its neighbours' temperature, so the exchanger opens at zero<br>transfer with no temperature cross and no start-up shock. A uniform seed<br>instead slams a 450 K step onto the hot inlet cell, which at a gas<br>array's acoustic timescale is a genuine numerical transient rather than a<br>physical one. |
+| `initial_cold_end_temperature` | `uom::si::f64::ThermodynamicTemperature` | Temperature the **cold-inlet end** of the exchanger is seeded at. See<br>[`Self::initial_hot_end_temperature`]. |
+| `initial_cold_outlet_temperature` | `uom::si::f64::ThermodynamicTemperature` | Temperature the **cold stream's own outlet** is seeded at -- its state at<br>station 0, the hot-inlet end.<br><br>This is a third seed rather than a reuse of<br>[`Self::initial_hot_end_temperature`] because the two streams do **not**<br>meet at the hot end: the whole point of a counter-flow exchanger is that<br>the cold stream leaves *below* the hot stream's inlet, by the hot-end<br>approach. Seeding the cold stream at the hot stream's temperature makes<br>the exchanger open with steam as hot as the helium, which is a start-up<br>artefact that looks exactly like the defect this module was built to<br>remove. Measured 2026-08-12: seeding the two streams together drove the<br>downstream second-law backstop to 99.6% utilisation on the very first<br>plant step; seeding them apart drops it well clear. |
+| `hot_correctors` | `PimpleCorrectors` | PIMPLE corrector counts and under-relaxation for the **hot** fluid<br>array. |
+| `cold_correctors` | `PimpleCorrectors` | PIMPLE corrector counts and under-relaxation for the **cold**<br>(water/steam) array. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PimpleCorrectors`
+
+PIMPLE outer/inner corrector counts and under-relaxation factors for one
+fluid array.
+
+These used to be hardcoded inside
+[`NodalisedCounterFlowSteamGenerator::new`]. They are configuration now
+because the **outer** corrector count is the knob that trades wall-clock
+cost against the largest usable [`SteamGeneratorConfig::substep`], and that
+trade is the whole of this exchanger's cost: it is ~96% of `htgr_sim_v1`'s
+plant compute (measured 2026-08-13, see
+[`super::PLANT_TIMESTEP_S`]).
+
+# What each does
+
+- `n_outer` -- outer (PIMPLE/SIMPLE-like) correctors per array timestep.
+  Each one re-solves momentum, pressure and energy from the same old-time
+  state with the latest iterate. Because ~~both arrays carry~~ the cold
+  array carries (**CORRECTED 2026-09-29**: the hot array has been
+  `EnergyBalanceMode::Implicit` since 2026-08-13, and the cold array's
+  source was an unlimited linear `fvc::div` until 2026-09-29, gh:#319) its
+  enthalpy convection as an **explicit** `fvc::div_limited` source inside this loop,
+  the loop is a Picard iteration whose contraction factor is the cell
+  Courant number `Co`: residual reduction over the step is roughly
+  `Co^n_outer`. So raising `n_outer` **can** buy a larger substep while
+  `Co < 1`, and cannot help at all once `Co >= 1`.
+- `n_inner` -- inner pressure correctors within each outer corrector (the
+  PISO loop). These fix the pressure-velocity coupling, not the advection,
+  and are not the Courant knob.
+- `pressure_relaxation` / `velocity_relaxation` -- outer-loop
+  under-relaxation, in `(0, 1]`. Lower is more robust and slower to
+  converge.
+
+# Cost
+
+Each outer corrector costs one full pass of the array's equation of state
+over every cell, and the EOS flashes (CoolProp Helmholtz on the hot side,
+IAPWS-IF97 on the cold) are what this model spends its time in. Cost is
+therefore very close to linear in `n_outer * substeps_per_second`, which is
+why `n_outer` and `substep` trade against each other almost exactly.
+[`tests::the_corrector_substep_trade_is_measured`] records the measured
+grid.
+
+```rust
+pub struct PimpleCorrectors {
+    pub n_outer: usize,
+    pub n_inner: usize,
+    pub pressure_relaxation: f64,
+    pub velocity_relaxation: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_outer` | `usize` | Outer correctors per array timestep. Clamped to at least 1 by the array. |
+| `n_inner` | `usize` | Inner (PISO) pressure correctors per outer corrector. |
+| `pressure_relaxation` | `f64` | Outer-loop pressure under-relaxation factor, `(0, 1]`. |
+| `velocity_relaxation` | `f64` | Outer-loop velocity under-relaxation factor, `(0, 1]`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn hot_gas_default() -> Self { /* ... */ }
+  ```
+  Hot-gas-array settings: **2** outer correctors, 2 inner, both
+
+- ```rust
+  pub fn water_steam_default() -> Self { /* ... */ }
+  ```
+  Water/steam-array settings: **2** outer correctors, 2 inner, both
+
+- ```rust
+  pub fn with_outer(self: Self, n_outer: usize) -> Self { /* ... */ }
+  ```
+  The same settings with a different outer-corrector count.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `SteamGeneratorError`
+
+Things that can go wrong building or driving the exchanger.
+
+```rust
+pub enum SteamGeneratorError {
+    NonPositiveGeometry,
+    TubeWallNotPositive,
+    TooFewNodes(usize),
+    NonPositiveSubstep,
+    Array(String),
+}
+```
+
+##### Variants
+
+###### `NonPositiveGeometry`
+
+A geometric dimension was zero or negative.
+
+###### `TubeWallNotPositive`
+
+The tube outside diameter did not exceed the bore.
+
+###### `TooFewNodes`
+
+Fewer than 3 axial nodes were requested.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `usize` |  |
+
+###### `NonPositiveSubstep`
+
+`substep` was zero, negative or non-finite.
+
+###### `Array`
+
+One of the composed arrays refused to build or advance. Carries the
+upstream message, because the three arrays have three unrelated error
+types with no conversions between them.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SteamGeneratorState`
+
+**Attributes:**
+
+- `Other("#[attr = LintCheck([LintCheck {lint_name: \"dead_code\", kind: Allow}])]")`
+
+What one [`NodalisedCounterFlowSteamGenerator::advance_timestep`] produced.
+
+All temperatures are in kelvin and all powers in watts, `uom`-typed. The node
+vectors are all in **hot-side index order**: element 0 is the hot inlet end,
+element `n-1` the hot outlet end. The cold stream's own inlet is therefore at
+element `n-1`.
+
+```rust
+pub struct SteamGeneratorState {
+    pub hot_side_duty: uom::si::f64::Power,
+    pub cold_side_duty: uom::si::f64::Power,
+    pub hot_outlet_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub cold_outlet_temperature: uom::si::f64::ThermodynamicTemperature,
+    pub cold_outlet_enthalpy: uom::si::f64::AvailableEnergy,
+    pub hot_node_temperatures: Vec<uom::si::f64::ThermodynamicTemperature>,
+    pub metal_node_temperatures: Vec<uom::si::f64::ThermodynamicTemperature>,
+    pub cold_node_temperatures: Vec<uom::si::f64::ThermodynamicTemperature>,
+    pub coupling_iterations: usize,
+    pub coupling_residual_kelvin: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `hot_side_duty` | `uom::si::f64::Power` | Heat rate leaving the hot fluid, `m_dot (h_in - h_out)` on the hot side.<br>This is what the hot loop is cooled by. |
+| `cold_side_duty` | `uom::si::f64::Power` | Heat rate entering the water/steam, `m_dot (h_out - h_in)` on the cold<br>side. This is what the steam cycle absorbs.<br><br>It differs from [`Self::hot_side_duty`] by the rate of change of energy<br>stored in the tube metal -- which is exactly the transient behaviour the<br>metal exists to provide, not a bookkeeping error. |
+| `hot_outlet_temperature` | `uom::si::f64::ThermodynamicTemperature` | Hot-fluid outlet temperature. |
+| `cold_outlet_temperature` | `uom::si::f64::ThermodynamicTemperature` | Water/steam outlet temperature -- the live steam temperature. |
+| `cold_outlet_enthalpy` | `uom::si::f64::AvailableEnergy` | Water/steam outlet specific enthalpy. |
+| `hot_node_temperatures` | `Vec<uom::si::f64::ThermodynamicTemperature>` | Hot-fluid node temperatures, hot-inlet-first. |
+| `metal_node_temperatures` | `Vec<uom::si::f64::ThermodynamicTemperature>` | Tube-metal node temperatures, hot-inlet-first. |
+| `cold_node_temperatures` | `Vec<uom::si::f64::ThermodynamicTemperature>` | Water/steam node temperatures **re-indexed into hot-side order**, so<br>`cold_node_temperatures[i]` is at the same physical station as<br>`hot_node_temperatures[i]`. |
+| `coupling_iterations` | `usize` | How many lateral-coupling (Picard) iterations the last substep used.<br><br>`1` means the first sweep already met<br>[`SteamGeneratorConfig::coupling_tolerance_kelvin`]. Equal to<br>[`SteamGeneratorConfig::max_coupling_iterations`] means it ran out of<br>iterations -- check [`Self::coupling_residual_kelvin`] before trusting the<br>step. |
+| `coupling_residual_kelvin` | `f64` | Largest node temperature change \[K\] between the last two coupling<br>iterates, over all three arrays.<br><br>The convergence residual. Reported rather than asserted so a caller can<br>see a step that did not converge instead of being told nothing. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn node_driving_differences_kelvin(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Local driving temperature difference at each station \[K\],
+
+- ```rust
+  pub fn worst_node_cross_kelvin(self: &Self) -> f64 { /* ... */ }
+  ```
+  Largest **cross** over all nodes \[K\]: `max(0, max_i(T_cold,i - T_hot,i))`.
+
+- ```rust
+  pub fn hot_end_driving_difference_kelvin(self: &Self) -> f64 { /* ... */ }
+  ```
+  Driving temperature difference at the **hot inlet** end \[K\] -- the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NodalisedCounterFlowSteamGenerator`
+
+A nodalised counter-flow once-through steam generator.
+
+See the module docs for the arrangement, the no-cross argument and what is
+real versus illustrative. Build with [`Self::new`], drive with
+[`Self::advance_timestep`].
+
+```rust
+pub struct NodalisedCounterFlowSteamGenerator {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(config: SteamGeneratorConfig) -> Result<Self, SteamGeneratorError> { /* ... */ }
+  ```
+  Build the exchanger and seed all three arrays at
+
+- ```rust
+  pub fn node_count(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of axial nodes.
+
+- ```rust
+  pub fn geometry(self: &Self) -> SteamGeneratorGeometry { /* ... */ }
+  ```
+  The geometry this exchanger was built from.
+
+- ```rust
+  pub fn metal_thermal_capacity(self: &Self, temperature: ThermodynamicTemperature) -> HeatCapacity { /* ... */ }
+  ```
+  Tube-metal thermal capacity \[J/K\], derived from the geometry and the
+
+- ```rust
+  pub fn overall_conductance(self: &Self) -> ThermalConductance { /* ... */ }
+  ```
+  Series overall conductance `UA` \[W/K\]: the hot-side and cold-side
+
+- ```rust
+  pub fn metal_time_constant(self: &Self, temperature: ThermodynamicTemperature) -> Time { /* ... */ }
+  ```
+  Metal thermal time constant \[s\], `tau = C_metal / UA_series`, evaluated
+
+- ```rust
+  pub fn state(self: &Self) -> &SteamGeneratorState { /* ... */ }
+  ```
+  The most recently computed state, without stepping.
+
+- ```rust
+  pub fn max_courant_numbers(self: &Self, dt: Time) -> (f64, f64) { /* ... */ }
+  ```
+  Advective Courant numbers `Co = |u| dt / dx` on the two fluid arrays at
+
+- ```rust
+  pub fn hot_enthalpy_clamp_events(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of times either fluid array has clamped its enthalpy field
+
+- ```rust
+  pub fn advance_timestep(self: &mut Self, dt: Time, hot_inlet_temperature: ThermodynamicTemperature, hot_mass_flow: MassRate, cold_inlet_enthalpy: AvailableEnergy, cold_mass_flow: MassRate) -> Result<SteamGeneratorState, SteamGeneratorError> { /* ... */ }
+  ```
+  Advance the exchanger by `dt`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -895,10 +3076,15 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PipeBackend { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -911,6 +3097,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -923,6 +3110,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -963,7 +3151,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1045,10 +3233,15 @@ pub struct Pipe {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Pipe { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1061,6 +3254,7 @@ pub struct Pipe {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1073,6 +3267,7 @@ pub struct Pipe {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1113,7 +3308,7 @@ pub struct Pipe {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1191,6 +3386,7 @@ pub struct Pump {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -1201,10 +3397,15 @@ pub struct Pump {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Pump { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1218,6 +3419,7 @@ pub struct Pump {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1230,6 +3432,7 @@ pub struct Pump {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1239,7 +3442,7 @@ pub struct Pump {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Pump) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1276,7 +3479,7 @@ pub struct Pump {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1358,6 +3561,7 @@ pub struct SteamGenerator {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -1368,10 +3572,15 @@ pub struct SteamGenerator {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SteamGenerator { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1385,6 +3594,7 @@ pub struct SteamGenerator {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1397,6 +3607,7 @@ pub struct SteamGenerator {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1406,7 +3617,7 @@ pub struct SteamGenerator {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SteamGenerator) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1443,7 +3654,7 @@ pub struct SteamGenerator {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1520,6 +3731,7 @@ pub struct Turbine {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -1530,10 +3742,15 @@ pub struct Turbine {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Turbine { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1547,6 +3764,7 @@ pub struct Turbine {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1559,6 +3777,7 @@ pub struct Turbine {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1568,7 +3787,7 @@ pub struct Turbine {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Turbine) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1605,7 +3824,7 @@ pub struct Turbine {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1689,6 +3908,7 @@ pub struct Valve {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -1699,10 +3919,15 @@ pub struct Valve {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Valve { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1716,6 +3941,7 @@ pub struct Valve {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -1728,6 +3954,7 @@ pub struct Valve {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -1737,7 +3964,7 @@ pub struct Valve {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Valve) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -1774,7 +4001,7 @@ pub struct Valve {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1816,6 +4043,36 @@ pub use cooling_tower::CoolingTower;
 
 ```rust
 pub use heat_exchanger::HeatExchanger;
+```
+
+#### Re-export `NodalisedCounterFlowSteamGenerator`
+
+```rust
+pub use helical_coil_steam_generator::NodalisedCounterFlowSteamGenerator;
+```
+
+#### Re-export `SteamGeneratorConfig`
+
+```rust
+pub use helical_coil_steam_generator::SteamGeneratorConfig;
+```
+
+#### Re-export `SteamGeneratorError`
+
+```rust
+pub use helical_coil_steam_generator::SteamGeneratorError;
+```
+
+#### Re-export `SteamGeneratorGeometry`
+
+```rust
+pub use helical_coil_steam_generator::SteamGeneratorGeometry;
+```
+
+#### Re-export `SteamGeneratorState`
+
+```rust
+pub use helical_coil_steam_generator::SteamGeneratorState;
 ```
 
 #### Re-export `Pipe`
@@ -1972,11 +4229,18 @@ that crate's test source on 2026-08-11:
   backward-throat test files (critical-pressure relative tolerance
   0.005-0.05 by curve; mass-flux log10 tolerance 0.05). The reference
   curves are graph-read HEM curves, not raw experimental data.
-- **Marviken is NOT validated.** The digitised NUREG/CR-2671 test-23/24
+- ~~**Marviken is NOT validated.** The digitised NUREG/CR-2671 test-23/24
   data sits in `marviken_tests.rs`, but the test is
   `#[ignore = "skip first, Marviken is more complex"]`, its only
   assertion is commented out, and the body ends in `todo!()`. Do not
-  cite Marviken as a validation basis for these solvers.
+  cite Marviken as a validation basis for these solvers.~~
+  **CORRECTED 2026-10-16** — no longer true. `tampines-steam-tables`'
+  `marviken_tests.rs` now holds six plain `#[test]`s with assertions and
+  no `todo!()`, including `validate_against_marviken_test_23` and
+  `_24` for the HEM dispatcher; read their doc comments for the recorded
+  deviations before citing them. (Separately, this crate's
+  `multiphase_1d::marviken_tests` validates the drift-flux marcher on
+  test 23.)
 
 See that crate's own `CLAUDE.md` and README for the full V&V
 methodology and results. (Separately, the Edwards-O'Brien blowdown
@@ -2049,6 +4313,7 @@ pub enum TampinesError {
     Unphysical(String),
     Numerical(String),
     Closure(outram_foam_multiphase::MultiphaseError),
+    Hem(tampines_steam_tables::hem::HemError),
 }
 ```
 
@@ -2126,6 +4391,19 @@ Fields:
 |-------|------|---------------|
 | 0 | `outram_foam_multiphase::MultiphaseError` |  |
 
+###### `Hem`
+
+The HEM pipe solver ([`crate::hem::HemPipe`], which lives in
+`tampines_steam_tables::hem`) failed. Its own error is kept whole, so a
+`CourantViolation` or the cell of an `Unphysical` state survives the
+conversion.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `tampines_steam_tables::hem::HemError` |  |
+
 ##### Implementations
 
 ###### Trait Implementations
@@ -2145,6 +4423,11 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Debug**
   - ```rust
@@ -2156,6 +4439,7 @@ Fields:
     fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2177,6 +4461,11 @@ Fields:
     fn from(source: outram_foam_multiphase::MultiphaseError) -> Self { /* ... */ }
     ```
 
+  - ```rust
+    fn from(source: tampines_steam_tables::hem::HemError) -> Self { /* ... */ }
+    ```
+
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2213,7 +4502,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2285,20 +4574,25 @@ wholesale:
   mass-flux log10 tolerance 0.05. Caveat: the reference curves are
   graph-read HEM curves digitised from Saha (1978) NUREG/CR-0417, **not**
   raw experimental data.
-- **Marviken is NOT validated.** The digitised NUREG/CR-2671 test-23/24
+- ~~**Marviken is NOT validated.** The digitised NUREG/CR-2671 test-23/24
   data sits in `marviken_tests.rs`, but the single test is
   `#[ignore = "skip first, Marviken is more complex"]`, its only
-  assertion is commented out, and the body ends in `todo!()`. Marviken is
-  **not** a basis for choosing this backend. Status as of 2026-08-11:
-  gating is being implemented in `tampines-steam-tables` (the follow-up
-  to op-bcg/op-4ily); re-check that crate's test suite for the current
-  result rather than treating this line as permanent.
+  assertion is commented out, and the body ends in `todo!()`.~~
+  **CORRECTED 2026-10-16** (checked by reading
+  `steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs`:
+  6 `#[test]`s, no `#[ignore]`, no `todo!()`): Marviken is gated, with a
+  split result recorded in `tampines-steam-tables/CLAUDE.md` -- test 23
+  (3 K subcooling) validated, test 24 (33 K subcooling) **not** validated
+  (mean -48.5 %). Marviken is **not** a basis for choosing this backend
+  for subcooled stagnation states.
 
 Separately, the Edwards-O'Brien blowdown benchmark **is** genuinely gated
 -- 2 active, passing tests in `tampines-steam-tables`'s
-`tests/edwards_blowdown.rs` -- but that exercises the transient pipe
-solver in [`crate::multiphase_1d`], not the property backend selected
-here.
+`tests/edwards_blowdown.rs` -- but that exercises ~~the transient pipe
+solver in [`crate::multiphase_1d`]~~ **(CORRECTED 2026-10-16)** that
+crate's own `TampinesSteamArray` PIMPLE/KNP pipe array, not the property
+backend selected here. The [`crate::multiphase_1d`] solvers have their own
+Edwards case in `multiphase_1d/edwards_tests.rs`.
 
 ```rust
 pub enum TampinesFluid {
@@ -2332,6 +4626,7 @@ Evaluate water/steam via the IAPWS-IF97 `tampines-steam-tables` backend.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2342,10 +4637,15 @@ Evaluate water/steam via the IAPWS-IF97 `tampines-steam-tables` backend.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TampinesFluid { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2359,6 +4659,7 @@ Evaluate water/steam via the IAPWS-IF97 `tampines-steam-tables` backend.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2386,6 +4687,7 @@ Evaluate water/steam via the IAPWS-IF97 `tampines-steam-tables` backend.
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2395,7 +4697,7 @@ Evaluate water/steam via the IAPWS-IF97 `tampines-steam-tables` backend.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TampinesFluid) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2432,7 +4734,7 @@ Evaluate water/steam via the IAPWS-IF97 `tampines-steam-tables` backend.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2488,11 +4790,14 @@ compressibility-work terms in the energy equation are dropped as
 negligible at `Ma^2 ~ 1e-6`. This is stated rather than silently
 assumed, and each model repeats it where it bites.
 
-Consequently the `HybridAllMach` machinery in
+~~Consequently the `HybridAllMach` machinery in
 `outram-park-fork-coolprop` is **not** needed for the primary circuit,
 and neither is coolprop's 50 kg/m^3 density-taper window — HTR-10
 helium runs at 1.23-2.74 kg/m^3, far below that floor, so the taper
-would zero the all-Mach dissipation everywhere anyway.
+would zero the all-Mach dissipation everywhere anyway.~~
+**Updated 2026-10-16:** that machinery no longer exists. The KNP hybrid
+of the coolprop and steam-tables PIMPLE arrays was retired (gh:#914). The
+conclusion stands: a low-Mach circuit needs no shock capturing.
 
 ## What belongs here
 
@@ -2659,6 +4964,7 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2669,10 +4975,15 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CirculatorDuty { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2686,6 +4997,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2698,6 +5010,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2707,7 +5020,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CirculatorDuty) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2744,7 +5057,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2820,6 +5133,7 @@ pub struct Circulator {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2830,10 +5144,15 @@ pub struct Circulator {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Circulator { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2847,6 +5166,7 @@ pub struct Circulator {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -2859,6 +5179,7 @@ pub struct Circulator {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -2868,7 +5189,7 @@ pub struct Circulator {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Circulator) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -2905,7 +5226,7 @@ pub struct Circulator {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2966,6 +5287,7 @@ pub struct CirculatorResult {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2976,10 +5298,15 @@ pub struct CirculatorResult {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CirculatorResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2993,6 +5320,7 @@ pub struct CirculatorResult {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3005,6 +5333,7 @@ pub struct CirculatorResult {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3014,7 +5343,7 @@ pub struct CirculatorResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CirculatorResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3051,7 +5380,7 @@ pub struct CirculatorResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3247,6 +5576,7 @@ pub struct KtaBed {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3257,10 +5587,15 @@ pub struct KtaBed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KtaBed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3274,6 +5609,7 @@ pub struct KtaBed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3286,6 +5622,7 @@ pub struct KtaBed {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3295,7 +5632,7 @@ pub struct KtaBed {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KtaBed) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3332,7 +5669,7 @@ pub struct KtaBed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3391,6 +5728,7 @@ pub struct KtaBedResult {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3401,10 +5739,15 @@ pub struct KtaBedResult {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KtaBedResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3418,6 +5761,7 @@ pub struct KtaBedResult {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3430,6 +5774,7 @@ pub struct KtaBedResult {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3439,7 +5784,7 @@ pub struct KtaBedResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KtaBedResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3476,7 +5821,7 @@ pub struct KtaBedResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3588,8 +5933,10 @@ function of `(T, p)` from the Helmholtz equation of state, and the
 momentum balance keeps the **acceleration** term `G^2 (1/rho_out -
 1/rho_in)` that a heated gas duct generates, reported separately from
 friction so a caller can see its size. Nothing here is valid at
-transonic conditions; for those, reach for
-`outram-park-fork-coolprop`'s `SolverMode::HybridAllMach`.
+transonic conditions; for those, reach for ~~`outram-park-fork-coolprop`'s
+`SolverMode::HybridAllMach`~~ (retired 2026-10-16, gh:#914) the
+density-based KNP solver `tampines::hem::HemPipe`, which takes the
+CoolProp equation of state.
 
 ## Correlations and their validity ranges
 
@@ -3692,6 +6039,7 @@ Dittus-Boelter, `Nu = 0.023 Re^0.8 Pr^0.3` (gas being cooled).
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3702,10 +6050,15 @@ Dittus-Boelter, `Nu = 0.023 Re^0.8 Pr^0.3` (gas being cooled).
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeatTransferCorrelation { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3721,9 +6074,10 @@ Dittus-Boelter, `Nu = 0.023 Re^0.8 Pr^0.3` (gas being cooled).
 
 - **Default**
   - ```rust
-    fn default() -> HeatTransferCorrelation { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3746,6 +6100,7 @@ Dittus-Boelter, `Nu = 0.023 Re^0.8 Pr^0.3` (gas being cooled).
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3755,7 +6110,7 @@ Dittus-Boelter, `Nu = 0.023 Re^0.8 Pr^0.3` (gas being cooled).
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeatTransferCorrelation) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3792,7 +6147,7 @@ Dittus-Boelter, `Nu = 0.023 Re^0.8 Pr^0.3` (gas being cooled).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3874,6 +6229,7 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -3884,10 +6240,15 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DuctThermalBoundary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3901,6 +6262,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -3913,6 +6275,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -3922,7 +6285,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DuctThermalBoundary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -3959,7 +6322,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4044,6 +6407,7 @@ pub struct GasDuct {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4054,10 +6418,15 @@ pub struct GasDuct {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GasDuct { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4071,6 +6440,7 @@ pub struct GasDuct {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4083,6 +6453,7 @@ pub struct GasDuct {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4092,7 +6463,7 @@ pub struct GasDuct {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GasDuct) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4129,7 +6500,7 @@ pub struct GasDuct {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4219,6 +6590,7 @@ pub struct GasDuctResult {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4229,10 +6601,15 @@ pub struct GasDuctResult {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GasDuctResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4246,6 +6623,7 @@ pub struct GasDuctResult {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4258,6 +6636,7 @@ pub struct GasDuctResult {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4267,7 +6646,7 @@ pub struct GasDuctResult {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GasDuctResult) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4304,7 +6683,7 @@ pub struct GasDuctResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4567,6 +6946,7 @@ pub struct HeliumState {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -4577,10 +6957,15 @@ pub struct HeliumState {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HeliumState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4594,6 +6979,7 @@ pub struct HeliumState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -4606,6 +6992,7 @@ pub struct HeliumState {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -4615,7 +7002,7 @@ pub struct HeliumState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HeliumState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -4652,7 +7039,7 @@ pub struct HeliumState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4971,20 +7358,221 @@ pub use outram_park_fork_coolprop::FluidTransport;
 
 ## Module `hem`
 
-Homogeneous Equilibrium Model (HEM) two-phase steam/water state.
+Homogeneous Equilibrium Model (HEM) two-phase flow: the steam-water state,
+and the transient HEM pipe solver.
 
-Thin re-export of [`tampines_steam_tables`]'s validated HEM control-volume
-type -- the pressure/enthalpy/quality steam-water state used by
-[`crate::critical_flow`]'s choked-flow solvers and, in future, TAMPINES's
-wider multiphase thermal-hydraulics work (HEM -> drift-flux -> CHF, see
-the workspace's `op-21g.6` roadmap bead; deferred stubs for that land
-separately, not in this module).
+# What is here
+
+- [`HemSteamCv`]: thin re-export of [`tampines_steam_tables`]'s validated
+  HEM control-volume type, the pressure/enthalpy/quality steam-water state
+  used by [`crate::critical_flow`]'s choked-flow solvers.
+- [`HemPipe`]: the density-based KNP HEM pipe solver on `[ρ, ρu, ρE]`
+  (gh #902). The solver lives in `tampines_steam_tables::hem` (maintainer
+  decision D2, gh #896); it is re-exported here, and this module adds
+  - [`CoolPropHem`], a CoolProp closure (only `tampines` depends on both
+    property crates), and
+  - [`HemEos`], an enum choosing IAPWS-IF97, CoolProp or an ideal gas at
+    run time.
+
+  `HemPipe` here is `HemPipeOf<HemEos>`, so one type covers every closure:
+
+  ```no_run
+  use tampines::hem::*;
+  use uom::si::f64::*;
+  use uom::si::{area::square_meter, length::meter, pressure::megapascal,
+                thermodynamic_temperature::kelvin, time::second, velocity::meter_per_second};
+
+  let geometry = HemPipeGeometry::new(
+      Length::new::<meter>(1.0), Area::new::<square_meter>(1e-3), 50).unwrap();
+  let initial = HemInitialCondition::Uniform(PrimitiveState::PressureTemperature {
+      pressure: Pressure::new::<megapascal>(2.0),
+      temperature: ThermodynamicTemperature::new::<kelvin>(400.0),
+      velocity: Velocity::new::<meter_per_second>(0.0),
+  });
+  let mut pipe = HemPipe::new(geometry, HemEos::Iapws97, initial, HemNumerics::default()).unwrap();
+  pipe.run_until(Time::new::<second>(1e-3)).unwrap();
+  ```
+
+  Errors are [`HemError`], which converts into [`crate::TampinesError`]
+  with `?`.
+
+# What is not here
+
+Slip (drift-flux) and thermal non-equilibrium (two-fluid) are in
+[`crate::multiphase_1d`]. The pipe solver is inviscid and frictionless; see
+`tampines_steam_tables::hem` for its full scope, its deviations from
+upstream `rhoCentralFoam`, and its V&V record.
 
 ```rust
 pub mod hem { /* ... */ }
 ```
 
+### Types
+
+#### Type Alias `HemPipe`
+
+The HEM pipe solver with its closure chosen at run time by [`HemEos`]
+(IAPWS-IF97, CoolProp or ideal gas). See `tampines_steam_tables::hem::HemPipe`
+for the methods.
+
+```rust
+pub type HemPipe = HemPipeOf<HemEos>;
+```
+
 ### Re-exports
+
+#### Re-export `CoolPropHem`
+
+```rust
+pub use coolprop_eos::CoolPropHem;
+```
+
+#### Re-export `HemEos`
+
+```rust
+pub use coolprop_eos::HemEos;
+```
+
+#### Re-export `COOLPROP_P_RHO_E_REL_TOL`
+
+```rust
+pub use coolprop_eos::COOLPROP_P_RHO_E_REL_TOL;
+```
+
+#### Re-export `pressure_from_rho_e`
+
+```rust
+pub use tampines_steam_tables::hem::pressure_from_rho_e;
+```
+
+#### Re-export `BreakFlow`
+
+```rust
+pub use tampines_steam_tables::hem::BreakFlow;
+```
+
+#### Re-export `FluxLimiter`
+
+```rust
+pub use tampines_steam_tables::hem::FluxLimiter;
+```
+
+#### Re-export `HemBoundary`
+
+```rust
+pub use tampines_steam_tables::hem::HemBoundary;
+```
+
+#### Re-export `HemCellState`
+
+```rust
+pub use tampines_steam_tables::hem::HemCellState;
+```
+
+#### Re-export `HemEquationOfState`
+
+```rust
+pub use tampines_steam_tables::hem::HemEquationOfState;
+```
+
+#### Re-export `HemError`
+
+```rust
+pub use tampines_steam_tables::hem::HemError;
+```
+
+#### Re-export `HemInitialCondition`
+
+```rust
+pub use tampines_steam_tables::hem::HemInitialCondition;
+```
+
+#### Re-export `HemNumerics`
+
+```rust
+pub use tampines_steam_tables::hem::HemNumerics;
+```
+
+#### Re-export `HemPipeGeometry`
+
+```rust
+pub use tampines_steam_tables::hem::HemPipeGeometry;
+```
+
+#### Re-export `HemRunSummary`
+
+```rust
+pub use tampines_steam_tables::hem::HemRunSummary;
+```
+
+#### Re-export `HemSnapshot`
+
+```rust
+pub use tampines_steam_tables::hem::HemSnapshot;
+```
+
+#### Re-export `HemStepReport`
+
+```rust
+pub use tampines_steam_tables::hem::HemStepReport;
+```
+
+#### Re-export `HemThermoState`
+
+```rust
+pub use tampines_steam_tables::hem::HemThermoState;
+```
+
+#### Re-export `Iapws97Hem`
+
+```rust
+pub use tampines_steam_tables::hem::Iapws97Hem;
+```
+
+#### Re-export `IdealGasHem`
+
+```rust
+pub use tampines_steam_tables::hem::IdealGasHem;
+```
+
+#### Re-export `PipeEnd`
+
+```rust
+pub use tampines_steam_tables::hem::PipeEnd;
+```
+
+#### Re-export `PrimitiveState`
+
+```rust
+pub use tampines_steam_tables::hem::PrimitiveState;
+```
+
+#### Re-export `TimeIntegrator`
+
+```rust
+pub use tampines_steam_tables::hem::TimeIntegrator;
+```
+
+#### Re-export `TimeStepControl`
+
+```rust
+pub use tampines_steam_tables::hem::TimeStepControl;
+```
+
+#### Re-export `FIXED_STEP_COURANT_LIMIT`
+
+```rust
+pub use tampines_steam_tables::hem::FIXED_STEP_COURANT_LIMIT;
+```
+
+#### Re-export `HemPipe`
+
+The generic solver, `HemPipeOf<E>` for any closure `E`; use it to run with
+a concrete closure type (e.g. `HemPipeOf<CoolPropHem>`).
+
+```rust
+pub use tampines_steam_tables::hem::HemPipe as HemPipeOf;
+```
 
 #### Re-export `TampinesSteamTableCV`
 
@@ -5063,6 +7651,7 @@ pub struct HumidAirState {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5073,10 +7662,15 @@ pub struct HumidAirState {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HumidAirState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5090,6 +7684,7 @@ pub struct HumidAirState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5102,6 +7697,7 @@ pub struct HumidAirState {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5111,7 +7707,7 @@ pub struct HumidAirState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &HumidAirState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5148,7 +7744,7 @@ pub struct HumidAirState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5233,6 +7829,12 @@ above the [`crate::hem`] homogeneous-equilibrium baseline:
 | Solver | Equations | Slip between phases | Thermal non-equilibrium |
 |---|---|---|---|
 | [`crate::hem`] (HEM) | 3 | none (`u_g = u_l`) | none (both saturated) |
+
+**CORRECTED 2026-10-16:** the HEM row names a *model level*, not a solver
+in this crate. [`crate::hem`] holds only a re-export of the steam-table
+control volume (`HemSteamCv`); the HEM pipe solver lives in
+`tampines-steam-tables` (`TampinesSteamArray`). Exporting a HEM pipe solver
+from `tampines` is gh:#896.
 | [`drift_flux::DriftFlux1d`] | 4 | **algebraic** (`u_g − j = U_dm`) | none |
 | [`two_fluid::TwoFluid1d`] | 6 | **dynamic** (own momentum equation) | **yes** (own energy equation) |
 
@@ -5322,7 +7924,11 @@ Stated here so it is not discovered late:
   dispatcher, so the *break* is HEM even when the *pipe* is drift-flux or
   two-fluid. This is a real modelling inconsistency and it is called out
   again at the boundary condition itself.
-- **One validation case, and only one.** As of 2026-08-11
+- ~~**One validation case, and only one.**~~ **CORRECTED 2026-10-16** —
+  there are two: Edwards (below) and Marviken test 23, where
+  `marviken_test_23_drift_flux_critical_mass_flux` (a plain `#[test]` in
+  `marviken_tests.rs`) is recorded VALIDATED at 8.9 % mean |dev|; test 24 is
+  characterisation only. See that file's header. As of 2026-08-11
   [`drift_flux::DriftFlux1d`] is compared against the digitised
   Edwards–O'Brien experimental GS-1 pressure curve by
   `edwards_drift_flux_gs1_pressure_history` (see `edwards_tests.rs` for the
@@ -5731,6 +8337,7 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5741,10 +8348,15 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AxialBoundary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5758,6 +8370,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5770,6 +8383,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5779,7 +8393,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AxialBoundary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5816,7 +8430,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5878,6 +8492,7 @@ pub struct DriftFluxReport {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -5888,10 +8503,15 @@ pub struct DriftFluxReport {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DriftFluxReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5905,6 +8525,7 @@ pub struct DriftFluxReport {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -5917,6 +8538,7 @@ pub struct DriftFluxReport {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -5926,7 +8548,7 @@ pub struct DriftFluxReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DriftFluxReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -5963,7 +8585,7 @@ pub struct DriftFluxReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6142,7 +8764,13 @@ pub struct DriftFlux1d {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6155,6 +8783,7 @@ pub struct DriftFlux1d {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6186,7 +8815,7 @@ pub struct DriftFlux1d {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6449,10 +9078,15 @@ pub struct Pipe1d {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Pipe1d { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6465,6 +9099,7 @@ pub struct Pipe1d {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6477,6 +9112,7 @@ pub struct Pipe1d {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6486,7 +9122,7 @@ pub struct Pipe1d {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Pipe1d) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6523,7 +9159,7 @@ pub struct Pipe1d {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6813,6 +9449,7 @@ reads `λ_f`.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -6823,10 +9460,15 @@ reads `λ_f`.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DispersedPhase { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6840,6 +9482,7 @@ reads `λ_f`.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -6862,6 +9505,7 @@ reads `λ_f`.
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -6871,7 +9515,7 @@ reads `λ_f`.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DispersedPhase) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -6908,7 +9552,7 @@ reads `λ_f`.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7006,6 +9650,7 @@ pub struct InterfacialCellState {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -7016,10 +9661,15 @@ pub struct InterfacialCellState {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialCellState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7033,6 +9683,7 @@ pub struct InterfacialCellState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7045,6 +9696,7 @@ pub struct InterfacialCellState {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7054,7 +9706,7 @@ pub struct InterfacialCellState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterfacialCellState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7091,7 +9743,7 @@ pub struct InterfacialCellState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7202,6 +9854,7 @@ pub struct InterfacialSources {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -7212,10 +9865,15 @@ pub struct InterfacialSources {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> InterfacialSources { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7229,6 +9887,7 @@ pub struct InterfacialSources {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7241,6 +9900,7 @@ pub struct InterfacialSources {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7250,7 +9910,7 @@ pub struct InterfacialSources {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &InterfacialSources) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7287,7 +9947,7 @@ pub struct InterfacialSources {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7431,7 +10091,13 @@ pub struct InterfacialExchange {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7444,6 +10110,7 @@ pub struct InterfacialExchange {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7475,7 +10142,7 @@ pub struct InterfacialExchange {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7697,6 +10364,7 @@ pub struct SaturatedProperties {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -7707,10 +10375,15 @@ pub struct SaturatedProperties {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SaturatedProperties { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7724,6 +10397,7 @@ pub struct SaturatedProperties {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7736,6 +10410,7 @@ pub struct SaturatedProperties {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7745,7 +10420,7 @@ pub struct SaturatedProperties {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SaturatedProperties) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7782,7 +10457,7 @@ pub struct SaturatedProperties {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7873,6 +10548,7 @@ pub struct TwoPhaseState {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -7883,10 +10559,15 @@ pub struct TwoPhaseState {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TwoPhaseState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7900,6 +10581,7 @@ pub struct TwoPhaseState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -7912,6 +10594,7 @@ pub struct TwoPhaseState {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -7921,7 +10604,7 @@ pub struct TwoPhaseState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TwoPhaseState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -7958,7 +10641,7 @@ pub struct TwoPhaseState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8080,6 +10763,7 @@ pub struct SaturatedTransport {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8090,10 +10774,15 @@ pub struct SaturatedTransport {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SaturatedTransport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8107,6 +10796,7 @@ pub struct SaturatedTransport {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8119,6 +10809,7 @@ pub struct SaturatedTransport {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8128,7 +10819,7 @@ pub struct SaturatedTransport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SaturatedTransport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8165,7 +10856,7 @@ pub struct SaturatedTransport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8272,6 +10963,7 @@ pub struct PhaseState {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8282,10 +10974,15 @@ pub struct PhaseState {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseState { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8299,6 +10996,7 @@ pub struct PhaseState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8311,6 +11009,7 @@ pub struct PhaseState {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8320,7 +11019,7 @@ pub struct PhaseState {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PhaseState) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8357,7 +11056,7 @@ pub struct PhaseState {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8874,6 +11573,7 @@ Fields:
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -8884,10 +11584,15 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TwoFluidBoundary { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8901,6 +11606,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -8913,6 +11619,7 @@ Fields:
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -8922,7 +11629,7 @@ Fields:
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TwoFluidBoundary) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -8959,7 +11666,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9027,6 +11734,7 @@ pub struct PhaseCouplingInputs {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9037,10 +11745,15 @@ pub struct PhaseCouplingInputs {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseCouplingInputs { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9054,6 +11767,7 @@ pub struct PhaseCouplingInputs {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9066,6 +11780,7 @@ pub struct PhaseCouplingInputs {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9075,7 +11790,7 @@ pub struct PhaseCouplingInputs {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PhaseCouplingInputs) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9112,7 +11827,7 @@ pub struct PhaseCouplingInputs {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9269,6 +11984,7 @@ pub struct PhaseCouplingBlock {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9279,10 +11995,15 @@ pub struct PhaseCouplingBlock {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PhaseCouplingBlock { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9296,6 +12017,7 @@ pub struct PhaseCouplingBlock {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9308,6 +12030,7 @@ pub struct PhaseCouplingBlock {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9317,7 +12040,7 @@ pub struct PhaseCouplingBlock {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PhaseCouplingBlock) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9354,7 +12077,7 @@ pub struct PhaseCouplingBlock {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9430,6 +12153,7 @@ pub struct TwoFluidReport {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -9440,10 +12164,15 @@ pub struct TwoFluidReport {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TwoFluidReport { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9457,6 +12186,7 @@ pub struct TwoFluidReport {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9469,6 +12199,7 @@ pub struct TwoFluidReport {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9478,7 +12209,7 @@ pub struct TwoFluidReport {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TwoFluidReport) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -9515,7 +12246,7 @@ pub struct TwoFluidReport {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9814,7 +12545,13 @@ pub struct TwoFluid1d {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -9827,6 +12564,7 @@ pub struct TwoFluid1d {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -9858,7 +12596,7 @@ pub struct TwoFluid1d {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10636,6 +13374,7 @@ pub struct PackedBedConvection {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -10646,10 +13385,15 @@ pub struct PackedBedConvection {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PackedBedConvection { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10663,6 +13407,7 @@ pub struct PackedBedConvection {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10675,6 +13420,7 @@ pub struct PackedBedConvection {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -10684,7 +13430,7 @@ pub struct PackedBedConvection {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PackedBedConvection) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -10721,7 +13467,7 @@ pub struct PackedBedConvection {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10955,6 +13701,7 @@ pub struct GraphiteModeratorFeedback {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -10965,10 +13712,15 @@ pub struct GraphiteModeratorFeedback {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GraphiteModeratorFeedback { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10982,6 +13734,7 @@ pub struct GraphiteModeratorFeedback {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -10994,6 +13747,7 @@ pub struct GraphiteModeratorFeedback {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11003,7 +13757,7 @@ pub struct GraphiteModeratorFeedback {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GraphiteModeratorFeedback) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11040,7 +13794,7 @@ pub struct GraphiteModeratorFeedback {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11074,7 +13828,7 @@ HTR-10 **isothermal** temperature coefficient of reactivity over
 
 Source: IAEA-TECDOC-1382 part 2, Chapter 4, Table 4-33 (Open tier;
 catalogued at
-`crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.pdf`). The
+`iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`). The
 document tabulates `delta-k/k` per degree Celsius; a coefficient *per
 degree Celsius* and *per kelvin* are numerically identical, since only the
 size of the degree matters.
@@ -11327,6 +14081,7 @@ transcription error in the third-order coefficient.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -11337,10 +14092,15 @@ transcription error in the third-order coefficient.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DispersionModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11354,6 +14114,7 @@ transcription error in the third-order coefficient.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11381,6 +14142,7 @@ transcription error in the third-order coefficient.
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11390,7 +14152,7 @@ transcription error in the third-order coefficient.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DispersionModel) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11427,7 +14189,7 @@ transcription error in the third-order coefficient.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11467,6 +14229,7 @@ pub struct Pebble {
     pub particle: super::triso::TrisoParticle,
     pub particles_per_pebble: f64,
     pub dispersion_model: DispersionModel,
+    pub correlation_window: super::triso::CorrelationWindow,
 }
 ```
 
@@ -11479,6 +14242,7 @@ pub struct Pebble {
 | `particle` | `super::triso::TrisoParticle` | The coated particle dispersed in the fuelled zone (level 1). |
 | `particles_per_pebble` | `f64` | Number of coated particles per pebble, dimensionless count stored as<br>`f64` because it enters volume-fraction and per-particle-power algebra<br>rather than being an index. HTR-10: 8335 (IAEA-TECDOC-1382 part 2,<br>Chapter 4; see [`coated_particles_per_pebble`], which reproduces that<br>figure from the published heavy-metal loading). |
 | `dispersion_model` | `DispersionModel` | Which dispersion rule mixes the particle conductivity into the matrix. |
+| `correlation_window` | `super::triso::CorrelationWindow` | Coded temperature window of the matrix-graphite and particle-layer<br>correlations. [`CorrelationWindow::Standard`] from every constructor;<br>widen it with [`Pebble::with_correlation_window`] (which widens the<br>particle's to match, so the two scales cannot disagree). |
 
 ##### Implementations
 
@@ -11493,6 +14257,16 @@ pub struct Pebble {
   pub fn htr10() -> Self { /* ... */ }
   ```
   The HTR-10 fuel element, transcribed from **IAEA-TECDOC-1382 part 2,
+
+- ```rust
+  pub fn htr10_high_temperature() -> Self { /* ... */ }
+  ```
+  The HTR-10 fuel element of [`Self::htr10`] with the whole stack —
+
+- ```rust
+  pub fn with_correlation_window(self: Self, window: CorrelationWindow) -> Self { /* ... */ }
+  ```
+  The same pebble with its matrix graphite and its particle both
 
 - ```rust
   pub fn fuelled_zone_volume(self: &Self) -> Volume { /* ... */ }
@@ -11524,6 +14298,11 @@ pub struct Pebble {
   ```
   Steady-state radial temperature profile of the pebble, given its total
 
+- ```rust
+  pub fn volume_average_temperature(self: &Self, profile: &PebbleTemperatureProfile) -> ThermodynamicTemperature { /* ... */ }
+  ```
+  Volume-average matrix temperature of the whole pebble, given a profile
+
 ###### Trait Implementations
 
 - **Any**
@@ -11531,6 +14310,7 @@ pub struct Pebble {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -11541,10 +14321,15 @@ pub struct Pebble {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Pebble { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11558,6 +14343,7 @@ pub struct Pebble {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11570,6 +14356,7 @@ pub struct Pebble {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11579,7 +14366,7 @@ pub struct Pebble {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Pebble) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11616,7 +14403,7 @@ pub struct Pebble {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11690,6 +14477,7 @@ pub struct PebbleTemperatureProfile {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -11700,10 +14488,15 @@ pub struct PebbleTemperatureProfile {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PebbleTemperatureProfile { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11717,6 +14510,7 @@ pub struct PebbleTemperatureProfile {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -11729,6 +14523,7 @@ pub struct PebbleTemperatureProfile {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -11738,7 +14533,7 @@ pub struct PebbleTemperatureProfile {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PebbleTemperatureProfile) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -11775,7 +14570,7 @@ pub struct PebbleTemperatureProfile {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11870,6 +14665,19 @@ The HTR-10 fuel kernel's published density, 10.4 g/cm^3
 
 ```rust
 pub fn htr10_uranium_dioxide_density() -> uom::si::f64::MassDensity { /* ... */ }
+```
+
+#### Function `htr10_silicon_carbide_density`
+
+The HTR-10 coated particle's published SiC coating density, 3.18 g/cm^3
+(IAEA-TECDOC-1382 part 2, Chapter 4, Table 4-17, Open tier — the same row
+[`TrisoParticle::htr10`] transcribes its geometry and carbon densities
+from). Not stored on [`TrisoParticle`] because the SiC conductivity
+correlation does not use it; a heat-capacity (thermal-mass) calculation
+does. Added 2026-09-28 for `htgr_sim_v1`'s fuel node.
+
+```rust
+pub fn htr10_silicon_carbide_density() -> uom::si::f64::MassDensity { /* ... */ }
 ```
 
 #### Function `htr10_enrichment`
@@ -11970,7 +14778,7 @@ expression.
 
 Geometry for [`TrisoParticle::htr10`] comes from **IAEA-TECDOC-1382 part 2,
 Chapter 4** (Open tier; catalogued at
-`crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.pdf`),
+`iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`),
 Table 4-2 / Table 4-17: kernel radius 0.025 cm, UO2 density 10.4 g/cm^3,
 coating layers PyC/PyC/SiC/PyC of thickness 0.009/0.004/0.0035/0.004 cm and
 density 1.1/1.9/3.18/1.9 g/cm^3.
@@ -12011,6 +14819,209 @@ unirradiated fuel.
 pub type FastNeutronFluence = uom::si::f64::Ratio;
 ```
 
+#### Enum `CorrelationWindow`
+
+Which coded temperature window the pebble-stack conductivity correlations
+(matrix graphite, UO2, buffer, PyC, SiC) are evaluated in.
+
+A closed set, enum-dispatched per the workspace Rust design rules. Added
+2026-09-28 (gh:#350, gh:#351) so a transient that takes the fuel past
+2000 K keeps a resolved pebble and kernel temperature instead of refusing.
+
+**Neither window is a published validity range.** The 300-2000 K window
+was adopted to match `tuas_boussinesq_solver`'s graphite cp table (see
+[`MIN_TEMPERATURE_KELVIN`]); the Virtual Test Bed deck behind every layer
+correlation states no range at all.
+
+```rust
+pub enum CorrelationWindow {
+    Standard,
+    HighTemperature,
+}
+```
+
+##### Variants
+
+###### `Standard`
+
+300 K to 2000 K, matrix graphite from `NuclearGraphiteMatrixA3`. The
+default, and the window every recorded `tampines` V&V number was
+measured in.
+
+###### `HighTemperature`
+
+300 K to 3000 K, matrix graphite from
+`NuclearGraphiteMatrixA3HighTemp`. **Above 2000 K every conductivity in
+the stack is extrapolated**: the A3 matrix correlation (its measured
+range — Gontard & Nabielek 1990 — is not yet confirmed; its fitted form
+has a minimum at 2029.9 K and rises above it), the PyC/buffer and SiC
+forms (no source named in the VTB deck), and the UO2 form. The UO2
+expression is structurally the Fink (2000) recommendation at 100 %
+theoretical density (the VTB constants 115.8 and 7410.5 are Fink's
+100 and 6400 divided by the 95 %-TD porosity factor 0.95/1.1), a
+correlation usually quoted to ~3120 K — **not re-checked against Fink
+in this change**, so it is flagged with the rest. Use this window to
+keep a transient's energy balance and feedback continuous past 2000 K,
+never to quote a validated fuel temperature there.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn min_kelvin(self: Self) -> f64 { /* ... */ }
+  ```
+  Lowest temperature of the window, kelvin (300 K for both).
+
+- ```rust
+  pub fn max_kelvin(self: Self) -> f64 { /* ... */ }
+  ```
+  Highest temperature of the window, kelvin.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Boilerplate**
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **DistributionExt**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Imply**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Enum `TrisoLayer`
 
 The five concentric material regions of a TRISO coated fuel particle,
@@ -12065,6 +15076,7 @@ The outer dense pyrolytic carbon layer.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -12075,10 +15087,15 @@ The outer dense pyrolytic carbon layer.
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TrisoLayer { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12092,6 +15109,7 @@ The outer dense pyrolytic carbon layer.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12119,6 +15137,7 @@ The outer dense pyrolytic carbon layer.
     fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
     ```
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12128,7 +15147,7 @@ The outer dense pyrolytic carbon layer.
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TrisoLayer) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12165,7 +15184,7 @@ The outer dense pyrolytic carbon layer.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12213,6 +15232,7 @@ pub struct TrisoParticle {
     pub outer_pyc_outer_radius: uom::si::f64::Length,
     pub buffer_density: uom::si::f64::MassDensity,
     pub pyrocarbon_density: uom::si::f64::MassDensity,
+    pub correlation_window: CorrelationWindow,
 }
 ```
 
@@ -12227,6 +15247,7 @@ pub struct TrisoParticle {
 | `outer_pyc_outer_radius` | `uom::si::f64::Length` | Outer radius of the outer pyrolytic carbon layer — the particle's own<br>outer surface, metres. HTR-10: 415 + 40 = 455 um. |
 | `buffer_density` | `uom::si::f64::MassDensity` | Mass density of the porous carbon buffer, kg/m^3. HTR-10:<br>1100 kg/m^3 (1.1 g/cm^3, IAEA-TECDOC-1382 part 2 Table 4-17). Enters<br>the buffer conductivity only through its porosity factor. |
 | `pyrocarbon_density` | `uom::si::f64::MassDensity` | Mass density of the dense pyrolytic carbon layers (IPyC and OPyC share<br>one value), kg/m^3. HTR-10: 1900 kg/m^3 (1.9 g/cm^3, same table). |
+| `correlation_window` | `CorrelationWindow` | Coded temperature window the layer correlations are evaluated in.<br>[`CorrelationWindow::Standard`] from every constructor; widen it with<br>[`TrisoParticle::with_correlation_window`]. |
 
 ##### Implementations
 
@@ -12236,6 +15257,11 @@ pub struct TrisoParticle {
   pub fn new(kernel_radius: Length, buffer_outer_radius: Length, inner_pyc_outer_radius: Length, silicon_carbide_outer_radius: Length, outer_pyc_outer_radius: Length, buffer_density: MassDensity, pyrocarbon_density: MassDensity) -> Result<Self, TampinesError> { /* ... */ }
   ```
   Builds a TRISO particle from its five outer radii and the two carbon
+
+- ```rust
+  pub fn with_correlation_window(self: Self, window: CorrelationWindow) -> Self { /* ... */ }
+  ```
+  The same particle with its layer correlations evaluated in `window`.
 
 - ```rust
   pub fn htr10() -> Self { /* ... */ }
@@ -12299,6 +15325,7 @@ pub struct TrisoParticle {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -12309,10 +15336,15 @@ pub struct TrisoParticle {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TrisoParticle { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12326,6 +15358,7 @@ pub struct TrisoParticle {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12338,6 +15371,7 @@ pub struct TrisoParticle {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12347,7 +15381,7 @@ pub struct TrisoParticle {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TrisoParticle) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12384,7 +15418,7 @@ pub struct TrisoParticle {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12455,6 +15489,7 @@ pub struct TrisoTemperatureProfile {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -12465,10 +15500,15 @@ pub struct TrisoTemperatureProfile {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TrisoTemperatureProfile { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -12482,6 +15522,7 @@ pub struct TrisoTemperatureProfile {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12494,6 +15535,7 @@ pub struct TrisoTemperatureProfile {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -12503,7 +15545,7 @@ pub struct TrisoTemperatureProfile {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &TrisoTemperatureProfile) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -12540,7 +15582,7 @@ pub struct TrisoTemperatureProfile {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12641,6 +15683,16 @@ Valid range: 300 K to 2000 K; outside it, returns
 pub fn uranium_dioxide_thermal_conductivity(temperature: uom::si::f64::ThermodynamicTemperature) -> Result<uom::si::f64::ThermalConductivity, crate::TampinesError> { /* ... */ }
 ```
 
+#### Function `uranium_dioxide_thermal_conductivity_in`
+
+[`uranium_dioxide_thermal_conductivity`] evaluated in an explicit
+[`CorrelationWindow`] — **extrapolated above 2000 K** under
+[`CorrelationWindow::HighTemperature`].
+
+```rust
+pub fn uranium_dioxide_thermal_conductivity_in(temperature: uom::si::f64::ThermodynamicTemperature, window: CorrelationWindow) -> Result<uom::si::f64::ThermalConductivity, crate::TampinesError> { /* ... */ }
+```
+
 #### Function `pyrocarbon_thermal_conductivity`
 
 Thermal conductivity of **dense pyrolytic carbon** (the IPyC and OPyC
@@ -12670,6 +15722,16 @@ density strictly between 0 and 1930 kg/m^3; outside any of these, returns
 
 ```rust
 pub fn pyrocarbon_thermal_conductivity(temperature: uom::si::f64::ThermodynamicTemperature, density: uom::si::f64::MassDensity, fluence: FastNeutronFluence) -> Result<uom::si::f64::ThermalConductivity, crate::TampinesError> { /* ... */ }
+```
+
+#### Function `pyrocarbon_thermal_conductivity_in`
+
+[`pyrocarbon_thermal_conductivity`] evaluated in an explicit
+[`CorrelationWindow`] — **extrapolated above 2000 K** under
+[`CorrelationWindow::HighTemperature`].
+
+```rust
+pub fn pyrocarbon_thermal_conductivity_in(temperature: uom::si::f64::ThermodynamicTemperature, density: uom::si::f64::MassDensity, fluence: FastNeutronFluence, window: CorrelationWindow) -> Result<uom::si::f64::ThermalConductivity, crate::TampinesError> { /* ... */ }
 ```
 
 #### Function `buffer_carbon_thermal_conductivity`
@@ -12724,6 +15786,16 @@ outside either, returns [`TampinesError::InvalidInput`].
 pub fn silicon_carbide_thermal_conductivity(temperature: uom::si::f64::ThermodynamicTemperature, fluence: FastNeutronFluence) -> Result<uom::si::f64::ThermalConductivity, crate::TampinesError> { /* ... */ }
 ```
 
+#### Function `silicon_carbide_thermal_conductivity_in`
+
+[`silicon_carbide_thermal_conductivity`] evaluated in an explicit
+[`CorrelationWindow`] — **extrapolated above 2000 K** under
+[`CorrelationWindow::HighTemperature`].
+
+```rust
+pub fn silicon_carbide_thermal_conductivity_in(temperature: uom::si::f64::ThermodynamicTemperature, fluence: FastNeutronFluence, window: CorrelationWindow) -> Result<uom::si::f64::ThermalConductivity, crate::TampinesError> { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `MIN_TEMPERATURE_KELVIN`
@@ -12748,6 +15820,18 @@ window was chosen.
 
 ```rust
 pub const MAX_TEMPERATURE_KELVIN: f64 = 2000.0;
+```
+
+#### Constant `HIGH_TEMPERATURE_MAX_KELVIN`
+
+Highest temperature, 3000 K, of the [`CorrelationWindow::HighTemperature`]
+window — the published upper limit of Butland & Maddison's graphite cp
+polynomial, which is the only property in the pebble stack backed that far.
+Everything else evaluated between 2000 K and this is **extrapolated**; see
+[`CorrelationWindow::HighTemperature`].
+
+```rust
+pub const HIGH_TEMPERATURE_MAX_KELVIN: f64 = 3000.0;
 ```
 
 #### Constant `THEORETICAL_CARBON_DENSITY_KG_PER_M3`
@@ -12995,6 +16079,7 @@ pub struct ZbsBed {
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **Boilerplate**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -13005,10 +16090,15 @@ pub struct ZbsBed {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **ByRef**
+  - ```rust
+    fn by_ref(self: &Self) -> &T { /* ... */ }
+    ```
+
 - **CastableFrom**
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ZbsBed { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13022,6 +16112,7 @@ pub struct ZbsBed {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **DistributionExt**
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -13034,6 +16125,7 @@ pub struct ZbsBed {
     ```
     Returns the argument unchanged.
 
+- **Imply**
 - **Into**
   - ```rust
     fn into(self: Self) -> U { /* ... */ }
@@ -13043,7 +16135,7 @@ pub struct ZbsBed {
 - **IntoEither**
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ZbsBed) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **Pointable**
@@ -13080,7 +16172,7 @@ pub struct ZbsBed {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13156,6 +16248,12 @@ pub use pebble::Pebble;
 
 ```rust
 pub use pebble::PebbleTemperatureProfile;
+```
+
+#### Re-export `CorrelationWindow`
+
+```rust
+pub use triso::CorrelationWindow;
 ```
 
 #### Re-export `TrisoLayer`

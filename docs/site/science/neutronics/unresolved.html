@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The double whammy: unresolved resonances</title>
+<meta name="description" content="Neutronics, page 18: above U-238's resolved range the resonances bunch on a log axis and the evaluation's mean spacing shrinks too, so measurements can no longer separate them. The simplest treatment smears them into an average, the infinitely dilute cross section: from the evaluation's File 3 (LSSF = 1) or computed from average parameters (LSSF = 0).">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="unresolved-data.js" defer></script>
+<script src="unresolved.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 18 of the design comment of 2026-10-16 and its addenda and amendments (the double whammy; rung 1 is RECONR's smeared, infinitely dilute average; U-238's LSSF = 1; NO self-shielding, NO UNRESR: "infinite dilution" as a name only). Sources: ENDF-102 §2.1 and §2.3.1, NJOY2016 manual RECONR chapter. Numbers: unresolved-data.js (examples/lesson_unresolved.rs), checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>The double whammy: unresolved resonances</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Page 17 ended at the top of U-238's resolved range, 20 keV. Above it, two things pile up at once.</p>
+<ol>
+  <li><b>The log axis bunches them.</b> A constant spacing in energy is a shrinking gap in ln E (page 17).</li>
+  <li><b>And there are more of them.</b> The evaluation's average level spacing itself shrinks with energy.</li>
+</ol>
+<p>U-238's unresolved range runs from <b data-ur="el">20</b> to <b data-ur="eh">149</b> keV, and the evaluation gives a mean spacing D for each spin group, tabulated against energy:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Spin group</th><th>D at 20 keV</th><th>50 keV</th><th>100 keV</th><th>149 keV</th></tr></thead>
+  <tbody>
+    <tr><td data-label="">J = &frac12; (l = 0 and 1)</td><td data-label="20 keV" data-d="0.5,20000">21.20 eV</td><td data-label="50 keV" data-d="0.5,50000">19.78 eV</td><td data-label="100 keV" data-d="0.5,100000">17.63 eV</td><td data-label="149 keV" data-d="0.5,149008.7">15.76 eV</td></tr>
+    <tr><td data-label="">J = 3/2 (l = 1 and 2)</td><td data-label="20 keV" data-d="1.5,20000">10.84 eV</td><td data-label="50 keV" data-d="1.5,50000">10.12 eV</td><td data-label="100 keV" data-d="1.5,100000">9.02 eV</td><td data-label="149 keV" data-d="1.5,149008.7">8.06 eV</td></tr>
+    <tr><td data-label="">J = 5/2 (l = 2)</td><td data-label="20 keV" data-d="2.5,20000">7.51 eV</td><td data-label="50 keV" data-d="2.5,50000">7.01 eV</td><td data-label="100 keV" data-d="2.5,100000">6.24 eV</td><td data-label="149 keV" data-d="2.5,149008.7">5.58 eV</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="note">From U-238's ENDF/B-VIII.0 evaluation <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, MF=2, LRU = 2, read by OUTRAM PARK's port of NJOY's <code>rdunf2</code> and interpolated with each table's own law (log-log). Each J appears in two l groups with the same D.</p>
+<p>Across the range every spacing shrinks by about <b data-dshrink>26</b> %. The neutron's arrival lifts U-239 from about <b data-estar="20000">4.83</b> to <b data-estar="149008.7">4.95</b> MeV of excitation (page 8), and the density of levels grows with excitation energy (page 9). Not every evaluation shows it: U-234's keeps each D constant across its unresolved range.</p>
+
+<h2>Unresolved: too close to measure, not merged</h2>
+<p>The resonances in this range have not run into each other: they are still far narrower than their spacing. What has run out is the measurement. In ENDF-102's words, the unresolved range is where "the resonances still do not actually overlap", but "experimental resolution is inadequate to determine the parameters of individual resonances" <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>.</p>
+<p>So the evaluation stores what can still be known: <b>averages</b>. A mean spacing, mean widths, and how much each scatters about its mean.</p>
+
+<h2>The simplest treatment: smear it out</h2>
+<p>If we can't see the individual peaks, average over them. In each small stretch of energy, replace the forest by its mean. This plain average over the resonances is called the <b>infinitely dilute</b> cross section.</p>
+
+<section class="widget-card">
+  <h3>From the forest to its average</h3>
+  <div class="widget" id="smear">
+    <canvas aria-label="U-238 capture cross section: the resolved resonance forest, its running average, and the average that continues into the unresolved range"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-stage="forest">The forest</button> <button type="button" class="btn ghost" data-stage="smear">Smear it</button> <button type="button" class="btn ghost" data-stage="urr">Unresolved range</button></p>
+  <p class="actions"><button type="button" class="btn" data-nuc="U-238">U-238</button> <button type="button" class="btn ghost" data-nuc="U-234">U-234</button></p>
+  <p class="note">ENDF/B-VIII.0 capture, reconstructed by OUTRAM PARK's RECONR port <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a> at 0 K. The black average is taken over a window &plusmn;5 % wide in energy, on every reconstructed point.</p>
+</section>
+
+<p>In the resolved range we can check the smearing, because we have both the forest and its average. For U-238 the two sides meet: just below 20 keV the smeared forest gives <b data-meet="lo">0.509</b> b, and just above it the evaluation's average gives <b data-meet="hi">0.506</b> b.</p>
+
+<h2>Where the average comes from</h2>
+<p>An evaluation can give it in either of two ways, set by a flag, LSSF <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>:</p>
+<ul>
+  <li><b>LSSF = 0: computed from the averages.</b> NJOY's RECONR computes the infinitely dilute cross section from the average parameters, "based on the SLBW approximation with interference" <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>: page 12's formula, the cheap rung of page 16's ladder, used where only averages are known. U-234 is evaluated this way.</li>
+  <li><b>LSSF = 1: given directly.</b> File 3 "contains the entire dilute cross section", and the parameters are kept only for what the plain average leaves out (the next page). U-238 is evaluated this way: its description says it adopts infinitely dilute capture, inelastic, total and fission cross sections from evaluations of measured data.</li>
+</ul>
+<p>The average computed from the parameters is, in the manual's words, "not temperature dependent" with the approximations used. The <a href="../../deep-dives/nuclear-data/purr.html">nuclear-data deep dive</a> follows the LSSF flag through the code.</p>
+
+<details class="optional">
+  <summary>Deeper: why the average is not just a peak with average widths</summary>
+  <p>The average of a ratio is not the ratio of the averages. A level's capture contribution goes as &Gamma;<sub>n</sub>&Gamma;<sub>&gamma;</sub>/&Gamma;, and the widths scatter from level to level. So RECONR averages that whole expression over the evaluation's chi-square distributions of the widths, a <b>fluctuation integral</b> for each spin group <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>:</p>
+  <p class="eq-block">&sigma;<sub>x</sub> = (2&pi;&sup2;/k&sup2;) &Sigma;<sub>l,J</sub> (g<sub>J</sub>/D) &lang;&Gamma;<sub>n</sub>&Gamma;<sub>x</sub>/&Gamma;&rang;</p>
+  <p>with x capture or fission, and &lang;&hellip;&rang; the average over the width distributions. Elastic adds the potential scattering and an interference term, as in page 12.</p>
+</details>
+
+<h2>Why is this so? What did we lose?</h2>
+<p>Smearing keeps the <b>average</b>, but it throws away how &sigma; <b>fluctuates</b> from energy to energy: the peaks and the valleys between them are gone.</p>
+<p><b>Can we keep the fluctuations without knowing where the resonances are?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

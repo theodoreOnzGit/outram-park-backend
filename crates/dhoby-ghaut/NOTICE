@@ -1,0 +1,44 @@
+NOTICE — dhoby-ghaut
+====================
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-05)
+------------------------------------------------------
+
+Until 2026-10-05 this crate was licensed GPL-3.0-only through
+`license.workspace = true`. On 2026-10-05, at the maintainer's explicit
+direction (GitHub #561, #562), it was relicensed AGPL-3.0-only so that it can
+depend on `kovan`, which is AGPL-3.0-only (see `crates/kovan/NOTICE`).
+
+Why: the high-fidelity workbench reads and writes kovan-compatible files (its
+recipes, i.e. input decks, are kovan markdown + TOML artifacts) and shows
+literature through kovan. The maintainer decided that every input and output
+file of Dhoby Ghaut is kovan-compatible and that the crate depends on `kovan`
+directly. A GPLv3 crate linking AGPLv3 code would be a combined work carrying
+AGPL's network clause anyway (GPLv3 §13); licensing the crate AGPL-3.0-only
+outright removes the cross-licence question, as `kovan` itself did.
+
+`dhoby-ghaut` was published at no version before this change (0.0.1 in
+`Cargo.toml`, never released), so there is no earlier GPL release to
+grandfather. No file in this crate carries ported third-party code: the
+examples cite upstream projects (pyDOSEIA, TRISO-ATOPS) only to describe what
+the workspace's own ports do.
+
+Dependency: kovan
+------------------
+
+  Crate:    kovan (path dependency, `../kovan`, default features off)
+  License:  AGPL-3.0-only
+  Gating:   not on wasm32 (the browser demos build this library for wasm)
+
+`kovan` is declared in this crate's own `Cargo.toml`, not in the workspace
+`[workspace.dependencies]`, so no other crate can pick it up by accident.
+
+Consequence for downstream crates
+---------------------------------
+
+Any crate that depends on `dhoby-ghaut` as a library now links AGPL-3.0-only
+code. Re-read this NOTICE and confirm with the maintainer before adding one.
+
+This document was written by an AI coding assistant at the maintainer's
+direction; per the workspace `RESPONSIBLE_USE.md` it is untrusted until the
+maintainer reviews it.

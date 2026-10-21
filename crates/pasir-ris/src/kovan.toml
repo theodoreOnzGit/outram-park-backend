@@ -1,0 +1,36 @@
+schema_version = 1
+kind = "code_folder"
+crate = "pasir-ris"
+dir = "crates/pasir-ris/src"
+crate_root = true
+test_ids = ["crates/pasir-ris/src/lib.rs::the_scope_is_recorded"]
+
+[module."lib.rs"]
+path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:1cd01534bed692f7"
+name = "SCOPE"
+qual = "SCOPE"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    58,
+]
+hash = "sha256:2b8d09e90fadd9baa2fba623e7dea3b3e38ed283299f10971a2d3d604c718eff"
+doc_hash = "sha256:e089be8194fc42e8bcdf287954c01fef185b8122432ee99b082d04a73e30823f"
+reached_by = ["#0"]
+
+[[module."lib.rs".function]]
+id = "fn:202ad1f0daa0d309"
+name = "the_scope_is_recorded"
+qual = "the_scope_is_recorded"
+lines = [
+    64,
+    69,
+]
+hash = "sha256:417c3da65a25544e66fc7048405d1365584bc223cd303131cd4f2861f6b8ebcf"
+doc_hash = "sha256:39a75bc3c67c0e39ea9088b1556daa155fd110b5196db761f923859225bd56cd"
+uses = ["fn:1cd01534bed692f7"]
+test = true

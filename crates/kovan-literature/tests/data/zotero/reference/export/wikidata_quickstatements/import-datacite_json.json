@@ -1,0 +1,77 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article published in 2015\"\nLAST\tP356\t\"10.5281/zenodo.2548653\"\nLAST\tP953\t\"https://zenodo.org/record/2548653\"\nLAST\tP2093\t\"Zenzo Lusaba Dube\"\tP1545\t\"1\"\nLAST\tP2093\t\"Gloria Rosi Murahwe\"\tP1545\t\"2\"\nLAST\tP577\t+2015-01-01T00:00:00Z/11\nLAST\tLmul\t\"An analysis of corporate governance practices in government controlled versus private banking institutions in Zimbabwe\"\nLAST\tLen\t\"An analysis of corporate governance practices in government controlled versus private banking institutions in Zimbabwe\"\nLAST\tP1476\ten:\"An analysis of corporate governance practices in government controlled versus private banking institutions in Zimbabwe\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ40056\nLAST\tDen\t\"computer program published in 2017\"\nLAST\tP356\t\"10.5438/n138-z3mk\"\nLAST\tP953\t\"https://github.com/datacite/bolognese\"\nLAST\tP2093\t\"Martin Fenner\"\tP1545\t\"1\"\nLAST\tP577\t+2017-02-25T00:00:00Z/11\nLAST\tLmul\t\"Bolognese: a Ruby library for conversion of DOI Metadata\"\nLAST\tLen\t\"Bolognese: a Ruby library for conversion of DOI Metadata\"\nLAST\tP1476\tund:\"Bolognese: a Ruby library for conversion of DOI Metadata\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'GMS Medizin - Bibliothek - Information; 15(1-2):Doc10' published in 2015\"\nLAST\tP356\t\"10.3205/mbi000337\"\nLAST\tP953\t\"http://www.egms.de/en/journals/mbi/2015-15/mbi000337.shtml\"\nLAST\tP2093\t\"Natascha Miljković\"\tP1545\t\"1\"\nLAST\tP577\t+2015-08-12T00:00:00Z/11\nLAST\tLmul\t\"Mehr Schaden als Nutzen? Problematischer Einsatz von Textvergleichsprogrammen zur vermeintlichen Plagiatsvermeidung\"\nLAST\tLde\t\"Mehr Schaden als Nutzen? Problematischer Einsatz von Textvergleichsprogrammen zur vermeintlichen Plagiatsvermeidung\"\nLAST\tP1476\tde:\"Mehr Schaden als Nutzen? Problematischer Einsatz von Textvergleichsprogrammen zur vermeintlichen Plagiatsvermeidung\"\nLAST\tP407\tQ188\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1172284\nLAST\tDen\t\"dataset published in 2016\"\nLAST\tP356\t\"10.17171/2-3-12-1\"\nLAST\tP953\t\"http://repository.edition-topoi.org/collection/MAGN/single/0012/0\"\nLAST\tP2093\t\"Bernhard Fritsch\"\tP1545\t\"1\"\nLAST\tP577\t+2016-00-00T00:00:00Z/9\nLAST\tLmul\t\"3D model of object V 1.2-71: Structured-light Scan, Staatliche Museen zu Berlin -  Antikensammlung\"\nLAST\tLen\t\"3D model of object V 1.2-71: Structured-light Scan, Staatliche Museen zu Berlin -  Antikensammlung\"\nLAST\tP1476\tund:\"3D model of object V 1.2-71: Structured-light Scan, Staatliche Museen zu Berlin -  Antikensammlung\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Journal für Medienlinguistik' published in 2018\"\nLAST\tP356\t\"10.21248/jfml.2018.6\"\nLAST\tP953\t\"https://jfml.org/article/view/6\"\nLAST\tP304\t\"42-79 Seiten\"\nLAST\tP2093\t\"Irina Mostovaia\"\tP1545\t\"1\"\nLAST\tP577\t+2018-12-04T00:00:00Z/11\nLAST\tLmul\t\"Nonverbale graphische Ressourcen bei Reparaturen in der interaktionalen informellen Schriftlichkeit am Beispiel der deutschen Chat-Kommunikation via IRC-Chat und WhatsApp\"\nLAST\tLde\t\"Nonverbale graphische Ressourcen bei Reparaturen in der interaktionalen informellen Schriftlichkeit am Beispiel der deutschen Chat-Kommunikation via IRC-Chat und WhatsApp\"\nLAST\tP1476\tde:\"Nonverbale graphische Ressourcen bei Reparaturen in der interaktionalen informellen Schriftlichkeit am Beispiel der deutschen Chat-Kommunikation via IRC-Chat und WhatsApp\"\nLAST\tP407\tQ188\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'The Journal of Transcultural Studies' published in 2018\"\nLAST\tP356\t\"10.17885/heiup.jts.2018.1-2.23812\"\nLAST\tP953\t\"https://heiup.uni-heidelberg.de/journals/index.php/transcultural/article/view/23812\"\nLAST\tP304\t\"33–52 Pages\"\nLAST\tP2093\t\"Wynn Gadkar-Wilcox\"\tP1545\t\"1\"\nLAST\tP577\t+2018-12-20T00:00:00Z/11\nLAST\tLmul\t\"Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919\"\nLAST\tLen\t\"Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919\"\nLAST\tP1476\ten:\"Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Tremor and Other Hyperkinetic Movements' published in 2016\"\nLAST\tP356\t\"10.7916/D8959HR1\"\nLAST\tP953\t\"https://tremorjournal.org/index.php/tremor/article/view/413\"\nLAST\tP304\t\"Tremor and Other Hyperkinetic Movements\"\nLAST\tP2093\t\"Elliot Hogg\"\tP1545\t\"1\"\nLAST\tP2093\t\"Michele Tagliati\"\tP1545\t\"2\"\nLAST\tP577\t+2016-09-14T00:00:00Z/11\nLAST\tLmul\t\"Overuse Cervical Dystonia: A Case Report and Literature Review\"\nLAST\tLen\t\"Overuse Cervical Dystonia: A Case Report and Literature Review\"\nLAST\tP1476\ten:\"Overuse Cervical Dystonia: A Case Report and Literature Review\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'The Journal of Transcultural Studies' published in 2018\"\nLAST\tP356\t\"10.17885/heiup.jts.2018.1-2.23812\"\nLAST\tP953\t\"https://heiup.uni-heidelberg.de/journals/index.php/transcultural/article/view/23812\"\nLAST\tP304\t\"33–52 Pages\"\nLAST\tP2093\t\"Wynn Gadkar-Wilcox\"\tP1545\t\"1\"\nLAST\tP577\t+2018-12-20T00:00:00Z/11\nLAST\tLmul\t\"Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919\"\nLAST\tLen\t\"Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919\"\nLAST\tP1476\ten:\"Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "CREATE\nLAST\tDen\t\"preprint published in 2021\"\nLAST\tP356\t\"10.5281/ZENODO.5513598\"\nLAST\tP953\t\"https://zenodo.org/record/5513598\"\nLAST\tP2093\t\"Michael Walsh\"\tP1545\t\"1\"\nLAST\tP577\t+2021-09-17T00:00:00Z/11\nLAST\tLmul\t\"Non-healthcare occupational exposure to SARS-CoV-2 across industries in the United States before March 2020: a dataset generating protocol\"\nLAST\tLen\t\"Non-healthcare occupational exposure to SARS-CoV-2 across industries in the United States before March 2020: a dataset generating protocol\"\nLAST\tP1476\ten:\"Non-healthcare occupational exposure to SARS-CoV-2 across industries in the United States before March 2020: a dataset generating protocol\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Zeitschrift für Mathematikdidaktik in Forschung und Praxis' published in 2023\"\nLAST\tP356\t\"10.48648/YHP7-0G75\"\nLAST\tP953\t\"https://zmfp.de/beitraege/mathematikapps-fuer-die-grundschule-analysieren\"\nLAST\tP478\t\"4\"\nLAST\tP2093\t\"Daniel Walter\"\tP1545\t\"1\"\nLAST\tP2093\t\"Ulrich Schwätzer\"\tP1545\t\"2\"\nLAST\tP577\t+2023-00-00T00:00:00Z/9\nLAST\tLmul\t\"Mathematikapps für die Grundschule analysieren\"\nLAST\tLde\t\"Mathematikapps für die Grundschule analysieren\"\nLAST\tP1476\tde:\"Mathematikapps für die Grundschule analysieren\"\nLAST\tP407\tQ188\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1980247\nLAST\tDen\t\"book section from 'Expanding the Landscapes of Irish English Research' published in 2022\"\nLAST\tP356\t\"10.48548/PUBDATA-155\"\nLAST\tP953\t\"https://pubdata.leuphana.de/handle/20.500.14123/175\"\nLAST\tP304\t\"109-128\"\nLAST\tP1104\t20\nLAST\tP2093\t\"Anne Barron\"\tP1545\t\"1\"\nLAST\tP577\t+2022-00-00T00:00:00Z/9\nLAST\tLmul\t\"Sorry Miss, I Completely Forgot about It: Apologies and Vocatives in Ireland and England\"\nLAST\tLen\t\"Sorry Miss, I Completely Forgot about It: Apologies and Vocatives in Ireland and England\"\nLAST\tP1476\ten:\"Sorry Miss, I Completely Forgot about It: Apologies and Vocatives in Ireland and England\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1980247\nLAST\tDen\t\"book section from 'Professionalität und Professionalisierung von Lehrpersonen. Perspektiven, theoretische Rahmungen und empirische Zugänge' published in 2023\"\nLAST\tP356\t\"10.25656/01:28324\"\nLAST\tP953\t\"https://www.pedocs.de/frontdoor.php?source_opus=28324\"\nLAST\tP478\t\"Studien zur Professionsforschung und Lehrer:innenbildung\"\nLAST\tP304\t\"179-196\"\nLAST\tP1104\t18\nLAST\tP2093\t\"Andreas Bonnet\"\tP1545\t\"1\"\nLAST\tP2093\t\"Elena Bakels\"\tP1545\t\"2\"\nLAST\tP2093\t\"Uwe Hericks\"\tP1545\t\"3\"\nLAST\tP577\t+2023-00-00T00:00:00Z/9\nLAST\tLmul\t\"Die Professionalisierung von Lehrpersonen aus praxeologischer Perspektive. Professionelles Handeln als Entscheiden\"\nLAST\tLde\t\"Die Professionalisierung von Lehrpersonen aus praxeologischer Perspektive. Professionelles Handeln als Entscheiden\"\nLAST\tP1476\tde:\"Die Professionalisierung von Lehrpersonen aus praxeologischer Perspektive. Professionelles Handeln als Entscheiden\"\nLAST\tP407\tQ188\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1980247\nLAST\tDen\t\"book section from 'Luxus in Seide' published in 2023\"\nLAST\tP356\t\"10.11588/ARTHISTORICUM.1141.C16127\"\nLAST\tP953\t\"https://books.ub.uni-heidelberg.de//arthistoricum/catalog/book/1141/chapter/16127\"\nLAST\tP2093\t\"Adelheid Rasche\"\tP1545\t\"1\"\nLAST\tP2093\t\"G. Ulrich Großmann\"\tP1545\t\"2\"\nLAST\tP577\t+2023-00-00T00:00:00Z/9\nLAST\tLmul\t\"Luxury in Silk. Eighteenth-Century Fashion: English summary of the book Luxus in Seide\"\nLAST\tLde\t\"Luxury in Silk. Eighteenth-Century Fashion: English summary of the book Luxus in Seide\"\nLAST\tP1476\tde:\"Luxury in Silk. Eighteenth-Century Fashion: English summary of the book Luxus in Seide\"\nLAST\tP407\tQ188\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1980247\nLAST\tDen\t\"book section from 'Voices of the Pacific Climate Crisis Adaptation and Resilience: Pacific Ocean and Climate Crisis Assessment Report Volume 1' published in 2024\"\nLAST\tP356\t\"10.26021/15688\"\nLAST\tP953\t\"https://ir.canterbury.ac.nz/handle/10092/108154\"\nLAST\tP2093\t\"Viliamu Iese\"\tP1545\t\"1\"\nLAST\tP2093\t\"Tolu Muliaina\"\tP1545\t\"2\"\nLAST\tP2093\t\"Rahul Prasad\"\tP1545\t\"3\"\nLAST\tP2093\t\"Moleen Nand\"\tP1545\t\"4\"\nLAST\tP2093\t\"Melanie Pill\"\tP1545\t\"5\"\nLAST\tP2093\t\"Sivendra Michael\"\tP1545\t\"6\"\nLAST\tP2093\t\"Roslyn Dass-Nand\"\tP1545\t\"7\"\nLAST\tP2093\t\"Vasiti Soko\"\tP1545\t\"8\"\nLAST\tP2093\t\"Filomena Nelson\"\tP1545\t\"9\"\nLAST\tP2093\t\"Filipe Veisa\"\tP1545\t\"10\"\nLAST\tP2093\t\"Ratu Tevita Rarokolutu\"\tP1545\t\"11\"\nLAST\tP2093\t\"Salote Nasalo\"\tP1545\t\"12\"\nLAST\tP2093\t\"Otto Navunicagi\"\tP1545\t\"13\"\nLAST\tP2093\t\"Christian Yves Amato-Ali\"\tP1545\t\"14\"\nLAST\tP2093\t\"Michael Ha’apio\"\tP1545\t\"15\"\nLAST\tP2093\t\"Morgan Wairiu\"\tP1545\t\"16\"\nLAST\tP2093\t\"Elisabeth Holland\"\tP1545\t\"17\"\nLAST\tP2093\t\"Louise Marie Malaki-Faaofo\"\tP1545\t\"18\"\nLAST\tP2093\t\"Nasoni Roko\"\tP1545\t\"19\"\nLAST\tP2093\t\"Alastair Ward\"\tP1545\t\"20\"\nLAST\tP577\t+2024-00-00T00:00:00Z/9\nLAST\tLmul\t\"Loss and Damage: Save the Pacific, Save the World\"\nLAST\tLen\t\"Loss and Damage: Save the Pacific, Save the World\"\nLAST\tP1476\tund:\"Loss and Damage: Save the Pacific, Save the World\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "CREATE\nLAST\tDen\t\"preprint published in 2020\"\nLAST\tP356\t\"10.34769/AZKM-Y326\"\nLAST\tP953\t\"http://www2.ite.waw.pl//docs/imif/20210121_M_Mozdzonek_2020.pdf\"\nLAST\tP2093\t\"Małgorzata Możdżonek\"\tP1545\t\"1\"\nLAST\tP2093\t\"Piotr Caban\"\tP1545\t\"2\"\nLAST\tP2093\t\"Jarosław Gaca\"\tP1545\t\"3\"\nLAST\tP2093\t\"Marek Wójcik\"\tP1545\t\"4\"\nLAST\tP2093\t\"Anna Piątkowska\"\tP1545\t\"5\"\nLAST\tP577\t+2020-00-00T00:00:00Z/9\nLAST\tLmul\t\"Determination of the thickness of BN layers on the Al2O3 substrate by FT-IR spectroscopy\"\nLAST\tLen\t\"Determination of the thickness of BN layers on the Al2O3 substrate by FT-IR spectroscopy\"\nLAST\tP1476\ten:\"Determination of the thickness of BN layers on the Al2O3 substrate by FT-IR spectroscopy\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

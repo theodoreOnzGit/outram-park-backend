@@ -1,0 +1,132 @@
+[
+	{
+		"key": "NOTE0001",
+		"version": 1,
+		"itemType": "note",
+		"note": "<p>Plain note with <strong>bold</strong>, <em>italic</em>, <a href=\"https://example.org/?a=1&amp;b=2\">a link</a> &amp; an entity &lt;tag&gt; and&nbsp;a non-breaking space.</p>",
+		"tags": [
+			{
+				"tag": "probe"
+			}
+		],
+		"collections": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	},
+	{
+		"key": "NOTE0002",
+		"version": 1,
+		"itemType": "note",
+		"note": "<div data-schema-version=\"8\"><h1>Heading one</h1><h2>Heading <em>two</em></h2><p>First paragraph.</p><blockquote><p>Quoted one.</p><p>Quoted two.</p></blockquote><ul><li><p>bullet</p></li><li><p>second</p><ul><li><p>nested</p></li></ul></li></ul><ol start=\"3\"><li><p>three</p></li><li><p>four</p></li></ol><pre>code\n  block &lt;x&gt;</pre><p style=\"padding-left: 40px\">Indented paragraph<br>second line</p><p style=\"padding-left: 80px\">Twice indented</p><p><span style=\"text-decoration: line-through\">struck</span> and <code>inline*code</code> with * star, _under_, # hash and `tick`.</p><hr><table><tbody><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></tbody></table><p>- not a list<br>1. not numbered<br>&gt; not a quote</p></div>",
+		"tags": [
+			{
+				"tag": "probe"
+			}
+		],
+		"collections": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	},
+	{
+		"key": "NOTE0003",
+		"version": 1,
+		"itemType": "note",
+		"note": "<div data-schema-version=\"8\"><p><span class=\"highlight\" data-annotation=\"%7B%22attachmentURI%22%3A%22http%3A%2F%2Fzotero.org%2Fusers%2Flocal%2FAbCdEfGh%2Fitems%2FATTACH01%22%2C%22annotationKey%22%3A%22ANNOT001%22%2C%22color%22%3A%22%23ffd400%22%2C%22pageLabel%22%3A%225%22%2C%22position%22%3A%7B%22pageIndex%22%3A4%2C%22rects%22%3A%5B%5B1%2C2%2C3%2C4%5D%5D%7D%7D\">“highlighted text”</span> <span class=\"citation\" data-citation=\"%7B%22citationItems%22%3A%5B%7B%22uris%22%3A%5B%22http%3A%2F%2Fzotero.org%2Fusers%2Flocal%2FAbCdEfGh%2Fitems%2FITEM0001%22%5D%2C%22locator%22%3A%225%22%7D%5D%2C%22properties%22%3A%7B%7D%7D\">(<span class=\"citation-item\">Lovelace, 1843, p. 5</span>)</span> comment</p><p><span class=\"underline\" data-annotation=\"%7B%22attachmentURI%22%3A%22http%3A%2F%2Fzotero.org%2Fgroups%2F12345%2Fitems%2FATTACH02%22%2C%22annotationKey%22%3A%22ANNOT002%22%2C%22position%22%3A%7B%22type%22%3A%22CssSelector%22%2C%22value%22%3A%22div%20%3E%20p%3Anth-child(2)%22%7D%7D\">“underlined”</span></p><p><span class=\"highlight\" data-annotation=\"%7B%22uri%22%3A%22http%3A%2F%2Fzotero.org%2Fusers%2Flocal%2FAbCdEfGh%2Fitems%2FATTACH03%22%2C%22position%22%3A%7B%22type%22%3A%22FragmentSelector%22%2C%22value%22%3A%22epubcfi(%2F6%2F4!%2F4%2F2%2F1%3A0)%22%7D%7D\">“epub text”</span></p><p><span class=\"citation\" data-citation=\"%7B%22citationItems%22%3A%5B%7B%22uris%22%3A%5B%22http%3A%2F%2Fzotero.org%2Fgroups%2F12345%2Fitems%2FITEM0002%22%5D%7D%2C%7B%22uris%22%3A%5B%22http%3A%2F%2Fzotero.org%2Fusers%2Flocal%2FAbCdEfGh%2Fitems%2FITEM0003%22%5D%7D%5D%2C%22properties%22%3A%7B%7D%7D\">(Babbage, 1830; Hopper, 1952)</span></p><p><img data-annotation=\"%7B%22attachmentURI%22%3A%22http%3A%2F%2Fzotero.org%2Fusers%2Flocal%2FAbCdEfGh%2Fitems%2FATTACH01%22%2C%22annotationKey%22%3A%22ANNOT004%22%2C%22position%22%3A%7B%22pageIndex%22%3A0%2C%22rects%22%3A%5B%5B0%2C0%2C10%2C10%5D%5D%7D%7D\" width=\"100\" height=\"50\"></p><p><img data-attachment-key=\"IMGKEY01\" width=\"10\" height=\"10\"></p><p><span class=\"highlight\" data-annotation=\"not%20json\">“broken annotation”</span></p></div>",
+		"tags": [
+			{
+				"tag": "probe"
+			}
+		],
+		"collections": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	},
+	{
+		"key": "NOTE0004",
+		"version": 1,
+		"itemType": "note",
+		"note": "<div data-schema-version=\"8\"><p>Inline <span class=\"math\">$x^2$</span> math.</p><pre class=\"math\">$$E = mc^2$$</pre></div>",
+		"tags": [
+			{
+				"tag": "probe"
+			}
+		],
+		"collections": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	},
+	{
+		"key": "NOTE0005",
+		"version": 1,
+		"itemType": "note",
+		"note": "<p> </p>",
+		"tags": [
+			{
+				"tag": "probe"
+			}
+		],
+		"collections": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	},
+	{
+		"key": "NOTE0006",
+		"version": 1,
+		"itemType": "note",
+		"note": "<h3>Three</h3><h6>Six</h6><table><tr><td>no</td><td>heading</td></tr></table><table><thead><tr><th align=\"left\">L</th><th align=\"center\">C</th><th align=\"right\">R</th></tr></thead><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table><ul><li><input type=\"checkbox\" checked> done</li><li><input type=\"checkbox\"> todo</li></ul><div class=\"highlight-source-rust\"><pre>fn main() {}</pre></div><p><code>a`b</code> <code> spaced </code> <code>``x``</code></p><pre><code class=\"language-js\">```inner```\n</code></pre><p><a href=\"https://example.org/t\" title=\"A\n\n  title\">titled</a> <img src=\"https://example.org/i.png\" alt=\"alt\ntext\" title=\"T\"> <a>no href</a> <b>bold</b><i> spaced italic </i>end</p><ol start=\"7\"><li>seven</li><li>eight<ol><li>nested one</li></ol></li></ol><!-- a comment --><p>  lots   of\n\n spaces  </p><blockquote><p>a</p><blockquote><p>nested</p></blockquote></blockquote><p><del>del</del> <strike>strike</strike> <s>s</s></p><p>= equals<br>+ plus<br>## hashes<br>~~~ tildes<br>[brackets] and _under_ \\back</p>",
+		"tags": [
+			{
+				"tag": "probe"
+			}
+		],
+		"collections": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	},
+	{
+		"key": "NOTE0007",
+		"version": 1,
+		"itemType": "note",
+		"note": "<p><span style=\"color: #ff0000;\">red</span> text</p><p>&nbsp;</p><p><br>after break</p><p style=\"padding-left: 30px;\">odd indent</p>",
+		"tags": [
+			{
+				"tag": "probe"
+			}
+		],
+		"collections": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	},
+	{
+		"key": "ATTN0001",
+		"version": 1,
+		"itemType": "attachment",
+		"linkMode": "linked_url",
+		"title": "A linked page",
+		"url": "https://example.org/page",
+		"note": "<p>Attachment note.</p>",
+		"tags": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	},
+	{
+		"key": "BOOK0001",
+		"version": 1,
+		"itemType": "book",
+		"title": "Not a note",
+		"creators": [],
+		"tags": [],
+		"collections": [],
+		"relations": {},
+		"dateAdded": "2026-10-07T00:00:00Z",
+		"dateModified": "2026-10-07T00:00:00Z"
+	}
+]

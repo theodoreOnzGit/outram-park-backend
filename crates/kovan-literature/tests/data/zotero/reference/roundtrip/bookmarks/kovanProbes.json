@@ -1,0 +1,27 @@
+{
+	"all": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"KPROBE22": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"KPROBE33": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"KPROBE44": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"KPROBE55": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	}
+}

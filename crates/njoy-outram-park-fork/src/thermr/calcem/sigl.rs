@@ -27,6 +27,7 @@
 //! reusing the first sweep's points — this port does the same, on purpose
 //! (translation, not "improvement").
 
+use petir::mathf::RealMath;
 use super::super::mf7::IncoherentInelastic;
 use crate::error::NjoyError;
 use crate::groupr::kinematics::legndr;
@@ -57,7 +58,10 @@ const EPS: f64 = 1.0e-3;
 /// target `fract` before the bin boundary is forced to land here rather than
 /// carrying into the next segment.
 const SHADE: f64 = 0.99999999;
-const THIRD: f64 = 1.0 / 3.0;
+/// `sigl`'s `third`, the literal `.333333333e0` (`thermr.f90:2687`), NOT `1/3`:
+/// ~~`1.0 / 3.0`~~ **CORRECTED 2026-10-14 (GitHub #865)**. The exact third
+/// moved every equally-probable cosine by about 5e-10 against NJOY2016's.
+const THIRD: f64 = 0.333333333;
 
 /// `sigl(e, ep, nlin, ii, natom, tolin)` — cross section and angular data for
 /// scattering `e → ep` \[eV\] at temperature `ii.temperature_k` \[K\].
@@ -92,7 +96,7 @@ pub fn sigl(
     let temp_k = ii.temperature_k;
     let tev = crate::common::phys::BK_EV_PER_K * temp_k;
     let lat = ii.lat;
-    let sig = |mu: f64| ii.double_differential(e, ep, mu, temp_k, natom);
+    let sig = |mu: f64| super::sig(ii, e, ep, mu, temp_k, natom);
 
     let tol = 0.5 * tolin;
 
@@ -108,7 +112,11 @@ pub fn sigl(
     }
     b = b.abs();
     let s1bb = (1.0 + b * b).sqrt();
-    let seep = if ep != 0.0 { 1.0 / (e * ep).sqrt() } else { 0.0 };
+    let seep = if ep != 0.0 {
+        1.0 / (e * ep).sqrt()
+    } else {
+        0.0
+    };
 
     let mut s = vec![0.0f64; nl + 1];
 
@@ -150,7 +158,10 @@ pub fn sigl(
             let yt = sig(xm);
             let test = tol * yt.abs() + tol * ymax / 50.0;
             let test2 = ym + ymax / 100.0;
-            if (yt - ym).abs() <= test && (y[i - 1] - y[i]).abs() <= test2 && (x[i - 1] - x[i]) < 0.5 {
+            if (yt - ym).abs() <= test
+                && (y[i - 1] - y[i]).abs() <= test2
+                && (x[i - 1] - x[i]) < 0.5
+            {
                 true
             } else if x[i - 1] - x[i] < XTOL {
                 true
@@ -239,7 +250,10 @@ pub fn sigl(
             let yt = sig(xm);
             let test = tol * yt.abs() + tol * ymax / 50.0;
             let test2 = ym + ymax / 100.0;
-            if (yt - ym).abs() <= test && (y[i - 1] - y[i]).abs() <= test2 && (x[i - 1] - x[i]) < 0.5 {
+            if (yt - ym).abs() <= test
+                && (y[i - 1] - y[i]).abs() <= test2
+                && (x[i - 1] - x[i]) < 0.5
+            {
                 true
             } else if x[i - 1] - x[i] < XTOL {
                 true
@@ -309,7 +323,7 @@ pub fn sigl(
                     // label 175
                     let f = (y[i] - yl2) * xil;
                     let rf = 1.0 / f;
-                    let mut disc = (yl2 * rf).powi(2) + 2.0 * (fract - sum2) * rf;
+                    let mut disc = (yl2 * rf).r_powi(2) + 2.0 * (fract - sum2) * rf;
                     if disc < 0.0 {
                         disc = disc.abs(); // NJOY: warn and continue with |disc|
                     }
@@ -337,7 +351,10 @@ pub fn sigl(
                 // accept the whole segment into the running partial-bin sum, no
                 // boundary here — label 250 follows.
                 sum2 += add;
-                gral += 0.5 * (yl2 * x[i] - y[i] * xl2) * (x[i] + xl2)
+                // `gral=gral+A+B` is `(gral+A)+B` in Fortran, not `gral+(A+B)`
+                // (GitHub #865: one ulp in the last cosine otherwise).
+                gral = gral
+                    + 0.5 * (yl2 * x[i] - y[i] * xl2) * (x[i] + xl2)
                     + THIRD * (y[i] - yl2) * (x[i] * x[i] + x[i] * xl2 + xl2 * xl2);
                 // label 250
                 xl2 = x[i];
@@ -356,7 +373,9 @@ pub fn sigl(
             let yn = yl2 + (y[i] - yl2) * (xn - xl2) * xil;
             gral += (xn - xl2)
                 * (yl2 * 0.5 * (xn + xl2)
-                    + (y[i] - yl2) * xil * (-xl2 * 0.5 * (xn + xl2) + THIRD * (xn * xn + xn * xl2 + xl2 * xl2)));
+                    + (y[i] - yl2)
+                        * xil
+                        * (-xl2 * 0.5 * (xn + xl2) + THIRD * (xn * xn + xn * xl2 + xl2 * xl2)));
             let xbar = gral * rfract;
 
             if nlin >= 0 {

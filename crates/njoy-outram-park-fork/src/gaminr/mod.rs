@@ -45,7 +45,8 @@
 //!   `gpanel` (`:874-1011`), `dspla`'s normalisation (`:1013-1131`), the
 //!   heating accumulation and the `MT=525` edit ([`TotalHeating`]).
 //!   Validated against NJOY2016's GAM-out tape for a synthetic Z = 6
-//!   photoatomic material (`tests/gaminr_synthetic_photoat_golden.rs`):
+//!   photoatomic material (~~`tests/gaminr_synthetic_photoat_golden.rs`~~
+//!   `tests/gaminr_vs_njoy2016.rs`, renamed; corrected 2026-10-05):
 //!   every word of `23/501 502 504 516 522 525` and `26/502 504 516`
 //!   within 4.4e-7.
 //!

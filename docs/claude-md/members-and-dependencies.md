@@ -1,0 +1,326 @@
+<!-- Moved verbatim from the workspace CLAUDE.md on 2026-09-21 (maintainer direction: physics
+     rules stay in the root, everything else here behind a pointer). STILL BINDING. -->
+
+## Members
+
+~~**46 member crates.**~~ ~~**47 member crates** (`pasir-ris` added 2026-10-06).~~ **48 member crates** (`kovan-web` added 2026-10-06). The table below is a one-line index: what each crate is
+for, and whether it is declared mature. **Each crate's own
+`crates/<crate>/CLAUDE.md` and `README.md` are the authority** for its status,
+its bar, its known gaps and its correction history — this table is a pointer,
+not a status record, and must not be cited as evidence of anything.
+
+> Full per-crate prose, with every status note, caveat and dated correction as
+> it stood on 2026-09-21:
+> [`docs/claude-md-rationale/crate-roster.md`](../claude-md-rationale/crate-roster.md).
+
+~~All crates are **GPL-3.0** except **the whole kovan family** (**AGPL-3.0-only**:
+`kovan` since 2026-08-21, see `crates/kovan/NOTICE`; `kovan-web` from its
+creation, 2026-10-06; and since **2026-10-07** `kovan-common`,
+`kovan-literature`, `kovan-discovery`, `kovan-semantics`, `kovan-metrics` and
+`kovan-codegen`, maintainer: "I want all kovan to be AGPLv3", ahead of the
+Zotero port — see each crate's `NOTICE`), `dhoby-ghaut` (**AGPL-3.0-only since
+2026-10-05**, because it depends on `kovan` — see `crates/dhoby-ghaut/NOTICE`) and
+`chem-eng-real-time-process-control-simulator` (GPL-3.0 since 2026-08-11;
+published versions <= 0.1.1 stay Apache-2.0 — see its `NOTICE`).~~
+**CORRECTED 2026-10-20 (gh:#973, maintainer direction): 43 of the 48 crates
+are `AGPL-3.0-only`**, and so is the root `[workspace.package]` default.
+
+- ~~**Five are HELD at `GPL-3.0-only`** by an explicit `license` field until
+  their third-party authors' consent is recorded on gh:#973 — `bedok` (Than
+  Yan Ren, Xiao SiCong), `raffles` (Adolphus Lye), `tuas_boussinesq_solver`
+  (Sicong Xiao, Per F. Peterson), `tampines` and `tampines-steam-tables`
+  (Ethan Yew Hoe Wong, Sicong Xiao). Do not remove those fields without it.~~
+  **CORRECTED 2026-10-20 (maintainer: "All crates AGPLv3"):** all five are now
+  `AGPL-3.0-only` too, so every crate is. `tuas_boussinesq_solver`, `tampines` and
+  `tampines-steam-tables` convey as combined works (`LICENSE.GPL-3.0`). See
+  `docs/relicensing-agpl-2026-10-20.md`.
+- **Most FILES keep their GPL-3.0 SPDX header**, because a translation of a
+  copyleft upstream is a derivative work and cannot be relicensed. Eighteen
+  crates — PETIR, every `outram-foam-*`, `changi`, `outram-blender`,
+  `boon-lay`, `chem-eng…`, `teh-o-prke`, `farrer-park`, the cfMesh / DWSIM /
+  OFFBEAT / PFLOTRAN / Moltres forks — therefore convey as **AGPL combined
+  works under GPLv3 §13 / AGPLv3 §13** and ship `LICENSE.GPL-3.0` beside
+  `LICENSE`. Sixteen others, whose upstreams are permissive or absent, are
+  relicensable outright.
+- Published crates.io versions keep their own licence forever, including
+  `chem-eng…`'s `<= 0.1.1` Apache-2.0 ones. No version was bumped.
+- The per-crate record — upstream, category, grandfathered versions — is
+  [`docs/relicensing-agpl-2026-10-20.md`](../relicensing-agpl-2026-10-20.md);
+  the audit it rests on is the first comment on gh:#973.
+
+"Mature" in
+the last column means the maintainer has declared it so — see "When this
+applies: only to crates declared mature".
+
+| Crate (`crates/…`) | Role | Mature |
+|---|---|---|
+| `petir` | **Core numerics** — polynomials, equations, transforms, integration, roots. `no_std`, dependency-lean, ported from GSL. Every other crate's numerics floor. Since 2026-10-02 also the workspace's RNG (OpenMC's LCG, `rng::lcg` + `wgsl::LCG`), moved from `outram-mc-libs`. Since 2026-10-17 also all depletion math (`depletion`: OpenMC's eight integrators, IPF CRAM, the burnup matrix; gh:#950), the CRAM and matrix moved from `outram-mc-libs`, which keeps the chain and operators. Since 2026-10-20 (gh:#991) `petir::roots` (GSL Brent) replaces the third-party `roots` crate in `outram-park-fork-dwsim-libs` (`pipe::transient`) and in the `fhr_sim` examples of `tampines-steam-tables`, `teh-o-prke`, `tampines` and `outram-park-digital-twin-engine`, all of which have dropped `roots`; `roots` stays in the root `[workspace.dependencies]` for `tuas_boussinesq_solver` until gh:#989 lands | ✅ |
+| `outram-foam-basic-lib` | OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, solvers, interpolation, thermophysics, fields, mesh, FV operators | ✅ |
+| `outram-foam-turbulence-lib` | OpenFOAM turbulence closures (k-ω SST implemented; others scaffolded) | |
+| `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer + case I/O; host of the **GeN-Foam** deterministic-neutronics + TH port | ✅ |
+| `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, …) | |
+| `outram-foam-cli` | OpenFOAM-style command-line utilities as terminal binaries | |
+| `outram-foam-multiphase` | Phase-II multiphase CFD — drift-flux first. Scaffold, no human V&V | |
+| `njoy-outram-park-fork` | **All nuclear data** — NJOY2016 ENDF port (RECONR/BROADR/THERMR/ACER), Faddeeva, windowed multipole, ν̄/χ. Exposes `XsProvider` | ✅ |
+| `outram-mc-libs` | **Monte Carlo transport** — tracking, k-eigenvalue, delta tracking, depletion; ~~CSG geometry~~ the CSG description and its navigation kernel live in `outram-blender` since 2026-10-02 (#486), re-exported here as `geometry::*` (transport-state work stays here). **Data-free**: pulls from `njoy-outram-park-fork` | ✅ |
+| `teh-o-prke` | Point Reactor Kinetics (PRKE) | ✅ |
+| `nee_soon` | Integration / coupling layer — MC ⟷ deterministic/TH ⟷ nuclear data ⟷ PRKE. Steady state only, no validation. Since 2026-10-02 also the blender → MC bridge (`blender_bridge`, `sim`, moved from blender's retired `mc-export`) | |
+| `bedok` | Systems-level multiphysics — 3-D nodal diffusion + channel TH, above 1-D neutronics and below CFD. IAEA-3D matches published `k_eff`; stage-2 corrections on by default. Sparse LU on `petir::sparse` since 2026-10-20 (gh #994), no `faer` | |
+| `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) — TUAS | ✅ |
+| `tampines` | Central thermal-hydraulic framework — composes TUAS, CoolProp, steam tables, outram-foam, chem-eng | |
+| `tampines-steam-tables` | IAPWS-IF97 steam/water properties + steam-turbine equations | ✅ |
+| `chem-eng-real-time-process-control-simulator` | PID / transfer-function process-control library | ✅ |
+| `outram-park-fork-coolprop` | Pure-Rust fork of **CoolProp** — Helmholtz-EOS properties (137 fluids, incompressibles, humid air, mixtures) | |
+| `outram-park-fork-dwsim-libs` | Pure-Rust fork of **DWSIM** process-simulation building blocks. **EOS layer only** has met its bar; flash layer open | ✅ |
+| `outram-park-fork-offbeat` | Pure-Rust fork of **OFFBEAT** — nuclear fuel performance (eigenstrain, rheology, gap/contact, burnup, FGR, corrosion) | |
+| `farrer-park` | **FEM structural mechanics** — small-strain elasticity, J2 plasticity, crystal plasticity. **Shear locking measured and NOT cured** (`op-uqqg`) | ✅ |
+| `outram-park-fork-liggghts` | Granular DEM — contact mechanics, thermal DEM, pebble-bed physics (ports LIGGGHTS). Cross-code verified; **no experimental validation**. A dependency of `outram-mc-libs` since 2026-10-02 (`pebble_beds::dem_bed`) | ✅ |
+| `outram-park-fork-pflotran` | Pure-Rust fork of **PFLOTRAN** — subsurface flow & reactive transport. Scaffold | |
+| `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tet/polyhedral volume meshing with boundary layers | |
+| `outram-park-fork-moltres` | **Circulating-fuel MSR** — multigroup diffusion + precursor drift + salt heat transfer on the FV layer. Steady eigenvalue only, no consumer yet | |
+| `outram-park-fork-onix` | Pure-Rust fork of **ONIX** — Bateman/CRAM depletion + fission-product inventory. Since 2026-10-20 (gh:#999) its CRAM16 arithmetic is `petir::depletion::cram16_pfd` (moved, bit-identical, ONIX attributed in PETIR's NOTICE); `num-complex` dropped from the crate and from the root `[workspace.dependencies]` | |
+| `outram-park-fork-thermochimica` | Pure-Rust fork of **ORNL Thermochimica** — molten-salt Gibbs-energy minimisation. Scaffold | |
+| `boon-lay` | TRISO-particle / Lagrangian decay simulator; includes the TRISO-ATOPS fork | |
+| `kaki-bukit` | **KAKI BUKIT** — agent-based nuclear fuel-cycle kernel, `no_std` fork of CYCLUS/CYCAMORE, numerics from `petir`. Scaffold, no human V&V | |
+| `changi` | **CHANGI** — atmospheric dispersion, plume transport, deposition, ground contamination. Two ports: FLEXPART v10.4 (scalar kernels only) and the Gaussian puff model of `Hammerling-Research-Group/puff` (physics complete, MIT→~~GPL~~ AGPL one-way). Plus `changi::activity` (2026-09-21, **not a port, no upstream**): unit-release chi/Q, decay in transit, dry deposition; deposition velocities are uncited placeholders. **Research/education/V&V only** | |
+| `sembawang` | **SEMBAWANG** — ~~source term for CHANGI.~~ **Severe accident and source term, and orchestrator of the offsite chain** (2026-09-21, #235): drives CHANGI today, RAFFLES and REDHILL later; no dose. ~~Placeholder: nothing implemented~~ **CORRECTED 2026-09-21** — the TRISO fission-product **release** path exists (on `boon-lay`'s TRISO-ATOPS fork, under a caller-**prescribed** temperature transient and inventory). **Severe-accident progression (melt, relocation, vessel failure, MCCI, hydrogen, aerosols) is NOT implemented.** No human V&V | |
+| `redhill` | **REDHILL** — groundwater and geological transport of radionuclides after deposition. **Placeholder: nothing implemented** | |
+| `bishan` | **BISHAN** — Building Internal Source-term and Hazard Analysis Network: Level 2 PSA (in-plant severe-accident progression, containment and building response, in-building aerosols and pool scrubbing, release categories). ~~Placeholder: nothing implemented.~~ **Since 2026-09-29 (#400): one component, a lumped HTR-10 reactor-building CV (`building`); the rest not implemented.** Boundary with SEMBAWANG undecided | `uom` |
+| `pasir-ris` | **PASIR RIS** — Probabilistic Assessment of Safety In Reactors: Risk & Reliability Integrated Studio. The reserved integrated risk and reliability GUI over raffles, bishan, sembawang, changi and buangkok. **Placeholder: nothing implemented** (2026-10-06). Mostly a GUI, driving the lower-fidelity models of all three levels | `raffles`, `bishan`, `sembawang`, `changi`, `buangkok`, `redhill` |
+| `buangkok` | **BUANGKOK** — Bioeffects, Uncertainty and ALARA for Nuclear Guidance, Keeping Operational Knowledge: radiation dose and bioeffects, research-grade safety analysis only. ~~**Placeholder: nothing implemented**~~ **CHANGED 2026-09-28:** ~~partial~~ port of **pyDOSEIA** (MIT) — met processing, Gaussian-plume dilution, inhalation / ground-shine / submersion doses, and (**2026-09-28, second tranche**) ingestion, plume shine (on a port of SciPy's QUADPACK), DCF screening, plume rise, config and driver: all of its computation, I/O and UI excepted — code-to-code verified against upstream (41 of 43 groups bit-exact, 1 899 cases), no validation; 26 upstream defects recorded. ~~ingestion and plume shine not ported~~. Also holds the Liu and Cao HTR-10 dose tables (7, 9). Depends on `changi` (dev: `petir`) | |
+| `dover` | **DOVER** — *Deck-based Open-source Visualisation Engine for Reactors*. Package name `deck-based-open-source-visualisation-engine-for-reactors-dover` (2026-10-20: `dover` on crates.io belongs to another project; the library is still `dover`). The **low-fidelity counterpart of `dhoby-ghaut`** (maintainer, 2026-09-25); direction: schema-checked TOML input decks, steady-state (DWSIM-like) and dynamic runs. ~~Empty skeleton: nothing implemented, no dependencies~~ **CORRECTED 2026-09-30**: first model merged, a TOML-deck-driven steam-methane-reforming CSTR (`deck`, `smr`, `species`, headless runner) on `outram-park-fork-dwsim-libs`, with a CSTR parity test against compiled upstream DWSIM | |
+| `raffles` | **RAFFLES** — UQ / risk analysis ported from RAVEN. **Owned by Adolphus Lye.** Apache-2.0 → ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) is **one-way**. Implemented in part, no human V&V. Since 2026-10-02 also `outram-mc-libs`' generic statistics (`estimators`, `distributions::seeded`; maintainer direction, owner review outstanding) | |
+| `outram-park-mpi` | Pure-Rust **MPICH** subset over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold | |
+| `outram-blender` | **Geometry description + meshing** (2026-10-02, #486): the CSG description and its pure navigation kernel (`csg`, an OpenMC port moved from `outram-mc-libs`), the geometry plotter (`csg::plot`), the tally-mesh description (`spatial_mesh`), plus the mesh-authoring frontend (GPL fork of Blender's mesh architecture) and the OpenFOAM export bridges. ~~+ the MC export bridge~~ (moved to `nee_soon`). **Meshing nexus since 2026-10-03 (#492):** `unstructured::UnstructuredMesh`, the one mesh FV, FE and MC tallies are built from, with feature-gated converters to `outram-foam-basic-lib` / `farrer-park` and orchestration of blockMesh, snappy, cfMesh and farrer-park's generators | |
+| `dhoby-ghaut` | **DHOBY GHAUT** — intended GUI home for the meshing and MC studios. ~~**Placeholder**~~ **UPDATED 2026-10-04**: the library is `web_demo`, the shared framework of the tutorial tracks' browser demos; holds the `mc_studio` / `mesh_studio` examples ~~only~~ **UPDATED 2026-10-03**: and `monte_carlo_web` (~~`triso_pebble_web`~~, renamed 2026-10-04), the multi-rung Monte Carlo tutorial demo (Godiva with a live k_eff run, the TRISO pebble) on real ENDF/B-VIII.0 data that also builds for the browser | |
+| `outram-park-digital-twin-engine` | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only) | |
+| `kovan-common` | KOVAN shared canonical types (`KovanDocument`, `KovanSymbol`, …). Since 2026-10-06 (#736) also the wasm-clean code map, call graph, star layout and fuzzy scorer, moved out of `kovan` (which re-exports them). Since 2026-10-07 (#748) also the Zotero data model (`zotero`: items, schema, CSL-JSON, `KovanDocument` mapping) | |
+| `kovan-discovery` | KOVAN file discovery + text search (`ignore` walker, `grep-*` engine) | |
+| `kovan-literature` | KOVAN literature archive — PDF → Markdown → `KovanDocument` → BibTeX. `open/` committable, `proprietary/` gitignored | |
+| `kovan-semantics` | KOVAN repo understanding — ripgrep-first, escalating to language servers | |
+| `kovan-codegen` | KOVAN deterministic code generation for known numerical methods, and (since 2026-10-07, #748) the Zotero schema tables from `schema.json`. Not an AI assistant | |
+| `kovan-metrics` | KOVAN repository accounting — token trailers and the historian report | |
+| `kovan-web` | **web-kovan** (2026-10-06, #736): the read-only Code Review UI in egui, built for wasm32 and published at `code-review/` on Pages; `Mode::Desktop` reserved for desktop kovan's stamping. AGPL-3.0-only | |
+| `kovan` (bins `kovan`, `kovan-cli`, `kovan-tui`; package `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` since 2026-10-07, so `cargo -p` uses the long name) | KOVAN's three front ends: `kovan` = **human GUI** (egui, digitiser window); `kovan-cli` = **agent CLI**; `kovan-tui` = **human TUI** (ratatui, Android/Termux-usable) | |
+
+> **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
+> codegen), interfaced three ways, all binaries of the single `kovan` crate.
+> Offline / Android-first, no cloud, no Tree-sitter/~~SQLite~~/vector-store
+> (**CORRECTED 2026-10-07**: kovan *stores* nothing in SQLite, but
+> `kovan-literature` *reads* Zotero's `zotero.sqlite` ~~through `rusqlite`, on
+> native desktop targets only~~, GitHub #750; **CORRECTED again 2026-10-07**:
+> through `turso_core`, Turso's pure-Rust rewrite of SQLite (MIT), from
+> memory, on every target including wasm32 and Android/Termux, with its
+> C-backed features off; real SQLite via `rusqlite` is now only a native
+> dev-dependency, the reference the reader is tested against). Full
+> design spec: **`docs/kovan.md`** (+ `docs/kovan-architecture.md`). Non-GUI
+> kovan crates build for Android; only the `kovan` GUI's egui/eframe stack is
+> Android-hostile and stays behind the `gui` feature.
+
+> **MSRE digital-twin group:** `outram-park-fork-moltres`,
+> `outram-park-fork-onix` and `outram-park-fork-thermochimica`, tracked under
+> the **`op-6w0`** epic. All three are AI-assisted drafts with no human V&V and
+> none is wired into a simulator yet — do not describe any as validated.
+> Scoping: `docs/reactor-scoping/msre.md`.
+
+> **Consequence chain:** SEMBAWANG → CHANGI → REDHILL (source term →
+> atmospheric dispersion → groundwater). Two of the three are placeholders.
+
+> **Neutronics architecture:** the responsibility split (nuclear data ⟂ Monte
+> Carlo ⟂ deterministic/TH ⟂ coupling), the dependency graph and phasing live
+> in **`docs/architecture.md`**. Rule of thumb: *all* cross-section /
+> nuclear-data code belongs in `njoy-outram-park-fork`; transport crates are
+> data-free and pull from it.
+
+**Planned future crates** (not yet in the workspace): `openfoam-icof`
+(**icoFoam**), `openfoam-cht` (**chtMultiRegionFoam**), `openfoam-rho`
+(**rhoPimpleFoam** / **sonicFoam**) — all on `outram-foam-basic-lib`.
+**GenFOAM** is *ported inside* `outram-foam-appbuilder-lib` (`src/genfoam/`,
+~32k lines / ~262 tests as of 2026-08-07; AI-assisted draft, no human V&V).
+
+**Layer 5 (solver loop logic) MUST live in these separate crates**, not in
+`outram-foam-basic-lib`. `outram-foam-basic-lib` provides the mathematical
+building blocks (Layers 1–4) only; the PISO/PIMPLE loop, multi-region coupling
+logic, and turbulence model registries belong in solver-specific crates so
+that `outram-foam-basic-lib` stays publishable independently.
+
+**Internal dependency edges** are all by **path**, not crates.io. The ones
+worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps →
+`{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`;
+`outram-park-digital-twin-engine → {nee_soon, outram-mc-libs, njoy-outram-park-fork}` (the last two direct since 2026-09-29, for the CI smoke set);
+`dover → outram-park-fork-dwsim-libs` (2026-09-30);
+`sembawang → {boon-lay, changi, buangkok, outram-mc-libs}`, the last direct
+since 2026-10-17 (GitHub #951) for the one inventory type in the workspace,
+`outram_mc_libs::inventory::RadionuclideInventory` (depletion produces it,
+sembawang consumes it). No cycle and no new crate in sembawang's tree:
+`outram-mc-libs` was already there through `boon-lay`
+(`cargo tree -p sembawang -i outram-mc-libs -e normal`), and `sembawang` is not
+in `outram-mc-libs`'s tree. **`outram-mc-libs` must never depend on
+`sembawang`;**
+`{tampines-steam-tables, outram-park-fork-coolprop} → outram-foam-basic-lib`
+(2026-10-03, GitHub #492: their `FvMesh`, `MeshError`, 1-D mesher and tensor
+primitives were code-identical copies and are now re-exports; the rest of
+their vendored `openfoam_source/` is unchanged); `tampines` dev-deps →
+~~`{tuas, teh-o-prke, chem-eng}` (the **library** itself is TUAS-free)~~
+**CORRECTED 2026-10-16**: `tuas_boussinesq_solver` and `chem-eng` are normal
+`[dependencies]` of `crates/tampines/Cargo.toml`, so the library is not
+TUAS-free; the dev-deps are `{teh-o-prke, nee_soon}` (gated off Android and
+wasm);
+**`faer` (2026-10-20, gh #994):** `bedok` no longer depends on it (its sparse
+LU is `petir::sparse::SparseLu`, through its existing `bedok → petir` edge, so
+no new internal edge); ~~`outram-blender` keeps it only for one 3x3 dense SVD
+until PETIR's GSL SVD lands (gh #993)~~ **since 2026-10-20 (gh #996)
+`outram-blender` no longer depends on it either**: its 3x3 SVD is
+`petir::faer_dense::svd3`, a no_std port of faer's own dense SVD
+(maintainer: "Whatever faer does, port into petir"), bit-identical to it;
+`petir` takes it as a **dev-dependency only** (`tests/sparse_vs_faer.rs` and
+`tests/faer_dense_svd_vs_faer.rs`, the upstream comparisons for its faer
+ports), so `cargo tree -i faer --workspace` shows petir's dev edge alone. No crate takes `outram-foam-basic-lib` for this: its
+Krylov solvers did not fit either consumer (gh #994);
+`outram-mc-libs → {njoy-outram-park-fork (cross sections), petir (maths and,
+since 2026-10-02, the RNG), outram-park-fork-liggghts (DEM pebble beds,
+2026-10-02, no default features), raffles (generic statistics, 2026-10-02),
+outram-blender (CSG and tally-mesh description, GitHub #486, 2026-10-02;
+`default-features = false`, so no wgpu, but blender's mesh authoring ~~and faer~~
+are always compiled — maintainer decision; faer is gone from blender since gh #996), outram-foam-basic-lib (coarse-mesh
+steady conduction for the beginner thermal profile, GitHub #949, 2026-10-17;
+no features, no cycle since it depends only on `petir`), tampines-steam-tables
+(IAPWS-IF97 density for the beginner `model::Material::water(T, p)`, GitHub
+#937, 2026-10-17; no features; its own deps are already in this tree)}`;
+`raffles → petir` (the RNG) — ~~`raffles → outram-mc-libs`~~ **REMOVED
+2026-10-02**: it closed the cycle `outram-mc-libs → liggghts → raffles →
+outram-mc-libs`; the LCG moved to `petir::rng` and the CSG graph adapter to
+`outram_blender::gnn_graph`. **`raffles` must not depend on `outram-mc-libs`
+or `outram-blender`.** The reverse, `outram-mc-libs → raffles`, is an
+**allowed** edge (maintainer, 2026-10-02) and **exists since the same day**:
+outram-mc's generic statistics (mean/stderr, pooling, entropy, trigger
+statistics, error propagation, generic samplers) live in
+`raffles::estimators` / `raffles::distributions::seeded` (GitHub #500);
+`outram-park-fork-liggghts → raffles` (optional, its default `gnn` feature);
+~~`outram-blender → {outram-mc-libs, outram-foam-basic-lib,
+outram-park-fork-cfmesh, raffles}`, all optional (features `mc-export`,
+`foam-export`, `foam-mesh`, `gnn-graph`).~~ **CORRECTED 2026-10-02 (#486):**
+`outram-blender → {petir (plot colour stream; **since 2026-10-20, gh #994,
+also its sparse Cholesky, `petir::sparse`**), outram-foam-basic-lib,
+outram-park-fork-cfmesh, raffles}`, the last three optional (features
+`foam-export`, `foam-mesh`, `gnn-graph`); **since 2026-10-03 (#492)** also
+`outram-foam-mesh` (feature `block-mesh`) and `farrer-park` (feature
+`fem-export`), optional, for the meshing nexus. The FV/FE solver crates must
+never depend on `outram-blender` (it exports into them). **`outram-blender` must never depend
+on `outram-mc-libs`, not even optionally** (Cargo counts optional deps for
+cycles); `mc-export` is retired. `nee_soon → outram-blender` and
+`dhoby-ghaut (dev) → {outram-blender, nee_soon}` carry the MC bridge instead (and, **since 2026-10-03**, `dhoby-ghaut (dev) → {outram-mc-libs, njoy-outram-park-fork}` for the `monte_carlo_web` demo, which drives `outram-mc-libs` directly rather than through `nee_soon::sim`).
+**Since 2026-10-20 (gh:#985)** every crate converted to PETIR maths depends
+on `petir` directly (`petir::mathf::RealMath`): `dover`, `nee_soon`, the
+digital-twin engine, `sembawang`, `tampines`, `teh-o-prke`,
+`tuas_boussinesq_solver`, and the `outram-park-fork-*` crates `cfmesh`,
+`dwsim-libs`, `liggghts`, `moltres`, `offbeat`, `onix`, `pflotran` and
+`thermochimica` as `[dependencies]`; `outram-foam-cli` as a dev-dependency
+(only its tests call it). The edge is `no_std` and adds no Android or wasm
+hazard.
+**Since 2026-10-20 (gh:#999)** `outram-park-fork-onix`'s CRAM16 runs in
+`petir::depletion::onix_cram` (ONIX's partial-fraction form, kept apart from
+OpenMC's IPF CRAM in the same module); onix no longer depends on
+`num-complex`, and the root `num-complex` entry was removed, since no member
+named it any more (`cargo tree -i num-complex --workspace --depth 1` lists only
+third-party crates: `exr`, `faer`, `gemm`, `lambert_w`, `ndarray`, `pulp`, `puruspe`, …).
+The OutramFoam stack joined the same day: `outram-foam-appbuilder-lib`,
+`outram-foam-multiphase`, `outram-foam-mesh`, `outram-foam-turbulence-lib` and
+`farrer-park` depend on `petir` as `[dependencies]` (`outram-foam-basic-lib`
+already did).
+`outram-foam-basic-lib` has no internal deps besides `petir`, and
+`njoy-outram-park-fork` is kept lean so data consumers stay light:
+~~`thiserror`, `uom`; no BLAS~~ **CORRECTED 2026-10-02** — its direct
+dependencies are `thiserror`, `uom`, `petir`, `log`, `miniz_oxide`,
+`hdf5-pure`, `sha2`, `directories`, `fs2`, `rayon`, `ratatui` and (desktop
+only) `wgpu` (`cargo tree -p njoy-outram-park-fork -e normal --depth 1`); still
+no BLAS and no C toolchain.
+
+**`farrer-park → outram-foam-basic-lib` is for the shared numerical backend
+ONLY.** Its FEM `CsrMatrix` implements
+`outram_foam_basic_lib::linear_operator::LinearOperator` and drives that
+crate's `cg_op`/`gmres_op`/`bicgstab_op`. It does **not** take the FV
+discretisation — `LduMatrix` stays FVM-optimised and FEM stays FEM
+(GitHub issue #175, epic `op-vrtt`). `linear_operator` was added for this and
+is purely additive. GAMG and Gauss-Seidel are *not* on the contract, since
+coarsening needs face addressing, so `farrer-park` carries its own CSR ILU(0).
+
+## Dependency policy — single source of truth
+
+All third-party versions live in the root `[workspace.dependencies]`. Members
+inherit them with `<dep>.workspace = true`, so versions **cannot drift**. **When
+changing a shared dependency, edit the root `Cargo.toml` only.** The one
+exception is `ndarray-linalg`, whose BLAS backend feature is chosen per-target
+(`openblas-system` on unix, `intel-mkl-static` on windows/macos) — as of
+2026-08-07 exactly one member still declares it, `outram-foam-basic-lib`, and
+only as a target-gated **dev-dependency** for `tests/matrix_bench.rs`. TUAS's
+`ndarray-linalg` removal is **done** (TUAS v0.1.2/0.1.3), not planned.
+
+A second exception: **`kopitiam-pdf`** (AGPL-3.0-only, GitHub issue #30's
+PDF-reader work) is declared only in `crates/kovan/Cargo.toml`'s own
+`[dependencies]`, never in the workspace table — `kovan` is ~~the sole~~
+an AGPL-3.0-only crate in this workspace (**since 2026-10-05**, `dhoby-ghaut`
+is the other, depending on `kovan` by path), and keeping the dependency
+crate-local is what stops another crate from picking it up (and the
+AGPL question that comes with it) by accident. See `crates/kovan/NOTICE`.
+**Since 2026-10-20 that question needs no answer from the maintainer:
+AGPL-3.0 is an accepted licence in this workspace** ("AGPLv3 is acceptable
+also, never ask me about it again"; root `CLAUDE.md`, "Preserve GPLv3
+compatibility"). Keeping AGPL dependencies crate-local remains good practice:
+it keeps each crate's `license` field honest. It is no longer a gate.
+
+See `docs/workspace-maintenance.md` for the rationale and history.
+
+### `uom` is `no_std` (gh:#985, maintainer direction 2026-10-20)
+
+"I want uom as no std in this workspace. Do the refactor using petir math."
+The root entry is `uom = { version = "0.38.0", default-features = false,
+features = ["autoconvert", "f32", "f64", "si"] }`. Without `std`, uom 0.38
+drops 27 methods (Quantity `sqrt`/`cbrt`/`powi`/`hypot`/`mul_add`/`atan2`,
+Ratio `exp`/`ln`/logs/inverse trig, Angle trig). `petir::uom_math`
+(`QuantityMath`, `RatioMath`, `AngleMath`) restores each on PETIR maths under
+an `r_` name — `area.r_sqrt()`, never `.sqrt()` — so `uom/std` turning back on
+could not silently re-route a call to the platform libm.
+
+- **`std` must never come back through any path.** `cargo tree -e features -i
+  uom --workspace` must show no `feature "std"`. petir inherits this entry, so
+  `std` here would also break petir's `no_std` build;
+  `crates/petir/tests/dependency_policy.rs` checks the root line.
+- **`f32` is listed because it is on anyway:** `fission-yields-data` 0.1.6
+  enables it, and feature unification spreads it to every crate built with
+  that one.
+- **`fission-yields-data` 0.1.5 → 0.1.6** (2026-10-20): 0.1.5 declared a
+  bare `uom = "0.38"`, which turned `uom/std` back on for the whole
+  workspace. 0.1.6 is the maintainer's `no_std + alloc` release.
+
+### `burn` is this workspace's PyTorch (maintainer direction, 2026-09-16)
+
+Several of the codes this suite ports from reach for **PyTorch** for their
+machine-learning parts — RAVEN's surrogates are the first case to land. The
+Rust replacement is **`burn`** (tracel-ai, MIT OR Apache-2.0, so permissive
+into ~~GPL-3.0~~ **AGPL-3.0-only** and one-way like the rest): **reach for `burn` wherever the
+upstream reaches for PyTorch, as far as `burn` will go.** Do not introduce a
+second ML framework, and do not hand-roll a tensor/autodiff layer beside it.
+
+- Declared once in the root `[workspace.dependencies]` as
+  `burn = { version = "0.21.0", default-features = false }` — i.e. **`no_std`**,
+  which is deliberate: `burn` runs on `core` + `alloc` (`alloc` is implicit,
+  there is no feature to name), and that is what keeps it inside the Android
+  and wasm rules below. `default-features = false` also drops `burn`'s
+  std-only dataset/network/train/sqlite stack. A `std` binary links a `no_std`
+  `burn` without complaint, so do not turn defaults back on for convenience.
+- **The backend is the consumer's choice, and the safe one is `ndarray`** —
+  pure Rust, libm-backed, no system BLAS. `accelerate`, `blas-netlib`,
+  `openblas`, `openblas-system`, `tch`, `candle`, `cuda` and `rocm` all want a
+  system BLAS/LAPACK or a C/C++ toolchain and must never appear in an
+  unconditional library build.
+- **GPU is out of scope for the first pass.** `burn`'s
+  `wgpu`/`vulkan`/`metal`/`webgpu` backends inherit the `wgpu` rule: behind a
+  feature, example or optional bin under `cfg(not(target_os = "android"))`.
+- **MSRV:** `burn` 0.21 declares `rust-version = "1.92"` and `edition = "2024"`,
+  so any crate that actually enables it raises its own toolchain floor to 1.92.
+  Upstream has deprecated `burn-ndarray` in the 0.22 pre-releases in favour of
+  `burn-flex`/`burn-cpu`; check that crate's `no_std` story before bumping.
+- First consumer: `raffles`, optionally, behind its own `burn` feature (off by
+  default) — see `crates/raffles/CLAUDE.md` "Machine learning".
+

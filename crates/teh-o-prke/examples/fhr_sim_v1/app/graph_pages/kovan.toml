@@ -1,0 +1,23 @@
+schema_version = 1
+kind = "code_folder"
+crate = "teh-o-prke"
+dir = "crates/teh-o-prke/examples/fhr_sim_v1/app/graph_pages"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v1::app::graph_pages"
+
+[[module."mod.rs".function]]
+id = "fn:ce1e399268b77698"
+name = "reactor_power_page_graph"
+qual = "FHRSimulatorApp::reactor_power_page_graph"
+lines = [
+    7,
+    61,
+]
+hash = "sha256:463ef376d564dc8b54f9264eaea667003dd446e55c653dc33aa4f38617f608f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3e6157a9ba509a93",
+    "fn:c59e48f6b156ad91",
+]
+uses = ["fn:c3638d9e1632899d"]

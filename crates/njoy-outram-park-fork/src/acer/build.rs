@@ -3,8 +3,17 @@
 //! Ports the cross-section portion of `acelod` in NJOY2016 `acefc.f90`:
 //! constructing the union energy grid, the ESZ block (energy, total,
 //! disappearance, elastic, heating), and the MTR/LQR/TYR/LSIG/SIG reaction
-//! blocks. The secondary-distribution blocks (NU/AND/DLW) and heating (KERMA)
-//! are out of scope for this increment — see the [module docs](super).
+//! blocks. ~~The secondary-distribution blocks (NU/AND/DLW) and heating
+//! (KERMA) are out of scope for this increment~~ — **CORRECTED 2026-09-20**:
+//! AND and DLW *are* built here (see `jxs::LAND`/`AND`/`LDLW`/`DLW` below).
+//! **NU also landed 2026-09-20** (`acer::nu`), bit-identical to NJOY2016 on
+//! U-235. ~~Still absent: photon production (`NXS(6)` written as 0).~~
+//! **CORRECTED 2026-09-20** — photon production landed the same day
+//! (`acer::photon_blocks` + `append_photon_blocks` below): MTRP/LSIGP/SIGP/
+//! LANDP/ANDP/LDLWP/DLWP are all written, and `NXS(6)` matches NJOY2016 on
+//! U-234 (6), U-235 (583) and U-238 (358). What is still refused outright is
+//! *anisotropic* photon emission (MF=14 with `LI=0`).
+//! See the [module docs](super).
 //!
 //! ## Reaction bookkeeping (faithful to `acelod`, incident neutron)
 //!
@@ -12,13 +21,24 @@
 //!
 //! - **Elastic (MT=2)** — stored in its own ESZ column, never in MTR.
 //! - **Redundant sums** — MT=1 (total), MT=3 (nonelastic), MT=4 (total inelastic,
-//!   *only* when discrete levels MT=51–91 are present), MT=27/101 (absorption
+//!   ~~*only* when discrete levels MT=51–91 are present~~ — **CORRECTED
+//!   2026-09-20**: upstream drops MT=4 unless the evaluation carries MF=12/MT=4
+//!   (`acefc.f90:1713-1731`); the discrete-level test was this port's own
+//!   invention and disagreed with NJOY on U-235 ENDF/B-VII.0), MT=27/101 (absorption
 //!   sums), MT=19/20/21/38 (partial fission, when total fission MT=18 is present),
 //!   and the derived quantities MT≥251. These are dropped: the ACE total is
 //!   rebuilt as `elastic + Σ partials` on the union grid so it is self-consistent.
 //! - **Stored partials** — everything else (MT=18 fission, MT=16 (n,2n),
 //!   MT=102 capture, MT=51–91 inelastic levels, charged-particle reactions, …).
-//!   Each becomes one MTR/LQR/TYR/LSIG/SIG entry and contributes to the total.
+//!   Each becomes one MTR/LQR/TYR/LSIG/SIG entry.
+//!
+//! **Stored is not the same as summed.** A discrete charged-particle level
+//! (MT=600–849) is stored so it can be tallied, but is left OUT of the ESZ
+//! total and disappearance whenever its lumped total (MT=103–107) is also
+//! present, because the lumped section already sums those levels. Upstream
+//! spells this out as the `mt103.eq.0 .and. mth.ge.mpmin …` guards in
+//! `acefc.f90`; omitting it double-counts the whole (n,p)/(n,α) channel into
+//! the total, silently.
 //!
 //! The **disappearance** cross section (ESZ column 3) sums the stored partials
 //! that remove the neutron without re-emitting one: capture and charged-particle
@@ -28,24 +48,55 @@
 use crate::reconr::{eval_lin_lin, ReconrResult, ReconrSection};
 
 use super::angular::ElasticAngular;
-use super::energy::Emission;
+use super::energy::{Emission, EnergyLaw};
 use super::{jxs, nxs, AceTable};
+use super::photon_blocks::SigP;
 
 /// Convert eV → MeV (NJOY `emev`).
 const EMEV: f64 = 1.0e6;
 
-/// Round `x` to `n` significant figures, matching NJOY's `sigfig(x,n,0)`.
+/// `acelod`'s `eps` (`acefc.f90`, `real(kr),parameter::eps=1.e-10_kr`), the
+/// relative slack in its threshold-index search.
+const SIG_EPS: f64 = 1.0e-10;
+/// `unionx`'s `eps` (`acefc.f90:1096`): its first grid point is read at
+/// `E*(1+eps)`.
+const UNIONX_EPS: f64 = 1.0e-10;
+
+/// How closely MT=19+20+21+38 must reproduce MT=18 before the partial fission
+/// channels may replace it as the stored representation.
+///
+/// They are the same quantity by definition, so this is a consistency check,
+/// not a tolerance on physics: anything above it means one representation is
+/// carrying structure the other lacks.
+const FISSION_SUM_TOL: f64 = 1.0e-3;
+
+/// Round `x` to `n` significant figures — NJOY's `sigfig(x, n, 0)`.
 ///
 /// NJOY writes ACE values to 7 significant figures so that independently
 /// processed libraries compare cleanly; reproducing it keeps our output aligned
 /// with the upstream oracle.
-fn sigfig(x: f64, n: i32) -> f64 {
+///
+/// ~~matching NJOY's `sigfig(x,n,0)`~~ **CORRECTED 2026-09-26.** The body here
+/// used to be `(x * 10^d).round() / 10^d`, which is **not** upstream's
+/// `sigfig` (`util.f90:361-393`): upstream rounds
+/// `nint(x·10^p + 10^(ndig−11))` — a nudge that tips a scaled value sitting a
+/// hair below `.5` upward — and multiplies the result by
+/// `bias = 1.0000000000001`. Found by `tests/delayed_blocks_write_vs_njoy2016.rs`,
+/// where 654 of 10 920 DNED words came out one unit low in the 7th figure
+/// (`4.645954e-5` against NJOY's `4.645955e-5`).
+///
+/// The crate already had the faithful port, [`crate::mixr::mix::sigfig`], and
+/// the two ACE classes that reach **byte** parity with NJOY (photo-atomic,
+/// photo-nuclear) use it; the continuous-energy path had grown a second,
+/// simplified copy. This is now a thin call to that one, so there is a single
+/// implementation. The bias sits below the 12 digits of a Type-1 file, so it is
+/// invisible there, and it is **required** in a Type-2 file, which stores the
+/// double itself.
+pub(crate) fn sigfig(x: f64, n: i32) -> f64 {
     if x == 0.0 || !x.is_finite() {
         return x;
     }
-    let d = (n - 1) - x.abs().log10().floor() as i32;
-    let f = 10f64.powi(d);
-    (x * f).round() / f
+    crate::mixr::mix::sigfig(x, n, 0)
 }
 
 /// Evaluate a reconstructed section at energy `e` \[eV\], treating energies below
@@ -72,25 +123,136 @@ enum Role {
     Partial,
 }
 
+/// The five lumped charged-particle channels and the discrete MF=3 level
+/// ranges each one sums over, as `acelod` names them (`mpmin`/`mpmax` …
+/// `m4min`/`m4max`, `acefc.f90` lines 1141-1150).
+const LUMPED_LEVEL_RANGES: [(i32, i32, i32); 5] = [
+    (103, 600, 649), // (n,p)
+    (104, 650, 699), // (n,d)
+    (105, 700, 749), // (n,t)
+    (106, 750, 799), // (n,³He)
+    (107, 800, 849), // (n,α)
+];
+
+/// True when `mt` is a discrete charged-particle level whose lumped total is
+/// also present, so the level is **stored but not summed**.
+///
+/// This is upstream's `mt103.eq.0 .and. mth.ge.mpmin .and. mth.le.mpmax`
+/// family of guards (`acefc.f90` ~5652 for disappearance, ~5670 for the
+/// total). The lumped MT=103/107 already carries the sum of its levels, so
+/// adding both would double-count the channel. Getting this wrong is silent:
+/// the table still builds, the total is just too big.
+fn covered_by_lumped(mt: i32, present: &[i32]) -> bool {
+    LUMPED_LEVEL_RANGES
+        .iter()
+        .any(|&(lumped, lo, hi)| (lo..=hi).contains(&mt) && present.contains(&lumped))
+}
+
 /// True for MTs whose cross section removes the neutron without producing one
 /// (the ESZ disappearance column), per `acelod` for an incident neutron.
-fn is_disappearance(mt: i32) -> bool {
-    (102..=150).contains(&mt)
-        || matches!(mt, 155 | 182 | 191 | 192 | 193 | 197)
-        || (600..=849).contains(&mt)
+///
+/// `present` is every MT on the tape, needed for the lumped-level guard above.
+fn is_disappearance(mt: i32, present: &[i32]) -> bool {
+    if (600..=849).contains(&mt) {
+        return !covered_by_lumped(mt, present);
+    }
+    (102..=150).contains(&mt) || matches!(mt, 155 | 182 | 191 | 192 | 193 | 197)
+}
+
+/// True when the lumped MT=4 is stored *and* its own discrete levels are too,
+/// so MT=4 must be kept out of the ESZ sums.
+///
+/// This is the same double-count hazard as [`covered_by_lumped`] but in the
+/// other direction: there a *level* is covered by its lumped total, here the
+/// *lumped* MT=4 is covered by the MT=51–91 levels that sum to it. Upstream
+/// never hits it because `acelod` takes the ESZ total straight off MF=3 MT=1
+/// rather than rebuilding it; this port rebuilds, so it needs the guard
+/// explicitly. Getting it wrong is silent — the table still builds, the total
+/// is just inelastic-scattering too big.
+fn covered_by_levels(mt: i32, present: &[i32]) -> bool {
+    mt == 4 && present.iter().any(|&m| (51..=91).contains(&m))
+}
+
+/// True when a stored partial contributes to the rebuilt ESZ **total**.
+///
+/// Every stored partial contributes except a discrete charged-particle level
+/// whose lumped total is present — the same guard as [`covered_by_lumped`],
+/// and the reason MT=649 and MT=800-849 can appear in MTR without inflating
+/// the total.
+fn contributes_to_total(mt: i32, present: &[i32]) -> bool {
+    !covered_by_lumped(mt, present) && !covered_by_levels(mt, present)
 }
 
 /// Assign a [`Role`] to a reaction, given the set of MT numbers present.
 ///
-/// `has_discrete_inelastic` is whether any of MT=51–91 are present (which makes
-/// the lumped MT=4 redundant); `has_total_fission` is whether MT=18 is present
-/// (which makes the partial-fission MTs 19/20/21/38 redundant).
-fn role_of(mt: i32, has_discrete_inelastic: bool, has_total_fission: bool) -> Role {
+/// # When the lumped MT=4 is kept
+///
+/// `mt4_has_mf12` is whether the evaluation carries an **MF=12 section keyed on
+/// MT=4**, and it is the whole of upstream's rule. **MF=13/MT=4 does not
+/// count** — `mf12s` tests `mfd.eq.12` alone.
+///
+/// `convr`'s redundant-reaction pass (`acefc.f90:1713-1731`) eliminates MT=3
+/// and MT=4 *unless* the MT appears in `mf12s`, in `mf16s`, or is the
+/// unresolved-resonance competition reaction. `mf12s` is built from the tape's
+/// own dictionary for `mfd.eq.12.and.(mtd.lt.5.or.mtd.gt.600)` (`:390`), and
+/// `mf16s` only ever receives MTs `.ge.600` (`:4418`) — so for MT=4 the test
+/// reduces to "does MF=12/MT=4 exist".
+///
+/// **This port previously keyed it on whether MT=51–91 were present**, which is
+/// not upstream's rule and is not even correlated with it: U-235 ENDF/B-VII.0
+/// and ENDF/B-VIII.0 both carry ~40 discrete levels, and NJOY keeps MT=4 on the
+/// first and drops it on the second — because only VII.0 carries MF=12/MT=4.
+/// Found by the 57-tape sweep, which reported 46 reactions against NJOY's 47.
+///
+/// **Not ported:** the `mtcomp.eq.4` clause (`:1731`), which keeps MT=4 when the
+/// unresolved-resonance data names it as the competition reaction. No tape in
+/// `reference-data/endf/` exercises it against this port's PURR-free path, so it
+/// is left unimplemented rather than written untested.
+///
+/// # Which fission representation is stored
+///
+/// An evaluation may give total fission (MT=18), the partial chances
+/// (MT=19/20/21/38), or both. Exactly one set may be stored — MT=18 is their
+/// sum, so keeping both double-counts fission in the total.
+///
+/// **The switch is not "is MT=18 present".** Upstream keys it on `mt19`
+/// (`acefc.f90:388`): whether the evaluation supplies **MF=4/5/6 secondary
+/// distributions for MT=19**. The skip test at `acefc.f90:1734` reads
+///
+/// ```text
+/// (mt19==1 .and. mth==18) .or. (mt19==0 .and. mth in {19,20,21,38})
+/// ```
+///
+/// so a first-chance-fission distribution means the partials are the better
+/// representation and MT=18 is dropped; without one, MT=18 is kept and the
+/// partials are dropped. Checked against the tapes on 2026-09-20: U-234 has
+/// MF=4/MT=19 and NJOY stores 19/20/21/38 without 18; U-235 and U-238 have
+/// none and NJOY stores 18 without the partials.
+///
+/// `has_partial_fission` guards the MT=18 drop so that an evaluation with
+/// `mt19` set but no partial sections in MF=3 keeps its fission rather than
+/// losing it entirely. On a real tape `mt19` implies the partials exist, so
+/// this never fires; it is here because the failure it prevents is silent.
+fn role_of(mt: i32, mt4_has_mf12: bool, mt19: bool, has_partial_fission: bool) -> Role {
     match mt {
         2 => Role::Elastic,
         1 | 3 | 27 | 101 => Role::Redundant,
-        4 if has_discrete_inelastic => Role::Redundant,
-        19 | 20 | 21 | 38 if has_total_fission => Role::Redundant,
+        4 if !mt4_has_mf12 => Role::Redundant,
+        18 if mt19 && has_partial_fission => Role::Redundant,
+        19 | 20 | 21 | 38 if !mt19 => Role::Redundant,
+        // Discrete charged-particle levels and (n,2n) levels are REAL partials.
+        // Upstream stores them in a second pass over MF=3 (`acefc.f90` ~5536:
+        // pass 1 defers `mt.gt.200.and.mt.le.849`, pass 2 picks exactly that
+        // range back up), so they carry an MTR/LQR/TYR/LSIG/SIG entry and can
+        // be tallied. They are kept OUT of the ESZ sums by
+        // `covered_by_lumped` when their lumped total is present.
+        //
+        // MT=600-849 is verified against NJOY2016's own U-235 table (MT=649
+        // and MT=800-835). MT=875-891 follows from the same upstream passes
+        // but **no tape in `reference-data/` carries it**, so that half is
+        // unverified and is marked as such rather than claimed.
+        m if (600..=849).contains(&m) => Role::Partial,
+        m if (875..=891).contains(&m) => Role::Partial,
         m if m >= 251 => Role::Redundant, // mu-bar, ξ, heating, KERMA, photon data
         _ => Role::Partial,
     }
@@ -117,7 +279,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[], None)
+        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None, None, None, &[])
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -133,7 +295,18 @@ impl AceTable {
         suffix: u32,
         angular: &ElasticAngular,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, Some(angular), &[], None)
+        Self::build(
+            result,
+            kt_mev,
+            suffix,
+            Some(angular),
+            &[],
+            None,
+            None,
+            false,
+            None,
+            None,
+            None, &[])
     }
 
     /// Assemble a full ACE table: cross sections, the elastic angular
@@ -143,10 +316,18 @@ impl AceTable {
     ///
     /// This is the loadable-transport path: reactions listed in `emissions` get a
     /// TYR yield and a DLW law (Law 3 for discrete levels, Law 4 for continuum /
-    /// (n,xn)); their secondary angular distribution is left isotropic (an
-    /// AND-block upgrade is future work). NXS(5)=NR is set to the producer count.
+    /// (n,xn)); ~~their secondary angular distribution is left isotropic (an
+    /// AND-block upgrade is future work)~~ **CORRECTED 2026-10-14:** their
+    /// angular distributions are written too: through
+    /// [`Self::from_reconr_full_with_extras`], U-234's AND block (78 143
+    /// words, every reaction) is NJOY2016's in every word
+    /// (`tests/process_api.rs`, `tests/ace_compare.rs`). NXS(5)=NR is set to
+    /// the producer count.
     /// `heating` is the MT=301 KERMA cross section (build it with
-    /// [`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]); when supplied,
+    /// ~~[`Kerma::from_reconr`][crate::heatr::Kerma::from_reconr]~~
+    /// ~~[`Kerma::from_endf`][crate::heatr::Kerma::from_endf], which deposits
+    /// HEATR's Q per reaction~~ [`heatr_kerma`][crate::heatr::heatr_kerma],
+    /// NJOY's HEATR translated whole; **CHANGED 2026-10-05**, GitHub #535); when supplied,
     /// the ESZ heating column is filled with the ACE heating number
     /// `KERMA(E) / σ_total(E)` \[MeV\] (`acefc`'s `xss(ih+j)`). `None` leaves it
     /// zero.
@@ -157,8 +338,95 @@ impl AceTable {
         angular: Option<&ElasticAngular>,
         emissions: &[Emission],
         heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, angular, emissions, heating)
+        Self::build(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, None, None, &[])
+    }
+
+    /// [`from_reconr_full`][Self::from_reconr_full] **plus the UNR block** —
+    /// the unresolved-range probability tables at `JXS(23)` (GitHub #325).
+    ///
+    /// Pass the tables PURR produced
+    /// ([`UrrProbabilityTables::from_endf`][crate::purr::UrrProbabilityTables::from_endf])
+    /// or ones read from another table
+    /// ([`from_ace`][crate::purr::UrrProbabilityTables::from_ace]). The block is
+    /// written by [`super::unr::unr_words`], a port of `acefc.f90:5958-5990`,
+    /// immediately after DLW — where NJOY puts it.
+    ///
+    /// `from_reconr_full` stays exactly as it was, because it is the
+    /// `RECONR+ACER` / `RECONR+BROADR+ACER` deck and several byte-parity gates
+    /// compare it against NJOY tables made **without** PURR. A table meant for
+    /// transport wants this one; see [`crate::acer::build_full_with_purr`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_reconr_full_with_urr(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: &crate::purr::UrrProbabilityTables,
+    ) -> Self {
+        Self::build(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, Some(urr),
+            None, &[])
+    }
+
+    /// [`from_reconr_full`][Self::from_reconr_full] plus the optional blocks a
+    /// full NJOY deck writes: the UNR probability tables (PURR, GitHub #325)
+    /// and the **delayed-neutron blocks** DNU/BDD/DNEDL/DNED
+    /// ([`super::delayed_blocks`]). Either may be `None`; both are placed where
+    /// NJOY places them, immediately after DLW, UNR first.
+    ///
+    /// This is what [`crate::acer::build_full`] and
+    /// [`crate::acer::build_full_with_purr`] call; prefer those.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_reconr_full_with_extras(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: Option<&crate::purr::UrrProbabilityTables>,
+        delayed: Option<&super::delayed_blocks::DelayedBlocks>,
+    ) -> Self {
+        Self::from_reconr_full_with_extras_disc(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed, &[],
+        )
+    }
+
+    /// [`Self::from_reconr_full_with_extras`] with the photon-production
+    /// discontinuities `convr` finds (`photon_blocks::gamma_discontinuities`),
+    /// which `unionx` puts into the energy grid as a pair straddling each one
+    /// (`acefc.f90:1180-1250`). The ordinary build path passes them.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_reconr_full_with_extras_disc(
+        result: &ReconrResult,
+        kt_mev: f64,
+        suffix: u32,
+        angular: Option<&ElasticAngular>,
+        emissions: &[Emission],
+        heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: Option<&crate::purr::UrrProbabilityTables>,
+        delayed: Option<&super::delayed_blocks::DelayedBlocks>,
+        gamma_disc: &[f64],
+    ) -> Self {
+        Self::build(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons, urr, delayed, gamma_disc,
+        )
     }
 
     /// Shared assembly for the `from_reconr*` constructors.
@@ -169,23 +437,113 @@ impl AceTable {
         angular: Option<&ElasticAngular>,
         emissions: &[Emission],
         heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
+        mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
+        urr: Option<&crate::purr::UrrProbabilityTables>,
+        delayed: Option<&super::delayed_blocks::DelayedBlocks>,
+        gamma_disc: &[f64],
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
 
         // Partition the reconstructed sections by role.
         let present: Vec<i32> = result.sections.iter().map(|s| i32::from(s.mt)).collect();
-        let has_discrete_inelastic = present.iter().any(|&m| (51..=91).contains(&m));
-        let has_total_fission = present.contains(&18);
+        // Upstream reads this off the tape dictionary (`mf12s`, `acefc.f90:390`).
+        // The photon block is built from the same MF=12 sections and numbers its
+        // entries `MT*1000 + k`, so an MT=4 section shows up here as entries
+        // 4001.., which is the same evidence by a different route.
+        //
+        // LIMITATION: when the photon block was refused outright (MF=14 `LI=0`)
+        // this reads `false` and MT=4 is dropped, where upstream would still have
+        // consulted the dictionary. No tape in `reference-data/endf/` hits that
+        // combination -- U-235 ENDF/B-VII.0 is the only one carrying MF=12/MT=4
+        // and its photon block builds -- so the fallback is unexercised rather
+        // than verified, and is recorded here instead of being claimed correct.
+        //
+        // MF=12 ONLY, never MF=13. `mf12s` is built from `mfd.eq.12` alone, so an
+        // evaluation carrying MF=13/MT=4 and no MF=12/MT=4 has MT=4 eliminated.
+        // B-10 ENDF/B-VIII.0 is exactly that case (MF=12: MT=102; MF=13: MT=4,
+        // 103) and it is what caught this: testing the MTRP number alone kept
+        // MT=4 and gave 51 reactions against NJOY's 50. An MF=12 yield entry is
+        // `SigP::Yield { mftype: 12 }`; MF=13 is `SigP::Xs` and MF=6 photon
+        // production is `mftype: 16`, and neither may satisfy this test.
+        let mt4_has_mf12 = photons
+            .map(|p| {
+                p.iter()
+                    .any(|e| e.mtrp / 1000 == 4 && matches!(e.sigp, SigP::Yield { mftype: 12, .. }))
+            })
+            .unwrap_or(false);
+        // `mtcomp` (`acefc.f90:1164-1181`): MT=4 is also kept when PURR's
+        // MT=153 names it as the unresolved range's inelastic competition
+        // (`iinel = 4`, more than one level competing). U-235 at 293.6 K is
+        // that case: NJOY's table carries 85 reactions, MT=4 last, where the
+        // 0 K table (no PURR) carries 84.
+        let mt4_has_mf12 = mt4_has_mf12 || urr.is_some_and(|t| t.inelastic_competition == 4);
+        let has_partial_fission = present.iter().any(|&m| matches!(m, 19 | 20 | 21 | 38));
+
+        // CAN the partial fission channels actually replace MT=18 here?
+        //
+        // Upstream's `mt19` rule says which representation to STORE, and the
+        // ESZ total follows from what is stored, because this port rebuilds
+        // the total as `elastic + Σ partials` rather than copying MF=3 MT=1
+        // the way `acelod` does.
+        //
+        // That makes storage and completeness the same question for us and not
+        // for NJOY. Measured on U-234, 2026-09-20: RECONR adds the resonance
+        // reconstruction to **MT=18 only** — its MT=19 comes back as the smooth
+        // 355-point background — so swapping MT=18 for the partials silently
+        // dropped resonance fission and put the total 18 % low at 516 eV while
+        // every individual section stayed self-consistent.
+        //
+        // So the rule is applied only when the partials genuinely sum to
+        // MT=18. This is measured, not assumed, and it self-corrects: if
+        // RECONR later reconstructs the partials too, the check passes and the
+        // inventory matches NJOY without anyone revisiting this.
+        //
+        // **UPDATE 2026-09-26: it did.** RECONR now follows upstream's
+        // `mtr18` rule (resonance fission on MT=19, MT=18 rebuilt as the sum
+        // of its parts, `reconr.f90:1893/4760/4886`), so on U-234 this check
+        // passes by construction and the stored inventory is NJOY's
+        // 19/20/21/38. The check stays as the guard it was written as.
+        //
+        // Evaluating a higher-chance channel below its threshold correctly
+        // yields zero, so the comparison runs over MT=18's own grid.
+        let fission_partials_complete = if has_partial_fission {
+            match result.sections.iter().find(|s| i32::from(s.mt) == 18) {
+                None => true,
+                Some(m18) => {
+                    let parts: Vec<&ReconrSection> = result
+                        .sections
+                        .iter()
+                        .filter(|s| matches!(i32::from(s.mt), 19 | 20 | 21 | 38))
+                        .collect();
+                    m18.pairs.iter().all(|&(e, x18)| {
+                        if x18 <= 0.0 {
+                            return true;
+                        }
+                        let sum: f64 = parts.iter().map(|p| eval_partial(p, e)).sum();
+                        ((sum - x18) / x18).abs() <= FISSION_SUM_TOL
+                    })
+                }
+            }
+        } else {
+            true
+        };
+        let mt19 = mt19 && fission_partials_complete;
 
         let elastic = result.sections.iter().find(|s| i32::from(s.mt) == 2);
-        let partials: Vec<&ReconrSection> = result
+        let mut partials: Vec<&ReconrSection> = result
             .sections
             .iter()
             .filter(|s| {
-                role_of(i32::from(s.mt), has_discrete_inelastic, has_total_fission) == Role::Partial
+                role_of(i32::from(s.mt), mt4_has_mf12, mt19, has_partial_fission) == Role::Partial
             })
             .collect();
+        // A kept MT=3/MT=4 is stored after every other reaction: `acelod`
+        // skips them in its main pass and appends them afterwards ("go back
+        // and add mt3 and/or 4, if needed", `acefc.f90:5693-5700`).
+        partials.sort_by_key(|s| matches!(i32::from(s.mt), 3 | 4));
 
         // ── Union energy grid [eV] ──────────────────────────────────────────
         // The ACE grid is the union of the elastic grid and every stored
@@ -200,6 +558,7 @@ impl AceTable {
         egrid.retain(|&x| x > 0.0);
         egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
         egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
+        let egrid = unionx_discontinuities(&egrid, gamma_disc);
         let nes = egrid.len();
 
         // ── ESZ block: energy, total, disappearance, elastic, heating ───────
@@ -211,7 +570,7 @@ impl AceTable {
 
         // Pre-evaluate every partial on the grid (reused for total/disappearance
         // and again for the SIG block).
-        let partial_xs: Vec<Vec<f64>> = partials
+        let mut partial_xs: Vec<Vec<f64>> = partials
             .iter()
             .map(|sec| {
                 egrid
@@ -221,22 +580,85 @@ impl AceTable {
             })
             .collect();
 
+        // Each reaction's SIG entry starts at its threshold index IE, as
+        // `acelod` stores it (`acefc.f90:5466-5501`): the first grid index at
+        // or above the section's `gety1` start, and the first stored value is
+        // zeroed when IE > 1 and the next tabulated energy lies above 100 eV
+        // (`:5503-5505`). Nothing is stored below IE, so it contributes
+        // nothing to the total either.
+        let sig_ie: Vec<usize> = partials
+            .iter()
+            .zip(partial_xs.iter_mut())
+            .map(|(sec, xs)| {
+                let t = crate::endf::records::Tab1 {
+                    head: crate::endf::records::Cont {
+                        c1: 0.0,
+                        c2: 0.0,
+                        l1: 0,
+                        l2: 0,
+                        n1: 1,
+                        n2: sec.pairs.len() as i32,
+                    },
+                    interp: vec![(sec.pairs.len() as u32, 2)],
+                    pairs: sec.pairs.clone(),
+                };
+                let mut g = crate::endf::gety1::Gety1::new(&t);
+                let enext = g.get(0.0).xnext;
+                let mut j = nes; // 1-based
+                while j >= 1 && enext <= (1.0 + SIG_EPS) * egrid[j - 1] {
+                    j -= 1;
+                }
+                let ie = j + 1;
+                for v in xs.iter_mut().take(ie.saturating_sub(1)) {
+                    *v = 0.0;
+                }
+                if ie > 1 && ie <= nes && g.get(egrid[ie - 1]).xnext > 100.0 {
+                    xs[ie - 1] = 0.0;
+                }
+                ie
+            })
+            .collect();
+
         let mut total = elastic_xs.clone();
         let mut disappear = vec![0.0f64; nes];
+        // The total as `acelod` holds it when it reaches MT=301 in its MF=3
+        // walk (ascending MT): elastic plus the partials before 301, and not
+        // yet rounded by the final 9-figure pass. The heating number divides
+        // by this (`xss(ih+j)=sigfig(s/emev/xss(it+j),7,0)`,
+        // `acefc.f90:5641-5645`), not by the finished total; dividing by the
+        // finished one moved the 7th figure at 1 to 54 energies per table
+        // (B-10, Zn-70 against NJOY2016 with HEATR, found 2026-10-15 by
+        // printing NJOY's `xss(it+j)` there: 1438.40835365984390 against the
+        // stored 1438.40835).
+        let mut total_at_301: Option<Vec<f64>> = None;
         for (k, sec) in partials.iter().enumerate() {
             let mt = i32::from(sec.mt);
-            let disap = is_disappearance(mt);
+            if mt > 301 && total_at_301.is_none() {
+                total_at_301 = Some(total.clone());
+            }
+            let disap = is_disappearance(mt, &present);
+            let in_total = contributes_to_total(mt, &present);
             for j in 0..nes {
-                total[j] += partial_xs[k][j];
+                if in_total {
+                    total[j] += partial_xs[k][j];
+                }
                 if disap {
                     disappear[j] += partial_xs[k][j];
                 }
             }
         }
-        // Re-round the accumulated sums to 7 sig figs, as acelod does.
+        let total_at_301 = total_at_301.unwrap_or_else(|| total.clone());
+        // ~~Re-round the accumulated sums to 7 sig figs, as acelod does.~~
+        // CORRECTED 2026-09-26: `acelod` does not. Its total and absorption
+        // are plain sums of the 7-figure partials (`xss(it+j)=xss(it+j)+s`,
+        // `acefc.f90:5511-5516, 5657-5678`), printed at 12 figures: NJOY's
+        // U-235 table holds `3.66767401e4` where the re-rounding wrote
+        // `3.667674e4`. What it does do is the final pass
+        // (`acefc.f90:6311-6317`, "fix up sig figs in summation cross
+        // sections"): energies, total and absorption at 9 figures.
         for j in 0..nes {
-            total[j] = sigfig(total[j], 7);
-            disappear[j] = sigfig(disappear[j], 7);
+            total[j] = sigfig(total[j], 9);
+            disappear[j] = sigfig(disappear[j], 9);
         }
 
         // Lay the XSS block out, recording the integer/real type of each word.
@@ -244,7 +666,7 @@ impl AceTable {
 
         // ESZ: five contiguous arrays of length NES (all real).
         for &e in &egrid {
-            b.real(e / EMEV); // ACE energies are in MeV
+            b.real(sigfig(e / EMEV, 9)); // MeV, 9 figures (`acefc.f90:6314`)
         }
         total.iter().for_each(|&v| b.real(v));
         disappear.iter().for_each(|&v| b.real(v));
@@ -253,10 +675,40 @@ impl AceTable {
         // (acefc's `xss(ih+j) = s/emev/xss(it+j)`), where KERMA(E) is the MT=301
         // heating cross section [eV·barn]. Zero where no HEATR result is supplied
         // or the total vanishes.
+        // Upstream reads MT=301 with `gety1` (zero below the first point, the
+        // last value held above the last) and rounds it to 7 figures before
+        // dividing (`acefc.f90:5636-5645`).
+        let mut g301 = heating.map(|k| {
+            let n = k.energy.len();
+            crate::endf::gety1::Gety1::new(&crate::endf::records::Tab1 {
+                head: crate::endf::records::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: n as i32 },
+                interp: vec![(n as u32, 2)],
+                pairs: k.energy.iter().copied().zip(k.h.iter().copied()).collect(),
+            })
+        });
         for (j, &e) in egrid.iter().enumerate() {
-            let h = match heating {
-                Some(k) if total[j] != 0.0 => sigfig(k.eval(e) / EMEV / total[j], 7),
-                _ => 0.0,
+            let h = match g301.as_mut() {
+                Some(g) => {
+                    // `unionx` first carries MT=301 onto the union grid
+                    // (`thresh=elow`: every point, the first at
+                    // `E*(1+eps)`, `acefc.f90:1780-1800`) and writes it to
+                    // a scratch tape that is text when the PENDF is
+                    // (`if (nin.lt.0) nscr=-nscr`, `:1110`), so `acelod`'s
+                    // `gety1` (`:5636`) meets `a11` of that value at the
+                    // node. Ti-48's 311 keV value is 9005.658499863 there
+                    // and 9005.6585 after the text, which `sigfig` takes to
+                    // 9005.659 (2026-10-15, found with an instrumented
+                    // NJOY2016).
+                    let eu = if j == 0 { e * (1.0 + UNIONX_EPS) } else { e };
+                    let gy = g.get(eu).y;
+                    let s = sigfig(
+                        crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(gy)).unwrap_or(gy),
+                        7,
+                    );
+                    let t = total_at_301[j];
+                    if t != 0.0 { sigfig(s / EMEV / t, 7) } else { 0.0 }
+                }
+                None => 0.0,
             };
             b.real(h);
         }
@@ -264,6 +716,18 @@ impl AceTable {
         let ntr = partials.len();
         let mut jxs = [0i32; 32];
         jxs[jxs::ESZ] = 1;
+
+        // NU: fission ν̄, between ESZ and MTR (`acefc.f90` ~5369: `nu=next;
+        // next=nu+nnu; … mtr=next`). Absent for a non-fissile nuclide, where
+        // JXS(2)=0 is correct rather than a gap — see `acer::nu`.
+        if let Some(block) = nu {
+            if !block.is_empty() {
+                jxs[jxs::NU] = b.next_locator();
+                for &v in block {
+                    b.real(v);
+                }
+            }
+        }
 
         if ntr > 0 {
             // MTR: reaction MT numbers (integers).
@@ -281,26 +745,53 @@ impl AceTable {
             // TYR: neutron yield with frame sign. Zero for reactions with no
             // secondary neutron; the producer value comes from `emissions`.
             jxs[jxs::TYR] = b.next_locator();
+            // A generalized yield's TYR is `±(100 + L)`, `L` the DLW locator
+            // of its yield table (`acefc.f90:7285`), so the DLW layout is
+            // needed before DLW itself is written.
+            let producers: Vec<&Emission> = partials
+                .iter()
+                .filter_map(|sec| emissions.iter().find(|e| e.mt == i32::from(sec.mt)))
+                .collect();
+            let layout = dlw_layout(&producers);
             for sec in &partials {
                 let mt = i32::from(sec.mt);
-                let tyr = emissions.iter().find(|e| e.mt == mt).map_or(0, |e| e.tyr);
+                let tyr = match producers.iter().position(|e| e.mt == mt) {
+                    None => 0,
+                    Some(k) => match &producers[k].law {
+                        EnergyLaw::Acelf6(entry) => match entry.tyr {
+                            super::acelf6::Acelf6Tyr::Fixed(t) => t,
+                            super::acelf6::Acelf6Tyr::Generalized { sign } => {
+                                sign * (100 + layout[k].0)
+                            }
+                        },
+                        _ => producers[k].tyr,
+                    },
+                };
                 b.int(tyr);
             }
 
             // LSIG: per-reaction locator into the SIG block (1-based, integers).
-            // Each reaction's SIG entry is [IE, NE, σ(1..NE)] → 2 + NE words; we
-            // store every reaction on the full grid, so NE = NES and IE = 1.
+            // Each reaction's SIG entry is [IE, NE, σ(IE..NES)] → 2 + NE words.
+            // ~~We store every reaction on the full grid, so NE = NES and IE =
+            // 1.~~ **CHANGED 2026-09-26**: from its threshold index, as
+            // `acelod` does -- see `sig_ie` above.
             jxs[jxs::LSIG] = b.next_locator();
-            for i in 0..ntr {
-                b.int((1 + i * (2 + nes)) as i32);
+            let mut loc = 1usize;
+            for &ie in &sig_ie {
+                b.int(loc as i32);
+                loc += 2 + nes + 1 - ie.min(nes);
             }
 
             // SIG: [IE, NE, σ values] for each reaction.
             jxs[jxs::SIG] = b.next_locator();
-            for xs in &partial_xs {
-                b.int(1); // IE — first grid index (1-based)
-                b.int(nes as i32); // NE — number of points
-                xs.iter().for_each(|&v| b.real(v));
+            for ((sec, xs), &ie) in partials.iter().zip(&partial_xs).zip(&sig_ie) {
+                if i32::from(sec.mt) == 18 {
+                    jxs[jxs::FIS] = b.next_locator();
+                }
+                let ie = ie.min(nes);
+                b.int(ie as i32); // IE — threshold grid index (1-based)
+                b.int((nes + 1 - ie) as i32); // NE
+                xs[ie - 1..].iter().for_each(|&v| b.real(v));
             }
         }
 
@@ -316,26 +807,128 @@ impl AceTable {
 
         // ── LAND / AND (angular) and LDLW / DLW (energy) secondary blocks ────
         // Reactions in LAND order: elastic first, then each producer. Discrete
-        // levels carry an MF=4 angular distribution; continuum producers are
-        // isotropic (correlated angle → future Law 61/44).
+        // levels carry an MF=4 angular distribution; MF=6 producers carry
+        // theirs inside the DLW law (44/61/66) and get LAND = -1.
         let mut angulars: Vec<Option<&ElasticAngular>> = Vec::with_capacity(nr + 1);
         angulars.push(angular);
         for e in &producers {
             angulars.push(e.angular.as_ref());
         }
+        // `LAND = -1` for a correlated MF=6 law (`acefc.f90:5846-5847`).
+        let mut correlated = vec![false];
+        correlated.extend(
+            producers
+                .iter()
+                .map(|e| matches!(&e.law, EnergyLaw::Acelf6(x) if x.correlated)),
+        );
         let any_aniso = angulars
             .iter()
             .any(|a| a.is_some_and(|x| !x.is_all_isotropic()));
         if any_aniso || nr > 0 {
-            let (land, and) = append_angular_blocks(&mut b, &angulars);
+            let (land, and) = append_angular_blocks(&mut b, &angulars, &correlated);
             jxs[jxs::LAND] = land;
             jxs[jxs::AND] = and;
         }
+        // The inline Law-3 header's lower bound is the reaction's own
+        // threshold grid energy, `esz(ja)` with `ja` its SIG IE
+        // (`acefc.f90:5921-5930`).
+        let law3_lo: Vec<f64> = producers
+            .iter()
+            .map(|e| {
+                let ie = partials
+                    .iter()
+                    .position(|s| i32::from(s.mt) == e.mt)
+                    .map_or(1, |k| sig_ie[k].min(nes));
+                sigfig(egrid[ie - 1] / EMEV, 7)
+            })
+            .collect();
         if nr > 0 {
             let (ldlw, dlw) =
-                append_dlw(&mut b, &producers, egrid[0] / EMEV, egrid[nes - 1] / EMEV);
+                append_dlw(&mut b, &producers, &law3_lo, sigfig(egrid[nes - 1] / EMEV, 7));
             jxs[jxs::LDLW] = ldlw;
             jxs[jxs::DLW] = dlw;
+        } else {
+            // Upstream sets `ldlw = next` and `dlw = next` whatever NR is
+            // (`acefc.f90:5902-5904`), so a table with no secondary-neutron
+            // reaction (H-1) carries both locators at the next free word, an
+            // empty block, not 0 (GitHub #872).
+            jxs[jxs::LDLW] = b.next_locator();
+            jxs[jxs::DLW] = b.next_locator();
+        }
+
+        // ── UNR (unresolved-range probability tables) ───────────────────────
+        // Immediately after DLW, which is where NJOY puts it (measured on its
+        // own U-238 table: DLW -> LUNR -> DNU -> ... -> MTRP). An empty table
+        // writes nothing and leaves JXS(23) at zero, ACE's "no unresolved
+        // range" -- a locator at an empty block would be a malformed table.
+        if let Some(t) = urr {
+            let words = super::unr::unr_words(t);
+            if !words.is_empty() {
+                jxs[jxs::LUNR] = b.next_locator();
+                for (v, is_int) in words {
+                    b.word(v, is_int);
+                }
+            }
+        }
+
+        // ── Delayed neutrons: DNU, BDD, DNEDL, DNED ─────────────────────────
+        // After UNR and before the photon blocks -- NJOY's own order, measured
+        // on its U-238 table: LUNR -> DNU -> BDD -> DNEDL -> DNED -> GPD -> MTRP.
+        // DNEDL/DNED locators are DNED-relative, so the blocks append verbatim.
+        let mut ndnf = 0i32;
+        if let Some(d) = delayed {
+            if d.n_groups > 0 {
+                for (slot, words) in [
+                    (jxs::DNU, &d.dnu),
+                    (jxs::BDD, &d.bdd),
+                    (jxs::DNEDL, &d.dnedl),
+                    (jxs::DNED, &d.dned),
+                ] {
+                    jxs[slot] = b.next_locator();
+                    for &(v, is_int) in words {
+                        b.word(v, is_int);
+                    }
+                }
+                ndnf = d.n_groups as i32;
+            }
+        }
+
+        // Photon production. Absent is the normal case and a legal table; the
+        // builder returns None rather than a partial block for a form it
+        // cannot write (see `photon_blocks::build`).
+        let mut ntrp = 0i32;
+        if let Some(entries) = photons {
+            if !entries.is_empty() {
+                let (mtrp, lsigp, sigp, landp, andp, ldlwp, dlwp) =
+                    append_photon_blocks(&mut b, entries, &egrid);
+                jxs[jxs::MTRP] = mtrp;
+                jxs[jxs::LSIGP] = lsigp;
+                jxs[jxs::SIGP] = sigp;
+                jxs[jxs::LANDP] = landp;
+                jxs[jxs::ANDP] = andp;
+                jxs[jxs::LDLWP] = ldlwp;
+                jxs[jxs::DLWP] = dlwp;
+                ntrp = entries.len() as i32;
+
+                // YP: distinct MTs, in MTRP order, whose production is a
+                // yield rather than an MF=13 cross section (`acelpp`,
+                // `acefc.f90:8993-9008`). Written even when empty, as there.
+                jxs[jxs::YP] = b.next_locator();
+                let mut yp: Vec<i32> = Vec::new();
+                let mut mtl = 0;
+                for e in entries.iter() {
+                    let mtd = e.mtrp / 1000;
+                    let mf13 = !matches!(e.sigp, super::photon_blocks::SigP::Yield { .. });
+                    if !mf13 && mtd != mtl {
+                        mtl = mtd;
+                        yp.push(mtd);
+                    }
+                }
+                b.int(yp.len() as i32);
+                for mt in yp {
+                    b.int(mt);
+                }
+            }
         }
 
         let (xss, is_int) = b.finish();
@@ -348,7 +941,9 @@ impl AceTable {
         nxs_arr[nxs::NES] = nes as i32;
         nxs_arr[nxs::NTR] = ntr as i32;
         nxs_arr[nxs::NR] = nr as i32;
-        nxs_arr[nxs::NTRP] = 0;
+        // NTRP was hard-zeroed here while photon production was unwritten.
+        nxs_arr[nxs::NTRP] = ntrp;
+        nxs_arr[nxs::NDNF] = ndnf;
         nxs_arr[nxs::S] = 0;
         nxs_arr[nxs::Z] = za / 1000;
         nxs_arr[nxs::A] = za % 1000;
@@ -358,16 +953,34 @@ impl AceTable {
         // (continuous-energy neutron), e.g. "92235.00c".
         let zaid_num = za as f64 + suffix as f64 / 100.0;
         let zaid = format!("{:9.2}c", zaid_num);
-        // `hm` is a cosmetic 10-char material tag. We do not retain the ENDF MAT
-        // in `ReconrResult`, so tag with ZA (what a reader displays anyway).
+        // `hm` is a 10-char material tag. ~~We do not retain the ENDF MAT in
+        // `ReconrResult`, so tag with ZA (what a reader displays anyway).~~
+        // CORRECTED 2026-10-14 (gh:#864): upstream writes the MAT
+        // (`acefc.f90:4949`, `'   mat',i4`), and `build_deck`, which knows
+        // it, now overwrites this tag with it; only a table built here without
+        // a deck keeps the ZA.
         let mat_id = format!("{:>10}", format!("mat{za}"));
 
         AceTable {
             zaid,
             awr,
             kt_mev,
+            iz: [0; 16],
             date: "  njoy-rust".to_string(),
-            comment: format!("ZA={za} AWR={awr:.6} processed by njoy-outram-park-fork"),
+            // Provenance, written into the ACE `hk` field (70 chars) so it
+            // travels with the table rather than beside it: which crate
+            // version, which commit (`+` = built from a dirty tree), and when.
+            //
+            // AWR was dropped from this string to make room. It is not lost --
+            // it is field 2 of line 1 of every ACE file, at full precision,
+            // two columns from this comment. Repeating it here bought nothing
+            // and cost the characters the provenance needs.
+            comment: format!(
+                "ZA={za} njoy-outram-park-fork v{} {} {}",
+                env!("CARGO_PKG_VERSION"),
+                env!("NJOY_OP_GIT_SHA"),
+                env!("NJOY_OP_BUILD_DATE"),
+            ),
             mat_id,
             nxs: nxs_arr,
             jxs,
@@ -430,7 +1043,11 @@ impl XssBuilder {
 /// Each reaction's angular distribution, if anisotropic, is written to the AND
 /// block and referenced by its LAND locator (AND-relative, 1-based); isotropic or
 /// absent reactions get LAND locator `0`. Layout per `change` in `acefc.f90`.
-fn append_angular_blocks(b: &mut XssBuilder, reactions: &[Option<&ElasticAngular>]) -> (i32, i32) {
+fn append_angular_blocks(
+    b: &mut XssBuilder,
+    reactions: &[Option<&ElasticAngular>],
+    correlated: &[bool],
+) -> (i32, i32) {
     // Segment length (AND words) of each reaction's data; 0 if isotropic/absent.
     let seg_len: Vec<i32> = reactions
         .iter()
@@ -461,8 +1078,8 @@ fn append_angular_blocks(b: &mut XssBuilder, reactions: &[Option<&ElasticAngular
 
     // LAND: one locator per reaction.
     let land = b.next_locator();
-    for &s in &starts {
-        b.int(s);
+    for (i, &s) in starts.iter().enumerate() {
+        b.int(if correlated.get(i).copied().unwrap_or(false) { -1 } else { s });
     }
 
     // AND: each anisotropic reaction's angular data.
@@ -521,29 +1138,50 @@ fn write_angular_segment(b: &mut XssBuilder, a: &ElasticAngular, s: i32) {
 /// the 9-word law-validity header `[LNW=0, LAW, IDAT, NR=0, NE=2, E_lo, E_hi,
 /// P=1, P=1]` (applies with probability 1 over `[e_lo, e_hi]` \[MeV\]) followed
 /// at `IDAT` by the law data. Ports the DLW layout of `acelod`/`acelf5`.
-fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], e_lo: f64, e_hi: f64) -> (i32, i32) {
-    let nr = producers.len();
+/// Generic law-applicability header length for the non-`acelf6` laws.
+const DLW_HEADER: i32 = 9;
 
-    // Header is a fixed 9 words; law data follows. Compute each producer's
-    // DLW-relative header offset (1-based) so LDLW and the IDAT locators agree.
-    const HEADER: i32 = 9;
-    let mut header_off = Vec::with_capacity(nr);
-    let mut off = 1i32; // DLW-relative 1-based (DLW starts right after LDLW)
+/// Each producer's `(entry start, LDLW locator)`, DLW-relative and 1-based.
+/// An `acelf6` entry carries its own header and may open with a
+/// generalized-yield table that `LDLW` skips.
+fn dlw_layout(producers: &[&Emission]) -> Vec<(i32, i32)> {
+    let mut out = Vec::with_capacity(producers.len());
+    let mut off = 1i32; // DLW starts right after LDLW
     for e in producers {
-        header_off.push(off);
-        off += HEADER + e.law.data_len();
+        match &e.law {
+            EnergyLaw::Acelf6(entry) => {
+                out.push((off, off + entry.yield_len as i32));
+                off += entry.words.len() as i32;
+            }
+            law => {
+                out.push((off, off));
+                off += DLW_HEADER + law.data_len();
+            }
+        }
     }
+    out
+}
+
+fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], law3_lo: &[f64], e_hi: f64) -> (i32, i32) {
+    let layout = dlw_layout(producers);
 
     // LDLW block: one DLW-relative locator per producer.
     let ldlw = b.next_locator();
-    for &o in &header_off {
-        b.int(o);
+    for &(_, l) in &layout {
+        b.int(l);
     }
 
     // DLW block.
     let dlw = b.next_locator();
     for (i, e) in producers.iter().enumerate() {
-        let idat_rel = header_off[i] + HEADER; // DLW-relative 1-based data start
+        if let EnergyLaw::Acelf6(entry) = &e.law {
+            for (v, is_int) in entry.resolve(layout[i].0) {
+                b.word(v, is_int);
+            }
+            continue;
+        }
+        let idat_rel = layout[i].0 + DLW_HEADER; // DLW-relative 1-based data start
+        let e_lo = law3_lo[i];
         b.int(0); // LNW — single law
         b.int(e.law.law_number()); // LAW
         b.int(idat_rel); // IDAT
@@ -553,12 +1191,320 @@ fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], e_lo: f64, e_hi: f64)
         b.real(e_hi); // E_hi [MeV]
         b.real(1.0); // P_lo
         b.real(1.0); // P_hi
-        for (v, is_int) in e.law.serialize(idat_rel) {
+        let mut words = e.law.serialize(idat_rel);
+        // `acelod`'s clamp: an effective threshold above the table's own
+        // first energy is pulled just below it (`acefc.f90:5933-5935`).
+        if let EnergyLaw::Law3 { .. } = e.law {
+            if words[0].0 > e_lo {
+                words[0].0 = sigfig(e_lo * 0.999998, 7);
+            }
+        }
+        for (v, is_int) in words {
             b.word(v, is_int);
         }
     }
 
     (ldlw, dlw)
+}
+
+/// Append the seven **photon-production** blocks, returning the 1-based
+/// locators for `JXS(13..19)` in order `(MTRP, LSIGP, SIGP, LANDP, ANDP,
+/// LDLWP, DLWP)`.
+///
+/// Mirrors [`append_dlw`] for the photon side (`acelpp`, `acefc.f90`
+/// 8214-9014). `ANDP` is returned equal to `LDLWP` when every photon is
+/// isotropic — which is what NJOY writes, and what makes an all-zero `LANDP`
+/// unambiguous.
+fn append_photon_blocks(
+    b: &mut XssBuilder,
+    entries: &[super::photon_blocks::PhotonEntry],
+    egrid: &[f64],
+) -> (i32, i32, i32, i32, i32, i32, i32) {
+    let n = entries.len();
+
+    // MTRP. `acelpp` stores `mto = 10*(MT*1000 + k)` plus a flag digit
+    // (`lff`: 0 for a discrete line, 1 for an MF=15 law-4 photon, 2 for an
+    // MF=6 photon, `acefc.f90:8384-8386`) and later strips it in place with
+    // `xss(mtrp-1+i)=xss(mtrp-1+i)/10` (`:8490`). So the word NJOY2016 holds
+    // is fractional for lff > 0 (B-10's MT=801 photon is 801001.2). Its
+    // Type-1 writer prints it with `nint` and hides that; its Type-2 file
+    // keeps it, and so does this word (still flagged an integer for Type 1).
+    let mtrp = b.next_locator();
+    for e in entries {
+        let lff = match (&e.sigp, &e.law) {
+            (SigP::Yield { mftype: 16, .. }, _) => 2,
+            (_, EnergyLaw::Law4(_)) => 1,
+            _ => 0,
+        };
+        b.word(f64::from(e.mtrp * 10 + lff) / 10.0, true);
+    }
+
+    // LSIGP: SIGP-relative 1-based offsets, so size each SIGP entry first.
+    // MFTYPE=13 entries are tabulated on the ACE grid HERE, because this is
+    // where that grid exists. Each runs from the first grid point at or above
+    // the section's own first energy to the last at or below its last -- NOT
+    // to the end of the grid, which is what NJOY writes (U-234's MT=3
+    // subsections stop early).
+    //
+    // Within the window each value is `gamsum`'s (`acefc.f90:3660-3700`,
+    // the `iopp` branch). The window starts at the first grid point at or
+    // above `thresh`, `gety2`'s leading-zero scan of the subsection. It does
+    // not start at the TAB1's first energy: U-234's third MT=3 subsection
+    // opens with zeros, and we wrote it from IE = 1 where NJOY writes
+    // IE = 24 907. The first grid point is read at `E(1+eps)` and the last at
+    // `E(1-eps)`, the threshold point itself is zero, and every value is
+    // `sigfig(y, 7, 0)`. ~~Unrounded `eval_tab1` values~~, CHANGED
+    // 2026-09-26 (GitHub #340).
+    // An MF=13 entry's SIGP window, as `gamsum` and `acelpp` make it
+    // (`acefc.f90:3700-3760`, `:8336-8371`). `gamsum` evaluates the cross
+    // section at every grid energy from the table's first energy on (the
+    // value is held past its last), zero at that first energy; `acelpp` then
+    // keeps the run from the last leading zero to one point past the last
+    // non-zero value. ~~The window used to stop at the table's last energy~~
+    // (CORRECTED 2026-10-14, GitHub #872): O-16's MT=4 tables run to 150 MeV
+    // with zeros above 30 MeV, which NJOY2016 does not store.
+    let xs_window = |interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
+        const EPS: f64 = 1.0e-10;
+        let Some(&(thresh, _)) = pairs.first() else {
+            return (1, Vec::new());
+        };
+        let np = pairs.len() as i32;
+        let tab = crate::endf::records::Tab1 {
+            head: crate::endf::records::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: interp.len() as i32, n2: np },
+            interp: interp.to_vec(),
+            pairs: pairs.to_vec(),
+        };
+        let mut g = crate::endf::gety1::Gety1::new(&tab);
+        let _ = g.get(0.0);
+        let Some(i0) = egrid.iter().position(|&e| e >= (1.0 - EPS) * thresh) else {
+            return (1, Vec::new());
+        };
+        let nen = egrid.len();
+        let ys: Vec<f64> = (i0..nen)
+            .map(|i| {
+                let mut e = egrid[i];
+                if i == 0 {
+                    e *= 1.0 + EPS;
+                }
+                if i == nen - 1 {
+                    e *= 1.0 - EPS;
+                }
+                let mut y = g.get(e).y;
+                if i > 0 && e < thresh * (1.0 + EPS) {
+                    y = 0.0;
+                }
+                // `gamsum` writes these to a text scratch tape that `acelpp`
+                // reads back, so each value carries `a11`'s rounding (6
+                // figures for a two-digit exponent).
+                let y = sigfig(y, 7);
+                crate::endf::parse::parse_endf_float(&crate::endf::parse::format_endf_float(y)).unwrap_or(y)
+            })
+            .collect();
+        // `acelpp`'s jfirst / jlast over those values.
+        let (mut jfirst, mut jn, mut jlast) = (0usize, 0usize, 0usize);
+        let mut kept: Vec<f64> = Vec::with_capacity(ys.len());
+        for (m, &y) in ys.iter().enumerate() {
+            if y == 0.0 && jlast == 0 && jn == 1 {
+                jn = 0;
+                kept.clear();
+            }
+            if jn == 0 {
+                jfirst = m;
+            }
+            jn += 1;
+            if y != 0.0 {
+                jlast = jn;
+            }
+            kept.push(y);
+        }
+        if jlast < jn {
+            jlast += 1;
+        }
+        kept.truncate(jlast);
+        ((i0 + jfirst) as i32 + 1, kept)
+    };
+
+    let sigp_len = |e: &super::photon_blocks::PhotonEntry| -> i32 {
+        match &e.sigp {
+            // [12, MTMULT, NR, NBT(NR), INT(NR), NE, E(NE), y(NE)]
+            SigP::Yield { e_mev, interp, .. } => 4 + 2 * e_mev.len() as i32 + 2 * yield_nr(interp) as i32,
+            // [13, IE, NE, sigma(NE)]
+            SigP::Xs { interp, pairs } => 3 + xs_window(interp, pairs).1.len() as i32,
+        }
+    };
+    let mut sig_off = Vec::with_capacity(n);
+    let mut off = 1i32;
+    for e in entries {
+        sig_off.push(off);
+        off += sigp_len(e);
+    }
+    let lsigp = b.next_locator();
+    for &o in &sig_off {
+        b.int(o);
+    }
+
+    // SIGP.
+    let sigp = b.next_locator();
+    for e in entries {
+        match &e.sigp {
+            SigP::Yield {
+                mftype,
+                mtmult,
+                e_mev,
+                y,
+                interp,
+            } => {
+                b.int(*mftype);
+                b.int(*mtmult);
+                // NR = 0 for one lin-lin region, else the regions as they are
+                // (`acefc.f90:8312-8322`).
+                let nr = yield_nr(interp);
+                b.int(nr as i32);
+                if nr > 0 {
+                    for &(nbt, _) in interp {
+                        b.int(nbt as i32);
+                    }
+                    for &(_, int) in interp {
+                        b.int(int as i32);
+                    }
+                }
+                b.int(e_mev.len() as i32);
+                for &v in e_mev {
+                    b.real(v);
+                }
+                for &v in y {
+                    b.real(v);
+                }
+            }
+            SigP::Xs { interp, pairs } => {
+                let (ie, sig) = xs_window(interp, pairs);
+                b.int(13);
+                b.int(ie);
+                b.int(sig.len() as i32);
+                for &v in &sig {
+                    b.real(v);
+                }
+            }
+        }
+    }
+
+    // LANDP / ANDP (`acelpp`, `acefc.f90:8402-8478`). Each anisotropic MF=14
+    // subsection is one ANDP table, `[NE, E(NE), L(NE), 33 cosines per
+    // anisotropic energy]`, written in the order the entries carry them; a
+    // photon points at its table (1-based, ANDP-relative) or has 0.
+    let tables: Vec<&super::photon_blocks::PhotonAngularTable> =
+        entries.iter().flat_map(|e| e.andp_tables.iter()).collect();
+    let mut table_loc = Vec::with_capacity(tables.len());
+    let mut loc = 1i32;
+    for t in &tables {
+        table_loc.push(loc);
+        let aniso = t.bins.iter().filter(|b| b.is_some()).count();
+        loc += 1 + 2 * t.e_mev.len() as i32 + 33 * aniso as i32;
+    }
+    let landp = b.next_locator();
+    for e in entries {
+        b.int(e.landp.map_or(0, |id| table_loc[id]));
+    }
+    let andp = b.next_locator();
+    for (t, &base) in tables.iter().zip(&table_loc) {
+        let ne = t.e_mev.len() as i32;
+        b.int(ne);
+        for &e in &t.e_mev {
+            b.real(e);
+        }
+        let mut m = 0i32;
+        for bins in &t.bins {
+            if bins.is_some() {
+                b.int(base + 2 * ne + 33 * m + 1);
+                m += 1;
+            } else {
+                b.int(0);
+            }
+        }
+        for bins in t.bins.iter().flatten() {
+            for &c in bins {
+                b.real(c);
+            }
+        }
+    }
+
+    // LDLWP / DLWP, laid out exactly as the neutron LDLW/DLW.
+    // LNW, LAW, IDAT, then the applicability TAB1: NR, (NBT, INT) x NR, NE,
+    // E x NE, P x NE. The fixed form (NR = 0, NE = 2) is 9 words.
+    let header_len = |e: &super::photon_blocks::PhotonEntry| -> i32 {
+        match &e.applicability {
+            None => 9,
+            Some(a) => 3 + 1 + 2 * a.interp.len() as i32 + 1 + 2 * a.e_mev.len() as i32,
+        }
+    };
+    let mut header_off = Vec::with_capacity(n);
+    let mut off = 1i32;
+    for e in entries {
+        header_off.push(off);
+        off += header_len(e) + e.law.data_len();
+    }
+    let ldlwp = b.next_locator();
+    for &o in &header_off {
+        b.int(o);
+    }
+    let dlwp = b.next_locator();
+    for (i, e) in entries.iter().enumerate() {
+        let idat_rel = header_off[i] + header_len(e);
+        // For an MF=13 entry `acelpp` takes the law's energy range from the
+        // ESZ grid at the entry's first and last SIGP index (`ef=xss(esz+ie)`,
+        // `el=xss(esz+ie+n-1)`, `acefc.f90:8370-8371`), not from the
+        // subsection's own first energy. U-234's third MT=3 subsection opens
+        // with zeros from 1e-5 eV, and its header read 1e-11 MeV where NJOY
+        // writes 4.518e-2.
+        let (e_lo, e_hi) = match &e.sigp {
+            SigP::Xs { interp, pairs } => {
+                let (ie, sig) = xs_window(interp, pairs);
+                let lo = (ie - 1) as usize;
+                let hi = lo + sig.len().max(1) - 1;
+                match (egrid.get(lo), egrid.get(hi)) {
+                    (Some(&a), Some(&z)) => (sigfig(a / EMEV, 7), sigfig(z / EMEV, 7)),
+                    _ => (e.e_lo_mev, e.e_hi_mev),
+                }
+            }
+            SigP::Yield { .. } => (e.e_lo_mev, e.e_hi_mev),
+        };
+        b.int(0); // LNW
+        b.int(e.law.law_number());
+        b.int(idat_rel);
+        match &e.applicability {
+            None => {
+                b.int(0); // NR
+                b.int(2); // NE
+                b.real(e_lo);
+                b.real(e_hi);
+                b.real(1.0);
+                b.real(1.0);
+            }
+            // An MF=15 probability record, as `acelpp` copies it
+            // (`acefc.f90:8549-8566`, GitHub #875).
+            Some(a) => {
+                b.int(a.interp.len() as i32);
+                for &(nbt, _) in &a.interp {
+                    b.int(nbt as i32);
+                }
+                for &(_, int) in &a.interp {
+                    b.int(int as i32);
+                }
+                b.int(a.e_mev.len() as i32);
+                for &v in &a.e_mev {
+                    b.real(v);
+                }
+                for &v in &a.p {
+                    b.real(v);
+                }
+            }
+        }
+        for (v, is_int) in e.law.serialize(idat_rel) {
+            b.word(v, is_int);
+        }
+    }
+
+    (mtrp, lsigp, sigp, landp, andp, ldlwp, dlwp)
 }
 
 #[cfg(test)]
@@ -568,42 +1514,136 @@ mod tests {
 
     #[test]
     fn sigfig_rounds_to_n_significant_figures() {
+        // Compared at a Type-1 file's precision (`1pE20.11`, 12 digits),
+        // because upstream's result carries a x1.0000000000001 bias below it.
+        let printed = |x: f64| format!("{x:.11e}");
         assert_eq!(sigfig(0.0, 7), 0.0);
-        assert!((sigfig(1.234_567_89, 7) - 1.234_568).abs() < 1e-12);
-        assert!((sigfig(92_235.678_9, 7) - 92_235.68).abs() < 1e-9);
+        assert_eq!(printed(sigfig(1.234_567_89, 7)), printed(1.234_568));
+        assert_eq!(printed(sigfig(92_235.678_9, 7)), printed(92_235.68));
+    }
+
+    /// The nudge: `nint(x·10^p + 10^(ndig−11))`, `util.f90:380`. The value is a
+    /// DNED outgoing energy from U-234's MT=455 spectrum, where the plain
+    /// `round(x·10^p)/10^p` this function used to be gave one unit less in the
+    /// 7th figure than NJOY's own table.
+    #[test]
+    fn sigfig_carries_upstreams_rounding_nudge() {
+        let printed = |x: f64| format!("{x:.11e}");
+        // A value whose 7-figure scaling lands a hair BELOW .5: plain rounding
+        // gives ...954, upstream's `+ 10^(7-11)` nudge gives ...955.
+        let x: f64 = (4_645_954.5 - 1.0e-6) / 1.0e11;
+        let plain = (x * 1.0e11).round() / 1.0e11;
+        assert_eq!(printed(plain), printed(4.645_954e-5), "the case must discriminate");
+        assert_eq!(printed(sigfig(x, 7)), printed(4.645_955e-5));
     }
 
     #[test]
     fn role_drops_redundant_sums_keeps_partials() {
         // MT=1/3 are always redundant; MT=2 is elastic.
-        assert!(matches!(role_of(1, true, true), Role::Redundant));
-        assert!(matches!(role_of(3, false, false), Role::Redundant));
-        assert!(matches!(role_of(2, false, false), Role::Elastic));
-        // MT=4 is redundant only when discrete inelastic levels exist.
-        assert!(matches!(role_of(4, true, false), Role::Redundant));
-        assert!(matches!(role_of(4, false, false), Role::Partial));
-        // Partial fission MTs are redundant only when total fission MT=18 exists.
-        assert!(matches!(role_of(19, false, true), Role::Redundant));
-        assert!(matches!(role_of(19, false, false), Role::Partial));
+        assert!(matches!(role_of(1, true, false, false), Role::Redundant));
+        assert!(matches!(role_of(3, false, false, false), Role::Redundant));
+        assert!(matches!(role_of(2, false, false, false), Role::Elastic));
+        // MT=4 is kept ONLY when the evaluation carries MF=12/MT=4
+        // (`acefc.f90:1713-1731` via `mf12s`, built at `:390`). It is NOT keyed
+        // on whether discrete inelastic levels exist -- U-235 ENDF/B-VII.0 and
+        // ENDF/B-VIII.0 both have ~40 levels and NJOY keeps MT=4 only on the
+        // first, which is exactly the tape carrying MF=12/MT=4.
+        assert!(matches!(role_of(4, false, false, false), Role::Redundant));
+        assert!(matches!(role_of(4, true, false, false), Role::Partial));
         // Real partials are kept.
-        assert!(matches!(role_of(18, false, false), Role::Partial));
-        assert!(matches!(role_of(102, false, false), Role::Partial));
-        assert!(matches!(role_of(16, false, false), Role::Partial));
+        assert!(matches!(role_of(102, false, false, false), Role::Partial));
+        assert!(matches!(role_of(16, false, false, false), Role::Partial));
+    }
+
+    /// Exactly ONE fission representation is stored, and which one is decided
+    /// by `mt19` — whether the evaluation gives MF=4/5/6 for MT=19 — not by
+    /// whether MT=18 happens to be present.
+    ///
+    /// This is the rule that had U-234 wrong: NJOY2016 stores MT=19/20/21/38
+    /// and no MT=18 for it, and this port stored MT=18 and dropped the
+    /// partials. Both are internally consistent, so nothing failed — the
+    /// tables simply disagreed about which reactions exist, which is why it
+    /// took a cross-nuclide comparison to surface.
+    #[test]
+    fn fission_representation_follows_mt19_not_mt18() {
+        // U-235 / U-238 shape: no MF=4/5/6 for MT=19, evaluation gives MT=18
+        // and the partials. Keep MT=18, drop the partials.
+        assert!(matches!(role_of(18, false, false, true), Role::Partial));
+        for mt in [19, 20, 21, 38] {
+            assert!(
+                matches!(role_of(mt, false, false, true), Role::Redundant),
+                "MT={mt} should be dropped when mt19 is unset"
+            );
+        }
+
+        // U-234 shape: MF=4/MT=19 present. Keep the partials, drop MT=18.
+        assert!(matches!(role_of(18, false, true, true), Role::Redundant));
+        for mt in [19, 20, 21, 38] {
+            assert!(
+                matches!(role_of(mt, false, true, true), Role::Partial),
+                "MT={mt} should be stored when mt19 is set"
+            );
+        }
+
+        // Guard: mt19 set but no partial sections on the tape. Dropping MT=18
+        // would leave the table with NO fission at all, so it is kept.
+        assert!(matches!(role_of(18, false, true, false), Role::Partial));
     }
 
     #[test]
     fn disappearance_excludes_fission_and_scatter() {
-        assert!(is_disappearance(102)); // capture
-        assert!(is_disappearance(103)); // (n,p)
-        assert!(is_disappearance(107)); // (n,α)
-        assert!(!is_disappearance(18)); // fission is NOT disappearance
-        assert!(!is_disappearance(2)); // elastic
-        assert!(!is_disappearance(16)); // (n,2n)
+        let none: [i32; 0] = [];
+        assert!(is_disappearance(102, &none)); // capture
+        assert!(is_disappearance(103, &none)); // (n,p)
+        assert!(is_disappearance(107, &none)); // (n,α)
+        assert!(!is_disappearance(18, &none)); // fission is NOT disappearance
+        assert!(!is_disappearance(2, &none)); // elastic
+        assert!(!is_disappearance(16, &none)); // (n,2n)
+    }
+
+    /// The discrete charged-particle levels are STORED but only SUMMED when
+    /// their lumped total is absent — upstream's `mt103.eq.0 .and. …` guard.
+    ///
+    /// This is the test that would have caught the double-count: without the
+    /// guard, MT=649 and MT=800-835 are added to the ESZ total on top of
+    /// MT=103/107, which already sum them. The table still builds; the total
+    /// is just silently wrong, which is why this is asserted rather than
+    /// eyeballed.
+    #[test]
+    fn charged_particle_levels_are_stored_but_not_double_counted() {
+        // Stored either way: they carry an MTR entry so they can be tallied.
+        assert!(matches!(role_of(649, true, false, false), Role::Partial));
+        assert!(matches!(role_of(800, true, false, false), Role::Partial));
+        assert!(matches!(role_of(835, true, false, false), Role::Partial));
+
+        // U-235's case: the lumped totals ARE present, so the levels must not
+        // reach the total or the disappearance column.
+        let with_lumped = [2, 18, 102, 103, 107, 649, 800, 835];
+        assert!(covered_by_lumped(649, &with_lumped));
+        assert!(covered_by_lumped(835, &with_lumped));
+        assert!(!contributes_to_total(649, &with_lumped));
+        assert!(!contributes_to_total(835, &with_lumped));
+        assert!(!is_disappearance(649, &with_lumped));
+        assert!(!is_disappearance(835, &with_lumped));
+
+        // An evaluation carrying ONLY the levels: now they are the channel, so
+        // they must be summed. Upstream's guard is `mt103.eq.0`, not "never".
+        let levels_only = [2, 102, 649, 800, 835];
+        assert!(!covered_by_lumped(649, &levels_only));
+        assert!(contributes_to_total(649, &levels_only));
+        assert!(is_disappearance(649, &levels_only));
+        assert!(is_disappearance(835, &levels_only));
+
+        // The ranges are per-channel: an (n,α) level is not covered by MT=103.
+        let only_103 = [2, 103, 800];
+        assert!(!covered_by_lumped(800, &only_103));
+        assert!(contributes_to_total(800, &only_103));
     }
 
     #[test]
     fn eval_partial_is_zero_below_threshold() {
         let sec = ReconrSection {
+            lr: 0,
             mt: MtReaction::Mt16N2n,
             qi: -1.0e7,
             pairs: vec![(1.0e6, 0.0), (2.0e6, 3.0)],
@@ -616,4 +1656,64 @@ mod tests {
         );
         assert_eq!(eval_partial(&sec, 9.9e6), 3.0, "above range → clamp high");
     }
+}
+
+/// The NR `acelpp` writes for a photon yield: 0 for one lin-lin region (or
+/// none recorded), else the number of regions (`acefc.f90:8312-8322`).
+fn yield_nr(interp: &[(u32, u32)]) -> usize {
+    if interp.is_empty() || (interp.len() == 1 && interp[0].1 == 2) {
+        0
+    } else {
+        interp.len()
+    }
+}
+
+/// `unionx`'s treatment of the photon-production discontinuities on the
+/// energy grid (`acefc.f90:1180-1250`, `iskp = 0`, no thinning). For each
+/// discontinuity `d` (ascending), `egl = sigfig(d, 7, -1)` replaces the first
+/// grid energy at or above it, and the walk then jumps to
+/// `egh = sigfig(d, 7, +1)`, dropping any grid energy in between. The values
+/// at those energies are interpolated like any other grid point.
+///
+/// `unionx`'s second pair (`edl`/`edh`, for a discontinuity in MT=1 itself
+/// met at `egh`) is not reproduced: this grid has no repeated energies.
+fn unionx_discontinuities(grid: &[f64], disc: &[f64]) -> Vec<f64> {
+    const EPS: f64 = 1.0e-10;
+    const ETOP: f64 = 1.0e10;
+    if disc.is_empty() || grid.is_empty() {
+        return grid.to_vec();
+    }
+    let pair = |i: usize| -> (f64, f64) {
+        disc.get(i).map_or((ETOP, ETOP), |&d| (sigfig_dir(d, -1), sigfig_dir(d, 1)))
+    };
+    let mut iedis = 0usize;
+    let (mut egl, mut egh) = pair(iedis);
+    let mut out = Vec::with_capacity(grid.len() + 2 * disc.len());
+    let mut k = 0usize; // first grid index > e
+    let mut enext = grid[0];
+    loop {
+        let e = enext;
+        while k < grid.len() && grid[k] <= e {
+            k += 1;
+        }
+        enext = if k < grid.len() { grid[k] } else { ETOP * 100.0 };
+        if (e - egl).abs() < EPS * egl {
+            enext = egh;
+        } else if (e - egh).abs() < EPS * egh {
+            iedis += 1;
+            (egl, egh) = pair(iedis);
+        } else if enext >= (1.0 - EPS) * egl {
+            enext = egl;
+        }
+        out.push(e);
+        if enext > ETOP - ETOP / 100.0 {
+            break;
+        }
+    }
+    out
+}
+
+/// `sigfig(x, 7, idig)`.
+fn sigfig_dir(x: f64, idig: i32) -> f64 {
+    crate::mixr::mix::sigfig(x, 7, idig)
 }

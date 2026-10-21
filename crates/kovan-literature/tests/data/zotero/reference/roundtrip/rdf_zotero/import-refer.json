@@ -1,0 +1,98 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"name": "余敏",
+						"creatorType": "author"
+					},
+					{
+						"name": "朱江",
+						"creatorType": "author"
+					},
+					{
+						"name": "丁照蕾",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "参考文献管理 文献管理软件 学术书签网站 Zotero",
+						"type": 1
+					}
+				],
+				"title": "参考文献管理工具研究",
+				"publicationTitle": "JOURNAL OF MODERN INFORMATION",
+				"volume": "29",
+				"issue": "2",
+				"pages": "94-98,93",
+				"date": "2009",
+				"url": "http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx",
+				"archiveLocation": "北京万方数据股份有限公司",
+				"abstractNote": "介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.",
+				"language": "chi",
+				"extra": "Yu Min\nZhu Jiang\nDing Zhaolei"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "W. H.",
+						"lastName": "Newman",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Corn -- Yields",
+						"type": 1
+					},
+					{
+						"tag": "Corn -- Varieties",
+						"type": 1
+					},
+					{
+						"tag": "Corn -- Field experiments",
+						"type": 1
+					}
+				],
+				"title": "Corn",
+				"publisher": "Uniontown, Ala. : Canebrake Agricultural Experiment Station",
+				"date": "1891"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [],
+				"tags": [],
+				"title": "Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols",
+				"label": "Studio Omega, Verein für Christliche Radioarbeit",
+				"place": "Wien",
+				"date": "2021",
+				"url": "https://diesseits.theopodcast.at/home",
+				"language": "German"
+			}
+		]
+	}
+}

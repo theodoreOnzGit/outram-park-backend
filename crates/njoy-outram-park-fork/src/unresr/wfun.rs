@@ -22,6 +22,7 @@
 //! documented here as a cross-reference for whoever eventually verifies this
 //! module against the golden oracle.
 
+use petir::mathf::RealMath;
 use crate::common::phys::PI;
 
 const EPS: f64 = 1.0e-7;
@@ -195,9 +196,9 @@ fn w_taylor(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
         el: 0.0,
     };
 
-    let expon = (temp2 * aj0).exp();
-    let expc = expon * (temp2 * ak).cos();
-    let exps = -expon * (temp2 * ak).sin();
+    let expon = (temp2 * aj0).r_exp();
+    let expc = expon * (temp2 * ak).r_cos();
+    let exps = -expon * (temp2 * ak).r_sin();
 
     let mut ajsig: f64 = 0.0;
     let mut sig2p: f64 = 2.0 * C2;
@@ -537,10 +538,10 @@ pub fn ajk(table: &WTable, b: f64, st: f64) -> (f64, f64) {
     let sqpi = PI.sqrt();
 
     // unresr.f90:1400-1405 — small-θ / small-β early-out via the "ep" test.
-    let term = if -st / 2.0 < f64::MIN_POSITIVE.ln() {
+    let term = if -st / 2.0 < f64::MIN_POSITIVE.r_ln() {
         0.0
     } else {
-        (-st / 2.0).exp()
+        (-st / 2.0).r_exp()
     };
     let ep = (1.0 - term) / EPS_AJK - b;
 
@@ -554,7 +555,7 @@ pub fn ajk(table: &WTable, b: f64, st: f64) -> (f64, f64) {
     let a = ((1.0 + b) / b).sqrt();
     let a2 = a * a;
     let c = 200.0 / (a * st);
-    let remj = (pi2 - c.atan()) / (b * a);
+    let remj = (pi2 - c.r_atan()) / (b * a);
     let remk = ((1.0 + a2) * remj - (1.0 - a2) * c / ((c * c + 1.0) * b * a)) / (2.0 * a2);
 
     let (mut y, mut z, mut yk, mut zk) = (0.0, 0.0, 0.0, 0.0);
@@ -618,19 +619,38 @@ mod tests {
         ];
         for &(x, y, re, im) in &pts {
             let (r, i) = uw(x, y);
-            assert!((r - re).abs() <= 1e-12 * re.abs(), "Re w({x},{y}): {r:e} vs {re:e}");
-            assert!((i - im).abs() <= 1e-12 * im.abs(), "Im w({x},{y}): {i:e} vs {im:e}");
+            assert!(
+                (r - re).abs() <= 1e-12 * re.abs(),
+                "Re w({x},{y}): {r:e} vs {re:e}"
+            );
+            assert!(
+                (i - im).abs() <= 1e-12 * im.abs(),
+                "Im w({x},{y}): {i:e} vs {im:e}"
+            );
         }
     }
 
     #[test]
     fn wtable_is_exact_at_its_nodes_and_close_between_them() {
         let t = WTable::new();
-        for &(x, y) in &[(0.0, 0.0), (0.5, 0.3), (2.0, 0.1), (2.1, 0.0), (3.7, 4.4), (5.9, 0.2)] {
+        for &(x, y) in &[
+            (0.0, 0.0),
+            (0.5, 0.3),
+            (2.0, 0.1),
+            (2.1, 0.0),
+            (3.7, 4.4),
+            (5.9, 0.2),
+        ] {
             let (r, i) = t.lookup(x, y, true);
             let (re, im) = uw(x, y);
-            assert!((r - re).abs() <= 1e-9 * re.abs().max(1e-12), "node ({x},{y}): {r:e} vs {re:e}");
-            assert!((i - im).abs() <= 1e-9 * im.abs().max(1e-12), "node ({x},{y}): {i:e} vs {im:e}");
+            assert!(
+                (r - re).abs() <= 1e-9 * re.abs().max(1e-12),
+                "node ({x},{y}): {r:e} vs {re:e}"
+            );
+            assert!(
+                (i - im).abs() <= 1e-9 * im.abs().max(1e-12),
+                "node ({x},{y}): {i:e} vs {im:e}"
+            );
         }
         let mut worst: f64 = 0.0;
         for ix in 0..58 {
@@ -641,7 +661,9 @@ mod tests {
                 }
                 let (r, i) = t.lookup(x, y, true);
                 let (re, im) = uw(x, y);
-                let e = ((r - re) / re).abs().max(((i - im) / im.abs().max(1e-3 * re)).abs());
+                let e = ((r - re) / re)
+                    .abs()
+                    .max(((i - im) / im.abs().max(1e-3 * re)).abs());
                 worst = worst.max(e);
             }
         }

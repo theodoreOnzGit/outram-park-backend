@@ -1,0 +1,297 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::algebraic_fits_reproduce_formulae",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::baxi_dalle_donne_geometry_coefficients",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::bundle_blend_is_continuous_at_re_400",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::churchill_matches_colebrook_white_smooth_pipe",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::churchill_recovers_laminar_hagen_poiseuille",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::engel_laminar_constant_is_99",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/porous_drag.rs::laminar_drag_matches_stokes_darcy_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::porous_energy_equilibrates_to_wall_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_psbt_closures.rs::the_ported_wall_friction_reproduces_upstreams_psbt_drag",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_psbt_closures.rs::the_two_phase_cells_show_the_multiplier_the_single_phase_relation_omits",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::fs_drag"
+
+[[module."mod.rs".function]]
+id = "fn:f27df7ac7f947e64"
+name = "FsWallFriction"
+qual = "FsWallFriction"
+item = "type"
+shape = "enum"
+lines = [
+    67,
+    144,
+]
+hash = "sha256:c2723cd52c7f47e4adda43a2c149e3e34dcf83754cfecedac6eecc4388c61d81"
+doc_hash = "sha256:4f3388311e62d0c5ae0dca7bbff2564bfc25d284fb2cdb822914e24961d40832"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:05d1c5f213fbd61f"
+name = "friction_factor"
+qual = "FsWallFriction::friction_factor"
+lines = [
+    147,
+    155,
+]
+hash = "sha256:062d795dfeecf3c067f6181b1bd7a5de2033658f3fbdb4603c9eb735bea8348c"
+doc_hash = "sha256:18d0458bbe53ebd53e30dce4d0556a19373aca9c1a356c5d28e0662b2f3eed97"
+callees = ["fn:35e5d0652e6d03fa"]
+uses = [
+    "fn:96ed316b39f2041f",
+    "fn:d45bd48797fb1b2f",
+    "fn:f27df7ac7f947e64",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#10",
+    "#11",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:35e5d0652e6d03fa"
+name = "value"
+qual = "FsWallFriction::value"
+lines = [
+    157,
+    183,
+]
+hash = "sha256:4546e6b7a4bf6da8f154f44fbf9e73d6c68f61a88fd917ae9a9d11324d2fd3d7"
+doc_hash = "sha256:a297669e6d08560c7c51b5bf4dbc2b8c29575483f1ea0c4593a853baa902fc60"
+callees = [
+    "fn:4bae350626c7a81d",
+    "fn:c53a8bf582fc6003",
+]
+uses = ["fn:f27df7ac7f947e64"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:152d16f2ca5ab52a"
+name = "rehme_from_geometry"
+qual = "FsWallFriction::rehme_from_geometry"
+lines = [
+    185,
+    210,
+]
+hash = "sha256:29e5495f01034dbef1f423778949a4977165846e169704461f18166f738122af"
+doc_hash = "sha256:b32d04abdf72aee09f2a514790e91642f8a4b81165f0f0b24086208494d5cc98"
+uses = ["fn:f27df7ac7f947e64"]
+
+[[module."mod.rs".function]]
+id = "fn:5c8273fc075bc610"
+name = "baxi_dalle_donne_from_geometry"
+qual = "FsWallFriction::baxi_dalle_donne_from_geometry"
+lines = [
+    212,
+    228,
+]
+hash = "sha256:c1801095cd37fff86230489d9f716989aa79f9a109d1722ac9be06235e9a51e4"
+doc_hash = "sha256:18e56dfdf62fa8adecc89026da4f10fe0e7bf6de9a72679a2d2ef58b8f4a094f"
+uses = ["fn:f27df7ac7f947e64"]
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:1d8b36ce03bc01ef"
+name = "no_kazimi_from_geometry"
+qual = "FsWallFriction::no_kazimi_from_geometry"
+lines = [
+    230,
+    248,
+]
+hash = "sha256:fb0f0a844e719858be14018bb99551fc99fb73f23466e2585f21ac5c65949ac6"
+doc_hash = "sha256:ebc5a5b5d1585b1222786e2fabaa78fe16e3059980e9b9018b9effe0a091aa89"
+uses = ["fn:f27df7ac7f947e64"]
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:c53a8bf582fc6003"
+name = "churchill"
+qual = "churchill"
+lines = [
+    251,
+    261,
+]
+hash = "sha256:f8231f8af8ab002d07d9ff60bb46aebf3b56912709760f966ded586d4318ee29"
+doc_hash = "sha256:6054e7e6f8d13ed48eb45b55753f55e539b3dd0ad3027a956756db84ae4b7d24"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4bae350626c7a81d"
+name = "blend_400"
+qual = "blend_400"
+lines = [
+    263,
+    280,
+]
+hash = "sha256:349527478578ab6f9e9218859486ceee74b628296755cd72d8b5548bb1c70c87"
+doc_hash = "sha256:4c7c8e8e9107b144927bc5a91154eecd7901a658c3e6c49d64439ea28d0ca25a"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[module."tests.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::fs_drag::tests"
+
+[[module."tests.rs".function]]
+id = "fn:c9ae61917521152d"
+name = "f_of"
+qual = "f_of"
+lines = [
+    61,
+    67,
+]
+hash = "sha256:1c6b6d4b153a119c757031b98073e8418f9e6bdbe652bccecac75ff09529c2c2"
+doc_hash = "sha256:0fb61e806451c19bc6f8c63bd452f83ddeb349362d77b427b0207cd6e68f2a84"
+callees = [
+    "fn:05d1c5f213fbd61f",
+    "fn:983b1442c904d828",
+]
+uses = ["fn:f27df7ac7f947e64"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:222571a175c6923b"
+name = "churchill_recovers_laminar_hagen_poiseuille"
+qual = "churchill_recovers_laminar_hagen_poiseuille"
+lines = [
+    69,
+    84,
+]
+hash = "sha256:5b5c8354b6b9ff37351f591f72d91024cee3dffbb5624e9c21304fc25a666bc6"
+doc_hash = "sha256:87dc0482e1c44f96b7ea63c085fabb99b831b218a3ac6bf490b1676205b2b6dc"
+callees = ["fn:c9ae61917521152d"]
+uses = ["fn:f27df7ac7f947e64"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e4731170fc4d6ac0"
+name = "churchill_matches_colebrook_white_smooth_pipe"
+qual = "churchill_matches_colebrook_white_smooth_pipe"
+lines = [
+    86,
+    105,
+]
+hash = "sha256:b3d50968921a8242314ea74ea3d82a2445fd7089c22a8e3f25588e1c0675740e"
+doc_hash = "sha256:d3dddfd94d8c43aeb89ab6d0330c1e63b24949e0352488a54979f20d260e42f1"
+callees = ["fn:c9ae61917521152d"]
+uses = ["fn:f27df7ac7f947e64"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:40aeb989fb9bd82d"
+name = "engel_laminar_constant_is_99"
+qual = "engel_laminar_constant_is_99"
+lines = [
+    107,
+    116,
+]
+hash = "sha256:440f15f51548967a7b999e1a13f189aab5adffcbee508003c18bc485c64d64b7"
+doc_hash = "sha256:f235f0fa33c89465504f549b6b39d62ebe1c29de7e85c654f6875fb6fbe3e039"
+callees = ["fn:c9ae61917521152d"]
+uses = ["fn:f27df7ac7f947e64"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:fff73501a48242e2"
+name = "bundle_blend_is_continuous_at_re_400"
+qual = "bundle_blend_is_continuous_at_re_400"
+lines = [
+    118,
+    128,
+]
+hash = "sha256:c8e09559e518351357b9b1fdb895b589a00b2fdf8c0dc5db06e6e97f99bd7069"
+doc_hash = "sha256:54efacd46ecb02982a51b45377c2e2c664f76bb125eb4853d756ef6ca15efaa6"
+callees = ["fn:c9ae61917521152d"]
+uses = ["fn:f27df7ac7f947e64"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:fae65d2dfb0c7f1c"
+name = "algebraic_fits_reproduce_formulae"
+qual = "algebraic_fits_reproduce_formulae"
+lines = [
+    130,
+    154,
+]
+hash = "sha256:fd6e6b0fb52a59fa69042c80e502c0791fd9914f67c8d692ba076a9a2a71adf2"
+doc_hash = "sha256:9f0a911f09fc574fe7a11ae6c3325c27d7dfec668b1c2c06c01fc4f677da916d"
+callees = ["fn:c9ae61917521152d"]
+uses = ["fn:f27df7ac7f947e64"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:743d848f331b76d6"
+name = "baxi_dalle_donne_geometry_coefficients"
+qual = "baxi_dalle_donne_geometry_coefficients"
+lines = [
+    156,
+    196,
+]
+hash = "sha256:f473ae11664ae4b94eba2fb3fc58aa7d9717246dba8d5044a2c13126438cce89"
+doc_hash = "sha256:59500a4799332bf0fee5b4543c905aa8dcf94f4a331a5aea226022793c3b2c86"
+callees = [
+    "fn:1d8b36ce03bc01ef",
+    "fn:5c8273fc075bc610",
+]
+uses = ["fn:f27df7ac7f947e64"]
+test = true

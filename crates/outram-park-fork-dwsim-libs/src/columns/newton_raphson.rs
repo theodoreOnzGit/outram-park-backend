@@ -108,6 +108,7 @@
 //!   `Lj(ns) / (spval2 / M_mix · 1000)` (line 484) — the reported value and the
 //!   driven value are inconsistent by a factor of `M_mix²/1000²`. Preserved.
 
+use petir::mathf::RealMath;
 use crate::columns::bubble_point::WangHenkeSolver;
 use crate::columns::linalg::{broyden_root, newton_root, RootFindOptions};
 use crate::columns::model::{
@@ -978,7 +979,7 @@ fn safe_div(a: f64, b: f64) -> f64 {
 
 fn log_ratio_or_zero(computed: f64, target: f64) -> f64 {
     if computed > 0.0 && target > 0.0 {
-        let v = (computed / target).ln();
+        let v = (computed / target).r_ln();
         if v.is_finite() {
             v
         } else {

@@ -1,0 +1,202 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/examples/fhr_sim_v2/app/thermal_hydraulics_backend/pri_loop_fluid_mechanics_calc_fns"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::pri_loop_fluid_mechanics_calc_fns"
+
+[[module."mod.rs".function]]
+id = "fn:9d3da34522ad406e"
+name = "four_branch_pri_and_intermediate_loop_fluid_mechanics_only"
+qual = "four_branch_pri_and_intermediate_loop_fluid_mechanics_only"
+lines = [
+    23,
+    185,
+]
+hash = "sha256:f20d6ae04af24539aa5cde9cb5db8f62ba5fe7269406a2978360deffa5ddd7d5"
+doc_hash = "sha256:f0251f511343d3201ad8a9415b99917b88d04c1bdb7722e153e63def55536312"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:352eae89cdf05026",
+    "fn:3b175c51dad51671",
+    "fn:49b3f3e819a00739",
+    "fn:74172f53fcffc1fc",
+    "fn:89b98b3aca1482a0",
+    "fn:928c1745ab947694",
+    "fn:93844cc452449d04",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:24d00cff9f86c73f"
+name = "get_mass_flowrate_across_for_reactor_downcomers_and_heat_exchg_br"
+qual = "get_mass_flowrate_across_for_reactor_downcomers_and_heat_exchg_br"
+lines = [
+    187,
+    219,
+]
+hash = "sha256:540f24d6392468cfb045dc026691fa55473e195c39288c058af659304caa2504"
+doc_hash = "sha256:abca4430233c4f89f23601365b91450b3e41be9295c980cc9e5d40031dc43c1f"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:74172f53fcffc1fc",
+]
+uses = ["fn:ca62ba45b75e81ac"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:046aa3be883f22ec"
+name = "ciet_get_abs_mass_flowrate_across_two_branches"
+qual = "ciet_get_abs_mass_flowrate_across_two_branches"
+lines = [
+    221,
+    236,
+]
+hash = "sha256:befa3cbc5813d11133f3e9eac0135f5c14a2666573671ade76485ed683fdce90"
+doc_hash = "sha256:61de3d473064616c2b3c8a93cad6e5a1a6e0a98df117e1378a818ecdaaa0394c"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:74172f53fcffc1fc",
+]
+uses = ["fn:ca62ba45b75e81ac"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:87b19ed854642112"
+name = "ciet_coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration"
+qual = "ciet_coupled_dracs_fluid_mechanics_calc_abs_mass_rate_no_tchx_calibration"
+lines = [
+    237,
+    291,
+]
+hash = "sha256:ec9cf78abb82d0646ee1f78c9fa076e05de6e7865ffcdf111dd6872cc29f231d"
+doc_hash = "sha256:61de3d473064616c2b3c8a93cad6e5a1a6e0a98df117e1378a818ecdaaa0394c"
+callees = [
+    "fn:046aa3be883f22ec",
+    "fn:352eae89cdf05026",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f3c18a76b695e3ff"
+name = "ciet_three_branch_pri_loop_flowrates_parallel_ver_4"
+qual = "ciet_three_branch_pri_loop_flowrates_parallel_ver_4"
+lines = [
+    293,
+    486,
+]
+hash = "sha256:19a9ec3f6b0a90dc1a4d32b3c61a682f483c6c6c16daeb818cd8e8113a567442"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:32f411937a5c1d1b",
+    "fn:352eae89cdf05026",
+    "fn:49b3f3e819a00739",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:c5b03a40b86a1ce1",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true
+
+[module."parallel_branch_flow_calculator.rs"]
+path = "example:fhr_sim_v2::app::thermal_hydraulics_backend::pri_loop_fluid_mechanics_calc_fns::parallel_branch_flow_calculator"
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:60c52ac8caa5bf57"
+name = "calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1"
+qual = "calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1"
+lines = [
+    24,
+    425,
+]
+hash = "sha256:7e45e96b6af74f0e924f9135c017dc41fedc98644810a3096259f635431a11b5"
+doc_hash = "sha256:a30eb110f3455394c6a50d875ce2a6a4babdbf7e0e0a669d49f5878c3eaaaf52"
+callees = [
+    "fn:3fd6c0fc5266b62f",
+    "fn:b96c71a8e07cc6c4",
+    "fn:cea03dd5d2c74e29",
+]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+]
+physical_interface = true
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:3fd6c0fc5266b62f"
+name = "calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_custom"
+qual = "calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_custom"
+lines = [
+    427,
+    607,
+]
+hash = "sha256:ffc2335d8dc42cb7eb867a9f93723c82b8b88edf83337e6ece8887567bbe69f2"
+doc_hash = "sha256:b70ce41aeba37853aab4021b1a50c03bcfa4986138b42918e7e1440fa0408135"
+callees = ["fn:cdd1a9d70ba5750b"]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:cdd1a9d70ba5750b"
+name = "calculate_mass_flowrate_from_pressure_change_for_parallel_branches"
+qual = "calculate_mass_flowrate_from_pressure_change_for_parallel_branches"
+lines = [
+    609,
+    654,
+]
+hash = "sha256:45763f22f136c39c7c266d7ddbb0527c3340092a4ed61f266dd5f5e03e373594"
+doc_hash = "sha256:fed086ae12c2abc3eeba5ceefcdbe1c05a093351cfb708cef74b9e72d7e59525"
+callees = [
+    "fn:49de54d89ed60fe5",
+    "fn:758bc5578ccfb600",
+]
+uses = ["fn:ebf3ac43832118cf"]
+physical_interface = true
+
+[[module."parallel_branch_flow_calculator.rs".function]]
+id = "fn:49de54d89ed60fe5"
+name = "calculate_mass_flowrate_from_pressure_change_for_single_branch"
+qual = "calculate_mass_flowrate_from_pressure_change_for_single_branch"
+lines = [
+    656,
+    917,
+]
+hash = "sha256:72360a76e38a31956263597b71258164e6d41a330604c648722dcf50dfdf1df3"
+doc_hash = "sha256:65a1f41af51af65e696dc5c0f9a000596aeb8715c3c04fe5f4d32f26567ae3b1"
+uses = [
+    "fn:5bcbbf392051e369",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true

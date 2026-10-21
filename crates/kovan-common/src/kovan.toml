@@ -1,0 +1,4399 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-common"
+dir = "crates/kovan-common/src"
+crate_root = true
+test_ids = [
+    "crates/kovan-codegen/src/lib.rs::generate_artifact_packages_source_and_provenance",
+    "crates/kovan-codegen/src/lib.rs::generate_artifact_propagates_unimplemented",
+    "crates/kovan-common/src/code_map/svg.rs::every_crate_and_edge_is_drawn_with_its_tooltip",
+    "crates/kovan-common/src/code_map/svg.rs::the_fixture_svg_is_pinned",
+    "crates/kovan-common/src/code_map/svg.rs::the_same_map_gives_byte_identical_svg",
+    "crates/kovan-common/src/document.rs::author_json_and_toml_round_trip",
+    "crates/kovan-common/src/document.rs::author_with_no_affiliation_round_trips",
+    "crates/kovan-common/src/document.rs::builder_sets_every_field",
+    "crates/kovan-common/src/document.rs::document_constructor_sets_identity_and_empties_the_rest",
+    "crates/kovan-common/src/document.rs::document_json_missing_newer_fields_still_deserialises",
+    "crates/kovan-common/src/document.rs::document_json_round_trips",
+    "crates/kovan-common/src/document.rs::document_type_json_round_trips",
+    "crates/kovan-common/src/document.rs::fully_populated_document_json_round_trips",
+    "crates/kovan-common/src/document.rs::fully_populated_document_toml_round_trips",
+    "crates/kovan-common/src/document.rs::visibility_json_round_trips",
+    "crates/kovan-common/src/fuzzy.rs::a_tighter_cluster_ranks_higher",
+    "crates/kovan-common/src/fuzzy.rs::substring_beats_subsequence_and_order_matters",
+    "crates/kovan-common/src/knowledge.rs::benchmark_json_and_toml_round_trip",
+    "crates/kovan-common/src/knowledge.rs::correlation_json_and_toml_round_trip",
+    "crates/kovan-common/src/knowledge.rs::correlation_with_no_source_round_trips",
+    "crates/kovan-common/src/knowledge.rs::generated_artifact_bare_link_round_trips",
+    "crates/kovan-common/src/knowledge.rs::generated_artifact_json_and_toml_round_trip",
+    "crates/kovan-common/src/knowledge.rs::validation_case_json_and_toml_round_trip",
+    "crates/kovan-common/src/mindmap_view.rs::a_collapsed_star_is_the_plain_ring",
+    "crates/kovan-common/src/mindmap_view.rs::a_connector_joins_the_facing_edges",
+    "crates/kovan-common/src/mindmap_view.rs::a_fan_opens_outward",
+    "crates/kovan-common/src/mindmap_view.rs::a_small_map_is_centred_and_pans_only_sideways",
+    "crates/kovan-common/src/mindmap_view.rs::at_fit_either_side_edge_can_reach_the_middle_of_the_screen",
+    "crates/kovan-common/src/mindmap_view.rs::centring_puts_a_point_in_the_middle_of_the_view",
+    "crates/kovan-common/src/mindmap_view.rs::connectors_are_symmetric_and_exist_for_every_spoke",
+    "crates/kovan-common/src/mindmap_view.rs::expanded_fans_never_overlap_anything",
+    "crates/kovan-common/src/mindmap_view.rs::fit_zoom_fits_the_tighter_axis",
+    "crates/kovan-common/src/mindmap_view.rs::no_two_cards_overlap",
+    "crates/kovan-common/src/mindmap_view.rs::the_centre_card_has_room_at_every_ring_size",
+    "crates/kovan-common/src/mindmap_view.rs::the_pan_margin_is_a_quarter_of_the_drawn_map",
+    "crates/kovan-common/src/mindmap_view.rs::the_parent_card_clears_every_card_in_the_star",
+    "crates/kovan-common/src/mindmap_view.rs::the_parent_rotation_leaves_the_corridor_above_the_centre_empty",
+    "crates/kovan-common/src/mindmap_view.rs::the_ring_starts_at_the_top_and_runs_clockwise",
+    "crates/kovan-common/src/mindmap_view.rs::the_up_button_box_clears_every_card_in_the_star",
+    "crates/kovan-common/src/symbol.rs::language_display_and_str_agree",
+    "crates/kovan-common/src/symbol.rs::language_json_round_trips",
+    "crates/kovan-common/src/symbol.rs::repository_json_and_toml_round_trip",
+    "crates/kovan-common/src/symbol.rs::symbol_json_and_toml_round_trip",
+    "crates/kovan-common/tests/kovan_document_schema_compat.rs::document_with_zotero_item_round_trips",
+    "crates/kovan-common/tests/kovan_document_schema_compat.rs::pre_port_json_loads_and_reserialises_identically",
+    "crates/kovan-common/tests/kovan_document_schema_compat.rs::pre_port_toml_loads_and_reserialises_identically",
+    "crates/kovan-common/tests/zotero_port.rs::kovan_to_zotero_to_kovan",
+    "crates/kovan-common/tests/zotero_port.rs::round_trip_is_lossless_without_citation_key_and_with_a_stored_file",
+    "crates/kovan-common/tests/zotero_port.rs::zotero_to_kovan_field_map",
+    "crates/kovan-common/tests/zotero_port.rs::zotero_to_kovan_to_zotero_is_lossless",
+    "crates/kovan-literature/src/bibtex.rs::empty_slug_becomes_unknown_key",
+    "crates/kovan-literature/src/bibtex.rs::golden_techreport_entry",
+    "crates/kovan-literature/src/bibtex.rs::journal_locators_are_emitted_when_present",
+    "crates/kovan-literature/src/bibtex.rs::missing_optional_fields_are_omitted",
+    "crates/kovan-literature/src/bibtex.rs::multiple_authors_join_with_and",
+    "crates/kovan-literature/src/bibtex.rs::paper_maps_to_article",
+    "crates/kovan-literature/src/bibtex.rs::round_trips_through_to_bibtex_then_parse_bib_entries",
+    "crates/kovan-literature/src/bibtex.rs::special_characters_are_escaped",
+    "crates/kovan-literature/src/bibtex.rs::standard_maps_to_misc",
+    "crates/kovan-literature/src/lib.rs::document_type_inferred_from_path",
+    "crates/kovan-literature/src/lib.rs::generated_dirs_are_split_by_visibility",
+    "crates/kovan-literature/src/lib.rs::proprietary_and_open_roots_differ",
+    "crates/kovan-literature/src/lib.rs::theses_directory_infers_the_thesis_type",
+    "crates/kovan-literature/src/lib.rs::visibility_is_closed_unless_a_path_says_open",
+    "crates/kovan-literature/src/lookup_review.rs::identifiers_from_document",
+    "crates/kovan-literature/src/lookup_review.rs::nothing_accepted_changes_nothing",
+    "crates/kovan-literature/src/lookup_review.rs::proposal_rows_and_user_edits",
+    "crates/kovan-literature/src/metadata.rs::author_block_handles_initials_and_given_name_first",
+    "crates/kovan-literature/src/metadata.rs::elsevier_opening_yields_title_and_authors",
+    "crates/kovan-literature/src/metadata.rs::escholarship_cover_parses_both_label_layouts",
+    "crates/kovan-literature/src/metadata.rs::jrc_cover_authors_come_from_above_the_editors_label",
+    "crates/kovan-literature/src/metadata.rs::metadata_from_info_dictionary",
+    "crates/kovan-literature/src/metadata.rs::non_escholarship_text_is_not_treated_as_a_cover_page",
+    "crates/kovan-literature/src/metadata.rs::page_count_comes_from_the_page_tree_not_the_text",
+    "crates/kovan-literature/src/metadata.rs::parse_author_comma_and_spaced_forms",
+    "crates/kovan-literature/src/metadata.rs::slug_skips_leading_stop_words",
+    "crates/kovan-literature/tests/zotero_local_library.rs::import_into_kovan_documents_reports_what_is_lost",
+    "crates/kovan-literature/tests/zotero_local_library.rs::opt_in_real_data_folder_summary",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::duplicate_and_missing_keys_are_skipped",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::hand_built_library_import",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::item_json_imports_every_regular_type",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::journal_article_losses_match_the_documented_field_map",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::markdown_is_deterministic_and_escaped",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::webpage_item_type_is_altered",
+    "crates/kovan-semantics/src/extract/mod.rs::into_kovan_symbol_is_deterministic",
+    "crates/kovan-semantics/src/lib.rs::catalogue_finds_this_crates_own_symbols",
+    "crates/kovan-semantics/src/lib.rs::markdown_outputs_render_from_a_real_scan",
+    "crates/kovan-semantics/src/outputs.rs::empty_symbols_render_a_note",
+    "crates/kovan-semantics/src/outputs.rs::repository_summary_counts_files_and_kinds",
+    "crates/kovan-semantics/src/outputs.rs::symbols_markdown_is_deterministic_and_lists_symbols",
+    "crates/kovan-semantics/src/zotero/kovan_map.rs::maps_relations_collections_and_losses",
+    "crates/kovan-web/src/model.rs::the_crate_view_layout_places_every_module_without_overlap",
+    "crates/kovan-web/src/model.rs::unfolding_draws_each_function_once",
+    "crates/kovan-web/src/search.rs::a_crate_is_found_by_its_backronym",
+    "crates/kovan-web/src/search.rs::path_fragments_and_name_find_the_function",
+    "crates/kovan/src/app/axes_lock_tests.rs::a_new_figure_starts_unlocked_and_incomplete_axes_cannot_be_locked",
+    "crates/kovan/src/app/axes_lock_tests.rs::a_new_image_unlocks_and_a_restored_digitisation_comes_back_locked",
+    "crates/kovan/src/app/axes_lock_tests.rs::relocking_moved_axes_rereads_every_point_through_them",
+    "crates/kovan/src/app/code_map_view.rs::frames_stay_under_a_frame_budget_while_indexing",
+    "crates/kovan/src/app/code_review_view.rs::a_pending_request_is_held_and_drawn_headless",
+    "crates/kovan/src/app/code_review_view.rs::organisations_window_and_attestation_picker_draw_headless",
+    "crates/kovan/src/app/code_review_view.rs::review_mode_replaces_the_map_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_reconfirm_step_draws_the_callee_diff_headless",
+    "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
+    "crates/kovan/src/app/connection_picker.rs::a_reviewed_function_is_connected_to_a_standard_concept",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::a_changed_range_recomputes_only_after_explicit_confirmation",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::a_failed_restore_keeps_the_saved_points_pending",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::an_untouched_edit_after_a_hand_edited_header_keeps_every_value",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::four_series_and_a_lone_early_point_survive_an_untouched_round_trip",
+    "crates/kovan/src/app/edit_digitisation_tests.rs::respelling_a_prefilled_range_is_not_a_change",
+    "crates/kovan/src/app/literature_list.rs::standard_corpus_documents_are_listed_as_ingested",
+    "crates/kovan/src/app/literature_list.rs::the_finder_ranks_fuzzy_matches",
+    "crates/kovan/src/app/mod.rs::a_banked_series_is_what_gets_written_not_the_emptied_live_one",
+    "crates/kovan/src/app/mod.rs::a_corrected_range_rereads_restored_values_from_their_pixels",
+    "crates/kovan/src/app/mod.rs::a_deskew_is_recorded_as_a_resample",
+    "crates/kovan/src/app/mod.rs::a_new_image_clears_the_banked_series",
+    "crates/kovan/src/app/mod.rs::a_paper_with_an_unavailable_private_submodule_pdf_still_appears_in_the_knowledge_index",
+    "crates/kovan/src/app/mod.rs::a_paper_with_no_recorded_source_pdf_is_not_flagged_unavailable",
+    "crates/kovan/src/app/mod.rs::a_rotation_is_recorded_in_the_provenance_notes",
+    "crates/kovan/src/app/mod.rs::a_series_must_be_named_and_unique",
+    "crates/kovan/src/app/mod.rs::a_successful_save_returns_to_the_reader_and_a_failed_one_stays",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_falls_back_to_kvim_editor_with_no_pdf",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_lands_on_pdf_reader_when_a_pdf_is_present",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_names_an_unready_private_submodule_as_the_likely_cause",
+    "crates/kovan/src/app/mod.rs::activate_paper_and_navigate_reports_a_missing_pdf_in_the_status_message",
+    "crates/kovan/src/app/mod.rs::activate_paper_fails_cleanly_with_no_root_open",
+    "crates/kovan/src/app/mod.rs::activate_paper_resolves_session_and_pdf_path",
+    "crates/kovan/src/app/mod.rs::activate_paper_succeeds_when_the_recorded_pdf_is_missing_locally",
+    "crates/kovan/src/app/mod.rs::all_series_counts_the_live_curve_only_once_it_has_points",
+    "crates/kovan/src/app/mod.rs::an_empty_optional_field_does_not_erase_what_the_crop_knew",
+    "crates/kovan/src/app/mod.rs::an_empty_series_cannot_be_banked",
+    "crates/kovan/src/app/mod.rs::banking_a_series_keeps_the_figure_and_clears_the_points",
+    "crates/kovan/src/app/mod.rs::editing_a_saved_graph_prefills_the_wizard_and_restores_its_series",
+    "crates/kovan/src/app/mod.rs::erase_near_removes_only_the_point_under_the_pointer",
+    "crates/kovan/src/app/mod.rs::load_image_from_raster_auto_fills_page_and_document_identity_from_the_active_paper",
+    "crates/kovan/src/app/mod.rs::load_image_from_raster_still_fills_page_with_no_active_paper",
+    "crates/kovan/src/app/mod.rs::opening_a_pdf_finds_its_paper_or_offers_ingest",
+    "crates/kovan/src/app/mod.rs::refresh_knowledge_populates_index_and_graph_from_the_real_library",
+    "crates/kovan/src/app/mod.rs::repo_save_fingerprint_changes_when_the_paper_markdown_is_written",
+    "crates/kovan/src/app/mod.rs::save_into_project_without_a_paper_says_to_ingest",
+    "crates/kovan/src/app/mod.rs::save_into_project_writes_into_the_active_papers_session_when_given_one",
+    "crates/kovan/src/app/mod.rs::saving_with_no_points_is_an_error_not_an_empty_artifact",
+    "crates/kovan/src/app/mod.rs::the_setup_form_autofills_the_digitiser_panel",
+    "crates/kovan/src/app/mod.rs::the_submodule_hint_is_silent_when_no_private_submodule_is_configured",
+    "crates/kovan/src/app/mod.rs::the_wizard_rotation_turns_the_raster_the_digitiser_will_use",
+    "crates/kovan/src/app/nav.rs::a_new_page_after_back_clears_forward_and_redraws_record_nothing",
+    "crates/kovan/src/app/nav.rs::kovan_opens_on_the_corpus_map",
+    "crates/kovan/src/app/nav.rs::switching_pages_records_steps_that_back_and_forward_retrace",
+    "crates/kovan/src/app/nav.rs::the_wiki_and_mindmap_share_one_concept_through_history",
+    "crates/kovan/src/app/pdf_reader.rs::save_annotations_writes_into_the_active_papers_session_when_given_one",
+    "crates/kovan/src/app/series_select.rs::a_rename_in_the_name_box_applies_to_the_live_series",
+    "crates/kovan/src/app/series_select.rs::an_empty_live_curve_is_not_banked",
+    "crates/kovan/src/app/series_select.rs::an_unnamed_or_duplicate_live_curve_blocks_the_switch",
+    "crates/kovan/src/app/series_select.rs::banking_a_mid_order_live_series_keeps_its_place",
+    "crates/kovan/src/app/series_select.rs::hopping_repeatedly_never_scrambles_the_order_or_loses_points",
+    "crates/kovan/src/app/series_select.rs::saving_after_hopping_writes_every_series_in_original_order",
+    "crates/kovan/src/app/series_select.rs::selecting_a_banked_series_makes_it_live_and_banks_the_old_live_one",
+    "crates/kovan/src/app/series_select.rs::selecting_the_live_series_is_a_no_op",
+    "crates/kovan/src/app/series_select.rs::the_picker_renders_headlessly",
+    "crates/kovan/src/code_review_artifacts.rs::the_mindmap_collects_a_mounted_repositorys_reviews_in_the_background",
+    "crates/kovan/src/collection_picker.rs::a_nested_path_is_found_by_either_half",
+    "crates/kovan/src/collection_picker.rs::kind_is_filtered_and_chosen_paths_are_excluded",
+    "crates/kovan/src/commands/lit.rs::document_json_round_trips_through_load_document",
+    "crates/kovan/src/commands/lit.rs::load_document_missing_file_is_error",
+    "crates/kovan/src/commands/zotero_lookup.rs::never_overwrites",
+    "crates/kovan/src/corpus_tiers/multi_repo_tests.rs::ingest_goes_to_the_chosen_repository_and_records_it",
+    "crates/kovan/src/ingest.rs::a_copy_of_a_papers_pdf_is_refused_and_names_the_paper",
+    "crates/kovan/src/ingest.rs::a_copy_of_a_standard_corpus_file_is_refused_by_content",
+    "crates/kovan/src/ingest.rs::a_corpus_pdf_is_ingested_in_place",
+    "crates/kovan/src/ingest.rs::a_paper_is_filed_under_its_year",
+    "crates/kovan/src/ingest.rs::ingesting_an_already_taken_citekey_is_rejected",
+    "crates/kovan/src/ingest.rs::new_pdfs_still_ingest_and_a_name_match_only_warns",
+    "crates/kovan/src/ingest.rs::no_topics_or_projects_chosen_falls_back_to_unsorted",
+    "crates/kovan/src/ingest.rs::preview_then_ingest_creates_a_classified_paper",
+    "crates/kovan/src/ingest.rs::the_standard_corpus_file_itself_is_refused_by_path",
+    "crates/kovan/src/mindmap.rs::a_fresh_map_shows_the_corpus_with_no_folder",
+    "crates/kovan/src/mindmap.rs::star_cards_show_concepts_with_papers_as_citations",
+    "crates/kovan/src/mindmap.rs::unsorted_papers_appear_under_a_synthetic_card",
+    "crates/kovan/src/mindmap_layout.rs::ascii_render",
+    "crates/kovan/src/mindmap_layout.rs::ascii_render_is_deterministic",
+    "crates/kovan/src/mindmap_layout.rs::ascii_render_reflects_expansion_and_relations",
+    "crates/kovan/src/mindmap_layout.rs::camera_centre_on_changes_only_the_centre",
+    "crates/kovan/src/mindmap_layout.rs::camera_fit_all_clamps_zoom_and_centres_on_bounds",
+    "crates/kovan/src/mindmap_layout.rs::camera_fit_all_never_exceeds_the_zoom_ceiling_on_a_tiny_bounds",
+    "crates/kovan/src/mindmap_layout.rs::camera_zoom_at_cursor_keeps_the_world_point_visually_fixed",
+    "crates/kovan/src/mindmap_layout.rs::camera_zoom_at_cursor_respects_the_ceiling_and_is_a_no_op_past_it",
+    "crates/kovan/src/mindmap_layout.rs::layout_is_deterministic_across_repeated_calls",
+    "crates/kovan/src/mindmap_layout.rs::pinned_node_survives_relayout_after_a_topology_change",
+    "crates/kovan/src/mindmap_layout.rs::relayout_after_expand_does_not_move_already_placed_nodes",
+    "crates/kovan/src/stamping/concepts.rs::finder_ranks_seeded_first_and_matches_title_or_path",
+    "crates/kovan/src/stamping/organisations_tests.rs::concept_link_reaches_rung_5_through_evaluate_workspace",
+    "crates/kovan/src/stamping/organisations_tests.rs::ivv_end_to_end_signs_records_stamps_and_judges",
+    "crates/kovan/src/stamping/review_mode/tests.rs::a_concept_is_linked_from_the_wizard",
+    "crates/kovan/src/tui/ingest/draw.rs::failed_screen_shows_the_error_message",
+    "crates/kovan/src/tui/ingest/draw.rs::picker_renders_its_fields_and_guidance",
+    "crates/kovan/src/tui/ingest/draw.rs::review_screen_shows_a_validation_problem_instead_of_the_bibtex",
+    "crates/kovan/src/tui/ingest/draw.rs::review_screen_shows_the_form_advisories_and_bibtex",
+    "crates/kovan/src/tui/ingest/draw.rs::running_screen_shows_elapsed_time_and_no_fake_percentage",
+    "crates/kovan/src/tui/ingest/metadata.rs::author_parsing_ignores_blank_entries",
+    "crates/kovan/src/tui/ingest/metadata.rs::authors_round_trip_through_the_edit_form",
+    "crates/kovan/src/tui/ingest/metadata.rs::slug_falls_back_when_nothing_is_known",
+    "crates/kovan/src/tui/ingest/metadata.rs::slug_matches_the_library_algorithm_on_a_known_case",
+    "crates/kovan/src/tui/ingest/metadata.rs::slug_uses_a_corrected_corporate_author_and_year",
+    "crates/kovan/src/tui/ingest/mod.rs::a_bad_pdf_ends_in_the_failed_phase_with_a_message",
+    "crates/kovan/src/tui/ingest/mod.rs::a_failed_job_is_dismissed_back_to_the_picker",
+    "crates/kovan/src/tui/ingest/mod.rs::abandoning_a_running_job_returns_to_the_picker_immediately",
+    "crates/kovan/src/tui/ingest/mod.rs::discarding_a_review_writes_nothing_and_returns_to_the_picker",
+    "crates/kovan/src/tui/ingest/mod.rs::editing_an_output_path_pins_all_three",
+    "crates/kovan/src/tui/ingest/mod.rs::enter_with_no_selection_reports_instead_of_starting_a_job",
+    "crates/kovan/src/tui/ingest/mod.rs::esc_cancels_an_edit_and_restores_the_previous_value",
+    "crates/kovan/src/tui/ingest/mod.rs::filter_narrows_the_candidate_list_case_insensitively",
+    "crates/kovan/src/tui/ingest/mod.rs::ingest_path_points_the_picker_at_the_files_directory",
+    "crates/kovan/src/tui/ingest/mod.rs::left_right_cycles_the_document_type_only_on_that_row",
+    "crates/kovan/src/tui/ingest/mod.rs::missing_root_is_reported_not_panicked",
+    "crates/kovan/src/tui/ingest/mod.rs::pressing_e_on_the_type_row_explains_itself_instead_of_editing",
+    "crates/kovan/src/tui/ingest/mod.rs::quit_is_blocked_while_work_is_in_flight",
+    "crates/kovan/src/tui/ingest/mod.rs::review_navigation_moves_between_fields",
+    "crates/kovan/src/tui/ingest/mod.rs::saving_from_the_review_phase_writes_and_reports",
+    "crates/kovan/src/tui/ingest/mod.rs::scan_finds_pdfs_only",
+    "crates/kovan/src/tui/ingest/mod.rs::tick_on_an_idle_picker_does_nothing",
+    "crates/kovan/src/tui/ingest/mod.rs::typing_a_root_then_enter_scans_it",
+    "crates/kovan/src/tui/ingest/mod.rs::typing_into_the_year_field_corrects_the_record",
+    "crates/kovan/src/tui/ingest/review.rs::a_clean_extraction_raises_no_advisories",
+    "crates/kovan/src/tui/ingest/review.rs::advisories_flag_the_real_world_failure_modes",
+    "crates/kovan/src/tui/ingest/review.rs::corrected_document_preserves_the_extracted_body_and_page_count",
+    "crates/kovan/src/tui/ingest/review.rs::corrections_regenerate_the_slug_and_id",
+    "crates/kovan/src/tui/ingest/review.rs::document_type_cycles_and_wraps",
+    "crates/kovan/src/tui/ingest/review.rs::edited_marker_tracks_divergence_from_the_extraction",
+    "crates/kovan/src/tui/ingest/review.rs::empty_output_paths_save_nothing_and_say_so",
+    "crates/kovan/src/tui/ingest/review.rs::empty_title_is_a_validation_error_not_a_panic",
+    "crates/kovan/src/tui/ingest/review.rs::empty_year_means_unknown_rather_than_invalid",
+    "crates/kovan/src/tui/ingest/review.rs::form_starts_populated_from_the_extracted_record",
+    "crates/kovan/src/tui/ingest/review.rs::implausible_year_is_rejected_with_a_readable_message",
+    "crates/kovan/src/tui/ingest/review.rs::output_defaults_follow_the_storage_layout_and_track_the_slug",
+    "crates/kovan/src/tui/ingest/review.rs::pinned_output_paths_are_not_overwritten_by_slug_changes",
+    "crates/kovan/src/tui/ingest/review.rs::save_reports_an_unwritable_path_instead_of_panicking",
+    "crates/kovan/src/tui/ingest/review.rs::save_reports_validation_failure_without_writing_anything",
+    "crates/kovan/src/tui/ingest/review.rs::save_writes_all_three_artifacts_with_corrected_metadata",
+    "crates/kovan/src/tui/literature.rs::edit_mode_types_into_root_and_enter_confirms_and_scans",
+    "crates/kovan/src/tui/literature.rs::preview_bib_entry_shows_raw_text",
+    "crates/kovan/src/tui/literature.rs::preview_markdown_entry_shows_outline_and_content",
+    "crates/kovan/src/tui/literature.rs::r_rescans_without_entering_edit_mode",
+    "crates/kovan/src/tui/mod.rs::back_tab_cycles_backward_and_wraps_from_overview",
+    "crates/kovan/src/tui/mod.rs::digit_keys_switch_tabs",
+    "crates/kovan/src/tui/mod.rs::digit_seven_reaches_the_digitiser_tab",
+    "crates/kovan/src/tui/mod.rs::digit_six_reaches_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::editing_suppresses_global_quit_and_tab_switch_keys",
+    "crates/kovan/src/tui/mod.rs::esc_also_quits_when_not_editing",
+    "crates/kovan/src/tui/mod.rs::every_tab_draws_without_panicking",
+    "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
+    "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
+    "crates/kovan/src/tui/mod.rs::poll_interval_is_short_only_while_work_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
+    "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
+    "crates/kovan/src/tui/mod.rs::tab_bar_highlights_the_active_tab",
+    "crates/kovan/src/tui/mod.rs::tab_key_cycles_forward_and_wraps",
+    "crates/kovan/src/tui/symbols.rs::adapter_cycles_and_wraps_both_directions",
+    "crates/kovan/src/tui/symbols.rs::draw_list_view_and_markdown_view_do_not_panic",
+    "crates/kovan/src/tui/symbols.rs::edit_mode_types_into_root_and_enter_confirms_and_scans",
+    "crates/kovan/src/tui/symbols.rs::m_toggles_markdown_view",
+    "crates/kovan/src/tui/symbols.rs::markdown_view_scroll_does_not_move_the_list_selection",
+    "crates/kovan/src/tui/symbols.rs::nonexistent_root_reports_status_without_panicking",
+    "crates/kovan/src/zotero/import.rs::a_taken_citekey_gets_a_letter_suffix",
+    "crates/kovan/tests/zotero_cli.rs::a_file_imported_twice_gets_new_ids_and_shows_as_duplicates",
+    "crates/kovan/tests/zotero_cli.rs::a_folder_written_before_this_change_is_unchanged_by_an_import",
+    "crates/kovan/tests/zotero_cli.rs::data_folder_import_export_reimport_round_trip",
+]
+
+[module."document.rs"]
+path = "crate::document"
+
+[[module."document.rs".function]]
+id = "fn:fab10e4f2c22952e"
+name = "Visibility"
+qual = "Visibility"
+item = "type"
+shape = "enum"
+lines = [
+    9,
+    19,
+]
+hash = "sha256:5eab569e1bba3701a985f83755c795bdd057f59b4075f7e4758dece96f5b045f"
+doc_hash = "sha256:665d48cb973b9daeee4d73ac065ad2aa4e376a321e21f1418194a33ab3f18ad3"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#60",
+    "#61",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#73",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#90",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+]
+
+[[module."document.rs".function]]
+id = "fn:172326af75efdc60"
+name = "DocumentType"
+qual = "DocumentType"
+item = "type"
+shape = "enum"
+lines = [
+    21,
+    41,
+]
+hash = "sha256:79e0dbf13b831ce7e78c507229344166dfd2b300d48e9032f5f2855bfdaf7782"
+doc_hash = "sha256:50c74516833a4aa04070232d4bf873e8f955665495cd0a92ea3997325a7c8c5f"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#62",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#73",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#90",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#226",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+]
+
+[[module."document.rs".function]]
+id = "fn:842c00c159aa93db"
+name = "Author"
+qual = "Author"
+item = "type"
+shape = "struct"
+lines = [
+    43,
+    59,
+]
+hash = "sha256:425d2163ca2ce162be2888d53586fa5ff78d3473deaf9d2f36026f66af32884a"
+doc_hash = "sha256:9377be0122e10eb6bfd280b260f84452d24cb25fec9729816860018d83394f72"
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#90",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+]
+
+[[module."document.rs".function]]
+id = "fn:b07b8e5717934b35"
+name = "KovanDocument"
+qual = "KovanDocument"
+item = "type"
+shape = "struct"
+lines = [
+    61,
+    174,
+]
+hash = "sha256:96df919b506164e7bf2720aa0e1dacc59f312925e6af8da4e39b122fce6fad14"
+doc_hash = "sha256:fd7a521f7ba1afa2f67b9effbbbd501e17b7e8b918a7fe5ddd9a69cd95217928"
+uses = [
+    "fn:172326af75efdc60",
+    "fn:5315e59b99e3c06d",
+    "fn:842c00c159aa93db",
+    "fn:fab10e4f2c22952e",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+    "#13",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#73",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#90",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#193",
+    "#194",
+    "#195",
+    "#196",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#212",
+    "#213",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#218",
+    "#219",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#262",
+    "#263",
+    "#264",
+    "#265",
+]
+
+[[module."document.rs".function]]
+id = "fn:aa521857b5d2af86"
+name = "new"
+qual = "KovanDocument::new"
+lines = [
+    177,
+    218,
+]
+hash = "sha256:cb084724d37c0bca92c9495e3507722d5e8e11ff56765b3ec1598247c7fdc9f2"
+doc_hash = "sha256:311e1aa5ff346313248493921be1e7330ea27778f945bff5365f79aa0c37adfa"
+uses = [
+    "fn:172326af75efdc60",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#10",
+    "#12",
+    "#13",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#64",
+    "#65",
+    "#66",
+    "#71",
+    "#73",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#90",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#162",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#195",
+    "#196",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#222",
+    "#223",
+    "#224",
+    "#225",
+    "#227",
+    "#228",
+    "#229",
+    "#230",
+    "#231",
+    "#232",
+    "#233",
+    "#234",
+    "#235",
+    "#236",
+    "#237",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#262",
+    "#264",
+    "#265",
+]
+
+[[module."document.rs".function]]
+id = "fn:a385012f1c62cbf5"
+name = "builder"
+qual = "KovanDocument::builder"
+lines = [
+    220,
+    249,
+]
+hash = "sha256:58ba27d6f001d04cd74a55513b5ae9376df8f7770740a5ed3d53167848444d11"
+doc_hash = "sha256:9d4aa7cb4954b5a948d28a47f295b20c6a10b4882dfce1ab93f5957348edb8fd"
+callees = ["fn:aa521857b5d2af86"]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:5544fcab9c47b7a0",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:5544fcab9c47b7a0"
+name = "KovanDocumentBuilder"
+qual = "KovanDocumentBuilder"
+item = "type"
+shape = "struct"
+lines = [
+    252,
+    261,
+]
+hash = "sha256:838b7d1078eed175dc5d4829481f2a1dcc99a37efb4eb3715b2893d9aecd8e4c"
+doc_hash = "sha256:958fb1e9e2d71a6ab0ca19c46c5d97fcd6274d7a600172fa78f48bf8ed2a8d62"
+uses = ["fn:b07b8e5717934b35"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:f46f6bcf0442124f"
+name = "author"
+qual = "KovanDocumentBuilder::author"
+lines = [
+    264,
+    268,
+]
+hash = "sha256:96454e12fa94eee219499db4947abe8fecc8ddac6b254f295b64fa16deafb8e3"
+doc_hash = "sha256:50cdea06c231ab7b8616197b80737f2815f363a7b907215e816c79c6596d1593"
+uses = [
+    "fn:5544fcab9c47b7a0",
+    "fn:842c00c159aa93db",
+]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."document.rs".function]]
+id = "fn:4f272238c8dafffb"
+name = "authors"
+qual = "KovanDocumentBuilder::authors"
+lines = [
+    270,
+    274,
+]
+hash = "sha256:35e6905f26a4d770248dd8d6a4ca727cd4c0dcbfe13223c5ddf31ab2193479b7"
+doc_hash = "sha256:9e92fa43280a33766d7a5d831cdaa5df8ba9e28739967cfb032901d9bb3454d7"
+uses = [
+    "fn:5544fcab9c47b7a0",
+    "fn:842c00c159aa93db",
+]
+reached_by = [
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:3b1c038bd0ecb3e0"
+name = "abstract_text"
+qual = "KovanDocumentBuilder::abstract_text"
+lines = [
+    276,
+    280,
+]
+hash = "sha256:697301936def15f8f6e04dd4671612ee6ba71ee0eb170398bb492a1d1c31ea53"
+doc_hash = "sha256:2470d7242d534eab2a5a24cd7193b83af34f37f0d34ddeb80193235afc4beb04"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."document.rs".function]]
+id = "fn:e17baf16cf592eef"
+name = "year"
+qual = "KovanDocumentBuilder::year"
+lines = [
+    282,
+    286,
+]
+hash = "sha256:b2cfd618c87d3d84357dd89bb30c5f3f0e41d46cb59dc89e842a156e36ce93ce"
+doc_hash = "sha256:4f58bd183a3674c09b08aee90d2e9d4eecbad5246db91af42a9e491c1da05836"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:319e4384639ffed5"
+name = "doi"
+qual = "KovanDocumentBuilder::doi"
+lines = [
+    288,
+    292,
+]
+hash = "sha256:9fe0c848023b782f419216423fa12054c7ce1e1ef7c227cdd1c73c9efabd1789"
+doc_hash = "sha256:00b75989e75fd4f7892f71ba1b85bd981ce664cf21c65eb4fb37cfbb0e80001b"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:c64ef96e8ed99374"
+name = "journal"
+qual = "KovanDocumentBuilder::journal"
+lines = [
+    294,
+    298,
+]
+hash = "sha256:232f11e9ea94b3e40ec24d864ce2675a420e283728a0b309bc59894a98e4ecf3"
+doc_hash = "sha256:2731cb54453d9d4a7e0e815e756d25cc32da66abc7a1a8f2b77c14fbaa36d438"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+]
+
+[[module."document.rs".function]]
+id = "fn:e530344599d7b1d2"
+name = "institution"
+qual = "KovanDocumentBuilder::institution"
+lines = [
+    300,
+    304,
+]
+hash = "sha256:5c392d50fdfc83d254a6c574abdd0ca61c7111d56b1b2c7c4a32595bf9bff25c"
+doc_hash = "sha256:27baaadcafb65966cdc565c44df6ad704cd7fa4756df8a232fd8e3932e76ade5"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+]
+
+[[module."document.rs".function]]
+id = "fn:43f3fb39f6b623b3"
+name = "publisher"
+qual = "KovanDocumentBuilder::publisher"
+lines = [
+    306,
+    310,
+]
+hash = "sha256:9e9389255562c3137ebefdb976edc24bdddc2819a101f39cef2d3d51f7c63c93"
+doc_hash = "sha256:b2da3159963221bd1a4b2e5f05ba742a486647d996aa4139ec44d3dd70e2dc49"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."document.rs".function]]
+id = "fn:3d23a825b92e14c9"
+name = "volume"
+qual = "KovanDocumentBuilder::volume"
+lines = [
+    312,
+    316,
+]
+hash = "sha256:c073cb0799488de9c309b2c917af00dad13d94007b12cca39b4468ea6434ff24"
+doc_hash = "sha256:d3ee573e4b4babd2eff6e9aad2a4070700961e08b1eefeaca4655fa60efdf149"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+]
+
+[[module."document.rs".function]]
+id = "fn:5bbdd1ef4cffdcbd"
+name = "pages"
+qual = "KovanDocumentBuilder::pages"
+lines = [
+    318,
+    322,
+]
+hash = "sha256:dbeed846beb230b7ded529ad9c4a26a50e8369a37c6340dd8cfc75b16e20b9a8"
+doc_hash = "sha256:25fcdd9951a0e85c4631f9c9d740ad904fa31b1ada9c3b5ad967f0e6e9af0293"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+]
+
+[[module."document.rs".function]]
+id = "fn:e6c3a8f7b40ab428"
+name = "number"
+qual = "KovanDocumentBuilder::number"
+lines = [
+    324,
+    328,
+]
+hash = "sha256:2f21ad93b9b34e781556950e6c918ce33bb5f5927b2807f7a6d70fb86cb51848"
+doc_hash = "sha256:5f74ca5aa332f1609d4fe649f4945ddb5c8bcf48a2a87965f026d4c9c6f71e75"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+]
+
+[[module."document.rs".function]]
+id = "fn:cd2de91e7d0215e6"
+name = "keywords"
+qual = "KovanDocumentBuilder::keywords"
+lines = [
+    330,
+    334,
+]
+hash = "sha256:fd8d9eda7c8e353c684b157108b96774a7d177fa01c89544301216d6ae76f25b"
+doc_hash = "sha256:ced71f8fd8f670655081e13780a4e93138ba879c92b5604fda673bcab8fcf266"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:36ab01dc5c48e31e"
+name = "tags"
+qual = "KovanDocumentBuilder::tags"
+lines = [
+    336,
+    340,
+]
+hash = "sha256:ce611c3d6e5379e009acf652d58edd0263002b86a784f82275839adfccc5c97a"
+doc_hash = "sha256:d510d44a65980bddc9e17bc3a2a126c238bc4b5b44d0c519d46e7e6ed9dd9626"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."document.rs".function]]
+id = "fn:a881f4a03fc4eddd"
+name = "source_url"
+qual = "KovanDocumentBuilder::source_url"
+lines = [
+    342,
+    346,
+]
+hash = "sha256:f94638c4e8450caa799c1c78c63e7088f595a76006b0d9bda681f0b5d3ba9c60"
+doc_hash = "sha256:e34bacd394f74bde68a81ba80fd508ebbda45e65d94d48859e5797b5b389ef3f"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:41ce0a79822e9a34"
+name = "source_path"
+qual = "KovanDocumentBuilder::source_path"
+lines = [
+    348,
+    352,
+]
+hash = "sha256:03632d39eb1f65609ac758fd725f771f8cfb19b7275b54e8c46cd8f62e2d8b9d"
+doc_hash = "sha256:2cbd932db7c9473be55ecbd823c7ff7dbb312702de0e9a3abc6395c86862222e"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:40454a1950ebdc71"
+name = "source_sha256"
+qual = "KovanDocumentBuilder::source_sha256"
+lines = [
+    354,
+    358,
+]
+hash = "sha256:b7c6f5fe4d1199b3b8a791c13ee307ceb4b3bb4bcf421f38d1c4341baef13d1b"
+doc_hash = "sha256:a1216734a12639213013aa1c905fc6a7dd999bb012476f586a4fa743a3a0fb5c"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:df6d2c9096bdf2c7"
+name = "page_count"
+qual = "KovanDocumentBuilder::page_count"
+lines = [
+    360,
+    364,
+]
+hash = "sha256:a11b6e2eff96df7ad0598c2835c92b207422fdf30042a64027f1329056214b69"
+doc_hash = "sha256:7c60da373c8a04cc7886fd5587ea1a1b1b92c5199448439596731f58db74fd19"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:e713df4fef421d3c"
+name = "assets"
+qual = "KovanDocumentBuilder::assets"
+lines = [
+    366,
+    370,
+]
+hash = "sha256:e65b5e0889c7c37dbe3b60ebc517c6030f98692e74a5deb667fd772d42f0f6b1"
+doc_hash = "sha256:bd9fdc27cd79390a89700447dac47c5ee5f15733f3d2466844ba1b3e8536fb7a"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."document.rs".function]]
+id = "fn:579656580d8d05fb"
+name = "related_symbols"
+qual = "KovanDocumentBuilder::related_symbols"
+lines = [
+    372,
+    376,
+]
+hash = "sha256:776a87eef73508be696bf57c9443ac09be58b8df17952304d36cfe228225c2d1"
+doc_hash = "sha256:7f7f19e2f98e0b5f87e60fc8f02b52072e3ed1aadc8977ca0a1f9150cda225d2"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+]
+
+[[module."document.rs".function]]
+id = "fn:ed721033b2c991a9"
+name = "related_repositories"
+qual = "KovanDocumentBuilder::related_repositories"
+lines = [
+    378,
+    382,
+]
+hash = "sha256:31f932eadbe594cfd035967f6b4375403c85a39a04e39ea2c4ef67fc290a3366"
+doc_hash = "sha256:e295be4a46758e6d1572199428c97c20182985dc119094d23860c7f3e1dd4c99"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+]
+
+[[module."document.rs".function]]
+id = "fn:b51e39a882a3d620"
+name = "related_benchmarks"
+qual = "KovanDocumentBuilder::related_benchmarks"
+lines = [
+    384,
+    388,
+]
+hash = "sha256:57bdb1a417277eeebaebefa42ce3fa6883350104651906aa9bd3287c55bba398"
+doc_hash = "sha256:5dbf185041cc1f2e66d8168b2a98d6d6861d0c1865b7c804c2a46e22585fa0ff"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+]
+
+[[module."document.rs".function]]
+id = "fn:e48fe23136bab3f5"
+name = "markdown_body"
+qual = "KovanDocumentBuilder::markdown_body"
+lines = [
+    390,
+    394,
+]
+hash = "sha256:b5f59a5336c5a6e97dd62716c30a390c5d6db6a3000133259e422471281ee3be"
+doc_hash = "sha256:ee61a77fecca0fb6657104aa4dc69dad9ad1d920bc80f3b198b41f679713dcd2"
+uses = ["fn:5544fcab9c47b7a0"]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:f8b45aeace84be5f"
+name = "zotero_item"
+qual = "KovanDocumentBuilder::zotero_item"
+lines = [
+    396,
+    400,
+]
+hash = "sha256:86051896ad61bde17f6a03694aaf091f247fd21f47e5b8fa6712391a44ddf4d3"
+doc_hash = "sha256:0cc76a48ff3426a7f851eb7e521014c5681cbfb09b78d7b55ee43a4fe4ae96a4"
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:5544fcab9c47b7a0",
+]
+
+[[module."document.rs".function]]
+id = "fn:fe01325fdea59149"
+name = "build"
+qual = "KovanDocumentBuilder::build"
+lines = [
+    402,
+    406,
+]
+hash = "sha256:850f7749a8dfc835d2eeaff8287d3fa6911a39705345b702b237aa4b1a8b45b1"
+doc_hash = "sha256:e9e32a53ed18d040b2060dfa593737cc072273542ed417b793570f379df38f3e"
+uses = [
+    "fn:5544fcab9c47b7a0",
+    "fn:b07b8e5717934b35",
+]
+reached_by = [
+    "#7",
+    "#12",
+    "#13",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+    "#71",
+    "#73",
+    "#96",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#113",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#136",
+    "#137",
+    "#138",
+    "#140",
+    "#143",
+    "#149",
+    "#155",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#197",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#207",
+    "#208",
+    "#209",
+    "#211",
+    "#212",
+    "#214",
+    "#215",
+    "#216",
+    "#217",
+    "#220",
+    "#221",
+    "#238",
+    "#239",
+    "#240",
+    "#241",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#255",
+    "#264",
+]
+
+[[module."document.rs".function]]
+id = "fn:5d294632214d5903"
+name = "document_constructor_sets_identity_and_empties_the_rest"
+qual = "document_constructor_sets_identity_and_empties_the_rest"
+lines = [
+    413,
+    431,
+]
+hash = "sha256:1baa741d4206da72956329256d29a4dcd5cea16712015179d4928a0fa84d49af"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aa521857b5d2af86"]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:6d695e7ff24c7d68"
+name = "document_json_round_trips"
+qual = "document_json_round_trips"
+lines = [
+    433,
+    445,
+]
+hash = "sha256:d4458fcfc7ea79753c54b488b74a9b2e244787e9bbd62ccfe6fe6918006a8391"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aa521857b5d2af86"]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:f57534544d76ebc3"
+name = "sample_document"
+qual = "sample_document"
+lines = [
+    447,
+    484,
+]
+hash = "sha256:55512569e90961e7485812dbec92c88915383bda83f386a66f338bbade4f2745"
+doc_hash = "sha256:4405b634457b07b0382c02825e7364244cf38fff88e3d7ac46e853306ea03eb2"
+callees = [
+    "fn:319e4384639ffed5",
+    "fn:36ab01dc5c48e31e",
+    "fn:3b1c038bd0ecb3e0",
+    "fn:3d23a825b92e14c9",
+    "fn:40454a1950ebdc71",
+    "fn:41ce0a79822e9a34",
+    "fn:43f3fb39f6b623b3",
+    "fn:579656580d8d05fb",
+    "fn:5bbdd1ef4cffdcbd",
+    "fn:a385012f1c62cbf5",
+    "fn:a881f4a03fc4eddd",
+    "fn:b51e39a882a3d620",
+    "fn:c64ef96e8ed99374",
+    "fn:cd2de91e7d0215e6",
+    "fn:df6d2c9096bdf2c7",
+    "fn:e17baf16cf592eef",
+    "fn:e48fe23136bab3f5",
+    "fn:e530344599d7b1d2",
+    "fn:e6c3a8f7b40ab428",
+    "fn:e713df4fef421d3c",
+    "fn:ed721033b2c991a9",
+    "fn:f46f6bcf0442124f",
+    "fn:fe01325fdea59149",
+]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:842c00c159aa93db",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:c1b90765460b1ab5"
+name = "builder_sets_every_field"
+qual = "builder_sets_every_field"
+lines = [
+    486,
+    501,
+]
+hash = "sha256:0b3d72d3636478398b205b6115a86c9c641c02ac824c7b46f94af9365b2182e2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f57534544d76ebc3"]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:242b27db51bf603f"
+name = "fully_populated_document_json_round_trips"
+qual = "fully_populated_document_json_round_trips"
+lines = [
+    503,
+    509,
+]
+hash = "sha256:a9c4fa8481333829e73957b55de4c3b09042fd884d68a223d7ac9944013c6034"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f57534544d76ebc3"]
+uses = ["fn:b07b8e5717934b35"]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:3c310c152c6e5027"
+name = "fully_populated_document_toml_round_trips"
+qual = "fully_populated_document_toml_round_trips"
+lines = [
+    511,
+    517,
+]
+hash = "sha256:e3d023bdd24afc5ab27457e296086c72ac62057ee377e4359ad65222410f9d40"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f57534544d76ebc3"]
+uses = ["fn:b07b8e5717934b35"]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:771611351f9a341b"
+name = "document_json_missing_newer_fields_still_deserialises"
+qual = "document_json_missing_newer_fields_still_deserialises"
+lines = [
+    519,
+    561,
+]
+hash = "sha256:9c60eb3ad2a4d3f1bc5fcaef99837ab739eea29612bcfdd4ae761bf027d533f7"
+doc_hash = "sha256:97c2b27b68cb159cf1b6eea40de4197b8960d52b78280514adc981a7850d8a88"
+uses = ["fn:b07b8e5717934b35"]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:254091f53d9af610"
+name = "visibility_json_round_trips"
+qual = "visibility_json_round_trips"
+lines = [
+    563,
+    570,
+]
+hash = "sha256:29c06197ae8d6b3789d8047793b1dbf81f628475d86bd6fca6709e1cc515740f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:fab10e4f2c22952e"]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:c77e999d08522b72"
+name = "document_type_json_round_trips"
+qual = "document_type_json_round_trips"
+lines = [
+    572,
+    587,
+]
+hash = "sha256:c14c56800652bea24e8b5f0c5f957910195e3d1a5d0765c7c246c2f8942d53c3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:172326af75efdc60"]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:59661d15d95e6466"
+name = "author_json_and_toml_round_trip"
+qual = "author_json_and_toml_round_trip"
+lines = [
+    589,
+    604,
+]
+hash = "sha256:1fc1509025b5852f315d89f8460dfd7deda5a4d5c94652e4c552e734ea6e0d85"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:842c00c159aa93db"]
+test = true
+
+[[module."document.rs".function]]
+id = "fn:dc24621e65bd90dd"
+name = "author_with_no_affiliation_round_trips"
+qual = "author_with_no_affiliation_round_trips"
+lines = [
+    606,
+    617,
+]
+hash = "sha256:daa78bcf0d97304312a92d7db2e12770e9c3508b782610e6942c50db0d7cca46"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:842c00c159aa93db"]
+test = true
+
+[module."fuzzy.rs"]
+path = "crate::fuzzy"
+
+[[module."fuzzy.rs".function]]
+id = "fn:b50da58157165dc6"
+name = "fuzzy_score"
+qual = "fuzzy_score"
+lines = [
+    11,
+    56,
+]
+hash = "sha256:e7457fdbe0eb078ca64378352141080d524454fbafd8d358a3e8de92788f1777"
+doc_hash = "sha256:0cfe34ed7642bb616192b284044f6283481acf0132a94eab3fcf16cc8b3363db"
+reached_by = [
+    "#15",
+    "#16",
+    "#93",
+    "#94",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#110",
+    "#111",
+    "#159",
+    "#160",
+    "#161",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+]
+
+[[module."fuzzy.rs".function]]
+id = "fn:9ecc5cfca2f6ed3c"
+name = "substring_beats_subsequence_and_order_matters"
+qual = "substring_beats_subsequence_and_order_matters"
+lines = [
+    62,
+    69,
+]
+hash = "sha256:05a9adf1820578189bbe5bfa232b9d0e1e7332b28ac93037bfe11d98c293161d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b50da58157165dc6"]
+test = true
+
+[[module."fuzzy.rs".function]]
+id = "fn:0c77d717ab8e23ac"
+name = "a_tighter_cluster_ranks_higher"
+qual = "a_tighter_cluster_ranks_higher"
+lines = [
+    71,
+    76,
+]
+hash = "sha256:0ad32d574811c03ee9badeb52449a7f573522e94212723b0ee8bf392f71387f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b50da58157165dc6"]
+test = true
+
+[module."geometry.rs"]
+path = "crate::geometry"
+
+[[module."geometry.rs".function]]
+id = "fn:ea9ce98def9724e0"
+name = "Point"
+qual = "Point"
+item = "type"
+shape = "struct"
+lines = [
+    6,
+    11,
+]
+hash = "sha256:d3921213589306127647814b570d07a9573f4a70e6df027128ea8ed124d10268"
+doc_hash = "sha256:b5a6d45c1e641c433bf32c3f2369c4e5c88c42c850c04ab32e1f609ff088d4b4"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#91",
+    "#92",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+]
+
+[[module."geometry.rs".function]]
+id = "fn:5d27a68bde3f8146"
+name = "new"
+qual = "Point::new"
+lines = [
+    14,
+    16,
+]
+hash = "sha256:1fcb954b72b86a8a254e25e7b5828f8498b6ac7aa43034e7a78b6a83d3e8debb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ea9ce98def9724e0"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#91",
+    "#92",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+]
+
+[[module."geometry.rs".function]]
+id = "fn:c768841429fd2dfe"
+name = "Bounds"
+qual = "Bounds"
+item = "type"
+shape = "struct"
+lines = [
+    19,
+    27,
+]
+hash = "sha256:31a927f72b251b125c3a251ed642f86aa4498b6206feee667aa325d914561036"
+doc_hash = "sha256:b4a90af4472465365529fdbd8ef3e91a1c27eb751294e50cbc1d6b0771bd9d45"
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#31",
+    "#34",
+    "#98",
+    "#159",
+    "#182",
+    "#183",
+]
+
+[[module."geometry.rs".function]]
+id = "fn:125791d07cf52bd4"
+name = "width"
+qual = "Bounds::width"
+lines = [
+    30,
+    34,
+]
+hash = "sha256:44220a420f768a0da49e7655fbc7cf22c171e22a1bd6722b6f72efcc992c541b"
+doc_hash = "sha256:439383fdbfa593e28be1fe9d824551b7920aa04e8ee9d5ea2587a390a3aada92"
+uses = ["fn:c768841429fd2dfe"]
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#31",
+    "#34",
+    "#98",
+    "#159",
+    "#182",
+    "#183",
+]
+
+[[module."geometry.rs".function]]
+id = "fn:208944af78d33762"
+name = "height"
+qual = "Bounds::height"
+lines = [
+    36,
+    39,
+]
+hash = "sha256:5882d074a04e68b107dcdfac7b26ff0eaa0414c55ce2791ab27469e8a1ac4ede"
+doc_hash = "sha256:0958a1688e05a97e839874d51c4e0944fb937748b3bd1af2eed772fefe02f26c"
+uses = ["fn:c768841429fd2dfe"]
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#31",
+    "#34",
+    "#98",
+    "#159",
+    "#182",
+    "#183",
+]
+
+[[module."geometry.rs".function]]
+id = "fn:814fee94be821453"
+name = "centre"
+qual = "Bounds::centre"
+lines = [
+    41,
+    47,
+]
+hash = "sha256:f9f597f4a98b6181139eb8f5889c2239136fa7eb79ae90aeaa287eecb072d262"
+doc_hash = "sha256:beebee7f84325578e5957803b2572b5a3011b99b9a67ced4f03a36b43a2306fe"
+callees = ["fn:5d27a68bde3f8146"]
+uses = [
+    "fn:c768841429fd2dfe",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#26",
+    "#98",
+    "#182",
+    "#183",
+]
+
+[module."knowledge.rs"]
+path = "crate::knowledge"
+
+[[module."knowledge.rs".function]]
+id = "fn:532828d0630f7fba"
+name = "KovanCorrelation"
+qual = "KovanCorrelation"
+item = "type"
+shape = "struct"
+lines = [
+    8,
+    19,
+]
+hash = "sha256:b29ded9d43c7718585ec085af9f50e191ee6785fdeaba94b282ec7b01aa6a180"
+doc_hash = "sha256:bd663b3e6fbfa4875d30320d0c6733e77724343676a7812638112d7207cb7ee3"
+reached_by = [
+    "#18",
+    "#19",
+]
+
+[[module."knowledge.rs".function]]
+id = "fn:cf1e185d4cb33b7d"
+name = "KovanBenchmark"
+qual = "KovanBenchmark"
+item = "type"
+shape = "struct"
+lines = [
+    21,
+    31,
+]
+hash = "sha256:330562321d6df70f0131027bce0d3c9be3ae8880753466c13cdab8d5440aef65"
+doc_hash = "sha256:619286cdc866cef007ff816081624cf17b800dbce1a6cd30a5e48ef74d6d0ede"
+reached_by = ["#17"]
+
+[[module."knowledge.rs".function]]
+id = "fn:f84918f23581e158"
+name = "KovanValidationCase"
+qual = "KovanValidationCase"
+item = "type"
+shape = "struct"
+lines = [
+    33,
+    57,
+]
+hash = "sha256:f6d17dac91eebd7dc16747acb4add7f83908faa1a9cda76b0504c9aee4c3e74d"
+doc_hash = "sha256:561378b368380fa955ce3b040f80ed84e43f5a8892da67a6893592cf33394cb4"
+reached_by = ["#22"]
+
+[[module."knowledge.rs".function]]
+id = "fn:36c598cf6dacb31a"
+name = "GeneratedArtifact"
+qual = "GeneratedArtifact"
+item = "type"
+shape = "struct"
+lines = [
+    59,
+    83,
+]
+hash = "sha256:1a855523ebc48625f47239d3d175313d7fffacd5b900ab29a310649b42e7c765"
+doc_hash = "sha256:df23cccf9d5ed3d22f6f82b9da45b9dcfc4ba6e7563878b6e9e9a681724c2cb8"
+reached_by = [
+    "#0",
+    "#1",
+    "#20",
+    "#21",
+]
+
+[[module."knowledge.rs".function]]
+id = "fn:f22f82488b079b4a"
+name = "correlation_json_and_toml_round_trip"
+qual = "correlation_json_and_toml_round_trip"
+lines = [
+    89,
+    106,
+]
+hash = "sha256:2921ccedd135ec86c3678b992e88773c6b90ba521043a1b1ab8f3ede05a965dd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:532828d0630f7fba"]
+test = true
+
+[[module."knowledge.rs".function]]
+id = "fn:93fc102013ab9035"
+name = "correlation_with_no_source_round_trips"
+qual = "correlation_with_no_source_round_trips"
+lines = [
+    108,
+    128,
+]
+hash = "sha256:0381f2d8c082c40e4f37dcf717aa7eddf0a0ca596097349fa28aec2dbffe5e7f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:532828d0630f7fba"]
+test = true
+
+[[module."knowledge.rs".function]]
+id = "fn:86f06d56022ac614"
+name = "benchmark_json_and_toml_round_trip"
+qual = "benchmark_json_and_toml_round_trip"
+lines = [
+    130,
+    144,
+]
+hash = "sha256:5aafef96f1453c64f1424cfb61caf30b1a63a40fcb7ac6ca1084943e836e8279"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:cf1e185d4cb33b7d"]
+test = true
+
+[[module."knowledge.rs".function]]
+id = "fn:0a1aef9d052cdbae"
+name = "validation_case_json_and_toml_round_trip"
+qual = "validation_case_json_and_toml_round_trip"
+lines = [
+    146,
+    158,
+]
+hash = "sha256:16082f34fadd7a86318d0b0fea34516e6a3f9ae152688ac12a1bffe452498d70"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:f84918f23581e158"]
+test = true
+
+[[module."knowledge.rs".function]]
+id = "fn:b55ad7a78e2f14f8"
+name = "generated_artifact_json_and_toml_round_trip"
+qual = "generated_artifact_json_and_toml_round_trip"
+lines = [
+    160,
+    175,
+]
+hash = "sha256:846dc8efa31ee8ee9e13f08c0a7f82d981d9800cc00e2d1053c4b4674f94811f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:36c598cf6dacb31a"]
+test = true
+
+[[module."knowledge.rs".function]]
+id = "fn:d2cc0efe3784d9f0"
+name = "generated_artifact_bare_link_round_trips"
+qual = "generated_artifact_bare_link_round_trips"
+lines = [
+    177,
+    187,
+]
+hash = "sha256:c6da108cb8f51f60de8be86c04be058df94573e3f2e8edac8fe28a2c82088bd3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:36c598cf6dacb31a"]
+test = true
+
+[module."lib.rs"]
+path = "crate"
+
+[module."mindmap_view.rs"]
+path = "crate::mindmap_view"
+
+[[module."mindmap_view.rs".function]]
+id = "fn:aed6b9dd5c0c2ef0"
+name = "CARD_SIZE"
+qual = "CARD_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    35,
+    36,
+]
+hash = "sha256:f7435d84e113ae408393dc61be84e701e848bd482247c958140358f2f7e6e1d5"
+doc_hash = "sha256:2bba8232925f7faf823a5f4aecffc39c2b8d9a433d64752d039d1ce478cccb91"
+reached_by = [
+    "#23",
+    "#24",
+    "#25",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#92",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:030dcf38b2f997e1"
+name = "CENTRE_CARD_SIZE"
+qual = "CENTRE_CARD_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    38,
+    42,
+]
+hash = "sha256:711717569afb05136b8ac8b2ff2ec3af177a4079806a68fd36d76d4a7d7a4bc5"
+doc_hash = "sha256:6ddc92017288ad335406b9858e51cd6ddffec6603f6dd45b99664385366ca97c"
+reached_by = [
+    "#23",
+    "#25",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#92",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:2f74f1ea2cb8cfe3"
+name = "CARD_GAP"
+qual = "CARD_GAP"
+item = "const"
+shape = "const"
+lines = [
+    44,
+    45,
+]
+hash = "sha256:779934dd13ccbe51f831b9dbed4cfa2a8b409a14a66bdaee43333994891c3123"
+doc_hash = "sha256:7de12cb5aeb32d42ac592ae4f8699656c66bc5df2d0595656958cada88598733"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#23",
+    "#24",
+    "#25",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#92",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:203365435f62ce6c"
+name = "PAN_MARGIN_FRACTION"
+qual = "PAN_MARGIN_FRACTION"
+item = "const"
+shape = "const"
+lines = [
+    47,
+    50,
+]
+hash = "sha256:3597d73abdc529202a7ca9d73295d0c045294b096b6b8a87c7dbf4070f5f50c7"
+doc_hash = "sha256:0e9c42e3d410a0c7af448df8c933e50a0cf1c25bbb3222d7d6fcbc9940a640d0"
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#34",
+    "#98",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:dfdcf0ed692d4b4c"
+name = "HORIZONTAL_PAN_VIEWPORT_FRACTION"
+qual = "HORIZONTAL_PAN_VIEWPORT_FRACTION"
+item = "const"
+shape = "const"
+lines = [
+    52,
+    59,
+]
+hash = "sha256:827af758a332f6ec5f9d09307bc457f7cf4562030c7ffa1e9d1d0efa23ee09c3"
+doc_hash = "sha256:dc8e1dd04f0e2b4c6ffb3e5be5bb05f2510801896fe6f956752cc4e9230f9435"
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#34",
+    "#98",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:ae3b48e6442f221f"
+name = "card_diagonal"
+qual = "card_diagonal"
+lines = [
+    61,
+    65,
+]
+hash = "sha256:32491a923702d7be94e568d284190b103b6c22ee964b303c9b6f3c7df1a2e959"
+doc_hash = "sha256:1cf6852f2d93d5e99ca508ed8eccc20da8d788e8378417aa6c6eb4f1c49566b8"
+uses = ["fn:aed6b9dd5c0c2ef0"]
+reached_by = [
+    "#23",
+    "#25",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#92",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:302c4182349c886d"
+name = "centre_clearance"
+qual = "centre_clearance"
+lines = [
+    67,
+    71,
+]
+hash = "sha256:703c3658140c218deda70fb1d252a39b51892e0682c12943ca569572fed50462"
+doc_hash = "sha256:ae8f49bd4015feb4b310a049a8da2fd41b32c7af8d01459e2c8df079e88af130"
+callees = ["fn:ae3b48e6442f221f"]
+uses = [
+    "fn:030dcf38b2f997e1",
+    "fn:2f74f1ea2cb8cfe3",
+]
+reached_by = [
+    "#23",
+    "#25",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#92",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:4661d66d4c6e3bee"
+name = "star_positions"
+qual = "star_positions"
+lines = [
+    73,
+    89,
+]
+hash = "sha256:2be7505015814d84aa85b0379009584dbbbcba768da4c9d65669c67f0bf79b55"
+doc_hash = "sha256:64c099184d55f4782f37621c2b3999a77e937202df2f4b583e86e556332c238b"
+callees = ["fn:240b740f4040c771"]
+uses = ["fn:ea9ce98def9724e0"]
+reached_by = [
+    "#23",
+    "#27",
+    "#28",
+    "#29",
+    "#32",
+    "#37",
+    "#92",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:240b740f4040c771"
+name = "star_positions_offset"
+qual = "star_positions_offset"
+lines = [
+    91,
+    112,
+]
+hash = "sha256:6dfaa23c17bd84349b5d45eb8b7c78a2de800bb60da2b76b253daa1186db9f1b"
+doc_hash = "sha256:ceab8475dcc9a4a2db974b206b7abfb35ea4b53b275c8a35c15131fc77a39fc0"
+callees = [
+    "fn:302c4182349c886d",
+    "fn:5d27a68bde3f8146",
+    "fn:ae3b48e6442f221f",
+]
+uses = [
+    "fn:2f74f1ea2cb8cfe3",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#23",
+    "#25",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#32",
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#92",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:ea51d38daea5a83f"
+name = "StarLayout"
+qual = "StarLayout"
+item = "type"
+shape = "struct"
+lines = [
+    114,
+    121,
+]
+hash = "sha256:a6d073cde94c791ab8b52c51754b7b4026e579f85973d1e56b82449cfbdf6504"
+doc_hash = "sha256:0c4d5f9fa92fb996341775766ba00c891c5f49cbc17870cbeb4491cd68d32ea0"
+uses = ["fn:ea9ce98def9724e0"]
+reached_by = [
+    "#23",
+    "#25",
+    "#30",
+    "#33",
+    "#35",
+    "#36",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:ca528505f49b5866"
+name = "all_points"
+qual = "StarLayout::all_points"
+lines = [
+    124,
+    130,
+]
+hash = "sha256:fce39e344e1fa06c7f5482251a8ddbefc533d0e3c45e779079fba71fdb1e5a1c"
+doc_hash = "sha256:c6122f5414220f7e382062195c2ee199bf8aee08f48e911b77601e3f8b55e728"
+uses = [
+    "fn:ea51d38daea5a83f",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#23",
+    "#25",
+    "#30",
+    "#33",
+    "#35",
+    "#36",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:b1169bf312dfd105"
+name = "fan_positions"
+qual = "fan_positions"
+lines = [
+    133,
+    165,
+]
+hash = "sha256:ee43cf0f6db20396af79d3ac3ae0e44c816bdeddcbd51788852aa3eb76d06656"
+doc_hash = "sha256:01a13fb4e26a08f797613e567092c08befd63fbdb5ee8064d5dbb822fe453437"
+callees = [
+    "fn:5d27a68bde3f8146",
+    "fn:ae3b48e6442f221f",
+]
+uses = [
+    "fn:2f74f1ea2cb8cfe3",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#23",
+    "#25",
+    "#30",
+    "#33",
+    "#35",
+    "#36",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:414ea647ff12a57d"
+name = "cards_collide"
+qual = "cards_collide"
+lines = [
+    167,
+    171,
+]
+hash = "sha256:89e1031084995f857883fb852b10734118d4560aaaf33fd0ee7eba35ac275a7e"
+doc_hash = "sha256:d6b18f3ca9f220eb96580a56ef9d3643d5dcd4c705a16609929ef651043690b2"
+uses = [
+    "fn:2f74f1ea2cb8cfe3",
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#23",
+    "#25",
+    "#30",
+    "#33",
+    "#35",
+    "#36",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:ad40e81bcf5ebc74"
+name = "collides_with_centre"
+qual = "collides_with_centre"
+lines = [
+    173,
+    178,
+]
+hash = "sha256:98a88341771c788d043ce393b8df191cb90bc3b3b5d1fabd10a90d91c6970f76"
+doc_hash = "sha256:95c6b8d0fe87297477e002d9827ee0658f51324ebb748515c311400967e384c2"
+uses = [
+    "fn:030dcf38b2f997e1",
+    "fn:2f74f1ea2cb8cfe3",
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#23",
+    "#25",
+    "#30",
+    "#33",
+    "#35",
+    "#36",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:7ee4324ce0a26c5b"
+name = "star_layout"
+qual = "star_layout"
+lines = [
+    180,
+    192,
+]
+hash = "sha256:231c992cbb7b9d3817226bb4dcf828ef2ccbab3d35f0cde2abb8aa1bf35d3870"
+doc_hash = "sha256:1f0aa3c3af01f372c0c7575c157f617280b9d87da5a5c42e2c3bb7256464fdd4"
+callees = ["fn:26c4ab0c3ed92a2d"]
+uses = ["fn:ea51d38daea5a83f"]
+reached_by = [
+    "#23",
+    "#25",
+    "#30",
+    "#36",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:b8b36e65e3e04ff1"
+name = "star_layout_with_parent"
+qual = "star_layout_with_parent"
+lines = [
+    194,
+    220,
+]
+hash = "sha256:a23288c0300b11e1e0f7742d439d070f088c9ecdef9fe1c769151f398e765de9"
+doc_hash = "sha256:48fa5c2ff62f89134d49dc22bb34d5c4061e430c7163da37ddb996e67e8e0b8d"
+callees = ["fn:26c4ab0c3ed92a2d"]
+uses = ["fn:ea51d38daea5a83f"]
+reached_by = [
+    "#33",
+    "#35",
+    "#36",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:26c4ab0c3ed92a2d"
+name = "star_layout_offset"
+qual = "star_layout_offset"
+lines = [
+    222,
+    254,
+]
+hash = "sha256:514653342910ab28226dae4f35ba8b385da1fbe27355604320eb988f74486c0c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:240b740f4040c771",
+    "fn:414ea647ff12a57d",
+    "fn:5d27a68bde3f8146",
+    "fn:ad40e81bcf5ebc74",
+    "fn:b1169bf312dfd105",
+    "fn:ca528505f49b5866",
+]
+uses = [
+    "fn:0569981cd561d620",
+    "fn:ea51d38daea5a83f",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#23",
+    "#25",
+    "#30",
+    "#33",
+    "#35",
+    "#36",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:250495b64bf88a4c"
+name = "UP_BUTTON_SIZE"
+qual = "UP_BUTTON_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    256,
+    259,
+]
+hash = "sha256:2b0a1578650206ea5cfbc870e75891c3c2756b1f148b5db04dc3040f2747e373"
+doc_hash = "sha256:6c47566c0e4cc2800c4512f33ae2241171b694e9499d5ce57956672d0387f5d8"
+reached_by = [
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:33b188182167225f"
+name = "parent_position"
+qual = "parent_position"
+lines = [
+    261,
+    276,
+]
+hash = "sha256:968d2d42f47665fb8909ebbd3badd6f3f9eee906fa83dac4470e0e9ef5876a90"
+doc_hash = "sha256:36badec5f762be2badb6439fb5d0506ff5590cacccb968e373d4809c96936400"
+callees = [
+    "fn:5d27a68bde3f8146",
+    "fn:ae3b48e6442f221f",
+    "fn:ca528505f49b5866",
+]
+uses = [
+    "fn:2f74f1ea2cb8cfe3",
+    "fn:ea51d38daea5a83f",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#35",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:eca340c7fcf757c9"
+name = "up_button_centre"
+qual = "up_button_centre"
+lines = [
+    278,
+    302,
+]
+hash = "sha256:c3a7252c3520b416a002b045ab12c97d5b8ca14e9fa72b15b5a249fab3b79c02"
+doc_hash = "sha256:0e9e8b13e76bf08562740651558fb550bd20c3c8ed1ef99d56ecca74c9892e47"
+callees = [
+    "fn:33b188182167225f",
+    "fn:5d27a68bde3f8146",
+    "fn:ca528505f49b5866",
+]
+uses = [
+    "fn:030dcf38b2f997e1",
+    "fn:250495b64bf88a4c",
+    "fn:2f74f1ea2cb8cfe3",
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea51d38daea5a83f",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:0569981cd561d620"
+name = "MAX_RING_GROWTH_STEPS"
+qual = "MAX_RING_GROWTH_STEPS"
+item = "const"
+shape = "const"
+lines = [
+    304,
+    306,
+]
+hash = "sha256:e49b6af1812192f064b992088cab13d7ff4b82f8bd0a359e37cbe06c3437ce11"
+doc_hash = "sha256:6c7e5ec09a3d07758b9fd14403917874dce2d8df44f8968d08b2b74c486c2009"
+reached_by = [
+    "#23",
+    "#25",
+    "#30",
+    "#33",
+    "#35",
+    "#36",
+    "#38",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:3800df5055850a1f"
+name = "connector"
+qual = "connector"
+lines = [
+    308,
+    326,
+]
+hash = "sha256:f2d7b0f705a1d246f20bbfe1971f1c3cc43462204064f933c867c3a7dc5c3c86"
+doc_hash = "sha256:13437655a38e365950a27b8fe30d7d18ab06069e12e3e849dfb85e0a264b8a59"
+callees = ["fn:476c46eea0955377"]
+uses = [
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#24",
+    "#29",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:3233912dada630a3"
+name = "connector_from_centre"
+qual = "connector_from_centre"
+lines = [
+    328,
+    333,
+]
+hash = "sha256:e770c497271be308b82b564e5716884ee869b8d6ae8da1eb8ce96e61af7c9e85"
+doc_hash = "sha256:e0220983128c9b7de8e6b20b6e7fd5f9c49b08fa04635dcb32c6650fd0a97ea3"
+callees = [
+    "fn:476c46eea0955377",
+    "fn:5d27a68bde3f8146",
+]
+uses = [
+    "fn:030dcf38b2f997e1",
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#33",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:476c46eea0955377"
+name = "connector_sized"
+qual = "connector_sized"
+lines = [
+    335,
+    369,
+]
+hash = "sha256:5e5052975afce0fec0f7d16fc0f0595597f59d2bfac03fa8c9017ba223078b1e"
+doc_hash = "sha256:c0d31cae60b2a027f8ac2a518ff48c323c44d2b92192ed92fde68f22e242dc3b"
+callees = ["fn:5d27a68bde3f8146"]
+uses = [
+    "fn:2f74f1ea2cb8cfe3",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#24",
+    "#29",
+    "#33",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:10e4fc100250b6d9"
+name = "star_bounds"
+qual = "star_bounds"
+lines = [
+    371,
+    404,
+]
+hash = "sha256:7dbc47fc2689d75d950b91a197d91640d21f232e0ea35a9067ad34f3ed9d2566"
+doc_hash = "sha256:86175128d9b39af33a0aa70091da8bf688f5a23e49336aa17d4c69208ef8a6c6"
+callees = ["fn:5d27a68bde3f8146"]
+uses = [
+    "fn:030dcf38b2f997e1",
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:c768841429fd2dfe",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#27",
+    "#28",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:e8bd8924fe61b066"
+name = "CanvasLayout"
+qual = "CanvasLayout"
+item = "type"
+shape = "struct"
+lines = [
+    406,
+    423,
+]
+hash = "sha256:d701dc99be3dc7840e861fbafb5075655614b1e284c3bbed0fba65e2cbf8eabd"
+doc_hash = "sha256:f5dd64dfedff430c9b0f3daad85031bafe265fbd9045a50d57ef54b0fe824b1e"
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#34",
+    "#98",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:1afd3e6998bad647"
+name = "new"
+qual = "CanvasLayout::new"
+lines = [
+    426,
+    449,
+]
+hash = "sha256:ac079a0e4bc7e06c46c305e5c005786b2f89813827607ad9dadc18cdf9124047"
+doc_hash = "sha256:7f0bc7fbdcfd36346345dd6f11f6053e8cebb99bca4f952ad9c4b3a4e43626ad"
+callees = [
+    "fn:125791d07cf52bd4",
+    "fn:208944af78d33762",
+]
+uses = [
+    "fn:203365435f62ce6c",
+    "fn:c768841429fd2dfe",
+    "fn:dfdcf0ed692d4b4c",
+    "fn:e8bd8924fe61b066",
+]
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#34",
+    "#98",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:fbdd84513c67a36a"
+name = "to_canvas"
+qual = "CanvasLayout::to_canvas"
+lines = [
+    451,
+    457,
+]
+hash = "sha256:811a464aaeb49103e6fb3f2d98d39aa56a6f3f6b17eb0c999b2b522d2e211789"
+doc_hash = "sha256:e646eb70740a8003e75e6ab86f5c1d3a6306befad2d4b4b4975f9a4e055b45ff"
+uses = [
+    "fn:e8bd8924fe61b066",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#26",
+    "#27",
+    "#28",
+    "#34",
+    "#98",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:b35b2ac4e5a4bbcd"
+name = "to_world"
+qual = "CanvasLayout::to_world"
+lines = [
+    459,
+    465,
+]
+hash = "sha256:839cb29023cd0defd8cac4971b7b75ccd54c20fc73d813180363da81064dd706"
+doc_hash = "sha256:d630920d18b20767f556275576421cab5a99bedcf3ec557bf014d0ee2517a963"
+callees = ["fn:5d27a68bde3f8146"]
+uses = [
+    "fn:e8bd8924fe61b066",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#28",
+    "#98",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:0a92845a41066955"
+name = "offset_centring"
+qual = "CanvasLayout::offset_centring"
+lines = [
+    467,
+    475,
+]
+hash = "sha256:9691e064b0af6675aa300eecf2f950d2c6a342f564e90f251cff0667b1e59d89"
+doc_hash = "sha256:50d20839769f2552c05ba943c894a6b0d3e34c3f39b05e4522e7505a04c561fc"
+callees = ["fn:fbdd84513c67a36a"]
+uses = [
+    "fn:e8bd8924fe61b066",
+    "fn:ea9ce98def9724e0",
+]
+reached_by = [
+    "#26",
+    "#28",
+    "#98",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:32cc03e85882d416"
+name = "fit_zoom"
+qual = "fit_zoom"
+lines = [
+    478,
+    486,
+]
+hash = "sha256:ea866df2915ae8d57f687b35b3d31e1046c0d381d776f16444abf289f3a2290f"
+doc_hash = "sha256:a09be1dabb3cb09171e851c08513aac32a9339009da16184923d7dcb04be6ad0"
+callees = [
+    "fn:125791d07cf52bd4",
+    "fn:208944af78d33762",
+]
+uses = ["fn:c768841429fd2dfe"]
+reached_by = [
+    "#27",
+    "#31",
+    "#98",
+    "#159",
+]
+
+[[module."mindmap_view.rs".function]]
+id = "fn:0d48f9eb97f98c15"
+name = "the_centre_card_has_room_at_every_ring_size"
+qual = "the_centre_card_has_room_at_every_ring_size"
+lines = [
+    492,
+    510,
+]
+hash = "sha256:a603579e7218c04c6af3e5c055ac07932ee77ba90a975345d0f2440dc6ba2987"
+doc_hash = "sha256:49614adfdd6aaf3af1d6c3082fd7a55a538e7df7412956f4924d544b4d176cee"
+callees = [
+    "fn:3233912dada630a3",
+    "fn:ad40e81bcf5ebc74",
+    "fn:b8b36e65e3e04ff1",
+]
+uses = ["fn:030dcf38b2f997e1"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:067b8b7dc4d29a83"
+name = "overlap"
+qual = "overlap"
+lines = [
+    512,
+    514,
+]
+hash = "sha256:68cc75369b44143f2f78882b0a1a1aa730901c0ec19d7af2bc60f9122a4b7ef6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea9ce98def9724e0",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:8ff09aca5ad22472"
+name = "box_hits_card"
+qual = "box_hits_card"
+lines = [
+    516,
+    520,
+]
+hash = "sha256:f4b2a931cd7414f00ab1109eed039dd7931abd0e07c67fc7ba0550e33df9af15"
+doc_hash = "sha256:72d0b7ea969fd73f808a925263c1a7da5cdeeeb85bf2e3a52a2cbed9306a5779"
+uses = [
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea9ce98def9724e0",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:dbc67b1e7426670c"
+name = "stars_with_parents"
+qual = "stars_with_parents"
+lines = [
+    522,
+    540,
+]
+hash = "sha256:8d47285399d6ef798abb8618ff765d2c271beb2775a43630a9e14fae79c45c45"
+doc_hash = "sha256:cf56149aa34fcfa6c64fe34ae52ed927fc29fe3041ca4c16382af05404e80e40"
+callees = ["fn:b8b36e65e3e04ff1"]
+uses = ["fn:ea51d38daea5a83f"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:191cfc81e011d3c8"
+name = "the_parent_card_clears_every_card_in_the_star"
+qual = "the_parent_card_clears_every_card_in_the_star"
+lines = [
+    542,
+    560,
+]
+hash = "sha256:1a1de4678e38c5aca5fef132538a45df6e8539892a89fcea5a9ae38c9dbfcf5d"
+doc_hash = "sha256:689fe4bbcf68e1df867b21f6f5b306745825a035073591c80aecf6fa3ce00be3"
+callees = [
+    "fn:067b8b7dc4d29a83",
+    "fn:33b188182167225f",
+    "fn:5d27a68bde3f8146",
+    "fn:ca528505f49b5866",
+    "fn:dbc67b1e7426670c",
+]
+uses = ["fn:ea9ce98def9724e0"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:69e0d79c8317628a"
+name = "the_up_button_box_clears_every_card_in_the_star"
+qual = "the_up_button_box_clears_every_card_in_the_star"
+lines = [
+    562,
+    580,
+]
+hash = "sha256:2796d4792b765faeb779c17964f8b5bb57421e1bf3dec7da6bafcb0601da4ec5"
+doc_hash = "sha256:8548e33750405c424026035b8ae5825591d4e053317d137706c3f40744c97d72"
+callees = [
+    "fn:5d27a68bde3f8146",
+    "fn:8ff09aca5ad22472",
+    "fn:ca528505f49b5866",
+    "fn:dbc67b1e7426670c",
+    "fn:eca340c7fcf757c9",
+]
+uses = [
+    "fn:250495b64bf88a4c",
+    "fn:ea9ce98def9724e0",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:49ec8e7ee4cde1c0"
+name = "the_parent_rotation_leaves_the_corridor_above_the_centre_empty"
+qual = "the_parent_rotation_leaves_the_corridor_above_the_centre_empty"
+lines = [
+    582,
+    615,
+]
+hash = "sha256:cf8fce77cd78cf0c45f8730150e9b06c8bc480eb55419627073392325e74cc34"
+doc_hash = "sha256:2eaa37c054690362521b3e0b976eb8ce6c991a896dd429d6adc11e156cce2d2c"
+callees = [
+    "fn:067b8b7dc4d29a83",
+    "fn:5d27a68bde3f8146",
+    "fn:7ee4324ce0a26c5b",
+    "fn:b8b36e65e3e04ff1",
+    "fn:ca528505f49b5866",
+]
+uses = ["fn:ea9ce98def9724e0"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:147b2e76329936a9"
+name = "no_two_cards_overlap"
+qual = "no_two_cards_overlap"
+lines = [
+    617,
+    634,
+]
+hash = "sha256:b700d9d34e7d0561390227902b7e671f87f7b00977118faab6d52431de72803f"
+doc_hash = "sha256:c5818f07d605b7740cb64590f4dae6b76542eada91c83e57bdc023e5a023e9ca"
+callees = [
+    "fn:067b8b7dc4d29a83",
+    "fn:4661d66d4c6e3bee",
+    "fn:5d27a68bde3f8146",
+]
+uses = ["fn:ea9ce98def9724e0"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:4df346c881c3c5d3"
+name = "the_ring_starts_at_the_top_and_runs_clockwise"
+qual = "the_ring_starts_at_the_top_and_runs_clockwise"
+lines = [
+    636,
+    645,
+]
+hash = "sha256:5ba55a0f5b648cccebc5add33109b31f8e2cf83feed29a731b035f222a41ce38"
+doc_hash = "sha256:5d74c335f94d685fdc7f0d6ab09ebe126bb51d2c4399291ca762acacfc19b3d2"
+callees = ["fn:4661d66d4c6e3bee"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:e86f164a4e88cf7e"
+name = "the_pan_margin_is_a_quarter_of_the_drawn_map"
+qual = "the_pan_margin_is_a_quarter_of_the_drawn_map"
+lines = [
+    647,
+    672,
+]
+hash = "sha256:d4e6e26335105aae36952112ebe2d87d1de86b0240158e35543989794639e29d"
+doc_hash = "sha256:34a663bfb023563ca3c27f8de67958c66ec9668dc768a4ddb7391d891bbf10ca"
+callees = [
+    "fn:1afd3e6998bad647",
+    "fn:5d27a68bde3f8146",
+    "fn:fbdd84513c67a36a",
+]
+uses = [
+    "fn:c768841429fd2dfe",
+    "fn:dfdcf0ed692d4b4c",
+    "fn:e8bd8924fe61b066",
+    "fn:ea9ce98def9724e0",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:f68c650c948523cf"
+name = "at_fit_either_side_edge_can_reach_the_middle_of_the_screen"
+qual = "at_fit_either_side_edge_can_reach_the_middle_of_the_screen"
+lines = [
+    674,
+    695,
+]
+hash = "sha256:a1a14dbf5b0158ab28470465b3d967b5e0a51a152d434abc1ee4aa4444ea560f"
+doc_hash = "sha256:6480d7835bc447c79b49e6bbe9cd1ddb7901ea663d8419b3293b92525c284952"
+callees = [
+    "fn:10e4fc100250b6d9",
+    "fn:1afd3e6998bad647",
+    "fn:32cc03e85882d416",
+    "fn:4661d66d4c6e3bee",
+    "fn:5d27a68bde3f8146",
+    "fn:fbdd84513c67a36a",
+]
+uses = [
+    "fn:e8bd8924fe61b066",
+    "fn:ea9ce98def9724e0",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:9aae77fe03bec797"
+name = "a_small_map_is_centred_and_pans_only_sideways"
+qual = "a_small_map_is_centred_and_pans_only_sideways"
+lines = [
+    697,
+    718,
+]
+hash = "sha256:02cf17e41d5dd19595670f21c4331ee8a81578ff5d403805bdc696685827bbe5"
+doc_hash = "sha256:31e6626568f51b5f57aaf46e7169561a95b45451df07fb82702c7dfe53259fd9"
+callees = [
+    "fn:0a92845a41066955",
+    "fn:1afd3e6998bad647",
+    "fn:814fee94be821453",
+    "fn:fbdd84513c67a36a",
+]
+uses = [
+    "fn:c768841429fd2dfe",
+    "fn:e8bd8924fe61b066",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:8f7bb74e95387967"
+name = "centring_puts_a_point_in_the_middle_of_the_view"
+qual = "centring_puts_a_point_in_the_middle_of_the_view"
+lines = [
+    720,
+    732,
+]
+hash = "sha256:4922f36c766ef8752ed45c2f1397fe012c8b6199568d8f98118ffdb34a8f9103"
+doc_hash = "sha256:0c7951e1a13ad455dd64fb5127e3e72af6f97ef078f4c37dc3baee283cf93b98"
+callees = [
+    "fn:0a92845a41066955",
+    "fn:10e4fc100250b6d9",
+    "fn:1afd3e6998bad647",
+    "fn:4661d66d4c6e3bee",
+    "fn:5d27a68bde3f8146",
+    "fn:b35b2ac4e5a4bbcd",
+    "fn:fbdd84513c67a36a",
+]
+uses = [
+    "fn:e8bd8924fe61b066",
+    "fn:ea9ce98def9724e0",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:1913531a03e77002"
+name = "expanded_fans_never_overlap_anything"
+qual = "expanded_fans_never_overlap_anything"
+lines = [
+    734,
+    762,
+]
+hash = "sha256:0c7b739ba60650b15e4c380fb388334bda85747d69293b24ba07f946a2089bf7"
+doc_hash = "sha256:c388d5aabff745242df592382ea1387ee63548478290370087f09901225de281"
+callees = [
+    "fn:067b8b7dc4d29a83",
+    "fn:5d27a68bde3f8146",
+    "fn:7ee4324ce0a26c5b",
+    "fn:ca528505f49b5866",
+]
+uses = ["fn:ea9ce98def9724e0"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:2a0a8ebd7e8d7f92"
+name = "a_collapsed_star_is_the_plain_ring"
+qual = "a_collapsed_star_is_the_plain_ring"
+lines = [
+    764,
+    770,
+]
+hash = "sha256:87dec0e3dc17f8d7cee69e6f1b72b3dec9bd3af4b3c1a809d111626e6a6cdad2"
+doc_hash = "sha256:15152142cdc4995d1e4d60baf25c34087d10c583cc97a94c6eda186c7bdabb8d"
+callees = [
+    "fn:4661d66d4c6e3bee",
+    "fn:7ee4324ce0a26c5b",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:aef87340e2a2209c"
+name = "a_fan_opens_outward"
+qual = "a_fan_opens_outward"
+lines = [
+    772,
+    780,
+]
+hash = "sha256:ccdac68a37b695a6181768ef609898b904b2f8624e96f372b84333e375a008f3"
+doc_hash = "sha256:292b9e1c9d69c85cfc3f43ae25d6893842370b100bfe6a19450959ec778e7e0c"
+callees = ["fn:7ee4324ce0a26c5b"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:96f4cd4d88715fde"
+name = "on_edge"
+qual = "on_edge"
+lines = [
+    782,
+    787,
+]
+hash = "sha256:dab05b9acc248c5792db22ba9230829f943fde87fb3108a9dbd9090f6c9df04f"
+doc_hash = "sha256:50885b3cc5fdcbb32e1c6ffebb9eb0dbd3b23641931b68098582330db931e047"
+uses = [
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea9ce98def9724e0",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:d8ec0ecd2966853c"
+name = "a_connector_joins_the_facing_edges"
+qual = "a_connector_joins_the_facing_edges"
+lines = [
+    789,
+    811,
+]
+hash = "sha256:a5e5f75abe459431cc5e5ab91deeff0835fca1300d0cb53afff4bec984afaa32"
+doc_hash = "sha256:853e7818aa6b83d753d6707f16a1fa217a04598aeb004ccea39db63343886a53"
+callees = [
+    "fn:3800df5055850a1f",
+    "fn:5d27a68bde3f8146",
+    "fn:96f4cd4d88715fde",
+]
+uses = [
+    "fn:aed6b9dd5c0c2ef0",
+    "fn:ea9ce98def9724e0",
+]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:90cd5b98a0240fc9"
+name = "connectors_are_symmetric_and_exist_for_every_spoke"
+qual = "connectors_are_symmetric_and_exist_for_every_spoke"
+lines = [
+    813,
+    827,
+]
+hash = "sha256:37c02da1238feba2878e152da609a9946b20a2203534f29692e43272cae2c2c7"
+doc_hash = "sha256:9624f884fcc99cbb759bd5bf10d1adc92d38e26dd2825edb8aa4265ddd3ea3f2"
+callees = [
+    "fn:3800df5055850a1f",
+    "fn:4661d66d4c6e3bee",
+    "fn:5d27a68bde3f8146",
+]
+uses = ["fn:ea9ce98def9724e0"]
+test = true
+
+[[module."mindmap_view.rs".function]]
+id = "fn:c52007f23fdd070f"
+name = "fit_zoom_fits_the_tighter_axis"
+qual = "fit_zoom_fits_the_tighter_axis"
+lines = [
+    829,
+    839,
+]
+hash = "sha256:13e7abfa150575d304e968c6c23b3b262308720c6060fa4274fe6e09359a7ce3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:32cc03e85882d416"]
+uses = ["fn:c768841429fd2dfe"]
+test = true
+
+[module."symbol.rs"]
+path = "crate::symbol"
+
+[[module."symbol.rs".function]]
+id = "fn:dff730adc35ae86f"
+name = "Language"
+qual = "Language"
+item = "type"
+shape = "enum"
+lines = [
+    8,
+    25,
+]
+hash = "sha256:ea117a364e2ded15c64e7acc8f544687a6fb4a0422606eb45fce0bc367d25cd6"
+doc_hash = "sha256:f27c2ca5aa23995aeb37de9366125ea299d57bfb04e2c88cf7a94398819149ce"
+reached_by = [
+    "#39",
+    "#40",
+    "#42",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+]
+
+[[module."symbol.rs".function]]
+id = "fn:c415a460b4ff36ce"
+name = "as_str"
+qual = "Language::as_str"
+lines = [
+    28,
+    38,
+]
+hash = "sha256:9966c1bf25ce0b0343510024f9259c6bec00f6c566c4936f4232bfdb6dd74cab"
+doc_hash = "sha256:d2de8b27f0050f8c412bd33c27e88b748553d1ee889c753efca3a797d3768eac"
+uses = ["fn:dff730adc35ae86f"]
+reached_by = ["#39"]
+
+[[module."symbol.rs".function]]
+id = "fn:1b8461d100a4a7d0"
+name = "fmt"
+qual = "Language::fmt"
+lines = [
+    42,
+    44,
+]
+hash = "sha256:9868e6849e27ae8dbc68afe1e713eb076976d82126e3c875eda1f402aa66a664"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c415a460b4ff36ce"]
+uses = ["fn:dff730adc35ae86f"]
+
+[[module."symbol.rs".function]]
+id = "fn:5aa1cade565b54af"
+name = "KovanSymbol"
+qual = "KovanSymbol"
+item = "type"
+shape = "struct"
+lines = [
+    47,
+    77,
+]
+hash = "sha256:8ec91988da56bbff48a85189966ff3000d1ef5621ad10b9b90f8863ae49c7249"
+doc_hash = "sha256:74d7ec0bf50ce2a058a0feb09c0334925af0730e57f917160a493b8a0dbe9112"
+uses = ["fn:dff730adc35ae86f"]
+reached_by = [
+    "#42",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#242",
+    "#243",
+    "#244",
+    "#245",
+    "#246",
+    "#247",
+    "#248",
+    "#249",
+    "#250",
+    "#251",
+    "#252",
+    "#253",
+    "#254",
+    "#255",
+    "#256",
+    "#257",
+    "#258",
+    "#259",
+    "#260",
+    "#261",
+]
+
+[[module."symbol.rs".function]]
+id = "fn:844a08cbd4b7c3fc"
+name = "KovanRepository"
+qual = "KovanRepository"
+item = "type"
+shape = "struct"
+lines = [
+    79,
+    91,
+]
+hash = "sha256:35a22d585f4f81e8100b367cb82641c65a5abddd3960e0b2df9a7589d01f2abc"
+doc_hash = "sha256:745941ba531251e9a115aba9921e8e0969a6327a8d844265126231435254eda1"
+reached_by = [
+    "#41",
+    "#88",
+]
+
+[[module."symbol.rs".function]]
+id = "fn:fb51a23c3d33c605"
+name = "language_display_and_str_agree"
+qual = "language_display_and_str_agree"
+lines = [
+    97,
+    101,
+]
+hash = "sha256:c0cd38209bf8c30ac479f7a2c90f1c00a3716205d17790b36a60c275735568db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c415a460b4ff36ce"]
+uses = ["fn:dff730adc35ae86f"]
+test = true
+
+[[module."symbol.rs".function]]
+id = "fn:8f107fd11e667c4c"
+name = "language_json_round_trips"
+qual = "language_json_round_trips"
+lines = [
+    103,
+    115,
+]
+hash = "sha256:95be544c3db8f018c4dd65930585df372427c076ca9fbd27ebbf8b49389a91fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:dff730adc35ae86f"]
+test = true
+
+[[module."symbol.rs".function]]
+id = "fn:a88eefb589f26981"
+name = "symbol_json_and_toml_round_trip"
+qual = "symbol_json_and_toml_round_trip"
+lines = [
+    117,
+    132,
+]
+hash = "sha256:42401a8e318c7545f32ee721131697e2d5748076ba4372a334e82e16cfb36c19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5aa1cade565b54af",
+    "fn:dff730adc35ae86f",
+]
+test = true
+
+[[module."symbol.rs".function]]
+id = "fn:424329372a807c3e"
+name = "repository_json_and_toml_round_trip"
+qual = "repository_json_and_toml_round_trip"
+lines = [
+    134,
+    145,
+]
+hash = "sha256:cd42c1e9ddd4a14f92db71138bc7f9922cdc1fffea2c3b7d98afb81ef422320f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:844a08cbd4b7c3fc"]
+test = true
+
+[[deleted_folder]]
+dir = "crates/kovan-common/tests/fixtures/review/v1"
+deleted_commit = "23baeafd7965e6f23211b6306d0c1cca8e67c5b5"
+
+[[deleted_folder.function]]
+function = "crates/tampines/src/steam.rs::old_flash"
+path = "crates/tampines/src/steam.rs::old_flash"
+deleted_commit = "89abcdef0123456789abcdef0123456789abcdef"
+branch = "develop"
+last_review_commit = "0123456789abcdef0123456789abcdef01234567"
+reviewers = ["github:theodoreOnzGit"]

@@ -1,0 +1,708 @@
+//! **WGSL kernels** — PETIR's numerics as GPU shader source, in `f32`.
+//!
+//! This module is the GPU half of the crate. It ships the WGSL text for
+//! PETIR's pointwise evaluators, an `f32` CPU mirror of each one, and — behind
+//! the off-by-default `wgpu` feature — a headless runner that dispatches them
+//! so the two can be compared on real hardware.
+//!
+//! # The `no_std` contract is not relaxed here
+//!
+//! This module is **`no_std` and dependency-free**. WGSL is just `&'static
+//! str`, and the mirrors are arithmetic over `f32` through
+//! [`crate::real::Real`]. Everything in this module compiles for
+//! `thumbv7em-none-eabihf` exactly as the rest of the crate does.
+//!
+//! Only [`gpu`] needs `std`, and it is behind the **off-by-default `wgpu`
+//! feature**, which nothing else enables. The five checks in this crate's
+//! `CLAUDE.md` all run with default features and all still pass.
+//!
+//! That feature is the one place `std` enters the crate, and it is gated
+//! carefully because the last attempt was not: the removed `platform-libm`
+//! feature declared a `std` feature while `lib.rs` gated `extern crate std;`
+//! on `cfg(test)` **alone**, so `std` never arrived and the feature had been
+//! dead since the crate went `no_std` (`bn:op-7kwt`). `lib.rs` now reads
+//! `#[cfg(any(test, feature = "wgpu"))] extern crate std;`, and
+//! `cargo check --release -p petir --all-features --all-targets` — the sweep
+//! that caught the last one — is what keeps it honest. **`--release`, not a
+//! bare check**: the workspace rule (2026-09-17) is that even type-checks run
+//! in release mode, because a dev-profile check builds a second complete
+//! `target/debug` tree beside the release one for no diagnostic gain.
+//!
+//! If you are adding to this module, keep the split: **shader text and
+//! numerics on the `no_std` side, device handling behind the feature.**
+//!
+//! # `f32` is the whole point, and it changes what "correct" means
+//!
+//! A baseline WebGPU device is guaranteed `f32` and nothing wider. `f64` in a
+//! shader is an extension that most targets — every browser, most mobile — do
+//! not have. So a GPU port of an `f64` library is not a recompilation, it is a
+//! **different numerical object**, and it must be judged against an `f32`
+//! error budget rather than the crate's usual `1e-15`.
+//!
+//! `f32` carries about 7.2 decimal digits. One operation is good to ~1e-7
+//! relative; a Clenshaw sweep over 30 coefficients is not. Every test in this
+//! module states the budget it holds to and the number it measured, and
+//! [`crate::wgsl::mirror`] exists so that budget can be checked without a GPU
+//! at all.
+//!
+//! # Three layers, and why each is separate
+//!
+//! | layer | where | what it establishes |
+//! |---|---|---|
+//! | `f64` reference | the rest of PETIR, verified against compiled GSL | what the right answer is |
+//! | `f32` mirror | [`mirror`] | what `f32` costs, on the CPU, deterministically |
+//! | WGSL | the `.wgsl` sources here, run by [`gpu`] | that the GPU agrees with the mirror |
+//!
+//! Splitting the last two matters. If a GPU result disagrees with the `f64`
+//! reference, that single comparison cannot tell you whether the shader is
+//! wrong or whether `f32` simply cannot do better. The mirror separates the
+//! two: **mirror-vs-`f64`** is the precision cost, and **GPU-vs-mirror** is the
+//! transcription's correctness. Only the second should ever be near-exact.
+//!
+//! # The shader library assumes one binding
+//!
+//! Every function here reads its array data from a single storage binding
+//! named `src`:
+//!
+//! ```wgsl
+//! @group(0) @binding(0) var<storage, read> src: array<f32>;
+//! ```
+//!
+//! and takes an `off: u32` offset into it. That convention is deliberate:
+//! WGSL's support for storage pointers as function parameters is an optional
+//! language extension, so passing the array itself would make these functions
+//! refuse to compile on conforming baseline devices. [`BINDING_PRELUDE`] is
+//! that declaration, and [`test_kernel`] wraps a call in a complete shader.
+//!
+//! # Lineage
+//!
+//! Each `.wgsl` file carries its own header naming what it was transcribed
+//! from. They are **transcriptions of PETIR's own ports**, not new numerics:
+//! the arithmetic, the loop order and the association are taken from the `f64`
+//! code, which was in turn read from GSL. Where a function has no GSL
+//! counterpart it says so in its own comment — `petir_poly_eval_comp` is the
+//! one such case at present.
+
+pub mod mirror;
+
+/// `f32` mirrors of the error-function shaders, generated from the same parse
+/// of GSL's `specfunc/erfc.c` as `shaders/erf.wgsl`.
+pub mod mirror_erf;
+
+/// `f32` mirrors of the matrix and CBLAS shaders.
+pub mod mirror_matrix;
+
+/// `f32` mirrors of the gamma-family shaders.
+pub mod mirror_gamma;
+
+/// `f32` mirrors of the Bessel-family shaders.
+pub mod mirror_bessel;
+
+/// `f32` mirrors of the digamma and zeta shaders.
+pub mod mirror_psi_zeta;
+
+/// `f32` mirrors of the Debye shaders.
+pub mod mirror_debye;
+
+/// `f32` mirror of the dilogarithm shader.
+pub mod mirror_dilog;
+
+/// `f32` mirrors of the Airy shaders.
+pub mod mirror_airy;
+
+/// `f32` mirror of the Lambert W shader.
+pub mod mirror_lambert;
+
+/// `f32` mirror of the Clausen shader, and its `f32` angle reduction.
+pub mod mirror_clausen;
+
+/// `f32` mirrors of the transport-integral shaders.
+pub mod mirror_transport;
+
+/// `f32` mirror of the inverse-tangent-integral shader.
+pub mod mirror_atanint;
+
+/// `f32` mirrors of the synchrotron shaders.
+pub mod mirror_synchrotron;
+
+/// Derived log-error budgets for the mirrors' `f32` cost tests (gh #1003).
+#[cfg(test)]
+pub(crate) mod log_budget;
+
+/// `f32` mirrors of the Fermi-Dirac integral shaders.
+pub mod mirror_fermi_dirac;
+
+/// `f32` mirror of the Dawson-integral shader.
+pub mod mirror_dawson;
+
+/// `f32` mirror of the cubic-exponential-integral shader.
+pub mod mirror_expint3;
+
+/// `f32` mirrors of the sine- and cosine-integral shaders.
+pub mod mirror_sinint;
+
+/// `f32` mirror of the elliptic-integral shader.
+pub mod mirror_ellint;
+
+/// `f32` mirror of the exponential- and hyperbolic-integral shader.
+pub mod mirror_expint;
+
+/// `f32` mirror of the Jacobi-elliptic-function shader.
+pub mod mirror_elljac;
+
+/// `f32` mirror of the Gegenbauer-polynomial shader.
+pub mod mirror_gegenbauer;
+
+/// `f32` mirror of the associated-Legendre shader.
+pub mod mirror_legendre_plm;
+
+/// CPU mirror of the LCG shader: the `u64` reference and a line-for-line
+/// transcription of its 32-bit emulated multiply.
+pub mod mirror_lcg;
+
+/// CPU mirror of the `3 x 3` SVD / closest-rotation shader: an `f32`
+/// transcription of [`crate::faer_dense::svd3`] (gh #1005).
+pub mod mirror_svd3;
+
+/// Headless GPU execution of these kernels. **Behind the off-by-default
+/// `wgpu` feature**, and the only module in the crate that uses `std`.
+#[cfg(all(
+    feature = "wgpu",
+    not(target_os = "android"),
+    not(target_arch = "wasm32")
+))]
+pub mod gpu;
+
+/// The storage binding every function in this module reads from.
+///
+/// Prepend this (or an equivalent declaration of `src`) to any shader that
+/// includes [`POLY`], [`CHEB`] or [`LEGENDRE`].
+pub const BINDING_PRELUDE: &str = "@group(0) @binding(0) var<storage, read> src: array<f32>;\n";
+
+/// Horner polynomial evaluation. Transcribed from [`crate::poly::eval`].
+///
+/// Provides `petir_poly_eval(off, n, x)` and `petir_poly_eval_comp(off, n, x)`.
+/// Coefficients are **ascending**, matching GSL and [`crate::poly::eval`], and
+/// opposite to [`crate::poly::dense`].
+pub const POLY: &str = include_str!("shaders/poly.wgsl");
+
+/// Chebyshev series evaluation by Clenshaw. Transcribed from [`crate::cheb`].
+///
+/// Provides `petir_cheb_eval(off, n, a, b, x)`,
+/// `petir_cheb_eval_n(off, n, eval_order, a, b, x)` and
+/// `petir_cheb_scale(v, lo, hi)`.
+pub const CHEB: &str = include_str!("shaders/cheb.wgsl");
+
+/// Legendre polynomials by Bonnet's recurrence.
+///
+/// Provides `petir_legendre_p(n, x)` and `petir_legendre_p_dp(n, x)`.
+pub const LEGENDRE: &str = include_str!("shaders/legendre.wgsl");
+
+/// The error-function family, ported from GSL's `specfunc/erfc.c`.
+///
+/// Provides `petir_erf(x)`, `petir_erfc(x)`, `petir_erfseries(x)`,
+/// `petir_erfc8(x)` and the three Chebyshev branch helpers. Truncated at
+/// GSL's own `order_sp`, the single-precision order it carries for each
+/// series.
+pub const ERF: &str = include_str!("shaders/erf.wgsl");
+
+/// GSL's matrix layer and reference CBLAS, ported from `cblas/source_*_r.h`
+/// and `matrix/`.
+///
+/// Provides `petir_mat_get`, `petir_mat_index`, the Level-1 kernels
+/// `petir_blas_dot` / `nrm2` / `asum` / `iamax`, the Level-2
+/// `petir_blas_gemv_row` and `_trans`, the Level-3
+/// `petir_blas_gemm_element` and `_nt`, and the element-wise
+/// `petir_mat_add` / `sub` / `mul_elements` / `div_elements` / `scale` /
+/// `add_constant` / `transpose`.
+///
+/// **Row-major with an explicit leading dimension**, matching
+/// `CblasRowMajor` and `gsl_matrix.tda`. Column-major is not ported.
+///
+/// **A per-element GPU kernel cannot reproduce GSL's `k`-outer `gemm`
+/// accumulation** — one invocation owns one output element, so it must sum
+/// over `k` itself. See the shader header and
+/// [`mirror_matrix::gemm_gsl_order`].
+pub const MATRIX: &str = include_str!("shaders/matrix.wgsl");
+
+/// GSL's gamma family, ported from `specfunc/gamma.c` by way of
+/// [`crate::specfunc::gamma`].
+///
+/// Provides `petir_lngamma`, `petir_gamma`, `petir_lnbeta`, `petir_beta`, the
+/// Lanczos branch and the two Padé branches at `ln Gamma`'s zeros.
+///
+/// **`Gamma` overflows near `x = 35` in `f32`** — stay in log space above
+/// that.
+pub const GAMMA: &str = include_str!("shaders/gamma.wgsl");
+
+/// GSL's order-0 and order-1 cylindrical Bessel functions, ported from
+/// `specfunc/bessel_{J,Y,I,K}{0,1}.c` by way of [`crate::specfunc::bessel`].
+///
+/// Provides `petir_bessel_j0`, `j1`, `y0`, `y1`, `i0`, `i1`, `k0`, `k1`, the
+/// four exponentially scaled modified forms, the eighteen Chebyshev series
+/// and the `cos_pi4`/`sin_pi4` phase helpers.
+///
+/// **These are the module's least accurate kernels, and the asymptotic
+/// branches past `x = 4` are the reason** — the phase is `x` itself, so an
+/// `f32` argument's own representation error becomes the answer's. See
+/// [`mirror_bessel`].
+pub const BESSEL: &str = include_str!("shaders/bessel.wgsl");
+
+/// GSL's digamma and zeta families, ported from `specfunc/psi.c` and
+/// `specfunc/zeta.c` by way of [`crate::specfunc::psi`] and
+/// [`crate::specfunc::zeta`].
+///
+/// Provides `petir_psi`, `petir_psi_1`, `petir_psi_1piy`, `petir_hzeta`,
+/// `petir_zeta`, `petir_zetam1` and `petir_eta`, plus the six Chebyshev
+/// series behind them.
+///
+/// **This is the one source with a dependency: [`GAMMA`] must be
+/// concatenated ahead of it**, because `petir_zeta`'s reflection branch calls
+/// `petir_gamma`.
+///
+/// Three entry points are deliberately absent — the integer-argument table
+/// lookups, `zeta(s)` below `s = -34`, and `psi_n` for `n >= 2`. The shader's
+/// own header gives the reason for each.
+pub const PSI_ZETA: &str = include_str!("shaders/psi_zeta.wgsl");
+
+/// GSL's Debye functions `D_1` .. `D_6`, ported from `specfunc/debye.c` by
+/// way of [`crate::specfunc::debye`].
+///
+/// Provides `petir_debye(n, x)` and the six Chebyshev series behind it.
+/// `D_3` is the Debye heat-capacity function.
+///
+/// **Two machine constants are retargeted to `f32`** — GSL's `xcut` and the
+/// sum/closed-form cut are derived from `f64`'s range and mean nothing here.
+/// See [`mirror_debye`]; the retargeting shortens the inner loop eight-fold
+/// at no measured cost.
+pub const DEBYE: &str = include_str!("shaders/debye.wgsl");
+
+/// GSL's real dilogarithm `Li_2(x)`, ported from `specfunc/dilog.c` by way of
+/// [`crate::specfunc::dilog`].
+///
+/// Provides `petir_dilog(x)` for all real `x`, returning the **real part** of
+/// the principal branch above the branch point at `x = 1`.
+///
+/// **No coefficient tables** — two convergent series and seven branch
+/// identities — so unlike the other specfunc shaders this one has no
+/// generator and no table audit. See [`mirror_dilog`].
+pub const DILOG: &str = include_str!("shaders/dilog.wgsl");
+
+/// GSL's Airy functions `Ai`, `Bi` and their exponentially scaled forms,
+/// ported from `specfunc/airy.c` by way of [`crate::specfunc::airy`].
+///
+/// Thirteen Chebyshev series, 281 coefficients. **Prefer the scaled entry
+/// points on a GPU:** `petir_airy_bi` overflows `f32` near `x = 25.9` where
+/// the `f64` module reaches 104.1, and `petir_airy_bi_scaled` does not
+/// overflow at all.
+pub const AIRY: &str = include_str!("shaders/airy.wgsl");
+
+/// GSL's Lambert `W`, both real branches, ported from `specfunc/lambert.c`
+/// by way of [`crate::specfunc::lambert`].
+///
+/// **One constant is retargeted to `f32` and it is load-bearing:** the
+/// iteration's convergence tolerance. Upstream's `DBL_EPSILON` can never be
+/// met by an `f32` iterate, so the loop would never stop early. See
+/// [`mirror_lambert`].
+pub const LAMBERT: &str = include_str!("shaders/lambert.wgsl");
+
+/// GSL's Clausen function `Cl_2`, ported from `specfunc/clausen.c` by way of
+/// [`crate::specfunc::clausen`].
+///
+/// **The argument reduction is redesigned for `f32`, not transcribed:** the
+/// `f64` three-way split of `2 pi` leaves no mantissa room for the period
+/// count, so this uses an eight-bit head — taken from `clausen.c`'s own
+/// reflection constants. See [`mirror_clausen`], and note that the usable
+/// range ends about two decades below the refusal.
+pub const CLAUSEN: &str = include_str!("shaders/clausen.wgsl");
+
+/// GSL's transport integrals `J(n, x)` for `n = 2 ..= 5`, ported from
+/// `specfunc/transport.c` by way of [`crate::specfunc::transport`].
+///
+/// **Three machine constants are retargeted**, all of them precision
+/// constants; `GSL_LOG_DBL_EPSILON` is load-bearing twice over, setting both
+/// the number of exponential images summed and the point at which the tail is
+/// discarded. See [`mirror_transport`].
+pub const TRANSPORT: &str = include_str!("shaders/transport.wgsl");
+
+/// GSL's inverse-tangent integral `Ti_2`, ported from `specfunc/atanint.c`
+/// by way of [`crate::specfunc::atanint`].
+///
+/// One Chebyshev table evaluated at reciprocal arguments either side of
+/// `|x| = 1`. **The large cut is retargeted and reshapes the domain** — see
+/// [`mirror_atanint`].
+pub const ATANINT: &str = include_str!("shaders/atanint.wgsl");
+
+/// GSL's synchrotron radiation functions `S_1` and `S_2`, ported from
+/// `specfunc/synchrotron.c` by way of [`crate::specfunc::synchrotron`].
+///
+/// **Its underflow guard is dead code in `f64` and load-bearing in `f32`** —
+/// the one constant so far whose category depends on the width. See
+/// [`mirror_synchrotron`].
+pub const SYNCHROTRON: &str = include_str!("shaders/synchrotron.wgsl");
+
+/// GSL's complete Fermi-Dirac integrals `F_j` at the seven fixed indices,
+/// ported from `specfunc/fermi_dirac.c` by way of
+/// [`crate::specfunc::fermi_dirac`].
+///
+/// **The largest table set here** — 22 Chebyshev series, 483 coefficients —
+/// and the one shader that deliberately **corrects** an upstream constant's
+/// formula rather than retargeting its value. See [`mirror_fermi_dirac`].
+pub const FERMI_DIRAC: &str = include_str!("shaders/fermi_dirac.wgsl");
+
+/// Dawson's integral `F(x)`, ported from `specfunc/dawson.c` by way of
+/// [`crate::specfunc::dawson`].
+///
+/// **The first shader here to ship GSL's single-precision Chebyshev order**
+/// rather than its `f64` one — 45 coefficients where the `f64` order needs
+/// 84. See [`mirror_dawson`].
+pub const DAWSON: &str = include_str!("shaders/dawson.wgsl");
+
+/// The cubic exponential integral `Ei_3(x)`, ported from
+/// `specfunc/expint3.c` by way of [`crate::specfunc::expint3`].
+///
+/// Carries GSL's single-precision Chebyshev order: 27 coefficients where the
+/// `f64` order needs 47. See [`mirror_expint3`].
+pub const EXPINT3: &str = include_str!("shaders/expint3.wgsl");
+
+/// The sine and cosine integrals `Si(x)` and `Ci(x)`, ported from
+/// `specfunc/sinint.c` by way of [`crate::specfunc::sinint`].
+///
+/// **Self-contained**: a `2 pi` argument reduction was tried and measured to
+/// be worse on both CPU and GPU, so this shader calls `sin` and `cos`
+/// directly. See [`mirror_sinint`].
+pub const SININT: &str = include_str!("shaders/sinint.wgsl");
+
+/// Carlson's symmetric forms and the Legendre elliptic integrals built on
+/// them, ported from `specfunc/ellint.c` by way of
+/// [`crate::specfunc::ellint`].
+///
+/// Provides `petir_ellint_rc` / `rd` / `rf` / `rj`, the four complete
+/// integrals `petir_ellint_kcomp` / `ecomp` / `dcomp` / `pcomp`, the four
+/// incomplete `petir_ellint_f` / `e` / `p` / `d`, and the selector
+/// `petir_ellint_comp(which, k, n)`.
+///
+/// **The second table-free shader here, after [`DILOG`]** — nothing is
+/// fitted, so there is no generator and no table audit. Two parameters are
+/// measured rather than transcribed: `errtol = 0.03` is upstream's own
+/// single-precision value, and the iteration cap is **16 against upstream's
+/// 10000**. See [`mirror_ellint`].
+pub const ELLINT: &str = include_str!("shaders/ellint.wgsl");
+
+/// The exponential integrals `E_1` and `Ei` and the hyperbolic sine and
+/// cosine integrals `Shi` and `Chi`, ported from `specfunc/expint.c` and
+/// `specfunc/shint.c` by way of [`crate::expint`] and
+/// [`crate::specfunc::shint`].
+///
+/// Provides `petir_expint_e1`, `petir_expint_e1_scaled`, `petir_expint_ei`,
+/// `petir_expint_ei_scaled`, `petir_shi`, `petir_chi` and the selector
+/// `petir_expint_family(which, x)`, plus the seven Chebyshev series.
+///
+/// **Four functions from one branch tree** — `Ei` is `-E_1(-x)` and `Shi`,
+/// `Chi` are its sum and difference with `E_1`. **Prefer the scaled entry
+/// points on a GPU**: `E_1` underflows to zero past `x ~ 83`. See
+/// [`mirror_expint`].
+pub const EXPINT: &str = include_str!("shaders/expint.wgsl");
+
+/// The Jacobi elliptic functions `sn`, `cn` and `dn`, ported from
+/// `specfunc/elljac.c` by way of [`crate::specfunc::elljac`].
+///
+/// Provides `petir_elljac(u, m) -> vec3<f32>` and the scalar selector
+/// `petir_elljac_component(which, u, m)`.
+///
+/// **The third table-free shader**, after [`DILOG`] and [`ELLINT`], and the
+/// companion of the last: `ellint` evaluates the integrals and this inverts
+/// them. All three functions come from one arithmetic-geometric-mean
+/// descent, which is why the entry point returns a vector. The descent cap
+/// is **8 against upstream's 16**, measured. See [`mirror_elljac`].
+pub const ELLJAC: &str = include_str!("shaders/elljac.wgsl");
+
+/// The Gegenbauer (ultraspherical) polynomials `C_n^lambda(x)`, ported from
+/// `specfunc/gegenbauer.c` by way of [`crate::specfunc::gegenbauer`].
+///
+/// Provides `petir_gegenpoly_1/2/3` and `petir_gegenpoly_n(n, lambda, x)`.
+///
+/// **The simplest kernel in this module**: three closed forms and a
+/// three-term recurrence, with no tolerance, no cut and **no numeric
+/// constant of any kind** — so it is the one shader with nothing to
+/// retarget. `lambda = 1/2` gives the Legendre polynomials and `lambda = 1`
+/// the Chebyshev polynomials of the second kind. See [`mirror_gegenbauer`].
+pub const GEGENBAUER: &str = include_str!("shaders/gegenbauer.wgsl");
+
+/// The associated Legendre polynomials `P_l^m(x)`, ported from
+/// `specfunc/legendre_poly.c` by way of [`crate::specfunc::legendre`].
+///
+/// Provides `petir_legendre_pmm(m, x)` and `petir_legendre_plm(l, m, x)`.
+///
+/// **Separate from [`LEGENDRE`]**, which carries the ordinary `P_n(x)` and
+/// is reached far more often — a kernel wanting only `P_n` should not carry
+/// this one's seed, guard and two-index recurrence.
+///
+/// **Its overflow guard is retargeted and carries an upstream hole at
+/// `l == m`**, both deliberately. See [`mirror_legendre_plm`].
+pub const LEGENDRE_PLM: &str = include_str!("shaders/legendre_plm.wgsl");
+
+/// OpenMC's 64-bit LCG state advance, emulated in `u32` pairs, transcribed
+/// from [`crate::rng::lcg`] (itself ported from OpenMC `src/random_lcg.cpp`).
+///
+/// Provides `petir_lcg_next(seed: vec2<u32>) -> vec3<u32>` — the new state in
+/// `.xy` (lo, hi) and a top-24-bit `f32` uniform bitcast into `.z` — plus the
+/// helpers `petir_lcg_mul_u32_full` and `petir_lcg_mul64_low`.
+///
+/// **The integer state is bit-exact against [`crate::rng::lcg::future_seed`]
+/// `(1, seed)`; the uniform is NOT [`crate::rng::lcg::prn`]** — it carries no
+/// PCG output permutation, a structural difference the shader header measures
+/// and justifies. See [`mirror_lcg`].
+///
+/// **Not a GSL port, and declares no binding**: it reads no buffer, so it can
+/// be concatenated into any kernel. It is the one copy of this arithmetic in
+/// the workspace — `outram-mc-libs`' `batched_flight.wgsl` and
+/// `batched_event.wgsl` are composed with it rather than carrying their own
+/// (moved here 2026-10-02).
+pub const LCG: &str = include_str!("shaders/lcg.wgsl");
+
+/// faer's dense SVD of a `3 x 3` matrix and the closest proper rotation
+/// (Kabsch / Procrustes) built from it, in `f32`: `petir_svd3`,
+/// `petir_closest_rotation3` and `petir_closest_rotation3_src` (which reads
+/// the `src` binding). A transcription of PETIR's own faer port
+/// ([`crate::faer_dense::svd3`]) specialised to `n = 3`, mirrored line for
+/// line by [`mirror_svd3`]. Added for `outram-blender`'s ARAP local step
+/// (gh #1005).
+pub const SVD3: &str = include_str!("shaders/svd3.wgsl");
+
+/// Every shader source in this module, in dependency order.
+///
+/// They are mutually independent today; the order is fixed so that a
+/// concatenation is reproducible.
+///
+/// # THIS LIST IS WHAT VALIDATION WALKS, AND FOUR SHADERS WENT MISSING FROM IT
+///
+/// `tests/wgsl_validation.rs` drives naga parsing, the baseline-capability
+/// check and the ledger check from `ALL_NAMES.iter().zip(ALL.iter())`. A
+/// shader that has a `pub const` here, a `kernel_for` arm in the test, a
+/// mirror and a ledger row — but no entry in this array — is therefore
+/// **not validated at all**, and nothing goes red.
+///
+/// That is not hypothetical. `fermi_dirac`, `dawson`, `expint3` and `sinint`
+/// each shipped that way, and were compiled by naga for the first time on
+/// 2026-09-19 when `ellint` was added and the array was recounted. All four
+/// passed — but they had been taken on trust for four commits, which is the
+/// point.
+///
+/// `every_shader_file_is_listed_here` now reads the `shaders/` directory and
+/// fails if any `.wgsl` file is absent from [`ALL_NAMES`]. **Adding a shader
+/// means adding it to both arrays**; the directory is the authority, not
+/// anyone's count.
+pub const ALL: [&str; 27] = [
+    POLY,
+    CHEB,
+    LEGENDRE,
+    ERF,
+    MATRIX,
+    GAMMA,
+    BESSEL,
+    PSI_ZETA,
+    DEBYE,
+    DILOG,
+    AIRY,
+    LAMBERT,
+    CLAUSEN,
+    TRANSPORT,
+    ATANINT,
+    SYNCHROTRON,
+    FERMI_DIRAC,
+    DAWSON,
+    EXPINT3,
+    SININT,
+    ELLINT,
+    EXPINT,
+    ELLJAC,
+    GEGENBAUER,
+    LEGENDRE_PLM,
+    LCG,
+    SVD3,
+];
+
+/// Names of the sources in [`ALL`], index for index, for diagnostics.
+///
+/// **Must stay the same length as [`ALL`].** Every test that walks the
+/// shaders does `ALL_NAMES.iter().zip(ALL.iter())`, and `zip` stops at the
+/// shorter of the two — so a name left off here does not fail, it silently
+/// removes a shader from validation. That happened once, to `psi_zeta`, and
+/// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
+/// what now catches it.
+pub const ALL_NAMES: [&str; 27] = [
+    "poly",
+    "cheb",
+    "legendre",
+    "erf",
+    "matrix",
+    "gamma",
+    "bessel",
+    "psi_zeta",
+    "debye",
+    "dilog",
+    "airy",
+    "lambert",
+    "clausen",
+    "transport",
+    "atanint",
+    "synchrotron",
+    "fermi_dirac",
+    "dawson",
+    "expint3",
+    "sinint",
+    "ellint",
+    "expint",
+    "elljac",
+    "gegenbauer",
+    "legendre_plm",
+    "lcg",
+    "svd3",
+];
+
+pub use kernel_builder::test_kernel;
+
+// `test_kernel` needs `alloc` to build a string. `alloc` is unconditional in
+// this crate, so this is not feature-gated -- the module is inline rather than
+// a file only because it is six lines.
+mod kernel_builder {
+    use alloc::string::String;
+
+    /// Wrap a call to one of this module's functions in a complete, runnable
+    /// compute shader.
+    ///
+    /// The generated kernel maps over an input array: workgroup `i` reads
+    /// `probe[i]`, evaluates `call` with `x` bound to it, and writes
+    /// `dst[i]`. `call` is a WGSL expression that may use `x` and `src`.
+    ///
+    /// This exists so a test can dispatch any function here without
+    /// hand-writing a shader per case, which is how a verification suite
+    /// quietly stops covering things.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use petir::wgsl::{test_kernel, POLY};
+    /// let src = test_kernel(&[POLY], "petir_poly_eval(0u, params.n, x)");
+    /// assert!(src.contains("@compute"));
+    /// assert!(src.contains("petir_poly_eval"));
+    /// ```
+    pub fn test_kernel(sources: &[&str], call: &str) -> String {
+        let mut s = String::new();
+        // Eight slots, 32 bytes. The first four are the scalar kernels'
+        // original layout and are unchanged; the last four were appended for
+        // the matrix kernels, which need a second matrix offset and leading
+        // dimension. Appending keeps every existing call site working through
+        // `..Default::default()`.
+        s.push_str(
+            "struct Params { n: u32, a: f32, b: f32, k: u32,              m: u32, off_b: u32, ld_b: u32, off_c: u32 };\n",
+        );
+        s.push_str("@group(0) @binding(0) var<storage, read> src: array<f32>;\n");
+        s.push_str("@group(0) @binding(1) var<storage, read> probe: array<f32>;\n");
+        s.push_str("@group(0) @binding(2) var<storage, read_write> dst: array<f32>;\n");
+        s.push_str("@group(0) @binding(3) var<uniform> params: Params;\n\n");
+        for src in sources {
+            s.push_str(src);
+            s.push('\n');
+        }
+        s.push_str("\n@compute @workgroup_size(64)\n");
+        s.push_str("fn main(@builtin(global_invocation_id) gid: vec3<u32>) {\n");
+        // Keep EVERY binding live, whatever `call` happens to read.
+        //
+        // naga strips a binding no code references, and `create_bind_group`
+        // then rejects the four entries a caller supplies against a
+        // three-entry layout. Both halves of this are real failures already
+        // hit here: `petir_legendre_p` reads no array (binding 0), and
+        // `petir_erfc` reads neither array nor uniform (bindings 0 and 3).
+        //
+        // `arrayLength(&src)` covers binding 0. The `params` guard covers
+        // binding 3 with a genuine branch on a genuine uniform read, so it
+        // cannot be folded away -- `0xffffffff` elements is not a length any
+        // real dispatch has.
+        s.push_str("    if (arrayLength(&src) == 0u) { return; }\n");
+        s.push_str("    let i = gid.x;\n");
+        s.push_str("    if (i >= arrayLength(&probe)) { return; }\n");
+        s.push_str("    if (params.n == 0xffffffffu) { dst[i] = 0.0; return; }\n");
+        s.push_str("    let x = probe[i];\n");
+        s.push_str("    dst[i] = ");
+        s.push_str(call);
+        s.push_str(";\n}\n");
+        s
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every shader source is present, non-empty, and carries its licence and
+    /// lineage header.
+    ///
+    /// A `.wgsl` file that lost its provenance header is exactly the failure
+    /// this crate's rules exist to prevent, and `include_str!` would happily
+    /// ship it.
+    #[test]
+    fn every_shader_declares_its_licence_and_lineage() {
+        for (name, src) in ALL_NAMES.iter().zip(ALL.iter()) {
+            assert!(!src.is_empty(), "{name}.wgsl is empty");
+            // GPL-3.0-only for transcriptions of GSL; AGPL-3.0-only for
+            // `svd3.wgsl`, transcribed from the AGPL `faer_dense` port (the
+            // crate is AGPL since 2026-10-20, gh #973; GSL-derived files keep
+            // their GPL header).
+            assert!(
+                src.contains("SPDX-License-Identifier: GPL-3.0-only")
+                    || src.contains("SPDX-License-Identifier: AGPL-3.0-only"),
+                "{name}.wgsl has no SPDX header"
+            );
+            assert!(
+                src.contains("TRANSCRIBED to WGSL"),
+                "{name}.wgsl does not say what it was transcribed from"
+            );
+        }
+    }
+
+    /// The generated test kernel is well-formed enough to compile.
+    ///
+    /// Real validation is naga's, in the `wgpu`-gated tests; this catches the
+    /// cheap mistakes without a device.
+    #[test]
+    fn the_generated_kernel_has_the_pieces_a_shader_needs() {
+        let src = test_kernel(&[POLY], "petir_poly_eval(0u, params.n, x)");
+        assert!(src.contains("@compute @workgroup_size(64)"));
+        assert!(src.contains("var<storage, read> src: array<f32>"));
+        assert!(src.contains("var<storage, read_write> dst: array<f32>"));
+        assert!(src.contains("var<uniform> params: Params"));
+        assert!(
+            src.contains("off_b: u32"),
+            "the matrix slots must be present"
+        );
+        assert!(src.contains("fn petir_poly_eval"));
+        // The bounds guard must be there: a dispatch rounds up to whole
+        // workgroups, so without it the tail invocations write out of range.
+        assert!(src.contains("if (i >= arrayLength(&probe)) { return; }"));
+        // And every binding must be referenced, or naga strips it from the
+        // auto layout and the bind group no longer matches. Neither of these
+        // is hypothetical: `petir_legendre_p` reads no array and
+        // `petir_erfc` reads neither array nor uniform, and each failed
+        // before its guard was added.
+        assert!(src.contains("arrayLength(&src)"));
+        assert!(src.contains("params.n == 0xffffffffu"));
+    }
+
+    /// The binding prelude matches what the generated kernel declares.
+    ///
+    /// These are written in two places, and a caller composing shaders by hand
+    /// uses the constant while the tests use the generator. If they drift, the
+    /// documented convention becomes wrong for exactly the people who followed
+    /// it.
+    #[test]
+    fn the_binding_prelude_matches_the_generated_kernel() {
+        let src = test_kernel(&[], "0.0");
+        let decl = BINDING_PRELUDE.trim();
+        assert!(
+            src.contains(decl),
+            "BINDING_PRELUDE ({decl}) is not what test_kernel emits"
+        );
+    }
+}

@@ -29,6 +29,7 @@
 //! - **No accuracy claim of any kind.** The tests below check that the solver
 //!   computes what it says it computes, not that what it says is right.
 
+use petir::mathf::RealMath;
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, Length, Pressure, Ratio, ThermodynamicTemperature, Time};
 use uom::si::length::meter;
@@ -291,7 +292,7 @@ fn interfacial_momentum_coupling_is_antisymmetric_outside_the_taper_band() {
 fn residual_alpha_flooring_keeps_the_block_invertible_as_a_phase_vanishes() {
     let mut printed = Vec::new();
     for exponent in 0..=15 {
-        for alpha_g in [10.0_f64.powi(-exponent), 1.0 - 10.0_f64.powi(-exponent)] {
+        for alpha_g in [10.0_f64.r_powi(-exponent), 1.0 - 10.0_f64.r_powi(-exponent)] {
             if !(0.0..=1.0).contains(&alpha_g) {
                 continue;
             }
@@ -480,7 +481,7 @@ fn strong_coupling_drives_the_phase_velocities_together_as_one_over_k_d() {
     for exponent in [4, 6, 8, 10, 12] {
         let mut inputs = base_inputs();
         inputs.c_vm = 0.0;
-        inputs.k_d = 10.0_f64.powi(exponent);
+        inputs.k_d = 10.0_f64.r_powi(exponent);
         let block = PhaseCouplingBlock::assemble(inputs).expect("well-posed block");
         let (u_g, u_l) = block.solve(b_g, b_l).expect("invertible");
         let slip = (u_g - u_l).abs();

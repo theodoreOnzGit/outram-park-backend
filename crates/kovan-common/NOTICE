@@ -1,0 +1,165 @@
+NOTICE — kovan-common
+=====================
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-07)
+-----------------------------------------------------
+
+Maintainer direction, 2026-10-07: "I want all kovan to be AGPLv3". Every
+crate of the kovan family is AGPL-3.0-only from this date: kovan (since
+2026-08-21), kovan-web (since its creation, 2026-10-06), and kovan-common,
+kovan-literature, kovan-discovery, kovan-semantics, kovan-metrics and
+kovan-codegen (this change).
+
+Why: the planned port of Zotero (AGPL-3.0) into kovan and its libraries.
+AGPL code cannot go into a GPL-3.0-only crate, so the libraries that receive
+it must be AGPL; the maintainer chose to make the whole family AGPL rather
+than confine the port to one crate.
+
+Copyright: the maintainer holds the copyright of this crate's code. It was
+checked for third-party code before the relicense (2026-10-07): none. ~~The
+one "ported" module in the family's libraries, kovan-common's `fuzzy`, is
+ported from the njoy TUI in this same workspace, same copyright holder.~~
+CORRECTED 2026-10-07: that was true when the relicense was made. The same
+day, two ports of third-party code were added: `src/anchoring/` (Hypothesis,
+BSD-2-Clause and MIT; see "Upstream: Hypothesis" below) and `src/zotero/`
+(Zotero, AGPL-3.0; see "Upstream: Zotero" below). `fuzzy` remains ported
+from the njoy TUI in this workspace, same copyright holder.
+
+Versions already published on crates.io (kovan-common <= 0.0.1) stay
+GPL-3.0-only; the AGPL applies from the next published version.
+
+Dependents: no crate outside the kovan family depends on this one (checked
+with `cargo metadata`, 2026-10-07); `dhoby-ghaut`, which depends on `kovan`,
+has been AGPL-3.0-only since 2026-10-05.
+
+Upstream: Hypothesis (src/anchoring/, 2026-10-07, GitHub #754)
+--------------------------------------------------------------
+
+`src/anchoring/` is a Rust port of third-party code. Both licences were read
+first-hand (LICENSE file and package.json) before porting, and both are
+compatible with AGPL-3.0-only, under which the port is distributed. Every
+ported file carries an attribution header naming its upstream file.
+
+1. Hypothesis client, https://github.com/hypothesis/client
+   Commit b4d085a2f893aa6de3b61d8b8bc3ae4d0f24fc1a (main, 2026-10-07).
+   Files: src/annotator/anchoring/{match-quote,html,pdf,types}.ts,
+   src/annotator/util/normalize.ts, src/types/api.ts, and their tests.
+   Licence: BSD-2-Clause.
+
+   Copyright (c) 2013-2019 Hypothes.is Project and contributors
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are
+   met:
+
+   1. Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+   IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+   THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+   PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+   The client's LICENSE also carries an MIT notice "for the annotator
+   subcomponent" (the original Annotator library). It does not say which
+   files that covers, and the ported files live under src/annotator/, so
+   the notice is reproduced here and the port complies either way:
+
+   Copyright 2012 Aron Carroll, Rufus Pollock, and Nick Stenning.
+
+   Permission is hereby granted, free of charge, to any person obtaining a
+   copy of this software and associated documentation files (the
+   "Software"), to deal in the Software without restriction, including
+   without limitation the rights to use, copy, modify, merge, publish,
+   distribute, sublicense, and/or sell copies of the Software, and to permit
+   persons to whom the Software is furnished to do so, subject to the
+   following conditions:
+
+   The above copyright notice and this permission notice shall be included
+   in all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+   NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+   USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+2. approx-string-match, https://github.com/robertknight/approx-string-match-js
+   Version 2.0.0, commit fe814eba4d6b6daf88d38179331a14d156a0b5a0.
+   Files: src/index.ts and test/index-test.ts. Licence: MIT.
+
+   Copyright (c) 2020 Robert Knight
+
+   Permission is hereby granted, free of charge, to any person obtaining a
+   copy of this software and associated documentation files (the
+   "Software"), to deal in the Software without restriction, including
+   without limitation the rights to use, copy, modify, merge, publish,
+   distribute, sublicense, and/or sell copies of the Software, and to permit
+   persons to whom the Software is furnished to do so, subject to the
+   following conditions:
+
+   The above copyright notice and this permission notice shall be included
+   in all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+   NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+   USE OR OTHER DEALINGS IN THE SOFTWARE.
+Upstream: Zotero (2026-10-07, GitHub #747, #748)
+------------------------------------------------
+
+`src/zotero/` ports parts of Zotero. Zotero is free software under the GNU
+Affero General Public License, version 3 or (at your option) any later
+version; this crate takes it under AGPL-3.0-only.
+
+  Copyright (c) Corporation for Digital Scholarship, Vienna, Virginia, USA
+  (older files: (c) 2009 Center for History and New Media, George Mason
+  University, Fairfax, Virginia, USA). https://www.zotero.org
+
+Sources read (upstream code was read, not run):
+
+  zotero     https://github.com/zotero/zotero      commit 9cbba8c4d281
+             chrome/content/zotero/xpcom/data/item.js (toJSON, fromJSON),
+             data/itemFields.js, data/cachedTypes.js, data/collection.js,
+             data/dataObject.js, xpcom/attachments.js, xpcom/annotations.js,
+             xpcom/utilities_internal.js (itemToExportFormat,
+             combineExtraFields), xpcom/schema.js (_updateGlobalSchema),
+             data/search.js (toJSON, fromJSON; src/zotero/search.rs, #750),
+             resource/schema/dateFormats.json (en-US month names),
+             chrome/locale/en-US/zotero/zotero.properties (date.daySuffixes)
+  utilities  https://github.com/zotero/utilities   commit 4051881d59c6
+             utilities_item.js (itemToCSLJSON, itemFromCSLJSON,
+             parseParticles, noteToTitle, extraToCSL), date.js,
+             utilities.js (trimInternal, lpad, unescapeHTML), schema.js,
+             cachedTypes.js
+  zotero-schema  https://github.com/zotero/zotero-schema  commit b86c79b56479
+             schema.json (version 45), the source of
+             src/zotero/schema_generated.rs (generated by kovan-codegen).
+             No licence text upstream; treated as AGPLv3 as part of Zotero,
+             maintainer decision 2026-10-07, #747. (The repository has no
+             LICENSE file; Zotero ships it as a submodule of the AGPL client.)
+
+`parseParticles` in utilities_item.js is itself taken from citeproc-js,
+(c) 2009-2019 Frank Bennett, dual-licensed CPAL-1.0 or AGPL-3.0-or-later;
+it is used here under the AGPL.
+
+Test fixtures copied verbatim into tests/data/zotero/ (AGPL-3.0, same
+copyright): citeProcJSExport.json and journalArticle.json from utilities
+test/data/; itemJSON.json from zotero test/tests/data/itemJSON.js.
+
+Each ported file carries a header naming its upstream file(s) and commit.

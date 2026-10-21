@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>High-burnup structure</title>
+<meta name="description" content="Fission products, lesson 27: at high burnup the fuel restructures into tiny new grains with many pores, the high-burnup structure.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 27. SCIANTIX
+     high_burnup_structure_formation.rst (2344575, MIT); bend ILLUSTRATIVE. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Complication 8: the high-burnup structure</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>After enough fissions, the damaged lattice does something drastic: it <b>restructures</b>. The original grains break up into very small new grains, with many small pores between them. This is the <b>high-burnup structure</b>. Small grains mean short paths to a boundary.</p>
+
+<section class="widget-card">
+  <h3>How restructuring bends the clean curve</h3>
+  <div class="widget" data-bend="hbs">
+    <canvas aria-label="Released fraction against time: the clean curve and a curve where part of the fuel has much smaller grains."></canvas>
+  </div>
+</section>
+
+<p>SCIANTIX models its formation as a restructuring law in the &ldquo;effective burnup&rdquo;, with the Barani et al. (2020) option, and tracks the restructured volume fraction <a href="#ref-sciantix2344575">(Pizzocri et al., 2018)</a>, <code>high_burnup_structure_formation.rst</code>. Whether and where it forms in TRISO kernels, and the size of its new grains: <span class="pending">source pending</span>. Link back: in the <a href="kernel-many-spheres.html">many-spheres model</a>, a share of the spheres becomes much smaller.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<p>The bend weights a fifth of the fuel with smaller grains; that share and the size change are <b>illustrative</b>.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-sciantix2344575" style="padding-left: 2em; text-indent: -2em;">Pizzocri, D., Barani, T., &#38; Luzzi, L. (2018). <i>SCIANTIX</i> [Computer software]. https://github.com/sciantix/sciantix-official</p>
+
+<!-- references:end -->
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>At a collision: who, what, where to?</title>
+<meta name="description" content="Transport, page 5: at a collision the code draws which nuclide of the material was hit, in proportion to its macroscopic cross section, then which reaction, from the nuclide's partial cross sections, then for a scatter the new energy and direction. Godiva's uranium at 0.1, 1 and 2 MeV, from OUTRAM PARK's own data path.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="collision-data.js" defer></script>
+<script src="transport.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Widget: transport.js ladder on collision-data.js (examples/lesson_collision.rs). Code: material.rs sample_nuclide_urr :189, transport_csg.rs collision block :1876-2100 (reaction ladder :1993-2060), the scatter fork :2396-2424, nuclide.rs xs_at_energy :3366, physics/fission.rs. Links to the neutronics pages on angles, free gas, DBRC and S(alpha,beta). Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>At a collision: who, what, where to?</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>The neutron has arrived at a collision site with energy E. Three questions follow, in order, and each is answered by one or two random numbers.</p>
+
+<h2>1. Which nuclide?</h2>
+<p>A material is a mixture. The neutron hit nuclide i with probability proportional to its share of the macroscopic total cross section, N<sub>i</sub>&sigma;<sub>t,i</sub>(E)/&Sigma;<sub>t</sub> (<code>Material::sample_nuclide</code>; in the unresolved range, <code>sample_nuclide_urr</code>, which weights by the probability-table band the flight already used, as OpenMC does). One uniform number &xi;<sub>1</sub> is multiplied by &Sigma;<sub>t</sub> and compared with the running sum.</p>
+<p>In Godiva's uranium at 1&nbsp;MeV (our port's data, 293.6&nbsp;K) U-235 takes <b data-share="1000000,U235">93.6</b>&nbsp;% of the collisions and U-238 <b data-share="1000000,U238">5.3</b>&nbsp;%; at 0.1&nbsp;MeV U-235 takes <b data-share="100000,U235">94.0</b>&nbsp;%. The shares follow the atom densities, the cross sections being close to each other here (each is of order 7&nbsp;b at 1&nbsp;MeV).</p>
+
+<h2>2. Which reaction?</h2>
+<p>Now a second number &xi;<sub>2</sub>, against the chosen nuclide's <b>own</b> total, and a ladder of cumulative partial cross sections, always in the same order: <b>fission</b> first, then the rest of absorption (<b>capture</b>), <b>inelastic</b> scattering, <b>(n,2n)</b>, other channels, and <b>elastic</b> last (<code>transport_csg.rs</code>, the collision block). One ladder serves every case; the variance-reduction option of survival biasing offsets the draw past the absorption rungs instead of duplicating it.</p>
+<p>For U-235 at 1&nbsp;MeV the partial cross sections are, in barns: fission <b data-part="1000000,U235,fission">1.2029</b>, capture <b data-part="1000000,U235,capture">0.1073</b>, inelastic <b data-part="1000000,U235,inelastic">1.7207</b>, elastic <b data-part="1000000,U235,elastic">3.8726</b>. Elastic scattering, the last rung, is the widest.</p>
+<p class="predict"><b>Predict first:</b> in a bare sphere of highly enriched uranium, which is the most likely thing to happen at a fast collision: fission, capture, or a scatter? Move the energy to 2&nbsp;MeV: what changes?</p>
+
+<section class="widget-card">
+  <h3>Two draws at a collision</h3>
+  <div class="widget" id="ladder">
+    <canvas aria-label="Two bars: the nuclide shares of the macroscopic cross section, and the reaction ladder of the chosen nuclide"></canvas>
+  </div>
+  <p class="note">Godiva&rsquo;s material (<code>vv::godiva</code>) at three energies, from the microscopic channels of <code>Nuclide::xs_at_energy</code>, written by <code>examples/lesson_collision.rs</code> on 2026-10-18 (ENDF/B-VIII.0 <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, URR and DBRC on, infinitely dilute values). The two draws are the page&rsquo;s sliders; the highlighted segments are what the code would pick. JavaScript sketch of the draws; the numbers are the real code&rsquo;s. The widths of the second bar may differ from the code&rsquo;s where the unresolved-resonance band moves them (only the 0.1&nbsp;MeV row is in U-238&rsquo;s unresolved range).</p>
+</section>
+
+<h2>3. Where to? What each reaction does</h2>
+<ul>
+  <li><b>Capture</b> ends the history (an absorption event on the track).</li>
+  <li><b>Fission</b> ends the neutron's history too, and banks the sites of the neutrons it makes: the fission bank is page 9.</li>
+  <li><b>Elastic scattering</b> samples the scattering angle in the centre-of-mass frame from the evaluation's own distribution (pages 6 and 7 of the neutronics lessons, <a href="../neutronics/scattering-angles.html">How are scattering angles stored?</a>), and then, <b>depending on the energy and on the nuclide</b>, one of three kernels takes it to the laboratory frame (the fork <code>scatter_fork</code> in <code>transport_csg.rs</code>):
+    <ul>
+      <li>below the cutoff of a bound-atom table the nuclide carries (hydrogen in water, carbon in graphite): the thermal table's S(&alpha;,&beta;) law gives the outgoing energy and angle directly, up-scattering included (<a href="../neutronics/two-files.html">page 45 of the neutronics lessons</a>);</li>
+      <li>otherwise, in the free-gas range, a target velocity is sampled and the collision is done with that moving nucleus, with the resonance rejection of DBRC for heavy nuclides (<a href="../neutronics/which-nucleus.html">page 42</a> and <a href="../neutronics/dbrc.html">page 43</a>);</li>
+      <li>above 400&thinsp;kT (above 1&nbsp;keV for a nuclide with a DBRC table), the target is taken at rest, and the collision is the textbook two-body one of <a href="../neutronics/why-it-scatters.html">page 2</a>.</li>
+    </ul></li>
+  <li><b>Inelastic scattering</b> leaves the nucleus excited: a discrete level uses the level's own angular distribution (and isotropic only if the evaluation has none), and the continuum uses the evaluated energy-angle law (<code>sample_inelastic</code>).</li>
+  <li><b>(n,2n)</b> and the higher multiplicities emit two or more neutrons, drawn <b>independently</b> from the evaluated law; copying the first neutron's state would correlate the pair perfectly (that was a defect, gh:#192).</li>
+</ul>
+<p>Whatever the outcome, the cross sections used are the collision material's own at its own temperature (not a run-wide one), so a model with fuel, moderator and reflector at different temperatures partitions each collision correctly (<code>mat_temp = material.temperature</code>). The full chapter, with the code, is <a href="../../deep-dives/monte-carlo/collisions-and-fission.html">Collisions, fission and delayed neutrons</a>.</p>
+
+<h2>Next question</h2>
+<p>We now have every piece of one step: a flight, a move, a surface or a collision. <b>What does a whole life look like when we repeat them?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

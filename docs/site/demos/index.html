@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web demos</title>
+<meta name="description" content="Run OUTRAM PARK simulations in your browser: Monte Carlo neutron transport, nuclear data processing, dispersion, TRISO fuel and pebble beds.">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<!-- The demo library (gh:#906 spec §4, maintainer 2026-10-16): mobile first,
+     a contents list that jumps to headings, one heading per domain with
+     wrapping tap-target buttons under it. One demo may appear under several
+     headings. Every link marked data-kind="demo" is also a search entry
+     (scripts/build-search-index.sh): keep each on one line. -->
+<main>
+<header class="top">
+  <h1>Web demos</h1>
+  <p class="lede">Run OUTRAM PARK simulations directly in your browser. Every demo computes with the workspace's own Rust code, compiled to WebAssembly; nothing runs on a server. The Monte Carlo and nuclear data demos download real ENDF/B-VIII.0 evaluations and process them in your browser first, so their first start takes a minute or more.</p>
+</header>
+  <nav class="contents" aria-label="Contents">
+    <h2>Contents</h2>
+    <div class="chips">
+      <a class="chip" href="#start">Start here</a>
+      <a class="chip" href="#neutronics">Neutronics</a>
+      <a class="chip" href="#nuclear-data">Nuclear data</a>
+      <a class="chip" href="#thermal-hydraulics">Thermal hydraulics</a>
+      <a class="chip" href="#cfd">CFD</a>
+      <a class="chip" href="#particle-fuel">Particle &amp; fuel physics</a>
+      <a class="chip" href="#dispersion">Dispersion</a>
+      <a class="chip" href="#multiphysics">Multiphysics</a>
+    </div>
+  </nav>
+
+  <section class="lib" id="start">
+    <h2>Start here</h2>
+    <p><strong>Godiva</strong>, a bare sphere of highly enriched uranium, is the Monte Carlo "Hello World": follow one neutron, watch whole generations settle, then run a real criticality calculation.</p>
+    <div class="chips">
+      <a class="demo featured" href="monte-carlo/?rung=godiva&amp;mode=watch" data-kind="demo" data-terms="Godiva hello world neutron history track Monte Carlo">Godiva — follow a neutron</a>
+      <a class="demo" href="monte-carlo/?rung=godiva&amp;mode=watch&amp;view=generations" data-kind="demo" data-terms="Godiva generations fission source Shannon entropy convergence">Godiva — generations &amp; Shannon entropy</a>
+      <a class="demo" href="monte-carlo/?rung=godiva&amp;mode=run" data-kind="demo" data-terms="Godiva criticality k-effective k_eff keff power iteration">Godiva — criticality (run k_eff)</a>
+      <a class="demo" href="nuclear-data/?rung=reconr" data-kind="demo" data-terms="cross sections sigma(E) resonances U-235 U-238">Cross sections (RECONR)</a>
+    </div>
+  </section>
+
+  <section class="lib" id="neutronics">
+    <h2>Neutronics</h2>
+    <p>Neutrons transported by <code>outram-mc-libs</code>, a Rust port of OpenMC's kernels, through the ICSBEP benchmark cases and the Monte Carlo lesson ladder.</p>
+    <div class="chips">
+      <a class="demo" href="monte-carlo/?rung=godiva&amp;mode=watch" data-kind="demo" data-terms="bare sphere fast critical HEU">Godiva</a>
+      <a class="demo" href="monte-carlo/?rung=jemima&amp;mode=watch" data-kind="demo" data-terms="ICSBEP benchmark HEU metal cylinders k-effective">Jemima</a>
+      <a class="demo" href="monte-carlo/?rung=hst009&amp;mode=watch" data-kind="demo" data-terms="HEU-SOL-THERM-009 uranyl solution thermal k-effective">HST-009</a>
+      <a class="demo" href="monte-carlo/?rung=lct008&amp;mode=watch" data-kind="demo" data-terms="LEU-COMP-THERM-008 light water lattice pitch k-infinity">LCT-008</a>
+      <a class="demo" href="monte-carlo/?rung=ugraphite&amp;mode=watch" data-kind="demo" data-terms="slowing down moderation graphite S(alpha,beta) resonance escape four-factor">Uranium in graphite</a>
+      <a class="demo" href="monte-carlo/?rung=lumped&amp;mode=watch" data-kind="demo" data-terms="lumping spatial self-shielding Chicago Pile">Uranium lump</a>
+      <a class="demo" href="monte-carlo/?rung=triso&amp;mode=watch" data-kind="demo" data-terms="TRISO pebble double heterogeneity">TRISO pebble</a>
+      <a class="demo" href="monte-carlo/?rung=dhshort&amp;mode=watch" data-kind="demo" data-terms="double heterogeneity shortcuts Reactivity-equivalent physical transformation RPT">Double-heterogeneity shortcuts</a>
+      <a class="demo" href="monte-carlo/?rung=htr10" data-kind="demo" data-terms="HTR-10 pebble bed HTGR whole core worker pool">HTR-10</a>
+      <a class="demo" href="delta-tracking/" data-kind="demo" data-terms="delta tracking Woodcock majorant virtual collision">Delta tracking</a>
+      <a class="demo" href="delta-tracking/" data-kind="demo" data-terms="surface tracking ray tracing distance to boundary">Surface tracking</a>
+    </div>
+  </section>
+
+  <section class="lib" id="nuclear-data">
+    <h2>Nuclear data</h2>
+    <p>ENDF/B-VIII.0 evaluations processed in your browser by <code>njoy-outram-park-fork</code>, the workspace's port of NJOY2016.</p>
+    <div class="chips">
+      <a class="demo" href="nuclear-data/?rung=endf" data-kind="demo" data-terms="ENDF explorer evaluation MF MT">ENDF explorer</a>
+      <a class="demo" href="nuclear-data/?rung=reconr" data-kind="demo" data-terms="RECONR resonance reconstruction cross section">RECONR</a>
+      <a class="demo" href="nuclear-data/?rung=broadr" data-kind="demo" data-terms="BROADR Doppler broadening temperature">Doppler broadening</a>
+      <a class="demo" href="nuclear-data/?rung=purr" data-kind="demo" data-terms="PURR unresolved resonance probability tables URR">PURR</a>
+      <a class="demo" href="nuclear-data/?rung=thermr" data-kind="demo" data-terms="THERMR S(alpha,beta) thermal scattering bound atom">S(&alpha;,&beta;)</a>
+      <a class="demo" href="nuclear-data/?rung=thermal-ace-generator" data-kind="demo" data-terms="LEAPR thermal ACE generator phonon">LEAPR &amp; thermal ACE</a>
+      <a class="demo" href="nuclear-data/?rung=groupr" data-kind="demo" data-terms="GROUPR multigroup self-shielding">GROUPR</a>
+      <a class="demo" href="nuclear-data/?rung=acer" data-kind="demo" data-terms="ACER ACE table">ACER</a>
+      <a class="demo" href="nuclear-data/?rung=ace-generator" data-kind="demo" data-terms="ACE generator your own ENDF tape">ACE generator</a>
+      <a class="demo" href="nuclear-data/?rung=ace-comparator" data-kind="demo" data-terms="ACE comparator compare tables">ACE comparator</a>
+    </div>
+  </section>
+
+  <section class="lib" id="thermal-hydraulics">
+    <h2>Thermal hydraulics</h2>
+    <p>The CIET loop, computed by the CIET Educational Simulator v2's own physics (<code>tuas_boussinesq_solver</code>) on three background workers, in real time. More thermal-hydraulics and GeN-Foam demos are tracked in <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/891">#891</a>, and the HTGR plant simulator's browser build in <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/149">#149</a>.</p>
+    <div class="chips">
+      <a class="demo" href="ciet/" data-kind="demo" data-terms="CIET Compact Integral Effects Test natural circulation DRACS DHX CTAH TCHX heater Dowtherm FHR real time educational simulator">CIET loop (educational simulator)</a>
+    </div>
+  </section>
+
+  <section class="lib" id="cfd">
+    <h2>CFD</h2>
+    <p class="status">No browser demo yet: tracked in <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/891">#891</a>.</p>
+  </section>
+
+  <section class="lib" id="particle-fuel">
+    <h2>Particle &amp; fuel physics</h2>
+    <p>Pebbles poured by the LIGGGHTS port, and the TRISO particle from its layers to fuel failure, computed by <code>boon-lay</code>.</p>
+    <div class="chips">
+      <a class="demo" href="dem/" data-kind="demo" data-terms="DEM discrete element pouring pebbles LIGGGHTS packing fraction HTR-10">DEM: pour the HTR-10 bed</a>
+      <a class="demo" href="monte-carlo/?rung=packing&amp;mode=watch" data-kind="demo" data-terms="random packing TRISO particles in a pebble">Random packing</a>
+      <a class="demo" href="triso-atops/?rung=triso" data-kind="demo" data-terms="TRISO particle layers kernel buffer PyC SiC">TRISO: the particle</a>
+      <a class="demo" href="triso-atops/?rung=decay" data-kind="demo" data-terms="radioactive decay Monte Carlo">Decay by Monte Carlo</a>
+      <a class="demo" href="triso-atops/?rung=walk" data-kind="demo" data-terms="Walk-on-Spheres diffusion random walk">Walk-on-Spheres</a>
+      <a class="demo" href="triso-atops/?rung=layers" data-kind="demo" data-terms="diffusion coefficient D(T) layers fission products">Through the layers</a>
+      <a class="demo" href="triso-atops/?rung=failure" data-kind="demo" data-terms="fuel failure pressure vessel SiC failure probability">Fuel failure</a>
+      <a class="demo" href="triso-atops/?rung=chemistry" data-kind="demo" data-terms="air ingress steam oxidation chemical attack">Chemical attack</a>
+    </div>
+  </section>
+
+  <section class="lib" id="dispersion">
+    <h2>Dispersion</h2>
+    <p>From a release to air concentration and dose downwind, computed by <code>buangkok</code> and <code>changi</code>.</p>
+    <div class="chips">
+      <a class="demo" href="dispersion/?rung=plume" data-kind="demo" data-terms="Gaussian plume steady state">Gaussian plume</a>
+      <a class="demo" href="dispersion/?rung=sigmas" data-kind="demo" data-terms="Pasquill stability class sigma curves">Stability &amp; sigmas</a>
+      <a class="demo" href="dispersion/?rung=rise-wake" data-kind="demo" data-terms="plume rise building wake">Plume rise &amp; wake</a>
+      <a class="demo" href="dispersion/?rung=puffs" data-kind="demo" data-terms="Gaussian puff train turning wind">Gaussian puffs</a>
+      <a class="demo" href="dispersion/?rung=deposition" data-kind="demo" data-terms="decay deposition dry wet">Deposition</a>
+      <a class="demo" href="dispersion/?rung=dose" data-kind="demo" data-terms="dose against distance">Dose</a>
+    </div>
+  </section>
+
+  <section class="lib" id="multiphysics">
+    <h2>Multiphysics</h2>
+    <p>Where one code's output becomes another's input.</p>
+    <div class="chips">
+      <a class="demo" href="triso-atops/?rung=release" data-kind="demo" data-terms="release coolant pools ATOPS">TRISO release to the coolant</a>
+      <a class="demo" href="triso-atops/?rung=source-term" data-kind="demo" data-terms="source term fission products">Into the source term</a>
+      <a class="demo" href="dispersion/?rung=capstone" data-kind="demo" data-terms="HTR-10 air ingress bounding dose capstone">HTR-10 air ingress, to dose</a>
+      <a class="demo" href="monte-carlo/?rung=htr10" data-kind="demo" data-terms="HTR-10 core neutronics pebble bed">HTR-10 core</a>
+    </div>
+  </section>
+
+  <p class="status">All demos are first drafts, not yet human-reviewed. Research, education and V&amp;V only.</p>
+</main>
+</body>
+</html>

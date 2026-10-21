@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 
 use uom::si::angle::degree;
@@ -73,10 +74,10 @@ pub fn gfhr_pipe_with_custom_graphite_material() {
         // the best I can get from this equation
         // let's just assume it is correct
         let cp_cal_g_kelvin = 0.538657 + 9.11129e-6 * t_kelvin
-            - 90.2725 * t_kelvin.powf(-1.0)
-            - 43449.3 * t_kelvin.powf(-2.0)
-            + 1.59309e7 * t_kelvin.powf(-3.0)
-            - 1.43688e9 * t_kelvin.powf(-4.0);
+            - 90.2725 * t_kelvin.r_powf(-1.0)
+            - 43449.3 * t_kelvin.r_powf(-2.0)
+            + 1.59309e7 * t_kelvin.r_powf(-3.0)
+            - 1.43688e9 * t_kelvin.r_powf(-4.0);
 
         return SpecificHeatCapacity::new::<calorie_per_gram_kelvin>(cp_cal_g_kelvin);
     }

@@ -36,9 +36,14 @@
 //!   both git and the published crate. See [`storage::generated_dir_for`].
 //!
 //! Three distribution tiers follow from that split: generated **open BibTeX** is
-//! committed *and* published to crates.io; open PDFs and generated open Markdown
-//! are committed but **not** published (licence scope and size); everything
+//! committed *and* published to crates.io; ~~open PDFs and~~ generated open Markdown
+//! ~~are~~ is committed but **not** published (licence scope and size); everything
 //! proprietary is neither.
+//! **CORRECTED 2026-09-25** — no PDF is tracked under this crate any more
+//! (`git ls-files crates/kovan-literature` lists none outside the submodule).
+//! Since 2026-09-22 open PDFs live in the `reactor-literature/` Git submodule
+//! and `open/` holds only metadata JSON and some Markdown; see `CLAUDE.md` and
+//! `CATALOGUE.md`.
 //!
 //! ## What is real vs. best-effort
 //!
@@ -50,15 +55,36 @@
 //! - [`extract_assets`] — extracts embedded raster images whose codec is already
 //!   a standalone file format (JPEG via `DCTDecode`, JPEG-2000 via `JPXDecode`).
 //!   Images stored under other filters are reported-skipped, not re-encoded.
+//! - [`zotero`] — a port of Zotero's translation framework and its BibTeX,
+//!   BibLaTeX, RIS and CSL JSON translators (GitHub #749), verified
+//!   code-to-code against a running Zotero translation-server (#752,
+//!   `tests/zotero_translators.rs`). AI draft, not yet human-reviewed.
+//!   Independent of [`to_bibtex`], kovan's own BibTeX writer.
 //!
 //! **The graph digitiser moved to the `kovan` crate on 2026-08-21** (was
-//! `[crate::digitiser]`, now `kovan::digitiser`; binaries `kovan-digitise`,
-//! `kovan-digitise-tui`, `kovan-gui`) — see that crate's `NOTICE`. It moved
+//! `[crate::digitiser]`, now `kovan::digitiser`; binaries ~~`kovan-digitise`,
+//! `kovan-digitise-tui`, `kovan-gui`~~ **CORRECTED 2026-09-25** — `kovan`
+//! (GUI), `kovan-cli digitise` and `kovan-tui`, the only three `[[bin]]`
+//! targets in `crates/kovan/Cargo.toml`) — see that crate's `NOTICE`. It moved
 //! so it can depend on `kopitiam-pdf` (AGPL-3.0-only, GitHub issue #30's
 //! PDF-native digitising) without pulling this crate — used well beyond the
-//! GUI — into that relicense. This crate stays GPL-3.0-only and carries no
+//! GUI — into that relicense. This crate ~~stays GPL-3.0-only and~~ carries no
 //! digitiser code, no `image`/`eframe`/`egui`/`ratatui` dependency, and no
-//! `digitise-*` feature.
+//! `digitise-*` feature. **CORRECTED 2026-10-07** — this crate is
+//! AGPL-3.0-only since b142a065d2 (the whole kovan family was relicensed for
+//! the Zotero port; `Cargo.toml` and `NOTICE`), so "stays GPL-3.0-only" no
+//! longer holds.
+//!
+//! ## Zotero
+//!
+//! [`zotero::local_library`] reads a Zotero data folder (`zotero.sqlite` +
+//! `storage/`) into the `kovan_common::zotero` model and imports it as
+//! [`KovanDocument`]s (GitHub #750). ~~Native desktop targets only: it is
+//! compiled out on wasm32 and Android (SQLite is C; see `Cargo.toml`).~~
+//! **CORRECTED 2026-10-07**: the reader is pure Rust (turso_core reads the
+//! SQLite file format and WAL from memory) and compiles on every target,
+//! wasm32 and Android included; `read_database_files` reads a database from
+//! bytes, with no file system.
 
 #![forbid(unsafe_code)]
 
@@ -66,10 +92,17 @@ use std::path::{Path, PathBuf};
 
 pub use kovan_common::{Author, DocumentType, KovanBenchmark, KovanDocument, Visibility};
 
+pub mod citeproc;
+pub mod csl;
 mod bibtex;
+pub mod concept_tree;
+/// The PDF follow-up of identifier lookup (#756): field-by-field review of a
+/// fetched record against an extracted document.
+pub mod lookup_review;
 mod markdown;
 mod metadata;
 mod pdf_import;
+pub mod zotero;
 
 #[cfg(test)]
 mod test_pdf;
@@ -77,6 +110,10 @@ mod test_pdf;
 pub use bibtex::{parse_bib_entries, render_entries, render_entry, to_bibtex, BibEntry, BibParseError};
 pub use markdown::{
     markdown_outline, split_markdown_by_page_limit, text_to_markdown, Heading, PAGE_SEPARATOR,
+};
+pub use concept_tree::{
+    concept_tree, ConceptDocument, ConceptNode, ConceptOrigin, ConceptSource, ConceptStatus,
+    ConceptTree, ConceptTreeError, DocumentTier,
 };
 pub use metadata::extract_metadata;
 pub use pdf_import::{extract_assets, extract_pdf_text, pdf_to_markdown};

@@ -201,6 +201,7 @@
 //! - **Angular/emission distributions were not compared**, only integrated
 //!   cross sections and the underlying tables.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::thermr::mf7::{parse_mf7, parse_mf7_at_temperature, CoherentElastic};
 use njoy_outram_park_fork::thermr::temperature_thinning::{
@@ -622,7 +623,7 @@ fn production_interpolation_stays_inside_its_bracket() {
 
     // Log-lin (LI=4) combination of the two ends at 393.15 K.
     let w = (393.15 - 296.0) / (400.0 - 296.0);
-    let loglin = |lo: f64, hi: f64| (lo.ln() * (1.0 - w) + hi.ln() * w).exp();
+    let loglin = |lo: f64, hi: f64| (lo.r_ln() * (1.0 - w) + hi.r_ln() * w).r_exp();
 
     // Inside the bracket at every energy, thermal through the epithermal
     // tail where the old path failed, and equal to the LI-law combination.
@@ -644,7 +645,12 @@ fn production_interpolation_stays_inside_its_bracket() {
     let x = interp.cross_section(3.9, 393.15, natom);
     near(lo, 4.617008, 1e-3, "sigma_inel(3.9 eV, 296 K)");
     near(hi, 4.643566, 1e-3, "sigma_inel(3.9 eV, 400 K)");
-    near(x, 4.6418, 1e-3, "sigma_inel(3.9 eV, 393.15 K), production path");
+    near(
+        x,
+        4.6418,
+        1e-3,
+        "sigma_inel(3.9 eV, 393.15 K), production path",
+    );
 
     // The kernel itself is the same interpolation, pointwise: the emission
     // profile at the interpolated temperature lies between the two ends.

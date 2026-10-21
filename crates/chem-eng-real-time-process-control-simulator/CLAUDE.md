@@ -52,7 +52,7 @@ controllers (PID and friends) intended to run inside time-stepping simulators.
 Within the suite it supplies the **PID controllers** used by the TUAS natural-
 circulation loops and the FHR educational simulators.
 
-**License: GPL-3.0-only** — relicensed from Apache-2.0 on 2026-08-11 by
+**License: ~~GPL-3.0-only~~ **AGPL-3.0-only**, as a combined work** (relicensed again 2026-10-20, gh:#973: `z_domain` stays GPL-3.0-or-later, `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`) — relicensed from Apache-2.0 on 2026-08-11 by
 explicit maintainer direction (sole copyright holder, verified from git
 history — see the crate `NOTICE`). The `Cargo.toml` now inherits
 `license.workspace = true` like the rest of the workspace. **Versions

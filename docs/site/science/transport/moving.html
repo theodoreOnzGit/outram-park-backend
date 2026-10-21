@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moving to the collision</title>
+<meta name="description" content="Transport, page 2: the neutron advances along its direction by the sampled distance, the clock advances by the time of flight, and the tallies score the segment. Watch real neutron tracks through Godiva, flight by flight, in OUTRAM PARK's own transport code running in your browser.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Real demo: ../../demos/monte-carlo/?rung=godiva&mode=watch (dhoby-ghaut monte_carlo_web, rung godiva). Code: transport_csg.rs :1876-1880 (stream, flight_time), position.rs stream; rng/distributions isotropic_direction. Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Moving to the collision</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>The last page gave a distance d. Moving the neutron is the easy part:</p>
+<p class="eq-block"><b>r</b> &larr; <b>r</b> + d&thinsp;<b>u</b></p>
+<p>where <b>u</b> is the neutron's direction, a unit vector. The code does exactly this (<code>r = stream(r, u, d_col)</code>, <code>transport_csg.rs</code>), and advances the neutron's clock by the time of flight d/v, with v the speed for the neutron's energy (<code>flight_time</code>: non-relativistic, which the source comment puts 1.1&nbsp;% low in speed at 20&nbsp;MeV and negligible below). A flight does not change the neutron's energy or direction; a collision does, and that is page 5.</p>
+
+<h2>Where the direction comes from</h2>
+<p>A neutron is born at a fission with a direction drawn <b>isotropically</b>, every direction equally likely (<code>isotropic_direction</code>), and an energy drawn from the fissioning nuclide's own fission spectrum. It then flies in a straight line until a collision gives it a new direction. In the first generation of a run there is no fission yet, so the source is a box of points rejected into fissionable material; fission sites replace it from then on (page 9).</p>
+
+<h2>What gets recorded on the way</h2>
+<p>Each straight piece is a <b>segment</b>. The standard way to estimate a flux or a reaction rate is to add, for each segment, the neutron's weight times its length to the cell and energy bin it crossed: the <b>track-length estimator</b> (<code>score_track_length</code>). Under surface tracking the code scores flux and reaction rates this way (the collision estimator is used instead inside delta-tracked regions, page 8).</p>
+
+<p class="predict"><b>Predict first:</b> in the demo below, count the dots on one neutron's path. How many collisions does a fast neutron in a uranium sphere typically make before something ends its history? What are the ways it can end?</p>
+
+<div class="iframe-slot" data-title="Godiva, neutron tracks" data-src="../../demos/monte-carlo/?rung=godiva&amp;mode=watch">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. It opens on recorded tracks, labelled as recorded, and switches to live ones when the data are ready. The page stays responsive meanwhile.</p>
+</div>
+
+<p>What to look at: each straight line is a flight; each corner is a collision where the neutron changes direction (and, as you will see, energy); a history ends in a <b>capture</b>, a <b>fission</b> or a <b>leak</b> through the sphere's surface. Those are the events the code records on a track: born, surface crossing, scatter, fission, absorption, leak, and, for runs with variance reduction, roulette kills (<code>TrackEvent</code>). One more, <code>Lost</code>, means the neutron was lost by the tracker, and a track that ends there is a defect report and not a history. Page 3 is about how that can happen.</p>
+
+<h2>Next question</h2>
+<p>In Godiva the sphere is the only boundary. A real model has many: fuel, cladding, coolant, a pebble, a particle inside it. <b>What happens when the neutron reaches one before it reaches its collision?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

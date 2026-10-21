@@ -1,0 +1,45 @@
+   Compiling serde_derive v1.0.229
+   Compiling serde v1.0.229
+   Compiling toml_datetime v0.6.11
+   Compiling serde_spanned v0.6.9
+   Compiling toml_edit v0.22.27
+   Compiling toml v0.8.23
+   Compiling deck-based-open-source-visualisation-engine-for-reactors-dover v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/dover)
+    Finished `release` profile [optimized] target(s) in 4.92s
+     Running unittests src/lib.rs (target/release/deps/dover-6e66b5b9fcbfd37f)
+
+running 6 tests
+test species::tests::formulae_round_trip_and_are_case_sensitive ... ok
+test species::tests::hydrogen_has_zero_formation_enthalpy_but_nonzero_absolute_entropy ... ok
+test species::tests::index_order_and_index_agree ... ok
+test species::tests::the_table_is_physically_sane ... ok
+test species::tests::water_is_the_gas_phase_value ... ok
+test tests::builds_and_links ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/smr_cstr.rs (target/release/deps/smr_cstr-0174ae04fb15d052)
+
+running 19 tests
+test a_sweep_expands_to_its_endpoints ... ok
+test a_deck_round_trips_through_toml ... ok
+test conversion_rises_with_steam_to_carbon_at_equilibrium ... ok
+test conversion_rises_with_temperature ... ok
+test every_atom_balances ... ok
+test invalid_decks_are_rejected_with_a_reason ... ok
+test conversion_falls_with_pressure_at_equilibrium ... ok
+test mole_count_change_is_two_for_reforming_and_zero_for_the_shift ... ok
+test pressure_raises_conversion_in_the_kinetically_limited_regime ... ok
+test reaction_enthalpies_match_the_textbook_values ... ok
+test reverse_rate_is_thermodynamically_consistent ... ok
+test shift_kinetics_only_set_the_approach_rate ... ok
+test the_base_case_is_endothermic_and_makes_hydrogen ... ok
+test the_bundled_decks_parse_and_run ... ok
+test the_committed_fixtures_still_reproduce ... ok
+test the_headless_run_is_deterministic ... ok
+test the_overall_reaction_is_the_sum_of_the_two ... ok
+test unknown_keys_are_rejected_rather_than_ignored ... ok
+test long_residence_time_approaches_thermodynamic_equilibrium ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+

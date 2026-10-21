@@ -384,7 +384,7 @@ impl GraphiteModeratorFeedback {
 ///
 /// Source: IAEA-TECDOC-1382 part 2, Chapter 4, Table 4-33 (Open tier;
 /// catalogued at
-/// `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.pdf`). The
+/// `iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`). The
 /// document tabulates `delta-k/k` per degree Celsius; a coefficient *per
 /// degree Celsius* and *per kelvin* are numerically identical, since only the
 /// size of the degree matters.

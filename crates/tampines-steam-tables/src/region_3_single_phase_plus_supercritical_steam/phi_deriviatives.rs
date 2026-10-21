@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use super::{delta_3, tau_3, REGION_3_COEFFS};
 use uom::si::f64::*;
 
@@ -12,7 +13,7 @@ pub fn phi_delta_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ii: i32 = coefficient[0] as i32;
         let ji: i32 = coefficient[1] as i32;
         let ni: f64 = coefficient[2];
-        sum += ni * delta.powi(ii - 1) * f64::from(ii) * tau.powi(ji);
+        sum += ni * delta.r_powi(ii - 1) * f64::from(ii) * tau.r_powi(ji);
     }
     sum + REGION_3_COEFFS[0][2] / delta
 }
@@ -28,9 +29,9 @@ pub fn phi_delta_delta_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ii: i32 = coefficient[0] as i32;
         let ji: i32 = coefficient[1] as i32;
         let ni: f64 = coefficient[2];
-        sum += ni * delta.powi(ii - 2) * f64::from(ii) * f64::from(ii - 1) * tau.powi(ji);
+        sum += ni * delta.r_powi(ii - 2) * f64::from(ii) * f64::from(ii - 1) * tau.r_powi(ji);
     }
-    sum - REGION_3_COEFFS[0][2] / delta.powi(2)
+    sum - REGION_3_COEFFS[0][2] / delta.r_powi(2)
 }
 
 /// Returns the region-3 phi_tau
@@ -44,7 +45,7 @@ pub fn phi_tau_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ii: i32 = coefficient[0] as i32;
         let ji: i32 = coefficient[1] as i32;
         let ni: f64 = coefficient[2];
-        sum += ni * delta.powi(ii) * f64::from(ji) * tau.powi(ji - 1);
+        sum += ni * delta.r_powi(ii) * f64::from(ji) * tau.r_powi(ji - 1);
     }
     sum
 }
@@ -60,7 +61,7 @@ pub fn phi_tau_tau_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ii: i32 = coefficient[0] as i32;
         let ji: i32 = coefficient[1] as i32;
         let ni: f64 = coefficient[2];
-        sum += ni * delta.powi(ii) * f64::from(ji) * f64::from(ji - 1) * tau.powi(ji - 2);
+        sum += ni * delta.r_powi(ii) * f64::from(ji) * f64::from(ji - 1) * tau.r_powi(ji - 2);
     }
     sum
 }
@@ -76,7 +77,7 @@ pub fn phi_delta_tau_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ii: i32 = coefficient[0] as i32;
         let ji: i32 = coefficient[1] as i32;
         let ni: f64 = coefficient[2];
-        sum += ni * delta.powi(ii - 1) * f64::from(ii) * f64::from(ji) * tau.powi(ji - 1);
+        sum += ni * delta.r_powi(ii - 1) * f64::from(ii) * f64::from(ji) * tau.r_powi(ji - 1);
     }
     sum
 }

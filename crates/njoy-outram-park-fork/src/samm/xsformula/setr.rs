@@ -11,13 +11,17 @@
 //! convention as [`crate::samm::linpack`]/[`crate::samm::rmatrix_invert`] —
 //! see those modules' doc comments for why.
 //!
-//! **Not ported here (deferred, see this crate's `README.md`):** background
-//! R-matrix elements (`backgr`/`backgrdata` — not parsed by
-//! [`crate::samm::mf2`] either, a secondary LRF=7 feature) and the
+//! Background R-matrix elements (`backgr`/`backgrdata`, `samm.f90:3265-3295`)
+//! **are** applied here, on the diagonal, before any resonance contribution —
+//! see [`crate::samm::mf2::BackgroundRMatrix`] for what they are and why
+//! discarding them is not a small approximation.
+//!
+//! **Not ported here (deferred, see this crate's `README.md`):** the
 //! `Want_Angular_Dist`-gated `cscs` (cross-phase cosine/sine) bookkeeping,
 //! which has no caller until angular distributions are built alongside
 //! `ERRORR`.
 
+use petir::mathf::RealMath;
 use crate::samm::betset::{beta_triangular_index, ResonanceAmplitudes};
 use crate::samm::context::ChannelKinematics;
 use crate::samm::linpack::PackedComplexMatrix;
@@ -116,6 +120,32 @@ pub fn setr(
 
     let mut rmat = PackedComplexMatrix::zeros(nchan);
     let mut ymat = PackedComplexMatrix::zeros(nchan);
+
+    // samm.f90:3260-3296 -- seed the DIAGONAL with this channel's background
+    // R-matrix, where the evaluation gives one (`KBK > 0`). Upstream does this
+    // inside the same `do k / do l` initialisation loop, under `if (l.eq.k)`,
+    // so it lands on `rmat(.,kl)` for `kl = packed(k,k)` before the resonance
+    // sum below adds to the same elements.
+    //
+    // This is load-bearing, not a refinement: on an evaluation whose resolved
+    // resonances all sit far above thermal, this term carries essentially the
+    // whole low-energy elastic cross section beyond hard-sphere scattering.
+    // See `bn:op-hb9l` / gh:#202.
+    for k in 1..=nchan {
+        let Some(Some(bg)) = group.backgrounds.get(k - 1) else {
+            continue;
+        };
+        // A background whose evaluation fails (a tabulated pair that cannot be
+        // interpolated) is skipped rather than allowed to poison the matrix;
+        // `evaluate` returns 0.0 outside a TAB1's own range by construction.
+        if let Ok((re, im)) = bg.evaluate(energy) {
+            if re.is_finite() && im.is_finite() {
+                let kk = packed(k as i64, k as i64);
+                add_at(&mut rmat.re, kk, re);
+                add_at(&mut rmat.im, kk, im);
+            }
+        }
+    }
 
     // samm.f90:3297-3313 -- accumulate resonance contributions
     // R_{cc'} += alphar*beta_{cc'} + i*alphai*beta_{cc'}, restricted to
@@ -240,15 +270,19 @@ pub fn setr(
                             }
                         }
                     }
-                    sinsqr[i - 1] = sinphi.powi(2);
+                    sinsqr[i - 1] = sinphi.r_powi(2);
                     sin2ph[i - 1] = 2.0 * sinphi * cosphi;
                 }
 
                 rootp[i - 1] = p.sqrt();
 
-                // samm.f90:3415-3453
+                // samm.f90:3415-3453. Upstream tests `1-p*rmat(2,ii).eq.one`
+                // (:3416). ~~`1 - p*ymat.im(ii)`~~ -- CORRECTED 2026-10-01
+                // (GitHub #339): `ymat.im(ii)` is `-rmat.im(ii)` here, and
+                // `1+x == 1` and `1-x == 1` round differently for
+                // |x| in (2^-54, 2^-53].
                 let skip_elinv = !iffy
-                    && !(pair.shift_flag <= 0 && (1.0 - p * g(&ymat.im, ii) == 1.0 || p < TINY));
+                    && !(pair.shift_flag <= 0 && (1.0 - p * g(&rmat.im, ii) == 1.0 || p < TINY));
                 if skip_elinv {
                     elinvr[i - 1] = hr;
                     elinvi[i - 1] = hi;

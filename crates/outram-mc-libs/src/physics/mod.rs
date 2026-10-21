@@ -5,6 +5,8 @@
 //!
 //! - [`keff::run_keff`] — k-eigenvalue power iteration for a homogeneous bare
 //!   sphere (the reference criticality driver; `CPU`/`GPU` backends).
+//!   [`keff::PowerIteration`] is its single-thread backend one generation at
+//!   a time, for live output and convergence plots.
 //! - [`transport_csg::run_keff_csg`] — k-eigenvalue power iteration over
 //!   **general CSG geometry** (surfaces/cells/universes/lattices), with track-
 //!   length tallies. Generalises `keff`.
@@ -12,9 +14,11 @@
 //!   external neutron source (point/box) driving a sub-critical or
 //!   non-multiplying system, scoring track-length tallies. No `k_eff` / power
 //!   iteration; the second canonical MC mode (shielding / detector response).
-//!   Reuses [`transport_csg::transport_history`] for the per-history physics.
+//!   Reuses [`transport_csg::transport_history_vr`] for the per-history physics.
 //! - [`physics_mg`] — multigroup transport (group-averaged cross sections;
-//!   pending / partial).
+//!   ~~pending / partial~~ **CORRECTED 2026-10-03:** implemented as
+//!   [`physics_mg::run_keff_mg`], verified against OpenMC MG on GitHub #265; no
+//!   variance reduction or delayed-neutron separation yet).
 //! - [`reactor_physics::run_keff_reactor_physics`] — k-eigenvalue **plus**
 //!   auto-captured 3-group six-factor decomposition (η, f, p, ε, P_FNL, P_TNL)
 //!   and lethargy-normalised flux spectrum, from one combined tally + explicit
@@ -46,12 +50,23 @@
 //! the live per-history loop is in [`transport_csg`].
 
 pub mod compute;
+pub mod delta_tracking;
 pub mod transport;
 pub mod transport_csg;
+pub mod particle_restart;
+pub mod scattdata;
+pub mod state_point;
+pub mod track_output;
+pub mod tracking_trace;
+pub mod ufs;
+pub mod variance_reduction;
+pub mod weight_windows;
 pub mod fixed_source;
 pub mod scatter;
 pub mod fission;
 pub mod keff;
+pub mod ifp;
+pub mod kinetics;
 pub mod search;
 pub mod physics_mg;
 pub mod reactor_physics;

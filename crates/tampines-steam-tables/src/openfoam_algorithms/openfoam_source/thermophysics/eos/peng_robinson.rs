@@ -19,6 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
+
 use super::traits::EquationOfState;
 use crate::openfoam_algorithms::openfoam_source::constants::{P_REF, R_UNIVERSAL};
 use crate::openfoam_algorithms::openfoam_source::cubic_eqn::CubicEqn;
@@ -80,7 +82,7 @@ impl PengRobinsonGas {
     /// Soave α function: `(1 + κ·(1 − √Tr))²`.
     fn alpha(&self, tr: f64) -> f64 {
         let kappa = self.kappa();
-        (1.0 + kappa * (1.0 - tr.sqrt())).powi(2)
+        (1.0 + kappa * (1.0 - tr.sqrt())).r_powi(2)
     }
 
     fn kappa(&self) -> f64 {
@@ -103,7 +105,7 @@ impl PengRobinsonGas {
     fn a_spec(&self, t: f64) -> f64 {
         let r = self.r_spec();
         let tr = t / self.tc;
-        0.45724 * (r * self.tc).powi(2) / self.pc * self.alpha(tr)
+        0.45724 * (r * self.tc).r_powi(2) / self.pc * self.alpha(tr)
     }
 
     /// Per-kg co-volume `b = 0.07780·R·Tc/Pc`.
@@ -141,7 +143,7 @@ impl PengRobinsonGas {
         if den <= 0.0 || num <= 0.0 {
             return 0.0;
         }
-        (num / den).ln()
+        (num / den).r_ln()
     }
 }
 
@@ -205,7 +207,7 @@ impl EquationOfState for PengRobinsonGas {
 
         let _ = tr; // silence unused-var warning
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(
-            r * (m - n).powi(2) / (m * m - 2.0 * a_dim * (z + b_dim)),
+            r * (m - n).r_powi(2) / (m * m - 2.0 * a_dim * (z + b_dim)),
         )
     }
 
@@ -294,7 +296,7 @@ impl EquationOfState for PengRobinsonGas {
         let z = self.z_vapour(pv, tv);
 
         let s = r
-            * (-(pv / P_REF).ln() + (z - b_dim).ln()
+            * (-(pv / P_REF).r_ln() + (z - b_dim).r_ln()
                 - 2.078 * kappa * ((1.0 + kappa) / tr.sqrt() - kappa) * self.log_factor(z, b_dim));
 
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(s)

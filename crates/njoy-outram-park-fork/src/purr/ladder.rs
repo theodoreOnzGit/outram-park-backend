@@ -6,9 +6,10 @@
 //! plan-named boundary, the Monte Carlo core (`unrest`) lives in
 //! [`super::unrest`].
 
+use petir::mathf::RealMath;
 use crate::unresr::mf2::UnresolvedRange;
 use crate::unresr::wfun::{qp_node, qw_weight};
-use crate::unresr::{channel_radius_urr, penetrability_factor, range_sequences};
+use crate::unresr::{channel_radius_urr, penetrability_factor, range_sequences_purr};
 use crate::NjoyError;
 
 /// NJOY's pseudo-random number generator — a shuffled linear-congruential
@@ -189,8 +190,14 @@ pub struct LadderResonance {
 /// two constants, not unified, since the difference is real (if immaterial)
 /// upstream.
 ///
-/// Returns every resonance up to and including the first one whose energy
-/// exceeds `ehigh`.
+/// ~~Returns every resonance up to and including the first one whose energy
+/// exceeds `ehigh`.~~ **CORRECTED 2026-09-26.** Returns every resonance
+/// *below* `ehigh`. The first one above it is still sampled, since its
+/// position and widths consume random numbers, but `ladr2` ends with
+/// `nr=ir-1` (`purr.f90:1785`), so it is not part of the ladder. Returning it
+/// added a resonance past the top of the ladder, and on U-235 its tail reached
+/// the last 174 samples of the first energy's ladder. Measured against
+/// NJOY2016's per-sample cross sections, dumped from an instrumented build.
 pub fn generate_ladder(
     seq: &SequenceLadderParams,
     elow: f64,
@@ -206,7 +213,7 @@ pub fn generate_ladder(
 
     loop {
         let energy = match resonances.last() {
-            Some(prev) => prev.energy + dcon * (-rng.next().ln()).sqrt(),
+            Some(prev) => prev.energy + dcon * (-rng.next().r_ln()).sqrt(),
             None => elow + dcon * rng.next(),
         };
 
@@ -237,7 +244,9 @@ pub fn generate_ladder(
 
         let gg = seq.gg_mean;
         let gt = gn + gf + gg + gx;
-        let done = energy > ehigh;
+        if energy > ehigh {
+            return resonances;
+        }
         resonances.push(LadderResonance {
             energy,
             gn_frac: gn / gt,
@@ -246,9 +255,6 @@ pub fn generate_ladder(
             gx_frac: gx / gt,
             total_width: gt,
         });
-        if done {
-            return resonances;
-        }
     }
 }
 
@@ -413,7 +419,7 @@ pub fn infinite_dilution_reference(
         if e < range.el || e > range.eh {
             continue;
         }
-        for seq in range_sequences(range, e)? {
+        for seq in range_sequences_purr(range, e)? {
             let aa = channel_radius_urr(seq.awri, seq.naps, seq.nro, seq.ap, seq.ap_cont)?;
             let rat = seq.awri / (seq.awri + 1.0);
             let k = crate::reconr::slbw::WAVE_K * rat * e2;
@@ -442,7 +448,7 @@ pub fn infinite_dilution_reference(
             // unresx:1440-1442 — potential scattering added once per L (its
             // first J-state), matching unresl's identical convention.
             if last_l != Some(seq.l) {
-                spot += seq.abn * ab * (2.0 * seq.l as f64 + 1.0) * ps.sin().powi(2);
+                spot += seq.abn * ab * (2.0 * seq.l as f64 + 1.0) * ps.r_sin().r_powi(2);
                 last_l = Some(seq.l);
             }
 
@@ -474,15 +480,15 @@ pub fn infinite_dilution_reference(
                 ndf_x,
                 csz: seq.abn * ab * gj,
                 cth_ref: (CON1_DOPPLER * seq.awri / (e * T_REF)).sqrt(),
-                cc2p: (2.0 * ps).cos(),
-                cs2p: (2.0 * ps).sin(),
+                cc2p: (2.0 * ps).r_cos(),
+                cs2p: (2.0 * ps).r_sin(),
             });
 
             let gs = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 1);
             let gc = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 2);
             let gf_avg = gnrx(gnx, gfx, seq.gg, ndf_n, ndf_f, ndf_x, gxx, 3);
             let temp = seq.abn * std::f64::consts::PI * ab * gj * gnx / (2.0 * seq.d);
-            sigi_elastic += temp * (gs * gnx - 2.0 * ps.sin().powi(2));
+            sigi_elastic += temp * (gs * gnx - 2.0 * ps.r_sin().r_powi(2));
             sigi_fission += temp * gf_avg * gfx;
             sigi_capture += temp * gc * seq.gg;
         }

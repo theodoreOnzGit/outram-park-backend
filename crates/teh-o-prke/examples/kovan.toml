@@ -1,0 +1,54 @@
+schema_version = 1
+kind = "code_folder"
+crate = "teh-o-prke"
+dir = "crates/teh-o-prke/examples"
+
+[module."decay_heat_after_shutdown.rs"]
+path = "example:decay_heat_after_shutdown"
+
+[[module."decay_heat_after_shutdown.rs".function]]
+id = "fn:772255b0ec220e01"
+name = "main"
+qual = "main"
+lines = [
+    50,
+    269,
+]
+hash = "sha256:218626d5afc368503e86b73abaafcdad70b12d366d204d3dfc66612f3dc23d64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2abb9faaa2d323ca",
+    "fn:488f83882ac919e7",
+    "fn:51f88657b29e96b9",
+    "fn:83af8f382fd466ee",
+    "fn:8a6dd7869c10830a",
+    "fn:b12622c7ec7d2d84",
+    "fn:e7c1afba6b272358",
+    "fn:ef0e68fb37998d86",
+]
+uses = [
+    "fn:a5d599a6fb8c8dbb",
+    "fn:aa11b87dc61e5c93",
+    "fn:d30d4e1d748618bc",
+]
+
+[module."reactivity_insertion_transient.rs"]
+path = "example:reactivity_insertion_transient"
+
+[[module."reactivity_insertion_transient.rs".function]]
+id = "fn:12a1f87ebb92fcf6"
+name = "main"
+qual = "main"
+lines = [
+    44,
+    283,
+]
+hash = "sha256:290623659ed17b045c13547281c05abb16b530e2ba13189ba57bbc2bb2f177d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2abb9faaa2d323ca",
+    "fn:488f83882ac919e7",
+    "fn:8a6dd7869c10830a",
+    "fn:b12622c7ec7d2d84",
+]
+uses = ["fn:aa11b87dc61e5c93"]

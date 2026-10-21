@@ -136,7 +136,11 @@ mod tests {
         ];
         let tape = Tape::from_sections("t".into(), secs);
         let out = covadd(&tape, 9, &[1, 102]).unwrap();
-        let keys: Vec<(i32, i32)> = out.sections().iter().map(|s| (s.key.mf, s.key.mt)).collect();
+        let keys: Vec<(i32, i32)> = out
+            .sections()
+            .iter()
+            .map(|s| (s.key.mf, s.key.mt))
+            .collect();
         assert_eq!(
             keys,
             vec![(1, 451), (2, 151), (32, 151), (33, 1), (33, 102), (34, 2)]

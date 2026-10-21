@@ -1,0 +1,188 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/heat_transfer_ambient_calib.rs::hot_leg_htc_to_ambient_calibration_v1_failed",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/pipe_nusselt_number_calibration.rs::hot_leg_nusselt_calibration_failed",
+]
+
+[module."heat_transfer_ambient_calib.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::heat_transfer_ambient_calib"
+
+[[module."heat_transfer_ambient_calib.rs".function]]
+id = "fn:d4d8431a883f875f"
+name = "hot_leg_htc_to_ambient_calibration_v1_failed"
+qual = "hot_leg_htc_to_ambient_calibration_v1_failed"
+lines = [
+    1,
+    67,
+]
+hash = "sha256:bd1b78c2ec77536907f8d547f6f20a5bff81de66a79126b9340f23c16710cc34"
+doc_hash = "sha256:3559c1d6c8c8ca58e167620b2370a5cc5231b4c21f07b5a883e0a220dfb0601e"
+callees = ["fn:1bca3c7aee1cacaf"]
+test = true
+
+[[module."heat_transfer_ambient_calib.rs".function]]
+id = "fn:1bca3c7aee1cacaf"
+name = "hot_leg_htc_to_ambient_calibration_regression_test_v1_failed"
+qual = "hot_leg_htc_to_ambient_calibration_regression_test_v1_failed"
+lines = [
+    68,
+    466,
+]
+hash = "sha256:7c4f5bd268a6854eab6e32da55dc5b350204fe5e6b189a09a0255fbad91b62f6"
+doc_hash = "sha256:efe99b4140d28d38028f0113ea46b2f1673a16aa39c264f522284eea8d1e9c9d"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:42677954ee03d9db",
+    "fn:428a459b059dec74",
+    "fn:429944a98c495fc2",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:85342ea4b7e5933b",
+    "fn:a062bfc4d1c08565",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:aea1a2ba0c77b742",
+    "fn:b57c94f7ef5cfea0",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:d57dbe3f80933fd7",
+    "fn:dda41651835c793f",
+    "fn:e0f6ccbea3b4fcfc",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#0"]
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib"
+
+[module."pipe_nusselt_number_calibration.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::pipe_nusselt_number_calibration"
+
+[[module."pipe_nusselt_number_calibration.rs".function]]
+id = "fn:70a225f63b6f0c48"
+name = "hot_leg_nusselt_calibration_failed"
+qual = "hot_leg_nusselt_calibration_failed"
+lines = [
+    1,
+    66,
+]
+hash = "sha256:75e2106332bae2a42812a60a6e112a532178b4f5372927b9e8b7241be9f0a27c"
+doc_hash = "sha256:e36e133bff64d4e49ef6a57c13e078bb68a8428eb495fe037ecc30dcad525246"
+callees = [
+    "fn:2f06f35ac990da99",
+    "fn:d5af7224ed239ab9",
+]
+test = true
+
+[[module."pipe_nusselt_number_calibration.rs".function]]
+id = "fn:d5af7224ed239ab9"
+name = "hot_leg_nusselt_calibration_regression_test_v2_failed"
+qual = "hot_leg_nusselt_calibration_regression_test_v2_failed"
+lines = [
+    67,
+    519,
+]
+hash = "sha256:35e079b83d5579a217f10a9116e3a52acfc52057e79a552d18a01a4d8f72fd26"
+doc_hash = "sha256:6b85b3caed0fc45c0db5d242c5ea094ece16c8eb79ea2fee53e0bab7799d1f78"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:42677954ee03d9db",
+    "fn:428a459b059dec74",
+    "fn:429944a98c495fc2",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:85342ea4b7e5933b",
+    "fn:a062bfc4d1c08565",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:aea1a2ba0c77b742",
+    "fn:b57c94f7ef5cfea0",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:d57dbe3f80933fd7",
+    "fn:dda41651835c793f",
+    "fn:e0f6ccbea3b4fcfc",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = ["#1"]
+
+[[module."pipe_nusselt_number_calibration.rs".function]]
+id = "fn:2f06f35ac990da99"
+name = "hot_leg_nusselt_calibration_regression_test_v1_failed"
+qual = "hot_leg_nusselt_calibration_regression_test_v1_failed"
+lines = [
+    521,
+    968,
+]
+hash = "sha256:9139c42c3d3ff74bc25a920d1213e4b0ce9e131aaa15ad9d9c62a8393ce750ce"
+doc_hash = "sha256:feb235454206f13d9c7af2c97351c0a59da09c5f5d743f9d81d19085f094bf09"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:42677954ee03d9db",
+    "fn:428a459b059dec74",
+    "fn:429944a98c495fc2",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:85342ea4b7e5933b",
+    "fn:a062bfc4d1c08565",
+    "fn:a3a04100486196dc",
+    "fn:a466cf7d23703edb",
+    "fn:aea1a2ba0c77b742",
+    "fn:b57c94f7ef5cfea0",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:d57dbe3f80933fd7",
+    "fn:dda41651835c793f",
+    "fn:e0f6ccbea3b4fcfc",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = ["#1"]

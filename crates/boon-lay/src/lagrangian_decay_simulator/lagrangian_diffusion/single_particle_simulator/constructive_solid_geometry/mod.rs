@@ -5,6 +5,7 @@
 // as to
 
 pub mod norms;
+use petir::uom_math::QuantityMath;
 use fission_yields_data::prelude::Nuclide;
 pub use norms::*;
 
@@ -167,7 +168,7 @@ impl TrisoCell {
         let x = coordinates[0];
         let y = coordinates[1];
         let z = coordinates[2];
-        let r = (x * x + y * y + z * z).sqrt();
+        let r = (x * x + y * y + z * z).r_sqrt();
 
         // Extract radii (meters). Assumes concentric spheres.
         let (_, r_fuel) = self

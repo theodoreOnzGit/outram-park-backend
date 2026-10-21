@@ -1,0 +1,203 @@
+//! The **stamp states** of code review (GitHub #765), shared by the
+//! staleness engine ([`super::engine`]), desktop kovan and web-kovan's bottom
+//! bar, so every view names a state the same way.
+
+use serde::{Deserialize, Serialize};
+
+/// What a function's (or one review's) state is. The plain kind; the
+/// engine's [`super::engine::StampState`] carries the details.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StateKind {
+    /// Reviewed, and nothing it rests on has changed. The only kind that
+    /// counts towards maturity.
+    Valid,
+    /// Its own code changed since the review (or a callee now resolves
+    /// differently): human re-review.
+    DirectlyStale,
+    /// Only its `///` doc changed: a quick look.
+    DocChanged,
+    /// A callee changed: human re-confirm, blocked while a reaching test
+    /// fails (#739 D6, corrected 2026-10-07).
+    InheritedStale,
+    /// Found at a new place (rename, file or folder move) with the same
+    /// hash and callees: awaiting acknowledge.
+    Moved,
+    /// Its function is gone; the review goes to the deleted history.
+    Deleted,
+    /// No review at all (including a function renamed and edited at once).
+    New,
+    /// An open needs-fix: blocks the function whatever its stamps.
+    NeedsFixOpen,
+    /// Edited after a needs-fix: ready for re-review.
+    Fixed,
+    /// The stamp's authenticity does not hold (agent trailer, time-bound
+    /// check, unregistered or revoked reviewer, signature).
+    Unverified,
+    /// The reviewer's scope does not cover the function.
+    OutsideScope,
+    /// The `review.md` entry cannot be read: no review.
+    Unreadable,
+    /// `Cargo.lock` changed since the review: a full workspace test at the
+    /// new lock clears it, no re-confirm.
+    PendingWorkspaceTest,
+    /// The entry reads but contradicts what is derived (e.g. a recorded
+    /// rung the answers and git do not give): shown, never counted.
+    Invalid,
+}
+
+/// How a view should colour a state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    /// Valid.
+    Good,
+    /// Needs a person (stale, moved, doc changed, fixed, pending).
+    Attention,
+    /// Blocks the function or does not count at all (needs-fix,
+    /// unverified, outside scope, unreadable, deleted).
+    Blocked,
+    /// Never reviewed.
+    Neutral,
+}
+
+impl StateKind {
+    /// Every kind, in declaration order.
+    pub const ALL: [StateKind; 14] = [
+        Self::Valid,
+        Self::DirectlyStale,
+        Self::DocChanged,
+        Self::InheritedStale,
+        Self::Moved,
+        Self::Deleted,
+        Self::New,
+        Self::NeedsFixOpen,
+        Self::Fixed,
+        Self::Unverified,
+        Self::OutsideScope,
+        Self::Unreadable,
+        Self::PendingWorkspaceTest,
+        Self::Invalid,
+    ];
+
+    /// Plain-English label.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Valid => "valid",
+            Self::DirectlyStale => "changed since review",
+            Self::DocChanged => "doc changed",
+            Self::InheritedStale => "a callee changed",
+            Self::Moved => "moved",
+            Self::Deleted => "deleted",
+            Self::New => "unreviewed",
+            Self::NeedsFixOpen => "needs fix",
+            Self::Fixed => "fixed, awaiting re-review",
+            Self::Unverified => "unverified",
+            Self::OutsideScope => "outside reviewer scope",
+            Self::Unreadable => "review unreadable",
+            Self::PendingWorkspaceTest => "pending workspace test",
+            Self::Invalid => "review invalid",
+        }
+    }
+
+    /// Whether the state counts as reviewed for maturity (only valid).
+    pub fn counts(self) -> bool {
+        self == Self::Valid
+    }
+
+    /// Whether a person's review of the code as it is now stands: valid,
+    /// or valid but for a workspace test run awaited after `Cargo.lock`
+    /// changed. Used where the question is "has someone reviewed this?"
+    /// (adding a connection from a reviewed function, #839), never for
+    /// maturity ([`Self::counts`]).
+    pub fn review_holds(self) -> bool {
+        matches!(self, Self::Valid | Self::PendingWorkspaceTest)
+    }
+
+    /// Whether it belongs in the desktop ⚑ queue (#740 U1).
+    pub fn needs_person(self) -> bool {
+        matches!(
+            self,
+            Self::DirectlyStale
+                | Self::DocChanged
+                | Self::InheritedStale
+                | Self::Moved
+                | Self::Fixed
+                | Self::Unreadable
+                | Self::Invalid
+        )
+    }
+
+    pub fn tone(self) -> Tone {
+        match self {
+            Self::Valid => Tone::Good,
+            Self::New => Tone::Neutral,
+            Self::DirectlyStale
+            | Self::DocChanged
+            | Self::InheritedStale
+            | Self::Moved
+            | Self::Fixed
+            | Self::PendingWorkspaceTest => Tone::Attention,
+            Self::Deleted
+            | Self::NeedsFixOpen
+            | Self::Unverified
+            | Self::OutsideScope
+            | Self::Unreadable
+            | Self::Invalid => Tone::Blocked,
+        }
+    }
+}
+
+/// A flag on a function: shown and queued, but it never voids a stamp
+/// (maintainer on #765, 2026-10-07). The engine's
+/// `engine::FunctionFlag` carries the details.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FlagKind {
+    /// "New test reaches reviewed function": a test added after the review
+    /// now reaches it. Flagged for review; the test is unreviewed code.
+    NewReachingTest,
+    /// The same code exists more than once; the review shows on each copy.
+    DuplicateCode,
+    /// A review's `signed_at` is implausible: before the reviewed commit,
+    /// after the commit that added the stamp, or on another day than its
+    /// `date` (GitHub #783). Tamper evidence; the stamp still counts.
+    ImplausibleSigningTime,
+    /// A valid review names a separation attestation (it claims rung 5,
+    /// IV&V) but misses it; the reasons are listed (GitHub #809). The stamp
+    /// still counts at its own rung.
+    IndependentVvNotCounted,
+    /// A valid rung 4 review written before rung 4 asked about its two
+    /// axes (GitHub #855): it still counts; stamping again records them.
+    Rung4AxesNotRecorded,
+    /// A valid review waived a required check with a typed reason
+    /// (`flag_cap_rung3`, 2026-10-14): it counts, capped at rung 3, and the
+    /// function stays listed until the check is done and it is stamped again.
+    RungCappedByWaiver,
+}
+
+impl FlagKind {
+    pub const ALL: [FlagKind; 6] = [
+        Self::NewReachingTest,
+        Self::DuplicateCode,
+        Self::ImplausibleSigningTime,
+        Self::IndependentVvNotCounted,
+        Self::Rung4AxesNotRecorded,
+        Self::RungCappedByWaiver,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::NewReachingTest => "new test reaches reviewed function",
+            Self::DuplicateCode => "duplicate code",
+            Self::ImplausibleSigningTime => "implausible signing time",
+            Self::IndependentVvNotCounted => "independent V&V not counted",
+            Self::Rung4AxesNotRecorded => "rung 4 axes not recorded (accuracy and usability)",
+            Self::RungCappedByWaiver => "a check was waived: capped at rung 3",
+        }
+    }
+
+    /// All are in the desktop queue.
+    pub fn needs_person(self) -> bool {
+        true
+    }
+}

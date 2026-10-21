@@ -87,6 +87,7 @@
 //! `m_4 = -3.30e3 ± 1.14e3` (1.0e-2) — with the even moments then quoted at the
 //! ~1% level and ~2–3σ from zero.
 
+use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -300,7 +301,7 @@ fn expansion_moment_filters() {
     let mut tally = Tally {
         id: 1,
         name: "axial Legendre flux".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::SpatialLegendre(filter)],
         scores: vec![ScoreType::Flux],
         bins: vec![TallyBin::default(); n_moments],
     };

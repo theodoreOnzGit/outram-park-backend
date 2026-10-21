@@ -1,0 +1,34 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Labor Contracts as Partial Gift Exchange\r\n%V 97\r\n%N 4\r\n%I Oxford University Press\r\n%P 543\r\n%G en\r\n%J The Quarterly Journal of Economics\r\n%A Akerlof, George A.\r\n%D 1982-11-01\r\n%K labor\r\nexchange\r\ngift\r\n\r\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Are Emily and Greg More Employable Than Lakisha and Jamal? A Field Experiment on Labor Market Discrimination\r\n%V 94\r\n%N 4\r\n%I American Economic Association\r\n%P 991-1013\r\n%G en\r\n%J The American Economic Review\r\n%A Bertrand, Marianne\r\n%A Mullainathan, Sendhil\r\n%D 2004-09-01\r\n%K labor market discrimination\r\nemily\r\n\r\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "%0 Book Section\r\n%T The Effects of Financial Incentives in Experiments: A Review and Capital-Labor-Production Framework\r\n%I Springer Nature\r\n%P 7-48\r\n%G en\r\n%B Springer eBooks\r\n%A Camerer, Colin F.\r\n%A Hogarth, Robin M.\r\n%D 1999-01-01\r\n%K financial incentives\r\nexperiments\r\ncapital-labor-production\r\n\r\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "%0 Book\r\n%T Clinical Labor\r\n%I Duke University Press\r\n%A Cooper, Melinda\r\n%A Waldby, Catherine\r\n%D 2014-01-01\r\n%K labor\r\nclinical\r\n\r\n"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "%0 Thesis\r\n%T The GULag and Laogai: A Comparative Study of Forced Labor through Camp Literature\r\n%I University of Virginia\r\n%G en\r\n%A Stepanic, Stanley Joseph\r\n%D 2017-08-09\r\n%K gulag\r\nforced labor\r\ncamp\r\nlaogai\r\n\r\n"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T On the audibility of amplifier phase distortion\r\n%V AU-13\r\n%N 4\r\n%I Institute of Electrical and Electronics Engineers\r\n%P 99\r\n%G en\r\n%J IEEE Transactions on Audio\r\n%A Wentworth, G.\r\n%D 1965-07-01\r\n%K amplifier phase distortion\r\naudibility\r\n\r\n%0 Journal Article\r\n%T Notices\r\n%V 308\r\n%N 2\r\n%I Massachusetts Medical Society\r\n%P 112\r\n%J The New England Journal of Medicine\r\n%D 1983-01-13\r\n\r\n%0 Book Section\r\n%T The Big Data Research Ecosystem\r\n%I IGI Global\r\n%P 2027-2057\r\n%G en\r\n%B IGI Global eBooks\r\n%A Strydom, Moses John\r\n%A Buckley, Sheryl\r\n%D 2020-11-27\r\n%K big data research ecosystem\r\nbig data\r\n\r\n%0 Journal Article\r\n%T Relative Biological Effectiveness of High Energy Protons Affecting Cabbage Seeds\r\n%I Serbian Genetics Society\r\n%G de\r\n%J Genetika\r\n%A Nevzgodina, L. V.\r\n%A Кузнецов, В. Г.\r\n%A Sychkov\r\n%D 1966-08-01\r\n%K cabbage seeds\r\nhigh energy protons\r\nrelative biological effectiveness\r\n\r\n%0 Journal Article\r\n%T Reasons and Preventions of the Credit Risk with Village Banks\r\n%G en\r\n%J Journal of Shangqiu Vocational and Technical College\r\n%A Pang, Ying\r\n%D 2012-01-01\r\n%K credit risk\r\npreventions\r\n\r\n"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "%0 Conference Paper\r\n%T Generalizing to Unseen Domains via Adversarial Data Augmentation\r\n%V 31\r\n%P 5334-5344\r\n%G en\r\n%B Neural Information Processing Systems\r\n%A Volpi, Riccardo\r\n%A Namkoong, Hongseok\r\n%A Şener, Ozan\r\n%A Duchi, John C.\r\n%A Murino, Vittorio\r\n%A Savarese, Silvio\r\n%D 2018-05-01\r\n%K Domain Adaptation\r\nUnsupervised Learning\r\nAdversarial Examples\r\nTransfer Learning\r\nRepresentation Learning\r\n\r\n"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "%0 Generic\r\n%T Scikit-learn: Machine Learning in Python\r\n%I Cornell University\r\n%G en\r\n%A Pedregosa, Fabián\r\n%A Varoquaux, Gaël\r\n%A Gramfort, Alexandre\r\n%A Michel, Vincent\r\n%A Thirion, Bertrand\r\n%A Grisel, Olivier\r\n%A Blondel, Mathieu\r\n%A Prettenhofer, Peter\r\n%A Weiss, Ron J.\r\n%A Dubourg, Vincent\r\n%A Vanderplas, Jake\r\n%A Passos, Alexandre\r\n%A Cournapeau, David\r\n%A Brucher, Matthieu\r\n%A Perrot, Marc de\r\n%A Duchesnay, Édouard\r\n%D 2012-01-01\r\n%K Python\r\nRobust Learning\r\n\r\n"
+	}
+}

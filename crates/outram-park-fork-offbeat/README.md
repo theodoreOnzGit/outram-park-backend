@@ -15,7 +15,7 @@ and an Android/Termux-buildable library.
 > used only to identify the upstream work this crate derives from. See `NOTICE`
 > and the workspace `TRADEMARKS.md`.
 >
-> **License: GPL-3.0-only.** OFFBEAT upstream is **also GPL-3.0**, so no
+> **License: ~~GPL-3.0-only~~ AGPL-3.0-only combined work** (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). OFFBEAT upstream is **also GPL-3.0**, so no
 > relicensing step applies — unlike some sibling fork crates, there is no
 > license-compatibility caveat here. The upstream LICENSE file was read directly
 > from the GitLab repository on 2026-07-29. Ported from upstream commit
@@ -199,7 +199,7 @@ only dev-dependency — nothing needing a C/Fortran toolchain or system
 BLAS/LAPACK. Verified 2026-07-30 with:
 
 ```bash
-cargo check -p outram-park-fork-offbeat --all-targets --target aarch64-linux-android
+cargo check --release -p outram-park-fork-offbeat --all-targets --target aarch64-linux-android
 ```
 
 The authoritative check remains a native build inside Termux on-device.

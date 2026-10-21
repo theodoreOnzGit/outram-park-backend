@@ -1,0 +1,48 @@
+{
+	"name": "synthetic_libris_isbn",
+	"kind": "forced",
+	"synthetic": true,
+	"translator": "5f506a9a-8076-4e1e-950c-f55d32003aae",
+	"search": {
+		"itemType": "book",
+		"ISBN": "978-91-977109-4-7"
+	},
+	"status": 200,
+	"translatorUsed": "5f506a9a-8076-4e1e-950c-f55d32003aae",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"firstName": "Karin",
+					"lastName": "Andersson",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Kärnkraft",
+					"type": 1
+				}
+			],
+			"ISBN": "9789197710947",
+			"language": "swe",
+			"title": "Kärnkraftens historia i Sverige: en översikt",
+			"place": "Stockholm",
+			"publisher": "Exempelförlaget",
+			"date": "2008",
+			"numPages": "212",
+			"libraryCatalog": "LIBRIS ISBN",
+			"shortTitle": "Kärnkraftens historia i Sverige"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "http://libris.kb.se/xsearch?query=ISBN:9789197710947",
+			"body": null
+		}
+	]
+}

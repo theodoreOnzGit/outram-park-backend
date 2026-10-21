@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging bishan v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/bishan)
+    Updating crates.io index
+    Packaged 13 files, 78.3KiB (26.6KiB compressed)
+   Verifying bishan v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/bishan)
+   Compiling bishan v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/bishan-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.97s
+   Uploading bishan v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/bishan)
+    Uploaded bishan v0.0.2 to registry `crates-io`
+note: waiting for bishan v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published bishan v0.0.2 at registry `crates-io`

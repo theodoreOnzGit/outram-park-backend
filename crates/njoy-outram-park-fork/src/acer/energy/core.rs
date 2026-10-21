@@ -31,6 +31,22 @@ pub enum EnergyLaw {
     },
     /// **ACE Law 4** — continuous tabular outgoing-energy distribution.
     Law4(Law4),
+    /// **ACE Law 2** — a discrete photon line.
+    ///
+    /// Used only by the photon-production blocks (`DLWP`), never by neutrons.
+    /// `LP = 0` or `1` is a fixed line at `EG`; `LP = 2` is a *primary* capture
+    /// photon whose energy rises with the incident energy as
+    /// `EG + E·A/(A+1)`, which the reader applies.
+    Law2 {
+        /// ENDF `LP`: 0/1 fixed line, 2 primary photon.
+        lp: i32,
+        /// The photon energy `EG` \[MeV\].
+        eg_mev: f64,
+    },
+    /// A complete DLW entry from [`crate::acer::acelf6`] -- its own yield
+    /// table and law header included, so the builder writes it **without**
+    /// the generic 9-word header the other variants get.
+    Acelf6(crate::acer::acelf6::DlwEntry),
 }
 
 impl EnergyLaw {
@@ -39,6 +55,8 @@ impl EnergyLaw {
         match self {
             EnergyLaw::Law3 { .. } => 3,
             EnergyLaw::Law4(_) => 4,
+            EnergyLaw::Law2 { .. } => 2,
+            EnergyLaw::Acelf6(e) => e.law,
         }
     }
 
@@ -48,6 +66,8 @@ impl EnergyLaw {
         match self {
             EnergyLaw::Law3 { .. } => 2,
             EnergyLaw::Law4(l) => l.data_len(),
+            EnergyLaw::Law2 { .. } => 2,
+            EnergyLaw::Acelf6(e) => e.words.len() as i32,
         }
     }
 
@@ -58,6 +78,9 @@ impl EnergyLaw {
         match self {
             EnergyLaw::Law3 { ldat1_mev, ldat2 } => vec![(*ldat1_mev, false), (*ldat2, false)],
             EnergyLaw::Law4(l) => l.serialize(data_start_rel),
+            EnergyLaw::Law2 { lp, eg_mev } => vec![(f64::from(*lp), true), (*eg_mev, false)],
+            // For this variant `data_start_rel` is the entry's own first word.
+            EnergyLaw::Acelf6(e) => e.resolve(data_start_rel),
         }
     }
 }
@@ -140,8 +163,9 @@ pub struct Emission {
     pub law: EnergyLaw,
     /// The secondary-neutron **angular** distribution for the ACE AND block, when
     /// it is given *separately* from the energy (MF=4, two-body discrete levels).
-    /// `None` ⇒ isotropic in the emission frame (continuum MF=6 reactions, whose
-    /// correlated angle is a future Law 61/44 upgrade, use this).
+    /// `None` ⇒ isotropic in the emission frame, or -- for an
+    /// [`EnergyLaw::Acelf6`] entry marked `correlated` -- carried by the DLW
+    /// law itself (ACE laws 44/61/66, `LAND = -1`).
     pub angular: Option<ElasticAngular>,
 }
 
@@ -150,11 +174,14 @@ pub struct Emission {
 /// `qi_ev` is the reaction Q \[eV\] (negative for endothermic levels); `awr` the
 /// atomic weight ratio. Ports the inline Law-3 branch of `acelod`.
 pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
+    use crate::mixr::mix::sigfig;
     let x = (awr + 1.0) / awr;
-    let q_mev = qi_ev / EMEV;
+    // `q` is the stored LQR value, `sigfig(Q/1e6, 7)`; both words are
+    // rounded as `acelod` stores them (`acefc.f90:5931-5932`).
+    let q_mev = sigfig(qi_ev / EMEV, 7, 0);
     EnergyLaw::Law3 {
-        ldat1_mev: x * (-q_mev),
-        ldat2: 1.0 / (x * x),
+        ldat1_mev: sigfig(x * (-q_mev), 7, 0),
+        ldat2: sigfig(1.0 / (x * x), 7, 0),
     }
 }
 
@@ -163,14 +190,36 @@ pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
 ///
 /// Fission (MT=18) is deliberately excluded: its secondaries are governed by the
 /// ν̄ (NU) block, which is a separate increment.
+/// The fission MTs that carry secondary neutrons: total fission and the four
+/// partial chances. Exactly one of the two representations is ever stored (see
+/// `acer::build`'s `role_of`), so this never double-counts.
+const FISSION_MTS: [i32; 5] = [18, 19, 20, 21, 38];
+
+/// ACE `TYR` for a fission reaction.
+///
+/// Not a multiplicity: `19` is the flag telling the reader that the neutron
+/// yield comes from the **NU block** (ν̄(E)), because fission multiplicity is
+/// energy-dependent and shared across the fission MTs. Positive, so the
+/// distribution is laboratory-frame — fission neutrons are emitted from a
+/// moving, fragmenting system and ACE stores them in the lab.
+///
+/// Verified against NJOY2016's own tables on 2026-09-20: `TYR = 19` for MT=18
+/// (U-235, U-238) and for each of MT=19/20/21/38 (U-234).
+const TYR_FISSION: i32 = 19;
+
+/// The neutron multiplicity ACER writes to TYR for a reaction with angular
+/// data, from its MT alone: `acelod`'s table, `acefc.f90:5859-5868`, for
+/// every `MT <= 91` but elastic. **CORRECTED 2026-10-14:** the table here had
+/// drifted from upstream's (MT=24 and 41 are 2, MT=25 and 42 are 3, MT=11 and
+/// 26 are 2, and every other `MT <= 91` is 1, not "no neutron"). Fission
+/// (19 in upstream's table) is handled before this is asked.
 fn neutron_yield(mt: i32) -> Option<u32> {
     match mt {
-        16 => Some(2),      // (n,2n)
-        17 => Some(3),      // (n,3n)
-        37 => Some(4),      // (n,4n)
-        51..=91 => Some(1), // (n,n') discrete levels + continuum
-        22 | 23 | 24 | 25 | 28 | 29 | 30 | 32 | 33 | 34 | 35 | 36 | 41 | 42 | 44 | 45 => Some(1),
-        5 => Some(1), // (n,anything) — approx one neutron
+        6..=9 | 16 | 24 | 26 | 46..=49 | 11 | 41 => Some(2),
+        17 | 25 | 42 => Some(3),
+        37 => Some(4),
+        2 => None,
+        1..=91 => Some(1),
         _ => None,
     }
 }
@@ -182,22 +231,71 @@ fn neutron_yield(mt: i32) -> Option<u32> {
 ///   (two-body kinematics), centre-of-mass frame.
 /// - Continuum / multi-neutron reactions (MT=91, 16, 17, 37, (n,n'+particle), 5)
 ///   become **Law 4** from their MF=6 neutron spectrum, with the TYR sign set by
-///   the MF=6 frame (LCT). Reactions whose MF=6 is absent or not yet parseable
-///   are skipped (they simply carry no secondary in this table).
-/// - Fission (MT=18) is excluded (handled by the ν̄ block later).
+///   the MF=6 frame (LCT). ~~Reactions whose MF=6 is absent or not yet
+///   parseable are skipped (they simply carry no secondary in this table).~~
+///   **CORRECTED 2026-10-14:** with no MF=6 but MF=4 + MF=5, they take
+///   `acelf5`'s law and MF=4's angles, as upstream does; only a reaction with
+///   neither is skipped.
+/// - **Fission** (MT=18, or the partial chances MT=19/20/21/38 when those are
+///   the stored representation) becomes **Law 4 from MF=5**, laboratory frame,
+///   with `TYR = 19` — the ACE flag meaning *the neutron yield for this
+///   reaction comes from the NU block*. See [`TYR_FISSION`].
 ///
 /// `partials` are `(MT, Q [eV])` pairs, in MTR order.
 pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)]) -> Vec<Emission> {
     let mut out = Vec::new();
     for &(mt, qi) in partials {
+        // FISSION FIRST, and deliberately from MF=5 rather than MF=6.
+        //
+        // U-235 and U-238 carry BOTH an MF=5 and an MF=6 for MT=18, and
+        // upstream uses the MF=5: `acefc.f90:4398` reads
+        // `call tosend(...) !skip past mf6/mt18 (for now)`. Taking MF=6 here
+        // because it happens to parse would silently disagree with NJOY on the
+        // fission spectrum of every major actinide.
+        //
+        // Handled before `neutron_yield`, which returns None for fission: the
+        // yield is not a fixed multiplicity at all, it is ν̄(E) from the NU
+        // block, which is exactly what TYR=19 tells the reader.
+        if FISSION_MTS.contains(&mt) {
+            if let Some(sec) = tape.section(mat, 5, mt) {
+                // NJOY's own `acelf5`: the subsection's p(E) header, rounded
+                // outgoing energies, and the MT=18 tail supplement. See
+                // `crate::acer::acelf5`.
+                let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
+                if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(sec, mt, q_mev, TYR_FISSION, true) {
+                    out.push(Emission {
+                        mt,
+                        tyr: TYR_FISSION,
+                        law: EnergyLaw::Acelf6(entry),
+                        angular: None,
+                    });
+                    continue;
+                }
+                if let Ok(law4) = super::mf5::parse_mf5_law4(sec) {
+                    out.push(Emission {
+                        mt,
+                        tyr: TYR_FISSION,
+                        law: EnergyLaw::Law4(law4),
+                        angular: None,
+                    });
+                }
+            }
+            continue;
+        }
         let Some(y) = neutron_yield(mt) else { continue };
         if (51..=90).contains(&mt) {
             // Two-body discrete level → Law 3 (CM frame ⇒ negative TYR). Its
             // angular distribution is given separately in MF=4 (→ AND block).
-            let angular = tape
-                .section(mat, 4, mt)
-                .and_then(|s| parse_elastic_angular(s).ok())
-                .filter(|a| !a.is_all_isotropic());
+            // With no MF=4, a level given in MF=6 as a two-body (`LAW = 2`)
+            // neutron carries its angles there; upstream reads them as a
+            // regular angular distribution (`acefc.f90:5851-5876`). GitHub
+            // #872: Al-27 and Si-28/29/30 give every level this way.
+            let angular = match tape.section(mat, 4, mt) {
+                Some(s) => parse_elastic_angular(s).ok().filter(|a| !a.is_all_isotropic()),
+                None => tape
+                    .section(mat, 6, mt)
+                    .and_then(|s| crate::acer::acensd::parse_mf6_law2_for_acer(s).ok().flatten()),
+            };
             out.push(Emission {
                 mt,
                 tyr: -(y as i32),
@@ -205,8 +303,29 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                 angular,
             });
         } else if let Some(sec) = tape.section(mat, 6, mt) {
-            // Continuum / (n,xn) → Law 4 from the MF=6 neutron spectrum. The angle
-            // is correlated (in MF=6); left isotropic pending a Law 61/44 upgrade.
+            // Continuum / (n,xn): NJOY's own `acelf6` -- law 44 or 61 with the
+            // evaluation's yield table and correlated angle (see
+            // `crate::acer::acelf6`). `q` is the stored LQR value; the ZA
+            // comes off the section's own HEAD record.
+            let iza = sec.rows.first().map_or(0, |r| r[0].round() as i32);
+            let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
+            if let Ok(Some(entry)) = crate::acer::acelf6::acelf6(sec, mt, q_mev, iza, true) {
+                let tyr = match entry.tyr {
+                    crate::acer::acelf6::Acelf6Tyr::Fixed(t) => t,
+                    // Placeholder sign; the builder fills in `100 + L` once
+                    // the DLW layout is known.
+                    crate::acer::acelf6::Acelf6Tyr::Generalized { sign } => sign,
+                };
+                out.push(Emission {
+                    mt,
+                    tyr,
+                    law: EnergyLaw::Acelf6(entry),
+                    angular: None,
+                });
+                continue;
+            }
+            // Fallback for what `acelf6` refuses (a LAW=7 neutron subsection):
+            // the previous energy-only Law 4.
             if let Ok(n) = super::mf6::parse_mf6_law1_neutron(sec) {
                 // A negative ACE TYR marks a centre-of-mass distribution.
                 // `>= 2` because ENDF-6's LCT = 3 (first two particles in the
@@ -225,6 +344,54 @@ pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)])
                     angular: None,
                 });
             }
+        } else if let (Some(s4), Some(s5)) = (tape.section(mat, 4, mt), tape.section(mat, 5, mt)) {
+            // No MF=6: angles in MF=4, energies in MF=5 (Mg-24's MT=16, 22,
+            // 28 and 91 in ENDF/B-VIII.0). Upstream writes these like any
+            // other reaction: TYR is the MT's multiplicity signed by MF=4's
+            // own LCT (`acefc.f90:5859-5870`), the angles go to AND
+            // (`acensd`), and the energy law is `acelf5` (`:5924`).
+            // **ADDED 2026-10-14:** before this they were skipped, written
+            // with TYR = 0, so the table emitted no neutron from them and
+            // OpenMC crashed on its DLW layout.
+            let ang = parse_elastic_angular(s4).ok();
+            let lct = ang.as_ref().map_or(1, |a| a.lct);
+            let tyr = if lct >= 2 { -(y as i32) } else { y as i32 };
+            let q_mev = crate::mixr::mix::sigfig(qi / EMEV, 7, 0);
+            if let Ok(Some(entry)) = crate::acer::acelf5::acelf5(s5, mt, q_mev, tyr, true) {
+                out.push(Emission {
+                    mt,
+                    tyr,
+                    law: EnergyLaw::Acelf6(entry),
+                    angular: ang.filter(|a| !a.is_all_isotropic()),
+                });
+            }
+        }
+    }
+    // `acelod`'s inline Law 3 uses `x = (awr+1)/awr` with `awr` whatever the
+    // angular loop last read (`awr=c2h`, `acefc.f90:5806`): the HEAD AWR of
+    // the last producer, in MTR order, carrying MF=4 or MF=6 -- not MF=1's.
+    // Evaluations differ here (U-234 ENDF/B-VIII.0: 232.0304 in MF=1/3/4,
+    // 232.0300 in MF=6), and on U-234 one level's `ldat1` sits on a
+    // 7th-figure rounding boundary that the difference decides. This is an
+    // upstream quirk reproduced for table parity, not a physics choice; the
+    // difference in the kinematics is 2e-6 relative.
+    let awr_last = out
+        .iter()
+        .rev()
+        .find_map(|e| {
+            let sec = if e.mt == 18 {
+                tape.section(mat, 4, 18).or_else(|| tape.section(mat, 6, 18))
+            } else {
+                tape.section(mat, 4, e.mt).or_else(|| tape.section(mat, 6, e.mt))
+            };
+            sec.and_then(|s| s.rows.first()).map(|r| r[1])
+        })
+        .or_else(|| tape.section(mat, 4, 2).and_then(|s| s.rows.first()).map(|r| r[1]))
+        .unwrap_or(awr);
+    for e in &mut out {
+        if let EnergyLaw::Law3 { .. } = e.law {
+            let qi = partials.iter().find(|p| p.0 == e.mt).map_or(0.0, |p| p.1);
+            e.law = law3_discrete_level(qi, awr_last);
         }
     }
     out
@@ -301,6 +468,21 @@ pub(super) fn build_outgoing(e_in_ev: f64, intt: u32, pairs: &[(f64, f64)]) -> O
 /// tables ([`super::mf6::Law7MuTable`]): eV→MeV, pdf scaled to /MeV, CDF built
 /// per `intt` (`1` histogram, `2` lin-lin), then renormalised to integrate to 1.
 pub(super) fn normalize_pdf_cdf(intt: u32, pairs: &[(f64, f64)]) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let (e, p, c, _w) = normalize_pdf_cdf_weighted(intt, pairs);
+    (e, p, c)
+}
+
+/// [`normalize_pdf_cdf`], additionally returning the **integral it divided
+/// out** — the table's own area before renormalisation.
+///
+/// For a distribution that is one slice of a larger one (MF=6 LAW=7's per-cosine
+/// tables), that integral is the slice's relative weight and is the only place
+/// the outer variable's distribution is recorded. Discarding it silently
+/// flattens that outer distribution to uniform.
+pub(super) fn normalize_pdf_cdf_weighted(
+    intt: u32,
+    pairs: &[(f64, f64)],
+) -> (Vec<f64>, Vec<f64>, Vec<f64>, f64) {
     let n = pairs.len();
     let e_out_mev: Vec<f64> = pairs.iter().map(|&(e, _)| e / EMEV).collect();
     // ENDF f is per eV; ACE wants per MeV → ×1e6.
@@ -317,6 +499,7 @@ pub(super) fn normalize_pdf_cdf(intt: u32, pairs: &[(f64, f64)]) -> (Vec<f64>, V
                 0.5 * (pdf[i] + pdf[i - 1]) * de
             };
     }
+    let area = cdf.last().copied().unwrap_or(0.0);
     // Renormalise so the distribution integrates to 1.
     if let Some(&total) = cdf.last() {
         if total > 0.0 {
@@ -328,7 +511,7 @@ pub(super) fn normalize_pdf_cdf(intt: u32, pairs: &[(f64, f64)]) -> (Vec<f64>, V
             }
         }
     }
-    (e_out_mev, pdf, cdf)
+    (e_out_mev, pdf, cdf, area)
 }
 
 /// Build one outgoing-energy row that mixes `nd` leading **discrete lines**

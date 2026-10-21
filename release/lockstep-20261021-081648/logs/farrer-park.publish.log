@@ -1,0 +1,12 @@
+    Updating crates.io index
+   Packaging farrer-park v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/farrer-park)
+    Updating crates.io index
+    Packaged 47 files, 1.2MiB (349.3KiB compressed)
+   Verifying farrer-park v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/farrer-park)
+   Compiling farrer-park v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/farrer-park-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.49s
+   Uploading farrer-park v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/farrer-park)
+    Uploaded farrer-park v0.0.3 to registry `crates-io`
+note: waiting for farrer-park v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published farrer-park v0.0.3 at registry `crates-io`

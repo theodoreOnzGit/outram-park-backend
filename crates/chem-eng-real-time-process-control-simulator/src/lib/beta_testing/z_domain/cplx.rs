@@ -28,6 +28,8 @@
 //! (`pub(crate)`) and tiny so the crate does not grow a new dependency for
 //! four arithmetic operators and two transcendental functions.
 
+use petir::mathf::RealMath;
+
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// A complex number `re + i*im` (dimensionless `f64` components).
@@ -52,28 +54,28 @@ impl Cplx {
 
     /// Magnitude `|z| = sqrt(re^2 + im^2)`.
     pub fn abs(self) -> f64 {
-        self.re.hypot(self.im)
+        self.re.r_hypot(self.im)
     }
 
     /// Complex exponential `exp(z) = exp(re) (cos im + i sin im)`.
     pub fn exp(self) -> Self {
-        let r = self.re.exp();
-        Cplx::new(r * self.im.cos(), r * self.im.sin())
+        let r = self.re.r_exp();
+        Cplx::new(r * self.im.r_cos(), r * self.im.r_sin())
     }
 
     /// Principal-branch complex logarithm,
     /// `ln(z) = ln|z| + i atan2(im, re)`. Diverges (returns `-inf` real
     /// part) at `z = 0`; callers guard against that.
     pub fn ln(self) -> Self {
-        Cplx::new(self.abs().ln(), self.im.atan2(self.re))
+        Cplx::new(self.abs().r_ln(), self.im.r_atan2(self.re))
     }
 
     /// Complex square root (principal branch), used by the quadratic
     /// formula. `sqrt(z) = sqrt(|z|) * exp(i * arg(z) / 2)`.
     pub fn sqrt(self) -> Self {
         let r = self.abs().sqrt();
-        let half_arg = self.im.atan2(self.re) / 2.0;
-        Cplx::new(r * half_arg.cos(), r * half_arg.sin())
+        let half_arg = self.im.r_atan2(self.re) / 2.0;
+        Cplx::new(r * half_arg.r_cos(), r * half_arg.r_sin())
     }
 
     /// True if either component is NaN or infinite.

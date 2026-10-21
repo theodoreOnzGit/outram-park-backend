@@ -1,0 +1,2616 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode"
+test_ids = [
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/euler.rs::euler_exponential_decay",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/euler.rs::euler_rotation",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::euler_reports_nan_instead_of_returning_ok",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::normalize_error_is_infinite_for_a_nan_component",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::normalize_error_is_infinite_for_an_infinite_component",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::normalize_error_is_unchanged_for_finite_input",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::rkf45_reports_nan_instead_of_returning_ok",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::rosenbrock23_reports_a_nan_jacobian",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::rosenbrock23_reports_nan_derivatives_instead_of_returning_ok",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/mod.rs::well_behaved_systems_still_integrate_after_the_fix",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_convergence_order_is_fifth",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_decay_to_5",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_exceeds_steps_on_stiff_vdp",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_exponential_decay",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rkf45.rs::rkf45_nonstiff_vdp",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_nonstiff_decay",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_rotation",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_stiff_decay",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/ode/rosenbrock23.rs::rosenbrock23_stiff_vdp_mu1000",
+]
+
+[module."euler.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ode::euler"
+
+[[module."euler.rs".function]]
+id = "fn:b39ec2a9a1cc9963"
+name = "Euler"
+qual = "Euler"
+item = "type"
+shape = "struct"
+lines = [
+    24,
+    32,
+]
+hash = "sha256:5574e2a4f18eb4fa613797da2adbfe1d9631e2180c9dafba3aa2e528222097b2"
+doc_hash = "sha256:153334b20a8580f9dbce444de9f5c5eb33d5a7b463e9a81b53c68b41be184c8b"
+uses = ["fn:627045c383bb0d34"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#9",
+]
+
+[[module."euler.rs".function]]
+id = "fn:94559e637f625e22"
+name = "new"
+qual = "Euler::new"
+lines = [
+    35,
+    45,
+]
+hash = "sha256:6b0f77750def244f21f438e6d880c4702587a9aceeee99dc32a77e95c57353e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3f12559743d82b4c"]
+uses = [
+    "fn:627045c383bb0d34",
+    "fn:b39ec2a9a1cc9963",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#9",
+]
+
+[[module."euler.rs".function]]
+id = "fn:c0d498d22554900d"
+name = "solve_step"
+qual = "Euler::solve_step"
+lines = [
+    47,
+    77,
+]
+hash = "sha256:d928805047000315cba9bccd25713962d15a2bdc6e4a19082fd08b90d701893c"
+doc_hash = "sha256:16311ed8dd092c99c0b81c441fb7f5b40377f8525cee57f921acc603fc925fca"
+callees = [
+    "fn:650fb1f8f6d920c5",
+    "fn:81cbc6f702844f68",
+]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:b39ec2a9a1cc9963",
+    "fn:b52889c8416affb4",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#9",
+]
+
+[[module."euler.rs".function]]
+id = "fn:debe20cf87a1b0c5"
+name = "integrate"
+qual = "Euler::integrate"
+lines = [
+    79,
+    97,
+]
+hash = "sha256:fc206dc4c3fdd89fe232f1e8a4cc15785c7f2def848f26f770335f69e758ffad"
+doc_hash = "sha256:fcc3ee8ce17cba39693b5b1a71afb1d63af747f61697a9f16313ab094135a4e0"
+callees = [
+    "fn:70f1dada95b91f76",
+    "fn:c0d498d22554900d",
+]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:b39ec2a9a1cc9963",
+    "fn:b52889c8416affb4",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#9",
+]
+
+[[module."euler.rs".function]]
+id = "fn:099ecd04e708a678"
+name = "DecayOde"
+qual = "DecayOde"
+item = "type"
+shape = "struct"
+lines = [
+    104,
+    104,
+]
+hash = "sha256:baf8514bb48e326578f2dab86c0ae22aefb92f21e60b7793f6cb5d2bf3f3d9ee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."euler.rs".function]]
+id = "fn:dfceb20d1ad94a14"
+name = "n_eqns"
+qual = "DecayOde::n_eqns"
+lines = [
+    106,
+    108,
+]
+hash = "sha256:68bccdb6e63541383d456806483052ac7cfde73399eaae4ce698976e9a3616fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:099ecd04e708a678"]
+test = true
+
+[[module."euler.rs".function]]
+id = "fn:6580c263fa9f7c1b"
+name = "derivatives"
+qual = "DecayOde::derivatives"
+lines = [
+    109,
+    111,
+]
+hash = "sha256:9a07d0820179cfbf174be2225dba6ead2a6695ee1774634fbb07fb75066bcd9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:099ecd04e708a678"]
+test = true
+
+[[module."euler.rs".function]]
+id = "fn:70628d67bfeff2e8"
+name = "RotationOde"
+qual = "RotationOde"
+item = "type"
+shape = "struct"
+lines = [
+    114,
+    114,
+]
+hash = "sha256:e01f4805713a7de7ab88acde99e865428228927a536453127164f9a68b8e7e54"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."euler.rs".function]]
+id = "fn:13798c72e6a242f8"
+name = "n_eqns"
+qual = "RotationOde::n_eqns"
+lines = [
+    116,
+    118,
+]
+hash = "sha256:9b8d1f6de9ccdd2beb65badd0ad789c38004f2e2221b7f52652b81e59bd09fc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:70628d67bfeff2e8"]
+test = true
+
+[[module."euler.rs".function]]
+id = "fn:a0bdc621134c78a1"
+name = "derivatives"
+qual = "RotationOde::derivatives"
+lines = [
+    119,
+    122,
+]
+hash = "sha256:246d080f91ca8da625ba4a6a636bc5c98d76d548d343fea72eb77739a1ed8d93"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:70628d67bfeff2e8"]
+test = true
+
+[[module."euler.rs".function]]
+id = "fn:8e56c48fe040da25"
+name = "euler_exponential_decay"
+qual = "euler_exponential_decay"
+lines = [
+    125,
+    141,
+]
+hash = "sha256:8b533716cc8a86592c60e8ebaf87c875f96c4ebdf0b581a4c393b8fe257c9c2a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:94559e637f625e22",
+    "fn:debe20cf87a1b0c5",
+]
+uses = [
+    "fn:099ecd04e708a678",
+    "fn:b39ec2a9a1cc9963",
+]
+test = true
+
+[[module."euler.rs".function]]
+id = "fn:e2ac6f85f035e266"
+name = "euler_rotation"
+qual = "euler_rotation"
+lines = [
+    143,
+    155,
+]
+hash = "sha256:4b57402a6efd3ceddcbb8046b64d001ee920d21141a44177efe07043959c1248"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:94559e637f625e22",
+    "fn:debe20cf87a1b0c5",
+]
+uses = [
+    "fn:70628d67bfeff2e8",
+    "fn:b39ec2a9a1cc9963",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ode"
+
+[[module."mod.rs".function]]
+id = "fn:b52889c8416affb4"
+name = "OdeSystem"
+qual = "OdeSystem"
+item = "type"
+shape = "trait"
+lines = [
+    39,
+    52,
+]
+hash = "sha256:cd50443e27399581ef36477d1f2fb028b391258fb922164e3e94e36f7eed82db"
+doc_hash = "sha256:a39f264271f367f72e99a0c2cecbe364aeada6cc16c0b1966849ca22e960b4b0"
+uses = ["fn:c579b93f4d493326"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:de7a4afa77402ea8"
+name = "n_eqns"
+qual = "OdeSystem::n_eqns"
+lines = [
+    41,
+    41,
+]
+hash = "sha256:684d3004c34d1b971cda0552a5fe16b7e5a71151112c1ab8f3e3a16cfbc223e1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b52889c8416affb4"]
+
+[[module."mod.rs".function]]
+id = "fn:54924bf837afd119"
+name = "derivatives"
+qual = "OdeSystem::derivatives"
+lines = [
+    43,
+    44,
+]
+hash = "sha256:2a98c02c8c7b7d72f93a3c0baf714433abb6b454216b835063e8be6218b2228f"
+doc_hash = "sha256:c31dd46b3532901e0302f41e34a87e95313e9a7a9a6843287489a789bebd76fe"
+uses = ["fn:b52889c8416affb4"]
+
+[[module."mod.rs".function]]
+id = "fn:427b3772b4c4e3e2"
+name = "jacobian"
+qual = "OdeSystem::jacobian"
+lines = [
+    46,
+    51,
+]
+hash = "sha256:622d1401501f7a0ada5c65d44072847c9b7af4a57528cfe1353a2eeaedd8a28b"
+doc_hash = "sha256:69429e2f6d41b5adfed902420b7b26d0fa6328ace371766789d80a03557461ff"
+uses = [
+    "fn:b52889c8416affb4",
+    "fn:c579b93f4d493326",
+]
+
+[[module."mod.rs".function]]
+id = "fn:627045c383bb0d34"
+name = "OdeSolverConfig"
+qual = "OdeSolverConfig"
+item = "type"
+shape = "struct"
+lines = [
+    56,
+    76,
+]
+hash = "sha256:c6abc67dad141120816eb49fb4c233698fe941236e8b596e3dbb54ee19e33d4c"
+doc_hash = "sha256:23aa4296407099674dde53fc0fb7e2d8a74082d4a2f198d418eb2908521b3ecf"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3f12559743d82b4c"
+name = "default"
+qual = "OdeSolverConfig::default"
+lines = [
+    79,
+    90,
+]
+hash = "sha256:8ed7710864e8b9620092ec29dda490fbad9e9c7b8d7cc75e3069f33d483abe0b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:627045c383bb0d34"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2a54cc993e9a8c46"
+name = "OdeError"
+qual = "OdeError"
+item = "type"
+shape = "enum"
+lines = [
+    95,
+    124,
+]
+hash = "sha256:83849cf1df50d1095675aa2286e616d27fffad02badb37e965374567af40ecf5"
+doc_hash = "sha256:4309716d75e352735ca6302335a349f819db48684eee3b49d0c1300d0f83c2b8"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a0099df5f949c06c"
+name = "fmt"
+qual = "OdeError::fmt"
+lines = [
+    127,
+    136,
+]
+hash = "sha256:8e5594b7acbd139a155a8069ff1f4ce734022604b45f5c612e5b77d548c36ac2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2a54cc993e9a8c46"]
+
+[[module."mod.rs".function]]
+id = "fn:81cbc6f702844f68"
+name = "normalize_error"
+qual = "normalize_error"
+lines = [
+    143,
+    185,
+]
+hash = "sha256:2e49d9c31bae761c40bf4c32170f1015486f12c70c48c6788b3cb548141b28e7"
+doc_hash = "sha256:f79a837f24f7a980024034233f47a1417d33e977a90827bc0874f295ab50f7a5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:650fb1f8f6d920c5"
+name = "adaptive_step"
+qual = "adaptive_step"
+lines = [
+    187,
+    237,
+]
+hash = "sha256:53b5b4813019ffb42357965b58978e963ab0dde61151616352435bb872a751a9"
+doc_hash = "sha256:0d0c365413f2b3aaa99cedce7124e22b527b9acee4d3cc8147834229edbef497"
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:627045c383bb0d34",
+    "fn:b52889c8416affb4",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."mod.rs".function]]
+id = "fn:70f1dada95b91f76"
+name = "integrate_interval"
+qual = "integrate_interval"
+lines = [
+    239,
+    265,
+]
+hash = "sha256:ea840756f77a0131542562503451c847d58755964b5760e4a27bd30d8eb77b3c"
+doc_hash = "sha256:72e2e39a0ed7b90b670b4d1e9d03750a98b21a5f7ea3586d6e40bc44208662ef"
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:627045c383bb0d34",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4503510860d88a70"
+name = "NanDerivatives"
+qual = "NanDerivatives"
+item = "type"
+shape = "struct"
+lines = [
+    342,
+    344,
+]
+hash = "sha256:1c2e9f595d532007c1f0417fe4a86a666a93c53237274c3fa2999ac0ed196f8c"
+doc_hash = "sha256:8e1a5bc2824857e5fba05aa63e125130b4be56c8334a993d911f0093abe01ad8"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:2d36e35816a1450e"
+name = "n_eqns"
+qual = "NanDerivatives::n_eqns"
+lines = [
+    346,
+    348,
+]
+hash = "sha256:68bccdb6e63541383d456806483052ac7cfde73399eaae4ce698976e9a3616fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4503510860d88a70"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d70b1d3904ffec9b"
+name = "derivatives"
+qual = "NanDerivatives::derivatives"
+lines = [
+    349,
+    351,
+]
+hash = "sha256:748369b54ceed95ec1e7c51b1d482d2e80e696d523d7cf88e64a3fd2b6590964"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4503510860d88a70"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3af983bd8f43f792"
+name = "jacobian"
+qual = "NanDerivatives::jacobian"
+lines = [
+    352,
+    355,
+]
+hash = "sha256:81d5b14387c0f7de7cd8ced5d02ed05d1666d338149a69bb1c9af2bac34835f4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:966f13993fdfad0d"]
+uses = [
+    "fn:4503510860d88a70",
+    "fn:c579b93f4d493326",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:267ea0b91053cd07"
+name = "NanJacobian"
+qual = "NanJacobian"
+item = "type"
+shape = "struct"
+lines = [
+    358,
+    361,
+]
+hash = "sha256:fb22a541a230747b2b8e15ea54c338b6ff393499599a0f72c649ac5cdc39a5f3"
+doc_hash = "sha256:412a0eed8fb463f886341ca284bacd1a6e18a478d2e2e12d219f270a80ee5073"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:04f1cd67deabdbac"
+name = "n_eqns"
+qual = "NanJacobian::n_eqns"
+lines = [
+    363,
+    365,
+]
+hash = "sha256:68bccdb6e63541383d456806483052ac7cfde73399eaae4ce698976e9a3616fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:267ea0b91053cd07"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:57d46dfb7319c719"
+name = "derivatives"
+qual = "NanJacobian::derivatives"
+lines = [
+    366,
+    368,
+]
+hash = "sha256:9a07d0820179cfbf174be2225dba6ead2a6695ee1774634fbb07fb75066bcd9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:267ea0b91053cd07"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:93a5821cb31f7119"
+name = "jacobian"
+qual = "NanJacobian::jacobian"
+lines = [
+    369,
+    372,
+]
+hash = "sha256:6d96e34a1dd59db8b243918ec45cb731da8b5964934e65257220937d1fb23de4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:966f13993fdfad0d"]
+uses = [
+    "fn:267ea0b91053cd07",
+    "fn:c579b93f4d493326",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:44b4a7e475078434"
+name = "DecayControl"
+qual = "DecayControl"
+item = "type"
+shape = "struct"
+lines = [
+    375,
+    376,
+]
+hash = "sha256:072dc3006000de23abef9a70a43a1f7252c65719b1c454239045eb9963a2059c"
+doc_hash = "sha256:c8cdcea5fb7014397c5c71817c54c56e8fc5424f387635611b7f340fbacc5f58"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7416a94ccb7ef8c4"
+name = "n_eqns"
+qual = "DecayControl::n_eqns"
+lines = [
+    378,
+    380,
+]
+hash = "sha256:68bccdb6e63541383d456806483052ac7cfde73399eaae4ce698976e9a3616fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:44b4a7e475078434"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:64aa492100091f08"
+name = "derivatives"
+qual = "DecayControl::derivatives"
+lines = [
+    381,
+    383,
+]
+hash = "sha256:9a07d0820179cfbf174be2225dba6ead2a6695ee1774634fbb07fb75066bcd9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:44b4a7e475078434"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:1ecb264392ea1534"
+name = "jacobian"
+qual = "DecayControl::jacobian"
+lines = [
+    384,
+    387,
+]
+hash = "sha256:81d5b14387c0f7de7cd8ced5d02ed05d1666d338149a69bb1c9af2bac34835f4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:966f13993fdfad0d"]
+uses = [
+    "fn:44b4a7e475078434",
+    "fn:c579b93f4d493326",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:2c9ff6c3d7533fd0"
+name = "normalize_error_is_infinite_for_a_nan_component"
+qual = "normalize_error_is_infinite_for_a_nan_component"
+lines = [
+    390,
+    401,
+]
+hash = "sha256:8b4b9ea9aea37deb9e8efb13200348393931c242e983050853502608dcee8c96"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:81cbc6f702844f68"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:2f26df956ca53d07"
+name = "normalize_error_is_infinite_for_an_infinite_component"
+qual = "normalize_error_is_infinite_for_an_infinite_component"
+lines = [
+    403,
+    410,
+]
+hash = "sha256:4f7bd5d469d4a4e04dc9eb8a1b33f933c60613411fa6a4d3a5292924da1026f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:81cbc6f702844f68"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:356f66b7c3ffd141"
+name = "normalize_error_is_unchanged_for_finite_input"
+qual = "normalize_error_is_unchanged_for_finite_input"
+lines = [
+    412,
+    422,
+]
+hash = "sha256:77bda438f4f52010bf219600eb785f84d9c33cf3afc64e27374a20ad8b569526"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:81cbc6f702844f68"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3a001f3b3894b8fb"
+name = "euler_reports_nan_instead_of_returning_ok"
+qual = "euler_reports_nan_instead_of_returning_ok"
+lines = [
+    424,
+    431,
+]
+hash = "sha256:d5b86e056e4fbfbf3c7937cfbb6177d109b6f2364fdaec845548f49b2faf8423"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:94559e637f625e22",
+    "fn:debe20cf87a1b0c5",
+]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:4503510860d88a70",
+    "fn:b39ec2a9a1cc9963",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:07e2df3cf3dc5c11"
+name = "rkf45_reports_nan_instead_of_returning_ok"
+qual = "rkf45_reports_nan_instead_of_returning_ok"
+lines = [
+    433,
+    440,
+]
+hash = "sha256:6176b4c626fa577e6181c6cb766bcceab7b83a1734129ed07679e16ec19a8f56"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a174b159377e2c17",
+    "fn:eb2b6288a65dccc8",
+]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:4503510860d88a70",
+    "fn:be150ea6586db3ec",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e9b7c1e783248d90"
+name = "rosenbrock23_reports_nan_derivatives_instead_of_returning_ok"
+qual = "rosenbrock23_reports_nan_derivatives_instead_of_returning_ok"
+lines = [
+    442,
+    451,
+]
+hash = "sha256:9c23bdc9a44fb02e57406d564532a90cf48cbbb11e06314e212e1713e6e07b1e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a43c194ef4e3576",
+    "fn:7f59e94e64dc48d2",
+]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:2fa6cb8f075171a3",
+    "fn:4503510860d88a70",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f004f7c4c7a92c53"
+name = "rosenbrock23_reports_a_nan_jacobian"
+qual = "rosenbrock23_reports_a_nan_jacobian"
+lines = [
+    453,
+    460,
+]
+hash = "sha256:41ebad14a5fcf6ee0185b61352618078d57c4dc5c78cdea74405c4a5b5f69d30"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a43c194ef4e3576",
+    "fn:7f59e94e64dc48d2",
+]
+uses = [
+    "fn:267ea0b91053cd07",
+    "fn:2a54cc993e9a8c46",
+    "fn:2fa6cb8f075171a3",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:40d328ba69b65528"
+name = "well_behaved_systems_still_integrate_after_the_fix"
+qual = "well_behaved_systems_still_integrate_after_the_fix"
+lines = [
+    462,
+    489,
+]
+hash = "sha256:3766db21a9da47a919050cefa3dc859766f31c36db60789955cb23f388746930"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a43c194ef4e3576",
+    "fn:7f59e94e64dc48d2",
+    "fn:94559e637f625e22",
+    "fn:a174b159377e2c17",
+    "fn:debe20cf87a1b0c5",
+    "fn:eb2b6288a65dccc8",
+]
+uses = [
+    "fn:2fa6cb8f075171a3",
+    "fn:44b4a7e475078434",
+    "fn:b39ec2a9a1cc9963",
+    "fn:be150ea6586db3ec",
+]
+test = true
+
+[module."rkf45.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ode::rkf45"
+
+[[module."rkf45.rs".function]]
+id = "fn:dd60fdceaa3c50c0"
+name = "C2"
+qual = "C2"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    26,
+]
+hash = "sha256:6fdcd8e5dcb06c213df3eeb123c5636545cae774513eabe004de6dff7861ee48"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:980e01c30e4e90d9"
+name = "C3"
+qual = "C3"
+item = "const"
+shape = "const"
+lines = [
+    27,
+    27,
+]
+hash = "sha256:313eadff9cbb8379696aa749f6ac803ace35aec33e89d4d46519eea921ecb84c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:19e54d12de3f9c8e"
+name = "C4"
+qual = "C4"
+item = "const"
+shape = "const"
+lines = [
+    28,
+    28,
+]
+hash = "sha256:e4668afa1fd70a7df8060e06e9e7713c4eb687c2fa422642ec75211b94c23cdf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:555babcd9940dfb2"
+name = "C5"
+qual = "C5"
+item = "const"
+shape = "const"
+lines = [
+    29,
+    29,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:1da6633fa7c30221"
+name = "C6"
+qual = "C6"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    30,
+]
+hash = "sha256:0c0f9f5cd712a63007dc8c136fe56b7205ccd364153fab513d86e8a346c3d365"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:52d7fe7d31249afe"
+name = "A21"
+qual = "A21"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    32,
+]
+hash = "sha256:6fdcd8e5dcb06c213df3eeb123c5636545cae774513eabe004de6dff7861ee48"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:fcd3f8c79a66fd07"
+name = "A31"
+qual = "A31"
+item = "const"
+shape = "const"
+lines = [
+    33,
+    33,
+]
+hash = "sha256:18c187c0c667e4a2b374205708840a62fb6890ff689f6acd5023a22cecd8c17a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:3adb65780464555c"
+name = "A32"
+qual = "A32"
+item = "const"
+shape = "const"
+lines = [
+    34,
+    34,
+]
+hash = "sha256:fe5411287864df0139544ee047e9a271a5c052c8d786510662d040ab4ed82eee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:b3632c6420ca62b8"
+name = "A41"
+qual = "A41"
+item = "const"
+shape = "const"
+lines = [
+    35,
+    35,
+]
+hash = "sha256:17c1787479ed061ba171b94d2366075928982e1582ad441e2fe90be755b5a47b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:f26c7305608bc375"
+name = "A42"
+qual = "A42"
+item = "const"
+shape = "const"
+lines = [
+    36,
+    36,
+]
+hash = "sha256:7d83975fc6d1b1f6786040d75780c573943fb46e596f0760c8c7ac6f875d81bf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:e93ac2a74bd5ea7c"
+name = "A43"
+qual = "A43"
+item = "const"
+shape = "const"
+lines = [
+    37,
+    37,
+]
+hash = "sha256:8a46188031975f4419e138fff34fc2f87c4c2dd5ba151122978ddb3a8da5db7d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:caaea4a287ab2e9d"
+name = "A51"
+qual = "A51"
+item = "const"
+shape = "const"
+lines = [
+    38,
+    38,
+]
+hash = "sha256:e7defb6c7bd5145f1cf6345bc25dc4d1fb07b741b54ee8e670d6488b47827151"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:8ee987e90ca60721"
+name = "A52"
+qual = "A52"
+item = "const"
+shape = "const"
+lines = [
+    39,
+    39,
+]
+hash = "sha256:c329f9cb61c31ad58e0d344edb2779639d87c4fbc0231c40acb15d27de2baa93"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:4dfab015130b0678"
+name = "A53"
+qual = "A53"
+item = "const"
+shape = "const"
+lines = [
+    40,
+    40,
+]
+hash = "sha256:53a4cef8229c3c0ee087fd2a985d9ffd6ac468733616f76a1b796a9bc2b2cfec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:59c70c7969275293"
+name = "A54"
+qual = "A54"
+item = "const"
+shape = "const"
+lines = [
+    41,
+    41,
+]
+hash = "sha256:96f78edcd143b0763fccb0c9105630dd11b81bcbc1efde0d261e94a530af7977"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:2c3625956c1e0aeb"
+name = "A61"
+qual = "A61"
+item = "const"
+shape = "const"
+lines = [
+    42,
+    42,
+]
+hash = "sha256:b7d497872fd202bb9a037bc4e99918244e67b639ad86e0b65bd24a54299734eb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:e9197aebc8845de1"
+name = "A62"
+qual = "A62"
+item = "const"
+shape = "const"
+lines = [
+    43,
+    43,
+]
+hash = "sha256:42e089c3395003b2b1735afa39c3940d07d6e0ff3589243147e47c8e11d3b147"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:5cad1c5d53fadad9"
+name = "A63"
+qual = "A63"
+item = "const"
+shape = "const"
+lines = [
+    44,
+    44,
+]
+hash = "sha256:eb8a06864352854e58a2168af79f70bed628d98f19b6fe5b179c984a10cfc0c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:71bf070a1e936420"
+name = "A64"
+qual = "A64"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    45,
+]
+hash = "sha256:b6a82b6f2ba2700399d1d9d223d3fd59314849d048d5181cc605aa63b2fde6e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:f629566c664e898d"
+name = "A65"
+qual = "A65"
+item = "const"
+shape = "const"
+lines = [
+    46,
+    46,
+]
+hash = "sha256:6d4598e3de1841679474be28f4feebb1b6f199a8cb807a8b3c74bfc7527f93ca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:e0ce390172cc354a"
+name = "B1"
+qual = "B1"
+item = "const"
+shape = "const"
+lines = [
+    49,
+    49,
+]
+hash = "sha256:f92b0de6484e6f449b54e13a89dc2a83513db4c3b20a9f3658bc3a2232ca956e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:70f5fe1b3ee77352"
+name = "B3"
+qual = "B3"
+item = "const"
+shape = "const"
+lines = [
+    50,
+    50,
+]
+hash = "sha256:b4d38918f042638a0f7c3be8f37a20116049e021916e76448abc6cfc06eb4e4d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:b59189cdeb1893fe"
+name = "B4"
+qual = "B4"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    51,
+]
+hash = "sha256:a19b03a2fffb03f154cc0b5cb149ea333dc13974006a6f6de1b7db75c9dd607e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:483046dd04c95d11"
+name = "B5"
+qual = "B5"
+item = "const"
+shape = "const"
+lines = [
+    52,
+    52,
+]
+hash = "sha256:d04599083c5ce9fa78076cd28f5f1ef896db16c9d8d2bc57729887646fe878d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:e78ac2edf6409140"
+name = "B6"
+qual = "B6"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    53,
+]
+hash = "sha256:7e88fc08372d60c5a51928afce840b7207c4a972290b65a27db707e381aaee95"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:f3929bdc36ad4be3"
+name = "E1"
+qual = "E1"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    56,
+]
+hash = "sha256:0c1768e465e798acb60820168939ebcec3c495300eb4091b605533a6e433e4d9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e0ce390172cc354a"]
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:297529d45ca3b74c"
+name = "E3"
+qual = "E3"
+item = "const"
+shape = "const"
+lines = [
+    57,
+    57,
+]
+hash = "sha256:da8ebce5935badf3448c5b12a20b08d49fd2114b1a2d7467b72e53bffae6f1b3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:70f5fe1b3ee77352"]
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:6b99a98a76235588"
+name = "E4"
+qual = "E4"
+item = "const"
+shape = "const"
+lines = [
+    58,
+    58,
+]
+hash = "sha256:88a304c9459c0a1190e2d0dfd070a237269f45f5d5ba44faa21ed1c5be023a61"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b59189cdeb1893fe"]
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:05f8c622e9b2f5c4"
+name = "E5"
+qual = "E5"
+item = "const"
+shape = "const"
+lines = [
+    59,
+    59,
+]
+hash = "sha256:c9d8ce28e1bfefe02329af1155001d7c4dfbb5861d6515972e2543705908733d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:483046dd04c95d11"]
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:b5b00d909890ceba"
+name = "E6"
+qual = "E6"
+item = "const"
+shape = "const"
+lines = [
+    60,
+    60,
+]
+hash = "sha256:2cb6d5afa320a09d238dc415dfaed2f25243f11368a7228a1b1b98fa5344fe1d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e78ac2edf6409140"]
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:be150ea6586db3ec"
+name = "Rkf45"
+qual = "Rkf45"
+item = "type"
+shape = "struct"
+lines = [
+    62,
+    75,
+]
+hash = "sha256:cffb0969a4392c75a261320bcdcc49bf8d4645b47ffecfbf7c496f0409d70a79"
+doc_hash = "sha256:b57a985e8881b3cdfe1ad1a0a082181e3a6265be40f7f854e756ea49728f38eb"
+uses = ["fn:627045c383bb0d34"]
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:a174b159377e2c17"
+name = "new"
+qual = "Rkf45::new"
+lines = [
+    78,
+    94,
+]
+hash = "sha256:edc8f5f58c716eaa08bfad9c875535f4129c380591bdde1d7670e899302dfb2f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3f12559743d82b4c"]
+uses = [
+    "fn:627045c383bb0d34",
+    "fn:be150ea6586db3ec",
+]
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:2c9933909ac941cf"
+name = "solve_step"
+qual = "Rkf45::solve_step"
+lines = [
+    96,
+    177,
+]
+hash = "sha256:95d63790e480cadf313ad961b767b6d4cd4d2bf5b177e55f9ebc71235da75145"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:650fb1f8f6d920c5",
+    "fn:81cbc6f702844f68",
+]
+uses = [
+    "fn:05f8c622e9b2f5c4",
+    "fn:19e54d12de3f9c8e",
+    "fn:1da6633fa7c30221",
+    "fn:297529d45ca3b74c",
+    "fn:2a54cc993e9a8c46",
+    "fn:2c3625956c1e0aeb",
+    "fn:3adb65780464555c",
+    "fn:483046dd04c95d11",
+    "fn:4dfab015130b0678",
+    "fn:52d7fe7d31249afe",
+    "fn:555babcd9940dfb2",
+    "fn:59c70c7969275293",
+    "fn:5cad1c5d53fadad9",
+    "fn:6b99a98a76235588",
+    "fn:70f5fe1b3ee77352",
+    "fn:71bf070a1e936420",
+    "fn:8ee987e90ca60721",
+    "fn:980e01c30e4e90d9",
+    "fn:b3632c6420ca62b8",
+    "fn:b52889c8416affb4",
+    "fn:b59189cdeb1893fe",
+    "fn:b5b00d909890ceba",
+    "fn:be150ea6586db3ec",
+    "fn:caaea4a287ab2e9d",
+    "fn:dd60fdceaa3c50c0",
+    "fn:e0ce390172cc354a",
+    "fn:e78ac2edf6409140",
+    "fn:e9197aebc8845de1",
+    "fn:e93ac2a74bd5ea7c",
+    "fn:f26c7305608bc375",
+    "fn:f3929bdc36ad4be3",
+    "fn:f629566c664e898d",
+    "fn:fcd3f8c79a66fd07",
+]
+reached_by = [
+    "#6",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:eb2b6288a65dccc8"
+name = "integrate"
+qual = "Rkf45::integrate"
+lines = [
+    179,
+    196,
+]
+hash = "sha256:fc206dc4c3fdd89fe232f1e8a4cc15785c7f2def848f26f770335f69e758ffad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c9933909ac941cf",
+    "fn:70f1dada95b91f76",
+]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:b52889c8416affb4",
+    "fn:be150ea6586db3ec",
+]
+reached_by = [
+    "#6",
+    "#9",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."rkf45.rs".function]]
+id = "fn:06842ad41f0f5b3b"
+name = "DecayOde"
+qual = "DecayOde"
+item = "type"
+shape = "struct"
+lines = [
+    203,
+    203,
+]
+hash = "sha256:baf8514bb48e326578f2dab86c0ae22aefb92f21e60b7793f6cb5d2bf3f3d9ee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:09475643907a2575"
+name = "n_eqns"
+qual = "DecayOde::n_eqns"
+lines = [
+    205,
+    207,
+]
+hash = "sha256:68bccdb6e63541383d456806483052ac7cfde73399eaae4ce698976e9a3616fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:06842ad41f0f5b3b"]
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:694c57262ff0f7b1"
+name = "derivatives"
+qual = "DecayOde::derivatives"
+lines = [
+    208,
+    210,
+]
+hash = "sha256:9a07d0820179cfbf174be2225dba6ead2a6695ee1774634fbb07fb75066bcd9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:06842ad41f0f5b3b"]
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:c9f80ca57215da03"
+name = "VanDerPol"
+qual = "VanDerPol"
+item = "type"
+shape = "struct"
+lines = [
+    213,
+    215,
+]
+hash = "sha256:5300703dcb9590250f565d1d52887f12d65d46691c1ca899e67b319ad8830271"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:fcf3b23435cf771f"
+name = "n_eqns"
+qual = "VanDerPol::n_eqns"
+lines = [
+    217,
+    219,
+]
+hash = "sha256:9b8d1f6de9ccdd2beb65badd0ad789c38004f2e2221b7f52652b81e59bd09fc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c9f80ca57215da03"]
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:1412de009cf4bbe5"
+name = "derivatives"
+qual = "VanDerPol::derivatives"
+lines = [
+    220,
+    223,
+]
+hash = "sha256:3bda93683e877943e1c789f272a552d76f59437483c578966cc083b8bfbb1f0e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c9f80ca57215da03"]
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:715600aba4199ef5"
+name = "rkf45_exponential_decay"
+qual = "rkf45_exponential_decay"
+lines = [
+    226,
+    241,
+]
+hash = "sha256:2d2d011d9c00cbaa9dfc27dddd016fc03024a011ed63676b337d136bdd3c0451"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a174b159377e2c17",
+    "fn:eb2b6288a65dccc8",
+]
+uses = [
+    "fn:06842ad41f0f5b3b",
+    "fn:be150ea6586db3ec",
+]
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:21285b9065e93e9a"
+name = "rkf45_decay_to_5"
+qual = "rkf45_decay_to_5"
+lines = [
+    243,
+    258,
+]
+hash = "sha256:b3ac77a07de4884a95bb4a50a01de92905979258d92f4f76c11f276ed6b2e4ac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a174b159377e2c17",
+    "fn:eb2b6288a65dccc8",
+]
+uses = [
+    "fn:06842ad41f0f5b3b",
+    "fn:be150ea6586db3ec",
+]
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:450970c8128f44a2"
+name = "rkf45_nonstiff_vdp"
+qual = "rkf45_nonstiff_vdp"
+lines = [
+    260,
+    271,
+]
+hash = "sha256:19d405aa9459aae9edccd9ff772980dcfeb75d2debef246d871719d4c79b7c45"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a174b159377e2c17",
+    "fn:eb2b6288a65dccc8",
+]
+uses = [
+    "fn:be150ea6586db3ec",
+    "fn:c9f80ca57215da03",
+]
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:8c6468163b619ae9"
+name = "rkf45_convergence_order_is_fifth"
+qual = "rkf45_convergence_order_is_fifth"
+lines = [
+    273,
+    304,
+]
+hash = "sha256:a943d7260dd1c13d03a7f0728d43d0cfa9ce2f7ae3526cfb0d7ce389beb34d74"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c9933909ac941cf",
+    "fn:a174b159377e2c17",
+]
+uses = [
+    "fn:06842ad41f0f5b3b",
+    "fn:be150ea6586db3ec",
+]
+test = true
+
+[[module."rkf45.rs".function]]
+id = "fn:601ddf72c585bc73"
+name = "rkf45_exceeds_steps_on_stiff_vdp"
+qual = "rkf45_exceeds_steps_on_stiff_vdp"
+lines = [
+    306,
+    321,
+]
+hash = "sha256:bf8dcd6f212990b9c8474d77b17c2ae775dd32b3f1d834ae81eed6a6ba42dd99"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a174b159377e2c17",
+    "fn:eb2b6288a65dccc8",
+]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:be150ea6586db3ec",
+    "fn:c9f80ca57215da03",
+]
+test = true
+
+[module."rosenbrock23.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ode::rosenbrock23"
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:d5b0098a0cf89e2e"
+name = "GAMMA"
+qual = "GAMMA"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    26,
+]
+hash = "sha256:7259807441b756d739a9fee3a58c3bce9c590d6e6fb26353923f73c384cd2010"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:b2564444d66d1899"
+name = "C2"
+qual = "C2"
+item = "const"
+shape = "const"
+lines = [
+    27,
+    27,
+]
+hash = "sha256:bf6b4e9812e42a89f403a2e8ec5bafb08bc03e6330e4fb9e22e9e2adb5be6714"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d5b0098a0cf89e2e"]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:51e618ec2b9b0b66"
+name = "A21"
+qual = "A21"
+item = "const"
+shape = "const"
+lines = [
+    28,
+    28,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:8a0be1c4cc7f4333"
+name = "C21"
+qual = "C21"
+item = "const"
+shape = "const"
+lines = [
+    29,
+    29,
+]
+hash = "sha256:a506ee5347413a67a29512dc7ebaa119d8304431925c24f8051781f5502928ba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:792516d90a211e99"
+name = "C31"
+qual = "C31"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    30,
+]
+hash = "sha256:6a47d1da9ead73a77aca021bd21b7a4bae07855d2e61f99a1c518b09b65f4630"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:74924d7607aff432"
+name = "C32"
+qual = "C32"
+item = "const"
+shape = "const"
+lines = [
+    31,
+    31,
+]
+hash = "sha256:82a8cd6f1ece24daca5884a4e120e5fb4032736e92577a438f022313833792d9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:1fcf38de601d86f7"
+name = "B1"
+qual = "B1"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    32,
+]
+hash = "sha256:08c7cdb068e2e9b88a6eae8201aef4cc0ded057b3268871dcca16af8053c41ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:ba84c9c0770eae19"
+name = "B2"
+qual = "B2"
+item = "const"
+shape = "const"
+lines = [
+    33,
+    33,
+]
+hash = "sha256:c5bf54d0386a5045a3f6047808288f87830239a171b69e024a58c48950fff8ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:2e91fa3a58c79001"
+name = "B3"
+qual = "B3"
+item = "const"
+shape = "const"
+lines = [
+    34,
+    34,
+]
+hash = "sha256:450c9b2635e14ad2e39452438dbb17389ba8120910f3859a306e3d29a737ccf0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:9bb03cdcc8183872"
+name = "E1"
+qual = "E1"
+item = "const"
+shape = "const"
+lines = [
+    35,
+    35,
+]
+hash = "sha256:adbff84824d6f3e321f28cc7fb48ab6f5435800bea4e58c97dc317891e1eae50"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:0393ec46ef2c0c28"
+name = "E2"
+qual = "E2"
+item = "const"
+shape = "const"
+lines = [
+    36,
+    36,
+]
+hash = "sha256:8799b74cdd9f64307e10279971c5be1f6e778a50bcd442eb515ae0b6209358ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:ca183ac0b10bcc2c"
+name = "E3"
+qual = "E3"
+item = "const"
+shape = "const"
+lines = [
+    37,
+    37,
+]
+hash = "sha256:a744c2963fef1525b4f245fffebe8fa393fdd1e31c2a8af8dad79bb05ae7ba9d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:40f41cb6fd79c216"
+name = "D1"
+qual = "D1"
+item = "const"
+shape = "const"
+lines = [
+    38,
+    38,
+]
+hash = "sha256:bf6b4e9812e42a89f403a2e8ec5bafb08bc03e6330e4fb9e22e9e2adb5be6714"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d5b0098a0cf89e2e"]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:3a702e02928fc569"
+name = "D2"
+qual = "D2"
+item = "const"
+shape = "const"
+lines = [
+    39,
+    39,
+]
+hash = "sha256:0d8c66d3c03bc2aa530765bd969c31f7e9df0e89d056f6e78eae0a1b5c2e260b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:30b1f9cbc2609967"
+name = "D3"
+qual = "D3"
+item = "const"
+shape = "const"
+lines = [
+    40,
+    40,
+]
+hash = "sha256:753c4e5142d3e54bee3051121c28a4dc833abe1b8c34b35cf49ef43ac77d6ac4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:2fa6cb8f075171a3"
+name = "Rosenbrock23"
+qual = "Rosenbrock23"
+item = "type"
+shape = "struct"
+lines = [
+    42,
+    60,
+]
+hash = "sha256:9bda2a1605c1725dc5ccb212c2832870855f9611b3665b3e72fe22384debd08f"
+doc_hash = "sha256:7a1d9b0c1dd8a99e7b1f8a599c94a8b28df521142dbbf7708a126d77ddada6fd"
+uses = [
+    "fn:627045c383bb0d34",
+    "fn:c579b93f4d493326",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:1a43c194ef4e3576"
+name = "new"
+qual = "Rosenbrock23::new"
+lines = [
+    63,
+    82,
+]
+hash = "sha256:f3e38c0cc80e6f7728c845c93adafd8200b104ddc73a528ea390159b04d6e86d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3f12559743d82b4c",
+    "fn:d0fb42446da66793",
+]
+uses = [
+    "fn:2fa6cb8f075171a3",
+    "fn:627045c383bb0d34",
+    "fn:c579b93f4d493326",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:58872df20778071c"
+name = "inner_step"
+qual = "Rosenbrock23::inner_step"
+lines = [
+    84,
+    143,
+]
+hash = "sha256:c1d52d2876393b7c4608d49131a40b6663de4da65398319ee2d4d2950f6525cf"
+doc_hash = "sha256:eb470449ca00f624764b188248797e5cb5e42bf1789f4f4323893f691d8e0f04"
+callees = [
+    "fn:02227dd3f0e4e85d",
+    "fn:20005ac2ae2c4e2a",
+    "fn:81cbc6f702844f68",
+    "fn:966f13993fdfad0d",
+    "fn:eed04aad5e1ee092",
+    "fn:f3e332723d455ea9",
+]
+uses = [
+    "fn:0393ec46ef2c0c28",
+    "fn:1fcf38de601d86f7",
+    "fn:2e91fa3a58c79001",
+    "fn:2fa6cb8f075171a3",
+    "fn:30b1f9cbc2609967",
+    "fn:3a702e02928fc569",
+    "fn:40f41cb6fd79c216",
+    "fn:51e618ec2b9b0b66",
+    "fn:74924d7607aff432",
+    "fn:792516d90a211e99",
+    "fn:8a0be1c4cc7f4333",
+    "fn:9bb03cdcc8183872",
+    "fn:b2564444d66d1899",
+    "fn:b52889c8416affb4",
+    "fn:ba84c9c0770eae19",
+    "fn:ca183ac0b10bcc2c",
+    "fn:d5b0098a0cf89e2e",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:8a4efd1bb5fecf39"
+name = "solve_step"
+qual = "Rosenbrock23::solve_step"
+lines = [
+    145,
+    200,
+]
+hash = "sha256:a5722c2fcf7c5494f0e6b0cdfd15788cd78b8928f0589828923e1520ff99d94e"
+doc_hash = "sha256:1ef9daa7f89ef511af37b878d22e6b048166e618c786e77a37b8da818df23412"
+callees = ["fn:58872df20778071c"]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:2fa6cb8f075171a3",
+    "fn:b52889c8416affb4",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:7f59e94e64dc48d2"
+name = "integrate"
+qual = "Rosenbrock23::integrate"
+lines = [
+    202,
+    219,
+]
+hash = "sha256:fc206dc4c3fdd89fe232f1e8a4cc15785c7f2def848f26f770335f69e758ffad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:70f1dada95b91f76",
+    "fn:8a4efd1bb5fecf39",
+]
+uses = [
+    "fn:2a54cc993e9a8c46",
+    "fn:2fa6cb8f075171a3",
+    "fn:b52889c8416affb4",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:5fa5bd72d96b10a7"
+name = "StiffDecay"
+qual = "StiffDecay"
+item = "type"
+shape = "struct"
+lines = [
+    227,
+    227,
+]
+hash = "sha256:bb8cf477b574dfed51b326903feb244e054d4a9c3eb83e08d9b7c67fe096bfb2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:adbcc981be0d2cdf"
+name = "n_eqns"
+qual = "StiffDecay::n_eqns"
+lines = [
+    229,
+    231,
+]
+hash = "sha256:68bccdb6e63541383d456806483052ac7cfde73399eaae4ce698976e9a3616fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:5fa5bd72d96b10a7"]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:478f298cb810968b"
+name = "derivatives"
+qual = "StiffDecay::derivatives"
+lines = [
+    232,
+    234,
+]
+hash = "sha256:3f4733ce8d1f26055b6390865ce6e81aca0b0a1a21a04a11cac23eea01fddf6e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:5fa5bd72d96b10a7"]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:8000d80abf0e4085"
+name = "jacobian"
+qual = "StiffDecay::jacobian"
+lines = [
+    235,
+    238,
+]
+hash = "sha256:3a0e5fb3adef5285b9b3a27e01f5376ff9f4ac4d67251f21272f497e628fda2f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:966f13993fdfad0d"]
+uses = [
+    "fn:5fa5bd72d96b10a7",
+    "fn:c579b93f4d493326",
+]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:3512e9a8e4a36dd6"
+name = "DecayOde"
+qual = "DecayOde"
+item = "type"
+shape = "struct"
+lines = [
+    242,
+    242,
+]
+hash = "sha256:072dc3006000de23abef9a70a43a1f7252c65719b1c454239045eb9963a2059c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:d38d1ab5a3e8b922"
+name = "n_eqns"
+qual = "DecayOde::n_eqns"
+lines = [
+    244,
+    246,
+]
+hash = "sha256:68bccdb6e63541383d456806483052ac7cfde73399eaae4ce698976e9a3616fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3512e9a8e4a36dd6"]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:cad581dfb1fc8f68"
+name = "derivatives"
+qual = "DecayOde::derivatives"
+lines = [
+    247,
+    249,
+]
+hash = "sha256:9a07d0820179cfbf174be2225dba6ead2a6695ee1774634fbb07fb75066bcd9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3512e9a8e4a36dd6"]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:ec3e3462122fde22"
+name = "jacobian"
+qual = "DecayOde::jacobian"
+lines = [
+    250,
+    253,
+]
+hash = "sha256:81d5b14387c0f7de7cd8ced5d02ed05d1666d338149a69bb1c9af2bac34835f4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:966f13993fdfad0d"]
+uses = [
+    "fn:3512e9a8e4a36dd6",
+    "fn:c579b93f4d493326",
+]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:4541ff2c65d3d7fa"
+name = "RotationOde"
+qual = "RotationOde"
+item = "type"
+shape = "struct"
+lines = [
+    257,
+    257,
+]
+hash = "sha256:0b8cbc3ddc8a916acbfdc9bf25f7f834cbc848e7b7d34a98c4d0dcc94955b6d4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:3a897dd0f6cb67d3"
+name = "n_eqns"
+qual = "RotationOde::n_eqns"
+lines = [
+    259,
+    261,
+]
+hash = "sha256:9b8d1f6de9ccdd2beb65badd0ad789c38004f2e2221b7f52652b81e59bd09fc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4541ff2c65d3d7fa"]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:884a32b945ba4b54"
+name = "derivatives"
+qual = "RotationOde::derivatives"
+lines = [
+    262,
+    265,
+]
+hash = "sha256:246d080f91ca8da625ba4a6a636bc5c98d76d548d343fea72eb77739a1ed8d93"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4541ff2c65d3d7fa"]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:96445116617ca5d4"
+name = "jacobian"
+qual = "RotationOde::jacobian"
+lines = [
+    266,
+    273,
+]
+hash = "sha256:ccf1d4c96d4d82940230d8ee101c4a4eee9967a31e845bb56a6d310cb7c2be13"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:966f13993fdfad0d"]
+uses = [
+    "fn:4541ff2c65d3d7fa",
+    "fn:c579b93f4d493326",
+]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:5b739294baaacaf4"
+name = "rosenbrock23_stiff_decay"
+qual = "rosenbrock23_stiff_decay"
+lines = [
+    276,
+    291,
+]
+hash = "sha256:b9154b143b5d4a4caec3db5c8446b3befe56db548587da26822603df15a9bca4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a43c194ef4e3576",
+    "fn:7f59e94e64dc48d2",
+]
+uses = [
+    "fn:2fa6cb8f075171a3",
+    "fn:5fa5bd72d96b10a7",
+]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:fe6d5f5d28c1430f"
+name = "rosenbrock23_nonstiff_decay"
+qual = "rosenbrock23_nonstiff_decay"
+lines = [
+    293,
+    308,
+]
+hash = "sha256:036673e05b0d6ab058d31dc2f88d9262cecfe1aceb52ee104b05650b50883740"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a43c194ef4e3576",
+    "fn:7f59e94e64dc48d2",
+]
+uses = [
+    "fn:2fa6cb8f075171a3",
+    "fn:3512e9a8e4a36dd6",
+]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:bafd265c8cfedf1e"
+name = "rosenbrock23_rotation"
+qual = "rosenbrock23_rotation"
+lines = [
+    310,
+    322,
+]
+hash = "sha256:b30e6456ed153136420681cb4ec75cac1ed99192f0a526415aba9170f4b02255"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a43c194ef4e3576",
+    "fn:7f59e94e64dc48d2",
+]
+uses = [
+    "fn:2fa6cb8f075171a3",
+    "fn:4541ff2c65d3d7fa",
+]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:3a89deb2c802a0e8"
+name = "VanDerPolStiff"
+qual = "VanDerPolStiff"
+item = "type"
+shape = "struct"
+lines = [
+    325,
+    327,
+]
+hash = "sha256:5efc76c171b8f9d31bafa2511361e20de0e4f4ea1c57aab45e4625d94ecbcee3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:c78ff4880627c33e"
+name = "n_eqns"
+qual = "VanDerPolStiff::n_eqns"
+lines = [
+    329,
+    331,
+]
+hash = "sha256:9b8d1f6de9ccdd2beb65badd0ad789c38004f2e2221b7f52652b81e59bd09fc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3a89deb2c802a0e8"]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:dc37110856f7ec11"
+name = "derivatives"
+qual = "VanDerPolStiff::derivatives"
+lines = [
+    332,
+    335,
+]
+hash = "sha256:3bda93683e877943e1c789f272a552d76f59437483c578966cc083b8bfbb1f0e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3a89deb2c802a0e8"]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:876df5bb455e6574"
+name = "jacobian"
+qual = "VanDerPolStiff::jacobian"
+lines = [
+    336,
+    343,
+]
+hash = "sha256:a3af0feb6cba5b58f74308f70285463d9589df6a9fedbac09eff679a128b3926"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:966f13993fdfad0d"]
+uses = [
+    "fn:3a89deb2c802a0e8",
+    "fn:c579b93f4d493326",
+]
+test = true
+
+[[module."rosenbrock23.rs".function]]
+id = "fn:c3a09c4d924cf0fa"
+name = "rosenbrock23_stiff_vdp_mu1000"
+qual = "rosenbrock23_stiff_vdp_mu1000"
+lines = [
+    346,
+    357,
+]
+hash = "sha256:cdfa99b58cb1aaaef1240cfc938d3aaacf8f808d5de76ef843390b144d59f646"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1a43c194ef4e3576",
+    "fn:7f59e94e64dc48d2",
+]
+uses = [
+    "fn:2fa6cb8f075171a3",
+    "fn:3a89deb2c802a0e8",
+]
+test = true

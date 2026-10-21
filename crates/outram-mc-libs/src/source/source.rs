@@ -9,9 +9,12 @@
 ///
 /// The source is sampled once per source particle at the start of each history.
 use crate::geometry::position::{Direction, Position};
+use super::angle::AngleDist;
+use super::energy::EnergyDist;
+use super::spatial::SpatialDist;
 
 /// A sampled source particle state.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SourceSite {
     pub r: Position,
     pub u: Direction,
@@ -21,9 +24,13 @@ pub struct SourceSite {
 
 /// Independent (uncorrelated) external source.  Maps to `openmc::IndependentSource`.
 pub struct IndependentSource {
-    pub spatial: Box<dyn super::spatial::SpatialDist>,
-    pub energy: Box<dyn super::energy::EnergyDist>,
-    pub angle: Box<dyn super::angle::AngleDist>,
+    /// Where the source particle starts.
+    pub spatial: super::spatial::SpatialKind,
+    /// Its kinetic energy \[eV\].
+    pub energy: super::energy::EnergyKind,
+    /// Its initial direction.
+    pub angle: super::angle::AngleKind,
+    /// Source strength, carried into the sampled site's weight.
     pub strength: f64,
 }
 

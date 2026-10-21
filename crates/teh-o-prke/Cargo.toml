@@ -1,6 +1,6 @@
 [package]
 name = "teh-o-prke"
-version = "0.1.5"
+version = "0.1.7"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,7 +15,27 @@ exclude = ["pki", "docs", "verification_and_validation/*.csv"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "neutronics"
+fidelity = 0
+maturity = 1
+
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 approx.workspace = true
 ndarray.workspace = true
 thiserror.workspace = true
@@ -27,7 +47,6 @@ chem-eng-real-time-process-control-simulator.workspace = true
 [dev-dependencies]
 env_logger.workspace = true
 local-ip-address.workspace = true
-roots.workspace = true
 serde.workspace = true
 tuas_boussinesq_solver.workspace = true
 

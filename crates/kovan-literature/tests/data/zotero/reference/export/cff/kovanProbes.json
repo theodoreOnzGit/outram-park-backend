@@ -1,0 +1,27 @@
+{
+	"all": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

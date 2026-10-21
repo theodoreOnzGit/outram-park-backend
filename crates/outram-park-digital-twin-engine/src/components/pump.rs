@@ -61,6 +61,8 @@
 //! `RESPONSIBLE_USE.md` this is for education, research and V&V only — not for
 //! facility operation, reactor control, or safety-critical decisions.
 
+use petir::mathf::RealMath;
+
 use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2, Widget};
 use std::f32::consts::TAU;
@@ -164,7 +166,7 @@ fn vane_root_angles(theta: Angle) -> [f32; IMPELLER_VANES] {
 /// phase, including zero — `edge_on_rotor_is_never_empty` pins that, because a
 /// stopped rotor that vanished would be worse than no rotor at all.
 fn edge_on_visible(phase: f32) -> bool {
-    phase.sin() > 0.0
+    phase.r_sin() > 0.0
 }
 
 /// Screen projection of an edge-on blade at this phase, in `[-1, 1]`.
@@ -173,7 +175,7 @@ fn edge_on_visible(phase: f32) -> bool {
 /// ends by the same `cos(phase)` when seen from the side, so it shortens onto
 /// the shaft as it turns edge-on instead of floating free.
 fn edge_on_projection(phase: f32) -> f32 {
-    phase.cos()
+    phase.r_cos()
 }
 
 // ── Deterministic cast-surface stipple ──────────────────────────────────────
@@ -648,8 +650,8 @@ impl VoluteLayout {
 /// included, so a positive shaft speed and the volute wrap agree.
 fn polar(centre: Pos2, radius: f32, angle: f32) -> Pos2 {
     Pos2::new(
-        centre.x + radius * angle.cos(),
-        centre.y + radius * angle.sin(),
+        centre.x + radius * angle.r_cos(),
+        centre.y + radius * angle.r_sin(),
     )
 }
 
@@ -1201,6 +1203,33 @@ impl Widget for PumpVisual {
     }
 }
 
+/// Where the pipes meet a centrifugal [`PumpVisual`]'s casing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PumpPorts {
+    /// Suction, on the casing at the impeller axis, on the right.
+    pub suction: Pos2,
+    /// Discharge, at the top of the nozzle, on the upper left.
+    pub discharge: Pos2,
+}
+
+impl PumpVisual {
+    /// Port positions for a [`PumpKind::Centrifugal`] pump whose box is
+    /// `box_rect` (the rect its `screen_position`/`screen_vector` describe).
+    ///
+    /// Computed from this widget's own volute layout: both ports sit midway
+    /// between the volute's cutwater and throat radii, the discharge at the
+    /// nozzle top and the suction at the impeller axis. Moved here from
+    /// `htgr_sim_v1`'s `pump_discharge` / `pump_suction`, which restated those
+    /// fractions (2026-09-22).
+    pub fn centrifugal_ports(box_rect: Rect) -> PumpPorts {
+        let lay = VoluteLayout::new(PumpKind::Centrifugal.fit_native_aspect(box_rect));
+        let mid = 0.5 * (lay.cutwater_radius + lay.throat_radius);
+        PumpPorts {
+            suction: Pos2::new(lay.centre.x + mid, lay.centre.y),
+            discharge: Pos2::new(lay.centre.x - mid, lay.nozzle_top),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1572,7 +1601,7 @@ mod tests {
     /// really is the tangential discharge of the drawn volute.
     #[test]
     fn the_discharge_leaves_tangentially_and_upwards() {
-        let (sx, sy) = (-CUTWATER_ANGLE.sin(), CUTWATER_ANGLE.cos());
+        let (sx, sy) = (-CUTWATER_ANGLE.r_sin(), CUTWATER_ANGLE.r_cos());
         assert!(sx.abs() < 1e-6, "tangent is not vertical: ({sx}, {sy})");
         assert!(
             sy < -0.999,
@@ -1669,5 +1698,24 @@ mod tests {
             assert!(!kind.typical_service().is_empty());
         }
         assert_eq!(PumpKind::ALL.len(), 3);
+    }
+}
+
+#[cfg(test)]
+mod port_tests {
+    use super::*;
+
+    /// The discharge leaves the top, on the left; the suction is on the right
+    /// at the impeller axis, below the discharge. Both sit inside the box.
+    #[test]
+    fn centrifugal_ports_are_top_left_discharge_and_right_suction() {
+        let b = Rect::from_min_size(Pos2::new(10.0, 20.0), Vec2::new(80.0, 80.0));
+        let p = PumpVisual::centrifugal_ports(b);
+        let fitted = PumpKind::Centrifugal.fit_native_aspect(b);
+        assert_eq!(p.discharge.y, fitted.top(), "discharge at the nozzle top");
+        assert!(p.discharge.x < fitted.center().x, "discharge on the left");
+        assert!(p.suction.x > fitted.center().x, "suction on the right");
+        assert!(p.suction.y > p.discharge.y, "suction below the discharge");
+        assert!(b.contains(p.suction) && b.expand(0.01).contains(p.discharge));
     }
 }

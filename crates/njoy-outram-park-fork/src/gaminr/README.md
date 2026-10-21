@@ -107,7 +107,7 @@ and real numbers are in each test's doc comment. Verified 2026-07-15 against the
   `run_with_input` reaches the numeric-engine `NotPorted` for a valid deck and
   fails validation for an `igg=1` deck lacking a grid.
 
-**Oracle (2026-09-10), `tests/gaminr_synthetic_photoat_golden.rs`.** No
+**Oracle (2026-09-10), ~~`tests/gaminr_synthetic_photoat_golden.rs`~~ `tests/gaminr_vs_njoy2016.rs` (renamed; corrected 2026-10-05).** No
 photoatomic evaluation is available offline, so the material is the
 committed **synthetic Z = 6 tape** `reference-data/endf/photoat-synthetic-Z6.endf`
 (analytic MF=23 shapes, MF=27 form factor `6/(1+(x/0.6)^2)^2` and

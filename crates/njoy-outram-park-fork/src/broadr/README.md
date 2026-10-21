@@ -47,7 +47,20 @@ the grid-preserving kernel gave H-2 elastic 3.0× (1e-3 eV) and 5.2×
 (1e-2 eV) NJOY's PENDF, agreeing only *at* the surviving grid points (bead
 `op-tubm`, found by the ERRORR tier-2 golden test).
 
-Two deliberate deviations, both documented in `broadn.rs`: the stack ceiling
+**CORRECTED 2026-09-26 (GitHub #340): the pipeline now broadens as upstream
+does.** `broaden_result` runs `joint::broadr_joint`, a line-for-line port of
+`broadr`/`bfile3`/`broadn`/`bsigma` with `nreac > 1`. Every low-threshold
+reaction is broadened together on MT=1's union grid, using upstream's
+`nstack = 12`, paging, SLATEC `erfc` and `hnabb`. Measured against NJOY2016
+`ac5adf5` PENDFs made with the same deck (`reconr .001` /
+`broadr .001, 293.6 K`) by `examples/pendf_stage_vs_njoy.rs`: **every MF=3
+word identical** for U-234 (25 393 points out, MT 2/18/102 broadened) and
+U-238 (155 207 points out, MT 2/5/18/102/107/800 broadened).
+
+The per-reaction form below is kept only as the fallback for a result with
+no MT=1 section, and its text is the history of that form:
+
+~~Two deliberate deviations, both documented in `broadn.rs`: the stack ceiling
 is 40 instead of upstream's 12 (upstream never fills it because it walks
 RECONR's *union* grid; this crate keeps each reaction on its own grid, and
 eleven halvings from H-2's next point at 100 eV only reach 0.12 eV, so the
@@ -58,7 +71,7 @@ copy, so the resolved side of the seam is wrong unless that point is a node
 — NJOY's U-238 PENDF keeps `(19999.99 eV, 0.2809805 b)`). Reactions are
 broadened one at a time (`nreac = 1`), across sections in parallel
 (`rayon`); the joint multi-reaction walk of upstream is not reproduced, so
-grids differ from NJOY's union grid while the values agree to `errthn`.
+grids differ from NJOY's union grid while the values agree to `errthn`.~~
 
 **Validated (`tests/broadr_light_nuclide_pendf_golden.rs`, 2026-09-10)**
 against NJOY2016 `tape22` PENDFs for H-2, Be-9, Li-6, C-12, F-19, Si-30

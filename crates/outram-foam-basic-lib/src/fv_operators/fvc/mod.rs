@@ -32,11 +32,13 @@
 //! (`sn_grad`), linear face interpolation (`interpolate`) and flux assembly
 //! (`flux`, `buoyancy_flux`), least-squares velocity reconstruction
 //! (`reconstruct`), the Rhie–Chow time-derivative flux correction
-//! (`ddt_corr`), and MUSCL / TVD limited face reconstruction
-//! (`reconstruct_pos_neg`, `Limiter`). Field values carry raw
+//! (`ddt_corr`), MUSCL / TVD limited face reconstruction
+//! (`reconstruct_pos_neg`, `Limiter`), and the EOS-free
+//! Kurganov–Noelle–Petrova central-upwind face flux (`central_upwind`). Field values carry raw
 //! `f64` / `Vector3` / `Tensor` element data (no `uom`), consistent with the
 //! rest of the FV operator layer.
 
+pub mod central_upwind;
 mod ddt_corr;
 mod div;
 mod div_tensor;

@@ -1,0 +1,715 @@
+//! The runtime concept graph: the built-in corpus plus the user's library,
+//! as one set of concepts (GitHub issue #249, epic #247).
+//!
+//! What belongs here: answering, for any concept, "what is it called, what
+//! are its sub-concepts, what does it cite", whether it comes from
+//! [`crate::corpus`] or from the open Kovan folder's
+//! [`KnowledgeIndex`]. The Mindmap and the Wiki both read concepts only
+//! through these functions, so the two views cannot disagree, and neither
+//! cares which namespace a concept is in except where editing is concerned.
+//!
+//! The user's folder is optional everywhere (`Option<&KnowledgeIndex>`):
+//! with none open, the graph is the corpus alone, which is what makes "Kovan
+//! always has a nuclear-engineering mind map" hold (maintainer brief,
+//! 2026-09-22).
+//!
+//! What does not belong here: drawing, and connections between concepts
+//! (#252). No lifetimes and no stored borrow: every function takes the
+//! index it reads, per the workspace Rust rules.
+
+use crate::corpus;
+use crate::entity::EntityKind;
+use crate::index::KnowledgeIndex;
+use crate::mindmap::{concept_citations, Citation};
+use crate::node_id::{EntryKind, Namespace, NodeId};
+use std::collections::HashMap;
+
+/// Path of the synthetic library collection unclassified papers are filed
+/// under (`entity.rs`'s `UNSORTED` topic, which has no directory on disk).
+pub const UNSORTED_PATH: &str = "unsorted";
+
+/// Reserved path of the synthetic **Recently opened** collection.
+///
+/// Like [`UNSORTED_PATH`] it has no directory on disk. Unlike it, its
+/// contents are not a classification at all — they come from
+/// [`crate::recent::RecentPapers`], which is local derived state. It sits at
+/// the same level as Unsorted because it answers the same kind of question:
+/// "where is the paper I was just looking at", not "what is this paper about".
+pub const RECENT_PATH: &str = "recent";
+
+/// What kind of concept a node is, which decides its colour and what may be
+/// done to it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConceptKind {
+    /// A built-in corpus topic. Read-only.
+    CorpusTopic,
+    /// A user topic.
+    Topic,
+    /// A user project.
+    Project,
+    /// The synthetic "Unsorted" collection: has no directory, takes no
+    /// subtopics.
+    Unsorted,
+    /// The synthetic "Recently opened" collection: has no directory, takes
+    /// no subtopics, and its membership is local state rather than a
+    /// classification — a paper is in it because it was read, not because
+    /// anyone filed it there.
+    Recent,
+}
+
+impl ConceptKind {
+    /// Whether the user may add a subtopic under a concept of this kind.
+    /// Corpus topics are read-only; attaching user knowledge to them is a
+    /// connection (#252), not a subtopic.
+    /// Whether a **user** subtopic may be added under a concept of this kind.
+    ///
+    /// `CorpusTopic` says yes (maintainer, 2026-09-22, #274) — and this is
+    /// not a hole in the corpus being read-only. The corpus node itself is
+    /// never edited; what is created is a node in the **user's** library,
+    /// parented to the corpus one. That is the overlay epic #247 describes:
+    /// *"opening a personal folder extends the map and never replaces it"*.
+    /// Refusing it left the built-in nuclear-engineering branches — the only
+    /// thing on screen before a folder is opened — with no way to add
+    /// anything, which read as the gesture being broken.
+    ///
+    /// `Unsorted` says no: it is synthetic, has no directory, and exists
+    /// only while unclassified papers do.
+    pub fn accepts_subtopics(self) -> bool {
+        matches!(self, Self::Topic | Self::Project | Self::CorpusTopic)
+    }
+}
+
+/// One concept as the views show it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeConcept {
+    pub id: NodeId,
+    pub title: String,
+    pub kind: ConceptKind,
+    /// Number of direct sub-concepts.
+    pub sub_concepts: usize,
+}
+
+fn corpus_concept(t: &corpus::CorpusTopic) -> RuntimeConcept {
+    RuntimeConcept {
+        id: t.id(),
+        title: t.title.to_string(),
+        kind: ConceptKind::CorpusTopic,
+        sub_concepts: corpus::children_of(t.path).count(),
+    }
+}
+
+fn library_concept(
+    index: &KnowledgeIndex,
+    path: &str,
+    kind: EntityKind,
+    name: &str,
+) -> RuntimeConcept {
+    RuntimeConcept {
+        id: NodeId::concept(Namespace::Library, path),
+        title: name.to_string(),
+        kind: match kind {
+            EntityKind::Project => ConceptKind::Project,
+            _ => ConceptKind::Topic,
+        },
+        sub_concepts: index.children_of(path).len(),
+    }
+}
+
+fn unsorted_concept() -> RuntimeConcept {
+    RuntimeConcept {
+        id: NodeId::concept(Namespace::Library, UNSORTED_PATH),
+        title: "Unsorted".to_string(),
+        kind: ConceptKind::Unsorted,
+        sub_concepts: 0,
+    }
+}
+
+/// Whether `index` has unclassified papers but no real `unsorted` topic, so
+/// the synthetic "Unsorted" concept is needed to keep them reachable
+/// (op-sr4n.4: a paper must never disappear for want of a classification).
+/// The synthetic "Recently opened" concept.
+///
+/// `sub_concepts` is 0: it is a leaf that opens an inbox, never a branch.
+///
+/// The title carries no count, matching Unsorted. The count would have to
+/// come from [`crate::recent::RecentPapers`], which is local state rather
+/// than knowledge, and threading it through `concept()`'s five call sites to
+/// put a number in a label is not worth the coupling — the inbox that opens
+/// on click shows the papers themselves.
+fn recent_concept() -> RuntimeConcept {
+    RuntimeConcept {
+        id: NodeId::concept(Namespace::Library, RECENT_PATH),
+        title: "Recently opened".to_string(),
+        kind: ConceptKind::Recent,
+        sub_concepts: 0,
+    }
+}
+
+/// Whether the map should offer "Recently opened" at all.
+///
+/// Only once the library has papers. An empty library has nothing to have
+/// opened, and a node that always drills into nothing is the failure the
+/// Unsorted docs already warn about.
+fn needs_recent(index: &KnowledgeIndex) -> bool {
+    !index.papers.is_empty()
+}
+
+fn needs_unsorted(index: &KnowledgeIndex) -> bool {
+    !index.papers_in(UNSORTED_PATH).is_empty()
+        && !index.collections.iter().any(|c| c.path == UNSORTED_PATH)
+}
+
+/// The concept `id` names, if it exists.
+pub fn concept(index: Option<&KnowledgeIndex>, id: &NodeId) -> Option<RuntimeConcept> {
+    if id.kind != EntryKind::Concept {
+        return None;
+    }
+    match id.namespace {
+        Namespace::Corpus => corpus::topic_at(&id.path).map(corpus_concept),
+        Namespace::Library => {
+            // A mirrored path is the corpus concept, not a user one.
+            if is_corpus_mirror(&id.path) {
+                return corpus::topic_at(&id.path).map(corpus_concept);
+            }
+            let index = index?;
+            if let Some(c) = index.collections.iter().find(|c| c.path == id.path) {
+                return Some(library_concept(index, &c.path, c.kind, &c.name));
+            }
+            if id.path == RECENT_PATH && needs_recent(index) {
+                return Some(recent_concept());
+            }
+            (id.path == UNSORTED_PATH && needs_unsorted(index)).then(unsorted_concept)
+        }
+    }
+}
+
+/// The concepts at the top of the wiki: the corpus root, then the user's own
+/// top-level topics and projects (and "Unsorted" when needed).
+pub fn top_level(index: Option<&KnowledgeIndex>) -> Vec<RuntimeConcept> {
+    let mut out: Vec<RuntimeConcept> = corpus::topic_at(corpus::ROOT_TOPIC)
+        .map(corpus_concept)
+        .into_iter()
+        .collect();
+    if let Some(index) = index {
+        out.extend(
+            index
+                .children_of("")
+                .into_iter()
+                .filter(|c| !is_corpus_mirror(&c.path))
+                .map(|c| library_concept(index, &c.path, c.kind, &c.name)),
+        );
+        if needs_unsorted(index) {
+            out.push(unsorted_concept());
+        }
+        // Beside Unsorted (maintainer, 2026-09-24): both answer "where is
+        // that paper" rather than "what is it about", and both are leaves
+        // that open an inbox.
+        if needs_recent(index) {
+            out.push(recent_concept());
+        }
+    }
+    out
+}
+
+/// Whether a **library** collection path is really just a mirror of a corpus
+/// topic — scaffolding, not a concept of its own.
+///
+/// Nesting a user subtopic under a corpus branch needs that branch to exist
+/// as directories on disk, because `index::scan_collections` will not walk
+/// past a directory with no `kovan.toml`. Those mirrored ancestors are an
+/// implementation detail of the overlay; the **corpus** node already
+/// represents that concept.
+///
+/// Drawing them produced exactly the duplicates the maintainer reported on
+/// 2026-09-22 — "there is a TRISO (corpus) and triso (topic)", "Fuel &
+/// Materials now has a fuse-and-materials" — one dark-green card and one
+/// light-green card for the same idea, differing only in whether the title
+/// had been slugified. A user concept *inside* a mirrored path is not
+/// affected: its own path is not a corpus path, so it still draws.
+pub fn is_corpus_mirror(path: &str) -> bool {
+    corpus::topic_at(path).is_some()
+}
+
+/// The direct sub-concepts of `parent`, or [`top_level`] for `None`.
+pub fn children(index: Option<&KnowledgeIndex>, parent: Option<&NodeId>) -> Vec<RuntimeConcept> {
+    let Some(parent) = parent else {
+        return top_level(index);
+    };
+    if parent.kind != EntryKind::Concept {
+        return Vec::new();
+    }
+    match parent.namespace {
+        Namespace::Corpus => {
+            // Corpus children first (dark green, immutable), then the user's
+            // own subtopics written under the same path (light green,
+            // editable) — the overlay #247 describes and #274 asked for.
+            //
+            // Without this second half, adding a subtopic under a corpus
+            // topic wrote the entity to disk and drew nothing: the corpus
+            // arm returned only `corpus::children_of`, so the new node had
+            // nowhere to appear (maintainer, 2026-09-22: "i should see a
+            // light green node popping out and linked. I don't see
+            // anything").
+            let mut out: Vec<RuntimeConcept> = corpus::children_of(&parent.path)
+                .map(corpus_concept)
+                .collect();
+            if let Some(index) = index {
+                out.extend(
+                    index
+                        .children_of(&parent.path)
+                        .into_iter()
+                        // Never the mirrored scaffolding: the corpus card
+                        // beside it already is that concept.
+                        .filter(|c| !is_corpus_mirror(&c.path))
+                        .map(|c| library_concept(index, &c.path, c.kind, &c.name)),
+                );
+            }
+            out
+        }
+        Namespace::Library => match index {
+            Some(index) => index
+                .children_of(&parent.path)
+                .into_iter()
+                .filter(|c| !is_corpus_mirror(&c.path))
+                .map(|c| library_concept(index, &c.path, c.kind, &c.name))
+                .collect(),
+            None => Vec::new(),
+        },
+    }
+}
+
+/// The citations of concept `id`: corpus literature filed under a corpus
+/// topic, or the papers classified directly under a library concept.
+/// `entries` is the user's parsed bibliography ([`crate::mindmap::BibCache`]);
+/// it is ignored for corpus concepts, whose metadata is compiled in.
+pub fn citations(
+    index: Option<&KnowledgeIndex>,
+    entries: &HashMap<String, (String, String)>,
+    id: &NodeId,
+) -> Vec<Citation> {
+    if id.kind != EntryKind::Concept {
+        return Vec::new();
+    }
+    match id.namespace {
+        Namespace::Corpus => {
+            let mut out: Vec<Citation> = corpus::literature_in(&id.path)
+                .map(|l| {
+                    let family = l
+                        .authors
+                        .first()
+                        .map(|a| a.split(',').next().unwrap_or(a).trim().to_string())
+                        .unwrap_or_default();
+                    let author_year = [family, l.year.map(|y| y.to_string()).unwrap_or_default()]
+                        .into_iter()
+                        .filter(|s| !s.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    Citation {
+                        citekey: l.id.to_string(),
+                        title: l.title.to_string(),
+                        author_year,
+                        namespace: Namespace::Corpus,
+                    }
+                })
+                .collect();
+            out.sort_by(|a, b| (&a.author_year, &a.citekey).cmp(&(&b.author_year, &b.citekey)));
+            out
+        }
+        Namespace::Library => match index {
+            Some(index) => concept_citations(index, entries, &id.path),
+            None => Vec::new(),
+        },
+    }
+}
+
+/// Where "up one level" goes from `current` (`None` is the top): the parent
+/// concept, or the top from a top-level concept. `None` when already at the
+/// top, where there is nowhere to go.
+pub fn up_one_level(current: Option<&NodeId>) -> Option<Option<NodeId>> {
+    current.map(parent_of)
+}
+
+/// The concept one level above `id`, canonicalised: the path's parent, or
+/// for a level-1 corpus issue the corpus root ([`corpus::ROOT_TOPIC`]),
+/// whose path is not a prefix of theirs (2026-10-06: the standard map's
+/// paths are the concept paths, with no root segment). `None` at the top.
+pub fn parent_of(id: &NodeId) -> Option<NodeId> {
+    if id.kind == EntryKind::Concept && id.namespace == Namespace::Corpus {
+        if let Some(t) = corpus::topic_at(&id.path) {
+            return t
+                .parent_path()
+                .map(|p| NodeId::concept(Namespace::Corpus, p));
+        }
+    }
+    id.parent_concept().map(|p| canonical_concept(&p))
+}
+
+/// The identity a concept should actually be addressed by.
+///
+/// A **library** concept whose path is a corpus topic path is mirrored
+/// scaffolding ([`is_corpus_mirror`]); the concept it stands for is the
+/// **corpus** node. Anything navigating by path — going up a level, a
+/// breadcrumb — can land on the mirror, and would then show a light-green
+/// user card where the dark-green corpus card belongs (maintainer,
+/// 2026-09-22: "when i press the up button, i see the light green (topic)
+/// version of the node, rather than the Corpus (dark green)").
+///
+/// Everything else is returned unchanged.
+pub fn canonical_concept(id: &NodeId) -> NodeId {
+    if id.kind == EntryKind::Concept
+        && id.namespace == Namespace::Library
+        && is_corpus_mirror(&id.path)
+    {
+        return NodeId::concept(Namespace::Corpus, &id.path);
+    }
+    id.clone()
+}
+
+/// The breadcrumb from the top to `id`: each ancestor concept and `id`
+/// itself, with its title.
+pub fn breadcrumb(index: Option<&KnowledgeIndex>, id: &NodeId) -> Vec<(NodeId, String)> {
+    let mut chain = Vec::new();
+    let mut at = Some(id.clone());
+    while let Some(node) = at {
+        let title = concept(index, &node).map(|c| c.title).unwrap_or_else(|| {
+            node.path
+                .rsplit('/')
+                .next()
+                .unwrap_or(&node.path)
+                .to_string()
+        });
+        at = parent_of(&node);
+        chain.push((node, title));
+    }
+    chain.reverse();
+    chain
+}
+
+#[cfg(test)]
+mod tests {
+    /// Going up from a user concept nested under a mirrored corpus branch
+    /// lands on the **corpus** node, not the light-green mirror standing in
+    /// for it on disk (maintainer, 2026-09-22).
+    #[test]
+    fn up_from_a_mirrored_branch_lands_on_the_corpus_node() {
+        use super::*;
+        let parent = "02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel";
+        assert!(corpus::topic_at(parent).is_some(), "fixture assumption");
+
+        let mine = NodeId::concept(Namespace::Library, &format!("{parent}/my-notes"));
+        let up = up_one_level(Some(&mine)).flatten().expect("a parent");
+        assert_eq!(up.path, parent);
+        assert_eq!(
+            up.namespace,
+            Namespace::Corpus,
+            "the mirror must resolve to the corpus concept"
+        );
+
+        // And the card drawn for that mirror is the corpus one.
+        let as_library = NodeId::concept(Namespace::Library, parent);
+        assert_eq!(
+            concept(None, &as_library).map(|c| c.kind),
+            Some(ConceptKind::CorpusTopic)
+        );
+    }
+
+    use super::*;
+    use crate::entity::{Access, CiteKey, EntityConfig};
+    use crate::root::{KovanRoot, RootConfig};
+
+    fn library() -> (tempfile::TempDir, KovanRoot, KnowledgeIndex) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        EntityConfig::topic("htgrs", "HTGRs")
+            .save(&root.topics_dir().join("htgrs"))
+            .unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
+        let index = KnowledgeIndex::rebuild(&root);
+        (dir, root, index)
+    }
+
+    /// With no folder open the graph is the corpus: the top is the virtual
+    /// root, whose children are the 19 IAEA Milestones issues in order
+    /// (2026-10-06; was Nuclear Engineering and its nine branches).
+    #[test]
+    fn with_no_folder_the_graph_is_the_corpus() {
+        let top = top_level(None);
+        assert_eq!(top.len(), 1);
+        assert_eq!(top[0].title, corpus::ROOT_TITLE);
+        assert_eq!(top[0].kind, ConceptKind::CorpusTopic);
+        let issues = children(None, Some(&top[0].id));
+        assert_eq!(issues.len(), 19);
+        assert_eq!(top[0].sub_concepts, 19);
+        assert_eq!(issues[0].id.path, "01-national-position");
+        assert_eq!(issues[1].title, "2. Nuclear safety");
+        assert_eq!(issues[18].id.path, "19-procurement");
+        // The whole tree is reachable with no folder: drill to a deep node.
+        let deep = NodeId::concept(
+            Namespace::Corpus,
+            "02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking",
+        );
+        let kids = children(None, Some(&deep));
+        assert!(kids.iter().any(|c| c.title == "The majorant cross section"));
+    }
+
+    /// A fresh, empty Kovan folder (no corpus checkout, no private
+    /// repository) shows the same full standard map as no folder at all, and
+    /// the corpus documents' metadata as citations (#253: the map never
+    /// depends on the corpus checkout).
+    #[test]
+    fn an_empty_folder_shows_the_full_standard_map() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        let index = KnowledgeIndex::rebuild(&root);
+        assert!(!root
+            .standard_corpus_dir()
+            .join("kovan-standard-open-corpus")
+            .exists());
+        let top = top_level(Some(&index));
+        assert_eq!(top.len(), 1);
+        assert_eq!(children(Some(&index), Some(&top[0].id)).len(), 19);
+        let mut seen = 0;
+        let mut stack = vec![top[0].id.clone()];
+        while let Some(id) = stack.pop() {
+            seen += 1;
+            stack.extend(children(Some(&index), Some(&id)).into_iter().map(|c| c.id));
+        }
+        assert_eq!(
+            seen,
+            corpus::topics().len(),
+            "every L1-L3 node is reachable"
+        );
+        let fuel = NodeId::concept(Namespace::Corpus, "02-nuclear-safety/fuel-system-design");
+        let keys: Vec<String> = citations(Some(&index), &HashMap::new(), &fuel)
+            .into_iter()
+            .map(|c| c.citekey)
+            .collect();
+        assert!(
+            keys.contains(&"nureg-0800-toc-rev6".to_string()),
+            "{keys:?}"
+        );
+    }
+
+    /// A user library whose own topics sit under the old
+    /// `topics/nuclear-engineering/...` folders keeps them, unchanged, as
+    /// library (user-namespace) topics: the old paths are no longer corpus
+    /// mirrors, so they draw as the user's own cards, and a paper classified
+    /// under one is still cited there.
+    #[test]
+    fn old_nuclear_engineering_folders_stay_user_topics() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
+        for (path, name) in [
+            ("nuclear-engineering", "nuclear-engineering"),
+            ("nuclear-engineering/safety", "safety"),
+            ("nuclear-engineering/safety/dose-limits", "dose-limits"),
+        ] {
+            EntityConfig::topic(path.rsplit('/').next().unwrap(), name)
+                .save(&root.topics_dir().join(path))
+                .unwrap();
+        }
+        EntityConfig::paper(CiteKey::parse("icrp2007").unwrap(), Access::Open)
+            .with_topics(["nuclear-engineering/safety/dose-limits"])
+            .save_paper(&root.paper_dir("icrp2007"))
+            .unwrap();
+        let index = KnowledgeIndex::rebuild(&root);
+        assert!(!is_corpus_mirror("nuclear-engineering"));
+        let top = top_level(Some(&index));
+        let ne = top
+            .iter()
+            .find(|c| c.id == NodeId::concept(Namespace::Library, "nuclear-engineering"))
+            .expect("the old root is the user's own top-level topic");
+        assert_eq!(ne.kind, ConceptKind::Topic);
+        assert_eq!(
+            top[0].title,
+            corpus::ROOT_TITLE,
+            "the standard map is still first"
+        );
+        let dose = NodeId::concept(Namespace::Library, "nuclear-engineering/safety/dose-limits");
+        assert_eq!(
+            concept(Some(&index), &dose).unwrap().kind,
+            ConceptKind::Topic
+        );
+        let cites = citations(Some(&index), &HashMap::new(), &dose);
+        assert_eq!(cites[0].citekey, "icrp2007");
+        assert_eq!(
+            up_one_level(Some(&dose)).flatten().unwrap(),
+            NodeId::concept(Namespace::Library, "nuclear-engineering/safety")
+        );
+    }
+
+    /// Opening a folder adds the user's concepts beside the corpus; it does
+    /// not replace it.
+    #[test]
+    fn a_folder_extends_the_corpus_and_does_not_replace_it() {
+        let (_d, _r, index) = library();
+        let top = top_level(Some(&index));
+        let titles: Vec<&str> = top.iter().map(|c| c.title.as_str()).collect();
+        // "Recently opened" rides along once the library has any papers --
+        // it is a synthetic inbox beside Unsorted, not one of the user's
+        // own concepts, so it is asserted separately from them.
+        assert_eq!(titles, [corpus::ROOT_TITLE, "HTGRs", "Recently opened"]);
+        assert_eq!(
+            top.last().map(|c| c.kind),
+            Some(ConceptKind::Recent),
+            "the recents inbox is last, after the user's concepts"
+        );
+        assert!(
+            !ConceptKind::Recent.accepts_subtopics(),
+            "an inbox takes no subtopics"
+        );
+        assert_eq!(top[1].id, NodeId::concept(Namespace::Library, "htgrs"));
+        let cites = citations(Some(&index), &HashMap::new(), &top[1].id);
+        assert_eq!(cites[0].citekey, "wang2018multiphysics");
+        assert_eq!(cites[0].namespace, Namespace::Library);
+    }
+
+    /// A corpus concept resolves with or without a folder; a library concept
+    /// only with one; a missing path resolves to nothing.
+    #[test]
+    fn concepts_resolve_in_their_own_namespace() {
+        let (_d, _r, index) = library();
+        let th = NodeId::concept(
+            Namespace::Corpus,
+            "02-nuclear-safety/thermal-hydraulic-design",
+        );
+        assert_eq!(
+            concept(None, &th).unwrap().title,
+            "Thermal-hydraulic design"
+        );
+        assert_eq!(
+            concept(Some(&index), &th).unwrap().kind,
+            ConceptKind::CorpusTopic
+        );
+        let mine = NodeId::concept(Namespace::Library, "htgrs");
+        assert!(concept(None, &mine).is_none());
+        assert_eq!(
+            concept(Some(&index), &mine).unwrap().kind,
+            ConceptKind::Topic
+        );
+        assert!(concept(None, &NodeId::concept(Namespace::Corpus, "nope")).is_none());
+        // A corpus topic accepts a **user** subtopic (#274, maintainer
+        // 2026-09-22). This assertion was `!…` until then: the corpus node
+        // itself stays immutable, but refusing the gesture left the built-in
+        // branches — all you see before a folder is open — with no way to add
+        // anything. `Unsorted` still refuses: it is synthetic and has no
+        // directory to create anything in.
+        assert!(ConceptKind::CorpusTopic.accepts_subtopics());
+        assert!(ConceptKind::Topic.accepts_subtopics());
+        assert!(ConceptKind::Project.accepts_subtopics());
+        assert!(!ConceptKind::Unsorted.accepts_subtopics());
+    }
+
+    /// Corpus literature appears as citations of the topics it is filed
+    /// under (by hand, or as a node's own source), labelled from its
+    /// compiled metadata, with no folder open.
+    #[test]
+    fn corpus_literature_is_cited_by_its_topics() {
+        let pra = NodeId::concept(
+            Namespace::Corpus,
+            "02-nuclear-safety/severe-accidents/probabilistic-risk-assessment",
+        );
+        let cites = citations(None, &HashMap::new(), &pra);
+        let keys: Vec<&str> = cites.iter().map(|c| c.citekey.as_str()).collect();
+        assert!(
+            keys.contains(&"nureg-2201") && keys.contains(&"wash-1400"),
+            "{keys:?}"
+        );
+        let pos = |k: &str| keys.iter().position(|x| *x == k).unwrap();
+        assert!(
+            pos("nureg-2201") < pos("wash-1400"),
+            "sorted by author and year"
+        );
+        assert!(cites.iter().any(|c| c.author_year == "Siu 2016"));
+        assert!(cites
+            .iter()
+            .any(|c| c.author_year == "U.S. Nuclear Regulatory Commission 1975"));
+        assert!(cites.iter().all(|c| c.namespace == Namespace::Corpus));
+        let sorted = {
+            let mut v: Vec<(String, String)> = cites
+                .iter()
+                .map(|c| (c.author_year.clone(), c.citekey.clone()))
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(
+            sorted,
+            cites
+                .iter()
+                .map(|c| (c.author_year.clone(), c.citekey.clone()))
+                .collect::<Vec<_>>()
+        );
+
+        let msr = NodeId::concept(
+            Namespace::Corpus,
+            "02-nuclear-safety/nuclear-design/core-configurations/liquid-fuelled",
+        );
+        let keys: Vec<String> = citations(None, &HashMap::new(), &msr)
+            .into_iter()
+            .map(|c| c.citekey)
+            .collect();
+        assert!(keys.contains(&"nureg-cr-7289".to_string()), "{keys:?}");
+        assert!(keys.contains(&"krpan2026physor".to_string()), "{keys:?}");
+    }
+
+    const MAJORANT: &str =
+        "02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking/majorant";
+
+    /// Up goes to the parent, from a level-1 issue to the virtual root, from
+    /// the root to the top, and nowhere from the top.
+    #[test]
+    fn up_one_level_climbs_to_the_top_and_stops() {
+        let mut at = NodeId::concept(Namespace::Corpus, MAJORANT);
+        let mut chain = Vec::new();
+        while let Some(Some(up)) = up_one_level(Some(&at)) {
+            chain.push(up.path.clone());
+            at = up;
+        }
+        assert_eq!(
+            chain,
+            [
+                "02-nuclear-safety/nuclear-design/neutron-transport/delta-tracking",
+                "02-nuclear-safety/nuclear-design/neutron-transport",
+                "02-nuclear-safety/nuclear-design",
+                "02-nuclear-safety",
+                corpus::ROOT_TOPIC,
+            ]
+        );
+        assert!(chain.len() == 5);
+        assert_eq!(
+            up_one_level(Some(&at)),
+            Some(None),
+            "the root goes to the top"
+        );
+        assert_eq!(up_one_level(None), None, "nowhere above the top");
+        let mine = NodeId::concept(Namespace::Library, "htgrs");
+        assert_eq!(up_one_level(Some(&mine)), Some(None));
+    }
+
+    #[test]
+    fn the_breadcrumb_names_every_ancestor() {
+        let majorant = NodeId::concept(Namespace::Corpus, MAJORANT);
+        let titles: Vec<String> = breadcrumb(None, &majorant)
+            .into_iter()
+            .map(|(_, t)| t)
+            .collect();
+        assert_eq!(
+            titles,
+            [
+                corpus::ROOT_TITLE,
+                "2. Nuclear safety",
+                "Nuclear design and core physics",
+                "Neutron transport methods",
+                "Delta (Woodcock) tracking",
+                "The majorant cross section",
+            ]
+        );
+    }
+}

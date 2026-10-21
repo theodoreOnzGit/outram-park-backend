@@ -1,0 +1,30 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"translatorID": "4e7119e0-02be-4848-86ef-79a64185aad8",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "Kernreaktor",
+						"type": 1
+					},
+					{
+						"tag": "Geschicht",
+						"type": 1
+					},
+					{
+						"tag": "Deutschlan",
+						"type": 1
+					}
+				],
+				"title": "Die Kernreaktortechnik: eine Einführung",
+				"url": "http://example.org/toc.pdf"
+			}
+		]
+	}
+}

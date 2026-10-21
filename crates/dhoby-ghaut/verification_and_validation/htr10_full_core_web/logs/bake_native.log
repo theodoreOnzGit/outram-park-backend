@@ -1,0 +1,44 @@
+HTR-10 core bake: N = 12, 10000 neutrons x 2 generations, seed 20260917, 5 threads
+hardware: NVIDIA RTX A5000 / Vulkan, 5 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM
+jobs on 5 threads, 79.1 s wall:
+  U-in-UO2 S(a,b)         28.1 s     228179 words
+  O-in-UO2 S(a,b)         24.2 s     228179 words
+  graphite S(a,b)         31.5 s     228506 words
+  Si-in-SiC S(a,b)        21.2 s     229552 words
+  C-in-SiC S(a,b)         56.7 s     229551 words
+  U235                    57.9 s    7081761 words
+  U238                    47.3 s    3081597 words
+  O16                      0.5 s      76849 words
+  C12                      0.2 s      22095 words
+  Si28                    25.2 s     141303 words
+  B10                      0.2 s      33189 words
+  Si29                    22.2 s     133873 words
+  Si30                     0.2 s      77181 words
+  B11                      0.1 s      71315 words
+  C13                      0.1 s      13185 words
+  He3                      0.1 s       6843 words
+  He4                      0.0 s       2845 words
+  Fe54                     3.3 s     948579 words
+  Fe56                     3.4 s    1063987 words
+  Fe57                     1.0 s     256521 words
+  Fe58                     1.7 s     149997 words
+  Cr50                     1.2 s     229759 words
+  Cr52                     1.0 s     233891 words
+  Cr53                     1.1 s     189415 words
+  Cr54                     0.4 s     112249 words
+  Ni58                     2.7 s     352229 words
+  Ni60                     2.0 s     270461 words
+  Ni61                     0.5 s      91071 words
+  Ni62                     0.7 s     110107 words
+  Ni64                     0.5 s     107565 words
+  Mn55                     1.3 s     110471 words
+  Ti46                     0.7 s     103197 words
+  Ti47                     0.3 s      48609 words
+  Ti48                     0.6 s      98577 words
+  Ti49                     0.3 s      53499 words
+  Ti50                     0.1 s      36213 words
+assembly (one worker): tapes 0.3 s, nuclides 1.2 s, core 0.16 s, majorant 10.6 s (251920 nodes)
+data ready in 91.3 s
+  generation 0: k = 0.935074, entropy 5.5797, 10000 histories in 29.8 s on 5 threads (14.89 ms CPU per history), 3266578 collisions, 84266696 virtual
+  generation 1: k = 0.983278, entropy 5.5478, 10000 histories in 26.5 s on 5 threads (13.24 ms CPU per history), 3183800 collisions, 89481901 virtual
+wrote /home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-ad0d1120549f76674/crates/dhoby-ghaut/examples/monte_carlo_web/htr10/data/core_tracks.bin.z (24 tracks, 519 kB); k by generation [0.9350736678484147, 0.9832781940416113]; total 160.8 s

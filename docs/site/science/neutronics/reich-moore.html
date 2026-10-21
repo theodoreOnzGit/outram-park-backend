@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can we skip the gamma paths?</title>
+<meta name="description" content="Neutronics, page 14: the Reich–Moore formalism eliminates the many gamma channels, keeping one total capture width per level, and keeps full multi-level interference for the neutron and up to two fission channels. A matrix of at most 3 × 3 per spin group. Drawn by OUTRAM PARK's RECONR port.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="resonance-data.js" defer></script>
+<script src="resonance.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 14 of the reordering amendment of 2026-10-16 (Reich-Moore). Wording per the design's [correctness] note: the gamma channels are eliminated, not the cross section averaged. Formulas: ENDF-102 App. D.1.3, NJOY2016 manual §3.4 and csrmat, through OUTRAM PARK's RECONR port. Census from resonance-data.js, checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Can we skip the gamma paths?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Page 13's <del>exact theory</del> <b>(corrected 2026-10-19:</b> all-channel framework<b>)</b> was unaffordable by brute force, mostly because of the gamma channels. Which part can we drop with the least damage? <b>The gamma paths.</b></p>
+<p>Reich and Moore built their formula for a compound nucleus with one neutron channel and a large number of channels for capture <a href="#ref-reich1958multilevel">(Reich &amp; Moore, 1958)</a>. They do not track the gamma channels one by one. They <b>eliminate</b> them:</p>
+<ul>
+  <li>every gamma channel of a level is lumped into <b>one total capture width &Gamma;<sub>&gamma;</sub> per level</b>, the "eliminated width" <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>;</li>
+  <li>that width enters only as an imaginary part of the level's energy, E<sub>r</sub> &minus; i&Gamma;<sub>&gamma;</sub>/2, so it widens the level without needing a channel of its own;</li>
+  <li>the <b>neutron channel and up to two fission channels keep full multi-level interference</b>.</li>
+</ul>
+<p>So the matrix shrinks from thousands of channels to the few that are left: at most 3 &times; 3 per spin group (neutron plus two fission channels), and just a number, 1 &times; 1, for a nucleus that does not fission. Capture is whatever is left: total minus elastic minus fission <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>.</p>
+
+<section class="widget-card">
+  <h3>The same two levels, through Reich&ndash;Moore</h3>
+  <div class="widget" id="reichmoore">
+    <canvas aria-label="Elastic, capture or fission cross section of two neighbouring levels from the Reich-Moore formula, against the sum of two single-level peaks"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-ch="el">Elastic</button> <button type="button" class="btn ghost" data-ch="cap">Capture</button> <button type="button" class="btn ghost" data-ch="fis">Fission</button></p>
+  <p class="actions"><button type="button" class="btn" data-j="same">Same J</button> <button type="button" class="btn ghost" data-j="diff">Different J</button></p>
+  <label class="energy-control"><span>Spacing between the levels <b data-sep-out></b></span>
+    <input type="range" data-sep min="0.5" max="8" step="0.05" value="2" aria-label="Spacing between the two levels in electronvolts"></label>
+  <p class="note">Page 13's made-up pair. Give both levels a fission width in the side panel to open the fission button. The formula is NJOY2016's <code>csrmat</code> <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a> through OUTRAM PARK's RECONR port, which reproduces NJOY2016's own reconstructed tapes; dashed is page 12's SLBW sum. 0 K.</p>
+</section>
+
+<p>Things to try:</p>
+<ul>
+  <li><b>Capture, same J.</b> Capture is not the sum of two peaks either. Reich and Moore showed it: without fission, their capture cross section "differs formally from a sum of single-level Breit-Wigner terms" <a href="#ref-reich1958multilevel">(Reich &amp; Moore, 1958)</a>. The interference is in the neutron channel, and capture feels it.</li>
+  <li><b>Add a fission width, then Fission, same J.</b> Two fission channels, two levels: the fission amplitudes interfere too. That is what Reich and Moore built the formula for.</li>
+  <li><b>Different J.</b> Again no interference, in any channel.</li>
+</ul>
+
+<h2>Who uses it</h2>
+<p>ENDF-102 recommends Reich&ndash;Moore for all evaluations: it is "a true multilevel formalism", and all its cross sections are non-negative <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>. Of the <b data-census="total">51</b> ENDF/B-VIII.0 neutron evaluations in this repository, <b data-census="Reich-Moore (LRF 3)">14</b> give their first resolved range in it (LRF = 3): Al-27, Si-28, -29 and -30, Ti-48, Cr-50, -52, -53 and -54, Mn-55, Fe-56 and -58, and both U-235 and U-238. That includes the U-238 level of page 12.</p>
+
+<h2>The general version: R-Matrix Limited</h2>
+<p>Newer evaluations use a general form with the same gamma trick. ENDF's <b>R-Matrix Limited</b> format (LRF = 7) "contains all the generality of LRF=3 plus unlimited numbers and types of channels", charged-particle exits included <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>, and it still keeps an "eliminated" channel for the radiation width (App. D.1.7). NJOY's manual calls it "Reich-Moore-Limited": its R-matrix is the "Reich-Moore 'eliminated width' approximation", and it allows inelastic scattering, Coulomb (charged-particle) reactions and resonance angular distributions <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. <b data-census="R-Matrix Limited (LRF 7)">4</b> of our evaluations use it: Fe-54, Fe-57, Cu-63 and Cu-65. It is page 13's brute force, kept for everything except the gamma rays.</p>
+
+<details class="optional">
+  <summary>Deeper: the Reich&ndash;Moore level matrix</summary>
+  <p>For each spin group, over the neutron channel n and the fission channels f<sub>1</sub>, f<sub>2</sub> (ENDF-102 App. D.1.3, eq. D.28):</p>
+  <p class="eq-block">(I &minus; K)<sub>nb</sub> = &delta;<sub>nb</sub> &minus; (i/2) &Sigma;<sub>r</sub> &Gamma;<sub>nr</sub><sup>&frac12;</sup> &Gamma;<sub>br</sub><sup>&frac12;</sup> / (E<sub>r</sub> &minus; E &minus; i&Gamma;<sub>&gamma;r</sub>/2)</p>
+  <p>With &rho; = I &minus; (I &minus; K)<sup>&minus;1</sup>, the cross sections are, summed over the spin groups with their g<sub>J</sub>:</p>
+  <p class="eq-block">&sigma;<sub>abs</sub> = (4&pi;/k&sup2;) g<sub>J</sub> [ Re &rho;<sub>nn</sub> &minus; |&rho;<sub>nn</sub>|&sup2; ] &nbsp; and &nbsp; &sigma;<sub>f</sub> = (4&pi;/k&sup2;) g<sub>J</sub> [ |&rho;<sub>nf1</sub>|&sup2; + |&rho;<sub>nf2</sub>|&sup2; ]</p>
+  <p>and capture is &sigma;<sub>abs</sub> &minus; &sigma;<sub>f</sub>. The gamma channels appear only in &Gamma;<sub>&gamma;r</sub>, in the denominator. The (I &minus; K) matrix is at most 3 &times; 3; without fission it is one number. NJOY inverts the 3 &times; 3 complex matrix in its <code>frobns</code> routine.</p>
+</details>
+
+<h2>Why is this so? Can we simplify further?</h2>
+<p>Reich&ndash;Moore is accurate enough for the fissile actinides, and a small matrix. But it is still a complex matrix inversion, at every energy, for every spin group.</p>
+<p><b>Can we drop the matrix inversion altogether?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-reich1958multilevel" style="padding-left: 2em; text-indent: -2em;">Reich, C. W., &#38; Moore, M. S. (1958). Multilevel Formula for the Fission Process. <i>Physical Review</i>, <i>111</i>(3), 929–933. https://doi.org/10.1103/PhysRev.111.929</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

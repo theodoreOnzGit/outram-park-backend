@@ -20,6 +20,7 @@
 //! Nothing here is a Monte Carlo comparison — that is
 //! `examples/lump_self_shielding_scan.rs`'s job, and it can only be read once
 //! the reference itself is verified.
+use petir::mathf::RealMath;
 use outram_mc_libs::physics::collision_probability::{
     first_flight, gauss_legendre, sphere_escape_probability,
 };
@@ -75,7 +76,7 @@ fn first_flight_reproduces_the_closed_form_sphere_escape_probability() {
     let nodes = [8usize, 16, 48];
     for (slot, &n) in nodes.iter().enumerate() {
         for decade in -30..=20 {
-            let x = 10f64.powf(decade as f64 / 10.0);
+            let x = 10f64.r_powf(decade as f64 / 10.0);
             let cp = first_flight(&[1.0], &[x], n);
             let want = sphere_escape_probability(x);
             let rel = (cp.p_escape[0] / want - 1.0).abs();
@@ -256,7 +257,7 @@ fn gauss_legendre_integrates_polynomials_exactly() {
             let got: f64 = x
                 .iter()
                 .zip(&w)
-                .map(|(a, b)| b * a.powi(2 * m as i32))
+                .map(|(a, b)| b * a.r_powi(2 * m as i32))
                 .sum();
             let want = 2.0 / (2.0 * m as f64 + 1.0);
             worst = worst.max((got / want - 1.0).abs());
@@ -310,7 +311,7 @@ fn nuclide_or_skip(name: &str, file: &str) -> Option<outram_mc_libs::prelude::Nu
         println!("[{name}] SKIP: {file} not in reference-data/endf/ (set OUTRAM_PARK_ENDF_DIR)");
         return None;
     };
-    match Nuclide::from_endf_file(&path, name, TEMP_K, 1.0e-3) {
+    match Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3) {
         Ok(n) => Some(n),
         Err(e) => {
             println!("[{name}] SKIP: reconstruction failed: {e}");
@@ -550,7 +551,7 @@ fn the_thick_lump_matches_a_deterministic_collision_probability_solution() {
     println!("  exact homogeneous p_esc = {hom:.6}; lump Sigma_t at the 6.674 eV peak = {sigma_peak:.2} /cm");
 
     for (r_cell, histories) in [(0.5_f64, 100_000usize), (1.5, 100_000)] {
-        let r_fuel = r_cell * VFRAC.cbrt();
+        let r_fuel = r_cell * VFRAC.r_cbrt();
         let mid = 0.5 * (r_fuel + r_cell);
         let geom = fhr_pebble_geometry(
             0.0,

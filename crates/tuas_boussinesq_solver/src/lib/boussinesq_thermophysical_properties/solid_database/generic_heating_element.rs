@@ -226,7 +226,7 @@ pub fn tungsten_thermal_conductivity(
 /// but panics via `todo!()` at the return, and still carries Pyrogel HPS data.
 #[inline]
 pub (crate) fn tungsten_spline_temp_attempt_1_from_specific_enthalpy(
-    h_fiberglass: AvailableEnergy) -> ThermodynamicTemperature {
+    h_fiberglass: AvailableEnergy) -> Result<ThermodynamicTemperature, TuasLibError> {
 
     // the idea is basically to evaluate enthalpy at the 
     // following temperatures
@@ -267,7 +267,7 @@ pub (crate) fn tungsten_spline_temp_attempt_1_from_specific_enthalpy(
             // i can of course unwrap the result,
             // but i want to leave it more explicit in case 
             // i wish to manually handle the error
-            Err(error_msg) => panic!("{}",error_msg),
+            Err(e) => return Err(e),
         };
 
         // once i evalute the enthalpy value, pass it on to the vector
@@ -311,7 +311,7 @@ pub (crate) fn tungsten_spline_temp_attempt_1_from_specific_enthalpy(
         let rhs_value = match rhs {
             Ok(enthalpy_val) => enthalpy_val.get::<joule_per_kilogram>(),
                 // fall back to guess value, 
-            Err(error_msg) => panic!("{}",error_msg),
+            Err(e) => return Err(e),
         };
 
         return lhs_value-rhs_value;
@@ -337,9 +337,15 @@ pub (crate) fn tungsten_spline_temp_attempt_1_from_specific_enthalpy(
     let temperature_from_enthalpy_kelvin = 
     fluid_temperature_degrees_c_result.unwrap();
 
-    // return temperature
-    todo!()
-
+    // NOT IMPLEMENTED. This routine still carries Pyrogel HPS data, not
+    // tungsten, so returning the value it computes would be wrong rather
+    // than merely imprecise. It reports that instead of aborting the
+    // process, and has no callers.
+    Err(TuasLibError::GenericStringError(
+        "tungsten_spline_temp_attempt_1_from_specific_enthalpy is not implemented: \
+         the routine is still populated with Pyrogel HPS data, not tungsten"
+            .to_string(),
+    ))
 }
 
 #[inline]

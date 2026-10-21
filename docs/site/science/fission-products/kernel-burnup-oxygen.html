@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burnup and oxygen</title>
+<meta name="description" content="Fission products, lesson 25: as the kernel burns, fission products build up and the oxygen balance shifts. In UO2 kernels spare oxygen can make CO gas; that is why UCO was developed.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 25. ILLUSTRATIVE bend. The oxygen
+     balance's numbers are boon-lay fuel failure's (oxygen module) and come
+     in the fuel-failure chapter; here only the idea, pending its source. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Complication 6: burnup and the oxygen balance</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Every fission replaces one uranium atom by two fission products. Over the kernel&rsquo;s life they <b>build up</b>, and the kernel slowly becomes a different material. One quiet change: the <b>oxygen balance</b>. The oxygen that held the uranium is not all taken up by the fission products, so the fuel&rsquo;s oxygen potential rises (lesson 11).</p>
+
+<section class="widget-card">
+  <h3>How more oxygen bends the clean curve</h3>
+  <div class="widget" data-bend="oxygen">
+    <canvas aria-label="Released fraction against time: the clean curve and a faster curve for fuel with more oxygen."></canvas>
+  </div>
+</section>
+
+<p>Two consequences, each <span class="pending">source pending</span> here: in a UO<sub>2</sub> kernel the spare oxygen can react with the carbon of the buffer to make <b>CO gas</b>, which adds to the pressure inside the particle; and the oxygen potential changes how some fission products move. A UCO kernel holds some carbide that takes up the oxygen, which is the reason given for developing UCO. boon-lay fuel failure computes the oxygen released per fission for UO<sub>2</sub>, UCO and thoria; the fuel-failure chapter uses it. Link back: in the <a href="kernel-many-spheres.html">many-spheres model</a>, D itself would change with burnup.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<p>SCIANTIX models the stoichiometry deviation <i>x</i> in UO<sub>2+<i>x</i></sub> and the oxygen potential (<code>stoichiometry_deviation.rst</code>) <a href="#ref-sciantix2344575">(Pizzocri et al., 2018)</a>. The size of the effect on D shown here is <b>illustrative</b>.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-sciantix2344575" style="padding-left: 2em; text-indent: -2em;">Pizzocri, D., Barani, T., &#38; Luzzi, L. (2018). <i>SCIANTIX</i> [Computer software]. https://github.com/sciantix/sciantix-official</p>
+
+<!-- references:end -->
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

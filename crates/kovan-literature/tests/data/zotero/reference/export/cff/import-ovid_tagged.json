@@ -1,0 +1,52 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

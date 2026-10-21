@@ -1,0 +1,2005 @@
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling bitflags v2.13.2
+   Compiling thiserror-impl v2.0.21
+   Compiling libloading v0.8.9
+   Compiling allocator-api2 v0.2.21
+   Compiling parking_lot_core v0.9.12
+   Compiling thiserror v2.0.21
+   Compiling zerocopy-derive v0.8.63
+   Compiling static_assertions v1.1.0
+   Compiling scopeguard v1.2.0
+   Compiling smallvec v1.16.3
+   Compiling naga-types v30.0.1
+   Compiling lock_api v0.4.14
+   Compiling bytemuck_derive v1.12.1
+   Compiling zerocopy v0.8.63
+   Compiling naga v30.0.1
+   Compiling pkg-config v0.3.34
+   Compiling rustversion v1.0.23
+   Compiling ash v0.38.0+1.3.281
+   Compiling once_cell v1.21.4
+   Compiling generic-array v0.14.7
+   Compiling wayland-sys v0.31.11
+   Compiling bytemuck v1.25.2
+   Compiling parking_lot v0.12.5
+   Compiling spirv v0.4.0+sdk-1.4.341.0
+   Compiling half v2.7.1
+   Compiling crossbeam-utils v0.8.23
+   Compiling khronos-egl v6.0.0
+   Compiling raw-window-handle v0.6.2
+   Compiling wgpu-types v30.0.1
+   Compiling hashbrown v0.16.1
+   Compiling dlib v0.5.3
+   Compiling wgpu-hal v30.0.1
+   Compiling errno v0.3.14
+   Compiling crossbeam-epoch v0.9.21
+   Compiling presser v0.3.1
+   Compiling signal-hook v0.3.18
+   Compiling strsim v0.11.1
+   Compiling ident_case v1.0.1
+   Compiling darling_core v0.24.1
+   Compiling gpu-allocator v0.28.0
+   Compiling signal-hook-registry v1.4.8
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling ordered-float v5.5.0
+   Compiling rustix v0.38.44
+   Compiling profiling v1.0.18
+   Compiling renderdoc-sys v1.1.0
+   Compiling crossbeam-deque v0.8.8
+   Compiling glow v0.17.0
+   Compiling either v1.19.0
+   Compiling crc32fast v1.5.2
+   Compiling darling_macro v0.24.1
+   Compiling mio v1.2.4
+   Compiling wgpu-core v30.0.1
+   Compiling simd-adler32 v0.3.10
+   Compiling linux-raw-sys v0.4.15
+   Compiling foldhash v0.1.5
+   Compiling heck v0.5.0
+   Compiling litrs v1.0.1
+   Compiling rayon-core v1.13.0
+   Compiling strum_macros v0.26.4
+   Compiling document-features v0.2.12
+   Compiling hashbrown v0.15.5
+   Compiling miniz_oxide v0.9.1
+   Compiling signal-hook-mio v0.2.5
+   Compiling darling v0.24.1
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling itertools v0.13.0
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling castaway v0.2.4
+   Compiling wgpu v30.0.1
+   Compiling num-integer v0.1.47
+   Compiling num-complex v0.4.6
+   Compiling unicode-segmentation v1.13.3
+   Compiling indoc v2.0.8
+   Compiling hdf5-pure v0.20.1
+   Compiling option-ext v0.2.0
+   Compiling unicode-width v0.1.14
+   Compiling itoa v1.0.18
+   Compiling ryu v1.0.23
+   Compiling unicode-truncate v1.1.0
+   Compiling compact_str v0.8.2
+   Compiling dirs-sys v0.4.1
+   Compiling instability v0.3.14
+   Compiling ndarray v0.17.2
+   Compiling digest v0.10.7
+   Compiling flate2 v1.1.10
+   Compiling crossterm v0.28.1
+   Compiling strum v0.26.3
+   Compiling lru v0.12.5
+   Compiling byteorder v1.5.0
+   Compiling njoy-outram-park-fork v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/njoy-outram-park-fork)
+   Compiling cassowary v0.3.0
+   Compiling cpufeatures v0.2.17
+   Compiling sha2 v0.10.9
+   Compiling ratatui v0.29.0
+   Compiling rayon v1.12.0
+   Compiling directories v5.0.1
+   Compiling miniz_oxide v0.8.9
+   Compiling fs2 v0.4.3
+    Finished `release` profile [optimized] target(s) in 1m 53s
+     Running unittests src/lib.rs (target/release/deps/njoy_outram_park_fork-a19219763d284024)
+
+running 672 tests
+test acer::acensd::tests::forward_peaked_law_is_normalised_and_accurate ... ok
+test acer::ace_set::tests::tables_are_found_by_header_and_temperature ... ok
+test acer::acensd::tests::isotropic_row_is_three_points ... ok
+test acer::angular::tests::finalize_normalises_and_builds_cdf ... ok
+test acer::angular::tests::legendre_first_order_is_linear ... ok
+test acer::angular::tests::legendre_p0_is_isotropic_half ... ok
+test acer::angular::tests::mean_cosine_equals_first_legendre_coefficient ... ok
+test acer::angular::tests::zero_coeffs_are_isotropic ... ok
+test acer::build::tests::charged_particle_levels_are_stored_but_not_double_counted ... ok
+test acer::build::tests::disappearance_excludes_fission_and_scatter ... ok
+test acer::build::tests::eval_partial_is_zero_below_threshold ... ok
+test acer::build::tests::role_drops_redundant_sums_keeps_partials ... ok
+test acer::build::tests::fission_representation_follows_mt19_not_mt18 ... ok
+test acer::build::tests::sigfig_carries_upstreams_rounding_nudge ... ok
+test acer::build::tests::sigfig_rounds_to_n_significant_figures ... ok
+test acer::energy::madland_nix::tests::the_linearised_spectrum_is_normalised_and_ascending ... ok
+test acer::energy::madland_nix::tests::the_u1_equals_zero_limit_is_finite ... ok
+test acer::energy::madland_nix::tests::the_spectrum_is_positive_and_single_peaked ... ok
+test acer::energy::tests::fission_chi_distributions_are_valid ... ok
+test acer::energy::tests::fission_chi_parses_with_many_incident_energies ... ok
+test acer::energy::tests::fission_spectrum_peaks_near_1_mev ... ok
+test acer::energy::tests::mf6_energy_distributions_are_valid ... ok
+test acer::energy::tests::mf6_mean_energy_exact_flat_pdf ... ok
+test acer::energy::tests::mf6_mean_energy_interpolates_in_incident ... ok
+test acer::energy::tests::mf6_n2n_mean_energy_is_physical ... ok
+test acer::energy::tests::mf6_n2n_yield_and_frame ... ok
+test acer::fortran_fmt::tests::e11_4_temperature_field ... ok
+test acer::fortran_fmt::tests::e_format_width_and_roundtrip ... ok
+test acer::fortran_fmt::tests::e_format_zero_and_negative ... ok
+test acer::fortran_fmt::tests::f0_has_trailing_point ... ok
+test acer::fortran_fmt::tests::mantissa_carry_renormalises ... ok
+test acer::fortran_fmt::tests::mantissa_is_correctly_rounded_not_divided ... ok
+test acer::photoatomic::fluorescence::tests::nflo_follows_upstreams_z_bands ... ok
+test acer::photon_angular::tests::isotropic_is_none ... ok
+test acer::photon_angular::tests::ptleg_bins_are_equiprobable ... ok
+test acer::photon_angular::tests::xat_first_terms ... ok
+test acer::read::tests::a_corrupt_value_is_an_error_not_a_silent_zero ... ok
+test acer::read::tests::a_direct_access_type2_library_is_read ... ok
+test acer::read::tests::a_library_of_type1_tables_is_read_table_by_table ... ok
+test acer::read::tests::class_letters_match_upstream_dispatch ... ok
+test acer::read::tests::continuous_energy_zaid_parses_numerically ... ok
+test acer::read::tests::exponentless_floats_are_read_as_upstream_writes_them ... ok
+test acer::read::tests::incident_alpha_is_a_charged_particle_class ... ok
+test acer::read::tests::the_ace_2_header_is_read ... ok
+test acer::read::tests::thermal_zaid_has_no_numeric_form ... ok
+test acer::read::tests::unknown_class_letter_is_an_error_not_a_guess ... ok
+test acquire::tests::cache_path_layout ... ok
+test acquire::tests::carbon_is_registered_for_graphite ... ok
+test acquire::tests::element_table_round_trips ... ok
+test acquire::tests::library_dirs_are_distinct ... ok
+test acquire::tests::neutron_url_is_pinned_and_well_formed ... ok
+test acquire::tests::parse_nuclide_splits_symbol_and_mass ... ok
+test acquire::tests::tsl_acquire_path_is_well_formed ... ok
+test acquire::tests::validate_endf_rejects_garbage ... ok
+test acquire::tests::well_known_mat_is_correct ... ok
+test archive::tests::crc32_matches_the_standard_check_value ... ok
+test archive::tests::truncated_or_corrupted_archives_never_panic ... ok
+test archive::tests::written_archives_read_back_exactly ... ok
+test archive::tests::zip64_end_record_and_extra_field_are_read ... ok
+test broadr::broadn::tests::inserts_points_across_the_thermal_rise ... ok
+test broadr::broadn::tests::thnmax_copy_through_and_threshold_gating ... ok
+test broadr::joint::tests::constant_broadens_to_the_free_gas_result ... ok
+test broadr::joint::tests::one_over_v_is_invariant ... ok
+test broadr::tests::bounded_broadening_copies_points_above_thnmax_verbatim ... ok
+test broadr::tests::broadening_at_zero_temp_returns_unchanged ... ok
+test broadr::tests::broadening_flat_xs_stays_flat_at_high_y ... ok
+test broadr::tests::broadening_limit_is_top_of_resolved_range_capped_at_emax_and_6p5mev ... ok
+test broadr::tests::broadening_limit_stops_below_first_threshold_for_non_resonance_nuclide ... ok
+test broadr::tests::broadening_preserves_one_over_v ... ok
+test broadr::tests::bsigma_matches_numerical_reference ... ok
+test broadr::tests::duplicate_energies_are_nudged_like_upstream ... ok
+test broadr::tests::erfc_at_one_approx ... ok
+test broadr::tests::erfc_at_zero_is_one ... ok
+test broadr::tests::f_funcs_at_zero_match_fzero ... ok
+test broadr::tests::one_over_v_is_preserved_at_low_y ... ok
+test common::phys::tests::boltzmann_constant ... ok
+test common::phys::tests::electron_mass_energy ... ok
+test common::phys::tests::neutron_mass_ratio_unity ... ok
+test covr::boxer::tests::boxer_roundtrip_preserves_correlation ... ok
+test covr::boxer::tests::constant_matrix_single_run ... ok
+test covr::boxer::tests::paging_splits_and_round_trips ... ok
+test covr::boxer::tests::rectangular_round_trip ... ok
+test covr::boxer::tests::setfor_selects_and_validates ... ok
+test covr::boxer::tests::symmetric_round_trip_and_mirror ... ok
+test covr::boxer_text::tests::header_columns_match_fortran_edit_list ... ok
+test covr::boxer_text::tests::text_round_trips_including_pages ... ok
+test covr::boxer_text::tests::value_fields_pack_like_fortran ... ok
+test covr::correlation::tests::clamp_matches_plot_stage ... ok
+test covr::correlation::tests::cov_to_corr_2x2_spd ... ok
+test covr::correlation::tests::cov_to_corr_3x3_spd ... ok
+test covr::correlation::tests::cross_reaction_correlation ... ok
+test covr::correlation::tests::null_matrix_detection ... ok
+test covr::correlation::tests::plottability_significance_test ... ok
+test covr::correlation::tests::rsd_is_sqrt_of_diagonal ... ok
+test covr::correlation::tests::shade_level_indexing ... ok
+test covr::correlation::tests::zero_variance_group_gives_zero_not_nan ... ok
+test covr::covard::tests::correlation_auto_case_matches_to_correlation ... ok
+test covr::covard::tests::correlation_rejects_mismatched_group_counts ... ok
+test covr::covard::tests::correlation_uses_auto_covariance_diagonals_for_rsd ... ok
+test covr::covard::tests::covard_converts_absolute_to_relative ... ok
+test covr::covard::tests::covard_flags_null_matrix ... ok
+test covr::covard::tests::covard_rejects_out_of_range_block ... ok
+test covr::covard::tests::covard_scatters_sparse_blocks_into_dense ... ok
+test covr::covard::tests::covard_zeros_spurious_covariance_in_zero_xsec ... ok
+test covr::covard::tests::expndo_applies_strip_list ... ok
+test covr::covard::tests::expndo_enumerates_upper_triangle_pairs ... ok
+test covr::covard::tests::expndo_strips_discrete_level_band ... ok
+test covr::input::tests::input_validation ... ok
+test covr::input::tests::mt_strip_examples ... ok
+test covr::input::tests::selector_codes_round_trip ... ok
+test covr::input::tests::shade_levels_ndiv1 ... ok
+test covr::input::tests::shade_levels_ndiv2 ... ok
+test covr::input::tests::shade_levels_rejects_non_increasing ... ok
+test covr::tape::tests::classifies_mfcov33_tape ... ok
+test covr::tape::tests::placeholder_is_none_and_missing_subsection_errors ... ok
+test covr::tape::tests::present_mts_lists_mf3_sections_in_order ... ok
+test covr::tape::tests::reads_auto_section_and_densifies ... ok
+test covr::tape::tests::reads_cross_section_skipping_other_subsections ... ok
+test covr::tests::run_rejects_empty_case_list ... ok
+test covr::tests::run_reports_not_ported ... ok
+test dtfr::driver::tests::run_is_not_ported ... ok
+test dtfr::format::tests::column_extraction ... ok
+test dtfr::format::tests::format0_header_and_body ... ok
+test dtfr::format::tests::fortran_e_field ... ok
+test dtfr::format::tests::pack_block_zero_fill_and_sequence ... ok
+test dtfr::gendf::tests::gendf_table_formats_to_dtf ... ok
+test dtfr::gendf::tests::gendf_to_dtf_table_roundtrip ... ok
+test dtfr::gendf::tests::group_record_value_indexing ... ok
+test dtfr::gendf::tests::header_roundtrips ... ok
+test dtfr::input::tests::claw_constant_tables ... ok
+test dtfr::input::tests::claw_defaults_match_fortran ... ok
+test dtfr::input::tests::selectors_round_trip ... ok
+test dtfr::input::tests::standard_edits_positions ... ok
+test dtfr::table::tests::group_ordering_inverts ... ok
+test dtfr::table::tests::linear_index_and_accessors ... ok
+test dtfr::table::tests::scatter_positions_reduced_band ... ok
+test dtfr::table::tests::scatter_record_absorption_correction ... ok
+test dtfr::table::tests::upscatter_clamped_above_iptotl ... ok
+test endf::gety1::tests::a_nonzero_first_point_is_shaded_down ... ok
+test endf::gety1::tests::last_point_and_above_differs_from_terpa ... ok
+test endf::gety1::tests::leading_zeros_are_skipped_at_initialisation ... ok
+test endf::gety1::tests::panel_interpolation_and_discontinuity_flag ... ok
+test endf::interp::tests::flat_segment_returns_y1_for_all_laws ... ok
+test endf::interp::tests::gral_falls_back_to_linlin_where_upstream_does ... ok
+test endf::interp::tests::gral_is_exact_for_every_law ... ok
+test endf::interp::tests::gral_rejects_a_reversed_interval ... ok
+test endf::interp::tests::histogram_returns_left ... ok
+test endf::interp::tests::intega_spans_panels_and_clips_outside_the_table ... ok
+test endf::interp::tests::linlin_midpoint ... ok
+test endf::interp::tests::linlog_is_y_linear_in_ln_x ... ok
+test endf::interp::tests::loglin_is_ln_y_linear_in_x ... ok
+test endf::interp::tests::loglog ... ok
+test endf::interp::tests::terp1_degeneracy_is_exact_equality_not_a_tolerance ... ok
+test endf::interp::tests::terp1_linlin_uses_upstreams_grouping ... ok
+test endf::mt::tests::display_known ... ok
+test endf::mt::tests::display_unknown ... ok
+test endf::mt::tests::from_any_known ... ok
+test endf::mt::tests::from_any_unknown_gives_unknown_variant ... ok
+test endf::mt::tests::from_mt_to_i32 ... ok
+test endf::mt::tests::number_method ... ok
+test endf::mt::tests::roundtrip_all_known ... ok
+test endf::mt::tests::try_from_known_mt ... ok
+test endf::mt::tests::try_from_unknown_returns_err ... ok
+test endf::parse::tests::endf_float_fortran_exponent_letter ... ok
+test endf::parse::tests::endf_float_large ... ok
+test endf::parse::tests::endf_float_negative_exponent ... ok
+test endf::parse::tests::endf_float_positive ... ok
+test endf::parse::tests::endf_float_zero ... ok
+test endf::parse::tests::parse_cont_line ... ok
+test endf_folder::tests::a_shared_mat_is_resolved_by_name_or_refused ... ok
+test endf_folder::tests::an_extracted_library_is_scanned_and_matched_by_identity ... ok
+test endf_folder::tests::the_scan_reads_mat_and_sublibrary_from_the_reference_tapes ... ok
+test endf_library::tests::a_mixed_folder_reads_as_its_main_library ... ok
+test endf_library::tests::fuzzy_matching_prefers_substrings ... ok
+test acer::energy::mf6::incident_interp_survey::survey_incident_energy_interpolation_laws ... ok
+test endf_library::tests::headers_name_their_library_and_identity ... ok
+test endf_library::tests::the_layout_is_read_from_the_names ... ok
+test endf_library::tests::zips_and_uploads_index_like_folders ... ok
+test errorr::covadd::tests::dummy_sections_follow_mf32 ... ok
+test errorr::covariance::tests::real_tape_mf33_mt1_and_mt2_structural_invariants ... ok
+test errorr::covariance::tests::synthetic_mf33_round_trip_matches_hand_built_rows ... ok
+test errorr::covcal::tests::lb0_1_2_8_laws ... ok
+test errorr::covcal::tests::lb5_symmetric_pack_indexing ... ok
+test errorr::covcal::tests::lb6_rectangular ... ok
+test errorr::covcal::tests::validate_rejects_mf35_and_bad_lt ... ok
+test errorr::covout::tests::coarse_index_and_pack_rows ... ok
+test errorr::driver::tests::defaults_match_njoy ... ok
+test errorr::driver::tests::run_is_not_ported ... ok
+test errorr::driver::tests::selector_enums_round_trip ... ok
+test errorr::gridd::tests::derived_coefficients_identity ... ok
+test errorr::gridd::tests::merge_inserts_skips_and_windows_like_upstream ... ok
+test errorr::gridd::tests::uniong_unions_and_clips_to_user_range ... ok
+test errorr::groups::tests::all_ign_ascending ... ok
+test errorr::groups::tests::all_ign_group_counts ... ok
+test errorr::groups::tests::arbitrary_ign1_not_ported ... ok
+test errorr::groups::tests::csewg239_ign2_lethargy ... ok
+test errorr::groups::tests::ecco1968_ign20 ... ok
+test errorr::groups::tests::enum_matches_ign ... ok
+test errorr::groups::tests::illegal_ign_errors ... ok
+test errorr::groups::tests::lanl30_ign3 ... ok
+test errorr::groups::tests::lanl70_ign11 ... ok
+test errorr::groups::tests::xmas172_ign18 ... ok
+test errorr::grpav::tests::classify_mt_matches_egtsig ... ok
+test errorr::grpav::tests::flux_vector_fill_without_total ... ok
+test errorr::grpav::tests::grpav_constant_xs_one_over_e ... ok
+test errorr::grpav::tests::xs_sampler_reproduces_gety1_idioms ... ok
+test errorr::math::tests::cleb_1_1_0_known_value ... ok
+test errorr::math::tests::cleb_integer_pow_quirk_is_zero ... ok
+test errorr::math::tests::cleb_selection_rules_zero ... ok
+test errorr::math::tests::cleb_trivial_is_one ... ok
+test errorr::math::tests::eabcmat_times_identity ... ok
+test errorr::math::tests::efacphi_l0_is_rho ... ok
+test errorr::math::tests::efacphi_l1_closed_form ... ok
+test errorr::math::tests::efacts_l0_penetration_is_rho ... ok
+test errorr::math::tests::efacts_l1_closed_form ... ok
+test errorr::math::tests::efrobns_reconstructs_identity ... ok
+test errorr::math::tests::egnrl_single_sum_matches_manual ... ok
+test errorr::math::tests::egnrl_zero_neutron_width ... ok
+test errorr::math::tests::ethrinv_diagonal ... ok
+test errorr::math::tests::ethrinv_singular_errors ... ok
+test errorr::math::tests::eunfac_l0_identity ... ok
+test errorr::resprx::sammy::tests::intg_line_ndigit2 ... ok
+test errorr::resprx::sammy::tests::mmtres_remap ... ok
+test errorr::resprx::sammy::tests::orders_sorts_and_dedups ... ok
+test errorr::resprx::tests::group_window_matches_resprx_bookkeeping ... ok
+test errorr::resprx::tests::packed_index_is_the_igind_counter ... ok
+test errorr::resprx::tests::rescon_places_triangle_and_square_terms ... ok
+test errorr::resprx::tests::rescon_sammy_branch_uses_crr_for_every_pair ... ok
+test errorr::weight::tests::illegal_iwt_is_rejected ... ok
+test errorr::weight::tests::iwt6_matches_errorr_shape_and_stops ... ok
+test errorr::weight::tests::tabulated_weight_steps_and_warns ... ok
+test errorr::weight::tests::terpa_matches_fortran_branches ... ok
+test gaminr::gpanel::tests::photon_gendf_section_round_trips ... ok
+test gaminr::gpanel::tests::photon_vector_average_via_shared_engine ... ok
+test gaminr::gtff::tests::coherent_low_energy_is_rayleigh ... ok
+test gaminr::gtff::tests::pair_feed_and_ig2pp ... ok
+test gaminr::gtff::tests::terpa_conventions ... ok
+test gaminr::input::tests::deck_validation ... ok
+test gaminr::input::tests::group_grid_bounds ... ok
+test gaminr::input::tests::print_option_roundtrip ... ok
+test gaminr::input::tests::standard_reaction_set ... ok
+test gaminr::photon_groups::tests::boundaries_strictly_ascending ... ok
+test gaminr::photon_groups::tests::endpoints_match_fortran ... ok
+test gaminr::photon_groups::tests::group_counts_match_fortran ... ok
+test gaminr::photon_groups::tests::none_arbitrary_and_illegal ... ok
+test gaminr::photon_groups::tests::vitamin_c_drops_two_bounds ... ok
+test gaminr::tests::run_reports_not_ported ... ok
+test gaminr::tests::run_with_input_reaches_engine_gap ... ok
+test gaminr::weights::tests::build_from_option ... ok
+test gaminr::weights::tests::iwt_selector_roundtrip ... ok
+test gaminr::weights::tests::loglog_interpolation ... ok
+test gaspr::tests::b10_n_alpha_residual_is_not_a_gas ... ok
+test gaspr::tests::be9_n_2n_residual_is_two_alphas ... ok
+test gaspr::tests::deuterium_capture_produces_tritium ... ok
+test gaspr::tests::disjoint_channels_sum_additively ... ok
+test gaspr::tests::he3_n_p_triton_credits_both_products ... ok
+test gaspr::tests::inelastic_lr_breakup_changes_the_yield ... ok
+test gaspr::tests::li6_n_t_alpha_credits_both_products ... ok
+test gaspr::tests::multi_particle_yield_is_weighted ... ok
+test gaspr::tests::named_ejectiles_fit_inside_the_ejectile_za_sum ... ok
+test gaspr::tests::non_gas_reactions_are_ignored ... ok
+test gaspr::tests::np_alpha_reaction_yields_he4_only ... ok
+test gaspr::tests::skip_list_matches_upstream ... ok
+test gaspr::tests::species_mt_numbers_are_203_to_207 ... ok
+test gaspr::tests::two_species_channel_credits_both ... ok
+test gpu::tests::curvefit_cpu_matches_manual ... ok
+test gpu::tests::gpu_agrees_with_cpu_or_skips ... ok
+test gpu_wmp::tests::gpu_wmp_agrees_with_cpu_or_skips ... ok
+test groupr::file4::tests::gauss64_table_integrates_polynomials ... ok
+test groupr::file4::tests::legendre_records_interpolate_and_go_isotropic_below ... ok
+test groupr::file4::tests::slide_keeps_stale_high_order_coefficients ... ok
+test groupr::file4::tests::tabulated_linear_distribution_gives_one_third ... ok
+test groupr::fission_matrix::tests::invalid_inputs_rejected ... ok
+test groupr::fission_matrix::tests::separable_matrix_row_sums_and_proportionality ... ok
+test groupr::fission_matrix::tests::watt_group_chi_normalizes_and_is_fast ... ok
+test groupr::gaminr_matrix::tests::bad_spectrum_is_rejected ... ok
+test groupr::gaminr_matrix::tests::conservation_under_varying_flux_and_yield ... ok
+test groupr::gaminr_matrix::tests::file15_spectrum_normalizes_to_one ... ok
+test groupr::gaminr_matrix::tests::gendf_matrix_record_round_trips ... ok
+test groupr::gaminr_matrix::tests::pair_production_deposits_annihilation_photons ... ok
+test groupr::gaminr_matrix::tests::production_matrix_conserves_yield ... ok
+test groupr::gaminr_matrix::tests::sentinel_is_finite ... ok
+test groupr::gaminr_matrix::tests::spectrum_mass_outside_photon_range_is_dropped ... ok
+test groupr::gendf::tests::record_fields_are_in_endf_slots ... ok
+test groupr::gendf::tests::tape_image_round_trips_and_rejects_truncation ... ok
+test groupr::gendf::tests::vector_section_round_trips ... ok
+test groupr::input::tests::card2_selectors_round_trip ... ok
+test groupr::input::tests::default_deck_matches_njoy_init ... ok
+test groupr::input::tests::ign_adapter_matches_errorr ... ok
+test groupr::input::tests::parse_reads_conditional_cards ... ok
+test groupr::input::tests::parse_reports_notported_weight_cards ... ok
+test groupr::input::tests::parse_representative_deck ... ok
+test groupr::kinematics::bach::tests::bach_natural_element_maps_to_dominant_isotope ... ok
+test groupr::kinematics::bach::tests::bach_slope_monotone_and_positive ... ok
+test groupr::kinematics::cm::tests::cm2lab_normalizes_kalbach ... ok
+test groupr::kinematics::cm::tests::cm2lab_normalizes_legendre ... ok
+test groupr::kinematics::cm::tests::malformed_input_errors_cleanly ... ok
+test groupr::kinematics::shared::tests::cm_to_lab_edges_are_analytic ... ok
+test groupr::kinematics::shared::tests::legndr_matches_closed_form ... ok
+test groupr::kinematics::tests::f6lab_tabulated_lang_reports_not_ported ... ok
+test groupr::matrix::tests::bad_input_is_rejected ... ok
+test groupr::matrix::tests::elastic_matrix_hydrogen_reaches_all_lower_groups ... ok
+test groupr::matrix::tests::elastic_matrix_is_kinematically_banded_carbon ... ok
+test groupr::matrix::tests::gendf_matrix_record_round_trips ... ok
+test groupr::matrix::tests::identity_feed_conserves_probability_on_diagonal_band ... ok
+test groupr::matrix::tests::p0_row_sum_equals_vector_cross_section ... ok
+test groupr::matrix::tests::unported_feeds_report_not_ported ... ok
+test groupr::matrix_panel::tests::constant_xs_heavy_target_is_diagonal ... ok
+test groupr::matrix_panel::tests::continuum6_feed_runs_through_the_same_matrix_driver ... ok
+test groupr::matrix_panel::tests::continuum6_refuses_the_fission_mts_that_need_nubar ... ok
+test groupr::matrix_panel::tests::hydrogen_row_sums_to_cross_section ... ok
+test groupr::mf6_feed::tests::cm_frame_law1_respects_the_kinematic_lab_energy_ceiling ... ok
+test groupr::mf6_feed::tests::flat_lab_spectrum_deposits_equally_and_sums_to_the_yield ... ok
+test groupr::mf6_feed::tests::illegal_upscatter_is_folded_into_the_ingroup ... ok
+test groupr::mf6_feed::tests::isotropic_lab_input_has_vanishing_higher_moments ... ok
+test groupr::mf6_feed::tests::law2_two_body_reports_not_ported ... ok
+test groupr::mf6_feed::tests::law6_phase_space_reports_not_ported ... ok
+test groupr::mf6_feed::tests::law7_lab_angle_energy_is_converted_and_stays_isotropic ... ok
+test groupr::mf6_feed::tests::leading_zero_energy_point_contributes_its_panel ... ok
+test groupr::mf6_feed::tests::mfd18_without_a_zap0_subsection_takes_the_no_gammas_exit ... ok
+test groupr::mf6_feed::tests::missing_particle_is_an_error_for_non_fission_mfd ... ok
+test groupr::mf6_feed::tests::nl_mismatch_between_new_and_feed_is_refused ... ok
+test groupr::overlap::tests::non_overlap_energy_matches_plain_shield ... ok
+test groupr::overlap::tests::overlap_augments_partial_reaction_background ... ok
+test groupr::overlap::tests::overlap_rejects_length_mismatch ... ok
+test groupr::panel::tests::average_is_bounded_by_xs_extremes ... ok
+test groupr::panel::tests::constant_under_one_over_e_is_exact ... ok
+test groupr::panel::tests::constant_xs_averages_to_constant_under_any_weight ... ok
+test groupr::panel::tests::feeder_tab_evaluation_and_breaks ... ok
+test groupr::panel::tests::flat_weight_linear_xs_equals_midpoint_value ... ok
+test groupr::panel::tests::geometric_refinement_converges_to_analytic_integral ... ok
+test groupr::panel::tests::zero_flux_group_returns_zero ... ok
+test groupr::photon_groups::tests::builtin_structures_counts_ordering_endpoints ... ok
+test groupr::photon_groups::tests::igg_round_trips ... ok
+test groupr::photon_groups::tests::none_and_arbitrary_behaviour ... ok
+test groupr::photon_groups::tests::vitamin_c_splice_matches_fortran ... ok
+test groupr::self_shielded::tests::fully_shielded_floor_is_the_minimum ... ok
+test groupr::self_shielded::tests::group_xs_strictly_increasing_in_dilution ... ok
+test groupr::self_shielded::tests::infinite_dilution_equals_vector_average ... ok
+test groupr::self_shielded::tests::urr_table_shields_below_flux_only ... ok
+test groupr::slowing_down::tests::invalid_inputs_are_rejected ... ok
+test groupr::slowing_down::tests::multi_moderator_zero_source_matches_homogeneous ... ok
+test groupr::slowing_down::tests::slowing_down_infinite_dilution_returns_weight ... ok
+test groupr::slowing_down::tests::slowing_down_reduces_to_bondarenko_pure_absorber ... ok
+test groupr::tests::neutron_and_photon_surfaces_resolve ... ok
+test groupr::tests::run_is_not_ported ... ok
+test groupr::two_body::tests::hydrogen_band_spans_all_lower_groups ... ok
+test groupr::two_body::tests::isotropic_heavy_elastic_p0_fractions_sum_to_one ... ok
+test groupr::unresolved::tests::bondarenko_flux_limits ... ok
+test groupr::unresolved::tests::getunr_energy_interpolation_monotone ... ok
+test groupr::unresolved::tests::getunr_multiplicative_factor ... ok
+test groupr::unresolved::tests::getunr_out_of_range_and_absent ... ok
+test groupr::unresolved::tests::getunr_reproduces_stored_points_additive ... ok
+test groupr::unresolved::tests::self_shielding_monotone_in_dilution ... ok
+test groupr::unresolved::tests::terpu_reproduces_nodes_and_interpolates ... ok
+test groupr::urr_pendf::tests::lssf_flag_mapping ... ok
+test groupr::urr_pendf::tests::urr_reader_errors_when_temperature_too_low ... ok
+test groupr::urr_pendf::tests::urr_reader_round_trips_synthetic_mf2_mt152 ... ok
+test groupr::urr_pendf::tests::urr_reader_skips_to_matching_temperature ... ok
+test groupr::weights::tests::constant_and_one_over_e_values ... ok
+test groupr::weights::tests::from_iwt_selects_analytic_only ... ok
+test groupr::weights::tests::tabulated_tables_preserved_structure ... ok
+test groupr::weights::tests::temperature_dependence_active_only_for_tdep ... ok
+test groupr::weights::tests::thermal_fission_fusion_segments ... ok
+test groupr::weights::tests::thermal_fission_piecewise_continuity ... ok
+test groupr::weights::tests::vitamin_e_segments ... ok
+test hdf5::cross_sections_xml::tests::a_duplicate_name_is_refused ... ok
+test hdf5::cross_sections_xml::tests::missing_attributes_are_named ... ok
+test hdf5::cross_sections_xml::tests::one_entry_can_provide_several_names ... ok
+test hdf5::cross_sections_xml::tests::single_quotes_and_a_defaulted_type_are_accepted ... ok
+test hdf5::cross_sections_xml::tests::the_index_resolves_names_to_paths ... ok
+test hdf5::cross_sections_xml::tests::unrecognised_content_is_refused_rather_than_skipped ... ok
+test hdf5::depletion_chain_xml::tests::a_targetless_decay_and_a_decay_source_are_both_kept ... ok
+test hdf5::depletion_chain_xml::tests::an_inconsistent_chain_is_refused_rather_than_repaired ... ok
+test hdf5::depletion_chain_xml::tests::borrowed_fission_yields_resolve_in_either_file_order ... ok
+test hdf5::depletion_chain_xml::tests::the_openmc_checkouts_own_chain_files_read_if_present ... ok
+test hdf5::depletion_chain_xml::tests::the_reference_chain_reads_back_field_for_field ... ok
+test hdf5::depletion_chain_xml::tests::upstreams_attribute_defaults_are_followed_including_the_absent_one ... ok
+test hdf5::nuclide_laws::tests::a_law_whose_rows_do_not_match_its_grid_is_refused ... ok
+test hdf5::nuclide_laws::tests::a_three_row_pack_ignores_kalbach_columns ... ok
+test hdf5::nuclide_laws::tests::a_urr_table_of_the_wrong_extent_is_refused ... ok
+test hdf5::nuclide_laws::tests::an_empty_uncorrelated_distribution_is_refused ... ok
+test hdf5::nuclide_laws::tests::reaction_labels_match_upstream ... ok
+test hdf5::nuclide_laws::tests::the_level_law_writes_and_names_itself_level ... ok
+test hdf5::nuclide_laws::tests::the_packed_rows_are_column_major_by_quantity ... ok
+test hdf5::nuclide_laws::tests::the_three_tabulated_laws_refuse_and_say_why ... ok
+test hdf5::nuclide_read::tests::a_file_of_the_wrong_type_is_refused ... ok
+test hdf5::nuclide_read::tests::a_file_this_crate_wrote_reads_back ... ok
+test hdf5::nuclide_read::tests::a_threshold_reaction_round_trips_and_refills_the_grid ... ok
+test hdf5::nuclide_read::tests::nu_total_interpolates_and_clamps ... ok
+test hdf5::nuclide_write::tests::a_fissile_nuclide_writes ... ok
+test hdf5::nuclide_write::tests::a_fissionable_nuclide_without_total_nu_is_refused ... ok
+test hdf5::nuclide_write::tests::a_law_the_dependency_cannot_express_is_refused_with_its_mt ... ok
+test hdf5::nuclide_write::tests::a_mismatched_angle_distribution_is_refused ... ok
+test hdf5::nuclide_write::tests::a_scattering_plus_capture_nuclide_writes ... ok
+test hdf5::nuclide_write::tests::a_zero_padded_threshold_cross_section_is_refused ... ok
+test hdf5::nuclide_write::tests::elastic_without_an_angle_distribution_is_refused ... ok
+test hdf5::nuclide_write::tests::from_full_grid_trims_to_the_threshold ... ok
+test hdf5::nuclide_write::tests::malformed_grids_are_refused ... ok
+test hdf5::nuclide_write::tests::the_cumulative_angle_column_ends_at_one ... ok
+test hdf5::nuclide_write::tests::the_redundant_skip_matches_upstream ... ok
+test hdf5::nuclide_write::tests::total_nu_must_be_the_total_not_the_prompt ... ok
+test hdf5::statepoint_write::tests::a_source_writes_and_an_empty_one_is_refused ... ok
+test hdf5::statepoint_write::tests::a_statepoint_writes ... ok
+test hdf5::statepoint_write::tests::a_summary_writes ... ok
+test hdf5::statepoint_write::tests::a_tally_with_scores_and_no_realisations_is_refused ... ok
+test hdf5::statepoint_write::tests::mismatched_moments_are_refused ... ok
+test hdf5::statepoint_write::tests::the_seed_is_not_truncated ... ok
+test hdf5::xml_scan::tests::a_longer_name_does_not_close_a_shorter_one ... ok
+test hdf5::xml_scan::tests::a_truncated_document_stops_rather_than_panics ... ok
+test hdf5::xml_scan::tests::multibyte_text_is_sliced_correctly ... ok
+test hdf5::xml_scan::tests::the_scanner_reports_attributes_text_and_nesting_order ... ok
+test heatr::driver::conbar::tests::anabar_evaporation_limit ... ok
+test heatr::driver::conbar::tests::tabbar_of_a_flat_spectrum ... ok
+test heatr::driver::flat::tests::stateful_terpa_agrees_with_the_stateless_one ... ok
+test heatr::driver::state::tests::df_uses_the_constants_of_the_last_initialising_call ... ok
+test heatr::driver::state::tests::horder_sorts_the_one_based_slice ... ok
+test heatr::driver::state::tests::indx_routes_partials_as_upstream ... ok
+test heatr::driver::tests::cards_parse_as_upstream_reads_them ... ok
+test heatr::tests::all_four_phases_sum_additively ... ok
+test heatr::tests::all_three_phases_sum_additively ... ok
+test heatr::tests::capture_deposits_e_plus_q ... ok
+test heatr::tests::charged_particle_only_exit_deposits_e_plus_q ... ok
+test heatr::tests::continuum_inelastic_is_single_neutron_with_spectrum_mean ... ok
+test heatr::tests::damage_empty_without_recoil_channels ... ok
+test heatr::tests::default_displacement_energies_match_njoy_table ... ok
+test heatr::tests::discrete_level_adds_to_damage ... ok
+test heatr::tests::discrete_level_heating_is_reduced_by_negative_q ... ok
+test heatr::tests::elastic_and_capture_sum_additively ... ok
+test heatr::tests::elastic_damage_is_bounded_by_heating ... ok
+test heatr::tests::eval_interpolates_between_grid_points ... ok
+test heatr::tests::fission_heating_is_positive_and_order_200_mev ... ok
+test heatr::tests::fission_heating_matches_energy_balance_formula ... ok
+test heatr::tests::h5_sums_additively_with_all_prior_phases ... ok
+test heatr::tests::heavy_target_transfers_small_fraction ... ok
+test heatr::tests::hydrogen_elastic_loses_half_its_energy ... ok
+test heatr::tests::lindhard_damage_fraction_falls_with_energy ... ok
+test heatr::tests::lindhard_partition_bounds ... ok
+test heatr::tests::multineutron_without_spectrum_contributes_nothing ... ok
+test heatr::tests::n2n_heating_is_small_and_positive_at_14_mev ... ok
+test heatr::tests::n2n_heating_subtracts_two_neutron_means ... ok
+test heatr::tests::n3n_and_n4n_use_higher_multiplicity ... ok
+test heatr::tests::nn_alpha_family_uses_single_neutron_formula ... ok
+test heatr::tests::single_neutron_at_q_zero_matches_elastic_formula ... ok
+test heatr::tests::two_body_recoil_bounds_narrow_with_negative_q ... ok
+test heatr::twobody::tests::a_level_is_interpolated_between_nodes ... ok
+test heatr::twobody::tests::breakup_yields_follow_nheat ... ok
+test heatr::twobody::tests::isotropic_elastic_is_the_two_body_mean ... ok
+test leapr::coher::builtin::tests::all_lattices_produce_ascending_edges ... ok
+test leapr::coher::builtin::tests::form_factor_graphite_even_odd_branches ... ok
+test leapr::coher::builtin::tests::graphite_edges_are_monotone_and_nonnegative ... ok
+test leapr::coher::crystals::tests::debye_waller_weights_sum_to_one ... ok
+test leapr::coher::crystals::tests::every_species_maps_to_one_of_the_compound_decks ... ok
+test leapr::coher::crystals::tests::sic_first_allowed_bragg_edge_is_the_111_reflection ... ok
+test leapr::coher::crystals::tests::sic_maps_from_both_endf_materials_and_nowhere_else ... ok
+test leapr::coher::crystals::tests::sic_structure_is_eight_atoms_of_the_right_two_species ... ok
+test leapr::coher::general::tests::builtin_index_boxes_truncate_above_their_own_lattices_reach ... ok
+test leapr::coher::general::tests::cell_volume_and_reciprocal_are_consistent ... ok
+test leapr::coher::general::tests::equal_per_atom_coefficients_reproduce_the_compound_path ... ok
+test leapr::coher::general::tests::fcc_extinctions_emerge_from_the_structure_factor ... ok
+test leapr::coher::general::tests::general_edges_are_monotone_and_bounded ... ok
+test leapr::coher::general::tests::general_path_reproduces_njoy_builtin_lattices ... ok
+test leapr::coher::general::tests::unequal_coefficients_move_difference_reflections_far_more_than_sum_reflections ... ok
+test leapr::coldh::tests::add_cold_hydrogen_none_is_noop ... ok
+test leapr::coldh::tests::add_cold_hydrogen_runs_and_populates_ssp ... ok
+test leapr::coldh::tests::bt_even_parity_weights_sum_to_half ... ok
+test leapr::coldh::tests::cn_trivial_and_parity ... ok
+test leapr::coldh::tests::sjbes_closed_forms ... ok
+test leapr::coldh::tests::terpk_interpolation_and_default ... ok
+test leapr::continuous::tests::convol_preserves_integral_roughly ... ok
+test leapr::continuous::tests::phonon_expansion_normalization ... ok
+test leapr::deck::tests::extra_values_on_a_record_are_discarded_not_carried_over ... ok
+test leapr::deck::tests::input_at_builds_a_job_per_temperature ... ok
+test leapr::deck::tests::parses_all_cards_of_a_miniature_deck ... ok
+test leapr::deck::tests::tokenizer_handles_list_directed_conveniences ... ok
+test leapr::deck::tests::truncated_deck_is_an_error ... ok
+test leapr::deck::tests::unsupported_features_are_reported ... ok
+test leapr::decks::tests::deck_search_path_honours_the_env_override ... ok
+test leapr::decks::tests::every_material_resolves_in_the_tsl_registry ... ok
+test leapr::decks::tests::every_registered_material_has_an_embedded_deck ... ok
+test leapr::discrete::tests::add_discrete_runs_and_is_finite ... ok
+test leapr::discrete::tests::bessel_large_argument_branch ... ok
+test leapr::discrete::tests::bessel_reference_values ... ok
+test leapr::discrete::tests::bfact_detailed_balance_ladder ... ok
+test leapr::endout::tests::coherent_elastic_extra_temperature_tail_collapse_is_pinned ... ok
+test leapr::endout::tests::coherent_elastic_roundtrips_and_is_monotone ... ok
+test leapr::endout::tests::coherent_elastic_ten_temperatures_roundtrip ... ok
+test leapr::endout::tests::ilog_stores_the_natural_log_of_the_linear_value ... ok
+test leapr::endout::tests::incoherent_elastic_roundtrips ... ok
+test leapr::endout::tests::inelastic_only_roundtrips_through_thermr ... ok
+test leapr::endout::tests::isabt_stores_the_asymmetric_law ... ok
+test leapr::endout::tests::lln_is_written_but_never_read_back ... ok
+test leapr::frequency::tests::normalization_first_moment_recovers_tbeta ... ok
+test leapr::frequency::tests::start_produces_finite_physical_integrals ... ok
+test leapr::generate::tests::always_regenerate_ignores_a_stale_disk_cache_entry ... ok
+test leapr::generate::tests::bound_cross_section_matches_leapr_3014 ... ok
+test leapr::generate::tests::cache_key_covers_every_input_that_changes_the_bytes ... ok
+test leapr::generate::tests::generation_is_the_default_source ... ok
+test leapr::generate::tests::recipe_text_is_an_audit_record ... ok
+test leapr::generate::tests::use_cache_if_available_falls_back_gracefully_on_a_miss_and_then_populates_it ... ok
+test leapr::generate::tests::validation_status_is_reported_per_channel ... ok
+test leapr::input::tests::scale_is_unity_without_lat ... ok
+test leapr::input::tests::translation_kind_dispatch ... ok
+test leapr::run::tests::dictionary_card_counts_match_njoy ... ok
+test leapr::sct::tests::detailed_balance_exact_for_free_gas ... ok
+test leapr::sct::tests::peak_value_matches_closed_form ... ok
+test leapr::skold::tests::loglog_interpolation_matches_terp1_law5 ... ok
+test leapr::skold::tests::unit_structure_factor_is_the_identity ... ok
+test leapr::translation::tests::add_translation_runs_and_is_finite ... ok
+test leapr::translation::tests::besk1_reference_values ... ok
+test leapr::translation::tests::stable_free_gas_table_shape ... ok
+test leapr::vintage::tests::constant_sets_carry_the_measured_values ... ok
+test leapr::vintage::tests::eval_field_parses_from_a_comment_card ... ok
+test leapr::vintage::tests::vintage_selects_the_constant_set ... ok
+test mixr::driver::tests::driver_matches_direct_mix ... ok
+test mixr::mix::tests::additivity_weighted_sum ... ok
+test mixr::mix::tests::gety_value_boundaries_match_fortran ... ok
+test mixr::mix::tests::half_and_half_is_average_on_shared_grid ... ok
+test mixr::mix::tests::header_seeds_default_for_bare_pendf ... ok
+test mixr::mix::tests::header_seeds_read_awi_emax_nsub_from_first_input ... ok
+test mixr::mix::tests::identity_single_input_weight_one ... ok
+test mixr::mix::tests::missing_reaction_yields_empty_grid ... ok
+test mixr::mix::tests::mix_produces_roundtrippable_tape ... ok
+test mixr::mix::tests::nsub_from_awi_windows_match_fortran ... ok
+test mixr::mix::tests::sigfig_power_of_ten_is_libgcc_on_every_platform ... ok
+test mixr::mix::tests::sigfig_rounds_to_seven_figures ... ok
+test mixr::mix::tests::union_grid_interpolates_disjoint_energies ... ok
+test mixr::mix::tests::zero_where_one_input_absent_below_range ... ok
+test moder::layout::tests::a_short_section_is_refused_rather_than_guessed ... ok
+test moder::layout::tests::a_tab1_section_is_head_ints_and_data ... ok
+test moder::layout::tests::iverf_follows_moder ... ok
+test nuclear_data::delayed::tests::parses_mf1_455_ldg0_six_groups ... ok
+test nuclear_data::delayed::tests::parses_mf5_455_lf5_two_groups ... ok
+test nuclear_data::delayed::tests::unsupported_lf_returns_none ... ok
+test nuclear_data::delayed_mgxs::tests::collapse_matches_analytic_two_group ... ok
+test nuclear_data::secondary::kalbach_tests::only_the_slope_makes_the_law_isotropic ... ok
+test nuclear_data::secondary::kalbach_tests::sampled_cosines_stay_in_range ... ok
+test nuclear_data::secondary::kalbach_tests::the_inverse_maps_the_unit_interval_onto_the_support ... ok
+test nuclear_data::secondary::kalbach_tests::the_inverse_reproduces_the_closed_form_mean ... ok
+test nuclear_data::secondary::mf5_lf_survey::survey_mf5_lf_codes ... ok
+test nuclear_data::secondary::tests::lf5_general_evaporation_falls_back_to_none ... ok
+test nuclear_data::secondary::tests::parses_lf11_watt_energy_dependent ... ok
+test nuclear_data::secondary::tests::parses_lf7_maxwell ... ok
+test nuclear_data::secondary::tests::parses_lf9_evaporation ... ok
+test nuclear_data::secondary::tests::parses_nk2_mixture ... ok
+test nuclear_data::secondary::tests::tabulated_mean_of_uniform_density ... ok
+test nuclear_data::secondary::tests::watt_mean_energy_matches_closed_form ... ok
+test nuclear_data::tests::embedded_core_mgxs_loads_and_is_sane ... ok
+test nuclear_data::tests::fast_group_bounds_are_log_spaced ... ok
+test nuclear_data::tests::flat_xs_collapses_to_constant ... ok
+test nuclear_data::tests::mgxl_container_round_trips ... ok
+test nuclear_data::tests::micro_is_piecewise_constant_and_clamped ... ok
+test nuclear_data::tests::watt_weight_biases_toward_spectrum_peak ... ok
+test nuclear_data::tests::xsprovider_dispatches_to_mgxs ... ok
+test nuclear_data::weighting::tests::maxwellian_peaks_at_kt ... ok
+test nuclear_data::weighting::tests::one_over_e_is_monotone_decreasing ... ok
+test nuclear_data::weighting::tests::watt_default_is_peaked_and_nonnegative ... ok
+test perf_report::tests::detect_fills_cores_and_os ... ok
+test perf_report::tests::format_report_has_header_table_and_verdict ... ok
+test perf_report::tests::verdict_reports_no_gpu_win ... ok
+test photon::capture::tests::gambar_lookup_is_zero_outside_and_linear_inside ... ok
+test photon::capture::tests::tabsqr_of_a_flat_spectrum_is_the_mean_square_over_2tm ... ok
+test photon::mf6::tests::law1_mean_discrete_lines_use_the_magnitude ... ok
+test photon::mf6::tests::law1_mean_histogram_and_trapezoid_continua ... ok
+test photon::tests::discrete_and_primary_photon_energy ... ok
+test photon::tests::empty_without_photon_files ... ok
+test photon::tests::first_moment_of_flat_spectrum_is_midpoint ... ok
+test process::settings::tests::builders_set_what_they_name ... ok
+test purr::tables::f64s_tests::f64s_round_trip_exactly ... ok
+test purr::tables::urr_grid_tests::purr_grid_is_njoy2016s ... ok
+test purr::tests::ladder_neutron_widths_average_to_the_mean_width ... ok
+test purr::tests::ladder_spacing_has_the_wigner_mean_and_width ... ok
+test purr::tests::line_shape_selects_the_same_tier_as_upstreams_index_ranges ... ok
+test purr::tests::line_shape_tiers_reproduce_uw2_to_each_approximations_accuracy ... ok
+test purr::tests::rng_matches_gfortran_rann_oracle ... ok
+test purr::tests::rng_never_returns_zero_and_stays_in_unit_interval ... ok
+test purr::tests::sample_ladder_is_the_first_ladder_of_probability_table ... ok
+test purr::wfun::tests::doppler_table_is_exact_at_its_own_nodes ... ok
+test purr::wfun::tests::doppler_table_reproduces_uw2_to_biquadratic_interpolation_error ... ok
+test purr::wfun::tests::doppler_table_tolerates_the_closed_tier_edges ... ok
+test purr::wfun::tests::uw2_agrees_with_unresr_uw_off_the_imaginary_axis ... ok
+test purr::wfun::tests::uw2_matches_gfortran_oracle ... ok
+test reconr::linearize::tests::endpoints_preserved ... ok
+test reconr::linearize::tests::lin_lin_identity ... ok
+test reconr::linearize::tests::lin_log_adds_points ... ok
+test reconr::linearize::tests::log_lin_adds_points ... ok
+test reconr::linearize::tests::log_log_adds_points ... ok
+test reconr::linearize::tests::single_point_returns_unchanged ... ok
+test reconr::rm::tests::rm_fissile_matrix_path ... ok
+test reconr::rm::tests::rm_non_fissile_scalar_path ... ok
+test reconr::slbw::tests::ar37_resonance_peak_elastic ... ok
+test reconr::slbw::tests::potential_scattering_h2_thermal ... ok
+test reconr::slbw::tests::pwave_penetrability ... ok
+test reconr::slbw::tests::swave_penetrability_and_shift ... ok
+test reconr::slbw::tests::swave_phase_shift ... ok
+test reconr::slbw::tests::wave_k_is_the_upstream_cwaven ... ok
+test reference_data::tests::a_linked_worktree_resolves_to_its_main_checkout ... ok
+test reference_data::tests::absent_tape_resolves_to_none ... ok
+test reference_data::tests::dir_honours_the_environment_override ... ok
+test reference_data::tests::either_spelling_finds_the_same_tape ... ok
+test reference_data::tests::endf_extension_is_recognised_case_insensitively ... ok
+test reference_data::tests::missing_reference_panics_when_required - should panic ... ok
+test reference_data::tests::missing_reference_skips_by_default ... ok
+test resxsr::assemble::tests::reaction_zero_outside_range ... ok
+test resxsr::assemble::tests::thinning_linear_collapse_quirk ... ok
+test resxsr::assemble::tests::thinning_matches_fortran_node_selection ... ok
+test resxsr::assemble::tests::union_grid_merges_and_interpolates ... ok
+test resxsr::driver::tests::run_is_not_ported ... ok
+test resxsr::driver::tests::run_resxs_roundtrips ... ok
+test resxsr::format::tests::block_sizing_matches_fortran ... ok
+test resxsr::format::tests::reaction_count_by_fissionability ... ok
+test resxsr::format::tests::record_word_counts_match_fortran ... ok
+test resxsr::input::tests::counters_track_lists ... ok
+test resxsr::input::tests::defaults_are_zeroed ... ok
+test resxsr::resxs::tests::pendf_feeder_reads_resonance_mts ... ok
+test resxsr::resxs::tests::resxs_file_roundtrip ... ok
+test samm::derivs::tests::parameter_layout_and_babb_pattern ... ok
+test samm::mf2::tests::reorder_eliminated_first ... ok
+test samm::mf2::tests::reorder_eliminated_last ... ok
+test samm::mf2::tests::reorder_eliminated_middle ... ok
+test samm::mf2::tests::reorder_eliminated_middle_large ... ok
+test samm::rmatrix_invert::tests::every_inverter_inverts_coupled_matrices ... ok
+test samm::rmatrix_invert::tests::yfour_inverts_matrices_needing_swaps_and_2x2_pivots ... ok
+test samm::rmatrix_invert::tests::yfour_inverts_the_fe57_block_structure ... ok
+test thermr::coherent::tests::bragg_reflection_cosines_are_physical ... ok
+test thermr::coherent::tests::cross_section_decreases_with_temperature ... ok
+test thermr::coherent::tests::cross_section_is_s_over_e_and_sawtooths ... ok
+test thermr::coherent::tests::interpolated_cross_section_is_bracketed ... ok
+test thermr::coherent::tests::out_of_range_temperature_is_an_error ... ok
+test thermr::coherent::tests::rdelas_keeps_the_last_match_and_falls_back_to_base ... ok
+test thermr::coherent::tests::zero_below_first_bragg_edge ... ok
+test thermr::incoherent_elastic::tests::cross_section_is_positive_and_falls_with_energy ... ok
+test thermr::incoherent_elastic::tests::debye_waller_interpolates_and_clamps ... ok
+test thermr::incoherent_elastic::tests::equiprobable_cosines_are_ordered_forward_peaked_and_bounded ... ok
+test thermr::incoherent_elastic::tests::equiprobable_cosines_fall_back_to_uniform_at_zero_energy ... ok
+test thermr::incoherent_elastic::tests::iel_dwa_holds_ends_within_ten_percent_and_refuses_beyond ... ok
+test thermr::incoherent_elastic::tests::iel_record_agrees_with_the_analytic_helpers_to_rounding ... ok
+test thermr::inelastic::tests::bound_cross_section_is_physical ... ok
+test thermr::inelastic::tests::cross_section_rises_toward_free_gas_limit ... ok
+test thermr::inelastic::tests::double_differential_nonnegative_and_finite ... ok
+test thermr::inelastic::tests::inelastic_cross_section_is_positive_and_finite ... ok
+test thermr::mf7::tests::al27_has_both_elastic_and_inelastic ... ok
+test thermr::mf7::tests::calcem_temperature_walk ... ok
+test thermr::mf7::tests::coherent_elastic_bragg_edges_are_monotone ... ok
+test thermr::mf7::tests::inelastic_s_alpha_beta_grid_is_consistent ... ok
+test thermr::mf7::tests::lthr2_incoherent_elastic_only ... ok
+test thermr::mf7::tests::lthr3_mixed_coherent_and_incoherent ... ok
+test thermr::mf7::tests::select_temperature_interpolates_between_points ... ok
+test thermr::mf7::tests::select_temperature_refuses_out_of_range ... ok
+test thermr::mf7::tests::select_temperature_snaps_within_njoy_tolerance ... ok
+test thermr::temperature_thinning::tests::accumulator_reports_max_rms_and_worst_point ... ok
+test thermr::temperature_thinning::tests::bracket_finds_the_kept_neighbours ... ok
+test thermr::temperature_thinning::tests::byte_model_matches_the_graphite_tape ... ok
+test thermr::temperature_thinning::tests::leave_one_out_keeps_the_neighbours ... ok
+test unresr::wfun::tests::uw_matches_gfortran_uw2_oracle_off_the_imaginary_axis ... ok
+test unresr::wfun::tests::wtable_is_exact_at_its_nodes_and_close_between_them ... ok
+test vv::tests::a_comparable_run_widens_the_gate_by_root_two ... ok
+test vv::tests::no_recorded_value_means_no_drift_gate ... ok
+test vv::tests::the_drift_gate_combines_both_uncertainties ... ok
+test wimsr::wimout::tests::e15_8_matches_fortran ... ok
+test wmp::tests::doppler_broadening_lowers_and_widens_the_peak ... ok
+test wmp::tests::embedded_core_library_loads_and_evaluates ... ok
+test wmp::tests::erf_matches_reference_values ... ok
+test wmp::tests::faddeeva_integral_form_reflection ... ok
+test wmp::tests::faddeeva_matches_reference_values ... ok
+test wmp::tests::from_blob_rejects_corruption ... ok
+test wmp::tests::wmpb_blob_round_trips_fissionable_multiwindow ... ok
+test wmp::tests::wmpb_blob_round_trips_single_pole ... ok
+test wmp::tests::wmpl_container_round_trips ... ok
+test wmp::tests::wmpl_from_blob_rejects_corruption ... ok
+test wmp::tests::zero_kelvin_pole_matches_hand_computation ... ok
+test endf_library::tests::generated_ace_reads_back_by_header ... ok
+
+test result: ok. 672 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 23.88s
+
+     Running unittests src/bin/njoy-tui/main.rs (target/release/deps/njoy_tui-8e936840699cc0ed)
+
+running 29 tests
+test elements::tests::rejects_unknown_symbol ... ok
+test elements::tests::round_trips_uranium ... ok
+test nuclides::tests::catalog_parses_every_core_entry ... ok
+test nuclides::tests::empty_query_returns_everything_in_za_order ... ok
+test nuclides::tests::fuzzy_score_prefers_substring_over_subsequence ... ok
+test nuclides::tests::parses_natural_carbon_and_common_isotopes ... ok
+test nuclides::tests::fuzzy_score_rejects_out_of_order_or_missing_chars ... ok
+test nuclides::tests::search_by_element_symbol_alone_returns_all_its_isotopes ... ok
+test nuclides::tests::search_finds_u235_by_gnds_name_zaid_and_dashed_form ... ok
+test smoke_test::finder_screen_renders_a_title_and_at_least_one_nuclide_row ... ok
+test smoke_test::finder_search_narrows_the_rendered_list ... ok
+test smoke_test::plot_screen_still_renders_without_panicking_on_a_very_narrow_terminal ... ok
+test temperature::tests::celsius_room_temperature_is_about_298_kelvin ... ok
+test temperature::tests::kelvin_passes_through_unchanged ... ok
+test temperature::tests::negative_celsius_below_absolute_zero_clamps_to_zero_kelvin ... ok
+test temperature::tests::round_trip_kelvin_to_celsius ... ok
+test temperature::tests::toggle_flips_and_back ... ok
+test ui::plot::tests::cycle_mt_wraps_both_directions ... ok
+test ui::plot::tests::log_label_formats_round_powers_of_ten ... ok
+test ui::tests::mt_buttons_cover_all_four_channels_wide_and_narrow ... ok
+test ui::tests::point_in_respects_area_bounds ... ok
+test ui::tests::temp_buttons_span_the_row_without_overlap ... ok
+test xsdata::tests::fission_channel_is_empty_for_a_non_fissionable_nuclide ... ok
+test xsdata::tests::fission_channel_is_nonzero_for_a_fissile_nuclide ... ok
+test xsdata::tests::raising_temperature_changes_the_resonance_region_xs ... ok
+test xsdata::tests::total_channel_is_populated_across_the_range ... ok
+test xsdata::tests::u238_loads_and_has_a_sane_energy_range ... ok
+test xsdata::tests::unknown_name_is_a_readable_error ... ok
+test smoke_test::plot_screen_renders_nuclide_name_back_button_and_a_chart ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/ace_ce_decode_reference_library.rs (target/release/deps/ace_ce_decode_reference_library-8363b6a77f2e89ba)
+
+running 7 tests
+test a_thermal_table_is_refused_rather_than_misread ... ok
+test every_secondary_law_in_the_reference_library_decodes ... ok
+test fission_comes_from_the_partials_when_mt18_is_absent ... ok
+test ace_nubar_equals_the_endf_evaluation ... ok
+test the_reference_tables_decode_with_the_evaluated_constants ... ok
+test the_elastic_angular_block_decodes ... ok
+test total_equals_elastic_plus_every_non_redundant_channel ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.90s
+
+     Running tests/ace_compare.rs (target/release/deps/ace_compare-853eb177ffb46e06)
+
+running 6 tests
+test a_table_is_identical_to_itself ... ok
+test a_removed_block_is_reported_missing ... ok
+test one_changed_word_is_found_where_it_was_planted ... ok
+test tables_of_different_classes_are_compared_as_a_whole_only ... ok
+test thermal_tables_are_compared_by_their_own_blocks ... ok
+test u234_built_here_is_njoy2016s_table_in_every_word ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.06s
+
+     Running tests/ace_dlw_law_family.rs (target/release/deps/ace_dlw_law_family-359e687dbc9e88da)
+
+running 8 tests
+test an_lnw_chain_becomes_a_mixture_carrying_each_applicability ... ok
+test an_unknown_law_names_the_set_upstream_accepts ... ok
+test law_11_scales_watt_b_by_the_inverse_of_a ... ok
+test law_2_is_a_discrete_line_and_law_33_is_law_3 ... ok
+test law_5_and_law_67_are_refused_with_upstreams_own_reason ... ok
+test law_66_carries_npsx_and_apsx_and_refuses_to_pose_as_a_spectrum ... ok
+test law_7_is_a_maxwellian_and_keeps_its_interpolation_regions ... ok
+test law_9_is_an_evaporation_spectrum_in_ev ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ace_dlw_law_family_vs_njoy2016.rs (target/release/deps/ace_dlw_law_family_vs_njoy2016-e76e983a2858899d)
+
+running 5 tests
+test c12_and_na23_carry_evaporation_laws_with_openmcs_own_numbers ... ok
+test be9_mt16_is_law_61_so_law_67_never_appears ... ok
+test every_law_in_the_four_tables_decodes ... ok
+test h2_mt16_is_phase_space_and_converts_to_a_usable_spectrum ... ok
+test na23_mt91_is_a_two_law_chain_switching_over_at_12_mev ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ace_file_formats_vs_openmc.rs (target/release/deps/ace_file_formats_vs_openmc-ffe316da94799299)
+
+running 1 test
+test ace_layouts_decode_as_openmc_decodes_them ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ace_five_route_parity.rs (target/release/deps/ace_five_route_parity-1bdd2ec3be47c8c6)
+
+running 13 tests
+test b10_is_njoy2016s_table_in_every_word ... ok
+test al27_is_njoy2016s_table_in_every_word ... ok
+test f19_is_njoy2016s_table_in_every_word ... ok
+test h1_is_njoy2016s_table_in_every_word ... ok
+test mg24_mf4_mf5_continuum_is_njoy2016s_table_in_every_word ... ok
+test na23_mf15_probability_record_is_the_dlwp_applicability ... ok
+test cu65_lo2_yields_carry_a11_rounding_in_gpd ... ok
+test ti48_heating_number_with_heatr_is_njoy2016s ... ok
+test o16_is_njoy2016s_table_in_every_word ... ok
+test ti48_reconr_phase_shift_guard ... ok
+test zn64_resonance_grid_ends_on_the_union_grid ... ok
+test zn70_purr_heating_column_with_heatr_is_njoy2016s ... ok
+test zn70_purr_parameters_use_the_stored_int ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.42s
+
+     Running tests/ace_nu_single_block_with_dnu.rs (target/release/deps/ace_nu_single_block_with_dnu-e206f449f7656a8b)
+
+running 1 test
+test single_prompt_block_plus_dnu_gives_the_total ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/ace_photon_production_read.rs (target/release/deps/ace_photon_production_read-d2d843d26057b921)
+
+running 3 tests
+test na23_carries_the_mftype_13_form_and_c12_a_non_isotropic_entry ... ok
+test h2s_single_entry_is_the_6_25_mev_capture_line ... ok
+test u235s_583_photon_subsections_decode_with_openmcs_census ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/ace_read_type1_vs_type2.rs (target/release/deps/ace_read_type1_vs_type2-e029021df7e4922a)
+
+running 7 tests
+test every_obtainable_class_reads ... ok
+test read_sniffs_the_container ... ok
+test type1_and_type2_give_the_same_table ... ok
+test iopt7_resuffix_and_recomment_matches_njoy2016 ... ok
+test type1_write_round_trips_through_values ... ok
+test type2_write_reproduces_njoys_bytes ... ok
+test type1_files_read_back_and_rewrite_byte_exactly ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/ace_reconstructed_total_light_nuclides.rs (target/release/deps/ace_reconstructed_total_light_nuclides-8a57bfe8c8b575e5)
+
+running 1 test
+test light_nuclide_totals_reconstruct_without_double_counting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/acer.rs (target/release/deps/acer-39e4339a7abceae8)
+
+running 13 tests
+test angular_table_roundtrips_through_file ... ok
+test esz_total_equals_elastic_plus_partials ... ok
+test full_table_roundtrips_through_file ... ok
+test h2_elastic_angular_block_is_valid ... ok
+test h2_law6_producer_is_written_as_ace_law_66 ... ok
+test h2_minimal_table_is_valid ... ok
+test one_writer_and_both_containers_for_a_built_table ... ok
+test type1_file_roundtrips ... ok
+test u235_ace_header_and_dimensions ... ok
+test u235_discrete_levels_carry_mf4_angular ... ok
+test esz_heating_column_is_physical ... ok
+test u235_elastic_angular_block_is_valid ... ok
+test u235_full_table_mixes_law3_and_law4 ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 38.38s
+
+     Running tests/acer_acesix_vs_njoy2016_ace.rs (target/release/deps/acer_acesix_vs_njoy2016_ace-ec28bead30ee1546)
+
+running 1 test
+test acesix_reproduces_njoy2016_ace_thermal_bins ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+
+     Running tests/acer_broadening_vs_njoy2016.rs (target/release/deps/acer_broadening_vs_njoy2016-1b1f73348b351f31)
+
+running 1 test
+test broadened_band_integrals_match_njoy2016 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.92s
+
+     Running tests/acer_ce_esz_vs_njoy2016.rs (target/release/deps/acer_ce_esz_vs_njoy2016-a9d5ca0d5b86bfc4)
+
+running 2 tests
+test esz_cross_sections_match_njoy2016_at_shared_grid_energies ... ok
+test the_unwritten_ace_blocks_are_still_the_ones_we_think ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.48s
+
+     Running tests/acer_dosimetry_vs_njoy2016.rs (target/release/deps/acer_dosimetry_vs_njoy2016-561ecf4cc0e6bf5a)
+
+running 4 tests
+test h1_dosimetry_mcnpx_is_byte_identical_to_njoy2016 ... ok
+test h1_dosimetry_is_byte_identical_to_njoy2016 ... ok
+test zero_kelvin_is_refused_rather_than_written_with_no_zaid ... ok
+test mn55_dosimetry_is_byte_identical_to_njoy2016 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/acer_photoatomic_vs_njoy2016.rs (target/release/deps/acer_photoatomic_vs_njoy2016-f9ed6b802a88ab24)
+
+running 4 tests
+test eszg_is_logged_and_zeros_survive ... ok
+test mcnpx_type1_output_is_byte_identical_to_njoy2016 ... ok
+test type2_output_matches_njoy2016_to_machine_precision ... ok
+test type1_output_is_byte_identical_to_njoy2016 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/acer_photonuclear_vs_njoy2016.rs (target/release/deps/acer_photonuclear_vs_njoy2016-8d3c8c33d0e2be87)
+
+running 5 tests
+test a_corrupt_count_is_refused_rather_than_walked_past ... ok
+test photonuclear_layout_matches_njoy2016 ... ok
+test built_table_is_byte_identical_to_njoy2016 ... ok
+test unported_representations_refuse_by_name ... ok
+test photonuclear_read_then_write_is_byte_exact ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/acer_thermal_ifeng_vs_njoy2016.rs (target/release/deps/acer_thermal_ifeng_vs_njoy2016-52cd1696cde6b9ff)
+
+running 3 tests
+test ifeng2_itxe_layout_matches_njoy2016 ... ok
+test ifeng1_is_skewed_and_declares_itself ... ok
+test ifeng2_stored_law_is_normalised ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.77s
+
+     Running tests/acer_thermal_temperature_parity.rs (target/release/deps/acer_thermal_temperature_parity-e8f340b0e2c5c73f)
+
+running 7 tests
+test crystalline_graphite_at_600k_is_njoy2016s_table ... ok
+test effective_temperature_is_read_at_the_request ... ok
+test crystalline_graphite_at_600p5k_is_njoy2016s_table ... ok
+test h_in_h2o_at_293p6k_is_njoy2016s_table ... ok
+test h_in_h2o_at_293p9k_is_njoy2016s_table ... ok
+test s_alpha_beta_at_another_temperature_is_refused ... ok
+test temperatures_njoy2016_refuses_are_refused ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 23.02s
+
+     Running tests/acer_thermal_vs_njoy2016.rs (target/release/deps/acer_thermal_vs_njoy2016-0e5166b900eda070)
+
+running 1 test
+test al27_thermal_table_matches_njoy2016 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+
+     Running tests/acer_thermal_word_parity.rs (target/release/deps/acer_thermal_word_parity-5e71e49d456b4886)
+
+running 6 tests
+test al27_at_20k_tol_0p05_is_njoy2016s_table ... ok
+test al27_at_20k_tol_0p001_is_njoy2016s_table ... ok
+test al27_skewed_bins_iwt0_are_njoy2016s_table ... ok
+test crystalline_graphite_at_296k_is_njoy2016s_table ... ok
+test h_in_h2o_at_283p6k_is_njoy2016s_table ... ok
+test h_in_zrh_incoherent_elastic_at_296k_is_njoy2016s_table ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 46.09s
+
+     Running tests/acer_thermal_word_parity_large.rs (target/release/deps/acer_thermal_word_parity_large-75c677e8434957e0)
+
+running 3 tests
+test al27_continuous_form_iwt2_is_njoy2016s_table ... ok
+test h_in_h2o_64_continuous_iwt2_is_njoy2016s_table ... ok
+test h_in_h2o_64_skewed_bins_iwt0_is_njoy2016s_table ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.06s
+
+     Running tests/broadr_light_nuclide_pendf_golden.rs (target/release/deps/broadr_light_nuclide_pendf_golden-157da29c4e709434)
+
+running 6 tests
+test be9_broadened_pendf_matches_njoy ... ok
+test c12_broadened_pendf_matches_njoy ... ok
+test h2_broadened_pendf_matches_njoy ... ok
+test f19_broadened_pendf_matches_njoy ... ok
+test li6_broadened_pendf_matches_njoy ... ok
+test si30_broadened_pendf_matches_njoy ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/broadr_u238_urr_seam.rs (target/release/deps/broadr_u238_urr_seam-f0c100be66ed49a6)
+
+running 1 test
+test u238_urr_seam_survives_reconr_and_bounded_broadr ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.37s
+
+     Running tests/continuum_law_coverage_survey.rs (target/release/deps/continuum_law_coverage_survey-92ffee7990350491)
+
+running 1 test
+test every_mf6_continuum_section_yields_an_evaluated_law ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.95s
+
+     Running tests/covr_boxer_golden.rs (target/release/deps/covr_boxer_golden-b9f459fc1b95d2f5)
+
+running 18 tests
+test covr_tier1_c12 ... ok
+test covr_tier1_be9 ... ok
+test covr_tier1_h2_absolute ... ok
+test covr_tier1_f19 ... ok
+test covr_tier1_h2_relative ... ok
+test covr_tier1_li6 ... ok
+test covr_tier1_u234 ... ok
+test covr_tier1_si30 ... ok
+test covr_tier1_u238 ... ok
+test covr_tier2_be9 ... ok
+test covr_tier2_f19 ... ok
+test covr_tier2_h2_absolute ... ok
+test covr_tier2_h2_relative ... ok
+test covr_tier2_li6 ... ok
+test covr_tier2_si30 ... ok
+test covr_tier2_u234 ... ok
+test covr_tier2_u238 ... ok
+test covr_tier2_c12 ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+     Running tests/delayed_blocks_write_vs_njoy2016.rs (target/release/deps/delayed_blocks_write_vs_njoy2016-479a6a640f299891)
+
+running 1 test
+test delayed_blocks_reproduce_njoys_words ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
+
+     Running tests/depletion_chain_xml_vs_openmc.rs (target/release/deps/depletion_chain_xml_vs_openmc-acbd137231b7a876)
+
+running 3 tests
+test chain_simple_decay_matches_openmcs_own_parse ... ok
+test chain_ni_matches_openmcs_own_parse ... ok
+test chain_simple_matches_openmcs_own_parse ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dtfr_u238_claw_full_golden.rs (target/release/deps/dtfr_u238_claw_full_golden-9d56c35cc1470280)
+
+running 1 test
+test dtfr_u238_claw_full_tables_match_njoy ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dtfr_u238_claw_njoy_golden.rs (target/release/deps/dtfr_u238_claw_njoy_golden-413e9036fb774fd9)
+
+running 1 test
+test dtfr_u238_claw_nn_table_matches_njoy ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/endf_he4.rs (target/release/deps/endf_he4-01562d35e159944a)
+
+running 7 tests
+test interpolation_within_he4_tab1 ... ok
+test mf3_mt2_cont_header ... ok
+test mf3_mt2_first_and_last_energy ... ok
+test mf3_mt2_cross_section_at_known_point ... ok
+test mf3_mt2_tab1_point_count ... ok
+test section_keys_are_correct ... ok
+test tape_parses_without_error ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/endf_u235.rs (target/release/deps/endf_u235-31c6c7c116404a0b)
+
+running 12 tests
+test elastic_xs_cont_header ... ok
+test elastic_xs_energy_bounds ... ok
+test elastic_xs_tab1_structure ... ok
+test elastic_xs_thermal_is_zero ... ok
+test fission_xs_positive_throughout ... ok
+test fission_xs_interpolation_at_thermal ... ok
+test fission_xs_tab1_reads_cleanly ... ok
+test general_info_za_awr ... ok
+test resonance_section_exists_and_nonempty ... ok
+test key_sections_present ... ok
+test total_xs_tab1_reads_cleanly ... ok
+test tape_parses_large_file ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.06s
+
+     Running tests/errorr_mf32_ar37_golden.rs (target/release/deps/errorr_mf32_ar37_golden-4dbfa8da3af72aa1)
+
+running 4 tests
+test listing_resolved_and_unresolved_diagonals ... ok
+test original_tape_reproduces_the_variant_oracle ... ok
+test tier1_variant_tape_matches_njoy_tape23 ... ok
+test tier2_crate_pendf_reported ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.05s
+
+     Running tests/errorr_mf32_cl35_rml_golden.rs (target/release/deps/errorr_mf32_cl35_rml_golden-a97bfc4d81a597a5)
+
+running 2 tests
+test tier1_matches_njoy_tape23 ... ok
+test tier2_crate_pendf_reported ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.27s
+
+     Running tests/errorr_mf32_j33u238_lrf3_golden.rs (target/release/deps/errorr_mf32_j33u238_lrf3_golden-f76454119bb0ebf8)
+
+running 2 tests
+test tier1_env_gated_matches_njoy_tape23 ... ok
+test tier2_crate_pendf_and_listing ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.31s
+
+     Running tests/errorr_mf33_golden.rs (target/release/deps/errorr_mf33_golden-b005bac574b57c6f)
+
+running 12 tests
+test output_tape_round_trips_like_njoy_layout ... ok
+test tier1_be9 ... ok
+test tier1_f19 ... ok
+test tier1_h2_iwt3_absolute ... ok
+test tier1_h2_iwt6_relative ... ok
+test tier1_li6 ... ok
+test tier1_si30 ... ok
+test tier1_u234_env_gated ... ok
+test tier1_u238_lumped_env_gated ... ok
+test tier2_be9_crate_reconr_broadr ... ok
+test tier2_h2_crate_reconr_broadr ... ok
+test tier1_c12 ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+
+     Running tests/gaminr_vs_njoy2016.rs (target/release/deps/gaminr_vs_njoy2016-ec6257a9703fdb49)
+
+running 2 tests
+test njoy_gaminr_synthetic_z6_matches_gamout ... ok
+test njoy_gaminr_u_photoatomic_matches_gamout ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/gaspr_vs_njoy2016.rs (target/release/deps/gaspr_vs_njoy2016-4208e5b90d4d3c3c)
+
+running 5 tests
+test be9_gas_production_matches_njoy ... ok
+test b10_gas_production_matches_njoy ... ok
+test h2_gas_production_matches_njoy ... ok
+test li6_gas_production_matches_njoy ... ok
+test c12_gas_production_matches_njoy ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/groupr_u235_mf10_golden.rs (target/release/deps/groupr_u235_mf10_golden-db50177337681210)
+
+running 2 tests
+test njoy_pendf_mf10_isomer_production_matches ... ok
+test endf_mf10_isomer_production_matches_loosely ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/groupr_u238_derived_quantities_golden.rs (target/release/deps/groupr_u238_derived_quantities_golden-e696beb86cdccd3d)
+
+running 1 test
+test njoy_pendf_derived_quantities_match_gendf ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/groupr_u238_elastic_matrix_golden.rs (target/release/deps/groupr_u238_elastic_matrix_golden-630beaeb556bbf7c)
+
+running 2 tests
+test njoy_pendf_elastic_matrix_matches_gendf_mf6 ... ok
+test njoy_pendf_p3_elastic_matrix_matches_gendf_mf6_lord3 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/groupr_u238_gendf_golden.rs (target/release/deps/groupr_u238_gendf_golden-39678bd8e3bd12e9)
+
+running 5 tests
+test njoy_flux_calculator_heterogeneity ... ok
+test njoy_flux_calculator_slowing_down ... ok
+test njoy_pendf_isolates_the_group_averaging_engine ... ok
+test njoy_unresr_pendf_urr_self_shielding ... ok
+test crate_reconr_broadr_vs_njoy_gendf ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.37s
+
+     Running tests/groupr_u238_inelastic_matrix_golden.rs (target/release/deps/groupr_u238_inelastic_matrix_golden-4577ad3a8429ee37)
+
+running 4 tests
+test njoy_pendf_inelastic_matrices_1sigz ... ok
+test njoy_pendf_inelastic_matrices_6sigz ... ok
+test njoy_pendf_inelastic_vectors_6sigz ... ok
+test njoy_pendf_inelastic_vectors_1sigz ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/heatr_driver_vs_njoy2016.rs (target/release/deps/heatr_driver_vs_njoy2016-49a980ff39cd9753)
+
+running 8 tests
+test be9_local0 ... ok
+test h2_local0 ... ok
+test li6_local1 ... ok
+test o16_local0 ... ok
+test fe58_userq_ed ... ok
+test si28_kchk_plot ... ok
+test si28_local0 ... ok
+test si28_two_temperatures ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.26s
+
+     Running tests/heatr_kerma_vs_kinematics.rs (target/release/deps/heatr_kerma_vs_kinematics-0a2aef96606e5179)
+
+running 1 test
+test kerma_reproduces_the_closed_form_heating_models ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.95s
+
+     Running tests/heatr_mt442_vs_njoy2016.rs (target/release/deps/heatr_mt442_vs_njoy2016-5fca602b2f8e9a67)
+
+running 6 tests
+test energy_balance_subtracts_mt442_and_nothing_else ... ok
+test heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels ... ok
+test mt301_energy_balance_against_njoy_is_recorded ... ok
+test mt442_matches_njoy_at_print_precision ... ok
+test mt301_local1_kinematic_against_njoy_is_recorded ... ok
+test mt4_is_not_heated_beside_the_levels ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.66s
+
+     Running tests/heatr_vs_njoy2016.rs (target/release/deps/heatr_vs_njoy2016-58ac37d962dc93f6)
+
+running 3 tests
+test damage_total_against_njoy_is_recorded_not_asserted ... ok
+test damage_elastic_matches_njoy_where_scattering_is_isotropic ... ok
+test kerma_matches_njoy_local_deposition_in_the_capture_regime ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.52s
+
+     Running tests/leapr_coher_general_self_consistency.rs (target/release/deps/leapr_coher_general_self_consistency-35d10adb11ad710d)
+
+running 1 test
+test general_vs_builtin_lattice_diagnostic ... ignored, diagnostic sweep, asserts nothing -- run explicitly with --ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/leapr_cold_hydrogen_njoy_oracle.rs (target/release/deps/leapr_cold_hydrogen_njoy_oracle-87d04cc0283d6dba)
+
+running 1 test
+test cold_para_hydrogen_reproduces_njoy2016_reference_tape ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/leapr_d2o_skold_njoy_oracle.rs (target/release/deps/leapr_d2o_skold_njoy_oracle-dac65e90c1dec24e)
+
+running 1 test
+test d_in_d2o_with_skold_reproduces_njoy_leapr_at_293_6_k ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.20s
+
+     Running tests/leapr_frequency_h2o.rs (target/release/deps/leapr_frequency_h2o-11be3e02c1bcbf9a)
+
+running 2 tests
+test h2o_solid_type_lambda_and_effective_temp ... ok
+test h2o_effective_temp_and_lambda_through_full_pipeline ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/leapr_graphite_coherent_elastic_parity.rs (target/release/deps/leapr_graphite_coherent_elastic_parity-d6f8cd9fd93d39dc)
+
+running 5 tests
+test both_boltzmann_vintages_are_measured_for_the_elastic_channel ... ok
+test bragg_edge_residual_is_the_econ_constant_vintage ... ok
+test coherent_elastic_parity_against_endf_tape ... ok
+test missing_data_skips_cleanly ... ok
+test coherent_elastic_pins_the_absolute_debye_waller_and_structure_factor_scales ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/leapr_graphite_deck_parity.rs (target/release/deps/leapr_graphite_deck_parity-2f4acf99e4a6cc5a)
+
+running 6 tests
+test every_endf_b_viii_leapr_deck_parses ... ok
+test graphite_deck_parses_in_full ... ok
+test debye_waller_conversion_matches_the_tape_temperature_trend ... ok
+test sab_parity_against_endf_tape_at_1000k ... ok
+test sab_parity_against_endf_tape_at_296k ... ok
+test regeneration_cost_per_temperature ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.98s
+
+     Running tests/leapr_h2o_njoy_oracle.rs (target/release/deps/leapr_h2o_njoy_oracle-57712ab4a725cb9e)
+
+running 1 test
+test h_in_h2o_reproduces_njoy_leapr_at_293_6_k ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.56s
+
+     Running tests/leapr_h2o_secondary_scatterer.rs (target/release/deps/leapr_h2o_secondary_scatterer-97fcdebcb52b07c5)
+
+running 5 tests
+test deck_declares_a_free_gas_oxygen_secondary_scatterer ... ok
+test effective_temperature_includes_translation_and_oscillators ... ok
+test cross_section_matches_the_published_evaluation ... ok
+test short_collision_time_secondary_needs_its_own_spectra ... ok
+test generated_b_constants_carry_the_secondary_scatterer ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.31s
+
+     Running tests/leapr_run_at_temperature.rs (target/release/deps/leapr_run_at_temperature-ec3ef71100b96c1e)
+
+running 2 tests
+test run_deck_writes_a_cold_hydrogen_law_signed ... ok
+test one_block_of_a_five_temperature_mixed_deck_is_njoys_block ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.13s
+
+     Running tests/leapr_run_driver_njoy_oracle.rs (target/release/deps/leapr_run_driver_njoy_oracle-f3f642f699771626)
+
+running 3 tests
+test h2o_run_matches_njoy_tape ... ok
+test d2o_skold_run_matches_njoy_tape ... ok
+test sio2_five_temperature_mixed_run_matches_njoy_tape ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.35s
+
+     Running tests/leapr_sic_coherent_elastic_oracle.rs (target/release/deps/leapr_sic_coherent_elastic_oracle-0ebc98d60f924bb0)
+
+running 7 tests
+test c_in_sic_coherent_elastic_matches_oracle_within_five_percent ... ok
+test coherent_elastic_is_identical_across_both_sic_materials ... ok
+test published_sic_bragg_pattern_matches_an_invalid_centring_not_zinc_blende ... ok
+test si_in_sic_coherent_elastic_matches_oracle_within_five_percent ... ok
+test per_atom_debye_waller_flattens_the_difference_reflection_residual ... ok
+test the_edge_centred_basis_is_not_a_valid_centring_but_the_face_centred_one_is ... ok
+test swapping_in_the_tapes_implied_basis_recovers_most_of_the_thermal_point_gap ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s
+
+     Running tests/leapr_sio2_mixed_moderator_oracle.rs (target/release/deps/leapr_sio2_mixed_moderator_oracle-fbd180abb9380bf6)
+
+running 3 tests
+test sio2_alpha_contin_stage_values_vs_njoy_listing ... ok
+test sio2_alpha_deck_parses_both_scatterers_temperature_blocks ... ok
+test sio2_alpha_mixed_moderator_reproduces_njoy_leapr_at_every_temperature ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.39s
+
+     Running tests/leapr_temperature_block_selection.rs (target/release/deps/leapr_temperature_block_selection-4e1d19cdd0dc28ae)
+
+running 5 tests
+test off_grid_temperature_is_allowed_when_every_block_inherits ... ok
+test off_grid_temperature_is_refused_when_the_spectrum_is_per_temperature ... ok
+test only_the_liquid_decks_respecify_their_spectrum_per_temperature ... ok
+test a_declared_temperature_uses_its_own_block ... ok
+test si_in_sic_kernel_reproduces_the_published_evaluation_at_every_temperature ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.46s
+
+     Running tests/mf4_linearisation_tolerance_study.rs (target/release/deps/mf4_linearisation_tolerance_study-0f51df269e87f5e7)
+
+running 1 test
+test angle_tol_is_priced_and_the_shipped_setting_is_justified ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/mf4_mean_cosine_vs_legendre_a1.rs (target/release/deps/mf4_mean_cosine_vs_legendre_a1-d28a282b86a10cfd)
+
+running 1 test
+test mean_cosine_reproduces_the_evaluations_first_legendre_coefficient ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/mf6_continuum_angular_vs_endf.rs (target/release/deps/mf6_continuum_angular_vs_endf-9626b863e1d8dffe)
+
+running 5 tests
+test f19_mt91_continuum_is_isotropic_on_the_tape ... ok
+test o16_mt91_is_kalbach_mann_and_reaches_transport ... ok
+test u235_mt91_continuum_is_anisotropic_on_the_tape ... ok
+test u238_mt91_continuum_is_anisotropic_on_the_tape ... ok
+test mf6_mt91_angular_structure_is_reported ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.98s
+
+     Running tests/mf6_continuum_emission_vs_tape.rs (target/release/deps/mf6_continuum_emission_vs_tape-9d9d5cf67b9c56aa)
+
+running 2 tests
+test mf6_continuum_emission_satisfies_the_tape_s_own_invariants ... ok
+test mf6_continuum_mean_outgoing_energy_matches_the_recorded_values ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+     Running tests/mf6_law6_phase_space.rs (target/release/deps/mf6_law6_phase_space-0129a882b8dc6f52)
+
+running 2 tests
+test h2_mt16_phase_space_matches_upstreams_closed_form ... ok
+test be9_mt16_law7_is_converted_not_faked ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/mf6_law7_conversion.rs (target/release/deps/mf6_law7_conversion-4d43b59312eadd8b)
+
+running 1 test
+test law7_conversion_preserves_the_evaluations_moments ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/mf6_law7_mu_weights.rs (target/release/deps/mf6_law7_mu_weights-2fb616820d1274ee)
+
+running 2 tests
+test law7_mu_grid_is_well_formed ... ok
+test law7_per_cosine_weights_are_not_uniform ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.66s
+
+     Running tests/mf6_subsection_scan_sweep.rs (target/release/deps/mf6_subsection_scan_sweep-1a6da0a2a6b4f77b)
+
+running 1 test
+test mf6_subsection_scan_stays_aligned_across_the_whole_reference_library ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+
+     Running tests/mgxs_write_read_by_openmc.rs (target/release/deps/mgxs_write_read_by_openmc-198aa8b0dcaa2ac7)
+
+running 1 test
+test openmc_reads_an_mgxs_written_here_and_gets_the_right_k ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/mixr_h2_be9_njoy_golden.rs (target/release/deps/mixr_h2_be9_njoy_golden-840f7e4bde10a4df)
+
+running 1 test
+test mixr_h2_be9_matches_njoy ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/moder_vs_njoy2016.rs (target/release/deps/moder_vs_njoy2016-88c62778609a7687)
+
+running 1 test
+test moder_selection_matches_njoy2016_tape ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/no_endf_inside_crates.rs (target/release/deps/no_endf_inside_crates-0b7a29a13b0f57ce)
+
+running 1 test
+test no_endf_tape_lives_under_crates ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/nuclear_data_library_is_process.rs (target/release/deps/nuclear_data_library_is_process-7b0c926514c2b53a)
+
+running 6 tests
+test a_second_broaden_starts_again_from_0k ... ok
+test mat_za_and_awr_come_from_the_tape_and_two_materials_are_refused ... ok
+test object_equals_free_function_with_the_same_physics_defaults ... ok
+test steps_out_of_order_are_refused_not_panicked_on ... ok
+test the_pendf_tape_reads_back_bit_for_bit ... ok
+test ablations_on_the_object_are_the_settings_ablations ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.37s
+
+     Running tests/nuclide_h5_vs_openmc.rs (target/release/deps/nuclide_h5_vs_openmc-41b1a7ea4d76f987)
+
+running 4 tests
+test emit_sub_minimum_level_emission_reproducer ... ignored, emits a reproducer file for an upstream segfault; run explicitly
+test the_law_inventory_matches_what_upstream_wrote ... ok
+test the_fissile_file_this_crate_writes_is_structurally_complete ... ok
+test we_read_the_u235_library_openmc_produced ... ok
+
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/openmc_notebooks_data/main.rs (target/release/deps/openmc_notebooks_data-715b44b27d5851d1)
+
+running 24 tests
+test mdgxs_part_i::delayed_beta_and_nu_fission ... ok
+test mdgxs_part_i::delayed_chi_spectrum ... ok
+test mdgxs_part_ii::delayed_group_condensation ... ok
+test mdgxs_part_i::precursor_decay_rates ... ok
+test mdgxs_part_ii::precursor_concentration_and_export ... ignored, requires transport tallies (outram-mc-libs) for precursor concentrations; delayed data now available in mdgxs_part_i (op-6tz.6.4)
+test mgxs_part_i::collapse_to_notebook_two_group_structure ... ok
+test mgxs_part_i::flux_weighted_self_shielded_mgxs ... ok
+test mgxs_part_i::groupr_engine_vector_group_average ... ok
+test mgxs_part_i::groupr_elastic_scatter_matrix_u235 ... ok
+test mgxs_part_ii::group_collapsed_chi ... ok
+test mgxs_part_ii::nu_scatter_matrix_full_mt ... ignored, full ScatterMatrixXS(nu=True) needs File-6 (MF=6) kinematic feeders (GROUPR getff/cm2lab) for inelastic/(n,2n)/multiplicity — only the two-body elastic feed is ported; elastic slice is live in scatter_matrix_xs (op-6tz.6.6)
+test mgxs_part_i::self_shielded_mgxs_dilution_limits_u238 ... ok
+test mgxs_part_iii::export_mgxs_library_hdf5 ... ignored, requires OpenMC-format (HDF5) MGXS export; njoy uses its own MGXL blob (op-6tz.6)
+test mgxs_part_iii::mg_mode_keff_verification ... ignored, requires MG-mode transport + CE-vs-MG k-eff (outram-mc-libs / op-6tz transport slice)
+test mgxs_part_ii::scatter_matrix_xs ... ok
+test nuclear_data::cross_sections_over_energy_array ... ok
+test nuclear_data::secondary_nubar_and_fission_spectrum ... ok
+test nuclear_data::temperature_dependent_xs_doppler ... ok
+test nuclear_data_resonance_covariance::covariance_to_correlation_matches_closed_form ... ok
+test nuclear_data_resonance_covariance::read_resonance_covariance_from_endf ... ignored, requires ENDF MF=32 resonance-parameter covariance reader (op-6tz.6)
+test nuclear_data_resonance_covariance::sample_and_reconstruct_perturbed_resonances ... ignored, requires resonance-parameter sampling + reconstruct-from-sampled (op-6tz.6)
+test nuclear_data::read_cross_sections_by_mt ... ok
+test search::search_for_critical_boron_concentration ... ignored, requires transport k-eff search (outram-mc-libs / op-6tz transport slice)
+test search::fuel_cross_sections_available_for_search ... ok
+
+test result: ok. 17 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 26.11s
+
+     Running tests/pendf_stages_vs_njoy2016.rs (target/release/deps/pendf_stages_vs_njoy2016-2885235c833bf884)
+
+running 8 tests
+test broadr_ar37_mlbw_urr ... ok
+test broadr_light_nuclides_lrp0 ... ok
+test broadr_si30_rm ... ok
+test reconr_ar37_mlbw_urr_and_mf10 ... ok
+test reconr_si30_rm ... ok
+test reconr_sr88_rml_background_rmatrix ... ok
+test broadr_cl35_rml ... ok
+test reconr_u234_rm_urr ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.09s
+
+     Running tests/photon.rs (target/release/deps/photon-b58b37735d216029)
+
+running 1 test
+test u235_fission_photon_energy_is_physical ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.83s
+
+     Running tests/process_api.rs (target/release/deps/process_api-efd3e8f62e767ea3)
+
+running 5 tests
+test bad_inputs_are_refused_not_panicked_on ... ok
+test the_default_settings_run_heatr_and_purr ... ok
+test ace_reproduces_njoy2016s_u234_table_in_every_word ... ok
+test the_full_deck_picks_its_block_and_refuses_between_spectra ... ok
+test thermal_ace_on_a_leapr_deck_is_njoy2016s_table_in_every_word ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 64.62s
+
+     Running tests/process_elastic_0k_and_stages.rs (target/release/deps/process_elastic_0k_and_stages-a1fb9cfe75db1ed1)
+
+running 4 tests
+test a_reconstruction_at_another_tolerance_is_refused ... ok
+test elastic_0k_is_on_by_default_and_is_the_0k_pendf_elastic ... ok
+test without_elastic_0k_drops_it_and_changes_nothing_else ... ok
+test one_reconr_for_many_temperatures_is_bit_for_bit ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.40s
+
+     Running tests/purr_u235_urr.rs (target/release/deps/purr_u235_urr-438cd827d9138f1b)
+
+running 2 tests
+test unresr_and_infinite_dilution_reference_match_njoy ... ok
+test purr_probability_table_at_first_energy_matches_njoy ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+
+     Running tests/purr_u238_ptables_vs_njoy.rs (target/release/deps/purr_u238_ptables_vs_njoy-7fb8437fea129ecd)
+
+running 1 test
+test purr_probability_tables_match_njoy2016 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.89s
+
+     Running tests/purr_u238_urr.rs (target/release/deps/purr_u238_urr-5611f26aa517ab24)
+
+running 3 tests
+test nro1_scattering_radius_table_is_read_and_interpolated_like_terpa ... ok
+test unresr_and_infinite_dilution_reference_match_njoy_on_u238 ... ok
+test purr_probability_table_at_first_energy_matches_njoy_on_u238 ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/reconr_ar37.rs (target/release/deps/reconr_ar37-30ccaf8307d109e5)
+
+running 20 tests
+test library_elastic_xs_uom_typed ... ok
+test library_fission_xs_is_zero ... ok
+test library_from_file_and_reconstruct ... ok
+test library_to_continuous_energy_data ... ok
+test mf1_za_and_awr ... ok
+test mf2_dwave_has_2_resonances ... ok
+test mf2_has_resolved_resonances ... ok
+test mf2_parses_without_error ... ok
+test mf2_resolved_range_energy_bounds ... ok
+test mf2_spi_and_ap ... ok
+test mf2_swave_has_5_resonances ... ok
+test mf2_swave_resonance_energies ... ok
+test reconr_all_xs_nonnegative ... ok
+test reconr_capture_peak_at_resonance ... ok
+test reconr_produces_elastic_section ... ok
+test reconr_resonance_peak_visible ... ok
+test reconr_runs_without_error ... ok
+test slbw_ar37_resonance_drops_away_from_peak ... ok
+test slbw_ar37_resonance_peak_elastic ... ok
+test library_broaden_records_temperature ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.18s
+
+     Running tests/reconr_ar37_mlbw_njoy_golden.rs (target/release/deps/reconr_ar37_mlbw_njoy_golden-07ef3c2bc7f56a1d)
+
+running 1 test
+test ar37_mlbw_elastic_and_capture_match_njoy_tape21 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/reconr_cl35_rml_njoy_golden.rs (target/release/deps/reconr_cl35_rml_njoy_golden-c00796bf2c2b03b9)
+
+running 2 tests
+test cl35_crate_reconr_end_to_end_reported ... ok
+test cl35_rml_kernel_matches_njoy_reconr_at_its_nodes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/reconr_h2.rs (target/release/deps/reconr_h2-ff57c667095fec19)
+
+running 11 tests
+test mf1_emax ... ok
+test mf1_za_awr ... ok
+test mf2_lru0_no_resonances ... ok
+test potential_scattering_h2_thermal ... ok
+test mf2_potential_scattering_radius ... ok
+test reconr_elastic_thermal_value ... ok
+test reconr_all_xs_nonnegative ... ok
+test reconr_lin_lin_keeps_every_tape_point ... ok
+test reconr_produces_all_mf3_sections ... ok
+test reconr_runs_without_error ... ok
+test reconr_total_xs_energy_bounds ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs (target/release/deps/reconr_lrf7_threshold_channels_vs_njoy2016-01b8c902fcecd0e3)
+
+running 2 tests
+test fe57_reconr_is_bounded_and_matches_njoy2016 ... ok
+test mo95_reconr_is_bounded_and_matches_njoy2016 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs (target/release/deps/reconr_mt152_all_unresolved_cases_vs_njoy2016-f5b05139d3ef8332)
+
+running 7 tests
+test case_b_stored_values_match_njoys_own ... ok
+test fe58_disagreement_is_explained_by_upstreams_unfac_fall_through ... ok
+test lssf1_stores_the_bare_kernel_with_no_mf3_background ... ok
+test our_penetrability_clamps_l_at_two_like_uunfac ... ok
+test case_a_and_lssf1_grid_and_flags_match_njoys_own ... ok
+test u238_lssf1_stored_values_match_njoys_own_exactly ... ok
+test released_and_beta_fe58_carry_the_same_unresolved_parameters ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/reconr_mt152_vs_njoy2016.rs (target/release/deps/reconr_mt152_vs_njoy2016-ce46ce8e0753f95f)
+
+running 2 tests
+test the_kernel_plus_background_reproduces_njoys_mt152_table_at_every_stored_energy ... ok
+test the_agreeing_mf3_energies_are_exactly_the_mt152_energies ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/reconr_mt152_writer_vs_njoy2016.rs (target/release/deps/reconr_mt152_writer_vs_njoy2016-44bda8824c6d02c5)
+
+running 4 tests
+test a_material_without_an_unresolved_range_emits_no_section ... ok
+test the_fifth_column_repeats_the_total ... ok
+test the_written_mt152_matches_njoys_own ... ok
+test reconr_emits_the_section_and_it_still_matches_njoy ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/reconr_mt1_is_the_sum_of_its_parts.rs (target/release/deps/reconr_mt1_is_the_sum_of_its_parts-06eda8bbe01d3393)
+
+running 3 tests
+test mt1_equals_the_sum_of_our_own_partials ... ok
+test mt1_reproduces_njoy2016_where_the_partials_carry_background ... ok
+test u234_fission_follows_upstreams_mtr18_rule ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/reconr_si30_inter_resonance_capture.rs (target/release/deps/reconr_si30_inter_resonance_capture-12143eb76c1fd715)
+
+running 1 test
+test si30_reconr_grid_matches_njoy_between_resonances ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/reconr_sr88_lrf7_kbk_njoy_golden.rs (target/release/deps/reconr_sr88_lrf7_kbk_njoy_golden-5d3fc303fdc6481e)
+
+running 2 tests
+test sr88_elastic_matches_the_values_recorded_in_the_defect_report ... ok
+test sr88_lrf7_background_rmatrix_reproduces_njoy2016 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/reconr_u234_unresolved_njoy_golden.rs (target/release/deps/reconr_u234_unresolved_njoy_golden-a268648833e83596)
+
+running 2 tests
+test unresolved_range_reproduces_njoy2016_and_is_never_zero ... ok
+test lssf1_materials_are_untouched_by_the_unresolved_reconstruction ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.77s
+
+     Running tests/reconr_u235.rs (target/release/deps/reconr_u235-1cd99bd7ee48224b)
+
+running 11 tests
+test mf1_za_awr_and_fissile_flag ... ok
+test mf2_lowest_positive_resonances ... ok
+test mf2_parses_reich_moore_without_error ... ok
+test mf2_reich_moore_resonance_inventory ... ok
+test mf2_resolved_range_is_reich_moore ... ok
+test library_reconstructs_and_reports_fissile_xs ... ok
+test reconr_all_xs_nonnegative_and_finite ... ok
+test reconr_fission_is_substantial_and_finite ... ok
+test reconr_resonance_peaks_above_thermal ... ok
+test reconr_thermal_cross_sections_match_accepted_values ... ok
+test reconr_runs_without_error ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.42s
+
+     Running tests/reconr_urr_kernel_vs_njoy2016.rs (target/release/deps/reconr_urr_kernel_vs_njoy2016-61b33814ac418563)
+
+running 2 tests
+test mf3_background_is_absent_below_the_top_of_the_unresolved_window ... ok
+test every_njoy_unresolved_point_is_either_reproduced_or_is_njoys_own_interpolation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/reconr_urr_njoy_converges_to_ours.rs (target/release/deps/reconr_urr_njoy_converges_to_ours-f5735b7598d39cf9)
+
+running 2 tests
+test refinement_leaves_the_physics_unchanged_at_the_original_parameter_energies ... ok
+test refining_njoys_parameter_grid_moves_its_output_onto_ours ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/resxsr_h2_njoy_golden.rs (target/release/deps/resxsr_h2_njoy_golden-8bf8eda74dac34c8)
+
+running 2 tests
+test resxsr_h2_matches_njoy ... ok
+test resxsr_h2_two_temperatures_matches_njoy ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/thermal_ace.rs (target/release/deps/thermal_ace-8d5f07a5a2102458)
+
+running 4 tests
+test inelastic_blocks_are_consistent ... ok
+test coherent_elastic_bragg_block_is_monotone ... ok
+test thermal_table_header_and_dimensions ... ok
+test thermal_table_roundtrips_through_file ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+
+     Running tests/thermal_ace_read_round_trip.rs (target/release/deps/thermal_ace_read_round_trip-f80de2a2b7083242)
+
+running 2 tests
+test a_thermal_table_we_wrote_reads_back ... ok
+test a_continuous_table_reads_back ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+     Running tests/thermal_ace_tolerance.rs (target/release/deps/thermal_ace_tolerance-1d265c04f1c2d33d)
+
+running 1 test
+test thermr_tol_reaches_calcem_and_the_default_is_unchanged ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.01s
+
+     Running tests/thermal_ace_zrh.rs (target/release/deps/thermal_ace_zrh-c67cd86a7653688d)
+
+running 5 tests
+test hzrh_has_incoherent_elastic_and_inelastic_but_no_coherent ... ok
+test incoherent_elastic_cross_section_physics ... ok
+test incoherent_elastic_block_layout_is_consistent ... ok
+test thermal_table_roundtrips_through_file ... ok
+test thermal_table_uses_idpnc3_elastic_branch ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.63s
+
+     Running tests/thermal_graphite_coherent.rs (target/release/deps/thermal_graphite_coherent-be5546d8ffca9808)
+
+running 6 tests
+test coherent_sigma_decreases_with_temperature ... ok
+test anchors_at_296k ... ok
+test consumer_surface_matches_mf7_level ... ok
+test htr10_temperatures_interpolate_or_snap ... ok
+test out_of_range_temperature_is_refused ... ok
+test inelastic_interpolates_between_temperatures ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+     Running tests/thermal_h2o_sab.rs (target/release/deps/thermal_h2o_sab-640e1b13b410fd3e)
+
+running 5 tests
+test double_differential_obeys_detailed_balance ... ok
+test effective_temperature_is_physical ... ok
+test selects_the_293k_scattering_law ... ok
+test approaches_free_atom_cross_section_at_high_energy ... ok
+test thermal_cross_section_matches_bound_water ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests/thermal_temperature_thinning.rs (target/release/deps/thermal_temperature_thinning-da119cb25f646d8e)
+
+running 8 tests
+test byte_savings_per_grid ... ok
+test coherent_elastic_error_is_concentrated_above_the_thermal_window ... ok
+test coherent_elastic_thinning_is_cheap_at_thermal_energies ... ok
+test evaluation_structure_is_as_documented ... ok
+test combined_thermal_cross_section_error_decides_the_trade ... ok
+test log_space_halves_the_coherent_elastic_error ... ok
+test inelastic_thinning_error_is_large_and_worst_at_high_energy ... ok
+test production_interpolation_stays_inside_its_bracket ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.52s
+
+     Running tests/thermr_calcem_sigl_vs_quadrature.rs (target/release/deps/thermr_calcem_sigl_vs_quadrature-60ab8e4c09f11e1c)
+
+running 3 tests
+test egrid_is_bit_for_bit_the_fortran_table ... ok
+test sigl_cross_section_converges_onto_an_independent_quadrature ... ok
+test sigl_equiprobable_cosines_reproduce_the_quadrature_mean_cosine ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/thermr_calcem_vs_njoy2016_golden.rs (target/release/deps/thermr_calcem_vs_njoy2016_golden-4d0767b63ec3301d)
+
+running 1 test
+test calcem_iform0_reproduces_njoy2016_for_graphite_at_600k ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+     Running tests/thermr_iform1_continuous_law.rs (target/release/deps/thermr_iform1_continuous_law-a891f06f45bbbb58)
+
+running 3 tests
+test iform1_joint_mu_energy_distribution_is_normalised ... ok
+test iform1_mean_cosine_matches_a_double_quadrature ... ok
+test iform1_cross_section_matches_an_independent_integration ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.49s
+
+     Running tests/thermr_kernel_vs_njoy2016_matrix.rs (target/release/deps/thermr_kernel_vs_njoy2016_matrix-6d714d57162d0f51)
+
+running 2 tests
+test calcem_emission_kernel_reproduces_njoy2016_shape ... ok
+test equiprobable_emission_is_the_narrow_one ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.07s
+
+     Running tests/u238_doppler_verification/main.rs (target/release/deps/u238_doppler_verification-7fb284e0bcd69b64)
+
+running 2 tests
+test capture_pipeline_is_physical ... ok
+test capture_doppler_matches_openmc has been running for over 60 seconds
+test capture_doppler_matches_openmc ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 64.32s
+
+     Running tests/unr_block_write_vs_njoy2016.rs (target/release/deps/unr_block_write_vs_njoy2016-69f05248a9f4d610)
+
+running 4 tests
+test build_full_with_purr_writes_a_block_that_reads_back_as_generated ... ok
+test reading_then_writing_reproduces_njoys_unr_block_word_for_word ... ok
+test the_competition_flags_and_energy_grid_are_derived_exactly_as_njoy_derives_them ... ok
+test purr_generates_njoys_bands_word_for_word has been running for over 60 seconds
+test purr_generates_njoys_bands_word_for_word ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 69.86s
+
+     Running tests/urr_from_ace_unr_block.rs (target/release/deps/urr_from_ace_unr_block-5c32d62b333c9129)
+
+running 5 tests
+test a_zero_locator_yields_none_rather_than_an_error ... ok
+test a_block_running_past_xss_is_refused ... ok
+test ace_tables_and_our_own_purr_agree_on_range_and_convention ... ok
+test u235_unr_block_decodes_and_differs_from_u238 ... ok
+test u238_unr_block_decodes_into_sane_tables ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.68s
+
+     Running tests/wasm_fallback.rs (target/release/deps/wasm_fallback-220cc2d210c73212)
+
+running 2 tests
+test doppler_broaden_runs_under_wasm ... ok
+test broadening_is_reproducible_run_to_run ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wasm_process_runtime.rs (target/release/deps/wasm_process_runtime-9c5ce130b4fe2643)
+
+running 1 test
+test process_and_the_object_run_and_give_the_native_numbers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/wimsr_u238_njoy_golden.rs (target/release/deps/wimsr_u238_njoy_golden-0322ed7a0421ecf3)
+
+running 2 tests
+test listing_stage_values ... ok
+test library_matches_njoy_wimsd_tape ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wmp_arbitrary_temperature.rs (target/release/deps/wmp_arbitrary_temperature-7a4a046c75812bb2)
+
+running 3 tests
+test two_temperatures_coexist_in_one_process ... ok
+test the_sqrt_t_interpolation_error_is_measured_not_assumed ... ok
+test wmp_doppler_broadens_at_arbitrary_temperature ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wmp_h5_vs_openmc.rs (target/release/deps/wmp_h5_vs_openmc-ec8ddad302ed7c31)
+
+running 2 tests
+test openmc_reads_our_u238_library_and_agrees ... ok
+test openmc_reads_our_fe56_library_and_agrees ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/wmp_h5_write_round_trip.rs (target/release/deps/wmp_h5_write_round_trip-bf531f86cff87fb3)
+
+running 4 tests
+test fe56_survives_the_round_trip_bit_for_bit ... ok
+test an_inconsistent_record_is_refused_before_it_reaches_disk ... ok
+test the_reloaded_record_evaluates_identically ... ok
+test u238_survives_the_round_trip_bit_for_bit ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/wmp_u238.rs (target/release/deps/wmp_u238-813f25450e8f0312)
+
+running 3 tests
+test u238_cross_sections_are_physical_across_the_range ... ok
+test u238_capture_resonance_and_doppler_broadening ... ok
+test u238_loads_and_has_expected_metadata ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

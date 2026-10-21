@@ -1,0 +1,13 @@
+# NUREG-1465 (Soffer et al., US NRC, Feb 1995), Table 3.13 "PWR Releases Into Containment", printed p. 13 (PDF p. 22).
+# Open corpus: theodore-open-corpus/soffer2009nureg1465.pdf. Maintainer's kovan digitisation (table-3-13-pwr-releases-into-containment,
+# 2026-09-30T02:33:51Z), matching the rendered page on every cell (#451 NOTE.md). Fraction of core inventory released INTO CONTAINMENT.
+# Durations [h]: gap 0.5, early in-vessel 1.3, ex-vessel 2.0, late in-vessel 10.0. Groups: Table 3.8 (p. 10).
+group,gap,early_in_vessel,ex_vessel,late_in_vessel
+noble_gases,0.05,0.95,0,0
+halogens,0.05,0.35,0.25,0.1
+alkali_metals,0.05,0.25,0.35,0.1
+tellurium,0,0.05,0.25,0.005
+barium_strontium,0,0.02,0.1,0
+noble_metals,0,0.0025,0.0025,0
+cerium,0,0.0005,0.005,0
+lanthanides,0,0.0002,0.005,0

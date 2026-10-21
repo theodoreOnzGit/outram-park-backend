@@ -93,6 +93,16 @@ migration notes.
 
 ## Publishing to crates.io
 
+**Lockstep (maintainer, 2026-10-20; gh:#971).** Every member crate is published
+in the same release, and the `outram-park` metacrate (separate repository,
+AGPL-3.0-only) follows straight after, depending on these crates **only by
+their crates.io versions**. Version scheme: a crate's first release is
+`0.0.1`; each release bumps every crate's patch version by one unless the
+maintainer sets another (e.g. `tampines-steam-tables` 0.3.0). Package every
+crate together with `cargo package --workspace --no-verify` (single-crate
+packaging fails until its dependencies' new versions are live), then
+`cargo publish --workspace`, which orders the crates itself.
+
 **Do not hand-maintain the publish order.** Derive it from `cargo metadata`,
 which is the only source that cannot go stale:
 
@@ -114,6 +124,22 @@ pin bumped whenever an upstream is bumped.
 
 Publish each with `cargo publish -p <crate>` from the workspace root (commit
 first; `cargo publish` refuses a dirty tree without `--allow-dirty`).
+
+### Tests green before each publish; test ahead of the queue (maintainer, 2026-10-21)
+
+When publishing to crates.io in lockstep, every crate's tests must be green
+before that crate is published. Low-level crates are tested and published
+first, concurrently with the tests of the higher-level crates still running,
+so the publish queue starts early and crates.io's rate limits are spread over
+the run instead of hitting at the end. Ideally a script drives this; the agent
+manages it.
+
+The script is `scripts/release-lockstep.sh`: a test worker pool (bounded by
+`JOBS`) runs `cargo test --release -p <crate> --lib --tests` in topological
+order (normal + dev edges), and one serial publisher publishes each crate once
+its tests are green and every internal dependency is live. A red crate is not
+published, nor is anything that depends on it. Per-crate logs and a summary
+TSV land under `release/`.
 
 ### Drift: the published version is not the local version
 

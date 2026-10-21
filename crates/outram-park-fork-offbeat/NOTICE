@@ -19,8 +19,8 @@ Primary reference:
   DOI from the publisher record rather than from this file.)
 
 Upstream license: GNU General Public License, version 3 (GPL-3.0). This is the
-same license this crate is distributed under, so no relicensing step applies —
-the LICENSE file in this directory is the GPL-3.0 text. The upstream LICENSE
+same license the ported files are distributed under (the crate itself has been AGPL-3.0-only since 2026-10-20, gh:#973, see below;
+~~the LICENSE file in this directory is the GPL-3.0 text~~ `LICENSE` is now the AGPL-3.0 text, `LICENSE.GPL-3.0` the GPL-3.0 one). The upstream LICENSE
 file was retrieved from the GitLab repository on 2026-07-29 and read directly;
 this is not an inference from documentation.
 
@@ -59,3 +59,29 @@ by or affiliated with OFFBEAT, the foam-for-nuclear project, EPFL, the Paul
 Scherrer Institute, Texas A&M University, or the OpenFOAM Foundation / OpenCFD.
 "OFFBEAT" and "OpenFOAM" are used only to identify the upstream work this crate
 derives from. See the workspace TRADEMARKS.md.
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only, as a COMBINED WORK (2026-10-20)
+-------------------------------------------------------------------------
+
+At the maintainer's direction (GitHub issue #973), this crate is licensed
+AGPL-3.0-only from this date, and `LICENSE` is the AGPL-3.0 text.
+
+This crate contains code translated from a COPYLEFT upstream (named elsewhere
+in this file). A translation is a derivative work of that upstream's
+copyright, so those files CANNOT be relicensed: they stay GPL-3.0 and their
+SPDX headers are unchanged. No file header in this crate was touched by this
+pass. "Or later" does not help -- AGPLv3 is not a later version of the GPL.
+
+The crate therefore conveys as a COMBINED WORK under GPLv3 section 13 and
+AGPLv3 section 13, each of which grants permission to combine the two: the
+GPL-3.0 parts remain under the GPL, and the AGPL's network-interaction
+obligation applies to the combination as such. The GPL-3.0 text ships beside
+the AGPL-3.0 one as `LICENSE.GPL-3.0`, because GPLv3 section 4 requires the
+licence text to travel with the covered work and a crates.io tarball holds
+only this directory.
+
+Versions already published to crates.io keep the licence they were published
+under, forever; this affects future versions only. No version was bumped.
+
+The per-crate record is `docs/relicensing-agpl-2026-10-20.md`; the audit it
+rests on is the first comment on GitHub issue #973.

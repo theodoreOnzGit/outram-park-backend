@@ -1,24 +1,80 @@
 [package]
 name = "boon-lay"
-version = "0.1.3"
+version = "0.2.1"
 edition.workspace = true
 license.workspace = true
 description = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields — Lagrangian radionuclide transport, decay, fission, and diffusion for TRISO/HTGR/FHR"
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
-# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
-# and never shipped in the packaged crate.
-exclude = ["verification_and_validation/*.csv"]
+# What crates.io gets: an ALLOW-LIST (maintainer direction 2026-10-16;
+# was an `exclude` list). Patterns are anchored with a leading / (gitignore
+# rules: an unanchored "README.md" matches every README in the tree). Only
+# the library source, the licences, the TRISO-ATOPS notice and provenance
+# notes ship; src/'s kovan.toml and review.md review metadata do not. tests/, examples/, dev/,
+# verification_and_validation/, docs/ and the kovan files stay in git.
+include = [
+    "/src/**/*.rs",
+    "/src/**/*.wgsl",
+    "/src/**/README.md",
+    "/src/rustbca/LICENSE",
+    "/README.md",
+    "/LICENSE",
+    # The AGPL-3.0 text is `/LICENSE`; the GPL-3.0 text ships beside it because
+    # `src/rustbca/` stays GPL-3.0-or-later (gh:#973).
+    "/LICENSE.GPL-3.0",
+    "/LICENSE.triso-atops",
+    "/NOTICE",
+    "/NOTICE.triso-atops",
+    "/TRADEMARKS.md",
+    "/TRISO_ATOPS_DERIVATION.md",
+    "/upstream_source/README.md",
+]
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "fuel-performance"
+fidelity = 1
+maturity = 2
+backronym = "BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation Yields"
 
 [dependencies]
 uom             = { workspace = true }
 serde           = { workspace = true }
 serde-xml-rs    = { workspace = true }
+# JSON for reading upstream / GUI-written TRISO-ATOPS run files
+# (triso_atops_fork::run_file::upstream, #449). Pure Rust; wasm/Android-clean.
+serde_json      = { workspace = true }
 anyhow          = { workspace = true }
 outram-mc-libs     = { workspace = true }
 fission-yields-data               = { workspace = true }
 openmc-endf-8-depletion-lib-b     = { workspace = true }
+# ── RustBCA copy (src/rustbca/, gh:#876 item 7) ─────────────────────────────
+# The no_std + alloc core needs only these. petir supplies the libm-backed
+# `real::Real` float shim (the workspace's one no_std shim) and, since
+# gh:#995, the random numbers: `petir::rng` ports the rand 0.10.3 /
+# rand_distr 0.6.0 pieces RustBCA used (ChaCha8Rng, Uniform, Normal), draw for
+# draw, so `rand` and `rand_distr` are no longer dependencies.
+petir           = { workspace = true }
+# OS entropy for `seed < 0` and `simple_bca`, std layer only (was rand's
+# thread_rng; gh:#995).
+getrandom       = { workspace = true, optional = true }
+# std-only parts of the copy, all behind the `rustbca-std` feature.
+toml            = { workspace = true, optional = true }
+geo             = { workspace = true, optional = true }
+indicatif       = { workspace = true, optional = true, features = ["rayon"] }
+itertools       = { workspace = true, optional = true }
 # Data parallelism across independent Lagrangian histories. Pure-Rust and
 # Android/Termux-safe, so it stays an unconditional dependency.
 # rayon: see the wasm target table at the end of this manifest.
@@ -32,6 +88,15 @@ wgpu = { workspace = true }
 
 [dev-dependencies]
 approx          = { workspace = true }
+# RustBCA's own unit tests (src/rustbca/tests.rs): float-cmp for their
+# assertions, geo because they build Mesh2D geometries (compiled under
+# cfg(test) as well as under `rustbca-std`).
+float-cmp       = { workspace = true }
+geo             = { workspace = true }
+# ~~JSON only for the run-file round-trip test; the library stays
+# format-agnostic.~~ UPDATED 2026-09-30 (#449): serde_json is now a library
+# dependency, because reading upstream's own run file (run_file::upstream) is
+# inherently JSON. The port's RunFile still derives serde and stays format-agnostic.
 log             = { workspace = true }
 csv             = { workspace = true }
 
@@ -61,6 +126,31 @@ name = "triso_simulator"
 
 [[example]]
 name = "first_passage_realtime"
+
+# Geometry check for lesson rung 1 (gh:#531): draws the assembled TrisoCell
+# from region lookups and recovers each interface radius. Pure std.
+[[example]]
+name = "triso_cell_slice"
+
+# Rung 4 table: D per TRISO layer and the PyC->SiC transmission probability,
+# through the walker's own coefficient lookup (gh:#531). Pure std.
+[[example]]
+name = "layer_diffusion_table"
+
+[features]
+# The std-only layer of the RustBCA copy (src/rustbca/): TOML input files,
+# file output, the rayon/indicatif batch driver (native only), entropy
+# seeding, simple_bca, and the geo-backed Mesh2D / HomogeneousMesh2D. OFF by
+# default: boon-lay re-exports the no_std + alloc core (maintainer decision,
+# gh:#876 item 7). Not for wasm32-unknown-unknown: ~~getrandom 0.4 (from
+# rand's thread_rng)~~ getrandom 0.3 (the entropy seed, gh:#995) needs its
+# wasm_js feature there, which nothing enables here.
+rustbca-std = ["dep:toml", "dep:geo", "dep:indicatif", "dep:itertools", "dep:getrandom"]
+
+# Headless cost probe for RustBCA cascades in a UO2 kernel and its TRISO
+# coatings (gh:#876 item 7). Pure Rust, no GUI; runs on every target.
+[[example]]
+name = "rustbca_cascades"
 
 # ── rayon: native + Android only ─────────────────────────────────────────────
 # rayon-core does not build for wasm32-unknown-unknown (no OS threads;

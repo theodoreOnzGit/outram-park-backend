@@ -126,10 +126,10 @@ pub fn report() {
     out.push_str("# API token usage per commit\n\n");
     out.push_str(
         "> **Auto-generated — do not hand-edit.** Regenerated on every commit by \
-         `kovan tokens record` (via the `post-commit` hook) from the \
+         `kovan-cli tokens record` (via the `post-commit` hook) from the \
          `API-Usage-Since-Last-Commit` commit trailers. Rebuild with \
-         `kovan tokens report`; query a period with \
-         `kovan tokens query --from DDMMYY --to DDMMYY`.\n\n",
+         `kovan-cli tokens report`; query a period with \
+         `kovan-cli tokens query --from DDMMYY --to DDMMYY`.\n\n",
     );
     out.push_str("## Methodology & caveats\n\n");
     out.push_str(

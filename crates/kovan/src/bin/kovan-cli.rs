@@ -25,6 +25,12 @@
 //! kovan-cli lit import paper.pdf --json-out doc.json
 //! kovan-cli lit bibtex doc.json
 //! kovan-cli lit outline paper.pdf
+//! kovan-cli zotero formats
+//! kovan-cli zotero import ~/Zotero --to ~/my-kovan-folder --dry-run
+//! kovan-cli zotero import library.bib --to ~/my-kovan-folder
+//! kovan-cli zotero export --format ris --from ~/my-kovan-folder -o library.ris
+//! kovan-cli zotero duplicates ~/my-kovan-folder
+//! kovan-cli zotero search ~/my-kovan-folder "pebble bed"
 //! kovan-cli setup --dry-run
 //! kovan-cli digitise --image fig7.png --x-scale log --x-range 1,1e6 \
 //!     --y-scale log --y-range 0.1,10 --figure "Fig. 7" --json fig7.json
@@ -35,6 +41,10 @@
 //! kovan-cli def foo --file src/lib.rs
 //! kovan-cli sig foo --file src/lib.rs
 //! kovan-cli refs foo --file src/lib.rs
+//! kovan-cli code-walk --from crates/x/examples/demo.rs::main --to crates/x/src/geom.rs::Sphere::distance
+//! kovan-cli code-walk --from crates/x/src/keff.rs::transport_history --depth 2 --format json
+//! kovan-cli code-walk-check crates/x/docs/lessons --update
+//! kovan-cli test -j 1 -p bishan        # partial; the full suite is `kovan-cli test`
 //! kovan-cli lsp-daemon-stop --root .
 //! kovan-cli project regen /path/to/my-kovan-folder
 //! ```
@@ -42,7 +52,9 @@
 //! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
 //! `kovan-codegen`'s catalogue directly. `symbols`/`summary` wrap
 //! `kovan-semantics`'s ripgrep-first extractor. `lit` wraps `kovan-literature`'s
-//! PDF → Markdown → `KovanDocument` → BibTeX pipeline. `gen` wraps
+//! PDF → Markdown → `KovanDocument` → BibTeX pipeline. `zotero` wraps
+//! [`kovan::zotero`] — Zotero import into a Kovan folder and export to every
+//! ported Zotero translator (GitHub #752, see `commands::zotero`). `gen` wraps
 //! `kovan-codegen::generate`; entries not yet backed by a template report
 //! `CodegenError::Unimplemented` as a CLI error (see `kovan-cli methods` for
 //! which ones those are). `digitise` wraps
@@ -61,8 +73,11 @@
 //! `def`/`sig`/`refs` are that same issue's follow-up — rust-analyzer-backed
 //! semantic queries wired directly to `kopitiam-semantic`'s
 //! `RustAnalyzerSession` (see `commands::semq`); they need `rust-analyzer` on
-//! `PATH`. `callers`/`callees`/`impls` are deliberately not implemented yet
-//! (`op-l3uz`). `project regen` wraps [`kovan::project::regenerate_and_write`]
+//! `PATH`. ~~`callers`/`callees`/`impls` are deliberately not implemented yet
+//! (`op-l3uz`).~~ **CORRECTED 2026-10-04**: callees now exist as `code-walk`
+//! (GitHub issue #523; concept paths and exhaustive call trees, see
+//! `commands::code_walk`), with `code-walk-check` as the lessons' staleness
+//! gate; `callers` and `impls` are still not implemented. `project regen` wraps [`kovan::project::regenerate_and_write`]
 //! — the "kovan folder" `kovan.toml` index generator (GitHub issue #30's
 //! project-folder format, op-63u0's design, op-b1y5's implementation); the
 //! file is always fully regenerated, never hand-merged — see that module's
@@ -78,9 +93,11 @@ use clap::{Parser, Subcommand};
 
 use kovan::commands;
 use commands::gen::GenCommand;
+use commands::ci::CiCommand;
 use commands::lit::LitCommand;
 use commands::project::ProjectCommand;
 use commands::tokens::TokensCommand;
+use commands::zotero::ZoteroCommand;
 use commands::{KindArg, LangArg};
 use kovan::digitiser::frontend::AutoArgs;
 
@@ -128,6 +145,21 @@ enum Command {
         /// Source language.
         #[arg(long, value_enum)]
         lang: LangArg,
+    },
+    /// Which workspace crates a diff affects, closed over reverse
+    /// dependencies — the CI crate selector. Prints `-p a -p b`, or nothing
+    /// at all when the whole workspace is selected, so a caller can splice
+    /// the output onto a `cargo` command unconditionally.
+    Affected {
+        /// The ref to diff against, e.g. `origin/develop` or a merge SHA.
+        #[arg(long)]
+        base: String,
+        /// Workspace root (default: discovered).
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// `cargo-args` (default) or `list`.
+        #[arg(long, default_value = "cargo-args")]
+        format: String,
     },
     /// List the numerical-method codegen catalogue.
     Methods,
@@ -217,10 +249,20 @@ enum Command {
         #[arg(long)]
         no_figure: bool,
     },
+    /// The push CI's compile gate and test selection: `top-crates`, `smoke`,
+    /// `known-failures` (GitHub #414, #416).
+    #[command(subcommand)]
+    Ci(CiCommand),
     /// Literature pipeline: PDF import, BibTeX, Markdown outline
     /// (`kovan-literature`).
     #[command(subcommand)]
     Lit(LitCommand),
+    /// Zotero: import a Zotero library or file into a Kovan folder, export
+    /// to every Zotero format, list formats, duplicates, quick search
+    /// (GitHub #752), and identifier lookup (`zotero lookup`, GitHub #756;
+    /// uses the network, only when run).
+    #[command(subcommand)]
+    Zotero(ZoteroCommand),
     /// The "kovan folder" project format (op-63u0's design): rescan a
     /// project and rewrite its `kovan.toml` index.
     #[command(subcommand)]
@@ -378,6 +420,244 @@ enum Command {
         #[command(flatten)]
         locator: Locator,
     },
+    /// Rust-analyzer-backed call walk (GitHub issue #523): the shortest
+    /// chain(s) of workspace calls from `--from` to `--to`, or, without
+    /// `--to`, everything `--from` reaches within `--depth` hops. Functions
+    /// are `path/to/file.rs::name` or `path/to/file.rs::Type::name`. Calls
+    /// that cannot be followed (trait methods, closures, workspace macros)
+    /// are marked UNRESOLVED(<kind>), never guessed. Needs `rust-analyzer`.
+    CodeWalk {
+        /// Entry point, e.g. `crates/x/examples/demo.rs::main`.
+        #[arg(long)]
+        from: String,
+        /// Concept function; omit for the exhaustive tree.
+        #[arg(long)]
+        to: Option<String>,
+        /// Max hops searched (path mode, default 12) or shown (tree mode,
+        /// default 3).
+        #[arg(long)]
+        depth: Option<usize>,
+        #[arg(long, value_enum, default_value_t = commands::code_walk::Format::Markdown)]
+        format: commands::code_walk::Format,
+        /// Most shortest chains to report.
+        #[arg(long, default_value_t = 8)]
+        max_paths: usize,
+        /// A hop filled in by hand, `<from> -> <to> | <note>` (repeatable).
+        #[arg(long)]
+        hand: Vec<String>,
+        /// Directory containing the workspace `Cargo.toml`.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Repository the permalinks point into (`/blob/@@COMMIT@@/...`).
+        #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
+        repo_url: String,
+    },
+    /// Full-text search index of a built Pages site (gh:#876 item 8): walks
+    /// the site directory and writes `<site>/search-text.json`, which the
+    /// landing page's search box reads (`kovan::site_search`).
+    SiteIndex {
+        /// The built site, e.g. `target/pages` (`scripts/build-pages.sh`).
+        site: PathBuf,
+    },
+    /// The workspace's code map (GitHub #734): every crate placed by its
+    /// `[package.metadata.kovan]` tag, with its required dependencies, from
+    /// `cargo metadata` (no rust-analyzer). `--format json` writes the data,
+    /// `--format svg` the drawn map; the same Cargo.tomls give byte-identical
+    /// output.
+    CodeMap {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        #[arg(long, value_enum, default_value_t = commands::code_map::Format::Json)]
+        format: commands::code_map::Format,
+        /// Output file; stdout when omitted.
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
+    /// The workspace call graph (GitHub #737): crate -> module/example ->
+    /// function, every resolved call with its call-site lines, unresolved
+    /// calls per function, module and crate aggregates, and each function's
+    /// source, as deterministic JSON for the code-review UI. Calls are
+    /// resolved by rust-analyzer as in `code-walk`; nothing is guessed.
+    /// The whole workspace is slow (one definition query per call-shaped
+    /// token); `--crates` restricts the scope.
+    CallGraph {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Comma-separated crate names; every member when omitted.
+        #[arg(long)]
+        crates: Option<String>,
+        /// Output file; stdout when omitted.
+        #[arg(short, long, conflicts_with = "split_dir")]
+        out: Option<PathBuf>,
+        /// Write one `<crate>.json` per crate (no source text) and an
+        /// `index.json` (with review stamp states) into this directory, for
+        /// web-kovan (GitHub #736), instead of one document.
+        #[arg(long)]
+        split_dir: Option<PathBuf>,
+        /// Merge these call-graph documents (one per crate, written by
+        /// earlier runs) instead of building: the incremental site build
+        /// (#745). The result is the bytes one run over all of them gives.
+        #[arg(long, num_args = 1.., conflicts_with = "crates")]
+        merge: Vec<PathBuf>,
+        /// Where definitions come from (GitHub #757): `lsp` asks
+        /// rust-analyzer's LSP per call-shaped token (default); `scip` runs
+        /// `rust-analyzer scip` once over the workspace (about 3 min on a 16-core desktop, 10 to 20 min on a laptop) into
+        /// `target/kovan-scip/index.scip` and resolves every call from it,
+        /// adding operator calls and functions passed as paths.
+        #[arg(long, value_enum, default_value = "lsp")]
+        backend: commands::call_graph::BackendArg,
+        /// Use this SCIP index (written earlier by `rust-analyzer scip`)
+        /// instead of generating one; implies `--backend scip`.
+        #[arg(long)]
+        scip: Option<PathBuf>,
+    },
+    /// Compares two call-graph documents edge by edge (GitHub #757): edges
+    /// in both, in one only (by call kind), call-site line agreement and
+    /// unresolved calls by kind, per crate. The V&V instrument for the SCIP
+    /// backend against the LSP one.
+    CallGraphDiff {
+        /// The reference document (for example the LSP-built one).
+        a: PathBuf,
+        /// The document compared with it (for example the SCIP-built one).
+        b: PathBuf,
+        /// List up to this many differing edges of each kind.
+        #[arg(long, default_value_t = 10)]
+        list: usize,
+    },
+    /// One line `<crate> <key>` per workspace member: the cache key of its
+    /// call-graph data in the incremental site build (#745). SHA-256 of the
+    /// files `cargo package --list` ships, the keys of its workspace
+    /// dependencies (transitively), the rust-analyzer version and the
+    /// schema versions.
+    CallGraphKeys {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Comma-separated crate names; every member when omitted.
+        #[arg(long)]
+        crates: Option<String>,
+    },
+    /// Regenerates every `<!-- code-walk: ... -->` block in the Markdown
+    /// under the given paths and fails if one is stale, a concept path no
+    /// longer connects, or a hand-filled hop names a function that no longer
+    /// exists (GitHub issue #523; the lessons' staleness gate). `--update`
+    /// writes the regenerated walks instead of failing on a difference.
+    CodeWalkCheck {
+        /// Markdown files or directories to scan.
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
+        #[arg(long)]
+        update: bool,
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        #[arg(long, default_value = commands::code_walk::render::DEFAULT_REPO_URL)]
+        repo_url: String,
+    },
+    /// Regenerates the CSL citations of the Markdown under the given paths
+    /// (GitHub #789): every `[...](#ref-KEY)` link becomes the citation the
+    /// style renders (APA 7 by default) and each page's reference list is
+    /// rebuilt from the `.bib`. Fails if a page is stale or cites an unknown
+    /// key; `--update` writes the regenerated pages instead.
+    /// `--csl-json-out` writes the `.bib` as CSL-JSON and does nothing else.
+    References {
+        /// Markdown files or directories to scan (`SUMMARY.md` is skipped).
+        paths: Vec<PathBuf>,
+        #[arg(long)]
+        update: bool,
+        #[arg(long, default_value = "docs/site/references.bib")]
+        bib: PathBuf,
+        /// A CSL style file (independent style); APA 7 when omitted.
+        #[arg(long)]
+        style: Option<PathBuf>,
+        #[arg(long)]
+        csl_json_out: Option<PathBuf>,
+    },
+    /// Builds the code index (GitHub #767): one `rust-analyzer scip` run
+    /// (about 3-4 min, or `--scip <file>`) becomes every folder's
+    /// `kovan.toml` (function ids, hashes, callees, reaching tests; the
+    /// `[test_run]` is carried over) and each crate's `kovan_links.json`
+    /// (go-to-definition and references without rust-analyzer). Missing,
+    /// malformed, conflicted, stale or hand-edited `kovan.toml` files are
+    /// regenerated, orphans removed, `review.md` never written.
+    /// `--refresh` needs no rust-analyzer: it updates hashes of edited files
+    /// and marks what it cannot recompute "index out of date".
+    Index {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+        /// Comma-separated crate names; every member when omitted.
+        #[arg(long)]
+        crates: Option<String>,
+        /// Use this SCIP index instead of running `rust-analyzer scip`.
+        #[arg(long)]
+        scip: Option<PathBuf>,
+        /// No rust-analyzer: refresh the existing kovan.toml files from the
+        /// source with the syn hasher.
+        #[arg(long, conflicts_with = "scip")]
+        refresh: bool,
+        /// Write nothing; fail when any file would change (CI).
+        #[arg(long)]
+        check: bool,
+        /// Also print proposed `[upstream]` review.md entries from the
+        /// files' provenance headers, for a human to confirm (never written).
+        #[arg(long)]
+        draft_upstream: bool,
+        /// Pin the installed rust-analyzer's version in kovan_root.toml (nothing
+        /// else changes the pin; every run appends the version it used to
+        /// `[[code_review.rust_analyzer_used]]`, as text, when it is new).
+        #[arg(long)]
+        pin_rust_analyzer: bool,
+        /// Index ANY Rust workspace or single crate fresh (GitHub #780):
+        /// also creates `kovan_root.toml` when missing (a valid one is kept)
+        /// and a `review.md` skeleton in each indexed folder without one.
+        /// Needs `--workspace`. Nothing is committed.
+        #[arg(long, requires = "workspace", conflicts_with_all = ["refresh", "check", "crates", "pin_rust_analyzer"])]
+        fresh: bool,
+        /// With `--fresh`: the founder for a new `kovan_root.toml`
+        /// (`github:<user>`, `gitlab:`, `orcid:` or an email). Default: the
+        /// one identity in kovan's keystore, else left UNSET.
+        #[arg(long, requires = "fresh")]
+        founder: Option<String>,
+        /// With `--fresh`, when `kovan_root.toml` is corrupt: `restore` the
+        /// last committed version that parses, or start `fresh`. Either way
+        /// the bad file is kept as `kovan_root.toml.corrupt-<date>`.
+        #[arg(long, requires = "fresh", value_parser = ["restore", "fresh"])]
+        corrupt_root: Option<String>,
+    },
+    // ~~The `Test` doc comment sat above `Index`, so `test --help` was
+    // empty and `index --help` showed the test text~~ CORRECTED 2026-10-10
+    // (#810): each variant carries its own doc.
+    /// Runs `cargo test --workspace --lib --tests --release` (plus
+    /// `--no-fail-fast`) and records the passing set, the commit and the
+    /// Cargo.lock hash as test evidence (GitHub #766). Extra arguments go to
+    /// cargo (`-j 1`, `-p x`, `-- filter`); anything that narrows the run
+    /// records it as PARTIAL, never counted. ~~Counted runs write
+    /// `kovan_test_evidence.toml`~~ (corrected 2026-10-07): a counted run is
+    /// written into every folder's `kovan.toml` `[test_run]`; every run's
+    /// raw record goes to `target/kovan/test_evidence_last.toml`.
+    /// The full suite takes hours (long tests are on by default).
+    Test {
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// Run even with uncommitted build inputs (recorded dirty, not counted).
+        #[arg(long)]
+        allow_dirty: bool,
+        /// Write the evidence here instead.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Arguments passed to `cargo test`, after kovan-cli's own flags.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        cargo_args: Vec<String>,
+    },
+    /// Read-only review reports from `review.md` (GitHub #810). Never signs
+    /// or writes: kovan-cli has no signing command.
+    Review {
+        #[command(subcommand)]
+        command: ReviewCommand,
+    },
     /// Internal: runs the keep-warm rust-analyzer daemon in the foreground
     /// for one workspace root (op-fdph). Spawned automatically and detached
     /// by `def`/`sig`/`refs`'s client-side logic the first time one of them
@@ -397,6 +677,25 @@ enum Command {
         /// Directory containing the workspace `Cargo.toml`.
         #[arg(long, default_value = ".")]
         root: PathBuf,
+    },
+}
+
+/// `kovan-cli review ...` (GitHub #810).
+#[derive(Subcommand)]
+enum ReviewCommand {
+    /// Rung 5, independent V&V (IV&V), per function: passed or not, every
+    /// review's reasons in plain English, the separation attestation's
+    /// audit record (a GitHub issue URL, labelled "not verified by kovan":
+    /// never fetched), the "independent V&V not counted" flag, the
+    /// kovan_root.toml records that do not verify, and the rung-5 rows of
+    /// the need-you queue. Read-only, offline.
+    Ivv {
+        /// Only functions whose `fn:` id, call-graph id or `file.rs::qual`
+        /// path contains this.
+        function: Option<String>,
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
     },
 }
 
@@ -439,11 +738,26 @@ fn run(command: Command) -> Result<(), String> {
             pattern,
         } => commands::search::run(path, root, kind, &pattern),
         Command::Scan { root, lang } => commands::scan::run(root, lang),
+        Command::Affected { base, root, format } => {
+            // Reuse the existing discovery so this works from any
+            // subdirectory, same as every other command here.
+            let (root, how) = commands::workspace::resolve(root.as_deref())
+                .map_err(|e| e.to_string())?;
+            eprintln!("workspace: {} ({how})", root.display());
+            commands::workspace::fetch_literature(&root);
+            let format = match format.as_str() {
+                "list" => commands::affected::Format::List,
+                _ => commands::affected::Format::CargoArgs,
+            };
+            commands::affected::run(&root, &base, format).map_err(|e| e.to_string())
+        }
         Command::Methods => {
             commands::methods::run();
             Ok(())
         }
+        Command::Ci(cmd) => commands::ci::run(cmd),
         Command::Lit(cmd) => commands::lit::run(cmd),
+        Command::Zotero(cmd) => commands::zotero::run(cmd),
         Command::Project(cmd) => commands::project::run(cmd),
         Command::Symbols {
             root,
@@ -471,6 +785,7 @@ fn run(command: Command) -> Result<(), String> {
             let (root, root_how) =
                 commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
             println!("workspace {} ({root_how})", root.display());
+            commands::workspace::fetch_literature(&root);
             let (out_dir, how) = commands::agent_docs_gen::resolve_out_dir(out.as_deref())
                 .map_err(|error| error.to_string())?;
             println!("writing to {} ({how})", out_dir.display());
@@ -494,6 +809,7 @@ fn run(command: Command) -> Result<(), String> {
             let (root, how) =
                 commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
             println!("workspace {} ({how})", root.display());
+            commands::workspace::fetch_literature(&root);
             commands::api_docs::run(&root, krate.as_deref(), all, include_missing, private)
                 .map_err(|error| error.to_string())
         }
@@ -509,6 +825,7 @@ fn run(command: Command) -> Result<(), String> {
             let (root, how) =
                 commands::workspace::resolve(root.as_deref()).map_err(|error| error.to_string())?;
             println!("workspace {} ({how})", root.display());
+            commands::workspace::fetch_literature(&root);
             let out_dir = out.unwrap_or_else(|| commands::kloc::default_out_dir(&root));
             commands::kloc::run(out_dir, clone, from_github, fetch, check, no_figure)
                 .map_err(|error| error.to_string())
@@ -540,6 +857,112 @@ fn run(command: Command) -> Result<(), String> {
         }
         Command::Refs { locator } => {
             commands::semq::run_refs(locator.symbol, locator.file, locator.root)
+        }
+        Command::CodeWalk {
+            from,
+            to,
+            depth,
+            format,
+            max_paths,
+            hand,
+            root,
+            repo_url,
+        } => commands::code_walk::run(from, to, depth, format, max_paths, hand, root, repo_url),
+        Command::SiteIndex { site } => {
+            kovan::site_search::write_index(&site).map(|(docs, terms)| eprintln!("site index: {docs} pages, {terms} terms -> {}", site.join("search-text.json").display()))
+        }
+        Command::CodeMap { workspace, format, out } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::code_map::run(&root, format, out)
+        }
+        Command::CallGraph { workspace, crates, out, split_dir, merge, backend, scip } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let crates = crates.as_deref().map(commands::call_graph::parse_crates);
+            if !merge.is_empty() {
+                return commands::call_graph::run_merge(&root, &merge, out, split_dir);
+            }
+            let backend = match (backend, scip) {
+                (_, Some(file)) => commands::call_graph::CallBackend::Scip(Some(file)),
+                (commands::call_graph::BackendArg::Scip, None) => commands::call_graph::CallBackend::Scip(None),
+                (commands::call_graph::BackendArg::Lsp, None) => commands::call_graph::CallBackend::Lsp,
+            };
+            match split_dir {
+                Some(dir) => commands::call_graph::run_split(&root, crates, &dir, &backend),
+                None => commands::call_graph::run(&root, crates, out, &backend),
+            }
+        }
+        Command::CallGraphDiff { a, b, list } => commands::call_graph::run_diff(&a, &b, list),
+        Command::CallGraphKeys { workspace, crates } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::call_graph::run_keys(&root, crates.as_deref().map(commands::call_graph::parse_crates))
+        }
+        Command::CodeWalkCheck {
+            paths,
+            update,
+            root,
+            repo_url,
+        } => commands::code_walk::run_check(paths, update, root, repo_url),
+        Command::References {
+            paths,
+            update,
+            bib,
+            style,
+            csl_json_out,
+        } => commands::references::run(commands::references::ReferencesArgs {
+            paths,
+            update,
+            bib,
+            style,
+            csl_json_out,
+        }),
+        Command::Review {
+            command: ReviewCommand::Ivv { function, workspace },
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::review_ivv::run(&root, function.as_deref())
+        }
+        Command::Test {
+            root,
+            allow_dirty,
+            out,
+            cargo_args,
+        } => {
+            let (root, _) = commands::workspace::resolve(root.as_deref())
+                .map_err(|error| error.to_string())?;
+            commands::test_evidence::run(&root, &cargo_args, allow_dirty, out)
+        }
+        Command::Index {
+            workspace,
+            crates,
+            scip,
+            refresh,
+            check,
+            draft_upstream,
+            pin_rust_analyzer,
+            fresh,
+            founder,
+            corrupt_root,
+        } => {
+            let root = kovan::index_fresh::resolve_index_root(workspace.as_deref())?;
+            if fresh {
+                return kovan::index_fresh::run_cli(&root, founder, corrupt_root.as_deref(), scip);
+            }
+            let opts = commands::index::IndexOptions {
+                crates: crates
+                    .as_deref()
+                    .map(commands::call_graph::parse_crates)
+                    .unwrap_or_default(),
+                scip,
+                refresh,
+                check,
+                draft_upstream,
+                pin_rust_analyzer,
+            };
+            commands::index::run(&root, &opts).map_err(|e| e.to_string())
         }
         Command::LspDaemonServe { root } => commands::lsp_daemon::serve(root),
         Command::LspDaemonStop { root } => commands::lsp_daemon::stop(root),
@@ -600,6 +1023,23 @@ mod tests {
         let mut full = vec!["kovan-cli"];
         full.extend_from_slice(args);
         Cli::try_parse_from(full).expect("args should parse")
+    }
+
+    #[test]
+    fn test_passes_cargo_arguments_through() {
+        let cli = parse(&["test", "--allow-dirty", "-j", "1", "-p", "bishan", "--", "flash"]);
+        match cli.command {
+            Command::Test {
+                allow_dirty,
+                cargo_args,
+                root,
+                out,
+            } => {
+                assert!(allow_dirty && root.is_none() && out.is_none());
+                assert_eq!(cargo_args, vec!["-j", "1", "-p", "bishan", "--", "flash"]);
+            }
+            _ => panic!("wrong variant"),
+        }
     }
 
     #[test]
@@ -704,6 +1144,50 @@ mod tests {
     }
 
     #[test]
+    fn zotero_import_and_export_parse() {
+        let cli = parse(&[
+            "zotero",
+            "import",
+            "lib.ris",
+            "--to",
+            "k",
+            "--dry-run",
+            "--topic",
+            "a/b",
+            "--topic",
+            "c",
+        ]);
+        match cli.command {
+            Command::Zotero(ZoteroCommand::Import {
+                source,
+                to,
+                dry_run,
+                topics,
+                format,
+                ..
+            }) => {
+                assert_eq!(source, PathBuf::from("lib.ris"));
+                assert_eq!(to, PathBuf::from("k"));
+                assert!(dry_run);
+                assert_eq!(topics, vec!["a/b".to_string(), "c".to_string()]);
+                assert_eq!(format, None);
+            }
+            _ => panic!("wrong variant"),
+        }
+        let cli = parse(&[
+            "zotero", "export", "--format", "ris", "--from", "a", "b", "-o", "x",
+        ]);
+        match cli.command {
+            Command::Zotero(ZoteroCommand::Export { from, out, .. }) => {
+                assert_eq!(from, vec![PathBuf::from("a"), PathBuf::from("b")]);
+                assert_eq!(out, Some(PathBuf::from("x")));
+            }
+            _ => panic!("wrong variant"),
+        }
+        assert!(Cli::try_parse_from(["kovan-cli", "zotero", "import", "x"]).is_err());
+    }
+
+    #[test]
     fn lit_bibtex_parses() {
         let cli = parse(&["lit", "bibtex", "doc.json"]);
         assert!(matches!(
@@ -756,5 +1240,40 @@ mod tests {
             }
             _ => panic!("wrong variant"),
         }
+    }
+
+    /// `review ivv [<fn>] [--workspace]` parses (GitHub #810).
+    #[test]
+    fn review_ivv_parses() {
+        match parse(&["review", "ivv", "twice", "--workspace", "/tmp/w"]).command {
+            Command::Review {
+                command: ReviewCommand::Ivv { function, workspace },
+            } => {
+                assert_eq!(function.as_deref(), Some("twice"));
+                assert_eq!(workspace, Some(PathBuf::from("/tmp/w")));
+            }
+            _ => panic!("wrong variant"),
+        }
+        assert!(matches!(
+            parse(&["review", "ivv"]).command,
+            Command::Review {
+                command: ReviewCommand::Ivv { function: None, .. }
+            }
+        ));
+    }
+
+    /// The `test` and `index` help texts are each their own (the `Test`
+    /// doc comment once sat above `Index`; fixed 2026-10-10, #810).
+    #[test]
+    fn test_and_index_help_are_their_own() {
+        use clap::CommandFactory;
+        let cmd = Cli::command();
+        let about = |name: &str| {
+            cmd.find_subcommand(name)
+                .and_then(|c| c.get_about().map(|a| a.to_string()))
+                .unwrap_or_default()
+        };
+        assert!(about("test").starts_with("Runs `cargo test"), "{}", about("test"));
+        assert!(about("index").starts_with("Builds the code index"), "{}", about("index"));
     }
 }

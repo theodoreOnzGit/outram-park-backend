@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, pressure::megapascal,
     thermodynamic_temperature::kelvin,
@@ -71,7 +72,7 @@ pub fn t_ph_3a(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        theta += ni * (pi + 0.240).powi(ii as i32) * (eta - 0.615).powi(ji as i32);
+        theta += ni * (pi + 0.240).r_powi(ii as i32) * (eta - 0.615).r_powi(ji as i32);
     }
 
     return theta * t_ref_kelvin;
@@ -131,7 +132,7 @@ pub fn t_ph_3b(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        theta += ni * (pi + 0.298).powi(ii as i32) * (eta - 0.720).powi(ji as i32);
+        theta += ni * (pi + 0.298).r_powi(ii as i32) * (eta - 0.720).r_powi(ji as i32);
     }
 
     return theta * t_ref_kelvin;

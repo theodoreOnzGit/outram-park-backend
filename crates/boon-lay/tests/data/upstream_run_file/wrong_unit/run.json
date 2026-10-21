@@ -1,0 +1,83 @@
+{
+ "f_hm": [
+  1e-05,
+  ""
+ ],
+ "f_sic": [
+  2e-05,
+  ""
+ ],
+ "f_inc": [
+  3e-05,
+  ""
+ ],
+ "f_inc_sic": [
+  4e-05,
+  ""
+ ],
+ "a_graph": [
+  0.45,
+  "cm"
+ ],
+ "a_grain": [
+  1e-05,
+  "m"
+ ],
+ "k_plate": [
+  7.5e-05,
+  "s^-1"
+ ],
+ "run_time": [
+  40,
+  "yr"
+ ],
+ "irradiation_time": [
+  1095,
+  "d"
+ ],
+ "k_clean": [
+  8.77e-05,
+  "s^-1"
+ ],
+ "r_kernel": [
+  0.000213,
+  "m"
+ ],
+ "a_SiC": [
+  3.5e-05,
+  "m"
+ ],
+ "n_radial": 2,
+ "n_axial": 3,
+ "hps_tog": true,
+ "accident_tog": false,
+ "Nuclides": [
+  "Kr-85",
+  "I-131",
+  "Cs-137"
+ ],
+ "Inventories": [
+  [
+   100000.0,
+   200000.0
+  ],
+  [
+   3000000.0,
+   4000000.0
+  ],
+  [
+   50000.0,
+   60000.0
+  ]
+ ],
+ "Core_Temps": [
+  "core.csv",
+  true,
+  true
+ ],
+ "Graphite_Temps": [
+  "core.csv",
+  true,
+  true
+ ]
+}

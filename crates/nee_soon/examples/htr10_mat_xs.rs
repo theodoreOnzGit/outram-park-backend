@@ -1,0 +1,151 @@
+//! **Where are the neutrons being absorbed?** Macroscopic Σ per material.
+use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::material::nuclide::Nuclide;
+use outram_mc_libs::material::thermal::ThermalScattering;
+use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
+use nee_soon::htr10_rmc::reflector::zone_composition;
+
+const B10_OF_NATURAL: f64 = 0.199;
+
+fn main() {
+    let dir =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let l = |n: &str, f: &str| Nuclide::from_endf_file(&dir.join(f), n, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(293.6), 1.0e-3).ok();
+    let sab = ThermalScattering::from_endf_file(
+        dir.join("tsl-crystalline-graphite.endf").to_str().unwrap(),
+        30,
+        293.6,
+        "c_Graphite",
+    )
+    .ok();
+    // SiC's carbon and silicon are bound in a crystal, not a free gas.
+    // ENDF/B-VIII.0 ships tsl-CinSiC (MAT 44) and tsl-SiinSiC (MAT 43) so the
+    // coating need not be approximated; a missing law falls back to free gas
+    // rather than dropping the nuclide.
+    let sic_law = |mat_no: i32, file: &str, name: &'static str| -> Option<ThermalScattering> {
+        ThermalScattering::from_endf_file(dir.join(file).to_str()?, mat_no, 293.6, name).ok()
+    };
+    let c_in_sic = sic_law(44, "tsl-CinSiC.endf", "c_SiC");
+    let si_in_sic = sic_law(43, "tsl-SiinSiC.endf", "Si_SiC");
+    let bind_sic = |n: Nuclide, s: &Option<ThermalScattering>| match s {
+        Some(t) => n.with_thermal_scattering(t.clone()),
+        None => n,
+    };
+    let (
+        Some(u5),
+        Some(u8),
+        Some(o),
+        Some(cf),
+        Some(cg),
+        Some(si),
+        Some(b),
+        Some(c_sic),
+        Some(si29),
+        Some(si30),
+        Some(b11),
+        Some(c13_free),
+        Some(c13_graphite),
+        Some(c13_sic),
+    ) = (
+        l("U235", "n-092_U_235-ENDF8.0.endf"),
+        l("U238", "n-092_U_238.endf"),
+        l("O16", "n-008_O_016-ENDF8.0.endf"),
+        l("C12", "n-006_C_012-ENDF8.0.endf"),
+        l("C12", "n-006_C_012-ENDF8.0.endf"),
+        l("Si28", "n-014_Si_028-ENDF8.0.endf"),
+        l("B10", "n-005_B_010-ENDF8.0.endf"),
+        l("C12", "n-006_C_012-ENDF8.0.endf"),
+        l("Si29", "n-014_Si_029-ENDF8.0.endf"),
+        l("Si30", "n-014_Si_030-ENDF8.0.endf"),
+        l("B11", "n-005_B_011-ENDF8.0.endf"), // 10: B-11 (gh:#311)
+        // 11, 12, 13: C-13, the 1.07 at.% of natural carbon (gh:#425).
+        l("C13", "n-006_C_013-ENDF8.0.endf"),
+        l("C13", "n-006_C_013-ENDF8.0.endf"),
+        l("C13", "n-006_C_013-ENDF8.0.endf"),
+    )
+    else {
+        println!("SKIP: no endf dir");
+        return;
+    };
+    let nucs = vec![
+        u5,
+        u8,
+        o,
+        cf,
+        cg.with_thermal_scattering(sab.clone().unwrap()),
+        bind_sic(si, &si_in_sic),
+        b,
+        // 7, 8, 9: carbon bound in SiC, and silicon's other two natural
+        // isotopes. The atom density was always built from silicon's natural
+        // molar mass, so this splits a correct total rather than changing it.
+        bind_sic(c_sic, &c_in_sic),
+        bind_sic(si29, &si_in_sic),
+        bind_sic(si30, &si_in_sic),
+        // 10: B-11 (gh:#311).
+        b11,
+        // 11, 12, 13: C-13 (gh:#425), bound as its C-12 partners.
+        c13_free,
+        c13_graphite.with_thermal_scattering(sab.unwrap()),
+        bind_sic(c13_sic, &c_in_sic),
+    ];
+    let idx = Htr10Nuclides::NATURAL_CARBON;
+    let mut mats = fuel_pebble_materials(idx, BoronReading::Natural, 293.6);
+    mats.truncate(6);
+    mats.push(Material {
+        id: 70,
+        name: "helium".into(),
+        components: vec![],
+        temperature: 293.6,
+    });
+    let z = zone_composition(22).expect("zone 22");
+    mats.push(Material {
+        id: 71,
+        name: "reflector".into(),
+        components: idx.c_graphite
+            .components(z.carbon)
+            .into_iter()
+            .chain([
+            NuclideComponent {
+                nuclide_idx: idx.b10,
+                atom_density: z.natural_boron * B10_OF_NATURAL,
+            },
+            ])
+            .collect(),
+        temperature: 293.6,
+    });
+    println!(
+        "zone 22: carbon {:.6e}  natural_boron {:.6e}  -> B10 {:.6e}",
+        z.carbon,
+        z.natural_boron,
+        z.natural_boron * B10_OF_NATURAL
+    );
+    println!(
+        "{:<26} {:>12} {:>12} {:>12} {:>9}",
+        "material @ 0.0253 eV", "Sigma_t", "Sigma_a", "nuSigma_f", "a/t"
+    );
+    for (i, m) in mats.iter().enumerate() {
+        let st = m.macro_xs_total(0.0253, &nucs);
+        let x = m.macro_xs(0.0253, &nucs);
+        let (sa, sf) = (x.absorption, x.nu_fission);
+        println!(
+            "{i} {:<24} {st:>12.5e} {sa:>12.5e} {sf:>12.5e} {:>9.4}",
+            m.name,
+            if st > 0.0 { sa / st } else { 0.0 }
+        );
+    }
+    println!();
+    println!(
+        "{:<26} {:>12} {:>12} {:>12} {:>9}",
+        "material @ 1 MeV", "Sigma_t", "Sigma_a", "nuSigma_f", "a/t"
+    );
+    for (i, m) in mats.iter().enumerate() {
+        let st = m.macro_xs_total(1.0e6, &nucs);
+        let x = m.macro_xs(1.0e6, &nucs);
+        let (sa, sf) = (x.absorption, x.nu_fission);
+        println!(
+            "{i} {:<24} {st:>12.5e} {sa:>12.5e} {sf:>12.5e} {:>9.4}",
+            m.name,
+            if st > 0.0 { sa / st } else { 0.0 }
+        );
+    }
+}

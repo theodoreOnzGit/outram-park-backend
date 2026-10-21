@@ -1,0 +1,17 @@
+case,cleanup,surface_faces,cells,volume,valid,max_non_orth_deg,max_skewness,neg_vol_cells,stage_notes
+box,none,6,3885,8.000000,true,79.5264,0.854101,0,0
+box,nonplanar,6,3885,8.000000,true,79.5264,0.854101,0,0
+box,concave,6,3885,8.000000,true,79.5264,0.854101,0,0
+box,both,6,3885,8.000000,true,79.5264,0.854101,0,0
+sphere,none,288,12969,32.130002,true,88.3858,18.969963,0,1
+sphere,nonplanar,288,12969,32.130002,true,88.3858,18.969963,0,1
+sphere,concave,288,12969,32.130002,true,88.3858,18.969963,0,1
+sphere,both,288,12969,32.130002,true,88.3858,18.969963,0,1
+cylinder,none,26,18315,61.755587,true,87.1920,7.994141,0,1
+cylinder,nonplanar,26,18315,61.755587,true,87.1920,7.994141,0,1
+cylinder,concave,26,18315,61.755587,true,87.1920,7.994141,0,1
+cylinder,both,26,18315,61.755587,true,87.1920,7.994141,0,1
+subdivided-cube,none,24,1632,3.152005,true,87.9573,0.673700,0,2
+subdivided-cube,nonplanar,48,1632,3.152219,true,89.6438,0.901083,0,2
+subdivided-cube,concave,24,1632,3.152005,true,87.9573,0.673700,0,2
+subdivided-cube,both,48,1632,3.152219,true,89.6438,0.901083,0,2

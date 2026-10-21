@@ -1,0 +1,300 @@
+# The code index: `kovan.toml` and `kovan_links.json` (GitHub #767)
+
+> ⚠️ **Research, education and V&V only.** Not for nuclear facility
+> operation, reactor control, licensing, safety-critical decisions or
+> emergency response. See the workspace `RESPONSIBLE_USE.md`.
+
+`kovan-cli index` builds the data the code review (#739, #740) runs on:
+
+| File | Where | What | Owner |
+|---|---|---|---|
+| `kovan.toml` (`kind = "code_folder"`) | every folder with indexed `.rs` files | per file, per function: stable id, location, hashes, callees, reaching tests, physical interface; the folder's `[test_run]`, cached `[upstream]` and `[[review]]` list; the crate root's deleted-folder history | machine (regenerated, never hand-edited), **committed** |
+| `kovan_links.json` | each crate's folder | every identifier occurrence that links to a definition: go-to-definition and find-references without rust-analyzer (#745) | machine, ships in the crates.io package |
+| `review.md` | the folder | reviews, needs-fix, highlights, upstream confirmation | **human**: ~~the index only reads it~~ **CORRECTED 2026-10-07 (#780)**: a plain `kovan-cli index` only reads it; `--fresh` (below) also creates an empty skeleton where one is missing, never overwriting one |
+
+The code is `kovan_common::code_index` (pure, wasm-clean) and
+`kovan::commands::index` (the files and processes).
+
+## Running it
+
+```text
+kovan-cli index                      # rust-analyzer scip (3-5 min), then everything
+kovan-cli index --scip <file>        # reuse an index written earlier
+kovan-cli index --crates a,b         # restrict (cross-crate callees then need the whole run)
+kovan-cli index --check              # write nothing; fail if any file would change (CI)
+kovan-cli index --draft-upstream     # also print proposed [upstream] review.md entries
+kovan-cli index --pin-rust-analyzer  # pin the installed version in kovan_root.toml
+kovan-cli index --refresh            # NO rust-analyzer: hashes of edited files now,
+                                     # what cannot be recomputed marked "index out of date"
+kovan-cli index --fresh --workspace <dir> [--founder <id>] [--corrupt-root restore|fresh]
+                                     # ANY Rust workspace or single crate (#780), below
+```
+
+### `--fresh`: index any Rust workspace or crate into that repository (#780)
+
+The desktop app's Code Map view has the same thing as an **"Index
+fresh…"** button (it asks first, runs in the background with progress and
+Cancel, and keeps the last good map until the run has finished). Both call
+`kovan::index_fresh::run_fresh`, which drives the indexer above; there is
+no second indexer.
+
+- **Workspace or crate** from `Cargo.toml` alone: `[workspace]` is a
+  workspace, else `[package]` is a single crate (one crate's worth of
+  index, its `kovan_links.json` at the root).
+- **`kovan_root.toml`** (Leak Before Break, `docs/kovan.md`): a valid one
+  is kept ~~byte for byte~~ **CORRECTED 2026-10-07**: every existing byte
+  and comment stays, and the rust-analyzer version used is appended at the
+  end (below); a missing one is created with the founder (`--founder`,
+  else the single identity in kovan's keystore, else a visible `UNSET`
+  comment; never invented), no reviewers (an empty registry and key
+  history) and ~~`[code_review] rust_analyzer`, the installed version~~
+  **CORRECTED 2026-10-07**: the version that built the index as the first
+  `[[code_review.rust_analyzer_used]]` entry, with no pin. A
+  corrupt one stops the run with its parse error, untouched; with
+  `--corrupt-root restore` (the newest committed version that parses) or
+  `--corrupt-root fresh`, it is first kept as
+  `kovan_root.toml.corrupt-<date>`.
+- **`review.md` skeletons**, a separate last step: each indexed folder with
+  no `review.md` gets one `note` entry (read by review as no review); an
+  existing one is never written, and one with unreadable entries is
+  reported for the redo flow.
+- **Nothing is committed or pushed.** A repository with no commit yet
+  works: new ids are minted with the all-zero commit, and the run says so.
+
+Cost: the only measured reference is outram-park-backend (48 crates):
+about 4–7 min and a 15–16 GB rust-analyzer peak. A target's own cost is not
+known in advance; the dialog says so with its crate, file and line counts.
+Measured 2026-10-07: a copy of `syn` 2.0.119 (one crate, 65 k lines) took
+about 14 s end to end.
+
+**rust-analyzer is needed only to regenerate the index**, never to use it
+(maintainer, #767): desktop kovan, web-kovan and `kovan-cli` read the
+committed files. Without rust-analyzer (and without `--scip`) `kovan-cli
+index` stops with a typed error before reading or writing anything, and
+points to `--refresh`.
+
+**rust-analyzer version.** `kovan_root.toml` `[code_review] rust_analyzer`
+pins it (#739 D4). A different installed version warns and the index is
+regenerated with it; a `--scip` file written by another version than the
+installed one is regenerated. The link file records the version that
+wrote it (`generator`). The pin is set only by the user or
+`--pin-rust-analyzer`; no index run changes it.
+
+**Versions used (maintainer, 2026-10-07: "just record the versions of rust
+analyzer that were used, never overwrite the comments based on the new
+versions").** Every run that uses rust-analyzer (`kovan-cli index`,
+`--scip`, `--fresh`, the app's "Index fresh"; not `--refresh` or
+`--check`) appends to an existing, readable `kovan_root.toml`:
+
+```toml
+[[code_review.rust_analyzer_used]]
+version = "1.98.0"        # the rust-analyzer that wrote the SCIP index
+date = "2026-10-07"
+commit = "<HEAD sha>"     # or "none": no commit yet
+```
+
+only when the version differs from the last entry. It is **appended as
+text at the end of the file**, never re-serialised, so every existing
+byte, comments included, stays (the old file is a prefix of the new one;
+`index_runs_append_the_rust_analyzer_used_and_never_rewrite_the_root`).
+A root that does not parse gets nothing; the corrupt-root flow applies.
+The table is additive: roots without it load, and readers that predate it
+ignore it (`roots_with_and_without_the_history_read_in_old_and_new_readers`
+in `kovan_common::review::root`). The "Index fresh" report lists one line
+per version recorded.
+
+## Pipeline (full run)
+
+```text
+ rust-analyzer scip ──> index.scip (target/, never kept in git)
+        │
+        ├──[links::build]──────────────> <crate>/kovan_links.json
+        └──> call graph (#757) ─┐
+ source .rs ──[syn hasher]──────┤
+ review.md (read only) ─────────┼─[folders::build]──> <folder>/kovan.toml
+ previous kovan.toml ───────────┤   ids, carried [test_run]
+ git log --diff-filter=D ───────┘   crate root: [[deleted_folder]]
+```
+
+Everything is computed in memory before the first file is written.
+
+## Stable ids
+
+`fn:<16 hex>`, the join key with `review.md` (`[kovan] target`). In order
+(`kovan_common::code_index::ids`):
+
+1. a `review.md` entry's id goes to the function its `path` names today;
+2. else the previous `kovan.toml`'s id for the same path;
+3. else a `review.md` id (an entry's, or a key of a review's
+   `[review.callees]`) goes to the one function with the hash it recorded
+   (moved or renamed without an edit; several candidates: ambiguous,
+   nothing taken, reported);
+4. else the previous `kovan.toml`'s id by hash;
+5. else minted, `kovan_common::review::id::mint_fn_id(path, hash, commit)`.
+
+So the ids a review depends on come back from `review.md` alone if every
+`kovan.toml` is lost (code unchanged). A `review.md` speaks only for its own
+folder: an entry whose path is in another folder (a copied fixture) is
+ignored.
+
+## Self-healing
+
+A folder's `kovan.toml` is rewritten **without asking** when it is missing,
+malformed, conflict-marked, stale or hand-edited; an orphan (written for a
+folder that no longer has indexed code: its `dir` names that folder) is
+removed. Every write and removal is listed with its reason (Leak Before
+Break). Never touched: a literature `kovan.toml` (`kind = "paper"`, …) and a
+code-folder `kovan.toml` written for another folder (a test fixture).
+
+**`[test_run]` is carried over** (test evidence lives in `kovan.toml`,
+maintainer on #766): when a file is unreadable its `[test_run]` is
+recovered from `git show HEAD:<path>`; when that fails too it is left out,
+which reads as **pending**, never as passed.
+
+## Test evidence
+
+`kovan-cli test` writes a **counted** run (full suite, clean tree, every
+binary finished) into every code-folder `kovan.toml`'s `[test_run]`,
+restricted to the tests that folder uses; libtest names are mapped to test
+ids with #766's rule over the `kovan.toml` files themselves, so no
+rust-analyzer is needed. Every run's raw record goes to
+`target/kovan/test_evidence_last.toml`. ~~`kovan_test_evidence.toml`~~ is
+no longer written.
+
+## `kovan.toml` format additions (additive, schema 1)
+
+- `index_out_of_date` (per function): written by `--refresh` for a new or
+  edited function whose callees and reaching tests could not be recomputed.
+- `physical_interface` (per function): a uom quantity, a `uom::` path or a
+  workspace alias of one (`pub type HeatFlux = HeatFluxDensity;`) appears
+  in the signature (`kovan_common::code_index::physical`; token test,
+  limits in its doc).
+- `test_ids` (folder, **on disk only**): every test id once; `reached_by`
+  and `[test_run]` lists hold `"#<index>"` into it. `FolderIndex::parse`
+  expands them, so in memory the lists hold full ids. On
+  `njoy-outram-park-fork/src/reconr` the full ids had made 1.54 MB of a
+  1.59 MB file.
+
+Test ids are the call graph's path ids of test functions
+(`crates/x/tests/t.rs::name`), as #766's evidence names tests, not `fn:`
+ids. `commit` is not written: an index that records the commit it was built
+at changes on every commit.
+
+A real excerpt (`crates/changi/src/flexpart/kovan.toml`, 2026-10-07):
+
+```toml
+schema_version = 1
+kind = "code_folder"
+crate = "changi"
+dir = "crates/changi/src/flexpart"
+test_ids = [
+    "crates/changi/src/activity/chi_over_q.rs::a_fixed_stability_class_overrides_the_wind_derived_one",
+    …
+]
+
+[module."thermo.rs"]
+path = "crate::flexpart::thermo"
+
+[[module."thermo.rs".function]]
+id = "fn:5906055d16b77c5c"
+name = "saturation_vapour_pressure"
+qual = "saturation_vapour_pressure"
+lines = [22, 55]                 # written one number per line
+hash = "sha256:1e9515aa…"
+doc_hash = "sha256:979525d4…"
+callees = ["fn:bafb50166fd05428"]
+physical_interface = true
+
+[[module."thermo.rs".function]]
+id = "fn:bafb50166fd05428"
+name = "ew_kelvin"
+…
+reached_by = ["#57", "#59", …]
+```
+
+## `kovan_links.json` format (schema 1)
+
+Documented in full in `kovan_common::code_index::links`. In short:
+`files[]` (crate-relative path, `sha256` of the text it was built from
+(since 2026-10-10 with CRLF read as LF, `links::text_hash`, so a Windows
+`autocrlf` checkout and a Linux one hash alike; #820), and
+the occurrences as flat `[line delta, column, length, definition]`
+quadruples), `ext[]` (other files holding a referenced definition) and
+`defs[]` (flat `[file, line, column]` triples). Lines are 0-based, columns
+in `encoding` units (UTF-8 bytes from rust-analyzer). Local variables are
+included; definition sites and references into std or dependencies are not.
+A reader compares a file's `hash` with the text it has and shows "links out
+of date" for an edited file. `LinkIndex::{definition_at, references,
+is_current}` answer the three questions; web-kovan will consume it (#745).
+JSON, not a binary layout, so web-kovan reads it with `serde_json`; it is
+all integers, so the gzipped crates.io package carries it cheaply.
+
+## Measured (2026-10-07, rust-analyzer 1.98.0, 16-core desktop)
+
+`kovan-cli index --crates njoy-outram-park-fork,outram-mc-libs,changi`:
+`rust-analyzer scip` over the whole workspace 291.9 s (4,402 documents,
+3,089,056 occurrences, 103,516 symbols); from that index the whole run
+(links, call graph of 7,354 functions, hashes, `kovan.toml`) **5 s**.
+
+| crate | `kovan_links.json` raw | gzip -9 | `kovan.toml` files | raw | gzip -9 |
+|---|---|---|---|---|---|
+| njoy-outram-park-fork | 2.28 MB | **0.58 MB** | 48 | 3.06 MB | 0.56 MB |
+| outram-mc-libs | 1.70 MB | 0.43 MB | 23 | 1.68 MB | 0.40 MB |
+| changi | 0.56 MB | 0.15 MB | 7 | 0.47 MB | 0.11 MB |
+
+The njoy link file meets the ≲1 MB gz target. Before the `test_ids`
+table, njoy's `kovan.toml` files were 11.3 MB raw (0.83 MB gz).
+
+Same index, second run: `--check` passes (byte-identical). `--refresh
+--check` on the unchanged tree: 77 of 78 files identical; the one
+difference is three trait-method declarations with multi-line signatures
+in `outram-mc-libs/src/geometry/crossing/mod.rs` that the call graph's
+source scanner does not list (so the full run leaves them out) and the
+`syn` hasher does (so a refresh adds them, marked out of date). Tracked
+as a call-graph scanner gap, #781.
+
+Also reported by that run: 25 functions with no hash (nested in another
+`fn` or made by a macro; their calls count for the enclosing function) and
+183 callees outside the three crates (left out of `callees` in a scoped
+run). `physical_interface` was set on 4 of 3,404 njoy functions, 0 of 2,977
+outram-mc-libs and 58 of 948 changi functions.
+
+## Windows (GitHub #820, first run 2026-10-10)
+
+- rust-analyzer on Windows writes SCIP document paths with `\`. They are
+  read as `/` (`ScipIndex::read_document`), on every platform, so an index
+  written on Windows reads the same on Linux. Before this fix a Windows run
+  finished without error and wrote empty link files and no `callees`.
+- A crate that has source files and no document in the SCIP index is named
+  in a `WARNING` line and in the "Index fresh" report
+  (`IndexSummary::not_in_scip`, judged by whether the index holds any of
+  the crate's indexed files); when that is every crate in scope the run
+  stops and writes nothing.
+- **Open:** the first whole-workspace run on Windows (rust-analyzer 1.97.1,
+  15.3 GB RAM, paging beside a second rust-analyzer) produced an index with
+  2,374 documents covering 32 of 48 crates; the Linux desktop run of
+  2026-10-07 (rust-analyzer 1.98.0) had 4,402 documents. The 32 are complete
+  (for example njoy-outram-park-fork 423 of 424 `.rs` files, with a link
+  file of 2,281,476 bytes against the 2.28 MB above) and the 16 have none.
+  The cause is not known: Windows, the rust-analyzer version and memory
+  pressure all differ between the two runs.
+- Measured on that laptop: SCIP pass 1372.8 s, `index.scip` 218.5 MB, and
+  1 min 50 s to rebuild every `kovan.toml` and link file from it.
+- Not yet handled: the generated files are written with LF; a checkout with
+  `core.autocrlf = true` would turn committed ones into CRLF, which the
+  staleness check would then see as edited. They need a `.gitattributes`
+  entry before an index is committed from Windows.
+
+## Known limits
+
+- Functions the call graph does not list (bins, benches, `build.rs`,
+  nested `fn`s, some multi-line trait declarations) are not in `kovan.toml`.
+- `reached_by` is a lower bound (resolved calls only: #746).
+- A scoped run does not know the ids of out-of-scope callees unless a
+  claim or the previous index names them; run the whole workspace.
+- `--refresh` learns quantity aliases from the folder only; unchanged
+  functions keep the full run's answer.
+- Reach is computed at the current commit only. The reach at an older
+  commit is the committed `kovan.toml` at that commit (`git show
+  <commit>:<folder>/kovan.toml`, `reached_by`), since the files are
+  committed.

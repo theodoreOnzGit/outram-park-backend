@@ -71,7 +71,7 @@
 //! individually exact.
 
 use outram_mc_libs::material::material::{Material, NuclideComponent};
-use outram_mc_libs::vv::assert_reproduces_keff;
+use outram_mc_libs::vv::{assert_reproduces_keff, RecordedKeff};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
 
@@ -137,7 +137,7 @@ fn main() {
         result.k_std,
         1.0000,
         LOW_TIER_BAND,
-        Some(LOW_TIER_RECORDED_PCM),
+        Some(RecordedKeff::from_comparable_run(LOW_TIER_RECORDED_PCM)),
     );
 }
 

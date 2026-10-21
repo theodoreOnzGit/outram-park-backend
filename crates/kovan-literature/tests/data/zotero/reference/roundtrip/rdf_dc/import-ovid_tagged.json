@@ -1,0 +1,636 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [],
+				"tags": [],
+				"title": "Dietary supplements containing ultradense calcium citrate and carbonyl iron",
+				"rights": "Copyright Thomson 2004.",
+				"issueDate": "November 16, 2004"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "S. M.",
+						"lastName": "Werner",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "E.-mail: shahlawerner@yahoo",
+						"lastName": "com",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "E. V.",
+						"lastName": "Nordheim",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "K. F.",
+						"lastName": "Raffa",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Comparison of methods for sampling Thysanoptera on basswood (Tilia americana L.) trees in mixed northern hardwood deciduous forests",
+				"rights": "Copyright Thomson 2004.",
+				"date": "2004 November",
+				"ISSN": "0378-1127"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Alfred L.",
+						"lastName": "Gaertner",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "E.-mail: agaertner@genecor",
+						"lastName": "com",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Nicole L.",
+						"lastName": "Chow",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Beth G.",
+						"lastName": "Fryksdale",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Paul",
+						"lastName": "Jedrzejewski",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Brian S.",
+						"lastName": "Miller",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sigrid",
+						"lastName": "Paech",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "David L.",
+						"lastName": "Wong",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Karin",
+						"lastName": "Hjerno",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Peter",
+						"lastName": "Hojrup",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "E.-mail: php@bmb",
+						"lastName": "sdu.dk",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Increasing throughput and data quality for proteomics",
+				"rights": "Copyright Thomson 2004.",
+				"date": "2004",
+				"ISBN": "3540202226"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Mughees",
+						"lastName": "Ahmed",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Legitimacy crises in Pakistan",
+				"date": "2007"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Gea D. M.",
+						"lastName": "Wijers",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Contributions to transformative change in Cambodia: a study on returnees as institutional entrepreneurs",
+				"date": "2013",
+				"ISSN": "1868-1034"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "James A.",
+						"lastName": "Peterson",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Take Ten: Need-to-Know Facts About Breast Cancer",
+				"date": "2010 January/February",
+				"ISSN": "1091-5397",
+				"DOI": "10.1249/FIT.0b013e3181c6723d"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Weijia",
+						"lastName": "Zhang",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Wei",
+						"lastName": "Ding",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ye",
+						"lastName": "Chen",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Meilin",
+						"lastName": "Feng",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Yongmei",
+						"lastName": "Ouyang",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Yanhui",
+						"lastName": "Yu",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Zhimin",
+						"lastName": "He",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Up-regulation of breast cancer resistance protein plays a role in HER2-mediated chemoresistance through PI3K/Akt and nuclear factor-kappa B signaling pathways in MCF7 breast cancer cells",
+				"date": "2011 August",
+				"ISSN": "1672-9145",
+				"DOI": "10.1093/abbs/gmr050"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Ph",
+						"lastName": "Simon",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "S.",
+						"lastName": "Dept",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "F.",
+						"lastName": "Lefranc",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J. C.",
+						"lastName": "Noel",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Brain Metastasis after Breast Cancer and Hysterectomy for a Benign Leiomyoma",
+				"date": "2010 November/December",
+				"ISSN": "0001-5458"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Barbara",
+						"lastName": "Gazic",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Joze",
+						"lastName": "Pizem",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Lobular Breast Carcinoma Metastasis to a Superficial Plexiform Schwannoma as the First Evidence of an Occult Breast Cancer",
+				"date": "2011 December",
+				"ISSN": "0193-1091",
+				"DOI": "10.1097/DAD.0b013e31820d9c0e"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "YuM",
+						"lastName": "Marusik",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "KYu",
+						"lastName": "Eskov",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "D. V.",
+						"lastName": "Logunov",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "A. M.",
+						"lastName": "Basarukin",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Spiders (Arachnida, Aranei) from Sakhalin and the Kuril Islands",
+				"rights": "Copyright 2010 Thomson Reuters",
+				"publisher": "International Sakhalin Island Project"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "George W.",
+						"lastName": "Benz",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Stephen A.",
+						"lastName": "Bullard",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Parasites of fishes: list of and dichotomous key to the identification of major metazoan groups",
+				"rights": "Copyright 2010 Thomson Reuters",
+				"date": "2005"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Clare",
+						"lastName": "Morrison",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Key to the herpetofauna of Fiji",
+				"rights": "Copyright 2010 Thomson Reuters",
+				"publisher": "University of the South Pacific",
+				"date": "2006"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Andu",
+						"lastName": "Kangur",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Peeter",
+						"lastName": "Kangur",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kulli",
+						"lastName": "Kangur",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Tonu",
+						"lastName": "Mols",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The role of temperature in the population dynamics of smelt Osmerus eperlanus eperlanus m. spirinchus Pallas in Lake Peipsi (Estonia/Russia)",
+				"rights": "Copyright 2009 Thomson Reuters",
+				"date": "2007 June",
+				"ISSN": "0018-8158"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"name": "Shedko",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "S. A.",
+						"lastName": "Vinogradov",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "S. V.",
+						"lastName": "Shedko",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "[Parasitic copepods of the genera Salmincola and Tracheliastes (Lernaeopodidae) from freshwater fish of the Sakhalin Island.]",
+				"rights": "Copyright 2009 Thomson Reuters",
+				"publisher": "ISiEZH SO RAN",
+				"date": "2002"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Osamu",
+						"lastName": "Kobori",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Yoko",
+						"lastName": "Sawamiya",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Masaomi",
+						"lastName": "Iyo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Eiji",
+						"lastName": "Shimizu",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A comparison of manifestations and impact of reassurance seeking among Japanese individuals with OCD and depression",
+				"date": "2015 Sep",
+				"ISSN": "1352-4658",
+				"DOI": "10.1017/S1352465814000277"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Donna L.",
+						"lastName": "Ewing",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jeremy J.",
+						"lastName": "Monsen",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ellen J.",
+						"lastName": "Thompson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sam",
+						"lastName": "Cartwright-Hatton",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Andy",
+						"lastName": "Field",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A meta-analysis of transdiagnostic cognitive behavioural therapy in the treatment of child and young person anxiety disorders",
+				"date": "2015 Sep",
+				"ISSN": "1352-4658",
+				"DOI": "10.1017/S1352465813001094"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Eric L.",
+						"lastName": "Sudler",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Academic procrastination as mediated by executive functioning, perfectionism, and frustration intolerance in college students",
+				"university": "St. John's U. (New York), US",
+				"date": "2014",
+				"ISBN": "9781303529245",
+				"ISSN": "0419-4209",
+				"thesisType": "thesis"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Michael",
+						"lastName": "Neenan",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Understanding and tackling procrastination",
+				"publisher": "Routledge/Taylor & Francis Group; US",
+				"date": "2012",
+				"ISBN": "9780415472630"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Rafael Y.",
+						"lastName": "Lefkowitz",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Martin D.",
+						"lastName": "Slade",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Carrie A.",
+						"lastName": "Redlich",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Injury, Illness, and Work Restriction in Merchant Seafarers",
+				"date": "2015 June",
+				"ISSN": "0271-3586",
+				"DOI": "10.1002/ajim.22459"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Test",
+				"date": "2019 June"
+			}
+		]
+	},
+	"testCase09": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "John W.",
+						"lastName": "McGarry",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Hany M.",
+						"lastName": "Elsheikha",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Suzanne",
+						"lastName": "Taylor",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Colour Atlas of Companion Animal Parasites, A: Life Cycles and Morphological Identification",
+				"publisher": "CABI Publishing",
+				"date": "2024",
+				"ISBN": "9781800627345"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ara",
+						"lastName": "DerMarderosian",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Cydney E.",
+						"lastName": "McQueen",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Review of Natural Products, The",
+				"publisher": "Facts and Comparisons",
+				"date": "2016",
+				"ISBN": "9781574393682"
+			}
+		]
+	}
+}

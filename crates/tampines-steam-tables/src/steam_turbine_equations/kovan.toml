@@ -1,0 +1,763 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/steam_turbine_equations"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::determinism_same_config_same_trace",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::matches_the_recorded_reference_baseline",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::the_trace_carries_a_closing_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_against_liu_and_cao_table_8",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_conserves_energy_and_vents_the_published_mass",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_with_air_ingress_indicative_30_min",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::kinetics_fuel_node_tracks_the_bed_node_after_a_scram",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_at_the_published_test_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_reactor_shuts_itself_down",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_with_and_without_xenon",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_rod_position_that_holds_three_megawatts",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_steady_state_bed_temperature_at_the_opening_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::reproduce_issue_22_scram_cooldown_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_core_side_energy_chain_conserves_energy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_helium_never_leaves_the_core_hotter_than_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_live_map_field_is_off_by_default_and_only_the_gui_builder_turns_it_on",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_passive_path_conserves_energy_through_a_full_plant_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_against_gao_shi_and_liu_cao",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_conserves_energy_and_follows_the_published_sequence",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::where_the_plant_step_spends_its_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::a_fresh_shaft_starts_at_synchronous_speed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::electrical_output_is_efficiency_times_shaft_power_at_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::equilibrium_speed_follows_the_square_root_of_load",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::losing_steam_coasts_the_shaft_down_on_the_electrical_drag",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::shaft_power_is_exactly_the_enthalpy_drop_power",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_generator_is_time_invariant",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_plant_settles_the_shaft_a_little_under_synchronous_speed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_torque_floor_never_binds_in_normal_operation",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::default_controls_do_not_change_the_plants_initial_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::trip_reset_is_consumed_not_latched",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::default_flow_path_is_double_flow",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::flow_path_can_be_overridden_to_single_flow",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::fresh_preset_starts_at_rest",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::generator_variant_reports_no_casing_temperature",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::rotor_angle_is_omega_times_time",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::scalar_turbine_turns_at_its_speed_and_takes_its_colour",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::single_flow_ports_are_left_inlet_and_right_exhaust",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::zero_angular_velocity_gives_zero_rotor_angle",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::a_turning_shaft_delivers_electrical_power",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::constructor_selects_the_knp_hybrid_solver_mode",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::heavier_electrical_load_slows_the_shaft",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::initialise_uniform_puts_superheated_steam_in_every_cell",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::machine_spins_up_from_rest",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::moving_steam_extracts_work_from_both_mechanisms",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::power_sources_are_consumed_by_the_step",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::shaft_speed_is_solved_rather_than_held",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::short_run_stays_bounded",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::standstill_develops_starting_torque_but_no_power",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::still_steam_extracts_no_work",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::total_shaft_power_is_the_sum_of_the_stages",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::zero_rotor_drop_fraction_gives_a_pure_impulse_stage",
+]
+
+[module."generator.rs"]
+path = "crate::steam_turbine_equations::generator"
+
+[[module."generator.rs".function]]
+id = "fn:1e9e054cc5b5a361"
+name = "ThreePhaseElectricGeneratorTurbine"
+qual = "ThreePhaseElectricGeneratorTurbine"
+item = "type"
+shape = "struct"
+lines = [
+    11,
+    39,
+]
+hash = "sha256:f45a687bd1601ad85002805ce100f967b4e6c916734b3c28eb6b4e14d56776a5"
+doc_hash = "sha256:8fbf92bf2a656f763e68001701b9b328ec4cab0ec74609c1c5d58e73eac0e385"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."generator.rs".function]]
+id = "fn:f241daed20aed39e"
+name = "new_250_megawatt_generator"
+qual = "ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator"
+lines = [
+    43,
+    69,
+]
+hash = "sha256:c889ffcd5237c8505e97f6c6c88a646603bd38276550b85c67dcd087c0be9852"
+doc_hash = "sha256:cde52277090c5177b9c587ff8239d51a75c3cb567957dbcb23c7f9251a5f5aa4"
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#51",
+]
+
+[[module."generator.rs".function]]
+id = "fn:d4d988acf2e9129f"
+name = "new"
+qual = "ThreePhaseElectricGeneratorTurbine::new"
+lines = [
+    70,
+    91,
+]
+hash = "sha256:fe5135fb5fd12279d0dc47483d5d540306d8b54be11b58ef9ef411915591b6a1"
+doc_hash = "sha256:94d62b3f4c2a483a9647db328f56178b4e92cefdf937bb8e6d0be37dbd71fa1c"
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:ff5e06b1af3f5bf5"
+name = "calculate_new_angular_velocity"
+qual = "ThreePhaseElectricGeneratorTurbine::calculate_new_angular_velocity"
+lines = [
+    95,
+    148,
+]
+hash = "sha256:bf053badba146856457d7b02c0d373de9c91de9d5e292c608b1e673b4415b339"
+doc_hash = "sha256:3b64572a9bc41ff05ae9c5e6c5bf0fb22e30239cc0aad3c17450672201c002ef"
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#52",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:be2fb6277cf24ee2"
+name = "advance_timestep"
+qual = "ThreePhaseElectricGeneratorTurbine::advance_timestep"
+lines = [
+    149,
+    178,
+]
+hash = "sha256:3e475c5ee59b263b1604e477273e63c262557604237c7899fa018f26b0e0c54b"
+doc_hash = "sha256:abd2a4191a7153c00f5e69cde2bedc8656f4affe281b9f11ac557b815073cc74"
+callees = ["fn:ff5e06b1af3f5bf5"]
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#52",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:73f0bbe508ae2f11"
+name = "set_magnetic_field"
+qual = "ThreePhaseElectricGeneratorTurbine::set_magnetic_field"
+lines = [
+    180,
+    183,
+]
+hash = "sha256:37674f98e1b9fee2da1be0c15d7009db12146d0e97db29bb7b11ad7c9e575454"
+doc_hash = "sha256:2a45e77a8c278f8be715c2dc1a518e7350f47f1ec85cb4803fa507d85e46a249"
+uses = ["fn:1e9e054cc5b5a361"]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:a05f4d428fa6a72b"
+name = "get_emf_1"
+qual = "ThreePhaseElectricGeneratorTurbine::get_emf_1"
+lines = [
+    185,
+    200,
+]
+hash = "sha256:0a3d8afb1d2ea251a319e44e2d2e43adaafdb629967bccbf6560db2198bc6b26"
+doc_hash = "sha256:2d2aef80e49e8969abd9ae3518a5b258a924152c5e551c911cbed581e4c15e84"
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#52",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:6e31838df8a139e8"
+name = "get_emf_2"
+qual = "ThreePhaseElectricGeneratorTurbine::get_emf_2"
+lines = [
+    202,
+    217,
+]
+hash = "sha256:bb88fc3259bd66f1d710eb8076866326b6da417f3cbc7669bde47f5cdb3a6cc7"
+doc_hash = "sha256:b22fca83deffde0b1e11e0d4a51e1e7cf131f1277f98eea9848fbfa883e4ef22"
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#52",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:a9a1da118b4d9c8a"
+name = "get_emf_3"
+qual = "ThreePhaseElectricGeneratorTurbine::get_emf_3"
+lines = [
+    218,
+    233,
+]
+hash = "sha256:1b402a2b86dc572ac2c59daf741e7629de600464225457f4c0eb862301db598e"
+doc_hash = "sha256:740e8f90feec5a3bb05cca2c142982dc097435202d99844ced001a2e6fdfdb49"
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#52",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:2df0bc2b2c703241"
+name = "get_power"
+qual = "ThreePhaseElectricGeneratorTurbine::get_power"
+lines = [
+    235,
+    246,
+]
+hash = "sha256:6783a7365f9a27203da55eb3ca8f86cb3e94b43523aec70979bb69fc644fb5ac"
+doc_hash = "sha256:1d9a4e9a4e781ade31ab09d1a481d77433a14615451ee27a723c92a465120c6f"
+callees = [
+    "fn:6e31838df8a139e8",
+    "fn:a05f4d428fa6a72b",
+    "fn:a9a1da118b4d9c8a",
+]
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#42",
+    "#52",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:e143ec30035acbde"
+name = "get_current_1"
+qual = "ThreePhaseElectricGeneratorTurbine::get_current_1"
+lines = [
+    248,
+    253,
+]
+hash = "sha256:6d45c5c76f9b19a039d1b100f48838863ac46c3da7898e4d184c74e743da3948"
+doc_hash = "sha256:19e2640e1927f596e6cec3cea40d0b8c646a5526081f1e6b036189ffca618261"
+callees = ["fn:a05f4d428fa6a72b"]
+uses = ["fn:1e9e054cc5b5a361"]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:a7cf1961a3fb216c"
+name = "get_current_2"
+qual = "ThreePhaseElectricGeneratorTurbine::get_current_2"
+lines = [
+    255,
+    260,
+]
+hash = "sha256:8a88be3a403a340eb4fe81c732dd28fbfd54ab8c45b69f26789c57c886f34cbc"
+doc_hash = "sha256:3ee31389c792def2ddc1ce448272ab5d51a4e9b5a8683bb6d8aec456e784b884"
+callees = ["fn:6e31838df8a139e8"]
+uses = ["fn:1e9e054cc5b5a361"]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:4ec9f778c132d4f2"
+name = "get_current_3"
+qual = "ThreePhaseElectricGeneratorTurbine::get_current_3"
+lines = [
+    261,
+    266,
+]
+hash = "sha256:99455e16356cc70488da60abbf2bf5f5f29550bebd7bdc54468f305723f71b4f"
+doc_hash = "sha256:2aa3c6a60a8a51c1a34c11634e6285cd774bbf841a9cbaa3c0ca050c4e2dd78f"
+callees = ["fn:a9a1da118b4d9c8a"]
+uses = ["fn:1e9e054cc5b5a361"]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:75bb23067bbc5517"
+name = "set_omega"
+qual = "ThreePhaseElectricGeneratorTurbine::set_omega"
+lines = [
+    268,
+    271,
+]
+hash = "sha256:1f30a59585766679d2423952c83b06517f19a7c4be273810c210402399ff4414"
+doc_hash = "sha256:9cbd1aa0f4e1fbb3e189645ec5776e21900cfb23dc7bd6f071d258cb2764c4b4"
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#44",
+    "#45",
+    "#47",
+    "#48",
+    "#51",
+]
+physical_interface = true
+
+[[module."generator.rs".function]]
+id = "fn:d8c7243358140d33"
+name = "get_omega"
+qual = "ThreePhaseElectricGeneratorTurbine::get_omega"
+lines = [
+    273,
+    276,
+]
+hash = "sha256:3351490ca8c2dbde596300725161ac876d3f2333fbe45ee1afc4a130265dab85"
+doc_hash = "sha256:b66bee47bd6fc6b5b39d4f85170f04e8396f1534b0359f0a6bda9a7edebb0a93"
+uses = ["fn:1e9e054cc5b5a361"]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#41",
+    "#42",
+    "#46",
+    "#48",
+    "#49",
+    "#51",
+    "#52",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::steam_turbine_equations"

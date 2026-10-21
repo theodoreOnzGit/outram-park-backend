@@ -1,0 +1,23 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/examples/fhr_sim_v2/app/graph_pages"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::graph_pages"
+
+[[module."mod.rs".function]]
+id = "fn:c52ae8cf24bc44ca"
+name = "reactor_power_page_graph"
+qual = "FHRSimulatorApp::reactor_power_page_graph"
+lines = [
+    7,
+    61,
+]
+hash = "sha256:463ef376d564dc8b54f9264eaea667003dd446e55c653dc33aa4f38617f608f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:96ce13c6f712fb21",
+    "fn:a1f5ca9ee76a9404",
+]
+uses = ["fn:c9d55340aed1b0a5"]

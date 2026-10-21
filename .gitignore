@@ -5,11 +5,9 @@
 # The Doppler verification uses the extracted reference CSVs instead.
 crates/njoy-outram-park-fork/tests/resources/*.h5
 
-# Beads / Dolt files (added by bd init)
+# Dolt / database files
 .dolt/
 *.db
-.beads-credential-key
-.beads/proxieddb/
 
 # Session progress summaries (regenerated on demand; never committed)
 /progress.md
@@ -99,3 +97,56 @@ docs/token-usage.md
 #   kovan agent-docs-gen --list
 #   kovan agent-docs-gen --crates <crate>,<crate>
 /agent-docs/
+
+# Godiva spectrum-comparison outputs (regenerable; see
+# crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/)
+ours_spectrum.csv
+openmc_spectrum.csv
+
+# OpenMC cross-code work products: ACE and HDF5 regenerated from the repo's own
+# ENDF tapes by make_ace.sh + build_data.py. This is SCRATCH -- regenerable and
+# never committed; see verification_and_validation/README.md.
+#
+# ~~"and never committed"~~ CORRECTED 2026-09-20 -- that is still true of THIS
+# path, which stays scratch, but a curated ACE set IS now tracked, as the
+# `reference-data/ace` submodule (theodoreOnzGit/ace_and_other_data, gzipped).
+# The two are different things: this is whatever a local run happened to emit,
+# that is a published set with a manifest and checksums.
+crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/ace/
+crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/work/
+
+# Machine-specific run diagnostics and perf reports. `LOCAL_PERF_DIR` is a
+# RELATIVE path, so a run launched from the workspace root writes here rather
+# than under crates/outram-mc-libs/ where the crate-level rule catches it.
+/verification_and_validation/local_perf/
+
+# ── Generated ACE tables ────────────────────────────────────────────────────
+#
+# `examples/godiva_ace_roundtrip.rs` and `examples/lct008_ace_roundtrip.rs`
+# write ACE with this workspace's own ACER and read it back. These are large --
+# U-235 alone is ~256 MB of Type-1 ASCII, and one Godiva run writes ~550 MB --
+# and they are REPRODUCIBLE from the ENDF tapes, so they are generated output,
+# never repository content. Same convention as
+# `verification_and_validation/openmc_notebook_comparisons/`.
+#
+# The examples write to a per-process temp directory and delete each file after
+# reading it, so nothing should reach the work tree; this is the belt-and-braces
+# rule for when someone points `--out` at the repo instead.
+*.ace
+*.ace.gz
+
+# EXCEPT the committed NJOY2016 oracles. These 8 files are reference DATA, not
+# generated output: they are the Fortran's answer, which this port is compared
+# against, and they cannot be regenerated without NJOY2016. Without this
+# negation a new oracle dropped in here would be silently ignored and the
+# comparison it belongs to would skip rather than fail.
+!reference-data/acer/*.ace
+!reference-data/acer/*.ace.gz
+# The five-route parity gate's NJOY2016 tables (GitHub #872); without this
+# exception they were never committed and the gate skipped everywhere.
+!reference-data/acer/five_route/*.ace.gz
+
+# perf(1) output from profiling runs (cargo flamegraph / perf record).
+# Never committed: it is host- and run-specific, and large.
+perf.data
+perf.data.old

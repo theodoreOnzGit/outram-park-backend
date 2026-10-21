@@ -55,6 +55,22 @@
 //! Ink/freehand strokes are still not implemented: every box is
 //! axis-aligned.
 //!
+//! ## Correcting a saved box by dragging it (2026-10-01)
+//!
+//! Maintainer: *"when i edit annotations, i should be able to drag the
+//! corners of the boxes to correct them."* While a block with a `[source]
+//! region` is open in the page-context panel's editor (a click on its card,
+//! or a double-click on its box), its box grows four corner handles. A drag
+//! on a corner resizes it with the opposite corner fixed, on an edge moves
+//! that side, and in the interior moves the whole box — in any tool, ahead of
+//! pan / draw-box / select-text. The box follows the pointer live and is
+//! written back **on release** through [`classify::replace_artifact_region`]
+//! (`modified` bumped, `created` and every other line kept). Esc during a
+//! drag abandons it; the editor's **Cancel** writes back the region from
+//! before the edit's first drag. Geometry, hit testing and the handle itself
+//! are [`super::box_handles`], shared with the digitiser's corner drag.
+//! The in-memory, not-yet-saved amber boxes are not draggable.
+//!
 //! ## Text selection (op-z9u0)
 //!
 //! `SelectText` drags out a rectangle and selects the **lines** of real PDF
@@ -133,20 +149,25 @@ use kopitiam_pdf::mupdf::{
 };
 
 use crate::artifact::{block_span, Artifact, ArtifactKind, Region, SourceAnchor};
+use super::box_handles::{
+    drag_region, hit_grip, normalised_to_screen, paint_handle, screen_to_normalised, Corner, Grip,
+    HANDLE_GRAB_PX,
+};
 use crate::autocomplete::{library_candidates, LibraryCandidate};
 use crate::classify;
 use crate::digitiser::dataset::utc_now_iso8601;
-use crate::digitiser::raster::PlotRaster;
+use crate::digitiser::raster::{PlotRaster, Quarter};
 use crate::entity::Classification;
 use crate::graph::artifact_node;
 use crate::index::KnowledgeIndex;
-use crate::project;
 use crate::relation::{self, RelationKind};
 use crate::root::KovanRoot;
 use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
-use super::kvim_editor::{CompletionSource, KvimEditorState};
+use super::kvim_editor::{
+    CompletionSource, {EditorSignal, KvimEditorState},
+};
 use super::page_canvas::PageView;
 
 /// Screen-resolution DPI for the continuous canvas's page raster and
@@ -195,6 +216,19 @@ enum AnnotationTool {
     SelectText,
 }
 
+/// How much of the PDF text a `SelectText` drag picks up (#355).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SelectGranularity {
+    /// Whole lines whose box meets the drag (op-z9u0's original behaviour,
+    /// still the Reader view's).
+    #[default]
+    Line,
+    /// Only the characters inside the drag, with wide gaps turned into tabs
+    /// so a dragged table row pastes across grid cells
+    /// ([`select_chars_in_rect`]). The table digitiser view uses this.
+    Char,
+}
+
 /// A saved free-text annotation (the "Annotate" menu action) — a
 /// texture-pixel-space rect plus provenance (op-96am: "annotations... go
 /// straight into markdown with date and time and author... metadata of
@@ -205,7 +239,6 @@ struct Annotation {
     max: Pos2,
     text: String,
     created_at: String,
-    author: String,
     /// The annotate-canvas page's pixel size at `RENDER_DPI` when this box
     /// was drawn — so [`PdfReaderState::save_annotations_into_project`] can
     /// normalise `min`/`max` into a `[source] region` even for an
@@ -265,11 +298,14 @@ struct ContextMenu {
 #[derive(Debug, Clone)]
 enum ConnectionPopup {
     /// "Add connection..." — a fuzzy target picker (backed by
-    /// [`library_candidates`]) plus a cyclable [`RelationKind`].
+    /// [`library_candidates`]) plus a fuzzy [`RelationKind`] picker.
     Add {
         source: String,
         query: String,
         kind: RelationKind,
+        /// What is typed in the relation-kind picker. Separate from `query`,
+        /// which searches the *target*: the two searches are independent.
+        kind_query: String,
     },
     /// "Edit connections..." / "Delete connection..." — both open the same
     /// view of every [`relation::UserRelation`] touching `node`
@@ -281,7 +317,140 @@ enum ConnectionPopup {
     /// verbatim: "Sure anot? [No] [Yes]". `Yes` calls
     /// [`classify::delete_artifact_cascade`] exactly once; `No` calls
     /// nothing at all (the dialog is closed, `self` otherwise untouched).
-    ConfirmDelete { citekey: String, artifact_id: String },
+    ConfirmDelete {
+        citekey: String,
+        artifact_id: String,
+    },
+}
+
+/// The artifact whose region box is hit at `at`, when several overlap: the
+/// **smallest** containing region wins.
+///
+/// Artifact boxes nest and overlap routinely — a figure inside a section, two
+/// notes over one column — and picking the first (or last) in document order
+/// meant clicking a small box inside a larger one acted on the larger one
+/// (maintainer, 2026-09-22: "it goes to the right paper, but wrong
+/// artifact"). Smallest-wins is what a click on nested boxes means in every
+/// other interface, and it is the only rule that lets a small artifact inside
+/// a big one be reached at all.
+///
+/// Used by the right-click hit test, the hover highlight and single-click
+/// open alike, so the box you see highlighted is the one that acts.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn smallest_hit<'a>(
+    overlays: impl IntoIterator<Item = (&'a Artifact, Rect)>,
+    at: Pos2,
+) -> Option<&'a Artifact> {
+    overlays
+        .into_iter()
+        // Containment has to be tested in screen space: the pointer is a
+        // screen position, and this is the only step that needs the
+        // transform at all.
+        .filter(|(_, r)| r.contains(at))
+        // Everything after it is decided on the artifact's **own**
+        // normalised region, which is exact and does not depend on the
+        // current zoom (maintainer, 2026-09-22).
+        .min_by(|(a, _), (b, _)| {
+            hit_rank(a)
+                .partial_cmp(&hit_rank(b))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(art, _)| art)
+}
+
+/// The ordering key [`smallest_hit`] ranks by: normalised area first, then
+/// page, then the region's own corners.
+///
+/// **Area** in page fractions rather than screen pixels — the same number at
+/// any zoom, and comparable across pages of different sizes, which screen
+/// area is not.
+///
+/// **Page and corners** are the tie-break, because an artifact is identified
+/// by its box (maintainer: "the artifact is uniquely identified by its box …
+/// That should be the discriminator between similar artifacts", and "the
+/// page matters too"). Two artifacts of equal area are then ordered by
+/// where they actually are, deterministically, instead of by whichever
+/// happened to be parsed first — the one case the area rule alone could not
+/// separate.
+///
+/// **Id** is the last element, so the order is **total**: no two distinct
+/// artifacts ever compare equal, whatever their geometry. That is deliberate
+/// redundancy (maintainer: "use the ids too … redundancy is good") — the
+/// geometry is what a click means, the id is what cannot collide, and
+/// falling through to it means the answer never depends on parse order.
+///
+/// A missing region sorts last (`INFINITY`). In practice it cannot occur:
+/// the overlays are built *from* regions, so an artifact without one is
+/// never a candidate. It is handled rather than unwrapped because the type
+/// admits it.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn hit_rank(art: &Artifact) -> (f64, u32, f64, f64, f64, f64, &str) {
+    let page = art
+        .toml
+        .source
+        .as_ref()
+        .and_then(|s| s.first_page())
+        .unwrap_or(u32::MAX);
+    let id = art.id();
+    match art.toml.source.as_ref().and_then(|src| src.region) {
+        Some(r) => (
+            (r.x1 - r.x0) * (r.y1 - r.y0),
+            page,
+            r.x0,
+            r.y0,
+            r.x1,
+            r.y1,
+            id,
+        ),
+        None => (f64::INFINITY, page, 0.0, 0.0, 0.0, 0.0, id),
+    }
+}
+
+/// The relation-kind picker: a dropdown whose list is **fuzzy-filtered** by a
+/// search box inside it, like an autocomplete (maintainer, 2026-09-22).
+///
+/// It replaced a single button that cycled [`RelationKind::ALL`] one step per
+/// click. With eight kinds that is up to seven clicks to reach the one you
+/// want, in an order nobody memorises, and the current value is the only one
+/// ever on screen — so you cannot see what the alternatives are. A dropdown
+/// shows them; the search box means you do not have to read all eight.
+///
+/// Ranked through [`crate::fuzzy::fuzzy_score`], the same scorer as the
+/// target search directly beside it and as every other Kovan finder, so the
+/// two halves of this dialog behave identically.
+fn relation_kind_picker(ui: &mut egui::Ui, kind: &mut RelationKind, query: &mut String) {
+    egui::ComboBox::from_id_salt("relation-kind")
+        .selected_text(kind.label())
+        .show_ui(ui, |ui| {
+            ui.add(
+                egui::TextEdit::singleline(query)
+                    .hint_text("filter\u{2026}")
+                    .desired_width(160.0),
+            );
+            let mut ranked: Vec<(i32, RelationKind)> = RelationKind::ALL
+                .into_iter()
+                .filter_map(|k| {
+                    // Match the human label and the wire name both: someone
+                    // who has read a `[relation]` block searches `uses_data`,
+                    // someone who has not searches `uses data`.
+                    let by_label = crate::fuzzy::fuzzy_score(query, k.label());
+                    let by_wire = crate::fuzzy::fuzzy_score(query, k.as_str());
+                    by_label.max(by_wire).map(|s| (s, k))
+                })
+                .collect();
+            // Best first; ties keep `ALL`'s order, since the sort is stable.
+            ranked.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
+            if ranked.is_empty() {
+                ui.weak("no matching kind");
+            }
+            for (_, k) in ranked {
+                if ui.selectable_label(*kind == k, k.label()).clicked() {
+                    *kind = k;
+                    query.clear();
+                    ui.close();
+                }
+            }
+        });
 }
 
 /// What one [`MenuEntry`] does when clicked, for the op-30um.3/.6 saved-
@@ -372,6 +541,19 @@ pub(super) fn saved_artifact_menu_entries(
         ArtifactKind::DigitisedTable => "Edit table",
         ArtifactKind::Formula => "Edit formula",
         ArtifactKind::SourceReference => "Edit source reference",
+        // The #743 prose kinds are not source-anchored either; the arms
+        // exist so the menu names what is being edited.
+        ArtifactKind::LessonSection => "Edit lesson section",
+        ArtifactKind::WalkStep => "Edit walk step",
+        ArtifactKind::CodeWalk => "Edit code walk",
+        ArtifactKind::RecipeStep => "Edit recipe step",
+        // The code-review kinds (#764) live in a folder's review.md, never
+        // on a PDF page; the arms name what is being edited.
+        ArtifactKind::Review => "Edit review",
+        ArtifactKind::NeedsFix => "Edit needs-fix note",
+        ArtifactKind::Upstream => "Edit upstream confirmation",
+        ArtifactKind::DeletedFunctions => "Edit deleted-functions history",
+        ArtifactKind::Architecture => "Edit architecture node",
     };
     let is_csv = matches!(
         kind,
@@ -435,18 +617,98 @@ pub(super) fn saved_artifact_menu_entries(
     nav
 }
 
+/// Tallest the selected-text box may grow before it scrolls, in points:
+/// about six lines of monospace, so the page stays visible under it whatever
+/// was selected.
+const SELECTION_PANEL_MAX_HEIGHT: f32 = 110.0;
+
+/// Whether the right-click menu's edit entry ("Edit table", "Edit
+/// digitisation") re-opens the digitiser for this kind.
+///
+/// ~~It only zoomed to the page, like a click on the block, with the
+/// digitiser one entry further down as "Go to digitiser" (GH issue #35,
+/// 2026-09-08).~~ **CHANGED 2026-09-28** (maintainer: "the edit table button
+/// should bring me into the digitiser interface ... it doesn't"): an entry
+/// that says *Edit table* must open the table for editing. A plain click on
+/// the block still only zooms to its page; the menu entry is the explicit
+/// request.
+fn edit_opens_digitiser(kind: ArtifactKind) -> bool {
+    matches!(
+        kind,
+        ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph
+    )
+}
+
 /// In-progress "Annotate" text editor, opened from the context menu's
 /// Annotate/Edit actions. Shown as a panel under the toolbar (not floated
 /// over the exact box position) — simpler and immune to scroll-coordinate
 /// edge cases than a canvas-anchored popup, at the cost of not visually
 /// hovering right over the box while typing.
 struct AnnotateEditor {
+    /// The 0-based page the box is on, fixed when the editor opens. Saving
+    /// used the reader's current page instead, which can follow the view to
+    /// another page meanwhile: a note drawn on page 4 was filed on page 3
+    /// (maintainer's bug, 2026-09-22).
+    page: usize,
     min: Pos2,
     max: Pos2,
-    text: String,
+    /// The note's text, held in a **modal** kvim buffer rather than a plain
+    /// `String` behind an `egui::TextEdit` (maintainer, 2026-09-24).
+    ///
+    /// This editor and the page-context panel edit the *same* annotations, and
+    /// until now only one of them was modal: muscle memory built in the
+    /// page-context editor -- `Esc`, `dd`, `ciw`, `u` -- silently typed
+    /// literal characters into an annotation note instead. Two editors for one
+    /// kind of text should not disagree about what `Esc` means.
+    kvim: KvimEditorState,
     /// `Some(i)` when editing annotation `i` on the current page in place;
     /// `None` for a brand-new annotation.
     editing_existing: Option<usize>,
+}
+
+impl AnnotateEditor {
+    /// Open on `text`, landing in **Insert** mode.
+    ///
+    /// Insert rather than Normal is deliberate and matches the page-context
+    /// panel, whose own test states the rule: "opening a block from the
+    /// page-context panel must land in Insert mode". Someone who has just
+    /// drawn a box around a figure means to write a note, not to navigate an
+    /// empty buffer.
+    fn open(
+        page: usize,
+        min: Pos2,
+        max: Pos2,
+        text: &str,
+        editing_existing: Option<usize>,
+    ) -> Self {
+        let mut kvim = KvimEditorState::default();
+        kvim.load_text(text);
+        kvim.begin_insert();
+        Self {
+            page,
+            min,
+            max,
+            kvim,
+            editing_existing,
+        }
+    }
+
+    /// The note as it currently stands.
+    fn text(&self) -> String {
+        self.kvim.text()
+    }
+
+    /// The editor's current mode, for tests.
+    #[cfg(test)]
+    fn mode_label_for_test(&self) -> &'static str {
+        self.kvim.mode_label()
+    }
+
+    /// Drive the buffer with vim keys directly, bypassing egui, for tests.
+    #[cfg(test)]
+    fn feed_for_test(&mut self, keys: &str) {
+        self.kvim.feed_for_test(keys);
+    }
 }
 
 /// Provenance for a Digitise-graph/Read-table crop (op-p17q/op-hnhp), routed
@@ -495,6 +757,56 @@ pub(super) fn normalise_region(min: Pos2, max: Pos2, w: f32, h: f32) -> Option<R
     Region::from_pixels((min.x, min.y), (max.x, max.y), w, h)
 }
 
+/// Blocks whose `[source]` anchor cannot be shown where it belongs: a
+/// drawn kind (annotation, digitised graph or table) anchored to a page
+/// with no region, or one whose region is out of range or degenerate. Such
+/// a block draws no box, so nothing on the page can be clicked to fix it;
+/// [`PdfReaderState::malformed_panel`] lists them for deletion. A note
+/// anchored to a page with no region is legal (§15) and not listed.
+fn malformed_blocks(artifacts: &[Artifact]) -> Vec<(&Artifact, &'static str)> {
+    artifacts
+        .iter()
+        .filter(|a| {
+            matches!(
+                a.kind(),
+                ArtifactKind::Annotation
+                    | ArtifactKind::DigitisedGraph
+                    | ArtifactKind::DigitisedTable
+            )
+        })
+        .filter_map(|a| {
+            let source = a.toml.source.as_ref()?;
+            source.first_page()?;
+            match source.region {
+                None => Some((a, "no region: it was saved without its box")),
+                Some(r) if !r.is_valid() => Some((a, "region outside the page")),
+                Some(_) => None,
+            }
+        })
+        .collect()
+}
+
+/// The gap between pages on the continuous canvas, in points.
+const GAP: f32 = 16.0;
+
+/// The scroll offset that centres `region` (on 0-based `page`) in a
+/// `viewport` at `zoom`, never negative. Placed with
+/// [`region_to_screen_rect`] at a zero origin (content coordinates), so it
+/// agrees with where the box is drawn. `None` for an invalid region or
+/// before the canvas has been measured.
+fn region_centre_offset(
+    region: Region,
+    page: usize,
+    page_px: egui::Vec2,
+    zoom: f32,
+    viewport: egui::Vec2,
+) -> Option<egui::Vec2> {
+    if viewport.x <= 0.0 || viewport.y <= 0.0 {
+        return None;
+    }
+    let rect = region_to_screen_rect(region, page, page_px, Pos2::ZERO, zoom, GAP)?;
+    Some((rect.center().to_vec2() - viewport * 0.5).max(egui::Vec2::ZERO))
+}
 
 /// The screen-space rectangle [`Region`] (§15, normalised page fractions)
 /// reconstructs to on the continuous multi-page canvas, given which 0-based
@@ -524,13 +836,11 @@ pub(super) fn region_to_screen_rect(
     if !region.is_valid() || page_px.x <= 0.0 || page_px.y <= 0.0 || zoom <= 0.0 {
         return None;
     }
-    let page_top = page as f32 * (page_px.y * zoom + gap);
+    // The one placement transform, shared with the corner-drag edit's
+    // inverse (`box_handles::screen_to_normalised`), so a handle is hit
+    // exactly where its box is drawn.
     let to_screen = |x_frac: f64, y_frac: f64| -> Pos2 {
-        origin
-            + egui::vec2(
-                x_frac as f32 * page_px.x * zoom,
-                page_top + y_frac as f32 * page_px.y * zoom,
-            )
+        normalised_to_screen(x_frac, y_frac, page, page_px, origin, zoom, gap)
     };
     Some(Rect::from_min_max(
         to_screen(region.x0, region.y0),
@@ -572,11 +882,23 @@ pub(super) fn artifact_overlays_for_page<'a>(
         .collect()
 }
 
+/// A short suffix marking an AI-written artifact (`[kovan] origin = "ai"`,
+/// GH issue #743) in the page-context list; empty for a human one.
+fn ai_badge(artifact: &crate::artifact::Artifact) -> &'static str {
+    match artifact.origin() {
+        crate::artifact::Origin::Ai => "  [AI]",
+        crate::artifact::Origin::Human => "",
+    }
+}
+
 /// The "other" endpoint of `rel` as seen from `node`, plus which arrow to
 /// draw — pulled out of [`PdfReaderState::connection_popup_ui`]'s "Manage"
 /// list rendering so the source/target direction logic is unit-testable
 /// without an `egui::Ui` (op-30um.3).
-pub(super) fn relation_other_end<'a>(rel: &'a relation::UserRelation, node: &str) -> (&'static str, &'a str) {
+pub(super) fn relation_other_end<'a>(
+    rel: &'a relation::UserRelation,
+    node: &str,
+) -> (&'static str, &'a str) {
     if rel.source == node {
         ("→", &rel.target)
     } else {
@@ -631,8 +953,33 @@ struct SearchState {
     current: Option<usize>,
 }
 
+/// A drag on the edited block's region box ([`PdfReaderState::region_drag`]).
+/// The live box is recomputed every frame from `start` by
+/// [`super::box_handles::drag_region`], never accumulated.
+#[derive(Debug, Clone)]
+struct RegionDrag {
+    /// The artifact being corrected.
+    id: String,
+    /// Its 0-based page — the pointer is read against this page however far
+    /// it strays.
+    page: usize,
+    /// What was grabbed.
+    grip: Grip,
+    /// The region when the drag began.
+    start: Region,
+    /// The pointer at drag start, normalised page fractions.
+    from: (f64, f64),
+    /// The box as the drag currently has it.
+    current: Region,
+}
+
 #[derive(Default)]
 pub struct PdfReaderState {
+    /// How many times a document has been opened ([`Self::times_opened`]).
+    opened: u32,
+    /// An unreadable block awaiting "Confirm delete" in
+    /// [`Self::malformed_panel`]: its heading's line and text.
+    confirm_remove_block: Option<(usize, String)>,
     path: String,
     source: ReaderSource,
     /// The page currently in view on the continuous canvas — the top page
@@ -678,11 +1025,31 @@ pub struct PdfReaderState {
     /// The `ScrollArea`'s actual offset last frame, so a vertical-only page
     /// jump can leave the horizontal scroll where the operator put it.
     last_offset: egui::Vec2,
+    /// The egui pass this reader last drew on, so a **re-entry** can be told
+    /// from an ordinary frame.
+    ///
+    /// Switching to the Mindmap and back leaves a gap in this number. On the
+    /// frame after such a gap the scroll offset is restored from
+    /// [`Self::last_offset`] rather than trusted to egui's memory, so the
+    /// reading position lives in this struct and survives regardless of
+    /// whether egui still holds state for the scroll area.
+    last_drawn_pass: Option<u64>,
+    /// Whether annotation cards show their body preview.
+    ///
+    /// Off collapses every card to a single heading line. With five to seven
+    /// annotations on one page -- routine when indexing a paper -- four lines
+    /// of preview each turns the panel into a scroll hunt, and the heading is
+    /// what you navigate by (maintainer, 2026-09-24). Defaults to on, so the
+    /// panel still explains itself on first use.
+    show_summaries: bool,
     /// A scroll offset to force on the **next** frame — set by a
     /// pointer-anchored zoom (Ctrl+scroll, `+`/`-`) so the document point
     /// under the mouse stays under the mouse. `ScrollArea` applies it before
     /// layout and input, so it is exact and one-shot.
     forced_offset: Option<egui::Vec2>,
+    /// An artifact jump asked for before the canvas could satisfy it, to be
+    /// retried once it can. See [`PdfReaderState::go_to_artifact`].
+    pending_jump: Option<Artifact>,
     message: String,
     // annotations — in-memory only, see the module doc comment.
     tool: AnnotationTool,
@@ -708,11 +1075,6 @@ pub struct PdfReaderState {
     /// Author name recorded on new annotations/crops (op-96am's provenance
     /// "author" field) — analogous to the digitiser's own "operator" field.
     author: String,
-    /// "kovan folder" project (op-63u0) to save annotations into, and the
-    /// markdown file (relative to that root) they belong to — see
-    /// [`Self::save_annotations_into_project`].
-    project_root: String,
-    project_markdown_rel: String,
     /// Cached structured-text page (op-z9u0), for [`Self::active_page`]
     /// only — re-extracted on page change.
     stext_cache: Option<(usize, StextPage)>,
@@ -723,6 +1085,20 @@ pub struct PdfReaderState {
     /// selected line's bbox, texture-pixel space) and the concatenated text
     /// of the lines it covers, one per line. `None` before any selection.
     text_selection: Option<(Pos2, Pos2, String)>,
+    /// Line or character selection; see [`SelectGranularity`].
+    select_granularity: SelectGranularity,
+    /// The whole PDF after one or more page turns that are showing but not
+    /// yet written to disk ([`Self::save_rotation`]). `None` when the file on
+    /// disk is what is shown.
+    unsaved_rotation: Option<Vec<u8>>,
+    /// The highlight rectangles of the selection in progress or last made,
+    /// texture-pixel space: one per selected line, or per run of text within
+    /// a row for a character selection. Drawn only while
+    /// [`Self::select_start`] or [`Self::text_selection`] is set.
+    selection_runs: Vec<(Pos2, Pos2)>,
+    /// Put every completed text selection on the clipboard at once, so the
+    /// table digitiser's loop is drag, then Ctrl+V in the grid (#355).
+    copy_on_select: bool,
     /// The `created_at` of the annotation the pointer is currently hovering
     /// on the canvas, if any (op-4x5s) — a poor-man's stable id
     /// [`Self::context_panel`] uses to highlight the matching markdown
@@ -750,6 +1126,18 @@ pub struct PdfReaderState {
     /// (by stable id) it currently holds, or `None` when no block is open.
     block_editor: KvimEditorState,
     editing_block_id: Option<String>,
+    /// A drag in progress on the edited block's region box — a corner, an
+    /// edge or the interior (maintainer, 2026-10-01: "when i edit
+    /// annotations, i should be able to drag the corners of the boxes to
+    /// correct them"). See [`super::box_handles`].
+    region_drag: Option<RegionDrag>,
+    /// Set by Esc during a region drag: the rest of that pointer gesture is
+    /// swallowed rather than turning into a pan or a new box.
+    region_drag_cancelled: bool,
+    /// The edited block's region as it was **before its first drag** in this
+    /// edit, by artifact id — what the block editor's Cancel writes back.
+    /// Cleared by Save, Cancel, or the editor moving to another block.
+    region_original: Option<(String, Region)>,
     /// The stable id of the anchored-artifact card the pointer is hovering
     /// in the page-context panel, if any — the canvas overlay reads it to
     /// highlight that artifact's `region` box (op-4x5s, panel → canvas
@@ -813,6 +1201,311 @@ fn select_text_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> St
     out
 }
 
+/// A gap between two characters on one row wider than this many ems (the
+/// larger of the two font sizes) is read as a **column break** and becomes a
+/// tab. A heuristic, not table-structure detection: word spaces in body text
+/// are about 0.25 em and table column gutters are usually several ems, so
+/// 1 em separates them for most typeset tables. Where it guesses wrong, the
+/// grid is where the fix is made (#355).
+const COLUMN_GAP_EM: f32 = 1.0;
+
+/// A gap wider than this many ems is a word space even when the PDF did not
+/// emit a space character for it (many producers position words instead).
+const WORD_GAP_EM: f32 = 0.25;
+
+/// The **characters** of `page` whose box centre lies inside `(min, max)`
+/// (texture-pixel space, `scale` = pixels per PDF point), as text for pasting
+/// into the table grid (#355).
+///
+/// Unlike [`select_text_in_rect`] this takes part of a line, so one cell of a
+/// table row can be selected on its own. Rows are rebuilt from the glyph
+/// baselines rather than from MuPDF's lines, because a table's cells are
+/// often separate stext lines, or separate blocks, that share a baseline.
+/// Within a row, characters are ordered by x; a gap wider than
+/// [`COLUMN_GAP_EM`] becomes `\t` and a narrower one (or a space character)
+/// becomes one space. Rows join with `\n`. Dragging across a whole table
+/// row therefore gives `a\tb\tc`, which [`crate::digitiser::table_grid`]
+/// pastes into three cells.
+///
+/// **Superscripts are marked with `^`** (maintainer, 2026-09-28: standard
+/// form such as 2.1×10⁶ was arriving as `2.1×106`). A PDF has no superscript
+/// character; an exponent is just a smaller glyph drawn above the line, so a
+/// glyph counts as superscript when it is both smaller than the row's text
+/// ([`SUPERSCRIPT_SIZE_RATIO`]) and raised above its baseline
+/// ([`SUPERSCRIPT_RAISE_EM`]). A run of them is written `^` then the run:
+/// `2.1×10^6`, `m^2`, `10^-7`. The grid's "Reformat to E" button then turns
+/// whole standard-form cells into `2.1e6`
+/// ([`crate::digitiser::table_grid::standard_form_to_e`]).
+fn select_chars_in_rect(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> String {
+    let mut out = String::new();
+    for (i, row) in char_rows(page, scale, min, max).into_iter().enumerate() {
+        if i > 0 {
+            out.push('\n');
+        }
+        let superscript = superscript_flags(&row);
+        let mut prev: Option<(f32, f32, bool)> = None; // (x1, size, superscript) of the last glyph
+        let mut pending_space = false;
+        for (g, sup) in row.iter().zip(superscript) {
+            if g.c.is_whitespace() {
+                pending_space = prev.is_some();
+                continue;
+            }
+            let mut column_break = false;
+            if let Some((px1, psize, _)) = prev {
+                let em = psize.max(g.size);
+                let gap = g.x0 - px1;
+                if gap > COLUMN_GAP_EM * em {
+                    out.push('\t');
+                    column_break = true;
+                } else if pending_space || gap > WORD_GAP_EM * em {
+                    out.push(' ');
+                }
+            }
+            let prev_sup = prev.is_some_and(|p| p.2) && !column_break;
+            if sup && !prev_sup {
+                out.push('^');
+            }
+            out.push(g.c);
+            prev = Some((g.x1, g.size, sup));
+            pending_space = false;
+        }
+    }
+    out
+}
+
+/// A glyph smaller than this fraction of its row's main text size may be a
+/// superscript. Typeset superscripts are about 0.6–0.7 of the body size.
+const SUPERSCRIPT_SIZE_RATIO: f32 = 0.85;
+
+/// ...and must sit at least this many (main-size) ems above the row's
+/// baseline. Typeset superscripts are raised about 0.3–0.4 em; a smaller
+/// glyph on the baseline (small caps, a footnote-size unit) is not one.
+const SUPERSCRIPT_RAISE_EM: f32 = 0.15;
+
+/// For each glyph in a row (sorted by x), whether it is a superscript: see
+/// [`SUPERSCRIPT_SIZE_RATIO`] and [`SUPERSCRIPT_RAISE_EM`]. The row's main
+/// size is its largest glyph size, and its baseline the lowest baseline among
+/// glyphs of about that size (PDF y grows downward here, so "raised" means a
+/// smaller y).
+fn superscript_flags(row: &[PickedGlyph]) -> Vec<bool> {
+    let main_size = row
+        .iter()
+        .filter(|g| !g.c.is_whitespace())
+        .map(|g| g.size)
+        .fold(0.0_f32, f32::max);
+    if main_size <= 0.0 {
+        return vec![false; row.len()];
+    }
+    let baseline = row
+        .iter()
+        .filter(|g| !g.c.is_whitespace() && g.size >= 0.95 * main_size)
+        .map(|g| g.baseline)
+        .fold(f32::MIN, f32::max);
+    row.iter()
+        .map(|g| {
+            !g.c.is_whitespace()
+                && g.size <= SUPERSCRIPT_SIZE_RATIO * main_size
+                && baseline - g.baseline >= SUPERSCRIPT_RAISE_EM * main_size
+        })
+        .collect()
+}
+
+/// One picked glyph, in PDF points.
+#[derive(Debug, Clone, Copy)]
+struct PickedGlyph {
+    x0: f32,
+    x1: f32,
+    y0: f32,
+    y1: f32,
+    baseline: f32,
+    size: f32,
+    c: char,
+}
+
+/// The glyphs whose box centre lies inside `(min, max)`, grouped into rows by
+/// baseline (top to bottom) and sorted left to right within each row. A
+/// baseline more than half an em below a row's first glyph starts a new row.
+/// Shared by [`select_chars_in_rect`] (the text) and
+/// [`char_selection_runs`] (the highlight), so what is highlighted is
+/// exactly what is copied.
+fn char_rows(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> Vec<Vec<PickedGlyph>> {
+    let mut picked: Vec<PickedGlyph> = Vec::new();
+    for block in &page.blocks {
+        let StextBlock::Text(tb) = block else {
+            continue;
+        };
+        for line in &tb.lines {
+            for ch in &line.chars {
+                let r = ch.quad.to_rect();
+                let (cx, cy) = (0.5 * (r.x0 + r.x1) * scale, 0.5 * (r.y0 + r.y1) * scale);
+                if cx >= min.x && cx <= max.x && cy >= min.y && cy <= max.y {
+                    picked.push(PickedGlyph {
+                        x0: r.x0,
+                        x1: r.x1,
+                        y0: r.y0,
+                        y1: r.y1,
+                        baseline: ch.origin.y,
+                        size: ch.size.max(1e-3),
+                        c: ch.c,
+                    });
+                }
+            }
+        }
+    }
+    picked.sort_by(|a, b| a.baseline.total_cmp(&b.baseline));
+    let mut rows: Vec<Vec<PickedGlyph>> = Vec::new();
+    for g in picked {
+        match rows.last_mut() {
+            Some(row) if (g.baseline - row[0].baseline).abs() <= 0.5 * row[0].size.max(g.size) => {
+                row.push(g)
+            }
+            _ => rows.push(vec![g]),
+        }
+    }
+    let mut rows = merge_script_rows(rows);
+    for row in &mut rows {
+        row.sort_by(|a, b| a.x0.total_cmp(&b.x0));
+    }
+    rows
+}
+
+/// A row made only of glyphs this much smaller than its neighbour's text is a
+/// candidate superscript or subscript row (see [`SUPERSCRIPT_SIZE_RATIO`]).
+///
+/// Clustering by baseline alone puts a strongly raised exponent on a row of
+/// its own: on the maintainer's HTR-10 Table 7 the `−1` of "mSv a⁻¹" sits
+/// about half an em up and arrived as a separate row above "Dose (mSv a )"
+/// (found on the real page, 2026-09-28). So a row of small glyphs is folded
+/// into the row directly below it when it is raised by at most
+/// [`MAX_SCRIPT_RAISE_EM`] of that row's text size (a superscript), or into
+/// the row directly above when it is lowered by at most
+/// [`MAX_SCRIPT_DROP_EM`] (a subscript), and only if it lies within that
+/// row's horizontal span. A caption or footnote line in small type sits
+/// further away than that and stays a row of its own.
+const MAX_SCRIPT_RAISE_EM: f32 = 0.8;
+/// See [`MAX_SCRIPT_RAISE_EM`].
+const MAX_SCRIPT_DROP_EM: f32 = 0.5;
+
+/// Fold superscript-only and subscript-only rows into the row they belong
+/// to; see [`MAX_SCRIPT_RAISE_EM`]. `rows` is in top-to-bottom order.
+fn merge_script_rows(rows: Vec<Vec<PickedGlyph>>) -> Vec<Vec<PickedGlyph>> {
+    // (main size, baseline of the main-size glyphs, x0, x1) of a row.
+    let stats = |row: &[PickedGlyph]| {
+        let size = row.iter().map(|g| g.size).fold(0.0_f32, f32::max);
+        let base = row
+            .iter()
+            .filter(|g| g.size >= 0.95 * size)
+            .map(|g| g.baseline)
+            .fold(f32::MIN, f32::max);
+        let x0 = row.iter().map(|g| g.x0).fold(f32::MAX, f32::min);
+        let x1 = row.iter().map(|g| g.x1).fold(f32::MIN, f32::max);
+        (size, base, x0, x1)
+    };
+    let mut out: Vec<Vec<PickedGlyph>> = Vec::new();
+    let mut pending: Option<Vec<PickedGlyph>> = None; // a superscript row awaiting the row below
+    for row in rows {
+        let (size, base, x0, x1) = stats(&row);
+        // A superscript row held back from above, if it belongs here.
+        if let Some(sup) = pending.take() {
+            let (ssize, sbase, sx0, sx1) = stats(&sup);
+            let raise = base - sbase;
+            let fits = ssize <= SUPERSCRIPT_SIZE_RATIO * size
+                && raise > 0.0
+                && raise <= MAX_SCRIPT_RAISE_EM * size
+                && sx0 >= x0 - size
+                && sx1 <= x1 + size;
+            if fits {
+                let mut merged = sup;
+                merged.extend(row);
+                out.push(merged);
+                continue;
+            }
+            out.push(sup);
+        }
+        // A subscript row folds into the row above.
+        if let Some(prev) = out.last_mut() {
+            let (psize, pbase, px0, px1) = stats(prev);
+            let drop = base - pbase;
+            if size <= SUPERSCRIPT_SIZE_RATIO * psize
+                && drop > 0.0
+                && drop <= MAX_SCRIPT_DROP_EM * psize
+                && x0 >= px0 - psize
+                && x1 <= px1 + psize
+            {
+                prev.extend(row);
+                continue;
+            }
+        }
+        pending = Some(row);
+    }
+    out.extend(pending);
+    out
+}
+
+/// The highlight for a character selection: one rectangle per run of text
+/// within a row, split wherever [`select_chars_in_rect`] would put a tab, so
+/// each table cell lights up as its own block (texture-pixel space).
+fn char_selection_runs(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> Vec<(Pos2, Pos2)> {
+    let mut runs = Vec::new();
+    for row in char_rows(page, scale, min, max) {
+        let mut run: Option<(f32, f32, f32, f32, f32)> = None; // x0, y0, x1, y1, size
+        for g in row.into_iter().filter(|g| !g.c.is_whitespace()) {
+            run = match run {
+                Some((x0, y0, x1, y1, size)) if g.x0 - x1 <= COLUMN_GAP_EM * size.max(g.size) => {
+                    Some((
+                        x0,
+                        y0.min(g.y0),
+                        g.x1.max(x1),
+                        y1.max(g.y1),
+                        size.max(g.size),
+                    ))
+                }
+                Some((x0, y0, x1, y1, _)) => {
+                    runs.push((
+                        Pos2::new(x0 * scale, y0 * scale),
+                        Pos2::new(x1 * scale, y1 * scale),
+                    ));
+                    Some((g.x0, g.y0, g.x1, g.y1, g.size))
+                }
+                None => Some((g.x0, g.y0, g.x1, g.y1, g.size)),
+            };
+        }
+        if let Some((x0, y0, x1, y1, _)) = run {
+            runs.push((
+                Pos2::new(x0 * scale, y0 * scale),
+                Pos2::new(x1 * scale, y1 * scale),
+            ));
+        }
+    }
+    runs
+}
+
+/// The highlight for a line selection: each selected line's box, the same
+/// lines [`select_text_in_rect`] copies (texture-pixel space).
+fn line_selection_runs(page: &StextPage, scale: f32, min: Pos2, max: Pos2) -> Vec<(Pos2, Pos2)> {
+    let mut runs = Vec::new();
+    for block in &page.blocks {
+        let StextBlock::Text(tb) = block else {
+            continue;
+        };
+        for line in &tb.lines {
+            let b = line.bbox;
+            let (lx0, ly0, lx1, ly1) = (b.x0 * scale, b.y0 * scale, b.x1 * scale, b.y1 * scale);
+            if lx0 <= max.x && lx1 >= min.x && ly0 <= max.y && ly1 >= min.y {
+                runs.push((Pos2::new(lx0, ly0), Pos2::new(lx1, ly1)));
+            }
+        }
+    }
+    runs
+}
+
+/// The theme's text-selection colour, translucent so the glyphs underneath
+/// stay readable.
+fn selection_highlight(ctx: &egui::Context) -> Color32 {
+    let c = ctx.global_style().visuals.selection.bg_fill;
+    Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), 90)
+}
+
 /// Every `(start_char, end_char)` half-open char range in `chars` that
 /// case-insensitively matches `needle` (ASCII fold). Overlapping matches
 /// are not returned — the scan advances past each hit.
@@ -862,35 +1555,20 @@ fn line_hits(line: &kopitiam_pdf::mupdf::StextLine, needle: &str, scale: f32) ->
         .collect()
 }
 
-/// Split `text` on lines starting with `### ` (one block per subsection,
-/// running to the next `### ` or EOF) and keep only the blocks containing
-/// at least one of `needles` — [`PdfReaderState::context_panel`]'s plain
-/// substring filter over a project's markdown, not a markdown parser.
-fn blocks_matching(text: &str, needles: &[&str]) -> Vec<String> {
-    let mut blocks = Vec::new();
-    let mut current: Option<String> = None;
-    for line in text.lines() {
-        if line.starts_with("### ") {
-            if let Some(block) = current.take() {
-                blocks.push(block);
-            }
-            current = Some(String::new());
-        }
-        if let Some(block) = &mut current {
-            block.push_str(line);
-            block.push('\n');
-        }
-    }
-    if let Some(block) = current {
-        blocks.push(block);
-    }
-    blocks.retain(|b| needles.iter().any(|n| b.contains(n)));
-    blocks
-}
-
 /// A short read-only preview of an artifact body for the page-context
 /// panel — the first few non-empty lines, capped, with an ellipsis when
 /// there is more.
+/// Height budget for the annotation-card list in the page-context panel.
+///
+/// Bounded so a page with a dozen annotations cannot push the read-only
+/// preview off the bottom of the panel, which is what happened when both
+/// shared one unbounded scroll area.
+///
+/// **This is the only cap.** The preview below is deliberately unbounded --
+/// it is the working surface, and capping the summaries is precisely how it
+/// gets its room.
+const CONTEXT_LIST_MAX_HEIGHT: f32 = 320.0;
+
 fn body_preview(body: &str) -> String {
     const MAX_LINES: usize = 4;
     const MAX_CHARS: usize = 280;
@@ -923,6 +1601,26 @@ fn first_note_heading_line(md: &str, page: usize) -> Option<usize> {
     None
 }
 
+/// How much of the view an artifact's `[source]` region fills when jumping to
+/// it, as a fraction of the **shorter** screen axis.
+///
+/// `0.5` puts the region in a quadrant of the page — half the width and half
+/// the height — leaving its surroundings visible around it. It was `1.0`, so
+/// the region filled the whole view and you landed with no context at all
+/// (maintainer, 2026-09-22: "a bit annoying"). Raise it toward `1.0` to frame
+/// regions more tightly.
+const REGION_VIEW_FRACTION: f32 = 0.5;
+
+/// Zoom range, shared by the slider, the `+`/`-` keys and the toolbar buttons.
+const ZOOM_RANGE: std::ops::RangeInclusive<f32> = 0.25..=4.0;
+
+/// One zoom step, as a multiplier. `1.25` per press, the same for the `+`/`-`
+/// keys and the toolbar's `-` / `+` buttons so the two cannot drift apart.
+const ZOOM_STEP: f32 = 1.25;
+
+/// The zoom the `Reset` button returns to: the page at its natural size.
+const ZOOM_DEFAULT: f32 = 1.0;
+
 impl PdfReaderState {
     /// A fresh reader — `Read` mode and hot-reload both **on** by default
     /// for a PDF (GitHub issue #30's explicit "hot reload by default in
@@ -934,14 +1632,115 @@ impl PdfReaderState {
         Self {
             hot_reload: HotReload::new(true),
             show_thumbs: true,
+            // On, so the panel explains itself on first use. `derive(Default)`
+            // would give `false` and a new user would meet a column of bare
+            // headings with no hint that a body exists.
+            show_summaries: true,
             ..Self::default()
         }
+    }
+
+    /// Switch to the table digitiser's way of reading (#355): the text tool,
+    /// character-level selection, and copy-on-select, so dragging over a
+    /// table cell or row puts exactly that text on the clipboard.
+    pub fn enter_table_mode(&mut self) {
+        self.tool = AnnotationTool::SelectText;
+        self.select_granularity = SelectGranularity::Char;
+        self.copy_on_select = true;
+    }
+
+    /// Back to the Reader view's line selection with no automatic copy. The
+    /// tool itself is left as it is.
+    pub fn leave_table_mode(&mut self) {
+        self.select_granularity = SelectGranularity::Line;
+        self.copy_on_select = false;
+    }
+
+    /// Turn the page being read by `quarter_turns` x 90 degrees (positive =
+    /// clockwise), for a table or figure printed on its side. For a PDF this
+    /// sets the page's `/Rotate` ([`crate::page_rotation`]), so the text
+    /// layer turns with the picture and selection still works; the result is
+    /// shown at once and written to disk only by [`Self::save_rotation`].
+    /// A plain image is turned in memory only.
+    ///
+    /// Boxes already saved on that page were drawn in the old orientation
+    /// and will not line up until the page is turned back.
+    fn rotate_active_page(&mut self, quarter_turns: i32) {
+        let page = self.active_page();
+        match &mut self.source {
+            ReaderSource::None => return,
+            ReaderSource::Image(raster) => {
+                let turn = if quarter_turns >= 0 {
+                    Quarter::Clockwise
+                } else {
+                    Quarter::CounterClockwise
+                };
+                *raster = raster.rotated(turn);
+                self.message =
+                    "image turned (images are turned for viewing only, not saved)".into();
+            }
+            ReaderSource::Pdf(reader) => {
+                let bytes =
+                    match crate::page_rotation::rotate_page(reader.document(), page, quarter_turns)
+                    {
+                        Ok(b) => b,
+                        Err(e) => {
+                            self.message = format!("could not turn page {}: {e}", page + 1);
+                            return;
+                        }
+                    };
+                if let Err(e) = reader.load_bytes(bytes.clone()) {
+                    self.message = format!("could not show the turned page {}: {e}", page + 1);
+                    return;
+                }
+                self.unsaved_rotation = Some(bytes);
+                self.message =
+                    format!("page {} turned \u{2014} Save rotation to keep it", page + 1);
+            }
+        }
+        // Every cached raster, text layer, search hit and selection is in the
+        // old orientation.
+        self.pages.clear();
+        self.stext_cache = None;
+        self.search.computed_for.clear();
+        self.text_selection = None;
+        self.select_start = None;
+    }
+
+    /// Write the turned PDF over the file it came from. The turn is an
+    /// incremental update, so the original bytes are kept as a prefix of the
+    /// new file.
+    fn save_rotation(&mut self) {
+        let Some(bytes) = self.unsaved_rotation.take() else {
+            return;
+        };
+        let path = std::path::Path::new(&self.path);
+        match std::fs::write(path, &bytes) {
+            Ok(()) => {
+                // Our own write must not look like an outside change and
+                // trigger a reload.
+                self.hot_reload.mark_current(path);
+                self.message = format!("saved the page rotation into {}", self.path);
+            }
+            Err(e) => {
+                self.message = format!("could not save {}: {e}", self.path);
+                self.unsaved_rotation = Some(bytes);
+            }
+        }
+    }
+
+    /// How many times [`Self::open`] has run. Opening puts the reader back
+    /// on the first page with the scroll at the top, so this is how a
+    /// caller, or a test, tells "opened again" from "still open" (#858).
+    pub fn times_opened(&self) -> u32 {
+        self.opened
     }
 
     /// Open `path` as the working document — a PDF or a raster image
     /// (op-wojr), dispatched by [`looks_like_pdf`] — replacing whatever was
     /// previously open.
     pub fn open(&mut self, path: &str) {
+        self.opened += 1;
         if looks_like_pdf(path) {
             self.open_pdf(path);
         } else {
@@ -958,7 +1757,10 @@ impl PdfReaderState {
         self.scroll_anchor = egui::Vec2::ZERO;
         self.last_viewport = egui::Vec2::ZERO;
         self.forced_offset = None;
+        // Any jump still queued belongs to the document being replaced.
+        self.pending_jump = None;
         self.last_offset = egui::Vec2::ZERO;
+        self.last_drawn_pass = None;
         self.thumb_synced = None;
         self.annotations.clear();
         self.draw_start = None;
@@ -972,7 +1774,11 @@ impl PdfReaderState {
         self.hover_created_at = None;
         self.panel_hover_id = None;
         self.editing_block_id = None;
+        self.region_drag = None;
+        self.region_drag_cancelled = false;
+        self.region_original = None;
         self.context_page_synced = None;
+        self.unsaved_rotation = None;
     }
 
     fn open_pdf(&mut self, path: &str) {
@@ -1186,8 +1992,9 @@ impl PdfReaderState {
         match self.crop_region_of_page(page, region) {
             Ok((raster, min, max)) => {
                 self.annotate_page = page;
-                // The re-digitise save goes through `replace_artifact_body`,
-                // which keeps the original `[source]` (region included), so
+                // The re-digitise save goes through `replace_digitisation`
+                // (CORRECTED 2026-09-28, was `replace_artifact_body`), which
+                // keeps the original `[source]` (region included), so
                 // `page_px`/`region()` are irrelevant here — only the id
                 // matters, to target the right block.
                 let prov = CropProvenance {
@@ -1232,26 +2039,171 @@ impl PdfReaderState {
         };
     }
 
+    /// Whether the canvas knows enough to place a region: pages rasterised
+    /// (so there is a page size) and the viewport measured at least once (so
+    /// there is something to centre within).
+    ///
+    /// Both are cleared by [`Self::reset_interaction_state`] when a document
+    /// opens, and only filled in once the canvas has drawn a frame.
+    fn canvas_ready(&self) -> bool {
+        let px = self.pages.page_size_px();
+        px.x > 0.0 && px.y > 0.0 && self.last_viewport != egui::Vec2::ZERO
+    }
+
     /// Take the canvas to `artifact`'s page and zoom so its `[source]`
-    /// region roughly fills the view.
+    /// region sits in the middle of the view at
+    /// [`REGION_VIEW_FRACTION`] of it, centred on it.
     ///
     /// The zoom is derived from the region's own extent — a region covering
-    /// a third of the page height is worth ~3x — clamped to the same
-    /// `0.25..=4.0` range the zoom slider uses. An artifact with a page but
-    /// no region just navigates, leaving the zoom alone: there is nothing
-    /// to frame.
+    /// a third of the page height is worth ~1.5x at the default fraction —
+    /// clamped to the same `0.25..=4.0` range the zoom slider uses. An
+    /// artifact with a page but no region just navigates, leaving the zoom
+    /// alone: there is nothing to frame.
+    ///
+    /// **Fixed 2026-09-22:** the zoom was set, but the view only scrolled to
+    /// the page's top edge and kept its old horizontal offset, so it showed
+    /// the page's top-left corner rather than the box (maintainer: "zooms to
+    /// the wrong side"). The view is now centred on the region, placed with
+    /// [`region_to_screen_rect`], the same mapping the boxes are drawn with.
     fn go_to_artifact(&mut self, artifact: &Artifact) {
         let Some(page) = Self::artifact_page(artifact) else {
             return;
         };
         self.annotate_page = page;
-        self.scroll_request = Some(page);
         self.thumb_synced = None;
-        if let Some(region) = artifact.toml.source.as_ref().and_then(|s| s.region) {
-            let w = (region.x1 - region.x0).max(1e-3) as f32;
-            let h = (region.y1 - region.y0).max(1e-3) as f32;
-            // Fit the larger dimension, so neither axis overflows.
-            self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        let region = artifact.toml.source.as_ref().and_then(|s| s.region);
+        let Some(region) = region else {
+            self.scroll_request = Some(page);
+            return;
+        };
+        // Opening a paper clears `pages` and `last_viewport`
+        // (`reset_interaction_state`), so a jump requested in the same
+        // gesture that opens the document has no page size and no viewport
+        // to centre against: the framing silently degenerated to "page 1",
+        // and only a second click — once the canvas had drawn — worked
+        // (maintainer, 2026-09-22). Defer instead, and retry when the canvas
+        // can answer.
+        if !self.canvas_ready() {
+            self.scroll_request = Some(page);
+            self.pending_jump = Some(artifact.clone());
+            return;
+        }
+        let w = (region.x1 - region.x0).max(1e-3) as f32;
+        let h = (region.y1 - region.y0).max(1e-3) as f32;
+        // Fit the larger dimension, so neither axis overflows.
+        self.zoom = (REGION_VIEW_FRACTION / w.max(h)).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
+        match region_centre_offset(
+            region,
+            page,
+            self.pages.page_size_px(),
+            self.zoom,
+            self.last_viewport,
+        ) {
+            Some(offset) => {
+                self.scroll_request = None;
+                self.forced_offset = Some(offset);
+            }
+            None => self.scroll_request = Some(page),
+        }
+    }
+
+    /// Warn about this paper's malformed blocks ([`malformed_blocks`]) and
+    /// offer to delete each one, through the same confirm step as the
+    /// canvas's "Delete annotation…". They cannot be right-clicked on the
+    /// page, having no box there, so the panel is the only place to reach
+    /// them (maintainer, 2026-09-22).
+    fn malformed_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        artifacts: &[Artifact],
+        session: Option<&mut PaperSession>,
+        context_editor: &mut KvimEditorState,
+    ) {
+        let bad = malformed_blocks(artifacts);
+        // Blocks that could not be read at all: still one `#`-delimited
+        // unit each (maintainer, 2026-09-22), so they can be removed whole.
+        let unreadable = session
+            .as_ref()
+            .map(|s| crate::artifact::parse_document(s.markdown()).problems)
+            .unwrap_or_default();
+        if bad.is_empty() && unreadable.is_empty() {
+            self.confirm_remove_block = None;
+            return;
+        }
+        let citekey = session.as_ref().map(|s| s.citekey().to_string());
+        let mut remove: Option<(usize, String)> = None;
+        egui::Frame::group(ui.style())
+            .stroke(Stroke::new(1.0, ui.visuals().warn_fg_color))
+            .show(ui, |ui| {
+                ui.colored_label(
+                    ui.visuals().warn_fg_color,
+                    format!(
+                        "\u{26a0} {} malformed block(s) in this paper",
+                        bad.len() + unreadable.len()
+                    ),
+                );
+                for (artifact, problem) in bad {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(format!("{} — {problem}", artifact.heading));
+                        if Self::artifact_page(artifact).is_some()
+                            && ui.small_button("Go to page").clicked()
+                        {
+                            self.go_to_artifact(artifact);
+                        }
+                        if let Some(ck) = &citekey {
+                            if ui.small_button("Delete…").clicked() {
+                                self.connection_popup = Some(ConnectionPopup::ConfirmDelete {
+                                    citekey: ck.clone(),
+                                    artifact_id: artifact.id().to_string(),
+                                });
+                            }
+                        }
+                    });
+                }
+                for problem in &unreadable {
+                    let key = (problem.line(), problem.heading().to_string());
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(format!(
+                            "# {} (line {}) — unreadable: {}",
+                            problem.heading(),
+                            problem.line(),
+                            problem.message()
+                        ));
+                        if self.confirm_remove_block.as_ref() == Some(&key) {
+                            if ui.small_button("Confirm delete").clicked() {
+                                remove = Some(key.clone());
+                            }
+                            if ui.small_button("Cancel").clicked() {
+                                self.confirm_remove_block = None;
+                            }
+                        } else if ui.small_button("Delete…").clicked() {
+                            self.confirm_remove_block = Some(key.clone());
+                        }
+                    });
+                }
+            });
+        ui.add_space(4.0);
+
+        let (Some((line, heading)), Some(session)) = (remove, session) else {
+            return;
+        };
+        self.confirm_remove_block = None;
+        // Fold in unsaved edits first, as saving annotations does.
+        if context_editor.is_modified() {
+            session.set_markdown(context_editor.text());
+        }
+        let Some(md) = crate::artifact::remove_block(session.markdown(), line, &heading) else {
+            self.message = format!("\"# {heading}\" moved since it was checked; nothing deleted");
+            return;
+        };
+        session.set_markdown(md);
+        match session.save_document() {
+            Ok(()) => {
+                self.message = format!("deleted the unreadable block \"# {heading}\"");
+                context_editor.load_text(session.markdown());
+                self.context_page_synced = None;
+            }
+            Err(e) => self.message = e.to_string(),
         }
     }
 
@@ -1277,6 +2229,11 @@ impl PdfReaderState {
             ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => None,
             _ => {
                 self.block_editor.load_text(&artifact.body);
+                // The user clicked to get here, so the editor opens ready to
+                // type rather than in Normal mode with no focus — GH issue
+                // #282, and #35's "a single click to bring me into insert
+                // mode, not double click".
+                self.block_editor.begin_insert();
                 self.editing_block_id = Some(artifact.id().to_string());
                 None
             }
@@ -1389,9 +2346,39 @@ impl PdfReaderState {
     /// [`classify::insert_artifact`], so it shows in the page-context list
     /// and `anchored_to_page`. The shared `context_editor`'s unsaved edits
     /// are folded in first, then it is reloaded and scrolled to the first
-    /// new block. Falls back to the plain-text
-    /// [`crate::project::append_to_section`] path only for a PDF outside any
-    /// paper.
+    /// new block. ~~Falls back to the plain-text
+    /// `crate::project::append_to_section` path for a PDF outside any
+    /// paper.~~ **CORRECTED 2026-09-22**: with no paper open the boxes stay in the reader and
+    /// the message says to ingest the PDF first.
+    /// Write a dragged region box back into the paper (maintainer,
+    /// 2026-10-01), through the same path the inline block editor's Save
+    /// uses: one `classify` call that re-renders just that block
+    /// ([`classify::replace_artifact_region`] — `modified` bumped, `created`
+    /// and everything else kept), then `save_document`, then the page-context
+    /// preview reloaded from the session.
+    fn write_region(
+        &mut self,
+        active_paper: Option<&mut PaperSession>,
+        context_editor: &mut KvimEditorState,
+        id: &str,
+        region: Region,
+    ) {
+        let Some(session) = active_paper else {
+            self.message = "no paper open: the box edit was not saved".to_string();
+            return;
+        };
+        match classify::replace_artifact_region(session, id, region) {
+            Ok(_) => match session.save_document() {
+                Ok(()) => {
+                    context_editor.load_text(session.markdown());
+                    self.message = format!("saved the corrected box of {id}");
+                }
+                Err(e) => self.message = e.to_string(),
+            },
+            Err(e) => self.message = format!("box edit failed: {e}"),
+        }
+    }
+
     fn save_annotations_into_project(
         &mut self,
         active_paper: Option<&mut PaperSession>,
@@ -1400,13 +2387,13 @@ impl PdfReaderState {
         // A still-open Annotate editor with text in it hasn't hit its own
         // "Save" yet — fold it in so the click doesn't silently drop it.
         if let Some(ed) = self.annotate_editor.take() {
-            if !ed.text.trim().is_empty() {
+            let pending = ed.text();
+            if !pending.trim().is_empty() {
                 let page_px = self.current_page_px();
-                let author = self.author_name();
-                let anns = self.annotations.entry(self.active_page()).or_default();
+                let anns = self.annotations.entry(ed.page).or_default();
                 match ed.editing_existing {
                     Some(i) if i < anns.len() => {
-                        anns[i].text = ed.text;
+                        anns[i].text = pending;
                         anns[i].min = ed.min;
                         anns[i].max = ed.max;
                         anns[i].page_px = page_px;
@@ -1414,9 +2401,8 @@ impl PdfReaderState {
                     _ => anns.push(Annotation {
                         min: ed.min,
                         max: ed.max,
-                        text: ed.text,
+                        text: pending,
                         created_at: utc_now_iso8601(),
-                        author,
                         page_px,
                     }),
                 }
@@ -1510,30 +2496,9 @@ impl PdfReaderState {
             return;
         }
 
-        // --- no active paper: the legacy plain-text section path ---
-        let mut block = String::new();
-        for (pg, anns) in &pending {
-            for ann in anns {
-                block.push_str(&format!(
-                    "### annotation — {}\n- author: {}\n- page: {}\n- pixel bbox: [{:.1}, {:.1}, {:.1}, {:.1}]\n\n{}\n\n",
-                    ann.created_at, ann.author, pg + 1, ann.min.x, ann.min.y, ann.max.x, ann.max.y, ann.text
-                ));
-            }
-        }
-        let block = block.trim_end();
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.message = "set the project root and markdown path first".to_string();
-            return;
-        }
-        match project::append_to_section(
-            std::path::Path::new(self.project_root.trim()),
-            self.project_markdown_rel.trim(),
-            "annotations",
-            block,
-        ) {
-            Ok(_) => self.message = format!("saved {count} annotation(s) into project markdown"),
-            Err(e) => self.message = e.to_string(),
-        }
+        // No paper open: the reader keeps the boxes until one is.
+        self.message = "no paper open: ingest this PDF (or open its paper from the Wiki, Bibliography or Mindmap) so this saves into its notes".to_string();
+        let _ = count;
     }
 
     /// Ask the continuous canvas to scroll one page forward, clamped to the
@@ -1759,8 +2724,10 @@ impl PdfReaderState {
     /// hands it back as a [`CropResult`] the app routes to the matching
     /// digitiser.
     ///
-    /// Falls back to the old disk-text `blocks_matching` preview over
-    /// `project_root`/`project_markdown_rel` when no paper is active.
+    /// ~~Falls back to the old disk-text `blocks_matching` preview over
+    /// `project_root`/`project_markdown_rel` when no paper is active.~~
+    /// **CORRECTED 2026-09-22**: with no paper open it says to ingest the PDF
+    /// ([`Self::context_panel_fallback`]).
     #[allow(clippy::needless_option_as_deref)] // `active_paper` reborrowed for two sinks
     fn context_panel(
         &mut self,
@@ -1775,6 +2742,7 @@ impl PdfReaderState {
             self.context_panel_fallback(ui);
             return None;
         };
+        self.malformed_panel(ui, artifacts, active_paper.as_deref_mut(), context_editor);
         let page0 = self.active_page();
         let page = (page0 + 1) as u32;
         let anchored: Vec<&Artifact> = artifacts
@@ -1837,6 +2805,12 @@ impl PdfReaderState {
                             block_cancel = true;
                         }
                     });
+                    if a.toml.source.as_ref().and_then(|s| s.region).is_some() {
+                        ui.small(
+                            "drag the box's corners or edges on the page to correct it, \
+                             or its middle to move it · saved on release · Cancel puts it back",
+                        );
+                    }
                     ui.push_id(("block-editor", id), |ui| {
                         egui::ScrollArea::vertical()
                             .id_salt("pdf_block_editor_scroll")
@@ -1848,97 +2822,181 @@ impl PdfReaderState {
             }
         }
 
-        egui::ScrollArea::vertical()
-            .id_salt("pdf_context_panel_scroll")
-            .show(ui, |ui| {
-                if anchored.is_empty() {
-                    ui.small("nothing saved for this page yet");
+        // TWO SECTIONS, EACH COLLAPSIBLE AND EACH WITH ITS OWN SCROLL
+        // (maintainer, 2026-09-24).
+        //
+        // Both used to live in ONE scroll area, so a page with several
+        // annotations pushed the read-only preview off the bottom and the
+        // only way to reach it was to scroll past every summary. Neither
+        // could be folded away. Now each has a header that remembers its own
+        // open/closed state, and a bounded height so one cannot crowd out
+        // the other.
+        //
+        // Both default to OPEN: collapsing is offered, not imposed, and a
+        // panel that starts empty would hide the very thing it exists to
+        // show. egui persists the choice per header id.
+        let n_anchored = anchored.len();
+        egui::CollapsingHeader::new(if n_anchored == 1 {
+            "Annotations (1)".to_string()
+        } else {
+            format!("Annotations ({n_anchored})")
+        })
+        .id_salt("pdf_context_annotations")
+        .default_open(true)
+        .show(ui, |ui| {
+            // One control for every card, rather than a collapsing header per
+            // card: a per-card header would swallow the single click that opens
+            // a text block for editing.
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.show_summaries, "summaries");
+                if !self.show_summaries {
+                    ui.small("headings only");
                 }
-                for artifact in &anchored {
-                    let id = artifact.id().to_string();
-                    let linked = hovered_block.is_some_and(|h| h.id() == id);
-                    let fill = if linked {
-                        Color32::from_rgba_unmultiplied(255, 230, 60, 40)
-                    } else {
-                        Color32::TRANSPARENT
-                    };
-                    // A text block opens on a single click (GH issue #35
-                    // 2026-09-02: "a single click to bring me into insert mode");
-                    // a digitised table/graph still needs a double-click, since
-                    // opening the digitiser is the heavier action and its card is
-                    // also the canvas-highlight hover target.
-                    let mut open_on_single_click = false;
-                    let inner = egui::Frame::new()
-                        .fill(fill)
-                        .inner_margin(4.0)
-                        .show(ui, |ui| match artifact.kind() {
-                            ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
-                                let icon = if artifact.kind() == ArtifactKind::DigitisedTable {
-                                    "\u{1F4CA}"
-                                } else {
-                                    "\u{1F4C8}"
-                                };
-                                ui.label(format!("{icon} {}", artifact.heading));
-                                if let Some(csv) = artifact.csv_block() {
-                                    // Copy CSV stays here too: reinstated
-                                    // 2026-09-08 on maintainer use — reading
-                                    // a figure's numbers straight out of the
-                                    // reader is convenient enough to earn
-                                    // the button's space.
-                                    draw_csv_preview(ui, csv, &id);
-                                }
-                                ui.small("double-click → go to page · right-click → menu");
-                            }
-                            _ => {
-                                open_on_single_click = true;
-                                ui.label(format!("\u{1F4DD} {}", artifact.heading));
-                                if !artifact.body.trim().is_empty() {
-                                    ui.monospace(body_preview(&artifact.body));
-                                }
-                                ui.small("click → edit · right-click → menu");
-                            }
-                        });
-                    if inner.response.hovered() {
-                        panel_hover = Some(id.clone());
+            });
+            let show_summaries = self.show_summaries;
+            egui::ScrollArea::vertical()
+                .id_salt("pdf_context_panel_scroll")
+                .max_height(CONTEXT_LIST_MAX_HEIGHT)
+                .show(ui, |ui| {
+                    if anchored.is_empty() {
+                        ui.small("nothing saved for this page yet");
                     }
-                    // Right-click anywhere on the card opens the same menu a
-                    // right-click on its canvas box does — every artifact
-                    // gets a dropdown, including the ones with no region to
-                    // click on (maintainer, GH issue #35, 2026-09-08).
-                    if inner.response.secondary_clicked() {
-                        let screen_pos = inner
-                            .response
-                            .interact_pointer_pos()
-                            .unwrap_or_else(|| inner.response.rect.center());
-                        self.toggle_context_menu(screen_pos, ContextMenuTarget::SavedArtifact(id.clone()));
+                    for artifact in &anchored {
+                        let id = artifact.id().to_string();
+                        let linked = hovered_block.is_some_and(|h| h.id() == id);
+                        let fill = if linked {
+                            Color32::from_rgba_unmultiplied(255, 230, 60, 40)
+                        } else {
+                            Color32::TRANSPARENT
+                        };
+                        // A text block opens on a single click (GH issue #35
+                        // 2026-09-02: "a single click to bring me into insert mode");
+                        // a digitised table/graph still needs a double-click, since
+                        // opening the digitiser is the heavier action and its card is
+                        // also the canvas-highlight hover target.
+                        let mut open_on_single_click = false;
+                        let inner =
+                            egui::Frame::new()
+                                .fill(fill)
+                                .inner_margin(4.0)
+                                .show(ui, |ui| match artifact.kind() {
+                                    ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => {
+                                        let icon =
+                                            if artifact.kind() == ArtifactKind::DigitisedTable {
+                                                "\u{1F4CA}"
+                                            } else {
+                                                "\u{1F4C8}"
+                                            };
+                                        ui.label(format!(
+                                            "{icon} {}{}",
+                                            artifact.heading,
+                                            ai_badge(artifact)
+                                        ));
+                                        if show_summaries {
+                                            if let Some(csv) = artifact.csv_block() {
+                                                // Copy CSV stays here too: reinstated
+                                                // 2026-09-08 on maintainer use — reading
+                                                // a figure's numbers straight out of the
+                                                // reader is convenient enough to earn
+                                                // the button's space.
+                                                draw_csv_preview(ui, csv, &id);
+                                            }
+                                            ui.small(
+                                                "double-click → go to page · right-click → menu",
+                                            );
+                                        }
+                                    }
+                                    _ => {
+                                        open_on_single_click = true;
+                                        ui.label(format!(
+                                            "\u{1F4DD} {}{}",
+                                            artifact.heading,
+                                            ai_badge(artifact)
+                                        ));
+                                        if show_summaries {
+                                            if !artifact.body.trim().is_empty() {
+                                                ui.monospace(body_preview(&artifact.body));
+                                            }
+                                            ui.small("click → edit · right-click → menu");
+                                        }
+                                    }
+                                });
+                        if inner.response.hovered() {
+                            panel_hover = Some(id.clone());
+                        }
+                        // Right-click anywhere on the card opens the same menu a
+                        // right-click on its canvas box does — every artifact
+                        // gets a dropdown, including the ones with no region to
+                        // click on (maintainer, GH issue #35, 2026-09-08).
+                        if inner.response.secondary_clicked() {
+                            let screen_pos = inner
+                                .response
+                                .interact_pointer_pos()
+                                .unwrap_or_else(|| inner.response.rect.center());
+                            self.toggle_context_menu(
+                                screen_pos,
+                                ContextMenuTarget::SavedArtifact(id.clone()),
+                            );
+                        }
+                        let opened = if open_on_single_click {
+                            inner.response.clicked() || inner.response.double_clicked()
+                        } else {
+                            inner.response.double_clicked()
+                        };
+                        if opened {
+                            open_target = Some(id.clone());
+                        }
+                        if show_summaries {
+                            ui.separator();
+                        }
                     }
-                    let opened = if open_on_single_click {
-                        inner.response.clicked() || inner.response.double_clicked()
-                    } else {
-                        inner.response.double_clicked()
-                    };
-                    if opened {
-                        open_target = Some(id.clone());
-                    }
-                    ui.separator();
-                }
+                });
+        });
 
-                ui.add_space(8.0);
-                ui.strong("Preview (read-only)");
-                if let Some(line) = context_editor.ui_readonly(ui) {
-                    if let Some(a) = artifacts
-                        .iter()
-                        .find(|a| block_span(&editor_text, a).contains(&line))
-                    {
-                        open_target = Some(a.id().to_string());
-                    }
-                }
+        egui::CollapsingHeader::new("Preview (read-only)")
+            .id_salt("pdf_context_preview")
+            .default_open(true)
+            .show(ui, |ui| {
+                // DELIBERATELY UNCAPPED (maintainer, 2026-09-24: "preview
+                // shouldn't be capped, let it run, this is impt"). The
+                // preview is the working surface -- it is the document, and
+                // reading it is the point of the panel. It takes whatever
+                // height is left and scrolls inside that.
+                //
+                // The card list above IS capped, and that is what protects
+                // this: bounding the summaries is how the preview gets room,
+                // so the cap belongs there and not here.
+                egui::ScrollArea::vertical()
+                    .id_salt("pdf_context_preview_scroll")
+                    .show(ui, |ui| {
+                        if let Some(line) = context_editor.ui_readonly(ui) {
+                            if let Some(a) = artifacts
+                                .iter()
+                                .find(|a| block_span(&editor_text, a).contains(&line))
+                            {
+                                open_target = Some(a.id().to_string());
+                            }
+                        }
+                    });
             });
 
         self.panel_hover_id = panel_hover;
 
         if block_cancel {
             self.editing_block_id = None;
+            self.region_drag = None;
+            // Cancel undoes the box drags of this edit too: each drag was
+            // saved on release, so put the region from before the first one
+            // back — only if it actually moved.
+            if let Some((id, original)) = self.region_original.take() {
+                let saved = artifacts
+                    .iter()
+                    .find(|a| a.id() == id)
+                    .and_then(|a| a.toml.source.as_ref()?.region);
+                if saved.is_some_and(|r| r != original) {
+                    self.write_region(active_paper.as_deref_mut(), context_editor, &id, original);
+                }
+            }
         }
 
         // A double-click landed on a block — open the right editor for it.
@@ -1952,6 +3010,8 @@ impl PdfReaderState {
         // The inline block editor's Save — replace just that block's body.
         if let Some((id, new_body)) = block_save {
             self.editing_block_id = None;
+            // The box drags were saved as they happened; Save keeps them.
+            self.region_original = None;
             if let Some(session) = active_paper.as_deref_mut() {
                 match classify::replace_artifact_body(session, &id, &new_body) {
                     Ok(_) => match session.save_document() {
@@ -1969,64 +3029,15 @@ impl PdfReaderState {
         crop_result
     }
 
-    /// The pre-op-j178 read-only text preview, kept as the fallback for a
-    /// PDF opened outside any paper (see [`Self::context_panel`]'s doc):
-    /// raw text preview of whatever `project_root`/`project_markdown_rel`
-    /// records for [`Self::active_page`], read live off disk (not cached),
-    /// matching GitHub issue #30's "live from markdown file" ask. Filters
-    /// `### ...` subsections by a `page: N`/`page N,` marker, matching the
-    /// exact provenance text `Self::save_annotations_into_project`'s
-    /// fallback path emits.
+    /// What the page-context panel shows for a PDF that is not a paper yet.
+    /// ~~A raw text preview of a manual `project_root`/`project_markdown_rel`
+    /// file (GitHub issue #30).~~ **CORRECTED 2026-09-22**: those fields are gone; it says to
+    /// ingest the PDF, which creates the paper's Markdown.
     fn context_panel_fallback(&mut self, ui: &mut egui::Ui) {
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            ui.small(
-                "Set a project root + markdown path above to see this page's saved \
-                 annotations/CSVs here, live from the markdown file.",
-            );
-            return;
-        }
-        let path =
-            std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim());
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t,
-            Err(e) => {
-                ui.colored_label(
-                    Color32::from_rgb(230, 90, 90),
-                    format!("{}: {e}", path.display()),
-                );
-                return;
-            }
-        };
-        let page = self.active_page();
-        let marker_a = format!("page: {}", page + 1);
-        let marker_b = format!("page {},", page + 1);
-        let blocks = blocks_matching(&text, &[&marker_a, &marker_b]);
-        if blocks.is_empty() {
-            ui.small("nothing saved for this page yet");
-            return;
-        }
-        egui::ScrollArea::vertical()
-            .id_salt("pdf_context_panel_scroll")
-            .show(ui, |ui| {
-                for block in blocks {
-                    // op-4x5s: highlight the block matching whatever annotation
-                    // box the pointer was hovering over the annotate canvas,
-                    // one frame ago (see `hover_created_at`'s doc).
-                    let is_linked = self
-                        .hover_created_at
-                        .as_deref()
-                        .is_some_and(|id| block.contains(id));
-                    if is_linked {
-                        egui::Frame::new()
-                            .fill(Color32::from_rgba_unmultiplied(255, 230, 60, 40))
-                            .inner_margin(4.0)
-                            .show(ui, |ui| ui.monospace(&block));
-                    } else {
-                        ui.monospace(&block);
-                    }
-                    ui.separator();
-                }
-            });
+        ui.small(
+            "This PDF is not a paper in your Kovan folder yet. Ingest it (the prompt \
+             when you open it, or Wiki → + Ingest Literature) to keep its notes here.",
+        );
     }
 
     /// Draw the toolbar and the continuous page canvas. `on_open_clicked` is
@@ -2043,9 +3054,10 @@ impl PdfReaderState {
     /// DigitiseApp::activate_paper`]'d paper, if any (op-q1qj, GH issue #35
     /// 2026-09-01 05:37: "project root isn't decided") — when `Some`,
     /// annotations save straight into its canonical Markdown and the
-    /// page-context panel reads live from the same file, instead of the
-    /// manual `project_root`/`project_markdown_rel` fields (which remain
-    /// the fallback for a PDF opened outside any paper).
+    /// page-context panel reads live from the same file. With `None` the
+    /// PDF is not a paper yet, and the reader says to ingest it (the manual
+    /// `project_root`/`project_markdown_rel` fallback was removed
+    /// 2026-09-22).
     ///
     /// `context_editor` is the shared page-context / Kvim-editor buffer
     /// (op-j178, GH issue #35 2026-09-02): the page-context panel renders it
@@ -2060,6 +3072,7 @@ impl PdfReaderState {
         &mut self,
         ui: &mut egui::Ui,
         mut on_open_clicked: impl FnMut(),
+        mut on_sort_clicked: impl FnMut(String),
         active_paper: Option<&mut PaperSession>,
         context_editor: &mut KvimEditorState,
         completion: Option<CompletionSource<'_>>,
@@ -2073,8 +3086,30 @@ impl PdfReaderState {
         });
 
         ui.horizontal(|ui| {
-            if ui.button("Open…").clicked() {
+            if ui.button("Open\u{2026}").clicked() {
                 on_open_clicked();
+            }
+            // Reading a paper is when you know where it belongs, so the
+            // sort action lives here rather than only in the Wiki or the
+            // Mindmap (maintainer, 2026-09-22, #275). The dialog itself is
+            // drawn app-wide by `DigitiseApp::sort_form_ui`, so it opens
+            // over the reader.
+            //
+            // Disabled, with the reason on hover, when there is no active
+            // paper: sorting needs a citekey, and a PDF opened straight off
+            // disk has none until it is ingested.
+            let sortable = active_citekey.clone();
+            if ui
+                .add_enabled(sortable.is_some(), egui::Button::new("Sort & categorise"))
+                .on_hover_text("file this paper under topics and projects")
+                .on_disabled_hover_text(
+                    "no active paper \u{2014} ingest this PDF first, or open it from the Wiki",
+                )
+                .clicked()
+            {
+                if let Some(citekey) = sortable {
+                    on_sort_clicked(citekey);
+                }
             }
             ui.label(if self.path.is_empty() {
                 "nothing open"
@@ -2183,8 +3218,37 @@ impl PdfReaderState {
             // case that anchors the zoom on the centre of what is on
             // screen — well-defined and stable. Ctrl+scroll / `+` / `-`
             // over the page anchor on the pointer instead.
-            ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"))
+            ui.add(egui::Slider::new(&mut self.zoom, ZOOM_RANGE).text("zoom"))
                 .on_hover_text("Ctrl+scroll, or + / -, zooms about the pointer");
+            // Beside the slider (maintainer, 2026-09-22). Like the slider,
+            // and unlike Ctrl+scroll, these are pressed with the pointer
+            // *outside* the viewer, so they anchor on the centre of what is
+            // on screen — the canvas's zoom-change handling keeps that point
+            // fixed. Same step as the `+`/`-` keys.
+            if ui
+                .add_enabled(self.zoom > *ZOOM_RANGE.start(), egui::Button::new("−"))
+                .on_hover_text("zoom out one step")
+                .clicked()
+            {
+                self.zoom = (self.zoom / ZOOM_STEP).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
+            }
+            if ui
+                .add_enabled(self.zoom < *ZOOM_RANGE.end(), egui::Button::new("+"))
+                .on_hover_text("zoom in one step")
+                .clicked()
+            {
+                self.zoom = (self.zoom * ZOOM_STEP).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
+            }
+            if ui
+                .add_enabled(
+                    (self.zoom - ZOOM_DEFAULT).abs() > f32::EPSILON,
+                    egui::Button::new("Reset"),
+                )
+                .on_hover_text("back to 100 %")
+                .clicked()
+            {
+                self.zoom = ZOOM_DEFAULT;
+            }
             ui.separator();
             ui.label("tool:");
             ui.selectable_value(&mut self.tool, AnnotationTool::None, "Pan")
@@ -2193,9 +3257,38 @@ impl PdfReaderState {
             if is_pdf {
                 ui.selectable_value(&mut self.tool, AnnotationTool::SelectText, "Select text");
             }
-            if ui.button("Clear page annotations").clicked() {
-                self.annotations.remove(&self.active_page());
+            ui.separator();
+            if ui
+                .button("\u{27F2} 90\u{B0}")
+                .on_hover_text("turn this page 90\u{B0} anticlockwise")
+                .clicked()
+            {
+                self.rotate_active_page(-1);
             }
+            if ui
+                .button("\u{27F3} 90\u{B0}")
+                .on_hover_text("turn this page 90\u{B0} clockwise (for a table printed sideways)")
+                .clicked()
+            {
+                self.rotate_active_page(1);
+            }
+            if self.unsaved_rotation.is_some()
+                && ui
+                    .button("\u{1F4BE} Save rotation")
+                    .on_hover_text("write the turned page(s) into the PDF on disk")
+                    .clicked()
+            {
+                self.save_rotation();
+            }
+            // "Clear page annotations" was removed on 2026-09-22 (maintainer:
+            // "i want the user to right click annotations selectively to
+            // delete"). It wiped every annotation on the page in one click,
+            // with no confirmation and no undo — a destructive action sitting
+            // between two harmless tool toggles. Selective deletion already
+            // exists and is the intended path: right-click an artifact and
+            // choose "Delete annotation…", which confirms first
+            // (`ConnectionPopup::ConfirmDelete`) and cascades properly
+            // through `classify::delete_artifact_cascade`.
             ui.separator();
             ui.label("author:");
             ui.add(egui::TextEdit::singleline(&mut self.author).desired_width(100.0));
@@ -2261,7 +3354,8 @@ impl PdfReaderState {
 
         ui.small(
             "Draw box → right-click it → Annotate / Digitise graph / Read table. \
-             Right-click an existing box → Edit / Delete. Double-click a saved box → edit it.",
+             Right-click an existing box → Edit / Delete. Double-click a saved box → edit it; \
+             while editing, drag its corners to correct it.",
         );
         let mut save_clicked = false;
         ui.horizontal(|ui| {
@@ -2270,10 +3364,7 @@ impl PdfReaderState {
                     ui.label(format!("saving annotations into {citekey}'s notes"));
                 }
                 None => {
-                    ui.label("project root");
-                    ui.text_edit_singleline(&mut self.project_root);
-                    ui.label("markdown path");
-                    ui.text_edit_singleline(&mut self.project_markdown_rel);
+                    ui.label("not a paper yet: ingest this PDF to save annotations");
                 }
             }
             if ui.button("Save annotations").clicked() {
@@ -2284,7 +3375,8 @@ impl PdfReaderState {
             self.save_annotations_into_project(active_paper.as_deref_mut(), context_editor);
         }
         self.text_selection_panel(ui);
-        let mut crop_result = self.annotate_editor_panel(ui);
+        let mut crop_result =
+            self.annotate_editor_panel(ui, active_paper.as_deref_mut(), context_editor);
         if let Some(result) = self.figure_prompt_panel(ui) {
             crop_result = Some(result);
         }
@@ -2327,9 +3419,11 @@ impl PdfReaderState {
         // them and double-click a box to edit it — which the embedded reader
         // cannot (kopitiam#107). ---
         let zoom = self.zoom;
-        const GAP: f32 = 16.0;
         let n = self.source.page_count().max(1);
         let mut open_target: Option<String> = None;
+        // A finished drag on the edited block's region box, written back
+        // after the canvas (where `active_paper` is free to borrow).
+        let mut region_commit: Option<(String, Region)> = None;
 
         // A zoom change scales the content but not the `ScrollArea`'s
         // (absolute, in points) offset, so the same offset lands somewhere
@@ -2345,7 +3439,29 @@ impl PdfReaderState {
         let stride = self.pages.page_stride(zoom, GAP);
         let content = self.pages.content_size(n, zoom, GAP);
         let zoom_changed = self.last_zoom > 0.0 && (self.last_zoom - zoom).abs() > f32::EPSILON;
-        let mut area = egui::ScrollArea::both();
+        // STABLE ID, or the reader forgets the page on every view switch.
+        //
+        // Without an `id_salt` a `ScrollArea` derives its id from its place in
+        // the widget tree. Leaving the PDF Reader for the Mindmap and coming
+        // back rebuilds a different `CentralPanel`, so the derived id differs,
+        // egui finds no stored state for it and starts at offset 0 -- the
+        // reader lands on page 1 however far in the user had read. The three
+        // other scroll areas in this file (`pdf_thumb_strip`,
+        // `pdf_block_editor_scroll`, `pdf_context_panel_scroll`) already carry
+        // one; this one was missed.
+        //
+        // `last_offset` tracked the true position the whole time (it is
+        // written from `scroll_out.state.offset` every frame and cleared only
+        // by `reset_interaction_state` when a NEW document is opened). Nothing
+        // consulted it, so the information was there and thrown away.
+        let pass = ui.ctx().cumulative_pass_nr();
+        // A gap means this reader was not drawn last pass, i.e. another view
+        // was showing. Zero offset needs no restoring, and a fresh document
+        // has already been zeroed by `reset_interaction_state`.
+        let reentered = self.last_drawn_pass.is_some_and(|last| pass > last + 1)
+            && self.last_offset != egui::Vec2::ZERO;
+        self.last_drawn_pass = Some(pass);
+        let mut area = egui::ScrollArea::both().id_salt("pdf_page_column");
         if let Some(target) = self.scroll_request.take() {
             // An explicit page jump (Prev/Next, `j`/`k`, Ctrl+D/U, a search
             // hit, a thumbnail click, or opening a block from the panel).
@@ -2361,6 +3477,12 @@ impl PdfReaderState {
             ));
         } else if let Some(off) = self.forced_offset.take() {
             area = area.scroll_offset(off);
+        } else if reentered {
+            // Back from another view (Mindmap, Digitiser, Kvim...). Put the
+            // reader where it was rather than wherever the scroll area
+            // happens to start. Ordered AFTER the explicit-jump branches so
+            // a jump requested from the view being left still wins.
+            area = area.scroll_offset(self.last_offset);
         } else if zoom_changed {
             let target_y = (self.scroll_anchor.y * stride - self.last_viewport.y * 0.5).max(0.0);
             let target_x = (self.scroll_anchor.x * content.x - self.last_viewport.x * 0.5).max(0.0);
@@ -2433,15 +3555,15 @@ impl PdfReaderState {
                 )
             });
             let step = if plus {
-                1.25
+                ZOOM_STEP
             } else if minus {
-                1.0 / 1.25
+                1.0 / ZOOM_STEP
             } else {
                 1.0
             };
             let factor = pinch * step;
             if (factor - 1.0).abs() > 1e-4 {
-                let new_zoom = (zoom * factor).clamp(0.25, 4.0);
+                let new_zoom = (zoom * factor).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
                 if (new_zoom - zoom).abs() > f32::EPSILON {
                     // Anchor on the pointer; if it is outside the viewer
                     // (a `+`/`-` press with the mouse parked elsewhere), on
@@ -2466,11 +3588,123 @@ impl PdfReaderState {
                 }
             }
 
+            // --- Correcting the edited block's box (maintainer, 2026-10-01:
+            // "when i edit annotations, i should be able to drag the corners
+            // of the boxes to correct them"). Only while a block with a
+            // region is open in the panel's editor. A drag that starts on
+            // its corner, edge or interior is claimed here, in every tool,
+            // before the pan / draw-box / select-text gestures below get it.
+            // The geometry is `box_handles`; the transform is the one every
+            // saved box is drawn with (`region_to_screen_rect`). ---
+            let page_px_now = self.pages.page_size_px();
+            if self
+                .region_original
+                .as_ref()
+                .is_some_and(|(id, _)| self.editing_block_id.as_ref() != Some(id))
+            {
+                self.region_original = None;
+            }
+            if self
+                .region_drag
+                .as_ref()
+                .is_some_and(|d| self.editing_block_id.as_ref() != Some(&d.id))
+            {
+                self.region_drag = None;
+            }
+            let edit_target: Option<(String, usize, Region)> =
+                self.editing_block_id.as_ref().and_then(|id| {
+                    let art = active_artifacts
+                        .as_deref()?
+                        .iter()
+                        .find(|a| a.id() == id.as_str())?;
+                    let page = Self::artifact_page(art)?;
+                    let region = art.toml.source.as_ref()?.region?;
+                    region.is_valid().then(|| (id.clone(), page, region))
+                });
+            let mut region_cursor: Option<egui::CursorIcon> = None;
+            if let Some((id, epage, saved)) = &edit_target {
+                let shown = self.region_drag.as_ref().map_or(*saved, |d| d.current);
+                if let Some(rect) =
+                    region_to_screen_rect(shown, *epage, page_px_now, origin, zoom, GAP)
+                {
+                    if self.region_drag.is_none()
+                        && response.drag_started_by(egui::PointerButton::Primary)
+                    {
+                        if let Some(pos) = response.interact_pointer_pos() {
+                            let grip = hit_grip(rect, pos, HANDLE_GRAB_PX);
+                            let from =
+                                screen_to_normalised(pos, *epage, page_px_now, origin, zoom, GAP);
+                            if let (Some(grip), Some(from)) = (grip, from) {
+                                self.region_original
+                                    .get_or_insert_with(|| (id.clone(), *saved));
+                                self.region_drag = Some(RegionDrag {
+                                    id: id.clone(),
+                                    page: *epage,
+                                    grip,
+                                    start: *saved,
+                                    from,
+                                    current: *saved,
+                                });
+                            }
+                        }
+                    }
+                    region_cursor = self
+                        .region_drag
+                        .as_ref()
+                        .map(|d| d.grip)
+                        .or_else(|| {
+                            response
+                                .hover_pos()
+                                .and_then(|p| hit_grip(rect, p, HANDLE_GRAB_PX))
+                        })
+                        .map(Grip::cursor);
+                }
+            }
+            if self.region_drag.is_some() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                // Esc abandons the drag: nothing was written yet, so dropping
+                // it is the whole undo.
+                self.region_drag = None;
+                self.region_drag_cancelled = true;
+            }
+            if let Some(drag) = &mut self.region_drag {
+                if response.dragged_by(egui::PointerButton::Primary) {
+                    let to = response.interact_pointer_pos().and_then(|pos| {
+                        screen_to_normalised(pos, drag.page, page_px_now, origin, zoom, GAP)
+                    });
+                    if let Some(r) =
+                        to.and_then(|to| drag_region(drag.start, drag.grip, drag.from, to))
+                    {
+                        drag.current = r;
+                    }
+                }
+            }
+            if response.drag_stopped() || !response.is_pointer_button_down_on() {
+                if let Some(d) = self.region_drag.take() {
+                    if d.current != d.start {
+                        region_commit = Some((d.id, d.current));
+                    }
+                }
+            }
+            let region_gesture =
+                self.region_drag.is_some() || region_commit.is_some() || self.region_drag_cancelled;
+            if self.region_drag_cancelled
+                && (response.drag_stopped() || !response.is_pointer_button_down_on())
+            {
+                self.region_drag_cancelled = false;
+            }
+            // The live box, for the overlay pass below (the stop frame's
+            // committed box too, so it does not flash back for a frame).
+            let live_region: Option<(String, Region)> = self
+                .region_drag
+                .as_ref()
+                .map(|d| (d.id.clone(), d.current))
+                .or_else(|| region_commit.clone());
+
             // --- Pan mode: grab-and-drag the page to scroll (GH issue #35
             // 2026-09-02 — this tool is a *pan* tool, it does not select
             // text). The other tools own the primary drag for drawing a box
             // / selecting text, so this is scoped to `None`. ---
-            if self.tool == AnnotationTool::None {
+            if self.tool == AnnotationTool::None && !region_gesture {
                 response.clone().on_hover_cursor(if response.dragged() {
                     egui::CursorIcon::Grabbing
                 } else {
@@ -2483,6 +3717,10 @@ impl PdfReaderState {
                         egui::style::ScrollAnimation::none(),
                     );
                 }
+            }
+            // After the pan cursor, so a resize/move cursor over a handle wins.
+            if let Some(cursor) = region_cursor {
+                ui.ctx().set_cursor_icon(cursor);
             }
 
             // --- Arrow keys nudge the view, whenever no text field owns the
@@ -2543,6 +3781,9 @@ impl PdfReaderState {
             // waiting, and while a block is being edited in the panel.
             let busy = self.draw_start.is_some()
                 || self.select_start.is_some()
+                // A finished selection waiting for "Save as annotation" is
+                // on the page it was made on (2026-09-22).
+                || self.text_selection.is_some()
                 || self.pending_box.is_some()
                 || self.annotate_editor.is_some()
                 || self.editing_block_id.is_some();
@@ -2554,7 +3795,12 @@ impl PdfReaderState {
             // A *gesture* is the one thing that should re-point the page at
             // the pointer — you draw/right-click on the page under the mouse,
             // whichever that is.
-            if !busy && (response.drag_started() || response.secondary_clicked()) {
+            //
+            // Not gated on `busy` (2026-09-22): with an Annotate editor open,
+            // a box drawn on the next page was measured against the held
+            // page, fell outside it, and was saved with no region. The
+            // editor now keeps its own page, so nothing depends on the hold.
+            if response.drag_started() || response.secondary_clicked() {
                 if let Some((p, _)) = response
                     .interact_pointer_pos()
                     .and_then(|s| self.pages.hit(s, origin, n, zoom, GAP))
@@ -2567,9 +3813,23 @@ impl PdfReaderState {
             let to_image = move |pos: Pos2| -> Pos2 { ((pos - page_origin) / zoom).to_pos2() };
             let to_screen = move |p: Pos2| -> Pos2 { page_origin + p.to_vec2() * zoom };
 
+            // **Esc abandons a box** (maintainer, 2026-09-24). Two things
+            // need clearing and they are different states: `draw_start` is a
+            // drag still in progress, `pending_box` a box already released
+            // but not yet turned into an annotation or a crop. Before this,
+            // the only way out of a mis-drawn box was to draw another one.
+            //
+            // Guarded on the annotate editor being closed: while it is open
+            // Esc belongs to it (kvim's Insert -> Normal), and that editor
+            // consumes the event itself. Checking here as well would cancel
+            // the box the operator is in the middle of annotating.
+            if self.annotate_editor.is_none() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                self.cancel_box_drawing();
+            }
+
             // --- drawing a new box ---
             if self.tool == AnnotationTool::DrawBox {
-                if response.drag_started_by(egui::PointerButton::Primary) {
+                if response.drag_started_by(egui::PointerButton::Primary) && !region_gesture {
                     self.draw_start = response.interact_pointer_pos().map(to_image);
                 }
                 if let (Some(start), Some(pos)) = (self.draw_start, response.interact_pointer_pos())
@@ -2591,7 +3851,7 @@ impl PdfReaderState {
                     }
                 }
             } else if self.tool == AnnotationTool::SelectText {
-                if response.drag_started_by(egui::PointerButton::Primary) {
+                if response.drag_started_by(egui::PointerButton::Primary) && !region_gesture {
                     self.select_start = response.interact_pointer_pos().map(to_image);
                 }
                 if let (Some(start), Some(pos)) =
@@ -2602,12 +3862,32 @@ impl PdfReaderState {
                         Pos2::new(start.x.min(current.x), start.y.min(current.y)),
                         Pos2::new(start.x.max(current.x), start.y.max(current.y)),
                     );
+                    // Live highlight of exactly the text the drag will
+                    // copy, over a faint outline of the drag itself.
+                    let scale = RENDER_DPI / 72.0;
+                    let granularity = self.select_granularity;
+                    self.selection_runs = self
+                        .stext_for_page(page)
+                        .map(|stext| match granularity {
+                            SelectGranularity::Line => line_selection_runs(stext, scale, min, max),
+                            SelectGranularity::Char => char_selection_runs(stext, scale, min, max),
+                        })
+                        .unwrap_or_default();
+                    let outline = painter.ctx().global_style().visuals.selection.stroke.color;
                     painter.rect_stroke(
                         Rect::from_min_max(to_screen(min), to_screen(max)),
-                        0.0,
-                        Stroke::new(2.0_f32, Color32::from_rgb(120, 230, 120)),
+                        2.0,
+                        Stroke::new(1.0_f32, outline.gamma_multiply(0.6)),
                         egui::StrokeKind::Middle,
                     );
+                    let fill = selection_highlight(painter.ctx());
+                    for (a, b) in &self.selection_runs {
+                        painter.rect_filled(
+                            Rect::from_min_max(to_screen(*a), to_screen(*b)).expand(1.5),
+                            2.0,
+                            fill,
+                        );
+                    }
                     if response.drag_stopped() {
                         // op-z9u0: RENDER_DPI/72.0 converts a stext line's
                         // device-space (PDF points) bbox into this panel's
@@ -2615,10 +3895,25 @@ impl PdfReaderState {
                         // `rasterize_page` itself applies for the DPI it
                         // was given.
                         let scale = RENDER_DPI / 72.0;
+                        let granularity = self.select_granularity;
                         self.text_selection = self
                             .stext_for_page(page)
-                            .map(|stext| select_text_in_rect(stext, scale, min, max))
+                            .map(|stext| match granularity {
+                                SelectGranularity::Line => {
+                                    select_text_in_rect(stext, scale, min, max)
+                                }
+                                SelectGranularity::Char => {
+                                    select_chars_in_rect(stext, scale, min, max)
+                                }
+                            })
                             .map(|text| (min, max, text));
+                        if self.copy_on_select {
+                            if let Some((_, _, text)) = &self.text_selection {
+                                if !text.is_empty() {
+                                    response.ctx.copy_text(text.clone());
+                                }
+                            }
+                        }
                         self.select_start = None;
                     }
                 }
@@ -2628,14 +3923,20 @@ impl PdfReaderState {
             if response.secondary_clicked() {
                 if let Some(screen_pos) = response.interact_pointer_pos() {
                     let click = to_image(screen_pos);
-                    if let Some((min, max)) = self.pending_box {
-                        if click.x >= min.x
-                            && click.x <= max.x
-                            && click.y >= min.y
-                            && click.y <= max.y
-                        {
-                            self.toggle_context_menu(screen_pos, ContextMenuTarget::NewBox);
-                        }
+                    // A pending box captures a right-click only when the
+                    // click lands INSIDE it. It used to capture every
+                    // right-click on the page: the hit test sat inside
+                    // `if let Some(pending)`, so a click outside the box fell
+                    // into an empty branch and the `else if`s below -- an
+                    // existing annotation, a saved artifact -- were
+                    // unreachable for as long as a box stayed pending.
+                    //
+                    // Reported as "right click only works after i press esc"
+                    // (maintainer, 2026-09-24), which is exactly the
+                    // symptom: Esc clears `pending_box`, so the branches
+                    // below become reachable again.
+                    if self.pending_box_contains(click) {
+                        self.toggle_context_menu(screen_pos, ContextMenuTarget::NewBox);
                     } else if let Some(i) = self
                         .annotations
                         .get(&page)
@@ -2643,17 +3944,15 @@ impl PdfReaderState {
                     {
                         self.toggle_context_menu(screen_pos, ContextMenuTarget::Existing(i));
                     } else if let Some(id) = active_artifacts.as_deref().and_then(|arts| {
-                        artifact_overlays_for_page(
+                        let overlays = artifact_overlays_for_page(
                             arts,
                             page,
                             self.pages.page_size_px(),
                             origin,
                             zoom,
                             GAP,
-                        )
-                        .into_iter()
-                        .find(|(_, r)| r.contains(screen_pos))
-                        .map(|(art, _)| art.id().to_string())
+                        );
+                        smallest_hit(overlays, screen_pos).map(|a| a.id().to_string())
                     }) {
                         // op-30um.3: a saved artifact's own region box —
                         // the full Edit/Add-connection/Edit-connections/
@@ -2729,10 +4028,34 @@ impl PdfReaderState {
             // for editing.
             if let Some(artifacts) = active_artifacts.as_deref() {
                 let gui_theme = super::theme::GuiTheme::current(ui.visuals());
+                // Resolve the pointer to ONE artifact before drawing, by the
+                // same smallest-wins rule the right-click uses. Deciding it
+                // inside the loop marked every overlapping box as hit and
+                // let the last one win `open_target` — so the highlight and
+                // the click could disagree, and both could disagree with the
+                // right-click menu.
+                let hovered_id: Option<String> = hover_screen.and_then(|s| {
+                    let overlays: Vec<(&Artifact, Rect)> = want
+                        .clone()
+                        .flat_map(|p| {
+                            artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
+                        })
+                        .collect();
+                    smallest_hit(overlays, s).map(|a| a.id().to_string())
+                });
                 for p in want.clone() {
-                    for (art, r) in artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
+                    for (art, r) in
+                        artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
                     {
-                        let hit = hover_screen.is_some_and(|s| r.contains(s));
+                        // The box being dragged draws where the drag has it.
+                        let r = match &live_region {
+                            Some((id, live)) if id == art.id() => {
+                                region_to_screen_rect(*live, p, page_px, origin, zoom, GAP)
+                                    .unwrap_or(r)
+                            }
+                            _ => r,
+                        };
+                        let hit = hovered_id.as_deref() == Some(art.id());
                         if hit {
                             hover_id = Some(art.toml.kovan.created.clone());
                             if opened {
@@ -2758,6 +4081,24 @@ impl PdfReaderState {
                 }
             }
             self.hover_created_at = hover_id;
+
+            // Handles on the edited block's box: its four corners, constant
+            // on screen at any zoom, the dragged one highlighted — the
+            // digitiser's corner handle (`box_handles::paint_handle`).
+            if let Some((id, epage, saved)) = &edit_target {
+                let shown = live_region
+                    .as_ref()
+                    .filter(|(lid, _)| lid == id)
+                    .map_or(*saved, |(_, r)| *r);
+                if let Some(rect) = region_to_screen_rect(shown, *epage, page_px, origin, zoom, GAP)
+                {
+                    let grabbed = self.region_drag.as_ref().map(|d| d.grip);
+                    for corner in Corner::ALL {
+                        let active = grabbed == Some(Grip::Corner(corner));
+                        paint_handle(&painter, corner.of_rect(rect), active);
+                    }
+                }
+            }
 
             // Search hits — soft yellow on every visible page, the current
             // one a bright outline (GH issue #35 2026-09-02).
@@ -2796,11 +4137,23 @@ impl PdfReaderState {
                 );
             }
             if let Some((min, max, _)) = &self.text_selection {
-                painter.rect_filled(
-                    Rect::from_min_max(to_screen(*min), to_screen(*max)),
-                    0.0,
-                    Color32::from_rgba_unmultiplied(120, 230, 120, 50),
-                );
+                if self.select_start.is_none() {
+                    let fill = selection_highlight(painter.ctx());
+                    if self.selection_runs.is_empty() {
+                        painter.rect_filled(
+                            Rect::from_min_max(to_screen(*min), to_screen(*max)),
+                            2.0,
+                            fill,
+                        );
+                    }
+                    for (a, b) in &self.selection_runs {
+                        painter.rect_filled(
+                            Rect::from_min_max(to_screen(*a), to_screen(*b)).expand(1.5),
+                            2.0,
+                            fill,
+                        );
+                    }
+                }
             }
         });
 
@@ -2811,6 +4164,16 @@ impl PdfReaderState {
         let viewport_size = scroll_out.inner_rect.size();
         if viewport_size.x > 0.0 && viewport_size.y > 0.0 {
             self.last_viewport = viewport_size;
+            // A jump deferred because the canvas was not ready yet: now it
+            // is. Taken before retrying so a jump that still cannot be
+            // satisfied re-arms itself rather than looping within one frame.
+            if let Some(artifact) = self.pending_jump.take() {
+                if self.canvas_ready() {
+                    self.go_to_artifact(&artifact);
+                } else {
+                    self.pending_jump = Some(artifact);
+                }
+            }
         }
         self.last_offset = scroll_out.state.offset;
         self.scroll_anchor = egui::vec2(
@@ -2818,6 +4181,12 @@ impl PdfReaderState {
             (scroll_out.state.offset.y + self.last_viewport.y * 0.5) / stride.max(1.0),
         );
         self.last_zoom = zoom;
+
+        // A box drag just released: write it back now that `active_paper`
+        // is free (the canvas closure above held `self`).
+        if let Some((id, region)) = region_commit {
+            self.write_region(active_paper.as_deref_mut(), context_editor, &id, region);
+        }
 
         // A double-click on a saved region box (GH issue #35 2026-09-02):
         // straight into editing it.
@@ -2877,12 +4246,13 @@ impl PdfReaderState {
                         ContextMenuTarget::NewBox => {
                             if ui.button("Annotate").clicked() {
                                 if let Some((min, max)) = self.pending_box {
-                                    self.annotate_editor = Some(AnnotateEditor {
+                                    self.annotate_editor = Some(AnnotateEditor::open(
+                                        self.active_page(),
                                         min,
                                         max,
-                                        text: String::new(),
-                                        editing_existing: None,
-                                    });
+                                        "",
+                                        None,
+                                    ));
                                 }
                                 close = true;
                             }
@@ -2924,12 +4294,13 @@ impl PdfReaderState {
                                     .get(&self.active_page())
                                     .and_then(|a| a.get(i))
                                 {
-                                    self.annotate_editor = Some(AnnotateEditor {
-                                        min: a.min,
-                                        max: a.max,
-                                        text: a.text.clone(),
-                                        editing_existing: Some(i),
-                                    });
+                                    self.annotate_editor = Some(AnnotateEditor::open(
+                                        self.active_page(),
+                                        a.min,
+                                        a.max,
+                                        &a.text,
+                                        Some(i),
+                                    ));
                                 }
                                 close = true;
                             }
@@ -2963,9 +4334,11 @@ impl PdfReaderState {
                             match &artifact {
                                 Some(art) => {
                                     let has_page = Self::artifact_page(art).is_some();
-                                    for entry in
-                                        saved_artifact_menu_entries(art.kind(), have_library, has_page)
-                                    {
+                                    for entry in saved_artifact_menu_entries(
+                                        art.kind(),
+                                        have_library,
+                                        has_page,
+                                    ) {
                                         if ui
                                             .add_enabled(
                                                 entry.enabled,
@@ -2975,7 +4348,12 @@ impl PdfReaderState {
                                         {
                                             match entry.action {
                                                 MenuAction::EditArtifact => {
-                                                    if let Some(r) = self.open_artifact(art) {
+                                                    let r = if edit_opens_digitiser(art.kind()) {
+                                                        self.recrop_artifact(art)
+                                                    } else {
+                                                        self.open_artifact(art)
+                                                    };
+                                                    if let Some(r) = r {
                                                         result = Some(r);
                                                     }
                                                 }
@@ -2992,6 +4370,7 @@ impl PdfReaderState {
                                                                 source,
                                                                 query: String::new(),
                                                                 kind: RelationKind::RelatedTo,
+                                                                kind_query: String::new(),
                                                             });
                                                     }
                                                 }
@@ -3051,8 +4430,7 @@ impl PdfReaderState {
         // own corner — treating any button here would make the menu close
         // itself the instant it appeared. Secondary clicks are the toggle
         // gesture and are handled at the call sites.
-        let clicked_outside = ctx
-            .input(|i| i.pointer.button_clicked(egui::PointerButton::Primary))
+        let clicked_outside = ctx.input(|i| i.pointer.button_clicked(egui::PointerButton::Primary))
             && !ctx.input(|i| {
                 i.pointer
                     .interact_pos()
@@ -3099,10 +4477,9 @@ impl PdfReaderState {
                 source,
                 mut query,
                 mut kind,
+                mut kind_query,
             } => {
-                egui::Window::new("Add connection…")
-                    .collapsible(false)
-                    .resizable(true)
+                crate::mindmap::picker_window("Add connection…", ctx) // #281
                     .show(ctx, |ui| {
                         let Some((root, index)) = root_index else {
                             ui.label("no library open");
@@ -3115,18 +4492,21 @@ impl PdfReaderState {
                             ui.label("connect");
                             ui.monospace(&source);
                             ui.label("as:");
-                            if ui.button(kind.label()).clicked() {
-                                kind = kind.next();
-                            }
+                            relation_kind_picker(ui, &mut kind, &mut kind_query);
                         });
                         ui.add(
                             egui::TextEdit::singleline(&mut query)
-                                .hint_text("search papers, artifacts, topics, projects…"),
+                                .hint_text("search papers, artifacts, topics, projects…")
+                                .desired_width(f32::INFINITY),
                         );
                         ui.separator();
                         let candidates: Vec<LibraryCandidate> =
                             library_candidates(root, index, &query, &[]);
-                        egui::ScrollArea::vertical().max_height(240.0).show(ui, |ui| {
+                        let below = if self.connection_message.is_empty() { 40.0 } else { 72.0 };
+                        egui::ScrollArea::vertical()
+                            .max_height(crate::mindmap::picker_list_height(ui, below))
+                            .auto_shrink(false)
+                            .show(ui, |ui| {
                             if candidates.is_empty() {
                                 ui.label("no matches");
                             }
@@ -3156,13 +4536,16 @@ impl PdfReaderState {
                         }
                     });
                 if !close {
-                    self.connection_popup = Some(ConnectionPopup::Add { source, query, kind });
+                    self.connection_popup = Some(ConnectionPopup::Add {
+                        source,
+                        query,
+                        kind,
+                        kind_query,
+                    });
                 }
             }
             ConnectionPopup::Manage { node } => {
-                egui::Window::new("Connections")
-                    .collapsible(false)
-                    .resizable(true)
+                crate::mindmap::picker_window("Connections", ctx) // #281
                     .show(ctx, |ui| {
                         let Some((root, index)) = root_index else {
                             ui.label("no library open");
@@ -3172,31 +4555,45 @@ impl PdfReaderState {
                             return;
                         };
                         let conns = relation::connections(root, index, &node);
-                        if conns.is_empty() {
-                            ui.label("no connections");
-                        }
-                        for rel in &conns {
-                            ui.horizontal(|ui| {
-                                let (arrow, other) = relation_other_end(rel, &node);
-                                ui.label(format!("{arrow} {other}"));
-                                if ui
-                                    .button(rel.kind.label())
-                                    .on_hover_text("click to cycle the relation kind")
-                                    .clicked()
-                                {
-                                    if let Err(e) =
-                                        relation::edit_connection(root, index, &rel.id, None, Some(rel.kind.next()))
+                        let below = if self.connection_message.is_empty() { 40.0 } else { 72.0 };
+                        egui::ScrollArea::vertical()
+                            .max_height(crate::mindmap::picker_list_height(ui, below))
+                            .auto_shrink(false)
+                            .show(ui, |ui| {
+                            if conns.is_empty() {
+                                ui.label("no connections");
+                            }
+                            for rel in &conns {
+                                ui.horizontal(|ui| {
+                                    let (arrow, other) = relation_other_end(rel, &node);
+                                    ui.label(format!("{arrow} {other}"));
+                                    if ui
+                                        .button(rel.kind.label())
+                                        .on_hover_text("click to cycle the relation kind")
+                                        .clicked()
                                     {
-                                        self.connection_message = format!("could not edit connection: {e}");
+                                        if let Err(e) = relation::edit_connection(
+                                            root,
+                                            index,
+                                            &rel.id,
+                                            None,
+                                            Some(rel.kind.next()),
+                                        ) {
+                                            self.connection_message =
+                                                format!("could not edit connection: {e}");
+                                        }
                                     }
-                                }
-                                if ui.button("Delete").clicked() {
-                                    if let Err(e) = relation::delete_connection(root, index, &rel.id) {
-                                        self.connection_message = format!("could not delete connection: {e}");
+                                    if ui.button("Delete").clicked() {
+                                        if let Err(e) =
+                                            relation::delete_connection(root, index, &rel.id)
+                                        {
+                                            self.connection_message =
+                                                format!("could not delete connection: {e}");
+                                        }
                                     }
-                                }
+                                });
+                            }
                             });
-                        }
                         if !self.connection_message.is_empty() {
                             ui.separator();
                             ui.label(&self.connection_message);
@@ -3210,10 +4607,14 @@ impl PdfReaderState {
                     self.connection_popup = Some(ConnectionPopup::Manage { node });
                 }
             }
-            ConnectionPopup::ConfirmDelete { citekey, artifact_id } => {
+            ConnectionPopup::ConfirmDelete {
+                citekey,
+                artifact_id,
+            } => {
                 egui::Window::new("Delete annotation")
                     .collapsible(false)
                     .resizable(false)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO) // #281
                     .show(ctx, |ui| {
                         ui.label(format!("Delete {artifact_id:?}?"));
                         ui.label("Sure anot?");
@@ -3271,7 +4672,10 @@ impl PdfReaderState {
                         });
                     });
                 if !close {
-                    self.connection_popup = Some(ConnectionPopup::ConfirmDelete { citekey, artifact_id });
+                    self.connection_popup = Some(ConnectionPopup::ConfirmDelete {
+                        citekey,
+                        artifact_id,
+                    });
                 }
             }
         }
@@ -3285,32 +4689,42 @@ impl PdfReaderState {
     /// Copy-to-clipboard and "Save as annotation" (folds the selection into
     /// the same `annotations` markdown section a hand-typed note goes into,
     /// per the module doc).
+    /// The panel for a completed text selection: its actions first, then the
+    /// text in a **fixed-height scrollable box**.
+    ///
+    /// The text box used to grow with the selection, so a big drag pushed
+    /// Copy, Save and Dismiss off the bottom of the window and the selection
+    /// could not be cancelled (maintainer, 2026-09-28: "if i select too much
+    /// text, the ui gets so cluttered i cannot cancel it. Select text shld be
+    /// a scrollable area"). Now the buttons sit above the text, the text
+    /// scrolls inside at most [`SELECTION_PANEL_MAX_HEIGHT`], and Esc
+    /// dismisses the selection when no text box has the keyboard.
     fn text_selection_panel(&mut self, ui: &mut egui::Ui) {
         let Some((min, max, text)) = self.text_selection.clone() else {
             return;
         };
+        let escape = ui.input(|i| i.key_pressed(egui::Key::Escape))
+            && ui.ctx().memory(|m| m.focused().is_none());
+        if escape {
+            self.text_selection = None;
+            return;
+        }
         ui.group(|ui| {
-            ui.label(format!(
-                "Selected text — page {} — bbox [{:.0}, {:.0}, {:.0}, {:.0}]",
-                self.active_page() + 1,
-                min.x,
-                min.y,
-                max.x,
-                max.y
-            ));
-            let mut scratch = text.clone();
-            ui.add(
-                egui::TextEdit::multiline(&mut scratch)
-                    .font(egui::TextStyle::Monospace)
-                    .desired_rows(3)
-                    .desired_width(f32::INFINITY),
-            );
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(format!(
+                    "Selected text \u{2014} page {} \u{2014} {} line(s), {} character(s)",
+                    self.active_page() + 1,
+                    text.lines().count(),
+                    text.chars().count(),
+                ))
+                .on_hover_text(format!(
+                    "bbox [{:.0}, {:.0}, {:.0}, {:.0}]",
+                    min.x, min.y, max.x, max.y
+                ));
                 if ui.button("\u{1F4CB} Copy").clicked() {
                     ui.ctx().copy_text(text.clone());
                 }
                 if ui.button("Save as annotation").clicked() {
-                    let author = self.author_name();
                     let page_px = self.current_page_px();
                     self.annotations
                         .entry(self.active_page())
@@ -3320,16 +4734,59 @@ impl PdfReaderState {
                             max,
                             text: text.clone(),
                             created_at: utc_now_iso8601(),
-                            author,
                             page_px,
                         });
                     self.text_selection = None;
                 }
-                if ui.button("Dismiss").clicked() {
+                if ui
+                    .button("\u{2716} Dismiss")
+                    .on_hover_text("clear the selection (Esc)")
+                    .clicked()
+                {
                     self.text_selection = None;
                 }
             });
+            egui::ScrollArea::vertical()
+                .id_salt("text_selection_scroll")
+                .max_height(SELECTION_PANEL_MAX_HEIGHT)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    let mut scratch = text.as_str();
+                    ui.add(
+                        egui::TextEdit::multiline(&mut scratch)
+                            .font(egui::TextStyle::Monospace)
+                            .desired_rows(1)
+                            .desired_width(f32::INFINITY),
+                    );
+                });
         });
+    }
+
+    /// Whether a right-click at image-space `click` lands inside the
+    /// not-yet-confirmed box, and so belongs to it.
+    ///
+    /// `false` with no pending box, and -- the part that matters -- `false`
+    /// for a click outside one. The hit test used to live inside
+    /// `if let Some(pending)`, so a pending box swallowed **every**
+    /// right-click on the page and the branches for an existing annotation
+    /// or a saved artifact were unreachable until it cleared.
+    fn pending_box_contains(&self, click: Pos2) -> bool {
+        self.pending_box.is_some_and(|(min, max)| {
+            click.x >= min.x && click.x <= max.x && click.y >= min.y && click.y <= max.y
+        })
+    }
+
+    /// Abandon any box the operator is drawing or has just drawn.
+    ///
+    /// Three distinct states, all of which mean "there is a box in flight":
+    /// `draw_start` is a primary-button drag still down, `select_start` the
+    /// same for the text-selection tool, and `pending_box` a box already
+    /// released but not yet turned into an annotation or a crop. Esc clears
+    /// all three, because from the operator's side they are one thing.
+    fn cancel_box_drawing(&mut self) {
+        self.draw_start = None;
+        self.select_start = None;
+        self.pending_box = None;
     }
 
     /// The Annotate text editor, shown as a panel under the toolbar while
@@ -3339,11 +4796,16 @@ impl PdfReaderState {
     /// same way as `context_menu_ui`, for a single "did anything produce a
     /// crop this frame" return path); an Annotate action never produces a
     /// [`CropResult`].
-    fn annotate_editor_panel(&mut self, ui: &mut egui::Ui) -> Option<CropResult> {
-        let page = self.active_page();
+    fn annotate_editor_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        mut active_paper: Option<&mut PaperSession>,
+        context_editor: &mut KvimEditorState,
+    ) -> Option<CropResult> {
         let Some(editor) = &mut self.annotate_editor else {
             return None;
         };
+        let page = editor.page;
         let mut save = false;
         let mut cancel = false;
         ui.group(|ui| {
@@ -3355,12 +4817,30 @@ impl PdfReaderState {
                 editor.max.x,
                 editor.max.y
             ));
-            ui.add(
-                egui::TextEdit::multiline(&mut editor.text)
-                    .hint_text("note text")
-                    .desired_rows(3)
-                    .desired_width(f32::INFINITY),
+            // The modal editor, sized so it does not eat the canvas: kvim's
+            // `ui` claims all the space it is given, so it is given a bounded
+            // strip rather than the panel's full height.
+            ui.weak("kvim keys — Esc for Normal, i to insert, :w save, :q cancel");
+            let row = ui.text_style_height(&egui::TextStyle::Monospace);
+            let mut signal = None;
+            ui.allocate_ui(
+                egui::vec2(ui.available_width(), (row * 6.0).max(90.0)),
+                |ui| {
+                    signal = editor.kvim.ui(ui, None);
+                },
             );
+            // `:w` and `:q` mean here what the two buttons mean, because in
+            // this panel the buffer IS the note (maintainer, 2026-09-24).
+            // `:wq` is `:w` -- saving already closes the editor.
+            match signal {
+                Some(EditorSignal::Write) | Some(EditorSignal::WriteThenQuit) => save = true,
+                // Both quit forms cancel here. In this panel the buffer IS
+                // the note, so "unsaved changes" is not a reason to refuse --
+                // discarding them is precisely what Cancel means. A real file
+                // (the page-context editor) treats `QuitUnsaved` differently.
+                Some(EditorSignal::Quit) | Some(EditorSignal::QuitUnsaved) => cancel = true,
+                None => {}
+            }
             ui.horizontal(|ui| {
                 if ui.button("Save").clicked() {
                     save = true;
@@ -3372,12 +4852,11 @@ impl PdfReaderState {
         });
         if save {
             let editor = self.annotate_editor.take().expect("checked above");
-            let author = self.author_name();
             let page_px = self.current_page_px();
-            let anns = self.annotations.entry(self.active_page()).or_default();
+            let anns = self.annotations.entry(editor.page).or_default();
             match editor.editing_existing {
                 Some(i) if i < anns.len() => {
-                    anns[i].text = editor.text;
+                    anns[i].text = editor.text();
                     anns[i].min = editor.min;
                     anns[i].max = editor.max;
                     anns[i].page_px = page_px;
@@ -3385,14 +4864,28 @@ impl PdfReaderState {
                 _ => anns.push(Annotation {
                     min: editor.min,
                     max: editor.max,
-                    text: editor.text,
+                    text: editor.text(),
                     created_at: utc_now_iso8601(),
-                    author,
                     page_px,
                 }),
             }
             self.pending_box = None;
+            // **Saving the note persists the annotations.** The separate
+            // "Save annotations" button was a second, easily-forgotten step
+            // for something the operator has already said they want kept
+            // (maintainer, 2026-09-24: "the save annotations button is quite
+            // a hassle"). A note that is saved but not written to the paper's
+            // markdown survives only until the window closes, which is not
+            // what "Save" means anywhere else.
+            //
+            // The editor was `take`n just above, so the fold-in branch at the
+            // top of `save_annotations_into_project` finds nothing pending
+            // and this is a straight write.
+            self.save_annotations_into_project(active_paper.as_deref_mut(), context_editor);
         } else if cancel {
+            // `:q` and Cancel discard the buffer without touching
+            // `self.annotations`, so an edit in progress is reverted rather
+            // than half-applied.
             self.annotate_editor = None;
         }
         None
@@ -3406,12 +4899,24 @@ impl PdfReaderState {
         let Some(result) = &self.bibtex else { return };
         match result {
             Ok(entry) => {
+                let mut close = false;
                 ui.horizontal(|ui| {
                     ui.label("BibTeX:");
                     if ui.button("\u{1F4CB} Copy").clicked() {
                         ui.ctx().copy_text(entry.clone());
                     }
+                    // Generated BibTeX had no way out but opening another
+                    // document: the panel held the last result for the rest
+                    // of the session, eating canvas height (maintainer,
+                    // 2026-09-22).
+                    if ui.button("Close").clicked() {
+                        close = true;
+                    }
                 });
+                if close {
+                    self.bibtex = None;
+                    return;
+                }
                 let mut scratch = entry.clone();
                 ui.add(
                     egui::TextEdit::multiline(&mut scratch)
@@ -3421,7 +4926,19 @@ impl PdfReaderState {
                 );
             }
             Err(e) => {
-                ui.colored_label(Color32::from_rgb(230, 90, 90), format!("BibTeX: {e}"));
+                let message = format!("BibTeX: {e}");
+                let mut close = false;
+                ui.horizontal(|ui| {
+                    ui.colored_label(Color32::from_rgb(230, 90, 90), &message);
+                    // A failure needs dismissing at least as much as a
+                    // success does.
+                    if ui.button("Close").clicked() {
+                        close = true;
+                    }
+                });
+                if close {
+                    self.bibtex = None;
+                }
             }
         }
     }
@@ -3461,6 +4978,303 @@ mod tests {
         }
     }
 
+    /// A glyph occupying `[x0, x1]` horizontally on the baseline `y`, 10 pt
+    /// tall, for the character-selection tests.
+    fn placed_char(c: char, x0: f32, x1: f32, y: f32) -> StextChar {
+        StextChar {
+            origin: Point::new(x0, y),
+            quad: Quad {
+                ul: Point::new(x0, y - 8.0),
+                ur: Point::new(x1, y - 8.0),
+                ll: Point::new(x0, y + 2.0),
+                lr: Point::new(x1, y + 2.0),
+            },
+            ..stub_char(c)
+        }
+    }
+
+    /// A line of 5-pt-wide glyphs starting at `x`, one per character, on
+    /// baseline `y` (spaces included as glyphs).
+    fn placed_line(text: &str, x: f32, y: f32) -> StextLine {
+        let chars: Vec<StextChar> = text
+            .chars()
+            .enumerate()
+            .map(|(i, c)| placed_char(c, x + 5.0 * i as f32, x + 5.0 * (i + 1) as f32, y))
+            .collect();
+        StextLine {
+            chars,
+            ..stub_line(
+                "",
+                PdfRect::new(x, y - 8.0, x + 5.0 * text.len() as f32, y + 2.0),
+            )
+        }
+    }
+
+    #[test]
+    fn select_chars_takes_part_of_a_line() {
+        let page = stub_page(vec![placed_line("Kr-85 1.2e-4", 0.0, 100.0)]);
+        // Only "1.2e-4": glyphs 6..12 span x = 30..60.
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(29.0, 90.0), Pos2::new(61.0, 105.0));
+        assert_eq!(text, "1.2e-4");
+    }
+
+    #[test]
+    fn select_chars_turns_a_column_gutter_into_a_tab_and_keeps_word_spaces() {
+        // Three cells on one baseline, as separate stext lines (the usual
+        // shape of a typeset table row), 30 pt apart.
+        let page = stub_page(vec![
+            placed_line("I-131", 0.0, 100.0),
+            placed_line("8.02 d", 55.0, 100.0),
+            placed_line("0.61", 115.0, 100.0),
+        ]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 90.0), Pos2::new(200.0, 105.0));
+        assert_eq!(text, "I-131\t8.02 d\t0.61");
+    }
+
+    #[test]
+    fn select_chars_rebuilds_rows_from_baselines_in_top_to_bottom_order() {
+        let page = stub_page(vec![
+            placed_line("b", 0.0, 120.0),
+            placed_line("a", 0.0, 100.0),
+            placed_line("c", 40.0, 100.5),
+        ]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 0.0), Pos2::new(200.0, 200.0));
+        assert_eq!(text, "a\tc\nb");
+    }
+
+    #[test]
+    fn select_chars_applies_the_dpi_scale() {
+        let page = stub_page(vec![placed_line("ab", 0.0, 100.0)]);
+        // At 2 px/pt the glyph centres sit at x = 5 and 15, y = 194.
+        let only_a =
+            select_chars_in_rect(&page, 2.0, Pos2::new(0.0, 180.0), Pos2::new(10.0, 200.0));
+        assert_eq!(only_a, "a");
+        let none = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 180.0), Pos2::new(10.0, 200.0));
+        assert_eq!(none, "");
+    }
+
+    /// A glyph of `size` pt occupying `[x0, x1]` on baseline `y`.
+    fn sized_char(c: char, x0: f32, x1: f32, y: f32, size: f32) -> StextChar {
+        StextChar {
+            size,
+            origin: Point::new(x0, y),
+            quad: Quad {
+                ul: Point::new(x0, y - 0.8 * size),
+                ur: Point::new(x1, y - 0.8 * size),
+                ll: Point::new(x0, y + 0.2 * size),
+                lr: Point::new(x1, y + 0.2 * size),
+            },
+            ..stub_char(c)
+        }
+    }
+
+    /// "2.1×10" in 10 pt on baseline 100 with a 7 pt superscript `exp`
+    /// raised 3.5 pt, starting at `x`, as MuPDF would give it.
+    fn standard_form(x: f32, exp: &str) -> Vec<StextLine> {
+        let base: Vec<StextChar> = "2.1×10"
+            .chars()
+            .enumerate()
+            .map(|(i, c)| sized_char(c, x + 5.0 * i as f32, x + 5.0 * (i + 1) as f32, 100.0, 10.0))
+            .collect();
+        let sx = x + 30.0;
+        let sup: Vec<StextChar> = exp
+            .chars()
+            .enumerate()
+            .map(|(i, c)| sized_char(c, sx + 3.5 * i as f32, sx + 3.5 * (i + 1) as f32, 96.5, 7.0))
+            .collect();
+        vec![
+            StextLine {
+                chars: base,
+                ..stub_line("", PdfRect::new(x, 92.0, x + 30.0, 102.0))
+            },
+            StextLine {
+                chars: sup,
+                ..stub_line("", PdfRect::new(sx, 91.0, sx + 10.0, 98.0))
+            },
+        ]
+    }
+
+    #[test]
+    fn a_superscript_exponent_is_marked_with_a_caret() {
+        let page = stub_page(standard_form(0.0, "6"));
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(100.0, 110.0));
+        assert_eq!(text, "2.1×10^6");
+    }
+
+    #[test]
+    fn a_row_of_standard_form_cells_keeps_its_exponents_and_its_tabs() {
+        // The maintainer's row: 2.1×10⁶  8.2×10⁷ (two cells, 40 pt apart).
+        let mut lines = standard_form(0.0, "6");
+        lines.extend(standard_form(80.0, "−7"));
+        let page = stub_page(lines);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(200.0, 110.0));
+        assert_eq!(text, "2.1×10^6\t2.1×10^−7");
+        let cells: Vec<Option<String>> = text
+            .split('\t')
+            .map(crate::digitiser::table_grid::standard_form_to_e)
+            .collect();
+        assert_eq!(cells, vec![Some("2.1e6".into()), Some("2.1e-7".into())]);
+    }
+
+    /// The real Table 7 case: a unit whose exponent is raised about half an
+    /// em (more than the row clustering's tolerance) stays on its row.
+    #[test]
+    fn a_strongly_raised_exponent_stays_on_its_row() {
+        let mut chars: Vec<StextChar> = "Dose (mSv a"
+            .chars()
+            .enumerate()
+            .map(|(i, c)| sized_char(c, 4.0 * i as f32, 4.0 * (i + 1) as f32, 100.0, 8.0))
+            .collect();
+        // "−1" at 5.6 pt, raised 4.5 pt (0.56 em of 8 pt).
+        chars.push(sized_char('\u{2212}', 44.0, 47.0, 95.5, 5.6));
+        chars.push(sized_char('1', 47.0, 50.0, 95.5, 5.6));
+        chars.push(sized_char(')', 50.0, 54.0, 100.0, 8.0));
+        let page = stub_page(vec![StextLine {
+            chars,
+            ..stub_line("", PdfRect::new(0.0, 90.0, 54.0, 102.0))
+        }]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(100.0, 110.0));
+        assert_eq!(text, "Dose (mSv a^\u{2212}1)");
+    }
+
+    #[test]
+    fn a_subscript_stays_on_its_row_and_a_caption_line_does_not_merge() {
+        let mut chars: Vec<StextChar> = vec![
+            sized_char('H', 0.0, 6.0, 100.0, 10.0),
+            sized_char('2', 6.0, 10.0, 103.0, 7.0),
+            sized_char('O', 10.0, 17.0, 100.0, 10.0),
+        ];
+        // A small-type caption a full line below: its own row.
+        chars.extend(
+            "note"
+                .chars()
+                .enumerate()
+                .map(|(i, c)| sized_char(c, 3.5 * i as f32, 3.5 * (i + 1) as f32, 115.0, 7.0)),
+        );
+        let page = stub_page(vec![StextLine {
+            chars,
+            ..stub_line("", PdfRect::new(0.0, 90.0, 17.0, 117.0))
+        }]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(100.0, 120.0));
+        assert_eq!(text, "H2O\nnote");
+    }
+
+    #[test]
+    fn a_small_glyph_on_the_baseline_is_not_a_superscript() {
+        let chars = vec![
+            sized_char('5', 0.0, 5.0, 100.0, 10.0),
+            sized_char('m', 5.0, 9.0, 100.0, 7.0),
+        ];
+        let page = stub_page(vec![StextLine {
+            chars,
+            ..stub_line("", PdfRect::new(0.0, 92.0, 9.0, 102.0))
+        }]);
+        let text = select_chars_in_rect(&page, 1.0, Pos2::new(0.0, 80.0), Pos2::new(50.0, 110.0));
+        assert_eq!(text, "5m");
+    }
+
+    #[test]
+    fn char_highlight_is_one_block_per_cell_matching_the_copied_text() {
+        let page = stub_page(vec![
+            placed_line("I-131", 0.0, 100.0),
+            placed_line("8.02 d", 55.0, 100.0),
+        ]);
+        let (min, max) = (Pos2::new(0.0, 90.0), Pos2::new(200.0, 105.0));
+        let runs = char_selection_runs(&page, 1.0, min, max);
+        assert_eq!(runs.len(), 2, "{runs:?}");
+        assert_eq!((runs[0].0.x, runs[0].1.x), (0.0, 25.0));
+        assert_eq!((runs[1].0.x, runs[1].1.x), (55.0, 85.0));
+        assert_eq!(select_chars_in_rect(&page, 1.0, min, max), "I-131\t8.02 d");
+    }
+
+    /// Turning a page shows at once, is held unsaved, and Save writes a PDF
+    /// whose page carries the new `/Rotate` while the other page does not.
+    #[test]
+    fn a_turned_page_is_shown_then_saved_into_the_pdf() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sideways.pdf");
+        std::fs::write(&path, crate::page_rotation::tests::two_page_pdf(None)).unwrap();
+        let mut r = PdfReaderState::new();
+        r.open(path.to_str().unwrap());
+        assert!(matches!(r.source, ReaderSource::Pdf(_)), "{}", r.message);
+
+        r.rotate_active_page(1);
+        assert!(r.unsaved_rotation.is_some(), "{}", r.message);
+        let ReaderSource::Pdf(reader) = &r.source else {
+            unreachable!()
+        };
+        assert_eq!(
+            crate::page_rotation::effective_rotation(reader.document(), 0).unwrap(),
+            90
+        );
+        // Nothing on disk yet.
+        let on_disk = PdfDocument::open(std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            crate::page_rotation::effective_rotation(&on_disk, 0).unwrap(),
+            0
+        );
+
+        r.save_rotation();
+        assert!(r.unsaved_rotation.is_none(), "{}", r.message);
+        let on_disk = PdfDocument::open(std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            crate::page_rotation::effective_rotation(&on_disk, 0).unwrap(),
+            90
+        );
+        assert_eq!(
+            crate::page_rotation::effective_rotation(&on_disk, 1).unwrap(),
+            0
+        );
+    }
+
+    /// A huge selection must not push the panel's buttons off screen: the
+    /// panel stays short however much text is selected, and Esc clears it.
+    #[test]
+    fn a_huge_selection_keeps_the_panel_short_and_escape_dismisses_it() {
+        let ctx = egui::Context::default();
+        let mut r = PdfReaderState::new();
+        let huge: String = (0..500).map(|i| format!("line {i}\n")).collect();
+        r.text_selection = Some((Pos2::ZERO, Pos2::new(10.0, 10.0), huge));
+        let mut height = 0.0;
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            height = ui
+                .scope(|ui| r.text_selection_panel(ui))
+                .response
+                .rect
+                .height();
+        });
+        assert!(r.text_selection.is_some());
+        assert!(
+            height < SELECTION_PANEL_MAX_HEIGHT + 80.0,
+            "the panel grew to {height} pt for 500 lines"
+        );
+
+        let mut input = egui::RawInput::default();
+        input.events.push(egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        });
+        let _ = ctx.run_ui(input, |ui| r.text_selection_panel(ui));
+        assert!(r.text_selection.is_none(), "Esc dismisses the selection");
+    }
+
+    #[test]
+    fn table_mode_switches_to_char_selection_with_copy_and_back() {
+        let mut r = PdfReaderState::new();
+        assert_eq!(r.select_granularity, SelectGranularity::Line);
+        assert!(!r.copy_on_select);
+        r.enter_table_mode();
+        assert_eq!(r.tool, AnnotationTool::SelectText);
+        assert_eq!(r.select_granularity, SelectGranularity::Char);
+        assert!(r.copy_on_select);
+        r.leave_table_mode();
+        assert_eq!(r.select_granularity, SelectGranularity::Line);
+        assert!(!r.copy_on_select);
+    }
+
     fn stub_page(lines: Vec<StextLine>) -> StextPage {
         StextPage {
             mediabox: PdfRect::new(0.0, 0.0, 612.0, 792.0),
@@ -3470,6 +5284,175 @@ mod tests {
             })],
             fonts: Vec::new(),
         }
+    }
+
+    /// A jump asked for before the canvas has drawn is **deferred**, not
+    /// silently downgraded to "page 1".
+    ///
+    /// Opening a paper clears the page cache and the viewport, so an
+    /// artifact clicked in the same gesture that opens the document had
+    /// nothing to centre against — it landed on the first page, and only a
+    /// second click worked (maintainer, 2026-09-22).
+    #[test]
+    fn an_artifact_jump_before_the_canvas_is_ready_is_deferred() {
+        let mut state = PdfReaderState::default();
+        assert!(
+            !state.canvas_ready(),
+            "a fresh reader has no page size and no measured viewport"
+        );
+
+        let artifact = make_artifact(
+            "figure",
+            ArtifactKind::DigitisedGraph,
+            Some(SourceAnchor {
+                page: Some(6),
+                pages: None,
+                region: Some(Region {
+                    x0: 0.1,
+                    y0: 0.2,
+                    x1: 0.5,
+                    y1: 0.6,
+                }),
+            }),
+        );
+        state.go_to_artifact(&artifact);
+
+        assert_eq!(
+            state.pending_jump.as_ref().map(|a| a.id()),
+            Some("figure"),
+            "the jump is queued for when the canvas can satisfy it"
+        );
+        // The page is still requested straight away, so the wait is spent on
+        // the right page rather than the first one.
+        assert_eq!(state.scroll_request, Some(5), "0-based page 6");
+
+        // Opening another document drops a jump into the old one.
+        state.reset_interaction_state();
+        assert!(state.pending_jump.is_none());
+    }
+
+    /// **The reader keeps its place across a view switch.**
+    ///
+    /// Leaving the PDF Reader for the Mindmap and coming back reset the
+    /// document to page 1, however far in the user had read (maintainer,
+    /// 2026-09-24). Two causes, both fixed:
+    ///
+    /// 1. the page `ScrollArea` carried no `id_salt`, so egui derived its id
+    ///    from the widget tree; a different `CentralPanel` on the way back
+    ///    meant a different id, no stored state, and offset zero;
+    /// 2. nothing consulted `last_offset`, which had held the true position
+    ///    the whole time.
+    ///
+    /// This pins the second, which is the one that lives in this struct: a
+    /// gap in the pass counter is a re-entry, and a re-entry restores.
+    #[test]
+    fn a_view_switch_is_told_from_an_ordinary_frame() {
+        let reentered = |last: Option<u64>, pass: u64, off: egui::Vec2| {
+            last.is_some_and(|l| pass > l + 1) && off != egui::Vec2::ZERO
+        };
+        let somewhere = egui::vec2(0.0, 900.0);
+
+        // Consecutive passes are ordinary frames -- never restore, or the
+        // user could not scroll at all.
+        assert!(!reentered(Some(41), 42, somewhere), "consecutive frame");
+        // A gap is a view switch.
+        assert!(reentered(Some(41), 60, somewhere), "returned after a gap");
+        // The very first draw has nothing to restore to.
+        assert!(!reentered(None, 7, somewhere), "first draw");
+        // At the top of the document there is nothing to restore.
+        assert!(
+            !reentered(Some(41), 60, egui::Vec2::ZERO),
+            "already at the top"
+        );
+    }
+
+    /// Opening a document forgets the previous one's position.
+    ///
+    /// The restore above must not carry one paper's scroll offset into the
+    /// next paper opened.
+    #[test]
+    fn opening_a_document_clears_the_remembered_position() {
+        let mut state = PdfReaderState::default();
+        state.last_offset = egui::vec2(0.0, 1234.0);
+        state.last_drawn_pass = Some(99);
+
+        state.reset_interaction_state();
+
+        assert_eq!(state.last_offset, egui::Vec2::ZERO);
+        assert_eq!(
+            state.last_drawn_pass, None,
+            "a new document must not be restored to the old one's offset"
+        );
+    }
+
+    /// A click inside nested artifact boxes acts on the **smallest** one.
+    ///
+    /// Before this, the right-click took the first region in document order
+    /// and the hover/open path took the last, so a small figure inside a
+    /// larger section region was unreachable and the menu opened on the
+    /// wrong artifact (maintainer, 2026-09-22).
+    #[test]
+    fn nested_artifact_boxes_resolve_to_the_smallest() {
+        let big = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(100.0, 100.0));
+        let small = Rect::from_min_max(Pos2::new(40.0, 40.0), Pos2::new(60.0, 60.0));
+        let anchor = |x0: f64, y0: f64, x1: f64, y1: f64| {
+            Some(SourceAnchor {
+                page: Some(3),
+                pages: None,
+                region: Some(Region { x0, y0, x1, y1 }),
+            })
+        };
+        // The same nesting as the screen rects below, in page fractions.
+        let outer = make_artifact("section", ArtifactKind::Note, anchor(0.0, 0.0, 1.0, 1.0));
+        let inner = make_artifact("figure", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+
+        // Document order deliberately puts the big one first, which is what
+        // the old `find` would have returned.
+        let overlays = vec![(&outer, big), (&inner, small)];
+        assert_eq!(
+            smallest_hit(overlays.clone(), Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            Some("figure"),
+            "inside both, the inner box wins"
+        );
+        assert_eq!(
+            smallest_hit(overlays.clone(), Pos2::new(10.0, 10.0)).map(|a| a.id()),
+            Some("section"),
+            "outside the inner box, the outer one still hits"
+        );
+        assert!(
+            smallest_hit(overlays, Pos2::new(500.0, 500.0)).is_none(),
+            "a click outside every box hits nothing"
+        );
+
+        // Redundancy: two artifacts with *identical* geometry — a duplicated
+        // crop — still resolve deterministically, by id, rather than by
+        // whichever was parsed first. Geometry is what a click means; the id
+        // is what cannot collide.
+        let twin_a = make_artifact("aaa", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let twin_b = make_artifact("zzz", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let forwards = vec![(&twin_a, small), (&twin_b, small)];
+        let backwards = vec![(&twin_b, small), (&twin_a, small)];
+        assert_eq!(
+            smallest_hit(forwards, Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            smallest_hit(backwards, Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            "document order must not decide it"
+        );
+
+        // And the page separates artifacts that are otherwise identical.
+        let p3 = make_artifact("same", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let mut p9 = make_artifact("same", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        if let Some(src) = p9.toml.source.as_mut() {
+            src.page = Some(9);
+        }
+        assert_eq!(
+            smallest_hit(vec![(&p9, small), (&p3, small)], Pos2::new(50.0, 50.0)).map(|a| a
+                .toml
+                .source
+                .as_ref()
+                .and_then(|s| s.page)),
+            Some(Some(3)),
+            "the earlier page wins a geometric tie"
+        );
     }
 
     #[test]
@@ -3523,44 +5506,61 @@ mod tests {
         assert_eq!(text, "");
     }
 
+    /// Going to an annotation centres its box: one in the bottom-right of
+    /// page 2 lands the view there, not at the page's top-left corner.
     #[test]
-    fn blocks_matching_keeps_only_blocks_containing_a_needle() {
-        let text = "\
-### Fig. 7 — page 3, pixel bbox [1, 2, 3, 4]
-
-```csv
-x,y
-1,2
-```
-
-### annotation — 2026-08-24T00:00:00Z
-- author: x
-- page: 1
-- pixel bbox: [0, 0, 1, 1]
-
-a note
-";
-        let blocks = blocks_matching(text, &["page: 1"]);
-        assert_eq!(blocks.len(), 1);
-        assert!(blocks[0].starts_with("### annotation"));
-        assert!(blocks[0].contains("a note"));
+    fn going_to_a_region_centres_it() {
+        let page_px = egui::vec2(1000.0, 1400.0);
+        let viewport = egui::vec2(400.0, 300.0);
+        let region = Region {
+            x0: 0.6,
+            y0: 0.7,
+            x1: 0.9,
+            y1: 0.9,
+        };
+        let zoom = 2.0;
+        let off = region_centre_offset(region, 1, page_px, zoom, viewport).unwrap();
+        // Centre of the box in content coordinates.
+        let cx = 0.75 * 1000.0 * zoom;
+        let cy = (1400.0 * zoom + GAP) + 0.8 * 1400.0 * zoom;
+        assert_eq!(off, egui::vec2(cx - 200.0, cy - 150.0));
+        // Its box, drawn with the same mapping, sits in the middle of the view.
+        let drawn = region_to_screen_rect(region, 1, page_px, Pos2::ZERO - off, zoom, GAP).unwrap();
+        assert!((drawn.center() - (viewport * 0.5).to_pos2()).length() < 1e-3);
+        // Unmeasured canvas: no offset.
+        assert_eq!(
+            region_centre_offset(region, 1, page_px, zoom, egui::Vec2::ZERO),
+            None
+        );
     }
 
+    /// A drawn annotation saved with no region (the 2026-09-22 bug) is
+    /// listed as malformed; one with its box, and a page-anchored note with
+    /// no region (legal, §15), are not.
     #[test]
-    fn blocks_matching_supports_multiple_needles() {
-        let text = "### a — page 1,\nx\n### b\n- page: 2\ny\n### c\nz\n";
-        let blocks = blocks_matching(text, &["page 1,", "page: 2"]);
-        assert_eq!(blocks.len(), 2);
-    }
-
-    #[test]
-    fn blocks_matching_no_match_is_empty() {
-        assert!(blocks_matching("### a\nx\n", &["page: 99"]).is_empty());
-    }
-
-    #[test]
-    fn blocks_matching_text_with_no_headings_is_empty() {
-        assert!(blocks_matching("just prose, no ### headings\n", &["anything"]).is_empty());
+    fn annotations_without_a_region_are_malformed() {
+        let block = |id: &str, kind: &str, source: &str| {
+            format!(
+                "# {id}\n\n```toml\n[kovan]\nid = \"{id}\"\nkind = \"{kind}\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\n{source}\n```\n\nbody\n\n"
+            )
+        };
+        let md = [
+            block(
+                "boxed",
+                "annotation",
+                "page = 3\nregion = [0.1, 0.1, 0.5, 0.5]",
+            ),
+            block("boxless", "annotation", "page = 3"),
+            block("page-note", "note", "page = 4"),
+        ]
+        .concat();
+        let doc = crate::artifact::parse_document(&md);
+        assert_eq!(doc.artifacts.len(), 3, "{:?}", doc.problems);
+        let bad: Vec<&str> = malformed_blocks(&doc.artifacts)
+            .iter()
+            .map(|(a, _)| a.id())
+            .collect();
+        assert_eq!(bad, vec!["boxless"]);
     }
 
     #[test]
@@ -3584,7 +5584,13 @@ a note
     fn new_reader_starts_with_hot_reload_on_and_otherwise_default() {
         let r = PdfReaderState::new();
         assert!(r.hot_reload.is_enabled());
-        // `new()` only overrides hot-reload.
+        // `new()` overrides the three flags that start on; everything else
+        // is the derived default.
+        assert!(r.show_thumbs, "thumbnail strip starts visible");
+        assert!(
+            r.show_summaries,
+            "annotation bodies start visible -- collapsing is offered, not imposed"
+        );
         assert!(r.path.is_empty());
         assert!(r.annotations.is_empty());
         assert!(r.search.query.is_empty());
@@ -3636,6 +5642,7 @@ a note
                 access: Access::Open,
                 topics: vec!["htgrs".into()],
                 projects: vec![],
+                target: None,
             },
         )
         .unwrap();
@@ -3648,7 +5655,6 @@ a note
                 max: Pos2::new(30.0, 40.0),
                 text: "a note about figure 3".to_string(),
                 created_at: "2026-09-01T00:00:00Z".to_string(),
-                author: "tester".to_string(),
                 page_px: [100.0, 200.0],
             }],
         );
@@ -3705,6 +5711,13 @@ a note
         assert_eq!(state.editing_block_id.as_deref(), Some("graphite-note"));
         assert_eq!(state.block_editor.text(), "the prose body");
         assert_eq!(PdfReaderState::artifact_page(art), Some(2));
+        // #282: the user already clicked to get here, so the editor opens
+        // ready to type rather than in Normal mode.
+        assert_eq!(
+            state.block_editor.mode_label(),
+            "INSERT",
+            "opening a block from the page-context panel must land in Insert mode"
+        );
     }
 
     #[test]
@@ -3764,18 +5777,21 @@ a note
             level: crate::artifact::ARTIFACT_LEVEL,
             line: 1,
             toml: crate::artifact::ArtifactToml {
+                extra: Default::default(),
                 kovan: crate::artifact::ArtifactMeta {
+                    extra: Default::default(),
                     id: id.to_string(),
                     kind,
                     created: "c".to_string(),
                     modified: "m".to_string(),
                     reviewed: None,
+                    origin: None,
                 },
                 source,
                 classification: Classification::default(),
                 extraction: None,
                 relation: None,
-            connections: Vec::new(),
+                connections: Vec::new(),
             },
             body: String::new(),
         }
@@ -3845,15 +5861,10 @@ a note
             x1: 0.9,
             y1: 0.9,
         };
-        assert!(region_to_screen_rect(
-            region,
-            0,
-            egui::vec2(0.0, 400.0),
-            Pos2::ZERO,
-            1.0,
-            16.0
-        )
-        .is_none());
+        assert!(
+            region_to_screen_rect(region, 0, egui::vec2(0.0, 400.0), Pos2::ZERO, 1.0, 16.0)
+                .is_none()
+        );
     }
 
     #[test]
@@ -3910,7 +5921,8 @@ t_s,power_mw
         let page_px = egui::vec2(600.0, 800.0);
         let (zoom, gap) = (1.0_f32, 16.0_f32);
         // page 3 in the artifact (1-based) is index 2 (0-based).
-        let overlays = artifact_overlays_for_page(&doc.artifacts, 2, page_px, Pos2::ZERO, zoom, gap);
+        let overlays =
+            artifact_overlays_for_page(&doc.artifacts, 2, page_px, Pos2::ZERO, zoom, gap);
         assert_eq!(
             overlays.len(),
             2,
@@ -4063,6 +6075,20 @@ t_s,power_mw
     /// kinds") with only the first entry's label varying, and the
     /// connection separator/verbs/order fixed regardless of kind.
     #[test]
+    fn edit_table_and_edit_digitisation_open_the_digitiser_and_other_edits_do_not() {
+        assert!(edit_opens_digitiser(ArtifactKind::DigitisedTable));
+        assert!(edit_opens_digitiser(ArtifactKind::DigitisedGraph));
+        for kind in [
+            ArtifactKind::Note,
+            ArtifactKind::Annotation,
+            ArtifactKind::Formula,
+            ArtifactKind::SourceReference,
+        ] {
+            assert!(!edit_opens_digitiser(kind), "{kind:?}");
+        }
+    }
+
+    #[test]
     fn saved_artifact_menu_entries_has_the_same_shape_for_every_kind() {
         for kind in [
             ArtifactKind::Note,
@@ -4097,11 +6123,18 @@ t_s,power_mw
             // Exactly one entry can ever invoke the delete cascade — a
             // menu structurally cannot dispatch it twice from one click.
             assert_eq!(
-                actions.iter().filter(|a| **a == MenuAction::DeleteArtifact).count(),
+                actions
+                    .iter()
+                    .filter(|a| **a == MenuAction::DeleteArtifact)
+                    .count(),
                 1,
                 "{kind:?}"
             );
-            assert_eq!(entries.last().unwrap().label, "Delete annotation…", "{kind:?}");
+            assert_eq!(
+                entries.last().unwrap().label,
+                "Delete annotation…",
+                "{kind:?}"
+            );
             // Grouped as [navigation] | [edit] | [connections] | [delete]:
             // a separator closing each group, none elsewhere.
             let separators: Vec<bool> = entries.iter().map(|e| e.separator_after).collect();
@@ -4169,7 +6202,10 @@ t_s,power_mw
         };
         assert_eq!(label_for(ArtifactKind::Note), "Edit annotation");
         assert_eq!(label_for(ArtifactKind::Annotation), "Edit annotation");
-        assert_eq!(label_for(ArtifactKind::SourceReference), "Edit source reference");
+        assert_eq!(
+            label_for(ArtifactKind::SourceReference),
+            "Edit source reference"
+        );
         assert_eq!(label_for(ArtifactKind::Formula), "Edit formula");
         assert_eq!(label_for(ArtifactKind::DigitisedTable), "Edit table");
         assert_eq!(label_for(ArtifactKind::DigitisedGraph), "Edit digitisation");
@@ -4202,9 +6238,12 @@ t_s,power_mw
 
         let dir = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("src").unwrap(), Access::Open)
-            .save_paper(&root.paper_dir("src"))
-            .unwrap();
+        crate::entity::EntityConfig::paper(
+            crate::entity::CiteKey::parse("src").unwrap(),
+            Access::Open,
+        )
+        .save_paper(&root.paper_dir("src"))
+        .unwrap();
         let mut session = PaperSession::open(&root, "src").unwrap();
         let index = ResearchRecordIndex::from_session(&session);
         classify::insert_artifact(
@@ -4227,7 +6266,10 @@ t_s,power_mw
         let _entries = saved_artifact_menu_entries(ArtifactKind::Note, true, true);
 
         let after = std::fs::read_to_string(root.paper_markdown("src")).unwrap();
-        assert_eq!(before, after, "composing the menu must not touch the paper's file");
+        assert_eq!(
+            before, after,
+            "composing the menu must not touch the paper's file"
+        );
     }
 
     /// A separate check, at the domain level `saved_artifact_menu_entries`
@@ -4266,9 +6308,12 @@ t_s,power_mw
 
         let dir = tempfile::tempdir().unwrap();
         let root = KovanRoot::create(dir.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-        crate::entity::EntityConfig::paper(crate::entity::CiteKey::parse("src").unwrap(), Access::Open)
-            .save_paper(&root.paper_dir("src"))
-            .unwrap();
+        crate::entity::EntityConfig::paper(
+            crate::entity::CiteKey::parse("src").unwrap(),
+            Access::Open,
+        )
+        .save_paper(&root.paper_dir("src"))
+        .unwrap();
         let mut session = PaperSession::open(&root, "src").unwrap();
         let index = ResearchRecordIndex::from_session(&session);
         let artifact = classify::insert_artifact(
@@ -4302,6 +6347,157 @@ t_s,power_mw
         // silently repeating the deletion.
         let err =
             classify::delete_artifact_cascade(&root, &index, "src", &artifact_id).unwrap_err();
-        assert!(matches!(err, classify::CascadeError::ArtifactNotFound { .. }));
+        assert!(matches!(
+            err,
+            classify::CascadeError::ArtifactNotFound { .. }
+        ));
+    }
+
+    /// Esc must abandon a box, whether the drag is still down or the box has
+    /// already been released and is waiting to be confirmed. Before this
+    /// there was no way out of a mis-drawn box but to draw another one
+    /// (maintainer, 2026-09-24).
+    #[test]
+    fn escape_cancels_a_box_in_every_in_flight_state() {
+        let mut r = PdfReaderState::default();
+
+        // Mid-drag, box tool.
+        r.draw_start = Some(Pos2::new(10.0, 10.0));
+        r.cancel_box_drawing();
+        assert!(r.draw_start.is_none(), "a drag in progress must be dropped");
+
+        // Mid-drag, text-selection tool.
+        r.select_start = Some(Pos2::new(5.0, 5.0));
+        r.cancel_box_drawing();
+        assert!(r.select_start.is_none(), "a text drag must be dropped too");
+
+        // Released but unconfirmed.
+        r.pending_box = Some((Pos2::new(1.0, 2.0), Pos2::new(3.0, 4.0)));
+        r.cancel_box_drawing();
+        assert!(
+            r.pending_box.is_none(),
+            "an unconfirmed box must be discarded"
+        );
+
+        // All three at once, and idempotent.
+        r.draw_start = Some(Pos2::ZERO);
+        r.select_start = Some(Pos2::ZERO);
+        r.pending_box = Some((Pos2::ZERO, Pos2::ZERO));
+        r.cancel_box_drawing();
+        r.cancel_box_drawing();
+        assert!(r.draw_start.is_none() && r.select_start.is_none() && r.pending_box.is_none());
+    }
+
+    // ------------------------------------------------------------------
+    // The annotation note editor is modal (maintainer, 2026-09-24).
+    // ------------------------------------------------------------------
+
+    /// A brand-new note opens in **Insert**, so drawing a box and typing
+    /// works without pressing `i` first -- the same rule the page-context
+    /// panel already follows.
+    #[test]
+    fn a_new_annotation_note_opens_in_insert_mode() {
+        let ed = AnnotateEditor::open(0, Pos2::ZERO, Pos2::new(10.0, 10.0), "", None);
+        assert_eq!(ed.mode_label_for_test(), "INSERT");
+        assert_eq!(ed.text(), "", "a new note starts empty");
+    }
+
+    /// Reopening an existing annotation loads its text and is still modal --
+    /// the note is an editable buffer, not a fresh one.
+    #[test]
+    fn reopening_an_annotation_loads_its_text_modally() {
+        let ed = AnnotateEditor::open(
+            3,
+            Pos2::ZERO,
+            Pos2::new(5.0, 5.0),
+            "kernel temperature rise",
+            Some(2),
+        );
+        assert_eq!(ed.text(), "kernel temperature rise");
+        assert_eq!(ed.editing_existing, Some(2));
+        assert_eq!(ed.page, 3, "the page is fixed when the editor opens");
+        assert_eq!(ed.mode_label_for_test(), "INSERT");
+    }
+
+    /// The whole point: vim keys EDIT rather than being typed in literally.
+    /// Before this the note was a plain `egui::TextEdit`, so `Esc` then `dd`
+    /// inserted the characters `d` and `d` into the annotation.
+    #[test]
+    fn vim_keys_edit_the_note_instead_of_being_typed_into_it() {
+        let mut ed = AnnotateEditor::open(0, Pos2::ZERO, Pos2::ZERO, "alpha\nbeta\n", None);
+        ed.feed_for_test("<Esc>dd");
+        assert_eq!(
+            ed.text(),
+            "beta\n",
+            "`dd` in Normal mode must delete a line, not insert two letters"
+        );
+        // And `u` undoes it, rather than inserting a `u`.
+        ed.feed_for_test("u");
+        assert_eq!(ed.text(), "alpha\nbeta\n", "`u` must undo");
+    }
+
+    /// **The engine-level backspace fix reaches the GUI.** kovan takes
+    /// `kopitiam-neovim` from crates.io, so a fix landing in that repo is not
+    /// in kovan's build until the pin moves -- this asserts the behaviour
+    /// through the published crate rather than trusting the version number.
+    /// Before 0.2.5, joining "ab" and "cd" gave "acd".
+    #[test]
+    fn joining_lines_in_a_note_does_not_eat_a_character() {
+        let mut ed = AnnotateEditor::open(0, Pos2::ZERO, Pos2::ZERO, "ab\ncd", None);
+        ed.feed_for_test("<Esc>ji<BS>");
+        assert_eq!(
+            ed.text(),
+            "abcd",
+            "backspace at column 0 must join without losing a character"
+        );
+    }
+
+    /// Text typed into the modal buffer is what gets saved -- the read path
+    /// goes through `text()`, not a stale `String` field.
+    #[test]
+    fn what_is_typed_is_what_is_saved() {
+        let mut ed = AnnotateEditor::open(0, Pos2::ZERO, Pos2::ZERO, "", None);
+        ed.feed_for_test("note");
+        assert_eq!(ed.text(), "note");
+    }
+
+    /// A pending box owns a right-click **only** where it actually is.
+    ///
+    /// Reported as "right click only works after i press esc" (maintainer,
+    /// 2026-09-24): Esc clears `pending_box`, which was the only way to make
+    /// right-clicking a saved artifact reachable again. The box must not
+    /// capture clicks outside itself.
+    #[test]
+    fn a_pending_box_only_captures_right_clicks_inside_it() {
+        let mut r = PdfReaderState::default();
+        assert!(
+            !r.pending_box_contains(Pos2::new(50.0, 50.0)),
+            "no pending box captures nothing"
+        );
+
+        r.pending_box = Some((Pos2::new(10.0, 10.0), Pos2::new(20.0, 20.0)));
+        assert!(r.pending_box_contains(Pos2::new(15.0, 15.0)), "inside");
+        assert!(
+            r.pending_box_contains(Pos2::new(10.0, 10.0)),
+            "on the corner"
+        );
+        assert!(
+            r.pending_box_contains(Pos2::new(20.0, 20.0)),
+            "on the far corner"
+        );
+
+        // The regression: these must fall through to the artifact branches.
+        for outside in [
+            Pos2::new(9.0, 15.0),
+            Pos2::new(21.0, 15.0),
+            Pos2::new(15.0, 9.0),
+            Pos2::new(15.0, 21.0),
+            Pos2::new(500.0, 500.0),
+        ] {
+            assert!(
+                !r.pending_box_contains(outside),
+                "{outside:?} is outside the box and must not be captured"
+            );
+        }
     }
 }

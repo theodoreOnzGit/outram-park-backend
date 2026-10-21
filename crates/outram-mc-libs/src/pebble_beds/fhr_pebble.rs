@@ -83,6 +83,48 @@ impl TrisoSpec {
         packing_fraction: 0.30,
     };
 
+    /// **HTR-10 fuel-pebble TRISO**, as tabulated by Li, Yu & Wei (2014),
+    /// "Research on Benchmark Calculation and Analysis of HTR-10 with RMC
+    /// Code", HTR 2014 (Weihai), Table 2: 250 µm UO2 kernel radius, then
+    /// **90** / 40 / 35 / 40 µm buffer / IPyC / SiC / OPyC thicknesses, giving a
+    /// 455 µm particle radius.
+    ///
+    /// # The packing fraction is derived, not quoted
+    ///
+    /// Table 2 gives no packing fraction. It gives 8335 particles in a fuel zone
+    /// of radius 2.5 cm (a 3 cm ball less its 0.5 cm fuel-free shell), and
+    /// `8335 * (4/3)pi(0.0455)^3 / ((4/3)pi(2.5)^3)` = **0.050248114**, which is
+    /// the figure below. The same table closes independently on mass: those
+    /// 8335 kernels at 10.4 g/cm3 carry 4.9999 g of heavy metal at 17 %
+    /// enrichment, against the 5 g the table states — four significant figures
+    /// on a quantity the geometry never sees, which is why this is treated as a
+    /// faithful transcription of the benchmark rather than a rounded citation.
+    ///
+    /// # This now AGREES with [`TrisoRadii::HTR10`](crate::geometry::TrisoRadii::HTR10)
+    ///
+    /// ~~"That preset carries a 95 µm buffer … The two are **not
+    /// interchangeable** and neither has yet been adjudicated against
+    /// IAEA-TECDOC-1382 … do not silently swap one for the other."~~
+    /// **ADJUDICATED 2026-09-17** (`bn:op-867c.12`), in this table's favour.
+    ///
+    /// IAEA-TECDOC-1382 part 2 states the coating thicknesses **twice, in two
+    /// different units, and they agree**: `0.09/0.04/0.035/0.04` mm and
+    /// `0.009/0.004/0.0035/0.004` cm — a **90 µm** buffer, giving the 0.0340 cm
+    /// outer radius this table already carried. `TrisoRadii::HTR10`'s 95 µm was
+    /// the "typical reference value" its own disclaimer warned about, and has
+    /// been corrected to match. The two are now the same geometry.
+    ///
+    /// **Do not take these from Choo (2023)**: its Table 1 gives them 10x too
+    /// large (kernel "0.25 cm" for TECDOC's 0.25 **mm**).
+    pub const HTR10_LI2014: Self = Self {
+        kernel: 0.0250,
+        buffer: 0.0340,
+        ipyc: 0.0380,
+        sic: 0.0415,
+        opyc: 0.0455,
+        packing_fraction: 0.050_248_114,
+    };
+
     /// Whether the radii are strictly increasing and the packing fraction is in
     /// `(0, 0.64)` (below the random-close-pack ceiling).
     pub fn is_valid(&self) -> bool {
@@ -355,7 +397,7 @@ pub fn rpt_fuel_outer_radius(
     fuel_zone_radius: f64,
     packing_fraction: f64,
 ) -> f64 {
-    let r3 = inner_radius.powi(3) + packing_fraction * fuel_zone_radius.powi(3);
+    let r3 = inner_radius.r_powi(3) + packing_fraction * fuel_zone_radius.r_powi(3);
     let r_outer = r3.r_cbrt();
     assert!(
         r_outer <= fuel_zone_radius,
@@ -548,6 +590,7 @@ pub fn homogeneous_cube(h: f64, material_idx: usize, temperature: f64) -> Geomet
 
 #[cfg(test)]
 mod tests {
+    use crate::geometry::crossing::GeometryExt;
     use super::*;
     use crate::material::material::Material;
 
@@ -637,12 +680,12 @@ mod tests {
         let triso: f64 = hits[..5].iter().sum::<usize>() as f64 / N as f64;
         let names = ["kernel", "buffer", "IPyC", "SiC", "OPyC"];
         let r = [spec.kernel, spec.buffer, spec.ipyc, spec.sic, spec.opyc];
-        let o3 = spec.opyc.powi(3);
+        let o3 = spec.opyc.r_powi(3);
 
         // 1. Layer shares OF THE TRISO MATERIAL -- pure geometry.
         for i in 0..5 {
-            let lo = if i == 0 { 0.0 } else { r[i - 1].powi(3) };
-            let expect = (r[i].powi(3) - lo) / o3;
+            let lo = if i == 0 { 0.0 } else { r[i - 1].r_powi(3) };
+            let expect = (r[i].r_powi(3) - lo) / o3;
             let got = hits[i] as f64 / N as f64 / triso;
             let rel = (got - expect) / expect;
             eprintln!(
@@ -706,7 +749,7 @@ mod tests {
     fn layer_volumes_sum_to_particle_volume() {
         let s = TrisoSpec::FHR_HALEU_UCO;
         let v: f64 = s.layer_volumes().iter().sum();
-        let ball = 4.0 / 3.0 * std::f64::consts::PI * s.opyc.powi(3);
+        let ball = 4.0 / 3.0 * std::f64::consts::PI * s.opyc.r_powi(3);
         assert!((v - ball).abs() < 1e-15 * ball, "{v} vs {ball}");
     }
 
@@ -863,7 +906,7 @@ mod tests {
         let r_fz = 1.9;
         let pf = 0.3;
         let r_out = rpt_fuel_outer_radius(r_in, r_fz, pf);
-        let ball = |r: f64| 4.0 / 3.0 * std::f64::consts::PI * r.powi(3);
+        let ball = |r: f64| 4.0 / 3.0 * std::f64::consts::PI * r.r_powi(3);
         let shell_v = ball(r_out) - ball(r_in);
         let particle_v = pf * ball(r_fz);
         assert!(
@@ -905,7 +948,7 @@ mod tests {
         r = crate::geometry::position::stream(r, u, db.distance);
         if let crate::geometry::geometry::Crossing::Surface(i) = db.crossing {
             assert!(
-                g.cross_surface(i, r, u).alive,
+                g.cross_surface(i, r, u, &mut 0x5EED_0259_u64).alive,
                 "root sphere must be reflective (alive after crossing)"
             );
         } else {

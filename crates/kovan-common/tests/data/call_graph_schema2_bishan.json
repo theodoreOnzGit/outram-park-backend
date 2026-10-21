@@ -1,0 +1,273 @@
+{
+  "schema": 2,
+  "scope": [
+    "bishan"
+  ],
+  "crates": [
+    {
+      "name": "bishan",
+      "dir": "crates/bishan",
+      "maturity": 1,
+      "targets": [
+        {
+          "kind": "lib",
+          "name": "bishan",
+          "root": "crates/bishan/src/lib.rs",
+          "modules": [
+            {
+              "file": "crates/bishan/src/building.rs",
+              "path": "building",
+              "parent": "crates/bishan/src/lib.rs",
+              "maturity": 1,
+              "functions": [
+                {
+                  "id": "crates/bishan/src/building.rs::BuildingParameters::htr10",
+                  "name": "htr10",
+                  "kind": "method",
+                  "owner": "BuildingParameters",
+                  "start_line": 76,
+                  "line": 80,
+                  "end_line": 88,
+                  "signature": "pub fn htr10() -> Self",
+                  "doc": "HTR-10's vented confinement on the published basis: turnover 1/day (Jiang et al.",
+                  "source": "    /// HTR-10's vented confinement on the published basis: turnover 1/day\n    /// (Jiang et al. 2002), filters and deposition not credited (Liu & Cao\n    /// 2002, as in their own release calculations).\n    #[must_use]\n    pub fn htr10() -> Self {\n        Self {\n            exhaust_turnover: Frequency::new::<hertz>(\n                HTR10_CONFINEMENT_TURNOVER_PER_DAY / 86_400.0,\n            ),\n            filter_capture: 0.0,\n            deposition: Frequency::new::<hertz>(0.0),\n        }\n    }",
+                  "reached_by": {
+                    "tests_total": 2,
+                    "tests": [
+                      {
+                        "hops": 1,
+                        "id": "crates/bishan/src/building.rs::atoms_are_conserved_and_small_steps_equal_one_big_step"
+                      },
+                      {
+                        "hops": 1,
+                        "id": "crates/bishan/src/building.rs::the_steady_building_passes_inflow_less_decay"
+                      }
+                    ],
+                    "examples_total": 0
+                  }
+                },
+                {
+                  "id": "crates/bishan/src/building.rs::step",
+                  "name": "step",
+                  "kind": "free",
+                  "start_line": 117,
+                  "line": 126,
+                  "end_line": 180,
+                  "signature": "pub fn step(state: BuildingInventory, inflow: f64, decay: Frequency, parameters: BuildingParameters, dt: Time) -> (BuildingInventory, BuildingStep)",
+                  "doc": "Step one nuclide's building inventory by `dt` with the inflow `inflow` \\[atoms/s\\] held constant, **exactly**.",
+                  "source": "/// Step one nuclide's building inventory by `dt` with the inflow `inflow`\n/// \\[atoms/s\\] held constant, **exactly**. `decay` is the nuclide's decay\n/// constant.\n///\n/// # Panics\n///\n/// If `dt` is negative, a rate is negative, or the filter capture is outside\n/// `[0, 1]` -- caller errors.\n#[must_use]\npub fn step(\n    state: BuildingInventory,\n    inflow: f64,\n    decay: Frequency,\n    parameters: BuildingParameters,\n    dt: Time,\n) -> (BuildingInventory, BuildingStep) {\n    let dt = dt.get::<second>();\n    let lambda = decay.get::<hertz>();\n    let k_ex = parameters.exhaust_turnover.get::<hertz>();\n    let k_dep = parameters.deposition.get::<hertz>();\n    let capture = parameters.filter_capture;\n    assert!(dt >= 0.0 && dt.is_finite(), \"negative or non-finite step\");\n    assert!(\n        lambda >= 0.0 && k_ex >= 0.0 && k_dep >= 0.0,\n        \"negative rate\"\n    );\n    assert!(\n        (0.0..=1.0).contains(&capture),\n        \"filter capture outside [0, 1]\"\n    );\n\n    let beta = lambda + k_ex + k_dep;\n    let b0 = state.airborne;\n    let (b1, integral) = if beta * dt > 1.0e-12 {\n        let e = (-beta * dt).exp();\n        let b_eq = inflow / beta;\n        (\n            b0 * e + b_eq * (1.0 - e),\n            b_eq * dt + (b0 - b_eq) * (1.0 - e) / beta,\n        )\n    } else {\n        (b0 + (inflow - beta * b0) * dt, b0 * dt)\n    };\n    let exhausted = k_ex * integral;\n    let released = (1.0 - capture) * exhausted;\n    let filtered = capture * exhausted;\n    let deposited = k_dep * integral;\n    let decayed = lambda * integral;\n\n    (\n        BuildingInventory {\n            airborne: b1,\n            released: state.released + released,\n            filtered: state.filtered + filtered,\n            deposited: state.deposited + deposited,\n        },\n        BuildingStep {\n            entered: inflow * dt,\n            decayed,\n            released,\n            release_rate_end: (1.0 - capture) * k_ex * b1,\n        },\n    )\n}",
+                  "reached_by": {
+                    "tests_total": 2,
+                    "tests": [
+                      {
+                        "hops": 1,
+                        "id": "crates/bishan/src/building.rs::atoms_are_conserved_and_small_steps_equal_one_big_step"
+                      },
+                      {
+                        "hops": 1,
+                        "id": "crates/bishan/src/building.rs::the_steady_building_passes_inflow_less_decay"
+                      }
+                    ],
+                    "examples_total": 0
+                  }
+                },
+                {
+                  "id": "crates/bishan/src/building.rs::f",
+                  "name": "f",
+                  "kind": "free",
+                  "test": true,
+                  "start_line": 186,
+                  "line": 186,
+                  "end_line": 188,
+                  "signature": "fn f(v: f64) -> Frequency",
+                  "doc": "",
+                  "source": "    fn f(v: f64) -> Frequency {\n        Frequency::new::<hertz>(v)\n    }"
+                },
+                {
+                  "id": "crates/bishan/src/building.rs::atoms_are_conserved_and_small_steps_equal_one_big_step",
+                  "name": "atoms_are_conserved_and_small_steps_equal_one_big_step",
+                  "kind": "free",
+                  "test": true,
+                  "test_fn": true,
+                  "start_line": 190,
+                  "line": 201,
+                  "end_line": 235,
+                  "signature": "fn atoms_are_conserved_and_small_steps_equal_one_big_step()",
+                  "doc": "**Atoms are conserved and the step is exact.**",
+                  "source": "    /// **Atoms are conserved and the step is exact.**\n    ///\n    /// Methodology: I-131-like decay (1.0e-6 /s), the HTR-10 parameters but\n    /// with a 30 % filter capture and a 1e-6 /s deposition so every sink is\n    /// exercised; from a non-zero inventory, 3600 steps of 1 s against one of\n    /// 3600 s. Require `entered = dB + released + filtered + deposited +\n    /// decayed` to 1e-12 of the gross (entered + initial inventory -- the\n    /// rounding floor of 3600 steps on 1e12 atoms), and the two paths to 1e-9.\n    /// **Results (2026-09-29):** residual 8.4e-12 of `entered` = 1.5e-13 of\n    /// the gross; many-vs-one 2.5e-13.\n    #[test]\n    fn atoms_are_conserved_and_small_steps_equal_one_big_step() {\n        let mut p = BuildingParameters::htr10();\n        p.filter_capture = 0.3;\n        p.deposition = f(1.0e-6);\n        let lam = f(1.0e-6);\n        let start = BuildingInventory {\n            airborne: 1.0e12,\n            ..Default::default()\n        };\n        let inflow = 5.0e6;\n        let (mut many, mut entered, mut decayed) = (start, 0.0, 0.0);\n        for _ in 0..3600 {\n            let (s, st) = step(many, inflow, lam, p, Time::new::<second>(1.0));\n            many = s;\n            entered += st.entered;\n            decayed += st.decayed;\n        }\n        let (one, _) = step(start, inflow, lam, p, Time::new::<second>(3600.0));\n        let residual = entered\n            - (many.airborne - start.airborne)\n            - many.released\n            - many.filtered\n            - many.deposited\n            - decayed;\n        let path = (many.airborne - one.airborne).abs() / one.airborne;\n        println!(\n            \"building atom residual {:.3e} of entered; many-vs-one {path:.3e}\",\n            residual / entered\n        );\n        // Rounding scales with the largest term (the 1e12-atom inventory\n        // stepped 3600 times), not with the inflow.\n        let gross = entered + start.airborne;\n        assert!((residual / gross).abs() < 1e-12);\n        assert!(path < 1e-9);\n    }",
+                  "unresolved": [
+                    {
+                      "line": 208,
+                      "kind": "other",
+                      "callee": "default",
+                      "detail": "resolves to `#[derive(Debug, Clone, Copy, Default, PartialEq)]`, not a function body"
+                    }
+                  ]
+                },
+                {
+                  "id": "crates/bishan/src/building.rs::the_steady_building_passes_inflow_less_decay",
+                  "name": "the_steady_building_passes_inflow_less_decay",
+                  "kind": "free",
+                  "test": true,
+                  "test_fn": true,
+                  "start_line": 237,
+                  "line": 243,
+                  "end_line": 259,
+                  "signature": "fn the_steady_building_passes_inflow_less_decay()",
+                  "doc": "**The HTR-10 building releases, at steady state, what enters it less what decays inside**, with the published turnover of one volume a day: `release / inflow = k_ex / (lambda + k_ex)`.",
+                  "source": "    /// **The HTR-10 building releases, at steady state, what enters it less\n    /// what decays inside**, with the published turnover of one volume a day:\n    /// `release / inflow = k_ex / (lambda + k_ex)`. For a stable species the\n    /// building passes everything; for I-131 (8.02 d) it holds back\n    /// `lambda / (lambda + k_ex)` = 11.1 %.\n    #[test]\n    fn the_steady_building_passes_inflow_less_decay() {\n        let p = BuildingParameters::htr10();\n        let k_ex = 1.0 / 86_400.0;\n        for lam in [0.0, (2.0f64).ln() / (8.02 * 86_400.0)] {\n            let (s, st) = step(\n                BuildingInventory::default(),\n                1.0e6,\n                f(lam),\n                p,\n                Time::new::<second>(1.0e9),\n            );\n            let ratio = st.release_rate_end / 1.0e6;\n            let expected = k_ex / (lam + k_ex);\n            assert!((ratio - expected).abs() < 1e-9, \"{ratio} vs {expected}\");\n            assert!(s.airborne > 0.0);\n        }\n    }",
+                  "unresolved": [
+                    {
+                      "line": 248,
+                      "kind": "other",
+                      "callee": "default",
+                      "detail": "resolves to `#[derive(Debug, Clone, Copy, Default, PartialEq)]`, not a function body"
+                    }
+                  ]
+                }
+              ],
+              "history": [
+                {
+                  "sha": "804012c7396b42bd65889b6dc86c3c9e0627f1cc",
+                  "date": "2026-09-29T14:50:48+08:00",
+                  "author": "teddy0@snrsiDesktop",
+                  "subject": "feat(source-term stage 2): bishan building CV, emission-time puff weighting, scenario buttons (#400)"
+                }
+              ]
+            },
+            {
+              "file": "crates/bishan/src/lib.rs",
+              "path": "",
+              "maturity": 1,
+              "functions": [
+                {
+                  "id": "crates/bishan/src/lib.rs::the_scope_is_recorded",
+                  "name": "the_scope_is_recorded",
+                  "kind": "free",
+                  "test": true,
+                  "test_fn": true,
+                  "start_line": 74,
+                  "line": 77,
+                  "end_line": 79,
+                  "signature": "fn the_scope_is_recorded()",
+                  "doc": "The placeholder is a placeholder.",
+                  "source": "    /// The placeholder is a placeholder. This asserts the crate builds and\n    /// links, which is the only claim it is entitled to make.\n    #[test]\n    fn the_scope_is_recorded() {\n        assert!(SCOPE.contains(\"Level 2 PSA\"));\n    }"
+                }
+              ],
+              "history": [
+                {
+                  "sha": "804012c7396b42bd65889b6dc86c3c9e0627f1cc",
+                  "date": "2026-09-29T14:50:48+08:00",
+                  "author": "teddy0@snrsiDesktop",
+                  "subject": "feat(source-term stage 2): bishan building CV, emission-time puff weighting, scenario buttons (#400)"
+                },
+                {
+                  "sha": "0533d43096fdf0c94587bd5e1b07e981323a0b9b",
+                  "date": "2026-09-28T11:11:37+08:00",
+                  "author": "teddy0@snrsiDesktop",
+                  "subject": "added buangkok and bishan"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "from": "crates/bishan/src/building.rs::atoms_are_conserved_and_small_steps_equal_one_big_step",
+      "to": "crates/bishan/src/building.rs::BuildingParameters::htr10",
+      "kind": "call",
+      "lines": [
+        202
+      ]
+    },
+    {
+      "from": "crates/bishan/src/building.rs::atoms_are_conserved_and_small_steps_equal_one_big_step",
+      "to": "crates/bishan/src/building.rs::f",
+      "kind": "call",
+      "lines": [
+        204,
+        205
+      ]
+    },
+    {
+      "from": "crates/bishan/src/building.rs::atoms_are_conserved_and_small_steps_equal_one_big_step",
+      "to": "crates/bishan/src/building.rs::step",
+      "kind": "call",
+      "lines": [
+        213,
+        218
+      ]
+    },
+    {
+      "from": "crates/bishan/src/building.rs::the_steady_building_passes_inflow_less_decay",
+      "to": "crates/bishan/src/building.rs::BuildingParameters::htr10",
+      "kind": "call",
+      "lines": [
+        244
+      ]
+    },
+    {
+      "from": "crates/bishan/src/building.rs::the_steady_building_passes_inflow_less_decay",
+      "to": "crates/bishan/src/building.rs::f",
+      "kind": "call",
+      "lines": [
+        250
+      ]
+    },
+    {
+      "from": "crates/bishan/src/building.rs::the_steady_building_passes_inflow_less_decay",
+      "to": "crates/bishan/src/building.rs::step",
+      "kind": "call",
+      "lines": [
+        247
+      ]
+    }
+  ],
+  "module_calls": [
+    {
+      "from": "crates/bishan/src/building.rs",
+      "to": "crates/bishan/src/building.rs",
+      "sites": 8,
+      "pairs": 6
+    }
+  ],
+  "crate_calls": [
+    {
+      "from": "bishan",
+      "to": "bishan",
+      "sites": 8,
+      "pairs": 6
+    }
+  ],
+  "outside": [],
+  "totals": {
+    "crates": 1,
+    "targets": 1,
+    "modules": 2,
+    "functions": 6,
+    "calls": 6,
+    "call_sites": 8,
+    "unresolved": 2,
+    "unresolved_by_kind": {
+      "other": 2
+    },
+    "outside": 0,
+    "external_calls": 28,
+    "test_targets": 0,
+    "test_fns": 3,
+    "reached_by_tests": 2,
+    "reached_by_examples": 0,
+    "non_test_functions": 2,
+    "upstream_files": 0,
+    "upstream_links": 0,
+    "upstream_unparsed": 0,
+    "cited_functions": 0,
+    "citations": 0,
+    "history_files": 2
+  },
+  "commit": "c73539fa757662bb9b1be26b37ceede46636e8de",
+  "site_base": "https://theodoreonzgit.github.io/outram-park-backend/"
+}

@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::{f64::*, ratio::ratio};
@@ -121,12 +122,12 @@ impl PebbleBedThermalHydraulics {
         // calc term by term
         let term1: AvailableEnergy = c1
             * theta
-            * ((theta_by_t.get::<ratio>().exp() - 1.0).recip()
-                - (theta_by_298.get::<ratio>().exp() - 1.0).recip());
+            * ((theta_by_t.get::<ratio>().r_exp() - 1.0).recip()
+                - (theta_by_298.get::<ratio>().r_exp() - 1.0).recip());
 
         let term2: AvailableEnergy = c2 * (fuel_temp * fuel_temp - ref_temp_298 * ref_temp_298);
 
-        let term3: AvailableEnergy = c3 * (-e_a_by_t).exp();
+        let term3: AvailableEnergy = c3 * Ratio::new::<ratio>((-e_a_by_t).value.r_exp());
 
         // enthalpy increment over 298K
         let enthalpy_increment_over_298_kelvin = term1 + term2 + term3;

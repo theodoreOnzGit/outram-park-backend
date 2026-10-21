@@ -1,0 +1,229 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c9",
+]
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v6_calibrated"
+
+[[module."mod.rs".function]]
+id = "fn:7df83b745f0a6363"
+name = "regression_long_test_calibrated_ver6_set_c1"
+qual = "regression_long_test_calibrated_ver6_set_c1"
+lines = [
+    12,
+    127,
+]
+hash = "sha256:7498870084c029f957f22558e9464786fdae6cf195ace75b783a0cee1e56f60e"
+doc_hash = "sha256:b0cc9ee9a737d74f303a9e9c0a94647caa6351e86d8bb3b076992a96e6412b06"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:602d9dcdc6e55818"
+name = "regression_long_test_calibrated_ver6_set_c2"
+qual = "regression_long_test_calibrated_ver6_set_c2"
+lines = [
+    128,
+    243,
+]
+hash = "sha256:752f6a01e521c8ae3b83720a9034ced1e659108f9a54de360ccb4d1d824d944f"
+doc_hash = "sha256:4c35e3d669f87aa05b67821ddbd5c7df7271c73b260e5d8a64749ebf7c44d663"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0bb11f747644032d"
+name = "regression_long_test_calibrated_ver6_set_c3"
+qual = "regression_long_test_calibrated_ver6_set_c3"
+lines = [
+    245,
+    360,
+]
+hash = "sha256:9c448fa7f1ced59364fc96cb1c43b9ca205a866cc62fbc62f4e9403fd817f2ad"
+doc_hash = "sha256:194086bf1364dd0ec486ec03532980af8ec5acbebfeee0465907fb05cb3724a5"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d62b0d96cd81dfc8"
+name = "regression_long_test_calibrated_ver6_set_c4"
+qual = "regression_long_test_calibrated_ver6_set_c4"
+lines = [
+    362,
+    477,
+]
+hash = "sha256:aaa7f660708043747595ce5d5001f8e52eb07518d564bb719594cb6c5025763b"
+doc_hash = "sha256:bec0312e018f4a9d98619607090b1d14793d6f939c857015daf778a37652e990"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:92339befc09e76fa"
+name = "regression_long_test_calibrated_ver6_set_c5"
+qual = "regression_long_test_calibrated_ver6_set_c5"
+lines = [
+    479,
+    594,
+]
+hash = "sha256:a76bab6116d0a6f391992611a4c8ab397a144b30a976456e08063d808f0cc461"
+doc_hash = "sha256:b25b1d94a2059dfca61b3d6aa2dff4c08175ee916c70642dc594e948e42f6c0f"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5cced9899ebd418f"
+name = "regression_long_test_calibrated_ver6_set_c6"
+qual = "regression_long_test_calibrated_ver6_set_c6"
+lines = [
+    596,
+    711,
+]
+hash = "sha256:0688da23265ed6ae9d2e36f5d92adf6442285e454fe17e6cf8930c3a77c6ab92"
+doc_hash = "sha256:8125cbca866b9ce603d8268368ec5da9f2a0d9934274bd85b8cebf0552f9549b"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:4843db084c2771d4"
+name = "regression_long_test_calibrated_ver6_set_c7"
+qual = "regression_long_test_calibrated_ver6_set_c7"
+lines = [
+    713,
+    828,
+]
+hash = "sha256:aa28a2b5f610b689c620aafa218ec8f0f8d3e8ae705a8200cecf1c335c258e04"
+doc_hash = "sha256:eb1d8a69f6e82fdc8fc15a3ca3868b98170dc2619d71c4782977efe98942f065"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f253db8f7c4bdce3"
+name = "regression_long_test_calibrated_ver6_set_c8"
+qual = "regression_long_test_calibrated_ver6_set_c8"
+lines = [
+    830,
+    945,
+]
+hash = "sha256:8f5c850bb431f249c7d8ec771f91e6051df287f8a31d5124267d5c7121a78b74"
+doc_hash = "sha256:4b6f4cfd2e3c1c566ff58d03a2b0a846656884e6df30bc97f332dca0d67bd9b9"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0f4f1c7ab3d6c020"
+name = "regression_long_test_calibrated_ver6_set_c9"
+qual = "regression_long_test_calibrated_ver6_set_c9"
+lines = [
+    947,
+    1062,
+]
+hash = "sha256:b47681d33f27915397c5b2a726dba2ba65812c513faf25a316152f2c282d32ae"
+doc_hash = "sha256:7b3c1c803f12f3578b51b3af418d0296179706de34e97ec5b4bb1ba24e3d1ff7"
+callees = ["fn:111a5f810ee557a4"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:111a5f810ee557a4"
+name = "regression_coupled_dracs_loop_version_6"
+qual = "regression_coupled_dracs_loop_version_6"
+lines = [
+    1064,
+    1773,
+]
+hash = "sha256:c0c00a68c5d117ecf5eeab2f06544954c6992b4b49bb1fa2b76946a4613fa81d"
+doc_hash = "sha256:1001e5b8ccd3584368cf8448ff6e12954d314963bdc3732611fa9d59539ebcc1"
+callees = [
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:26e415a2516474b8",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:3629bda66cb1631f",
+    "fn:3b175c51dad51671",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:5898244cb765d25d",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:679eea7225e5e653",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:75f0a83271918517",
+    "fn:7ee6570130bd052b",
+    "fn:835ea69942f39c9e",
+    "fn:85342ea4b7e5933b",
+    "fn:858bf6e4c57d0393",
+    "fn:91f7627d113aa8f5",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9c06ae1c2aa27c6a",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b635837cbd7c9ce1",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:d57dbe3f80933fd7",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e4bff9f30142b5cc",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]

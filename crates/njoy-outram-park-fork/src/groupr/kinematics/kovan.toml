@@ -1,0 +1,1497 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/groupr/kinematics"
+test_ids = [
+    "crates/dhoby-ghaut/examples/common/processed_cache.rs::a_cached_law_is_the_processed_law_bit_for_bit",
+    "crates/dhoby-ghaut/examples/common/processed_cache.rs::a_cached_nuclide_is_the_processed_nuclide_bit_for_bit",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::a_traced_neutron_lays_out_and_steps",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::both_panes_run_the_same_neutron_from_the_same_variate",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::run_many_streams_every_method_in_turn",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_demo_majorant_bounds_every_material",
+    "crates/dhoby-ghaut/examples/delta_tracking_web/tests.rs::the_engine_thread_loads_traces_and_runs",
+    "crates/dhoby-ghaut/examples/nuclear_data_web/main.rs::the_engine_serves_reconr_and_broadr_and_broadening_keeps_the_area",
+    "crates/nee_soon/src/htr10_rmc/data.rs::the_full_case_is_refused_until_gh339_is_fixed",
+    "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_jobs_path_builds_the_loaders_nuclides",
+    "crates/nee_soon/src/htr10_rmc/data_jobs.rs::the_jobs_path_builds_the_whole_core_set",
+    "crates/njoy-outram-park-fork/src/acer/acensd.rs::forward_peaked_law_is_normalised_and_accurate",
+    "crates/njoy-outram-park-fork/src/acer/acensd.rs::isotropic_row_is_three_points",
+    "crates/njoy-outram-park-fork/src/gaminr/gtff.rs::coherent_low_energy_is_rayleigh",
+    "crates/njoy-outram-park-fork/src/groupr/file4.rs::legendre_records_interpolate_and_go_isotropic_below",
+    "crates/njoy-outram-park-fork/src/groupr/file4.rs::slide_keeps_stale_high_order_coefficients",
+    "crates/njoy-outram-park-fork/src/groupr/file4.rs::tabulated_linear_distribution_gives_one_third",
+    "crates/njoy-outram-park-fork/src/groupr/kinematics/bach.rs::bach_natural_element_maps_to_dominant_isotope",
+    "crates/njoy-outram-park-fork/src/groupr/kinematics/bach.rs::bach_slope_monotone_and_positive",
+    "crates/njoy-outram-park-fork/src/groupr/kinematics/cm.rs::cm2lab_normalizes_kalbach",
+    "crates/njoy-outram-park-fork/src/groupr/kinematics/cm.rs::cm2lab_normalizes_legendre",
+    "crates/njoy-outram-park-fork/src/groupr/kinematics/cm.rs::malformed_input_errors_cleanly",
+    "crates/njoy-outram-park-fork/src/groupr/kinematics/mod.rs::f6lab_tabulated_lang_reports_not_ported",
+    "crates/njoy-outram-park-fork/src/groupr/kinematics/shared.rs::cm_to_lab_edges_are_analytic",
+    "crates/njoy-outram-park-fork/src/groupr/kinematics/shared.rs::legndr_matches_closed_form",
+    "crates/njoy-outram-park-fork/src/groupr/matrix_panel.rs::constant_xs_heavy_target_is_diagonal",
+    "crates/njoy-outram-park-fork/src/groupr/matrix_panel.rs::continuum6_feed_runs_through_the_same_matrix_driver",
+    "crates/njoy-outram-park-fork/src/groupr/matrix_panel.rs::continuum6_refuses_the_fission_mts_that_need_nubar",
+    "crates/njoy-outram-park-fork/src/groupr/matrix_panel.rs::hydrogen_row_sums_to_cross_section",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::cm_frame_law1_respects_the_kinematic_lab_energy_ceiling",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::flat_lab_spectrum_deposits_equally_and_sums_to_the_yield",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::illegal_upscatter_is_folded_into_the_ingroup",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::isotropic_lab_input_has_vanishing_higher_moments",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::law2_two_body_reports_not_ported",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::law6_phase_space_reports_not_ported",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::law7_lab_angle_energy_is_converted_and_stays_isotropic",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::leading_zero_energy_point_contributes_its_panel",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::mfd18_without_a_zap0_subsection_takes_the_no_gammas_exit",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::missing_particle_is_an_error_for_non_fission_mfd",
+    "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::nl_mismatch_between_new_and_feed_is_refused",
+    "crates/njoy-outram-park-fork/src/groupr/two_body.rs::hydrogen_band_spans_all_lower_groups",
+    "crates/njoy-outram-park-fork/src/groupr/two_body.rs::isotropic_heavy_elastic_p0_fractions_sum_to_one",
+    "crates/njoy-outram-park-fork/tests/acer.rs::angular_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/acer.rs::esz_heating_column_is_physical",
+    "crates/njoy-outram-park-fork/tests/acer.rs::full_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/acer.rs::h2_elastic_angular_block_is_valid",
+    "crates/njoy-outram-park-fork/tests/acer.rs::h2_law6_producer_is_written_as_ace_law_66",
+    "crates/njoy-outram-park-fork/tests/acer.rs::one_writer_and_both_containers_for_a_built_table",
+    "crates/njoy-outram-park-fork/tests/acer.rs::u235_discrete_levels_carry_mf4_angular",
+    "crates/njoy-outram-park-fork/tests/acer.rs::u235_elastic_angular_block_is_valid",
+    "crates/njoy-outram-park-fork/tests/acer.rs::u235_full_table_mixes_law3_and_law4",
+    "crates/njoy-outram-park-fork/tests/acer_acesix_vs_njoy2016_ace.rs::acesix_reproduces_njoy2016_ace_thermal_bins",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng1_is_skewed_and_declares_itself",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng2_itxe_layout_matches_njoy2016",
+    "crates/njoy-outram-park-fork/tests/acer_thermal_ifeng_vs_njoy2016.rs::ifeng2_stored_law_is_normalised",
+    "crates/njoy-outram-park-fork/tests/continuum_law_coverage_survey.rs::every_mf6_continuum_section_yields_an_evaluated_law",
+    "crates/njoy-outram-park-fork/tests/gaminr_vs_njoy2016.rs::njoy_gaminr_synthetic_z6_matches_gamout",
+    "crates/njoy-outram-park-fork/tests/gaminr_vs_njoy2016.rs::njoy_gaminr_u_photoatomic_matches_gamout",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_elastic_matrix_golden.rs::njoy_pendf_elastic_matrix_matches_gendf_mf6",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_elastic_matrix_golden.rs::njoy_pendf_p3_elastic_matrix_matches_gendf_mf6_lord3",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_inelastic_matrix_golden.rs::njoy_pendf_inelastic_matrices_1sigz",
+    "crates/njoy-outram-park-fork/tests/groupr_u238_inelastic_matrix_golden.rs::njoy_pendf_inelastic_matrices_6sigz",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::be9_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::fe58_userq_ed",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::h2_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::li6_local1",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::o16_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_kchk_plot",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_local0",
+    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_two_temperatures",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::energy_balance_subtracts_mt442_and_nothing_else",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_energy_balance_against_njoy_is_recorded",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_local1_kinematic_against_njoy_is_recorded",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt4_is_not_heated_beside_the_levels",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_angular_vs_endf.rs::o16_mt91_is_kalbach_mann_and_reaches_transport",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_emission_vs_tape.rs::mf6_continuum_emission_satisfies_the_tape_s_own_invariants",
+    "crates/njoy-outram-park-fork/tests/mf6_continuum_emission_vs_tape.rs::mf6_continuum_mean_outgoing_energy_matches_the_recorded_values",
+    "crates/njoy-outram-park-fork/tests/mf6_law6_phase_space.rs::be9_mt16_law7_is_converted_not_faked",
+    "crates/njoy-outram-park-fork/tests/mf6_law6_phase_space.rs::h2_mt16_phase_space_matches_upstreams_closed_form",
+    "crates/njoy-outram-park-fork/tests/mf6_law7_conversion.rs::law7_conversion_preserves_the_evaluations_moments",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::coherent_elastic_bragg_block_is_monotone",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::inelastic_blocks_are_consistent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_header_and_dimensions",
+    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::incoherent_elastic_block_layout_is_consistent",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_roundtrips_through_file",
+    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_uses_idpnc3_elastic_branch",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_sigl_vs_quadrature.rs::sigl_cross_section_converges_onto_an_independent_quadrature",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_sigl_vs_quadrature.rs::sigl_equiprobable_cosines_reproduce_the_quadrature_mean_cosine",
+    "crates/njoy-outram-park-fork/tests/thermr_calcem_vs_njoy2016_golden.rs::calcem_iform0_reproduces_njoy2016_for_graphite_at_600k",
+    "crates/njoy-outram-park-fork/tests/thermr_kernel_vs_njoy2016_matrix.rs::calcem_emission_kernel_reproduces_njoy2016_shape",
+    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::build_full_with_purr_writes_a_block_that_reads_back_as_generated",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_continuum_angular_hook_ablates_exactly_the_angular_law",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_fission_source_hooks_do_not_interfere",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_fission_spectrum_hook_freezes_exactly_the_incident_energy",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_inelastic_hook_ablates_exactly_the_inelastic_channel",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_n2n_multiplicity_hook_ablates_exactly_the_second_neutron",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_n2n_multiplicity_hook_reaches_the_transport_kernel",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_n3n_channel_is_branched_and_changes_nothing_below_its_threshold",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_nubar_hook_freezes_exactly_the_yield_curve",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_target_motion_hook_ablates_exactly_the_target_velocity",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_target_motion_hook_is_a_no_op_above_the_free_gas_threshold",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_two_hooks_do_not_interfere",
+    "crates/outram-mc-libs/tests/ablation_hook_controls.rs::the_yield_hook_covers_the_n3n_channel_too",
+    "crates/outram-mc-libs/tests/ablation_suite.rs::ablating_elastic_anisotropy_removes_the_larger_share",
+    "crates/outram-mc-libs/tests/ablation_suite.rs::ablating_inelastic_anisotropy_moves_sigma_tr_by_the_diagnosed_amount",
+    "crates/outram-mc-libs/tests/ablation_suite.rs::ablating_the_mf6_continuum_law_hardens_the_secondary_spectrum",
+    "crates/outram-mc-libs/tests/ablation_suite.rs::aggregates_are_grid_converged",
+    "crates/outram-mc-libs/tests/ace_interp_regions_vs_openmc.rs::endf_route_carries_f19_histogram_yield",
+    "crates/outram-mc-libs/tests/ace_lnw_mixture_f19.rs::f19_mt16_ace_route_matches_endf_route",
+    "crates/outram-mc-libs/tests/anisotropy_ablation_control.rs::ablation_removes_the_evaluated_cosine_and_nothing_else",
+    "crates/outram-mc-libs/tests/band_averaged_xs_vs_openmc.rs::band_averaged_cross_sections_match_openmc",
+    "crates/outram-mc-libs/tests/bounded_delta_flight.rs::an_exhausted_budget_is_reported_with_its_count",
+    "crates/outram-mc-libs/tests/bounded_delta_flight.rs::an_exiting_flight_lands_exactly_on_the_boundary",
+    "crates/outram-mc-libs/tests/bounded_delta_flight.rs::truncation_is_unbiased",
+    "crates/outram-mc-libs/tests/channel_branching_consistency.rs::the_collision_partition_closes_and_matches_what_is_sampled",
+    "crates/outram-mc-libs/tests/continuum_angular_ablation_control.rs::f19_continuum_is_isotropic_so_the_ablation_is_a_no_op",
+    "crates/outram-mc-libs/tests/continuum_angular_ablation_control.rs::u238_continuum_angular_ablation_changes_angles_and_nothing_else",
+    "crates/outram-mc-libs/tests/continuum_angular_ablation_control.rs::u238_continuum_angular_law_is_read_and_has_the_evaluated_energy_profile",
+    "crates/outram-mc-libs/tests/correct_physics_is_default.rs::thermal_equiprobable_sampling_is_openmc_by_default",
+    "crates/outram-mc-libs/tests/dbrc_control.rs::dbrc_changes_the_kernel_near_a_resonance_and_not_far_from_one",
+    "crates/outram-mc-libs/tests/dbrc_control.rs::the_dbrc_table_carries_real_resonance_structure",
+    "crates/outram-mc-libs/tests/delayed_group_sampling.rs::a_nuclide_without_delayed_data_reports_every_neutron_prompt",
+    "crates/outram-mc-libs/tests/delayed_group_sampling.rs::the_delayed_fraction_reproduces_the_evaluations_beta",
+    "crates/outram-mc-libs/tests/delayed_group_sampling.rs::the_group_shares_reproduce_the_normalised_tables",
+    "crates/outram-mc-libs/tests/delta_collision_estimator.rs::delta_tally_matches_surface_track_length_on_a_bcc_cell",
+    "crates/outram-mc-libs/tests/elastic_anisotropy_vs_endf_mf4.rs::moderator_elastic_scattering_turns_forward_between_1_kev_and_14_mev",
+    "crates/outram-mc-libs/tests/elastic_anisotropy_vs_endf_mf4.rs::the_elastic_angular_sampler_reproduces_the_tabulated_mean_cosine",
+    "crates/outram-mc-libs/tests/elastic_mubar_vs_openmc.rs::elastic_mean_cosine_matches_openmc",
+    "crates/outram-mc-libs/tests/elastic_xi_h1_o16.rs::measured_xi_matches_analytic_for_h1_and_o16",
+    "crates/outram-mc-libs/tests/fission_spectrum_shape_vs_openmc.rs::fission_spectrum_shape_matches_openmc_band_by_band",
+    "crates/outram-mc-libs/tests/fission_spectrum_vs_openmc.rs::fission_spectrum_mean_energy_matches_openmc",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::bound_graphite_and_free_gas_agree_once_target_motion_is_sampled",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::diagnose_thermal_spectrum_reach",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::graphite_thermal_law_reaches_the_transport_kernel",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::majorant_still_bounds_total_xs_with_bound_graphite",
+    "crates/outram-mc-libs/tests/htr10_graphite_thermal_scattering_pebble_bed.rs::regenerated_graphite_thermal_scattering_has_the_expected_shape",
+    "crates/outram-mc-libs/tests/hybrid_tracking_equivalence.rs::an_absorber_outside_the_region_does_not_raise_its_cost",
+    "crates/outram-mc-libs/tests/hybrid_tracking_equivalence.rs::hybrid_and_surface_tracking_agree",
+    "crates/outram-mc-libs/tests/inelastic_anisotropy_ablation_control.rs::inelastic_levels_are_anisotropic_and_the_ablation_removes_exactly_that",
+    "crates/outram-mc-libs/tests/inelastic_anisotropy_ablation_control.rs::the_two_ablations_are_independent",
+    "crates/outram-mc-libs/tests/inelastic_channel_vs_endf.rs::a_threshold_reaction_has_no_cross_section_below_its_threshold",
+    "crates/outram-mc-libs/tests/inelastic_channel_vs_endf.rs::continuum_inelastic_respects_two_body_energy_balance",
+    "crates/outram-mc-libs/tests/inelastic_channel_vs_endf.rs::f19_inelastic_reproduces_the_raw_endf_tape",
+    "crates/outram-mc-libs/tests/inelastic_channel_vs_endf.rs::the_inelastic_partials_sum_to_the_tapes_own_mt4",
+    "crates/outram-mc-libs/tests/inelastic_mubar_vs_openmc.rs::inelastic_level_mean_cosines_match_openmc",
+    "crates/outram-mc-libs/tests/inelastic_mubar_vs_openmc.rs::the_two_nuclides_differ_in_anisotropy_the_way_the_evaluation_says",
+    "crates/outram-mc-libs/tests/law7_lab_angle_energy_transport.rs::be9_law7_reaches_the_sampler_and_is_forward_peaked",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::approaches_the_free_atom_limit_at_the_cutoff",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::attaches_to_a_nuclide_and_overrides_below_the_cutoff",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::builds_at_temperature_with_no_elastic_channel",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::cold_neutrons_upscatter_toward_the_maxwellian",
+    "crates/outram-mc-libs/tests/light_water_thermal_scattering.rs::thermal_cross_section_matches_bound_light_water",
+    "crates/outram-mc-libs/tests/lump_collision_probability.rs::a_homogeneous_shell_cell_reproduces_the_infinite_medium_solution",
+    "crates/outram-mc-libs/tests/lump_collision_probability.rs::the_thick_lump_matches_a_deterministic_collision_probability_solution",
+    "crates/outram-mc-libs/tests/mt5_anything_channel.rs::mt5_has_a_law_a_tabulated_multiplicity_and_no_reach_below_5_mev",
+    "crates/outram-mc-libs/tests/mt91_transfer_vs_openmc.rs::mt91_offgrid_sampling_reproduces_openmcs_unit_base_construction",
+    "crates/outram-mc-libs/tests/mt91_transfer_vs_openmc.rs::mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band",
+    "crates/outram-mc-libs/tests/openmc_notebooks/pincell.rs::pincell_lwr_thermal_pin_benchmark",
+    "crates/outram-mc-libs/tests/other_neutron_channels_vs_openmc.rs::other_channels_match_openmc_on_both_routes",
+    "crates/outram-mc-libs/tests/processed_evaluation_round_trip.rs::a_shipped_thermal_law_is_the_built_law_bit_for_bit",
+    "crates/outram-mc-libs/tests/processed_evaluation_round_trip.rs::shipped_nuclides_are_the_direct_nuclides_bit_for_bit",
+    "crates/outram-mc-libs/tests/ring_rpt_hunt_lessons.rs::a_transparent_lump_gives_the_homogeneous_answer_only_under_a_white_boundary",
+    "crates/outram-mc-libs/tests/ring_rpt_hunt_lessons.rs::absorption_is_mt27_so_li6_shows_the_n_t_channel",
+    "crates/outram-mc-libs/tests/ring_rpt_hunt_lessons.rs::monte_carlo_matches_the_deterministic_slowing_down_solution",
+    "crates/outram-mc-libs/tests/ring_rpt_hunt_lessons.rs::self_shielded_absorption_is_not_the_dilute_limit",
+    "crates/outram-mc-libs/tests/shannon_entropy_in_keff.rs::entropy_is_reported_and_plateaus",
+    "crates/outram-mc-libs/tests/slowing_down_kinematics.rs::isotropic_elastic_kinematics_match_the_closed_form",
+    "crates/outram-mc-libs/tests/slowing_down_kinematics.rs::sampled_elastic_energy_is_consistent_with_the_sampled_cm_angle",
+    "crates/outram-mc-libs/tests/speed_tier_fast_is_exact.rs::fast_matches_standard_on_u238_u234_and_f19_and_in_nuclide_selection",
+    "crates/outram-mc-libs/tests/speed_tier_fast_is_exact.rs::fast_matches_standard_through_the_sab_cutoff",
+    "crates/outram-mc-libs/tests/speed_tier_fast_is_exact.rs::ordinary_constructors_default_to_the_exact_fast_tier",
+    "crates/outram-mc-libs/tests/temperature_precedence.rs::free_gas_kt_is_the_data_temperature_for_pointwise_nuclides",
+    "crates/outram-mc-libs/tests/temperature_precedence.rs::which_temperature_takes_precedence",
+    "crates/outram-mc-libs/tests/thermal_cutoff_is_tape_emax.rs::hinh2o_cutoff_is_the_tapes_b4",
+    "crates/outram-mc-libs/tests/thermal_endf_route_xs_vs_njoy.rs::endf_route_inelastic_xs_matches_njoy_itix",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::bound_graphite_nuclide_keeps_its_dominant_channel",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_coherent_channel_is_detected_and_stored_exactly",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_elastic_dominates_thermal_scattering",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_htr10_temperature_points",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::graphite_sampling_matches_the_cross_section_split_and_bragg_law",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::interpolated_sigma_inel_stays_inside_its_bracket",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::light_water_has_no_elastic_channel_and_is_unchanged",
+    "crates/outram-mc-libs/tests/thermal_graphite_elastic.rs::zrh_incoherent_elastic_channel_is_forward_peaked",
+    "crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs::graphite_thermalises_onto_its_own_temperature",
+    "crates/outram-mc-libs/tests/thermal_kernel_stationary_distribution.rs::light_water_thermalises_onto_its_own_temperature",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_cross_sections_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::graphite_sab_mean_cosine_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_cross_section_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_kernel_width_against_njoy_thermr",
+    "crates/outram-mc-libs/tests/thermal_laws_vs_njoy_thermr.rs::h2o_sab_law_extends_to_njoys_10_ev",
+    "crates/outram-mc-libs/tests/thermal_standards.rs::b10_thermal_absorption_is_the_2200_ms_standard_and_exactly_one_over_v",
+    "crates/outram-mc-libs/tests/thermal_standards.rs::h1_bound_water_scattering_exceeds_free_gas_and_converges_to_it",
+    "crates/outram-mc-libs/tests/thermal_standards.rs::h1_free_gas_elastic_matches_the_analytic_doppler_broadened_free_atom",
+    "crates/outram-mc-libs/tests/total_fast_path_matches_full.rs::h1_with_thermal_scattering_matches_through_the_sab_cutoff",
+    "crates/outram-mc-libs/tests/total_fast_path_matches_full.rs::u235_fast_total_matches_the_full_evaluation",
+    "crates/outram-mc-libs/tests/total_fast_path_matches_full.rs::u238_fast_total_matches_the_full_evaluation",
+    "crates/outram-mc-libs/tests/tracking_method_regions.rs::a_region_local_majorant_ignores_materials_outside_its_index_list",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::diagnose_channels",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_carbon_and_graphite_carbon_are_different_scatterers",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_carbon_binds_a_coherent_elastic_channel_within_the_characterised_band",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::sic_silicon_binds_the_same_lattice_elastic_channel_as_the_carbon_side",
+    "crates/outram-mc-libs/tests/triso_shell_thermal_scattering.rs::triso_carbon_coatings_bind_graphite_sab",
+    "crates/outram-mc-libs/tests/u238_vs_njoy_pendf_golden.rs::u238_fission_matches_njoy_where_the_channel_is_open",
+    "crates/outram-mc-libs/tests/u238_vs_njoy_pendf_golden.rs::u238_point_cross_sections_match_njoy_pendf",
+    "crates/outram-mc-libs/tests/urr_ptable_control.rs::a_nuclide_without_urr_tables_is_bit_identical_through_both_paths",
+    "crates/outram-mc-libs/tests/urr_ptable_control.rs::the_urr_ablation_removes_exactly_the_tables",
+    "crates/outram-mc-libs/tests/urr_ptable_control.rs::urr_tables_attach_and_carry_lssf1_self_shielding_factors",
+    "crates/outram-mc-libs/tests/xs_and_tracks_plot_parity.rs::regenerate_c12_ace",
+    "crates/outram-park-digital-twin-engine/tests/ci_smoke/godiva.rs::godiva_keff_high_tier_local_endf",
+]
+
+[module."bach.rs"]
+path = "crate::groupr::kinematics::bach"
+
+[[module."bach.rs".function]]
+id = "fn:b64bc0046f852b16"
+name = "bach"
+qual = "bach"
+lines = [
+    11,
+    161,
+]
+hash = "sha256:1718dc3e5fde753d7eac7352a04303a4ff62dd14551ea8bf95ce6a4b702a6802"
+doc_hash = "sha256:6afde2557e177a94f1d8de4b4e8196e050e8b25f7d3ca098b766c2c4e1e0405a"
+uses = [
+    "fn:4f3cc7dc9329d519",
+    "fn:66610f81472fc9fe",
+    "fn:8bc90b422c6b12db",
+    "fn:d5ce810bee731550",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#55",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#195",
+    "#196",
+    "#197",
+    "#198",
+    "#199",
+    "#200",
+    "#201",
+    "#207",
+    "#208",
+    "#209",
+    "#210",
+    "#211",
+    "#213",
+]
+
+[[module."bach.rs".function]]
+id = "fn:890d0853cfe362b4"
+name = "bach_slope_monotone_and_positive"
+qual = "bach_slope_monotone_and_positive"
+lines = [
+    167,
+    204,
+]
+hash = "sha256:d939cbfd27086be3773c2724e17222f170b3e706f44cfcb868b32c08289023d4"
+doc_hash = "sha256:026fe35cf12a1a524243fad8594411989a04bdf438d2afeebabd81ed8dd00ba5"
+callees = ["fn:b64bc0046f852b16"]
+test = true
+
+[[module."bach.rs".function]]
+id = "fn:a2aa994635e1276f"
+name = "bach_natural_element_maps_to_dominant_isotope"
+qual = "bach_natural_element_maps_to_dominant_isotope"
+lines = [
+    206,
+    218,
+]
+hash = "sha256:eeb925767d3c3ac1383a987381b0ab1b584dbf2c5205727a3f21999d0ae151cc"
+doc_hash = "sha256:20616fae5bade986c3813e3b2a987cb65556b8b8a46bd9ea7fdba650dc33f618"
+callees = ["fn:b64bc0046f852b16"]
+test = true
+
+[module."cm.rs"]
+path = "crate::groupr::kinematics::cm"
+
+[[module."cm.rs".function]]
+id = "fn:d14a87d523dacbab"
+name = "Cm6Lang"
+qual = "Cm6Lang"
+item = "type"
+shape = "enum"
+lines = [
+    23,
+    38,
+]
+hash = "sha256:3428d7b5118ab6be1e22d6a0ab42c439256bcf47b1ec3f08fb8b52451b50a3f6"
+doc_hash = "sha256:42788e800d5dacddc75d5ad298071aed17c5bf829507a4c346056ca168924458"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:9506eecde1243e1c"
+name = "Cm6Point"
+qual = "Cm6Point"
+item = "type"
+shape = "struct"
+lines = [
+    40,
+    55,
+]
+hash = "sha256:cc1b1318ae5076c3e0ed85ac35dbaa9f0170f8027e976f8170033b72a46732e0"
+doc_hash = "sha256:72b7b0724de048d693dc98c91858bdea8da2dc4e99a9918c592d30771ded0a03"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:1bcabd1d95bd1522"
+name = "Cm6Emission"
+qual = "Cm6Emission"
+item = "type"
+shape = "struct"
+lines = [
+    57,
+    107,
+]
+hash = "sha256:daeaa90c8612c5d74cf5e0928bb0aa76d822597e6ddcb091d86a7712873f9ba6"
+doc_hash = "sha256:169c0b77b470b802ad2e5bb814aca42e44a8bfd05ae0fc3ad29fc1b6f9bba805"
+uses = [
+    "fn:11a2c155d8376521",
+    "fn:9506eecde1243e1c",
+    "fn:d14a87d523dacbab",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:cab2b5e9f8134b4d"
+name = "na"
+qual = "Cm6Emission::na"
+lines = [
+    110,
+    125,
+]
+hash = "sha256:c8b22a340c61d42c682ba232db2ea5bfe458ff1f8fee9bcd2a8172e98a5607c3"
+doc_hash = "sha256:22ead5f6b07f4ba736d9edb9320c59d11884e07ec0f35200894527e94787c37c"
+uses = ["fn:1bcabd1d95bd1522"]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:e471b1b1b2be776e"
+name = "f6ddx_init"
+qual = "Cm6Emission::f6ddx_init"
+lines = [
+    127,
+    148,
+]
+hash = "sha256:7be4fae9e7211192e62a51eb874380ed685bddfb9d3f163d68c0a7ea64797ab6"
+doc_hash = "sha256:795e33f17ef42ad109b92432ae1bb1e0b33bbb1652f210a84c256f1d19afdba9"
+uses = ["fn:1bcabd1d95bd1522"]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:89b55376615bf58a"
+name = "f6ddx"
+qual = "Cm6Emission::f6ddx"
+lines = [
+    150,
+    274,
+]
+hash = "sha256:0beac882f54d6c4324d6348eafe035832ab0e7f085a44ec759159dd996a2c910"
+doc_hash = "sha256:f02e145baca3c719de003be10f8c1a0bf8fd9df23d685fac6920ceb90617346d"
+callees = [
+    "fn:23f2d8f8cb0057fa",
+    "fn:88854f23978bf4b6",
+    "fn:b64bc0046f852b16",
+    "fn:cab2b5e9f8134b4d",
+]
+uses = [
+    "fn:11a2c155d8376521",
+    "fn:1343a7e319084638",
+    "fn:1bcabd1d95bd1522",
+    "fn:d14a87d523dacbab",
+    "fn:d4b7ba94313fc82b",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:c7407496d323008c"
+name = "f6dis"
+qual = "Cm6Emission::f6dis"
+lines = [
+    276,
+    349,
+]
+hash = "sha256:4b33eebd1fc91e31b4574b52e6caccc3150f6449111b50bd1defbfb4ed6f9bf4"
+doc_hash = "sha256:0458332160c75c67dcad3a9dcd2aee0dd5cb33c77e3f180b28bc15eb549bb029"
+callees = [
+    "fn:88854f23978bf4b6",
+    "fn:b64bc0046f852b16",
+    "fn:cab2b5e9f8134b4d",
+]
+uses = [
+    "fn:1bcabd1d95bd1522",
+    "fn:d14a87d523dacbab",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:be6d7f9e37bc3de1"
+name = "f6cm"
+qual = "Cm6Emission::f6cm"
+lines = [
+    351,
+    551,
+]
+hash = "sha256:cf04c26e014ed3eed85e6ca43bad39b8879942a01d5710856530fc3e1f8dc4d0"
+doc_hash = "sha256:931ed6c5e8e3211259eb3eb04f151a9395ce38ef79ab6659b5da0ed40a3905d0"
+callees = [
+    "fn:6a2fe4521457fe76",
+    "fn:7ff0f67b62e3834f",
+    "fn:88854f23978bf4b6",
+    "fn:89b55376615bf58a",
+]
+uses = [
+    "fn:1343a7e319084638",
+    "fn:1bcabd1d95bd1522",
+    "fn:d4b7ba94313fc82b",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:7ff0f67b62e3834f"
+name = "f6cm_discrete_only"
+qual = "Cm6Emission::f6cm_discrete_only"
+lines = [
+    553,
+    602,
+]
+hash = "sha256:1dc12a135ce14a55a4fc3467504450a489507e486370b7e6b0041b5dabd1518a"
+doc_hash = "sha256:a2cce2598a84acb776a565f6ce972229ca540a21f00c5b6e578ac1e2bcd5fbd9"
+callees = [
+    "fn:6a2fe4521457fe76",
+    "fn:88854f23978bf4b6",
+    "fn:c7407496d323008c",
+]
+uses = [
+    "fn:1343a7e319084638",
+    "fn:1bcabd1d95bd1522",
+    "fn:d4b7ba94313fc82b",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:f5622a127df2006d"
+name = "to_lab"
+qual = "Cm6Emission::to_lab"
+lines = [
+    604,
+    751,
+]
+hash = "sha256:5ffbf695702c6a24c909b610cf1f253343747b13efc4d66d71f49d1f7ae97471"
+doc_hash = "sha256:0da6c687d4518a49c326d9bc943af31bda8516bb4ab839aab8ed6dec9e027b36"
+callees = [
+    "fn:05296526f53f985a",
+    "fn:be6d7f9e37bc3de1",
+    "fn:e471b1b1b2be776e",
+]
+uses = [
+    "fn:1343a7e319084638",
+    "fn:1bcabd1d95bd1522",
+    "fn:3b9ff507ddf5bf07",
+    "fn:4396c8d951c60701",
+    "fn:d4b7ba94313fc82b",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:05296526f53f985a"
+name = "validate"
+qual = "Cm6Emission::validate"
+lines = [
+    753,
+    807,
+]
+hash = "sha256:4cbbd1de82f0aa931f3cf96cec32d2a3a6fa56928222e25138567edc56c92cce"
+doc_hash = "sha256:2b96e8717140a4eb85715f08858cf260eec1ec5f02011904c16d0b5bb8d92cc6"
+uses = [
+    "fn:1bcabd1d95bd1522",
+    "fn:d14a87d523dacbab",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:5bd2185d31c340b1"
+name = "cm2lab"
+qual = "cm2lab"
+lines = [
+    810,
+    854,
+]
+hash = "sha256:abf4446479a4fabe4dd9edf668d2414e9151452ce0a777be27cf8df8a880b06f"
+doc_hash = "sha256:23d650570b61e401048cc93150f42319851b58489edd51fc28eb216e92b6ad9e"
+callees = ["fn:f5622a127df2006d"]
+uses = [
+    "fn:1bcabd1d95bd1522",
+    "fn:4396c8d951c60701",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."cm.rs".function]]
+id = "fn:9e7c2c6d6e844134"
+name = "triangle_emission"
+qual = "triangle_emission"
+lines = [
+    860,
+    895,
+]
+hash = "sha256:070b9fc9e94440f4d92bbb524835f489fe336de76f32d3535a53d93190ddc564"
+doc_hash = "sha256:cfaca55509f25247dcacdafd4ec04323c760cfb9434fc4361bcbb427ce2ba18c"
+uses = [
+    "fn:11a2c155d8376521",
+    "fn:1bcabd1d95bd1522",
+    "fn:9506eecde1243e1c",
+    "fn:d14a87d523dacbab",
+]
+test = true
+
+[[module."cm.rs".function]]
+id = "fn:bc9c3b1bf09cb279"
+name = "cm2lab_normalizes_legendre"
+qual = "cm2lab_normalizes_legendre"
+lines = [
+    897,
+    931,
+]
+hash = "sha256:be2452709854fa82766f16ac8fdfa87f2a18a0b3400337309176843ca9ce0536"
+doc_hash = "sha256:af7bfebada2159829fb414f52095805ad69b5abc9abc36c051ae346d95b5cf70"
+callees = [
+    "fn:5bd2185d31c340b1",
+    "fn:9e7c2c6d6e844134",
+]
+uses = ["fn:d14a87d523dacbab"]
+test = true
+
+[[module."cm.rs".function]]
+id = "fn:f5a8d83e74dfddc9"
+name = "cm2lab_normalizes_kalbach"
+qual = "cm2lab_normalizes_kalbach"
+lines = [
+    933,
+    954,
+]
+hash = "sha256:64ea41a84b75f9eb0c947edd53a9dc3d53761a7e7ca2c8ee88ab2830a89868ca"
+doc_hash = "sha256:e4d9cc4d90bd5db4eb35896572a9d950a10d5bf04476087d37ab53f245f00027"
+callees = [
+    "fn:5bd2185d31c340b1",
+    "fn:9e7c2c6d6e844134",
+]
+uses = ["fn:d14a87d523dacbab"]
+test = true
+
+[[module."cm.rs".function]]
+id = "fn:2eac1ccf57609808"
+name = "malformed_input_errors_cleanly"
+qual = "malformed_input_errors_cleanly"
+lines = [
+    956,
+    965,
+]
+hash = "sha256:b2e4ba24a239cdeaa5ed3a95a9f4adf7dc2c9e4d52bdee38a97505d40c4e3d32"
+doc_hash = "sha256:b62aead8f6bf67e94b516bee53d577dc2143a908ad3644875238ecf41a7c4504"
+callees = [
+    "fn:5bd2185d31c340b1",
+    "fn:9e7c2c6d6e844134",
+]
+uses = [
+    "fn:d14a87d523dacbab",
+    "fn:fedfdbf7bfe57f84",
+]
+test = true
+
+[module."lab1.rs"]
+path = "crate::groupr::kinematics::lab1"
+
+[[module."lab1.rs".function]]
+id = "fn:fc749062dc5f1fd7"
+name = "Law1LabTable"
+qual = "Law1LabTable"
+item = "type"
+shape = "struct"
+lines = [
+    42,
+    54,
+]
+hash = "sha256:ecaff6368ee9f4ab96f6e0922511e3e10de11c7a7820816e8374c34d77d17707"
+doc_hash = "sha256:cc995aa117e56cf5354398c1b169c67142dbb3f5d0bcfd12c74d0247c8d5cb89"
+uses = ["fn:9506eecde1243e1c"]
+reached_by = [
+    "#22",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#35",
+    "#36",
+    "#39",
+]
+
+[[module."lab1.rs".function]]
+id = "fn:71b4b0516a1f7dab"
+name = "f6lab"
+qual = "f6lab"
+lines = [
+    56,
+    396,
+]
+hash = "sha256:674582974073eb453341f4d730ffd554a5d2313596fef0b13fd593a187b579f3"
+doc_hash = "sha256:fe1aa22b155b63a471588dfa61d2c5b857b96dd0f27d1c7908a2c867da096e91"
+callees = [
+    "fn:23f2d8f8cb0057fa",
+    "fn:d46f0f3ebba8a85c",
+]
+uses = [
+    "fn:11a2c155d8376521",
+    "fn:d4b7ba94313fc82b",
+    "fn:fc749062dc5f1fd7",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#22",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#35",
+    "#36",
+    "#39",
+]
+
+[module."lab7.rs"]
+path = "crate::groupr::kinematics::lab7"
+
+[[module."lab7.rs".function]]
+id = "fn:04f45b1d1f1b89c3"
+name = "Law7Curve"
+qual = "Law7Curve"
+item = "type"
+shape = "struct"
+lines = [
+    28,
+    37,
+]
+hash = "sha256:8adddd12e7afda1609074b60c804449fda9e73d84b6ddb1ba2687da0c848f1d2"
+doc_hash = "sha256:688cc547eec0b3d1592231bc7ed4efcf7ad165422c994d56d14716a52cf3d0b3"
+uses = ["fn:9694f29c85db15d3"]
+reached_by = [
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."lab7.rs".function]]
+id = "fn:e9be2a58b0e49136"
+name = "Law7Emission"
+qual = "Law7Emission"
+item = "type"
+shape = "struct"
+lines = [
+    39,
+    54,
+]
+hash = "sha256:3efae9b6fda5a49bef3127287692b392f3e0cbc05a3a5379bd88fa723764f235"
+doc_hash = "sha256:7455dff97918c63853e53f74932d92bcf3f57833e57a8739fb1ea5ea119ba2f6"
+uses = ["fn:04f45b1d1f1b89c3"]
+reached_by = [
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."lab7.rs".function]]
+id = "fn:eb5818e93a382a97"
+name = "terpa_lookup"
+qual = "terpa_lookup"
+lines = [
+    56,
+    132,
+]
+hash = "sha256:de4ea264797ce24c4312e0e85462dfddaa0d4d16617f2b794a154d1eef904a70"
+doc_hash = "sha256:b23f4b42eaafed0d315ae6cba1a608c2e55ec6c9e707e0ed870a6a529832441d"
+callees = [
+    "fn:23f2d8f8cb0057fa",
+    "fn:d46f0f3ebba8a85c",
+]
+uses = [
+    "fn:11a2c155d8376521",
+    "fn:9694f29c85db15d3",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."lab7.rs".function]]
+id = "fn:999f8d114d0bcdb1"
+name = "ll2lab"
+qual = "ll2lab"
+lines = [
+    134,
+    289,
+]
+hash = "sha256:4053182c3b056826983e4744e26339ab1c6fb3d9ded0979b1ada50d092a33509"
+doc_hash = "sha256:cecdc1cde77df56315678ec71c8df6cc6197657c8df692dfc650218a2ebcc7d2"
+callees = [
+    "fn:88854f23978bf4b6",
+    "fn:eb5818e93a382a97",
+]
+uses = [
+    "fn:1343a7e319084638",
+    "fn:4396c8d951c60701",
+    "fn:c0658ef7b66b3a6f",
+    "fn:c29ca6b745d37053",
+    "fn:d4b7ba94313fc82b",
+    "fn:e9be2a58b0e49136",
+    "fn:fedfdbf7bfe57f84",
+]
+reached_by = [
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[module."mod.rs"]
+path = "crate::groupr::kinematics"
+
+[[module."mod.rs".function]]
+id = "fn:37116ff3c0059131"
+name = "f6lab_tabulated_lang_reports_not_ported"
+qual = "f6lab_tabulated_lang_reports_not_ported"
+lines = [
+    75,
+    119,
+]
+hash = "sha256:97b8436ccf8f5af527e96bdc87ca0f8de09d8f70dba88aba1f32f8da2c46b050"
+doc_hash = "sha256:28b98d0086347f595b676a19d52fc4bfb5ef46d564ce6171d49c8af6e0b1d996"
+callees = ["fn:71b4b0516a1f7dab"]
+uses = [
+    "fn:11a2c155d8376521",
+    "fn:9506eecde1243e1c",
+    "fn:fc749062dc5f1fd7",
+    "fn:fedfdbf7bfe57f84",
+]
+test = true
+
+[module."shared.rs"]
+path = "crate::groupr::kinematics::shared"
+
+[[module."shared.rs".function]]
+id = "fn:d4b7ba94313fc82b"
+name = "EMAX"
+qual = "EMAX"
+item = "const"
+shape = "const"
+lines = [
+    12,
+    13,
+]
+hash = "sha256:ce7ac67aaa2323b5f8dce5dabee7947a437ce5fd822b6cfc1fd17573dac6f2d7"
+doc_hash = "sha256:43ff21fb6a1b52136be5ba036abfc842c194a0e68760cc1ba1c665ba1f1f68f1"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."shared.rs".function]]
+id = "fn:1343a7e319084638"
+name = "SMALL"
+qual = "SMALL"
+item = "const"
+shape = "const"
+lines = [
+    14,
+    15,
+]
+hash = "sha256:00439f5b119f67048e087ffaeaaa15fe83eb09e4e12fecc4f4819aea53301fc7"
+doc_hash = "sha256:409b0787d0197f08aa8087dbc3fe6d0a6c944b9bf56dec4c7e7de82d29237850"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."shared.rs".function]]
+id = "fn:3b9ff507ddf5bf07"
+name = "TINY"
+qual = "TINY"
+item = "const"
+shape = "const"
+lines = [
+    16,
+    17,
+]
+hash = "sha256:8991c91f6e567973412814b87a1017577ac90ff17309ee6dfc7ad8050ef0e8de"
+doc_hash = "sha256:52a9360e41e8c84729610e3c038ad184c59dcbf2bd70055f2cacff70b12e9d6d"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."shared.rs".function]]
+id = "fn:88854f23978bf4b6"
+name = "legndr"
+qual = "legndr"
+lines = [
+    19,
+    43,
+]
+hash = "sha256:552911854780860331ce1e2f7c14479028f63e58120af12b14c90be48bb5d95e"
+doc_hash = "sha256:b41a38a313763cab7eafaa61b9f2a977c0852a997307b3376fd0e1235740287e"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#120",
+    "#130",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#159",
+    "#161",
+    "#171",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+    "#183",
+    "#184",
+    "#185",
+    "#186",
+    "#187",
+    "#188",
+    "#189",
+    "#190",
+    "#191",
+    "#192",
+    "#193",
+    "#194",
+    "#196",
+    "#198",
+    "#202",
+    "#203",
+    "#204",
+    "#205",
+    "#206",
+    "#212",
+]
+
+[[module."shared.rs".function]]
+id = "fn:ca7a9d2991c8ba1a"
+name = "lab_energy_from_cm"
+qual = "lab_energy_from_cm"
+lines = [
+    45,
+    64,
+]
+hash = "sha256:980f24782052878305914419b883f1aa6ac1dbd79baf5b71b1d2ad224c1c699b"
+doc_hash = "sha256:d24714446e01ca0b648ee624602fe87ce31e5031c32681641603a1a89ff8de97"
+reached_by = ["#23"]
+
+[[module."shared.rs".function]]
+id = "fn:4396c8d951c60701"
+name = "LabDistribution"
+qual = "LabDistribution"
+item = "type"
+shape = "struct"
+lines = [
+    66,
+    89,
+]
+hash = "sha256:1a3cdef71948d3f50410bc07a2c599edcdbee29852099b31fd0058e2a7c6d74b"
+doc_hash = "sha256:458a80f8cbc7c30311e12c5e2e9cf0b7b52c1f6a14e08201a603bae325a56285"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."shared.rs".function]]
+id = "fn:6a2fe4521457fe76"
+name = "remove_small_moments"
+qual = "remove_small_moments"
+lines = [
+    91,
+    103,
+]
+hash = "sha256:881e71a7210a47a7b6c6177eb3407bfc2f49d966de3908e2d9251548a7e3b744"
+doc_hash = "sha256:1d2ccaca0dd483a38e2150bb7628f2083f49a53809b727fd83c78fe861e9454a"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."shared.rs".function]]
+id = "fn:c0658ef7b66b3a6f"
+name = "GAUSS8_NODES"
+qual = "GAUSS8_NODES"
+item = "const"
+shape = "const"
+lines = [
+    105,
+    120,
+]
+hash = "sha256:a304996627b135111d6663b4cd5a48a488c2fd175be25d96e36df48971fcf9eb"
+doc_hash = "sha256:3ddff6d360229f4a69d26598d744631fa9ad63abea09b2a2bd4117ade46e87ee"
+reached_by = [
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."shared.rs".function]]
+id = "fn:c29ca6b745d37053"
+name = "GAUSS8_WEIGHTS"
+qual = "GAUSS8_WEIGHTS"
+item = "const"
+shape = "const"
+lines = [
+    122,
+    132,
+]
+hash = "sha256:fe6f17677aa3912e2973fad9c50fe37ac05c2306115dc33cf44349ab725a6f0e"
+doc_hash = "sha256:3dbe6fb645aaffae1d8fe80ac4c42322d8b9a912473f04ffdec8c6c151c05cf8"
+reached_by = [
+    "#26",
+    "#27",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+]
+
+[[module."shared.rs".function]]
+id = "fn:6ac1c27e2ac3561e"
+name = "legndr_matches_closed_form"
+qual = "legndr_matches_closed_form"
+lines = [
+    138,
+    156,
+]
+hash = "sha256:29a7f10a97cea76dc91a2704918bbf1a68426d185ed861acb224ea57fd85b5bb"
+doc_hash = "sha256:c1a08364d00893e26f97424ae6d100988f71d72e08b81d566e6c21da98afaa97"
+callees = ["fn:88854f23978bf4b6"]
+test = true
+
+[[module."shared.rs".function]]
+id = "fn:87413dc293f53b5f"
+name = "cm_to_lab_edges_are_analytic"
+qual = "cm_to_lab_edges_are_analytic"
+lines = [
+    158,
+    186,
+]
+hash = "sha256:14bc386e641adba6201fe067cd7b31ad75e53a414725c312a6f39e9e5c69b782"
+doc_hash = "sha256:5e55fd20391f9d0d6729f31cba0e962f6336d3f68310f99f5a9444e503db4954"
+callees = ["fn:ca7a9d2991c8ba1a"]
+test = true

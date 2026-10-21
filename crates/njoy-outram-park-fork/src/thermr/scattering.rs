@@ -114,14 +114,25 @@ pub struct IncoherentInelasticScattering {
     calcem: RwLock<HashMap<usize, Arc<Iform0Table>>>,
 }
 
-/// `emax` for the `calcem` table \[eV\] — the upper limit of the thermal
-/// treatment, NJOY's THERMR card-4 `emax`. 4.0 eV is the value the standard
-/// thermal decks use and matches `outram-mc-libs`'
-/// `DEFAULT_THERMAL_CUTOFF_EV`.
-const CALCEM_EMAX_EV: f64 = 4.0;
-/// `tol` for the `calcem` table — THERMR card-4 `tol`, 0.05 in the standard
-/// decks.
-const CALCEM_TOL: f64 = 0.05;
+/// Fallback `emax` for the `calcem` table \[eV\], used only when an evaluation
+/// does not state its own upper energy in MF=7/MT=4 `B(4)`.
+///
+/// ~~4.0 eV is the value the standard thermal decks use~~. **CORRECTED
+/// 2026-09-30 (GitHub #459):** OpenMC's deck generator passes the tape's `B(4)`
+/// as THERMR's `emax` (`openmc/data/njoy.py`, `energy_max = values[3]`).
+/// ENDF/B-VIII.0 `tsl-HinH2O` states 10.00008 eV. See
+/// [`IncoherentInelasticScattering::energy_max_ev`].
+const CALCEM_EMAX_FALLBACK_EV: f64 = 4.0;
+/// `tol` for the `calcem` table, THERMR card-4 `tol`.
+///
+/// ~~0.05 in the standard decks~~. **CORRECTED 2026-09-30 (GitHub #188, #407):**
+/// OpenMC's `make_ace_thermal` passes `error = 0.001` (`openmc/data/njoy.py`).
+/// The NJOY2016 references this crate is checked against use 0.001 too. At
+/// 0.05, graphite's σ_inel was up to 0.7 % off NJOY's MT=229 once σ_inel was
+/// taken from `calcem` (`outram-mc-libs` `tests/thermal_laws_vs_njoy_thermr.rs`).
+/// The ACE writer takes its tolerance from the caller (`acer::thermal`); this
+/// wrapper serves transport, whose reference is OpenMC's library.
+const CALCEM_TOL: f64 = 0.001;
 
 impl IncoherentInelasticScattering {
     /// Load the incoherent-inelastic S(α,β) for material `mat` from the ENDF
@@ -191,6 +202,20 @@ impl IncoherentInelasticScattering {
     /// tolerance snap occurred.
     pub fn selected_temperature(&self) -> Temperature {
         Temperature::new::<kelvin>(self.inelastic.temperature_k)
+    }
+
+    /// The **upper energy \[eV\] of the thermal treatment** the evaluation
+    /// states: MF=7/MT=4 `B(4)` (ENDF-6 manual, 7.4). It is what OpenMC's
+    /// `njoy.py` hands THERMR as `emax`, and so what an OpenMC library's
+    /// `energy_max` is (10.00008 eV for ENDF/B-VIII.0 `tsl-HinH2O`). Falls
+    /// back to 4 eV only when `B(4)` is absent or not positive. GitHub #459.
+    pub fn energy_max_ev(&self) -> f64 {
+        self.inelastic
+            .b
+            .get(3)
+            .copied()
+            .filter(|&e| e > 0.0)
+            .unwrap_or(CALCEM_EMAX_FALLBACK_EV)
     }
 
     /// Number of principal scattering atoms in the material (`B(6)`; `2` for
@@ -269,6 +294,58 @@ impl IncoherentInelasticScattering {
             .collect()
     }
 
+    /// Incoherent-inelastic cross section **per principal atom** at `e`, as
+    /// NJOY writes it into an ACE table (ITIX) and so as OpenMC reads it:
+    /// THERMR's `calcem` `xsi`, the trapezoidal E'-integral of the same rows the
+    /// emission tables are built from (`thermr.f90:2166-2173`), interpolated by
+    /// THERMR's `terp` of order 5 (`thermr.f90:2459`). It is the value the ACE
+    /// writer (`acer::thermal`) puts in ITIX.
+    ///
+    /// Prefer this to [`inelastic_xs`](Self::inelastic_xs) wherever the result
+    /// must agree with an NJOY/OpenMC table. That independent analytic integral
+    /// is jagged at the ±1 % level and was measured up to 6.6 % off NJOY's ITIX
+    /// at 1e-5 eV (GitHub #188, #407). `n_cosines` selects the cached `calcem`
+    /// table, the same one [`emission`](Self::emission) uses. Returns zero
+    /// above the table; below its first energy it extrapolates, as `terp`
+    /// does.
+    pub fn calcem_inelastic_xs(&self, e: NeutronEnergy, n_cosines: usize) -> CrossSection {
+        let Ok(table) = self.calcem_table(n_cosines) else {
+            return CrossSection::new::<barn>(0.0);
+        };
+        let ev = e.get::<electronvolt>();
+        let (esi, xsi): (Vec<f64>, Vec<f64>) =
+            table.records.iter().map(|r| (r.e_in_ev, r.cross_section_b)).unzip();
+        // Below the first `calcem` energy THERMR's `terp` extrapolates, and that
+        // is what lands on the PENDF grid's 1e-5 eV point and in ITIX; above
+        // the last one there is no thermal treatment.
+        match esi.last() {
+            Some(&hi) if ev > 0.0 && ev <= hi => CrossSection::new::<barn>(
+                crate::acer::thermal::thermr_terp(&esi, &xsi, ev, 5),
+            ),
+            _ => CrossSection::new::<barn>(0.0),
+        }
+    }
+
+    /// THERMR's inelastic cross section **on its own incident grid**, as NJOY
+    /// writes ITIE/ITIX: the `calcem` table's `(E [eV], xsi [b per principal
+    /// atom])` pairs for `n_cosines` bins. OpenMC interpolates exactly these
+    /// points lin-lin (`Tabulated1D`), so a consumer that stores them and does
+    /// the same reproduces an NJOY/OpenMC table point for point (GitHub #188,
+    /// #407). `None` if the table cannot be built.
+    pub fn calcem_inelastic_table(&self, n_cosines: usize) -> Option<(Vec<f64>, Vec<f64>)> {
+        let table = self.calcem_table(n_cosines).ok()?;
+        Some(table.records.iter().map(|r| (r.e_in_ev, r.cross_section_b)).unzip())
+    }
+
+    /// The highest incident energy \[eV\] of the `calcem` table for `n_cosines`
+    /// bins: the top of the thermal treatment as NJOY writes it (the last ITIE
+    /// energy, 10.0 eV for `tsl-HinH2O` under `emax = B(4) = 10.00008`), and so
+    /// OpenMC's `energy_max`. `None` if the table cannot be built. GitHub #459.
+    pub fn calcem_energy_max_ev(&self, n_cosines: usize) -> Option<f64> {
+        let table = self.calcem_table(n_cosines).ok()?;
+        table.records.last().map(|r| r.e_in_ev)
+    }
+
     /// The `calcem` `iform = 0` table for `n_cosines` angular bins, built once
     /// and cached (see the [`calcem`](Self::calcem) field).
     fn calcem_table(&self, n_cosines: usize) -> Result<Arc<Iform0Table>, NjoyError> {
@@ -284,7 +361,7 @@ impl IncoherentInelasticScattering {
             &self.inelastic,
             self.natom,
             n_cosines,
-            CALCEM_EMAX_EV,
+            self.energy_max_ev(),
             CALCEM_TOL,
         )?);
         self.calcem

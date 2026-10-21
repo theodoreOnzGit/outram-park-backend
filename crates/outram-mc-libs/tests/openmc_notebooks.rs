@@ -51,7 +51,7 @@
 //! | `mg_mode_part_iii` | ignored (spatial MGXS-from-CE + lattice MG driver) | op-6tz.6.3/.15 |
 //! | `depletion` | LIVE (one-group burnup: CRAM + chain_simple, inventory & k_inf trends) | op-6tz.18 |
 //! | `capi` | LIVE partial (in-memory build/run/introspect/edit/rerun; batch-stepping is a gap) | op-6tz.20 |
-//! | `shielded_room_weight_window` | ignored (weight-window VR + notebook absent upstream) | op-6tz.21 |
+//! | `shielded_room_weight_window` | ~~ignored (weight-window VR + notebook absent upstream)~~ **LIVE, CORRECTED 2026-09-22 (gh:#258)** — both halves of that were false: the VR machinery now exists (`physics::weight_windows`), and the notebook is present upstream and was read in full (openmc-notebooks HEAD `bb39f25`) | op-6tz.21 |
 //! | `search` | LIVE (`search_for_keff` bisection driver, verified on the offline Godiva critical-radius analogue; exact boron-ppm PWR case is thermal-S(α,β)-data-gated) | op-6tz.6.5 |
 //!
 //! Run the live subset:

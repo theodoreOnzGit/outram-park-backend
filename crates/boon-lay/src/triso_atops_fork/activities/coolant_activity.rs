@@ -44,6 +44,7 @@
 //! - `decay_constant` is `λ` ([`DecayConstant`], `s^-1`).
 //! - `time` is the elapsed reactor run time ([`uom::si::f64::Time`], `s`).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Frequency, Time};
 use uom::si::frequency::hertz;
 use uom::si::ratio::ratio;
@@ -106,7 +107,7 @@ pub fn circulating(
     let beta = beta_freq.get::<hertz>();
     let lam = decay_constant.get::<hertz>();
     let bt = (beta_freq * time).get::<ratio>(); // dimensionless, uom-checked
-    source_rate * (1.0 - (-bt).exp()) / beta + lam * circulating_parent / beta
+    source_rate * (1.0 - (-bt).r_exp()) / beta + lam * circulating_parent / beta
 }
 
 /// Steady-state plate-out activity `P` for a nuclide.
@@ -168,7 +169,7 @@ pub fn plate_out(
     let lam = decay_constant.get::<hertz>();
     let lt = (decay_constant * time).get::<ratio>(); // dimensionless, uom-checked
     let k_plate_frac = (k_plate / beta_minus_lam).get::<ratio>();
-    k_plate_frac * (source_rate / lam * (1.0 - (-lt).exp()) - circulating) + plate_out_parent
+    k_plate_frac * (source_rate / lam * (1.0 - (-lt).r_exp()) - circulating) + plate_out_parent
 }
 
 /// Steady-state clean-up (HPS) activity `HPS` for a nuclide.
@@ -235,7 +236,7 @@ pub fn clean_up(
     let lam = decay_constant.get::<hertz>();
     let lt = (decay_constant * time).get::<ratio>(); // dimensionless, uom-checked
     k_clean.get::<hertz>() / beta_minus_lam
-        * (source_rate / lam * (1.0 - (-lt).exp()) - circulating)
+        * (source_rate / lam * (1.0 - (-lt).r_exp()) - circulating)
         + clean_up_parent
 }
 

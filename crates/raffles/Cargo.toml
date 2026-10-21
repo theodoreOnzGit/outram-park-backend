@@ -1,10 +1,10 @@
 [package]
 name = "raffles"
-version = "0.0.0"
+version = "0.0.3"
 edition.workspace = true
-# GPL-3.0-only: upstream RAVEN is Apache-2.0, which is ONE-WAY compatible with
-# GPLv3 (Apache -> GPLv3 is allowed; GPLv3 -> Apache is not). This crate is
-# therefore GPL-3.0-only like the rest of the suite, and its code CANNOT flow
+# AGPL-3.0-only since 2026-10-20 (gh:#973; was GPL-3.0-only), a combined work:
+# its SCRAM / MPNN / pba.r ports keep GPL-3.0 (LICENSE.GPL-3.0). Upstream RAVEN
+# is Apache-2.0, ONE-WAY compatible with (A)GPLv3, so this crate's code CANNOT flow
 # back upstream to RAVEN. Full provenance, the verbatim upstream LICENSE.txt /
 # NOTICE.txt, and the required Battelle Energy Alliance / Idaho National
 # Laboratory attribution live in NOTICE, LICENSE-APACHE-RAVEN, NOTICE-RAVEN and
@@ -15,7 +15,7 @@ license.workspace = true
 # theirs. `authors` is inherited from [workspace.package]; whether to add an
 # explicit per-crate author entry is the maintainer's and owner's call, not an
 # assistant's — see README.md and CLAUDE.md.
-description = "RAFFLES — Risk Analysis Framework For Learning & Ensemble Simulation. Independent pure-Rust port of the uncertainty-quantification / risk-analysis core of RAVEN (Apache-2.0, Idaho National Laboratory): probability distributions, Monte Carlo / Latin-hypercube / grid samplers, Sobol and correlation sensitivity measures, surrogate models. SCAFFOLD ONLY: no distribution, sampler or estimator is implemented, and there is no human V&V. Not affiliated with the RAVEN project."
+description = "RAFFLES — Risk Analysis Framework For Learning & Ensemble Simulation. Independent pure-Rust port of the uncertainty-quantification / risk-analysis core of RAVEN (Apache-2.0, Idaho National Laboratory): probability distributions, Monte Carlo / Latin-hypercube / grid samplers, Sobol and correlation sensitivity measures, surrogate models. Also Bayesian model updating (TMCMC / TEMCMC), statistical distances, Approximate Bayesian Computation, imprecise probability and message-passing graph networks. IMPLEMENTED IN PART, with no human V&V — treat every result as untrusted draft material. Not affiliated with the RAVEN project."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -26,6 +26,24 @@ categories.workspace = true
 # LICENSE-APACHE-RAVEN or NOTICE-RAVEN — Apache-2.0 section 4 requires the
 # attribution to travel with every distribution.
 exclude = ["docs", "upstream_source/raven"]
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "risk"
+fidelity = [0, 4]
+maturity = 2
+backronym = "Risk Analysis Framework For Learning & Ensemble Simulation"
 
 [dependencies]
 # ANDROID / TERMUX: keep this list pure-Rust. NOTHING here may pull system
@@ -40,17 +58,94 @@ exclude = ["docs", "upstream_source/raven"]
 # Versions come from the root [workspace.dependencies] — never pin here.
 thiserror.workspace = true
 # RANDOM NUMBER GENERATOR (src/samplers.rs). RAFFLES does NOT ship its own
-# generator: it reuses `outram_mc_libs::rng::lcg` — the OpenMC 64-bit LCG port,
-# with the O(log n) `future_seed` jump-ahead that gives each sampled dimension a
-# provably non-overlapping stream. That is OpenMC's reproducible-parallel-MC
-# design, it is already tested, and duplicating a PRNG in one workspace is the
-# thing to avoid. The workspace has no `rand` crate; whether to add one is the
+# generator: it reuses `petir::rng::lcg` — the OpenMC 64-bit LCG port, with the
+# O(log n) `future_seed` jump-ahead that gives each sampled dimension a provably
+# non-overlapping stream. That is OpenMC's reproducible-parallel-MC design, it
+# is already tested, and duplicating a PRNG in one workspace is the thing to
+# avoid. The workspace has no `rand` crate; whether to add one is the
 # maintainer's call (docs/raven-port-scoping.md section 10, question 1).
 #
-# ANDROID: this dependency is Android-clean. outram-mc-libs target-gates its
-# wgpu/GPU paths (and its `naga` dev-dependency) off Android with
-# `[target.'cfg(not(target_os = "android"))'.dependencies]`, so
-# `cargo check -p raffles --all-targets --target aarch64-linux-android` passes.
-# RAFFLES follows the same gating convention if it ever needs something
-# Android-hostile — see this crate's CLAUDE.md.
-outram-mc-libs.workspace = true
+# ~~It reuses `outram_mc_libs::rng::lcg` (dependency: outram-mc-libs).~~
+# CORRECTED 2026-10-02: the LCG moved, bit-identical, from outram-mc-libs into
+# petir (maintainer direction), and this dependency moved with it. The old edge
+# raffles -> outram-mc-libs closed a cycle once outram-mc-libs took on
+# outram-park-fork-liggghts (whose default `gnn` feature depends on raffles).
+# The other thing raffles used outram-mc-libs for — the CSG cell-adjacency
+# adapter, `gnn::mc_geometry` — moved to `outram_blender::gnn_graph` (GitHub
+# issue #486). RAFFLES now depends on no physics crate. Never add
+# outram-mc-libs (or anything that depends on raffles) back here.
+#
+# Default features, i.e. petir's `transfer-fn` and the no_std `uom` it pulls,
+# are inherited because the root entry carries them and workspace inheritance
+# cannot remove a default feature. raffles does not use `uom`; it costs one
+# small pure-Rust crate already in every workspace build.
+#
+# ANDROID: petir is `no_std` and has no GPU dependency unless its off-by-default
+# `wgpu` feature is enabled, so `cargo check -p raffles --all-targets --target
+# aarch64-linux-android` stays clean. RAFFLES follows `outram-mc-libs`'
+# gating convention if it ever needs something Android-hostile — see this
+# crate's CLAUDE.md.
+petir.workspace = true
+# SURROGATE MODELS (src/surrogate.rs) — OPTIONAL, off by default. burn is this
+# workspace's replacement for PyTorch (maintainer direction, 2026-09-16):
+# upstream RAVEN's machine-learning surrogates are PyTorch-backed, so the port
+# reaches for burn wherever PyTorch appears, as far as it will go. The cheaper
+# surrogates (polynomial, Gaussian process) need nothing from it, so a plain
+# `cargo build -p raffles` must not pay for it — turn it on with
+# `--features burn`.
+#
+# It is declared `no_std` at the workspace root (`default-features = false`) and
+# inherited that way here: burn runs on `core` + `alloc`, which is all a tensor
+# library needs, and that keeps RAFFLES' Android/Termux and wasm builds clean —
+# burn's `std` stack is where the dataset/network/train/sqlite machinery lives.
+# `alloc` is implicit in that mode (burn declares `extern crate alloc` itself;
+# there is no `alloc` feature to name), and a `std` binary links it happily.
+#
+# BACKEND: the `burn` feature adds `ndarray`, the one backend that is pure Rust
+# and libm-backed — no system BLAS, no C/Fortran toolchain. GPU (`wgpu`,
+# `vulkan`, `metal`, `webgpu`) is deliberately OUT OF SCOPE for this first pass;
+# when it is wanted it goes behind its own feature under
+# `cfg(not(target_os = "android"))`, per the workspace wgpu rule. Never swap the
+# backend for `tch`, `candle`, `cuda`, `rocm` or a `blas-*` feature here.
+#
+# VERIFIED 2026-09-16 with burn 0.21.0, rustc 1.94.1, all clean (raffles' own
+# only; the warnings shown come from outram-mc-libs/njoy and predate this):
+#   cargo check -p raffles --lib         --features burn
+#   cargo check -p raffles --all-targets --features burn --target aarch64-linux-android
+#   cargo check -p raffles --lib         --features burn --target wasm32-unknown-unknown
+# `cargo tree -e features` confirms burn resolves with only `ndarray`/
+# `burn-ndarray` — no `std` — and that the `wgpu` in the tree comes from
+# outram-mc-libs/njoy, not from burn. (That record is kept as run. Since
+# 2026-10-02 raffles no longer depends on outram-mc-libs, so neither njoy nor
+# that wgpu is in its tree any more.)
+burn ={ workspace = true, optional = true }
+# MODEL EXCHANGE FORMAT INPUT (src/scram/mef.rs). A pull parser, driven
+# directly: MEF's expression elements are an open set and the same element
+# name means different things by arity, so a serde-derived deserialiser does
+# not fit. Already in the lock
+# file as serde-xml-rs's own dependency, so it adds nothing to the build, and
+# it is pure Rust — no libxml2, unlike upstream — so Android and wasm stay
+# clean.
+xml-rs.workspace = true
+
+[features]
+default = ["long-tests"]
+# Tests that take minutes rather than seconds. ON BY DEFAULT, per the
+# workspace `long-tests` rule: a slow check that nobody runs is not a check.
+# `cargo quick-test` turns it off for the edit-compile loop, and a skipped
+# test still reports as `ignored` rather than vanishing.
+#
+# Presently one test: the graph-route ZBDD on `Aralia/das9601`, measured at
+# 240 s on 2026-09-22. That cost is the absence of upstream's preprocessor --
+# its module decomposition, not its order pruning, is what makes the same
+# route fast there.
+long-tests = []
+# `deterministic-math` was REMOVED 2026-10-20 (gh:#985): `sample_normal`'s
+# `cos` is `petir::real::cos` in every build.
+# Neural-network surrogates and graph neural networks via burn (no_std + alloc,
+# ndarray backend + autodiff). Consumed by `surrogate::neural`, `gnn::mpnn` and
+# `gnn::training`; everything else in the crate builds without it, which is why
+# it is off by default. `autodiff` is not optional here — training needs
+# gradients, and a burn feature that could only do a forward pass would be a
+# trap rather than a saving.
+burn = ["dep:burn", "burn/ndarray", "burn/autodiff"]

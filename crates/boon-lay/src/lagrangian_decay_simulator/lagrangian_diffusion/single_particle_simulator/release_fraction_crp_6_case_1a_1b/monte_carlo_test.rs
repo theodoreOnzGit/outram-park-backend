@@ -57,12 +57,20 @@ fn compare(label: &str, temp_c: f64, expected_lo: f64, expected_hi: f64) {
     );
 }
 
+/// Case 1a. Methodology and full record:
+/// `verification_and_validation/crp6_case1_kernel_release_vs_crank.md`.
+/// Results: ~~2026-07-23, MC 0.5332~~ **re-measured 2026-10-04 at
+/// `5e802df3a4`: MC 0.5331 vs Crank 0.5337, |Δ| 0.0006, pass** (gh:#531).
+/// The `[0.45, 0.55]` sanity band below is wider than the 0.453–0.498 range
+/// the sibling tests cite from Hales et al. 2021; see gh:#537.
 #[test]
 fn crp6_case1a_cs_release_1200c_matches_crank() {
     // Analytical value for this case is ~0.53 (see the sibling analytical test).
     compare("Case 1a", 1200.0, 0.45, 0.55);
 }
 
+/// Case 1b. Results: re-measured 2026-10-04 at `5e802df3a4`: MC 1.0000 vs
+/// Crank 1.0000, pass (gh:#531); unchanged from 2026-07-23.
 #[test]
 fn crp6_case1b_cs_release_1600c_matches_crank() {
     // Analytical value for this case is ~0.97-1.00.

@@ -4,6 +4,7 @@
 //!
 //! Split out of `wmp.rs` (see the module doc there for provenance and status).
 
+use petir::mathf::RealMath;
 use super::types::{Cf64, WindowedMultipole, WmpXs};
 use super::{CH_ABSORPTION, CH_FISSION, CH_SCATTER, K_BOLTZMANN, SQRT_PI};
 use std::sync::OnceLock;
@@ -111,7 +112,7 @@ pub(super) fn broaden_wmp_polynomials(e: f64, dopp: f64, n: usize) -> Vec<f64> {
     let (erf_beta, exp_m_beta2) = if beta > 6.0 {
         (1.0, 0.0)
     } else {
-        (erf(beta), (-beta * beta).exp())
+        (erf(beta), (-beta * beta).r_exp())
     };
 
     let mut f = vec![0.0; n];
@@ -216,8 +217,8 @@ pub(crate) fn weideman_coeffs() -> &'static [f64] {
         for (idx, slot) in f.iter_mut().enumerate().skip(1) {
             let k = idx as f64 - m as f64;
             let theta = k * pi / m as f64;
-            let t = l * (theta / 2.0).tan();
-            *slot = (-t * t).exp() * (l * l + t * t);
+            let t = l * (theta / 2.0).r_tan();
+            *slot = (-t * t).r_exp() * (l * l + t * t);
         }
 
         // fftshift: rotate by half the length.
@@ -232,7 +233,7 @@ pub(crate) fn weideman_coeffs() -> &'static [f64] {
         for j in 1..=n {
             let mut re = 0.0;
             for (i, &v) in fs.iter().enumerate() {
-                re += v * (-2.0 * pi * i as f64 * j as f64 / m2 as f64).cos();
+                re += v * (-2.0 * pi * i as f64 * j as f64 / m2 as f64).r_cos();
             }
             coeffs[n - j] = re / m2 as f64;
         }
@@ -247,6 +248,6 @@ pub(super) fn erf(x: f64) -> f64 {
         return 0.0;
     }
     let ax = x.abs();
-    let erfc = (-ax * ax).exp() * w_standard(Cf64::new(0.0, ax)).re;
+    let erfc = (-ax * ax).r_exp() * w_standard(Cf64::new(0.0, ax)).re;
     x.signum() * (1.0 - erfc)
 }

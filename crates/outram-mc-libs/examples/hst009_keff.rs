@@ -6,7 +6,9 @@
 //!
 //! `godiva_keff_endf_local.rs` settled the *fast* half of the machinery against
 //! an experiment: ν̄, χ, fast σ, inelastic levels, (n,2n) and the eigenvalue
-//! driver reproduce ICSBEP **HEU-MET-FAST-001** to +57 ± 173 pcm. Nothing had
+//! driver reproduce ICSBEP **HEU-MET-FAST-001** to ~~+57 ± 173 pcm~~
+//! **+16 ± 11 pcm (256 seeds, pooled)** — CORRECTED 2026-09-18; +57 was one seed, and
+//! one draw of that case re-randomises by ~250 pcm. Nothing had
 //! settled the *thermal* half, and the FHR pebble study's residual
 //! (`op-mzvp.2.12`, +4004 pcm at the time, entirely the fraction of neutrons
 //! crossing 0.625 eV) lived there. Every mechanism on this side had been excluded
@@ -55,16 +57,28 @@
 //!
 //! Three approximations, each stated because each is a real departure:
 //!
-//! - **U-236 omitted** (8.8837e-6, 0.5 % of the uranium). A weak 1/v absorber at
-//!   0.5 % of a strongly absorbing mix; worth tens of pcm.
+//! - ~~**U-236 omitted** (8.8837e-6, 0.5 % of the uranium). A weak 1/v absorber at
+//!   0.5 % of a strongly absorbing mix; worth tens of pcm. Not measured.
+//!   Deferred by the maintainer (2026-10-14): adding it needs the ENDF tape and
+//!   its NJOY2016 ACE, and is tracked on gh:#875.~~ **CHANGED 2026-10-15
+//!   (maintainer direction, gh:#875): U-236 is in the model**, at the
+//!   benchmark's 8.8837e-6 /b·cm, from `n-092_U_236-ENDF8.0.endf`. It is a
+//!   resonance absorber (5.45 eV), not mainly 1/v, and the "tens of pcm" above
+//!   was never measured. Measured worth: **−167 ± 38 pcm** (route 4, 32 seeds
+//!   a side, 2026-10-15; `five_route_keff_2026_09_29.md`).
 //! - **O-17 folded into O-16** (0.038 % of the oxygen). Worth single pcm.
 //! - **Cu and Zn omitted from the 1100-aluminium tank** (7.6e-5 /b·cm in a
 //!   **1.6 mm** shell). `Σ_a ≈ 2.2e-4 cm⁻¹` over 0.16 cm is an absorption
 //!   probability of 3.5e-5 per traversal, against Al-27's own `0.0138 cm⁻¹`
 //!   which is 60× larger and itself small. Worth a few pcm.
 //!
-//! None of the three is in the fuel, and together they are two orders of
-//! magnitude below the effect being tested.
+//! (Since 2026-10-15 only the last two remain.)
+//!
+//! ~~None of the three is in the fuel, and together~~ **CORRECTED
+//! 2026-10-14**: two of the three are in the fuel (U-236 and O-17 are in the
+//! uranium oxyfluoride solution, per the table above); only Cu and Zn are
+//! outside it. The worths above are estimates, not measured. Together they
+//! are two orders of magnitude below the effect being tested.
 //!
 //! # The reference value
 //!
@@ -81,7 +95,41 @@
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example hst009_keff
 //! ```
+//!
+//! `OUTRAM_SPEED=standard|fast|very-fast` picks the nuclides' `SpeedTier`.
+//! Unset means `fast` (the default, exactly the same `k` as `standard`);
+//! `very-fast` coarsens RECONR/BROADR to 1 %, an approximation whose
+//! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
+//!
+//! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! | | dk vs benchmark |
+//! |---|---|
+//! | **pooled mean, 32 seeds** | **-38 pcm, sem +/-36** |
+//! | seed-to-seed sd | 205 pcm — what ONE run scatters by |
+//! | previously recorded (SINGLE seed) | `-18 ± 171 pcm` |
+//!
+//! //! **The previously recorded `-18` happened to be accurate** — 0.1 sd from the
+//! pooled mean. That is luck, not method: the seed-to-seed sd is 205 pcm, so a
+//! single draw could as easily have landed 300 pcm away, as Jemima's did. An
+//! accurate single-seed number and an inaccurate one are indistinguishable
+//! without the ensemble.
+//!
+//!
+//! **PROVENANCE WARNING on that band (added 2026-09-18).** The `± ~0.006` is
+//! NOT a quoted ICSBEP case uncertainty. This file's own lines ~76-78 say the
+//! case-specific uncertainty "is not in the repository and the handbook is not
+//! reachable from this environment", and take **the top of a 0.1-0.6 % range**
+//! as a worst case. That is the assumption that makes "inside the band"
+//! easiest to satisfy. `-38 +/- 36` is small enough that it would probably
+//! survive a realistic band too -- but "probably" is not a result. Do not
+//! publish as agreement until the real uncertainty is obtained (bead filed
+//! 2026-09-18).
+//! This closes `gh:#196` / `bn:op-awwi` for this case: the headline is now a
+//! pooled mean, not a draw. Note the comparison is now limited by the
+//! BENCHMARK's uncertainty (ICSBEP `1.0000 ± ~0.006`, i.e. ~600 pcm), not ours — quote agreement against that
+//! band, not against our sem.
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::BoundaryType;
@@ -117,6 +165,9 @@ mod nx {
     pub const SI29: usize = 8;
     pub const SI30: usize = 9;
     pub const MN55: usize = 10;
+    /// Appended last (2026-10-15, gh:#875) so the earlier slots keep their
+    /// indices.
+    pub const U236: usize = 11;
 }
 
 fn main() {
@@ -138,7 +189,11 @@ fn main() {
     let nuclides: Vec<Nuclide> = vec![
         load("U234", "n-092_U_234-ENDF8.0.endf"),
         load("U235", "n-092_U_235-ENDF8.0.endf"),
-        load("U238", "n-092_U_238.endf"),
+        // OUTRAM_U238_ENDF7=1 swaps U-238 ALONE to ENDF/B-VII.0, every other
+        // nuclide held at VIII.0. Isolates one nuclide's evaluation: the four
+        // pooled ICSBEP residuals split by U-238 content and the two U-238-heavy
+        // cases disagree in SIGN, which a whole-library swap could not separate.
+        load("U238", if std::env::var("OUTRAM_U238_ENDF7").is_ok() { "n-092_U_238-ENDF7.0.endf" } else { "n-092_U_238.endf" }),
         load("F19", "n-009_F_019-ENDF8.0.endf"),
         load("O16", "n-008_O_016-ENDF8.0.endf"),
         load("H1", "n-001_H_001-ENDF8.0-Beta6.endf").with_thermal_scattering(sab),
@@ -147,6 +202,7 @@ fn main() {
         load("Si29", "n-014_Si_029-ENDF8.0.endf"),
         load("Si30", "n-014_Si_030-ENDF8.0.endf"),
         load("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
+        load("U236", "n-092_U_236-ENDF8.0.endf"),
     ];
     eprintln!(
         "Nuclear data ready in {:.1} s.\n",
@@ -171,7 +227,7 @@ fn main() {
             components: comp(&[
                 (nx::U234, 1.7561e-05),
                 (nx::U235, 1.6626e-03),
-                // U-236 (8.8837e-06) omitted — no tape here; see the module docs.
+                (nx::U236, 8.8837e-06),
                 (nx::U238, 9.4079e-05),
                 (nx::F19, 3.5663e-03),
                 // O-17 (1.264344e-05) folded into O-16.
@@ -218,10 +274,13 @@ fn main() {
         TEMP_K,
     );
 
+    // Defaults 5000 x [40 + 120]; OUTRAM_NPART / OUTRAM_NINACTIVE /
+    // OUTRAM_NACTIVE override them for profiling (`vv::bench_run_size`).
+    let (n_particles, n_inactive, n_active) = outram_mc_libs::vv::bench_run_size(5000, 40, 120);
     let settings = KeffSettings {
-        n_particles: 5000,
-        n_inactive: 40,
-        n_active: 120,
+        n_particles,
+        n_inactive,
+        n_active,
         temperature_k: TEMP_K,
         compute: ComputeType::CpuMultiThread(Default::default()),
         ..KeffSettings::default()
@@ -236,13 +295,49 @@ fn main() {
         "solution r < {R_SOLUTION} cm, 1100-Al tank to {R_TANK} cm, water to {R_REFLECTOR} cm \
          (vacuum)"
     );
+    eprintln!("  speed tier: {} (OUTRAM_SPEED)", outram_mc_libs::vv::bench_speed());
     eprintln!(
         "  {} histories/gen, {} inactive + {} active generations\n",
         settings.n_particles, settings.n_inactive, settings.n_active
     );
 
     let t = Instant::now();
-    let result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    // Seed ensemble (OUTRAM_BENCH_SEEDS, default 1 -- unchanged single-seed
+    // behaviour). One run of this case scatters by far more than the effects
+    // being argued about, so a single draw cannot resolve a 100-200 pcm change;
+    // see outram_mc_libs::vv::pooled. `run_keff_csg` is already internally
+    // multi-threaded, so seeds run sequentially and each uses every core.
+    let n_seeds = outram_mc_libs::vv::bench_seeds();
+    let mut ens: Vec<f64> = Vec::with_capacity(n_seeds);
+    let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    ens.push((result.k_mean - 1.0) * 1.0e5);
+    outram_mc_libs::vv::report_transport_losses("hst009_keff seed 1", &result);
+    outram_mc_libs::vv::report_source_convergence("hst009_keff seed 1", &result, settings.n_inactive);
+    for seed in 2..=n_seeds as u64 {
+        let s = KeffSettings {
+            seed,
+            ..settings.clone()
+        };
+        let r = run_keff_csg(&geom, &materials, &nuclides, src, &s, None);
+        eprintln!("    seed {seed}: k = {:.5} +/- {:.5}", r.k_mean, r.k_std);
+        ens.push((r.k_mean - 1.0) * 1.0e5);
+        // Deliberately NOT `result = r`. Everything downstream -- the
+        // convergence trace, the printed k_eff, the V&V gate and the
+        // bounded-geometry cross-check -- is sized against SEED 1, which is
+        // also what the single-seed default runs. Reassigning here silently
+        // repoints all of them at the last seed of the ensemble.
+    }
+    if n_seeds > 1 {
+        let (mean, sd, sem) = outram_mc_libs::vv::pooled(&ens);
+        println!("\n  ENSEMBLE HEU-SOL-THERM-009 case 1: {n_seeds} seeds");
+        println!("    pooled dk    = {mean:+.0} pcm");
+        println!("    seed-to-seed sd  = {sd:.0} pcm   (what ONE run scatters by)");
+        println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");
+        println!(
+            "    distance from benchmark = {:.1} sem",
+            (mean / sem).abs()
+        );
+    }
     eprintln!("  transport: {:.1} s", t.elapsed().as_secs_f64());
     println!("  k_eff = {:.5} ± {:.5}", result.k_mean, result.k_std);
     println!("  ICSBEP HEU-SOL-THERM-009 case 1 (critical) = 1.0000 ± ~0.006");
@@ -298,8 +393,8 @@ fn load(name: &str, file: &str) -> Nuclide {
     let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
     eprint!("  reconstructing {name:<6} … ");
     let t0 = Instant::now();
-    let n = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
-        .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
+    let n = Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
+        .unwrap_or_else(|e| panic!("from_endf_file_with_speed({}): {e}", p.display()));
     eprintln!("{:.1?}", t0.elapsed());
     n
 }

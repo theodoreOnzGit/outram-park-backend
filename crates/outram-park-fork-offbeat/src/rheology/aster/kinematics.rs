@@ -82,6 +82,7 @@
 //! whenever `A = C - I` is small, which is exact in the same limit. The two
 //! branches agree to better than 1e-9 relative across the switch.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{
     eigen_values_symm, eigen_vectors_symm_with, SymmTensor, Tensor, Vector3,
 };
@@ -352,9 +353,9 @@ pub fn hencky_strain(c: SymmTensor) -> Result<SymmTensor> {
     let vectors = eigen_vectors_symm_with(c, lambda);
     // Half the logarithm of each eigenvalue: E = 1/2 ln(C).
     let half_log = Vector3::new(
-        0.5 * lambda.x.ln(),
-        0.5 * lambda.y.ln(),
-        0.5 * lambda.z.ln(),
+        0.5 * lambda.x.r_ln(),
+        0.5 * lambda.y.r_ln(),
+        0.5 * lambda.z.r_ln(),
     );
     Ok(rebuild_isotropic(vectors, half_log))
 }
@@ -705,9 +706,9 @@ mod tests {
             let spectral = rebuild_isotropic(
                 vectors,
                 Vector3::new(
-                    0.5 * lambda.x.ln(),
-                    0.5 * lambda.y.ln(),
-                    0.5 * lambda.z.ln(),
+                    0.5 * lambda.x.r_ln(),
+                    0.5 * lambda.y.r_ln(),
+                    0.5 * lambda.z.r_ln(),
                 ),
             );
 
@@ -753,7 +754,7 @@ mod tests {
         let e6 = stretch(6.0).hencky_strain().unwrap();
 
         assert_relative_eq!(e2.xx + e3.xx, e6.xx, max_relative = 1e-12);
-        assert_relative_eq!(e6.xx, 6.0_f64.ln(), max_relative = 1e-12);
+        assert_relative_eq!(e6.xx, 6.0_f64.r_ln(), max_relative = 1e-12);
 
         // The contrast that motivates the choice: Green-Lagrange is not additive.
         let g2 = stretch(2.0).green_lagrange_strain().xx;
@@ -787,7 +788,7 @@ mod tests {
         .unwrap();
 
         let theta = std::f64::consts::FRAC_PI_6;
-        let (c, s) = (theta.cos(), theta.sin());
+        let (c, s) = (theta.r_cos(), theta.r_sin());
         let q = Tensor::new(c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0);
 
         let rotated = DeformationGradient::new(q.mat_mul(f.tensor())).unwrap();

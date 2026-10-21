@@ -52,10 +52,13 @@
 //! Upstream guards its `__math_divzero` branch with `WANT_ERRNO`, which is
 //! **0** in the baseline build — so its compiled code falls through to `1/x2`
 //! and returns `±inf` without setting `errno`. PETIR reports an infinite
-//! result as `PetirError::ZeroDivide` instead, as `fast_exp` and `fast_log`
-//! do. The divergence is in the reporting convention, not the value, and the
-//! test below checks each refusal against upstream's returned infinity rather
-//! than skipping it.
+//! result as `PetirError::ZeroDivide` instead, as `fast_log` does at
+//! `x == ±0` — both are genuine `__math_divzero` sites. (`fast_exp` no
+//! longer appears in that list: its `__math_oflow`/`__math_uflow` paths
+//! became `PetirError::Overflow`/`Underflow` on 2026-09-20, which is what
+//! they always meant.) The divergence is in the reporting convention, not
+//! the value, and the test below checks each refusal against upstream's
+//! returned infinity rather than skipping it.
 
 use std::path::PathBuf;
 

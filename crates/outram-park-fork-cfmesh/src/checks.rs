@@ -53,6 +53,7 @@
 //! volumes and centroids from the faces — so the metrics match what the solver
 //! itself would compute. Pure Rust, no dependencies.
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::volume_mesh::VolumeMesh;
 
@@ -197,7 +198,7 @@ pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
             let dlen = d.length();
             if dlen > 1e-30 && area > 1e-30 {
                 let cos = (d.dot(sf) / (dlen * area)).clamp(-1.0, 1.0);
-                max_non_orth = max_non_orth.max(cos.acos().to_degrees());
+                max_non_orth = max_non_orth.max(cos.r_acos().to_degrees());
                 // Skewness: where the centre line crosses the face plane.
                 let fc = mesh.face_centroid(f);
                 let denom = d.dot(sf);
@@ -228,7 +229,7 @@ pub fn check_quality(mesh: &VolumeMesh) -> QualityReport {
         if v <= 0.0 {
             n_neg += 1;
         } else {
-            let ar = cell_area_sum[c] / (6.0 * v.powf(2.0 / 3.0));
+            let ar = cell_area_sum[c] / (6.0 * v.r_powf(2.0 / 3.0));
             max_ar = max_ar.max(ar);
         }
     }

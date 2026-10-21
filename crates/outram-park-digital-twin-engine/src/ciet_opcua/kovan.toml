@@ -1,0 +1,2359 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/ciet_opcua"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/node_map.rs::browse_names_are_single_segments",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/node_map.rs::every_control_clamps_out_of_range_writes",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/node_map.rs::every_switch_round_trips",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/node_map.rs::nan_writes_are_ignored",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/node_map.rs::node_identifiers_are_unique",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/pki_paths.rs::description_names_the_directory_and_the_missing_security",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/pki_paths.rs::pki_path_ends_in_the_platform_components",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/server.rs::default_config_binds_all_interfaces_on_the_standard_port",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/simulator.rs::ciet_nodes_reproduce_the_node_map",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/simulator.rs::the_ciet_profile_is_internally_consistent",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/simulator.rs::writes_are_recorded_as_requests_and_clamped_on_apply",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/state.rs::control_setters_clamp_to_documented_envelopes",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/state.rs::frequency_response_signal_matches_closed_form",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::a_stale_full_struct_overwrite_cannot_lose_a_request",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::applying_enforces_the_envelope",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::every_request_reaches_plant_state",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::later_request_supersedes_earlier_within_a_timestep",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::requests_are_consumed_exactly_once",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::slot_counts_match_the_node_map",
+    "crates/outram-park-digital-twin-engine/tests/ciet_v2_headless_remote_control.rs::a_remote_client_can_drive_the_ciet_loop",
+    "crates/outram-park-digital-twin-engine/tests/ciet_v2_opcua_roundtrip.rs::opcua_interface_round_trips_controls_and_outputs",
+]
+
+[module."discovery.rs"]
+path = "crate::ciet_opcua::discovery"
+
+[[module."discovery.rs".function]]
+id = "fn:4b47fdf53b62950f"
+name = "CIET_MDNS_INSTANCE_PREFIX"
+qual = "CIET_MDNS_INSTANCE_PREFIX"
+item = "const"
+shape = "const"
+lines = [
+    46,
+    52,
+]
+hash = "sha256:e4bc210aa806b7ff3f953062d6bbd6d9bbf9fd4121c67d05ae87b20140eb4be0"
+doc_hash = "sha256:6d7e589a9997626198890abe96a61dfd661757f2f7936aa94e2bf3a77a703180"
+
+[[module."discovery.rs".function]]
+id = "fn:e67992afe1316a09"
+name = "CIET_PRODUCT_TXT_VALUE"
+qual = "CIET_PRODUCT_TXT_VALUE"
+item = "const"
+shape = "const"
+lines = [
+    54,
+    60,
+]
+hash = "sha256:9c92f997b01489344d837cf92fb741e042a4d0342177db9dc07e2adc471e1475"
+doc_hash = "sha256:e5a32741208f3cb3719db1ca1457595fb0563645e5ab0542787ea1ed5aed37f1"
+
+[[module."discovery.rs".function]]
+id = "fn:61d65b138aa4c75f"
+name = "SimulatorBrowser"
+qual = "SimulatorBrowser"
+item = "type"
+shape = "alias"
+lines = [
+    62,
+    71,
+]
+hash = "sha256:e9615c42d484e3de9e72e0718da04f6bf955572c288cab287980b0e0bfcb1964"
+doc_hash = "sha256:3b4665cc2e5872c2281ffb6c28281b6c801faa7fcfe466eef015675f0e350d46"
+uses = [
+    "fn:4b9d4ac3881f81b2",
+    "fn:70e4c04c4f9819c5",
+]
+
+[module."mod.rs"]
+path = "crate::ciet_opcua"
+
+[module."node_map.rs"]
+path = "crate::ciet_opcua::node_map"
+
+[[module."node_map.rs".function]]
+id = "fn:7d3630110974a908"
+name = "CIET_NAMESPACE_URI"
+qual = "CIET_NAMESPACE_URI"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    54,
+]
+hash = "sha256:8637f1535501ed56c96ad550e3bb45899187b07a0f4d0b80d0eae52515ddde7e"
+doc_hash = "sha256:e642b3ac281af0443567f6a123a83366cb49a585b3d5b380cd87f880c595743a"
+reached_by = [
+    "#19",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:4eb30f66b5e16375"
+name = "DEFAULT_OPCUA_PORT"
+qual = "DEFAULT_OPCUA_PORT"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    57,
+]
+hash = "sha256:e819b52c7ee15ad7da1207e91895a9d180167be7b73d63ac4a36f23ed2329a3f"
+doc_hash = "sha256:79cd76cf63832b6bd235cd7b15ee70f3182d68dc9a868edac3004c9587441106"
+reached_by = ["#7"]
+
+[[module."node_map.rs".function]]
+id = "fn:7c3717b65b92c578"
+name = "ENDPOINT_PATH"
+qual = "ENDPOINT_PATH"
+item = "const"
+shape = "const"
+lines = [
+    59,
+    61,
+]
+hash = "sha256:0e2e976d645f2ec7146b5cc06e2b96d724060e11f45f3293ef5c53737ad8e827"
+doc_hash = "sha256:74dfa5470392265cc13168a4ead104c4954eb60c72a7c0108fa0757bccf242b0"
+
+[[module."node_map.rs".function]]
+id = "fn:1af97b32968f4089"
+name = "CONTROLS_FOLDER_NAME"
+qual = "CONTROLS_FOLDER_NAME"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    64,
+]
+hash = "sha256:f69e9ccd75859eede5bff47e600408948c08164c3566abb34b2e2ef016d329d4"
+doc_hash = "sha256:8292c3518d95eb771dcb0e80d700b0ac90d1647bfa6054aaa66142650ea51175"
+
+[[module."node_map.rs".function]]
+id = "fn:a1172c02af406213"
+name = "OUTPUTS_FOLDER_NAME"
+qual = "OUTPUTS_FOLDER_NAME"
+item = "const"
+shape = "const"
+lines = [
+    66,
+    67,
+]
+hash = "sha256:858cbc32389f443c89d9fa875f4ee57a485cfc61a0e4813bc6c40515bfc205b4"
+doc_hash = "sha256:3811daf281466181a961c738ca0c9303cea7255dd4cac28bda78125e913aaf5e"
+
+[[module."node_map.rs".function]]
+id = "fn:46a38038e6e48b36"
+name = "CietSignal"
+qual = "CietSignal"
+item = "type"
+shape = "enum"
+lines = [
+    69,
+    132,
+]
+hash = "sha256:2a9c924db0ce5d92439e09320346c40f9cbd22ea4aa2cc53adb6047c260cd6f5"
+doc_hash = "sha256:3c13c7e0f6992b33d79ba5159ad91fd8776a3b917fa58860b5a171ff77546b4a"
+reached_by = [
+    "#0",
+    "#4",
+    "#8",
+    "#9",
+    "#19",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:43a8c52d1ba3c4ee"
+name = "node_identifier"
+qual = "CietSignal::node_identifier"
+lines = [
+    160,
+    189,
+]
+hash = "sha256:47f77943b1f72ee291caa287c6d8d6b1c52e3b83fac5cfb078a46d5828b04850"
+doc_hash = "sha256:45c73a19021c3a71637913e15873d0979be1359f4c5d09a137c4c115763bc137"
+uses = ["fn:46a38038e6e48b36"]
+reached_by = [
+    "#0",
+    "#4",
+    "#8",
+    "#9",
+    "#19",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:15af30b943ab0ce4"
+name = "browse_name"
+qual = "CietSignal::browse_name"
+lines = [
+    191,
+    199,
+]
+hash = "sha256:5452ec7be1757c957e8161bfd61c369c3e70fce89b0aa5a45317b0d4f7620bfc"
+doc_hash = "sha256:3d77f2cdc33c24f86f8b87f9b639fe7846cc20c49829e6edf1851012f811c8c1"
+callees = ["fn:43a8c52d1ba3c4ee"]
+uses = ["fn:46a38038e6e48b36"]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:5eddc3443d6f0571"
+name = "display_name"
+qual = "CietSignal::display_name"
+lines = [
+    201,
+    226,
+]
+hash = "sha256:8e043ad37a4e47665abf4fbefcd0a4d726cd5838401bb9ec58c0e0b1d3c7f02f"
+doc_hash = "sha256:7b6256efb746782fd866748c1576306c9e7d463ca5f805d2983d55b2157dedc7"
+uses = ["fn:46a38038e6e48b36"]
+
+[[module."node_map.rs".function]]
+id = "fn:6360bf1e0e29f428"
+name = "unit"
+qual = "CietSignal::unit"
+lines = [
+    228,
+    251,
+]
+hash = "sha256:412e5e6e09c9dcd5f35ac6cad64fe29c919f6b7986b8044733e5b90eda2cd14e"
+doc_hash = "sha256:85522b1cc0363865b3ded3bda04b010129fdd7ab1894bef8d50e954bf4733efd"
+uses = ["fn:46a38038e6e48b36"]
+
+[[module."node_map.rs".function]]
+id = "fn:e165ff4a916a21c5"
+name = "read"
+qual = "CietSignal::read"
+lines = [
+    253,
+    281,
+]
+hash = "sha256:df413e1f967e8e21642f6a1c58c1f57f89ec49fa5f9685bba994036ad316b843"
+doc_hash = "sha256:43b9d7fd558b8cb0157a2c8909079d6581760a9dafffd985b3dc641b18ed9aad"
+uses = [
+    "fn:46a38038e6e48b36",
+    "fn:cce1108d65dbf700",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:ca3f35cd998810eb"
+name = "CietControl"
+qual = "CietControl"
+item = "type"
+shape = "enum"
+lines = [
+    284,
+    310,
+]
+hash = "sha256:6eca331f3cc9079aa306350fe8c46b6f7e7dec3a7834cff6da301312dfc5ca95"
+doc_hash = "sha256:b931e67249fbe0d34db41696ac30d5cf036f96bbc99da9caaeee630607f27874"
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#8",
+    "#9",
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:ceedd9d542348057"
+name = "index"
+qual = "CietControl::index"
+lines = [
+    325,
+    335,
+]
+hash = "sha256:256d1721db7586ab85f05de089c71d26d7e41127a3b637970b29ba6244be6590"
+doc_hash = "sha256:0daf2baed9ac70f5f3719a19d36d60f36bddee224a25912cb5da55457077e08e"
+uses = ["fn:ca3f35cd998810eb"]
+reached_by = [
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:3f743e94e1e6ff19"
+name = "node_identifier"
+qual = "CietControl::node_identifier"
+lines = [
+    337,
+    351,
+]
+hash = "sha256:0bab9c2261ac578b2f0a244d64c786d60eed1b9963d1898b417731feb90c563a"
+doc_hash = "sha256:389f1b4a3aab0b023b3c3ae33d4d534308edfffa54e16fad6d046e6b2ddbbbd4"
+uses = ["fn:ca3f35cd998810eb"]
+reached_by = [
+    "#0",
+    "#4",
+    "#8",
+    "#9",
+    "#19",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:763c03d0d966ac9d"
+name = "browse_name"
+qual = "CietControl::browse_name"
+lines = [
+    353,
+    360,
+]
+hash = "sha256:5452ec7be1757c957e8161bfd61c369c3e70fce89b0aa5a45317b0d4f7620bfc"
+doc_hash = "sha256:a6a21675c27e76cbd5b7c5ad90546e73e331f8f0d63f4f171a0e8b72d45b965d"
+callees = ["fn:3f743e94e1e6ff19"]
+uses = ["fn:ca3f35cd998810eb"]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:b17a01e059a4906f"
+name = "display_name"
+qual = "CietControl::display_name"
+lines = [
+    362,
+    374,
+]
+hash = "sha256:9294e45ec7ec582451baeb40c38f0ae9b081d517454a1c1e3a65302013c457af"
+doc_hash = "sha256:7b6256efb746782fd866748c1576306c9e7d463ca5f805d2983d55b2157dedc7"
+uses = ["fn:ca3f35cd998810eb"]
+
+[[module."node_map.rs".function]]
+id = "fn:ad04c01090e63a67"
+name = "unit"
+qual = "CietControl::unit"
+lines = [
+    376,
+    386,
+]
+hash = "sha256:f55842e4913ec341c7a8404563c91d3b989c439e85566be9f646b7a58c098373"
+doc_hash = "sha256:85522b1cc0363865b3ded3bda04b010129fdd7ab1894bef8d50e954bf4733efd"
+uses = ["fn:ca3f35cd998810eb"]
+
+[[module."node_map.rs".function]]
+id = "fn:690ede388fb669ea"
+name = "valid_range"
+qual = "CietControl::valid_range"
+lines = [
+    388,
+    409,
+]
+hash = "sha256:93eec12a01bf8cab0ea2c928159e94be44406a0a62e40481ec54f6a2eb2d32b3"
+doc_hash = "sha256:ebc84d0521a487674c43924708d1668968fba55a426af29761c9bf3b4a647bd8"
+uses = [
+    "fn:53c13f9ac2df66ef",
+    "fn:7d89dce0dd1b253d",
+    "fn:a40db7ef1b68100d",
+    "fn:ca3f35cd998810eb",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:1ea17f7b457c3d3c"
+name = "read"
+qual = "CietControl::read"
+lines = [
+    411,
+    426,
+]
+hash = "sha256:92238b131656977f2a124f9c0aee5411f3d46d412c0fccf21a24af80a6e3da96"
+doc_hash = "sha256:b492c9dd7cc885b4bfce4d7764f8f12ff07e1f7ee8b1986154ee70ab72cda947"
+uses = [
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:1a93782eab53fd3b"
+name = "write"
+qual = "CietControl::write"
+lines = [
+    428,
+    455,
+]
+hash = "sha256:8497df54e2de95a2b25d4043e35654709806867e3ea21181443906a9ddfb6552"
+doc_hash = "sha256:8791a154e9d5f44e4b3255059ce38395bb13bc553d74434a8a54cae17fa3926a"
+callees = [
+    "fn:1ea17f7b457c3d3c",
+    "fn:690ede388fb669ea",
+    "fn:88b583fc022cd5cc",
+    "fn:ab4ef63877db09a9",
+    "fn:dc35bb524ab77a1f",
+]
+uses = [
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:ea877f050f651099"
+name = "CietSwitch"
+qual = "CietSwitch"
+item = "type"
+shape = "enum"
+lines = [
+    458,
+    478,
+]
+hash = "sha256:a62486c1106b3c7c57fc68ff93a6cd350a31515d6813feb03d432410170f4f93"
+doc_hash = "sha256:6b430bc84d3d9bda57a8e2c6d0e4a9fe7225ad3863cc8b50cd577b41b96b2dfe"
+reached_by = [
+    "#0",
+    "#2",
+    "#4",
+    "#8",
+    "#9",
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:babb0a93fc139cd0"
+name = "index"
+qual = "CietSwitch::index"
+lines = [
+    492,
+    502,
+]
+hash = "sha256:8afee2c4115b1dcff6c429597d4cec4de61528252c250ae3da52ac51d0474347"
+doc_hash = "sha256:6ad975b9e6af5e581d0ececf772fc974e674e1f6a9a91d2ed843802a63198325"
+uses = ["fn:ea877f050f651099"]
+reached_by = [
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:270633e525f74392"
+name = "node_identifier"
+qual = "CietSwitch::node_identifier"
+lines = [
+    504,
+    515,
+]
+hash = "sha256:c74131a1196f87085f4c7e972edcc9a4b2c7c17ecd3a3230967831761caa64ed"
+doc_hash = "sha256:66aac281bcf9073c2a7779a0554438c5c2a1ea3c0712e4caf5c8ade3945f7053"
+uses = ["fn:ea877f050f651099"]
+reached_by = [
+    "#0",
+    "#4",
+    "#8",
+    "#9",
+    "#19",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:7c7cd574eb971ce2"
+name = "browse_name"
+qual = "CietSwitch::browse_name"
+lines = [
+    517,
+    524,
+]
+hash = "sha256:5452ec7be1757c957e8161bfd61c369c3e70fce89b0aa5a45317b0d4f7620bfc"
+doc_hash = "sha256:a6a21675c27e76cbd5b7c5ad90546e73e331f8f0d63f4f171a0e8b72d45b965d"
+callees = ["fn:270633e525f74392"]
+uses = ["fn:ea877f050f651099"]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:5be9452c3ccdf28f"
+name = "display_name"
+qual = "CietSwitch::display_name"
+lines = [
+    526,
+    537,
+]
+hash = "sha256:0e1430a55c6afba071a7749fbeb5c8fd09f6f60c1d2abdb7978834516d0a21d1"
+doc_hash = "sha256:7b6256efb746782fd866748c1576306c9e7d463ca5f805d2983d55b2157dedc7"
+uses = ["fn:ea877f050f651099"]
+
+[[module."node_map.rs".function]]
+id = "fn:f3f37543c09142be"
+name = "read"
+qual = "CietSwitch::read"
+lines = [
+    539,
+    555,
+]
+hash = "sha256:415c589a0093e1f57f2201cf1bbe7684106849bd45d34b7c0578f026f91f9e09"
+doc_hash = "sha256:f45c2c8034564cac606ca8861ec83d5a2ef971b9da0a708dd18388213ac06c37"
+uses = [
+    "fn:9fcd8afc16597201",
+    "fn:cce1108d65dbf700",
+    "fn:ea877f050f651099",
+]
+reached_by = [
+    "#2",
+    "#15",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:cde0a1a8aaddf949"
+name = "write"
+qual = "CietSwitch::write"
+lines = [
+    557,
+    579,
+]
+hash = "sha256:659d0b278c864ef988b468d9f8cd44c72da230406edd2a6d1fca0141f63cedda"
+doc_hash = "sha256:bcc7fe6c8ebc288624f9187c5a12ff67ec03d12fca063d090eb433792b7b7544"
+uses = [
+    "fn:9fcd8afc16597201",
+    "fn:cce1108d65dbf700",
+    "fn:ea877f050f651099",
+]
+reached_by = [
+    "#2",
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:c96d9ce36da8f273"
+name = "total_node_count"
+qual = "total_node_count"
+lines = [
+    582,
+    587,
+]
+hash = "sha256:576a29a7cb57bd77b86b5b1edf70cc28fd33a8f3fe440e956b77e83f5e381fa9"
+doc_hash = "sha256:7c5e02b474e07651fa129fa83a8b125f2ea37f20dfdaadc0df8ee24be4305039"
+uses = [
+    "fn:46a38038e6e48b36",
+    "fn:ca3f35cd998810eb",
+    "fn:ea877f050f651099",
+]
+reached_by = [
+    "#4",
+    "#8",
+]
+
+[[module."node_map.rs".function]]
+id = "fn:5fdea35c068a8829"
+name = "node_identifiers_are_unique"
+qual = "node_identifiers_are_unique"
+lines = [
+    594,
+    616,
+]
+hash = "sha256:771fd28f546e82f9830ece0cc6a7e635319deba1becf36ed40a5695058ad10e3"
+doc_hash = "sha256:1fda393890595f8212d6c2e3ce1c1f3df765cf83177a95de116ee6dd0b5626e4"
+callees = [
+    "fn:270633e525f74392",
+    "fn:3f743e94e1e6ff19",
+    "fn:43a8c52d1ba3c4ee",
+    "fn:c96d9ce36da8f273",
+]
+uses = [
+    "fn:46a38038e6e48b36",
+    "fn:ca3f35cd998810eb",
+    "fn:ea877f050f651099",
+]
+test = true
+
+[[module."node_map.rs".function]]
+id = "fn:d6843615767e2ea8"
+name = "read_back_tolerance"
+qual = "read_back_tolerance"
+lines = [
+    618,
+    640,
+]
+hash = "sha256:374ed5502c3bc0d522d47d4f5cb13e1627f307baf7de9455ec9459e51ba2b0a0"
+doc_hash = "sha256:479281a3ebe7e62d54929ea4557a326aeb34636636bad256617edb81c8bba226"
+uses = ["fn:ca3f35cd998810eb"]
+test = true
+
+[[module."node_map.rs".function]]
+id = "fn:681e641cff9e3c1c"
+name = "every_control_clamps_out_of_range_writes"
+qual = "every_control_clamps_out_of_range_writes"
+lines = [
+    642,
+    676,
+]
+hash = "sha256:2ec5bd4df7decc73c01cad21025cc834bfb39a8bf40880d125fe7b039a7864f3"
+doc_hash = "sha256:fdd5ae9ee0611ce030f5dbaa62e83968b0a5d665f54cbdccca0b0a42719e1f8f"
+callees = [
+    "fn:1a93782eab53fd3b",
+    "fn:690ede388fb669ea",
+    "fn:d6843615767e2ea8",
+    "fn:d9d33b0ce8ac012d",
+]
+uses = [
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+]
+test = true
+
+[[module."node_map.rs".function]]
+id = "fn:9606067dc580d966"
+name = "nan_writes_are_ignored"
+qual = "nan_writes_are_ignored"
+lines = [
+    678,
+    703,
+]
+hash = "sha256:dd3dca0f2e4e52c42963eb1baba2013394f0ee50ea38f3b3f0e829a5b7673a68"
+doc_hash = "sha256:54ccd5e791d651e5a7fbe6a7d82f0899ecac45b1b7ec8acbc813f3456f9b9e52"
+callees = [
+    "fn:1a93782eab53fd3b",
+    "fn:690ede388fb669ea",
+    "fn:d9d33b0ce8ac012d",
+]
+uses = [
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+]
+test = true
+
+[[module."node_map.rs".function]]
+id = "fn:e7e667c3125d5b29"
+name = "every_switch_round_trips"
+qual = "every_switch_round_trips"
+lines = [
+    705,
+    722,
+]
+hash = "sha256:b2a220d7ef05c96717edf9fd29286898edb0372c04c30068c6111a27929b3ec9"
+doc_hash = "sha256:85183e221604fe534e0df01a46d35a6b9e550e74811122cd18665eb3521d4864"
+callees = [
+    "fn:cde0a1a8aaddf949",
+    "fn:d9d33b0ce8ac012d",
+    "fn:f3f37543c09142be",
+]
+uses = [
+    "fn:cce1108d65dbf700",
+    "fn:ea877f050f651099",
+]
+test = true
+
+[[module."node_map.rs".function]]
+id = "fn:932325792ace8338"
+name = "browse_names_are_single_segments"
+qual = "browse_names_are_single_segments"
+lines = [
+    724,
+    745,
+]
+hash = "sha256:498db7af1021a87a8187b5ae23e4c8c72526d64746f638ef229a87f5b4c60055"
+doc_hash = "sha256:58eb5b35309b297f4e33aea16135ca17106ab6368447a7511bdc970b7978cd58"
+callees = [
+    "fn:15af30b943ab0ce4",
+    "fn:763c03d0d966ac9d",
+    "fn:7c7cd574eb971ce2",
+]
+uses = [
+    "fn:46a38038e6e48b36",
+    "fn:ca3f35cd998810eb",
+    "fn:ea877f050f651099",
+]
+test = true
+
+[module."pki_paths.rs"]
+path = "crate::ciet_opcua::pki_paths"
+
+[[module."pki_paths.rs".function]]
+id = "fn:51a4b7562e609f70"
+name = "CIET_V2_PKI_DIR_NAME"
+qual = "CIET_V2_PKI_DIR_NAME"
+item = "const"
+shape = "const"
+lines = [
+    58,
+    60,
+]
+hash = "sha256:54d10388907ad512216f592cfb63f4cda3e9a99f3270f9f6b6cdfc72012d8038"
+doc_hash = "sha256:0318db5d8f914b37202947e7857f8f90f4227a4757e83d64b5dacab10f2b54e0"
+reached_by = [
+    "#5",
+    "#6",
+]
+
+[[module."pki_paths.rs".function]]
+id = "fn:9988b40c2ca668cc"
+name = "ciet_v2_pki_dir"
+qual = "ciet_v2_pki_dir"
+lines = [
+    62,
+    74,
+]
+hash = "sha256:cab6712b5da00825479f13c59e0f9c0ae0502af661f07da1c1cbf6099dd5ce7b"
+doc_hash = "sha256:8f17935968c559173fbf46b163a76b40b8f7efab61c98cb95ba9bfc1153d40ab"
+callees = ["fn:7cff727a75dccae8"]
+uses = ["fn:51a4b7562e609f70"]
+
+[[module."pki_paths.rs".function]]
+id = "fn:f65e2663e4d21661"
+name = "ciet_v2_instance_pki_dir"
+qual = "ciet_v2_instance_pki_dir"
+lines = [
+    76,
+    102,
+]
+hash = "sha256:d0c696f099c80b0bf94e113510fa68870c8cb2fb26f133631a85e248920caf46"
+doc_hash = "sha256:487303b0a6d64ef80464abea490ab41083c57be374500e5e168f07cf5ca13423"
+callees = ["fn:3703740cf80635bc"]
+uses = ["fn:51a4b7562e609f70"]
+
+[[module."pki_paths.rs".function]]
+id = "fn:cb357b083b837e1d"
+name = "describe_pki_location"
+qual = "describe_pki_location"
+lines = [
+    104,
+    117,
+]
+hash = "sha256:d506f74e781acc444985a50c53505742bb731d53e7d7f6ce0c8e2e9fd5e5f597"
+doc_hash = "sha256:347282abdf2091da6ac61b6c387983d7aac28851a9b602697433907d4b3b3786"
+callees = ["fn:fff64009b78025fe"]
+uses = ["fn:51a4b7562e609f70"]
+reached_by = ["#5"]
+
+[[module."pki_paths.rs".function]]
+id = "fn:16cf16278de2a271"
+name = "pki_path_ends_in_the_platform_components"
+qual = "pki_path_ends_in_the_platform_components"
+lines = [
+    123,
+    172,
+]
+hash = "sha256:4106371becec6fd4705c4a912c03754e2fd0f1c8c4730b81792cc5eb7c5c1674"
+doc_hash = "sha256:ec25a45518b5604d017a0f74a6b4529f027c9ebf74810b5fa7b5f19d8ca2b82f"
+callees = ["fn:248e1ae0a67aed85"]
+uses = [
+    "fn:51a4b7562e609f70",
+    "fn:663288235ff7e201",
+]
+test = true
+
+[[module."pki_paths.rs".function]]
+id = "fn:bdc92a6ffef17af6"
+name = "description_names_the_directory_and_the_missing_security"
+qual = "description_names_the_directory_and_the_missing_security"
+lines = [
+    174,
+    199,
+]
+hash = "sha256:a1fdfcd56cd71d18cd6e2db166f78153e32e4ec4c16946eab645e0cfe18ecf9f"
+doc_hash = "sha256:3c7588b7fbb8a68b1a27dfbad43ca714326704674e0090cace3f30fa015ee4c0"
+callees = ["fn:cb357b083b837e1d"]
+uses = ["fn:51a4b7562e609f70"]
+test = true
+
+[module."server.rs"]
+path = "crate::ciet_opcua::server"
+
+[[module."server.rs".function]]
+id = "fn:36ca412c5b6a7530"
+name = "default_ciet_server_config"
+qual = "default_ciet_server_config"
+lines = [
+    75,
+    97,
+]
+hash = "sha256:1fd871ab164f8d86aea9d12dd55b40297a2cee6c009ac9725314ff72808cc3ba"
+doc_hash = "sha256:a5ed8cd1971ac625a8beaa4ccdb21423ebee5ee876b755c0ae061f3ebd9250f4"
+callees = ["fn:4bcee12bf5f15901"]
+uses = [
+    "fn:4b9d4ac3881f81b2",
+    "fn:e99c2eb67ae43082",
+]
+reached_by = ["#7"]
+
+[[module."server.rs".function]]
+id = "fn:b68944c3202f6de9"
+name = "spawn_opcua_server_thread"
+qual = "spawn_opcua_server_thread"
+lines = [
+    99,
+    142,
+]
+hash = "sha256:76f38817b2e62d22166c8e06e39d7c20b905de8a0f6d5cfdb891f1d46bbdc0f0"
+doc_hash = "sha256:18c49604f13d089437d66a27d4f63adfc271a82ef8068034486d91386ddca4bd"
+callees = ["fn:7257d147579c4b43"]
+uses = [
+    "fn:43bc0cc706c60f1c",
+    "fn:44a739a47430b3cb",
+    "fn:a76d0eb2f9ad8b05",
+    "fn:b01ad8002516f636",
+    "fn:d62b6822cf9b7209",
+    "fn:e99c2eb67ae43082",
+]
+reached_by = ["#20"]
+
+[[module."server.rs".function]]
+id = "fn:c3add8fa1c4fb1b7"
+name = "default_config_binds_all_interfaces_on_the_standard_port"
+qual = "default_config_binds_all_interfaces_on_the_standard_port"
+lines = [
+    149,
+    183,
+]
+hash = "sha256:fc52501013717f15ef92d196eb83bb0112e0a92ebd93695dd28f7532b0f0669d"
+doc_hash = "sha256:a1aadc6ff1ab1f2304408017c22e3a708d1c2fe806d331dc8fafac67672db183"
+callees = [
+    "fn:1117b0ab8e83e055",
+    "fn:36ca412c5b6a7530",
+    "fn:7c9ed66c37149945",
+]
+uses = ["fn:4eb30f66b5e16375"]
+test = true
+
+[module."simulator.rs"]
+path = "crate::ciet_opcua::simulator"
+
+[[module."simulator.rs".function]]
+id = "fn:e1ec16b4d01ed35d"
+name = "CIET_APPLICATION_URI"
+qual = "CIET_APPLICATION_URI"
+item = "const"
+shape = "const"
+lines = [
+    47,
+    57,
+]
+hash = "sha256:4a060d27075263ff2933bd6e18ea01d29ef81ba240a20a02fa1f3f1d4ee6809e"
+doc_hash = "sha256:75626294cbab306fc4ce1de6dbca760a7cafd36d0af1055e8679fd7fbdcbb792"
+
+[[module."simulator.rs".function]]
+id = "fn:612ec475b96cd95a"
+name = "CIET_DEFAULT_APPLICATION_NAME"
+qual = "CIET_DEFAULT_APPLICATION_NAME"
+item = "const"
+shape = "const"
+lines = [
+    59,
+    60,
+]
+hash = "sha256:e368ab521cd9ed284fe06d3af91258113cdb2732a105f16bd92431c9cde05439"
+doc_hash = "sha256:9a54a461d85dafb1370366c21a456eea995fde3ce193017c8e236a9924a4a1c4"
+
+[[module."simulator.rs".function]]
+id = "fn:ba7a2cbf3115465c"
+name = "CIET_OUTPUTS_FOLDER_NODE_ID"
+qual = "CIET_OUTPUTS_FOLDER_NODE_ID"
+item = "const"
+shape = "const"
+lines = [
+    62,
+    63,
+]
+hash = "sha256:dc5170a51b805825218c340cf3d9d17ca7a05b6ddca812f2101c890f5d2bce99"
+doc_hash = "sha256:0f3ca9f67d8b14f8192fe01a14d9a9b3eef7e13129698a0bfd86bcf3b050e31b"
+
+[[module."simulator.rs".function]]
+id = "fn:85dce13df42dddcb"
+name = "CIET_CONTROLS_FOLDER_NODE_ID"
+qual = "CIET_CONTROLS_FOLDER_NODE_ID"
+item = "const"
+shape = "const"
+lines = [
+    65,
+    66,
+]
+hash = "sha256:6f8cb64e313a2341f3cfec4ccd1980418aa3f72f050958325a62c60bc4c84d06"
+doc_hash = "sha256:83be930bd5dfec6826dd3a3856a3ca0ff6a1a20880643b57f93335a80258b882"
+
+[[module."simulator.rs".function]]
+id = "fn:e50da06510144999"
+name = "CIET_NODE_MANAGER_NAME"
+qual = "CIET_NODE_MANAGER_NAME"
+item = "const"
+shape = "const"
+lines = [
+    68,
+    69,
+]
+hash = "sha256:677ee6286553ecad5b6245800daa76787a99129ddad45324f53073d390f86f9d"
+doc_hash = "sha256:a464fccd9f0dfbc35d59e3001cba39d8c7fd42984a5823cfea2dc1d5029b8085"
+
+[[module."simulator.rs".function]]
+id = "fn:79de2b1d58cbead3"
+name = "CIET_LOG_PREFIX"
+qual = "CIET_LOG_PREFIX"
+item = "const"
+shape = "const"
+lines = [
+    71,
+    73,
+]
+hash = "sha256:4b6e06af85ca02b28657d2101d84ec2071f5b2e3501260f8a1a902e04501c0fa"
+doc_hash = "sha256:a8d25b971992e778f7ce8071b3085cfd5fd5656c98b4a64816b0a317e2ea4ece"
+
+[[module."simulator.rs".function]]
+id = "fn:b3d41f7baf277a2e"
+name = "CIET_OPCUA_PROFILE"
+qual = "CIET_OPCUA_PROFILE"
+item = "const"
+shape = "const"
+lines = [
+    75,
+    95,
+]
+hash = "sha256:c80b20ec9f78645a801051f1d69b081e5fc54bf59dba4ea5800387580647f92b"
+doc_hash = "sha256:defaa9e53f452e925489f0111c24e6db50a3c13484b41cadcf4dcaa5bf9fb626"
+uses = [
+    "fn:1af97b32968f4089",
+    "fn:4b47fdf53b62950f",
+    "fn:4eb30f66b5e16375",
+    "fn:51a4b7562e609f70",
+    "fn:612ec475b96cd95a",
+    "fn:79de2b1d58cbead3",
+    "fn:7c3717b65b92c578",
+    "fn:7d3630110974a908",
+    "fn:85dce13df42dddcb",
+    "fn:a1172c02af406213",
+    "fn:a33ab46f92990ea3",
+    "fn:ba7a2cbf3115465c",
+    "fn:e1ec16b4d01ed35d",
+    "fn:e50da06510144999",
+    "fn:e67992afe1316a09",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:4b9d4ac3881f81b2"
+name = "CietOpcuaSimulator"
+qual = "CietOpcuaSimulator"
+item = "type"
+shape = "struct"
+lines = [
+    97,
+    104,
+]
+hash = "sha256:1cf4ec69e2d042a1fa157b5aa009392c0e6a9c75426ef047789a0f77ebf7b14f"
+doc_hash = "sha256:6dc63904e69132101657554bb0650d69714f24f9479bb56f1c86bb8a39561e6b"
+reached_by = [
+    "#7",
+    "#9",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:44a739a47430b3cb"
+name = "CietNode"
+qual = "CietNode"
+item = "type"
+shape = "enum"
+lines = [
+    110,
+    123,
+]
+hash = "sha256:8eb4852a775149951f82d1d7e911e356506b3581514d90c1cc56a061df0b4bd7"
+doc_hash = "sha256:bd32c65ce795f0f3349dbda328eb7e51811b5f4cd27ee680136f2ab5424d0265"
+uses = [
+    "fn:46a38038e6e48b36",
+    "fn:ca3f35cd998810eb",
+    "fn:ea877f050f651099",
+]
+reached_by = [
+    "#8",
+    "#9",
+    "#20",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:634c95ad1187abec"
+name = "all"
+qual = "CietNode::all"
+lines = [
+    130,
+    138,
+]
+hash = "sha256:0f0c84a7c102223f1033801360dbfc85e4bb23ca868d706643c6965235363c1b"
+doc_hash = "sha256:505404a83afcf83f7ff00e68f25a004531c1b0fd58a1de32f131b422a0c2ec3a"
+uses = [
+    "fn:44a739a47430b3cb",
+    "fn:46a38038e6e48b36",
+    "fn:ca3f35cd998810eb",
+    "fn:ea877f050f651099",
+]
+reached_by = [
+    "#8",
+    "#9",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:b1e7e779ed8e8b84"
+name = "node_identifier"
+qual = "CietNode::node_identifier"
+lines = [
+    140,
+    147,
+]
+hash = "sha256:b08a94a92faad7d9e00718bf1367d72cfb3164602f16fd7143e6ff359d3cd180"
+doc_hash = "sha256:7395392f58e13966304e383a57615b92872fd1df1bd0caf648f56c8a3bd525b9"
+callees = [
+    "fn:270633e525f74392",
+    "fn:3f743e94e1e6ff19",
+    "fn:43a8c52d1ba3c4ee",
+]
+uses = ["fn:44a739a47430b3cb"]
+reached_by = [
+    "#8",
+    "#9",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:e31c032c382ae995"
+name = "browse_name"
+qual = "CietNode::browse_name"
+lines = [
+    149,
+    156,
+]
+hash = "sha256:e6e27fc0b4909876f9be0adbe3c543179391a2525455911e7012e966bea7c290"
+doc_hash = "sha256:201837e273c0420f8d07f7a33187c23f735d8a7adeb43d628bb182a4d6440fa9"
+callees = [
+    "fn:15af30b943ab0ce4",
+    "fn:763c03d0d966ac9d",
+    "fn:7c7cd574eb971ce2",
+]
+uses = ["fn:44a739a47430b3cb"]
+reached_by = ["#8"]
+
+[[module."simulator.rs".function]]
+id = "fn:23dd69bb10d95a44"
+name = "display_name"
+qual = "CietNode::display_name"
+lines = [
+    158,
+    165,
+]
+hash = "sha256:c5448d92112a57608c9838e779b5111c71572b9d4e62827e8eabf8b5c7352412"
+doc_hash = "sha256:f633dd018ba8240eb44877abb1da9ea63717976d2f97132228d3d91afbe9a047"
+callees = [
+    "fn:5be9452c3ccdf28f",
+    "fn:5eddc3443d6f0571",
+    "fn:b17a01e059a4906f",
+]
+uses = ["fn:44a739a47430b3cb"]
+
+[[module."simulator.rs".function]]
+id = "fn:bab54dfd388fac81"
+name = "description"
+qual = "CietNode::description"
+lines = [
+    167,
+    192,
+]
+hash = "sha256:38d016aa09fbf4ee0d2e2c3bcda011670be34477070febbe14d2c89d0439e1e7"
+doc_hash = "sha256:1e3c1597788215ac51abddf93f8f2bf0791b36ed2ffb9eeee1e3b5330dd3cba2"
+callees = [
+    "fn:5be9452c3ccdf28f",
+    "fn:5eddc3443d6f0571",
+    "fn:6360bf1e0e29f428",
+    "fn:690ede388fb669ea",
+    "fn:ad04c01090e63a67",
+    "fn:b17a01e059a4906f",
+]
+uses = ["fn:44a739a47430b3cb"]
+
+[[module."simulator.rs".function]]
+id = "fn:bc0de96af57c2744"
+name = "data_type"
+qual = "CietNode::data_type"
+lines = [
+    194,
+    201,
+]
+hash = "sha256:a28367d89548beac6a1a6dd8507b950a020706ed8f948d4f862133aee234c841"
+doc_hash = "sha256:dc734a73c8ce740485e2ff85dcf4316771f54f0894418e850469bc7bb541e0a1"
+uses = ["fn:44a739a47430b3cb"]
+reached_by = ["#8"]
+
+[[module."simulator.rs".function]]
+id = "fn:752ea81c86b16a98"
+name = "access_level"
+qual = "CietNode::access_level"
+lines = [
+    203,
+    211,
+]
+hash = "sha256:3f657f4f2cf2d96068aa0bdf1aa7ec3b2463ae6b1c2d866dd980902fdd24da99"
+doc_hash = "sha256:eb1681740c8e9d15eb137ca2b099cab4181a01d1f3d02d7390dcdac60ec02687"
+uses = ["fn:44a739a47430b3cb"]
+reached_by = ["#8"]
+
+[[module."simulator.rs".function]]
+id = "fn:c2b7e8b517cae60c"
+name = "folder"
+qual = "CietNode::folder"
+lines = [
+    213,
+    220,
+]
+hash = "sha256:b84e1e9cd2b02f37f657fbbea0097d32bc01bbf8da2dd08f8c164dd3b902e696"
+doc_hash = "sha256:be8dbc287f96e7bef86a8e4ae803db21e9a059d1998909ee1ce2a84af90dd448"
+uses = [
+    "fn:44a739a47430b3cb",
+    "fn:54652c2d2252c566",
+]
+reached_by = ["#8"]
+
+[[module."simulator.rs".function]]
+id = "fn:bd475bdc1574b5a6"
+name = "read"
+qual = "CietNode::read"
+lines = [
+    222,
+    232,
+]
+hash = "sha256:d3f8d25835d7c8a2634c0fef01e4fa93fb6551a29f6bac45e5e1bf0b9246371c"
+doc_hash = "sha256:e20b02ea099eee4f778f9af88facabe7f7cdce27cb65d160b97443aba1cd67ed"
+callees = [
+    "fn:1ea17f7b457c3d3c",
+    "fn:e165ff4a916a21c5",
+    "fn:f3f37543c09142be",
+]
+uses = [
+    "fn:44a739a47430b3cb",
+    "fn:cce1108d65dbf700",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:4c9652f924f3a472"
+name = "record_write"
+qual = "CietNode::record_write"
+lines = [
+    234,
+    246,
+]
+hash = "sha256:dc457edd3c92ef27d6576b64a6afaa721e13259740ec0c742a4dd47c38517eac"
+doc_hash = "sha256:9d2316737347766c9b7d698b40f6f3ae10800e6be1d300f1ec738d96a07ea812"
+callees = [
+    "fn:5b080b7b71ecedd7",
+    "fn:c1bd58ac55b0f325",
+]
+uses = [
+    "fn:44a739a47430b3cb",
+    "fn:4e44570772ee7f8f",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:c1bd58ac55b0f325"
+name = "record_control_request"
+qual = "record_control_request"
+lines = [
+    249,
+    274,
+]
+hash = "sha256:c4c20b70a4af9724dd25f6096aadd082cd7019bd9632cc2d2fdee322f331535a"
+doc_hash = "sha256:66e4b356a28e551121c9c311fff8ffe4edb0dbd9d593b62f056e88b2d75334d1"
+callees = [
+    "fn:80d6c4e4543271e3",
+    "fn:88051878122835ad",
+]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+]
+reached_by = ["#10"]
+
+[[module."simulator.rs".function]]
+id = "fn:5b080b7b71ecedd7"
+name = "record_switch_request"
+qual = "record_switch_request"
+lines = [
+    276,
+    295,
+]
+hash = "sha256:f6ceeae00d2d0f469a61fee9ec8b963d9da7e5aa8bbdb6a17b9ce9475a9b1982"
+doc_hash = "sha256:c24997c9105ad6ebdc618efeb14f2c0447960c19d03e5ca9e5311d6a07b92b6a"
+callees = ["fn:0b4a3dcfa6a16d2c"]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ea877f050f651099",
+]
+reached_by = ["#10"]
+
+[[module."simulator.rs".function]]
+id = "fn:a5848eacc874ea7e"
+name = "record_control_request_shared"
+qual = "record_control_request_shared"
+lines = [
+    297,
+    311,
+]
+hash = "sha256:579ceb08225dc0522acd05d31e5387ebddce94fc9c42ebfaddb98d4d9d008b7e"
+doc_hash = "sha256:d0b529067b3a35eaa0393cc6b6c7d1766c642d793439e22b2577e59ee2b364a8"
+callees = ["fn:c1bd58ac55b0f325"]
+uses = [
+    "fn:b01ad8002516f636",
+    "fn:ca3f35cd998810eb",
+]
+reached_by = ["#10"]
+
+[[module."simulator.rs".function]]
+id = "fn:af5daafc29aeec43"
+name = "record_switch_request_shared"
+qual = "record_switch_request_shared"
+lines = [
+    313,
+    324,
+]
+hash = "sha256:4fc214caed5503040e77aceef10f516727de05f289cf9c45d004c9a57d3fb852"
+doc_hash = "sha256:43013e87ad5fbc3ea35b6e85461d426da29e1cf79a5396ccb68a6d917a6bb2e1"
+callees = ["fn:5b080b7b71ecedd7"]
+uses = [
+    "fn:b01ad8002516f636",
+    "fn:ea877f050f651099",
+]
+reached_by = ["#10"]
+
+[[module."simulator.rs".function]]
+id = "fn:bebf98e8b5746f2b"
+name = "writes_are_recorded_as_requests_and_clamped_on_apply"
+qual = "writes_are_recorded_as_requests_and_clamped_on_apply"
+lines = [
+    331,
+    460,
+]
+hash = "sha256:c40643a53129807e681beaebe9af1173636364d8c4ac5147b47b2a6f9ca930e7"
+doc_hash = "sha256:107d892ca41207d0ddc5a2b2c40bc5ab3a0f3a9e7f570c3c779f61c181e62c4d"
+callees = [
+    "fn:0591a6bdb3e08418",
+    "fn:0960b45df6218448",
+    "fn:0ced28846e3a9aa8",
+    "fn:80d6c4e4543271e3",
+    "fn:a5848eacc874ea7e",
+    "fn:af5daafc29aeec43",
+    "fn:d9d33b0ce8ac012d",
+    "fn:f4ac6dd2e65dae2a",
+    "fn:f760269d8c1be58d",
+]
+uses = [
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+    "fn:ea877f050f651099",
+]
+test = true
+
+[[module."simulator.rs".function]]
+id = "fn:f584e08681fee3b4"
+name = "ciet_nodes_reproduce_the_node_map"
+qual = "ciet_nodes_reproduce_the_node_map"
+lines = [
+    462,
+    529,
+]
+hash = "sha256:cca75e91b5264b32cda6114bb0047fc7bed8c33e2dc2779e6abdc8c0b7e58967"
+doc_hash = "sha256:7e0f97fd21bd6e8f9432c764f49a3ca25c4dc3e5666be8238d42da821b1796b3"
+callees = [
+    "fn:15af30b943ab0ce4",
+    "fn:270633e525f74392",
+    "fn:3f743e94e1e6ff19",
+    "fn:43a8c52d1ba3c4ee",
+    "fn:634c95ad1187abec",
+    "fn:752ea81c86b16a98",
+    "fn:763c03d0d966ac9d",
+    "fn:7c7cd574eb971ce2",
+    "fn:b1e7e779ed8e8b84",
+    "fn:bc0de96af57c2744",
+    "fn:c2b7e8b517cae60c",
+    "fn:c96d9ce36da8f273",
+    "fn:e31c032c382ae995",
+]
+uses = [
+    "fn:44a739a47430b3cb",
+    "fn:46a38038e6e48b36",
+    "fn:54652c2d2252c566",
+    "fn:ca3f35cd998810eb",
+    "fn:ea877f050f651099",
+]
+test = true
+
+[[module."simulator.rs".function]]
+id = "fn:4146e127d2287b11"
+name = "the_ciet_profile_is_internally_consistent"
+qual = "the_ciet_profile_is_internally_consistent"
+lines = [
+    531,
+    587,
+]
+hash = "sha256:11e435ee9bb9e963a5299697464fa4bb5fc6c7a4465f1084e5dee121a94881c6"
+doc_hash = "sha256:2516fd1f89dc1c41ca4427ed93c196a78e5ff0f069a8ef4d2c6258d17d4382fe"
+callees = [
+    "fn:634c95ad1187abec",
+    "fn:b1e7e779ed8e8b84",
+]
+uses = [
+    "fn:44a739a47430b3cb",
+    "fn:4b9d4ac3881f81b2",
+]
+test = true
+
+[module."state.rs"]
+path = "crate::ciet_opcua::state"
+
+[[module."state.rs".function]]
+id = "fn:43bc0cc706c60f1c"
+name = "SharedCietState"
+qual = "SharedCietState"
+item = "type"
+shape = "alias"
+lines = [
+    52,
+    58,
+]
+hash = "sha256:f3f32370ca7a8758e6ec367d26551b7e6ecb33701d4a6388e1d2ed8dd1982701"
+doc_hash = "sha256:53bb839cf7b0e33f7f1c64a644706f1846e5a67ef2f9a0ef341edeb5bb023e5e"
+uses = ["fn:cce1108d65dbf700"]
+reached_by = ["#20"]
+
+[[module."state.rs".function]]
+id = "fn:9fcd8afc16597201"
+name = "HeaterType"
+qual = "HeaterType"
+item = "type"
+shape = "enum"
+lines = [
+    60,
+    73,
+]
+hash = "sha256:aa0bc45fa992ccbf4f99d21692c7566565ec5334479b1fa7099fed1c94b364d6"
+doc_hash = "sha256:5376547ded2ff25227ca793422ad0c20f5e69168de9d934a124dd954cf4747a4"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:9b4db80b38ee8f2f"
+name = "fmt"
+qual = "HeaterType::fmt"
+lines = [
+    76,
+    78,
+]
+hash = "sha256:6680d0e3036a7cb992376f9532b0066192154428f98dfe2b809f007c9c332115"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:9fcd8afc16597201"]
+
+[[module."state.rs".function]]
+id = "fn:1e6a5a03ed2cce7a"
+name = "axial_node_count"
+qual = "HeaterType::axial_node_count"
+lines = [
+    82,
+    91,
+]
+hash = "sha256:a26537a570de5387367ffa401293148eb01ba6bfb1523a9bc49ee7f2fe9cc962"
+doc_hash = "sha256:8e525bea3819058f56654d0527a8afbd0da0083f4b906003a8f6a40c652b8d76"
+uses = ["fn:9fcd8afc16597201"]
+
+[[module."state.rs".function]]
+id = "fn:3e7f985f2c53547a"
+name = "HeaterControlSettings"
+qual = "HeaterControlSettings"
+item = "type"
+shape = "struct"
+lines = [
+    94,
+    127,
+]
+hash = "sha256:50ac47190752790f11093ab24b848c6cd1f5cd71f7a2f968401a7360a39faad1"
+doc_hash = "sha256:d50563af4c62bb923fcf8ba88e6011110055779f0cd710ba21e664512002ad26"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:ec3160c9ec094bc5"
+name = "default"
+qual = "HeaterControlSettings::default"
+lines = [
+    130,
+    138,
+]
+hash = "sha256:6d00f99f2cabc889d6d3300663b9b867f68e7dc5c4a190e51b1f21fcf7029102"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3e7f985f2c53547a"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:0011d428e1f9d2ce"
+name = "demanded_power"
+qual = "HeaterControlSettings::demanded_power"
+lines = [
+    142,
+    158,
+]
+hash = "sha256:d81ecb881bd5f45bfbd6d29629084610870b6ca51ab4e3137a157ab84befe48b"
+doc_hash = "sha256:b2c2362b23946a8a4f97f187cc5dae813b54573728b311d204978a1a1e6b7873"
+uses = ["fn:3e7f985f2c53547a"]
+reached_by = ["#12"]
+physical_interface = true
+
+[[module."state.rs".function]]
+id = "fn:2279615a0da27286"
+name = "sine_wave_label"
+qual = "HeaterControlSettings::sine_wave_label"
+lines = [
+    160,
+    166,
+]
+hash = "sha256:b7464c04b78605b903f9173b1f5f9e5470a5426c8ca094ef50fd91736d324226"
+doc_hash = "sha256:a47fd0a147e482aca3b558bbab59f969ce89f3bbc9fa75097f1497a0839eb440"
+uses = ["fn:3e7f985f2c53547a"]
+
+[[module."state.rs".function]]
+id = "fn:cce1108d65dbf700"
+name = "CietState"
+qual = "CietState"
+item = "type"
+shape = "struct"
+lines = [
+    169,
+    375,
+]
+hash = "sha256:1edce57753ca3aae77a76da04731bf983b1293f4086558ce54ca0398649fdafc"
+doc_hash = "sha256:ee2112ceeca97dde94ac1e3fa50a9d88d54da693be76a6fa09fa2941a822a75d"
+uses = [
+    "fn:3e7f985f2c53547a",
+    "fn:9fcd8afc16597201",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:d9d33b0ce8ac012d"
+name = "default"
+qual = "CietState::default"
+lines = [
+    378,
+    476,
+]
+hash = "sha256:762338afcaaebb2cf56d9cb372ae7284caa42f2d7ad169c4232f4858c1f4dc56"
+doc_hash = "sha256:44adf6a357da6bf0a52c1467694cf5f350e0014faca6783415941b6858e8b861"
+callees = ["fn:ec3160c9ec094bc5"]
+uses = [
+    "fn:3e7f985f2c53547a",
+    "fn:9fcd8afc16597201",
+    "fn:cce1108d65dbf700",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:53c13f9ac2df66ef"
+name = "CTAH_PUMP_PRESSURE_LIMIT_PASCALS"
+qual = "CTAH_PUMP_PRESSURE_LIMIT_PASCALS"
+item = "const"
+shape = "const"
+lines = [
+    479,
+    484,
+]
+hash = "sha256:e1db76ab91490f1b1b4f628f656f2efc8c7ffc149ab465d5939ef67a7088e9c8"
+doc_hash = "sha256:1855cdabaa868c10b581f8342b23ca4e2eb818ecd5ad3d3a62ab5bbd5b3c5ea3"
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:a40db7ef1b68100d"
+name = "HEATER_POWER_LIMIT_KILOWATTS"
+qual = "HEATER_POWER_LIMIT_KILOWATTS"
+item = "const"
+shape = "const"
+lines = [
+    486,
+    492,
+]
+hash = "sha256:fd820b0239a38dec562b16026cc4372cafdcd56eddcef610f96f122310780e74"
+doc_hash = "sha256:f5f556827a34fe271bd316b36175f3649709b0c5a1a012b5b8f178c028cd2080"
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:7d89dce0dd1b253d"
+name = "MAX_TIMESTEP_SECONDS"
+qual = "MAX_TIMESTEP_SECONDS"
+item = "const"
+shape = "const"
+lines = [
+    494,
+    499,
+]
+hash = "sha256:a37d0d5535cd40e6053ad5a172bc54e7f6212c267e2a1d8f5f2441ed28851add"
+doc_hash = "sha256:4991b836203d5c93d4f26f8dd464a1b126ad05b80b4e2e0d9620a1ad96bdb870"
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:3ce0398e4c7f5494"
+name = "overwrite_state"
+qual = "CietState::overwrite_state"
+lines = [
+    502,
+    508,
+]
+hash = "sha256:354584541175a474aa88fef2f22a426d4bd914f1ed92024bdc4f96524b68a0ed"
+doc_hash = "sha256:984715704d1e0154d492d5aa3f1f2a81257146f487cf7eb8d7d2feb825a657a0"
+uses = ["fn:cce1108d65dbf700"]
+reached_by = [
+    "#13",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:042c0485199a950a"
+name = "get_heater_power_kilowatts"
+qual = "CietState::get_heater_power_kilowatts"
+lines = [
+    510,
+    513,
+]
+hash = "sha256:149f29eacaf9e56861fdd532d19fbb48e9a480d2869418a2bdb21559174b2d00"
+doc_hash = "sha256:9aefcb10b6fa9eec31efade5bd4c04d90176c7e05934d02ddb048608e5856b7d"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:88b583fc022cd5cc"
+name = "set_heater_power_kilowatts"
+qual = "CietState::set_heater_power_kilowatts"
+lines = [
+    515,
+    523,
+]
+hash = "sha256:03fa57841b0680a81ee74987427a089d93ea7d666e2b1cfe9f17683f28ae78d4"
+doc_hash = "sha256:9f6b41c9c1142b3221cf38ca9b69f29c90e4901226f1a2ebb06e3a43b58bdfe7"
+uses = [
+    "fn:a40db7ef1b68100d",
+    "fn:cce1108d65dbf700",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:2ce1a4deff3c6d32"
+name = "get_heater_outlet_temp_degc"
+qual = "CietState::get_heater_outlet_temp_degc"
+lines = [
+    525,
+    528,
+]
+hash = "sha256:a6111107ccd03c2323262078f14390dafc7216c996014320199c653e74ce6720"
+doc_hash = "sha256:415286f7fc536497c477f99b7f8dc36d73d13a4564a9bb7c561363fc5cba2c3b"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:92db4ce4c2055275"
+name = "get_heater_inlet_temp_degc"
+qual = "CietState::get_heater_inlet_temp_degc"
+lines = [
+    530,
+    533,
+]
+hash = "sha256:fb5a431f8a14c84ad985e93a493f2a464b604cf631d249bc0b5a07481b678800"
+doc_hash = "sha256:38c524c63262f93e690fed6dca784cbcebd19bec28efcfd8f5e954a79c401c59"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:a150ad6234d73cbf"
+name = "get_dhx_shell_outlet_temp_degc"
+qual = "CietState::get_dhx_shell_outlet_temp_degc"
+lines = [
+    535,
+    538,
+]
+hash = "sha256:b180d4678ec5154f99390582053d33e46db630d011a5b5e854b9002a09371c7f"
+doc_hash = "sha256:0951dcf7d51298b8656e927d330705f65681b2402cb6df066e20f41855671cbd"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:5b02f23b6f03d975"
+name = "get_dhx_shell_inlet_temp_degc"
+qual = "CietState::get_dhx_shell_inlet_temp_degc"
+lines = [
+    540,
+    543,
+]
+hash = "sha256:2e5855e16b51f81db355940ff2be7771af7b2f420bb9a1879dcd91bb5416e60d"
+doc_hash = "sha256:c68b17323e3b0d2098a3211a8967f0f68b461ac8d0475f9d8f190297fb8426a4"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:d1c44ae9210eb5f4"
+name = "get_dhx_tube_outlet_temp_degc"
+qual = "CietState::get_dhx_tube_outlet_temp_degc"
+lines = [
+    545,
+    548,
+]
+hash = "sha256:151512d3fd8509573b0c14d3a35ac604cefe82e1734d0118b8381d4b9db4a812"
+doc_hash = "sha256:c9f3cd2a26c22a485f27912dad1eb1c5dc483cb5ed6e2d5723df4a96584ee177"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:96c92854f7756db6"
+name = "get_dhx_tube_inlet_temp_degc"
+qual = "CietState::get_dhx_tube_inlet_temp_degc"
+lines = [
+    550,
+    553,
+]
+hash = "sha256:ffc7c0723358412c3c0f2617c116a015a61bcb3537448aeae2312e71cceddecd"
+doc_hash = "sha256:07bbdc270642def87594075f6feaca0a8d3b0d3c7c7ef9fc8f15158f8d642410"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:8a4fff1fac851df0"
+name = "get_tchx_outlet_temp_degc"
+qual = "CietState::get_tchx_outlet_temp_degc"
+lines = [
+    555,
+    558,
+]
+hash = "sha256:c7ed7dacca2f16d387dbab858339ab3df5565e5c3bbb9e361194e12bbfeb199c"
+doc_hash = "sha256:f42a967a827848780d7d5a2a445243881fe1eb5fb335e86d82aa8a088d089123"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:e2fd54033f3bbbbb"
+name = "get_tchx_inlet_temp_degc"
+qual = "CietState::get_tchx_inlet_temp_degc"
+lines = [
+    560,
+    563,
+]
+hash = "sha256:28c3aa295f3205db610d044275a9e3fb9e1e5d45ada4c83764a250e6bc72961b"
+doc_hash = "sha256:85e5bf1a49dd235b899fa9e5abae90344738b3689c708fc083cd7eeb4d4b5d70"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:fa3526bdbe52fe35"
+name = "get_ctah_outlet_temp_degc"
+qual = "CietState::get_ctah_outlet_temp_degc"
+lines = [
+    565,
+    568,
+]
+hash = "sha256:a310aa187660d55972a212d66681f30e5be24a1a92747d160bb2350afd2f2ce8"
+doc_hash = "sha256:3f02be5618134dd9154ad77cc16ab7dac16cfbf5d4fb1bc87cc57f96db311786"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:7416d03e06630da5"
+name = "get_ctah_inlet_temp_degc"
+qual = "CietState::get_ctah_inlet_temp_degc"
+lines = [
+    570,
+    573,
+]
+hash = "sha256:f4ecc2e7186098f5b01e4a58f3ed5b5c54b97814cfcfc29455bcbba00e5e4e43"
+doc_hash = "sha256:f71a6ffc859a9685ad9cb290651f0b7b4f8282e3f002344a81977d4b18038996"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:91b835b593c80280"
+name = "get_timestep_seconds"
+qual = "CietState::get_timestep_seconds"
+lines = [
+    575,
+    578,
+]
+hash = "sha256:25a0338fe008c64f29aecd95cd5bcbd5b8ad65079f737392529f5f54013241ae"
+doc_hash = "sha256:8d8b18c50eb6349fb5a7a758c2c972c2cad497b6643d0e475661a7aef390ae4f"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:dc35bb524ab77a1f"
+name = "set_timestep_seconds"
+qual = "CietState::set_timestep_seconds"
+lines = [
+    580,
+    584,
+]
+hash = "sha256:c296d5ec111c518b483c2bcb246e56f72d477130a3924e8705505799cd62ae7c"
+doc_hash = "sha256:7423b55c4d7e545828855e1f09df14cec3954eeec6ab27b5240cfdd862af6380"
+uses = [
+    "fn:7d89dce0dd1b253d",
+    "fn:cce1108d65dbf700",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:616983fc2bfc5a70"
+name = "is_fast_fwd_on"
+qual = "CietState::is_fast_fwd_on"
+lines = [
+    586,
+    589,
+]
+hash = "sha256:6d1824769c0ccd6c2229277e8369b4764860da77370247e12762ccabfd9578c1"
+doc_hash = "sha256:2d753a90ce05e03267a22c70bbe685b868093c4d64c77c374b412e7410c3465f"
+uses = ["fn:cce1108d65dbf700"]
+
+[[module."state.rs".function]]
+id = "fn:0960b45df6218448"
+name = "get_ctah_pump_pressure_f64"
+qual = "CietState::get_ctah_pump_pressure_f64"
+lines = [
+    591,
+    594,
+]
+hash = "sha256:0300c687b848d667b8a9edb69acb60755132b8cf967d026cabf080b3217b4bf6"
+doc_hash = "sha256:efd28c959319142127accdfe3847232802e2c6c45c1ad2dcff818eef84788d2d"
+uses = ["fn:cce1108d65dbf700"]
+reached_by = [
+    "#10",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:ab4ef63877db09a9"
+name = "set_ctah_pump_pressure_pascals"
+qual = "CietState::set_ctah_pump_pressure_pascals"
+lines = [
+    596,
+    603,
+]
+hash = "sha256:aee33842da7a603a2509efbf2f1d72daac1b1969d7bf92c2701986d6caae678b"
+doc_hash = "sha256:50ba2b2c97ae60ad12bfa06bda2437d5688c018019a40a22a4d99dc369f23aa1"
+uses = [
+    "fn:53c13f9ac2df66ef",
+    "fn:cce1108d65dbf700",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."state.rs".function]]
+id = "fn:7658a1d9a1433dcc"
+name = "new_shared_state"
+qual = "new_shared_state"
+lines = [
+    606,
+    609,
+]
+hash = "sha256:20b1adea60ecb154c4dd2b9409602140400cc66a4adf9a9116c2518343f2d2d1"
+doc_hash = "sha256:c3f0f8d47b1c22e9aea294211b0eb2c8d00d8aae23ad715ce9867a5508e496d9"
+callees = ["fn:d9d33b0ce8ac012d"]
+uses = [
+    "fn:43bc0cc706c60f1c",
+    "fn:cce1108d65dbf700",
+]
+reached_by = ["#20"]
+
+[[module."state.rs".function]]
+id = "fn:d2b84b1eed0cfebc"
+name = "frequency_response_signal_matches_closed_form"
+qual = "frequency_response_signal_matches_closed_form"
+lines = [
+    616,
+    652,
+]
+hash = "sha256:5ca44b4d28991e14dd1cf1b815a0cfa9f9bf7704edb46492721804113e355405"
+doc_hash = "sha256:e4b39d45b71058d0271586b317e1abd899aface108456367f0afec40260d75b6"
+callees = ["fn:0011d428e1f9d2ce"]
+uses = ["fn:3e7f985f2c53547a"]
+test = true
+
+[[module."state.rs".function]]
+id = "fn:7fc4cea0d4aacd76"
+name = "control_setters_clamp_to_documented_envelopes"
+qual = "control_setters_clamp_to_documented_envelopes"
+lines = [
+    654,
+    706,
+]
+hash = "sha256:574e80c77463597dc1db5ebee00aef98a42e6c77e7f47845e71544aa962f74c7"
+doc_hash = "sha256:93ce9b607db885b706b9fe2ff4b8124dd5b983024c5de83e3dfb9248d433a1cf"
+callees = [
+    "fn:88b583fc022cd5cc",
+    "fn:ab4ef63877db09a9",
+    "fn:d9d33b0ce8ac012d",
+    "fn:dc35bb524ab77a1f",
+]
+uses = [
+    "fn:53c13f9ac2df66ef",
+    "fn:7d89dce0dd1b253d",
+    "fn:a40db7ef1b68100d",
+    "fn:cce1108d65dbf700",
+]
+test = true
+
+[module."user_controls.rs"]
+path = "crate::ciet_opcua::user_controls"
+
+[[module."user_controls.rs".function]]
+id = "fn:4e44570772ee7f8f"
+name = "CietUserControls"
+qual = "CietUserControls"
+item = "type"
+shape = "struct"
+lines = [
+    68,
+    85,
+]
+hash = "sha256:4a826a802d768d81e5ed519eb1a40226e5cc3c0ce8798bfeda819a88fb30314f"
+doc_hash = "sha256:8ff89b25761018f03595cabec81bb6fcb9bf923271ef841cb38d816ac8db58f8"
+reached_by = [
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:b01ad8002516f636"
+name = "SharedUserControls"
+qual = "SharedUserControls"
+item = "type"
+shape = "alias"
+lines = [
+    87,
+    92,
+]
+hash = "sha256:c792a49659011391e1c9c1b506690e29c5422f64a25d2c9fa8cd56fc5a31716b"
+doc_hash = "sha256:0164885caf35778ff2119e2df679e3d9b066d53aa2c3290170ff24bfa08b82ac"
+uses = ["fn:4e44570772ee7f8f"]
+reached_by = [
+    "#10",
+    "#20",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:18edfad4bc2d5759"
+name = "new"
+qual = "CietUserControls::new"
+lines = [
+    101,
+    108,
+]
+hash = "sha256:22d5f7ee72f81cae050f464fc9fcd61752952cb5598e494c718f611c57c48221"
+doc_hash = "sha256:ff12d67e8082e462fd28f3903a529e4918339362c20633be177ac931457f7c0f"
+uses = ["fn:4e44570772ee7f8f"]
+reached_by = [
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:88051878122835ad"
+name = "request_control"
+qual = "CietUserControls::request_control"
+lines = [
+    110,
+    118,
+]
+hash = "sha256:93983b4137e7040ac33d44392740f80929f6b48fe746347b90cbf8048117f1de"
+doc_hash = "sha256:1ba7de453df9c3f39c61a7b1900585b83aa42d2dd5c4c6559e58ae8536e8bf95"
+callees = ["fn:ceedd9d542348057"]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+]
+reached_by = [
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:0b4a3dcfa6a16d2c"
+name = "request_switch"
+qual = "CietUserControls::request_switch"
+lines = [
+    120,
+    123,
+]
+hash = "sha256:0c8f8c4f570a013ba02a5b6adbf4132c9de901a233ff8d2ceb4f19c44defa981"
+doc_hash = "sha256:b80686fcf64e89f28bce590c4704f9304b361b7ea45c38f53e8ef7e0cd274c82"
+callees = ["fn:babb0a93fc139cd0"]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ea877f050f651099",
+]
+reached_by = [
+    "#10",
+    "#15",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:f4ac6dd2e65dae2a"
+name = "pending_control"
+qual = "CietUserControls::pending_control"
+lines = [
+    125,
+    128,
+]
+hash = "sha256:a77b1b71a88b97a782e7f2f8b5fd6840144923fb971c4de7c3407a3393190ae2"
+doc_hash = "sha256:fb159173fd83e2fe6d4c55608d269d888c961bfc99452a12b1a8fc81a75370e3"
+callees = ["fn:ceedd9d542348057"]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+]
+reached_by = [
+    "#10",
+    "#20",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:e5118468bdf93187"
+name = "pending_switch"
+qual = "CietUserControls::pending_switch"
+lines = [
+    130,
+    133,
+]
+hash = "sha256:bc90282ecdf49e70d2fb0de6a806d3f6ca81462eac92ac9a3d408790baa0b8c5"
+doc_hash = "sha256:19f84a4ee5e05d75c920b8d62ebfe47de86f03e9dff05aff698c75b82be3c639"
+callees = ["fn:babb0a93fc139cd0"]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ea877f050f651099",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:f760269d8c1be58d"
+name = "has_pending_requests"
+qual = "CietUserControls::has_pending_requests"
+lines = [
+    135,
+    142,
+]
+hash = "sha256:e062e79cc2181225c52118142f52235a5f678812de7f1bda546c0709a3e204a7"
+doc_hash = "sha256:2a04611bf3c28490129fcf0ad13011a30a80f69887850fccebee1af1e8b985d8"
+uses = ["fn:4e44570772ee7f8f"]
+reached_by = [
+    "#10",
+    "#17",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:3e7a809fcdaa6982"
+name = "applied_request_count"
+qual = "CietUserControls::applied_request_count"
+lines = [
+    144,
+    147,
+]
+hash = "sha256:0c83499333eac6f3358f9ba3713f0a150fa1c2dd9583a1108469cc6da8825df0"
+doc_hash = "sha256:05ff82a047fa339725aa682b965b484eca7689413a8602fbe25558f2501a2438"
+uses = ["fn:4e44570772ee7f8f"]
+
+[[module."user_controls.rs".function]]
+id = "fn:0591a6bdb3e08418"
+name = "apply_and_clear"
+qual = "CietUserControls::apply_and_clear"
+lines = [
+    149,
+    177,
+]
+hash = "sha256:e4284ae5273d15022d5b920288d39988c0f95d9d74ccab7aa3b5542ca1e26775"
+doc_hash = "sha256:1b3d780647d126235e846d3c57606f41050a846cfa51a710c6ccb48d63f588cf"
+callees = [
+    "fn:1a93782eab53fd3b",
+    "fn:babb0a93fc139cd0",
+    "fn:cde0a1a8aaddf949",
+    "fn:ceedd9d542348057",
+]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+    "fn:ea877f050f651099",
+]
+reached_by = [
+    "#10",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#20",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:f96d75d869f925ea"
+name = "clear_without_applying"
+qual = "CietUserControls::clear_without_applying"
+lines = [
+    179,
+    187,
+]
+hash = "sha256:eb4394be0a3853c7b7b1f4ae0d910c307daaa0d964eee8300b70895614569725"
+doc_hash = "sha256:381efa9e1a577057171005cf4d880c1bbf119c0520143fc3890b6b46f1c906bd"
+uses = ["fn:4e44570772ee7f8f"]
+
+[[module."user_controls.rs".function]]
+id = "fn:d05b837dd01fc4d3"
+name = "default"
+qual = "CietUserControls::default"
+lines = [
+    191,
+    193,
+]
+hash = "sha256:75eba7766f42238c60949e319b31a28091e84de874ab63687993afa0dae336e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:18edfad4bc2d5759"]
+uses = ["fn:4e44570772ee7f8f"]
+
+[[module."user_controls.rs".function]]
+id = "fn:0ced28846e3a9aa8"
+name = "new_shared_user_controls"
+qual = "new_shared_user_controls"
+lines = [
+    196,
+    199,
+]
+hash = "sha256:4fadee8c02ff48f533555bf428b5cbc23ecb4a270c304385fcb74b98e797535a"
+doc_hash = "sha256:396082af128ff19b9eb7de5d27cf3577e1dff06c4bf734d7e6a04c00b06e1a15"
+callees = ["fn:18edfad4bc2d5759"]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:b01ad8002516f636",
+]
+reached_by = [
+    "#10",
+    "#20",
+]
+
+[[module."user_controls.rs".function]]
+id = "fn:6060e9b3bb8a9eae"
+name = "slot_counts_match_the_node_map"
+qual = "slot_counts_match_the_node_map"
+lines = [
+    205,
+    227,
+]
+hash = "sha256:021678cbba35a07b06bced037c24b9f37b38400944144d663275df5365e800ea"
+doc_hash = "sha256:b98cd3a3c29051741690323181c0f62ae6e836a539a5c13ab10dd1ab016a6fc1"
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+    "fn:ea877f050f651099",
+]
+test = true
+
+[[module."user_controls.rs".function]]
+id = "fn:71031cc40826a37a"
+name = "every_request_reaches_plant_state"
+qual = "every_request_reaches_plant_state"
+lines = [
+    229,
+    269,
+]
+hash = "sha256:40d5f95a912b2be54c853beaf00cf12270090e97a2c071d1383c453ac34201a2"
+doc_hash = "sha256:b872ea0a9ea503105f7a4d9f4d1f60f6d1aaf70aa653e42ba9585e0f88fc348f"
+callees = [
+    "fn:0591a6bdb3e08418",
+    "fn:0b4a3dcfa6a16d2c",
+    "fn:18edfad4bc2d5759",
+    "fn:1ea17f7b457c3d3c",
+    "fn:690ede388fb669ea",
+    "fn:88051878122835ad",
+    "fn:d9d33b0ce8ac012d",
+    "fn:f3f37543c09142be",
+]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+    "fn:ea877f050f651099",
+]
+test = true
+
+[[module."user_controls.rs".function]]
+id = "fn:a311ccfeef40cba8"
+name = "requests_are_consumed_exactly_once"
+qual = "requests_are_consumed_exactly_once"
+lines = [
+    271,
+    300,
+]
+hash = "sha256:dfae4d7824ab98e84096b14ff4c0281aacbd33ffea3092384de8f92bcf7781e5"
+doc_hash = "sha256:3033ac9b3677e4d6d4688490f325832157c458bfc09346420e70920f22e0925d"
+callees = [
+    "fn:0591a6bdb3e08418",
+    "fn:18edfad4bc2d5759",
+    "fn:88051878122835ad",
+    "fn:88b583fc022cd5cc",
+    "fn:d9d33b0ce8ac012d",
+    "fn:f760269d8c1be58d",
+]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+]
+test = true
+
+[[module."user_controls.rs".function]]
+id = "fn:2b3126679896ab83"
+name = "a_stale_full_struct_overwrite_cannot_lose_a_request"
+qual = "a_stale_full_struct_overwrite_cannot_lose_a_request"
+lines = [
+    302,
+    338,
+]
+hash = "sha256:18e21877428de57620a774bdcb12045507d001f97a452c1fe463414e9813d417"
+doc_hash = "sha256:8f8c38a6345325db506bd5088ab915e253a4afb4809fdfdb5227d201341877e1"
+callees = [
+    "fn:0591a6bdb3e08418",
+    "fn:18edfad4bc2d5759",
+    "fn:3ce0398e4c7f5494",
+    "fn:88051878122835ad",
+    "fn:d9d33b0ce8ac012d",
+]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+]
+test = true
+
+[[module."user_controls.rs".function]]
+id = "fn:765032fa51a54255"
+name = "applying_enforces_the_envelope"
+qual = "applying_enforces_the_envelope"
+lines = [
+    340,
+    366,
+]
+hash = "sha256:8fc26bda0fd289f8022f7d9854ffa0bd20e1fe660eadd929a03fbea5331575c6"
+doc_hash = "sha256:5c4c68257644efc86e4ef3a801bc8d42def337570e39b40224104112d90f6639"
+callees = [
+    "fn:0591a6bdb3e08418",
+    "fn:18edfad4bc2d5759",
+    "fn:88051878122835ad",
+    "fn:d9d33b0ce8ac012d",
+]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+]
+test = true
+
+[[module."user_controls.rs".function]]
+id = "fn:9f98b3f8e74b9d1f"
+name = "later_request_supersedes_earlier_within_a_timestep"
+qual = "later_request_supersedes_earlier_within_a_timestep"
+lines = [
+    368,
+    385,
+]
+hash = "sha256:b7f8efc52af087989ebf2c047e68dec36041048b222655398ee5dbf2b8df1aad"
+doc_hash = "sha256:e08343fd411a3d90aab4b5423cc538ece329b84e6b30e6a839d413fa36973eee"
+callees = [
+    "fn:0591a6bdb3e08418",
+    "fn:18edfad4bc2d5759",
+    "fn:88051878122835ad",
+    "fn:d9d33b0ce8ac012d",
+]
+uses = [
+    "fn:4e44570772ee7f8f",
+    "fn:ca3f35cd998810eb",
+    "fn:cce1108d65dbf700",
+]
+test = true

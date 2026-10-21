@@ -29,6 +29,7 @@
 //! whole resolved range (two independent to-tolerance grids differ by up to
 //! ~2 err where they are relaxed to `errmax` only on sub-`errint` panels).
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::records::SectionCursor;
 use njoy_outram_park_fork::endf::tape::Tape;
@@ -124,7 +125,7 @@ fn si30_reconr_grid_matches_njoy_between_resonances() {
             probe(e);
         }
         for i in 0..=N_SAMPLES {
-            probe(e_lo * (e_hi / e_lo).powf(i as f64 / N_SAMPLES as f64));
+            probe(e_lo * (e_hi / e_lo).r_powf(i as f64 / N_SAMPLES as f64));
         }
         println!(
             "[{tag}] MT={mt:3} {:6} pts (njoy {:6}); 2.5-4.5 keV: {n_ours} pts (njoy {n_njoy}); worst {:.3e} at {:.4e} eV (crate {:.6e}, njoy {:.6e})",

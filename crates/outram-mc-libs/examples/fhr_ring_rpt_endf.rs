@@ -121,8 +121,10 @@
 //!
 //! 6. **The pricing harness has a positive control, and it passes.** A table of
 //!    null results is only worth reading if the instrument that produced it can
-//!    produce a non-null one. `OUTRAM_RINGRPT_TARGET_AT_REST=1` zeroes the
-//!    transport temperature, which for a pointwise nuclide changes the kinematics
+//!    produce a non-null one. `OUTRAM_RINGRPT_TARGET_AT_REST=1` ~~zeroes the
+//!    transport temperature~~ (since 2026-09-30, GitHub #313: holds every
+//!    nuclide at rest with `Nuclide::with_target_at_rest`), which for a
+//!    pointwise nuclide changes the kinematics
 //!    only (the cross sections were already broadened to 600 K at construction),
 //!    so what goes away is free-gas target motion -- the defect bead `op-50vu`
 //!    recorded and fixed. Same case, same seed, 2026-09-12:
@@ -176,13 +178,14 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use outram_mc_libs::material::material::{Material, NuclideComponent};
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::compute::ComputeType;
     use outram_mc_libs::physics::keff::KeffSettings;
     use outram_mc_libs::physics::reactor_physics::{run_keff_reactor_physics, ReactorPhysicsConfig};
     use outram_mc_libs::physics::transport_csg::SourceBox;
-    use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
+    use outram_mc_libs::pebble_beds::delta_tracking::{bounding_audit_line, Majorant};
     use outram_mc_libs::pebble_beds::fhr_pebble::{
         fhr_pebble_geometry, homogenise_by_volume, rpt_fuel_outer_radius, ExplicitTrisoPebble,
         TrisoSpec,
@@ -259,7 +262,7 @@ mod desktop {
         let p = endf_dir().join(file);
         eprint!("  reconstructing {name:<6} … ");
         let t0 = std::time::Instant::now();
-        let n = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
+        let n = Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
             .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
         eprintln!("{:.1?}", t0.elapsed());
         n
@@ -591,6 +594,17 @@ mod desktop {
         } else {
             nuclides()
         };
+        // GitHub #313: the free-gas kT of a pointwise nuclide is now its data
+        // temperature, so zeroing `KeffSettings::temperature_k` no longer
+        // removes target motion. The positive control therefore applies the
+        // per-nuclide hook, which the in-process ablation study
+        // (`fhr_pebble_target_at_rest_ablation.rs`) showed to be mechanically
+        // identical to the old whole-run switch.
+        let nucs = if std::env::var("OUTRAM_RINGRPT_TARGET_AT_REST").is_ok() {
+            nucs.into_iter().map(Nuclide::with_target_at_rest).collect::<Vec<_>>()
+        } else {
+            nucs
+        };
         let (mats, spec) = build_materials();
         // ── Sensitivity switch: how much is the graphite S(α,β) law WORTH here? ──
         //
@@ -619,7 +633,9 @@ mod desktop {
         let compute = ComputeType::CpuMultiThread(Default::default());
         // ── Positive control: can the pricing harness SEE a big effect at all? ──
         //
-        // `OUTRAM_RINGRPT_TARGET_AT_REST=1` zeroes the transport temperature, which
+        // `OUTRAM_RINGRPT_TARGET_AT_REST=1` ~~zeroes the transport temperature~~
+        // (**CORRECTED 2026-09-30, GitHub #313**: applies
+        // `Nuclide::with_target_at_rest` to every nuclide, above), which
         // for a HIGH-tier (pointwise) nuclide changes the *kinematics only*: the
         // cross sections were Doppler-broadened to 600 K at construction and are
         // temperature-independent at lookup, so the collision rate is untouched and
@@ -633,14 +649,14 @@ mod desktop {
         if target_at_rest {
             eprintln!(
                 "  !! POSITIVE CONTROL: free-gas target motion REMOVED — transport\n\
-                 \x20    temperature zeroed. Known-broken on purpose."
+                 \x20    every nuclide held at rest. Known-broken on purpose."
             );
         }
         let keff = KeffSettings {
             n_particles: 4000,
             n_inactive: 30,
             n_active: 80,
-            temperature_k: if target_at_rest { 0.0 } else { TEMP_K },
+            temperature_k: TEMP_K,
             compute,
             ..KeffSettings::default()
         };
@@ -693,12 +709,19 @@ mod desktop {
              ~{} of them lie in the r < {R_FUEL_ZONE} cm fuel sphere, which carries \
              pf {achieved:.4}",
             packed.len(),
-            (packed.len() as f64 * (4.0 / 3.0 * std::f64::consts::PI * R_FUEL_ZONE.powi(3))
-                / (2.0 * pack_half).powi(3))
+            (packed.len() as f64 * (4.0 / 3.0 * std::f64::consts::PI * R_FUEL_ZONE.r_powi(3))
+                / (2.0 * pack_half).r_powi(3))
             .round() as usize
         );
 
         let r_rpt_fuel = rpt_fuel_outer_radius(R_RPT_INNER, R_FUEL_ZONE, spec.packing_fraction);
+        // `OUTRAM_MAJORANT_AUDIT=1`: audit the old and new majorant on these
+        // materials and stop (GitHub #585).
+        if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+            let tag = "fhr_ring_rpt_endf";
+            println!("{}", bounding_audit_line(tag, &mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.3));
+            return;
+        }
         let majorant = Majorant::bounding(&mats, &nucs, 1.0e-4, 2.0e7, 4096, 32, 0.3);
         check_majorant_bounds(&majorant, &mats, &nucs);
 
@@ -948,7 +971,7 @@ mod desktop {
         if search_radius {
             use outram_mc_libs::physics::search::{search_for_keff, SearchMethod, SearchSettings};
 
-            let r_inner_max = (R_FUEL_ZONE.powi(3) * (1.0 - spec.packing_fraction)).cbrt();
+            let r_inner_max = (R_FUEL_ZONE.r_powi(3) * (1.0 - spec.packing_fraction)).r_cbrt();
             eprintln!("\n── RPT inner-radius search (target = this code's explicit-TRISO k) ──");
             eprintln!(
                 "  target k = {:.5} ± {:.5}   geometric ceiling on r_inner = {r_inner_max:.4} cm",
@@ -985,7 +1008,7 @@ mod desktop {
                 // Residual tolerance ~ the combined 1σ of the two eigenvalues
                 // being compared: stop as soon as the ring-RPT pebble is
                 // statistically indistinguishable from the explicit one.
-                k_tol: (explicit.k_std.powi(2) + explicit.k_std.powi(2)).sqrt(),
+                k_tol: (explicit.k_std.r_powi(2) + explicit.k_std.r_powi(2)).sqrt(),
                 max_iterations: 8,
                 method: SearchMethod::Bisect,
             };
@@ -1056,8 +1079,11 @@ mod desktop {
     /// little resonance absorption, `p` too high and `k` too high, which is the
     /// shape of this study's residual, so it is measured rather than assumed.
     ///
-    /// [`Majorant::bounding`] lays 4096 log bins over 11 decades (0.64 % wide)
-    /// and sub-samples each 32 times, so the sampling pitch is ~0.021 % in energy.
+    /// ~~[`Majorant::bounding`] lays~~ The pre-#585 `Majorant::bounding` laid
+    /// 4096 log bins over 11 decades (0.64 % wide)
+    /// and sub-sampled each 32 times (**CHANGED 2026-10-05, GitHub #585:** it now
+    /// also tabulates every nuclide breakpoint, so this check is independent
+    /// confirmation rather than the only guard), so the sampling pitch is ~0.021 % in energy.
     /// A Doppler width `Δ = √(4EkT/A)` is 1.1 % of E at the 6.674 eV resonance but
     /// only ~0.02 % by 20 keV — comparable to the pitch — so the high-keV
     /// resonances are where a peak can slip between sub-samples.
@@ -1178,7 +1204,7 @@ mod desktop {
                 if b <= a {
                     continue;
                 }
-                let w = (b / a).ln();
+                let w = (b / a).r_ln();
                 num += sp.flux_per_lethargy[i].mean * w;
                 du += w;
             }

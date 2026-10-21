@@ -8,11 +8,16 @@ risk-analysis core of [RAVEN](https://github.com/idaholab/raven), the
 probabilistic risk-analysis, UQ and model-reduction framework developed by
 Idaho National Laboratory.
 
-> **⚠️ SCAFFOLD ONLY — nothing is implemented.** This crate currently contains
-> module boundaries, licensing and provenance, and nothing else. No
-> distribution, no sampler, no sensitivity estimator, no surrogate. There has
-> been no human V&V. Do not describe any part of it as working, verified or
-> validated.
+> **⚠️ IMPLEMENTED IN PART, WITH NO HUMAN V&V.** Distributions, samplers,
+> sensitivity measures, Bayesian model updating, statistical distances,
+> Approximate Bayesian Computation, imprecise probability, model selection,
+> fault-tree quantification, graph neural networks and surrogate models all
+> carry working, tested code.
+> Every one of them is **AI-assisted draft material** under the workspace
+> `RESPONSIBLE_USE.md` rules until the maintainer and the crate owner have
+> reviewed it. Read "verified" throughout this crate as "checked against a
+> reference by an automated test", which is what it is — and do not describe
+> any part of it as validated.
 
 > **Intended use:** education, research, capability building and V&V only.
 > Despite the name, RAFFLES is **not** for nuclear facility operation, reactor
@@ -31,19 +36,38 @@ maker: propose changes of direction to them rather than making them.
 
 | Module | What it holds |
 |---|---|
-| `distributions` | Probability distributions — densities, CDFs, inverse CDFs, analytic moments; continuous and discrete, truncated variants, multivariate |
+| `distributions` | Probability distributions — densities, CDFs, inverse CDFs, analytic moments; continuous and discrete, truncated variants, multivariate. Plus `distributions::seeded` (2026-10-02, from `outram-mc-libs`): uniform, Box-Muller normal and exponential deviates drawn directly from the workspace LCG seed |
 | `samplers` | Sampling strategies — Monte Carlo, Latin hypercube (RAVEN calls it `Stratified`), grid / full-factorial |
 | `sensitivity` | Importance measures from an evaluated sample — Sobol first-order and total indices, Pearson / Spearman / partial correlation |
-| `surrogate` | Reduced-order models — polynomial chaos, Gaussian process, regression. **Placeholder; no work scheduled** |
+| `bayesian` | Bayesian model updating — independent priors, Metropolis–Hastings and affine-invariant ensemble moves, TMCMC and TEMCMC with the log-evidence as a by-product, and both published tempering criteria |
+| `distance` | Statistical distances between two sample sets — Euclidean on summaries, Bhattacharyya, Hellinger, Jensen–Shannon, Bray–Curtis, 1-Wasserstein (the area metric) |
+| `abc` | Approximate Bayesian Computation — three kernels, rejection ABC, and an approximate log-likelihood the transitional samplers consume directly |
+| `imprecise` | Imprecise probability — intervals, probability boxes, Clopper–Pearson confidence boxes, coherent-system reliability with or without a dependence assumption |
+| `model_selection` | Comparing models by evidence — Bayes factors, posterior model probabilities, the Kass–Raftery scale |
+| `estimators` | Basic estimators moved from `outram-mc-libs` 2026-10-02 (GitHub #500, at the workspace maintainer's direction; owner review outstanding): sample mean and standard error, seed pooling, Shannon entropy over counts, running-sum (batch) uncertainty and batch prediction, first-order error propagation. Bit-identical to the outram-mc originals by contract |
+| `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS, or a **ZBDD** for scale; coherent **and** non-coherent), derive its **prime implicants** where cut sets would be conservative, quantify the top event by rare-event, MCUB, exact inclusion-exclusion **or a BDD**, and rank the basic events by the five standard importance measures. Handles house events, **fault trees with confidence-box basic events** (`scram::pba`, `scram::pbox_tree`: gate-by-gate p-box propagation, independent or Fréchet unknown dependence chosen per gate, after Lye et al. 2024; verified against the original R scripts, `docs/computing-with-confidence-verification.md`), **common-cause-failure groups** (all four models, applied by default) **substitutions** (delete terms, recovery rules, exchange events) and **alignments** (per-phase mission time and house events) and **uncertainty analysis** (Monte Carlo over the seven MEF random deviates), and **reads SCRAM's own Model Exchange Format input models** including `<define-component>` private namespaces and `<xi:include>`; no preprocessor |
+| `gnn` | Graph neural networks for physics — message-passing topology, the physics-guided bound on message-passing iterations, and (behind `burn`) the network itself |
+| `surrogate` | Reduced-order models — polynomial regression, and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
 
 **Out of scope:** physics of any kind, simulation drivers, job scheduling,
-input-file/XML parsing, databases, plotting. RAVEN is a whole workflow
-application; RAFFLES ports only its statistical core. The caller runs their own
-model and hands RAFFLES arrays of numbers.
+databases, plotting. RAVEN is a whole workflow application; RAFFLES ports only
+its statistical core. The caller runs their own model and hands RAFFLES arrays
+of numbers.
+
+~~input-file/XML parsing~~ **CORRECTED 2026-09-22** — still out of scope for
+the RAVEN-derived modules, but **in** scope for `scram`, by the workspace
+maintainer's direction that everything of SCRAM except its GUI be translated.
+`scram::mef` reads SCRAM's own input models.
 
 Which RAVEN capabilities are in, which are out, and in what order they are
 approached is written up in the workspace-root scoping document
 **`docs/raven-port-scoping.md`**.
+
+**`scram` widens that scope, and was added at the workspace maintainer's
+direction rather than the crate owner's** (2026-09-21). Fault-tree
+quantification is not part of RAVEN's statistical core, so whether it belongs
+in RAFFLES at all is Adolphus Lye's call to confirm or reverse — recorded here
+so it is visible rather than absorbed silently.
 
 ## Attribution and licensing
 
@@ -61,20 +85,20 @@ at time of access `RAVENv3.2` (2026-03-12). Accessed 2026-08-06. Licensed
 the U.S. Department of Energy Office of Nuclear Energy under Contract
 No. DE-AC07-05ID14517.
 
-### Apache-2.0 into GPL-3.0 is ONE-WAY
+### Apache-2.0 into ~~GPL-3.0~~ AGPL-3.0 is ONE-WAY
 
-RAFFLES is **GPL-3.0-only**, the Outram Park workspace default.
+RAFFLES is ~~**GPL-3.0-only**~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), the Outram Park workspace default — an AGPL-3.0-only combined work under GPLv3 §13 / AGPLv3 §13: its GPL-3.0 ports (SCRAM, Physics-guided-MPNN, pba.r) keep GPL-3.0, and the crate ships `LICENSE.GPL-3.0`.
 
 Apache-2.0 is one-way compatible with GPLv3. Apache-licensed code may be taken
 into a GPLv3 work and the result is governed by GPLv3; GPLv3 code may **not**
 be taken into an Apache-2.0 work.
 
-- Code may flow **RAVEN (Apache-2.0) into RAFFLES (GPL-3.0-only)**.
+- Code may flow **RAVEN (Apache-2.0) into RAFFLES (~~GPL-3.0-only~~ AGPL-3.0-only)**.
 - Code may **not** flow **RAFFLES into RAVEN**.
 
 So: do not contribute RAFFLES code, patches or translated files upstream to
 RAVEN, and do not offer RAFFLES code to anyone under Apache-2.0 terms. Once a
-translation lands here it is GPLv3 and it stays GPLv3. This constrains the
+translation lands here it is ~~GPLv3 and it stays GPLv3~~ AGPLv3 and stays so. This constrains the
 direction of *code* flow only — reading RAVEN's papers and documentation and
 implementing the published algorithms is unaffected.
 
@@ -95,7 +119,46 @@ comes from before writing its header.
 This is an independent fork. RAFFLES is not the RAVEN project, is not a release
 of RAVEN, and is not endorsed by or affiliated with RAVEN, Idaho National
 Laboratory, Battelle Energy Alliance, LLC, or the U.S. Department of Energy.
+The same holds for the other upstreams: RAFFLES is not SCRAM, is not a release
+of SCRAM, and is not endorsed by or affiliated with SCRAM or Olzhas Rakhimov.
 See the workspace `TRADEMARKS.md`.
+
+## Provenance beyond RAVEN
+
+RAFFLES started as a RAVEN port and has since taken in work from three other
+directions. The licensing is not uniform, and the difference decides what could
+be done:
+
+| Source | Licence | What that allowed |
+|---|---|---|
+| [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this ~~GPL-3.0~~ AGPL-3.0-only crate, one-way, with the attribution header in `CLAUDE.md` |
+| [Physics-guided-MPNN](https://github.com/mikelunizar/Physics-guided-MPNN) | GPL-3.0 | ~~Same licence as this workspace~~ GPL-3.0, combined with this AGPL-3.0-only crate under §13 (the ported files keep GPL-3.0), so `gnn::mpnn` **is** a port and carries its attribution header |
+| [SCRAM](https://github.com/rakhimov/scram) | GPL-3.0-or-later | ~~Same licence as this crate~~ Combined under §13 (ported files keep GPL-3.0), so `scram::probability`, `scram::importance` and `scram::fault_tree`'s connective taxonomy **are** ports and carry their attribution headers. `scram::mocus` is **not** — it is the published MOCUS algorithm, verified *against* SCRAM rather than translated from it, and says so |
+| Adolphus Lye's `Bayesian-Model-Updating-Tutorials` | GPL-3.0 (LICENSE file) | Portable, same as above; `bayesian::case_studies` **is** a port and carries its header |
+| Adolphus Lye's six other repositories (workspace issue #158) | GPL-3.0 **by direct grant** from the author, who is the copyright holder and this crate's owner — stated to the maintainer 2026-09-09, reaffirmed 2026-09-16. No `LICENSE` file in the repositories as of 2026-09-16 | Portable. Nothing has been taken from them so far: the Bayesian, distance, ABC and imprecise modules were written from the published papers, each cited with its DOI |
+| Adolphus Lye's `Computing-with-Confidence` ("Coherent systems", gh:#987) and Scott Ferson's `pba BETTER.r` | Lye's scripts: no `LICENSE` file; the author asked for them to be ported and the maintainer confirmed AGPLv3 is fine (2026-10-20). `pba.r`: GPL-3.0 ([ScottFerson/pba.r](https://github.com/ScottFerson/pba.r)). `sra.r` in the same folder: **"All rights reserved" — not read, not ported, not used** | `scram::pba` **is** a port of the pba.r operations the case studies call (`KN`, `and`, `or`, `andI`, `orI`, Fréchet and independent convolution) and carries a pba.r header; `scram::pbox_tree` and the case-study tests are original code reproducing Lye's scripts. AI-assisted draft, not reviewed by a human or the crate owner |
+
+Two things about that last row, kept apart because they are different claims.
+
+**The licence is settled.** Adolphus Lye owns the copyright in all seven
+repositories and has granted GPL-3.0 — ~~the same licence as this crate~~ (the crate became AGPL-3.0-only on 2026-10-20 at the maintainer's direction, gh:#973) — so
+there is no compatibility question and no one-way constraint of the kind that
+applies to the RAVEN port. A code-level port from any of the seven is
+permitted, with the attribution header in `CLAUDE.md`.
+
+**The checkability is not.** Six of the seven carry no `LICENSE` file, so a
+reader of this repository cannot confirm the grant from the upstream sources
+themselves — they have to take this record on trust.
+`RESEARCH_INTEGRITY_AND_PROVENANCE.md` expects better than that. The grant is
+therefore recorded in `NOTICE` with its date and how it was communicated, and
+the real fix — one commit per repository adding a `LICENSE` — is the author's
+to make. Tracked as `op-dwqw.1`; full detail in
+[`docs/adolphus-uq-port-scoping.md`](../../docs/adolphus-uq-port-scoping.md).
+
+Note the distinction the modules keep: a file **written from a paper** cites
+the DOI and carries no "ported from" header, because nothing was ported. A
+file **derived from upstream source** carries the header. Do not attach one to
+work that did not come from there.
 
 ## Design rules
 
@@ -116,11 +179,30 @@ not used. Sample values are plain `f64` in whatever units the caller's model
 uses; RAFFLES never interprets them physically. Probabilities and Sobol indices
 lie in `[0, 1]`; correlation coefficients lie in `[-1, 1]`.
 
+## Optional features
+
+| Feature | Default | What it adds |
+|---|---|---|
+| `burn` | off | Neural-network surrogates backed by [burn](https://github.com/tracel-ai/burn), this workspace's replacement for PyTorch. Pulls `burn` in `no_std` + `alloc` mode with the pure-Rust, libm-backed `ndarray` backend — no system BLAS and no GPU, so the Android and wasm builds stay clean. |
+
+```bash
+cargo build -p raffles --release --features burn
+```
+
+Nothing in `src/surrogate.rs` consumes `burn` yet; the feature wires the
+dependency up so that work can start behind a flag. GPU backends (`wgpu`,
+`vulkan`, `metal`, `webgpu`) are deliberately out of scope for this first pass.
+
 ## Android / Termux
 
-The crate is **Android-clean by construction** and must stay that way. Its only
-dependency is `thiserror`. There is no `ndarray-linalg`, no BLAS/LAPACK, no C
-or Fortran toolchain, no GUI.
+The crate is **Android-clean by construction** and must stay that way. Its
+dependencies are `thiserror`, `petir` (the RNG; ~~`outram-mc-libs`~~
+**CORRECTED 2026-10-02** — the generator moved from `outram-mc-libs` into
+`petir`, and RAFFLES no longer depends on any physics crate), `xml-rs` (the
+MEF reader, previously omitted from this list), and — only when the
+optional `burn` feature is turned on — `burn` with its `ndarray` backend. Every
+one of them is pure Rust: there is no `ndarray-linalg`, no BLAS/LAPACK, no C or
+Fortran toolchain, no GUI.
 
 If linear algebra becomes necessary — surrogate fitting, correlated
 multivariate sampling — reach first for the pure-Rust `faer` already in the
@@ -131,7 +213,7 @@ change, never unconditionally.
 Proxy check (all targets, not just the library):
 
 ```bash
-cargo check -p raffles --all-targets --target aarch64-linux-android
+cargo check --release -p raffles --all-targets --target aarch64-linux-android
 ```
 
 The authoritative check is still a native build inside Termux.
@@ -153,6 +235,15 @@ independently of the implementation:
   case.
 - **Surrogates** — exact reproduction of a polynomial at the matching
   expansion order, plus a published test problem.
+- **Fault trees** — upstream **SCRAM built from source and run**, on
+  upstream's own input models, end to end: the models are **read here from
+  their own XML**, every basic-event probability is evaluated from the model's
+  own expressions and checked against the one SCRAM printed (94 of them), and
+  the cut sets are compared set-for-set against the products SCRAM found,
+  with the totals and importance factors on top. The oracles are committed
+  under `reference-data/scram/` alongside the input models themselves; the
+  record, including what it does *not* establish, is
+  [`docs/scram-port-verification.md`](docs/scram-port-verification.md).
 
 Per the workspace V&V rule, the documentation of each gate must state **both**
 the methodology (reference, inputs, tolerances, pass criterion) and the
@@ -161,7 +252,7 @@ the methodology (reference, inputs, tolerances, pass criterion) and the
 ## Build
 
 ```bash
-cargo check -p raffles --lib
+cargo check --release -p raffles --lib
 cargo test  -p raffles --lib --tests --release
 ```
 
@@ -182,6 +273,6 @@ Always `--release` for builds and tests, per the workspace rule.
 
 ## License
 
-GPL-3.0-only. See the workspace root `LICENSE`, and this crate's `NOTICE`,
+~~GPL-3.0-only.~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), as a combined work: the GPL-3.0 ports keep GPL-3.0, see `LICENSE.GPL-3.0`. See the workspace root `LICENSE`, and this crate's `NOTICE`,
 `LICENSE-APACHE-RAVEN` and `NOTICE-RAVEN` for upstream provenance and the
 required Apache-2.0 attribution.

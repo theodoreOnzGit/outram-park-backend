@@ -10,11 +10,22 @@
 //! layer the way the single-Gaussian step does (see
 //! `docs/buffer_clt_failure_analysis.md`).
 //!
-//! This Phase-0 scaffold defines the walker type and the geometry helper
+//! ~~This Phase-0 scaffold defines the walker type and the geometry helper
 //! [`nearest_interface_distance`], which turns the concentric-sphere `TrisoCell`
 //! into the hop radius `R`. The stochastic `hop` itself, the outer-surface
-//! escape test, and the interface handling are added in the CPU-engine phases.
+//! escape test, and the interface handling are added in the CPU-engine phases.~~
+//!
+//! **CORRECTED 2026-10-03:** no longer a scaffold. Besides the walker type and
+//! [`nearest_interface_distance`], this file carries the stochastic hop
+//! ([`WoSWalker::hop`]), the walk to an absorbing sphere
+//! ([`WoSWalker::walk_to_absorbing_sphere`]), the multilayer step with interface
+//! handling ([`WoSWalker::step_multilayer`], which calls
+//! [`super::interface::does_transmit`]), and the walk to release
+//! ([`WoSWalker::walk_until_released`]); see the test
+//! `multilayer_walk_transmits_across_interfaces`.
 
+use petir::uom_math::QuantityMath;
+use petir::mathf::RealMath;
 use fission_yields_data::prelude::Nuclide;
 use outram_mc_libs::rng::lcg::prn;
 use uom::si::diffusion_coefficient::square_meter_per_second;
@@ -389,7 +400,7 @@ impl WoSWalker {
 /// fuel kernel, and the initial condition for the Crank release comparison.
 #[inline]
 pub fn sample_uniform_in_ball(seed: &mut u64, radius: Length) -> [Length; 3] {
-    let r = radius * prn(seed).cbrt();
+    let r = radius * prn(seed).r_cbrt();
     let dir = sample_uniform_direction(seed);
     [r * dir[0], r * dir[1], r * dir[2]]
 }
@@ -399,7 +410,7 @@ pub fn sample_uniform_in_ball(seed: &mut u64, radius: Length) -> [Length; 3] {
 pub fn radial_distance(position: [Length; 3]) -> Length {
     let r_squared: Area =
         position[0] * position[0] + position[1] * position[1] + position[2] * position[2];
-    r_squared.sqrt()
+    r_squared.r_sqrt()
 }
 
 /// Distance from `position` to the nearest layer interface of `triso_cell`.
@@ -560,6 +571,15 @@ mod tests {
     /// *volume* fraction — i.e. the concentration is uniform — regardless of the
     /// diffusivity contrast. This is what fixes the transmission rule: it holds
     /// for the linear `p = D2/(D1+D2)` rule and fails for the `sqrt(D)` rule.
+    ///
+    /// Methodology and the full record:
+    /// `verification_and_validation/interface_uniform_equilibrium_density.md`
+    /// (pass if `|f_in − 0.125| < 0.02`, 3·10⁶ steps, fixed seed).
+    ///
+    /// Results: ~~2026-07-23 at `ae84a04`: 0.1216 (error 0.0034)~~
+    /// **re-measured 2026-10-04 at `5e802df3a4`: 0.1368 (error 0.0118), pass**
+    /// (gh:#531). Same seed, so the stream changed in between; the seed-to-seed
+    /// spread has not been measured.
     #[test]
     fn interface_rule_gives_uniform_equilibrium_density() {
         use crate::lagrangian_decay_simulator::lagrangian_diffusion::first_passage::interface::does_transmit;
@@ -575,7 +595,7 @@ mod tests {
         let reinsert = eps * 3.0;
         let k = 1.0;
 
-        let vol_frac_in = (a.get::<meter>() / b.get::<meter>()).powi(3); // (50/100)^3 = 0.125
+        let vol_frac_in = (a.get::<meter>() / b.get::<meter>()).r_powi(3); // (50/100)^3 = 0.125
 
         let set_radius = |pos: &mut [Length; 3], target: Length| {
             let rho = radial_distance(*pos);

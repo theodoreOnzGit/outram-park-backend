@@ -1,0 +1,2763 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/thermal_hydraulics_backend/mod.rs::the_ua_slider_crossed_partway_up_at_the_nominal_operating_point",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test.rs::ctah_branch_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test.rs::isothermal_ctah_and_heater_branch_code_to_code_verification_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test.rs::isothermal_ctah_and_heater_branch_validation_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test/debugging_tests.rs::ctah_branch_pressure_change_regression_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test/debugging_tests.rs::ctah_pump_should_give_zero_resistance",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test/debugging_tests.rs::isothermal_ctah_and_heater_branch_parallel_associated_functions_regression_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test/debugging_tests.rs::partial_ctah_branch_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_dhx_branch_test.rs::isothermal_dhx_ctah_and_heater_branch_code_to_code_verification_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_dhx_branch_test/debugging_tests.rs::dhx_branch_pressure_change_regression_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/isolated_dracs_loop_resistance_calibration/mod.rs::case_c_tchx_out_313_kelvin_40_celsius_test9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated/mod.rs::quick_test_uncalibrated_dracs_loop",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_extra_long",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c6_shorter",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v3_calibrated/mod.rs::regression_long_test_calibrated_ver3_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v6_calibrated/mod.rs::regression_long_test_calibrated_ver6_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/wall_correction_isolated_dracs_loop_regression.rs::parasitic_heat_loss_regression_tchx_out_319_kelvin_46_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_pid_controller.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_branch_pressure_change_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_natural_circ_thermal_hydraulics_regression_test_prototype_2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/debugging_thermal_hydraulics.rs::dracs_natural_circ_thermal_hydraulics_test_prototype_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_10_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_20_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_five_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c1_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c2_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c3_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c4_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c5_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c6_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c7_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c8_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/dracs_mesh_refinement/mesh_refinement_two_times.rs::mesh_refined_case_c9_tchx_out_313_kelvin_40_celsius",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/misc_debugging.rs::steel_properties_debugging",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/zero_heat_loss_dracs_tests/mod.rs::dracs_natural_circ_thermal_hydraulics_pid_test_prototype_2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/debug.rs::test_fhr_four_branch_solver_debug",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/isothermal_flow.rs::test_fhr_four_branch_solver_pri_and_intrmd_loop_isothermal_check",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/isothermal_flow.rs::test_fhr_four_branch_solver_pri_and_intrmd_loop_zero_flow",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/mod.rs::test_fhr_four_branch_full_th_long_regression",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/regression.rs::isothermal_test_fhr_four_branch_solver_regression_library",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch/regression.rs::test_fhr_four_branch_solver_pri_and_intrmd_loop_full_th_short_regression",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::ihx_branch_test_get_mass_flowrate_from_pressure_change",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/single_branch.rs::ihx_branch_test_get_pressure_change_from_mass_flowrate",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_10kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_3kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_4kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_6kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_fluid_components/tests/heated_section_only.rs::heated_section_test_v2_8kw",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_heat_addition",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_heat_addition_with_parasitic_heat_loss",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_bare_pipes_debugging_parasitic_heat_loss_thermal_inertia",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_fluid_component_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/uw_madison_flibe_loop_components/flibe_loop_iteration_one/parasitic_heat_loss_calibration.rs::parasitic_heat_loss_calibration_dry_run_1",
+]
+
+[module."calculation.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components::calculation"
+
+[[module."calculation.rs".function]]
+id = "fn:f66c6613b2fa9c0c"
+name = "advance_timestep"
+qual = "NonInsulatedFluidComponent::advance_timestep"
+lines = [
+    8,
+    15,
+]
+hash = "sha256:9e11c701855272deaebca7dfeb7d926c9ae13cce3a953dc9201f3d1868d39a75"
+doc_hash = "sha256:9829ecfe677428e4306016ba0d73ccc026f3edfca226097581e0811d7ea2ef13"
+callees = ["fn:03e08a20b60594d7"]
+uses = ["fn:540617e338f429d7"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:f64ef88acd3047e2"
+name = "advance_timestep_thread_spawn"
+qual = "NonInsulatedFluidComponent::advance_timestep_thread_spawn"
+lines = [
+    17,
+    33,
+]
+hash = "sha256:efaa79105f1d9998abecf2e2ccd7b4b570b6784ef264d2bb51cdb5021e36487f"
+doc_hash = "sha256:f6b97d5858d2a24b2396910d03d659356c98470f623432ebd6490099af38727c"
+callees = ["fn:f66c6613b2fa9c0c"]
+reached_by = [
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+]
+physical_interface = true
+
+[module."calibration.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components::calibration"
+
+[[module."calibration.rs".function]]
+id = "fn:5661800de277de8d"
+name = "calibrate_nusselt_correlation_for_fluid_within_pipe"
+qual = "NonInsulatedFluidComponent::calibrate_nusselt_correlation_for_fluid_within_pipe"
+lines = [
+    9,
+    21,
+]
+hash = "sha256:a62e9321dadf1eb5af2d47240ca8c8a0c6fa01a4a4aabc86f0a71cd960452806"
+doc_hash = "sha256:76fbf70a4f2cdfbdfd4a41d4dabbd6219b7e7b4b6c1e7462c2ad796d6d672e50"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:f811c4c8869b08b0",
+]
+
+[module."fluid_component.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components::fluid_component"
+
+[[module."fluid_component.rs".function]]
+id = "fn:2a0b0eecd33792c4"
+name = "get_mass_flowrate"
+qual = "NonInsulatedFluidComponent::get_mass_flowrate"
+lines = [
+    8,
+    12,
+]
+hash = "sha256:5fc5a7fdecf9f0ec2da2908171f6ffaa4b3f59eef7d3491e1b0ac391e5d7203c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:9e6e2fd80fbeebdb"
+name = "set_mass_flowrate"
+qual = "NonInsulatedFluidComponent::set_mass_flowrate"
+lines = [
+    14,
+    26,
+]
+hash = "sha256:83b97c7fa7e23c6ba3b4abe4fddcda4c75aa6381425319733ce4494eba188880"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:9212f011bf144631",
+    "fn:f8fcd27da58670ac",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:bbc6cdab1cbfd4aa"
+name = "get_mass_flowrate_from_pressure_loss_immutable"
+qual = "NonInsulatedFluidComponent::get_mass_flowrate_from_pressure_loss_immutable"
+lines = [
+    28,
+    32,
+]
+hash = "sha256:ae7e952af5aefa922865eb7a14681f28f70190cc7ed5fac60c813b32afe6cde3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e49a2c708f64bed",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:bc147d756eb8bfff"
+name = "get_pressure_loss"
+qual = "NonInsulatedFluidComponent::get_pressure_loss"
+lines = [
+    34,
+    38,
+]
+hash = "sha256:53156019f7ef510f6aa03844cfcc9a7d2dac7c3a3c8a151b8831c55a05087dd7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:c1cd743e200a5b68",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:9662665b1fd1299c"
+name = "set_pressure_loss"
+qual = "NonInsulatedFluidComponent::set_pressure_loss"
+lines = [
+    40,
+    44,
+]
+hash = "sha256:6345ca104280d7b8dcbf09adccf97dbd9ef4852d8ab19abe85eeb333b4df3917"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5d36a8426cb919e3",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:d06404cc69270b9f"
+name = "get_pressure_loss_immutable"
+qual = "NonInsulatedFluidComponent::get_pressure_loss_immutable"
+lines = [
+    46,
+    50,
+]
+hash = "sha256:42dc9182d8f54c3145fdab969e9db67ecb6c1693327859d18e2fc92c1396f51b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5cc3a78cc9d2e79a",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:6fdeaf96df7001df"
+name = "get_cross_sectional_area"
+qual = "NonInsulatedFluidComponent::get_cross_sectional_area"
+lines = [
+    52,
+    56,
+]
+hash = "sha256:fe1edcd3dca9211e7a87876c6a4a8a6775bf7827dfbbbe11c3a663625594511e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:6163422e79b0678e"
+name = "get_cross_sectional_area_immutable"
+qual = "NonInsulatedFluidComponent::get_cross_sectional_area_immutable"
+lines = [
+    58,
+    62,
+]
+hash = "sha256:141cae9d5e7e19474bbf004f15cb4841046141a669dc4ea9d5aca6832d6e3481"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:7dd3ee7a9812c52f"
+name = "get_hydraulic_diameter"
+qual = "NonInsulatedFluidComponent::get_hydraulic_diameter"
+lines = [
+    64,
+    68,
+]
+hash = "sha256:ee0d8dadec1017e45bf24132accacfde549b779ff5a514140ff641aada1271be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:e635cbbab9c7d2c4"
+name = "get_hydraulic_diameter_immutable"
+qual = "NonInsulatedFluidComponent::get_hydraulic_diameter_immutable"
+lines = [
+    70,
+    74,
+]
+hash = "sha256:e0e6362b3593bf2807efd693c8bc30c09164c24b92ad7e9cef63c7098bbe8fac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:0e4d6d25dd362981"
+name = "get_fluid_viscosity_at_ref_temperature"
+qual = "NonInsulatedFluidComponent::get_fluid_viscosity_at_ref_temperature"
+lines = [
+    76,
+    82,
+]
+hash = "sha256:9915a502bb3842e92f34552920482f34544137f364b1d6fd43b4d991b3947c75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:9d2ba170d7315612"
+name = "get_fluid_viscosity_immutable_at_ref_temperature"
+qual = "NonInsulatedFluidComponent::get_fluid_viscosity_immutable_at_ref_temperature"
+lines = [
+    84,
+    90,
+]
+hash = "sha256:edd77088fd8c5470b910de2585b521e7cce6a9c2e6f8a4341d5a6f99069f9a14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:c999384f22ea037b"
+name = "get_fluid_density_at_ref_temperature"
+qual = "NonInsulatedFluidComponent::get_fluid_density_at_ref_temperature"
+lines = [
+    92,
+    98,
+]
+hash = "sha256:d8be028899ce629399e917c06b528b294b18c90aae14bbb7657af4940798664c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:38254f9a2a0713c6"
+name = "get_fluid_density_immutable_at_ref_temperature"
+qual = "NonInsulatedFluidComponent::get_fluid_density_immutable_at_ref_temperature"
+lines = [
+    100,
+    106,
+]
+hash = "sha256:80273993e178fd5c23049295def2506dd858d377f195c7bdcc17f084777d5c0a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:a4d0ddda6dfa1cd9"
+name = "get_component_length"
+qual = "NonInsulatedFluidComponent::get_component_length"
+lines = [
+    108,
+    112,
+]
+hash = "sha256:806753616100d3d26b973a90b4e0219280ef8f2c990218e4f2b01ead9862d3b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:9b187e999cf785db"
+name = "get_component_length_immutable"
+qual = "NonInsulatedFluidComponent::get_component_length_immutable"
+lines = [
+    114,
+    118,
+]
+hash = "sha256:4e6ca55dfdaf8699d718c23f57803620f96e2198138decb92f41743e32251fbd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:88709ea3c51caf23"
+name = "get_incline_angle"
+qual = "NonInsulatedFluidComponent::get_incline_angle"
+lines = [
+    120,
+    124,
+]
+hash = "sha256:6d9146ede3b5e96d3b98c55b8aaddc17ce682f3e96687ea332074e46bdea4658"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:55d57d8bbe7e35ff"
+name = "get_incline_angle_immutable"
+qual = "NonInsulatedFluidComponent::get_incline_angle_immutable"
+lines = [
+    126,
+    130,
+]
+hash = "sha256:297967b064e8783023917fbf7ba2b4a78c8bdd3148367359fe8d854e65a28f92"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:2515d20a95dc3a82"
+name = "get_internal_pressure_source"
+qual = "NonInsulatedFluidComponent::get_internal_pressure_source"
+lines = [
+    132,
+    136,
+]
+hash = "sha256:9318e8586bd97d662988ced6a41d80c8113ed4d45826c5f10e31077bbe3f7510"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:fcd7a377d3a1baab"
+name = "get_internal_pressure_source_immutable"
+qual = "NonInsulatedFluidComponent::get_internal_pressure_source_immutable"
+lines = [
+    138,
+    142,
+]
+hash = "sha256:38bae95060b5156f8fb07ba8ddaa624b78c5118ec6e747f00a39eddafbb5868f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:49b3f3e819a00739"
+name = "set_internal_pressure_source"
+qual = "NonInsulatedFluidComponent::set_internal_pressure_source"
+lines = [
+    144,
+    150,
+]
+hash = "sha256:7da383a99720efb04a978dec182394eb229c40b09b032823b7d7e9d3922afeac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:ca08e804e6e3c21c",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#131",
+    "#132",
+    "#133",
+    "#135",
+    "#136",
+    "#137",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components"
+
+[[module."mod.rs".function]]
+id = "fn:77026588fa2ba602"
+name = "NonInsulatedFluidComponent"
+qual = "NonInsulatedFluidComponent"
+item = "type"
+shape = "struct"
+lines = [
+    49,
+    93,
+]
+hash = "sha256:1a21065fdc6120d8319242807f25a252ab9226752568e13d1847a4e843d85fcc"
+doc_hash = "sha256:fd9cee6a2bb771ffd6b2b311e47dfa30eb7631b5450879ed4a007e04a5d512b1"
+uses = [
+    "fn:a6efe5f766b47fef",
+    "fn:f7cbf16a78489306",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+]
+
+[[module."mod.rs".function]]
+id = "fn:70cae68e0ec8771e"
+name = "new_bare_pipe"
+qual = "NonInsulatedFluidComponent::new_bare_pipe"
+lines = [
+    96,
+    187,
+]
+hash = "sha256:99b6fd4ad70933ca121bf253e35cecd9b196b2f014a8f1b6173d86a6bf747058"
+doc_hash = "sha256:f6eb0fdbcf92c4e29d8179e52b04b4dc4074a6f7557a2e792f639fff1e986fe2"
+callees = [
+    "fn:1f95f8f45b36cfb9",
+    "fn:2ee4f67ebdd1986d",
+    "fn:5809a771c2fb7658",
+    "fn:a7684adf457511e5",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:54679033f1efb4f4",
+    "fn:5811ccd622a4f7ee",
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:8ad5b5fe6a9956a0"
+name = "new_dewet_model_heater_v2_no_twisted_tape"
+qual = "NonInsulatedFluidComponent::new_dewet_model_heater_v2_no_twisted_tape"
+lines = [
+    189,
+    271,
+]
+hash = "sha256:01da14d9c107cdc6b09af8f04483232b98be8ff9dda4a0a61fd8e367b43ee620"
+doc_hash = "sha256:65c9e635b73b8a54689e9369902725304df6ab8c1668ce21c9364de5e9ba3c01"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3306dfff34f781dd",
+    "fn:89feb71c7a73a1df",
+    "fn:9cf2732f8b0c6890",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:5811ccd622a4f7ee",
+    "fn:5ea8fd594a61fae6",
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+reached_by = [
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:c79fa136163d3697"
+name = "new_custom_component"
+qual = "NonInsulatedFluidComponent::new_custom_component"
+lines = [
+    273,
+    354,
+]
+hash = "sha256:728e0d348d63da68479ce547dd11180cfa5c1278828bc87697f812daf0527244"
+doc_hash = "sha256:71dd2da3e8386d3385f3b9b70793bda5dedcd3a6369ae3b00990c459486551d9"
+callees = [
+    "fn:1f95f8f45b36cfb9",
+    "fn:2ee4f67ebdd1986d",
+    "fn:3306dfff34f781dd",
+    "fn:c9002ba20db6841b",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:54679033f1efb4f4",
+    "fn:5811ccd622a4f7ee",
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f7cbf16a78489306",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+]
+physical_interface = true
+
+[module."postprocessing.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components::postprocessing"
+
+[[module."postprocessing.rs".function]]
+id = "fn:1f1b1fd0c81dca2d"
+name = "pipe_shell_temperature"
+qual = "NonInsulatedFluidComponent::pipe_shell_temperature"
+lines = [
+    7,
+    12,
+]
+hash = "sha256:7e53f0298fefb0b7fa34313ec57d0a224b492e55689da2f1ee13011ad3ee9199"
+doc_hash = "sha256:2c2d20f524a273794b480c9675019330e27bae78244460b6489313fc32e7a97c"
+callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:529791d273932280"
+name = "pipe_fluid_array_temperature"
+qual = "NonInsulatedFluidComponent::pipe_fluid_array_temperature"
+lines = [
+    14,
+    19,
+]
+hash = "sha256:7ea2107427fd2bbc9cabfd70339a41b33b0cca4d09beb824d51db99255733594"
+doc_hash = "sha256:d1973c5b0793112ff33c42b53fc9507f0826fc811ecec15c8c08e029cf407200"
+callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
+reached_by = [
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#77",
+    "#78",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#143",
+    "#144",
+    "#145",
+]
+physical_interface = true
+
+[module."preprocessing.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components::preprocessing"
+
+[[module."preprocessing.rs".function]]
+id = "fn:71e0b3e056618526"
+name = "lateral_and_miscellaneous_connections_no_wall_correction"
+qual = "NonInsulatedFluidComponent::lateral_and_miscellaneous_connections_no_wall_correction"
+lines = [
+    22,
+    54,
+]
+hash = "sha256:60606cdddc9c7d9432fc5855a02991e0c7b272611ac74e0a4b57ae8b07700955"
+doc_hash = "sha256:36836f9d80f5333ef379318b670c6652b593e0a871816632dc12fbcc34808d73"
+callees = ["fn:4f9f268861c8e42b"]
+uses = ["fn:540617e338f429d7"]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:089c40400fdd61ff"
+name = "lateral_and_miscellaneous_connections_wall_correction"
+qual = "NonInsulatedFluidComponent::lateral_and_miscellaneous_connections_wall_correction"
+lines = [
+    56,
+    89,
+]
+hash = "sha256:b48444a029dda932c9fa1200e562fe48af6dd26736ef77a340ef90242023c345"
+doc_hash = "sha256:8bb1dfd959a7eac1e67aeff7d972a6e950d3d54d10e860367f4ed0be5adb70e9"
+callees = ["fn:4f9f268861c8e42b"]
+uses = ["fn:540617e338f429d7"]
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:4f9f268861c8e42b"
+name = "lateral_and_miscellaneous_connections"
+qual = "NonInsulatedFluidComponent::lateral_and_miscellaneous_connections"
+lines = [
+    91,
+    206,
+]
+hash = "sha256:f717818ceca2891e791452b1572c224d62298e4e03203ffb300c47aa39972772"
+doc_hash = "sha256:1c33cf10d85ee647a00ae6315d06e889101b7a0ab59553c0029814ef2e204a04"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:49d47b3854c962da",
+    "fn:4f08e35087543a15",
+    "fn:86b7775079c503a5",
+    "fn:8a180ca0986c72b8",
+    "fn:9212f011bf144631",
+    "fn:9cf2732f8b0c6890",
+    "fn:9e6e2fd80fbeebdb",
+    "fn:a5016d77314ec973",
+    "fn:abafd5a5e42d6a30",
+    "fn:be40085a8ed290cd",
+    "fn:e9745659f7cbc0a4",
+    "fn:eb89be045205dc88",
+    "fn:ed764f3d260176bb",
+    "fn:f8fcd27da58670ac",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:ed764f3d260176bb"
+name = "zero_power_bc_axial_connection"
+qual = "NonInsulatedFluidComponent::zero_power_bc_axial_connection"
+lines = [
+    208,
+    243,
+]
+hash = "sha256:7cde4db62a90035f10dd2f9dd3e6a7ff9c3bd55f2e2b08ba22df181205b09d9c"
+doc_hash = "sha256:2c57eaa96f2f1c03aaaf91822a49c22d4809f6412a93e7b67ad87ccfafb7424a"
+callees = [
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+
+[[module."preprocessing.rs".function]]
+id = "fn:e9745659f7cbc0a4"
+name = "get_air_shell_nodal_shell_conductance"
+qual = "NonInsulatedFluidComponent::get_air_shell_nodal_shell_conductance"
+lines = [
+    245,
+    289,
+]
+hash = "sha256:bdf5c84d9b9e53fb2adaef59b9809c72c3f1693f2d3c673a7458d4d95efc0b48"
+doc_hash = "sha256:5d568463a58a5fc5faff14deae2a0d969d485f703711d777eb9bb97d3f453494"
+callees = [
+    "fn:7d9e7837937bfa18",
+    "fn:a2275733c3fa6168",
+    "fn:a4d0ddda6dfa1cd9",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:49d47b3854c962da"
+name = "get_fluid_array_node_pipe_shell_conductance"
+qual = "NonInsulatedFluidComponent::get_fluid_array_node_pipe_shell_conductance"
+lines = [
+    291,
+    439,
+]
+hash = "sha256:88598f2d444eb907d5688bdb7b93ace2e2b17d4938b745df2d5938d2f7cfa113"
+doc_hash = "sha256:c564039f37c19f1686aca0fba6bc72ac7451095869b6323d6e4f39007066dd30"
+callees = [
+    "fn:25614892f3618c5c",
+    "fn:26aff73e30f8632a",
+    "fn:281e000f5919abf9",
+    "fn:33511a1688b49614",
+    "fn:37b8829042d7906e",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:6163422e79b0678e",
+    "fn:7d9e7837937bfa18",
+    "fn:7dd3ee7a9812c52f",
+    "fn:84b7870b4d7c7d91",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:bf4245b1c0d9cf88",
+    "fn:d2ef60a016252736",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#80",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#115",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#133",
+    "#135",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#147",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:3a9098e2a71fc39d"
+name = "get_reynolds_based_on_hydraulic_diameter_and_flow_area"
+qual = "NonInsulatedFluidComponent::get_reynolds_based_on_hydraulic_diameter_and_flow_area"
+lines = [
+    441,
+    469,
+]
+hash = "sha256:209b1c840685802440309b0602e2481e3723db7853cd2483bb9af72003c85e98"
+doc_hash = "sha256:c0bea844f906fa4092de8e8471cee3f13b26d597e35a6fc876c3e5eba1571a54"
+callees = [
+    "fn:281e000f5919abf9",
+    "fn:4f08e35087543a15",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:6163422e79b0678e",
+    "fn:e635cbbab9c7d2c4",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:7b35b02aac31fecd"
+name = "lateral_connection_thread_spawn"
+qual = "NonInsulatedFluidComponent::lateral_connection_thread_spawn"
+lines = [
+    471,
+    498,
+]
+hash = "sha256:98691b6dd722734bc88c0c709fce1bf28dcd4c7b51e30a285be7fa60c73d9261"
+doc_hash = "sha256:7809504681bbe25b3da16a9fa2496f2d3cdd3d3ea42f1d553d449e46df9937d9"
+callees = ["fn:71e0b3e056618526"]
+reached_by = [
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+]
+physical_interface = true
+
+[module."type_conversion.rs"]
+path = "crate::pre_built_components::non_insulated_fluid_components::type_conversion"
+
+[[module."type_conversion.rs".function]]
+id = "fn:c36fe0547d8dbc75"
+name = "into"
+qual = "NonInsulatedFluidComponent::into"
+lines = [
+    9,
+    15,
+]
+hash = "sha256:96aba3b1789761dfd9783709257013c944384310395729fdcd2d1e2b4a1ff606"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4f08e35087543a15"]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:d4b239bd4b67db13",
+]
+reached_by = ["#146"]

@@ -1,0 +1,1821 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo"
+test_ids = [
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fluid_thermo/psi_thermo.rs::correct_recovers_temperature_from_he",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fluid_thermo/psi_thermo.rs::correct_rho_clamps",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fluid_thermo/psi_thermo.rs::initial_state_consistent",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fluid_thermo/psi_thermo.rs::mu_and_kappa_fields_populated",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fluid_thermo/rho_thermo.rs::correct_updates_temperature",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fluid_thermo/rho_thermo.rs::initial_state_consistent",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fluid_thermo/rho_thermo.rs::psi_vs_rho_thermo_match",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_const.rs::cp_is_constant",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_const.rs::ha_roundtrip",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_const.rs::hs_plus_hc_equals_ha",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_polynomial.rs::const_poly_cp",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_polynomial.rs::entropy_increases_with_temperature",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_polynomial.rs::ha_roundtrip",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_polynomial.rs::hs_plus_hc_equals_ha",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_polynomial.rs::linear_poly_cp",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::cp_from_table",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::entropy_increases_with_temperature",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::ha_from_table_at_knot",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::ha_roundtrip",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::hs_plus_hc_equals_ha",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/janaf.rs::cp_at_300k_is_reasonable",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/janaf.rs::cp_both_ranges_are_reasonable",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/janaf.rs::ha_roundtrip",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/janaf.rs::hs_plus_hc_equals_ha",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/janaf.rs::newton_converges_from_bad_initial_guess",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/janaf.rs::newton_crosses_tcommon_discontinuity",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/janaf.rs::newton_t_max_clamp_returns_err",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/janaf.rs::newton_t_min_clamp_returns_err",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/const_transport.rs::alpha_h_equals_kappa_over_cp",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/const_transport.rs::kappa_from_pr",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/const_transport.rs::mu_is_constant",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/polynomial.rs::alpha_h_is_kappa_over_cp",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/polynomial.rs::kappa_at_300k",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/polynomial.rs::mu_at_300k",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/polynomial.rs::mu_increases_with_temperature",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/sutherland.rs::mu_at_293k",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/sutherland.rs::mu_increases_with_temperature",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/sutherland.rs::two_point_reconstruction",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::alpha_h_is_kappa_over_cp",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::kappa_at_knot",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::mu_at_knot",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::mu_increases_with_temperature",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::mu_interpolated",
+]
+
+[module."h_const.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::thermo::h_const"
+
+[[module."h_const.rs".function]]
+id = "fn:b378bca7fddea413"
+name = "HConstThermo"
+qual = "HConstThermo"
+item = "type"
+shape = "struct"
+lines = [
+    27,
+    46,
+]
+hash = "sha256:86179d66bfdba5784215d4db40a6dbc62077c8bc13eba1473b390e2996146827"
+doc_hash = "sha256:13fd3b062cda24973d91ffe2708d037a596cde9c9a90fdfe890dfbe1eb9e3b86"
+uses = ["fn:a18a56fc416c12dd"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+]
+
+[[module."h_const.rs".function]]
+id = "fn:397be5f0fc0df9c5"
+name = "new"
+qual = "HConstThermo::new"
+lines = [
+    49,
+    64,
+]
+hash = "sha256:62e070234f88d88872211e27383172fd980806795dc3a6fcf0380e3ab09b5904"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:0adc10cab6b997aa"
+name = "mol_weight"
+qual = "HConstThermo::mol_weight"
+lines = [
+    70,
+    72,
+]
+hash = "sha256:83450d616aa7664b545de0cb60e6bf630ec235087ee7449714c3dd757caca35b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:1e0ac377922c97d1"
+name = "r"
+qual = "HConstThermo::r"
+lines = [
+    73,
+    75,
+]
+hash = "sha256:071ece29e031841f5e5e7c5731b84b5f92ec49f527b35e169ed4ab028033a114"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:c298970448cd5970"
+name = "rho"
+qual = "HConstThermo::rho"
+lines = [
+    76,
+    78,
+]
+hash = "sha256:24a9e4d50144e7740d40f6bf85b3c08cbb3ee820f344065f07f59685fb4bde19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:d133975f0e574d5c"
+name = "psi"
+qual = "HConstThermo::psi"
+lines = [
+    79,
+    81,
+]
+hash = "sha256:2b6a724e2b040716144688c7fe98b43e01d3f3736d931ea45860d595fc4e52d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:b378bca7fddea413",
+    "fn:dae452f63f18aca8",
+]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:542721587459322a"
+name = "z"
+qual = "HConstThermo::z"
+lines = [
+    82,
+    84,
+]
+hash = "sha256:a1baebf9f1f337e794dadfed6363ffcee1974eace0b51f196609b2dbf93c05fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:0680cb2d3e2e80ce"
+name = "cp_m_cv"
+qual = "HConstThermo::cp_m_cv"
+lines = [
+    85,
+    87,
+]
+hash = "sha256:456e20252cbe7480c1ab922793d3d77fed89876634fef14c1cfbff76a346ef86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:90bd3950b633b108"
+name = "cp_eos"
+qual = "HConstThermo::cp_eos"
+lines = [
+    88,
+    90,
+]
+hash = "sha256:68b9c3ccd476f552ca9ed19b25d11ce8187705b393c6213e4ed7395c721cf4a6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:9351195407572d13"
+name = "h_eos"
+qual = "HConstThermo::h_eos"
+lines = [
+    91,
+    93,
+]
+hash = "sha256:51341ff69c2f00ebe4c186590503262b40d671625489ce3ea78be0bbf5c15aa0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:0d2686aa7d243dc0"
+name = "e_eos"
+qual = "HConstThermo::e_eos"
+lines = [
+    94,
+    96,
+]
+hash = "sha256:8d0c38a9807b099aee38cc0c920e9da6cba6d04d22deac74324372abada29cc1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:6864d1fe75f5b2cc"
+name = "s_eos"
+qual = "HConstThermo::s_eos"
+lines = [
+    97,
+    99,
+]
+hash = "sha256:f4e2b74b39c476e5bf085084c3a00ab5baf72f4cea0dee00b5e9650116183b56"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:ce283c0c380870f4"
+name = "cp"
+qual = "HConstThermo::cp"
+lines = [
+    105,
+    107,
+]
+hash = "sha256:f4c470eb4816d3215b952f5ff5e9d0a494414eaccfcbaacadb0417e583b850f5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+reached_by = ["#7"]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:2690b3a24b9cee67"
+name = "hs"
+qual = "HConstThermo::hs"
+lines = [
+    109,
+    114,
+]
+hash = "sha256:6530c07e41af2676c452e3f5a8620de318a8df8dd2739be75f5ee51fa7fa097e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+reached_by = [
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:117c591deda3248b"
+name = "ha"
+qual = "HConstThermo::ha"
+lines = [
+    116,
+    118,
+]
+hash = "sha256:ac343b4cc5363232a217942fe9d61d1050c3efbeb57c39feb28c3c7429f77ec9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2690b3a24b9cee67",
+    "fn:77e78a495d103009",
+]
+uses = ["fn:b378bca7fddea413"]
+reached_by = [
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:77e78a495d103009"
+name = "hc"
+qual = "HConstThermo::hc"
+lines = [
+    120,
+    123,
+]
+hash = "sha256:415600dab4feed152b4b786c62cd87b367bd579a84fdadba02e07032c136cc9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b378bca7fddea413"]
+reached_by = [
+    "#8",
+    "#9",
+]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:94d2ddeddca44a9a"
+name = "s"
+qual = "HConstThermo::s"
+lines = [
+    125,
+    129,
+]
+hash = "sha256:875501cde83f7eeea00be6a905c76799c09710e012cf9e69d9d5256969fdf979"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:28c81c0c7b84f202",
+    "fn:b378bca7fddea413",
+]
+physical_interface = true
+
+[[module."h_const.rs".function]]
+id = "fn:c587fb3e3e58c754"
+name = "air_thermo"
+qual = "air_thermo"
+lines = [
+    143,
+    152,
+]
+hash = "sha256:b158d3f232b90e295222765a527d8dc7bdd0460afe1d0a58d55a3aa15f95b7ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:08639b50e04a420a",
+    "fn:397be5f0fc0df9c5",
+]
+uses = [
+    "fn:8c891581774d6414",
+    "fn:b378bca7fddea413",
+]
+test = true
+
+[[module."h_const.rs".function]]
+id = "fn:eae5bcdafd9f2f6b"
+name = "cp_is_constant"
+qual = "cp_is_constant"
+lines = [
+    154,
+    164,
+]
+hash = "sha256:1a3d4d4cb28ecd28a01f4443378963aeb77bdf3b42f2fd49167b3f427ae20159"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:c587fb3e3e58c754",
+    "fn:ce283c0c380870f4",
+]
+test = true
+
+[[module."h_const.rs".function]]
+id = "fn:0c347d2582df2e73"
+name = "ha_roundtrip"
+qual = "ha_roundtrip"
+lines = [
+    166,
+    176,
+]
+hash = "sha256:b4c6527f8f24768d1f99dba1950bf23581d30d428f0be633870f4aec9ebee95c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:117c591deda3248b",
+    "fn:c587fb3e3e58c754",
+]
+test = true
+
+[[module."h_const.rs".function]]
+id = "fn:e984562363b3f9f6"
+name = "hs_plus_hc_equals_ha"
+qual = "hs_plus_hc_equals_ha"
+lines = [
+    178,
+    186,
+]
+hash = "sha256:6ff5ab18875c497fa190319b05e7440fc91f38571a9e98a6246d4d90ec05702e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:117c591deda3248b",
+    "fn:2690b3a24b9cee67",
+    "fn:77e78a495d103009",
+    "fn:c587fb3e3e58c754",
+]
+test = true
+
+[module."h_polynomial.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::thermo::h_polynomial"
+
+[[module."h_polynomial.rs".function]]
+id = "fn:7bb49406d2afbbe1"
+name = "HPolynomialThermo"
+qual = "HPolynomialThermo"
+item = "type"
+shape = "struct"
+lines = [
+    28,
+    51,
+]
+hash = "sha256:f4348c446caf9143f36a6cd65a540ea11f2625df1378a395665581eeac72cf14"
+doc_hash = "sha256:43738adb85cd1b6aac8de027823ed7eb32d7ebb366ec047caa4da2ddc5cae42e"
+uses = [
+    "fn:9634ee7365d1f24c",
+    "fn:a18a56fc416c12dd",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."h_polynomial.rs".function]]
+id = "fn:1a9bd1b792f0f5be"
+name = "new"
+qual = "HPolynomialThermo::new"
+lines = [
+    54,
+    61,
+]
+hash = "sha256:9365c6c1d3afaf2ad2372dbc63b2bbe84687b84c21808bc92891467df051393b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:7bb49406d2afbbe1",
+    "fn:9634ee7365d1f24c",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:130672a366fcaeaf"
+name = "mol_weight"
+qual = "HPolynomialThermo::mol_weight"
+lines = [
+    67,
+    69,
+]
+hash = "sha256:83450d616aa7664b545de0cb60e6bf630ec235087ee7449714c3dd757caca35b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:2cf4eef4e339f6bc"
+name = "r"
+qual = "HPolynomialThermo::r"
+lines = [
+    70,
+    72,
+]
+hash = "sha256:071ece29e031841f5e5e7c5731b84b5f92ec49f527b35e169ed4ab028033a114"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:8348112bb0529953"
+name = "rho"
+qual = "HPolynomialThermo::rho"
+lines = [
+    73,
+    75,
+]
+hash = "sha256:24a9e4d50144e7740d40f6bf85b3c08cbb3ee820f344065f07f59685fb4bde19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:0bdb19661896ee0b"
+name = "psi"
+qual = "HPolynomialThermo::psi"
+lines = [
+    76,
+    78,
+]
+hash = "sha256:2b6a724e2b040716144688c7fe98b43e01d3f3736d931ea45860d595fc4e52d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:7bb49406d2afbbe1",
+    "fn:dae452f63f18aca8",
+]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:3a1636b5bc1f3f78"
+name = "z"
+qual = "HPolynomialThermo::z"
+lines = [
+    79,
+    81,
+]
+hash = "sha256:a1baebf9f1f337e794dadfed6363ffcee1974eace0b51f196609b2dbf93c05fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:0f9cb96b81ad4dca"
+name = "cp_m_cv"
+qual = "HPolynomialThermo::cp_m_cv"
+lines = [
+    82,
+    84,
+]
+hash = "sha256:456e20252cbe7480c1ab922793d3d77fed89876634fef14c1cfbff76a346ef86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:8f17517bedd2b6ec"
+name = "cp_eos"
+qual = "HPolynomialThermo::cp_eos"
+lines = [
+    85,
+    87,
+]
+hash = "sha256:68b9c3ccd476f552ca9ed19b25d11ce8187705b393c6213e4ed7395c721cf4a6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:493f8bac00f84b57"
+name = "h_eos"
+qual = "HPolynomialThermo::h_eos"
+lines = [
+    88,
+    90,
+]
+hash = "sha256:51341ff69c2f00ebe4c186590503262b40d671625489ce3ea78be0bbf5c15aa0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:07f8944a14fcaa82"
+name = "e_eos"
+qual = "HPolynomialThermo::e_eos"
+lines = [
+    91,
+    93,
+]
+hash = "sha256:8d0c38a9807b099aee38cc0c920e9da6cba6d04d22deac74324372abada29cc1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:6dd55faa53be9fbd"
+name = "s_eos"
+qual = "HPolynomialThermo::s_eos"
+lines = [
+    94,
+    96,
+]
+hash = "sha256:f4e2b74b39c476e5bf085084c3a00ab5baf72f4cea0dee00b5e9650116183b56"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:01f030d680cd0fdd"
+name = "cp"
+qual = "HPolynomialThermo::cp"
+lines = [
+    102,
+    106,
+]
+hash = "sha256:b70477fc01f8aba016fc7fcfe505becf5b46d97df48b0de41492fb1a69429e44"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c70eb304b2e98cb5"]
+uses = ["fn:7bb49406d2afbbe1"]
+reached_by = [
+    "#10",
+    "#14",
+]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:c1d4f8bbe2854832"
+name = "ha"
+qual = "HPolynomialThermo::ha"
+lines = [
+    108,
+    112,
+]
+hash = "sha256:088571dafbd0092f3a5a11ef2c0ce920ea53f5d585e4535f2fe2165a7bda1f3a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5c13480de4d23a26"]
+uses = [
+    "fn:28c81c0c7b84f202",
+    "fn:7bb49406d2afbbe1",
+]
+reached_by = [
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:3a1be207cbf2e417"
+name = "hs"
+qual = "HPolynomialThermo::hs"
+lines = [
+    114,
+    116,
+]
+hash = "sha256:9b71da001b2ff6b3176dad10f736091ef1a5057a8b9e053aba9c88b84e3f89a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:c1d4f8bbe2854832",
+    "fn:c2227db5d75adb0e",
+]
+uses = ["fn:7bb49406d2afbbe1"]
+reached_by = ["#13"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:c2227db5d75adb0e"
+name = "hc"
+qual = "HPolynomialThermo::hc"
+lines = [
+    118,
+    120,
+]
+hash = "sha256:0d4a9fe001087850f9a629ffebb88fd864e9959380e81eea3de231bf225cdae3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7bb49406d2afbbe1"]
+reached_by = ["#13"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:a91f6522b56cdfd5"
+name = "s"
+qual = "HPolynomialThermo::s"
+lines = [
+    122,
+    128,
+]
+hash = "sha256:b3350e30209728b55f88467347bfe0faf5242ae251da3cbb605b537283074941"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:c70eb304b2e98cb5",
+    "fn:eb071ee600ff6c6c",
+]
+uses = [
+    "fn:28c81c0c7b84f202",
+    "fn:7bb49406d2afbbe1",
+]
+reached_by = ["#11"]
+physical_interface = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:76cd08a60d5a10a2"
+name = "air_const_poly"
+qual = "air_const_poly"
+lines = [
+    141,
+    150,
+]
+hash = "sha256:3c017b20981050f6f059b4fbb5a192eae50c2334aeafd6ddb73d9f68fe0d8745"
+doc_hash = "sha256:df7ffc51d4ea446f35f7efb8d080901236acab2c9a0ac94689cc84fd9b61d151"
+callees = [
+    "fn:08639b50e04a420a",
+    "fn:1a9bd1b792f0f5be",
+    "fn:b8a608dc5e9f4720",
+]
+uses = [
+    "fn:7bb49406d2afbbe1",
+    "fn:8c891581774d6414",
+    "fn:9634ee7365d1f24c",
+]
+test = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:b9a6e44dfbc1d1ac"
+name = "air_linear_poly"
+qual = "air_linear_poly"
+lines = [
+    152,
+    160,
+]
+hash = "sha256:6e5db9c641634284ed534e73dc9dd63ed478133b3aa4a45bcdef82a852b168b5"
+doc_hash = "sha256:ead2238805bb37c631cd71c5a8cc5002e9002d6a914da8babb3600475b152aad"
+callees = [
+    "fn:08639b50e04a420a",
+    "fn:1a9bd1b792f0f5be",
+    "fn:b8a608dc5e9f4720",
+]
+uses = [
+    "fn:7bb49406d2afbbe1",
+    "fn:8c891581774d6414",
+    "fn:9634ee7365d1f24c",
+]
+test = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:010562d613ea35af"
+name = "const_poly_cp"
+qual = "const_poly_cp"
+lines = [
+    162,
+    169,
+]
+hash = "sha256:e1cab956f13d8f9e0c5b89c402ba9835771dfc8478fc35fdd414b07f1cd582ee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01f030d680cd0fdd",
+    "fn:76cd08a60d5a10a2",
+]
+test = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:a317bb30a717bfa6"
+name = "linear_poly_cp"
+qual = "linear_poly_cp"
+lines = [
+    171,
+    178,
+]
+hash = "sha256:41ffd713c14101f283851273b7eea9bb64e1dab7e3aee908667e9da63eae13de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:01f030d680cd0fdd",
+    "fn:b9a6e44dfbc1d1ac",
+]
+test = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:40d2faa67876b964"
+name = "hs_plus_hc_equals_ha"
+qual = "hs_plus_hc_equals_ha"
+lines = [
+    180,
+    188,
+]
+hash = "sha256:a6deeadf8b5232aa625c1e51c7157ae32e3cfbc73e322d32670df0a3620750da"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3a1be207cbf2e417",
+    "fn:b9a6e44dfbc1d1ac",
+    "fn:c1d4f8bbe2854832",
+    "fn:c2227db5d75adb0e",
+]
+test = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:0675088c68c947e2"
+name = "ha_roundtrip"
+qual = "ha_roundtrip"
+lines = [
+    190,
+    200,
+]
+hash = "sha256:97614e027e971fd62f7946ffa93f26a8cf249d4e92988f06cb66abdf05f4263d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b9a6e44dfbc1d1ac",
+    "fn:c1d4f8bbe2854832",
+]
+test = true
+
+[[module."h_polynomial.rs".function]]
+id = "fn:abb5df8fe935e88a"
+name = "entropy_increases_with_temperature"
+qual = "entropy_increases_with_temperature"
+lines = [
+    202,
+    211,
+]
+hash = "sha256:e2a9ccee0091fd90a6038d12a42efe8b75141f744fb1bf8d89fa7653e3fbb67e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a91f6522b56cdfd5",
+    "fn:b9a6e44dfbc1d1ac",
+]
+test = true
+
+[module."h_tabulated.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::thermo::h_tabulated"
+
+[[module."h_tabulated.rs".function]]
+id = "fn:671a853bdbf05a5a"
+name = "HTabulatedThermo"
+qual = "HTabulatedThermo"
+item = "type"
+shape = "struct"
+lines = [
+    27,
+    47,
+]
+hash = "sha256:5a267a42fd4a432e772591bafb30e3ae36eca1d811f26d2a8363d6bb12708535"
+doc_hash = "sha256:a77e5fb1209af917cd5cef7cf828e88e8c393418a9b310338acc1e8c089f6d5e"
+uses = ["fn:a18a56fc416c12dd"]
+reached_by = [
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."h_tabulated.rs".function]]
+id = "fn:dd0daccad17eceff"
+name = "new"
+qual = "HTabulatedThermo::new"
+lines = [
+    50,
+    71,
+]
+hash = "sha256:f199171388571e6dea01feda3e14352e3b27034f3a785b6ffc738687ca1e992f"
+doc_hash = "sha256:f60a603fbded54a915189ca721ccaa09574b8c2817f4a16bb1faf9f51121c8a7"
+uses = ["fn:671a853bdbf05a5a"]
+reached_by = [
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:4eab3eee1d6148cb"
+name = "mol_weight"
+qual = "HTabulatedThermo::mol_weight"
+lines = [
+    77,
+    79,
+]
+hash = "sha256:83450d616aa7664b545de0cb60e6bf630ec235087ee7449714c3dd757caca35b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:e9b0e65a7d7bf082"
+name = "r"
+qual = "HTabulatedThermo::r"
+lines = [
+    80,
+    82,
+]
+hash = "sha256:071ece29e031841f5e5e7c5731b84b5f92ec49f527b35e169ed4ab028033a114"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:5e3cf17537a1cd2b"
+name = "rho"
+qual = "HTabulatedThermo::rho"
+lines = [
+    83,
+    85,
+]
+hash = "sha256:24a9e4d50144e7740d40f6bf85b3c08cbb3ee820f344065f07f59685fb4bde19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:dad438eaed8410d4"
+name = "psi"
+qual = "HTabulatedThermo::psi"
+lines = [
+    86,
+    88,
+]
+hash = "sha256:2b6a724e2b040716144688c7fe98b43e01d3f3736d931ea45860d595fc4e52d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:671a853bdbf05a5a",
+    "fn:dae452f63f18aca8",
+]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:fd657746008fe183"
+name = "z"
+qual = "HTabulatedThermo::z"
+lines = [
+    89,
+    91,
+]
+hash = "sha256:a1baebf9f1f337e794dadfed6363ffcee1974eace0b51f196609b2dbf93c05fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:55060bb80e92639d"
+name = "cp_m_cv"
+qual = "HTabulatedThermo::cp_m_cv"
+lines = [
+    92,
+    94,
+]
+hash = "sha256:456e20252cbe7480c1ab922793d3d77fed89876634fef14c1cfbff76a346ef86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:ec47395563e45fbb"
+name = "cp_eos"
+qual = "HTabulatedThermo::cp_eos"
+lines = [
+    95,
+    97,
+]
+hash = "sha256:68b9c3ccd476f552ca9ed19b25d11ce8187705b393c6213e4ed7395c721cf4a6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:25aef96cc8ae7796"
+name = "h_eos"
+qual = "HTabulatedThermo::h_eos"
+lines = [
+    98,
+    100,
+]
+hash = "sha256:51341ff69c2f00ebe4c186590503262b40d671625489ce3ea78be0bbf5c15aa0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:255b76a56964247e"
+name = "e_eos"
+qual = "HTabulatedThermo::e_eos"
+lines = [
+    101,
+    103,
+]
+hash = "sha256:8d0c38a9807b099aee38cc0c920e9da6cba6d04d22deac74324372abada29cc1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:4dd42a13f431d5ac"
+name = "s_eos"
+qual = "HTabulatedThermo::s_eos"
+lines = [
+    104,
+    106,
+]
+hash = "sha256:f4e2b74b39c476e5bf085084c3a00ab5baf72f4cea0dee00b5e9650116183b56"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:17a199e0803f6449"
+name = "cp"
+qual = "HTabulatedThermo::cp"
+lines = [
+    112,
+    119,
+]
+hash = "sha256:789c5d66bbed17922680da9c4b98f9ace1cf0f16cc8a237cc2f009cc1250eda7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:15b23aa5c4a0d633"]
+uses = ["fn:671a853bdbf05a5a"]
+reached_by = ["#15"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:5e33f8f0f430b8e4"
+name = "ha"
+qual = "HTabulatedThermo::ha"
+lines = [
+    121,
+    125,
+]
+hash = "sha256:af30e7026534dcb5f7d1f1d85fd8c9f97e82f3ed2ff6bcc0d8af85e5f38e7588"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:15b23aa5c4a0d633"]
+uses = ["fn:671a853bdbf05a5a"]
+reached_by = [
+    "#17",
+    "#18",
+    "#19",
+]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:ff4a90240bc886ce"
+name = "hs"
+qual = "HTabulatedThermo::hs"
+lines = [
+    127,
+    129,
+]
+hash = "sha256:9b71da001b2ff6b3176dad10f736091ef1a5057a8b9e053aba9c88b84e3f89a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:113ff421fbaeccfe",
+    "fn:5e33f8f0f430b8e4",
+]
+uses = ["fn:671a853bdbf05a5a"]
+reached_by = ["#19"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:113ff421fbaeccfe"
+name = "hc"
+qual = "HTabulatedThermo::hc"
+lines = [
+    131,
+    133,
+]
+hash = "sha256:0d4a9fe001087850f9a629ffebb88fd864e9959380e81eea3de231bf225cdae3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:671a853bdbf05a5a"]
+reached_by = ["#19"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:46fc59677f4bcb6e"
+name = "s"
+qual = "HTabulatedThermo::s"
+lines = [
+    135,
+    140,
+]
+hash = "sha256:2656c4c85df11cf3e577c0f19ad61457fb1e213a889ee1958fca2a5331517ebe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:15b23aa5c4a0d633"]
+uses = ["fn:671a853bdbf05a5a"]
+reached_by = ["#16"]
+physical_interface = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:2853dcc0eea67f00"
+name = "air_tabulated"
+qual = "air_tabulated"
+lines = [
+    153,
+    175,
+]
+hash = "sha256:6a226f50237ca525a81d0ee6c7e88b102852f0f35081d28221b67f0910f249fc"
+doc_hash = "sha256:bc7594bc8837f3d400893ab0f7e03e959a4841d9d61244b80388fd5bc3e5ebf1"
+callees = [
+    "fn:08639b50e04a420a",
+    "fn:dd0daccad17eceff",
+]
+uses = [
+    "fn:671a853bdbf05a5a",
+    "fn:8c891581774d6414",
+]
+test = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:1f08cf9c25636201"
+name = "cp_from_table"
+qual = "cp_from_table"
+lines = [
+    177,
+    184,
+]
+hash = "sha256:834e0a3afad3bb54ce7493766db9cf77ddeacc6c1cea40af6b05ad7040328e5f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:17a199e0803f6449",
+    "fn:2853dcc0eea67f00",
+]
+test = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:0fd7f7b9c0035d9f"
+name = "ha_from_table_at_knot"
+qual = "ha_from_table_at_knot"
+lines = [
+    186,
+    195,
+]
+hash = "sha256:75dc1d7433b9115d6b4eab2ff117773c361248f5fffad5e9e3b3b8f692e44ed5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2853dcc0eea67f00",
+    "fn:5e33f8f0f430b8e4",
+]
+test = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:c75d5163883cb83f"
+name = "hs_plus_hc_equals_ha"
+qual = "hs_plus_hc_equals_ha"
+lines = [
+    197,
+    205,
+]
+hash = "sha256:eb9b3af116b58b40b5e0567ddfae1d7c8fc2abdafe4d6ece8c8ca713a9e9b556"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:113ff421fbaeccfe",
+    "fn:2853dcc0eea67f00",
+    "fn:5e33f8f0f430b8e4",
+    "fn:ff4a90240bc886ce",
+]
+test = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:892951fea23a0ccd"
+name = "entropy_increases_with_temperature"
+qual = "entropy_increases_with_temperature"
+lines = [
+    207,
+    217,
+]
+hash = "sha256:faa3d1c52f767a2adb6af939630a3b6957b65242a4c817ccf7b493533a3778cd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2853dcc0eea67f00",
+    "fn:46fc59677f4bcb6e",
+]
+test = true
+
+[[module."h_tabulated.rs".function]]
+id = "fn:38fd8b83f69b3064"
+name = "ha_roundtrip"
+qual = "ha_roundtrip"
+lines = [
+    219,
+    229,
+]
+hash = "sha256:aab9d57ca4ca9c0bfcbcd6a0361ad915e005e7f21961d3c2b2e37dee8a925fc6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2853dcc0eea67f00",
+    "fn:5e33f8f0f430b8e4",
+]
+test = true
+
+[module."janaf.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::thermo::janaf"
+
+[[module."janaf.rs".function]]
+id = "fn:b2b2218a7bf63e2b"
+name = "JanafThermo"
+qual = "JanafThermo"
+item = "type"
+shape = "struct"
+lines = [
+    27,
+    54,
+]
+hash = "sha256:59f3761336e9b66a1f66223d65e02340e4624219b349b6ea147ed651d7c916a1"
+doc_hash = "sha256:c84548725a82311ebf8cef905a18d479bc516cb82c9b0310017b3bedda33e391"
+uses = ["fn:a18a56fc416c12dd"]
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."janaf.rs".function]]
+id = "fn:b253db4ddd20d0f4"
+name = "new"
+qual = "JanafThermo::new"
+lines = [
+    57,
+    66,
+]
+hash = "sha256:daccd190f09293ea82d4406f1a17a8742d43dc38c8721484bde9c838b9399944"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."janaf.rs".function]]
+id = "fn:078c6d5b8ba9ed0f"
+name = "coeffs"
+qual = "JanafThermo::coeffs"
+lines = [
+    68,
+    74,
+]
+hash = "sha256:90aa58b5777b64d350b05e6d5dc3fe849c7d61169491822ac9e6bcf7fc75bdf6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."janaf.rs".function]]
+id = "fn:958fc8424f2d49ff"
+name = "mol_weight"
+qual = "JanafThermo::mol_weight"
+lines = [
+    80,
+    82,
+]
+hash = "sha256:83450d616aa7664b545de0cb60e6bf630ec235087ee7449714c3dd757caca35b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:02ba92fa14a03fe8"
+name = "r"
+qual = "JanafThermo::r"
+lines = [
+    83,
+    85,
+]
+hash = "sha256:071ece29e031841f5e5e7c5731b84b5f92ec49f527b35e169ed4ab028033a114"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:5ef6b38ba5609515"
+name = "rho"
+qual = "JanafThermo::rho"
+lines = [
+    86,
+    88,
+]
+hash = "sha256:24a9e4d50144e7740d40f6bf85b3c08cbb3ee820f344065f07f59685fb4bde19"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:289adcdecfd0adf9"
+name = "psi"
+qual = "JanafThermo::psi"
+lines = [
+    89,
+    91,
+]
+hash = "sha256:2b6a724e2b040716144688c7fe98b43e01d3f3736d931ea45860d595fc4e52d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:b2b2218a7bf63e2b",
+    "fn:dae452f63f18aca8",
+]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:69e5e54a56d10ec2"
+name = "z"
+qual = "JanafThermo::z"
+lines = [
+    92,
+    94,
+]
+hash = "sha256:a1baebf9f1f337e794dadfed6363ffcee1974eace0b51f196609b2dbf93c05fc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:8a570a9c014cfac8"
+name = "cp_m_cv"
+qual = "JanafThermo::cp_m_cv"
+lines = [
+    95,
+    97,
+]
+hash = "sha256:456e20252cbe7480c1ab922793d3d77fed89876634fef14c1cfbff76a346ef86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:f3f36708d0ab617a"
+name = "cp_eos"
+qual = "JanafThermo::cp_eos"
+lines = [
+    98,
+    100,
+]
+hash = "sha256:68b9c3ccd476f552ca9ed19b25d11ce8187705b393c6213e4ed7395c721cf4a6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:25e84b06e01d20be"
+name = "h_eos"
+qual = "JanafThermo::h_eos"
+lines = [
+    101,
+    103,
+]
+hash = "sha256:51341ff69c2f00ebe4c186590503262b40d671625489ce3ea78be0bbf5c15aa0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:a18bd7e666e3a71d"
+name = "e_eos"
+qual = "JanafThermo::e_eos"
+lines = [
+    104,
+    106,
+]
+hash = "sha256:8d0c38a9807b099aee38cc0c920e9da6cba6d04d22deac74324372abada29cc1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:6399dc5fe597fd13"
+name = "s_eos"
+qual = "JanafThermo::s_eos"
+lines = [
+    107,
+    109,
+]
+hash = "sha256:f4e2b74b39c476e5bf085084c3a00ab5baf72f4cea0dee00b5e9650116183b56"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:bfd13d0058f5a240"
+name = "cp"
+qual = "JanafThermo::cp"
+lines = [
+    115,
+    120,
+]
+hash = "sha256:2b15aa75653ac384fbdc10bc88cc15dfffd16b45d2ad0ab6785b0be8a344338f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:078c6d5b8ba9ed0f"]
+uses = ["fn:b2b2218a7bf63e2b"]
+reached_by = [
+    "#20",
+    "#21",
+]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:9d18878b53064ed0"
+name = "ha"
+qual = "JanafThermo::ha"
+lines = [
+    122,
+    130,
+]
+hash = "sha256:64c12e69f245d12abdcaedea771a4183d62eaeb334ff0e2c565af81a6b7f1360"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:078c6d5b8ba9ed0f"]
+uses = ["fn:b2b2218a7bf63e2b"]
+reached_by = [
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:e7d85231028285f7"
+name = "hs"
+qual = "JanafThermo::hs"
+lines = [
+    132,
+    134,
+]
+hash = "sha256:9b71da001b2ff6b3176dad10f736091ef1a5057a8b9e053aba9c88b84e3f89a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4b285d1bce52d725",
+    "fn:9d18878b53064ed0",
+]
+uses = ["fn:b2b2218a7bf63e2b"]
+reached_by = ["#23"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:4b285d1bce52d725"
+name = "hc"
+qual = "JanafThermo::hc"
+lines = [
+    136,
+    144,
+]
+hash = "sha256:0f0588d9bea147356a79a7a0baba6ae4ee01e03570492831e3b87c7d25a7b747"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:28c81c0c7b84f202",
+    "fn:b2b2218a7bf63e2b",
+]
+reached_by = ["#23"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:58b729d597283c8e"
+name = "s"
+qual = "JanafThermo::s"
+lines = [
+    146,
+    153,
+]
+hash = "sha256:11eadbb87c21a3b786e0d26eb6ba227eebf4545ccd630aaf793717986d448ddc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:078c6d5b8ba9ed0f"]
+uses = ["fn:b2b2218a7bf63e2b"]
+physical_interface = true
+
+[[module."janaf.rs".function]]
+id = "fn:709b8389a8d56bf9"
+name = "air_janaf"
+qual = "air_janaf"
+lines = [
+    167,
+    221,
+]
+hash = "sha256:58548ff661a3928c69312fea727b140d755ce04bf3eb4bb26fa00f04c1259cb5"
+doc_hash = "sha256:b4764bf29ca87ef7440a4a77463c3db88d750c72f086f6b3decd891edb2a2451"
+callees = [
+    "fn:08639b50e04a420a",
+    "fn:472eac2899f3fab7",
+    "fn:b253db4ddd20d0f4",
+]
+uses = [
+    "fn:8c891581774d6414",
+    "fn:b2b2218a7bf63e2b",
+]
+test = true
+
+[[module."janaf.rs".function]]
+id = "fn:e8650130055c8539"
+name = "cp_at_300k_is_reasonable"
+qual = "cp_at_300k_is_reasonable"
+lines = [
+    223,
+    234,
+]
+hash = "sha256:7d1e6b5d3747e88b3110565d00abab3356bbae58b731f3cb32f476204d8eb14d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:709b8389a8d56bf9",
+    "fn:bfd13d0058f5a240",
+]
+test = true
+
+[[module."janaf.rs".function]]
+id = "fn:d1ea89b22de75268"
+name = "ha_roundtrip"
+qual = "ha_roundtrip"
+lines = [
+    236,
+    246,
+]
+hash = "sha256:a2faa4a1de801c103bc4b80f960b1888b4cde56ab0b2cf3ab813bb80965d8e37"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:709b8389a8d56bf9",
+    "fn:9d18878b53064ed0",
+]
+test = true
+
+[[module."janaf.rs".function]]
+id = "fn:f3b0c2f1f58af72d"
+name = "hs_plus_hc_equals_ha"
+qual = "hs_plus_hc_equals_ha"
+lines = [
+    248,
+    257,
+]
+hash = "sha256:5ab4462d7a53ef92e121d3f24efa73863f9ab1ae0f1e4216740c01c86df52f50"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4b285d1bce52d725",
+    "fn:709b8389a8d56bf9",
+    "fn:9d18878b53064ed0",
+    "fn:e7d85231028285f7",
+]
+test = true
+
+[[module."janaf.rs".function]]
+id = "fn:4001a091ccb7501b"
+name = "cp_both_ranges_are_reasonable"
+qual = "cp_both_ranges_are_reasonable"
+lines = [
+    259,
+    272,
+]
+hash = "sha256:1e5b8a21e3191807fafc7a03579bbda3813f9886b3e83816ce788f7afeea6138"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:709b8389a8d56bf9",
+    "fn:bfd13d0058f5a240",
+]
+test = true
+
+[[module."janaf.rs".function]]
+id = "fn:9f1232fcf31ca1df"
+name = "newton_converges_from_bad_initial_guess"
+qual = "newton_converges_from_bad_initial_guess"
+lines = [
+    274,
+    293,
+]
+hash = "sha256:194a4216cb954a12aa8ebbba890c26790be4e40d7c19aea344ee749992ae4b83"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:709b8389a8d56bf9",
+    "fn:9d18878b53064ed0",
+]
+test = true
+
+[[module."janaf.rs".function]]
+id = "fn:50c9d3d3ebd9763d"
+name = "newton_t_max_clamp_returns_err"
+qual = "newton_t_max_clamp_returns_err"
+lines = [
+    295,
+    319,
+]
+hash = "sha256:696753b6ba152989288179710841adc920a8d8d2879cb5649fbb5ed3f105c54d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:709b8389a8d56bf9",
+    "fn:9d18878b53064ed0",
+]
+uses = ["fn:afaf5e584a090a2c"]
+test = true
+
+[[module."janaf.rs".function]]
+id = "fn:b2291971262dd13a"
+name = "newton_t_min_clamp_returns_err"
+qual = "newton_t_min_clamp_returns_err"
+lines = [
+    321,
+    338,
+]
+hash = "sha256:924e82c00e3675e9b546e441747e754b689ac706e9e2fd2f304b8258d4b0964e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:709b8389a8d56bf9",
+    "fn:9d18878b53064ed0",
+]
+uses = ["fn:afaf5e584a090a2c"]
+test = true
+
+[[module."janaf.rs".function]]
+id = "fn:7504b44720aa8707"
+name = "newton_crosses_tcommon_discontinuity"
+qual = "newton_crosses_tcommon_discontinuity"
+lines = [
+    340,
+    362,
+]
+hash = "sha256:21f2186d7c3a8bf6716ae6071dda840ab4b4c891551a25b3f65bc88473cb1826"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:709b8389a8d56bf9",
+    "fn:9d18878b53064ed0",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::thermo"
+
+[module."traits.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::thermophysics::thermo::traits"
+
+[[module."traits.rs".function]]
+id = "fn:462b96852f9bd6db"
+name = "ThermoModel"
+qual = "ThermoModel"
+item = "type"
+shape = "trait"
+lines = [
+    26,
+    105,
+]
+hash = "sha256:a5846f1e6c594bf5b02dd771bdb0d0950d5e7b5bc77d4b23b76ea3ac4e9b6e98"
+doc_hash = "sha256:acf873d101e222179bf36d5f6ae6b55e801fad0af5a57ac21a5dfea8c98baab4"
+uses = [
+    "fn:a18a56fc416c12dd",
+    "fn:afaf5e584a090a2c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:85a2a456f3558212"
+name = "cp"
+qual = "ThermoModel::cp"
+lines = [
+    35,
+    36,
+]
+hash = "sha256:f471e9964ecc1af82b44f4f8a93127ac05c62a5729436287f0332ba8ba44f720"
+doc_hash = "sha256:1fb9656fd45c04247e7da9bfc6e3981e5b3f13c0691f2cd70b25f9dbc809b15f"
+uses = ["fn:462b96852f9bd6db"]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:140a8e1c34b044d9"
+name = "ha"
+qual = "ThermoModel::ha"
+lines = [
+    38,
+    39,
+]
+hash = "sha256:7b870835502724f8bb7dda0193982c0e7010470c2f75d8a1cd464754da73ddb6"
+doc_hash = "sha256:273f386bffa3d50faaa1c0b35787d2f3fb7ff5d06ab625c23a27bf1fc94e4259"
+uses = ["fn:462b96852f9bd6db"]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:9b75a2d06aaccb52"
+name = "hs"
+qual = "ThermoModel::hs"
+lines = [
+    41,
+    42,
+]
+hash = "sha256:7b870835502724f8bb7dda0193982c0e7010470c2f75d8a1cd464754da73ddb6"
+doc_hash = "sha256:865e2cd0ebbdf93efcfd64756e9af4d1e0d70454424d41ca5f46c0e4b49b4aa1"
+uses = ["fn:462b96852f9bd6db"]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:c610c1510463d8d4"
+name = "hc"
+qual = "ThermoModel::hc"
+lines = [
+    44,
+    45,
+]
+hash = "sha256:961171cd573586cce121d96df174b197da5b68402fc07202e1e01a2e59966be0"
+doc_hash = "sha256:35fc0beb0384094f8d2dcc9ac538f979ec4b21c5148db261bcb9d4adb0bfeb8d"
+uses = ["fn:462b96852f9bd6db"]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:09360d52265508f3"
+name = "s"
+qual = "ThermoModel::s"
+lines = [
+    47,
+    48,
+]
+hash = "sha256:f471e9964ecc1af82b44f4f8a93127ac05c62a5729436287f0332ba8ba44f720"
+doc_hash = "sha256:662b712a06a2fb90c3cf17ce90bc76b13d04ceebfcad0dc96e834f519708495f"
+uses = ["fn:462b96852f9bd6db"]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:0efeeaf5b9a75786"
+name = "cv"
+qual = "ThermoModel::cv"
+lines = [
+    50,
+    53,
+]
+hash = "sha256:e4a30c8c5528e4fa96a52c0cbccb3f99b15649cd5e6c1089f05a9e524c11aec2"
+doc_hash = "sha256:2a6d7e382dbef8c7489869038fbd61f42899e219afee85d92a4ea7aaa88e8110"
+uses = ["fn:462b96852f9bd6db"]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:374ce4a568551118"
+name = "t_from_ha"
+qual = "ThermoModel::t_from_ha"
+lines = [
+    55,
+    71,
+]
+hash = "sha256:44721358155564332c099239e8e69a0ef42f40f8f2e4d46333798111cf87405d"
+doc_hash = "sha256:64acc1466d2058e90afa45ffb80c666f2db5141c72786c018906d5ba3910909e"
+callees = ["fn:364419cd26ac941d"]
+uses = [
+    "fn:462b96852f9bd6db",
+    "fn:afaf5e584a090a2c",
+]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:10e9fe5e34659a75"
+name = "t_from_hs"
+qual = "ThermoModel::t_from_hs"
+lines = [
+    73,
+    83,
+]
+hash = "sha256:a85fe2f1895c26e2acc36d896c8385519d1b90010018bb04d91d9d14ba567e83"
+doc_hash = "sha256:2452a258aa25b153f46481001b427c71bc6d44f3d7ed17b6b3e6faf2fba594e1"
+uses = [
+    "fn:462b96852f9bd6db",
+    "fn:afaf5e584a090a2c",
+]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:e246f121dc589e96"
+name = "t_from_e"
+qual = "ThermoModel::t_from_e"
+lines = [
+    85,
+    104,
+]
+hash = "sha256:868b566bb40b4fb4268895db3253076cd50192f611a00dd23e9e85c379b3579a"
+doc_hash = "sha256:c2518bee6a7cbad0086cdb17cefbde231d39ca18d4938b2d49580224e8b1309b"
+callees = ["fn:364419cd26ac941d"]
+uses = [
+    "fn:462b96852f9bd6db",
+    "fn:afaf5e584a090a2c",
+]
+physical_interface = true
+
+[[module."traits.rs".function]]
+id = "fn:364419cd26ac941d"
+name = "newton_t"
+qual = "newton_t"
+lines = [
+    107,
+    138,
+]
+hash = "sha256:1f1d424b5634e692fbf99eaad5b5ea4247ec0d4363a4ac404f03161c2c86c7f5"
+doc_hash = "sha256:1164e7cc3c00f70ced212953f68b0a0bff364b1d1bc0ecde4ea0818f6369b7ef"
+uses = [
+    "fn:06728519545814b1",
+    "fn:080d966f0b450c46",
+    "fn:afaf5e584a090a2c",
+]
+physical_interface = true

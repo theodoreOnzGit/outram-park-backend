@@ -1,0 +1,2831 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/htr10"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::a_below_floor_dose_rate_field_is_announced",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::absolute_falls_back_to_per_ci_and_per_ci_carries_the_anchors",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::missing_and_below_floor_cells_are_never_zero",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_chi_over_q_basis_keeps_the_four_decade_default",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_chi_over_q_table_is_the_maps_dilution_factor",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_defaults_are_the_maintainers_anchors",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_table_is_deterministic",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_table_is_the_pixel_and_the_buangkok_sum",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_map_opens_on_the_dose_rate_basis",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_plume_overlay_is_labelled_and_contoured_per_cell",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_slider_defaults_are_the_cited_anchors",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_tede_centreline_is_the_sector_maximum_per_ring",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_gui_defaults_are_the_plant_command_defaults",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/plant_v1_1.rs::the_feed_pump_speed_is_proportional_to_the_feedwater_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/schematic.rs::each_tracer_train_advances_with_its_own_runs_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/state.rs::to_rows_at_max_csv_rows_measures_a_realistic_byte_size",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/state.rs::to_rows_round_trips_every_pushed_sample",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/thermal_tab.rs::only_modelled_zones_are_coloured",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::determinism_same_config_same_trace",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::matches_the_recorded_reference_baseline",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::the_trace_carries_a_closing_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::a_rate_change_reaches_only_puffs_emitted_after_it",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::absolute_arm_is_per_ci_times_inventory_at_every_receptor",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::chi_over_q_is_independent_of_the_source",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::decay_in_transit_is_negligible_over_one_puff_lifetime",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::every_map_basis_reads_the_one_map_puff_model",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::peak_ring_dose_rate_by_regime",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::rotating_the_direction_only_rotates_the_plume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_dose_rate_field_agrees_gpu_vs_cpu",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_per_ci_columns_are_unchanged_by_the_absolute_arm",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_plume_goes_downwind_and_thins_with_distance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::the_throttle_holds_and_an_empty_release_produces_nothing",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::turning_the_wind_turns_the_plume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/atmospheric_dispersion.rs::what_one_dispersion_evaluation_costs",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/control_rods.rs::a_usable_critical_position_exists_in_mid_travel",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/control_rods.rs::out_of_range_insertion_saturates_at_the_stops",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/control_rods.rs::s_curve_matches_lamarsh_at_the_checkable_points",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/control_rods.rs::the_ends_of_the_travel_are_signed_correctly",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::a_huge_step_lands_on_the_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::heat_flows_downhill_and_reverses_rather_than_over_cooling",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_bed_to_reflector_legs_follow_achenbach",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_chain_conserves_energy_over_a_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_chain_opens_in_equilibrium_at_its_design_heat",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_rccs_is_a_fixed_50_c_sink_fed_by_vessel_radiation",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_reflector_and_rpv_capacities_are_derived",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/decay_heat_removal.rs::the_riser_leg_uses_gnielinski_and_vanishes_without_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::circulating_activity_against_liu_and_cao_table_3",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::release_is_strongly_increasing_in_kernel_temperature",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::sic_only_failures_release_metals_but_keep_gases_and_halogens",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_absolute_arm_is_linear_in_inventory",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_accident_pool_operations_conserve_atoms",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_activities_are_linear_in_inventory",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_default_stack_rate_is_the_uncredited_circuit_leak",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_depressurisation_lift_off_conserves_atoms",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_free_uranium_split_bounds_the_gas_release",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_live_pools_open_carry_the_leak_and_follow_the_kernel",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/fission_product_release.rs::the_throttle_holds_and_a_missing_kernel_does_not_fall_back",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::decay_heat_at_equilibrium_does_not_move_the_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::decay_heat_survives_a_shutdown",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::how_long_the_empty_precursor_bank_takes_to_fill",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_design_point_is_neutral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_fuel_node_ledger_closes_against_the_true_enthalpy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_fuel_node_relaxes_to_the_bed_exactly",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_fuel_share_is_ablated_across_its_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_reactivity_budget_sums_to_the_net_in_kinetics_dollars",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::the_split_channels_sum_to_the_published_isothermal_coefficient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/kinetics.rs::zero_net_dollars_with_equilibrium_precursors_is_stationary",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_against_liu_and_cao_table_8",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_conserves_energy_and_vents_the_published_mass",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_with_air_ingress_indicative_30_min",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::kinetics_fuel_node_tracks_the_bed_node_after_a_scram",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_at_the_published_test_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_reactor_shuts_itself_down",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_with_and_without_xenon",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_rod_position_that_holds_three_megawatts",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_steady_state_bed_temperature_at_the_opening_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::reproduce_issue_22_scram_cooldown_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_core_side_energy_chain_conserves_energy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_helium_never_leaves_the_core_hotter_than_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_live_map_field_is_off_by_default_and_only_the_gui_builder_turns_it_on",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_opening_rod_position_commands_a_known_reactivity",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_passive_path_conserves_energy_through_a_full_plant_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_test_rod_position_matches_the_gui_default",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_against_gao_shi_and_liu_cao",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_conserves_energy_and_follows_the_published_sequence",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::where_the_plant_step_spends_its_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::commanded_flow_is_clamped_to_the_circulator_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::core_inlet_responds_to_secondary_heat_removal",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::core_temperature_rise_matches_the_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::each_drawn_run_has_its_own_transit_time_from_its_own_volume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::helium_inventory_includes_the_bed_void_volume",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::helium_properties_are_near_the_ideal_gas_limit",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::kta_bed_drop_reproduces_the_vtb_gold_and_is_checked_against_htr10",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::loop_pressure_drop_sits_on_the_published_budget_and_rises_with_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::published_operating_point_closes_on_the_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::steam_generator_has_no_node_by_node_temperature_cross",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_conductance_split_reproduces_the_series_ua",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_cv_volumes_hold_the_published_inventory_without_double_counting_the_shell",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_primary_loop_closes_its_own_balance_and_hands_the_exchanger_its_enthalpy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_return_leg_residence_time_scales_with_flow_and_carries_the_circulator_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/protection.rs::a_loss_of_heat_sink_trips_on_temperature_at_normal_power",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/protection.rs::a_power_excursion_trips_on_flux_and_scrams",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/protection.rs::rated_conditions_do_not_trip",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/protection.rs::the_protected_limit_is_the_htr10_one_not_the_generic_figure",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/protection.rs::the_trip_latches_and_never_removes_shutdown_margin",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::every_helium_volume_function_is_positive_and_finite",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::middle_discharge_tube_volume_is_the_sum_of_its_two_drawn_sub_bands",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs::pebble_bed_helium_volume_is_the_bed_geometric_volume_times_porosity",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/mod.rs::kind_round_trips_through_new_and_kind",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/mod.rs::placeholder_tiers_reproduce_one_node_porous_media_exactly",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::bed_geometry_reproduces_the_published_core",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::enthalpy_round_trips_and_htc_scales_with_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_bed_step_closes_its_own_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_evaluated_coefficient_beats_the_old_invented_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_fluid_and_graphite_nodes_describe_the_same_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_fuel_bed_coupling_is_read_off_the_start_of_step_profile",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_fuel_node_capacity_is_the_particles_and_nothing_else",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_inverted_profile_reproduces_the_node_temperature",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_kernel_offset_is_linear_in_power",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::the_resolved_pebble_beats_the_uniform_ball",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::two_node_balance_settles_with_all_power_leaving_via_helium_throughflow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::why_the_resolved_kernel_goes_none_on_a_hot_core",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/one_node.rs::zbs_conduction_is_negligible_beside_convection_at_power",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::condenser_energy_balance_closes_onto_the_cooling_water",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::feedwater_enthalpy_is_condensate_plus_real_pump_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::feedwater_flow_tracks_duty_and_stays_in_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::manual_feedwater_holds_the_commanded_flow_and_auto_does_not",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::manual_rebuilds_the_controller",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::net_power_nets_off_the_feed_pump",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::no_duty_can_drive_a_temperature_cross_on_the_steam_side",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::raising_the_condenser_pressure_costs_turbine_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::saturation_temperature_matches_if97_reference",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_absorbable_duty_cap_no_longer_binds",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_auto_setpoint_moves_the_settled_steam_temperature",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_condenser_pressure_range_keeps_a_cooling_water_approach",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_feedback_only_loop_holds_setpoint",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_gui_ranges_match_the_physics_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_secondary_piping_residence_time_is_a_real_transport_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::turbine_work_never_exceeds_heat_input",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::a_fresh_shaft_starts_at_synchronous_speed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::electrical_output_is_efficiency_times_shaft_power_at_steady_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::equilibrium_speed_follows_the_square_root_of_load",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::losing_steam_coasts_the_shaft_down_on_the_electrical_drag",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::shaft_power_is_exactly_the_enthalpy_drop_power",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_generator_is_time_invariant",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_plant_settles_the_shaft_a_little_under_synchronous_speed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/turbine_generator.rs::the_torque_floor_never_binds_in_normal_operation",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::default_controls_do_not_change_the_plants_initial_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::trip_reset_is_consumed_not_latched",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::a_reactor_inside_its_limit_is_not_annotated",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::an_empty_subject_is_dropped",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::the_fuel_slider_steps_through_all_three_stages",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::the_tab_owns_the_clock_that_advances_the_annotation",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/excursion_tab.rs::the_trigger_source_changes_what_can_be_reported",
+    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::a_healthy_reactor_is_not_annotated",
+    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::no_release_is_drawn_where_retention_is_demonstrated",
+    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::the_htr10_trigger_uses_the_htr10_limit_not_the_generic_figure",
+    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::the_overlay_reports_the_numbers_behind_it",
+    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::the_phase_comes_from_the_application_clock_and_does_not_reverse",
+    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::the_species_are_named_in_the_order_the_heating_tests_report",
+    "crates/outram-park-digital-twin-engine/src/htr10/design.rs::core_volume_closes_against_cited_diameter_and_height",
+    "crates/outram-park-digital-twin-engine/src/htr10/design.rs::fuel_temperature_limits_are_distinct_and_margin_is_positive",
+    "crates/outram-park-digital-twin-engine/src/htr10/design.rs::operating_point_energy_balance_closes_against_coolprop_helium_cp",
+    "crates/outram-park-digital-twin-engine/src/htr10/design.rs::pebble_count_and_filling_fraction_reproduce_core_volume",
+    "crates/outram-park-digital-twin-engine/src/htr10/design.rs::porosity_is_one_minus_filling_fraction",
+    "crates/outram-park-digital-twin-engine/src/htr10/design.rs::secondary_steam_energy_balance_closes_against_if97",
+    "crates/outram-park-digital-twin-engine/src/htr10/kta.rs::kta_friction_factor_reproduces_vtb_worked_example",
+    "crates/outram-park-digital-twin-engine/src/htr10/kta.rs::kta_pressure_gradient_reproduces_vtb_worked_example",
+    "crates/outram-park-digital-twin-engine/src/htr10/kta.rs::reynolds_from_tutorial_mass_flow_documents_source_inconsistency",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::deviated_benchmark_differs_from_original_in_exactly_three_stated_ways",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::every_published_value_carries_a_correctly_tiered_source",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::full_core_b2_loading_is_consistent_across_sources_and_geometry",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::heavy_metal_loading_closes_from_kernel_geometry",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::homogenisation_biases_are_ordered_and_bounded",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::interpolation_reproduces_the_four_published_b1_critical_heights",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::measured_ball_count_follows_from_loading_height",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::measured_loading_matches_the_57_to_43_design_ratio",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::original_to_deviated_shift_agrees_between_two_independent_sources",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::published_predictions_are_within_one_percent_of_the_measurement",
+    "crates/outram-park-digital-twin-engine/src/htr10/neutronics.rs::triso_layer_stack_and_packing_fraction_are_consistent",
+    "crates/outram-park-digital-twin-engine/src/htr10/zbs.rs::interpolant_clamps_outside_tabulated_range",
+    "crates/outram-park-digital-twin-engine/src/htr10/zbs.rs::interpolant_is_monotonic_between_endpoints",
+    "crates/outram-park-digital-twin-engine/src/htr10/zbs.rs::interpolant_returns_all_tabulated_nodes_exactly",
+]
+
+[module."design.rs"]
+path = "crate::htr10::design"
+
+[[module."design.rs".function]]
+id = "fn:fe49cac594f9fb2e"
+name = "Htr10DesignPoint"
+qual = "Htr10DesignPoint"
+item = "type"
+shape = "struct"
+lines = [
+    35,
+    104,
+]
+hash = "sha256:618d03251f7b50249bae2a9f01ea928b9944db81a5d9fbd65c1ef447d994db63"
+doc_hash = "sha256:6e64def30e02432618285cc023c06ed0d7ddbaab70157115164b5791d7f87a5d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#175",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+]
+
+[[module."design.rs".function]]
+id = "fn:ca59bf2147252c84"
+name = "iaea_benchmark"
+qual = "Htr10DesignPoint::iaea_benchmark"
+lines = [
+    107,
+    141,
+]
+hash = "sha256:fdd795c0b35da614714171aef6dd0f3a70c24a8fdb9353e5e1bce7ca0497b5ca"
+doc_hash = "sha256:7189ac04411fb10c056b63f12492bc7146300f1a622525f8d1bcc063f729e578"
+uses = ["fn:fe49cac594f9fb2e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#111",
+    "#112",
+    "#113",
+    "#114",
+    "#116",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#126",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#157",
+    "#158",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#175",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+]
+
+[[module."design.rs".function]]
+id = "fn:bad4d909998c641e"
+name = "bed_porosity"
+qual = "Htr10DesignPoint::bed_porosity"
+lines = [
+    143,
+    150,
+]
+hash = "sha256:0e6e9e820ecd8729fc795a81a7dcd2e740fbb13b44d8e9060f705cd792169111"
+doc_hash = "sha256:07a71806c25973f51332e9084f26cee673c57640b5d3c1339c68e94f02373720"
+uses = ["fn:fe49cac594f9fb2e"]
+reached_by = [
+    "#12",
+    "#14",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#49",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#104",
+    "#105",
+    "#107",
+    "#109",
+    "#110",
+    "#111",
+    "#117",
+    "#118",
+    "#119",
+    "#120",
+    "#121",
+    "#122",
+    "#124",
+    "#126",
+    "#127",
+    "#132",
+    "#144",
+    "#149",
+    "#151",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#179",
+]
+physical_interface = true
+
+[[module."design.rs".function]]
+id = "fn:8cb0bd5101d36233"
+name = "Htr10FuelTemperatureLimits"
+qual = "Htr10FuelTemperatureLimits"
+item = "type"
+shape = "struct"
+lines = [
+    153,
+    185,
+]
+hash = "sha256:8d6a391f24264a128552a4e67d56108d577aec5711ef2743207b201b6553b211"
+doc_hash = "sha256:24eb95c0f607ffdd2c428e7ed2e9d50e8591ebc1ebc36ce535f76b7e4c073292"
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#115",
+    "#144",
+    "#151",
+    "#162",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#176",
+]
+
+[[module."design.rs".function]]
+id = "fn:7224cc62a2e10668"
+name = "gao_shi_2002"
+qual = "Htr10FuelTemperatureLimits::gao_shi_2002"
+lines = [
+    188,
+    202,
+]
+hash = "sha256:703a1095ffc3011309dc5c4674f2518568f0cc14da831a66002b404fd3599612"
+doc_hash = "sha256:830ab6d0753a523c98c91a201a26ca376aa982ce38bd32ef2fcfba940cea1d3a"
+uses = ["fn:8cb0bd5101d36233"]
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#115",
+    "#144",
+    "#151",
+    "#162",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#176",
+]
+
+[[module."design.rs".function]]
+id = "fn:7de6786c70630156"
+name = "generic_coated_particle_retention_limit"
+qual = "generic_coated_particle_retention_limit"
+lines = [
+    205,
+    215,
+]
+hash = "sha256:0de3ee1e2705c67f8e75a0213a9b50169e0470d5a227460d688137d301ad3315"
+doc_hash = "sha256:bd0210d29f4ce578082b6c9d0c9347b8a75bcb580ff811154619c5f3198c8862"
+reached_by = [
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#176",
+]
+physical_interface = true
+
+[[module."design.rs".function]]
+id = "fn:c8eac86ea24d430d"
+name = "operating_point_energy_balance_closes_against_coolprop_helium_cp"
+qual = "operating_point_energy_balance_closes_against_coolprop_helium_cp"
+lines = [
+    228,
+    288,
+]
+hash = "sha256:d45d7688a5b40b8ac20e48ede79b9ff526bba6e481f22e22c131db83971bf3a4"
+doc_hash = "sha256:abdbe163f6100621dad3272f0e807b014df4958ef2c4588b0b02b847d0dbdc8c"
+callees = [
+    "fn:a9e5181d9a48d7b4",
+    "fn:ca59bf2147252c84",
+]
+uses = [
+    "fn:76b3c86a3f053867",
+    "fn:fe49cac594f9fb2e",
+]
+test = true
+
+[[module."design.rs".function]]
+id = "fn:e5a04df1eb0571c3"
+name = "secondary_steam_energy_balance_closes_against_if97"
+qual = "secondary_steam_energy_balance_closes_against_if97"
+lines = [
+    290,
+    332,
+]
+hash = "sha256:67b932c31c4c9e37a21024dd3eb0edab1c6beb91bc88c04eddc17c6a11aa2d3c"
+doc_hash = "sha256:dac1b1784f61e659d00bd213e51959d3de7354ff59ee89857cdb261f37cdf0c0"
+callees = [
+    "fn:a034500d55b2a2be",
+    "fn:ca59bf2147252c84",
+]
+uses = ["fn:fe49cac594f9fb2e"]
+test = true
+
+[[module."design.rs".function]]
+id = "fn:c7f2865259a60bb9"
+name = "core_volume_closes_against_cited_diameter_and_height"
+qual = "core_volume_closes_against_cited_diameter_and_height"
+lines = [
+    334,
+    360,
+]
+hash = "sha256:6c932867b5415969df8cd74156b23e60ad9769f9ba16bdff9d023038fcb78367"
+doc_hash = "sha256:03619170cc19ac4436b3c99d69ded3d1b2beae117178b1a464cc4c3e8ce2ae2c"
+callees = ["fn:ca59bf2147252c84"]
+uses = ["fn:fe49cac594f9fb2e"]
+test = true
+
+[[module."design.rs".function]]
+id = "fn:21c6e2b45fcd4563"
+name = "pebble_count_and_filling_fraction_reproduce_core_volume"
+qual = "pebble_count_and_filling_fraction_reproduce_core_volume"
+lines = [
+    362,
+    394,
+]
+hash = "sha256:531fdaec2723cfd964dc31e484c438dca235e54e95c7c39211c2bbe9fbdc9499"
+doc_hash = "sha256:5091c4515435c7306930e3ec5969a50439c2e79064bc82e1aaceeec7c837dfa7"
+callees = ["fn:ca59bf2147252c84"]
+uses = ["fn:fe49cac594f9fb2e"]
+test = true
+
+[[module."design.rs".function]]
+id = "fn:000f3471e9ce4512"
+name = "porosity_is_one_minus_filling_fraction"
+qual = "porosity_is_one_minus_filling_fraction"
+lines = [
+    396,
+    414,
+]
+hash = "sha256:ff14f2fd6604f2421a1d266365e109259600c55034d8b1cb42c9f04c5392df5d"
+doc_hash = "sha256:17da8482ac5742f1b6a7249e8cc1a219d7ad30f2e267ef40ce4650567de0a9a5"
+callees = [
+    "fn:bad4d909998c641e",
+    "fn:ca59bf2147252c84",
+]
+uses = ["fn:fe49cac594f9fb2e"]
+test = true
+
+[[module."design.rs".function]]
+id = "fn:0a412495e25c3ebc"
+name = "fuel_temperature_limits_are_distinct_and_margin_is_positive"
+qual = "fuel_temperature_limits_are_distinct_and_margin_is_positive"
+lines = [
+    416,
+    460,
+]
+hash = "sha256:c26ac41a00df97bad23ef87bc2c60c418c1d9b5cc5e12adc718879480b3961bb"
+doc_hash = "sha256:c81ead1f6188feaf5d0d77d488ed8f6daced48395603d5935fe8d42f937fe74c"
+callees = [
+    "fn:7224cc62a2e10668",
+    "fn:7de6786c70630156",
+]
+uses = ["fn:8cb0bd5101d36233"]
+test = true
+
+[module."kta.rs"]
+path = "crate::htr10::kta"
+
+[[module."kta.rs".function]]
+id = "fn:0ef7a0217f70b18a"
+name = "MassFlux"
+qual = "MassFlux"
+item = "type"
+shape = "alias"
+lines = [
+    39,
+    42,
+]
+hash = "sha256:5996f482113bc64573ea79b3f452210742319064bf48fb35b082904d5c2c3528"
+doc_hash = "sha256:e3f32bd52d923bdb63f0400d49c7706993ae15e2805506679a7016a9c7e1de89"
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#121",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#131",
+    "#132",
+    "#144",
+    "#151",
+    "#162",
+    "#182",
+    "#183",
+]
+
+[[module."kta.rs".function]]
+id = "fn:c78db63c735b7cf1"
+name = "PressureGradient"
+qual = "PressureGradient"
+item = "type"
+shape = "alias"
+lines = [
+    44,
+    48,
+]
+hash = "sha256:987b1ffb1063527476eb779b3d0cc65192196fdb2e9735e3847a31161d8edbd7"
+doc_hash = "sha256:d0555e3f7c6404d98e9937753b30e4d25b34d0e886d7266fd3ffa80f0137e328"
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#144",
+    "#151",
+    "#162",
+    "#182",
+]
+
+[[module."kta.rs".function]]
+id = "fn:8cfdbed81abcead5"
+name = "superficial_mass_flux"
+qual = "superficial_mass_flux"
+lines = [
+    50,
+    56,
+]
+hash = "sha256:6e6afb40a33d9e9c8591fa29b0716421bc5cf560165c110caba2c27957cfa8e9"
+doc_hash = "sha256:6c1be66a1589cfea151d95baba991b0dcab33a5a746ed1cff382a37568e3c8bd"
+uses = ["fn:0ef7a0217f70b18a"]
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#121",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#131",
+    "#132",
+    "#144",
+    "#151",
+    "#162",
+    "#183",
+]
+physical_interface = true
+
+[[module."kta.rs".function]]
+id = "fn:7e3d095859b9214f"
+name = "packed_bed_reynolds"
+qual = "packed_bed_reynolds"
+lines = [
+    58,
+    69,
+]
+hash = "sha256:d87ba3bee573bdc3445e9f7ac713b4bd95b89a2e5c62c03d7dc527663d2f5853"
+doc_hash = "sha256:9fe9da0219138b292a5e4aa50c85fb8cf8d3deb0cc8af92ea07a8ae55e300607"
+uses = ["fn:0ef7a0217f70b18a"]
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#121",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#131",
+    "#132",
+    "#144",
+    "#151",
+    "#162",
+    "#182",
+    "#183",
+]
+physical_interface = true
+
+[[module."kta.rs".function]]
+id = "fn:04f2eb15d062429a"
+name = "kta_friction_factor"
+qual = "kta_friction_factor"
+lines = [
+    71,
+    78,
+]
+hash = "sha256:04cb3e1883cfa8dc6b1e55d27514046f6dcc759c715081144c62d0fdf9aa2d6c"
+doc_hash = "sha256:f3af0a2fa4918bae41c279dfdc13dc770507c89851bf53308c49a248fe876bfe"
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#144",
+    "#151",
+    "#162",
+    "#181",
+    "#182",
+]
+physical_interface = true
+
+[[module."kta.rs".function]]
+id = "fn:7799cb931f86d2e4"
+name = "kta_pressure_gradient"
+qual = "kta_pressure_gradient"
+lines = [
+    80,
+    103,
+]
+hash = "sha256:07d0b759b1ab593718e30da9c287cbefeb64baa7d80c3e09abc65812dafc7efc"
+doc_hash = "sha256:cd3ebf40d31da5942707f52d6fce578a543e48b1905857bc31240eefcf2da683"
+callees = [
+    "fn:04f2eb15d062429a",
+    "fn:7e3d095859b9214f",
+]
+uses = [
+    "fn:0ef7a0217f70b18a",
+    "fn:c78db63c735b7cf1",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#144",
+    "#151",
+    "#162",
+    "#182",
+]
+physical_interface = true
+
+[[module."kta.rs".function]]
+id = "fn:574fc03cecdcf43e"
+name = "pressure_drop_over_bed"
+qual = "pressure_drop_over_bed"
+lines = [
+    105,
+    111,
+]
+hash = "sha256:2405ae8d95be6e92356cc7840bf0a23e71275ef318b14adc91a2fce155e44070"
+doc_hash = "sha256:10ec9ef5617bfe772a0be800c756fcc970d7332ed3b353948fb7e32ebb0b6191"
+uses = ["fn:c78db63c735b7cf1"]
+reached_by = [
+    "#12",
+    "#14",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#104",
+    "#105",
+    "#107",
+    "#110",
+    "#111",
+    "#144",
+    "#151",
+    "#162",
+    "#182",
+]
+physical_interface = true
+
+[[module."kta.rs".function]]
+id = "fn:555b409b2dc9b623"
+name = "kta_friction_factor_reproduces_vtb_worked_example"
+qual = "kta_friction_factor_reproduces_vtb_worked_example"
+lines = [
+    123,
+    145,
+]
+hash = "sha256:fbc1891f26e7023430eae1df763fd8d0ee21574abdb4d7befe46378f3b259c1c"
+doc_hash = "sha256:b15228c270e03f8da2913be170a1bf28b49faaef709ff13681aebd531506ceaf"
+callees = ["fn:04f2eb15d062429a"]
+test = true
+
+[[module."kta.rs".function]]
+id = "fn:e4893e0765b87015"
+name = "kta_pressure_gradient_reproduces_vtb_worked_example"
+qual = "kta_pressure_gradient_reproduces_vtb_worked_example"
+lines = [
+    147,
+    201,
+]
+hash = "sha256:ff7117107c414152daf22e320ddb0e3a4d84562238ea6725e170a378a6fd29ac"
+doc_hash = "sha256:3a4fdeeb4ec2a58bbbec19a9605a6a09bd6e1d9551f3cf91a4042f7ddaeb94e5"
+callees = [
+    "fn:574fc03cecdcf43e",
+    "fn:7799cb931f86d2e4",
+    "fn:7e3d095859b9214f",
+]
+uses = ["fn:0ef7a0217f70b18a"]
+test = true
+
+[[module."kta.rs".function]]
+id = "fn:91452f63317de23f"
+name = "reynolds_from_tutorial_mass_flow_documents_source_inconsistency"
+qual = "reynolds_from_tutorial_mass_flow_documents_source_inconsistency"
+lines = [
+    203,
+    249,
+]
+hash = "sha256:ccce559d54db84a962b9b1255af5f1098ec6ec7515763ed4d757d142f5fc3996"
+doc_hash = "sha256:5db691e86c3888d38112d931e38d58721c783d990e50538bb8377b2eb36fdaad"
+callees = [
+    "fn:7e3d095859b9214f",
+    "fn:8cfdbed81abcead5",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::htr10"
+
+[module."neutronics.rs"]
+path = "crate::htr10::neutronics"
+
+[[module."neutronics.rs".function]]
+id = "fn:449aa892e81652f8"
+name = "AccessTier"
+qual = "AccessTier"
+item = "type"
+shape = "enum"
+lines = [
+    75,
+    89,
+]
+hash = "sha256:299e2361df2c1aeec49d4c2e742998065fc33b360be6cad3cf5cf747db364a53"
+doc_hash = "sha256:f06dfb78c2b7a2d0f0d4688d4f3c55b3437519a31cbef2832789e84ace8ee321"
+reached_by = ["#185"]
+
+[[module."neutronics.rs".function]]
+id = "fn:1c87dca7a3dd8ae1"
+name = "LiteratureSource"
+qual = "LiteratureSource"
+item = "type"
+shape = "enum"
+lines = [
+    91,
+    111,
+]
+hash = "sha256:dd9b1706961587499ec75ac2c5909f010301a5fc3f96600e189af31553dcbd42"
+doc_hash = "sha256:daad4481a7f088c3cade8b1e91217c45f5667c545134f53f9255bcca571c49ee"
+reached_by = [
+    "#185",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:84bf2a0072138059"
+name = "access_tier"
+qual = "LiteratureSource::access_tier"
+lines = [
+    114,
+    126,
+]
+hash = "sha256:0bd223b8e6250875edea653b2716e06067f2745cfb8397d0dc34e1f173f87377"
+doc_hash = "sha256:d3054a8bc859cc57a7a8ee75b8c98fc6390a8b32e981986595b46f43edc1a0ae"
+uses = [
+    "fn:1c87dca7a3dd8ae1",
+    "fn:449aa892e81652f8",
+]
+reached_by = ["#185"]
+
+[[module."neutronics.rs".function]]
+id = "fn:475dd7189cb757c3"
+name = "NeutronicsCode"
+qual = "NeutronicsCode"
+item = "type"
+shape = "enum"
+lines = [
+    129,
+    151,
+]
+hash = "sha256:eda0b1800787619e6ef2ad529f048e6066f0d73951cb482a60bd5394eecec605"
+doc_hash = "sha256:ef7a0b555996065b9d3f2de47e5bad211ea46abc1ae5a66fc648e882c9b1545d"
+uses = ["fn:94cb1f2021ee3eca"]
+reached_by = [
+    "#185",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:94cb1f2021ee3eca"
+name = "UnitCellTreatment"
+qual = "UnitCellTreatment"
+item = "type"
+shape = "enum"
+lines = [
+    153,
+    179,
+]
+hash = "sha256:986c8855224403da396adbf9f23dbf7258928f493bfdf3c463b1a4128a6ee7de"
+doc_hash = "sha256:4b22fcbd0a8b0d874be1c6742b8d12933782f204eaa580beb15605f73feb7bf6"
+reached_by = [
+    "#185",
+    "#188",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:9fa179fed9d498c1"
+name = "BenchmarkVariant"
+qual = "BenchmarkVariant"
+item = "type"
+shape = "enum"
+lines = [
+    181,
+    199,
+]
+hash = "sha256:23a7f2195bc52f42e830996f94855a82de7b7c18f14c214e24412a8935dd65bb"
+doc_hash = "sha256:049b9d2b2d7dd54a69657b483bf0533b461f1275a83cb8ea4ca5881de3b14daf"
+reached_by = [
+    "#184",
+    "#185",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:8af852d4407db83a"
+name = "dummy_pebble"
+qual = "BenchmarkVariant::dummy_pebble"
+lines = [
+    202,
+    216,
+]
+hash = "sha256:d87c2a5f2b098ad87f286d75cb9a9ad00d28c1980f7f01a7a407b2c2c13edc75"
+doc_hash = "sha256:7fe43c9647633c1a80bfc9dfec8327d34f74ee90beb8c91166d51634e79dabca"
+uses = [
+    "fn:8983f77441cbb1d6",
+    "fn:9fa179fed9d498c1",
+]
+reached_by = ["#184"]
+
+[[module."neutronics.rs".function]]
+id = "fn:40089236dd9d30c9"
+name = "atmosphere"
+qual = "BenchmarkVariant::atmosphere"
+lines = [
+    218,
+    228,
+]
+hash = "sha256:5f265506ffb086c2e0b5ff13f6016b81edfd45b64f5ca07adbd3cf3f876c93eb"
+doc_hash = "sha256:799452aff749697f929e2fd8d2121ffbc8a23323b0ef7db21029f569a900559e"
+callees = ["fn:ae13f464c6fc125e"]
+uses = [
+    "fn:954be97bbe7d508e",
+    "fn:9fa179fed9d498c1",
+    "fn:a49a7ca38f7b8f69",
+]
+reached_by = ["#184"]
+
+[[module."neutronics.rs".function]]
+id = "fn:e5526150a9c91c2d"
+name = "definition_temperature"
+qual = "BenchmarkVariant::definition_temperature"
+lines = [
+    230,
+    246,
+]
+hash = "sha256:c3cc6f56f93bf3c4e488b745cbf3c57a2d49ddbf09b8f45f12b6efbbdee501b7"
+doc_hash = "sha256:59e1eccb17602fc7b8e48f36d1935d2a0748bc29e833aed164a4e21643ea6138"
+uses = ["fn:9fa179fed9d498c1"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:a49a7ca38f7b8f69"
+name = "CoreAtmosphere"
+qual = "CoreAtmosphere"
+item = "type"
+shape = "enum"
+lines = [
+    249,
+    263,
+]
+hash = "sha256:5fb1099331e08492d9030f8164dae6bd5be6eb171533ec1d7b7f1bfa88ccbcf8"
+doc_hash = "sha256:e4c39ff97665202cd2e9f74783b450b0bae325066e3fe1dd086c1ab24bc5fa89"
+uses = ["fn:954be97bbe7d508e"]
+reached_by = [
+    "#184",
+    "#190",
+    "#191",
+    "#193",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:954be97bbe7d508e"
+name = "HumidAirComposition"
+qual = "HumidAirComposition"
+item = "type"
+shape = "struct"
+lines = [
+    265,
+    284,
+]
+hash = "sha256:68d65b2873c388c4216dc9f9eeaf136eacefb759a68afcacc163d880dcfc1777"
+doc_hash = "sha256:8b3feb82865e4dd55ae1b504cc6ba6b07fcd7bb05fb3864b4f4ed4d68a452c24"
+reached_by = [
+    "#184",
+    "#190",
+    "#191",
+    "#193",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:ae13f464c6fc125e"
+name = "iaea_deviated"
+qual = "HumidAirComposition::iaea_deviated"
+lines = [
+    287,
+    297,
+]
+hash = "sha256:b8208e9cdcbf49c83b0eea2095e14e2108436306e6d6042a5323a7a136c660b8"
+doc_hash = "sha256:d7f80a81d735916df14098c49baed90f7a10975531da3a8c5072ab365603bf7a"
+uses = ["fn:954be97bbe7d508e"]
+reached_by = [
+    "#184",
+    "#190",
+    "#191",
+    "#193",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:5202f52eebc32647"
+name = "unaccounted_fraction"
+qual = "HumidAirComposition::unaccounted_fraction"
+lines = [
+    299,
+    307,
+]
+hash = "sha256:18b8f6d2419f2239ba58148b8c7027d1d18aa2627b4339689d98e944c67544b4"
+doc_hash = "sha256:98253e919767feb8dc61a2de36bc420fb6de4d8d5eabad4cf4da9fd079669177"
+uses = ["fn:954be97bbe7d508e"]
+reached_by = ["#184"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:8983f77441cbb1d6"
+name = "DummyPebbleSpec"
+qual = "DummyPebbleSpec"
+item = "type"
+shape = "struct"
+lines = [
+    310,
+    335,
+]
+hash = "sha256:be81da3e5ebe989560c692b7961fbbb0729d50f3a18dfb622a643b66f65fbba7"
+doc_hash = "sha256:d7973bc809a28bc7b28bf3677c75ad2a550a87e167a861e9ecc3a457a8fa5262"
+reached_by = ["#184"]
+
+[[module."neutronics.rs".function]]
+id = "fn:3e4ef1536fd80139"
+name = "TrisoParticle"
+qual = "TrisoParticle"
+item = "type"
+shape = "struct"
+lines = [
+    337,
+    373,
+]
+hash = "sha256:6a3318da75dc442989ddf864a403fa26749101db8d90737741f80a848d8100c5"
+doc_hash = "sha256:c67ea8d099d3211b6a39558da7add3ea556ba2a83142a135a0116b4f1c666b04"
+reached_by = [
+    "#184",
+    "#187",
+    "#194",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:8a24583485117e08"
+name = "iaea_benchmark"
+qual = "TrisoParticle::iaea_benchmark"
+lines = [
+    376,
+    394,
+]
+hash = "sha256:98034193c8078567340ba8571c005e2fde79a306c531348586698b5d32208eaa"
+doc_hash = "sha256:2d23d77266e4b1eacfb8a1ab53651bb2b26d6a38e82b94e4c01c7cbe732ce5e6"
+uses = ["fn:3e4ef1536fd80139"]
+reached_by = [
+    "#184",
+    "#187",
+    "#194",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:7b96a3602ce581d6"
+name = "outer_radius"
+qual = "TrisoParticle::outer_radius"
+lines = [
+    396,
+    404,
+]
+hash = "sha256:d6f5ecaf0bb1b4531785e24913536f4c18c784ebfc81989db06d7cc68e3e76ab"
+doc_hash = "sha256:aae12d3f7c3e8665af8172257c3078b500b9c1df4f251b0a9c3448487a66af34"
+uses = ["fn:3e4ef1536fd80139"]
+reached_by = ["#194"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:7151f27fa10c92f8"
+name = "kernel_volume"
+qual = "TrisoParticle::kernel_volume"
+lines = [
+    406,
+    412,
+]
+hash = "sha256:e7579a6ccf52159138eceaf448dd35e7fab9210b1a9f6788523e0dc7cab0b9c0"
+doc_hash = "sha256:ee245b68e84daad1afc2373e3906bdf74910f66721de1e8a15bf4745a775faba"
+uses = ["fn:3e4ef1536fd80139"]
+reached_by = ["#187"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:b294ab0c31e45369"
+name = "particle_volume"
+qual = "TrisoParticle::particle_volume"
+lines = [
+    414,
+    419,
+]
+hash = "sha256:ac15368c62e8e7cf874c29073882b87a95e6064805254b87e5047fb353f0e52f"
+doc_hash = "sha256:4e42c639aedb72fb3c143fb137be602c93c14e4993a3ef2edea132051a4ba94c"
+callees = ["fn:7b96a3602ce581d6"]
+uses = ["fn:3e4ef1536fd80139"]
+reached_by = ["#194"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:31fb9e863c5e7745"
+name = "uranium_molar_mass_g_per_mol"
+qual = "TrisoParticle::uranium_molar_mass_g_per_mol"
+lines = [
+    421,
+    428,
+]
+hash = "sha256:b5aba6c59d2b92aae963e4bd84cc23b56348fb35170ca3a6d3bc7952e33df52f"
+doc_hash = "sha256:226791bd394a275f442ccb51092f81780b78401a8ce5ce9a7447a551bc918a3c"
+uses = [
+    "fn:3e4ef1536fd80139",
+    "fn:56739ed719a8fc67",
+    "fn:e8fb1ae87616b3dd",
+]
+reached_by = ["#187"]
+
+[[module."neutronics.rs".function]]
+id = "fn:efceb329b7eba73f"
+name = "uranium_mass_fraction_of_uo2"
+qual = "TrisoParticle::uranium_mass_fraction_of_uo2"
+lines = [
+    430,
+    434,
+]
+hash = "sha256:3bcb4fe202127a22f26620e27e81c15a2c91366ef41c8a9ac0e7f950c6870de3"
+doc_hash = "sha256:3a1ee130c41c8bc3ccc8302f395d081dc17c6e4180e0f9179b31cd2943a49f71"
+callees = ["fn:31fb9e863c5e7745"]
+uses = [
+    "fn:3e4ef1536fd80139",
+    "fn:5523308f286ef7dd",
+]
+reached_by = ["#187"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:3c81a23ba1eb9e64"
+name = "heavy_metal_per_pebble"
+qual = "TrisoParticle::heavy_metal_per_pebble"
+lines = [
+    436,
+    448,
+]
+hash = "sha256:ea4b25eb4922e32eb83a0bda808053b0c3099e4f4f1a6393625e1e242c3436a1"
+doc_hash = "sha256:370a7eeb1d008f0c69a18af586db08b849d72de0e40325a7e0781424c9993705"
+callees = [
+    "fn:7151f27fa10c92f8",
+    "fn:efceb329b7eba73f",
+]
+uses = ["fn:3e4ef1536fd80139"]
+reached_by = ["#187"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:9ff7c1dd3ea2ab5b"
+name = "packing_fraction_in_fuel_zone"
+qual = "TrisoParticle::packing_fraction_in_fuel_zone"
+lines = [
+    450,
+    460,
+]
+hash = "sha256:4d6a06f31755e7042b937aad7c84623bc7b6d853ca4826bca11f1a3133a284b8"
+doc_hash = "sha256:d1fe0749132eedc128161ea9982fac831beb7ce1fcd6d7b7c414708653364226"
+callees = ["fn:b294ab0c31e45369"]
+uses = ["fn:3e4ef1536fd80139"]
+reached_by = ["#194"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:56739ed719a8fc67"
+name = "U235_MOLAR_MASS_G_PER_MOL"
+qual = "U235_MOLAR_MASS_G_PER_MOL"
+item = "const"
+shape = "const"
+lines = [
+    463,
+    464,
+]
+hash = "sha256:83c48ee874ccde2b3454f2e085de49401990bf78357fd4b50b66416626b78ec7"
+doc_hash = "sha256:34f913ca478d36f78fb054aba7b418655aceb18f11c2167ab26d7384e535cf76"
+reached_by = ["#187"]
+
+[[module."neutronics.rs".function]]
+id = "fn:e8fb1ae87616b3dd"
+name = "U238_MOLAR_MASS_G_PER_MOL"
+qual = "U238_MOLAR_MASS_G_PER_MOL"
+item = "const"
+shape = "const"
+lines = [
+    466,
+    467,
+]
+hash = "sha256:bd53531ddf65c296c75f57b3356ed1ae2d2dc60c0664e84e2c13273b269d08e5"
+doc_hash = "sha256:01a7b47131d493cbc1f601ae21c8699ecca0ffc9189642f6b7c3982fd212cd38"
+reached_by = ["#187"]
+
+[[module."neutronics.rs".function]]
+id = "fn:5523308f286ef7dd"
+name = "OXYGEN_MOLAR_MASS_G_PER_MOL"
+qual = "OXYGEN_MOLAR_MASS_G_PER_MOL"
+item = "const"
+shape = "const"
+lines = [
+    469,
+    471,
+]
+hash = "sha256:1f645803eb22c766aee1f10b99506ac6af4535e047821c263728a802484d11c5"
+doc_hash = "sha256:3d5af3883982585d9bc81ad3ebddae5e6f6c9363ada1a49d1adf284403a392ff"
+reached_by = ["#187"]
+
+[[module."neutronics.rs".function]]
+id = "fn:7df660095e5bc4b0"
+name = "FuelPebbleSpec"
+qual = "FuelPebbleSpec"
+item = "type"
+shape = "struct"
+lines = [
+    473,
+    494,
+]
+hash = "sha256:f82738a3da3ddfcea118b09997b97eaea2ca1c74ff48c230de291b15f91d4dbf"
+doc_hash = "sha256:252c62ed60604233b67519cbc21457ea95b9deb3d21dabed8145f86d24eaf212"
+uses = ["fn:3e4ef1536fd80139"]
+reached_by = [
+    "#184",
+    "#187",
+    "#194",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:9e5db3db44ad3a30"
+name = "iaea_benchmark"
+qual = "FuelPebbleSpec::iaea_benchmark"
+lines = [
+    497,
+    511,
+]
+hash = "sha256:5368194daf8e2708b03d649555d8ecff151ec7e86bb223cb324d664f848468fd"
+doc_hash = "sha256:73d2eba4bb2cbfc42b7478c719326e634804f23592c61be2c0258cd3d75877a8"
+callees = ["fn:8a24583485117e08"]
+uses = [
+    "fn:3e4ef1536fd80139",
+    "fn:7df660095e5bc4b0",
+]
+reached_by = [
+    "#184",
+    "#187",
+    "#194",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:76aeeaa49ab98f08"
+name = "fuelled_zone_radius"
+qual = "FuelPebbleSpec::fuelled_zone_radius"
+lines = [
+    513,
+    516,
+]
+hash = "sha256:d25cfcfdcefa9613d7a2fd02d37fe2d2b062d2fc3eda9fb5d6736ddaaedb9ecc"
+doc_hash = "sha256:c504f870ceed3ebf7ad5f8bfbf34d31f42be2b12f91595ac6d6c45a150cded18"
+uses = ["fn:7df660095e5bc4b0"]
+reached_by = ["#194"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:3136d90013278323"
+name = "Htr10CoreGeometry"
+qual = "Htr10CoreGeometry"
+item = "type"
+shape = "struct"
+lines = [
+    519,
+    576,
+]
+hash = "sha256:04d472cac36221218cb3c61005860cc22159b1222bea9a7e11034c784be4413a"
+doc_hash = "sha256:f4fb5ea71a4f12346e8e3d912b9ff888a19bb064886642761a1e3def141ca224"
+reached_by = [
+    "#186",
+    "#190",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:7999d983c706d974"
+name = "iaea_benchmark"
+qual = "Htr10CoreGeometry::iaea_benchmark"
+lines = [
+    579,
+    602,
+]
+hash = "sha256:be6cafcd5dd654979639e0ec43e9b4de6ec7cd604cc5eb7650d03827802ca1ec"
+doc_hash = "sha256:aa07568dc2c0d80c9c8a6d85717b7e2f022354396b7937ee6144222dceebb0b5"
+uses = ["fn:3136d90013278323"]
+reached_by = [
+    "#186",
+    "#190",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:ac666a8f0d6a670e"
+name = "core_radius"
+qual = "Htr10CoreGeometry::core_radius"
+lines = [
+    604,
+    607,
+]
+hash = "sha256:ef4226def6099cc5160890095b6cc3732da4321279f30393e13ad5ff384baf38"
+doc_hash = "sha256:cd7f8f05e1ad5d0bcfd5ef0b84302c14577466f3ad44f384979b695162895b8c"
+uses = ["fn:3136d90013278323"]
+reached_by = [
+    "#186",
+    "#190",
+]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:8d86a63f28c3be78"
+name = "pebble_count_for_loading_height"
+qual = "Htr10CoreGeometry::pebble_count_for_loading_height"
+lines = [
+    609,
+    635,
+]
+hash = "sha256:3b322c007918c7220f8f8a5e2c4fa59aaac7b9188e9100f35813956f2a82d72d"
+doc_hash = "sha256:efa3e64b25503cbf28720c2c5b9bc8e750528d9c2d065749d8987a70f82f46af"
+callees = ["fn:ac666a8f0d6a670e"]
+uses = ["fn:3136d90013278323"]
+reached_by = [
+    "#186",
+    "#190",
+]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:61f5391aad46e996"
+name = "LoadingCurvePoint"
+qual = "LoadingCurvePoint"
+item = "type"
+shape = "struct"
+lines = [
+    638,
+    662,
+]
+hash = "sha256:901ee1dfab80eb1ae79569bb790e98ba8cd06cdbf6ac92ab64ef4d5498ba0202"
+doc_hash = "sha256:da1a13179b09f469eda2959a9c0687a4698fe08a6407f74a2f169830bf82c4f1"
+reached_by = [
+    "#186",
+    "#189",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:4bba05f0fc06416e"
+name = "critical_height_from_two_points"
+qual = "critical_height_from_two_points"
+lines = [
+    664,
+    691,
+]
+hash = "sha256:ec28a5147d12d75e5daa798bc414622b16cc4ab9dddba03624a9866bb561d3d5"
+doc_hash = "sha256:4bff3ec73db221ff9924bc3c38385ca30fadb93e837656c7d613c58d1d0a0022"
+uses = ["fn:61f5391aad46e996"]
+reached_by = ["#189"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:2f85a04a4acde73f"
+name = "vsop_original_loading_curve_20c"
+qual = "vsop_original_loading_curve_20c"
+lines = [
+    693,
+    722,
+]
+hash = "sha256:c118a890b7a919d280820efcba7e14bdcb72ece25e5f60d34b1c0754e51becf7"
+doc_hash = "sha256:500c47c28243b4748f7a6c8c623bd06a638a4e59b93cc915c54d69a8f9280c7d"
+uses = ["fn:61f5391aad46e996"]
+reached_by = [
+    "#186",
+    "#189",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:1ca93986bf274564"
+name = "vsop_original_loading_curve_27c"
+qual = "vsop_original_loading_curve_27c"
+lines = [
+    724,
+    753,
+]
+hash = "sha256:04fc3c8f2df77c74ac4620a19e46aa3e8ad379b0f9938ddf52a21f0d9470ffea"
+doc_hash = "sha256:3a62175e7d918ec914d282c1aeaf744d210ea8a310c4a066561429ca65b0887a"
+uses = ["fn:61f5391aad46e996"]
+reached_by = ["#192"]
+
+[[module."neutronics.rs".function]]
+id = "fn:711b92c4627ab3f5"
+name = "mcnp_original_loading_curve_27c"
+qual = "mcnp_original_loading_curve_27c"
+lines = [
+    755,
+    776,
+]
+hash = "sha256:e4172dde6b6fa594da0e9a32ca574c4794cc3aa7f062e7e9c702634dbf0a6252"
+doc_hash = "sha256:f3409fa6015903ac3af4aa56c4f334b036045fb8fbed0aeac6ae63e4ade36d29"
+uses = ["fn:61f5391aad46e996"]
+reached_by = ["#189"]
+
+[[module."neutronics.rs".function]]
+id = "fn:cf921efccebb518e"
+name = "vsop_deviated_loading_curve_27c"
+qual = "vsop_deviated_loading_curve_27c"
+lines = [
+    778,
+    800,
+]
+hash = "sha256:9a59f998f01253b314ce7777e81e475f08fc891c5338bc41cba79ff463ba8fad"
+doc_hash = "sha256:2b738e0df2ad03acb694b363ff45502b76be4563c7ca2a7d1efd7873a706573f"
+uses = ["fn:61f5391aad46e996"]
+reached_by = [
+    "#189",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:32e62c3ddd14f2a8"
+name = "mcnp_deviated_loading_curve_27c"
+qual = "mcnp_deviated_loading_curve_27c"
+lines = [
+    802,
+    824,
+]
+hash = "sha256:01d387aa0b5d97a9540b2ced39c228082c33338cb572a6434cb684a703ecc8ad"
+doc_hash = "sha256:d17802c9cc1c5e5628e57cc8c1ce294c248f5f8acc5dd293bae192c611d235e5"
+uses = ["fn:61f5391aad46e996"]
+reached_by = ["#189"]
+
+[[module."neutronics.rs".function]]
+id = "fn:20e99729ec9d85be"
+name = "FirstCriticalityMeasurement"
+qual = "FirstCriticalityMeasurement"
+item = "type"
+shape = "struct"
+lines = [
+    826,
+    847,
+]
+hash = "sha256:10fdcf8463545a774e3460c41fdcdb453afe6dab00335c622c5d8b07b259cc79"
+doc_hash = "sha256:779d4d3c54ff51d6d8747fb8f12ef39953e292d777740ad4f3062d21e54a868e"
+uses = ["fn:a49a7ca38f7b8f69"]
+reached_by = [
+    "#190",
+    "#191",
+    "#193",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:5ab7ca86f3f3dc7b"
+name = "iaea_reported"
+qual = "FirstCriticalityMeasurement::iaea_reported"
+lines = [
+    850,
+    869,
+]
+hash = "sha256:f3ea86ff4329923a372a0912332c22959db54b0608f34ac9f824996d114d014c"
+doc_hash = "sha256:606ce4bb5021cea364f93829aafb620b014906259e85455619e68cebcb53659f"
+callees = ["fn:ae13f464c6fc125e"]
+uses = [
+    "fn:20e99729ec9d85be",
+    "fn:954be97bbe7d508e",
+    "fn:a49a7ca38f7b8f69",
+]
+reached_by = [
+    "#190",
+    "#191",
+    "#193",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:1abcc09016810e51"
+name = "fuel_ball_fraction"
+qual = "FirstCriticalityMeasurement::fuel_ball_fraction"
+lines = [
+    871,
+    875,
+]
+hash = "sha256:1ca31d56f56949fbb7c2629093138ef8ff25591339931b99a6f99a050e0084f6"
+doc_hash = "sha256:648782c5e158428b528d284b4f63bae95384bec9a93e57bb5267cd192c2c5fff"
+uses = ["fn:20e99729ec9d85be"]
+reached_by = ["#191"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:036846f16b0ebb28"
+name = "PublishedKeff"
+qual = "PublishedKeff"
+item = "type"
+shape = "struct"
+lines = [
+    878,
+    898,
+]
+hash = "sha256:ee6d5f96b3c5cefa4fcc3601ac8f0b968f3da27b984b92af653b5bac4dc8e7be"
+doc_hash = "sha256:daba5df5e52a9d9f838c8291a80401dd670d44f5ea52a4af7b4249d00f8d95c5"
+uses = [
+    "fn:1c87dca7a3dd8ae1",
+    "fn:475dd7189cb757c3",
+    "fn:9fa179fed9d498c1",
+    "fn:d160f739a2428179",
+]
+reached_by = [
+    "#185",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:d160f739a2428179"
+name = "BenchmarkProblem"
+qual = "BenchmarkProblem"
+item = "type"
+shape = "enum"
+lines = [
+    900,
+    934,
+]
+hash = "sha256:cdac9092ba427dd2e672abedfdb46594eb5c2fd060915d58c2cefe289d905926"
+doc_hash = "sha256:fa5328f9046ba97383d5deedbd0557d3d021df17353d12373a9273c1399d33d4"
+reached_by = [
+    "#185",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:84ae97643dccde07"
+name = "inet_b2_results"
+qual = "inet_b2_results"
+lines = [
+    936,
+    1003,
+]
+hash = "sha256:7529daff7f5a51bdc3f4e39a62ebb86b94cbe3667938447cca674611a033b23a"
+doc_hash = "sha256:5b225e2208cca647108bed92ec84c74880c02ec6e5e7964f5436737beb35f7fd"
+uses = [
+    "fn:036846f16b0ebb28",
+    "fn:1c87dca7a3dd8ae1",
+    "fn:475dd7189cb757c3",
+    "fn:9fa179fed9d498c1",
+    "fn:d160f739a2428179",
+]
+reached_by = ["#185"]
+
+[[module."neutronics.rs".function]]
+id = "fn:c520158642cccf25"
+name = "choo_xiao_2024_results"
+qual = "choo_xiao_2024_results"
+lines = [
+    1005,
+    1126,
+]
+hash = "sha256:c216ace141b9ea7c09cb7b2b7fdc27f3ce51d843449781c4b33f2fa8834a0128"
+doc_hash = "sha256:69512479e9d7a15621ee3b56aff3b836b2b7be9e8955ccb5d905120431f9cff1"
+uses = [
+    "fn:036846f16b0ebb28",
+    "fn:1c87dca7a3dd8ae1",
+    "fn:475dd7189cb757c3",
+    "fn:9fa179fed9d498c1",
+    "fn:d160f739a2428179",
+]
+reached_by = [
+    "#185",
+    "#192",
+]
+
+[[module."neutronics.rs".function]]
+id = "fn:753aac76e97112c0"
+name = "tantillo_2020_infinite_pebble_bed"
+qual = "tantillo_2020_infinite_pebble_bed"
+lines = [
+    1128,
+    1161,
+]
+hash = "sha256:3122bdad2f93978eede15d54282a83270ae2f9c43ecadad7b012eb8dd396b564"
+doc_hash = "sha256:f64e122ef6067b35cac4fb48a3a7b0b9429c2af1099c9a6e24a4a0bcd44b56d7"
+uses = [
+    "fn:036846f16b0ebb28",
+    "fn:1c87dca7a3dd8ae1",
+    "fn:475dd7189cb757c3",
+    "fn:9fa179fed9d498c1",
+    "fn:d160f739a2428179",
+]
+reached_by = ["#185"]
+
+[[module."neutronics.rs".function]]
+id = "fn:70e079b7fe0700c5"
+name = "wang_2014_continuous_energy"
+qual = "wang_2014_continuous_energy"
+lines = [
+    1163,
+    1226,
+]
+hash = "sha256:e7f950d69e5adfd2b7cebce181d7e7732c51fd6fa009a63ad95932988901a925"
+doc_hash = "sha256:c79cf772bcd4e239637a81c57b0816bb3a7762ec156d804a62d832f9f541a754"
+uses = [
+    "fn:036846f16b0ebb28",
+    "fn:1c87dca7a3dd8ae1",
+    "fn:475dd7189cb757c3",
+    "fn:9fa179fed9d498c1",
+    "fn:d160f739a2428179",
+]
+reached_by = ["#185"]
+
+[[module."neutronics.rs".function]]
+id = "fn:b7a337bc713af5fa"
+name = "wang_2014_unit_cell_bias"
+qual = "wang_2014_unit_cell_bias"
+lines = [
+    1228,
+    1250,
+]
+hash = "sha256:f5be6536e998db819cc0fca824cc026ea2c7f9100198b95febc7c78d5fb8dfd0"
+doc_hash = "sha256:18b66596117bcaaa2d309fa7dc1d803ec99e9d927918d4abbcffaab6b9c6e727"
+uses = ["fn:94cb1f2021ee3eca"]
+reached_by = ["#188"]
+
+[[module."neutronics.rs".function]]
+id = "fn:9336181fd05ccc51"
+name = "ControlRodWorth"
+qual = "ControlRodWorth"
+item = "type"
+shape = "struct"
+lines = [
+    1252,
+    1270,
+]
+hash = "sha256:bd11e8248fba3b0c9343da01e8f936c977ba106e8b701faa4d729afa8b4606d3"
+doc_hash = "sha256:182fa7b166366581b0bf0b3f75274fe3b5a446fc9d37bd700901d1fc04657daf"
+uses = [
+    "fn:1c87dca7a3dd8ae1",
+    "fn:475dd7189cb757c3",
+    "fn:9fa179fed9d498c1",
+    "fn:d160f739a2428179",
+]
+reached_by = ["#185"]
+
+[[module."neutronics.rs".function]]
+id = "fn:340926ec5aadeee6"
+name = "inet_control_rod_worths"
+qual = "inet_control_rod_worths"
+lines = [
+    1272,
+    1373,
+]
+hash = "sha256:24afd56e08e4d3e5a4d932e644955367d7970aeff634e574ed4e8845e95d5664"
+doc_hash = "sha256:5617fe9f376a940f84862bbf72b22eed7bd88beaab67d1c88f3c33ce383faef5"
+uses = [
+    "fn:1c87dca7a3dd8ae1",
+    "fn:475dd7189cb757c3",
+    "fn:9336181fd05ccc51",
+    "fn:9fa179fed9d498c1",
+    "fn:d160f739a2428179",
+]
+reached_by = ["#185"]
+
+[[module."neutronics.rs".function]]
+id = "fn:2c550ab56050df6d"
+name = "b42_differential_rod_worth_curve"
+qual = "b42_differential_rod_worth_curve"
+lines = [
+    1375,
+    1400,
+]
+hash = "sha256:334ad18c86240fce1d02bc78f0cb03eaa8384b2d9183fdf1c73af11fff5fefb2"
+doc_hash = "sha256:68f92f28bc721dd7fcaefe28565928bc4970d49a46e591bbbf0b57a4d264bed5"
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:937f2f69f2a0b188"
+name = "measured_s3_rod_worth"
+qual = "measured_s3_rod_worth"
+lines = [
+    1402,
+    1416,
+]
+hash = "sha256:21e56f6a29ea32c863752fbdc317cc03ac0cdae28c2f218574db55fcd5b666ad"
+doc_hash = "sha256:b0607fb24e849042adbbd65cf196fb235987bf96fec54f21c33979beb911c878"
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:39d7f441c48a4a96"
+name = "rod_calibration_loading_height"
+qual = "rod_calibration_loading_height"
+lines = [
+    1418,
+    1422,
+]
+hash = "sha256:27c77118429b738674d7990975c7a3c905d11cf0062e10f835ad71c4046fb57b"
+doc_hash = "sha256:58a7c11aced79c5c42049d37b49f6850e1672445997c68373957512ee6cef285"
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:df728c0331e947ff"
+name = "vsop_temperature_corrected_prediction"
+qual = "vsop_temperature_corrected_prediction"
+lines = [
+    1424,
+    1434,
+]
+hash = "sha256:b39408653277106c694ae93330c079870d3b4d7c2dbd4b4dd2cd083570a8200e"
+doc_hash = "sha256:ef4c52d9a95c688290f5b0c8e6ae73e2e8e61fa17d15aa19ca639a0346623887"
+reached_by = ["#193"]
+physical_interface = true
+
+[[module."neutronics.rs".function]]
+id = "fn:53b6f41bcb3b7acb"
+name = "interpolation_reproduces_the_four_published_b1_critical_heights"
+qual = "interpolation_reproduces_the_four_published_b1_critical_heights"
+lines = [
+    1443,
+    1528,
+]
+hash = "sha256:01b9ec38a9a7e24b3d5712096ed86464fe641b9c52ae185cd6874fc3bf4be8a5"
+doc_hash = "sha256:efc314df6b1ab3e03962ee4e3c655643f6e491ad91d48f0119069d39b6534e4f"
+callees = [
+    "fn:2f85a04a4acde73f",
+    "fn:32e62c3ddd14f2a8",
+    "fn:4bba05f0fc06416e",
+    "fn:711b92c4627ab3f5",
+    "fn:cf921efccebb518e",
+]
+uses = ["fn:61f5391aad46e996"]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:ab85e93b9243f413"
+name = "measured_ball_count_follows_from_loading_height"
+qual = "measured_ball_count_follows_from_loading_height"
+lines = [
+    1530,
+    1572,
+]
+hash = "sha256:655271ab6d6249bb17ad1b004240caf77b6d07e53924d7486d3155f311d14e50"
+doc_hash = "sha256:320b0ee95f877351b0369a81398804eed5c0ecf19ad3fd1cedd5f844e81ceb61"
+callees = [
+    "fn:5ab7ca86f3f3dc7b",
+    "fn:7999d983c706d974",
+    "fn:8d86a63f28c3be78",
+]
+uses = [
+    "fn:20e99729ec9d85be",
+    "fn:3136d90013278323",
+]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:ce0ff31ab0ccaa13"
+name = "measured_loading_matches_the_57_to_43_design_ratio"
+qual = "measured_loading_matches_the_57_to_43_design_ratio"
+lines = [
+    1574,
+    1600,
+]
+hash = "sha256:52d17302f4dd5b24f7c0cd5576ff39aa26670f3d86d80ae302974fb4f1b390ad"
+doc_hash = "sha256:40c45b9b10c4cb60a0979e26e0e229d0a4bf4c19d77b61c68b5628a440b4e76d"
+callees = [
+    "fn:1abcc09016810e51",
+    "fn:5ab7ca86f3f3dc7b",
+]
+uses = ["fn:20e99729ec9d85be"]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:46666d336419d7b1"
+name = "heavy_metal_loading_closes_from_kernel_geometry"
+qual = "heavy_metal_loading_closes_from_kernel_geometry"
+lines = [
+    1602,
+    1638,
+]
+hash = "sha256:3cf6c9e0108fa2e6a2f27c8a897566d7f1aa263859882d72f80513b5fbf48ac2"
+doc_hash = "sha256:6b6514716fb8f15fbe4dcb34c1b383e2f4ec0ccd899093a71c7a337a558af928"
+callees = [
+    "fn:31fb9e863c5e7745",
+    "fn:3c81a23ba1eb9e64",
+    "fn:9e5db3db44ad3a30",
+    "fn:efceb329b7eba73f",
+]
+uses = ["fn:7df660095e5bc4b0"]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:381bcc033f53f07a"
+name = "triso_layer_stack_and_packing_fraction_are_consistent"
+qual = "triso_layer_stack_and_packing_fraction_are_consistent"
+lines = [
+    1640,
+    1675,
+]
+hash = "sha256:a8792f2508bb77f0a21b93e20c1c6c9110f9e4be4cb98d3dfa494c702ec98be5"
+doc_hash = "sha256:146d7f829a9efc2c5b9d41e78cc9ceca02dc34b91c33a9b7b0d1e3398c5857e4"
+callees = [
+    "fn:76aeeaa49ab98f08",
+    "fn:7b96a3602ce581d6",
+    "fn:9e5db3db44ad3a30",
+    "fn:9ff7c1dd3ea2ab5b",
+    "fn:b294ab0c31e45369",
+]
+uses = ["fn:7df660095e5bc4b0"]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:970d29649fac8a66"
+name = "original_to_deviated_shift_agrees_between_two_independent_sources"
+qual = "original_to_deviated_shift_agrees_between_two_independent_sources"
+lines = [
+    1677,
+    1737,
+]
+hash = "sha256:d753e6dea5a9233a0c306fb91dc66fada6c4516c234900e8ccd867a1f32ff15c"
+doc_hash = "sha256:c0bdb19f022b4eb3ba1496a69c68b3f3bed6387ea630f0d3d97001e22b324e82"
+callees = [
+    "fn:1ca93986bf274564",
+    "fn:c520158642cccf25",
+    "fn:cf921efccebb518e",
+]
+uses = [
+    "fn:475dd7189cb757c3",
+    "fn:9fa179fed9d498c1",
+    "fn:d160f739a2428179",
+]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:c78baec29913f85a"
+name = "published_predictions_are_within_one_percent_of_the_measurement"
+qual = "published_predictions_are_within_one_percent_of_the_measurement"
+lines = [
+    1739,
+    1792,
+]
+hash = "sha256:07ecfc2e24edcdb141245a2391c44d45f4b028666936f5fc0d73be2498eb6c26"
+doc_hash = "sha256:9a67830a56d620714dd9e0f2eb16a9ce016769760edbab13f18e560df2780461"
+callees = [
+    "fn:5ab7ca86f3f3dc7b",
+    "fn:df728c0331e947ff",
+]
+uses = ["fn:20e99729ec9d85be"]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:59babaf63962966c"
+name = "full_core_b2_loading_is_consistent_across_sources_and_geometry"
+qual = "full_core_b2_loading_is_consistent_across_sources_and_geometry"
+lines = [
+    1794,
+    1841,
+]
+hash = "sha256:c4dae097d140957e4970b8b6a62e84e40b6f36769152c26b807705abfd6ca9bd"
+doc_hash = "sha256:7de4ea561e2a91023074b3f88ef38347bd641d5aaeb2d2cc7884ed1ff398c29a"
+callees = [
+    "fn:2f85a04a4acde73f",
+    "fn:7999d983c706d974",
+    "fn:8d86a63f28c3be78",
+]
+uses = ["fn:3136d90013278323"]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:5c32e89e7f5c288e"
+name = "deviated_benchmark_differs_from_original_in_exactly_three_stated_ways"
+qual = "deviated_benchmark_differs_from_original_in_exactly_three_stated_ways"
+lines = [
+    1843,
+    1909,
+]
+hash = "sha256:737a2863c4e02bfef92e38433896e555fb16b0c0ab82ba3b2cc5d2410efa65b8"
+doc_hash = "sha256:b16d16abded8bb9b4f18ea3626f06f6c273e0562e9d8e44437417088a516b953"
+callees = [
+    "fn:40089236dd9d30c9",
+    "fn:5202f52eebc32647",
+    "fn:8af852d4407db83a",
+    "fn:9e5db3db44ad3a30",
+]
+uses = [
+    "fn:7df660095e5bc4b0",
+    "fn:9fa179fed9d498c1",
+    "fn:a49a7ca38f7b8f69",
+]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:28bbc5ded9f73444"
+name = "homogenisation_biases_are_ordered_and_bounded"
+qual = "homogenisation_biases_are_ordered_and_bounded"
+lines = [
+    1911,
+    1961,
+]
+hash = "sha256:50980384e22c1346132e56f9ebfae642d2face3ee725cfa3f8e62fa6bac08493"
+doc_hash = "sha256:7c7408dca6a699a0f57dd8c33cb97cf1289038b8b64def0fa74846e9386b47a9"
+callees = ["fn:b7a337bc713af5fa"]
+uses = ["fn:94cb1f2021ee3eca"]
+test = true
+
+[[module."neutronics.rs".function]]
+id = "fn:013846f170dfd190"
+name = "every_published_value_carries_a_correctly_tiered_source"
+qual = "every_published_value_carries_a_correctly_tiered_source"
+lines = [
+    1963,
+    2019,
+]
+hash = "sha256:90a051f0e8c6ef419b3e942c075bc7b67aeef005d88d4983676edf16f4e4dedd"
+doc_hash = "sha256:d950b2bfbcc1d067a5195be5465ecdd8ec024fb72010a83ff825286b6b06384d"
+callees = [
+    "fn:340926ec5aadeee6",
+    "fn:70e079b7fe0700c5",
+    "fn:753aac76e97112c0",
+    "fn:84ae97643dccde07",
+    "fn:84bf2a0072138059",
+    "fn:c520158642cccf25",
+]
+uses = [
+    "fn:1c87dca7a3dd8ae1",
+    "fn:449aa892e81652f8",
+]
+test = true
+
+[module."zbs.rs"]
+path = "crate::htr10::zbs"
+
+[[module."zbs.rs".function]]
+id = "fn:e4756202ef84c81a"
+name = "ZBS_TABLE_LEN"
+qual = "ZBS_TABLE_LEN"
+item = "const"
+shape = "const"
+lines = [
+    30,
+    31,
+]
+hash = "sha256:3a694fd2f037cbb151a906a100782868d984600f7f12191a59c9b27be33c58a7"
+doc_hash = "sha256:afd631c95ef7b6ecf74b58d746741399944b77fdd4986dbfdaab1551a8ccfe19"
+reached_by = [
+    "#12",
+    "#14",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#121",
+    "#124",
+    "#127",
+    "#132",
+    "#134",
+    "#151",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#195",
+    "#196",
+    "#197",
+]
+
+[[module."zbs.rs".function]]
+id = "fn:1d7fab960189ad9b"
+name = "ZBS_TEMPERATURE_KELVIN"
+qual = "ZBS_TEMPERATURE_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    33,
+    39,
+]
+hash = "sha256:cf82a28bde8165a9b03aa2c736d5a3809030d548cddb176b1ccea8b9312a15d1"
+doc_hash = "sha256:e06ba58ee239c7b79b7163e16df6e87baaebea0cbe70390ca4076f9e77e12676"
+uses = ["fn:e4756202ef84c81a"]
+reached_by = [
+    "#12",
+    "#14",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#121",
+    "#124",
+    "#127",
+    "#132",
+    "#134",
+    "#151",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#195",
+    "#196",
+    "#197",
+]
+
+[[module."zbs.rs".function]]
+id = "fn:10618cd98e96e010"
+name = "ZBS_CONDUCTIVITY_WATT_PER_METER_KELVIN"
+qual = "ZBS_CONDUCTIVITY_WATT_PER_METER_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    41,
+    64,
+]
+hash = "sha256:31a249238f9b7f9d037ecf5098ec04b1920073ab53790a48dda4786951f06b50"
+doc_hash = "sha256:1cef9455e429e8b7f0274ae7c29bd45e6892f548ce80941a400cdbc5052de0c9"
+uses = ["fn:e4756202ef84c81a"]
+reached_by = [
+    "#12",
+    "#14",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#121",
+    "#124",
+    "#127",
+    "#132",
+    "#134",
+    "#151",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#195",
+    "#196",
+    "#197",
+]
+
+[[module."zbs.rs".function]]
+id = "fn:676940776297fb6c"
+name = "zbs_effective_conductivity"
+qual = "zbs_effective_conductivity"
+lines = [
+    66,
+    99,
+]
+hash = "sha256:a89a1fc03020f247c9cb10f2727b76ca6461f6c677fea32aa7972c9c49649e74"
+doc_hash = "sha256:78c86a0fc0526c7e2fb98a69fd0002694e0df43dd2e9c6dc258cbef9df33feca"
+uses = [
+    "fn:10618cd98e96e010",
+    "fn:1d7fab960189ad9b",
+    "fn:e4756202ef84c81a",
+]
+reached_by = [
+    "#12",
+    "#14",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#89",
+    "#90",
+    "#91",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#121",
+    "#124",
+    "#127",
+    "#132",
+    "#134",
+    "#151",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#195",
+    "#196",
+    "#197",
+]
+physical_interface = true
+
+[[module."zbs.rs".function]]
+id = "fn:756c4630650710f4"
+name = "interpolant_returns_all_tabulated_nodes_exactly"
+qual = "interpolant_returns_all_tabulated_nodes_exactly"
+lines = [
+    105,
+    132,
+]
+hash = "sha256:c91eef0ef7a84d0cbd5592a1a1cd37777fc239ce83fbce88cb099876d703296f"
+doc_hash = "sha256:82be187923cdb93fe92be4c4b3f8f4324328ffe507146db608538ad5eadcfc19"
+callees = ["fn:676940776297fb6c"]
+uses = [
+    "fn:10618cd98e96e010",
+    "fn:1d7fab960189ad9b",
+    "fn:e4756202ef84c81a",
+]
+test = true
+
+[[module."zbs.rs".function]]
+id = "fn:136e43b09dadb871"
+name = "interpolant_is_monotonic_between_endpoints"
+qual = "interpolant_is_monotonic_between_endpoints"
+lines = [
+    134,
+    166,
+]
+hash = "sha256:628054d2d6e8cbcdb06453c14d1c9fe6566d38ff9ae7fe8203d0bb1bb95540e2"
+doc_hash = "sha256:e592cef115d4b40494879e01c97695736d1eb402398b7721333b02c57555bbf6"
+callees = ["fn:676940776297fb6c"]
+uses = [
+    "fn:10618cd98e96e010",
+    "fn:e4756202ef84c81a",
+]
+test = true
+
+[[module."zbs.rs".function]]
+id = "fn:14a60198f2df58d6"
+name = "interpolant_clamps_outside_tabulated_range"
+qual = "interpolant_clamps_outside_tabulated_range"
+lines = [
+    168,
+    194,
+]
+hash = "sha256:b939b79cc7a728c938b92acb329921e9856a95a096bb48adf1b67f434742b222"
+doc_hash = "sha256:cffbcba7513717e7659b869eefbff64c84c3fa3ffea3f787550e79ad9bf3ed05"
+callees = ["fn:676940776297fb6c"]
+uses = [
+    "fn:10618cd98e96e010",
+    "fn:e4756202ef84c81a",
+]
+test = true

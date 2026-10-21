@@ -1,0 +1,77 @@
+<rdf:RDF
+ xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:res="http://purl.org/vocab/resourcelist/schema#"
+ xmlns:z="http://www.zotero.org/namespaces/export#"
+ xmlns:dcterms="http://purl.org/dc/terms/"
+ xmlns:bibo="http://purl.org/ontology/bibo/"
+ xmlns:ctag="http://commontag.org/ns#"
+ xmlns:address="http://schemas.talis.com/2005/address/schema#"
+ xmlns:foaf="http://xmlns.com/foaf/0.1/">
+    <!-- kovan-authored probe (#749): Bibliontology RDF with a user item,
+         common tags, an edited book container with editors and a series,
+         a creator only in a list, and an organisation. -->
+    <z:UserItem rdf:about="http://zotero.org/users/1/items/PROBE001">
+        <res:resource rdf:resource="http://example.org/chapter"/>
+        <z:accessDate>2022-04-05 06:07:08</z:accessDate>
+        <z:repository>Probe Catalog</z:repository>
+        <ctag:tagged rdf:nodeID="t1"/>
+        <ctag:tagged rdf:nodeID="t2"/>
+        <dcterms:subject>user subject</dcterms:subject>
+    </z:UserItem>
+    <bibo:BookSection rdf:about="http://example.org/chapter">
+        <dcterms:title>A Chapter</dcterms:title>
+        <bibo:pages>10-20</bibo:pages>
+        <dcterms:creator rdf:nodeID="a1"/>
+        <bibo:authorList>
+           <rdf:Seq><rdf:li rdf:nodeID="a1"/><rdf:li rdf:nodeID="a2"/></rdf:Seq>
+        </bibo:authorList>
+        <dcterms:subject>item subject</dcterms:subject>
+        <dcterms:isPartOf>
+            <bibo:EditedBook>
+                <dcterms:title>The Edited Book</dcterms:title>
+                <bibo:isbn13>9780306406157</bibo:isbn13>
+                <bibo:isbn10>0306406152</bibo:isbn10>
+                <dcterms:date>2018</dcterms:date>
+                <bibo:editor rdf:nodeID="e1"/>
+                <bibo:editorList>
+                   <rdf:Seq><rdf:li rdf:nodeID="e1"/></rdf:Seq>
+                </bibo:editorList>
+                <dcterms:publisher>
+                    <foaf:Organization>
+                        <address:localityName>Kent Ridge</address:localityName>
+                        <foaf:name>Probe Press</foaf:name>
+                    </foaf:Organization>
+                </dcterms:publisher>
+                <dcterms:isPartOf>
+                    <bibo:Series>
+                        <dcterms:title>The Series</dcterms:title>
+                        <bibo:number>4</bibo:number>
+                    </bibo:Series>
+                </dcterms:isPartOf>
+            </bibo:EditedBook>
+        </dcterms:isPartOf>
+    </bibo:BookSection>
+    <foaf:Person rdf:nodeID="a1">
+        <foaf:givenName>Ann</foaf:givenName>
+        <foaf:surname>Author</foaf:surname>
+    </foaf:Person>
+    <foaf:Organization rdf:nodeID="a2">
+        <foaf:name>List-only Organisation</foaf:name>
+    </foaf:Organization>
+    <foaf:Person rdf:nodeID="e1">
+        <foaf:givenname>Eve</foaf:givenname>
+        <foaf:surname>Editor</foaf:surname>
+    </foaf:Person>
+    <ctag:UserTag rdf:nodeID="t1">
+        <ctag:label>user tag</ctag:label>
+    </ctag:UserTag>
+    <ctag:AutoTag rdf:nodeID="t2">
+        <ctag:label>auto tag</ctag:label>
+    </ctag:AutoTag>
+    <bibo:Letter rdf:about="#letter">
+        <dcterms:title>A Letter</dcterms:title>
+        <bibo:recipient>
+            <foaf:Person><foaf:surname>Recipient</foaf:surname></foaf:Person>
+        </bibo:recipient>
+    </bibo:Letter>
+</rdf:RDF>

@@ -19,6 +19,7 @@
 //! All round trips recover `T` and `ρ` to ≤1e-6 relative; the CV getters and the
 //! mass identity hold to machine precision.
 
+use petir::mathf::RealMath;
 use outram_park_fork_coolprop::{
     density_pt, state_ph, state_ps, state_pt, state_trho, Fluid, OPCPFluidSingleCV,
 };
@@ -144,4 +145,72 @@ fn cv_constructors_and_getters_agree() {
     let cv_trho = OPCPFluidSingleCV::new_from_trho(Fluid::Water, t, rho, vol);
     assert!((cv_trho.get_pressure().get::<pascal>() - 5.0e5).abs() / 5.0e5 < 1e-9);
     assert_eq!(cv_trho.get_fluid(), Fluid::Water);
+}
+
+/// V&V — `OPCPFluidSingleCV::get_equilibrium_speed_of_sound` (gh #901, epic
+/// #896 step M2) at water-steam dome states against Kieffer (1977).
+///
+/// ## Methodology
+///
+/// Reference: Kieffer, S. W. (1977), "Sound speed in liquid-gas mixtures:
+/// water-air and water-steam", *J. Geophys. Res.* 82(20), 2895–2904, Fig. 9
+/// (equilibrium water-steam sound speed at 1 bar against quality), the same
+/// digitised points `tampines-steam-tables` checks its IF97 Kieffer closure
+/// against (`region_4_vap_liq_equilibrium/tests.rs`). States: water at 1 bar,
+/// `h = (1−x)h' + x h''` from this crate's own saturation properties, at
+/// `x = 0.1214` (Fig. 9: 128.6 m/s) and `x = 0.3527` (248.8 m/s). Pass
+/// criterion: `|log10(c/c_ref)| < 0.1` (about ±26 %), the tolerance of the
+/// IF97 check, which allows for the digitisation of a log-scale figure. Also
+/// checked: the CV is two-phase, its frozen `get_speed_of_sound` is `NaN`
+/// there, and the equilibrium speed is finite and positive.
+///
+/// ## Results (2026-10-16, `cargo test --release -p outram-park-fork-coolprop
+/// --test single_cv_and_flash equilibrium -- --nocapture`)
+///
+/// x = 0.1214 → **128.46 m/s** (−0.1 % vs 128.59); x = 0.3527 →
+/// **247.74 m/s** (−0.4 % vs 248.83). Both well inside the gate. The figure
+/// is digitised from a log-scale plot, so this shows agreement to within that
+/// reading accuracy (a few percent), not a verification of the
+/// finite-difference closure to the 0.1 % level the numbers suggest.
+#[test]
+fn equilibrium_speed_of_sound_matches_kieffer_fig9_at_1_bar() {
+    use outram_park_fork_coolprop::vle::{saturation_at_temperature, saturation_temperature};
+    use uom::si::velocity::meter_per_second;
+
+    let p = 1.0e5;
+    let t_sat = saturation_temperature(Fluid::Water, p).expect("Tsat at 1 bar");
+    let sat = saturation_at_temperature(Fluid::Water, t_sat).expect("VLE at 1 bar");
+    let h_l = state_trho(Fluid::Water, t_sat, sat.rho_liquid).enthalpy;
+    let h_v = state_trho(Fluid::Water, t_sat, sat.rho_vapour).enthalpy;
+
+    for &(x, c_ref) in &[
+        (0.12139772_f64, 128.59231566_f64),
+        (0.35266992, 248.83097247),
+    ] {
+        let h = (1.0 - x) * h_l + x * h_v;
+        let cv = OPCPFluidSingleCV::try_new_from_ph(
+            Fluid::Water,
+            Pressure::new::<pascal>(p),
+            AvailableEnergy::new::<joule_per_kilogram>(h),
+            Volume::new::<cubic_meter>(1.0),
+        )
+        .expect("two-phase (p, h) state");
+        assert!(cv.is_two_phase(), "x = {x} must classify two-phase");
+        assert!(
+            cv.get_speed_of_sound().value.is_nan(),
+            "frozen speed is NaN in the dome"
+        );
+        let c = cv
+            .get_equilibrium_speed_of_sound()
+            .get::<meter_per_second>();
+        println!(
+            "MEASURE CoolProp HEM 1 bar x = {x:.4}: {c:.2} m/s vs Kieffer Fig. 9 {c_ref:.2} m/s ({:+.1} %)",
+            100.0 * (c / c_ref - 1.0)
+        );
+        assert!(c.is_finite() && c > 0.0);
+        assert!(
+            (c / c_ref).r_log10().abs() < 0.1,
+            "x = {x}: {c} m/s vs {c_ref} m/s"
+        );
+    }
 }

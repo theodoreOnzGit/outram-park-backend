@@ -1,5 +1,5 @@
 <!--
-SPDX-License-Identifier: GPL-3.0-only
+SPDX-License-Identifier: AGPL-3.0-only
 Part of Outram Park (outram-park-backend). OpenFOAM-style CLI tools in Rust.
 Independent fork, not the official OpenFOAM software; see TRADEMARKS.md.
 -->

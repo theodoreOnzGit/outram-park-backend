@@ -1,0 +1,47 @@
+{
+	"case": "synthetic_who_isbn",
+	"input": {
+		"kind": "forced",
+		"translator": "WHO.js",
+		"search": {
+			"itemType": "book",
+			"ISBN": "9789241506236"
+		}
+	},
+	"synthetic": true,
+	"source": "kovan-authored responses (2026-10-07, #756) in the shape of a WHO IRIS RIS export (with an SE line and CRLF line ends) and an IRIS record page carrying citation_pdf_url; WHO was not contacted (the recorded request failed at the network level). The record content is invented test data.",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://apps.who.int/iris/discover/export?format=refman&list=discover&rpp=10&etal=0&query=9789241506236&group_by=none&page=1&filtertype_0=identifier&filter_relational_operator_0=equals&filter_0=9789241506236",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://apps.who.int/iris/discover/export?format=refman&list=discover&rpp=10&etal=0&query=9789241506236&group_by=none&page=1&filtertype_0=identifier&filter_relational_operator_0=equals&filter_0=9789241506236",
+				"headers": {
+					"content-type": "application/x-research-info-systems;charset=utf-8"
+				},
+				"body": "TY  - BOOK\r\nTI  - Example guidance on radiation protection in medicine\r\nAU  - World Health Organization\r\nPY  - 2013\r\nSE  - 52 p. illus.\r\nSN  - 9789241506236\r\nPB  - World Health Organization\r\nCY  - Geneva\r\nUR  - https://apps.who.int/iris/handle/10665/999999\r\nKW  - Radiation Protection\r\nKW  - Radiography\r\nLA  - en\r\nER  - \r\n",
+				"bodyEncoding": "utf8"
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://apps.who.int/iris/handle/10665/999999",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://apps.who.int/iris/handle/10665/999999",
+				"headers": {
+					"content-type": "text/html; charset=utf-8"
+				},
+				"body": "<!DOCTYPE html>\n<html><head><title>Example record</title>\n<meta name=\"citation_title\" content=\"Example guidance on radiation protection in medicine\">\n<meta name=\"citation_pdf_url\" content=\" https://apps.who.int/iris/bitstream/10665/999999/1/9789241506236_eng.pdf \">\n</head><body><p>Example record page.</p></body></html>\n",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

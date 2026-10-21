@@ -1,0 +1,40 @@
+Step 10 coupled run (TENTATIVE; see the element list for what is and is not modelled)
+  [in model] Helium energy balance: Exact enthalpy march per ring with the coolprop-port helium EOS ((p, h) flash).
+  [in model] Pebble-to-helium heat transfer: Wakao-Funazkri (1978) on local Re, Pr and k (tampines::pebble_bed::cht).
+  [in model] Pebble and TRISO conduction: Two-zone pebble + hottest TRISO at the pebble centre (tampines::pebble_bed::Pebble::htr10), fluence from Step 9.
+  [in model] Bed friction and flow split: KTA 3102.3 per node; rings share one plenum-to-plenum pressure drop (the coupling loop).
+  [simplified] Thermal-hydraulic mesh: Equal-area rings x axial nodes (r-z multi-channel), not Step 7's tet-dual porous mesh (gh:#572, gh:#592).
+  [NOT in model] OUTRAM-Foam porous solver: outram-foam-appbuilder-lib's OnePhaseSolver has constant properties and one-cell tests only; not used (gh:#592).
+  [NOT in model] Radial conduction and radiation between rings: ZBS effective conductivity (tampines::pebble_bed::zbs) is not applied across rings (gh:#592).
+  [simplified] Side wall: Adiabatic: no heat to the side reflector or the RCCS (gh:#592).
+  [simplified] Reflector, plenums, bypass channels: Not modelled thermally; the bypass (total minus core flow) is mixed at the inlet temperature.
+  [simplified] Power shape: PRESCRIBED J0 x cosine; its one length fixed by the published peak/mean, not by a neutronics solve. Spatial diffusion on Step 8's MGXS is not wired (gh:#591).
+  [simplified] Reactivity: Lumped: rho = alpha_iso (T_bed - T_ref); k is relative to a cold-critical reference, not an eigenvalue (gh:#591).
+  [NOT in model] Structural (farrer-park): farrer-park is FEM mechanics only (no heat conduction) and has no mapping from the TH mesh yet (gh:#593); not run.
+ iter  flow resid   max dT [K]   T_he,max [C]  T_kernel,max [C]   rho [pcm]   k(cold-crit)
+    1    1.286e-1    1205.2804        844.11            932.13     -7764.8   0.92795
+    2    4.614e-2      16.4574        859.68            948.59     -7777.3   0.92784
+    3    1.660e-2       6.3118        865.66            954.90     -7782.2   0.92780
+    4    5.997e-3       2.3891        867.92            957.29     -7784.1   0.92778
+    5    2.173e-3       0.9004        868.78            958.19     -7784.8   0.92778
+    6    7.900e-4       0.3390        869.10            958.53     -7785.0   0.92777
+    7    2.880e-4       0.1277        869.22            958.66     -7785.1   0.92777
+    8    1.053e-4       0.0481        869.26            958.70     -7785.1   0.92777
+    9    3.861e-5       0.0181        869.28            958.72     -7785.1   0.92777
+   10    1.419e-5       0.0068        869.29            958.73     -7785.1   0.92777
+CONVERGED after 10 coupling iterations
+power shape: peak/mean 1.2850, extrapolation length 107.2 cm
+bed exit (mixed) 760.9 °C; vessel outlet with bypass 695.9 °C
+max helium 869.3 °C; max fuel-pebble surface 922.8 °C; max pebble centre 951.7 °C
+max kernel (peak fuel) 958.7 °C; power-weighted mean fuel pebble 583.1 °C
+bed pressure drop 0.510 kPa; superficial velocity at the inlet 0.54 m/s (interstitial 1.39), largest at a ring exit 1.13 m/s (interstitial 2.89)
+feedback T 583.1 °C -> rho -7785 pcm -> k = 0.92777 relative to a cold-critical reference (LUMPED, not an eigenvalue)
+energy balance (heat to helium / power - 1) 1.55e-15
+particle Re 1682-3147; 0 nodes outside Wakao's 15-8500
+TENTATIVE comparison with Gao & Shi (2002), equilibrium core, 100 %:
+  Reactor outlet helium [°C]         ours   695.89  published   700.00  diff    -4.11  (Table 2 (design value; mixed outlet))
+  Max coolant temperature [°C]       ours   869.29  published   818.00  diff   +51.29  (Table 2)
+  Max fuel temperature [°C]          ours   958.73  published   918.70  diff   +40.03  (Table 2; includes the §4.1 uncertainty factors)
+  Max fuel surface temperature [°C]  ours   922.78  published   876.70  diff   +46.08  (Table 2; includes the §4.1 uncertainty factors)
+  Core pressure drop [kPa]           ours     0.51  published     1.30  diff    -0.79  (Table 1/2: pebble bed AND bottom reflector)
+wrote the CSVs and PNGs in this folder (and a recipe, not committed: it carries a machine path)

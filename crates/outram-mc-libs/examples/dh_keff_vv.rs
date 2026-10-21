@@ -74,6 +74,15 @@
 //! number, while our delta arm **is** comparable to the published explicit one.
 //! `examples/fhr_ring_rpt_endf.rs` matches the deck instead, deliberately.
 //!
+//! # Results — re-measured 2026-10-02 (delta, naive, ring-RPT only)
+//!
+//! At `develop` `63460359d8`, i9-13900K, one single-threaded process per arm:
+//! delta `1.38155 ± 0.00222` (45.3 s), naive `1.34019 ± 0.00280` (29.9 s,
+//! 1.52×, −4136 pcm, 11.6σ), ring-RPT `1.38394 ± 0.00204` (27.2 s, 1.67×,
+//! +239 pcm, 0.8σ). Full entry and logs:
+//! `verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md` (2026-10-02).
+//! The 2026-09-14 table below is the previous state, kept as the record.
+//!
 //! # Results — measured 2026-09-14
 //!
 //! 7200 histories x [15 inactive + 40 active], single-threaded
@@ -81,6 +90,41 @@
 //! thread-matched). 25 856 explicit particles in the delta arm. Cross-section
 //! reconstruction is **excluded** from the per-treatment timings: it is one-off
 //! setup and all five arms share it.
+//!
+//! ## Machine the timings were taken on
+//!
+//! Wall-clock seconds mean nothing without it, and the *ratios* are the part
+//! that should survive a change of hardware — quote those, not the seconds.
+//!
+//! | | |
+//! |---|---|
+//! | CPU | Intel Xeon @ 2.10 GHz, **4 cores / 4 threads** (1 thread per core, no SMT) |
+//! | Cache | L1d 192 KiB, L1i 128 KiB, L2 8 MiB (4x2 MiB), **L3 260 MiB shared** |
+//! | ISA | x86-64 with AVX-512 (F/DQ/CD/BW/VL, VNNI, BF16), AMX, SHA-NI |
+//! | RAM | **15.7 GiB** (16 461 028 kB), no swap |
+//! | Virtualisation | KVM, full virtualisation — a cloud container, not bare metal |
+//! | Kernel | Linux 6.18.44 |
+//! | Toolchain | rustc 1.94.1 (e408947bf, 2026-03-25), `--release` |
+//! | Backend | `ComputeType::CpuSingleThread` — **one core in use**, 3 idle |
+//!
+//! Three things follow that are worth stating rather than leaving to be
+//! rediscovered:
+//!
+//! - **Only one of the four cores does any work.** The default backend is
+//!   single-threaded, and these runs did not change it. A multi-threaded run
+//!   would be a different measurement — and for CLS and SCLS, a badly
+//!   distorted one, because their point query serialises on a mutex (GitHub
+//!   issue #205). That is the measurement that has not been made.
+//! - **The L3 is 260 MiB and the delta arm's packing is far smaller than that.**
+//!   25 856 spheres at a few tens of bytes each is well under a megabyte, so the
+//!   explicit geometry is cache-resident here and its lookup cost is close to
+//!   best case. On a machine with an ordinary few-MiB L3 the explicit arm would
+//!   look relatively worse, which would *widen* the approximations' speedups
+//!   rather than narrow them.
+//! - **It is a virtualised, shared host.** Run-to-run timing noise of a few per
+//!   cent is expected and observed; the 800- and 7200-history runs agreed on
+//!   every speed ratio to within about 1 %, which is the reason to trust the
+//!   ratios at two significant figures and no further.
 //!
 //! | Treatment | k | vs delta | sigma | Speed |
 //! |---|---|---|---|---|
@@ -187,12 +231,12 @@
 //!
 //! After the fix the two benchmarks roughly agree, where before they
 //! contradicted each other. `examples/dh_tracking_speedup.rs` measures
-//! per-history geometry cost at delta 0.52-0.75 us and CLS 0.22-0.23 us,
-//! predicting CLS at **2.3-3.4x** delta; the eigenvalue run measures **2.16x**.
+//! per-history geometry cost at delta 0.52-0.75 us and CLS 0.21-0.23 us,
+//! predicting CLS at **2.3-3.6x** delta; the eigenvalue run measures **2.16x**.
 //! Slightly under, which is what adding real cross-section work on top of
 //! geometry should do.
 //!
-//! **Naive homogenisation is the outlier**: that benchmark predicts 7.4-10.7x
+//! **Naive homogenisation is the outlier**: that benchmark predicts 6.5-10.7x
 //! and the eigenvalue run measures 1.75x.
 //!
 //! The leading hypothesis — consistent with the pattern, **not isolated** — is
@@ -225,27 +269,66 @@
 //! than roughly 2000 pcm will read as "not resolved" — which means
 //! **unmeasured**, not zero. Raise it with `OUTRAM_DH_VV_HISTORIES`.
 //!
+//! `OUTRAM_DH_SEEDS=<n>` runs `n` independent seed draws per treatment
+//! (default 1) and prints a `POOLED` line per arm with the sample mean, sd and
+//! standard error over those draws. This is the mechanism for beating the
+//! ~900 pcm single-draw noise floor named above without lengthening each
+//! history, and it is the right knob when the question is *where is the bias*
+//! rather than *how fast is the arm*.
+//!
+//! **Known limit, stated because it is easy to misread the output:** the
+//! `POOLED` line is printed but is **not** what the "Bias vs the exact
+//! treatment" table below uses. That table is built from the **last draw
+//! only** (`rows` is pushed when `draw == n_seeds`), so at `n > 1` the printed
+//! pooled mean and the tabulated `dk`/`sigma` come from different quantities.
+//! Read the `POOLED` lines, not the table, when running multi-seed.
+//!
 //! `OUTRAM_DH_VV_FIT_RPT=1` additionally fits this code's own ring-RPT inner
 //! radius via [`fit_ring_rpt_inner_radius`] instead of borrowing the deck
 //! author's OpenMC-fitted 1.4934 cm, at a cost of about a dozen extra
 //! eigenvalue solves.
+//!
+//! `OUTRAM_DH_VV_ONLY=<substring>` restricts the table to the arms whose name
+//! contains that substring, case-insensitively (e.g. `scls, kernel`).
+//!
+//! **Beware that `cls` is a substring of `scls`.** `OUTRAM_DH_VV_ONLY=cls`
+//! selects **all four** chord-length arms, and `cls, kernel` selects **both**
+//! kernel-level arms — including the SCLS one, which costs ~55 minutes. This
+//! was hit for real on 2026-09-18: a run intended to re-measure `CLS,
+//! kernel-level` alone went on to spend another hour on `SCLS, kernel-level`.
+//! To isolate the non-semi-implicit arms, anchor on the leading space or use
+//! `chord-length` (which appears only in `chord-length sampling (CLS)`).
+//! It exists
+//! because the two SCLS arms cost tens of minutes each while every other arm
+//! costs two or three, so re-measuring one should not mean re-running the six
+//! that were already fine. It changes nothing about how any arm is computed —
+//! each eigenvalue solve is independent and seeded identically either way, so a
+//! filtered run reproduces the corresponding row of a full run exactly. Verified
+//! 2026-09-18: a filtered re-run of `CLS, kernel-level` in a separate process
+//! returned `k = 1.38719 +/- 0.00662`, identical in every printed digit to the
+//! full run's row.
+//!
+//! # Arms
+//!
+//! **Seven**, not the five in the results table above — that table records the
+//! 7200-history run, which predates the two kernel-level variants. The example
+//! now also runs [`DhTreatment::ChordLengthKernel`] and
+//! [`DhTreatment::SclsKernel`], which apply CLS and SCLS to the **fuel kernel**
+//! rather than to a smeared whole particle. On this problem that is worth
+//! **+3818 pcm** to CLS. The full account, with the regime sweep and the
+//! reproducibility check, is `docs/cls-scls-vv.md`.
 
+use petir::mathf::RealMath;
 use std::time::Instant;
 
 use outram_mc_libs::prelude::*;
-use outram_mc_libs::material::material::NuclideComponent;
+// The material table and its constants live in `common/fhr_unit_cell.rs`,
+// shared with the dhoby-ghaut web demo's `dhshort` rung (GitHub #785).
+#[path = "common/fhr_unit_cell.rs"]
+mod fhr;
+use fhr::{materials, TEMP_K};
 use outram_mc_libs::material::thermal::ThermalScattering;
 use njoy_outram_park_fork::reference_data::reference_endf;
-
-/// Material / data temperature \[K\] — the FHR deck's operating temperature.
-const TEMP_K: f64 = 600.0;
-
-/// Li-7 enrichment of the FLiBe, as the reference deck specifies it. Li-6 is a
-/// strong absorber, so the residual 50 pcm of it is not negligible bookkeeping.
-const LI7_PURITY: f64 = 0.99995;
-
-/// Avogadro's number / 1e24, so `rho * N_A_B / M` lands directly in atoms/b-cm.
-const N_A_B: f64 = 0.602_214_076;
 
 /// Published OpenMC reference on **this** geometry (op-mzvp.1, GH #156):
 /// explicit TRISO, ENDF/B-VIII.0, `c_Graphite`, reflective sphere r = 3 cm.
@@ -254,96 +337,17 @@ const OMC_EXPLICIT: (f64, f64) = (1.36510, 0.00063);
 /// why our ring-RPT arm is not bit-comparable to this one.
 const OMC_RING_RPT: (f64, f64) = (1.36479, 0.00067);
 
-// Nuclide indices into the vector returned by `nuclides()`.
-const U235: usize = 0;
-const U238: usize = 1;
-const O16: usize = 2;
-const C_FREE: usize = 3;
-const C_GRAPHITE: usize = 4;
-const SI28: usize = 5;
-const LI6: usize = 6;
-const LI7: usize = 7;
-const BE9: usize = 8;
-const F19: usize = 9;
-
-/// Representative HALEU UCO TRISO compositions \[atoms/b-cm\] plus FLiBe.
-///
-/// Illustrative of the material class, **not** a benchmark specification. This
-/// example measures the *difference between treatments*, which is insensitive
-/// to the exact densities so long as every arm shares them.
-///
-/// # Carbon bookkeeping
-///
-/// Two carbon entries, deliberately:
-///
-/// - **`C_FREE`** — the kernel's oxycarbide carbon and the SiC carbon. Neither
-///   sits in a graphite lattice, and the reference deck treats both as free gas.
-/// - **`C_GRAPHITE`** — buffer, IPyC, OPyC, fuel-zone matrix and the outer
-///   shell, all graphite, all carrying the S(alpha,beta) law.
-///
-/// C-13 (1.1 % of natural carbon) is neglected, as are Si-29/30. Both apply
-/// identically to every arm, so neither can bias the comparison this example
-/// exists to make — though they would matter for an absolute k.
-fn materials() -> Vec<Material> {
-    let m = |id: i32, name: &str, comps: Vec<(usize, f64)>| Material {
-        id,
-        name: name.into(),
-        temperature: TEMP_K,
-        components: comps
-            .into_iter()
-            .map(|(nuclide_idx, atom_density)| NuclideComponent { nuclide_idx, atom_density })
-            .collect(),
-    };
-
-    // FLiBe = 2LiF.BeF2 = Li2BeF4. Density correlation rho(T) = (2416 -
-    // 0.49072*T)/1000 g/cm^3, the same one the reference deck uses.
-    let flibe_rho = (2416.0 - 0.49072 * TEMP_K) / 1000.0;
-    let (m_li7, m_li6, m_be9, m_f19) = (7.016_003, 6.015_123, 9.012_183, 18.998_403);
-    let li7_per_formula = 2.0 * LI7_PURITY;
-    let li6_per_formula = 2.0 * (1.0 - LI7_PURITY);
-    let m_formula =
-        li7_per_formula * m_li7 + li6_per_formula * m_li6 + m_be9 + 4.0 * m_f19;
-    // Formula units per barn-cm; multiply by the per-formula count for each.
-    let n_formula = flibe_rho * N_A_B / m_formula;
-
-    vec![
-        // 0 kernel — 19.9 % HALEU UCO. Kernel carbon is not graphite.
-        m(0, "UCO kernel", vec![
-            (U235, 4.40e-3), (U238, 1.77e-2), (O16, 2.27e-2), (C_FREE, 9.10e-3),
-        ]),
-        // 1 buffer — porous graphite
-        m(1, "buffer", vec![(C_GRAPHITE, 5.02e-2)]),
-        // 2 IPyC — pyrolytic graphite
-        m(2, "IPyC", vec![(C_GRAPHITE, 9.53e-2)]),
-        // 3 SiC — carbon here is silicon-bound, not graphite
-        m(3, "SiC", vec![(SI28, 4.79e-2), (C_FREE, 4.79e-2)]),
-        // 4 OPyC — pyrolytic graphite
-        m(4, "OPyC", vec![(C_GRAPHITE, 9.53e-2)]),
-        // 5 matrix — graphite binder in the fuel zone
-        m(5, "matrix graphite", vec![(C_GRAPHITE, 8.53e-2)]),
-        // 6 shell — fuel-free graphite outer shell
-        m(6, "shell graphite", vec![(C_GRAPHITE, 8.78e-2)]),
-        // 7 coolant — FLiBe, free-gas in both codes
-        m(7, "FLiBe coolant", vec![
-            (F19, 4.0 * n_formula),
-            (LI7, li7_per_formula * n_formula),
-            (LI6, li6_per_formula * n_formula),
-            (BE9, n_formula),
-        ]),
-    ]
-}
-
 /// Reconstruct the ten nuclides from the ENDF/B-VIII.0 reference tapes at
 /// [`TEMP_K`].
 ///
-/// Index order must match the constants above.
+/// Index order must match the constants in `common/fhr_unit_cell.rs`.
 fn nuclides() -> Vec<Nuclide> {
     let load = |name: &str, file: &str| -> Nuclide {
         let path = reference_endf(file)
             .unwrap_or_else(|| panic!("missing reference tape {file} in reference-data/endf/"));
         eprint!("  reconstructing {name:<6} from {file} … ");
         let t0 = Instant::now();
-        let n = Nuclide::from_endf_file(&path, name, TEMP_K, 1.0e-3)
+        let n = Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
             .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", path.display()));
         eprintln!("{:.1?}", t0.elapsed());
         n
@@ -375,6 +379,29 @@ fn nuclides() -> Vec<Nuclide> {
         load("Be9", "n-004_Be_009-ENDF8.0.endf"),
         load("F19", "n-009_F_019-ENDF8.0.endf"),
     ]
+}
+
+/// `OUTRAM_DH_VV_AUDIT=1`: does the majorant `DhUniverse::keff` builds bound
+/// `Sigma_t`? Diagnostic only, never fatal.
+///
+/// ~~`DhUniverse::keff` builds `Majorant::bounding(reachable, 1e-4, 2e7, 4096,
+/// 32, 0.3)` over the materials an arm can reach. ... for each of the
+/// universe's materials, the same construction over that one material,
+/// scanned at 200 001 log-spaced energies plus every node of every nuclide's
+/// own pointwise grid.~~ Added 2026-10-05 (#528) after the same construction
+/// (at margin 0.1) was found to under-bound on the HTR-10 fuel zone
+/// (`examples/htr10_fuel_zone_kinf.rs`).
+///
+/// **CHANGED 2026-10-05 (#585):** this now audits exactly the majorant
+/// `DhUniverse::keff` builds, over the arm's own reachable materials
+/// (`DhUniverse::majorant_audit_line`). It checks the library construction
+/// and the pre-#585 `bounding_without_breakpoints` side by side, on 2 000 001
+/// log energies, every breakpoint with its one-ulp neighbours, and every
+/// interval midpoint. The per-material worst case it replaced was sound, but
+/// it audited a different set from the one transport uses.
+fn audit_majorant(label: &str, universe: &DhUniverse, nuclides: &[Nuclide]) {
+    let tag = format!("dh_keff_vv [{label}]");
+    println!("  {}", universe.majorant_audit_line(nuclides, &tag));
 }
 
 /// `(delta_pcm, sigma_distance)` between two eigenvalues with independent
@@ -423,7 +450,10 @@ fn main() {
     );
     println!("  data       : HIGH tier, ENDF/B-VIII.0 + crystalline-graphite S(a,b), {TEMP_K} K");
     println!("  geometry   : 1.9 cm fuel zone / 2.0 cm pebble / FLiBe to r = 3.0 cm, reflective");
-    println!("  reference  : OpenMC explicit TRISO k = {:.5} +/- {:.5}\n", OMC_EXPLICIT.0, OMC_EXPLICIT.1);
+    println!(
+        "  reference  : OpenMC explicit TRISO k = {:.5} +/- {:.5}\n",
+        OMC_EXPLICIT.0, OMC_EXPLICIT.1
+    );
 
     // Optionally fit the ring-RPT radius for THIS code and THIS data rather
     // than borrowing the deck author's OpenMC-fitted value. Off by default
@@ -453,7 +483,9 @@ fn main() {
             }
             Err(e) => {
                 println!("  fit failed ({e}); falling back to the reference radius\n");
-                DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }
+                DhTreatment::RingRpt {
+                    inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+                }
             }
         }
     } else {
@@ -462,40 +494,147 @@ fn main() {
              to fit this code's own radius instead — about a dozen extra solves)\n",
             DhTreatment::FHR_REFERENCE_RPT_INNER
         );
-        DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }
+        DhTreatment::RingRpt {
+            inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+        }
     };
 
-    let treatments = [
+    let all_treatments = [
         DhTreatment::DeltaTracking,
         DhTreatment::ChordLength,
+        DhTreatment::ChordLengthKernel,
         DhTreatment::Scls,
+        DhTreatment::SclsKernel,
         DhTreatment::Homogenised,
         rpt_treatment,
     ];
+    // OUTRAM_DH_ONLY selects treatments by substring of `name()`, comma
+    // separated (e.g. "chord" or "chord,delta"). Unset runs all five, which is
+    // the unchanged default. Added so a single treatment can be re-measured
+    // without paying for the others -- SCLS in particular is not fixed yet
+    // (maintainer, 2026-09-18) and running it wastes the wall clock.
+    let treatments: Vec<DhTreatment> = match std::env::var("OUTRAM_DH_ONLY") {
+        Ok(filter) => {
+            let want: Vec<String> = filter.split(',').map(|w| w.trim().to_lowercase()).collect();
+            all_treatments
+                .into_iter()
+                .filter(|t| {
+                    let n = t.name().to_lowercase();
+                    want.iter().any(|w| n.contains(w.as_str()))
+                })
+                .collect()
+        }
+        Err(_) => all_treatments.to_vec(),
+    };
+    // OUTRAM_DH_SEEDS: independent seed draws per treatment (default 1).
+    // Every DH number in this repo is a SINGLE draw; pooling is gh:#196 /
+    // bn:op-awwi. Each draw is timed separately.
+    let n_seeds: u64 = std::env::var("OUTRAM_DH_SEEDS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|&n: &u64| n >= 1)
+        .unwrap_or(1);
+
+    // `OUTRAM_DH_VV_ONLY=<substring>` restricts the table to the arms whose
+    // name contains that substring, case-insensitively. NOTE `cls` is a
+    // substring of `scls`, so `cls` matches all four chord-length arms and
+    // `cls, kernel` matches both kernel-level ones -- see the module docs.
+    // This exists because the
+    // two SCLS arms cost 15-25 minutes each while every other arm costs two or
+    // three, so re-measuring one of them should not mean re-running the six that
+    // were already fine. It changes nothing about how any arm is computed --
+    // each `keff` call is independent and seeded identically either way, so a
+    // filtered run reproduces the corresponding row of a full run exactly.
+    let only = std::env::var("OUTRAM_DH_VV_ONLY")
+        .ok()
+        .map(|s| s.to_lowercase());
+    if let Some(filter) = only.as_deref() {
+        println!(
+            "  (OUTRAM_DH_VV_ONLY={filter} -- showing only the arms whose name contains it)\n"
+        );
+    }
 
     let mut rows: Vec<Row> = Vec::new();
     for treatment in treatments {
-        let params = PebbleParams::fhr_unit_cell().with_materials(mats.clone());
-        let universe = match DhUniverse::pebble(params, treatment) {
-            Ok(u) => u,
-            Err(e) => {
-                println!("  {:<28} BUILD FAILED: {e}", treatment.name());
+        if let Some(filter) = only.as_deref() {
+            if !treatment.name().to_lowercase().contains(filter) {
                 continue;
             }
-        };
-        let particles = universe.particle_count();
-        let t0 = Instant::now();
-        let result = universe.keff(&nucs, &settings);
-        let secs = t0.elapsed().as_secs_f64();
-        println!(
-            "  {:<28} k = {:.5} +/- {:.5}   {:>7.1} s   {} particles stored",
-            treatment.name(),
-            result.k_mean,
-            result.k_std,
-            secs,
-            particles
-        );
-        rows.push(Row { treatment, k: result.k_mean, std: result.k_std, secs, particles });
+        }
+        let mut draws: Vec<f64> = Vec::with_capacity(n_seeds as usize);
+        for draw in 1..=n_seeds {
+            let params = PebbleParams::fhr_unit_cell().with_materials(mats.clone());
+            let params = PebbleParams {
+                seed: params.seed.wrapping_add(draw - 1) | 1,
+                ..params
+            };
+            let settings = KeffSettings {
+                seed: draw,
+                ..settings.clone()
+            };
+            let universe = match DhUniverse::pebble(params, treatment) {
+                Ok(u) => u,
+                Err(e) => {
+                    println!("  {:<28} BUILD FAILED: {e}", treatment.name());
+                    continue;
+                }
+            };
+            if draw == 1 && std::env::var("OUTRAM_DH_VV_AUDIT").is_ok() {
+                audit_majorant(treatment.name(), &universe, &nucs);
+            }
+            // `OUTRAM_MAJORANT_AUDIT=1`: audit only, no transport (GitHub #585).
+            if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+                if draw == 1 {
+                    audit_majorant(treatment.name(), &universe, &nucs);
+                }
+                continue;
+            }
+            let particles = universe.particle_count();
+            let t0 = Instant::now();
+            let result = universe.keff(&nucs, &settings);
+            let secs = t0.elapsed().as_secs_f64();
+            println!(
+                "  {:<28} k = {:.5} +/- {:.5}   {:>7.1} s   {} particles stored",
+                treatment.name(),
+                result.k_mean,
+                result.k_std,
+                secs,
+                particles
+            );
+            draws.push((result.k_mean - 1.0) * 0.0 + result.k_mean);
+            if n_seeds > 1 {
+                println!(
+                    "      draw {draw}/{n_seeds}: k = {:.5} +/- {:.5}  ({secs:.1} s)",
+                    result.k_mean, result.k_std
+                );
+            }
+            if draw == n_seeds {
+                rows.push(Row {
+                    treatment,
+                    k: result.k_mean,
+                    std: result.k_std,
+                    secs,
+                    particles,
+                });
+            }
+        }
+        if n_seeds > 1 && !draws.is_empty() {
+            let n = draws.len() as f64;
+            let mean = draws.iter().sum::<f64>() / n;
+            let sd = if n > 1.0 {
+                (draws.iter().map(|k| (k - mean).r_powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
+            } else {
+                0.0
+            };
+            let sem = if n > 1.0 { sd / n.sqrt() } else { 0.0 };
+            println!(
+                "    POOLED {:<24} k = {mean:.5}  sd = {:.5}  sem = +/-{:.5}  ({} draws)",
+                treatment.name(),
+                sd,
+                sem,
+                draws.len()
+            );
+        }
     }
 
     let Some(reference) = rows.iter().find(|r| r.treatment.is_exact()) else {
@@ -520,30 +659,52 @@ fn main() {
             dk,
             combined,
             z,
-            if z >= 3.0 { "RESOLVED bias" } else { "not resolved at this n" }
+            if z >= 3.0 {
+                "RESOLVED bias"
+            } else {
+                "not resolved at this n"
+            }
         );
     }
 
-    println!("\n=== Against the published OpenMC reference ===");
-    let (dk_ex, z_ex) = delta(reference.k, reference.std, OMC_EXPLICIT.0, OMC_EXPLICIT.1);
+    // The absolute comparison against OpenMC lives in the example that actually
+    // models the deck. Printing this example's own delta arm against the
+    // published number invites it to be quoted as a code-to-code result, which
+    // it is not: the materials here are illustrative and the realised packing
+    // fraction is 0.2894 rather than 0.30. Both offsets are stated in the doc
+    // comment; what is printed is the pointer, not the number.
+    println!("\n=== Code-to-code against OpenMC: see examples/fhr_ring_rpt_endf.rs ===");
     println!(
-        "  delta tracking vs OpenMC explicit TRISO : {:+.0} pcm ({:.1} sigma)",
-        dk_ex, z_ex
+        "  That deck builds the reference materials and geometry properly and measures\n  \
+         explicit TRISO, delta-tracked, at k = 1.36547 +/- 0.00229 against OpenMC's\n  \
+         {:.5} +/- {:.5} — {:+} pcm ({:.1} sigma). Its ring-RPT arm reads {:+} pcm\n  \
+         ({:.1} sigma) against OpenMC's {:.5} +/- {:.5}.",
+        OMC_EXPLICIT.0, OMC_EXPLICIT.1, 37, 0.2, -116, 0.5, OMC_RING_RPT.0, OMC_RING_RPT.1
     );
-    if let Some(rpt) = rows.iter().find(|r| r.treatment.needs_fitting()) {
-        let (dk_rp, z_rp) = delta(rpt.k, rpt.std, OMC_RING_RPT.0, OMC_RING_RPT.1);
-        println!(
-            "  ring-RPT       vs OpenMC ring-RPT       : {:+.0} pcm ({:.1} sigma)   \
-             [see the S(a,b) caveat]",
-            dk_rp, z_rp
-        );
-    }
+    println!(
+        "  Both are SINGLE DRAWS carrying ~230 pcm of statistics; a same-day re-run of\n  \
+         the explicit case gave -466 pcm, which is 1.5 sigma of ordinary noise rather\n  \
+         than a change. Pooling over seeds is gh:#196 / bn:op-awwi, and is not done.\n  \
+         Source: verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md"
+    );
+    println!(
+        "\n  THIS example's arms are NOT comparable to those numbers: illustrative\n  \
+         materials, and a realised packing fraction of 0.2894 against a requested\n  \
+         0.30. Its delta arm sits {:+.0} pcm from the OpenMC explicit result for those\n  \
+         reasons, not because the two codes disagree. Use it for the treatment\n  \
+         comparison above, which shares every one of those offsets across all arms.",
+        delta(reference.k, reference.std, OMC_EXPLICIT.0, OMC_EXPLICIT.1).0
+    );
 
     println!("\n=== Accuracy bought per unit speed ===");
     for row in &rows {
         let speed = reference.secs / row.secs;
         if row.treatment.is_exact() {
-            println!("  {:<28} {:>5.2}x   (reference)", row.treatment.name(), speed);
+            println!(
+                "  {:<28} {:>5.2}x   (reference)",
+                row.treatment.name(),
+                speed
+            );
         } else {
             let (dk, _) = delta(row.k, row.std, reference.k, reference.std);
             println!(

@@ -1,0 +1,995 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/photon"
+test_ids = [
+    "crates/njoy-outram-park-fork/src/photon/capture.rs::gambar_lookup_is_zero_outside_and_linear_inside",
+    "crates/njoy-outram-park-fork/src/photon/capture.rs::tabsqr_of_a_flat_spectrum_is_the_mean_square_over_2tm",
+    "crates/njoy-outram-park-fork/src/photon/mf6.rs::law1_mean_discrete_lines_use_the_magnitude",
+    "crates/njoy-outram-park-fork/src/photon/mf6.rs::law1_mean_histogram_and_trapezoid_continua",
+    "crates/njoy-outram-park-fork/src/photon/mod.rs::discrete_and_primary_photon_energy",
+    "crates/njoy-outram-park-fork/src/photon/mod.rs::empty_without_photon_files",
+    "crates/njoy-outram-park-fork/src/photon/mod.rs::first_moment_of_flat_spectrum_is_midpoint",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::energy_balance_subtracts_mt442_and_nothing_else",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_energy_balance_against_njoy_is_recorded",
+    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt442_matches_njoy_at_print_precision",
+    "crates/njoy-outram-park-fork/tests/photon.rs::u235_fission_photon_energy_is_physical",
+]
+
+[module."capture.rs"]
+path = "crate::photon::capture"
+
+[[module."capture.rs".function]]
+id = "fn:2c1b4f987243558e"
+name = "recoil_mass_energy"
+qual = "recoil_mass_energy"
+lines = [
+    35,
+    38,
+]
+hash = "sha256:c18d22b8abe7917ade30af7b49ad65e60bc96e342c6b69515265dfa651b83fb3"
+doc_hash = "sha256:0bf2883ef23e53576879964bd403d84bfda009377ae6ca8517f500a30bd175da"
+uses = [
+    "fn:4f3cc7dc9329d519",
+    "fn:66610f81472fc9fe",
+    "fn:8bc90b422c6b12db",
+    "fn:d5ce810bee731550",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:ad5470bfcb8461d8"
+name = "Recoil"
+qual = "Recoil"
+item = "type"
+shape = "enum"
+lines = [
+    40,
+    47,
+]
+hash = "sha256:ff436f97da9018a6529b4043cc7212ded9ccd7e0b38ba22876d03b32fbbc9906"
+doc_hash = "sha256:73754baa2d74458aff231e8397851a859c0d9d645e60be618ceaedc0e2879e96"
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:ea9d37638529c46b"
+name = "at"
+qual = "Recoil::at"
+lines = [
+    50,
+    55,
+]
+hash = "sha256:6a43f3523633acaaf5e37d651778a665279c45a4fe3827ca4d710d9f2b86d321"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:feeacb4037a76c4a"]
+uses = ["fn:ad5470bfcb8461d8"]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:feeacb4037a76c4a"
+name = "gambar_interp"
+qual = "gambar_interp"
+lines = [
+    58,
+    73,
+]
+hash = "sha256:029f2a99348368768f32af1f54aaecc6eb0b6121f492b76f7efd18df546a00a4"
+doc_hash = "sha256:c98c72778ee82f40753f56a397eab081a486f18574c3a2e7f1ec4d5dc075b6c2"
+callees = ["fn:23f2d8f8cb0057fa"]
+uses = ["fn:11a2c155d8376521"]
+reached_by = [
+    "#0",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:0c96f5ced432490e"
+name = "tabsqr"
+qual = "tabsqr"
+lines = [
+    75,
+    105,
+]
+hash = "sha256:977da689338b5b3c99f328aa9a2b6509e044134d072b927908f76b3c0e6c3fa7"
+doc_hash = "sha256:cd060416bdbbc0331bf9ac9df4f64dd48948bc761f1ab7b745b79bcf2d36a38f"
+callees = [
+    "fn:23f2d8f8cb0057fa",
+    "fn:d46f0f3ebba8a85c",
+]
+uses = [
+    "fn:11a2c155d8376521",
+    "fn:9694f29c85db15d3",
+]
+reached_by = [
+    "#1",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:8fdf1bd816e9e969"
+name = "mf15_recoil_curve"
+qual = "mf15_recoil_curve"
+lines = [
+    107,
+    123,
+]
+hash = "sha256:97119d6ae8620b3aadcfc20020561bd3fd223fb3593ce0467997c4afb188a3e0"
+doc_hash = "sha256:827436c83d35e657387bbe4be628749170e3813d0505d1059c794dde67d8d832"
+callees = [
+    "fn:0c96f5ced432490e",
+    "fn:0de1eade8681d5fd",
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:6eacb2bdb269f0d7",
+    "fn:b7b67ecc27b6f0aa",
+]
+uses = [
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:937ab59b462e7068"
+name = "CaptureBalance"
+qual = "CaptureBalance"
+item = "type"
+shape = "struct"
+lines = [
+    125,
+    136,
+]
+hash = "sha256:6f58c9abc22e2f52ca5a0b16e24c017ae89d5b67e45c041bf201894e1bebde78"
+doc_hash = "sha256:8fc5e9652e8ed6fade98c73b5dd82581da10b54da7c695660a1d137aa9151961"
+uses = [
+    "fn:9694f29c85db15d3",
+    "fn:ad5470bfcb8461d8",
+]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:57479e4665835d94"
+name = "from_endf"
+qual = "CaptureBalance::from_endf"
+lines = [
+    139,
+    174,
+]
+hash = "sha256:a1092c635ebfb3083a51d2e2045c31411cd899adb8c52bff9753ba82b3b4ba47"
+doc_hash = "sha256:077e57a76a19dcf055a5bd505b9ad9b0ba0dd7dc4d68cd1a2e019ca77c043fe4"
+callees = [
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:10ad1abfde2439be",
+    "fn:2c1b4f987243558e",
+    "fn:6eacb2bdb269f0d7",
+    "fn:8fdf1bd816e9e969",
+    "fn:b7b67ecc27b6f0aa",
+]
+uses = [
+    "fn:937ab59b462e7068",
+    "fn:ad5470bfcb8461d8",
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:e4d0d1ed70cd2a34"
+name = "eval"
+qual = "CaptureBalance::eval"
+lines = [
+    176,
+    188,
+]
+hash = "sha256:2d476cd9b018c61495d7b7f4c89dc18965d52a9d1c6d8b3e2eee8f7fa5ef4190"
+doc_hash = "sha256:84d601979cb10e795ae10951b89dd977c07eb8539bcc0ed54033140b884b1976"
+callees = [
+    "fn:134793934c870378",
+    "fn:51426ef08c4b5bc9",
+    "fn:ea9d37638529c46b",
+]
+uses = ["fn:937ab59b462e7068"]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:10ad1abfde2439be"
+name = "nonzero_range"
+qual = "nonzero_range"
+lines = [
+    191,
+    204,
+]
+hash = "sha256:5da1b20954edf2551b1570cfdbb021709e7e749a905e86f29b0fbe014390318f"
+doc_hash = "sha256:07aefe6ebadb247c7afed024714b6137e61953ba003f0ecabae39ddc5d506561"
+uses = ["fn:9694f29c85db15d3"]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:51426ef08c4b5bc9"
+name = "in_range"
+qual = "in_range"
+lines = [
+    206,
+    210,
+]
+hash = "sha256:7964ce711e9cdbcf570c872940e53db223eed1b543abcc43f83406693406f98e"
+doc_hash = "sha256:72e95eb5163bf8c7d7ae8bc3e972708450b512bd49af526e95150327b4b89370"
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."capture.rs".function]]
+id = "fn:b894dd1089baa951"
+name = "tabsqr_of_a_flat_spectrum_is_the_mean_square_over_2tm"
+qual = "tabsqr_of_a_flat_spectrum_is_the_mean_square_over_2tm"
+lines = [
+    217,
+    228,
+]
+hash = "sha256:f303f43f366cb56144e887a2753fb0c9efd49ee2a6a004dd1e2a71e693fbd4a2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0c96f5ced432490e"]
+uses = [
+    "fn:9694f29c85db15d3",
+    "fn:d300cae338c01bdf",
+]
+test = true
+
+[[module."capture.rs".function]]
+id = "fn:ed8b1c31e6be65fc"
+name = "gambar_lookup_is_zero_outside_and_linear_inside"
+qual = "gambar_lookup_is_zero_outside_and_linear_inside"
+lines = [
+    230,
+    237,
+]
+hash = "sha256:42ea080fd079fdedf96796a87b2ce94965dd9a78382644f3f23e530e1d05cb2c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:feeacb4037a76c4a"]
+test = true
+
+[module."mf6.rs"]
+path = "crate::photon::mf6"
+
+[[module."mf6.rs".function]]
+id = "fn:8828126881cb48d6"
+name = "Mf6PhotonSub"
+qual = "Mf6PhotonSub"
+item = "type"
+shape = "struct"
+lines = [
+    40,
+    47,
+]
+hash = "sha256:07f9b07c8ce3db4c91d6915bbc7c69f835d20a1ea70c6a3f38f0432d9e599332"
+doc_hash = "sha256:3ce739e0d00d5afc1990b7fcac379bb9b23903344a6a5abeed504e8117339ba6"
+uses = ["fn:9694f29c85db15d3"]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mf6.rs".function]]
+id = "fn:946b4ee0096c3a03"
+name = "mean"
+qual = "Mf6PhotonSub::mean"
+lines = [
+    50,
+    76,
+]
+hash = "sha256:f9d165d61017363aac373a7cec58366e92c1e5480bc451c7fb89909b96e1fee7"
+doc_hash = "sha256:aa5d59a7d3277b3d7e76873d00cccee3dfaea9ad0e7efba89d2f7af5830b1b79"
+callees = ["fn:23f2d8f8cb0057fa"]
+uses = [
+    "fn:11a2c155d8376521",
+    "fn:8828126881cb48d6",
+]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mf6.rs".function]]
+id = "fn:e97f7af95e0b9cc0"
+name = "production"
+qual = "Mf6PhotonSub::production"
+lines = [
+    78,
+    80,
+]
+hash = "sha256:60d7b118a184cee43f373751dc0a554523878c05ddf8331ae5062d9bd50b739f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:134793934c870378",
+    "fn:946b4ee0096c3a03",
+]
+uses = ["fn:8828126881cb48d6"]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mf6.rs".function]]
+id = "fn:aab28f8944207d17"
+name = "law1_mean"
+qual = "law1_mean"
+lines = [
+    83,
+    104,
+]
+hash = "sha256:ecb153532b6e6539238e423a589c963d80fe3d7826c84d097ca3cfa656cbb67d"
+doc_hash = "sha256:fd0c760478e7f710e07204d05cd42b8581358cec16d9bbe29eb144d083ae4d2d"
+reached_by = [
+    "#2",
+    "#3",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mf6.rs".function]]
+id = "fn:0b8bc5d947c5e6e8"
+name = "Mf6Photons"
+qual = "Mf6Photons"
+item = "type"
+shape = "struct"
+lines = [
+    106,
+    116,
+]
+hash = "sha256:5dad2b0c1f30a5e075fa62cb05979fff73a76cf4cde9b4ae75339e7bf8327673"
+doc_hash = "sha256:a6fab95c8740079c12f0d6c2c5555ea0257b7f687475175a7d0ee66661e807ca"
+uses = ["fn:8828126881cb48d6"]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mf6.rs".function]]
+id = "fn:a44d3f770961e3f6"
+name = "from_endf"
+qual = "Mf6Photons::from_endf"
+lines = [
+    119,
+    177,
+]
+hash = "sha256:fea4838bf37a6e169f1da3f2760a860aa798e705313afeaed485288ab48fab46"
+doc_hash = "sha256:32ffacf370ac5a40a82029d92250e2fc01d33123148f2c37dacae6d5b6acc27d"
+callees = [
+    "fn:0de1eade8681d5fd",
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:6eacb2bdb269f0d7",
+    "fn:9c8105b7a8ce5713",
+    "fn:aab28f8944207d17",
+    "fn:f5ffa619c3e0a214",
+    "fn:faee15db10cb45ba",
+]
+uses = [
+    "fn:0b8bc5d947c5e6e8",
+    "fn:8828126881cb48d6",
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mf6.rs".function]]
+id = "fn:e1410f0f6ba280ce"
+name = "energy_per_reaction"
+qual = "Mf6Photons::energy_per_reaction"
+lines = [
+    179,
+    183,
+]
+hash = "sha256:4da57d0444e1df9cd2aac3bb4ec550b7258cb23c9c8a1313ff70e46fbf2728dc"
+doc_hash = "sha256:11269a1897d4d8d50437aefe9b70fd078d006e775d67d4a3da2241607dadb743"
+callees = ["fn:e97f7af95e0b9cc0"]
+uses = [
+    "fn:0b8bc5d947c5e6e8",
+    "fn:8828126881cb48d6",
+]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mf6.rs".function]]
+id = "fn:f71c9b2b33e0e847"
+name = "law1_mean_discrete_lines_use_the_magnitude"
+qual = "law1_mean_discrete_lines_use_the_magnitude"
+lines = [
+    190,
+    195,
+]
+hash = "sha256:1829dc7973757986281102d86bec90571b7b6b21b29e95d870e399e27c130e37"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aab28f8944207d17"]
+test = true
+
+[[module."mf6.rs".function]]
+id = "fn:02cf08c5775d5e9f"
+name = "law1_mean_histogram_and_trapezoid_continua"
+qual = "law1_mean_histogram_and_trapezoid_continua"
+lines = [
+    197,
+    205,
+]
+hash = "sha256:469352a464560ca9f0087e661d58f35c960a4d3cfe3b15e28543e3b520d802bc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aab28f8944207d17"]
+test = true
+
+[module."mod.rs"]
+path = "crate::photon"
+
+[[module."mod.rs".function]]
+id = "fn:5ebb9691a645cf02"
+name = "EMEV"
+qual = "EMEV"
+item = "const"
+shape = "const"
+lines = [
+    71,
+    72,
+]
+hash = "sha256:b243e868072107200fe29c7c2319b06af2cd27fecc213f0daabc8702bcb5dcf2"
+doc_hash = "sha256:1d864f47c0caf534e94dfa1081c5d8a142b2c67d5bea680c9952bef365414710"
+
+[[module."mod.rs".function]]
+id = "fn:5a2aea2bea15e5dc"
+name = "PhotonEnergy"
+qual = "PhotonEnergy"
+item = "type"
+shape = "enum"
+lines = [
+    74,
+    84,
+]
+hash = "sha256:bb99c5c21496bee0793a730e8b4b284e7ff770f18a05eabc341cbaead3669c3a"
+doc_hash = "sha256:48bb073d54896dbf97001522755e136535ed4205d131ac5667f4d6fcae86c6cc"
+reached_by = [
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:da67e74b5a19320e"
+name = "mean"
+qual = "PhotonEnergy::mean"
+lines = [
+    87,
+    100,
+]
+hash = "sha256:f8949c6cd9f0432936df64058a7855d9f5a1c95096c402372c525de6a5f0c583"
+doc_hash = "sha256:74fa522425aaed81339be7fd16c6bcc05bfe6308d63ff4639f77e9c2bce44127"
+callees = ["fn:6e6951804fd97c5d"]
+uses = ["fn:5a2aea2bea15e5dc"]
+reached_by = [
+    "#4",
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4672069c8ade6b0c"
+name = "Production"
+qual = "Production"
+item = "type"
+shape = "enum"
+lines = [
+    103,
+    112,
+]
+hash = "sha256:ffde798721afc4d6f52f48398c7214f97f327f32d712b8e317b03f0ac3ae23e2"
+doc_hash = "sha256:71234c500a9289629ed58745d57b88bd450afe0a7fe921c5c3e9ae38a02c8cdb"
+uses = ["fn:9694f29c85db15d3"]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dab5b545249e259f"
+name = "PhotonSub"
+qual = "PhotonSub"
+item = "type"
+shape = "struct"
+lines = [
+    114,
+    122,
+]
+hash = "sha256:33bfd703d1ebf80e5c89ed8205d38bad620b5c42fd284b605d087b62186cefcc"
+doc_hash = "sha256:1fb2bb25a47e5a661f4c281cc31bbd79d6fdbbcead8d8f9255bf934ff4bd3c08"
+uses = [
+    "fn:4672069c8ade6b0c",
+    "fn:5a2aea2bea15e5dc",
+]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:64294a3c3dc4db1a"
+name = "production"
+qual = "PhotonSub::production"
+lines = [
+    125,
+    130,
+]
+hash = "sha256:e76b9a7df2add4fe5c61a43435b2afbe41b5faffb097db4400e94823ea5d6c4b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:62fa892e6d217275"]
+uses = [
+    "fn:4672069c8ade6b0c",
+    "fn:dab5b545249e259f",
+]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:df10036edcaed2e4"
+name = "ReactionPhotons"
+qual = "ReactionPhotons"
+item = "type"
+shape = "struct"
+lines = [
+    133,
+    151,
+]
+hash = "sha256:9f43394041a4ad1b2a10ae81d0f81b7715fd947132ae909a88767feb2cff481f"
+doc_hash = "sha256:b5b0f0ea468ae5b4454ced4b7fbffa8d8cf9b870a6c91ca5a7fa945194130a3b"
+uses = ["fn:dab5b545249e259f"]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b5b11901a913da96"
+name = "PhotonProduction"
+qual = "PhotonProduction"
+item = "type"
+shape = "struct"
+lines = [
+    153,
+    168,
+]
+hash = "sha256:0505e05df8a1abf2cdcc8bfb4f7d06f93b23be7326bc23007d9fc8e9fcf58a89"
+doc_hash = "sha256:a33ebf5b158c16f51eac21512714eefd8c86b1abe58a62d9698cba344296a7b1"
+uses = [
+    "fn:0b8bc5d947c5e6e8",
+    "fn:937ab59b462e7068",
+    "fn:df10036edcaed2e4",
+]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4b5ce2eb6a0d1539"
+name = "from_endf"
+qual = "PhotonProduction::from_endf"
+lines = [
+    171,
+    241,
+]
+hash = "sha256:2031196b175b1ff881ecb3ee528eea3476f247d955e11015f3c73073efe1ec89"
+doc_hash = "sha256:e7993ee4f56ec65bbb3f24f265e7c7ae8272a5271a5d10a8a489e65d2dbce6f5"
+callees = [
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:25534cff59f9ac0e",
+    "fn:57479e4665835d94",
+    "fn:5822a34a9ab7cbbb",
+    "fn:6eacb2bdb269f0d7",
+    "fn:a44d3f770961e3f6",
+    "fn:b7b67ecc27b6f0aa",
+    "fn:e30aaa10a564f4c9",
+    "fn:faee15db10cb45ba",
+]
+uses = [
+    "fn:0b8bc5d947c5e6e8",
+    "fn:2bcfef587b95ed59",
+    "fn:4bdb1497e00ec58b",
+    "fn:937ab59b462e7068",
+    "fn:b5b11901a913da96",
+    "fn:df10036edcaed2e4",
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e0a2fbe59512c5dc"
+name = "unhandled"
+qual = "PhotonProduction::unhandled"
+lines = [
+    243,
+    248,
+]
+hash = "sha256:5555d15467c3376b8786773c6dff7e93e13aa04a6313981b1170fa26c3659030"
+doc_hash = "sha256:a5627fbbc7e0598581905f1430ac2213ff9b37750d0f5cdce28bc7a7dd447868"
+uses = ["fn:b5b11901a913da96"]
+reached_by = ["#10"]
+
+[[module."mod.rs".function]]
+id = "fn:03127b153f8e7802"
+name = "eval"
+qual = "PhotonProduction::eval"
+lines = [
+    250,
+    294,
+]
+hash = "sha256:838795ee4d6515b8f9fbdf5c2b2cf0d30bc269b2c256dfa933c991a8a0743600"
+doc_hash = "sha256:0abcb6792394c1552bf1cdd788871bd72f472684fdf7e17a20bc253bd7058cd5"
+callees = [
+    "fn:51426ef08c4b5bc9",
+    "fn:64294a3c3dc4db1a",
+    "fn:6e6951804fd97c5d",
+    "fn:7d82113855d4f727",
+    "fn:da67e74b5a19320e",
+    "fn:e1410f0f6ba280ce",
+    "fn:e4d0d1ed70cd2a34",
+]
+uses = [
+    "fn:0b8bc5d947c5e6e8",
+    "fn:4bdb1497e00ec58b",
+    "fn:b5b11901a913da96",
+]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4d7b1d8c8df223de"
+name = "is_empty"
+qual = "PhotonProduction::is_empty"
+lines = [
+    296,
+    300,
+]
+hash = "sha256:08292f1eb1d98eb1b9f1f904d549faa0618c5ae0312b3d1b03b580b8ee1b836a"
+doc_hash = "sha256:5eed1dc1a3bd10b2232ccdc1216de9ee778741ab7c0903793e55b5dd1ed6227f"
+uses = ["fn:b5b11901a913da96"]
+reached_by = [
+    "#5",
+    "#7",
+    "#8",
+    "#9",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:25534cff59f9ac0e"
+name = "parse_reaction"
+qual = "parse_reaction"
+lines = [
+    303,
+    347,
+]
+hash = "sha256:9fb88122b7d11db29c4cd2497216e24abfd088e5819ed42c35f35bf018d8d92d"
+doc_hash = "sha256:1ffdeda2029fcedf8b420de3cca3c4ccbc0723c11b216ebde5a9b44e62e6e41c"
+callees = [
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:10ad1abfde2439be",
+    "fn:6eacb2bdb269f0d7",
+    "fn:b7b67ecc27b6f0aa",
+    "fn:cb502b6fa67768b5",
+]
+uses = [
+    "fn:4672069c8ade6b0c",
+    "fn:5a2aea2bea15e5dc",
+    "fn:dab5b545249e259f",
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e30aaa10a564f4c9"
+name = "lo2_subs"
+qual = "lo2_subs"
+lines = [
+    349,
+    367,
+]
+hash = "sha256:efcd43db478ba6e1bee539a043f76cf5250b89917c06fecd9d2dfb93100ba8ce"
+doc_hash = "sha256:24beea9dd749480ed825c1a8018d2f2e583d8a4dd0b2592755e1ae8eb68ed3b7"
+callees = [
+    "fn:0f64e488959f1d72",
+    "fn:6eacb2bdb269f0d7",
+    "fn:9c8105b7a8ce5713",
+    "fn:e3b63444459794a0",
+]
+uses = [
+    "fn:2bcfef587b95ed59",
+    "fn:4672069c8ade6b0c",
+    "fn:5a2aea2bea15e5dc",
+    "fn:a539ac6836b7471d",
+    "fn:dab5b545249e259f",
+    "fn:f2b2de9d27443f35",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:cb502b6fa67768b5"
+name = "mf15_mean_curve"
+qual = "mf15_mean_curve"
+lines = [
+    369,
+    416,
+]
+hash = "sha256:5144241c6536e6d912cc4f2514c7dff4ce75287da4c0fbe1b82c251b49226bf4"
+doc_hash = "sha256:5a20ebeadf38293c980ee2dbf17e068662f389560c0aa51d5652352906beac17"
+callees = [
+    "fn:0de1eade8681d5fd",
+    "fn:0eeb11ce0cf60f33",
+    "fn:0f64e488959f1d72",
+    "fn:5b6be41f84993706",
+    "fn:62fa892e6d217275",
+    "fn:6eacb2bdb269f0d7",
+    "fn:b7b67ecc27b6f0aa",
+]
+uses = [
+    "fn:ea1a9906af166241",
+    "fn:f2b2de9d27443f35",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5b6be41f84993706"
+name = "first_moment"
+qual = "first_moment"
+lines = [
+    418,
+    440,
+]
+hash = "sha256:9796b31190fa5ea9bfda77ea3f4441d7046c7acbde0ba427cfbc2bafa39cee79"
+doc_hash = "sha256:ac94a22042e346b17ff4435d6711fd224deaed83d55108ebdae26d424ba72729"
+uses = ["fn:9694f29c85db15d3"]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:aaea938202a32c8d"
+name = "photon_heating_number_mev"
+qual = "photon_heating_number_mev"
+lines = [
+    442,
+    451,
+]
+hash = "sha256:937a5ac87b39cd36c2f6c5e09ad2a362505016325aba9d2ccbf0f06b6d376422"
+doc_hash = "sha256:0f74bfcd0999c9693d9590e55a0ce37d3a1a798db2ae01bdbdef77d6a6caf183"
+uses = ["fn:5ebb9691a645cf02"]
+
+[[module."mod.rs".function]]
+id = "fn:8db8e579c947559a"
+name = "material"
+qual = "material"
+lines = [
+    459,
+    470,
+]
+hash = "sha256:b78f16cf0f6c8e51706f8d8956efd75c34b60124dc195bb4cdfd4b943524d71e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b4b453987835b580"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7191fbfbb5ee8e63"
+name = "first_moment_of_flat_spectrum_is_midpoint"
+qual = "first_moment_of_flat_spectrum_is_midpoint"
+lines = [
+    472,
+    495,
+]
+hash = "sha256:d96e01a7bd7cac8590226f234c5a5a99ed078c6fa69b7fcb3757509799457b7c"
+doc_hash = "sha256:4198fae1039ad94af781139a6dd92f2a4eecc987faae8da1c7c3264276d6d7ab"
+callees = ["fn:5b6be41f84993706"]
+uses = [
+    "fn:9694f29c85db15d3",
+    "fn:d300cae338c01bdf",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:21bb955fe3d64033"
+name = "discrete_and_primary_photon_energy"
+qual = "discrete_and_primary_photon_energy"
+lines = [
+    497,
+    513,
+]
+hash = "sha256:814e44016d7c1a5e518d428dc8950f24ad890f782a34d95f02ddfec847b78c2a"
+doc_hash = "sha256:c4ba33ddd1a202f789a34664bd3cd5077fda7bdab65464da0751919d4c785bc8"
+callees = ["fn:da67e74b5a19320e"]
+uses = ["fn:5a2aea2bea15e5dc"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:22a4ad388bcfdcc5"
+name = "empty_without_photon_files"
+qual = "empty_without_photon_files"
+lines = [
+    515,
+    532,
+]
+hash = "sha256:7094553a1781c8a68515b40ccb9df46c56a31e11ed46c22b2690fcb030f7aac8"
+doc_hash = "sha256:2dcba949254bb850fe3b02a20fe8601ec8e887d352e34fcada90b1fd9f3a9b70"
+callees = [
+    "fn:03127b153f8e7802",
+    "fn:4d7b1d8c8df223de",
+    "fn:8db8e579c947559a",
+]
+uses = [
+    "fn:0fc54b509adb4882",
+    "fn:47eb2cc3b86cff16",
+    "fn:4bdb1497e00ec58b",
+    "fn:b5b11901a913da96",
+]
+test = true

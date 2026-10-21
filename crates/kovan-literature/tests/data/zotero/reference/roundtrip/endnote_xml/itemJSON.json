@@ -1,0 +1,3065 @@
+{
+	"artwork": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [
+					{
+						"firstName": "artistFirst",
+						"lastName": "artistLast",
+						"creatorType": "artist"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "artist"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"artworkSize": "Artwork size",
+				"date": "1999-12-31",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"artworkMedium": "Medium"
+			}
+		]
+	},
+	"audioRecording": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [
+					{
+						"firstName": "composerFirst",
+						"lastName": "composerLast",
+						"creatorType": "composer"
+					},
+					{
+						"firstName": "performerFirst",
+						"lastName": "performerLast",
+						"creatorType": "performer"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "performer"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"seriesTitle": "Series title",
+				"shortTitle": "Short title",
+				"volume": "6",
+				"numberOfVolumes": "7",
+				"date": "1999-12-31",
+				"place": "Place",
+				"label": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"audioRecordingFormat": "Medium"
+			}
+		]
+	},
+	"bill": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bill",
+				"creators": [
+					{
+						"firstName": "sponsorFirst",
+						"lastName": "sponsorLast",
+						"creatorType": "sponsor"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "sponsor"
+					},
+					{
+						"firstName": "cosponsorFirst",
+						"lastName": "cosponsorLast",
+						"creatorType": "cosponsor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"code": "Code",
+				"legislativeBody": "Authority",
+				"shortTitle": "Short title",
+				"codePages": "1-10",
+				"codeVolume": "6",
+				"session": "Session",
+				"section": "Section",
+				"date": "1999-12-31",
+				"history": "History",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"billNumber": "3"
+			}
+		]
+	},
+	"blogPost": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "blogPost",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"blogTitle": "Publication title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"websiteType": "Type"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	},
+	"book": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"series": "Series",
+				"shortTitle": "Short title",
+				"numPages": "4",
+				"volume": "6",
+				"seriesNumber": "9",
+				"numberOfVolumes": "7",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"bookSection": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"bookTitle": "Publication title",
+				"series": "Series",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"seriesNumber": "9",
+				"numberOfVolumes": "7",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	},
+	"case": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "case",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "counselFirst",
+						"lastName": "counselLast",
+						"creatorType": "counsel"
+					}
+				],
+				"tags": [],
+				"caseName": "Title",
+				"reporter": "Reporter",
+				"shortTitle": "Short title",
+				"firstPage": "1-10",
+				"reporterVolume": "6",
+				"docketNumber": "3",
+				"dateDecided": "1999-12-31",
+				"court": "Authority",
+				"history": "History",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"computerProgram": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [
+					{
+						"firstName": "programmerFirst",
+						"lastName": "programmerLast",
+						"creatorType": "programmer"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "programmer"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"seriesTitle": "Series title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"company": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"system": "System"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>edition: Version number"
+			}
+		]
+	},
+	"conferencePaper": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "contributorFirst",
+						"lastName": "contributorLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"conferenceName": "Conference name",
+				"series": "Series",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"issue": "5",
+				"numberOfVolumes": "7",
+				"date": "1999-12-31",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"place": "Place",
+				"proceedingsTitle": "Publication title"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	},
+	"dataset": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"dictionaryEntry": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "dictionaryEntry",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"dictionaryTitle": "Publication title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"numberOfVolumes": "7",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	},
+	"document": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "document",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"email": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "recipientFirst",
+						"lastName": "recipientLast",
+						"creatorType": "recipient"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"encyclopediaArticle": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "encyclopediaArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"encyclopediaTitle": "Publication title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"numberOfVolumes": "7",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	},
+	"film": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "directorFirst",
+						"lastName": "directorLast",
+						"creatorType": "director"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "producerFirst",
+						"lastName": "producerLast",
+						"creatorType": "producer"
+					},
+					{
+						"firstName": "contributorFirst",
+						"lastName": "contributorLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"runningTime": "1:22:33",
+				"date": "1999-12-31",
+				"place": "Place",
+				"distributor": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"genre": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"videoRecordingFormat": "Medium"
+			}
+		]
+	},
+	"forumPost": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"websiteTitle": "Publication title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"websiteType": "Type",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	},
+	"hearing": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "hearing",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"committee": "Committee",
+				"legislativeBody": "Authority",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"numberOfVolumes": "7",
+				"session": "Session",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"history": "History",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"documentNumber": "3"
+			}
+		]
+	},
+	"instantMessage": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "recipientFirst",
+						"lastName": "recipientLast",
+						"creatorType": "recipient"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"interview": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "intervieweeFirst",
+						"lastName": "intervieweeLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "interviewerFirst",
+						"lastName": "interviewerLast",
+						"creatorType": "recipient"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"letterType": "Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>pub-location: Place<br/>publisher: Publisher"
+			}
+		]
+	},
+	"journalArticle": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publicationTitle": "Publication title",
+				"shortTitle": "Short title",
+				"journalAbbreviation": "Journal abbreviation",
+				"pages": "1-10",
+				"volume": "6",
+				"issue": "5",
+				"section": "Section",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISSN": "1234-5679",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"letter": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "recipientFirst",
+						"lastName": "recipientLast",
+						"creatorType": "recipient"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"letterType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"magazineArticle": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "magazineArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publicationTitle": "Publication title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"issue": "5",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISSN": "1234-5679",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"manuscript": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"numPages": "4",
+				"date": "1999-12-31",
+				"place": "Place",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"manuscriptType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>publisher: Publisher"
+			}
+		]
+	},
+	"map": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "map",
+				"creators": [
+					{
+						"firstName": "cartographerFirst",
+						"lastName": "cartographerLast",
+						"creatorType": "cartographer"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "cartographer"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"seriesTitle": "Series title",
+				"shortTitle": "Short title",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"mapType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"scale": "Scale"
+			}
+		]
+	},
+	"newspaperArticle": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "newspaperArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publicationTitle": "Publication title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"issue": "5",
+				"edition": "8",
+				"section": "Section",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISSN": "1234-5679",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"patent": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [
+					{
+						"firstName": "attorneyAgentLast",
+						"lastName": "attorneyAgentFirst",
+						"creatorType": "attorneyAgent"
+					},
+					{
+						"firstName": "inventorFirst",
+						"lastName": "inventorLast",
+						"creatorType": "inventor"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "inventor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"issueDate": "1999-12-31",
+				"place": "Place",
+				"assignee": "Assignee",
+				"priorityNumbers": "Priority numbers",
+				"patentNumber": "3",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"filingDate": "2000-01-02",
+				"country": "Country",
+				"references": "References",
+				"legalStatus": "Status",
+				"applicationNumber": "Application number"
+			}
+		]
+	},
+	"podcast": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "podcasterFirst",
+						"lastName": "podcasterLast",
+						"creatorType": "director"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"distributor": "Publisher",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>misc1: 3<br/>misc2: Medium"
+			}
+		]
+	},
+	"preprint": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"presentation": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "presentation",
+				"creators": [
+					{
+						"firstName": "presenterFirst",
+						"lastName": "presenterLast",
+						"creatorType": "presenter"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "presenter"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"meetingName": "Meeting name",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"presentationType": "Type",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	},
+	"radioBroadcast": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "directorFirst",
+						"lastName": "directorLast",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "producerFirst",
+						"lastName": "producerLast",
+						"creatorType": "producer"
+					},
+					{
+						"firstName": "castMemberFirst",
+						"lastName": "castMemberLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"distributor": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"videoRecordingFormat": "Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>secondary-title: Publication title<br/>periodical: Publication title<br/>misc1: 3"
+			}
+		]
+	},
+	"report": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"seriesTitle": "Series title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"date": "1999-12-31",
+				"place": "Place",
+				"institution": "Publisher",
+				"reportNumber": "3",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"reportType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"standard": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"statute": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "statute",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"nameOfAct": "Title",
+				"code": "Code",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"codeNumber": "Code number",
+				"session": "Session",
+				"section": "Section",
+				"dateEnacted": "1999-12-31",
+				"history": "History",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"publicLawNumber": "3"
+			}
+		]
+	},
+	"thesis": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"numPages": "4",
+				"date": "1999-12-31",
+				"place": "Place",
+				"university": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"thesisType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			}
+		]
+	},
+	"tvBroadcast": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "directorFirst",
+						"lastName": "directorLast",
+						"creatorType": "director"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "producerFirst",
+						"lastName": "producerLast",
+						"creatorType": "producer"
+					},
+					{
+						"firstName": "castMemberFirst",
+						"lastName": "castMemberLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"distributor": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"videoRecordingFormat": "Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>secondary-title: Publication title<br/>periodical: Publication title<br/>misc1: 3"
+			}
+		]
+	},
+	"videoRecording": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [
+					{
+						"firstName": "directorFirst",
+						"lastName": "directorLast",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "producerFirst",
+						"lastName": "producerLast",
+						"creatorType": "producer"
+					},
+					{
+						"firstName": "castMemberFirst",
+						"lastName": "castMemberLast",
+						"creatorType": "castMember"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"volume": "6",
+				"numberOfVolumes": "7",
+				"date": "1999-12-31",
+				"place": "Place",
+				"studio": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"runningTime": "1:22:33",
+				"videoRecordingFormat": "Medium"
+			}
+		]
+	},
+	"webpage": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"websiteTitle": "Publication title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"websiteType": "Type",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	},
+	"all": {
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [
+					{
+						"firstName": "artistFirst",
+						"lastName": "artistLast",
+						"creatorType": "artist"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "artist"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"artworkSize": "Artwork size",
+				"date": "1999-12-31",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"artworkMedium": "Medium"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [
+					{
+						"firstName": "composerFirst",
+						"lastName": "composerLast",
+						"creatorType": "composer"
+					},
+					{
+						"firstName": "performerFirst",
+						"lastName": "performerLast",
+						"creatorType": "performer"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "performer"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"seriesTitle": "Series title",
+				"shortTitle": "Short title",
+				"volume": "6",
+				"numberOfVolumes": "7",
+				"date": "1999-12-31",
+				"place": "Place",
+				"label": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"audioRecordingFormat": "Medium"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "bill",
+				"creators": [
+					{
+						"firstName": "sponsorFirst",
+						"lastName": "sponsorLast",
+						"creatorType": "sponsor"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "sponsor"
+					},
+					{
+						"firstName": "cosponsorFirst",
+						"lastName": "cosponsorLast",
+						"creatorType": "cosponsor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"code": "Code",
+				"legislativeBody": "Authority",
+				"shortTitle": "Short title",
+				"codePages": "1-10",
+				"codeVolume": "6",
+				"session": "Session",
+				"section": "Section",
+				"date": "1999-12-31",
+				"history": "History",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"billNumber": "3"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "blogPost",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"blogTitle": "Publication title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"websiteType": "Type"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22225",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"series": "Series",
+				"shortTitle": "Short title",
+				"numPages": "4",
+				"volume": "6",
+				"seriesNumber": "9",
+				"numberOfVolumes": "7",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"bookTitle": "Publication title",
+				"series": "Series",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"seriesNumber": "9",
+				"numberOfVolumes": "7",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22227",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "case",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "counselFirst",
+						"lastName": "counselLast",
+						"creatorType": "counsel"
+					}
+				],
+				"tags": [],
+				"caseName": "Title",
+				"reporter": "Reporter",
+				"shortTitle": "Short title",
+				"firstPage": "1-10",
+				"reporterVolume": "6",
+				"docketNumber": "3",
+				"dateDecided": "1999-12-31",
+				"court": "Authority",
+				"history": "History",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN22229",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [
+					{
+						"firstName": "programmerFirst",
+						"lastName": "programmerLast",
+						"creatorType": "programmer"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "programmer"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"seriesTitle": "Series title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"company": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"system": "System"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22229",
+				"note": "The following values have no corresponding Zotero field:<br/>edition: Version number"
+			},
+			{
+				"key": "KVN2222A",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "contributorFirst",
+						"lastName": "contributorLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"conferenceName": "Conference name",
+				"series": "Series",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"issue": "5",
+				"numberOfVolumes": "7",
+				"date": "1999-12-31",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"place": "Place",
+				"proceedingsTitle": "Publication title"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222A",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			},
+			{
+				"key": "KVN2222B",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222C",
+				"version": 0,
+				"itemType": "dictionaryEntry",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"dictionaryTitle": "Publication title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"numberOfVolumes": "7",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222C",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			},
+			{
+				"key": "KVN2222D",
+				"version": 0,
+				"itemType": "document",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222E",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "recipientFirst",
+						"lastName": "recipientLast",
+						"creatorType": "recipient"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222F",
+				"version": 0,
+				"itemType": "encyclopediaArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"encyclopediaTitle": "Publication title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"numberOfVolumes": "7",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222F",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			},
+			{
+				"key": "KVN2222G",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "directorFirst",
+						"lastName": "directorLast",
+						"creatorType": "director"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "producerFirst",
+						"lastName": "producerLast",
+						"creatorType": "producer"
+					},
+					{
+						"firstName": "contributorFirst",
+						"lastName": "contributorLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"runningTime": "1:22:33",
+				"date": "1999-12-31",
+				"place": "Place",
+				"distributor": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"genre": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"videoRecordingFormat": "Medium"
+			},
+			{
+				"key": "KVN2222H",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"websiteTitle": "Publication title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"websiteType": "Type",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222H",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			},
+			{
+				"key": "KVN2222I",
+				"version": 0,
+				"itemType": "hearing",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"committee": "Committee",
+				"legislativeBody": "Authority",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"numberOfVolumes": "7",
+				"session": "Session",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"history": "History",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"documentNumber": "3"
+			},
+			{
+				"key": "KVN2222J",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "recipientFirst",
+						"lastName": "recipientLast",
+						"creatorType": "recipient"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222K",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "intervieweeFirst",
+						"lastName": "intervieweeLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "interviewerFirst",
+						"lastName": "interviewerLast",
+						"creatorType": "recipient"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"letterType": "Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222K",
+				"note": "The following values have no corresponding Zotero field:<br/>pub-location: Place<br/>publisher: Publisher"
+			},
+			{
+				"key": "KVN2222L",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "editorFirst",
+						"lastName": "editorLast",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publicationTitle": "Publication title",
+				"shortTitle": "Short title",
+				"journalAbbreviation": "Journal abbreviation",
+				"pages": "1-10",
+				"volume": "6",
+				"issue": "5",
+				"section": "Section",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISSN": "1234-5679",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222M",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "recipientFirst",
+						"lastName": "recipientLast",
+						"creatorType": "recipient"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"letterType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222N",
+				"version": 0,
+				"itemType": "magazineArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publicationTitle": "Publication title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"issue": "5",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISSN": "1234-5679",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222P",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"numPages": "4",
+				"date": "1999-12-31",
+				"place": "Place",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"manuscriptType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222P",
+				"note": "The following values have no corresponding Zotero field:<br/>publisher: Publisher"
+			},
+			{
+				"key": "KVN2222Q",
+				"version": 0,
+				"itemType": "map",
+				"creators": [
+					{
+						"firstName": "cartographerFirst",
+						"lastName": "cartographerLast",
+						"creatorType": "cartographer"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "cartographer"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"seriesTitle": "Series title",
+				"shortTitle": "Short title",
+				"edition": "8",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"mapType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"scale": "Scale"
+			},
+			{
+				"key": "KVN2222R",
+				"version": 0,
+				"itemType": "newspaperArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"publicationTitle": "Publication title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"volume": "6",
+				"issue": "5",
+				"edition": "8",
+				"section": "Section",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISSN": "1234-5679",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222S",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [
+					{
+						"firstName": "attorneyAgentLast",
+						"lastName": "attorneyAgentFirst",
+						"creatorType": "attorneyAgent"
+					},
+					{
+						"firstName": "inventorFirst",
+						"lastName": "inventorLast",
+						"creatorType": "inventor"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "inventor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"issueDate": "1999-12-31",
+				"place": "Place",
+				"assignee": "Assignee",
+				"priorityNumbers": "Priority numbers",
+				"patentNumber": "3",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"filingDate": "2000-01-02",
+				"country": "Country",
+				"references": "References",
+				"legalStatus": "Status",
+				"applicationNumber": "Application number"
+			},
+			{
+				"key": "KVN2222T",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "podcasterFirst",
+						"lastName": "podcasterLast",
+						"creatorType": "director"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"distributor": "Publisher",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222T",
+				"note": "The following values have no corresponding Zotero field:<br/>misc1: 3<br/>misc2: Medium"
+			},
+			{
+				"key": "KVN2222U",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222V",
+				"version": 0,
+				"itemType": "presentation",
+				"creators": [
+					{
+						"firstName": "presenterFirst",
+						"lastName": "presenterLast",
+						"creatorType": "presenter"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "presenter"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"meetingName": "Meeting name",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"presentationType": "Type",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222V",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			},
+			{
+				"key": "KVN2222W",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "directorFirst",
+						"lastName": "directorLast",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "producerFirst",
+						"lastName": "producerLast",
+						"creatorType": "producer"
+					},
+					{
+						"firstName": "castMemberFirst",
+						"lastName": "castMemberLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"distributor": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"videoRecordingFormat": "Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222W",
+				"note": "The following values have no corresponding Zotero field:<br/>secondary-title: Publication title<br/>periodical: Publication title<br/>misc1: 3"
+			},
+			{
+				"key": "KVN2222X",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "seriesEditorFirst",
+						"lastName": "seriesEditorLast",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"seriesTitle": "Series title",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"date": "1999-12-31",
+				"place": "Place",
+				"institution": "Publisher",
+				"reportNumber": "3",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"reportType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN2222Y",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"ISSN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222Y",
+				"note": "The following values have no corresponding Zotero field:<br/>edition: 8"
+			},
+			{
+				"key": "KVN2222Z",
+				"version": 0,
+				"itemType": "statute",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"nameOfAct": "Title",
+				"code": "Code",
+				"shortTitle": "Short title",
+				"pages": "1-10",
+				"codeNumber": "Code number",
+				"session": "Session",
+				"section": "Section",
+				"dateEnacted": "1999-12-31",
+				"history": "History",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"publicLawNumber": "3"
+			},
+			{
+				"key": "KVN22232",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"numPages": "4",
+				"date": "1999-12-31",
+				"place": "Place",
+				"university": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"thesisType": "Type",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"key": "KVN22233",
+				"version": 0,
+				"itemType": "film",
+				"creators": [
+					{
+						"firstName": "directorFirst",
+						"lastName": "directorLast",
+						"creatorType": "director"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "producerFirst",
+						"lastName": "producerLast",
+						"creatorType": "producer"
+					},
+					{
+						"firstName": "castMemberFirst",
+						"lastName": "castMemberLast",
+						"creatorType": "contributor"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"distributor": "Publisher",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"videoRecordingFormat": "Medium"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22233",
+				"note": "The following values have no corresponding Zotero field:<br/>secondary-title: Publication title<br/>periodical: Publication title<br/>misc1: 3"
+			},
+			{
+				"key": "KVN22234",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [
+					{
+						"firstName": "directorFirst",
+						"lastName": "directorLast",
+						"creatorType": "director"
+					},
+					{
+						"firstName": "producerFirst",
+						"lastName": "producerLast",
+						"creatorType": "producer"
+					},
+					{
+						"firstName": "castMemberFirst",
+						"lastName": "castMemberLast",
+						"creatorType": "castMember"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"shortTitle": "Short title",
+				"volume": "6",
+				"numberOfVolumes": "7",
+				"date": "1999-12-31",
+				"place": "Place",
+				"studio": "Publisher",
+				"ISBN": "978-1-234-56789-7",
+				"callNumber": "Call number",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"libraryCatalog": "Library catalog",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z",
+				"runningTime": "1:22:33",
+				"videoRecordingFormat": "Medium"
+			},
+			{
+				"key": "KVN22235",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"name": "Institutional Author",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "translatorFirst",
+						"lastName": "translatorLast",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"websiteTitle": "Publication title",
+				"shortTitle": "Short title",
+				"date": "1999-12-31",
+				"place": "Place",
+				"publisher": "Publisher",
+				"DOI": "10.1234/example.doi",
+				"abstractNote": "Abstract note",
+				"websiteType": "Type",
+				"language": "en-US",
+				"url": "http://www.example.com",
+				"accessDate": "1997-06-13T23:59:58Z"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22235",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Publication title"
+			}
+		]
+	}
+}

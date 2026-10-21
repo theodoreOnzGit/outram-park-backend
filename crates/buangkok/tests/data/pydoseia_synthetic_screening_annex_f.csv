@@ -1,0 +1,3 @@
+Nuclide,Half-life,f1,inh_infant,f1_age_g_gt_1a,inh_1_year,inh_5_years,inh_10_years,inh_15_years,inh_adult
+SCR-1,3 d,0.1,4e-09,0.1,4.44e-09,4.8800000000000005e-09,5.3200000000000015e-09,5.76e-09,6.200000000000001e-09
+SCR-2,40 y,0.1,3e-08,0.1,3.33e-08,3.66e-08,3.99e-08,4.32e-08,4.65e-08

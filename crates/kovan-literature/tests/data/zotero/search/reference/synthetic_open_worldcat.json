@@ -1,0 +1,87 @@
+{
+	"name": "synthetic_open_worldcat",
+	"kind": "forced",
+	"synthetic": true,
+	"translator": "c73a4a8c-3ef1-4ec8-8229-7531ee384cc4",
+	"search": {
+		"itemType": "book",
+		"ISBN": "978-0-585-03015-9"
+	},
+	"status": 200,
+	"translatorUsed": "c73a4a8c-3ef1-4ec8-8229-7531ee384cc4",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"firstName": "Jane",
+					"lastName": "Doe",
+					"creatorType": "author"
+				},
+				{
+					"name": "Synthetic Institute",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Ed",
+					"lastName": "Itor",
+					"creatorType": "contributor"
+				},
+				{
+					"name": "Only",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Nuclear reactors",
+					"type": 1
+				},
+				{
+					"tag": "Reactor physics",
+					"type": 1
+				}
+			],
+			"extra": "OCLC: 42854423",
+			"title": "Synthetic reactor physics: a kovan test record",
+			"edition": "2nd ed.",
+			"publisher": "Synthetic Press",
+			"place": "Singapore",
+			"date": "1999",
+			"language": "eng",
+			"abstractNote": "An invented record.",
+			"numPages": "345",
+			"series": "Kovan test series",
+			"ISSN": "0029-5450",
+			"url": "https://example.org/synthetic",
+			"ISBN": "9780585030159",
+			"libraryCatalog": "Open WorldCat",
+			"accessDate": "NOW",
+			"shortTitle": "Synthetic reactor physics"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://search.worldcat.org/",
+			"body": null
+		},
+		{
+			"method": "GET",
+			"url": "https://web.archive.org/web/https://search.worldcat.org/",
+			"body": null
+		},
+		{
+			"method": "GET",
+			"url": "https://search.worldcat.org/_next/data/kovanSyntheticBuild1/en/search.json",
+			"body": null
+		},
+		{
+			"method": "GET",
+			"url": "https://search.worldcat.org/api/search?q=bn%3A978-0-585-03015-9",
+			"body": null
+		}
+	]
+}

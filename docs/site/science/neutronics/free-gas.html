@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 2: the free gas, exactly</title>
+<meta name="description" content="Neutronics maths track, rung 2: the free-gas scattering law in closed form, S(alpha, beta) = exp(-(alpha + beta)^2 / 4 alpha) / sqrt(4 pi alpha): a bell curve centred on the recoil line whose width grows with the kick, shrinking back to the line as T goes to 0. From the NJOY2016 manual, LEAPR.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 2. Formula: NJOY2016 manual eq. 538-539 (free-gas translation), written for either sign of beta in the asymmetric convention. Widget: mathtrack.js #abmap at stage "freegas". check-physics.js tests normalisation and the sum rule. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 2: the free gas, exactly</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Rung 1½'s band can be written down exactly. For a gas of free atoms (NJOY2016 manual, eqs. 538&ndash;539 <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>):</p>
+<p class="eq-block">S(&alpha;, &beta;) = exp[&minus;(&alpha; + &beta;)&sup2; / 4&alpha;] / &radic;(4&pi;&alpha;)</p>
+<ul>
+  <li><b>Centred on the recoil line</b>: the exponent is zero at &beta; = &minus;&alpha;.</li>
+  <li><b>A bell in &beta;</b> whose width grows with the kick: its spread is &radic;(2&alpha;).</li>
+  <li>Point at the exp: <b>this is the bell curve from rung 1½</b>, the Maxwell&ndash;Boltzmann velocities seen through the kick.</li>
+</ul>
+
+<section class="widget-card">
+  <h3>The free-gas band</h3>
+  <div class="widget" id="abmap" data-abstage="freegas">
+    <canvas aria-label="The free-gas scattering law shaded in the alpha-beta plane, a band around the recoil line"></canvas>
+  </div>
+  <label class="energy-control"><span>Temperature <b data-abt-out></b></span><input type="range" data-abt min="20" max="1200" step="10" value="293.6" aria-label="Temperature in kelvin"></label>
+</section>
+
+<p>Cool it towards 0 K and the band shrinks back to rung 1's line. Two checks the formula passes, and every scattering law must: the chances over all &beta; add up to 1, and <b>on average the neutron loses exactly the free recoil energy</b>: the mean of &beta; is &minus;&alpha;. That second one is called the <b>sum rule</b>, and it will hold on every rung.</p>
+<p class="note"><b>Conventions on these pages.</b> &beta; = (E&prime; &minus; E)/kT is positive when the neutron <b>gains</b> energy; &alpha; measures the size of the kick. S is LEAPR's asymmetric scattering law (the NJOY2016 manual's script S); ENDF stores the symmetric S = e<sup>&beta;/2</sup> times it (page 21).</p>
+<h2>Why is this so? And if the atom is tied down?</h2>
+<p>This is page 20's free atom. <b>What changes if the atom sits on a spring?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

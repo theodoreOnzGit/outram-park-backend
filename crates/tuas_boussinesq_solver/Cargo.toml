@@ -1,6 +1,6 @@
 [package]
 name = "tuas_boussinesq_solver"
-version = "0.1.6"
+version = "0.1.8"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,16 +11,43 @@ readme = "README.md"
 categories.workspace = true
 # Test runs dump ~58 MB of CSV output into the crate root; keep them out of the
 # published package (well over the crates.io size limit, and not crate content).
-exclude = ["*.csv"]
+exclude = ["docs", "*.csv"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "thermal-hydraulics"
+fidelity = 1
+maturity = 4
+backronym = "Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows"
+
+[features]
+# `long-tests` gates the individual tests that measure over 5 minutes, and is
+# default-on, so a plain `cargo test` runs them. See the "Any test over 5
+# minutes" HARD RULE in the workspace CLAUDE.md. Turn them off while
+# iterating with `cargo quick-test -p tuas_boussinesq_solver`.
+default = ["long-tests"]
+long-tests = []
+
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 approx.workspace = true
 csv.workspace = true
 ndarray.workspace = true
-peroxide.workspace = true
-roots.workspace = true
 thiserror.workspace = true
 uom.workspace = true
 
@@ -63,15 +90,6 @@ image.workspace = true
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger.workspace = true
 
-# ── wasm32: name getrandom's entropy backend ─────────────────────────────────
-# getrandom 0.3 will not build for wasm32-unknown-unknown without being told
-# where entropy comes from. The `wasm_js` FEATURE here is half of it; the other
-# half is the matching cfg flag in the workspace `.cargo/config.toml`, and
-# getrandom errors if either is missing.
-#
-# This crate does not want randomness — it arrives via `peroxide`, which pulls
-# `rand` unconditionally with no feature to disable it. Cutting the dependency
-# would mean replacing peroxide's CubicSpline across ~39 sites, which is its own
-# job; satisfying it is the smaller correct change here. Bead op-okqo.3.
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { workspace = true, features = ["wasm_js"] }
+# ~~wasm32 getrandom shim~~ REMOVED 2026-10-20 (gh:#989): randomness arrived
+# only through peroxide (rand -> getrandom). With peroxide gone, cargo tree for
+# wasm32-unknown-unknown showed tuas itself as getrandom's sole dependant.

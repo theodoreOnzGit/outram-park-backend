@@ -1,0 +1,233 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-blender"
+dir = "crates/outram-blender/examples"
+
+[module."authoring_primitives.rs"]
+path = "example:authoring_primitives"
+
+[[module."authoring_primitives.rs".function]]
+id = "fn:6467fa894c92434f"
+name = "main"
+qual = "main"
+lines = [
+    17,
+    47,
+]
+hash = "sha256:f30b3a7ca3587f067c292bb9ee9a33ad1701e279731de5e52cbbe0ed60df17ee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1befab586b6b6b11",
+    "fn:27a4a5c9d3489c6d",
+    "fn:3df6826e6ca94ae0",
+    "fn:4a56c8ce864d97af",
+    "fn:80c99293c30a9338",
+    "fn:9d1f86e0ac1ce36c",
+    "fn:aa75b4bddbd1338b",
+    "fn:d5d3abcd38f2491a",
+]
+
+[module."mesh_operators.rs"]
+path = "example:mesh_operators"
+
+[[module."mesh_operators.rs".function]]
+id = "fn:0a4aa9f0c9ddce05"
+name = "report"
+qual = "report"
+lines = [
+    34,
+    43,
+]
+hash = "sha256:f45718ac120631220ef6b911b9cddf6518aab1786dbb813fa727c239515a5194"
+doc_hash = "sha256:ea168c7d2f9eb94d5bb6c2cdbe50e8b21c1bee4784f3911cd32d95d6e25de2fb"
+callees = [
+    "fn:27a4a5c9d3489c6d",
+    "fn:3df6826e6ca94ae0",
+    "fn:4a56c8ce864d97af",
+    "fn:aa75b4bddbd1338b",
+]
+uses = ["fn:36e977167f45ecf1"]
+
+[[module."mesh_operators.rs".function]]
+id = "fn:82110859ce1a8539"
+name = "main"
+qual = "main"
+lines = [
+    45,
+    272,
+]
+hash = "sha256:d5a5596734f20b4ca163a0845d4ff309ed2c7e269d2030e373f2874d5b43ed96"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0a4aa9f0c9ddce05",
+    "fn:11dcdb41b695d960",
+    "fn:27a4a5c9d3489c6d",
+    "fn:5c4f4acd042e4ee2",
+    "fn:604cd0658f3a2130",
+    "fn:6929334f77d16ded",
+    "fn:72e615376da18ef5",
+    "fn:7599c8099e2b4517",
+    "fn:80c99293c30a9338",
+    "fn:85799961cdf9fc6e",
+    "fn:8941b3852c3d1ba8",
+    "fn:91332c6c7cc128d8",
+    "fn:97a63e647bb8bfb1",
+    "fn:9d1f86e0ac1ce36c",
+    "fn:a6bc4c66b480acf2",
+    "fn:aa75b4bddbd1338b",
+    "fn:b09251776acd6250",
+    "fn:d5d3abcd38f2491a",
+    "fn:e3be3c3f9c80e4b9",
+    "fn:ea4e9f5cb3e88f92",
+    "fn:f4c898439eb6ea25",
+    "fn:fef803549d43379a",
+]
+uses = [
+    "fn:2d355391b3f6a710",
+    "fn:2dc57d9860826c7b",
+    "fn:47c917ff5090ff30",
+    "fn:6ddb50c8768badca",
+    "fn:9cf56d68896428af",
+    "fn:a72138965b6e8a25",
+    "fn:c713e1206bf0ce0f",
+    "fn:cddd9ca73e00f03e",
+    "fn:d4c0a578c7ff7256",
+    "fn:da4e12fcc73a7eac",
+    "fn:f6fdcff27af1323b",
+]
+
+[[module."mesh_operators.rs".function]]
+id = "fn:8941b3852c3d1ba8"
+name = "explode"
+qual = "explode"
+lines = [
+    274,
+    290,
+]
+hash = "sha256:cbc087bbed5ffe53e3582a261a4473fd6b045af2a3b3f9cf93fbb4f0770da868"
+doc_hash = "sha256:5e69da5e5616f62ef4fceedfee89005e443d30497c73f59548b3a74a82a8d13f"
+callees = [
+    "fn:2e132a5fea1bf398",
+    "fn:703625cf0117bab7",
+    "fn:825ea188b132b826",
+]
+uses = [
+    "fn:2d355391b3f6a710",
+    "fn:36e977167f45ecf1",
+]
+
+[[module."mesh_operators.rs".function]]
+id = "fn:f4c898439eb6ea25"
+name = "drop_face0"
+qual = "drop_face0"
+lines = [
+    292,
+    303,
+]
+hash = "sha256:a9dfa87dbf73164e80a2e209ef65e6b8fe7ce9418eb938d0768e4aa252c37780"
+doc_hash = "sha256:4fc14c0617f993104fe4073dab54374cf904d40d744b0c43f64c336383e1e832"
+callees = [
+    "fn:2e132a5fea1bf398",
+    "fn:703625cf0117bab7",
+    "fn:825ea188b132b826",
+]
+uses = ["fn:36e977167f45ecf1"]
+
+[[module."mesh_operators.rs".function]]
+id = "fn:7599c8099e2b4517"
+name = "shift_x"
+qual = "shift_x"
+lines = [
+    305,
+    320,
+]
+hash = "sha256:663121d75332fd544bf9957e7417a2eb8f4533b5e6bb62568bdc7ff8a0de1e6b"
+doc_hash = "sha256:7d65ab50c22dab7005cf24aafa781a0db711ae34a6155904d0a639a05bf446bf"
+callees = [
+    "fn:2e132a5fea1bf398",
+    "fn:703625cf0117bab7",
+    "fn:825ea188b132b826",
+    "fn:91332c6c7cc128d8",
+]
+uses = [
+    "fn:2d355391b3f6a710",
+    "fn:36e977167f45ecf1",
+]
+
+[module."meshing_nexus_images.rs"]
+path = "example:meshing_nexus_images"
+
+[[module."meshing_nexus_images.rs".function]]
+id = "fn:8d3a25bb9cf0601f"
+name = "two_zones"
+qual = "two_zones"
+lines = [
+    54,
+    66,
+]
+hash = "sha256:25cbb140738c1b7b3a0a39548c03e5f7745132e2371c37267428b49fb18a76df"
+doc_hash = "sha256:fedc8cefe9e7fe0f37db7fad726307dda18cc7c74c6a8b2fdaf8e7f93da56581"
+callees = [
+    "fn:999f9864307d35bc",
+    "fn:b8bb799255cf0335",
+    "fn:feb18dcf0e52e6ef",
+]
+uses = [
+    "fn:5797c96376b0aaed",
+    "fn:a8285aec32e10e0d",
+]
+
+[[module."meshing_nexus_images.rs".function]]
+id = "fn:efbbdb531db808c9"
+name = "save"
+qual = "save"
+lines = [
+    68,
+    85,
+]
+hash = "sha256:91bbecb62b6c886489a8183c51c773923e40c70f6be64109ca173d531d03ce36"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:157e5e4b471b8151",
+    "fn:5fc49fc203f283ac",
+    "fn:714810a0f722b44a",
+    "fn:72451e01ab432186",
+    "fn:a4666813fd62a9e5",
+    "fn:b8bb799255cf0335",
+    "fn:c15f3d088b6e2192",
+    "fn:f504e8ec2bfa6972",
+]
+uses = [
+    "fn:5797c96376b0aaed",
+    "fn:dd9da85cde5c81d7",
+    "fn:e4da4da2b80ea626",
+    "fn:f824084ff400b6ef",
+]
+
+[[module."meshing_nexus_images.rs".function]]
+id = "fn:63348cbfd63197ed"
+name = "main"
+qual = "main"
+lines = [
+    87,
+    130,
+]
+hash = "sha256:dc8204693bf842a7aaa955088073105c73f43d1c6dd9b1d424e162157408bffd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:262cfa3b2e8581eb",
+    "fn:2b40d650f7fb3570",
+    "fn:8d3a25bb9cf0601f",
+    "fn:92ba4682209040f9",
+    "fn:a6fd28742111c58c",
+    "fn:a82f9af2fb84e735",
+    "fn:b68e155513b2bb24",
+    "fn:efbbdb531db808c9",
+]
+uses = [
+    "fn:08bd20f5ce63f5c7",
+    "fn:0bb173954082584d",
+    "fn:2d52fb29cca42330",
+    "fn:be7013441700cacd",
+    "fn:dd9da85cde5c81d7",
+]

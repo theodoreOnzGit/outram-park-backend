@@ -11,7 +11,7 @@
 //!
 //! This crate is a **derivative work** of NJOY2016 (v2016.79), which is licensed
 //! under a modified BSD 3-Clause license (the LANL/DOE variant). That license is
-//! GPL-compatible, so this translation is distributed under `GPL-3.0-only` — the
+//! GPL-compatible, so this translation is distributed under ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973) — the
 //! same license as the rest of the OUTRAM PARK workspace.
 //!
 //! It is **not** the version available from LANL and is **not** endorsed by
@@ -51,9 +51,22 @@ pub mod acer;
 ///
 /// See [`acquire`] and `docs/data-acquisition.md`.
 pub mod acquire;
+/// **ZIP archives in memory**, read and written over `miniz_oxide` (gh #935):
+/// a whole ENDF library arrives as a zip, natively or as a browser upload.
+/// See [`archive`].
+pub mod archive;
 pub mod broadr;
 pub mod common;
 pub mod endf;
+/// A folder of ENDF tapes, flat or an extracted library with sub-library
+/// folders: list it, and find a tape in it by MAT and NSUB rather than by
+/// file name (gh:#581). See [`endf_folder`].
+pub mod endf_folder;
+/// **A whole ENDF library** from a folder, a zip or uploaded files: one index
+/// for all three, layout read from the names, identity from each tape's
+/// header (gh #935); ACE generation from it for the browser (gh #936). See
+/// [`endf_library`].
+pub mod endf_library;
 /// `GASPR` — gas-production cross sections (ENDF MT=203–207: H1/H2/H3/He3/He4)
 /// from a reconstructed evaluation. Informational (depletion/swelling), not a
 /// transport-path quantity — see [`gaspr`] module docs.
@@ -74,6 +87,12 @@ pub mod modules;
 pub mod nuclear_data;
 pub mod photon;
 pub mod prelude;
+/// **The high-level way in** (GitHub #871): an incident ENDF tape and a
+/// temperature to cross sections ([`process::cross_sections`]) or an ACE file
+/// ([`process::ace`]); with a LEAPR deck, to a thermal scattering law
+/// ([`process::thermal_scattering`]) or a thermal ACE file
+/// ([`process::thermal_ace`]). Runs on `wasm32`.
+pub mod process;
 pub mod reconr;
 /// Locating the repository's reference ENDF tapes for V&V. The tapes live at
 /// the repo root (`reference-data/endf/`), never inside a crate — they are far
@@ -97,10 +116,13 @@ pub mod wmp;
 // with its Rust source (physics or `NotPorted` stub) and co-located `README.md`.
 // Most are ported: reconr, broadr, heatr, gaspr, thermr, acer, and wmp are
 // declared above next to their long-form docs; unresr, purr, samm, groupr,
-// gaminr, errorr, covr, leapr, dtfr, resxsr, and mixr (below) are also ported
-// (translation-level — V&V is the trust gate). The genuine `NotPorted` stubs
-// are only ccccr, matxsr, powr, plotr, viewr, and wimsr (output formats OUTRAM
-// PARK does not target). Dispatch is via the `NjoyModule` enum in `modules.rs`.
+// gaminr, errorr, covr, leapr, dtfr, resxsr, mixr and wimsr (below) are also
+// ported (translation-level — V&V is the trust gate). The genuine `NotPorted`
+// stubs are only ccccr, matxsr, powr, plotr and viewr (output formats OUTRAM
+// PARK does not target). ~~…and wimsr~~ CORRECTED 2026-10-04: wimsr was ported
+// 2026-09-11 (`src/wimsr/`, `wimsr::run_gendf`, byte-identical library vs
+// NJOY2016 in `tests/wimsr_u238_njoy_golden.rs`); only its card-deck `run()`
+// stays `NotPorted`. Dispatch is via the `NjoyModule` enum in `modules.rs`.
 pub mod moder;
 pub mod unresr;
 pub mod purr;
@@ -145,6 +167,11 @@ pub mod gpu;
 #[cfg(not(target_os = "android"))]
 pub mod gpu_wmp;
 
+/// Read and write for the **OpenMC interchange formats** (HDF5 nuclide, MGXS,
+/// WMP and statepoint files, `cross_sections.xml`, the depletion chain) —
+/// see the module docs. (CORRECTED 2026-10-04: the `perf_report` doc comment
+/// below used to sit on this line, so rustdoc showed it for `hdf5`.)
+pub mod hdf5;
 /// **Per-machine performance-report generator** — hardware detection (GPU label,
 /// CPU cores, OS) plus a small markdown formatter, so a benchmark can emit a
 /// fresh report on the machine it runs on and write it to a git-ignored local

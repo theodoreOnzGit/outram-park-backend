@@ -35,6 +35,7 @@
 //!   [`split_normals_by_angle`] auto-smooths below an angle,
 //!   [`harden_normals`] makes the selected faces contribute flat.
 
+use petir::mathf::RealMath;
 use std::collections::BTreeSet;
 
 use crate::math::Vec3;
@@ -160,7 +161,7 @@ impl SplitNormals {
 /// `angle = π` gives fully smooth.
 pub fn split_normals_by_angle(mesh: &Mesh, angle: f64) -> SplitNormals {
     let topo = MeshTopology::new(mesh);
-    let cos_tol = angle.cos();
+    let cos_tol = angle.r_cos();
     let mut normals: Vec<Vec<Vec3>> = Vec::with_capacity(mesh.face_count());
     for f in 0..mesh.face_count() {
         let fn_ = mesh.face_normal(FaceId(f));

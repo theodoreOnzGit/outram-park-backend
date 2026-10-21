@@ -783,7 +783,7 @@ table digitisation) — both are genuinely maintainer-scope decisions (the
 OCR one explicitly conflicts with this crate's documented "no ML" digitiser
 rule and needs an exception granted, not assumed), so everything chained
 off them (`op-hnhp`, `op-b1y5`, `op-9vml`, `op-wr08`, `op-x3wl`, `op-5sdc`,
-`op-p17q`) stays unimplemented. See `bn show op-9c2e` for the full graph.
+`op-p17q`) stays unimplemented (retired tracker epic `op-9c2e`).
 
 **`op-6ez3` — PDF page rendering engine: decided as `kopitiam_pdf::mupdf`.**
 This was largely already decided by the `kopitiam-pdf` dependency landing
@@ -904,3 +904,1661 @@ correctly."
    possible — see "Verification" above) — if the picker's default filter
    doesn't behave as the API docs describe, that would only surface on a
    real desktop run.
+
+## A conflicted pull asks "sure anot?", and can be forced (2026-09-23, GH issue #279)
+
+**Maintainer, 2026-09-23:** "there are merge conflicts when i pull from there. I
+want it such to be when merge conflicts arise during pull, kovan gives a popup
+box saying (you may have unsaved changes, u sure u want to pull anot?) then two
+boxes say (yes, can) or (no, i manage myself)" — about the local Kovan folder
+(`local-kovan-repo`). Clarified in the same exchange: **"yes, can" is a forced
+pull, overriding local changes.**
+
+### What Git actually prints — measured, not assumed
+
+Before writing the classifier, each failure mode was reproduced against a real
+`git` driving a local bare remote (2026-09-23). The result that shaped the
+design:
+
+| case | Git says | stream |
+|---|---|---|
+| uncommitted edit to a file the merge touches | `error: Your local changes to the following files would be overwritten by merge:` | stderr |
+| both sides committed the same lines | `CONFLICT (content): Merge conflict in <file>` / `Automatic merge failed` | **stdout** |
+| pulled again, merge unresolved | `error: Pulling is not possible because you have unmerged files.` | stderr |
+| both sides committed, no `pull.rebase` set | `fatal: Need to specify how to reconcile divergent branches.` | stderr |
+
+The second row is why this was not a pure GUI change. `advanced_git::run_git_in`
+kept **stderr only** on a non-zero exit, so the true merge-conflict case — the
+one the issue is about — rendered in the tab as `From <url>\n * branch main ->
+FETCH_HEAD`, **a message that does not mention a conflict at all**. That is
+fixed here (`git_output_in` keeps both streams; `pull_in` classifies on the
+pair), and it would have been missed entirely by reasoning about what `git pull`
+"obviously" prints.
+
+The divergent-branches row is included in `is_conflict` deliberately, even
+though Git frames it as missing configuration rather than a conflict: the folder
+*has* diverged, and the forced pull is exactly what resolves it.
+
+### The two answers
+
+- **"yes, can"** → `advanced_git::force_pull_in`: abort whatever merge or rebase
+  the failed pull left behind, `git fetch <remote> <branch>`,
+  `git reset --hard FETCH_HEAD`, `git clean -fd`. `FETCH_HEAD` rather than
+  `<remote>/<branch>` so it also works in a folder with no remote-tracking ref.
+  **Untracked files are wiped too** — the maintainer's explicit choice when
+  asked, the folder being meant to end up an exact mirror of the remote. Ignored
+  files and submodule contents survive (`clean` without `-x`, without `-ff`).
+  **Since 2026-10-07 (GH #502)** local commits that `FETCH_HEAD` does not
+  contain (on `HEAD` or the branch) are first kept on a
+  `kovan-kept/<commit>` branch (`advanced_git::keep_unpushed_commits_in`),
+  named in the result: the reset had silently dropped a just-saved PDF.
+- **"no, i manage myself"** → `advanced_git::abort_in_progress_in`: restore the
+  pre-pull state, also the maintainer's choice when asked. The alternative —
+  leaving Git's half-applied merge in place for the user to resolve by hand — was
+  rejected as leaving a folder in a state whose owner "should not need Git
+  vocabulary" (op-wqaw) cannot get out of, and whose next Pull click fails
+  confusingly until they do.
+
+`abort_in_progress_in` checks `git rev-parse --git-path MERGE_HEAD` /
+`rebase-merge` / `rebase-apply` rather than running `git merge --abort` and
+swallowing the failure, because that exits 128 with "There is no merge to abort"
+in the common case where Git refused the pull outright and changed nothing.
+
+Only `RemoteError::Conflict` raises the prompt. A bad URL, an unknown branch or
+a refused credential stays a plain `Failed` and a red message: destroying the
+folder is not the answer to a typo, and a forced pull must never be offered as
+if it were a generic retry.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests` — 13 tests over the two touched
+modules, all passing (2026-09-23):
+
+- `a_conflict_is_told_apart_from_an_ordinary_pull_failure` — the six real
+  messages captured above classify as conflicts; a missing repository, an
+  unknown ref, a failed authentication, `Already up to date.` and an empty
+  string do not.
+- `an_uncommitted_edit_makes_pull_report_a_conflict` — real bare remote, real
+  `git pull`; the `Conflict` carries Git's own reason, and nothing on disk moved.
+- `declining_the_prompt_restores_the_folder_to_its_pre_pull_state` — after a
+  merge left in progress, "no" returns `HEAD`, the file contents and
+  `git status` to exactly their pre-pull values.
+- `the_forced_pull_makes_the_folder_match_the_remote_exactly` — the unpushed
+  commit, the uncommitted edit, the untracked file and the untracked directory
+  are all gone; the log is the remote's, not a merge; a second forced pull on an
+  already-matching folder is a no-op rather than an error.
+- Three view-level tests, one of them driving `egui::Context::run_ui` headless
+  (no window, no GPU): the prompt is raised with the right repository and no red
+  message, an ordinary failure raises no prompt, and drawing the prompt across
+  two frames without pressing either button neither pulls nor cancels.
+
+**Not verified:** no interactive click-through of the dialog itself — the
+buttons' handlers are covered only through `force_pull_in`/`abort_in_progress_in`
+being tested directly. The maintainer should confirm the wording and the button
+order on a real desktop before trusting the destructive branch.
+
+## The kvim editor gets the system clipboard; the ingest dialogs get centred (2026-09-23, GH issues #280, #281)
+
+**Maintainer, 2026-09-23,** ingesting the NJOY manual and wanting to record its
+licence: *"i cannot ctrl-shift-v to paste inside the summary text box"*, and
+*"when i ingest njoy manual, the popup boxes need to be in the centre"*.
+Offered the choice of replacing kvim with a plain `egui::TextEdit`, the
+maintainer kept kvim: *"just use kvim, but make sure my pasting and stuff
+works"*. So the adapter was fixed, not swapped.
+
+### It was never a missing key mapping
+
+`egui-winit` recognises the clipboard chords **itself** and returns before
+emitting any key event:
+
+```rust
+if is_cut_command(..)   { events.push(egui::Event::Cut);         return; }
+if is_copy_command(..)  { events.push(egui::Event::Copy);        return; }
+if is_paste_command(..) { events.push(egui::Event::Paste(text)); return; }
+```
+
+`app/kvim_editor.rs`'s `map_event` handled `Event::Text` and `Event::Key` only,
+so all three fell through its `_ => None` arm and the *focused* editor left them
+unconsumed — every kvim surface in the app, not just the summary box. Reading
+that function first is what turned "add a Ctrl+V binding" into "handle the three
+events egui already hands us"; the chord was arriving perfectly well.
+
+Also read there, and worth keeping: `is_paste_command` is `modifiers.command &&
+key == V` and never inspects shift, so **Ctrl+Shift+V was already producing a
+`Event::Paste`**. Nothing platform-side was missing.
+
+### What the three gestures now do
+
+- **Paste** — inserts **at** the cursor, replacing a Visual selection if one is
+  up. Deliberately not Vim's `p`, which puts *after* the cursor grapheme: the
+  GUI gesture lands where the caret is. `p` itself is unchanged.
+- **Copy** — the Visual selection, or, with nothing selected, the whole cursor
+  line including its newline.
+- **Cut** — copy, then delete: `d` over a selection, `dd` on a line.
+
+The deletions go through kvim's own `d`/`dd` rather than a second
+selection-deleting implementation here, so charwise, linewise and blockwise all
+behave as the engine defines them, the edit is undoable, and the text lands in
+the unnamed register as it always would. `selection_text` is the one place that
+*does* have to distinguish the three granularities, because reading them is not
+something `Editor` exposes — and conflating them is the "classic mistake"
+`Editor::selection`'s own doc warns about.
+
+### Centring (#281)
+
+`setup.rs` already anchored `CENTER_CENTER` and `literature_list.rs`
+`CENTER_TOP`; the six remaining dialogs — "Ingest this PDF?", "Ingest
+Literature", "Sort <citekey>", "Add connection…", "Connections", "Delete
+annotation" — now anchor `CENTER_CENTER` too. All are `collapsible(false)`
+prompts rather than panels, so this makes the app consistent rather than
+special-casing the ingest path.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests` green. Nine new tests on the
+clipboard, all on the pure state (no window, no GPU): the multi-line licence
+paste that prompted this, paste over a selection, paste from Insert mode, an
+empty paste being a no-op, charwise copy including the grapheme under the cursor,
+linewise copy taking whole lines with their newlines, copy/cut of the whole line
+with nothing selected, cut returning what it removed, and `clipboard_action`
+claiming the three events while leaving `Event::Text` and a genuine `<C-v>` key
+alone.
+
+**Not verified:** no interactive paste was performed — this environment has no
+display, so the egui→arboard→X11/Wayland leg is covered by reading egui-winit's
+source, not by running it. The maintainer should confirm Ctrl+Shift+V into the
+summary box on the desktop.
+
+## Click-to-insert: an unhurried click was a drag, and an opened block started in Normal (2026-09-23, GH issue #282)
+
+**Maintainer, 2026-09-23:** "when i click the page context editor in kvim, i
+expect to go into insert mode. It doesn't do that."
+
+Two causes, both in the click-to-insert behaviour §27 promises, and one of them
+not specific to kvim at all.
+
+### egui calls an unhurried click a drag
+
+`app/kvim_editor.rs`'s `text_area` senses `click_and_drag` and branches
+`drag_started → dragged → drag_stopped → clicked`, with only the last arm
+entering Insert mode. Read in `egui-0.36.1/src/input_state/mod.rs`, a press stops
+being a click as soon as it passes **either** default threshold:
+
+| `egui::Options` | default | what trips it |
+|---|---|---|
+| `max_click_dist` | 6.0 px | a trackpad wobble |
+| `max_click_duration` | 0.8 s | resting on the button |
+
+`is_decidedly_dragging()` then holds, `clicked()` never fires, and the press
+lands in the `drag_started` arm — which enters **Visual** mode. So a deliberate
+click left the editor in Visual, where typing runs Vim commands; a quick, still
+click worked, which is exactly why the failure reads as intermittent rather than
+total.
+
+**Fix:** `end_drag` — a finished drag whose selection is empty (anchor == head)
+was a click, so leave Visual and enter Insert. A drag that did select something
+is untouched, so drag-to-select still works.
+
+**The same threshold broke the read-only preview**, which is the other half of
+the page-context panel: it opens a block on `clicked()`, so an unhurried click on
+a banded block opened nothing at all. A press and release on the *same line* is
+now a click there too; a drag across lines still opens nothing.
+
+### An opened block started in Normal mode with no focus
+
+`PdfReaderState::open_artifact` calls `block_editor.load_text`, and `load_text`
+builds a fresh `Editor::new()` — Normal mode, no keyboard focus. The user has
+already clicked (on a card, or a banded preview line) to get there, so
+`begin_insert` now opens it ready to type and claims focus on the next frame,
+per GH issue #35's own "a single click to bring me into insert mode, not double
+click".
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests` green (622 tests). Four new:
+
+- `a_drag_that_selected_nothing_is_a_click_and_enters_insert_mode`, and its
+  control `a_drag_that_selected_text_stays_in_visual_mode`.
+- `begin_insert_opens_ready_to_type_and_claims_focus_once`, plus an assertion
+  added to `open_artifact_on_a_text_block_loads_the_inline_editor` that the
+  block editor lands in `INSERT`.
+- `a_slow_press_on_the_preview_opens_the_same_line_a_quick_click_does` — driven
+  headless through `egui::Context::run_ui` with synthetic pointer events and a
+  1.5 s hold, asserted *relative* to a quick click at the same position so it
+  does not depend on font metrics or panel layout. **Checked capable of
+  failing:** backing the preview fix out turns it red, and it goes green again
+  when restored.
+
+**Not verified:** no interactive click on a real desktop — the mouse path is
+exercised only through egui's own input state here.
+
+**Left alone deliberately:** the page-context preview stays read-only. Editing a
+schema-sensitive block as raw text is how the fenced TOML gets broken; clicking a
+banded block to open it in the editor is the edit path, as the preview's caption
+says.
+
+## The mindmap's purple "up one level" card, and full paths in the finder (2026-09-23, GH issues #283, #284)
+
+### The parent card (#283)
+
+**Maintainer, 2026-09-23:** "i want a purple node with an up button that allows
+user to go up one level, this will be connected to central node in dotted line
+with an up button within a box on the dotted line. double clicking brings us to
+that level."
+
+Going up already existed as `runtime_graph::up_one_level` behind the breadcrumb's
+`⬆ Up` button; this adds the representation in the star itself. The card shows
+the parent concept's title, or *the top* from a top-level concept, and is drawn
+only when `up_one_level` is `Some` — which is exactly when there is a centre
+card.
+
+**Purple is not a concept colour.** `color_for`'s palette means ownership (dark
+green corpus, light green user, lilac project); this card is not a concept at
+all, it is where you came from, so it sits off that palette — darker and more
+saturated than the projects' lilac so the two do not read as the same family.
+
+**The ring turns half a step when the card is shown.** `star_positions` puts
+ring card 0 exactly straight up, which is where the dotted connector and the Up
+button go, so the card would cover both. `star_layout_with_parent` rotates by
+`pi / n`, putting the *gap* between two ring cards at the top for every `n`.
+
+Two things the layout tests found, which guessing would have got wrong:
+
+1. **The first version of the rotation test asserted "every radius is
+   unchanged". It failed at `n = 10`** — `cards_collide` compares axis-aligned
+   boxes and so is not rotation-invariant (a card is 170 x 46: two side by side
+   need far more room than two stacked), so a turned ring can trip the growth
+   loop where the straight one did not. The layout was right and the assumption
+   was wrong; the doc on `star_layout_with_parent` now records it, and the test
+   asserts what actually matters — nothing in the corridor, nothing overlapping.
+2. **The Up button at the midpoint of the line was found underneath a fan card**
+   at `n = 3`. It is now clamped past the furthest card's radius: every card has
+   `|y| <= furthest`, so clearing that radius clears every card at every angle,
+   which a midpoint cannot promise. With no ring at all it is still the midpoint.
+
+### Full paths in the finder (#284)
+
+**Maintainer, same day:** "i put njoy there and added 2016 and 2021, it shows up
+in fuzzy finder as 2016 and 2021. without context, i cannot tell what it is."
+
+`autocomplete.rs` labelled topic and project candidates with
+`CollectionEntry::name` — the last path segment. The path was already in
+`insert_text`, and `matches_query` already ranked on both, so only the *display*
+threw the context away. Labels are now the full path, in `wiki_candidates` (the
+kvim `[[` popup) and in `library_candidates` (the PDF reader's connection
+picker). A built-in corpus topic labels with its path too, and its human title
+moves into the detail text rather than being dropped.
+
+`collection_picker::rank`'s consumers — the Wiki's sort dialog, the mindmap's
+"Move…" — already printed `c.path` and are unchanged.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests`: 626 tests, all passing. New:
+four in `mindmap_view` (the parent card clears every card including expanded
+fans, the Up button box clears every card, the corridor is empty and nothing
+overlaps after the rotation, `has_parent = false` is exactly `star_layout`), and
+one in `autocomplete` pinning the full-path labels through both finders,
+including that searching the leaf `2016` still finds `njoy/2016` and still shows
+the whole path.
+
+**Not verified:** the parent card's drawing and its double-click were not
+exercised — the geometry is tested, the painting is not. Wanted on a real
+desktop: that the purple reads against both themes, and that the Up button is
+comfortably clickable at Fit zoom on a large star.
+
+## Mind-map links: hyperlinks between concepts, linked artifacts, and no restart to see them (2026-09-23, GH issues #285, #286)
+
+**Maintainer, 2026-09-23:** "in the add subtopic right click on the mindmap, i
+also want to add hyperlink. For example, NJOY is a nuclear data processing code,
+so it should like link to the NJOY entry within the code corpus. hyperlinks
+should be light blue boxes with dark blue underlined text, just like hyperlinks
+in markdown or wikipedia"; "hyperlink addition ui should be the same
+fuzzyfinder"; "also i can't see artifacts i linked to the mindmap yet"; and,
+correcting that last one, "i do see these artifacts load when i restart kovan,
+but i don't want to have to restart kovan to see those hyperlinks. once i click
+save annotations, i should be able to see them on the mindmap as well."
+
+### Why a new store, and not `relation::add_connection`
+
+`add_connection` refuses a collection outright — `SourceNotArtifact`, "a
+collection cannot own a relation, having no file of its own" — and a
+concept→concept hyperlink is precisely that excluded case. Asked, the maintainer
+chose the new file over relaxing the old one, which is also their own 2026-09-22
+decision getting its first user: `crates/kovan/src/connections.rs`, writing
+`<root>/mindmap/connections.toml`, one entry per link, **written once with the
+reverse derived** (`for_node` answers from either end).
+
+**Two stores for now, deliberately.** Relations owned by an artifact stay in
+`mindmap.md`; only the ownerless links go in the new file. Folding the first
+into the second is the migration that decision implies and is *not* done here.
+
+### ~~One card type for both (#285 and #286)~~ — CORRECTED the same day
+
+~~To a reader a hyperlink and a linked annotation are the same thing — "this
+points somewhere else" — so both draw as the same light-blue card with dark-blue
+underlined text, on the ring beside the sub-concepts.~~
+
+**CORRECTED 2026-09-23**, maintainer: *"differentiate between artifacts and
+hyperlinks. artifacts should live in the right click when i right click a box,
+hyperlinks can live as linked boxes"*. The two are not the same thing to the
+person reading the map:
+
+- **A hyperlink is a place**, so it is a light-blue card with dark-blue
+  underlined text on the ring, double-clicked to travel, with "Remove
+  hyperlink" on its own right-click menu.
+- **A linked artifact is a detail of a concept**, so it is an entry on that
+  concept's right-click menu — `LinkCache::linked_artifacts`, one line per
+  relation, opening the paper it belongs to. Nothing is drawn for it.
+
+The correction also keeps the star readable: a topic with a dozen annotations
+connected to it would otherwise bury its sub-concepts under a dozen boxes,
+while the menu holds any number without touching the layout. Only literature
+ends count as artifacts; a concept on the far side of a relation is not offered
+here.
+
+**The mirror trap, and how it was nearly missed.** `relation`'s endpoints are
+the older untyped `graph::NodeId` strings, so they are read into typed ids
+before comparing — and canonicalised on **both** sides, for two different
+reasons: canonicalising the relation's end is what puts the card on the
+**corpus** node the map shows for a mirrored path, and canonicalising the
+current node is what puts it there when the user is standing on the mirror
+itself. The first version of the test asserted only one direction and passed
+with the other half of the fix deleted; both directions are now asserted and
+each half was checked capable of failing by removing it. This is the same trap
+`runtime_graph::canonical_concept` was written for after the Up button landed on
+the light-green mirror of a corpus topic.
+
+### Seeing it without a restart (#286)
+
+The shared `WorkspaceKnowledge` was rebuilt only on opening a root, on setup and
+after an ingest or a reclassify. Saving an annotation or adding a connection
+wrote to disk and changed nothing on screen until the next launch —
+`RepoSaveFingerprint` already noticed such a save once per frame (it exists to
+re-run `git status`), so it now also calls `refresh_knowledge`, and it watches
+`mindmap.md` and `mindmap/connections.toml` as well, because a connection is
+written to those rather than to the active paper. Watching files rather than
+threading a signal out of every save site keeps every writing path covered from
+one place, and catches an external edit too.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests`: 638 tests, all passing. New:
+seven in `connections` (round trip, both ends, the readable TOML shape, no
+duplicate in either direction, no self-link, removal from either direction, a
+malformed row skipped, an unreadable file being "none" rather than a failure),
+four in `mindmap` (a hyperlink card from both ends, a relation offered on the
+menu **and not drawn as a card**, the mirror case in both directions, both
+candidate id syntaxes), and one in `app` pinning that the save fingerprint
+notices either mind-map file.
+
+**Not verified:** none of the drawing or the dialogs were exercised — no display
+here. Wanted on a real desktop: that the light blue and dark blue read well in
+both themes (the fill is a fixed colour, not a themed one), that the underline
+sits right at Fit zoom, and that "Add hyperlink…" lands where the maintainer
+expects beside "Add subtopic…".
+
+## The table digitiser reads on arrival, and finds its own model (2026-09-23, GH issue #287)
+
+**Maintainer, 2026-09-23:** "the table digitiser, i don't want to deal with
+selecting an OCR model, i should be able to just see the table and csv
+extracted"; "when i click read table, the OCR should already be run"; "and csv
+extracted"; "then i can edit the csv table, and save the artifact".
+
+`table_ocr`'s own module doc had predicted this exactly — model download was left
+out as "a natural follow-up **if a model-path text field turns out to be too much
+friction in practice**". It did, and that paragraph is now struck through in
+place rather than quietly rewritten.
+
+### What changed
+
+- **`discover_models`** searches, in order: `$KOVAN_TESSDATA` (which may name a
+  file, so it can point at one model), `$TESSDATA_PREFIX` and `<it>/tessdata`,
+  Kovan's own application-data folder, then the usual system tessdata
+  directories. Within a directory `eng.traineddata` is preferred; **across**
+  directories order wins, so the override stays an override rather than being
+  beaten by a system English model.
+- **`osd.traineddata` is never chosen.** It sits beside the real models and is a
+  `.traineddata`, but it carries no LSTM recognizer, so picking it converts "no
+  model installed" into an obscure load error.
+- **`load_crop` recognises immediately** — no button, no path field. The tab
+  shows which model read it, offers "Read again", and shows the **CSV** beside
+  the editable grid, read-only, because the cells are the editable copy and two
+  editable views of one table would have to answer which of them wins.
+
+### A model being installed does not mean it can be used
+
+Measured on the maintainer's machine while building this: `tesseract 5.5.3-1` is
+installed, `/usr/share/tessdata/` holds only `afr.traineddata` and
+`osd.traineddata`, and **`find / -name eng.traineddata` is empty**. Worse, the
+one usable-looking model is rejected outright by the recognizer:
+
+```
+/usr/share/tessdata/afr.traineddata: format error:
+network outputs 96 != recoder code_range + 1 = 97 (CTC-null invariant)
+```
+
+So the first design — "discover a model, use it" — would have reported an
+obscure format error where the real answer is "install the English model". The
+digitiser therefore **walks every candidate** and uses the first that loads,
+collecting the rejections, and when none works it says so with the files it
+tried and the package to install (`tesseract-data-eng`, verified to be the right
+Arch package name). Falling back to another language is still worth doing where
+it loads: these are Latin-script LSTM models and a table is mostly digits, and
+the status line names the model so odd words can be told from a bad crop.
+
+~~**Unverified, and filed as GH issue #288:** whether `eng.traineddata` loads at
+all.~~ **RESOLVED the same day** — the maintainer installed
+`tesseract-data-eng 2:4.1.0-5` (23 MB on disk, 9 MB download) and it fails
+identically:
+
+| model | `num_outputs` | `code_range` | the check demands |
+|---|---|---|---|
+| `eng.traineddata` | 111 | 111 | 112 |
+| `afr.traineddata` | 96 | 96 | 97 |
+
+Both satisfy `num_outputs == code_range`; `kopitiam-ocr` 0.1.0 computes
+`expected = code_range + 1`. Two unrelated languages, each exactly one short in
+the same direction, so **no `tesseract-data` 4.1.0 model loads at all** — a
+defect in the engine, not a missing or broken model. `kopitiam-ocr` is a
+separate repository, so the fix cannot land here; #288 records the one line to
+compare against Tesseract's own `LoadCharsets`.
+
+The failure message was corrected once that was known: with models present but
+unloadable it no longer says "install `tesseract-data-eng`", which would send
+the user after a file they already have.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests`: 642 tests, all passing. Four new:
+English preferred and `osd` never chosen, directory order beating language with
+a bare file accepted as a model, the documented search order actually containing
+the system location, and — machine-independently — that a loaded crop is read at
+once, never leaving the old "set the model path, then Run OCR" state, with any
+failure naming both what it tried and how to fix it.
+
+**Not verified:** no successful OCR pass has been run anywhere in this work,
+because no model on this machine loads (see above). The recognition path itself
+is unchanged from the button-driven version that came before, but "Read table
+now lands on a filled-in table" has not been *seen* — only that it is attempted
+and that the failure is honest. That waits on #288.
+
+## kvim owns the keyboard; the graph digitiser is drawn, not auto-traced (2026-09-23, GH issues #289, #290)
+
+### The editor never left Insert mode (#289)
+
+**Maintainer, 2026-09-23:** "When in the text edit mode, i want kvim to act like
+vim keys, until the thing is saved. means ctrl+shift+v to paste, u to undo etc."
+
+Neither the engine nor the key mapping was at fault. Driven directly,
+`kopitiam-neovim` does the right thing — `i`, `X`, `Esc`, `u` restores the
+buffer — and `map_event` maps Escape. The loss is in **egui**:
+`egui-0.36.1/src/memory/mod.rs:570` reads the focused widget's `EventFilter`
+and, for keys the filter does not claim, **Escape sets `focused_widget = None`**
+while Tab and the arrows move focus by direction. `EventFilter::default()`
+claims none of them, and the kvim text area is a plain `ui.interact`.
+
+So Escape **never reached the engine**: the editor stayed in Insert for ever,
+`u` typed a `u`, and — once focus was gone — the keys after it went to the
+*app*, where `j`/`k`/`n` are the PDF reader's page-turn shortcuts. That is a
+much worse failure than the report suggested, and it was invisible from the
+Rust side of the adapter, which looked correct.
+
+`Memory::set_focus_lock_filter` with all four claimed, while the editor has
+focus. It applies from the second frame of focus (`had_focus_last_frame`),
+egui's own constraint and the one its `TextEdit` lives with.
+
+### Auto-trace replaced by a drawn stroke (#290)
+
+**Maintainer, same day:** "for graph digitiser, we won't do auto-trace anymore.
+It will be manual, were i draw a line and it will be snapped to the curve after
+i let go of the mouse. the points will be placed 2 pixels apart."
+
+`trace::snap_stroke` resamples the drawn polyline by **arc length** (so the
+points are 2 px apart *along the stroke*, which on a steep segment is finer in x
+than any column scan), snaps each sample vertically onto the nearest ink run
+within a radius, and reads the run's centroid and thickness exactly as
+`trace_curve` does — so the per-point uncertainty `dataset` derives from line
+thickness keeps working unchanged.
+
+Two things the tests caught, both real:
+
+1. **A clipped run gives a wrong centroid and a wrong thickness.** The search
+   window truncates the ink wherever the drawn point sat near its edge; the
+   first version read the truncated run and put a point at y = 49 on a band
+   centred at 50. The run is now grown back to the ink's real extent before
+   anything is read off it — which matters twice over, because thickness feeds
+   uncertainty.
+2. **"Drew off the curve" and "drew near a gridline" are different things.** A
+   test asserting that straying off the band produced nothing failed because the
+   fixture had a gridline at row 20 and the snap correctly found it. The
+   behaviour is right and is now pinned deliberately by
+   `a_stroke_drawn_along_a_gridline_snaps_to_the_gridline`: the snap takes the
+   ink under the stroke, gridline included. A `max_thickness_px` cap keeps an
+   axis or a bar from being read as a curve.
+
+**The GUI's auto-trace is gone** — button, strategy picker, column-step slider,
+`DigitiseApp::auto_trace` and the `step`/`strategy` fields, rather than left
+sitting unreachable. `trace_curve` and `auto.rs` stay for `kovan-cli digitise`,
+a different surface that was not part of the decision.
+
+**Open, not done:** `PointOrigin` has three variants and a snapped stroke is
+honestly none of them — a human drew it, a machine placed it on the ink. Points
+are recorded `HandPlaced`, since the gesture is the human's; a fourth variant
+would be the fuller record and is a serialized-schema change.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests`: 651 tests, all passing. New:
+two headless egui tests for #289 (Escape-then-`u` undoes; the arrows move the
+cursor rather than focus), each **checked capable of failing** by removing the
+focus lock — without it the editor still reports `INSERT` after Escape — and
+seven for #290 covering the snap, the 2 px spacing (and that it is a setting),
+dropped samples, deduplication, the gridline behaviour and the thickness cap.
+
+**Not verified:** no drawn stroke has been made with a real mouse, and no
+rendering has been seen — no display here. The gesture handling
+(`dragged`/`drag_stopped` into `snap_drawn_stroke`) is covered only by the
+library function underneath it.
+
+## Tables are digitised by hand in a Calc-style grid; OCR removed (2026-09-28, GH #353–#357)
+
+**Maintainer, 2026-09-28:** "i want to do table digitisation without OCR...
+the tesseract thing can be quite annoying"; "i want libreoffice like
+interface... libreoffice calc cells on the left panel, pdf viewer of table on
+right hand side, and i slowly use the select text to copy/paste into the
+libreoffice calc cells... then once done, i want to save the cells to csv".
+
+**Why OCR went.** `kopitiam-ocr` 0.1.0 rejected every installed tesseract
+model (#288), so the entry above ("reads on arrival, and finds its own model")
+never produced a single cell. Born-digital PDFs already carry exact text, so
+recognition was the wrong tool for them in the first place.
+
+**What replaced it.**
+
+- `digitiser::table_grid` — the grid model, no `egui`: cursor and Shift
+  selection, LibreOffice Calc's tab-separated paste and copy, grow-on-edge,
+  insert/delete row and column, bounded undo, CSV through the `csv` crate
+  (RFC 4180 quoting, no `#` lines — provenance lives in `[extraction]`).
+- The reader's `SelectGranularity::Char` (`select_chars_in_rect`): in the
+  table view a drag selects characters, rebuilds rows from glyph baselines,
+  turns gaps wider than 1 em into tabs, and copies at once. So dragging across
+  a table row and pressing Ctrl+V fills a row of cells.
+- The table view is the grid on the left and the same reader on the right.
+  Saving writes a `digitised_table` artifact with
+  `[extraction] method = "pdf_native"`, `digitised_by` and `digitised_at`,
+  with the body in the digitised graph's series schema
+  (`### start of data series` / `### Series: <table name>` / fenced CSV /
+  `### end of series`). ~~Export writes a plain `.csv`.~~ **CHANGED same
+  day**: there is no CSV export ("i don't want to export to csv, i want to
+  save artifact"); **Save artifact** sits at the top of the grid panel, and
+  Ctrl+S does the same.
+- Selections are highlighted as the theme's text-selection colour over
+  exactly the text that is copied: one block per selected line, or per cell
+  (run of text between column gaps) for a character selection, updated live
+  while dragging.
+- **No "mark reviewed" step** (maintainer: "the workflow is fully human").
+  Every value is typed or pasted by a person from the PDF, so there is no
+  machine output to gate; `digitised_by` records "every value entered by
+  hand" instead. Re-opening a saved table loads
+  its CSV back into the grid instead of re-cropping.
+
+**LibreOffice is not vendored** — it is C++ and would break the pure-Rust and
+Android build. Only its conventions are copied (keys, paste, CSV quoting).
+
+**Removed:** `digitiser/table_ocr.rs`, `DigitiserError::Ocr`, the
+`kopitiam-ocr` dependency, the JSON table export. Scanned pages, which have no
+text layer, are typed into the grid while reading the page.
+
+## The kvim tab is source + live GFM preview, read-only until Edit is confirmed (2026-09-28)
+
+**Ask (maintainer, 2026-09-28).** "make kvim editor tab a kvim editor +
+markdown renderer. kvim editor is read-only by default. User has to click
+edit, where a popup box warns you could break the schema ... markdown is gh
+flavoured", layout "similar to vscode", and "you can vendor and translate
+this code: https://github.com/jbt/markdown-editor.git".
+
+**What was built.**
+
+- `app::kvim_tab` — the tab: kvim source on the left, preview on the right in
+  a resizable split, with `Source | Preview`, `Source` and `Preview` layouts.
+  `EditLock` (`Locked -> ConfirmPending -> Unlocked`, `lock()` from anywhere)
+  gates the editor; while locked the buffer is drawn by
+  `KvimEditorState::ui_locked`, the read-only path that forwards no key,
+  clipboard or mouse edit. **Edit** opens an `egui::Modal` that lists, from
+  `artifact.rs`'s schema, what a hand edit can break (the `[kovan]` TOML
+  fence under a `#` heading, unique ids, `connections`/`[[relation]]`
+  two-way references, `csv` payload fences, the paper header); only
+  "I understand the risks — edit" unlocks. **Done editing** re-locks.
+- **The confirmation is per document open**: activating a paper or opening
+  an external file calls `KvimTab::document_opened`, which re-locks. Saving,
+  and the background resync from other flows, do not.
+- `app::gfm_preview` — `pulldown-cmark` 0.12 (already a dependency) with
+  tables, strikethrough, task lists, footnotes and GitHub alerts, into a block
+  model that keeps each block's source lines; GFM bare-URL autolinks are added
+  on plain text because `pulldown-cmark` does not do them. The source lines
+  drive the VS Code-style scroll sync: the editor's top visible line picks the
+  preview offset.
+- Save is untouched: the same Save button, locked or not.
+
+**Why not `egui_commonmark`.** Checked first: 0.25.0 targets egui 0.36 and is
+MIT OR Apache-2.0, with the GFM extensions. But it cannot report where each
+source line was painted, so scroll sync could only be proportional, and it
+brings `pulldown-cmark` 0.13 beside the workspace's 0.12. The maintainer then
+directed a translation of jbt/markdown-editor.
+
+**What was translated from jbt/markdown-editor** (ISC, commit `58aa8bf`,
+full record in `NOTICE`): `setOutput`'s scroll-to-first-changed-element (kept,
+but only when that block is off screen), `update`'s title-from-first-h1,
+`render_tasklist`'s disabled checkboxes, and the `#in`/`#out` split plus
+`toggleReadMode`. Its parser (`markdown-it`, MIT) was **not** ported —
+`pulldown-cmark` replaces it.
+
+**Not done.** Preview-to-editor scroll sync (only editor -> preview), table
+column alignment, images (shown as links — no image loaders are installed).
+
+### Same day, after the maintainer tried it
+
+- **Save artifact closes the table view** and returns to the PDF reader
+  ("save artifact for table should close the table digitiser and return to
+  pdf viewer"). A failed save stays put, with the error shown.
+- **Selected cells contrast with their neighbours**: the theme's selection
+  colour at high opacity, the block outlined as one shape, the active cell
+  in a heavy border of the strongest text colour, and the selected columns'
+  letters and rows' numbers lit up, as in Calc. Dragging across cells selects
+  a block.
+- **Pages can be turned 90° and saved** ("there should be a way to rotate and
+  save individual pages of pdf in case they are in the 90 degree
+  orientation"). `crate::page_rotation` sets the page's `/Rotate` (honouring
+  an inherited value) through `kopitiam_pdf`'s incremental update, so the
+  original bytes survive as a prefix of the saved file. The reader toolbar
+  has ⟲/⟳ 90° and, once turned, **Save rotation**; the turn shows at once and
+  is written only on Save. Because `/Rotate` is applied in the page
+  transform for both rendering and structured text, selection still finds
+  the right glyphs on a turned page. That was tested rather than assumed
+  (`the_renderer_and_the_text_layer_both_follow_the_turn`). The table view
+  gets this for free, since its right half is the same reader. Plain images
+  turn for viewing only. Boxes already saved on a turned page were drawn in
+  the old orientation and will not line up until it is turned back.
+- **A setup box first, like the graph wizard** ("the first popup box asks you
+  what table is this. Then it brings you straight to the digitiser"). A new
+  "Read table" region opens a modal, "Which table is this?", showing the page
+  and paper, with a required "Table, as printed" field. Enter or Start goes
+  to the grid; Cancel, Esc or clicking outside returns to the PDF. The graph
+  wizard's axis-range and label stages have no table counterpart, so it is
+  one question. A re-opened saved table skips it: it already has a name.
+- **Cancel digitisation** ("table digitiser should also have a cancel
+  digitisation option, which brings us back to pdf reader"). A plain button
+  left of the Save artifact button in the grid's header returns to the PDF
+  reader without saving. If the grid holds cells that differ from what was
+  last saved or loaded (an edit in progress counts), a "Discard this table?"
+  box asks first, with "Discard and go back" / "Keep editing"; Esc or
+  clicking outside keeps editing. An empty or unchanged grid leaves at once.
+  Leaving resets the grid, name, region and status, so re-entering the tab
+  does not show a stale half-done table. The decision is
+  `request_cancel`/`answer_discard`, unit-tested without a window.
+- **Format to standard form (E)** in the grid toolbar (after Undo/Redo):
+  "User selects cells, and clicks a format to standard form button, which
+  then puts in e notation for highlighted cells". It calls
+  `TableGrid::reformat_standard_form` on the selection: whole-cell standard
+  form (`2.1×10^6`, `8.2×107`) becomes E notation (`2.1e6`) in one undo
+  step, and the status line reports how many cells changed. Cells with
+  units (`1.0X10^5 m^2`) are left alone. It asks first ("The wizard then
+  asks in a popup box, are you sure? then displays the superscripted text
+  before, and e form text after"): a "Reformat N cell(s) to E notation?"
+  box lists each cell (B3, ...) with its text before, superscripts drawn
+  raised, and its E form after; Reformat applies, Cancel/Esc/click outside
+  changes nothing. With nothing convertible highlighted there is no box,
+  only a status line. The grid's own cells now draw `^` superscripts raised
+  too; the stored text keeps the `^`.
+- **Resizable column widths and row heights** ("pls allow me to change
+  widths and heights of the cells too"), Calc's way: drag the right edge of
+  a column letter or the bottom edge of a row number (resize cursor over a
+  ±4 px grab zone); double-click a column edge for Calc's optimal width
+  (widest cell text as drawn, superscripts included, plus padding) and a
+  row edge to fit its tallest cell. Widths clamp to 24–1200 px, heights to
+  one text line–400 px. Sizes are GUI state in `TableDigitiserState`
+  (`col_widths`/`row_heights`), never saved into the CSV or artifact; the
+  toolbar's +/− row/col insert/delete the matching size so a resized line
+  moves with its cells, paste growth pads with defaults, and a new region
+  (`load_crop`) or `reset_table` returns to defaults. Tall rows centre their
+  text vertically; wide text still clips; the cell editor takes the cell's
+  size. The arithmetic (`clamp_size`, `fit_size`, `fit_len`, `sync_sizes`,
+  `edge_hit`) is egui-free and unit-tested.
+- **2026-09-28 — The view follows the keyboard cursor everywhere in kovan.**
+  Maintainer: "for anything in kovan, when the cursor moves beyond the scroll
+  area, like for the kvim text editor, or the csv, the scrollbar shld
+  follow". Rule: scroll only on a frame where the cursor/selection **changed**
+  (so the mouse wheel is never fought), by the minimum distance
+  (`scroll_to_rect(rect, None)`, no recentring). The table digitiser grid now
+  does this for the active cell (`follow_moved` over `(cursor, selection)`,
+  so a paste that selects a block also follows); pinned by a headless test
+  that arrows 60 rows down a 291-pt viewport and checks the whole cell is in
+  view at the bottom edge, with a no-move control that does not scroll. kvim
+  already followed its caret (2026-09-24, `last_cursor`); it gained an
+  end-to-end `G`/`gg` test on the real `ScrollArea` offset. Checked and left:
+  the Ctrl+P literature finder (already `scroll_to_me` on Up/Down); the
+  literature list, wiki, bibliography, mindmap, plot setup, CSV preview, git
+  view and GFM preview (no keyboard cursor; the preview syncs to kvim's top
+  line); the TUI (ratatui `List` + `ListState` scrolls to the selection
+  itself; its `Paragraph` panes have no cursor). `pdf_reader.rs` not audited
+  (another session's).
+- **2026-09-28 — Save Repository takes an optional user commit note; the
+  generated subject never changes.** Maintainer: "is there a way i can put in
+  a commit message into kovan, so that it appends to the save kovan
+  repository?" The Save Repository tab now has a multiline "what did you do?
+  (optional)" box. Its text becomes the **first body paragraph** of every
+  commit the save makes — the Kovan repository's, the private submodule's
+  (both `gix`) and the open corpus's (system `git`, single `-m` argument,
+  `--cleanup=verbatim`, no shell) — under the **unchanged** subject
+  (`Save Kovan repository` / `Save Kovan repository: open corpus`), with the
+  generated Added/Edited/Removed list after it. Subject kept rather than
+  `Save Kovan repository: <first line>` so history stays uniformly greppable,
+  the open-corpus subject cannot collide, and no note can make an over-long
+  or multi-line subject; the cost is that the one-line History list does not
+  show the note. Trailing whitespace per line and surrounding blank lines
+  are trimmed; `#` lines and interior blank lines are kept (with `-m`, Git
+  keeps `#` lines anyway; verbatim also stops it collapsing blank lines, so
+  both code paths store the same body). A blank note is byte-for-byte the
+  old message (tested). The box is cleared only after a save that
+  committed; kept on failure and on nothing-to-save. Logic:
+  `repository::compose_commit_message`, `save_repository_with_message`,
+  `advanced_git::save_with_message`. Neither `kovan-cli` (code tooling, no
+  save command) nor the TUI has a save/commit command, so no `-m` flag was
+  added.
+- **2026-09-28 — Save Repository pushes by default: the proprietary and open
+  corpora to their own remotes, then the Kovan repository.** Maintainer:
+  "kovan should be able to push pdfs to the proprietary repos by default",
+  then "and open source". ~~Saving never pushes~~ (never written down as a
+  decision; it was simply how `save_repository` behaved since `op-9vo6.19`)
+  **CHANGED 2026-09-28**: after any successful save (including one with
+  nothing new, so earlier unpushed saves go up), `save_push::push_after_save`
+  pushes, in order, the proprietary corpus, the open corpus, then the Kovan
+  repository — the parent only if neither corpus push failed or was refused,
+  so it never publishes a gitlink to a corpus commit its remote lacks (a
+  corpus merely *skipped*, e.g. not downloaded or with no remote configured,
+  does not block it). The standard corpus is never pushed. **Default ON;
+  opt-out** is the "Push after save" checkbox under the note box, persisted
+  as `[save] push_after_save = false` in the library's `kovan_root.toml`
+  (per library, so it travels with it; the table is omitted while at the
+  default; written by `KovanRoot::set_push_after_save`, which re-reads the
+  file first so a stale in-memory root cannot revert other settings).
+  **Safety rules**, each pinned by a test in `src/save_push/tests.rs`
+  (temp repos, local bare remotes): never forced (refspec
+  `refs/heads/B:refs/heads/B`, no `+`, no `--force`), so ~~a remote that moved
+  on fails as "pull first" with the local commit kept~~ **CHANGED 2026-10-07
+  (GH #502)**: a remote that moved on is fetched and merged into the save,
+  then pushed again (`save_push::safe_push::push_keeping_local`); a merge
+  that conflicts is aborted and reported as `PushOutcome::KeptLocally`, the
+  save still committed locally, never reset — "pull first" had led to the
+  forced pull that reset a saved PDF away; never from a detached
+  HEAD — the commit is put on the tracked branch (`.gitmodules` `branch =`,
+  else `refs/remotes/origin/HEAD`, else `ls-remote --symref`) only if that
+  branch's local and remote-tracking tips are ancestors (a fast-forward),
+  otherwise refused with nothing moved; every push URL (`remote get-url
+  --push --all`, so a separate `pushurl` is checked too) of the proprietary
+  corpus must be the private remote (`[private_submodule] remote` and
+  `[corpora] proprietary_remote`, which must agree) and must not be the open
+  or standard-corpus remote, and the open corpus's must be `open_remote` and
+  must not be a proprietary one — URL spellings (`https://`, `ssh://`,
+  `git@host:`) are normalised before comparing; nothing is ever pushed to an
+  `outram-park-backend` URL. Network via system `git` with
+  `GIT_TERMINAL_PROMPT=0` (credential helpers still run; a missing
+  credential fails fast with Git's own words). Each repository's result
+  (pushed / nothing to push / not pushed and why / refused / failed) is
+  listed under the Save button, red if any failed or was refused; the note
+  box is still cleared only by a save that committed, whatever the push did.
+  API: `advanced_git::save_and_push(root, note, push)`,
+  `advanced_git::push_after_save_setting`, `save_push::{push_after_save,
+  PushReport, PushOutcome}`.
+- **2026-09-28 — A Save now writes the index; it had been leaving staged
+  deletions behind.** Found diagnosing the maintainer's real proprietary
+  submodule, which showed four saved PDFs as `D ` (staged deletion) plus
+  `??` and `yuanzhong2002fission.pdf` as `MM`. Cause: Save commits with
+  `gix` from a tree built off the worktree and never wrote `.git/index`, so
+  the index stayed at whatever it last was (there: exactly commit `ddcd155`,
+  2026-09-24) while five further saves moved `HEAD`; one plain `git commit`
+  would have deleted the PDFs. Reproduced in a temp repo (the regression
+  test showed `MM papers/c.pdf`, `D  papers/d.pdf`, `?? papers/d.pdf`) and
+  fixed in `repository::sync_index`: after each commit the index is rebuilt
+  from the committed tree, keeping stat data for unchanged entries. Pinned by
+  `after_a_save_git_status_is_clean_in_every_repository_it_committed`. The
+  same submodule's **detached HEAD** was not made by Save itself: it came
+  from `git submodule update --init` in setup on 2026-09-22 15:58, ten
+  minutes before `corpus_repos::attach_to_branch` existed (16:08), and Save
+  then committed onto it; the push above now puts such commits on their
+  branch.
+- **2026-09-28 — "Edit digitisation" prefills the wizard and restores the
+  saved curves; a successful graph save returns to the PDF reader.**
+  Maintainer: "next time we have an edit digitisation, please pre-fill the
+  values in the wizard with existing values." Re-opening a saved
+  `digitised_graph` used to show the three-stage wizard empty and the
+  digitiser with no points. Now (`src/app/saved_digitisation.rs`, the exact
+  inverse of `DigitisedDataset::extraction` + `save_into_project`): the
+  figure (artifact heading), page, document title, both axis ranges and log
+  flags (parsed back from `[extraction].x_axis`/`y_axis`), and both labels
+  (extraction, else the CSV header unless it is the blank-label `x`/`y`
+  fallback) are prefilled; any field that does not parse is left blank and
+  named in a note shown above every wizard stage. On "Start digitising" the
+  curves come back from the CSV (`### Series:` blocks or the single fence):
+  earlier ones banked by name, the last one live. **Rectangle records carry
+  their reference pixels** (`px 107.2 = …`), so the reference lines go back
+  on them and each point to `saved_cal.pixel_at(x, y)`; values are kept
+  exactly (an untouched re-save writes a byte-identical body, pinned by a
+  test), and if a range was corrected in the wizard each value is re-read
+  from its saved pixel through the new calibration. **Limitations, stated in
+  the wizard note:** notes, rotation and deskew are not in the artifact, so
+  a figure that was turned must be turned again (points landing outside the
+  crop raise an error saying so); a **parallelogram record has no corners**,
+  so its points are held until the operator drags the corners back and
+  presses "Restore saved points" — pixels are never invented; per-point
+  origin/uncertainty are not in the CSV, so restored points are hand-placed
+  by the saved `digitised_by` with ±0.5 px uncertainty re-derived. Re-saving
+  still replaces the same artifact (`replace_id`). Tables already behaved
+  this way (Edit table skips the setup box and reloads the CSV into the grid,
+  `table_digitiser.rs::load_crop`/`resolve_reload`) — confirmed, unchanged.
+  Found by the round-trip test and fixed: saving without banking the last
+  curve dropped the name typed in the series box (it was written as
+  `series-N`). Also (maintainer, same day: "save csv into project markdown
+  should also move us into the pdf reader"): `save_into_project` now returns
+  whether it wrote, and the button's `save_into_project_then_read` switches
+  to the PDF reader on success only — failures stay in the digitiser with
+  the error, as the table digitiser's Save does.
+- **2026-09-28 — A re-digitise re-save rewrites `[extraction]`, not just the
+  body.** Maintainer, in real use: PANAMA Figs. 6 and 7, re-digitised via Edit
+  digitisation with the y top corrected to 10^0, still read `px 88.03 = 10` /
+  `px 35.40 = 10` and `digitised_at = 2026-09-24`. That happened because both replace
+  branches of `classify::save_digitised_csv` (`replace_id`, and the
+  same-heading overwrite) went through `replace_artifact_body`, which clones
+  the old TOML and only bumps `modified`, so the new `Extraction` the caller
+  passed was thrown away. Now both go through the new
+  `classify::replace_digitisation(session, id, body, Option<Extraction>)`:
+  a supplied extraction replaces `[extraction]` wholesale with
+  `digitised_at` = the re-save time. `[kovan]` id/kind/created, `[source]`,
+  classification, relation and connections are kept and `modified` is
+  bumped. **`[kovan].reviewed` is cleared when the body changed** (the
+  review vouched for numbers that no longer exist) and kept when it did not.
+  This applies to graphs and tables alike: the table save already passed an
+  extraction, and `table_digitiser.rs` is unchanged. `replace_artifact_body`
+  still keeps metadata verbatim for the inline prose editor. `[source]` is
+  still not updated by the same-heading overwrite of a fresh crop
+  (unchanged, out of scope). **Existing artifacts are not repaired
+  retroactively, and a plain re-save will NOT repair Figs. 6/7.** Edit
+  digitisation prefills from the saved (stale) `y_axis` and places the
+  restored points through it. Keeping the stale range just writes it again.
+  Correcting it in the wizard re-reads every value from pixels worked out
+  through the stale calibration, which would corrupt the correct data. The
+  calibration those CSVs were actually made with is recorded nowhere. Repair:
+  first hand-edit each artifact's `y_axis` in the paper's Markdown to the
+  calibration actually used (e.g. `px 88.03 = 1` if only the value was
+  corrected and the line was not moved). Then Edit digitisation → Start
+  digitising (ranges untouched) → Save CSV into project markdown, which
+  keeps the values exactly and stamps a fresh `digitised_at`. If the
+  reference line was also moved, the true pixel is unknown and the figure
+  should be re-digitised from scratch.
+- **2026-09-28 — Select a banked series to edit it (graph digitiser).**
+  Maintainer: "I want to be able to select data in previous banks, like
+  through a dropdown menu, or as clickable buttons." Before this a banked
+  curve could only be dropped (last one), never re-opened. Now the series
+  panel shows one button per series in saved order, `name (points)`, with
+  the live one highlighted (a ComboBox once there are more than 6). Clicking
+  a banked series **swaps** it with the live one (`src/app/series_select.rs`,
+  `select_banked_series`): the live curve is banked under the name-box name
+  if it has points (refused if it is unnamed or its name is taken, as "Bank &
+  start next" refuses), an empty live curve is discarded rather than banked
+  as an empty series, and the chosen curve becomes live with its name in the
+  box, so every existing edit path (add, drag, erase, right-drag erase)
+  applies to it unchanged. **Order:** a new `live_position` keeps the live
+  curve's place in the saved order, so `all_series()` and the saved artifact
+  never reorder when the operator hops, and banking a curve picked from the
+  middle puts it back there. **Names:** the name box now wins over the live
+  dataset's own `series` field on save (`named_series_csv`), so renaming a
+  restored or re-selected curve is what gets saved (previously a restored
+  live curve kept its old name on save despite a rename). Banked series are
+  drawn faintly on the figure under the live one; hovering a series button
+  draws that curve bold. No per-series delete was added. Tests in
+  `series_select.rs`, including a save round trip through a paper session.
+- **2026-09-28 — Edit digitisation: the saved values are the data; a range
+  change that would recompute them needs explicit confirmation.** Maintainer
+  report ("kovan edits to current digitisation may be buggy"): PANAMA-I
+  Fig. 7, header hand-edited `px 35.40 = 10` → `= 1`, then Edit digitisation
+  → Start digitising → Save, and every value changed. **Investigated, not a
+  re-read by the edit path.** Hypotheses and results: (a1) a hand-edited
+  header makes an *untouched* wizard re-read values — refuted: the prefill and
+  the restore parse the same header, so `saved_calibration == calibration()`
+  and values are kept byte-for-byte (pinned:
+  `an_untouched_edit_after_a_hand_edited_header_keeps_every_value`, which
+  passed before any change); (a2) a changed wizard range re-read the restored
+  points — refuted for Fig. 7, because that keeps every x value (the x axis
+  was unchanged) and **no** 488f28f x value equals a 59f1b92 x value; (b) the
+  edit path drops series/points — refuted: nothing filters by name, count or
+  position (pinned: `four_series_and_a_lone_early_point_survive_...`); the
+  "Level of Heavy Metal Contamination" series and the 99.8 h point were
+  already absent from 59f1b92, a full re-trace made before restore existed.
+  **What the data show:** the 488f28f curves are new placements, on the same
+  pixel grid as the original 162939f trace, read through the hand-edited
+  header: against 162939f compressed by 6/7 in log about 1e-6, the mean
+  residual is 0.000 decade (max 0.02–0.07 over 7–83 points per series).
+  Against 59f1b92, as saved or compressed, it is 0.4–0.9 decade. The
+  restored 59f1b92 markers would have been drawn where the header puts them,
+  which is off the curves, because 59f1b92 was measured through a different
+  calibration (`px 365.69 = 1e-6, px 34.05 = 1`, stale-header bug). The
+  "hand-edit the header, then re-save" repair in the bullet above assumes the
+  lines were not moved, and they were, so it did not apply to Fig. 7.
+  **Changed:** (1) the prefilled wizard records the saved ranges
+  (`PlotSetup::saved_ranges`). A range or log flag that differs *numerically*
+  (`1e-3` for `0.001` is no change) shows a red warning naming how many saved
+  points will be recomputed. The warning offers "Revert to saved ranges" and
+  blocks Next / Start digitising until "recompute the saved points (N)" is
+  ticked. `finish_plot_setup` refuses too. (2) A failed restore no longer
+  throws the saved points away (`finish_plot_setup` took `pending_restore`
+  and ignored the `false`); they stay pending behind "Restore saved points".
+  (3) The prefill note says values are kept while ranges are untouched and
+  that markers off the curves mean the header does not describe the values.
+  Tests: `src/app/edit_digitisation_tests.rs` (5).
+- **2026-09-30 — Standard-corpus documents are ingested literature;
+  duplicate PDFs are refused.** Maintainer: "kovan doesn't recognise
+  literature in the standard corpus as ingested. it should". Kovan listed
+  WASH-1400 as "not ingested yet", so it was ingested again as
+  `papers/2008/2008muffletwond`, byte-identical (SHA-256
+  `029dfd5bffa8a430...`) to `kovan-standard-open-corpus/nrc/ML15334A199.pdf`.
+  **Root cause:** "ingested" meant only "some paper's `kovan.toml` records
+  this PDF" (`paper_owning_pdf`, the literature list's `owners` map).
+  Nothing joined the compiled metadata (`corpus::LITERATURE`) to the pulled
+  corpus files, so no standard-corpus document was ever ingested; the reader
+  offered to ingest each one, and the ingest duplicate check covered only a
+  citekey collision (its doc called the content check "future work").
+  **Decisions.** (1) An entry is **ingested** when its `corpus_file` is
+  present in any checkout of the corpus repository
+  (`standard_corpus::StandardCorpus`: the folder's
+  `literature/standard-corpus/`, the folder's open corpus when it is the same
+  repository, the shared application-data clone; a future second repository
+  is one more checkout). Absent, it is **known, not downloaded**, shown with
+  its source URL, never hidden. The literature list's standard group is built
+  from `LITERATURE` and matches on id, title, authors and topics. (2) **A
+  corpus document's notes live in an ordinary paper keyed by the corpus
+  id**, filed the first time it is opened in a Kovan folder
+  (`standard_corpus::ensure_paper`): `papers/<year>/<corpus-id>/kovan.toml`
+  with `[source] corpus = "<corpus-id>"`, `access = "open"` and the corpus
+  topics; `<corpus-id>.md` for annotations and digitisations; a
+  `bibliography.bib` entry generated from the compiled metadata (an existing
+  entry with that key is kept). The PDF is never copied; `[source].pdf` is
+  recorded only when the corpus file is inside the folder, since `corpus`
+  finds it anywhere. Rejected: a separate note format (every paper-aware view
+  works on a `PaperSession`), and filing papers for every entry when a folder
+  opens (files the user never asked for). A paper that already records the
+  corpus PDF is reused; a different paper already using the corpus id is
+  refused, not merged. (3) **Duplicate guard** (`ingest::find_existing`): by
+  path, then by SHA-256 against every downloaded corpus file and every
+  paper's PDF, hashing only files of the same byte length, cached in
+  `.kovan/pdf-sha256.json` (`fingerprint::HashCache`). A match is refused
+  (`IngestError::Duplicate`) and the GUI opens the existing entry, saying
+  which. The same **file name** with different content is only a warning in
+  the ingest form (`IngestPreview::name_clash`): it may be another revision.
+  (4) A corpus citation's "Open" on the Mindmap and the Wiki is enabled and
+  opens the document the same way. Tests use synthetic PDFs in temporary
+  folders: `standard_corpus` (5), `ingest` (4 new), `fingerprint` (1),
+  `app::literature_list::standard_corpus_documents_are_listed_as_ingested`.
+- **2026-09-30 — Several standard, open and proprietary repositories per
+  tier (GitHub issue #458).** Maintainer: "kovan should be able to take on
+  multiple standard, multiple open and multiple propreitrary github repos in
+  their corpus"; repositories are to be split by topic as they near GitHub's
+  recommended ~1 GB (#454). **Decisions.** (1) **Configuration:** a
+  `[repos]` table in `kovan_root.toml` with `[[repos.standard]]`,
+  `[[repos.open]]` and `[[repos.proprietary]]` entries, each `name`
+  (unique across all tiers), `path` (relative to the folder), optional
+  `remote`, `branch`, `default` and, standard only, `writable`; plus
+  `known_public = [...]` and `builtin_standard` (default true).
+  `src/corpus_tiers.rs` resolves it into one ordered list
+  (`KovanRoot::corpus_repos`). (2) **Backward compatible without a
+  migration:** the older settings are each tier's implicit first
+  repository — standard `kovan-standard` (the built-in list,
+  `BUILTIN_STANDARD_REPOS`, today `CORPUS_REPOSITORY_URL`) at `[paths]
+  standard_corpus`; open `open` at `open_sources` from `[corpora]
+  open_remote`; proprietary `proprietary` at `restricted_sources` from
+  `proprietary_remote`, else `[private_submodule] remote`. Entries are
+  appended; one with the same `path` (or, for standard, the same remote as a
+  built-in) replaces the implicit one in place, which is how an existing
+  repository is renamed or made the default. A file without `[repos]` writes
+  back unchanged (tested). Rejected: rewriting existing files into
+  `[[repos]]` form (touches a user's hand-edited file for no gain), and
+  making `[repos]` replace the older settings (a silent drop of a repository
+  the user already has). (3) **Validation at open and on write**
+  (`corpus_tiers::validate`, `RootError::InvalidRepos`): names safe and
+  unique, paths relative without `..`, no two repositories of one tier at
+  one path, and **no proprietary repository sharing or nested in any other
+  repository's path**, since a proprietary PDF inside an open checkout
+  would be published by its push. A standard and an open repository may
+  share a checkout (pulled and committed once). (4) **Every consumer
+  iterates:** `StandardCorpus::for_root` searches every standard, then every
+  open repository, so a corpus entry's `corpus_file` is found in whichever
+  standard repository holds it; the literature list shows every repository
+  of each tier (item labels prefixed with the repository name when a tier
+  has several); setup (`ensure_library_corpora`, new
+  `CorporaSetup::others`), pull (`pull_corpora`, one `CorpusPull` per
+  repository with its `name`), Save (`repository::commit_corpus_repos`:
+  every writable checked-out repository committed independently, before the
+  Kovan repository; every proprietary directory kept out of the Kovan tree
+  by `is_excluded`) and push (`save_push`, one `RepoPush` per repository).
+  New `[[repos]]` mounts are added to `.gitignore`
+  (`KovanRoot::ensure_repo_paths_ignored`). **Behaviour change, stated:** a
+  checked-out writable repository that is not a registered submodule (for
+  example a locally initialised open corpus with no remote) is now committed
+  by Save; before, only registered submodules and a ready private submodule
+  were. (5) **Duplicate guard across everything:** `ingest::find_existing`
+  now also hashes every PDF in every repository of every tier
+  (`ExistingEntry::RepoFile`), still only files of the incoming length; the
+  incoming file itself, already in a repository, is an ingest in place and
+  not a duplicate of itself. (6) **Ingest target:** `IngestChoice::target`
+  (`RepoRef { tier, name }`), `None` meaning the default repository
+  (`default = true`, else the first) of the tier the access implies;
+  `resolve_target` refuses a restricted document outside the proprietary
+  tier and any read-only standard repository (`IngestError::Target`). The
+  Ingest form has a Repository dropdown fed by `ingest::target_choices`
+  (restricted: proprietary repositories only; open: open, writable standard,
+  proprietary). The repository is recorded as `[source] repo = "<name>"`
+  (`SourceRef::repo`). (7) **Push safety, per repository, all earlier rules
+  kept** (never forced, detached HEAD only by fast-forward, every push URL
+  must be the repository's own configured remote). **A proprietary
+  repository is refused** when its remote is any standard or open
+  repository's remote, a built-in standard remote, a `known_public` entry
+  or an `outram-park-backend` URL (offline,
+  `corpus_tiers::public_remote_reason`), or when it is an HTTPS or GitHub
+  `git@` remote that `git ls-remote` reads with no credential of the user's
+  in reach (`anonymously_readable`: credential helpers cleared, an empty
+  `HOME`, no global or system Git config, run from an empty directory, so
+  neither a per-URL helper such as `gh auth setup-git`'s nor `~/.netrc` can
+  answer; network, skipped for local paths and with
+  `KOVAN_SKIP_VISIBILITY_PROBE`). An unreachable probe counts as
+  "not shown public", since the push would fail anyway. Standard
+  repositories are never committed or pushed unless `writable = true`.
+  (8) **Size:** the push report carries a warning for every checkout of
+  0.9 GiB or more (files, excluding `.git`), suggesting another repository
+  in the same tier (`corpus_tiers::size_warning`, `PushReport::warnings`).
+  **The maintainer's layout** (`~/Documents/local-kovan-repo`, read, not
+  edited) needs no change; splitting later looks like:
+
+  ```toml
+  [[repos.open]]
+  name = "reactor-literature"          # renames the implicit open repository
+  path = "literature/open-corpus"
+
+  [[repos.open]]
+  name = "open-htgr"
+  remote = "https://github.com/theodoreOnzGit/<new-open-repo>.git"
+  path = "literature/open-htgr"
+  default = true
+
+  [[repos.proprietary]]
+  name = "proprietary-books"
+  remote = "https://github.com/theodoreOnzGit/<new-private-repo>.git"
+  path = "literature/proprietary-books"
+  ```
+
+  Not done: a GUI editor for `[repos]` (hand-edit the file; the setup
+  dialog still configures only the first open and proprietary remote), and
+  a check that a non-GitHub SSH remote is private (only the offline list
+  applies there). Tests: `corpus_tiers::tests` (6, parsing, resolution,
+  validation, offline public-remote guard, size) and
+  `corpus_tiers::multi_repo_tests` (9, two repositories in every tier as
+  submodules of local bare remotes: discovery, ingest into a chosen
+  repository, cross-repository duplicates, per-repository save and push,
+  writable standard, the proprietary-remote guard, pull, size warning, the
+  maintainer's single-repository file and the refused nested layout).
+
+
+## The standard mind map is the concept tree, levels 1–3 (2026-10-06, GH #724, #727)
+
+**Maintainer direction:** "Levels 1–3 should be in the standard kovan mindmap
+(replacing the existing one) and standard corpus. Kovan should not need the
+user's literature repository to populate it. The standard corpus suffices."
+And: "the mindmapping should be same aesthetics, but now populated with this
+tree."
+
+**What changed.**
+
+- `kovan-literature/src/concept_tree.rs` (new, wasm-clean): parses
+  `concept_skeleton.toml` and `concept_proposals.toml` once (`OnceLock`) into
+  a typed `ConceptTree` of levels 1–3. Level 3 is the `approved` and
+  `deferred` concepts (deferred flagged); `proposed` concepts and the
+  `[[implementation]]` seeds are not part of it. API: `concept_tree()`,
+  `roots`, `children`, `node`, `parent`, `cross_links`, `cross_linked_from`,
+  `documents`, `document`, `documents_cited_by`, `nodes_citing`.
+- `corpus.rs`: ~~`TOPICS` (44 rows), `ROOT_TOPIC = "nuclear-engineering"`~~
+  replaced by `topics()`, built from the tree, under a **virtual root**
+  `ROOT_TOPIC = "iaea_milestones"`, titled "Nuclear knowledge (IAEA
+  Milestones)". Its children are the 19 issues in IAEA order. Topic paths
+  are the concept paths with **no root prefix**, so a classification names
+  them directly; `CorpusTopic::parent_path` (and
+  `runtime_graph::parent_of`, used by Up and the breadcrumb) supplies the
+  root as a level-1 issue's parent. The id cannot collide: every concept
+  path starts with a numbered `NN-` segment, and the underscore is outside
+  Kovan's slug alphabet, so no user topic can take it either.
+- Ontology links kept only where a node *is* the concept: neutron
+  transport (`Neutronics::Transport`), natural-convection cooling
+  (`ThermalHydraulics::NaturalCirculation`), liquid-fuelled cores (MSR)
+  (`Reactor::Msr`). Diffusion, HTGR and FHR have no node that is that
+  concept and lost their links.
+- Literature: the 14 existing entries re-filed under concept paths (the
+  list is in the commit and the hand-off report); 13 more added, one per
+  tree `[[document]]` not already present (11 standard-tier with
+  `corpus_file`, 2 private-tier IAEA documents citation-only). A new field,
+  `concept_document`, ties an entry to its tree document, and every node
+  citing that document files the entry (`filed_under`), so a node's sources
+  are among its citations. Only metadata is compiled in; PDFs stay in the
+  `reactor-literature` repository.
+- Cross-links are curated connections (`curated_connections`,
+  `ConnectionOrigin::KovanCorpus`), drawn as the existing light-blue link
+  cards with the subtitle "cross-link (built-in)" and no "Remove" entry;
+  shown with or without a folder.
+- Map style unchanged: same star, cards, colours, pan/zoom and menus.
+
+**User libraries.** The `Library` namespace is untouched. Old
+`topics/nuclear-engineering/...` folders were mirrors of corpus topics and
+were hidden behind the corpus cards; now that those paths are not corpus
+topics, they draw as the user's own (light-green) topics, with their papers
+and classifications as before (`runtime_graph` test
+`old_nuclear_engineering_folders_stay_user_topics`). Mirrors under the new
+concept paths behave as the old ones did.
+
+**Not done.** The "show empty nodes" toggle UI (the model exposes
+`corpus::has_literature`, counting a node's own sources, which makes nearly
+every node non-empty, and `has_classified_literature`, hand filings only;
+the maintainer has not chosen which "empty" means); source hyperlinks on
+cards (#729); public URLs for the four `nureg-…` files supplied without an
+ADAMS accession number; the Code Review tab and level 4.
+
+## The standard corpus lives in a folder the user chooses, refreshed at every start; a larger centre card; numbered issues (2026-10-06)
+
+**Maintainer direction (2026-10-06).** *"when kovan opens, i need to see the
+standard corpus automatically loaded"*; *"the standard corpus should always
+refresh on open"*; *"the user also needs to specify an empty folder (or
+existing one) for the public corpus, so that kovan knows where to dump the
+pdfs"*; *"the central node needs to be bigger in font size, and the 19
+milestones need to have their number in the mindmap"*.
+
+**What was wrong.** The standard corpus was cloned once into the
+application-data folder (`~/.local/share/kovan/standard-corpus`) and never
+updated, so every document added to the corpus later stayed "not
+downloaded". The maintainer's clone was several commits behind and lacked all
+of the 2026-10-06 NRC, DOE, EC and CFR documents.
+
+**Decisions.**
+- At start, Kovan asks where to keep the standard corpus (window
+  "Standard corpus folder", `app/corpus_folder.rs`) until a folder is chosen.
+  The folder may be new, empty, or an existing clone of the corpus
+  (`corpus_repos::check_standard_corpus_folder`); anything else is refused
+  with the reason. The choice is remembered in the config folder
+  (`standard_corpus.toml`). The old application-data folder is the suggested
+  value, so an earlier clone is adopted. "Not now" closes the window for the
+  session only. ~~The first-run setup dialog opens after it, never on
+  top.~~ **CHANGED the same day** (maintainer: *"during startup i should only
+  be prompted for the standard corpus folder and use kovan as is. The local
+  corpus will be loaded through the usual setup button"*): this window is the
+  only thing asked at start. The first-run setup dialog no longer opens by
+  itself; the user's own folder is opened from Home or "⚙ Setup".
+- The PDF reader's literature panel and the Ctrl+P finder work with no Kovan
+  folder open, listing the standard corpus alone, and list every PDF in
+  Kovan's own clone as well as the folder's (`LiteratureList::build(None,
+  …)`). The list is rebuilt when a background job (the refresh) finishes.
+- In the mind map's right-click citation list, a standard-corpus document
+  opens with one click (it has no other action); a library paper keeps its
+  sub-menu.
+- At every start, the chosen folder is cloned or fast-forwarded in the
+  background (`corpus_repos::update_standard_corpus`, sharing
+  `save_push::follow_branch` with the folder's Pull). A clone with local
+  changes is left alone and reported. A Kovan folder's own corpus
+  repositories are still pulled only by Pull.
+- The web version does not use any of this: a browser cannot write a folder
+  or run git. The agreed web design fetches each PDF from the GitHub raw URL
+  on demand (#729).
+- The mind map's centre card is 260 × 72 with a title 1.35 times larger,
+  wrapping onto two lines. Ring layout, bounds, the Up button and connectors
+  use its real size (test `the_centre_card_has_room_at_every_ring_size`).
+- Level-1 titles carry their IAEA issue number, "2. Nuclear safety", from the
+  `NN-` path segment (`corpus::numbered_title`). Deeper nodes are unnumbered.
+
+## The code map: drawn from the Cargo.toml tags, in the app and on the site (2026-10-06, GH #734)
+
+**Maintainer direction** (#729, #734): kovan draws a deterministic map of
+outram-park-backend from the `[package.metadata.kovan]` tags (#733). Root on
+top; each row-4 app in its own box; topic boxes as columns through rows 3
+and 2, highest fidelity left; a fidelity range spans its columns (raffles
+the whole Risk box); utilities base for rows 1-0; the kovan family in a
+full-height knowledge-management box to the right; maturity on every card,
+maturity 0 greyed; required dependencies faint, lit for a selection. Later
+the same day: publish it on the Pages site as well, as an MVP.
+
+**What was built.**
+- `src/code_map/` (plain serde + std, no GUI; **moved 2026-10-06** to
+  `kovan-common/src/code_map/`, #736, re-exported here): `CodeMap::from_cargo_metadata`
+  (crates sorted by name, required internal edges only, every malformed tag
+  reported), `placement_problems`, `layout::layout` and `layout::check`,
+  `svg::render`. The integration test `tests/code_map_tags.rs` now reads the
+  tags through this parser and checks the real workspace's layout too.
+- `kovan-cli code-map [--workspace] [--format json|svg] [-o]`.
+- The desktop **Code Map** view (`src/app/code_map_view.rs`): cargo metadata
+  on a background thread, folder and file pickers, the mind map's card style,
+  canvas and zoom controls, a collapsible details panel.
+- The Pages site: `docs/site/code-map/index.html` (inlines the SVG, pan, zoom
+  buttons, details from the JSON, `#<crate>` links) and a preview on the main
+  menu; `scripts/build-pages.sh` generates both files, never committed.
+
+**Choices made here that the maintainer has not ruled on.**
+- **At most three crates of one fidelity side by side** in a row
+  (`layout::MAX_TIES`); more wrap to a lane below. Without it the six
+  `outram-foam-*` crates at fidelity 3 widened the map further. The map is
+  still about seven times wider than tall (6779 x 958 world units with 47
+  crates), so Fit on a phone shows a strip; links and the selection zoom in.
+- **Columns** in a topic box are the levels a crate sits at plus both ends of
+  every range; a column only a range reaches (the Risk box's F4) is half a
+  card wide.
+- **Edges** use the mind map's edge-to-edge curve
+  (`mindmap_view::connector_sized`, made public). Edges between crates in the
+  same row run horizontally through the cards between them; no routing.
+- **Long names** are shrunk to 11 px, then cut with an ellipsis
+  (`code_map::fit_label`); the full name is in the tooltip and the panel.
+
+**rust-analyzer is not used** anywhere in this; phones only render the
+static SVG and JSON.
+
+## The call graph: crate → module → function, with source, as JSON (2026-10-06, GH #737)
+
+**Maintainer direction** (#735, #737): `kovan-cli` precomputes the call graph
+at three levels and each function's source, deterministically, for the
+code-review UI; web-kovan reads it statically, desktop kovan can compute it
+live. Function paths must be `code-walk`'s, because review stamps (#739) key
+on them.
+
+**What was built.**
+- `src/call_graph/` (plain serde + std, no GUI, no I/O; **moved 2026-10-06**
+  to `kovan-common/src/call_graph/`, #736, re-exported here): the model
+  (`CallGraphDoc`: crates → targets → modules → functions; `calls` with every
+  call-site line; `module_calls` and `crate_calls` with site and pair counts;
+  `outside`; `totals`), `CallGraphDoc::assemble` (sorts everything,
+  `BTreeMap`s only), `function_ids`, and `modules` (the Rust reference's
+  `mod` file lookup, `#[path]`, inline modules, `#[cfg(test)]` ranges).
+- `src/commands/call_graph.rs` and `kovan-cli call-graph [--workspace]
+  [--crates a,b] [-o]`.
+- **Reused, not rewritten:** `code_walk::source::FileIndex` finds every `fn`
+  (qualified name, signature, doc sentence, body range);
+  `code_walk::builder::Workspace::expand` resolves each body through
+  rust-analyzer via the keep-warm `lsp_daemon` and classifies what it cannot
+  follow as `UNRESOLVED(<kind>)`; `code_map::run_cargo_metadata` and
+  `CodeMap::from_cargo_metadata` supply the targets and the maturity tags.
+  The only change to code-walk: `Walk` now also keeps every call site
+  (`sites`), since its graph keeps the first per pair, and `index`/`node`
+  became `pub(crate)`.
+
+**Choices made here that the maintainer has not ruled on.**
+- **A module is a source file.** Inline `mod x { }` blocks are not separate
+  modules; their functions belong to the file. A `#[cfg(test)]` module file
+  is a module marked `test`; functions in test code are kept and marked
+  `test`, so the UI can hide them.
+- **Targets:** the lib and every example. ~~Bins, integration tests and
+  benches are not included.~~ **CORRECTED 2026-10-06** (#746, schema 2):
+  integration tests are now included, in `CrateGraph::tests`; bins and
+  benches are not.
+- **Ambiguous ids:** where `file.rs::Type::name` is not unique in its file
+  (two trait impls both defining `fmt`), each gets `#k` in source order and
+  `ambiguous: true`. 16 of 3632 functions in the run below. `code-walk
+  --from` cannot name these either; #739 should decide what a stamp on one
+  keys on.
+- **Maturity** is the crate tag's, and for a library module the deepest
+  `maturity_modules` entry covering it. Per-function maturity waits for
+  stamps (#739).
+- **`start_line`** includes the `///` doc comment and attributes above the
+  `fn`, so `source` is what a stamp's hash covers (#735: code and `///`
+  docs). No hash is computed here; that is #739's.
+
+**Measured (2026-10-06, 16-core desktop, rust-analyzer 1.98.0)** on the
+#742 case, `--crates outram-park-digital-twin-engine,boon-lay` (lib + 4
+examples, lib + 5 examples): 276 modules, 3632 functions (1253 test),
+7288 calls (10536 sites; 6 function values), 1728 unresolved (1464 closure,
+216 other, 38 trait, 10 no-definition), 290 outside functions, 27560 calls
+into std or dependencies dropped, 37641 definition queries. 127 s with a
+cold rust-analyzer in a fresh worktree (about 60 s indexing), 50 s warm;
+10.5 MB of JSON; two runs byte-identical (`cmp`). The `htgr_sim_v1` example
+analyses like a library: 26 function pairs (28 sites) from it into
+boon-lay, including
+`examples/htgr_sim_v1/physics/fission_product_release.rs::TrisoAtopsReleaseChannel::update`
+→ `crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step` (line
+876) and `::new_htr10` → `nuclide_model/nuclide_database.rs::supported_nuclides`
+(line 770). #742 calls the type `FissionProductRelease`; in the code it is
+`TrisoAtopsReleaseChannel`.
+
+**Known gaps (code-walk's, now visible in bulk).** `UNRESOLVED(other)` is
+213 of 216 times a derived method (`Default::default()`, `clone()` on a `#[derive]`
+type), which rust-analyzer resolves to the derive attribute. A function
+value written as a path (`.map(other_crate::leaf)`) is not detected at all,
+only a bare name is (found writing `tests/call_graph_rust_analyzer.rs`).
+Trait calls stop at `UNRESOLVED(trait)`. Not done: the whole-workspace run
+(not measured), wiring into `scripts/build-pages.sh`, and the `kovan_skill.md`
+entry.
+
+
+## Call graph schema 2: tests that reach a function, upstream counterparts, citing pages, file history (2026-10-06, GH #746)
+
+**Maintainer direction** (#746, 2026-10-06): of the ranked navigation aids,
+"tests that reach this function" and "upstream counterpart" (then items 7,
+docs that cite the code, and 8, recent history); the data goes in
+`kovan-cli call-graph`, deterministic JSON (#743), the UI in web-kovan.
+
+**What was built.** Schema 2 only **adds** fields (listed in
+`src/call_graph/mod.rs`'s module doc, now `kovan-common/src/call_graph/mod.rs`
+since the 2026-10-06 move, #736); a schema-1 reader that ignores
+unknown fields reads it unchanged. New pure modules beside the model:
+`reach.rs`, `upstream.rs`, `citations.rs`, `history.rs`; the command reads
+the files and runs one `git log`.
+
+**Choices made here that the maintainer has not ruled on.**
+- **Integration tests are now built** (`tests/*.rs`, one module tree per
+  target, through the same `modules` + `code-walk` machinery) and kept in a
+  new `CrateGraph::tests` list, not in `targets`, so the schema-1 module
+  tree is unchanged. ~~Bins, integration tests and benches are not
+  included.~~ **CORRECTED 2026-10-06**: integration tests are; bins and
+  benches are not.
+- **Entry points.** A test is a function with a test attribute
+  (`Function::test_fn`, new); `#[cfg(test)]` helpers are walked through
+  but are not entries. An example is the whole example target: every
+  non-test function is a start at hop 0, `via` names the nearest, because
+  an egui example is entered through trait callbacks the graph cannot
+  follow, and a walk from `main` alone would find almost nothing.
+- **Cap:** the nearest 10 tests and 10 examples per function, by
+  `(hops, id)`, with the totals. **A lower bound:** only resolved calls are
+  followed (no closures, trait or derived methods, macro bodies), and the
+  walk stops at the scope's edge.
+- **Upstream links are never guessed.** A URL needs a recorded repository
+  on github.com or gitlab.com **and** a recorded commit hash; a version
+  number is kept but not turned into a tag. Only the leading `//` comment
+  block is read; `//!`-only provenance is reported as `upstream_unparsed`.
+- **Citations** come from the code-walk blocks' `snippet-check … fn` lines
+  (every hop, by file and declaration line) and their `from=`/`to=`/`hand:`
+  ids; matched by line, else by unique file + name (+ owner). `site` is the
+  Pages path for pages in the books of `docs/site/deep-dives.txt` and
+  `tutorials.txt`, relative to the new top-level `site_base`; `anchor` is
+  mdBook's id of the heading above (its `-1` de-duplication suffix is not
+  reproduced). `kovan-concept:` tags are read too: **0 found** in source on
+  2026-10-06. The `relation` kind is a reserved slot for #743's
+  `[[relation]] to = "code:…"` links.
+- **History:** one `git log --no-merges --no-renames --name-only HEAD --
+  <crate dirs>`, the newest 10 commits per file (sha, author date, author
+  name, subject), no diffs; `commit` records HEAD. It does not follow
+  renames.
+- **Per crate and lazy:** all new data sits on the module or function it
+  belongs to, so the per-crate split of the JSON carries it with its crate.
+
+**Measured (2026-10-06, develop at 2f2cf7d599, 16-core desktop,
+rust-analyzer 1.98.0)** on `--crates outram-park-digital-twin-engine,boon-lay`:
+- 9 integration-test targets (boon-lay 6, digital-twin engine 3), 287
+  modules, 3764 functions, 1089 with a test attribute; of 2379 non-test
+  functions, 1584 are reached by at least one test and 456 by an example.
+  37 s warm; two runs byte-identical (`cmp`).
+- `crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step` is
+  reached by **56 tests**: at 1 hop its own
+  `atoms_are_conserved_and_small_steps_equal_one_big_step` and
+  `one_step_from_empty_reproduces_the_ported_closed_forms`; at 2 hops
+  eight `htgr_sim_v1` tests (e.g.
+  `physics/fission_product_release.rs::the_accident_pool_operations_conserve_atoms`,
+  `…::the_release_is_compared_uncalibrated_with_liu_cao_tables_2_and_3`,
+  `app/map_tab.rs::the_chi_over_q_table_is_the_maps_dilution_factor`,
+  `physics/mod.rs::where_the_plant_step_spends_its_time`); 46 more beyond
+  the cap. One example, `htgr_sim_v1`, at 1 hop via
+  `TrisoAtopsReleaseChannel::evaluate_with_sic`.
+- Upstream: 15 of 287 files parsed (all boon-lay `triso_atops_fork/`,
+  key-value style, all 15 with a link to TRISO-ATOPS at `de374c8`);
+  `live_pools.rs` is correctly unattributed (its header says "NOT a
+  port"). 10 files flagged `upstream_unparsed` (doc-comment provenance).
+- Citations: 148 code-walk blocks read, 349 citations on 198 functions, 0
+  in-scope references left unmatched.
+- Size: 14.0 MB (was 10.5 MB at schema 1); `reached_by` about 2.7 MB of it,
+  `history` 0.33 MB, test targets 0.26 MB, `cited_by` 0.13 MB, `upstream`
+  0.01 MB.
+
+**Workspace-wide header survey** (`tests/upstream_header_survey.rs`,
+`--ignored`): 879 of 4172 `.rs` files under `crates/*/{src,examples,tests}`
+parse, 255 with a link; 314 are flagged unparsed. Styles not parsed: (1)
+provenance only in a `//!` doc comment (most of the 313 doc-comment flags:
+`njoy-outram-park-fork` 60, `outram-park-fork-dwsim-libs` 118,
+`outram-mc-libs` 36, `buangkok` 18), which also flags in-workspace or
+negated wording for a person to read; (2) attribution blocks that are not
+the leading comment (per-routine headers further down, as in
+`outram-mc-libs`); (3) a recorded repository on a host other than
+github/gitlab (GSL's gnu.org page, OpenFOAM's develop.openfoam.com): fields
+kept, no link. No-link but parsed: NJOY2016 (commit, no repository URL, 128
+files), GeN-Foam's path-only `Upstream:` form (commit, no URL, 41), the
+OpenFOAM prose headers (340, neither).
+
+**Not done.** UI (web-kovan, #736/#738). Per-function history and the
+stamp diff (by design: the browser fetches the two raw files). #743's
+relations (slot only). A whole-workspace call-graph run. Adding repository
+URLs to the NJOY2016 and GeN-Foam headers would turn on their links; that
+is an edit to those crates' headers, not made here.
+
+
+## Human review stamps: `review/stamps.toml`, hashed with `syn`, voided from git (2026-10-06, GH #739)
+
+**SUPERSEDED 2026-10-10** (#825): everything in this section, the file,
+`src/review_stamps/`, `src/commands/stamps.rs` and `kovan-cli stamp`,
+`stamps-check` and `stamps-levels`, was removed. Stamps are signed
+`review.md` entries (#764, #762, #770); see "Dropping the legacy stamping
+schemas" below. Kept as the record of what was built.
+
+**Maintainer direction** (#735 comments, 2026-10-06): stamps live in
+`review/stamps.toml`, lightweight TOML; each links to the exact file, lines
+and commit; the hash covers the function's code **and its `///` doc
+comments**, with `//` comments and formatting normalised away; voiding is
+deterministic from git, `kovan-cli stamps-check [--diff <range>]` says
+exactly which stamps a change voids and never edits the file; stamping
+happens only in desktop kovan (#740). Later the same day (#743): a stamp may
+target a Markdown **artifact** instead of a function.
+
+**What was built** (`src/review_stamps/`, `src/commands/stamps.rs`).
+- `parse`: the function is found and tokenised by `syn` (`full`) with
+  `proc-macro2`'s `span-locations` for lines, not by a brace counter. All
+  three crates (`syn`, `proc-macro2`, `quote`) were already in `Cargo.lock`
+  through the proc-macro stack; they were added to the root
+  `[workspace.dependencies]`, so no new crate entered the tree. The path rule
+  is `code-walk`'s (`FileIndex::find`), and `split_spec` is reused from it.
+- **The normalisation** (pinned by `parse` tests): doc text = the outer
+  literal `#[doc]` attributes (`///`, `/** */`), split into lines, blank
+  lines as paragraph breaks, words single-spaced; code = every other token of
+  the item, identifiers and literals as written, punctuation one character
+  at a time with joint/alone spacing dropped. Hash =
+  `sha256("kovan-review-stamp-v1\ndoc\n" + doc + "\ncode\n" + code)`.
+  Reformatting, `//` edits, re-wrapping a doc paragraph and moving the
+  function keep it; any token, doc word or paragraph break changes it.
+- `check`: VALID / VOID with the reason, found by re-locating the function at
+  the stamped commit and comparing code and doc separately; ~~a void stamp
+  followed by a valid stamp of the same function is STALE (superseded), not a
+  failure~~ (superseded state removed, see below). `--diff A..B` takes the stamps whose function lines a
+  zero-context `git diff --no-renames` touches at A or at B, judged at B.
+- `stamp_function` (desktop kovan's entry point) stamps the code as
+  committed at `HEAD` and refuses a function whose file is dirty; `kovan-cli
+  stamp` refuses without `--i-am-the-reviewer`. **AI agents never stamp.**
+- `levels::derived_levels`: for a crate, each rung-3/4 claim in its tag is
+  SUPPORTED when every non-test library function in its scope has a valid
+  stamp at that rung or above. Report only (`kovan-cli stamps-levels`).
+
+**Choices made here that the maintainer has not ruled on.**
+- ~~Re-review appends a new stamp; the old void one stays as history and is
+  reported STALE. CI fails only on void stamps nothing supersedes.~~
+  **RULED 2026-10-06** (maintainer: "re-review replaces new stamp, old stamp
+  only lives in git history"): one stamp per target; a re-review replaces it
+  in place (`upsert`), a second stamp of one target is a load error, and
+  every void stamp fails `stamps-check`.
+- `artifact = "<file.md>#<id>"` is accepted in place of `function` (exactly
+  one required), and reported UNCHECKED: artifact hashing and the
+  `## Review: …` sign-off exclusion (#743) are not implemented.
+- A function nested inside another's body is part of that function and
+  cannot be stamped alone (code-walk's scanner does list nested `fn`s).
+- `derived_levels` excludes `#[cfg(test)]` modules and `#[test]` functions,
+  examples and binaries. Only functions are stampable: `const`s, statics and
+  types are not counted, so a module of constants alone cannot be supported
+  yet, and says so. A `#[path]` module is reported as a problem, never
+  silently counted as supported.
+- `review/stamps.toml` is **not** created in the repository yet; the first
+  stamp creates it from the documented header (`review_stamps::TEMPLATE`).
+
+
+## One Markdown schema for notes, lessons, walkthroughs and recipes: four kinds, `origin`, `[[relation]]` anchors (2026-10-06, GH #743)
+
+**Maintainer direction** (#743 comments, 2026-10-06): the literature-note
+schema is the schema for lessons, deep dives, review walkthroughs and recipes
+too. `#` + `[kovan]` is an artifact and the page title is the header
+artifact; `##` is prose; `###` is data (CSV series or embedded code); the
+last `##` is the generated review sign-off. "Add first, I will try it out and
+send feedback": the additions go in now, in place in `artifact.rs` and
+`relation.rs`, and move to `kovan-common` after web-kovan merges.
+
+**What was added.**
+- `ArtifactKind::{LessonSection, WalkStep, CodeWalk, RecipeStep}`
+  (`lesson_section`, `walk_step`, `code_walk`, `recipe_step`), plus
+  `ArtifactKind::ALL`/`as_str`. They behave as text artifacts like a note:
+  counted as notes on a literature card, note-coloured, mindmap nodes, and
+  deletable (only `paper` is protected).
+- `[kovan] origin = "ai" | "human"` (`Origin`, `ArtifactMeta::origin`), an
+  `Option` on disk: absent reads as human and is not written back, so an old
+  note re-serialises byte for byte. Desktop kovan shows an **AI** badge in
+  the kvim tab's Markdown preview and `[AI]` in the PDF reader's page list.
+- `ArtifactToml::relation` is now `Option<Relations>`, untagged: `One`
+  (`[relation]`, a mindmap relation artifact, unchanged) or `Many`
+  (`[[relation]]`, an artifact's anchors). `RelationRecord` gained optional
+  `page`, `quote`, `commit`; its `source` may be omitted (an anchor's source
+  is the artifact). Every new field is `skip_serializing_if` absent.
+- `code:<file>::<Type::name>[@L<line>]` targets (`relation::CodeTarget`).
+  Neither `NodeId::parse` nor `NodeId::from_graph_id` reads one, so the
+  mindmap, the index and the connection menu, which already skip an end they
+  cannot read, skip it. The kvim preview shows each anchor as a link card,
+  `code:` ones non-navigable (navigation comes with web-kovan).
+
+**Choices made here that the maintainer has not ruled on.**
+- Anchors are read only by the preview: `relation::connections` still reads
+  the mindmap's relation artifacts, so an anchor is not a graph edge yet.
+- An unknown `origin` value is a malformed block (reported, the rest of the
+  document loads), like an unknown `kind`.
+- `@L<line>` must be a positive integer; `code:` with an empty file or item,
+  or whitespace in either, is not a code target (it stays an unreadable end).
+
+**Verification.** `tests/schema_743.rs`: synthetic fixtures shaped like the
+real notes (paper header with BibTeX, annotation with page/region, CSV
+series, relation artifact) parse to the expected fields and re-render byte
+for byte; the new kinds, `origin` and anchors do too; every example on the
+site's schema page (`docs/site/kovan-schema/index.html`) parses, and the
+marked ones round-trip. `tests/local_library_compat.rs` (read-only, opt-in by
+`KOVAN_COMPAT_ROOT`) on the maintainer's folder: 39 files, 234 artifacts,
+0 problems, 234/234 identical re-renders and the same digest before and
+after.
+
+**Not done here:** generating the `## Review:` sign-off (#739), the move to
+`kovan-common`, migrating the lessons' `<!-- code-walk: -->` comments, and
+rendering the TOML blocks as badges on the site.
+
+## web-kovan: the Code Review UI in a wasm-clean crate; the pure modules move to kovan-common (2026-10-06, GH #736, #738, #745)
+
+**Maintainer direction** (#735, 2026-10-06): build the web view first, one
+egui Code Review UI with a `Mode` enum (`Web` read-only now, `Desktop`
+reserved for stamping, #740), on Pages at `code-review/`.
+
+**What moved.** `kovan` cannot build for wasm32 (gix, kopitiam, std::fs),
+so the pure modules the UI needs moved to `kovan-common` (the family's
+wasm-clean crate, decided on #743): `code_map` (model, layout, SVG),
+`call_graph` (model, module scanner, and schema 2's reach, upstream,
+citations, history), `mindmap_view`, `fuzzy`, and `Point`/`Bounds` (now
+`kovan_common::geometry`). `kovan` re-exports every one under its old path;
+`kovan::code_map` keeps `run_cargo_metadata`/`load_workspace`. Nothing else
+changed for callers. ~~kovan-common is GPL-3.0-only while kovan is
+AGPL-3.0-only;~~ (**2026-10-07:** both are AGPL-3.0-only now, see "All of kovan
+is AGPL-3.0-only" below;) the maintainer holds the copyright of the moved code
+(flagged in the #736 hand-off).
+
+**Why not reuse `dhoby_ghaut::web_demo`.** dhoby-ghaut depends on kovan and
+desktop kovan will embed kovan-web, so a dependency would be a cycle. The
+pan/zoom view, zoom buttons and canvas-size fix are ported into
+`kovan-web/src/ui/camera.rs` with the citation.
+
+**Data.** `call-graph --split-dir` writes one compact file per crate without
+source text (the page fetches the file at the built commit), `index.json`
+with the review-stamp states, `search.json`; `call-graph --merge` merges
+single-crate documents into the bytes of one run; `call-graph-keys` gives
+each crate's cache key for the incremental site build (#745).
+
+**Code map layout** (#734, same day): the eight topic boxes wrap onto two
+bands of four, each box labels its rows, rows align within a band, and row
+and fidelity labels carry their meaning on hover. Real workspace: 6779 x 958
+(7.1:1) before, 4870 x 1288 (3.8:1) after, not the hoped-for 2:1: the first
+band holds the two widest boxes (neutronics, thermal-hydraulics).
+
+## All of kovan is AGPL-3.0-only, ahead of the Zotero port (2026-10-07)
+
+**Decision (maintainer, 2026-10-07):** "I want all kovan to be AGPLv3".
+`kovan-common`, `kovan-literature`, `kovan-discovery`, `kovan-semantics`,
+`kovan-metrics` and `kovan-codegen` go from GPL-3.0-only to AGPL-3.0-only,
+joining `kovan` (2026-08-21) and `kovan-web` (2026-10-06).
+
+**Why.** The maintainer wants an exhaustive port of Zotero (AGPL-3.0) into
+kovan *and its libraries*. AGPL code cannot go into a GPL-3.0-only crate.
+Three placements were offered: relicense the libraries, one new AGPL crate
+holding the port, or a clean-room rewrite from Zotero's formats. The
+maintainer chose to relicense the whole family.
+
+**Checked before relicensing.** No third-party code in the six crates (the
+one "ported" module, `kovan_common::fuzzy`, comes from the njoy TUI in this
+workspace, same copyright holder). No crate outside the family depends on
+them (`cargo metadata`); `dhoby-ghaut` is already AGPL. Published versions
+(`kovan-common`, `kovan-discovery`, `kovan-codegen` 0.0.1) stay GPL-3.0-only;
+the AGPL applies from the next release. Each crate carries a `NOTICE`.
+
+**Consequence.** The licence boundary is now the family, not `kovan` alone:
+a crate outside it that takes any kovan crate as a library dependency
+inherits the AGPL question (see `NOTICE`, "Workspace boundary").
+
+## The package is published as `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` (2026-10-07)
+
+**Decision (maintainer, 2026-10-07):** the short name `kovan` on crates.io belongs to an unrelated crate (vertexclique/kovan, a memory-reclamation library). The app's package is therefore KOVAN's backronym spelled out, plus `-kovan`: `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan` (57 characters, free on crates.io when checked).
+
+**The backronym also changed** from "Knowledge Oriented V&V Analysis for Nuclear science and engineering" to **"Knowledge Oriented V&V Analysis for Nuclear Sciences"**. Every README and the startup screen were updated, and each kovan README now says where the app is published.
+
+**What did not change:**
+- the library name: `[lib] name = "kovan"`, so code writes `kovan::…` (dhoby-ghaut renames the dependency back with `package = …`);
+- the binaries: `kovan`, `kovan-cli`, `kovan-tui`;
+- the folder: `crates/kovan`.
+
+**What did change:** `cargo -p` and `cargo install` take the long name. Every script, CI workflow, hook and doc that ran `cargo … -p kovan` was updated (17 files). Older entries in this file keep their `-p kovan` commands as the record of what was run.
+
+## Dropping the legacy stamping schemas (2026-10-10, GH #825)
+
+**Decision (maintainer, 2026-10-10):** "Drop both, cos there's no review to
+be backwards compatible with." No `review/stamps.toml` and no signed
+`review.md` existed anywhere (checked on the issue: this repository, all
+branches, the maintainer's kovan roots). This is an explicit exception to
+the additive-only schema rule; from the first real stamp on, review schema
+changes are additive only again.
+
+**Removed.**
+- The `review/stamps.toml` path: `src/review_stamps/` (`mod`, `parse`,
+  `levels`, `git`, tests), `src/commands/stamps.rs`, and `kovan-cli stamp`,
+  `stamps-check`, `stamps-levels`; the now-unused `syn`, `proc-macro2` and
+  `quote` dependencies of this crate (kovan-common keeps its own); and
+  `kovan_common::review::rust_items::stamp_hash`. The `git`, `rev_parse`,
+  `show` and `is_dirty` helpers stamping uses moved to `src/stamping/git.rs`;
+  the diff-hunk parser only `stamps-check --diff` used went with it.
+- In `kovan_common::review`: the v1 and v2 signed-bytes headers (every
+  review and architecture node is signed under `kovan-review-signature-v3`;
+  `signed_at` and `separation_attestation` stay optional fields, each line
+  written when present); the first-version `[review] function` / `code:`
+  target join key, its in-memory migration and `ReviewDocument::migrated`
+  (such an entry is now unreadable); `LEGACY_PLACEHOLDER_KEYS`,
+  `LEGACY_RUNG_KEYS`, `AnswerError::LegacyPlaceholderKey` and
+  `AnswerError::RungIsDerived` (`q1` … `q10` and `rung` are now plain
+  unknown questions); the v1 signed fixtures and the v1 `review.md`
+  compatibility fixture (v1's `kovan_root.toml` and `kovan.toml` stay).
+
+**Pinned.** `signing/fixtures/review_v3.md` (a review carrying every
+signed field and an architecture node, signed with the seed-`[7u8; 32]`
+key) and its `.signed.txt` byte images: any change to the signed bytes fails
+`signing/signed_at_tests.rs`.
+
+**Kept.** The `kovan_root.toml` registry's v1 `legacy` key events and their
+statement bytes (the registry is not part of #825), and the `call-graph
+--split-dir` `StampState` without `state`, which still reads.

@@ -1,0 +1,998 @@
+{
+	"artwork": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"audioRecording": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"label": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"bill": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bill",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi"
+			}
+		]
+	},
+	"blogPost": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "blogPost",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"websiteType": "blogPost"
+			}
+		]
+	},
+	"book": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"bookSection": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"case": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "case",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"caseName": "Title",
+				"rights": "Rights",
+				"dateDecided": "1999-12-31",
+				"DOI": "10.1234/example.doi"
+			}
+		]
+	},
+	"computerProgram": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "computerProgram",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"company": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"conferencePaper": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"dataset": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "dataset",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"repository": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"dictionaryEntry": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "dictionaryEntry",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"document": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "document",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"email": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "email",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"subject": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi"
+			}
+		]
+	},
+	"encyclopediaArticle": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "encyclopediaArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"film": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "film",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"distributor": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"forumPost": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "forumPost",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"postType": "forumPost"
+			}
+		]
+	},
+	"hearing": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "hearing",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi"
+			}
+		]
+	},
+	"instantMessage": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "instantMessage",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi"
+			}
+		]
+	},
+	"interview": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "interview",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"journalArticle": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"letter": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "letter",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location",
+				"letterType": "letter"
+			}
+		]
+	},
+	"magazineArticle": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "magazineArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"manuscript": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"institution": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location",
+				"manuscriptType": "manuscript"
+			}
+		]
+	},
+	"map": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "map",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location",
+				"mapType": "map"
+			}
+		]
+	},
+	"newspaperArticle": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "newspaperArticle",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"patent": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"issueDate": "1999-12-31",
+				"DOI": "10.1234/example.doi"
+			}
+		]
+	},
+	"podcast": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "podcast",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"audioFileType": "podcast"
+			}
+		]
+	},
+	"preprint": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "preprint",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"repository": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"presentation": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "presentation",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"presentationType": "presentation"
+			}
+		]
+	},
+	"radioBroadcast": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "radioBroadcast",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"network": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"report": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"institution": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location",
+				"reportType": "report"
+			}
+		]
+	},
+	"standard": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "standard",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"statute": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "statute",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"nameOfAct": "Title",
+				"rights": "Rights",
+				"dateEnacted": "1999-12-31",
+				"DOI": "10.1234/example.doi"
+			}
+		]
+	},
+	"thesis": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"university": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"ISSN": "1234-5679",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location",
+				"thesisType": "thesis"
+			}
+		]
+	},
+	"tvBroadcast": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "tvBroadcast",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"network": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"videoRecording": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "videoRecording",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"studio": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	},
+	"webpage": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [
+					{
+						"firstName": "authorFirst",
+						"lastName": "authorLast",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Institutional",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"publisher": "Publisher",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"websiteType": "webpage"
+			}
+		]
+	},
+	"all": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"date": "1999-12-31",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [],
+				"tags": [],
+				"title": "Title",
+				"rights": "Rights",
+				"label": "Publisher",
+				"date": "1999-12-31",
+				"ISBN": "978-1-234-56789-7",
+				"DOI": "10.1234/example.doi",
+				"archiveLocation": "Archive location"
+			}
+		]
+	}
+}

@@ -40,9 +40,10 @@
 //!
 //! **How this crate implements it.** The primitives live in
 //! [`outram_mc_libs::pebble_beds::delta_tracking`]: [`Majorant`] (the bound; here
-//! [`Majorant::bounding`], which sub-samples each energy bin so a resonance peak
-//! *between* grid points cannot slip under `Σ_maj` — a requirement for
-//! unbiasedness with WMP resonance data), `sample_delta_distance`, and
+//! [`Majorant::bounding`], which tabulates on every nuclide breakpoint and, for
+//! analytic WMP resonances, a sub-sampled log envelope, so a resonance peak
+//! *between* grid points does not slip under `Σ_maj` — a requirement for
+//! unbiasedness; the WMP part is sampled and audited, not proved, GitHub #585), `sample_delta_distance`, and
 //! `classify_collision` (the real/virtual rejection). They compose into two
 //! drivers: [`track_to_collision`] (one flight) and, for the eigenvalue,
 //! [`run_keff_delta`] — a fission-source power iteration over a reflective cube of
@@ -118,6 +119,7 @@
 //! benchmark. Full write-up:
 //! `docs/ai-fleet-review/op-6tz-triso-finish/REVIEW_MANIFEST.md`.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 use outram_mc_libs::geometry::geometry::{Crossing, Geometry};
 use outram_mc_libs::geometry::lattice::{Lattice, RectLattice};
@@ -131,6 +133,7 @@ use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
 use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
+use outram_mc_libs::geometry::crossing::GeometryExt;
 
 // ── Regular-lattice geometry (for the nested-navigation test) ──────────────────
 const R_KERNEL: f64 = 0.18;
@@ -452,27 +455,69 @@ fn triso_nested_lattice_geometry_navigation() {
 /// within 5σ combined (the same unbiasedness bar as the homogeneous cross-check),
 /// which they cannot if the surface tracker is systematically leaking histories.
 ///
-/// # Results (measured 2026-08-06)
-/// After the `distance_to_boundary` coincident-surface tie-break fix, surface
-/// tracking reads **k = 1.95984 ± 0.00484** vs delta **1.92200 ± 0.00522** — a
-/// 2.0% relative difference (Δk = +3784 pcm, combined σ = 712 pcm), where the
-/// surface value was previously ~0.90 (≈50%
-/// low). The catastrophic under-count is resolved. A small residual (~2%, and of
-/// the *opposite* sign to a leak — surface reads slightly high, not low) remains
-/// between the two independent drivers; it is far below a statistical tie because
-/// they use different geometry representations (exact CSG kernel spheres vs an
-/// analytic `material_at`) and tracking (surface vs Woodcock on a majorant), and
-/// is plausibly compounded by the still-open reflective-corner navigation effect
-/// (op-6tz.23). The pass criterion below therefore checks the *under-count is
-/// gone* (relative agreement within 5%), not a full statistical tie.
+/// # Results (2026-09-14, after the nested-frame crossing fix) — RESOLVED
+///
+/// Surface **k = 1.93181 ± 0.00502** vs delta **k = 1.93067 ± 0.00538**:
+/// Δk = **+114 pcm, +0.15 σ**. A statistical tie, which is what two
+/// independently implemented exact trackers on one geometry should give.
+///
+/// ## The bug this test was chasing, and how it was found
+///
+/// Before the fix: surface **1.87620** vs delta **1.93067**, −5447 pcm at
+/// **−7.4 σ**. Four discriminators narrowed it, each ruling something out:
+///
+/// | test | result | rules out |
+/// |---|---|---|
+/// | `..._csg_and_closure_agree_pointwise` | 0 / 400 000 mismatches | the two arms modelling different geometry |
+/// | `..._reflective_box_leaks_nothing` | leakage exactly 0 | histories escaping |
+/// | `..._uniform_material_surface_vs_delta` | +7 pcm, 0.0 σ | navigation, and **nuclear data** |
+/// | `..._incremental_tracking_matches_fresh_lookup` | **17.2 % of segments mis-assigned** | — this is it |
+///
+/// Combined with `fhr_ring_rpt_endf`'s concentric-sphere case (CSG − delta =
+/// +241 ± 308 pcm, 0.78 σ — contrast but no lattice, agrees), the signature was
+/// that the disagreement needed **a nested universe AND a material contrast**.
+///
+/// **The defect:** [`Geometry::cross_surface`] evaluates `surf.normal(r)` at the
+/// position handed to it, and all three surface-tracking drivers handed it the
+/// **global** position. A surface declared inside a lattice tile is defined
+/// about *that tile's* origin, so the normal was computed about the wrong
+/// centre. `nudge_across` then pushed the particle 1e-9 along that wrong normal,
+/// landing it back on the side it came from; the next `locate` returned the cell
+/// it was leaving, and the whole following flight segment was attributed to the
+/// wrong material.
+///
+/// The separation by frame was total and is what identified it: **37.4 % of
+/// kernel-sphere crossings** (translated tile universe) mis-assigned the next
+/// segment, against **0.0 % of box-plane crossings** (root universe, where local
+/// and global coincide). Planes were never affected at all, because a plane's
+/// normal is constant — which is why root-universe geometries never showed this.
+///
+/// Fixed by [`Geometry::cross_surface_in_frame`], which converts to the
+/// crossing's coordinate level and back. Nested frames here are pure
+/// translations, so the conversion is exact and a direction needs none.
+/// After it: 0 / 1 600 000 segments mis-assigned.
+///
+/// **It was NOT the nuclear data**, and that was established rather than
+/// assumed: with one material written into both slots the trackers agreed to
+/// 0.0 σ while the lattice geometry was fully retained. Both arms read the same
+/// evaluations through the same functions throughout.
+///
+/// Delta tracking is **bit-unchanged** by the fix (1.93067 before and after) —
+/// it never calls `cross_surface` — so it served as the control, and the entire
+/// +5561 pcm move is in the surface tracker.
+///
+/// **Supersedes (measured 2026-08-06):** surface **k = 1.95984 ± 0.00484** vs
+/// delta **1.92200 ± 0.00522** (+3784 pcm). Those predate several physics
+/// changes (the MT=91 continuum Q-value cap gh:#192, the evaluated MF=6 law, the
+/// continuous thermal kernel) and were never re-measured when those landed; by
+/// 2026-09-14 the same code read −5447 pcm, i.e. the disagreement had also
+/// flipped sign.
 ///
 /// **Supersedes (pre-`op-jis`, measured 2026-07-24):** surface **k = 1.96481 ±
-/// 0.00473** vs delta **1.92644 ± 0.00511** (2.0% relative). Those were taken
-/// with the old `prn` output function (raw top-52 state bits); bead `op-jis`
-/// added the PCG-RXS-M-XS output permutation, which left the LCG state
-/// recurrence unchanged but moved every sampled uniform, and hence both
-/// eigenvalues. The ~50%-low pre-fix surface value (≈0.90) is a historical
-/// pre-tie-break-fix fact and is not a superseded measurement.
+/// 0.00473** vs delta **1.92644 ± 0.00511**. Taken with the old `prn` output
+/// function; `op-jis` added the PCG-RXS-M-XS permutation, which moved every
+/// sampled uniform. The ~50 %-low pre-tie-break-fix surface value (≈0.90) is a
+/// historical fact, not a superseded measurement.
 #[test]
 fn triso_nested_lattice_surface_vs_delta_keff() {
     let nuclides = triso_nuclides();
@@ -519,22 +564,27 @@ fn triso_nested_lattice_surface_vs_delta_keff() {
         "both eigenvalues finite"
     );
 
-    // The op-6tz.34 symptom was a ~50%-low surface k (≈0.90 vs ≈1.9). The pass
-    // criterion is that the under-count is gone: surface agrees with delta to
-    // within 5% relative (measured ~2% on 2026-07-24). Both must also be in the
-    // physical infinite-medium band for this fissile HEU dispersion.
-    let rel = (ks.k_mean - kd.k_mean).abs() / kd.k_mean;
     assert!(
         ks.k_mean > 1.5 && kd.k_mean > 1.5,
         "both eigenvalues should be well above 1 for this HEU dispersion (surface {:.5}, delta {:.5})",
         ks.k_mean, kd.k_mean
     );
+
+    // A STATISTICAL TIE, not "within 5 % relative". The old criterion was sized
+    // to catch a ~50 %-low under-count and duly passed a −7.4 sigma, 2.8 %
+    // disagreement for weeks. Two independently implemented exact trackers on
+    // one geometry must agree to statistics; anything else is a defect in one
+    // of them, and this is the test that has to say so.
+    let dk = (ks.k_mean - kd.k_mean) * 1.0e5;
+    let sigma = (ks.k_std * ks.k_std + kd.k_std * kd.k_std).sqrt() * 1.0e5;
     assert!(
-        rel < 0.05,
-        "surface vs delta over the nested reflective lattice differ by {:.1}% \
-         (surface {:.5}, delta {:.5}) — the surface tracker is leaking histories at the \
-         lattice/reflective boundary (op-6tz.34 regressed)",
-        rel * 100.0,
+        dk.abs() / sigma.max(1.0) < 4.0,
+        "surface vs delta over the nested reflective lattice differ by {dk:+.0} pcm \
+         ({:.1} sigma; surface {:.5}, delta {:.5}). These are two exact methods on one \
+         geometry and must agree to statistics. Check cross_surface_in_frame is still used \
+         by transport_csg -- passing a GLOBAL position to cross_surface for a surface inside \
+         a lattice tile computes its normal about the wrong centre.",
+        dk / sigma.max(1.0),
         ks.k_mean,
         kd.k_mean
     );
@@ -554,8 +604,8 @@ fn triso_random_packing_is_valid() {
         PackedSpheres::pack(PACK_R, PACK_HALF, PACK_PF, PACK_SEED).expect("RSA packs at pf 0.30");
 
     // Exactly the floor-formula count.
-    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * PACK_R.powi(3);
-    let v_box = (2.0 * PACK_HALF).powi(3);
+    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * PACK_R.r_powi(3);
+    let v_box = (2.0 * PACK_HALF).r_powi(3);
     let expected_n = (PACK_PF * v_box / v_sphere).floor() as usize;
     assert_eq!(packed.len(), expected_n, "placed kernel count");
     assert!(
@@ -816,7 +866,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (a) True 3-surface corner (+x,+y,+z): a ray heading into it retroreflects —
     // all three components negated.
     let u = Direction::from_unnormalised(1.0, 1.0, 1.0);
-    let c3 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.5), u);
+    let c3 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.5), u, &mut 0x5EED_0259_u64);
     let (u3, alive) = (c3.u, c3.alive);
     assert!(alive, "reflective corner keeps the particle alive");
     assert!(
@@ -841,7 +891,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (b) Min-side corner (-x,-y): with the plane normals all pointing +axis, the
     // sign-agnostic crossing test must still negate both crossed components.
     let um = Direction::from_unnormalised(-1.0, -1.0, 0.3);
-    let u2 = geom.cross_surface(0, Position::new(-0.5, -0.5, 0.0), um).u;
+    let u2 = geom.cross_surface(0, Position::new(-0.5, -0.5, 0.0), um, &mut 0x5EED_0259_u64).u;
     assert!((u2.u + um.u).abs() < 1e-12, "min-corner: u.x not negated");
     assert!((u2.v + um.v).abs() < 1e-12, "min-corner: u.y not negated");
     assert!(
@@ -852,7 +902,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (c) Edge (2 surfaces, +x & +y): only the two crossed components flip; the
     // free (z) component is preserved.
     let ue = Direction::from_unnormalised(1.0, 1.0, 0.5);
-    let ue2 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.1), ue).u;
+    let ue2 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.1), ue, &mut 0x5EED_0259_u64).u;
     assert!((ue2.u + ue.u).abs() < 1e-12, "edge: u.x not negated");
     assert!((ue2.v + ue.v).abs() < 1e-12, "edge: u.y not negated");
     assert!(
@@ -863,7 +913,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (d) Lone wall (no other coincident surface): unchanged single reflection —
     // only the normal component flips.
     let ul = Direction::from_unnormalised(1.0, 0.2, 0.0);
-    let ul2 = geom.cross_surface(1, Position::new(0.5, 0.0, 0.0), ul).u;
+    let ul2 = geom.cross_surface(1, Position::new(0.5, 0.0, 0.0), ul, &mut 0x5EED_0259_u64).u;
     assert!((ul2.u + ul.u).abs() < 1e-12, "lone wall: u.x not negated");
     assert!(
         (ul2.v - ul.v).abs() < 1e-12,
@@ -945,7 +995,7 @@ fn corner_grazing_history_terminates_without_pingpong() {
                 r = stream(r, u, d.distance);
                 match d.crossing {
                     Crossing::Surface(i) => {
-                        let crossed = geom.cross_surface(i, r, u);
+                        let crossed = geom.cross_surface(i, r, u, &mut 0x5EED_0259_u64);
                         assert!(crossed.alive, "reflective wall must not kill the particle");
                         r = crossed.r;
                         u = crossed.u;

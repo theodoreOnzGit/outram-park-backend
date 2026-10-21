@@ -189,6 +189,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use outram_mc_libs::rng::lcg::{init_seed, INC, MULT};
     use outram_mc_libs::stochastic::cls::ClsMedium;
     use outram_mc_libs::stochastic::medium::MaterialId;
@@ -255,7 +256,7 @@ mod desktop {
             // chord and draws -mean·ln(1-ξ).
             let d_bnd = cls.sample_distance_to_boundary(mat == INCLUSION, seed);
             let xi2 = prn(seed);
-            let d_col = -xi2.ln() / p.sigma_t[mat]; // xi2 == 0 -> +inf (no collision)
+            let d_col = -xi2.r_ln() / p.sigma_t[mat]; // xi2 == 0 -> +inf (no collision)
             let d_edge = if dir > 0.0 { p.l - x } else { x };
 
             if d_edge <= d_bnd && d_edge <= d_col {
@@ -324,11 +325,11 @@ mod desktop {
             hi = nh;
             lo = nl;
             // f32 port of ClsMedium::sample_distance_to_boundary (-mean·ln(1-ξ)).
-            let d_bnd = -p.lambda[mat] * (1.0 - xi1).ln();
+            let d_bnd = -p.lambda[mat] * (1.0 - xi1).r_ln();
             let (nh, nl, xi2) = lcg_advance_f32(hi, lo);
             hi = nh;
             lo = nl;
-            let d_col = -xi2.ln() / p.sigma_t[mat];
+            let d_col = -xi2.r_ln() / p.sigma_t[mat];
             let d_edge = if dir > 0.0 { p.l - x } else { x };
 
             if d_edge <= d_bnd && d_edge <= d_col {
@@ -411,7 +412,7 @@ mod desktop {
                 ),
             };
             let xi2 = prn(seed);
-            let d_col = -xi2.ln() / p.sigma_t[mat];
+            let d_col = -xi2.r_ln() / p.sigma_t[mat];
             let d_edge = if dir > 0.0 { p.l - x } else { x };
 
             if d_edge <= d_bnd && d_edge <= d_col {

@@ -1,0 +1,22 @@
+{
+	"all": {
+		"status": 200,
+		"output": "RT Journal Article\r\nT1 Dates & markup: a <i>kovan</i> probe\r\nA1 Smith, John\r\nA1 de la Fontaine, Jean\r\nA1 Kovan Collaboration\r\nT2 Journal of Testing & Probing\r\nA2 Editor, Ed\r\nAB An abstract with \"quotes\", {braces} and 100% $pecial_chars#.\r\nFD 2021 May\r\nYR 2021\r\nDO 10.1234/ABC.def\r\nVO 12\r\nIS 3\r\nSP 101\r\nOP 110\r\nJO J. Test.\r\nLA en\r\nSN 1234-5678\r\nUL http://example.com/a?b=c&d=e\r\nRD 2020/03/04/05:06:07\r\nNO <p>A <b>child</b> note &amp; an entity.</p>\r\nK1 alpha\r\nK1 beta gamma\r\n\r\n\r\nRT Book, Whole\r\nT1 A Second Record\r\nA3 Editor, Ed\r\nPP Singapore\r\nFD 1999-12-31\r\nYR 1999\r\nSP 300\r\nPB Kovan Press\r\nSN 978-3-16-148410-0 3161484100\r\n\r\n\r\nRT Dissertation\r\nT1 Ranges and seasons\r\nA1 Student, Ann\r\nPP Kovan\r\nFD 2010-2012\r\nYR 2010\r\nCL PhD Thesis\r\nPB Kovan University\r\n\r\n\r\nRT Conference Proceedings\r\nT1 Summer proceedings\r\nT2 Kovan Conference 2015\r\nU1 Singapore\r\nU3 Proceedings of the Kovan Conference\r\nFD Summer 2015\r\nYR 2015\r\n\r\n\r\n"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "RT Journal Article\r\nT1 Dates & markup: a <i>kovan</i> probe\r\nA1 Smith, John\r\nA1 de la Fontaine, Jean\r\nA1 Kovan Collaboration\r\nT2 Journal of Testing & Probing\r\nA2 Editor, Ed\r\nAB An abstract with \"quotes\", {braces} and 100% $pecial_chars#.\r\nFD 2021 May\r\nYR 2021\r\nDO 10.1234/ABC.def\r\nVO 12\r\nIS 3\r\nSP 101\r\nOP 110\r\nJO J. Test.\r\nLA en\r\nSN 1234-5678\r\nUL http://example.com/a?b=c&d=e\r\nRD 2020/03/04/05:06:07\r\nNO <p>A <b>child</b> note &amp; an entity.</p>\r\nK1 alpha\r\nK1 beta gamma\r\n\r\n\r\n"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "RT Book, Whole\r\nT1 A Second Record\r\nA3 Editor, Ed\r\nPP Singapore\r\nFD 1999-12-31\r\nYR 1999\r\nSP 300\r\nPB Kovan Press\r\nSN 978-3-16-148410-0 3161484100\r\n\r\n\r\n"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "RT Dissertation\r\nT1 Ranges and seasons\r\nA1 Student, Ann\r\nPP Kovan\r\nFD 2010-2012\r\nYR 2010\r\nCL PhD Thesis\r\nPB Kovan University\r\n\r\n\r\n"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "RT Conference Proceedings\r\nT1 Summer proceedings\r\nT2 Kovan Conference 2015\r\nU1 Singapore\r\nU3 Proceedings of the Kovan Conference\r\nFD Summer 2015\r\nYR 2015\r\n\r\n\r\n"
+	}
+}

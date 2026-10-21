@@ -1,0 +1,165 @@
+#!/bin/sh
+# Five-route ICSBEP k_eff campaign: 4 cases x 5 routes x $SEEDS seeds, run
+# SEQUENTIALLY at $THREADS threads (never two jobs at once), resumable.
+#
+#   crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff/run_all.sh
+#
+# | route | code      | nuclear data                                   |
+# |-------|-----------|------------------------------------------------|
+# | 1     | OpenMC    | NJOY2016 ACE -> HDF5 (openmc_inputs/ace_to_hdf5_route.py) |
+# | 2     | OpenMC    | Rust-NJOY ACE -> HDF5 (same converter)          |
+# | 3     | outram-mc | NJOY2016 ACE                                   |
+# | 4     | outram-mc | Rust NJOY, ENDF read directly (the default path)|
+# | 5     | outram-mc | Rust-NJOY ACE                                  |
+#
+# Cases: godiva (HEU-MET-FAST-001), jemima (IEU-MET-FAST-002), hst009
+# (HEU-SOL-THERM-009 case 1), lct008 (LEU-COMP-THERM-008 case 1, the real
+# lattice). Run size per case, unless PARTICLES/INACTIVE/ACTIVE are set:
+# lct008 10000 x [40 + 120] (maintainer direction, 2026-10-15; it was
+# 10000 x [250 + 400], which the lct008-full rows of 2026-10-14 carry), every
+# other case 5000 x [40 + 120]. 40 inactive generations do not fully converge
+# this core's fission source: on the 11-nuclide tier at 5000 histories it read
+# about +80 pcm high against the 250-generation runs (scripts/acceptance-keff.sh
+# record, gh:#859). ~~lct008 ran lct008_keff.rs's 11-nuclide
+# tier~~ CHANGED 2026-10-14 (maintainer direction): it runs the FULL nuclide
+# list (35) on every route, and its rows are labelled case lct008-full, so
+# they never pool with the 11-nuclide rows recorded before as lct008. Both
+# libraries carry all 35 (nuclides.tsv). The homogenised
+# sphere `lct008s` was deleted 2026-09-29 at the maintainer's direction (wrong
+# model).
+#
+# PARTICLES/INACTIVE/ACTIVE, when set, override the per-case size for every
+# case in the invocation, e.g. the lattice at its old campaign size:
+#   THREADS=4 CASES=lct008 ROUTES="1 2 4" PARTICLES=10000 INACTIVE=250 ACTIVE=400 ./run_all.sh
+#
+# A seed counts as done only if its row has this run's size. Rows of two sizes
+# for one case x route are refused by scripts/make_figure.py rather than
+# pooled, so a size change means a separate CSV (CSV=...) or a cleared case.
+#
+# A case x route that FAILS (e.g. routes 3/5 on hst009: outram-mc's ACE reader
+# refuses F-19's MT=16 law-61 chain, see the V&V record) is logged and skipped;
+# the campaign continues and the figure marks it "not run".
+#
+# RESUMABLE: every finished seed is one row of $CSV. On restart, each
+# case x route asks only for the seeds not already in it. An outram-mc
+# invocation loads its nuclides once and runs all its missing seeds, appending
+# a row after each, so an interruption costs at most the seed in flight.
+#
+# Environment (all optional):
+#   WORK       scratch for libraries and per-run logs   [<repo>/target/five_route_keff]
+#   CSV        per-seed results                          [<this dir>/data/per_seed_keff.csv]
+#   SEEDS      seeds per case x route (1..SEEDS)         [32]
+#   THREADS    threads for every job                     [8]
+#   PARTICLES INACTIVE ACTIVE  override every case    [per case, see above]
+#   ROUTES     subset, e.g. "1 2 3"                      [1 2 3 4 5]
+#   CASES      subset                                    [godiva jemima hst009 lct008]
+set -eu
+HERE=$(cd "$(dirname "$0")" && pwd)
+REPO=$(git -C "$HERE" rev-parse --show-toplevel)
+WORK=${WORK:-$REPO/target/five_route_keff}
+CSV=${CSV:-$HERE/data/per_seed_keff.csv}
+SEEDS=${SEEDS:-32}
+THREADS=${THREADS:-8}
+# Per-case run size: the override if set, else the case's default.
+size_of() {
+  case "$1" in
+    lct008) dp=10000; di=40; da=120 ;;
+    *) dp=5000; di=40; da=120 ;;
+  esac
+  echo "${PARTICLES:-$dp} ${INACTIVE:-$di} ${ACTIVE:-$da}"
+}
+ROUTES=${ROUTES:-1 2 3 4 5}
+CASES=${CASES:-godiva jemima hst009 lct008}
+PY=${PY:-$HOME/Documents/research/.venv-openmc/bin/python}
+OPENMC=${OPENMC:-$HOME/Documents/research/openmcbin/bin/openmc}
+export RAYON_NUM_THREADS=$THREADS OMP_NUM_THREADS=$THREADS
+COMMIT=$(git -C "$REPO" rev-parse --short=10 HEAD)
+mkdir -p "$WORK/logs" "$(dirname "$CSV")"
+log() { echo "[$(date '+%F %T')] $*" | tee -a "$WORK/logs/run_all.log"; }
+
+# ── 0. binaries (release, always) ──────────────────────────────────────────
+log "building release binaries at $COMMIT"
+(cd "$REPO" && cargo build --release -p njoy-outram-park-fork --example write_ace_library \
+   && cargo build --release -p outram-mc-libs --features endf-pebble-cases \
+        --example icsbep_five_route_keff) >> "$WORK/logs/build.log" 2>&1
+# Snapshot the binaries: a rebuild in the working tree while the campaign runs
+# must not change what later seeds are run with.
+mkdir -p "$WORK/bin/$COMMIT"
+TGT=${CARGO_TARGET_DIR:-$REPO/target}
+cp "$TGT/release/examples/icsbep_five_route_keff" "$TGT/release/examples/write_ace_library" "$WORK/bin/$COMMIT/"
+DRIVER=$WORK/bin/$COMMIT/icsbep_five_route_keff
+WRITER=$WORK/bin/$COMMIT/write_ace_library
+
+# ── 1. libraries (each step skips what already exists) ─────────────────────
+log "NJOY2016 library"
+WORK=$WORK sh "$HERE/scripts/make_njoy_library.sh" >> "$WORK/logs/njoy_library.log" 2>&1
+log "Rust-NJOY library"
+NUCS=$(grep -v '^#' "$HERE/nuclides.tsv" | awk -F'\t' '{printf " --nuclide %s:%s:%s", $1, $2, $3}')
+# shellcheck disable=SC2086
+# H in H2O from its LEAPR deck, not the published tape (maintainer direction
+# 2026-10-14: LEAPR always runs; tsl-*.endf tapes are oracles). Its incident
+# grid is ACER's own rule, so no NJOY2016 table is read.
+"$WRITER" --out "$WORK/rust" $NUCS \
+  --thermal-leapr HinH2O:HinH2O:n-001_H_001-ENDF8.0-Beta6.endf:lwtr >> "$WORK/logs/rust_library.log" 2>&1
+for lib in njoy rust; do
+  if [ ! -s "$WORK/h5_$lib/cross_sections.xml" ]; then
+    log "ACE -> HDF5 ($lib)"
+    "$PY" "$HERE/openmc_inputs/ace_to_hdf5_route.py" "$WORK/$lib" "$WORK/h5_$lib" \
+      >> "$WORK/logs/h5_$lib.log" 2>&1
+  fi
+done
+
+# The case label the CSV rows carry: lct008 on its full nuclide list (the
+# default since 2026-10-14) is lct008-full (the driver's `case_label`).
+csv_case() { [ "$1" = lct008 ] && echo lct008-full || echo "$1"; }
+
+# Seeds of case $1 / label $2 not yet in $CSV at this run's size
+# (columns 7-9: particles, inactive, active), comma-separated.
+missing() {
+  s=1; out=""; c=$(csv_case "$1"); sz=$(size_of "$1" | tr ' ' ',')
+  while [ $s -le "$SEEDS" ]; do
+    if ! grep -q "^$c,$2,[a-z-]*,$s,[^,]*,[^,]*,$sz," "$CSV" 2>/dev/null; then out="$out$s,"; fi
+    s=$((s + 1))
+  done
+  echo "${out%,}"
+}
+
+# ── 2. the campaign ────────────────────────────────────────────────────────
+# OpenMC routes first (minutes in total), then outram-mc, cheapest route first.
+for route in $ROUTES; do
+  for case in $CASES; do
+    label=route$route
+    read -r P I A <<EOS
+$(size_of "$case")
+EOS
+    todo=$(missing "$case" "$label")
+    [ -n "$todo" ] || { log "$case $label: all $SEEDS seeds present"; continue; }
+    log "$case $label: seeds $todo at $P x [$I + $A]"
+    case $route in
+      1|2)
+        [ "$route" = 1 ] && lib=njoy || lib=rust
+        for s in $(echo "$todo" | tr ',' ' '); do
+          "$PY" "$HERE/openmc_inputs/icsbep_openmc.py" --case "$case" \
+            --xs "$WORK/h5_$lib/cross_sections.xml" --seed "$s" --label "$label" \
+            --csv "$CSV" --workdir "$WORK/runs/${case}_${label}_s$s" --threads "$THREADS" \
+            --particles "$P" --inactive "$I" --active "$A" \
+            --commit "$COMMIT" --openmc "$OPENMC" >> "$WORK/logs/${case}_${label}.log" 2>&1 \
+            || log "$case $label seed $s: FAILED (see logs/${case}_${label}.log)"
+          rm -f "$WORK/runs/${case}_${label}_s$s"/statepoint.*.h5
+        done ;;
+      3|4|5)
+        case $route in
+          3) extra="--route ace --ace-dir $WORK/njoy" ;;
+          4) extra="--route endf" ;;
+          5) extra="--route ace --ace-dir $WORK/rust" ;;
+        esac
+        # shellcheck disable=SC2086
+        "$DRIVER" --case "$case" $extra --label "$label" --seeds "$todo" --csv "$CSV" \
+          --threads "$THREADS" --particles "$P" --inactive "$I" \
+          --active "$A" --commit "$COMMIT" >> "$WORK/logs/${case}_${label}.log" 2>&1 \
+          || log "$case $label: FAILED (see logs/${case}_${label}.log) -- continuing" ;;
+    esac
+    log "$case $label: finished"
+  done
+done
+log "campaign complete: $(($(wc -l < "$CSV") - 1)) rows in $CSV"

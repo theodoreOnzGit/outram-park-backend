@@ -1,12 +1,68 @@
 [package]
 name = "kovan-common"
 description = "KOVAN shared canonical types (KovanDocument, KovanSymbol, …)."
-version = "0.0.1"
+version = "0.0.4"
 edition.workspace = true
-license.workspace = true
+license = "AGPL-3.0-only"  # all of kovan is AGPL since 2026-10-07 (NOTICE)
+# `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
+# write-ups. Excluded so it never ships to crates.io (size, and it is
+# not part of the published API surface).
+exclude = ["docs"]
 repository.workspace = true
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 0
+topic = "knowledge-management"
+maturity = 1
+
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 toml.workspace = true
+# Zotero date parsing (`zotero::date`, GitHub #748): ports of Zotero's JS regexes.
+regex.workspace = true
+# The kovan Markdown artifact scanner (`artifact`, GitHub #743/#764): moved
+# here from `kovan::artifact` so web-kovan (wasm) reads review.md the same way.
+pulldown-cmark.workspace = true
+# Function hashing for code review (`review::rust_items`, `review::hash`;
+# GitHub #739/#764): a real Rust parser, moved here from
+# `kovan::review_stamps::parse`. Pure Rust, wasm- and Android-clean.
+syn = { workspace = true, features = ["full", "parsing", "printing", "clone-impls"] }
+proc-macro2 = { workspace = true, features = ["span-locations"] }
+quote.workspace = true
+# SHA-256 of the normalised function tokens (pure Rust, wasm-clean).
+sha2.workspace = true
+# Review-stamp signature VERIFICATION (`review::signing`, GitHub #762): runs
+# in desktop kovan, web-kovan (wasm) and CI. Keys are built from 32 bytes, so
+# no `rand_core` feature is needed and nothing here wants an entropy source.
+ed25519-dalek.workspace = true
+base64.workspace = true
+
+# Key generation and the passphrase-encrypted keystore
+# (`review::signing::keystore`, #762) are desktop-only: never on wasm.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+argon2.workspace = true
+aes-gcm.workspace = true
+getrandom.workspace = true
+zeroize.workspace = true
+# The local offset for `signed_at` (#783); signing is desktop-only.
+chrono.workspace = true
+# kovan's platform config folder (the same `ProjectDirs` kovan uses).
+directories.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

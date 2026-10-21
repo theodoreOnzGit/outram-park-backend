@@ -1,0 +1,15 @@
+    Updating crates.io index
+   Packaging outram-park-fork-liggghts v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-liggghts)
+    Updating crates.io index
+    Packaged 59 files, 1.7MiB (491.3KiB compressed)
+   Verifying outram-park-fork-liggghts v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-liggghts)
+ Downloading crates ...
+  Downloaded raffles v0.0.3
+   Compiling raffles v0.0.3
+   Compiling outram-park-fork-liggghts v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/target/package/outram-park-fork-liggghts-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.35s
+   Uploading outram-park-fork-liggghts v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-park-fork-liggghts)
+    Uploaded outram-park-fork-liggghts v0.0.2 to registry `crates-io`
+note: waiting for outram-park-fork-liggghts v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-park-fork-liggghts v0.0.2 at registry `crates-io`

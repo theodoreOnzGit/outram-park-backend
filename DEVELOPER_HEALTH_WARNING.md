@@ -162,7 +162,7 @@ Outside these periods:
 
 * Claude Code must not perform agentic development work.
 * Claude Code may assist only with planning activities.
-* Tasks should instead be recorded using Beads or TODO systems.
+* Tasks should instead be recorded as GitHub issues.
 
 ### Amendment, 2026-08-13 — the restriction is now opt-in
 
@@ -392,7 +392,7 @@ When fatigued:
 
 * Write notes.
 * Create TODO items.
-* Create Beads tasks.
+* Create GitHub issues.
 
 Do not force major architectural decisions.
 

@@ -1,0 +1,77 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n\ncff-version: 1.2.0\nmessage: >-\n  If you use this software, please cite it using the metadata from this file.\ntitle:  >-\n  Bolognese: a Ruby library for conversion of DOI Metadata\nabstract: Ruby gem and command-line utility for conversion of DOI metadata from and to different metadata formats, including schema.org.\ntype: software\nurl: https://github.com/datacite/bolognese\nkeywords: \n  - doi\n  - metadata\n  - crossref\n  - datacite\n  - schema.org\n  - bibtex\n  - codemeta\nauthors: \n  - family-names: Fenner\n    given-names: Martin\ndate-released: 2017-02-25\nidentifiers: \n  - type: doi\n    value: 10.5438/n138-z3mk\n\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n\ncff-version: 1.2.0\nmessage: >-\n  If you use this dataset, please cite it using the metadata from this file.\ntitle:  >-\n  3D model of object V 1.2-71: Structured-light Scan, Staatliche Museen zu Berlin -  Antikensammlung\ntype: dataset\nurl: http://repository.edition-topoi.org/collection/MAGN/single/0012/0\nkeywords: \n  - 101 Ancient Cultures\n  - 410-01 Building and Construction History\nauthors: \n  - family-names: Fritsch\n    given-names: Bernhard\ndate-released: 2016\nidentifiers: \n  - type: doi\n    value: 10.17171/2-3-12-1\n\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

@@ -60,8 +60,13 @@
 //!
 //! - The **U-238 capture resonance integral** from 0.5 eV (the cadmium cut-off)
 //!   to 100 keV, at infinite dilution and at two finite dilutions.
-//! - Infinite dilution lands at **~274 b** against a published **~275 b**, which
-//!   is the check that RECONR reconstructed the resonances correctly.
+//! - Infinite dilution lands at **~274 b** ~~against a published **~275 b**, which
+//!   is the check that RECONR reconstructed the resonances correctly~~.
+//!   **Not re-checked (2026-10-05, GitHub #547):** the "published" 275.7 b
+//!   (and 277 ± 3 b) has no source; see [`U238_CAPTURE_RI_INF_B`]. It is kept
+//!   as a coarse sanity bound only, not as evidence that RECONR is right.
+//!   That evidence is RECONR's word-for-word PENDF agreement with NJOY2016
+//!   (`tests/pendf_stages_vs_njoy2016.rs`).
 //! - The infinite-dilution column flat in temperature; the self-shielded columns
 //!   climbing steadily. That contrast is the whole point.
 //!
@@ -69,6 +74,7 @@
 //! `resonance_integral` function docs for why dropping it inflates the answer by
 //! a factor of ~170.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::prelude::*;
 use std::path::PathBuf;
 
@@ -117,7 +123,8 @@ fn interp(pairs: &[(f64, f64)], e: f64) -> f64 {
 /// be dropped: it represents the 1/E slowing-down flux a neutron population
 /// actually has in the epithermal range. Integrating `sigma dE` instead gives
 /// a number that is not a resonance integral at all -- for U-238 it comes out
-/// around 48,000 b against a published ~275 b, a factor of ~170, because the
+/// around 48,000 b against ~275 b (this program's own `dE/E` value; the
+/// ~~published~~ figure is unsourced, GitHub #547), a factor of ~170, because the
 /// high-energy end of the range is no longer suppressed by 1/E.
 ///
 /// Since `dE/E = d(ln E)`, this trapezoids in `ln E`.
@@ -145,7 +152,7 @@ fn resonance_integral(pairs: &[(f64, f64)], e_min: f64, e_max: f64) -> f64 {
         } else {
             s1 + (s2 - s1) * (b - e1) / (e2 - e1)
         };
-        integral += 0.5 * (sa + sb) * (b / a).ln();
+        integral += 0.5 * (sa + sb) * (b / a).r_ln();
     }
     integral
 }
@@ -185,7 +192,7 @@ fn effective_resonance_integral(
         }
         let sc = sc1.max(0.0);
         let st = interp(total, 0.5 * (a + b)).max(0.0);
-        integral += sc * sigma_b / (st + sigma_b) * (b / a).ln();
+        integral += sc * sigma_b / (st + sigma_b) * (b / a).r_ln();
     }
     integral
 }
@@ -469,10 +476,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "\n4. SANITY CHECK
-   RI_inf came out at about 274 b against a published U-238 capture resonance
-   integral of ~275 b (0.5 eV upward, infinite dilution). Agreement at that
-   level says RECONR reconstructed the resolved resonances correctly and the
-   1/E quadrature is right.
+   RI_inf came out at about 274 b. The U-238 capture resonance integral
+   usually quoted is ~275 b (0.5 eV upward, infinite dilution), but that
+   reference value is NOT RE-CHECKED: no source has been found for it
+   (2026-10-05, GitHub #547), so treat the agreement as a coarse sanity
+   bound only. The evidence that RECONR reconstructs the resolved
+   resonances correctly is its word-for-word agreement with NJOY2016's
+   own PENDF, not this number.
 
    The self-shielded values are deliberately NOT compared to a reference here:
    they depend on the dilution chosen, and sb=20/60 b are illustrative of an
@@ -502,9 +512,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// U-238's published infinite-dilution capture resonance integral, barns —
-/// `int sigma_gamma dE/E` from the 0.5 eV cadmium cutoff upward. 275.7 b is the
-/// ENDF/B-VIII.0 evaluated value; the measured quantity is 277 +/- 3 b.
+/// U-238's ~~published~~ infinite-dilution capture resonance integral, barns —
+/// `int sigma_gamma dE/E` from the 0.5 eV cadmium cutoff upward. ~~275.7 b is the
+/// ENDF/B-VIII.0 evaluated value; the measured quantity is 277 +/- 3 b.~~
+///
+/// **Not re-checked (2026-10-05, GitHub #547): no source has been found for
+/// 275.7 b or for 277 +/- 3 b**, nor for the U-235 points (RI_f ≈ 275 b,
+/// RI_γ ≈ 144 b) quoted beside them elsewhere. They entered uncited in
+/// `c356cf2552`, an AI-assisted commit; a search on 2026-10-04 of the open
+/// corpus (`crates/kovan-literature/reactor-literature/`, `CATALOGUE.md`),
+/// the maintainer's notes and the git history found no document carrying
+/// them. The likely homes (Mughabghab, *Atlas of Neutron Resonances*; Brown
+/// et al. 2018, Nucl. Data Sheets 148, 1) are not in the open corpus. The
+/// same values were marked the same way in `outram-mc-libs` by `c199b7dc1f`.
+/// **Do not quote this value.** It stays only as a coarse 2 % sanity bound
+/// until the maintainer supplies a source and a page is cited.
 const U238_CAPTURE_RI_INF_B: f64 = 275.7;
 
 /// V&V gate: the three things this tutorial *teaches*, asserted.
@@ -512,16 +534,21 @@ const U238_CAPTURE_RI_INF_B: f64 = 275.7;
 /// # Why a tutorial gets a gate
 ///
 /// This file's "SANITY CHECK" section states an oracle comparison in prose —
-/// "RI_inf came out at about 274 b against a published ~275 b" — and then exits
+/// "RI_inf came out at about 274 b against a published ~275 b" (a reference
+/// since found to be unsourced, #547) — and then exits
 /// 0 whatever the number was. A tutorial that teaches a wrong number is worse
 /// than one that teaches nothing, because the reader has no way to tell. Every
 /// claim the closing text makes is now checked.
 ///
 /// # The three claims
 ///
-/// 1. **RI_inf matches the published value.** An external oracle, independent of
-///    NJOY and of this crate: it says RECONR reconstructed the resolved
-///    resonances correctly and the 1/E quadrature is right.
+/// 1. **RI_inf matches the** ~~published~~ **reference value to 2 %.** ~~An external
+///    oracle, independent of NJOY and of this crate: it says RECONR reconstructed
+///    the resolved resonances correctly and the 1/E quadrature is right.~~
+///    **Not re-checked (2026-10-05, GitHub #547):** the reference value has no
+///    source (see [`U238_CAPTURE_RI_INF_B`]), so this is a coarse sanity bound,
+///    not an oracle. RECONR's correctness rests on its word-for-word PENDF
+///    agreement with NJOY2016 (`tests/pendf_stages_vs_njoy2016.rs`).
 /// 2. **RI_inf is flat in temperature.** Doppler broadening is a convolution, so
 ///    it conserves the area under a resonance; the infinite-dilution integral is
 ///    an area. The tutorial says "about 0.01 % over 1200 K" and that is a much
@@ -539,19 +566,38 @@ const U238_CAPTURE_RI_INF_B: f64 = 275.7;
 /// same broadened data, is what makes Doppler feedback a real effect rather than
 /// a bookkeeping artefact.
 ///
-/// # Results (2026-09-11, U-238 ENDF/B-VIII.0, tol 1e-3)
+/// # Results (re-measured 2026-10-04, U-238 ENDF/B-VIII.0, tol 1e-3)
+///
+/// Develop `3c41d99f5b` plus doc-comment-only edits, release, two threads
+/// (`taskset -c 10-11`), 249 s wall including the build.
 ///
 /// ```text
 ///     T [K]     RI_inf [b]   RI(sb=60) [b]   RI(sb=20) [b]
-///       0.0       274.65         15.27           8.46
-///     293.6       274.63         17.48           9.57
-///     900.0       274.64         19.06          10.19
-///    1200.0       274.66         19.68          10.42
+///       0.0       274.65         15.24           8.44
+///     293.6       274.63         17.50           9.57
+///     600.0       274.63         18.40           9.93
+///     900.0       274.65         19.08          10.19
+///    1200.0       274.66         19.67          10.41
 /// ```
 ///
-/// - **RI_inf vs the published 275.7 b: −0.382 %**, and well inside the
+/// RI_inf vs the ~~published~~ unsourced 275.7 b (**not re-checked**, #547):
+/// -0.382 %, not evidence; spread over the sweep
+/// **0.0094 %**; RI_eff **+29.0 %** at sigma_b = 60 b and **+23.3 %** at
+/// sigma_b = 20 b over 0-1200 K.
+///
+/// ~~Results (2026-09-11): 0 K 274.65 / 15.27 / 8.46 b; 293.6 K 274.63 / 17.48 /
+/// 9.57 b; 900 K 274.64 / 19.06 / 10.19 b; 1200 K 274.66 / 19.68 / 10.42 b;
+/// spread 0.0095 %; +28.9 % and +23.1 %.~~ Superseded above. The shielded
+/// integrals moved by up to 0.2 % (the RECONR/BROADR grid became NJOY2016's on
+/// 2026-09-26, GitHub #340); RI_inf did not move in the printed figures. The
+/// 2026-09-11 notes below are kept as written.
+///
+/// Notes as recorded 2026-09-11:
+///
+/// - ~~**RI_inf vs the published 275.7 b: −0.382 %**, and well inside the
 ///   experimental 277 ± 3 b. RECONR reconstructed the resolved resonances
-///   correctly and the 1/E quadrature is right.
+///   correctly and the 1/E quadrature is right.~~ **Not re-checked
+///   (2026-10-05, GitHub #547):** neither reference value has a source.
 /// - **RI_inf spread across the whole sweep: 0.0095 %** — this file's closing
 ///   text says "about 0.01 %", and that is now checked rather than asserted.
 /// - **RI_eff rises +28.9 % at sigma_b = 60 b and +23.1 % at sigma_b = 20 b**
@@ -582,7 +628,7 @@ fn vv_gate(rows: &[(f64, f64, f64, f64)]) {
     // 1. The external oracle.
     let (t0, ri_inf_cold, _, _) = rows[0];
     assert_relative(
-        &format!("RI_inf at {t0:.0} K vs the published infinite-dilution value"),
+        &format!("RI_inf at {t0:.0} K vs the unsourced reference value (NOT RE-CHECKED, #547; coarse bound only)"),
         ri_inf_cold,
         U238_CAPTURE_RI_INF_B,
         0.02,

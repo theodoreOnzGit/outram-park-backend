@@ -1,0 +1,624 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.47
+   Compiling petir v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/petir)
+   Compiling approx v0.5.1
+   Compiling ndarray v0.17.2
+   Compiling outram-foam-basic-lib v0.1.7 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-foam-basic-lib)
+    Finished `release` profile [optimized] target(s) in 22.77s
+     Running unittests src/lib.rs (target/release/deps/outram_foam_basic_lib-3dfded5dfff1aca8)
+
+running 557 tests
+test compute::hybrid::tests::measured_ratio_is_cpu_only_on_this_hardware ... ok
+test compute::hybrid::tests::harmonise_rounds_only_when_asked ... ok
+test compute::hybrid::tests::no_gpu_means_every_lane_goes_to_the_cpu ... ok
+test compute::hybrid::tests::precision_note_names_the_mixed_case ... ok
+test compute::hybrid::tests::ratio_is_clamped_not_wrapped ... ok
+test compute::hybrid::tests::remainder_lane_goes_to_the_more_accurate_side ... ok
+test compute::hybrid::tests::split_is_exhaustive_and_deterministic ... ok
+test compute::tests::backend_labels_are_distinct ... ok
+test compute::tests::gpu_probe_is_cached_and_never_panics ... ok
+test compute::tests::gpu_threshold_is_above_the_cpu_multi_threshold ... ok
+test compute::tests::resolve_never_returns_an_unavailable_backend ... ok
+test compute::tests::resolve_never_upgrades_serial ... ok
+test compute::tests::select_backend_keeps_small_problems_serial ... ok
+test compute::tests::select_backend_only_returns_available_backends ... ok
+test compute::tests::serial_is_always_available_and_default ... ok
+test fields::boundary::bc::tests::vv_fixed_flux_pressure_sn_grad_reproduces_flux ... ok
+test fields::boundary::bc::tests::vv_flow_rate_inlet_velocity_integral_matches_q ... ok
+test fields::boundary::bc::tests::vv_flux_value_fraction_switch ... ok
+test fields::boundary::bc::tests::vv_freestream_switches_like_inlet_outlet ... ok
+test fields::boundary::bc::tests::vv_pressure_inlet_outlet_velocity_from_flux ... ok
+test fields::boundary::bc::tests::vv_slip_zeroes_normal_preserves_tangential ... ok
+test fields::boundary::bc::tests::vv_total_pressure_dynamic_head ... ok
+test compute::tests::thread_count_always_resolves_to_at_least_one ... ok
+test fields::field::tests::add_f64_fields ... ok
+test fields::field::tests::div_scalar ... ok
+test fields::field::tests::mul_scalar ... ok
+test fields::field::tests::neg_field ... ok
+test fields::field::tests::pointwise_mul_fields ... ok
+test fields::field::tests::sum_mean ... ok
+test fields::field::tests::uniform_and_len ... ok
+test fields::field::tests::vector3_add_fields ... ok
+test fields::field::tests::vector3_scale_by_scalar_field ... ok
+test fields::parallel::tests::dispatch_policy_is_the_single_decision_point ... ok
+test fields::parallel::tests::measure_crossover_add ... ignored, measurement, not a correctness check; ~1 s wall clock. Run with --ignored --nocapture
+test fields::parallel::tests::edge_cases_empty_and_single_element ... ok
+test fields::parallel::tests::measure_kernel_timings ... ignored, measurement, not a correctness check; ~2.4 s wall clock. Run with --ignored --nocapture
+test fields::parallel::tests::mismatched_lengths_panic - should panic ... ok
+test fields::parallel::tests::name_does_not_grow_under_in_place_updates ... ok
+test fields::parallel::tests::name_does_not_grow_under_self_referential_reassignment_surface ... ok
+test fields::parallel::tests::vol_vector_field_axpy ... ok
+test fields::parallel::tests::name_does_not_grow_under_self_referential_reassignment_vol ... ok
+test fields::parallel::tests::vv_min_max_are_bit_identical_to_serial ... ok
+test fields::parallel::tests::vv_parallel_sum_matches_serial_within_tolerance ... ok
+test fields::parallel::tests::vv_reduction_against_analytic_reference ... ok
+test fields::parallel::tests::vv_in_place_kernels_match_out_of_place ... ok
+test fields::parallel::tests::vv_surface_wrappers_cover_internal_and_boundary ... ok
+test fields::parallel::tests::vv_vol_integral_against_analytic_reference ... ok
+test fields::parallel::tests::vv_vol_wrappers_cover_internal_and_boundary ... ok
+test fields::surface_field::tests::add_surface_fields ... ok
+test fields::surface_field::tests::face_value_internal ... ok
+test fields::surface_field::tests::mul_surface_field_by_scalar ... ok
+test fields::surface_field::tests::zeros_surface_scalar_field ... ok
+test fields::vol_field::tests::add_vol_scalar_fields ... ok
+test fields::vol_field::tests::mul_scalar_field_by_f64 ... ok
+test fields::vol_field::tests::neg_vol_vector_field ... ok
+test fields::vol_field::tests::uniform_vol_scalar_field ... ok
+test fields::vol_field_algebra::tests::field_algebra_matches_primitive ... ok
+test fields::vol_field_algebra::tests::symm_field_algebra_matches_primitive ... ok
+test fluid_thermo::psi_thermo::tests::correct_recovers_temperature_from_he ... ok
+test fluid_thermo::psi_thermo::tests::correct_rho_clamps ... ok
+test fluid_thermo::psi_thermo::tests::initial_state_consistent ... ok
+test fluid_thermo::psi_thermo::tests::mu_and_kappa_fields_populated ... ok
+test fluid_thermo::rho_thermo::tests::correct_updates_temperature ... ok
+test fluid_thermo::rho_thermo::tests::initial_state_consistent ... ok
+test fluid_thermo::rho_thermo::tests::psi_vs_rho_thermo_match ... ok
+test fluid_thermo::solid_thermo::tests::conduction_solve ... ok
+test fluid_thermo::solid_thermo::tests::kappa_field_uniform ... ok
+test fluid_thermo::solid_thermo::tests::rho_cp_field_uniform ... ok
+test fluid_thermo::solid_thermo::tests::t_mutable ... ok
+test fv_operators::adjust_phi::tests::balances_net_outflow ... ok
+test fv_operators::adjust_phi::tests::no_adjustment_when_balanced ... ok
+test fv_operators::fvc::central_upwind::tests::consistent_and_antisymmetric_under_reversal ... ok
+test fv_operators::fvc::central_upwind::tests::energy_constructors_set_the_documented_pair ... ok
+test fv_operators::fvc::central_upwind::tests::identical_states_give_zero_dissipation ... ok
+test fv_operators::fvc::central_upwind::tests::mach_blend_monotone_and_clamped ... ok
+test fv_operators::fvc::central_upwind::tests::matches_pre_refactor_hybrid_copy_bit_for_bit ... ok
+test fv_operators::fvc::central_upwind::tests::sod_interface_flux_matches_hand_evaluation ... ok
+test fv_operators::fvc::central_upwind::tests::supersonic_one_sided_is_upwind ... ok
+test fv_operators::fvc::central_upwind::tests::supersonic_reverse_is_upwind_from_the_right ... ok
+test fv_operators::fvc::central_upwind::tests::velocity_component_maps_interior_and_boundaries ... ok
+test fv_operators::fvc::central_upwind::tests::wave_speed_measures_match_hand_values ... ok
+test fv_operators::fvc::ddt_corr::tests::coeff_limits_large_correction_to_zero ... ok
+test fv_operators::fvc::ddt_corr::tests::consistent_phi_gives_zero_correction ... ok
+test fv_operators::fvc::ddt_corr::tests::nonzero_correction_for_inconsistent_phi ... ok
+test fv_operators::fvc::div::tests::div_flux_nonzero ... ok
+test fv_operators::fvc::div::tests::div_flux_of_uniform_inoutflow_is_zero ... ok
+test fv_operators::fvc::div_tensor::tests::linear_symm_tensor_div_is_x_row ... ok
+test fv_operators::fvc::div_tensor::tests::linear_tensor_div_is_x_row ... ok
+test fv_operators::fvc::flux::tests::buoyancy_flux_downward_gravity ... ok
+test fv_operators::fvc::flux::tests::uniform_x_velocity_flux_equals_area ... ok
+test fv_operators::fvc::grad::tests::linear_field_constant_x_grad ... ok
+test fv_operators::fvc::grad::tests::uniform_field_zero_grad ... ok
+test fv_operators::fvc::grad_least_squares::tests::linear_field_recovered_exactly_in_1d ... ok
+test fv_operators::fvc::grad_least_squares::tests::periodic_ring_uniform_field_has_zero_gradient ... ok
+test fv_operators::fvc::grad_least_squares::tests::uniform_field_has_zero_gradient ... ok
+test fv_operators::fvc::grad_vec::tests::linear_field_gives_transpose ... ok
+test fv_operators::fvc::grad_vec::tests::uniform_field_zero_grad ... ok
+test fv_operators::fvc::interpolate::tests::linear_field_midpoint_weight ... ok
+test fv_operators::fvc::interpolate::tests::uniform_field_interpolates_exactly ... ok
+test fv_operators::fvc::interpolate::tests::vv_cyclic_interpolates_across_seam ... ok
+test fv_operators::fvc::muscl::tests::linear_field_reconstructs_to_central_value ... ok
+test fv_operators::fvc::muscl::tests::upwind_limiter_returns_cell_values ... ok
+test fv_operators::fvc::muscl::tests::vanleer_clamps_at_discontinuity ... ok
+test fv_operators::fvc::reconstruct::tests::flux_then_reconstruct_roundtrip ... ok
+test fv_operators::fvc::reconstruct::tests::reconstruct_consistent_phi ... ok
+test fv_operators::fvc::sn_grad::tests::linear_field_constant_gradient ... ok
+test fv_operators::fvc::sn_grad::tests::uniform_field_zero_gradient ... ok
+test fv_operators::fvc::sn_grad::tests::vv_cyclic_sn_grad_across_seam ... ok
+test fv_operators::fvc::sn_grad::tests::vv_fixed_gradient_reports_prescribed_gradient ... ok
+test fv_operators::fvm::d2dt2::tests::d2dt2_coeff_scales_diagonal_by_rho ... ok
+test fv_operators::fvm::d2dt2::tests::d2dt2_no_spatial_terms_continues_linearly ... ok
+test fv_operators::fvm::d2dt2::tests::d2dt2_of_quadratic_returns_constant_acceleration ... ok
+test fv_operators::fvm::ddt::tests::ddt_coeff_diagonal_is_coeff_times_volume_over_dt ... ok
+test fv_operators::fvm::ddt::tests::ddt_coeff_solves_to_old_when_no_spatial_terms ... ok
+test fv_operators::fvm::ddt::tests::ddt_diagonal_is_volume_over_dt ... ok
+test fv_operators::fvm::ddt::tests::ddt_solves_to_old_when_no_spatial_terms ... ok
+test fv_operators::fvm::ddt_vec::tests::ddt_coeff_vec_diagonal_is_coeff_times_volume_over_dt ... ok
+test fv_operators::fvm::ddt_vec::tests::ddt_coeff_vec_solves_to_old_when_no_spatial_terms ... ok
+test fv_operators::fvm::ddt_vec::tests::ddt_vec_recovers_constant_field ... ok
+test fv_operators::fvm::div::tests::upwind_negative_flux_on_upper ... ok
+test fv_operators::fvm::div::tests::upwind_positive_flux_on_diagonal ... ok
+test fv_operators::fvm::div::tests::vv_ami_matching_advection_conserves ... ok
+test fv_operators::fvm::div::tests::vv_ami_nonconformal_advection_conserves ... ok
+test fv_operators::fvm::div::tests::vv_cyclic_advection_conserves_and_matches_ring ... ok
+test fv_operators::fvm::div::tests::vv_inlet_outlet_flux_switch ... ok
+test fv_operators::fvm::div_vec::tests::vv_ami_nonconformal_div_vec_conserves ... ok
+test fields::parallel::tests::vv_elementwise_scalar_kernels_are_bit_identical_to_serial ... ok
+test fv_operators::fvm::div_vec::tests::zero_flux_gives_zero_matrix ... ok
+test fv_operators::fvm::laplacian::tests::laplacian_solves_linear_dirichlet ... ok
+test fv_operators::fvm::laplacian::tests::laplacian_symmetric_matrix ... ok
+test fv_operators::fvm::laplacian::tests::the_boundary_delta_is_the_patch_normal_projection ... ok
+test fv_operators::fvm::laplacian::tests::the_default_laplacian_is_the_orthogonal_scheme ... ok
+test fv_operators::fvm::laplacian::tests::the_non_orthogonal_delta_is_larger_by_one_over_cos_theta ... ok
+test fv_operators::fvm::laplacian::tests::the_two_delta_schemes_agree_on_an_orthogonal_mesh ... ok
+test fv_operators::fvm::laplacian::tests::vv_ami_nonconformal_diffusion_conserves ... ok
+test fv_operators::fvm::laplacian::tests::vv_ami_matching_diffusion_equals_cyclic ... ok
+test fv_operators::fvm::laplacian::tests::vv_cyclic_diffusion_matches_ring_mesh ... ok
+test fv_operators::fvm::laplacian::tests::vv_fixed_gradient_linear_profile ... ok
+test fv_operators::fvm::laplacian::tests::vv_mixed_reduces_to_fixed_gradient ... ok
+test fv_operators::fvm::laplacian::tests::vv_mixed_reduces_to_fixed_value ... ok
+test fv_operators::fvm::laplacian::tests::vv_robin_convective_analytic ... ok
+test fv_operators::fvm::laplacian_corrected::tests::correction_is_a_no_op_on_an_orthogonal_mesh ... ok
+test fv_operators::fvm::laplacian_corrected::tests::geometry_reports_the_expected_angle_and_reduces_when_orthogonal ... ok
+test fv_operators::fvm::laplacian_corrected::tests::limited_scheme_interpolates_between_the_two_extremes ... ok
+test fv_operators::fvm::laplacian_corrected::tests::orthogonal_scheme_reproduces_the_uncorrected_matrix ... ok
+test fv_operators::fvm::laplacian_vec::tests::laplacian_vec_1d_linear_profile ... ok
+test fv_operators::fvm::laplacian_vec::tests::vv_ami_nonconformal_laplacian_vec_conserves ... ok
+test fv_operators::fvm::laplacian_vec::tests::vv_cyclic_laplacian_vec_conserves ... ok
+test fv_operators::fvm::sup::tests::sp_su_scalar_solve_k_phi_equals_s ... ok
+test fv_operators::fvm::sup::tests::sp_su_vector_solve_componentwise ... ok
+test fv_operators::fvm::sup::tests::su_sp_scalar_routes_by_sign ... ok
+test fv_operators::fvm::sup::tests::su_sp_vector_negative_goes_explicit ... ok
+test fv_operators::naming::tests::first_application_is_unchanged_from_the_openfoam_spelling ... ok
+test fv_operators::naming::tests::operands_are_elided_independently ... ok
+test fv_operators::naming::tests::plain_field_names_are_not_treated_as_derived ... ok
+test fv_operators::naming::tests::repeated_self_feedback_reaches_a_fixed_point ... ok
+test fv_operators::naming::tests::repeated_unary_application_reaches_a_fixed_point ... ok
+test fv_options::solidification_melting::tests::a_zone_selection_leaves_unselected_cells_untouched ... ok
+test fv_options::solidification_melting::tests::buoyancy_pushes_a_superheated_cell_against_gravity ... ok
+test fv_options::solidification_melting::tests::darcy_drag_increases_monotonically_as_the_cell_freezes ... ok
+test fv_options::solidification_melting::tests::darcy_drag_saturates_at_minus_cu_over_q_when_fully_solid ... ok
+test fv_options::solidification_melting::tests::darcy_drag_vanishes_in_a_fully_liquid_cell ... ok
+test fv_options::solidification_melting::tests::effective_liquidus_holds_flat_at_the_solidus_below_the_eutectic_fraction ... ok
+test fv_options::solidification_melting::tests::effective_liquidus_spans_solidus_to_liquidus_with_no_eutectic_offset ... ok
+test fv_options::solidification_melting::tests::latent_heat_vanishes_when_the_liquid_fraction_is_unchanged ... ok
+test fv_options::solidification_melting::tests::melting_removes_energy_from_the_equation ... ok
+test fv_options::solidification_melting::tests::momentum_diagonal_gains_the_drag_rather_than_losing_it ... ok
+test fv_options::solidification_melting::tests::temperature_and_enthalpy_forms_differ_by_exactly_the_specific_heat ... ok
+test fv_options::solidification_melting::tests::the_liquid_fraction_stays_in_bounds_over_a_heating_and_cooling_cycle ... ok
+test fv_options::solidification_melting::tests::update_runs_at_most_once_per_timestep ... ok
+test fv_options::solidification_porosity::tests::a_cell_zone_restricts_the_drag_to_its_own_cells ... ok
+test fv_options::solidification_porosity::tests::density_weighted_form_scales_the_drag_by_rho ... ok
+test fv_options::solidification_porosity::tests::drag_table_clamps_at_both_ends_instead_of_extrapolating ... ok
+test fv_options::solidification_porosity::tests::drag_table_is_linear_between_the_knots ... ok
+test fv_options::solidification_porosity::tests::force_diagonal_matches_the_assembled_momentum_diagonal ... ok
+test fv_options::solidification_porosity::tests::drag_table_rejects_descending_temperatures - should panic ... ok
+test fv_options::solidification_porosity::tests::fully_molten_cells_gain_exactly_no_drag ... ok
+test fv_options::solidification_porosity::tests::kinematic_drag_adds_volume_times_d_to_the_diagonal ... ok
+test fv_options::solidification_porosity::tests::phase_fraction_scales_the_drag_linearly ... ok
+test fv_options::vof_solidification_melting::tests::a_mostly_solid_cell_gains_a_large_positive_diagonal_drag ... ok
+test fv_options::vof_solidification_melting::tests::a_zero_timestep_contributes_nothing_instead_of_dividing_by_zero ... ok
+test fv_options::vof_solidification_melting::tests::freezing_puts_a_negative_latent_heat_source_in_the_enthalpy_equation ... ok
+test fv_options::vof_solidification_melting::tests::fully_fluid_cells_feel_exactly_no_drag ... ok
+test fv_options::vof_solidification_melting::tests::heating_above_the_liquidus_decays_the_solid_fraction ... ok
+test fv_options::vof_solidification_melting::tests::omitting_advance_time_inflates_the_latent_heat_rate ... ok
+test fv_options::vof_solidification_melting::tests::one_correct_from_zero_gives_exactly_the_relaxation_coefficient ... ok
+test fv_options::vof_solidification_melting::tests::repeated_correct_converges_geometrically_to_the_table_value ... ok
+test fv_options::vof_solidification_melting::tests::solid_fraction_is_capped_by_the_vof_phase_fraction ... ok
+test interface::one_dimensional_meshing::tests::boundary_patches_named_correctly ... ok
+test interface::one_dimensional_meshing::tests::cell_centres_are_midpoints ... ok
+test interface::one_dimensional_meshing::tests::cell_volumes_are_uniform ... ok
+test interface::one_dimensional_meshing::tests::left_face_area_vector_points_negative_x ... ok
+test interface::one_dimensional_meshing::tests::single_cell_mesh_is_valid ... ok
+test interface::one_dimensional_meshing::tests::ten_cell_mesh_topology ... ok
+test interface::one_dimensional_meshing::tests::zero_cells_returns_error ... ok
+test interpolation::interpolate_spline_xy::tests::clamp_left ... ok
+test interpolation::interpolate_spline_xy::tests::clamp_right ... ok
+test interpolation::interpolate_spline_xy::tests::exact_at_knots ... ok
+test interpolation::interpolate_spline_xy::tests::linear_data_matches_linear ... ok
+test interpolation::interpolate_spline_xy::tests::single_and_two_point_edge_cases ... ok
+test interpolation::interpolate_xy::tests::clamp_left ... ok
+test interpolation::interpolate_xy::tests::clamp_right ... ok
+test interpolation::interpolate_xy::tests::exact_at_knots ... ok
+test interpolation::interpolate_xy::tests::midpoints ... ok
+test interpolation::interpolate_xy::tests::single_point ... ok
+test interpolation::interpolate_xy::tests::two_points ... ok
+test io::dict::tests::dimensioned_entry ... ok
+test io::dict::tests::parse_function_keyword ... ok
+test io::dict::tests::tokenize_glued_flag ... ok
+test krylov::hybrid_tests::backend_parity_is_bitwise ... ok
+test krylov::hybrid_tests::end_to_end_solve_speedup_benchmark ... ignored, timing benchmark; run explicitly with --ignored
+test fields::parallel::tests::vv_reduction_is_bit_reproducible_run_to_run ... ok
+test krylov::hybrid_tests::gmres_end_to_end_speedup_benchmark ... ignored, timing benchmark; run explicitly with --ignored
+test krylov::hybrid_tests::ilu0_serial_fraction_benchmark ... ignored, timing benchmark; run explicitly with --ignored
+test fields::parallel::tests::vv_elementwise_vector_kernels_are_bit_identical_to_serial ... ok
+test krylov::preconditioner::tests::ilu0_exact_for_tridiagonal ... ok
+test krylov::preconditioner::tests::ilu0_nonsymmetric_finite ... ok
+test krylov::preconditioner::tests::jacobi_reciprocal_diag ... ok
+test krylov::preconditioner::tests::jacobi_zero_diag_guard ... ok
+test krylov::tests::initial_guess ... ok
+test krylov::tests::nonsymmetric_vs_dense_lu ... ok
+test krylov::tests::preconditioning_reduces_iterations ... ok
+test krylov::tests::spd_known_solution ... ok
+test krylov::tests::zero_rhs ... ok
+test krylov::vecops::tests::axpy_known ... ok
+test krylov::vecops::tests::dot_known ... ok
+test krylov::vecops::tests::nrm2_known ... ok
+test krylov::vecops::tests::scal_known ... ok
+test ldu_matrix::fv_matrix::tests::add_face_coeff_symmetrises_diag ... ok
+test ldu_matrix::fv_matrix::tests::solve_diagonal_system ... ok
+test ldu_matrix::fv_vector_matrix::tests::a_field_returns_diagonal ... ok
+test ldu_matrix::fv_vector_matrix::tests::diagonal_system_solves_vector ... ok
+test ldu_matrix::ldu_matrix::tests::identity_multiply ... ok
+test ldu_matrix::ldu_matrix::tests::residual_exact_solution ... ok
+test ldu_matrix::ldu_matrix::tests::tridiag_multiply ... ok
+test ldu_matrix::parallel::tests::axpy_is_bitwise_identical_across_backends_and_to_vecops ... ok
+test ldu_matrix::parallel::tests::degenerate_matrices_behave ... ok
+test ldu_matrix::parallel::tests::diagonal_reciprocal_agrees_and_reports_singular_rows ... ok
+test ldu_matrix::parallel::tests::dispatch_predicates_are_honest ... ok
+test krylov::hybrid_tests::every_combination_matches_the_dense_lu_solution ... ok
+test ldu_matrix::parallel::tests::normalised_residual_matches_flat_reference ... ok
+test krylov::hybrid_tests::blocked_versus_flat_reduction_does_not_move_iteration_counts ... ok
+test ldu_matrix::parallel::tests::reductions_are_bitwise_identical_across_backends ... ok
+test ldu_matrix::parallel::tests::dot_matches_flat_reference ... ok
+test ldu_matrix::parallel::tests::reductions_match_hand_computed_values ... ok
+test ldu_matrix::parallel::tests::spmv_crossover_benchmark ... ignored, measurement, ~31 s; run explicitly with --ignored --nocapture
+test ldu_matrix::parallel::tests::norms_match_flat_references ... ok
+test ldu_matrix::parallel::tests::spmv_rejects_a_wrong_length_input - should panic ... ok
+test ldu_matrix::parallel::tests::spmv_thread_scaling_benchmark ... ignored, measurement, ~4 s; run explicitly with --ignored --nocapture
+test ldu_matrix::parallel::tests::topology_inverts_face_addressing ... ok
+test ldu_matrix::parallel::tests::topology_matches_detects_changed_addressing ... ok
+test ldu_matrix::parallel::tests::topology_rejects_mismatched_owner_neighbour_lengths - should panic ... ok
+test ldu_matrix::parallel::tests::topology_rejects_out_of_range_cell - should panic ... ok
+test ldu_matrix::parallel::tests::vecop_crossover_benchmark ... ignored, measurement, ~7 s; run explicitly with --ignored --nocapture
+test ldu_matrix::parallel::tests::with_matrix_reuses_index_and_refuses_a_different_mesh ... ok
+test ldu_matrix::solvers::conjugate_gradient::tests::cg_faster_than_gs_on_symmetric ... ok
+test ldu_matrix::solvers::conjugate_gradient::tests::cg_identity ... ok
+test ldu_matrix::solvers::conjugate_gradient::tests::cg_solves_1d_poisson ... ok
+test ldu_matrix::parallel::tests::residual_is_bitwise_identical_to_serial_reference ... ok
+test ldu_matrix::solvers::gamg::tests::gamg_handles_tiny_matrix ... ok
+test ldu_matrix::parallel::tests::spmv_is_bitwise_identical_to_serial_reference ... ok
+test ldu_matrix::solvers::gamg::tests::gamg_solves_1d_poisson ... ok
+test ldu_matrix::solvers::gamg::tests::gamg_warm_start_returns_immediately ... ok
+test ldu_matrix::solvers::gauss_seidel::tests::diagonal_system_one_iter ... ok
+test ldu_matrix::solvers::gauss_seidel::tests::solves_diagonally_dominant_system ... ok
+test ldu_matrix::solvers::krylov_solve::tests::every_method_preconditioner_pair_solves_an_asymmetric_system ... ok
+test ldu_matrix::solvers::krylov_solve::tests::warm_start_from_the_answer_costs_no_iterations ... ok
+test limiters::tests::consistency_at_r_one ... ok
+test ldu_matrix::solvers::krylov_solve::tests::ilu0_needs_no_more_iterations_than_unpreconditioned ... ok
+test limiters::tests::extrema_are_clipped ... ok
+test limiters::tests::known_spot_values ... ok
+test limiters::tests::limited_linear_matches_upstream_form ... ok
+test limiters::tests::non_finite_r_is_safe ... ok
+test limiters::tests::symmetric_limiters_satisfy_symmetry ... ok
+test limiters::tests::within_sweby_tvd_envelope ... ok
+test linear_operator::tests::cg_op_spd_known_solution ... ok
+test linear_operator::tests::generic_drivers_agree_with_existing_fv_solvers ... ok
+test linear_operator::tests::ldu_operator_apply_matches_multiply_bitwise ... ok
+test linear_operator::tests::warm_start_is_honoured ... ok
+test linear_operator::tests::zero_rhs_shortcircuits ... ok
+test math::differentiate::tests::a_bad_lane_never_contaminates_the_all_or_nothing_accessor ... ok
+test math::differentiate::tests::a_denormal_point_still_gets_a_usable_step ... ok
+test math::differentiate::tests::a_failing_column_names_the_variable_that_failed ... ok
+test math::differentiate::tests::a_jacobian_that_cannot_be_differenced_is_counted_and_reaches_the_solver_as_nan ... ok
+test math::differentiate::tests::a_non_square_function_is_rejected_rather_than_padded ... ok
+test math::differentiate::tests::a_step_far_below_the_optimum_is_worse_not_better ... ok
+test math::differentiate::tests::a_step_that_rounds_away_reports_degenerate_rather_than_a_wrong_number ... ok
+test math::differentiate::tests::a_symmetric_stencil_straddles_a_pole_without_noticing ... ok
+test math::differentiate::tests::accuracy_floor_at_the_default_step ... ok
+test math::differentiate::tests::backend_reduction_never_reports_gpu_and_respects_the_size_floors ... ok
+test math::differentiate::tests::derivative_at_exactly_zero_is_correct_not_nan ... ok
+test math::differentiate::tests::derivative_batch_is_bitwise_identical_across_backends ... ok
+test math::differentiate::tests::differentiate_crossover_benchmark ... ignored, measurement, not a correctness check. Run with --ignored --nocapture
+test math::differentiate::tests::empty_and_malformed_batches_are_empty_not_panics ... ok
+test math::differentiate::tests::epsilon_root_constants_match_their_definitions ... ok
+test math::differentiate::tests::evaluation_counts_match_the_documented_cost ... ok
+test math::differentiate::tests::column_parallel_jacobian_is_bitwise_identical_to_the_serial_one ... ok
+test math::differentiate::tests::jacobian_column_crossover_benchmark ... ignored, measurement, not a correctness check. Run with --ignored --nocapture
+test math::differentiate::tests::non_finite_evaluations_are_reported_not_swallowed ... ok
+test math::differentiate::tests::numerical_jacobian_overhead_benchmark ... ignored, measurement, not a correctness check. Run with --ignored --nocapture
+test math::differentiate::tests::observed_convergence_order_matches_theory ... ok
+test math::differentiate::tests::ode_jacobian_captures_explicit_dependence_on_the_independent_variable ... ok
+test math::differentiate::tests::ode_jacobian_reproduces_van_der_pols_hand_coded_one ... ok
+test math::differentiate::tests::ode_jacobian_resizes_wrongly_sized_output_buffers ... ok
+test math::differentiate::tests::quadratic_system_jacobian_matches_the_analytic_one ... ok
+test math::differentiate::tests::rosenbrock23_integrates_a_stiff_system_that_has_no_hand_coded_jacobian ... ok
+test math::differentiate::tests::rosenbrock23_integrates_the_stiff_pair_with_a_numerical_jacobian ... ok
+test math::differentiate::tests::jacobian_batch_is_bitwise_identical_across_backends ... ok
+test math::differentiate::tests::step_rule_is_relative_where_x_is_large_and_absolute_where_it_is_not ... ok
+test math::differentiate::tests::stiff_pair_jacobian_matches_the_analytic_one_across_a_1000_to_1_entry_spread ... ok
+test math::differentiate::tests::the_single_jacobian_form_agrees_with_a_one_lane_batch_bit_for_bit ... ok
+test math::differentiate::tests::the_single_point_form_agrees_with_a_one_element_batch_bit_for_bit ... ok
+test math::differentiate::tests::the_wrapper_forwards_n_eqns_and_derivatives_verbatim ... ok
+test math::differentiate::tests::trigonometric_system_jacobian_matches_the_analytic_one ... ok
+test math::erf_inv::tests::known_values ... ok
+test math::erf_inv::tests::monotone_and_positive ... ok
+test math::inc_gamma::tests::p_1_1 ... ok
+test math::inc_gamma::tests::pq_sum_to_one ... ok
+test math::inc_gamma::tests::q_at_zero ... ok
+test math::inc_gamma::tests::unnormalised_consistency ... ok
+test math::inv_inc_gamma::tests::a_eq_1_explicit ... ok
+test math::inv_inc_gamma::tests::round_trips_large_a ... ok
+test math::inv_inc_gamma::tests::round_trips_moderate_a ... ok
+test math::inv_inc_gamma::tests::round_trips_small_a ... ok
+test math::minimise::tests::bracket_contracts_at_the_golden_ratio ... ok
+test math::minimise::tests::degenerate_bracket_converges_immediately ... ok
+test math::minimise::tests::dispatch_respects_the_size_floor ... ok
+test math::minimise::tests::empty_batch_is_vacuously_converged ... ok
+test math::minimise::tests::flat_minimum_exposes_the_sqrt_eps_limit ... ok
+test math::minimise::tests::golden_section_matches_analytic_minima ... ok
+test math::minimise::tests::golden_section_matches_analytic_transcendental_minimum ... ok
+test math::minimise::tests::invalid_bracket_is_reported ... ok
+test math::minimise::tests::lane_order_is_preserved ... ok
+test math::minimise::tests::max_iterations_is_reported ... ok
+test math::minimise::tests::maximise_matches_analytic_sine_peak ... ok
+test math::minimise::tests::minimise_batch_crossover_benchmark ... ignored, measurement, not a correctness check. Run with --ignored --nocapture
+test math::minimise::tests::monotone_bracket_walks_to_the_endpoint ... ok
+test math::minimise::tests::multimodal_bracket_returns_a_local_extremum_without_warning ... ok
+test math::minimise::tests::not_finite_objective_is_reported ... ok
+test math::minimise::tests::bitwise_identical_across_backends ... ok
+test math::minimise::tests::public_entry_point_agrees_across_requested_backends ... ok
+test math::minimise::tests::reversed_bracket_is_normalised ... ok
+test math::minimise::tests::partial_failure_in_a_large_batch_is_reported ... ok
+test math::parallel::tests::both_methods_agree_on_a_kinked_residual ... ok
+test math::parallel::tests::bracketed_matches_analytic_cubic_roots ... ok
+test math::parallel::tests::brent_matches_analytic_sqrt ... ok
+test math::parallel::tests::cubic_batch_matches_analytic_construction ... ok
+test math::parallel::tests::dispatch_respects_the_size_floors ... ok
+test math::parallel::tests::empty_batch_is_vacuously_converged ... ok
+test math::parallel::tests::invalid_bracket_is_reported ... ok
+test math::parallel::tests::lane_order_is_preserved ... ok
+test math::parallel::tests::linear_batch_matches_scalar_including_degenerate ... ok
+test math::parallel::tests::max_iterations_is_reported ... ok
+test math::parallel::tests::newton_beats_brent_on_iterations ... ok
+test math::parallel::tests::newton_ignores_an_out_of_bracket_guess ... ok
+test math::parallel::tests::newton_matches_analytic_roots ... ok
+test math::parallel::tests::newton_survives_zero_derivative ... ok
+test math::parallel::tests::bitwise_identical_across_backends ... ok
+test math::parallel::tests::not_bracketed_is_reported_and_not_clamped ... ok
+test math::parallel::tests::not_finite_residual_is_reported ... ok
+test math::parallel::tests::partial_failure_in_a_large_batch_is_reported ... ok
+test math::parallel::tests::poly_batch_crossover_benchmark ... ignored, measurement, not a correctness check; ~0.7 s wall clock. Run with --ignored --nocapture
+test math::parallel::tests::public_entry_points_agree_across_requested_backends ... ok
+test math::parallel::tests::quadratic_batch_residuals_are_analytic ... ok
+test math::parallel::tests::root_batch_crossover_benchmark ... ignored, measurement, not a correctness check; ~0.9 s wall clock. Run with --ignored --nocapture
+test math::parallel::tests::root_on_endpoint_converges_immediately ... ok
+test matrix::square_matrix::tests::fully_zero_matrix_returns_err ... ok
+test matrix::square_matrix::tests::hilbert_5x5_residual_acceptable ... ok
+test matrix::square_matrix::tests::lu_identity ... ok
+test matrix::square_matrix::tests::lu_multiple_rhs ... ok
+test matrix::square_matrix::tests::lu_solve_2x2 ... ok
+test matrix::square_matrix::tests::lu_solve_3x3 ... ok
+test matrix::square_matrix::tests::lu_solve_needs_pivoting ... ok
+test matrix::square_matrix::tests::scaled_pivoting_large_row_contrast ... ok
+test matrix::square_matrix::tests::singular_matrix_returns_err ... ok
+test mesh::ami::tests::overlap_disjoint_is_empty ... ok
+test mesh::ami::tests::vv_overlap_weights_coarse_over_fine ... ok
+test mesh::ami::tests::vv_overlap_weights_partial ... ok
+test mesh::ami::tests::vv_ring_matching_is_identity ... ok
+test mesh::ami::tests::vv_ring_topology_and_weight_sum ... ok
+test mesh::fv_mesh::tests::cyclic_pair_validation_rejects_asymmetric_partner ... ok
+test mesh::fv_mesh::tests::cyclic_partner_face_maps_across_seam ... ok
+test mesh::fv_mesh::tests::face_areas_derived ... ok
+test mesh::fv_mesh::tests::is_internal_face ... ok
+test mesh::fv_mesh::tests::patch_for_face ... ok
+test mesh::fv_mesh::tests::periodic_1d_topology ... ok
+test mesh::fv_mesh::tests::validate_two_cell_mesh ... ok
+test mesh::region_interface::tests::exchange_temperature_matching ... ok
+test mesh::region_interface::tests::non_matching_interface_nearest_centre ... ok
+test ode::euler::tests::euler_exponential_decay ... ok
+test math::parallel::tests::poly_batch_bitwise_identical_across_backends ... ok
+test ode::euler::tests::euler_rotation ... ok
+test ode::integrator::tests::accessors_report_the_variant_truthfully ... ok
+test ode::integrator::tests::dyn_variant_matches_typed_bit_for_bit ... ok
+test ode::integrator::tests::integrator_is_storable_without_a_lifetime ... ok
+test ode::integrator::tests::placeholder_system_integrates_as_a_no_op ... ok
+test ode::integrator::tests::typed_variant_reaches_every_stepper ... ok
+test ode::parallel::tests::a_fixed_rule_has_no_error_estimate ... ok
+test ode::parallel::tests::a_diverging_model_is_reported ... ok
+test ode::parallel::tests::adaptive_matches_closed_forms ... ok
+test ode::parallel::tests::adaptive_tolerance_not_met_is_reported ... ok
+test ode::parallel::tests::dispatch_respects_the_size_floors ... ok
+test ode::parallel::tests::empty_batches_are_vacuously_ok ... ok
+test ode::parallel::tests::ensemble_crossover_benchmark ... ignored, measurement, not a correctness check. Run with --ignored --nocapture
+test ode::parallel::tests::ensemble_matches_analytic_decay ... ok
+test ode::parallel::tests::ensemble_matches_harmonic_oscillator ... ok
+test ode::parallel::tests::fixed_rules_match_a_transcendental_reference ... ok
+test ode::parallel::tests::gauss_legendre_is_exact_to_its_degree ... ok
+test ode::parallel::tests::gauss_nodes_match_the_in_workspace_abramowitz_stegun_values ... ok
+test ode::parallel::tests::invalid_lanes_are_reported ... ok
+test ode::parallel::tests::lane_order_is_preserved ... ok
+test ode::parallel::tests::lumped_body_accuracy_is_set_by_the_relative_tolerance ... ok
+test ode::parallel::tests::max_steps_exceeded_is_reported ... ok
+test ode::parallel::tests::mixed_stepper_selection_reaches_each_lane ... ok
+test ode::parallel::tests::partial_failure_in_a_large_ensemble_is_reported ... ok
+test ode::parallel::tests::public_entry_points_agree_across_requested_backends ... ok
+test ldu_matrix::solvers::gamg::tests::gamg_cycle_count_is_mesh_independent ... ok
+test ode::parallel::tests::quadrature_crossover_benchmark ... ignored, measurement, not a correctness check. Run with --ignored --nocapture
+test ode::parallel::tests::quadrature_interval_conventions ... ok
+test ode::parallel::tests::quadrature_invalid_interval_is_reported ... ok
+test ode::parallel::tests::quadrature_not_finite_is_reported ... ok
+test ode::parallel::tests::simpson_and_trapezoid_are_exact_to_their_degree ... ok
+test ode::parallel::tests::stiff_pair_completes_stiff_and_fails_visibly_explicit ... ok
+test ode::parallel::tests::zero_length_interval_completes_as_a_no_op ... ok
+test ode::rkf45::tests::rkf45_convergence_order_is_fifth ... ok
+test ode::rkf45::tests::rkf45_decay_to_5 ... ok
+test ode::rkf45::tests::rkf45_exceeds_steps_on_stiff_vdp ... ok
+test ode::rkf45::tests::rkf45_exponential_decay ... ok
+test ode::rkf45::tests::rkf45_nonstiff_vdp ... ok
+test ode::rkf45::tests::rkf45_recovers_from_a_trial_step_that_overflows ... ok
+test ode::rkf45::tests::rkf45_reports_a_non_finite_derivative_at_the_accepted_state ... ok
+test ode::rosenbrock23::tests::rosenbrock23_nonstiff_decay ... ok
+test ode::rosenbrock23::tests::rosenbrock23_rotation ... ok
+test ode::rosenbrock23::tests::rosenbrock23_stiff_decay ... ok
+test ode::rosenbrock23::tests::rosenbrock23_stiff_vdp_mu1000 ... ok
+test polynomial::cubic_eqn::tests::degenerate_nan_tag ... ok
+test polynomial::cubic_eqn::tests::degenerate_to_quadratic ... ok
+test polynomial::cubic_eqn::tests::one_real_two_complex ... ok
+test polynomial::cubic_eqn::tests::one_real_two_complex_root_type_tags ... ok
+test polynomial::cubic_eqn::tests::three_real_integer ... ok
+test polynomial::cubic_eqn::tests::triple_root ... ok
+test polynomial::cubic_eqn::tests::value_at_real_roots ... ok
+test polynomial::linear_eqn::tests::degenerate_zero_leading ... ok
+test polynomial::linear_eqn::tests::overflow_root ... ok
+test polynomial::linear_eqn::tests::simple_root ... ok
+test polynomial::linear_eqn::tests::value_and_error ... ok
+test polynomial::polynomial::tests::constant_poly ... ok
+test polynomial::polynomial::tests::integral_additivity ... ok
+test polynomial::polynomial::tests::integral_minus1_log_term ... ok
+test polynomial::polynomial::tests::linear_poly ... ok
+test polynomial::polynomial::tests::quadratic_poly ... ok
+test polynomial::quadratic_eqn::tests::degenerate_falls_back_to_linear ... ok
+test polynomial::quadratic_eqn::tests::repeated_real_root ... ok
+test polynomial::quadratic_eqn::tests::two_complex_roots ... ok
+test polynomial::quadratic_eqn::tests::two_distinct_real ... ok
+test polynomial::quadratic_eqn::tests::value_at_root ... ok
+test polynomial::roots::tests::concat_2 ... ok
+test polynomial::roots::tests::concat_3 ... ok
+test polynomial::roots::tests::encoding_round_trip ... ok
+test polynomial::roots::tests::uniform_3 ... ok
+test primitives::eigen::tests::a_near_degenerate_spectrum_still_gives_an_orthonormal_basis ... ok
+test primitives::eigen::tests::complex_spectrum_is_reported ... ok
+test primitives::eigen::tests::diagonal_eigenvalues_are_the_diagonal_sorted ... ok
+test primitives::eigen::tests::eigenvectors_satisfy_the_eigenvalue_equation ... ok
+test primitives::eigen::tests::general_tensor_with_real_spectrum ... ok
+test primitives::eigen::tests::repeated_eigenvalues_still_give_an_orthonormal_basis ... ok
+test primitives::eigen::tests::spectrum_reproduces_trace_and_determinant ... ok
+test primitives::eigen::tests::symmetric_eigenvectors_are_orthonormal ... ok
+test primitives::eigen::tests::triple_eigenvalue_is_handled ... ok
+test primitives::spherical_tensor::tests::arithmetic ... ok
+test primitives::spherical_tensor::tests::double_inner ... ok
+test primitives::spherical_tensor::tests::identity_properties ... ok
+test primitives::symm_tensor::tests::dev2_regression ... ok
+test primitives::symm_tensor::tests::dev_removes_spherical ... ok
+test primitives::symm_tensor::tests::from_outer_is_symmetric ... ok
+test primitives::symm_tensor::tests::identity_properties ... ok
+test primitives::symm_tensor::tests::inv_roundtrip_is_identity ... ok
+test primitives::symm_tensor::tests::mat_vec ... ok
+test primitives::tensor::tests::dev2_is_two_thirds_trace_removed ... ok
+test primitives::tensor::tests::dev_traceless ... ok
+test primitives::tensor::tests::double_inner_is_symmetric ... ok
+test primitives::tensor::tests::identity_properties ... ok
+test primitives::tensor::tests::inv_roundtrip_is_identity ... ok
+test primitives::tensor::tests::mat_mul_identity ... ok
+test primitives::tensor::tests::mat_vec_identity ... ok
+test primitives::tensor::tests::outer_product ... ok
+test primitives::tensor::tests::symm_and_skew_sum_to_original ... ok
+test primitives::tensor::tests::transpose ... ok
+test primitives::vector::tests::cross_orthogonal_to_both_inputs ... ok
+test primitives::vector::tests::dot_and_cross ... ok
+test primitives::vector::tests::lerp ... ok
+test primitives::vector::tests::mag_and_normalise ... ok
+test primitives::vector::tests::remove_collinear ... ok
+test steady_conduction::tests::bad_inputs_are_errors ... ok
+test steady_conduction::tests::vv_nested_shells_converge_at_second_order ... ok
+test steady_conduction::tests::vv_picard_on_linear_conductivity_matches_kirchhoff_solution ... ok
+test steady_conduction::tests::vv_single_layer_error_is_the_predicted_uniform_offset ... ok
+test ode::parallel::tests::quadrature_bitwise_identical_across_backends_and_threads ... ok
+test thermophysics::eos::ico_polynomial::tests::constant_poly_density ... ok
+test thermophysics::eos::ico_polynomial::tests::density_decreases_with_temperature ... ok
+test thermophysics::eos::ico_polynomial::tests::h_eos_equals_p_over_rho ... ok
+test thermophysics::eos::ico_polynomial::tests::psi_is_zero ... ok
+test thermophysics::eos::peng_robinson::tests::co2_ideal_gas_limit ... ok
+test thermophysics::eos::peng_robinson::tests::co2_nist_density_400k_10mpa ... ignored, TODO: PR EOS gives 17% error at Pr>1 — may indicate root selection or formula bug; see docs/porting-roadmap.md
+test thermophysics::eos::peng_robinson::tests::co2_nist_density_400k_5mpa ... ok
+test thermophysics::eos::peng_robinson::tests::co2_z_above_one_at_moderate_pressure ... ok
+test thermophysics::eos::peng_robinson::tests::cp_m_cv_approaches_r_at_low_pressure ... ok
+test thermophysics::eos::peng_robinson::tests::h_eos_zero_at_low_pressure ... ok
+test thermophysics::eos::peng_robinson::tests::methane_density_at_moderate_conditions ... ok
+test thermophysics::eos::peng_robinson::tests::n2_nist_density_200k_5mpa ... ignored, TODO: PR EOS gives 26% error vs NIST at 200K/5MPa — may indicate root selection or formula bug; see docs/porting-roadmap.md
+test thermophysics::eos::peng_robinson::tests::n2_nist_density_300k_10mpa ... ignored, TODO: PR EOS gives 7% error vs NIST at Pr=2.94 — may indicate root selection or formula bug; see docs/porting-roadmap.md
+test thermophysics::eos::peng_robinson::tests::psi_times_p_approx_rho ... ok
+test thermophysics::eos::perfect_gas::tests::air_density_at_stp ... ok
+test thermophysics::eos::perfect_gas::tests::air_r ... ok
+test thermophysics::eos::perfect_gas::tests::air_z_is_one ... ok
+test thermophysics::eos::perfect_gas::tests::psi_times_p_equals_rho ... ok
+test thermophysics::eos::rho_const::tests::constant_density ... ok
+test thermophysics::eos::rho_const::tests::zero_compressibility ... ok
+test thermophysics::thermo::h_const::tests::cp_is_constant ... ok
+test thermophysics::thermo::h_const::tests::ha_roundtrip ... ok
+test thermophysics::thermo::h_const::tests::hs_plus_hc_equals_ha ... ok
+test thermophysics::thermo::h_polynomial::tests::const_poly_cp ... ok
+test thermophysics::thermo::h_polynomial::tests::entropy_increases_with_temperature ... ok
+test thermophysics::thermo::h_polynomial::tests::ha_roundtrip ... ok
+test thermophysics::thermo::h_polynomial::tests::hs_plus_hc_equals_ha ... ok
+test thermophysics::thermo::h_polynomial::tests::linear_poly_cp ... ok
+test thermophysics::thermo::h_tabulated::tests::cp_from_table ... ok
+test thermophysics::thermo::h_tabulated::tests::entropy_increases_with_temperature ... ok
+test thermophysics::thermo::h_tabulated::tests::ha_from_table_at_knot ... ok
+test thermophysics::thermo::h_tabulated::tests::ha_roundtrip ... ok
+test thermophysics::thermo::h_tabulated::tests::hs_plus_hc_equals_ha ... ok
+test thermophysics::thermo::janaf::tests::cp_at_300k_is_reasonable ... ok
+test thermophysics::thermo::janaf::tests::cp_both_ranges_are_reasonable ... ok
+test thermophysics::thermo::janaf::tests::ha_roundtrip ... ok
+test thermophysics::thermo::janaf::tests::hs_plus_hc_equals_ha ... ok
+test thermophysics::thermo::janaf::tests::newton_converges_from_bad_initial_guess ... ignored, TODO: Newton stalls at ~1152 K from t0=100 K targeting 3000 K — JANAF discontinuity at Tcommon may be a deeper issue; see docs/porting-roadmap.md
+test thermophysics::thermo::janaf::tests::newton_crosses_tcommon_discontinuity ... ok
+test thermophysics::thermo::janaf::tests::newton_t_max_clamp_returns_err ... ok
+test thermophysics::thermo::janaf::tests::newton_t_min_clamp_returns_err ... ok
+test thermophysics::transport::const_transport::tests::alpha_h_equals_kappa_over_cp ... ok
+test thermophysics::transport::const_transport::tests::kappa_from_pr ... ok
+test thermophysics::transport::const_transport::tests::mu_is_constant ... ok
+test thermophysics::transport::polynomial::tests::alpha_h_is_kappa_over_cp ... ok
+test thermophysics::transport::polynomial::tests::kappa_at_300k ... ok
+test thermophysics::transport::polynomial::tests::mu_at_300k ... ok
+test thermophysics::transport::polynomial::tests::mu_increases_with_temperature ... ok
+test thermophysics::transport::sutherland::tests::mu_at_293k ... ok
+test thermophysics::transport::sutherland::tests::mu_increases_with_temperature ... ok
+test thermophysics::transport::sutherland::tests::two_point_reconstruction ... ok
+test thermophysics::transport::tabulated::tests::alpha_h_is_kappa_over_cp ... ok
+test thermophysics::transport::tabulated::tests::kappa_at_knot ... ok
+test thermophysics::transport::tabulated::tests::mu_at_knot ... ok
+test thermophysics::transport::tabulated::tests::mu_increases_with_temperature ... ok
+test thermophysics::transport::tabulated::tests::mu_interpolated ... ok
+test steady_conduction::tests::vv_voxel_sphere_converges_only_with_the_film_area_correction ... ok
+test ode::parallel::tests::ensemble_bitwise_identical_across_backends ... ok
+test krylov::hybrid_tests::reduction_order_flips_no_iteration_counts_across_a_tolerance_sweep ... ok
+
+test result: ok. 537 passed; 0 failed; 20 ignored; 0 measured; 0 filtered out; finished in 1.68s
+
+     Running tests/hybrid_parity.rs (target/release/deps/hybrid_parity-153de7a5f40d0fa9)
+
+running 8 tests
+test crossover_benchmark ... ignored, crossover benchmark: measured 1.8 s, and meaningless without --nocapture
+test digest_child ... ignored, child process of gate_thread_count_invariance; does nothing standalone
+test gate_dispatch_floors_are_enforced ... ok
+test gate_gpu_degrades_and_does_not_lie ... ok
+test gate_parity_serial_vs_gpu ... ok
+test gate_parity_serial_vs_cpu_multi ... ok
+test machine_load_report ... ok
+test gate_thread_count_invariance ... ok
+
+test result: ok. 6 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.33s
+
+     Running tests/io_roundtrip.rs (target/release/deps/io_roundtrip-08997db2111b46fc)
+
+running 4 tests
+test dict_roundtrip ... ok
+test field_scalar_roundtrip ... ok
+test field_vector_roundtrip ... ok
+test poly_mesh_roundtrip ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/krylov_convection_diffusion.rs (target/release/deps/krylov_convection_diffusion-6975df7b79be5627)
+
+running 4 tests
+test solve_krylov_dispatch_matches_the_named_entry_points ... ok
+test warm_started_krylov_costs_fewer_iterations ... ok
+test krylov_beats_gauss_seidel_on_convection_diffusion ... ok
+test krylov_matches_dense_lu_on_convection_diffusion ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/nnc261_solve.rs (target/release/deps/nnc261_solve-1283cc3d8106d70d)
+
+running 1 test
+test nnc261_lu_roundtrip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/non_orthogonal_laplacian.rs (target/release/deps/non_orthogonal_laplacian-3c5d8ae135b3c475)
+
+running 3 tests
+test least_squares_gradient_is_exact_for_a_linear_field_on_a_wavy_mesh ... ok
+test limited_scheme_is_monotone_between_orthogonal_and_corrected ... ok
+test corrected_laplacian_recovers_a_linear_field_on_a_wavy_mesh ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+

@@ -1,0 +1,28 @@
+{
+	"case": "who_isbn",
+	"input": {
+		"kind": "forced",
+		"translator": "WHO.js",
+		"search": {
+			"itemType": "book",
+			"ISBN": "9789241506236"
+		}
+	},
+	"recordedOn": "2026-10-07T01:48:28.370Z",
+	"userAgent": "kovan-zotero-reference/0.1 (outram-park-backend kovan-literature; recording public bibliographic metadata fixtures for code-to-code tests; https://github.com/theodoreOnzGit/outram-park-backend)",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://apps.who.int/iris/discover/export?format=refman&list=discover&rpp=10&etal=0&query=9789241506236&group_by=none&page=1&filtertype_0=identifier&filter_relational_operator_0=equals&filter_0=9789241506236",
+				"headers": {
+					"Accept": "*/*"
+				},
+				"body": null
+			},
+			"response": {
+				"error": "read ECONNRESET"
+			}
+		}
+	]
+}

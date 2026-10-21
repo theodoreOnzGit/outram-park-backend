@@ -21,7 +21,18 @@
 
 /// test series took about 600s on AMD Ryzeon 5 5600 (12) @ 3.050 GHz
 ///
+///
+/// Re-measured 2026-10-20 (gh:#989, `peroxide`/`roots` -> PETIR), still
+/// passing: DRACS flow 0.03414121757927805 -> 0.03414122259728258 kg/s
+/// (+1.5e-7 rel.), primary flow 0.02767611317031267 -> 0.02767611426455287
+/// kg/s (+4.0e-8), heater mean surface 115.5736303006309 -> 115.57363734823446
+/// degC (+7.0e-6 K). Root-finder tolerance level; see
+/// `docs/peroxide-roots-to-petir-989.md`.
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 582 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_a1() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;
@@ -136,6 +147,10 @@ pub fn ciet_coupled_nat_circ_set_a1() {
 /// test series took about 600s on AMD Ryzeon 5 5600 (12) @ 3.050 GHz
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 599 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_a2() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;
@@ -249,6 +264,10 @@ pub fn ciet_coupled_nat_circ_set_a2() {
 /// test series took about 600s on AMD Ryzeon 5 5600 (12) @ 3.050 GHz
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 579 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_a3() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;
@@ -362,6 +381,10 @@ pub fn ciet_coupled_nat_circ_set_a3() {
 /// test series took about 600s on AMD Ryzeon 5 5600 (12) @ 3.050 GHz
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 580 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_a4() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;
@@ -476,6 +499,10 @@ pub fn ciet_coupled_nat_circ_set_a4() {
 /// test series took about 600s on AMD Ryzeon 5 5600 (12) @ 3.050 GHz
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 588 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_a5() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;
@@ -590,6 +617,10 @@ pub fn ciet_coupled_nat_circ_set_a5() {
 /// test series took about 600s on AMD Ryzeon 5 5600 (12) @ 3.050 GHz
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 592 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_a6() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;
@@ -704,6 +735,10 @@ pub fn ciet_coupled_nat_circ_set_a6() {
 /// test series took about 600s on AMD Ryzeon 5 5600 (12) @ 3.050 GHz
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 588 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_a7() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.061;

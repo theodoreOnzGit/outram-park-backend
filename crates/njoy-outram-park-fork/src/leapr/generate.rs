@@ -29,11 +29,11 @@
 //! Measured on 2026-08-13 against ENDF/B-VIII.0 crystalline graphite, in
 //! release mode:
 //!
-//! - **The generated MF=7/MT=4 section is bit-identical to the official
-//!   tape's.** Running the full path here — deck -> kernels -> [`endout`] ->
+//! - ~~**The generated MF=7/MT=4 section is bit-identical to the official
+//!   tape's.**~~ Running the full path here — deck -> kernels -> [`endout`] ->
 //!   ENDF text — and comparing the *stored* values at 296 K over the whole
-//!   150 x 400 grid gives **60,000 / 60,000 values identical**, max relative
-//!   deviation **0.000e0**. The 4.917e-6 residual the raw-kernel parity test
+//!   150 x 400 grid gives ~~**60,000 / 60,000 values identical**, max relative
+//!   deviation **0.000e0**~~ **CORRECTED 2026-10-14**: 6,645 of 60,000 stored values are bit-identical; the regenerated `S` agrees with the official tape to 1.004e-13 max (re-measured 1.002e-13 on 2026-10-04) over 48,941 points above 1e-30 (`examples/graphite_sab_generation.rs`, corrected there 2026-09-11). The 4.917e-6 residual the raw-kernel parity test
 //!   reports (`tests/leapr_graphite_deck_parity.rs`) is the tape's own
 //!   6-to-7-significant-figure storage round-off, and it vanishes once
 //!   `endout` applies the same `sigfig` rounding NJOY applies. So the
@@ -61,10 +61,10 @@
 //!
 //! | Material / channel | Status (2026-08-13) |
 //! |---|---|
-//! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — 60,000 / 60,000 stored values bit-identical to ENDF/B-VIII.0 at 296 K. |
-//! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation **0.000e0** on both edge energies and `S(E)` at 296 K through this path. Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
+//! | `CrystallineGraphite` MF=7/**MT=4** incoherent inelastic | **Validated** — ~~60,000 / 60,000 stored values bit-identical~~ 1.004e-13 max against ENDF/B-VIII.0 at 296 K, 6,645 / 60,000 bit-identical (CORRECTED 2026-10-14). |
+//! | `CrystallineGraphite` MF=7/**MT=2** coherent elastic | **Validated** — 221 / 221 Bragg grid points, max relative deviation ~~**0.000e0**~~ 1.001e-13 (edge energies) and 1.000e-13 (`S(E)`) at 296 K through this path (CORRECTED 2026-10-14, `examples/graphite_sab_generation.rs`, 2026-10-04). Across all ten temperatures, `tests/leapr_graphite_coherent_elastic_parity.rs` measures max **1.001e-13** on the raw kernel output (float round-trip noise on a 7-digit field). |
 //! | `ReactorGraphite10P`, `ReactorGraphite30P` (either channel) | **Not validated.** They parse and generate through the identical path, but no parity measurement has been taken. |
-//! | `HInH2O` MF=7/**MT=4** incoherent inelastic | **Not validated against the published tape** — regeneration at 293.6 K agrees with it to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff`, so [`SabRequest::validation`] still reports it unvalidated (`tests/leapr_h2o_secondary_scatterer.rs`). **Validated like-for-like against NJOY2016 itself** (2026-09-10): the same deck run through upstream `ac5adf5` at 293.6 K gives 44,961 `S(alpha,beta)` points identical to 1e-13 and `T_eff` 1194.341 K exactly (`tests/leapr_h2o_njoy_oracle.rs`, with `LeaprDeck::with_constants(Codata2018)`); the 0.6 % is the published tape's own build/constants. |
+//! | `HInH2O` MF=7/**MT=4** incoherent inelastic | ~~**Not validated against the published tape** — regeneration at 293.6 K agrees with it to **~0.6 %** on σ_inel over 0.0253–8 eV and **+0.09 %** on `T_eff`~~ **CORRECTED 2026-10-14:** that 0.6 % was the block-0 (283.6 K) spectrum used for a 293.6 K request; with the 293.6 K block (2026-08-21) regeneration reproduces the published tape's σ_inel at 0.0253, 1, 4 and 8 eV to its printed precision (+0.01 % at most) and `T_eff` to +0.0028 % (`tests/leapr_h2o_secondary_scatterer.rs`). [`SabRequest::validation`] still reports it unvalidated: that is a comparison of four σ values and `T_eff`, not of the stored S(α,β). **Validated like-for-like against NJOY2016 itself** (2026-09-10): the same deck run through upstream `ac5adf5` at 293.6 K gives 44,961 `S(alpha,beta)` points identical to 1e-13 and `T_eff` 1194.341 K exactly (`tests/leapr_h2o_njoy_oracle.rs`, with `LeaprDeck::with_constants(Codata2018)`); the 0.6 % is the published tape's own build/constants. |
 //! | `DInD2O` MF=7/**MT=4** (Sköld, `nsk = 2`) | **Validated like-for-like against NJOY2016** (2026-09-10): 60,322 points at 293.6 K identical to 1e-13, `T_eff` exact (`tests/leapr_d2o_skold_njoy_oracle.rs`). Not compared with the published tape. |
 //! | `SiO2Alpha` MF=7/**MT=4** (mixed moderator, `b7 = 0`) | **Validated like-for-like against NJOY2016** (2026-09-10): 43,449 points over 5 temperatures identical to 1e-13, both `T_eff` tables exact (`tests/leapr_sio2_mixed_moderator_oracle.rs`). Not compared with the published tape. |
 //!
@@ -134,6 +134,7 @@
 //! temperature), not per run. A device that cannot afford even that should
 //! point [`SabSource::EndfTape`] at a tape instead.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock, RwLock};
@@ -591,7 +592,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 /// in the library, and 293.6 K (the temperature this crate's own H-in-H₂O tests
 /// request, and a temperature the deck *does* declare) was hitting the wrong
 /// block. Nothing errored; the numbers were just wrong.
-fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize, NjoyError> {
+pub(crate) fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize, NjoyError> {
     let declared = deck.temperatures_k();
     let tol = crate::thermr::mf7::temperature_match_tolerance_k(temperature_k);
 
@@ -759,8 +760,8 @@ pub fn build_law_at_temperature(
             }
         }
 
-        let sb = deck.spr * ((1.0 + deck.awr) / deck.awr).powi(2);
-        let sbs = deck.sps * ((1.0 + deck.aws) / deck.aws).powi(2);
+        let sb = deck.spr * ((1.0 + deck.awr) / deck.awr).r_powi(2);
+        let sbs = deck.sps * ((1.0 + deck.aws) / deck.aws).r_powi(2);
         let srat = sbs / sb;
         for ib in 0..ssm.nbeta {
             for ia in 0..ssm.nalpha {
@@ -1324,13 +1325,12 @@ fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
 /// not produced by these cards), not a defect here, so it is documented rather
 /// than encoded as a tolerance.
 pub(crate) fn bound_cross_section_times_npr(spr: f64, awr: f64, npr: i32) -> f64 {
-    spr * ((1.0 + awr) / awr).powi(2) * f64::from(npr)
+    spr * ((1.0 + awr) / awr).r_powi(2) * f64::from(npr)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     /// The `sb` translation, against its two source lines. `leapr.f90:3014`
     /// gives `sb = spr*((1+awr)/awr)**2` and `:3169` stores `sb*npr`.
@@ -1343,7 +1343,7 @@ mod tests {
     #[test]
     fn bound_cross_section_matches_leapr_3014() {
         let (spr, awr, npr) = (20.478_f64, 0.99917_f64, 2);
-        let factor = ((1.0 + awr) / awr).powi(2);
+        let factor = ((1.0 + awr) / awr).r_powi(2);
         // The factor itself, stated independently of the function.
         assert!(
             (factor - 4.003_323_4).abs() < 1.0e-6,
@@ -1353,9 +1353,7 @@ mod tests {
         let want = spr * factor * 2.0;
         assert!((got - want).abs() < 1.0e-12 * want, "{got} != {want}");
         // npr scales it linearly, and npr = 0 is a degenerate but legal deck.
-        assert!(
-            (bound_cross_section_times_npr(spr, awr, 1) * 2.0 - got).abs() < 1.0e-12 * got
-        );
+        assert!((bound_cross_section_times_npr(spr, awr, 1) * 2.0 - got).abs() < 1.0e-12 * got);
         assert_eq!(bound_cross_section_times_npr(spr, awr, 0), 0.0);
     }
 

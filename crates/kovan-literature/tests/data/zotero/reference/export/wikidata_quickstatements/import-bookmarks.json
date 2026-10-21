@@ -1,0 +1,7 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ36774\nLAST\tDen\t\"webpage\"\nLAST\tP953\t\"https://pond.imperialviolet.org\"\nLAST\tLmul\t\"Pond - Pond\"\nLAST\tLen\t\"Pond - Pond\"\nLAST\tP1476\tund:\"Pond - Pond\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

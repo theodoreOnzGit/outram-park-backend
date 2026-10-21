@@ -157,6 +157,7 @@
 //! needed a real fix — see the module doc's caveats section and
 //! `psi_w_from_wet_bulb`'s own doc comment in `src/humid_air/mod.rs`.
 
+use petir::mathf::RealMath;
 use outram_park_fork_coolprop::humid_air::{ha_props, HumidAirParam};
 
 const T: f64 = 298.15; // 25 C
@@ -295,9 +296,9 @@ fn dew_and_wet_bulb(t: f64, p: f64, r: f64) -> (f64, f64) {
 /// sea-level pressure. Independent of this port's own energy-balance solve —
 /// shares no code or fitted coefficients with it.
 fn stull_wet_bulb_c(t_c: f64, rh_pct: f64) -> f64 {
-    t_c * (0.151977 * (rh_pct + 8.313659).sqrt()).atan() + (t_c + rh_pct).atan()
-        - (rh_pct - 1.676331).atan()
-        + 0.00391838 * rh_pct.powf(1.5) * (0.023101 * rh_pct).atan()
+    t_c * (0.151977 * (rh_pct + 8.313659).sqrt()).r_atan() + (t_c + rh_pct).r_atan()
+        - (rh_pct - 1.676331).r_atan()
+        + 0.00391838 * rh_pct.r_powf(1.5) * (0.023101 * rh_pct).r_atan()
         - 4.686035
 }
 

@@ -2,6 +2,7 @@
 //! Validates `get_critical_pressure_and_mass_flux_ph_vle_dome` on stagnation
 //! states that lie inside the p-h VLE dome (filtered via region check).
 
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::area::square_foot;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
@@ -86,8 +87,8 @@ fn validate_zaloudek_curve_in_dome(
         );
 
         approx::assert_relative_eq!(
-            g_calc.get::<kilogram_per_square_meter_second>().log10(),
-            g_expected.get::<kilogram_per_square_meter_second>().log10(),
+            g_calc.get::<kilogram_per_square_meter_second>().r_log10(),
+            g_expected.get::<kilogram_per_square_meter_second>().r_log10(),
             max_relative = mass_flux_log_tolerance,
         );
     }

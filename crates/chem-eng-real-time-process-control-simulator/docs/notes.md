@@ -2,7 +2,7 @@
 
 Reference material: the 2026-06 OUTRAM PARK consolidation log for this crate
 (workspace dependency inheritance, profile moves, Apache-2.0 license retention —
-since superseded: the crate was relicensed to GPL-3.0-only on 2026-08-11, see
+since superseded: the crate was relicensed to GPL-3.0-only on 2026-08-11, then to **AGPL-3.0-only** on 2026-10-20 (gh:#973), see
 the crate `NOTICE`).
 Consulted on demand — not per-turn guidance. The crate's purpose, layout, and
 build commands live in CLAUDE.md.

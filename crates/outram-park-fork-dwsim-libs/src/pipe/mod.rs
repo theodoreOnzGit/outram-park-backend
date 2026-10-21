@@ -7,6 +7,7 @@
 //! portable source -- see [`petalas_aziz`]'s module doc for the literature
 //! review and why it is a documented stub, not a port.
 
+use petir::mathf::RealMath;
 pub mod beggs_brill;
 pub mod friction_factor;
 pub mod lockhart_martinelli;
@@ -102,7 +103,7 @@ impl PipeFlowCorrelation {
                 let c_l = q_l / (q_l + q_g);
                 let viscosity_no_slip =
                     inputs.viscosity_liquid * c_l + inputs.viscosity_gas * (1.0 - c_l);
-                let elevation_change = inputs.length * inputs.inclination.get::<radian>().sin();
+                let elevation_change = inputs.length * inputs.inclination.get::<radian>().r_sin();
                 PipeFlowResult::BeggsBrill(beggs_brill_pressure_drop(
                     inputs.length,
                     inputs.diameter,

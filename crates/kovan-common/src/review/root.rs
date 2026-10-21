@@ -1,0 +1,1100 @@
+//! The code-review sections of the workspace's **`kovan_root.toml`**
+//! (maintainer, #739 decision 18 and the signing / many-maintainers
+//! comments, 2026-10-07).
+//!
+//! `kovan_root.toml` is the literature library marker that `kovan::root`
+//! already reads (`schema_version`, `[library]`, `[paths]`, …). Code review
+//! adds three **top-level, optional** sections; nothing existing changes, and
+//! a literature library without them reads as before:
+//!
+//! ```toml
+//! [code_review]
+//! rust_analyzer = "0.3.2645"       # pinned version; a mismatch re-indexes
+//! founder = "github:theodoreOnzGit" # the founding maintainer (#762)
+//!
+//! [[code_review.rust_analyzer_used]] # append-only: the versions index runs used
+//! version = "1.98.0"
+//! date = "2026-10-07"
+//! commit = "<HEAD sha>"              # or "none" (no commit yet)
+//!
+//! [[code_review.developing_organisation]] # append-only, maintainer-signed (#809)
+//! name = "Outram Park project (NUS)"
+//! date = "2026-10-08"
+//! signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+//! signature = "<base64>"
+//! # crate = "tampines"              # optional: a per-crate override
+//!
+//! [[reviewer]]
+//! id = "github:theodoreOnzGit"     # github:/gitlab:/orcid: or an email
+//! name = "Theodore Ong"            # display only
+//! role = "maintainer"              # maintainer | reviewer
+//! scope = ["crates/**"]            # path globs; see `scope`
+//! admitted = "2026-10-07"
+//!
+//! [[reviewer.qualification]]       # one per area; enforced only at rung 5
+//! area = "concept:thermal-hydraulics"
+//! basis = "degree"                  # degree | publications | track_record | self_study | endorsement
+//! evidence = ["https://doi.org/…"]
+//! endorsed_by = { by = "github:…" } # optional
+//! self_declared = false             # must be true for self_study
+//! # (the first-version form, qualification = ["concept:…"], still reads)
+//!
+//! [[reviewer.key]]
+//! id = "k1"
+//! alg = "ed25519"
+//! public = "<base64>"
+//! created = "2026-10-07"
+//!
+//! [[reviewer.key.history]]          # append-only lifecycle (#762); state is replayed
+//! event = "created"
+//! date = "2026-10-07"
+//! [[reviewer.key.history]]
+//! event = "endorsed"                # created|endorsed|reset|admitted|retired|unretired|revoked|compromised
+//! date = "2026-10-07"
+//! signer = { reviewer = "github:theodoreOnzGit", key = "k0" }
+//! signature = "<base64>"
+//! # v1 fields (endorsed_by, reset, retired, retired_on, unretired, and the
+//! # reviewer's admitted_by) still load: ReviewRoot::migrate_key_history
+//!
+//! [[reviewer.organisation]]        # append-only, maintainer-signed (#809)
+//! name = "Example IV&V Ltd"
+//! date = "2026-10-08"
+//! signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+//! signature = "<base64>"
+//!
+//! [[reviewer.separation]]          # the reviewer's own signed attestation (#809)
+//! id = "sep-2026-10-08"
+//! organisation = "Example IV&V Ltd"
+//! developing_organisation = "Outram Park project (NUS)"
+//! date = "2026-10-08"
+//! audit_record = "https://github.com/<owner>/<repo>/issues/<n>"
+//! key = "r1"
+//! signature = "<base64>"
+//!
+//! [reviewer.revoked]                # optional: revokes the person
+//! date = "2026-12-01"
+//! compromised_from = "2026-11-20"  # optional: void stamps from this date
+//! by = "github:theodoreOnzGit"
+//!
+//! [[deleted_crate]]                 # a crate renamed or deleted (#739 D6)
+//! name = "old-crate"
+//! dir = "crates/old-crate"
+//! deleted_commit = "<sha>"
+//! [[deleted_crate.function]]        # its review history, as review.md keeps it
+//! function = "crates/old-crate/src/lib.rs::f"
+//! …
+//! ```
+//!
+//! The developing organisation, reviewer organisations and separation
+//! attestations (GitHub #809) are what rung 5 rests on: see
+//! [`crate::review::ivv`].
+//!
+//! ~~Signatures and endorsements are stored but **not verified**: the crypto is
+//! GitHub #762.~~ **CORRECTED 2026-10-07 (#762)**: signatures, endorsements,
+//! admissions, revocations and un-retirements are verified by
+//! [`crate::review::signing::registry::Registry::build`]; what each one signs
+//! is in [`crate::review::signing`].
+//!
+//! `kovan::root::RootConfig` carries the same three fields (additive), so a
+//! literature-side save of `kovan_root.toml` keeps them.
+
+use serde::{Deserialize, Serialize};
+
+use super::review_md::DeletedFunction;
+use super::types::{check_commit, check_date, reviewer_id_kind, FieldError};
+
+/// `[code_review]`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CodeReviewSettings {
+    /// The pinned rust-analyzer version (D4): a mismatch warns and
+    /// regenerates the index.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rust_analyzer: Option<String>,
+    /// The founding maintainer's reviewer id (#762, additive; maintainer,
+    /// 2026-10-07): the one reviewer whose first key is trusted on first
+    /// use. Absent or unknown means no founder, so nothing is trusted
+    /// ([`crate::review::signing::registry::FounderProblem`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub founder: Option<String>,
+    /// Every rust-analyzer version an index run used, oldest first
+    /// (`[[code_review.rust_analyzer_used]]`; maintainer, 2026-10-07: "just
+    /// record the versions of rust analyzer that were used, never overwrite
+    /// the comments based on the new versions"). Additive: absent in older
+    /// roots, ignored by readers that predate it. A run never changes
+    /// [`Self::rust_analyzer`] (the pin); it only appends here, as text, with
+    /// [`append_rust_analyzer_used`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rust_analyzer_used: Vec<RustAnalyzerUsed>,
+    /// `[[code_review.developing_organisation]]` (GitHub #809, maintainer
+    /// 2026-10-08): the organisation responsible for developing the
+    /// software, which rung 5's independent organisation must be separate
+    /// from. Append-only, each entry maintainer-signed: an entry without
+    /// `crate` is workspace-wide; one with `crate` overrides it for that
+    /// crate ([`DevelopingOrganisation`]). Additive: absent in older roots.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub developing_organisation: Vec<DevelopingOrganisation>,
+}
+
+/// One `[[code_review.developing_organisation]]` entry (GitHub #809): from
+/// `date` on, `name` is the organisation responsible for developing the
+/// software, workspace-wide or (with `crate`) for one crate.
+///
+/// ```toml
+/// [[code_review.developing_organisation]]
+/// name = "Outram Park project (NUS)"
+/// date = "2026-10-08"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+///
+/// [[code_review.developing_organisation]]   # a per-crate override
+/// crate = "tampines"
+/// name = "Tampines group"
+/// date = "2026-10-08"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+///
+/// **Append-only**: a change is a new entry, never an edit (the engine's
+/// [`crate::review::engine::history_append_only`] warns on an edit or a
+/// removal). Signed by an admitted maintainer over
+/// [`crate::review::signing::developing_organisation_bytes`]
+/// (`kovan-developing-organisation-v1`). The entry in force for a crate at
+/// a date is the last one for that crate dated on or before it, else the
+/// last workspace-wide one ([`crate::review::ivv`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DevelopingOrganisation {
+    /// The crate (its package name, as `kovan.toml` records it) this entry
+    /// overrides; absent for the workspace-wide entry.
+    #[serde(default, rename = "crate", skip_serializing_if = "Option::is_none")]
+    pub krate: Option<String>,
+    pub name: String,
+    /// `YYYY-MM-DD`: in force from this date.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+/// One `[[reviewer.organisation]]` entry (GitHub #809): from `date` on, the
+/// reviewer belongs to `name`. Registry state, signed by an admitted
+/// maintainer over [`crate::review::signing::reviewer_organisation_bytes`]
+/// (`kovan-reviewer-organisation-v1`), like an admission. Append-only: the
+/// entry in force at a date is the last one dated on or before it.
+///
+/// ```toml
+/// [[reviewer.organisation]]
+/// name = "Example IV&V Ltd"
+/// date = "2026-10-08"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewerOrganisation {
+    pub name: String,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+/// One `[[reviewer.separation]]` entry: the **separation attestation**
+/// (GitHub #809, maintainer 2026-10-08). Signed by the reviewer alone (no
+/// countersignature), with one of its own keys, over
+/// [`crate::review::signing::separation_attestation_bytes`]
+/// (`kovan-separation-attestation-v1`), which includes the fixed statement
+/// [`crate::review::signing::SEPARATION_STATEMENT`]: that `organisation` is
+/// both technically and managerially separate from
+/// `developing_organisation` (NUREG/BR-0167 §3.1 p. 6).
+///
+/// **Where it lives: per reviewer, for one (reviewer organisation,
+/// developing organisation) pair**, not per review. Separation is a fact
+/// about two organisations, not about one function, so one attestation
+/// covers every review the reviewer gives for that pair; each review that
+/// relies on it names it (`[review] separation_attestation = "<id>"`,
+/// signed into the stamp), so a reader sees which attestation a rung 5
+/// rests on. Append-only like the key history.
+///
+/// ```toml
+/// [[reviewer.separation]]
+/// id = "sep-2026-10-08"
+/// organisation = "Example IV&V Ltd"
+/// developing_organisation = "Outram Park project (NUS)"
+/// date = "2026-10-08"
+/// audit_record = "https://github.com/theodoreOnzGit/outram-park-backend/issues/809"
+/// key = "r1"
+/// signature = "<base64>"
+/// ```
+///
+/// `audit_record` must be a public GitHub issue URL
+/// (`https://github.com/<owner>/<repo>/issues/<n>`, open or closed); it is
+/// optional in the schema only so that a missing one reads and is shown as
+/// the reason there is no rung 5. Kovan checks its form, never its content
+/// (offline): it is shown labelled
+/// [`crate::review::ivv::AUDIT_RECORD_LABEL`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeparationAttestation {
+    /// Unique among this reviewer's attestations; reviews name it.
+    pub id: String,
+    /// The reviewer's organisation.
+    pub organisation: String,
+    /// The organisation responsible for developing the software.
+    pub developing_organisation: String,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_record: Option<String>,
+    /// The reviewer's signing key id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+}
+
+/// One `[[code_review.rust_analyzer_used]]` entry: the rust-analyzer
+/// version an index run used, the date (`YYYY-MM-DD`) and the `HEAD` commit
+/// it ran at (`"none"` in a repository with no commit yet).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RustAnalyzerUsed {
+    pub version: String,
+    pub date: String,
+    pub commit: String,
+}
+
+/// `existing` (a whole `kovan_root.toml`) with `used` appended as a new
+/// `[[code_review.rust_analyzer_used]]` entry, **as text at the end**: every
+/// existing byte, comments included, is kept, so `existing` is a prefix of
+/// the result (unlike [`ReviewRoot::write_into`], which re-serialises).
+///
+/// `Ok(None)`: nothing to append, because the last recorded version is
+/// `used.version` already. `Err`: `existing` does not parse (the caller's
+/// corrupt-root flow applies), `used.date` is not a date, or the appended
+/// text would not read back as exactly one more entry (for example a root
+/// that spells `rust_analyzer_used` as an inline array); nothing is written
+/// then.
+pub fn append_rust_analyzer_used(
+    existing: &str,
+    used: &RustAnalyzerUsed,
+) -> Result<Option<String>, RootError> {
+    check_date("code_review.rust_analyzer_used.date", &used.date).map_err(RootError::Field)?;
+    let before = ReviewRoot::parse(existing)?;
+    let history = before.rust_analyzer_history();
+    if history.last().is_some_and(|l| l.version == used.version) {
+        return Ok(None);
+    }
+    let q = |v: &str| toml::Value::String(v.to_string()).to_string();
+    let mut text = existing.to_string();
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(&format!(
+        "\n[[code_review.rust_analyzer_used]]\nversion = {}\ndate = {}\ncommit = {}\n",
+        q(&used.version),
+        q(&used.date),
+        q(&used.commit)
+    ));
+    let after = ReviewRoot::parse(&text)?;
+    let mut expected = history.to_vec();
+    expected.push(used.clone());
+    if after.rust_analyzer_history() != expected.as_slice() {
+        return Err(RootError::Toml(
+            "appending [[code_review.rust_analyzer_used]] would not read back as one more entry; \
+             nothing was appended"
+                .into(),
+        ));
+    }
+    Ok(Some(text))
+}
+
+/// A reviewer's role.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Role {
+    /// Admits and revokes reviewers, and stamps anywhere.
+    Maintainer,
+    /// Stamps only, within `scope`.
+    Reviewer,
+}
+
+/// A signature by one key over some bytes (an endorsement, an admission or a
+/// revocation). Verified by [`crate::review::signing::registry`] (#762).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeySignature {
+    /// The signing key's id.
+    pub key: String,
+    /// Base64 signature.
+    pub signature: String,
+}
+
+/// `[[reviewer.key]]`: one public key.
+///
+/// **Its lifecycle is the append-only `history`** (maintainer, #762,
+/// 2026-10-07): trust, retirement and revocation are derived by replaying
+/// it ([`crate::review::signing::registry`]). The fields marked *legacy*
+/// below are the #764/#762 v1 form; they still load, and
+/// [`ReviewRoot::migrate_key_history`] moves them into `history`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewerKey {
+    pub id: String,
+    /// `ed25519` (#739 signing comment).
+    pub alg: String,
+    /// Base64 public key.
+    pub public: String,
+    pub created: String,
+    /// *Legacy.* The existing key of the same reviewer that endorsed this
+    /// one; absent only for a reviewer's first key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endorsed_by: Option<KeySignature>,
+    /// *Legacy.* A deliberate key reset (shown permanently).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reset: bool,
+    /// *Legacy.* Retired (an un-retire clears it).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub retired: bool,
+    /// *Legacy* (#762 v1). The date the key was retired.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retired_on: Option<String>,
+    /// *Legacy* (#762 v1). The un-retirement, signed by this key itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unretired: Option<Unretirement>,
+    /// `[[reviewer.key.history]]`: every lifecycle event of this key, in the
+    /// order it happened. Append-only: entries are never edited or deleted.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub history: Vec<KeyEvent>,
+}
+
+/// What happened to a key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KeyEventKind {
+    /// The key was generated (unsigned; its date is `created`).
+    Created,
+    /// Vouched for by a trusted key of the same reviewer.
+    Endorsed,
+    /// A deliberate reset (the old passphrase is lost): vouched for by a
+    /// maintainer, or unsigned for the founding maintainer. Shown forever.
+    Reset,
+    /// The reviewer's admission by a maintainer; only on the first key.
+    Admitted,
+    /// Retired from `date` (unsigned: retiring only takes trust away).
+    Retired,
+    /// Back from `date`; signed by **the key itself** (possession proof).
+    Unretired,
+    /// Revoked from `date` by a maintainer or the key's own reviewer.
+    Revoked,
+    /// Compromised from `date`: void from then on.
+    Compromised,
+}
+
+impl KeyEventKind {
+    /// The wire name.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Endorsed => "endorsed",
+            Self::Reset => "reset",
+            Self::Admitted => "admitted",
+            Self::Retired => "retired",
+            Self::Unretired => "unretired",
+            Self::Revoked => "revoked",
+            Self::Compromised => "compromised",
+        }
+    }
+}
+
+/// Who signed a key event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeySigner {
+    /// The signer's reviewer id. Absent only on events migrated from the
+    /// legacy fields, which did not record it (the eligible signers are
+    /// then searched).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reviewer: Option<String>,
+    /// The signer's key id.
+    pub key: String,
+}
+
+/// `[[reviewer.key.history]]`: one lifecycle event.
+///
+/// ```toml
+/// [[reviewer.key.history]]
+/// event = "unretired"
+/// date = "2026-10-15"
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeyEvent {
+    pub event: KeyEventKind,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    /// Base64 signature over
+    /// [`crate::review::signing::key_event_bytes`] (or, with `legacy`, over
+    /// the v1 statement bytes the migrated field was signed over).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+    /// Migrated from a legacy field: the signature is over the v1 bytes.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub legacy: bool,
+}
+
+impl KeyEvent {
+    /// An unsigned event.
+    pub fn unsigned(event: KeyEventKind, date: &str) -> KeyEvent {
+        KeyEvent { event, date: date.into(), signer: None, signature: None, legacy: false }
+    }
+}
+
+/// A key whose legacy fields were left alone because it already has a
+/// `history` (the history wins; the registry lists it as a warning).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LegacyConflict {
+    pub reviewer: String,
+    pub key: String,
+}
+
+/// `[reviewer.key.unretired]`: a retired key brought back (#762).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Unretirement {
+    /// From this date the key's stamps count again.
+    pub date: String,
+    /// Base64 signature by the un-retired key over
+    /// [`crate::review::signing::unretire_bytes`].
+    pub signature: String,
+}
+
+/// `[reviewer.revoked]`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Revocation {
+    /// Stamps dated before this stay valid.
+    pub date: String,
+    /// For a compromised key: stamps from this date on are void.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compromised_from: Option<String>,
+    /// The maintainer who revoked.
+    pub by: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<KeySignature>,
+}
+
+/// What a qualification rests on (maintainer, #739, 2026-10-07: "demonstrated
+/// competence in an area, with evidence. A degree title is not required").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QualificationBasis {
+    /// A degree or thesis.
+    Degree,
+    Publications,
+    /// A repository track record.
+    TrackRecord,
+    /// Self-study with evidence: always labelled self-declared.
+    SelfStudy,
+    /// Another person vouches (see `endorsed_by`).
+    Endorsement,
+}
+
+impl QualificationBasis {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Degree => "degree/thesis",
+            Self::Publications => "publications",
+            Self::TrackRecord => "track record",
+            Self::SelfStudy => "self-study",
+            Self::Endorsement => "endorsement",
+        }
+    }
+}
+
+/// Who endorsed a qualification.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QualificationEndorsement {
+    /// The endorser's reviewer id.
+    pub by: String,
+    /// Not verified until #762.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<KeySignature>,
+}
+
+/// `[[reviewer.qualification]]`: competence in one concept-tree area.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QualificationRecord {
+    /// The concept-tree node, e.g. `concept:thermal-hydraulics`. Covers the
+    /// node and everything under it.
+    pub area: String,
+    pub basis: QualificationBasis,
+    /// Links kovan can resolve (theses, papers, repositories).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endorsed_by: Option<QualificationEndorsement>,
+    /// Must be `true` for a self-study basis (the label is shown on the
+    /// stamp and in the registry).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub self_declared: bool,
+}
+
+/// One qualification entry, in either form (additive: the first-version
+/// bare string still reads).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Qualification {
+    Record(QualificationRecord),
+    /// First-version form: a concept path with no basis or evidence. Shown,
+    /// but never counts for rung 5.
+    Cited(String),
+}
+
+/// The part of a concept id that names the tree node (`concept:` dropped).
+fn concept_path(c: &str) -> &str {
+    c.strip_prefix("concept:").unwrap_or(c).trim_matches('/')
+}
+
+/// Whether area `area` covers concept `concept`: the same node or one under
+/// it.
+pub fn area_covers(area: &str, concept: &str) -> bool {
+    let (a, c) = (concept_path(area), concept_path(concept));
+    !a.is_empty() && (c == a || c.starts_with(&format!("{a}/")))
+}
+
+impl Qualification {
+    /// The area, in either form.
+    pub fn area(&self) -> &str {
+        match self {
+            Self::Record(r) => &r.area,
+            Self::Cited(s) => s,
+        }
+    }
+
+    /// Whether it counts for rung 5 in `concept`: a record with evidence
+    /// (or an endorsement) whose area covers the concept.
+    pub fn qualifies_for(&self, concept: &str) -> bool {
+        match self {
+            Self::Record(r) => {
+                (!r.evidence.is_empty() || r.endorsed_by.is_some()) && area_covers(&r.area, concept)
+            }
+            Self::Cited(_) => false,
+        }
+    }
+
+    /// The public label, e.g. `thermal-hydraulics (degree/thesis)` or
+    /// `numerics (self-study; self-declared)`.
+    pub fn label(&self) -> String {
+        match self {
+            Self::Record(r) => {
+                let mut s = format!("{} ({}", concept_path(&r.area), r.basis.label());
+                if r.self_declared {
+                    s.push_str("; self-declared");
+                }
+                if let Some(e) = &r.endorsed_by {
+                    s.push_str(&format!("; endorsed by {}", e.by));
+                }
+                s.push(')');
+                s
+            }
+            Self::Cited(c) => format!("{} (cited, no evidence)", concept_path(c)),
+        }
+    }
+}
+
+/// `[[reviewer]]`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Reviewer {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub role: Role,
+    /// Path globs a `reviewer` may stamp in ([`super::scope`]). Ignored for
+    /// a maintainer.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scope: Vec<String>,
+    /// Demonstrated competence, one per area ([`Qualification`]). Either the
+    /// first-version form, a bare concept path
+    /// (`qualification = ["concept:…"]`), or since 2026-10-07 one
+    /// `[[reviewer.qualification]]` table per area with basis and evidence.
+    /// Shown beside every stamp; enforced only at rung 5.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub qualification: Vec<Qualification>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub admitted: Option<String>,
+    /// The maintainer signature that admitted this reviewer; absent for the
+    /// founding maintainer (trusted on first use).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub admitted_by: Option<KeySignature>,
+    #[serde(default, rename = "key", skip_serializing_if = "Vec::is_empty")]
+    pub keys: Vec<ReviewerKey>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoked: Option<Revocation>,
+    /// `[[reviewer.organisation]]` (GitHub #809): the organisation this
+    /// reviewer belongs to, append-only and maintainer-signed. Rung 5 needs
+    /// it to differ from the developing organisation. Additive.
+    #[serde(default, rename = "organisation", skip_serializing_if = "Vec::is_empty")]
+    pub organisations: Vec<ReviewerOrganisation>,
+    /// `[[reviewer.separation]]` (GitHub #809): this reviewer's signed
+    /// separation attestations ([`SeparationAttestation`]). Additive.
+    #[serde(default, rename = "separation", skip_serializing_if = "Vec::is_empty")]
+    pub separations: Vec<SeparationAttestation>,
+}
+
+/// `[[deleted_crate]]`: a crate renamed or deleted, with its review history
+/// (#739 D6). Rebuildable from git; kept for copies without git.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeletedCrate {
+    pub name: String,
+    pub dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deleted_commit: Option<String>,
+    /// For a rename, the new crate name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub renamed_to: Option<String>,
+    #[serde(default, rename = "function", skip_serializing_if = "Vec::is_empty")]
+    pub functions: Vec<DeletedFunction>,
+}
+
+/// The code-review sections of `kovan_root.toml`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewRoot {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code_review: Option<CodeReviewSettings>,
+    #[serde(default, rename = "reviewer", skip_serializing_if = "Vec::is_empty")]
+    pub reviewers: Vec<Reviewer>,
+    #[serde(default, rename = "deleted_crate", skip_serializing_if = "Vec::is_empty")]
+    pub deleted_crates: Vec<DeletedCrate>,
+}
+
+/// Why `kovan_root.toml`'s review sections cannot be read or written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RootError {
+    /// Not TOML, or a review section does not match the schema.
+    Toml(String),
+    /// A reviewer id is not acceptable.
+    Field(FieldError),
+    /// Two `[[reviewer]]` entries share an id.
+    DuplicateReviewer(String),
+    /// A self-study qualification not labelled `self_declared = true`, or
+    /// one with no evidence (maintainer, #739, 2026-10-07).
+    UnlabelledSelfDeclared { reviewer: String, area: String },
+    SelfStudyWithoutEvidence { reviewer: String, area: String },
+}
+
+impl std::fmt::Display for RootError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Toml(e) => write!(f, "kovan_root.toml: {e}"),
+            Self::Field(e) => write!(f, "kovan_root.toml: {e}"),
+            Self::DuplicateReviewer(id) => write!(f, "kovan_root.toml: reviewer {id} listed twice"),
+            Self::UnlabelledSelfDeclared { reviewer, area } => write!(
+                f,
+                "kovan_root.toml: {reviewer}'s self-study qualification in {area} must set self_declared = true"
+            ),
+            Self::SelfStudyWithoutEvidence { reviewer, area } => write!(
+                f,
+                "kovan_root.toml: {reviewer}'s self-study qualification in {area} needs evidence"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RootError {}
+
+/// The keys this module owns in `kovan_root.toml`.
+pub const ROOT_KEYS: [&str; 3] = ["code_review", "reviewer", "deleted_crate"];
+
+impl ReviewRoot {
+    /// Read the review sections from a whole `kovan_root.toml`; every other
+    /// key (the literature library's) is ignored.
+    pub fn parse(text: &str) -> Result<ReviewRoot, RootError> {
+        let root: ReviewRoot = toml::from_str(text).map_err(|e| RootError::Toml(e.to_string()))?;
+        let mut seen = std::collections::BTreeSet::new();
+        for r in &root.reviewers {
+            reviewer_id_kind(&r.id).map_err(RootError::Field)?;
+            if !seen.insert(r.id.as_str()) {
+                return Err(RootError::DuplicateReviewer(r.id.clone()));
+            }
+            // Dates are ISO strings (Q9, #764, 2026-10-07).
+            let dates = r
+                .admitted
+                .iter()
+                .map(|d| ("reviewer.admitted", d))
+                .chain(r.keys.iter().map(|k| ("reviewer.key.created", &k.created)))
+                .chain(r.revoked.iter().map(|v| ("reviewer.revoked.date", &v.date)))
+                .chain(
+                    r.revoked
+                        .iter()
+                        .filter_map(|v| v.compromised_from.as_ref())
+                        .map(|d| ("reviewer.revoked.compromised_from", d)),
+                );
+            for (field, d) in dates {
+                super::types::check_date(field, d).map_err(RootError::Field)?;
+            }
+            for q in &r.qualification {
+                if let Qualification::Record(q) = q {
+                    if q.basis == QualificationBasis::SelfStudy {
+                        let who = || (r.id.clone(), q.area.clone());
+                        if !q.self_declared {
+                            let (reviewer, area) = who();
+                            return Err(RootError::UnlabelledSelfDeclared { reviewer, area });
+                        }
+                        if q.evidence.is_empty() {
+                            let (reviewer, area) = who();
+                            return Err(RootError::SelfStudyWithoutEvidence { reviewer, area });
+                        }
+                    }
+                }
+            }
+        }
+        for c in &root.deleted_crates {
+            if let Some(sha) = &c.deleted_commit {
+                check_commit("deleted_crate.deleted_commit", sha).map_err(RootError::Field)?;
+            }
+        }
+        Ok(root)
+    }
+
+    /// The recorded `[[code_review.rust_analyzer_used]]` entries, oldest
+    /// first (empty for a root that has none).
+    pub fn rust_analyzer_history(&self) -> &[RustAnalyzerUsed] {
+        self.code_review
+            .as_ref()
+            .map_or(&[], |c| c.rust_analyzer_used.as_slice())
+    }
+
+    /// The reviewer registered under `id`.
+    pub fn reviewer(&self, id: &str) -> Option<&Reviewer> {
+        self.reviewers.iter().find(|r| r.id == id)
+    }
+
+    /// Move the legacy key fields (`endorsed_by`, `reset`, `retired`,
+    /// `retired_on`, `unretired`, and the reviewer's `admitted_by`) into each
+    /// key's append-only `history` (#762, maintainer 2026-10-07). Additive:
+    /// a v1 file loads and means what it meant, and signed legacy fields
+    /// become `legacy = true` events whose signatures still verify.
+    ///
+    /// Only a key with an **empty** history is migrated; a key that has a
+    /// history and also legacy fields keeps both untouched and is returned
+    /// as a [`LegacyConflict`] (never a silent merge). Legacy `retired` with
+    /// no date migrates to a `retired` event dated `""`, which the registry
+    /// reads as void from the start (as v1 did).
+    pub fn migrate_key_history(&mut self) -> Vec<LegacyConflict> {
+        let mut conflicts = Vec::new();
+        for r in &mut self.reviewers {
+            let admitted_by = r.admitted_by.take();
+            let mut admission_moved = admitted_by.is_none();
+            for (j, k) in r.keys.iter_mut().enumerate() {
+                let legacy = k.endorsed_by.is_some()
+                    || k.reset
+                    || k.retired
+                    || k.retired_on.is_some()
+                    || k.unretired.is_some()
+                    || (j == 0 && admitted_by.is_some());
+                if !k.history.is_empty() {
+                    if legacy {
+                        conflicts.push(LegacyConflict { reviewer: r.id.clone(), key: k.id.clone() });
+                    }
+                    continue;
+                }
+                let mut h = vec![KeyEvent::unsigned(KeyEventKind::Created, &k.created)];
+                if j == 0 {
+                    if let Some(a) = &admitted_by {
+                        h.push(KeyEvent {
+                            event: KeyEventKind::Admitted,
+                            date: r.admitted.clone().unwrap_or_default(),
+                            signer: Some(KeySigner { reviewer: None, key: a.key.clone() }),
+                            signature: Some(a.signature.clone()),
+                            legacy: true,
+                        });
+                        admission_moved = true;
+                    }
+                }
+                let kind = if k.reset { KeyEventKind::Reset } else { KeyEventKind::Endorsed };
+                match k.endorsed_by.take() {
+                    Some(e) => h.push(KeyEvent {
+                        event: kind,
+                        date: k.created.clone(),
+                        signer: Some(KeySigner { reviewer: None, key: e.key }),
+                        signature: Some(e.signature),
+                        legacy: true,
+                    }),
+                    None if k.reset => h.push(KeyEvent::unsigned(KeyEventKind::Reset, &k.created)),
+                    None => {}
+                }
+                let retired_on = k.retired_on.take();
+                if retired_on.is_some() || k.retired {
+                    let d = retired_on.clone().unwrap_or_default();
+                    h.push(KeyEvent::unsigned(KeyEventKind::Retired, &d));
+                }
+                if let Some(u) = k.unretired.take() {
+                    h.push(KeyEvent {
+                        event: KeyEventKind::Unretired,
+                        date: u.date,
+                        signer: Some(KeySigner { reviewer: Some(r.id.clone()), key: k.id.clone() }),
+                        signature: Some(u.signature),
+                        legacy: true,
+                    });
+                    if k.retired {
+                        // v1: un-retired but still marked retired, date unknown.
+                        h.push(KeyEvent::unsigned(KeyEventKind::Retired, ""));
+                    }
+                }
+                k.reset = false;
+                k.retired = false;
+                k.history = h;
+            }
+            if !admission_moved {
+                r.admitted_by = admitted_by;
+            }
+        }
+        conflicts
+    }
+
+    /// `existing` (a whole `kovan_root.toml`) with this module's sections
+    /// replaced by `self`'s and every other key kept. Comments are not kept
+    /// (the `toml` crate drops them, as `kovan::root` does on save).
+    pub fn write_into(&self, existing: &str) -> Result<String, RootError> {
+        let mut table: toml::Table =
+            toml::from_str(existing).map_err(|e| RootError::Toml(e.to_string()))?;
+        for k in ROOT_KEYS {
+            table.remove(k);
+        }
+        let ours = toml::Table::try_from(self).map_err(|e| RootError::Toml(e.to_string()))?;
+        table.extend(ours);
+        toml::to_string_pretty(&table).map_err(|e| RootError::Toml(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ROOT: &str = r#"schema_version = 1
+
+[library]
+id = "outram-park-backend"
+name = "OUTRAM PARK backend"
+
+[code_review]
+rust_analyzer = "0.3.2645"
+
+[[reviewer]]
+id = "github:theodoreOnzGit"
+name = "Theodore Ong"
+role = "maintainer"
+qualification = ["concept:sqa/safety-software-qa-competencies"]
+
+[[reviewer.key]]
+id = "k1"
+alg = "ed25519"
+public = "AAAA"
+created = "2026-10-07"
+
+[[reviewer]]
+id = "someone@example.org"
+role = "reviewer"
+scope = ["crates/tampines/**"]
+admitted_by = { key = "k1", signature = "BBBB" }
+
+[reviewer.revoked]
+date = "2026-12-01"
+by = "github:theodoreOnzGit"
+
+[[deleted_crate]]
+name = "old"
+dir = "crates/old"
+deleted_commit = "0123456789abcdef0123456789abcdef01234567"
+"#;
+
+    /// Methodology: a literature `kovan_root.toml` with every code-review
+    /// section reads, round-trips through [`ReviewRoot::write_into`] with the
+    /// literature keys kept, and a literature root with none of them reads
+    /// as empty (additive schema).
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn root_sections_round_trip_and_leave_the_library_alone() {
+        let r = ReviewRoot::parse(ROOT).unwrap();
+        assert_eq!(r.reviewers.len(), 2);
+        assert_eq!(r.reviewers[0].role, Role::Maintainer);
+        assert_eq!(r.reviewers[1].revoked.as_ref().unwrap().date, "2026-12-01");
+        let written = r.write_into(ROOT).unwrap();
+        assert_eq!(ReviewRoot::parse(&written).unwrap(), r);
+        assert!(written.contains("[library]") && written.contains("outram-park-backend"));
+        let plain = "schema_version = 1\n[library]\nid = \"x\"\nname = \"X\"\n";
+        assert_eq!(ReviewRoot::parse(plain).unwrap(), ReviewRoot::default());
+    }
+
+    /// Methodology: qualification (maintainer, #739, 2026-10-07). The
+    /// first-version bare-string form and the per-area table form both read
+    /// (additive); a self-study record must be labelled self-declared and
+    /// carry evidence (typed errors otherwise); an area covers its node and
+    /// everything under it; only a record with evidence or an endorsement
+    /// counts for rung 5; labels say "self-declared".
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn qualification_records_and_self_declared_labels() {
+        let text = r#"
+[[reviewer]]
+id = "github:a"
+role = "reviewer"
+[[reviewer.qualification]]
+area = "concept:thermal-hydraulics"
+basis = "degree"
+evidence = ["https://doi.org/10.1/thesis"]
+[[reviewer.qualification]]
+area = "concept:numerics"
+basis = "self_study"
+evidence = ["https://github.com/a/notes"]
+self_declared = true
+"#;
+        let r = ReviewRoot::parse(text).unwrap();
+        let q = &r.reviewers[0].qualification;
+        assert!(q[0].qualifies_for("concept:thermal-hydraulics/natural-circulation"));
+        assert!(!q[0].qualifies_for("concept:thermal-hydraulics-x"));
+        assert!(!q[0].qualifies_for("concept:neutronics"));
+        assert_eq!(q[1].label(), "numerics (self-study; self-declared)");
+        assert_eq!(ReviewRoot::parse(&r.write_into(text).unwrap()).unwrap(), r);
+        let unlabelled = text.replace("self_declared = true\n", "");
+        assert!(matches!(
+            ReviewRoot::parse(&unlabelled),
+            Err(RootError::UnlabelledSelfDeclared { .. })
+        ));
+        let no_ev = text.replace("evidence = [\"https://github.com/a/notes\"]\n", "");
+        assert!(matches!(
+            ReviewRoot::parse(&no_ev),
+            Err(RootError::SelfStudyWithoutEvidence { .. })
+        ));
+        let old = ReviewRoot::parse(ROOT).unwrap();
+        let cited = &old.reviewers[0].qualification[0];
+        assert!(matches!(cited, Qualification::Cited(_)));
+        assert!(!cited.qualifies_for("concept:sqa/safety-software-qa-competencies"));
+    }
+
+    /// Methodology: a bad reviewer id and a duplicate reviewer are typed
+    /// errors.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn bad_reviewers_are_refused() {
+        let bad = "[[reviewer]]\nid = \"Theodore\"\nrole = \"maintainer\"\n";
+        assert!(matches!(ReviewRoot::parse(bad), Err(RootError::Field(_))));
+        let dup = "[[reviewer]]\nid = \"a@b.org\"\nrole = \"reviewer\"\n[[reviewer]]\nid = \"a@b.org\"\nrole = \"reviewer\"\n";
+        assert!(matches!(ReviewRoot::parse(dup), Err(RootError::DuplicateReviewer(_))));
+    }
+
+    fn used(version: &str, date: &str) -> RustAnalyzerUsed {
+        RustAnalyzerUsed { version: version.into(), date: date.into(), commit: "none".into() }
+    }
+
+    /// Methodology: the rust-analyzer history is appended as text (maintainer,
+    /// 2026-10-07: record the versions used, never overwrite). On the v1 and
+    /// v2 fixtures and on a root with comments and no trailing newline, the
+    /// old text is a byte-for-byte prefix of the new; the same version twice
+    /// appends nothing; a new version appends a second entry; the pin
+    /// (`rust_analyzer`) is unchanged; a corrupt root, a bad date and an
+    /// inline-array spelling are refused with nothing returned to write.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn rust_analyzer_history_is_appended_as_text_and_never_rewrites() {
+        let v1 = include_str!("../../tests/fixtures/review/v1/kovan_root.toml");
+        let v2 = include_str!("../../tests/fixtures/review/v2/kovan_root.toml");
+        let commented = "# keep me\nschema_version = 1 # inline\n[code_review]\nrust_analyzer = \"0.3.2645\" # the pin\n# trailing, no newline";
+        let v3 = include_str!("../../tests/fixtures/review/v3/kovan_root.toml");
+        let v4 = include_str!("../../tests/fixtures/review/v4/kovan_root.toml");
+        for old in [v1, v2, v3, v4, ROOT, commented] {
+            let pin = ReviewRoot::parse(old).unwrap().code_review.unwrap().rust_analyzer;
+            let a = append_rust_analyzer_used(old, &used("1.98.0", "2026-10-07")).unwrap().unwrap();
+            assert!(a.starts_with(old), "old text must be a prefix");
+            let r = ReviewRoot::parse(&a).unwrap();
+            assert_eq!(r.rust_analyzer_history(), &[used("1.98.0", "2026-10-07")]);
+            assert_eq!(r.code_review.as_ref().unwrap().rust_analyzer, pin, "the pin never moves");
+            assert_eq!(append_rust_analyzer_used(&a, &used("1.98.0", "2026-10-08")).unwrap(), None);
+            let b = append_rust_analyzer_used(&a, &used("1.99.0", "2026-10-08")).unwrap().unwrap();
+            assert!(b.starts_with(&a));
+            assert_eq!(ReviewRoot::parse(&b).unwrap().rust_analyzer_history().len(), 2);
+        }
+        // A literature root with no [code_review] at all.
+        let plain = "schema_version = 1\n[library]\nid = \"x\"\nname = \"X\"\n";
+        let a = append_rust_analyzer_used(plain, &used("1.98.0", "2026-10-07")).unwrap().unwrap();
+        let r = ReviewRoot::parse(&a).unwrap();
+        assert_eq!((r.rust_analyzer_history().len(), r.code_review.unwrap().rust_analyzer), (1, None));
+        assert!(append_rust_analyzer_used("x = [\n", &used("1.98.0", "2026-10-07")).is_err());
+        assert!(matches!(
+            append_rust_analyzer_used(plain, &used("1.98.0", "today")),
+            Err(RootError::Field(_))
+        ));
+        let inline = "[code_review]\nrust_analyzer_used = [{ version = \"1.0.0\", date = \"2026-10-01\", commit = \"none\" }]\n";
+        assert!(ReviewRoot::parse(inline).is_ok());
+        assert!(append_rust_analyzer_used(inline, &used("1.98.0", "2026-10-07")).is_err());
+    }
+
+    /// Methodology: schemas never break. A root carrying the new table reads
+    /// in a reader shaped like the pre-history `[code_review]` (pin and
+    /// founder only, serde's default of ignoring unknown keys), and the old
+    /// fixtures read in the new one with an empty history.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn roots_with_and_without_the_history_read_in_old_and_new_readers() {
+        #[derive(Deserialize)]
+        struct OldCodeReview {
+            rust_analyzer: Option<String>,
+            founder: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct OldRoot {
+            code_review: Option<OldCodeReview>,
+        }
+        let v2 = include_str!("../../tests/fixtures/review/v2/kovan_root.toml");
+        let a = append_rust_analyzer_used(v2, &used("1.98.0", "2026-10-07")).unwrap().unwrap();
+        let old: OldRoot = toml::from_str(&a).unwrap();
+        let cr = old.code_review.unwrap();
+        assert_eq!((cr.rust_analyzer.as_deref(), cr.founder), (Some("0.3.2645"), None));
+        for f in [include_str!("../../tests/fixtures/review/v1/kovan_root.toml"), v2] {
+            assert!(ReviewRoot::parse(f).unwrap().rust_analyzer_history().is_empty());
+        }
+    }
+
+    /// Methodology: the GitHub #809 records (schemas never break). The v4
+    /// fixture's workspace developing organisation and per-crate override,
+    /// reviewer organisations and separation attestation read with every
+    /// field, round-trip through [`ReviewRoot::write_into`], and the v1 to
+    /// v3 fixtures read with none of them and write none of them back.
+    ///
+    /// Result (2026-10-08): passes.
+    #[test]
+    fn ivv_records_read_round_trip_and_are_absent_before_v4() {
+        let v4 = include_str!("../../tests/fixtures/review/v4/kovan_root.toml");
+        let r = ReviewRoot::parse(v4).unwrap();
+        let devs = &r.code_review.as_ref().unwrap().developing_organisation;
+        assert_eq!(devs.len(), 2);
+        assert_eq!((devs[0].krate.as_deref(), devs[0].name.as_str()), (None, "Outram Park project"));
+        assert_eq!((devs[1].krate.as_deref(), devs[1].name.as_str()), (Some("tampines"), "Tampines group"));
+        assert_eq!(devs[1].signer.as_ref().unwrap().key, "k1");
+        assert_eq!(r.reviewers[1].organisations[0].name, "Example IV&V Ltd");
+        let a = &r.reviewers[1].separations[0];
+        assert_eq!((a.id.as_str(), a.key.as_deref()), ("sep-2026-10-08", Some("o1")));
+        assert_eq!(
+            a.audit_record.as_deref(),
+            Some("https://github.com/theodoreOnzGit/outram-park-backend/issues/809")
+        );
+        let written = r.write_into(v4).unwrap();
+        assert!(written.contains("crate = \"tampines\""), "{written}");
+        assert_eq!(ReviewRoot::parse(&written).unwrap(), r);
+        for old in [
+            include_str!("../../tests/fixtures/review/v1/kovan_root.toml"),
+            include_str!("../../tests/fixtures/review/v2/kovan_root.toml"),
+            include_str!("../../tests/fixtures/review/v3/kovan_root.toml"),
+            ROOT,
+        ] {
+            let o = ReviewRoot::parse(old).unwrap();
+            assert!(o.code_review.as_ref().map_or(true, |c| c.developing_organisation.is_empty()));
+            assert!(o.reviewers.iter().all(|x| x.organisations.is_empty() && x.separations.is_empty()));
+            let back = o.write_into(old).unwrap();
+            assert!(!back.contains("organisation") && !back.contains("separation"), "{back}");
+        }
+    }
+}

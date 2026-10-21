@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can we drop the matrix?</title>
+<meta name="description" content="Neutronics, page 15: the multi-level Breit–Wigner formalism keeps level-level interference only in elastic scattering, and treats capture and fission as sums of single-level peaks. No matrix inversion; valid when the levels are narrow compared with their spacing. Drawn against Reich–Moore by OUTRAM PARK's RECONR port.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="resonance-data.js" defer></script>
+<script src="resonance.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 15 of the reordering amendment of 2026-10-16 (MLBW). Per its [correctness] note, MLBW is phrased as an approximation of multi-level theory (ENDF-102 App. D.1.2), not as derived from Reich-Moore. ENDF-102 §2.4.15 calls MLBW and Reich-Moore equivalent in computing time; the page says so rather than claiming a speed-up. Formulas: csmlbw, csrmat, csslbw through OUTRAM PARK's RECONR port; census from resonance-data.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), revised 2026-10-19 (why summing cross sections drops interference), not yet reviewed by a human.</p>
+
+<h1>Can we drop the matrix?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Reich&ndash;Moore inverts a small matrix at every energy. The <b>multi-level Breit&ndash;Wigner</b> formalism (MLBW, ENDF's LRF = 2) has no matrix at all. It keeps only part of the multi-level theory:</p>
+<ul>
+  <li><b>Elastic scattering is multi-level.</b> The neutron amplitudes of all the levels in a spin group add before squaring, as on page 13, so same-J levels interfere.</li>
+  <li><b>Capture and fission are single-level.</b> They are page 12's SLBW peaks, summed. Any interference between levels in those channels is neglected.</li>
+</ul>
+<p><b>Why summing capture and fission peaks is, strictly, wrong.</b> The Schr&ouml;dinger equation is linear in the wavefunction, so the contributions of different levels to the same process add as <b>wavefunctions</b> (amplitudes): &psi; = &psi;<sub>1</sub> + &psi;<sub>2</sub>. A probability is the wavefunction <b>squared</b>, |&psi;|&sup2; = &psi;*&psi;, and a cross section is a probability (per unit incident flux). So a cross section is the analogue of the wavefunction squared, not of the wavefunction, and the right order is <b>sum first, then square</b>: |&psi;<sub>1</sub> + &psi;<sub>2</sub>|&sup2; = |&psi;<sub>1</sub>|&sup2; + |&psi;<sub>2</sub>|&sup2; + 2 Re(&psi;<sub>1</sub>*&psi;<sub>2</sub>) (page 13). Adding two cross sections squares first and sums afterwards, and loses the last term.</p>
+<p>MLBW does it properly for <b>elastic</b>: it adds the levels' neutron amplitudes, then squares. For <b>capture and fission</b> it adds the single-level cross sections, the already-squared terms, so any interference between levels in those reactions is dropped. That is an approximation, not the physics: it is good when the levels barely overlap (&Gamma;/D small, so the cross terms are small where either peak matters), and it is what the widget below shows MLBW missing next to Reich&ndash;Moore in capture and fission.</p>
+<p>In ENDF-102's words, the ENDF MLBW "allows multilevel computations only for elastic; for other types of partial cross sections the formalism is single-level" <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>. It is "not a true multilevel formalism, but a limit which is valid if &Gamma;/D is small" (§2.4.14.1): when each level's width &Gamma; is small compared with the spacing D between levels.</p>
+
+<section class="widget-card">
+  <h3>The same two levels: Reich&ndash;Moore, MLBW and the SLBW sum</h3>
+  <div class="widget" id="mlbw">
+    <canvas aria-label="Elastic, capture or fission cross section of two neighbouring levels from Reich-Moore, from MLBW and as the sum of single-level peaks"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-ch="el">Elastic</button> <button type="button" class="btn ghost" data-ch="cap">Capture</button> <button type="button" class="btn ghost" data-ch="fis">Fission</button></p>
+  <p class="actions"><button type="button" class="btn" data-j="same">Same J</button> <button type="button" class="btn ghost" data-j="diff">Different J</button></p>
+  <label class="energy-control"><span>Spacing between the levels <b data-sep-out></b></span>
+    <input type="range" data-sep min="0.5" max="8" step="0.05" value="2" aria-label="Spacing between the two levels in electronvolts"></label>
+  <p class="note">Pages 13 and 14's made-up pair; the side panel adds a fission width. The formulas are NJOY2016's <code>csrmat</code>, <code>csmlbw</code> and <code>csslbw</code> <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a> through OUTRAM PARK's RECONR port. These levels are deliberately broad (&Gamma; &asymp; 1 eV) so that the differences show. 0 K.</p>
+</section>
+
+<p>Things to try:</p>
+<ul>
+  <li><b>Capture.</b> MLBW (teal) lies exactly on the dashed SLBW sum, by construction. Reich&ndash;Moore (brown) does not.</li>
+  <li><b>Elastic, then pull the levels apart.</b> MLBW is closer to Reich&ndash;Moore than the SLBW sum is, and the gap closes as &Gamma;/D falls. At 2 eV spacing (&Gamma;/D &asymp; 0.5) MLBW's elastic is still off by about a quarter of the peak; at 4 eV, about a tenth.</li>
+  <li><b>Different J.</b> All three agree in every channel: nothing to interfere.</li>
+</ul>
+
+<h2>Is it actually cheaper?</h2>
+<p>Not by much, it turns out. ENDF-102 calls Reich&ndash;Moore and MLBW "equivalent in computing time" (§2.4.15), and without fission the Reich&ndash;Moore "matrix" is a single number anyway. MLBW's old advantage was elsewhere: it lends itself to a fast analytic way of Doppler broadening (the &psi;, &chi; functions). ENDF-102 now cautions that "the use of this formalism is NOT recommended. Computation time is no longer a valid issue for modern computers" (App. D.1.2).</p>
+<p>Older evaluations still use it. <b data-census="MLBW (LRF 2)">18</b> of our <b data-census="total">51</b> ENDF/B-VIII.0 evaluations give their first resolved range as MLBW: Na-23, Mg-24, -25 and -26, S-32, -33 and -34, Ti-46, -47, -49 and -50, Zn-64, -66, -67, -68 and -70, and two actinides, U-234 and U-236. None gives SLBW (LRF = 1).</p>
+
+<details class="optional">
+  <summary>Deeper: the MLBW formulas</summary>
+  <p>Elastic, in the amplitude-squared form (ENDF-102 App. D.1.2, eqs. D.20&ndash;D.21), summed over the spin groups:</p>
+  <p class="eq-block">&sigma;<sub>nn</sub> = (&pi;/k&sup2;) &Sigma; g<sub>J</sub> |1 &minus; U<sub>nn</sub>|&sup2;, &nbsp; U<sub>nn</sub> = e<sup>&minus;2i&phi;<sub>l</sub></sup> [ 1 + &Sigma;<sub>r</sub> i&Gamma;<sub>nr</sub> / (E&prime;<sub>r</sub> &minus; E &minus; i&Gamma;<sub>r</sub>/2) ]</p>
+  <p>The sum over levels r inside U is the multi-level part: the amplitudes add before |&hellip;|&sup2;. Capture and fission are page 12's SLBW formulas, summed over r, with no cross terms. There is no matrix to invert: each level adds one complex term.</p>
+</details>
+
+<h2>Why is this so? Cheaper still?</h2>
+<p>Each step so far gave up some physics and kept the stored numbers physical: every level still has an energy, a spin and real partial widths. The last step gives up even that.</p>
+<p><b>Cheaper still: why not just fit curves?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

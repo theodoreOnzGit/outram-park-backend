@@ -1,0 +1,56 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Kim",
+						"lastName": "Lee",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Deutsche",
+						"lastName": "Forschungsgemeinschaft",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Die Kernreaktortechnik: eine Einführung",
+				"publisher": "Springer",
+				"date": "1999",
+				"ISBN": "3-540-12345-X"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "film",
+				"creators": [],
+				"tags": [],
+				"title": "Ein Film",
+				"date": "1975"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [],
+				"tags": [],
+				"title": "Handschrift ohne Autor",
+				"manuscriptType": "manuscript"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [],
+				"tags": [],
+				"title": "Plakat"
+			}
+		]
+	}
+}

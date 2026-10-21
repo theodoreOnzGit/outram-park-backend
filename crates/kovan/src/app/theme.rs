@@ -156,7 +156,20 @@ pub fn artifact_accent(kind: ArtifactKind, theme: GuiTheme) -> egui::Color32 {
                 GRUVBOX_NEUTRAL_YELLOW
             }
         }
-        ArtifactKind::Annotation | ArtifactKind::Note => {
+        // The #743 prose kinds have no page region either; they read as
+        // notes.
+        ArtifactKind::Annotation
+        | ArtifactKind::Note
+        | ArtifactKind::LessonSection
+        | ArtifactKind::WalkStep
+        | ArtifactKind::CodeWalk
+        | ArtifactKind::RecipeStep
+        // The code-review kinds (#764) are text records too.
+        | ArtifactKind::Review
+        | ArtifactKind::NeedsFix
+        | ArtifactKind::Upstream
+        | ArtifactKind::DeletedFunctions
+        | ArtifactKind::Architecture => {
             if dark {
                 GRUVBOX_BRIGHT_YELLOW
             } else {
@@ -352,7 +365,11 @@ mod tests {
                 // falls through to a wildcard (there is deliberately no `_`
                 // arm in `artifact_accent`).
                 let c = artifact_accent(kind, theme);
-                assert_eq!(c.a(), 255, "accent must be fully opaque: {kind:?}/{theme:?}");
+                assert_eq!(
+                    c.a(),
+                    255,
+                    "accent must be fully opaque: {kind:?}/{theme:?}"
+                );
             }
         }
     }
@@ -374,8 +391,14 @@ mod tests {
 
     #[test]
     fn unavailable_accent_is_gruvbox_red_and_differs_per_theme() {
-        assert_eq!(unavailable_accent(GuiTheme::GruvboxDark), GRUVBOX_BRIGHT_RED);
-        assert_eq!(unavailable_accent(GuiTheme::GruvboxLight), GRUVBOX_FADED_RED);
+        assert_eq!(
+            unavailable_accent(GuiTheme::GruvboxDark),
+            GRUVBOX_BRIGHT_RED
+        );
+        assert_eq!(
+            unavailable_accent(GuiTheme::GruvboxLight),
+            GRUVBOX_FADED_RED
+        );
     }
 
     #[test]
@@ -398,4 +421,25 @@ mod tests {
             GuiTheme::GruvboxLight
         );
     }
+}
+
+/// Text size of navigation controls, points: the top bar's tabs and buttons,
+/// and the Mindmap and Wiki navigation rows (breadcrumbs, zoom). Larger than
+/// the theme's body text so they read as the app's navigation (maintainer
+/// direction, 2026-09-22). A UI choice.
+pub(crate) const NAVIGATION_FONT_SIZE: f32 = 18.0;
+
+/// Enlarge the button and label text, and the button padding, of `ui` and
+/// everything drawn inside it, for navigation controls. Call it at the start
+/// of the row's own `ui` (e.g. inside `ui.horizontal`), so it applies to that
+/// row and not to the page around it.
+pub(crate) fn navigation_style(ui: &mut egui::Ui) {
+    let style = ui.style_mut();
+    for text_style in [egui::TextStyle::Button, egui::TextStyle::Body] {
+        if let Some(font) = style.text_styles.get_mut(&text_style) {
+            font.size = NAVIGATION_FONT_SIZE;
+        }
+    }
+    style.spacing.button_padding = egui::vec2(10.0, 6.0);
+    style.spacing.item_spacing.x = 8.0;
 }

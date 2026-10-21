@@ -1,0 +1,2814 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_against_liu_and_cao_table_8",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_atws_conserves_energy_and_vents_the_published_mass",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::dlofc_with_air_ingress_indicative_30_min",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::kinetics_fuel_node_tracks_the_bed_node_after_a_scram",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_at_the_published_test_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_reactor_shuts_itself_down",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::lofc_atws_with_and_without_xenon",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::no_corner_of_the_command_envelope_crosses_or_clamps",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_rod_position_that_holds_three_megawatts",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::report_the_steady_state_bed_temperature_at_the_opening_condition",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::reproduce_issue_22_scram_cooldown_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_core_side_energy_chain_conserves_energy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_exchanger_holds_its_courant_margin_at_maximum_circulator_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_gh351_excursion_runs_through_2000_k_with_a_resolved_fuel_stack",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_helium_never_leaves_the_core_hotter_than_the_bed",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_passive_path_conserves_energy_through_a_full_plant_step",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_plant_outer_correctors_converge",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_snapshot_publishes_each_runs_own_transit_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_conserves_energy_from_fission_to_the_steam_generator",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_against_gao_shi_and_liu_cao",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::water_ingress_conserves_energy_and_follows_the_published_sequence",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::where_the_plant_step_spends_its_time",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::commanded_flow_is_clamped_to_the_circulator_range",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::core_inlet_responds_to_secondary_heat_removal",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::core_temperature_rise_matches_the_energy_balance",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::loop_pressure_drop_sits_on_the_published_budget_and_rises_with_flow",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::steam_generator_has_no_node_by_node_temperature_cross",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_primary_loop_closes_its_own_balance_and_hands_the_exchanger_its_enthalpy",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/primary_loop.rs::the_return_leg_residence_time_scales_with_flow_and_carries_the_circulator_work",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/secondary_loop.rs::the_absorbable_duty_cap_no_longer_binds",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::a_duty_step_is_filtered_by_the_metal_time_constant",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::energy_balance_closes_across_the_exchanger",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::sub_substep_calls_accumulate_rather_than_advancing_or_vanishing",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_cold_stream_resolves_all_three_zones",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_corrector_substep_trade_is_measured",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_courant_number_bounds_the_array_substep",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/steam_generator.rs::the_gui_millisecond_timestep_reaches_the_same_state",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::non_positive_timestep_is_rejected",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stagnant_run_places_no_mark",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stepping_advances_the_backend",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::tracer_phase_persists_across_steps",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fluid_thermo/solid_thermo.rs::conduction_solve",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt.rs::ddt_coeff_diagonal_is_coeff_times_volume_over_dt",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt.rs::ddt_coeff_solves_to_old_when_no_spatial_terms",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt.rs::ddt_diagonal_is_volume_over_dt",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt.rs::ddt_solves_to_old_when_no_spatial_terms",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt_vec.rs::ddt_coeff_vec_diagonal_is_coeff_times_volume_over_dt",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt_vec.rs::ddt_coeff_vec_solves_to_old_when_no_spatial_terms",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/ddt_vec.rs::ddt_vec_recovers_constant_field",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/div.rs::upwind_negative_flux_on_upper",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/div.rs::upwind_positive_flux_on_diagonal",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/div_vec.rs::zero_flux_gives_zero_matrix",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/laplacian.rs::laplacian_solves_linear_dirichlet",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/laplacian.rs::laplacian_symmetric_matrix",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/fv_operators/fvm/laplacian_vec.rs::laplacian_vec_1d_linear_profile",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/fv_matrix.rs::add_face_coeff_symmetrises_diag",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/fv_matrix.rs::solve_diagonal_system",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/fv_vector_matrix.rs::a_field_returns_diagonal",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/fv_vector_matrix.rs::diagonal_system_solves_vector",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/ldu_matrix.rs::identity_multiply",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/ldu_matrix.rs::residual_exact_solution",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/ldu_matrix.rs::tridiag_multiply",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/conjugate_gradient.rs::cg_faster_than_gs_on_symmetric",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/conjugate_gradient.rs::cg_identity",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/conjugate_gradient.rs::cg_solves_1d_poisson",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_cycle_count_is_mesh_independent",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_handles_tiny_matrix",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_solves_1d_poisson",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gamg.rs::gamg_warm_start_returns_immediately",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gauss_seidel.rs::diagonal_system_one_iter",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/ldu_matrix/solvers/gauss_seidel.rs::solves_diagonally_dominant_system",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::axial_conduction_matches_analytical_fourier_decay",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::axial_peclet_spans_forced_flow_to_stagnation",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::clear_vectors_empties_after_step",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::flow_reversal_keeps_enthalpy_bounded_between_terminals",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::global_energy_balance_closes_across_the_boundaries",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::inlet_enthalpy_bc_actually_drives_the_field",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::inlet_outlet_bcs_drive_flow_and_outlet_pressure_settles_near_imposed_value",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::prescribed_inlet_mass_flowrate_is_imposed_exactly",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::pressure_bounding_clamps_transient_within_set_bounds",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/lateral_coupling.rs::steam_generator_tube_boils_feedwater",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::one_d_array_constructs_and_steps",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::a_turning_shaft_delivers_electrical_power",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::heavier_electrical_load_slows_the_shaft",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::machine_spins_up_from_rest",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::moving_steam_extracts_work_from_both_mechanisms",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::power_sources_are_consumed_by_the_step",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::shaft_speed_is_solved_rather_than_held",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::short_run_stays_bounded",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::standstill_develops_starting_torque_but_no_power",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::still_steam_extracts_no_work",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::total_shaft_power_is_the_sum_of_the_stages",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::zero_rotor_drop_fraction_gives_a_pure_impulse_stage",
+    "crates/tampines-steam-tables/tests/heated_tube_never_undercuts_its_feedwater.rs::the_default_scheme_never_undercuts_the_feedwater",
+    "crates/tampines-steam-tables/tests/heated_tube_never_undercuts_its_feedwater.rs::the_linear_ablation_reproduces_the_walk_toward_the_floor",
+    "crates/tampines-steam-tables/tests/wasm_smoke.rs::edwards_blowdown_advances_under_wasm",
+    "crates/tampines/src/components/helical_coil_sg_standalone.rs::the_implicit_coupling_converges_and_beats_real_time_at_the_largest_stable_substep",
+    "crates/tampines/src/components/helical_coil_sg_standalone.rs::the_standalone_harness_is_deterministic",
+    "crates/tampines/tests/wasm_smoke.rs::helium_steam_generator_builds_and_advances_under_wasm",
+]
+
+[module."fv_matrix.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::fv_matrix"
+
+[[module."fv_matrix.rs".function]]
+id = "fn:4c133bac4e1ca70d"
+name = "FvMatrix"
+qual = "FvMatrix"
+item = "type"
+shape = "struct"
+lines = [
+    34,
+    46,
+]
+hash = "sha256:96b5190927afc6db0197ed429356ce4b3993cd19c284879f480c2d8541a985ce"
+doc_hash = "sha256:110fb6e7e4ecd36628615b5688eb1958c441aded47e5d3f38f918ade5510156b"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1de348bd6bbdd8f8",
+    "fn:529cdf9967e527a2",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#55",
+    "#56",
+    "#58",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:4c2ae8cf4fb397b1"
+name = "SolverSettings"
+qual = "SolverSettings"
+item = "type"
+shape = "struct"
+lines = [
+    48,
+    53,
+]
+hash = "sha256:8405b18d40565751cf47ed705dda22670cff50be86f5f7c1a129ab2cdb6c6bbc"
+doc_hash = "sha256:e81232e0d8fb842db2e35c0ece7b7606f692fa34631f549711cbaed21dce497a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#49",
+    "#51",
+    "#53",
+    "#54",
+    "#58",
+    "#60",
+    "#62",
+    "#64",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:57fdd824115feee6"
+name = "default"
+qual = "SolverSettings::default"
+lines = [
+    56,
+    61,
+]
+hash = "sha256:e653f90bea879f3ba0c712798ef51684a2a97ab165af44b6d795699f0ed0b041"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:4c2ae8cf4fb397b1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#49",
+    "#51",
+    "#53",
+    "#54",
+    "#58",
+    "#60",
+    "#62",
+    "#64",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:15127b61d1aee80d"
+name = "SolverPerformance"
+qual = "SolverPerformance"
+item = "type"
+shape = "struct"
+lines = [
+    64,
+    70,
+]
+hash = "sha256:94411121c7ad5ce5394494daed453b7716389408b799c00aaa7a4649f87162e3"
+doc_hash = "sha256:8c728846831e34f558531c2714f3502c626c4649394d59a6cbae559839015c88"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#49",
+    "#51",
+    "#53",
+    "#54",
+    "#58",
+    "#60",
+    "#62",
+    "#64",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:4bebd214043d7235"
+name = "new"
+qual = "FvMatrix::new"
+lines = [
+    73,
+    83,
+]
+hash = "sha256:17a0be93d6eef1f463d809577f59de056225060de7490b3f557be3af138a0d1c"
+doc_hash = "sha256:b4d10eecb313da67e3164ebfef80e2db81b490427c99f8731a9d4c1ed8970b3b"
+callees = [
+    "fn:304dea8b5feb1f7c",
+    "fn:a7f42f3ebfbc6d4e",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1de348bd6bbdd8f8",
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#55",
+    "#56",
+    "#58",
+    "#59",
+    "#61",
+    "#62",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:42e297e7f16178eb"
+name = "solve"
+qual = "FvMatrix::solve"
+lines = [
+    85,
+    114,
+]
+hash = "sha256:c433e22b1c13394e8357d3f130f9ed769ba03f2e9d012f978da757c80542febd"
+doc_hash = "sha256:f01b63bc073671331310e3b11d45cebf6f0887eab2de7d397a58a9ae7398953b"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:51e65f672bc57d73",
+    "fn:94b505b2ca2c50f7",
+    "fn:e926a8bf496edb4b",
+    "fn:f8fbd28a45837347",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#49",
+    "#51",
+    "#58",
+    "#62",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:ef5828e03c12c83c"
+name = "solve_cg"
+qual = "FvMatrix::solve_cg"
+lines = [
+    116,
+    134,
+]
+hash = "sha256:1da255dc8532825aa42ca13c6d7b62040d0b796c2a3072ae27a7d3461de6939f"
+doc_hash = "sha256:e7505e00755de66b0d64ac98ae6612d1efce764c20d72b8e8a4b86bac2eb2426"
+callees = ["fn:62494361677b4270"]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:aed0adc6bf107c03",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:b2feaa6df14d0a94"
+name = "solve_cg_with_guess"
+qual = "FvMatrix::solve_cg_with_guess"
+lines = [
+    136,
+    152,
+]
+hash = "sha256:c40427a596778fd75a96e4ea37b47084f073fff20824284169ad8387fd3b648e"
+doc_hash = "sha256:1fb9c7236126b87dd42b21a17f880aa2e16adc05410de782f0a5460f614df161"
+callees = [
+    "fn:0684dffc925661fd",
+    "fn:62494361677b4270",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:aed0adc6bf107c03",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:62494361677b4270"
+name = "solve_cg_inner"
+qual = "FvMatrix::solve_cg_inner"
+lines = [
+    154,
+    171,
+]
+hash = "sha256:727e395a11c0e013e5b1ae919f39fc529b2eb6da83fec6ba444fa084638326df"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:40d3049cafb2177c",
+    "fn:51e65f672bc57d73",
+    "fn:94b505b2ca2c50f7",
+    "fn:e926a8bf496edb4b",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:f3c9db47fbe18b41"
+name = "solve_gamg"
+qual = "FvMatrix::solve_gamg"
+lines = [
+    173,
+    188,
+]
+hash = "sha256:fe7c5986b9d129a3af884ed30ccdf7faa3e8ceff3f57dac1ccf6767d2eef0798"
+doc_hash = "sha256:925dca749c2d4d275c009c2c52520e5c8a7df5c350e030c59cdd315fed5531b4"
+callees = ["fn:dd671af881d9dfe6"]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:aed0adc6bf107c03",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:0adab87d0671d0b7"
+name = "solve_gamg_with_guess"
+qual = "FvMatrix::solve_gamg_with_guess"
+lines = [
+    190,
+    201,
+]
+hash = "sha256:14c8f01e81ace9888978d3adf24d9e667ea48ff96dc4d0ed9782e0f72c52abf0"
+doc_hash = "sha256:8394d99d505e8cb37c18d15d581c89522486ee3f22d6932827eaf02a6d04caac"
+callees = [
+    "fn:0684dffc925661fd",
+    "fn:dd671af881d9dfe6",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:aed0adc6bf107c03",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:dd671af881d9dfe6"
+name = "solve_gamg_inner"
+qual = "FvMatrix::solve_gamg_inner"
+lines = [
+    203,
+    220,
+]
+hash = "sha256:8a5c1e664d4fa19b73ac311016f66f7f6cf22b5b797604030ea52acee20b0767"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:465c68dfbe2ac2a9",
+    "fn:51e65f672bc57d73",
+    "fn:94b505b2ca2c50f7",
+    "fn:e926a8bf496edb4b",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:346a943d807f2da1"
+name = "add_to_diag"
+qual = "FvMatrix::add_to_diag"
+lines = [
+    224,
+    229,
+]
+hash = "sha256:81d8ee3fe0be02875c163c81a7061c5411278660aeed62a91d8341a28755ddd9"
+doc_hash = "sha256:2b95c2a5ff8e9265978fbcafada939dc04c44db34dff3f5d8a73161fbd08c499"
+callees = ["fn:94b505b2ca2c50f7"]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:c9befb523dd8995e"
+name = "add_to_source"
+qual = "FvMatrix::add_to_source"
+lines = [
+    231,
+    234,
+]
+hash = "sha256:2b6a2bc8f79fe70f19f79194b935306d883b2f297beafaeb2d2b582b49f61ab2"
+doc_hash = "sha256:3c4c02f777bf8512758e882c66feb720f048c761d075eb76e5a875d447e0187c"
+callees = ["fn:333b7695175ca22e"]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:2bdb7edbcc7ebd21"
+name = "add_face_coeff"
+qual = "FvMatrix::add_face_coeff"
+lines = [
+    236,
+    245,
+]
+hash = "sha256:2be48bab2afb03edd01f954fc7792c5bd52e9063e9f5bb663cc31f2120951a30"
+doc_hash = "sha256:c6e6624d836d96abcb97228113b4209078e010b9a2df76598d8f7c634105b8bf"
+uses = ["fn:4c133bac4e1ca70d"]
+reached_by = ["#61"]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:20ab8fb0c913d75e"
+name = "set_reference"
+qual = "FvMatrix::set_reference"
+lines = [
+    247,
+    255,
+]
+hash = "sha256:d87ce4331cf2c24f0885028b6ea6e663e49349252c6099cc7f6e5c00430d4d5a"
+doc_hash = "sha256:1bd866e7f6ddb9f2cbb89437ecbb6f8e4c9a533d6bc2cc6901680695a7348798"
+callees = ["fn:e3b184e79e6044fe"]
+uses = ["fn:4c133bac4e1ca70d"]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:42a0596cd37ff9d0"
+name = "a_field"
+qual = "FvMatrix::a_field"
+lines = [
+    257,
+    273,
+]
+hash = "sha256:b47b1979dd3e7c200ec53b7679d51613898ab0a2264ef5db41cf18267567dbc2"
+doc_hash = "sha256:dfca308763fc1fc96acefdde986f160023cfb3fb0262bec0d1f6c5bb4e088b96"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:51e65f672bc57d73",
+    "fn:e926a8bf496edb4b",
+]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:0798e1116e5f27e5"
+name = "h_field"
+qual = "FvMatrix::h_field"
+lines = [
+    275,
+    298,
+]
+hash = "sha256:6b96b32a5df9c5f37c81adea91883daf1bf7491d72659d57d013f65325288784"
+doc_hash = "sha256:f90ab42219093d26750996d8e2643a45eaaee164d5e3b6aba4f1d7def40d58d2"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:365b4ebf95314225",
+    "fn:51e65f672bc57d73",
+    "fn:e926a8bf496edb4b",
+]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:448d8baaaa6b0cd0"
+name = "add"
+qual = "FvMatrix::add"
+lines = [
+    305,
+    317,
+]
+hash = "sha256:f54150c4ea00d125bedde84a4baba9b077b109e1e6446e0a62cb0c3423416ab7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:333b7695175ca22e"]
+uses = ["fn:4c133bac4e1ca70d"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:13e48533bdb04ee3"
+name = "sub"
+qual = "FvMatrix::sub"
+lines = [
+    322,
+    334,
+]
+hash = "sha256:4f1ccdabcacc2d25c339f58794a89dc3f265add7323f1204cb82726773b8f12a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fe7786789bcb253"]
+uses = ["fn:4c133bac4e1ca70d"]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:58fa21d9c1c53eb2"
+name = "neg"
+qual = "FvMatrix::neg"
+lines = [
+    339,
+    351,
+]
+hash = "sha256:add67fb6ebca8cd2fe6a520beb4ea640ec7c1108cb7bed5b3639c9504f2cca80"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6550904d91be0688"]
+uses = ["fn:4c133bac4e1ca70d"]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:2b3d2251a45f678b"
+name = "add_assign"
+qual = "FvMatrix::add_assign"
+lines = [
+    355,
+    366,
+]
+hash = "sha256:ee9af3a9325a900295a969770bd1f60e57dc5c7106bce9027abdf5760fce390d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:333b7695175ca22e"]
+uses = ["fn:4c133bac4e1ca70d"]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:9f13ae3fa163b734"
+name = "sub_assign"
+qual = "FvMatrix::sub_assign"
+lines = [
+    370,
+    381,
+]
+hash = "sha256:30fa422c6efe97c683e25f5bd0eb2cddb96830f1029314ef61f8bd0fd58e1a07"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2fe7786789bcb253"]
+uses = ["fn:4c133bac4e1ca70d"]
+
+[[module."fv_matrix.rs".function]]
+id = "fn:8762c934958a179a"
+name = "unit_mesh"
+qual = "unit_mesh"
+lines = [
+    395,
+    424,
+]
+hash = "sha256:e94fe7918596b19542984a682bf9c0c1d5b7d7f14d100cb755413a2c1ac4cbcf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."fv_matrix.rs".function]]
+id = "fn:7332d93ed5ab05da"
+name = "solve_diagonal_system"
+qual = "solve_diagonal_system"
+lines = [
+    426,
+    444,
+]
+hash = "sha256:635706d522986fca410ba6d074f547bbd8811995faa053b13aad28f946f7e447"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:365b4ebf95314225",
+    "fn:42e297e7f16178eb",
+    "fn:4bebd214043d7235",
+    "fn:57fdd824115feee6",
+    "fn:8762c934958a179a",
+]
+uses = [
+    "fn:4c133bac4e1ca70d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+]
+test = true
+
+[[module."fv_matrix.rs".function]]
+id = "fn:453cc61718a7152e"
+name = "add_face_coeff_symmetrises_diag"
+qual = "add_face_coeff_symmetrises_diag"
+lines = [
+    446,
+    456,
+]
+hash = "sha256:808d1fb403893c400d4e6b84f54f771c5be25c65607aa2948742ac3ceb14ec4e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2bdb7edbcc7ebd21",
+    "fn:4bebd214043d7235",
+    "fn:8762c934958a179a",
+]
+uses = ["fn:4c133bac4e1ca70d"]
+test = true
+
+[module."fv_vector_matrix.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::fv_vector_matrix"
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:e005d9bfaf529f57"
+name = "FvVectorMatrix"
+qual = "FvVectorMatrix"
+item = "type"
+shape = "struct"
+lines = [
+    34,
+    47,
+]
+hash = "sha256:9e077ecbe7e325a22263a2ec154aa068f3e0b061870055d85c5b17245b8872b6"
+doc_hash = "sha256:37d5ea67edff7f5ed2ff6f3a5989d5b60b710c0c963d897dd05efa66d6bfeb94"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1de348bd6bbdd8f8",
+    "fn:529cdf9967e527a2",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+    "#53",
+    "#54",
+    "#57",
+    "#60",
+    "#63",
+    "#64",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:a297582505d9673f"
+name = "new"
+qual = "FvVectorMatrix::new"
+lines = [
+    50,
+    61,
+]
+hash = "sha256:adfce9238f0e329e5b08e05bf067ead88f4ec6cb31c8305b2c0891ae1bfccb3d"
+doc_hash = "sha256:e880f8646872ab74113e54f02744761fa09497cbe1aa39bffdc8a0fdf1f96bb1"
+callees = [
+    "fn:447674abbc1e5435",
+    "fn:a7f42f3ebfbc6d4e",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1de348bd6bbdd8f8",
+    "fn:529cdf9967e527a2",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#52",
+    "#53",
+    "#54",
+    "#57",
+    "#60",
+    "#63",
+    "#64",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:8fd3c6973a3e186d"
+name = "add_to_diag"
+qual = "FvVectorMatrix::add_to_diag"
+lines = [
+    63,
+    70,
+]
+hash = "sha256:32c2ffb1a3d133a29cd243784b2e4fde293671ac0680b0fbc335cec9e6bab786"
+doc_hash = "sha256:85f0ae69113b2565d8540eb8f21a579d7604ebb4e3066d532f84e16012730588"
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:e005d9bfaf529f57",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:b22985568c2f9c8b"
+name = "add_to_source"
+qual = "FvVectorMatrix::add_to_source"
+lines = [
+    72,
+    77,
+]
+hash = "sha256:eb8cd40bbd27c87c264ce2391a8b63a2b2cbbbf501678effa4cee4a92a380d96"
+doc_hash = "sha256:5591bda0c5351e1e64d1369ec9c5170dddc26167a9d74b990498b3e7827c485a"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:65f8f3c9daf074d2",
+    "fn:e3b184e79e6044fe",
+]
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:bb31d5f55cd17a7d"
+name = "set_reference"
+qual = "FvVectorMatrix::set_reference"
+lines = [
+    79,
+    83,
+]
+hash = "sha256:f1864a1326d3b7a9f4da0d14ccd90d58e3f895ecfe00c4fd7c160b210d921f2e"
+doc_hash = "sha256:602c34d5ec193f689ffa8ea732bea240f09490f3ffe23f5c3097e86f140c6a44"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:e3b184e79e6044fe",
+]
+uses = [
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:c790149ff10d2b90"
+name = "a_field"
+qual = "FvVectorMatrix::a_field"
+lines = [
+    85,
+    101,
+]
+hash = "sha256:b56a8ccf626b8507fd25be09f59004f4696608282f6d503db3e89bff042b21fa"
+doc_hash = "sha256:16d5d7fe54bcf33eb9d5004bcc8d0d726a4f661e8e9e9e218237fb6e0f39bbca"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:51e65f672bc57d73",
+    "fn:e926a8bf496edb4b",
+]
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:aed0adc6bf107c03",
+    "fn:e005d9bfaf529f57",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#63",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:97a4f606e220776e"
+name = "h_field"
+qual = "FvVectorMatrix::h_field"
+lines = [
+    103,
+    126,
+]
+hash = "sha256:ad1c1ea904477824fce95dcd5510c5c85616fcb12f897653b330663c013c06bc"
+doc_hash = "sha256:affdc4df2d74bbb7e67bb081534a2bcee3f474d8911494249e4018e180e414de"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:12a06403e27e4888",
+    "fn:365b4ebf95314225",
+    "fn:51e65f672bc57d73",
+    "fn:636ae5a21be9336b",
+    "fn:ca96d8c89afa53c7",
+]
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:a38013d0ab9c0158",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:ef4939f8f02bea0c"
+name = "solve"
+qual = "FvVectorMatrix::solve"
+lines = [
+    128,
+    183,
+]
+hash = "sha256:6685388bae08dc165eb1468339e1b0dd65c2682b77a3d65a5b2e29e1cd83e578"
+doc_hash = "sha256:1f07f52885c16ca68b5190cb7c2e5f98f9876ed2aeb7056c72d43a3b895bc4b2"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:447674abbc1e5435",
+    "fn:51e65f672bc57d73",
+    "fn:9e501e5f4cce23ae",
+    "fn:ca96d8c89afa53c7",
+    "fn:f8fbd28a45837347",
+]
+uses = [
+    "fn:15127b61d1aee80d",
+    "fn:4c2ae8cf4fb397b1",
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:a38013d0ab9c0158",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#53",
+    "#54",
+    "#60",
+    "#64",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:cbd7f9a9d9a8312e"
+name = "add"
+qual = "FvVectorMatrix::add"
+lines = [
+    190,
+    204,
+]
+hash = "sha256:ded5cf6c204f00f35330354995568dc0d8be488c301448e34a29bbd47683561e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:65f8f3c9daf074d2",
+    "fn:9206161a1b2f9205",
+    "fn:e3b184e79e6044fe",
+]
+uses = ["fn:e005d9bfaf529f57"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:cd0079ec1e8c8bfc"
+name = "sub"
+qual = "FvVectorMatrix::sub"
+lines = [
+    209,
+    223,
+]
+hash = "sha256:5caf2c3ab1b6ec92de062e7b042aafcd87c4e63e3ea7837646959c642a63384d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:365b4ebf95314225",
+    "fn:9206161a1b2f9205",
+    "fn:e3b184e79e6044fe",
+]
+uses = ["fn:e005d9bfaf529f57"]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:0971beafeac94d54"
+name = "neg"
+qual = "FvVectorMatrix::neg"
+lines = [
+    228,
+    242,
+]
+hash = "sha256:04f6e78909530d782635cfef1759d35835dc1b3cc672e2c94ab132a25e23a4e0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:05e3606bdf9fb576",
+    "fn:365b4ebf95314225",
+    "fn:9206161a1b2f9205",
+    "fn:e3b184e79e6044fe",
+]
+uses = ["fn:e005d9bfaf529f57"]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:c0d33252c8a684cd"
+name = "add_assign"
+qual = "FvVectorMatrix::add_assign"
+lines = [
+    246,
+    259,
+]
+hash = "sha256:e77e428af4aa914e5a9a44a81800df8e2580d74efc5169eb050897fdff8a401b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:65f8f3c9daf074d2",
+    "fn:9206161a1b2f9205",
+    "fn:e3b184e79e6044fe",
+]
+uses = ["fn:e005d9bfaf529f57"]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:4e36c763177cd07e"
+name = "sub_assign"
+qual = "FvVectorMatrix::sub_assign"
+lines = [
+    263,
+    276,
+]
+hash = "sha256:43fd13c704cab8dd351360d07ddbb281e3c0cad209652ecb533d371fca48b6e3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:365b4ebf95314225",
+    "fn:9206161a1b2f9205",
+    "fn:e3b184e79e6044fe",
+]
+uses = ["fn:e005d9bfaf529f57"]
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:adcaef254f73331b"
+name = "unit_mesh"
+qual = "unit_mesh"
+lines = [
+    286,
+    315,
+]
+hash = "sha256:e94fe7918596b19542984a682bf9c0c1d5b7d7f14d100cb755413a2c1ac4cbcf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:ff361c5157ff4004"
+name = "diagonal_system_solves_vector"
+qual = "diagonal_system_solves_vector"
+lines = [
+    317,
+    330,
+]
+hash = "sha256:685ad3ff03d5c599bb9c7802c20e830a29f76acb2469b63fe00c357a82aa8f35"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:57fdd824115feee6",
+    "fn:9e501e5f4cce23ae",
+    "fn:a297582505d9673f",
+    "fn:adcaef254f73331b",
+    "fn:e3b184e79e6044fe",
+    "fn:ef4939f8f02bea0c",
+]
+uses = [
+    "fn:4c2ae8cf4fb397b1",
+    "fn:e005d9bfaf529f57",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."fv_vector_matrix.rs".function]]
+id = "fn:3db894010a09f680"
+name = "a_field_returns_diagonal"
+qual = "a_field_returns_diagonal"
+lines = [
+    332,
+    341,
+]
+hash = "sha256:6dc473de89a425367bd51fa0a77dc8f2918c4f0561bd162a47c75e7b25c4fc68"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:a297582505d9673f",
+    "fn:adcaef254f73331b",
+    "fn:c790149ff10d2b90",
+]
+uses = ["fn:e005d9bfaf529f57"]
+test = true
+
+[module."ldu_matrix.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix::ldu_matrix"
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:1de348bd6bbdd8f8"
+name = "LduMatrix"
+qual = "LduMatrix"
+item = "type"
+shape = "struct"
+lines = [
+    22,
+    50,
+]
+hash = "sha256:943c08541ea0f43483ad3e164ce08b69c2b875486ed3d688b590c91bc267138e"
+doc_hash = "sha256:f7f4cb49124b681c50871de8ac619829b5db72f517f1dda4812e8e7fcdb13856"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:a7f42f3ebfbc6d4e"
+name = "new"
+qual = "LduMatrix::new"
+lines = [
+    53,
+    69,
+]
+hash = "sha256:c862a7f94f83d935a3495f7b831a71c207663fef30092bcd5df05a4266b1b940"
+doc_hash = "sha256:8cc724e3581eebf40910724e634ce49f28d5577880a1963d0014e7f5da776003"
+uses = ["fn:1de348bd6bbdd8f8"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:0a7d35864c446c8c"
+name = "multiply"
+qual = "LduMatrix::multiply"
+lines = [
+    71,
+    90,
+]
+hash = "sha256:680c06f234b758e71de25972485d9f87e9e44d01cd2dc02fba36cfbea4b288e4"
+doc_hash = "sha256:75306316ce1651afa09394fc5f2c4a662c5033cfbbab3623ed7ccd4136dc8d86"
+uses = ["fn:1de348bd6bbdd8f8"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#49",
+    "#51",
+    "#53",
+    "#54",
+    "#58",
+    "#60",
+    "#62",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:77f0512e70a673ec"
+name = "residual"
+qual = "LduMatrix::residual"
+lines = [
+    92,
+    96,
+]
+hash = "sha256:14951ba0b40e148b4f35bab5e2cfdbbde1867fa6c45e928887bfdbe3c3a5d1d8"
+doc_hash = "sha256:ec030a297fb6d5719561b9be46b24489c57f406b3444f6d2dc1d2a706d9277d8"
+callees = ["fn:0a7d35864c446c8c"]
+uses = ["fn:1de348bd6bbdd8f8"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#66",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:da180b3f80f8b979"
+name = "normalised_residual"
+qual = "LduMatrix::normalised_residual"
+lines = [
+    98,
+    116,
+]
+hash = "sha256:e87280fdc46b8ee5b17408c6f11ac5c1f9470f9b8d2b139e36ace8001a52f274"
+doc_hash = "sha256:0697cf4d9a44b16dd3026128120d82f6ef71a4f2e8a9b82f60799309be11b8f1"
+callees = ["fn:0a7d35864c446c8c"]
+uses = ["fn:1de348bd6bbdd8f8"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#49",
+    "#51",
+    "#53",
+    "#54",
+    "#58",
+    "#60",
+    "#62",
+    "#64",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+    "#86",
+    "#87",
+    "#88",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#95",
+    "#96",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+]
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:ec4596830c4ff9df"
+name = "identity_2x2"
+qual = "identity_2x2"
+lines = [
+    126,
+    132,
+]
+hash = "sha256:76c009f228fb473c6d681e3eb14c6e132e06ef08be4cafa092cdc20edebf1779"
+doc_hash = "sha256:975759a6f43895bbe4d05cfdcfbb4c9070a6dfb02942a2647f4b2aed8f806acd"
+callees = ["fn:a7f42f3ebfbc6d4e"]
+uses = ["fn:1de348bd6bbdd8f8"]
+test = true
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:2fd52eef36baa65f"
+name = "tridiag_3x3"
+qual = "tridiag_3x3"
+lines = [
+    134,
+    147,
+]
+hash = "sha256:31cf4467a2ac9fa9033a70d5e05c41db5ecd184bb94d84264443ff3a7d2470ff"
+doc_hash = "sha256:3cecaec531b25d541182d8d273b9cb7d2ad30b9b600793a53bf6e737075e1cde"
+callees = ["fn:a7f42f3ebfbc6d4e"]
+uses = ["fn:1de348bd6bbdd8f8"]
+test = true
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:de1c2ee9ee8431c6"
+name = "identity_multiply"
+qual = "identity_multiply"
+lines = [
+    149,
+    156,
+]
+hash = "sha256:77efd4ffda39665f18269872d768edf3b431bf19362cb85b4b79079e43b1ae75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0a7d35864c446c8c",
+    "fn:ec4596830c4ff9df",
+]
+test = true
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:a2870dda3cdbd9dc"
+name = "tridiag_multiply"
+qual = "tridiag_multiply"
+lines = [
+    158,
+    171,
+]
+hash = "sha256:0acff8d1833528f38657c5a45aa04c07edd305590f3532055cd54bb34e336790"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0a7d35864c446c8c",
+    "fn:2fd52eef36baa65f",
+]
+test = true
+
+[[module."ldu_matrix.rs".function]]
+id = "fn:ce1a224be06360dd"
+name = "residual_exact_solution"
+qual = "residual_exact_solution"
+lines = [
+    173,
+    181,
+]
+hash = "sha256:1f0af881deeb000b847cd2fd46bb44ab160afd78260d96f4f3331c643f9effe5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:77f0512e70a673ec",
+    "fn:ec4596830c4ff9df",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::ldu_matrix"

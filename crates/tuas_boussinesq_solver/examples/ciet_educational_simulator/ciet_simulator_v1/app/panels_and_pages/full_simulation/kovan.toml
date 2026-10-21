@@ -1,0 +1,362 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/examples/ciet_educational_simulator/ciet_simulator_v1/app/panels_and_pages/full_simulation"
+
+[module."archive.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::full_simulation::archive"
+
+[[module."archive.rs".function]]
+id = "fn:3f41c5175df46389"
+name = "_educational_ciet_loop_version_3"
+qual = "_educational_ciet_loop_version_3"
+lines = [
+    29,
+    1616,
+]
+hash = "sha256:98ebc2fbfac2a47b9ed18ca107df1f860af71fd0c4e8eccf1219ac456533bf4f"
+doc_hash = "sha256:800e521af23239b205e9e61c4bc9d1821d27699c7f8851be91774469929f5254"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:045011bd58f386f4",
+    "fn:04f1b1765ba0dd4f",
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:1eccda9f753c0136",
+    "fn:26e415a2516474b8",
+    "fn:28ca00fee17ecb07",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:334ab074ca62fbeb",
+    "fn:3629bda66cb1631f",
+    "fn:3b175c51dad51671",
+    "fn:3bc3f0f44ccdb2a3",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f80312760c570d3",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44418e4125182393",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:5661800de277de8d",
+    "fn:56ab551aa949fe97",
+    "fn:579dd6b20de3f7d0",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6457f4797f0cd612",
+    "fn:6472671d822a61ab",
+    "fn:64c8d71476d901fd",
+    "fn:65c03ec4845def62",
+    "fn:679eea7225e5e653",
+    "fn:6d476dc6ddf33f8c",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6f9db37bb5514b49",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:75f0a83271918517",
+    "fn:78ee315e9e1088f0",
+    "fn:7ee6570130bd052b",
+    "fn:7ef77350dbde39bd",
+    "fn:831014fb4e896cde",
+    "fn:8344118d58b55c15",
+    "fn:835ea69942f39c9e",
+    "fn:8427a6111c8cb4e8",
+    "fn:85342ea4b7e5933b",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9b05e5d47d6e416e",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:aa91490ebe686886",
+    "fn:ab7102b91b02cb50",
+    "fn:acc1b181e5e9de07",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b0ba5fe7e3c77e26",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b9acd02ee51732d3",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:c7c15d72234b598d",
+    "fn:cd4176998fb73b07",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:de4ed21e1e4689b6",
+    "fn:ded2b3f97a256bbc",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e0faff442f948e02",
+    "fn:e1d822f0823e13bf",
+    "fn:e23a3bf539680737",
+    "fn:e4bff9f30142b5cc",
+    "fn:e8a49300f0e05eba",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+    "fn:f3cde3d60d3dff8d",
+    "fn:f9571f9105f5c310",
+    "fn:fa07bb0cb8fd7b33",
+    "fn:ff764db25e60524d",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:2ae0e867e1dae4b3",
+    "fn:4a19e9ba06c44963",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+
+[module."diagnostics.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::full_simulation::diagnostics"
+
+[[module."diagnostics.rs".function]]
+id = "fn:fbfe53c7db5ca407"
+name = "pri_loop_heater_temperature_diagnostics_ver_4"
+qual = "pri_loop_heater_temperature_diagnostics_ver_4"
+lines = [
+    5,
+    58,
+]
+hash = "sha256:34099ea0a2e15c38ad5a179d8f83bd8f2f0d362485a241186e0cfbf9936f7d02"
+doc_hash = "sha256:32d3a92e3c5269a8e89140695257ee6ee90718a34b1d9da85ed5e50038405e38"
+callees = ["fn:5898244cb765d25d"]
+uses = [
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+]
+physical_interface = true
+
+[module."fluid_solvers.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::full_simulation::fluid_solvers"
+
+[[module."fluid_solvers.rs".function]]
+id = "fn:6f9d1c555b298fda"
+name = "three_branch_pri_loop_flowrates_parallel_ver_4"
+qual = "three_branch_pri_loop_flowrates_parallel_ver_4"
+lines = [
+    31,
+    224,
+]
+hash = "sha256:19a9ec3f6b0a90dc1a4d32b3c61a682f483c6c6c16daeb818cd8e8113a567442"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:32f411937a5c1d1b",
+    "fn:352eae89cdf05026",
+    "fn:49b3f3e819a00739",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:c5b03a40b86a1ce1",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true
+
+[module."heat_transfer_solvers.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::full_simulation::heat_transfer_solvers"
+
+[[module."heat_transfer_solvers.rs".function]]
+id = "fn:ba4f0df4b1b5c9fd"
+name = "ciet_pri_loop_three_branch_link_up_components_ver_4"
+qual = "ciet_pri_loop_three_branch_link_up_components_ver_4"
+lines = [
+    20,
+    727,
+]
+hash = "sha256:c7292f1b608101e335436e26cfcc224b375911f07253679613b5d859ec1022b0"
+doc_hash = "sha256:d371634b388eefbd8baf3c6048cfe18793a80350bf76cdb544dbc87c5a3a6feb"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:4cad4ddd84ccee48",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:71e0b3e056618526",
+    "fn:a3a04100486196dc",
+    "fn:c9639f97ba6fc460",
+]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[[module."heat_transfer_solvers.rs".function]]
+id = "fn:30e5279775d6f0ab"
+name = "pri_loop_three_branch_advance_timestep_except_dhx_ver_4"
+qual = "pri_loop_three_branch_advance_timestep_except_dhx_ver_4"
+lines = [
+    729,
+    825,
+]
+hash = "sha256:6e480171302cb2dafc5801cdf05d92c04ef937134c42d9a80ca8d05152932260"
+doc_hash = "sha256:f016e9da4b17c6cca4edf2093ad4ec3ba6c306a46c87d15ff6a08d85c60540ac"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:3f6427f87e7e0f62",
+    "fn:57c29e12f6aa9e39",
+    "fn:f66c6613b2fa9c0c",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:9cd1446ef56c9f1c",
+    "fn:a6efe5f766b47fef",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::full_simulation"
+
+[[module."mod.rs".function]]
+id = "fn:e9ee368b9fc3b537"
+name = "educational_ciet_loop_version_4"
+qual = "educational_ciet_loop_version_4"
+lines = [
+    32,
+    1914,
+]
+hash = "sha256:e7f289cc680d04b82b1ae51bdd6b53a3c118f79bec6aef7433ff2c4552665467"
+doc_hash = "sha256:9a176693e0fe17f02b3ff1d7cd4384c13394a3133c7de4a2957f8fd683c24765"
+callees = [
+    "fn:0120b5299e2da2da",
+    "fn:045011bd58f386f4",
+    "fn:04f1b1765ba0dd4f",
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:1eccda9f753c0136",
+    "fn:26e415a2516474b8",
+    "fn:28ca00fee17ecb07",
+    "fn:2b080e55834cc989",
+    "fn:2d7b8ddc9930a271",
+    "fn:2e1c32118e070b6c",
+    "fn:30e5279775d6f0ab",
+    "fn:3629bda66cb1631f",
+    "fn:3b175c51dad51671",
+    "fn:3bc3f0f44ccdb2a3",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f80312760c570d3",
+    "fn:3fdf94385bd7ffd4",
+    "fn:429944a98c495fc2",
+    "fn:43cf81cc824876b7",
+    "fn:44418e4125182393",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:5661800de277de8d",
+    "fn:56ab551aa949fe97",
+    "fn:579dd6b20de3f7d0",
+    "fn:57d1ac7e6da1d27b",
+    "fn:5898244cb765d25d",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:625dce0bc183471b",
+    "fn:6472671d822a61ab",
+    "fn:65c03ec4845def62",
+    "fn:664374529663ea61",
+    "fn:679eea7225e5e653",
+    "fn:6d476dc6ddf33f8c",
+    "fn:6f2c2edff2d2dbc2",
+    "fn:6f9d1c555b298fda",
+    "fn:6f9db37bb5514b49",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:78ee315e9e1088f0",
+    "fn:7ee6570130bd052b",
+    "fn:7ef77350dbde39bd",
+    "fn:81ebbad2a6b015cb",
+    "fn:831014fb4e896cde",
+    "fn:8344118d58b55c15",
+    "fn:835ea69942f39c9e",
+    "fn:8427a6111c8cb4e8",
+    "fn:85342ea4b7e5933b",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9b05e5d47d6e416e",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a466cf7d23703edb",
+    "fn:aa91490ebe686886",
+    "fn:ab7102b91b02cb50",
+    "fn:acc1b181e5e9de07",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b0ba5fe7e3c77e26",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b9acd02ee51732d3",
+    "fn:ba4f0df4b1b5c9fd",
+    "fn:bdf79b93c24ef8cb",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c7c15d72234b598d",
+    "fn:cd4176998fb73b07",
+    "fn:cf4436f25e5d0557",
+    "fn:d07e3dfd8252d219",
+    "fn:d080d9cf81960954",
+    "fn:d4bf59327d45740c",
+    "fn:de4ed21e1e4689b6",
+    "fn:ded2b3f97a256bbc",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e0faff442f948e02",
+    "fn:e1d822f0823e13bf",
+    "fn:e23a3bf539680737",
+    "fn:e4bff9f30142b5cc",
+    "fn:e8a49300f0e05eba",
+    "fn:ee48fed6fbd70492",
+    "fn:ee9965285e489d5b",
+    "fn:f3cde3d60d3dff8d",
+    "fn:f9571f9105f5c310",
+    "fn:fa07bb0cb8fd7b33",
+    "fn:fbfe53c7db5ca407",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:2ae0e867e1dae4b3",
+    "fn:4a19e9ba06c44963",
+    "fn:7dd4a12481be2f3d",
+    "fn:9cd1446ef56c9f1c",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+    "fn:f232a9a6a595ee30",
+    "fn:f811c4c8869b08b0",
+]
+
+[module."separated_solvers.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app::panels_and_pages::full_simulation::separated_solvers"

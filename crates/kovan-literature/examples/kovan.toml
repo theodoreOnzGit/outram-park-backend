@@ -1,0 +1,28 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-literature"
+dir = "crates/kovan-literature/examples"
+
+[module."bibtex.rs"]
+path = "example:bibtex"
+
+[[module."bibtex.rs".function]]
+id = "fn:23486071b97fad1d"
+name = "main"
+qual = "main"
+lines = [
+    11,
+    29,
+]
+hash = "sha256:d74251329b5a09a65ce2d3eb070b39b5b4320102d967b4e9e655ae4e80fe1373"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2f44d28760e014ea",
+    "fn:aa521857b5d2af86",
+]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:842c00c159aa93db",
+    "fn:b07b8e5717934b35",
+    "fn:fab10e4f2c22952e",
+]

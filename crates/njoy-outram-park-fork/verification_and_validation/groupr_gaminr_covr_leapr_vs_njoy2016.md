@@ -83,7 +83,7 @@ unless stated.
 
 | Test | What is compared | Tier 1 (NJOY PENDF in) | Tier 2 (crate RECONR+BROADR) |
 |---|---|---|---|
-| `groupr_u238_gendf_golden.rs` | `sigma_g(sigma_0)` for MT=1/2/18/102 at 6 dilutions, group flux; `genflx` + `panel`; tier 3 URR via UNRESR MF=2/152; tiers 4–5 the `iwt = -3` flux calculator, homogeneous and heterogeneous | MT=1 6.85e-7, MT=2 4.55e-7, MT=18 2.07e-6, MT=102 **2.65e-6**; flux 4.93e-7 (7-figure floor) | MT=1/2/102 ≤ 9.2e-4; MT=18 1.1e-2 — NJOY's own `errint = err/20000` relaxation on a 2.5e-7 b sub-threshold fission (`reconr.f90:112-117`), the crate reconstructs tighter (961k vs 448k points); asserted 3e-2 |
+| `groupr_u238_gendf_golden.rs` | `sigma_g(sigma_0)` for MT=1/2/18/102 at 6 dilutions, group flux; `genflx` + `panel`; tier 3 URR via UNRESR MF=2/152; tiers 4–5 the `iwt = -3` flux calculator, homogeneous and heterogeneous | MT=1 6.85e-7, MT=2 4.55e-7, MT=18 2.07e-6, MT=102 **2.65e-6**; flux 4.93e-7 (7-figure floor) | ~~MT=1/2/102 ≤ 9.2e-4; MT=18 1.1e-2 — NJOY's own `errint = err/20000` relaxation on a 2.5e-7 b sub-threshold fission (`reconr.f90:112-117`), the crate reconstructs tighter (961k vs 448k points); asserted 3e-2~~ **re-measured 2026-10-05 (#554):** identical to tier 1 (MT=1 6.85e-7, MT=2 4.55e-7, MT=18 2.07e-6, MT=102 2.65e-6, flux 4.93e-7), because the crate's PENDF is NJOY's word for word since #340 (155,207 points); now asserted at 1e-5 |
 | `groupr_u238_elastic_matrix_golden.rs` | MF=6/MT=2 transfer matrix, `lord = 0` and `lord = 3` (P0–P3), 6 dilutions | `lord=0`: 516 words identical structure, every element at the 7-figure floor; `lord=3`: 2064 words, P0/P1 and large P2/P3 at the floor, the rest ≤ 9.99e-6 (small P3 elements at 1 unit of `1e-7 sigma_g`), fluxes 6.89e-7 | reported in the test |
 | `groupr_u238_inelastic_matrix_golden.rs` | discrete-level MF=3+MF=6 for MT=51/52/60/89, `q < 0` thresholds, 1 and 6 dilutions | every vector ≤ 3.2e-6, flux ≤ 1.5e-7 (1e-13 on the six-sigma-zero deck), every transfer element ≤ 1e-5 or < 1 unit of `1e-7 sigma_g`; P0 row sums to 3e-7 | — |
 | `groupr_u238_derived_quantities_golden.rs` | MT=257/258/259 analytic `getsig` edits | asserted ≤ 1e-5 (env-gated: needs `OUTRAM_PARK_NJOY_U238_PENDF`) | — |
@@ -98,7 +98,13 @@ copied across a bracket), then ported deliberately.
 
 ## 4. Results — GAMINR, COVR, LEAPR
 
-### 4.1 GAMINR (`tests/gaminr_synthetic_photoat_golden.rs`)
+### 4.1 GAMINR (~~`tests/gaminr_synthetic_photoat_golden.rs`~~ `tests/gaminr_vs_njoy2016.rs`)
+
+> **CORRECTED 2026-10-04:** the test file was renamed to
+> `tests/gaminr_vs_njoy2016.rs` in `0c81e1b2d9` (2026-09-17), which also added
+> a real ENDF/B-VIII.0 uranium photo-atomic case; see
+> `gaminr_u_photoatomic_vs_njoy2016.md`. The synthetic-tape results below are
+> unchanged.
 
 Oracle: `reference-data/gendf/photoat-synthetic-Z6-lanl12-iwt3-lord3.gendf`
 — NJOY GAMINR on the **synthetic** photoatomic tape
@@ -123,7 +129,11 @@ scope:** this is a *synthetic* evaluation. A real photoatomic tape
 (`photoat-006_C_000` or similar) could not be obtained in this environment
 — `www-nds.iaea.org` and `www.nndc.bnl.gov` both answer 403 — so the
 photoatomic path is verified against NJOY's arithmetic on a tape with the
-right *structure*, not against an evaluated library. That gap stands.
+right *structure*, not against an evaluated library. ~~That gap stands.~~
+**CORRECTED 2026-10-05:** closed. The real ENDF/B-VIII.0 uranium photoatomic
+evaluation is committed (`reference-data/endf/photoat-092_U_000-ENDF8.0.endf`)
+and every GAMINR reaction agrees with NJOY2016 on it to 3.71e-7
+(`gaminr_u_photoatomic_vs_njoy2016.md`, GitHub #534).
 
 ### 4.2 COVR (`tests/covr_boxer_golden.rs`)
 
@@ -146,7 +156,7 @@ Against the *published* ENDF/B-VIII.0 graphite tape (a different LEAPR
 build, `tests/leapr_graphite_deck_parity.rs`): 48,941 points at 296 K, max
 4.917e-6 / RMS 6.4e-7 with the pre-2017 `k_B`, every point inside the
 tape's own 6-/7-figure printing band; end to end through `endout` the
-stored `S` values are identical at 60,000 / 60,000 points. The coherent
+stored `S` values are ~~identical at 60,000 / 60,000 points~~ 1.004e-13 max over 48,941 points, 6,645 / 60,000 bit-identical (CORRECTED 2026-10-14, `examples/graphite_sab_generation.rs`). The coherent
 elastic channel is treated in `docs/leapr-sic-coherent-elastic-vv.md`.
 
 ### 4.4 LEAPR — the whole-deck driver (`tests/leapr_run_driver_njoy_oracle.rs`, 2026-09-10)
@@ -195,14 +205,19 @@ the upstream `rpxlc12` pointer defect.
 
 Open, stated as such:
 
-1. GAMINR on a **real** photoatomic evaluation — blocked by the data hosts'
-   403; the synthetic tape verifies arithmetic, not an evaluation.
+1. ~~GAMINR on a **real** photoatomic evaluation — blocked by the data hosts'
+   403; the synthetic tape verifies arithmetic, not an evaluation.~~ Closed
+   2026-10-05 (uranium, 3.71e-7 worst; see above).
 2. DTFR with `ntherm > 0` (thermal upscatter groups) — no oracle yet.
 3. The U-238 tier-1 goldens that need NJOY's 40 MB PENDF are env-gated
    (`OUTRAM_PARK_NJOY_U238_PENDF`); the deck to regenerate it is committed
    with each GENDF golden.
-4. LEAPR `coldh` (Young–Koppel rotational convolution) is self-consistency
-   tested only; no NJOY run of a cold-hydrogen deck has been compared.
+4. ~~LEAPR `coldh` (Young–Koppel rotational convolution) is self-consistency
+   tested only; no NJOY run of a cold-hydrogen deck has been compared.~~ **CORRECTED 2026-10-14:** since 2026-09-14
+   `tests/leapr_cold_hydrogen_njoy_oracle.rs` compares `coldh` against
+   NJOY2016's test 22 (para-hydrogen at 20 K, `ncold = 2`) and its own
+   `referenceTape20`: all 9175 `S(α,β)` values on the signed β grid within
+   1.0e-13.
 5. The Phase-6 formatters (WIMSR, MATXSR, CCCCR, POWR) have no port yet.
    Scoping found that a WIMSR oracle needs a GENDF with a thermal
    inelastic matrix (`mti`, e.g. free-gas MT=221 through THERMR) — NJOY's

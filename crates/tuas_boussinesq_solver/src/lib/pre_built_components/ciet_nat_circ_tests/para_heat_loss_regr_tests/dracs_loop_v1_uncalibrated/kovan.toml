@@ -1,0 +1,204 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated"
+test_ids = ["crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated/mod.rs::quick_test_uncalibrated_dracs_loop"]
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v1_uncalibrated"
+
+[[module."mod.rs".function]]
+id = "fn:96015f89d2680011"
+name = "quick_test_uncalibrated_dracs_loop"
+qual = "quick_test_uncalibrated_dracs_loop"
+lines = [
+    9,
+    31,
+]
+hash = "sha256:caa390b77314217110ae0991258be6564b49539a2fb8d1778bacaafdf3838e38"
+doc_hash = "sha256:257297c25446e7d4bd6c545cf637409a991db5f2fcf4fc5964c37fe5d41dcd2d"
+callees = ["fn:8837898541138cef"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:59af27dca7a067b7"
+name = "long_test_uncalibrated_dracs_loop"
+qual = "long_test_uncalibrated_dracs_loop"
+lines = [
+    32,
+    60,
+]
+hash = "sha256:95b2e4227876a1c12bddafceda4f457b861b5ac32f07319a461e5ccdfcbcf7ce"
+doc_hash = "sha256:c4eb60570b365bf7a17bfd2646c3c0df85f968614f8c88faa793a6692c49e288"
+callees = ["fn:8837898541138cef"]
+
+[[module."mod.rs".function]]
+id = "fn:c6acfcce36b8c45c"
+name = "regression_long_test_uncalibrated_dracs_loop_set_c"
+qual = "regression_long_test_uncalibrated_dracs_loop_set_c"
+lines = [
+    61,
+    466,
+]
+hash = "sha256:e92e631e516b84e8cf0993ce0a343c88f9ec2b9a58780422e7e2ab521f5c74ca"
+doc_hash = "sha256:117200bef5c2589f18e2ff0982a7fe21e97977a97bea971c67e2af58e562b677"
+callees = ["fn:d8dd43fddaa7b14d"]
+
+[module."regression_dracs_loop_v1.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v1_uncalibrated::regression_dracs_loop_v1"
+
+[[module."regression_dracs_loop_v1.rs".function]]
+id = "fn:d8dd43fddaa7b14d"
+name = "regression_dracs_loop_v1"
+qual = "regression_dracs_loop_v1"
+lines = [
+    1,
+    482,
+]
+hash = "sha256:d4a51e067cadf2ed18e83003a3e345822c3f8ae30ef049aa294fcb2e5ee4f464"
+doc_hash = "sha256:a3756afb4642c2cc600a0fa149f2792a0b7eafa6011010b00422d494aa33c52f"
+callees = [
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:26e415a2516474b8",
+    "fn:3b175c51dad51671",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:85342ea4b7e5933b",
+    "fn:858bf6e4c57d0393",
+    "fn:91f7627d113aa8f5",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9c06ae1c2aa27c6a",
+    "fn:9da319fa8e4815f6",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a44b89bd5edea743",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:aea1a2ba0c77b742",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b635837cbd7c9ce1",
+    "fn:b9acd02ee51732d3",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:d32f2656cc719b58",
+    "fn:d57dbe3f80933fd7",
+    "fn:dd513b16ead58236",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e4bff9f30142b5cc",
+    "fn:ee48fed6fbd70492",
+    "fn:f8b8b8874aae4e2b",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+]
+
+[module."validate_dracs_loop_v1.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_v1_uncalibrated::validate_dracs_loop_v1"
+
+[[module."validate_dracs_loop_v1.rs".function]]
+id = "fn:8837898541138cef"
+name = "validate_dracs_loop_v1"
+qual = "validate_dracs_loop_v1"
+lines = [
+    1,
+    459,
+]
+hash = "sha256:b984b9b583e7ee40086d4c1fae76620d97b86f23f0fbfb8bf08bb004df57e4a9"
+doc_hash = "sha256:39032e0d2d15873cb439b0c782cb3b378f859565912c1d5f9869ec79e65148ba"
+callees = [
+    "fn:165e0de92fdc30f9",
+    "fn:192c73709e4fae1b",
+    "fn:26e415a2516474b8",
+    "fn:3b175c51dad51671",
+    "fn:3e41f0f4036b1c69",
+    "fn:3fdf94385bd7ffd4",
+    "fn:42677954ee03d9db",
+    "fn:429944a98c495fc2",
+    "fn:44b0242f8ce5613f",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:625dce0bc183471b",
+    "fn:6383373ca57701c5",
+    "fn:6472671d822a61ab",
+    "fn:679eea7225e5e653",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75b2bf19978d095f",
+    "fn:75d1e2e16257fc20",
+    "fn:7ee6570130bd052b",
+    "fn:85342ea4b7e5933b",
+    "fn:858bf6e4c57d0393",
+    "fn:91f7627d113aa8f5",
+    "fn:928c1745ab947694",
+    "fn:9319b2b56ae29f2c",
+    "fn:9c06ae1c2aa27c6a",
+    "fn:9da319fa8e4815f6",
+    "fn:9e971cad029f3940",
+    "fn:a062bfc4d1c08565",
+    "fn:a16a9747f145abfe",
+    "fn:a44b89bd5edea743",
+    "fn:a466cf7d23703edb",
+    "fn:ab7102b91b02cb50",
+    "fn:aea1a2ba0c77b742",
+    "fn:b113f725d215f11b",
+    "fn:b36ec305413e9570",
+    "fn:b57c94f7ef5cfea0",
+    "fn:b635837cbd7c9ce1",
+    "fn:b9acd02ee51732d3",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:c3c32a0780662c1d",
+    "fn:c56452c27bdd23be",
+    "fn:cf4436f25e5d0557",
+    "fn:d080d9cf81960954",
+    "fn:d32f2656cc719b58",
+    "fn:d57dbe3f80933fd7",
+    "fn:dd513b16ead58236",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:e1d822f0823e13bf",
+    "fn:e4bff9f30142b5cc",
+    "fn:ee48fed6fbd70492",
+    "fn:f8b8b8874aae4e2b",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+]
+reached_by = ["#0"]

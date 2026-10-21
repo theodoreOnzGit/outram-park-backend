@@ -1,0 +1,36 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src"
+crate_root = true
+test_ids = ["crates/dhoby-ghaut/src/lib.rs::the_expansion_is_spelled_out"]
+
+[module."lib.rs"]
+path = "crate"
+
+[[module."lib.rs".function]]
+id = "fn:e357acdccbf86f86"
+name = "EXPANSION"
+qual = "EXPANSION"
+item = "const"
+shape = "const"
+lines = [
+    121,
+    127,
+]
+hash = "sha256:f2ce13ec0f3864dc85cb668ed524acf6abbafd44bb8cbc548ef89d6ad45d9ce4"
+doc_hash = "sha256:3935336482a7e007d06c92c3bd37675cef245f1fa08b5dee073598a239f41337"
+reached_by = ["#0"]
+
+[[module."lib.rs".function]]
+id = "fn:a6a5677d81b8934e"
+name = "the_expansion_is_spelled_out"
+qual = "the_expansion_is_spelled_out"
+lines = [
+    133,
+    139,
+]
+hash = "sha256:25dff37824a467ba832e906d77632822748fca335dc0d71b0ddaf7a3511b4451"
+doc_hash = "sha256:f0df04b349fe6015fb86c10ce8785423c8780efa825724fa0377e45d4bfcaeb6"
+uses = ["fn:e357acdccbf86f86"]
+test = true

@@ -29,10 +29,15 @@
 //! gas constant `R = 8.31447 J/(mol·K)`, and absolute temperature `T` in K. Some
 //! species sum two Arrhenius terms (a low- and a high-temperature branch). The
 //! correlations are the NP-MHTGR values (User Manual §1, ref. 1) and are
-//! **valid roughly 700–2400 °C**; the User Manual (§5, "Results look
+//! **valid roughly 700–2400 °C**; ~~the User Manual (§5, "Results look
 //! incorrect") notes that temperatures below a species' valid range are
 //! **clamped** to the boundary value — this port reproduces that clamping
-//! exactly.
+//! exactly.~~ **CORRECTED 2026-10-20, checked against
+//! [`diffusion_coefficient`]:** only some species are clamped, and only from
+//! below: Rb/Cs (kernel ≥ 700 °C, graphite ≥ 550 °C), Sr/Ba/Eu (kernel
+//! ≥ 700 °C, graphite ≥ 800 °C) and Ag/Pd in graphite (≥ 490 °C). Kr, Xe, I,
+//! Te, Se and the Ag/Pd kernel are **extrapolated**, as upstream's code does
+//! (the function's own doc, corrected under #449, already says so).
 //!
 //! ## Units
 //!
@@ -43,6 +48,7 @@
 //! time-integrated coefficient `∫D dt` has units of m^2 and is returned as an
 //! [`Area`].
 
+use petir::mathf::RealMath;
 use uom::si::area::square_meter;
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::{Area, DiffusionCoefficient, ThermodynamicTemperature, Time};
@@ -81,7 +87,7 @@ fn arrhenius_term(
 ) -> f64 {
     pre_exponential
         * (-activation_energy_kj_per_mol * 1000.0 / temperature_kelvin / GAS_CONSTANT_J_PER_MOL_K)
-            .exp()
+            .r_exp()
 }
 
 /// °C → K, matching the upstream `T + 273.15`.
@@ -119,8 +125,13 @@ fn celsius_to_kelvin(celsius: f64) -> f64 {
 /// - `graphite_temperature` — matrix-graphite temperature.
 ///
 /// # Assumptions
-/// Inputs outside the ~700–2400 °C validity window are clamped (never
-/// extrapolated) exactly as upstream; results there are boundary values.
+/// ~~Inputs outside the ~700–2400 °C validity window are clamped (never
+/// extrapolated)~~ **CORRECTED 2026-09-30 (#449), verified against the code below:** only
+/// the **lower** clamps listed above exist, and they are group-specific (Rb/Cs
+/// kernel ≥ 700 °C, graphite ≥ 550 °C; Sr/Ba/Eu kernel ≥ 700 °C, graphite
+/// ≥ 800 °C; Ag/Pd graphite ≥ 490 °C). There is **no upper clamp**, and
+/// Kr, Xe, I, Te, Se and the Ag/Pd kernel are **extrapolated**, exactly as
+/// upstream does.
 #[must_use]
 pub fn diffusion_coefficient(
     z: u32,
@@ -298,7 +309,7 @@ mod tests {
         let d = diffusion_coefficient(53, t, t)
             .kernel
             .get::<square_meter_per_second>();
-        let expected = 1.3e-12 * (-126000.0_f64 / (1273.15 * 8.31447)).exp();
+        let expected = 1.3e-12 * (-126000.0_f64 / (1273.15 * 8.31447)).r_exp();
         assert_relative_eq!(d, expected, max_relative = 1e-12);
         assert_relative_eq!(d * 1e18, 8.8011, max_relative = 1e-3);
     }
@@ -312,7 +323,7 @@ mod tests {
             .get::<square_meter_per_second>();
         let tk = 1800.0_f64 + 273.15;
         let expected =
-            8.8e-15 * (-54000.0 / (tk * 8.31447)).exp() + 6e-1 * (-480000.0 / (tk * 8.31447)).exp();
+            8.8e-15 * (-54000.0 / (tk * 8.31447)).r_exp() + 6e-1 * (-480000.0 / (tk * 8.31447)).r_exp();
         assert_relative_eq!(d, expected, max_relative = 1e-12);
     }
 
@@ -335,7 +346,7 @@ mod tests {
     fn silver_sic_matches_hand_calc() {
         let t = ThermodynamicTemperature::new::<degree_celsius>(1200.0);
         let d = diffusion_coefficient_sic_ag(t).get::<square_meter_per_second>();
-        let expected = 3.6e-9 * (-215000.0_f64 / (1473.15 * 8.31447)).exp();
+        let expected = 3.6e-9 * (-215000.0_f64 / (1473.15 * 8.31447)).r_exp();
         assert_relative_eq!(d, expected, max_relative = 1e-12);
         assert_relative_eq!(d * 1e17, 8.5710, max_relative = 1e-3);
     }

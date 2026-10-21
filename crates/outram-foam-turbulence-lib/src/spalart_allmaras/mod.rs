@@ -95,6 +95,7 @@
 //! only at the unit level (see the inline test module); not validated against
 //! an aerodynamic benchmark.
 
+use petir::mathf::RealMath;
 use crate::traits::TurbulenceModel;
 use outram_foam_basic_lib::fv_operators::{fvc, fvm};
 use outram_foam_basic_lib::prelude::{
@@ -195,11 +196,11 @@ fn fv2(chi: f64, fv1: f64) -> f64 {
 /// as upstream `SpalartAllmaras.C:103-134`. `y` is the wall distance [m].
 #[inline]
 fn fw(stilda: f64, nu_tilde: f64, y: f64) -> f64 {
-    let ky2 = (KAPPA * y).powi(2).max(SMALL);
+    let ky2 = (KAPPA * y).r_powi(2).max(SMALL);
     let r = (nu_tilde / (stilda.max(SMALL) * ky2)).min(10.0);
-    let g = r + CW2 * (r.powi(6) - r);
-    let cw3_6 = CW3.powi(6);
-    g * ((1.0 + cw3_6) / (g.powi(6) + cw3_6)).powf(1.0 / 6.0)
+    let g = r + CW2 * (r.r_powi(6) - r);
+    let cw3_6 = CW3.r_powi(6);
+    g * ((1.0 + cw3_6) / (g.r_powi(6) + cw3_6)).r_powf(1.0 / 6.0)
 }
 
 impl SpalartAllmaras {
@@ -372,7 +373,7 @@ impl TurbulenceModel for SpalartAllmaras {
             let x = chi(nt[c], nu[c]);
             let f1 = fv1(x);
             let f2 = fv2(x, f1);
-            let ky2 = (KAPPA * self.y[c]).powi(2).max(SMALL);
+            let ky2 = (KAPPA * self.y[c]).r_powi(2).max(SMALL);
             // S̃ = max(Ω + fv2·ν̃/(κy)², Cs·Ω)  `SpalartAllmaras.C:88-99`.
             let st = (omega[c] + f2 * nt[c] / ky2).max(CS * omega[c]);
             stilda[c] = st;
@@ -393,14 +394,14 @@ impl TurbulenceModel for SpalartAllmaras {
             + fvm::laplacian(&d_f, &self.nu_tilde);
         for c in 0..n {
             let v = mesh.cell_volumes[c];
-            let mag_grad_sq = gnt[c].mag().powi(2);
+            let mag_grad_sq = gnt[c].mag().r_powi(2);
             // Explicit production Cb1·S̃·ν̃  (`SpalartAllmaras.C:326`) and the
             // Cb2/σ|∇ν̃|² diffusive source (moved from LHS, `.C:324`).
             eqn.source[c] =
                 eqn.source[c] + v * (CB1 * stilda[c] * nt[c] + CB2 / SIGMA * mag_grad_sq);
             // Implicit destruction −Sp(Cw1·fw·ν̃/y², ν̃)  (`SpalartAllmaras.C:327-331`):
             // diag += V·Cw1·fw·ν̃/y².
-            let y2 = self.y[c].powi(2).max(SMALL);
+            let y2 = self.y[c].r_powi(2).max(SMALL);
             eqn.ldu.diag[c] += v * CW1 * fw_c[c] * nt[c] / y2;
         }
         let (nt_new, _) = eqn.solve("nuTilda", settings);

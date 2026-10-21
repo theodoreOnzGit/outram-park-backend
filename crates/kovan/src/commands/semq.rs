@@ -22,11 +22,14 @@
 //! doesn't exist at all). See `commands::lsp_daemon`'s module doc for the
 //! daemon design.
 //!
-//! **Deferred, not implemented here** (see `op-l3uz`): `callers`/`callees`
+//! ~~**Deferred, not implemented here** (see `op-l3uz`): `callers`/`callees`
 //! (call-hierarchy composition over `references` + `document_symbols`) and
-//! `impls` (trait `impl`-site filtering). Both are real, more involved
-//! features on top of the same session — this module ships the three
-//! highest-value, simplest-to-verify queries first.
+//! `impls` (trait `impl`-site filtering).~~ **CORRECTED 2026-10-04**:
+//! callees now exist as `kovan-cli code-walk` (GitHub issue #523,
+//! `commands::code_walk`), which reuses [`connect`] and the daemon; it finds
+//! function bodies from source text rather than `document_symbols` (see its
+//! `source` module for why). `callers` and `impls` are still not
+//! implemented.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -55,8 +58,8 @@ pub(super) fn ra_timeout() -> Duration {
 /// Spawn rust-analyzer for `root`, announcing indexing progress on stderr so
 /// a `--json` stdout stays clean and a slow index doesn't look like a hang.
 /// The fallback path when no daemon (`commands::lsp_daemon`) is reachable.
-fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
-    let root = std::fs::canonicalize(root)
+pub(super) fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
+    let root = dunce::canonicalize(root)
         .map_err(|e| format!("resolving workspace root {}: {e}", root.display()))?;
     let timeout = ra_timeout();
     eprintln!(
@@ -78,6 +81,31 @@ fn connect(root: &Path) -> Result<RustAnalyzerSession, String> {
              (`rustup component add rust-analyzer`) and on PATH?"
         )
     })
+}
+
+/// Runs an LSP request, retrying while rust-analyzer answers
+/// `ContentModified` (LSP error -32801). It sends that when its state
+/// changed under the request — routinely in the seconds after it reports
+/// ready, while it is still loading crates — and the protocol's answer is to
+/// ask again. Backs off from 100 ms to 2 s, giving up after about a minute.
+pub(super) fn retry_content_modified<T>(
+    mut f: impl FnMut() -> Result<T, String>,
+) -> Result<T, String> {
+    let mut wait = Duration::from_millis(100);
+    let mut waited = Duration::ZERO;
+    loop {
+        match f() {
+            Err(e)
+                if (e.contains("-32801") || e.contains("content modified"))
+                    && waited < Duration::from_secs(60) =>
+            {
+                std::thread::sleep(wait);
+                waited += wait;
+                wait = (wait * 2).min(Duration::from_secs(2));
+            }
+            other => return other,
+        }
+    }
 }
 
 /// The identifier position of a resolved symbol (0-based, matching every

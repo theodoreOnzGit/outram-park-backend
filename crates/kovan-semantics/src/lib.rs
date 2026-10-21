@@ -59,6 +59,7 @@ pub mod agent_docs;
 pub mod extract;
 pub mod ontology;
 mod outputs;
+pub mod zotero; // Zotero duplicates, relations, merge, -> kovan mapping (#751)
 
 pub use agent_docs::{
     agents_markdown, condensed_index_markdown, estimated_tokens, inventory, write_bundle,

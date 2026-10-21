@@ -104,6 +104,8 @@
 //! 98.3%, Region 2 99.3%, Region 3 100%, Region 5 96.4%), consistent with its
 //! self-reported ~97.3%. Region 4 is absent from that measurement.
 
+use petir::mathf::RealMath;
+
 use uom::si::{
     available_energy::kilojoule_per_kilogram, f64::*, mass_density::kilogram_per_cubic_meter,
     pressure::megapascal,
@@ -592,7 +594,7 @@ pub fn rho_h_region_scores(rho_kg_m3: f64, h_kj_kg: f64) -> [f64; 5] {
         rho_kg_m3 > 0.0,
         "the (rho,h) region classifier needs a strictly positive density, got {rho_kg_m3} kg/m3"
     );
-    let x = scale(rho_kg_m3.log10(), LOG_RHO_MIN, LOG_RHO_MAX);
+    let x = scale(rho_kg_m3.r_log10(), LOG_RHO_MIN, LOG_RHO_MAX);
     let y = scale(h_kj_kg, H_MIN, H_MAX);
     let tx = cheb_basis::<9>(x);
     let ty = cheb_basis::<9>(y);
@@ -896,10 +898,10 @@ const R2_0: [(usize, usize, f64); 36] = [
     (7, 0, 2.90793571381896127e-09),
 ];
 fn piece_r2_0(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R2_0_X0, R2_0_X1);
+    let x = scale(rho.r_log10(), R2_0_X0, R2_0_X1);
     let y = scale(h, R2_0_H0, R2_0_H1);
     let z = cheb2_sparse(x, y, &R2_0);
-    z.exp()
+    z.r_exp()
 }
 const R2_1_X0: f64 = -1.30102244828751612e+00;
 const R2_1_X1: f64 = 1.76082140305519774e-01;
@@ -944,10 +946,10 @@ const R2_1: [(usize, usize, f64); 36] = [
     (7, 0, -3.74677063191756934e-08),
 ];
 fn piece_r2_1(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R2_1_X0, R2_1_X1);
+    let x = scale(rho.r_log10(), R2_1_X0, R2_1_X1);
     let y = scale(h, R2_1_H0, R2_1_H1);
     let z = cheb2_sparse(x, y, &R2_1);
-    z.exp()
+    z.r_exp()
 }
 const R2_2_X0: f64 = 1.76107724827200274e-01;
 const R2_2_X1: f64 = 9.99954289700779042e-01;
@@ -992,10 +994,10 @@ const R2_2: [(usize, usize, f64); 36] = [
     (7, 0, 2.89025660589202227e-07),
 ];
 fn piece_r2_2(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R2_2_X0, R2_2_X1);
+    let x = scale(rho.r_log10(), R2_2_X0, R2_2_X1);
     let y = scale(h, R2_2_H0, R2_2_H1);
     let z = cheb2_sparse(x, y, &R2_2);
-    z.exp()
+    z.r_exp()
 }
 const R2_3_X0: f64 = 1.00000685159669755e+00;
 const R2_3_X1: f64 = 1.60204536340749515e+00;
@@ -1040,10 +1042,10 @@ const R2_3: [(usize, usize, f64); 36] = [
     (7, 0, 9.69962023098182836e-08),
 ];
 fn piece_r2_3(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R2_3_X0, R2_3_X1);
+    let x = scale(rho.r_log10(), R2_3_X0, R2_3_X1);
     let y = scale(h, R2_3_H0, R2_3_H1);
     let z = cheb2_sparse(x, y, &R2_3);
-    z.exp()
+    z.r_exp()
 }
 const R2_4_X0: f64 = 1.60206279303379606e+00;
 const R2_4_X1: f64 = 1.99996946118700403e+00;
@@ -1097,10 +1099,10 @@ const R2_4: [(usize, usize, f64); 45] = [
     (8, 0, -1.68763597982966233e-07),
 ];
 fn piece_r2_4(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R2_4_X0, R2_4_X1);
+    let x = scale(rho.r_log10(), R2_4_X0, R2_4_X1);
     let y = scale(h, R2_4_H0, R2_4_H1);
     let z = cheb2_sparse(x, y, &R2_4);
-    z.exp()
+    z.r_exp()
 }
 const R2_5_X0: f64 = 2.00002189372911188e+00;
 const R2_5_X1: f64 = 2.58220329552946737e+00;
@@ -1154,10 +1156,10 @@ const R2_5: [(usize, usize, f64); 45] = [
     (8, 0, -4.34170224915328785e-06),
 ];
 fn piece_r2_5(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R2_5_X0, R2_5_X1);
+    let x = scale(rho.r_log10(), R2_5_X0, R2_5_X1);
     let y = scale(h, R2_5_H0, R2_5_H1);
     let z = cheb2_sparse(x, y, &R2_5);
-    z.exp()
+    z.r_exp()
 }
 const R3_0_X0: f64 = 2.05720184187474775e+00;
 const R3_0_X1: f64 = 2.55091699210255918e+00;
@@ -1202,10 +1204,10 @@ const R3_0: [(usize, usize, f64); 36] = [
     (7, 0, 1.37663196301112274e-05),
 ];
 fn piece_r3_0(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R3_0_X0, R3_0_X1);
+    let x = scale(rho.r_log10(), R3_0_X0, R3_0_X1);
     let y = scale(h, R3_0_H0, R3_0_H1);
     let z = cheb2_sparse(x, y, &R3_0);
-    z.exp_m1()
+    z.r_exp_m1()
 }
 const R3_1_X0: f64 = 2.55091716957062697e+00;
 const R3_1_X1: f64 = 2.68102847161999769e+00;
@@ -1250,10 +1252,10 @@ const R3_1: [(usize, usize, f64); 36] = [
     (7, 0, 6.65679723379014957e-06),
 ];
 fn piece_r3_1(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R3_1_X0, R3_1_X1);
+    let x = scale(rho.r_log10(), R3_1_X0, R3_1_X1);
     let y = scale(h, R3_1_H0, R3_1_H1);
     let z = cheb2_sparse(x, y, &R3_1);
-    z.exp_m1()
+    z.r_exp_m1()
 }
 const R3_2_X0: f64 = 2.68104262897156076e+00;
 const R3_2_X1: f64 = 2.88197168896622236e+00;
@@ -1298,10 +1300,10 @@ const R3_2: [(usize, usize, f64); 36] = [
     (7, 0, 4.33332835127489438e-04),
 ];
 fn piece_r3_2(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R3_2_X0, R3_2_X1);
+    let x = scale(rho.r_log10(), R3_2_X0, R3_2_X1);
     let y = scale(h, R3_2_H0, R3_2_H1);
     let z = cheb2_sparse(x, y, &R3_2);
-    z.exp_m1()
+    z.r_exp_m1()
 }
 const R4_0_X0: f64 = -2.30477002266859987e+00;
 const R4_0_X1: f64 = -1.00010016499256116e+00;
@@ -1355,10 +1357,10 @@ const R4_0: [(usize, usize, f64); 45] = [
     (8, 0, 8.54786207844429823e-06),
 ];
 fn piece_r4_0(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_0_X0, R4_0_X1);
+    let x = scale(rho.r_log10(), R4_0_X0, R4_0_X1);
     let y = scale(h, R4_0_H0, R4_0_H1);
     let z = cheb2_sparse(x, y, &R4_0);
-    z.exp()
+    z.r_exp()
 }
 const R4_1_X0: f64 = -9.99823568875638835e-01;
 const R4_1_X1: f64 = -3.75068176872341366e-04;
@@ -1412,10 +1414,10 @@ const R4_1: [(usize, usize, f64); 45] = [
     (8, 0, -1.63798123601183731e-05),
 ];
 fn piece_r4_1(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_1_X0, R4_1_X1);
+    let x = scale(rho.r_log10(), R4_1_X0, R4_1_X1);
     let y = scale(h, R4_1_H0, R4_1_H1);
     let z = cheb2_sparse(x, y, &R4_1);
-    z.exp()
+    z.r_exp()
 }
 const R4_2_X0: f64 = 8.20185796793902635e-05;
 const R4_2_X1: f64 = 6.98815032155890914e-01;
@@ -1469,10 +1471,10 @@ const R4_2: [(usize, usize, f64); 45] = [
     (8, 0, -1.90478922456154202e-05),
 ];
 fn piece_r4_2(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_2_X0, R4_2_X1);
+    let x = scale(rho.r_log10(), R4_2_X0, R4_2_X1);
     let y = scale(h, R4_2_H0, R4_2_H1);
     let z = cheb2_sparse(x, y, &R4_2);
-    z.exp()
+    z.r_exp()
 }
 const R4_3_X0: f64 = 6.99036230764635724e-01;
 const R4_3_X1: f64 = 1.30102678391389270e+00;
@@ -1526,10 +1528,10 @@ const R4_3: [(usize, usize, f64); 45] = [
     (8, 0, 3.16849223656397617e-05),
 ];
 fn piece_r4_3(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_3_X0, R4_3_X1);
+    let x = scale(rho.r_log10(), R4_3_X0, R4_3_X1);
     let y = scale(h, R4_3_H0, R4_3_H1);
     let z = cheb2_sparse(x, y, &R4_3);
-    z.exp()
+    z.r_exp()
 }
 const R4_4_X0: f64 = 1.30104810914432556e+00;
 const R4_4_X1: f64 = 1.77814740795995352e+00;
@@ -1583,10 +1585,10 @@ const R4_4: [(usize, usize, f64); 45] = [
     (8, 0, 1.85418275115180060e-05),
 ];
 fn piece_r4_4(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_4_X0, R4_4_X1);
+    let x = scale(rho.r_log10(), R4_4_X0, R4_4_X1);
     let y = scale(h, R4_4_H0, R4_4_H1);
     let z = cheb2_sparse(x, y, &R4_4);
-    z.exp()
+    z.r_exp()
 }
 const R4_5_X0: f64 = 1.77817073518483504e+00;
 const R4_5_X1: f64 = 2.07905531441405289e+00;
@@ -1640,10 +1642,10 @@ const R4_5: [(usize, usize, f64); 45] = [
     (8, 0, -3.97776241433969947e-07),
 ];
 fn piece_r4_5(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_5_X0, R4_5_X1);
+    let x = scale(rho.r_log10(), R4_5_X0, R4_5_X1);
     let y = scale(h, R4_5_H0, R4_5_H1);
     let z = cheb2_sparse(x, y, &R4_5);
-    z.exp()
+    z.r_exp()
 }
 const R4_6_X0: f64 = 2.07937404643202672e+00;
 const R4_6_X1: f64 = 2.34240935511491388e+00;
@@ -1697,10 +1699,10 @@ const R4_6: [(usize, usize, f64); 45] = [
     (8, 0, 4.21576151366299215e-06),
 ];
 fn piece_r4_6(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_6_X0, R4_6_X1);
+    let x = scale(rho.r_log10(), R4_6_X0, R4_6_X1);
     let y = scale(h, R4_6_H0, R4_6_H1);
     let z = cheb2_sparse(x, y, &R4_6);
-    z.exp()
+    z.r_exp()
 }
 const R4_7_X0: f64 = 2.34242272187318035e+00;
 const R4_7_X1: f64 = 2.44707381359249121e+00;
@@ -1754,10 +1756,10 @@ const R4_7: [(usize, usize, f64); 45] = [
     (8, 0, 4.45170495784547289e-06),
 ];
 fn piece_r4_7(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_7_X0, R4_7_X1);
+    let x = scale(rho.r_log10(), R4_7_X0, R4_7_X1);
     let y = scale(h, R4_7_H0, R4_7_H1);
     let z = cheb2_sparse(x, y, &R4_7);
-    z.exp()
+    z.r_exp()
 }
 const R4_8_X0: f64 = 2.44726544610969654e+00;
 const R4_8_X1: f64 = 2.53141373995940677e+00;
@@ -1811,10 +1813,10 @@ const R4_8: [(usize, usize, f64); 45] = [
     (8, 0, 1.58743606403062951e-05),
 ];
 fn piece_r4_8(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_8_X0, R4_8_X1);
+    let x = scale(rho.r_log10(), R4_8_X0, R4_8_X1);
     let y = scale(h, R4_8_H0, R4_8_H1);
     let z = cheb2_sparse(x, y, &R4_8);
-    z.exp()
+    z.r_exp()
 }
 const R4_9_X0: f64 = 2.53153548424576647e+00;
 const R4_9_X1: f64 = 2.60198763490987339e+00;
@@ -1868,10 +1870,10 @@ const R4_9: [(usize, usize, f64); 45] = [
     (8, 0, 2.84062007651024446e-05),
 ];
 fn piece_r4_9(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_9_X0, R4_9_X1);
+    let x = scale(rho.r_log10(), R4_9_X0, R4_9_X1);
     let y = scale(h, R4_9_H0, R4_9_H1);
     let z = cheb2_sparse(x, y, &R4_9);
-    z.exp()
+    z.r_exp()
 }
 const R4_10_X0: f64 = 2.60215903294189799e+00;
 const R4_10_X1: f64 = 2.95095418163826739e+00;
@@ -1925,10 +1927,10 @@ const R4_10: [(usize, usize, f64); 45] = [
     (8, 0, 9.04342970753289550e-06),
 ];
 fn piece_r4_10(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R4_10_X0, R4_10_X1);
+    let x = scale(rho.r_log10(), R4_10_X0, R4_10_X1);
     let y = scale(h, R4_10_H0, R4_10_H1);
     let z = cheb2_sparse(x, y, &R4_10);
-    z.exp()
+    z.r_exp()
 }
 const R5_X0: f64 = -3.16832143336669692e+00;
 const R5_X1: f64 = 2.02758741479910887e+00;
@@ -1982,8 +1984,8 @@ const R5: [(usize, usize, f64); 45] = [
     (8, 0, 1.57169922051158054e-04),
 ];
 fn piece_r5(rho: f64, h: f64) -> f64 {
-    let x = scale(rho.log10(), R5_X0, R5_X1);
+    let x = scale(rho.r_log10(), R5_X0, R5_X1);
     let y = scale(h, R5_H0, R5_H1);
     let z = cheb2_sparse(x, y, &R5);
-    z.exp()
+    z.r_exp()
 }

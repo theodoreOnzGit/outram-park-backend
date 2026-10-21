@@ -1,0 +1,41 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-turbulence-lib"
+dir = "crates/outram-foam-turbulence-lib/src/wall_functions"
+
+[module."mod.rs"]
+path = "crate::wall_functions"
+
+[[module."mod.rs".function]]
+id = "fn:df3e0aa9afc16c26"
+name = "y_plus"
+qual = "y_plus"
+lines = [
+    31,
+    39,
+]
+hash = "sha256:1effa2673027d315460cd5c8665042ed385115d9791e358bbf141756d445d984"
+doc_hash = "sha256:68fc15a72d17ebf6d34833605fca2b4379f8bc7d2ebfed99759848e47957b370"
+
+[[module."mod.rs".function]]
+id = "fn:8fbef065ff06e28f"
+name = "u_tau"
+qual = "u_tau"
+lines = [
+    41,
+    69,
+]
+hash = "sha256:33aae69100e12920b0a1e76abf93a4599627f0b0767659310e65d0fb5c7761c1"
+doc_hash = "sha256:fa0cda7e35bdde16faba6cdb261c34be0af73cc4b7ff68eb9ad20141be08078a"
+callees = ["fn:df3e0aa9afc16c26"]
+
+[[module."mod.rs".function]]
+id = "fn:7de6997adad497a3"
+name = "nu_t_wall"
+qual = "nu_t_wall"
+lines = [
+    71,
+    86,
+]
+hash = "sha256:37445dff950fd97ce02af9f5fb5efd9f9a00068c4c5bf81537cf6bcd228ffb04"
+doc_hash = "sha256:525d0db1f8901236090268410b8be6ddac159bbac4d5807d7c72aeba6b11135e"

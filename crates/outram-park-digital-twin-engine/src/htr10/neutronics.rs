@@ -44,8 +44,8 @@
 //!
 //! | Source | Tier | On-disk |
 //! |---|---|---|
-//! | **IAEA-TECDOC-1382**, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003. Chapter 4 is the HTR-10 core physics benchmark | Open | `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.json` (markdown at `generated/markdown/open/iaea-tecdoc-1382-part2.md`) |
-//! | Choo, A. J. Y. and Xiao, S. (2024), *Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package*, SNRSI/NUS | Open | `crates/kovan-literature/open/papers/choo-htr10-criticality.json` |
+//! | **IAEA-TECDOC-1382**, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003. Chapter 4 is the HTR-10 core physics benchmark | ~~Open~~ Proprietary (reclassified 2026-09-22: no verified reuse licence) | `iaea-tecdoc-1382-part2` (with its extracted Markdown), held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md` |
+//! | Choo, A. J. Y. and Xiao, S. (~~2024~~ 2023, **CORRECTED 2026-09-22** per the catalogue's INIS-record check; VINANST-15), *Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package*, SNRSI/NUS | ~~Open~~ Proprietary (reclassified 2026-09-22: no licence stated) | `choo-htr10-criticality`, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md` |
 //! | Wang, M.-J., Sheu, R.-J., Peir, J.-J. and Liang, J.-H. (2014), *Criticality calculations of the HTR-10 pebble-bed reactor with SCALE6/CSAS6 and MCNP5*, Ann. Nucl. Energy 64, 1-7, doi 10.1016/j.anucene.2013.09.031 | Proprietary (cited, not re-hosted) | `crates/kovan-literature/proprietary/papers/wang2014htr10criticality.json` |
 //! | Tantillo, F. et al. (2020), *HTR code package neutronics developments and benchmarks*, Nucl. Eng. Des. 362, 110603, doi 10.1016/j.nucengdes.2020.110603 | Proprietary (cited, not re-hosted) | `crates/kovan-literature/proprietary/papers/tantillo2020hcpneutronics.json` |
 //!
@@ -114,8 +114,14 @@ impl LiteratureSource {
     /// The access tier of this source, per `DATA_POLICY.md`.
     pub fn access_tier(&self) -> AccessTier {
         match self {
-            Self::IaeaHtgrBenchmark | Self::ChooXiao2024 => AccessTier::Open,
-            Self::Wang2014 | Self::Tantillo2020 => AccessTier::Proprietary,
+            // ~~`IaeaHtgrBenchmark` => Open~~ **CORRECTED 2026-10-01
+            // (maintainer):** IAEA-TECDOC-1382 is freely downloadable but
+            // proprietary, not open source (kovan-literature CATALOGUE.md,
+            // reclassified 2026-09-22). Free to read is not free to re-host.
+            Self::ChooXiao2024 => AccessTier::Open,
+            Self::IaeaHtgrBenchmark | Self::Wang2014 | Self::Tantillo2020 => {
+                AccessTier::Proprietary
+            }
         }
     }
 }
@@ -513,12 +519,21 @@ impl FuelPebbleSpec {
 /// The core geometry the sources state **in text**, in the R-Z core-physics
 /// model of the IAEA benchmark (its Figure 4.10).
 ///
-/// **Deliberately incomplete.** The full zone map — conus angle, discharge-tube
-/// radius, individual reflector block boundaries, and the axial coordinates of
-/// the 83 material zones — exists in the source only as a *figure*, and is not
-/// recoverable from the text. Those dimensions are therefore absent here
-/// rather than guessed. See `docs/reactor-scoping/htr10-neutronics.md` for the
-/// routes to obtaining them.
+/// **Deliberately incomplete, in this struct only.** ~~The full zone map —
+/// conus angle, discharge-tube radius, individual reflector block boundaries,
+/// and the axial coordinates of the 83 material zones — exists in the source
+/// only as a *figure*, and is not recoverable from the text. Those dimensions
+/// are therefore absent here rather than guessed. See
+/// `docs/reactor-scoping/htr10-neutronics.md` for the routes to obtaining
+/// them.~~ **CORRECTED 2026-09-17** — that map has since been built: it is a
+/// hand-transcription of the source figure (Terry et al. 2005, Fig. 2), not
+/// text, at
+/// `crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs`
+/// (added 2026-08-17/18; 753 lines, verified present — see that file's own
+/// "Status: NOT VALIDATED" section for its provenance caveats). This struct
+/// itself still holds only the text-recoverable dimensions and is unchanged;
+/// what is corrected is the implication that no fuller zone map exists in the
+/// workspace at all.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Htr10CoreGeometry {
     /// Active pebble-bed diameter: 180 cm.
@@ -1951,9 +1966,12 @@ mod tests {
     /// **Methodology.** `DATA_POLICY.md` requires every constant to carry its
     /// citation and that source's access tier. The test walks all published
     /// value sets in this module, confirms each entry names a
-    /// [`LiteratureSource`], and confirms the tier mapping: the IAEA benchmark
+    /// [`LiteratureSource`], and confirms the tier mapping: ~~the IAEA benchmark
     /// document and Choo and Xiao (2024) are Open, Wang et al. (2014) and
-    /// Tantillo et al. (2020) are Proprietary. Pass criterion: exact tier
+    /// Tantillo et al. (2020) are Proprietary~~ **CORRECTED 2026-10-01
+    /// (maintainer):** Choo and Xiao (2024) is Open; the IAEA benchmark document
+    /// (freely downloadable, but proprietary), Wang et al. (2014) and Tantillo
+    /// et al. (2020) are Proprietary. Pass criterion: exact tier
     /// mapping for all four sources, and a non-empty value set for each.
     ///
     /// **Results (recorded 2026-08-11, this workspace).**
@@ -1967,7 +1985,7 @@ mod tests {
     fn every_published_value_carries_a_correctly_tiered_source() {
         assert_eq!(
             LiteratureSource::IaeaHtgrBenchmark.access_tier(),
-            AccessTier::Open
+            AccessTier::Proprietary
         );
         assert_eq!(
             LiteratureSource::ChooXiao2024.access_tier(),

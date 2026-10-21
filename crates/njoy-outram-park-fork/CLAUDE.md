@@ -8,6 +8,35 @@ step upstream of an OpenMC run.
 > the shared dependency policy and design rules. Dep versions come from
 > `[workspace.dependencies]` — do not pin locally.
 
+## The NJOY2016 manual: where it is, and its licence (2026-10-02)
+
+**The manual is OPEN literature, not proprietary.** Read it, quote it, and
+cite its sections freely when porting or debugging. The root `CLAUDE.md`'s
+"read upstream first" rule means the Fortran *and* this manual.
+
+- **PDF:** ~~`crates/kovan-literature/reactor-literature/theodore-open-corpus/2022laur1720093.pdf`~~
+  **MOVED 2026-10-07** (owner, #760) to Kovan's standard corpus:
+  `crates/kovan-literature/reactor-literature/kovan-standard-open-corpus/lanl/2022laur1720093.pdf`.
+  That is *The NJOY Nuclear Data Processing System, Version 2016*,
+  LA-UR-17-20093 (R.E. MacFarlane et al., revision of November 7, 2019),
+  byte-identical to `njoy16.pdf` at the manual repository's commit
+  `9a2951f`. It is logged in that folder's README under ground 7
+  (section 8), with the licence text beside it as
+  `lanl/LICENSE-NJOY2016-manual.txt`, and hardcoded into Kovan as corpus
+  entry `la-ur-17-20093`.
+- **Source (LaTeX):** <https://github.com/njoy/NJOY2016-manual>. The
+  maintainer's clone is at `~/Documents/research/NJOY2016-manual` (commit
+  `9a2951f`).
+- **Licence:** Los Alamos National Security, LLC's **BSD-3-Clause-style**
+  licence, in that repository's `LICENSE` and also printed on page 2 of the
+  PDF. It permits redistribution as long as the copyright notice and
+  disclaimer are retained, and it has a no-endorsement clause. ~~MIT~~: the
+  maintainer first described it as MIT; the `LICENSE` text is BSD-3-style.
+  Both are permissive and GPL-compatible.
+- **Related open paper:** Conlin et al. 2017, *NJOY21: Next generation
+  nuclear data processing capabilities* (CC BY 4.0), at
+  `.../theodore-open-corpus/cc-by/conlin2017-njoy21-next-generation-nuclear-data-processing.pdf`.
+
 ## Maturity: DECLARED MATURE (2026-09-05)
 
 The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
@@ -56,10 +85,10 @@ two that drift.
 | example | oracle | what it now asserts |
 |---|---|---|
 | `seam_stage_probe` | the tape's own MF=3 | `thnmax` is at the resolved-resonance limit; **bounded** BROADR reproduces MF=3 above the seam to +0.000 %; **unbounded** BROADR still loses 46.7 % there; the (n,2n) threshold is exactly zero under the bounded kernel and leaks 1.0e-6 b under the unbounded one |
-| `endf_to_broadened_xs` | analytic (convolution) | area under σ(E) is conserved 293.6 K → 900 K to **+0.000 %**, while the peak falls 37.1 % and the valley rises 253 % |
-| `tutorial_resonance_to_groups` | published RI_∞ + analytic | RI_∞ matches the published 275.7 b; RI_∞ is flat in temperature; the self-shielded integrals **rise** — which is Doppler feedback |
+| `endf_to_broadened_xs` | analytic (convolution) | area under σ(E) is conserved 293.6 K → 900 K to **+0.000 %**, while the peak falls 37.1 % and the valley rises ~~253 %~~ **283 %** (re-measured 2026-10-04 after the #340 grid change; see the example's doc) |
+| `tutorial_resonance_to_groups` | ~~published RI_∞~~ unsourced RI_∞ + analytic | ~~RI_∞ matches the published 275.7 b~~ RI_∞ within 2 % of 275.7 b, a value **Not re-checked** (2026-10-05, GitHub #547: no source found for 275.7 b or 277 ± 3 b; entered uncited in `c356cf2552`; marked the same way in `outram-mc-libs` by `c199b7dc1f`), so a coarse bound only; RI_∞ is flat in temperature; the self-shielded integrals **rise** — which is Doppler feedback |
 | `temperature_thinning_study` | the evaluation itself | production (`LI=2`) interpolation is within **1.42 %** worst at 0.0253 eV; error grows with bracket width; log-space beats the stated law on 7/8 points |
-| `graphite_sab_generation` | the official ENDF/B-VIII.0 tape | every stored MT=4 `S` is **bit-identical**; MT=2 Bragg edges to 1e-6 and `S(E)` to 1e-4 |
+| `graphite_sab_generation` | the official ENDF/B-VIII.0 tape | ~~every stored MT=4 `S` is **bit-identical**~~ **CORRECTED 2026-10-04** (the example's own gate, corrected 2026-09-11): MT=4 `S` agrees to **1.004e-13 max, 9.991e-14 rms** over 48 941 points above 1e-30, and only 6 645 of 60 000 stored values are bit-identical; MT=2 Bragg edges to 1e-6 and `S(E)` to 1e-4 |
 
 **`seam_stage_probe`'s unbounded-kernel assertions are counter-examples and are
 meant to keep failing the old way.** They are what demonstrates that bounding
@@ -75,7 +104,7 @@ get reviewed line-by-line during translation; control flow does not.
 
 This crate is a **derivative work** of NJOY2016, which is under a *modified BSD
 3-Clause* license (LANL/DOE variant). That license is GPL-compatible, so the
-crate as a whole is `GPL-3.0-only`. To stay compliant, you MUST:
+crate as a whole is ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973) (BSD-3 is permissive, so AGPL is allowed too). To stay compliant, you MUST:
 
 - **Keep `LICENSE.njoy` and `NOTICE`** at the crate root, verbatim. Never delete
   or alter the upstream copyright notice/disclaimer.
@@ -157,7 +186,7 @@ U-235 alone is 35 MB.
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ```bash
-cargo check -p njoy-outram-park-fork --lib
+cargo check --release -p njoy-outram-park-fork --lib
 cargo test  -p njoy-outram-park-fork --lib --release
 ```
 
@@ -208,3 +237,1180 @@ Keep every port **line-traceable to the Fortran** so the Opus verification pass
 can localise a discrepancy to a specific subroutine. Per-module theory,
 implementation notes, testing status, and caveats live in each module's
 `README.md` (co-located with its Rust source under `src/`).
+
+## MF=6 LAW=1 carries its angular half (2026-09-16, `op-og56`)
+
+`acer/energy/mf6.rs` used to read ENDF `NA` only to compute a row's stride,
+keep the energy density `f₀`, and discard `f₁ … f_NA`; `LANG` was never read
+off the TAB2 at all. Its own doc comment said so — *"the angular dependence
+present in the ENDF data … is **not** carried here … (isotropic emission)"* —
+and `outram-mc-libs` consequently emitted every MT=91 continuum and MT=16
+(n,2n) neutron isotropically.
+
+**What changed.** `Mf6Neutron` now carries `lang: Mf6AngularLaw` and
+`angular: Vec<Mf6AngularTable>`, parallel to `law4.incident`. `f₀` is retained
+**unnormalised** beside the coefficients, because `LANG = 1`'s Legendre terms
+are on `f₀`'s own scale and `build_outgoing` renormalises the pdf it builds —
+dividing by the stored pdf would be wrong.
+
+**ACE output is unchanged.** Law 4 is an energy-only law by definition, so the
+DLW serialisation does not see any of this and the golden ACE comparisons are
+untouched. The angular half exists for a transport consumer, not for the ACE
+writer; ~~turning it into ACE Law 61/44 remains separate work.~~ **DONE
+2026-09-26** by porting `acelf6` itself (`src/acer/acelf6.rs`) rather than
+converting this representation -- see "The ACE tables reproduce NJOY's"
+below.
+
+**`acer::angular::legendre_cosine_law` is now public** so the continuum path
+reuses the MF=4 linearisation rather than growing a second one that drifts from
+it. Same argument the `vv` module makes about oracle values, applied to code.
+
+**Measured on the evaluations** (`tests/mf6_continuum_angular_vs_endf.rs`,
+which re-derives the table on every run):
+
+| nuclide | MT | LANG | rows | rows with `NA>0` | peak `|⟨μ⟩|` |
+|---|---|---|---|---|---|
+| U-238 | 91 | Legendre | 8654 | 8652 | 0.5573 |
+| U-235 | 91 | Legendre | 5296 | 5294 | 0.5751 |
+| F-19 | 91 | Legendre | 175 | **0** | 0.0000 |
+| O-16 | 91 | **Kalbach-Mann** | 1751 | 1751 | n/a |
+| Al-27 | 91 | **Kalbach-Mann** | 642 | 642 | n/a |
+
+`NA` runs as high as **26** on U-238's MT=91, so a closed-form inversion of the
+`NA = 1` linear density is not sufficient — the series has to be linearised.
+That was measured before choosing the implementation rather than assumed.
+
+**`LANG = 2` (Kalbach-Mann) landed the same day.** O-16 and Al-27 use it on
+MT=16 and MT=91, storing only `r` (`NA = 1`), so the slope `a` comes from the
+Kalbach-86 systematics — **`groupr::kinematics::bach`, which this crate already
+had** as a port of `groupr.f90:8812-8932` for the GROUPR path. Reused rather
+than reimplemented; two copies of one systematics would drift.
+
+The sampler inverts the Kalbach cumulative in **closed form and one variate**:
+`sinh(a mu) + r cosh(a mu)` collapses to `sqrt(1-r^2) sinh(a mu + atanh r)`, so
+`mu = [asinh(((2xi-1) sinh a + r cosh a)/sqrt(1-r^2)) - atanh r] / a`. One
+variate matters — the usual two-draw branch-then-invert form would consume a
+different number of draws from the isotropic fallback and shift the random
+stream under an ablation. Verified against the density's own closed-form mean
+`<mu> = r (coth a - 1/a)` over 25 `(r, a)` combinations.
+
+**Note O-16's MT=91 threshold is ~10 MeV**, far above any fission spectrum, so
+this changes nothing for the reactor cases in this workspace. It matters for
+high-energy applications, and it closes the representation gap.
+
+What is left unsampled is `LANG = 11…15` (tabulated cosines), which no
+evaluation in `reference-data/endf/` uses on a neutron subsection.
+
+**Reading a peak coefficient is not reading the physics.** The 0.557 above is
+the largest `a₁` anywhere in the table and badly overstates what a neutron
+experiences: weighted by each row's own `f₀`, U-238's MT=91 law is *exactly*
+isotropic below 1.2 MeV and only reaches `+0.272` at 14 MeV. Anyone pricing
+this law should weight by `f₀` first.
+
+## MF=6 LAW=7 is parsed correctly now — and the sampler is still unported (2026-09-16)
+
+`acer/energy/mf6.rs`'s `parse_law7_lab_angle_energy_body` had two defects. The
+second was found only by writing a test for the first.
+
+**1. The angular distribution was discarded at parse time.** LAW=7 stores, per
+incident energy, a lab-cosine grid and — at each cosine — a tabulated outgoing
+energy spectrum. The *relative* integrals of those per-cosine tables **are**
+`f(mu)`; LAW=7 carries no separate angular record. Every table was pushed
+through `normalize_pdf_cdf`, which renormalises to unit area, and the divisor
+was dropped. A consumer would have sampled `mu` uniformly with nothing saying
+so. `Law7MuTable::weight` retains it now, via `normalize_pdf_cdf_weighted`.
+Same class as `op-og56`.
+
+**2. It was reading the wrong record type, so it had never parsed anything.**
+The reader followed `acefc.f90`'s `acelf6`, which takes the per-incident-energy
+record as a `TAB1` with `INTMU = L1`, `NMU = L2`.
+
+> **Two NJOY routines read LAW=7 and they disagree — correctly.** `acelf6` is
+> right *for ACER*, which runs on NJOY's own intermediate File 6; `skip6a`'s
+> header comment says so in as many words: *"Special version of skip6 for
+> special version of File 6 used in ACER. Law=7 has a TAB1 containing the
+> angular distribution instead of the normal TAB2 for each incident energy."*
+> A genuine ENDF-6 tape has the normal `TAB2`, with `NMU` in `N2`.
+
+This port reads evaluation tapes, so it needs `groupr.f90`'s `getmf6`
+(`law.eq.7`, ~7876-7911), which it now follows. On Be-9 MT=16 the old code read
+`L1 = L2 = 0`, built **zero** cosine tables, and mis-consumed the real data as
+the TAB1's own pairs.
+
+**The general lesson, worth more than the fix:** "read upstream first" means the
+upstream routine that owns *this input format*, not the one whose name matches
+the task. Matching on the name picked the ACER reader for ENDF input.
+
+**And a sharper one: the correct rule was already written in this file, thirty
+lines above the defect.** `skip_mf6_subsection`'s doc comment spells out the
+`skip6`/`skip6a` split at length, quotes `skip6a`'s header, states that LAW=7's
+per-incident record is *"**one TAB2** whose `N2` is `NMU`"*, and even names
+*"ENDF/B-VIII.0's Be-9 MF=6/MT=16 ... exercises exactly this"* as the case. The
+skipper was right; the parser beside it was wrong. A documented rule does not
+propagate itself to the next function that needs it — which is an argument for
+gates over prose, and the reason the two cases in
+`tests/mf6_law7_mu_weights.rs` exist rather than another paragraph.
+
+**Verification uses the evaluation's own normalisation, not ours.** ENDF-102
+normalises LAW=7 so the double integral of `f(mu, E')` over both variables is 1;
+each retained weight is the inner integral, so the weights must integrate to 1
+across the cosine grid. Measured on Be-9 MT=16 (the only LAW=7 neutron
+subsection in `reference-data/endf/`) at all 24 incident energies:
+**1.000000-1.000001**, i.e. within `1e-6`. Worst per-cosine weight spread
+`(max-min)/mean = 3.67`, so what was being discarded was a strongly anisotropic
+distribution. Gates: `tests/mf6_law7_mu_weights.rs`.
+
+**LAW=7 sampling landed the same day.** The conversion reuses the existing
+machinery rather than adding a law, exactly as LAW=6 did. LAW=7 tabulates the
+joint `f(mu, E')`; the samplers want the marginal `f(E')` and the conditional
+`P(mu|E')`, and both fall out of `f(mu_j, E') = w_j * p_j(E')` with `w_j` the
+retained per-cosine weight. The one construction step is a **merged outgoing-
+energy grid** — the union of every cosine's own knots — which is exact rather
+than approximate, since evaluating a piecewise-linear density on a superset of
+its own knots reproduces it identically. The angular half becomes
+`ContinuumAngular::LabTabulated`, kept distinct from `Legendre` because it is a
+different representation **and** laboratory-frame by construction (ENDF-102:
+LAW=7 is in the lab regardless of `LCT`), so it must never acquire a CM->lab
+transform. `INTMU = 1` (histogram over cosine) returns `Ok(None)` and keeps the
+caller's fallback rather than silently applying the lin-lin rule; Be-9 uses
+`INTMU = 2`.
+
+Two measurements, both against oracles rather than assertions:
+
+| check | result |
+|---|---|
+| converted `<E'>` and `<mu>` vs the raw LAW=7 tables, 24 incident energies | **7e-16 / 9e-16** worst relative |
+| sampled `<mu>` through the transport kernel at 14 MeV vs the law's closed form | **+0.254104 +- 0.001210** against **+0.253844**, 0.21 sigma |
+| isotropic-ablation arm (control) | **+0.001801 +- 0.001290**, identical final RNG seed |
+
+So Be-9 (n,2n) was emitting isotropically a law whose laboratory `<mu>` is
+`+0.25` to `+0.58`. Both moment integrals are done in **closed form on each
+linear segment**, never by trapezoid: trapezoid is exact for `int f` but not for
+`int x f`, the error that produced a false "+0.60 % bias" earlier in this port.
+
+**A correction from that work, worth more than the result.** The transport test's
+first oracle weighted `mubar` by `pdf[k]`, copying the older Legendre control,
+and read **3.30 sigma** — close enough to pass its 4 sigma gate and wrong. The
+sampler selects row `k` with probability `cdf[k+1] - cdf[k]`, because
+`sample_ct_table_indexed` returns the lower edge of the CDF bin. Weighting it the
+way the code behaves gives 0.21 sigma. The defect was in the oracle; a looser
+gate would have buried the distinction rather than exposing it.
+
+**CORRECTED 2026-09-29 (GitHub #365 audit):** the row rule above no longer
+holds. The sampler now picks the row as OpenMC's `CorrelatedAngleEnergy`
+does, the nearer cdf edge (`k` or `k+1` on a lin-lin table), and inverts the
+row's cdf quadratically. The oracle follows the new rule and reads 0.78 sigma;
+the old oracle reads 6.36 sigma against the new sampler. Record:
+`crates/outram-mc-libs/verification_and_validation/ace_route_physics/correlated_angle_2026-09-29.md`.
+
+Be-9 is in none of this workspace's criticality cases, so none of this moves a
+`k_eff`. What it closes is a silent fallback.
+
+Gates: `njoy-outram-park-fork`'s `tests/mf6_law7_conversion.rs` and
+`outram-mc-libs`'s `tests/law7_lab_angle_energy_transport.rs`.
+
+## MF=4 + MF=5 emission wired in, and a V&V reference found wrong (2026-09-16)
+
+### The gap, and how it was found
+
+A coverage survey (`tests/continuum_law_coverage_survey.rs`) asked a question
+nobody had asked directly: **where does the Weisskopf evaporation stand-in still
+fire?** It classifies every `(tape, MT)` a transport run reaches into
+"evaluated", "MF=4/5", "nothing anywhere" and "MF=6 present but no law".
+
+Its first version counted 11 sections as benign — "the evaluation carries no
+MF=6, so the stand-in is all there is". **That was wrong, and checking rather
+than assuming showed it**: all 11 carry both MF=4 and MF=5.
+
+| tape | MTs | MF=4 `LTT` | MF=5 `LF` |
+|---|---|---|---|
+| Li-7 ENDF/B-VIII.0 | 16 | 2 (tabulated) | 1 |
+| C-12 ENDF/B-VIII.0 | 91 | 0 (isotropic) | 9 (evaporation) |
+| Sr-88 ENDF/B-VIII.1 | 16, 17, 91 | 1 | 1 |
+| U-238 JENDL-3.3 | 16, 17, 91 | 2 / 1 | 1 |
+| Pu-239 JENDL-3.3 | 16, 17, 91 | 2 / 1 | 1 |
+
+Ten of eleven are `LF=1`, one is `LF=9`; **all eleven are `LCT = 1`
+(laboratory)**. Every `LF` and `LTT` involved was already ported. The gap was
+the reading, not the representation — the same shape as LAW=6 and LAW=7.
+
+Coverage now: **42 sections from MF=6, 11 from MF=4/5, 0 on the stand-in.**
+
+### The frame question, settled upstream rather than argued
+
+ENDF-102 puts MF=5 secondary energies in the laboratory system while MF=4 carries
+its own `LCT`, so one frame flag looked unable to express the pair. Reading NJOY
+settled it in one look: `acefc.f90:5825-5869` takes `lct` from **MF=4's** own
+CONT record and sets the ACE `TY` sign from it — one flag per reaction, from
+MF=4. `UncorrelatedEmission::from_endf` refuses `LCT >= 2` rather than shipping
+an untested frame transform; no held evaluation exercises it.
+
+### Reuse, not conversion — and why this one is the exception
+
+Every other law here converts into `ChiTabular` to reuse the continuum sampler.
+This one deliberately does not: `sample_chi` already samples every ported MF=5
+`LF` (including the analytic ones) and `sample_mf4_mu_cm` already implements
+OpenMC's statistical-neighbour convention on MF=4's own grid. Converting would
+have replaced two exact samplers with one tabulated approximation and forced MF=4
+onto MF=5's unrelated energy grid. `Nuclide::sample_inelastic_emission` is now
+the single place the MF=6 / MF=4+5 / stand-in choice is made.
+
+Measured (`outram-mc-libs`'s `tests/mf45_uncorrelated_emission.rs`), JENDL-3.3
+U-238 MT=91 at 13 MeV, 200 000 collisions:
+
+| quantity | sampled | evaluation | |
+|---|---|---|---|
+| `<E'>` | 8.171914e6 eV ± 3.3e3 | 8.177120e6 eV | 1.58 sigma |
+| `<mu>` | +0.339126 ± 0.001208 | +0.339994 | 0.72 sigma |
+
+### The defect this uncovered: `mean_cosine` used the wrong quadrature
+
+`EnergyAngular::mean_cosine` integrated `mu*f(mu)` by the **trapezoid rule**,
+under a comment asserting that was exact because `f` is lin-lin. `f` linear makes
+`mu*f(mu)` **quadratic**, and trapezoid is exact only for a linear integrand.
+
+The truth needs no quadrature: for MF=4 `LTT=1` the mean cosine is **exactly
+`a_1`**, the first normalised Legendre coefficient, straight off the tape.
+U-235 MT=2:
+
+| E (eV) | grid pts | `a_1` (exact) | closed form | trapezoid |
+|---|---|---|---|---|
+| 1.0e3 | 9 | +0.001195 | **+0.001195** | +0.001232 |
+| 1.0e5 | 9 | +0.126123 | **+0.126091** | +0.130067 |
+| 2.0e6 | 92 | +0.621682 | **+0.622143** | +0.622697 |
+
+At 1.0e5 eV the trapezoid rule is **123 times** further from the truth.
+
+**It had propagated into a V&V reference.** `elastic_mubar_vs_openmc.rs`'s
+oracle is, by its own provenance note, *"the trapezoidal integral of
+`mu*p(mu)`"* — and its committed `0.13007` reproduces **our trapezoid** to 3e-6
+while the true value is `0.12612`. That test was passing on **two matching
+errors**, the failure mode it exists to prevent. It surfaced only because fixing
+the library made it fail.
+
+Resolution, with nothing loosened:
+
+- `mean_cosine` integrates in closed form.
+- New exact gate, `tests/mf4_mean_cosine_vs_legendre_a1.rs`: 1857 Legendre rows
+  across U-235 and U-238, worst **1.20e-3 below 6 MeV** (gate 2e-3, which the
+  trapezoid's 3.9e-3 fails), 6.21e-3 over the full range to 30 MeV.
+- Both OpenMC mu-bar tests reproduce the oracle's own quadrature locally, clearly
+  labelled, so they compare like with like at their original tolerances —
+  elastic back to **5.58e-4** (recorded 5.6e-4), inelastic to **3.13e-3**
+  (recorded 3.1e-3). They still check the *parse* against an independent code;
+  the *integral* is now checked far more sharply by `a_1`.
+
+**A hypothesis checked and killed.** The residual above 6 MeV was first blamed on
+`legendre_cosine_law`'s positivity clamp, which would legitimately move the mean
+away from `a_1`. The test evaluates the raw series at every grid point itself:
+**zero rows are clamped.** It is the lineariser's `ANGLE_TOL = 5e-3` (stated on
+`f`, leaving a residual in a *moment* of `f`) — U-238 MT=59 at 13 MeV has 129
+grid points and still differs by 6.2e-3, so it is not a coarse grid.
+
+**Flagged, not fixed:** tightening `ANGLE_TOL` would reduce that at the cost of
+larger tables. The whole effect sits above 6 MeV, and changing a lineariser
+tolerance moves every angular table in the workspace — that deserves its own
+paired measurement, not a drive-by.
+
+### Scope
+
+None of this workspace's criticality cases is affected by the MF=4/5 wiring:
+Godiva and the thermal cases run on ENDF/B-VIII.0 evaluations that all carry
+MF=6. The `mean_cosine` fix does reach the fast-tier MGXS `mu-bar` column and
+anything reading `elastic_mubar_cm` / `inelastic_mubar_cm`.
+
+## The photo-atomic ACE class landed, and two container facts came with it (2026-09-21)
+
+`acer iopt = 4` is ported — `src/acer/photoatomic/` carries `acepho`, `iheat`,
+`alax` and `phoout` from `acepa.f90`. The Type-1 output is **byte-identical**
+to NJOY2016's own file on `reference-data/endf/photoat-synthetic-Z6.endf`
+(9 950 bytes, gated by `tests/acer_photoatomic_vs_njoy2016.rs`); on U
+ENDF/B-VIII.0, **71 781 of 71 807 words** sit at the file's own print
+precision. Full record:
+[`verification_and_validation/acer_photoatomic_vs_njoy2016.md`](verification_and_validation/acer_photoatomic_vs_njoy2016.md).
+
+Three things are worth carrying forward.
+
+### `ner = 512` is the fast path's number, not ACE's
+
+The Type-2 (binary) XSS is blocked **one real per record** by every writer
+except the fast/charged-particle one: `aceth.f90:571`, `acepa.f90:297`,
+`acedo.f90:319`, `acepn.f90:1877` all declare `ner = 1`; only
+`acefc.f90:187` says 512. This never affected *reading* — a Fortran
+unformatted record carries its own length — but the Type-2 writer committed in
+`42c361576` used 512 for every class, so it would have written a thermal or
+photo-atomic file with the right values and the wrong bytes. That commit's
+"container parity" claim was true for class `c` and overstated for the rest;
+`xss_per_record(class)` now supplies the value.
+
+**And the asymmetry goes further than the blocking:** `phoout` applies the
+ESZG natural log *inside its `itype == 1` branch only*
+(`acepa.f90:966-973`), so **NJOY's Type-2 photo-atomic file carries linear
+energies and cross sections while its Type-1 file carries logs**. Measured,
+not inferred: the Type-2 data starts at `1.0000000000001e-3` where the Type-1
+file has `-6.90775527898`. A port that "fixed" that would stop reproducing
+upstream's files, so `PhotoatomicAce::into_raw` takes the target container.
+
+### `terp1` now uses upstream's grouping, and `gety1` is not `terpa`
+
+Two corrections in `src/endf/`, both found by comparing *binary* output where
+a 12-digit text comparison sees nothing:
+
+- **`terp1`** evaluated lin-lin as `y1 + r·(y2−y1)` with `r` precomputed;
+  `endf.f90:1431` writes `y1 + (x−x1)*(y2−y1)/(x2−x1)`, which is a different
+  rounding. Laws 4 and 5 used `powf` where upstream uses `exp(… ln …)`. The
+  degenerate-interval test was a tolerance (`|x2−x1| < EPSILON`) where
+  upstream tests exact equality — that one would return `y1` on a
+  legitimately narrow panel.
+- **`gety1`** (`src/endf/gety1.rs`) is a *new* module, not an alias for
+  `terpa`. The two disagree at every boundary: `gety1` skips leading
+  zero-valued points ("zero extension as in mf13"), shades its first retained
+  abscissa down by `0.999999`, and holds the last value out to `1e12` where
+  `terpa` drops to zero just past `shade`. Reaching for `terpa` where upstream
+  used `gety1` gives an energy grid that is wrong at its first point and its
+  last — invisible in a shared-grid comparison. Same lesson as the
+  `skip6`/`skip6a` split above: **read the upstream routine that owns the
+  input format, not the one whose name matches.**
+
+### A residual that is upstream's convergence, not the port's arithmetic
+
+The heating column disagrees with NJOY by up to 8.7e-8 at 26 of 11 942
+energies, all above 14 MeV, and it attributes entirely to `iheat`. Three
+hypotheses were tested and killed (round-off amplification in the attribution;
+conditioning — 1.4e-16 under a 1-ulp input change; the `1 − unow`
+cancellation — worth 0.0). The cause is the fourth: **upstream's `pnow/2`
+panel rule stops converging above ~300 MeV**, carrying 4.9e-5 of its own
+truncation at 1.5 GeV and 9.9e-4 at 10 GeV, measured by refining the panel
+limit (`iheat_refined`). `iheat` keeps upstream's rule; the refined path
+exists as a control, not as the default. Above ~300 MeV *neither* code
+supplies photon heating to better than 1e-4, and that is the number to quote.
+
+## Dosimetry (`acer iopt = 3`) landed too, and NJOY does not test it (2026-09-21)
+
+`src/acer/dosimetry.rs` ports `acedos` and `dosout`. Output is
+**byte-identical** to NJOY2016 on two cases — H-1 (2 reactions, 2 532 words,
+52 130 bytes) and Mn-55 (119 reactions, 70 440 words, 1 427 267 bytes) — with
+both codes reading the same PENDF so the comparison isolates `acedos`. Record:
+[`verification_and_validation/acer_dosimetry_vs_njoy2016.md`](verification_and_validation/acer_dosimetry_vs_njoy2016.md).
+
+~~**All 40 cases in `upstream_source/NJOY2016/tests` were checked and none runs
+`iopt = 3`.**~~ **CORRECTED 2026-10-14** (counted in the vendored upstream at `ac5adf5`): there are 86 numbered cases, 46 of which run `acer`, with `iopt` 1, 2, 4, 5 and 7; none runs `iopt = 3`. This gate covers a path with no regression cover upstream. Worth
+remembering the next time a discrepancy in a little-used module looks
+surprising: "NJOY does it this way" is only evidence that the code says so,
+not that anyone has ever run it.
+
+Two behaviours to know:
+
+- **MF=3 and MF=10 store an interpolation table differently** — the first as
+  all `NBT` then all `INT` (`acedo.f90:150-153`), the second as `(NBT, INT)`
+  pairs (`:220-223`) — and `dosout` writes both as `2·NR` undifferentiated
+  words, so nothing downstream can tell which convention a reaction used. The
+  port reproduces both rather than picking one.
+- **A 0 K dosimetry table is refused here, and that is a deliberate
+  divergence.** `acedos`'s temperature search runs only while the temperature
+  does *not* match, so at `tempd = 0` (and at any `tempd < 1.0102 K`) the loop
+  body never executes and `za`/`awr` are never read. NJOY really does then
+  write a table whose ZAID is `0.00y` with `AWR = 0` — measured, 269 494 bytes
+  of it. This port errors instead, and
+  `zero_kelvin_is_refused_rather_than_written_with_no_zaid` pins the refusal.
+
+## All three thermal IFENG forms are written now (2026-09-22)
+
+`aceth.f90:674-676` maps ACER card 9's `iwt` onto `NXS(7)`: `iwt = 1` is the
+equiprobable `IFENG = 0`, `iwt = 0` the skewed `IFENG = 1`, `iwt = 2` the
+continuous `IFENG = 2`. The port wrote the first only; it writes all three,
+selected by `ThermalAceOptions::form`. Record:
+[`verification_and_validation/acer_thermal_ifeng_vs_njoy2016.md`](verification_and_validation/acer_thermal_ifeng_vs_njoy2016.md).
+
+**`IFENG = 1` was nearly free and was nearly wrong.** Its bins come from
+`BinWeights::Variable`, which `acesix.rs` already had — the only missing piece
+was the flag. Writing `NXS(7) = 0` while using the variable weights would have
+produced a table that lies about its own contents, which is worse than not
+supporting the form: a sampler would draw the bins uniformly when the whole
+point of the `1 4 10 … 10 4 1` pattern is that they are not. `ifeng1_is_skewed_
+and_declares_itself` pins that 28 832 of 29 969 `ITXE` words actually move.
+
+**`IFENG = 2` reproduces NJOY's point counts exactly, and that is the result.**
+The continuous form abandons the fixed bin count: each incident energy keeps
+its own number of `(E', pdf, cdf, mu...)` points, decided by a panel-merging
+threshold (`:392-395`, absorb a panel contributing less than `eps/10 = 1e-6`).
+That count is not an input, so reproducing all 106 of Al-27's (48…212 points,
+10 518 total) and all 106 of graphite's (239…549, 36 092 total) is a statement
+about the algorithm rather than about the data. It also makes a **positional**
+comparison legitimate, and taken that way the disagreement is **exactly one
+point per incident energy** — the last one, where the two codes' outgoing
+ranges end. The 10 412 interior points agree to **4.2e-7** in `E'` and 5e-5 in
+cosine; the CDF agrees to 6.5e-6 everywhere.
+
+**A stored density may be negative, and upstream's is.** The gate bounds the
+magnitude, not the sign, because **NJOY's own Al-27 table carries 7 negative
+densities** out of 10 518 — the first `-8.47e-16` at a final point whose CDF
+has already reached 1. An `assert!(pdf >= 0.0)` would have failed against a
+file NJOY wrote. Check what upstream actually produces before deciding what
+"obviously" must hold.
+
+## Thermal tables are NJOY2016's word for word (2026-10-14, GitHub #865)
+
+`AceTable::thermal_from_mf7_on_pendf` builds a thermal table on the incident
+nuclide's PENDF (`IncidentPendf`: MAT, AWR, card-8a ZAs, MT=2). The result is
+NJOY2016's in every word, and in every byte but the date and comment. Checked
+on Al-27 (tol 0.05 and 0.001, `iwt` 0/1/2), H in H₂O (`iwt` 0/1/2) and
+crystalline graphite. Gate: `tests/acer_thermal_word_parity.rs`. Record:
+[`verification_and_validation/acer_thermal_word_parity_2026_10_14.md`](verification_and_validation/acer_thermal_word_parity_2026_10_14.md).
+
+Three things worth carrying forward:
+
+- **ACER reads THERMR's output back from text, and that is part of the
+  algorithm.** `tpend` rounds every MF=3 point with `sigfig(·,7)`. It
+  normalises each MF=6 density by `xsi` and rounds that too. `calcem`'s rows
+  pass through a text scratch tape before any of this. With positive units
+  (OpenMC's decks) each round trip changes the table. `acesix::tpend_rows`
+  and `thermr::mf3_grid` reproduce them.
+- **Bit-level parity came from logging upstream, not from reasoning.** An
+  instrumented `thermr.f90` (`verification_and_validation/acer_thermal_word_parity/thermr_instrument.diff`)
+  logged `sig`, `sigl` and `tpend`. Each stage was then made exact before the
+  next was looked at. The defects were small and many:
+  - a missing `sigmin = 1e-10` cut;
+  - `third = .333333333`, not `1/3`;
+  - `gral=gral+A+B` evaluated as `(gral+A)+B`;
+  - `terp1`'s grouping;
+  - `tev` against `rtev`;
+  - the LAT = 1 back-scaling.
+
+  None of them shows in a 1e-3 comparison, and every one moves a printed word.
+- **ITIX depends on the incident evaluation.** ACER interpolates THERMR's
+  MF=3, which sits on the incident nuclide's elastic grid merged with `coh`'s
+  Bragg points. Without that grid, `thermal_from_mf7_with_tolerance` still
+  differs there, by up to 1.1e-3 on Al-27.
+- **Incoherent elastic is word for word too (GitHub #866).** H in ZrH at
+  296 K (`IDPNC = 3`) joined the gate. ACER takes ITCX by `gety1` on the
+  MF=3 that THERMR's `iel` writes on the same PENDF grid (order-3 `terp` of
+  `xie`, rounded by `tpend`), not from `iel`'s own value. That alone was
+  2.2e-3 at 3.75 eV. Record:
+  [`verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md`](verification_and_validation/acer_thermal_incoherent_elastic_2026_10_14.md).
+  Mixed elastic (`IDPNC = 5`) is not gated: no `LTHR = 3` tape is held.
+
+**Away from the base temperature too (GitHub #866).** Graphite at 600 K and
+600.5 K and H in H₂O at 293.6 K and 293.9 K are word for word NJOY2016's
+(`tests/acer_thermal_temperature_parity.rs`, record
+[`acer_thermal_temperatures_2026_10_14.md`](verification_and_validation/acer_thermal_temperatures_2026_10_14.md)).
+THERMR never interpolates in temperature: `calcem` accepts a request within
+`T/500` of a tabulated MF=7 temperature and stops otherwise. The NJOY-deck path
+(`thermal_from_mf7_on_pendf`) now refuses where it stops
+(`NjoyError::TemperatureNotTabulated`); the other two entry points keep this
+crate's `LI`-law interpolation, which NJOY2016 has no counterpart for. Two
+things to know: `calcem`'s window is `T/500`, not `rdelas`'s `T/1000 + 5` K
+(603 K graphite is inside the second and refused); and on a near match
+`calcem` reads `kT` at the *tabulated* temperature but `T_eff` at the
+*requested* one (`thermr.f90:1924` against `:1812-1834`). Reading
+`calcem(temp, ...)` as "everything at the request" moved ITIX by 3e-4 and the
+gate caught it.
+
+## The high-level way in: `process` (2026-10-14, GitHub #871)
+
+Four functions in `src/process/` take an ENDF tape and a `uom` temperature to
+processed data, and run on `wasm32` (no files, threads or clocks):
+
+| function | result | NJOY chain |
+|---|---|---|
+| `process::cross_sections(&tape, T, &CrossSectionSettings)` | `NuclearCrossSections` (PENDF, PURR tables, HEATR KERMA) | RECONR → BROADR → PURR → HEATR |
+| `process::ace(..)` | `AceTable` (`.to_type1_text()`, `.to_type2_bytes()`) | the above → ACER |
+| `process::thermal_scattering(&tape, deck_text, T, &ThermalSettings)` | `ThermalScatteringLaw` (LEAPR tape, MF=7, `thermr::on_pendf::ThermrTables`) | LEAPR at `T`; RECONR → BROADR; THERMR |
+| `process::thermal_ace(..)` | thermal `AceTable` | the above → ACER |
+
+They reuse, not duplicate: `build_deck` is now `deck_modules` (PURR, HEATR) +
+`assemble` (ACER), and `thermal_from_mf7_on_pendf` is
+`thermr::on_pendf::thermr_tables` + `AceTable::thermal_from_thermr`. The
+gates on those (`acer_thermal_word_parity*.rs`, `ace_compare.rs`) are
+unchanged and pass. Settings default to NJOY's, physics on (PURR 20/64/10 000,
+HEATR, THERMR 0.001 with 16 cosines, `natom`/`emax` from the law's
+`B(6)`/`B(4)`).
+
+- **The thermal law always comes from a LEAPR deck** (#870). LEAPR runs *at*
+  the request on the deck's block for it (`leapr::run_deck_at_temperature`,
+  the `generate` module's block rule), so THERMR never interpolates.
+- **LEAPR's constants default to the deck's vintage** (its `EVAL` date, which
+  reproduces the published tape). NJOY2016 run on the same deck uses CODATA
+  2018; set `ThermalSettings::with_leapr_constants(Codata2018)` to match it.
+- **Measured** (`tests/process_api.rs`): `process::ace` on U-234 at 293.6 K is
+  NJOY2016's table in every word; `process::thermal_ace` on the ENDF/B-VIII.0
+  H-in-H₂O deck cut to 293.6 K with H-1 is NJOY2016's
+  `leapr → reconr → broadr → thermr → acer` table in every word (deck and
+  table in `reference-data/acer/thermal_decks/`).
+- **2026-10-17 (epic #925):** `NuclearCrossSections::elastic_0k` carries the
+  0 K elastic DBRC needs, on by default (`without_elastic_0k` ablates; #928).
+  `cross_sections` is `reconstruct` (RECONR, 0 K) + `cross_sections_at`
+  (BROADR, PURR, HEATR), so one RECONR serves many temperatures
+  (`cross_sections_at_temperatures`, #934). `interface::NuclearDataLibrary`
+  is the OOP shell over these: each method a thin `#[inline]` call into
+  `process`, pinned bit for bit by `tests/nuclear_data_library_is_process.rs`
+  (#933); MAT, ZA and AWR come from the tape, and `write_pendf` writes the
+  pointwise PENDF content. `write_ace_library` builds its fast tables this
+  way, byte for byte the old library (#930). `tests/wasm_process_runtime.rs`
+  gives the native fingerprint under wasm32-wasip1.
+- **Fixed on the way:** `run_deck` wrote a cold H₂/D₂ deck as a symmetric law
+  (`isym = isabt`, `coldh`'s positive half dropped); it now builds `isym` as
+  `generate_tape` does and matches NJOY's test-22 tape
+  (`tests/leapr_run_at_temperature.rs`).
+
+## A whole library from a folder, zip or upload (2026-10-17, GitHub #935, #936)
+
+- **`endf_library::EndfLibraryIndex`** is the one index for a folder
+  (native), a zip as bytes, or uploaded files (browser). `LibraryLayout`
+  (flat, `neutrons/` sub-library folders, NNDC's `ENDF-B-VIII.0_neutrons/`
+  archives, IAEA per-nuclide zips) is read from the names and decides which
+  files are opened; each tape's identity and library come from its own
+  MF1/MT451 header, the library from the `HSUB` line (`LREL` does not
+  separate VII.0 from VII.1 on the reference tapes). A lookup uses the
+  library most incident-neutron tapes belong to and names the others.
+- **`archive`** reads and writes zips over `miniz_oxide` (no new dependency;
+  the `zip` crate stays behind `net-fetch`). Malformed input is an error,
+  never a panic (`archive::tests` cuts and flips every byte).
+- **`acer::ace_set::AceSet`** indexes ACE files by ZAID, class and kT
+  (relative 1e-4, the Type-1 header's print precision with margin).
+- **`endf_library::generate_ace`** (+ 0 K companion by default) and
+  `generate_thermal_ace` (compiled-in LEAPR deck, #870) are the browser's
+  generation calls; `fuzzy_score` moved here from the njoy TUI binary.
+- Verified natively and in headless Chromium to the same fingerprints:
+  `crates/outram-mc-libs/verification_and_validation/nuclear_data_loading_web/`.
+
+## The five-route library is NJOY2016's in every word (2026-10-14, GitHub #872)
+
+**UPDATE, later 2026-10-14 (LCT-008's full nuclide list, 36 tapes + F-19):**
+Mg-24 was the first evaluation here to give continuum reactions (MT=16, 22,
+28, 91) as MF=4 + MF=5 with no MF=6. `build_emissions` skipped them, writing
+TYR = 0, and OpenMC segfaulted on the table. It now follows `acelod`
+(`acefc.f90:5859-5870`, `:5924`): TYR from the MT, signed by MF=4's LCT,
+energies by `acelf5`, angles from MF=4. The MT yield table was also brought
+back to upstream's. Mg-24 is now NJOY2016's in every word, and is in the
+gate. ~~**50 of the 74 tables (37 nuclides × 293.6 K and 0 K) are NJOY2016's in
+every word; 24 still differ**, across Na-23, Ti-48, Cr-50/52/53/54,
+Fe-57/58, Cu-65 and Zn-64/66/67/68/70. Some differ only in the 7th or 8th
+figure; others are structural (Fe-58 lacks MT=4 and most of its UNR block;
+Na-23's and Cr-52's DLWP are a few words short). Tracked as GitHub #875.~~
+**CORRECTED 2026-10-15 (GitHub #875): all 74 are NJOY2016's in every word.**
+Six fixes, each found by reading or instrumenting upstream:
+- `convr` writes an MF=12 LO=2 cascade's yield through text, so `gamsum`
+  sums `a11`'s rounding (GPD; Cu-65, Fe-57);
+- `acelpp` copies an MF=15 probability record into the DLWP law header as it
+  stands, regions included (Na-23, Cr-50/52/53/54);
+- RECONR's `facphi` zeroes an l >= 2 phase shift below `phi/rho = 1e-6`, and
+  `facts` adds `3*r2+r4+9` in that order (Ti-48);
+- `resxs` ends on the union grid's last node below `eresh`, which `lunion`'s
+  histogram rule can move (Zn-64/67);
+- PURR's `intr2` uses the J-state's own INT, not UNRESR's lin-lin (Zn);
+- PURR's `rdf2un` grid is not UNRESR's `rdunf2`: primer and limit
+  `etop = 5 MeV`, raw nodes inside `[el, eh]`, no `sigfig(.,7,2)` pass
+  (Fe-58: 13 energies to 3 MeV, not 2 to 1 MeV, and so MT=4 kept for
+  competition).
+Record: `verification_and_validation/ace_five_route_parity_2026_10_14.md`,
+"LCT-008's full nuclide list". Gates: `tests/ace_five_route_parity.rs`
+(Cu-65, Na-23, Ti-48, Zn-64 at 0 K, Zn-70 at 293.6 K) and
+`purr::tables::urr_grid_tests`.
+**The gate's reference tables had never been committed** (`.gitignore`); it
+skipped everywhere but on the machine that made them. They are committed
+now.
+
+**UPDATE 2026-10-15: unrounded too.** "Every word" above was at Type-1
+print precision (12 figures). Against NJOY2016's **Type-2** output, which
+holds its unrounded doubles, B-10 differed in 943 words. **All 76
+five-route tables (every LCT-008 tape, plus F-19 and U-236) are now
+NJOY2016's bit for bit**: 101 197 626 words, 0 differing bits. Four fixes, each a value upstream
+reads back from a text tape or never rounds:
+- GPD gets `gamsum`'s MF=13/MT=1 text round trip after `sigfig`
+  (`acefc.f90:3828-3843`, `:6259-6270`);
+- the LUNR cross sections are copied from MT=153 as read, not `sigfig`'d
+  again (`:5980-5983`; U-234/235/236/238, Mn-55, Fe-58, Zn);
+- MTRP keeps `acelpp`'s flag digit divided by 10 (`:8384-8386`, `:8490`),
+  so B-10's MT=801 photon is 801001.2, as NJOY2016's own Type 2;
+- an MF=6 photon's applicability range is `sigfig(E/emev,7,0)`
+  (`:8805-8806`), not `sigfig(E)/emev`.
+
+`sigfig`'s `bias = 1.0000000000001` is the trap: Type-1 text cannot show
+it, so a Type-1 reference cannot catch it. `ace_word_parity` reports
+unrounded `EXACT` lines for a Type-2 reference, and the gate holds B-10 and
+Zn-70 (now Type 2) to every bit. NJOY2016 cannot write an unrounded thermal
+table (`aceth.f90:541` fixes `itype = 1`); LCT-008's LEAPR-built H in H₂O
+matches route 1's NJOY2016 table in every byte of its 32 166 data lines.
+Record: `verification_and_validation/ace_five_route_parity_2026_10_14.md`,
+"Unrounded".
+
+All 12 nuclides of the five-route ICSBEP campaign (U-234/235/238, F-19,
+O-16, H-1, Al-27, Si-28/29/30, Mn-55, B-10), at 293.6 K
+(`RECONR -> BROADR -> PURR -> ACER`) and 0 K (`RECONR -> ACER`), are
+NJOY2016's tables in every word: 24 of 24, no tolerance, no HEATR on either
+side. Gate: `tests/ace_five_route_parity.rs` (H-1, F-19, Al-27, B-10, O-16
+at 293.6 K, 1.7 s). Record:
+[`verification_and_validation/ace_five_route_parity_2026_10_14.md`](verification_and_validation/ace_five_route_parity_2026_10_14.md).
+
+Before it, the light nuclides lost whole blocks to refusals that wrote a
+legal but emptier table: H-1 had no photon production (its capture photon
+is an MF=6 LAW=2 product) and O-16 lost all 131 photons (anisotropic MF=14).
+`acelcp` wrote no charged-particle production for seven nuclides. The fixes,
+each ported from the routine that owns it:
+
+- `convr` moves **every** MF=6 photon to MF=16, LAW=2 as a discrete line;
+  its NK > 1 totals are rebuilt from their partials and its discontinuities
+  go into the grid through `unionx` (`egl`/`egh`).
+- `ptleg`/`pttab` (`acer::photon_angular`) give 32 equiprobable cosine bins;
+  with any LO=2 cascade, `convr` makes every level's MF=14 isotropic.
+- `acelcp` gained the capture recoil, MF=4 LTT=1/2 and MF=6 LAW=0/2/3/4.
+- Discrete levels given only in MF=6 (LAW=2 neutrons) carry their angles.
+
+Three things worth carrying forward:
+
+- **ACER reads its own scratch tapes back as text** in more places than
+  THERMR: `convr`'s converted MF=14 and LAW=2 photon lines and `gamsum`'s
+  MF=13 records all carry `a11`'s rounding, which keeps only **6** figures
+  for a negative number or a two-digit exponent. Each showed up as a handful
+  of words in the 7th figure.
+- **Upstream reads a variable it never set.** `acelcp`'s capture-recoil
+  branch uses `awp` without assigning it; for H-1 it holds 0. The port
+  carries it as `stale_awp` rather than guessing a "correct" value.
+- **A refusal that drops a whole block is a defect that looks like a
+  feature.** Every one of these returned a legal table (NXS(6) = 0 or
+  NXS(7) = 0), so nothing failed until a word comparison against NJOY2016
+  did. When a builder refuses, compare against upstream before trusting the
+  refusal's scope.
+
+## The LCT-008 library with HEATR is NJOY2016's bit for bit (2026-10-15)
+
+The five-route parity above runs **without HEATR**, as the NJOY2016 deck
+does. The library routes 2 and 5 read (`write_ace_library`) runs HEATR by
+default, so its heating numbers were never compared. Against NJOY2016 on the
+same decks **with HEATR** (text units, `itype 2`), every heating difference
+came from a value upstream hands on through a **text tape**, or computes at
+a point in its walk we had not reproduced:
+- PURR's `rdheat` reads HEATR's MT=301 for the bands' heating column
+  (`ihave = 1`); the deck now runs HEATR before PURR;
+- `acelod` divides MT=301 by the **running** total at MT=301, before the
+  9-figure pass;
+- ACER reads HEATR's MT=301 as printed, and `unionx` carries it onto the
+  grid through a text scratch tape (`a11`);
+- HEATR's `hconvr` hands its converted LO=2 yields to `gheat` through
+  text when card 1's ENDF unit is positive (`HeatrInput::units`); the
+  committed HEATR decks use `-21` and are unchanged.
+
+`sigfig` now takes `log10` and `**` from PETIR (`petir::real::powi`, libgcc's
+`__powidf2`): `f64::powi` gave a different last bit on Windows. Record:
+`verification_and_validation/ace_five_route_parity_2026_10_15_library.md`.
+Gates: `ti48_heating_number_with_heatr_is_njoy2016s`,
+`zn70_purr_heating_column_with_heatr_is_njoy2016s`.
+
+**Since 2026-10-20 (gh:#985) every `f64` transcendental in this crate** —
+src, tests and examples, 818 sites — goes through `petir::mathf::RealMath`
+(`.r_exp()`, `.r_ln()`, `.r_powf()`, `.r_powi()`, `.r_sin()`, …), never the
+platform libm. Write new code the same way. On Linux (glibc 2.39) the whole
+crate suite (1165 passed, 9 ignored) and every NJOY2016 parity gate were
+unchanged by the switch: `ace_five_route_parity` 13/13 identical in every
+word (B-10, Ti-48, Zn-70 Type-2 XSS bit-identical), `pendf_stages_vs_njoy2016`
+12 PENDFs identical in every MF=3 word, broadening band integrals 7.758e-12.
+
+**The lesson, again:** a reference made with a different deck from the code
+under test checks only what the decks share. Compare the files the runs
+actually read.
+
+## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
+
+The mcnpx variant (negative `iopt`, a 13-character ZAID) was "implemented and
+unexercised" in three V&V records. It took one NJOY run each to fix that, and
+the output is now **byte-identical** on both classes that have a reference —
+photo-atomic (9 953 bytes) and dosimetry (52 133 bytes). Asking what it would
+take to gate an unexercised path is usually cheaper than it looks; leaving the
+note in place was the expensive option.
+
+Three findings worth keeping:
+
+- **A file carries no width flag.** Upstream never needs one: `acer.f90:490-494`
+  takes the ZAID width from the sign the *user* typed on `iopt`. A reader given
+  only the file has to decide, and the decision is available in the bytes —
+  columns 11-13 hold the mcnpx class suffix (`"pp "`, `"ny "`, `"nt "`,
+  `"nc "`) in that variant and the first three columns of the `f12.6` AWR
+  otherwise, and an `f12.6` field cannot contain a letter.
+- **Upstream cannot read back most of the mcnpx files it writes.**
+  `acer.f90:510` reads the suffix `a3` and dispatches on `ht(1:1)`: `'p'` for
+  photo-atomic works, but dosimetry's `"ny "` and thermal's `"nt "` both give
+  `'n'`, which matches none of its branches. This port takes the class from the
+  **last** letter, which is the same character under both conventions. A
+  faithful port is not a bug-for-bug one; the divergence is recorded rather
+  than inherited.
+- **"Byte-exact is impossible here" was too pessimistic, and a value gate hid
+  two real defects.** The earlier record argued a Type-1 round trip could only
+  be pinned through the value domain, because the integer/real split is not
+  stored. It is not stored — but for photo-atomic, dosimetry and thermal it is
+  *derivable*, because `NXS`/`JXS` fully describe the writer's walk
+  (`RawAceTable::derive_xss_is_int`). Asserting bytes then exposed two header
+  bugs a value comparison cannot see: the date was being whitespace-split
+  rather than sliced as an `a10` field, losing NJOY's `'  '//dater()` padding,
+  and `f11.0` was written without its trailing decimal point while `1pE11.4` of
+  zero came out as `0.0000` instead of ` 0.0000E+00`. Five files now read back
+  and rewrite byte for byte. **CE and charged-particle tables still use the
+  heuristic** — `change` decides word by word over far more blocks.
+
+## One ACE serialiser, one set of edit descriptors (2026-09-22)
+
+The crate had **two** independent Type-1 ACE writers — `AceTable`'s own in
+`src/acer/write.rs` and `RawAceTable::to_type1_string` in `src/acer/read.rs` —
+each with its own copies of `fortran_e`, `fortran_f`, `fortran_f0` and the
+text padding. `AceTable` now converts to `RawAceTable` and the serialisation
+happens once, on the shared descriptors in `src/acer/fortran_fmt.rs`.
+
+**They had already drifted, and only a byte comparison found it.** The
+read-side copies wrote `1pE11.4` of zero as `0.0000` instead of
+`" 0.0000E+00"`, dropped `f11.0`'s trailing decimal point, and used Rust's
+`{:E}` exponent (`E4`) where Fortran writes a signed two-digit one (`E+04`).
+All three are **header** fields, so every byte after them shifted — and the
+only test of that path compared *values*, which cannot see a header at all.
+The rule this leaves: **two implementations of one format is one
+implementation and one latent bug.**
+
+Merging meant picking one mantissa formulation, and it was picked by
+measurement. `write.rs` took the mantissa from Rust's `{:E}` (correctly
+rounded); `read.rs` divided by `10^floor(log10 x)`. They disagree on **17 of
+every 400 000** random values by one unit in the 12th digit, and the division
+is the wrong one — it rounds twice. The shared helper uses `{:E}`, and all
+1.5 MB of byte-exact NJOY comparisons (photo-atomic Type 1 and Type 2,
+dosimetry H-1 and Mn-55, both mcnpx variants) still reproduce exactly.
+`mantissa_is_correctly_rounded_not_divided` pins the measured case.
+
+**Two capabilities fell out of the merge**, which is the usual sign that the
+duplication was load-bearing: `AceTable::write_type2` and
+`NuclearDataLibrary::write_ace_type2` exist now. The old `AceTable`-specific
+writer could emit Type 1 alone, so nothing this crate built had a binary form,
+and nobody had noticed because the CE tests only ever wrote text.
+
+**Where the ad-hoc readers went.** `acer::read` is the single reader:
+`tests/acer.rs`, `tests/thermal_ace.rs`, `tests/thermal_ace_zrh.rs`,
+`examples/ace_vs_njoy2016.rs` and `examples/thermal_ace_vs_njoy2016.rs` keep
+thin adapters that delegate to it and nothing else, and no crate outside
+`njoy-outram-park-fork` parses or writes ACE at all (checked across all 43).
+Turning the test round trips into *write-then-read-with-the-production-reader*
+is what makes them real: a table this crate writes but its own reader cannot
+read now fails.
+
+## Photo-nuclear: NJOY rebuilt, a tape synthesised, class `u` closed (2026-09-22)
+
+NJOY2016 was rebuilt from `upstream_source/NJOY2016` on this machine — a clean
+100 % `cmake` build with gfortran 13.3.0 into `build2/` — so the oracle is
+reproducible rather than inherited.
+
+**The blocker was data, not code.** `acer iopt = 5` needs a photo-nuclear
+(NSUB=0) ENDF tape; `reference-data/endf/` has none, and the IAEA NDS host
+`acquire` downloads from is **blocked by the execution environment's network
+policy** (the agent proxy answers `403` to CONNECT on
+`www-nds.iaea.org:443`). The environment's rule is to report a blocked host,
+not route around it. So the tape was **synthesised** —
+`photonuc-synthetic-Z6.endf` plus its committed generator — which is the
+device this repository already uses twice over. It is fed to both codes, so it
+verifies that they agree on identical input; it says nothing about physics and
+nothing is claimed from it.
+
+**What that immediately bought.** NJOY turned it into a 27 453-word `6012.00u`
+table on the first run, and porting `phnout`'s layout walk
+(`acepn.f90:2504-2780`, now `src/acer/photonuclear/layout.rs`) made that table
+**read back and rewrite byte for byte**. With it, **every class letter
+upstream dispatches on has now been read from a file NJOY wrote** — `u` was
+the last one outstanding, and it had been sitting in the V&V record as "a gap
+in the fixtures" since the reader was written.
+
+**Why the walk is worth more than a mask.** A photo-nuclear table's
+integer/real split is stored nowhere, so reproducing NJOY's bytes requires
+walking the *whole* per-emitted-particle structure: `PXS`, `PHN`, `MTRP`,
+`TYRP`, `LSIGP`/`SIGP` with its MF=12/13 branch, `LANDP`/`ANDP` with its
+equiprobable-versus-tabulated sub-branch, and `LDLWP`/`DLWP` with law bodies
+4, 44, 61, 7/9 and 33 — law 61 alone needs two levels of locator chasing. One
+wrong count anywhere in 27 453 words changes a byte, so the round trip is a
+sharp test of the whole structure, and the same walk serves as a structural
+validator and as the builder's skeleton.
+
+**The builder (`acephn`, 1 826 lines) is not done**, and the V&V record says
+so rather than implying otherwise. Also untested, and stated there: whether a
+production photo-nuclear evaluation exercises branches the synthetic tape does
+not — MF=4-only angular data, MT=18 with its nubar, discrete MT=600-849
+levels, and the `ielas = 1` elastic path.
+
+## `acer iopt = 5` reaches byte parity, and how three defects were found (2026-09-22)
+
+`src/acer/photonuclear/build.rs` ports `acephn`'s LANL-style path and
+reproduces NJOY2016's own photo-nuclear ACE **byte for byte** — 27 453 words,
+556 781 bytes, worst value difference **1.0e-13**. Both codes read the same
+synthetic NSUB=0 tape. Full record:
+[`verification_and_validation/acer_photonuclear_vs_njoy2016.md`](verification_and_validation/acer_photonuclear_vs_njoy2016.md).
+
+**Every one of the three defects was in this port, not upstream, and two would
+have survived a tolerance.**
+
+1. **`gety1`'s initialisation returns an `xnext` that is not `xlast`.** The
+   zero-extension scan shades the returned break down by `0.999999` when the
+   *next* point is the first non-zero one (`endf.f90:1511`), so a grid walk
+   starts just **below** the reaction threshold. This port returned `xlast`,
+   giving a 37-point grid where NJOY makes 38. A real `gety1` contract bug,
+   fixed in `src/endf/gety1.rs`; it changes nothing for the photo-atomic or
+   dosimetry paths, which discard that value.
+2. **`ip > 1` excludes the photon, not just the neutron.** `acepn.f90:1809`
+   folds production heating into the table total only for `ip > 1`, and `ip`
+   is the **ZAP** — so ZAP 1 (neutron) *and* ZAP 0 (photon) are both out.
+   Reading it as "everything but the neutron" double-counted the photon and
+   left the heating column 39 % high.
+3. **`avll` is updated inside the `ig /= 1` guard** (`:1690`), so the second
+   outgoing point's trapezoid uses `0`, not `E'(1)`. Hoisting it out adds
+   ~**4e-8 MeV** to every law's mean outgoing energy — invisible in the value,
+   and exactly enough to flip `sigfig(., 7, 0)` on the heating block. **A 1e-7
+   tolerance would have passed this.** Bytes found it.
+
+**The builder does not track its own integer/real flags.** It derives them
+from `layout::walk`, the same port of `phnout` the reader uses and already
+byte-verified, so the builder cannot disagree with the reader about where a
+locator is — and a table the walk cannot traverse is reported as a *builder*
+defect instead of being written out. Worth copying: when a format's structure
+is recoverable from the data, describe it once and let both directions use it.
+
+**`ptleg2` was checked and rejected for reuse.** `acer::angular::legendre_cosine_law`
+looks like the same conversion and is not: `ptleg2` uses tolerances
+`2e-4`/`2e-3`, a 24-deep stack, a `1e-10` floor and a negative-lobe repair,
+against `ANGLE_TOL = 5e-3` and a different bisection. Reusing it would have
+produced a different grid and lost parity. Only the isotropic case is
+implemented, pinned against NJOY's own output.
+
+**Everything unported refuses by name** (`NjoyError::NotPorted`): `ielas = 1`,
+`LANG = 2`, `NA > 0`, `ND > 0`, `LCT /= 1`, recoil subsections, MF=4/MF=5,
+`LAW = 2`/`LAW = 4`, and MT=18's nubar substitution. A photo-nuclear table
+that silently omits an emitted particle still reads and still looks plausible.
+
+**The pair is archived, and the `hk` comment is the provenance.** Both tables
+— NJOY2016's and this port's — live in the `reference-data/ace` submodule as
+`{reference,outram-park}-njoy/synthetic/0K/Z6-photonuclear.ace.gz`, each
+stamped inside its own 70-character `hk` field with generator, version, commit
+and date. They differ in that one line and agree on the other 556 781 bytes, so
+the pair *is* the evidence and a `diff` re-checks it without a Rust toolchain.
+The fixture this crate tests against is the same bytes as the reference copy
+(SHA-256 `7b64749a…a251186a`, in the submodule's `MANIFEST.tsv`). Because the
+gate is byte-identity, the stamp is asserted like any other line: regenerate
+the fixture under a different comment and the test fails at byte 47 rather than
+accepting it.
+
+## The ACE **reader** caught up with the writer (2026-09-25, GitHub #307)
+
+This crate could write far more of an ACE table than it could read. Five gaps
+were closed in one pass, and four of them had the same shape: *the block is in
+the file, the writer knows its layout exactly, and nothing looked.*
+
+| gap | reader | verified against | record |
+|---|---|---|---|
+| delayed neutrons | `acer::delayed::decode_delayed` (DNU, BDD) | the ENDF route's own λ, to 1e-16 | commit `6850cbc31` |
+| thermal S(α,β) | `acer::thermal_read::decode_thermal` | this crate's byte-verified writer, then the tape route (0.952 % worst on σ_total) | [`thermal_from_ace/`](verification_and_validation/thermal_from_ace/thermal_from_ace_2026_09_25.md) |
+| DLW laws beyond {3,4,44,61} | `decode_energy_law` now reads every law upstream reads | **OpenMC's own Python reader** on four NJOY2016 tables | [`dlw_law_family/`](verification_and_validation/dlw_law_family/dlw_law_family_2026_09_25.md) |
+| photon production | `acer::photon_read::decode_photon_production` (all seven blocks) | OpenMC's reader on U-235's 583 subsections | [`photon_production_read/`](verification_and_validation/photon_production_read/photon_production_read_2026_09_25.md) |
+| URR probability tables | `purr::UrrProbabilityTables::from_ace` | the ENDF route, 6 significant figures | [`urr_from_ace/`](verification_and_validation/urr_from_ace/urr_from_ace_2026_09_25.md) |
+
+**A census is a statement about the files it was taken over.** The DLW reader
+refused laws 7, 9, 11, 66 and every `LNW` chain, citing a census of
+`reference-data/ace` — which holds U-234, U-235 and U-238 and nothing else. Four
+tapes **already committed** in `reference-data/endf/` produce those laws through
+the same NJOY deck: H-2 MT=16 is law 66, C-12 MT=28/91 and Na-23 MT=16 are law 9,
+and Na-23 MT=91 is a two-law chain whose applicabilities switch at 12 MeV. So
+`Nuclide::from_ace` could not build three of the commonest light nuclides here,
+and nothing failed because the actinides worked. The census in
+`acer::ce_laws`'s module doc now names its tapes.
+
+**The same lesson one layer up (GitHub #365, 2026-09-29).** Reading every chain
+was not the same as *transporting* every chain: `outram-mc-libs`'
+`Nuclide::from_ace` still refused any chain with a correlated link, and F-19's
+MT=16 (two law-61 links, `p = 0.5` each) refused the whole nuclide. Such a chain
+is now carried as one `ContinuumBranch` per link, selected by the new
+`ContinuumBranch::applicability` (kept distinct from `yield_pairs`: ACER derives
+`p_k = y_k / sum y`, but only one of them is a multiplicity). Record:
+`crates/outram-mc-libs/verification_and_validation/ace_route_physics/f19_lnw_mixture_2026-09-29.md`.
+
+**Refusals now cite upstream rather than implying the gap is ours.** ACE LAW=5 is
+dispatched by OpenMC and then raises `NotImplementedError` in
+`GeneralEvaporation.from_ace`; LAW=67 is refused by OpenMC too, and NJOY's ACER
+converts the ENDF form it comes from (Be-9's MF=6 LAW=7) into ACE law 61, so it
+never appears. Both measured, both stated in the error text.
+
+**One reader per format, not one per block.** DLWP has DLW's layout, so the
+photon path calls `ce_laws::decode_law_chain`; ANDP has AND's, so it calls
+`decode_angular_block`. That is why ACE LAW=2 (a discrete line) is decoded in
+`ce_laws` — the photon block needs it — even though a neutron table never uses
+it. Law 66 rebuilds its shape with `law66_shape_table` (the writer's own port of
+`acelf6`'s grid, now public) and scales it with
+`nuclear_data::secondary::phase_space_chi`, shared with the ENDF MF=6 LAW=6 path
+so the two routes cannot disagree about `E'_max(E)`.
+
+**A stale claim fixed in the same pass.** `parse_mf5_section` said ENDF LF=5 was
+unported "because no evaluation in `reference-data/endf/` uses it". Seven tapes do
+— all on **MT=455** — and `mf5_lf_survey` walks MT ∈ {18, 16, 91, 5} only, so it
+could never have failed. Nothing was degraded (the delayed spectrum is dropped on
+both routes, and ACER linearises those sections into ACE LAW=4), but the comment
+was untrue about the data.
+
+## …and the writer caught up with the reader: the UNR block (2026-09-26, GitHub #325)
+
+The reader could decode the ACE unresolved-range block (`JXS(23)`) and the writer
+could not emit one, so a table built here lost URR self-shielding that both ends
+of the round trip could handle. `acer::unr::unr_words` ports
+`acefc.f90:5958-5990`; `acer::build_full_with_purr` is the `…+PURR+ACER` deck.
+`build_full` is unchanged and still writes none — it is the deck without PURR,
+and byte-parity gates depend on that. Record:
+[`unr_block_write/`](verification_and_validation/unr_block_write/unr_block_write_2026_09_26.md).
+
+**The gate that isolates a writer from a Monte Carlo generator.** PURR's bands
+come from random ladders, ~~so generated tables can never match NJOY's word for
+word~~ (**CORRECTED later 2026-09-26**: `rann` and its seed are ported, so the
+ladders are NJOY's ladders; after six fixes the generated bands match in every
+word -- see "The ACE tables reproduce NJOY's" below). Reading NJOY's own block and writing it back can — and does, **bit-exactly
+on all 3 152 + 2 305 + 10 049 words** of U-234/235/238. Worth copying whenever
+the thing upstream of a writer is stochastic.
+
+**It found a defect upstream of itself.** Our PURR built U-234's tables on 10
+energies (NJOY: 26) and U-235's on 14 (NJOY: 19), because `rdunf2`'s
+"add extra nodes" pass — a fixed ladder of 78 round energies inserted into any
+interval wider than 1.26× — had never been ported, and Case C took the union of
+every `(l, j)` state's points where NJOY takes only the first. U-238's grid is
+fine enough that the pass inserts nothing, so the only comparison that existed
+passed. Fixed; all three now match NJOY's grid to its 7th figure, endpoints
+included (NJOY shades them one unit inward). **This changes the ENDF route's
+default physics for U-235 and U-234**, so every URR-on `k` since 2026-09-20 was
+taken on the old grid — flagged in `outram-mc-libs`' ICSBEP record pending
+re-measurement.
+
+## The ACE tables reproduce NJOY's, block by block (2026-09-26)
+
+**UPDATE, later 2026-09-26 (GitHub #340): the grid is closed.** RECONR and
+BROADR now reproduce NJOY2016's own PENDFs **word for word**:
+- RECONR: U-234, U-238, Si-30, Sr-88, Ar-37, Li-6, C-12;
+- BROADR at 293.6 K: U-234, U-238, H-2, Li-6, Be-9, C-12, F-19, Si-30,
+  Cl-35, Ar-37.
+
+Regression: `tests/pendf_stages_vs_njoy2016.rs`. Instrument:
+`examples/pendf_stage_vs_njoy.rs`. BROADR is now upstream's joint
+multi-reaction walk (`broadr/joint.rs`). At the ACE level:
+- ~~**U-234 at 293.6 K is identical in every word** except PURR's
+  random-ladder band values;~~
+- ~~U-238 and U-235 match in every neutron block;~~
+- ~~what remains is `acelcp` (charged particles), the U-235/U-238 photon-block
+  rounding and PURR bands.~~
+
+**FINAL, later still 2026-09-26: all four reference tables are reproduced in
+every word.** U-234, U-235 and U-238 at 293.6 K (`RECONR+BROADR+PURR+ACER`)
+and U-235 at 0 K match NJOY2016's in NXS, JXS and every XSS word: 449 695,
+6 712 632, 6 247 445 and 15 616 079 words. That includes the PURR bands,
+`acelcp`'s charged-particle blocks and the photon blocks. There is no tolerance
+anywhere in the claim; PURR's bands are deterministic because `rann` and its
+seed are ported.
+
+The PURR bands took six fixes: `fsrch`'s window, the bin-edge tie, MT=153's
+text hand-off, the temperature, `rdf3un`'s LSSF=1 remainder, and `ladr2`'s
+discarded crossing resonance. The temperature and the crossing resonance were
+localised with an **instrumented NJOY2016 build**: a scratch copy of
+`purr.f90` that writes intermediates at full precision, down to every sample
+of one ladder. Each took one run. When
+two stochastic codes disagree, print both codes' intermediates rather than
+reasoning about the statistics. Gate: `tests/unr_block_write_vs_njoy2016.rs`,
+`purr_generates_njoys_bands_word_for_word`.
+
+The record is under `verification_and_validation/ace_block_parity/`. The
+text below is the state earlier the same day; its "still different"
+paragraph is superseded.
+
+~~## ... -- except the energy grid~~
+
+Against NJOY2016's own U-234 (293.6 K, `RECONR+BROADR+PURR+ACER`) and U-235
+(0 K, `RECONR+ACER`) tables in the `reference-data/ace` submodule, **every
+word** of these blocks is now identical at print precision:
+- TYR, LQR, NU;
+- LAND/AND (78 143 and 138 687 words);
+- LDLW/DLW (113 139 and 913 698 words);
+- DNU/BDD/DNEDL/DNED.
+
+Record:
+[`ace_block_parity/`](verification_and_validation/ace_block_parity/ace_block_parity_2026_09_26.md).
+Instrument: `examples/ace_blocks_vs_reference.rs`, whose `... words` rows
+compare a block's words exactly.
+
+**Still different:** the ESZ grid (and so the ESZ and SIG values), GPD
+(`gamsum`), and `acelcp`'s charged-particle production. The grid is the big
+one. NJOY's RECONR puts every reaction on one union grid:
+- `rdf2*` nodes at `sigfig(E_r ± Γ/2, ndig)`;
+- `lunion`'s decade points and `1+sqrt(5.3·err)` step cap;
+- `emerge`.
+
+This crate keeps a grid per section and seeds resonance refinement from a
+halo of its own. Tracked as GitHub #340; it is work, not a tolerance to widen.
+
+Three lessons worth more than the fixes:
+
+- **Two readers for one format is a trap here too.** The ACE writer used
+  `parse_mf4_angular`, the transport route's linearisation, for AND. NJOY
+  writes `ptleg2`'s. Both are sound. Only one is NJOY's. `parse_elastic_angular`
+  is now the ACER-side conversion (`acer::acensd`), and `parse_mf4_angular`
+  stays the transport one.
+- **The ENDF float parser rounded twice** (`m * 10^e`), so `1.11e7 - 1.09e7`
+  came out as 200000.00000000186. That tripped `acelf5`'s strict
+  `dele > 2e5` on U-235's exactly-200-keV fission-spectrum panels. The parser
+  now converts the whole decimal once, as a Fortran formatted read does. Any
+  strict comparison upstream makes against a round number is a place where
+  this mattered.
+- **Several "deliberate divergences" were only divergences.** MT=18 over the
+  partial chances, and the lumped MT=103-107 kept with the tape's Q, were each
+  documented as choices. Both were visible in NJOY's table: MTR, and
+  `LQR = 0` for the redundant sums. Both now follow upstream. A divergence
+  argued from the cross section alone can still show up in another block.
+
+## HEATR's photon side matches NJOY, and QI was the wrong deposited Q (2026-10-05, GitHub #535 H6a)
+
+`photon::PhotonProduction` (MT=442, the energy HEATR's energy balance
+subtracts) now follows HEATR's four routes, and matches NJOY2016's MT=442 at
+its 7-figure print precision on Fe-58 and Si-28: every one of 43 487 points
+within 4.6e-7. Gate: `tests/heatr_mt442_vs_njoy2016.rs`. Record:
+`verification_and_validation/heatr_vs_njoy2016.md` §4.
+
+- **MF=12 LO=2 cascades reuse ACER's `Lo2Cascade`** (`acer::photon_blocks`).
+  HEATR's `hconvr` is the same matrix algebra as ACER's `convr`; only the
+  starting level energies differ (MF=3 `−QI` against PENDF thresholds), so
+  `Lo2Cascade::section` now takes a `level_energy` closure instead of a second
+  copy existing.
+- **MF=6 photons** (`photon/mf6.rs`, `nheat`/`sixbar`/`getsix`), and an MT
+  with MF=6 photons has its MF=12/13 skipped, as `gheat` skips it.
+- **Capture with MF=12 photons is an energy balance** (`photon/capture.rs`):
+  `σ(E + Q − E/(A+1)) − Σ y·σ·E_R`, not the sum of its lines.
+
+Three things worth carrying forward:
+
+- **A `local = 1` HEATR run cannot be the MT=442 oracle.** HEATR calls `gheat`
+  (the MF=12/13 pass) only when `local = 0` (`heatr.f90:378`); a `local = 1`
+  MT=442 holds the MF=6 photons alone, and on Si-28 it is zero below 7.1 MeV.
+  The `local = 0` oracles are committed beside the `local = 1` ones.
+- **HEATR prints energies to 7 figures, coarser than its own grid inside
+  narrow resonances** (204189.888 and 204189.925 eV both print as
+  `2.041899+5`). Comparing at the printed energy produced "38 % errors" that
+  were the abscissa's rounding. The test judges each NJOY value against the
+  envelope of ours over the ±5e-7 interval, including our grid nodes inside
+  it, and excludes nothing. Two earlier instruments excluded points instead
+  and were dropped.
+- **The kinematic arm deposited `QI`; `nheat` deposits `q0`.** For a discrete
+  level `q0 = 0` (`:1180`), so its excitation energy is heating until the
+  photons take it away; `QI` alone left it out. That was most of the "−75 %"
+  above threshold the 2026-09-17 record could not separate, and once MT=442
+  was complete it drove the energy-balance KERMA negative. `Kerma::from_endf`
+  applies `nheat`'s whole `q0` table and ~~is what `acer` and `interface` use~~
+  was what `acer` and `interface` used until the full port below;
+  `Kerma::from_reconr` is the `QI`-only variant. Median miss above threshold
+  at `local = 1`: Fe-58 76 % → 11 %, Si-28 38 % → 31 %.
+
+**Still open (#535):** ~~the energy-balance MT=301 is 1.9–2.9× NJOY's between 2
+and 5 MeV, which is the `local = 1` neutron-side residual amplified by
+subtracting a photon term that is ~89 % of the total (H6b); and~~ Fe-58's MF=6
+capture deposits its 208 keV photon deficit where NJOY deposits only the
+photon recoil (H6c). **CORRECTED 2026-10-05:** the 1.9–2.9× was closed by
+H6b part 1 (next section).
+
+## `Tape::write` is byte-faithful to NJOY's MODER (2026-10-05, GitHub #553)
+
+A row of six floats cannot say which fields NJOY writes as `i11`, which it
+leaves blank or which are text, so the written tape matched NJOY's on 1 line
+in 11 793 and dropped the evaluation's MF=1/MT=451 description. `Section` did
+not have to change: `src/moder/layout.rs` ports MODER's own record walkers
+(`moder.f90`'s `file1` … `file40`, not `file32`), which recover each line's
+record kind from the counts in the heads, exactly as MODER does when it reads.
+`Tape::write` formats each kind with `endf.f90`'s descriptor, and `Tape` keeps
+MF=1/MT=451's raw text (beside the MF=32 text it already kept). On the H-2 +
+Li-6 selection all **11 793 / 11 793** lines are byte-identical to NJOY2016's
+tape (`tests/moder_vs_njoy2016.rs`, which now asserts it).
+
+**Two guards, both from a regression the first run caused.** An ERRORR output
+tape (MF=1/MT=451 `N1 = -11`) is group-wise LISTs, and the walker read it as
+ENDF structure and blanked a field holding 5.981 (`covr_boxer_golden`'s Li-6
+case). GENDF and ERRORR materials now skip the layout, as MODER skips them
+(`moder.f90:161`, `:271-273`); and the writer refuses any layout that would
+blank a non-zero field. **A value is never dropped to match a format.**
+
+Not covered: MF=32 and group materials, still written all-`a11`.
+
+## HEATR's two-body neutron side follows `nheat` (2026-10-05, GitHub #535 H6b part 1)
+
+`Kerma::from_endf` now deposits `σ·(E + q0 − yld·Ē')` for elastic and the
+discrete levels without MF=6, with `Ē'` from `disbar` (`src/heatr/twobody.rs`):
+MF=4's mean cosine through `File4Angular::from_tape_with(.., &File4Options::HEATR)`
+(`hgtfle`: `toler = 1e-6`, MT=51-90 lab data read as CM when `A ≥ 10`, the
+log-law sign fallback), evaluated at nodes 10 % apart and interpolated
+between them, exactly as NJOY walks it. MT=600-849 deposit `σ·(E + q0)`.
+`nheat`'s skip list is ported with `hinit`'s flags. **MT=4 had been heated
+beside its own levels** (RECONR rebuilds it as their sum), which is most of
+what the "1.9–2.9×" was.
+
+Medians above the first inelastic threshold against NJOY2016: Fe-58
+`local = 1` 11 % → 0.033 %, Si-28 31 % → 0.23 %; energy balance (`local = 0`)
+Fe-58 1.35 → 0.39 %, Si-28 0.99 → 0.74 %. Si-28 below the threshold is now
+**asserted** at print precision at both `local` settings (worst 4.7e-7).
+Details: `verification_and_validation/heatr_vs_njoy2016.md` §5.
+
+- ~~**Not covered yet:** `conbar`/`sixbar` (continuum and MF=6 neutron means,
+  H6b part 2; they carry the 14-150 MeV residual) and MF=6 capture (H6c).~~
+  **CORRECTED 2026-10-05:** covered by the whole-module port (next section);
+  `Kerma` itself still lacks them.
+- **The fission skip rule is ported ~~but untested by any oracle~~:** MT=18 is
+  skipped when MT=19 has its own MF=5 spectrum, otherwise MT=19/20/21/38 are.
+  ~~Neither oracle nuclide is fissile.~~ **CORRECTED 2026-10-05:** the
+  driver's copy of the rule is exercised by the 62-tape sweep (U-234, U-235,
+  three U-238 evaluations, Pu-239), all byte-identical.
+- ~~**`with_energy_balance` clamps MT=301 at 0; NJOY does not** (no lower
+  bound in `heatr.f90`). Left as it was; raised on #535.~~ **CHANGED
+  2026-10-05 (flagged modification, maintainer-approved): the clamp is
+  removed**, as `heatr.f90` has none. NJOY's `local = 0` MT=301 is never
+  negative on Fe-58 or Si-28; ours goes negative at 25 and 151 grid points,
+  all between 20 and 150 MeV, where `conbar`/`sixbar` are not ported and
+  the kinematic estimate over-states the outgoing neutrons' energy. The clamp
+  had been writing 0 there and hiding that gap; the worst-point figure above
+  20 MeV moved from 1.0 to 1.5-1.6, medians unchanged. ~~Until H6b part 2
+  lands, **the ACE heating column of these nuclides is negative above
+  ~20 MeV**.~~ **CORRECTED 2026-10-05:** the ACE route no longer uses
+  `Kerma` (next section), so this describes `Kerma` only. Pinned by
+  `energy_balance_subtracts_mt442_and_nothing_else`.
+
+## HEATR is ported whole, and its tape is NJOY's byte for byte (2026-10-05, GitHub #535)
+
+`src/heatr/driver/` translates `heatr.f90` routine by routine (`hinit`,
+`nheat`, `disbar`, `conbar`, `sixbar`, `getsix`, `hgtfle`, `hconvr`, `gheat`,
+`df`, `tabsq6`, `hgam102`, `hout`, the `viewr` plot and the listing). The audit
+that drove it, with each routine's upstream line range and the port's file, is
+`verification_and_validation/heatr_upstream_audit.md`. Entry points:
+`heatr::heatr(endf, pendf, &HeatrInput)` (cards via
+`HeatrInput::from_cards`), `heatr::heatr_kerma` and `heatr::pendf_for_heatr`
+for the ACE route. Fortran `save` variables are explicit state structs and
+NJOY's scratch tapes are in-memory; `sixbar` errors where upstream would run
+off the end of a subsection into the next one.
+
+**Measured.** NJOY2016's HEATR reads the same ASCII PENDF as ours, and both
+tapes go through MODER. The output tape is **identical in every byte** on all
+**62** neutron evaluations in `reference-data/endf/` at `local = 0` with 11
+partial MTs, and again at `local = 1, iprint = 2` (kinematic check on). That
+includes U-235's 4 312 867 lines. Eight committed decks
+(`reference-data/heatr/driver/`, gated by `tests/heatr_driver_vs_njoy2016.rs`,
+3.7 s) cover user Q, `qbar`, `ed`, two temperatures, `LAW = 6/7`,
+Kalbach-Mann, charged-particle levels, the plot file and the listing. Record:
+`verification_and_validation/heatr_vs_njoy2016.md` §6.
+
+**The ACE heating column now comes from it.** `acer` (with HEATR in the deck)
+and `interface` call `heatr_kerma`, and `acer::build` applies `acefc.f90`'s
+`sigfig(sigfig(gety1(MT301),7)/1e6/σt,7)`. U-235's peak heating number is
+142.8833 MeV, +2.0e-6 from EFR × max σ_f/σ_t (the evaluation's own MF=1/458
+estimate); the old `[150, 200]` band in `esz_heating_column_is_physical` had
+been set from the earlier approximation, and was replaced (flagged there).
+
+Three things worth carrying forward:
+
+- **Feed NJOY's HEATR the ASCII PENDF.** Read from RECONR's binary tape, NJOY
+  sees energies the 7-figure text cannot carry, and the two codes differ at a
+  threshold that agrees to the last bit in one and not the other (Si-28
+  MT=304, one point). Identical input is the only fair test.
+- **`hconvr` overwrites the module's `za`/`awr`** from MF=12 `LO = 2` heads
+  (`heatr.f90:4751-4752`), and later MF=3 HEADs echo them. A port that keeps
+  them local writes a different ZA on Fe-58.
+- **Every occurrence of a MAT on a multi-temperature PENDF ends with FEND and
+  MEND.** `Tape::write` had joined them; it now starts a new occurrence at
+  each MF=1/MT=451.
+
+`Kerma` (H1-H5 plus the partial H6 above) stays as the reduced-order model;
+`run()` still returns `NotPorted` because no module has the deck runner that
+binds unit numbers to tapes (task tracked as the deck reader).

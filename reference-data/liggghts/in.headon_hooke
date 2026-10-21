@@ -1,0 +1,27 @@
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.2 0.2 -0.2 0.2 -0.2 0.2 units box
+create_box	1 reg
+neighbor	0.004 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 1.0e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+pair_style	gran model hooke tangential history
+pair_coeff	* *
+timestep	1e-6
+fix 		m5 all property/global characteristicVelocity scalar 2.0
+create_atoms	1 single -0.0060 0.0 0.0 units box
+create_atoms	1 single  0.0060 0.0 0.0 units box
+set		atom 1 diameter 0.01 density 2500 vx  1.0
+set		atom 2 diameter 0.01 density 2500 vx -1.0
+fix		integr all nve/sphere
+thermo		1000
+thermo_modify	lost ignore norm no
+dump		d1 all custom 10 dump.headon_hooke id x y z vx vy vz omegax omegay omegaz fx fy fz
+run		2500

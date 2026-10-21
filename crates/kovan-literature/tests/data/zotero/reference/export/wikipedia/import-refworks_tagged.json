@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "{{Cite book| publisher = BMJ Books| isbn = 0727912771 (paperback)| volume = 1| pages = 101–123| editors = C.T. Gulford (ed.)| last1 = Stansfeld| first1 = Stephen| last2 = Fuhrer| first2 = Rebecca| title = Stress and the heart: Psychosocial pathways to coronary heart disease| chapter = Depression and coronary heart disease| location = Williston, VT, US| date = 2002}}"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "{{Cite paper| publisher = Rush University, College of Nursing| isbn = 0-599-73664-X| last = Catrambone| first = C.D.| title = Effect of a case management intervention on symptoms of asthma in high risk children| location = Oceanside, CA, USA| date = 2000}}"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = Elsevier Science, England, [URL:http:// www.elsevier.nl]| issn = 0191-8869| volume = 32| issue = 3| pages = 551–565| last1 = Allan| first1 = Steven| last2 = Gilbert| first2 = Paul| title = Anger and anger expression in relation to perceptions of social rank, entrapment and depressive symptoms| journal = Personality & Individual Differences| date = 2002-02}}"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "{{Cite journal| volume = 29| issue = 2| pages = 337–367| last = Brennan| first = Timothy| title = The Empire's New Clothes| journal = Critical Inquiry| date = 2003-01-01}}"
+	}
+}

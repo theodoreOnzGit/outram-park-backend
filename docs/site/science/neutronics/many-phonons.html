@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can we have more than one phonon?</title>
+<meta name="description" content="Neutronics, page 24: a warm lattice is full of phonons, of many directions and styles. Averaged over directions, what matters is how many phonon states sit at each energy: the density of states, the material's vibration fingerprint. Random kicks build it up in a toy lattice; real spectra from the alpha-quartz and water LEAPR decks. Bands, as for electrons in a semiconductor.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="lattice.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="manyphonons.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 24 of the design comment of 2026-10-16 (many phonons, averaging, the density of states; the semiconductor parallel), with its [correctness] notes: rho counts states, not phonons; averaging is over directions (incoherent scatterers, polycrystals, liquids); bands from bringing many atoms together. The collision effects of rho are the maths track, later. Numbers: bound-data.js and the toy of lattice.js, checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Can we have more than one phonon?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p><b>Yes, and it is the usual case.</b> A real lattice at reactor temperature is already full of phonons: temperature sets how many (page 23's phonon gas). One mode can hold 0, 1, 2 or more of them, because phonons are bosons. And one collision can create or absorb <b>several</b> at once; that is common for hard kicks and hot lattices, while a gentle kick makes none or one. How several combine comes later, in the maths pages.</p>
+
+<h2>Many phonons, a huge menu</h2>
+<p>Each phonon has its own direction, wavelength and style (page 23). Each may or may not suit a neutron's kick. So any one collision faces a huge menu of possible phonons, each with its own chance.</p>
+<p>In a reactor material the crystals point every which way (graphite is <b>polycrystalline</b>: many small crystals at random angles) or there is no crystal at all (water). And hydrogen scatters neutrons <b>incoherently</b>: the waves scattered by different hydrogen nuclei do not add up into a pattern, so the direction-matching of page 23 averages out. Averaged over all those directions, one question is left: <b>how many possible phonons are there at each energy?</b></p>
+
+<section class="widget-card">
+  <h3>Random kicks, and the fingerprint they build</h3>
+  <div class="widget" id="many">
+    <canvas aria-label="A histogram of the energies of phonons made by random kicks in a toy lattice, approaching its density of states; or the real spectra of quartz and water"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-tab="toy">Toy lattice</button> <button type="button" class="btn ghost" data-tab="real">Real materials</button></p>
+  <p class="actions"><button type="button" class="btn ghost" data-kicks="1">1 kick</button> <button type="button" class="btn ghost" data-kicks="100">100 kicks</button> <button type="button" class="btn" data-kicks="10000">10 000 kicks</button></p>
+  <p class="note">The toy is page 23's 2D lattice. The real spectra are read by OUTRAM PARK's deck parser from the LEAPR input decks behind the ENDF/B-VIII.0 evaluations, as embedded in its port of NJOY's LEAPR <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>.</p>
+</section>
+
+<p>Count every possible phonon by its energy, and you get the material's vibration fingerprint, the one page 21 called &rho;. It has a name: the <b>density of states</b>. It counts the <b>states</b>, the modes a phonon could occupy, not the phonons that happen to be there; temperature decides how full they are. It is normalised to a total of 1, so it reads as the chance that a randomly chosen mode has a given energy.</p>
+<ul>
+  <li><b>The simplest picture.</b> At low energy, the long waves are sound, and in 3D the number of modes below a frequency &omega; grows as &omega;&sup3;, so &rho; rises as &omega;&sup2;. NJOY's LEAPR insists on it: a "solid-type spectrum must vary as &beta;&sup2; as &beta; goes to zero" (manual, §24). The &alpha;-quartz spectrum does, with a log-log slope of <b data-qslope>2.00</b> at low energy. (The 2D toy rises as &omega; instead: a 2D lattice has fewer long waves.) There is also a top frequency, because no wave is shorter than the spacing between atoms.</li>
+  <li><b>Real materials</b> add bumps (the acoustic and optical bands of page 23) and, for molecules, sharp lines. Water's spectrum is a liquid's: no lattice, a low-energy slope of <b data-wslope>0.92</b>, not 2, and two sharp lines at <b data-osc0>0.205</b> and <b data-osc1>0.415</b> eV.</li>
+  <li><b>Where &rho; comes from.</b> It can be measured, by scattering neutrons off the material, or computed. ENDF/B-VIII.0's graphite law was "developed using the ab initio lattice dynamics (AILD) method" (its MF=1 text), a calculation from quantum mechanics; the water deck is "from molecular dynamics calculations" (its title).</li>
+</ul>
+
+<h2>The same idea as a semiconductor's bands</h2>
+<p>Bring many atoms together into a crystal, and each atom's electron energy levels spread into <b>bands</b> of closely spaced levels, with <b>gaps</b> between them; the semiconductor physicist's "density of states" counts how many electron states sit at each energy. Couple many atoms together with springs, and their vibrations spread into bands too, the acoustic and optical branches, with a gap between them when the crystal has two different masses; &rho; counts how many phonon states sit at each energy. Same idea, same name: waves in a periodic lattice.</p>
+<details class="optional">
+  <summary>Where the analogy stops</summary>
+  <p>Electrons are fermions: no two share a state, so they fill the bands from the bottom up to the Fermi level, which is why a band gap decides whether a material conducts. Phonons are bosons: any number can share a mode, and temperature, not a filling rule, sets how many there are.</p>
+</details>
+
+<h2>Why is this so? And what does structure do?</h2>
+<p>The density of states is set by the material: which atoms, how they are bonded, how they are arranged. <b>How does structure shape it?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

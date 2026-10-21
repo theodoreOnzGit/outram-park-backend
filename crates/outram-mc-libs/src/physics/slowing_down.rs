@@ -75,7 +75,7 @@
 //! |---|---|---|
 //! | [`ScatterKernel::IsotropicCmAtRest`] | — | this is the deterministic model exactly; **the oracle comparison** |
 //! | [`ScatterKernel::AnisotropicCmAtRest`] | the nuclide's own ENDF MF=4 law | anisotropy of elastic scattering |
-//! | [`ScatterKernel::Production`] | S(α,β) and free-gas target motion | exactly what `transport_csg::transport_history` does |
+//! | [`ScatterKernel::Production`] | S(α,β) and free-gas target motion | exactly what `transport_csg::transport_history_vr` does |
 //!
 //! Keeping the band above the inelastic thresholds' reach (U-238's first level
 //! is at 44.9 keV, C-12's at 4.44 MeV) removes the remaining channels, and
@@ -138,11 +138,10 @@ use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
-use crate::physics::scatter::{
-    free_gas_elastic_scatter, two_body_scatter_with_mu, K_BOLTZMANN_EV_PER_K,
-};
+use crate::physics::scatter::{free_gas_elastic_scatter_dbrc, two_body_scatter_with_mu};
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
+use crate::geometry::crossing::GeometryExt;
 
 /// One nuclide of an infinite homogeneous mixture: which nuclide, and how much.
 #[derive(Debug, Clone, Copy)]
@@ -214,7 +213,7 @@ pub enum ScatterKernel {
     /// The nuclide's own ENDF MF=4 angular law, target still at rest. The
     /// difference from [`Self::IsotropicCmAtRest`] is the worth of anisotropy.
     AnisotropicCmAtRest,
-    /// Exactly what `transport_csg::transport_history` does: the bound-atom
+    /// Exactly what `transport_csg::transport_history_vr` does: the bound-atom
     /// S(α,β) law where the nuclide has one, otherwise free-gas with the
     /// target's own thermal motion sampled below `400·kT`.
     Production,
@@ -389,7 +388,7 @@ pub fn slowing_down_grid(
         .iter()
         .map(|c| {
             let a = nuclides[c.nuclide_idx].awr;
-            ((a - 1.0) / (a + 1.0)).powi(2)
+            ((a - 1.0) / (a + 1.0)).r_powi(2)
         })
         .collect();
     // A = 1 gives α = 0 and an unbounded window; fall back to a sane cap.
@@ -550,11 +549,38 @@ impl InfiniteMediumMc {
         band: SlowingDownBand,
         temp_k: f64,
     ) -> SlowingDownResult {
+        // The fixed choice draws no random number, so this is bit for bit the
+        // walk as it was before `run_with_tables` existed.
+        self.run_with_tables(nuclides, mix, band, temp_k, |i, _, _| mix[i].nuclide_idx)
+    }
+
+    /// [`Self::run`] with the table each component uses chosen **per
+    /// collision** by `select(component, e, seed)`, which returns an index
+    /// into `nuclides` and may draw from the history's random stream.
+    ///
+    /// This is how OpenMC's stochastic temperature interpolation reaches a
+    /// walk (GitHub #947): a component holds one [`Nuclide`] per tabulated
+    /// temperature, and `select` is
+    /// [`TemperatureTables::pick`](crate::material::temperature_interpolation::TemperatureTables::pick),
+    /// one draw per nuclide per lookup, as `Nuclide::calculate_xs` draws
+    /// (`src/nuclide.cpp:705-707`). The picked table supplies that
+    /// collision's cross sections, reaction and scattering kinematics, as
+    /// upstream's `micro.index_temp` does.
+    pub fn run_with_tables<S>(
+        &self,
+        nuclides: &[Nuclide],
+        mix: &[MixComponent],
+        band: SlowingDownBand,
+        temp_k: f64,
+        mut select: S,
+    ) -> SlowingDownResult
+    where
+        S: FnMut(usize, f64, &mut u64) -> usize,
+    {
         let n_mix = mix.len();
         let mut absorbed_by = vec![0.0_f64; n_mix];
         let mut escaped = 0.0_f64;
         let mut seed = self.seed;
-        let kt = K_BOLTZMANN_EV_PER_K * temp_k;
 
         for _ in 0..self.histories {
             let mut e = band.e_top;
@@ -569,9 +595,10 @@ impl InfiniteMediumMc {
                     self.max_collisions
                 );
 
-                let xs: Vec<_> = mix
+                let picks: Vec<usize> = (0..n_mix).map(|i| select(i, e, &mut seed)).collect();
+                let xs: Vec<_> = picks
                     .iter()
-                    .map(|m| nuclides[m.nuclide_idx].xs_at_energy(e, temp_k))
+                    .map(|&k| nuclides[k].xs_at_energy(e, temp_k))
                     .collect();
                 let mut sigma_t = 0.0;
                 for (m, x) in mix.iter().zip(&xs) {
@@ -590,11 +617,11 @@ impl InfiniteMediumMc {
                     }
                     pick -= w;
                 }
-                let nuc = &nuclides[mix[i].nuclide_idx];
+                let nuc = &nuclides[picks[i]];
                 let x = &xs[i];
 
                 // Which channel: the same partition as
-                // `transport_csg::transport_history`.
+                // `transport_csg::transport_history_vr`.
                 let xi = prn(&mut seed) * x.total;
                 if xi < x.absorption {
                     // Fission and capture both remove the neutron here; below
@@ -630,7 +657,15 @@ impl InfiniteMediumMc {
                             let mu_cm = nuc
                                 .sample_elastic_mu_cm(e, &mut seed)
                                 .unwrap_or_else(|| 2.0 * prn(&mut seed) - 1.0);
-                            free_gas_elastic_scatter(e, dir, nuc.awr, kt, mu_cm, &mut seed)
+                            free_gas_elastic_scatter_dbrc(
+                                e,
+                                dir,
+                                nuc.awr,
+                                nuc.free_gas_kt(temp_k),
+                                mu_cm,
+                                &mut seed,
+                                nuc.dbrc_table(),
+                            )
                         }
                     }
                 };
@@ -680,7 +715,7 @@ impl InfiniteMediumMc {
 /// This walker is deliberately *not* a re-implementation. Its flights, boundary
 /// crossings and collisions go through [`Geometry::locate`],
 /// [`Geometry::distance_to_boundary`] and [`Geometry::cross_surface`] — the same
-/// calls `transport_csg::transport_history` makes — so what is under test is the
+/// calls `transport_csg::transport_history_vr` makes — so what is under test is the
 /// real spatial machinery. Only fission banking and the tally plumbing are left
 /// out, because a resonance-escape measurement is a per-history outcome rather
 /// than a track-length score.
@@ -803,7 +838,6 @@ impl LumpCellMc {
         let mut absorbed_by = vec![0.0_f64; materials.len()];
         let (mut escaped, mut lost) = (0.0_f64, 0.0_f64);
         let mut seed = self.seed;
-        let kt = K_BOLTZMANN_EV_PER_K * temp_k;
         const NUDGE: f64 = 1.0e-9;
 
         for _ in 0..self.histories {
@@ -861,7 +895,7 @@ impl LumpCellMc {
                         "an inelastic or (n,2n) channel opened at {e} eV — the band \
                          reaches a threshold and the comparison is not valid there"
                     );
-                    let (e2, d2) = self.scatter(nuc, e, dir, kt, &mut seed);
+                    let (e2, d2) = self.scatter(nuc, e, dir, temp_k, &mut seed);
                     e = e2;
                     dir = d2;
                     if e < band.e_bot {
@@ -872,7 +906,14 @@ impl LumpCellMc {
                     pos = advance(pos, dir, d_bound.distance);
                     match d_bound.crossing {
                         Crossing::Surface(i_surf) => {
-                            let crossed = geom.cross_surface(i_surf, pos, dir);
+                            let crossed = geom.cross_surface_in_frame(
+                                i_surf,
+                                &path,
+                                d_bound.coord_level,
+                                pos,
+                                dir,
+                                &mut seed,
+                            );
                             if !crossed.alive {
                                 if self.boundary == CellBoundary::White {
                                     // Re-enter at a RANDOM point with a cosine
@@ -921,12 +962,17 @@ impl LumpCellMc {
         }
     }
 
+    /// One scatter off `nuc` at lab energy `e` \[eV\] in the kernel this driver
+    /// was configured with. `temp_k` is the material temperature \[K\]; the
+    /// free-gas kinematics temperature is taken from the nuclide via
+    /// [`Nuclide::free_gas_kt`], so a nuclide carrying the target-at-rest
+    /// ablation is honoured here exactly as it is in the k-eigenvalue drivers.
     fn scatter(
         &self,
         nuc: &Nuclide,
         e: f64,
         dir: Direction,
-        kt: f64,
+        temp_k: f64,
         seed: &mut u64,
     ) -> (f64, Direction) {
         match self.kernel {
@@ -950,7 +996,15 @@ impl LumpCellMc {
                     let mu_cm = nuc
                         .sample_elastic_mu_cm(e, seed)
                         .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                    free_gas_elastic_scatter(e, dir, nuc.awr, kt, mu_cm, seed)
+                    free_gas_elastic_scatter_dbrc(
+                        e,
+                        dir,
+                        nuc.awr,
+                        nuc.free_gas_kt(temp_k),
+                        mu_cm,
+                        seed,
+                        nuc.dbrc_table(),
+                    )
                 }
             }
         }
@@ -1024,7 +1078,7 @@ impl ShellCell {
         let mut material = Vec::with_capacity(self.radii.len() * k);
         for (s, &r_out) in self.radii.iter().enumerate() {
             let r_in = if s == 0 { 0.0 } else { self.radii[s - 1] };
-            let (v_in, v_out) = (r_in.powi(3), r_out.powi(3));
+            let (v_in, v_out) = (r_in.r_powi(3), r_out.r_powi(3));
             for m in 1..=k {
                 let v = v_in + (v_out - v_in) * m as f64 / k as f64;
                 radii.push(v.r_cbrt());
@@ -1059,7 +1113,7 @@ impl ShellCell {
         for (s, &r_out) in self.radii.iter().enumerate() {
             assert!(k[s] >= 1, "subdivision factor must be at least 1");
             let r_in = if s == 0 { 0.0 } else { self.radii[s - 1] };
-            let (v_in, v_out) = (r_in.powi(3), r_out.powi(3));
+            let (v_in, v_out) = (r_in.r_powi(3), r_out.r_powi(3));
             for m in 1..=k[s] {
                 let v = v_in + (v_out - v_in) * m as f64 / k[s] as f64;
                 radii.push(v.r_cbrt());
@@ -1080,7 +1134,7 @@ impl ShellCell {
         (0..self.radii.len())
             .map(|k| {
                 let r_in = if k == 0 { 0.0 } else { self.radii[k - 1] };
-                c * (self.radii[k].powi(3) - r_in.powi(3))
+                c * (self.radii[k].r_powi(3) - r_in.r_powi(3))
             })
             .collect()
     }
@@ -1202,7 +1256,7 @@ pub fn solve_deterministic_multiregion(
     // it happens to sit.
     let alpha: Vec<f64> = nuclides
         .iter()
-        .map(|n| ((n.awr - 1.0) / (n.awr + 1.0)).powi(2))
+        .map(|n| ((n.awr - 1.0) / (n.awr + 1.0)).r_powi(2))
         .collect();
     let used: Vec<usize> = {
         let mut v: Vec<usize> = cell.material.clone();

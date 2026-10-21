@@ -29,6 +29,7 @@
 //! crossover so `CpuMulti` genuinely spreads work across threads when the crate
 //! is built with `--features parallel`.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use super::*;
@@ -57,21 +58,21 @@ fn sample(n: usize) -> Field<f64> {
         let t = i as f64;
         // Alternating large/small magnitudes: a plain left-to-right sum and a
         // chunked sum genuinely disagree in the last bits on this data.
-        (t * 0.61803398874989).sin() * 1.0e6 + (t * 0.123456789012345).cos() * 1.0e-7
+        (t * 0.61803398874989).r_sin() * 1.0e6 + (t * 0.123456789012345).r_cos() * 1.0e-7
     })
 }
 
 fn sample_shift(n: usize) -> Field<f64> {
     Field::from_fn(n, |i| {
         let t = i as f64 + 0.5;
-        (t * 0.27182818284590).cos() * 1.0e3 + 1.5
+        (t * 0.27182818284590).r_cos() * 1.0e3 + 1.5
     })
 }
 
 fn sample_vec(n: usize) -> Field<Vector3> {
     Field::from_fn(n, |i| {
         let t = i as f64;
-        Vector3::new(t.sin(), t.cos(), (t * 0.5).sin())
+        Vector3::new(t.r_sin(), t.r_cos(), (t * 0.5).r_sin())
     })
 }
 

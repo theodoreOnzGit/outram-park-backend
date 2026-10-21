@@ -88,6 +88,7 @@
 //!   `NewtonRaphson.vb:273`) used by DWSIM's liquid-liquid extractor mode.
 //!   Out of scope here.
 
+use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::{CubicEos, Phase};
 use crate::thermo::flash::wilson_k_values;
 use crate::thermo::ideal_props::mixture_ideal_gas_enthalpy;
@@ -271,7 +272,7 @@ impl ColumnThermo {
 
     fn vapor_pressure_of(&self, c: &Component, t: f64) -> f64 {
         c.critical_pressure
-            * (5.373 * (1.0 + c.acentric_factor) * (1.0 - c.critical_temperature / t)).exp()
+            * (5.373 * (1.0 + c.acentric_factor) * (1.0 - c.critical_temperature / t)).r_exp()
     }
 
     /// Mixture molar mass \[kg/mol\] — `Σ x_i M_i`.
@@ -416,13 +417,13 @@ impl ColumnThermo {
         }
         let tbr = tb / tc;
         let pc_bar = c.critical_pressure / 1.0e5;
-        let num = R_VETERE * tc * tbr * (0.4343 * pc_bar.ln() - 0.69431 + 0.8954 * tbr);
+        let num = R_VETERE * tc * tbr * (0.4343 * pc_bar.r_ln() - 0.69431 + 0.8954 * tbr);
         let den = 0.37691 - 0.37306 * tbr + 0.15075 / (pc_bar * tbr * tbr);
         if den == 0.0 || !den.is_finite() {
             return 0.0;
         }
         let dh_vb = num / den; // J/mol at Tb
-        let watson = ((1.0 - tr) / (1.0 - tbr)).powf(0.375);
+        let watson = ((1.0 - tr) / (1.0 - tbr)).r_powf(0.375);
         let dh = dh_vb * watson;
         if dh.is_finite() && dh > 0.0 {
             dh

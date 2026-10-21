@@ -1,0 +1,62 @@
+{
+	"testCase00": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase01": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase02": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase03": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase04": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase05": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase06": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase07": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase08": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase09": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase10": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase11": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase12": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase13": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	},
+	"testCase14": {
+		"status": 500,
+		"error": "An error occurred during translation. Please check translation with the Zotero client."
+	}
+}

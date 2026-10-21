@@ -1,0 +1,35 @@
+[
+	{
+		"id": "range1",
+		"type": "article-journal",
+		"title": "A range and a circa date",
+		"container-title": "Journal of Testing",
+		"author": [
+			{ "family": "Smith", "given": "John" },
+			{ "literal": "Kovan Collaboration" }
+		],
+		"issued": { "date-parts": [[2010, 3], [2012, 5]] },
+		"original-date": { "date-parts": [[1995]], "circa": true },
+		"accessed": { "date-parts": [["2020", 1, 2]] },
+		"page": "1-10",
+		"volume": 7,
+		"note": "Citation Key: smith2010"
+	},
+	{
+		"id": "lit1",
+		"type": "book",
+		"title": "A literal date",
+		"publisher": "Kovan Press",
+		"publisher-place": "Singapore",
+		"issued": { "literal": "Spring 2021" },
+		"number-of-pages": "300"
+	},
+	{
+		"id": "seasonal",
+		"type": "chapter",
+		"title": "A season",
+		"container-title": "A Book",
+		"editor": [ { "family": "Editor", "given": "Ed" } ],
+		"issued": { "date-parts": [["2021"]], "season": "Summer" }
+	}
+]

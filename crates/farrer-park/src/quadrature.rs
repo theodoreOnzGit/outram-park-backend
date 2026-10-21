@@ -332,6 +332,7 @@ pub fn error_rule(element: ElementType) -> Vec<QuadraturePoint> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// Exact integral of `x^i y^j` over the unit reference triangle:
@@ -391,7 +392,7 @@ mod tests {
                 for j in 0..=(deg - i) {
                     let num: f64 = rule
                         .iter()
-                        .map(|p| p.weight * p.xi[0].powi(i as i32) * p.xi[1].powi(j as i32))
+                        .map(|p| p.weight * p.xi[0].r_powi(i as i32) * p.xi[1].r_powi(j as i32))
                         .sum();
                     let exact = triangle_monomial(i, j);
                     assert!(
@@ -418,7 +419,7 @@ mod tests {
         assert!((num - triangle_monomial(2, 0)).abs() > 1e-6);
         // 3-point rule must NOT integrate x^3 exactly.
         let rule = triangle_rule(3);
-        let num: f64 = rule.iter().map(|p| p.weight * p.xi[0].powi(3)).sum();
+        let num: f64 = rule.iter().map(|p| p.weight * p.xi[0].r_powi(3)).sum();
         assert!((num - triangle_monomial(3, 0)).abs() > 1e-6);
     }
 
@@ -434,9 +435,9 @@ mod tests {
                             .iter()
                             .map(|p| {
                                 p.weight
-                                    * p.xi[0].powi(i as i32)
-                                    * p.xi[1].powi(j as i32)
-                                    * p.xi[2].powi(k as i32)
+                                    * p.xi[0].r_powi(i as i32)
+                                    * p.xi[1].r_powi(j as i32)
+                                    * p.xi[2].r_powi(k as i32)
                             })
                             .sum();
                         let exact = tet_monomial(i, j, k);
@@ -467,7 +468,7 @@ mod tests {
                 for j in 0..=deg {
                     let num: f64 = q
                         .iter()
-                        .map(|p| p.weight * p.xi[0].powi(i as i32) * p.xi[1].powi(j as i32))
+                        .map(|p| p.weight * p.xi[0].r_powi(i as i32) * p.xi[1].r_powi(j as i32))
                         .sum();
                     let exact = line_monomial(i) * line_monomial(j);
                     assert!(
@@ -484,7 +485,7 @@ mod tests {
             }
             let h = hex_rule(n);
             for i in 0..=deg {
-                let num: f64 = h.iter().map(|p| p.weight * p.xi[2].powi(i as i32)).sum();
+                let num: f64 = h.iter().map(|p| p.weight * p.xi[2].r_powi(i as i32)).sum();
                 let exact = line_monomial(i) * 2.0 * 2.0;
                 assert!((num - exact).abs() < 1e-12, "hex {} z^{}", n, i);
             }

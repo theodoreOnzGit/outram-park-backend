@@ -42,6 +42,7 @@
 //! primary concentration strictly positive for any real `x`. See
 //! [`ReactionNetwork::speciate`] for the exact residual and Jacobian.
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 use outram_foam_basic_lib::matrix::SquareMatrix;
 
@@ -230,7 +231,7 @@ impl ReactionNetwork {
             for j in 0..self.n_primary {
                 ln_c += self.stoich[i][j] * x[j];
             }
-            c_sec[i] = ln_c.exp();
+            c_sec[i] = ln_c.r_exp();
         }
         c_sec
     }
@@ -317,18 +318,18 @@ impl ReactionNetwork {
                             "initial[{j}] = {g} must be finite and strictly positive"
                         )));
                     }
-                    x[j] = g.ln();
+                    x[j] = g.r_ln();
                 }
             }
             None => {
                 for j in 0..nc {
-                    x[j] = totals[j].ln();
+                    x[j] = totals[j].r_ln();
                 }
             }
         }
 
         for iter in 1..=MAX_ITERS {
-            let c_prim: Vec<f64> = x.iter().map(|xj| xj.exp()).collect();
+            let c_prim: Vec<f64> = x.iter().map(|xj| xj.r_exp()).collect();
             let c_sec = self.secondary_from_log_primary(&x);
 
             // Residual f_j = C_prim[j] + sum_i stoich[i][j] C_sec[i] - T[j].
@@ -448,7 +449,7 @@ mod tests {
     #[test]
     fn weak_acid_dissociation_analytical() {
         let ka: f64 = 1.8e-5;
-        let pka = -ka.log10();
+        let pka = -ka.r_log10();
         let c_total: f64 = 0.1;
 
         let net = ReactionNetwork::new(
@@ -493,7 +494,7 @@ mod tests {
             );
         }
         // Mass action: C_sec = 10^{log10K} * prod C_prim^nu.
-        let ma = 10f64.powf(pka) * sol.primary[0] * sol.primary[1];
+        let ma = 10f64.r_powf(pka) * sol.primary[0] * sol.primary[1];
         assert!(
             approx(sol.secondary[0], ma, 1e-12, 1e-18),
             "mass action: {} != {ma}",
@@ -538,9 +539,9 @@ mod tests {
         }
         // Mass action for every secondary.
         for i in 0..net.n_secondary() {
-            let mut ma = 10f64.powf(net.log10_k[i]);
+            let mut ma = 10f64.r_powf(net.log10_k[i]);
             for j in 0..3 {
-                ma *= sol.primary[j].powf(net.stoich[i][j]);
+                ma *= sol.primary[j].r_powf(net.stoich[i][j]);
             }
             assert!(
                 approx(sol.secondary[i], ma, 1e-10, 1e-20),

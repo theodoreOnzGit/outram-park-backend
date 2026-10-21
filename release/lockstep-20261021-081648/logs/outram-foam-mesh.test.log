@@ -1,0 +1,111 @@
+   Compiling outram-foam-mesh v0.1.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-mesh)
+    Finished `release` profile [optimized] target(s) in 4.48s
+     Running unittests src/lib.rs (target/release/deps/outram_foam_mesh-81bad742273f6408)
+
+running 37 tests
+test block_mesh::tests::edge_grading_differing_edges_parses_per_edge ... ok
+test block_mesh::tests::edge_blend_reduces_to_trilinear ... ok
+test block_mesh::tests::edge_grading_equal_edges ... ok
+test block_mesh::tests::edge_grading_per_edge_build_volume ... ok
+test block_mesh::tests::edge_grading_per_edge_exact_nodes ... ok
+test block_mesh::tests::multi_grading_positions ... ok
+test block_mesh::tests::multi_grading_build_volume ... ok
+test block_mesh::tests::negative_expansion_trapped ... ok
+test block_mesh::tests::parse_multi_grading ... ok
+test block_mesh::tests::simple_grading_uniform_regression ... ok
+test block_mesh::tests::single_segment_matches_scalar ... ok
+test driver::tests::bad_keep_region_is_reported ... ok
+test driver::tests::castellate_only_sphere_octree_interface_quality ... ok
+test driver::tests::snapping_stays_valid_and_improves_volume ... ok
+test mesh_quality::tests::cartesian_block_is_perfect ... ok
+test mesh_quality::tests::elongated_cell_aspect_ratio_matches_closed_form ... ok
+test mesh_quality::tests::inverted_cell_is_flagged_unusable ... ok
+test mesh_quality::tests::offset_face_skewness_equals_offset ... ok
+test mesh_quality::tests::sheared_block_non_orthogonality_is_atan_k ... ok
+test snappy_hex_mesh::layers::tests::grading_arithmetic ... ok
+test snappy_hex_mesh::layers::tests::insert_flat_wall_interior_shrink_grading_and_quality ... ok
+test snappy_hex_mesh::layers::tests::no_wall_patch_errors ... ok
+test snappy_hex_mesh::layers::tests::oversized_thickness_capped_no_inversion ... ok
+test snappy_hex_mesh::layers::tests::refined_mesh_falls_back_to_outward_extrude ... ok
+test snappy_hex_mesh::layers::tests::zero_layers_identity ... ok
+test snappy_hex_mesh::poly_topology::tests::collapsed_cell_rejected ... ok
+test snappy_hex_mesh::poly_topology::tests::unit_cube_geometry ... ok
+test snappy_hex_mesh::poly_topology::tests::unit_cube_quality_passes ... ok
+test snappy_hex_mesh::snapping::tests::detect_feature_points_finds_box_corners ... ok
+test snappy_hex_mesh::snapping::tests::feature_snap_box_corners_and_edges ... ok
+test driver::tests::layer_outcome_is_detected_on_both_branches ... ok
+test snappy_hex_mesh::snapping::tests::laplacian_smoother_averages_and_anchors ... ok
+test snappy_hex_mesh::snapping::tests::point_constraint_accumulator_and_projection ... ok
+test snappy_hex_mesh::snapping::tests::segment_projection ... ok
+test snappy_hex_mesh::snapping::tests::snap_requires_wall_patch ... ok
+test snappy_hex_mesh::snapping::tests::feature_snap_captures_box_edges ... ok
+test snappy_hex_mesh::snapping::tests::snap_sphere_projects_onto_surface ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/block_mesh.rs (target/release/deps/block_mesh-bd115bc296895269)
+
+running 10 tests
+test cavity_dict_parse_fields ... ok
+test cavity_from_file_matches_from_str ... ok
+test cavity_fv_mesh_valid_and_closed ... ok
+test cavity_patch_names_and_sizes ... ok
+test cavity_poly_mesh_round_trips_and_is_cartesian ... ok
+test block_mesh_is_reproducible_build_to_build ... ok
+test cavity_topology_counts ... ok
+test cavity_total_volume ... ok
+test two_block_face_merge ... ok
+test graded_block_volume_conserved ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/cyclic_snapping.rs (target/release/deps/cyclic_snapping-16abb7a2f3207a86)
+
+running 4 tests
+test castellation_emits_conformal_cyclic_pair ... ok
+test conformity_check_catches_a_broken_seam ... ok
+test without_cyclic_declaration_the_seam_is_frozen_as_before ... ok
+test snapping_preserves_cyclic_conformity_and_moves_the_seam ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/ideas_unv_to_foam.rs (target/release/deps/ideas_unv_to_foam-f55fe2088522fe77)
+
+running 3 tests
+test single_tet_volume_and_faces ... ok
+test scale_factor_applies ... ok
+test two_hex_counts_patches_and_volume ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/poly_dual_mesh.rs (target/release/deps/poly_dual_mesh-2f08964c2e9b9bec)
+
+running 7 tests
+test dual_of_2x2x2_block_is_valid ... ok
+test dual_of_3x3x3_block_is_valid_and_volume_preserving ... ok
+test dual_of_non_cubic_block_is_valid ... ok
+test emitted_fvmesh_is_valid_and_conserves_volume ... ok
+test dual_quality_is_exactly_orthogonal_on_a_uniform_block ... ok
+test interior_dual_cells_are_unit_cubes ... ok
+test large_feature_angle_cuts_corners_and_loses_volume ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/snappy_hex_mesh.rs (target/release/deps/snappy_hex_mesh-e393eb2ff31a4706)
+
+running 12 tests
+test binary_stl_roundtrips_one_triangle ... ok
+test ascii_stl_parses_all_facets ... ok
+test castellate_keep_inside_carves_external ... ok
+test closest_point_on_triangle_regions ... ok
+test castellate_box_around_sphere ... ok
+test inside_outside_of_sphere ... ok
+test layer_addition_extrudes_valid_prisms ... ok
+test layer_grading_arithmetic ... ok
+test nearest_surface_point_lands_on_sphere ... ok
+test full_pipeline_castellate_snap_layers ... ok
+test topology_rebuild_reproduces_castellation_geometry ... ok
+test snapping_morphs_boundary_onto_sphere ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+

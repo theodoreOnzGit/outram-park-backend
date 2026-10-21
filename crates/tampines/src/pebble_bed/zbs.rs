@@ -141,6 +141,7 @@
 //! solid database), pressure drop ([`crate::gas_phase::KtaBed`]),
 //! pebble-internal conduction ([`super::pebble`]).
 
+use petir::mathf::RealMath;
 use uom::si::f64::{Length, Ratio, ThermalConductivity, ThermodynamicTemperature};
 use uom::si::length::meter;
 use uom::si::ratio::ratio;
@@ -224,7 +225,7 @@ impl ZbsBed {
     pub fn deformation_factor(&self) -> Ratio {
         let eps = self.porosity.get::<ratio>();
         let c = self.shape_factor_c.get::<ratio>();
-        Ratio::new::<ratio>(c * ((1.0 - eps) / eps).powf(10.0 / 9.0))
+        Ratio::new::<ratio>(c * ((1.0 - eps) / eps).r_powf(10.0 / 9.0))
     }
 
     /// Dimensionless radiation-to-fluid-conduction ratio
@@ -242,7 +243,7 @@ impl ZbsBed {
         let d = self.pebble_diameter.get::<meter>();
         let e = self.emissivity.get::<ratio>();
         let kf = fluid_conductivity.get::<watt_per_meter_kelvin>();
-        Ratio::new::<ratio>(4.0 * SIGMA_W_PER_M2_K4 * t.powi(3) * d / ((2.0 / e - 1.0) * kf))
+        Ratio::new::<ratio>(4.0 * SIGMA_W_PER_M2_K4 * t.r_powi(3) * d / ((2.0 / e - 1.0) * kf))
     }
 
     /// Effective bed thermal conductivity, W/(m K), from the full ZBS
@@ -312,7 +313,7 @@ impl ZbsBed {
         }
 
         let kc = (2.0 / n)
-            * (b * (kappa + kr - 1.0) / (n * n * kappa) * ln_arg.ln()
+            * (b * (kappa + kr - 1.0) / (n * n * kappa) * ln_arg.r_ln()
                 + (b + 1.0) / (2.0 * b) * (kr - b)
                 - (b - 1.0) / n);
 
@@ -372,7 +373,7 @@ impl ZbsBed {
         let y = distance_from_wall.get::<meter>().max(0.0);
         let d = self.pebble_diameter.get::<meter>();
         let eps_bulk = self.porosity.get::<ratio>();
-        let eps = eps_bulk * (1.0 + 1.36 * (-5.0 * y / d).exp());
+        let eps = eps_bulk * (1.0 + 1.36 * (-5.0 * y / d).r_exp());
         Ratio::new::<ratio>(eps.min(1.0))
     }
 
@@ -931,7 +932,7 @@ mod tests {
                     let kappa = ks / kf;
                     let n = 1.0 - b / kappa;
                     let kc = (2.0 / n)
-                        * (b * (1.0 - 1.0 / kappa) / (n * n) * (kappa / b).ln()
+                        * (b * (1.0 - 1.0 / kappa) / (n * n) * (kappa / b).r_ln()
                             - (b + 1.0) / 2.0
                             - (b - 1.0) / n);
                     let s = (1.0 - eps).sqrt();

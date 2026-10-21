@@ -94,9 +94,18 @@ be validated before breadth is added (bead op-v6s.2):
 - **Solver:** serial pure-Rust Newton-Krylov (no PETSc, no MPI).
 - **I/O:** a minimal card-based ASCII input-deck subset; CSV / VTK output.
 
-Explicitly **out of v1**: unstructured grids, MPI / distributed solves, HDF5,
+~~Explicitly **out of v1**: unstructured grids, MPI / distributed solves, HDF5,
 multiphase (GENERAL) flow, energy transport (TH), solute transport, and
-reactive geochemistry (GIRT). Those are later beads (op-v6s.10 .. op-v6s.14).
+reactive geochemistry (GIRT). Those are later beads (op-v6s.10 .. op-v6s.14).~~
+**CORRECTED 2026-10-18:** this was the scope of the *first vertical slice*, and
+it no longer describes the crate. Checked: `src/lib.rs` declares `transport`,
+`energy`, `geochemistry`, `kinetics`, `reactive_transport`, `multiphase`,
+`general_mode` and `unstructured`; each is a non-empty module (about 640 to
+1600 lines) with `#[test]` functions (transport 8, energy 4, geochemistry 5,
+kinetics 5, reactive_transport 4, multiphase 5, general_mode 6,
+unstructured 18). The tests were counted, not re-run for this edit. Still out:
+MPI / distributed solves (the "What exists today" section lists parallelism as
+deferred).
 
 ## Governing equation (RICHARDS, v1)
 
@@ -128,7 +137,7 @@ AI-assessed from the code; bead closure is the maintainer's decision.
 - **op-v6s.7** — fluid & material properties (EOS + characteristic curves) — *implemented*
 - **op-v6s.8** — RICHARDS flow mode — first end-to-end solve — *implemented (verification-only)*
 - **op-v6s.9** — V&V strategy + first RICHARDS benchmark (vs PFLOTRAN gold-files) — *partial: MMS + analytical verification done; validation vs published gold-files still open*
-- **op-v6s.10 .. op-v6s.14** — TH, solute transport, reactive geochemistry, GENERAL multiphase, parallelism — *not started*
+- **op-v6s.10 .. op-v6s.14** — TH, solute transport, reactive geochemistry, GENERAL multiphase, parallelism — ~~*not started*~~ **CORRECTED 2026-10-18:** TH, solute transport, reactive geochemistry and GENERAL multiphase are implemented as verification-only modules (see "What exists today"; module and `#[test]` counts checked, tests not re-run); only parallelism is deferred
 
 ## Design rules (workspace mandate)
 
@@ -141,4 +150,4 @@ AI-assessed from the code; bead closure is the maintainer's decision.
 
 ## License
 
-GPL-3.0-only. See `LICENSE`, `NOTICE`, and the workspace `TRADEMARKS.md`.
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). See `LICENSE`, `NOTICE`, and the workspace `TRADEMARKS.md`.

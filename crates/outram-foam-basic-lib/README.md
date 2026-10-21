@@ -191,6 +191,7 @@ reference implementation the other backends are verified against.
 | `fvc::reconstruct(phi)` | Least-squares VolVectorField from face flux → `VolVectorField` |
 | `fvc::ddt_corr(U_old, phi_old, dt)` | PISO flux consistency correction → `SurfaceScalarField` |
 | `fvc::buoyancy_flux(rho, g)` | ρ_f·(g·Sf) per face → `SurfaceScalarField` |
+| `fvc::central_upwind::{knp_face_flux, central_face_flux, physical_face_flux, knp_wave_speeds, local_wave_speed_max, central_flux_speed_max, mach_blend, velocity_component}`, `KnpFaceState`, `KnpFaceFlux`, `KnpWaveSpeeds` | The EOS-free Kurganov–Noelle–Petrova (2001) central-upwind face flux of `rhoCentralFoam.C`, per unit area, raw SI. The caller supplies `p`, `c` and an energy pair (`w_e`, `f_e`): `ρE`/`H` for a total-energy solver, `ρh`/`h` for a static-enthalpy one. The one copy used by `RhoCentralFoam` (appbuilder) and `HemPipe` (steam-tables, `tampines::hem`); ~~and the `HybridAllMach` arrays (steam-tables, CoolProp)~~, whose KNP hybrid was retired 2026-10-16 (gh:#914). gh #901 |
 | `adjust_phi(phi, U)` | Global mass-balance correction |
 
 ### Layer 3 — Optional equation sources (`fvOptions` / `fvModels`)
@@ -232,6 +233,15 @@ dominance exactly where the coefficient is largest; two tests in
 | `RhoThermo<M>` | Density-based thermo: ρ from EOS |
 | `SolidThermo` | Trait for solid region CHT: `rho_cp`, `kappa`, `T` |
 | `ConstSolidThermo` | Constant-property solid thermo |
+
+### Small solver — steady heat conduction (`steady_conduction`, gh:#949)
+
+| Module | Rust type / fn | C++ source | Notes |
+|---|---|---|---|
+| `steady_conduction` | `SteadyConductionProblem::solve` | `laplacianFoam.C` (steady `TEqn`) | `-div(k(T) grad T) = q'''` with per-zone source and caller-supplied `k(T)` (Picard). Faces use series-resistance `k` (OpenFOAM `harmonic`). Reports an `EnergyBalance` recomputed from each boundary face's own condition. |
+| `steady_conduction` | `ThermalBoundary`, `PatchCondition` | `externalWallHeatFluxTemperatureFvPatchScalarField.C` | Adiabatic, fixed temperature, or convective (`valueFraction = h/(h + k/d)`, no radiation), with an optional per-face film-area fraction for staircase surfaces. |
+| `steady_conduction::mesh` | `radial_mesh`, `voxel_mesh` | new | Nested slab/cylinder/sphere shells with true areas and volumes; cubic voxels of any body given a `zone_at(point)` function. |
+| `steady_conduction::closed_form` | `RadialClosedForm` | new | Exact solution for uniform `q'''` in nested shells, the verification reference. Measured 2026-10-17: single-layer error is the predicted uniform `q dr^2/(8(m+1)k)` offset to 1e-9 K; nested shells converge at order 2.000; a voxel sphere converges only with the film-area fraction. |
 
 ## Limitations
 
@@ -471,7 +481,7 @@ all fluid/solid thermo types.
 
 ```bash
 # Library unit tests (no external BLAS required)
-cargo test -p outram-foam-basic-lib --lib --tests
+cargo test --release -p outram-foam-basic-lib --lib --tests
 
 # Matrix benchmark (release mode for meaningful numbers)
 cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture
@@ -552,7 +562,7 @@ cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture
 
 ## License
 
-GPL-3.0-only (matching the upstream OpenFOAM sources).
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). The ported files match the upstream OpenFOAM sources (GPL-3.0).
 
 ## Copyright
 

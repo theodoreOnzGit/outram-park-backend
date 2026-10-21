@@ -107,5 +107,7 @@ pub fn run_gendf(tape: &Tape, inp: &WimsrInput) -> Result<WimsrOutput, NjoyError
 /// The module-table entry point: WIMSR's card deck reader is not written,
 /// so this stays `NotPorted`; use [`run_gendf`] with a [`WimsrInput`].
 pub fn run() -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted("wimsr (card deck; use wimsr::run_gendf)"))
+    Err(NjoyError::NotPorted(
+        "wimsr (card deck; use wimsr::run_gendf)",
+    ))
 }

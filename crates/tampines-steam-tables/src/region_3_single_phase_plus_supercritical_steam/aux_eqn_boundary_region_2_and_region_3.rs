@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use uom::si::{f64::*, pressure::megapascal, thermodynamic_temperature::kelvin};
 
 /// boundary equation between region 2 and 3
@@ -14,7 +15,7 @@ pub fn p_boundary_2_3(t: ThermodynamicTemperature) -> Pressure {
     let t_ref = ThermodynamicTemperature::new::<kelvin>(1.0);
     // theta is dimensionless temp
     let theta: f64 = (t / t_ref).into();
-    let dimensionless_pressure = n[0] + n[1] * theta + n[2] * theta.powi(2);
+    let dimensionless_pressure = n[0] + n[1] * theta + n[2] * theta.r_powi(2);
 
     return p_ref * dimensionless_pressure;
 }

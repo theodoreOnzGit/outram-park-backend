@@ -7,8 +7,10 @@
 //! - **Source file:** `sigmavalupd3d.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
+
+use petir::mathf::RealMath;
 
 use crate::error::Result;
 use crate::handle3dcoords::handle3dcoords;
@@ -61,9 +63,9 @@ pub struct DeltaSigmaValues {
 /// `currval` that dips below zero is exactly the case this handles.
 fn real_pow(a: f64, m: f64) -> f64 {
     if a < 0.0 {
-        a.abs().powf(m) * (std::f64::consts::PI * m).cos()
+        a.abs().r_powf(m) * (std::f64::consts::PI * m).r_cos()
     } else {
-        a.powf(m)
+        a.r_powf(m)
     }
 }
 

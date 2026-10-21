@@ -1,0 +1,226 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation"
+test_ids = [
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_spline_xy.rs::clamp_left",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_spline_xy.rs::clamp_right",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_spline_xy.rs::exact_at_knots",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_spline_xy.rs::linear_data_matches_linear",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_spline_xy.rs::single_and_two_point_edge_cases",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_xy.rs::clamp_left",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_xy.rs::clamp_right",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_xy.rs::exact_at_knots",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_xy.rs::midpoints",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_xy.rs::single_point",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/interpolation/interpolate_xy.rs::two_points",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::cp_from_table",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::entropy_increases_with_temperature",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::ha_from_table_at_knot",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::ha_roundtrip",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/thermo/h_tabulated.rs::hs_plus_hc_equals_ha",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::alpha_h_is_kappa_over_cp",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::kappa_at_knot",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::mu_at_knot",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::mu_increases_with_temperature",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/thermophysics/transport/tabulated.rs::mu_interpolated",
+]
+
+[module."interpolate_spline_xy.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::interpolation::interpolate_spline_xy"
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:d90b499dfb09ebc3"
+name = "interpolate_spline_xy"
+qual = "interpolate_spline_xy"
+lines = [
+    22,
+    70,
+]
+hash = "sha256:acfc38e8d98cc04d5f828c599a9f6357182a36e3c0ab34d39e30b7f60852f018"
+doc_hash = "sha256:e5c4c89c40018abae894b855443e979fc9f41be8c0a756ca8be87f5282eb0490"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:cad9a7e50815477e"
+name = "exact_at_knots"
+qual = "exact_at_knots"
+lines = [
+    76,
+    90,
+]
+hash = "sha256:984c6bef74c205dbdd7d4d4c790d85b061ea065c59dca31981b40d241e2aedbd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d90b499dfb09ebc3"]
+test = true
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:5e0446dfa5ffbc38"
+name = "clamp_left"
+qual = "clamp_left"
+lines = [
+    92,
+    97,
+]
+hash = "sha256:44f46c177135f2245b1de37ec797e3c95292d218f371b15d9b43db310356f8fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d90b499dfb09ebc3"]
+test = true
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:8560201205f4969e"
+name = "clamp_right"
+qual = "clamp_right"
+lines = [
+    99,
+    104,
+]
+hash = "sha256:66d2c57ebf5ea685b7061eeeaba2c593578e005898a33cab07b3d71ee01e428c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d90b499dfb09ebc3"]
+test = true
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:fc38ad8e027ac09c"
+name = "linear_data_matches_linear"
+qual = "linear_data_matches_linear"
+lines = [
+    106,
+    119,
+]
+hash = "sha256:981943c1cc5aac367fa6cb011e3356396cf03a1007922462cb0f033d704cdb7f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d90b499dfb09ebc3"]
+test = true
+
+[[module."interpolate_spline_xy.rs".function]]
+id = "fn:bfa8db1aa9909776"
+name = "single_and_two_point_edge_cases"
+qual = "single_and_two_point_edge_cases"
+lines = [
+    121,
+    133,
+]
+hash = "sha256:6e530bb7b867c26a8ed3b0740a274aaf74cb5a1eaf59ca16d03b84955b1c656e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d90b499dfb09ebc3"]
+test = true
+
+[module."interpolate_xy.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::interpolation::interpolate_xy"
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:245afed410b06f56"
+name = "interpolate_xy"
+qual = "interpolate_xy"
+lines = [
+    22,
+    47,
+]
+hash = "sha256:9e997bf8d81611a967acc999f10d9bec05aa0a478efbab3f268004d4b7bbfdf0"
+doc_hash = "sha256:abc2c7f0dedc36ca248e7866b896170d74804cbd25652fd7077fdd7da06b5a5b"
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:18977c09c981e139"
+name = "exact_at_knots"
+qual = "exact_at_knots"
+lines = [
+    53,
+    61,
+]
+hash = "sha256:2b93d89e7e21c73de4ff399d6e9dd47991eecf9f61ed64d28de50ddbf7267ef9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:245afed410b06f56"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:c7b15322cdd38f23"
+name = "midpoints"
+qual = "midpoints"
+lines = [
+    63,
+    73,
+]
+hash = "sha256:c292a1bfa5cef57e5ce7a984f0fe0a3eecd7f5cd549e4b77459a47ea2f836fa3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:245afed410b06f56"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:a5e7400dcbfbefd4"
+name = "clamp_left"
+qual = "clamp_left"
+lines = [
+    75,
+    81,
+]
+hash = "sha256:05483d6bba2f5b222e82cc14d5ef319cada7736d55ad50fb6a8fdc890efda3af"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:245afed410b06f56"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:915faa2e57aab8e5"
+name = "clamp_right"
+qual = "clamp_right"
+lines = [
+    83,
+    89,
+]
+hash = "sha256:2400dfdb834b2de339cee52bfa800a06b24b3a257aca25452a734e5d991199c7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:245afed410b06f56"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:451b262f112cda2a"
+name = "single_point"
+qual = "single_point"
+lines = [
+    91,
+    98,
+]
+hash = "sha256:4d45f813ef09317d5f7f48f0d0d07f455a21309c00319a4584f9be3e20497cb0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:245afed410b06f56"]
+test = true
+
+[[module."interpolate_xy.rs".function]]
+id = "fn:1d72fe27174e879f"
+name = "two_points"
+qual = "two_points"
+lines = [
+    100,
+    106,
+]
+hash = "sha256:5e2ea53daab756d6ea241bb69c65ecbd064a897f3b818888e85647ca3ec6edc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:245afed410b06f56"]
+test = true
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::interpolation"

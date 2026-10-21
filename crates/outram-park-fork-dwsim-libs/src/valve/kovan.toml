@@ -1,0 +1,445 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/valve"
+test_ids = [
+    "crates/outram-park-fork-dwsim-libs/src/valve/iec_60534.rs::kv_liquid_and_mass_flow_liquid_are_inverses",
+    "crates/outram-park-fork-dwsim-libs/src/valve/iec_60534.rs::kv_to_cv_round_trip",
+    "crates/outram-park-fork-dwsim-libs/src/valve/iec_60534.rs::opening_characteristics_agree_at_full_open",
+    "crates/outram-park-fork-dwsim-libs/src/valve/iec_60534.rs::opening_characteristics_are_zero_at_closed",
+    "crates/outram-park-fork-dwsim-libs/src/valve/iec_60534.rs::solve_p2_gas_converges_to_within_tolerance",
+    "crates/outram-park-fork-dwsim-libs/src/valve/iec_60534.rs::solve_p2_liquid_round_trips_kv_liquid",
+]
+
+[module."iec_60534.rs"]
+path = "crate::valve::iec_60534"
+
+[[module."iec_60534.rs".function]]
+id = "fn:0778986d9390a533"
+name = "REFERENCE_WATER_DENSITY_KG_PER_M3"
+qual = "REFERENCE_WATER_DENSITY_KG_PER_M3"
+item = "const"
+shape = "const"
+lines = [
+    22,
+    24,
+]
+hash = "sha256:57085d5eb02c19b1ae897e07ca7e952c139674b1b9eb83582890484ac0515123"
+doc_hash = "sha256:1dd82d49756d882851e95d8c4debd7c574ea87c12c89f4555a1c0768eb71034b"
+reached_by = [
+    "#0",
+    "#5",
+]
+
+[[module."iec_60534.rs".function]]
+id = "fn:934d3a03895df4a7"
+name = "N6"
+qual = "N6"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    28,
+]
+hash = "sha256:f1f778d6441e9c96d31840fdc9ee3ec40b17aab22ee278d6d9c8c108211bb8bc"
+doc_hash = "sha256:1d7c3c7f7e0622ea0efc1f7172052ab57ca3cf5aa045ce31865bc894be98808c"
+reached_by = ["#4"]
+
+[[module."iec_60534.rs".function]]
+id = "fn:2433acafd045ba35"
+name = "ValveFlowCoefficient"
+qual = "ValveFlowCoefficient"
+item = "type"
+shape = "struct"
+lines = [
+    30,
+    35,
+]
+hash = "sha256:af6d32465866f910bf04f33bbd79cf687f4bd94aa65930f59c3e720bf4312d47"
+doc_hash = "sha256:2fee063e57674dd0eadd4e43d8fc2a471c7a4b56a54392d0071d307ae1a057b0"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."iec_60534.rs".function]]
+id = "fn:14f45a0157c4147c"
+name = "to_cv"
+qual = "ValveFlowCoefficient::to_cv"
+lines = [
+    38,
+    43,
+]
+hash = "sha256:d1435617abe20c5df0f48dee3d224998ab75a2bea26a45d6688cf8d7b745ced5"
+doc_hash = "sha256:382351050006e02d47885147ee70abecd9f1fc765fa13408aba2b2a1b59fa1ef"
+uses = ["fn:2433acafd045ba35"]
+reached_by = ["#1"]
+
+[[module."iec_60534.rs".function]]
+id = "fn:435403f87da4f556"
+name = "from_cv"
+qual = "ValveFlowCoefficient::from_cv"
+lines = [
+    45,
+    48,
+]
+hash = "sha256:e5d6ea6bde1d9a609e24d4c69b25afd13eaac35aecb4864329818b3bc8e98ca5"
+doc_hash = "sha256:901f5bf228bb1d9e7878b16cc615ba94b241275594513464de4981a0d4c99ced"
+uses = ["fn:2433acafd045ba35"]
+reached_by = ["#1"]
+
+[[module."iec_60534.rs".function]]
+id = "fn:d2928436e61ab536"
+name = "liquid_critical_pressure_ratio_factor"
+qual = "liquid_critical_pressure_ratio_factor"
+lines = [
+    51,
+    60,
+]
+hash = "sha256:e4dd659388bc631228f218e69b4ee8bf52a169a393541b856aa1d7a52dbc982a"
+doc_hash = "sha256:799ef033e4e9d5293a3f8c659ce5b6809f3cda2057b37ac1d0e937254464467e"
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:d9ef1a4e1b218711"
+name = "choked_pressure_drop_liquid"
+qual = "choked_pressure_drop_liquid"
+lines = [
+    62,
+    74,
+]
+hash = "sha256:2c589608ba72bb06df5cd8b7a8851034eddcfe265f625e24e2f2111fe3deeb8c"
+doc_hash = "sha256:76e3f889cfb1bbd1a45dda8cc06f9c17749fe36f312d0a42415ebe87a9b8b86c"
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:f9080d72eef623d2"
+name = "clamp_to_choked_liquid"
+qual = "clamp_to_choked_liquid"
+lines = [
+    76,
+    94,
+]
+hash = "sha256:5f786f6dcfc40840e90216f53cbbafa0410aedd65eb3f0453513f61336a146fd"
+doc_hash = "sha256:df9193c37bb30a3817a6f725950467b018f9a3f7bc35e655fc928bf7d9245652"
+callees = ["fn:d9ef1a4e1b218711"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:4cb9fd5a9dbae2cf"
+name = "kv_liquid"
+qual = "kv_liquid"
+lines = [
+    96,
+    113,
+]
+hash = "sha256:849c3b627b7fc8aa062b9da474771a0c1c2b9445b97c59a974eee182787ee2e6"
+doc_hash = "sha256:aacfc2aeb969b1e17dca424c8d01805a536226cc1203e5f88517dd59272293f9"
+uses = [
+    "fn:0778986d9390a533",
+    "fn:2433acafd045ba35",
+]
+reached_by = [
+    "#0",
+    "#5",
+]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:117b41781db1dece"
+name = "mass_flow_liquid"
+qual = "mass_flow_liquid"
+lines = [
+    115,
+    130,
+]
+hash = "sha256:8a19baf4d4c49556659430b90ff3c2140e89908791cc43a74bace7440441bfac"
+doc_hash = "sha256:0c2b15e1210eae6135c0d0ecb2f76aff98f6fadc4302383e3960cfebdfc4fc01"
+uses = [
+    "fn:0778986d9390a533",
+    "fn:2433acafd045ba35",
+]
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:88cdc33be73ad06c"
+name = "solve_p2_liquid"
+qual = "solve_p2_liquid"
+lines = [
+    132,
+    151,
+]
+hash = "sha256:ed97545db29c1a80e669dc2e08c55ee22057ee9063794cad206f04300b30c306"
+doc_hash = "sha256:26378515dff79c1bd9e868f6a54537ef789e37fbe17b3614ba9d0661d9412651"
+uses = [
+    "fn:0778986d9390a533",
+    "fn:2433acafd045ba35",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:1b25737c77199cec"
+name = "expansion_factor_gas"
+qual = "expansion_factor_gas"
+lines = [
+    153,
+    163,
+]
+hash = "sha256:b2d60bd6b5294fae3d21e390e3162bf3766d866f3a48bdc976094aa203755e63"
+doc_hash = "sha256:d20562d856c9545bd3178dc8b5f17eba9d33693b7ceb70be947a19958814be47"
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:0f06af869f5a1805"
+name = "choked_pressure_drop_ratio_gas"
+qual = "choked_pressure_drop_ratio_gas"
+lines = [
+    165,
+    170,
+]
+hash = "sha256:c74c1b90ec3c526f31180c8cfce89992262c66c2d0251e4843ecd7996d3e32c9"
+doc_hash = "sha256:531f98a97c91e124a7e297b1c58d6f52a2e9ff7b72699e370bd9606cc482367d"
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:ff81af6ed303e391"
+name = "clamp_and_expand_gas"
+qual = "clamp_and_expand_gas"
+lines = [
+    172,
+    185,
+]
+hash = "sha256:39ff3e533d49d0c28652d9671351c28b7fde45b771d2e21f5fd1f4257645a853"
+doc_hash = "sha256:9b9055a28183236aa57bc25dfdcaff959f024d97ae3dccd40a92d52518b67313"
+callees = [
+    "fn:0f06af869f5a1805",
+    "fn:1b25737c77199cec",
+]
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:91e1766064192618"
+name = "kv_gas"
+qual = "kv_gas"
+lines = [
+    187,
+    209,
+]
+hash = "sha256:1242e6d366376390fb67cac4b880676048e6029c85fed2858cfca7b90f4b9921"
+doc_hash = "sha256:c977212d0c5ef84da593cda7721a51707af834eceda951d309c9efdd8d44901a"
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:934d3a03895df4a7",
+]
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:3a0c075926f7739c"
+name = "mass_flow_gas"
+qual = "mass_flow_gas"
+lines = [
+    211,
+    228,
+]
+hash = "sha256:7ffbd7d044337befc9a6d34e2f0c694b52e7f6fe8af67b0e362f999129f84c85"
+doc_hash = "sha256:7cd56ab8fb72b5bf2b603987d5477cfe5f9935574534c7f363c30c9a8a1746fd"
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:934d3a03895df4a7",
+]
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:a3c77fff36473c97"
+name = "solve_p2_gas"
+qual = "solve_p2_gas"
+lines = [
+    230,
+    261,
+]
+hash = "sha256:a2039e23985ef27955681a1fa3eace395c47e1b1d71932f3978418d2fffe1d85"
+doc_hash = "sha256:4d88e8b0679c7a4557918de1176306027351aaa0dc155404678fed3d23402a07"
+callees = [
+    "fn:3a0c075926f7739c",
+    "fn:ff81af6ed303e391",
+]
+uses = ["fn:2433acafd045ba35"]
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:2ea319dfb3dd4de6"
+name = "kv_two_phase"
+qual = "kv_two_phase"
+lines = [
+    263,
+    277,
+]
+hash = "sha256:ff2ad0df4d113f95c3759caf2d7cfba2d3079add7ce6d35b38bd8bad0b7cd8b8"
+doc_hash = "sha256:2c2e6980b84715bdc9c5f96ce14d1de98eb9995ef0147389addd02877d010cde"
+uses = ["fn:2433acafd045ba35"]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:943177cd4bd05004"
+name = "mass_flow_two_phase"
+qual = "mass_flow_two_phase"
+lines = [
+    279,
+    293,
+]
+hash = "sha256:caa8d9676743ac814bbbf5c55212ad9884dd909e677b0f708bc508edebe5e057"
+doc_hash = "sha256:4b2dec85426a5972cb12bd58ce0f4233d664f0d9324bd946d903775acbb986c3"
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:351ea82c9b09d955"
+name = "OpeningCharacteristic"
+qual = "OpeningCharacteristic"
+item = "type"
+shape = "enum"
+lines = [
+    295,
+    311,
+]
+hash = "sha256:7cae2f31c1fc831a480be1067ad16be764dc7d8829beca0165d5f8e927dd4eca"
+doc_hash = "sha256:2135e26c30a9355f30eb207d1534b14fefb20ccd9831a29af3bd0c5b841f9cff"
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."iec_60534.rs".function]]
+id = "fn:d3395ae65c375916"
+name = "kv_at_opening"
+qual = "OpeningCharacteristic::kv_at_opening"
+lines = [
+    314,
+    327,
+]
+hash = "sha256:3a936f3b32ace38c1dff73247eb971f327d0d42e638b529f8409c53a4518738f"
+doc_hash = "sha256:12e5c2d96c5f5eae230f5db7e7a39a8442fe4c3af244cbf974eebe551894f4af"
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:351ea82c9b09d955",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:5440508bd1a0a1a7"
+name = "kv_liquid_and_mass_flow_liquid_are_inverses"
+qual = "kv_liquid_and_mass_flow_liquid_are_inverses"
+lines = [
+    337,
+    348,
+]
+hash = "sha256:6999bfb97c47b23772788a1cd8f38765951bd53d6dd6ac22bbc2377a07e0642a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:117b41781db1dece",
+    "fn:4cb9fd5a9dbae2cf",
+]
+test = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:a84439291e00394e"
+name = "solve_p2_liquid_round_trips_kv_liquid"
+qual = "solve_p2_liquid_round_trips_kv_liquid"
+lines = [
+    350,
+    361,
+]
+hash = "sha256:0c8ec330a8397ce502cdf71497c76fb53b9793d0d5474099ba421e761a32fafc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4cb9fd5a9dbae2cf",
+    "fn:88cdc33be73ad06c",
+]
+test = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:c0023a7cfe65a6ec"
+name = "solve_p2_gas_converges_to_within_tolerance"
+qual = "solve_p2_gas_converges_to_within_tolerance"
+lines = [
+    363,
+    385,
+]
+hash = "sha256:bd810fd9e58aec5b889b609058ad7aa83209883f1b72537e736c8d9dd08293f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3a0c075926f7739c",
+    "fn:91e1766064192618",
+    "fn:a3c77fff36473c97",
+    "fn:ff81af6ed303e391",
+]
+test = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:ca053a954b3e027c"
+name = "opening_characteristics_agree_at_full_open"
+qual = "opening_characteristics_agree_at_full_open"
+lines = [
+    387,
+    415,
+]
+hash = "sha256:a46d11e07cec0db22459c5e492fef7dda511a54c94fd6a7d8f4a9b8a3f88650a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d3395ae65c375916"]
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:351ea82c9b09d955",
+]
+test = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:ca77b2a30039897d"
+name = "opening_characteristics_are_zero_at_closed"
+qual = "opening_characteristics_are_zero_at_closed"
+lines = [
+    417,
+    435,
+]
+hash = "sha256:b64f30c31991e93486f2adacd309f122291d682a377cd4fe7c224b9e3c2412ee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d3395ae65c375916"]
+uses = [
+    "fn:2433acafd045ba35",
+    "fn:351ea82c9b09d955",
+]
+test = true
+
+[[module."iec_60534.rs".function]]
+id = "fn:5e1f7b86b3d0dd0f"
+name = "kv_to_cv_round_trip"
+qual = "kv_to_cv_round_trip"
+lines = [
+    437,
+    443,
+]
+hash = "sha256:fa961bc8147857951c0ed468b89528318ddc8ecb7213d7711c24080bd496e446"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14f45a0157c4147c",
+    "fn:435403f87da4f556",
+]
+uses = ["fn:2433acafd045ba35"]
+test = true
+
+[module."mod.rs"]
+path = "crate::valve"

@@ -44,15 +44,13 @@ pub fn draw_csv_preview(ui: &mut egui::Ui, csv_text: &str, id_salt: &str) {
             ui.ctx().copy_text(csv_text.to_string());
         }
     });
-    egui::ScrollArea::both()
-        .id_salt(id_salt)
-        .show(ui, |ui| {
-            let mut scratch = csv_text.to_string();
-            ui.add(
-                egui::TextEdit::multiline(&mut scratch)
-                    .font(egui::TextStyle::Monospace)
-                    .desired_width(f32::INFINITY)
-                    .desired_rows(24),
-            );
-        });
+    egui::ScrollArea::both().id_salt(id_salt).show(ui, |ui| {
+        let mut scratch = csv_text.to_string();
+        ui.add(
+            egui::TextEdit::multiline(&mut scratch)
+                .font(egui::TextStyle::Monospace)
+                .desired_width(f32::INFINITY)
+                .desired_rows(24),
+        );
+    });
 }

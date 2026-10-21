@@ -71,6 +71,7 @@
 //! See the parent module [`crate::eos_co2_brine`] for the full accuracy warning
 //! and provenance block. Untrusted AI-generated draft (`RESPONSIBLE_USE.md`).
 
+use petir::mathf::RealMath;
 use crate::error::PflotranError;
 
 /// Universal gas constant, J/(mol.K) (CODATA).
@@ -121,7 +122,7 @@ impl Co2Properties {
         //   B = b P / (R T)       = 0.08664 (P/Pc) / (T/Tc)
         let pr = pressure_pa / PC_CO2;
         let tr = temperature_k / TC_CO2;
-        let a_param = 0.42748 * pr / tr.powf(2.5);
+        let a_param = 0.42748 * pr / tr.r_powf(2.5);
         let b_param = 0.08664 * pr / tr;
 
         // Cubic in Z:  Z^3 + c2 Z^2 + c1 Z + c0 = 0
@@ -183,7 +184,7 @@ impl Co2Properties {
 
         // FWV zero-density term. epsilon/k = 251.196 K.
         let t_star = temperature_k / 251.196;
-        let ln_ts = t_star.ln();
+        let ln_ts = t_star.r_ln();
         // ln G* = sum a_i (ln T*)^i, i = 0..4
         let a = [
             0.235_156,
@@ -199,7 +200,7 @@ impl Co2Properties {
             p *= ln_ts;
         }
         // eta_0 in microPa.s -> Pa.s (x 1e-6).
-        let eta0_micro = 1.006_97 * temperature_k.sqrt() / ln_g.exp();
+        let eta0_micro = 1.006_97 * temperature_k.sqrt() / ln_g.r_exp();
         Ok(eta0_micro * 1.0e-6)
     }
 
@@ -244,13 +245,13 @@ fn largest_real_cubic_root(c2: f64, c1: f64, c0: f64) -> f64 {
     let p = c1 - c2 * c2 / 3.0;
     let q = 2.0 * c2 * c2 * c2 / 27.0 - c2 * c1 / 3.0 + c0;
 
-    let disc = (q / 2.0).powi(2) + (p / 3.0).powi(3);
+    let disc = (q / 2.0).r_powi(2) + (p / 3.0).r_powi(3);
 
     if disc > 0.0 {
         // One real root.
         let sqrt_disc = disc.sqrt();
-        let u = (-q / 2.0 + sqrt_disc).cbrt();
-        let v = (-q / 2.0 - sqrt_disc).cbrt();
+        let u = (-q / 2.0 + sqrt_disc).r_cbrt();
+        let v = (-q / 2.0 - sqrt_disc).r_cbrt();
         (u + v) - shift
     } else {
         // Three real roots (Delta <= 0). Trigonometric solution.
@@ -261,11 +262,11 @@ fn largest_real_cubic_root(c2: f64, c1: f64, c0: f64) -> f64 {
         }
         let mut arg = 3.0 * q / (p * m);
         arg = arg.clamp(-1.0, 1.0);
-        let theta = arg.acos();
+        let theta = arg.r_acos();
         let two_pi = std::f64::consts::TAU;
-        let r0 = m * (theta / 3.0).cos() - shift;
-        let r1 = m * ((theta - two_pi) / 3.0).cos() - shift;
-        let r2 = m * ((theta - 2.0 * two_pi) / 3.0).cos() - shift;
+        let r0 = m * (theta / 3.0).r_cos() - shift;
+        let r1 = m * ((theta - two_pi) / 3.0).r_cos() - shift;
+        let r2 = m * ((theta - 2.0 * two_pi) / 3.0).r_cos() - shift;
         r0.max(r1).max(r2)
     }
 }

@@ -1,0 +1,14 @@
+# Review record: crates/nee_soon/src/xin_wang_sp3_workflow
+
+```toml
+[kovan]
+id = "review-record-crates-nee-soon-src-xin-wang-sp3-workflow"
+kind = "note"
+origin = "kovan"
+created = "2026-10-11T15:00:45Z"
+modified = "2026-10-11T15:00:45Z"
+```
+
+The review record of this folder's code, created empty by kovan's "Index fresh".
+Reviews, needs-fix notes and annotations are added by kovan's review wizard.
+This file is human-owned: kovan never overwrites it.

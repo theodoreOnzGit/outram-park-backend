@@ -1,0 +1,4 @@
+{
+ "note": "No known differences (2026-10-08, wave 1 integrated): all eight compared sections of all 850 cases equal citeproc-js 2.4.63's. A difference found later is added to groups as {section, reason, cases}.",
+ "groups": []
+}

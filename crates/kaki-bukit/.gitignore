@@ -1,0 +1,5 @@
+# Upstream reference clones are dev-only provenance aids — never committed.
+# `upstream_source/README.md` records the repositories, licences and the exact
+# commits, and is the file that must travel with the crate; the clones
+# themselves are re-created with the commands recorded there.
+/upstream_source/*/

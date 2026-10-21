@@ -1,0 +1,152 @@
+<?xml version="1.0"?>
+
+<!--
+Written for RAFFLES' `scram` port, not taken from upstream.
+
+Of the Model Exchange Format's four common-cause-failure models, upstream's
+own input suite uses exactly one: `beta-factor`, in `TwoTrain/common_cause.xml`
+and `TwoTrain/two_train_alignment.xml`. The multiple-Greek-letter,
+alpha-factor and phi-factor models appear nowhere, so none of their
+probability formulas could be checked against a model SCRAM ships. This model
+uses all four, and SCRAM supplies the answers.
+
+The formulas differ in shape, not only in constants, and each one is a
+distinct arm of `CcfGroup::CalculateProbabilities` upstream:
+
+  * beta-factor  — one factor, at the group's own size; two levels come out
+  * MGL          — factors from level 2 up; every level 1..max comes out, each
+                   a product of the factors below it, one (1 - factor) term,
+                   and a 1/C(n-1, i) combination reciprocal
+  * alpha-factor — factors from level 1; each level is normalised by the
+                   weighted sum of all the factors
+  * phi-factor   — the fractions are given directly, and must sum to 1
+
+Group sizes are 3 for the three multi-level models, so a level-2 subset is a
+genuine choice of 2 from 3 rather than the whole group, and the combination
+reciprocal is exercised at a value other than 1.
+
+The top gate ORs the four sub-trees rather than ANDing them, so the product
+count is the sum of the four rather than their product: an AND gives over a
+thousand products of order 8 and 9, which says nothing more than these do.
+
+Each group's members are DECLARED by the group's own `<members>` element and
+nowhere else — that is how MEF works, and reading them as references instead
+is a mistake this model would catch.
+-->
+
+<opsa-mef>
+  <define-fault-tree name="CcfModels">
+    <define-gate name="top">
+      <or>
+        <gate name="beta_pair"/>
+        <gate name="mgl_triple"/>
+        <gate name="alpha_triple"/>
+        <gate name="phi_triple"/>
+      </or>
+    </define-gate>
+
+    <define-gate name="beta_pair">
+      <and>
+        <basic-event name="B1"/>
+        <basic-event name="B2"/>
+      </and>
+    </define-gate>
+    <define-gate name="mgl_triple">
+      <and>
+        <basic-event name="M1"/>
+        <basic-event name="M2"/>
+        <basic-event name="M3"/>
+      </and>
+    </define-gate>
+    <define-gate name="alpha_triple">
+      <and>
+        <basic-event name="A1"/>
+        <basic-event name="A2"/>
+        <basic-event name="A3"/>
+      </and>
+    </define-gate>
+    <define-gate name="phi_triple">
+      <and>
+        <basic-event name="P1"/>
+        <basic-event name="P2"/>
+        <basic-event name="P3"/>
+      </and>
+    </define-gate>
+  </define-fault-tree>
+
+  <define-CCF-group name="Beta" model="beta-factor">
+    <members>
+      <basic-event name="B1"/>
+      <basic-event name="B2"/>
+    </members>
+    <distribution>
+      <float value="0.1"/>
+    </distribution>
+    <factor level="2">
+      <float value="0.2"/>
+    </factor>
+  </define-CCF-group>
+
+  <define-CCF-group name="Mgl" model="MGL">
+    <members>
+      <basic-event name="M1"/>
+      <basic-event name="M2"/>
+      <basic-event name="M3"/>
+    </members>
+    <distribution>
+      <float value="0.05"/>
+    </distribution>
+    <factors>
+      <factor level="2">
+        <float value="0.1"/>
+      </factor>
+      <factor level="3">
+        <float value="0.4"/>
+      </factor>
+    </factors>
+  </define-CCF-group>
+
+  <define-CCF-group name="Alpha" model="alpha-factor">
+    <members>
+      <basic-event name="A1"/>
+      <basic-event name="A2"/>
+      <basic-event name="A3"/>
+    </members>
+    <distribution>
+      <float value="0.05"/>
+    </distribution>
+    <factors>
+      <factor level="1">
+        <float value="0.9"/>
+      </factor>
+      <factor level="2">
+        <float value="0.07"/>
+      </factor>
+      <factor level="3">
+        <float value="0.03"/>
+      </factor>
+    </factors>
+  </define-CCF-group>
+
+  <define-CCF-group name="Phi" model="phi-factor">
+    <members>
+      <basic-event name="P1"/>
+      <basic-event name="P2"/>
+      <basic-event name="P3"/>
+    </members>
+    <distribution>
+      <float value="0.05"/>
+    </distribution>
+    <factors>
+      <factor level="1">
+        <float value="0.8"/>
+      </factor>
+      <factor level="2">
+        <float value="0.15"/>
+      </factor>
+      <factor level="3">
+        <float value="0.05"/>
+      </factor>
+    </factors>
+  </define-CCF-group>
+</opsa-mef>

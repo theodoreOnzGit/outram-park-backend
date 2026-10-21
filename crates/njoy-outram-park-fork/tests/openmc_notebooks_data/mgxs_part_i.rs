@@ -50,6 +50,7 @@
 //! - Validation against a real NJOY GROUPR GENDF golden tape / the notebook's MC
 //!   outputs (op-ini) — these are self-consistency (property) checks today.
 
+use petir::mathf::RealMath;
 use std::fs::File;
 use std::sync::Arc;
 
@@ -105,7 +106,7 @@ fn collapse_to_notebook_two_group_structure() {
     let n = 3000usize;
     let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
     let grid: Vec<f64> = (0..=n)
-        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .map(|i| e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64))
         .collect();
     let sample =
         |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
@@ -240,7 +241,7 @@ fn groupr_engine_vector_group_average() {
     let n = 3000usize;
     let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
     let grid: Vec<f64> = (0..=n)
-        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .map(|i| e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64))
         .collect();
     let sample =
         |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
@@ -373,7 +374,7 @@ fn flux_weighted_self_shielded_mgxs() {
     let n = 3000usize;
     let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
     let grid: Vec<f64> = (0..=n)
-        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .map(|i| e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64))
         .collect();
     let sample =
         |mt: MtReaction| -> Vec<f64> { grid.iter().map(|&e| result.eval_mt(mt, e)).collect() };
@@ -579,7 +580,7 @@ fn groupr_elastic_scatter_matrix_u235() {
     let n = 3000usize;
     let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
     let grid: Vec<f64> = (0..=n)
-        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .map(|i| e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64))
         .collect();
     let elastic: Vec<f64> = grid
         .iter()
@@ -738,7 +739,7 @@ fn self_shielded_mgxs_dilution_limits_u238() {
     let n = 4000usize;
     let (e_lo, e_hi) = (1.0e-3_f64, 2.0e7_f64);
     let grid: Vec<f64> = (0..=n)
-        .map(|i| e_lo * (e_hi / e_lo).powf(i as f64 / n as f64))
+        .map(|i| e_lo * (e_hi / e_lo).r_powf(i as f64 / n as f64))
         .collect();
     let total: Vec<f64> = grid
         .iter()

@@ -49,6 +49,11 @@
 //!    "desired temperature not found" (`thermr.f90:1720-1741`), so NJOY
 //!    users LEAPR the exact temperature instead. Interpolating with the
 //!    file's own `LI` law is this port's ENDF-sanctioned generalisation.
+//!    The NJOY-deck thermal ACE path
+//!    (`AceTable::thermal_from_mf7_on_pendf`) does not use it: it resolves
+//!    the temperature as `calcem` does ([`calcem_temperature_k`], a `T/500`
+//!    window, not the `T/1000 + 5` K below) and refuses where NJOY2016
+//!    stops (GitHub #866).
 //! 3. **Outside the tabulated range** (beyond the tolerance) →
 //!    [`NjoyError::TemperatureOutOfRange`]. Never a silent nearest-temperature
 //!    snap.
@@ -134,8 +139,13 @@ pub struct IncoherentInelastic {
     /// parser to exponentiate would be an improvement beyond upstream, which
     /// the crate's translation policy defers until the translation is done.
     ///
-    /// All eight `tsl-*` evaluations in `reference-data/endf/` carry
-    /// `LLN = 0`, so nothing we hold is affected. Check this field before
+    /// ~~All eight~~ **All NINE** `tsl-*` evaluations in `reference-data/endf/`
+    /// carry `LLN = 0`, so nothing we hold is affected. **CORRECTED
+    /// 2026-09-20** — the count was wrong, not the conclusion: the directory
+    /// holds nine `tsl-*.endf` tapes (Al-27, C-in-SiC, H-in-H2O, H-in-ZrH,
+    /// Si-in-SiC, crystalline graphite, ENDF/B-VII.0 graphite, and reactor
+    /// graphite at 10 % and 30 % porosity). Verified by parsing all nine and
+    /// printing `LLN`, not by counting files. Check this field before
     /// trusting [`s_tables`] from an unfamiliar evaluation.
     ///
     /// [`s_tables`]: IncoherentInelastic::s_tables
@@ -184,6 +194,16 @@ pub struct IncoherentInelastic {
     /// — see the [module docs](self), policy step 2. `None` when the request
     /// matched a tabulated temperature.
     pub temperature_bracket: Option<TemperatureBracket>,
+    /// The temperature \[K\] the effective temperature `T_eff` is read at,
+    /// when it is not [`temperature_k`](Self::temperature_k). THERMR's
+    /// `calcem` accepts a request within `T/500` of a tabulated temperature
+    /// ([`calcem_temperature_k`]) and then reads `S(α,β)` and `kT` at the
+    /// *tabulated* temperature (`tev=t*bk`, `t` left at the tape's value by
+    /// the temperature walk, `thermr.f90:1720-1733, 1924`) but `T_eff` at the
+    /// *requested* one (`tempt=temp`, `thermr.f90:1812-1834`). Set by the
+    /// NJOY-deck thermal path (GitHub #866); `None` (what the parsers
+    /// produce) reads `T_eff` at `temperature_k`.
+    pub teff_request_k: Option<f64>,
 }
 
 /// The two tabulated `S(α,β)` tables bracketing an interpolated temperature
@@ -240,6 +260,36 @@ pub struct Mf7 {
 /// [`select_temperature`].
 pub fn temperature_match_tolerance_k(target_k: f64) -> f64 {
     target_k.abs() / 1000.0 + 5.0
+}
+
+/// The MF=7/MT=4 temperature THERMR's `calcem` reads for a request of
+/// `temp_k` \[K\], or its refusal (`thermr.f90:1719-1733`, NJOY2016 2016.79).
+///
+/// `calcem` walks the tabulated temperatures in tape order (`T₀`, then the
+/// `LT` extras) and stops at the first `t` with `abs(t - temp) <= temp/500`.
+/// Meeting a `t` above the request first, or running out of temperatures, is
+/// "desired temperature not found". A match that is not exact goes on with
+/// that `t`'s `S(α,β)` at the *requested* temperature (it only prints the
+/// difference). Nothing is interpolated. Note the window is `T/500`, not
+/// `rdelas`'s `T/1000 + 5` K ([`temperature_match_tolerance_k`]): 603 K is
+/// 3 K from graphite's 600 K table, inside the second and outside the first,
+/// and NJOY2016 stops on it (measured 2026-10-14).
+///
+/// # Errors
+/// [`NjoyError::TemperatureNotTabulated`] where `calcem` stops.
+pub fn calcem_temperature_k(tabulated_k: &[f64], temp_k: f64) -> Result<f64, NjoyError> {
+    for &t in tabulated_k {
+        if (t - temp_k).abs() <= temp_k / 500.0 {
+            return Ok(t);
+        }
+        if t > temp_k {
+            break;
+        }
+    }
+    Err(NjoyError::TemperatureNotTabulated {
+        requested_k: temp_k,
+        tabulated_k: tabulated_k.to_vec(),
+    })
 }
 
 /// How a requested temperature resolves against an evaluation's tabulated
@@ -678,12 +728,34 @@ fn parse_inelastic(
         temp_interp: all_li,
         teff_table,
         temperature_bracket,
+        teff_request_k: None,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `calcem`'s walk (`thermr.f90:1719-1733`) on ENDF/B-VIII.0 crystalline
+    /// graphite's temperatures: an exact or `T/500` match returns the tape
+    /// temperature; between temperatures, 3 K off, below the first or above
+    /// the last, it stops.
+    #[test]
+    fn calcem_temperature_walk() {
+        let t = [296.0, 400.0, 500.0, 600.0, 700.0, 800.0, 1000.0, 1200.0, 1600.0, 2000.0];
+        assert_eq!(calcem_temperature_k(&t, 600.0).unwrap(), 600.0);
+        assert_eq!(calcem_temperature_k(&t, 600.5).unwrap(), 600.0);
+        assert_eq!(calcem_temperature_k(&t, 599.0).unwrap(), 600.0);
+        for bad in [450.0, 603.0, 250.0, 2100.0] {
+            match calcem_temperature_k(&t, bad) {
+                Err(NjoyError::TemperatureNotTabulated { requested_k, tabulated_k }) => {
+                    assert_eq!(requested_k, bad);
+                    assert_eq!(tabulated_k, t.to_vec());
+                }
+                other => panic!("{bad} K: {other:?}"),
+            }
+        }
+    }
     use crate::endf::tape::Tape;
     use std::fs::File;
 

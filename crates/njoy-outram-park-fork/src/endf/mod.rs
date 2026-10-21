@@ -27,6 +27,7 @@
 //!
 //! Ported from NJOY2016 `src/endf.f90`.
 
+pub mod gety1;
 pub mod interp;
 pub mod mt;
 pub mod parse;

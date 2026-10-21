@@ -1,0 +1,119 @@
+   Compiling kovan-metrics v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-metrics)
+    Finished `release` profile [optimized] target(s) in 5.83s
+     Running unittests src/lib.rs (target/release/deps/kovan_metrics-02baad8dc7b95314)
+
+running 88 tests
+test baseline::tests::a_missing_field_reads_as_zero_not_an_error ... ok
+test baseline::tests::parses_a_baseline_document ... ok
+test date::tests::dates_order_chronologically ... ok
+test date::tests::epoch_day_conversion_round_trips ... ok
+test date::tests::honours_the_gregorian_leap_rule ... ok
+test date::tests::parses_the_workspace_ddmmyy_notation ... ok
+test date::tests::rejects_impossible_calendar_days ... ok
+test date::tests::rejects_non_six_digit_input ... ok
+test git::tests::a_body_containing_a_unit_separator_does_not_truncate_the_record ... ok
+test git::tests::normalises_both_rename_forms_to_the_new_path ... ok
+test git::tests::parses_records_and_keeps_multiline_bodies ... ok
+test git::tests::rename_into_a_new_crate_attributes_to_the_new_crate ... ok
+test git::tests::skips_malformed_and_empty_records ... ok
+test historian::tests::a_pipe_in_a_subject_is_escaped_so_the_table_survives ... ok
+test historian::tests::commits_without_trailers_show_a_dash_not_a_zero ... ok
+test historian::tests::default_output_path_uses_the_ddmmyy_tag ... ok
+test historian::tests::long_subjects_are_truncated ... ok
+test historian::tests::renders_totals_and_a_ledger ... ok
+test kloc::config::tests::assistance_groups_name_real_repositories ... ok
+test kloc::config::tests::baseline_repository_keys_are_unique ... ok
+test kloc::config::tests::crate_classifications_are_unique ... ok
+test kloc::config::tests::every_extension_points_at_a_baseline_repository ... ok
+test kloc::config::tests::footnote_markers_resolve ... ok
+test kloc::config::tests::the_manuscript_crate_count_matches_the_classification_table ... ok
+test kloc::config::tests::the_subpath_overrides_name_real_crates ... ok
+test kloc::figure::tests::a_missing_repository_contributes_no_bar ... ok
+test kloc::figure::tests::shares_are_stated_on_each_composition_bar ... ok
+test kloc::figure::tests::the_figure_is_deterministic ... ok
+test kloc::figure::tests::the_figure_is_wellformed_svg_with_both_charts ... ok
+test kloc::figure::tests::xml_reserved_characters_are_escaped ... ok
+test baseline::tests::the_baseline_lives_inside_the_git_directory ... ok
+test kloc::measure::tests::a_description_is_read_and_whitespace_collapsed ... ok
+test kloc::measure::tests::a_missing_repository_is_reported_not_counted_as_zero ... ok
+test kloc::measure::tests::an_absent_agentic_checkout_reports_missing ... ok
+test kloc::measure::tests::missing_repositories_are_listed_in_the_totals ... ok
+test kloc::measure::tests::the_as_of_stamp_is_the_newest_commit_not_today ... ok
+test kloc::outputs::tests::crate_names_are_escaped_or_overridden ... ok
+test kloc::outputs::tests::csv_records_end_crlf_because_python_uses_the_excel_dialect ... ok
+test kloc::outputs::tests::dates_render_as_month_and_year ... ok
+test kloc::outputs::tests::generated_files_warn_against_hand_editing ... ok
+test kloc::outputs::tests::latex_numbers_use_a_thin_space_not_a_comma ... ok
+test kloc::outputs::tests::only_fields_that_need_quotes_get_them ... ok
+test kloc::repo::tests::a_missing_ref_yields_nothing_rather_than_an_error ... ok
+test kloc::repo::tests::a_tree_is_counted_from_the_commit_not_the_working_directory ... ok
+test kloc::repo::tests::an_excluded_subtree_is_not_counted ... ok
+test kloc::repo::tests::active_days_are_distinct_dates ... ok
+test kloc::repo::tests::skipped_directories_are_excluded_even_when_committed ... ok
+test kloc::repo::tests::the_preferred_ref_is_develop_not_main ... ok
+test kloc::report::tests::an_absent_agentic_repository_stops_the_report_early ... ok
+test kloc::report::tests::rates_round_and_group ... ok
+test kloc::report::tests::signed_deltas_always_carry_a_sign ... ok
+test kloc::report::tests::the_header_rules_are_seventy_eight_columns ... ok
+test kloc::report::tests::thousands_separators_match_pythons_format ... ok
+test kloc::source::tests::a_comment_marker_inside_a_string_is_not_a_comment ... ok
+test kloc::source::tests::a_lifetime_is_not_mistaken_for_a_character_literal ... ok
+test kloc::source::tests::an_r_inside_an_identifier_does_not_open_a_raw_string ... ok
+test kloc::source::tests::blank_lines_never_count ... ok
+test kloc::source::tests::block_comments_nest ... ok
+test kloc::source::tests::character_literals_are_recognised_in_all_their_shapes ... ok
+test kloc::source::tests::line_comments_do_not_count_as_code ... ok
+test kloc::source::tests::raw_strings_are_respected_including_hashes ... ok
+test kloc::source::tests::skipped_directories_are_excluded_by_path ... ok
+test kloc::source::tests::stripping_preserves_line_alignment ... ok
+test kloc::source::tests::subtree_exclusion_matches_on_path_boundaries ... ok
+test kloc::source::tests::totals_include_what_code_excludes ... ok
+test kloc::tests::a_run_with_no_repositories_still_writes_its_artifacts ... ok
+test kloc::tests::every_repository_the_accounting_needs_is_enumerated ... ok
+test kloc::tests::github_only_ignores_local_checkouts ... ok
+test kloc::tests::the_clone_url_points_at_the_authors_account ... ok
+test kloc::repo::tests::counting_under_a_prefix_reads_the_files_rather_than_reporting_zero ... ok
+test tokens::tests::an_unreadable_message_file_is_a_no_op_not_a_panic ... ok
+test tokens::tests::query_json_is_wellformed_and_carries_the_component_split ... ok
+test tokens::tests::query_json_omits_per_commit_unless_asked ... ok
+test tokens::tests::stamping_is_idempotent ... ok
+test tokens::tests::a_message_with_no_comment_block_gets_the_trailer_appended ... ok
+test trailer::tests::a_commit_with_no_trailer_yields_none ... ok
+test trailer::tests::a_mangled_field_degrades_to_zero_rather_than_failing ... ok
+test trailer::tests::delta_clamps_at_zero_when_transcripts_rotate ... ok
+test trailer::tests::finds_the_trailer_among_surrounding_prose ... ok
+test trailer::tests::groups_thousands ... ok
+test trailer::tests::round_trips_a_formatted_trailer ... ok
+test trailer::tests::source_none_is_a_true_zero_not_missing_data ... ok
+test trailer::tests::total_is_the_sum_of_all_four_components ... ok
+test transcript::tests::a_missing_transcript_directory_is_a_true_zero ... ok
+test transcript::tests::each_separator_becomes_its_own_dash ... ok
+test transcript::tests::slugifies_paths_the_way_claude_code_does ... ok
+test transcript::tests::sums_usage_across_lines_and_files ... ok
+test tokens::tests::the_trailer_lands_above_gits_comment_block ... ok
+
+test result: ok. 88 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/kloc_parity.rs (target/release/deps/kloc_parity-8301aa68191c15e9)
+
+running 4 tests
+test kovan_kloc_reproduces_the_python_output ... ignored, needs six repositories and a network clone; run the procedure in this file's module docs
+test the_fixture_csvs_are_crlf_terminated ... ok
+test the_fixture_records_the_published_figures ... ok
+test the_parity_fixture_is_present_and_complete ... ok
+
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/zotero_accounting.rs (target/release/deps/zotero_accounting-d06af41014c554b7)
+
+running 7 tests
+test hand_built_library_counts ... ok
+test duplicate_and_missing_keys_are_skipped ... ok
+test hand_built_library_import ... ok
+test journal_article_losses_match_the_documented_field_map ... ok
+test item_json_imports_every_regular_type ... ok
+test markdown_is_deterministic_and_escaped ... ok
+test webpage_item_type_is_altered ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

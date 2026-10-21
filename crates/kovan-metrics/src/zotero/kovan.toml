@@ -1,0 +1,566 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-metrics"
+dir = "crates/kovan-metrics/src/zotero"
+test_ids = [
+    "crates/kovan-metrics/tests/zotero_accounting.rs::duplicate_and_missing_keys_are_skipped",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::hand_built_library_counts",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::hand_built_library_import",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::item_json_imports_every_regular_type",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::journal_article_losses_match_the_documented_field_map",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::markdown_is_deterministic_and_escaped",
+    "crates/kovan-metrics/tests/zotero_accounting.rs::webpage_item_type_is_altered",
+]
+
+[module."counts.rs"]
+path = "crate::zotero::counts"
+
+[[module."counts.rs".function]]
+id = "fn:30aeecd1cae52a3c"
+name = "MISSING"
+qual = "MISSING"
+item = "const"
+shape = "const"
+lines = [
+    12,
+    14,
+]
+hash = "sha256:73d50cf05d5cb405c7828593699493be581f2d9cb30028cc8762707ccb50ea2c"
+doc_hash = "sha256:0b5314e5ab8fa001dc0ae8c5002e9dcf0248835ff5d1e140b7dc901c9f47b7f5"
+reached_by = [
+    "#1",
+    "#3",
+    "#5",
+]
+
+[[module."counts.rs".function]]
+id = "fn:2908344534d496c8"
+name = "TagCount"
+qual = "TagCount"
+item = "type"
+shape = "struct"
+lines = [
+    16,
+    23,
+]
+hash = "sha256:3b226b7a2c1f70f0d2fbd6ca8952dd619c9304ac4c4d8c43677ac22e1a873ff6"
+doc_hash = "sha256:a8e6c8117baa9d9469f0b8154e40fcdb4b4acd45a4c7c4d47e467cc871509fa4"
+reached_by = [
+    "#1",
+    "#3",
+    "#5",
+]
+
+[[module."counts.rs".function]]
+id = "fn:c14287c2b19fa94a"
+name = "CollectionCount"
+qual = "CollectionCount"
+item = "type"
+shape = "struct"
+lines = [
+    25,
+    40,
+]
+hash = "sha256:9b6c4b74c5d8969f350d978e5f2cc121b127c9ab7b704f1e771d15d6e73c9148"
+doc_hash = "sha256:9a7f2ea4154068a8bb54ffa65836a254c1e844d2e851519d74794868e3e6f3d0"
+reached_by = [
+    "#1",
+    "#3",
+    "#5",
+]
+
+[[module."counts.rs".function]]
+id = "fn:b5ca786997fb77e4"
+name = "LibraryCounts"
+qual = "LibraryCounts"
+item = "type"
+shape = "struct"
+lines = [
+    42,
+    77,
+]
+hash = "sha256:bc9f4a53d6910ce7233870426709ddab067856b660b53bb173aecd6466b2cff7"
+doc_hash = "sha256:b7a17272b881158b37db8c9b42b152c6aa057794f93d9bf81f42cfdeb607dcc8"
+uses = [
+    "fn:2908344534d496c8",
+    "fn:c14287c2b19fa94a",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#5",
+]
+
+[[module."counts.rs".function]]
+id = "fn:b9b945016cd904e7"
+name = "all_items"
+qual = "all_items"
+lines = [
+    79,
+    92,
+]
+hash = "sha256:7cbe15d5ac4814432c85cd40f6f542d743d7eef6043f821653d73451876ce97d"
+doc_hash = "sha256:ffafc4a182ac3b97d4b0666a02dbd640959840cad6d7936559ddcf8729ae52b0"
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:5315e59b99e3c06d",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#5",
+]
+
+[[module."counts.rs".function]]
+id = "fn:627f96f0b3f5aaea"
+name = "of"
+qual = "LibraryCounts::of"
+lines = [
+    95,
+    142,
+]
+hash = "sha256:afcd3c10fd6c6fe181c810906ec2fb3b5b7cea369a37ab24663b12bfcd3ef9a7"
+doc_hash = "sha256:e5f48404dd62450aeea42855ce67c34e6cf629241cf12c21791b1e25fefc6eec"
+callees = [
+    "fn:2ccabb20f9802d62",
+    "fn:4972fa4275ba334a",
+    "fn:572701544d88e8ff",
+    "fn:b9b945016cd904e7",
+    "fn:fc023140ff7c70ee",
+    "fn:fe0136b18348f914",
+    "fn:fe181b160a010799",
+]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:30aeecd1cae52a3c",
+    "fn:b5ca786997fb77e4",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#5",
+]
+
+[[module."counts.rs".function]]
+id = "fn:9126c63cae72d092"
+name = "to_markdown"
+qual = "LibraryCounts::to_markdown"
+lines = [
+    144,
+    219,
+]
+hash = "sha256:24cee0e396bf5f2b87d12c07d2ba7d4c1179aa8e5659d3183399953ed18f39fe"
+doc_hash = "sha256:b877084213fe9ce5827d7a80b5f73354d2733853c008f257c481764980c7b8b5"
+callees = [
+    "fn:5b1598a44bde36d5",
+    "fn:a427b693f84edfd7",
+]
+uses = ["fn:b5ca786997fb77e4"]
+reached_by = ["#5"]
+
+[[module."counts.rs".function]]
+id = "fn:a427b693f84edfd7"
+name = "table"
+qual = "table"
+lines = [
+    222,
+    233,
+]
+hash = "sha256:193c22930035e1628324bd88db7fe8dca09e2eb7a09911bba62fbcdb6a04ff4a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5b1598a44bde36d5"]
+reached_by = ["#5"]
+
+[[module."counts.rs".function]]
+id = "fn:4972fa4275ba334a"
+name = "collection_counts"
+qual = "collection_counts"
+lines = [
+    235,
+    310,
+]
+hash = "sha256:930fdf4d3475d555fe72f67f1c5c77aaa5366bf2af24595a7e7093ce0d1ecce7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:5315e59b99e3c06d",
+    "fn:c14287c2b19fa94a",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#5",
+]
+
+[module."import_report.rs"]
+path = "crate::zotero::import_report"
+
+[[module."import_report.rs".function]]
+id = "fn:793b6d3aefac1bfa"
+name = "SkipReason"
+qual = "SkipReason"
+item = "type"
+shape = "enum"
+lines = [
+    17,
+    34,
+]
+hash = "sha256:45fb175f6061b02e581e621eb7f64316a95d6ddb651c20f0ef3a2aa0ad7d89b7"
+doc_hash = "sha256:ba7bd93e4dfa831a0cb49dbfc42c6c64ac2a44d919ff16c4b429d6b629d1c2eb"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:02f79f5f9f52c0d7"
+name = "describe"
+qual = "SkipReason::describe"
+lines = [
+    37,
+    45,
+]
+hash = "sha256:3256c522c3d54147463bfd32814c7a395c2b016fe4fd23c797600374c3a3e683"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:793b6d3aefac1bfa"]
+reached_by = ["#5"]
+
+[[module."import_report.rs".function]]
+id = "fn:3bd1b209aac2face"
+name = "ImportedItem"
+qual = "ImportedItem"
+item = "type"
+shape = "struct"
+lines = [
+    48,
+    63,
+]
+hash = "sha256:59f59a08bc9d20496a86ff9894f9efd22639043bcef59ac4202f533decda17dc"
+doc_hash = "sha256:0d4093ae65c82bd3065afae0be45564fcffb08205ad8885ac7d630558b642a87"
+uses = ["fn:172326af75efdc60"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:baf0c3a91a01b5e1"
+name = "SkippedItem"
+qual = "SkippedItem"
+item = "type"
+shape = "struct"
+lines = [
+    65,
+    74,
+]
+hash = "sha256:e756c04d705989d8db7783b75422145df98569cbb0e8fe9de2be6784ee4e658c"
+doc_hash = "sha256:544cf53e1b8da1e2c210ed33e455702e31e9cc105f6ae8986f8de78b35bf0031"
+uses = ["fn:793b6d3aefac1bfa"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:e16c14a67a161b1c"
+name = "LossKind"
+qual = "LossKind"
+item = "type"
+shape = "enum"
+lines = [
+    76,
+    89,
+]
+hash = "sha256:b53fc206daca85d473b538ff93e2eee27d3aa12d7702eb60120579e9e55d5884"
+doc_hash = "sha256:f5fbf3f220c704538f31911e6d41c623192807108c94fd62b49dc0886039399a"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:2761524d1b319a48"
+name = "label"
+qual = "LossKind::label"
+lines = [
+    92,
+    98,
+]
+hash = "sha256:4479b54bbd71e6a2b9a1e95088ba495ed2fcb435735746c1cae3e74f7dd14fa9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e16c14a67a161b1c"]
+reached_by = ["#5"]
+
+[[module."import_report.rs".function]]
+id = "fn:11c3b4600e85fabf"
+name = "FieldLoss"
+qual = "FieldLoss"
+item = "type"
+shape = "struct"
+lines = [
+    101,
+    113,
+]
+hash = "sha256:c14cb7d0817aa422ffecc15e837e978860a0a2cc6b9143cba9e6ee44ea1b796f"
+doc_hash = "sha256:4be14c2e2d44e68791ae1d1fafb9d30341858a49671932ab6a9236f983ebc1d3"
+uses = ["fn:e16c14a67a161b1c"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:93d073b4bb0157ac"
+name = "ImportReport"
+qual = "ImportReport"
+item = "type"
+shape = "struct"
+lines = [
+    115,
+    127,
+]
+hash = "sha256:445c53f8f51c367398d13d2c522bb92f54a553dde78c452bc6dc4e8f4fca0b85"
+doc_hash = "sha256:3622b977c409651e5cbeb6bb48474d195918e1c67db9d12688a07b08e0be2bfd"
+uses = [
+    "fn:11c3b4600e85fabf",
+    "fn:3bd1b209aac2face",
+    "fn:baf0c3a91a01b5e1",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:6c852b9595551963"
+name = "losses_by_property"
+qual = "ImportReport::losses_by_property"
+lines = [
+    130,
+    146,
+]
+hash = "sha256:85e839458632dbb9d416e2f629c2b0c9b3136bf3a8a271ac7375c8934d49af9a"
+doc_hash = "sha256:130f4421b3f2945fe7c1231cc12328f7a110dcedb42ab53d44a6c29dd26f0fe3"
+uses = [
+    "fn:93d073b4bb0157ac",
+    "fn:e16c14a67a161b1c",
+]
+reached_by = [
+    "#2",
+    "#5",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:55a9073b28366499"
+name = "to_markdown"
+qual = "ImportReport::to_markdown"
+lines = [
+    148,
+    234,
+]
+hash = "sha256:fb9822de4fe4d913c87f33044ad17baeb5e4bcdf152991d85bfcdf7ea6cda2a3"
+doc_hash = "sha256:dd4268945685cfa143398b205044b1d844d1ac3fff0265b8155db5827d516bfa"
+callees = [
+    "fn:02f79f5f9f52c0d7",
+    "fn:2761524d1b319a48",
+    "fn:5b1598a44bde36d5",
+    "fn:6c852b9595551963",
+]
+uses = [
+    "fn:93d073b4bb0157ac",
+    "fn:e16c14a67a161b1c",
+]
+reached_by = ["#5"]
+
+[[module."import_report.rs".function]]
+id = "fn:9c64c14fc82f3816"
+name = "import_library"
+qual = "import_library"
+lines = [
+    237,
+    291,
+]
+hash = "sha256:6d103e65048aa3bcaf50699b07a871ffc6e300d58228168bea2bb8ce9ab641dd"
+doc_hash = "sha256:0f0ef54e26222df0997be26c978166634de1ef71bc180dc8504574abbc319a34"
+callees = [
+    "fn:572701544d88e8ff",
+    "fn:6dd3106fbfb42fb0",
+    "fn:d9b08586d3bf02f0",
+    "fn:fc023140ff7c70ee",
+]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:3bd1b209aac2face",
+    "fn:793b6d3aefac1bfa",
+    "fn:93d073b4bb0157ac",
+    "fn:b07b8e5717934b35",
+    "fn:baf0c3a91a01b5e1",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:691f7f2defc4acc7"
+name = "json_text"
+qual = "json_text"
+lines = [
+    293,
+    298,
+]
+hash = "sha256:f684d64ce6d8147c1ac0f3d50c3891959ce8d368fc4f8a7f97ea170aaa44389f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:f42b1360192e433a"
+name = "is_empty_json"
+qual = "is_empty_json"
+lines = [
+    300,
+    308,
+]
+hash = "sha256:1925ac5139280dd3ccb5477de7e547de4f166b72969ed2df4dec5f5a5bfad27b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:908929578eecec1b"
+name = "creator_text"
+qual = "creator_text"
+lines = [
+    310,
+    319,
+]
+hash = "sha256:7dca04751b3620ba6b39997325b4301b6ad5bb7e3f2ad8927d96ff1da7f0fd14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8fa400ffde5cef5f"]
+uses = [
+    "fn:8cb0a05f95b036a6",
+    "fn:8dbf95ce0d2d3375",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:373d97290bc6e6bf"
+name = "extra_values"
+qual = "extra_values"
+lines = [
+    321,
+    328,
+]
+hash = "sha256:d2500b0542cd8fc8f26f5846e9aabc0adec00777f9a577e98b091f15aada97bb"
+doc_hash = "sha256:7ce06a2d2d0a295f8dc6e1c8aa32fcbb8178bc4b706de224bb6c4b108494e952"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."import_report.rs".function]]
+id = "fn:d9b08586d3bf02f0"
+name = "losses_of"
+qual = "losses_of"
+lines = [
+    330,
+    440,
+]
+hash = "sha256:133551e01b5c28d7796b68a70acf2ed8e8fa0fe0e4ee41d89bdb16e6c492f917"
+doc_hash = "sha256:e27574225dc5980a93ab0fe5de077c839e67d44d7fff2ffb092bc1231bbd4f34"
+callees = [
+    "fn:23ae4e67b6b54384",
+    "fn:2ccabb20f9802d62",
+    "fn:373d97290bc6e6bf",
+    "fn:691f7f2defc4acc7",
+    "fn:69a25389726cb20d",
+    "fn:6c8ab2587e36846c",
+    "fn:908929578eecec1b",
+    "fn:b26ea68c078e0862",
+    "fn:cedc79742e5d95c5",
+    "fn:d214ae8da4b5e478",
+    "fn:f42b1360192e433a",
+]
+uses = [
+    "fn:11c3b4600e85fabf",
+    "fn:5315e59b99e3c06d",
+    "fn:8cb0a05f95b036a6",
+    "fn:b07b8e5717934b35",
+    "fn:d4ea0d49816f0858",
+    "fn:e16c14a67a161b1c",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[module."mod.rs"]
+path = "crate::zotero"
+
+[[module."mod.rs".function]]
+id = "fn:5b1598a44bde36d5"
+name = "md_cell"
+qual = "md_cell"
+lines = [
+    84,
+    99,
+]
+hash = "sha256:23cff7c40344f25e63b3cb52b1810219cb997150c76bc9e306b015f833d8492c"
+doc_hash = "sha256:1fb26746140f0e8e5c0e9090a5067f1342905c75266b130459555e9e75a0ffd4"
+reached_by = ["#5"]

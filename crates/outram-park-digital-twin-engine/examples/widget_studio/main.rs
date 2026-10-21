@@ -62,6 +62,7 @@ mod heat_exchanger_tab;
 
 /// Reactor-vessel gallery: every scoped reactor architecture, side by side.
 mod reactor_tab;
+mod test_reactors_tab;
 
 /// Pump gallery: centrifugal, vertical canned-rotor and axial propeller.
 mod pump_tab;

@@ -197,6 +197,182 @@ between the landmarks, every one required to stay at the warning stage.
 
 ---
 
+## 2026-09-20 — A pebble bed is a POROUS MEDIUM, not an explicit lattice
+
+### What the AI did
+
+Building the HTR-10 deterministic-vs-Monte-Carlo comparison, the assistant
+switched the model from `assemble()` (homogenised bed) to
+`assemble_explicit_triso()` (every pebble carrying an explicit 8340-particle
+TRISO lattice), on the reasoning that the explicit geometry was "the real
+model" and the homogenised one a cheap approximation to be escaped.
+
+It then discovered that a single Monte Carlo point cost **over an hour without
+finishing pass 1 of 2** at only 3000 histories — 22876 tiles each carrying a
+TRISO lattice — and reported this to the maintainer as a hard constraint on
+whether a parameter map was feasible at all, proposing to work around it.
+
+### The correction
+
+> *"Pebble beds are porous media! ... We use porous media heat transfer."*
+
+The cost crisis was self-inflicted. A pebble bed **is** a porous medium, and the
+porous-media treatment is the *appropriate physical model*, not a compromise
+made for speed. The explicit lattice is the special-purpose instrument — useful
+for verifying a self-shielding treatment at a few anchor points — and it is not
+the thing a core model should be built on.
+
+Three consequences the assistant had not drawn:
+
+1. **This workspace already treats the bed as porous media**, on the thermal
+   side, and has for some time: `crates/tampines/src/pebble_bed/`, with
+   `src/htr10/kta.rs` and `src/htr10/zbs.rs` for packed-bed friction and
+   effective conductivity. The neutronics should be consistent with the
+   thermal-hydraulics, not modelled on a different footing.
+2. **The double heterogeneity has its own machinery here** — chord length
+   sampling (`stochastic/cls.rs`, CLS/SCLS) and `dh_universe.rs` exist precisely
+   so a homogenised medium keeps TRISO self-shielding without explicit geometry.
+   The assistant had worked on that code earlier in the same session and did not
+   connect it.
+3. **The goal's three temperatures are the porous medium's PHASE temperatures.**
+   "Fuel temperature, graphite temperature, moderator temperature" are not three
+   arbitrary knobs — they are the solid-fuel, solid-moderator and fluid phases a
+   porous-media heat-transfer model already carries separately. Reading them as
+   arbitrary inputs is what made the temperature axes look like a modelling
+   question rather than a coupling question.
+
+### Why the AI process missed it
+
+The reasoning was "explicit geometry is higher fidelity, therefore more
+correct", applied without asking what the *governing model* for a pebble bed
+actually is. Fidelity was treated as a scalar to be maximised rather than a
+choice of formulation to be justified.
+
+It is also the search-before-building rule failing one level up: the assistant
+searched for *code* that solved its stated problem, and did not search for how
+this workspace already *models the thing* — the porous-media treatment was
+sitting in a sibling crate and in the CLS machinery it had itself been editing
+hours earlier.
+
+The tell was present and misread: an hour-long single point should have
+prompted "is this the right model?" rather than "how do I afford this model?".
+Cost blowing up by an order of magnitude is evidence about the formulation, not
+merely a budget problem.
+
+### Test that would have caught it
+
+None would. No test can catch reaching for the wrong formulation, because every
+test is written against the formulation chosen. What would have caught it is
+stating the governing model and its justification before building — recurring
+failure mode 1 below, which this entry is a fresh instance of.
+
+---
+
+## 2026-09-20 — A reactor core is not a slab
+
+### What the AI did
+
+Built every HTR-10 deterministic model on `create_one_d_mesh(...)` — a **1-D
+Cartesian slab** — to compare diffusion and SP3 against Monte Carlo. The HTR-10
+is a cylinder: bed at `r < 90 cm`, graphite reflector to `r = 190 cm`, finite
+in `z`.
+
+Then spent a long run of measurements engineering around that choice: a
+transverse buckling for whichever direction was not meshed (its one-group
+reflector saving once returning 123 cm, *larger than the 100 cm reflector it
+was saving*), then a "volume-matched" slab, then a **bracket** of the two —
+argued in a forty-line source comment as an unavoidable dilemma, because "a
+slab cannot represent a cylinder's volume weighting and its leakage path at
+once".
+
+### The correction
+
+> *"why are u doing a slab?"* … *"you were never meant to do a slab."*
+
+The dilemma was invented.
+
+`FvMesh`'s builder exposes **`.cell_volumes(Vec<f64>)`**. `create_one_d_mesh`
+merely fills them with `vec![h * area; n]`. An R-Z mesh needs **no new mesh
+generator** — set cell volume to the annulus `pi (r_out^2 - r_in^2) H` and face
+areas proportional to `r`, and the existing finite-volume operators consume it
+unchanged.
+
+And more basically: **this class of problem is posed in R-Z.** It is the
+geometry the benchmark specification itself uses — IAEA-TECDOC-1382's Table 4-3
+zone map and Terry 2005 Fig. 2 are both R-Z partitions, both catalogued here,
+both read by the assistant the same day, and the workspace's own derived record
+is literally named `htr10-rz-zone-geometry.md`. Choosing a slab discarded the
+geometry the benchmark is written in.
+
+So the ~6200 pcm residual being carefully decomposed into "one-group axial
+saving" and "missing cylindrical weighting" was substantially just the wrong
+geometry, and the bracket was measuring a self-inflicted error.
+
+### Why the AI process missed it
+
+Same failure as the porous-media entry above, the same day: searched for **a
+function returning a mesh**, found one, used it — instead of asking **what
+geometry this physics is posed in** and checking whether the workspace could
+express it. `.cell_volumes()` was one `grep` away throughout.
+
+The tell was misread repeatedly. Every time the model failed to fit, machinery
+was added rather than the premise questioned. By the time the reasoning reached
+"neither arm is the answer, so run both", the assistant had written down that
+its model could not represent the system — and treated that as a fact about the
+world rather than about its own choice.
+
+### Test that would have caught it
+
+A geometry assertion, not a numerical one: the deterministic mesh must
+reproduce each material region's **volume** in the Monte Carlo model it is
+compared against. The slab fails instantly — reflector at 52.6 % of the domain
+against the cylinder's 77.6 % — and fails *before* any eigenvalue is computed.
+No comparison of `k` means anything between two models that disagree on how
+much of each material exists.
+
+---
+
+## 2026-10-05 — Every element plates out at one rate: an upstream simplification a faithful port inherits
+
+**Crates:** `boon-lay` (`triso_atops_fork::normal_operation::normal_operation_node`),
+`dhoby-ghaut` (TRISO-ATOPS demo, release rung)
+**Severity:** moderate. Not a translation error; a modelling simplification
+that HTR-10's own source data contradicts.
+**Issue:** gh:#583
+
+### What was reported
+
+The TRISO-ATOPS port agrees with upstream code to code, and the demo's
+release rung reported the coolant pools for every nuclide, with every input
+cited.
+
+### What was actually wrong
+
+TRISO-ATOPS uses **one** plate-out constant and **one** purification constant
+per reactor. The element only switches each one on or off: noble gases do not
+plate out, and metals are never purified. Iodine, caesium, strontium and silver
+therefore all plate out at the same rate per circulating atom. HTR-10's source
+(Liu & Cao 2002, §2.4.1) gives plate-out per cycle of 20 % for I and 50 % for
+Cs, and 90 % purification of Sr, Ag, Cs and Rb.
+
+### Why the AI process missed it
+
+Each match arm in the routing reads as reasonable on its own, and the port is
+*meant* to reproduce upstream, so code-to-code agreement was the target and
+was met. The verification the AI would write encodes upstream's model, so it
+could only confirm the simplification. The maintainer caught it within minutes
+of **seeing** all 19 nuclides drawn through the circuit at once, coloured by
+transport group. That produced a standing practice:
+[`docs/claude-md/visual-review-first.md`](claude-md/visual-review-first.md).
+
+### Check that would have caught it
+
+Draw the model's structure for the whole population at once, grouped by the
+dimension the physics should depend on (here, the element), and ask of every
+rate shared across a group whether the physics shares it.
+
+---
+
 ## Recurring failure modes
 
 Patterns visible across entries, worth checking against before trusting AI work
@@ -218,3 +394,37 @@ in this workspace:
 5. **Plausible-looking output resists scrutiny.** Polished artwork, confident
    prose and precise-looking numbers all reduce the chance anyone checks the
    claim underneath.
+6. **Fidelity treated as a scalar to maximise.** Reaching for the most explicit
+   representation available, rather than the formulation the physics of the
+   system calls for. Explicit geometry is not automatically "more correct" —
+   a pebble bed is a porous medium, a homogenised medium with a
+   double-heterogeneity treatment is its proper model, and the explicit lattice
+   is a verification instrument. *Check: can you name the governing model for
+   this system and say why it is the right one, before choosing a
+   discretisation? And does the rest of the workspace already model this system
+   that way?*
+7. **Cost blow-up read as a budget problem.** When a chosen approach becomes an
+   order of magnitude more expensive than expected, that is evidence about the
+   formulation, not just an obstacle to route around. *Check: before optimising
+   or working around the cost, ask whether the expensive thing is the right
+   thing.*
+8. **Escalating workarounds instead of re-examining the premise.** Machinery
+   added each time a model fails to fit — a correction factor, a matched
+   variant, a bracket — rather than questioning the choice that made it
+   necessary. The tell is arriving at "this model cannot represent the system,
+   so here is a bound instead". *Check: before bracketing an error, ask whether
+   it is a property of the system or of a choice you made.*
+9. **Taking a convenience constructor as the only option.** Using the first
+   function that returns the right type without reading what it builds, or
+   checking whether the type beneath supports what the physics needs. *Check:
+   what does this actually construct, and what does the underlying type admit?*
+10. **Discarding the geometry the specification is written in.** A benchmark
+    carries its geometry with it; an R-Z zone map is part of the problem
+    statement, not an implementation suggestion. *Check: what geometry is the
+    reference posed in, and does your model share it?*
+11. **A faithful port inherits upstream's simplifications.** Code-to-code
+    agreement certifies the translation, not the physics: a rate, constant or
+    switch that upstream lumps across a group is reproduced exactly, and every
+    test written against upstream confirms it. *Check: draw the model across
+    the whole population, grouped by what the physics depends on, and ask of
+    every shared parameter whether the physics shares it (gh:#583).*

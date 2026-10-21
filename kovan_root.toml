@@ -1,0 +1,46 @@
+# kovan_root.toml: created by kovan "Index fresh" on 2026-10-10 (GitHub #780).
+# It holds this repository's code-review registry: reviewers, their keys and
+# each key's append-only history. kovan never commits it; you do.
+# founder: UNSET. No sign-off identity was found in kovan's keystore, so none was
+# written (one is never invented). Set [code_review] founder = "github:<you>"
+# (or gitlab:, orcid:, an email) before anyone stamps; until then no key is trusted.
+# reviewers: none yet (an empty registry, so an empty key history).
+# rust-analyzer: 1.97.1, the version this index was built with, recorded in
+# [[code_review.rust_analyzer_used]]; each later index run appends the version it
+# used when it differs. Nothing is pinned: set [code_review] rust_analyzer, or run
+# kovan-cli index --pin-rust-analyzer, to pin one.
+
+schema_version = 1
+
+[[code_review.rust_analyzer_used]]
+commit = "72d261e8aa330ff39cbc604702bcdd5bab011f41"
+date = "2026-10-10"
+version = "1.97.1"
+
+[library]
+id = "outram-park-backend"
+name = "outram-park-backend"
+
+[code_review]
+founder = "github:theodoreOnzGit"
+
+[[reviewer]]
+id = "github:theodoreOnzGit"
+name = "teddy0ng"
+role = "maintainer"
+admitted = "2026-10-12"
+
+[[reviewer.key]]
+id = "k1"
+alg = "ed25519"
+public = "StJ/EE7JyvJli747XWV8NYk1mMR0E8BYtft3osBtlnA="
+created = "2026-10-12"
+
+[[reviewer.key.history]]
+event = "created"
+date = "2026-10-12"
+
+[[code_review.rust_analyzer_used]]
+version = "1.98.0"
+date = "2026-10-13"
+commit = "9310d33f562c2cb25a2ed9e561e23596c9cbe908"

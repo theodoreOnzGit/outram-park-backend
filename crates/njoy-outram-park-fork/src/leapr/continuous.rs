@@ -21,6 +21,7 @@
 //! ## Units
 //! `alpha`, `beta`, `S` are all dimensionless.
 
+use petir::mathf::RealMath;
 use crate::leapr::frequency::FrequencyModel;
 use crate::leapr::input::LeaprInput;
 use crate::leapr::sct::sct_free_gas;
@@ -83,7 +84,7 @@ pub fn convol(t1: &[f64], tlast: &[f64], nn: usize, delta: f64) -> (Vec<f64>, f6
             let be = j0 as f64 * delta;
             // f1: tlast at index k0+j0, folded by exp(-be)
             let f1 = if k0 + j0 < nl {
-                tlast[k0 + j0] * (-be).exp()
+                tlast[k0 + j0] * (-be).r_exp()
             } else {
                 0.0
             };
@@ -99,7 +100,7 @@ pub fn convol(t1: &[f64], tlast: &[f64], nn: usize, delta: f64) -> (Vec<f64>, f6
                 let i2 = j0 - k0;
                 if i2 < nl {
                     let ben = i2 as f64 * delta;
-                    tlast[i2] * (-ben).exp()
+                    tlast[i2] * (-ben).r_exp()
                 } else {
                     0.0
                 }
@@ -116,7 +117,7 @@ pub fn convol(t1: &[f64], tlast: &[f64], nn: usize, delta: f64) -> (Vec<f64>, f6
         }
         tnext[k0] = acc;
         let be = k0 as f64 * delta;
-        let mut cc = acc + acc * (-be).exp();
+        let mut cc = acc + acc * (-be).r_exp();
         if k0 == 0 || k0 == nn - 1 {
             cc /= 2.0;
         }
@@ -156,9 +157,9 @@ pub fn phonon_expansion(input: &LeaprInput, freq: &FrequencyModel) -> SabMatrix 
     let mut tlast = freq.t1.clone();
     for j in 0..nalpha {
         let al = input.alpha[j] * sc / arat;
-        xa[j] = (al * f0).ln();
+        xa[j] = (al * f0).r_ln();
         let ex = -f0 * al + xa[j];
-        let exx = if ex > EXPLIM { ex.exp() } else { 0.0 };
+        let exx = if ex > EXPLIM { ex.r_exp() } else { 0.0 };
         for k in 0..nbeta {
             let be = input.beta[k] * sc;
             let st = terpt(&tlast, deltab, be);
@@ -180,9 +181,9 @@ pub fn phonon_expansion(input: &LeaprInput, freq: &FrequencyModel) -> SabMatrix 
         let (tnow, _ckk) = convol(&freq.t1, &tlast, npn, deltab);
         for j in 0..nalpha {
             let al = input.alpha[j] * sc / arat;
-            xa[j] += (al * f0 / n as f64).ln();
+            xa[j] += (al * f0 / n as f64).r_ln();
             let ex = -f0 * al + xa[j];
-            let exx = if ex > EXPLIM { ex.exp() } else { 0.0 };
+            let exx = if ex > EXPLIM { ex.r_exp() } else { 0.0 };
             for k in 0..nbeta {
                 let be = input.beta[k] * sc;
                 let st = terpt(&tnow, deltab, be);
@@ -255,7 +256,7 @@ pub fn moment_check(
     for k in 0..nbeta {
         let be = beta[k] * sc;
         let ff2 = sab.get(k, ialpha);
-        let ff1 = ff2 * (-be).exp();
+        let ff1 = ff2 * (-be).r_exp();
         if k > 0 {
             sum0 += (be - bel) * (ff1l + ff2l + ff1 + ff2) / 2.0;
             sum1 += (be - bel) * (ff2l * bel + ff2 * be - ff1l * bel - ff1 * be) / 2.0;
@@ -264,7 +265,7 @@ pub fn moment_check(
         ff1l = ff1;
         ff2l = ff2;
     }
-    sum0 /= 1.0 - (-al * f0).exp();
+    sum0 /= 1.0 - (-al * f0).r_exp();
     sum1 /= al * tbeta;
     (sum0, sum1)
 }
@@ -286,7 +287,7 @@ mod tests {
         let t1: Vec<f64> = (0..n)
             .map(|i| {
                 let be = i as f64 * delta;
-                (-(be - 1.0) * (be - 1.0) / 0.2).exp()
+                (-(be - 1.0) * (be - 1.0) / 0.2).r_exp()
             })
             .collect();
         // normalize T_1 integral (with the exp(-beta) fold) to 1 first

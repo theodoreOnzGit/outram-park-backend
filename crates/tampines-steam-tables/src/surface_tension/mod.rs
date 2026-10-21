@@ -4,6 +4,8 @@
 //! `uom` `RadiantExposure` (J/m^2) because `uom` has no dedicated
 //! surface-tension quantity — the units coincide (kg/s^2).
 
+use petir::mathf::RealMath;
+
 use uom::si::{f64::*, radiant_exposure::joule_per_square_meter, ratio::ratio};
 
 use crate::constants::t_crit_water;
@@ -30,7 +32,7 @@ pub fn water_surf_tension(t: ThermodynamicTemperature) -> RadiantExposure {
     let one_minus_theta = 1.0 - theta;
 
     let dimensionless_surf_tension =
-        235.8 * one_minus_theta.powf(1.256) * (1.0 - 0.625 * one_minus_theta);
+        235.8 * one_minus_theta.r_powf(1.256) * (1.0 - 0.625 * one_minus_theta);
 
     return dimensionless_surf_tension * sigma_star;
 }

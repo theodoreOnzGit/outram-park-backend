@@ -4,7 +4,8 @@
 //! / boolean operators into whole-reactor **surfaces**, ready to hand to the
 //! solver bridges: the volume-meshing bridge ([`crate::foam_mesh`], feature
 //! `foam-mesh`, for CFD / thermal-hydraulics) and the Monte-Carlo bridge
-//! ([`crate::sim`], feature `mc-export`, for neutronics). Nothing here meshes or
+//! (~~`crate::sim`, feature `mc-export`~~ `nee_soon::sim` since 2026-10-02,
+//! GitHub #486, for neutronics). Nothing here meshes or
 //! simulates — it only *authors* a closed, watertight, outward-wound
 //! [`Mesh`](crate::mesh::Mesh) that those bridges then consume.
 //!
@@ -227,6 +228,7 @@ fn meridian_profile(dims: &Htr10CoreDimensions) -> Vec<Vec3> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use std::collections::HashSet;
     use std::f64::consts::PI;
@@ -268,7 +270,7 @@ mod tests {
     /// inscribed prism, so this is the reference the mesh must match to
     /// machine precision.
     fn inscribed_prism_volume(n: usize, r: f64, h: f64) -> f64 {
-        0.5 * (n as f64) * r * r * (TAU / n as f64).sin() * h
+        0.5 * (n as f64) * r * r * (TAU / n as f64).r_sin() * h
     }
 
     /// V&V — the default HTR-10 core envelope is a closed, watertight,

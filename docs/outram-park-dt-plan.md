@@ -8,11 +8,9 @@ crate. Full planning-tool record: `/home/teddy0/.claude/plans/glimmering-ponderi
 `CLAUDE.md`, then carried over from beads-rs to kopi-beans on 2026-08-07): Part 1 →
 `op-kbc.18` (child of the `outram-park-fork-coolprop` epic `op-kbc`); Part 2 →
 epic `op-dt3` (`tampines`); Part 3 → epic `op-wqk`
-(`outram-park-digital-twin-engine`). Run `bn show op-dt3` / `bn show op-wqk` /
-`bn dep tree op-dt3` for live status once kopi-beans' live format-version
-blocker on this store clears (see root `CLAUDE.md` "Issue tracking & roadmap —
-kopi-beans") — this file is a point-in-time summary, the tracker is the source
-of truth for progress.
+(`outram-park-digital-twin-engine`). These `op-*` ids belong to a retired
+tracker; live status is in GitHub issues. This file is a point-in-time summary,
+and the tracker is the source of truth for progress.
 
 ## Context
 

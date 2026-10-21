@@ -20,12 +20,18 @@
 //! - total rate:      `w`               (one collision)
 //!
 //! (`src/tallies/tally_scoring.cpp`, `score_general` collision branch.) This is
-//! the simplest unbiased estimator; a track-length estimator (bead op-6tz.9
-//! follow-up) would additionally score along free-flight segments.
+//! the simplest unbiased estimator; ~~a track-length estimator (bead op-6tz.9
+//! follow-up) would additionally score along free-flight segments.~~
+//! **CORRECTED 2026-10-06:** the track-length estimator exists
+//! ([`score_track_length`]) and is what the CSG transport scores on
+//! surface-tracked segments. Inside a delta-tracked region the transport
+//! scores a collision estimator at a POINT with [`score_collision_point`]
+//! (gh:#598), by default at every tentative collision with `1/Σ_maj`.
 
-use super::filter::FilterEvent;
+use super::filter::{FilterEvent, FilterKind};
+use crate::particle::particle::ParticleType;
 use super::tally::{ScoreType, Tally, TallyBin};
-use crate::geometry::position::Position;
+use crate::geometry::position::{Direction, Position};
 use crate::material::material::MacroXs;
 
 /// Recoverable energy per fission `Q` \[J\] — the constant multiplier of the
@@ -50,6 +56,49 @@ use crate::material::material::MacroXs;
 /// produces are not a benchmark — but they are exactly proportional to the
 /// fission rate, which is what the power-normalization round-trip needs.
 pub const Q_FISSION_J: f64 = 3.0982e-11;
+
+/// **Prompt** fission energy release \[J\] — `SCORE_FISS_Q_PROMPT`.
+///
+/// `181.7 MeV` for U-235: the recoverable 193.4 MeV of [`Q_FISSION_J`] less
+/// the delayed beta (~6.5 MeV) and delayed gamma (~5.2 MeV) components
+/// (Lamarsh & Baratta, *Introduction to Nuclear Engineering*, fission energy
+/// budget table). `181.7e6 x 1.602176634e-19 J`.
+///
+/// Like [`Q_FISSION_J`] this is **one constant, not the nuclide- and
+/// energy-dependent curve upstream carries**, so the absolute watts are not a
+/// benchmark; the prompt/recoverable *ratio* is what this exists to make
+/// available. Stated here rather than left implicit, because a power figure
+/// quoted from it would otherwise look more authoritative than it is.
+pub const Q_FISSION_PROMPT_J: f64 = 2.9114e-11;
+
+/// **Recoverable** fission energy release \[J\] — `SCORE_FISS_Q_RECOV`.
+///
+/// The same 193.4 MeV as [`Q_FISSION_J`]. They are separate names because they
+/// are separate upstream scores (`SCORE_KAPPA_FISSION` and `SCORE_FISS_Q_RECOV`
+/// differ in upstream's data-driven form even where this port's single
+/// constant makes them equal); collapsing them here would hide that a
+/// data-driven version has to split them again.
+pub const Q_FISSION_RECOVERABLE_J: f64 = Q_FISSION_J;
+
+/// Neutron speed \[cm/s\] at kinetic energy `e` \[eV\], non-relativistic.
+///
+/// `v = sqrt(2E/m)`, with `m_n = 1.67492749804e-27 kg` and
+/// `1 eV = 1.602176634e-19 J`; the factor 100 converts m/s to cm/s.
+///
+/// Non-relativistic is correct to better than 0.1 % below ~20 MeV, which is
+/// the whole neutron range this crate transports. Upstream's `p.speed(E)` is
+/// relativistic; the difference at 20 MeV is 1.1 % in `v` and therefore in
+/// `1/v`, which matters for nothing this score is used for (the generation
+/// time is dominated by thermal and epithermal flux). Stated rather than
+/// silently assumed.
+pub fn neutron_speed_cm_per_s(e: f64) -> f64 {
+    const J_PER_EV: f64 = 1.602_176_634e-19;
+    const MASS_KG: f64 = 1.674_927_498_04e-27;
+    if e <= 0.0 {
+        return 0.0;
+    }
+    (2.0 * e * J_PER_EV / MASS_KG).sqrt() * 100.0
+}
 
 /// Map a [`FilterEvent`] through every filter attached to `tally` to the flat
 /// *filter* bin index (row-major, first filter slowest-varying), or `None` if any
@@ -78,7 +127,13 @@ fn filter_bin(tally: &Tally, ev: &FilterEvent) -> Option<usize> {
 /// reaction-rate estimate is `w·d·Σ_x` (`src/tallies/tally_scoring.cpp`,
 /// `score_general` track-length branch). Surface-only scores (`Current`) and the
 /// event counter are not track-length quantities and contribute nothing here.
-fn track_length_value(score: &ScoreType, d: f64, macro_xs: Option<&MacroXs>, w: f64) -> f64 {
+fn track_length_value(
+    score: &ScoreType,
+    d: f64,
+    macro_xs: Option<&MacroXs>,
+    w: f64,
+    energy: f64,
+) -> f64 {
     let wd = w * d;
     match (score, macro_xs) {
         (ScoreType::Flux, _) => wd,
@@ -97,8 +152,39 @@ fn track_length_value(score: &ScoreType, d: f64, macro_xs: Option<&MacroXs>, w: 
         // `Σ_t − Σ_elastic`, which would wrongly count inelastic + (n,2n).
         (ScoreType::Absorption, Some(x)) => wd * x.absorption.max(0.0),
         (ScoreType::ScatterN, Some(x)) => wd * x.elastic,
-        // Void segment (no material): only the flux score is defined; reaction
-        // rates require Σ_x, so they contribute nothing.
+        // ── GitHub #262 ─────────────────────────────────────────────────────
+        // `SCORE_SCATTER` is Sigma_t - Sigma_a (`tally_scoring.cpp:629`), NOT
+        // the elastic channel that `ScatterN` scores. Clamped at zero: the two
+        // come from separate tabulations and their difference can dip very
+        // slightly negative through interpolation alone.
+        (ScoreType::Scatter, Some(x)) => wd * (x.total - x.absorption).max(0.0),
+        // `SCORE_NU_SCATTER` weights each scatter by the neutrons it emits.
+        // **This port scores it identically to `Scatter`**, because the
+        // per-reaction (n,xn) yields are not carried on `MacroXs`. That is a
+        // KNOWN UNDERCOUNT wherever (n,2n) is significant - a fast metal
+        // system - and it is stated here rather than left to be discovered
+        // from a number that looks right. Do not quote a nu-scatter rate from
+        // this port as if the multiplicity were included.
+        (ScoreType::NuScatter, Some(x)) => wd * (x.total - x.absorption).max(0.0),
+        (ScoreType::DelayedNuFission, Some(x)) => wd * x.nu_fission_delayed,
+        (ScoreType::PromptNuFission, Some(x)) => {
+            wd * (x.nu_fission - x.nu_fission_delayed).max(0.0)
+        }
+        (ScoreType::DecayRate, Some(x)) => wd * x.decay_rate,
+        (ScoreType::FissionQPrompt, Some(x)) => wd * x.fission * Q_FISSION_PROMPT_J,
+        (ScoreType::FissionQRecoverable, Some(x)) => wd * x.fission * Q_FISSION_RECOVERABLE_J,
+        // `SCORE_INVERSE_VELOCITY` is `flux / v` (`tally_scoring.cpp:612`) and
+        // needs no cross section at all, so it is scored in the void arm too.
+        (ScoreType::InverseVelocity, _) => {
+            let v = neutron_speed_cm_per_s(energy);
+            if v > 0.0 {
+                wd / v
+            } else {
+                0.0
+            }
+        }
+        // Void segment (no material): only the flux and 1/v scores are
+        // defined; reaction rates require Σ_x, so they contribute nothing.
         (_, None) => 0.0,
         // Surface current / event counter are not track-length estimators.
         (ScoreType::Current | ScoreType::Events, _) => 0.0,
@@ -162,6 +248,108 @@ pub fn score_track_length(
     position: Position,
     macro_xs: Option<&MacroXs>,
     weight: f64,
+    // Instance of `cell_idx` within its repeated universe (GitHub #261).
+    // `None` where the caller has no distribcell tables, which is every
+    // caller that does not ask for a per-instance tally.
+    cell_instance: Option<usize>,
+    // **Time since the particle was born \[s\]** (gh:#262, gh:#261), taken at
+    // the START of the segment being scored. `TimeFilter` bins on it.
+    //
+    // Before the transport loop carried a clock this was hardcoded `0.0` here,
+    // so a `TimeFilter` put every event in whichever bin contains zero — a
+    // filter that compiled, ran, and measured nothing. Passing it explicitly
+    // rather than defaulting it means a future caller has to decide, instead of
+    // silently inheriting a wrong zero.
+    time: f64,
+    // **Flight direction along this segment** (gh:#261). `PolarAzimuthalFilter`
+    // bins on it, and before this it was defaulted, so such a filter put every
+    // track-length event in one bin — the same defect `time` had.
+    direction: Direction,
+) {
+    score_length_like(
+        batch,
+        tally,
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy,
+        distance,
+        position,
+        macro_xs,
+        weight,
+        cell_instance,
+        time,
+        direction,
+        false,
+    );
+}
+
+/// A **collision-estimator** score at one point (gh:#598): deposits
+/// `w·inv_sigma` as flux and `w·inv_sigma·Σ_x` as each reaction rate, binned
+/// at `position` by EVERY filter, including the spatial ones that split a
+/// real track-length segment ([`super::filter::Filter::track_length_bins`]).
+///
+/// `inv_sigma` is `1/Σ_maj` for the delta-tracking tentative-collision
+/// estimator, or `1/Σ_t` for the real-collision one. Both are weights, not
+/// lengths: scoring them through [`score_track_length`] on an unstructured
+/// mesh filter reconstructed a segment of that "length" around the site and
+/// split it across the cells the segment crossed, which was the gh:#598
+/// defect.
+///
+/// Per-batch accumulation, `time` and `direction` as in
+/// [`score_track_length`] (`time` is the clock AT the site).
+#[allow(clippy::too_many_arguments)]
+pub fn score_collision_point(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy: f64,
+    inv_sigma: f64,
+    position: Position,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    cell_instance: Option<usize>,
+    time: f64,
+    direction: Direction,
+) {
+    score_length_like(
+        batch,
+        tally,
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy,
+        inv_sigma,
+        position,
+        macro_xs,
+        weight,
+        cell_instance,
+        time,
+        direction,
+        true,
+    );
+}
+
+/// Shared body of [`score_track_length`] (`at_point = false`) and
+/// [`score_collision_point`] (`at_point = true`).
+#[allow(clippy::too_many_arguments)]
+fn score_length_like(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy: f64,
+    distance: f64,
+    position: Position,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    cell_instance: Option<usize>,
+    time: f64,
+    direction: Direction,
+    at_point: bool,
 ) {
     if distance <= 0.0 || !distance.is_finite() {
         return;
@@ -173,6 +361,29 @@ pub fn score_track_length(
         energy,
         surface_idx: usize::MAX,
         position,
+        cell_instance,
+        // ~~The track-length estimator's caller does not yet thread the angle,
+        // time or particle type through.~~ **CORRECTED 2026-09-24 (gh:#262,
+        // gh:#261)** — `time` and `direction` are now parameters, and
+        // `particle` is set below. Only `mu` is still defaulted, and that one is
+        // a deliberate distinction rather than an omission; see its note.
+        time,
+        direction,
+        // This crate transports neutrons only (`ParticleType` reserves the
+        // other slots; `physics::photon` is out of scope). Set explicitly so a
+        // `ParticleFilter` on a track-length tally bins correctly instead of
+        // inheriting a default, and so the day a second particle type exists
+        // this line is a compile-time reminder rather than a silent
+        // mislabelling.
+        particle: ParticleType::Neutron,
+        // **`mu` stays defaulted, and that is correct.** It is the
+        // change-of-direction cosine of a SCATTERING event — a collision
+        // quantity. A flight segment has a direction (threaded above) but no
+        // scattering cosine, so there is nothing to thread: `MuFilter` belongs
+        // on the collision estimator, where it is supplied. Defaulting an
+        // undefined quantity is not the same failure as defaulting an available
+        // one, which is what `time` and `direction` were.
+        ..Default::default()
     };
 
     // Functional-expansion path: a lone expansion filter (SpatialLegendreFilter)
@@ -184,7 +395,7 @@ pub fn score_track_length(
         if let Some(moments) = tally.filters[0].expansion_moments(&ev) {
             let n_scores = tally.scores.len();
             for (s_idx, score) in tally.scores.iter().enumerate() {
-                let base = track_length_value(score, distance, macro_xs, weight);
+                let base = track_length_value(score, distance, macro_xs, weight, energy);
                 if !base.is_finite() {
                     continue;
                 }
@@ -199,12 +410,27 @@ pub fn score_track_length(
         }
     }
 
+    // Track-length splitting (GitHub #492): a mesh filter on an unstructured
+    // mesh divides the segment among the cells it crosses, as OpenMC's
+    // MeshFilter::get_all_bins does under the track-length estimator
+    // (`src/tallies/filter_mesh.cpp:60-69` -> `MOABMesh::bins_crossed`).
+    //
+    // ONLY for a real segment. A collision-estimator score (`at_point`) has no
+    // segment: its "length" `1/Σ` is a weight, and splitting it as if it were
+    // a flight centred on the collision site smeared each score along the
+    // ray and dropped whatever fell outside the mesh — for a helium collision
+    // (`1/Σ_t ~ 5e4 cm`) essentially all of it (gh:#598).
+    if !at_point && tally.filters.iter().any(|f| f.splits_track_length()) {
+        score_track_length_split(batch, tally, &ev, distance, macro_xs, weight, energy);
+        return;
+    }
+
     let Some(bin) = filter_bin(tally, &ev) else {
         return;
     };
     let n_scores = tally.scores.len();
     for (s_idx, score) in tally.scores.iter().enumerate() {
-        let val = track_length_value(score, distance, macro_xs, weight);
+        let val = track_length_value(score, distance, macro_xs, weight, energy);
         // Guard non-finite reaction-rate contributions. A track-length reaction
         // rate is `w·d·Σ_x` — an *absolute* macroscopic cross section. In a medium
         // with no thermal-scattering cutoff (free-gas moderation), a history can
@@ -217,6 +443,283 @@ pub fn score_track_length(
             batch[bin * n_scores + s_idx] += val;
         }
     }
+}
+
+/// The track-length branch for a tally holding a filter that splits segments
+/// ([`super::filter::FilterKind::splits_track_length`]).
+///
+/// The segment is rebuilt from its midpoint `ev.position`, its direction and
+/// `distance` (`r0 = mid - d/2 u`, `r1 = mid + d/2 u`; the free flight is
+/// straight). Each filter yields a list of `(bin, weight)`: a splitting filter
+/// its length fractions, every other filter its single midpoint bin with
+/// weight 1. The tally bin of each combination receives the score times the
+/// product of its weights — OpenMC's `FilterBinIter` over the per-filter
+/// `(bins_, weights_)` matches (`src/tallies/filter.cpp`, `tally_scoring.cpp`).
+/// The weights of a split sum to the fraction of the segment inside the mesh,
+/// so a segment wholly inside scores exactly what the unsplit path would.
+#[allow(clippy::too_many_arguments)]
+fn score_track_length_split(
+    batch: &mut [f64],
+    tally: &Tally,
+    ev: &FilterEvent,
+    distance: f64,
+    macro_xs: Option<&MacroXs>,
+    weight: f64,
+    energy: f64,
+) {
+    let u = ev.direction;
+    let h = 0.5 * distance;
+    let r0 = Position::new(ev.position.x - h * u.u, ev.position.y - h * u.v, ev.position.z - h * u.w);
+    let r1 = Position::new(ev.position.x + h * u.u, ev.position.y + h * u.v, ev.position.z + h * u.w);
+
+    let mut per_filter: Vec<Vec<(usize, f64)>> = Vec::with_capacity(tally.filters.len());
+    for f in &tally.filters {
+        let bins = match f.track_length_bins(r0, r1) {
+            Some(b) => b,
+            None => match f.get_bin(ev) {
+                Some(b) => vec![(b, 1.0)],
+                None => return,
+            },
+        };
+        if bins.is_empty() {
+            return;
+        }
+        per_filter.push(bins);
+    }
+    let n_scores = tally.scores.len();
+    let base: Vec<f64> = tally
+        .scores
+        .iter()
+        .map(|s| track_length_value(s, distance, macro_xs, weight, energy))
+        .collect();
+    // Odometer over the Cartesian product of the per-filter lists.
+    let mut idx = vec![0usize; per_filter.len()];
+    loop {
+        let mut bin = 0usize;
+        let mut w = 1.0;
+        for (k, f) in tally.filters.iter().enumerate() {
+            let (b, wk) = per_filter[k][idx[k]];
+            bin = bin * f.n_bins() + b;
+            w *= wk;
+        }
+        for (s_idx, &v) in base.iter().enumerate() {
+            let val = v * w;
+            if val.is_finite() {
+                batch[bin * n_scores + s_idx] += val;
+            }
+        }
+        let mut k = per_filter.len();
+        loop {
+            if k == 0 {
+                return;
+            }
+            k -= 1;
+            idx[k] += 1;
+            if idx[k] < per_filter[k].len() {
+                break;
+            }
+            idx[k] = 0;
+        }
+    }
+}
+
+/// Score one **fission-born neutron** into a per-batch accumulator, carrying
+/// both the energy that caused the fission and the energy the neutron was born
+/// with.
+///
+/// This is how the fission spectrum `chi_g` is measured rather than assumed. A
+/// tally holding an [`super::filter::EnergyFilter`] and an
+/// [`super::filter::EnergyOutFilter`] bins `(g_causing, g_born)`; summing over
+/// the incoming axis and normalising to unity gives `chi_g`. Keeping the
+/// incoming axis rather than collapsing it immediately means the caller can
+/// also see the (weak) dependence of the emission spectrum on the causing
+/// energy, which is real and which a single `chi` vector averages away.
+///
+/// # What it scores
+///
+/// Only [`ScoreType::NuFission`] receives weight — one unit per neutron
+/// actually banked, so the bin is a neutron count and not a reaction rate.
+/// Every other score is left at zero for the same reason as in
+/// [`score_scatter_matrix`]: depositing into them would fabricate reaction
+/// rates that did not occur at this event.
+///
+/// # Opt-in
+///
+/// Like [`score_scatter_matrix`], this fires only for a tally that carries an
+/// outgoing-energy filter. Without that guard a plain `[Energy]` tally scoring
+/// `NuFission` would receive both the track-length production rate and these
+/// birth counts, which are different quantities in different units.
+pub fn score_fission_birth(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_born: f64,
+    position: Position,
+    weight: f64,
+) {
+    if !energy_in.is_finite() || !energy_born.is_finite() || energy_born < 0.0 {
+        return;
+    }
+    if !tally
+        .filters
+        .iter()
+        .any(|f| matches!(f, FilterKind::EnergyOut(_)))
+    {
+        return;
+    }
+    let ev = FilterEvent {
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy: energy_in,
+        energy_out: Some(energy_born),
+        surface_idx: usize::MAX,
+        position,
+        ..Default::default()
+    };
+    let Some(bin) = filter_bin(tally, &ev) else {
+        return;
+    };
+    let n_scores = tally.scores.len();
+    for (s_idx, score) in tally.scores.iter().enumerate() {
+        let val = match score {
+            ScoreType::NuFission => weight,
+            _ => 0.0,
+        };
+        if val != 0.0 && val.is_finite() {
+            batch[bin * n_scores + s_idx] += val;
+        }
+    }
+}
+
+/// Score one **scattering event** into a per-batch accumulator, carrying both
+/// the incoming and the outgoing energy.
+///
+/// This is the analog estimator behind a group-to-group scattering matrix. The
+/// caller supplies the energy the neutron arrived with and the energy the
+/// scatter kernel actually produced, so a tally holding an
+/// [`super::filter::EnergyFilter`] *and* an [`super::filter::EnergyOutFilter`]
+/// bins the pair `(g_in, g_out)` — one element of `Sigma_s,g->g'`. That matrix
+/// is what the deterministic solvers consume (GeN-Foam's `ZoneNuclearData`
+/// stores `scattering[moment][g_out][g_in]`).
+///
+/// # What it scores, and what it deliberately does not
+///
+/// The caller calls this once for **every neutron the collision emits**,
+/// saying which one with `emission`:
+///
+/// - [`ScoreType::ScatterN`] and [`ScoreType::Events`] receive the weight on
+///   every call, so `ScatterN` is the **nu**-scatter matrix (an (n,2n)
+///   scores twice, each neutron in its own outgoing group).
+/// - [`ScoreType::Scatter`] receives it only for
+///   [`ScatterEmission::Primary`], once per scattering collision, binned on
+///   the primary's outgoing energy (added 2026-10-13, gh:#682): the
+///   scatter-only matrix OpenMC's `scatter matrix` is, whose ratio to the
+///   nu-scatter matrix is the multiplicity. Its row sum estimates
+///   `Sigma_t - Sigma_a`; a collision whose evaluated yield is 0 (U-235's
+///   MT=5 below ~100 keV) kills the neutron before it is scored, so the row
+///   falls short of `Sigma_t - Sigma_a` by that channel.
+///
+/// Every other score Every other score is left at zero, because they are meaningless on a
+/// scattering event: there is no fission, no absorption and no track length
+/// here, and depositing `weight` into them would fabricate reaction rates that
+/// did not occur. In particular [`ScoreType::Flux`] is **not** scored — flux is
+/// a track-length quantity and is already accumulated by
+/// [`score_track_length`]; scoring it again here would double-count.
+///
+/// # Normalisation — this returns a RATE, not a cross section
+///
+/// The accumulated bin is the scatter reaction *rate* per source particle for
+/// the pair `(g_in, g_out)`. To obtain the macroscopic cross section
+/// `Sigma_s,g->g'` the caller divides by the group-`g` scalar flux from a
+/// companion track-length flux tally over the same spatial filter. This
+/// function does not do that division, because the flux tally is a separate
+/// accumulator and combining them is the MGXS layer's job.
+///
+/// # Parameters
+/// - `batch` — flat per-generation accumulator, `tally.bins.len()` long.
+/// - `tally` — the tally *definition* (filters + scores); bins are untouched.
+/// - `cell_idx` / `material_idx` / `universe_idx` — leaf geometry indices of the
+///   collision site.
+/// - `energy_in` — energy the neutron arrived with \[eV\].
+/// - `energy_out` — energy the scatter kernel produced \[eV\]. May be *higher*
+///   than `energy_in`: thermal up-scatter is real and both the free-gas and
+///   S(alpha,beta) kernels produce it.
+/// - `position` — collision site, for spatial filters.
+/// - `weight` — particle statistical weight (1.0 for analog transport).
+/// - `emission` — whether this is the collision's primary neutron or an
+///   (n,xn) secondary.
+#[allow(clippy::too_many_arguments)]
+pub fn score_scatter_matrix(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_out: f64,
+    position: Position,
+    weight: f64,
+    emission: ScatterEmission,
+) {
+    if !energy_in.is_finite() || !energy_out.is_finite() || energy_out < 0.0 {
+        return;
+    }
+    // OPT-IN: this estimator only fires for a tally that actually carries an
+    // outgoing-energy filter, i.e. one asking for a scattering matrix.
+    //
+    // Without this guard an existing tally scoring `ScatterN` behind a plain
+    // `EnergyFilter` would receive BOTH the track-length scatter rate from
+    // `score_track_length` and these analog events, silently double-counting
+    // into the same bin. The presence of an `EnergyOutFilter` is what
+    // distinguishes "I want the matrix" from "I want the group total", so it is
+    // the gate.
+    if !tally
+        .filters
+        .iter()
+        .any(|f| matches!(f, FilterKind::EnergyOut(_)))
+    {
+        return;
+    }
+    let ev = FilterEvent {
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy: energy_in,
+        energy_out: Some(energy_out),
+        surface_idx: usize::MAX,
+        position,
+        ..Default::default()
+    };
+
+    let Some(bin) = filter_bin(tally, &ev) else {
+        return;
+    };
+    let n_scores = tally.scores.len();
+    for (s_idx, score) in tally.scores.iter().enumerate() {
+        let val = match (score, emission) {
+            (ScoreType::ScatterN | ScoreType::Events, _) => weight,
+            (ScoreType::Scatter, ScatterEmission::Primary) => weight,
+            _ => 0.0,
+        };
+        if val != 0.0 && val.is_finite() {
+            batch[bin * n_scores + s_idx] += val;
+        }
+    }
+}
+
+/// Which neutron of a scattering collision [`score_scatter_matrix`] is
+/// scoring: the one that continues (`Primary`, one per collision) or an extra
+/// neutron of an (n,2n), (n,3n), MT=5 or other (n,xn) reaction (`Secondary`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScatterEmission {
+    /// The colliding neutron's own outgoing state: one per collision.
+    Primary,
+    /// An extra neutron emitted by the same collision.
+    Secondary,
 }
 
 /// Close a batch (generation): flush every per-batch accumulator into the tally's
@@ -273,19 +776,24 @@ pub fn score_collision(
     sigma_t: f64,
     macro_xs: &MacroXs,
     weight: f64,
+    // See `score_track_length`.
+    cell_instance: Option<usize>,
 ) {
     if sigma_t <= 0.0 {
         return;
     }
     let ev = FilterEvent {
+        cell_instance,
         cell_idx,
         material_idx,
         universe_idx,
         energy,
         surface_idx: usize::MAX,
-        // The collision estimator has no spatial-filter callers yet; a mesh /
-        // Legendre tally uses the track-length estimator. Score at the origin.
+        // This function has no spatial-filter callers; a mesh / Legendre
+        // tally uses the track-length estimator, or `score_collision_point`
+        // inside a delta-tracked region (gh:#598). Score at the origin.
         position: Position::ZERO,
+        ..Default::default()
     };
 
     // Map the event through every filter to a flat bin index (row-major, first
@@ -310,6 +818,34 @@ pub fn score_collision(
             // (`src/nuclide.cpp:409-417`), not `Σ_t − Σ_elastic`.
             ScoreType::Absorption => weight * macro_xs.absorption.max(0.0) / sigma_t,
             ScoreType::ScatterN => weight * macro_xs.elastic / sigma_t,
+            // ── GitHub #262 ─────────────────────────────────────────────────
+            ScoreType::Scatter | ScoreType::NuScatter => {
+                // See the track-length arm: `NuScatter` is deliberately
+                // identical here and is a known undercount.
+                weight * (macro_xs.total - macro_xs.absorption).max(0.0) / sigma_t
+            }
+            ScoreType::DelayedNuFission => weight * macro_xs.nu_fission_delayed / sigma_t,
+            ScoreType::PromptNuFission => {
+                weight * (macro_xs.nu_fission - macro_xs.nu_fission_delayed).max(0.0) / sigma_t
+            }
+            ScoreType::DecayRate => weight * macro_xs.decay_rate / sigma_t,
+            ScoreType::FissionQPrompt => {
+                weight * macro_xs.fission / sigma_t * Q_FISSION_PROMPT_J
+            }
+            ScoreType::FissionQRecoverable => {
+                weight * macro_xs.fission / sigma_t * Q_FISSION_RECOVERABLE_J
+            }
+            // `tally_scoring.cpp:1161`: the collision estimator for 1/v is
+            // `flux / (Sigma_t * v)`, i.e. the same `w/Sigma_t` flux estimate
+            // divided by the speed.
+            ScoreType::InverseVelocity => {
+                let v = neutron_speed_cm_per_s(energy);
+                if v > 0.0 {
+                    weight / (sigma_t * v)
+                } else {
+                    0.0
+                }
+            }
             ScoreType::Current | ScoreType::Events => weight,
         };
         tally.bins[bin * n_scores + s_idx].score(val);
@@ -319,7 +855,7 @@ pub fn score_collision(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tally::filter::{CellFilter, Filter};
+    use crate::tally::filter::{CellFilter, Filter, FilterKind};
     use crate::tally::tally::{Tally, TallyBin};
 
     fn cell_flux_tally(cells: Vec<usize>) -> Tally {
@@ -330,10 +866,49 @@ mod tests {
         Tally {
             id: 1,
             name: "flux".into(),
-            filters: vec![Box::new(filter)],
+            filters: vec![FilterKind::Cell(filter)],
             scores: vec![ScoreType::Flux],
             bins: vec![TallyBin::default(); n],
         }
+    }
+
+    /// An (n,2n) scores twice into the nu-scatter matrix (`ScatterN`, each
+    /// neutron in its own outgoing group) and once into the scatter-only
+    /// matrix (`Scatter`, on the primary's outgoing group), gh:#682. With
+    /// two groups split at 1 MeV: a 10 MeV collision whose primary leaves at
+    /// 2 MeV and whose secondary leaves at 0.5 MeV must put
+    /// `ScatterN (1->1) = 1`, `ScatterN (1->0) = 1`, `Scatter (1->1) = 1`,
+    /// `Scatter (1->0) = 0`. Without an `EnergyOutFilter` nothing is scored.
+    #[test]
+    fn scatter_matrix_scores_nu_scatter_per_neutron_and_scatter_per_collision() {
+        use crate::tally::filter::{EnergyFilter, EnergyOutFilter};
+        let edges = vec![1.0e-5, 1.0e6, 2.0e7];
+        let t = Tally {
+            id: 1,
+            name: "m".into(),
+            filters: vec![
+                FilterKind::Energy(EnergyFilter { bins: edges.clone() }),
+                FilterKind::EnergyOut(EnergyOutFilter { bins: edges }),
+            ],
+            scores: vec![ScoreType::ScatterN, ScoreType::Scatter],
+            bins: vec![TallyBin::default(); 2 * 2 * 2],
+        };
+        let mut batch = vec![0.0; t.bins.len()];
+        let r = Position::new(0.0, 0.0, 0.0);
+        score_scatter_matrix(&mut batch, &t, 0, 0, 0, 1.0e7, 2.0e6, r, 1.0, ScatterEmission::Primary);
+        score_scatter_matrix(&mut batch, &t, 0, 0, 0, 1.0e7, 5.0e5, r, 1.0, ScatterEmission::Secondary);
+        // bin = (g_in * 2 + g_out) * 2 + score
+        let at = |gi: usize, go: usize, s: usize| batch[(gi * 2 + go) * 2 + s];
+        assert_eq!((at(1, 1, 0), at(1, 0, 0)), (1.0, 1.0), "nu-scatter: both neutrons");
+        assert_eq!((at(1, 1, 1), at(1, 0, 1)), (1.0, 0.0), "scatter: the collision once");
+        let plain = Tally {
+            filters: vec![t.filters[0].clone()],
+            bins: vec![TallyBin::default(); 2 * 2],
+            ..t.clone()
+        };
+        let mut b2 = vec![0.0; plain.bins.len()];
+        score_scatter_matrix(&mut b2, &plain, 0, 0, 0, 1.0e7, 2.0e6, r, 1.0, ScatterEmission::Primary);
+        assert!(b2.iter().all(|v| *v == 0.0), "opt-in: no EnergyOutFilter, no score");
     }
 
     /// A collision in a filtered cell scores `1/Σ_t`; a collision in an
@@ -347,11 +922,13 @@ mod tests {
             fission: 0.05,
             nu_fission: 0.12,
             absorption: 0.08,
+            nu_fission_delayed: 0.0,
+            decay_rate: 0.0,
         };
         // Two collisions in cell 0 (Σ_t = 0.5 ⇒ 2 cm each), one in cell 5 (ignored).
-        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0);
-        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0);
-        score_collision(&mut t, 5, 0, 0, 1.0e6, 0.5, &xs, 1.0);
+        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
+        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
+        score_collision(&mut t, 5, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
         assert!(
             (t.bins[0].sum - 4.0).abs() < 1e-12,
             "cell-0 flux sum {}",
@@ -359,5 +936,58 @@ mod tests {
         );
         assert_eq!(t.bins[0].count, 2);
         assert_eq!(t.bins[1].count, 0, "cell-1 saw no collisions");
+    }
+
+    /// GitHub #492: a track-length flux tally on an **unstructured** mesh
+    /// splits a segment across the cells it crosses. Two unit hexes along x;
+    /// a 1.5 cm segment from x = 0.25 to 1.75 puts 0.75 cm in each. A second
+    /// filter (energy, unsplit) multiplies through with weight 1.
+    ///
+    /// Results: NOT YET MEASURED (testing deferred by maintainer, 2026-10-03).
+    #[test]
+    fn unstructured_mesh_filter_splits_track_length() {
+        use crate::tally::filter::{EnergyFilter, MeshFilter};
+        use crate::tally::mesh::MeshKind;
+        use outram_blender::unstructured::{Element, ElementKind, LengthUnit, UnstructuredMesh};
+        use std::sync::Arc;
+
+        let mut pts = Vec::new();
+        for x in [0.0, 1.0, 2.0] {
+            for (y, z) in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)] {
+                pts.push([x, y, z]);
+            }
+        }
+        let el = |i: usize| Element { kind: ElementKind::Hex8, nodes: (0..8).map(|k| 4 * i + k).collect() };
+        let mesh =
+            UnstructuredMesh::from_elements(LengthUnit::Centimetre, pts, vec![el(0), el(1)], vec![], vec![])
+                .unwrap();
+        let tally = Tally {
+            id: 7,
+            name: "umesh flux".into(),
+            filters: vec![
+                FilterKind::Energy(EnergyFilter { bins: vec![0.0, 2.0e7] }),
+                FilterKind::Mesh(MeshFilter { mesh: MeshKind::Unstructured(Arc::new(mesh)) }),
+            ],
+            scores: vec![ScoreType::Flux],
+            bins: vec![TallyBin::default(); 2],
+        };
+        let mut batch = vec![0.0; 2];
+        score_track_length(
+            &mut batch,
+            &tally,
+            0,
+            usize::MAX,
+            0,
+            1.0e6,
+            1.5,
+            Position::new(1.0, 0.5, 0.5),
+            None,
+            1.0,
+            None,
+            0.0,
+            Direction::new(1.0, 0.0, 0.0),
+        );
+        assert!((batch[0] - 0.75).abs() < 1e-12, "cell 0 got {}", batch[0]);
+        assert!((batch[1] - 0.75).abs() < 1e-12, "cell 1 got {}", batch[1]);
     }
 }

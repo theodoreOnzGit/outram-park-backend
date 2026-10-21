@@ -1,0 +1,51 @@
+{
+	"name": "synthetic_medra",
+	"kind": "forced",
+	"synthetic": true,
+	"translator": "d9b57cd5-5a9c-4946-8616-3bdf8edfcbb5",
+	"search": {
+		"itemType": "journalArticle",
+		"DOI": "10.3239/9783656578857"
+	},
+	"status": 200,
+	"translatorUsed": "d9b57cd5-5a9c-4946-8616-3bdf8edfcbb5",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "journalArticle",
+			"creators": [
+				{
+					"firstName": "Jane",
+					"lastName": "Doe",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Hans",
+					"lastName": "Müller",
+					"creatorType": "author"
+				}
+			],
+			"tags": [],
+			"DOI": "10.3239/9783656578857",
+			"title": "A Synthetic Title: On Tests of Scrapers",
+			"date": "2014-01-15",
+			"language": "ger",
+			"rights": "©2014 Synthetic Verlag",
+			"pages": "1–20",
+			"place": "Germany",
+			"publicationTitle": "Journal of Synthetic Tests: Series A",
+			"ISSN": "1234-5678",
+			"publisher": "Synthetic Press",
+			"libraryCatalog": "mEDRA",
+			"shortTitle": "A Synthetic Title"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://www.medra.org/servlet/view?lang=en&doi=10.3239%2F9783656578857",
+			"body": null
+		}
+	]
+}

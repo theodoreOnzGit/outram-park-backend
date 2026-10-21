@@ -92,6 +92,7 @@
 //! code_aster output, and per `RESPONSIBLE_USE.md` these laws remain untrusted
 //! draft material until the maintainer reviews them.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{SymmTensor, Vector3};
 
 use crate::error::{OffbeatError, Result};
@@ -260,7 +261,7 @@ impl LogarithmicIrradiationParameters {
     ) -> Result<f64> {
         self.check(fluence_start, fluence_increment, temperature)?;
         let fluence_end = fluence_start + fluence_increment;
-        let arrhenius = (-self.activation_temperature / temperature).exp();
+        let arrhenius = (-self.activation_temperature / temperature).r_exp();
         let rate = self.primary_compliance * self.primary_fluence_constant
             / (1.0 + self.primary_fluence_constant * fluence_end)
             + self.secondary_compliance;
@@ -291,10 +292,10 @@ impl LogarithmicIrradiationParameters {
     ) -> Result<f64> {
         self.check(fluence_start, fluence_increment, temperature)?;
         let fluence_end = fluence_start + fluence_increment;
-        let arrhenius = (-self.activation_temperature / temperature).exp();
+        let arrhenius = (-self.activation_temperature / temperature).r_exp();
         let ct = self.primary_fluence_constant;
         let primary = if ct > 0.0 {
-            self.primary_compliance * ((1.0 + ct * fluence_end) / (1.0 + ct * fluence_start)).ln()
+            self.primary_compliance * ((1.0 + ct * fluence_end) / (1.0 + ct * fluence_start)).r_ln()
         } else {
             0.0
         };
@@ -375,8 +376,8 @@ impl IrradiationGrowthDirection {
     /// [`strain_increment`](Self::strain_increment).
     #[must_use]
     pub fn unit_vector(self) -> Vector3 {
-        let (sa, ca) = self.azimuth.sin_cos();
-        let (sb, cb) = self.elevation.sin_cos();
+        let (sa, ca) = self.azimuth.r_sin_cos();
+        let (sb, cb) = self.elevation.r_sin_cos();
         Vector3::new(ca * cb, sa * cb, -sb)
     }
 
@@ -424,8 +425,8 @@ impl IrradiationGrowthDirection {
     ///   that no tabulated-function machinery is needed here.
     #[must_use]
     pub fn strain_increment(self, growth_strain_increment: f64) -> SymmTensor {
-        let (sa, ca) = self.azimuth.sin_cos();
-        let (sb, cb) = self.elevation.sin_cos();
+        let (sa, ca) = self.azimuth.r_sin_cos();
+        let (sb, cb) = self.elevation.r_sin_cos();
         let g = growth_strain_increment;
         // Upstream stores components 4-6 with a sqrt(2) Mandel factor; this
         // port stores plain tensor components, so the sqrt(2) is dropped and
@@ -772,7 +773,7 @@ impl Irrad3mHardening {
         } else if p < IRRAD3M_PROOF_STRAIN {
             self.slope_at_proof_strain * (p - IRRAD3M_PROOF_STRAIN) + self.stress_at_proof_strain
         } else {
-            self.coefficient * (p + self.strain_offset).powf(self.exponent)
+            self.coefficient * (p + self.strain_offset).r_powf(self.exponent)
         }
     }
 
@@ -791,7 +792,7 @@ impl Irrad3mHardening {
             IRRAD3M_PROOF_STRAIN
                 + (sigma - self.stress_at_proof_strain) / self.slope_at_proof_strain
         } else if self.coefficient > 0.0 && self.exponent > 0.0 {
-            (sigma / self.coefficient).powf(1.0 / self.exponent) - self.strain_offset
+            (sigma / self.coefficient).r_powf(1.0 / self.exponent) - self.strain_offset
         } else {
             IRRAD3M_PROOF_STRAIN
         }
@@ -843,14 +844,14 @@ impl Irrad3mParameters {
 
         let pe = IRRAD3M_PROOF_STRAIN;
         let eu = self.uniform_elongation;
-        let true_uts = self.ultimate_strength * eu.exp();
+        let true_uts = self.ultimate_strength * eu.r_exp();
         let coeffa = true_uts / self.yield_strength;
         let n0 = eu - pe;
 
         // f(n) = 1 - coeffa*((n-n0)^n)/(n^n). Monotone decreasing on the
         // admissible branch, with limit 1 - coeffa*exp(-n0) as n -> infinity.
-        let f = |n: f64| 1.0 - coeffa * ((n - n0).powf(n)) / (n.powf(n));
-        let f_infinity = 1.0 - coeffa * (-n0).exp();
+        let f = |n: f64| 1.0 - coeffa * ((n - n0).r_powf(n)) / (n.r_powf(n));
+        let f_infinity = 1.0 - coeffa * (-n0).r_exp();
 
         let lower = if n0 >= 0.0 {
             n0 + pe / 1000.0
@@ -898,12 +899,12 @@ impl Irrad3mParameters {
         };
 
         let (coefficient, stress_at_proof_strain, slope) = if exponent > 0.0 {
-            let k = true_uts / exponent.powf(exponent);
+            let k = true_uts / exponent.r_powf(exponent);
             let base = pe + strain_offset;
             (
                 k,
-                k * base.powf(exponent),
-                exponent * k * base.powf(exponent - 1.0),
+                k * base.r_powf(exponent),
+                exponent * k * base.r_powf(exponent - 1.0),
             )
         } else {
             // Upstream's degenerate branch: n <= 0 gives a constant curve.
@@ -963,9 +964,9 @@ impl Irrad3mParameters {
         if !(alpha > 0.0) {
             return 0.0;
         }
-        let e0 = (alpha * self.swelling_onset_dose).exp();
-        let ed = (alpha * dose).exp();
-        self.swelling_rate * ((e0 + ed) / (1.0 + e0)).ln() / (3.0 * alpha)
+        let e0 = (alpha * self.swelling_onset_dose).r_exp();
+        let ed = (alpha * dose).r_exp();
+        self.swelling_rate * ((e0 + ed) / (1.0 + e0)).r_ln() / (3.0 * alpha)
     }
 
     /// Stress-free swelling strain increment tensor over one step.
@@ -1580,7 +1581,7 @@ impl MetaLemaAniPhase {
     /// stiffer against creep.
     #[must_use]
     pub fn reference_stress(self, temperature: f64) -> f64 {
-        self.amplitude * (self.activation_temperature / (self.stress_exponent * temperature)).exp()
+        self.amplitude * (self.activation_temperature / (self.stress_exponent * temperature)).r_exp()
     }
 
     /// Viscous stress `σ_v = γ p^m ṗ^{1/n}` \[Pa\] of this phase alone.
@@ -1604,8 +1605,8 @@ impl MetaLemaAniPhase {
             return 0.0;
         }
         self.reference_stress(temperature)
-            * accumulated_strain.powf(self.hardening_exponent)
-            * strain_rate.powf(1.0 / self.stress_exponent)
+            * accumulated_strain.r_powf(self.hardening_exponent)
+            * strain_rate.r_powf(1.0 / self.stress_exponent)
     }
 }
 

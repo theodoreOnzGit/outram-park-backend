@@ -207,10 +207,14 @@ pub enum FeedFunction {
         awr: f64,
     },
 
-    /// Anisotropic-CM elastic / discrete-inelastic feed — **not ported in
-    /// this module**; the exact `getdis` lives in
-    /// [`crate::groupr::two_body::TwoBodyFeed`] and is driven by
-    /// [`crate::groupr::matrix_panel::two_body_matrix`].
+    /// Anisotropic-CM elastic / discrete-inelastic feed — a **superseded
+    /// placeholder**, not an outstanding gap. The exact `getdis` *is* ported:
+    /// it lives in [`crate::groupr::two_body::TwoBodyFeed`], takes its File-4
+    /// Legendre coefficients from [`crate::groupr::file4`] (`getfle`/`getco`),
+    /// and is driven by [`crate::groupr::matrix_panel::two_body_matrix`]. Use
+    /// that path; this variant exists only so the older isotropic-only
+    /// [`FeedFunction`] surface stays exhaustive, and it still returns
+    /// [`NjoyError::NotPorted`] rather than silently doing the wrong thing.
     ///
     /// Would replace the isotropic `fle = [1, 0, …]` with the File-4 Legendre
     /// expansion of the CM angular distribution (`getfle`, and `getdis:9522-9526`
@@ -218,8 +222,13 @@ pub enum FeedFunction {
     /// returns [`NjoyError::NotPorted`] for this variant.
     AnisotropicElastic,
 
-    /// File-6 continuum-energy-angle feed (`getmf6`/`cm2lab`/`f6lab`) —
-    /// **not ported**. [`FeedFunction::deposit`] returns [`NjoyError::NotPorted`].
+    /// File-6 continuum-energy-angle feed (`getmf6`/`cm2lab`/`f6lab`) — a
+    /// **superseded placeholder**, not an outstanding gap. That feed *is*
+    /// ported: [`crate::groupr::mf6_feed::Mf6Feed`] behind
+    /// [`crate::groupr::matrix_panel::Continuum6Feed`], driven by
+    /// [`crate::groupr::matrix_panel::feed_matrix`]. Use that path; this
+    /// variant still returns [`NjoyError::NotPorted`] rather than silently
+    /// doing the wrong thing.
     Continuum6,
 }
 
@@ -619,16 +628,17 @@ fn validate_bounds(bounds: &[f64], name: &'static str) -> Result<(), NjoyError> 
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::groupr::panel::group_average_vector;
     use crate::groupr::weights::AnalyticWeight;
 
     /// A geometric (log-spaced) energy grid of `n` boundaries from `lo` to `hi`.
     fn geomspace(lo: f64, hi: f64, n: usize) -> Vec<f64> {
-        let lr = lo.ln();
-        let hr = hi.ln();
+        let lr = lo.r_ln();
+        let hr = hi.r_ln();
         (0..n)
-            .map(|i| (lr + (hr - lr) * i as f64 / (n - 1) as f64).exp())
+            .map(|i| (lr + (hr - lr) * i as f64 / (n - 1) as f64).r_exp())
             .collect()
     }
 
@@ -696,7 +706,7 @@ mod tests {
     fn elastic_matrix_is_kinematically_banded_carbon() {
         let awr = 12.0;
         let alpha = elastic_alpha(awr);
-        assert!((alpha - (11.0_f64 / 13.0).powi(2)).abs() < 1e-12);
+        assert!((alpha - (11.0_f64 / 13.0).r_powi(2)).abs() < 1e-12);
 
         let feed = FeedFunction::TwoBodyElastic { awr };
         let sigma = PointwiseXs::Constant(3.0);

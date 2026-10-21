@@ -1,0 +1,29 @@
+TY  - JOUR
+TI  - Dates &amp; entities: a &lt;i&gt;kovan&lt;/i&gt; probe
+AU  - Smith, John
+AU  - de la Fontaine, Jean
+PY  - 2021 May
+DA  - 2021 May
+Y2  - 2020/03/04
+JO  - J. Test.
+T2  - Journal of Testing &amp; Probing
+VL  - 12
+IS  - 3
+SP  - 101
+EP  - 110
+DO  - https://doi.org/10.1234/ABC.def
+UR  - http://example.com/a?b=c&d=e
+KW  - alpha
+KW  - beta &amp; gamma
+N1  - A note with <b>markup</b> &amp; an entity.
+AB  -   Leading spaces &amp; trailing.
+ER  -
+
+TY  - BOOK
+TI  - A second record: a novel
+A2  - Editor, Ed
+PY  - 1999///
+CY  - Singapore
+PB  - Kovan Press
+SN  - 978-3-16-148410-0
+ER  -

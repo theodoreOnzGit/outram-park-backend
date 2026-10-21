@@ -1,0 +1,30 @@
+{
+	"case": "doi_other_ra",
+	"input": {
+		"kind": "identifier",
+		"text": "10.12763/ONA1045"
+	},
+	"recordedOn": "2026-10-07T01:47:34.835Z",
+	"userAgent": "kovan-zotero-reference/0.1 (outram-park-backend kovan-literature; recording public bibliographic metadata fixtures for code-to-code tests; https://github.com/theodoreOnzGit/outram-park-backend)",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://doi.org/10.12763%2FONA1045",
+				"headers": {
+					"Accept": "application/vnd.datacite.datacite+json, application/vnd.crossref.unixref+xml, application/vnd.citationstyles.csl+json"
+				},
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://data.crosscite.org/10.12763%2FONA1045",
+				"headers": {
+					"content-type": "application/vnd.datacite.datacite+json; charset=utf-8"
+				},
+				"body": "{\n  \"id\": \"https://doi.org/10.12763/ona1045\",\n  \"doi\": \"10.12763/ONA1045\",\n  \"url\": \"http://docnum.univ-lorraine.fr/pulsar/RCR_543952102_NA1045.pdf\",\n  \"types\": {\n    \"ris\": \"RPRT\",\n    \"bibtex\": \"article\",\n    \"citeproc\": \"article-journal\",\n    \"schemaOrg\": \"ScholarlyArticle\",\n    \"resourceType\": \"Monographie\",\n    \"resourceTypeGeneral\": \"Text\"\n  },\n  \"creators\": [\n    {\n      \"name\": \"Heiliges Römisches Reich Deutscher Nation\",\n      \"affiliation\": []\n    }\n  ],\n  \"titles\": [\n    {\n      \"title\": \"Code criminel de l'empereur Charles V vulgairement appellé la Caroline contenant les loix qui sont suivies dans les jurisdictions criminelles de l'Empire et à l'usage des conseils de guerre des troupes suisses.\"\n    }\n  ],\n  \"publisher\": {\n    \"name\": \"de l'imprimerie de Claude Simon (A Paris)\"\n  },\n  \"container\": {},\n  \"subjects\": [\n    {\n      \"subject\": \"Droit\",\n      \"subjectScheme\": \"Domaine\"\n    }\n  ],\n  \"contributors\": [\n    {\n      \"name\": \"Vogel, Franz Adam. Éditeur Scientifique\",\n      \"nameType\": \"Personal\",\n      \"givenName\": \"Franz Adam. Éditeur Scientifique\",\n      \"familyName\": \"Vogel\",\n      \"affiliation\": [],\n      \"contributorType\": \"RelatedPerson\"\n    },\n    {\n      \"name\": \"Simon, Claude (167.?-1752). Éditeur Commercial\",\n      \"nameType\": \"Personal\",\n      \"affiliation\": [],\n      \"contributorType\": \"RelatedPerson\"\n    },\n    {\n      \"name\": \"Université De Lorraine-Direction De La Documentation Et De L'Edition\",\n      \"affiliation\": []\n    }\n  ],\n  \"dates\": [\n    {\n      \"date\": \"1734\",\n      \"dateType\": \"Issued\"\n    }\n  ],\n  \"publicationYear\": 1734,\n  \"language\": \"fr\",\n  \"identifiers\": [],\n  \"sizes\": [\n    \"39.79 MB\",\n    \"402 pages\"\n  ],\n  \"formats\": [\n    \"PDF\"\n  ],\n  \"rightsList\": [],\n  \"descriptions\": [\n    {\n      \"description\": \"Le code est accompagné de commentaires de F. A. Vogel, qui signe l'épitre dédicatoire\",\n      \"descriptionType\": \"Other\"\n    },\n    {\n      \"description\": \"Reliure 18è siècle\",\n      \"descriptionType\": \"Other\"\n    },\n    {\n      \"description\": \"Ex-libris manuscrit \\\"Ex libris Dufour\\\"\",\n      \"descriptionType\": \"Other\"\n    }\n  ],\n  \"geoLocations\": [],\n  \"fundingReferences\": [],\n  \"relatedIdentifiers\": [\n    {\n      \"relationType\": \"Cites\",\n      \"relatedIdentifier\": \"http://pulsar-bu.univ-lorraine.fr/items/show/id/12\",\n      \"relatedIdentifierType\": \"URL\"\n    },\n    {\n      \"relationType\": \"Cites\",\n      \"relatedIdentifier\": \"http://docnum.univ-lorraine.fr/pulsar/RCR_543952102_ONA1045.pdf\",\n      \"relatedIdentifierType\": \"URL\"\n    }\n  ],\n  \"providerId\": \"ulor\",\n  \"clientId\": \"inist.dde\",\n  \"agency\": \"datacite\",\n  \"state\": \"findable\"\n}",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

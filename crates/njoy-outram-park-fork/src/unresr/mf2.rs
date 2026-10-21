@@ -22,6 +22,7 @@
 //! - **Case C** (`LRF=2`) — every average parameter (`D`, `GX`, `GNO`, `GG`,
 //!   `GF`) is energy-dependent, tabulated independently per J-state.
 
+use petir::mathf::RealMath;
 use crate::NjoyError;
 
 /// The energy-dependent scattering radius `AP(E)` \[10⁻¹² cm\] of an `NRO=1`
@@ -130,6 +131,18 @@ pub struct JStateC {
     pub amun: f64,
     /// Degrees of freedom for the fission-width distribution (`AMUF`).
     pub amuf: f64,
+    /// ENDF `INT`, the interpolation law for this J-state's own parameter
+    /// table (`l1h` of its LIST header, ENDF-102 section 2.3.2).
+    ///
+    /// Carried because RECONR records it in MF=2/MT=152: `rdf2u2` assigns
+    /// `intunr=l1h` (`reconr.f90:1487`) and `genunr` stores it as `sunr(6)`
+    /// (`:1656`), where `sigunr` reads it back to interpolate the stored table
+    /// (`:1749`). Case A and Case B have no `INT` of their own and keep
+    /// `rdfil2`'s default of 5 (`:809`).
+    ///
+    /// Typical values: 2 (lin-lin, ENDF/B-VIII.0 U-234) and 5 (log-log,
+    /// ENDF/B-VIII.0 U-238).
+    pub int_: i32,
     /// Energy-dependent parameter table (`D`, `GX`, `GNO`, `GG`, `GF` vs
     /// `E`), interpolated between points by [`crate::unresr::interp_case_c`].
     pub points: Vec<UnresolvedPointC>,
@@ -338,7 +351,10 @@ impl<'a> Cursor<'a> {
         while flat.len() < 2 * np {
             flat.extend_from_slice(&self.next_row()?);
         }
-        let xy: Vec<(f64, f64)> = flat[..2 * np].chunks_exact(2).map(|p| (p[0], p[1])).collect();
+        let xy: Vec<(f64, f64)> = flat[..2 * np]
+            .chunks_exact(2)
+            .map(|p| (p[0], p[1]))
+            .collect();
         Ok((head, interp, xy))
     }
 }
@@ -428,8 +444,8 @@ fn sigfig7(x: f64) -> f64 {
     if x == 0.0 {
         return 0.0;
     }
-    let mag = x.abs().log10().floor() as i32;
-    let scale = 10f64.powi(6 - mag);
+    let mag = x.abs().r_log10().floor() as i32;
+    let scale = 10f64.r_powi(6 - mag);
     (x * scale).round() / scale
 }
 
@@ -589,11 +605,12 @@ fn parse_case_c(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
         for _ in 0..njs {
             let (jh, jbody) = cur.list()?;
             // rdunf2:659-667: AJ/INT/NE come from THIS J's own CONT header
-            // (c1h/l1h/n2h — `jh.c1`/`jh.l1`(discarded)/`jh.n2`), not the
+            // (c1h/l1h/n2h — `jh.c1`/`jh.l1`/`jh.n2`), not the
             // LIST body; the body (`jbody`, i.e. `scr(7..)`) only supplies
             // AMUX/AMUN/[unused]/AMUF at `scr(9..12)` == `jbody[2..5]`
             // (`do k=3,6: arry(k+inow)=scr(k+6)`).
             let aj = jh.c1;
+            let int_ = jh.l1;
             let ne = jh.n2.max(0) as usize;
             let amux = jbody.get(2).copied().unwrap_or(0.0);
             let amun = jbody.get(3).copied().unwrap_or(0.0);
@@ -631,6 +648,7 @@ fn parse_case_c(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
                 amux,
                 amun,
                 amuf,
+                int_,
                 points,
             });
         }

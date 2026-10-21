@@ -17,7 +17,7 @@ work is a **sibling of it, not a part of it**, and the two must not be merged:
 |---|---|---|
 | Upstream | idaholab/raven | Adolphus8/* (seven repos) |
 | Upstream licence | Apache-2.0 | GPL-3.0 (by grant; see below) |
-| Direction | Apache → GPL is **one-way** | author is the crate owner |
+| Direction | Apache → ~~GPL~~ AGPL-3.0-only is **one-way** | author is the crate owner |
 | Covers | samplers, distributions, sensitivity, surrogates | Bayesian model updating, imprecise probability |
 
 They have different upstreams, licences and `NOTICE` obligations, so keeping the
@@ -47,12 +47,12 @@ Licences as reported by the GitHub API on 2026-09-09.
 **Adolphus Lye is the copyright holder of all seven repositories and has granted
 GPL-3.0.** He offered either Apache-2.0 or GPL-3.0; GPL-3.0 is assumed, stated
 to the maintainer on **2026-09-09**. He is a collaborator on this repository.
-GPL-3.0 is `raffles`' own licence, so there is no compatibility question and no
+~~GPL-3.0 is `raffles`' own licence~~ **CORRECTED 2026-10-20 (gh:#973): `raffles` is now `AGPL-3.0-only`** (the grant above was GPL-3.0; the relicence is the maintainer's direction, see `docs/relicensing-agpl-2026-10-20.md`), so there is no compatibility question and no
 one-way constraint of the kind that applies to the RAVEN port.
 
 **The gap to close, tracked as `op-dwqw.1`:** six of the seven repositories carry
 **no LICENSE file**. Absent one, the public default is all-rights-reserved, so a
-third party reading this GPL-3.0 repository **cannot verify from the sources
+third party reading this ~~GPL-3.0~~ AGPL-3.0-only repository **cannot verify from the sources
 themselves** that the ported material was licensed — they would have to take an
 assertion in a commit message on trust.
 
@@ -77,13 +77,24 @@ Exponential, Weibull, Gamma, Beta, Truncated, behind a `Distribution` enum),
 `samplers` (MonteCarlo, LatinHypercube, GridSampler, seeded streams),
 `sensitivity`, `surrogate`.
 
-**Absent** — anything Bayesian. A search for `mcmc|bayes|metropolis|likelihood`
+~~**Absent** — anything Bayesian. A search for `mcmc|bayes|metropolis|likelihood`
 across `src/` matches only prose in `lib.rs`. There is no likelihood, no
 prior/posterior, and no MCMC of any kind. So this epic is new capability, not a
-re-wrap.
+re-wrap.~~
 
-> Note: several crate-level docs still describe `raffles` as "scaffold only,
-> nothing implemented". That is stale — see bead **`op-blw`**.
+**CORRECTED 2026-09-17 — no longer absent.** This was a snapshot at
+2026-09-09; the epic below has since landed. Verified: `crates/raffles/src/`
+is now ~17.8k lines including a `bayesian/` directory (3,456 lines across its
+files, 271 hits for `mcmc|bayes|metropolis|likelihood|posterior`) and a
+`gnn/` directory, and the crate's own `CLAUDE.md` states "Bayesian model
+updating, distances, ABC, imprecise probability, model selection, GNNs and
+surrogates all carry working, tested code." The `op-dwqw` ordering below
+describes the plan that produced this; it is not still the open state.
+
+> Note: several crate-level docs still described `raffles` as "scaffold only,
+> nothing implemented" as of 2026-09-09. That was stale then and is stale now
+> for a different reason — see bead **`op-blw`**, and the workspace
+> `CLAUDE.md` Members table, corrected 2026-09-17.
 
 ## Ordering
 

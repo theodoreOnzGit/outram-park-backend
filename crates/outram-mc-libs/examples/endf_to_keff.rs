@@ -1,282 +1,299 @@
-//! End-to-end Monte Carlo k-eff from local ENDF files — a tutorial example.
+//! # Tutorial 1: Godiva, hello world
 //!
-//! This example demonstrates the complete workflow for reading ENDF nuclear data
-//! from disk files and running a k-effective (eigenvalue) calculation. It serves
-//! as a first-time introduction to the `outram-mc-libs` API for users with local
-//! ENDF tapes.
+//! **The first model in the beginner API** (`outram_mc_libs::model`, epic
+//! gh #925; tutorial list on #943). A bare sphere of highly enriched uranium
+//! metal: one shape, one material, a temperature, and one word for the run
+//! size. No cells, no universes, no nuclide indices, no physics switches.
 //!
-//! **What this example does:**
-//!
-//! 1. **Reads ENDF files** from local disk using the new `Nuclide::from_endf_file()`
-//!    function (no network download, no `net-fetch` feature required).
-//!
-//! 2. **Builds nuclides** — transportable nuclear data objects that hold continuous-energy
-//!    cross sections and fission data, reconstructed from ENDF on device via RECONR
-//!    (resonance reconstruction) and BROADR (Doppler broadening).
-//!
-//! 3. **Composes a material** from those nuclides, specifying isotope atom densities.
-//!
-//! 4. **Defines a bare sphere geometry** — the simplest case, used for critical-mass
-//!    benchmarks like Godiva (a HEU metal sphere).
-//!
-//! 5. **Runs a fission-source power iteration** to find k-eff, the neutron multiplication
-//!    factor. k-eff = 1.0 means critical (the fission chain is self-sustaining).
-//!    k-eff < 1.0 means subcritical (chain dies out); k-eff > 1.0 is supercritical.
-//!
-//! 6. **Reports results** — the mean k-eff and its standard deviation across
-//!    generations. The standard deviation shrinks as you run more histories; a smaller
-//!    standard deviation means less Monte Carlo noise and higher confidence in the answer.
-//!
-//! **The example case:** A bare HEU (highly enriched uranium) sphere similar to the
-//! ICSBEP Godiva benchmark: radius ≈ 8.741 cm, U-235 at 4.4994e-2 /barn-cm,
-//! U-238 at 2.4984e-3 /barn-cm. The expected k-eff is close to 1.0.
-//!
-//! **How to run:**
 //! ```text
-//! cargo build --release -p outram-mc-libs --example endf_to_keff
-//! cargo run --release -p outram-mc-libs --example endf_to_keff
+//! cargo run --release -p outram-mc-libs --example endf_to_keff            # MCSettings::Auto
+//! cargo run --release -p outram-mc-libs --example endf_to_keff -- --fast  # MCSettings::Fast (smoke test)
+//! cargo run --release -p outram-mc-libs --example endf_to_keff -- --endf /path/to/endf/folder
 //! ```
 //!
-//! ENDF files are read from `reference-data/endf/` relative to this crate's directory
-//! (CARGO_MANIFEST_DIR). You may override this on the command line:
-//! ```text
-//! cargo run --release -p outram-mc-libs --example endf_to_keff -- /path/to/endf
-//! ```
+//! (This file used to be the low-level "ENDF to k_eff" tutorial; it was
+//! repurposed as tutorial 1 on 2026-10-17, as the maintainer asked on #943:
+//! tutorials refactor existing examples. The low-level path it used to show
+//! is what `model::Model` lowers to; `examples/godiva_keff_endf_local.rs`
+//! still shows it, and stays the V&V case.)
 //!
-//! **Data fidelity note:** This example uses RECONR (full resonance reconstruction at 0 K)
-//! and BROADR (analytic Doppler broadening to 293.6 K). It reads energy-dependent cross
-//! sections, anisotropic scattering (ENDF MF=4), and energy-dependent fission yields
-//! (MF=5) — full continuous-energy physics, **with self-shielding** (σ sampled at the
-//! actual neutron energy). This HIGH-tier fidelity is a step up from the embedded
-//! LOW-tier (group-collapsed, infinite dilution); see the `godiva_keff` and
-//! `godiva_keff_endf` examples for the methodology comparison.
+//! ## The case
+//!
+//! ICSBEP **HEU-MET-FAST-001** (Godiva): radius 8.7407 cm, room temperature
+//! 293.6 K, U-234 / U-235 / U-238 at 4.9184e-4 / 4.4994e-2 / 2.4984e-3 atoms
+//! per barn·cm, benchmark `k = 1.0000 ± 0.0010`. The numbers are read from
+//! `outram_mc_libs::vv::godiva`, the one transcription every recorded Godiva
+//! result in this crate uses (its source: the ICSBEP model as tabulated in
+//! Mosteller, LA-UR-10-06230, and van der Marck, Nucl. Data Sheets 107
+//! (2006) 3061), not typed again here.
+//!
+//! The specification gives **atom densities**, so the model enters them
+//! exactly (`Material::from_atom_densities`: the spec wins, #943). The lesson
+//! then builds the same material the way an engineer would say it (an
+//! enrichment, a contaminant, a density) and shows the two agree.
+//!
+//! ## What this checks (V&V methodology)
+//!
+//! - **Number densities, both ways.** The fuel builder, given the
+//!   enrichment, U-234 ppm and base density computed from the spec with the
+//!   library's own masses, must reproduce the spec's atom densities to
+//!   `1e-12` relative (the #937 acceptance test, on the real library).
+//! - **k against the record.** The crate's recorded Godiva is
+//!   `−6 ± 5 pcm` from the benchmark (1024 seeds, sd 165 pcm per run at
+//!   5000 × [40 + 120], `examples/godiva_keff_ensemble.rs`, 2026-10-05). This
+//!   run must sit within 4σ of it, σ combining this run's own (the larger of
+//!   the naive and batch-means σ) and the record's ±5. That is a regression
+//!   gate sized off what one run can resolve, not an accuracy claim. Nothing
+//!   was tuned: the run size is the preset's.
+//! - **The geometry is drawn** from the assembled CSG (crate HARD RULE): an
+//!   x-y and an x-z slice, written to `target/tutorials/godiva/` (gitignored).
+//!
+//! ## Results (2026-10-17, ENDF/B-VIII.0 from `reference-data/endf/`)
+//!
+//! Hardware: Intel i9-13900K (16 logical cores, shared and loaded), 62.5 GiB
+//! RAM, Linux, CPU only; transport single-threaded, data processed on up to
+//! 8 threads. Commit: the one adding this text.
+//!
+//! - **Number densities both ways:** largest relative difference
+//!   **3.1e-16** (U-235), i.e. identical to rounding.
+//! - **`MCSettings::Auto`, seed 1:** `k = 1.00099 ± 0.00089` (batch-means
+//!   σ 0.00079), **+99 ± 89 pcm** from the benchmark, **+105 pcm = 1.2σ**
+//!   from the record. The watcher passed at cycle 50 (1 000/cycle) and
+//!   re-confirmed at cycle 95 (10 000/cycle); 250 active cycles. URR and DBRC
+//!   on for all three nuclides. Wall time: data 29 s, transport 11 s.
+//! - **`--seeds 32`** (same size, seeds 1-32): **−2 ± 15 pcm** (sd 86 per
+//!   run), **+4 pcm = 0.2σ** from the record; χ²/dof 1.09, consistent, no
+//!   outlier seed. So the beginner path reproduces the recorded Godiva
+//!   within statistics, nothing tuned.
+//! - **`--fast`, seed 1:** `k = 1.00369 ± 0.00183` (+369 ± 188 pcm, 2.0σ
+//!   from the record: a smoke test, as it says). Its watcher passed at
+//!   1 000/cycle at cycle 50 but **never re-confirmed at 5 000/cycle before
+//!   the 100-cycle cap**, so the result says NOT CONVERGED. Whether that is a
+//!   stationarity false alarm on a 30-cycle window or a real transient is
+//!   exactly what #927 is to measure; it is recorded here, not explained.
 
+use petir::mathf::RealMath;
 use std::path::PathBuf;
-use outram_mc_libs::vv::assert_reproduces_keff;
-// Everything this example needs comes from the prelude — that is the
-// intended entry point, and it is worth checking that it suffices.
-use outram_mc_libs::prelude::*;
+use std::time::Instant;
 
-fn main() {
-    // ── Parse command-line arguments or use default. ─────────────────────────
-    let endf_dir = if let Some(arg) = std::env::args().nth(1) {
-        PathBuf::from(arg)
+use outram_mc_libs::geometry::plot::PlotBasis;
+use outram_mc_libs::model::prelude::*;
+use outram_mc_libs::model::{AVOGADRO_PER_MOL, BARN_CM_PER_CUBIC_CM};
+use outram_mc_libs::perf_report::HardwareInfo;
+use outram_mc_libs::vv::godiva;
+use uom::si::f64::{Length, MassDensity, Ratio, ThermodynamicTemperature};
+use uom::si::length::centimeter;
+use uom::si::mass_density::gram_per_cubic_centimeter;
+use uom::si::ratio::ratio;
+use uom::si::thermodynamic_temperature::kelvin;
+
+/// The recorded Godiva offset from HEU-MET-FAST-001 \[pcm\]:
+/// `examples/godiva_keff_ensemble.rs`, 1024 seeds, 2026-10-05.
+const RECORDED_PCM: f64 = -6.0;
+/// Its standard error \[pcm\].
+const RECORDED_SEM_PCM: f64 = 5.0;
+/// Gate width in combined σ.
+const K_SIGMA: f64 = 4.0;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = std::env::args().collect();
+    let fast = args.iter().any(|a| a == "--fast");
+    let folder = args
+        .iter()
+        .position(|a| a == "--endf")
+        .and_then(|i| args.get(i + 1))
+        .map(PathBuf::from);
+
+    // ── 1. The nuclear data ─────────────────────────────────────────────────
+    // One handle for the library. Nuclides are found by the identity in each
+    // tape's own header, never by file name.
+    let data = match folder {
+        Some(dir) => NuclearData::endf_folder(&dir),
+        None => NuclearData::workspace_reference(),
+    };
+    let data = match data {
+        Ok(d) => d,
+        Err(e) => {
+            println!("No ENDF tapes: {e}. Clone with the reference data, or pass --endf <folder>.");
+            return Ok(());
+        }
+    };
+
+    // ── 2. The model, and the one component it has ──────────────────────────
+    let mut godiva = Model::new(data);
+    let core = godiva.component("Core");
+
+    // ── 3. The material: the specification's own atom densities ─────────────
+    let spec = |name: &str| {
+        godiva::NUCLIDES
+            .iter()
+            .find(|n| n.0 == name)
+            .map(|n| n.2)
+            .unwrap_or(0.0)
+    };
+    let heu = Material::from_atom_densities([
+        (U234, atoms_per_barn_cm(spec("U234"))),
+        (U235, atoms_per_barn_cm(spec("U235"))),
+        (U238, atoms_per_barn_cm(spec("U238"))),
+    ])
+    .named("Godiva HEU");
+
+    // ── 3b. Aside: the same metal, as an engineer would say it ──────────────
+    // An enrichment (U-235 over U-235 + U-238), U-234 as a contaminant, and
+    // the base metal's density. Here they are computed from the spec with
+    // the library's own masses, to show the builder lands on the same atoms.
+    let masses = godiva.data().atomic_masses();
+    let m = |i: Isotope| masses.mass_u(i).unwrap_or(f64::NAN);
+    let (n4, n5, n8) = (spec("U234"), spec("U235"), spec("U238"));
+    let enrichment = Ratio::new::<ratio>(n5 / (n5 + n8));
+    let u234_ppm = Ratio::new::<ratio>(n4 / (n5 + n8));
+    let rho_base = (n5 * m(U235) + n8 * m(U238)) / AVOGADRO_PER_MOL / BARN_CM_PER_CUBIC_CM;
+    let engineer = Material::fuel(
+        HeavyMetal::Uranium(Enrichment::by_atom(FissileUranium::U235, enrichment)),
+        FuelForm::Metallic,
+    )
+    .density(MassDensity::new::<gram_per_cubic_centimeter>(rho_base))
+    .contaminant(
+        U234,
+        Contaminant::ppm(u234_ppm, Basis::Atom, PpmOf::HeavyMetal, Placement::AddOn),
+    )
+    .named("enrichment + ppm");
+    let both = heu
+        .resolve(&masses)?
+        .compare_number_densities(&engineer.resolve(&masses)?);
+    println!("The material two ways (enrichment {:.4} % by atom, U-234 {:.0} ppm by atom of the uranium,", 100.0 * enrichment.get::<ratio>(), 1e6 * u234_ppm.get::<ratio>());
+    println!(
+        "base density {rho_base:.4} g/cm3; masses: {}):\n{both}\n",
+        masses.source()
+    );
+    assert!(
+        both.max_relative_difference() < 1e-12,
+        "the two descriptions must give the same atoms"
+    );
+
+    // ── 4. The geometry: a sphere filled with it; vacuum outside ────────────
+    let sphere = Sphere::radius(Length::new::<centimeter>(godiva::RADIUS_CM));
+    godiva.add(sphere.filled_with(heu).in_component(core));
+
+    // ── 5. The temperature, set on the geometry ─────────────────────────────
+    godiva.set_temperature(Temperature::Uniform(
+        ThermodynamicTemperature::new::<kelvin>(godiva::TEMPERATURE_K),
+    ));
+
+    // ── 6. Look at it before running it (Brown's first recommendation) ──────
+    let assembled = godiva.assemble()?;
+    let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/tutorials/godiva");
+    std::fs::create_dir_all(&out)?;
+    for (basis, name) in [
+        (PlotBasis::Xy, "godiva_xy.png"),
+        (PlotBasis::Xz, "godiva_xz.png"),
+    ] {
+        let img = assembled.draw_slice(
+            basis,
+            600,
+            &format!("Godiva, {} slice through the centre", basis.name()),
+        );
+        img.write_png(out.join(name))?;
+        println!("drew {}", out.join(name).display());
+    }
+
+    // ── 7. Run ──────────────────────────────────────────────────────────────
+    let preset = if fast {
+        MCSettings::Fast
     } else {
-        // Default: reference-data/endf/ relative to this crate's Cargo.toml.
-        // CARGO_MANIFEST_DIR is set by cargo and points to the crate root.
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        PathBuf::from(manifest_dir)
-            .join("..")
-            .join("..")
-            .join("reference-data")
-            .join("endf")
+        MCSettings::Auto
     };
+    let t_data = Instant::now();
+    let nuclides = assembled.load_nuclides(godiva.data())?;
+    let data_s = t_data.elapsed().as_secs_f64();
+    let t_run = Instant::now();
+    let run = assembled.keff_with(&nuclides, &KeffSettings::new(preset, None))?;
+    let run_s = t_run.elapsed().as_secs_f64();
+    // (`godiva.keff(KeffSettings::new(preset, None))?` does steps 6-7 in one
+    // call; they are split here only to time data and transport separately.)
 
-    println!("Reading ENDF files from: {}", endf_dir.display());
-
-    // ── Step 1: Read ENDF files and build transport-ready nuclides. ──────────
-    // The Nuclide::from_endf_file() function handles all the heavy lifting:
-    //   - Reads the raw ENDF-formatted tape
-    //   - Runs RECONR to reconstruct the resonance range (high-resolution cross sections)
-    //   - Runs BROADR to Doppler-broaden the data to the material temperature (293.6 K here)
-    //   - Extracts energy-dependent ν̄ (average neutrons per fission) from MF=1/452
-    //
-    // Arguments:
-    //   - path:      filesystem path to the ENDF file
-    //   - name:      human-readable nuclide name (e.g., "U235") for logging and diagnostics
-    //   - temp_k:    material temperature in Kelvin; cross sections are broadened to this
-    //   - tolerance: RECONR tolerance (e.g., 1e-3 = 0.1%); smaller = finer resonance grid
-    //
-    // This is a **local-file** counterpart to Nuclide::from_endf(), which downloads
-    // from the IAEA and requires the net-fetch feature. Here, you provide the file yourself.
-
-    let temp_k = 293.6; // Room temperature, K
-
-    let u235_path = endf_dir.join("n-092_U_235-ENDF8.0.endf");
-    let u238_path = endf_dir.join("n-092_U_238.endf");
-
-    println!("\nReconstructing nuclides from ENDF (RECONR + BROADR @ {temp_k} K)…\n");
-
-    let u235 = Nuclide::from_endf_file(&u235_path, "U235", temp_k, 1.0e-3)
-        .expect("Could not read U-235 ENDF file");
-    println!("  U-235: ✓");
-
-    let u238 = Nuclide::from_endf_file(&u238_path, "U238", temp_k, 1.0e-3)
-        .expect("Could not read U-238 ENDF file");
-    println!("  U-238: ✓\n");
-
-    // Store both nuclides in a vec. We'll reference them by index when building the material.
-    let nuclides = vec![u235, u238];
-
-    // ── Step 2: Build a material with specified isotope densities. ──────────
-    // A Material is a mixture of nuclides at a given temperature and density.
-    // The components list specifies which nuclide (by index into our `nuclides` vec)
-    // and at what atom density [atoms / barn·cm].
-    //
-    // The HEU sphere (Godiva-like) composition:
-    //   - U-235: 4.4994e-2 /barn·cm  (the fissile driver)
-    //   - U-238: 2.4984e-3 /barn·cm  (adds absorption and fast fission, softens spectrum)
-
-    let material = Material {
-        id: 1,
-        name: "HEU (highly enriched uranium)".into(),
-        temperature: temp_k,
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: 0, // Points to nuclides[0], which is U-235
-                atom_density: 4.4994e-2,
-            },
-            NuclideComponent {
-                nuclide_idx: 1, // Points to nuclides[1], which is U-238
-                atom_density: 2.4984e-3,
-            },
-        ],
-    };
-
-    // ── Step 3: Define geometry — a bare sphere. ────────────────────────────
-    // The critical radius for a bare HEU sphere (ICSBEP HEU-MET-FAST-001) is
-    // approximately 8.741 cm. The geometry here is implicit: run_keff() assumes
-    // a spherical shell of material with the given radius, centered at the origin,
-    // surrounded by vacuum. Neutrons leak when they cross the outer surface.
-    // (For more complex geometries, see the geometry module and other examples.)
-
-    let radius_cm = 8.741;
-
-    // ── Step 4: Configure the Monte Carlo run. ────────────────────────────────
-    // KeffSettings controls the fission-source power iteration:
-    //   - n_particles:  number of neutron histories per generation (more ⇒ lower noise)
-    //   - n_inactive:   generations to skip before tallying (let fission source converge)
-    //   - n_active:     generations to average into the result
-    //   - temperature_k: material/data temperature; cross-section lookups use this
-    //   - seed:         RNG seed; fixed seed ⇒ reproducible result
-    //   - compute:      which backend to use (CPU single/multi-thread, GPU); default is
-    //                   single-thread, which is the trusted reference
-    //
-    // A full HIGH-fidelity run uses more histories; this tutorial keeps it modest
-    // so it finishes quickly (~30 seconds on a laptop).
-
-    let settings = KeffSettings {
-        n_particles: 3000, // 3000 histories per generation
-        n_inactive: 30,    // discard first 30 generations (source settling)
-        n_active: 70,      // average the next 70 active generations
-        temperature_k: temp_k,
-        ..KeffSettings::default()
-    };
-
-    // ── Step 5: Run the k-effective calculation. ───────────────────────────────
-    // This is the main "work" function: it launches the fission-source power
-    // iteration. For each generation:
-    //   1. Sample a fission source (neutrons born from previous generation's fissions)
-    //   2. Transport each neutron through collisions in the HEU sphere
-    //   3. Track fissions; estimate k = (neutrons from fissions) / (source neutrons)
-    //   4. Use those fissions as the source for the next generation
-    //   5. Converge to the true k-eff
-    //
-    // Returns KeffResult with k_mean (eigenvalue), k_std (standard error), and
-    // per-generation tallies.
-
+    println!("\n{run}");
     println!(
-        "Running k-eff calculation: {} histories/generation × [{}+{}] generations",
-        settings.n_particles, settings.n_inactive, settings.n_active
+        "  wall time: data {data_s:.1} s (processed in parallel), transport {run_s:.1} s single-threaded\n  hardware: {}",
+        HardwareInfo::detect().headline()
     );
-    println!("  r = {radius_cm} cm (bare HEU sphere)\n");
 
-    let result = run_keff(radius_cm, &material, &nuclides, &settings);
-
-    // ── Step 6: Report results. ───────────────────────────────────────────────
-    // k_mean:  the estimated multiplication factor, averaged over active generations.
-    //          Ideally close to 1.0 for Godiva (the benchmark reference is 1.0000 ± 0.0010).
-    //
-    // k_std:   the standard error (1-sigma uncertainty) in k_mean. Smaller is better.
-    //          It shrinks with sqrt(n_histories) and sqrt(n_generations) — more histories
-    //          = less Monte Carlo noise = lower standard deviation.
-    //
-    // The difference from the benchmark (Δk) is reported in pcm (parts per 100,000),
-    // a standard unit in criticality analysis. A result within ~200 pcm of the
-    // benchmark k-eff = 1.0000 is considered excellent agreement for a bare metal sphere.
-
-    println!("Results:");
-    println!("  k_eff = {:.5} ± {:.5}", result.k_mean, result.k_std);
-    println!("  ICSBEP Godiva benchmark: k_eff = 1.0000 ± 0.0010");
-
-    let delta_k_pcm = (result.k_mean - 1.0) * 1.0e5;
-    println!("  Δk from benchmark = {delta_k_pcm:+.0} pcm");
-
-    // ── V&V gate ──────────────────────────────────────────────────────────────
-    //
-    // THIS EXAMPLE IS NO LONGER THE CRATE'S MATURITY EVIDENCE (2026-09-12).
-    //
-    // It used to be cited as such, and writing a gate around that citation is
-    // what showed it could not support the claim: at 3000 histories x 70 active
-    // generations this run carries sigma ~ 330 pcm, so the declared 500 pcm bar
-    // is 1.5 sigma wide. A gate at the bar would fire on noise; a gate at
-    // bar + 4 sigma is 1814 pcm, i.e. 3.6x looser than the bar it claims to
-    // enforce. Neither is a test of 500 pcm. It is also a two-nuclide model:
-    // Godiva's ICSBEP specification has three, and U-234 is absent here.
-    //
-    // The maturity evidence moved to `examples/godiva_keff_endf_local.rs`
-    // (+57 +/- 173 pcm, all three nuclides, sigma small enough to resolve the
-    // bar at 2.9 sigma). See crates/outram-mc-libs/CLAUDE.md.
-    //
-    // So the gate below is sized to what THIS run can actually resolve, and is
-    // labelled as such. It is a smoke test on a tutorial: it catches a
-    // reconstruction or transport path that has broken badly enough to move k by
-    // more than ~2 %, and it does not pretend to certify anything finer.
-    println!("\n=== V&V gate: tutorial smoke test (NOT the maturity bar) ===");
-    assert_reproduces_keff(
-        "ICSBEP HEU-MET-FAST-001 (Godiva), 2-nuclide tutorial model",
-        result.k_mean,
-        result.k_std,
-        GODIVA_BENCHMARK_K,
-        TUTORIAL_BAND_K,
-        None,
+    // ── 8. Against the benchmark and the record ─────────────────────────────
+    let k = run.keff();
+    let sigma = k.std.max(run.provenance.sigma_batch_means.unwrap_or(0.0));
+    let pcm = (k.mean - godiva::BENCHMARK_K) * 1e5;
+    let combined = ((sigma * 1e5).r_powi(2) + RECORDED_SEM_PCM.r_powi(2)).sqrt();
+    println!(
+        "\nk_eff = {k}  ({pcm:+.0} ± {:.0} pcm from HEU-MET-FAST-001, benchmark ±{:.0} pcm)",
+        sigma * 1e5,
+        godiva::BENCHMARK_SIGMA * 1e5
     );
     println!(
-        "  That is a {:.0} pcm band plus 4 sigma of this run's own {:.0} pcm, so \
-         the effective\n  envelope is +/-{:.0} pcm. It is a SMOKE TEST, not the \
-         500 pcm maturity bar --\n  this example cannot resolve 500 pcm, which is \
-         only 1.5 sigma wide here.\n  The maturity evidence is \
-         examples/godiva_keff_endf_local.rs at +57 +/- 173 pcm;\n  see \
-         crates/outram-mc-libs/CLAUDE.md.",
-        TUTORIAL_BAND_K * 1.0e5,
-        result.k_std * 1.0e5,
-        (TUTORIAL_BAND_K + 4.0 * result.k_std) * 1.0e5,
+        "recorded: {RECORDED_PCM:+.0} ± {RECORDED_SEM_PCM:.0} pcm; this run differs by {:+.0} pcm = {:.1} sigma (gate: {K_SIGMA} sigma)",
+        pcm - RECORDED_PCM,
+        (pcm - RECORDED_PCM).abs() / combined
     );
+    assert!(
+        (pcm - RECORDED_PCM).abs() <= K_SIGMA * combined,
+        "Godiva through the beginner API moved {:.0} pcm from the recorded {RECORDED_PCM:+.0} pcm: \
+         more than {K_SIGMA} sigma. Find out what changed; do not widen this gate.",
+        pcm - RECORDED_PCM
+    );
+
+    // ── 9. Optional: how sure is one run? Pool independent ones ─────────────
+    // Brown: "the true uncertainties may be higher ... It may be helpful to
+    // make independent Monte Carlo runs" (LA-UR-08-06558, Conclusions).
+    // `--seeds N` repeats the run N times at the same size (the inactive
+    // count the watcher chose, then the preset's active cycles), seeds
+    // 1..=N, through `MCSettings::Custom`, and pools them.
+    let n_seeds: usize = args
+        .iter()
+        .position(|a| a == "--seeds")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    if n_seeds > 1 {
+        use outram_mc_libs::stats::ensemble::{
+            consecutive_seeds, default_workers, run_seeds, EnsembleReport,
+        };
+        let p = &run.provenance;
+        let size = |seed| CustomRun {
+            particles: p.active_particles,
+            inactive: p.inactive_cycles,
+            active: p.active_cycles,
+            seed,
+        };
+        let workers = default_workers();
+        let t = Instant::now();
+        let runs = run_seeds(&consecutive_seeds(n_seeds), workers, |seed| {
+            let r = assembled
+                .keff_with(
+                    &nuclides,
+                    &KeffSettings::new(MCSettings::Custom(size(seed)), None),
+                )
+                .expect("a seed run");
+            ((r.keff().mean - 1.0) * 1e5, r.keff().std * 1e5)
+        });
+        let rep = EnsembleReport::from_runs(runs);
+        let sigma = (rep.sem.r_powi(2) + RECORDED_SEM_PCM.r_powi(2)).sqrt();
+        println!(
+            "\n{n_seeds} seeds x Custom {{ {} per cycle, {} inactive, {} active }}: mean {:+.0} pcm, \
+             sd {:.0}, sem ±{:.0}; against the record {:+.0} pcm = {:.1} sigma ({:.0} s on {workers} workers)",
+            p.active_particles,
+            p.inactive_cycles,
+            p.active_cycles,
+            rep.mean,
+            rep.sd,
+            rep.sem,
+            rep.mean - RECORDED_PCM,
+            (rep.mean - RECORDED_PCM).abs() / sigma,
+            t.elapsed().as_secs_f64()
+        );
+        print!("{}", rep.consistency_summary("pcm"));
+        assert!(
+            (rep.mean - RECORDED_PCM).abs() <= K_SIGMA * sigma,
+            "the pooled Godiva moved more than {K_SIGMA} sigma from the record"
+        );
+    }
+    Ok(())
 }
-
-/// ICSBEP **HEU-MET-FAST-001** (Godiva) benchmark `k_eff`: exactly 1.0000,
-/// because the configuration is critical by construction. The evaluation's own
-/// stated uncertainty is 0.0010.
-const GODIVA_BENCHMARK_K: f64 = 1.0000;
-
-/// The envelope this **tutorial** is judged inside — explicitly *not* the
-/// crate's maturity bar.
-///
-/// # Why this example stopped being the maturity evidence
-///
-/// It was cited as such at the 2026-09-05 declaration (`k_eff = 0.99659 ±
-/// 0.00300`, −341 pcm). Writing a V&V gate around that citation showed it could
-/// not support it:
-///
-/// - **Its statistics cannot resolve the bar.** 3000 histories × 70 active
-///   generations gives σ ≈ 330 pcm, so 500 pcm is 1.5 σ. Gating at 4 σ would
-///   need σ ≤ 125 pcm — about seven times the histories.
-/// - **A re-run on 2026-09-12 gave −673 pcm**, outside the 500 pcm bar. That is
-///   0.75 σ from the recorded −341 pcm, so it is *not* a regression — but it is
-///   equally not a confirmation, which is the point.
-/// - **It is a two-nuclide model.** Godiva's ICSBEP specification carries three;
-///   U-234 at 4.9184e-4 /b·cm is absent here.
-///
-/// The maturity evidence moved to `examples/godiva_keff_endf_local.rs`:
-/// **+57 ± 173 pcm**, all three nuclides, σ small enough to resolve 500 pcm at
-/// 2.9 σ. `crates/outram-mc-libs/CLAUDE.md` records the move and remains the
-/// authority on the bar.
-///
-/// # What 0.02 is for
-///
-/// A smoke test. It catches a reconstruction or transport path broken badly
-/// enough to move k by more than ~2 % — the tutorial's actual job — and claims
-/// nothing finer. It is deliberately *not* 0.005, because labelling a
-/// 1.5 σ-wide envelope as the maturity bar is how this example came to be cited
-/// for a claim it could not carry.
-const TUTORIAL_BAND_K: f64 = 0.02;

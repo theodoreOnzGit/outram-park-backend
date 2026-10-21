@@ -1,0 +1,419 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::ciet_coupled_nat_circ_set_a1_for_three_branch",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_fwd_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_reverse_flow_for_three_branch_ver1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::zero_flow_for_three_branch_ver_1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_steady_state_test",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_dhx_blocked",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_reverse_diode_effect",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_steady_state_test",
+]
+
+[module."components.rs"]
+path = "crate::pre_built_components::ciet_three_branch_plus_dracs::components"
+
+[[module."components.rs".function]]
+id = "fn:cd4176998fb73b07"
+name = "new_active_ctah_vertical"
+qual = "new_active_ctah_vertical"
+lines = [
+    62,
+    136,
+]
+hash = "sha256:a9d14f95329b655c810236efaf2e83db57922b5b1d33eea9bfb6fbbeced660df"
+doc_hash = "sha256:0f10e35411565a2379019ba562e40c4b5cfe9d325a67c1d2a97fd6674e81463d"
+callees = ["fn:70cae68e0ec8771e"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."components.rs".function]]
+id = "fn:65c03ec4845def62"
+name = "new_active_ctah_horizontal"
+qual = "new_active_ctah_horizontal"
+lines = [
+    138,
+    218,
+]
+hash = "sha256:48319d72e1d2ca43bdfab8fe5f81ad48f4725213bbb839cffc180343f5bb5ebd"
+doc_hash = "sha256:c15f3dc1ab1e2856d955a2c57f12e2fa5b4e7938403479bf10e6db86c0235c24"
+callees = ["fn:c79fa136163d3697"]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_three_branch_plus_dracs"
+
+[module."solver_functions.rs"]
+path = "crate::pre_built_components::ciet_three_branch_plus_dracs::solver_functions"
+
+[[module."solver_functions.rs".function]]
+id = "fn:ff764db25e60524d"
+name = "pri_loop_three_branch_advance_timestep_except_dhx"
+qual = "pri_loop_three_branch_advance_timestep_except_dhx"
+lines = [
+    29,
+    125,
+]
+hash = "sha256:157d86dc2037c611087080fbf4f8448b10b3bcfbbe364a9e820fb30618d8b8cf"
+doc_hash = "sha256:f016e9da4b17c6cca4edf2093ad4ec3ba6c306a46c87d15ff6a08d85c60540ac"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:3f6427f87e7e0f62",
+    "fn:f66c6613b2fa9c0c",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:334ab074ca62fbeb"
+name = "ciet_pri_loop_three_branch_link_up_components"
+qual = "ciet_pri_loop_three_branch_link_up_components"
+lines = [
+    127,
+    820,
+]
+hash = "sha256:417192ec8b174ba112927c7de039f30d04be61a034bb15aef336217172be516b"
+doc_hash = "sha256:d371634b388eefbd8baf3c6048cfe18793a80350bf76cdb544dbc87c5a3a6feb"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:4cad4ddd84ccee48",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:71e0b3e056618526",
+    "fn:a3a04100486196dc",
+]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:9612be65656fcaeb"
+name = "get_abs_mass_flowrate_across_dracs_branches"
+qual = "get_abs_mass_flowrate_across_dracs_branches"
+lines = [
+    822,
+    844,
+]
+hash = "sha256:befa3cbc5813d11133f3e9eac0135f5c14a2666573671ade76485ed683fdce90"
+doc_hash = "sha256:6a7d8b5f6a2661540dc5cacbdc031f1732be6b9695e873a67ff79be6a7459f6e"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:74172f53fcffc1fc",
+]
+uses = ["fn:ca62ba45b75e81ac"]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:32f411937a5c1d1b"
+name = "get_mass_flowrate_two_branches"
+qual = "get_mass_flowrate_two_branches"
+lines = [
+    846,
+    865,
+]
+hash = "sha256:6146595c6b23a19278e6da54ec82b651a38ae4f8aa0b88ad96e91a9e9075214b"
+doc_hash = "sha256:3ed4a7c817ed543511161651d089830c41e5d35c168a7a62b74f2cff73cbf53b"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:74172f53fcffc1fc",
+]
+uses = ["fn:ca62ba45b75e81ac"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:c5b03a40b86a1ce1"
+name = "get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches"
+qual = "get_mass_flowrate_vector_for_dhx_heater_and_ctah_branches"
+lines = [
+    867,
+    890,
+]
+hash = "sha256:40ac368705269a5f3cac40b86db305a7cc8f0ddad5d3add0ce4ed25dc8332e5c"
+doc_hash = "sha256:9977ee130e079769a9d779f2b4eaa3afa2cc118c6e45592bb95503945fa11f09"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:74172f53fcffc1fc",
+]
+uses = ["fn:ca62ba45b75e81ac"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:584be93c32b265d9"
+name = "three_branch_pri_loop_flowrates"
+qual = "three_branch_pri_loop_flowrates"
+lines = [
+    892,
+    1099,
+]
+hash = "sha256:ee811fc02325b2ecf48a8a3827a97368142923089dd4e6bbeb2c8af3fa5552e2"
+doc_hash = "sha256:fd92d3f83860f808dec17aa4d38128bacac0f786ba8e28a9379f2887f46a73e3"
+callees = [
+    "fn:32f411937a5c1d1b",
+    "fn:352eae89cdf05026",
+    "fn:49b3f3e819a00739",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:c5b03a40b86a1ce1",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:64c8d71476d901fd"
+name = "three_branch_pri_loop_flowrates_parallel"
+qual = "three_branch_pri_loop_flowrates_parallel"
+lines = [
+    1101,
+    1308,
+]
+hash = "sha256:e4741a2e9626563b71e27ca23631edfedd7c7a2265e078aed526e2a95bc4f86a"
+doc_hash = "sha256:05290f1aa52cb84a8af0ea8e16c4f8004a7758b036e74157d557ef3f6f85ff9d"
+callees = [
+    "fn:32f411937a5c1d1b",
+    "fn:352eae89cdf05026",
+    "fn:49b3f3e819a00739",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:c5b03a40b86a1ce1",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:9324dc5e6915c042"
+name = "coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration"
+qual = "coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration"
+lines = [
+    1310,
+    1369,
+]
+hash = "sha256:8505951b0b7310d1702c46c973b5ec2c8820cc65b682cf44a122b08ffb0deafb"
+doc_hash = "sha256:ecd7207a648d6eb53b0f7f4a1f19f249439ffc566b2d270ccfddd1e54afadc27"
+callees = [
+    "fn:352eae89cdf05026",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:9612be65656fcaeb",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:51bbdde9fbd2d808"
+name = "coupled_dracs_loop_link_up_components_sam_tchx_calibration"
+qual = "coupled_dracs_loop_link_up_components_sam_tchx_calibration"
+lines = [
+    1371,
+    1731,
+]
+hash = "sha256:520739754d5c2262cdcb287d7fb9abf857692704296e66d26f4713973fa0c592"
+doc_hash = "sha256:b3364eab100d6d033a5032737401270106ca0dde1f948e85cfa027299a075c1d"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:4cad4ddd84ccee48",
+    "fn:6256de6e1d4d986a",
+    "fn:71e0b3e056618526",
+    "fn:a3a04100486196dc",
+]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:fd933d0bd965f12e"
+name = "dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration"
+qual = "dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration"
+lines = [
+    1733,
+    1780,
+]
+hash = "sha256:f40ba1e0bb5886fb99b548f7033dfc352f15bdfaaa85aea0aa3d235d96ec736c"
+doc_hash = "sha256:2feed8e42e7b6a70d6537e7e433141ee2a54959a893f6eddd21b9f026638da80"
+callees = [
+    "fn:3f6427f87e7e0f62",
+    "fn:f66c6613b2fa9c0c",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+]
+physical_interface = true
+
+[[module."solver_functions.rs".function]]
+id = "fn:469b53d0504d6cd8"
+name = "dracs_loop_dhx_tube_temperature_diagnostics"
+qual = "dracs_loop_dhx_tube_temperature_diagnostics"
+lines = [
+    1782,
+    1831,
+]
+hash = "sha256:b54245e27837ac35a51454b162b3871aec5adb7225e1973701e38d1082fffe84"
+doc_hash = "sha256:25e22fedc8990b23852b599a863f8b9c53f33ba1fe4f9fcf2adbccb8b90e443b"
+callees = ["fn:5898244cb765d25d"]
+uses = ["fn:77026588fa2ba602"]
+physical_interface = true

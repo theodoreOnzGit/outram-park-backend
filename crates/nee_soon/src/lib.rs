@@ -1,7 +1,8 @@
 //! # NEE_SOON
 //!
-//! **N**eutron **E**nergy-dependent **S**imulation using **O**pen-source
-//! **O**bject-**O**riented **N**umerics.
+//! **NE**utron **E**nergy-dependent **S**imulation using **O**pen-source
+//! **O**bject-Oriented **N**umerics. (Lettering corrected 2026-10-13: it
+//! spelled NESOOON before.)
 //!
 //! NEE_SOON is the **coupling / integration layer** of the OUTRAM PARK suite.
 //! It does not implement transport, nuclear-data processing, or kinetics
@@ -47,12 +48,35 @@
 //!
 //! ## Status
 //!
-//! **Mostly scaffold.** [`NeeSoon::new_prompt_excursion_model`] is real,
-//! wired code -- it exposes `teh-o-prke`'s Nordheim-Fuchs exact
-//! timestepper. The nuclear-data (`njoy-outram-park-fork`) and Monte Carlo
-//! (`outram-mc-libs`) integration points are not wired yet; those crates
-//! are declared as dependencies but the coupling logic for them is future
-//! work, deliberately out of scope for this pass.
+//! ~~**Mostly scaffold.**~~ **CORRECTED 2026-09-19.** The claim that "the
+//! nuclear-data and Monte Carlo integration points are not wired yet" is no
+//! longer true, and is struck rather than deleted because it shaped how this
+//! crate was described for months.
+//!
+//! What is real and tested today:
+//!
+//! | Module | What it does |
+//! |---|---|
+//! | [`htr10_rmc`] | one shared HTR-10 geometry and composition, so the stochastic and deterministic ends cannot drift apart |
+//! | [`mgxs`] | condenses a Monte Carlo run into multigroup constants: flux-weighted reaction rates, a nu-scatter matrix, and a **measured** fission spectrum |
+//! | [`genfoam_xs`] | hands those constants to GeN-Foam through its own `nuclearData` input path |
+//! | [`coupling`] | [`coupling::McToGenFoam`], the facade: construct, `generate_mgxs()`, `solve_infinite_medium()` |
+//! | [`direct_coupling`] | [`direct_coupling::McGenFoamDirect`], Monte Carlo iterated directly against GeN-Foam's lumped thermal region |
+//!
+//! [`NeeSoon::new_prompt_excursion_model`] remains real, wired code exposing
+//! `teh-o-prke`'s Nordheim-Fuchs exact timestepper.
+//!
+//! Measured 2026-09-19: on a leakage-free medium GeN-Foam reproduces the Monte
+//! Carlo eigenvalue to **+328 pcm, 1.7 sigma**; the HTR-10 core condenses to
+//! four zones GeN-Foam accepts and solves; the direct loop converges in 8 outer
+//! iterations over a +248 K temperature swing.
+//!
+//! **What is still NOT here:** delayed-neutron data, so everything above is
+//! **steady state only** and a transient would run without delayed neutrons;
+//! `P0` scattering only, so no SP3 `P1` and an untransport-corrected diffusion
+//! coefficient; one state point per run, so no feedback parametrisation; and
+//! **no validation of any kind** -- no experiment and no published benchmark.
+//! The [`xin_wang_sp3_workflow`] scaffold is still a scaffold.
 
 #![forbid(unsafe_code)]
 
@@ -62,6 +86,24 @@ pub use teh_o_prke::nordheim_fuchs::NordheimFuchsExactTimestepper;
 pub use teh_o_prke::teh_o_prke_error::TehOPrkeError;
 
 use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
+
+pub mod htr10_rmc;
+pub mod httr;
+pub mod mgxs;
+/// HTR-10 MGXS generation cases: a registry of named runs, the runner, and
+/// the record each run writes (gh:#845).
+pub mod htr10_mgxs;
+pub mod genfoam_xs;
+pub mod det_six_factor;
+pub mod rod_insertion;
+pub mod coupling;
+pub mod direct_coupling;
+/// outram-blender -> outram-mc CSG bridge (`to_mc_geometry`). Moved here from
+/// outram-blender's retired `mc-export` feature on 2026-10-02 (GitHub #486).
+pub mod blender_bridge;
+/// Monte Carlo setup + run driver behind the MC Studio GUI. Moved here from
+/// `outram_blender::sim` on 2026-10-02 (GitHub #486).
+pub mod sim;
 
 /// Object-oriented facade for the OUTRAM PARK neutronics + kinetics suite.
 ///

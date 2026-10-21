@@ -1,0 +1,135 @@
+% dh-tracking-listing.tex -- standalone listing for the Part III arXiv submission.
+%
+% Two contrasting kernels for doubly heterogeneous media, taken verbatim (with
+% marked elisions) from outram-mc-libs:
+%   Listing 1  crates/outram-mc-libs/src/pebble_beds/delta_tracking.rs
+%   Listing 2  crates/outram-mc-libs/src/stochastic/{cls,scls}.rs
+%
+% Compiles on its own:  pdflatex dh-tracking-listing.tex
+% To drop into a paper instead, copy the \lstdefinelanguage block and the two
+% lstlisting environments; nothing else here is load-bearing.
+%
+% GPL-3.0-only, (C) 2026 Theodore Ong and the outram-park contributors.
+
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+
+\definecolor{kw}{RGB}{0,0,160}
+\definecolor{cm}{RGB}{95,125,95}
+\definecolor{st}{RGB}{150,60,20}
+
+\lstdefinelanguage{Rust}{
+  morekeywords={as,break,const,continue,crate,else,enum,false,fn,for,if,impl,
+    in,let,loop,match,mod,move,mut,pub,ref,return,self,Self,struct,super,trait,
+    true,type,unsafe,use,where,while,f64,u32,u64,usize,bool,Option,Some,None},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstset{
+  language=Rust,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{kw}\bfseries,
+  commentstyle=\color{cm}\itshape,
+  stringstyle=\color{st},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  frame=single,
+  rulecolor=\color{gray},
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  columns=fullflexible,
+  captionpos=b,
+  xleftmargin=2em,
+  framexleftmargin=1.5em,
+}
+
+\begin{document}
+
+\begin{lstlisting}[caption={Delta (Woodcock) tracking. The flight is sampled on a
+  majorant $\Sigma_{\mathrm{maj}} \geq \Sigma_t(\mathbf{r})$ everywhere, so the
+  neutron crosses material boundaries without stopping at them; the resulting
+  bias is removed exactly by rejecting a fraction $1 - \Sigma_t/\Sigma_{\mathrm{maj}}$
+  of collisions as virtual. No geometric approximation is made.},
+  label={lst:delta}]
+/// Flight distance [cm] on the majorant: s = -ln(xi) / Sigma_maj.
+pub fn sample_delta_distance(majorant: f64, seed: &mut u64) -> f64 {
+    if majorant <= 0.0 { return f64::INFINITY; }
+    -prn(seed).max(f64::MIN_POSITIVE).r_ln() / majorant
+}
+
+/// Accept a real collision with probability Sigma_t(local) / Sigma_maj.
+pub fn classify_collision(sigma_t: f64, majorant: f64, seed: &mut u64) -> DeltaEvent {
+    if majorant <= 0.0 { return DeltaEvent::Virtual; }
+    let p_real = (sigma_t / majorant).clamp(0.0, 1.0);
+    if prn(seed) < p_real { DeltaEvent::Real } else { DeltaEvent::Virtual }
+}
+
+// ... drive the neutron to its next REAL collision:
+loop {
+    let s = sample_delta_distance(maj, seed);
+    pos = pos + Position::new(dir.u * s, dir.v * s, dir.w * s);
+    total += s;
+    match sigma_t_at(pos) {                  // None => left the tracking region
+        None => return DeltaFlight { position: pos, escaped: true, .. },
+        Some(sigma_t) => match classify_collision(sigma_t, maj, seed) {
+            DeltaEvent::Real    => return DeltaFlight { position: pos, .. },
+            DeltaEvent::Virtual => { virtuals += 1; }   // no physics; fly on
+        },
+    }
+}
+\end{lstlisting}
+
+\vspace{1em}
+
+\begin{lstlisting}[caption={Semi-implicit chord-length sampling (SCLS). No
+  geometry is stored; the matrix gap to the next inclusion is drawn from the
+  Markovian chord distribution $\ell = -\langle\ell\rangle \ln \xi$ with
+  $\langle\ell_{\mathrm{matrix}}\rangle = \tfrac{4r}{3}\,(1-p_f)/p_f$. The
+  \emph{semi-implicit} part is lines 9--15: inclusions already met are retained
+  inside a moving window, and if a remembered sphere lies nearer along the ray
+  than the freshly sampled chord, the neutron re-meets that particle instead of
+  an independent one. This restores exactly the correlation that plain CLS
+  discards on back-scatter.},
+  label={lst:scls}]
+/// Chord length [cm]: inverse-transform sampling of an exponential.
+pub fn sample_chord(mean_chord: f64, seed: &mut u64) -> f64 { /* -mean * ln(xi) */ }
+
+/// Mean matrix chord for spherical inclusions at packing fraction pf.
+pub fn matrix_mean_chord_length(radius: f64, pf: f64) -> f64 {
+    mean_chord_length_sphere(radius) * (1.0 - pf) / pf      // (4r/3)(1-pf)/pf
+}
+
+// ... inside the flight reconstruction, when the neutron is in the matrix:
+let d_sample = sample_chord(mean_matrix, seed);   // memoryless matrix gap ...
+let mut d_incl = d_sample;                        // ... unless a REMEMBERED
+let mut hit: Option<(Position, f64)> = None;      //     inclusion lies closer
+for h in &self.histories {
+    if let Some(d) = ray_sphere_entry(pos, u, h.center, h.radius, EPS) {
+        if d < d_incl { d_incl = d; hit = Some((h.center, h.radius)); }
+    }
+}
+if t + d_incl <= len {
+    t += d_incl;
+    pos = pos + u_pos * d_incl;
+    fl.in_inclusion = true;
+    fl.current_sphere = Some(match hit {
+        Some(existing) => existing,                    // re-meet a known particle
+        None => {                                      // or place a new one and
+            let c = fresh_inclusion_center(pos, u, radius, seed);   // remember it
+            self.remember_inclusion(ParticleHistory::new(c, radius, inclusion_mat));
+            (c, radius)
+        }
+    });
+}
+self.advance_to(position);   // re-centre the retention window; cull what left it
+\end{lstlisting}
+
+\end{document}

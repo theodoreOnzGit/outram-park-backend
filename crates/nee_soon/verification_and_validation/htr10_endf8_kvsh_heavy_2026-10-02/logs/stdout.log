@@ -1,0 +1,223 @@
+HTR-10 k vs height, ENDF/B-VIII.0, heavy sweep (htr10_endf8_kvsh_heavy, gh:#501)
+==========================================================================
+  10000 particles x [5 inactive + 135 active], seed 20260917, 8 threads, layers [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+  nuclear data processed once, 91.9 s (43 items)
+  commit eb5ee78b69, ace 6440b6dfe0
+  hardware     : NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM
+  CPUs allowed : 0-9
+  model        : graphite S(a,b) Reactor30P, SiC and UO2 bound laws
+  model        : carbon Natural
+  model        : coolant Helium
+  model        : rod metal FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  model        : TECDOC-1382 reflector zone 22, natural boron, fixed core cavity
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 10
+  geometry: 21880 tiles, 41810 cells, 1456 universes (assembled in 0.1 s)
+  bed 103.980 cm built, 14021 balls, reference read at 102.728 cm (equal ball count, gh:#472)
+  k_eff        = 0.926453 +/- 0.001077
+  RMC          = 0.931700   k - ref = -525 +/- 108 pcm
+  MCNP T3      = 0.925158   k - ref = +129 +/- 108 pcm
+  MCNP T4      = 0.926201   k - ref = +25 +/- 108 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 196 (0.014 %)
+  entropy trace: 5.416 5.408 5.410 5.413 5.410 5.400 5.406 5.411 5.415 5.406 5.401 5.404 5.395 5.416
+  transport    = 1927.7 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 11
+  geometry: 22427 tiles, 42490 cells, 1472 universes (assembled in 0.1 s)
+  bed 113.778 cm built, 15351 balls, reference read at 112.409 cm (equal ball count, gh:#472)
+  k_eff        = 0.966199 +/- 0.001008
+  RMC          = 0.967269   k - ref = -107 +/- 101 pcm
+  MCNP T3      = 0.964468   k - ref = +173 +/- 101 pcm
+  MCNP T4      = 0.964382   k - ref = +182 +/- 101 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 187 (0.013 %)
+  entropy trace: 5.412 5.404 5.395 5.396 5.390 5.397 5.407 5.391 5.410 5.409 5.412 5.411 5.399 5.416
+  transport    = 1955.0 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 12
+  geometry: 22974 tiles, 43445 cells, 1502 universes (assembled in 0.1 s)
+  bed 123.576 cm built, 16681 balls, reference read at 122.091 cm (equal ball count, gh:#472)
+  k_eff        = 0.995663 +/- 0.001136
+  RMC          = 0.999419   k - ref = -376 +/- 114 pcm
+  MCNP T3      = 0.998250   k - ref = -259 +/- 114 pcm
+  MCNP T4      = 0.999476   k - ref = -381 +/- 114 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 237 (0.017 %)
+  entropy trace: 5.559 5.555 5.547 5.534 5.544 5.560 5.548 5.560 5.554 5.524 5.528 5.554 5.570 5.566
+  transport    = 1994.2 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 13
+  geometry: 23521 tiles, 44011 cells, 1518 universes (assembled in 0.1 s)
+  bed 133.373 cm built, 18011 balls, reference read at 131.773 cm (equal ball count, gh:#472)
+  k_eff        = 1.027693 +/- 0.001037
+  RMC          = 1.026415   k - ref = +128 +/- 104 pcm
+  MCNP T3      = 1.028698   k - ref = -101 +/- 104 pcm
+  MCNP T4      = 1.027829   k - ref = -14 +/- 104 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 213 (0.015 %)
+  entropy trace: 5.614 5.615 5.609 5.610 5.608 5.591 5.609 5.596 5.583 5.608 5.604 5.602 5.581 5.637
+  transport    = 2062.8 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 14
+  geometry: 24068 tiles, 44611 cells, 1537 universes (assembled in 0.1 s)
+  bed 143.171 cm built, 19341 balls, reference read at 141.454 cm (equal ball count, gh:#472)
+  k_eff        = 1.051335 +/- 0.001085
+  RMC          = 1.052285   k - ref = -95 +/- 109 pcm
+  MCNP T3      = 1.054062   k - ref = -273 +/- 109 pcm
+  MCNP T4      = 1.055396   k - ref = -406 +/- 109 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 222 (0.016 %)
+  entropy trace: 5.656 5.619 5.628 5.625 5.650 5.633 5.650 5.652 5.640 5.667 5.652 5.647 5.652 5.650
+  transport    = 2096.5 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 15
+  geometry: 24615 tiles, 44751 cells, 1541 universes (assembled in 0.1 s)
+  bed 152.969 cm built, 20671 balls, reference read at 151.136 cm (equal ball count, gh:#472)
+  k_eff        = 1.075658 +/- 0.001149
+  RMC          = 1.074407   k - ref = +125 +/- 115 pcm
+  MCNP T3      = 1.080117   k - ref = -446 +/- 115 pcm
+  MCNP T4      = 1.078506   k - ref = -285 +/- 115 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 206 (0.015 %)
+  entropy trace: 5.663 5.651 5.661 5.670 5.684 5.676 5.663 5.663 5.640 5.653 5.678 5.684 5.661 5.659
+  transport    = 2126.1 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 16
+  geometry: 25162 tiles, 45756 cells, 1568 universes (assembled in 0.1 s)
+  bed 162.767 cm built, 22001 balls, reference read at 160.817 cm (equal ball count, gh:#472)
+  k_eff        = 1.094468 +/- 0.001111
+  RMC          = 1.093602   k - ref = +87 +/- 111 pcm
+  MCNP T3      = 1.099360   k - ref = -489 +/- 111 pcm
+  MCNP T4      = 1.098301   k - ref = -383 +/- 111 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 204 (0.015 %)
+  entropy trace: 5.690 5.701 5.696 5.697 5.688 5.707 5.687 5.664 5.685 5.701 5.666 5.709 5.696 5.679
+  transport    = 2151.6 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 17
+  geometry: 25709 tiles, 46693 cells, 1598 universes (assembled in 0.1 s)
+  bed 172.565 cm built, 23331 balls, reference read at 170.499 cm (equal ball count, gh:#472)
+  k_eff        = 1.113519 +/- 0.001034
+  RMC          = 1.111103   k - ref = +242 +/- 103 pcm
+  MCNP T3      = 1.118262   k - ref = -474 +/- 103 pcm
+  MCNP T4      = 1.118197   k - ref = -468 +/- 103 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 179 (0.013 %)
+  entropy trace: 5.746 5.707 5.728 5.695 5.692 5.704 5.707 5.711 5.693 5.691 5.704 5.693 5.706 5.712
+  transport    = 2181.0 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 18
+  geometry: 26256 tiles, 46691 cells, 1598 universes (assembled in 0.1 s)
+  bed 182.363 cm built, 24661 balls, reference read at 180.180 cm (equal ball count, gh:#472)
+  k_eff        = 1.133894 +/- 0.001170
+  RMC          = 1.129620   k - ref = +427 +/- 117 pcm
+  MCNP T3      = 1.135325   k - ref = -143 +/- 117 pcm
+  MCNP T4      = 1.134409   k - ref = -51 +/- 117 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 188 (0.013 %)
+  entropy trace: 5.740 5.714 5.734 5.704 5.702 5.714 5.721 5.724 5.711 5.712 5.714 5.693 5.729 5.720
+  transport    = 2213.9 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 19
+  geometry: 26803 tiles, 46686 cells, 1597 universes (assembled in 0.1 s)
+  bed 192.161 cm built, 25991 balls, reference read at 189.862 cm (equal ball count, gh:#472)
+  k_eff        = 1.147874 +/- 0.000924
+  RMC          = 1.144356   k - ref = +352 +/- 92 pcm
+  MCNP T3      = 1.153901   k - ref = -603 +/- 92 pcm
+  MCNP T4      = 1.152369   k - ref = -450 +/- 92 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 184 (0.013 %)
+  entropy trace: 5.740 5.712 5.701 5.728 5.709 5.730 5.727 5.721 5.718 5.719 5.725 5.724 5.715 5.707
+  transport    = 2225.4 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+HTR-10 htr10_endf8_kvsh_heavy: N = 20
+  geometry: 27350 tiles, 46731 cells, 1601 universes (assembled in 0.1 s)
+  bed 201.959 cm built, 27321 balls, reference read at 199.543 cm (equal ball count, gh:#472)
+  k_eff        = 1.161718 +/- 0.000964
+  RMC          = 1.158614   k - ref = +310 +/- 96 pcm
+  MCNP T3      = 1.168608   k - ref = -689 +/- 96 pcm
+  MCNP T4      = 1.166548   k - ref = -483 +/- 96 pcm
+  histories    = 1400000 (planned 1400000)
+  lost locate  = 0 (0.000 %)
+  stuck events = 0
+  neg distance = 0
+  leak vacuum  = 193 (0.014 %)
+  entropy trace: 5.747 5.733 5.730 5.728 5.742 5.751 5.734 5.730 5.741 5.730 5.745 5.737 5.745 5.737
+  transport    = 2240.0 s on 8 threads (NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM)
+
+### ENDF/B-VIII.0 — 10000 × [5 inactive + 135 active], seed 20260917
+
+| N | balls | built [cm] | ref. height [cm] | k ± 1σ | RMC | MCNP T3 (vac) | MCNP T4 (He) | k − RMC [pcm] | k − T3 [pcm] | k − T4 [pcm] | (k − RMC)/σ |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10 | 14021 | 103.980 | 102.728 | 0.926453 ± 0.001077 | 0.931700 | 0.925158 | 0.926201 | -525 ± 108 | +129 ± 108 | +25 ± 108 | -4.87 |
+| 11 | 15351 | 113.778 | 112.409 | 0.966199 ± 0.001008 | 0.967269 | 0.964468 | 0.964382 | -107 ± 101 | +173 ± 101 | +182 ± 101 | -1.06 |
+| 12 | 16681 | 123.576 | 122.091 | 0.995663 ± 0.001136 | 0.999419 | 0.998250 | 0.999476 | -376 ± 114 | -259 ± 114 | -381 ± 114 | -3.31 |
+| 13 | 18011 | 133.373 | 131.773 | 1.027693 ± 0.001037 | 1.026415 | 1.028698 | 1.027829 | +128 ± 104 | -101 ± 104 | -14 ± 104 | +1.23 |
+| 14 | 19341 | 143.171 | 141.454 | 1.051335 ± 0.001085 | 1.052285 | 1.054062 | 1.055396 | -95 ± 109 | -273 ± 109 | -406 ± 109 | -0.87 |
+| 15 | 20671 | 152.969 | 151.136 | 1.075658 ± 0.001149 | 1.074407 | 1.080117 | 1.078506 | +125 ± 115 | -446 ± 115 | -285 ± 115 | +1.09 |
+| 16 | 22001 | 162.767 | 160.817 | 1.094468 ± 0.001111 | 1.093602 | 1.099360 | 1.098301 | +87 ± 111 | -489 ± 111 | -383 ± 111 | +0.78 |
+| 17 | 23331 | 172.565 | 170.499 | 1.113519 ± 0.001034 | 1.111103 | 1.118262 | 1.118197 | +242 ± 103 | -474 ± 103 | -468 ± 103 | +2.34 |
+| 18 | 24661 | 182.363 | 180.180 | 1.133894 ± 0.001170 | 1.129620 | 1.135325 | 1.134409 | +427 ± 117 | -143 ± 117 | -51 ± 117 | +3.65 |
+| 19 | 25991 | 192.161 | 189.862 | 1.147874 ± 0.000924 | 1.144356 | 1.153901 | 1.152369 | +352 ± 92 | -603 ± 92 | -450 ± 92 | +3.81 |
+| 20 | 27321 | 201.959 | 199.543 | 1.161718 ± 0.000964 | 1.158614 | 1.168608 | 1.166548 | +310 ± 96 | -689 ± 96 | -483 ± 96 | +3.22 |
+
+Summary over 11 heights (residuals in pcm):
+
+| vs | mean | RMS | max abs | within ±1σ | within ±500 | within ±1000 | slope [pcm/cm] |
+|---|---|---|---|---|---|---|---|
+| RMC (reference) | +52 | 292 | 525 | 2/11 | 10/11 | 11/11 | +8.3 |
+| MCNP T3 (vacuum, gauge) | -288 | 395 | 689 | 1/11 | 9/11 | 11/11 | -7.3 |
+| MCNP T4 (helium, gauge) | -247 | 334 | 483 | 3/11 | 11/11 | 11/11 | -4.7 |
+
+Per-height run record (timings depend on machine load):
+
+| N | histories (planned 1400000) | lost locates | entropy first → last [bits] | transport [s] |
+|---|---|---|---|---|
+| 10 | 1400000 | 0 | 5.4156 → 5.4161 | 1927.7 |
+| 11 | 1400000 | 0 | 5.4120 → 5.4162 | 1955.0 |
+| 12 | 1400000 | 0 | 5.5588 → 5.5662 | 1994.2 |
+| 13 | 1400000 | 0 | 5.6135 → 5.6368 | 2062.8 |
+| 14 | 1400000 | 0 | 5.6561 → 5.6500 | 2096.5 |
+| 15 | 1400000 | 0 | 5.6633 → 5.6590 | 2126.1 |
+| 16 | 1400000 | 0 | 5.6904 → 5.6788 | 2151.6 |
+| 17 | 1400000 | 0 | 5.7455 → 5.7123 | 2181.0 |
+| 18 | 1400000 | 0 | 5.7396 → 5.7202 | 2213.9 |
+| 19 | 1400000 | 0 | 5.7399 → 5.7072 | 2225.4 |
+| 20 | 1400000 | 0 | 5.7468 → 5.7368 | 2240.0 |
+
+Hardware: NVIDIA RTX A5000 / Vulkan, 10 cores, linux, 13th Gen Intel(R) Core(TM) i9-13900K, 62.5 GiB RAM; 8 transport threads per run, CPUs 0-9 (shared machine). Commit eb5ee78b69.
+
+whole sweep wall clock: 23268.0 s
+wrote /home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-ac83dc2dd823fd330/crates/nee_soon/verification_and_validation/htr10_endf8_kvsh_heavy_2026-10-02/keff_vs_height.png
+figure: crates/nee_soon/verification_and_validation/htr10_endf8_kvsh_heavy_2026-10-02/keff_vs_height.png

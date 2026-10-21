@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What can happen when a neutron meets a nucleus?</title>
+<meta name="description" content="Neutronics, page 10: the compound nucleus and its exits. Elastic (n,n) and inelastic (n,n') scattering, radiative capture (n,gamma), (n,p) and (n,alpha), (n,2n) and fission, each lit when its Q-value lets it open, for C-12, B-10, U-235 and U-238, with every Q read from the ENDF/B-VIII.0 evaluations.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="reaction-data.js" defer></script>
+<script src="reactions.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 10 of the design comment of 2026-10-16 ("pages 10 and 11") and its amendment (keep the (n,n)/(n,n') notation and the rock-analogy caveat; no Pu-239 breeding yet). Every number is read from the tapes into reaction-data.js by crates/njoy-outram-park-fork/examples/lesson_reactions.rs and checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>What can happen when a neutron meets a nucleus?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Page 9 showed that nuclear levels are complicated. So let's simplify: what can actually <i>happen</i>? Think of the neutron joining the nucleus to make a compound nucleus, which then leaves by one of a few <b>exits</b>. Here they are for the energies a reactor cares about, from fission energies (about 2 MeV) down to thermal.</p>
+
+<section class="widget-card">
+  <h3>The compound nucleus and its exits</h3>
+  <div class="widget" id="channels">
+    <canvas aria-label="An energy diagram of the compound nucleus, its ground state, the target plus neutron at rest and the excitation the neutron brings, beside the list of exit channels lit when open"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn ghost" data-nuc="C-12">C-12</button> <button type="button" class="btn ghost" data-nuc="B-10">B-10</button> <button type="button" class="btn ghost" data-nuc="U-235">U-235</button> <button type="button" class="btn" data-nuc="U-238">U-238</button></p>
+  <label class="energy-control"><span>Neutron energy <b data-loge-out></b></span>
+    <input type="range" data-loge min="-2" max="7.3" step="0.01" value="6.30103" aria-label="Neutron energy, from 0.01 eV to 20 MeV on a log scale"></label>
+  <p class="note">Every Q-value here is the evaluation's own, from the ENDF/B-VIII.0 tapes <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>; the MT numbers are those of the ENDF-6 format <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> A 2 MeV neutron hits U-238. Which exits are open? <i>Elastic, inelastic, capture and fission; (n,2n) is closed.</i></p>
+
+<h2>1. Elastic scattering, (n,n), MT 2</h2>
+<p>The neutron leaves with the same total kinetic energy in the centre-of-mass frame, and the nucleus stays in its ground state: <a href="why-it-scatters.html">page 2</a>'s collision. Not all of it goes through a compound nucleus: away from resonances, most elastic scattering is <b>potential scattering</b>, the wave bending round the nucleus of <a href="quantum-scattering.html">page 5</a>.</p>
+
+<h2>2. Inelastic scattering, (n,n&prime;), MT 51&ndash;91, total MT 4</h2>
+<p>The neutron leaves the nucleus in an <b>excited state</b>, and comes out with less energy; the nucleus then gives off a gamma ray. The prime on n&prime; marks the excited nucleus left behind; (n,n) and (n,n&prime;) are both scattering. Inelastic scattering is a <b>threshold reaction</b>: the neutron must bring at least the first excited level's energy (a little more in the laboratory frame).</p>
+<p>Here page 9 pays off. Heavy, deformed nuclei have <b>low-lying collective levels</b>, rotations and vibrations, so their inelastic scattering opens at low energy. Choose U-238 and C-12 above and compare the thresholds: U-238's first level is about 45 keV up, C-12's about 4.4 MeV, a factor of about 100. That is why inelastic scattering matters for slowing fission neutrons in uranium, and barely at all in graphite at those energies.</p>
+
+<h2>3. Radiative capture, (n,&gamma;), MT 102</h2>
+<p>The neutron stays, and the compound nucleus gets rid of its excitation as gamma rays. Even a neutron captured <b>at rest</b> releases energy: its <b>binding energy</b>, a few MeV. A rock falling to Earth hits the ground with the energy the attraction gave it; a captured neutron "lands" on the nucleus in the same way, except that the nuclear force is far stronger. One honest caveat: gravity pulls from far away, but the nuclear force is <b>short-range</b>, a few femtometres, so a neutral neutron feels nothing until it is all but touching the nucleus. There is no long fall from outer space; what the analogy captures is the energy released on landing.</p>
+<p>In a reactor, capture that does not cause fission removes a neutron from the chain reaction: it is called <b>parasitic</b> capture.</p>
+
+<h2>4. (n,p), MT 103, and (n,&alpha;), MT 107</h2>
+<p>The compound nucleus can instead throw out a charged particle. Whether that exit exists depends on its Q-value. For B-10, (n,&alpha;) is <b>exothermic</b>, open at any energy, which is why boron is a control absorber; for C-12 it needs several MeV. The same picture covers both.</p>
+
+<h2>5. (n,2n), MT 16</h2>
+<p>The neutron knocks out a second neutron: one in, two out. It is not scattering, though neutrons come out: it leaves a different nuclide, with one neutron fewer (A &minus; 1), and two neutrons. ENDF files it as its own reaction, MT 16, among the non-elastic reactions, not under inelastic scattering, which is exactly the one-neutron-out channels, MT 4 = MT 51&ndash;91 <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>. It needs at least the energy to pull a neutron out of the target, about 6 MeV for U-238, so it multiplies neutrons only for the fastest fission neutrons.</p>
+
+<h2>6. Fission, MT 18</h2>
+<p>And for uranium, the compound nucleus can split. That deserves a page of its own.</p>
+
+<p><b>Every reaction is the compound nucleus, or the potential, choosing an exit, and the Q-value decides which exits exist at a given energy.</b> Nuclear data stores a cross section for each exit, which is why ENDF gives each one an MT number.</p>
+<p><b>Why do some nuclei split with almost any neutron, and others only with fast ones?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

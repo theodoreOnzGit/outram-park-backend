@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A0727912771%20(paperback)&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Abook&amp;rft.genre=bookitem&amp;rft.atitle=Depression%20and%20coronary%20heart%20disease&amp;rft.btitle=Stress%20and%20the%20heart%3A%20Psychosocial%20pathways%20to%20coronary%20heart%20disease&amp;rft.place=Williston%2C%20VT%2C%20US&amp;rft.publisher=BMJ%20Books&amp;rft.aufirst=Stephen&amp;rft.aulast=Stansfeld&amp;rft.au=Stephen%20Stansfeld&amp;rft.au=Rebecca%20Fuhrer&amp;rft.au=C.T.%20Gulford&amp;rft.date=2002&amp;rft.pages=101-123&amp;rft.spage=101&amp;rft.epage=123&amp;rft.isbn=0727912771%20(paperback)&amp;rft.language=English'></span>\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=urn%3Aisbn%3A0-599-73664-X&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adissertation&amp;rft.title=Effect%20of%20a%20case%20management%20intervention%20on%20symptoms%20of%20asthma%20in%20high%20risk%20children&amp;rft.inst=Rush%20University%2C%20College%20of%20Nursing&amp;rft.aufirst=C.D.&amp;rft.aulast=Catrambone&amp;rft.au=C.D.%20Catrambone&amp;rft.date=2000&amp;rft.tpages=141&amp;rft.isbn=0-599-73664-X&amp;rft.language=English'></span>\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Anger%20and%20anger%20expression%20in%20relation%20to%20perceptions%20of%20social%20rank%2C%20entrapment%20and%20depressive%20symptoms&amp;rft.jtitle=Personality%20%26%20Individual%20Differences&amp;rft.volume=32&amp;rft.issue=3&amp;rft.aufirst=Steven&amp;rft.aulast=Allan&amp;rft.au=Steven%20Allan&amp;rft.au=Paul%20Gilbert&amp;rft.date=2002-02&amp;rft.pages=551-565&amp;rft.spage=551&amp;rft.epage=565&amp;rft.issn=0191-8869&amp;rft.language=English'></span>\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<span class='Z3988' title='url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=The%20Empire&apos;s%20New%20Clothes&amp;rft.jtitle=Critical%20Inquiry&amp;rft.volume=29&amp;rft.issue=2&amp;rft.aufirst=Timothy&amp;rft.aulast=Brennan&amp;rft.au=Timothy%20Brennan&amp;rft.date=2003-01-01&amp;rft.pages=337-367&amp;rft.spage=337&amp;rft.epage=367'></span>\n"
+	}
+}

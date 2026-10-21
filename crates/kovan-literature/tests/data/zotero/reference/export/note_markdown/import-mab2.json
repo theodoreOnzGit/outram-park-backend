@@ -1,0 +1,7 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"output": "",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

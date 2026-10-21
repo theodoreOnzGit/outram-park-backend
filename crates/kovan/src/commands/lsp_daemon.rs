@@ -1,5 +1,5 @@
 //! Keep-warm rust-analyzer daemon for `kovan-cli def`/`sig`/`refs` (op-fdph,
-//! GitHub issue #32's follow-up).
+//! GitHub issue #32's follow-up) and `code-walk` (GitHub issue #523).
 //!
 //! # Why
 //!
@@ -59,6 +59,12 @@ pub(super) enum Request {
     Def { file: PathBuf, symbol: String },
     Sig { file: PathBuf, symbol: String },
     Refs { file: PathBuf, symbol: String },
+    /// `textDocument/definition` at each of `positions` (0-based line and
+    /// char column) in `file`, answered in one round trip. Used by
+    /// `kovan-cli code-walk` (GitHub issue #523), which asks about every
+    /// call-shaped token in a function body at once. An empty `positions`
+    /// list is a readiness probe: it returns once the index is warm.
+    Definitions { file: PathBuf, positions: Vec<[u32; 2]> },
     Shutdown,
 }
 
@@ -83,6 +89,10 @@ pub(super) struct Response {
     pub(super) definition: Option<Coord>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub(super) refs: Option<Vec<Coord>>,
+    /// One list of definition sites per position of a
+    /// [`Request::Definitions`], in the same order.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub(super) definitions: Option<Vec<Vec<Coord>>>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub(super) error: Option<String>,
 }
@@ -135,7 +145,7 @@ mod unix_impl {
     /// error — on anything that stops this from working, so every caller can
     /// treat `None` as "fall back to the spawn-per-call path" uniformly.
     pub(in crate::commands) fn query(root: &Path, req: &Request) -> Option<Response> {
-        let root = std::fs::canonicalize(root).ok()?;
+        let root = dunce::canonicalize(root).ok()?;
         let socket_path = socket_path(&root);
 
         if let Ok(stream) = UnixStream::connect(&socket_path) {
@@ -159,7 +169,7 @@ mod unix_impl {
     /// shut down. Not an error if none is running for `root`; that's the
     /// already-stopped state, reported as such rather than as a failure.
     pub fn stop(root: PathBuf) -> Result<(), String> {
-        let root = std::fs::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
+        let root = dunce::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
         let path = socket_path(&root);
         let Ok(stream) = UnixStream::connect(&path) else {
             println!("no lsp-daemon running for {}", root.display());
@@ -208,7 +218,7 @@ mod unix_impl {
     /// `kovan-cli lsp-daemon-serve`, which [`spawn_daemon`] launches detached
     /// — never meant to be typed by a human or agent directly.
     pub fn serve(root: PathBuf) -> Result<(), String> {
-        let root = std::fs::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
+        let root = dunce::canonicalize(&root).map_err(|e| format!("resolving root: {e}"))?;
         let path = socket_path(&root);
 
         let listener = match UnixListener::bind(&path) {
@@ -326,6 +336,33 @@ mod unix_impl {
                 },
                 Err(e) => Response::error(e),
             },
+            Request::Definitions { file, positions } => {
+                let mut all = Vec::with_capacity(positions.len());
+                for [line, character] in positions {
+                    match semq::retry_content_modified(|| {
+                        session
+                            .definition(&file, line, character)
+                            .map_err(|e| e.to_string())
+                    }) {
+                        Ok(locations) => all.push(
+                            locations
+                                .iter()
+                                .map(|l| Coord {
+                                    file: l.path.display().to_string(),
+                                    line: l.range.start.line,
+                                    character: l.range.start.character,
+                                })
+                                .collect(),
+                        ),
+                        Err(e) => return Response::error(e),
+                    }
+                }
+                Response {
+                    ok: true,
+                    definitions: Some(all),
+                    ..Default::default()
+                }
+            }
         }
     }
 

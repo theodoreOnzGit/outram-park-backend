@@ -77,6 +77,8 @@
 //!   has been measured; 1.39802 ± 0.00652 must be regarded as stale until the
 //!   S(α,β) data file is available and the test is re-run.
 
+use petir::mathf::RealMath;
+use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -356,7 +358,7 @@ fn pincell_heterogeneous_csg_with_cell_flux_tally() {
     let mut tally = Tally {
         id: 1,
         name: "cell flux".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::NuFission],
         bins: vec![TallyBin::default(); 4], // 2 cells × 2 scores
     };
@@ -677,6 +679,7 @@ fn uo2_pincell_geometry() -> Geometry {
         fill: CellFill::Void,
         temperature: T,
         translation: Position::ZERO,
+        tracking: None,
     };
     // Clad: outside gap_or ∩ inside clad_or.
     let clad = Cell::material(
@@ -905,7 +908,7 @@ fn csg_multithread_agrees_with_single_thread() {
         src,
         &KeffSettings {
             compute: ComputeType::CpuSingleThread,
-            ..base
+            ..base.clone()
         },
         None,
     );
@@ -916,7 +919,7 @@ fn csg_multithread_agrees_with_single_thread() {
         src,
         &KeffSettings {
             compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(1)),
-            ..base
+            ..base.clone()
         },
         None,
     );
@@ -927,7 +930,7 @@ fn csg_multithread_agrees_with_single_thread() {
         src,
         &KeffSettings {
             compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)),
-            ..base
+            ..base.clone()
         },
         None,
     );
@@ -938,7 +941,7 @@ fn csg_multithread_agrees_with_single_thread() {
         par1.k_mean, par4.k_mean
     );
 
-    let sigma_comb = (seq.k_std.powi(2) + par1.k_std.powi(2)).sqrt().max(1e-9);
+    let sigma_comb = (seq.k_std.r_powi(2) + par1.k_std.r_powi(2)).sqrt().max(1e-9);
     let dist = (seq.k_mean - par1.k_mean).abs() / sigma_comb;
     eprintln!(
         "[csg backend agreement] seq = {:.5} ± {:.5}, par = {:.5} ± {:.5}  ({:.2}σ apart)",

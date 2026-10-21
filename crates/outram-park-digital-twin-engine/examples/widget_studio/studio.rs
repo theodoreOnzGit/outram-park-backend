@@ -22,7 +22,68 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::torque::newton_meter;
 
-/// Which widget the studio is currently exercising.
+/// The two top-level views of the studio, chosen from the tab bar across the
+/// top of the window.
+///
+/// **Component preview** is the original gallery: one widget at a time, picked
+/// from the left-hand list. **Test reactors** holds plant-specific vessels,
+/// picked by reactor from their own left-hand list. The studio opens on
+/// component preview.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StudioMode {
+    /// One component widget at a time, from the left-hand widget list.
+    #[default]
+    ComponentPreview,
+    /// A plant-specific test reactor, from the left-hand reactor list.
+    TestReactors,
+}
+
+impl StudioMode {
+    /// Every mode, in tab order.
+    pub const ALL: &'static [Self] = &[Self::ComponentPreview, Self::TestReactors];
+
+    /// Label on the top tab bar.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ComponentPreview => "Component preview",
+            Self::TestReactors => "Preview of test reactors",
+        }
+    }
+}
+
+/// Which test reactor is on the canvas in [`StudioMode::TestReactors`].
+///
+/// An enum, like [`WidgetUnderTest`], so a second reactor is a new variant the
+/// compiler then walks every `match` to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TestReactor {
+    /// HTR-10: the simplified vessel with its three-pass helium path.
+    #[default]
+    Htr10,
+}
+
+impl TestReactor {
+    /// Every test reactor, in list order.
+    pub const ALL: &'static [Self] = &[Self::Htr10];
+
+    /// Name in the left-hand list.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Htr10 => "HTR-10",
+        }
+    }
+
+    /// One-line status under the name, in the same spirit as
+    /// [`WidgetUnderTest::status`].
+    pub fn status(self) -> &'static str {
+        match self {
+            Self::Htr10 => "simplified vessel, three-pass helium path, pebble bed",
+        }
+    }
+}
+
+/// Which widget the studio is currently exercising in
+/// [`StudioMode::ComponentPreview`].
 ///
 /// Deliberately an enum rather than a registry of trait objects — the set of
 /// widgets is closed and known at compile time, matching the workspace's
@@ -105,8 +166,12 @@ impl WidgetUnderTest {
 
 /// The studio app.
 pub struct WidgetStudio {
-    /// Which widget is on the canvas.
+    /// Which top-level view is showing. Opens on component preview.
+    mode: StudioMode,
+    /// Which component widget is on the canvas in component preview.
     selected: WidgetUnderTest,
+    /// Which test reactor is on the canvas in the test-reactor view.
+    test_reactor: TestReactor,
 
     // ── Turbine physics (a real model, advanced every frame) ──────────────────
     /// The generator/rotor model under test.
@@ -152,8 +217,15 @@ pub struct WidgetStudio {
     /// The reactor-vessel gallery: shared temperatures and rod position for
     /// every scoped architecture.
     reactors: crate::reactor_tab::ReactorTab,
+    /// The HTR-10 vessel bench. Owns four tracer trains, advanced in `step`.
+    test_reactors: crate::test_reactors_tab::TestReactorsTab,
+    /// The coaxial-duct row of the Pipes tab. Owns its tracer trains, which
+    /// persist across frames and are advanced in `step`.
+    coax_duct: crate::pipes::CoaxialDuctDemo,
     /// The steam-generator gallery: three architectures under shared sliders.
     steam_generators: crate::steam_generator_tab::SteamGeneratorTab,
+    /// Tracer trains on the HTR-10 steam-generator card. Advanced in `step`.
+    htr10_sg_tracers: crate::steam_generator_tab::Htr10Tracers,
     /// The pump gallery. Owns its own simulation clock, advanced in `step`,
     /// because a widget-owned clock would reset every repaint.
     pumps: crate::pump_tab::PumpTab,
@@ -179,7 +251,9 @@ impl Default for WidgetStudio {
     fn default() -> Self {
         let (pipe_rows, pipe_errors) = crate::pipes::build_rows();
         Self {
+            mode: StudioMode::default(),
             selected: WidgetUnderTest::SteamTurbine,
+            test_reactor: TestReactor::default(),
             generator: ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator(),
             simulation_time: Time::new::<second>(0.0),
             // Enough torque to spin a 530,000 kg*m^2 rotor up over tens of
@@ -199,7 +273,10 @@ impl Default for WidgetStudio {
             pipe_errors,
             bend: crate::bend_tab::BendDemo::default(),
             reactors: crate::reactor_tab::ReactorTab::default(),
+            test_reactors: crate::test_reactors_tab::TestReactorsTab::default(),
+            coax_duct: crate::pipes::CoaxialDuctDemo::default(),
             steam_generators: crate::steam_generator_tab::SteamGeneratorTab::default(),
+            htr10_sg_tracers: crate::steam_generator_tab::Htr10Tracers::default(),
             pumps: crate::pump_tab::PumpTab::default(),
             condensers: crate::condenser_tab::CondenserTab::default(),
             cooling_towers: crate::cooling_tower_tab::CoolingTowerTab::default(),
@@ -278,6 +355,9 @@ impl eframe::App for WidgetStudio {
             // so it must hold regardless of frame rate.
             let sim_dt = Time::new::<second>(dt_real * self.sim_speed);
             self.pipe_step_errors = crate::pipes::step_rows(&mut self.pipe_rows, sim_dt);
+            self.coax_duct.step(sim_dt);
+            self.htr10_sg_tracers.step(sim_dt);
+            self.test_reactors.step(sim_dt);
             self.pipe_step_errors.extend(self.bend.step(sim_dt));
             // Pump impellers turn on an application-owned clock, like the turbine.
             self.pumps.step(sim_dt);
@@ -290,6 +370,21 @@ impl eframe::App for WidgetStudio {
             ui.ctx().request_repaint();
         } else {
             self.last_substeps = 0;
+        }
+
+        // Top tab bar: which view the rest of the window shows. Added before the
+        // side panels so it spans the full width.
+        egui::Panel::top("mode_tabs").show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for m in StudioMode::ALL {
+                    ui.selectable_value(&mut self.mode, *m, RichText::new(m.label()).strong());
+                }
+            });
+        });
+
+        if self.mode == StudioMode::TestReactors {
+            self.test_reactor_view(ui);
+            return;
         }
 
         egui::Panel::left("picker").show(ui, |ui| {
@@ -318,35 +413,46 @@ impl eframe::App for WidgetStudio {
 
         egui::Panel::right("controls")
             .min_size(320.0)
-            .show(ui, |ui| match self.selected {
-                WidgetUnderTest::SteamTurbine => self.turbine_controls(ui),
-                WidgetUnderTest::Pipes => self.pipe_controls(ui),
-                WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
-                WidgetUnderTest::Reactors => crate::reactor_tab::controls(ui, &mut self.reactors),
-                WidgetUnderTest::SteamGenerators => {
-                    crate::steam_generator_tab::controls(ui, &mut self.steam_generators)
-                }
-                WidgetUnderTest::Pumps => crate::pump_tab::controls(ui, &mut self.pumps),
-                WidgetUnderTest::Condensers => {
-                    crate::condenser_tab::controls(ui, &mut self.condensers)
-                }
-                WidgetUnderTest::CoolingTowers => {
-                    crate::cooling_tower_tab::controls(ui, &mut self.cooling_towers)
-                }
-                WidgetUnderTest::HeatExchangers => {
-                    crate::heat_exchanger_tab::controls(ui, &mut self.heat_exchangers)
-                }
-                WidgetUnderTest::Excursion => {
-                    crate::excursion_tab::controls(ui, &mut self.excursion)
-                }
+            .show(ui, |ui| {
+                // Scrollable: the controls outgrow the window (maintainer, 2026-09-22).
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| match self.selected {
+                        WidgetUnderTest::SteamTurbine => self.turbine_controls(ui),
+                        WidgetUnderTest::Pipes => self.pipe_controls(ui),
+                        WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
+                        WidgetUnderTest::Reactors => {
+                            crate::reactor_tab::controls(ui, &mut self.reactors)
+                        }
+                        WidgetUnderTest::SteamGenerators => crate::steam_generator_tab::controls(
+                            ui,
+                            &mut self.steam_generators,
+                            &mut self.htr10_sg_tracers,
+                        ),
+                        WidgetUnderTest::Pumps => crate::pump_tab::controls(ui, &mut self.pumps),
+                        WidgetUnderTest::Condensers => {
+                            crate::condenser_tab::controls(ui, &mut self.condensers)
+                        }
+                        WidgetUnderTest::CoolingTowers => {
+                            crate::cooling_tower_tab::controls(ui, &mut self.cooling_towers)
+                        }
+                        WidgetUnderTest::HeatExchangers => {
+                            crate::heat_exchanger_tab::controls(ui, &mut self.heat_exchangers)
+                        }
+                        WidgetUnderTest::Excursion => {
+                            crate::excursion_tab::controls(ui, &mut self.excursion)
+                        }
+                    });
             });
 
         egui::CentralPanel::default().show(ui, |ui| match self.selected {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
             WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
-            WidgetUnderTest::Reactors => crate::reactor_tab::draw(ui, &self.reactors),
+            WidgetUnderTest::Reactors => {
+                crate::reactor_tab::draw(ui, &self.reactors, &self.test_reactors)
+            }
             WidgetUnderTest::SteamGenerators => {
-                crate::steam_generator_tab::draw(ui, &self.steam_generators)
+                crate::steam_generator_tab::draw(ui, &self.steam_generators, &self.htr10_sg_tracers)
             }
             WidgetUnderTest::Pumps => crate::pump_tab::draw(ui, &self.pumps),
             WidgetUnderTest::Condensers => crate::condenser_tab::draw(ui, &self.condensers),
@@ -364,7 +470,7 @@ impl eframe::App for WidgetStudio {
                 egui::ScrollArea::horizontal()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        crate::pipes::draw(ui, &self.pipe_rows, &self.pipe_errors)
+                        crate::pipes::draw(ui, &self.pipe_rows, &self.pipe_errors, &self.coax_duct)
                     });
             }
         });
@@ -372,6 +478,46 @@ impl eframe::App for WidgetStudio {
 }
 
 impl WidgetStudio {
+    /// The test-reactor view: reactor list on the left, that reactor's controls
+    /// on the right, its vessel in the middle.
+    ///
+    /// Its physics and tracers are stepped in [`eframe::App::ui`] with the rest
+    /// of the studio, so switching views never pauses or resets them.
+    fn test_reactor_view(&mut self, ui: &mut egui::Ui) {
+        egui::Panel::left("test_reactor_picker").show(ui, |ui| {
+            ui.heading("Test reactors");
+            ui.label(
+                RichText::new("Plant-specific vessels, drawn from published plant data.")
+                    .small()
+                    .weak(),
+            );
+            ui.separator();
+            for r in TestReactor::ALL {
+                ui.selectable_value(&mut self.test_reactor, *r, r.label());
+                ui.label(RichText::new(r.status()).small().weak());
+                ui.add_space(6.0);
+            }
+        });
+
+        egui::Panel::right("test_reactor_controls")
+            .min_size(320.0)
+            .show(ui, |ui| {
+                // Scrollable: the HTR-10 controls are longer than the window
+                // (maintainer direction, 2026-09-22).
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| match self.test_reactor {
+                        TestReactor::Htr10 => {
+                            crate::test_reactors_tab::controls(ui, &mut self.test_reactors)
+                        }
+                    });
+            });
+
+        egui::CentralPanel::default().show(ui, |ui| match self.test_reactor {
+            TestReactor::Htr10 => crate::test_reactors_tab::draw(ui, &self.test_reactors),
+        });
+    }
+
     /// Kelvin / Celsius toggle for the legends.
     fn legend_unit_toggle(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
@@ -415,6 +561,52 @@ impl WidgetStudio {
                 .text(format!("{name} [m/s]")),
             );
         }
+
+        ui.add_space(10.0);
+        ui.label(RichText::new("Coaxial duct — HTR-10 hot gas duct").strong());
+        ui.label(
+            RichText::new(
+                "Two streams, one duct. Set a flow NEGATIVE to send that stream the \
+                 other way, or to zero to stall it — direction and speed are both read \
+                 off these numbers, never hardcoded. The annulus starts negative \
+                 because the cold return really does run SG-to-reactor.",
+            )
+            .small()
+            .weak(),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.hot_mass_flow_kg_per_s, -10.0..=10.0)
+                .text("inner (hot) [kg/s]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.cold_mass_flow_kg_per_s, -10.0..=10.0)
+                .text("annulus (cold) [kg/s]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.hot_temp_k, 300.0..=1200.0)
+                .text("inner temperature [K]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.cold_temp_k, 300.0..=1200.0)
+                .text("annulus temperature [K]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.pressure_mpa, 0.1..=10.0)
+                .text("primary pressure [MPa]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.assumed_length_m, 1.0..=30.0)
+                .text("duct length [m] — UNKNOWN"),
+        );
+        ui.label(
+            RichText::new(
+                "No source states the duct length, so it is a display choice. It scales \
+                 both residence times equally, so the RATIO of the two tracer speeds \
+                 stays physical whatever you set it to.",
+            )
+            .small()
+            .weak(),
+        );
 
         ui.add_space(8.0);
         ui.label(RichText::new("What drives what").strong());

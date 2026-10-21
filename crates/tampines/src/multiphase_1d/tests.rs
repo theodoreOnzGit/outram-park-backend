@@ -9,6 +9,7 @@
 //! **Verification, not validation**: closed-form identities and invariants
 //! only. Nothing here is compared against an experiment.
 
+use petir::mathf::RealMath;
 use super::*;
 
 /// **Methodology.** The Thomas algorithm must solve a tridiagonal system
@@ -431,7 +432,7 @@ fn reservoir_inlet_reaches_the_bernoulli_limit_in_subcooled_water() {
         if re < 2300.0 {
             64.0 / re
         } else {
-            0.316 * re.powf(-0.25)
+            0.316 * re.r_powf(-0.25)
         }
     };
     let u_bernoulli = (2.0 * dp / rho_ref).sqrt();

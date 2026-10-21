@@ -1,0 +1,15 @@
+# Deep dive: atmospheric dispersion — inside changi (with buangkok's plume)
+# (teaching site, gh:#509 / #516 / #518). Built by scripts/build-pages.sh into
+# the backend's GitHub Pages site under deep-dives/dispersion/. Lessons live
+# here, beside the code (#510).
+[book]
+title = "Dispersion deep dive — Gaussian plume and puff in changi"
+authors = ["OUTRAM PARK contributors"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/theodoreOnzGit/outram-park-backend/tree/develop/crates/changi"
+edit-url-template = "https://github.com/theodoreOnzGit/outram-park-backend/edit/develop/crates/changi/docs/lessons/{path}"
+site-url = "/outram-park-backend/deep-dives/dispersion/"
+mathjax-support = false

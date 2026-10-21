@@ -1,4 +1,11 @@
-//! # `htgr_sim_v1` -- HTGR educational simulator (scaffold)
+//! # `htgr_sim_v1` -- HTGR educational simulator (~~scaffold~~ demo)
+//!
+//! **Status: ~~scaffold~~ **CHANGED 2026-09-28** (maintainer: "no longer a
+//! scaffold, but a demo") — demo.** A demo here means an **offline
+//! demonstration** for education and research, per `RESPONSIBLE_USE.md`: it
+//! runs end to end on real workspace physics, but it is **not validated** and
+//! is not an operational, licensing or safety tool. "Demo" claims no V&V
+//! beyond what each module's own doc comments record.
 //!
 //! A first-cut interactive simulator for a **helium-cooled, graphite-moderated
 //! pebble-bed High-Temperature Gas-cooled Reactor (HTGR)**, built on the
@@ -12,14 +19,30 @@
 //! gas duct cross-vessel between the two. See [`app::schematic`] for what that
 //! arrangement is and where it comes from.
 //!
+//! ## Read this first (2026-09-29)
+//!
+//! - One delayed-neutron fraction everywhere, `beta_eff = 7.26e-3` (gh:#387).
+//! - **The delayed-neutron precursors start EMPTY** and fill over the first
+//!   minutes (within 1 % of equilibrium after 245 s at 10 MW); from a cold
+//!   start at 0 $ the power first drops, so early-transient numbers are not
+//!   plant behaviour. See `physics::kinetics`' "Read this first".
+//! - Decay heat starts at equilibrium (conservative).
+//! - Rod worth vs feedback reference: demo-grade (gh:#408).
+//! - Reactor building not credited (conservative): leak straight to the stack
+//!   (gh:#409).
+//!
 //! ## What this is (and is not)
 //!
-//! This is a **scaffold**: a working, compiling skeleton with the real
+//! ~~This is a **scaffold**: a working, compiling skeleton~~ **CHANGED
+//! 2026-09-28** — this is a **demo** (see the status note above): a working
+//! simulator with the real
 //! cross-crate structure wired up (engine widgets, engine app scaffold,
 //! `teh-o-prke` prompt kinetics, `tampines-steam-tables` steam properties). It
 //! is **not** a validated HTGR model -- several thermal-hydraulic correlations
-//! are first-cut placeholders, and the delayed-neutron kinetics is a local
-//! stand-in for the forthcoming `teh_o_prke::DelayedNeutronLayer`. See the
+//! are first-cut placeholders, ~~and the delayed-neutron kinetics is a local
+//! stand-in for the forthcoming `teh_o_prke::DelayedNeutronLayer`~~
+//! (**CORRECTED 2026-09-28** — `physics::kinetics` uses
+//! `teh_o_prke::delayed_neutron_layer::DelayedNeutronLayer` itself). See the
 //! module docs (`app`, `physics`) and beads `op-wqk.9.1`..`op-wqk.9.4` for the
 //! exact real-vs-placeholder breakdown. Per this workspace's data policy, all
 //! parameters are round, order-of-magnitude illustrative numbers, not any
@@ -68,6 +91,16 @@ fn main() -> eframe::Result<()> {
     // recording the pre-refactor reference baseline (bead op-fbou) and for
     // regression tests. See `headless`.
     let args: Vec<String> = std::env::args().collect();
+
+    // The Map tab's static "Bounding air ingress" table (#453) as CSV; no
+    // plant is run (a bounding case, not a transient, #420).
+    //
+    //     cargo run --release --example htgr_sim_v1 -- --bounding-air-ingress
+    if args.iter().any(|a| a == "--bounding-air-ingress") {
+        headless::print_bounding_air_ingress();
+        return Ok(());
+    }
+
     if args.iter().any(|a| a == "--headless") {
         let nums: Vec<usize> = args[1..]
             .iter()
@@ -93,7 +126,7 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "HTGR Simulator v1 (scaffold) -- OUTRAM PARK",
+        "HTGR Simulator v1.1 (demo, not validated) -- OUTRAM PARK",
         native_options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);

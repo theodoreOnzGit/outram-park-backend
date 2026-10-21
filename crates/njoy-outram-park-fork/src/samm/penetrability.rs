@@ -12,6 +12,8 @@
 //! `1/(S-B+iP)` (`B` the ENDF boundary condition), which is the quantity
 //! `betset` actually needs per channel.
 
+use petir::mathf::RealMath;
+
 /// Penetrability `P_l(rho)` only (no derivative, no shift factor) — ported
 /// from `pf` (`samm.f90:3770-3821`). Used by `betset` before its own call
 /// into [`pgh`], whose result supersedes this one on every code path (`pgh`
@@ -326,8 +328,8 @@ pub struct Sinsix {
 
 pub fn sinsix(rho: f64, l: i32) -> Sinsix {
     let a = rho;
-    let c = a.cos();
-    let s = a.sin();
+    let c = a.r_cos();
+    let s = a.r_sin();
 
     match l {
         0 => Sinsix {

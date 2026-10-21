@@ -1,0 +1,837 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/multiphase"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::capillary_pressure_inverts_retention_curve",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::closed_domain_conserves_phase_masses",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::closed_uniform_column_is_stationary",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::imbibition_column_wets_up_and_stays_bounded",
+]
+
+[module."mod.rs"]
+path = "crate::multiphase"
+
+[[module."mod.rs".function]]
+id = "fn:a1cb01257c286c0b"
+name = "STANDARD_GRAVITY"
+qual = "STANDARD_GRAVITY"
+item = "const"
+shape = "const"
+lines = [
+    94,
+    96,
+]
+hash = "sha256:faf5517249a098b5e7a65a74119361cdefbbe61b0233824f906e1130f0e6431f"
+doc_hash = "sha256:1d337608e74b4e0ef4f9067adfabd737a6b03be70539fb6e4a567dde6e536d83"
+
+[[module."mod.rs".function]]
+id = "fn:b11566277f545615"
+name = "TwoPhaseFluids"
+qual = "TwoPhaseFluids"
+item = "type"
+shape = "struct"
+lines = [
+    98,
+    115,
+]
+hash = "sha256:93998f48b081c453043ea5b0111bdbc97635102fea1ac4cc22b28717ffb1c29f"
+doc_hash = "sha256:011a044f4a3ab068ee2cd4543dbef7d6241866b37d04c587aeb48bf950dc42e2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:34113905e25077a0"
+name = "air_water"
+qual = "TwoPhaseFluids::air_water"
+lines = [
+    118,
+    128,
+]
+hash = "sha256:b6e05766907c2c753bc28b0a0d695ff26f9cc01a07faab06c7736ea0bcb743d0"
+doc_hash = "sha256:7d3f70e633100ce566d2514354c690f053af374620286c286f5f2b65b9edcfcf"
+uses = ["fn:b11566277f545615"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8a4caa79122e4cdd"
+name = "new"
+qual = "TwoPhaseFluids::new"
+lines = [
+    130,
+    164,
+]
+hash = "sha256:42cbefc1ea10ced484c62e4e7df721205eb32ea2abd8af2aebe3462cda34daab"
+doc_hash = "sha256:a751d715dc865a244112e7b171892c8f1f6158b5a4ea5359a9c9dd90e5600d01"
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:b11566277f545615",
+]
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:baa4dc386594afd9"
+name = "TwoPhaseBoundaryKind"
+qual = "TwoPhaseBoundaryKind"
+item = "type"
+shape = "enum"
+lines = [
+    167,
+    184,
+]
+hash = "sha256:e8d22cce1c7dce9365d0267c3fb4b7829231b4f591d251f3b7cb89c5cb1a7517"
+doc_hash = "sha256:2dad89533455ca54252c973c424edb88068b35568504e62381842332787a64ab"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c11319179a7ae976"
+name = "TwoPhaseBoundaryCondition"
+qual = "TwoPhaseBoundaryCondition"
+item = "type"
+shape = "struct"
+lines = [
+    186,
+    193,
+]
+hash = "sha256:1b3e7f575c08b0faf03ed87ccefd9439d30a2fd51f1f0e3a50851e66430e3690"
+doc_hash = "sha256:826aed651cbe260525da4d75da511a0d32a096aea4305f97560d081d162ff88b"
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:baa4dc386594afd9",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6fc1d6acd793c17d"
+name = "location_index"
+qual = "location_index"
+lines = [
+    195,
+    205,
+]
+hash = "sha256:0eea3875b873bdc1d9c6656f9aee7df670533568f9e4491e0f55a41f3edeb79a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1ded25b48be00a9e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0db185144070d072"
+name = "TwoPhaseFlow"
+qual = "TwoPhaseFlow"
+item = "type"
+shape = "struct"
+lines = [
+    207,
+    234,
+]
+hash = "sha256:0bdda5ac045a69b35b9ae5cb042da668a4fa10e31c490335e3a3a52e0a641d5a"
+doc_hash = "sha256:e54aac8dc2fa694176bff852d3aa1dfeb999102b239c5511319c8bba779b9270"
+uses = [
+    "fn:b11566277f545615",
+    "fn:baa4dc386594afd9",
+    "fn:bef06f63e37dba1c",
+    "fn:f8cc13e0467bdd14",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b385e989cc9cbfab"
+name = "new"
+qual = "TwoPhaseFlow::new"
+lines = [
+    237,
+    313,
+]
+hash = "sha256:d991b4d5bc7bb920fef4a312494158f3478439d3d7df9cb560976bd378d98849"
+doc_hash = "sha256:5900acbea5b0734ad797aff6f7f9b4050a5853e2bd498abb621cbdda979cec63"
+callees = [
+    "fn:6cbbeb09ec2ceba3",
+    "fn:6fc1d6acd793c17d",
+    "fn:73269c3067ab9f80",
+    "fn:7678e9ebaa44ff77",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:0db185144070d072",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:b11566277f545615",
+    "fn:baa4dc386594afd9",
+    "fn:bef06f63e37dba1c",
+    "fn:c11319179a7ae976",
+    "fn:f8cc13e0467bdd14",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:bab3621100967a8b"
+name = "set_timestep"
+qual = "TwoPhaseFlow::set_timestep"
+lines = [
+    315,
+    319,
+]
+hash = "sha256:df6ef712d4e95bbc6e646e9dce5a955a993e27b94d067123a0b18dd67140f863"
+doc_hash = "sha256:b0782fbe6d4df88a3b14c2bba25cfd5c8892eea40be063cd995b15f42d98d475"
+uses = ["fn:0db185144070d072"]
+reached_by = [
+    "#1",
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d587a0e49e7fa318"
+name = "set_previous"
+qual = "TwoPhaseFlow::set_previous"
+lines = [
+    321,
+    340,
+]
+hash = "sha256:215774421be36f7d3c0813766030e378d04bd89411c81e206818c5be72ab23e4"
+doc_hash = "sha256:e58b19df7c6355c8da5505bd3d8de1d00a581e5775497f8c3a928518ac5ae9fe"
+callees = ["fn:cc21726779f422b1"]
+uses = ["fn:0db185144070d072"]
+reached_by = [
+    "#1",
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:089f4a759b6b0f3b"
+name = "grid"
+qual = "TwoPhaseFlow::grid"
+lines = [
+    342,
+    345,
+]
+hash = "sha256:329ce82ff4246863e2d59c1df365be6384d519ba3cf4d7af0effa378963820c3"
+doc_hash = "sha256:69c94fa5589bce0f22fc55695a5a92d756787407aaeeb52f9fce3155bf2116cd"
+uses = [
+    "fn:0db185144070d072",
+    "fn:bef06f63e37dba1c",
+]
+reached_by = [
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:5b5c7d35847f925b"
+name = "total_water_mass"
+qual = "TwoPhaseFlow::total_water_mass"
+lines = [
+    347,
+    358,
+]
+hash = "sha256:acc7f806b59c160e45ae4c59c69375666a0bdd427c0fda71b135b046c8c16cab"
+doc_hash = "sha256:822087374682ba94b372242581a97354dab74aef8c299d939e409f6b45f7b8c3"
+callees = [
+    "fn:417586cedef290ff",
+    "fn:cc21726779f422b1",
+]
+uses = ["fn:0db185144070d072"]
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:f7f694db94107be4"
+name = "total_gas_mass"
+qual = "TwoPhaseFlow::total_gas_mass"
+lines = [
+    360,
+    368,
+]
+hash = "sha256:8bede19cd96bd0bddb79d33b3cfaaa948d0157073465359f375eb18f681a6277"
+doc_hash = "sha256:f1372261c3f4db6541cfe0befeed85029054117ce59fb43ae536951dfac9979b"
+callees = [
+    "fn:417586cedef290ff",
+    "fn:cc21726779f422b1",
+]
+uses = ["fn:0db185144070d072"]
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:487c5254167fb990"
+name = "se_of_sl"
+qual = "TwoPhaseFlow::se_of_sl"
+lines = [
+    372,
+    377,
+]
+hash = "sha256:7809d6e104659ec4109975b490a5fe13da7084c44c291b758e4015d08da1d256"
+doc_hash = "sha256:b61847117a5161559846579079c83b7e77d9592d62c98a9923734ebed3de7c3d"
+callees = ["fn:db0f9fa08db0bb77"]
+uses = ["fn:0db185144070d072"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:c47952df8c1a478d"
+name = "se_of_pc"
+qual = "TwoPhaseFlow::se_of_pc"
+lines = [
+    379,
+    386,
+]
+hash = "sha256:a6e8ffd385c898906bf4e2003ef3ee9ddbcf33e0a689846aeaf9cee012fad28b"
+doc_hash = "sha256:80ee5db4afcf16cda091c79f62f2b3bc9334ef52250b7c3c639d3757a21a5c6b"
+callees = ["fn:b67bf54573dacd38"]
+uses = ["fn:0db185144070d072"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:34719e78a6d2802e"
+name = "krl"
+qual = "TwoPhaseFlow::krl"
+lines = [
+    388,
+    395,
+]
+hash = "sha256:b6b5906a140dacb63ca1c3711e4afb60435eaf108f7830395c3fd41d69d87a48"
+doc_hash = "sha256:8f58e65053d1f0fe358f89730b997c0d274c6fd2443fb0ffbf1a746f6d7b520e"
+callees = ["fn:202b5538182435ea"]
+uses = ["fn:0db185144070d072"]
+
+[[module."mod.rs".function]]
+id = "fn:228b271b42d3efcc"
+name = "krg"
+qual = "TwoPhaseFlow::krg"
+lines = [
+    397,
+    403,
+]
+hash = "sha256:e0ac894e3b13bc7bfde676b5605d480e4af028f9cabab0ead1d637b6ec6a920e"
+doc_hash = "sha256:8935a356119e0277b74209dcf2d8c5a63c2d5812717dc3c372204bccb730c7ca"
+uses = ["fn:0db185144070d072"]
+
+[[module."mod.rs".function]]
+id = "fn:345b64cb5fd4eadd"
+name = "capillary_pressure"
+qual = "TwoPhaseFlow::capillary_pressure"
+lines = [
+    405,
+    440,
+]
+hash = "sha256:b09b2df735cf030b59e8513322d6f4575a819fa715b40de1bdf53bca8cba3a61"
+doc_hash = "sha256:4f848b2ed4c11cb97111e8d32fd712d78c5abac23d414e444a44556ce5eafe43"
+callees = [
+    "fn:487c5254167fb990",
+    "fn:c47952df8c1a478d",
+]
+uses = ["fn:0db185144070d072"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:018932b0f564c5e2"
+name = "water_flux"
+qual = "TwoPhaseFlow::water_flux"
+lines = [
+    442,
+    468,
+]
+hash = "sha256:28d4976e72abf605215e598edd405c1067c1e1909cd710f0528f7ff61853df1a"
+doc_hash = "sha256:41fbd826fb6d381c7f5020a48a20a0f8ca7cd0cd3f65635600dc46b1cbcc711c"
+callees = ["fn:34719e78a6d2802e"]
+uses = ["fn:0db185144070d072"]
+
+[[module."mod.rs".function]]
+id = "fn:f97f2d53631d2927"
+name = "gas_flux"
+qual = "TwoPhaseFlow::gas_flux"
+lines = [
+    470,
+    494,
+]
+hash = "sha256:0fd15adf8198418d7e1bea0704b9d76b5580bb6e4f5e92414806fbb73a74c0ec"
+doc_hash = "sha256:44b3fc9853735bb7e39bc341169160beed14a7a49348441fa540f69f2b9a4c07"
+callees = ["fn:228b271b42d3efcc"]
+uses = ["fn:0db185144070d072"]
+
+[[module."mod.rs".function]]
+id = "fn:cb0bc7d3f311277a"
+name = "cell_residual"
+qual = "TwoPhaseFlow::cell_residual"
+lines = [
+    496,
+    574,
+]
+hash = "sha256:6654817b8b6c4d3dd185ddba8bb3bf877a0daf30de5d64dc0b8f97b057aaae2a"
+doc_hash = "sha256:22a9ce586c1504a5972cfc114252df921d134e6295c62b4c7a11679d62d8a08a"
+callees = [
+    "fn:018932b0f564c5e2",
+    "fn:345b64cb5fd4eadd",
+    "fn:417586cedef290ff",
+    "fn:487c5254167fb990",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:6fc1d6acd793c17d",
+    "fn:73269c3067ab9f80",
+    "fn:f97f2d53631d2927",
+]
+uses = [
+    "fn:0db185144070d072",
+    "fn:1ded25b48be00a9e",
+    "fn:baa4dc386594afd9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a8087408db20c8ee"
+name = "n_cells"
+qual = "TwoPhaseFlow::n_cells"
+lines = [
+    578,
+    580,
+]
+hash = "sha256:b82d3816e9b65cf3604cec465a2543bd28f2e3e0bf61d44b6675d5822e5b097d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cc21726779f422b1"]
+uses = ["fn:0db185144070d072"]
+
+[[module."mod.rs".function]]
+id = "fn:aeea40d996690247"
+name = "dof_per_cell"
+qual = "TwoPhaseFlow::dof_per_cell"
+lines = [
+    582,
+    584,
+]
+hash = "sha256:9b8d1f6de9ccdd2beb65badd0ad789c38004f2e2221b7f52652b81e59bd09fc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0db185144070d072"]
+
+[[module."mod.rs".function]]
+id = "fn:13998a5a7d6df286"
+name = "ldu_addressing"
+qual = "TwoPhaseFlow::ldu_addressing"
+lines = [
+    586,
+    588,
+]
+hash = "sha256:b7ccc3d2b709004f6492f8dc6f387e54aedb48242d36b4cf426a2eb9706e9535"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:62fc954337041036"]
+uses = ["fn:0db185144070d072"]
+
+[[module."mod.rs".function]]
+id = "fn:77b0e22461e5faa3"
+name = "assemble_residual"
+qual = "TwoPhaseFlow::assemble_residual"
+lines = [
+    590,
+    605,
+]
+hash = "sha256:f270548c7759541ae259c73481207f0e87a4d7d07bce339b92dc6490da71f0ff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:cb0bc7d3f311277a",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:0db185144070d072",
+    "fn:1bb0a85b7ffe5a70",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b8d534e90b3a972a"
+name = "assemble_jacobian"
+qual = "TwoPhaseFlow::assemble_jacobian"
+lines = [
+    607,
+    697,
+]
+hash = "sha256:82cb7adeeff1f1c75debcd52e27b23040111e087f220e224d505c868172d3a95"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5ed2c8d03c2354b7",
+    "fn:657b5e131eb47a83",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73b951b3ddc91119",
+    "fn:a6b33e3a85c96cf3",
+    "fn:cb0bc7d3f311277a",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:0db185144070d072",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:ca6f3662610c7f35",
+]
+
+[[module."mod.rs".function]]
+id = "fn:653c4fe8e170fed6"
+name = "TwoPhaseSimulation"
+qual = "TwoPhaseSimulation"
+item = "type"
+shape = "struct"
+lines = [
+    700,
+    711,
+]
+hash = "sha256:0b36822748f1f01221ea87386e94f4382f2ee3903d7a619a44cc29dc13c9a1a2"
+doc_hash = "sha256:d2023cc30975833ae1ce6df81ae1a481654b7d33efa7ecf09f24ff511b4bf993"
+uses = [
+    "fn:0d2b12571b1f875c",
+    "fn:0db185144070d072",
+]
+reached_by = [
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ea4b3f1f7a9c535e"
+name = "new"
+qual = "TwoPhaseSimulation::new"
+lines = [
+    714,
+    736,
+]
+hash = "sha256:b8758cc620e3b5bee0053eb98219479dcb61e3ef66d31f5934f03cbf5131c37d"
+doc_hash = "sha256:ee8c73fd5679310e87550aac771a07de6fc7c1eabccf98b8b44e11bb4c43027e"
+callees = [
+    "fn:089f4a759b6b0f3b",
+    "fn:5cc3ea60020e426f",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:0d2b12571b1f875c",
+    "fn:0db185144070d072",
+    "fn:653c4fe8e170fed6",
+    "fn:d61db7b6ae7ffc76",
+]
+reached_by = [
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:51fe222d119cde28"
+name = "step"
+qual = "TwoPhaseSimulation::step"
+lines = [
+    738,
+    764,
+]
+hash = "sha256:1553f39e7b95aecdff7d4dff431b4909e99dc049293d6b28ca0cc42cce5db241"
+doc_hash = "sha256:873e751ae926c1797b6278c54143f84ff4b1c6a6aefa194cb55fdabf241e30d3"
+callees = [
+    "fn:bab3621100967a8b",
+    "fn:c4ebdfe505360a1d",
+    "fn:d587a0e49e7fa318",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:653c4fe8e170fed6",
+    "fn:6f84bbb4cdf88156",
+]
+reached_by = [
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fba791e081e7bf3b"
+name = "time"
+qual = "TwoPhaseSimulation::time"
+lines = [
+    766,
+    769,
+]
+hash = "sha256:87f5dee3845a9f2b9d52e0479f0b817b6496a65d771129e2236bce59c3824604"
+doc_hash = "sha256:a683eeed18eeceb508ef5583eeb7e0e51b53937bda4df33c561dd52d7b26ea77"
+uses = ["fn:653c4fe8e170fed6"]
+
+[[module."mod.rs".function]]
+id = "fn:2b3550513bc63aea"
+name = "liquid_pressure"
+qual = "TwoPhaseSimulation::liquid_pressure"
+lines = [
+    771,
+    777,
+]
+hash = "sha256:e0ec287d415e4699683edcc5515df18c92b647333488ec3b106ed498d86517c2"
+doc_hash = "sha256:ef6503a9dd72ec0f87aad218bf20dd52c0a0a242f6c645032d95768deaccadd6"
+callees = [
+    "fn:089f4a759b6b0f3b",
+    "fn:cc21726779f422b1",
+]
+uses = ["fn:653c4fe8e170fed6"]
+reached_by = ["#2"]
+
+[[module."mod.rs".function]]
+id = "fn:3e95a61db59fec41"
+name = "liquid_saturation"
+qual = "TwoPhaseSimulation::liquid_saturation"
+lines = [
+    779,
+    785,
+]
+hash = "sha256:73892970dc510375994fed142c80c5864c4bed968b6576ccbfb50161a57d67bd"
+doc_hash = "sha256:6daec52080ec8ca20dda55b27513a14ea7d2f392730864e9928c4ea1a546a7e1"
+callees = [
+    "fn:089f4a759b6b0f3b",
+    "fn:cc21726779f422b1",
+]
+uses = ["fn:653c4fe8e170fed6"]
+reached_by = [
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e5d7c8a6b8e2c4df"
+name = "problem"
+qual = "TwoPhaseSimulation::problem"
+lines = [
+    787,
+    791,
+]
+hash = "sha256:12e0efdaea71238e82d5479b676db0ed656908724da614e35d4cccaa18a8b9c6"
+doc_hash = "sha256:9087261dd316dba33ef998ccfef0ae609f0a305e70973ecaa462e7bd78c66fe8"
+uses = [
+    "fn:0db185144070d072",
+    "fn:653c4fe8e170fed6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fd3d31d87e0b8d0c"
+name = "state"
+qual = "TwoPhaseSimulation::state"
+lines = [
+    793,
+    797,
+]
+hash = "sha256:cd42636763a06620e6dd1dd8e74c42ff1bae5f44e92cb52856db0559ab6296b3"
+doc_hash = "sha256:afd9b232cefee671507e786db450d321a700b657be7a878ff7ef571c937373b9"
+uses = ["fn:653c4fe8e170fed6"]
+
+[[module."mod.rs".function]]
+id = "fn:cde2544fb94dd6b8"
+name = "m"
+qual = "m"
+lines = [
+    807,
+    809,
+]
+hash = "sha256:12d93f4cfa558480f631aebdd46bbae812f955d45a9aa5faf81fcd390aacd21c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b252ee8418705868"
+name = "vg_curves"
+qual = "vg_curves"
+lines = [
+    811,
+    813,
+]
+hash = "sha256:63d785a2b30d168b409786fe76307e380f3e4a461a8d7399b05819f5f5d2a9be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9e37996c217c2f29"]
+uses = [
+    "fn:d7460c115a5beb61",
+    "fn:f8cc13e0467bdd14",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:da3a3ce2a52c8a30"
+name = "test_config"
+qual = "test_config"
+lines = [
+    815,
+    830,
+]
+hash = "sha256:1830bd326bc780d137b436920f66afbd81cbc6152490d6a518e20142cb67d609"
+doc_hash = "sha256:de6ca62444e434876567ce84259b695400dca370a9ee755b0177e818eae52ea7"
+uses = ["fn:d61db7b6ae7ffc76"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e4e1148c68555fc4"
+name = "closed_uniform_column_is_stationary"
+qual = "closed_uniform_column_is_stationary"
+lines = [
+    832,
+    861,
+]
+hash = "sha256:598aa018510a29497ecd0e4138a461b8b46ffefe9e2bb35cf494a8cbab23381c"
+doc_hash = "sha256:9a300b37f05768d64c612545875adbe8f4a6aa95968cff8084b44e6638792988"
+callees = [
+    "fn:2767d8f4a3c9f6f1",
+    "fn:2b3550513bc63aea",
+    "fn:34113905e25077a0",
+    "fn:3e95a61db59fec41",
+    "fn:51fe222d119cde28",
+    "fn:b252ee8418705868",
+    "fn:b385e989cc9cbfab",
+    "fn:cde2544fb94dd6b8",
+    "fn:da3a3ce2a52c8a30",
+    "fn:ea4b3f1f7a9c535e",
+]
+uses = [
+    "fn:0db185144070d072",
+    "fn:653c4fe8e170fed6",
+    "fn:b11566277f545615",
+    "fn:bef06f63e37dba1c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:42da8643c21f77e7"
+name = "closed_domain_conserves_phase_masses"
+qual = "closed_domain_conserves_phase_masses"
+lines = [
+    863,
+    925,
+]
+hash = "sha256:33f7a6a29b0a578400106f6e4a92cb8f6346ab341624d6b2ec047c0afc22a6bf"
+doc_hash = "sha256:0164096530137faf35d61243c5229355d5b67fa4db1e9e446bdc8b12928ce196"
+callees = [
+    "fn:2767d8f4a3c9f6f1",
+    "fn:34113905e25077a0",
+    "fn:5b5c7d35847f925b",
+    "fn:5cc3ea60020e426f",
+    "fn:b252ee8418705868",
+    "fn:b385e989cc9cbfab",
+    "fn:bab3621100967a8b",
+    "fn:c4ebdfe505360a1d",
+    "fn:cde2544fb94dd6b8",
+    "fn:d587a0e49e7fa318",
+    "fn:da3a3ce2a52c8a30",
+    "fn:f7f694db94107be4",
+]
+uses = [
+    "fn:0d2b12571b1f875c",
+    "fn:0db185144070d072",
+    "fn:b11566277f545615",
+    "fn:bef06f63e37dba1c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e4dd4a756f02c8de"
+name = "imbibition_column_wets_up_and_stays_bounded"
+qual = "imbibition_column_wets_up_and_stays_bounded"
+lines = [
+    927,
+    991,
+]
+hash = "sha256:4b9d5e7a70e53f9270c8a25bdc67134c9e70451a2e82bb0168e2b1e87b9d2c7f"
+doc_hash = "sha256:c78c7f57309cf1ca0dac00229979380313077379d45c0ceeeea74d32a1de6723"
+callees = [
+    "fn:2767d8f4a3c9f6f1",
+    "fn:34113905e25077a0",
+    "fn:3e95a61db59fec41",
+    "fn:51fe222d119cde28",
+    "fn:b252ee8418705868",
+    "fn:b385e989cc9cbfab",
+    "fn:cde2544fb94dd6b8",
+    "fn:da3a3ce2a52c8a30",
+    "fn:db0f9fa08db0bb77",
+    "fn:ea4b3f1f7a9c535e",
+]
+uses = [
+    "fn:0db185144070d072",
+    "fn:1ded25b48be00a9e",
+    "fn:653c4fe8e170fed6",
+    "fn:b11566277f545615",
+    "fn:baa4dc386594afd9",
+    "fn:bef06f63e37dba1c",
+    "fn:c11319179a7ae976",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:aaf163618602c6ec"
+name = "constructors_reject_bad_inputs"
+qual = "constructors_reject_bad_inputs"
+lines = [
+    993,
+    1036,
+]
+hash = "sha256:5aafda70616f77f42ce0787466ef83567c2fd86ab4001f4ea1b538c7b3d60cbf"
+doc_hash = "sha256:ea19bfdfe8af43af966694d646d0169cf1ab3c9421a60c1b6289bd74db7f406d"
+callees = [
+    "fn:2767d8f4a3c9f6f1",
+    "fn:34113905e25077a0",
+    "fn:8a4caa79122e4cdd",
+    "fn:b252ee8418705868",
+    "fn:b385e989cc9cbfab",
+    "fn:cde2544fb94dd6b8",
+]
+uses = [
+    "fn:0db185144070d072",
+    "fn:b11566277f545615",
+    "fn:bef06f63e37dba1c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:05d0b7c4faf9134b"
+name = "capillary_pressure_inverts_retention_curve"
+qual = "capillary_pressure_inverts_retention_curve"
+lines = [
+    1038,
+    1065,
+]
+hash = "sha256:7edc89041ea67113a921867631a2c203f2243f4019f08c74dcd65227bcefd9f6"
+doc_hash = "sha256:cf5e66bb16b660cec7f4255e3acbaa98b2e8f160b7789fb42ad23b84a8e7fcc4"
+callees = [
+    "fn:2767d8f4a3c9f6f1",
+    "fn:34113905e25077a0",
+    "fn:345b64cb5fd4eadd",
+    "fn:487c5254167fb990",
+    "fn:4c7f4c9ed1a4c950",
+    "fn:b385e989cc9cbfab",
+    "fn:c47952df8c1a478d",
+    "fn:cde2544fb94dd6b8",
+]
+uses = [
+    "fn:0db185144070d072",
+    "fn:b11566277f545615",
+    "fn:b9efc1fb017fdf2d",
+    "fn:bef06f63e37dba1c",
+    "fn:f8cc13e0467bdd14",
+]
+test = true

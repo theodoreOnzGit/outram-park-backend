@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::ratio::ratio;
@@ -31,7 +33,7 @@ pub fn hb13_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEnergy {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma - 0.884).powf(ii) * (sigma - 0.864).powf(ji);
+        eta += ni * (sigma - 0.884).r_powf(ii) * (sigma - 0.864).r_powf(ji);
     }
 
     return h_ref * eta;

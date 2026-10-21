@@ -1,0 +1,91 @@
+# The map field: serial, pooled and GPU
+
+> **Extended deep dive.** Read [rung 4](../rungs/04-puffs.md) first.
+> **Research, education and V&V only** (`RESPONSIBLE_USE.md`).
+
+> **Review status:** AI-assisted first draft, 2026-10-04, not yet reviewed by
+> a human. Built from commit
+> [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
+
+## The problem
+
+A map wants the puff train's concentration on a whole grid, refreshed while
+the reader watches. `htgr_sim_v1`'s map uses a 64 × 64 grid over ±1250 m, and
+at its working point (a puff every 10 s over a 1200 s life, about 7 260 puffs)
+one field is about **30 million** kernel evaluations. **What does that cost,
+and where should it run?** This is also the question the dispersion demo
+(#530 phase 3) has to answer under the workspace's "no lagging" rule: every
+calculation longer than a frame runs off the UI thread.
+
+## Three paths, one kernel
+
+[`changi::puff::wgsl`](../../../api/changi/puff/wgsl/index.html) holds the
+kernel three ways:
+
+| Path | What | Precision |
+|---|---|---|
+| `field_serial` | one CPU core | `f32` mirror of the shader |
+| `field_pooled` | a dedicated CPU thread pool | `f32` |
+| `field_gpu` (feature `gpu`) | the WGSL kernel `GAUSSIAN_PUFF_FIELD`, dispatched by `petir::wgsl::gpu::GpuContext::eval_map` | `f32` |
+
+`field_auto` picks the GPU when one is present and the pooled path otherwise;
+`has_gpu_field` reports which. Two design decisions are worth knowing:
+
+- **The sigmas are evaluated on the CPU, once per puff.** The Pasquill–Gifford
+  table walk is branchy, everything a shader does badly, and it is needed once
+  per puff rather than once per (puff, cell). What crosses to the GPU is the
+  finished state per puff (`pack_states`: position, both sigmas, the
+  mass-time weight, `STATE_STRIDE = 5` floats).
+- **`f32` draws the picture; `f64` makes the numbers.** The field drives a
+  colour ramp over four decades, where `f32` is ample. A quoted `chi/Q` always
+  comes from the `f64` kernel `gaussian_puff_concentration`, the one with the
+  verification behind it. `changi` owns no `wgpu` plumbing: `petir` does, so
+  `changi` gains a GPU path without a `wgpu` dependency, and CI never needs a
+  GPU.
+
+In the code, from the timing example to the kernel:
+
+> **On the [Code Review map](../../../code-review/):** start at [`main`](../../../code-review/#crates/changi/examples/field_timing.rs::main) and follow its callees (▸) to [`contribution`](../../../code-review/#crates/changi/src/puff/wgsl.rs::contribution). Each card opens the function's source and shows its review stamp.
+
+## What it costs: the record, and a correction it carries
+
+Recorded 2026-09-24 in `wgsl.rs`'s module doc, 16 logical cores, by
+`examples/field_timing.rs` (median of 5 after a warm-up, the simulator's own
+grid):
+
+| Path | 1 000 puffs | 7 260 puffs | 20 000 puffs | 50 000 puffs |
+|---|---|---|---|---|
+| `field_serial`, one core | 18.7 ms | 136 ms | 369 ms | 890 ms |
+| `field_pooled`, 16 cores | 2.3 ms | 15.9 ms | 43.0 ms | 104 ms |
+| `field_gpu` | 0.57 ms | 1.98 ms | 12.8 ms | 11.6 ms |
+
+An earlier version of that table claimed "one core ~2.2 s, 16 cores ~140 ms,
+so only the GPU meets 10 Hz". The pooled row was wrong by about 9×: 140 ms is
+the **serial** cost at the working point. It was corrected on 2026-09-24, with
+the example written as the instrument that makes the number reproducible. The
+lesson is the workspace's: a number that decides a design and cannot be
+re-measured is not evidence.
+
+**A re-run for this book did not reproduce the serial row, and is not a
+clean measurement.** On one core (`develop` `d4428668be`, one core (core 12, `-j 1`), 2026-10-04), `field_timing` gave 435 ms serial at
+7 260 puffs, 3.2× the recorded 136 ms. The host was heavily loaded at the
+time (load average about 21–23 on 16 cores, with a rust-analyzer check
+running on the same core), and the pooled path collapses to serial on one
+core, so the run says nothing about the 16-core rows. The recorded table
+above stands as recorded, and this book does not quote a re-measured timing.
+
+## For the demo
+
+A browser demo is single-threaded unless it uses a Web Worker, and has no
+guaranteed GPU. At the serial cost above, a 7 260-puff field on one core is
+about a seventh of a second, too long for one frame. So the demo's puff rung
+computes the field in a worker and streams it, keeping the map responsive
+(the "no lagging" hard rule, `docs/claude-md/mobile-first-tutorials-and-demos.md`).
+
+## Coverage
+
+| Item | Section |
+|---|---|
+| `wgsl::{GAUSSIAN_PUFF_FIELD, STATE_STRIDE, TWO_PI_THREE_HALVES, PuffState, FieldGrid, pack_states, contribution, field_cell}` | three paths |
+| `wgsl::{field_serial, field_pooled, field_gpu, field_auto, has_gpu_field}` | three paths, cost |
+| `examples/field_timing.rs` | cost |

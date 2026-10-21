@@ -43,6 +43,7 @@
 //! repo-only `reference-data/endf/` is absent, matching
 //! `tests/thermal_graphite_elastic.rs`.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::physics::slowing_down::{solve_on_grid, SlowingDownGrid};
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,7 +106,7 @@ fn slowing_down_solver_matches_the_closed_form_hydrogen_solution() {
         solve_on_grid(&grid).escaped
     };
 
-    let exact = c * (-(1.0 - c) * u_max).exp();
+    let exact = c * (-(1.0 - c) * u_max).r_exp();
     let coarse = solve(15_000);
     let fine = solve(60_000);
 
@@ -161,7 +162,7 @@ fn slowing_down_solver_matches_the_closed_form_hydrogen_solution() {
 #[should_panic(expected = "scatter window")]
 fn a_grid_coarser_than_the_scatter_window_is_rejected_not_silently_wrong() {
     let alpha_u238 = 0.983_f64;
-    let eps = -alpha_u238.ln(); // ≈ 0.0171
+    let eps = -alpha_u238.r_ln(); // ≈ 0.0171
     let n = 200;
     // One step per window: 4× coarser than the backstop allows.
     let lethargy: Vec<f64> = (0..=n).map(|k| eps * k as f64).collect();
@@ -399,7 +400,7 @@ fn rpt_inner_radius_respects_the_geometric_ceiling() {
 
     const R_FUEL_ZONE: f64 = 1.9;
     const PF: f64 = 0.30;
-    let ceiling = R_FUEL_ZONE * (1.0 - PF).cbrt();
+    let ceiling = R_FUEL_ZONE * (1.0 - PF).r_cbrt();
 
     let r_outer = rpt_fuel_outer_radius(1.493_359_375, R_FUEL_ZONE, PF);
     println!("reference r_inner 1.493359375 → r_outer {r_outer:.5} cm, ceiling {ceiling:.5} cm");
@@ -577,7 +578,7 @@ fn nuclide_or_skip(
         );
         return None;
     };
-    match Nuclide::from_endf_file(&path, name, temp_k, 1.0e-3) {
+    match Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(temp_k), 1.0e-3) {
         Ok(n) => Some(n),
         Err(e) => {
             println!("[{name}] SKIP: reconstruction failed: {e}");
@@ -877,7 +878,7 @@ fn self_shielded_absorption_is_not_the_dilute_limit() {
         let mix = mixture_at(sigma_b);
         let det = solve_deterministic(nuclides, &mix, band, temp, grid);
         // p = exp(−I_eff / (ξ σ_b))  ⟹  I_eff = −ξ σ_b ln p
-        let i_eff = -XI_C12 * sigma_b * det.escaped.max(1.0e-12).ln();
+        let i_eff = -XI_C12 * sigma_b * det.escaped.max(1.0e-12).r_ln();
         println!(
             "sigma_b {sigma_b:>7.0} b:  p_esc {:.5}   I_eff {i_eff:>7.2} b",
             det.escaped
@@ -1292,7 +1293,7 @@ fn a_transparent_lump_gives_the_homogeneous_answer_only_under_a_white_boundary()
             components: comp(&[(0, n_c_avg / (1.0 - VFRAC))]),
         },
     ];
-    let r_fuel = R_CELL * VFRAC.cbrt();
+    let r_fuel = R_CELL * VFRAC.r_cbrt();
 
     let run = |bc: CellBoundary, outer: BoundaryType| {
         let geom = fhr_pebble_geometry(

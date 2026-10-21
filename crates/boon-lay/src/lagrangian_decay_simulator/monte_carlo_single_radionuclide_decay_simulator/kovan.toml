@@ -1,0 +1,496 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator"
+test_ids = [
+    "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/tests.rs::decay_chain_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/tests.rs::stochastic_half_life_calculator",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ba137m",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_c14",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_co60",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_cs137",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_h3",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_i131",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_k40",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_kr85",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_na22",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_po210",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_pu239",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ra226",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_rn222",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_sr90",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_test_tritium",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u235",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u238",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_xe135",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::monte_carlo_single_radionuclide_decay_simulator"
+
+[[module."mod.rs".function]]
+id = "fn:e3d3971cf92a6302"
+name = "SingleNuclideSimulatorMC"
+qual = "SingleNuclideSimulatorMC"
+item = "type"
+shape = "struct"
+lines = [
+    15,
+    41,
+]
+hash = "sha256:ed320175bd927032de3cad029261e31d6325416991c2739bb807faaba8086bf8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2544367c1b848785",
+    "fn:72e9a39cf82b0ce8",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9fa80256432281e7"
+name = "get_time_to_decay_stochastic"
+qual = "SingleNuclideSimulatorMC::get_time_to_decay_stochastic"
+lines = [
+    60,
+    76,
+]
+hash = "sha256:69967ea4afc2d52c6a68ef69ad4fd1f39c5246ac1baa31537d00fa071c6b04d9"
+doc_hash = "sha256:107a978ce216caee6f50b377f6aeb12c4f8d73c6a8f496dbd0e47c9576bffa5a"
+callees = ["fn:390c172a67546051"]
+uses = [
+    "fn:985bf4f6adecc6ad",
+    "fn:e3d3971cf92a6302",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:be8a3aba3961e684"
+name = "new_decay_chain_simulation"
+qual = "SingleNuclideSimulatorMC::new_decay_chain_simulation"
+lines = [
+    78,
+    151,
+]
+hash = "sha256:dcea631d0c94cf77741c1b7918ba1e00d6a6c4bf2e19c0d13d27b4bdef3e938f"
+doc_hash = "sha256:0d47864ac5cf6f3ed32bb18747d2fa1dc65e0d98e38889e10dd23e30c21b333e"
+callees = [
+    "fn:094c1bcb03a9b17f",
+    "fn:3dbac5330a933de5",
+    "fn:9fa80256432281e7",
+    "fn:bf034958dfa63f73",
+]
+uses = [
+    "fn:2544367c1b848785",
+    "fn:4e41f8c2e2e72b73",
+    "fn:72e9a39cf82b0ce8",
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:20829acafc8651ce"
+name = "transmute_nuclide"
+qual = "SingleNuclideSimulatorMC::transmute_nuclide"
+lines = [
+    152,
+    164,
+]
+hash = "sha256:f78caad67f1a3cd7fc83edffe12bb8909db03dad7bde9b73af8c293819334c73"
+doc_hash = "sha256:e6e84bd7f424b4d22052a61fbbb90fd5fb4ea241b97f30240de976471cab0d9c"
+callees = ["fn:be8a3aba3961e684"]
+uses = [
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e928d7994414523e"
+name = "advance_timestep"
+qual = "SingleNuclideSimulatorMC::advance_timestep"
+lines = [
+    168,
+    291,
+]
+hash = "sha256:f2a9458795ee65d116fa616006d238f48d02a947782f416e2d5c89fddae3984b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bf034958dfa63f73"]
+uses = [
+    "fn:2544367c1b848785",
+    "fn:e3d3971cf92a6302",
+]
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f04ae516f848f79a"
+name = "get_time_to_next_decay"
+qual = "SingleNuclideSimulatorMC::get_time_to_next_decay"
+lines = [
+    293,
+    298,
+]
+hash = "sha256:ba2cbcdac5a3fd4418332bdcd50f2a1eacf1cb765623328176641d60e2f9c7ed"
+doc_hash = "sha256:31674c5dc34cc1dffe514ab9ded29dd727ee69d916ff1de0206cd45cdb9da3e9"
+uses = ["fn:e3d3971cf92a6302"]
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d84c7e41f0b78cde"
+name = "get_current_nuclide"
+qual = "SingleNuclideSimulatorMC::get_current_nuclide"
+lines = [
+    299,
+    303,
+]
+hash = "sha256:6e6fe20d3adb9b8e109d381c193b25c6c201ed2ee0d62b727c18239dd63c53f6"
+doc_hash = "sha256:a840ae2903fd90cc7e657814341d682dc9c3d2fa6b5c89c5f2ee2fcaeb94cb75"
+uses = ["fn:e3d3971cf92a6302"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:2ae487250a7e2c8d"
+name = "get_next_decay_nuclide"
+qual = "SingleNuclideSimulatorMC::get_next_decay_nuclide"
+lines = [
+    304,
+    323,
+]
+hash = "sha256:f864c53ec33b399e01078261ba97d9fc3a71c9efe3a10375e8c9f39f0d74b8be"
+doc_hash = "sha256:8f4e7b560bd01fbb25426a920293bb595fe6d10a0c5bd80332214b71d5ee9f69"
+uses = [
+    "fn:2544367c1b848785",
+    "fn:e3d3971cf92a6302",
+]
+
+[[module."mod.rs".function]]
+id = "fn:76e9ed2dd06eff29"
+name = "get_time_to_live_vec"
+qual = "SingleNuclideSimulatorMC::get_time_to_live_vec"
+lines = [
+    324,
+    328,
+]
+hash = "sha256:6ac94f43f1d590361ecdde04a529664d5b37135eeee66112737df7c02653aec0"
+doc_hash = "sha256:94777008f8cfb40019993831243265f32758814128f2ef0fecb8979a817161b5"
+uses = ["fn:e3d3971cf92a6302"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:75abf8973f3f9a0f"
+name = "get_decay_chain_vec"
+qual = "SingleNuclideSimulatorMC::get_decay_chain_vec"
+lines = [
+    329,
+    338,
+]
+hash = "sha256:be0b5d554d2b4cb974ea236a7502a176414da43c33afaa4debbe4a8f4e123743"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e3d3971cf92a6302"]
+
+[[module."mod.rs".function]]
+id = "fn:47e9ad2b002fe517"
+name = "get_current_simulated_time"
+qual = "SingleNuclideSimulatorMC::get_current_simulated_time"
+lines = [
+    339,
+    343,
+]
+hash = "sha256:cea5cc3bd709a80aa04bf5363a2ed3b35f0f02dd7436a08acec7ff7692fc3611"
+doc_hash = "sha256:7ad9015c5436dc6da13bbaf9ddfe3164b57ec00038c697b934b03513fbcee79c"
+uses = ["fn:e3d3971cf92a6302"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:7593d3104d851d53"
+name = "get_current_elapsed_time"
+qual = "SingleNuclideSimulatorMC::get_current_elapsed_time"
+lines = [
+    344,
+    348,
+]
+hash = "sha256:085f41ab847bd3dea6fc2f00eac4c879c5f0c72b561d0b158edfaa9f685550d7"
+doc_hash = "sha256:ff81e6ce2284370e3b65c5a8eb5dc62887dea54b5e0fd8b5116ae56335aa83ff"
+uses = ["fn:e3d3971cf92a6302"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:85099c424080688b"
+name = "get_current_half_life_info"
+qual = "SingleNuclideSimulatorMC::get_current_half_life_info"
+lines = [
+    350,
+    353,
+]
+hash = "sha256:5901f81b639349eb643d01771e32f582537417679bc39e50b73c959c8a4ce5f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2544367c1b848785",
+    "fn:e3d3971cf92a6302",
+]
+
+[[module."mod.rs".function]]
+id = "fn:045f5259db97b626"
+name = "get_current_half_life"
+qual = "SingleNuclideSimulatorMC::get_current_half_life"
+lines = [
+    355,
+    361,
+]
+hash = "sha256:4915246c8158039aad55d7fa8f8bbb55d7960920ce48a8340392ebc5ce0ffcdf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2544367c1b848785",
+    "fn:e3d3971cf92a6302",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4f17d5d6b9d957fa"
+name = "get_decay_constant"
+qual = "SingleNuclideSimulatorMC::get_decay_constant"
+lines = [
+    364,
+    372,
+]
+hash = "sha256:b2e8798148804aaae06dd37b97c78df2031fbc1d48f2df619054608e90fad511"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:2544367c1b848785",
+    "fn:e3d3971cf92a6302",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:60186b64a192c4fc"
+name = "force_decay_to_next_nuclide"
+qual = "SingleNuclideSimulatorMC::force_decay_to_next_nuclide"
+lines = [
+    374,
+    379,
+]
+hash = "sha256:9233686f145e8d64df2d21c09d08a889e5dabc78837b41879222ac9a52954d7b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:e928d7994414523e",
+    "fn:f04ae516f848f79a",
+]
+uses = [
+    "fn:2544367c1b848785",
+    "fn:e3d3971cf92a6302",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:2ad6b43c4292640c"
+name = "check_if_current_nuclide_matches"
+qual = "SingleNuclideSimulatorMC::check_if_current_nuclide_matches"
+lines = [
+    381,
+    388,
+]
+hash = "sha256:7f5477d07eec97b89bfdaae56198c2887b0b1cdc11bbbc0b0369a963b9492463"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d84c7e41f0b78cde"]
+uses = ["fn:e3d3971cf92a6302"]
+
+[module."postprocessing.rs"]
+path = "crate::lagrangian_decay_simulator::monte_carlo_single_radionuclide_decay_simulator::postprocessing"
+
+[[module."postprocessing.rs".function]]
+id = "fn:0b6a98970390657d"
+name = "chain_nuclides_unique_sorted"
+qual = "SingleNuclideSimulatorMC::chain_nuclides_unique_sorted"
+lines = [
+    11,
+    29,
+]
+hash = "sha256:f8c2496ea3a4bd56c48ab338e2753665f4900a1a48bb66f9ae8297e96aa9064b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."postprocessing.rs".function]]
+id = "fn:3603c07b0f462410"
+name = "all_chain_nuclides_unique_sorted"
+qual = "SingleNuclideSimulatorMC::all_chain_nuclides_unique_sorted"
+lines = [
+    32,
+    50,
+]
+hash = "sha256:5587448c9c927edb9054deea9d508506eabc74636432b9e40de6fb09316e1b3d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e3d3971cf92a6302"]
+
+[[module."postprocessing.rs".function]]
+id = "fn:c97b84611ab981de"
+name = "count_nuclides_in_sims_linear"
+qual = "SingleNuclideSimulatorMC::count_nuclides_in_sims_linear"
+lines = [
+    56,
+    79,
+]
+hash = "sha256:90b700229dddb11faf45a3fe6fac53fbcb0d571d18837caf861dc33bb46897ac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e3d3971cf92a6302"]
+
+[module."tests.rs"]
+path = "crate::lagrangian_decay_simulator::monte_carlo_single_radionuclide_decay_simulator::tests"
+
+[[module."tests.rs".function]]
+id = "fn:9874bb837c6d291f"
+name = "stochastic_half_life_calculator"
+qual = "stochastic_half_life_calculator"
+lines = [
+    9,
+    222,
+]
+hash = "sha256:6ad1511b256656d2decc03a48a4c0af93384f2229da0109cff9363cf830302c1"
+doc_hash = "sha256:85b61e918f00a88f7fbecdaee6fbc8c3a920c79c5f95f63334f497537a964fd4"
+callees = [
+    "fn:841bfe59a1c43d51",
+    "fn:9fa80256432281e7",
+]
+uses = [
+    "fn:985bf4f6adecc6ad",
+    "fn:e3d3971cf92a6302",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:dbc78165ed943718"
+name = "decay_chain_th232"
+qual = "decay_chain_th232"
+lines = [
+    226,
+    294,
+]
+hash = "sha256:75a1e0d170a8e1999e886c5785f060e7158aa44eefc811335e3a3bdebb177bcc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:60186b64a192c4fc",
+    "fn:be8a3aba3961e684",
+    "fn:d84c7e41f0b78cde",
+    "fn:e928d7994414523e",
+    "fn:f04ae516f848f79a",
+    "fn:f5fc6e6d09e9c35b",
+]
+uses = [
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+]
+test = true

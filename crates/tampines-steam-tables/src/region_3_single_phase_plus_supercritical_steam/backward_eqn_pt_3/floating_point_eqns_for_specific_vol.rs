@@ -6,6 +6,8 @@
 //! entry points (`v_tp_3`, `v_tp_3c`, ...) in the parent module call these.
 //! `subregion` classifies a `(t,p)` point into the matching letter.
 
+use petir::mathf::RealMath;
+
 use super::BackwardPTRegion3;
 
 /// looking at table 2.103 and the preceeding
@@ -61,7 +63,7 @@ pub(crate) fn subregion_a(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p * 1e-8) - 0.085).powi(i[x - 1]) * ((t / 760.0) - 0.817).powi(j[x - 1]))
+            n[x - 1] * (((p * 1e-8) - 0.085).r_powi(i[x - 1]) * ((t / 760.0) - 0.817).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0024
@@ -118,7 +120,7 @@ pub(crate) fn subregion_b(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p * 1e-8) - 0.280).powi(i[x - 1]) * ((t / 860.0) - 0.779).powi(j[x - 1]))
+            n[x - 1] * (((p * 1e-8) - 0.280).r_powi(i[x - 1]) * ((t / 860.0) - 0.779).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0041
@@ -179,7 +181,7 @@ pub(crate) fn subregion_c(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p * 2.5e-8) - 0.259).powi(i[x - 1]) * ((t / 690.0) - 0.903).powi(j[x - 1]))
+                * (((p * 2.5e-8) - 0.259).r_powi(i[x - 1]) * ((t / 690.0) - 0.903).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0022
@@ -243,10 +245,10 @@ pub(crate) fn subregion_d(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p * 2.5e-8) - 0.559).powi(i[x - 1]) * ((t / 690.0) - 0.939).powi(j[x - 1]))
+                * (((p * 2.5e-8) - 0.559).r_powi(i[x - 1]) * ((t / 690.0) - 0.939).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0029
+    v.r_powi(4) * 0.0029
 }
 
 pub(crate) fn subregion_e(t: f64, p: f64) -> f64 {
@@ -297,7 +299,7 @@ pub(crate) fn subregion_e(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p * 2.5e-8) - 0.587).powi(i[x - 1]) * ((t / 710.0) - 0.918).powi(j[x - 1]))
+                * (((p * 2.5e-8) - 0.587).r_powi(i[x - 1]) * ((t / 710.0) - 0.918).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0032
@@ -365,11 +367,11 @@ pub(crate) fn subregion_f(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p * 002.5e-8) - 0.587).powf(0.5)).powi(i[x - 1])
-                    * ((t / 730.0) - 0.891).powi(j[x - 1]))
+                * ((((p * 002.5e-8) - 0.587).r_powf(0.5)).r_powi(i[x - 1])
+                    * ((t / 730.0) - 0.891).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0064
+    v.r_powi(4) * 0.0064
 }
 
 pub(crate) fn subregion_g(t: f64, p: f64) -> f64 {
@@ -430,10 +432,10 @@ pub(crate) fn subregion_g(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p * 4.0e-8) - 0.872).powi(i[x - 1]) * ((t / 660.0) - 0.971).powi(j[x - 1]))
+                * (((p * 4.0e-8) - 0.872).r_powi(i[x - 1]) * ((t / 660.0) - 0.971).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0027
+    v.r_powi(4) * 0.0027
 }
 
 pub(crate) fn subregion_h(t: f64, p: f64) -> f64 {
@@ -484,10 +486,10 @@ pub(crate) fn subregion_h(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p * 4.0e-8) - 0.898).powi(i[x - 1]) * ((t / 660.0) - 0.983).powi(j[x - 1]))
+                * (((p * 4.0e-8) - 0.898).r_powi(i[x - 1]) * ((t / 660.0) - 0.983).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0032
+    v.r_powi(4) * 0.0032
 }
 
 pub(crate) fn subregion_i(t: f64, p: f64) -> f64 {
@@ -552,11 +554,11 @@ pub(crate) fn subregion_i(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p * 4.0e-8) - 0.910).powf(0.5)).powi(i[x - 1])
-                    * ((t / 660.0) - 0.984).powi(j[x - 1]))
+                * ((((p * 4.0e-8) - 0.910).r_powf(0.5)).r_powi(i[x - 1])
+                    * ((t / 660.0) - 0.984).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0041
+    v.r_powi(4) * 0.0041
 }
 
 pub(crate) fn subregion_j(t: f64, p: f64) -> f64 {
@@ -608,11 +610,11 @@ pub(crate) fn subregion_j(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p * 4.0e-8) - 0.875).powf(0.5)).powi(i[x - 1])
-                    * ((t / 670.0) - 0.964).powi(j[x - 1]))
+                * ((((p * 4.0e-8) - 0.875).r_powf(0.5)).r_powi(i[x - 1])
+                    * ((t / 670.0) - 0.964).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0054
+    v.r_powi(4) * 0.0054
 }
 
 pub(crate) fn subregion_k(t: f64, p: f64) -> f64 {
@@ -669,7 +671,7 @@ pub(crate) fn subregion_k(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p * 4.0e-8) - 0.802).powi(i[x - 1]) * ((t / 680.0) - 0.935).powi(j[x - 1]))
+                * (((p * 4.0e-8) - 0.802).r_powi(i[x - 1]) * ((t / 680.0) - 0.935).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0077
@@ -738,10 +740,10 @@ pub(crate) fn subregion_l(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p / 24.0e6) - 0.908).powi(i[x - 1]) * ((t / 650.0) - 0.989).powi(j[x - 1]))
+                * (((p / 24.0e6) - 0.908).r_powi(i[x - 1]) * ((t / 650.0) - 0.989).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0026
+    v.r_powi(4) * 0.0026
 }
 
 pub(crate) fn subregion_m(t: f64, p: f64) -> f64 {
@@ -804,8 +806,8 @@ pub(crate) fn subregion_m(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p / 23.0e6) - 1.0).powi(i[x - 1])
-                    * (((t / 650.0) - 0.997).powf(0.25)).powi(j[x - 1]))
+                * (((p / 23.0e6) - 1.0).r_powi(i[x - 1])
+                    * (((t / 650.0) - 0.997).r_powf(0.25)).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0028
@@ -870,10 +872,10 @@ pub(crate) fn subregion_n(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * (((p / 23.0e6) - 0.976).powi(i[x - 1]) * ((t / 650.0) - 0.997).powi(j[x - 1]))
+                * (((p / 23.0e6) - 0.976).r_powi(i[x - 1]) * ((t / 650.0) - 0.997).r_powi(j[x - 1]))
         })
         .sum();
-    v.exp() * 0.0031
+    v.r_exp() * 0.0031
 }
 
 pub(crate) fn subregion_o(t: f64, p: f64) -> f64 {
@@ -919,8 +921,8 @@ pub(crate) fn subregion_o(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p / 23.0e6) - 0.974).powf(0.5)).powi(i[x - 1])
-                    * ((t / 650.0) - 0.996).powi(j[x - 1]))
+                * ((((p / 23.0e6) - 0.974).r_powf(0.5)).r_powi(i[x - 1])
+                    * ((t / 650.0) - 0.996).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0034
@@ -973,8 +975,8 @@ pub(crate) fn subregion_p(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p / 23.0e6) - 0.972).powf(0.5)).powi(i[x - 1])
-                    * ((t / 650.0) - 0.997).powi(j[x - 1]))
+                * ((((p / 23.0e6) - 0.972).r_powf(0.5)).r_powi(i[x - 1])
+                    * ((t / 650.0) - 0.997).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0041
@@ -1022,10 +1024,10 @@ pub(crate) fn subregion_q(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 23e6) - 0.848).powi(i[x - 1]) * ((t / 650.0) - 0.983).powi(j[x - 1]))
+            n[x - 1] * (((p / 23e6) - 0.848).r_powi(i[x - 1]) * ((t / 650.0) - 0.983).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0022
+    v.r_powi(4) * 0.0022
 }
 
 pub(crate) fn subregion_r(t: f64, p: f64) -> f64 {
@@ -1074,7 +1076,7 @@ pub(crate) fn subregion_r(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 23e6) - 0.874).powi(i[x - 1]) * ((t / 650.0) - 0.982).powi(j[x - 1]))
+            n[x - 1] * (((p / 23e6) - 0.874).r_powi(i[x - 1]) * ((t / 650.0) - 0.982).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0054
@@ -1128,10 +1130,10 @@ pub(crate) fn subregion_s(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 21e6) - 0.886).powi(i[x - 1]) * ((t / 640.0) - 0.990).powi(j[x - 1]))
+            n[x - 1] * (((p / 21e6) - 0.886).r_powi(i[x - 1]) * ((t / 640.0) - 0.990).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0022
+    v.r_powi(4) * 0.0022
 }
 
 pub(crate) fn subregion_t(t: f64, p: f64) -> f64 {
@@ -1186,7 +1188,7 @@ pub(crate) fn subregion_t(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 20e6) - 0.803).powi(i[x - 1]) * ((t / 650.0) - 1.020).powi(j[x - 1]))
+            n[x - 1] * (((p / 20e6) - 0.803).r_powi(i[x - 1]) * ((t / 650.0) - 1.020).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0088
@@ -1249,7 +1251,7 @@ pub(crate) fn subregion_u(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 23e6) - 0.902).powi(i[x - 1]) * ((t / 650.0) - 0.988).powi(j[x - 1]))
+            n[x - 1] * (((p / 23e6) - 0.902).r_powi(i[x - 1]) * ((t / 650.0) - 0.988).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0026
@@ -1313,7 +1315,7 @@ pub(crate) fn subregion_v(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 23e6) - 0.960).powi(i[x - 1]) * ((t / 650.0) - 0.995).powi(j[x - 1]))
+            n[x - 1] * (((p / 23e6) - 0.960).r_powi(i[x - 1]) * ((t / 650.0) - 0.995).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0031
@@ -1373,10 +1375,10 @@ pub(crate) fn subregion_w(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 23e6) - 0.959).powi(i[x - 1]) * ((t / 650.0) - 0.995).powi(j[x - 1]))
+            n[x - 1] * (((p / 23e6) - 0.959).r_powi(i[x - 1]) * ((t / 650.0) - 0.995).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0039
+    v.r_powi(4) * 0.0039
 }
 
 pub(crate) fn subregion_x(t: f64, p: f64) -> f64 {
@@ -1434,7 +1436,7 @@ pub(crate) fn subregion_x(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 23e6) - 0.910).powi(i[x - 1]) * ((t / 650.0) - 0.988).powi(j[x - 1]))
+            n[x - 1] * (((p / 23e6) - 0.910).r_powi(i[x - 1]) * ((t / 650.0) - 0.988).r_powi(j[x - 1]))
         })
         .sum();
     v * 0.0049
@@ -1475,10 +1477,10 @@ pub(crate) fn subregion_y(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 22e6) - 0.996).powi(i[x - 1]) * ((t / 650.0) - 0.994).powi(j[x - 1]))
+            n[x - 1] * (((p / 22e6) - 0.996).r_powi(i[x - 1]) * ((t / 650.0) - 0.994).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0031
+    v.r_powi(4) * 0.0031
 }
 
 pub(crate) fn subregion_z(t: f64, p: f64) -> f64 {
@@ -1521,10 +1523,10 @@ pub(crate) fn subregion_z(t: f64, p: f64) -> f64 {
     let v: f64 = x
         .into_iter()
         .map(|x| {
-            n[x - 1] * (((p / 22e6) - 0.993).powi(i[x - 1]) * ((t / 650.0) - 0.994).powi(j[x - 1]))
+            n[x - 1] * (((p / 22e6) - 0.993).r_powi(i[x - 1]) * ((t / 650.0) - 0.994).r_powi(j[x - 1]))
         })
         .sum();
-    v.powi(4) * 0.0038
+    v.r_powi(4) * 0.0038
 }
 
 const REGION_4_SATURATION_COEFFS: [f64; 10] = [
@@ -1548,16 +1550,16 @@ fn psat97(t: &f64) -> f64 {
     // Calulate additional values
     let theta: f64 = t + REGION_4_SATURATION_COEFFS[8] / (t - REGION_4_SATURATION_COEFFS[9]);
     let coef_a: f64 =
-        theta.powi(2) + REGION_4_SATURATION_COEFFS[0] * theta + REGION_4_SATURATION_COEFFS[1];
-    let coef_b: f64 = REGION_4_SATURATION_COEFFS[2] * theta.powi(2)
+        theta.r_powi(2) + REGION_4_SATURATION_COEFFS[0] * theta + REGION_4_SATURATION_COEFFS[1];
+    let coef_b: f64 = REGION_4_SATURATION_COEFFS[2] * theta.r_powi(2)
         + REGION_4_SATURATION_COEFFS[3] * theta
         + REGION_4_SATURATION_COEFFS[4];
-    let coef_c: f64 = REGION_4_SATURATION_COEFFS[5] * theta.powi(2)
+    let coef_c: f64 = REGION_4_SATURATION_COEFFS[5] * theta.r_powi(2)
         + REGION_4_SATURATION_COEFFS[6] * theta
         + REGION_4_SATURATION_COEFFS[7];
 
     // Return p_sat
-    (2.0 * coef_c / (-coef_b + (coef_b.powi(2) - 4.0 * coef_a * coef_c).sqrt())).powi(4) * 1e6
+    (2.0 * coef_c / (-coef_b + (coef_b.r_powi(2) - 4.0 * coef_a * coef_c).sqrt())).r_powi(4) * 1e6
 }
 
 /// Returns the saturation temperature in K
@@ -1566,20 +1568,20 @@ fn psat97(t: &f64) -> f64 {
 /// based on rusteam
 fn tsat97(p: &f64) -> f64 {
     // Calulate additional values
-    let beta: f64 = (p * 1e-6).powf(0.25);
+    let beta: f64 = (p * 1e-6).r_powf(0.25);
     let coef_e: f64 =
-        beta.powi(2) + REGION_4_SATURATION_COEFFS[2] * beta + REGION_4_SATURATION_COEFFS[5];
-    let coef_f: f64 = REGION_4_SATURATION_COEFFS[0] * beta.powi(2)
+        beta.r_powi(2) + REGION_4_SATURATION_COEFFS[2] * beta + REGION_4_SATURATION_COEFFS[5];
+    let coef_f: f64 = REGION_4_SATURATION_COEFFS[0] * beta.r_powi(2)
         + REGION_4_SATURATION_COEFFS[3] * beta
         + REGION_4_SATURATION_COEFFS[6];
-    let coef_g: f64 = REGION_4_SATURATION_COEFFS[1] * beta.powi(2)
+    let coef_g: f64 = REGION_4_SATURATION_COEFFS[1] * beta.r_powi(2)
         + REGION_4_SATURATION_COEFFS[4] * beta
         + REGION_4_SATURATION_COEFFS[7];
-    let coef_d: f64 = 2.0 * coef_g / (-coef_f - (coef_f.powi(2) - 4.0 * coef_e * coef_g).sqrt());
+    let coef_d: f64 = 2.0 * coef_g / (-coef_f - (coef_f.r_powi(2) - 4.0 * coef_e * coef_g).sqrt());
 
     // Return t_sat
     (REGION_4_SATURATION_COEFFS[9] + coef_d
-        - ((REGION_4_SATURATION_COEFFS[9] + coef_d).powi(2)
+        - ((REGION_4_SATURATION_COEFFS[9] + coef_d).r_powi(2)
             - 4.0 * (REGION_4_SATURATION_COEFFS[8] + REGION_4_SATURATION_COEFFS[9] * coef_d))
             .sqrt())
         * 0.5
@@ -1692,18 +1694,18 @@ pub(crate) fn subregion(t: f64, p: f64) -> BackwardPTRegion3 {
     // Calculate Boundaries
     for x in 0..=4 {
         if x <= 3 {
-            t_cd += coefficients_cd[x] * (p * 1e-6).powi(x as i32);
-            t_mn += coefficients_mn[x] * (p * 1e-6).powi(x as i32);
-            t_qu += coefficients_qu[x] * (p * 1e-6).powi(x as i32);
-            t_rx += coefficients_rx[x] * (p * 1e-6).powi(x as i32);
-            t_uv += coefficients_uv[x] * (p * 1e-6).powi(x as i32)
+            t_cd += coefficients_cd[x] * (p * 1e-6).r_powi(x as i32);
+            t_mn += coefficients_mn[x] * (p * 1e-6).r_powi(x as i32);
+            t_qu += coefficients_qu[x] * (p * 1e-6).r_powi(x as i32);
+            t_rx += coefficients_rx[x] * (p * 1e-6).r_powi(x as i32);
+            t_uv += coefficients_uv[x] * (p * 1e-6).r_powi(x as i32)
         }
-        t_ab += coefficients_ab[x] * ((p * 1e-6).ln()).powi(ii[x]);
-        t_gh += coefficients_gh[x] * (p * 1e-6).powi(x as i32);
-        t_ij += coefficients_ij[x] * (p * 1e-6).powi(x as i32);
-        t_jk += coefficients_jk[x] * (p * 1e-6).powi(x as i32);
-        t_op += coefficients_op[x] * ((p * 1e-6).ln()).powi(ii[x]);
-        t_wx += coefficients_wx[x] * ((p * 1e-6).ln()).powi(ii[x]);
+        t_ab += coefficients_ab[x] * ((p * 1e-6).r_ln()).r_powi(ii[x]);
+        t_gh += coefficients_gh[x] * (p * 1e-6).r_powi(x as i32);
+        t_ij += coefficients_ij[x] * (p * 1e-6).r_powi(x as i32);
+        t_jk += coefficients_jk[x] * (p * 1e-6).r_powi(x as i32);
+        t_op += coefficients_op[x] * ((p * 1e-6).r_ln()).r_powi(ii[x]);
+        t_wx += coefficients_wx[x] * ((p * 1e-6).r_ln()).r_powi(ii[x]);
     }
 
     // Calculate the Density

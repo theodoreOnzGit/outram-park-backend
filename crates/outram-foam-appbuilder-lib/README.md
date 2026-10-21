@@ -131,7 +131,7 @@ translation order are in
 |---|---|
 | `neutronics::point_kinetics` | **Implemented + verified** — 0-D point-kinetics ODE (backward-Euler), verified against the analytical inhour equation (~0.007 % on asymptotic period; `tests/genfoam_point_kinetics_inhour.rs`). Feedback / GEM / control-rod-driveline / FMU / liquid-fuel-advection coupling **deferred**. |
 | `neutronics::xs` | **Implemented** — GeN-Foam-format multigroup cross-section data structures + unit tests. |
-| `neutronics::diffusion` | **Implemented + verified** — multigroup diffusion, k-eigenvalue (power iteration) + backward-Euler transient; verified against closed-form one-group theory (`k_inf` to `~4e-16`, bare-slab buckling +0.3 pcm, mesh convergence, null transient). |
+| `neutronics::diffusion` | **Implemented + verified** — multigroup diffusion, k-eigenvalue (power iteration) + backward-Euler transient; verified against closed-form one-group theory (`k_inf` to `~4e-16`, bare-slab buckling +0.3 pcm, mesh convergence, null transient). `set_initial_guess` warm-starts the power iteration from a previous flux and `k` (as upstream, whose flux fields persist between coupling iterations; `warm_start_reaches_the_same_k_in_fewer_iterations`), which `dhoby-ghaut` Step 10 uses when it rebuilds the model each Picard pass (gh:#591). |
 | `neutronics::sp3`, `neutronics::sn` | **Implemented** transport solvers — `solve_eigenvalue` (k-eigenvalue) and `step` (transient) run when the model is built with cross-section data; SN is verified to converge with quadrature order (`sn_order_convergence`) and toward the diffusion limit (`sn_approaches_diffusion_limit`). The **state-only `::new` scaffold path** (no cross sections attached) returns `NeutronicsError::ModelNotImplemented` (`scaffold_reports_not_implemented`). |
 | `multi_region` | **Implemented + verified end-to-end** for 0-D and mesh-based diffusion↔TH coupling with Doppler feedback. Two **degraded scaffolds** remain (see Limitations): exact conservative mesh-to-mesh mapping, and actual mesh-point motion. |
 | `thermal_hydraulics::closures` | Correlation leaves ported with unit tests against published values: `fs_drag` (**verified**, analytic `f·Re → 64`), `ff_drag`, `heat_transfer`, `phase_change`, `interfacial`. `turbulence` is **partial** (closure algebra only; the k/ε transport equations and `correctNut` orchestration are deferred). |
@@ -240,9 +240,13 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
   `pointKineticNeutronics` couplings — temperature/density feedback fields,
   GEM and control-rod-driveline reactivity, external-source power modulation,
   FMU inputs, and the liquid-fuel precursor-advection variant — are deferred.
-- **Cross sections are not read from disk.** The `xs` data structures exist and
+- ~~**Cross sections are not read from disk.** The `xs` data structures exist and
   are unit-tested, but GeN-Foam `nuclearData` dictionary-file parsing is not
-  wired through `io`.
+  wired through `io`.~~ **CORRECTED 2026-10-05:** `io::nuclear_data::read_nuclear_data`
+  reads a GeN-Foam `nuclearData` dictionary (with `#include`s) into
+  `NuclearDataInput`, and `io::nuclear_data::write_nuclear_data` writes one
+  (round-trip test `written_nuclear_data_reads_back_identically`). Checked by
+  reading `src/io/nuclear_data/`.
 
 ### GeN-Foam thermal-hydraulics
 
@@ -302,7 +306,7 @@ real limitations** as of version 0.1.1 — grounded in the code, not aspirationa
 
 ## License
 
-GPL-3.0-only (follows OpenFOAM and GeN-Foam licensing).
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). The ported files follow OpenFOAM and GeN-Foam licensing (GPL-3.0).
 
 ## Copyright
 

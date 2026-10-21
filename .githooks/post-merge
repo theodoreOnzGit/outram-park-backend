@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# After `git pull` (merge) or `git merge`: sync submodules to the new pointers.
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+"$ROOT/.githooks/submodule-sync.sh" || true
+exit 0

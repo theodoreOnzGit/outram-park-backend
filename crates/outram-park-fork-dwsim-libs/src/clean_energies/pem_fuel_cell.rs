@@ -96,6 +96,7 @@
 //!   which print advisory text about negative or unusually high voltages.
 //!   The equivalent information is available from the returned curve.
 
+use petir::mathf::RealMath;
 use uom::si::catalytic_activity::katal;
 use uom::si::electric_current::ampere;
 use uom::si::electric_potential::volt;
@@ -229,7 +230,7 @@ pub fn nernst_voltage(
         });
     }
     Ok(1.229 - 8.5e-4 * (temperature_k - 298.15)
-        + 4.308e-5 * temperature_k * (p_h2_atm.ln() + 0.5 * p_o2_atm.ln()))
+        + 4.308e-5 * temperature_k * (p_h2_atm.r_ln() + 0.5 * p_o2_atm.r_ln()))
 }
 
 /// Hydrogen concentration at the anode catalyst interface
@@ -240,7 +241,7 @@ pub fn nernst_voltage(
 /// atmospheres, `temperature_k` in kelvin (`> 0`). Feeds the `xi2`
 /// coefficient of the activation overpotential.
 pub fn hydrogen_concentration_mol_per_cm3(p_h2_atm: f64, temperature_k: f64) -> f64 {
-    p_h2_atm / (1.09e6 * (77.0 / temperature_k).exp())
+    p_h2_atm / (1.09e6 * (77.0 / temperature_k).r_exp())
 }
 
 /// Oxygen concentration at the cathode catalyst interface
@@ -252,7 +253,7 @@ pub fn hydrogen_concentration_mol_per_cm3(p_h2_atm: f64, temperature_k: f64) -> 
 /// with temperature where hydrogen's falls. `p_o2_atm` in atmospheres,
 /// `temperature_k` in kelvin (`> 0`).
 pub fn oxygen_concentration_mol_per_cm3(p_o2_atm: f64, temperature_k: f64) -> f64 {
-    p_o2_atm / (5.08e6 * (-498.0 / temperature_k).exp())
+    p_o2_atm / (5.08e6 * (-498.0 / temperature_k).r_exp())
 }
 
 /// Membrane specific resistivity `rho_M` \[ohm·cm\] — OPEM `Rho_Calc`
@@ -297,8 +298,8 @@ pub fn membrane_resistivity_ohm_cm(
         });
     }
     let numerator =
-        181.6 * (1.0 + 0.03 * j + 0.062 * (temperature_k / 303.0).powi(2) * j.powf(2.5));
-    let denominator = denominator_factor * (4.18 * ((temperature_k - 303.0) / temperature_k)).exp();
+        181.6 * (1.0 + 0.03 * j + 0.062 * (temperature_k / 303.0).r_powi(2) * j.r_powf(2.5));
+    let denominator = denominator_factor * (4.18 * ((temperature_k - 303.0) / temperature_k)).r_exp();
     Ok(numerator / denominator)
 }
 
@@ -336,7 +337,7 @@ pub fn xi2_coefficient(
         });
     }
     let c_h2 = hydrogen_concentration_mol_per_cm3(p_h2_atm, temperature_k);
-    Ok(0.00286 + 0.0002 * active_area_cm2.ln() + 4.3e-5 * c_h2.ln())
+    Ok(0.00286 + 0.0002 * active_area_cm2.r_ln() + 4.3e-5 * c_h2.r_ln())
 }
 
 /// Activation overpotential `eta_act` \[V\] — OPEM `Eta_Act_Calc`
@@ -389,8 +390,8 @@ pub fn activation_overpotential(
     let xi2 = xi2_coefficient(active_area_cm2, p_h2_atm, temperature_k)?;
     Ok(-(XI1
         + xi2 * temperature_k
-        + XI3 * temperature_k * c_o2.ln()
-        + XI4 * temperature_k * current_a.ln()))
+        + XI3 * temperature_k * c_o2.r_ln()
+        + XI4 * temperature_k * current_a.r_ln()))
 }
 
 /// Ohmic overpotential `eta_ohmic = i (rho_M l / A + R_elec)` \[V\] — OPEM
@@ -469,7 +470,7 @@ pub fn concentration_overpotential(
                      overpotential is infinite there",
         });
     }
-    Ok(-b_constant * argument.ln())
+    Ok(-b_constant * argument.r_ln())
 }
 
 /// Total polarization loss `eta_act + eta_ohmic + eta_conc` \[V\] — OPEM
@@ -796,9 +797,9 @@ impl PemFuelCellModel {
                 }
                 let j = current_a / p.active_area_cm2;
                 Ok(p.open_circuit_voltage_v
-                    - p.tafel_slope_v * j.ln()
+                    - p.tafel_slope_v * j.r_ln()
                     - p.area_resistance_ohm_cm2 * j
-                    - p.diffusion_m_v * (p.diffusion_n_cm2_per_a * j).exp())
+                    - p.diffusion_m_v * (p.diffusion_n_cm2_per_a * j).r_exp())
             }
             Self::LarminieDicks(p) => {
                 let i_total = current_a + p.internal_current_a;
@@ -821,9 +822,9 @@ impl PemFuelCellModel {
                 }
                 let b = mass_transfer_constant(p.temperature_k, ELECTRONS_PER_HYDROGEN);
                 Ok(p.no_loss_voltage_v
-                    - p.tafel_slope_v * (i_total / p.exchange_current_a).ln()
+                    - p.tafel_slope_v * (i_total / p.exchange_current_a).r_ln()
                     - p.membrane_resistance_ohm * i_total
-                    + b * transport_argument.ln())
+                    + b * transport_argument.r_ln())
             }
         }
     }

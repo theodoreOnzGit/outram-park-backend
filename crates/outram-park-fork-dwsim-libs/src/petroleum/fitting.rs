@@ -38,10 +38,15 @@
 //! [`brent_minimize`] below is a self-contained, from-scratch implementation of
 //! **Brent's parabolic-interpolation / golden-section minimisation** as
 //! described in Brent, R. P. (1973), *Algorithms for Minimization without
-//! Derivatives*, Prentice-Hall, ch. 5. The workspace's `roots` dependency
+//! Derivatives*, Prentice-Hall, ch. 5. ~~The workspace's `roots` dependency
 //! provides root **finders** only — no scalar minimiser — so it could not be
-//! reused, and no new dependency was added. The search brackets and tolerances
-//! are upstream's.
+//! reused, and no new dependency was added.~~ **CORRECTED 2026-10-20
+//! (gh:#991)** — this crate no longer depends on `roots`; its root finding is
+//! `petir::roots`. PETIR, already a dependency, also carries GSL's Brent
+//! minimiser (`petir::min::Minimizer` with `MinMethod::Brent`, a port of GSL
+//! `min/brent.c`), which this hand-written [`brent_minimize`] has not been
+//! moved onto. Not re-checked whether the two agree iterate for iterate. The
+//! search brackets and tolerances are upstream's.
 //!
 //! # Units
 //!
@@ -69,6 +74,7 @@
 //!   multiplier — the same net effect as upstream, which leaves `fw`/`fzra` at
 //!   its previous value when the fit throws.
 
+use petir::mathf::RealMath;
 use uom::si::f64::{MassDensity, Ratio, ThermodynamicTemperature};
 use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::ratio::ratio;
@@ -384,7 +390,7 @@ fn fit_volume_translation(
 
     let a_m = eos.a_i(component, t_k);
     let b_m = eos.b_i(component);
-    let a_dimensionless = a_m * p_pa / (R_DWSIM * t_k).powi(2);
+    let a_dimensionless = a_m * p_pa / (R_DWSIM * t_k).r_powi(2);
     let b_dimensionless = b_m * p_pa / (R_DWSIM * t_k);
     let Some(z) = eos.z_liquid(a_dimensionless, b_dimensionless) else {
         return 0.0;

@@ -1,0 +1,10 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"book\" xml:id=\"Bachar2013\" corresp=\"KVN22222\"><monogr><title level=\"m\">Stochastic biomathematical models: With applications to neuronal modeling</title><idno type=\"ISBN\">978-3-642-32156-6</idno><author><forename>Mostafa</forename><surname>Bachar</surname></author><imprint><pubPlace>Heidelberg</pubPlace><biblScope unit=\"volume\">2058</biblScope><publisher>Springer</publisher><date>2013</date></imprint></monogr><series><title level=\"s\">Lecture notes in mathematics</title></series></biblStruct></listBibl>"
+	},
+	"csl_ranges": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"journalArticle\" xml:id=\"smith2010\" corresp=\"KVN22222\"><analytic><title level=\"a\">A range and a circa date</title><author><forename>John</forename><surname>Smith</surname></author><author><name>Kovan Collaboration</name></author></analytic><monogr><title level=\"j\">Journal of Testing</title><imprint><biblScope unit=\"volume\">7</biblScope><biblScope unit=\"page\">1-10</biblScope><date>2010</date><note type=\"accessed\">2020-01-02</note></imprint></monogr></biblStruct><biblStruct type=\"book\" xml:id=\"zoteroItem_KVN22223\" corresp=\"KVN22223\"><monogr><title level=\"m\">A literal date</title><imprint><pubPlace>Singapore</pubPlace><publisher>Kovan Press</publisher><date>2021</date></imprint></monogr></biblStruct><biblStruct type=\"bookSection\" xml:id=\"Editor2021\" corresp=\"KVN22224\"><analytic><title level=\"a\">A season</title></analytic><monogr><title level=\"m\">A Book</title><editor><forename>Ed</forename><surname>Editor</surname></editor><imprint><date>2021</date></imprint></monogr></biblStruct></listBibl>"
+	}
+}

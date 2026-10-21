@@ -1,0 +1,861 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src"
+crate_root = true
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::missing_case_directory_is_an_io_error",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::non_end_time_stop_controls_run_no_steps",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::only_the_incompressible_and_density_based_solvers_are_case_wired",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::solver_names_accept_snake_case_and_are_case_insensitive",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::solver_names_round_trip",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::time_formatting_matches_openfoam_directory_names",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::time_span_lifts_start_and_end",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::time_span_of_a_default_control_is_runnable",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::unwired_solvers_refuse_before_reading_the_case",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::porous_energy_equilibrates_to_wall_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::a_first_state_that_is_not_reference_is_rejected",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::a_perturbed_state_inherits_the_reference_parameters_it_omits",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::a_wrong_array_length_is_rejected_where_the_file_name_is_still_known",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::an_include_is_spliced_relative_to_the_including_file",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::an_unknown_variable_law_is_rejected_by_name",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::the_minimal_dictionary_round_trips_into_cross_section_data",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/writer.rs::written_nuclear_data_reads_back_identically",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::velocity_field_keeps_its_name_after_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::wall_face_fluxes_are_constrained_to_the_velocity_bc",
+    "crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs::compressible_lid_cavity_stays_stable",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::backward_ddt_matches_the_bdf2_formula",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::linear_div_adds_the_exact_central_difference_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::unimplemented_schemes_error_rather_than_falling_back",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::gallium_melting_cavity_gau_viskanta_configuration",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::stefan_problem_matches_similarity_solution",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::sod_shock_tube_timed_series",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::homogeneous_decay_matches_analytic_k_omega_solution",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_mesh_loads",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_mesh_loads",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_openfoam_vs_rust_csv",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_pressure_matches_openfoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_shock_position",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_pimple_foam_aerofoil_naca0012.rs::aerofoil_mesh_loads",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_mesh_loads",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::sod_shock_tube_timed_series",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::genfoam_and_offbeat_agree_on_the_clamped_thermoelastic_bar",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_agreement_and_the_convergence_order_survive_refinement",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_agree_through_a_transient_elastic_response",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_disagree_on_the_thermal_load_at_a_dirichlet_boundary",
+]
+
+[module."case_runner.rs"]
+path = "crate::case_runner"
+
+[[module."case_runner.rs".function]]
+id = "fn:a23e7076a2444640"
+name = "U_DIMS"
+qual = "U_DIMS"
+item = "const"
+shape = "const"
+lines = [
+    80,
+    82,
+]
+hash = "sha256:af1ea64ac235ce1bd19c2b8cf78d5cf097d5e292707aff83f9d49c1ba8af5ef0"
+doc_hash = "sha256:44ccd60367264af640c42b17a4110d82214b53eefbfbdd6d5bedffb8034080a8"
+
+[[module."case_runner.rs".function]]
+id = "fn:b0c9009e001a8599"
+name = "P_KIN_DIMS"
+qual = "P_KIN_DIMS"
+item = "const"
+shape = "const"
+lines = [
+    83,
+    83,
+]
+hash = "sha256:49c76ab1c1f220b8080d0d8680e6477454b0e6caa40e2c200b499033c0d22beb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."case_runner.rs".function]]
+id = "fn:f9dad18c3a1dfa47"
+name = "P_DIMS"
+qual = "P_DIMS"
+item = "const"
+shape = "const"
+lines = [
+    84,
+    84,
+]
+hash = "sha256:eeeb8a519d11e25630bebfafe657e469c1a786a3d53016aa7febe5b1e90d6d9d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."case_runner.rs".function]]
+id = "fn:034b7783a5fb56e6"
+name = "RHO_DIMS"
+qual = "RHO_DIMS"
+item = "const"
+shape = "const"
+lines = [
+    85,
+    85,
+]
+hash = "sha256:f87181bf07b0b687788d19c247dfccbee6e5254aca57f05d48da2e2326e8d6ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."case_runner.rs".function]]
+id = "fn:50552d5bf1d9c9e3"
+name = "E_DIMS"
+qual = "E_DIMS"
+item = "const"
+shape = "const"
+lines = [
+    86,
+    86,
+]
+hash = "sha256:49c76ab1c1f220b8080d0d8680e6477454b0e6caa40e2c200b499033c0d22beb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."case_runner.rs".function]]
+id = "fn:133d977103a8118b"
+name = "SolverKind"
+qual = "SolverKind"
+item = "type"
+shape = "enum"
+lines = [
+    88,
+    99,
+]
+hash = "sha256:a03dc9fa9b8eb617ffaad5d4371a8e63608d05a4210060d871aa89137a2280f8"
+doc_hash = "sha256:591c7468e06559e77b7551d3b0561431a310816b77007fdfec7a61627f253c12"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:a051b5887a1a9ab8"
+name = "name"
+qual = "SolverKind::name"
+lines = [
+    110,
+    118,
+]
+hash = "sha256:04a98234f11681b8eec79f809374db162bf651dc4643606a89bf049327d22865"
+doc_hash = "sha256:be36700f1413a8a2c14f16c097b4c1948cdf6f3043465919da6c59ca4d950fd9"
+uses = ["fn:133d977103a8118b"]
+reached_by = [
+    "#0",
+    "#3",
+    "#4",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:16d04865d6c1019c"
+name = "from_name"
+qual = "SolverKind::from_name"
+lines = [
+    120,
+    127,
+]
+hash = "sha256:a0490820c0b0e7232362c99c4c5f064243f77c68af8ce2178393bd16c72d43af"
+doc_hash = "sha256:7704ff3912a82cde0e26fadf878984b8ecfd6bed3d0079400c95b1f27de8f32a"
+callees = ["fn:a051b5887a1a9ab8"]
+uses = ["fn:133d977103a8118b"]
+reached_by = [
+    "#3",
+    "#4",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:62da733df004df37"
+name = "is_case_wired"
+qual = "SolverKind::is_case_wired"
+lines = [
+    129,
+    136,
+]
+hash = "sha256:81b9b45a9d9ea6b7f268b54b7abfae519967851c1d373bc266e2a861eacd1293"
+doc_hash = "sha256:aada04bffa8a707a403aaaf17dd92567d1cfc66456e5ec1098a52b27a7774040"
+uses = ["fn:133d977103a8118b"]
+reached_by = [
+    "#0",
+    "#2",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:97d9c5aebedcbdeb"
+name = "not_wired_reason"
+qual = "SolverKind::not_wired_reason"
+lines = [
+    138,
+    149,
+]
+hash = "sha256:672e4fee1a2664e61909e38a61df4ae625f4884f14e13634df56c2c96bb190a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:133d977103a8118b"]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:7a96a35da92e92de"
+name = "SolverState"
+qual = "SolverState"
+item = "type"
+shape = "enum"
+lines = [
+    152,
+    160,
+]
+hash = "sha256:2cd66d6ab05577e456b8e35313261fe39598894f4fb52704cc47c887ff167c5d"
+doc_hash = "sha256:c311e8a38e639f13af354872a910e0c22e1fd9e5c73d44a814297d84d442a7db"
+uses = [
+    "fn:42e1c8f76b7043c0",
+    "fn:d35627c0b0130167",
+]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:0baca451eec9526c"
+name = "kind"
+qual = "SolverState::kind"
+lines = [
+    163,
+    169,
+]
+hash = "sha256:44cf38a09036d2826b492f3ee071e4c83138ab0bfb7dea4ac18c251b6d191b61"
+doc_hash = "sha256:9e656b89590e59599df5d618db3d423c1dc9454a03d81dce3de45e95b2eaf147"
+uses = [
+    "fn:133d977103a8118b",
+    "fn:7a96a35da92e92de",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:1702818ceccdd98b"
+name = "n_cells"
+qual = "SolverState::n_cells"
+lines = [
+    171,
+    177,
+]
+hash = "sha256:efff6c8a7d0008b365f7a7430f82d4c6152bc3dda9076adcb76e27e77bb8b9dc"
+doc_hash = "sha256:ea88a9676ae46662556b02440e49f70d304441e4d61936b99b041bbe4e47b379"
+uses = ["fn:7a96a35da92e92de"]
+
+[[module."case_runner.rs".function]]
+id = "fn:04eff6b688aa7bec"
+name = "step"
+qual = "SolverState::step"
+lines = [
+    179,
+    185,
+]
+hash = "sha256:721ecdf39e7d8eb9e589061fd00bd4db74428a00c70e2d03920e4e89e752c815"
+doc_hash = "sha256:e25fbada21dffa28222dc5f1bf39b6a112169ef47a0f9aa95909ca36785620b9"
+callees = [
+    "fn:ec433d6c632e41b5",
+    "fn:fff0b6206af160cb",
+]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:7a96a35da92e92de",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:c0df451d6aa5cad7"
+name = "CaseSummary"
+qual = "CaseSummary"
+item = "type"
+shape = "struct"
+lines = [
+    188,
+    206,
+]
+hash = "sha256:75d549a31ad6ba8bd82328ba38fca87e18e9ff3958f2895fb750bbe10bcd81db"
+doc_hash = "sha256:eab3ce98f97a6720aa3a349c25b5dd0aa722b2141b730be07c48a6c7a9435810"
+uses = ["fn:133d977103a8118b"]
+
+[[module."case_runner.rs".function]]
+id = "fn:da1c5b33e74f3bab"
+name = "CaseRun"
+qual = "CaseRun"
+item = "type"
+shape = "struct"
+lines = [
+    208,
+    229,
+]
+hash = "sha256:92dee432d11c26eeec9a0e6412751b1f01a3153699e8fc97a8f38fbccc6efeae"
+doc_hash = "sha256:c907e003b3379798470fafde2f92e127af295d7be982229b914a5f89e7493160"
+uses = ["fn:7a96a35da92e92de"]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:69952068c0a4ae32"
+name = "from_case"
+qual = "CaseRun::from_case"
+lines = [
+    232,
+    318,
+]
+hash = "sha256:1f011af2bfcbb9f87fbd9edf365731f4424e451d31021219d93e92e2ec00c010"
+doc_hash = "sha256:7d3fa6067142284c163272cd2880e7447295824bd39f5631cf27fecdb7c907e2"
+callees = [
+    "fn:05c4557fe2e506f3",
+    "fn:14f480c94a59d045",
+    "fn:301c23f931957f6b",
+    "fn:315588bd14db88bb",
+    "fn:62da733df004df37",
+    "fn:7aa98ca0b4749de1",
+    "fn:94682b256984e557",
+    "fn:97d9c5aebedcbdeb",
+    "fn:98aa935bd7a6a8b2",
+    "fn:a051b5887a1a9ab8",
+    "fn:eb3004f5a8770077",
+    "fn:f8bf8efa3e1f4377",
+]
+uses = [
+    "fn:133d977103a8118b",
+    "fn:35e5ba76ac9ceafb",
+    "fn:3f165bca5d68b785",
+    "fn:42e1c8f76b7043c0",
+    "fn:7a96a35da92e92de",
+    "fn:ccc712799367b05c",
+    "fn:d35627c0b0130167",
+    "fn:da1c5b33e74f3bab",
+    "fn:e0ff37b7796b05a6",
+]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:91a63656815a1d48"
+name = "is_done"
+qual = "CaseRun::is_done"
+lines = [
+    320,
+    327,
+]
+hash = "sha256:286c739f61c734119f8016affe1635e98b335f08624e7b7b938225f3329c4062"
+doc_hash = "sha256:d5273f60e2ee1e028e23c3732b66107d7a07165bb05c333c200a3ad92961abb1"
+uses = ["fn:da1c5b33e74f3bab"]
+
+[[module."case_runner.rs".function]]
+id = "fn:93c6442dda6dc771"
+name = "step"
+qual = "CaseRun::step"
+lines = [
+    329,
+    335,
+]
+hash = "sha256:33504c184cbaa5f8c57cb52e2f4a4bdf00edc9b45d8e573d582d86c38302339b"
+doc_hash = "sha256:20987441f4ea866090506cb766718985676c7352dc942ffaec71f934449f3772"
+callees = ["fn:04eff6b688aa7bec"]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:da1c5b33e74f3bab",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:88be400fe8261210"
+name = "run_to_end"
+qual = "CaseRun::run_to_end"
+lines = [
+    337,
+    346,
+]
+hash = "sha256:44e48b4972586e9cf9524b9064b0671e7dd6895dbc7d39877d5f65be67977129"
+doc_hash = "sha256:cebd6019e7ed0aa6c8350a71a3e541a7d0a9c91cae30e8cd3e7a83b9868c894e"
+callees = [
+    "fn:45e13236c766c7d7",
+    "fn:91a63656815a1d48",
+    "fn:93c6442dda6dc771",
+]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:c0df451d6aa5cad7",
+    "fn:da1c5b33e74f3bab",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:45e13236c766c7d7"
+name = "write_fields"
+qual = "CaseRun::write_fields"
+lines = [
+    348,
+    371,
+]
+hash = "sha256:3a784486e10cabd7f96de7fa15f7d43fb987bf32d9ac485e2fd6ec2f5a19263c"
+doc_hash = "sha256:09cc11b6b6386451388fcb481d6985d0a7249168aba76eb9c54c9b46601ef913"
+callees = [
+    "fn:483bea4c15066aad",
+    "fn:5acc64d25f0acc28",
+    "fn:6b395411d3687edc",
+    "fn:e56a8ef1d8053bad",
+]
+uses = [
+    "fn:034b7783a5fb56e6",
+    "fn:35e5ba76ac9ceafb",
+    "fn:50552d5bf1d9c9e3",
+    "fn:7a96a35da92e92de",
+    "fn:a23e7076a2444640",
+    "fn:b0c9009e001a8599",
+    "fn:c0df451d6aa5cad7",
+    "fn:da1c5b33e74f3bab",
+    "fn:f9dad18c3a1dfa47",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:483bea4c15066aad"
+name = "summary"
+qual = "CaseRun::summary"
+lines = [
+    373,
+    384,
+]
+hash = "sha256:0885981abcd68941de87b06c685ad8b3928526e3cf45bd1fb7e129041dacc383"
+doc_hash = "sha256:b83c6d2bb61e5e3d71ce6dab55c60b0f56860bc094d3360d85bd031ec600a344"
+callees = [
+    "fn:0baca451eec9526c",
+    "fn:1702818ceccdd98b",
+]
+uses = [
+    "fn:c0df451d6aa5cad7",
+    "fn:da1c5b33e74f3bab",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:1cd53de229a7834a"
+name = "run_case"
+qual = "run_case"
+lines = [
+    387,
+    393,
+]
+hash = "sha256:2d4820722c8328cd60822f3a4c0d578a6c9b783d12becbd200127204347a183e"
+doc_hash = "sha256:039aed7c5482644093576f9ccbde77b9dd660691b2bb62d3eef7a1080a24af11"
+callees = [
+    "fn:69952068c0a4ae32",
+    "fn:88be400fe8261210",
+]
+uses = [
+    "fn:133d977103a8118b",
+    "fn:35e5ba76ac9ceafb",
+    "fn:c0df451d6aa5cad7",
+    "fn:da1c5b33e74f3bab",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:301c23f931957f6b"
+name = "control_from_case"
+qual = "control_from_case"
+lines = [
+    395,
+    416,
+]
+hash = "sha256:70dddc6ed622c3e20183558cfabf1bb36d11574805bb4977aede5cdabfc7b45d"
+doc_hash = "sha256:17015b7e38e2907f12ec6ab4a82eb6c1d74e82f94d68aa4f317f89de49506b08"
+callees = [
+    "fn:25026aef8dc412e6",
+    "fn:7d2030b95ca0e969",
+    "fn:c384eee1a0ba498c",
+]
+uses = [
+    "fn:6ba3358f6a29c123",
+    "fn:b0768c6e7263ae77",
+    "fn:ccc712799367b05c",
+    "fn:f11bcf88c9cf8afa",
+]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:94682b256984e557"
+name = "time_span"
+qual = "time_span"
+lines = [
+    418,
+    432,
+]
+hash = "sha256:5f18b2d306fb11504c62900c4c47cc5ec0d20377144440f49c656750dd105645"
+doc_hash = "sha256:acaa821c99aeea2127549ecbaab6affa2c41e53225a35a7429fe329df9813463"
+uses = [
+    "fn:6ba3358f6a29c123",
+    "fn:b0768c6e7263ae77",
+    "fn:f11bcf88c9cf8afa",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:05c4557fe2e506f3"
+name = "find_scalar"
+qual = "find_scalar"
+lines = [
+    434,
+    440,
+]
+hash = "sha256:7f468cb59e4bd5396cfb369a29e3deaad7ac833ca90b7972fef8a0068c23cc43"
+doc_hash = "sha256:400a6082040bf94811820a3d89ba3f8f43a095c697aa68d5a9ca44aec814f2f0"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:ccc712799367b05c",
+    "fn:ed8eb3d9ce7e2e0f",
+]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:7aa98ca0b4749de1"
+name = "find_vector"
+qual = "find_vector"
+lines = [
+    442,
+    448,
+]
+hash = "sha256:db28a06defbe1195ded9f3c25021cbc09725372f0385a2c41bcd8647a67fc45b"
+doc_hash = "sha256:5786e749b5dca170db6cd74a83a23ae96505daf3993235efc14eb04ae202ad2f"
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ccc712799367b05c",
+    "fn:ed8eb3d9ce7e2e0f",
+]
+reached_by = [
+    "#0",
+    "#8",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:6b395411d3687edc"
+name = "format_time"
+qual = "format_time"
+lines = [
+    450,
+    459,
+]
+hash = "sha256:e95b32efadc2e548023856e968b26b9915f6fb43935c1cf965d0d7894ae02dde"
+doc_hash = "sha256:906a598d62f44b55cf33272d5259c2ec69f85e04047ef65b990900df97d8f0b8"
+reached_by = ["#5"]
+
+[[module."case_runner.rs".function]]
+id = "fn:e56a8ef1d8053bad"
+name = "write_scalar"
+qual = "write_scalar"
+lines = [
+    461,
+    472,
+]
+hash = "sha256:dfa0366b1561f482b9c473f09727cff23bbcb75f34be961a38e1f860eb92d929"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d3fb9c1c860dda67"]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:7aa70dd1c009cc88",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:5acc64d25f0acc28"
+name = "write_vector"
+qual = "write_vector"
+lines = [
+    474,
+    485,
+]
+hash = "sha256:10fdb873b84fdbefa0d396ebfa394fb646854c8b110bca6dc2bbe58edd159b6d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:f751ee2e11efac9f"]
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:8d6cd763d46808ac",
+]
+
+[[module."case_runner.rs".function]]
+id = "fn:146a628478088d3a"
+name = "solver_names_round_trip"
+qual = "solver_names_round_trip"
+lines = [
+    491,
+    496,
+]
+hash = "sha256:20a64bba9b65240a959bd9f0e2317f2408159b201ed6cc543e234e0fd13a154f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:16d04865d6c1019c",
+    "fn:a051b5887a1a9ab8",
+]
+uses = ["fn:133d977103a8118b"]
+test = true
+
+[[module."case_runner.rs".function]]
+id = "fn:53f64cdbb38b895f"
+name = "solver_names_accept_snake_case_and_are_case_insensitive"
+qual = "solver_names_accept_snake_case_and_are_case_insensitive"
+lines = [
+    498,
+    512,
+]
+hash = "sha256:83bf4268fa3933bd19e2f383dd430a8ad1fb1f778d5af81eb70c7c780b831dd0"
+doc_hash = "sha256:eefadd666cda5be699b9820f57ffed43a2f50ea6eb4fce68ebbea4fd1b3e78c2"
+callees = ["fn:16d04865d6c1019c"]
+uses = ["fn:133d977103a8118b"]
+test = true
+
+[[module."case_runner.rs".function]]
+id = "fn:5588faada1c35027"
+name = "only_the_incompressible_and_density_based_solvers_are_case_wired"
+qual = "only_the_incompressible_and_density_based_solvers_are_case_wired"
+lines = [
+    514,
+    527,
+]
+hash = "sha256:ee6dea90aea5c568aa474dc1e33f34a8d751e0dfb074a3f5266185f27428d4aa"
+doc_hash = "sha256:6f758454dd01e31f2f03767f61800ed2e9a9f0460c254b1a59c5f05cda917ccc"
+callees = ["fn:62da733df004df37"]
+uses = ["fn:133d977103a8118b"]
+test = true
+
+[[module."case_runner.rs".function]]
+id = "fn:36ba3a4d6bc1dc59"
+name = "unwired_solvers_refuse_before_reading_the_case"
+qual = "unwired_solvers_refuse_before_reading_the_case"
+lines = [
+    529,
+    548,
+]
+hash = "sha256:28724de6c936f1dbd8ada284789d102a5bac7b15b751312e7d14dc00b5528b37"
+doc_hash = "sha256:0404312590137be0c95adaddce8c3fe0d4fc7ab491eee48f28adbdc8c83d5ccc"
+callees = [
+    "fn:69952068c0a4ae32",
+    "fn:a051b5887a1a9ab8",
+]
+uses = [
+    "fn:133d977103a8118b",
+    "fn:35e5ba76ac9ceafb",
+    "fn:da1c5b33e74f3bab",
+]
+test = true
+
+[[module."case_runner.rs".function]]
+id = "fn:db5ad257964bda2c"
+name = "missing_case_directory_is_an_io_error"
+qual = "missing_case_directory_is_an_io_error"
+lines = [
+    550,
+    558,
+]
+hash = "sha256:17bb85d427017af648a4b4b0044d78bb6f44767fa8589af03af040b7453b8598"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:69952068c0a4ae32"]
+uses = [
+    "fn:133d977103a8118b",
+    "fn:35e5ba76ac9ceafb",
+    "fn:da1c5b33e74f3bab",
+]
+test = true
+
+[[module."case_runner.rs".function]]
+id = "fn:6b7ddad40fe96b96"
+name = "time_formatting_matches_openfoam_directory_names"
+qual = "time_formatting_matches_openfoam_directory_names"
+lines = [
+    560,
+    570,
+]
+hash = "sha256:076506b956699a4c561676d35c85188c021257fc70a6da8beba83e932ffa0027"
+doc_hash = "sha256:b7d41cd1c6a61cbf3f2ff1dcbbafb388d85bdfb5f0c98f15f208258c7b9d22d8"
+callees = ["fn:6b395411d3687edc"]
+test = true
+
+[[module."case_runner.rs".function]]
+id = "fn:09c22de51d009bf4"
+name = "time_span_of_a_default_control_is_runnable"
+qual = "time_span_of_a_default_control_is_runnable"
+lines = [
+    572,
+    578,
+]
+hash = "sha256:6b9ccab945406bc9fea0e39f5cc0c48c3845c05368222a78b5c24d75713d8d6a"
+doc_hash = "sha256:c9eacdf4b34fca4cea9fec8344107b280a81f729189b6672889f7ca941d7af33"
+callees = [
+    "fn:25026aef8dc412e6",
+    "fn:94682b256984e557",
+]
+uses = ["fn:b0768c6e7263ae77"]
+test = true
+
+[[module."case_runner.rs".function]]
+id = "fn:fb1c30a2720df09d"
+name = "non_end_time_stop_controls_run_no_steps"
+qual = "non_end_time_stop_controls_run_no_steps"
+lines = [
+    580,
+    597,
+]
+hash = "sha256:0c7da6a8171da588d4e652a420dbe0ad5df184f406701734be52ed1bf31264bc"
+doc_hash = "sha256:b4595010ba8cdfcb5ad66a405a3a5925b65a901c80b1d33ea7eaa08ee7d8f6b4"
+callees = [
+    "fn:25026aef8dc412e6",
+    "fn:94682b256984e557",
+]
+uses = [
+    "fn:6ba3358f6a29c123",
+    "fn:b0768c6e7263ae77",
+    "fn:f11bcf88c9cf8afa",
+]
+test = true
+
+[[module."case_runner.rs".function]]
+id = "fn:9ad0756bc5e4121c"
+name = "time_span_lifts_start_and_end"
+qual = "time_span_lifts_start_and_end"
+lines = [
+    599,
+    606,
+]
+hash = "sha256:559af0fb0096fb2b06aa75aa5cb3f8b18130bb595df7d3bb8cf7a051bd9c0ea9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:25026aef8dc412e6",
+    "fn:94682b256984e557",
+]
+uses = [
+    "fn:6ba3358f6a29c123",
+    "fn:b0768c6e7263ae77",
+    "fn:f11bcf88c9cf8afa",
+]
+test = true
+
+[module."error.rs"]
+path = "crate::error"
+
+[[module."error.rs".function]]
+id = "fn:35e5ba76ac9ceafb"
+name = "AppBuilderError"
+qual = "AppBuilderError"
+item = "type"
+shape = "enum"
+lines = [
+    40,
+    110,
+]
+hash = "sha256:f36ab115b172bdf3b5c5b53fb3d3d0ac16720afe2afc0c9882d09cc8655719fa"
+doc_hash = "sha256:6aa156eebbed2a1fa5e7a6d7a4fb791d8337afdf3706cae8efbe4bb5f9aff6b6"
+reached_by = [
+    "#0",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+]
+
+[module."lib.rs"]
+path = "crate"
+
+[module."prelude.rs"]
+path = "crate::prelude"

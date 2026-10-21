@@ -171,25 +171,48 @@ fn cheb(c: &[f64], order: usize, a: f64, b: f64, x: f64) -> (f64, f64) {
     let y = (2.0 * x - a - b) / (b - a);
     let y2 = 2.0 * y;
     let mut e = 0.0f64;
-    for j in (1..=order).rev() {
+
+    // One split supplies all three reads upstream makes by subscript: the
+    // zeroth coefficient for the closing half-term, coefficients 1 through
+    // `order` for the recurrence (walked backwards), and the `order`-th for
+    // the truncation estimate. Every caller here passes a constant `order`
+    // matching its own table, so the `else` arms are unreachable; they yield
+    // NaN with an infinite error bound -- which propagates loudly -- rather
+    // than ending the program on a microcontroller (see
+    // tests/no_panic_gate.rs).
+    let (Some((&c0, c_tail)), Some(&c_order)) = (c.split_first(), c.get(order)) else {
+        return (f64::NAN, f64::INFINITY);
+    };
+    let Some(used) = c_tail.get(..order) else {
+        return (f64::NAN, f64::INFINITY);
+    };
+
+    for &c_j in used.iter().rev() {
         let temp = d;
-        d = y2 * d - dd + c[j];
-        e += libm::fabs(y2 * temp) + libm::fabs(dd) + libm::fabs(c[j]);
+        d = y2 * d - dd + c_j;
+        e += libm::fabs(y2 * temp) + libm::fabs(dd) + libm::fabs(c_j);
         dd = temp;
     }
     let temp = d;
-    d = y * d - dd + 0.5 * c[0];
-    e += libm::fabs(y * temp) + libm::fabs(dd) + 0.5 * libm::fabs(c[0]);
-    (d, EPS * e + libm::fabs(c[order]))
+    d = y * d - dd + 0.5 * c0;
+    e += libm::fabs(y * temp) + libm::fabs(dd) + 0.5 * libm::fabs(c0);
+
+    (d, EPS * e + libm::fabs(c_order))
 }
 
 /// `lngamma_lanczos` (`specfunc/gamma.c:703-723`) — the `x >= 0.5` branch of
 /// `gsl_sf_lngamma_e`, which is the only branch `a = 3/2` takes.
 fn lngamma_lanczos(x: f64) -> (f64, f64) {
     let x = x - 1.0; // Lanczos writes z! rather than Gamma(z)
-    let mut ag = LANCZOS_7_C[0];
-    for k in 1..=8 {
-        ag += LANCZOS_7_C[k] / (x + k as f64);
+                     // The zeroth Lanczos coefficient plus the eight terms
+                     // `LANCZOS_7_C[k] / (x + k)`; the split pairs the tail with its own index
+                     // so neither read needs a subscript.
+    let Some((&c0, tail)) = LANCZOS_7_C.split_first() else {
+        return (f64::NAN, f64::INFINITY);
+    };
+    let mut ag = c0;
+    for (k, &c_k) in (1..).zip(tail.iter()) {
+        ag += c_k / (x + k as f64);
     }
     let term1 = (x + 0.5) * libm::log((x + 7.5) / core::f64::consts::E);
     let term2 = LOG_ROOT_TWO_PI + libm::log(ag);

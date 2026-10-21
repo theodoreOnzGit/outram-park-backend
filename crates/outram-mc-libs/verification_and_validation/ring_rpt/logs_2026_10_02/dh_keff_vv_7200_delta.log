@@ -1,0 +1,54 @@
+Reconstructing ENDF/B-VIII.0 cross sections at 600 K (setup, not transport):
+  graphite S(alpha,beta): ENDF/B-VIII.0 tsl-crystalline-graphite @ 600 K … ok
+  reconstructing U235   from n-092_U_235-ENDF8.0.endf … 24.4s
+  reconstructing U238   from n-092_U_238.endf … 20.7s
+  reconstructing O16    from n-008_O_016-ENDF8.0.endf … 240.5ms
+  reconstructing C12    from n-006_C_012-ENDF8.0.endf … 50.9ms
+  reconstructing C12    from n-006_C_012-ENDF8.0.endf … 51.3ms
+  reconstructing Si28   from n-014_Si_028-ENDF8.0.endf … 114.1ms
+  reconstructing Li6    from n-003_Li_006-ENDF8.0.endf … 35.2ms
+  reconstructing Li7    from n-003_Li_007-ENDF8.0.endf … 34.8ms
+  reconstructing Be9    from n-004_Be_009-ENDF8.0.endf … 30.1ms
+  reconstructing F19    from n-009_F_019-ENDF8.0.endf … 78.2ms
+  data ready in 54.2 s
+
+DH treatment V&V — FHR reference UNIT CELL, every treatment
+===========================================================
+  histories  : 7200 x [15 inactive + 40 active]
+  data       : HIGH tier, ENDF/B-VIII.0 + crystalline-graphite S(a,b), 600 K
+  geometry   : 1.9 cm fuel zone / 2.0 cm pebble / FLiBe to r = 3.0 cm, reflective
+  reference  : OpenMC explicit TRISO k = 1.36510 +/- 0.00063
+
+(ring-RPT uses the OpenMC-fitted r_inner = 1.4934 cm; set OUTRAM_DH_VV_FIT_RPT=1
+ to fit this code's own radius instead — about a dozen extra solves)
+
+  delta tracking               k = 1.38155 +/- 0.00222      45.3 s   26795 particles stored
+
+=== Bias vs the exact (delta-tracked) treatment ===
+  Reference: k = 1.38155 +/- 0.00222  (delta tracking is exact by construction)
+
+  treatment                      dk [pcm]  combined sd     sigma      verdict
+  ------------------------------------------------------------------------------
+
+=== Code-to-code against OpenMC: see examples/fhr_ring_rpt_endf.rs ===
+  That deck builds the reference materials and geometry properly and measures
+  explicit TRISO, delta-tracked, at k = 1.36547 +/- 0.00229 against OpenMC's
+  1.36510 +/- 0.00063 — +37 pcm (0.2 sigma). Its ring-RPT arm reads -116 pcm
+  (0.5 sigma) against OpenMC's 1.36479 +/- 0.00067.
+  Both are SINGLE DRAWS carrying ~230 pcm of statistics; a same-day re-run of
+  the explicit case gave -466 pcm, which is 1.5 sigma of ordinary noise rather
+  than a change. Pooling over seeds is gh:#196 / bn:op-awwi, and is not done.
+  Source: verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md
+
+  THIS example's arms are NOT comparable to those numbers: illustrative
+  materials, and a realised packing fraction of 0.2894 against a requested
+  0.30. Its delta arm sits +1645 pcm from the OpenMC explicit result for those
+  reasons, not because the two codes disagree. Use it for the treatment
+  comparison above, which shares every one of those offsets across all arms.
+
+=== Accuracy bought per unit speed ===
+  delta tracking                1.00x   (reference)
+
+  A treatment is worth taking only if its bias is small against the
+  tolerance of the question being asked. A bias that is 'not resolved'
+  here means this run could not measure it -- NOT that it is zero.

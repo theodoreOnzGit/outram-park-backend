@@ -3,7 +3,8 @@
 //
 // Headless GPU compute via the `wgpu` crate (Apache-2.0/MIT, GPL-3.0-compatible).
 // No published algorithm — a WGSL compute-shader dispatch harness with a CPU
-// reference fallback. Target-gated off Android per the workspace portability rule.
+// reference fallback. Target-gated off Android per the workspace portability rule,
+// and behind the default-on `gpu` feature (2026-10-02).
 //
 // This file is part of OUTRAM PARK.
 //
@@ -20,7 +21,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-//! GPU compute (headless, target-gated OFF Android; no cargo feature).
+//! GPU compute (headless, target-gated OFF Android; behind the default-on `gpu`
+//! feature since 2026-10-02 — ~~no cargo feature~~).
 //!
 //! Headless GPU acceleration via [`wgpu`] for the *embarrassingly parallel*
 //! parts of mesh authoring — per-vertex / per-face kernels, subdivision
@@ -29,7 +31,10 @@
 //!
 //! ## The wired demonstrator kernel
 //!
-//! This module now carries **one real, end-to-end kernel**: applying an
+//! ~~This module now carries **one real, end-to-end kernel**~~ **Since
+//! 2026-10-20 (gh #1005) it carries two**; the second,
+//! [`crate::gpu::GpuClosestRotations`], runs ARAP's local step (see
+//! [`crate::arap::arap_deform_on_gpu`]). The first applies an
 //! [`crate::transform::Affine3`] to every vertex of a mesh in parallel via a
 //! WGSL compute shader ([`crate::gpu::transform_vertices_gpu`]). The identical computation
 //! on the CPU is [`crate::transform::Affine3::transform_points`], which is the
@@ -41,13 +46,15 @@
 //!
 //! ## Non-negotiable contract for using this module
 //!
-//! 1. **Target-gated, not feature-gated.** This module is compiled
+//! 1. **Target-gated AND feature-gated.** ~~This module is compiled
 //!    **unconditionally on every desktop target** — there is no `gpu` cargo
-//!    feature to enable — so the GPU path is always available and used as far as
-//!    possible. It is present on all targets **except Android**
-//!    (`target_os = "android"`), where the workspace Android rule forbids GPU
-//!    deps in the library build; there the GPU attempt is compiled out and the
-//!    CPU path runs.
+//!    feature to enable~~ **CORRECTED 2026-10-02** (GitHub issue #486): it is
+//!    behind the **default-on `gpu` feature**, so a default build still has the
+//!    GPU path and uses it as far as possible, and a dependent that does not
+//!    want wgpu takes the crate with `default-features = false`. It is never
+//!    present on **Android** (`target_os = "android"`), where the workspace
+//!    Android rule forbids GPU deps in the library build. With the feature off
+//!    or on Android the GPU attempt is compiled out and the CPU path runs.
 //! 2. **Runtime CPU fallback is mandatory.** Even where wgpu is compiled, at
 //!    runtime there may be **no usable GPU adapter** (headless servers, VMs) or
 //!    a submission may fail mid-flight. Callers MUST treat [`crate::gpu::probe`] returning
@@ -66,8 +73,8 @@ use core::task::{Context, Poll, Waker};
 use std::sync::{Arc, Mutex};
 
 /// Re-export of the GPU backend so callers can build pipelines without adding
-/// their own `wgpu` dependency. Present on every desktop target (absent only on
-/// Android, where this whole module is compiled out).
+/// their own `wgpu` dependency. Present wherever this module is: a non-Android
+/// target with the default-on `gpu` feature.
 pub use wgpu;
 
 /// A **recoverable** GPU execution failure from [`try_transform_vertices_gpu`].
@@ -388,6 +395,197 @@ pub fn transform_vertices_gpu(ctx: &GpuContext, affine: Affine3, positions: &[Ve
     )
 }
 
+/// Bindings and entry point around PETIR's `svd3.wgsl` for
+/// [`GpuClosestRotations`]: one invocation per matrix, row-major `3 x 3` in,
+/// row-major closest rotation out. The index is 2-D so more than
+/// `65 535 * 64` matrices fit the per-dimension dispatch limit.
+const CLOSEST_ROTATIONS_BINDINGS: &str = "@group(0) @binding(0) var<storage, read> src: array<f32>;
+@group(0) @binding(1) var<storage, read_write> dst: array<f32>;
+";
+const CLOSEST_ROTATIONS_MAIN: &str = "
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let i = gid.y * (65535u * 64u) + gid.x;
+    if (i >= arrayLength(&dst) / 9u) { return; }
+    var m: array<f32, 9>;
+    for (var q = 0u; q < 9u; q++) { m[q] = src[9u * i + q]; }
+    var r = petir_closest_rotation3(m);
+    for (var q = 0u; q < 9u; q++) { dst[9u * i + q] = r[q]; }
+}
+";
+
+/// The full WGSL source of [`GpuClosestRotations`]'s kernel: its bindings,
+/// [`petir::wgsl::SVD3`] (faer's `3 x 3` SVD and the Kabsch sign fix, an `f32`
+/// transcription of the `f64` [`petir::faer_dense::svd3`] the CPU path uses),
+/// and the entry point.
+pub fn closest_rotations_wgsl() -> String {
+    let mut s = String::from(CLOSEST_ROTATIONS_BINDINGS);
+    s.push_str(petir::wgsl::SVD3);
+    s.push_str(CLOSEST_ROTATIONS_MAIN);
+    s
+}
+
+/// A batched GPU kernel for the closest proper rotation of many `3 x 3`
+/// matrices, in `f32` (gh #1005): ARAP's local step
+/// ([`crate::arap::arap_deform_on_gpu`]).
+///
+/// Build it once for a fixed batch size `n` (pipeline and buffers are
+/// created here), then [`GpuClosestRotations::run`] it once per ARAP
+/// iteration. Each run uploads `9 n` `f32`s and reads `9 n` back.
+#[derive(Debug)]
+pub struct GpuClosestRotations {
+    n: usize,
+    pipeline: wgpu::ComputePipeline,
+    bind_group: wgpu::BindGroup,
+    input: wgpu::Buffer,
+    output: wgpu::Buffer,
+    readback: wgpu::Buffer,
+}
+
+impl GpuClosestRotations {
+    /// Compile the kernel and allocate buffers for `n` matrices. Returns
+    /// `None` when `n` is 0 or the buffers would exceed the device's
+    /// storage-binding limit; the caller then uses the CPU path.
+    pub fn new(ctx: &GpuContext, n: usize) -> Option<Self> {
+        let bytes = (n as u64).checked_mul(36)?;
+        let limits = ctx.device.limits();
+        if n == 0
+            || bytes > u64::from(limits.max_storage_buffer_binding_size)
+            || bytes > limits.max_buffer_size
+        {
+            return None;
+        }
+        let device = &ctx.device;
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("closest-rotations-wgsl"),
+            source: wgpu::ShaderSource::Wgsl(closest_rotations_wgsl().into()),
+        });
+        let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("closest-rotations-pipeline"),
+            layout: None,
+            module: &shader,
+            entry_point: Some("main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
+        });
+        let buffer = |label: &str, usage: wgpu::BufferUsages| {
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some(label),
+                size: bytes,
+                usage,
+                mapped_at_creation: false,
+            })
+        };
+        let input = buffer(
+            "closest-rotations-in",
+            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        );
+        let output = buffer(
+            "closest-rotations-out",
+            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        );
+        let readback = buffer(
+            "closest-rotations-readback",
+            wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        );
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("closest-rotations-bind-group"),
+            layout: &pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: input.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: output.as_entire_binding(),
+                },
+            ],
+        });
+        Some(Self {
+            n,
+            pipeline,
+            bind_group,
+            input,
+            output,
+            readback,
+        })
+    }
+
+    /// The batch size this kernel was built for.
+    pub fn len(&self) -> usize {
+        self.n
+    }
+
+    /// Whether the batch is empty (never: [`GpuClosestRotations::new`]
+    /// refuses `n = 0`).
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
+    }
+
+    /// The closest rotation of each row-major matrix in `matrices`
+    /// (`9 * len()` values), row-major, in `f32`; the identity where the SVD
+    /// fails, as on the CPU.
+    ///
+    /// # Errors
+    ///
+    /// [`GpuError`] if the readback fails (recoverable: use the CPU path).
+    ///
+    /// # Panics
+    ///
+    /// If `matrices.len() != 9 * self.len()`, a caller bug.
+    pub fn run(&self, ctx: &GpuContext, matrices: &[f32]) -> Result<Vec<f32>, GpuError> {
+        assert_eq!(matrices.len(), 9 * self.n, "closest-rotations batch size");
+        ctx.queue
+            .write_buffer(&self.input, 0, &f32_slice_to_bytes(matrices));
+        let mut encoder = ctx
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("closest-rotations-encoder"),
+            });
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("closest-rotations-pass"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&self.pipeline);
+            pass.set_bind_group(0, &self.bind_group, &[]);
+            let groups = (self.n as u32).div_ceil(WORKGROUP_SIZE);
+            pass.dispatch_workgroups(groups.min(65_535), groups.div_ceil(65_535), 1);
+        }
+        let bytes = self.input.size();
+        encoder.copy_buffer_to_buffer(&self.output, 0, &self.readback, 0, bytes);
+        ctx.queue.submit(Some(encoder.finish()));
+
+        let mapped = Arc::new(Mutex::new(None));
+        let mapped_cb = Arc::clone(&mapped);
+        self.readback
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |res| {
+                *mapped_cb.lock().unwrap() = Some(res);
+            });
+        ctx.device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .map_err(|e| GpuError::Poll(format!("{e:?}")))?;
+        let map_result = mapped.lock().unwrap().take();
+        match map_result {
+            Some(Ok(())) => {}
+            Some(Err(e)) => return Err(GpuError::Map(format!("{e:?}"))),
+            None => return Err(GpuError::MapCallbackMissing),
+        }
+        let out = {
+            let view = self
+                .readback
+                .slice(..)
+                .get_mapped_range()
+                .expect("staging buffer mapping failed after a completed poll");
+            bytes_to_f32_vec(&view)
+        };
+        self.readback.unmap();
+        Ok(out)
+    }
+}
+
 /// Pack a slice of `f32` into little-endian bytes for a GPU buffer upload.
 fn f32_slice_to_bytes(data: &[f32]) -> Vec<u8> {
     let mut out = Vec::with_capacity(data.len() * 4);
@@ -415,7 +613,7 @@ fn bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
 /// parking the thread between polls and being unparked by the waker. Keeps the
 /// dependency surface minimal (no `pollster`) per the workspace policy. Not a
 /// general-purpose executor.
-fn block_on<F: Future>(future: F) -> F::Output {
+pub(crate) fn block_on<F: Future>(future: F) -> F::Output {
     struct ThreadWaker(std::thread::Thread);
     impl std::task::Wake for ThreadWaker {
         fn wake(self: Arc<Self>) {
@@ -438,6 +636,7 @@ fn block_on<F: Future>(future: F) -> F::Output {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     /// The CPU reference path is always exercised (feature-independent).
@@ -483,7 +682,7 @@ mod tests {
         let pts: Vec<Vec3> = (0..1000)
             .map(|i| {
                 let f = i as f64;
-                Vec3::new(f * 0.5 - 3.0, (f * 0.25).sin() * 4.0, f * 0.01)
+                Vec3::new(f * 0.5 - 3.0, (f * 0.25).r_sin() * 4.0, f * 0.01)
             })
             .collect();
 

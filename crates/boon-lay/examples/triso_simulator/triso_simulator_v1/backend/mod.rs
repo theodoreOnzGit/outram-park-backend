@@ -1,3 +1,5 @@
+use petir::uom_math::QuantityMath;
+use petir::mathf::RealMath;
 use std::{
     f64::consts::PI,
     sync::{Arc, Mutex},
@@ -69,13 +71,13 @@ impl TRISOSimApp {
         let u: f64 = prn(seed);
         let r_in3 = r_in * r_in * r_in;
         let r_out3 = r_out * r_out * r_out;
-        let rho = (u * (r_out3 - r_in3) + r_in3).cbrt();
+        let rho = (u * (r_out3 - r_in3) + r_in3).r_cbrt();
 
         let z: f64 = prn(seed) * 2.0 - 1.0;
         let phi: f64 = prn(seed) * 2.0 * PI;
         let t = (1.0 - z * z).max(0.0).sqrt();
-        let x = t * phi.cos();
-        let y = t * phi.sin();
+        let x = t * phi.r_cos();
+        let y = t * phi.r_sin();
 
         (rho * x, rho * y, rho * z)
     }

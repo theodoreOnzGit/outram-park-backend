@@ -8,10 +8,95 @@ Cargo workspace for **OUTRAM PARK** — Open-source Unified TRAnsient Multi-Phys
 
 A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, steam-cycle thermodynamics, and compressible CFD simulation.
 
+**Code deep dives and API reference:** <https://theodoreonzgit.github.io/outram-park-backend/>
+(how each crate is built and why, beside its code; rebuilt from `develop` on
+every push by `.github/workflows/pages.yml`, gh:#518). The concept lessons for
+students will live on the [OUTRAM PARK teaching site](https://theodoreonzgit.github.io/outram-park/) (not live yet; outram-park#5).
+
 > *"Best open-source nuclear simulator suite in Singapore, JB — and some say Batam!"* 🇸🇬
 > — with apologies to **Phua Chu Kang**. Said in fun, lah. For the real, sober
 > status, see the ⚠️ banner above: everything here is unverified until validated,
 > and **not** for facility operation.
+
+## How it started
+
+It started as a sketch. An early concept from 2025, drawn by hand on graph
+paper, titled **"Natural FHR Simulator, Mark I"**: a fluoride-salt-cooled
+high-temperature reactor (FHR) you could watch and operate.
+
+![Hand-drawn 2025 concept sketch of the Natural FHR Simulator Mark I: a pebble-bed core with control rod, graphite reflector and decay-heat removal loop; a primary salt pump labelled TUAS; an intermediate salt-to-salt heat exchanger; a helical steam generator, single-stage expansion turbine and condenser labelled TAMPINES](docs/images/fhr-simulator-mark-i-concept-2025.jpg)
+
+Everything on that page was a question for code to answer. On the left, the
+core: a pebble bed with a temperature-sensitive display, a control rod, a
+graphite reflector and a decay-heat removal loop. In the middle, a primary
+salt pump driving the salt through an intermediate salt-to-salt heat
+exchanger. On the right, a helical steam generator feeding a single-stage
+expansion turbine and a condenser. The sketch is honest about what it left
+out: "no HP, LP turbine for simplicity", and a primary pump that "really has
+parallel but simplify".
+
+Two labels on it already name the pieces that would carry the idea: **TUAS**
+under the salt loops, and **TAMPINES** under the steam side. Both are crates in
+[`outram-park-backend`](https://github.com/theodoreOnzGit/outram-park-backend)
+today (`tuas_boussinesq_solver` and `tampines`), and the rest of OUTRAM PARK
+grew around them.
+
+## Note on AI-assisted development cost vs. value
+
+Much of the recent work on this workspace — the dependency / egui 0.34 migration,
+the `peroxide` adaptive-integration hang fix in TUAS, and the TAMPINES
+near-saturation (x ≈ 0) choked-flow fix — was done with AI assistance (Claude
+Code, a mix of Sonnet 4.6 and Opus 4.8). This note records, for future
+reference, whether that spend was worthwhile.
+
+### Cost
+
+Token usage was not metered precisely here; estimating it from git history alone
+is unreliable, because Claude Code's cost is dominated by *input* (re-sent
+context, file contents, tool/test output), not by the committed diff. Model
+prices for reference (per 1M tokens):
+
+| Model | Input | Output | Cache write (5m / 1h) | Cache read |
+|---|---|---|---|---|
+| Opus 4.8 | $5.00 | $25.00 | $6.25 / $10.00 | $0.50 |
+| Sonnet 4.6 | $3.00 | $15.00 | $3.75 / $6.00 | $0.30 |
+
+Cache reads (0.1× input) dominate in practice because Claude Code caches
+aggressively, so a naive "all input × $5" overestimates by 3–10×. **Assume a
+conservative upper bound of ~$600** for the work above.
+
+### Comparison to a human worker
+
+The work needs a rare skill combination: production Rust **and** numerical
+methods **and** nuclear/chemical-engineering thermodynamics (IAPWS-IF97,
+two-phase critical flow, HEM, sound-speed behaviour at the bubble point) **and**
+an egui GUI migration. A specialist who can do all of this bills roughly
+**$120–250/hr** as a contractor (≈ $90–150/hr fully loaded as an employee). The
+output produced is plausibly **3–10 focused engineer-days** for such a person,
+i.e. **$2,400–$12,000**.
+
+So at a conservative $600, the AI-assisted cost is roughly **5–25% of the
+human-equivalent cost** for the same output, and compresses the calendar time
+from weeks to days.
+
+### The honest caveat
+
+This is **augmentation, not replacement** — the value is *conditional on expert
+review*. The AI did not work autonomously: a domain expert set the direction,
+made the key calls (e.g. the interpolation-vs-sonic-fix decision in the choked-
+flow work), supplied domain notes, and verified every result. The AI also
+thrashed on the hardest problem (the x ≈ 0 fix took several iterations and
+introduced regressions that had to be caught and undone). An unreviewed AI fix
+to a thermodynamics solver that is *subtly* wrong could cost far more than $600
+downstream (bad simulation output, a wrong published number).
+
+**Verdict:** worthwhile for this mix of work — bounded-tedious migration (ideal
+AI territory) and exploratory debugging *with a checkable oracle* (the Zaloudek
+validation tests). It is **not** a safe substitute on work with no verification
+oracle, or if AI output is treated as correct-by-default. The $600 buys
+specialist-grade output at a fraction of specialist cost **provided** the expert
+stays in the loop to verify it; the review is what makes the spend safe rather
+than risky.
 
 ## Publications & citation
 
@@ -83,67 +168,67 @@ The workspace has 31 member crates, grouped by domain below.
 
 | Crate | Role | License |
 |---|---|---|
-| [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator) | PID / transfer-function process-control library for real-time simulators | GPL-3.0 (published versions <= 0.1.1 on crates.io remain Apache-2.0) |
-| [`tuas_boussinesq_solver`](crates/tuas_boussinesq_solver) | Thermal-hydraulics Boussinesq single-phase solver (TUAS) | GPL-3.0 |
-| [`tampines-steam-tables`](crates/tampines-steam-tables) | IAPWS-IF97 steam/water properties + steam-turbine & choked-flow equations (TAMPINES) | GPL-3.0 |
-| [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | GPL-3.0 |
-| [`outram-park-fork-coolprop`](crates/outram-park-fork-coolprop) | Pure-Rust fork of CoolProp — Helmholtz-EOS thermophysical properties (independent fork, not official CoolProp) | GPL-3.0 |
-| [`outram-park-fork-offbeat`](crates/outram-park-fork-offbeat) | Pure-Rust fork of OFFBEAT — nuclear fuel performance: mechanics, rheology, gap/contact, material correlations, burnup/FGR, corrosion (independent fork, not official OFFBEAT) | GPL-3.0 |
-| [`farrer-park`](crates/farrer-park) | FEM structural mechanics — small-strain elasticity and J2 plasticity on Lagrange elements, from MOOSE / PRISMS-Plasticity / PRISMS-Fatigue (all LGPL-2.1, one-way into GPL-3.0). Uses `outram-foam-basic-lib` for the shared Krylov backend only, never for its discretisation. Verification only, no human V&V — not a life-assessment tool (independent fork, not affiliated with INL/MOOSE or the PRISMS Center) | GPL-3.0 |
-| [`outram-park-fork-dwsim-libs`](crates/outram-park-fork-dwsim-libs) | Pure-Rust fork of DWSIM process-simulation building blocks (independent fork) | GPL-3.0 |
+| [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator) | PID / transfer-function process-control library for real-time simulators | AGPLv3 |
+| [`tuas_boussinesq_solver`](crates/tuas_boussinesq_solver) | Thermal-hydraulics Boussinesq single-phase solver (TUAS) | AGPLv3 |
+| [`tampines-steam-tables`](crates/tampines-steam-tables) | IAPWS-IF97 steam/water properties + steam-turbine & choked-flow equations (TAMPINES) | AGPLv3 |
+| [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | AGPLv3 |
+| [`outram-park-fork-coolprop`](crates/outram-park-fork-coolprop) | Pure-Rust fork of CoolProp — Helmholtz-EOS thermophysical properties (independent fork, not official CoolProp) | AGPLv3 |
+| [`outram-park-fork-offbeat`](crates/outram-park-fork-offbeat) | Pure-Rust fork of OFFBEAT — nuclear fuel performance: mechanics, rheology, gap/contact, material correlations, burnup/FGR, corrosion (independent fork, not official OFFBEAT) | AGPLv3 |
+| [`farrer-park`](crates/farrer-park) | FEM structural mechanics — small-strain elasticity and J2 plasticity on Lagrange elements, from MOOSE / PRISMS-Plasticity / PRISMS-Fatigue (all LGPL-2.1). Uses `outram-foam-basic-lib` for the shared Krylov backend only, never for its discretisation. Verification only, no human V&V — not a life-assessment tool (independent fork, not affiliated with INL/MOOSE or the PRISMS Center) | AGPLv3 |
+| [`outram-park-fork-dwsim-libs`](crates/outram-park-fork-dwsim-libs) | Pure-Rust fork of DWSIM process-simulation building blocks (independent fork) | AGPLv3 |
 
 **CFD (OpenFOAM translations)**
 
 | Crate | Role | License |
 |---|---|---|
-| [`outram-foam-basic-lib`](crates/outram-foam-basic-lib) | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial/ODE solvers, interpolation, FV operators (`fvm`/`fvc`, MUSCL), thermophysics kernels, fields, mesh (independent fork, not official OpenFOAM) | GPL-3.0 |
-| [`outram-foam-turbulence-lib`](crates/outram-foam-turbulence-lib) | RAS/LES turbulence closures (k-ω SST implemented; others scaffolded) on top of `outram-foam-basic-lib` | GPL-3.0 |
-| [`outram-foam-appbuilder-lib`](crates/outram-foam-appbuilder-lib) | Solver application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress GeN-Foam deterministic-neutronics + TH port | GPL-3.0 |
-| [`outram-foam-cli`](crates/outram-foam-cli) | OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, …) as terminal binaries (independent fork, not official OpenFOAM) | GPL-3.0 |
-| [`outram-foam-multiphase`](crates/outram-foam-multiphase) | Phase-II multiphase CFD — drift-flux (Euler-Euler two-fluid, wall boiling, CHF, dryout planned); scaffold, no human V&V (independent fork, not official OpenFOAM) | GPL-3.0 |
+| [`outram-foam-basic-lib`](crates/outram-foam-basic-lib) | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial/ODE solvers, interpolation, FV operators (`fvm`/`fvc`, MUSCL), thermophysics kernels, fields, mesh (independent fork, not official OpenFOAM) | AGPLv3 |
+| [`outram-foam-turbulence-lib`](crates/outram-foam-turbulence-lib) | RAS/LES turbulence closures (k-ω SST implemented; others scaffolded) on top of `outram-foam-basic-lib` | AGPLv3 |
+| [`outram-foam-appbuilder-lib`](crates/outram-foam-appbuilder-lib) | Solver application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress GeN-Foam deterministic-neutronics + TH port | AGPLv3 |
+| [`outram-foam-cli`](crates/outram-foam-cli) | OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, …) as terminal binaries (independent fork, not official OpenFOAM) | AGPLv3 |
+| [`outram-foam-multiphase`](crates/outram-foam-multiphase) | Phase-II multiphase CFD — drift-flux (Euler-Euler two-fluid, wall boiling, CHF, dryout planned); scaffold, no human V&V (independent fork, not official OpenFOAM) | AGPLv3 |
 
 **Mesh generation & authoring**
 
 | Crate | Role | License |
 |---|---|---|
-| [`outram-blender`](crates/outram-blender) | GPL fork of Blender's mesh-authoring architecture — headless surface-mesh frontend with opt-in Monte Carlo (`mc-export`) and OpenFOAM volume-meshing (`foam-mesh`) solver bridges (not affiliated with the Blender Foundation) | GPL-3.0 |
-| [`outram-park-fork-cfmesh`](crates/outram-park-fork-cfmesh) | Pure-Rust fork of cfMesh — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; consumes an `outram-blender` surface and emits an `outram-foam` polyMesh (independent fork, not official cfMesh) | GPL-3.0 |
-| [`outram-foam-mesh`](crates/outram-foam-mesh) | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh) (independent fork, not official OpenFOAM) | GPL-3.0 |
+| [`outram-blender`](crates/outram-blender) | Fork of Blender's mesh-authoring architecture — headless surface-mesh frontend with opt-in Monte Carlo (`mc-export`) and OpenFOAM volume-meshing (`foam-mesh`) solver bridges (not affiliated with the Blender Foundation) | AGPLv3 |
+| [`outram-park-fork-cfmesh`](crates/outram-park-fork-cfmesh) | Pure-Rust fork of cfMesh — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; consumes an `outram-blender` surface and emits an `outram-foam` polyMesh (independent fork, not official cfMesh) | AGPLv3 |
+| [`outram-foam-mesh`](crates/outram-foam-mesh) | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh) (independent fork, not official OpenFOAM) | AGPLv3 |
 
 **Neutronics & nuclear data**
 
 | Crate | Role | License |
 |---|---|---|
-| [`teh-o-prke`](crates/teh-o-prke) | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | GPL-3.0 |
-| [`njoy-outram-park-fork`](crates/njoy-outram-park-fork) | NJOY2016 ENDF port — all nuclear data (RECONR/BROADR/THERMR/ACER/…, ν̄/χ, windowed multipole); exposes `XsProvider` (independent fork, not official NJOY) | GPL-3.0 |
-| [`outram-mc-libs`](crates/outram-mc-libs) | Monte Carlo transport — CSG geometry, particle tracking, k-eigenvalue, Woodcock/delta tracking, depletion; data-free (pulls cross sections from `njoy-outram-park-fork`) | GPL-3.0 |
-| [`boon-lay`](crates/boon-lay) | TRISO-particle / Lagrangian decay simulator (BOON-LAY); includes the TRISO-ATOPS fork | GPL-3.0 |
-| [`nee_soon`](crates/nee_soon) | Integration / coupling layer — composes MC + deterministic/TH + nuclear data + PRKE | GPL-3.0 |
-| [`outram-park-fork-liggghts`](crates/outram-park-fork-liggghts) | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular; GPL-2-or-later, see NOTICE); scaffold | GPL-3.0 |
+| [`teh-o-prke`](crates/teh-o-prke) | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | AGPLv3 |
+| [`njoy-outram-park-fork`](crates/njoy-outram-park-fork) | NJOY2016 ENDF port — all nuclear data (RECONR/BROADR/THERMR/ACER/…, ν̄/χ, windowed multipole); exposes `XsProvider` (independent fork, not official NJOY) | AGPLv3 |
+| [`outram-mc-libs`](crates/outram-mc-libs) | Monte Carlo transport — CSG geometry, particle tracking, k-eigenvalue, Woodcock/delta tracking, depletion; data-free (pulls cross sections from `njoy-outram-park-fork`) | AGPLv3 |
+| [`boon-lay`](crates/boon-lay) | TRISO-particle / Lagrangian decay simulator (BOON-LAY); includes the TRISO-ATOPS fork | AGPLv3 |
+| [`nee_soon`](crates/nee_soon) | Integration / coupling layer — composes MC + deterministic/TH + nuclear data + PRKE | AGPLv3 |
+| [`outram-park-fork-liggghts`](crates/outram-park-fork-liggghts) | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular; GPL-2-or-later, see NOTICE); scaffold | AGPLv3 |
 
 **Subsurface & infrastructure**
 
 | Crate | Role | License |
 |---|---|---|
-| [`outram-park-fork-pflotran`](crates/outram-park-fork-pflotran) | Pure-Rust fork of PFLOTRAN — subsurface flow & reactive transport, no PETSc/MPI/FFI; scaffold, no human V&V (independent fork) | GPL-3.0 |
-| [`outram-park-mpi`](crates/outram-park-mpi) | Pure-Rust MPICH subset — the MPI-3 API surface over a shared-memory threads-as-ranks transport, Android-buildable, no C/FFI; scaffold (not affiliated with MPICH) | GPL-3.0 |
+| [`outram-park-fork-pflotran`](crates/outram-park-fork-pflotran) | Pure-Rust fork of PFLOTRAN — subsurface flow & reactive transport, no PETSc/MPI/FFI; scaffold, no human V&V (independent fork) | AGPLv3 |
+| [`outram-park-mpi`](crates/outram-park-mpi) | Pure-Rust MPICH subset — the MPI-3 API surface over a shared-memory threads-as-ranks transport, Android-buildable, no C/FFI; scaffold (not affiliated with MPICH) | AGPLv3 |
 
 **Digital twin**
 
 | Crate | Role | License |
 |---|---|---|
-| [`outram-park-digital-twin-engine`](crates/outram-park-digital-twin-engine) | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only) | GPL-3.0 |
+| [`outram-park-digital-twin-engine`](crates/outram-park-digital-twin-engine) | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only) | AGPLv3 |
 
 **KOVAN knowledge layer** (offline / Android-first)
 
 | Crate | Role | License |
 |---|---|---|
-| [`kovan-common`](crates/kovan-common) | Shared canonical KOVAN types (`KovanDocument`, `KovanSymbol`, …) | GPL-3.0 |
-| [`kovan-discovery`](crates/kovan-discovery) | File discovery + text search (`ignore`/ripgrep) and git-awareness (`gix`) | GPL-3.0 |
-| [`kovan-literature`](crates/kovan-literature) | Literature archive — PDF → Markdown → `KovanDocument` → BibTeX | GPL-3.0 |
-| [`kovan-semantics`](crates/kovan-semantics) | Repo understanding — ripgrep-first, escalating to language servers | GPL-3.0 |
-| [`kovan-codegen`](crates/kovan-codegen) | Deterministic code generation for known numerical methods | GPL-3.0 |
-| [`kovan`](crates/kovan) | CLI (agent-facing, binary `kovan`), TUI (`ratatui`, binary `kovan-tui`, CLI-redirect stub on Android) and GUI (binary `kovan-gui`, reuses `kovan-literature`'s digitiser window) — three front ends over the KOVAN knowledge layer | GPL-3.0 |
+| [`kovan-common`](crates/kovan-common) | Shared canonical KOVAN types (`KovanDocument`, `KovanSymbol`, …) | AGPLv3 |
+| [`kovan-discovery`](crates/kovan-discovery) | File discovery + text search (`ignore`/ripgrep) and git-awareness (`gix`) | AGPLv3 |
+| [`kovan-literature`](crates/kovan-literature) | Literature archive — PDF → Markdown → `KovanDocument` → BibTeX | AGPLv3 |
+| [`kovan-semantics`](crates/kovan-semantics) | Repo understanding — ripgrep-first, escalating to language servers | AGPLv3 |
+| [`kovan-codegen`](crates/kovan-codegen) | Deterministic code generation for known numerical methods | AGPLv3 |
+| [`kovan`](crates/kovan) (on crates.io: `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`) | CLI (agent-facing, binary `kovan`), TUI (`ratatui`, binary `kovan-tui`, CLI-redirect stub on Android) and GUI (binary `kovan-gui`, reuses `kovan-literature`'s digitiser window) — three front ends over the KOVAN knowledge layer | AGPLv3 |
 
 ## Build
 
@@ -157,8 +242,8 @@ sudo apt install libopenblas-dev
 ```
 
 ```bash
-cargo build --workspace
-cargo test  --workspace --lib --tests
+cargo build --release --workspace
+cargo test  --release --workspace --lib --tests
 ```
 
 ## Generated documentation (`kovan`)
@@ -167,7 +252,7 @@ Documentation generation and repository accounting run through this workspace's
 own `kovan` binary. There is no Python in either toolchain.
 
 ```bash
-cargo build --release -p kovan --bin kovan     # builds target/release/kovan
+cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan     # builds target/release/kovan
 ```
 
 **Prerequisites, both mandatory** — a nightly toolchain and `rustdoc-md`.
@@ -201,7 +286,7 @@ Notes, if kovan is not yet on cargo and you are running in this github
 repo:
 
 ```bash
-cargo run --release -p kovan --bin kovan -- api-docs --all --include-missing
+cargo run --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan -- api-docs --all --include-missing
 ```
 
 ### Bundling docs for an external agent
@@ -224,8 +309,8 @@ how many optional files fit in the headroom.
 Again, if kovan is not on cargo and you are running on github:
 
 ```bash
-cargo run --release -p kovan --bin kovan -- api-docs --all --include-missing
-cargo run --release -p kovan --bin kovan -- agent-docs-gen --out ~/Desktop/agent-docs.
+cargo run --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan -- api-docs --all --include-missing
+cargo run --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan -- agent-docs-gen --out ~/Desktop/agent-docs.
 ```
 
 As seen here, u are able to put this on the desktop.
@@ -352,6 +437,13 @@ depends on is bumped.
 `cargo publish --dry-run` for crates 2–6 will fail with "failed to select a
 version" until their upstreams are live — that is expected, not a packaging
 error.
+
+## License
+
+AGPLv3 (`AGPL-3.0-only`), every crate. Some crates contain files ported from
+GPL-3.0 projects (OpenFOAM, GSL, SCRAM, …); those files keep their GPL-3.0
+notice, and the crate ships `LICENSE.GPL-3.0` beside `LICENSE`. Details:
+[`docs/relicensing-agpl-2026-10-20.md`](docs/relicensing-agpl-2026-10-20.md).
 
 ## Responsible Use
 

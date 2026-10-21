@@ -1,5 +1,6 @@
 # CLAUDE.md — boon-lay
 
+
 **BOmbardment of neutrons On Nuclides with Lagrangian transport and transmutation
 Yields** — Lagrangian Monte Carlo radionuclide transport for TRISO fuel particles
 in HTGRs and FHRs.
@@ -7,10 +8,96 @@ in HTGRs and FHRs.
 The standalone source lives at:
 `/home/teddy0/Documents/research/boon-lay/`
 
-**Version:** 0.2.1  
-**License:** GPL-3.0 (same as workspace default)
+**Version:** ~~0.2.1~~ **CORRECTED 2026-09-21** — `Cargo.toml` says 0.1.3  
+**License:** ~~GPL-3.0 (same as workspace default)~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): `src/rustbca/` stays GPL-3.0-or-later, `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`
 
 ---
+
+## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
+
+**Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
+`CLAUDE.md` of `outram-mc-libs`, `nee_soon`, every `outram-foam-*` crate and
+every crate downstream of them; a crate that newly depends on one of those
+takes the rule into its own `CLAUDE.md` (check with `cargo metadata`).
+
+**Whenever you build or change a complex reactor geometry** — CSG cells and
+surfaces, lattices, pebble beds, TRISO particles, reflector zones, control-rod
+bands, a CFD/FEM mesh, anything a solver will transport or integrate through —
+**draw it, as images a human can open (PNG, or JPG/SVG), and hand them over**
+before any result computed on it is reported as more than tentative.
+
+- **Draw what the solver sees, not what you meant.** Render from the ASSEMBLED
+  geometry (cell / material lookup at each pixel, or the mesh itself), never
+  from the named constants. A picture of the constants hides exactly the
+  defects this rule exists to catch.
+- **Minimum set:** an axial slice (R-Z / x-z) of the whole model; radial (x-y)
+  slices at the heights that matter; and, for nested geometry, zoomed slices at
+  every level down to the smallest (pebble, TRISO particle). Colour by
+  material, with a legend and the key dimensions marked.
+- **Commit the images with the change** (beside the V&V record or the
+  manuscript package) and point the human at them by path in your summary.
+  Regenerate them whenever the geometry changes.
+- **Say what you checked in them, and what you could not** — an image nobody
+  was told to look at checks nothing.
+
+**Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom reflector
+mirrored from the top and up to 107 cm short; a core cavity that grew with the
+bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
+(gh:#309, #310); and a TRISO lattice holding 8240 particles while reporting
+8340 (gh:#316, +353 pcm). Every run completed with green diagnostics. Each was
+found by looking at the built geometry, not by the eigenvalue.
+
+**Tools.** ~~`outram_mc_libs::geometry::plot` samples a slice of an assembled
+CSG geometry; OpenMC-parity image output (PNG/JPG) is the preferred path once
+it lands.~~ **UPDATED 2026-09-25 — it has landed (gh:#268):**
+`outram_mc_libs::geometry::plot` is a port of OpenMC's plotter that writes PNG
+directly — slices, wireframe and solid ray traces — verified pixel-for-pixel
+against `openmc --plot`
+(`crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+`render_material_slice` draws a material-coloured slice with a legend and cm
+axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
+worked example. For meshes, plot the mesh itself (cells, patches, zones).
+
+## Charged-particle transport lives here (maintainer decision, 2026-10-16)
+
+> "Charged particles go thru boon lay, uncharged thru OutramMC."
+
+~~`boon-lay` owns every charged particle, and `outram-mc-libs` owns the neutral
+ones (neutrons, and photons once ported).~~ **CORRECTED 2026-10-20
+(maintainer: "outramMC will take care of neutrons, PUNGGOL takes care of
+gammas and other things"):** `boon-lay` owns the **ions**: fission fragments,
+alphas and recoil knock-ons, through its RustBCA copy. Photons, electrons and
+positrons belong to **`punggol`** (the OpenMC photon port, gh:#975; the EGSnrc
+electron/positron port, gh:#976). `outram-mc-libs` owns neutrons only.
+
+- **The first charged-particle code is RustBCA.** It is copied, not taken as a
+  dependency, into its own module tree in this crate, with clear attribution:
+  upstream `lcpp-org/RustBCA` v3.0.0 `a356280d`, GPL-3.0, with a provenance
+  header on every file and a list of local changes. Its `no_std` + `alloc`
+  build is re-exported from here (gh:#876, item 7). It covers fission
+  fragments, alphas and recoil knock-ons, all of which are in scope.
+- ~~**Nothing is ported yet.** A headless example that measures the cost of one
+  cascade comes first.~~ **CORRECTED 2026-10-16:** **`src/rustbca/` is a copy
+  of RustBCA, and boon-lay re-exports it** (`boon_lay::rustbca`). Attribution
+  and every local change are in `src/rustbca/mod.rs` and
+  `src/rustbca/README.md`. The std-only layer (TOML input, file output,
+  rayon/indicatif driver, entropy seeding, `geo` 2D meshes) sits behind the
+  `rustbca-std` feature, which is off by default. Floats go through
+  `petir::real::Real`, written FULLY QUALIFIED (`Real::exp(x)`): method
+  syntax would hit `std`'s inherent method in this std crate.
+  `scripts/check-rustbca-no-std.sh` compiles the tree as `#![no_std]`.
+  `local_change_tests::no_transcendental_method_calls_remain` catches method
+  syntax creeping back in. The cost probe `examples/rustbca_cascades.rs` was
+  run on 2026-10-16; its record is in
+  `verification_and_validation/rustbca_cascades/`. A fragment cascade costs
+  1.5–2 s on one desktop core.
+- **Keep the copy a copy.** Make changes to RustBCA itself in `src/rustbca/`
+  only when they are needed (no_std, a bug), and record each one in the module
+  docs' numbered list. Physics boon-lay adds on top, such as a layered-sphere
+  `Geometry`, fragment-pair sampling, or the demo track type, goes OUTSIDE
+  `src/rustbca/`, by the same rule as `triso_atops_extensions`.
+- Fragment tracks are illustrative until they pass V&V against uncalibrated
+  range data, because RustBCA's Bethe term uses the bare Za².
 
 ## What this crate does
 
@@ -33,8 +120,12 @@ Covers:
 |---|---|
 | `fission-yields-data` | `Nuclide` enum covering ~3000 nuclides; boon-lay re-exports it |
 | `openmc-endf-8-depletion-lib-b` | ENDF/B-VIII.0 depletion chain XML data (half-lives, decay modes, Q-values) |
-| `oorandom` | Simple fast RNG for decay-chain sampling |
-| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` |
+| ~~`oorandom`~~ | ~~Simple fast RNG for decay-chain sampling~~ **CORRECTED 2026-10-04 (gh:#531):** not a dependency (`Cargo.toml` has none); `OoRng64` in `central_limit_theorem/oorandom_rng.rs` is a local wrapper, and decay chains use `outram_mc_libs::rng::lcg::Lcg64` |
+| `serde_json` | reading upstream / GUI-written TRISO-ATOPS run files (`run_file::upstream`) |
+| `rayon` (not on wasm), `wgpu` (not on Android or wasm) | parallel ensembles; the optional, unverified GPU kernel |
+| `outram-mc-libs` | RNG (LCG + Normal + Exp distributions) — replaces `oorandom`, `rand`, `rand_core`, `rand_distr` **for boon-lay's own code**. ~~**CORRECTED 2026-10-16:** `rand` 0.10 and `rand_distr` 0.6 are dependencies again, but only for the RustBCA copy (`src/rustbca/`), which keeps upstream's ChaCha8 RNG~~ **CORRECTED 2026-10-20 (gh:#995):** `rand` and `rand_distr` are gone again; the RustBCA copy draws from `petir::rng`, a draw-for-draw port of the same ChaCha8 RNG |
+| `petir` | `real::Real`, the libm-backed float shim for the `no_std` RustBCA copy (added 2026-10-16); since 2026-10-20 also `rng::{ChaCha8Rng, Uniform, Normal}` for that copy (gh:#995) |
+| `getrandom` | OS entropy for RustBCA's `seed < 0` and `simple_bca`, under `rustbca-std` only (added 2026-10-20, gh:#995; was `rand`'s `thread_rng`) |
 | `serde` / `serde-xml-rs` | Deserialise the ENDF-8 XML into `SerdeNuclideData` structs |
 | `anyhow` | Error propagation in XML parsing |
 
@@ -62,17 +153,18 @@ src/
     stochastic_decay_chain/               ← iterator-based decay chain walker
     monte_carlo_single_radionuclide_decay_simulator/  ← MC half-life verification
     lagrangian_diffusion/
-      central_limit_theorem/              ← Gaussian step sampling
+      central_limit_theorem/              ← Gaussian step sampling (the legacy engine)
+      first_passage/                      ← Walk-on-Spheres engine: sphere_fpt, walk_on_spheres, interface, depletion, ensemble, live. Added to this map 2026-10-04 (gh:#531)
       single_particle_simulator/
         constructive_solid_geometry/      ← sphere CSG intersection
         interaction_with_decaying_nuclide_simulator/
         movement_within_triso_particle/
         release_fraction_crp_6_case_1a_1b/  ← CRP-6 benchmark
       temperature_dependent_collisions/
-        diffusion_coeffs/                 ← Cs, Ag, Sr diffusion coefficients in SiC/PyC
+        diffusion_coeffs/                 ← ~~Cs, Ag, Sr diffusion coefficients in SiC/PyC~~ **CORRECTED 2026-10-04:** Ag, Cs, Sr, Kr (Jiang 2023) for kernel, buffer, PyC, SiC; other elements fall back to Ag; graphite is todo!() (gh:#541). **CORRECTED 2026-10-18:** except Kr in the buffer, where `get_d1_for_kr` is still `todo!()` (checked in `diffusion_coeffs/mod.rs`; `docs/tutorial/src/layers.md` was right)
     tests/
   lagrangian_transmutation_and_fission_simulator/
-    mod.rs                                ← empty stub (future work)
+    mod.rs                                ← ~~empty stub (future work)~~ **CORRECTED 2026-09-21**: implemented in `lagrangian_diffusion::first_passage::depletion`; this `mod.rs` is the map
   triso_atops_fork/                       ← Eulerian/continuum TRISO release (fork of INL TRISO-ATOPS, MIT, commit de374c8)
     mod.rs                                ← module map + type aliases (DecayConstant, ReleaseFraction)
     nuclide_model/
@@ -84,8 +176,27 @@ src/
       mod.rs                              ← rb_fail + release_fraction_transient dispatchers (by ElementGroup)
       steady_state.rs                     ← Booth (long/short), breakthrough, attenuation, noble-gas <R/B>
       transient.rs                        ← accident variants: booth_transient, breakthrough_transient, rf_graph
-    activities/mod.rs                     ← SCAFFOLD (activity bookkeeping; bead op-b4a.2.2)
-    normal_operation/mod.rs               ← SCAFFOLD (nodal orchestration + JSON driver; beads op-b4a.2.2/.2.3)
+    activities/mod.rs                     ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented (`coolant_activity.rs`, `source_terms.rs`), code-to-code verified
+    activities/live_pools.rs              ← **NOT a port** (2026-09-29, gh:#399): exact stepping of the circulating/plate-out/clean-up pools from any state, plus a leak sink; reproduces the ported closed forms from empty
+    normal_operation/mod.rs               ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented; `normal_operation_node` agrees with upstream to 3.1e-11
+    accident/mod.rs                       ← accident-case PIECES (release_activity, coolant_release, accident_release_curies); no single accident_case fn (#447). Added to this map 2026-09-30 (#449)
+    run_selection/mod.rs                  ← nuclide selection (sl, parent_decay), name normalisation, half-life screens
+    run_file/mod.rs                       ← the port's own RunFile / RunConfig format
+    run_file/upstream.rs                  ← reads UPSTREAM / GUI-written run files; code-to-code verified vs process_run_file (#449)
+  triso_atops_extensions/                 ← **NOT a port** (2026-10-05, gh:#583): boon-lay's own extensions of TRISO-ATOPS, kept OUT of triso_atops_fork (which they call unchanged and never modify)
+    removal_rates.rs                      ← RemovalRates: k_plate / k_clean per transport group or per element (Z); ::upstream reproduces upstream's routing; per-cycle conversions; liu_cao_2002_htr10 table
+    normal_operation.rs                   ← normal_operation_node_with_rates: the ported chain with the rates from a RemovalRates; bit-for-bit equal to the port under ::upstream (336 cases)
+  chemistry/                              ← cited rate laws: graphite_air, graphite_steam, kernel_hydrolysis (gh:#401). Added to this map 2026-10-04 (gh:#531)
+  rustbca/                                ← **A COPY of RustBCA** v3.0.0 (lcpp-org, a356280d, GPL-3.0), no_std + alloc, re-exported by boon-lay (gh:#876 item 7). mod.rs holds the attribution and the numbered local-change list; tests.rs is upstream's; local_change_tests.rs is boon-lay's. Added 2026-10-16
+  compute.rs                              ← ComputeType / ThreadCount backend selector (CPU single, CPU rayon, wgpu). Added 2026-10-04
+  gpu.rs                                  ← optional wgpu Walk-on-Spheres kernel, off Android and wasm; UNVERIFIED (CPU fallback only). Added 2026-10-04
+  wasm_par.rs                             ← serial rayon stand-ins on wasm32. Added 2026-10-04
+  fuel_failure/                           ← **boon-lay fuel failure**: TRISO particle failure from the PANAMA-I formulas (NOT the PANAMA code)
+    mod.rs                                ← naming rule, model overview, total_failure_fraction
+    weibull / stress / pressure / booth / oxygen / molar_volume / corrosion / strength /
+    grain_boundary / decomposition / diffusion / geometry .rs  ← one module per equation group
+    history.rs                            ← accident time-stepping driver (AccidentHistory)
+    htr10/                                ← HTR-10 application (an extrapolation) + German-lineage qualification data
 ```
 
 ## triso_atops_fork — Eulerian TRISO release (fork of INL TRISO-ATOPS)
@@ -97,19 +208,57 @@ release fractions) as the complement to boon-lay's Lagrangian model. Provenance:
 `upstream_source/TRISO-ATOPS/` is gitignored/reference-only. The GUI was
 intentionally not ported (headless-library + Android rule). The cleanly-
 dimensioned physics core (diffusion + release models + nuclide model) is ported,
-uom-typed, and verified; the activity/nodal/run-file layer is scaffolded pending
-a dimensional-analysis pass (its upstream units mix atoms/Ci/Bq). Full details,
+uom-typed, and verified; ~~the activity/nodal/run-file layer is scaffolded pending
+a dimensional-analysis pass (its upstream units mix atoms/Ci/Bq).~~ **CORRECTED
+2026-09-21** — the activity, normal-operation, accident and run set-up layers are
+implemented and covered by `docs/triso-atops-code-to-code.md` (two passes). Full details,
 Python→Rust module map, and V&V results: **`docs/triso-atops-fork.md`**.
 
+
+## triso_atops_extensions — what goes in the fork, and what does not
+
+**The fork stays a faithful port; extensions live in `triso_atops_extensions`**
+(maintainer direction, 2026-10-05). Do not change `triso_atops_fork` to add
+capability upstream does not have: its contract is code-to-code agreement
+with upstream `de374c8`. Put the addition in `triso_atops_extensions`, label
+the file **NOT a port** in its header, call the ported functions rather than
+copying them, and add a test that the extension **reduces to the port** when
+its addition is switched off (bit for bit where the arithmetic is the same,
+as `normal_operation_node_with_rates` does under `RemovalRates::upstream`).
+`activities/live_pools.rs` predates this rule and stays where it is, labelled
+NOT a port.
+
+## fuel_failure — boon-lay fuel failure (NOT PANAMA)
+
+**Name it "boon-lay fuel failure", never "PANAMA", when you mean this code or
+its output.** It is boon-lay's own Rust implementation of the formulas in the
+PANAMA-I report (Verfondern & Nabielek, HTA-IB-03/90), coded agentically from
+the printed equations. This project does not have the PANAMA source code.
+"PANAMA-I" means only the report and the results it prints. So a sentence like
+"PANAMA gives 1.2e-12 for HTR-10" is wrong twice: PANAMA was never run on
+HTR-10, and the number is boon-lay fuel failure's. The naming rule is set out
+in full in `src/fuel_failure/mod.rs`; the units register and open questions are
+in `docs/panama-i-units-and-open-questions.md`, named for the report it audits.
 ---
 
 ## Test coverage notes
 
 - `nuclide_reaction_and_decay_data/<element>_test.rs` — each checks that the
   parsed half-life and decay mode for representative nuclides matches ENDF/B-VIII.0.
-- `monte_carlo_single_radionuclide_decay_simulator/tests.rs` — verifies that
+- `monte_carlo_single_radionuclide_decay_simulator/tests.rs` — ~~verifies that
   the MC-simulated half-life (N=10000 histories) matches the tabulated value
-  within ~5%.
+  within ~5%.~~ **CORRECTED 2026-10-04 (gh:#531):** draws 99 999 lifetimes
+  (seed 77, 30 s half-life) and checks the surviving fraction against
+  `2^(-t/30)` at 0–100 s to 0.9 % relative; worst point 8.43e-3 at 60 s
+  (1.5σ). Also walks Th-232 to Pb-208.
+- `lagrangian_decay_simulator/expected_inventory.rs` (added 2026-10-20,
+  gh:#999) — the **CRAM48 expected inventory** of a chain, built from the
+  same `DecayLibrary` the MC samples (PETIR `depletion::cram48`). The MC
+  stays the simulator; CRAM is its deterministic check: (a) the
+  `SingleNuclideSimulatorMC` mean over 20 000 Pb-212 atoms at 12 h against
+  CRAM48 within 4 binomial sigma per nuclide (fixed seed); (b) CRAM48 against
+  the exact Bateman answer on the Th-232 chain head, 1e-13 normwise. Measured
+  numbers are in the tests' doc comments.
 - `release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs` — compares MC
   release fraction to the IAEA CRP-6 analytical solution.
 - `lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/
@@ -126,6 +275,15 @@ cargo test -p boon-lay --lib --tests --release
 ## Planned future work
 
 ### `lagrangian_transmutation_and_fission_simulator`
+
+~~Planned.~~ **CORRECTED 2026-10-03:** partly implemented, in
+`src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs`
+(re-exported from `src/lagrangian_transmutation_and_fission_simulator/mod.rs`,
+as the module map above says). Verified in the code: decay against the
+crate's `DecayLibrary`, and **one** explicit `(n,gamma)` channel through
+`Transmutation`. Still planned: `(n,2n)`, fission with yield sampling, and
+per-nuclide cross sections or flux maps from `njoy-outram-park-fork` /
+`outram-mc-libs`. The sketch below is the design that code follows.
 
 **No burnup matrix needed.** The whole point of the Lagrangian MC approach is
 that you track individual atoms stochastically, so the Bateman ODE system
@@ -159,7 +317,9 @@ The neutron flux `φ` (scalar or spatially resolved) is an external input —
 coupling to `outram-mc-libs` flux maps is the natural integration point.
 
 This design scales linearly with the number of simulated atoms and requires no
-matrix exponential, no CRAM solver, and no stiffness handling.
+matrix exponential, no CRAM solver, and no stiffness handling. (The
+simulator still needs none. Since 2026-10-20, gh:#999, a CRAM48 *check* of
+its mean exists beside it: `lagrangian_decay_simulator::expected_inventory`.)
 
 ### Other planned items
 
@@ -167,3 +327,10 @@ matrix exponential, no CRAM solver, and no stiffness handling.
   per-region transmutation rates.
 - Real-time 3-D TRISO diffusion visualisation (extends `boon_lay_decay_simulator`
   example).
+
+## egui simulators need a headless mode
+
+This crate's egui/eframe examples fall under the workspace headless-mode
+rule: a deterministic `--headless` path with a regression test. The full rule
+lives in
+[`crates/outram-park-digital-twin-engine/CLAUDE.md`](../outram-park-digital-twin-engine/CLAUDE.md).

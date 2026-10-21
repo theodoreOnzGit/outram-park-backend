@@ -24,7 +24,7 @@
 # agent/script-facing CLI these subcommands actually live on — see
 # crates/kovan/README.md). This script silently kept resolving to the old
 # name and finding the *GUI* binary at target/release/kovan (still built by a
-# plain `cargo build --release -p kovan`, since `gui` defaults on) — so
+# plain `cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`, since `gui` defaults on) — so
 # `prepare-commit-msg` launched a stray GUI window and hung every commit
 # instead of no-op'ing or stamping a trailer. Confirmed by hand: `kovan
 # tokens trailer` / `kovan --help` both hang (a GUI process appears in `ps`);
@@ -37,7 +37,7 @@
 # which is recoverable; a blocked commit is not.
 
 # 1. An installed `kovan-cli` on PATH (`cargo install --path crates/kovan --bin kovan-cli`).
-# 2. A release build in this workspace (`cargo build --release -p kovan --bin kovan-cli`).
+# 2. A release build in this workspace (`cargo build --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --bin kovan-cli`).
 # 3. A debug build, as a last resort — correct, just slower to have been built.
 _kovan_find() {
     if command -v kovan-cli >/dev/null 2>&1; then

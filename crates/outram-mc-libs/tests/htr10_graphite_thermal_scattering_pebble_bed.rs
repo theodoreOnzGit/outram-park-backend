@@ -151,7 +151,13 @@
 //! **`majorant_still_bounds_total_xs_with_bound_graphite` — PASSES.** Worst
 //! `Sigma_t / Sigma_maj` = **0.909091** over 200k log-spaced points from 1e-4
 //! to 4.2 eV across both materials — exactly 1/1.1, i.e. the grid captures the
-//! true per-bin peak and the full 10% margin survives. This answers
+//! true per-bin peak and the full 10% margin survives. **Re-measured
+//! 2026-10-05 after GitHub #585** (`bounding` on every nuclide breakpoint,
+//! Bragg edges included): **0.909093** at 4.851 eV, over 200k points on
+//! [1e-4, 5.618] eV (the range the code scans; ~~4.2 eV~~ above was stale).
+//! The 2e-6 excess over 1/1.1 is most likely the LOW-tier C0 (WMP) part
+//! bending between nodes (not isolated), which the margin covers.
+//! This answers
 //! `op-hc2o`'s explicit warning that a Woodcock majorant which under-bounds
 //! `Sigma_t` is a **silent bias, not a crash**, and had to be measured once the
 //! bound channel raised `Sigma_t` below 4 eV.
@@ -178,6 +184,7 @@
 //! an independent NJOY/OpenMC-ACE oracle. The geometry is a packed cube, not
 //! HTR-10. AI-assisted draft, not human-reviewed.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::decks::{locate_deck, SabMaterial};
 use njoy_outram_park_fork::leapr::generate::{generate_tape, ElasticChannel};
@@ -477,9 +484,11 @@ fn graphite_thermal_law_reaches_the_transport_kernel() {
 /// goes negative and the estimator is biased **without any error being
 /// raised**. So this is checked, not reasoned about.
 ///
-/// Why it is not obviously safe: [`Majorant::bounding`] samples `Sigma_t` on a
-/// log energy grid (4096 bins x 32 subsamples here) and takes the per-bin max,
-/// but graphite's coherent-elastic cross section is a **1/E sawtooth with 221
+/// Why it was not obviously safe: ~~[`Majorant::bounding`] samples `Sigma_t` on a
+/// log energy grid (4096 bins x 32 subsamples here) and takes the per-bin max~~
+/// (**CHANGED 2026-10-05, GitHub #585:** `bounding` now also tabulates every
+/// Bragg edge with its one-sided limits, so the edges are nodes; this test
+/// stays as an independent check), but graphite's coherent-elastic cross section is a **1/E sawtooth with 221
 /// Bragg discontinuities** — it jumps upward at every edge, so a grid that
 /// steps over an edge can under-sample the peak just above it. The margin
 /// (10% here) is what absorbs that, and this test measures whether it does.
@@ -502,14 +511,14 @@ fn majorant_still_bounds_total_xs_with_bound_graphite() {
 
     let (e_lo, e_hi) = (1.0e-4_f64, 4.0_f64.max(cutoff * 1.05));
     let n = 200_000;
-    let (ln_lo, ln_hi) = (e_lo.ln(), e_hi.ln());
+    let (ln_lo, ln_hi) = (e_lo.r_ln(), e_hi.r_ln());
 
     let mut worst_ratio = 0.0_f64; // max of Sigma_t / Sigma_maj; must stay <= 1
     let mut worst_e = 0.0_f64;
     let mut worst_mat = usize::MAX;
 
     for i in 0..=n {
-        let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / n as f64).exp();
+        let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / n as f64).r_exp();
         let sigma_maj = maj.at(e);
         for (m, mat) in mats.iter().enumerate() {
             let sigma_t = mat.macro_xs_total(e, &nucs);
@@ -674,8 +683,19 @@ fn diagnose_thermal_spectrum_reach() {
                 break; // fission or capture — history over
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, &mut seed) {
-                    Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, &mut seed),
-                    Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, &mut seed),
+                    // Mirror the kernel: the level's own MF=4 CM cosine when the
+                    // evaluation carries one, isotropic-CM otherwise (op-tm9f).
+                    Inelastic::Level { q, mt } => {
+                        match nuc.sample_inelastic_mu_cm(mt, e, &mut seed) {
+                            Some(mu_cm) => {
+                                two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, &mut seed)
+                            }
+                            None => two_body_scatter(e, u, nuc.awr, q, &mut seed),
+                        }
+                    }
+                    Inelastic::Continuum { q } => {
+                        continuum_inelastic_scatter(e, u, nuc.awr, q, &mut seed)
+                    }
                 };
                 e = e2;
                 u = u2;

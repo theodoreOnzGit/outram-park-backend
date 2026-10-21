@@ -45,6 +45,7 @@
 //! case is **`examples/fhr_ring_rpt_endf.rs`** — read that one for an actual
 //! V&V result (`op-mzvp`, GitHub #156).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::BoundaryType;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
@@ -96,18 +97,32 @@ fn main() {
     // fuel kernel, graphite coatings at increasing density (buffer < OPyC <
     // IPyC, the real TRISO ordering), a SiC layer, and a FLiBe coolant.
     // Two tiny helpers so the eight materials below read as one line each.
-    let nc = |nuclide_idx: usize, atom_density: f64| NuclideComponent { nuclide_idx, atom_density };
+    let nc = |nuclide_idx: usize, atom_density: f64| NuclideComponent {
+        nuclide_idx,
+        atom_density,
+    };
     let mat = |id: i32, name: &str, comps: Vec<NuclideComponent>| Material {
-        id, name: name.into(), temperature: TEMP_K, components: comps,
+        id,
+        name: name.into(),
+        temperature: TEMP_K,
+        components: comps,
     };
 
-    let fuel = mat(1, "fuel kernel", vec![nc(0, 0.00467), nc(1, 0.01880), nc(2, 0.04695)]); // U235, U238, O16
+    let fuel = mat(
+        1,
+        "fuel kernel",
+        vec![nc(0, 0.00467), nc(1, 0.01880), nc(2, 0.04695)],
+    ); // U235, U238, O16
     let buffer = mat(2, "buffer", vec![nc(3, 0.0501)]); // C0
     let ipyc = mat(3, "IPyC", vec![nc(3, 0.0953)]); // C0
     let sic = mat(4, "SiC", vec![nc(4, 0.0481), nc(3, 0.0481)]); // Si28, C0
     let opyc = mat(5, "OPyC", vec![nc(3, 0.0938)]); // C0
     let graphite = mat(6, "graphite matrix/shell", vec![nc(3, 0.0852)]); // C0
-    let flibe = mat(7, "FLiBe coolant", vec![nc(6, 0.0236), nc(5, 0.0472), nc(7, 0.0118)]); // Li7, F19, Be9
+    let flibe = mat(
+        7,
+        "FLiBe coolant",
+        vec![nc(6, 0.0236), nc(5, 0.0472), nc(7, 0.0118)],
+    ); // Li7, F19, Be9
 
     // ── 2. A `TrisoSpec` ────────────────────────────────────────────────────
     // The five cumulative layer radii [cm] plus the whole-particle packing
@@ -163,7 +178,13 @@ fn main() {
     // particle volume — the "reactivity-equivalent physical transformation".
     let vols = spec.layer_volumes();
     let homog = homogenise_by_volume(
-        &[(&fuel, vols[0]), (&buffer, vols[1]), (&ipyc, vols[2]), (&sic, vols[3]), (&opyc, vols[4])],
+        &[
+            (&fuel, vols[0]),
+            (&buffer, vols[1]),
+            (&ipyc, vols[2]),
+            (&sic, vols[3]),
+            (&opyc, vols[4]),
+        ],
         8,
         "homogenised TRISO fuel",
         TEMP_K,
@@ -173,8 +194,15 @@ fn main() {
     // (used by the surface-tracked reactor-physics driver, not this
     // delta-tracking quickstart — see `fhr_ring_rpt_endf.rs` for that path).
     let rpt_geometry = fhr_pebble_geometry(
-        R_RPT_INNER, r_rpt_fuel, R_PEBBLE, R_ROOT,
-        mi::HOMOG, mi::GRAPHITE, mi::FLIBE, BoundaryType::Reflective, TEMP_K,
+        R_RPT_INNER,
+        r_rpt_fuel,
+        R_PEBBLE,
+        R_ROOT,
+        mi::HOMOG,
+        mi::GRAPHITE,
+        mi::FLIBE,
+        BoundaryType::Reflective,
+        TEMP_K,
     );
     println!(
         "ring-RPT CSG geometry: {} surfaces, {} cells (fuel shell {R_RPT_INNER:.2}-{r_rpt_fuel:.4} cm)",
@@ -206,9 +234,18 @@ fn main() {
     // material, sampled from a log-spaced energy grid spanning thermal to
     // fast.
     let (e_min, e_max, n_grid): (f64, f64, usize) = (1.0e-4, 2.0e7, 150);
-    let ratio = (e_max / e_min).powf(1.0 / (n_grid as f64 - 1.0));
-    let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.powi(i)).collect();
+    let ratio = (e_max / e_min).r_powf(1.0 / (n_grid as f64 - 1.0));
+    let grid: Vec<f64> = (0..n_grid as i32).map(|i| e_min * ratio.r_powi(i)).collect();
     let majorant = Majorant::from_materials(&materials, &nuclides, &grid, 0.05);
+    // `OUTRAM_MAJORANT_AUDIT=1`: audit this majorant and stop (GitHub #589).
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        let a = majorant.audit(&materials, &nuclides, 1.0e-5, 2.0e7, 2_000_000);
+        println!(
+            "MAJORANT-AUDIT fhr_pebble_quickstart | worst {:.4} at {:.5e} eV in '{}'",
+            a.worst_ratio, a.energy_ev, materials[a.material].name
+        );
+        return;
+    }
 
     // ── 6. k-eigenvalue by delta tracking ───────────────────────────────────
     let domain = DeltaDomain::Sphere { radius: R_ROOT };
@@ -220,11 +257,24 @@ fn main() {
         ..KeffSettings::default()
     };
 
-    let k_explicit = run_keff_delta_in(domain, &materials, &nuclides, &majorant, explicit_at, &settings);
+    let k_explicit = run_keff_delta_in(
+        domain,
+        &materials,
+        &nuclides,
+        &majorant,
+        explicit_at,
+        &settings,
+    );
     let k_rpt = run_keff_delta_in(domain, &materials, &nuclides, &majorant, rpt_at, &settings);
 
-    println!("k_eff (explicit-TRISO pebble) = {:.5} +/- {:.5}", k_explicit.k_mean, k_explicit.k_std);
-    println!("k_eff (ring-RPT pebble)       = {:.5} +/- {:.5}", k_rpt.k_mean, k_rpt.k_std);
+    println!(
+        "k_eff (explicit-TRISO pebble) = {:.5} +/- {:.5}",
+        k_explicit.k_mean, k_explicit.k_std
+    );
+    println!(
+        "k_eff (ring-RPT pebble)       = {:.5} +/- {:.5}",
+        k_rpt.k_mean, k_rpt.k_std
+    );
     println!(
         "\n(teaching example only -- CORE-tier data, tiny particle counts, invented \
          densities; see examples/fhr_ring_rpt_endf.rs for the real V&V case)"

@@ -48,6 +48,7 @@
 //! cell volume = `2.5e-7 m^3` to < 1e-12 relative; boundary face-area vectors
 //! sum to `< 1e-15 m^2` per component (closed). `FvMesh::validate` passes.
 
+use petir::mathf::RealMath;
 use outram_foam_mesh::block_mesh::{block_mesh, block_mesh_from_file, BlockMeshDict};
 
 const CAVITY_DICT: &str = include_str!("blockMeshDict.cavity");
@@ -277,7 +278,7 @@ fn cavity_poly_mesh_round_trips_and_is_cartesian() {
     assert!(q.max_skewness < 1e-12, "skew {}", q.max_skewness);
 
     let (a, b, c) = (0.005f64, 0.005f64, 0.01f64);
-    let expected_ar = (a * b + b * c + c * a) / (3.0 * (a * b * c).powf(2.0 / 3.0));
+    let expected_ar = (a * b + b * c + c * a) / (3.0 * (a * b * c).r_powf(2.0 / 3.0));
     assert!(
         (q.max_aspect_ratio - expected_ar).abs() < 1e-12,
         "AR {} vs closed form {expected_ar}",
@@ -306,4 +307,39 @@ fn cavity_poly_mesh_round_trips_and_is_cartesian() {
     assert_eq!(reread.patches.len(), poly.patches.len());
     let q2 = outram_foam_mesh::assess_quality(&reread);
     assert_eq!(q2, q, "quality must survive the write/read round trip");
+}
+
+/// **The mesh is the same on every build, down to face order and the bits of
+/// every cell centre** (gh:#903, 2026-10-16).
+///
+/// `block_mesh` deduplicates faces through a `HashMap`, whose iteration order
+/// is randomly seeded per map instance. Before the boundary faces were sorted,
+/// patch face order changed from build to build. The face-summed cell centres
+/// then moved by 1 ulp from run to run. That was the untraced
+/// "wasm-vs-native" Sod difference in
+/// `outram-foam-appbuilder-lib/verification_and_validation/wasm_worker_timing/`.
+///
+/// **Can it fail?** Yes. Every `HashMap::new()` draws fresh keys, so eight
+/// builds in one process see eight iteration orders. Measured without the
+/// sort: the Sod tube's cell-centre hash differed on 6 of 6 native runs.
+#[test]
+fn block_mesh_is_reproducible_build_to_build() {
+    let first = block_mesh(CAVITY_DICT).expect("cavity dict should build");
+    let fv0 = first.to_fv_mesh().expect("fv mesh");
+    for _ in 0..8 {
+        let m = block_mesh(CAVITY_DICT).expect("cavity dict should build");
+        let same_faces = m.faces.len() == first.faces.len()
+            && m.faces.iter().zip(&first.faces).all(|(a, b)| {
+                a.verts == b.verts && a.owner == b.owner && a.neighbour == b.neighbour
+            });
+        assert!(same_faces, "face list differs between two builds of the same dict");
+        let fv = m.to_fv_mesh().expect("fv mesh");
+        for (a, b) in fv.cell_centres.iter().zip(&fv0.cell_centres) {
+            assert_eq!(
+                (a.x.to_bits(), a.y.to_bits(), a.z.to_bits()),
+                (b.x.to_bits(), b.y.to_bits(), b.z.to_bits()),
+                "cell centre bits differ between builds"
+            );
+        }
+    }
 }

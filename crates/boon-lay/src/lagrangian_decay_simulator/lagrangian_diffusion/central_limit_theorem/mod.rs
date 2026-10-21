@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use outram_mc_libs::rng::distributions::sample_normal;
 use uom::si::f64::*;
 
@@ -55,7 +56,7 @@ pub fn sample_dimensioned_gaussian_vector(
     seed: &mut u64,
     per_component_variance: Area,
 ) -> [Length; 3] {
-    let std_deviation = per_component_variance.sqrt();
+    let std_deviation = per_component_variance.r_sqrt();
     let x = sample_normal(seed);
     let y = sample_normal(seed);
     let z = sample_normal(seed);

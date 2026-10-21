@@ -8,12 +8,17 @@ pub use crate::geometry::position::{Position, Direction};
 pub use crate::geometry::surface::{
     BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane, ZCylinder,
 };
+pub use crate::geometry::crossing::SurfaceKindExt;
 pub use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
 pub use crate::geometry::universe::Universe;
+pub use crate::geometry::plot::{
+    render_material_slice, Camera, ColourScheme, ImageData, LegendEntry, PlotBasis, PlotColourBy,
+    Rgb, SlicePlot, SolidRayTracePlot, WireframeRayTracePlot,
+};
 pub use crate::geometry::lattice::{HexLattice, HexOrientation, Lattice, RectLattice};
 pub use crate::geometry::virtual_lattice::{BuildReport, VirtualLattice};
 pub use crate::geometry::geometry::{
-    BoundaryHit, Coord, Crossing, Geometry, GeometryPath, SurfaceCrossing,
+    BoundaryHit, Coord, Crossing, Geometry, GeometryExt, GeometryPath, SurfaceCrossing,
 };
 pub use crate::geometry::triso_particle::{
     build_triso_particle, triso_particle, TrisoMaterials, TrisoParticle, TrisoRadii,
@@ -21,48 +26,77 @@ pub use crate::geometry::triso_particle::{
 pub use crate::particle::particle::{Particle, ParticleType};
 pub use crate::material::material::{MacroXs, Material, NuclideComponent};
 pub use crate::material::nuclide::{MicroXS, Nuclide};
+pub use crate::material::processed::ProcessedEvaluation;
+pub use crate::material::speed::SpeedTier;
+pub use crate::material::temperature_interpolation::{InterpolationVariable, TableBracket, TemperatureTables};
 pub use crate::material::thermal::{
     CoherentElasticTable, IncoherentElasticTable, ThermalElastic, ThermalScattering,
 };
 pub use crate::tally::tally::{ScoreType, Tally, TallyBin};
 pub use crate::tally::filter::{
-    CellFilter, EnergyFilter, Filter, LegendreAxis, MaterialFilter, MeshFilter,
-    SpatialLegendreFilter, UniverseFilter,
+    CellFilter, DelayedGroupFilter, EnergyFilter, EnergyOutFilter, Filter, FilterEvent, FilterKind,
+    LegendreAxis, MaterialFilter, MeshFilter, MuFilter, ParticleFilter, PolarAzimuthalFilter,
+    SpatialLegendreFilter, SphericalHarmonicsFilter, SurfaceFilter, TimeFilter, UniverseFilter,
+    ZernikeFilter,
 };
-pub use crate::tally::mesh::RegularMesh;
+pub use crate::tally::mesh::{
+    CylindricalMeshExt, MeshKindExt, RectilinearMeshExt, RegularMesh, RegularMeshExt,
+    SphericalMeshExt,
+};
+pub use crate::tally::mesh_unstructured::{UnstructuredMesh, UnstructuredMeshExt};
 pub use crate::tally::scoring::Q_FISSION_J;
 pub use crate::tally::arithmetic::DerivedTally;
 pub use crate::physics::compute::{ComputeType, ThreadCount};
-pub use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
+pub use crate::physics::keff::{run_keff, GenerationReport, HistoryCounts, KeffResult, KeffSettings, PowerIteration};
 pub use crate::physics::search::{
     search_for_keff, SearchError, SearchIteration, SearchMethod, SearchResult, SearchSettings,
 };
-pub use crate::physics::transport_csg::{run_keff_csg, run_keff_csg_reactor_physics, SourceBox};
+pub use crate::physics::transport_csg::{
+    run_keff_csg, run_keff_csg_reactor_physics, DeltaTallyEstimator, SourceBox,
+};
+pub use crate::physics::transport_csg::distributed::{
+    transport_chunk, ChunkResult, DistributedPowerIteration, GenerationChunk, SourceSite,
+};
 pub use crate::physics::reactor_physics::{
-    run_keff_reactor_physics, Estimate, Group, LethargySpectrum, ReactorPhysicsConfig,
-    ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
+    assemble_six_factors, run_keff_reactor_physics, Estimate, Group, LethargySpectrum,
+    ReactorPhysicsConfig, ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
 };
 pub use crate::physics::fixed_source::{
     run_fixed_source, FixedSource, FixedSourceResult, FixedSourceSettings,
 };
 pub use crate::dh_universe::{
-    fit_ring_rpt_inner_radius, DhError, DhTreatment, DhUniverse, DispersedParams, PebbleParams,
-    RingRptFit,
+    fit_ring_rpt_inner_radius, is_whole_in_ball, pack_in_ball, BallPacking, BallPackingAttempt,
+    DhError, DhPowerIteration, DhTreatment, DhUniverse, DispersedParams, PebbleParams, RingRptFit,
 };
-pub use crate::pebble_beds::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
+pub use crate::physics::delta_tracking::{track_to_collision, DeltaEvent, DeltaFlight, Majorant};
 pub use crate::pebble_beds::fhr_pebble::{
     fhr_pebble_geometry, homogeneous_cube, homogenise_by_volume, rpt_fuel_outer_radius,
     triso_layer_at, ExplicitTrisoPebble, TrisoLayer, TrisoSpec,
 };
 pub use crate::pebble_beds::keff_delta::{run_keff_delta, MaterialQuery};
+pub use crate::physics::tracking_trace::{TraceCounts, TraceEvent};
 pub use crate::pebble_beds::sphere_packing::{
-    pack_spheres, PackedSpheres, PackingConfig, PackingMethod,
+    pack_spheres, pack_spheres_observed, PackedSpheres, PackingConfig, PackingMethod, RsaPlacement,
 };
 pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
-// Stochastic-media research track (scaffold, beads epic op-eby). The chord
-// statistics, SCLS retention machinery and brute-force index are implemented; the
-// CLS/SCLS transport drivers are not — those paths return typed NotImplemented
-// errors. See `stochastic::medium` for the model-dispatch enum.
+pub use crate::pebble_beds::triso_lattice::{create_triso_lattice, TrisoLattice, TrisoLatticeBase};
+pub use crate::pebble_beds::dem_bed::{DemBed, DemBedError};
+// Stochastic-media research track (beads epic op-eby). The chord statistics,
+// SCLS retention machinery and brute-force index are implemented.
+//
+// ~~The CLS/SCLS transport drivers are not — those paths return typed
+// NotImplemented errors.~~ **CORRECTED 2026-09-18 for CLS.** Chord-length
+// sampling DOES transport: `DhTreatment::ChordLength` builds a real
+// `ClsMedium` into `DhGeometry::Cls` (`dh_universe.rs`), and
+// `DhUniverse::keff` on it returns eigenvalues — measured on the FHR
+// reference unit cell that date, e.g. k = 1.33026 +/- 0.00692 in 25.1 s.
+// Nothing about that path returns NotImplemented.
+//
+// **SCLS is NOT re-verified here** and the maintainer records it as not fixed
+// (2026-09-18), so treat the original claim as still standing for SCLS until
+// someone measures it. `examples/dh_keff_vv.rs` drives all treatments and
+// takes `OUTRAM_DH_ONLY` / `OUTRAM_DH_SEEDS`.
+// See `stochastic::medium` for the model-dispatch enum.
 pub use crate::stochastic::medium::{MaterialId, MediumError, RsaMedium, StochasticMedium};
 pub use crate::stochastic::cls::{
     mean_chord_length_sphere, matrix_mean_chord_length, sample_chord, ClsMedium,
@@ -117,3 +151,53 @@ pub use crate::perf_report::{HardwareInfo, PerfReport, PerfRow};
 // The error type the ENDF entry points return, so `use outram_mc_libs::prelude::*`
 // is enough to write a signature that propagates it.
 pub use crate::NjoyError;
+
+// Statistics on top of RAFFLES (epic GitHub #493). Report-only or opt-in;
+// nothing here is on any driver's default path.
+pub use crate::stats::ensemble::{run_seeds, EnsembleReport, SeedRun};
+pub use crate::stats::correlated_sigma::{KeffUncertainty, TallyBatchRecorder};
+pub use crate::stats::convergence::SourceConvergence;
+pub use crate::stats::learned_importance::{
+    learned_weight_windows, FomComparison, LearnedImportanceSettings, VrArm,
+};
+pub use crate::stats::uq::{DirectPerturbation, UncertainInput, UqDesign, UqReport};
+pub use crate::stats::sweep::{SurrogatePrediction, SweepRun, SweepSurrogate};
+
+// Beginner thermal profile (gh:#949): coarse steady conduction on any CSG
+// shape with ballpark heat-removal presets and an energy balance.
+pub use crate::thermal_profile::{
+    HeatRemoval, ProfileKind, ThermalMaterial, ThermalMesh, ThermalProblem, ThermalProfile,
+    ThermalProfileError, ThermalRegion,
+};
+
+// The beginner API (epic GitHub #925: #937 materials, #938 geometry, #939
+// the model and the k_eff run; #926 repeated structures). Its `Material`,
+// `Sphere`, `Lattice` and `KeffSettings`
+// share names with the lower-level types above, so they are NOT re-exported
+// here: reach them through `outram_mc_libs::model::prelude::*` (or
+// `model::Material` etc.). Everything else of it is re-exported under its
+// own name.
+pub use crate::model::{
+    atoms_per_barn_cm, to_atoms_per_barn_cm, AssembledModel, AtomDensity, AtomicMasses, Basis, Boundary,
+    Census, CensusRow, Component, Cube, Cuboid,
+    Contaminant, Convergence, CustomRun, DataError, Diagnostics, Element, Enrichment, FissileUranium, FuelForm,
+    GeometryProblem, GraphiteKind, HeavyMetal, Isotope, IsotopeError, Keff, KeffRun, MCSettings, MassSource,
+    MaterialError, MaterialReport, Model, ModelError, Moderator, NormalityCheck, NuclearData, NuclideKey,
+    NuclidePhysics, NumberDensityComparison, Placement, PpmOf, PuVector, ReactivityTolerance, ResolvedMaterial,
+    RunError, RunProvenance, SaltCarrier, Shape, Species, Temperature,
+};
+// Wave 2 (gh #940, #941, #942). `SixFactors`, `Spectrum`, `Region`, `Mesh`,
+// `Leakage` and `Kinetics` of the beginner API are generic names (one,
+// `SixFactors`, already names the low-level reactor-physics result), so they
+// stay in `outram_mc_libs::model::prelude`.
+pub use crate::model::{
+    AdvancedModel, BalanceBy, BalanceRow, DiagnosticError, DiagnosticsReport, Ealf, EnergyGrid,
+    MCDiagnostic, MCDiagnosticResult, MeshBounds, MeshMap, NeutronBalance, OutputFile, RunHealth,
+};
+
+// The radionuclide inventory handed from depletion to a source-term
+// calculation (gh:#951; consumed by `sembawang`).
+pub use crate::inventory::{
+    za, zai, Amount, InventoryError, InventoryPoint, InventorySource, NuclideEntry,
+    RadionuclideInventory, Regions,
+};

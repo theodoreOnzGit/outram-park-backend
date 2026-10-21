@@ -80,6 +80,10 @@ pub mod prelude;
 /// Layer 1a — dimensionless scalar constants and the tensor-algebra
 /// primitives (`Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`).
 pub mod primitives;
+/// Layer 5 (small solver) — steady heat conduction with a volumetric source,
+/// the steady form of `laplacianFoam`, with radial and voxel meshers, a
+/// closed-form verification reference and an energy balance (gh:#949).
+pub mod steady_conduction;
 /// Layer 1h — specie-level thermophysics: equations of state, thermo, and
 /// transport models.
 pub mod thermophysics;

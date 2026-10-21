@@ -6,18 +6,47 @@
 //! module-path relocation — every file below is otherwise unchanged; see
 //! `crate::digitiser::gui::run` for the one call site that opens this
 //! shell. `DigitiseApp` itself keeping its pre-move name is a deliberate,
-//! disclosed scope cut for this pass — see the crate's `bn` tracker for the
+//! disclosed scope cut for this pass; the rename is a
 //! follow-up rename.
+
+use petir::mathf::RealMath;
 
 mod advanced_git_view;
 mod bibliography;
+mod code_map_view;
+mod code_review_view;
+mod code_sync;
+mod connection_picker;
+mod index_fresh_view;
+mod need_you_view;
+mod box_handles;
+mod corpus_folder;
 mod csv_preview;
+mod gfm_preview;
 mod home;
 mod kvim_editor;
+mod kvim_tab;
+mod literature_list;
+mod nav;
+mod organisations_view;
 mod page_canvas;
 mod pdf_reader;
+mod plot_setup;
+mod repo_management_view;
+mod review_mode_panel;
+mod rust_analyzer_view;
+mod saved_digitisation;
+#[cfg(test)]
+mod edit_digitisation_tests;
+#[cfg(test)]
+mod axes_lock_tests;
+mod series_select;
+mod setup;
+mod stamp_dialog;
+mod tab_groups;
 mod table_digitiser;
 mod theme;
+pub(crate) use theme::navigation_style;
 mod wiki;
 
 use eframe::egui::{
@@ -26,7 +55,6 @@ use eframe::egui::{
 };
 use egui_file_dialog::FileDialog;
 
-use crate::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
 use crate::entity::EntityConfig;
 use crate::session::PaperSession;
 use crate::digitiser::calibration::{
@@ -36,10 +64,8 @@ use crate::digitiser::dataset::{
     utc_now_iso8601, xy_uncertainty_interval, DigitisedDataset, DigitisedPoint, FigureSource,
     PointOrigin, ReviewInterface, ReviewStatus, DATASET_SCHEMA_VERSION,
 };
-use crate::digitiser::detect::DetectConfig;
 use crate::digitiser::raster::PlotRaster;
-use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
-use crate::project;
+use crate::digitiser::trace::CurveSelector;
 
 use advanced_git_view::AdvancedGitState;
 use bibliography::{BibliographyAction, BibliographyState};
@@ -47,7 +73,7 @@ use csv_preview::draw_csv_preview;
 use home::{HomeAction, HomeState};
 use kvim_editor::KvimEditorState;
 use pdf_reader::{CropProvenance, PdfReaderState};
-use table_digitiser::{PickerRequest as TablePickerRequest, TableDigitiserState};
+use table_digitiser::{TableDigitiserState, TableOutcome};
 use theme::GuiTheme;
 use wiki::{WikiAction, WikiState};
 
@@ -61,16 +87,17 @@ use crate::mindmap::{MindmapAction, MindmapState};
 /// popup to attach to — see `op-p17q`, wired the same way).
 ///
 /// `Home` and `Wiki` are the Kovan redesign's startup/landing screens
-/// (GitHub issue #35 §2, §8, `op-9vo6.3`/`.8`) — `Home` is now the
+/// (GitHub issue #35 §2, §8, `op-9vo6.3`/`.8`). ~~`Home` is now the
 /// `#[default]`, replacing the previous default of launching straight into
-/// `PdfReader`. `DigitiseApp::ui` auto-transitions `Home` -> `Wiki` the
+/// `PdfReader`.~~ **CHANGED 2026-09-22 (epic #247):** `Mindmap` is the
+/// default, so Kovan opens on the built-in corpus map even with no folder;
+/// Home is where a folder is opened or created. `DigitiseApp::ui` auto-transitions `Home` -> `Wiki` the
 /// frame a root is opened/created (§8: "after opening a root, land in the
 /// Wiki, not the PDF reader"); the other variants stay reachable from the
 /// top bar exactly as before this redesign — removing them is `op-9vo6.25`
 /// (Research workspace)'s job, not this pass's.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum View {
-    #[default]
     Home,
     Wiki,
     Digitiser,
@@ -85,12 +112,26 @@ enum View {
     KvimEditor,
     Bibliography,
     TableDigitiser,
+    /// The three-stage form shown between cropping a figure and digitising
+    /// it (maintainer, 2026-09-24) -- see [`plot_setup`]. Answers what the
+    /// caption and axes already say, so the digitiser opens filled in.
+    PlotSetup,
     /// The interactive mindmap (§8, §9, `op-9vo6.21`), built on top of the
-    /// `Wiki` view's collection model.
+    /// `Wiki` view's collection model. **The default since 2026-09-22**
+    /// (maintainer brief, epic #247): Kovan always opens on its built-in
+    /// nuclear-engineering map, with or without a Kovan folder.
+    #[default]
     Mindmap,
     /// The Advanced Git tab (§38, `op-9vo6.20`) — a separate area, per that
     /// section's own wording, from ordinary Save Document/Save Repository.
     AdvancedGit,
+    /// The code map of a Cargo workspace from its crates'
+    /// `[package.metadata.kovan]` tags (GitHub #734); see
+    /// [`code_map_view`].
+    CodeMap,
+    /// The Code Review UI (`kovan-web`'s) over the Code Map view's
+    /// workspace (GitHub #820); see [`code_review_view`].
+    CodeReview,
 }
 
 /// Which action a pending file-dialog pick should feed into. One
@@ -107,11 +148,6 @@ enum FileDialogTarget {
     JsonExport,
     /// Picked path becomes the dataset CSV export path (op-jtna).
     CsvExport,
-    /// Picked path becomes the table digitiser's JSON export path (op-jfc3
-    /// — the table digitiser had no file picker for this at all before).
-    TableJsonExport,
-    /// Picked path becomes the table digitiser's CSV export path (op-jfc3).
-    TableCsvExport,
     /// Picked directory is opened (or discovered from) as a Kovan root
     /// (op-9vo6.3, §2's "Open Kovan Folder…").
     KovanRootOpen,
@@ -125,13 +161,28 @@ enum FileDialogTarget {
     /// (op-9vo6.17). No extension filter — any text file is fair game for
     /// a general-purpose text editor.
     KvimFile,
+    /// Picked directory fills the setup dialog's Kovan-folder field (#255).
+    SetupFolder,
+    /// Picked directory fills the standard-corpus folder field (2026-10-06).
+    StandardCorpusFolder,
+    /// Picked directory is the workspace the Code Map view draws (#734).
+    CodeMapWorkspace,
+    /// Picked file is a `code_map.json` for the Code Map view (#734).
+    CodeMapJson,
 }
 
 impl FileDialogTarget {
     /// Whether this target picks a directory (`pick_directory`) rather than
     /// a file — see [`DigitiseApp::open_picker`].
     fn is_directory(self) -> bool {
-        matches!(self, Self::KovanRootOpen | Self::KovanRootCreate)
+        matches!(
+            self,
+            Self::KovanRootOpen
+                | Self::KovanRootCreate
+                | Self::SetupFolder
+                | Self::StandardCorpusFolder
+                | Self::CodeMapWorkspace
+        )
     }
 
     /// Whether this target opens an existing file (`pick_file`) or names a
@@ -140,7 +191,7 @@ impl FileDialogTarget {
     fn is_save(self) -> bool {
         matches!(
             self,
-            Self::JsonExport | Self::CsvExport | Self::TableJsonExport | Self::TableCsvExport
+            Self::JsonExport | Self::CsvExport
         )
     }
 
@@ -153,9 +204,14 @@ impl FileDialogTarget {
         match self {
             Self::Image => Some("Images"),
             Self::Pdf | Self::PdfIngest => Some("PDF"),
-            Self::JsonExport | Self::TableJsonExport => Some("JSON"),
-            Self::CsvExport | Self::TableCsvExport => Some("CSV"),
-            Self::KovanRootOpen | Self::KovanRootCreate | Self::KvimFile => None,
+            Self::JsonExport | Self::CodeMapJson => Some("JSON"),
+            Self::CsvExport => Some("CSV"),
+            Self::KovanRootOpen
+            | Self::KovanRootCreate
+            | Self::SetupFolder
+            | Self::StandardCorpusFolder
+            | Self::CodeMapWorkspace
+            | Self::KvimFile => None,
         }
     }
 }
@@ -183,6 +239,20 @@ enum ClickMode {
     EditPoints,
     /// Double-click adds a hand-placed point (op-8ixa).
     AddPoint,
+    /// Drag draws a stroke along the curve; letting go snaps it onto the
+    /// ink and lays points 2 px apart (#290 — "we won't do auto-trace
+    /// anymore. It will be manual, were i draw a line and it will be snapped
+    /// to the curve after i let go of the mouse").
+    DrawTrace,
+    /// Click, or drag, removes points under the cursor (gh:#277).
+    ///
+    /// Right-click already deletes the nearest marker in **every** mode and
+    /// still does — that is the fast path once you know it exists. The
+    /// trouble is that nothing on screen says so, which leaves a new user no
+    /// way to discover it, and it is one gesture per point when a trace has
+    /// picked up a run of strays along an axis label. A mode you can see,
+    /// select, and then sweep covers both gaps.
+    Erase,
 }
 
 /// Which shape the calibration reference box is (op-vyb9): the original
@@ -235,10 +305,27 @@ struct ActivePaper {
 /// save site keeps the four Markdown-writing paths (Save Document,
 /// annotation save, inline block edit, digitiser CSV) and the `.bib` editor
 /// covered from one place, and also catches an external edit.
+///
+/// **Since GH issue #286 it also drives `refresh_knowledge`.** The maintainer,
+/// 2026-09-23: "i do see these artifacts load when i restart kovan, but i
+/// don't want to have to restart kovan to see those hyperlinks. once i click
+/// save annotations, i should be able to see them on the mindmap as well."
+/// The shared `WorkspaceKnowledge` was rebuilt only on opening a root, on
+/// setup, and after an ingest or a reclassify — so an artifact or a
+/// connection saved in the PDF reader was on disk and in that reader's own
+/// lists, but the Mindmap and the Wiki went on drawing the index they had
+/// read at startup.
+///
+/// The mind map's own files are watched here too, because a connection is
+/// written to them rather than to the active paper: `mindmap.md` for a
+/// relation artifact, `mindmap/connections.toml` for a concept hyperlink
+/// (#285).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct RepoSaveFingerprint {
     paper_md: Option<std::time::SystemTime>,
     bib: Option<std::time::SystemTime>,
+    mindmap_md: Option<std::time::SystemTime>,
+    connections: Option<std::time::SystemTime>,
 }
 
 impl RepoSaveFingerprint {
@@ -247,6 +334,8 @@ impl RepoSaveFingerprint {
         Self {
             paper_md: active.and_then(|a| mtime(a.session.markdown_path())),
             bib: mtime(&root.bibliography_path()),
+            mindmap_md: mtime(&root.mindmap_markdown()),
+            connections: mtime(&root.mindmap_connections()),
         }
     }
 }
@@ -270,6 +359,37 @@ struct WorkspaceKnowledge {
 pub struct DigitiseApp {
     // chrome
     view: View,
+    /// The major tab selected on the top row ([`tab_groups`]).
+    group: tab_groups::Group,
+    /// The page last shown under each major tab (#858).
+    last_pages: tab_groups::LastPages,
+    /// The Repository management page's repositories and windows (#841).
+    repo_management: repo_management_view::RepoManagementView,
+    /// The first-run setup dialog (#255) -- see [`setup`].
+    setup: setup::SetupDialog,
+    /// The "where should the standard corpus go?" window (2026-10-06) -- see
+    /// [`corpus_folder`].
+    corpus_folder: corpus_folder::CorpusFolderDialog,
+    /// Work running off the GUI thread (cloning corpus repositories), each
+    /// ending in a one-line status message.
+    background_jobs: Vec<std::thread::JoinHandle<String>>,
+    /// A Kovan repository being cloned into a new folder by the setup
+    /// dialog; the folder is opened, and its corpora set up, when it lands.
+    library_clone: Option<LibraryClone>,
+    /// The PDF reader's list of the open folder's literature, built on
+    /// demand and dropped when the folder's knowledge changes.
+    literature: Option<literature_list::LiteratureList>,
+    /// Recently opened papers, for the "Recently opened" node beside
+    /// Unsorted. Loaded lazily from `.kovan/recent.toml` on first use and
+    /// rewritten on every open -- local derived state, never committed.
+    recent: Option<crate::recent::RecentPapers>,
+    /// The literature fuzzy finder (Ctrl+P).
+    literature_finder: literature_list::LiteratureFinder,
+    /// The document last opened in the reader, for the list's highlight.
+    reader_path: Option<std::path::PathBuf>,
+    /// Browser-style back/forward history over every page (#242) -- see
+    /// [`nav`].
+    history: crate::navigation::NavHistory<nav::AppLocation>,
     theme: GuiTheme,
     file_dialog: FileDialog,
     file_dialog_target: Option<FileDialogTarget>,
@@ -277,7 +397,13 @@ pub struct DigitiseApp {
     home: HomeState,
     wiki: Option<WikiState>,
     kvim_editor: KvimEditorState,
+    /// The Kvim Editor tab's edit lock, pane layout and GFM preview
+    /// (2026-09-28). The buffer itself stays the shared `kvim_editor`.
+    kvim_tab: kvim_tab::KvimTab,
     mindmap: MindmapState,
+    /// The Code Map view (#734).
+    code_map: code_map_view::CodeMapView,
+    code_review: code_review_view::CodeReviewView,
     advanced_git: AdvancedGitState,
     /// The paper currently in focus, if any — GitHub issue #35's
     /// "unify root and active-paper context" comment (op-sr4n). Set only by
@@ -305,6 +431,10 @@ pub struct DigitiseApp {
     bibliography: BibliographyState,
     // table digitiser (op-hnhp)
     table_digitiser: TableDigitiserState,
+    /// Whether the PDF reader is currently in the table digitiser's
+    /// character-selection mode, so the switch happens once on entering or
+    /// leaving that view and the user can still change tools inside it.
+    reader_in_table_mode: bool,
     /// Modification fingerprint of the repo files a save writes (the active
     /// paper's Markdown + the `.bib`), watched once per frame so the Save
     /// Repository tab's git status auto-refreshes after any Save Document /
@@ -334,6 +464,15 @@ pub struct DigitiseApp {
     /// corner. Takes priority over `ref_dragging` when a drag starts on a
     /// corner (see `image_panel`'s hit test).
     ref_dragging_corner: Option<(usize, usize)>,
+    /// Whether the axes are locked (GH issue #421). Unlocked, only the
+    /// calibration can be changed: the reference lines/corners drag, and
+    /// tracing, adding, editing and erasing points are all disabled. Locked,
+    /// it is the other way round — the lines cannot be grabbed, so editing a
+    /// point near an axis can no longer drag the axis with it (maintainer,
+    /// 2026-09-29: "otherwise i accidentally drag them around when
+    /// digitising plots ... don't allow me to start drawing traces until i
+    /// fix the axes"). See [`Self::lock_axes`] / [`Self::unlock_axes`].
+    axes_locked: bool,
     /// Which calibration shape is active (op-vyb9) — see [`CalibrationShape`].
     calibration_shape: CalibrationShape,
     /// Parallelogram corner pixel positions, order `[top_left, top_right,
@@ -350,8 +489,15 @@ pub struct DigitiseApp {
     y_log: bool,
     // trace tuning
     threshold: u8,
-    step: u32,
-    strategy: TraceStrategy,
+    /// Spacing between points laid along a drawn stroke, in image pixels.
+    ///
+    /// ~~2 px, per #290's "the points will be placed 2 pixels apart".~~
+    /// **CORRECTED 2026-09-24** — the default is **10 px** (maintainer).
+    /// 2 px laid down hundreds of points per curve, which is far denser than
+    /// a digitisation needs and made the point list unwieldy to correct by
+    /// hand. The slider still spans 1..=20 for a figure that wants finer or
+    /// coarser.
+    snap_spacing: f64,
     // provenance input
     figure: String,
     document_title: String,
@@ -361,10 +507,52 @@ pub struct DigitiseApp {
     x_label: String,
     y_label: String,
     operator: String,
+    /// The crop exactly as it arrived, before any turn or deskew.
+    ///
+    /// Kept so the setup form's transforms can be re-derived from scratch
+    /// rather than stacked: the deskew resamples, and applying it on top of
+    /// its own output softens the image once per nudge of the slider.
+    raster_original: Option<PlotRaster>,
+    /// The `(turn, skew)` currently baked into `raster`, so a frame where
+    /// neither changed does no work.
+    applied_transform: (crate::digitiser::raster::Quarter, f64),
+    /// Series already finished on **this** figure, in the order they were
+    /// completed. The one being traced now is `dataset`; these are its
+    /// predecessors, and they share its calibration, source and axis labels
+    /// because they are curves on the same pair of axes.
+    ///
+    /// A `Vec` beside the live `Option` rather than replacing it: every
+    /// existing edit path (add/move/delete a point, review, undo) acts on
+    /// "the dataset being worked on", and that stays exactly one.
+    completed_series: Vec<DigitisedDataset>,
+    /// Where the live `dataset` sits in the saved order of this figure's
+    /// series: before `completed_series[k]`, or `None` for after all of them.
+    /// Set when a banked series is selected for editing, so hopping between
+    /// curves never reorders what is saved -- see [`series_select`].
+    live_position: Option<usize>,
+    /// The banked series whose picker button is hovered, drawn prominently
+    /// on the figure. Reset every frame by the picker.
+    hovered_series: Option<usize>,
+    /// Name for the series currently being traced, e.g. `"235U thermal"`.
+    series_name: String,
+    /// The three-stage setup form, live only while `view == View::PlotSetup`.
+    /// Held across frames because it is a form; taken when it finishes.
+    plot_setup: plot_setup::PlotSetup,
+    /// A saved digitisation being re-opened ("Edit digitisation"): read when
+    /// the crop arrives, applied when the wizard finishes (its curves need
+    /// the calibration the wizard ends with). For a parallelogram record it
+    /// stays here after the wizard, until the operator has dragged the
+    /// corners and pressed "Restore saved points" -- see
+    /// [`saved_digitisation`] on why pixels are never guessed.
+    pending_restore: Option<saved_digitisation::SavedDigitisation>,
     // result
     dataset: Option<DigitisedDataset>,
     selected: Option<usize>,
     dragging: Option<usize>,
+    /// The stroke being drawn in [`ClickMode::DrawTrace`], in **image**
+    /// pixels, in the order it was drawn (#290). Empty unless a drag is in
+    /// progress; consumed and cleared when the button comes up.
+    stroke: Vec<(f64, f64)>,
     json_out: String,
     csv_out: String,
     /// An export waiting on a destination: set when an export button is
@@ -383,8 +571,6 @@ pub struct DigitiseApp {
     /// markdown file (relative to that root) the CSV belongs to — both
     /// operator-supplied, same as `json_out`/`csv_out`, since a crop has no
     /// way to know which project/document it came from on its own.
-    project_root: String,
-    project_markdown_rel: String,
     message: String,
     /// `true` when `message` reports a failure — op-fueb: a calibration
     /// failure used to be indistinguishable from an ordinary status update
@@ -404,6 +590,41 @@ pub struct DigitiseApp {
 /// tooltip alone wasn't enough for it to read as self-explanatory; renaming
 /// it to plain English and reducing the friction of typing it every session
 /// are the actual fix, not a better tooltip on the same unclear label.
+impl DigitiseApp {
+    /// Send a crop from the reader's box menu to the digitiser it asked for
+    /// and switch to that view (op-p17q/op-hnhp). Shared by the Reader view
+    /// and the table digitiser's split view, whose right half is the same
+    /// reader.
+    fn route_crop(&mut self, crop: pdf_reader::CropResult) {
+        match crop {
+            pdf_reader::CropResult::Plot(raster, provenance) => {
+                // Load the raster first: `load_image_from_raster` seeds
+                // figure/page/document identity from the crop and the active
+                // paper, and the form starts from whatever it managed to work
+                // out rather than asking again for what is already known.
+                self.load_image_from_raster(raster, Some(provenance));
+                let page = self.page.trim().parse::<u32>().ok();
+                let figure = (!self.figure.trim().is_empty()).then(|| self.figure.clone());
+                let title =
+                    (!self.document_title.trim().is_empty()).then(|| self.document_title.clone());
+                // "Edit digitisation" (maintainer, 2026-09-28): a re-crop of
+                // a saved artifact starts the wizard from what was saved, and
+                // brings the saved curves along for when it finishes.
+                self.pending_restore = self.saved_digitisation_for_crop(page, title.clone());
+                self.plot_setup = match &self.pending_restore {
+                    Some(saved) => saved.setup.clone(),
+                    None => plot_setup::PlotSetup::begin(figure, page, title),
+                };
+                self.view = View::PlotSetup;
+            }
+            pdf_reader::CropResult::Table(raster, provenance) => {
+                self.table_digitiser.load_crop(raster, Some(provenance));
+                self.view = View::TableDigitiser;
+            }
+        }
+    }
+}
+
 pub(crate) fn default_operator_name() -> String {
     std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
@@ -414,16 +635,32 @@ impl Default for DigitiseApp {
     fn default() -> Self {
         Self {
             view: View::default(),
+            group: tab_groups::Group::default(),
+            last_pages: tab_groups::LastPages::default(),
+            repo_management: repo_management_view::RepoManagementView::default(),
+            setup: setup::SetupDialog::default(),
+            corpus_folder: corpus_folder::CorpusFolderDialog::default(),
+            background_jobs: Vec::new(),
+            library_clone: None,
+            literature: None,
+            recent: None,
+            literature_finder: Default::default(),
+            reader_path: None,
+            history: crate::navigation::NavHistory::new(nav::AppLocation::start()),
             theme: GuiTheme::default(),
             file_dialog: FileDialog::new()
                 .add_file_filter_extensions("Images", vec!["png", "jpg", "jpeg"])
                 .add_file_filter_extensions("PDF", vec!["pdf"])
+                .add_file_filter_extensions("JSON", vec!["json"])
                 .default_file_filter("Images"),
             file_dialog_target: None,
             home: HomeState::default(),
             wiki: None,
             kvim_editor: KvimEditorState::default(),
+            kvim_tab: kvim_tab::KvimTab::default(),
             mindmap: MindmapState::default(),
+            code_map: code_map_view::CodeMapView::default(),
+            code_review: code_review_view::CodeReviewView::default(),
             advanced_git: AdvancedGitState::default(),
             active_paper: None,
             workspace: None,
@@ -432,6 +669,7 @@ impl Default for DigitiseApp {
             pdf_reader: PdfReaderState::new(),
             bibliography: BibliographyState::default(),
             table_digitiser: TableDigitiserState::default(),
+            reader_in_table_mode: false,
             repo_save_fingerprint: None,
             image_path: String::new(),
             raster: None,
@@ -442,14 +680,14 @@ impl Default for DigitiseApp {
             ref_val: Default::default(),
             ref_dragging: None,
             ref_dragging_corner: None,
+            axes_locked: false,
             calibration_shape: CalibrationShape::default(),
             para_corners: [None; 4],
             para_dragging: None,
             x_log: false,
             y_log: false,
             threshold: 128,
-            step: 1,
-            strategy: TraceStrategy::ContinuityNearest,
+            snap_spacing: 10.0,
             figure: String::new(),
             document_title: String::new(),
             document_id: String::new(),
@@ -458,15 +696,22 @@ impl Default for DigitiseApp {
             x_label: "x".to_string(),
             y_label: "y".to_string(),
             operator: default_operator_name(),
+            raster_original: None,
+            applied_transform: (crate::digitiser::raster::Quarter::None, 0.0),
+            completed_series: Vec::new(),
+            live_position: None,
+            hovered_series: None,
+            series_name: String::new(),
+            plot_setup: plot_setup::PlotSetup::default(),
+            pending_restore: None,
             dataset: None,
             selected: None,
             dragging: None,
+            stroke: Vec::new(),
             json_out: String::new(),
             csv_out: String::new(),
             pending_export: None,
             crop_provenance: None,
-            project_root: String::new(),
-            project_markdown_rel: String::new(),
             message: "load an image, then click the four axis reference points".to_string(),
             message_is_error: false,
         }
@@ -501,6 +746,18 @@ impl DigitiseApp {
             .ok_or_else(|| "no Kovan folder open".to_string())?;
         let mut session = PaperSession::open(&root, citekey).map_err(|e| e.to_string())?;
 
+        // Remember it. AFTER `PaperSession::open` succeeded, so a citekey
+        // that cannot be opened never enters the list -- a recents entry that
+        // errors when clicked is worse than no entry.
+        //
+        // A failure to persist is deliberately swallowed: not remembering a
+        // paper must never stop it being opened.
+        let recent = self
+            .recent
+            .get_or_insert_with(|| crate::recent::RecentPapers::load_or_default(&root));
+        recent.record(citekey);
+        let _ = recent.save(&root);
+
         // Maintainer, 2026-09-02: "if the annotations are disordered, order
         // them when opening them." Page-anchored blocks written before
         // insertion became page-ordered land in whatever order they were
@@ -513,21 +770,30 @@ impl DigitiseApp {
             }
         }
 
-        let configured_pdf = EntityConfig::load(&root.paper_dir(citekey))
+        let source = EntityConfig::load(&root.paper_dir(citekey))
             .ok()
-            .and_then(|cfg| cfg.source)
-            .and_then(|source| source.pdf)
-            .map(|rel| root.paper_dir(citekey).join(rel));
-        let pdf_path = configured_pdf
+            .and_then(|cfg| cfg.source);
+        let configured_pdf = source
             .as_ref()
-            .filter(|path| path.is_file())
-            .cloned();
-        let pdf_unavailable = configured_pdf.is_some() && pdf_path.is_none();
+            .and_then(|source| source.pdf.clone())
+            .map(|rel| root.paper_dir(citekey).join(rel));
+        // The recorded PDF, or, for a standard-corpus document's notes, its
+        // corpus file wherever the corpus is checked out (2026-09-30).
+        let pdf_path = crate::standard_corpus::paper_pdf(
+            &root,
+            &crate::standard_corpus::StandardCorpus::for_root(Some(&root)),
+            citekey,
+        );
+        let expects_pdf =
+            configured_pdf.is_some() || source.as_ref().is_some_and(|s| s.corpus.is_some());
+        let pdf_unavailable = expects_pdf && pdf_path.is_none();
 
         if let Some(pdf) = &pdf_path {
             self.pdf_reader.open(&pdf.to_string_lossy());
+            self.reader_path = Some(pdf.clone());
         }
         self.kvim_editor.load_text(session.markdown());
+        self.kvim_tab.document_opened();
 
         self.active_paper = Some(ActivePaper {
             session,
@@ -577,27 +843,222 @@ impl DigitiseApp {
         let index = crate::index::KnowledgeIndex::rebuild(root);
         let _ = index.save_cache(root);
         let graph = crate::graph::KnowledgeGraph::rebuild(root, &index);
+        self.literature = None; // papers changed: re-mark the list
         let _ = graph.save_cache(root);
         self.workspace = Some(WorkspaceKnowledge { index, graph });
     }
 
-    /// Whether `path` is already one of the open library's stored source
-    /// PDFs — i.e. lives directly under `root.open_sources_dir()` or
-    /// `root.restricted_sources_dir()`, exactly where `ingest::ingest`
-    /// (§23 step 3) copies a paper's PDF to. Cheap prefix check rather than
-    /// scanning every paper's `kovan.toml`, and correct as long as nothing
-    /// else writes into those two directories — which nothing in this
-    /// crate does.
-    fn already_ingested(&self, path: &std::path::Path) -> bool {
-        let Some(root) = self.home.root() else {
-            return false;
+    /// Draw the ingest form, whichever tab is showing. It was drawn only in
+    /// the Wiki, so "Ingest…" from the PDF reader's prompt opened a form
+    /// nobody could see and appeared to do nothing (2026-09-22). On success
+    /// the knowledge is refreshed and the new paper opened, as the Wiki did.
+    fn ingest_form_ui(&mut self, ui: &mut egui::Ui) {
+        let Some(root) = self.home.root().cloned() else {
+            return;
         };
-        let Ok(canon) = path.canonicalize() else {
-            return false;
+        let Some(citekey) = self
+            .wiki
+            .as_mut()
+            .and_then(|wiki| wiki.ingest_form(ui, &root))
+        else {
+            return;
         };
-        [root.open_sources_dir(), root.restricted_sources_dir()]
-            .into_iter()
-            .any(|dir| canon.starts_with(dir.canonicalize().unwrap_or(dir)))
+        self.refresh_knowledge(&root);
+        self.activate_paper_and_navigate(&citekey);
+    }
+
+    /// Draw the sort-a-paper dialog, on whichever tab asked for it.
+    ///
+    /// Like the ingest form, this is app-wide rather than owned by the Wiki
+    /// page: a sort started from the Mindmap's "Sort into…" or the PDF
+    /// reader's "Sort & categorise" has to appear where the user is
+    /// (2026-09-22). On a successful save the shared knowledge state is
+    /// rebuilt, since the classification the views draw from has changed.
+    fn sort_form_ui(&mut self, ui: &mut egui::Ui) {
+        let Some(root) = self.home.root().cloned() else {
+            return;
+        };
+        // The picker ranks against the shared index, so the dialog only
+        // draws once a workspace is loaded — before that there is nothing to
+        // sort into anyway.
+        let saved = match (self.wiki.as_mut(), self.workspace.as_ref()) {
+            (Some(w), Some(workspace)) => w.classify_form(ui, &root, &workspace.index),
+            _ => false,
+        };
+        if saved {
+            self.refresh_knowledge(&root);
+        }
+    }
+
+    /// The literature list for the open folder, or for the standard corpus
+    /// alone when no folder is open (2026-10-06), built when missing or when
+    /// the folder changed.
+    fn ensure_literature_list(&mut self) {
+        let root = self.home.root().cloned();
+        let want = root.as_ref().map(|r| r.path().to_path_buf());
+        if self.literature.as_ref().is_none_or(|l| l.root != want) {
+            self.literature = Some(literature_list::LiteratureList::build(
+                root.as_ref(),
+                &crate::standard_corpus::StandardCorpus::for_root(root.as_ref()),
+            ));
+        }
+    }
+
+    /// Ctrl+P opens the literature finder, ~~whenever a Kovan folder is
+    /// open~~ with or without a folder (2026-10-06: the standard corpus is
+    /// always there); a PDF chosen there opens in the reader.
+    fn literature_finder_ui(&mut self, ctx: &egui::Context) {
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::P)) {
+            self.literature_finder.show();
+        }
+        if !self.literature_finder.open {
+            return;
+        }
+        self.ensure_literature_list();
+        let chosen = self
+            .literature
+            .as_ref()
+            .and_then(|list| self.literature_finder.ui(ctx, list));
+        if let Some(action) = chosen {
+            self.literature_action(action);
+        }
+    }
+
+    /// Carry out what the literature list or finder asked for.
+    fn literature_action(&mut self, action: literature_list::LiteratureAction) {
+        match action {
+            literature_list::LiteratureAction::Open(path) => self.open_document(&path),
+            literature_list::LiteratureAction::NotDownloaded(lit) => {
+                self.open_corpus_document(lit.id)
+            }
+            literature_list::LiteratureAction::Refresh => self.literature = None,
+            literature_list::LiteratureAction::Find => self.literature_finder.show(),
+        }
+    }
+
+    /// Open standard-corpus document `id` (2026-09-30): as its notes paper
+    /// ([`crate::standard_corpus::ensure_paper`]) when a folder is open, else
+    /// read-only in the reader. A document that is not downloaded is
+    /// reported with where to get it, not treated as an error.
+    fn open_corpus_document(&mut self, id: &str) {
+        let Some(lit) = crate::standard_corpus::entry(id) else {
+            self.set_error(format!("{id}: not a standard-corpus document"));
+            return;
+        };
+        let root = self.home.root().cloned();
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(root.as_ref());
+        let Some(pdf) = corpus.locate(lit) else {
+            self.set_status(format!(
+                "{id} is in the standard corpus but not downloaded here{}; pull the \
+                 corpus from Setup",
+                lit.source_url
+                    .map(|u| format!(" (source: {u})"))
+                    .unwrap_or_default()
+            ));
+            return;
+        };
+        match root {
+            Some(root) => match crate::standard_corpus::ensure_paper(&root, &corpus, lit) {
+                Ok(citekey) => {
+                    self.refresh_knowledge(&root);
+                    self.activate_paper_and_navigate(&citekey);
+                }
+                Err(e) => self.set_error(format!("{id}: {e}")),
+            },
+            None => {
+                self.active_paper = None;
+                self.view = View::PdfReader;
+                self.reader_path = Some(pdf.clone());
+                self.pdf_reader.open(&pdf.to_string_lossy());
+                self.set_status(format!(
+                    "opened {id} read-only; open a Kovan folder to keep notes on it"
+                ));
+            }
+        }
+    }
+
+    /// Start ingesting `path`, unless it is already in the library
+    /// ([`crate::ingest::find_existing`]): then say so and open the existing
+    /// entry instead of ingesting a duplicate (2026-09-30).
+    fn begin_ingest(&mut self, root: &crate::root::KovanRoot, path: &std::path::Path) {
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(Some(root));
+        let mut cache = crate::fingerprint::HashCache::load(&root.state_dir());
+        if let Some(existing) = crate::ingest::find_existing(root, &corpus, path, &mut cache) {
+            let message = format!("{existing}; opening it instead of ingesting a duplicate");
+            match &existing {
+                crate::ingest::ExistingEntry::StandardCorpus { id, .. } => {
+                    self.open_corpus_document(id)
+                }
+                crate::ingest::ExistingEntry::Paper { citekey, .. } => {
+                    self.activate_paper_and_navigate(citekey)
+                }
+                // A PDF already in a corpus repository that no paper records
+                // (#458): open that copy, which offers an ingest in place.
+                crate::ingest::ExistingEntry::RepoFile { pdf, .. } => {
+                    let pdf = pdf.clone();
+                    self.open_document(&pdf);
+                }
+            }
+            self.set_status(message);
+            return;
+        }
+        let wiki = self.wiki.get_or_insert_with(WikiState::new);
+        if let Err(e) = wiki.begin_ingest(root, path) {
+            self.set_error(e);
+        }
+    }
+
+    /// Open `path` in the PDF reader: as its paper when one records it (so
+    /// notes save into it), otherwise on its own with the ingest offer.
+    ///
+    /// A standard-corpus file opens as that document, never with the offer
+    /// (2026-09-30).
+    fn open_document(&mut self, path: &std::path::Path) {
+        self.reader_path = Some(path.to_path_buf());
+        let corpus_entry = || {
+            crate::standard_corpus::StandardCorpus::for_root(self.home.root())
+                .entry_for_path(path)
+        };
+        match self.paper_owning_pdf(path) {
+            Some(citekey) => self.activate_paper_and_navigate(&citekey),
+            None if corpus_entry().is_some() => {
+                if let Some(lit) = corpus_entry() {
+                    self.open_corpus_document(lit.id);
+                }
+            }
+            None => {
+                // Not a paper's PDF: whatever paper was open no longer
+                // matches the reader, so notes must not go into it.
+                self.active_paper = None;
+                self.view = View::PdfReader;
+                let path = path.to_string_lossy().into_owned();
+                self.pdf_reader.open(&path);
+                self.offer_ingest_if_new(&path);
+            }
+        }
+    }
+
+    /// The paper whose `kovan.toml` records `path` as its PDF, if any.
+    ///
+    /// ~~`already_ingested`: a cheap prefix check on the open and restricted
+    /// source folders.~~ **CORRECTED 2026-09-22**: since #255 those folders
+    /// are corpus repositories full of PDFs no paper owns yet, so being
+    /// inside one said nothing; opening such a PDF offered no ingest and the
+    /// reader showed the no-paper fallback ("Set a project root…"). This
+    /// reads each paper's recorded PDF instead (a few files per paper).
+    ///
+    /// Since 2026-09-30 a standard-corpus document's notes paper owns its
+    /// corpus file even when `[source].pdf` does not record it
+    /// ([`crate::standard_corpus::paper_pdf`]).
+    fn paper_owning_pdf(&self, path: &std::path::Path) -> Option<String> {
+        let root = self.home.root()?;
+        let target = dunce::canonicalize(&path).ok()?;
+        let corpus = crate::standard_corpus::StandardCorpus::for_root(Some(root));
+        root.paper_dirs().into_iter().find_map(|dir| {
+            let config = EntityConfig::load(&dir).ok()?;
+            let pdf = crate::standard_corpus::paper_pdf(root, &corpus, &config.id)?;
+            (dunce::canonicalize(&pdf).ok()? == target).then_some(config.id)
+        })
     }
 
     /// A PDF was just opened (op-9sc7, GH issue #35 2026-09-01 05:22:
@@ -610,14 +1071,11 @@ impl DigitiseApp {
         let Some(root) = self.home.root().cloned() else {
             return;
         };
-        if self.already_ingested(std::path::Path::new(path)) {
+        if self.paper_owning_pdf(std::path::Path::new(path)).is_some() {
             return;
         }
         if self.auto_ingest_opened_pdfs {
-            let wiki = self.wiki.get_or_insert_with(WikiState::new);
-            if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(path)) {
-                self.set_error(e);
-            }
+            self.begin_ingest(&root, std::path::Path::new(path));
         } else {
             self.pending_ingest_prompt = Some(path.to_string());
         }
@@ -636,9 +1094,13 @@ impl DigitiseApp {
             return;
         };
         let mut close = false;
+        let mut ingest = false;
         egui::Window::new("Ingest this PDF?")
             .collapsible(false)
             .resizable(false)
+            // #281: centred, like "Set up Kovan" — a prompt appears where the
+            // user is looking, not in the top-left corner.
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
             .show(ctx, |ui| {
                 ui.label(format!("{path} is not in your Kovan library yet."));
                 ui.checkbox(
@@ -647,10 +1109,7 @@ impl DigitiseApp {
                 );
                 ui.horizontal(|ui| {
                     if ui.button("Ingest…").clicked() {
-                        let wiki = self.wiki.get_or_insert_with(WikiState::new);
-                        if let Err(e) = wiki.begin_ingest(&root, std::path::Path::new(&path)) {
-                            self.set_error(e);
-                        }
+                        ingest = true;
                         close = true;
                     }
                     if ui.button("Skip").clicked() {
@@ -661,6 +1120,33 @@ impl DigitiseApp {
         if close {
             self.pending_ingest_prompt = None;
         }
+        if ingest {
+            self.begin_ingest(&root, std::path::Path::new(&path));
+        }
+    }
+
+    /// Once a frame, before the bar is drawn: the major tab follows the
+    /// page (it may have changed outside the bar: a paper opened, Back),
+    /// and the page is remembered as that tab's last (#858).
+    fn reconcile_tabs(&mut self) {
+        self.group = self.group.after(self.view);
+        self.last_pages.note(self.group, self.view);
+    }
+
+    /// A click on major tab `g` (#858): back to where that tab was left,
+    /// not always its main page, which hid an open PDF behind a tab.
+    fn major_tab_clicked(&mut self, g: tab_groups::Group) {
+        self.view = self.last_pages.on_click(self.group, g);
+        self.group = g;
+    }
+
+    /// Whether paper `citekey` is the active paper and the reader still
+    /// shows its PDF (or it has none). Opening an image or a loose PDF
+    /// clears the active paper, so this is false after either.
+    fn paper_is_showing(&self, citekey: &str) -> bool {
+        self.active_paper.as_ref().is_some_and(|p| {
+            p.session.citekey() == citekey && (p.pdf_path.is_none() || p.pdf_path == self.reader_path)
+        })
     }
 
     /// [`Self::activate_paper`], plus switching to whichever view makes the
@@ -669,8 +1155,14 @@ impl DigitiseApp {
     /// metadata alone still has its research Markdown to read/edit). Shared
     /// by every call site that opens a paper (Wiki, Mindmap, ingestion) so
     /// they land in the same place rather than each picking its own view.
+    ///
+    /// **A paper that is already open keeps its place** (#858, maintainer
+    /// 2026-10-13): clicking it again only goes to it. ~~It was opened
+    /// again~~, which put the reader back on page 1 and reloaded the notes
+    /// editor, so the PDF seemed to have been closed.
     fn activate_paper_and_navigate(&mut self, citekey: &str) {
-        match self.activate_paper(citekey) {
+        let opened = if self.paper_is_showing(citekey) { Ok(()) } else { self.activate_paper(citekey) };
+        match opened {
             Ok(()) => {
                 let has_pdf = self
                     .active_paper
@@ -765,6 +1257,339 @@ impl DigitiseApp {
     /// silently blanked, since nothing about a crop's raw pixels alone
     /// could tell us which figure it is. Fields stay editable afterwards
     /// either way.
+    /// Copy the three-stage form's answers into the digitiser's own fields.
+    ///
+    /// This is the whole point of the form: everything here is something the
+    /// operator would otherwise have typed into the digitiser panel while
+    /// also doing the pixel work. The reference **values** land in
+    /// `ref_val`; their **pixels** stay unset, because those can only be
+    /// placed against the image.
+    ///
+    /// Provenance fields are only overwritten when the form actually carries
+    /// something, so a blank optional box cannot erase what
+    /// [`Self::load_image_from_raster`] already worked out from the crop and
+    /// the active paper.
+    fn apply_plot_setup(&mut self) {
+        let setup = self.plot_setup.clone();
+        // A rotation is a processing step and DATA_POLICY.md says to record
+        // one. The raster's `source_sha256` still identifies the file it was
+        // decoded from, so the hash alone would not say the image had been
+        // turned.
+        let mut steps = Vec::new();
+        if setup.turn != crate::digitiser::raster::Quarter::None {
+            steps.push(format!("rotated {}\u{00B0} clockwise", setup.turn.degrees()));
+        }
+        if setup.skew_degrees != 0.0 {
+            // Worth naming as a RESAMPLE: a reader judging the digitisation
+            // should know the pixels were interpolated, not merely permuted.
+            steps.push(format!(
+                "deskewed {:+.1}\u{00B0} (bilinear resample)",
+                setup.skew_degrees
+            ));
+        }
+        if !steps.is_empty() {
+            let note = format!("{} before digitising", steps.join(", "));
+            if self.notes.trim().is_empty() {
+                self.notes = note;
+            } else if !self.notes.contains("before digitising") {
+                self.notes = format!("{}; {note}", self.notes.trim());
+            }
+        }
+        self.figure = setup.figure.trim().to_string();
+        if !setup.document_title.trim().is_empty() {
+            self.document_title = setup.document_title.trim().to_string();
+        }
+        if !setup.page.trim().is_empty() {
+            self.page = setup.page.trim().to_string();
+        }
+        if !setup.notes.trim().is_empty() {
+            self.notes = setup.notes.trim().to_string();
+        }
+        self.ref_val = setup.reference_values();
+        self.x_log = setup.x_log;
+        self.y_log = setup.y_log;
+        self.x_label = setup.x_label.trim().to_string();
+        self.y_label = setup.y_label.trim().to_string();
+    }
+
+    /// When the crop being routed re-opens a saved artifact
+    /// (`source_artifact_id` set), read that artifact back out of the active
+    /// paper's notes into a prefilled wizard and restorable curves. `None` for
+    /// a fresh crop, or when the artifact is not in the open paper (then the
+    /// wizard starts blank, as before, and the status says why).
+    fn saved_digitisation_for_crop(
+        &mut self,
+        page: Option<u32>,
+        document_title: Option<String>,
+    ) -> Option<saved_digitisation::SavedDigitisation> {
+        let id = self
+            .crop_provenance
+            .as_ref()
+            .and_then(|p| p.source_artifact_id.clone())?;
+        let found = self.active_paper.as_ref().and_then(|active| {
+            crate::research_record::ResearchRecordIndex::from_session(&active.session)
+                .get(&id)
+                .map(|a| {
+                    saved_digitisation::SavedDigitisation::from_artifact(a, page, document_title)
+                })
+        });
+        if found.is_none() {
+            self.set_error(format!(
+                "saved digitisation {id} is not in the open paper's notes \u{2014} \
+                 the wizard starts blank"
+            ));
+        }
+        found
+    }
+
+    /// The wizard's "Start digitising": copy its answers into the digitiser,
+    /// then -- when a saved digitisation is being re-opened -- put its curves
+    /// back, and open the digitiser.
+    fn finish_plot_setup(&mut self) {
+        // A changed range would rewrite every restored value from its pixel:
+        // only on the operator's explicit confirmation (maintainer,
+        // 2026-09-28; the wizard's own button is disabled until then).
+        if self.pending_restore.is_some() && !self.plot_setup.recalibration_confirmed {
+            if let Some(warning) = self.plot_setup.recalibration_warning() {
+                self.set_error(warning);
+                return;
+            }
+        }
+        self.apply_plot_setup();
+        if let Some(saved) = self.pending_restore.take() {
+            if saved.is_parallelogram() || saved.saved_calibration().is_none() {
+                // No saved pixels to place the points by: keep them until the
+                // operator has put the calibration back (side-panel button).
+                self.calibration_shape = if saved.is_parallelogram() {
+                    CalibrationShape::Parallelogram
+                } else {
+                    CalibrationShape::AxisAligned
+                };
+                let n: usize = saved.series.iter().map(|s| s.points.len()).sum();
+                self.set_status(format!(
+                    "{n} saved point(s) held: the saved record has no pixel calibration \
+                     to place them by. Put the calibration on the axes, then press \
+                     \"Restore saved points\"."
+                ));
+                self.pending_restore = Some(saved);
+            } else if !self.restore_saved_series(&saved) {
+                // Its error is already shown; keep the points for the
+                // "Restore saved points" button rather than losing them.
+                self.pending_restore = Some(saved);
+            }
+        }
+        self.view = View::Digitiser;
+    }
+
+    /// Put a saved digitisation's curves back into the digitiser: every curve
+    /// but the last banked (named), the last one live, so tracing carries on
+    /// where it stopped and a re-save writes the same set of series.
+    ///
+    /// **Where the points go.** With a rectangle record the reference lines
+    /// go back to their saved pixels and each point to
+    /// `saved_calibration.pixel_at(x, y)` -- where it was on the figure. If
+    /// the wizard's ranges were left as saved, the data values are kept
+    /// **exactly** (no pixel round trip, so an untouched re-save writes the
+    /// same CSV); if the operator corrected a range -- which the wizard only
+    /// lets through after its explicit "recompute the saved points"
+    /// confirmation -- each value is re-read from its saved pixel through the
+    /// corrected calibration, which is what correcting a calibration means. With no saved pixels (a parallelogram)
+    /// this is called only after the operator has placed the calibration, and
+    /// the points are placed through it with their values kept exactly.
+    fn restore_saved_series(&mut self, saved: &saved_digitisation::SavedDigitisation) -> bool {
+        let saved_cal = saved.saved_calibration();
+        if let (Some(px), CalibrationShape::AxisAligned) =
+            (saved.reference_pixels(), self.calibration_shape)
+        {
+            self.ref_px = px.map(Some);
+        }
+        let cal = match self.calibration() {
+            Ok(c) => c,
+            Err(e) => {
+                self.set_error(format!("cannot restore the saved points yet: {e}"));
+                return false;
+            }
+        };
+        let Some(raster) = self.raster.as_ref() else {
+            self.set_error("cannot restore the saved points: no image loaded");
+            return false;
+        };
+        let (w, h) = (raster.width() as f64, raster.height() as f64);
+        let source = match self.source(raster) {
+            Ok(s) => s,
+            Err(e) => {
+                self.set_error(e);
+                return false;
+            }
+        };
+        let place_by = saved_cal.unwrap_or(cal);
+        let keep_values = saved_cal.is_none_or(|s| s == cal);
+        let by = saved
+            .digitised_by
+            .clone()
+            .unwrap_or_else(|| self.operator_name());
+        let (mut unplaced, mut outside) = (0usize, 0usize);
+        let mut restored: Vec<DigitisedDataset> = Vec::new();
+        for (i, series) in saved.series.iter().enumerate() {
+            let mut points = Vec::with_capacity(series.points.len());
+            for &(x, y) in &series.points {
+                let px = place_by.pixel_at(x, y);
+                let (vx, vy) = match (px, keep_values) {
+                    (Some((c, r)), false) => cal.point_at(c, r),
+                    _ => (x, y),
+                };
+                let ((x_minus, x_plus), (y_minus, y_plus)) = match px {
+                    Some((c, r)) => {
+                        if !(0.0..=w).contains(&c) || !(0.0..=h).contains(&r) {
+                            outside += 1;
+                        }
+                        xy_uncertainty_interval(&cal, c, r, 0.5, 0.5)
+                    }
+                    None => {
+                        unplaced += 1;
+                        ((0.0, 0.0), (0.0, 0.0))
+                    }
+                };
+                points.push(DigitisedPoint {
+                    x: vx,
+                    y: vy,
+                    x_minus,
+                    x_plus,
+                    y_minus,
+                    y_plus,
+                    x_px: px.map(|p| p.0),
+                    y_px: px.map(|p| p.1),
+                    origin: PointOrigin::HandPlaced { by: by.clone() },
+                });
+            }
+            let name = series.name.clone().filter(|n| !n.trim().is_empty());
+            let name = match (name, saved.series.len()) {
+                (Some(n), _) => Some(n),
+                (None, 1) => None,
+                (None, _) => Some(format!("series-{}", i + 1)),
+            };
+            restored.push(DigitisedDataset {
+                schema_version: DATASET_SCHEMA_VERSION,
+                source: source.clone(),
+                calibration: cal,
+                x_label: self.x_label.clone(),
+                y_label: self.y_label.clone(),
+                digitised_by: by.clone(),
+                digitised_at: utc_now_iso8601(),
+                trace: None,
+                review: ReviewStatus::Unreviewed,
+                series: name,
+                points,
+            });
+        }
+        let n_series = restored.len();
+        let n_points: usize = restored.iter().map(|d| d.points.len()).sum();
+        let live = restored.pop();
+        self.series_name = live
+            .as_ref()
+            .and_then(|d| d.series.clone())
+            .unwrap_or_default();
+        self.completed_series = restored;
+        self.live_position = None;
+        self.dataset = live;
+        self.selected = None;
+        let mut msg = format!(
+            "restored {n_points} point(s) in {n_series} series from saved digitisation {}",
+            saved.artifact_id
+        );
+        if !keep_values {
+            msg.push_str(
+                "; the ranges differ from the saved ones, so every value was re-read \
+                 from its saved pixel through the new calibration",
+            );
+        }
+        if unplaced > 0 {
+            msg.push_str(&format!(
+                "; {unplaced} could not be placed on the image (kept by value only)"
+            ));
+        }
+        if outside > 0 {
+            msg.push_str(&format!(
+                "; {outside} fall outside this crop -- was the figure turned or \
+                 deskewed the first time? Go back and apply the same"
+            ));
+            self.set_error(msg);
+        } else {
+            self.set_status(msg);
+        }
+        // The points were placed through this calibration: it is the
+        // figure's, so the axes come back locked (#421).
+        self.axes_locked = true;
+        true
+    }
+
+    /// Lock the axes (GH issue #421): the reference lines stop responding
+    /// to drags, and tracing and point editing become available.
+    ///
+    /// Refused, with the reason shown, while the calibration is incomplete —
+    /// locking unusable axes would only move the error to the first point.
+    /// If points already exist under a different calibration (the axes were
+    /// unlocked and moved), each point with a pixel position is re-read
+    /// through the new calibration, in every series on the figure: moving
+    /// the axes means exactly that, and leaving the old values would let the
+    /// lines on screen disagree with the numbers saved.
+    fn lock_axes(&mut self) {
+        let cal = match self.calibration() {
+            Ok(c) => c,
+            Err(e) => {
+                self.set_error(format!("cannot lock the axes yet: {e}"));
+                return;
+            }
+        };
+        let mut reread = 0usize;
+        for d in self.dataset.iter_mut().chain(self.completed_series.iter_mut()) {
+            if d.calibration == cal {
+                continue;
+            }
+            d.calibration = cal;
+            for p in &mut d.points {
+                let (Some(px), Some(py)) = (p.x_px, p.y_px) else {
+                    continue;
+                };
+                (p.x, p.y) = cal.point_at(px, py);
+                let ((x_minus, x_plus), (y_minus, y_plus)) =
+                    xy_uncertainty_interval(&cal, px, py, 0.5, 0.5);
+                (p.x_minus, p.x_plus) = (x_minus, x_plus);
+                (p.y_minus, p.y_plus) = (y_minus, y_plus);
+                reread += 1;
+            }
+        }
+        self.axes_locked = true;
+        self.ref_dragging = None;
+        self.ref_dragging_corner = None;
+        self.para_dragging = None;
+        self.set_status(if reread > 0 {
+            format!(
+                "axes locked — the calibration changed, so {reread} existing point(s) were \
+                 re-read from their pixels through the new axes"
+            )
+        } else {
+            "axes locked — draw the trace or place points".to_string()
+        });
+    }
+
+    /// Unlock the axes to re-calibrate (GH issue #421). Tracing and point
+    /// editing pause until they are locked again; if points exist, the
+    /// message says that locking again re-reads them through the new axes.
+    fn unlock_axes(&mut self) {
+        self.axes_locked = false;
+        self.stroke.clear();
+        self.dragging = None;
+        let has_points = self.dataset.as_ref().is_some_and(|d| !d.points.is_empty())
+            || !self.completed_series.is_empty();
+        self.set_status(if has_points {
+            "axes unlocked — tracing and editing are paused. Moving the axes changes the \
+             value of every existing point: they are re-read when you lock again"
+        } else {
+            "axes unlocked — drag the lines onto the axes, then lock them"
+        });
+    }
+
     pub fn load_image_from_raster(
         &mut self,
         raster: PlotRaster,
@@ -809,6 +1634,10 @@ impl DigitiseApp {
     /// correct than "nothing set yet", and every line is immediately visible
     /// and draggable regardless), and clear any previous dataset/selection.
     fn set_raster(&mut self, raster: PlotRaster, status: String) {
+        // Remember the untouched crop; the setup form's turn/deskew are
+        // re-derived from this, never stacked on their own output.
+        self.raster_original = Some(raster.clone());
+        self.applied_transform = (crate::digitiser::raster::Quarter::None, 0.0);
         let (w, h) = (raster.width() as f64, raster.height() as f64);
         self.ref_px = [w * 0.1, w * 0.9, h * 0.9, h * 0.1].map(Some);
         // Parallelogram corners seeded the same 10%/90% inset as the
@@ -824,9 +1653,17 @@ impl DigitiseApp {
         self.raster = Some(raster);
         self.texture = None; // re-uploaded next frame
         self.dataset = None;
+        // A new image is a new figure; its predecessors' series belong to the
+        // old one and must not follow it across.
+        self.completed_series.clear();
+        self.live_position = None;
+        self.hovered_series = None;
+        self.series_name.clear();
         self.selected = None;
         self.ref_dragging = None;
         self.ref_dragging_corner = None;
+        // A new figure has its own axes, not yet placed (#421).
+        self.axes_locked = false;
         self.crop_provenance = None;
         self.set_status(status);
     }
@@ -935,90 +1772,59 @@ impl DigitiseApp {
     }
 
     /// The automatic pass: trace with the current calibration and tuning.
-    fn auto_trace(&mut self) {
+    /// Turn the stroke just drawn into points on the curve (#290).
+    ///
+    /// The maintainer's replacement for auto-trace: "i draw a line and it
+    /// will be snapped to the curve after i let go of the mouse. the points
+    /// will be placed 2 pixels apart." Every point goes in through
+    /// [`Self::add_point`], the same path a hand-placed marker uses, so
+    /// calibration, ordering and the dataset's review state behave exactly as
+    /// they do for a point placed by double-click.
+    ///
+    /// The stroke is cleared whether or not anything came of it — a stroke
+    /// that found no ink is a gesture the operator can simply repeat, not a
+    /// state to be left in.
+    fn snap_drawn_stroke(&mut self) {
+        let stroke = std::mem::take(&mut self.stroke);
+        if stroke.len() < 2 {
+            return; // a stray click in draw mode, not a stroke
+        }
         let Some(raster) = &self.raster else {
             self.set_error("load an image first");
             return;
         };
-        let cal = match self.calibration() {
-            Ok(c) => c,
+        let config = crate::digitiser::trace::SnapConfig {
+            selector: CurveSelector::DarkestBand {
+                max_luminance: self.threshold,
+            },
+            spacing_px: self.snap_spacing,
+            ..crate::digitiser::trace::SnapConfig::default()
+        };
+        let snapped = match crate::digitiser::trace::snap_stroke(raster, &stroke, &config) {
+            Ok(points) => points,
             Err(e) => {
-                self.set_error(e);
+                self.set_error(e.to_string());
                 return;
             }
         };
-        // Auto-trace's column/row scan is inherently axis-aligned (same
-        // boundary as `auto.rs`'s own automatic detection pipeline — see
-        // its doc comment) — a Parallelogram calibration (op-vyb9) is a
-        // hand-digitisation aid for a skewed photo, not something the
-        // automatic tracer can drive.
-        let PlotCalibration::AxisAligned { x: x_cal, y: y_cal } = cal else {
+        if snapped.is_empty() {
             self.set_error(
-                "Auto-trace needs Rectangle calibration — switch back from Parallelogram, \
-                 or hand-place points instead (double-click on the image)",
+                "nothing under that stroke looked like a curve — draw along the line, \
+                 or raise the ink threshold",
             );
             return;
-        };
-        let source = match self.source(raster) {
-            Ok(s) => s,
-            Err(e) => {
-                self.set_error(e);
-                return;
-            }
-        };
-        let config = AutoDigitiseConfig {
-            x: AxisValueSpec {
-                scale: x_cal.scale,
-                refs: AxisPixelRefs::Explicit {
-                    r1: x_cal.r1,
-                    r2: x_cal.r2,
-                },
-            },
-            y: AxisValueSpec {
-                scale: y_cal.scale,
-                refs: AxisPixelRefs::Explicit {
-                    r1: y_cal.r1,
-                    r2: y_cal.r2,
-                },
-            },
-            detect: DetectConfig::default(),
-            trace: TraceConfig {
-                selector: CurveSelector::DarkestBand {
-                    max_luminance: self.threshold,
-                },
-                strategy: self.strategy,
-                column_step: self.step,
-                inset: 3,
-                max_column_fill: 0.6,
-            },
-        };
-        match auto_digitise(
-            raster,
-            &config,
-            source,
-            self.x_label.clone(),
-            self.y_label.clone(),
-            format!("{} via kovan (gui)", self.operator_name()),
-            utc_now_iso8601(),
-        ) {
-            Ok(d) => {
-                let n = d.points.len();
-                self.dataset = Some(d);
-                self.selected = None;
-                self.mode = ClickMode::EditPoints;
-                if n == 0 {
-                    self.set_error(
-                        "auto pass traced 0 points — check the ink threshold/curve colour, \
-                         and that the reference box actually brackets the curve",
-                    );
-                } else {
-                    self.set_status(format!(
-                        "auto pass traced {n} points — verify, correct, then mark reviewed"
-                    ));
-                }
-            }
-            Err(e) => self.set_error(e.to_string()),
         }
+        if self.dataset.is_none() {
+            self.start_empty();
+        }
+        let n = snapped.len();
+        for p in snapped {
+            self.add_point(p.x_px, p.y_px);
+        }
+        self.set_status(format!(
+            "snapped {n} point(s) onto the curve, {} px apart",
+            self.snap_spacing
+        ));
     }
 
     /// Start an empty dataset from the calibration alone, for figures
@@ -1052,11 +1858,89 @@ impl DigitiseApp {
             digitised_at: utc_now_iso8601(),
             trace: None,
             review: ReviewStatus::Unreviewed,
+            series: (!self.series_name.trim().is_empty())
+                .then(|| self.series_name.trim().to_string()),
             points: Vec::new(),
         });
         self.selected = None;
         self.mode = ClickMode::AddPoint;
         self.set_status("empty dataset started — click to place points");
+    }
+
+    /// Bank the series being traced and start the next one on the same axes.
+    ///
+    /// The new series inherits calibration, source and axis labels: they are
+    /// properties of the *figure*, and re-deriving them would let two curves
+    /// off one plot disagree about where its axes are. Only the points and
+    /// the name are new.
+    ///
+    /// Refuses an unnamed series once there is more than one, and refuses a
+    /// duplicate name. Two columns both called `""` -- or both called
+    /// `"1600 degC"` -- are not something a reader can take apart later, and
+    /// the export is the only place it would surface.
+    fn finish_series(&mut self) {
+        let Some(current) = self.dataset.clone() else {
+            self.set_error("no series in progress");
+            return;
+        };
+        if current.points.is_empty() {
+            self.set_error("this series has no points yet");
+            return;
+        }
+        let name = self.series_name.trim().to_string();
+        if name.is_empty() {
+            self.set_error("name this series before adding another");
+            return;
+        }
+        if self
+            .completed_series
+            .iter()
+            .any(|d| d.series.as_deref() == Some(name.as_str()))
+        {
+            self.set_error(format!("a series called {name:?} is already on this figure"));
+            return;
+        }
+
+        let mut banked = current.clone();
+        banked.series = Some(name);
+        // Back into its own place in the saved order (it may have been
+        // picked out of the middle to edit); the next curve goes last.
+        let at = self.live_index();
+        self.completed_series.insert(at, banked);
+        self.live_position = None;
+
+        // The next series: same figure, same axes, no points.
+        let mut next = current;
+        next.series = None;
+        next.points.clear();
+        next.review = ReviewStatus::Unreviewed;
+        next.trace = None;
+        next.digitised_at = utc_now_iso8601();
+        self.dataset = Some(next);
+        self.series_name.clear();
+        self.selected = None;
+        self.mode = ClickMode::AddPoint;
+        self.set_status(format!(
+            "series banked ({} on this figure) — name and trace the next",
+            self.completed_series.len()
+        ));
+    }
+
+    /// Every series on this figure in saved order: the finished ones, with
+    /// the one in progress at its place (`live_position`, last by default)
+    /// if it has any points.
+    ///
+    /// This is what the exporters and the canvas both read, so "what is on
+    /// this figure" is answered in one place rather than each caller
+    /// remembering that the live dataset is not in `completed_series`.
+    fn all_series(&self) -> Vec<&DigitisedDataset> {
+        let mut out: Vec<&DigitisedDataset> = self.completed_series.iter().collect();
+        if let Some(d) = &self.dataset {
+            if !d.points.is_empty() {
+                out.insert(self.live_index(), d);
+            }
+        }
+        out
     }
 
     /// Any edit invalidates a recorded review.
@@ -1119,6 +2003,22 @@ impl DigitiseApp {
         self.mark_edited();
     }
 
+    /// Remove the point nearest `(px, py)` in image pixels, if one lies
+    /// within `max_px`. Shared by the Eraser mode and right-drag in Draw
+    /// trace, and it goes through [`Self::delete_selected`] like the
+    /// right-click does, so every way of erasing has one set of provenance
+    /// and review-status side effects. Returns whether a point went.
+    fn erase_near(&mut self, px: f64, py: f64, max_px: f64) -> bool {
+        match self.nearest_point(px, py, max_px) {
+            Some(i) => {
+                self.selected = Some(i);
+                self.delete_selected();
+                true
+            }
+            None => false,
+        }
+    }
+
     fn delete_selected(&mut self) {
         let Some(i) = self.selected else { return };
         if let Some(d) = &mut self.dataset {
@@ -1173,7 +2073,22 @@ impl DigitiseApp {
         }
         let mut saved = format!("saved {}", self.json_out.trim());
         if !self.csv_out.trim().is_empty() {
-            match d.write_csv(std::path::Path::new(self.csv_out.trim())) {
+            let path = std::path::Path::new(self.csv_out.trim());
+            // Same rule as the markdown path: the CSV comes from
+            // `all_series()`, never from a possibly-emptied live `dataset`.
+            let result = {
+                let series = self.all_series();
+                match series.len() {
+                    0 => Err("no points traced yet — nothing to export".to_string()),
+                    1 => series[0].write_csv(path).map_err(|e| e.to_string()),
+                    // Every curve in one file: exporting a multi-series
+                    // figure and silently getting one would be the worst
+                    // kind of quiet data loss.
+                    _ => std::fs::write(path, DigitisedDataset::many_to_csv_data_only(&series))
+                        .map_err(|e| e.to_string()),
+                }
+            };
+            match result {
                 Ok(()) => saved.push_str(&format!(" and {}", self.csv_out.trim())),
                 Err(e) => {
                     self.set_error(format!("json saved, csv failed: {e}"));
@@ -1188,20 +2103,25 @@ impl DigitiseApp {
     /// Markdown when one is open (`op-bd8p`, mirroring `pdf_reader.rs`'s
     /// `save_annotations_into_project`/op-q1qj: activation already resolved
     /// which paper and root this crop belongs to, so there is nothing left
-    /// to ask), falling back to the manual `project_root`/
-    /// `project_markdown_rel` fields + [`project::append_to_section`] only
-    /// when no paper is active (a crop loaded outside any paper — the old
-    /// `crate::project` "kovan folder" format, op-96am's original design).
+    /// to ask). ~~Falling back to the manual `project_root`/
+    /// `project_markdown_rel` fields + `project::append_to_section` when no
+    /// paper is active (op-96am's original design).~~ **CORRECTED 2026-09-22**: those fields are
+    /// gone (the Kovan folder comes from setup, a paper's Markdown from
+    /// ingest); with no paper open this reports that the PDF must be
+    /// ingested first.
     ///
     /// Distinct from [`Self::save`], which writes a standalone JSON/CSV
     /// file wherever asked — this instead folds the CSV into an existing
     /// document's markdown, keeping the JSON/CSV export path available
     /// unchanged alongside it (op-x9qn's "CSV auto-saves into markdown, but
     /// retain csv export capability").
-    fn save_into_project(&mut self) {
+    ///
+    /// Returns whether the artifact was written (the caller's cue to leave
+    /// the digitiser — see [`Self::save_into_project_then_read`]).
+    fn save_into_project(&mut self) -> bool {
         let Some(d) = &self.dataset else {
             self.set_error("nothing to save");
-            return;
+            return false;
         };
         let title = self.figure.trim();
         let title = if title.is_empty() {
@@ -1210,7 +2130,51 @@ impl DigitiseApp {
             title
         }
         .to_string();
-        let csv_body = crate::artifact::render_csv_body(&d.to_csv_data_only());
+        // One artifact carries every series on the figure. With a single
+        // curve this is byte-identical to what it always wrote; with several
+        // it gains a leading `series` column (see
+        // `DigitisedDataset::many_to_csv_data_only` on why it is long-form
+        // and not one column per curve).
+        // One artifact, one ```csv fence per curve, delimited by `###`
+        // sentinels (maintainer, 2026-09-24). A single curve keeps the plain
+        // body it has always had -- byte-identical -- so nothing that reads
+        // an existing artifact changes.
+        // Read the CSV from `all_series()`, never from the live `dataset`.
+        // Banking a curve moves its points out of `dataset` and leaves that
+        // empty, so the single-series branch used to render the EMPTY live
+        // buffer and save a header row with no data -- reported as "the csv
+        // turns up blank" (maintainer, 2026-09-24).
+        let csv_body = {
+            let series = self.all_series();
+            match series.len() {
+                0 => None,
+                1 => Some(crate::artifact::render_csv_body(
+                    &series[0].to_csv_data_only(),
+                )),
+                _ => {
+                    // The curve being traced is named in the name box, not
+                    // in its `series` field (that is only set when a curve is
+                    // banked), so saving without banking it first used to
+                    // write it as `series-N` and drop the typed name --
+                    // found by the edit-digitisation round trip, 2026-09-28.
+                    // The name box wins for the live curve, so a rename of a
+                    // restored or re-selected series is what gets saved.
+                    let blocks: Vec<crate::artifact::SeriesBlock> = self
+                        .named_series_csv()
+                        .into_iter()
+                        .map(|(name, csv)| crate::artifact::SeriesBlock { name, csv })
+                        .collect();
+                    Some(crate::artifact::render_multi_series_body(&blocks))
+                }
+            }
+        };
+        // Saving nothing is an error, not a silent empty artifact. A blank
+        // CSV in a paper's markdown looks like a digitisation that found no
+        // data, which is a very different claim from "not traced yet".
+        let Some(csv_body) = csv_body else {
+            self.set_error("no points traced yet — nothing to save");
+            return false;
+        };
 
         // GH issue #35 2026-09-02: save the CSV as a real `[kovan]`
         // artifact (so the page-context panel can re-open it), replacing the
@@ -1241,58 +2205,31 @@ impl DigitiseApp {
                     .map(|()| format!("saved into {citekey}'s notes"))
                     .map_err(|e| e.to_string())
             });
-            match result {
-                Ok(m) => self.set_status(m),
-                Err(e) => self.set_error(e),
-            }
-            return;
+            return match result {
+                Ok(m) => {
+                    self.set_status(m);
+                    true
+                }
+                Err(e) => {
+                    self.set_error(e);
+                    false
+                }
+            };
         }
 
-        // --- no active paper: the legacy plain-text section path ---
-        //
-        // GH issue #35, 2026-09-08: this path writes a plain heading plus a
-        // bare ```csv fence with no `[kovan]` block, so what it saves is NOT
-        // an artifact — it has no id, no kind and no `[source]`, and the PDF
-        // canvas therefore draws no region box for it. That is why a
-        // digitised graph looks fine while it is still on screen and is
-        // simply gone the next time the paper is opened. It used to happen
-        // silently; say so instead, and refuse outright when there is no
-        // project markdown configured either, rather than writing data the
-        // GUI cannot show.
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error(
-                "no active paper — activate one (Wiki, Bibliography or Mindmap) \
-                 so this saves as a real artifact with a region box",
-            );
-            return;
-        }
-        let mut block = format!("### {title}");
-        if let Some(prov) = &self.crop_provenance {
-            block.push_str(&format!(
-                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
-                prov.page_index + 1,
-                prov.min.x,
-                prov.min.y,
-                prov.max.x,
-                prov.max.y,
-                prov.created_at,
-                prov.author
-            ));
-        }
-        block.push_str("\n\n");
-        block.push_str(&csv_body);
-        match project::append_to_section(
-            std::path::Path::new(self.project_root.trim()),
-            self.project_markdown_rel.trim(),
-            "graph_csvs",
-            &block,
-        ) {
-            Ok(_) => self.set_status(
-                "saved as a plain section (no active paper) — this is NOT a Kovan \
-                 artifact and draws no box on the PDF; activate the paper and use \
-                 the reader's \"Upgrade to artifacts\" button to fix it",
-            ),
-            Err(e) => self.set_error(e.to_string()),
+        self.set_error("no paper open: ingest this PDF (or open its paper from the Wiki, Bibliography or Mindmap) so this saves into its notes");
+        false
+    }
+
+    /// The "Save CSV into project markdown" button: save, and on success go
+    /// back to the PDF reader -- the figure is finished, exactly as the table
+    /// digitiser's Save returns there (maintainer, 2026-09-28: "save csv into
+    /// project markdown should also move us into the pdf reader"). A failed
+    /// save (no points, no paper open, a write error) stays in the digitiser
+    /// with its error showing, since that is where it gets fixed.
+    fn save_into_project_then_read(&mut self) {
+        if self.save_into_project() {
+            self.view = View::PdfReader;
         }
     }
 
@@ -1304,7 +2241,7 @@ impl DigitiseApp {
             let (Some(x), Some(y)) = (p.x_px, p.y_px) else {
                 continue;
             };
-            let dist = ((x - px).powi(2) + (y - py).powi(2)).sqrt();
+            let dist = ((x - px).r_powi(2) + (y - py).r_powi(2)).sqrt();
             if dist <= max_px && best.is_none_or(|(_, bd)| dist < bd) {
                 best = Some((i, dist));
             }
@@ -1345,17 +2282,24 @@ impl DigitiseApp {
         ui.separator();
 
         ui.label("1. Calibration shape (op-vyb9):");
-        ui.horizontal(|ui| {
-            ui.selectable_value(
-                &mut self.calibration_shape,
-                CalibrationShape::AxisAligned,
-                "Rectangle",
-            );
-            ui.selectable_value(
-                &mut self.calibration_shape,
-                CalibrationShape::Parallelogram,
-                "Parallelogram",
-            );
+        // #421: the calibration is edited only while unlocked; locked, it is
+        // shown but greyed out, so neither a drag nor a stray keystroke in a
+        // value field can move the axes under existing points.
+        ui.scope(|ui| {
+            if self.axes_locked {
+                ui.disable();
+            }
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.calibration_shape,
+                    CalibrationShape::AxisAligned,
+                    "Rectangle",
+                );
+                ui.selectable_value(
+                    &mut self.calibration_shape,
+                    CalibrationShape::Parallelogram,
+                    "Parallelogram",
+                );
         });
         match self.calibration_shape {
             CalibrationShape::AxisAligned => {
@@ -1400,33 +2344,72 @@ impl DigitiseApp {
         }
         ui.checkbox(&mut self.x_log, "x axis logarithmic");
         ui.checkbox(&mut self.y_log, "y axis logarithmic");
+        });
+        ui.horizontal(|ui| {
+            if self.axes_locked {
+                if ui
+                    .button("\u{1F513} Unlock axes")
+                    .on_hover_text("move the axes again; tracing and editing pause until you re-lock")
+                    .clicked()
+                {
+                    self.unlock_axes();
+                }
+                ui.colored_label(Color32::from_rgb(90, 200, 90), "\u{1F512} axes locked");
+            } else {
+                if ui
+                    .button("\u{1F512} Lock axes")
+                    .on_hover_text(
+                        "fix the calibration so the lines cannot be dragged by accident; \
+                         tracing and point editing unlock once the axes are locked",
+                    )
+                    .clicked()
+                {
+                    self.lock_axes();
+                }
+                ui.colored_label(
+                    Color32::from_rgb(230, 160, 60),
+                    "lock the axes before tracing",
+                );
+            }
+        });
         ui.separator();
 
-        ui.label("2. Automatic pass:");
-        ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
-        ui.add(egui::Slider::new(&mut self.step, 1..=20).text("column step"));
-        ComboBox::from_label("strategy")
-            .selected_text(format!("{:?}", self.strategy))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut self.strategy,
-                    TraceStrategy::ContinuityNearest,
-                    "ContinuityNearest",
-                );
-                ui.selectable_value(&mut self.strategy, TraceStrategy::LargestRun, "LargestRun");
-                ui.selectable_value(
-                    &mut self.strategy,
-                    TraceStrategy::ColumnCentroid,
-                    "ColumnCentroid",
-                );
-            });
-        ui.horizontal(|ui| {
-            if ui.button("Auto-trace").clicked() {
-                self.auto_trace();
+        // #421: steps 2 and 3 are unavailable until the axes are locked.
+        ui.scope(|ui| {
+            if !self.axes_locked {
+                ui.disable();
             }
-            if ui.button("Start empty (hand-place)").clicked() {
-                self.start_empty();
-            }
+
+            // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
+            // strategy/step controls are gone from this panel (maintainer,
+            // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
+            // `auto.rs` remain for `kovan-cli digitise`, which is a different
+            // surface and was not part of that decision.
+            ui.label("2. Trace the curve:");
+            ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
+            ui.add(
+                egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
+                    .text("point spacing (px)")
+                    .step_by(1.0),
+            )
+            .on_hover_text("distance between points along the stroke you draw");
+            ui.horizontal(|ui| {
+                if ui
+                    .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
+                    .on_hover_text(
+                        "hold the left button and draw along the curve; let go and the \
+                         stroke snaps onto it. Hold the right button and drag to erase",
+                    )
+                    .clicked()
+                {
+                    self.mode = ClickMode::DrawTrace;
+                    if self.dataset.is_none() {
+                        self.start_empty();
+                    }
+                }
+                if ui.button("Start empty (hand-place)").clicked() {
+                    self.start_empty();
+                }
         });
         ui.separator();
 
@@ -1434,6 +2417,12 @@ impl DigitiseApp {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.mode, ClickMode::EditPoints, "Edit/drag");
             ui.selectable_value(&mut self.mode, ClickMode::AddPoint, "Add points");
+            ui.selectable_value(&mut self.mode, ClickMode::DrawTrace, "\u{270F} Draw trace");
+            ui.selectable_value(&mut self.mode, ClickMode::Erase, "\u{1F9FD} Eraser")
+                .on_hover_text(
+                    "click or drag over points to remove them; right-click still \
+                     removes the nearest point in any mode",
+                );
             if ui.button("Delete selected").clicked() {
                 self.delete_selected();
             }
@@ -1444,6 +2433,61 @@ impl DigitiseApp {
         ui.small(
             "double-click adds a marker (Add points mode) · right-click removes the nearest one",
         );
+        });
+        ui.separator();
+
+        // A figure routinely carries several curves against one pair of axes
+        // (maintainer, 2026-09-24). They share calibration, source and labels
+        // -- only the points and the name differ -- so banking one and
+        // starting the next keeps all of that rather than re-deriving it.
+        ui.label("Series on this figure:");
+        ui.horizontal(|ui| {
+            ui.label("name");
+            ui.add(
+                egui::TextEdit::singleline(&mut self.series_name)
+                    .hint_text("e.g. 235U thermal")
+                    .desired_width(160.0),
+            );
+            if ui
+                .button("\u{2795} Bank & start next")
+                .on_hover_text("store this curve under its name and begin another on the same axes")
+                .clicked()
+            {
+                self.finish_series();
+            }
+        });
+        // A re-opened saved digitisation whose record has no pixels to place
+        // its points by (a parallelogram): they wait for the operator's
+        // calibration rather than for a guess.
+        if let Some(saved) = self.pending_restore.clone() {
+            let n: usize = saved.series.iter().map(|s| s.points.len()).sum();
+            if ui
+                .button(format!("\u{21BA} Restore saved points ({n})"))
+                .on_hover_text(
+                    "place the saved digitisation's points through the calibration \
+                     as it is now -- drag it onto the axes first; the values are kept \
+                     exactly as saved",
+                )
+                .clicked()
+                && self.restore_saved_series(&saved)
+            {
+                self.pending_restore = None;
+            }
+        }
+        // Maintainer, 2026-09-28: pick any banked series to view/edit it.
+        self.series_picker_ui(ui);
+        if !self.completed_series.is_empty() {
+            if ui
+                .button("\u{21A9} Drop last banked series")
+                .on_hover_text("remove the last banked curve (in saved order) from this figure")
+                .clicked()
+            {
+                if let Some(d) = self.completed_series.pop() {
+                    let name = d.series.clone().unwrap_or_default();
+                    self.set_status(format!("dropped series {name:?}"));
+                }
+            }
+        }
         ui.separator();
 
         ui.label("4. Provenance (required to export):");
@@ -1513,9 +2557,8 @@ impl DigitiseApp {
         // comes before the standalone file export (maintainer, 2026-09-02).
         ui.label("5. Save into project markdown:");
         // op-bd8p: an active paper already tells us exactly where this
-        // belongs -- no manual project root/markdown path to fill in.
-        // Those fields (op-96am's original design) stay available only for
-        // a crop loaded with no paper active.
+        // belongs -- no manual project root/markdown path to fill in (those
+        // fields were removed 2026-09-22).
         match self
             .active_paper
             .as_ref()
@@ -1525,14 +2568,7 @@ impl DigitiseApp {
                 ui.label(format!("saving into {citekey}'s notes"));
             }
             None => {
-                ui.horizontal(|ui| {
-                    ui.label("project root");
-                    ui.text_edit_singleline(&mut self.project_root);
-                });
-                ui.horizontal(|ui| {
-                    ui.label("markdown path (relative)");
-                    ui.text_edit_singleline(&mut self.project_markdown_rel);
-                });
+                ui.label("no paper open: ingest the PDF to save into its notes");
             }
         }
         if let Some(prov) = &self.crop_provenance {
@@ -1549,7 +2585,7 @@ impl DigitiseApp {
             ui.small("(no PDF-reader crop provenance for this image)");
         }
         if ui.button("Save CSV into project markdown").clicked() {
-            self.save_into_project();
+            self.save_into_project_then_read();
         }
 
         ui.separator();
@@ -1591,13 +2627,16 @@ impl DigitiseApp {
             }
         });
         if let Some(d) = &self.dataset {
+            // A review shows only when there IS one. An "UNREVIEWED" badge
+            // was stale: every point here is hand-placed and there is no AI
+            // review step for it to be pending on (maintainer, 2026-09-24).
             let review = match &d.review {
-                ReviewStatus::Unreviewed => "UNREVIEWED".to_string(),
+                ReviewStatus::Unreviewed => String::new(),
                 ReviewStatus::Reviewed { by, at, .. } => {
-                    format!("reviewed by {by} at {at}")
+                    format!(" · reviewed by {by} at {at}")
                 }
             };
-            ui.label(format!("{} points · {review}", d.points.len()));
+            ui.label(format!("{} points{review}", d.points.len()));
             if let Some(i) = self.selected {
                 if let Some(p) = d.points.get(i) {
                     ui.label(format!(
@@ -1701,7 +2740,10 @@ impl DigitiseApp {
             // cursor regardless of mode (graphReader precedent), checked
             // before the mode-dispatched left-click handling below so a
             // stray left click from the same gesture can't also fire.
-            if response.secondary_clicked() {
+            // #421: every point gesture below needs locked axes; the
+            // reference-line drags need them unlocked. One flag, read once.
+            let points_live = self.axes_locked;
+            if points_live && response.secondary_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
@@ -1710,16 +2752,73 @@ impl DigitiseApp {
                     }
                 }
             }
+            // Eraser mode (gh:#277): a plain left click removes the nearest
+            // point, and a drag sweeps a run of them out in one gesture.
+            // `dragged()` rather than `drag_started()` so holding the button
+            // down and moving keeps erasing, which is the whole reason the
+            // mode is worth having over the per-point right-click.
+            if points_live && self.mode == ClickMode::Erase {
+                // The pointer says which mode is live: an eraser that looks
+                // like the point tool costs someone their trace.
+                response.clone().on_hover_cursor(egui::CursorIcon::NoDrop);
+            }
+            if points_live
+                && self.mode == ClickMode::Erase
+                && (response.clicked() || response.dragged())
+            {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    let (px, py) = to_image(pos);
+                    self.erase_near(px, py, 12.0 / zoom as f64);
+                }
+            }
+            // #290: draw along the curve, let go, and the stroke snaps onto
+            // the ink. `dragged()` rather than `drag_started()` so every
+            // frame of the gesture contributes a vertex — the stroke is the
+            // path the pointer took, not its two ends.
+            if points_live && self.mode == ClickMode::DrawTrace {
+                // Right-drag erases while drawing (maintainer, 2026-09-28:
+                // "right click and drag should be eraser behaviour ... when
+                // in draw trace mode"), so a bad stretch of trace can be
+                // swept away without leaving the mode. Only the LEFT button
+                // draws: `dragged()` alone is true for any button, which
+                // would have turned a right-drag into a stroke.
+                let erasing = response.dragged_by(egui::PointerButton::Secondary);
+                response.clone().on_hover_cursor(if erasing {
+                    egui::CursorIcon::NoDrop
+                } else {
+                    egui::CursorIcon::Crosshair
+                });
+                if erasing {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        let (px, py) = to_image(pos);
+                        self.erase_near(px, py, 12.0 / zoom as f64);
+                    }
+                }
+                if response.dragged_by(egui::PointerButton::Primary) {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        let (px, py) = to_image(pos);
+                        // Skip a repeat of the same pixel: a slow hand emits
+                        // many frames without moving, and they only make the
+                        // polyline longer to resample.
+                        if self.stroke.last() != Some(&(px, py)) {
+                            self.stroke.push((px, py));
+                        }
+                    }
+                }
+                if response.drag_stopped_by(egui::PointerButton::Primary) {
+                    self.snap_drawn_stroke();
+                }
+            }
             // Adding a point is a double left-click (graphReader precedent) —
             // a single click in AddPoint mode is reserved for future
             // click-drag box-select, so it deliberately does not add here.
-            if self.mode == ClickMode::AddPoint && response.double_clicked() {
+            if points_live && self.mode == ClickMode::AddPoint && response.double_clicked() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
                     self.add_point(px, py);
                 }
             }
-            if self.mode == ClickMode::EditPoints {
+            if points_live && self.mode == ClickMode::EditPoints {
                 if let Some(pos) = response
                     .clicked()
                     .then(|| response.interact_pointer_pos())
@@ -1733,24 +2832,8 @@ impl DigitiseApp {
             // Parallelogram corner hit test (op-vyb9) — nearest of the 4
             // free corners within `corner_tol`, mirroring `hit_ref_corner`'s
             // tolerance but over independent points rather than line
-            // intersections.
-            fn hit_para_corner(
-                corners: &[Option<(f64, f64)>; 4],
-                tol: f64,
-                px: f64,
-                py: f64,
-            ) -> Option<usize> {
-                let mut best: Option<(usize, f64)> = None;
-                for (i, c) in corners.iter().enumerate() {
-                    if let Some((cx, cy)) = c {
-                        let d = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt();
-                        if d < tol && best.is_none_or(|(_, bd)| d < bd) {
-                            best = Some((i, d));
-                        }
-                    }
-                }
-                best.map(|(i, _)| i)
-            }
+            // intersections. Shared with the PDF reader's annotation-box
+            // corner drag (`box_handles::nearest_handle`, 2026-10-01).
 
             // Reference-line/corner dragging (op-zfnh/op-vyb9) takes priority
             // over marker dragging when a drag starts on top of one — it is
@@ -1759,7 +2842,9 @@ impl DigitiseApp {
             if response.drag_started_by(PointerButton::Primary) {
                 if let Some(pos) = response.interact_pointer_pos() {
                     let (px, py) = to_image(pos);
-                    let claimed = match self.calibration_shape {
+                    // #421: locked axes are never grabbed — this is the
+                    // accidental drag the lock exists to prevent.
+                    let claimed = !points_live && match self.calibration_shape {
                         CalibrationShape::AxisAligned => {
                             self.ref_dragging_corner =
                                 hit_ref_corner(&self.ref_px, corner_tol, px, py);
@@ -1771,12 +2856,16 @@ impl DigitiseApp {
                             self.ref_dragging_corner.is_some() || self.ref_dragging.is_some()
                         }
                         CalibrationShape::Parallelogram => {
-                            self.para_dragging =
-                                hit_para_corner(&self.para_corners, corner_tol, px, py);
+                            self.para_dragging = box_handles::nearest_handle(
+                                &self.para_corners,
+                                corner_tol,
+                                px,
+                                py,
+                            );
                             self.para_dragging.is_some()
                         }
                     };
-                    if !claimed && self.mode == ClickMode::EditPoints {
+                    if !claimed && points_live && self.mode == ClickMode::EditPoints {
                         self.dragging = self.nearest_point(px, py, 12.0 / zoom as f64);
                         self.selected = self.dragging;
                     }
@@ -1803,7 +2892,8 @@ impl DigitiseApp {
                     self.para_corners[i] = Some((px, py));
                 }
             }
-            if self.mode == ClickMode::EditPoints
+            if points_live
+                && self.mode == ClickMode::EditPoints
                 && self.ref_dragging.is_none()
                 && self.ref_dragging_corner.is_none()
                 && self.para_dragging.is_none()
@@ -1822,14 +2912,22 @@ impl DigitiseApp {
                 self.para_dragging = None;
                 self.dragging = None;
             }
-            if ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace)) {
+            if points_live
+                && ui.input(|i| i.key_pressed(Key::Delete) || i.key_pressed(Key::Backspace))
+            {
                 self.delete_selected();
             }
 
             // --- overlays: reference lines/quad, then points ---
             match self.calibration_shape {
                 CalibrationShape::AxisAligned => {
-                    let ref_stroke = Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255));
+                    // #421: locked lines are drawn grey and without handles,
+                    // so it is plain that they will not move.
+                    let ref_stroke = if self.axes_locked {
+                        Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(150, 150, 150, 170))
+                    } else {
+                        Stroke::new(1.0_f32, Color32::from_rgb(60, 120, 255))
+                    };
                     let ref_stroke_active = Stroke::new(2.5_f32, Color32::from_rgb(255, 210, 60));
                     let stroke_for = |i: usize| {
                         if self.ref_dragging == Some(i) {
@@ -1856,25 +2954,14 @@ impl DigitiseApp {
                     // at once) is discoverable rather than a hidden
                     // hit-test-only gesture.
                     for (xi, yi) in [(0, 2), (0, 3), (1, 2), (1, 3)] {
+                        if self.axes_locked {
+                            break;
+                        }
                         let (Some(x), Some(y)) = (self.ref_px[xi], self.ref_px[yi]) else {
                             continue;
                         };
-                        let pos = to_screen(x, y);
                         let active = self.ref_dragging_corner == Some((xi, yi));
-                        painter.circle_filled(
-                            pos,
-                            if active { 6.0 } else { 4.0 },
-                            if active {
-                                Color32::from_rgb(255, 210, 60)
-                            } else {
-                                Color32::from_rgb(60, 120, 255)
-                            },
-                        );
-                        painter.circle_stroke(
-                            pos,
-                            if active { 6.0 } else { 4.0 },
-                            Stroke::new(1.0_f32, Color32::WHITE),
-                        );
+                        box_handles::paint_handle(&painter, to_screen(x, y), active);
                     }
                 }
                 CalibrationShape::Parallelogram => {
@@ -1892,30 +2979,29 @@ impl DigitiseApp {
                         {
                             painter.line_segment(
                                 [a, b],
-                                Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255)),
+                                if self.axes_locked {
+                                    Stroke::new(
+                                        1.5_f32,
+                                        Color32::from_rgba_unmultiplied(150, 150, 150, 170),
+                                    )
+                                } else {
+                                    Stroke::new(1.5_f32, Color32::from_rgb(60, 120, 255))
+                                },
                             );
                         }
                     }
                     for (i, sc) in screen_corners.iter().enumerate() {
+                        if self.axes_locked {
+                            break;
+                        }
                         let Some(pos) = sc else { continue };
-                        let active = self.para_dragging == Some(i);
-                        painter.circle_filled(
-                            *pos,
-                            if active { 6.0 } else { 4.0 },
-                            if active {
-                                Color32::from_rgb(255, 210, 60)
-                            } else {
-                                Color32::from_rgb(60, 120, 255)
-                            },
-                        );
-                        painter.circle_stroke(
-                            *pos,
-                            if active { 6.0 } else { 4.0 },
-                            Stroke::new(1.0_f32, Color32::WHITE),
-                        );
+                        box_handles::paint_handle(&painter, *pos, self.para_dragging == Some(i));
                     }
                 }
             }
+            // The other curves on this figure, faint (the hovered one bold),
+            // under the live one.
+            self.paint_banked_series(&painter, to_screen);
             if let Some(d) = &self.dataset {
                 for (i, p) in d.points.iter().enumerate() {
                     let (Some(x), Some(y)) = (p.x_px, p.y_px) else {
@@ -1933,37 +3019,51 @@ impl DigitiseApp {
                     painter.circle_filled(pos, 2.5, colour);
                 }
             }
+
+            // #290: the stroke as it is being drawn. Without it the gesture
+            // is invisible until the button comes up, and a stroke you
+            // cannot see is one you cannot aim.
+            if self.stroke.len() >= 2 {
+                let path: Vec<Pos2> = self
+                    .stroke
+                    .iter()
+                    .map(|&(px, py)| to_screen(px, py))
+                    .collect();
+                painter.add(egui::Shape::line(
+                    path,
+                    Stroke::new(2.0_f32, Color32::from_rgb(40, 160, 220)),
+                ));
+            }
         });
     }
 }
 
 impl DigitiseApp {
-    /// Top bar: switch between the Digitiser, PDF Reader (op-95x6) and
-    /// Markdown Editor (op-wr08) panels, and the Gruvbox theme selector
-    /// (op-t5sq).
+    /// Top bar: ~~switch between the Digitiser, PDF Reader (op-95x6) and
+    /// Markdown Editor (op-wr08) panels~~ **CHANGED 2026-10-12**
+    /// (maintainer): three major tabs (Mindmap, Code Map, Code Review) on
+    /// the top row and the selected one's tabs on a second row
+    /// ([`tab_groups`]); and the Gruvbox theme selector (op-t5sq). GUI
+    /// drawing code (exempt from the test rule; the layout is
+    /// `tab_groups`, tested there).
     fn top_bar(&mut self, ui: &mut egui::Ui) {
+        // Larger tabs and buttons in the top bar (maintainer direction,
+        // 2026-09-22); the pages below keep the theme's own sizes.
+        theme::navigation_style(ui);
+        // The page may have changed outside the bar (a paper opened, Back).
+        self.reconcile_tabs();
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.view, View::Home, "Home");
-            ui.selectable_value(&mut self.view, View::Wiki, "Wiki");
-            ui.selectable_value(&mut self.view, View::Mindmap, "Mindmap");
-            // op-wqaw (GH issue #35's 2026-09-01 checkpoint §21): the
-            // user-facing label is "Save Repository", not "Advanced Git" —
-            // most users shouldn't need Git vocabulary as the primary frame.
-            // The `View::AdvancedGit` variant name is unchanged (internal
-            // only); real Git concepts (branches/history/remotes) live under
-            // that tab's own collapsed "Advanced…" section now.
-            ui.selectable_value(&mut self.view, View::AdvancedGit, "Save Repository");
-            ui.selectable_value(&mut self.view, View::Digitiser, "Digitiser");
-            ui.selectable_value(&mut self.view, View::PdfReader, "PDF Reader");
-            // op-shjn (GH issue #35, "the markdown editor should use the
-            // kvim editor"): Kvim is the one user-facing paper-markdown
-            // editor. The older hand-rolled markdown_editor.rs was retired
-            // (op-9r26) once Bibliography moved off the old crate::project
-            // model, so there is nothing left for a second nav button to
-            // point at.
-            ui.selectable_value(&mut self.view, View::KvimEditor, "Kvim Editor");
-            ui.selectable_value(&mut self.view, View::Bibliography, "Bibliography");
-            ui.selectable_value(&mut self.view, View::TableDigitiser, "Table Digitiser");
+            self.nav_buttons(ui);
+            ui.separator();
+            for g in tab_groups::Group::ALL {
+                if ui
+                    .selectable_label(self.group == g, g.label())
+                    .on_hover_text("Returns to the page you were last on under this tab; click again for its main page")
+                    .clicked()
+                {
+                    self.major_tab_clicked(g);
+                }
+            }
             ui.separator();
             ComboBox::from_id_salt("gui-theme")
                 .selected_text(self.theme.label())
@@ -1972,6 +3072,48 @@ impl DigitiseApp {
                         ui.selectable_value(&mut self.theme, t, t.label());
                     }
                 });
+            if ui
+                .button("\u{2699} Setup")
+                .on_hover_text("Kovan folder and corpus repositories")
+                .clicked()
+            {
+                self.setup.show_for(self.home.root());
+            }
+        });
+        // The second row: the tabs under the selected major tab.
+        ui.horizontal_wrapped(|ui| {
+            for (view, label) in self.group.sub_tabs() {
+                ui.selectable_value(&mut self.view, *view, *label);
+            }
+            if self.group == tab_groups::Group::CodeMap
+                && ui
+                    .button("Go to Code Review")
+                    .on_hover_text("Open the Code Review of this workspace")
+                    .clicked()
+            {
+                self.group = tab_groups::Group::CodeReview;
+                self.view = View::CodeReview;
+            }
+            // From the PDF Reader or the Bibliography opened under Code
+            // Review, straight back to the review (maintainer, 2026-10-13).
+            if self.group.offers_back_to_code_review(self.view)
+                && ui
+                    .button("Back to code review")
+                    .on_hover_text("Return to the Code Review, as you left it")
+                    .clicked()
+            {
+                self.view = View::CodeReview;
+            }
+            // The way back (maintainer, 2026-10-12).
+            if self.group == tab_groups::Group::CodeReview
+                && ui
+                    .button("Back to map")
+                    .on_hover_text("Return to the Code Map")
+                    .clicked()
+            {
+                self.group = tab_groups::Group::CodeMap;
+                self.view = View::CodeMap;
+            }
         });
     }
 
@@ -2002,10 +3144,7 @@ impl DigitiseApp {
         let path = path.to_string_lossy().into_owned();
         match target {
             FileDialogTarget::Image => self.load_image(&path),
-            FileDialogTarget::Pdf => {
-                self.pdf_reader.open(&path);
-                self.offer_ingest_if_new(&path);
-            }
+            FileDialogTarget::Pdf => self.open_document(std::path::Path::new(&path)),
             FileDialogTarget::JsonExport => {
                 self.json_out = path;
                 // Finish an export that was only waiting on this path.
@@ -2014,25 +3153,313 @@ impl DigitiseApp {
                 }
             }
             FileDialogTarget::CsvExport => self.csv_out = path,
-            FileDialogTarget::TableJsonExport => self.table_digitiser.set_json_out(path),
-            FileDialogTarget::TableCsvExport => self.table_digitiser.set_csv_out(path),
             FileDialogTarget::KovanRootOpen => self.home.open_dir(std::path::Path::new(&path)),
             FileDialogTarget::KovanRootCreate => {
                 self.home.begin_create(std::path::Path::new(&path))
             }
+            FileDialogTarget::SetupFolder => self.setup.folder = path,
+            FileDialogTarget::StandardCorpusFolder => self.corpus_folder.folder = path,
+            FileDialogTarget::CodeMapWorkspace => {
+                self.code_map.load_workspace(std::path::PathBuf::from(path))
+            }
+            FileDialogTarget::CodeMapJson => self.code_map.load_json(std::path::PathBuf::from(path)),
             FileDialogTarget::PdfIngest => {
-                if let (Some(root), Some(wiki)) = (self.home.root(), self.wiki.as_mut()) {
-                    if let Err(message) = wiki.begin_ingest(root, std::path::Path::new(&path)) {
-                        self.set_error(message);
-                    }
+                if let Some(root) = self.home.root().cloned() {
+                    self.begin_ingest(&root, std::path::Path::new(&path));
                 }
             }
             FileDialogTarget::KvimFile => match std::fs::read_to_string(&path) {
-                Ok(text) => self.kvim_editor.load_text(&text),
+                Ok(text) => {
+                    self.kvim_editor.load_text(&text);
+                    self.kvim_tab.document_opened();
+                }
                 Err(e) => self.set_error(format!("{path}: {e}")),
             },
         }
     }
+}
+
+impl DigitiseApp {
+    /// What the real application does once at start, and tests never do
+    /// (they build the app with `default()`): ~~begin cloning the standard
+    /// corpus in the background (#253), and open the setup dialog on first
+    /// run unless a Kovan folder was given on the command line (#255)~~
+    /// **CHANGED 2026-10-06** (maintainer: *"during startup i should only be
+    /// prompted for the standard corpus folder and use kovan as is. The local
+    /// corpus will be loaded through the usual setup button"*): refresh the
+    /// standard corpus in the folder the user chose for it, in the
+    /// background ([`Self::refresh_standard_corpus`]), or ask for that folder
+    /// when none is chosen yet ([`corpus_folder`]). Nothing else is asked;
+    /// the user's own Kovan folder is opened from Home or set up with the
+    /// "⚙ Setup" button. `_folder_given` is kept for the caller's signature.
+    pub fn start_up(&mut self, _folder_given: bool) {
+        match crate::corpus_repos::chosen_standard_corpus_dir() {
+            Some(dir) => self.refresh_standard_corpus(dir),
+            None => self
+                .corpus_folder
+                .show(crate::corpus_repos::default_standard_corpus_dir()),
+        }
+    }
+
+    /// Clone or fast-forward the standard corpus at `dir` off the GUI thread
+    /// ([`crate::corpus_repos::update_standard_corpus`]).
+    fn refresh_standard_corpus(&mut self, dir: std::path::PathBuf) {
+        self.spawn_job(move || {
+            use crate::save_push::CorpusPullOutcome as O;
+            match crate::corpus_repos::update_standard_corpus(&dir) {
+                Ok(O::Downloaded { .. }) => {
+                    format!("standard corpus downloaded into {}", dir.display())
+                }
+                Ok(O::Updated { .. }) => "standard corpus refreshed".to_string(),
+                Ok(O::UpToDate { .. }) => String::new(),
+                Ok(O::NeedsConfirmation { reason, .. }) => format!(
+                    "standard corpus not refreshed: {reason} (the built-in map still works)"
+                ),
+                Ok(O::Skipped { reason }) | Ok(O::Failed { message: reason }) => format!(
+                    "standard corpus not refreshed (the built-in map still works): {reason}"
+                ),
+                Err(e) => format!(
+                    "standard corpus not downloaded (the built-in map still works): {e}"
+                ),
+            }
+        });
+    }
+
+    /// Act on the standard-corpus folder window.
+    fn handle_corpus_folder(&mut self, request: corpus_folder::CorpusFolderRequest) {
+        use corpus_folder::CorpusFolderRequest as R;
+        let close = match request {
+            R::Browse => {
+                self.open_picker(FileDialogTarget::StandardCorpusFolder);
+                false
+            }
+            R::NotNow => true,
+            R::Use(dir) => match crate::corpus_repos::check_standard_corpus_folder(
+                &dir,
+                crate::corpus::CORPUS_REPOSITORY_URL,
+            )
+            .and_then(|()| {
+                crate::corpus_repos::choose_standard_corpus_dir(&dir)
+                    .map_err(|e| format!("could not remember the folder: {e}"))
+            }) {
+                Ok(()) => {
+                    self.refresh_standard_corpus(dir);
+                    true
+                }
+                Err(message) => {
+                    self.corpus_folder.set_message(message);
+                    false
+                }
+            },
+        };
+        if close {
+            self.corpus_folder.open = false;
+        }
+    }
+
+    /// Run `job` off the GUI thread; its message is shown when it finishes.
+    fn spawn_job(&mut self, job: impl FnOnce() -> String + Send + 'static) {
+        self.background_jobs.push(std::thread::spawn(job));
+    }
+
+    /// Show the message of every finished background job.
+    fn poll_background_jobs(&mut self) {
+        let (done, running): (Vec<_>, Vec<_>) = std::mem::take(&mut self.background_jobs)
+            .into_iter()
+            .partition(|j| j.is_finished());
+        self.background_jobs = running;
+        for job in done {
+            // A finished job may have downloaded or refreshed a corpus:
+            // re-list the literature.
+            self.literature = None;
+            match job.join() {
+                Ok(message) if !message.is_empty() => self.set_status(message),
+                Ok(_) => {}
+                Err(_) => self.set_error("a background task failed unexpectedly"),
+            }
+        }
+    }
+
+    fn handle_setup(&mut self, request: setup::SetupRequest) {
+        match request {
+            setup::SetupRequest::Browse => self.open_picker(FileDialogTarget::SetupFolder),
+            setup::SetupRequest::Skip => {
+                setup::mark_first_run_done();
+                self.setup.open = false;
+            }
+            setup::SetupRequest::Finish {
+                folder,
+                library_remote,
+                open_remote,
+                proprietary_remote,
+            } => {
+                setup::remember_corpora(&crate::root::CorporaConfig {
+                    open_remote: open_remote.clone(),
+                    proprietary_remote: proprietary_remote.clone(),
+                });
+                match self.set_up_library(&folder, library_remote, open_remote, proprietary_remote)
+                {
+                    Ok(()) => {
+                        setup::mark_first_run_done();
+                        self.setup.open = false;
+                    }
+                    Err(e) => self.setup.set_message(e),
+                }
+            }
+        }
+    }
+
+    /// Set up `folder` as the user's Kovan folder: their own Kovan
+    /// repository plus the standard, open and closed corpora (maintainer
+    /// direction, 2026-09-22).
+    ///
+    /// With `library_remote` and an absent or empty `folder`, the Kovan
+    /// repository is cloned there in the background and set up when it lands
+    /// ([`Self::poll_library_clone`]). Otherwise the folder is opened, or
+    /// created, and given `library_remote` as `origin` if it has none.
+    fn set_up_library(
+        &mut self,
+        folder: &std::path::Path,
+        library_remote: Option<String>,
+        open_remote: Option<String>,
+        proprietary_remote: Option<String>,
+    ) -> Result<(), String> {
+        let empty = !folder.exists()
+            || std::fs::read_dir(folder).is_ok_and(|mut entries| entries.next().is_none());
+        if let (Some(url), true) = (library_remote.as_deref(), empty) {
+            if self.library_clone.is_some() {
+                return Err("a Kovan repository is already being cloned".into());
+            }
+            let (dir, url) = (folder.to_path_buf(), url.to_string());
+            self.set_status(format!("cloning your Kovan repository {url}…"));
+            self.library_clone = Some(LibraryClone {
+                job: std::thread::spawn(move || {
+                    crate::corpus_repos::ensure_repo(&dir, Some(&url), None)
+                        .map(|_| ())
+                        .map_err(|e| format!("your Kovan repository was not cloned: {e}"))
+                }),
+                folder: folder.to_path_buf(),
+                open_remote,
+                proprietary_remote,
+            });
+            return Ok(());
+        }
+        self.open_and_set_up(folder, library_remote, open_remote, proprietary_remote)
+    }
+
+    /// Open the finished clone of the user's Kovan repository, if any.
+    fn poll_library_clone(&mut self) {
+        if !self
+            .library_clone
+            .as_ref()
+            .is_some_and(|c| c.job.is_finished())
+        {
+            return;
+        }
+        let Some(clone) = self.library_clone.take() else {
+            return;
+        };
+        let result = match clone.job.join() {
+            Ok(Ok(())) => self.open_and_set_up(
+                &clone.folder,
+                None,
+                clone.open_remote,
+                clone.proprietary_remote,
+            ),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err("cloning your Kovan repository failed unexpectedly".into()),
+        };
+        if let Err(e) = result {
+            self.set_error(e);
+        }
+    }
+
+    /// Open `folder` as a Kovan folder, or create one there; record the
+    /// corpus remotes in its `kovan_root.toml`; and prepare its repositories
+    /// in the background: `library_remote` as the folder's `origin` if it has
+    /// none, then the standard, open and closed corpora.
+    fn open_and_set_up(
+        &mut self,
+        folder: &std::path::Path,
+        library_remote: Option<String>,
+        open_remote: Option<String>,
+        proprietary_remote: Option<String>,
+    ) -> Result<(), String> {
+        use crate::corpus_repos::RepoState;
+        use crate::root::{CorporaConfig, KovanRoot, RootConfig};
+        let mut root = match KovanRoot::open(folder) {
+            Ok(root) => root,
+            Err(_) => {
+                std::fs::create_dir_all(folder)
+                    .map_err(|e| format!("cannot create {}: {e}", folder.display()))?;
+                let name = folder
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "library".to_string());
+                KovanRoot::create(folder, RootConfig::new(&name, &name), true)
+                    .map_err(|e| format!("cannot make {} a Kovan folder: {e}", folder.display()))?
+            }
+        };
+        // The dialog's remotes, else those the folder already records (a
+        // cloned Kovan repository), else those remembered from an earlier
+        // setup: every new folder gets the user's corpora.
+        let recorded = root.config().corpora.clone();
+        let remembered = setup::remembered_corpora();
+        root.set_corpora(CorporaConfig {
+            open_remote: open_remote
+                .or(recorded.open_remote)
+                .or(remembered.open_remote),
+            proprietary_remote: proprietary_remote
+                .or(recorded.proprietary_remote)
+                .or(remembered.proprietary_remote),
+        })?;
+        self.home.open_dir(root.path());
+        if self.wiki.is_none() {
+            self.wiki = Some(WikiState::new());
+        }
+        self.refresh_knowledge(&root);
+        self.set_status("setting up your repositories…");
+        self.spawn_job(move || {
+            let describe = |name: &str, r: &Result<RepoState, _>| match r {
+                Ok(RepoState::Cloned) => format!("{name} downloaded"),
+                Ok(RepoState::Initialised) => {
+                    format!("{name} created locally (add a remote and push later)")
+                }
+                Ok(RepoState::Existing) => format!("{name} already present"),
+                Ok(RepoState::RemoteAdded) => format!("{name} connected to its GitHub repository"),
+                Ok(RepoState::SubmoduleAdded) => format!("{name} added as a submodule"),
+                Err(e) => format!("{name} not set up: {e}"),
+            };
+            let mut parts = Vec::new();
+            if let Some(url) = library_remote.as_deref() {
+                let r = if crate::corpus_repos::is_git_repo(root.path()) {
+                    crate::corpus_repos::ensure_repo(root.path(), Some(url), None)
+                } else {
+                    Ok(RepoState::Existing)
+                };
+                parts.push(describe("Kovan repository", &r));
+            }
+            let setup = crate::corpus_repos::ensure_library_corpora(&root);
+            parts.push(describe("standard corpus", &setup.standard));
+            parts.push(describe("open corpus", &setup.open));
+            parts.push(describe("proprietary corpus", &setup.proprietary));
+            for (tier, name, r) in &setup.others {
+                let what = format!("{} ({name})", tier.label().to_lowercase());
+                parts.push(describe(&what, r));
+            }
+            parts.join("; ")
+        });
+        Ok(())
+    }
+}
+
+/// A clone of the user's Kovan repository in progress, with the corpus
+/// remotes to apply once it has landed.
+struct LibraryClone {
+    job: std::thread::JoinHandle<Result<(), String>>,
+    folder: std::path::PathBuf,
+    open_remote: Option<String>,
+    proprietary_remote: Option<String>,
 }
 
 impl eframe::App for DigitiseApp {
@@ -2041,7 +3468,24 @@ impl eframe::App for DigitiseApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.theme.apply(ui.ctx());
 
+        // Back/forward from the keyboard and mouse side buttons, applied
+        // before anything draws so the whole frame shows the new location.
+        self.handle_nav_input(ui.ctx());
         egui::Panel::top("topbar").show(ui, |ui| self.top_bar(ui));
+        // A tab click just now may have switched between the Wiki and the
+        // Mindmap: open it on the shared concept before it draws (#242).
+        self.sync_shared_concept();
+        self.poll_background_jobs();
+        self.literature_finder_ui(ui.ctx());
+        self.ingest_form_ui(ui);
+        self.sort_form_ui(ui);
+        self.poll_library_clone();
+        if let Some(request) = self.corpus_folder.ui(ui.ctx()) {
+            self.handle_corpus_folder(request);
+        }
+        if let Some(request) = self.setup.ui(ui.ctx()) {
+            self.handle_setup(request);
+        }
 
         self.file_dialog.update(ui.ctx());
         if let Some(path) = self.file_dialog.take_picked() {
@@ -2068,6 +3512,18 @@ impl eframe::App for DigitiseApp {
             }
         }
 
+        // #355: the reader selects characters and copies on select only
+        // while it sits beside the table grid.
+        let want_table_mode = self.view == View::TableDigitiser;
+        if want_table_mode != self.reader_in_table_mode {
+            if want_table_mode {
+                self.pdf_reader.enter_table_mode();
+            } else {
+                self.pdf_reader.leave_table_mode();
+            }
+            self.reader_in_table_mode = want_table_mode;
+        }
+
         match self.view {
             View::Home => {
                 egui::CentralPanel::default().show(ui, |ui| {
@@ -2079,6 +3535,18 @@ impl eframe::App for DigitiseApp {
                             HomeAction::RequestCreateDialog => {
                                 self.open_picker(FileDialogTarget::KovanRootCreate)
                             }
+                            HomeAction::RequestSetupRepos => {
+                                let root = self.home.root().cloned();
+                                self.setup.show_for(root.as_ref())
+                            }
+                        }
+                    }
+                    // "+ Create Kovan Folder…" just made a folder: give it
+                    // the standard corpus and the user's open and closed
+                    // corpora, as setup does.
+                    if let Some(dir) = self.home.take_created() {
+                        if let Err(e) = self.open_and_set_up(&dir, None, None, None) {
+                            self.set_error(e);
                         }
                     }
                 });
@@ -2086,6 +3554,7 @@ impl eframe::App for DigitiseApp {
             View::Wiki => {
                 let mut ingest_clicked = false;
                 let mut opened_paper = None;
+                let mut opened_corpus: Option<String> = None;
                 let mut knowledge_changed = false;
                 if let Some(root) = self.home.root().cloned() {
                     if self.workspace.is_none() {
@@ -2101,7 +3570,9 @@ impl eframe::App for DigitiseApp {
                                     opened_paper = Some(citekey);
                                     knowledge_changed = true;
                                 }
-                                Some(WikiAction::KnowledgeChanged) => knowledge_changed = true,
+                                Some(WikiAction::OpenCorpusLiterature(id)) => {
+                                    opened_corpus = Some(id);
+                                }
                                 None => {}
                             }
                         }
@@ -2126,49 +3597,142 @@ impl eframe::App for DigitiseApp {
                         self.refresh_knowledge(&root);
                     }
                 }
-                // op-sr4n.2: a paper link was clicked, or "Ingest & Open"
+                // op-sr4n.2: a citation was opened, or "Ingest & Open"
                 // just finished — activate it and jump to it, same as
                 // Mindmap's own OpenPaper below.
                 if let Some(citekey) = opened_paper {
                     self.activate_paper_and_navigate(&citekey);
                 }
+                if let Some(id) = opened_corpus {
+                    self.open_corpus_document(&id);
+                }
             }
             View::Mindmap => {
-                if let Some(root) = self.home.root().cloned() {
+                // The map needs no folder: without one it shows the built-in
+                // corpus alone (epic #247).
+                let root = self.home.root().cloned();
+                if let Some(root) = &root {
                     if self.workspace.is_none() {
+                        self.refresh_knowledge(root);
+                    }
+                }
+                let mut opened_paper = None;
+                let mut opened_corpus: Option<String> = None;
+                let mut sort_paper = None;
+                let mut open_setup = false;
+                let mut knowledge_changed = false;
+                let mut open_review: Option<(std::path::PathBuf, String)> = None;
+                let (index, graph) = match self.workspace.as_ref() {
+                    Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
+                    _ => (None, None),
+                };
+                egui::CentralPanel::default().show(ui, |ui| {
+                    match self
+                        .mindmap
+                        .ui(ui, root.as_ref(), index, graph, self.recent.as_ref())
+                    {
+                        Some(MindmapAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
+                        Some(MindmapAction::OpenCorpusLiterature(id)) => opened_corpus = Some(id),
+                        Some(MindmapAction::SortPaper(citekey)) => sort_paper = Some(citekey),
+                        // No Kovan folder yet and the user asked for
+                        // something that needs one: open setup rather than
+                        // leaving the request nowhere.
+                        Some(MindmapAction::OpenSetup) => open_setup = true,
+                        Some(MindmapAction::KnowledgeChanged) => knowledge_changed = true,
+                        Some(MindmapAction::OpenCodeReview { repo_dir, entry }) => {
+                            open_review = Some((repo_dir, entry))
+                        }
+                        None => {}
+                    }
+                });
+                // #844: a code review chosen on a concept opens Code Review
+                // on that mounted repository, at that entry.
+                if let Some((repo_dir, entry)) = open_review {
+                    self.code_map.load_workspace(repo_dir.clone());
+                    self.code_review.open_entry(&repo_dir, &entry);
+                    self.group = tab_groups::Group::CodeReview;
+                    self.view = View::CodeReview;
+                }
+                if knowledge_changed {
+                    if let Some(root) = root.clone() {
                         self.refresh_knowledge(&root);
                     }
-                    let mut opened_paper = None;
-                    if let Some(workspace) = self.workspace.as_ref() {
-                        egui::CentralPanel::default().show(ui, |ui| {
-                            if let Some(MindmapAction::OpenPaper(citekey)) =
-                                self.mindmap
-                                    .ui(ui, &root, &workspace.index, &workspace.graph)
-                            {
-                                opened_paper = Some(citekey);
-                            }
-                        });
-                    }
-                    if let Some(citekey) = opened_paper {
-                        // op-sr4n.3: route through the same
-                        // activate_paper/view-switch helper Wiki uses,
-                        // rather than each view picking its own paper-
-                        // opening behaviour.
-                        self.activate_paper_and_navigate(&citekey);
-                    }
-                } else {
-                    egui::CentralPanel::default().show(ui, |ui| {
-                        ui.centered_and_justified(|ui| {
-                            ui.weak("no Kovan folder open — go to Home to open or create one");
-                        });
-                    });
                 }
+                if open_setup {
+                    let root = self.home.root().cloned();
+                    self.setup.show_for(root.as_ref());
+                }
+                if let Some(citekey) = sort_paper {
+                    // The dialog is drawn app-wide by `sort_form_ui`, so it
+                    // opens here on the Mindmap rather than sending the user
+                    // to the Wiki.
+                    if self.wiki.is_none() {
+                        self.wiki = Some(wiki::WikiState::new());
+                    }
+                    if let (Some(w), Some(workspace)) =
+                        (self.wiki.as_mut(), self.workspace.as_ref())
+                    {
+                        w.open_sort_flow(citekey, &workspace.index);
+                    }
+                }
+                if let Some(id) = opened_corpus {
+                    self.open_corpus_document(&id);
+                }
+                if let Some(citekey) = opened_paper {
+                    // op-sr4n.3: route through the same
+                    // activate_paper/view-switch helper Wiki uses,
+                    // rather than each view picking its own paper-
+                    // opening behaviour.
+                    self.activate_paper_and_navigate(&citekey);
+                }
+            }
+            View::CodeMap => {
+                let mut request = None;
+                egui::CentralPanel::default().show(ui, |ui| {
+                    request = self.code_map.ui(ui);
+                });
+                match request {
+                    Some(code_map_view::CodeMapRequest::ChooseWorkspace) => {
+                        self.open_picker(FileDialogTarget::CodeMapWorkspace)
+                    }
+                    Some(code_map_view::CodeMapRequest::ChooseJson) => {
+                        self.open_picker(FileDialogTarget::CodeMapJson)
+                    }
+                    None => {}
+                }
+                // An index run just finished: build the Code Review view's
+                // data now, in the background, so it loads by itself.
+                if let Some(dir) = self.code_map.take_index_finished() {
+                    self.code_review.index_finished(&dir);
+                }
+            }
+            View::CodeReview => {
+                self.code_map.ensure_default_workspace();
+                let workspace = self.code_map.workspace().map(std::path::Path::to_path_buf);
+                self.code_review.set_workspace(workspace.as_deref());
+                // Reviews may change here: the mindmap collects its code
+                // reviews again when it is next shown (#844).
+                self.mindmap.invalidate_code_reviews();
+                egui::CentralPanel::default().show(ui, |ui| self.code_review.ui(ui));
             }
             View::AdvancedGit => {
                 if let Some(root) = self.home.root().cloned() {
+                    let mut added = false;
                     egui::CentralPanel::default().show(ui, |ui| {
+                        // The folder's repositories and "Add repository"
+                        // (#840, #841), above Save Repository.
+                        added = repo_management_view::show(ui, &mut self.repo_management, &root);
+                        ui.separator();
                         self.advanced_git.ui(ui, &root);
                     });
+                    // A repository was added: kovan_root.toml changed, so
+                    // read the folder again.
+                    if added {
+                        self.home.open_dir(root.path());
+                        if let Some(fresh) = self.home.root().cloned() {
+                            self.refresh_knowledge(&fresh);
+                        }
+                    }
                 } else {
                     egui::CentralPanel::default().show(ui, |ui| {
                         ui.centered_and_justified(|ui| {
@@ -2200,11 +3764,31 @@ impl eframe::App for DigitiseApp {
             }
             View::PdfReader => {
                 let mut open_clicked = false;
+                let mut sort_clicked: Option<String> = None;
                 let mut crop_result = None;
                 // op-j178 / GH issue #35 2026-09-02: the page-context panel
                 // renders the *shared* kvim editor (same buffer as the Kvim
                 // Editor view) in place, with citation/wiki completion.
                 let root = self.home.root().cloned();
+                // The open folder's literature, on the left (2026-09-22);
+                // with no folder open, the standard corpus (2026-10-06).
+                {
+                    self.ensure_literature_list();
+                    let current = self.reader_path.clone();
+                    let action = egui::Panel::left("pdf_literature")
+                        .resizable(true)
+                        .default_size(260.0)
+                        .min_size(160.0)
+                        .show(ui, |ui| {
+                            self.literature
+                                .as_mut()
+                                .and_then(|l| l.ui(ui, current.as_deref()))
+                        })
+                        .inner;
+                    if let Some(action) = action {
+                        self.literature_action(action);
+                    }
+                }
                 egui::CentralPanel::default().show(ui, |ui| {
                     // op-q1qj: the active paper's session (if any) so the
                     // reader saves annotations straight into it instead of
@@ -2220,6 +3804,7 @@ impl eframe::App for DigitiseApp {
                     crop_result = self.pdf_reader.ui(
                         ui,
                         || open_clicked = true,
+                        |citekey| sort_clicked = Some(citekey),
                         active_session,
                         &mut self.kvim_editor,
                         completion,
@@ -2227,6 +3812,18 @@ impl eframe::App for DigitiseApp {
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::Pdf);
+                }
+                // #275: "Sort & categorise" in the reader opens the same
+                // dialog the Wiki and the Mindmap use, over the reader.
+                if let Some(citekey) = sort_clicked {
+                    if self.wiki.is_none() {
+                        self.wiki = Some(wiki::WikiState::new());
+                    }
+                    if let (Some(w), Some(workspace)) =
+                        (self.wiki.as_mut(), self.workspace.as_ref())
+                    {
+                        w.open_sort_flow(citekey, &workspace.index);
+                    }
                 }
                 // op-p17q/op-hnhp: the reader just completed a
                 // crop-then-right-click gesture — load the cropped region
@@ -2236,16 +3833,8 @@ impl eframe::App for DigitiseApp {
                 // tab? ... after I'm done, I close" — this window's
                 // existing view switch already fills that role, so no
                 // separate popup/tab was added.
-                match crop_result {
-                    Some(pdf_reader::CropResult::Plot(raster, provenance)) => {
-                        self.load_image_from_raster(raster, Some(provenance));
-                        self.view = View::Digitiser;
-                    }
-                    Some(pdf_reader::CropResult::Table(raster, provenance)) => {
-                        self.table_digitiser.load_crop(raster, Some(provenance));
-                        self.view = View::TableDigitiser;
-                    }
-                    None => {}
+                if let Some(crop) = crop_result {
+                    self.route_crop(crop);
                 }
             }
             View::KvimEditor => {
@@ -2278,6 +3867,8 @@ impl eframe::App for DigitiseApp {
                         if ui.button("Open external file…").clicked() {
                             open_clicked = true;
                         }
+                        // 2026-09-28: Edit/Done editing + Source|Preview.
+                        self.kvim_tab.toolbar_ui(ui);
                     });
                     // op-dkll: shared index, not a fresh per-frame rebuild.
                     let completion = match (&root, self.workspace.as_ref()) {
@@ -2287,7 +3878,9 @@ impl eframe::App for DigitiseApp {
                         }),
                         _ => None,
                     };
-                    self.kvim_editor.ui(ui, completion);
+                    // Source left, live GFM preview right; read-only until
+                    // Edit is confirmed (`kvim_tab`'s module docs).
+                    self.kvim_tab.ui(ui, &mut self.kvim_editor, completion);
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::KvimFile);
@@ -2337,19 +3930,105 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::TableDigitiser => {
-                let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
-                let mut request = None;
+                // #356: LibreOffice-Calc-style grid on the left, the real PDF
+                // reader on the right (maintainer, 2026-09-28).
+                let outcome = {
+                    let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
+                    egui::Panel::left("table_grid_panel")
+                        .resizable(true)
+                        .default_size(520.0)
+                        .min_size(280.0)
+                        .show(ui, |ui| self.table_digitiser.ui(ui, active_session))
+                        .inner
+                };
+                // A saved table is finished, and a cancelled setup box or
+                // Cancel digitisation means the region was not wanted:
+                // either way, back to reading (maintainer, 2026-09-28).
+                if outcome != TableOutcome::Continue {
+                    self.view = View::PdfReader;
+                }
+                let root = self.home.root().cloned();
+                let mut open_clicked = false;
+                let mut crop_result = None;
                 egui::CentralPanel::default().show(ui, |ui| {
-                    request = self.table_digitiser.ui(ui, active_session);
+                    let active_session = self.active_paper.as_mut().map(|p| &mut p.session);
+                    let completion = match (&root, self.workspace.as_ref()) {
+                        (Some(root), Some(workspace)) => Some(kvim_editor::CompletionSource {
+                            root,
+                            index: &workspace.index,
+                        }),
+                        _ => None,
+                    };
+                    crop_result = self.pdf_reader.ui(
+                        ui,
+                        || open_clicked = true,
+                        |_citekey| {},
+                        active_session,
+                        &mut self.kvim_editor,
+                        completion,
+                    );
                 });
-                match request {
-                    Some(TablePickerRequest::Json) => {
-                        self.open_picker(FileDialogTarget::TableJsonExport)
+                if open_clicked {
+                    self.open_picker(FileDialogTarget::Pdf);
+                }
+                if let Some(crop) = crop_result {
+                    self.route_crop(crop);
+                }
+            }
+            View::PlotSetup => {
+                // Upload the crop's texture here as well as in the digitiser:
+                // the form is reached FIRST, so waiting for the digitiser's
+                // own upload would show the operator an empty panel on the
+                // one screen whose questions can only be answered by looking
+                // at the figure.
+                if self.texture.is_none() {
+                    if let Some(raster) = self.raster.as_ref() {
+                        let img = pdf_reader::raster_to_color_image(raster);
+                        self.texture =
+                            Some(ui.ctx().load_texture("plot", img, TextureOptions::NEAREST));
                     }
-                    Some(TablePickerRequest::Csv) => {
-                        self.open_picker(FileDialogTarget::TableCsvExport)
+                }
+                let figure = self.raster.as_ref().and_then(|r| {
+                    self.texture.as_ref().map(|t| {
+                        (t.id(), Vec2::new(r.width() as f32, r.height() as f32))
+                    })
+                });
+                let mut outcome = plot_setup::Outcome::Continue;
+                egui::CentralPanel::default().show(ui, |ui| {
+                    outcome = self.plot_setup.ui(ui, figure);
+                });
+                // The form owns the intent; the pixels live here. Re-derive
+                // the working raster whenever the turn or the skew changes.
+                //
+                // **Always from `raster_original`, never from the current
+                // raster.** The quarter turn is lossless and could be
+                // applied incrementally, but the deskew RESAMPLES -- nudging
+                // the slider ten times would otherwise blur the figure ten
+                // times over. Re-deriving means the operator can sweep the
+                // slider freely and the result depends only on where it
+                // ends up.
+                let want = (self.plot_setup.turn, self.plot_setup.skew_degrees);
+                if self.applied_transform != want {
+                    if let Some(original) = self.raster_original.clone() {
+                        let turned = original.rotated(want.0);
+                        self.raster = Some(if want.1 == 0.0 {
+                            turned
+                        } else {
+                            turned.deskewed(want.1)
+                        });
+                        self.texture = None; // re-uploaded next frame
                     }
-                    None => {}
+                    self.applied_transform = want;
+                }
+                match outcome {
+                    plot_setup::Outcome::Finish => self.finish_plot_setup(),
+                    // Backing out of stage 1 returns to the reader. The
+                    // raster stays loaded rather than being thrown away --
+                    // re-cropping the same figure to correct a typo in the
+                    // form would be a poor trade, and the digitiser is still
+                    // reachable from the nav bar with it in place.
+                    plot_setup::Outcome::Cancel => self.view = View::PdfReader,
+                    plot_setup::Outcome::Continue => {}
                 }
             }
         }
@@ -2365,13 +4044,24 @@ impl eframe::App for DigitiseApp {
                 .sync_to_disk_text(active.session.markdown());
         }
 
+        // Record where this frame ended up as a history step, if it moved
+        // (#242). Last, so every route that navigates -- a tab, a breadcrumb,
+        // a drill-in, opening a paper -- is caught in one place.
+        self.record_location();
+
         // GH issue #35 2026-09-02: after any save wrote a tracked repo file,
         // auto-refresh the Save Repository tab's git status (it otherwise
         // only re-scans on first open or an explicit Refresh click).
-        if let Some(root) = self.home.root() {
-            let fp = RepoSaveFingerprint::capture(root, self.active_paper.as_ref());
+        if let Some(root) = self.home.root().cloned() {
+            let fp = RepoSaveFingerprint::capture(&root, self.active_paper.as_ref());
             if self.repo_save_fingerprint.is_some_and(|prev| prev != fp) {
                 self.advanced_git.mark_stale();
+                // #286: the same save also changed what the Mindmap, the
+                // Wiki and the completion popups should be showing. Rebuild
+                // the one shared knowledge state here rather than at each
+                // save site — the same reason the git status is marked from
+                // here, and it catches an external edit too.
+                self.refresh_knowledge(&root);
             }
             self.repo_save_fingerprint = Some(fp);
         }
@@ -2420,9 +4110,74 @@ mod tests {
             access,
             topics: vec!["htgrs".to_string()],
             projects: vec![],
+            target: None,
         };
         ingest::ingest(root, &preview, choice).unwrap();
         citekey
+    }
+
+    /// GH issue #286: a connection is written to the mind map's own files,
+    /// not to the active paper, so the save fingerprint has to watch them —
+    /// otherwise nothing tells the app to rebuild the shared knowledge and
+    /// the Mindmap keeps drawing what it read at startup.
+    #[test]
+    fn the_save_fingerprint_notices_a_connection_in_either_mindmap_file() {
+        use crate::node_id::{Namespace, NodeId};
+        let (_dir, root) = make_root();
+
+        let start = RepoSaveFingerprint::capture(&root, None);
+
+        // A relation artifact (what the PDF reader's "Add connection…" writes).
+        std::fs::write(root.mindmap_markdown(), "# mindmap\n").unwrap();
+        let after_relation = RepoSaveFingerprint::capture(&root, None);
+        assert_ne!(start, after_relation, "mindmap.md is not watched");
+
+        // A concept hyperlink (#285).
+        crate::connections::add(
+            &root,
+            &NodeId::concept(Namespace::Library, "njoy"),
+            &NodeId::concept(Namespace::Corpus, "nuclear-data/njoy"),
+        )
+        .unwrap();
+        let after_hyperlink = RepoSaveFingerprint::capture(&root, None);
+        assert_ne!(
+            after_relation, after_hyperlink,
+            "mindmap/connections.toml is not watched"
+        );
+    }
+
+    /// Opening a paper's own PDF opens the paper (so the page panel shows
+    /// its notes, not the "Set a project root" fallback); opening any other
+    /// PDF closes it and offers to ingest, even inside a corpus.
+    #[test]
+    fn opening_a_pdf_finds_its_paper_or_offers_ingest() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Owned Paper", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        let owned = app.paper_owning_pdf(
+            &root.paper_dir(&citekey).join(
+                EntityConfig::load(&root.paper_dir(&citekey))
+                    .unwrap()
+                    .source
+                    .unwrap()
+                    .pdf
+                    .unwrap(),
+            ),
+        );
+        assert_eq!(owned.as_deref(), Some(citekey.as_str()));
+
+        let stray = root.open_corpus_dir().join("stray.pdf");
+        write_test_pdf(&stray, "Stray");
+        assert_eq!(app.paper_owning_pdf(&stray), None);
+        app.activate_paper(&citekey).unwrap();
+        app.file_dialog_target = Some(FileDialogTarget::Pdf);
+        app.handle_picked_file(&stray);
+        assert!(app.active_paper.is_none());
+        assert_eq!(
+            app.pending_ingest_prompt.as_deref(),
+            Some(stray.to_string_lossy().as_ref())
+        );
     }
 
     /// GH issue #35 2026-09-02: writing the active paper's Markdown changes
@@ -2516,7 +4271,10 @@ mod tests {
             active.pdf_path.is_none(),
             "a missing PDF must report unavailable, not a stale path"
         );
-        assert!(active.pdf_unavailable, "a paper that DOES record a source PDF, just not found locally, must flag it unavailable");
+        assert!(
+            active.pdf_unavailable,
+            "a paper that DOES record a source PDF, just not found locally, must flag it unavailable"
+        );
     }
 
     /// A paper genuinely catalogued from metadata alone (never had a source
@@ -2575,6 +4333,58 @@ mod tests {
 
         assert_eq!(app.view, View::PdfReader);
         assert!(app.active_paper.is_some());
+    }
+
+    /// The maintainer's report (#858), through the app's own two hooks:
+    /// with the PDF Reader showing under Mindmap, a visit to Code Review and
+    /// a click on Mindmap comes back to the PDF Reader; a second click on
+    /// Mindmap reaches the mindmap canvas. Before 2026-10-13 the first
+    /// click back landed on the canvas.
+    #[test]
+    fn switching_major_tabs_comes_back_to_the_pdf_reader() {
+        use tab_groups::Group;
+        let mut app = DigitiseApp::default();
+        app.view = View::PdfReader;
+        app.reconcile_tabs();
+        assert_eq!(app.group, Group::Mindmap);
+        app.major_tab_clicked(Group::CodeReview);
+        app.reconcile_tabs();
+        assert_eq!((app.group, app.view), (Group::CodeReview, View::CodeReview));
+        app.major_tab_clicked(Group::Mindmap);
+        app.reconcile_tabs();
+        assert_eq!((app.group, app.view), (Group::Mindmap, View::PdfReader));
+        app.major_tab_clicked(Group::Mindmap);
+        assert_eq!(app.view, View::Mindmap);
+    }
+
+    /// Methodology (#858): open a paper, go to another page, click the same
+    /// paper again, then click a different paper. Pass: the second click on
+    /// the same paper returns to the reader WITHOUT opening the PDF again
+    /// (an open resets the page and the scroll), and says "opened"; a
+    /// different paper does open, and coming back to the first one then
+    /// opens it again, since the reader no longer shows it.
+    ///
+    /// Result (2026-10-13): one open, still one after the second click, two
+    /// after the other paper, three after returning.
+    #[test]
+    fn clicking_an_open_paper_again_keeps_its_place() {
+        let (dir, root) = make_root();
+        let first = ingest_one(&root, dir.path(), "Fuel Cladding Gap Conductance", Access::Open);
+        let second = ingest_one(&root, dir.path(), "Pebble Bed Packing Fraction", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+
+        app.activate_paper_and_navigate(&first);
+        assert_eq!((app.view, app.pdf_reader.times_opened()), (View::PdfReader, 1));
+        app.view = View::Wiki;
+        app.activate_paper_and_navigate(&first);
+        assert_eq!((app.view, app.pdf_reader.times_opened()), (View::PdfReader, 1), "not opened again");
+        assert!(app.message.contains("opened"), "{}", app.message);
+
+        app.activate_paper_and_navigate(&second);
+        assert_eq!(app.pdf_reader.times_opened(), 2, "a different paper does open");
+        app.activate_paper_and_navigate(&first);
+        assert_eq!(app.pdf_reader.times_opened(), 3, "the reader no longer showed the first");
     }
 
     #[test]
@@ -2751,6 +4561,7 @@ mod tests {
 
         let mut app = DigitiseApp::default();
         app.home.open_dir(root.path());
+
         app.refresh_knowledge(&root);
 
         let workspace = app.workspace.as_ref().unwrap();
@@ -2845,6 +4656,25 @@ mod tests {
         assert!(app.document_title.is_empty());
     }
 
+    /// Right-drag in Draw trace erases through the same path as the Eraser
+    /// mode: the point under the pointer goes, one far away does not.
+    #[test]
+    fn erase_near_removes_only_the_point_under_the_pointer() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(minimal_dataset());
+        let before = app.dataset.as_ref().unwrap().points.len();
+        assert!(before > 0, "the fixture has points");
+        let p = app.dataset.as_ref().unwrap().points[0].clone();
+        let (px, py) = (
+            p.x_px.expect("fixture point has a pixel x"),
+            p.y_px.expect("fixture point has a pixel y"),
+        );
+        assert!(!app.erase_near(px + 1e6, py + 1e6, 12.0), "nothing that far away");
+        assert_eq!(app.dataset.as_ref().unwrap().points.len(), before);
+        assert!(app.erase_near(px + 1.0, py, 12.0));
+        assert_eq!(app.dataset.as_ref().unwrap().points.len(), before - 1);
+    }
+
     fn minimal_dataset() -> DigitisedDataset {
         use crate::digitiser::detect::PixelRect;
         use crate::digitiser::trace::PixelTracePoint;
@@ -2899,6 +4729,7 @@ mod tests {
                 thickness_px: 3.0,
             }],
         )
+
     }
 
     /// `op-bd8p`: the graph digitiser's "Save into project markdown" writes
@@ -2926,17 +4757,658 @@ mod tests {
     }
 
     #[test]
-    fn save_into_project_refuses_when_there_is_no_active_paper_and_no_project_fields() {
+    fn save_into_project_without_a_paper_says_to_ingest() {
         let mut app = DigitiseApp::default();
         app.dataset = Some(minimal_dataset());
 
         app.save_into_project();
 
-        // GH issue #35, 2026-09-08: this used to point at the manual
-        // project fields. It now names the real fix — activate a paper —
-        // because the manual path writes a plain section that is not a
-        // Kovan artifact and so never draws a region box on the PDF.
+        // GH issue #35, 2026-09-08, and 2026-09-22 (the manual project
+        // fields were removed): it names the real fix, ingesting the PDF.
         assert!(app.message_is_error, "{}", app.message);
-        assert!(app.message.contains("no active paper"), "{}", app.message);
+        assert!(app.message.contains("ingest this PDF"), "{}", app.message);
+    }
+
+    /// The point of the three-stage form: after it finishes, the digitiser
+    /// panel is already filled in, so the only work left is the part that
+    /// needs the image.
+    #[test]
+    fn the_setup_form_autofills_the_digitiser_panel() {
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            stage: plot_setup::Stage::Labels,
+            turn: crate::digitiser::raster::Quarter::None,
+            skew_degrees: 0.0,
+            show_grid: false,
+            grid_spacing: 40.0,
+            prefill_note: None,
+            saved_ranges: None,
+            recalibration_confirmed: false,
+            figure: "  Fig. 7 ".into(),
+            document_title: "Verfondern 1990".into(),
+            page: "12".into(),
+            notes: "upper curve".into(),
+            x_min: "0".into(),
+
+            x_max: "100".into(),
+            y_min: "1".into(),
+            y_max: "1000".into(),
+            x_log: false,
+            y_log: true,
+            x_label: " Time (h) ".into(),
+            y_label: "Activity (Bq)".into(),
+        };
+        app.apply_plot_setup();
+
+        assert_eq!(app.figure, "Fig. 7", "trimmed on the way in");
+        assert_eq!(app.document_title, "Verfondern 1990");
+        assert_eq!(app.page, "12");
+        assert_eq!(app.notes, "upper curve");
+        assert_eq!(
+            app.ref_val,
+            ["0", "100", "1", "1000"].map(String::from),
+            "reference VALUES land in the digitiser's [X1, X2, Y1, Y2] order"
+        );
+        assert!(!app.x_log && app.y_log, "the log flags carry across per axis");
+        assert_eq!(app.x_label, "Time (h)");
+        assert_eq!(app.y_label, "Activity (Bq)");
+    }
+
+    /// A blank optional box must not erase provenance the crop already
+    /// worked out (`load_image_from_raster` fills page and document identity
+    /// from the active paper). Only the figure, the ranges and the labels
+    /// are required, and only those are unconditional.
+    #[test]
+    fn an_empty_optional_field_does_not_erase_what_the_crop_knew() {
+        let mut app = DigitiseApp::default();
+        app.document_title = "from the active paper".into();
+        app.page = "31".into();
+        app.notes = "cropped at 300 dpi".into();
+
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 2".into(),
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "0".into(),
+            y_max: "1".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+
+        assert_eq!(app.document_title, "from the active paper");
+        assert_eq!(app.page, "31");
+        assert_eq!(app.notes, "cropped at 300 dpi");
+        assert_eq!(app.figure, "Fig. 2", "the required field still applies");
+    }
+
+    /// A minimal dataset with points, for the series tests.
+    pub(super) fn sample_dataset_for_series() -> DigitisedDataset {
+        use crate::digitiser::calibration::{AxisCalibration, AxisRef, AxisScale};
+        let axis = |v0: f64, v1: f64| {
+            AxisCalibration::new(
+                AxisScale::Linear,
+                AxisRef { pixel: 0.0, value: v0 },
+                AxisRef { pixel: 100.0, value: v1 },
+            )
+            .expect("valid axis")
+        };
+        DigitisedDataset {
+            schema_version: DATASET_SCHEMA_VERSION,
+            source: FigureSource::new("Fig. 1").expect("figure"),
+            calibration: PlotCalibration::AxisAligned {
+                x: axis(0.0, 10.0),
+                y: axis(0.0, 20.0),
+
+            },
+            x_label: "time (s)".into(),
+            y_label: "power (%)".into(),
+            digitised_by: "unit test".into(),
+            digitised_at: "2026-09-24T00:00:00Z".into(),
+            trace: None,
+            review: ReviewStatus::Unreviewed,
+            series: None,
+            points: vec![DigitisedPoint {
+                x: 1.0,
+                y: 2.0,
+                x_px: Some(10.0),
+                y_px: Some(20.0),
+                x_minus: 0.0,
+                x_plus: 0.0,
+                y_minus: 0.0,
+                y_plus: 0.0,
+                origin: PointOrigin::HandPlaced {
+                    by: "unit test".into(),
+                },
+            }],
+        }
+    }
+
+    /// Banking a series keeps the figure's calibration, source and axis
+    /// labels and starts a fresh curve. Re-deriving them would let two
+    /// curves off one plot disagree about where its axes are.
+    #[test]
+    fn banking_a_series_keeps_the_figure_and_clears_the_points() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        let before = app.dataset.clone().expect("set above");
+        app.series_name = "235U thermal".into();
+
+        app.finish_series();
+
+        assert_eq!(app.completed_series.len(), 1);
+        let banked = &app.completed_series[0];
+        assert_eq!(banked.series.as_deref(), Some("235U thermal"));
+        assert_eq!(banked.points.len(), before.points.len(), "points are kept");
+
+        let next = app.dataset.as_ref().expect("a next series is started");
+        assert!(next.points.is_empty(), "the next curve starts empty");
+        assert_eq!(next.series, None, "and unnamed, awaiting its own name");
+        assert_eq!(next.calibration, before.calibration, "same axes");
+        assert_eq!(next.source, before.source, "same figure");
+        assert_eq!(next.x_label, before.x_label);
+        assert!(app.series_name.is_empty(), "the name box is cleared");
+    }
+
+    /// An unnamed or duplicate series is refused: the export is the only
+    /// place it would surface, and two columns both called "1600 degC" are
+    /// not something a reader can take apart afterwards.
+    #[test]
+    fn a_series_must_be_named_and_unique() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+
+        app.series_name = "   ".into();
+        app.finish_series();
+        assert!(app.completed_series.is_empty(), "unnamed is refused");
+        assert!(app.message_is_error);
+
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1);
+
+        // Same name again.
+        app.dataset.as_mut().expect("live").points =
+            app.completed_series[0].points.clone();
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1, "a duplicate name is refused");
+        assert!(app.message_is_error);
+    }
+
+    /// An empty curve cannot be banked -- it would export as a named series
+    /// with no rows, which reads as "we measured nothing" rather than "we
+    /// forgot to trace it".
+    #[test]
+    fn an_empty_series_cannot_be_banked() {
+        let mut app = DigitiseApp::default();
+        let mut d = sample_dataset_for_series();
+        d.points.clear();
+        app.dataset = Some(d);
+        app.series_name = "A".into();
+        app.finish_series();
+        assert!(app.completed_series.is_empty());
+        assert!(app.message_is_error);
+    }
+
+    /// `all_series` is the single answer to "what is on this figure": the
+    /// banked curves plus the live one, and the live one only once it has
+    /// points.
+    #[test]
+    fn all_series_counts_the_live_curve_only_once_it_has_points() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        assert_eq!(app.all_series().len(), 1, "a live curve with points counts");
+
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(
+            app.all_series().len(),
+            1,
+            "after banking, the fresh empty curve does not count"
+        );
+
+        app.dataset.as_mut().expect("live").points =
+            app.completed_series[0].points.clone();
+        assert_eq!(app.all_series().len(), 2, "banked + live-with-points");
+    }
+
+    /// Loading a different image is a different figure; its predecessors'
+    /// series must not follow it across.
+    #[test]
+    fn a_new_image_clears_the_banked_series() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        app.series_name = "A".into();
+        app.finish_series();
+        assert_eq!(app.completed_series.len(), 1);
+
+        app.set_raster(PlotRaster::from_rgb_fn(4, 4, |_, _| [255, 255, 255]), String::new());
+        assert!(
+            app.completed_series.is_empty(),
+            "a new figure starts with no series"
+        );
+        assert!(app.series_name.is_empty());
+    }
+
+    /// **A banked series must still reach the CSV.**
+    ///
+    /// Banking moves the points out of `dataset` and leaves it empty, so the
+    /// single-series path used to render the EMPTY live buffer -- a header
+    /// row and no data. Reported as "the csv turns up blank" (maintainer,
+    /// 2026-09-24) after digitising a one-curve figure and banking it.
+    #[test]
+    fn a_banked_series_is_what_gets_written_not_the_emptied_live_one() {
+        let mut app = DigitiseApp::default();
+        app.dataset = Some(sample_dataset_for_series());
+        app.series_name = "only curve".into();
+        app.finish_series();
+
+        // The state that used to produce a blank CSV: one banked curve, and
+        // a live dataset that is empty.
+        assert_eq!(app.completed_series.len(), 1);
+        assert!(app.dataset.as_ref().expect("live").points.is_empty());
+
+        let series = app.all_series();
+        assert_eq!(series.len(), 1, "the banked curve is the only one");
+        let csv = series[0].to_csv_data_only();
+        assert!(
+            csv.lines().count() > 1,
+            "the CSV must carry data rows, not just a header:\n{csv}"
+        );
+        assert!(csv.contains("1,2"), "the banked point must be present:\n{csv}");
+
+        // And the live (empty) dataset is NOT what would have been written.
+        let live = app.dataset.as_ref().expect("live").to_csv_data_only();
+        assert_eq!(
+            live.lines().count(),
+            1,
+            "precondition: the live buffer really is header-only"
+        );
+    }
+
+    /// With nothing traced at all, saving reports an error rather than
+    /// writing an empty artifact. A blank CSV in a paper's markdown reads as
+    /// "this digitisation found no data", which is a very different claim
+    /// from "not traced yet".
+    #[test]
+    fn saving_with_no_points_is_an_error_not_an_empty_artifact() {
+        let mut app = DigitiseApp::default();
+        let mut d = sample_dataset_for_series();
+        d.points.clear();
+        app.dataset = Some(d);
+        assert!(app.all_series().is_empty());
+
+        app.save_into_project();
+        assert!(app.message_is_error, "must report, not write nothing");
+        assert!(
+            app.message.contains("no points"),
+            "unexpected message: {}",
+            app.message
+        );
+    }
+
+    /// Rotating in the wizard turns the **raster**, not just the preview,
+    /// and drops the texture so it is re-uploaded. Calibrating against an
+    /// image the digitiser does not have would transpose every axis.
+    #[test]
+    fn the_wizard_rotation_turns_the_raster_the_digitiser_will_use() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        // 8 x 3, so a quarter turn is unmistakable in the dimensions.
+        app.set_raster(
+            PlotRaster::from_rgb_fn(8, 3, |x, y| [x as u8, y as u8, 0]),
+            String::new(),
+        );
+        let before = app.raster.as_ref().expect("raster").clone();
+        assert_eq!((before.width(), before.height()), (8, 3));
+
+        // What the host does when the form sets the flag.
+        let turned = before.rotated(Quarter::Clockwise);
+        app.raster = Some(turned);
+        app.texture = None;
+
+        let after = app.raster.as_ref().expect("raster");
+        assert_eq!(
+            (after.width(), after.height()),
+            (3, 8),
+            "a quarter turn must swap the dimensions the digitiser sees"
+        );
+        assert!(app.texture.is_none(), "the texture must be dropped for re-upload");
+    }
+
+    /// A rotation is a processing step, so it is recorded in the provenance
+    /// notes -- the raster's `source_sha256` still identifies the file it was
+    /// decoded from and would not reveal that the image had been turned.
+    #[test]
+    fn a_rotation_is_recorded_in_the_provenance_notes() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 7".into(),
+            turn: Quarter::Clockwise,
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+        assert!(
+            app.notes.contains("rotated 90"),
+            "the turn must be recorded: {:?}",
+            app.notes
+        );
+
+        // No turn, no note -- it must not invent provenance.
+        let mut app2 = DigitiseApp::default();
+        app2.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 8".into(),
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app2.apply_plot_setup();
+        assert!(!app2.notes.contains("rotated"), "{:?}", app2.notes);
+    }
+
+    /// **Transforms re-derive from the untouched original, never stack.**
+    ///
+    /// The deskew resamples, so applying it on top of its own output would
+    /// soften the figure once per nudge of the slider. Sweeping the slider
+    /// and coming back to the same angle must give the same pixels as going
+    /// there directly.
+    #[test]
+    fn sweeping_the_skew_slider_does_not_accumulate_blur() {
+        use crate::digitiser::raster::Quarter;
+        let original = PlotRaster::from_rgb_fn(32, 24, |x, y| {
+            if (x / 4 + y / 4) % 2 == 0 { [0, 0, 0] } else { [255, 255, 255] }
+        });
+
+        // Straight to 6 degrees.
+        let direct = original.rotated(Quarter::None).deskewed(6.0);
+
+        // The wizard's path: re-derive from the original each time, which is
+        // what `applied_transform` + `raster_original` make the host do.
+        let mut derived = original.clone();
+        for angle in [3.0, -8.0, 12.0, 6.0] {
+            derived = original.rotated(Quarter::None).deskewed(angle);
+        }
+
+        assert_eq!(
+            derived, direct,
+            "the result must depend only on where the slider ENDS UP"
+        );
+
+        // And stacking really would differ -- this is what is being avoided.
+        let stacked = original.deskewed(3.0).deskewed(3.0);
+        assert_ne!(
+            stacked,
+            original.deskewed(6.0),
+            "precondition: two 3-degree passes are NOT one 6-degree pass"
+        );
+    }
+
+    /// A resample is named as one in the provenance, because a reader
+    /// judging the digitisation should know the pixels were interpolated
+    /// rather than merely permuted.
+    #[test]
+    fn a_deskew_is_recorded_as_a_resample() {
+        use crate::digitiser::raster::Quarter;
+        let mut app = DigitiseApp::default();
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 8".into(),
+            turn: Quarter::Clockwise,
+            skew_degrees: -2.5,
+            x_min: "0".into(),
+            x_max: "1".into(),
+            y_min: "1".into(),
+            y_max: "10".into(),
+            x_label: "x".into(),
+            y_label: "y".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+        assert!(app.notes.contains("rotated 90"), "{:?}", app.notes);
+        assert!(app.notes.contains("deskewed -2.5"), "{:?}", app.notes);
+        assert!(
+            app.notes.contains("resample"),
+            "the interpolation must be named: {:?}",
+            app.notes
+        );
+    }
+
+    /// Digitise two curves on a 500 x 400 crop through the ordinary app path
+    /// (wizard answers -> reference lines -> placed points -> bank -> save),
+    /// into a real paper session. Returns the app and the saved artifact id.
+    pub(super) fn app_with_a_saved_two_series_graph(
+    ) -> (tempfile::TempDir, KovanRoot, DigitiseApp, String) {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Edit Digitisation Test", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper(&citekey).unwrap();
+        app.set_raster(
+            PlotRaster::from_rgb_fn(500, 400, |_, _| [255, 255, 255]),
+            String::new(),
+        );
+        app.plot_setup = plot_setup::PlotSetup {
+            figure: "Fig. 7".into(),
+            x_min: "0".into(),
+            x_max: "1200".into(),
+            y_min: "0.001".into(),
+            y_max: "1000".into(),
+            y_log: true,
+            x_label: "Time (h)".into(),
+            y_label: "Release, Bq".into(),
+            ..Default::default()
+        };
+        app.apply_plot_setup();
+        app.ref_px = [Some(40.5), Some(460.25), Some(380.0), Some(20.0)];
+        app.start_empty();
+        app.add_point(100.0, 300.0);
+        app.add_point(200.0, 250.0);
+        app.series_name = "1600 degC".into();
+        app.finish_series();
+        app.add_point(150.0, 100.0);
+        app.series_name = "1700 degC".into();
+        app.save_into_project_then_read();
+        assert!(!app.message_is_error, "{}", app.message);
+        let id = {
+            let session = &app.active_paper.as_ref().unwrap().session;
+            let index = crate::research_record::ResearchRecordIndex::from_session(session);
+            let graphs: Vec<_> = index
+                .artifacts()
+                .iter()
+                .filter(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedGraph)
+                .collect();
+            assert_eq!(graphs.len(), 1);
+            graphs[0].id().to_string()
+        };
+        (dir, root, app, id)
+    }
+
+    pub(super) fn graph_bodies(app: &DigitiseApp) -> Vec<(String, String)> {
+        let session = &app.active_paper.as_ref().unwrap().session;
+        crate::research_record::ResearchRecordIndex::from_session(session)
+            .artifacts()
+            .iter()
+            .filter(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedGraph)
+            .map(|a| (a.id().to_string(), a.body.clone()))
+            .collect()
+    }
+
+    /// Maintainer, 2026-09-28: "Edit digitisation" must prefill the wizard
+    /// with what was saved and bring the curves back. Re-open the artifact the
+    /// way the reader does (a `CropResult::Plot` carrying its id), finish the
+    /// wizard untouched, and the digitiser holds the same two named series
+    /// with the same values, the reference lines back on their saved pixels,
+    /// and a re-save REPLACES the artifact with a byte-identical body.
+    #[test]
+    fn editing_a_saved_graph_prefills_the_wizard_and_restores_its_series() {
+        let (_dir, _root, mut app, id) = app_with_a_saved_two_series_graph();
+        let before: Vec<Vec<(f64, f64)>> = app
+            .all_series()
+            .iter()
+            .map(|d| d.points.iter().map(|p| (p.x, p.y)).collect())
+            .collect();
+        let body_before = graph_bodies(&app);
+
+        let provenance = CropProvenance {
+            page_index: 0,
+            min: Pos2::ZERO,
+            max: Pos2::new(500.0, 400.0),
+            page_px: [0.0, 0.0],
+            created_at: "2026-09-28T00:00:00Z".to_string(),
+            author: "tester".to_string(),
+            figure: "Fig. 7".to_string(),
+            source_artifact_id: Some(id.clone()),
+        };
+        app.route_crop(pdf_reader::CropResult::Plot(
+            PlotRaster::from_rgb_fn(500, 400, |_, _| [255, 255, 255]),
+            provenance,
+        ));
+        assert_eq!(app.view, View::PlotSetup, "the wizard is still shown");
+        let s = &app.plot_setup;
+        assert_eq!(s.figure, "Fig. 7");
+        assert_eq!((s.x_min.as_str(), s.x_max.as_str()), ("0", "1200"));
+        assert_eq!((s.y_min.as_str(), s.y_max.as_str()), ("0.001", "1000"));
+        assert!(!s.x_log && s.y_log);
+        assert_eq!(s.x_label, "Time (h)");
+        assert_eq!(s.y_label, "Release, Bq");
+        assert!(s.prefill_note.is_some());
+        assert!(
+            app.all_series().is_empty(),
+            "nothing restored before Finish"
+        );
+
+        app.finish_plot_setup();
+        assert_eq!(app.view, View::Digitiser);
+        assert!(!app.message_is_error, "{}", app.message);
+        assert_eq!(
+            app.ref_px,
+            [Some(40.5), Some(460.25), Some(380.0), Some(20.0)],
+            "reference lines back on their saved pixels"
+        );
+        let names: Vec<_> = app
+            .completed_series
+            .iter()
+            .map(|d| d.series.clone())
+            .collect();
+        assert_eq!(names, vec![Some("1600 degC".to_string())]);
+        assert_eq!(
+            app.series_name, "1700 degC",
+            "the last curve is live, named"
+        );
+        let after: Vec<Vec<(f64, f64)>> = app
+            .all_series()
+            .iter()
+            .map(|d| d.points.iter().map(|p| (p.x, p.y)).collect())
+            .collect();
+        assert_eq!(after, before, "values restored exactly");
+        let p0 = &app.completed_series[0].points[0];
+        assert!(
+            (p0.x_px.unwrap() - 100.0).abs() < 1e-6 && (p0.y_px.unwrap() - 300.0).abs() < 1e-6,
+            "points back where they were on the figure: {:?}",
+            (p0.x_px, p0.y_px)
+        );
+
+        // Re-save: same artifact, replaced in place, identical data.
+        app.save_into_project_then_read();
+        assert!(!app.message_is_error, "{}", app.message);
+        assert_eq!(
+            graph_bodies(&app),
+            body_before,
+            "replaced, not appended; same CSV"
+        );
+    }
+
+    /// Correcting a saved range in the wizard re-reads every value from its
+    /// saved pixel through the corrected calibration -- the point stays where
+    /// it is on the figure, its value moves.
+    #[test]
+    fn a_corrected_range_rereads_restored_values_from_their_pixels() {
+        let (_dir, _root, mut app, id) = app_with_a_saved_two_series_graph();
+        let provenance = CropProvenance {
+            page_index: 0,
+            min: Pos2::ZERO,
+            max: Pos2::new(500.0, 400.0),
+            page_px: [0.0, 0.0],
+            created_at: "2026-09-28T00:00:00Z".to_string(),
+            author: "tester".to_string(),
+            figure: "Fig. 7".to_string(),
+            source_artifact_id: Some(id),
+        };
+        app.route_crop(pdf_reader::CropResult::Plot(
+            PlotRaster::from_rgb_fn(500, 400, |_, _| [255, 255, 255]),
+            provenance,
+        ));
+        app.plot_setup.x_max = "2400".into();
+        // Recomputing the saved values is an explicit act (2026-09-28).
+        app.plot_setup.recalibration_confirmed = true;
+        app.finish_plot_setup();
+        let p0 = &app.completed_series[0].points[0];
+        // pixel 100 on 40.5..460.25 -> 0..2400
+        let expect = (100.0 - 40.5) / (460.25 - 40.5) * 2400.0;
+        assert!((p0.x - expect).abs() < 1e-9, "{} vs {expect}", p0.x);
+        assert!(app.message.contains("re-read"), "{}", app.message);
+
+        // And the re-save writes the CORRECTED calibration into the
+        // artifact's `[extraction]`, not the stale one (maintainer,
+        // 2026-09-28: PANAMA Figs. 6/7 kept `px 88.03 = 10` after an edit).
+        app.save_into_project_then_read();
+        assert!(!app.message_is_error, "{}", app.message);
+        let session = &app.active_paper.as_ref().unwrap().session;
+        let index = crate::research_record::ResearchRecordIndex::from_session(session);
+        let graphs: Vec<_> = index
+            .artifacts()
+            .iter()
+            .filter(|a| a.kind() == crate::artifact::ArtifactKind::DigitisedGraph)
+            .collect();
+        assert_eq!(graphs.len(), 1, "replaced, not appended");
+        let x_axis = graphs[0].toml.extraction.as_ref().unwrap().x_axis.clone();
+        assert_eq!(
+            x_axis.as_deref(),
+            Some("linear scale, px 40.5 = 0 , px 460.25 = 2400"),
+            "the new x range is recorded"
+        );
+    }
+
+    /// Maintainer, 2026-09-28: "save csv into project markdown should also
+    /// move us into the pdf reader" -- on success only.
+    #[test]
+    fn a_successful_save_returns_to_the_reader_and_a_failed_one_stays() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Save Then Read Test", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        app.activate_paper(&citekey).unwrap();
+        app.view = View::Digitiser;
+        app.dataset = Some(minimal_dataset());
+        app.save_into_project_then_read();
+        assert!(!app.message_is_error, "{}", app.message);
+        assert_eq!(app.view, View::PdfReader);
+
+        // No paper open: an error, and the digitiser stays up.
+        let mut app = DigitiseApp::default();
+        app.view = View::Digitiser;
+        app.dataset = Some(minimal_dataset());
+        app.save_into_project_then_read();
+        assert!(app.message_is_error);
+        assert_eq!(app.view, View::Digitiser);
+
+        // Nothing traced: likewise.
+        let mut app = DigitiseApp::default();
+        app.view = View::Digitiser;
+        app.save_into_project_then_read();
+        assert!(app.message_is_error);
+        assert_eq!(app.view, View::Digitiser);
     }
 }

@@ -15,11 +15,18 @@
 //!   backward-throat test files (critical-pressure relative tolerance
 //!   0.005-0.05 by curve; mass-flux log10 tolerance 0.05). The reference
 //!   curves are graph-read HEM curves, not raw experimental data.
-//! - **Marviken is NOT validated.** The digitised NUREG/CR-2671 test-23/24
+//! - ~~**Marviken is NOT validated.** The digitised NUREG/CR-2671 test-23/24
 //!   data sits in `marviken_tests.rs`, but the test is
 //!   `#[ignore = "skip first, Marviken is more complex"]`, its only
 //!   assertion is commented out, and the body ends in `todo!()`. Do not
-//!   cite Marviken as a validation basis for these solvers.
+//!   cite Marviken as a validation basis for these solvers.~~
+//!   **CORRECTED 2026-10-16** — no longer true. `tampines-steam-tables`'
+//!   `marviken_tests.rs` now holds six plain `#[test]`s with assertions and
+//!   no `todo!()`, including `validate_against_marviken_test_23` and
+//!   `_24` for the HEM dispatcher; read their doc comments for the recorded
+//!   deviations before citing them. (Separately, this crate's
+//!   `multiphase_1d::marviken_tests` validates the drift-flux marcher on
+//!   test 23.)
 //!
 //! See that crate's own `CLAUDE.md` and README for the full V&V
 //! methodology and results. (Separately, the Edwards-O'Brien blowdown

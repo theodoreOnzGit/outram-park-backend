@@ -1,0 +1,11 @@
+    Updating crates.io index
+   Packaging redhill v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/redhill)
+    Packaged 11 files, 47.7KiB (17.9KiB compressed)
+   Verifying redhill v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/redhill)
+   Compiling redhill v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/redhill-0.0.2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.39s
+   Uploading redhill v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/redhill)
+    Uploaded redhill v0.0.2 to registry `crates-io`
+note: waiting for redhill v0.0.2 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published redhill v0.0.2 at registry `crates-io`

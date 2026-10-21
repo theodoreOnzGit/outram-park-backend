@@ -1,0 +1,60 @@
+--------------------------------------------------------------------------------
+Profile data file 'target/profile-icsbep-callgrind/godiva.callgrind.out' (creator: callgrind-3.22.0)
+--------------------------------------------------------------------------------
+I1 cache: 
+D1 cache: 
+LL cache: 
+Timerange: Basic block 0 - 1267037318
+Trigger: Program termination
+Profiled target:  target/profiling/examples/godiva_keff_endf_local (PID 10946, part 1)
+Events recorded:  Ir
+Events shown:     Ir
+Event sort order: Ir
+Thresholds:       99
+Include dirs:     
+User annotated:   
+Auto-annotation:  on
+
+--------------------------------------------------------------------------------
+Ir                     
+--------------------------------------------------------------------------------
+3,999,395,177 (100.0%)  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+Ir                      file:function
+--------------------------------------------------------------------------------
+3,999,395,177 (100.0%)  ./csu/../sysdeps/nptl/libc_start_call_main.h:(below main)
+3,999,392,983 (100.0%)  ???:main
+3,999,392,980 (100.0%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/rt.rs:std::rt::lang_start_internal
+3,999,392,033 (100.0%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/function.rs:std::rt::lang_start_internal
+3,999,392,032 (100.0%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/function.rs:std::rt::lang_start::<()>::{closure#0}
+3,999,392,032 (100.0%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/rt.rs:std::rt::lang_start::<()>::{closure#0}
+3,999,392,029 (100.0%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/function.rs:std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+3,999,392,029 (100.0%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/std/src/sys/backtrace.rs:std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
+3,999,392,027 (100.0%)  /home/user/outram-park-backend/crates/outram-mc-libs/examples/godiva_keff_endf_local.rs:godiva_keff_endf_local::main
+3,980,495,614 (99.53%)  crates/outram-mc-libs/examples/godiva_keff_endf_local.rs:godiva_keff_endf_local::main
+3,980,471,552 (99.53%)  /home/user/outram-park-backend/crates/outram-mc-libs/src/physics/keff.rs:outram_mc_libs::physics::keff::run_keff
+3,980,471,552 (99.53%)  crates/outram-mc-libs/src/physics/keff.rs:outram_mc_libs::physics::keff::run_keff
+3,980,471,546 (99.53%)  crates/outram-mc-libs/src/physics/keff.rs:outram_mc_libs::physics::keff::run_keff_cpu_single
+3,979,152,039 (99.49%)  crates/outram-mc-libs/src/physics/keff.rs:outram_mc_libs::physics::keff::transport_history
+3,717,851,560 (92.96%)  crates/outram-mc-libs/src/material/nuclide.rs:<outram_mc_libs::material::nuclide::Nuclide>::base_xs_at_energy
+3,676,692,768 (91.93%)  /home/user/outram-park-backend/crates/njoy-outram-park-fork/src/reconr/mod.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+3,053,697,840 (76.35%)  /home/user/outram-park-backend/crates/outram-mc-libs/src/material/material.rs:<outram_mc_libs::material::material::Material>::sample_nuclide
+3,048,816,390 (76.23%)  crates/outram-mc-libs/src/material/nuclide.rs:<outram_mc_libs::material::material::Material>::sample_nuclide
+  927,678,504 (23.20%)  crates/njoy-outram-park-fork/src/endf/mt.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+  870,002,881 (21.75%)  crates/outram-mc-libs/src/material/nuclide.rs:outram_mc_libs::physics::keff::transport_history
+  711,147,947 (17.78%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ptr/non_null.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+  660,160,919 (16.51%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+  554,446,590 (13.86%)  crates/njoy-outram-park-fork/src/reconr/mod.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+  475,115,491 (11.88%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/mod.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+  123,475,230 ( 3.09%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/cmp.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+  118,061,878 ( 2.95%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/index.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+   59,030,939 ( 1.48%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/hint.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+   52,023,790 ( 1.30%)  crates/outram-mc-libs/src/material/nuclide.rs:outram_mc_libs::material::nuclide::sample_chi
+   51,531,462 ( 1.29%)  crates/outram-mc-libs/src/material/nuclide.rs:outram_mc_libs::material::nuclide::sample_continuous_tabular_indexed
+   49,748,805 ( 1.24%)  crates/outram-mc-libs/src/material/nuclide.rs:outram_mc_libs::material::nuclide::sample_ct_table_indexed
+   47,994,078 ( 1.20%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/slice/iter/macros.rs:<outram_mc_libs::material::nuclide::Nuclide>::base_xs_at_energy
+   44,194,964 ( 1.11%)  /home/user/outram-park-backend/crates/njoy-outram-park-fork/src/nuclear_data/secondary.rs:<njoy_outram_park_fork::nuclear_data::secondary::NuBar>::at
+   35,551,290 ( 0.89%)  /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/alloc/src/vec/mod.rs:<njoy_outram_park_fork::reconr::ReconrResult>::eval_mt
+
+--------------------------------------------------------------------------------

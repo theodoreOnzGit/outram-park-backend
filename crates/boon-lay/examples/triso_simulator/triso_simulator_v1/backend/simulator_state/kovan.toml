@@ -1,0 +1,32 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/examples/triso_simulator/triso_simulator_v1/backend/simulator_state"
+
+[module."graphing.rs"]
+path = "example:triso_simulator::triso_simulator_v1::backend::simulator_state::graphing"
+
+[[module."graphing.rs".function]]
+id = "fn:1ca8526714e532cd"
+name = "update_fractions_using_decay_sim_thread_ptrs"
+qual = "SimulatorState::update_fractions_using_decay_sim_thread_ptrs"
+lines = [
+    9,
+    147,
+]
+hash = "sha256:0041e281843e32a5758dc9529c481fe4bf95afd5d02c2d49a23adbcc392d731e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:33fba1049a1a807e",
+    "fn:3603c07b0f462410",
+    "fn:4742ffff59c77c73",
+    "fn:90f6ecd8264da133",
+    "fn:c97b84611ab981de",
+    "fn:d84c7e41f0b78cde",
+    "fn:e16326090e246d3d",
+]
+uses = [
+    "fn:c611e024756fd19b",
+    "fn:e3d3971cf92a6302",
+    "fn:f98387bb08ac6885",
+]

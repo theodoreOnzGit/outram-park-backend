@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use csv::Writer;
 use uom::si::ratio::ratio;
 use uom::si::f64::*;
@@ -206,10 +207,10 @@ impl TransferFnSecondOrder {
         c2: Ratio,
     ) -> Result<Self, ChemEngProcessControlSimulatorError> {
         // process time
-        let tau_p: Time = (a2 / c2).sqrt();
+        let tau_p: Time = (a2 / c2).r_sqrt();
 
         // damping factor
-        let zeta: Ratio = 0.5 * b2 / (a2 * c2).sqrt();
+        let zeta: Ratio = 0.5 * b2 / (a2 * c2).r_sqrt();
 
         // process_gain
         // I assume units of c1 are dimensionless
@@ -224,7 +225,7 @@ impl TransferFnSecondOrder {
         } else if zeta_value < 1.0 {
             // angular frequency for decaying sinusoids IF we have
             // an underdamped system
-            let omega: Frequency = (c2 / a2 - 0.25 * b2 * b2 / a2 / a2).sqrt();
+            let omega: Frequency = (c2 / a2 - 0.25 * b2 * b2 / a2 / a2).r_sqrt();
             // decay constant
             // note that this only applies for critical and underdamped cases
             let lambda: Frequency = 0.5 * b2 / a2;
@@ -275,8 +276,8 @@ impl TransferFnSecondOrder {
         let discriminant: TimeSquared = b2 * b2 - 4.0 * a2 * c2;
 
         // verified correct...
-        let alpha: Frequency = 0.5 * b2 / a2 - (0.5 / a2) * discriminant.sqrt();
-        let beta: Frequency = 0.5 * b2 / a2 + (0.5 / a2) * discriminant.sqrt();
+        let alpha: Frequency = 0.5 * b2 / a2 - (0.5 / a2) * discriminant.r_sqrt();
+        let beta: Frequency = 0.5 * b2 / a2 + (0.5 / a2) * discriminant.r_sqrt();
 
         // now we can calculate the alpha_magnitude and
         // beta_magnitude

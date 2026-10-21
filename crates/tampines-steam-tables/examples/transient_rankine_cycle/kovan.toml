@@ -1,0 +1,30 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/transient_rankine_cycle"
+
+[module."main.rs"]
+path = "example:rankine_cycle"
+
+[[module."main.rs".function]]
+id = "fn:445e4f3efd1d7b3b"
+name = "main"
+qual = "main"
+lines = [
+    1,
+    5,
+]
+hash = "sha256:96afff32a035454f5780b7a79f74086dc0957d6be75a5fb1220b63b463cf07ff"
+doc_hash = "sha256:f33bf36a217a552c5bc9fdf4aff6cc98e9b8d147d08fd2b961425266372bc1b0"
+callees = ["fn:f005b38c633f1990"]
+
+[[module."main.rs".function]]
+id = "fn:f005b38c633f1990"
+name = "isnentropic_nozzle_tests"
+qual = "isnentropic_nozzle_tests"
+lines = [
+    7,
+    7,
+]
+hash = "sha256:1b849f4233082694bc65df714e1e0e59822ce9c542a383fc919cb22b3fa23982"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

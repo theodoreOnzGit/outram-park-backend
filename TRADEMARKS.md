@@ -1,7 +1,7 @@
 # Trademarks and Attribution
 
 Outram Park is a nuclear engineering simulation suite written in Rust,
-released under the GNU General Public License v3.0 (GPL-3.0-only).
+~~released under the GNU General Public License v3.0 (GPL-3.0-only).~~ **released under the GNU Affero General Public License v3.0 (AGPL-3.0-only)** (relicensed 2026-10-20, gh:#973). Crates that translate copyleft upstream code convey as AGPL-3.0-only combined works under GPLv3 §13 / AGPLv3 §13, and their ported files stay GPL-3.0; see `docs/relicensing-agpl-2026-10-20.md`.
 
 Outram Park derives numerical methods and algorithms from several
 upstream open-source projects. Outram Park honours the trademarks,
@@ -27,7 +27,7 @@ affiliated with, endorsed by, or connected to any of them.
 - **Upstream URL:** https://openmc.org
 - **Upstream license:** MIT
 - Outram Park's `outram-mc-libs` crate is a Rust translation of selected
-  OpenMC transport methods, GPL-3.0 relicensed as permitted by the terms of
+  OpenMC transport methods, ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) as permitted by the terms of
   the upstream MIT license. It is not an official OpenMC product and is not
   sanctioned by MIT or Argonne National Laboratory.
 
@@ -36,9 +36,9 @@ affiliated with, endorsed by, or connected to any of them.
   NJOY development team
 - **Upstream URL:** https://www.njoy21.io  (and https://github.com/njoy)
 - **Upstream license:** BSD-style (see NJOY2016 LICENSE)
-- Outram Park's `outram-park-njoy-fork` crate is a Rust translation of
+- Outram Park's ~~`outram-park-njoy-fork`~~ **CORRECTED 2026-10-05**: `njoy-outram-park-fork` (the crate's name in `crates/` and its `Cargo.toml`) crate is a Rust translation of
   selected NJOY nuclear data processing modules (RECONR, BROADR, ACER),
-  GPL-3.0 relicensed as permitted by the terms of the upstream BSD
+  ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973) as permitted by the terms of the upstream BSD
   license. It is not an official NJOY product and is not sanctioned by
   LANL or the NJOY development team.
 
@@ -48,8 +48,8 @@ affiliated with, endorsed by, or connected to any of them.
 - **Upstream license:** MIT
 - Outram Park's `outram-park-fork-coolprop` crate is a Rust translation of
   selected CoolProp thermophysical-property methods (Helmholtz-energy-explicit
-  equations of state, incompressibles, mixtures, humid air), GPL-3.0
-  relicensed as permitted by the terms of the upstream MIT license. It is not
+  equations of state, incompressibles, mixtures, humid air), ~~GPL-3.0~~ **AGPL-3.0-only**
+  (relicensed 2026-10-20, gh:#973) as permitted by the terms of the upstream MIT license. It is not
   an official CoolProp product and is not sanctioned by Ian H. Bell or the
   CoolProp development team. Individual equations of state retain their own
   original-author attribution where CoolProp itself documents one (e.g. the
@@ -73,11 +73,16 @@ affiliated with, endorsed by, or connected to any of them.
   Lichtner, Glenn E. Hammond, Chuan Lu, Richard T. Mills, Satish Karra, and
   others.
 - **Upstream URL:** https://www.pflotran.org (code: https://bitbucket.org/pflotran/pflotran)
-- **Upstream license:** GNU LGPL, version 2.1 or later (LGPL-2.1-or-later).
+- **Upstream license:** ~~GNU LGPL, version 2.1 or later (LGPL-2.1-or-later).~~
+  **CORRECTED 2026-10-05** — that described the v2.X era only. The current
+  upstream LICENSE is the GNU LGPL version 3 (v5.X, Battelle Memorial
+  Institute), verified 2026-09-10 against the upstream LICENSE and COPYRIGHT
+  files at commit `669fbce`; see `crates/outram-park-fork-pflotran/NOTICE`.
 - Outram Park's `outram-park-fork-pflotran` crate is an independent pure-Rust
   translation of selected PFLOTRAN subsurface-flow and reactive-transport
-  methods. The upstream LGPL-2.1-or-later terms permit relicensing under the
-  GNU GPL (LGPL-2.1 §3), so this crate is distributed as GPL-3.0-only,
+  methods. ~~The upstream LGPL-2.1-or-later terms permit relicensing under the
+  GNU GPL (LGPL-2.1 §3)~~ **CORRECTED 2026-10-05**: LGPLv3 is GPLv3 plus
+  additional permissions, which GPLv3 §7 lets a recipient remove, so this crate is distributed as ~~GPL-3.0-only~~ **AGPL-3.0-only** (a combined work under GPLv3 §13, relicensed 2026-10-20, gh:#973; ported files stay GPL-3.0),
   consistent with the rest of the suite. It is not an official PFLOTRAN
   product and is not sanctioned by the PFLOTRAN development team or any of the
   national laboratories above. See that crate's `NOTICE` file.

@@ -96,29 +96,31 @@ pub const H2O_XS: &[XsPoint] = &[
 
 /// The envelope [`H2O_XS`] is asserted inside.
 ///
+/// **Tightened 2026-09-30 from 1.5 % to 0.3 %, the level of graphite's.** The
+/// comment on this issue had said to do exactly that when #188's cross-section
+/// defect was fixed. The ENDF-route σ_inel is now THERMR's own `calcem` xsi on
+/// its own grid, at OpenMC's THERMR tolerance of 0.001 (it had been an analytic
+/// integral, at 0.05). Measured worst deviation against this table: +0.02 %.
+/// The per-row comments below are the superseded 2026-09-11 measurement.
+///
 /// **Tightened 2026-09-13 from 2 % to 1.5 %**, against a worst measured
 /// deviation of −1.39 % (was +1.47 % before the E' quadrature fix; see
 /// [`H2O_XS`] for the full before/after). The comparison is fully deterministic
 /// — no RNG anywhere in it — so a gate 0.11 % above the worst measured point is
 /// a gate, not a flake.
-pub const H2O_XS_TOL: f64 = 0.015;
+pub const H2O_XS_TOL: f64 = 0.003;
 
-/// The **sign** [`H2O_XS`]'s error is expected to carry: `-1` for a deficit.
-///
-/// Recorded as `+1` (a consistent excess) until 2026-09-13, when fixing this
-/// crate's E' quadrature removed the excess and left a smaller deficit at all
-/// eleven points. The sign is asserted separately from the magnitude because a
-/// one-signed error is evidence about *which* defect is present, and a flip is
-/// worth stopping for — which is exactly how the quadrature fix announced
-/// itself.
-pub const H2O_XS_EXPECTED_SIGN: f64 = -1.0;
+// ~~`H2O_XS_EXPECTED_SIGN` (-1, a one-signed deficit)~~: removed 2026-09-30.
+// The deficit was the analytic σ_inel integral and the 0.05 tolerance (GitHub
+// #188, #407). With `calcem` xsi the residual is +0.02 %, which is noise
+// around zero and carries no sign to assert.
 
-/// NJOY's H-in-H₂O law runs to **10 eV**; this crate's ends between 2 and 4 eV.
-///
-/// That is why [`H2O_XS`] stops at 2 eV. The handover to free gas is a real
-/// difference between the two codes and is asserted separately, rather than
-/// being hidden by truncating the comparison silently.
-pub const H2O_LAW_UPPER_BOUND_EV: (f64, f64) = (2.0, 4.0);
+/// ~~NJOY's H-in-H₂O law runs to 10 eV; this crate's ends between 2 and 4 eV.~~
+/// **CORRECTED 2026-09-30 (GitHub #459):** this crate's law now ends where
+/// NJOY's does, at the top of THERMR's table run with `emax` = the tape's B(4),
+/// which is 10.0 eV. The range is asserted by
+/// `h2o_sab_law_extends_to_njoys_10_ev`.
+pub const H2O_LAW_UPPER_BOUND_EV: (f64, f64) = (9.99, 10.00008);
 
 /// **H-in-H₂O scattering kernel**, THERMR MF=6/MT=222 for `tsl-HinH2O` at
 /// 293.6 K, reduced to its first moment: `(E [eV], <E'>/E, xi = <ln(E/E')>)`.
@@ -302,6 +304,11 @@ pub const H2O_KERNEL_WIDTH_TOL: f64 = 0.05;
 /// Worst deviation **−0.14 %**, at the top of the range. This is what a ported
 /// thermal law looks like when it is right, and it is the control against which
 /// [`H2O_KERNEL`]'s −5.5 % is read.
+///
+/// **Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+/// examples' own seeds):** worst **+0.060 % at 1 meV** (all 12 points inside
+/// 0.5 %; `examples/graphite_vs_njoy_thermr.rs`). The `// ours` comments below
+/// are the earlier values (worst −0.14 % at 3.9 eV) and are superseded.
 pub const GRAPHITE_XS_INELASTIC: &[XsPoint] = &[
     (1.000000e-04, 3.341434e0),  // ours 3.342667e0, +0.04 %
     (1.000000e-03, 1.137236e0),  // ours 1.135755e0, −0.13 %
@@ -324,6 +331,10 @@ pub const GRAPHITE_XS_INELASTIC: &[XsPoint] = &[
 /// exactly zero on both sides, which is a *structural* agreement rather than a
 /// numerical one: a code that has the Bragg cutoff in the wrong place, or that
 /// smears it, cannot produce an exact zero there.
+///
+/// **Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+/// examples' own seeds):** worst **−0.085 % at 3.0 eV**, exact zero below
+/// the first Bragg edge (`examples/graphite_vs_njoy_thermr.rs`).
 pub const GRAPHITE_XS_COHERENT: &[XsPoint] = &[
     (1.000000e-04, 0.0),         // below the first Bragg edge — exactly zero
     (1.000000e-03, 0.0),         // below the first Bragg edge — exactly zero
@@ -367,6 +378,14 @@ pub const GRAPHITE_FIRST_BRAGG_EDGE_ABOVE_EV: f64 = 1.0e-3;
 /// The third column of each comment is the coherent-elastic share of the total
 /// cross section at that energy, which is why the low-energy points carry the
 /// larger deviations: little inelastic signal is left to measure.
+///
+/// **Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+/// examples' own seeds):** `<E'>/E` against these rows, ours − NJOY:
+/// 0.01 eV +0.30 % (sampling 1σ 0.35 %), 0.0253 +0.20 %, 0.05 +0.11 %,
+/// 0.11157 +0.02 %, 0.2 +0.07 %, 0.41704 −0.01 %, 0.625 +0.06 %, 1.05 +0.02 %,
+/// 1.855 −0.02 %, 3.75 −0.01 %: worst **+0.30 % at 0.01 eV**, ≤ 0.07 % at and
+/// above 0.2 eV (`examples/graphite_kernel_vs_njoy_thermr.rs`). The row comments
+/// below are the earlier values and are superseded.
 pub const GRAPHITE_KERNEL: &[KernelPoint] = &[
     (1.000000e-02, 4.907990), // ours −0.56 % (was −0.21 %), 83 % coherent elastic
     (2.530000e-02, 1.903930), // ours −0.24 % (was −1.53 %), 78 %
@@ -465,6 +484,13 @@ pub const GRAPHITE_KERNEL_CONVERGED_TOL: f64 = 0.002;
 /// edge table.
 ///
 /// Comments carry this crate's own value on the date above.
+///
+/// **Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+/// examples' own seeds):** worst inelastic deviation **−0.0040 at 5 meV**
+/// (was +0.0085 at 0.0253 eV on 2026-09-12, then −0.0084 at 0.01 eV after the
+/// emission resize), worst Bragg **+0.0021 at 0.2 eV**; all 13 rows inside the
+/// envelopes (`examples/graphite_sab_angle_and_width_vs_njoy_thermr.rs`). The
+/// row comments below are the earlier values and are superseded.
 pub const GRAPHITE_MUBAR: &[(f64, f64, f64, f64)] = &[
     // E [eV]      mubar_inel  mubar_el   mubar_tot
     (1.012000e-03, -0.10126, 0.00000, -0.10126), // ours −0.10295 / n/a      / −0.10295
@@ -573,9 +599,16 @@ pub const GRAPHITE_MUBAR_ELASTIC_TOL: f64 = 0.01;
 /// `OUTRAM_RINGRPT_ONLY=csg`, 4000 x [30 + 80]:
 ///
 /// ```text
-///   2026-09-12  N_EMIT_GRID = 48   N_OUTGOING = 16   k = <PEB_OLD>
-///   2026-09-12  N_EMIT_GRID = 384  N_OUTGOING = 64   k = <PEB_NEW>
+///   2026-09-12  N_EMIT_GRID = 48   N_OUTGOING = 16   k = 1.40745 ± 0.00214
+///   2026-09-12  N_EMIT_GRID = 384  N_OUTGOING = 64   k = 1.40546 ± 0.00234
 /// ```
+///
+/// (**FILLED 2026-10-04**: the two `k` were left as the placeholders
+/// `<PEB_OLD>` / `<PEB_NEW>`; the values are the ones recorded for this run in
+/// `verification_and_validation/thermal_sab/emission_tabulation_rebaseline.md`
+/// §4.1, −199 ± 317 pcm, which that record calls a non-measurement. The
+/// resolvable k-worth is the homogeneous-medium one in the same section, from
+/// `examples/thermal_kernel_keff_worth.rs`.)
 ///
 /// The earlier grid-only comparison (48 → 192 at 16 bins, 2026-09-12) gave
 /// 1.40745 ± 0.00214 against 1.40682 ± 0.00221, i.e. **−63 pcm** — inside its
@@ -588,6 +621,15 @@ pub const GRAPHITE_MUBAR_ELASTIC_TOL: f64 = 0.01;
 /// Comments carry this crate's own value at the current defaults.
 ///
 /// [GitHub #190]: https://github.com/theodoreOnzGit/outram-park-backend/issues/190
+///
+/// **Re-measured 2026-10-04 (GitHub #524; `develop` at `bfeb81a083`, 600 K, the
+/// examples' own seeds):** ours − NJOY by row: −0.58, −1.14, −0.66,
+/// −0.15, −0.52, −0.55, −0.90, −0.43, −0.53, −0.30, −0.06, −0.25, −0.01 %, i.e.
+/// still one-signed narrow, worst **−1.14 % at 2.6 meV** (400 000 samples,
+/// `examples/graphite_sab_angle_and_width_vs_njoy_thermr.rs`). The row comments
+/// below (worst −2.33 %) are superseded; the narrowing roughly halved between
+/// 2026-09-12 and now, plausibly through the 2026-09-29/30 S(a,b) sampling
+/// changes (#407, #459), which was not isolated.
 pub const GRAPHITE_KERNEL_WIDTH: &[(f64, f64)] = &[
     (1.012000e-03, 0.76168), // ours −1.87 % (was −3.41 % at 48x16)
     (2.600000e-03, 0.79883), // ours −1.56 % (was −3.16 % at 48x16)

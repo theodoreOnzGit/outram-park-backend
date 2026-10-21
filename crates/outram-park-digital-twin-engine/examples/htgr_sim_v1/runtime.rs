@@ -62,6 +62,12 @@ use uom::si::thermodynamic_temperature::kelvin;
 pub struct PlantControls {
     pub control_rod_insertion_fraction: f64,
     pub helium_flow_setpoint_kg_per_s: f64,
+    /// Operator has manually tripped the helium circulator (LOFC).
+    pub circulator_tripped: bool,
+    /// Operator has started the water-ingress accident (gh:#401).
+    pub water_ingress: bool,
+    /// Operator has started the DLOFC + ATWS accident (gh:#402).
+    pub dlofc: bool,
     pub feedwater_manual: bool,
     pub feedwater_manual_flow_kg_per_s: f64,
     pub feedwater_target_steam_temp_k: f64,
@@ -71,6 +77,10 @@ pub struct PlantControls {
     /// A one-shot trip-reset request. The runtime consumes it — see
     /// [`PlantRuntime::submit`] on why this cannot latch.
     pub trip_reset_requested: bool,
+    /// A one-shot **Reset peak** request (gh:#964): restart the running
+    /// maximum of the peak fuel kernel from its current value. Consumed by
+    /// [`PlantRuntime::submit`], like the trip reset.
+    pub peak_fuel_reset_requested: bool,
 }
 
 impl PlantControls {
@@ -84,21 +94,36 @@ impl PlantControls {
         Self {
             control_rod_insertion_fraction: s.control_rod_insertion_fraction,
             helium_flow_setpoint_kg_per_s: s.helium_flow_setpoint_kg_per_s,
+            circulator_tripped: s.circulator_tripped,
+            water_ingress: s.water_ingress_triggered,
+            dlofc: s.dlofc_triggered,
             feedwater_manual: s.feedwater_manual,
             feedwater_manual_flow_kg_per_s: s.feedwater_manual_flow_kg_per_s,
             feedwater_target_steam_temp_k: s.feedwater_target_steam_temp_k,
             condenser_pressure_setpoint_kpa: s.condenser_pressure_setpoint_kpa,
             rps_enabled: s.rps_enabled,
             trip_reset_requested: s.trip_reset_requested,
+            peak_fuel_reset_requested: s.peak_fuel_reset_requested,
         }
     }
 
     /// The per-step physics arguments these controls imply.
     fn to_commands(&self) -> PlantCommands {
         PlantCommands {
+            meteorology: crate::physics::atmospheric_dispersion::Meteorology::default(),
+            // The default field request: the opening resolution and a plume
+            // clock level with the plant clock. `PlantControls` carries no
+            // map state of its own -- the Map tab is a GUI concern, and this
+            // runtime is the headless-schedulable kernel.
+            map_field: crate::physics::atmospheric_dispersion::MapFieldRequest::default(),
             control_rod_insertion_fraction: self.control_rod_insertion_fraction,
             helium_flow_setpoint: MassRate::new::<kilogram_per_second>(
                 self.helium_flow_setpoint_kg_per_s,
+            ),
+            scenario: crate::physics::scenario_from(
+                self.circulator_tripped,
+                self.water_ingress,
+                self.dlofc,
             ),
             secondary: SecondaryCommands {
                 feedwater: if self.feedwater_manual {
@@ -141,6 +166,9 @@ impl Default for PlantControls {
         Self {
             control_rod_insertion_fraction: d.control_rod_insertion_fraction,
             helium_flow_setpoint_kg_per_s: d.helium_flow_setpoint.get::<kilogram_per_second>(),
+            circulator_tripped: d.scenario == crate::physics::Scenario::Lofc,
+            water_ingress: d.scenario == crate::physics::Scenario::WaterIngress,
+            dlofc: d.scenario == crate::physics::Scenario::DlofcAtws,
             feedwater_manual: manual,
             feedwater_manual_flow_kg_per_s: manual_flow,
             feedwater_target_steam_temp_k: target_t,
@@ -156,6 +184,7 @@ impl Default for PlantControls {
             // behaviour change wearing the costume of a constructor.
             rps_enabled: false,
             trip_reset_requested: false,
+            peak_fuel_reset_requested: false,
         }
     }
 }
@@ -201,9 +230,13 @@ impl PlantRuntime {
         if controls.trip_reset_requested {
             self.plant.protection.reset();
         }
+        if controls.peak_fuel_reset_requested {
+            self.plant.reset_peak_fuel_to_current();
+        }
         self.commands = controls.to_commands();
         self.controls = PlantControls {
             trip_reset_requested: false,
+            peak_fuel_reset_requested: false,
             ..controls
         };
     }
@@ -233,6 +266,7 @@ impl PlantRuntime {
         out.condenser_pressure_setpoint_kpa = self.controls.condenser_pressure_setpoint_kpa;
         out.rps_enabled = self.controls.rps_enabled;
         out.trip_reset_requested = false;
+        out.peak_fuel_reset_requested = false;
     }
 
     /// Timesteps completed since construction.
@@ -282,6 +316,34 @@ mod tests {
             !rt.controls.trip_reset_requested,
             "trip reset latched instead of being consumed"
         );
+    }
+
+    /// The peak-fuel record is exposed by the runtime (so by headless mode),
+    /// follows the plant, and a submitted one-shot **Reset peak** restarts it
+    /// from the current value and is consumed rather than latched (gh:#964).
+    #[test]
+    fn peak_fuel_reset_is_exposed_and_consumed() {
+        let mut rt = PlantRuntime::new();
+        assert!(rt.plant().peak_fuel_record().peak_k.is_nan());
+        for _ in 0..50 {
+            rt.tick(Time::new::<second>(PLANT_TIMESTEP_S));
+        }
+        let mut snap = HtgrSnapshot::default();
+        rt.publish(&mut snap);
+        let held = rt.plant().peak_fuel_record();
+        assert!(held.peak_k.is_finite());
+        assert_eq!(snap.peak_kernel_max_k, held.peak_k);
+        assert_eq!(snap.peak_kernel_max_time_s, held.time_s);
+        assert!(held.peak_k >= snap.peak_kernel_temperature_k);
+        rt.submit(PlantControls {
+            peak_fuel_reset_requested: true,
+            ..PlantControls::default()
+        });
+        assert!(!rt.controls.peak_fuel_reset_requested, "reset latched");
+        let after = rt.plant().peak_fuel_record();
+        rt.publish(&mut snap);
+        assert_eq!(after.peak_k, snap.peak_kernel_temperature_k);
+        assert_eq!(after.time_s, snap.sim_time_s);
     }
 
     /// `PlantControls::default()` must agree with the plant's own initial

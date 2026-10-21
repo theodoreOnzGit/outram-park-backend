@@ -1,0 +1,1066 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/uw_madison_flibe_loop_components/flibe_loop_iteration_two/clamshell_radiative_heater"
+
+[module."calculation.rs"]
+path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater::calculation"
+
+[[module."calculation.rs".function]]
+id = "fn:263fc328e4f384b5"
+name = "advance_timestep"
+qual = "ClamshellRadiativeHeater::advance_timestep"
+lines = [
+    8,
+    23,
+]
+hash = "sha256:9d44df1b57a3d91736370bbf7601ae35b0487ae2f7d2ec98364e94d196371275"
+doc_hash = "sha256:76bc1ff311a6e8d1696463a41c7e7ebc588a8ab31c3eb6f9b55d84e175871b47"
+callees = ["fn:03e08a20b60594d7"]
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[[module."calculation.rs".function]]
+id = "fn:a39de24a2f1fefd5"
+name = "advance_timestep_thread_spawn"
+qual = "ClamshellRadiativeHeater::advance_timestep_thread_spawn"
+lines = [
+    24,
+    40,
+]
+hash = "sha256:efaa79105f1d9998abecf2e2ccd7b4b570b6784ef264d2bb51cdb5021e36487f"
+doc_hash = "sha256:f6b97d5858d2a24b2396910d03d659356c98470f623432ebd6490099af38727c"
+callees = ["fn:263fc328e4f384b5"]
+test = true
+physical_interface = true
+
+[module."fluid_component.rs"]
+path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater::fluid_component"
+
+[[module."fluid_component.rs".function]]
+id = "fn:81fd0c12b975904b"
+name = "get_clone_of_annular_air_array"
+qual = "ClamshellRadiativeHeater::get_clone_of_annular_air_array"
+lines = [
+    11,
+    21,
+]
+hash = "sha256:6891757c134ebc48bb5aae15d17f986860455dc25da5699e0cc3712b3fceaf73"
+doc_hash = "sha256:5a3da016aef65de581aaa723fc09dfea03a77e2ed0b30659332de36cf47265e9"
+callees = [
+    "fn:36d2eb492cf6dd49",
+    "fn:4f08e35087543a15",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:a6efe5f766b47fef",
+    "fn:d4b239bd4b67db13",
+]
+test = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:63a411bd9f09c03c"
+name = "get_annular_air_hydraulic_diameter"
+qual = "ClamshellRadiativeHeater::get_annular_air_hydraulic_diameter"
+lines = [
+    22,
+    33,
+]
+hash = "sha256:1455a0c2bb5bfdd71bd1125f049120f560e6f7ae30c9b472593c778640aed908"
+doc_hash = "sha256:1bc95832d6a09eb3e6681abcd595293602422dd4e3130811a6afcc8c7e017d4b"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:e1ff8249ae286110"
+name = "get_annular_air_cross_sectional_area"
+qual = "ClamshellRadiativeHeater::get_annular_air_cross_sectional_area"
+lines = [
+    35,
+    42,
+]
+hash = "sha256:56a404060055040bcb31664afaae2260c1bc33a93eec49a0c51fd44dee0683c1"
+doc_hash = "sha256:f13b83f68f9dc61a419384bc82a04b26f820005477cc984a7b765adae131dbdb"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:3b87f8ad24df6f58"
+name = "get_tube_side_hydraulic_diameter_circular_tube"
+qual = "ClamshellRadiativeHeater::get_tube_side_hydraulic_diameter_circular_tube"
+lines = [
+    43,
+    49,
+]
+hash = "sha256:115ff198683dfbfa3ace64adfd37dfea9ee65cbad07e54a3cab6bc3bc4f87142"
+doc_hash = "sha256:fbb36000301dd58aa27bf6f71c36720be74ab097cd31e79f088f94d922b748fc"
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:cf2a9841ec560280"
+name = "set_tube_side_total_mass_flowrate"
+qual = "ClamshellRadiativeHeater::set_tube_side_total_mass_flowrate"
+lines = [
+    50,
+    64,
+]
+hash = "sha256:e00a6c4d2094c793aed9970b4f5453446857c01f886b1f018294ba31045f803c"
+doc_hash = "sha256:697bbcf853881fb21d00b193a2379ee85068bb3fe47c341199c78a18dd5c59b6"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:9212f011bf144631",
+    "fn:f8fcd27da58670ac",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:5fd4c8607ec3cfde"
+name = "set_annular_side_total_mass_flowrate"
+qual = "ClamshellRadiativeHeater::set_annular_side_total_mass_flowrate"
+lines = [
+    66,
+    82,
+]
+hash = "sha256:a1227be6a233ed5cf7e45b6a4f6f97677a0b315732eeef0054ce186fa9a4ab2e"
+doc_hash = "sha256:b4710ec2001618509f39c77e3d400ae2b206ae4edbe996db13353e20612ed1d2"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:9212f011bf144631",
+    "fn:f8fcd27da58670ac",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:e02e245b6e0c892b"
+name = "get_mass_flowrate"
+qual = "ClamshellRadiativeHeater::get_mass_flowrate"
+lines = [
+    86,
+    90,
+]
+hash = "sha256:5fc5a7fdecf9f0ec2da2908171f6ffaa4b3f59eef7d3491e1b0ac391e5d7203c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:dfd7c9280ba5fd0a"
+name = "set_mass_flowrate"
+qual = "ClamshellRadiativeHeater::set_mass_flowrate"
+lines = [
+    92,
+    104,
+]
+hash = "sha256:83b97c7fa7e23c6ba3b4abe4fddcda4c75aa6381425319733ce4494eba188880"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:9212f011bf144631",
+    "fn:f8fcd27da58670ac",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:7b99331263eeeb41"
+name = "get_mass_flowrate_from_pressure_loss_immutable"
+qual = "ClamshellRadiativeHeater::get_mass_flowrate_from_pressure_loss_immutable"
+lines = [
+    106,
+    110,
+]
+hash = "sha256:ae7e952af5aefa922865eb7a14681f28f70190cc7ed5fac60c813b32afe6cde3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1e49a2c708f64bed",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:b90deb09e8aaa09c"
+name = "get_pressure_loss"
+qual = "ClamshellRadiativeHeater::get_pressure_loss"
+lines = [
+    112,
+    116,
+]
+hash = "sha256:53156019f7ef510f6aa03844cfcc9a7d2dac7c3a3c8a151b8831c55a05087dd7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:c1cd743e200a5b68",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:331fa695b84b32d6"
+name = "set_pressure_loss"
+qual = "ClamshellRadiativeHeater::set_pressure_loss"
+lines = [
+    118,
+    122,
+]
+hash = "sha256:6345ca104280d7b8dcbf09adccf97dbd9ef4852d8ab19abe85eeb333b4df3917"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5d36a8426cb919e3",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:90ec23245cf18a3d"
+name = "get_pressure_loss_immutable"
+qual = "ClamshellRadiativeHeater::get_pressure_loss_immutable"
+lines = [
+    124,
+    128,
+]
+hash = "sha256:42dc9182d8f54c3145fdab969e9db67ecb6c1693327859d18e2fc92c1396f51b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5cc3a78cc9d2e79a",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:7c99de308173be56"
+name = "get_cross_sectional_area"
+qual = "ClamshellRadiativeHeater::get_cross_sectional_area"
+lines = [
+    130,
+    134,
+]
+hash = "sha256:fe1edcd3dca9211e7a87876c6a4a8a6775bf7827dfbbbe11c3a663625594511e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:9ed71900fc7bbc59"
+name = "get_cross_sectional_area_immutable"
+qual = "ClamshellRadiativeHeater::get_cross_sectional_area_immutable"
+lines = [
+    136,
+    140,
+]
+hash = "sha256:141cae9d5e7e19474bbf004f15cb4841046141a669dc4ea9d5aca6832d6e3481"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7860f11bd51dbb37",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:e54a5c209a183232"
+name = "get_hydraulic_diameter"
+qual = "ClamshellRadiativeHeater::get_hydraulic_diameter"
+lines = [
+    142,
+    146,
+]
+hash = "sha256:ee0d8dadec1017e45bf24132accacfde549b779ff5a514140ff641aada1271be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:542bee98afc1296e"
+name = "get_hydraulic_diameter_immutable"
+qual = "ClamshellRadiativeHeater::get_hydraulic_diameter_immutable"
+lines = [
+    148,
+    152,
+]
+hash = "sha256:e0e6362b3593bf2807efd693c8bc30c09164c24b92ad7e9cef63c7098bbe8fac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:7a29b3ea6408253f"
+name = "get_fluid_viscosity_at_ref_temperature"
+qual = "ClamshellRadiativeHeater::get_fluid_viscosity_at_ref_temperature"
+lines = [
+    154,
+    160,
+]
+hash = "sha256:9915a502bb3842e92f34552920482f34544137f364b1d6fd43b4d991b3947c75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:380afbafab52bca9"
+name = "get_fluid_viscosity_immutable_at_ref_temperature"
+qual = "ClamshellRadiativeHeater::get_fluid_viscosity_immutable_at_ref_temperature"
+lines = [
+    162,
+    168,
+]
+hash = "sha256:edd77088fd8c5470b910de2585b521e7cce6a9c2e6f8a4341d5a6f99069f9a14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:5dc3c4cb5f94e19e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:8de08fc7db21e136"
+name = "get_fluid_density_at_ref_temperature"
+qual = "ClamshellRadiativeHeater::get_fluid_density_at_ref_temperature"
+lines = [
+    170,
+    176,
+]
+hash = "sha256:d8be028899ce629399e917c06b528b294b18c90aae14bbb7657af4940798664c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:b11ca8dc1e9fd732"
+name = "get_fluid_density_immutable_at_ref_temperature"
+qual = "ClamshellRadiativeHeater::get_fluid_density_immutable_at_ref_temperature"
+lines = [
+    178,
+    184,
+]
+hash = "sha256:80273993e178fd5c23049295def2506dd858d377f195c7bdcc17f084777d5c0a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:129612370ebfb9ce",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:dcff7f9aa766788a"
+name = "get_component_length"
+qual = "ClamshellRadiativeHeater::get_component_length"
+lines = [
+    186,
+    190,
+]
+hash = "sha256:806753616100d3d26b973a90b4e0219280ef8f2c990218e4f2b01ead9862d3b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:23ea60b707e26e97"
+name = "get_component_length_immutable"
+qual = "ClamshellRadiativeHeater::get_component_length_immutable"
+lines = [
+    192,
+    196,
+]
+hash = "sha256:4e6ca55dfdaf8699d718c23f57803620f96e2198138decb92f41743e32251fbd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4f08e35087543a15",
+    "fn:7b8091c3b21fab1e",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:67a7a85559bb98d2"
+name = "get_incline_angle"
+qual = "ClamshellRadiativeHeater::get_incline_angle"
+lines = [
+    198,
+    202,
+]
+hash = "sha256:6d9146ede3b5e96d3b98c55b8aaddc17ce682f3e96687ea332074e46bdea4658"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:89b2658d4e2a2b79"
+name = "get_incline_angle_immutable"
+qual = "ClamshellRadiativeHeater::get_incline_angle_immutable"
+lines = [
+    204,
+    208,
+]
+hash = "sha256:297967b064e8783023917fbf7ba2b4a78c8bdd3148367359fe8d854e65a28f92"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3115510adeccfc6e",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:b74509e22efa0a9a"
+name = "get_internal_pressure_source"
+qual = "ClamshellRadiativeHeater::get_internal_pressure_source"
+lines = [
+    210,
+    214,
+]
+hash = "sha256:9318e8586bd97d662988ced6a41d80c8113ed4d45826c5f10e31077bbe3f7510"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:1f38aa99b5b3a015"
+name = "get_internal_pressure_source_immutable"
+qual = "ClamshellRadiativeHeater::get_internal_pressure_source_immutable"
+lines = [
+    216,
+    220,
+]
+hash = "sha256:38bae95060b5156f8fb07ba8ddaa624b78c5118ec6e747f00a39eddafbb5868f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3399320921e68dcb",
+    "fn:4f08e35087543a15",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[[module."fluid_component.rs".function]]
+id = "fn:bf681fda07ce5a82"
+name = "set_internal_pressure_source"
+qual = "ClamshellRadiativeHeater::set_internal_pressure_source"
+lines = [
+    222,
+    228,
+]
+hash = "sha256:7da383a99720efb04a978dec182394eb229c40b09b032823b7d7e9d3922afeac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:ca08e804e6e3c21c",
+]
+uses = ["fn:07c5060b9c48fc1b"]
+test = true
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater"
+
+[[module."mod.rs".function]]
+id = "fn:59445fc51be9aac3"
+name = "ClamshellRadiativeHeater"
+qual = "ClamshellRadiativeHeater"
+item = "type"
+shape = "struct"
+lines = [
+    50,
+    142,
+]
+hash = "sha256:67574a5e272babb19aa0a1357311b6b25eb5f55dd77217ee244e14fb2cf03290"
+doc_hash = "sha256:b46ca1a8005f06e6114697879c91081c205d4d3503874f474423d23663ecb714"
+uses = [
+    "fn:a6efe5f766b47fef",
+    "fn:f7cbf16a78489306",
+    "fn:f811c4c8869b08b0",
+]
+test = true
+
+[module."postprocessing.rs"]
+path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater::postprocessing"
+
+[[module."postprocessing.rs".function]]
+id = "fn:bff3ebc7b3865c48"
+name = "pipe_shell_temperature"
+qual = "ClamshellRadiativeHeater::pipe_shell_temperature"
+lines = [
+    7,
+    12,
+]
+hash = "sha256:280a00582663c4288ebb046c30c70112b84ba0879bbb73936afcd17219b6da94"
+doc_hash = "sha256:7ef17ad7307aa8d3122d640e1cf304d50927192ccd656dd36f942ad670e93437"
+callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:9aceed387dc5208a"
+name = "pipe_fluid_array_temperature"
+qual = "ClamshellRadiativeHeater::pipe_fluid_array_temperature"
+lines = [
+    14,
+    19,
+]
+hash = "sha256:7ea2107427fd2bbc9cabfd70339a41b33b0cca4d09beb824d51db99255733594"
+doc_hash = "sha256:c3ad994485042858cf7392e1f478d94cea8a85499ccbf4a7bd66e6c578b24f0f"
+callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:06cebbb2b92564b1"
+name = "annular_air_array_temperature"
+qual = "ClamshellRadiativeHeater::annular_air_array_temperature"
+lines = [
+    21,
+    26,
+]
+hash = "sha256:410330e85254a1fbb4ac004842f785760a8ffc0c89181c0912efce22a4225fec"
+doc_hash = "sha256:3899c4d364b4d48e1422944510cf5fc20bda192fd65ebb6ece2f1847a19c8e24"
+callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:d181e384c1025d3c"
+name = "heating_element_array_temperature"
+qual = "ClamshellRadiativeHeater::heating_element_array_temperature"
+lines = [
+    28,
+    33,
+]
+hash = "sha256:85204769fd75c1b508ca199663a96ac88341371c9b84d1f1dc01f874fa960e07"
+doc_hash = "sha256:45240cc29664c7205c074c9294097f01ef3e5a9b7d4a112089abc474f53c6978"
+callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:3d07fedade71c4e2"
+name = "insulation_array_temperature"
+qual = "ClamshellRadiativeHeater::insulation_array_temperature"
+lines = [
+    35,
+    40,
+]
+hash = "sha256:36c14501af048717ddd09fe6e8ae2021a17a6aef40dfea7d85310185b1741009"
+doc_hash = "sha256:ee3f059d0ea1ea3e79b2cea5bb2323ab667418972e2534bafafbdb5c6d10090f"
+callees = ["fn:81ebbad2a6b015cb"]
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:3a55e19c82fd7187"
+name = "get_total_radiant_heat_rate_from_annular_axial_ends"
+qual = "ClamshellRadiativeHeater::get_total_radiant_heat_rate_from_annular_axial_ends"
+lines = [
+    42,
+    49,
+]
+hash = "sha256:4f4ed3d9e8095a98fbcf318ac61b39475d64838e8be2613b2237db978c651d42"
+doc_hash = "sha256:9939f6ed1cb8e75cf9f4eb8d7395412517b178652c399ab585ef34ac7ee83e7e"
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:48b1f463eb9efc14"
+name = "get_front_side_radiant_heat_rate_from_annular_axial_ends"
+qual = "ClamshellRadiativeHeater::get_front_side_radiant_heat_rate_from_annular_axial_ends"
+lines = [
+    51,
+    58,
+]
+hash = "sha256:4f4ed3d9e8095a98fbcf318ac61b39475d64838e8be2613b2237db978c651d42"
+doc_hash = "sha256:83456361d9f19687af2eb1d8284050b5c8e8112b11485116c77a26aa56d843d5"
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[[module."postprocessing.rs".function]]
+id = "fn:f3babbc231ee4e33"
+name = "get_back_side_radiant_heat_rate_from_annular_axial_ends"
+qual = "ClamshellRadiativeHeater::get_back_side_radiant_heat_rate_from_annular_axial_ends"
+lines = [
+    59,
+    66,
+]
+hash = "sha256:4f4ed3d9e8095a98fbcf318ac61b39475d64838e8be2613b2237db978c651d42"
+doc_hash = "sha256:f6e4d3683ed63bdaa093c27d4d4a1767753436f3b5e3035960a9a3f6d62d502b"
+uses = ["fn:540617e338f429d7"]
+test = true
+physical_interface = true
+
+[module."preprocessing.rs"]
+path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater::preprocessing"
+
+[[module."preprocessing.rs".function]]
+id = "fn:54173809aaff9b2f"
+name = "lateral_and_miscellaneous_connections"
+qual = "ClamshellRadiativeHeater::lateral_and_miscellaneous_connections"
+lines = [
+    39,
+    304,
+]
+hash = "sha256:2356b823532d107bbd2d514dc3d26d9ef730a7cf1fe8de1684e0eb09b3103822"
+doc_hash = "sha256:e54f624c323746fc1ffaaa8c28e6f14b3ba10270e468d15ce74b949b2f021322"
+callees = [
+    "fn:2a44c4a750b9be07",
+    "fn:2d7b8ddc9930a271",
+    "fn:4f08e35087543a15",
+    "fn:5fd4c8607ec3cfde",
+    "fn:79a4b6e8919a5323",
+    "fn:86b7775079c503a5",
+    "fn:9cf2732f8b0c6890",
+    "fn:a5016d77314ec973",
+    "fn:abafd5a5e42d6a30",
+    "fn:be40085a8ed290cd",
+    "fn:c5a26c365b0b95ab",
+    "fn:cf2a9841ec560280",
+    "fn:d62c012076edccab",
+    "fn:e3de9188c66b7d9f",
+    "fn:e3e5acdbad97160c",
+    "fn:eb89be045205dc88",
+    "fn:ec091654a0a0fd96",
+    "fn:f8fcd27da58670ac",
+    "fn:f99091b5e6991a28",
+    "fn:fbbc51bd4baa71eb",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:c5a26c365b0b95ab"
+name = "zero_power_bc_axial_connection"
+qual = "ClamshellRadiativeHeater::zero_power_bc_axial_connection"
+lines = [
+    306,
+    369,
+]
+hash = "sha256:698f76cad6a3f11b3280d4f87514c5e8feccee9d337d53780acb286ce86e98f6"
+doc_hash = "sha256:f6d57480acc62c3219a81ac14fad4c27671528132e1fe13d41a48676876c490f"
+callees = [
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:7a10a768152b5992",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+test = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:d62c012076edccab"
+name = "get_ambient_air_to_insulation_nodal_conductance"
+qual = "ClamshellRadiativeHeater::get_ambient_air_to_insulation_nodal_conductance"
+lines = [
+    371,
+    442,
+]
+hash = "sha256:f848958cdb941e72ea19353b46816edd824621a5b9a8b7d27bc76c260eb3d46c"
+doc_hash = "sha256:6f442d83242a0a47bf4a46936212598492a440ea25870d47206753d794419797"
+callees = [
+    "fn:7d9e7837937bfa18",
+    "fn:81fd0c12b975904b",
+    "fn:9cb293305c961ed7",
+    "fn:a2275733c3fa6168",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:f99091b5e6991a28"
+name = "get_heating_element_to_insulation_conductance"
+qual = "ClamshellRadiativeHeater::get_heating_element_to_insulation_conductance"
+lines = [
+    444,
+    520,
+]
+hash = "sha256:a2e32c985355f1e0ac772b312af389aa2b8c6cf2a896d7235ff7c1057f45403e"
+doc_hash = "sha256:0bb56208fb29a83e75b5fd308de45110b2a41aeabedad58542da9c8619f8c36a"
+callees = [
+    "fn:721fa91849e08cd0",
+    "fn:9ac392fb93aa5a9b",
+    "fn:a2275733c3fa6168",
+    "fn:e4ef3b79543287e1",
+    "fn:eb89be045205dc88",
+    "fn:feec71215f335f20",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:9447740069e81383",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:79a4b6e8919a5323"
+name = "get_heating_element_to_annular_air_nodal_conductance"
+qual = "ClamshellRadiativeHeater::get_heating_element_to_annular_air_nodal_conductance"
+lines = [
+    522,
+    718,
+]
+hash = "sha256:03fbc2f21e3f6ec17489bc108d383b1c3733a5829a160de10295828b25d05021"
+doc_hash = "sha256:6643996edcb1a09d710dbe28954d7cc242710b15b0a50f3ba384660d09ba2d8f"
+callees = [
+    "fn:195f184ebca45812",
+    "fn:1b21730f0fc7aa69",
+    "fn:242ea4205afdb6fe",
+    "fn:25614892f3618c5c",
+    "fn:26aff73e30f8632a",
+    "fn:281e000f5919abf9",
+    "fn:33511a1688b49614",
+    "fn:37b8829042d7906e",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:63a411bd9f09c03c",
+    "fn:7b8091c3b21fab1e",
+    "fn:7d9e7837937bfa18",
+    "fn:84b7870b4d7c7d91",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:d2ef60a016252736",
+    "fn:e1ff8249ae286110",
+    "fn:e4ef3b79543287e1",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:2a44c4a750b9be07"
+name = "get_annular_air_inner_tube_shell_nodal_conductance"
+qual = "ClamshellRadiativeHeater::get_annular_air_inner_tube_shell_nodal_conductance"
+lines = [
+    720,
+    928,
+]
+hash = "sha256:15279b8333ecd9f8b46e31a0d6a8515c6fead1ffda13ce392b5245265347f4d3"
+doc_hash = "sha256:b20755385067a3037d070888c283349a22cfb51af9e2121178860f54ce737c75"
+callees = [
+    "fn:195f184ebca45812",
+    "fn:1b21730f0fc7aa69",
+    "fn:242ea4205afdb6fe",
+    "fn:25614892f3618c5c",
+    "fn:26aff73e30f8632a",
+    "fn:281e000f5919abf9",
+    "fn:33511a1688b49614",
+    "fn:37b8829042d7906e",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:63a411bd9f09c03c",
+    "fn:7b8091c3b21fab1e",
+    "fn:7d9e7837937bfa18",
+    "fn:84b7870b4d7c7d91",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:d2ef60a016252736",
+    "fn:e1ff8249ae286110",
+    "fn:e4ef3b79543287e1",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+    "fn:f811c4c8869b08b0",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:e3de9188c66b7d9f"
+name = "get_tube_fluid_array_to_pipe_shell_nodal_conductance"
+qual = "ClamshellRadiativeHeater::get_tube_fluid_array_to_pipe_shell_nodal_conductance"
+lines = [
+    930,
+    1142,
+]
+hash = "sha256:d848a6b0746bd97409383de70c685ef2532e27593d40afc8b2e33e72b6fe6c3f"
+doc_hash = "sha256:9a67dad045fc4950111c59a05db43cbf7d537162d73bc04a3b19f9ca85e696a8"
+callees = [
+    "fn:195f184ebca45812",
+    "fn:1b21730f0fc7aa69",
+    "fn:1ebe1857d340b0e2",
+    "fn:25614892f3618c5c",
+    "fn:26aff73e30f8632a",
+    "fn:281e000f5919abf9",
+    "fn:33511a1688b49614",
+    "fn:37b8829042d7906e",
+    "fn:3b87f8ad24df6f58",
+    "fn:457e96f4f0b76ef7",
+    "fn:4f08e35087543a15",
+    "fn:522ca19d58b3d90a",
+    "fn:578b1cf1bdc5bf1b",
+    "fn:7860f11bd51dbb37",
+    "fn:7b8091c3b21fab1e",
+    "fn:7d9e7837937bfa18",
+    "fn:84b7870b4d7c7d91",
+    "fn:a03d943953e2b3cb",
+    "fn:a2275733c3fa6168",
+    "fn:d2ef60a016252736",
+    "fn:e4ef3b79543287e1",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:68ae150e37a870db",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:de020efa1d48c9ac",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:ec091654a0a0fd96"
+name = "get_nodal_radiative_conductance_between_cylinders"
+qual = "ClamshellRadiativeHeater::get_nodal_radiative_conductance_between_cylinders"
+lines = [
+    1144,
+    1240,
+]
+hash = "sha256:189353e40ab35400e00bb5c13aa4df8b22ed5bd994f9bc1c846365223d847541"
+doc_hash = "sha256:3feb839d51021bc079e896e081f1eb4a27837c81bddd01ac15c868e6a34de72d"
+callees = [
+    "fn:29319e57a46dd71e",
+    "fn:81fd0c12b975904b",
+    "fn:9cb293305c961ed7",
+    "fn:a2275733c3fa6168",
+    "fn:b3b7ab00acced735",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:e3e5acdbad97160c"
+name = "get_nodal_radiative_conductance_between_heating_element_and_axial_exit"
+qual = "ClamshellRadiativeHeater::get_nodal_radiative_conductance_between_heating_element_and_axial_exit"
+lines = [
+    1242,
+    1343,
+]
+hash = "sha256:1ddbfa716bf417eae081e74c5d45c47a3b3d3074e3ebd88efa46669285aeaae8"
+doc_hash = "sha256:e372dadda596feb21739586e9b844f5aa0ead94ce4e220e780f1ed947054b077"
+callees = [
+    "fn:0efc358d088df120",
+    "fn:29319e57a46dd71e",
+    "fn:81fd0c12b975904b",
+    "fn:9cb293305c961ed7",
+    "fn:a2275733c3fa6168",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:fbbc51bd4baa71eb"
+name = "get_nodal_radiative_conductance_between_pipe_and_axial_exit"
+qual = "ClamshellRadiativeHeater::get_nodal_radiative_conductance_between_pipe_and_axial_exit"
+lines = [
+    1345,
+    1446,
+]
+hash = "sha256:682438bc9be5b322dfdec40df6f7043b11fbe715d9de4264a360b52846fc0e97"
+doc_hash = "sha256:7f958b1e7514feb26b5c547033bf07fcb06bfcce485927c958af9a927d01d97a"
+callees = [
+    "fn:29319e57a46dd71e",
+    "fn:81fd0c12b975904b",
+    "fn:9cb293305c961ed7",
+    "fn:a2275733c3fa6168",
+    "fn:bc8c3a3902aaddab",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:7a10a768152b5992",
+    "fn:d4b239bd4b67db13",
+]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:94acb4967240c208"
+name = "lateral_connection_thread_spawn"
+qual = "ClamshellRadiativeHeater::lateral_connection_thread_spawn"
+lines = [
+    1448,
+    1477,
+]
+hash = "sha256:e86913f36142223374089ed0daa8ce73bce86aa939f06c02c3b030dfb133d883"
+doc_hash = "sha256:7809504681bbe25b3da16a9fa2496f2d3cdd3d3ea42f1d553d449e46df9937d9"
+callees = ["fn:54173809aaff9b2f"]
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:cd5475d690741113"
+name = "calibrate_insulation_thickness"
+qual = "ClamshellRadiativeHeater::calibrate_insulation_thickness"
+lines = [
+    1479,
+    1485,
+]
+hash = "sha256:23e36bd3756ba09f4a270a058b1b1e60b59459b654ba298f949f630a116db79b"
+doc_hash = "sha256:25f6497ab2f8544fa75929b2aef580b64d52db3c71944cd96181e3ffcd10edcf"
+test = true
+physical_interface = true
+
+[[module."preprocessing.rs".function]]
+id = "fn:35e32bb094ec1015"
+name = "get_insulation_thickness"
+qual = "ClamshellRadiativeHeater::get_insulation_thickness"
+lines = [
+    1487,
+    1491,
+]
+hash = "sha256:6bac66cfe82ced70174234137c81ad6262b6f6d3d526e714134b17a8c401497d"
+doc_hash = "sha256:cbbfbdca3cb168b8fe4f9d34b3000ee1cf970eb0b9e7c37ba33d0039ca6ec5a3"
+test = true
+physical_interface = true
+
+[module."type_conversion.rs"]
+path = "crate::pre_built_components::uw_madison_flibe_loop_components::flibe_loop_iteration_two::clamshell_radiative_heater::type_conversion"
+
+[[module."type_conversion.rs".function]]
+id = "fn:0b9657874c12eab7"
+name = "into"
+qual = "ClamshellRadiativeHeater::into"
+lines = [
+    9,
+    15,
+]
+hash = "sha256:96aba3b1789761dfd9783709257013c944384310395729fdcd2d1e2b4a1ff606"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4f08e35087543a15"]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:d4b239bd4b67db13",
+]
+test = true

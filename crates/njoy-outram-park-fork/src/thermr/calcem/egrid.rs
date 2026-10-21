@@ -6,6 +6,7 @@
 //! at `thermr.f90:1971-1975` (`iform=0`, label 310) and `thermr.f90:2288`
 //! (`iform=1`, label 520).
 
+use petir::mathf::RealMath;
 use crate::common::phys::BK_EV_PER_K;
 
 /// `calcem`'s `ngrid` — the fixed number of incident-energy grid points
@@ -91,7 +92,7 @@ pub fn rescale_iform0(enow: f64, temp_k: f64) -> f64 {
     let elo = EGRID[0];
     let last = EGRID[NGRID - 1];
     let ratio_num = (temp_k / tone) * last / elo;
-    elo * ((enow / elo).ln() * ratio_num.ln() / (last / elo).ln()).exp()
+    elo * ((enow / elo).r_ln() * ratio_num.r_ln() / (last / elo).r_ln()).r_exp()
 }
 
 /// `iform=1`'s incident-energy rescale for `temp > break` — `thermr.f90`

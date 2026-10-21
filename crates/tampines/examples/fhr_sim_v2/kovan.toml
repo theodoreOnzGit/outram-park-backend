@@ -1,0 +1,158 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/examples/fhr_sim_v2"
+test_ids = [
+    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+]
+
+[module."main.rs"]
+path = "example:fhr_sim_v2"
+
+[[module."main.rs".function]]
+id = "fn:380cf378112ffc23"
+name = "main"
+qual = "main#1"
+lines = [
+    8,
+    10,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:c0429605be24d2a725b6bdfcc37ea3e957fcd6c820197344d1af14333b6ea485"
+
+[[module."main.rs".function]]
+id = "fn:9826fc8dd7bf9209"
+name = "main"
+qual = "main#2"
+lines = [
+    12,
+    21,
+]
+hash = "sha256:7233f357d097998cf84a0341457288338bb1f213df42407727ce6bc458ad2254"
+doc_hash = "sha256:074f2830a52b507fab83db986337a95dec02d780b762ba16b2ab25bbff5abe20"
+callees = ["fn:b09bb2346e8a9a81"]
+
+[[module."main.rs".function]]
+id = "fn:b09bb2346e8a9a81"
+name = "fhr_simulator_v2"
+qual = "fhr_simulator_v2"
+lines = [
+    34,
+    101,
+]
+hash = "sha256:15ca23436aec8e258d83d078a5bf661731bab4aceb8e55b4db9ac25254a09f89"
+doc_hash = "sha256:af275aab7ee91a9dd2fd6ea8bc18ade8a1f65199c298e206ac1789f448baf59d"
+callees = ["fn:6b5d1024f0724412"]
+uses = ["fn:6aab0600bcdcda5f"]
+
+[[module."main.rs".function]]
+id = "fn:6aab0600bcdcda5f"
+name = "FHRSimulatorApp"
+qual = "FHRSimulatorApp"
+item = "type"
+shape = "struct"
+lines = [
+    102,
+    115,
+]
+hash = "sha256:dbb485fe54b428d17aba69d4491cd9b64ac05f7efcc624187421234d5d453240"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:bbc1dd07cffc2c7a",
+    "fn:c9d55340aed1b0a5",
+    "fn:ee3f3d1c5d981e1a",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."main.rs".function]]
+id = "fn:bbc1dd07cffc2c7a"
+name = "FHRState"
+qual = "FHRState"
+item = "type"
+shape = "struct"
+lines = [
+    117,
+    221,
+]
+hash = "sha256:bd680c338f8b1f36c48d9ac6d8f29b81d89c029084d39a4994a309a530d01fee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."main.rs".function]]
+id = "fn:cccdc4816b7acd78"
+name = "default"
+qual = "FHRState::default"
+lines = [
+    225,
+    290,
+]
+hash = "sha256:a098133f16995f5c48da537ed8695d60adba3a9eb40df0016c3f82d0a510355a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:bbc1dd07cffc2c7a"]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."main.rs".function]]
+id = "fn:8084b13de7eddd69"
+name = "obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter"
+qual = "FHRState::obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter"
+lines = [
+    295,
+    302,
+]
+hash = "sha256:551a456b2e340eeaea38af79b9518e94939be7d4a650d20e79d38ccae759fd5e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:bbc1dd07cffc2c7a"]
+physical_interface = true
+
+[[module."main.rs".function]]
+id = "fn:6b5d1024f0724412"
+name = "new"
+qual = "FHRSimulatorApp::new"
+lines = [
+    307,
+    346,
+]
+hash = "sha256:15a4c38a85c4468cd30f5877e8a8fd6af22789e45f4db64164cfd31cfb5ff948"
+doc_hash = "sha256:70d0e5349f6d492e8f3b4c3173fe8e05f0b3f501bba7dbfe9cd6e130c61388de"
+callees = [
+    "fn:72223489ccafcc3d",
+    "fn:9c937ebaf1586619",
+    "fn:bfc0d2b7f949235f",
+    "fn:d377ed2a74f09c51",
+]
+uses = [
+    "fn:6aab0600bcdcda5f",
+    "fn:bbc1dd07cffc2c7a",
+    "fn:c9d55340aed1b0a5",
+]
+
+[[module."main.rs".function]]
+id = "fn:d377ed2a74f09c51"
+name = "default"
+qual = "FHRSimulatorApp::default"
+lines = [
+    350,
+    362,
+]
+hash = "sha256:34876cbe1ff3119957a97303b2df40e62a418f146f22860f0eceeb3ea08f69b1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:06cda9a75c7ea9eb",
+    "fn:cccdc4816b7acd78",
+]
+uses = [
+    "fn:6aab0600bcdcda5f",
+    "fn:bbc1dd07cffc2c7a",
+    "fn:c9d55340aed1b0a5",
+    "fn:ee3f3d1c5d981e1a",
+]

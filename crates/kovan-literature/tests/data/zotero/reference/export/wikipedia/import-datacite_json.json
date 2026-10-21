@@ -1,0 +1,62 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = Zenodo| doi = 10.5281/zenodo.2548653| last1 = Dube| first1 = Zenzo Lusaba| last2 = Murahwe| first2 = Gloria Rosi| title = An analysis of corporate governance practices in government controlled versus private banking institutions in Zimbabwe| date = 2015-01-01}}"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "{{Cite| publisher = DataCite| doi = 10.5438/n138-z3mk| last = Fenner| first = Martin| title = Bolognese: a Ruby library for conversion of DOI Metadata| date = 2017-02-25}}"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = German Medical Science GMS Publishing House| doi = 10.3205/mbi000337| issn = 1865-066X| last = Miljković| first = Natascha| title = Mehr Schaden als Nutzen? Problematischer Einsatz von Textvergleichsprogrammen zur vermeintlichen Plagiatsvermeidung| journal = GMS Medizin - Bibliothek - Information; 15(1-2):Doc10| date = 2015-08-12}}"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "{{Cite| publisher = Edition Topoi| doi = 10.17171/2-3-12-1| last = Fritsch| first = Bernhard| title = 3D model of object V 1.2-71: Structured-light Scan, Staatliche Museen zu Berlin -  Antikensammlung| date = 2016}}"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = Journal für Medienlinguistik| doi = 10.21248/jfml.2018.6| pages = 42–79 Seiten| last = Mostovaia| first = Irina| title = Nonverbale graphische Ressourcen bei Reparaturen in der interaktionalen informellen Schriftlichkeit am Beispiel der deutschen Chat-Kommunikation via IRC-Chat und WhatsApp| journal = Journal für Medienlinguistik| date = 2018-12-04}}"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = The Journal of Transcultural Studies| doi = 10.17885/heiup.jts.2018.1-2.23812| pages = 33–52 Pages| last = Gadkar-Wilcox| first = Wynn| title = Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919| journal = The Journal of Transcultural Studies| date = 2018-12-20}}"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = Tremor and Other Hyperkinetic Movements| doi = 10.7916/D8959HR1| pages = –| last1 = Hogg| first1 = Elliot| last2 = Tagliati| first2 = Michele| title = Overuse Cervical Dystonia: A Case Report and Literature Review| journal = Tremor and Other Hyperkinetic Movements| date = 2016-09-14}}"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = The Journal of Transcultural Studies| doi = 10.17885/heiup.jts.2018.1-2.23812| pages = 33–52 Pages| last = Gadkar-Wilcox| first = Wynn| title = Universality, Modernity and Cultural Borrowing Among Vietnamese Intellectuals, 1877–1919| journal = The Journal of Transcultural Studies| date = 2018-12-20}}"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "{{Cite| publisher = Zenodo| doi = 10.5281/ZENODO.5513598| last = Walsh| first = Michael| title = Non-healthcare occupational exposure to SARS-CoV-2 across industries in the United States before March 2020: a dataset generating protocol| date = 2021-09-17}}"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "{{Cite journal| publisher = Gesellschaft für Didaktik der Mathematik e.V.| doi = 10.48648/YHP7-0G75| issn = 2701-9012| volume = 4| last1 = Walter| first1 = Daniel| last2 = Schwätzer| first2 = Ulrich| title = Mathematikapps für die Grundschule analysieren| journal = Zeitschrift für Mathematikdidaktik in Forschung und Praxis| date = 2023}}"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "{{Cite book| publisher = Medien- und Informationszentrum, Leuphana Universität Lüneburg| doi = 10.48548/PUBDATA-155| isbn = 978-0-367-85639-7| pages = 109–128| last = Barron| first = Anne| title = Expanding the Landscapes of Irish English Research| chapter = Sorry Miss, I Completely Forgot about It: Apologies and Vocatives in Ireland and England| date = 2022}}"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "{{Cite book| publisher = Verlag Julius Klinkhardt : Bad Heilbrunn| doi = 10.25656/01:28324| isbn = 978-3-7815-6043-7| volume = Studien zur Professionsforschung und Lehrer:innenbildung| pages = 179–196| last1 = Bonnet| first1 = Andreas| last2 = Bakels| first2 = Elena| last3 = Hericks| first3 = Uwe| title = Professionalität und Professionalisierung von Lehrpersonen. Perspektiven, theoretische Rahmungen und empirische Zugänge| chapter = Die Professionalisierung von Lehrpersonen aus praxeologischer Perspektive. Professionelles Handeln als Entscheiden| date = 2023}}"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "{{Cite book| publisher = arthistoricum.net| doi = 10.11588/ARTHISTORICUM.1141.C16127| last1 = Rasche| first1 = Adelheid| last2 = Großmann| first2 = G. Ulrich| title = Luxus in Seide| chapter = Luxury in Silk. Eighteenth-Century Fashion: English summary of the book Luxus in Seide| date = 2023}}"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "{{Cite book| publisher = The Macmillan Brown Centre for Pacific Studies Press and the Pacific Centre for Environment and Sustainable Development| doi = 10.26021/15688| editors = Steven Ratuva (ed.)| last1 = Iese| first1 = Viliamu| last2 = Muliaina| first2 = Tolu| last3 = Prasad| first3 = Rahul| last4 = Nand| first4 = Moleen| last5 = Pill| first5 = Melanie| last6 = Michael| first6 = Sivendra| last7 = Dass-Nand| first7 = Roslyn| last8 = Soko| first8 = Vasiti| last9 = Nelson| first9 = Filomena| last10 = Veisa| first10 = Filipe| last11 = Rarokolutu| first11 = Ratu Tevita| last12 = Nasalo| first12 = Salote| last13 = Navunicagi| first13 = Otto| last14 = Amato-Ali| first14 = Christian Yves| last15 = Ha’apio| first15 = Michael| last16 = Wairiu| first16 = Morgan| last17 = Holland| first17 = Elisabeth| last18 = Malaki-Faaofo| first18 = Louise Marie| last19 = Roko| first19 = Nasoni| last20 = Ward| first20 = Alastair| title = Voices of the Pacific Climate Crisis Adaptation and Resilience: Pacific Ocean and Climate Crisis Assessment Report Volume 1| chapter = Loss and Damage: Save the Pacific, Save the World| date = 2024}}"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "{{Cite| publisher = Łukasiewicz Research Network - Institute of Electronic Materials Technology| doi = 10.34769/AZKM-Y326| last1 = Możdżonek| first1 = Małgorzata| last2 = Caban| first2 = Piotr| last3 = Gaca| first3 = Jarosław| last4 = Wójcik| first4 = Marek| last5 = Piątkowska| first5 = Anna| title = Determination of the thickness of BN layers on the Al2O3 substrate by FT-IR spectroscopy| date = 2020}}"
+	}
+}

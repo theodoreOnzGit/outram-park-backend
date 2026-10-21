@@ -1,0 +1,1161 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::scaffolds_report_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/quadrature.rs::level_symmetric_sets_reproduce_sphere_moments",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::scaffold_reports_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_no_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_with_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_order_convergence",
+]
+
+[module."eigenvalue.rs"]
+path = "crate::genfoam::neutronics::sn::eigenvalue"
+
+[[module."eigenvalue.rs".function]]
+id = "fn:27112be2342710c2"
+name = "solve_eigenvalue_transport"
+qual = "SnNeutronics::solve_eigenvalue_transport"
+lines = [
+    39,
+    159,
+]
+hash = "sha256:f79985bc51134dd0ffe26fbecf38dfce8e6b5d89b266c2a7699c08864b1b7772"
+doc_hash = "sha256:9025ed6b29f20477fdacfce2d8d52eae9dd3460922329e294806f210d9885093"
+callees = [
+    "fn:1d96cfd4984331a3",
+    "fn:219cf294b2d098c1",
+    "fn:2fcb7cdc146181a1",
+    "fn:4e29f586da5972bf",
+    "fn:5fbd8f3deb6d58f4",
+    "fn:6d45af0d518e142d",
+    "fn:7d532db3bf54e52a",
+    "fn:92290c59693a2a52",
+    "fn:9b24a1ce8f5b2d47",
+    "fn:a34bf592be75221c",
+    "fn:b09b99fc2579dae2",
+    "fn:eae1aebfadec2b89",
+    "fn:fef6ca346ec20371",
+]
+uses = [
+    "fn:a41d2f8c3dda823a",
+    "fn:bb32e287ce63235a",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:fef6ca346ec20371"
+name = "scale_flux"
+qual = "SnNeutronics::scale_flux"
+lines = [
+    161,
+    177,
+]
+hash = "sha256:10ee8ae5e280548fd36330b7ff2262e3a11c0fcbf94b60064327f3f3996c2a18"
+doc_hash = "sha256:8b3e05b438f216ed01d446db0d2c3a58bb916e0dc981166b385fe78f1e9b1bed"
+callees = [
+    "fn:324de9b11afb163c",
+    "fn:96b5c3d947f087e5",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."eigenvalue.rs".function]]
+id = "fn:7d532db3bf54e52a"
+name = "relative_l2_change"
+qual = "relative_l2_change"
+lines = [
+    180,
+    200,
+]
+hash = "sha256:b6e4fc7ddb747abf09c994b2afd68ff4f3610a72c8f9217ab06729e1f2a966f6"
+doc_hash = "sha256:6a69dcc0441a928392e24e24ad9fc74dc5fd49007147d6f8b05f4a70f05ffeda"
+callees = ["fn:6d45af0d518e142d"]
+uses = ["fn:7aa70dd1c009cc88"]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::neutronics::sn"
+
+[[module."mod.rs".function]]
+id = "fn:c5a24427dd37f12a"
+name = "SnSettings"
+qual = "SnSettings"
+item = "type"
+shape = "struct"
+lines = [
+    125,
+    147,
+]
+hash = "sha256:7b5ae8119e3404dc71ba4242cbe2bc5e1fdbefd41deb9cf59c9ee35e84ba19b3"
+doc_hash = "sha256:ba3c8ad30770677369fd687098eb8cf363218c81053dda1d1519041b18da59ff"
+uses = ["fn:f354cdd32c8e9ebe"]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7c537f1659cd6706"
+name = "default"
+qual = "SnSettings::default"
+lines = [
+    150,
+    162,
+]
+hash = "sha256:2375966f950f28148141aab77fee54d0ba8bfa1398a4324f81eae478b59f60fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:c5a24427dd37f12a",
+    "fn:f354cdd32c8e9ebe",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9cab62a9a5866ab2"
+name = "SnSolverData"
+qual = "SnSolverData"
+item = "type"
+shape = "struct"
+lines = [
+    165,
+    186,
+]
+hash = "sha256:4fa5749e667eedf55d3ec74df3a3542554998a373a089ac0faf10924fffcd5ba"
+doc_hash = "sha256:9d790aeffad54dada5947a0cc9c8096acde1e678b78ccac2a5a90455cccc88f0"
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:1d7530adff3ea2c0",
+    "fn:45749f57f9f7541f",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:de6ac7b7e405dc69"
+name = "SnNeutronics"
+qual = "SnNeutronics"
+item = "type"
+shape = "struct"
+lines = [
+    188,
+    199,
+]
+hash = "sha256:6d2f6d21735847a0cfc81920d795a9c33d310edb1b13ac2e4a6b5d805a49f887"
+doc_hash = "sha256:2588d6597704aa603dd8a7e599def6d33a420aa8613d203c957e28da190dca2d"
+uses = [
+    "fn:9cab62a9a5866ab2",
+    "fn:b2ccc1421320ef4f",
+    "fn:c5a24427dd37f12a",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d94b4a0fe842b8b1"
+name = "new"
+qual = "SnNeutronics::new"
+lines = [
+    202,
+    217,
+]
+hash = "sha256:cbfd7c681e722e23dd48af88cf5b56350f04b545833e4ae2e6b70e4e26a82adf"
+doc_hash = "sha256:d1cbf116e819e71e198f79be9a5c2f98f4a25dc79907019dc908486562642760"
+callees = [
+    "fn:7c537f1659cd6706",
+    "fn:ff8eecd3e4635175",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:b2ccc1421320ef4f",
+    "fn:c5a24427dd37f12a",
+    "fn:de6ac7b7e405dc69",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:fd355e6fac61a869"
+name = "with_cross_sections"
+qual = "SnNeutronics::with_cross_sections"
+lines = [
+    219,
+    310,
+]
+hash = "sha256:4bf6aa2b7becc16f75c2c31616e48e97e781e0557fbcc0346f1af21350e022e9"
+doc_hash = "sha256:7f0c4dd573eb6ea5bcc37f816a0445beb15568ca33521f3b738b88ed5ade21ed"
+callees = [
+    "fn:0a45d336fb243496",
+    "fn:11f08656b24f8bc1",
+    "fn:3a933f0c4791bb99",
+    "fn:5a7fa0a49e18c52a",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:e123f55c28fe18ec",
+    "fn:e92052500b4cbac9",
+    "fn:f503e0e3236efd66",
+    "fn:ff8eecd3e4635175",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:1d7530adff3ea2c0",
+    "fn:45749f57f9f7541f",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:9cab62a9a5866ab2",
+    "fn:a41d2f8c3dda823a",
+    "fn:b11c440f559911d4",
+    "fn:b2ccc1421320ef4f",
+    "fn:c5a24427dd37f12a",
+    "fn:de6ac7b7e405dc69",
+    "fn:f4ae40c00f340090",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3a933f0c4791bb99"
+name = "apply_flux_boundary"
+qual = "SnNeutronics::apply_flux_boundary"
+lines = [
+    312,
+    317,
+]
+hash = "sha256:8a2900046b26d14dc3684e58955cd3e0b30d93bd64b11a5f3005d734de4a8dc3"
+doc_hash = "sha256:8378ca8e659c3214b8e96f86e0cb8ac950b7017195bde82c694f6d8a16c952ef"
+callees = [
+    "fn:324de9b11afb163c",
+    "fn:e123f55c28fe18ec",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:b2ccc1421320ef4f",
+    "fn:de6ac7b7e405dc69",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e123f55c28fe18ec"
+name = "apply_flux_boundary_field"
+qual = "SnNeutronics::apply_flux_boundary_field"
+lines = [
+    319,
+    332,
+]
+hash = "sha256:8a03adf9eaa4563bdfcc8bded5d86e14bddb2fe7e740c9001e8af15bf468b2a2"
+doc_hash = "sha256:ddd3289b838ae7fd9321e5d70767d84de823683b558ca643acd75bf7cca739c0"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:de6ac7b7e405dc69",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:582e3f7dd570776c"
+name = "state"
+qual = "SnNeutronics::state"
+lines = [
+    334,
+    338,
+]
+hash = "sha256:a8c9d286615362c548476d611fbc0d2b969c0ac5ca8617ad10723bed05d361d7"
+doc_hash = "sha256:db1dd8fe34b36651a4591d4aa2d8fb0a2c224f0274b7e6ffec5f6111dcc5066a"
+uses = [
+    "fn:b2ccc1421320ef4f",
+    "fn:de6ac7b7e405dc69",
+]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:b5718a920152b881"
+name = "settings"
+qual = "SnNeutronics::settings"
+lines = [
+    340,
+    344,
+]
+hash = "sha256:fa21152fb2f10973ce6c9182c63855ca636c1487bb1504e0546ad80d05f152c8"
+doc_hash = "sha256:475dec3d63a98eab47279b6ad76b13c6050ce8486dcc33b949a75b0cbc34d4c0"
+uses = [
+    "fn:c5a24427dd37f12a",
+    "fn:de6ac7b7e405dc69",
+]
+
+[[module."mod.rs".function]]
+id = "fn:71a6b1219aa2c6fc"
+name = "quadrature"
+qual = "SnNeutronics::quadrature"
+lines = [
+    346,
+    350,
+]
+hash = "sha256:d8895e7caf79c71d90f7826c9b4a4e04ceb10d2b0cc54543e592cd7273baca72"
+doc_hash = "sha256:4f0df35c5372255e47cf71d2516c9b60f31f6de6102d883d6e37f3605ed73bbe"
+uses = [
+    "fn:45749f57f9f7541f",
+    "fn:de6ac7b7e405dc69",
+]
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:92290c59693a2a52"
+name = "energy_groups"
+qual = "SnNeutronics::energy_groups"
+lines = [
+    352,
+    356,
+]
+hash = "sha256:4e66271a95dab678f2d27e61c861e59ebe722daf8751582cfe307c6dc83410df"
+doc_hash = "sha256:5cfd35079df1d31b52802d04d96253ab006524583ae94a104dc2ae2a09af5e1e"
+callees = ["fn:ba171610648cb876"]
+uses = ["fn:de6ac7b7e405dc69"]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ab7b4317d47e9146"
+name = "solve_eigenvalue"
+qual = "SnNeutronics::solve_eigenvalue"
+lines = [
+    358,
+    381,
+]
+hash = "sha256:f74548edf080bea5461332d4ac77a8426bc8aacb969cfbc8761cddb2be962a52"
+doc_hash = "sha256:4b3b6f8e39b4760939cbfe9632abcb950744de8b06ae20281f72df878cdf9d8b"
+callees = ["fn:27112be2342710c2"]
+uses = [
+    "fn:48e016c56b29696e",
+    "fn:a41d2f8c3dda823a",
+    "fn:bb32e287ce63235a",
+    "fn:de6ac7b7e405dc69",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1d96cfd4984331a3"
+name = "solver_data"
+qual = "SnNeutronics::solver_data"
+lines = [
+    385,
+    392,
+]
+hash = "sha256:e696b35aee9e21048ceb279c50c42cddd964245b0b4af813548ce656b01fb18f"
+doc_hash = "sha256:844b17c6fb729220a586e0c5864fe6c7e58955d0812c5fb1e14e4aea2d197793"
+uses = [
+    "fn:9cab62a9a5866ab2",
+    "fn:de6ac7b7e405dc69",
+]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b09b99fc2579dae2"
+name = "fission_production"
+qual = "SnNeutronics::fission_production"
+lines = [
+    394,
+    409,
+]
+hash = "sha256:cae56fd63861b625fc01e3d7c7d72855fab677dcd7db4d9705b99dcaebe9b814"
+doc_hash = "sha256:e81419e760a26f910ba96e2dff7c4a752144d88a9b0e49d047c057f4a61d4715"
+callees = [
+    "fn:1d96cfd4984331a3",
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:a34bf592be75221c",
+]
+uses = ["fn:de6ac7b7e405dc69"]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:eae1aebfadec2b89"
+name = "fission_integral"
+qual = "SnNeutronics::fission_integral"
+lines = [
+    411,
+    416,
+]
+hash = "sha256:1e0689fbf837cb50537bd2e1d8409405b94d660c90fb5ed6d474a88fe59bce49"
+doc_hash = "sha256:eb23149a276733508086b244dc1e815d0e106de586cef7fd4319a3e3ea97d7b2"
+callees = ["fn:2fcb7cdc146181a1"]
+uses = ["fn:de6ac7b7e405dc69"]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0cf15bae9d7e2999"
+name = "scattering_into"
+qual = "SnNeutronics::scattering_into"
+lines = [
+    418,
+    434,
+]
+hash = "sha256:7604c5d8461da16021d42c45b10638903c387df4b716cec6b266b22cfb536be9"
+doc_hash = "sha256:2375e86aeca97765bb386f54312d6f0774f96f5080eb367a6239350c8fe40f14"
+callees = [
+    "fn:1d96cfd4984331a3",
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:a34bf592be75221c",
+]
+uses = ["fn:de6ac7b7e405dc69"]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:219cf294b2d098c1"
+name = "update_derived_fields"
+qual = "SnNeutronics::update_derived_fields"
+lines = [
+    436,
+    462,
+]
+hash = "sha256:499a1f2f97275488901412a140b3aed0cdd26ceb9d508470fc1130548da523e9"
+doc_hash = "sha256:c6079f07deb1d8d0bcb8212625d6b827b497dade0d56408220dab08070b83cd5"
+callees = [
+    "fn:1a0a9fa6e320d21b",
+    "fn:1d96cfd4984331a3",
+    "fn:2fcb7cdc146181a1",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:9c62cd16d3c107a5",
+    "fn:a34bf592be75221c",
+    "fn:b6819fc8dd8e16f6",
+]
+uses = ["fn:de6ac7b7e405dc69"]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b7edaba75902e05f"
+name = "WithInternal"
+qual = "WithInternal"
+item = "type"
+shape = "trait"
+lines = [
+    465,
+    469,
+]
+hash = "sha256:4e406a88cc45bc1f50076d6a8e06802b7a4320fc9db0e4e883d0e86a5fa9b0b5"
+doc_hash = "sha256:de7631e30d069c1ea17e800bbf410d169e70bc05ca76f7d0afb008783ac7657e"
+
+[[module."mod.rs".function]]
+id = "fn:6b297afc332e40c3"
+name = "with_internal"
+qual = "WithInternal::with_internal"
+lines = [
+    468,
+    468,
+]
+hash = "sha256:dbfc4f7672bcc5bce954bd028b2fa564989e72e00e31a4e6934246aa5aeccee6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b7edaba75902e05f"]
+
+[[module."mod.rs".function]]
+id = "fn:11f08656b24f8bc1"
+name = "with_internal"
+qual = "VolScalarField::with_internal"
+lines = [
+    472,
+    476,
+]
+hash = "sha256:edf1859d3b1432ff71da2afd48e0cf695a2daefc01b57e56ad163f103a34a941"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0b7b54d6516aee08",
+    "fn:f59a35e9cbd8b293",
+]
+uses = ["fn:dde232a1ea648ca8"]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[module."quadrature.rs"]
+path = "crate::genfoam::neutronics::sn::quadrature"
+
+[[module."quadrature.rs".function]]
+id = "fn:f4ae40c00f340090"
+name = "QuadratureOrder"
+qual = "QuadratureOrder"
+item = "type"
+shape = "enum"
+lines = [
+    85,
+    101,
+]
+hash = "sha256:50d27566363197699b1cebbcba796a3c16808d0e3e2dd2d499cd289a5b8b71d1"
+doc_hash = "sha256:490f50ea5081fc6acda105b66163a4a02bb96315ab4d909ca568a7d87fb41f7d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:00ae4ed278bb86d6"
+name = "n"
+qual = "QuadratureOrder::n"
+lines = [
+    104,
+    112,
+]
+hash = "sha256:92d9b389c58ac9470e212eac5cc3286c2669f870d0a05a8b89b1c829e920fbd0"
+doc_hash = "sha256:3e85a2a7ad9e83141b544135846da42d791673785ffaa382583f5576ae37d496"
+uses = ["fn:f4ae40c00f340090"]
+reached_by = [
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:9506d69ffb8e1271"
+name = "direction_count"
+qual = "QuadratureOrder::direction_count"
+lines = [
+    114,
+    119,
+]
+hash = "sha256:cd8f3cecb268288c99dcda37cc76314ecb68481945c68c1024ff257fac13830f"
+doc_hash = "sha256:986d78b996002e02cfa9f096dc1f9945677fa4608e1004b985122ffc7b90aa7f"
+callees = ["fn:00ae4ed278bb86d6"]
+uses = ["fn:f4ae40c00f340090"]
+reached_by = [
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:bb4a87a824a83234"
+name = "octant_ordinates"
+qual = "QuadratureOrder::octant_ordinates"
+lines = [
+    121,
+    158,
+]
+hash = "sha256:7848aa2e77d952f1de8895b0c418c1a77c6f1dc4229b0a570b71d8d25997b527"
+doc_hash = "sha256:95ddd5e1f5f155773cb1a7df62507f3b29f2bf7e17fbe52fc2308ea2960b49bd"
+uses = ["fn:f4ae40c00f340090"]
+reached_by = [
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:45749f57f9f7541f"
+name = "AngularQuadrature"
+qual = "AngularQuadrature"
+item = "type"
+shape = "struct"
+lines = [
+    161,
+    173,
+]
+hash = "sha256:cd0fe16f4ec41fc3f160a7ebb9d8612529f86b7a4764a70f6f29d0af7bf9a7a8"
+doc_hash = "sha256:d831d2047067c610f6ece2de74bc05fe4d9ffd2020534b76d5571a08b2bdb733"
+uses = [
+    "fn:ef05859ef19acee7",
+    "fn:f4ae40c00f340090",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:0a45d336fb243496"
+name = "level_symmetric"
+qual = "AngularQuadrature::level_symmetric"
+lines = [
+    176,
+    227,
+]
+hash = "sha256:db552b6f388ed874e65ccf9c1c261cf29fb1235795f2e62bdef59b42327e8e67"
+doc_hash = "sha256:45041e49357bdefeb79f1af3ae2860f9749ad46719b4fbec18cdd1ddf13f06d2"
+callees = [
+    "fn:9506d69ffb8e1271",
+    "fn:9e501e5f4cce23ae",
+    "fn:bb4a87a824a83234",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:45749f57f9f7541f",
+    "fn:ef05859ef19acee7",
+    "fn:f4ae40c00f340090",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:c153bb807527a56d"
+name = "order"
+qual = "AngularQuadrature::order"
+lines = [
+    229,
+    233,
+]
+hash = "sha256:b362f563a6f9829c4cd687484fb1a566d6d9284541f7384a6322fa73dd521ed1"
+doc_hash = "sha256:6e7e835cebfcd10661e48ddd2d33f5b96267359578797311d5fb0ab5e4ef8572"
+uses = [
+    "fn:45749f57f9f7541f",
+    "fn:f4ae40c00f340090",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:f503e0e3236efd66"
+name = "direction_count"
+qual = "AngularQuadrature::direction_count"
+lines = [
+    235,
+    239,
+]
+hash = "sha256:fbabd9d0f1e773fae3d4d3a7f5b87f6d1bf39cff6f9c5623b4dce1fe14f94c7c"
+doc_hash = "sha256:da91370122bbdb89b833f19e3eac80fe61f0f5bdb54bd0a3e0d50b6440bde047"
+uses = ["fn:45749f57f9f7541f"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:9399eb3ffc5c2b08"
+name = "directions"
+qual = "AngularQuadrature::directions"
+lines = [
+    241,
+    245,
+]
+hash = "sha256:7d5086193bdfa61152e792ce2550be64d6f3fb4135cbe8ea6935b15aad1700db"
+doc_hash = "sha256:4856ed51190d66a72d47e9ba9fd4637cb749c0c7fa04d89c4d3623e69db30ff2"
+uses = [
+    "fn:45749f57f9f7541f",
+    "fn:ef05859ef19acee7",
+]
+reached_by = ["#2"]
+
+[[module."quadrature.rs".function]]
+id = "fn:5da3dd1469ff7d78"
+name = "weights"
+qual = "AngularQuadrature::weights"
+lines = [
+    247,
+    251,
+]
+hash = "sha256:4bfd695434d6cd98cb873400df277ee86914c448b95257891b8326aa2ab39026"
+doc_hash = "sha256:a53aedcdc90fe670cba63412c31c48f2beeb7d7acd65299f774606a741ed1fa5"
+uses = ["fn:45749f57f9f7541f"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:5adb60517b576ff3"
+name = "weight_sum"
+qual = "AngularQuadrature::weight_sum"
+lines = [
+    253,
+    257,
+]
+hash = "sha256:7869cbcb1ebbad8a9c9930d3a9cff82bd0b5e47f951d3dba54ef6c3a71ac6a27"
+doc_hash = "sha256:1202ab3e8d5e318b840c9a1eaf1c5a2b722f66b05e067d46ddf71e4376012ed2"
+uses = ["fn:45749f57f9f7541f"]
+reached_by = ["#2"]
+
+[[module."quadrature.rs".function]]
+id = "fn:e92052500b4cbac9"
+name = "face_phi"
+qual = "AngularQuadrature::face_phi"
+lines = [
+    259,
+    298,
+]
+hash = "sha256:f14fb88fab46dc146b9a2385e47a0da55c48d599ecf1a04b8479d0edea86bb05"
+doc_hash = "sha256:e5840a9b9827eaf9c53c1353826afcc44293dd882efd7869765573454834061d"
+callees = [
+    "fn:35109efd2ed02837",
+    "fn:99b51c50cec539c3",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:45749f57f9f7541f",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."quadrature.rs".function]]
+id = "fn:8cc999e0329e6679"
+name = "level_symmetric_sets_reproduce_sphere_moments"
+qual = "level_symmetric_sets_reproduce_sphere_moments"
+lines = [
+    305,
+    368,
+]
+hash = "sha256:eb7a97d1102595a8857a8ddde1ab7f8705f07fc8486eec431ed2ddc319fa4b89"
+doc_hash = "sha256:795360ac61c67ddf9fad673bdaccb98bfd44622d28fd030b2ea82ef5ed13a727"
+callees = [
+    "fn:0a45d336fb243496",
+    "fn:5adb60517b576ff3",
+    "fn:5da3dd1469ff7d78",
+    "fn:9399eb3ffc5c2b08",
+    "fn:9506d69ffb8e1271",
+    "fn:9e501e5f4cce23ae",
+    "fn:ed7d718f646723fc",
+    "fn:f503e0e3236efd66",
+]
+uses = [
+    "fn:45749f57f9f7541f",
+    "fn:ef05859ef19acee7",
+    "fn:f4ae40c00f340090",
+]
+test = true
+
+[module."sweep.rs"]
+path = "crate::genfoam::neutronics::sn::sweep"
+
+[[module."sweep.rs".function]]
+id = "fn:4e29f586da5972bf"
+name = "sweep_group"
+qual = "SnNeutronics::sweep_group"
+lines = [
+    43,
+    132,
+]
+hash = "sha256:aa21edee274f4ad7b403dbadece9f2cadaf78c659c971f0b7ccad388e28d7157"
+doc_hash = "sha256:d3ca9272c41193bd0cf7c82482e04c39d88bd14264c32fd726c29188ebb09797"
+callees = [
+    "fn:0cf15bae9d7e2999",
+    "fn:11f08656b24f8bc1",
+    "fn:1d96cfd4984331a3",
+    "fn:2aefc7a630854c09",
+    "fn:2fcb7cdc146181a1",
+    "fn:324de9b11afb163c",
+    "fn:3519b36db3101e1e",
+    "fn:5da3dd1469ff7d78",
+    "fn:636e75b664f14254",
+    "fn:6d45af0d518e142d",
+    "fn:7493954e75e3a317",
+    "fn:7d94409f5275095e",
+    "fn:96b5c3d947f087e5",
+    "fn:a34bf592be75221c",
+    "fn:b0ed875c4efafa46",
+    "fn:c3f73100c19cafbf",
+    "fn:eae24a63871d2132",
+    "fn:f503e0e3236efd66",
+]
+uses = ["fn:7aa70dd1c009cc88"]
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."sweep.rs".function]]
+id = "fn:3519b36db3101e1e"
+name = "relative_l2_change"
+qual = "relative_l2_change"
+lines = [
+    135,
+    150,
+]
+hash = "sha256:e8623bfb448e4a832028b117b1f1293d86fb378bdd38af28432e6dc7136a8408"
+doc_hash = "sha256:f7852f1ed0e36dbb4529f409e1fe38624cd1d0500cb0e78cfcce3727658fe5e0"
+reached_by = [
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[module."tests.rs"]
+path = "crate::genfoam::neutronics::sn::tests"
+
+[[module."tests.rs".function]]
+id = "fn:ee8905b5838f05d4"
+name = "OneGroup"
+qual = "OneGroup"
+item = "type"
+shape = "struct"
+lines = [
+    108,
+    119,
+]
+hash = "sha256:344e0e20177073c9de73c1aa53cfbf4ecc62b4071d53614fabc2badc365c1d9b"
+doc_hash = "sha256:ff3b6f9bf494057c52f8478144e01c75aa49b2ff9bf0adbe0af3ab00023dd781"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:685552c2a4952a21"
+name = "one_group_xs"
+qual = "one_group_xs"
+lines = [
+    121,
+    159,
+]
+hash = "sha256:005c7b9b5c34e4ad8dc92fd47a1969057c03a1f466fbc0cfd9679f6ac3cc3079"
+doc_hash = "sha256:fec91557efc33aaa2617e4e38fb3ed382db2ef82400b2968bb9e35819f58fd55"
+callees = [
+    "fn:03a2dfcca9151919",
+    "fn:fc3e9008bc829799",
+]
+uses = [
+    "fn:36e194d3fcbe0bdd",
+    "fn:3b9722db91bba537",
+    "fn:56a595a14b3ca5e9",
+    "fn:b11c440f559911d4",
+    "fn:cce1fb20b5334a14",
+    "fn:ee8905b5838f05d4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6245d6d034996ee3"
+name = "slab_mesh"
+qual = "slab_mesh"
+lines = [
+    161,
+    170,
+]
+hash = "sha256:b53e9078fd057e589e58d8d78b7977e16a0f59154dcade4508d6ba7382b70307"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b507d433625293e6"]
+uses = ["fn:05040b6b1b09bb4e"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2b3e62f32d84b3be"
+name = "reflective"
+qual = "reflective"
+lines = [
+    172,
+    177,
+]
+hash = "sha256:0d886132d4686eb91b43ad3a0bd648988f3627947c617a6074f9ebb8f10c64b6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7217c4fc0f1bc32b"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1c856321470c896a"
+name = "vacuum"
+qual = "vacuum"
+lines = [
+    179,
+    184,
+]
+hash = "sha256:ab79d0c4e4ea9e5cfb335f43e93ae63d2e9c405aca2d876b968bcf8a99218099"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7217c4fc0f1bc32b"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7934e6d399456c2f"
+name = "sn_kinf_no_scatter"
+qual = "sn_kinf_no_scatter"
+lines = [
+    186,
+    224,
+]
+hash = "sha256:38febb7466e7eec5ae1ce51b53f43ea63026413aa4bbe25294227a17393e8758"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2b3e62f32d84b3be",
+    "fn:6245d6d034996ee3",
+    "fn:685552c2a4952a21",
+    "fn:7c537f1659cd6706",
+    "fn:ab7b4317d47e9146",
+    "fn:fd355e6fac61a869",
+]
+uses = [
+    "fn:c5a24427dd37f12a",
+    "fn:de6ac7b7e405dc69",
+    "fn:ee8905b5838f05d4",
+    "fn:f4ae40c00f340090",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:003b274034f0bcee"
+name = "sn_kinf_with_scatter"
+qual = "sn_kinf_with_scatter"
+lines = [
+    226,
+    265,
+]
+hash = "sha256:5d3646dc27519973fb14cba7eb8e7f0a5778d94646f4d3d9b1837c13caeb88f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2b3e62f32d84b3be",
+    "fn:6245d6d034996ee3",
+    "fn:685552c2a4952a21",
+    "fn:7c537f1659cd6706",
+    "fn:ab7b4317d47e9146",
+    "fn:fd355e6fac61a869",
+]
+uses = [
+    "fn:c5a24427dd37f12a",
+    "fn:de6ac7b7e405dc69",
+    "fn:ee8905b5838f05d4",
+    "fn:f4ae40c00f340090",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1369982eb7c157ce"
+name = "diffusion_vs_sn"
+qual = "diffusion_vs_sn"
+lines = [
+    267,
+    309,
+]
+hash = "sha256:fc211f7a58d1c6f0750ada072105c88a1b12628cf1d30e51a4fb5601504cb63f"
+doc_hash = "sha256:f4df95c05f0b9c23110ba002419ccf92be6ab44e1a2d62d9361b50fc498d9143"
+callees = [
+    "fn:1997bf3e13135b6f",
+    "fn:1c856321470c896a",
+    "fn:4d640dbf60fc6075",
+    "fn:6245d6d034996ee3",
+    "fn:65b415d212b73fac",
+    "fn:685552c2a4952a21",
+    "fn:7c537f1659cd6706",
+    "fn:ab7b4317d47e9146",
+    "fn:fd355e6fac61a869",
+]
+uses = [
+    "fn:3ff7989783b3f5b9",
+    "fn:7b835b35b6f19937",
+    "fn:c5a24427dd37f12a",
+    "fn:de6ac7b7e405dc69",
+    "fn:ee8905b5838f05d4",
+    "fn:f4ae40c00f340090",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0d701bac6186578a"
+name = "sn_approaches_diffusion_limit"
+qual = "sn_approaches_diffusion_limit"
+lines = [
+    311,
+    339,
+]
+hash = "sha256:b48485183a8154479f1e2108d2cc4f7399b5e7f8b1c639db2e16502801d3c859"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1369982eb7c157ce"]
+uses = [
+    "fn:ee8905b5838f05d4",
+    "fn:f4ae40c00f340090",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:8810a78c0802a5dc"
+name = "sn_order_convergence"
+qual = "sn_order_convergence"
+lines = [
+    341,
+    365,
+]
+hash = "sha256:211e6170c7b0895003b72bfb3af0358998e91cd3ba2735905bae9e2068bf64a9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1369982eb7c157ce"]
+uses = [
+    "fn:ee8905b5838f05d4",
+    "fn:f4ae40c00f340090",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6ad8cb429617fece"
+name = "scaffold_reports_not_implemented"
+qual = "scaffold_reports_not_implemented"
+lines = [
+    367,
+    379,
+]
+hash = "sha256:6515b5c48344886e79b55c788f7a19e15405bb10f00a333289fefc9451b87c21"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6245d6d034996ee3",
+    "fn:71a6b1219aa2c6fc",
+    "fn:ab7b4317d47e9146",
+    "fn:d94b4a0fe842b8b1",
+]
+uses = [
+    "fn:48e016c56b29696e",
+    "fn:a41d2f8c3dda823a",
+    "fn:de6ac7b7e405dc69",
+]
+test = true

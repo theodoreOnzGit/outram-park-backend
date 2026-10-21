@@ -275,6 +275,7 @@ mod tests {
                 j: 1.0,
                 parity: 1.0,
                 channels: vec![ch(1.0), ch(2.0)],
+                backgrounds: vec![None, None],
                 resonances: vec![
                     RmlResonance {
                         energy: 100.0,
@@ -301,13 +302,14 @@ mod tests {
     fn parameter_layout_and_babb_pattern() {
         let mut sec = two_channel_section();
         context::apply_particle_pair_defaults(&mut sec.particle_pairs);
-        let kin = context::compute_channel_kinematics(
-            &mut sec.particle_pairs,
-            &sec.spin_groups,
-            34.6685,
-        )
-        .unwrap();
-        let amp = vec![compute_resonance_amplitudes(&sec.spin_groups[0], &kin[0], &sec.particle_pairs).unwrap()];
+        let kin =
+            context::compute_channel_kinematics(&mut sec.particle_pairs, &sec.spin_groups, 34.6685)
+                .unwrap();
+        let amp =
+            vec![
+                compute_resonance_amplitudes(&sec.spin_groups[0], &kin[0], &sec.particle_pairs)
+                    .unwrap(),
+            ];
         let ds = deriv_setup(&sec, &amp);
         assert_eq!(ds.npar, 8);
         assert_eq!(ds.kstart, vec![0]);

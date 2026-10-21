@@ -173,6 +173,34 @@ pub struct File4Angular {
     /// `getco` array for `j = 0`, then the label-210 slide's partial copy
     /// (`:9789-9793`) — see the module doc.
     lo_fl: Vec<Vec<f64>>,
+    /// HEATR's `hgtfle` rule (`heatr.f90:4364-4367`): a log law (4 or 5)
+    /// falls back to its linear partner when the two coefficients differ in
+    /// sign. GROUPR's `getfle` has no such rule.
+    log_sign_fallback: bool,
+}
+
+/// How [`File4Angular::from_tape_with`] reads a section: GROUPR's `getfle` /
+/// `getco` ([`File4Options::GROUPR`]) or HEATR's `hgtfle` / `hgetco`
+/// ([`File4Options::HEATR`]), which are the same routine with three
+/// differences.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct File4Options {
+    /// Rounding of tabulated-record coefficients: `1e-8` in `getco`
+    /// (`groupr.f90:10530`), `1e-6` in `hgetco` (`heatr.f90:4474`).
+    pub toler: f64,
+    /// Accept a lab-frame (`LCT = 1`) section as if it were CM. `hgtfle`
+    /// does this for MT=51-90 when `AWR >= 10` (`heatr.f90:4252-4260`);
+    /// both routines otherwise refuse lab data.
+    pub lab_as_cm: bool,
+    /// `hgtfle`'s log-law sign fallback (see the field of the same name).
+    pub log_sign_fallback: bool,
+}
+
+impl File4Options {
+    /// GROUPR's `getfle`.
+    pub const GROUPR: File4Options = File4Options { toler: TOLER, lab_as_cm: false, log_sign_fallback: false };
+    /// HEATR's `hgtfle`, with lab data refused (set `lab_as_cm` per reaction).
+    pub const HEATR: File4Options = File4Options { toler: 1.0e-6, lab_as_cm: false, log_sign_fallback: true };
 }
 
 /// `getfle`'s answer at one energy.
@@ -215,6 +243,7 @@ fn getco_tabulated(
     interp: &[(u32, u32)],
     pairs: &[(f64, f64)],
     nl_max: usize,
+    toler: f64,
 ) -> Result<Vec<f64>, NjoyError> {
     let l = nl_max - 1;
     let mut fl = vec![0.0f64; nl_max];
@@ -233,8 +262,8 @@ fn getco_tabulated(
     }
     let mut nlz = 1;
     for il in 2..=nl_max {
-        let j = (fl[il - 1] / TOLER).round();
-        fl[il - 1] = j * TOLER;
+        let j = (fl[il - 1] / toler).round();
+        fl[il - 1] = j * toler;
         if j != 0.0 {
             nlz = il;
         }
@@ -249,6 +278,7 @@ fn read_records(
     cur: &mut SectionCursor<'_>,
     ltt: i32,
     nl_max: usize,
+    toler: f64,
     out: &mut Vec<EnergyPoint>,
 ) -> Result<(), NjoyError> {
     let tab2 = cur.read_tab2()?;
@@ -274,7 +304,7 @@ fn read_records(
                 let t = cur.read_tab1()?;
                 EnergyPoint {
                     energy: t.head.c2,
-                    fl: getco_tabulated(&t.interp, &t.pairs, nl_max)?,
+                    fl: getco_tabulated(&t.interp, &t.pairs, nl_max, toler)?,
                     law,
                 }
             }
@@ -322,6 +352,23 @@ impl File4Angular {
     /// [`NjoyError::EndfParse`] for `LTT` outside `0..=3`, or a lab-frame
     /// distribution (`LCT = 1`), which upstream cannot convert to CM either.
     pub fn from_tape(tape: &Tape, mat: i32, mt: i32, nl_max: usize) -> Result<Self, NjoyError> {
+        Self::from_tape_with(tape, mat, mt, nl_max, &File4Options::GROUPR)
+    }
+
+    /// [`File4Angular::from_tape`] with the reading rules of `opts`, so
+    /// HEATR's `hgtfle` reuses this port instead of a second one.
+    ///
+    /// # Errors
+    /// As [`File4Angular::from_tape`]; a lab-frame section is refused unless
+    /// `opts.lab_as_cm`.
+    pub fn from_tape_with(
+        tape: &Tape,
+        mat: i32,
+        mt: i32,
+        nl_max: usize,
+        opts: &File4Options,
+    ) -> Result<Self, NjoyError> {
+        let toler = opts.toler;
         let sec = tape
             .section(mat, 4, mt)
             .ok_or(NjoyError::SectionNotFound { mat, mf: 4, mt })?;
@@ -338,7 +385,7 @@ impl File4Angular {
         let lct = second.l2;
         let mut points = Vec::new();
         if li != 1 {
-            if lct == 1 {
+            if lct == 1 && !opts.lab_as_cm {
                 // getco:10685 — "lab to cm conversion not coded".
                 return Err(NjoyError::EndfParse(format!(
                     "getfle: MF=4/MT={mt} of mat {mat} is a lab-frame distribution (LCT=1); \
@@ -346,10 +393,10 @@ impl File4Angular {
                 )));
             }
             match ltt {
-                1 | 2 => read_records(&mut cur, ltt, nl_max, &mut points)?,
+                1 | 2 => read_records(&mut cur, ltt, nl_max, toler, &mut points)?,
                 3 => {
-                    read_records(&mut cur, 1, nl_max, &mut points)?;
-                    read_records(&mut cur, 2, nl_max, &mut points)?;
+                    read_records(&mut cur, 1, nl_max, toler, &mut points)?;
+                    read_records(&mut cur, 2, nl_max, toler, &mut points)?;
                 }
                 other => {
                     return Err(NjoyError::EndfParse(format!(
@@ -366,6 +413,7 @@ impl File4Angular {
             isotropic,
             points,
             lo_fl,
+            log_sign_fallback: opts.log_sign_fallback,
         })
     }
 
@@ -432,12 +480,15 @@ impl File4Angular {
         if e >= elo * (1.0 - SMALL) {
             let (flo, fhi) = (&self.lo_fl[hi - 1], &pts[hi].fl);
             let nlmax = pts[hi - 1].fl.len().max(fhi.len());
-            let law = IntLaw::from_code(pts[hi].law);
             let mut fle = vec![0.0f64; nle];
             for (i, slot) in fle.iter_mut().enumerate().take(nlmax.min(nle)) {
                 let ylo = flo.get(i).copied().unwrap_or(0.0);
                 let yhi = fhi.get(i).copied().unwrap_or(0.0);
-                *slot = terp1(elo, ylo, ehi, yhi, e, law)?;
+                let mut code = pts[hi].law;
+                if self.log_sign_fallback && (code == 4 || code == 5) && ylo * yhi <= 0.0 {
+                    code -= 2;
+                }
+                *slot = terp1(elo, ylo, ehi, yhi, e, IntLaw::from_code(code))?;
             }
             Ok(LegendreAt {
                 fle,
@@ -532,7 +583,7 @@ mod tests {
     /// `fl(2)` within 2e-8 of 1/3, `nlz = 2`.
     #[test]
     fn tabulated_linear_distribution_gives_one_third() {
-        let fl = getco_tabulated(&[(2, 2)], &[(-1.0, 0.0), (1.0, 1.0)], NLD).unwrap();
+        let fl = getco_tabulated(&[(2, 2)], &[(-1.0, 0.0), (1.0, 1.0)], NLD, TOLER).unwrap();
         assert!((fl[0] - 1.0).abs() < 2e-8, "fl(1) = {}", fl[0]);
         assert_eq!(fl.len(), 2, "nlz: {fl:?}");
         assert!((fl[1] - 1.0 / 3.0).abs() < 2e-8, "fl(2) = {}", fl[1]);

@@ -1,0 +1,826 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [],
+				"tags": [],
+				"title": "Dietary supplements containing ultradense calcium citrate and carbonyl iron",
+				"rights": "Copyright Thomson 2004.",
+				"abstractNote": "A vitamin and mineral supplement containing ULTRADENSE.TM. calcium citrate and carbonyl iron for use in humans. Calcium in the form of citrate enhances absorption of iron, zinc, and magnesium. ULTRADENSE.TM. calcium citrate provides more bioavailable calcium than usual preparations of calcium citrate. Carbonyl iron provides iron in a form that significantly reduces the risk to children of accidental iron poisoning from formulations that provide iron in salt form. The supplement may further contain a number of vitamins and minerals in a tablet that is elegantly small, weighing about 1.5-1.6 g. The small size allows ease of swallowing and encourages patient acceptability. Methods of making such a supplement and methods of treating maladies in need of vitamin and mineral supplementation are provided.",
+				"language": "English",
+				"patentNumber": "US 6818228",
+				"issueDate": "2004-11"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "S. M.",
+						"lastName": "Werner",
+						"creatorType": "author"
+					},
+					{
+						"name": "E-mail: shahlawerner@yahoo. com",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "E. V.",
+						"lastName": "Nordheim",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "K. F.",
+						"lastName": "Raffa",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Comparison of methods for sampling Thysanoptera on basswood (Tilia americana L.) trees in mixed northern hardwood deciduous forests",
+				"volume": "201",
+				"rights": "Copyright Thomson 2004.",
+				"ISSN": "0378-1127",
+				"abstractNote": "Canopy arthropods play integral roles in the functioning, biodiversity, and productivity of forest ecosystems. Yet quantitative sampling of arboreal arthropods poses formidable challenges. We evaluated three methods of sampling the introduced basswood thrips, Thrips calcaratus Uzel (Thysanoptera: Thripidae), from the foliage of basswood canopies with respect to statistical variability and practical considerations (legal, economic and logistical accessibility). All three methods involved removal of foliage, which was performed using a pole-pruner, shotgun, and certified tree-climber. We also tested a fourth method, in which the tree-climber enclosed samples in a plastic bag to estimate losses that occur when branches fall to the ground, even though this is often not practical. The climber plus bag and pole-pruning methods obtained the highest numbers of thrips. Mean number of larval thrips did not vary significantly among the three main sampling methods. Site had a stronger effect on the number of larval thrips obtained than on the number of adults. A significant method by site interaction was observed with adults but not larvae. Significant collection date (which corresponds to thrips life stage) by site interaction was also observed. We regressed sampling methods to determine if the number of thrips obtained using one method can be used to predict the number obtained with another. Tree-climber and pole-pruner data were highly predictive of each other, but shotgun data cannot be used to estimate other methods. Pole-pruning is the most cost-effective and legally permissible technique, but is limited to trees with accessible lower branches. The shotgun method is cost-effective and useful in sampling trees at least up to 27 m, but is prohibited close to human activity. The tree-climber is effective and broadly applicable, but incurs the highest costs. This study shows the need to evaluate a variety of techniques when sampling arboreal insects with respect to predictability, pragmatics and life stages. Copyright 2004, Elsevier B.V. All rights reserved.",
+				"language": "English",
+				"issue": "2-3",
+				"publicationTitle": "Forest Ecology & Management",
+				"pages": "327–334",
+				"date": "2004-11"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Alfred L.",
+						"lastName": "Gaertner",
+						"creatorType": "author"
+					},
+					{
+						"name": "E-mail: agaertner@genecor. com",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Nicole L.",
+						"lastName": "Chow",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Beth G.",
+						"lastName": "Fryksdale",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Paul",
+						"lastName": "Jedrzejewski",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Brian S.",
+						"lastName": "Miller",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sigrid",
+						"lastName": "Paech",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "David L.",
+						"lastName": "Wong",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Roza Maria",
+						"lastName": "Kamp",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Juan J.",
+						"lastName": "Calvete",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Theodora",
+						"lastName": "Choli-Papadopoulou",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "Increasing throughput and data quality for proteomics",
+				"rights": "Copyright Thomson 2004.",
+				"ISBN": "3540202226",
+				"language": "English",
+				"bookTitle": "Methods in proteome and protein analysis",
+				"pages": "371–397",
+				"date": "2004"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Karin",
+						"lastName": "Hjerno",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Peter",
+						"lastName": "Hojrup",
+						"creatorType": "author"
+					},
+					{
+						"name": "E-mail: php@bmb. sdu.dk",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Roza Maria",
+						"lastName": "Kamp",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Juan J.",
+						"lastName": "Calvete",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Theodora",
+						"lastName": "Choli-Papadopoulou",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "Peak Erazor: A Windows-based program for improving peptide mass searches",
+				"rights": "Copyright Thomson 2004.",
+				"ISBN": "3540202226",
+				"language": "English",
+				"bookTitle": "Methods in proteome and protein analysis",
+				"pages": "359–370",
+				"date": "2004"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Mughees",
+						"lastName": "Ahmed",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Legitimacy crises in Pakistan",
+				"abstractNote": "This paper presents a thorough review of legality of governments in Pakistan. It suggests that how non-political rulers have legalized their authority within the political system of Pakistan. This paper analyzes the behavior of dictators and their supporters and even opponents which legitimize unconstitutional actions taken by dictators. Analytical and political interaction approach is adopted in this paper. Another object of this discussion is to analyze the behavior of politicians and the judiciary about the legitimacy of dictators' rule. [R]",
+				"language": "English",
+				"publicationTitle": "Journal of Political Studies 12",
+				"pages": "7–14",
+				"date": "2007"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Gea D. M.",
+						"lastName": "Wijers",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Contributions to transformative change in Cambodia: a study on returnees as institutional entrepreneurs",
+				"volume": "2013",
+				"ISSN": "1868-1034",
+				"abstractNote": "This paper explores the experiences of Cambodian French returnees who are contributing to transformative change in Cambodia as institutional entrepreneurs. In order to delve into how returnees and their work are perceived in both host and home country, this multi-sited research project was designed as a comparative case study. Data were primarily collected through conversations with individual informants from the Lyonnese and Parisian Cambodian community as well as selected key informants in Phnom Penh. Excerpts of case studies are presented and discussed to illustrate the history, context and situation of their return as these influence their institutional entrepreneurial activities and the ways in which they use their transnational social networks as resources. [R, abr.]",
+				"language": "English",
+				"issue": "1",
+				"publicationTitle": "Journal of Current Southeast Asian Affairs",
+				"pages": "3–28",
+				"date": "2013"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "James A.",
+						"lastName": "Peterson",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Take Ten: Need-to-Know Facts About Breast Cancer",
+				"volume": "14",
+				"ISSN": "1091-5397",
+				"DOI": "10.1249/FIT.0b013e3181c6723d",
+				"language": "English.",
+				"issue": "1",
+				"publicationTitle": "ACSM'S Health & Fitness Journal",
+				"date": "2010-02"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Weijia",
+						"lastName": "Zhang",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Wei",
+						"lastName": "Ding",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ye",
+						"lastName": "Chen",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Meilin",
+						"lastName": "Feng",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Yongmei",
+						"lastName": "Ouyang",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Yanhui",
+						"lastName": "Yu",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Zhimin",
+						"lastName": "He",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "BCRP",
+						"type": 1
+					},
+					{
+						"tag": "PI3K/AKT/NF-[kappa]B",
+						"type": 1
+					},
+					{
+						"tag": "chemoresistance",
+						"type": 1
+					}
+				],
+				"title": "Up-regulation of breast cancer resistance protein plays a role in HER2-mediated chemoresistance through PI3K/Akt and nuclear factor-kappa B signaling pathways in MCF7 breast cancer cells",
+				"volume": "43",
+				"ISSN": "1672-9145",
+				"DOI": "10.1093/abbs/gmr050",
+				"abstractNote": "Human epidermal growth factor receptor 2 (HER2/neu, also known as ErbB2) overexpression is correlated with the poor prognosis and chemoresistance in cancer. Breast cancer resistance protein (BCRP and ABCG2) is a drug efflux pump responsible for multidrug resistance (MDR) in a variety of cancer cells. HER2 and BCRP are associated with poor treatment response in breast cancer patients, although the relationship between HER2 and BCRP expression is not clear. Here, we showed that transfection of HER2 into MCF7 breast cancer cells (MCF7/HER2) resulted in an up-regulation of BCRP via the phosphatidylinositol 3-kinase (PI3K)/Akt and nuclear factor-kappa B (NF-[kappa]B) signaling. Treatment of MCF/HER2 cells with the PI3K inhibitor LY294002, the I[kappa]B phosphorylation inhibitor Bay11-7082, and the dominant negative mutant of I[kappa]B[alpha] inhibited HER2-induced BCRP promoter activity. Furthermore, we found that HER2 overexpression led to an increased resistance of MCF7 cells to multiple antitumor drugs such as paclitaxel (Taxol), cisplatin (DDP), etoposide (VP-16), adriamycin (ADM), mitoxantrone (MX), and 5-fluorouracil (5-FU). Moreover, silencing the expression of BCRP or selectively inhibiting the activity of Akt or NF-[kappa]B sensitized the MCF7/HER2 cells to these chemotherapy agents at least in part. Taken together, up-regulation of BCRP through PI3K/AKT/NF-[kappa]B signaling pathway played an important role in HER2-mediated chemoresistance of MCF7 cells, and AKT, NF-[kappa]B, and BCRP pathways might serve as potential targets for therapeutic intervention., Copyright (C) 2011 Blackwell Publishing Ltd.",
+				"language": "English.",
+				"issue": "8",
+				"publicationTitle": "Acta Biochimica et Biophysica Sinica",
+				"pages": "647–653",
+				"date": "2011-08"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Ph",
+						"lastName": "Simon",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "S.",
+						"lastName": "Dept",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "F.",
+						"lastName": "Lefranc",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "J. C.",
+						"lastName": "Noel",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Brain Metastasis after Breast Cancer and Hysterectomy for a Benign Leiomyoma",
+				"volume": "6",
+				"ISSN": "0001-5458",
+				"language": "English.",
+				"publicationTitle": "Acta Chirurgica Belgica",
+				"pages": "611–613",
+				"date": "2010-12"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Barbara",
+						"lastName": "Gazic",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Joze",
+						"lastName": "Pizem",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "plexiform schwannoma",
+						"type": 1
+					},
+					{
+						"tag": "lobular breast carcinoma",
+						"type": 1
+					},
+					{
+						"tag": "tumor to tumor metastasis",
+						"type": 1
+					}
+				],
+				"title": "Lobular Breast Carcinoma Metastasis to a Superficial Plexiform Schwannoma as the First Evidence of an Occult Breast Cancer",
+				"volume": "33",
+				"ISSN": "0193-1091",
+				"DOI": "10.1097/DAD.0b013e31820d9c0e",
+				"abstractNote": "Tumor to tumor metastasis is a rare phenomenon, in which one, benign or malignant, tumor is involved by metastatic deposits from another. Most documented tumor to tumor metastases have been located intracranially, in which, in the majority of cases, either a breast or a lung carcinoma metastasized to a meningioma. Only 7 cases of metastases to schwannoma have so far been reported in the English literature, in 6 cases to an intracranial acoustic schwannoma and in a single case to a subcutaneous schwannoma. We present a case of dermal/subcutaneous plexiform schwannoma containing metastatic deposits of an occult lobular breast carcinoma, creating a unique schwannoma with epithelioid cells. Differential diagnosis of schwannoma with epithelioid cells includes malignant transformation of schwannoma and metastasis of a carcinoma or melanoma to schwannoma, epithelioid schwannoma, and schwannoma with glandular or pseudo glandular elements., (C) 2011 Lippincott Williams & Wilkins, Inc.",
+				"language": "English.",
+				"issue": "8",
+				"publicationTitle": "American Journal of Dermatopathology",
+				"pages": "845–849",
+				"date": "2011-12"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "YuM",
+						"lastName": "Marusik",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "KYu",
+						"lastName": "Eskov",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "D. V.",
+						"lastName": "Logunov",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "A. M.",
+						"lastName": "Basarukin",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"place": "place of publication not given",
+				"title": "Spiders (Arachnida, Aranei) from Sakhalin and the Kuril Islands",
+				"rights": "Copyright 2010 Thomson Reuters",
+				"abstractNote": "A check-list of spiders based on personal and literature data from Sakhalin and Kuril Islands is presented. Four hundred and three species have been found there. Distribution records within Sakhalin (districts) and the Kuril Islands are given. Dubious species recorded by Japanese authors (1924-1937) are listed separately with some comments. Twelve new synonyms, new combinations, and new nominations are proposed. Several previous misidentifications in the Far Eastern linyphiids are corrected.",
+				"language": "English",
+				"publisher": "International Sakhalin Island Project"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "George W.",
+						"lastName": "Benz",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Stephen A.",
+						"lastName": "Bullard",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Parasites of fishes: list of and dichotomous key to the identification of major metazoan groups",
+				"rights": "Copyright 2010 Thomson Reuters",
+				"language": "English",
+				"publicationTitle": "Association of Zoos and Aquariums Regional Meetings Proceedings",
+				"date": "2005"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Clare",
+						"lastName": "Morrison",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"place": "Institute of Applied Sciences, Suva",
+				"title": "Key to the herpetofauna of Fiji",
+				"rights": "Copyright 2010 Thomson Reuters",
+				"language": "English",
+				"publisher": "University of the South Pacific",
+				"date": "2006"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Andu",
+						"lastName": "Kangur",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Peeter",
+						"lastName": "Kangur",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kulli",
+						"lastName": "Kangur",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Tonu",
+						"lastName": "Mols",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The role of temperature in the population dynamics of smelt Osmerus eperlanus eperlanus m. spirinchus Pallas in Lake Peipsi (Estonia/Russia)",
+				"rights": "Copyright 2009 Thomson Reuters",
+				"ISSN": "0018-8158",
+				"abstractNote": "We analysed lake smelt (Osmerus eperlanus eperlanus m. spirinchus Pallas.) population dynamics in relation to water level and temperature in Lake Peipsi, Estonia/Russia, using commercial fishery statistics from 1931 to 2004 (excluding 1940-1945). Over this period, smelt provided the greatest catch of commercial fish although its stock and catches have gradually decreased. At times, catches of smelt were quite variable with a cyclic character. Disappearance of smelt from catches in years 1973-1975 was the result of summer fish kill. Regression analysis revealed a significant negative effect of high temperature on the abundance of smelt stock, while the effect of water level was not significant. Our results suggest that critical factors for the smelt population are the absolute value of water temperature in the hottest period (=20[degree]C) of summer and the duration of this period. These weather parameters have increased in synchrony with smelt decline during the last 7 decades. There appeared to be a significant negative effect of hot summers on the abundance of smelt operating with a lag of one and 2 years, which can be explained by the short life cycle (mainly 1-2 years) of this species.",
+				"language": "English",
+				"publicationTitle": "Hydrobiologia",
+				"date": "2007-06"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"name": "Shedko",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "S. A.",
+						"lastName": "Vinogradov",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "S. V.",
+						"lastName": "Shedko",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "V. D.",
+						"lastName": "Guliaev",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"place": "Novosibirsk",
+				"title": "[Parasitic copepods of the genera Salmincola and Tracheliastes (Lernaeopodidae) from freshwater fish of the Sakhalin Island.]",
+				"rights": "Copyright 2009 Thomson Reuters",
+				"language": "Russian",
+				"bookTitle": "[Parasitological research in Siberia and the Far East: materials of the first interregional scientific conference in memory of Professor A",
+				"publisher": "ISiEZH SO RAN",
+				"pages": "1–234",
+				"date": "2002"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Osamu",
+						"lastName": "Kobori",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Yoko",
+						"lastName": "Sawamiya",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Masaomi",
+						"lastName": "Iyo",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Eiji",
+						"lastName": "Shimizu",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A comparison of manifestations and impact of reassurance seeking among Japanese individuals with OCD and depression",
+				"volume": "43",
+				"ISSN": "1352-4658",
+				"DOI": "10.1017/S1352465814000277",
+				"abstractNote": "Background: One of the most common interpersonal reactions to threat and anxiety is to seek reassurance from a trusted person. The Reassurance Seeking Questionnaire (ReSQ) measures several key aspects of reassurance seeking behaviour, including frequency, trust of sources, intensity, carefulness, and the emotional consequences of reassurance seeking. Aims: The current study compares patterns and consequences of reassurance seeking in obsessive-compulsive disorder (OCD) and depression. Method: ReSQ scores were compared for three groups: 32 individuals with OCD, 17 individuals with depression, and 24 healthy comparison participants. Results: We found that individuals with OCD tended to seek reassurance more intensely and employ self-reassurance more frequently than individuals with depression or healthy participants, and that if reassurance was not provided, they tended to feel a greater urge to seek additional reassurance. Conclusions: This study is the first to quantitatively elucidate differences in reassurance seeking between OCD and depression. (PsycINFO Database Record (c) 2015 APA, all rights reserved) (journal abstract).",
+				"language": "English",
+				"issue": "5",
+				"publicationTitle": "Behavioural and Cognitive Psychotherapy",
+				"pages": "623–634",
+				"date": "2015-09"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Donna L.",
+						"lastName": "Ewing",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jeremy J.",
+						"lastName": "Monsen",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ellen J.",
+						"lastName": "Thompson",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sam",
+						"lastName": "Cartwright-Hatton",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Andy",
+						"lastName": "Field",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A meta-analysis of transdiagnostic cognitive behavioural therapy in the treatment of child and young person anxiety disorders",
+				"volume": "43",
+				"ISSN": "1352-4658",
+				"DOI": "10.1017/S1352465813001094",
+				"abstractNote": "Background: Previous meta-analyses of cognitive-behavioural therapy (CBT) for children and young people with anxiety disorders have not considered the efficacy of transdiagnostic CBT for the remission of childhood anxiety. Aim: To provide a meta-analysis on the efficacy of transdiagnostic CBT for children and young people with anxiety disorders. Methods: The analysis included randomized controlled trials using transdiagnostic CBT for children and young people formally diagnosed with an anxiety disorder. An electronic search was conducted using the following databases: ASSIA, Cochrane Controlled Trials Register, Current Controlled Trials, Medline, PsycArticles, PsychInfo, and Web of Knowledge. The search terms included \"anxiety disorder(s)\", \"anxi*\", \"cognitive behavio*, \"CBT\", \"child*\", \"children\", \"paediatric\", \"adolescent(s)\", \"adolescence\", \"youth\" and \"young pe*\". The studies identified from this search were screened against the inclusion and exclusion criteria, and 20 studies were identified as appropriate for inclusion in the current meta-analysis. Pre- and posttreatment (or control period) data were used for analysis. Results: Findings indicated significantly greater odds of anxiety remission from pre- to posttreatment for those engaged in the transdiagnostic CBT intervention compared with those in the control group, with children in the treatment condition 9.15 times more likely to recover from their anxiety diagnosis than children in the control group. Risk of bias was not correlated with study effect sizes. Conclusions: Transdiagnostic CBT seems effective in reducing symptoms of anxiety in children and young people. Further research is required to investigate the efficacy of CBT for children under the age of 6. (PsycINFO Database Record (c) 2015 APA, all rights reserved) (journal abstract).",
+				"language": "English",
+				"issue": "5",
+				"publicationTitle": "Behavioural and Cognitive Psychotherapy",
+				"pages": "562–577",
+				"date": "2015-09"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Eric L.",
+						"lastName": "Sudler",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"thesisType": "PhD Thesis",
+				"title": "Academic procrastination as mediated by executive functioning, perfectionism, and frustration intolerance in college students",
+				"ISBN": "9781303529245",
+				"ISSN": "0419-4209",
+				"abstractNote": "With academic procrastination prevalent at every level of education (O'Brien, 2002; Onwuegbuzie, 2008), school psychologists and other educators would benefit from a more detailed look at procrastination and what factors and characteristics mediate it. This exploratory study investigated the relative contributions of Executive Functioning, Perfectionism, and Frustration Intolerance to Academic Procrastination and investigated whether academic procrastinators can be classified into specific clusters. To achieve this, 150 undergraduate and graduate students completed an online survey assessing Executive Functioning, Perfectionism, and Frustration Intolerance. Although no distinct clusters of procrastinators formed, results indicated that Perfectionism and irrational beliefs associated with frustration intolerance were the strongest mediators for academic procrastination. These results could aid mental health professionals, therapists, and school psychologists in recognizing these traits and patterns early to develop more specific treatments, interventions, and possible prevention of academic procrastination. Keywords: academic procrastination, irrational beliefs, executive functioning, perfectionism. (PsycINFO Database Record (c) 2014 APA, all rights reserved).",
+				"language": "English",
+				"university": "St. John's U. (New York), US",
+				"date": "2014"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Michael",
+						"lastName": "Neenan",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Michael",
+						"lastName": "Neenan",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Stephen",
+						"lastName": "; Palmer",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "Understanding and tackling procrastination",
+				"ISBN": "9780415472630",
+				"abstractNote": "(from the chapter) Coaching aims to bring out the best in people in order to help them achieve their desired goals. When the rational emotive behavior therapy (REBT) approach is used outside of a therapy context it is more advantageous to call it rational emotive behavioural coaching (REBC), although some practitioners prefer to use the shorter name of rational coaching. Rational emotive behavior therapy terms such as 'irrational' and 'disturbance' can be reframed as performance-interfering thoughts and/or self-limiting beliefs or any permutation on problematic thinking that coachees are willing to endorse. A theoretical model for understanding and tackling psychological blocks in general and procrastination in particular is rational emotive behavioural therapy, founded in 1955 by the late Albert Ellis, an American clinical psychologist. (REBT is one of the approaches within the field of CBT.) A capsule account of the REBT approach follows. The approach proposes that rigid and extreme thinking (irrational beliefs) lies at the core of psychological disturbance. For example, faced with a coachee who is skeptical about the value of coaching, the coach makes himself very anxious and over-prepares for each session by insisting: 'I must impress her with my skills [rigid belief-why can't he let the coachee make up her own mind?], because if I don't this will prove I'm an incompetent coach' (an extreme view of his role to adopt if the coachee is unimpressed). Rigid thinking takes the form, for example, of must, should, have to and got to. Derived from these rigid beliefs are three major and extreme conclusions: awfulising (nothing could be worse and nothing good can come from negative events), low frustration tolerance (frustration and discomfort are too hard to bear) and depreciation of self and/or others (a person can be given a single global rating [e.g. useless] that defines their essence or worth). (PsycINFO Database Record (c) 2012 APA, all rights reserved).",
+				"language": "English",
+				"bookTitle": "Cognitive behavioural coaching in practice: An evidence based approach",
+				"publisher": "Routledge/Taylor & Francis Group; US",
+				"pages": "11–31",
+				"date": "2012"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Rafael Y.",
+						"lastName": "Lefkowitz",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Martin D.",
+						"lastName": "Slade",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Carrie A.",
+						"lastName": "Redlich",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "seafarers",
+						"type": 1
+					},
+					{
+						"tag": "disability",
+						"type": 1
+					},
+					{
+						"tag": "telemedicine",
+						"type": 1
+					},
+					{
+						"tag": "occupational injury",
+						"type": 1
+					},
+					{
+						"tag": "epidemiology",
+						"type": 1
+					}
+				],
+				"title": "Injury, Illness, and Work Restriction in Merchant Seafarers",
+				"volume": "58",
+				"ISSN": "0271-3586",
+				"DOI": "10.1002/ajim.22459",
+				"abstractNote": "Background: Research on seafarer medical conditions at sea is limited. This study describes the frequency and distribution of seafarer injury and illness at sea, and explores potential risk factors for resultant lost work., Materials and Methods: The study analyzed a telemedicine database of 3,921 seafarer medical cases between 2008 and 2011 using descriptive statistics and logistic regression., Results: There were over twice as many illness cases (n = 2,764, 70.5%) as injury (n = 1,157, 29.5%) cases. Disability was more often secondary to illness (n = 646, 54.3%), predominantly from gastrointestinal, dermatologic, and respiratory conditions. Logistic regression revealed age, rank, and worksite as potential risk factors for lost work., Conclusions: This study emphasizes illness as a significant problem occurring in seafarers at sea. Future research should further elucidate risk factors for illness, as well as injury, to inform preventive measures and reduce seafarer disability. Am. J. Ind. Med. 58:688-696, 2015. (C) 2015 Wiley Periodicals, Inc., (C) 2015 John Wiley & Sons, Ltd",
+				"language": "English.",
+				"issue": "6",
+				"publicationTitle": "American Journal Of Industrial Medicine",
+				"pages": "688–696",
+				"date": "2015-06"
+			}
+		]
+	},
+	"testCase08": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Test",
+				"volume": "1",
+				"issue": "6",
+				"publicationTitle": "A Nonexistent Journal of Marriage and Family Therapy: With a Subtitle",
+				"pages": "123–456",
+				"date": "2019-06"
+			}
+		]
+	},
+	"testCase09": {
+		"status": 200,
+		"translatorID": "9cb70025-a888-4a29-a210-93ec52da40d4",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "John W.",
+						"lastName": "McGarry",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Hany M.",
+						"lastName": "Elsheikha",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Suzanne",
+						"lastName": "Taylor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "Colour Atlas of Companion Animal Parasites, A: Life Cycles and Morphological Identification",
+				"ISBN": "9781800627345",
+				"language": "ENGLISH",
+				"publisher": "CABI Publishing",
+				"date": "2024"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ara",
+						"lastName": "DerMarderosian",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Cydney E.",
+						"lastName": "McQueen",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "Review of Natural Products, The",
+				"ISBN": "9781574393682",
+				"language": "ENGLISH",
+				"publisher": "Facts and Comparisons",
+				"date": "2016"
+			}
+		]
+	}
+}

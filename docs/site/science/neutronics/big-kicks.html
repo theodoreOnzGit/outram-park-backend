@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5: big kicks, use the bell</title>
+<meta name="description" content="Neutronics maths track, rung 5: for a hard kick, adding hundreds of phonon cases just gives a bell curve, so LEAPR uses the bell curve directly: the short-collision-time approximation. OUTRAM PARK's LEAPR port, Si in alpha-quartz: the sum and the shortcut agree for big kicks and disagree for small ones.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5, the shortcut only (centre and width are rung 5a); named after the idea; the switch-over is a numerical choice, not quoted. Widget: mathtrack.js #bell in "shortcut" mode, from leapr-data.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5: big kicks, use the bell</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>For a really hard kick, the neutron makes hundreds of phonons. Adding up hundreds of cases (<a href="one-spring.html">rung 3's phonon expansion</a>, smeared on rung 4) just gives a bell curve anyway. <b>So why not use the bell curve directly?</b></p>
+<p>That is what LEAPR does. Beyond a certain kick size it stops adding up phonon cases and uses a bell curve, the same shape as the free gas of rung 2. Why that is fair, in plain words: a very hard kick is over so quickly that the atom has no time to feel its springs, so for that instant it behaves almost like a free atom. <b>Treating a very quick, hard collision as if the atom were free is called the short-collision-time approximation.</b></p>
+
+<section class="widget-card">
+  <h3>The sum against the shortcut</h3>
+  <div class="widget" id="bell" data-bell="shortcut">
+    <canvas aria-label="The scattering law from adding phonon cases and from the bell-curve shortcut, for Si in alpha-quartz at several kicks"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn ghost" data-ki="0">kick 0.05</button> <button type="button" class="btn ghost" data-ki="1">0.3</button> <button type="button" class="btn ghost" data-ki="2">1</button> <button type="button" class="btn ghost" data-ki="3">5</button> <button type="button" class="btn" data-ki="4">20</button></p>
+  <p class="actions"><button type="button" class="btn" data-short="1">Show the shortcut</button> <button type="button" class="btn ghost" data-short="0">Hide it</button></p>
+  <p class="note">Both curves from OUTRAM PARK's port of LEAPR <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>, Si in &alpha;-quartz at 293.6 K. Where LEAPR switches from one to the other is a numerical choice inside the code, not a physical threshold.</p>
+</section>
+<p>Big kick: the two agree, so the shortcut is safe. Small kick: they clearly don't, so LEAPR keeps adding cases there. The atom never stops being bound; the bell only works for the <b>shape</b> of the energy exchange at large kicks.</p>
+<p class="note"><b>Conventions on these pages.</b> &beta; = (E&prime; &minus; E)/kT is positive when the neutron <b>gains</b> energy; &alpha; measures the size of the kick. S is LEAPR's asymmetric scattering law (the NJOY2016 manual's script S); ENDF stores the symmetric S = e<sup>&beta;/2</sup> times it (page 21).</p>
+<h2>Why is this so? What decides the bell?</h2>
+<p><b>So what decides this bell curve's position and width?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

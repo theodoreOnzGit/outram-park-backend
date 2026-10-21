@@ -1,0 +1,33 @@
+{
+	"case": "eric_journal",
+	"input": {
+		"kind": "forced",
+		"translator": "ERIC.js",
+		"search": {
+			"ericNumber": "EJ1125432"
+		}
+	},
+	"recordedOn": "2026-10-07T01:48:31.617Z",
+	"userAgent": "kovan-zotero-reference/0.1 (outram-park-backend kovan-literature; recording public bibliographic metadata fixtures for code-to-code tests; https://github.com/theodoreOnzGit/outram-park-backend)",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://api.ies.ed.gov/eric/?search=id:EJ1125432&format=json&fields=*",
+				"headers": {
+					"Accept": "*/*"
+				},
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://api.ies.ed.gov/eric/?search=id:EJ1125432&format=json&fields=*",
+				"headers": {
+					"content-type": "text/plain;charset=utf-8"
+				},
+				"body": "{\n  \"response\":{\"numFound\":1,\"start\":0,\"numFoundExact\":true,\"docs\":[\n      {\n        \"id\":\"EJ1125432\",\n        \"title\":\"The Influence of Culture in Infant-Toddler Child Care Settings\",\n        \"author\":[\"Test, Joan\"],\n        \"author_ss\":[\"Test, Joan\"],\n        \"description\":\"It is not only in families that young children are influenced to become members of their culture. Around the world and within individual countries, culture influences how care is provided to infants and toddlers in child care settings. In turn, infants and toddlers begin to learn how to act and think as members of their culture. From ways that teachers handle conflicts between toddlers, to how teachers manage transitions, to the organization of groups and physical environments, to more conscious transmission of culture through curriculum, culture influences infants and toddlers to become cultural beings that function well within their culture. This article explores cultural variations in group care and what infants and toddlers learn from these practices about being members of a culture.\",\n        \"subject\":[\"Infants\",\n          \"Toddlers\",\n          \"Child Care\",\n          \"Cultural Influences\",\n          \"Child Care Centers\",\n          \"Preschool Teachers\",\n          \"Conflict\",\n          \"Child Development\",\n          \"Cultural Differences\",\n          \"Physical Environment\",\n          \"Interpersonal Relationship\",\n          \"Preschool Curriculum\",\n          \"Culture Conflict\",\n          \"Foreign Countries\",\n          \"Comparative Education\"],\n        \"subject_ss\":[\"Infants\",\n          \"Toddlers\",\n          \"Child Care\",\n          \"Cultural Influences\",\n          \"Child Care Centers\",\n          \"Preschool Teachers\",\n          \"Conflict\",\n          \"Child Development\",\n          \"Cultural Differences\",\n          \"Physical Environment\",\n          \"Interpersonal Relationship\",\n          \"Preschool Curriculum\",\n          \"Culture Conflict\",\n          \"Foreign Countries\",\n          \"Comparative Education\"],\n        \"e_fulltextauth\":0,\n        \"source\":\"ZERO TO THREE\",\n        \"source_s\":\"ZERO TO THREE\",\n        \"sourceid\":\"v35 n4 p19-26 Mar 2015\",\n        \"z_coverage\":\"C\",\n        \"e_classification\":[\"Elementary Education and Early Childhood Education\"],\n        \"l_microfiche\":3,\n        \"pagecount\":8,\n        \"publicationtype\":[\"Journal Articles\",\n          \"Reports - Evaluative\"],\n        \"e_fulltextexists\":1,\n        \"isjournal\":\"Journal\",\n        \"educationlevel\":[\"Preschool Education\",\n          \"Early Childhood Education\"],\n        \"educationlevel_ss\":[\"Preschool Education\",\n          \"Early Childhood Education\"],\n        \"publicationdateyear\":2015,\n        \"url\":\"https://www.zerotothree.org/resources/series/journal-archive\",\n        \"language\":[\"English\"],\n        \"abstractor\":\"As Provided\",\n        \"desc\":\"It is not only in families that young children are influenced to become members of their culture. Around the world and within individual countries, culture influences how care is provided to infants and toddlers in child care settings. In turn, infants and toddlers begin to learn how to act and think as members of their culture. From ways that teachers handle conflicts between toddlers, to how teachers manage transitions, to the organization of groups and physical environments, to more conscious transmission of culture through curriculum, culture influences infants and toddlers to become cultural beings that function well within their culture. This article explores cultural variations in group care and what infants and toddlers learn from these practices about being members of a culture.\",\n        \"issn\":[\"ISSN-0736-8038\"],\n        \"referencecount\":25,\n        \"publisher\":\"ZERO TO THREE. 1255 23rd Street NW Suite 350, Washington, DC 20037. Tel: 800-899-4301; Tel: 202-638-1144; Fax: 202-638-0851; Web site: http://zerotothree.org/\",\n        \"publicationdatemonth\":3,\n        \"peerreviewed\":\"F\",\n        \"e_yearadded\":2017,\n        \"publicationdate\":\"2015-03-00\",\n        \"identifiersgeo\":[\"Japan\",\n          \"New Zealand\",\n          \"United States\",\n          \"Italy\",\n          \"Sweden\"],\n        \"identifiersgeo_ss\":[\"Japan\",\n          \"New Zealand\",\n          \"United States\",\n          \"Italy\",\n          \"Sweden\"],\n        \"authorxlink\":[\"\\\"\"],\n        \"e_fulltext_avail\":\"N\",\n        \"e_fulltextactual\":0,\n        \"_version_\":1867000404970045449}]\n  }}\n",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

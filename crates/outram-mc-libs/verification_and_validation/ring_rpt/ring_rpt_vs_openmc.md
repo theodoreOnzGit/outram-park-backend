@@ -82,6 +82,107 @@ the HIGH data path or the eigenvalue driver in general — those reproduce a
 
 Not a validated result — an AI-assisted code-to-code check, no human V&V.
 
+## 2026-10-02 — re-measured on current `develop` (`63460359d8`)
+
+725 commits since the 09-14 entry, including URR/DBRC default-on and the
+2026-09-30 OpenMC-parity audit (#460, #313, #461, #463), and nothing had
+re-measured this record. Re-run at the maintainer's request to regenerate the
+double-heterogeneity paper's figures. Same driver, seed and statistics as the
+09-14 entry; logs in `logs_2026_10_02/`.
+
+**Predicted before the run:** `RPT − explicit` stays consistent with zero
+(every change acts on both arms); absolute k may move by a few hundred pcm,
+sign not predicted.
+
+**Run:** `examples/fhr_ring_rpt_endf.rs`, 4000 × [30 inactive + 80 active],
+reflective sphere r = 3, seed 20260910, ENDF/B-VIII.0 + `c_Graphite`,
+`ComputeType::CpuMultiThread` pinned to 15 cores (`taskset -c 0-14`),
+i9-13900K.
+
+| case | tracking | `outram-mc-libs` | OpenMC | Δ |
+|---|---|---|---|---|
+| explicit TRISO | delta | **1.36383 ± 0.00184** | 1.36510 ± 0.00063 | **−127 pcm (0.65σ)** |
+| ring-RPT | delta | **1.36586 ± 0.00245** | 1.36479 ± 0.00067 | **+107 pcm (0.42σ)** |
+| ring-RPT | CSG | **1.36324 ± 0.00209** | 1.36479 ± 0.00067 | −155 pcm (0.71σ) |
+| naive homogenised | delta | **1.33080 ± 0.00217** | — | — |
+
+| gate | 10-02 | 09-14 |
+|---|---|---|
+| RPT − explicit | **+203 ± 307 pcm (0.66σ)** | +260 ± 303 |
+| naive − explicit | **−3303 ± 284 pcm (11.6σ)** | −3405 ± 294 |
+| CSG − delta-tracked | **−262 ± 322 pcm (0.81σ)** | +441 ± 310 |
+| explicit vs OpenMC | **−127 pcm** | −460 |
+| ring-RPT vs OpenMC | **+107 pcm** | −168 |
+
+The prediction held. Cross-code RPT equivalence holds: +203 ± 307 against
+OpenMC's −31 ± 92, a difference of 0.73σ. Both absolute values moved by about
++300 pcm towards OpenMC. At one seed per arm and ~270 pcm combined σ, that is
+**not resolved** as a code effect (gh:#196 pooling still open). The
+`CSG − delta` gate swung sign again (+441 → −262), still inside 1σ on both
+draws.
+
+**The treatment comparison was re-run too** (`examples/dh_keff_vv.rs`,
+`OUTRAM_DH_VV_HISTORIES=7200`, 15 + 40 cycles, `CpuSingleThread`, one process
+per arm via `OUTRAM_DH_ONLY`, the three run concurrently):
+
+| treatment | k | time | speed-up | Δ vs exact |
+|---|---|---|---|---|
+| delta tracking | 1.38155 ± 0.00222 | 45.3 s | 1.00× | — |
+| naive homogenisation | 1.34019 ± 0.00280 | 29.9 s | 1.52× | −4136 pcm (11.6σ) |
+| ring-RPT | 1.38394 ± 0.00204 | 27.2 s | 1.67× | +239 pcm (0.8σ) |
+
+The 09-14 record (2.1 GHz cloud Xeon) had 841.7 / 480.8 / 394.9 s and
+1.75× / 2.13×. The absolute times fell ~18× and the speed-up ratios fell too;
+neither change was investigated. CLS/SCLS were not re-run.
+
+Not a validated result — an AI-assisted code-to-code check, no human V&V.
+
+## 2026-09-14 — re-extraction: the MF=6 state measured with absolutes
+
+The 2026-09-13 (later) entry below recorded the MF=6 change as **pcm deltas
+only** (`explicit −466`, `ring-RPT −236`) and carried no absolute k, so the
+Part III dataset could not be re-extracted from it. Re-run here at the same
+settings to record absolutes.
+
+**Run:** `examples/fhr_ring_rpt_endf.rs`, 4000 × [30 inactive + 80 active],
+reflective sphere r = 3, seed 20260910, ENDF/B-VIII.0 with the
+`c_Graphite` S(α,β) law. This is the deck-matched driver — *not*
+`examples/dh_keff_vv.rs`, whose ring-RPT arm keeps S(α,β) on the annulus and is
+deliberately not bit-comparable to the published deck.
+
+| case | tracking | `outram-mc-libs` | OpenMC | Δ |
+|---|---|---|---|---|
+| explicit TRISO | delta | **1.36050 ± 0.00200** | 1.36510 ± 0.00063 | **−460 pcm (2.2σ)** |
+| ring-RPT | delta | **1.36311 ± 0.00228** | 1.36479 ± 0.00067 | **−168 pcm (0.7σ)** |
+| ring-RPT | CSG | **1.36752 ± 0.00210** | 1.36479 ± 0.00067 | +273 pcm (1.2σ) |
+| naive homogenised | delta | **1.32645 ± 0.00216** | — | — |
+
+Gates, with the previously recorded value in brackets:
+
+| gate | this run | recorded |
+|---|---|---|
+| RPT − explicit | **+260 ± 303 pcm (0.86σ)** | +226 ± 316 |
+| naive − explicit | **−3405 ± 294 pcm (11.6σ)** | −3191 (10.7σ) |
+| CSG − delta-tracked | **+441 ± 310 pcm (1.43σ)** | +18 (0.05σ) |
+| explicit vs OpenMC | **−460 pcm** | −466 |
+| ring-RPT vs OpenMC | **−168 pcm** | −236 |
+
+**The two vs-OpenMC figures reproduce the 09-13 entry** (−460 vs −466, −168 vs
+−236), both inside the ±1000 pcm drift gate. **Cross-code RPT equivalence still
+holds:** +260 ± 303 here against OpenMC's −31 ± 92, a difference of
++291 ± 317 pcm (0.92σ) — consistent with zero, which is the paper's claim.
+
+**`CSG − delta-tracked` moved the most**, +18 → +441 pcm. At 1.43σ it is not
+significant and both values are consistent with zero, but the central value
+moved by more than a σ and it is the one gate here worth watching.
+
+**Still a single draw per arm**, which is the same limitation the entry below
+names: ~210–240 pcm of statistics each, so ~300 pcm of standard error between
+any two runs, and no drift smaller than that is resolved. `gh:#196` /
+`bn:op-awwi` (pooling over seeds) remains open and is what would settle it.
+
+Not a validated result — an AI-assisted code-to-code check, no human V&V.
+
 ## 2026-09-13 (later) — MT=91/MT=16 stop guessing and read the evaluated MF=6 law
 
 The continuum inelastic (MT=91) and (n,2n) (MT=16) outgoing energies had been
@@ -817,8 +918,11 @@ bounded by a reflective *sphere*. Re-run on the sphere, the conclusions invert.
    `∫σ_γ dE/E` on our own grid **is** the resonance integral the Monte Carlo
    sees. Measured exactly (segment-wise closed form) in
    `examples/u238_resonance_integral.rs`: **274.637 b on our grid (291 322
-   points) against 274.634 b on NJOY's (130 444 points) — +0.00 %**, and against
-   the published infinite-dilution `RI_∞ = 275.7 b` for ENDF/B-VIII.0. Our grid
+   points) against 274.634 b on NJOY's (130 444 points) — +0.00 %**~~, and against
+   the published infinite-dilution `RI_∞ = 275.7 b` for ENDF/B-VIII.0~~
+   (**Not re-checked**, 2026-10-06: no source for the 275.7 b figure is cited
+   anywhere in the workspace, gh:#547; the sourced comparison is the NJOY
+   reconstruction above). Our grid
    is more than twice as dense as NJOY's over the band. U-238 capture is exact in
    both value and area.
 

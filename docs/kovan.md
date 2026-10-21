@@ -78,6 +78,76 @@ A user should be able to clone KOVAN and perform all core operations offline.
 
 ---
 
+## Leak Before Break
+
+**Maintainer direction, 2026-10-07 (gh #739, #762).** Borrowed from pressure-vessel
+and piping design, where a flaw must show itself as a detectable leak long before
+it can grow into a rupture.
+
+**Every failure, inconsistency or act of tampering must become visible (leak)
+before it can silently break trust in the record (break). KOVAN never fails
+silently.** It aims to be **tamper-evident, not tamper-proof**:
+
+- History is **append-only**: key lifecycle events, moves and deletions are
+  appended, never rewritten, and current state is derived by replaying them.
+- Anything that cannot be verified is **shown, flagged and not counted**, never
+  hidden and never trusted: unverified or outside-scope stamps, unendorsed keys,
+  malformed review entries ("review unreadable", so redo).
+- Irreversible or identity-level events are **flagged permanently**, for example
+  a founder key reset.
+- Removing trust is cheap (an unsigned revocation is honoured); adding trust
+  needs a signature.
+- Degradation is **public**: stale stamps lower the maturity shown in CI and on
+  Pages, and open needs-fix notes are published ("integrity matters over how good
+  the code looks").
+- Fallbacks are allowed only when the return type reports them, never silently.
+- Timing claims are **checked against git, and a misfit is flagged, never
+  rejected** (gh #783, 2026-10-07). Each review or architecture stamp signs
+  `date` (the day) and, since #783, `signed_at` (RFC 3339 to the second,
+  with UTC offset; ~~a v2 signature, while v1 stamps without it verify
+  unchanged~~ **CORRECTED 2026-10-10** (#825): every stamp is signed under
+  the one v3 header, pinned by a committed fixture; v1 and v2 were dropped
+  before any real stamp existed). The staleness engine flags "implausible signing time" when
+  `signed_at` is before the reviewed commit's committer time, after the
+  committer time of the commit that added the stamp, or on a different day
+  from `date`, each with 5 minutes' clock skew. Git timestamps are
+  forgeable, so this is tamper evidence, not proof; the ed25519 key is what
+  stops forgery. Details: `kovan_common::review::signed_at`.
+
+- **Rung 5 is independent V&V, and every reason a function misses it is
+  shown** (gh #809, maintainer decisions 2026-10-08). ~~Rung 5 is a second
+  valid review by an independent, qualified reviewer~~ **CORRECTED
+  2026-10-08**: rung 5 is IV&V as NUREG/BR-0167 (§3.1 p. 6) defines it,
+  "verification and validation by an organization that is both technically
+  and managerially separate from the organization responsible for
+  developing the software". It needs a hand-written V&V case (the rung-4
+  gate) by a reviewer qualified in every concept area of the function, who
+  is neither a code author nor the first reviewer; the reviewer's
+  maintainer-signed `[[reviewer.organisation]]` must differ from the
+  maintainer-signed developing organisation in `kovan_root.toml`
+  (`[[code_review.developing_organisation]]`, with per-crate overrides;
+  both append-only); and the review must name the reviewer's own signed
+  `[[reviewer.separation]]` attestation, whose audit record is a public
+  GitHub issue URL. Same organisation, no attestation, a malformed URL, an
+  unqualified reviewer, an AI-authored V&V case: each is a listed reason,
+  never a silent downgrade. Kovan checks the URL's form only and shows the
+  link as "audit record (not verified by kovan)": it cannot fetch the issue
+  offline. Details: `kovan_common::review::ivv`. Since 2026-10-10 (gh
+  #810) the reasons are shown in words in the review bar of kovan-web and
+  desktop kovan, and by `kovan-cli review ivv` (read-only); desktop kovan's
+  Code Review tab signs the records ("Organisations & IV&V") and its stamp
+  dialog names the attestation a review relies on. Concept areas are not
+  resolved by kovan yet, so no function reaches rung 5 in those views.
+
+Deliberate, skilled forgery is out of scope for the open repository. Tamper
+evidence is what an open repository can guarantee. Qualification to NQA-1 would
+be done on a frozen private copy.
+
+**Applying it:** for any new feature, ask what happens when its input is
+missing, corrupt or forged, and make sure the answer is "the user sees it".
+
+---
+
 ## Android First
 
 Android is a first-class platform.

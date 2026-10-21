@@ -1,0 +1,22 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "# This CITATION.cff reference content was generated from Zotero.\nreferences:\n  - title: >-\n      参考文献管理工具研究\n    abstract: |\n      介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.\n    type: journalArticle\n    issue: 2\n    languages: \n      - chi\n    location: 北京万方数据股份有限公司\n    pages: 94-98,93\n    volume: 29\n    url: http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx\n    keywords: \n      - 参考文献管理 文献管理软件 学术书签网站 Zotero\n    authors: \n      - family-names: 余敏\n      - family-names: 朱江\n      - family-names: 丁照蕾\n    editors: \n      - family-names: 余敏\n      - family-names: 朱江\n      - family-names: 丁照蕾\n    recipients: \n      - family-names: 余敏\n      - family-names: 朱江\n      - family-names: 丁照蕾\n    translators: \n      - family-names: 余敏\n      - family-names: 朱江\n      - family-names: 丁照蕾\n    date-published: 2009\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "# This CITATION.cff reference content was generated from Zotero.\nreferences:\n  - title: >-\n      Usynlige byer\n    type: book\n    isbn: 8203107354\n    languages: \n      - Flerspråklig, Norsk (Bokmål), Italiensk, Dansk\n    publisher: Aschehoug\n    url: https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105\n    keywords: \n      - Italiensk litteratur\n      - Idealbyer\n      - kjernelitteratur\n    authors: \n      - family-names: Calvino\n        given-names: Italo\n      - family-names: Aardal\n        given-names: Jorunn\n      - family-names: Stender Clausen\n        given-names: Jørgen\n    editors: \n      - family-names: Calvino\n        given-names: Italo\n      - family-names: Aardal\n        given-names: Jorunn\n      - family-names: Stender Clausen\n        given-names: Jørgen\n    recipients: \n      - family-names: Calvino\n        given-names: Italo\n      - family-names: Aardal\n        given-names: Jorunn\n      - family-names: Stender Clausen\n        given-names: Jørgen\n    translators: \n      - family-names: Calvino\n        given-names: Italo\n      - family-names: Aardal\n        given-names: Jorunn\n      - family-names: Stender Clausen\n        given-names: Jørgen\n    date-published: 1982\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "# This CITATION.cff reference content was generated from Zotero.\nreferences:\n  - title: >-\n      Corn\n    type: book\n    publisher: Uniontown, Ala. : Canebrake Agricultural Experiment Station\n    keywords: \n      - Corn -- Yields\n      - Corn -- Varieties\n      - Corn -- Field experiments\n    authors: \n      - family-names: Newman\n        given-names: W. H.\n    editors: \n      - family-names: Newman\n        given-names: W. H.\n    recipients: \n      - family-names: Newman\n        given-names: W. H.\n    translators: \n      - family-names: Newman\n        given-names: W. H.\n    date-published: 1891\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "# This CITATION.cff reference content was generated from Zotero.\nreferences:\n  - title: >-\n      Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols\n    type: audioRecording\n    languages: \n      - German\n    url: https://diesseits.theopodcast.at/home\n    date-published: 2021\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

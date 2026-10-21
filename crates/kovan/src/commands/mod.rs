@@ -15,18 +15,27 @@
 //! implemented on a foreign enum from this crate, so each library enum gets a
 //! local twin plus a `From` conversion, matched exhaustively both ways.
 
+pub mod affected;
 pub mod agent_docs_gen;
 pub mod api_docs;
+pub mod call_graph;
+pub mod ci;
+pub mod code_map;
+pub mod code_walk;
 pub mod cost;
 pub mod discover;
 pub mod gen;
 pub mod historian;
+pub mod index;
+pub mod index_control;
 pub mod kloc;
 pub mod lit;
 pub mod lsp_daemon;
 pub mod methods;
 pub mod outline;
 pub mod project;
+pub mod references;
+pub mod review_ivv;
 pub mod scan;
 pub mod search;
 pub mod semq;
@@ -34,8 +43,13 @@ pub mod setup;
 pub mod skill_gen;
 pub mod slice;
 pub mod symbols;
+/// `kovan-cli test` (GitHub #766).
+pub mod test_evidence;
 pub mod tokens;
 pub mod workspace;
+pub mod zotero;
+/// `kovan-cli zotero lookup` (GitHub #756).
+pub mod zotero_lookup;
 
 use clap::ValueEnum;
 

@@ -1,0 +1,443 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::correct_alpha_rho_mag_u_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::correct_mag_velocity_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::correct_thermo_residual_markers_partition_cells",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::new_sets_gen_foam_defaults",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::nu_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::rho_boussinesq_selection",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/phase_pair.rs::ff_relative_velocity_and_reynolds",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/phase_pair.rs::fs_reynolds_applies_floor",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/phase_pair.rs::fs_reynolds_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/porous_drag.rs::laminar_drag_matches_stokes_darcy_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::porous_energy_equilibrates_to_wall_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
+]
+
+[module."mod.rs"]
+path = "crate::genfoam::thermal_hydraulics::phase"
+
+[module."phase_base.rs"]
+path = "crate::genfoam::thermal_hydraulics::phase::phase_base"
+
+[[module."phase_base.rs".function]]
+id = "fn:40a7bc04887daf2e"
+name = "VolumeFraction"
+qual = "VolumeFraction"
+item = "type"
+shape = "alias"
+lines = [
+    45,
+    53,
+]
+hash = "sha256:e25ea516086e0a8fbc02c8ea06250f66767715f97c79fe584e00cef7420d6abe"
+doc_hash = "sha256:5dd6e8fd8e69e98fa48aa31d48e16f18a82676695e9e76af93ec571a8af9ed28"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
+id = "fn:5b29719309d2422c"
+name = "volume_fraction"
+qual = "volume_fraction"
+lines = [
+    55,
+    60,
+]
+hash = "sha256:4ef973a0c826dfff8ca8dd18c7a9895b1a43d505200c681e20eb34b9d46cce04"
+doc_hash = "sha256:612aa0efea219b200adbb1bd99a9e608fe26e9d46c22244ae77a2ab43c890291"
+uses = ["fn:40a7bc04887daf2e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+physical_interface = true
+
+[[module."phase_base.rs".function]]
+id = "fn:bf6fc8b5037e2f87"
+name = "PhaseBase"
+qual = "PhaseBase"
+item = "type"
+shape = "struct"
+lines = [
+    62,
+    83,
+]
+hash = "sha256:ce293e34948ecbe1041bdafa28f1f9baab8808b8120da75b10016d25118fd086"
+doc_hash = "sha256:31d66faeff61e4f2b1b2c88cd9ab3653f8a5edc7210053372450bf1a50131686"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:40a7bc04887daf2e",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
+id = "fn:9380d18f9df464d6"
+name = "new"
+qual = "PhaseBase::new"
+lines = [
+    86,
+    106,
+]
+hash = "sha256:8f7599405c85a022342191e0ed9b86167dc515f25d089d64592bfe5736c8795d"
+doc_hash = "sha256:2ef8f0b8f58be43a0d689edeb99476f93c0ef4eef694dfc38764a958e47297f7"
+callees = [
+    "fn:5b29719309d2422c",
+    "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:bf6fc8b5037e2f87",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
+id = "fn:1d0c0c99a5ad5dc2"
+name = "name"
+qual = "PhaseBase::name"
+lines = [
+    108,
+    112,
+]
+hash = "sha256:8abb2abb6e1b0f66fd10ee41e29ffac0471cca20aef7194345da1d5b4b121b3b"
+doc_hash = "sha256:942abd3531d60a296b01dbe6551295b4c99ae878e06f317da89d025f14114786"
+uses = ["fn:bf6fc8b5037e2f87"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
+id = "fn:2f0a138fa40ff96b"
+name = "mesh"
+qual = "PhaseBase::mesh"
+lines = [
+    114,
+    118,
+]
+hash = "sha256:9177eba2bafd4635216b811dd9cb4cf0b1dbdf93a40b06ccc5ad1b5a32c4847c"
+doc_hash = "sha256:84660e91d4038c1d3f6bd1645d3665895cd5460ba8561106f21328d46f9a354c"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:bf6fc8b5037e2f87",
+]
+reached_by = [
+    "#4",
+    "#9",
+    "#10",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
+id = "fn:2111252e3247c62f"
+name = "alpha"
+qual = "PhaseBase::alpha"
+lines = [
+    120,
+    124,
+]
+hash = "sha256:e8ef4a834094e05fd38ed7088979de2602108472f60f64fcf26a9a9ba2226f48"
+doc_hash = "sha256:a55f3d85fefecc462e7cc2c9995cbf783b65236131f5a9d8e9d413ea2444ea6a"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:bf6fc8b5037e2f87",
+]
+reached_by = [
+    "#0",
+    "#3",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
+id = "fn:86685bf273f79e8b"
+name = "alpha_mut"
+qual = "PhaseBase::alpha_mut"
+lines = [
+    126,
+    129,
+]
+hash = "sha256:680ec985df7a5a24d7ddf63cf67741ae12717787c3c80078d25fb4433b23bf34"
+doc_hash = "sha256:81059d12eff9ef52e4d47b53ddef8ba3134fd3dbf5077e3a93913602af248a91"
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:bf6fc8b5037e2f87",
+]
+reached_by = [
+    "#0",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+
+[[module."phase_base.rs".function]]
+id = "fn:aee65788382bb750"
+name = "residual_alpha"
+qual = "PhaseBase::residual_alpha"
+lines = [
+    131,
+    136,
+]
+hash = "sha256:86bec4a87f670aff3f7cbaf89467c4b5fad60d558ecdb096ba56930433f91dc7"
+doc_hash = "sha256:26a0177ae255d23b26ecd151face4bcb49fc5e5abb474455d7ab5249154a7f00"
+uses = [
+    "fn:40a7bc04887daf2e",
+    "fn:bf6fc8b5037e2f87",
+]
+physical_interface = true
+
+[[module."phase_base.rs".function]]
+id = "fn:40b678e1d59acbcc"
+name = "set_residual_alpha"
+qual = "PhaseBase::set_residual_alpha"
+lines = [
+    138,
+    141,
+]
+hash = "sha256:8ffa8ace2a07bf0a7a8cc3aa31b2d68c711c60a916945b4ac7c9143b20847435"
+doc_hash = "sha256:a08548f41911da051e6573e2a9631f06be2bc56873524b571346e6d83834b1ec"
+uses = [
+    "fn:40a7bc04887daf2e",
+    "fn:bf6fc8b5037e2f87",
+]
+physical_interface = true
+
+[module."phase_pair.rs"]
+path = "crate::genfoam::thermal_hydraulics::phase::phase_pair"
+
+[[module."phase_pair.rs".function]]
+id = "fn:63533ec16312e3aa"
+name = "fs_reynolds"
+qual = "fs_reynolds"
+lines = [
+    67,
+    100,
+]
+hash = "sha256:b5e8faaf870e3a5c6ceba55119988e8b962c9f5e3dccdc2d655442a879a262e8"
+doc_hash = "sha256:6598596441ae6de267e8e759c2625f3ca9779c996fe02819015274b7ad280eb0"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d45bd48797fb1b2f",
+]
+reached_by = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#12",
+]
+physical_interface = true
+
+[[module."phase_pair.rs".function]]
+id = "fn:09d0259e5a582d40"
+name = "ff_relative_velocity_magnitude"
+qual = "ff_relative_velocity_magnitude"
+lines = [
+    102,
+    120,
+]
+hash = "sha256:a7587c6048c799aa8edf31c65be65337f1a269acf21fb21e36c487fa1459a36a"
+doc_hash = "sha256:e6701dcfde07e9a32cdf714c1fab4f2110d436a015ccf0059e8e6448e99834ea"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:d6a9c884aaeb7775",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = ["#6"]
+
+[[module."phase_pair.rs".function]]
+id = "fn:6450236cc2ddb4ad"
+name = "ff_reynolds"
+qual = "ff_reynolds"
+lines = [
+    122,
+    153,
+]
+hash = "sha256:25c91679f94252ebf81ba57bba095469eb50b706de74af14bd07cd964e5b850d"
+doc_hash = "sha256:17310a8f88f42c97ed220efcd1461369200c2234d3aacff99555e8be27d297fb"
+callees = [
+    "fn:6d45af0d518e142d",
+    "fn:96b5c3d947f087e5",
+    "fn:d6a9c884aaeb7775",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d45bd48797fb1b2f",
+]
+reached_by = ["#6"]
+physical_interface = true
+
+[[module."phase_pair.rs".function]]
+id = "fn:17aa4797c1b6343a"
+name = "one_cell_mesh"
+qual = "one_cell_mesh"
+lines = [
+    163,
+    175,
+]
+hash = "sha256:26289eae923c49ae6899bebaeb7615289a15519681950b31c84547e842655f8c"
+doc_hash = "sha256:7e5c90dcd227733604d8bacef6274c5daebcd088524890f00398cde728a72a62"
+callees = [
+    "fn:76b4d512475e1d4e",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."phase_pair.rs".function]]
+id = "fn:8e798b6a17e3d632"
+name = "scalar_cell"
+qual = "scalar_cell"
+lines = [
+    177,
+    179,
+]
+hash = "sha256:e50f891a4a80cc5402d8d8f95650b325f62c8ce02e4f3c4f0563f160e028bcbe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:636e75b664f14254"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
+test = true
+
+[[module."phase_pair.rs".function]]
+id = "fn:af26250094ba4ea7"
+name = "fs_reynolds_matches_hand_calc"
+qual = "fs_reynolds_matches_hand_calc"
+lines = [
+    181,
+    204,
+]
+hash = "sha256:2a157cdae6a5540de2c7730de78d9d1a8d4568b20b4bed6ddca1d179e717b785"
+doc_hash = "sha256:b918124054b9a7f0def942cefcf128807e4b1f765edb67b13a2aa4f98f32362f"
+callees = [
+    "fn:17aa4797c1b6343a",
+    "fn:63533ec16312e3aa",
+    "fn:6d45af0d518e142d",
+    "fn:8e798b6a17e3d632",
+    "fn:983b1442c904d828",
+]
+test = true
+
+[[module."phase_pair.rs".function]]
+id = "fn:d8430e65de45fd87"
+name = "fs_reynolds_applies_floor"
+qual = "fs_reynolds_applies_floor"
+lines = [
+    206,
+    222,
+]
+hash = "sha256:bbed2ac2879e3573449ba79eb51bf2457179ed65cca1f30674ed6cc04aa2ea2b"
+doc_hash = "sha256:d09ff32fd91b0018c61c6b37ff206a15b2e9099be340ec9c118222cfd58b389a"
+callees = [
+    "fn:17aa4797c1b6343a",
+    "fn:63533ec16312e3aa",
+    "fn:6d45af0d518e142d",
+    "fn:8e798b6a17e3d632",
+    "fn:983b1442c904d828",
+]
+test = true
+
+[[module."phase_pair.rs".function]]
+id = "fn:8605694e1cf1c298"
+name = "ff_relative_velocity_and_reynolds"
+qual = "ff_relative_velocity_and_reynolds"
+lines = [
+    224,
+    248,
+]
+hash = "sha256:b8f7d721b3cacd97311960aacc6d529e5b67049111607c0cd4d90ea27dc318c8"
+doc_hash = "sha256:0a550e82e339acad3da205979dff767bf811d7f67c986b6c88feff582766719f"
+callees = [
+    "fn:09d0259e5a582d40",
+    "fn:17aa4797c1b6343a",
+    "fn:4a6cc3f294b0f158",
+    "fn:6450236cc2ddb4ad",
+    "fn:6d45af0d518e142d",
+    "fn:8e798b6a17e3d632",
+    "fn:983b1442c904d828",
+    "fn:9e501e5f4cce23ae",
+    "fn:acfb0f2d7b950994",
+]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
+test = true

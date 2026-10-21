@@ -1,0 +1,84 @@
+schema_version = 1
+kind = "code_folder"
+crate = "chem-eng-real-time-process-control-simulator"
+dir = "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/errors"
+test_ids = [
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::block_state_size_does_not_grow_with_step_index",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::decaying_sinusoid_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_handles_dead_time_with_a_bounded_queue",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_is_exact_on_an_irregular_time_grid",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::first_order_step_cost_does_not_grow_with_step_index",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::first_order_with_zeroes_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/stable_transfer_functions/recurrence_tests.rs::second_order_recurrence_matches_analytic_superposition",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/transfer_fn_wrapper_and_enums/generic_second_order.rs::test_dead_time",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/verification_tests.rs::zoh_first_order_reproduces_o1_recurrence_block",
+    "crates/chem-eng-real-time-process-control-simulator/src/lib/beta_testing/z_domain/verification_tests.rs::zoh_second_order_step_response_exact_at_samples",
+    "crates/teh-o-prke/src/nordheim_fuchs.rs::first_order_lag_reactivity_driver_smoke_test",
+]
+
+[module."mod.rs"]
+path = "crate::beta_testing::errors"
+
+[[module."mod.rs".function]]
+id = "fn:99b8c1f4bdb23815"
+name = "ChemEngProcessControlSimulatorError"
+qual = "ChemEngProcessControlSimulatorError"
+item = "type"
+shape = "enum"
+lines = [
+    3,
+    21,
+]
+hash = "sha256:bf28711649535e64a6bafa63a3cad61cd1d1c77df6d3e20bfb3528e8aca25299"
+doc_hash = "sha256:f36742855213afd5fea619f66de19a6cd9c15ad8d104ebc9c7af67c79cddf480"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b19fff025866c02f"
+name = "from"
+qual = "ChemEngProcessControlSimulatorError::from#1"
+lines = [
+    24,
+    26,
+]
+hash = "sha256:0424583e49e2807cbd67718e4126afcfc7f3d71dd356e4e2f03275d83f38dc22"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:99b8c1f4bdb23815"]
+
+[[module."mod.rs".function]]
+id = "fn:9ca813f8cbd1dab2"
+name = "from"
+qual = "ChemEngProcessControlSimulatorError::from#2"
+lines = [
+    31,
+    33,
+]
+hash = "sha256:7d81b1a8468943dcedb4134239db15f8cbdbef74135bc2e893f5a1960fdfd58d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:99b8c1f4bdb23815"]
+
+[[module."mod.rs".function]]
+id = "fn:890e85d9b62fe4fc"
+name = "into"
+qual = "ChemEngProcessControlSimulatorError::into"
+lines = [
+    37,
+    50,
+]
+hash = "sha256:930ada24f8c77d421ac76286c9f4447df710074b63a5f7b3b1d26849d24907a3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:99b8c1f4bdb23815"]

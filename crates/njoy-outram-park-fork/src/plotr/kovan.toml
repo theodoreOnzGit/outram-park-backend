@@ -1,0 +1,19 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/plotr"
+
+[module."mod.rs"]
+path = "crate::plotr"
+
+[[module."mod.rs".function]]
+id = "fn:a833764a66056a36"
+name = "run"
+qual = "run"
+lines = [
+    14,
+    17,
+]
+hash = "sha256:bc3a408f10fddb634d2388861207a0a98cd596452dd5a7ca3555b8e198b2c35c"
+doc_hash = "sha256:4e2df0f7b996386552e9f93069cd81c110168a5b864cd7ae7fcff14b740522d2"
+uses = ["fn:fedfdbf7bfe57f84"]

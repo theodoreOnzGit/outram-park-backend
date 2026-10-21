@@ -63,6 +63,9 @@ impl SolidMaterial {
             SolidMaterial::NuclearGraphiteIG110 => {
                 super::solid_database::nuclear_graphite::nuclear_graphite_surf_roughness()
             }
+            SolidMaterial::NuclearGraphiteMatrixA3HighTemp => {
+                super::solid_database::nuclear_graphite::nuclear_graphite_surf_roughness()
+            }
             // user defined surface roughness
             SolidMaterial::CustomSolid(
                 (_low_bound_temp, _high_bound_temp),

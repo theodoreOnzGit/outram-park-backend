@@ -167,6 +167,18 @@ where
                         ref_value.clone() * w
                             + (vol.internal[owner].clone() + ref_grad.clone() * delta) * (1.0 - w)
                     }
+                    // Per-face Robin blend; same algebra, coefficients per face.
+                    BoundaryCondition::MixedField {
+                        value_fraction,
+                        ref_value,
+                        ref_grad,
+                    } => {
+                        let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+                        let w = value_fraction[fi];
+                        ref_value[fi].clone() * w
+                            + (vol.internal[owner].clone() + ref_grad[fi].clone() * delta)
+                                * (1.0 - w)
+                    }
                     BoundaryCondition::Empty => T::default(),
                 }
             });

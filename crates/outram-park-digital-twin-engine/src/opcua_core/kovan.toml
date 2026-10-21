@@ -1,0 +1,1205 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/opcua_core"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/pki_paths.rs::description_names_the_directory_and_the_missing_security",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/pki_paths.rs::pki_path_ends_in_the_platform_components",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/server.rs::default_config_binds_all_interfaces_on_the_standard_port",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/simulator.rs::ciet_nodes_reproduce_the_node_map",
+    "crates/outram-park-digital-twin-engine/src/ciet_opcua/simulator.rs::writes_are_recorded_as_requests_and_clamped_on_apply",
+    "crates/outram-park-digital-twin-engine/src/opcua_core/discovery.rs::instance_name_is_stripped_from_the_dns_sd_fullname",
+    "crates/outram-park-digital-twin-engine/src/opcua_core/discovery.rs::instance_names_are_sanitised_to_dns_safe_labels",
+    "crates/outram-park-digital-twin-engine/src/opcua_core/discovery.rs::mdns_service_type_is_a_valid_dns_sd_type",
+    "crates/outram-park-digital-twin-engine/src/opcua_core/pki.rs::instance_tags_cannot_escape_the_pki_directory",
+    "crates/outram-park-digital-twin-engine/src/opcua_core/pki.rs::the_per_user_root_is_the_documented_directory",
+    "crates/outram-park-digital-twin-engine/src/opcua_core/server.rs::for_simulator_binds_all_interfaces_on_the_profile_port",
+    "crates/outram-park-digital-twin-engine/src/opcua_core/server.rs::is_loopback_only_recognises_every_loopback_form",
+    "crates/outram-park-digital-twin-engine/src/opcua_core/server.rs::primary_url_prefers_a_reachable_address",
+    "crates/outram-park-digital-twin-engine/tests/ciet_v2_opcua_roundtrip.rs::opcua_interface_round_trips_controls_and_outputs",
+]
+
+[module."discovery.rs"]
+path = "crate::opcua_core::discovery"
+
+[[module."discovery.rs".function]]
+id = "fn:3e027b24990eeeb7"
+name = "OPCUA_MDNS_SERVICE_TYPE"
+qual = "OPCUA_MDNS_SERVICE_TYPE"
+item = "const"
+shape = "const"
+lines = [
+    76,
+    87,
+]
+hash = "sha256:68d7d91a910018ef4619eab304a84fb61b7de92566e7f0e3f1c590d61b21bc8b"
+doc_hash = "sha256:2cc8dbf137d90399e27cb6bdf4724a5984d818867417d125c8d742c7724a451f"
+reached_by = [
+    "#7",
+    "#13",
+]
+
+[[module."discovery.rs".function]]
+id = "fn:d6f9eeca83962a59"
+name = "PATH_TXT_KEY"
+qual = "PATH_TXT_KEY"
+item = "const"
+shape = "const"
+lines = [
+    89,
+    93,
+]
+hash = "sha256:d414eea3c3cab5d46915ace34cb250b8a25daacc3436c85776cb5be4b05d3409"
+doc_hash = "sha256:274ee6beeb34d3aea69a3670a5657c5b0d8c2cd3af7bcac34b081229fa0e3c0a"
+reached_by = ["#13"]
+
+[[module."discovery.rs".function]]
+id = "fn:5204d579d2777bf2"
+name = "PRODUCT_TXT_KEY"
+qual = "PRODUCT_TXT_KEY"
+item = "const"
+shape = "const"
+lines = [
+    95,
+    97,
+]
+hash = "sha256:2e7ae7552812e1cff83bb67ea98a837997fbee6471656bf1245429f83e94a9d1"
+doc_hash = "sha256:4cab94db1c67049ef37ad875c34da180988df19036aa5b03b58d1dbad3429b30"
+reached_by = ["#13"]
+
+[[module."discovery.rs".function]]
+id = "fn:d165de63300e869c"
+name = "DiscoveredSimulator"
+qual = "DiscoveredSimulator"
+item = "type"
+shape = "struct"
+lines = [
+    99,
+    125,
+]
+hash = "sha256:40ea669b6e07d0f5df1a966e0592715ee2e855976a6c720c3761b65d4af2e006"
+doc_hash = "sha256:1411630621af9fb13abd0345f295a1d68916a796b6e9a82800e9d114170dc978"
+
+[[module."discovery.rs".function]]
+id = "fn:d669160095d9a0a0"
+name = "MdnsAdvertisement"
+qual = "MdnsAdvertisement"
+item = "type"
+shape = "struct"
+lines = [
+    127,
+    145,
+]
+hash = "sha256:75f5dd4470dcc838d45bac24316556f4b53534522f5c0e8074b7754eb299f50d"
+doc_hash = "sha256:8ecfe65df1538a5149cc8686715815d3d691b74b51bb9b54260952320ade44e3"
+reached_by = ["#13"]
+
+[[module."discovery.rs".function]]
+id = "fn:005f5fb8dcc43ba8"
+name = "instance_name"
+qual = "MdnsAdvertisement::instance_name"
+lines = [
+    148,
+    154,
+]
+hash = "sha256:47d107c1691df091503481434112829a66224fbb02221be4d493f0b18a14dd41"
+doc_hash = "sha256:c82dcb7c05716b2b86c0b9dd867905ca90c16d40408dad0f1a96c8b31c6ba23f"
+uses = ["fn:d669160095d9a0a0"]
+reached_by = ["#13"]
+
+[[module."discovery.rs".function]]
+id = "fn:bf1c36c86450ac3f"
+name = "fullname"
+qual = "MdnsAdvertisement::fullname"
+lines = [
+    156,
+    160,
+]
+hash = "sha256:3c53b055d8db3aa50732972e988d0cb56eba49be3d1a084864f7c13a4f6d90a9"
+doc_hash = "sha256:7f96f99476b794fb43fd6be3707904b2a7e9df11cc1532f33ed9307e5f9dac63"
+uses = ["fn:d669160095d9a0a0"]
+
+[[module."discovery.rs".function]]
+id = "fn:cc30b58ed50c0062"
+name = "fmt"
+qual = "MdnsAdvertisement::fmt"
+lines = [
+    164,
+    169,
+]
+hash = "sha256:5b548a3754c0a764952454d3ced988a200bd330b3445de8cace904cc4f1ad685"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d669160095d9a0a0"]
+
+[[module."discovery.rs".function]]
+id = "fn:5a6557b70bbc03cd"
+name = "drop"
+qual = "MdnsAdvertisement::drop"
+lines = [
+    173,
+    188,
+]
+hash = "sha256:c11d143223031c571fe7b4614c07f1e3ea784ecc12516b2dfac7e01a02388a9f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d669160095d9a0a0"]
+
+[[module."discovery.rs".function]]
+id = "fn:a04ec35993af3b7b"
+name = "advertise_simulator"
+qual = "advertise_simulator"
+lines = [
+    191,
+    264,
+]
+hash = "sha256:0a4f802918b4b45865fbf836632c546c5df04a1449275412d7a8b7679ca978d3"
+doc_hash = "sha256:70666f4744490d4baed7e30c27d4e9edf3a92d269c22c20ccdff6625b732fda4"
+callees = ["fn:04b34920f3571cd3"]
+uses = [
+    "fn:3e027b24990eeeb7",
+    "fn:5204d579d2777bf2",
+    "fn:58d0b8b728916eca",
+    "fn:6e8752aedca5ef28",
+    "fn:d669160095d9a0a0",
+    "fn:d6f9eeca83962a59",
+]
+reached_by = ["#13"]
+
+[[module."discovery.rs".function]]
+id = "fn:70e4c04c4f9819c5"
+name = "MdnsBrowser"
+qual = "MdnsBrowser"
+item = "type"
+shape = "struct"
+lines = [
+    266,
+    295,
+]
+hash = "sha256:e2bcc2479450b28fc45bc9cb8fe1a6617d209b6144b89dbf9ee332cecd8bbf7e"
+doc_hash = "sha256:216c3afc180f4a8b4ed7b8ff43846b2681d870d8d40f536c72e74ec2454a0d92"
+uses = [
+    "fn:6e8752aedca5ef28",
+    "fn:d165de63300e869c",
+]
+
+[[module."discovery.rs".function]]
+id = "fn:7f1e4b9ceeb53c88"
+name = "start"
+qual = "MdnsBrowser::start"
+lines = [
+    298,
+    323,
+]
+hash = "sha256:a8bfcf3035f85d42dafa30638656a445c2cd254ff13959e8ede5c107a8c7c7e6"
+doc_hash = "sha256:2a28ba55200fe44134014c7a70da7954d8bf68cc648252886f539737d235e98c"
+uses = [
+    "fn:3e027b24990eeeb7",
+    "fn:58d0b8b728916eca",
+    "fn:70e4c04c4f9819c5",
+]
+
+[[module."discovery.rs".function]]
+id = "fn:c8d5a18fa1e1403f"
+name = "discovered"
+qual = "MdnsBrowser::discovered"
+lines = [
+    325,
+    373,
+]
+hash = "sha256:07360be1ee43ab2f8d5582d9b4a3147f9c7179ec2c519a71b19794adf9620f90"
+doc_hash = "sha256:630c6d96cac60b4a295da426b6bbe123158dfd962c5eb8f8e6270ac63c52d26a"
+callees = ["fn:6d56a8051efb009c"]
+uses = [
+    "fn:70e4c04c4f9819c5",
+    "fn:d165de63300e869c",
+]
+
+[[module."discovery.rs".function]]
+id = "fn:5c7be531b6d3cc18"
+name = "fmt"
+qual = "MdnsBrowser::fmt"
+lines = [
+    377,
+    384,
+]
+hash = "sha256:12bc9121bd913fa9ffe73709a6cf558fddcb1f9393901ed8aed5d037dda457dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:3e027b24990eeeb7",
+    "fn:70e4c04c4f9819c5",
+]
+
+[[module."discovery.rs".function]]
+id = "fn:ecdaa32cfd9f278c"
+name = "drop"
+qual = "MdnsBrowser::drop"
+lines = [
+    388,
+    396,
+]
+hash = "sha256:36012e3aca60019edf81bb338fb8e943081adc123f839cb108d752af4e7f8d3e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:3e027b24990eeeb7",
+    "fn:70e4c04c4f9819c5",
+]
+
+[[module."discovery.rs".function]]
+id = "fn:6d56a8051efb009c"
+name = "simulator_from_resolved"
+qual = "simulator_from_resolved"
+lines = [
+    399,
+    454,
+]
+hash = "sha256:bac523f01704a9b6db4011144a6c9c823d3c8047ece8565b1c3401934346db9b"
+doc_hash = "sha256:e339e2775c72fc9ece7705696eb7d8f0cb51029793c0789d429a406460617ba4"
+callees = ["fn:fe0db25beaa925e5"]
+uses = [
+    "fn:5204d579d2777bf2",
+    "fn:d165de63300e869c",
+    "fn:d6f9eeca83962a59",
+]
+
+[[module."discovery.rs".function]]
+id = "fn:fe0db25beaa925e5"
+name = "instance_name_from_fullname"
+qual = "instance_name_from_fullname"
+lines = [
+    456,
+    465,
+]
+hash = "sha256:e7e50a3391c9380c0efbae98aa926b99ddefe2fefded67cf2df907b21e196ad1"
+doc_hash = "sha256:57168cb26b133b055ff2dc25e78cb12fb94fc6a5927dd2e59ee45f1cb2cd0468"
+reached_by = ["#5"]
+
+[[module."discovery.rs".function]]
+id = "fn:04b34920f3571cd3"
+name = "sanitise_instance_name"
+qual = "sanitise_instance_name"
+lines = [
+    467,
+    496,
+]
+hash = "sha256:d6ab6f418da94498acf059e2aa10b5e49930dfbfc9c88c5cd4fbb90e6a7b7e14"
+doc_hash = "sha256:51f11339d3f33bff554c9caecc38b9196ef91614fa66130085b95945b7c63fa0"
+reached_by = [
+    "#6",
+    "#13",
+]
+
+[[module."discovery.rs".function]]
+id = "fn:58d0b8b728916eca"
+name = "DiscoveryError"
+qual = "DiscoveryError"
+item = "type"
+shape = "enum"
+lines = [
+    498,
+    521,
+]
+hash = "sha256:1c0784fe4112eb0ec4e3091e49d6fde718042d9a93cd7e24b5d7c06083af7063"
+doc_hash = "sha256:88269e63f8453195b865131f3b682325b4a767cfdc9190889959b60973bc548a"
+reached_by = ["#13"]
+
+[[module."discovery.rs".function]]
+id = "fn:a6474f0db12a1558"
+name = "TEST_FALLBACK_PREFIX"
+qual = "TEST_FALLBACK_PREFIX"
+item = "const"
+shape = "const"
+lines = [
+    527,
+    530,
+]
+hash = "sha256:64aaf658912851ccb637dffdfedebe30a7187fae0b21d9c0e093cbbbb569ac5d"
+doc_hash = "sha256:78f5d57d126d9ab3b119549937254bf5b3abe0fd9fb4a5bf1e41671a66727c0d"
+test = true
+
+[[module."discovery.rs".function]]
+id = "fn:79c68123c9952a53"
+name = "mdns_service_type_is_a_valid_dns_sd_type"
+qual = "mdns_service_type_is_a_valid_dns_sd_type"
+lines = [
+    532,
+    590,
+]
+hash = "sha256:3d86308d08ee9bf1d5fdf77c85beea7959a0aed9cb6c0a8148d82651fab5f6a3"
+doc_hash = "sha256:465fdbde26a020c2d9becca8db11a5bb400cbc4784da9a999228a96fbef262cd"
+uses = ["fn:3e027b24990eeeb7"]
+test = true
+
+[[module."discovery.rs".function]]
+id = "fn:4fdddfa850915036"
+name = "instance_names_are_sanitised_to_dns_safe_labels"
+qual = "instance_names_are_sanitised_to_dns_safe_labels"
+lines = [
+    592,
+    647,
+]
+hash = "sha256:5aae549b8ab36d140da8a5d6f6d866567af58202b1069ce7dda49909862f5d0e"
+doc_hash = "sha256:e9863b482e99152937caf91ba6d673e1f7f8d58935d07009372d240190a48c0c"
+callees = ["fn:04b34920f3571cd3"]
+uses = ["fn:a6474f0db12a1558"]
+test = true
+
+[[module."discovery.rs".function]]
+id = "fn:262a820ccf9057f5"
+name = "instance_name_is_stripped_from_the_dns_sd_fullname"
+qual = "instance_name_is_stripped_from_the_dns_sd_fullname"
+lines = [
+    649,
+    673,
+]
+hash = "sha256:d0e5fa57d77fbd3966820cb53e8f1243bdac5207f4d6e65c1a4552a20b45fb1a"
+doc_hash = "sha256:a67bc78f688802424ddd49b385141f4212f02ac1746148b9e883ce511ea736d6"
+callees = ["fn:fe0db25beaa925e5"]
+test = true
+
+[module."mod.rs"]
+path = "crate::opcua_core"
+
+[module."pki.rs"]
+path = "crate::opcua_core::pki"
+
+[[module."pki.rs".function]]
+id = "fn:663288235ff7e201"
+name = "UNIX_HOME_DIR_NAME"
+qual = "UNIX_HOME_DIR_NAME"
+item = "const"
+shape = "const"
+lines = [
+    57,
+    61,
+]
+hash = "sha256:05347302916c1c3d89a01c85cb26a4150ca12a479546584fcea26e5b291d2fc4"
+doc_hash = "sha256:e4e7a8c93209ffe9dd6488386456ea3e597cbc99cc857f72345abc9a0771045e"
+reached_by = [
+    "#0",
+    "#1",
+    "#9",
+    "#13",
+]
+
+[[module."pki.rs".function]]
+id = "fn:5282d51de4811c25"
+name = "WINDOWS_APPDATA_DIR_NAME"
+qual = "WINDOWS_APPDATA_DIR_NAME"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    68,
+]
+hash = "sha256:49a106f4a89c4258296734e795a6b1393419600ac30db23830ccf936ff5bff0a"
+doc_hash = "sha256:13abe72631e35963ee9427133a11a5526fec4f45580ba99dc93f87e6c8807940"
+
+[[module."pki.rs".function]]
+id = "fn:48c640737e37c1ec"
+name = "outram_park_home"
+qual = "outram_park_home"
+lines = [
+    70,
+    94,
+]
+hash = "sha256:3333c728862a9e657e7a05b337fc9a0f99db3cd315a622c1d71ac457175623f5"
+doc_hash = "sha256:4e1b4c316d8db24c49d4c543e19b3cc8d7eea8033ffdb8d746241ac21796b0f7"
+callees = [
+    "fn:248e1ae0a67aed85",
+    "fn:8ce10e307d45dc41",
+]
+reached_by = [
+    "#0",
+    "#13",
+]
+
+[[module."pki.rs".function]]
+id = "fn:248e1ae0a67aed85"
+name = "outram_park_home_path"
+qual = "outram_park_home_path"
+lines = [
+    96,
+    138,
+]
+hash = "sha256:8a1fade41fd99ab78e6bd26c02ad4af795e3ffd8ac7cba52839ddb6ecbca2a9f"
+doc_hash = "sha256:735e22dd7cb0805a9c0f717c6488c15e56fd20addba26b72720f41207552d217"
+uses = ["fn:663288235ff7e201"]
+reached_by = [
+    "#0",
+    "#1",
+    "#9",
+    "#13",
+]
+
+[[module."pki.rs".function]]
+id = "fn:7cff727a75dccae8"
+name = "pki_dir"
+qual = "pki_dir"
+lines = [
+    140,
+    156,
+]
+hash = "sha256:940a11f35139c0fcd22fd90242c9c1d4d8f15b160cd89b865d724b06fd6509d3"
+doc_hash = "sha256:4fa624e1f800fae3527e35f8d30b444b9cfa0077e44cb51396db172b06c3dae6"
+callees = [
+    "fn:48c640737e37c1ec",
+    "fn:8ce10e307d45dc41",
+]
+reached_by = [
+    "#0",
+    "#13",
+]
+
+[[module."pki.rs".function]]
+id = "fn:3703740cf80635bc"
+name = "instance_pki_dir"
+qual = "instance_pki_dir"
+lines = [
+    158,
+    185,
+]
+hash = "sha256:3342643f1d4d7ccd4bac3519d19792f75566a594da34b5cfb506c46290639b74"
+doc_hash = "sha256:238b5d8725545b3b5654c21736756eca8e33d9c03faef8dad07949436c1e9840"
+callees = [
+    "fn:3aad84f9da4a7a1e",
+    "fn:7cff727a75dccae8",
+    "fn:8ce10e307d45dc41",
+]
+reached_by = ["#13"]
+
+[[module."pki.rs".function]]
+id = "fn:e5325c1881f0d92a"
+name = "unique_instance_tag"
+qual = "unique_instance_tag"
+lines = [
+    187,
+    212,
+]
+hash = "sha256:1fefc9440429a1135f50ac407a6884d643b7773e75c4e96ce007e26a68d59e20"
+doc_hash = "sha256:2e147cba9d3817061996eb120f40d7329d75e9c7640cae3cb1779b13db303153"
+test = true
+
+[[module."pki.rs".function]]
+id = "fn:3aad84f9da4a7a1e"
+name = "sanitise_tag"
+qual = "sanitise_tag"
+lines = [
+    214,
+    232,
+]
+hash = "sha256:ad0b4bfaca0854e150f45acf1eff552cc77849b96de1c7c7ef65d14f2535ff33"
+doc_hash = "sha256:3b99342f49031745086522575c63cd866805e9352bc72812025b6489385151a3"
+reached_by = [
+    "#8",
+    "#13",
+]
+
+[[module."pki.rs".function]]
+id = "fn:fff64009b78025fe"
+name = "describe_pki_location"
+qual = "describe_pki_location"
+lines = [
+    234,
+    250,
+]
+hash = "sha256:262fe1438abe4adfad50e1dc5f63053403540056796a44d54fe29b0711a097f1"
+doc_hash = "sha256:18d53a29cc9371743ee6dd3aa9d4f7a1d6fbad5ab958ccf7c11142c9277325fe"
+callees = ["fn:7cff727a75dccae8"]
+reached_by = ["#0"]
+
+[[module."pki.rs".function]]
+id = "fn:8ce10e307d45dc41"
+name = "ensure_dir"
+qual = "ensure_dir"
+lines = [
+    252,
+    265,
+]
+hash = "sha256:9809a2998b009810b8ac68041721141adeb67484782ecfc96e5a5a3094cdbc96"
+doc_hash = "sha256:1b5e69e385344ba95b12fba371445b980e8ecbb1a73c2edb10baffb300bbb5f3"
+reached_by = [
+    "#0",
+    "#13",
+]
+
+[[module."pki.rs".function]]
+id = "fn:41b3298f1a3212bf"
+name = "instance_tags_cannot_escape_the_pki_directory"
+qual = "instance_tags_cannot_escape_the_pki_directory"
+lines = [
+    271,
+    306,
+]
+hash = "sha256:f615018bb6399542ad4ce70d9df91ccafe5170be4f203696e48c8212148b7698"
+doc_hash = "sha256:80ce526a55caa4cf966519399c2f4151f61597b887f047a6f7de94cd60d10336"
+callees = ["fn:3aad84f9da4a7a1e"]
+test = true
+
+[[module."pki.rs".function]]
+id = "fn:377d00a0038d4a41"
+name = "the_per_user_root_is_the_documented_directory"
+qual = "the_per_user_root_is_the_documented_directory"
+lines = [
+    308,
+    337,
+]
+hash = "sha256:9f97b70369a247d63d6eaaf448aa07a497aaffa24142aecd701fbde9d84fe7a3"
+doc_hash = "sha256:6c0bfa90ba2cb01c1bfd034279f261f63625c581e7edefef5ef9176e7edc6396"
+callees = ["fn:248e1ae0a67aed85"]
+uses = ["fn:663288235ff7e201"]
+test = true
+
+[module."server.rs"]
+path = "crate::opcua_core::server"
+
+[[module."server.rs".function]]
+id = "fn:5e2099bfda9adc45"
+name = "SUBSCRIPTION_PUSH_INTERVAL"
+qual = "SUBSCRIPTION_PUSH_INTERVAL"
+item = "const"
+shape = "const"
+lines = [
+    102,
+    108,
+]
+hash = "sha256:4f4a041a2f7e6e91da2c9c74a08550bde7e7ef4645e6ccd82c449dd254d6e7bd"
+doc_hash = "sha256:4fc8a42326be1adca83f6080fdb6fd82a6d22998f1764d01de86567ad249e03f"
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:e99c2eb67ae43082"
+name = "OpcuaServerConfig"
+qual = "OpcuaServerConfig"
+item = "type"
+shape = "struct"
+lines = [
+    110,
+    161,
+]
+hash = "sha256:c2ae9b5b68c6b27284b4b123781cbef4108c2fb6c24a97de65e117d4426ce1d7"
+doc_hash = "sha256:b0767c5f3ca9645dfa8ea851e392b8ee546bbdf17abb48ad0784755f1e55d9e2"
+reached_by = [
+    "#2",
+    "#10",
+    "#11",
+    "#13",
+]
+
+[[module."server.rs".function]]
+id = "fn:4bcee12bf5f15901"
+name = "for_simulator"
+qual = "OpcuaServerConfig::for_simulator"
+lines = [
+    164,
+    178,
+]
+hash = "sha256:c5c5129ef7a5cf5377798a79a055a1df10041074554e7606d4c7a6eda83af55a"
+doc_hash = "sha256:2f1fd2fff6c90f97e6eb2019c42aceeb9aa233e1dbe490bdec9977314febad84"
+uses = [
+    "fn:6e8752aedca5ef28",
+    "fn:e99c2eb67ae43082",
+]
+reached_by = [
+    "#2",
+    "#10",
+    "#11",
+]
+
+[[module."server.rs".function]]
+id = "fn:1117b0ab8e83e055"
+name = "is_loopback_only"
+qual = "OpcuaServerConfig::is_loopback_only"
+lines = [
+    180,
+    205,
+]
+hash = "sha256:39dea01221f2e74e3330af215978eed96f9225b7a85a5ebfd346d2ddadf02a94"
+doc_hash = "sha256:ff1fd43332dac8e8e98b6324a97bd7d4e9580a5278a433d6f4f130ebb73c2497"
+uses = ["fn:e99c2eb67ae43082"]
+reached_by = [
+    "#2",
+    "#10",
+    "#11",
+    "#13",
+]
+
+[[module."server.rs".function]]
+id = "fn:7c9ed66c37149945"
+name = "binds_all_interfaces"
+qual = "OpcuaServerConfig::binds_all_interfaces"
+lines = [
+    207,
+    220,
+]
+hash = "sha256:fd1677904e2bfe2c94129db2e4e1e9fd6491f3d082d6655631f4844fd41d09cf"
+doc_hash = "sha256:5bebadfd79ca7e6732c13a8094eada93accc1c439431d265e6ec1eab92c83eb5"
+uses = ["fn:e99c2eb67ae43082"]
+reached_by = [
+    "#2",
+    "#10",
+    "#13",
+]
+
+[[module."server.rs".function]]
+id = "fn:964e6579c5e63b5e"
+name = "OpcuaEndpointInfo"
+qual = "OpcuaEndpointInfo"
+item = "type"
+shape = "struct"
+lines = [
+    223,
+    265,
+]
+hash = "sha256:48403596e88bd7bd7a9a8fe43350175dcce4084d6963ebb2dfb46a8d39e0dc60"
+doc_hash = "sha256:f030b2e07de4064148fbb7670d1962c1d6c5db27a995b7f172d5f4bb134d6786"
+reached_by = [
+    "#12",
+    "#13",
+]
+
+[[module."server.rs".function]]
+id = "fn:69f7bb26d56762c3"
+name = "primary_url"
+qual = "OpcuaEndpointInfo::primary_url"
+lines = [
+    268,
+    278,
+]
+hash = "sha256:7a3b32b6aebb51c70272326b9122286633ceb1a9ebc3fa9a9981005eddf7efef"
+doc_hash = "sha256:e5a1f3ea0aca3ceb17729f801a2474dce5313c7c3485f351a756f827e3820239"
+uses = ["fn:964e6579c5e63b5e"]
+reached_by = [
+    "#12",
+    "#13",
+]
+
+[[module."server.rs".function]]
+id = "fn:a76d0eb2f9ad8b05"
+name = "OpcuaServerHandle"
+qual = "OpcuaServerHandle"
+item = "type"
+shape = "struct"
+lines = [
+    281,
+    299,
+]
+hash = "sha256:f5f811b2fff3a5d095bcbce5079e539653c4283c5a2b4ae82776bd76da666d57"
+doc_hash = "sha256:0126ef5e8946ca5efaa473179369daecdc1246f385312f70a289961743992d80"
+uses = [
+    "fn:964e6579c5e63b5e",
+    "fn:d669160095d9a0a0",
+]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:40f3824d54c05d50"
+name = "endpoint_info"
+qual = "OpcuaServerHandle::endpoint_info"
+lines = [
+    302,
+    305,
+]
+hash = "sha256:d81f1aecb0b95acba84c7b6566a18e1b5f30f23d190c1011467b9ef0fe40af8f"
+doc_hash = "sha256:51aa0ca31645c313060392cf6dad6c1db51d805d10742240ad6f44ff428e74d0"
+uses = [
+    "fn:964e6579c5e63b5e",
+    "fn:a76d0eb2f9ad8b05",
+]
+
+[[module."server.rs".function]]
+id = "fn:2c14338bc0ef6903"
+name = "shutdown"
+qual = "OpcuaServerHandle::shutdown"
+lines = [
+    307,
+    319,
+]
+hash = "sha256:b1565e384ad59803445df28752b53d1f300ebfae9ad449c42e6591566c46eb27"
+doc_hash = "sha256:c76da3b7349b2081c83b3717edcbec7fd7e049891407834a32f3f79d43c0b7a9"
+uses = ["fn:a76d0eb2f9ad8b05"]
+
+[[module."server.rs".function]]
+id = "fn:ccf382feb2d009f2"
+name = "fmt"
+qual = "OpcuaServerHandle::fmt"
+lines = [
+    323,
+    328,
+]
+hash = "sha256:7fd8c8c3398fc0667eac0937e5fef678a1189b8bba5712052d2ee20c049ec989"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:a76d0eb2f9ad8b05"]
+
+[[module."server.rs".function]]
+id = "fn:d62b6822cf9b7209"
+name = "OpcuaServerError"
+qual = "OpcuaServerError"
+item = "type"
+shape = "enum"
+lines = [
+    331,
+    378,
+]
+hash = "sha256:57296d72dd59ce466d47c84790088583362b15cece9294cae4a530f69380725a"
+doc_hash = "sha256:fd82ec727ad4a9ad623011535632dcd043f7134f5a314133376f70f33dc16bff"
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:7257d147579c4b43"
+name = "spawn_opcua_server_thread"
+qual = "spawn_opcua_server_thread"
+lines = [
+    380,
+    499,
+]
+hash = "sha256:f76ef72ce892688bee6e019aa81b30343844cf761173fbcbc5c366dad0508f19"
+doc_hash = "sha256:8d08761da24668055e80c9b368db33be1e904a12e6c491ba35858fd95b9e18bb"
+callees = [
+    "fn:005f5fb8dcc43ba8",
+    "fn:054abb66d361da2f",
+    "fn:11343bc031ca0902",
+    "fn:3703740cf80635bc",
+    "fn:a04ec35993af3b7b",
+    "fn:f8565879a2ed1816",
+]
+uses = [
+    "fn:6e8752aedca5ef28",
+    "fn:a76d0eb2f9ad8b05",
+    "fn:d62b6822cf9b7209",
+    "fn:dd1f9f483560b24c",
+    "fn:e99c2eb67ae43082",
+]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:272abccd22b96b0e"
+name = "build_address_space"
+qual = "build_address_space"
+lines = [
+    501,
+    596,
+]
+hash = "sha256:478fe4cb5e24a177c49f7c837c1c1e6dd345d15aac86c7af9d14b6a1eb2ada54"
+doc_hash = "sha256:9b44c46c7e50b312c77fde4aaa0a77ae1faae32ee43613cda2eaf512ca4f1b3a"
+uses = [
+    "fn:54652c2d2252c566",
+    "fn:6e8752aedca5ef28",
+    "fn:d62b6822cf9b7209",
+    "fn:dd1f9f483560b24c",
+]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:a825a1c62466d0be"
+name = "register_callbacks"
+qual = "register_callbacks"
+lines = [
+    598,
+    639,
+]
+hash = "sha256:582b5ee140bc88c1aedee0302abfac504f699c8857242db951baef64ddde2602"
+doc_hash = "sha256:a39ba94f6341e199ba87233612cd3cb607b19483bf6f3d8aee30e864e0ebd891"
+uses = ["fn:dd1f9f483560b24c"]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:11343bc031ca0902"
+name = "run_server_thread"
+qual = "run_server_thread"
+lines = [
+    641,
+    720,
+]
+hash = "sha256:96c11cd433895460e8773f230d6d186032296e91ed1131fd1d5c3a57a0d607d2"
+doc_hash = "sha256:404731b9634e41f15f10514b5ce959b713a594d75cbe3e8081bc326156c42ae6"
+callees = [
+    "fn:4891e874c3ec8926",
+    "fn:6e32f72af8d1706a",
+]
+uses = [
+    "fn:5e2099bfda9adc45",
+    "fn:6e8752aedca5ef28",
+    "fn:97ae49965a3e5c70",
+    "fn:d62b6822cf9b7209",
+    "fn:dd1f9f483560b24c",
+    "fn:e99c2eb67ae43082",
+]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:97ae49965a3e5c70"
+name = "PreparedServer"
+qual = "PreparedServer"
+item = "type"
+shape = "struct"
+lines = [
+    722,
+    732,
+]
+hash = "sha256:48da0148493a60b8a7af7ccd92c0bd0d849935efe4b26d2d11772a084f1738d0"
+doc_hash = "sha256:77b99952ffbca44fa05323a811d95500b71639594b53cb81b5f1db32d379356b"
+uses = ["fn:dd1f9f483560b24c"]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:4891e874c3ec8926"
+name = "prepare_server"
+qual = "prepare_server"
+lines = [
+    734,
+    804,
+]
+hash = "sha256:c042e37007da7e3b0350397ccf1c236e4facd569ec59f1b33f4bc8b2fcfb9d00"
+doc_hash = "sha256:5a8120ae426e784ee1e8b5154560222596a3a0c6de4b14479b03b2ddb614b2cb"
+callees = [
+    "fn:272abccd22b96b0e",
+    "fn:a825a1c62466d0be",
+]
+uses = [
+    "fn:6e8752aedca5ef28",
+    "fn:97ae49965a3e5c70",
+    "fn:d62b6822cf9b7209",
+    "fn:dd1f9f483560b24c",
+    "fn:e99c2eb67ae43082",
+]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:6e32f72af8d1706a"
+name = "push_values_into_address_space"
+qual = "push_values_into_address_space"
+lines = [
+    806,
+    835,
+]
+hash = "sha256:07e0669d6c4f47e1e38084d272ca709f23b10d960839bb06bd5564e8be92b001"
+doc_hash = "sha256:9b45153a51aead8f4d3989238e459b5e590f447f026f2e76553682d5fbe27c82"
+uses = [
+    "fn:6e8752aedca5ef28",
+    "fn:dd1f9f483560b24c",
+]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:054abb66d361da2f"
+name = "build_endpoint_info"
+qual = "build_endpoint_info"
+lines = [
+    837,
+    865,
+]
+hash = "sha256:97edb63b7bca7289eebcfdbb0a1cf924eec840b9f460fc0c7595513c6bbfaa98"
+doc_hash = "sha256:f2ec1efde455e4f118df32afb4285295d53e2979383a8472632becc8c146e482"
+callees = ["fn:7c9ed66c37149945"]
+uses = [
+    "fn:6e8752aedca5ef28",
+    "fn:964e6579c5e63b5e",
+    "fn:dd1f9f483560b24c",
+    "fn:e99c2eb67ae43082",
+]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:f8565879a2ed1816"
+name = "print_startup_banner"
+qual = "print_startup_banner"
+lines = [
+    867,
+    892,
+]
+hash = "sha256:222c0c799f8a2c734b72a35092602d9e3f1d75bf762f2f7e71980316cf4d6024"
+doc_hash = "sha256:a8a844dae035291d5d6770f97c78ac035da3834129f5912d93a3f1897ee1631a"
+callees = [
+    "fn:1117b0ab8e83e055",
+    "fn:69f7bb26d56762c3",
+]
+uses = [
+    "fn:6e8752aedca5ef28",
+    "fn:964e6579c5e63b5e",
+    "fn:dd1f9f483560b24c",
+    "fn:e99c2eb67ae43082",
+]
+reached_by = ["#13"]
+
+[[module."server.rs".function]]
+id = "fn:64db877632ff213c"
+name = "TestSimulator"
+qual = "TestSimulator"
+item = "type"
+shape = "struct"
+lines = [
+    899,
+    905,
+]
+hash = "sha256:4111e703fbdfdddf4306261bf60538e2edddd04e6dd3cfdbd234cbf173d359ac"
+doc_hash = "sha256:a782398f939a4cba43e5e6de695e8037299cfb5075a7d62df7a2b32370d4b3b9"
+test = true
+
+[[module."server.rs".function]]
+id = "fn:fff497aa84f27f81"
+name = "for_simulator_binds_all_interfaces_on_the_profile_port"
+qual = "for_simulator_binds_all_interfaces_on_the_profile_port"
+lines = [
+    926,
+    964,
+]
+hash = "sha256:079a92e366719f63476a0335919a1bd6adf339b29999914d40f20eb517b0c03d"
+doc_hash = "sha256:711ef6ce49cc25b6857689c575adbf53bf5056be737b23729120a2c5ee44ce3a"
+callees = [
+    "fn:1117b0ab8e83e055",
+    "fn:4bcee12bf5f15901",
+    "fn:7c9ed66c37149945",
+]
+uses = [
+    "fn:64db877632ff213c",
+    "fn:e99c2eb67ae43082",
+]
+test = true
+
+[[module."server.rs".function]]
+id = "fn:9ad34aabd9f8bc4b"
+name = "is_loopback_only_recognises_every_loopback_form"
+qual = "is_loopback_only_recognises_every_loopback_form"
+lines = [
+    966,
+    1013,
+]
+hash = "sha256:5adb3105f4c61669574264381c37c01bedca141c9c1f0f049744ce3e6801c295"
+doc_hash = "sha256:e2684be6dc2e66081e4fac96220f5543e396a86c36c1b5653371e6b772811613"
+callees = [
+    "fn:1117b0ab8e83e055",
+    "fn:4bcee12bf5f15901",
+]
+uses = [
+    "fn:64db877632ff213c",
+    "fn:e99c2eb67ae43082",
+]
+test = true
+
+[[module."server.rs".function]]
+id = "fn:8db43a5d19036ce9"
+name = "primary_url_prefers_a_reachable_address"
+qual = "primary_url_prefers_a_reachable_address"
+lines = [
+    1015,
+    1057,
+]
+hash = "sha256:c06b355611e7d68d19c315dfb7df127d347ae5ecf21ab9cf8a51d7491208e24f"
+doc_hash = "sha256:fc3a700de554f04524965199f78569d333cae65671b0adb927d7e2c2fa87ffca"
+callees = ["fn:69f7bb26d56762c3"]
+uses = [
+    "fn:64db877632ff213c",
+    "fn:964e6579c5e63b5e",
+]
+test = true
+
+[module."simulator.rs"]
+path = "crate::opcua_core::simulator"
+
+[[module."simulator.rs".function]]
+id = "fn:a33ab46f92990ea3"
+name = "OpcuaSimulatorProfile"
+qual = "OpcuaSimulatorProfile"
+item = "type"
+shape = "struct"
+lines = [
+    46,
+    138,
+]
+hash = "sha256:24dfa197dd4b1ded70ece4b43b99da694039d970552143e309aaae7c00405da8"
+doc_hash = "sha256:9516ec2c4ccb45c3fd41686b333bafa4feb1e5f89ded90292da3ae2e541cb9a5"
+reached_by = [
+    "#2",
+    "#10",
+    "#11",
+    "#13",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:6e8752aedca5ef28"
+name = "OpcuaSimulator"
+qual = "OpcuaSimulator"
+item = "type"
+shape = "trait"
+lines = [
+    140,
+    159,
+]
+hash = "sha256:b49da7d809e0d3daf1b5b124619d9e6d17e33d1d8ad051ff879f765d14f819c8"
+doc_hash = "sha256:85213793b072890c9fe497c2633b8d0dde160603856ab9f22a48db0199e9f6fb"
+uses = ["fn:a33ab46f92990ea3"]
+reached_by = [
+    "#2",
+    "#10",
+    "#11",
+    "#13",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:54652c2d2252c566"
+name = "OpcuaFolder"
+qual = "OpcuaFolder"
+item = "type"
+shape = "enum"
+lines = [
+    161,
+    171,
+]
+hash = "sha256:2702c750b2dde4fd9eb0df1545de1fb5512a48b91982a8c3bbc1a285dd9c526f"
+doc_hash = "sha256:80bff57ff8ba3e41e739898f49bf9c39915694f0ed94de532cfc28bc19f854e7"
+reached_by = [
+    "#3",
+    "#13",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:dd1f9f483560b24c"
+name = "OpcuaVariable"
+qual = "OpcuaVariable"
+item = "type"
+shape = "trait"
+lines = [
+    173,
+    271,
+]
+hash = "sha256:bd34480585fce8c888e7e486fa09372db164129d21c97936d1b3b12614646344"
+doc_hash = "sha256:547d629f46ffd9e8f9342d091d39a74a4965e652adec70e99790db867b00d083"
+uses = [
+    "fn:54652c2d2252c566",
+    "fn:6e8752aedca5ef28",
+]
+reached_by = ["#13"]
+
+[[module."simulator.rs".function]]
+id = "fn:0eb831dc5cd3de31"
+name = "all"
+qual = "OpcuaVariable::all"
+lines = [
+    213,
+    217,
+]
+hash = "sha256:e739bb07a83a065aa525b4990e683f0479d7cf57b5d463edeb6caf9df65142ee"
+doc_hash = "sha256:a1a3e0cd02397fe6cdfa6b9e99176b9b9fe4591e1a3a959d7607e7c0172862cb"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:036e476dbc9bfa13"
+name = "node_identifier"
+qual = "OpcuaVariable::node_identifier"
+lines = [
+    219,
+    227,
+]
+hash = "sha256:148e3d9fa1e272a069a6475ecf83fe1c9898ce64bb7c02d810bf0d17b18da85a"
+doc_hash = "sha256:62b5e6bf3bf243c07e286d061136792a81d26d2990d7f1456b8ba85bcb3d3842"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:8431edcaf0d81ffd"
+name = "browse_name"
+qual = "OpcuaVariable::browse_name"
+lines = [
+    229,
+    231,
+]
+hash = "sha256:148e3d9fa1e272a069a6475ecf83fe1c9898ce64bb7c02d810bf0d17b18da85a"
+doc_hash = "sha256:f4a688ac6bdf0bc4be25d14616057e382ea4427dddbc0dabd04e00ae31ce6cc5"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:afe8aa1d82fde5aa"
+name = "display_name"
+qual = "OpcuaVariable::display_name"
+lines = [
+    233,
+    234,
+]
+hash = "sha256:148e3d9fa1e272a069a6475ecf83fe1c9898ce64bb7c02d810bf0d17b18da85a"
+doc_hash = "sha256:6f02fc6464df53c07bf3df58a77afe447433b129013ab4eff607de2bc1d4a112"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:e68c428c6eb9ea12"
+name = "description"
+qual = "OpcuaVariable::description"
+lines = [
+    236,
+    238,
+]
+hash = "sha256:47af99276184d848071e6a25f9ef200f2db2ee3395b31b932987db8304076049"
+doc_hash = "sha256:02c3b3c8afe9b23d876c61e532e44bce64d7a08867e14905e9bbf1920c100c41"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:2fbc4c31c0768090"
+name = "data_type"
+qual = "OpcuaVariable::data_type"
+lines = [
+    240,
+    242,
+]
+hash = "sha256:405c7e2773a668ba9bc861f8874c714ae1400c1f99337adb9f6675a70da42598"
+doc_hash = "sha256:fbc5b8d8e56797c4854429329ea2c88ca22f79253474add7141e25f1eb6d5a7a"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:4d9887fec1cb2e3b"
+name = "access_level"
+qual = "OpcuaVariable::access_level"
+lines = [
+    244,
+    248,
+]
+hash = "sha256:06e1c7d9064df0bb901861169e30d03dc9c44b0f2ddb40982b68e9e2a5d863c1"
+doc_hash = "sha256:5f1bb983e6581dbd5fba60bbdfba8db8433cefbca9c03140ff42ec803505bcb4"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:300528ac523f4c51"
+name = "folder"
+qual = "OpcuaVariable::folder"
+lines = [
+    250,
+    251,
+]
+hash = "sha256:22ba5c16073bef5715e246aa1f93b1d157a500f5b83d0431d8f1bc1f6339af59"
+doc_hash = "sha256:d18468b2672e432cc56d7dcf27c343df5cae64057755ee63959468596958c935"
+uses = [
+    "fn:54652c2d2252c566",
+    "fn:dd1f9f483560b24c",
+]
+
+[[module."simulator.rs".function]]
+id = "fn:bccd8bccfab1efb5"
+name = "read"
+qual = "OpcuaVariable::read"
+lines = [
+    253,
+    258,
+]
+hash = "sha256:edae064aeafacc0a065ff30ab2b2143a8cd2baec43915cd89bbaef8fb697d2b3"
+doc_hash = "sha256:f3826ed8df8aa41a0d42e036a7697462c88b0fa0b4a131a256f023991ec46782"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:cb484352f45e1340"
+name = "record_write"
+qual = "OpcuaVariable::record_write"
+lines = [
+    260,
+    270,
+]
+hash = "sha256:5f92760dfe654ce6c7cc6d2b4484de64124f199c26b750625417b2b7f982b508"
+doc_hash = "sha256:43e99c72cdaeb7ba9166b270473200831c7aa07772a9bbfc3f83e426e1c85004"
+uses = ["fn:dd1f9f483560b24c"]
+
+[[module."simulator.rs".function]]
+id = "fn:80d6c4e4543271e3"
+name = "variant_as_f64"
+qual = "variant_as_f64"
+lines = [
+    273,
+    298,
+]
+hash = "sha256:579fbc910fbbc6e8ee47b12e08d83dd2fbc4384076ef659f6f2330019bbd129e"
+doc_hash = "sha256:26d6a643e161b462b070c29945df4203d393532f2302ee60c5999f3ba28e69c5"
+reached_by = ["#4"]

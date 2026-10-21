@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use outram_mc_libs::rng::{distributions::sample_normal, lcg::prn};
 
 fn per_component_variance_from_m2(n: usize, e_s2: f64) -> f64 {
@@ -24,7 +25,7 @@ fn sample_unit_vector(seed: &mut u64) -> [f64; 3] {
     let u: f64 = prn(seed) * 2.0 - 1.0;
     let phi: f64 = prn(seed) * 2.0 * std::f64::consts::PI;
     let rxy = (1.0 - u * u).sqrt();
-    [rxy * phi.cos(), rxy * phi.sin(), u]
+    [rxy * phi.r_cos(), rxy * phi.r_sin(), u]
 }
 
 /// Sample net distance R for a 3D Gaussian displacement (Maxwell distribution).

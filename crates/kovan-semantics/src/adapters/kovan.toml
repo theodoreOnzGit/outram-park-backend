@@ -1,0 +1,58 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-semantics"
+dir = "crates/kovan-semantics/src/adapters"
+test_ids = ["crates/kovan-semantics/src/lib.rs::adapters_name_their_tools"]
+
+[module."mod.rs"]
+path = "crate::adapters"
+
+[[module."mod.rs".function]]
+id = "fn:f32dd0b33fa086c8"
+name = "server_binary"
+qual = "LanguageAdapter::server_binary"
+lines = [
+    33,
+    41,
+]
+hash = "sha256:8daadd5eb652b4c2b751cb4adec437125a0a886ec34a4d305b4d3fc1d11d5f30"
+doc_hash = "sha256:ab0986c1b625ec9a7c5ae8ed6aff6621dbdf9229a4738349faebda8364fe83bb"
+callees = ["fn:f910cfd5724a7262"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:506999513b240c3a"
+name = "LanguageServerInvocation"
+qual = "LanguageServerInvocation"
+item = "type"
+shape = "struct"
+lines = [
+    55,
+    67,
+]
+hash = "sha256:69188f756af2d4912e9da569679fd9bb32e90763acb13ed5d83a9964530ecc5f"
+doc_hash = "sha256:f66aec237231a27b9d9d79e380f0068decce4aef45249e3c6835403bd13d9552"
+
+[[module."mod.rs".function]]
+id = "fn:67faf304e64a7afe"
+name = "language_server_invocation"
+qual = "LanguageAdapter::language_server_invocation"
+lines = [
+    70,
+    92,
+]
+hash = "sha256:3aef33ac197c124098b50a697b02f5da4e73ebd2d40d42838727e68022bfb6de"
+doc_hash = "sha256:0e7536514da33fd69beb03878a13189aa4b4507fc403c05323dad6b1bb92fced"
+uses = ["fn:85dc5410ff538180"]
+
+[[module."mod.rs".function]]
+id = "fn:b64011e9aa8ed045"
+name = "catalogue_symbols_via_server"
+qual = "catalogue_symbols_via_server"
+lines = [
+    95,
+    111,
+]
+hash = "sha256:34b55062c3de745476fd4f64987a7737b8cddcedc0ecf41d62197ff58560b50c"
+doc_hash = "sha256:4907262344ee6681ba36babafdd955d97d196f7dd9d62322a07aa88264b99ef6"
+uses = ["fn:85dc5410ff538180"]

@@ -1,0 +1,219 @@
+# Acceptance tests for the NJOY port and Outram MC (GitHub #859).
+#
+# WHAT ACCEPTANCE MEANS HERE. NUREG/BR-0167 names four test levels: unit,
+# integration, qualification and acceptance. Acceptance is the software
+# working in the environment its users run it in. For the Rust NJOY port
+# (`njoy-outram-park-fork`) and Outram MC (`outram-mc-libs`) those are the
+# command line on Windows, macOS and Linux, Android (Termux), and a web
+# browser. This workflow covers the first two; the browser is covered by the
+# Monte Carlo demo that `pages.yml` builds and publishes.
+#
+# WHAT RUNS. `scripts/acceptance-keff.sh`: the four ICSBEP cases of the
+# five-route study (Godiva HEU-MET-FAST-001, Jemima IEU-MET-FAST-002,
+# HEU-SOL-THERM-009 case 1, LEU-COMP-THERM-008 case 1), from the repository's
+# ENDF/B-VIII.0 tapes through the Rust NJOY port into Outram MC, at REDUCED
+# statistics. Each case's mean k is judged against the recorded OpenMC +
+# NJOY2016 k of the same case with a 200 pcm allowance, and must resolve it
+# (three standard errors inside the allowance). The 50 pcm code-to-code
+# criterion belongs to the full-statistics qualification runs, which take
+# hours and are not run here. The check and its reasoning:
+# `crates/outram-mc-libs/examples/icsbep_five_route_keff.rs`, "--accept".
+#
+# WHERE THE RESULTS ARE WRITTEN DOWN.
+# `crates/outram-mc-libs/verification_and_validation/acceptance_testing/README.md`
+# records the pass/fail of each environment, with the run it came from. Each
+# run also uploads its record as an artifact and prints it in the job summary.
+#
+# WHEN IT RUNS. On a push to `develop` that touches the nuclear-data or
+# transport code, the cases' data, or this workflow: not on every push.
+# Every case runs 5000 x [40 + 120] per seed, the lattice included
+# (maintainer, 2026-10-13: acceptance is seeing it run on every platform,
+# not validation; the first runs at the lattice's campaign size took about
+# 40 min per desktop job and over an hour on the emulator).
+# `workflow_dispatch` works only once this file is on the default branch
+# (see `manual-tests.yml`).
+#
+# TWO TIERS (maintainer, 2026-10-14). On `develop` this is a SMOKE TEST: the
+# code builds and runs on every platform and gives a sane k, with the 200 pcm
+# code-to-code allowance as the bar (the lattice's measured +70 pcm at this
+# run size is inside it and is acceptable here). A merge to `main` is held to
+# more: a pull request into `main` runs this workflow with no path filter,
+# beside `full-tests.yml`, which runs the whole test suite there. The 50 pcm
+# criterion at full statistics is qualification testing, not CI.
+#
+# ANDROID IS AN EMULATOR, NOT A PHONE. The `android` job cross-compiles the
+# same driver for `x86_64-linux-android` with the runner's NDK and runs it
+# under the Android emulator: a real Android kernel and the Bionic C library,
+# which is what a Termux binary also runs on. It is not a run inside the
+# Termux app on a physical aarch64 device; the record says so.
+#
+# RELEASE MODE, as everywhere (root CLAUDE.md).
+
+name: acceptance tests
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - ".github/workflows/acceptance-tests.yml"
+      - "scripts/acceptance-keff.sh"
+      - "crates/njoy-outram-park-fork/src/**"
+      - "crates/outram-mc-libs/src/**"
+      - "crates/outram-mc-libs/examples/icsbep_five_route_keff.rs"
+      - "crates/outram-mc-libs/examples/common/**"
+      - "crates/outram-mc-libs/verification_and_validation/icsbep/**"
+      - "crates/outram-blender/src/csg/**"
+      - "reference-data/endf/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # The newest commit is the one whose acceptance matters; an older run still
+  # going is superseded.
+  cancel-in-progress: true
+
+jobs:
+  # ── The command-line path on the three desktop operating systems ───────────
+  keff:
+    name: k-eff / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # A ceiling. Replace with a measured figure after the first runs.
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false # one platform's failure must not hide the others'
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: acceptance-${{ matrix.os }}
+          cache-on-failure: true
+
+      - name: Hardware (every timing carries its hardware)
+        shell: bash
+        run: |
+          uname -a
+          getconf _NPROCESSORS_ONLN || true
+          if [ -r /proc/cpuinfo ]; then grep -m1 "model name" /proc/cpuinfo; fi
+          if [ -r /proc/meminfo ]; then grep MemTotal /proc/meminfo; fi
+          if command -v sysctl >/dev/null; then sysctl -n machdep.cpu.brand_string hw.memsize 2>/dev/null || true; fi
+
+      - name: Four ICSBEP cases, reduced statistics, 200 pcm allowance
+        shell: bash
+        run: bash scripts/acceptance-keff.sh target/acceptance/keff_acceptance.csv
+
+      - name: Record in the job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### k-eff acceptance, ${{ matrix.os }}"
+            echo
+            echo '```'
+            cat target/acceptance/keff_acceptance.csv 2>/dev/null || echo "no record written"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: keff-acceptance-${{ matrix.os }}
+          path: target/acceptance/
+          if-no-files-found: warn
+
+  # ── The same driver, built for Android and run under the emulator ──────────
+  android:
+    name: k-eff / android emulator (x86_64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      API_LEVEL: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: acceptance-android
+          cache-on-failure: true
+
+      # The runner image ships the NDK; only its linker is needed (the
+      # workspace is pure Rust, so nothing is compiled from C).
+      - name: Build the driver for x86_64-linux-android
+        shell: bash
+        run: |
+          ndk="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
+          export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android${API_LEVEL}-clang"
+          ls -l "$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
+          cargo build --release -p outram-mc-libs --features endf-pebble-cases \
+            --example icsbep_five_route_keff --target x86_64-linux-android
+          mkdir -p stage/endf
+          cp target/x86_64-linux-android/release/examples/icsbep_five_route_keff stage/
+          cp crates/outram-mc-libs/verification_and_validation/icsbep/five_route_keff/data/summary_keff.csv stage/
+          # Only the tapes the four cases read.
+          for t in n-092_U_234-ENDF8.0.endf n-092_U_235-ENDF8.0.endf n-092_U_236-ENDF8.0.endf n-092_U_238.endf \
+                   n-009_F_019-ENDF8.0.endf n-008_O_016-ENDF8.0.endf n-001_H_001-ENDF8.0-Beta6.endf \
+                   n-013_Al_027-ENDF8.0.endf n-014_Si_028-ENDF8.0.endf n-014_Si_029-ENDF8.0.endf \
+                   n-014_Si_030-ENDF8.0.endf n-025_Mn_055-ENDF8.0.endf n-005_B_010-ENDF8.0.endf \
+                   tsl-HinH2O.endf; do
+            cp "reference-data/endf/$t" stage/endf/
+          done
+          git rev-parse --short=10 HEAD > stage/commit.txt
+          du -sh stage
+
+      # All four cases run on the device. The lattice's OpenMC cards are
+      # compiled into the binary, so only the ENDF tapes are pushed.
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the four cases on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          arch: x86_64
+          cores: 4
+          ram-size: 6144M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: |
+            adb shell "getprop ro.build.version.release; getprop ro.product.cpu.abi; uname -a; grep -m1 'model name' /proc/cpuinfo; grep MemTotal /proc/meminfo; nproc"
+            adb push stage /data/local/tmp/acceptance
+            adb shell "chmod 755 /data/local/tmp/acceptance/icsbep_five_route_keff"
+            bash scripts/acceptance-android.sh
+            adb pull /data/local/tmp/acceptance/keff_acceptance.csv android_keff_acceptance.csv
+
+      - name: Record in the job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### k-eff acceptance, Android emulator (x86_64, API ${API_LEVEL})"
+            echo
+            echo '```'
+            cat android_keff_acceptance.csv 2>/dev/null || echo "no record written"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: keff-acceptance-android
+          path: android_keff_acceptance.csv
+          if-no-files-found: warn

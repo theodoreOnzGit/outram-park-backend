@@ -170,6 +170,15 @@ fn target_steam_enthalpy_at(target_temperature: ThermodynamicTemperature) -> Ava
 /// above this, even transiently.
 const IF97_MAX_TEMPERATURE_K: f64 = 1073.15;
 
+/// Lower temperature bound of the IF97 industrial formulation \[K\].
+///
+/// **273.15 K**, the triple point. Water substance is not tabulated below it,
+/// so `h_tp_eqm_single_phase` aborts rather than extrapolating. Any function
+/// that can be handed a cold temperature must bound against this as well as
+/// [`IF97_MAX_TEMPERATURE_K`] -- bounding only the top is what let the LOFC
+/// transient abort a three-hour run at 273.1376 K.
+const IF97_MIN_TEMPERATURE_K: f64 = 273.15;
+
 /// Greatest duty \[W\] the steam side can absorb without its outlet exceeding
 /// the hot side that is heating it -- i.e. without a temperature cross.
 ///
@@ -217,9 +226,30 @@ fn max_absorbable_duty(
 ) -> f64 {
     use tampines_steam_tables::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase;
 
-    let t_cap_k = hot_side_inlet_temperature
-        .get::<kelvin>()
-        .min(IF97_MAX_TEMPERATURE_K);
+    let t_hot_k = hot_side_inlet_temperature.get::<kelvin>();
+
+    // A COLD hot side transfers nothing, and must be answered WITHOUT asking
+    // IF97 for an enthalpy it does not define. The formulation's lower bound is
+    // the triple point, 273.15 K; below that `h_tp_eqm_single_phase` aborts the
+    // run rather than extrapolating -- correctly, since water substance is not
+    // tabulated there.
+    //
+    // The `.max(0.0)` below already expressed the intent "a cold plant
+    // transfers nothing instead of running the steam generator backwards", but
+    // it discarded the answer AFTER computing it, so the flash still happened
+    // out of domain. Checking first is the same contract, evaluated in an order
+    // that is defined.
+    //
+    // ~~"this function can never itself trigger the panic it exists to
+    // prevent"~~ -- **CORRECTED 2026-09-17**: it clamped only the UPPER end, so
+    // a cold hot side walked straight out of the domain. Found by the HTR-10
+    // LOFC transient, where the steam generator is isolated for three hours and
+    // the secondary coasts down with no heat input.
+    if t_hot_k <= IF97_MIN_TEMPERATURE_K {
+        return 0.0;
+    }
+
+    let t_cap_k = t_hot_k.min(IF97_MAX_TEMPERATURE_K);
     let t_cap = ThermodynamicTemperature::new::<kelvin>(t_cap_k);
     let h_at_hot_side = h_tp_eqm_single_phase(t_cap, steam_pressure).get::<joule_per_kilogram>();
 
@@ -229,7 +259,7 @@ fn max_absorbable_duty(
 /// Nominal secondary mass flow the loop is seeded at: the published 12.5 t/hr
 /// main steam flow, i.e. 3.4722 kg/s (via the design point, which carries the
 /// conversion rather than a rounded 3.47).
-fn nominal_secondary_flow() -> MassRate {
+pub(crate) fn nominal_secondary_flow() -> MassRate {
     super::pebble_bed::design().main_steam_mass_flow
 }
 
@@ -382,14 +412,14 @@ const FEEDWATER_INTEGRAL_TIME_S: f64 = 25.0;
 /// assertion that catches it, so the range is narrowed here --- which is what
 /// `super::super::physics::tests::no_corner_of_the_command_envelope_crosses_or_clamps`
 /// asks a caller to do rather than loosen its tolerance.
-const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.5;
+pub const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.5;
 
 /// Maximum secondary mass flow \[kg/s\] (**invented** feed-pump capacity), a
 /// generous 3.5x the published nominal flow.
 const MAX_SECONDARY_FLOW_KG_PER_S: f64 = 12.0;
 
 /// Cooling-water inlet temperature \[K\] (**invented**), ~25 degC.
-const COOLING_WATER_INLET_K: f64 = 298.15;
+pub(crate) const COOLING_WATER_INLET_K: f64 = 298.15;
 
 /// Cooling-water mass flow \[kg/s\] (**invented**), sized for a ~10 K rise at
 /// the nominal condenser duty of a 10 MWth plant.
@@ -558,8 +588,13 @@ pub struct SecondaryCommands {
 }
 
 impl Default for SecondaryCommands {
-    /// The plant's design condition: AUTO feedwater at the published 440 degC,
-    /// and the design 7 kPa condenser back-pressure.
+    /// ~~"The plant's design condition: AUTO feedwater at the published
+    /// 440 degC, and the design 7 kPa condenser back-pressure."~~
+    /// **CORRECTED 2026-09-22 -- the feedwater half was false.** This delegates
+    /// to [`FeedwaterCommand::default`], which has been **MANUAL at 10.0 kg/s**
+    /// since the maintainer change of 2026-08-17; that constructor's own doc
+    /// comment records the change, and this one was never updated to match.
+    /// The condenser half is unchanged and still correct: the design 7 kPa.
     fn default() -> Self {
         Self {
             feedwater: FeedwaterCommand::default(),
@@ -846,9 +881,10 @@ pub struct SteamSecondaryLoop {
     /// recent step, as `Q_offered / Q_max`. See
     /// [`Self::absorbable_duty_utilisation`].
     absorbable_duty_utilisation: f64,
-    /// Water/steam mass held in the secondary **piping** on the most recent
-    /// step -- see [`Self::piping_inventory`].
-    piping_inventory: Mass,
+    /// Water/steam mass held in each secondary **pipe run** on the most
+    /// recent step -- see [`Self::piping_inventory`] and
+    /// [`Self::piping_run_inventories`].
+    piping_inventory: PipingRunInventories,
     /// Pure-feedback PI controller on the steam-temperature error. See
     /// [`FeedwaterController`].
     feedwater_controller: FeedwaterController,
@@ -1174,19 +1210,30 @@ impl SteamSecondaryLoop {
     ///
     /// # Two honest limitations
     ///
-    /// - **One number drives three runs.** The schematic shares a single
+    /// - ~~**One number drives three runs.** The schematic shares a single
     ///   `TracerTrain` across the steam line, the exhaust duct and the
     ///   feedwater line, so they are all drawn at this loop-wide figure. It is
     ///   dominated by the feedwater line (liquid, hence nearly all the mass),
     ///   so the *steam* runs are drawn slower than their own transport time.
     ///   Giving each run its own train and its own residence time is the
-    ///   correct refinement and is not done here.
+    ///   correct refinement and is not done here.~~ **DONE 2026-10-01**: each
+    ///   run now has its own train and its own transit time from
+    ///   [`Self::piping_run_inventories`]; this loop-wide sum survives only as
+    ///   the panel's whole-piping readout.
     /// - **Cold start reads high, correctly.** Before the steam generator makes
     ///   steam its outlet is compressed liquid, so the main-steam line's `rho V`
     ///   is briefly three orders of magnitude larger. That is a real statement
     ///   about a line full of water, not an artefact, and it decays as the plant
     ///   heats up.
     pub fn piping_inventory(&self) -> Mass {
+        self.piping_inventory.total()
+    }
+
+    /// Water/steam mass held in **each** secondary pipe run \[kg\], so each
+    /// drawn run can be animated with its own transit time `M_run / m_dot`
+    /// (2026-10-01). Same volumes and IF97 states as
+    /// [`Self::piping_inventory`], which is their sum.
+    pub fn piping_run_inventories(&self) -> PipingRunInventories {
         self.piping_inventory
     }
 
@@ -1264,9 +1311,10 @@ impl SteamSecondaryLoop {
     }
 }
 
-/// Water/steam mass held in the secondary piping, `sum V_i / v_i` over the
-/// three runs -- see [`SteamSecondaryLoop::piping_inventory`] for what it is
-/// for and what it deliberately excludes.
+/// Water/steam mass held in each secondary pipe run, `V_i / v_i` per run
+/// (summed by [`PipingRunInventories::total`]) -- see
+/// [`SteamSecondaryLoop::piping_inventory`] for what it is for and what it
+/// deliberately excludes.
 ///
 /// Each argument is a real IAPWS-IF97 state and supplies the specific volume
 /// \[m^3/kg\] of its run:
@@ -1282,7 +1330,11 @@ impl SteamSecondaryLoop {
 /// A non-finite or non-positive specific volume contributes nothing rather than
 /// poisoning the sum -- the result feeds a residence time, and an infinite
 /// inventory would freeze the schematic's tracers with no explanation.
-fn piping_inventory(steam: &HemSteamCv, exhaust: &HemSteamCv, condensate: &HemSteamCv) -> Mass {
+fn piping_inventory(
+    steam: &HemSteamCv,
+    exhaust: &HemSteamCv,
+    condensate: &HemSteamCv,
+) -> PipingRunInventories {
     let mass_in = |volume_m3: f64, state: &HemSteamCv| {
         let v = state
             .get_specific_volume()
@@ -1293,11 +1345,34 @@ fn piping_inventory(steam: &HemSteamCv, exhaust: &HemSteamCv, condensate: &HemSt
             0.0
         }
     };
-    Mass::new::<kilogram>(
-        mass_in(MAIN_STEAM_LINE_VOLUME_M3, steam)
-            + mass_in(EXHAUST_DUCT_VOLUME_M3, exhaust)
-            + mass_in(FEEDWATER_LINE_VOLUME_M3, condensate),
-    )
+    PipingRunInventories {
+        main_steam: Mass::new::<kilogram>(mass_in(MAIN_STEAM_LINE_VOLUME_M3, steam)),
+        exhaust: Mass::new::<kilogram>(mass_in(EXHAUST_DUCT_VOLUME_M3, exhaust)),
+        feedwater: Mass::new::<kilogram>(mass_in(FEEDWATER_LINE_VOLUME_M3, condensate)),
+    }
+}
+
+/// Water/steam mass in each of the three secondary pipe runs \[kg\], each
+/// `V_run / v` at its own IF97 state (2026-10-01). The drawn runs map onto
+/// them as: main steam line -> [`Self::main_steam`]; turbine exhaust duct ->
+/// [`Self::exhaust`]; hotwell condensate line **and** feed line (one
+/// invented 40 m condensate/feedwater line, [`FEEDWATER_LINE_VOLUME_M3`], so
+/// the two drawn segments share its transit time) -> [`Self::feedwater`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PipingRunInventories {
+    /// Main steam line, at the steam-generator outlet state.
+    pub main_steam: Mass,
+    /// Turbine exhaust duct, at the turbine outlet state.
+    pub exhaust: Mass,
+    /// Condensate/feedwater line, at the hotwell condensate state.
+    pub feedwater: Mass,
+}
+
+impl PipingRunInventories {
+    /// The three runs' sum -- [`SteamSecondaryLoop::piping_inventory`].
+    pub fn total(&self) -> Mass {
+        self.main_steam + self.exhaust + self.feedwater
+    }
 }
 
 /// Feedwater specific enthalpy: condensate enthalpy plus the real feed-pump
@@ -2473,6 +2548,7 @@ mod tests {
     /// answer, not a clamp's. It does **not** mean the exchanger is validated --
     /// its `UA` is an explicit calibration and its geometry is part invented.
     #[test]
+    #[ignore = "every htgr_sim_v1 test must finish under 1 minute (maintainer direction, 2026-09-27); measured 2026-09-27 as still running after 20 s in its own process. Settles the secondary loop repeatedly to show the duty cap never binds; the settling is what makes the claim, so it is gated rather than shortened."]
     fn the_absorbable_duty_cap_no_longer_binds() {
         use super::super::pebble_bed;
         use super::super::primary_loop::HeliumPrimaryLoop;
@@ -2492,10 +2568,11 @@ mod tests {
             // Drive the primary by a specified bed-outlet temperature, the
             // boundary condition `step_hot_leg` now takes. The equivalent of
             // the old `power` argument at this flow and inlet.
-            let bed_out = ThermodynamicTemperature::new::<kelvin>(
-                primary.core_inlet_temperature().get::<kelvin>()
-                    + power.get::<watt>() / (pebble_bed::nominal_helium_flow_kg_per_s() * 5189.3),
-            );
+            // On enthalpy since 2026-09-29 (gh:#393): h_in + Q/m_dot.
+            let bed_out = primary.core_inlet_enthalpy()
+                + uom::si::f64::AvailableEnergy::new::<uom::si::available_energy::joule_per_kilogram>(
+                    power.get::<watt>() / pebble_bed::nominal_helium_flow_kg_per_s(),
+                );
             primary.step(
                 dt(),
                 bed_out,
@@ -2507,7 +2584,7 @@ mod tests {
                 dt(),
                 design_commands(),
                 primary.steam_generator_duty_to_secondary(),
-                primary.core_outlet_temperature(),
+                primary.hot_duct_temperature(),
             );
 
             let util = secondary.absorbable_duty_utilisation();

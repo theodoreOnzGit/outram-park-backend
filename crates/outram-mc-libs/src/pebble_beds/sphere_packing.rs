@@ -50,6 +50,7 @@
 //! `_RectangularPrism` container (line 253), `pack_spheres` (line 1210). The
 //! high-packing-fraction DEM methods draw on Tan et al. — see [`super::references`].
 
+use petir::mathf::RealMath;
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
 use std::collections::HashMap;
@@ -170,8 +171,8 @@ impl PackingConfig {
 /// `V_sphere = (4/3)·π·radius³` — mirrors OpenMC
 /// `int(pf*domain.volume//volume)` (`openmc/model/triso.py:1308`).
 fn sphere_count(radius: f64, half_width: f64, packing_fraction: f64) -> usize {
-    let v_cube = (2.0 * half_width).powi(3);
-    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.powi(3);
+    let v_cube = (2.0 * half_width).r_powi(3);
+    let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
     (packing_fraction * v_cube / v_sphere).floor() as usize
 }
 
@@ -209,6 +210,38 @@ pub fn pack_spheres(
     half_width: f64,
     packing_fraction: f64,
     seed: u64,
+) -> Result<Vec<Sphere>, PackingError> {
+    pack_spheres_observed(radius, half_width, packing_fraction, seed, |_| {})
+}
+
+/// One accepted placement of [`pack_spheres_observed`]: the sphere's index in
+/// placement order, its centre, and how many trial centres RSA drew for it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RsaPlacement {
+    /// Index in the returned list, which is the placement order.
+    pub index: usize,
+    /// Centre \[cm\].
+    pub center: Position,
+    /// Trial centres drawn for this sphere: the rejected ones plus the
+    /// accepted one, so at least 1.
+    pub trials: usize,
+}
+
+/// [`pack_spheres`], calling `observe` once per accepted sphere, in placement
+/// order, with the number of trials it took.
+///
+/// **This is the packer, not a copy of it.** [`pack_spheres`] is this function
+/// with a no-op observer, so the two return the same list bit for bit
+/// (`observed_packing_is_pack_spheres_bit_for_bit`). Added 2026-10-07
+/// (GitHub #785) so the rung-5 web demo can show RSA placing particles one at
+/// a time on the real packer, with the trials per placement rising as the cube
+/// fills towards [`MAX_PF_RSA`] (RSA's jamming).
+pub fn pack_spheres_observed(
+    radius: f64,
+    half_width: f64,
+    packing_fraction: f64,
+    seed: u64,
+    mut observe: impl FnMut(RsaPlacement),
 ) -> Result<Vec<Sphere>, PackingError> {
     if packing_fraction > MAX_PF_RSA {
         return Err(PackingError::PackingTooDense {
@@ -294,6 +327,11 @@ pub fn pack_spheres(
             // Accept: register in every mesh cell within one diameter.
             let idx = spheres.len();
             spheres.push(Position::new(px, py, pz));
+            observe(RsaPlacement {
+                index: idx,
+                center: Position::new(px, py, pz),
+                trials,
+            });
             for &i in &nearby(px) {
                 for &j in &nearby(py) {
                     for &k in &nearby(pz) {
@@ -506,8 +544,8 @@ impl PackedSpheres {
     /// the requested target to within one sphere's worth of volume (the floor in
     /// [`sphere_count`]).
     pub fn packing_fraction(&self) -> f64 {
-        let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * self.radius.powi(3);
-        let v_cube = (2.0 * self.half_width).powi(3);
+        let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * self.radius.r_powi(3);
+        let v_cube = (2.0 * self.half_width).r_powi(3);
         self.spheres.len() as f64 * v_sphere / v_cube
     }
 
@@ -575,8 +613,8 @@ mod tests {
         }
 
         // Realized packing fraction within one sphere's worth of the target.
-        let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.powi(3);
-        let one_sphere_pf = v_sphere / (2.0 * half).powi(3);
+        let v_sphere = 4.0 / 3.0 * std::f64::consts::PI * radius.r_powi(3);
+        let one_sphere_pf = v_sphere / (2.0 * half).r_powi(3);
         assert!(
             (packed.packing_fraction() - pf).abs() <= one_sphere_pf + 1e-9,
             "realized pf {} not within one sphere of target {pf}",
@@ -663,4 +701,150 @@ mod tests {
         let direct = pack_spheres(0.05, 1.0, 0.2, 99).unwrap();
         assert_eq!(via_config, direct);
     }
+
+    /// The observed packer IS the packer: the same list bit for bit, one call
+    /// per sphere in placement order, and the trials per placement rise as the
+    /// cube fills (RSA's jamming), which is what the GitHub #785 demo plots.
+    #[test]
+    fn observed_packing_is_pack_spheres_bit_for_bit() {
+        let mut seen: Vec<RsaPlacement> = Vec::new();
+        let observed = pack_spheres_observed(0.05, 1.0, 0.3, 11, |p| seen.push(p)).unwrap();
+        let plain = pack_spheres(0.05, 1.0, 0.3, 11).unwrap();
+        assert_eq!(observed, plain);
+        assert_eq!(seen.len(), plain.len());
+        for (i, (p, s)) in seen.iter().zip(&plain).enumerate() {
+            assert_eq!(p.index, i);
+            assert_eq!(p.center, s.center);
+            assert!(p.trials >= 1);
+        }
+        let mean =
+            |w: &[RsaPlacement]| w.iter().map(|p| p.trials as f64).sum::<f64>() / w.len() as f64;
+        let tenth = seen.len() / 10;
+        assert!(mean(&seen[seen.len() - tenth..]) > 2.0 * mean(&seen[..tenth]));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CUBIC ARRAY CLIPPED TO A BALL (bn:op-867c.11)
+// ---------------------------------------------------------------------------
+
+/// **A simple-cubic array of particles clipped to a ball, keeping only WHOLE
+/// particles** — the arrangement the HTR-10 RMC benchmark specifies for TRISO
+/// inside a fuel zone.
+///
+/// NEW WORK, not a port. Li, Yu & Wei (2014) describe it as
+///
+/// > a lattice in a **cubic array** in three-dimensional space … embedded into
+/// > a spherical volume such that **only full TRISO particles are permitted**
+/// > inside the sphere; volume not occupied is filled with graphite
+///
+/// This differs from [`pack_spheres`] and from `dh_universe`'s `pack_in_ball`,
+/// which are **random** (RSA) and target a packing *fraction* by iteration. Here
+/// the arrangement is deterministic and the pitch is the free parameter.
+///
+/// # The rejection rule
+///
+/// A particle is kept when `|centre| + particle_radius <= ball_radius`, i.e. it
+/// lies **wholly** inside. That is the same predicate `pack_in_ball` uses; only
+/// the arrangement differs.
+///
+/// # `offset` matters ~~, and 8335 exactly is NOT reachable~~
+///
+/// `offset` shifts the lattice in units of the pitch, so `[0.0; 3]` puts a
+/// particle at the ball centre and `[0.5; 3]` puts the centre between eight.
+/// It changes the achievable counts, because the count moves in **symmetry
+/// shells** as lattice points cross the boundary together — not one at a time.
+///
+/// Measured 2026-09-17 for HTR-10's fuel zone (ball 2.5 cm, particle 0.0455 cm),
+/// sweeping the pitch finely over +/-3 % around the continuum estimate:
+///
+/// | offset | counts reachable near 8335 |
+/// |---|---|
+/// | `[0, 0, 0]` | 8289, **8385** |
+/// | `[0.5, 0, 0]` | **8330** |
+/// | `[0.5, 0.5, 0]` | **8340** |
+/// | `[0.5, 0.5, 0.5]` | none within 60 |
+/// | `[0.25; 3]` | 8310, 8361 |
+///
+/// **The benchmark's stated 8335 is not attainable by any of them.** The
+/// closest are 8330 and 8340, i.e. **+/-0.060 %** in both particle count and
+/// packing fraction (0.050218 or 0.050278 against the 0.050248 implied by
+/// 8335). That is negligible for `k`. ~~But it is a real discrepancy with the
+/// reference, and it is stated rather than rounded away: the paper's
+/// arrangement is evidently not exactly this one, or its zone radius or
+/// particle radius differ in the last digit.~~
+///
+/// **CORRECTED 2026-10-01 (gh:#430):** the inference does not follow, because
+/// only the symmetric offsets in the table were tried. Under the same keep rule,
+/// a generic offset such as `(0.13, 0.37, 0.71)` at pitch ≈ 0.195124 cm gives
+/// exactly 8335, and so do many other pitches (a brute force, 2026-09-30). The
+/// source says the same: Şeker & Çolak (2003), *HTR-10 full core first
+/// criticality analysis with MCNP*, Nucl. Eng. Des. 222, 263–270, p.266, build
+/// a whole-particle cubic lattice and *"the number of full fuel particles inside
+/// a fuel ball is verified to be 8335"*.
+///
+/// # Parameters
+/// - `particle_radius`, `ball_radius` \[cm\].
+/// - `pitch` \[cm\] — the cubic lattice spacing.
+/// - `offset` — lattice shift in units of `pitch`.
+pub fn cubic_array_in_ball(
+    particle_radius: f64,
+    ball_radius: f64,
+    pitch: f64,
+    offset: [f64; 3],
+) -> Vec<Sphere> {
+    if !(pitch > 0.0) || !(ball_radius > particle_radius) {
+        return Vec::new();
+    }
+    let r_eff = ball_radius - particle_radius;
+    let n = (r_eff / pitch).floor() as i64 + 2;
+    let mut out = Vec::new();
+    for i in -n..=n {
+        let x = (i as f64 + offset[0]) * pitch;
+        if x.abs() > r_eff {
+            continue;
+        }
+        for j in -n..=n {
+            let y = (j as f64 + offset[1]) * pitch;
+            if x * x + y * y > r_eff * r_eff {
+                continue;
+            }
+            for k in -n..=n {
+                let z = (k as f64 + offset[2]) * pitch;
+                if x * x + y * y + z * z <= r_eff * r_eff {
+                    out.push(Sphere {
+                        center: Position::new(x, y, z),
+                        radius: particle_radius,
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Pitch whose [`cubic_array_in_ball`] count is closest to `target`, searched
+/// over `+/-3 %` of the continuum estimate `((4/3) pi r_eff^3 / target)^(1/3)`.
+///
+/// Returns `(pitch, realised_count)`. **Read the count**: the exact target is
+/// often unreachable, for the symmetry-shell reason in
+/// [`cubic_array_in_ball`]'s docs.
+pub fn cubic_pitch_for_count(
+    particle_radius: f64,
+    ball_radius: f64,
+    target: usize,
+    offset: [f64; 3],
+) -> (f64, usize) {
+    let r_eff = ball_radius - particle_radius;
+    let p0 = ((4.0 / 3.0) * core::f64::consts::PI * r_eff.r_powi(3) / target as f64).r_cbrt();
+    let mut best = (p0, usize::MAX);
+    for t in 0..3000 {
+        let p = p0 * (0.97 + 0.06 * t as f64 / 2999.0);
+        let c = cubic_array_in_ball(particle_radius, ball_radius, p, offset).len();
+        let better = best.1 == usize::MAX || c.abs_diff(target) < best.1.abs_diff(target);
+        if better {
+            best = (p, c);
+        }
+    }
+    best
 }

@@ -86,8 +86,12 @@ fn cold_para_hydrogen_reproduces_njoy2016_reference_tape() {
         "a cold-hydrogen deck must no longer be refused"
     );
 
-    let ours = generate_tape(&deck, Temperature::new::<kelvin>(20.0), ElasticChannel::Omit)
-        .expect("cold-hydrogen generation");
+    let ours = generate_tape(
+        &deck,
+        Temperature::new::<kelvin>(20.0),
+        ElasticChannel::Omit,
+    )
+    .expect("cold-hydrogen generation");
     let theirs = Tape::read_file(&ref_path).expect("NJOY reference tape");
 
     let o = parse_mf7_at_temperature(&ours, deck.mat, Some(20.0))

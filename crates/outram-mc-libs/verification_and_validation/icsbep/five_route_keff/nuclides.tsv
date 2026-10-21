@@ -1,0 +1,41 @@
+# name	tape (reference-data/endf/)	MAT
+U234	n-092_U_234-ENDF8.0.endf	9225
+U235	n-092_U_235-ENDF8.0.endf	9228
+U238	n-092_U_238.endf	9237
+U236	n-092_U_236-ENDF8.0.endf	9231
+F19	n-009_F_019-ENDF8.0.endf	925
+O16	n-008_O_016-ENDF8.0.endf	825
+H1	n-001_H_001-ENDF8.0-Beta6.endf	125
+Al27	n-013_Al_027-ENDF8.0.endf	1325
+Si28	n-014_Si_028-ENDF8.0.endf	1425
+Si29	n-014_Si_029-ENDF8.0.endf	1428
+Si30	n-014_Si_030-ENDF8.0.endf	1431
+Mn55	n-025_Mn_055-ENDF8.0.endf	2525
+B10	n-005_B_010-ENDF8.0.endf	525
+# LCT-008's full nuclide list (lct008_model::TAPES; case 1 uses 35), the default since
+# 2026-10-14: the Al-6061 trace elements, MAT read from each tape.
+B11	n-005_B_011-ENDF8.0.endf	528
+Na23	n-011_Na_023-ENDF8.0.endf	1125
+Mg24	n-012_Mg_024-ENDF8.0.endf	1225
+Mg25	n-012_Mg_025-ENDF8.0.endf	1228
+Mg26	n-012_Mg_026-ENDF8.0.endf	1231
+Ti46	n-022_Ti_046-ENDF8.0.endf	2225
+Ti47	n-022_Ti_047-ENDF8.0.endf	2228
+Ti48	n-022_Ti_048-ENDF8.0.endf	2231
+Ti49	n-022_Ti_049-ENDF8.0.endf	2234
+Ti50	n-022_Ti_050-ENDF8.0.endf	2237
+Cr50	n-024_Cr_050-ENDF8.0.endf	2425
+Cr52	n-024_Cr_052-ENDF8.0.endf	2431
+Cr53	n-024_Cr_053-ENDF8.0.endf	2434
+Cr54	n-024_Cr_054-ENDF8.0.endf	2437
+Fe54	n-026_Fe_054-ENDF8.0.endf	2625
+Fe56	n-026_Fe_056-ENDF8.0.endf	2631
+Fe57	n-026_Fe_057-ENDF8.0.endf	2634
+Fe58	n-026_Fe_058-ENDF8.0.endf	2637
+Cu63	n-029_Cu_063-ENDF8.0.endf	2925
+Cu65	n-029_Cu_065-ENDF8.0.endf	2931
+Zn64	n-030_Zn_064-ENDF8.0.endf	3025
+Zn66	n-030_Zn_066-ENDF8.0.endf	3031
+Zn67	n-030_Zn_067-ENDF8.0.endf	3034
+Zn68	n-030_Zn_068-ENDF8.0.endf	3037
+Zn70	n-030_Zn_070-ENDF8.0.endf	3043

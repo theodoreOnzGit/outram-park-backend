@@ -144,8 +144,8 @@ fn render(
     o.push_str(
         "> Pre-merge-to-`main` accounting of the API tokens spent and the lines / \
          KLOC written across this window of `develop` history. **Auto-generated** \
-         by `kovan historian`; regenerate with \
-         `kovan historian --from DDMMYY --to DDMMYY`.\n\n",
+         by `kovan-cli historian`; regenerate with \
+         `kovan-cli historian --from DDMMYY --to DDMMYY`.\n\n",
     );
     o.push_str("## Scope\n\n");
     o.push_str(&format!(

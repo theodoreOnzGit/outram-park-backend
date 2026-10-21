@@ -35,12 +35,34 @@
 //!
 //! - Randomly packs HEU fuel kernels into a reflective 1 cm³ box to a 0.30 packing
 //!   fraction with [`PackedSpheres::pack`] (Random Sequential Addition).
-//! - Builds a bin-maximum majorant with [`Majorant::bounding`] that provably bounds
-//!   `Σ_t` even across the U resonances (a coarse majorant would under-bound a
-//!   resonance peak between grid points and bias the result).
+//! - Builds a majorant with [`Majorant::bounding`] that bounds `Σ_t` across the U
+//!   resonances (a coarse majorant would under-bound a resonance peak between
+//!   grid points and bias the result). ~~bin-maximum ... provably bounds~~
+//!   **CORRECTED 2026-10-05 (GitHub #585):** the bin maximum was sampled, not
+//!   proved, and under-bounded ENDF data by 18 %. `bounding` now tabulates on
+//!   every nuclide's own breakpoints. On this LOW-tier (WMP) data the
+//!   resonances are analytic, so the bound there is still sampled and audited
+//!   (`examples/majorant_bound_audit.rs`).
 //! - Runs a fission-source k-eigenvalue power iteration with [`run_keff_delta`],
 //!   every history streamed by delta tracking, and prints the converged k∞.
+//!
+//! # What its number is, and is not (2026-10-04, tutorial rung 5, GitHub #528)
+//!
+//! A walkthrough, not a physics result: the data are the embedded LOW tier
+//! (`Nuclide::from_core`: windowed multipole plus a coarse fast fallback, no
+//! S(alpha,beta)), and the "matrix" is H-1 at an arbitrary density. The
+//! physics-grade delta-tracking checks are `examples/fhr_ring_rpt_endf.rs`
+//! (against OpenMC) and `examples/dh_keff_vv.rs`, both on ENDF/B-VIII.0.
+//!
+//! Checked that it still runs, 2026-10-04, `develop` `5f6a5157b0`,
+//! i9-13900K pinned to one core (shared machine): 1119 kernels, realised
+//! packing fraction 0.3000, **k∞ = 1.87260 ± 0.00294**, 100 generations,
+//! 4.2 s wall (log: `verification_and_validation/tutorial_rung5/logs/
+//! triso_delta_tracking_2026_10_04.log`). That was before the #585 majorant
+//! change above; **not re-run since** (salvaged from the `rung5-528` branch,
+//! gh:#786).
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -101,12 +123,12 @@ fn main() {
     println!(
         "Packed {} HEU kernels into a {:.0} cm³ box — realized packing fraction {:.4}.",
         packed.len(),
-        (2.0 * half).powi(3),
+        (2.0 * half).r_powi(3),
         packed.packing_fraction()
     );
 
-    // The majorant: a provable upper bound on Σ_t over the whole energy range,
-    // sub-sampling each energy bin so a resonance peak cannot slip under it.
+    // The majorant: an upper bound on Σ_t over the whole energy range, on every
+    // nuclide breakpoint plus a sub-sampled log envelope (GitHub #585).
     let majorant = Majorant::bounding(&materials, &nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.1);
 
     // Geometry lookup for delta tracking: which material index is at this point?

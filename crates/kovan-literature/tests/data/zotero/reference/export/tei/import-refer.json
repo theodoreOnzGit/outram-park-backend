@@ -1,0 +1,18 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"journalArticle\" xml:id=\"余敏2009\" corresp=\"KVN22222\"><analytic><title level=\"a\">参考文献管理工具研究</title><author><name>余敏</name></author><author><name>朱江</name></author><author><name>丁照蕾</name></author></analytic><monogr><title level=\"j\">JOURNAL OF MODERN INFORMATION</title><imprint><biblScope unit=\"volume\">29</biblScope><biblScope unit=\"issue\">2</biblScope><biblScope unit=\"page\">94-98,93</biblScope><date>2009</date><note type=\"url\">http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx</note></imprint></monogr></biblStruct></listBibl>"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"book\" xml:id=\"Calvino1982\" corresp=\"KVN22222\"><monogr><title level=\"m\">Usynlige byer</title><idno type=\"ISBN\">8203107354</idno><author><forename>Italo</forename><surname>Calvino</surname></author><respStmt><resp>translator</resp><persName><forename>Jorunn</forename><surname>Aardal</surname></persName></respStmt><editor><forename>Jørgen</forename><surname>Stender Clausen</surname></editor><imprint><pubPlace>Oslo</pubPlace><publisher>Aschehoug</publisher><date>1982</date><note type=\"url\">https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105</note></imprint></monogr></biblStruct></listBibl>"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"book\" xml:id=\"Newman1891\" corresp=\"KVN22222\"><monogr><title level=\"m\">Corn</title><author><forename>W. H.</forename><surname>Newman</surname></author><imprint><publisher>Uniontown, Ala. : Canebrake Agricultural Experiment Station</publisher><date>1891</date></imprint></monogr></biblStruct></listBibl>"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<listBibl xmlns=\"http://www.tei-c.org/ns/1.0\"><biblStruct type=\"audioRecording\" xml:id=\"zoteroItem_KVN22222\" corresp=\"KVN22222\"><monogr><title level=\"m\">Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs &amp; Südtirols</title><imprint><pubPlace>Wien</pubPlace><date>2021</date><note type=\"url\">https://diesseits.theopodcast.at/home</note></imprint></monogr></biblStruct></listBibl>"
+	}
+}

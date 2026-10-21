@@ -27,6 +27,24 @@ pub enum LitCommand {
         /// Also write just the generated Markdown body to this path.
         #[arg(long)]
         markdown_out: Option<PathBuf>,
+        /// Look up the identifier found in the PDF (DOI, arXiv, ISBN, PMID)
+        /// with Zotero's search translators and show the fetched record
+        /// field by field next to the extracted one (GitHub #756). Uses the
+        /// network; without this flag nothing goes online and a found
+        /// identifier is only reported. Nothing is applied unless
+        /// `--accept` names it.
+        #[arg(long)]
+        lookup: bool,
+        /// With `--lookup`: the fields to take from the fetched record,
+        /// comma-separated (`title,authors,year,doi,journal,institution,
+        /// publisher,volume,number,pages,abstract_text,keywords,
+        /// document_type`), or `all`. Default: none (review only).
+        #[arg(long, requires = "lookup", value_delimiter = ',')]
+        accept: Vec<String>,
+        /// With `--lookup`: your email for Crossref's polite pool (never
+        /// sent unless given).
+        #[arg(long, requires = "lookup")]
+        mailto: Option<String>,
     },
     /// Emit a BibTeX entry — from a source PDF (metadata is extracted first)
     /// or from a previously-saved `KovanDocument` JSON file (`.json`
@@ -51,15 +69,44 @@ pub fn run(command: LitCommand) -> Result<(), String> {
             pdf,
             json_out,
             markdown_out,
-        } => import(&pdf, json_out.as_deref(), markdown_out.as_deref()),
+            lookup,
+            accept,
+            mailto,
+        } => import(
+            &pdf,
+            json_out.as_deref(),
+            markdown_out.as_deref(),
+            LookupRequest {
+                lookup,
+                accept,
+                mailto,
+            },
+        ),
         LitCommand::Bibtex { input } => bibtex(&input),
         LitCommand::Outline { pdf } => outline(&pdf),
     }
 }
 
-fn import(pdf: &Path, json_out: Option<&Path>, markdown_out: Option<&Path>) -> Result<(), String> {
+/// `lit import`'s lookup options (#756).
+#[derive(Debug, Default)]
+pub struct LookupRequest {
+    /// `--lookup`.
+    pub lookup: bool,
+    /// `--accept`.
+    pub accept: Vec<String>,
+    /// `--mailto`.
+    pub mailto: Option<String>,
+}
+
+fn import(
+    pdf: &Path,
+    json_out: Option<&Path>,
+    markdown_out: Option<&Path>,
+    lookup: LookupRequest,
+) -> Result<(), String> {
     let doc = kovan_literature::extract_metadata(pdf).map_err(|e| e.to_string())?;
     print_summary(&doc);
+    let doc = offer_lookup(doc, &lookup)?;
 
     if let Some(path) = json_out {
         let json = serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?;
@@ -72,6 +119,95 @@ fn import(pdf: &Path, json_out: Option<&Path>, markdown_out: Option<&Path>) -> R
         println!("markdown_out: {}", path.display());
     }
     Ok(())
+}
+
+/// The PDF follow-up (#756): report a found identifier; with `--lookup`,
+/// fetch its record and show it field by field next to the extraction,
+/// applying only the `--accept`ed fields. A failed lookup is reported as
+/// `lookup_unavailable: <reason>` and the import continues with the
+/// extracted document unchanged.
+fn offer_lookup(doc: KovanDocument, req: &LookupRequest) -> Result<KovanDocument, String> {
+    use kovan_literature::lookup_review::{
+        all_changes, apply, identifiers_in_document, propose, DocField,
+    };
+    let ids = identifiers_in_document(&doc);
+    let Some(id) = ids.first().cloned() else {
+        return Ok(doc);
+    };
+    if !req.lookup {
+        println!(
+            "lookup_available: {} {} (rerun with --lookup to fetch the record; uses the network)",
+            id.kind(),
+            id.value()
+        );
+        return Ok(doc);
+    }
+    let accepted_names: Vec<String> = req.accept.iter().map(|a| a.trim().to_owned()).collect();
+    let mut accepted: Vec<DocField> = Vec::new();
+    for a in &accepted_names {
+        if a == "all" || a.is_empty() {
+            continue;
+        }
+        accepted
+            .push(DocField::from_name(a).ok_or_else(|| format!("--accept: unknown field {a}"))?);
+    }
+    println!("lookup: {} {}", id.kind(), id.value());
+    let run = match super::zotero_lookup::lookup_identifier(id, req.mailto.as_deref()) {
+        Ok(run) => run,
+        Err(e) => {
+            println!("lookup_unavailable: {e}");
+            return Ok(doc);
+        }
+    };
+    let items = match super::zotero_lookup::run_items(&run) {
+        Ok(items) => items,
+        Err(e) => {
+            println!("lookup_unavailable: {e}");
+            return Ok(doc);
+        }
+    };
+    let Some(record) = items.iter().find(|i| i.item_type.as_str() != "note") else {
+        println!("lookup_unavailable: no record returned");
+        return Ok(doc);
+    };
+    println!("lookup_translator: {}", run.used.metadata().label);
+    // The CLI has no edit step, so no field counts as user-edited.
+    let proposal = propose(&doc, record, &[]);
+    for row in &proposal.fields {
+        println!(
+            "lookup_field: {} | {:?} | extracted: {} | fetched: {}",
+            row.field.name(),
+            row.decision,
+            one_line(&row.current),
+            one_line(&row.fetched)
+        );
+    }
+    if accepted_names.iter().any(|a| a == "all") {
+        accepted = all_changes(&proposal);
+    }
+    if accepted.is_empty() {
+        println!("lookup_applied: none (review only; pass --accept <fields>|all)");
+        return Ok(doc);
+    }
+    let out = apply(&doc, &proposal, &accepted, false);
+    println!(
+        "lookup_applied: {}",
+        accepted
+            .iter()
+            .map(|f| f.name())
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    Ok(out)
+}
+
+fn one_line(s: &str) -> String {
+    let t: String = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    if t.chars().count() > 100 {
+        format!("{}...", t.chars().take(100).collect::<String>())
+    } else {
+        t
+    }
 }
 
 fn bibtex(input: &Path) -> Result<(), String> {

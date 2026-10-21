@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voids climb the gradient</title>
+<meta name="description" content="Fission products, lesson 13: in fuel with a steep temperature gradient, pores move up it towards the hot centre, leaving columnar grains and a central hole. TRISO kernels have small gradients; their cousin effect is kernel migration.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 13. Demo ILLUSTRATIVE; mechanism
+     and the amoeba effect are source pending. The kernel's own gradient is
+     from kernel-data.js (lesson_triso_kernel generator). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Voids climb the temperature gradient</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Fuel makes its heat inside and loses it at the surface, so its centre is hotter than its edge. In fuel where that difference is large, the pores themselves move.</p>
+
+<section class="widget-card">
+  <h3>A pellet section, hot in the middle</h3>
+  <div class="widget" id="pores">
+    <canvas aria-label="A circular fuel section coloured from hot red at the centre to cooler at the rim; white pores move inward leaving grey trails and gather into a central hole."></canvas>
+  </div>
+  <p class="note"><b>Illustrative</b>: the speeds and the temperature profile are model units, not data.</p>
+</section>
+
+<p><b>Predict first.</b> A pore is a little empty bubble. Does it drift towards the hot centre, towards the cool edge, or stay put?</p>
+
+<h2>Up the gradient</h2>
+<p>A pore drifts towards the hot side. The usual explanation is that material evaporates from the pore&rsquo;s hot face, crosses it, and condenses on its cold face, so the pore moves the other way. The pores leave long grains behind them pointing at the centre (columnar grains), and gather there as a central hole. This is seen in high-power fuel with steep gradients, for example in fast reactors. <span class="pending">source pending</span> for each of these statements.</p>
+
+<h2>Not much of this in a TRISO kernel</h2>
+<p>A TRISO kernel is tiny and makes little heat. At HTR-10&rsquo;s core-average power (<span data-kd="perParticle">&hellip;</span> per particle, from the HTR-10 power and pebble data), the kernel&rsquo;s centre is only <span data-kd="rises">&hellip;</span> hotter than its surface (computed with tampines&rsquo; UO<sub>2</sub> conductivity; lesson 17). The TRISO cousin of this effect is kernel migration, the &ldquo;amoeba effect&rdquo;, where the whole kernel moves up a gradient across the particle: <span class="pending">source pending</span>, and not modelled anywhere in this workspace.</p>
+
+<p><b>Next question:</b> so where in the grain, and where outside it, does each family end up?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why the kernel's gradient is so small</h3>
+<p>For a sphere with uniform heating, the centre-to-surface rise is the power density times the radius squared over six times the conductivity. The rise goes as the radius squared: a kernel a few hundred micrometres across has almost none, which is one reason small fuel stays cool inside.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

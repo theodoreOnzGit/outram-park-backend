@@ -1,0 +1,159 @@
+# boon-lay
+
+**BOON LAY** — ***BO**mbardment of neutrons **O**n **N**uclides with
+**L**agrangian transport **a**nd transmutation **Y**ields*.
+
+Radionuclide behaviour in TRISO fuel particles for HTGRs and FHRs: fission,
+decay, transmutation and diffusion, all happening at once during reactor
+operation.
+
+> ⚠️ **Research, education and V&V only.** Not for nuclear facility operation,
+> reactor control, licensing, safety-critical decisions or emergency response.
+> See the workspace `RESPONSIBLE_USE.md`.
+
+## Two ways of looking at the same problem
+
+Tracking fission products through a TRISO particle with an **Eulerian**
+(control-volume) method means solving a burnup matrix. That matrix is large and
+stiff, so it's expensive to compute, and it's hard to visualise. BOON LAY
+started from the other side, and now carries both:
+
+| Approach | Module | What it is |
+|---|---|---|
+| **Lagrangian** | `lagrangian_decay_simulator`, `lagrangian_transmutation_and_fission_simulator` | Tracks representative atoms. Each one walks its decay chain, samples competing decay / `(n,gamma)` / `(n,2n)` / fission clocks, and diffuses through the kernel and coating shells. No burnup matrix: the population emerges from the ensemble. Built for watching radionuclide transport in real time, for outreach and open research. |
+| **Eulerian / continuum** | `triso_atops_fork` | A Rust fork of INL's **TRISO-ATOPS** (MIT, upstream commit `de374c8`). Closed-form Booth, breakthrough and attenuation release fractions; normal-operation and accident release; coolant activity and source terms for 84 nuclides. |
+| **Eulerian, extended** (NOT a port) | `triso_atops_extensions` | boon-lay's own additions to the TRISO-ATOPS model, kept apart from the port, which they do not modify. Today: plate-out and purification rates **per transport group or per element** instead of one `k_plate` and one `k_clean` per reactor, conversions from per-cycle data, and Liu & Cao's (2002) cited HTR-10 per-cycle table (GitHub #583). With upstream's rates it reproduces the port bit for bit on all 84 nuclides. |
+
+The two are complements, not rivals. The Lagrangian model shows *how* atoms
+get out. The TRISO-ATOPS fork gives the release fractions that the offsite
+chain consumes.
+
+## boon-lay fuel failure (TRISO particle failure)
+
+`fuel_failure` is **boon-lay fuel failure**: boon-lay's own model of how many
+TRISO particles fail, through pressure-vessel overstress and SiC thermal
+decomposition. It was **coded agentically** (by an AI coding agent, then
+reviewed) from the formulas published in the PANAMA-I report (Verfondern &
+Nabielek, Jülich HTA-IB-03/90, 1990).
+
+**It is not PANAMA.** This project does not have the PANAMA source code, which
+is closed-source and was never consulted. Keep the names apart:
+
+- **PANAMA-I** means the report and the results it prints.
+- **boon-lay fuel failure** means this code and every number it computes.
+
+Matching the report's printed tables and figures shows the formulas were
+transcribed faithfully. It does not show agreement with the PANAMA code on any
+case the report does not print. Its output feeds the TRISO-ATOPS fork's
+in-service failure fraction through
+`FailureFractions::with_fuel_failure_incremental`, which is meant for accident
+transients only (see the module docs for why not for normal operation).
+
+## Chemical attack (added 2026-09-29, GitHub #401)
+
+`chemistry` holds two cited closed-form rate laws for the water-ingress source
+term, each with its validity range and a flag when it is left:
+
+- `chemistry::graphite_steam`: IG-110 oxidation by steam, `C + H2O -> CO + H2`,
+  using the Boltzmann-enhanced Langmuir-Hinshelwood fit of Wang & Sun (2023),
+  Table 8. It is a kinetic-regime fit (850-1100 degC, 0.5-20 kPa steam). The
+  reaction enthalpy is +131.3 kJ/mol, from NIST formation enthalpies.
+- `chemistry::kernel_hydrolysis`: stored noble gas released when water vapour
+  reaches exposed UO2 kernels, from IAEA-TECDOC-978 Eq. (5-2). The fit covers
+  820-1040 degC and 2.8-1051 Pa and is clamped to the whole inventory.
+
+Both are transcriptions checked against an independent hand evaluation. They
+are not validated against any accident.
+
+## Charged particles: a copy of RustBCA (added 2026-10-16, GitHub #876)
+
+**`rustbca` is a copy of RustBCA, not boon-lay's own code, and boon-lay
+re-exports it** as `boon_lay::rustbca`. It is copied from `lcpp-org/RustBCA`
+v3.0.0 (`a356280d`, GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
+`alloc`. Attribution and every local change are listed in
+[`src/rustbca/README.md`](src/rustbca/README.md) and in the module docs.
+
+It is a binary-collision Monte Carlo for fission fragments, alphas and recoil
+knock-ons. **Fragment results are illustrative until they are V&V'd.**
+
+`examples/rustbca_cascades.rs` prices one full cascade in an HTR-10 kernel and
+its coatings. A fission fragment costs 1.5–2 s on one desktop core. Results
+are in
+[`verification_and_validation/rustbca_cascades/`](verification_and_validation/rustbca_cascades/README.md).
+
+## Where it sits
+
+`boon-lay` supplies the release physics for the offsite chain. `sembawang`
+orchestrates it and hands the result to `changi`:
+
+```text
+boon-lay (TRISO release)  ->  sembawang (source term)  ->  changi (dispersion, deposition)
+```
+
+It depends on `outram-mc-libs` for random numbers. The exception is the
+RustBCA copy, which keeps upstream's ChaCha8 generator, ~~from `rand`~~ since
+2026-10-20 from `petir::rng`, a draw-for-draw port of it (gh:#995). Decay data are
+ENDF/B-VIII.0, via the `openmc-endf-8-depletion-lib-b` crate.
+
+## Verification status
+
+- **TRISO-ATOPS fork: verified code-to-code against upstream.** ~~5 699 cases
+  across 32 function groups, all passing (2026-09-15, upstream `de374c8`). Every
+  function agrees to between exact equality and 4.2e-10 relative, outside the
+  ill-conditioned inputs analysed in the write-up. A second pass on 2026-09-21
+  covered the accident path.~~ **CORRECTED 2026-09-28** — those were the first
+  pass's numbers (2026-09-15, upstream `de374c8`: 5 699 cases, 32 function
+  groups, exact equality to 4.2e-10 relative outside the ill-conditioned
+  inputs). Two further passes on 2026-09-21, against the same upstream, grew the
+  fixture to **11 855 cases** (second pass, the accident path) and then to
+  **14 130 cases** and **51 tests** (third pass, exhaustive widening and the
+  end-to-end `accident_case` composition). The third pass's worst group is
+  `accident_case.nodal_kernel` at **2.44e-9** relative (180 cases), above the
+  `1e-9` group tolerance and admitted only by the per-case conditioning widening
+  (an Ag-110m row). Methodology, results and the two deliberate
+  divergences from upstream are in
+  [`docs/triso-atops-code-to-code.md`](docs/triso-atops-code-to-code.md).
+- **TRISO-ATOPS extensions (not a port; 2026-10-05, GitHub #583):** no
+  upstream to compare with, so each extension is checked by reducing to the
+  port. With upstream's rates, `normal_operation_node_with_rates` equals the
+  ported `normal_operation_node` bit for bit on all 84 supported nuclides, at
+  700 °C and 1100 °C, with purification on and off and parent pools chained
+  (336 cases). The element-dependent rates themselves are not validated, and
+  the HTR-10 cycle time and purified flow fraction they need are not sourced.
+- **Lagrangian simulator:** unit-tested. Monte Carlo half-lives are checked
+  against ENDF/B-VIII.0, and the release fraction against the IAEA CRP-6
+  Case 1a/1b analytical solution. There is no cross-code comparison yet.
+
+Neither is **validated** against measured release data.
+
+## Running
+
+```bash
+cargo test --release -p boon-lay --lib --tests
+cargo run  --release -p boon-lay --example first_passage_realtime
+cargo run  --release -p boon-lay --example triso_simulator
+cargo run  --release -p boon-lay --example boon_lay_decay_simulator
+```
+
+The egui examples fall under the workspace headless-mode rule; see
+`crates/outram-park-digital-twin-engine/CLAUDE.md`.
+
+## Licence
+
+~~GPL-3.0~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): the copied-in RustBCA (`src/rustbca/`) stays GPL-3.0-or-later and `LICENSE.GPL-3.0` ships beside `LICENSE` (see `docs/relicensing-agpl-2026-10-20.md`). The TRISO-ATOPS fork is derived from MIT-licensed code by Battelle
+Energy Alliance (INL). Its terms are in [`LICENSE.triso-atops`](LICENSE.triso-atops)
+and [`NOTICE.triso-atops`](NOTICE.triso-atops), and the derivation is recorded in
+[`TRISO_ATOPS_DERIVATION.md`](TRISO_ATOPS_DERIVATION.md). MIT into ~~GPL-3.0~~ **AGPL-3.0-only** is one-way.
+
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping
+> pass" command). A crate is **complete** only once the maintainer has
+> personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.

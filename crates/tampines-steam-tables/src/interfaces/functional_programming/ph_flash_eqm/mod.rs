@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::{f64::*, pressure::megapascal, ratio::ratio, thermodynamic_temperature::kelvin};
 
@@ -7,35 +8,52 @@ use crate::region_2_vapour::*;
 use crate::region_3_single_phase_plus_supercritical_steam::*;
 use crate::region_4_vap_liq_equilibrium::*;
 use crate::region_5_steam_at_800_plus_degc::*;
+use crate::backward_eqn_chebyshev_experimental::region_5_t_ph_ps::t_ph_5;
 use crate::thermal_conductivity::lambda_0;
 use crate::thermal_conductivity::lambda_1;
 use crate::thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_estimate;
 
 use super::pt_flash_eqm::FwdEqnRegion;
 
-/// Panic message for a `(p,h)` flash that lands in IAPWS-IF97 Region 5
-/// (ultra-high-temperature steam, T = 1073.15 K to 2273.15 K).
+/// Obtains temperature given pressure and enthalpy.
 ///
-/// IAPWS-IF97 (see Wagner & Kretzschmar, *International Steam Tables*, 2019)
-/// provides **no backward `(p,h)` (or `(p,s)`) correlation for Region 5** — the
-/// released backward equations cover Regions 1, 2 and 3 only. This crate does
-/// **not** substitute a home-grown numerical inversion of the Region 5 forward
-/// enthalpy, so a `(p,h)` flash into Region 5 is *deliberately* unsupported for
-/// this physics/standards reason, not merely unfinished. Callers that already
-/// know the temperature should use the Region 5 forward `(T,p)` equations
-/// (`h_tp_5`, `v_tp_5`, `s_tp_5`, ...) directly.
+/// # ~~Region 5 is *deliberately* unsupported~~ — **CORRECTED 2026-09-27**
 ///
-/// In practice a `(p,h)` point in Region 5 is rejected earlier, by
-/// `check_if_within_ph_validity_region` (it lies above the 1073.15 K isotherm);
-/// this message documents the same limitation at the region-dispatch arms so
-/// the intent is explicit wherever a reader lands.
-pub(crate) const REGION_5_PH_UNSUPPORTED: &str =
-    "(p,h) flash into IAPWS-IF97 Region 5 (T > 1073.15 K) is unsupported: \
-     IAPWS-IF97 provides no backward (p,h) correlation for Region 5 (Wagner & \
-     Kretzschmar, International Steam Tables). Use the Region 5 forward (T,p) \
-     equations (h_tp_5, v_tp_5, s_tp_5, ...) instead.";
-
-/// obtains temperature given pressure and enthalpy
+/// This doc block used to describe a *panic message* (the constant it documented
+/// is long gone; the text was left stranded on this function) and read:
+///
+/// > ~~IAPWS-IF97 (see Wagner & Kretzschmar, *International Steam Tables*, 2019)
+/// > provides **no backward `(p,h)` (or `(p,s)`) correlation for Region 5** — the
+/// > released backward equations cover Regions 1, 2 and 3 only. This crate does
+/// > **not** substitute a home-grown numerical inversion of the Region 5 forward
+/// > enthalpy, so a `(p,h)` flash into Region 5 is *deliberately* unsupported for
+/// > this physics/standards reason, not merely unfinished.~~
+///
+/// **The first sentence is still true; the conclusion is not.** IAPWS-IF97
+/// indeed publishes no Region 5 backward equation — but commit `2ab91fefc3`
+/// (2026-09-14) made this crate substitute exactly the home-grown inversion the
+/// old text disclaims: `t_ph_eqm` now dispatches Region 5 to the in-house
+/// Chebyshev fit `t_ph_5`.
+///
+/// **Verified by running**, not by reading:
+/// `tests/boundary_273_15_repro.rs::does_lambda_ph_eqm_work_in_region_5` builds
+/// a Region 5 state forward at `T = 1500 K`, `p = 1 MPa`
+/// (`h = 5218.863 kJ/kg`) and gets `t_ph_eqm(p, h) = 1499.999 K` — no panic.
+/// `region_5_ph_flash_round_trips_through_the_in_house_correlation`
+/// (`interfaces/tests_and_examples/ph_flash_region4_edge_and_region5.rs`) pins
+/// the same round trip at 0.5 MPa to 1e-4 relative, and that test *used to*
+/// assert the panic this doc described.
+///
+/// **What is genuinely still refused**, and is pinned by
+/// `region_5_above_its_pressure_limit_is_still_refused`: above Region 5's own
+/// 50 MPa ceiling (Regions 1-4 run to 100 MPa, Region 5 does not) and above the
+/// 2273.15 K isotherm — those are outside IF97 altogether, not merely outside a
+/// backward equation.
+///
+/// **Read the Region 5 number as a fit, not a standard.** A dispatch that
+/// succeeds is not a value IAPWS stands behind. Callers that already know the
+/// temperature should still prefer the Region 5 forward `(T,p)` equations
+/// (`h_tp_5`, `v_tp_5`, `s_tp_5`, ...), which are IF97.
 pub fn t_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
     let region = ph_flash_region(p, h);
 
@@ -48,7 +66,12 @@ pub fn t_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
             // determine sat liq/vap temperature
             sat_temp_4(p)
         }
-        FwdEqnRegion::Region5 => panic!("temperature: {}", REGION_5_PH_UNSUPPORTED),
+        // NOT an IAPWS value. IAPWS-IF97 publishes no backward (p,h) equation
+        // for Region 5; this is this crate's own Chebyshev fit to its own
+        // Region 5 forward Gibbs formulation, so it is an accelerator for the
+        // iteration IAPWS would otherwise require. Accurate to the fit, not to
+        // a standard -- see `region_5_t_ph_ps` for the measured residuals.
+        FwdEqnRegion::Region5 => t_ph_5(p, h),
     }
 }
 
@@ -138,7 +161,12 @@ pub fn v_ph_eqm(p: Pressure, h: AvailableEnergy) -> SpecificVolume {
                 v
             }
         }
-        FwdEqnRegion::Region5 => panic!("specific volume: {}", REGION_5_PH_UNSUPPORTED),
+        // Region 5 volume via the in-house T(p,h) correlation and the IAPWS
+        // Region 5 FORWARD equation -- so only the temperature step is a fit.
+        FwdEqnRegion::Region5 => {
+            let t = t_ph_5(p, h);
+            v_tp_5(t, p)
+        }
     }
 }
 /// returns the internal energy given temperature and pressure
@@ -391,9 +419,11 @@ pub fn cv_ph_eqm(p: Pressure, h: AvailableEnergy) -> SpecificHeatCapacity {
     }
 }
 
-/// returns the speed of sound given temperature and pressure
+/// returns the speed of sound given ~~temperature and pressure~~ pressure and
+/// specific enthalpy (**CORRECTED 2026-10-16**: the arguments are `(p, h)`).
 /// Note: when in the equilibrium zone (Region 4) it WILL give the
-/// wood wallis speed of sound, the frozen speed of sound
+/// wood wallis speed of sound, the frozen speed of sound. For the
+/// homogeneous-equilibrium speed use [`w_ph_eqm_hem`].
 pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
     let t = t_ph_eqm(p, h);
     let region = ph_flash_region(p, h);
@@ -440,7 +470,8 @@ pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
             //let v = v_ps_eqm(p, s);
             //let _c_hem_finite_diff: Velocity = v * (dv_dp_s.recip() * -1.0).sqrt();
 
-            // Use homogeneous equilibrium model
+            // Wood (Wallis) FROZEN mixture speed -- not the homogeneous-
+            // equilibrium speed, which is `w_ph_eqm_hem` (corrected 2026-10-16).
             let c_wallis = w_two_phase_homogeneous_wood_wallis(
                 Ratio::new::<ratio>(steam_quality),
                 w_liq,
@@ -455,11 +486,72 @@ pub fn w_ph_wood_wallis(p: Pressure, h: AvailableEnergy) -> Velocity {
     }
 }
 
-/// Returns the speed of sound in a two-phase mixture using the
-/// homogeneous equilibrium model
+/// Homogeneous-**equilibrium** (HEM) speed of sound at `(p, h)`.
+///
+/// This is the speed at which a small pressure wave travels when the two
+/// phases stay in thermodynamic equilibrium while it passes, so liquid flashes
+/// and vapour condenses within the wave. Inside the vapour–liquid dome it is
+/// far below the frozen (Wood–Wallis) speed of [`w_ph_wood_wallis`], and it is
+/// the speed that places the characteristics of a homogeneous-equilibrium
+/// flow model (a KNP central-upwind flux, a Courant number, a choking
+/// criterion).
+///
+/// - **Two-phase dome (Region 4):** entropy `s = s_ph_eqm(p, h)` feeds Kieffer
+///   (1977) eq. 28, [`w_ps_eqm_region4_kieffer`], which differentiates the
+///   mixture volume along the saturation curve. That closure is
+///   AI-generated and not yet validated, so when it returns a non-finite or
+///   non-positive value this falls back to the finite difference of the
+///   equilibrium isentrope, [`w_ps_eqm_region4_finite_diff_vol`].
+/// - **Single phase (Regions 1, 2, 3, 5):** there is no phase change to lag,
+///   so the equilibrium and frozen speeds coincide. Returns the region forward
+///   speed `w_tp_{1,2,3,5}(T, p)` at `T = t_ph_eqm(p, h)`.
+///
+/// Valid where the `(p, h)` flash is valid. **Not clamped:** if both Region 4
+/// closures fail (e.g. very close to the critical point) the value can be
+/// non-finite, and the caller decides what to do with that.
+///
+/// Reference: Kieffer, S. W. (1977), "Sound speed in liquid-gas mixtures:
+/// water-air and water-steam", *J. Geophys. Res.* 82(20), 2895–2904.
+///
+/// Moved here from the private `hem_sound_speed_ph` of the `HybridAllMach`
+/// KNP path (gh #901), ~~which now calls this function~~. **Updated
+/// 2026-10-16:** that path was retired (gh:#914) and `hem_sound_speed_ph` is
+/// gone; the callers are now `crate::hem::Iapws97Hem` (the `HemPipe`
+/// equation of state) and `TampinesSteamTableCV`'s HEM sound-speed getter.
+pub fn w_ph_eqm_hem(p: Pressure, h: AvailableEnergy) -> Velocity {
+    match ph_flash_region(p, h) {
+        FwdEqnRegion::Region4 => {
+            let s = s_ph_eqm(p, h);
+            let c_kieffer = w_ps_eqm_region4_kieffer(p, s);
+            if c_kieffer.value.is_finite() && c_kieffer.value > 0.0 {
+                c_kieffer
+            } else {
+                w_ps_eqm_region4_finite_diff_vol(p, s)
+            }
+        }
+        FwdEqnRegion::Region1 => w_tp_1(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region2 => w_tp_2(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region3 => w_tp_3(t_ph_eqm(p, h), p),
+        FwdEqnRegion::Region5 => w_tp_5(t_ph_eqm(p, h), p),
+    }
+}
+
+/// ~~Returns the speed of sound in a two-phase mixture using the
+/// homogeneous equilibrium model~~
+///
+/// ~~This model assumes:~~
+/// ~~- Thermal and mechanical equilibrium between phases~~
+///
+/// **CORRECTED 2026-10-16 (gh #901):** the formula below is Wood's (Wallis)
+/// mixture speed, which is the **frozen** two-phase speed of sound: the
+/// mixture compressibility is the volume-weighted sum of the two phases' own
+/// compressibilities, with **no** mass exchange between them during the wave.
+/// It assumes mechanical equilibrium (one pressure) and no slip, but not
+/// thermal or phase equilibrium. The homogeneous-*equilibrium* speed, which
+/// includes flashing, is [`w_ph_eqm_hem`] and is much lower inside the dome.
 ///
 /// This model assumes:
-/// - Thermal and mechanical equilibrium between phases
+/// - Mechanical equilibrium (one pressure), no interphase mass or heat transfer
 /// - No slip between liquid and vapor phases
 /// - Isentropic process
 ///
@@ -531,7 +623,7 @@ pub fn w_two_phase_homogeneous_wood_wallis(
     // Calculate mixture speed of sound
     // w_mix = sqrt(1 / (rho_mix * compressibility_term))
     let w_mix_squared = 1.0 / (rho_mix * compressibility_term);
-    let w_mix = w_mix_squared.sqrt();
+    let w_mix = w_mix_squared.r_sqrt();
 
     w_mix
 }
@@ -779,6 +871,15 @@ pub fn x_ph_flash(p: Pressure, h: AvailableEnergy) -> f64 {
 pub fn ph_flash_region(p: Pressure, h: AvailableEnergy) -> FwdEqnRegion {
     check_if_within_ph_validity_region(p, h);
 
+    // Region 5 first: it is the band above the 1073.15 K isotherm, and the
+    // validity check above has already refused everything above it or beyond
+    // its 50 MPa pressure limit. Testing it here keeps the Region 1/2/3/4
+    // partitioning below unchanged -- those branches only ever see the states
+    // they saw before.
+    if is_above_isotherm_t_1073_15(p, h) {
+        return FwdEqnRegion::Region5;
+    }
+
     // if inside validity range, then we will start partitioning
     // first, we check if pressure is smaller or greater than 16.529 MPa
     // this is saturation pressure at 623.15K
@@ -865,16 +966,34 @@ fn check_if_within_ph_validity_region(p: Pressure, h: AvailableEnergy) {
         panic!("p,h point below 273.15K");
     };
     if is_above_isotherm_t_1073_15(p, h) {
-        // A (p,h) point above the 1073.15 K isotherm is either IAPWS-IF97
-        // Region 5 (T = 1073.15 - 2273.15 K, p <= 50 MPa) or beyond the
-        // formulation's temperature range. Either way the (p,h) flash is
-        // unsupported here: IAPWS-IF97 has no backward (p,h) correlation for
-        // Region 5 (see REGION_5_PH_UNSUPPORTED). This is a deliberate,
-        // documented physics/standards limitation, not an unfinished path.
-        panic!(
-            "(p,h) point lies above the 1073.15 K isotherm. {}",
-            REGION_5_PH_UNSUPPORTED
-        );
+        // Above the 1073.15 K isotherm the point is IAPWS-IF97 Region 5
+        // (1073.15 - 2273.15 K, p <= 50 MPa), or else outside the formulation.
+        //
+        // Region 5 used to be refused outright here, because IAPWS-IF97
+        // publishes no backward (p,h) correlation for it. That is still true of
+        // IAPWS; what changed is that this crate now carries its own Region 5
+        // `T(p,h)` correlation, so the flash has a route. The dispatch arm in
+        // `t_ph_eqm` documents what that route is and is NOT -- it is an
+        // in-house accelerator fitted to this crate's own Region 5 forward
+        // equations, not an IAPWS value.
+        //
+        // The two genuine out-of-range cases are still refused:
+        if !is_within_region_5_pressure_range(p) {
+            panic!(
+                "(p,h) point lies above the 1073.15 K isotherm at p > {} MPa. \
+                 IAPWS-IF97 Region 5 is defined only to {} MPa, so this point \
+                 is outside the formulation entirely.",
+                REGION_5_MAX_PRESSURE_MPA, REGION_5_MAX_PRESSURE_MPA
+            );
+        }
+        if is_above_isotherm_t_2273_15(p, h) {
+            panic!(
+                "(p,h) point lies above the {} K isotherm, the upper temperature \
+                 bound of IAPWS-IF97 Region 5. Beyond it there is no IF97 \
+                 formulation to flash into.",
+                REGION_5_MAX_TEMP_KELVIN
+            );
+        }
     };
 }
 
@@ -901,8 +1020,35 @@ pub use crate::dynamic_viscosity::mu_ph_eqm;
 /// Combines the IAPWS thermal-conductivity correlation's dilute-gas
 /// (`lambda_0`), residual (`lambda_1`) and critical-enhancement (`lambda_2`)
 /// terms, evaluated at the temperature/density/quality resolved from the
-/// `(p,h)` flash via [`ph_flash_region`]. Valid over the same `(p,h)` range
-/// as the rest of this module (Regions 1-4; Region 5 is unsupported).
+/// `(p,h)` flash via [`ph_flash_region`].
+///
+/// # ~~"Regions 1-4; Region 5 is unsupported"~~ -- CORRECTED 2026-09-27
+///
+/// **Region 5 works.** Measured at `T = 1500 K, p = 1 MPa`: `lambda_ph_eqm`
+/// returns **0.16748 W/(m*K)** with no panic, and `t_ph_eqm` recovers 1499.999 K
+/// from the forward Region 5 enthalpy of 5218.863 kJ/kg
+/// (`tests/boundary_273_15_repro.rs::does_lambda_ph_eqm_work_in_region_5`).
+///
+/// The struck claim predates commit `2ab91fefc3` ("(p,h), (p,s) and (h,s) now
+/// cover Region 5") and was never updated. All three properties the critical-
+/// enhancement term needs now dispatch there --
+/// `cp_tp_eqm_single_phase -> cp_tp_5`, `cv_tp_eqm_single_phase -> cv_tp_5`,
+/// `kappa_t_tp_eqm -> kappa_t_tp_5` -- and `region_fwd_eqn_single_phase` has a
+/// `Region5` arm.
+///
+/// # But RUNNING is not the same as being VALID
+///
+/// **IAPWS R15-11, the thermal-conductivity release, is stated for
+/// `273.16 K <= T <= 1173.15 K`.** Region 5 runs to **2273.15 K**, so between
+/// roughly 1173 K and 2273 K this function returns an **extrapolation of the
+/// correlation**, not a tabulated value. That is a physics limit, not a dispatch
+/// limit, and no amount of region plumbing removes it. A caller relying on
+/// `lambda` above 1173.15 K is extrapolating and should say so.
+///
+/// The **low** end has its own, separate defect: a `(p,h)` point the validity
+/// guard accepts can invert to a temperature ~18 mK below the 273.15 K floor,
+/// which this function then hands to a strict `(T,p)` region lookup that panics.
+/// See `tests/boundary_273_15_repro.rs` and GitHub #342.
 pub fn lambda_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermalConductivity {
     let t = t_ph_eqm(p, h);
     let x = x_ph_flash(p, h);
@@ -916,4 +1062,46 @@ pub fn lambda_ph_eqm(p: Pressure, h: AvailableEnergy) -> ThermalConductivity {
     let dimensionless_lambda = lambda_0 * lambda_1 + lambda_2;
 
     return lambda_star * dimensionless_lambda;
+}
+
+/// HEM sound-speed checks moved here 2026-10-16 from the deleted
+/// `openfoam_algorithms::rhoPimpleFoam::central_upwind` tests, when the KNP
+/// hybrid that owned that module was retired (gh:#914). They test
+/// [`w_ph_eqm_hem`] directly instead of through the removed
+/// `hem_sound_speed_ph` wrapper, which only added a `c_min` floor.
+#[cfg(test)]
+mod hem_sound_speed_tests {
+    use super::w_ph_eqm_hem;
+    use uom::si::available_energy::joule_per_kilogram;
+    use uom::si::f64::{AvailableEnergy, Pressure};
+    use uom::si::pressure::pascal;
+    use uom::si::velocity::meter_per_second;
+
+    fn c(p_pa: f64, h_jkg: f64) -> f64 {
+        w_ph_eqm_hem(
+            Pressure::new::<pascal>(p_pa),
+            AvailableEnergy::new::<joule_per_kilogram>(h_jkg),
+        )
+        .get::<meter_per_second>()
+    }
+
+    /// Subcooled liquid water (7 MPa, h = 1.0 MJ/kg, Region 1; h_f(7 MPa) is
+    /// about 1.267 MJ/kg) gives a physical liquid speed, 800–2000 m/s.
+    #[test]
+    fn hem_c_subcooled_liquid_is_a_liquid_speed() {
+        let c = c(7.0e6, 1.0e6);
+        assert!(
+            c.is_finite() && (800.0..2000.0).contains(&c),
+            "liquid-water sound speed {c} m/s outside expected band"
+        );
+    }
+
+    /// In the dome (1 bar, 1.5 MJ/kg, x about 0.48) the equilibrium speed is
+    /// finite, positive and far below the liquid speed.
+    #[test]
+    fn hem_c_two_phase_is_finite_and_lower() {
+        let c = c(1.0e5, 1.5e6);
+        assert!(c.is_finite() && c > 0.0, "two-phase c = {c} not physical");
+        assert!(c < 800.0, "two-phase HEM speed {c} m/s should be well below liquid");
+    }
 }

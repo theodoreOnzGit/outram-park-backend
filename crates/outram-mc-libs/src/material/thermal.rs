@@ -58,18 +58,20 @@ use njoy_outram_park_fork::NjoyError;
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
 
-/// Default upper energy \[eV\] of the S(α,β) treatment — the "thermal cutoff".
+/// Default upper energy \[eV\] of the S(α,β) treatment — the "thermal cutoff" —
+/// for a law that carries no stated upper energy of its own (a LEAPR-generated
+/// law, for instance).
 ///
 /// Above it the neutron sees the ordinary free-gas / WMP elastic channel; below
 /// it the bound S(α,β) treatment replaces elastic scattering off the principal
-/// atom. 4 eV is the OpenMC/NJOY convention for light-water thermal tables
-/// (`ENERGY_MAX_THERMAL`-class cutoff): by ~4 eV the S(α,β) cross section has
-/// relaxed to the free-atom limit and the up-scatter probability is negligible,
-/// so the join to free-gas is smooth.
+/// atom. ~~4 eV is the OpenMC/NJOY convention for light-water thermal tables~~.
+/// **CORRECTED 2026-09-30 (GitHub #459):** OpenMC and NJOY use the evaluation's
+/// MF=7/MT=4 `B(4)`: 10.00008 eV for ENDF/B-VIII.0 `tsl-HinH2O`. A table built
+/// from a tape ([`ThermalScattering::from_tape`]) now uses that, and an ACE
+/// table uses its last inelastic energy. This constant remains only the
+/// fallback.
 pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
 
-/// Number of incident-energy points on the pre-tabulated σ_inel(E) grid.
-const N_XS_GRID: usize = 200;
 /// Number of incident-energy points on the pre-tabulated emission grid.
 ///
 /// **Sized by measurement, not by taste — and it was wrong until 2026-09-12.**
@@ -266,6 +268,10 @@ const N_OUTGOING: usize = 64;
 const N_COSINES: usize = 8;
 /// Bottom of the pre-tabulation grid \[eV\] — the thermal tail of a Maxwellian.
 const E_MIN_GRID_EV: f64 = 1.0e-5;
+/// Upper end of the span on which `N_EMIT_GRID` was sized
+/// \[eV\]. A table whose cutoff is higher gets proportionally more points in
+/// log energy, so the density below 4 eV is unchanged (GitHub #459).
+const GRID_REFERENCE_TOP_EV: f64 = 4.0;
 /// Number of incident-energy points on the pre-tabulated *incoherent-elastic*
 /// σ(E) / cosine grid. σ_inc_el(E) is smooth (no Bragg edges), so a log grid
 /// resolves it; the coherent channel is stored exactly instead.
@@ -303,6 +309,11 @@ pub enum ThermalElastic {
     /// **Incoherent elastic** — hydrogenous solids where the bound proton
     /// scatters incoherently off a rigid lattice: H in ZrH, polyethylene.
     Incoherent(IncoherentElasticTable),
+    /// **Mixed** coherent + incoherent elastic (ENDF LTHR = 3, ACE IDPNC = 5).
+    /// σ is the sum; a scatter picks the coherent part with probability
+    /// σ_coh/(σ_coh + σ_inc), as OpenMC's `MixedElasticAE::sample_dist`
+    /// (`src/secondary_thermal.cpp`). GitHub #365 audit.
+    Mixed(CoherentElasticTable, IncoherentElasticTable),
 }
 
 #[derive(Debug, Clone)]
@@ -417,19 +428,38 @@ impl IncoherentElasticTable {
     }
 
     /// Sample an incoherent-elastic scatter at incident energy `e` \[eV\]:
-    /// `Some((e_out, mu))` with `e_out == e` (elastic) and `mu` drawn uniformly
-    /// from the nearest grid point's equally-probable cosine bins.
+    /// `Some((e_out, mu))` with `e_out == e` (elastic).
     ///
-    /// Mirrors OpenMC `IncoherentElasticAEDiscrete::sample`
-    /// (`src/secondary_thermal.cpp`): pick the incident-energy bin, then one
-    /// equiprobable cosine. `None` if the table carries no cosines.
+    /// A port of OpenMC `IncoherentElasticAEDiscrete::sample`
+    /// (`src/secondary_thermal.cpp`): `get_energy_index` gives `i, f`; one
+    /// equiprobable cosine index `k`; `mu` interpolated between tables `i` and
+    /// `i+1`; then smeared uniformly over half the distance to its interpolated
+    /// neighbours (reflected at ±1 for the end cosines). ~~drawn uniformly from
+    /// the nearest grid point's equally-probable cosine bins ... Mirrors OpenMC~~
+    /// **CORRECTED 2026-09-29 (GitHub #365 audit):** the previous body took the
+    /// nearest table's cosine with no interpolation and no smearing, while its
+    /// doc claimed to mirror OpenMC. `None` if the table carries no cosines.
     pub fn sample(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
         if self.n_mu == 0 || self.e_grid.is_empty() {
             return None;
         }
-        let i = nearest_index(&self.e_grid, e);
-        let j = ((prn(seed) * self.n_mu as f64) as usize).min(self.n_mu - 1);
-        let mu = self.cosines[i * self.n_mu + j].clamp(-1.0, 1.0);
+        let g = &self.e_grid;
+        let (mut i, mut f) = (0usize, 0.0);
+        if e >= g[0] {
+            i = g.partition_point(|&v| v <= e).saturating_sub(1).min(g.len() - 1);
+            if i + 1 < g.len() {
+                f = (e - g[i]) / (g[i + 1] - g[i]);
+            }
+        }
+        let i1 = (i + 1).min(g.len() - 1);
+        let n = self.n_mu;
+        let c = |row: usize, k: usize| self.cosines[row * n + k];
+        let at = |k: usize| c(i, k) + f * (c(i1, k) - c(i, k));
+        let k = ((prn(seed) * n as f64) as usize).min(n - 1);
+        let mu = at(k);
+        let mu_left = if k == 0 { -1.0 - (mu + 1.0) } else { at(k - 1) };
+        let mu_right = if k == n - 1 { 1.0 + (1.0 - mu) } else { at(k + 1) };
+        let mu = mu + (mu - mu_left).min(mu_right - mu) * (prn(seed) - 0.5);
         Some((e, mu))
     }
 }
@@ -442,6 +472,7 @@ impl ThermalElastic {
             Self::None => 0.0,
             Self::Coherent(t) => t.cross_section(e),
             Self::Incoherent(t) => t.cross_section(e),
+            Self::Mixed(c, i) => c.cross_section(e) + i.cross_section(e),
         }
     }
 
@@ -452,6 +483,14 @@ impl ThermalElastic {
             Self::None => None,
             Self::Coherent(t) => t.sample(e, seed),
             Self::Incoherent(t) => t.sample(e, seed),
+            Self::Mixed(c, i) => {
+                let (xc, xi) = (c.cross_section(e), i.cross_section(e));
+                if prn(seed) * (xc + xi) < xc {
+                    c.sample(e, seed)
+                } else {
+                    i.sample(e, seed)
+                }
+            }
         }
     }
 
@@ -462,6 +501,7 @@ impl ThermalElastic {
             Self::None => "none",
             Self::Coherent(_) => "coherent elastic",
             Self::Incoherent(_) => "incoherent elastic",
+            Self::Mixed(..) => "mixed coherent + incoherent elastic",
         }
     }
 }
@@ -483,6 +523,19 @@ struct EmissionTable {
     /// laid out row-major (`bin * n_mu + j`).
     cosines: Vec<f64>,
     /// Number of cosines per outgoing-energy bin.
+    n_mu: usize,
+}
+
+/// One incident energy's **continuous** incoherent-inelastic law (ACE
+/// IFENG = 2): outgoing energies with their pdf and cdf, and per point `n_mu`
+/// sorted equiprobable cosines, row-major. Built from
+/// `njoy_outram_park_fork::acer::thermal_read::AceThermalContinuous`.
+#[derive(Debug, Clone)]
+struct ContinuousEmission {
+    e_out: Vec<f64>,
+    pdf: Vec<f64>,
+    cdf: Vec<f64>,
+    cosines: Vec<f64>,
     n_mu: usize,
 }
 
@@ -525,6 +578,20 @@ pub struct ThermalScattering {
     emit_e: Vec<f64>,
     /// One emission table per `emit_e` point (parallel arrays).
     emit_tables: Vec<EmissionTable>,
+    /// The **continuous** (ACE IFENG = 2) inelastic emission laws, one per
+    /// `emit_e` point, when the table carries that form; empty otherwise, and
+    /// then `emit_tables` is used. GitHub #365 audit.
+    continuous: Vec<ContinuousEmission>,
+    /// `true` for an ACE IFENG = 1 (**skewed** bins) table: the binned tables
+    /// are then sampled with OpenMC's discrete scheme and bin weights
+    /// (`sample_discrete`). GitHub #365 audit.
+    skewed: bool,
+    /// `true` only under the explicit ablation
+    /// [`Self::with_legacy_equiprobable_sampling`]: sample an equiprobable
+    /// (IFENG = 0) table with the old #188 scheme (statistical selection of
+    /// the incident table, `E'` drawn continuously within the bin). `false`,
+    /// the default, is OpenMC's `IncoherentInelasticAEDiscrete`. GitHub #407.
+    legacy_equiprobable: bool,
     /// The elastic channel — [`ThermalElastic::None`] for a scatterer with no
     /// thermal elastic law (light water).
     elastic: ThermalElastic,
@@ -536,7 +603,10 @@ impl ThermalScattering {
     ///
     /// # Parameters
     /// - `path` — the ENDF `tsl-*` file (e.g. ENDF/B-VIII.0 `tsl-HinH2O.endf`
-    ///   or `tsl-crystalline-graphite.endf`).
+    ///   or `tsl-crystalline-graphite.endf`): a `&Path` like
+    ///   [`Nuclide::from_endf_file`](crate::material::nuclide::Nuclide::from_endf_file)'s,
+    ///   or anything else that is `AsRef<Path>` (a `&str` still works).
+    ///   ~~`&str` only~~ until 2026-10-17 (GitHub #934). Plain or gzipped.
     /// - `mat` — the ENDF material number of the thermal evaluation (`1` for
     ///   `tsl-HinH2O`; `30`/`31`/`32` for crystalline / 10 %-porous /
     ///   30 %-porous reactor graphite).
@@ -557,9 +627,10 @@ impl ThermalScattering {
     /// all gives [`ThermalElastic::None`] — so light water behaves exactly as it
     /// did before the elastic channel existed.
     ///
-    /// The σ(E) and secondary-distribution grids are baked here (this is the
-    /// expensive step: it integrates the S(α,β) kernel at `N_XS_GRID` +
-    /// `N_EMIT_GRID` incident energies), so the transport loop stays cheap. The
+    /// The σ(E) and secondary-distribution grids are baked here, so the
+    /// transport loop stays cheap. This is the expensive step: THERMR's `calcem`
+    /// table, whose own grid carries σ_inel exactly as NJOY writes ITIE/ITIX
+    /// (GitHub #188, #407), plus `N_EMIT_GRID` emission tables. The
     /// coherent-elastic sawtooth is stored *exactly* as its Bragg-edge table
     /// rather than resampled — see [`CoherentElasticTable`]. The ENDF tape is
     /// read once and shared across all three channel constructors.
@@ -568,15 +639,15 @@ impl ThermalScattering {
     /// Propagates [`NjoyError`] if the file cannot be read, `mat` has no
     /// MF=7/MT=4 incoherent-inelastic data, `temperature_k` is outside the
     /// tabulated range of *either* channel, or a record is malformed.
-    pub fn from_endf_file(
-        path: &str,
+    pub fn from_endf_file<P: AsRef<std::path::Path>>(
+        path: P,
         mat: i32,
         temperature_k: f64,
         name: &str,
     ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::endf::tape::Tape;
 
-        let tape = Tape::read(std::fs::File::open(path).map_err(NjoyError::Io)?)?;
+        let tape = Tape::read_file(path.as_ref())?;
         Self::from_tape(&tape, mat, temperature_k, name)
     }
 
@@ -607,7 +678,11 @@ impl ThermalScattering {
     ///
     /// **A regenerated law is not the published evaluation.** As of 2026-08-14
     /// only crystalline graphite has been compared point-by-point against a
-    /// reference tape; light water has not. Ask the request for its standing
+    /// reference tape; ~~light water has not.~~ **CORRECTED 2026-10-14:** light
+    /// water's regenerated law reproduces the published tape's σ_inel to its
+    /// printed precision (njoy's `tests/leapr_h2o_secondary_scatterer.rs`), and
+    /// the tables baked from LEAPR's tape here are compared with the published
+    /// tape's by `tests/thermal_h2o_leapr_vs_tsl.rs`. Ask the request for its standing
     /// with
     /// [`SabRequest::validation`](njoy_outram_park_fork::leapr::generate::SabRequest::validation)
     /// rather than assuming, and treat an unvalidated material as an untrusted
@@ -632,6 +707,47 @@ impl ThermalScattering {
         Self::from_tape(&tape, material.mat(), temperature_k, name)
     }
 
+    /// Build the tables from the **ENDF/B-VIII.0 LEAPR deck compiled into
+    /// njoy**, running the deck's own block for `temperature_k`
+    /// ([`run_deck_at_temperature`](njoy_outram_park_fork::leapr::run::run_deck_at_temperature)),
+    /// then reading LEAPR's tape back from its text, as THERMR reads it, and
+    /// baking it with [`from_tape`](Self::from_tape).
+    ///
+    /// This is the law the five-route study's ENDF route and the browser
+    /// benchmark demos use (maintainer direction 2026-10-14: LEAPR always
+    /// runs; the published `tsl-*.endf` tapes are oracles). Unlike
+    /// [`from_leapr`](Self::from_leapr) it touches no file and no disk cache,
+    /// so it runs on `wasm32-unknown-unknown`; and it runs the deck's own block
+    /// at a temperature the deck specifies (H in H₂O re-specifies its spectrum
+    /// at 293.6 K), with the physical constants its `EVAL` date picks.
+    ///
+    /// For H in H₂O at 293.6 K the stored S(α,β) is identical to the published
+    /// `tsl-HinH2O.endf` in all 70 374 values
+    /// (`tests/thermal_h2o_leapr_vs_tsl.rs`, 2026-10-14).
+    ///
+    /// # Errors
+    ///
+    /// The deck is not embedded, does not parse, has no block LEAPR can run at
+    /// `temperature_k`, or its tape does not bake.
+    pub fn from_embedded_leapr_deck(
+        material: njoy_outram_park_fork::leapr::decks::SabMaterial,
+        temperature_k: f64,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::endf::tape::Tape;
+        use njoy_outram_park_fork::leapr::deck::LeaprDeck;
+        use njoy_outram_park_fork::leapr::decks::embedded_deck_text;
+        use njoy_outram_park_fork::leapr::run::run_deck_at_temperature;
+
+        let text = embedded_deck_text(material).ok_or_else(|| {
+            NjoyError::InvalidInput(format!("no embedded LEAPR deck for {material:?}"))
+        })?;
+        let deck = LeaprDeck::parse(text)?;
+        let run = run_deck_at_temperature(&deck, temperature_k)?;
+        let tape = Tape::read(std::io::Cursor::new(run.write_text()?))?;
+        Self::from_tape(&tape, deck.mat, temperature_k, name)
+    }
+
     /// Bake the tables from an already-parsed ENDF tape — the shared body of
     /// [`from_endf_file`](Self::from_endf_file) and
     /// [`from_leapr`](Self::from_leapr).
@@ -639,6 +755,114 @@ impl ThermalScattering {
     /// Kept public so a caller holding a tape for other reasons does not have to
     /// write it back out to a file first. Same arguments, grids, elastic-channel
     /// detection and errors as [`from_endf_file`](Self::from_endf_file).
+    /// Build from a **thermal S(α,β) ACE table** — ACE gap 2.
+    ///
+    /// The third way in, beside [`Self::from_endf_file`] (a published
+    /// `tsl-*.endf` tape) and [`Self::from_leapr`] (regenerate the law). Before
+    /// this, a thermal lattice assembled from an ACE library had **no bound-atom
+    /// scattering at all**: the crate wrote thermal ACE byte-for-byte against
+    /// NJOY2016 but could not read one back.
+    ///
+    /// `name` is the scatterer label (e.g. `"C in graphite"`); an ACE table's
+    /// ZAID does not carry it in a form worth guessing from.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`njoy_outram_park_fork::acer::thermal_read::decode_thermal`]
+    /// refuses. ~~— notably `IFENG = 2` (continuous emission), which this
+    /// representation holds no form for.~~ **CORRECTED 2026-09-29 (GitHub #365
+    /// audit):** `IFENG = 2` is read and sampled with OpenMC's own scheme (see
+    /// `sample_continuous`).
+    /// `IFENG = 1` (skewed bins) is sampled with OpenMC's discrete scheme and
+    /// its bin weights (`sample_discrete`, GitHub #365 audit).
+    pub fn from_ace(
+        table: &njoy_outram_park_fork::acer::read::RawAceTable,
+        name: &str,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::acer::thermal_read::{decode_thermal, AceThermalElastic};
+
+        let t = decode_thermal(table)?;
+        // IFENG = 1 (skewed bins): ~~refused~~ since the second #365 audit
+        // chunk, sampled by `sample_discrete` (OpenMC's discrete scheme with the
+        // skewed bin weights). It was once accepted and sampled as if its bins
+        // were equiprobable, which they are not.
+        let cutoff_ev = t.inel_energy.last().copied().unwrap_or(0.0);
+        let elastic = match t.elastic {
+            AceThermalElastic::None => ThermalElastic::None,
+            AceThermalElastic::Coherent { energy, cumulative } => {
+                ThermalElastic::Coherent(CoherentElasticTable {
+                    edges_ev: energy,
+                    s_cum: cumulative,
+                })
+            }
+            AceThermalElastic::Incoherent {
+                energy,
+                xs,
+                cosines,
+                n_mu,
+            } => ThermalElastic::Incoherent(IncoherentElasticTable {
+                e_grid: energy,
+                sigma: xs,
+                cosines,
+                n_mu,
+            }),
+            AceThermalElastic::Mixed {
+                coh_energy,
+                coh_cumulative,
+                inc_energy,
+                inc_xs,
+                inc_cosines,
+                inc_n_mu,
+            } => ThermalElastic::Mixed(
+                CoherentElasticTable {
+                    edges_ev: coh_energy,
+                    s_cum: coh_cumulative,
+                },
+                IncoherentElasticTable {
+                    e_grid: inc_energy,
+                    sigma: inc_xs,
+                    cosines: inc_cosines,
+                    n_mu: inc_n_mu,
+                },
+            ),
+        };
+        Ok(Self {
+            name: name.to_string(),
+            cutoff_ev,
+            // The table IS its temperature -- there is no request to match
+            // against a tabulated grid the way `from_tape` has, so the selected
+            // temperature is simply the table's own.
+            // Boltzmann's constant in eV/K. The table IS its temperature.
+            selected_temperature_k: t.kt_ev / 8.617_333_262e-5,
+            xs_e: t.inel_energy.clone(),
+            xs_sigma: t.inel_xs,
+            emit_e: t.inel_energy,
+            emit_tables: t
+                .emission
+                .into_iter()
+                .map(|e| EmissionTable {
+                    e_out: e.e_out,
+                    cosines: e.cosines,
+                    n_mu: e.n_mu,
+                })
+                .collect(),
+            continuous: t
+                .continuous
+                .into_iter()
+                .map(|c| ContinuousEmission {
+                    e_out: c.e_out,
+                    pdf: c.pdf,
+                    cdf: c.cdf,
+                    cosines: c.cosines,
+                    n_mu: c.n_mu,
+                })
+                .collect(),
+            skewed: t.ifeng == 1,
+            legacy_equiprobable: false,
+            elastic,
+        })
+    }
+
     pub fn from_tape(
         tape: &njoy_outram_park_fork::endf::tape::Tape,
         mat: i32,
@@ -686,7 +910,7 @@ impl ThermalScattering {
     ) -> Result<Self, NjoyError> {
         use njoy_outram_park_fork::thermr::scattering::IncoherentInelasticScattering;
         use njoy_outram_park_fork::units::{NeutronEnergy, Temperature};
-        use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
+        use uom::si::{energy::electronvolt, thermodynamic_temperature::kelvin};
 
         if n_emit == 0 || n_outgoing == 0 {
             return Err(NjoyError::NotPorted(
@@ -697,21 +921,55 @@ impl ThermalScattering {
         // One parse of the tape, shared by all three channel constructors.
         let sab = IncoherentInelasticScattering::from_tape(tape, mat, t)?;
         let selected_temperature_k = sab.selected_temperature().get::<kelvin>();
-        let cutoff_ev = DEFAULT_THERMAL_CUTOFF_EV;
+        // The evaluation's own upper energy, MF=7/MT=4 B(4), as OpenMC's
+        // library and transport use it (GitHub #459). ~~A hard-coded 4 eV~~
+        // until 2026-09-30: for tsl-HinH2O that dropped the bound treatment
+        // between 4 and 10.00008 eV.
+        //
+        // Precisely: the top of the `calcem` table THERMR builds with
+        // `emax = B(4)`. That is the last ITIE energy NJOY writes (10.0 eV for
+        // tsl-HinH2O) and so OpenMC's `energy_max`.
+        let cutoff_ev = sab
+            .calcem_energy_max_ev(N_COSINES)
+            .unwrap_or_else(|| sab.energy_max_ev());
 
         // σ_inel(E) grid — log-spaced from the thermal tail to the cutoff.
-        let xs_e = log_grid(E_MIN_GRID_EV, cutoff_ev, N_XS_GRID);
-        let xs_sigma: Vec<f64> = xs_e
-            .iter()
-            .map(|&e| {
-                sab.inelastic_xs(NeutronEnergy::new::<electronvolt>(e))
-                    .get::<barn>()
-            })
-            .collect();
+        // Grid counts are DENSITIES, referenced to the 1e-5 to 4 eV span they
+        // were sized on (see `N_EMIT_GRID`), so extending the grid to a higher
+        // cutoff adds points instead of thinning the thermal range. Measured
+        // 2026-09-30 (GitHub #459): stretching 384 points to 10 eV moved the
+        // H-in-H2O fixed point from 292.96 K to 294.94 K
+        // (`tests/thermal_kernel_stationary_distribution.rs`); preserving the
+        // density gives 293.56 K.
+        let dens = |n: usize| {
+            ((n as f64) * (cutoff_ev / E_MIN_GRID_EV).r_ln()
+                / (GRID_REFERENCE_TOP_EV / E_MIN_GRID_EV).r_ln())
+            .round()
+            .max(n as f64) as usize
+        };
+        // σ_inel(E): THERMR's own `calcem` xsi on its own incident grid, exactly
+        // the ITIE/ITIX pairs NJOY writes and OpenMC interpolates lin-lin
+        // (GitHub #188, #407). ~~A 200-point log grid filled from
+        // `sab.inelastic_xs`, an independent analytic integral~~ until
+        // 2026-09-30: that is jagged at ±1 % and was measured 6.6 % off NJOY's
+        // ITIX at 1e-5 eV (`tests/thermal_endf_route_xs_vs_njoy.rs`).
+        let (xs_e, xs_sigma): (Vec<f64>, Vec<f64>) = match sab.calcem_inelastic_table(N_COSINES)
+        {
+            Some((e, x)) => e
+                .into_iter()
+                .zip(x)
+                .filter(|&(e, _)| e <= cutoff_ev * (1.0 + 1e-12))
+                .unzip(),
+            None => {
+                return Err(NjoyError::NotPorted(
+                    "ThermalScattering: THERMR's calcem table could not be built for this law",
+                ))
+            }
+        };
 
         // Emission grid — a coarser log-spaced incident-energy grid, each point
         // carrying an equiprobable (E', μ) table.
-        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, n_emit);
+        let emit_e = log_grid(E_MIN_GRID_EV, cutoff_ev, dens(n_emit));
         let emit_tables: Vec<EmissionTable> = emit_e
             .iter()
             .map(|&e| {
@@ -721,7 +979,7 @@ impl ThermalScattering {
             })
             .collect();
 
-        let elastic = build_elastic_channel(tape, mat, t)?;
+        let elastic = build_elastic_channel(tape, mat, t, cutoff_ev)?;
 
         Ok(Self {
             name: name.to_string(),
@@ -731,6 +989,9 @@ impl ThermalScattering {
             xs_sigma,
             emit_e,
             emit_tables,
+            continuous: Vec::new(),
+            skewed: false,
+            legacy_equiprobable: false,
             elastic,
         })
     }
@@ -739,6 +1000,55 @@ impl ThermalScattering {
     /// the caller uses ordinary free-gas / WMP elastic scattering.
     pub fn cutoff_ev(&self) -> f64 {
         self.cutoff_ev
+    }
+
+    /// Every energy \[eV\] at which [`Self::total_xs`] changes form: the
+    /// inelastic grid, the incoherent-elastic grid, every Bragg edge and the
+    /// cutoff. Unsorted, possibly with duplicates.
+    ///
+    /// Between two neighbouring breakpoints the total is a sum of linear
+    /// pieces (`interp_linear`) and at most one `s_k/E` Bragg term. That sum is
+    /// convex, so its maximum over the interval is at an end. This is what
+    /// lets [`crate::pebble_beds::delta_tracking::Majorant::bounding`] bound
+    /// the thermal range from these nodes alone (GitHub #585). At a Bragg
+    /// edge and at the cutoff the total **steps**, so a bound must also read
+    /// the one-sided limits there.
+    pub fn breakpoints(&self) -> Vec<f64> {
+        let mut v = self.xs_e.clone();
+        match &self.elastic {
+            ThermalElastic::None => {}
+            ThermalElastic::Coherent(c) => v.extend_from_slice(&c.edges_ev),
+            ThermalElastic::Incoherent(i) => v.extend_from_slice(&i.e_grid),
+            ThermalElastic::Mixed(c, i) => {
+                v.extend_from_slice(&c.edges_ev);
+                v.extend_from_slice(&i.e_grid);
+            }
+        }
+        v.push(self.cutoff_ev);
+        v.retain(|e| e.is_finite() && *e > 0.0);
+        v
+    }
+
+    /// **Ablation (GitHub #407):** sample an equiprobable (ACE IFENG = 0) table
+    /// with the legacy #188 scheme instead of OpenMC's
+    /// `IncoherentInelasticAEDiscrete`. That scheme chooses the incident table
+    /// statistically and draws `E'` continuously within the bin. The default is
+    /// OpenMC's scheme:
+    /// - `E'` and `mu` are interpolated between the two bracketing tables;
+    /// - `E'` is one of the discrete bin energies.
+    ///
+    /// Kept only so the change can be priced. It is an explicit, visible act
+    /// (`--ablate legacy-thermal-sampling` in the ICSBEP driver). Skewed
+    /// (IFENG = 1) and continuous (IFENG = 2) tables are unaffected.
+    pub fn with_legacy_equiprobable_sampling(mut self) -> Self {
+        self.legacy_equiprobable = true;
+        self
+    }
+
+    /// Whether the legacy equiprobable ablation is in force (`false` by
+    /// default; pinned by `tests/correct_physics_is_default.rs`).
+    pub fn uses_legacy_equiprobable_sampling(&self) -> bool {
+        self.legacy_equiprobable
     }
 
     /// The temperature \[K\] the S(α,β) tables actually represent — a tabulated
@@ -802,11 +1112,14 @@ impl ThermalScattering {
     /// an inelastic scatter draws a new energy, which is where thermal
     /// **up-scatter** — and hence the Maxwellian spectrum — comes from.
     ///
-    /// **Inelastic sampling** mirrors the ACE incoherent-inelastic law
-    /// (`src/thermal.cpp` `ThermalData::sample`, IFENG=0): bracket the incident
-    /// energy on the emission grid, pick the lower/upper table by statistical
-    /// interpolation, then draw one equiprobable outgoing energy and one
-    /// equiprobable cosine.
+    /// **Inelastic sampling** is [`Self::sample_inelastic`]. For the binned
+    /// forms it is OpenMC's `IncoherentInelasticAEDiscrete`: the two
+    /// bracketing tables are **interpolated** (`get_energy_index`), one
+    /// discrete outgoing energy is drawn, and one cosine. ~~Pick the
+    /// lower/upper table by statistical interpolation~~, the #188 scheme:
+    /// CORRECTED 2026-09-29, never a maintainer decision; replaced by OpenMC's
+    /// scheme per the maintainer (GitHub #407). It is now only the ablation
+    /// [`Self::with_legacy_equiprobable_sampling`].
     ///
     /// Both channels return **laboratory-frame** quantities — S(α,β) secondary
     /// distributions are lab-frame, unlike the CM elastic law — so the caller
@@ -828,6 +1141,25 @@ impl ThermalScattering {
                 // falls through to the inelastic channel rather than losing the
                 // collision.
             }
+        }
+        self.sample_inelastic(e, seed)
+    }
+
+    /// Sample the **incoherent-inelastic** channel alone at `e` \[eV\],
+    /// returning `(E', mu_lab)`: the continuous (IFENG = 2), skewed
+    /// (IFENG = 1) or equiprobable (IFENG = 0) law, whichever the table
+    /// carries. [`Self::sample`] calls this after choosing inelastic over
+    /// elastic. It is public so the verification tests exercise exactly the
+    /// transport path. `None` above the cutoff or with no inelastic tables.
+    pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
+        if e >= self.cutoff_ev {
+            return None;
+        }
+        if !self.continuous.is_empty() {
+            return Some(self.sample_continuous(e, seed));
+        }
+        if !self.emit_tables.is_empty() && (self.skewed || !self.legacy_equiprobable) {
+            return Some(self.sample_discrete(e, seed));
         }
         if self.emit_tables.is_empty() {
             return None;
@@ -852,6 +1184,150 @@ impl ThermalScattering {
             table.cosines[base + j].clamp(-1.0, 1.0)
         };
         Some((e_out, mu))
+    }
+
+    /// Sample a **skewed** (ACE IFENG = 1) binned law at incident energy `e`
+    /// \[eV\] — a port of OpenMC's `IncoherentInelasticAEDiscrete::sample_params`
+    /// and `sample` (`src/secondary_thermal.cpp`), GitHub #365 audit:
+    ///
+    /// - bin `j` with NJOY's skewed weights — relative 0.1 and 0.4 for the first
+    ///   two and last two bins, 1 for the rest (`r = prn·(n-3)` mapped exactly
+    ///   as upstream);
+    /// - `E' = (1-f) E(i,j) + f E(i+1,j)` and one equiprobable cosine index `k`,
+    ///   `mu = (1-f) mu(i,j,k) + f mu(i+1,j,k)`, with `i, f` from
+    ///   `get_energy_index` — interpolation between the bracketing tables, not
+    ///   statistical selection.
+    ///
+    /// ~~Only skewed tables use this. The equiprobable form keeps the #188
+    /// continuous-in-bin scheme (maintainer direction).~~ **CORRECTED
+    /// 2026-09-29: never a maintainer decision; replaced by OpenMC's scheme
+    /// per the maintainer** (GitHub #407). Equiprobable (IFENG = 0) tables use
+    /// this too, with every bin equally likely (`j = floor(prn * n)`, OpenMC's
+    /// `!skewed_` branch). The old continuous-in-bin scheme survives only as
+    /// the ablation [`Self::with_legacy_equiprobable_sampling`].
+    fn sample_discrete(&self, e: f64, seed: &mut u64) -> (f64, f64) {
+        let grid = &self.emit_e;
+        let (mut i, mut f) = (0usize, 0.0);
+        if e >= grid[0] {
+            i = grid.partition_point(|&v| v <= e).saturating_sub(1).min(grid.len() - 1);
+            if i + 1 < grid.len() {
+                f = (e - grid[i]) / (grid[i + 1] - grid[i]);
+            }
+        }
+        let i1 = (i + 1).min(grid.len() - 1);
+        let (a, b) = (&self.emit_tables[i], &self.emit_tables[i1]);
+        let n = a.e_out.len();
+        if !self.skewed {
+            // All bins equally likely (OpenMC: `j = prn(seed) * n`).
+            let j = ((prn(seed) * n as f64) as usize).min(n - 1);
+            // Every table of one law has the same bin and cosine counts (ACE
+            // NIEB, NIL; the ENDF-route bake uses one count); the `min`s only
+            // keep a malformed table from indexing out of range.
+            let jb = j.min(b.e_out.len() - 1);
+            let e_out = (1.0 - f) * a.e_out[j] + f * b.e_out[jb];
+            let m = a.n_mu.min(b.n_mu);
+            if m == 0 {
+                return (e_out, 2.0 * prn(seed) - 1.0);
+            }
+            let k = ((prn(seed) * m as f64) as usize).min(m - 1);
+            let mu = (1.0 - f) * a.cosines[j * a.n_mu + k] + f * b.cosines[jb * b.n_mu + k];
+            return (e_out, mu.clamp(-1.0, 1.0));
+        }
+        let r = prn(seed) * (n as f64 - 3.0);
+        let j = if r > 1.0 {
+            r as usize + 1
+        } else if r > 0.6 {
+            n - 2
+        } else if r > 0.5 {
+            n - 1
+        } else if r > 0.1 {
+            1
+        } else {
+            0
+        };
+        let j = j.min(n - 1);
+        let e_out = (1.0 - f) * a.e_out[j] + f * b.e_out[j];
+        let m = a.n_mu;
+        let k = ((prn(seed) * m as f64) as usize).min(m - 1);
+        let mu = (1.0 - f) * a.cosines[j * m + k] + f * b.cosines[j * m + k];
+        (e_out, mu)
+    }
+
+    /// Sample the **continuous** (ACE IFENG = 2) incoherent-inelastic law at
+    /// incident energy `e` \[eV\], returning `(E', mu_lab)` — a port of OpenMC's
+    /// `IncoherentInelasticAE::sample_params` + `sample`
+    /// (`src/secondary_thermal.cpp`), GitHub #365 audit:
+    ///
+    /// 1. `get_energy_index` (`src/math_functions.cpp`), then the **nearer**
+    ///    incident table `l` (`f0 > 0.5`), not statistical interpolation.
+    /// 2. Invert the lin-lin cdf of table `l` for `E'` with one uniform.
+    /// 3. Shift `E'` to the actual incident energy: `E' *= 2E/E_l - 1` below
+    ///    `E_l/2`, else `E' += E - E_l`.
+    /// 4. One equiprobable cosine index `k`; `mu` interpolated between points
+    ///    `j` and `j+1` by the cdf fraction, then smeared uniformly over half the
+    ///    distance to its neighbours (reflected at ±1 for the end cosines).
+    ///
+    /// This is OpenMC's own scheme for this form. ~~The #188 continuous-in-bin
+    /// scheme applies only to the binned forms and is untouched.~~ Since GitHub
+    /// #407 the binned forms use OpenMC's scheme too (`sample_discrete`).
+    fn sample_continuous(&self, e: f64, seed: &mut u64) -> (f64, f64) {
+        let grid = &self.emit_e;
+        let (mut i, mut f0) = (0usize, 0.0);
+        if e >= grid[0] {
+            i = grid.partition_point(|&v| v <= e).saturating_sub(1).min(grid.len() - 1);
+            if i + 1 < grid.len() {
+                f0 = (e - grid[i]) / (grid[i + 1] - grid[i]);
+            }
+        }
+        let l = if f0 > 0.5 { i + 1 } else { i };
+        let t = &self.continuous[l];
+        let n = t.e_out.len();
+        let r1 = prn(seed);
+        // Same search as upstream, including its fall-through at the top.
+        let mut c_j = t.cdf[0];
+        let mut c_j1 = c_j;
+        let mut j = 0usize;
+        while j < n - 1 {
+            c_j1 = t.cdf[j + 1];
+            if r1 < c_j1 {
+                break;
+            }
+            c_j = c_j1;
+            j += 1;
+        }
+        let j = j.min(n - 2);
+        let (e_j, p_j) = (t.e_out[j], t.pdf[j]);
+        let (e_j1, p_j1) = (t.e_out[j + 1], t.pdf[j + 1]);
+        let frac = (p_j1 - p_j) / (e_j1 - e_j);
+        let mut e_out = if frac == 0.0 {
+            if p_j > 0.0 { e_j + (r1 - c_j) / p_j } else { e_j }
+        } else {
+            e_j + ((p_j * p_j + 2.0 * frac * (r1 - c_j)).max(0.0).sqrt() - p_j) / frac
+        };
+        let e_l = grid[l];
+        if e_out < 0.5 * e_l {
+            e_out *= 2.0 * e / e_l - 1.0;
+        } else {
+            e_out += e - e_l;
+        }
+        let f = if c_j1 > c_j { (r1 - c_j) / (c_j1 - c_j) } else { 0.0 };
+
+        let n_mu = t.n_mu;
+        let k = ((prn(seed) * n_mu as f64) as usize).min(n_mu - 1);
+        let m = |row: usize, kk: usize| t.cosines[row * n_mu + kk];
+        let mu = m(j, k) + f * (m(j + 1, k) - m(j, k));
+        let mu_left = if k == 0 {
+            -1.0 - (mu + 1.0)
+        } else {
+            m(j, k - 1) + f * (m(j + 1, k - 1) - m(j, k - 1))
+        };
+        let mu_right = if k == n_mu - 1 {
+            1.0 + (1.0 - mu)
+        } else {
+            m(j, k + 1) + f * (m(j + 1, k + 1) - m(j, k + 1))
+        };
+        let mu = mu + (mu - mu_left).min(mu_right - mu) * (prn(seed) - 0.5);
+        (e_out, mu)
     }
 
     /// Pick the emission table to sample from for incident energy `e` \[eV\] by
@@ -972,6 +1448,17 @@ impl ThermalScattering {
 /// outgoing-energy law". It was not: roughly **80 % of the width deficit
 /// survives the change**, so it lives in the THERMR kernel underneath rather
 /// than in how this crate samples it.
+///
+/// # Status since 2026-09-29: the legacy ablation only (GitHub #407)
+///
+/// Transport no longer calls this by default. Equiprobable tables are sampled
+/// with OpenMC's `IncoherentInelasticAEDiscrete`, whose `E'` is discrete. The
+/// earlier framing of this scheme as a maintainer decision was wrong:
+/// **CORRECTED 2026-09-29: never a maintainer decision; replaced by OpenMC's
+/// scheme per the maintainer.** It is reached only through
+/// `with_legacy_equiprobable_sampling` (`--ablate legacy-thermal-sampling`).
+/// The measurements above describe the scheme and stay true of it. They are
+/// no longer a description of the default.
 fn continuous_equiprobable_energy(e_out: &[f64], xi: f64) -> f64 {
     let n = e_out.len();
     if n == 1 {
@@ -1009,6 +1496,7 @@ fn build_elastic_channel(
     tape: &njoy_outram_park_fork::endf::tape::Tape,
     mat: i32,
     t: njoy_outram_park_fork::units::Temperature,
+    cutoff_ev: f64,
 ) -> Result<ThermalElastic, NjoyError> {
     use njoy_outram_park_fork::thermr::scattering::{
         CoherentElasticScattering, IncoherentElasticScattering,
@@ -1039,7 +1527,7 @@ fn build_elastic_channel(
 
     match IncoherentElasticScattering::from_tape(tape, mat, t) {
         Ok(ie) => {
-            let e_grid = log_grid(E_MIN_GRID_EV, DEFAULT_THERMAL_CUTOFF_EV, N_INC_ELASTIC_GRID);
+            let e_grid = log_grid(E_MIN_GRID_EV, cutoff_ev, N_INC_ELASTIC_GRID);
             let mut sigma = Vec::with_capacity(e_grid.len());
             let mut cosines = Vec::with_capacity(e_grid.len() * N_INC_ELASTIC_COSINES);
             for &e_ev in &e_grid {
@@ -1062,23 +1550,6 @@ fn build_elastic_channel(
     }
 }
 
-/// Index of the grid point nearest to `x` on an ascending grid (ties go low).
-/// Used to pick an incoherent-elastic cosine bin; the grid is non-empty.
-fn nearest_index(xs: &[f64], x: f64) -> usize {
-    let n = xs.len();
-    let i = xs.partition_point(|&v| v < x);
-    if i == 0 {
-        return 0;
-    }
-    if i >= n {
-        return n - 1;
-    }
-    if x - xs[i - 1] <= xs[i] - x {
-        i - 1
-    } else {
-        i
-    }
-}
 
 /// Flatten the njoy equiprobable emission bins into a cache-friendly
 /// [`EmissionTable`]. An empty input (σ = 0 at this energy) yields an empty table.
@@ -1145,6 +1616,10 @@ fn interp_linear(xs: &[f64], ys: &[f64], x: f64) -> f64 {
     }
 }
 
+/// [`ThermalScattering::to_f64s`] / [`ThermalScattering::from_f64s`] (gh:#786).
+#[path = "thermal_f64s.rs"]
+mod f64s;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1158,17 +1633,6 @@ mod tests {
         for w in g.windows(2) {
             assert!(w[1] > w[0], "grid must be strictly ascending");
         }
-    }
-
-    #[test]
-    fn nearest_index_picks_the_closer_grid_point() {
-        let xs = vec![0.0, 1.0, 2.0, 3.0];
-        assert_eq!(nearest_index(&xs, -5.0), 0);
-        assert_eq!(nearest_index(&xs, 0.4), 0);
-        assert_eq!(nearest_index(&xs, 0.5), 0, "a tie must go low");
-        assert_eq!(nearest_index(&xs, 0.6), 1);
-        assert_eq!(nearest_index(&xs, 2.9), 3);
-        assert_eq!(nearest_index(&xs, 99.0), 3);
     }
 
     /// The Bragg step table reproduces the `1/E` sawtooth exactly: σ is zero

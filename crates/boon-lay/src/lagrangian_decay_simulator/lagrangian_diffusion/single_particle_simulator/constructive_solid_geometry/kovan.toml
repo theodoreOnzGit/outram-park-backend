@@ -1,0 +1,849 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry"
+test_ids = [
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::snapshot_starts_full_in_kernel",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::buffer_midpoint_bounded_on_both_sides",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::fuel_center_hop_reaches_kernel_surface",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::hop_releases_at_outer_surface",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::multilayer_walk_transmits_across_interfaces",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::outside_particle_has_no_shell",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::multilayer_bounce_cost_probe",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+    "crates/tampines/src/pebble_bed/triso.rs::geometry_round_trips_through_boon_lay",
+]
+
+[module."chatgpt_vibe_coded_sphere_crossing.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::chatgpt_vibe_coded_sphere_crossing"
+
+[[module."chatgpt_vibe_coded_sphere_crossing.rs".function]]
+id = "fn:bb826dfc6b25645a"
+name = "SphereCrossing"
+qual = "SphereCrossing"
+item = "type"
+shape = "enum"
+lines = [
+    6,
+    10,
+]
+hash = "sha256:274e3a45501b06ea8edc054b1c383b1742c67023bb2e1add89e93c8544903c70"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."chatgpt_vibe_coded_sphere_crossing.rs".function]]
+id = "fn:fd90aee51ede9e6a"
+name = "time"
+qual = "SphereCrossing::time"
+lines = [
+    13,
+    19,
+]
+hash = "sha256:51508e7394eedeada23f47b9fc688aee944b8d93d6bdf4c6a68158058418f5e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:bb826dfc6b25645a"]
+physical_interface = true
+
+[[module."chatgpt_vibe_coded_sphere_crossing.rs".function]]
+id = "fn:051f5afa8daefede"
+name = "sphere_first_crossing_uom"
+qual = "sphere_first_crossing_uom"
+lines = [
+    22,
+    128,
+]
+hash = "sha256:07465c39904ee69ebef7f88d63477ef57044889a653835d0b5be117c6fdb26e3"
+doc_hash = "sha256:c350c58c914c3e439b79e57ee9933510940609ffe53ebf9f6633bc17ced1c36b"
+uses = ["fn:bb826dfc6b25645a"]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry"
+
+[[module."mod.rs".function]]
+id = "fn:c00600458e439267"
+name = "Region"
+qual = "Region"
+item = "type"
+shape = "enum"
+lines = [
+    11,
+    14,
+]
+hash = "sha256:fc0b1b27d8e7e8c8b6890593739629e8da3ef45825c0a3fe8ce7ff7d637b5cc8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1c5cf7b757778453"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e2e502d94aefeeda"
+name = "new_sphere"
+qual = "Region::new_sphere"
+lines = [
+    17,
+    26,
+]
+hash = "sha256:3697d93798cb08d04d30f271b9e677065b6245e31475ff21d6543bfadfe06c62"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1c5cf7b757778453",
+    "fn:c00600458e439267",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:cbff9cc4ef43a02c"
+name = "is_within_region"
+qual = "Region::is_within_region"
+lines = [
+    28,
+    32,
+]
+hash = "sha256:3f91289b1fdae0cfab4a3528d400191ac8794d94b0cf1b38ccc8a0471b5f484a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:6ca5b392dad3c774"]
+uses = ["fn:c00600458e439267"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b1f57f7262776cef"
+name = "try_return_center_and_radius_of_sphere"
+qual = "Region::try_return_center_and_radius_of_sphere"
+lines = [
+    34,
+    43,
+]
+hash = "sha256:4d8c15c7dd4a2210d3dfbdcdf37a506298b46b62e43a0294097436109798e7f9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c00600458e439267"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:57c5c52fb5126efd"
+name = "TrisoCell"
+qual = "TrisoCell"
+item = "type"
+shape = "struct"
+lines = [
+    62,
+    80,
+]
+hash = "sha256:2124e3984ee3fe7a506859798bb43a586c48d1b8e4bf406ada8cbc9cf0e171e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c00600458e439267"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9cc9c8986d721ed3"
+name = "new"
+qual = "TrisoCell::new"
+lines = [
+    83,
+    130,
+]
+hash = "sha256:693196741a22fb8028e120be010590b4037ec197aa7351a2e625cdef607795bc"
+doc_hash = "sha256:cdbc8333aefc3bc79e49ba8cec88cfbca766dbff94cfe23451872a3d006784c0"
+callees = ["fn:e2e502d94aefeeda"]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:c00600458e439267",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f0412e4748137ea3"
+name = "new_crp6_geometry"
+qual = "TrisoCell::new_crp6_geometry"
+lines = [
+    132,
+    158,
+]
+hash = "sha256:da17cba8bb63700899c93055ac92772fc1c84132b44f5f8ed9bc1e52965adf19"
+doc_hash = "sha256:ef03bde7c5478cd6b8d45b53c10edb6f153fbb9cd8cb02bb554c14425b268081"
+callees = ["fn:9cc9c8986d721ed3"]
+uses = ["fn:57c5c52fb5126efd"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."mod.rs".function]]
+id = "fn:90f6ecd8264da133"
+name = "get_triso_region"
+qual = "TrisoCell::get_triso_region"
+lines = [
+    160,
+    209,
+]
+hash = "sha256:9b1359d374e574afa12e061f27be3130ddbdc65ba2617d3b1e7bdcc1e269cd0f"
+doc_hash = "sha256:8f3825cc2a40a583d83cc519c1803fc31351d286e2f60cb892c34f7bf3516368"
+callees = ["fn:b1f57f7262776cef"]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:f98387bb08ac6885",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:26c97e03e84fc754"
+name = "try_get_diffusion_coefficient"
+qual = "TrisoCell::try_get_diffusion_coefficient"
+lines = [
+    211,
+    269,
+]
+hash = "sha256:f20293f4d60bce578a2b90080fe5298aee88a4ef3876a4f4e26cc0cb0396e659"
+doc_hash = "sha256:e68cc15938ca99a19219b4c368a869fa3cbb3c78f25cafd195081d7f2381b4c7"
+callees = [
+    "fn:4bdea64528f551f6",
+    "fn:cbff9cc4ef43a02c",
+]
+uses = [
+    "fn:359972b9e99804c1",
+    "fn:57c5c52fb5126efd",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:6490390f3a2db2f4"
+name = "get_lengthscale_for_fourier_number"
+qual = "TrisoCell::get_lengthscale_for_fourier_number"
+lines = [
+    271,
+    285,
+]
+hash = "sha256:d97fae2890147f22523fe13e2d70f2d53da89a3540962297abe2822cae9e1521"
+doc_hash = "sha256:429b3e338b9f028f8b33680e8d6b75fb9fa2999568457db603284f424f9df6aa"
+callees = [
+    "fn:306b8ee609baf103",
+    "fn:7a2ac2c97a7da6df",
+    "fn:90f6ecd8264da133",
+    "fn:c505534bed2a6989",
+    "fn:c8693dbb849a9fc9",
+    "fn:e8bb775f59365324",
+]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:f98387bb08ac6885",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:c393708ee2e250a5"
+name = "get_time_to_sphere_boundary"
+qual = "TrisoCell::get_time_to_sphere_boundary"
+lines = [
+    287,
+    294,
+]
+hash = "sha256:1b7702c2224b56e8abdaffb9475d9053097940f592182b0536dcf0ac273eb683"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b1438729c0a1bc4b"]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:f98387bb08ac6885",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:6cebf98dd3497b07"
+name = "set_uniform_temperature"
+qual = "TrisoCell::set_uniform_temperature"
+lines = [
+    296,
+    304,
+]
+hash = "sha256:1a3f2a9331de402bcda0568c72fa3163ae0050f7e53a57bdc2243ecc987b2d28"
+doc_hash = "sha256:c3c56050fb53a37439c2af5204b8fdf0322d1ffc1edca652fa52623b6adc005d"
+uses = ["fn:57c5c52fb5126efd"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:cae3ca710ecc7387"
+name = "get_uniform_temperature"
+qual = "TrisoCell::get_uniform_temperature"
+lines = [
+    306,
+    311,
+]
+hash = "sha256:2d7255c2fd2202a9bbe5b73d9cbf2f90047ddf7acb7240cc8aa4e999d5a68476"
+doc_hash = "sha256:830c3a5eb34c65797fa05ea9280a89bc32189d05865c942b323afe1020ecbac0"
+uses = ["fn:57c5c52fb5126efd"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:c505534bed2a6989"
+name = "get_fuel_radius"
+qual = "TrisoCell::get_fuel_radius"
+lines = [
+    314,
+    320,
+]
+hash = "sha256:7c2e366afe73e0e0cf46972a92046f90d7d46bd91568da64d0814512fafe0a10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b1f57f7262776cef"]
+uses = ["fn:57c5c52fb5126efd"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:306b8ee609baf103"
+name = "get_buffer_radius"
+qual = "TrisoCell::get_buffer_radius"
+lines = [
+    322,
+    328,
+]
+hash = "sha256:e247487812bb93f5cc2bbdb39db4e7405ad30a70a1d3f41b47018662567e6481"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b1f57f7262776cef"]
+uses = ["fn:57c5c52fb5126efd"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:7a2ac2c97a7da6df"
+name = "get_ipyc_radius"
+qual = "TrisoCell::get_ipyc_radius"
+lines = [
+    330,
+    336,
+]
+hash = "sha256:efae154d05b338313aeae54d8315c7a41128b6902ce503eb32643c5a1bba0bf7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b1f57f7262776cef"]
+uses = ["fn:57c5c52fb5126efd"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:c8693dbb849a9fc9"
+name = "get_sic_radius"
+qual = "TrisoCell::get_sic_radius"
+lines = [
+    338,
+    344,
+]
+hash = "sha256:cc8ffda3dcaef7ce1c08e1144bc8d9da20ee72550853ae621c8146138d325df2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b1f57f7262776cef"]
+uses = ["fn:57c5c52fb5126efd"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e8bb775f59365324"
+name = "get_opyc_radius"
+qual = "TrisoCell::get_opyc_radius"
+lines = [
+    346,
+    352,
+]
+hash = "sha256:a7fa99a8e451323e916f912c67a16dd94bff921acd4bcf3282d81febaeee7ce8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b1f57f7262776cef"]
+uses = ["fn:57c5c52fb5126efd"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f98387bb08ac6885"
+name = "TrisoRegion"
+qual = "TrisoRegion"
+item = "type"
+shape = "enum"
+lines = [
+    358,
+    366,
+]
+hash = "sha256:014a9ff0a836ca530f0eca7ee8f3f72eddf0a3faf458afff24a39e280e4390a1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b1438729c0a1bc4b"
+name = "get_time_to_sphere_boundary"
+qual = "TrisoRegion::get_time_to_sphere_boundary"
+lines = [
+    369,
+    496,
+]
+hash = "sha256:803b630023edd1ff8bf3e850000f64d0e258480f8feace5cd23525e80e8cfda2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:051f5afa8daefede",
+    "fn:90f6ecd8264da133",
+    "fn:b1f57f7262776cef",
+]
+uses = [
+    "fn:57c5c52fb5126efd",
+    "fn:bb826dfc6b25645a",
+    "fn:f98387bb08ac6885",
+]
+physical_interface = true
+
+[module."norms.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::norms"
+
+[[module."norms.rs".function]]
+id = "fn:2b1e0c3f935b6b79"
+name = "l2_norms_sq_3d_f64"
+qual = "l2_norms_sq_3d_f64"
+lines = [
+    1,
+    10,
+]
+hash = "sha256:79cd32cb32f4df45490a1e8303533c0965cfc90294994c2e73d1355fe77035f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."norms.rs".function]]
+id = "fn:523d7471df7dc58b"
+name = "l2_norms_sqrt_3d_f64"
+qual = "l2_norms_sqrt_3d_f64"
+lines = [
+    12,
+    24,
+]
+hash = "sha256:f26180be84150125545f7fc091fb3be381cb89e7d3c9342543b5130dd456ef2f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2b1e0c3f935b6b79"]
+
+[module."sphere.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::sphere"
+
+[[module."sphere.rs".function]]
+id = "fn:1c5cf7b757778453"
+name = "Sphere"
+qual = "Sphere"
+item = "type"
+shape = "struct"
+lines = [
+    2,
+    8,
+]
+hash = "sha256:44ad12adb5a2bc4d04aaeeebbe6ba068210bd6df4e759b4b84e17a675bf62cc6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+
+[[module."sphere.rs".function]]
+id = "fn:6ca5b392dad3c774"
+name = "is_point_in_sphere"
+qual = "Sphere::is_point_in_sphere"
+lines = [
+    11,
+    27,
+]
+hash = "sha256:d79b611c834fd54102ce49fad8f406195c2e736c573062ef8a277f1c939e07f8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:9207cd2ad86870d0"]
+uses = ["fn:1c5cf7b757778453"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+physical_interface = true
+
+[[module."sphere.rs".function]]
+id = "fn:9207cd2ad86870d0"
+name = "point_in_sphere"
+qual = "point_in_sphere"
+lines = [
+    30,
+    43,
+]
+hash = "sha256:ecd507963fae952656fa4a34a4b18825d3ceb12e432d6577377c66df7d716ec8"
+doc_hash = "sha256:e23c462cfb3049e31a288dabe38d823424b392a0dc3fd6adee6894aafc43e3dc"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]

@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-literature"
+dir = "crates/kovan-literature/src/zotero"
+
+[module."mod.rs"]
+path = "crate::zotero"

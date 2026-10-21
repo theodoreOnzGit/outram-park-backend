@@ -1,0 +1,59 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src"
+crate_root = true
+commit = "0123456789abcdef0123456789abcdef01234567"
+
+[module."steam.rs"]
+path = "crate::steam"
+
+[[module."steam.rs".function]]
+id = "fn:3f2a9c0d1e4b5a67"
+name = "flash"
+qual = "SteamTable::flash"
+lines = [120, 158]
+hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+doc_hash = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+callees = ["fn:0a1b2c3d4e5f6071"]
+reached_by = ["crates/tampines/tests/flash.rs::flash_matches_iapws"]
+
+[[module."steam.rs".function]]
+id = "fn:0a1b2c3d4e5f6071"
+name = "saturation"
+qual = "saturation"
+lines = [160, 190]
+hash = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+doc_hash = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+
+[test_run]
+commit = "0123456789abcdef0123456789abcdef01234567"
+cargo_lock = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+suite = "full"
+passed = ["crates/tampines/tests/flash.rs::flash_matches_iapws"]
+failed = []
+
+[upstream]
+is_port = true
+repository = "https://github.com/CoolProp/CoolProp"
+commit = "0123456789abcdef0123456789abcdef01234567"
+confirmed_by = "github:theodoreOnzGit"
+date = "2026-10-07"
+
+[upstream.files]
+"steam.rs" = "https://github.com/CoolProp/CoolProp/blob/0123456789abcdef0123456789abcdef01234567/src/IF97.h"
+
+[[review]]
+function = "fn:3f2a9c0d1e4b5a67"
+by = "github:theodoreOnzGit"
+artifact = "review-flash-theodoreonzgit"
+
+[[deleted_folder]]
+dir = "crates/tampines/src/old_solver"
+deleted_commit = "89abcdef0123456789abcdef0123456789abcdef"
+
+[[deleted_folder.function]]
+function = "crates/tampines/src/old_solver/mod.rs::solve"
+path = "crates/tampines/src/old_solver/mod.rs::solve"
+last_review_commit = "0123456789abcdef0123456789abcdef01234567"
+reviewers = ["github:theodoreOnzGit"]

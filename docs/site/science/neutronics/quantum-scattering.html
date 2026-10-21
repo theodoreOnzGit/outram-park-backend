@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What does a neutron wave do at a nucleus?</title>
+<meta name="description" content="Neutronics, page 5: an incoming neutron matter wave scatters from a nucleus; its partial waves interfere and make some directions more likely than others. Then: why a Monte Carlo code samples from stored nuclear data instead of solving this at every collision.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="qscatter.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906 iteration 2 and the 2026-10-16 working-context checkpoint). One principal question per page (checkpoint §5); the sequence and its navigation are in lesson-kit.js. Shape: docs/lessons/lesson-philosophy.md (a chain of questions; predict before showing; honest numbers). This page: checkpoint §14 (quantum scattering: never teach classical scattering as isotropic; isotropy is a simplifying model) and §15 (why nuclear data exists). The physics is checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>What does a neutron wave do at a nucleus?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>On the last page the neutron became a wave. So meeting a nucleus is a wave meeting an obstacle, and a wave does not bounce off an obstacle the way a ball does: it spreads out from it, in all directions at once, and the parts of the spreading wave interfere.</p>
+<p class="chain">incoming neutron wave &rarr; nuclear scattering potential &rarr; partial waves &rarr; interference &rarr; a probability for each outgoing direction</p>
+<p class="predict"><b>Predict first.</b> A slow neutron has a wavelength far bigger than the nucleus; a fast one, comparable or smaller. Which of the two scatters equally in every direction, and which prefers to keep going forward?</p>
+
+<section class="widget-card">
+  <h3>A neutron wave meets a nucleus</h3>
+  <div class="widget" id="qscatter" data-awr-c12="11.89365" data-awr-o16="15.85751" data-awr-u238="236.0058" data-ap-c12="0.6146927" data-ap-o16="0.5494627" data-ap-u238="0.948">
+    <canvas aria-label="A neutron plane wave scattering from a nucleus, and a polar plot of the probability of each outgoing direction"></canvas>
+  </div>
+  <p class="note">Exact quantum scattering, by partial waves, from the simplest nuclear potential there is: an impenetrable sphere. Its radius is each nucleus's scattering radius AP from its ENDF/B-VIII.0 evaluation <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>: C-12 6.147 fm, O-16 5.495 fm, U-238 9.48 fm. The phase shifts are the hard-sphere ones NJOY uses for potential scattering (<code>facphi</code>, <code>reconr.f90</code>) <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>, and the wave number its <code>cwaven</code>. Drawn in the centre-of-mass frame; teal and brown are the crests and troughs of the wave. At low energy this model's cross section is 4&pi;AP&sup2;, which equals the evaluations' elastic cross section (C-12 4.748 b, O-16 3.794 b), but by construction: evaluators choose AP so that it does. It is not a prediction.</p>
+</section>
+
+<p>Slide the energy and watch the polar plot. At low energy the wavelength dwarfs the nucleus, only one partial wave (l = 0) scatters, and every direction is equally likely. As the energy rises, more partial waves join in, they interfere, and the distribution leans forward, with lobes where they add and dips where they cancel.</p>
+<p><b>The neutron does not simply bounce from the nucleus like a classical billiard ball. Quantum-mechanical scattering waves interfere, making some outgoing directions more probable than others.</b></p>
+<p class="note"><b>A careful distinction.</b> A simple transport model might assume <i>isotropic</i> scattering, where every outgoing direction is equally likely: the dashed circle in the plot. That is a simplifying model. Real neutron&ndash;nucleus scattering is governed by quantum mechanics and may be anisotropic, as the plot shows.</p>
+<p class="note"><b>What this picture is not.</b> A real nucleus is not impenetrable. The neutron can enter it, be absorbed, or form a compound nucleus that lives for a while and re-emits it, and near a resonance that can change the angular distribution a great deal. The impenetrable sphere is the smooth background the resonance formulas start from, not the whole answer.</p>
+<p>Press <b>Sample one scattering angle</b>. The program draws one outgoing direction at random, with the probabilities of the polar plot, and the neutron leaves along it. That is what a Monte Carlo code does at every collision: it does not follow the wave, it samples <i>one</i> outcome from the distribution.</p>
+
+<h2>Does OutramMC solve Schr&ouml;dinger's equation at every collision?</h2>
+<p><b>No.</b> That would be far too expensive: a reactor calculation follows millions of neutrons through millions of collisions, and the impenetrable sphere above is the easiest scattering problem there is. Instead, the physics is done once, ahead of time:</p>
+<p class="chain">quantum nuclear physics &rarr; measurement, calculation and evaluation &rarr; nuclear data &rarr; OutramMC &rarr; one sampled outcome per collision</p>
+<p>We calculate, measure and evaluate the relevant nuclear behaviour beforehand and store the results as <b>nuclear data</b>. The transport code only reads it and samples from it.</p>
+
+<h2>Next question</h2>
+<p>The polar plot is a smooth, continuous curve, and a computer can only store a finite list of numbers. <b>How do we store an angular distribution?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

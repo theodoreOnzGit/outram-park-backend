@@ -203,7 +203,7 @@ impl FHRSimulatorApp {
                 steam_generator_tube
                     .lateral_link_new_power_vector(total_heat, q_fraction.clone())
                     .unwrap();
-                steam_generator_tube.step();
+                steam_generator_tube.step().unwrap();
             }
         }
 

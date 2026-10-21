@@ -170,9 +170,24 @@ impl super::TampinesSteamTableCV {
 /// The bracket is grown **outward from `p_guess`** — the control volume's
 /// current pressure, which is a known-valid `(p, h)` point — toward the root,
 /// rather than from a blind high-pressure endpoint. This keeps every evaluation
-/// inside the validated IF97 range: the `(p, h)` flashes are not implemented for
-/// region 5 (T > 800 °C), so marching down from 100 MPa could land there and
-/// panic. The expansion is still clamped to the steam-table range
+/// inside the validated IF97 range.
+///
+/// ~~The `(p, h)` flashes are not implemented for region 5 (T > 800 °C), so
+/// marching down from 100 MPa could land there and panic.~~
+/// **CORRECTED 2026-09-27** — the `(p,h)` flashes **are** implemented for
+/// Region 5 since commit `2ab91fefc3` (2026-09-14), via an in-house Chebyshev
+/// fit (IAPWS publishes no Region 5 backward `(p,h)` equation). Verified by
+/// running `tests/boundary_273_15_repro.rs::does_lambda_ph_eqm_work_in_region_5`
+/// — `t_ph_eqm(1 MPa, 5218.863 kJ/kg) = 1499.999 K`, no panic.
+///
+/// **The reason to grow the bracket outward from `p_guess` is unchanged, and is
+/// now a stronger one, not a weaker one.** Region 5 no longer panics, so a
+/// bracket that wanders up there would come back with an **in-house fitted**
+/// temperature instead of an error — a silent extrapolation is worse than a
+/// panic, since Region 5 above 50 MPa is outside IF97 entirely and Region 5 at
+/// any pressure is outside the standard's backward equations. Marching outward
+/// from a known-valid point keeps every evaluation where IF97 certifies it.
+/// The expansion is still clamped to the steam-table range
 /// `[triple point, 100 MPa]` as a hard safety net.
 ///
 /// # Panics

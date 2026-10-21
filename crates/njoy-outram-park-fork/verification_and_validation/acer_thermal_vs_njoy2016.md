@@ -1,0 +1,258 @@
+# Thermal S(α,β) ACE tables vs NJOY2016 — all nine `tsl-*` tapes
+
+**Generated:** 2026-09-20, UTC.
+**Crate / commit:** `njoy-outram-park-fork` 0.0.3, on
+`claude/neutronics-runs-handoff-8xk972`.
+**Reference:** NJOY2016 **2016.79** (`ac5adf5`), built from
+`upstream_source/NJOY2016/` and run.
+**Class:** verification — code-to-code against upstream. **Not validation**:
+no experiment is compared against, and no human V&V has been done.
+AI-assisted draft.
+
+
+> **UPDATE 2026-09-29 — ITIX is now `calcem`'s `xsi`, so the "inelastic σ" column
+> below describes the writer as it WAS.** Until this date the writer filled ITIX
+> from `IncoherentInelastic::cross_section`, an analytic integral, where NJOY
+> writes THERMR's `xsi` via `terp` (`thermr.f90:2166-2173`, `:2459`;
+> `aceth.f90:131`). Measured after the change against NJOY2016's H(H2O) table at
+> 293.6 K (OpenMC `make_ace_thermal` deck, `tol = 0.001`, `iwt = 1`, 64 bins x
+> 16 cosines), the port built with the same `tol` (new
+> `thermal_from_mf7_with_tolerance`) gives **σ_inel worst 1.55e-4, median
+> 3.0e-5; E′ worst 1.92e-4; cosine worst 0.010** (before: 6.6e-2, 8.2e-2 and
+> 0.144, the last two because the port had used `tol = 0.05`). The per-tape
+> numbers in the tables below were **not** re-measured and remain the pre-change
+> values. Record: `outram-mc-libs/verification_and_validation/icsbep/five_route_keff_2026_09_29.md`.
+
+> **UPDATE 2026-10-14 (GitHub #865): superseded by
+> [`acer_thermal_word_parity_2026_10_14.md`](acer_thermal_word_parity_2026_10_14.md).**
+> The port now reproduces NJOY2016's thermal tables in every word (Al-27 at two
+> tolerances and two bin forms, H in H₂O, crystalline graphite; IFENG = 2
+> measured too). Every difference recorded below had a cause in the port, found
+> with an instrumented NJOY2016 build: `sig` without its `sigmin` cut and with
+> its own arithmetic, `sigl`'s `third`, `tpend`'s normalisation and text
+> round trip, ITIX interpolated on THERMR's MF=3, and ACER's Bragg-edge
+> selection. The tables below are kept as they were measured.
+
+## Why this record exists
+
+`acer_ce_vs_njoy2016_multi_nuclide.md` covers the incident-neutron
+sublibrary. The **thermal** sublibrary is a different ACE class (`…t`) with its
+own NXS/JXS and its own blocks, so the continuous-energy comparator cannot read
+it. The nine `tsl-*.endf` tapes in `reference-data/endf/` had **no comparison
+against NJOY at all** — `tests/thermal_ace.rs` and `tests/thermal_ace_zrh.rs`
+assert structure and sign only (`σ_inel ≥ 0`, "not all zero", ascending grid,
+block lengths). **The thermal inelastic cross section had never been checked
+against any reference value.** This is its first check.
+
+## Methodology
+
+Per tape: NJOY2016 `reconr` → `broadr` → `thermr` → `acer` with `iopt = 2`,
+paired with the scatterer's own incident-neutron evaluation. Then
+`examples/thermal_ace_vs_njoy2016` builds our table and compares.
+
+Three choices in that deck are load-bearing, and each was a mistake first:
+
+1. **`iwt = 1` on ACER card 9 is required.** `aceth.f90:674-676` reads
+   `ifeng = 0; if (iwt.eq.0) ifeng=1; if (iwt.eq.2) ifeng=2`. ~~This port writes
+   the equiprobable `IFENG = 0` form only, so the default `iwt = 0` produces a
+   **skewed `IFENG = 1`** reference and any number from it would be comparing
+   two different representations. The comparator now **refuses** and says so
+   rather than printing a figure.~~ **CORRECTED 2026-09-22** — all three forms
+   are written now, and the comparator reads the form off the reference's own
+   `NXS(7)` instead of refusing. The numbers in *this* record remain
+   `IFENG = 0` numbers, measured against an `iwt = 1` reference; the other two
+   forms are in
+   [`acer_thermal_ifeng_vs_njoy2016.md`](acer_thermal_ifeng_vs_njoy2016.md).
+2. **Each tape is run at its OWN base temperature**, read from its MF=7.
+   `IncoherentInelastic` holds `S(α,β)` at the base temperature, and the base
+   temperatures are not what one would guess: Al-27's is **20 K**, H-in-H₂O's
+   is 283.6 K. A first run asked both sides for 293.6 K and produced a
+   **~3000× "disagreement"** on Al-27 that was entirely the temperature
+   mismatch. That number is discarded, not reported as a defect. The
+   comparator now prints the evaluation's `T₀`, `LAT`, `LASYM` and `LLN`
+   *before* any comparison, so the inputs are visible.
+3. **Ours is built on NJOY's own incident-energy grid**, read from the
+   reference's ITIE block, with NJOY's own `NIEB`/`NIL`. This port's thermal
+   writer takes its grid from the caller, so choosing our own would measure the
+   grid choice rather than the physics.
+
+**Bragg edges are matched by ENERGY, never by index.** The two codes keep
+different numbers of edges (Al-27: ours 568, NJOY 309), so differencing by
+position would repeat the 1753× artefact that shaped the CE comparator.
+
+## Results
+
+| tape | MAT | T₀ (K) | NXS | inelastic σ, worst rel | coherent-elastic cumulative `S`, worst rel |
+|---|---|---|---|---|---|
+| Al-27 ENDF/B-VIII.0 | 53 | 20 | **ok** | 2.238e-2 | **3.253e-6** |
+| C in SiC | 44 | 300 | **ok** | 7.790e-3 | **4.697e-7** |
+| Si in SiC | 43 | 300 | **ok** | 5.985e-3 | **4.697e-7** |
+| crystalline graphite | 30 | 296 | **ok** | 7.166e-3 | **4.809e-7** |
+| graphite ENDF/B-VII.0 | 31 | 296 | **ok** | 7.170e-3 | **4.906e-7** |
+| reactor graphite 10 % porosity | 31 | 296 | **ok** | 8.803e-3 | **4.562e-7** |
+| reactor graphite 30 % porosity | 32 | 296 | **ok** | 8.567e-3 | **4.166e-7** |
+| H in H₂O | 1 | 283.6 | **ok** | 7.633e-2 | no elastic on this tape |
+| H in ZrH ENDF/B-VIII.0 | 7 | 296 | **ok** | 4.737e-1 | incoherent — **not compared** |
+
+`NXS` covers `IDPNI`, `NIL`, `NIEB`, `IDPNC`, `NCL` and `IFENG`: **all six
+match on all nine tapes.**
+
+### Coherent elastic is essentially exact
+
+On all six coherent tapes the cumulative `S` agrees to **4e-7 – 3e-6**, and
+every NJOY Bragg edge is found in ours to 1e-6 relative (Al-27: 309 of 309;
+the others likewise, with ours carrying more edges than NJOY keeps). The extra
+edges are a thinning difference, not a disagreement about values.
+
+### The inelastic cross section, and where its two large numbers come from
+
+Seven of nine agree to **≤ 2.3e-2** across the whole grid, the crystalline
+solids to **6e-3 – 9e-3**. The two large numbers are **single-point endpoint
+effects**, which the sampled points show plainly:
+
+| H in ZrH, E (MeV) | ours | NJOY | rel |
+|---|---|---|---|
+| 1.0000e-11 | 3.037136e1 | 3.034982e1 | 7.10e-4 |
+| 3.5000e-9 | 2.087551e0 | 2.086748e0 | 3.85e-4 |
+| 3.9500e-8 | 3.466972e0 | 3.430733e0 | 1.06e-2 |
+| 3.2064e-7 | 1.623680e1 | 1.620241e1 | 2.12e-3 |
+| **3.7500e-6** | **1.046651e1** | **1.988869e1** | **4.74e-1** |
+
+H-in-ZrH tracks NJOY to 2e-4 – 1e-2 across five decades and then diverges by a
+factor 1.9 at the **top of the thermal range** (3.75 eV, against `emax = 4.0`).
+H-in-H₂O is the mirror image: its worst is the **lowest** grid point (7.63e-2
+at 1e-5 eV) and the rest of the grid is ≤ 1.27e-2.
+
+**The headline column above is still the worst over the whole grid.** An
+"interior" statistic excluding the endpoints would read far better and is
+deliberately not what is tabulated — choosing the instrument after seeing the
+result is the failure this workspace's rules name explicitly. The endpoint
+concentration is reported as an observation, supported by the table, not used
+to replace the number.
+
+~~**No cause is established for either endpoint effect.** Both sit at a boundary
+of the `calcem` treatment, which is suggestive and is not evidence.~~
+**CORRECTED 2026-10-14:** both were the port's. At the time ITIX was an
+analytic integral, not `calcem`'s `xsi` (changed 2026-09-29), and the `sig`
+kernel differed from upstream's; see the 2026-10-14 record.
+
+## Exhaustive pass — every block, all nine tapes (2026-09-21)
+
+The results above covered `NXS`, `ITIE`/`ITIX` and `ITCE`/`ITCX`. **`ITXE` — the
+equiprobable emission bins, which are the bulk of the table (28 832 of Al-27's
+30 182 values) — had never been differenced against anything.** Neither had the
+incoherent-elastic blocks, the `JXS` locators, or the declared table length.
+They are all compared now.
+
+### Layout, taken from upstream's own printer
+
+`aceth.f90:904-968` walks `ITXE` for `IFENG = 0` as:
+
+```text
+loc = itxe - 1
+for i in 1..=nie:          nang = nil + 1,  nbini = nieb
+    for j in 1..=nbini:    xss[loc+1 ..= loc+nang+1]    # E', then mu(1..nang)
+                           loc += nang + 1
+```
+
+so the block is `NIE * NIEB * (nang+1)` values — 106 x 16 x 17 = **28 832** on
+every tape here. The incoherent-elastic layout is `aceth.f90:1031-1041`:
+`IDPNC = 3` uses `ITCE`/`ITCA` with `nea = NCL+1`; `IDPNC = 5` uses the
+secondary `ITCEI`/`ITCAI` with `nea = NCLI+1`.
+
+**Positional comparison is used for `ITXE`, and only there.** Everywhere else
+this record matches by energy, because two codes do not share a grid. `ITXE` is
+built on NJOY's own incident-energy grid with NJOY's own `NIEB` and `NIL`, so
+entry *k* of one table is the same (incident energy, bin, cosine) as entry *k*
+of the other by construction — and the `NXS` assertion has already passed
+before the block is reached.
+
+**`E'` and the cosines are reported separately, and the cosines as an ABSOLUTE
+difference**, because a cosine legitimately passes through zero and a relative
+difference there is meaningless.
+
+### Results
+
+| tape | `ITXE` values | `E'` worst rel | cosines worst abs | incoherent elastic | structure |
+|---|---|---|---|---|---|
+| Al-27 | 28 832 | 5.434e-4 | 2.938e-4 | — | thinning |
+| C in SiC | 28 832 | 1.381e-5 | 3.792e-5 | — | thinning |
+| Si in SiC | 28 832 | 3.638e-5 | 4.323e-4 | — | thinning |
+| crystalline graphite | 28 832 | 2.583e-5 | 5.441e-5 | — | thinning |
+| graphite ENDF/B-VII.0 | 28 832 | 4.937e-5 | 1.945e-5 | — | thinning |
+| reactor graphite 10 % | 28 832 | 1.460e-5 | 1.814e-5 | — | thinning |
+| reactor graphite 30 % | 28 832 | 1.177e-5 | 1.814e-5 | — | thinning |
+| H in ZrH | 28 832 | 4.414e-6 | 2.910e-5 | **1.5e-16 / 5.0e-8** | ok |
+| **H in H2O** | 28 832 | **7.600e-3** | **4.263e-2** | — | ok |
+
+~~**Incoherent elastic is essentially exact.**~~ H-in-ZrH is the only tape here
+carrying it (`IDPNC = 3`): its energies agree to **1.451e-16** and its
+equiprobable cosines to **4.998e-8** absolute. **CORRECTED 2026-10-14**
+(GitHub #866): that compared the energies and cosines only. The cross section
+(`ITCX`) was not compared, and it differed in all 106 words, worst 2.24e-3 at
+3.75 eV, because ACER interpolates THERMR's 7-figure MF=3 on the incident
+PENDF grid rather than storing `iel`'s value. The 5e-8 on the cosines was the
+ENDF text's precision. Both are now NJOY2016's word for word:
+[`acer_thermal_incoherent_elastic_2026_10_14.md`](acer_thermal_incoherent_elastic_2026_10_14.md).
+
+**H-in-H2O is the outlier**, at 4.3e-2 absolute on an emission cosine — two
+orders worse than any other tape, and the same evaluation that is the outlier
+on the inelastic cross section. ~~No cause is established for it.~~
+**CORRECTED 2026-10-14:** the port's (`tol = 0.05` against a 0.001 reference
+at the time, then the `sig`/`sigl`/`tpend` differences); H in H₂O is now
+identical in every word.
+
+### Structural differences are fully attributed, not waved through
+
+Seven of nine report `struct=thinning` rather than `ok`. That is **not** an
+unexplained mismatch: the comparator checks the arithmetic. The coherent-elastic
+block is `2*NEE` values (NEE edge energies + NEE cumulative `S`), so if this
+port keeps more Bragg edges than NJOY, the table length must differ by exactly
+`2*(NEE_ours - NEE_njoy)` and every locator after `ITCE` must shift by exactly
+that edge count. On Al-27:
+
+| quantity | ours | NJOY | difference |
+|---|---|---|---|
+| Bragg edges `NEE` | 568 | 309 | **259** |
+| `ITCX` locator | 29 615 | 29 356 | **259** |
+| `XSS` length | 30 182 | 29 664 | **518 = 2 x 259** |
+
+Both identities hold exactly, so the entire structural difference is edge
+thinning and nothing else. The two tapes with no coherent elastic (H-in-H2O,
+H-in-ZrH) report `ok` — their locators and lengths match outright, which is the
+control that shows the attribution is not just absorbing any discrepancy.
+
+**If the arithmetic ever fails to close, the comparator says so** and does not
+report `thinning` — that is the difference between an attributed difference and
+an excused one.
+
+## What is NOT covered
+
+- ~~**ITXE, the equiprobable emission bins, is not differenced.**~~
+  **CORRECTED 2026-09-21** — it is, on all nine tapes, 28 832 values each. See
+  the exhaustive section above.
+- ~~**Incoherent-elastic is not compared** (H in ZrH).~~ **CORRECTED
+  2026-09-21** — compared; H-in-ZrH agrees to 1.5e-16 on energies and 5.0e-8 on
+  cosines. It remains the only tape here carrying incoherent elastic, so
+  `IDPNC = 5` (mixed) is still unexercised by any evaluation in this
+  repository.
+- ~~The extra Bragg edges are a thinning difference.~~ **CORRECTED
+  2026-10-14:** ACER's own selection is ported; 309 of 309 on Al-27.
+- **One temperature per tape** — each evaluation's own `T₀`. The
+  `IncoherentInelastic` structure carries `S(α,β)` at the base temperature
+  only, so no other temperature can be produced from it for the inelastic half.
+- **`IFENG = 1` and `IFENG = 2`** (skewed, continuous-tabular) are unported, so
+  no reference in those forms is comparable.
+- **Nothing here is validation.** Agreement with NJOY2016 says this port
+  reproduces NJOY2016, not that either describes a moderator.
+
+## Reproducing
+
+```bash
+cargo build --release -p njoy-outram-park-fork --example thermal_ace_vs_njoy2016
+# inventory first -- the NJOY deck cannot be written until T0 is known
+./target/release/examples/thermal_ace_vs_njoy2016 - --tsl tsl-013_Al_027-ENDF8.0.endf --mat 53
+# then, against an NJOY table built with iopt=2 and iwt=1 at that T0:
+./target/release/examples/thermal_ace_vs_njoy2016 <njoy.ace> \
+    --tsl tsl-013_Al_027-ENDF8.0.endf --mat 53 --temp-k 20 --natom 1
+```

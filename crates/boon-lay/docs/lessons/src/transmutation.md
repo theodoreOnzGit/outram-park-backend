@@ -1,0 +1,88 @@
+# Transmutation while walking
+
+> **Research, education and V&V only** ([`RESPONSIBLE_USE.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/RESPONSIBLE_USE.md)).
+> **Review status:** AI-assisted draft, 2026-10-04, not yet human-reviewed.
+
+**Extended deep dive.** Covers
+[`lagrangian_transmutation_and_fission_simulator`](../../api/boon_lay/lagrangian_transmutation_and_fission_simulator/index.html)
+and `first_passage::depletion`, which the ladder names at [rung 2](../../tutorials/triso-atops/decay.html)
+and walks past.
+
+## The problem
+
+Rung 2 gave an atom a decay clock while it sat still; rung 3 made it walk
+without a clock. A real fission product does both, and inside a reactor a
+neutron can also change it (Xe-135 capturing a neutron becomes Xe-136). How
+do all three run together, without a burnup matrix?
+
+## Competing clocks beside each hop
+
+For the walker's current nuclide the total event rate is
+
+$$\lambda_{\text{total}} = \lambda_{\text{decay}} + \lambda_{\text{transmute}},\qquad \lambda_{\text{decay}} = \frac{\ln 2}{T_{1/2}},\qquad \lambda_{\text{transmute}} = \phi\ \sigma,$$
+
+and the time to the next event is drawn once,
+$t = -\ln(1-u)/\lambda_{\text{total}}$. Each Walk-on-Spheres hop takes a
+first-passage time $\tau$. If $t < \tau$, the event happens *before* the hop
+completes: the atom changes nuclide (and so its $D$), its clock advances by
+exactly $t$, and it stays at the hop's start. Otherwise the hop completes and
+the clock is redrawn. The histogram of identities across many walkers over
+time **is** the depleted inventory.
+
+## In the code
+
+*In words, read from the source by hand:*
+
+<!-- walk-in-words: from=crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::advance_until to=crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::sample_event_time -->
+1. [`WoSWalker::advance_until`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#@@L:crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:fn=advance_until@@) (an `impl WoSWalker` block in `depletion.rs`): loop until the time is reached, the walker is released, or the step cap is hit;
+2. → `decay_rate` → `DecayLibrary::try_match_nuclides_to_decay_data` (rung 2) and `Transmutation::rate_for`;
+3. → [`sample_event_time`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs#@@L:crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs:fn=sample_event_time@@): $-\ln(1-u)/\lambda$;
+4. → `WoSWalker::step_multilayer` (rung 4) for the hop;
+5. **branch** event first → which channel, by competing rates → `decay_once` (a daughter from the library's branches, drawn from the walker's own stream) or `Transmutation::product_for`;
+6. returns a [`DepletionOutcome`](../../api/boon_lay/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion/enum.DepletionOutcome.html): `Released`, `Inside` or the step-cap guard.
+<!-- /walk-in-words -->
+
+
+> **On the [Code Review map](../../code-review/):** start at [`advance_until`](../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::advance_until) and follow its callees (▸) to [`sample_event_time`](../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::sample_event_time). Each card opens the function's source and shows its review stamp.
+
+Ensembles of these run in parallel through
+[`parallel_advance_until`](./compute-backends.md).
+
+## What is there, and what is not
+
+| Channel | Status |
+|---|---|
+| radioactive decay | wired to the real ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8) `DecayLibrary` |
+| `(n,γ)` | **one** explicit channel: a target, a rate $\phi\sigma$ folded into one frequency, a product ([`Transmutation`](../../api/boon_lay/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion/enum.Transmutation.html)) |
+| `(n,2n)` | not implemented |
+| fission, with yield sampling | not implemented |
+| per-nuclide cross sections, flux maps | not wired; the natural sources are `njoy-outram-park-fork` and `outram-mc-libs` |
+
+**The placement approximation.** When an event cuts a hop short, the atom
+changes identity at the hop's *start*. The timing is exact; the position is
+conservative. It is accurate when the hop time is short compared with the
+event time. The exact Brownian-bridge placement is a possible refinement and
+is not measured.
+
+## The checks
+
+Four unit tests in `depletion.rs`: the sampled waiting time has mean
+$1/\lambda$; decay changes a nuclide to a daughter of higher $Z$;
+irradiation transmutes a stable target; no field leaves a stable nuclide
+unchanged. **There is no V&V record** comparing a depleting ensemble with a
+Bateman solution for a decay chain, or a capture channel with its analytic
+build-up. That is the check this module needs before any number from it is
+quoted; filed as gh:#539.
+
+## Why bother, when a matrix method exists?
+
+No stiffness, no matrix exponential, cost linear in the number of atoms, and
+each atom can be animated. The price is statistics: a rare nuclide needs
+many histories to be seen at all (rung 2, step 5).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<!-- references:end -->

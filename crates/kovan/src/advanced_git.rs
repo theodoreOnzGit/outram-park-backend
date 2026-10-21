@@ -13,7 +13,8 @@
 //!   (reusing [`crate::repository::status`] and
 //!   [`kovan_discovery::git::GitProvider`] rather than a second
 //!   implementation of either).
-//! - [`list_remotes`], [`fetch`], [`pull`], [`push`] — shell out to the
+//! - [`list_remotes`], [`fetch`], [`pull`], [`push`], [`force_pull_in`],
+//!   [`abort_in_progress_in`] — shell out to the
 //!   system `git` binary via [`std::process::Command`]. `kovan-discovery`'s
 //!   `GixCliBackend` is **not** reused here even though its name suggests
 //!   it might fit: it wraps the `gix` *CLI* (gitoxide's own binary, a
@@ -28,6 +29,18 @@
 //! a caller needs — [`fetch`]/[`pull`]/[`push`]/[`list_remotes`] all
 //! return [`RemoteError::GitUnavailable`] cleanly rather than panicking or
 //! hanging when it is `false`.
+//!
+//! # A conflicted pull is a question, not just an error (GH issue #279)
+//!
+//! [`pull_in`] separates the one remote failure the user can answer —
+//! the folder and the remote disagree — into [`RemoteError::Conflict`], so
+//! the GUI can ask *"you may have unsaved changes, u sure u want to pull
+//! anot?"* (the maintainer's own words, 2026-09-23) and act on the answer:
+//! [`force_pull_in`] for "yes, can", [`abort_in_progress_in`] for "no, i
+//! manage myself". [`force_pull_in`] **destroys uncommitted and untracked
+//! work by design** — read its doc before calling it from anywhere else.
+//! Since GH issue #502 it no longer destroys unpushed *commits*: those are
+//! kept on a `kovan-kept/<commit>` branch before the reset.
 
 use std::process::Command;
 
@@ -58,6 +71,49 @@ pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
 /// was tested; it just had no button wired to it).
 pub fn save(root: &KovanRoot) -> Result<Option<SaveSummary>, RepositoryError> {
     repository::save_repository(root)
+}
+
+/// [`save`] with the user's own commit `note` appended to every commit the
+/// save makes (subjects unchanged) — see
+/// [`crate::repository::save_repository_with_message`]. A blank note is
+/// exactly [`save`].
+pub fn save_with_message(
+    root: &KovanRoot,
+    note: &str,
+) -> Result<Option<SaveSummary>, RepositoryError> {
+    repository::save_repository_with_message(root, note)
+}
+
+/// Save Repository and then, when `push` is set, push the corpora and the
+/// Kovan repository ([`crate::save_push::push_after_save`], whose doc has the
+/// order and the safety rules). The push runs after any successful save,
+/// including one with nothing new to commit (earlier saves may be
+/// unpushed), and never after a failed one. `push` is normally
+/// [`push_after_save_setting`]; the GUI passes its checkbox.
+///
+/// Returns the save's own result unchanged (so the commit-note handling is
+/// exactly as before) and the push report, `None` when nothing was pushed
+/// because pushing is off or the save failed.
+pub fn save_and_push(
+    root: &KovanRoot,
+    note: &str,
+    push: bool,
+) -> (
+    Result<Option<SaveSummary>, RepositoryError>,
+    Option<crate::save_push::PushReport>,
+) {
+    let saved = repository::save_repository_with_message(root, note);
+    let pushed = (push && saved.is_ok()).then(|| crate::save_push::push_after_save(root));
+    (saved, pushed)
+}
+
+/// Whether this library pushes after a save (`[save] push_after_save` in
+/// `kovan_root.toml`, default ON), read from the file on disk rather than
+/// `root`'s in-memory copy, which may predate a change of the checkbox.
+pub fn push_after_save_setting(root: &KovanRoot) -> bool {
+    KovanRoot::open(root.path())
+        .map(|r| r.config().save.push_after_save)
+        .unwrap_or(root.config().save.push_after_save)
 }
 
 /// Up to `max` commits of history, newest first — reuses
@@ -107,6 +163,19 @@ pub enum RemoteError {
     /// No usable system `git` binary — §38's "remains fully functional
     /// without system Git; only remote operations are unavailable".
     GitUnavailable,
+    /// A [`pull_in`] Git refused, or could not finish, because the folder
+    /// and the remote disagree — the one failure the user can be offered a
+    /// way out of, rather than only shown (GH issue #279). Kept separate
+    /// from [`Self::Failed`] so the caller can put up the "sure anot?"
+    /// prompt for exactly this case and nothing else: a bad URL, a missing
+    /// branch or a refused credential must still surface as a plain error.
+    ///
+    /// `output` is Git's own stdout **and** stderr, in that order — see
+    /// [`is_conflict`] for why both are needed.
+    Conflict {
+        command: String,
+        output: String,
+    },
     /// `git` ran and exited non-zero.
     Failed {
         command: String,
@@ -122,6 +191,9 @@ impl std::fmt::Display for RemoteError {
                 f,
                 "no usable system `git` binary — remote operations are unavailable"
             ),
+            Self::Conflict { command, output } => {
+                write!(f, "`{command}` stopped on a conflict: {output}")
+            }
             Self::Failed { command, stderr } => write!(f, "`{command}` failed: {stderr}"),
             Self::Io(e) => write!(f, "{e}"),
         }
@@ -139,16 +211,33 @@ pub fn system_git_available() -> bool {
         .unwrap_or(false)
 }
 
-fn run_git(root: &KovanRoot, args: &[&str]) -> Result<String, RemoteError> {
+/// Run the system `git` in the repository at `dir` (any repository, not only
+/// a Kovan folder: the corpus repositories too, #255), handing back the raw
+/// [`std::process::Output`] — exit status, stdout **and** stderr — whatever
+/// the exit status was.
+///
+/// [`run_git_in`] is the usual wrapper; this one exists because `git pull`
+/// reports a merge conflict on **stdout** (`CONFLICT (content): Merge
+/// conflict in …`, `Automatic merge failed …`), which a stderr-only error
+/// path throws away (GH issue #279).
+fn git_output_in(
+    dir: &std::path::Path,
+    args: &[&str],
+) -> Result<std::process::Output, RemoteError> {
     if !system_git_available() {
         return Err(RemoteError::GitUnavailable);
     }
-    let output = Command::new("git")
+    Command::new("git")
         .arg("-C")
-        .arg(root.path())
+        .arg(dir)
         .args(args)
         .output()
-        .map_err(RemoteError::Io)?;
+        .map_err(RemoteError::Io)
+}
+
+/// [`git_output_in`], failing on a non-zero exit with its stderr.
+fn run_git_in(dir: &std::path::Path, args: &[&str]) -> Result<String, RemoteError> {
+    let output = git_output_in(dir, args)?;
     if !output.status.success() {
         return Err(RemoteError::Failed {
             command: format!("git {}", args.join(" ")),
@@ -168,7 +257,12 @@ pub struct RemoteInfo {
 /// The library's configured remotes (`git remote -v`, fetch URLs, deduped
 /// by name).
 pub fn list_remotes(root: &KovanRoot) -> Result<Vec<RemoteInfo>, RemoteError> {
-    let text = run_git(root, &["remote", "-v"])?;
+    list_remotes_in(root.path())
+}
+
+/// The remotes of the repository at `dir` (see [`list_remotes`]).
+pub fn list_remotes_in(dir: &std::path::Path) -> Result<Vec<RemoteInfo>, RemoteError> {
+    let text = run_git_in(dir, &["remote", "-v"])?;
     let mut seen = std::collections::BTreeSet::new();
     let mut out = Vec::new();
     for line in text.lines() {
@@ -188,17 +282,290 @@ pub fn list_remotes(root: &KovanRoot) -> Result<Vec<RemoteInfo>, RemoteError> {
 
 /// `git fetch <remote>` — network I/O via the system binary, never gitoxide.
 pub fn fetch(root: &KovanRoot, remote: &str) -> Result<String, RemoteError> {
-    run_git(root, &["fetch", remote])
+    fetch_in(root.path(), remote)
 }
 
 /// `git pull <remote> <branch>`.
 pub fn pull(root: &KovanRoot, remote: &str, branch: &str) -> Result<String, RemoteError> {
-    run_git(root, &["pull", remote, branch])
+    pull_in(root.path(), remote, branch)
 }
 
 /// `git push <remote> <branch>`.
 pub fn push(root: &KovanRoot, remote: &str, branch: &str) -> Result<String, RemoteError> {
-    run_git(root, &["push", remote, branch])
+    push_in(root.path(), remote, branch)
+}
+
+/// [`fetch`] in the repository at `dir`.
+pub fn fetch_in(dir: &std::path::Path, remote: &str) -> Result<String, RemoteError> {
+    run_git_in(dir, &["fetch", remote])
+}
+
+/// [`pull`] in the repository at `dir`.
+///
+/// A pull Git refuses, or leaves half-done, because the folder and the
+/// remote disagree comes back as [`RemoteError::Conflict`] rather than
+/// [`RemoteError::Failed`] (GH issue #279), so the GUI can offer
+/// [`force_pull_in`] instead of only printing Git's complaint. Everything
+/// else — unreachable remote, unknown branch, refused credentials — stays a
+/// plain `Failed`.
+pub fn pull_in(dir: &std::path::Path, remote: &str, branch: &str) -> Result<String, RemoteError> {
+    let args = ["pull", remote, branch];
+    let output = git_output_in(dir, &args)?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if output.status.success() {
+        return Ok(stdout.to_string());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let command = format!("git {}", args.join(" "));
+    // stdout first: that is where the conflict itself is reported, and a
+    // reader of the message wants it before the "From <url>" fetch noise.
+    let combined = format!("{}\n{}", stdout.trim(), stderr.trim());
+    if is_conflict(&combined) {
+        return Err(RemoteError::Conflict {
+            command,
+            output: combined.trim().to_string(),
+        });
+    }
+    Err(RemoteError::Failed {
+        command,
+        stderr: stderr.trim().to_string(),
+    })
+}
+
+/// Whether a failed `git pull`'s combined stdout+stderr says the folder and
+/// the remote disagree — i.e. whether a forced pull is the way out.
+///
+/// The needles are Git's own wording, captured from a real `git` (2.x,
+/// 2026-09-23) driving a local bare remote through each case, not guessed:
+///
+/// | case | Git says | stream |
+/// |---|---|---|
+/// | uncommitted edit to a file the merge touches | `error: Your local changes to the following files would be overwritten by merge:` … `Please commit your changes or stash them before you merge.` | stderr |
+/// | untracked file the merge would write over | `error: The following untracked working tree files would be overwritten by merge:` | stderr |
+/// | both sides committed, same lines | `CONFLICT (content): Merge conflict in <file>` / `Automatic merge failed; fix conflicts and then commit the result.` | **stdout** |
+/// | pulled again, merge still unresolved | `error: Pulling is not possible because you have unmerged files.` | stderr |
+/// | both sides committed, no `pull.rebase` set | `fatal: Need to specify how to reconcile divergent branches.` | stderr |
+/// | `pull.rebase=true`, same lines | `error: could not apply <sha>…` / `Resolve all conflicts manually` | stdout |
+///
+/// The last one is included deliberately even though Git frames it as a
+/// missing configuration: the folder *has* diverged, and the forced pull is
+/// exactly what resolves it. Matching is case-insensitive; the needles are
+/// substrings, so the file list and SHA that follow them do not matter.
+fn is_conflict(output: &str) -> bool {
+    const NEEDLES: [&str; 8] = [
+        "would be overwritten by merge",
+        "please commit your changes or stash them",
+        "conflict (",
+        "automatic merge failed",
+        "you have unmerged files",
+        "unresolved conflict",
+        "need to specify how to reconcile divergent branches",
+        "resolve all conflicts manually",
+    ];
+    let lowered = output.to_ascii_lowercase();
+    NEEDLES.iter().any(|n| lowered.contains(n))
+}
+
+/// The forced pull behind the GUI's "yes, can" (GH issue #279): make `dir`
+/// match `remote`/`branch` exactly, **destroying every local change**.
+///
+/// Concretely — abort whatever merge or rebase the failed pull left behind
+/// ([`abort_in_progress_in`]), `git fetch <remote> <branch>`,
+/// `git reset --hard FETCH_HEAD`, `git checkout -B <branch>` (so a detached
+/// corpus ends up on its branch), then `git clean -fd`.
+///
+/// # This throws work away
+///
+/// Everything not committed (~~committed **and** pushed~~, see below) is
+/// gone afterwards, with no undo:
+/// uncommitted edits, and — the maintainer's explicit choice, 2026-09-23 —
+/// untracked files too, so a PDF or a note dropped into the folder and never
+/// saved does not survive. Only ignored files (`git clean` without `-x`) and
+/// submodule contents (without `-ff`) are left alone. ~~Local *commits* that
+/// were never pushed are discarded as well: `reset --hard` moves the branch
+/// to the fetched tip, it does not merge onto it.~~ **CHANGED 2026-10-07
+/// (GH issue #502)**: that is how a saved PDF was lost — Save's push was
+/// rejected, Pull offered this prompt for "saves the remote does not have",
+/// and "yes, can" reset the save away. Local commits the fetched tip does
+/// not contain (on `HEAD` or on `branch`) are now first kept on a branch
+/// `kovan-kept/<short commit>` ([`keep_unpushed_commits_in`]), named in the
+/// returned message, so the reset moves the branch but deletes no commit.
+///
+/// Never call this without the user having answered the prompt; the caller
+/// that does is `crate::app::advanced_git_view`.
+pub fn force_pull_in(
+    dir: &std::path::Path,
+    remote: &str,
+    branch: &str,
+) -> Result<String, RemoteError> {
+    abort_in_progress_in(dir)?;
+    run_git_in(dir, &["fetch", remote, branch])?;
+    let kept = keep_unpushed_commits_in(dir, branch)?;
+    // FETCH_HEAD, not `<remote>/<branch>`: it is what the fetch just wrote,
+    // so this works even where no remote-tracking ref exists (a folder set
+    // up by `corpus_repos::clone`'s detached checkout, e.g.).
+    run_git_in(dir, &["reset", "--hard", "FETCH_HEAD"])?;
+    // Leave the folder on `branch`, not detached: a corpus submodule is
+    // usually detached, and a save on a detached HEAD is refused by
+    // push-after-save when it cannot fast-forward (#422). The commit is the
+    // one just checked out, so no file changes.
+    run_git_in(dir, &["checkout", "-q", "-B", branch])?;
+    run_git_in(dir, &["clean", "-fd"])?;
+    let kept = if kept.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "; saves that were never pushed are kept on {}",
+            kept.join(", ")
+        )
+    };
+    Ok(format!(
+        "{dir} now matches {remote}/{branch} exactly{kept}",
+        dir = dir.display()
+    ))
+}
+
+/// Before [`force_pull_in`]'s reset: for `HEAD` and the local `branch`,
+/// whichever holds commits that `FETCH_HEAD` does not contain, create a
+/// branch `kovan-kept/<short commit>` at it (reused when it already exists
+/// at that commit). Returns the branches holding kept commits (GH #502).
+pub fn keep_unpushed_commits_in(
+    dir: &std::path::Path,
+    branch: &str,
+) -> Result<Vec<String>, RemoteError> {
+    let mut kept: Vec<String> = Vec::new();
+    for rev in ["HEAD".to_string(), format!("refs/heads/{branch}")] {
+        let Ok(commit) = run_git_in(dir, &["rev-parse", "--verify", "-q", &rev]) else {
+            continue;
+        };
+        let commit = commit.trim().to_string();
+        let ahead = run_git_in(
+            dir,
+            &["rev-list", "--count", &format!("FETCH_HEAD..{commit}")],
+        )?;
+        if ahead.trim() == "0" {
+            continue;
+        }
+        let name = format!("kovan-kept/{}", &commit[..commit.len().min(12)]);
+        if kept.contains(&name) {
+            continue;
+        }
+        let existing = run_git_in(
+            dir,
+            &["rev-parse", "--verify", "-q", &format!("refs/heads/{name}")],
+        );
+        if existing.is_err() {
+            run_git_in(dir, &["branch", &name, &commit])?;
+        }
+        kept.push(name);
+    }
+    Ok(kept)
+}
+
+/// Abort a merge or rebase a failed [`pull_in`] left in progress, putting
+/// the folder back as it was before the pull — the GUI's "no, i manage
+/// myself" (GH issue #279), and the first step of [`force_pull_in`].
+///
+/// `Ok(false)` means there was nothing in progress, which is the ordinary
+/// case for a pull Git refused outright (it aborts by itself, leaving the
+/// working tree untouched) and is not an error. `git merge --abort` with no
+/// merge in flight exits 128 with "There is no merge to abort", so the
+/// markers are checked first rather than running it and swallowing failures.
+pub fn abort_in_progress_in(dir: &std::path::Path) -> Result<bool, RemoteError> {
+    if git_path_exists(dir, "MERGE_HEAD") {
+        run_git_in(dir, &["merge", "--abort"])?;
+        return Ok(true);
+    }
+    if git_path_exists(dir, "rebase-merge") || git_path_exists(dir, "rebase-apply") {
+        run_git_in(dir, &["rebase", "--abort"])?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+/// Whether `name` exists inside `dir`'s git directory, asked of Git itself
+/// (`git rev-parse --git-path`) rather than assuming `dir/.git/<name>` —
+/// which is wrong for a worktree or a submodule, where `.git` is a file
+/// pointing elsewhere.
+fn git_path_exists(dir: &std::path::Path, name: &str) -> bool {
+    let Ok(path) = run_git_in(dir, &["rev-parse", "--git-path", name]) else {
+        return false;
+    };
+    // `-C dir` makes the answer relative to `dir`, when it is relative.
+    dir.join(path.trim()).exists()
+}
+
+/// The remote to pull from or push to: `origin` if present, otherwise the
+/// only remote; `None` when there are several and none is `origin` (never a
+/// guess).
+pub fn default_remote(remotes: &[RemoteInfo]) -> Option<&RemoteInfo> {
+    remotes
+        .iter()
+        .find(|r| r.name == "origin")
+        .or_else(|| (remotes.len() == 1).then(|| &remotes[0]))
+}
+
+/// What the Code Review tab's "Sync down" pulls (maintainer, 2026-10-12):
+/// the code repository at `dir`, its checked-out branch, from
+/// [`default_remote`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PullTarget {
+    pub dir: std::path::PathBuf,
+    pub remote: String,
+    pub branch: String,
+}
+
+/// Find [`PullTarget`] for `dir`, or say in words why there is none (not a
+/// repository, a detached checkout, no remote, several remotes and no
+/// `origin`).
+pub fn pull_target_in(dir: &std::path::Path) -> Result<PullTarget, String> {
+    // A workspace opened at a crate inside the repository pulls the whole
+    // repository, so the prompt names the folder a forced pull would reset.
+    let top = run_git_in(dir, &["rev-parse", "--show-toplevel"]).map_err(|_| {
+        format!("{} is not inside a Git repository", dir.display())
+    })?;
+    let dir = &std::path::PathBuf::from(top.trim());
+    let branch = current_branch_in(dir).ok_or_else(|| {
+        format!(
+            "{} is not on a branch (not a Git repository, or a detached checkout); \
+             check out a branch to sync",
+            dir.display()
+        )
+    })?;
+    let remotes = list_remotes_in(dir).map_err(|e| e.to_string())?;
+    let remote = default_remote(&remotes).ok_or_else(|| {
+        if remotes.is_empty() {
+            format!("{} has no remote to pull from", dir.display())
+        } else {
+            format!(
+                "{} has several remotes and none is called origin; pull from the terminal",
+                dir.display()
+            )
+        }
+    })?;
+    Ok(PullTarget {
+        dir: dir.to_path_buf(),
+        remote: remote.name.clone(),
+        branch,
+    })
+}
+
+/// [`push`] in the repository at `dir`.
+pub fn push_in(dir: &std::path::Path, remote: &str, branch: &str) -> Result<String, RemoteError> {
+    run_git_in(dir, &["push", remote, branch])
+}
+
+/// `git remote add <name> <url>` in the repository at `dir`.
+pub fn add_remote_in(dir: &std::path::Path, name: &str, url: &str) -> Result<String, RemoteError> {
+    run_git_in(dir, &["remote", "add", name, url])
+}
+
+/// The branch checked out in the repository at `dir`, if any (read with
+/// `gix`, no subprocess). `None` for a detached head or no repository.
+pub fn current_branch_in(dir: &std::path::Path) -> Option<String> {
+    let repo = gix::open(dir).ok()?;
+    let name = repo.head_name().ok().flatten()?;
+    Some(name.shorten().to_string())
 }
 
 #[cfg(test)]
@@ -281,6 +648,292 @@ mod tests {
 
         push(&root, "origin", "main").unwrap();
         fetch(&root, "origin").unwrap();
+    }
+
+    // -----------------------------------------------------------------
+    // GH issue #279 — a conflicted pull, and the forced pull out of it.
+    // -----------------------------------------------------------------
+
+    /// Real `git` in `dir`, asserting success; identity is passed per
+    /// invocation so the test does not depend on a global `user.email`.
+    fn git(dir: &std::path::Path, args: &[&str]) -> String {
+        let out = StdCommand::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["-c", "user.email=t@example.com", "-c", "user.name=t"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).to_string()
+    }
+
+    fn write(dir: &std::path::Path, name: &str, text: &str) {
+        std::fs::write(dir.join(name), text).unwrap();
+    }
+
+    /// A bare "remote" whose `main` holds `f.txt = theirs`, plus a clone
+    /// left one commit behind on `f.txt = base`.
+    fn diverging_pair() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let remote = dir.path().join("remote.git");
+        let theirs = dir.path().join("theirs");
+        let ours = dir.path().join("ours");
+
+        assert!(StdCommand::new("git")
+            .args(["init", "-q", "--bare", "-b", "main"])
+            .arg(&remote)
+            .status()
+            .unwrap()
+            .success());
+        assert!(StdCommand::new("git")
+            .args(["clone", "-q"])
+            .arg(&remote)
+            .arg(&theirs)
+            .status()
+            .unwrap()
+            .success());
+        write(&theirs, "f.txt", "base\n");
+        git(&theirs, &["add", "."]);
+        git(&theirs, &["commit", "-qm", "base"]);
+        git(&theirs, &["push", "-q", "origin", "main"]);
+
+        assert!(StdCommand::new("git")
+            .args(["clone", "-q"])
+            .arg(&remote)
+            .arg(&ours)
+            .status()
+            .unwrap()
+            .success());
+
+        write(&theirs, "f.txt", "theirs\n");
+        git(&theirs, &["commit", "-qam", "theirs"]);
+        git(&theirs, &["push", "-q", "origin", "main"]);
+
+        (dir, remote, ours)
+    }
+
+    /// "Sync down" (Code Review tab) pulls the checked-out branch from
+    /// origin: found from the clone, a clean pull fast-forwards, and an
+    /// uncommitted edit comes back as the conflict that raises the prompt.
+    #[test]
+    fn sync_down_pulls_the_checked_out_branch_from_origin() {
+        if !system_git_available() {
+            eprintln!("system git not available; skipping");
+            return;
+        }
+        let (_dir, _remote, ours) = diverging_pair();
+        let t = pull_target_in(&ours).unwrap();
+        assert_eq!((t.remote.as_str(), t.branch.as_str()), ("origin", "main"));
+        assert_eq!(
+            dunce::canonicalize(&t.dir).unwrap(),
+            dunce::canonicalize(&ours).unwrap()
+        );
+        // From a folder inside the repository, the repository itself.
+        std::fs::create_dir(ours.join("sub")).unwrap();
+        assert_eq!(pull_target_in(&ours.join("sub")).unwrap(), t);
+
+        write(&ours, "f.txt", "mine\n");
+        assert!(matches!(
+            pull_in(&t.dir, &t.remote, &t.branch),
+            Err(RemoteError::Conflict { .. })
+        ));
+        git(&ours, &["checkout", "--", "f.txt"]);
+        pull_in(&t.dir, &t.remote, &t.branch).unwrap();
+        assert_eq!(std::fs::read_to_string(ours.join("f.txt")).unwrap(), "theirs\n");
+    }
+
+    /// No branch, or no remote to choose without guessing: refused in words.
+    #[test]
+    fn sync_down_refuses_a_detached_checkout_or_an_ambiguous_remote() {
+        if !system_git_available() {
+            eprintln!("system git not available; skipping");
+            return;
+        }
+        let (_dir, _remote, ours) = diverging_pair();
+        git(&ours, &["remote", "rename", "origin", "a"]);
+        git(&ours, &["remote", "add", "b", "https://example.com/b.git"]);
+        let e = pull_target_in(&ours).unwrap_err();
+        assert!(e.contains("several remotes"), "{e}");
+
+        git(&ours, &["checkout", "-q", "--detach"]);
+        let e = pull_target_in(&ours).unwrap_err();
+        assert!(e.contains("not on a branch"), "{e}");
+
+        let plain = tempfile::tempdir().unwrap();
+        assert!(pull_target_in(plain.path()).is_err());
+    }
+
+    /// The needles in [`is_conflict`] against Git's real wording (captured
+    /// 2026-09-23), and against failures that must *not* offer a forced
+    /// pull — a wrong URL or a missing branch is not something the user can
+    /// answer "yes, can" to.
+    #[test]
+    fn a_conflict_is_told_apart_from_an_ordinary_pull_failure() {
+        for conflicted in [
+            "error: Your local changes to the following files would be overwritten by merge:\n\tf.txt\nPlease commit your changes or stash them before you merge.\nAborting",
+            "error: The following untracked working tree files would be overwritten by merge:\n\tf.txt",
+            "Auto-merging f.txt\nCONFLICT (content): Merge conflict in f.txt\nAutomatic merge failed; fix conflicts and then commit the result.",
+            "error: Pulling is not possible because you have unmerged files.\nfatal: Exiting because of an unresolved conflict.",
+            "hint: You have divergent branches and need to specify how to reconcile them.\nfatal: Need to specify how to reconcile divergent branches.",
+            "error: could not apply 1467fce... mine\nResolve all conflicts manually, mark them as resolved with git add",
+        ] {
+            assert!(is_conflict(conflicted), "should be a conflict: {conflicted}");
+        }
+        for ordinary in [
+            "fatal: repository 'https://example.com/nope.git' not found",
+            "fatal: couldn't find remote ref no-such-branch",
+            "fatal: Authentication failed for 'https://example.com/'",
+            "Already up to date.",
+            "",
+        ] {
+            assert!(
+                !is_conflict(ordinary),
+                "should not be a conflict: {ordinary}"
+            );
+        }
+    }
+
+    /// An uncommitted edit Git refuses to overwrite comes back as
+    /// [`RemoteError::Conflict`], carrying Git's own words — the case the
+    /// prompt's "you may have unsaved changes" is about.
+    #[test]
+    fn an_uncommitted_edit_makes_pull_report_a_conflict() {
+        if !system_git_available() {
+            eprintln!("system git not available; skipping");
+            return;
+        }
+        let (_dir, _remote, ours) = diverging_pair();
+        write(&ours, "f.txt", "mine\n");
+
+        match pull_in(&ours, "origin", "main") {
+            Err(RemoteError::Conflict { output, .. }) => {
+                assert!(
+                    output.contains("would be overwritten by merge"),
+                    "conflict message lost Git's reason: {output}"
+                );
+            }
+            other => panic!("expected a conflict, got {other:?}"),
+        }
+        // Git aborted by itself: nothing to abort, nothing changed.
+        assert!(!abort_in_progress_in(&ours).unwrap());
+        assert_eq!(
+            std::fs::read_to_string(ours.join("f.txt")).unwrap(),
+            "mine\n"
+        );
+    }
+
+    /// Two sides that both committed the same line: the pull leaves a merge
+    /// in progress (or is refused outright, depending on the machine's
+    /// `pull.rebase`), and either way it is a conflict. "no, i manage
+    /// myself" then puts the folder back exactly as it was before Pull.
+    #[test]
+    fn declining_the_prompt_restores_the_folder_to_its_pre_pull_state() {
+        if !system_git_available() {
+            eprintln!("system git not available; skipping");
+            return;
+        }
+        let (_dir, _remote, ours) = diverging_pair();
+        write(&ours, "f.txt", "mine\n");
+        git(&ours, &["commit", "-qam", "mine"]);
+        let before = git(&ours, &["rev-parse", "HEAD"]);
+
+        // Force the merge strategy so the in-progress state is reached on
+        // any machine, whatever `pull.rebase` is set to there.
+        let merged = StdCommand::new("git")
+            .arg("-C")
+            .arg(&ours)
+            .args([
+                "-c",
+                "user.email=t@example.com",
+                "-c",
+                "user.name=t",
+                "-c",
+                "pull.rebase=false",
+                "pull",
+                "origin",
+                "main",
+            ])
+            .output()
+            .unwrap();
+        assert!(!merged.status.success());
+        assert!(is_conflict(&format!(
+            "{}{}",
+            String::from_utf8_lossy(&merged.stdout),
+            String::from_utf8_lossy(&merged.stderr)
+        )));
+        assert!(ours.join(".git/MERGE_HEAD").exists());
+
+        assert!(abort_in_progress_in(&ours).unwrap());
+        assert_eq!(git(&ours, &["rev-parse", "HEAD"]), before);
+        assert_eq!(
+            std::fs::read_to_string(ours.join("f.txt")).unwrap(),
+            "mine\n"
+        );
+        assert!(git(&ours, &["status", "--porcelain"]).trim().is_empty());
+        assert!(!abort_in_progress_in(&ours).unwrap());
+    }
+
+    /// "yes, can": the folder ends up an exact mirror of the remote — the
+    /// local commit is gone, the uncommitted edit is gone, and (the
+    /// maintainer's choice) the untracked file is gone too.
+    #[test]
+    fn the_forced_pull_makes_the_folder_match_the_remote_exactly() {
+        if !system_git_available() {
+            eprintln!("system git not available; skipping");
+            return;
+        }
+        let (_dir, _remote, ours) = diverging_pair();
+        write(&ours, "f.txt", "mine\n");
+        git(&ours, &["commit", "-qam", "mine"]);
+        write(&ours, "f.txt", "mine, edited again\n");
+        write(&ours, "scratch.md", "never saved\n");
+        std::fs::create_dir(ours.join("notes")).unwrap();
+        write(&ours, "notes/a.md", "also never saved\n");
+
+        assert!(matches!(
+            pull_in(&ours, "origin", "main"),
+            Err(RemoteError::Conflict { .. })
+        ));
+
+        force_pull_in(&ours, "origin", "main").unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(ours.join("f.txt")).unwrap(),
+            "theirs\n"
+        );
+        assert!(!ours.join("scratch.md").exists());
+        assert!(!ours.join("notes").exists());
+        assert!(git(&ours, &["status", "--porcelain"]).trim().is_empty());
+        // And it is the remote's commit, not a merge of the two.
+        let log = git(&ours, &["log", "--oneline"]);
+        assert!(log.contains("theirs"), "{log}");
+        assert!(
+            !log.contains("mine"),
+            "the discarded commit survived: {log}"
+        );
+        // GH #502: but the unpushed commit is kept aside, not deleted.
+        let kept = git(
+            &ours,
+            &[
+                "branch",
+                "--list",
+                "kovan-kept/*",
+                "--format=%(refname:short)",
+            ],
+        );
+        let kept = kept.trim();
+        assert!(kept.starts_with("kovan-kept/"), "no kept branch: {kept:?}");
+        let kept_log = git(&ours, &["log", "--format=%s", "-1", kept]);
+        assert_eq!(kept_log.trim(), "mine");
+
+        // Idempotent: a second forced pull on an already-matching folder is
+        // a no-op, not an error.
+        force_pull_in(&ours, "origin", "main").unwrap();
     }
 
     #[test]

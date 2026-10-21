@@ -7,8 +7,9 @@
 //! The FHR pebble sits ~+1.7 % above the OpenMC reference, with `p` too high and
 //! `ε` too low — a spectrum that is too soft. Every named data mechanism is
 //! excluded by measurement: point σ against NJOY's PENDF (±0.04 %), the capture
-//! **resonance integral** against NJOY *and* the published RI_∞
-//! (`u238_resonance_integral.rs`, +0.00 %), graphite σ against THERMR (±0.05 %).
+//! **resonance integral** against NJOY ~~*and* the published RI_∞~~
+//! (`u238_resonance_integral.rs`, +0.00 %; the "published" value has no
+//! recorded source, 2026-10-04, #524), graphite σ against THERMR (±0.05 %).
 //!
 //! What was measured of the *kernel* was `ξ = ⟨ln(E/E′)⟩` from 0.0253 eV to
 //! **3.9 eV** — entirely inside the bound-atom regime, where
@@ -62,6 +63,7 @@
 //!     --example epithermal_slowing_down
 //! ```
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::physics::scatter::{
@@ -133,14 +135,24 @@ fn main() {
         ),
     ];
 
+    // ── Explicit ablation (GitHub #524, step 4a of the rung-2 lesson) ──────
+    // `TARGET_AT_REST=1` re-runs ONLY the thermal-equilibrium walk with every
+    // elastic collision off a target held at rest (the pre-`op-50vu` kernel),
+    // to re-measure the defect the free-gas kernel fixed. No gate: the walk is
+    // expected to have no equilibrium. Results in `thermalization_demo`'s docs.
+    if std::env::var("TARGET_AT_REST").as_deref() == Ok("1") {
+        let _ = thermalization_demo_with(&cases, TargetMotion::AtRest);
+        return;
+    }
+
     let mut seed = 20_260_911_u64;
     let mut any_violation = false;
     let mut kinematics: Vec<KinRow> = Vec::new();
 
     for (label, nuc) in &cases {
         let a = nuc.awr;
-        let alpha = ((a - 1.0) / (a + 1.0)).powi(2);
-        let xi_iso = 1.0 + alpha * alpha.ln() / (1.0 - alpha);
+        let alpha = ((a - 1.0) / (a + 1.0)).r_powi(2);
+        let xi_iso = 1.0 + alpha * alpha.r_ln() / (1.0 - alpha);
         let ratio_iso = 0.5 * (1.0 + alpha);
 
         println!("\n=== {label}   AWR = {a:.5}   alpha = {alpha:.6} ===");
@@ -173,7 +185,7 @@ fn main() {
                     continue;
                 }
                 sum_ratio += ep / e;
-                sum_xi += (e / ep).ln();
+                sum_xi += (e / ep).r_ln();
                 if ep > e {
                     n_up += 1;
                 }
@@ -249,7 +261,9 @@ const ANISOTROPY_ONSET_EV: f64 = 1.0e4;
 /// `<E'/E>` and nothing more. In absolute terms the two quantities agree to the
 /// same 1e-4, uniformly across mass number, which is what this envelope checks.
 ///
-/// Worst measured: **7.7e-4** (Be-9 at 20.87 eV), against the 1.5e-3 bound.
+/// Worst measured: ~~**7.7e-4** (Be-9 at 20.87 eV)~~ **CORRECTED 2026-10-05:
+/// 1.08e-3 (Li-7 at 100 eV), re-measured 2026-10-04 at `bfeb81a083`** (the
+/// "Re-measured" section of the module docs), against the 1.5e-3 bound.
 const XI_ABS_TOL: f64 = 1.5e-3;
 
 /// One row of the per-collision kinematics sweep, kept for the V&V gate.
@@ -318,7 +332,9 @@ struct KinRow {
 /// Those two are asserted on every row. The exact `mubar_cm` ↔ `<E'/E>` relation
 /// is checked per-sample in `tests/slowing_down_kinematics.rs`.
 ///
-/// **Thermal equilibrium**, `<E>/2kT` after 300 collisions from 1 eV:
+/// **Thermal equilibrium**, `<E>/2kT` after ~~300~~ **400** collisions from
+/// 1 eV (**CORRECTED 2026-10-04**: the code has run `SCATTERS = 400` since
+/// the commit that created this file, `c356cf2552`; "300" was never true):
 ///
 /// ```text
 ///   C12 (graphite S(a,b))    0.9706      O16  (UCO kernel)     0.9846
@@ -329,9 +345,43 @@ struct KinRow {
 ///
 /// The seven light nuclides sit within 5 % of the fixed point. **U-238 at 1.29
 /// is expected and is not a defect**: a mass-238 target takes `~1/xi = 172`
-/// collisions per decade of lethargy against carbon's 6, so 300 collisions is
-/// nowhere near enough to relax it. It is in the table as the control that shows
-/// the relaxation is being driven by the mass ratio and not by the harness.
+/// collisions per decade of lethargy against carbon's 6, so ~~300~~ 400
+/// collisions is nowhere near enough to relax it. It is in the table as the
+/// control that shows the relaxation is being driven by the mass ratio and not
+/// by the harness.
+///
+/// # Re-measured 2026-10-04 (GitHub #524), develop at `bfeb81a083`
+///
+/// Same program, same seeds (ENDF/B-VIII.0 at 600 K, 200 000 samples per row,
+/// 20 000 walkers x 400 scatters), 60 s on one core of an i9-13900K (16
+/// logical cores, shared with other jobs), CPU only. **Every gate passes, and
+/// the 2026-09-11 numbers above are superseded as follows:**
+///
+/// - **Kinematics:** ~~106 rows, worst 7.7e-4 (Be-9 at 20.87 eV)~~ **104**
+///   non-thermal rows at or below the anisotropy onset match the closed form,
+///   **worst `|xi - xi_0| = 1.08e-3` (Li-7 at 100 eV)**, inside the 1.5e-3
+///   envelope. Zero floor violations, zero up-scatters outside the bound
+///   regime. Graphite C-12 between 6.674 eV and 10 keV: `xi/xi_0` 0.9972 to
+///   0.9998, i.e. the "`xi/xi_0 = 1.000` from 4 eV to 10 keV" above holds to
+///   0.3 % (below 4.9 eV the S(a,b) branch is taken and the oracle does not
+///   apply). The row count and the worst row moved; why was not isolated.
+/// - **1 MeV:** C-12 0.9120 / 1.0140 and Li-7 1.0432 / 0.9888 (`xi/xi_0` /
+///   `ratio/r0`) reproduce the record. **O-16 does not:** ~~1.0010 and
+///   1.0079~~ **1.0040 and 1.0015** — still both above 1, but `ratio/r0` moved
+///   by ~40 sigma of its sampling error, so O-16's 1 MeV elastic angular data
+///   path has changed since 2026-09-11 (not isolated here; no gate covers it).
+/// - **Thermal equilibrium**, `<E>/2kT` after 400 collisions:
+///
+/// ```text
+///   C12 (graphite S(a,b))    0.9889 (was 0.9706)   O16  (UCO kernel)     0.9842 (0.9846)
+///   C12 (free gas)           0.9813 (0.9801)       Si28 (SiC coating)    0.9924 (0.9969)
+///   Be9  (FLiBe)             0.9742 (0.9788)       Li7  (FLiBe)          0.9543 (0.9520)
+///   F19  (FLiBe)             0.9918 (0.9892)       U238 (heavy control)  1.2932 (1.2908)
+/// ```
+///
+/// The graphite S(a,b) row moved most (+1.9 points, closer to the fixed point),
+/// consistent with the 2026-09-29/30 S(a,b) sampling changes (#407, #459);
+/// that attribution is a plausibility, not a measurement.
 ///
 /// # Interpretation
 ///
@@ -460,7 +510,7 @@ fn vv_gate(kinematics: &[KinRow], equilibrium: &[(String, f64)], any_violation: 
         if label.starts_with("U238") {
             println!(
                 "  [skip] {label}: <E>/2kT = {ratio:.4}. A mass-238 target needs \
-                 ~172 collisions per lethargy decade against carbon's 6, so 300 \
+                 ~172 collisions per lethargy decade against carbon's 6, so 400 \
                  collisions cannot relax it. This row is the control, not a claim."
             );
             continue;
@@ -536,6 +586,49 @@ fn scattering_cross_sections(cases: &[(String, Nuclide)]) {
 ///
 /// Graphite is the control: it carries the S(α,β) law, so it must equilibrate.
 fn thermalization_demo(cases: &[(String, Nuclide)]) -> Vec<(String, f64)> {
+    thermalization_demo_with(cases, TargetMotion::Transport)
+}
+
+/// Which elastic kernel the thermal-equilibrium walk uses.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TargetMotion {
+    /// The transport kernel's own branch (free gas below 400 kT), the default.
+    Transport,
+    /// **Ablation** (`TARGET_AT_REST=1`): the target held at rest at every
+    /// energy, `two_body_scatter_with_mu`, the kernel before bead `op-50vu`.
+    /// The S(a,b) branch is kept: it was never the defect.
+    ///
+    /// **Measured 2026-10-05** (GitHub #524, rung-2 lesson step 4a;
+    /// `develop` at `f39501b8bd` plus this knob; `TARGET_AT_REST=1`), same
+    /// 20 000 walkers x 400 scatters from 1 eV, seed and 600 K as the default;
+    /// 98 s wall including data on an Intel Xeon @ 2.10 GHz, one thread
+    /// pinned to 2 of 4 shared logical cores, 15 GB, Linux, CPU only:
+    ///
+    /// ```text
+    ///   medium                  <E> final [eV]   <E>/2kT     median [eV]
+    ///   C12 (graphite S(a,b))   1.0226e-1        0.98892     8.5043e-2
+    ///   C12 (free gas kernel)   1.4967e-27       1.45e-26    2.2755e-28
+    ///   Be9  (FLiBe)            1.9873e-35       1.92e-34    7.6149e-37
+    ///   F19  (FLiBe)            3.2946e-18       3.19e-17    1.5538e-18
+    ///   Li7  (FLiBe)            9.5210e-44       9.21e-43    3.3777e-46
+    ///   O16  (UCO kernel)       2.8792e-21       2.78e-20    9.6950e-22
+    ///   Si28 (SiC coating)      8.3177e-13       8.04e-12    5.8433e-13
+    ///   U238 (heavy control)    3.4236e-2        0.33108     3.4042e-2
+    /// ```
+    ///
+    /// Every nucleus without a bound-atom law cools by tens of decades below
+    /// `kT`; graphite carbon with its S(a,b) law equilibrates exactly as in
+    /// the default run (0.98892, the same value), because that branch never
+    /// held the target at rest. U-238 has not cooled far in 400 collisions
+    /// (its `xi` is 0.008). The depth reached differs by nuclide (with the
+    /// evaluation's MF=4 angular laws: Li-7 to 1e-43 eV, Si-28 only to
+    /// 1e-12 eV), so the old single figure "1e-27 eV and below" in
+    /// `free_gas_elastic_scatter`'s doc is true of carbon, Be-9 and Li-7 and
+    /// not of F-19, O-16 or Si-28; corrected there the same day.
+    AtRest,
+}
+
+fn thermalization_demo_with(cases: &[(String, Nuclide)], motion: TargetMotion) -> Vec<(String, f64)> {
     const SCATTERS: usize = 400;
     const WALKERS: usize = 20_000;
     let kt = K_BOLTZMANN_EV_PER_K * TEMP;
@@ -576,7 +669,10 @@ fn thermalization_demo(cases: &[(String, Nuclide)]) -> Vec<(String, f64)> {
                     let mu_cm = nuc
                         .sample_elastic_mu_cm(e, &mut seed)
                         .unwrap_or_else(|| 2.0 * outram_mc_libs::rng::lcg::prn(&mut seed) - 1.0);
-                    free_gas_elastic_scatter(e, u, a, kt, mu_cm, &mut seed).0
+                    match motion {
+                        TargetMotion::Transport => free_gas_elastic_scatter(e, u, a, kt, mu_cm, &mut seed).0,
+                        TargetMotion::AtRest => two_body_scatter_with_mu(e, u, a, 0.0, mu_cm, &mut seed).0,
+                    }
                 };
                 if !(e > 0.0) || !e.is_finite() {
                     e = f64::MIN_POSITIVE;
@@ -614,7 +710,7 @@ fn load(name: &str, file: &str, dir: &std::path::Path) -> Nuclide {
     let p = dir.join(file);
     eprint!("  reconstructing {name:<6} … ");
     let t0 = std::time::Instant::now();
-    let n = Nuclide::from_endf_file(&p, name, TEMP, 1.0e-3)
+    let n = Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3)
         .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
     eprintln!("{:.1?}", t0.elapsed());
     n

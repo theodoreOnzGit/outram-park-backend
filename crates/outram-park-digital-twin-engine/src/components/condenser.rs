@@ -1177,6 +1177,26 @@ impl CondenserVisual {
     }
 }
 
+/// Where the pipes meet a [`CondenserVisual`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CondenserPorts {
+    /// Turbine exhaust in, at the top centre of the shell.
+    pub steam_in: Pos2,
+    /// Condensate out, at the bottom centre (the hotwell).
+    pub condensate_out: Pos2,
+}
+
+impl CondenserVisual {
+    /// Port positions for a condenser of `kind` whose box is `box_rect`, taken
+    /// from the same letterboxed rect the widget paints in.
+    pub fn ports(kind: CondenserKind, box_rect: Rect) -> CondenserPorts {
+        let rect = kind.fit_native_aspect(box_rect);
+        CondenserPorts {
+            steam_in: Pos2::new(rect.center().x, rect.top()),
+            condensate_out: Pos2::new(rect.center().x, rect.bottom()),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1723,5 +1743,23 @@ mod tests {
         assert_eq!(radius(4000.0), 255);
         assert_eq!(radius(-8.0), 0);
         assert_eq!(radius(f32::NAN), 0);
+    }
+}
+
+#[cfg(test)]
+mod port_tests {
+    use super::*;
+
+    /// Steam enters at the top centre and condensate leaves at the bottom
+    /// centre of the rect the widget actually paints in.
+    #[test]
+    fn condenser_ports_are_top_and_bottom_centre() {
+        let b = Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(120.0, 100.0));
+        for kind in [CondenserKind::TwoPass, CondenserKind::SinglePass] {
+            let p = CondenserVisual::ports(kind, b);
+            let r = kind.fit_native_aspect(b);
+            assert_eq!(p.steam_in, Pos2::new(r.center().x, r.top()));
+            assert_eq!(p.condensate_out, Pos2::new(r.center().x, r.bottom()));
+        }
     }
 }

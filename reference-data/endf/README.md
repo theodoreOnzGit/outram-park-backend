@@ -23,7 +23,9 @@ Sizes are as committed; ~89 MB total.
 
 | File | Nuclide / material | Library | MAT | Size | Source | Date accessed |
 |---|---|---|---|---|---|---|
-| `a-002_He_004-ENDF8.0.endf` | He-4 | ENDF/B-VIII.0 (neutron) | 228 | 8 KB | NNDC/IAEA | 2026-07-20 |
+| `a-002_He_004-ENDF8.0.endf` | He-4 | ENDF/B-VIII.0 ~~(neutron)~~ **(incident-alpha sublibrary, NSUB = 20040, AWI = 3.968; CORRECTED 2026-10-01)** | 228 | 8 KB | NNDC/IAEA | 2026-07-20 |
+| `n-002_He_003-ENDF8.0.endf` | He-3 | ENDF/B-VIII.0 (neutron) | 225 | 36 KB | NNDC (`ENDF-B-VIII.0.zip`, `neutrons/`), copied from the maintainer's local copy | 2026-10-01 |
+| `n-002_He_004-ENDF8.0.endf` | He-4 | ENDF/B-VIII.0 (neutron) | 228 | 198 KB | NNDC (`ENDF-B-VIII.0.zip`, `neutrons/`), copied from the maintainer's local copy | 2026-10-01 |
 | `n-001_H_002-ENDF8.0.endf` | H-2 (deuterium) | ENDF/B-VIII.0 (neutron) | 128 | 127 KB | NNDC/IAEA | 2026-07-20 |
 | `n-018_Ar_37-tendl2023.endf` | Ar-37 | TENDL-2023 (neutron) | 1828 | 3.7 MB | TENDL | 2026-07-20 |
 | `n-092_U_235-ENDF8.0.endf` | U-235 | ENDF/B-VIII.0 (neutron) | 9228 | 35 MB | NNDC/IAEA | 2026-07-20 |
@@ -59,6 +61,39 @@ coolant). Copied from a local ENDF/B-VIII.0 neutron sublibrary mirror
 | `n-014_Si_028-ENDF8.0.endf` | Si-28 | ENDF/B-VIII.0 (neutron) | 1425 | 1.8 MB | NNDC/IAEA NDS | 2026-09-10 |
 | `n-014_Si_029-ENDF8.0.endf` | Si-29 | ENDF/B-VIII.0 (neutron) | 1428 | 1.7 MB | NNDC/IAEA NDS | 2026-09-10 |
 | `n-014_Si_030-ENDF8.0.endf` | Si-30 | ENDF/B-VIII.0 (neutron) | 1431 | 1.5 MB | NNDC/IAEA NDS | 2026-09-10 |
+
+#### U-236 (added 2026-10-15)
+
+Added for the NJOY2016 reference ACE table in the `reference-data/ace`
+submodule (`reference-njoy/endf-b-viii.0/293.6K/U236.ace.gz`). Extracted from
+the NNDC ENDF/B-VIII.0 archive `ENDF-B-VIII.0.zip`
+(`neutrons/n-092_U_236.endf`). The same archive's `n-092_U_234.endf` is
+byte-identical to the U-234 tape above, so both come from the same release.
+Evaluation: LANL, EVAL-FEB05 (Young, Chadwick, MacFarlane et al.).
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-092_U_236-ENDF8.0.endf` | U-236 | ENDF/B-VIII.0 (neutron) | 9231 | 1.4 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-15 |
+
+#### HTTR start-up core (added 2026-10-16)
+
+The IRPhEP HTTR evaluation (HTTR-GCR-RESR-001, INL/EXT-08-14767 Rev. 2,
+App. A.1.8) specifies O-17 in the UO2 kernels and P and S in the Alloy 800H
+control-rod cladding (R1 Table 3.8). None of these was held. Copied from the
+maintainer's local mirror of the NNDC ENDF/B-VIII.0 neutron sublibrary
+(`~/Documents/research/endf_8/ENDF-B-VIII.0_neutrons/`), each byte-identical
+to the same file in a second local copy of NNDC's `ENDF-B-VIII.0.zip`; the
+mirror's `n-008_O_016.endf` is byte-identical to `n-008_O_016-ENDF8.0.endf`
+above, so these are the same release. Used by `nee_soon::httr`.
+
+| File | Nuclide | Library | MAT | Size | Source | Date accessed |
+|---|---|---|---|---|---|---|
+| `n-008_O_017-ENDF8.0.endf` | O-17 | ENDF/B-VIII.0 (neutron) | 828 | 80 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-015_P_031-ENDF8.0.endf` | P-31 | ENDF/B-VIII.0 (neutron) | 1525 | 1.0 MB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-016_S_032-ENDF8.0.endf` | S-32 | ENDF/B-VIII.0 (neutron) | 1625 | 284 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-016_S_033-ENDF8.0.endf` | S-33 | ENDF/B-VIII.0 (neutron) | 1628 | 288 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-016_S_034-ENDF8.0.endf` | S-34 | ENDF/B-VIII.0 (neutron) | 1631 | 244 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
+| `n-016_S_036-ENDF8.0.endf` | S-36 | ENDF/B-VIII.0 (neutron) | 1637 | 208 KB | [NNDC ENDF/B-VIII.0](https://www.nndc.bnl.gov/endf-b8.0/download.html) | 2026-10-16 |
 
 Graphite and SiC S(α,β): `tsl-crystalline-graphite.endf` /
 `tsl-reactor-graphite-10P.endf` / `-30P.endf` and `tsl-CinSiC.endf` /
@@ -146,6 +181,7 @@ upstream except for the two renames noted below.
 | `n-042_Mo_095-ENDF8.0-beta.endf` | Mo-95 | ENDF/B-VIII.0 beta (neutron) | 4234 | 2.3 MB | `n-042_Mo_095-beta.endf` | A **second `LRU=1/LRF=7`** R-matrix-limited evaluation with MF=32 (`LCOMP=2`). Cl-35 was the only one; a single tape cannot distinguish "the port is right" from "the port matches Cl-35". |
 | `n-038_Sr_088-ENDF8.1.endf` | Sr-88 | ENDF/B-VIII.1 (neutron) | 3837 | 481 KB | `n-038_Sr_088-ENDF8.1.endf` | A **third** `LRF=7` case, and by far the smallest (481 KB) — cheap enough for a unit test rather than an integration test. |
 | `n-026_Fe_058-ENDF8.0-Beta4.endf` | Fe-58 | ENDF/B-VIII.0 beta4 (neutron) | 2637 | 7.9 MB | `n-026_Fe_058-ENDF8.0-Beta4.endf` | The only **`LRU=2/LRF=1`** (energy-**independent** unresolved widths, `LSSF=1`, 3.5e5–3.0e6 eV) tape here. Every other unresolved range in this folder is `LRF=2`, so the UNRESR/PURR `LRF=1` branch has never been run on real data. |
+| `n-026_Fe_058-ENDF8.0.endf` | Fe-58 | ENDF/B-VIII.0 **released** (neutron) | 2637 | 9.3 MB | `n-026_Fe_058-ENDF8.0.endf` | The RELEASED counterpart of the Beta4 tape above, added 2026-09-15 to settle whether the upstream `unfac` defect (gh:#210) reaches a shipping library. It does: its unresolved block is character-for-character identical to Beta4's, same `LRU=2/LRF=1/LFW=0/LSSF=1`, same **`NLS=4`**, so NJOY produces byte-identical (and superluminal) MF=2/MT=152 from both. `----ENDF/B-VIII.0 MATERIAL 2637`, `DIST-FEB18`, eval Oct-2016 (Nobre, Herman, Leal, Trkov, Brown et al., CIELO), NDS **148**, 214 (2018), `$Rev: 1507 / 2018-02-02`. Source: IAEA ENDF/B-VIII.0 neutron sublibrary (`https://www-nds.iaea.org/public/download-endf/ENDF-B-VIII.0/n/`), supplied by the maintainer 2026-09-15; the agent sandbox cannot reach that host. Gated by `released_and_beta_fe58_carry_the_same_unresolved_parameters`. |
 
 Renamed from upstream: `J33U238` -> `n-092_U_238-JENDL3.3.endf` and `J33Pu239` ->
 `n-094_Pu_239-JENDL3.3.endf`, to match this folder's `n-ZZZ_El_AAA-<lib>.endf`
@@ -316,3 +352,150 @@ want of a tape.
 wherever it is used. H-1 is a standards evaluation and the two differ
 negligibly, but "negligibly" is an assertion and the file name carries the fact
 so nobody has to take it on trust.
+
+## `synthetic-caseb-lfw1.endf` — a synthetic Case B (`LRU=2, LRF=1, LFW=1`) material
+
+Added 2026-09-15. **Not an evaluation.** Generated by
+`synthetic-caseb-lfw1.generator.py` beside it; every parameter is invented and
+none is derived from measurement, from any evaluated library, or from any
+restricted source. Regenerate with `python3 synthetic-caseb-lfw1.generator.py >
+synthetic-caseb-lfw1.endf`.
+
+It exists because **Case B has no evaluation in this directory.** Screening
+every tape here with `screen_endf_flags.py` finds exactly one `LRU=2/LRF=1`
+range — Fe-58 — and it is `LFW=0`, i.e. Case A. That left the Case B branch of
+RECONR's unresolved energy-grid construction (`rdf2u1`, `reconr.f90:1370-1400`)
+with no oracle at all. A minimal format-legal tape gives it one, because
+NJOY2016 processes it and its output is then the reference. Same technique as
+`photoat-synthetic-Z6.endf`.
+
+MAT 9998, ZA 40090, one unresolved range `1.0e4 .. 1.0e5 eV`, `LSSF = 0`,
+`NLS = 2` (so `L <= 1`). The choices that matter are all about branch coverage:
+
+- the fission-width grid `1.0e4, 1.1e4, 3.0e4, 1.0e5 eV` puts one gap above
+  `wide = 1.26` (so the `egridu` fill must fire) and one below it (so it must
+  not);
+- the last grid energy sits exactly at `EH`, so upstream's unguarded
+  `enex = res(nloc+n+1)` read never runs past the end of the list;
+- `L <= 1` keeps clear of the `unfac` `l >= 3` defect recorded in
+  `bn:op-33g1`;
+- `LSSF = 0` means the MF=3 background addition is exercised as well.
+
+NJOY2016 `ac5adf5f` processes it without diagnostics and produces a 16-energy
+MF=2/MT=152, which is committed as
+`../reconr/synthetic-caseb-lfw1-0K-err0.001.mt152.pendf` and consumed by
+`crates/njoy-outram-park-fork/tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs`.
+
+Data policy: contains no evaluated, proprietary, or restricted data — it is
+constructed from invented numbers by a committed script.
+
+## ENDF/B-VII.0 — the library the HTR-10 reference codes used (added 2026-09-18)
+
+Seven tapes, downloaded from the IAEA Nuclear Data Services `download-endf`
+tree — the same pinned host `njoy-outram-park-fork::acquire::IAEA_BASE_URL`
+already uses for the VIII.0 set:
+
+```
+https://www-nds.iaea.org/public/download-endf/ENDF-B-VII.0/n/
+https://www-nds.iaea.org/public/download-endf/ENDF-B-VII.0/tsl/
+```
+
+| local name | upstream archive | MAT |
+|---|---|---|
+| `n-092_U_235-ENDF7.0.endf` | `n_9228_92-U-235.zip` | 9228 |
+| `n-092_U_238-ENDF7.0.endf` | `n_9237_92-U-238.zip` | 9237 |
+| `n-008_O_016-ENDF7.0.endf` | `n_0825_8-O-16.zip` | 825 |
+| `n-006_C_000-ENDF7.0.endf` | `n_0600_6-C-0.zip` | 600 |
+| `n-014_Si_028-ENDF7.0.endf` | `n_1425_14-Si-28.zip` | 1425 |
+| `n-005_B_010-ENDF7.0.endf` | `n_0525_5-B-10.zip` | 525 |
+| `tsl-graphite-ENDF7.0.endf` | `tsl_0031_graphite.zip` | 31 |
+
+### Why this library is in the repository
+
+The HTR-10 code-to-code comparison target — Li Wanlin, Yu Ganglin & Wei Chunlin,
+*"Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code"*,
+HTR 2014, Weihai, paper HTR2014-51207 (catalogued as `li2014htr10rmc`) — and
+every other code it reports against (MCNP, Serpent, HCP) used **ENDF/B-VII.0**.
+This workspace's HTR-10 model had always run **VIII.0**, and its own V&V record
+named that as a known uncorrected systematic "worth hundreds of pcm" without
+ever pricing it.
+
+Measured 2026-09-18 on the HTR-10 core at the benchmark loading, same
+geometry, same seed, same settings:
+
+| library | `k_eff` | vs RMC, height-matched |
+|---|---|---|
+| ENDF/B-VIII.0 | 0.988088 +/- 0.003095 | -1259 pcm |
+| **ENDF/B-VII.0** | **1.004525 +/- 0.003096** | **+385 pcm** |
+
+**The library term is `+1644 +/- 438 pcm` (3.75 sigma)** — five times the
+"hundreds of pcm" the record had assumed, and on this problem essentially the
+whole residual. Without these tapes the comparison is not like-for-like and no
+disagreement can be attributed to transport or geometry.
+
+Reached with `OUTRAM_HTR10_ENDF7=1` in
+`crates/nee_soon/examples/htr10_rmc_keff.rs`. Full method and the accompanying
+ablation chain: `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`.
+
+### Two differences that are part of the physics, not transcription details
+
+- **VII.0 carbon is ELEMENTAL natural carbon** (`6-C-0`, MAT 600). VIII.0 ships
+  C-12 ~~separately~~ and C-13 (`n-006_C_013-ENDF8.0.endf`, in this folder)
+  separately. ~~The VII.0 arm therefore carries the 1.1 % C-13 and the VIII.0
+  arm does not; the two are not separable without a third arm.~~ **CORRECTED
+  2026-10-01 (gh:#425):** the VIII.0 arm loaded only C-12 although the C-13
+  tape was here. Since 2026-10-01 it splits natural carbon C-12 / C-13 at
+  98.93 / 1.07 at.% by default (`nee_soon::htr10_rmc::data`), so both arms
+  carry natural carbon; `OUTRAM_HTR10_CARBON_AS_C12=1` is the C-12-only
+  ablation that prices the C-13 term.
+- **The graphite thermal tape's MAT changed between releases**: VIII.0
+  crystalline graphite is MAT 30 (ZA 130), VII.0 is MAT 31 (ZA 131). Passing
+  the wrong one makes `ThermalScattering::from_endf_file` return `Err`.
+
+Data policy: ENDF/B-VII.0 is openly released evaluated nuclear data, published
+by the CSEWG/NNDC and mirrored by the IAEA NDS for public download. No licence
+or redistribution restriction applies. Same tier as the VIII.0 tapes beside it.
+
+## `photonuc-synthetic-Z6.endf` — a SYNTHETIC photo-nuclear tape (2026-09-22)
+
+**Not an evaluation, and must never be used as one.** Every cross section,
+yield and emission spectrum in it is an analytic shape — a Lorentzian standing
+in for a giant dipole resonance, evaporation-like outgoing spectra — chosen to
+be smooth, positive and cheap. It is measured data in no sense whatsoever.
+
+**Provenance.** Generated by `photonuc-synthetic-Z6.generator.py`, committed
+beside it; the tape is reproducible from that script alone with
+`python3 photonuc-synthetic-Z6.generator.py > photonuc-synthetic-Z6.endf`.
+Author: this repository. No external source, so no licence or access terms
+apply, and `DATA_POLICY.md`'s restrictions on evaluated/proprietary data are
+not engaged — there is no third-party data in it.
+
+**Why it exists.** `acer iopt = 5` writes the photo-nuclear ACE class, and
+verifying that path needs a photo-nuclear (NSUB=0) ENDF tape. This directory
+holds none, and the IAEA NDS host that `crates/njoy-outram-park-fork`'s
+`acquire` module downloads from — `www-nds.iaea.org` — is **blocked by the
+execution environment's network policy** (a 403 on CONNECT), so one could not
+be fetched. The same tape is fed to **both** NJOY2016 and this port, so it
+verifies that the two codes agree on identical input, which is what a
+code-to-code comparison requires. It supports no claim about physics and none
+is made from it.
+
+This is the third synthetic tape here, after `photoat-synthetic-Z6.endf` and
+`synthetic-caseb-lfw1.endf`, and follows their pattern: analytic data, a
+committed generator, and the reason stated.
+
+**What it covers.** MF=1/451 with `NSUB = 0` (the flag `acepn.f90:127-129`
+checks), MF=3/MT=5 as the LANL-style single non-elastic cross section that
+supplies the ACE energy grid, and MF=6/MT=5 with four emitted particles —
+neutron, proton, alpha and photon — each a LAW=1 continuum subsection
+(LANG=1, NA=0). NJOY2016 turns it into a 27 453-word `6012.00u` table with
+four `IXSA` production blocks.
+
+**What was made from it.** NJOY2016's table is committed as
+`reference-data/acer/z6_photonuclear_njoy2016.ace` and is the fixture
+`crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs` asserts
+byte-identity against. That table **and this port's own copy of it** are also
+archived in the `reference-data/ace` submodule under
+`{reference,outram-park}-njoy/synthetic/0K/Z6-photonuclear.ace.gz`, where the
+two differ in exactly one line — the 70-character `hk` comment each generator
+stamps itself into — and agree on the other 556 781 bytes.

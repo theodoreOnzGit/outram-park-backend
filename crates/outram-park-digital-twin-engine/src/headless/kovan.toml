@@ -1,0 +1,334 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/headless"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::determinism_same_config_same_trace",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::matches_the_recorded_reference_baseline",
+    "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::the_trace_carries_a_closing_energy_balance",
+    "crates/outram-park-digital-twin-engine/src/headless/mod.rs::csv_has_a_header_and_one_row_per_sample",
+    "crates/outram-park-digital-twin-engine/src/headless/mod.rs::determinism_helper_passes_for_a_deterministic_model",
+    "crates/outram-park-digital-twin-engine/src/headless/mod.rs::samples_at_the_requested_interval_and_always_the_last_step",
+]
+
+[module."mod.rs"]
+path = "crate::headless"
+
+[[module."mod.rs".function]]
+id = "fn:5eecfdbc87309625"
+name = "HeadlessModel"
+qual = "HeadlessModel"
+item = "type"
+shape = "trait"
+lines = [
+    38,
+    64,
+]
+hash = "sha256:c793fa0953b2abbc2e037a8f57609af5dab7dc5a92d6c83bfbf65059de936677"
+doc_hash = "sha256:32042d88494b6b4bf4682c558d89ecd2d8cfd2ab3bcdb6e0059e5d38a40232d8"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ce8936632d413e38"
+name = "submit"
+qual = "HeadlessModel::submit"
+lines = [
+    45,
+    46,
+]
+hash = "sha256:a7cd4482f18508b4d6430c939b55928b29028ca764cbc56ecc2f4ae8356f8bd8"
+doc_hash = "sha256:3a2f15f357e1091ce53c6acc7769e74f35ab4c8525deefd5fb62f605834ab417"
+uses = ["fn:5eecfdbc87309625"]
+
+[[module."mod.rs".function]]
+id = "fn:9b52d41604929203"
+name = "tick"
+qual = "HeadlessModel::tick"
+lines = [
+    48,
+    51,
+]
+hash = "sha256:046155cc17e6686333000af00e518e52d58815081053174619ed1e9336724768"
+doc_hash = "sha256:259999e3e352a5d8a366d1d2540d04deb5df7d81385cf5ab097e42fd0eddc87b"
+uses = ["fn:5eecfdbc87309625"]
+
+[[module."mod.rs".function]]
+id = "fn:8f42cac26d710a15"
+name = "sample"
+qual = "HeadlessModel::sample"
+lines = [
+    53,
+    54,
+]
+hash = "sha256:23f017206b2f960dcfa48a890c304343f0375d05b9ce9398d76bcefe7d283af5"
+doc_hash = "sha256:3669c4d886d3cc055f130575942b4c75ed11e6c972b419caa68f97d8fd78ab2c"
+uses = ["fn:5eecfdbc87309625"]
+
+[[module."mod.rs".function]]
+id = "fn:6d7e34bf43ba9c74"
+name = "csv_header"
+qual = "HeadlessModel::csv_header"
+lines = [
+    56,
+    57,
+]
+hash = "sha256:9f5ad60a141915b6795ceeb446e72243690c986ab518734570796df4c0d62b84"
+doc_hash = "sha256:4ec8a44ea9d3f2d939960bbfb3ed6918c98a8b539f28aac071271e8a0e947983"
+uses = ["fn:5eecfdbc87309625"]
+
+[[module."mod.rs".function]]
+id = "fn:e2f5e85cf7462c1d"
+name = "sample_csv"
+qual = "HeadlessModel::sample_csv"
+lines = [
+    59,
+    63,
+]
+hash = "sha256:4429f8135439659b0a454b01cd2c18bfd82fd80b7b4d54377cfd8b04c3002ca8"
+doc_hash = "sha256:bf62e88a6fdac684356b10acf646586b21f34303dfb643973e59f5f8d8e5536e"
+uses = ["fn:5eecfdbc87309625"]
+
+[[module."mod.rs".function]]
+id = "fn:d593ab0fbe705ff5"
+name = "HeadlessRun"
+qual = "HeadlessRun"
+item = "type"
+shape = "struct"
+lines = [
+    66,
+    74,
+]
+hash = "sha256:0643af9f03d994ce2e4e44e494a64d0059f0d18ac23b8393a0a9815c0905e9f7"
+doc_hash = "sha256:348e316496f64ef6c5481a982724046c6fae37197d56895ad8b14fa9c0c37730"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:89e9c7fbb7cf7159"
+name = "default"
+qual = "HeadlessRun::default"
+lines = [
+    77,
+    82,
+]
+hash = "sha256:a9d4c0f3ecb414ac1ed7e2c2d0e45017359fda6a29af09c53982eddf9a726b44"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d593ab0fbe705ff5"]
+
+[[module."mod.rs".function]]
+id = "fn:911b3a5d1bf5bc08"
+name = "run"
+qual = "run"
+lines = [
+    85,
+    101,
+]
+hash = "sha256:e0e4da202f313c28e0457f56f71546083996e051687ac74012d3377ee7c59b69"
+doc_hash = "sha256:ea84b5e71e3886423835a46286ffa567d2172783e2a2e4d4de6ed03638d4d557"
+uses = [
+    "fn:5eecfdbc87309625",
+    "fn:d593ab0fbe705ff5",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7912c1d630543721"
+name = "run_csv"
+qual = "run_csv"
+lines = [
+    103,
+    111,
+]
+hash = "sha256:248884152641b1f70fdce61d15bf15e2c359b9720af72e668c89bd5d876bfbc8"
+doc_hash = "sha256:10afa0e36c10d9beb2dd0eac1f739e15ff81a5476c1486f05714764ddc99dcc8"
+callees = ["fn:911b3a5d1bf5bc08"]
+uses = [
+    "fn:5eecfdbc87309625",
+    "fn:d593ab0fbe705ff5",
+]
+reached_by = ["#4"]
+
+[[module."mod.rs".function]]
+id = "fn:85e738bb78b5b5b4"
+name = "assert_deterministic"
+qual = "assert_deterministic"
+lines = [
+    113,
+    139,
+]
+hash = "sha256:dc2f8cdca74bc76bbf2f6a966847fde5dbf284c43120c35210ae6b85d4797d91"
+doc_hash = "sha256:d5bc6c09239c48eaaa390f73ffd8df94494365bb758e180a48e0bffa5f71f007"
+callees = ["fn:911b3a5d1bf5bc08"]
+uses = [
+    "fn:5eecfdbc87309625",
+    "fn:d593ab0fbe705ff5",
+]
+reached_by = ["#5"]
+
+[[module."mod.rs".function]]
+id = "fn:06b5f319705b4a46"
+name = "Counter"
+qual = "Counter"
+item = "type"
+shape = "struct"
+lines = [
+    145,
+    149,
+]
+hash = "sha256:8270c5345d26e21e03e223ea4ff7c38b38a42ddddc2943a5b6dd5dad1b89bf82"
+doc_hash = "sha256:182ef1f7df04c0d3110b97c98c1e76931f7006a8c05f761739490307e6cee2a0"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:53d8039aadefcc1c"
+name = "submit"
+qual = "Counter::submit"
+lines = [
+    155,
+    157,
+]
+hash = "sha256:96b63aa9fcbbb24133a903a23e969b9b6b516129aadcdd4cc253d47cb94a1f00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:06b5f319705b4a46"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b01c5c0609482496"
+name = "tick"
+qual = "Counter::tick"
+lines = [
+    158,
+    160,
+]
+hash = "sha256:1bb2d0b345216bfd6f0d02c9704ce0a597e3d6b9e2ca3e3f180388d8bcef6272"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:06b5f319705b4a46"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:201cf104b3967dee"
+name = "sample"
+qual = "Counter::sample"
+lines = [
+    161,
+    163,
+]
+hash = "sha256:cfa53b2e0a7991a7a06c9719790cbd38158d5dc4bc2480d2f1d9bbf9fbb82757"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:06b5f319705b4a46"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:65d03c36b99fd40a"
+name = "csv_header"
+qual = "Counter::csv_header"
+lines = [
+    164,
+    166,
+]
+hash = "sha256:878b884c207afb7d09bff39614fd07073687281cfe6e8c377071b765ff994aaf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:06b5f319705b4a46"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e064f9c6d6be70d6"
+name = "sample_csv"
+qual = "Counter::sample_csv"
+lines = [
+    167,
+    169,
+]
+hash = "sha256:5286d269896e0f690b440ed81d2c50f098ff8ae370b952c2da088427e5321aeb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:06b5f319705b4a46"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b0959ea9c1f3ec14"
+name = "samples_at_the_requested_interval_and_always_the_last_step"
+qual = "samples_at_the_requested_interval_and_always_the_last_step"
+lines = [
+    172,
+    184,
+]
+hash = "sha256:b9c7cbb942fcdfe376d51f1e9e402aabf9f5000a55c8ce02ccf3614de8710ca3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:911b3a5d1bf5bc08"]
+uses = [
+    "fn:06b5f319705b4a46",
+    "fn:d593ab0fbe705ff5",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fbe9c59139022c25"
+name = "tick_advances_exactly_once_per_call"
+qual = "tick_advances_exactly_once_per_call"
+lines = [
+    186,
+    191,
+]
+hash = "sha256:9663f5db0eb82f7539c3d91156284b59fc345ef03146daed4f11ccd9ab8189f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b01c5c0609482496"]
+uses = ["fn:06b5f319705b4a46"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:558f189f86ad8b1c"
+name = "determinism_helper_passes_for_a_deterministic_model"
+qual = "determinism_helper_passes_for_a_deterministic_model"
+lines = [
+    193,
+    203,
+]
+hash = "sha256:4694f97e584d6514bb50010e58d452f345e4854b230ecda14fb728faf84d954f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:85e738bb78b5b5b4"]
+uses = [
+    "fn:06b5f319705b4a46",
+    "fn:d593ab0fbe705ff5",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b3f1f6c4e7f24ee7"
+name = "csv_has_a_header_and_one_row_per_sample"
+qual = "csv_has_a_header_and_one_row_per_sample"
+lines = [
+    205,
+    219,
+]
+hash = "sha256:3886f02cb7ad4fe7e11918a1ce15a60c30d4e89a23c0d852947e2f4d8dbfad26"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7912c1d630543721"]
+uses = [
+    "fn:06b5f319705b4a46",
+    "fn:d593ab0fbe705ff5",
+]
+test = true

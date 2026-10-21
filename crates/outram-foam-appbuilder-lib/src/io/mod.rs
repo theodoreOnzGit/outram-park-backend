@@ -50,5 +50,6 @@ pub mod control_dict;
 pub mod field_reader;
 pub mod fv_schemes;
 pub mod fv_solution;
+pub mod nuclear_data;
 pub mod output;
 pub mod poly_mesh;

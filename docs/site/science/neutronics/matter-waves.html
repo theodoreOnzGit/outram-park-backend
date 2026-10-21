@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why not billiard balls?</title>
+<meta name="description" content="Neutronics, page 4: a neutron is a matter wave with de Broglie wavelength h/p. Change its momentum and watch the wavelength change, separately from how localised the wave packet is; optionally, Heisenberg and discrete nuclear levels.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="waves.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906 iteration 2 and the 2026-10-16 working-context checkpoint). One principal question per page (checkpoint §5); the sequence and its navigation are in lesson-kit.js. Shape: docs/lessons/lesson-philosophy.md (a chain of questions; predict before showing; honest numbers). This page: checkpoint §13 (de Broglie: lambda = h/p; the envelope is not lambda; Heisenberg relates spreads, not the mean speed; lambda alone does not derive the 1/v law). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Why not billiard balls?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Relative velocity tells us about the encounter, but it does not tell us whether an interaction occurs. For that, the neutron and the nucleus have to be treated as what they are: quantum-mechanical systems. Matter shows <b>wave-particle duality</b>.</p>
+
+<h2>A moving neutron has a wavelength</h2>
+<p>De Broglie's relation gives a moving particle a wavelength set by its momentum <i>p</i>:</p>
+<p class="eq-block">&lambda; = h / p &nbsp;&nbsp;&asymp;&nbsp;&nbsp; h / (m<sub>n</sub> v) &nbsp;(slow, non-relativistic neutron)</p>
+<p><b>The slower the neutron, the longer its matter wavelength.</b> A thermal neutron (0.0253 eV, about 2200 m/s) has &lambda; &asymp; 1.8 &Aring;, the size of an atom; a 1 MeV fission neutron has &lambda; &asymp; 29 fm. (Computed in the demo below from the CODATA 2018 constants <a href="#ref-tiesinga2021codata2018">(Tiesinga et al., 2021)</a>.)</p>
+<p class="note">Careful: a longer wavelength does <i>not</i> mean the neutron is more smeared out in space. Wavelength and localisation are different quantities, and the demo draws them separately.</p>
+
+<section class="widget-card">
+  <h3>A neutron as a wave packet</h3>
+  <div class="widget" id="packet">
+    <canvas aria-label="A neutron wave packet: the oscillating carrier wave and its probability envelope"></canvas>
+  </div>
+  <p class="note">A free-particle Gaussian wave packet, computed exactly: the carrier wave's wavelength is the de Broglie &lambda; = h/(m<sub>n</sub>v); the envelope's width is how localised the neutron is, which you set separately. Animated, the packet moves at the neutron's speed and slowly spreads, while the crests inside it move at half that speed (the phase velocity of a free particle). Constants: CODATA 2018 <a href="#ref-tiesinga2021codata2018">(Tiesinga et al., 2021)</a>.</p>
+</section>
+
+<p class="note">A longer wavelength at low energy is useful intuition for why slow neutrons interact differently, but the wavelength alone does not derive the "1/v" law of absorption at low energy. That needs the reaction physics, in a later lesson.</p>
+
+<details class="optional">
+  <summary>Optional: Heisenberg's uncertainty relation</summary>
+  <p>Turn on <b>Heisenberg</b> in the wave-packet controls. The lower strip shows the spread of the neutron's speed that belongs to the packet above it. Make the packet narrower (more localised) and the spread of speeds gets broader, and the other way round: for this Gaussian packet, &sigma;<sub>x</sub> &sigma;<sub>p</sub> = &#8463;/2, the smallest the uncertainty relation allows.</p>
+  <p>The relation is about the two <i>spreads</i>. It says nothing about the neutron's mean speed: a slow neutron is not, because it is slow, more spread out in space.</p>
+</details>
+
+<details class="optional">
+  <summary>Optional: a nucleus also has discrete energy levels</summary>
+<p>Just as electrons in an atom occupy discrete quantum states, a nucleus has discrete quantum energy levels: a ground state and excited states above it, with nothing allowed in between. So a neutron meets a quantum system with allowed states, not a featureless sphere.</p>
+<p>A standing wave gives the intuition. A wave confined to a region can only fit a whole number of half-wavelengths, so only certain patterns, and certain energies, are allowed.</p>
+
+<section class="widget-card">
+  <h3>Only some states fit</h3>
+  <div class="widget" id="levels">
+    <canvas aria-label="Standing waves in a box and the ladder of allowed energies"></canvas>
+  </div>
+  <p class="note">An illustration: a wave in a one-dimensional box, whose allowed energies grow as n&sup2;. It is the intuition for why bound quantum systems have levels, not a model of any nucleus; real nuclear levels are measured, and their spacing is irregular.</p>
+</section>
+
+<p>Discrete levels are what later lessons build on: <b>nuclear excitation</b>, <b>resonances</b> (a neutron whose energy matches a level of the combined nucleus is far more likely to interact), <b>inelastic scattering</b> and the <b>compound nucleus</b>.</p>
+</details>
+
+<h2>Next question</h2>
+<p>If the neutron is a wave, then meeting a nucleus is a wave meeting an obstacle. <b>What does a neutron wave do when it scatters from a nucleus?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-tiesinga2021codata2018" style="padding-left: 2em; text-indent: -2em;">Tiesinga, E., Mohr, P. J., Newell, D. B., &#38; Taylor, B. N. (2021). CODATA recommended values of the fundamental physical constants: 2018. <i>Reviews of Modern Physics</i>, <i>93</i>(2), 025010. https://doi.org/10.1103/RevModPhys.93.025010</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -24,7 +24,9 @@
 //! and miscellaneous properties are in [`dynamic_viscosity`],
 //! [`thermal_conductivity`], [`surface_tension`], and [`dielectric_constant`].
 //! Nozzle / turbine and HEM choked-flow equations are in
-//! [`steam_turbine_equations`].
+//! [`steam_turbine_equations`]. The transient HEM pipe solver (density-based
+//! KNP on `[ρ, ρu, ρE]`, closed by IF97 or any [`hem::HemEquationOfState`]) is
+//! in [`hem`].
 //!
 //! All quantities are SI: pressure in Pa, temperature in K, specific enthalpy
 //! and energy in J/kg, specific entropy and heat capacity in J/(kg·K), specific
@@ -120,6 +122,12 @@ pub mod dielectric_constant;
 /// as well as angular momentum balance
 pub mod steam_turbine_equations;
 
+/// Homogeneous Equilibrium Model (HEM) transient pipe flow: a density-based
+/// KNP central-upwind solver on `[ρ, ρu, ρE]`, closed by IAPWS-IF97 (or any
+/// [`hem::HemEquationOfState`]). Re-exported by `tampines` as `tampines::hem`,
+/// which adds a CoolProp closure. See the module documentation.
+pub mod hem;
+
 /// reference openfoam algorithms which will be combined with steam
 /// tables for solving simple two phase flow problems
 pub mod openfoam_algorithms;
@@ -134,8 +142,12 @@ pub mod tabulated_data;
 /// [`openfoam_algorithms::rhoPimpleFoam`], surfaced at the crate root for
 /// convenience. `TampinesSteamArray` backs each finite-volume cell with an
 /// IAPWS-IF97 `(p,h)` flash so a 1-D pipe can carry two-phase steam-water flow.
+///
+/// ~~`SolverMode` and `KnpFaceClosure`~~ were removed 2026-10-16 with the
+/// retired KNP hybrid (gh:#914); the array has one flux discretisation, PIMPLE.
 pub use openfoam_algorithms::rhoPimpleFoam::{
-    AdvectionTerminalState, SolverMode, TampinesSteamArray, TampinesSteamArrayError,
+    AdvectionTerminalState, EnergyBalanceMode, EnergyConvectionScheme, KineticEnergyTerms,
+    PsiRefresh, TampinesSteamArray, TampinesSteamArrayError, ThermoClosure, TimeStepControl,
 };
 
 // pool boiling code for use within the fhr sim v1

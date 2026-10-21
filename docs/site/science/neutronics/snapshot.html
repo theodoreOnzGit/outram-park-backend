@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5d: what does a hard kick see?</title>
+<meta name="description" content="Neutronics maths track, rung 5d: a hard kick is over almost instantly, so the neutron only sees how fast the atom happened to be moving: a snapshot. The energy lost is the free recoil plus a small Doppler-like shift from the atom's speed along the kick. The big-kick limit only.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5d (steps 1-2 of the snapshot design), caveat: big-kick limit only. Widget: mathtrack.js #bell in "snapshot" mode. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5d: what does a hard kick see?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p><b>A hard kick is over almost instantly.</b> The atom is kicked before its springs can push back, so the neutron only "sees" how fast the atom happened to be moving at that moment: a <b>snapshot</b> of the atom's motion.</p>
+<p><b>Energy lost = free recoil + a small shift from the atom's motion.</b> If the atom was moving toward the kick, the neutron loses a little more; if away, a little less. The shift depends on the atom's speed <b>along the kick</b>: the Doppler-like idea of page 22 and rung 1½ again.</p>
+
+<section class="widget-card">
+  <h3>One snapshot at a time</h3>
+  <div class="widget" id="bell" data-bell="snapshot">
+    <canvas aria-label="The energy a neutron loses in single snapshots of a moving atom, around the free recoil"></canvas>
+  </div>
+  <label class="energy-control"><span>Kick <b data-bq-out></b></span><input type="range" data-bq min="2" max="20" step="0.1" value="10" aria-label="Kick in inverse angstroms"></label>
+  <label class="energy-control"><span>Temperature <b data-bt-out></b></span><input type="range" data-bt min="1" max="1500" step="1" value="293.6" aria-label="Temperature in kelvin"></label>
+  <p class="actions"><button type="button" class="btn" data-snap="1">Take a snapshot</button> <button type="button" class="btn ghost" data-snap="100">100 more</button></p>
+</section>
+<p class="note"><b>This picture is the big-kick limit.</b> For gentle kicks the atom does feel its springs, which gives the elastic spike and the lopsided Poisson of rungs 3&ndash;4.</p>
+<h2>Why is this so? Why a bell?</h2>
+<p>Each snapshot gives one energy loss. <b>Why do many of them make a bell?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

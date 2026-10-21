@@ -118,6 +118,20 @@ pub fn sn_grad(vol: &VolScalarField) -> SurfaceScalarField {
                         };
                         w * dirichlet + (1.0 - w) * ref_grad
                     }
+                    // Per-face Robin gradient; same algebra, coefficients per face.
+                    BoundaryCondition::MixedField {
+                        value_fraction,
+                        ref_value,
+                        ref_grad,
+                    } => {
+                        let w = value_fraction[fi];
+                        let dirichlet = if d < 1e-300 {
+                            0.0
+                        } else {
+                            (ref_value[fi] - vol.internal[owner]) / d
+                        };
+                        w * dirichlet + (1.0 - w) * ref_grad[fi]
+                    }
                     // Zero-gradient-like: Symmetry/Slip/Wedge/Empty and the
                     // flux-switched BCs (no flux available in fvc::snGrad).
                     _ => 0.0,

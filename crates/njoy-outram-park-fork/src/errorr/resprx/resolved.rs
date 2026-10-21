@@ -44,6 +44,7 @@
 //! oracle test shows the port on the original tape equals NJOY on a tape
 //! with the empty block moved last.
 
+use petir::mathf::RealMath;
 use crate::common::phys::AMASSN_AMU;
 use crate::endf::records::SectionCursor;
 use crate::mixr::mix::sigfig;
@@ -311,7 +312,7 @@ pub fn rpxlc12(
         }
         arat = awri / (awri + 1.0);
         let aw = AMASSN_AMU * awri;
-        let ra = RC1 * aw.powf(THIRD) + RC2;
+        let ra = RC1 * aw.r_powf(THIRD) + RC2;
         ral0 = ra;
         apl0 = rp.ap;
         for _ in 0..nsrs {
@@ -347,7 +348,7 @@ pub fn rpxlc12(
         let lc2 = rpxlc2(cur, lrf)?;
         arat = lc2.awri / (lc2.awri + 1.0);
         let aw = AMASSN_AMU * lc2.awri;
-        let ra = RC1 * aw.powf(THIRD) + RC2;
+        let ra = RC1 * aw.r_powf(THIRD) + RC2;
         ral0 = ra;
         apl0 = rp.ap;
         sections.push(CovSection {
@@ -550,7 +551,15 @@ pub fn rpxlc12(
                     b[il3] = backdt * 0.99;
                 }
                 let sigr = if gwidth != 0.0 {
-                    Some(rpendf(&b, rp, eskip, eres, &mut arat, ilnum + 1, ajres_abs)?)
+                    Some(rpendf(
+                        &b,
+                        rp,
+                        eskip,
+                        eres,
+                        &mut arat,
+                        ilnum + 1,
+                        ajres_abs,
+                    )?)
                 } else {
                     None
                 };
@@ -571,7 +580,15 @@ pub fn rpxlc12(
                     b[il3] = backdt * 1.01;
                 }
                 let sigp = if gwidth != 0.0 {
-                    Some(rpendf(&b, rp, eskip, eres, &mut arat, ilnum + 1, ajres_abs)?)
+                    Some(rpendf(
+                        &b,
+                        rp,
+                        eskip,
+                        eres,
+                        &mut arat,
+                        ilnum + 1,
+                        ajres_abs,
+                    )?)
                 } else {
                     None
                 };

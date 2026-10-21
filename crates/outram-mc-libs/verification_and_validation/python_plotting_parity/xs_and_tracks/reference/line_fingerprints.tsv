@@ -1,0 +1,54 @@
+# case	line	label	n	fnv1a64(x)	fnv1a64(y)
+xs_u235_basic	0	U235 total	76027	3525fbe9d406de17	00e6f0575033c195
+xs_u235_basic	1	U235 elastic	76027	3525fbe9d406de17	978b1cd627df288f
+xs_u235_basic	2	U235 fission	76027	3525fbe9d406de17	1818545b41952adf
+xs_u235_basic	3	U235 capture	76027	3525fbe9d406de17	674db2969b1e9300
+xs_u235_basic	4	U235 absorption	76027	3525fbe9d406de17	63e7e7737509eb1f
+xs_u235_basic	5	U235 nu-fission	76027	3525fbe9d406de17	dab44980d8bab404
+xs_u235_scatter_types	0	U235 scatter	76027	3525fbe9d406de17	d44db0ecbd86f37b
+xs_u235_scatter_types	1	U235 inelastic	76027	3525fbe9d406de17	06bf2d80440bf5b9
+xs_u235_scatter_types	2	U235 nu-scatter	76027	3525fbe9d406de17	141b1a8965bf2595
+xs_u235_scatter_types	3	U235 16	76027	3525fbe9d406de17	327c7746f84f341f
+xs_u235_scatter_types	4	U235 (n,2n) U234	76027	3525fbe9d406de17	327c7746f84f341f
+xs_u235_scatter_types	5	U235 slowing-down power	76027	3525fbe9d406de17	978b1cd627df288f
+xs_u234_partial_fission	0	U234 fission	25393	0a490d03b49d616b	df0962813045bee1
+xs_u234_partial_fission	1	U234 nu-fission	25393	0a490d03b49d616b	a2d0f0f287c8d8f2
+xs_u234_partial_fission	2	U234 total	25393	0a490d03b49d616b	568fab1cce851cf3
+xs_u234_partial_fission	3	U234 19	25393	0a490d03b49d616b	839fd343f8138586
+xs_c12_types	0	C12 total	1616	222fde49fe372686	6ada3f60b3aab6da
+xs_c12_types	1	C12 elastic	1616	222fde49fe372686	f2d267b6dc096c53
+xs_c12_types	2	C12 inelastic	1616	222fde49fe372686	47a6134528bcb825
+xs_c12_types	3	C12 capture	1616	222fde49fe372686	e408209a04843150
+xs_c12_types	4	C12 51	1616	222fde49fe372686	e49d42d765c82fd8
+xs_c12_types	5	C12 (n,a) Be9	1616	222fde49fe372686	0d633016f3327886
+xs_c12_types	6	C12 (n,p) B12	1616	222fde49fe372686	1cae1da248ad8e77
+xs_c12_types	7	C12 nu-scatter	1616	222fde49fe372686	5d81f3d2ebfe4538
+xs_c12_heating	0	C12 heating	1616	222fde49fe372686	f0486b44d027548b
+xs_two_nuclides_mev	0	U235 fission	76027	1e224dfa92c82503	1818545b41952adf
+xs_two_nuclides_mev	1	U238 fission	155207	7c53edc2bf0570e9	e98b1fa0fc1425bf
+xs_two_nuclides_mev	2	U238 capture	155207	7c53edc2bf0570e9	aa3b112d368431a4
+xs_u235_divisor	0	U235 nu-fission / fission	76027	3525fbe9d406de17	5ab7b1b3ca68fe22
+xs_u235_divisor	1	U235 fission / absorption	76027	3525fbe9d406de17	4c7de1c9a138fd65
+xs_u235_divisor	2	U235 elastic / total	76027	3525fbe9d406de17	5cff87174048ac45
+xs_u235_divided_by_unity	0	U235 capture	76027	3525fbe9d406de17	f78a664fa46d869d
+xs_material_heu	0	HEU metal total	254933	c5e33d85231859cf	ba9a70c40381c676
+xs_material_heu	1	HEU metal elastic	254933	c5e33d85231859cf	79f1bef49057c2c5
+xs_material_heu	2	HEU metal fission	254933	c5e33d85231859cf	ed992d9c9be69722
+xs_material_heu	3	HEU metal nu-fission	254933	c5e33d85231859cf	1a358e4cacb4cd73
+xs_material_heu	4	HEU metal capture	254933	c5e33d85231859cf	e191a0e252ac43e1
+xs_material_heu	5	HEU metal unity	254933	c5e33d85231859cf	6ef787a2b12a4178
+xs_material_graphite_divisor	0	Material 2 elastic / total	1616	222fde49fe372686	6c6dbcd75b0f498d
+xs_material_graphite_divisor	1	Material 2 total	1616	222fde49fe372686	9f3d32cb510f477f
+xs_element_u	0	U total	254933	c5e33d85231859cf	576ac355b9c07a60
+xs_element_u	1	U fission	254933	c5e33d85231859cf	8dc39b1086044bdd
+xs_element_u	2	U (n,gamma)	254933	c5e33d85231859cf	9e08c81dd67c5582
+tracks_all	0		3	1422057048e65207	-
+tracks_all	1		3	a51de76c578dc721	-
+tracks_all	2		14	dae3aec3ce904eec	-
+tracks_all	3		4	ec6f575b2641eebe	-
+tracks_all	4		2	7657d8e31d744671	-
+tracks_all	5		3	3ae8043baebf11a7	-
+tracks_all	6		5	f1e42fc413653853	-
+tracks_all	7		50	fd80a96520b85302	-
+track_first	0		3	1422057048e65207	-
+track_first	1		3	a51de76c578dc721	-

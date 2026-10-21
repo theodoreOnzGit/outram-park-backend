@@ -6,6 +6,8 @@ use uom::si::pressure::{kilopascal, megapascal};
 use uom::si::available_energy::kilojoule_per_kilogram;
 use validity_range::s_crit;
 
+use crate::backward_eqn_chebyshev_experimental::region_5_t_ph_ps::{p_hs_5, t_ph_5};
+use crate::region_5_steam_at_800_plus_degc::v_tp_5;
 use crate::constants::p_crit_water;
 use crate::prelude::functional_programming::ph_flash_eqm::s_ph_eqm;
 use crate::region_1_subcooled_liquid::{p_hs_1, t_ph_1};
@@ -346,7 +348,23 @@ pub fn tpvx_hs_flash_eqm(
             };
         }
         BackwdEqnSubRegion::Region5 => {
-            unimplemented!("Region 5 does not have (h,s) flashing");
+            // IAPWS-IF97 publishes no (h,s) backward equation for Region 5 --
+            // nor for (p,h) or (p,s) there. No third fit is needed, because the
+            // two this crate already carries over-determine the state: the
+            // physical pressure is the one where T(p,h) and T(p,s) agree. That
+            // is a 1-D root find with explicit residuals, in place of the 2-D
+            // solve over the forward equations the missing standard would
+            // otherwise force. See `p_hs_5`.
+            //
+            // NOT an IAPWS value: it inherits the provenance of the two
+            // in-house correlations it composes.
+            let pressure = p_hs_5(h, s);
+            let temperature = t_ph_5(pressure, h);
+            let specific_volume = v_tp_5(temperature, pressure);
+            // Region 5 is single-phase superheated vapour throughout.
+            let quality = Ratio::new::<ratio>(1.0);
+
+            return (temperature, pressure, specific_volume, quality);
         }
     }
 }

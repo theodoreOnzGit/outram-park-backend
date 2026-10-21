@@ -1,0 +1,21 @@
+# Not a workspace member: it declares its own empty [workspace] so that a
+# cdylib for wasm32-unknown-unknown can be built without touching the root
+# workspace. Copy the root Cargo.lock beside this file first so the versions
+# match the workspace. See README.md.
+[package]
+name = "foam_wasm_timing"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+outram-foam-appbuilder-lib = { path = "../.." }
+outram-foam-mesh = { path = "../../../outram-foam-mesh" }
+
+[profile.release]
+overflow-checks = true
+
+[workspace]

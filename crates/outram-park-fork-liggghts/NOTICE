@@ -12,8 +12,8 @@ LIGGGHTS-PUBLIC's own source headers state, verbatim (verified 2026-07-23 in
 
 "GPL version 2 **or later**" is **compatible with GPL-3.0**: the "or later"
 option lets a recipient use the work under GPLv3. LIGGGHTS-PUBLIC source may
-therefore be ported into this GPL-3.0-only crate and redistributed under
-GPL-3.0-only. (An earlier revision of this NOTICE incorrectly described the
+therefore be ported into this ~~GPL-3.0-only~~ AGPL-3.0-only crate (relicensed 2026-10-20, gh:#973) and redistributed under
+~~GPL-3.0-only~~ AGPL-3.0-only. (An earlier revision of this NOTICE incorrectly described the
 upstream as "GPL-2.0-only" and treated porting as blocked — that was a mistake;
 the source headers say "or later".)
 
@@ -43,3 +43,21 @@ LIGGGHTS/LAMMPS product and is not affiliated with or endorsed by DCS Computing
 GmbH, Sandia National Laboratories, or the LAMMPS/LIGGGHTS developers. See the
 workspace TRADEMARKS.md. "LIGGGHTS®" is a registered trademark of DCS Computing
 GmbH.
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only (2026-10-20)
+-----------------------------------------------------
+
+At the maintainer's direction (GitHub issue #973), this crate is licensed
+AGPL-3.0-only from this date, and `LICENSE` is the AGPL-3.0 text.
+
+Its vendored and ported upstreams are PERMISSIVE (named elsewhere in this
+file), so this translation may be conveyed under AGPL-3.0 with every upstream
+notice and attribution header kept unchanged. None was changed.
+
+Versions already published to crates.io keep the licence they were published
+under, forever; this affects future versions only. No version was bumped.
+
+The per-crate record -- which upstream each crate carries, which published
+versions are grandfathered, and why most files in this workspace keep their
+GPL-3.0 headers -- is `docs/relicensing-agpl-2026-10-20.md`. The audit it
+rests on is the first comment on GitHub issue #973.

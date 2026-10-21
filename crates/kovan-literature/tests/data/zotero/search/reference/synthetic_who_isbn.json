@@ -1,0 +1,57 @@
+{
+	"name": "synthetic_who_isbn",
+	"kind": "forced",
+	"synthetic": true,
+	"translator": "cd587058-6125-4b33-a876-8c6aae48b5e8",
+	"search": {
+		"itemType": "book",
+		"ISBN": "9789241506236"
+	},
+	"status": 200,
+	"translatorUsed": "cd587058-6125-4b33-a876-8c6aae48b5e8",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"name": "World Health Organization",
+					"creatorType": "author"
+				}
+			],
+			"tags": [
+				{
+					"tag": "Radiation Protection",
+					"type": 1
+				},
+				{
+					"tag": "Radiography",
+					"type": 1
+				}
+			],
+			"title": "Example guidance on radiation protection in medicine",
+			"numPages": "52",
+			"ISBN": "9789241506236",
+			"publisher": "World Health Organization",
+			"url": "https://apps.who.int/iris/handle/10665/999999",
+			"language": "en",
+			"place": "Geneva",
+			"date": "2013",
+			"libraryCatalog": "WHO IRIS",
+			"accessDate": "NOW"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://apps.who.int/iris/discover/export?format=refman&list=discover&rpp=10&etal=0&query=9789241506236&group_by=none&page=1&filtertype_0=identifier&filter_relational_operator_0=equals&filter_0=9789241506236",
+			"body": null
+		},
+		{
+			"method": "GET",
+			"url": "https://apps.who.int/iris/handle/10665/999999",
+			"body": null
+		}
+	]
+}

@@ -1,6 +1,6 @@
 [package]
 name = "farrer-park"
-version = "0.0.0"
+version = "0.0.3"
 edition.workspace = true
 # GPL-3.0-only. All three upstreams (MOOSE, PRISMS-Plasticity, PRISMS-Fatigue)
 # are LGPL-2.1, and LGPL-2.1 section 3 lets a licensee relicense under the
@@ -16,7 +16,27 @@ readme = "README.md"
 categories.workspace = true
 exclude = ["docs"]
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "structural-mechanics"
+fidelity = 3
+maturity = 2
+backronym = "Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And RisK"
+
 [dependencies]
+# Deterministic transcendentals (gh:#985): petir::mathf::RealMath, no_std.
+petir = { workspace = true }
 # Pure-Rust, Android-safe deps only (no BLAS, no C/Fortran toolchain).
 # `uom` types the physical-quantity API boundary; `thiserror` the error enum.
 uom.workspace = true
@@ -26,4 +46,6 @@ thiserror.workspace = true
 # discretisation. FEM stays FEM (GitHub issue #175); LduMatrix remains the
 # FVM-optimised representation while this crate supplies an FEM-appropriate CSR
 # matrix implementing the same `LinearOperator` contract.
-outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }
+# Through the root [workspace.dependencies] pin (path + version): a bare path
+# dependency carries no version, and `cargo publish` refuses it.
+outram-foam-basic-lib.workspace = true

@@ -58,6 +58,7 @@
 //! [`NeutronicsModel::kind`] — is what a coupling/driver layer calls without
 //! knowing which model it holds.
 
+pub mod albedo;
 pub mod diffusion;
 pub mod point_kinetics;
 pub mod sn;

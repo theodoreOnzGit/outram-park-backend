@@ -76,6 +76,7 @@
 //! MT=91 is opening. That difference is the reason for this work; it is priced
 //! on the transport side, not here.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ContinuumEmission};
 use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
@@ -151,7 +152,10 @@ fn mf6_continuum_emission_satisfies_the_tape_s_own_invariants() {
             } else {
                 assert_eq!(c.branches.len(), nb16, "{label} MT=16 neutron subsections");
             }
-            assert!(!c.branches.is_empty(), "{label} MT={mt}: at least one branch");
+            assert!(
+                !c.branches.is_empty(),
+                "{label} MT={mt}: at least one branch"
+            );
 
             for (bi, b) in c.branches.iter().enumerate() {
                 assert_eq!(
@@ -209,7 +213,7 @@ fn mf6_continuum_emission_satisfies_the_tape_s_own_invariants() {
                 if c.cm_frame {
                     let last = b.spectrum.incident.len() - 1;
                     let e_in = b.spectrum.incident[last];
-                    let elastic = e_in * (awr / (awr + 1.0)).powi(2);
+                    let elastic = e_in * (awr / (awr + 1.0)).r_powi(2);
                     let bound = if mt == 16 {
                         elastic + qi(&tape, mat, mt) * awr / (awr + 1.0)
                     } else {

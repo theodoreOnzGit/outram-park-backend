@@ -1,0 +1,505 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/gfhr_pipe_tests/multi_branch"
+
+[module."debug.rs"]
+path = "crate::pre_built_components::gfhr_pipe_tests::multi_branch::debug"
+
+[[module."debug.rs".function]]
+id = "fn:6654112b005e8f29"
+name = "test_fhr_four_branch_solver_debug"
+qual = "test_fhr_four_branch_solver_debug"
+lines = [
+    11,
+    81,
+]
+hash = "sha256:2a918b45b85ef1f0475b257288f6da7962f98d9dcb8b7fddc10118d3393c4f41"
+doc_hash = "sha256:c69ae95d59be26ab1ab03de31d323a1724ab84a920d8e80e2fe89c6aa52b488e"
+callees = [
+    "fn:19141114456aac7c",
+    "fn:4d23b01b7ce16652",
+    "fn:642b8bec048ead67",
+    "fn:77f595b3c6778a12",
+    "fn:ae2a995dbdd5c923",
+    "fn:b7d6f19085137318",
+]
+test = true
+
+[module."fluid_mechanics_solvers.rs"]
+path = "crate::pre_built_components::gfhr_pipe_tests::multi_branch::fluid_mechanics_solvers"
+
+[[module."fluid_mechanics_solvers.rs".function]]
+id = "fn:74d6cf9a42c9e3c4"
+name = "four_branch_pri_and_intermediate_loop_single_time_step"
+qual = "four_branch_pri_and_intermediate_loop_single_time_step"
+lines = [
+    22,
+    808,
+]
+hash = "sha256:beafe4a9b3c05641b88a5b93cf4ba4bcf8219121dcd7dbda0aa65cd1ff59e21e"
+doc_hash = "sha256:3d03a5f257ad012337640d0140313f1f20dda3cd5d11282850ef6c96773779e0"
+callees = [
+    "fn:03e08a20b60594d7",
+    "fn:1386e5e0d1b81226",
+    "fn:2d7b8ddc9930a271",
+    "fn:3ab99241909cec96",
+    "fn:3f6427f87e7e0f62",
+    "fn:3f80312760c570d3",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:529791d273932280",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:71e0b3e056618526",
+    "fn:75b2bf19978d095f",
+    "fn:84b7870b4d7c7d91",
+    "fn:953458e81fe12829",
+    "fn:a3a04100486196dc",
+    "fn:b113f725d215f11b",
+    "fn:d29f0cb22c120e5f",
+    "fn:f66c6613b2fa9c0c",
+    "fn:fa5c92d5b6a14105",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:0a50e017198e2657",
+    "fn:5e560acc677a9e36",
+    "fn:77026588fa2ba602",
+    "fn:7a10a768152b5992",
+    "fn:9b373dcfa52e169e",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+test = true
+physical_interface = true
+
+[[module."fluid_mechanics_solvers.rs".function]]
+id = "fn:5e560acc677a9e36"
+name = "FHRThermalHydraulicsState"
+qual = "FHRThermalHydraulicsState"
+item = "type"
+shape = "struct"
+lines = [
+    810,
+    890,
+]
+hash = "sha256:c1d5efd61f5414bd1387880fd4f97d675bf4f2099a416481cc103afbc0512b4c"
+doc_hash = "sha256:bf376ca5e165d5e245151d7bee8921a8961d157942468b5d91e771ec18751697"
+test = true
+
+[[module."fluid_mechanics_solvers.rs".function]]
+id = "fn:953458e81fe12829"
+name = "four_branch_pri_and_intermediate_loop_fluid_mechanics_only"
+qual = "four_branch_pri_and_intermediate_loop_fluid_mechanics_only"
+lines = [
+    892,
+    1054,
+]
+hash = "sha256:f20d6ae04af24539aa5cde9cb5db8f62ba5fe7269406a2978360deffa5ddd7d5"
+doc_hash = "sha256:f0251f511343d3201ad8a9415b99917b88d04c1bdb7722e153e63def55536312"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:352eae89cdf05026",
+    "fn:3b175c51dad51671",
+    "fn:49b3f3e819a00739",
+    "fn:74172f53fcffc1fc",
+    "fn:89b98b3aca1482a0",
+    "fn:928c1745ab947694",
+    "fn:93844cc452449d04",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:0a50e017198e2657",
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
+test = true
+physical_interface = true
+
+[[module."fluid_mechanics_solvers.rs".function]]
+id = "fn:642b8bec048ead67"
+name = "four_branch_pri_loop_flowrates_parallel_debug"
+qual = "four_branch_pri_loop_flowrates_parallel_debug"
+lines = [
+    1055,
+    1140,
+]
+hash = "sha256:66a0d9bbabc5db686e7cfafa5d80574d138f0d5318855ad04b9d252455038aa8"
+doc_hash = "sha256:f7ad1787df669ab2de40edcedb711fad616d78fa4cf2ed9001d356fd50323f22"
+callees = [
+    "fn:1fd3255c59926ccd",
+    "fn:352eae89cdf05026",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:d346a9dd03a97d8c",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
+test = true
+physical_interface = true
+
+[[module."fluid_mechanics_solvers.rs".function]]
+id = "fn:525654166e708c9a"
+name = "four_branch_pri_loop_flowrates_parallel_debug_library"
+qual = "four_branch_pri_loop_flowrates_parallel_debug_library"
+lines = [
+    1141,
+    1242,
+]
+hash = "sha256:4d1b0909532e7e97fda0ca4def0e30482f89429057f0e479d29d503a69917469"
+doc_hash = "sha256:e5dd22a4c7f69585f1f1c3d2dcab60230df918c97a855a8af8e47b0076e6f180"
+callees = [
+    "fn:134aefb246f7d585",
+    "fn:1fd3255c59926ccd",
+    "fn:352eae89cdf05026",
+    "fn:74172f53fcffc1fc",
+    "fn:89b98b3aca1482a0",
+    "fn:93844cc452449d04",
+    "fn:e79236623dec9507",
+]
+uses = [
+    "fn:77026588fa2ba602",
+    "fn:9b373dcfa52e169e",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
+test = true
+physical_interface = true
+
+[[module."fluid_mechanics_solvers.rs".function]]
+id = "fn:d346a9dd03a97d8c"
+name = "calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1"
+qual = "calculate_iterative_mass_flowrate_across_branches_for_fhr_sim_v1"
+lines = [
+    1257,
+    1485,
+]
+hash = "sha256:482bd1ec2388888cb44ece9dce15acce2a53861e7fc816d5962bf86c9f491dc2"
+doc_hash = "sha256:a30eb110f3455394c6a50d875ce2a6a4babdbf7e0e0a669d49f5878c3eaaaf52"
+callees = [
+    "fn:2553ffce8671381b",
+    "fn:758bc5578ccfb600",
+    "fn:b96c71a8e07cc6c4",
+    "fn:c484cd82724148ac",
+    "fn:cea03dd5d2c74e29",
+]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+]
+test = true
+physical_interface = true
+
+[module."isothermal_flow.rs"]
+path = "crate::pre_built_components::gfhr_pipe_tests::multi_branch::isothermal_flow"
+
+[[module."isothermal_flow.rs".function]]
+id = "fn:5b81089483ca3fe1"
+name = "test_fhr_four_branch_solver_pri_and_intrmd_loop_isothermal_check"
+qual = "test_fhr_four_branch_solver_pri_and_intrmd_loop_isothermal_check"
+lines = [
+    24,
+    145,
+]
+hash = "sha256:22fa18bfb511932111a302821550c2137027b71dfe2ba11e6239021313ea256d"
+doc_hash = "sha256:e2c1eed6d5762928848f4ee008be19634ee30c79e1b70a38540a82eb8194a0d2"
+callees = [
+    "fn:03ce93dc36484cac",
+    "fn:127899081bae3877",
+    "fn:14189c265070ad3d",
+    "fn:2020bf58f49bc3c3",
+    "fn:2e573e01e821f4cc",
+    "fn:4d23b01b7ce16652",
+    "fn:4faba7e52d447e65",
+    "fn:54c793f47574bae1",
+    "fn:5e90827e8daa771b",
+    "fn:7231b453778b6917",
+    "fn:73860d20e203dc97",
+    "fn:90793a9669694eec",
+    "fn:953458e81fe12829",
+    "fn:97e5ba93e674cae6",
+    "fn:9dbd342403faae0a",
+    "fn:b785d648db912e28",
+    "fn:e54de61a64eee6a2",
+    "fn:f757d0d6ec5db07d",
+]
+test = true
+
+[[module."isothermal_flow.rs".function]]
+id = "fn:5f15a260f24e7b0a"
+name = "test_fhr_four_branch_solver_pri_and_intrmd_loop_zero_flow"
+qual = "test_fhr_four_branch_solver_pri_and_intrmd_loop_zero_flow"
+lines = [
+    147,
+    268,
+]
+hash = "sha256:bd307623a92316bf8b11d6997af828d1cd3ce2f24dadeb6600a43b8c5a59b300"
+doc_hash = "sha256:c204c9a9e86057d16adaa17768b8beffd37cd1c3ff935e3242430dba8aa1f61e"
+callees = [
+    "fn:03ce93dc36484cac",
+    "fn:127899081bae3877",
+    "fn:14189c265070ad3d",
+    "fn:2020bf58f49bc3c3",
+    "fn:2e573e01e821f4cc",
+    "fn:4d23b01b7ce16652",
+    "fn:4faba7e52d447e65",
+    "fn:54c793f47574bae1",
+    "fn:5e90827e8daa771b",
+    "fn:7231b453778b6917",
+    "fn:73860d20e203dc97",
+    "fn:90793a9669694eec",
+    "fn:953458e81fe12829",
+    "fn:97e5ba93e674cae6",
+    "fn:9dbd342403faae0a",
+    "fn:b785d648db912e28",
+    "fn:e54de61a64eee6a2",
+    "fn:f757d0d6ec5db07d",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::pre_built_components::gfhr_pipe_tests::multi_branch"
+
+[[module."mod.rs".function]]
+id = "fn:f6c81061700aedbb"
+name = "test_fhr_four_branch_full_th_long_regression"
+qual = "test_fhr_four_branch_full_th_long_regression"
+lines = [
+    82,
+    374,
+]
+hash = "sha256:21e81c3c714f27611a4055d35b1a2a4d2db06ecee8c21a969b60cb5bcc944615"
+doc_hash = "sha256:e312b601345b4347d08f1cea82a303e0a2c3f3e85e5c57ecf3550aeb0b447a46"
+callees = [
+    "fn:03bca6dbcf0f319b",
+    "fn:03ce93dc36484cac",
+    "fn:127899081bae3877",
+    "fn:14189c265070ad3d",
+    "fn:2020bf58f49bc3c3",
+    "fn:2e573e01e821f4cc",
+    "fn:4d23b01b7ce16652",
+    "fn:4faba7e52d447e65",
+    "fn:54c793f47574bae1",
+    "fn:5e90827e8daa771b",
+    "fn:7231b453778b6917",
+    "fn:73860d20e203dc97",
+    "fn:74d6cf9a42c9e3c4",
+    "fn:8a5104882dd4f304",
+    "fn:90793a9669694eec",
+    "fn:926769aec4f8dc56",
+    "fn:953458e81fe12829",
+    "fn:97e5ba93e674cae6",
+    "fn:9dbd342403faae0a",
+    "fn:b6e35081cae89613",
+    "fn:b785d648db912e28",
+    "fn:e54de61a64eee6a2",
+    "fn:f757d0d6ec5db07d",
+]
+uses = ["fn:5e560acc677a9e36"]
+test = true
+
+[module."multi_branch_solvers.rs"]
+path = "crate::pre_built_components::gfhr_pipe_tests::multi_branch::multi_branch_solvers"
+
+[[module."multi_branch_solvers.rs".function]]
+id = "fn:2553ffce8671381b"
+name = "calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_custom"
+qual = "calculate_pressure_change_using_guessed_branch_mass_flowrate_fhr_sim_v1_custom"
+lines = [
+    14,
+    314,
+]
+hash = "sha256:63c7618196c23f4a15b6b6b5ac7017d5c10ba16b4f62eb61e7f94a391e247aca"
+doc_hash = "sha256:a0d036e485fb7018c6b5736afb9bfe694e2ce1e6ffe996a7e7cfc91fd997ed3e"
+callees = ["fn:169b8c5f6f6220cd"]
+uses = [
+    "fn:c077ceedfafe83f6",
+    "fn:ca62ba45b75e81ac",
+    "fn:ebf3ac43832118cf",
+]
+test = true
+physical_interface = true
+
+[[module."multi_branch_solvers.rs".function]]
+id = "fn:169b8c5f6f6220cd"
+name = "calculate_mass_flowrate_from_pressure_change_for_parallel_branches"
+qual = "calculate_mass_flowrate_from_pressure_change_for_parallel_branches"
+lines = [
+    316,
+    361,
+]
+hash = "sha256:8bf97c4562c2f5b346f7179b59a631944bfbbd09e277e7e2b000417f1819cca1"
+doc_hash = "sha256:fed086ae12c2abc3eeba5ceefcdbe1c05a093351cfb708cef74b9e72d7e59525"
+callees = [
+    "fn:758bc5578ccfb600",
+    "fn:c484cd82724148ac",
+]
+uses = ["fn:ebf3ac43832118cf"]
+test = true
+physical_interface = true
+
+[module."regression.rs"]
+path = "crate::pre_built_components::gfhr_pipe_tests::multi_branch::regression"
+
+[[module."regression.rs".function]]
+id = "fn:5b48c1429fa02538"
+name = "test_fhr_four_branch_solver_pri_and_intrmd_loop_full_th_short_regression"
+qual = "test_fhr_four_branch_solver_pri_and_intrmd_loop_full_th_short_regression"
+lines = [
+    36,
+    253,
+]
+hash = "sha256:5642a3ed139b7c17ed637a1dda2ce38db1adde91f8021be77efd131f093cb822"
+doc_hash = "sha256:be0add0293aab729c28e081755aa94d9ea0a4b6429e47dbf9c9acb072510b8be"
+callees = [
+    "fn:03bca6dbcf0f319b",
+    "fn:03ce93dc36484cac",
+    "fn:127899081bae3877",
+    "fn:14189c265070ad3d",
+    "fn:2020bf58f49bc3c3",
+    "fn:2e573e01e821f4cc",
+    "fn:4d23b01b7ce16652",
+    "fn:4faba7e52d447e65",
+    "fn:54c793f47574bae1",
+    "fn:5e90827e8daa771b",
+    "fn:7231b453778b6917",
+    "fn:73860d20e203dc97",
+    "fn:74d6cf9a42c9e3c4",
+    "fn:8a5104882dd4f304",
+    "fn:90793a9669694eec",
+    "fn:926769aec4f8dc56",
+    "fn:953458e81fe12829",
+    "fn:97e5ba93e674cae6",
+    "fn:9dbd342403faae0a",
+    "fn:b6e35081cae89613",
+    "fn:b785d648db912e28",
+    "fn:e54de61a64eee6a2",
+    "fn:f757d0d6ec5db07d",
+]
+uses = ["fn:5e560acc677a9e36"]
+test = true
+
+[[module."regression.rs".function]]
+id = "fn:91d7a0ad6724cc23"
+name = "isothermal_test_fhr_four_branch_solver_regression_library"
+qual = "isothermal_test_fhr_four_branch_solver_regression_library"
+lines = [
+    255,
+    311,
+]
+hash = "sha256:f02790be4d4fbe5ee56e12a92001d66529c050fa9dab8a5a69c381286d8bc1d0"
+doc_hash = "sha256:4cb3cea787ad754b4d11a90db8ac18f9ff3fa372f9b2d0d82d5c92548e18f4eb"
+callees = [
+    "fn:19141114456aac7c",
+    "fn:4d23b01b7ce16652",
+    "fn:525654166e708c9a",
+    "fn:77f595b3c6778a12",
+    "fn:ae2a995dbdd5c923",
+    "fn:b7d6f19085137318",
+]
+test = true
+
+[[module."regression.rs".function]]
+id = "fn:ae2a995dbdd5c923"
+name = "new_reactor_vessel_pipe_1_regression"
+qual = "new_reactor_vessel_pipe_1_regression"
+lines = [
+    322,
+    407,
+]
+hash = "sha256:2938dbc8e971c0db004a74321051d4c1ccd25292f39313c9578e68bee9797a29"
+doc_hash = "sha256:6f7b1fbe8847b8f1c83d2724f50e7f64889fa5bf78a1a19b332a5c793dd8cab9"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+test = true
+physical_interface = true
+
+[[module."regression.rs".function]]
+id = "fn:77f595b3c6778a12"
+name = "new_downcomer_pipe_2_regression"
+qual = "new_downcomer_pipe_2_regression"
+lines = [
+    408,
+    483,
+]
+hash = "sha256:fc00eb3dd87678aac0130c1d0c509deed5a6fcd419c310871573c20affd682ef"
+doc_hash = "sha256:73dbc7c1aa4a1bbc9929f03cb2e62b5994180db8131e1e15169ea9939da583db"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+test = true
+physical_interface = true
+
+[[module."regression.rs".function]]
+id = "fn:19141114456aac7c"
+name = "new_downcomer_pipe_3_regression"
+qual = "new_downcomer_pipe_3_regression"
+lines = [
+    485,
+    566,
+]
+hash = "sha256:1aa22e2722b79eb1ceb8fc618463b1ee17c15a846e16bd258fc017b72bb4bdde"
+doc_hash = "sha256:53613920205e247a0eed373bd2f34564664ecc4e330dd0a2a21695e53e395037"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+test = true
+physical_interface = true
+
+[[module."regression.rs".function]]
+id = "fn:b7d6f19085137318"
+name = "new_fhr_pipe_7_regression"
+qual = "new_fhr_pipe_7_regression"
+lines = [
+    567,
+    649,
+]
+hash = "sha256:6f61972e13a05e5441828f3122e93f9a419a79ecd3d6406df5094ab04f08aab1"
+doc_hash = "sha256:db357c029f8c89460e1e18002ebaf21185f9946f68f6e81a72df11a2b74fe07c"
+callees = ["fn:4c77b592a8ab611f"]
+uses = [
+    "fn:9447740069e81383",
+    "fn:9b373dcfa52e169e",
+    "fn:de020efa1d48c9ac",
+]
+test = true
+physical_interface = true
+
+[module."single_branch_solvers.rs"]
+path = "crate::pre_built_components::gfhr_pipe_tests::multi_branch::single_branch_solvers"
+
+[[module."single_branch_solvers.rs".function]]
+id = "fn:c484cd82724148ac"
+name = "calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_custom"
+qual = "calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_custom"
+lines = [
+    8,
+    266,
+]
+hash = "sha256:bbaaad69ec054ebf4889e677a4821a472bbb815599343beaae698b1b04d44d5a"
+doc_hash = "sha256:65a1f41af51af65e696dc5c0f9a000596aeb8715c3c04fe5f4d32f26567ae3b1"
+uses = [
+    "fn:5bcbbf392051e369",
+    "fn:d4b239bd4b67db13",
+    "fn:ebf3ac43832118cf",
+]
+test = true
+physical_interface = true

@@ -72,7 +72,7 @@ fn liquid_dynamic_viscosity(
         Material::Liquid(CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)) => {
             CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)
         }
-        Material::Solid(_) => panic!("liquid_dynamic_viscosity, use LiquidMaterial enums only"),
+        Material::Solid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     let dynamic_viscosity: DynamicViscosity = match liquid_material {

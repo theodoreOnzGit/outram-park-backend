@@ -1,0 +1,59 @@
+# Angle of repose by the lifting-cylinder method, done the way upstream does it:
+# a triangulated cylinder imported with `fix mesh/surface`, used as a granular
+# wall with `fix wall/gran ... mesh`, and raised with `fix move/mesh ... linear`
+# (the mechanism in examples/LIGGGHTS/Tutorials_public/movingMeshGran).
+# A LIGGGHTS *primitive* wall cannot move -- fix_wall_gran's `shear` only gives
+# a tangential surface velocity -- so the mesh route is the faithful one.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.30 0.30 -0.30 0.30 -0.010 0.60 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 5.0e6
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+fix 		m5 all property/global coefficientRollingFriction peratomtypepair 1 0.1
+pair_style	gran model hertz tangential history rolling_friction cdt
+pair_coeff	* *
+timestep	5e-6
+fix		zwall all wall/gran model hertz tangential history rolling_friction cdt primitive type 1 zplane 0.0
+# the cylinder, as a mesh so it can be moved
+fix		cylmesh all mesh/surface file lift_cylinder.stl type 1
+fix		cylwall all wall/gran model hertz tangential history rolling_friction cdt mesh n_meshes 1 meshes cylmesh
+region		col cylinder z 0. 0. 0.049 0.006 0.135 units box
+fix		pts all particletemplate/sphere 15485863 atom_type 1 density constant 2500 radius constant 0.005
+fix		pdd all particledistribution/discrete 15485867 1 pts 1.0
+# Repeated top-up, as upstream's own tutorials do (movingMeshGran uses
+# `insert_every 2000 ... particles_in_region 1500`). A single `insert_every
+# once` pass underfills badly -- it placed 151 of 600 requested.
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd &
+		insert_every 20000 overlapcheck yes all_in yes vel constant 0. 0. 0. region col particles_in_region 600
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+thermo_style	custom step atoms ke
+thermo		100000
+thermo_modify	lost ignore norm no
+# Phase 1: fill (repeated insertion) and settle inside the cylinder.
+run		400000
+unfix		ins
+run		200000
+write_dump	all custom dump.lift_init id x y z vx vy vz modify sort id
+variable	ke1 equal ke
+print		"SETTLED_KE ${ke1}"
+# Phase 2: raise the cylinder SLOWLY (0.02 m/s) clear of the pile.
+# Lifting instantaneously is what invalidated the earlier attempts: the outer
+# particles leave ballistically and the deposit is a collapse, not a repose.
+fix		lift all move/mesh mesh cylmesh linear 0. 0. 0.02
+run		800000
+unfix		lift
+# Phase 3: let the heap come to rest.
+run		300000
+write_dump	all custom dump.lift_heap id x y z vx vy vz modify sort id
+variable	ke2 equal ke
+print		"FINAL_KE ${ke2}"

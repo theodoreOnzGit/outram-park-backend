@@ -1,0 +1,1057 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs"
+test_ids = [
+    "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_kernel_release_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_run_is_reproducible",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::hop_releases_at_outer_surface",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::multilayer_walk_transmits_across_interfaces",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/interaction_with_decaying_nuclide_simulator/tests_for_auto_timestepping.rs::diffusion_fourier_number_calc",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1a_cs_release_1200c_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_buffer",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_kernel",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_pyc",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_sic",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc",
+    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic",
+    "crates/boon-lay/tests/triso_atops_booth_vs_crp6.rs::crp6_case1_booth_equals_the_crank_series",
+    "crates/boon-lay/tests/wasm_fallback.rs::ensemble_is_reproducible_across_repeated_runs",
+    "crates/boon-lay/tests/wasm_fallback.rs::parallel_ensemble_runs_and_is_physical",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::multilayer_bounce_cost_probe",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."cesium_tests.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::cesium_tests"
+
+[[module."cesium_tests.rs".function]]
+id = "fn:68835f79d2429664"
+name = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic"
+lines = [
+    18,
+    92,
+]
+hash = "sha256:31e8fe8b77823898714493a7f70dae6e29a639152f1fd862168483d5010b59b0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."cesium_tests.rs".function]]
+id = "fn:74c149ecf50768ee"
+name = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc"
+lines = [
+    94,
+    162,
+]
+hash = "sha256:bac807cda8a2b9f36528b6cbce25f40c8a3c54ecd871eef458baf2e792aaa35e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."cesium_tests.rs".function]]
+id = "fn:1a77bae1a8ead147"
+name = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel"
+lines = [
+    164,
+    227,
+]
+hash = "sha256:4e466ff9b1b7482d342e1890f00b2990d2edb92cb3379f8be4ffe3c4cf49a550"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."cesium_tests.rs".function]]
+id = "fn:6bb57890166f7fd5"
+name = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer"
+lines = [
+    229,
+    273,
+]
+hash = "sha256:551c2fa7936ab4360979d8c5b7107305e110020db747978dc3860e2adb9f65ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs"
+
+[[module."mod.rs".function]]
+id = "fn:32729abf9a906a48"
+name = "get_d1_for_ag"
+qual = "get_d1_for_ag"
+lines = [
+    7,
+    34,
+]
+hash = "sha256:93f79927e01ef3f15f518399fa05e8fefe31ee9eb84cb1248ff2b24861396752"
+doc_hash = "sha256:413f6bcdd7177569324423e811cd751a7f17a31f48a952e1908bef6e113e89ec"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:32008d34f3658b2b"
+name = "get_q1_for_ag"
+qual = "get_q1_for_ag"
+lines = [
+    43,
+    56,
+]
+hash = "sha256:b1a85664a67d805e9ecdb22360df3477f2551941b2e2841dcdeff7cfbc69597a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:eb9b9e6d7b0f9a9c"
+name = "get_d1_for_cs"
+qual = "get_d1_for_cs"
+lines = [
+    65,
+    89,
+]
+hash = "sha256:e9a081c215cb9a6bdbe3fc6f6783b44039a95d1b8923b7ededf2c481bb9a0076"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:77f79ad0b87ac0f6"
+name = "get_q1_for_cs"
+qual = "get_q1_for_cs"
+lines = [
+    98,
+    111,
+]
+hash = "sha256:d8e41d26e1a7500853e2864a00396a895b88b6953786f4ac73f72ba08ca913de"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:8e48f530cd7cc6d7"
+name = "get_d2_for_cs"
+qual = "get_d2_for_cs"
+lines = [
+    120,
+    133,
+]
+hash = "sha256:e0290ed4115da3eefcd8e8b3b4b374011f2664a7355bf0649aec023922d79a10"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:bceda333bb1970d3"
+name = "get_q2_for_cs"
+qual = "get_q2_for_cs"
+lines = [
+    142,
+    155,
+]
+hash = "sha256:ba1546d17e0c73511b3132812ed332381e922cccf2e837f879ad3e55768c6675"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:5f7c5ca7f1e90cc1"
+name = "get_d1_for_sr"
+qual = "get_d1_for_sr"
+lines = [
+    164,
+    177,
+]
+hash = "sha256:c1fb8bdd3ee15eb46b95e2e3e4e0f4bdc761e9f036963e0308cb7d067bdab784"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:cdbfa11a8dfe9ade"
+name = "get_q1_for_sr"
+qual = "get_q1_for_sr"
+lines = [
+    186,
+    199,
+]
+hash = "sha256:b8785f904c087f177c5651ef8d0c3b3c991cc331114b7b33737b641b7359a0ac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:95a9ba49df6d1211"
+name = "get_d2_for_sr"
+qual = "get_d2_for_sr"
+lines = [
+    208,
+    221,
+]
+hash = "sha256:aa105139be62a2f759a2da53910379fa8bcb219ac5774aa460791c372ac22446"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b29122a4f7714bf3"
+name = "get_q2_for_sr"
+qual = "get_q2_for_sr"
+lines = [
+    230,
+    243,
+]
+hash = "sha256:af1d1155809275e2c10c101f287a8412109ec0f332dbcd9a89226032aeb9f291"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:276704a175fea00f"
+name = "get_d1_for_kr"
+qual = "get_d1_for_kr"
+lines = [
+    252,
+    300,
+]
+hash = "sha256:69a8918603c382b7f77f159ada7b22a7a967193fe19ba90b7d608311f5c92d27"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:af65ce846ea6f6fc"]
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:6384b933d6a3c8d2"
+name = "get_q1_for_kr"
+qual = "get_q1_for_kr"
+lines = [
+    309,
+    353,
+]
+hash = "sha256:02b0db033d5b7f08f472d5d187676c8827a02aab930a7cac218ebc58bfed8709"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5d53383cfe98b843"]
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:f6f96e9259dea849"
+name = "get_d2_for_kr"
+qual = "get_d2_for_kr"
+lines = [
+    362,
+    394,
+]
+hash = "sha256:8d951e91da8e254f0bc057921bc448aa6b5da2030458df044a1ea04819e96e1f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:af65ce846ea6f6fc"]
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:31464d09516fe216"
+name = "get_q2_for_kr"
+qual = "get_q2_for_kr"
+lines = [
+    403,
+    433,
+]
+hash = "sha256:c8330c29912ca23bda9cce9c5e0cf456b3627d9224258baa70fb9003018a0b1a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:5d53383cfe98b843"]
+uses = ["fn:359972b9e99804c1"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:af65ce846ea6f6fc"
+name = "get_s_for_d_in_krypton"
+qual = "get_s_for_d_in_krypton"
+lines = [
+    441,
+    457,
+]
+hash = "sha256:c435a014c2fcd4bda0832678f0811ad6fa7467ab9cbaa15fd7f0ddba09c4fc2b"
+doc_hash = "sha256:1cf41af18e4e608a84f39af4b003cd12f1825d513d734322a5af73dc79fb875d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:5d53383cfe98b843"
+name = "get_s_for_q_in_krypton"
+qual = "get_s_for_q_in_krypton"
+lines = [
+    466,
+    482,
+]
+hash = "sha256:077438d6bd851466cc562fefee56a5beb398406296b0fd1bc23789f03a964b6e"
+doc_hash = "sha256:1cf41af18e4e608a84f39af4b003cd12f1825d513d734322a5af73dc79fb875d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+]
+physical_interface = true
+
+[module."silver_tests.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::silver_tests"
+
+[[module."silver_tests.rs".function]]
+id = "fn:41942eb9ab8f7cd3"
+name = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_sic"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_sic"
+lines = [
+    14,
+    76,
+]
+hash = "sha256:999ddc15fea58ea9ad806089fab4fb7c727676cccf17bc9198c20560e927dc68"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."silver_tests.rs".function]]
+id = "fn:9590d50dd58c7da3"
+name = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_pyc"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_pyc"
+lines = [
+    78,
+    142,
+]
+hash = "sha256:c5908f642404e1d16137fbe378ee6ff96d68cfdd6b4fcce38aeb944e4f825d7c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."silver_tests.rs".function]]
+id = "fn:363719f25cc6ffdc"
+name = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_kernel"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_kernel"
+lines = [
+    144,
+    206,
+]
+hash = "sha256:02d7ac6f59d201d7094f48bbbd03738cce5e628a3e15e84e2a0b926f53c8d645"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."silver_tests.rs".function]]
+id = "fn:a43b45a14cb81502"
+name = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_buffer"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_buffer"
+lines = [
+    208,
+    250,
+]
+hash = "sha256:5400eb38983ff7f7aaa8c8f1f67bcf486f8e33ee048405130d203f47a2605de4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[module."strontium_tests.rs"]
+path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs::strontium_tests"
+
+[[module."strontium_tests.rs".function]]
+id = "fn:61c1694cf8bdbf70"
+name = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic"
+lines = [
+    14,
+    70,
+]
+hash = "sha256:b0385db83f6cd4b8dcb8de232862b095da30d9d16a644e2c0cfd055e4582e703"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."strontium_tests.rs".function]]
+id = "fn:abb12e87257a14b6"
+name = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc"
+lines = [
+    72,
+    132,
+]
+hash = "sha256:6c092df9dfa27277bee6a1848f3886faba30b972aff0e6efba075f2c2b10cf8f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."strontium_tests.rs".function]]
+id = "fn:546d1a18bee5137e"
+name = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel"
+lines = [
+    134,
+    192,
+]
+hash = "sha256:3b918a9dde8def96e521e01c4a27b8b7a515980d981f22f28c972610237fabfb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true
+
+[[module."strontium_tests.rs".function]]
+id = "fn:78e1e21e2c25c1ac"
+name = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer"
+qual = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer"
+lines = [
+    194,
+    245,
+]
+hash = "sha256:499f1b930015baae6f86c76b6e0f59fdc1cbe6596d507fa128b0ef0dc71aa90e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4bdea64528f551f6"]
+uses = ["fn:359972b9e99804c1"]
+test = true

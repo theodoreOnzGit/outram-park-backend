@@ -1,0 +1,46 @@
+{
+	"name": "crossref_rest_preprint",
+	"kind": "forced",
+	"translator": "0a61e167-de9a-4f93-a68a-628b48855909",
+	"search": {
+		"itemType": "journalArticle",
+		"DOI": "10.1101/2020.04.07.20057075"
+	},
+	"status": 200,
+	"translatorUsed": "0a61e167-de9a-4f93-a68a-628b48855909",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "preprint",
+			"creators": [
+				{
+					"firstName": "Morten Gram",
+					"lastName": "Pedersen",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Matteo",
+					"lastName": "Meneghini",
+					"creatorType": "author"
+				}
+			],
+			"tags": [],
+			"repository": "Public and Global Health",
+			"abstractNote": "Abstract                Most of the world is currently fighting to limit the impact of the COVID-19 pandemic. Italy, the Western country with most COVID-19 related deaths, was the first to implement drastic containment measures in early March, 2020. Since then most other European countries, the USA, Canada and Australia, have implemented similar restrictions, ranging from school closures, banning of recreational activities and large events, to complete lockdown. Such limitations, and softer promotion of social distancing, may be more effective in one society than in another due to cultural or political differences. It is therefore important to evaluate the effectiveness of these initiatives by analyzing country-specific COVID-19 data. We propose to model COVID-19 dynamics with a SIQR (susceptible – infectious – quarantined – recovered) model, since confirmed positive cases are isolated and do not transmit the disease. We provide an explicit formula that is easily implemented and permits us to fit official COVID-19 data in a series of Western countries. We found excellent agreement with data-driven estimation of the day-of-change in disease dynamics and the dates when official interventions were introduced. Our analysis predicts that for most countries only the more drastic restrictions have reduced virus spreading. Further, we predict that the number of unidentified COVID-19-positive individuals at the beginning of the epidemic is ∼10 times the number of confirmed cases. Our results provide important insight for future planning of non-pharmacological interventions aiming to contain spreading of COVID-19 and similar diseases.",
+			"date": "2020-04-10",
+			"DOI": "10.1101/2020.04.07.20057075",
+			"url": "http://medrxiv.org/lookup/doi/10.1101/2020.04.07.20057075",
+			"title": "A simple method to quantify country-specific effects of COVID-19 containment measures",
+			"libraryCatalog": "Crossref",
+			"accessDate": "NOW"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://api.crossref.org/works/?filter=doi:10.1101/2020.04.07.20057075",
+			"body": null
+		}
+	]
+}

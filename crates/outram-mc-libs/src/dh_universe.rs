@@ -81,13 +81,30 @@
 //!
 //! # Choosing a treatment
 //!
-//! | Variant | Geometry stored | Exact? | Needs fitting | Geometry-only speed |
-//! |---|---|---|---|---|
-//! | [`DhTreatment::DeltaTracking`] | every particle | **yes** | no | 1x (reference) |
-//! | [`DhTreatment::ChordLength`] | none | no | no | ~2.5-3x faster |
-//! | [`DhTreatment::Scls`] | a retention window | no | no | ~1.5-2x faster |
-//! | [`DhTreatment::Homogenised`] | none (smeared) | no | no | ~8x faster |
-//! | [`DhTreatment::RingRpt`] | none (fitted annulus) | no | **yes** | ~8x faster |
+//! | Variant | Inclusion | Geometry stored | Exact? | Needs fitting | Geometry-only speed |
+//! |---|---|---|---|---|---|
+//! | [`DhTreatment::DeltaTracking`] | the real particle | every particle | **yes** | no | 1x (reference) |
+//! | [`DhTreatment::ChordLength`] | smeared particle | none | no | no | ~2.5-3x faster |
+//! | [`DhTreatment::ChordLengthKernel`] | **fuel kernel** | none | no | no | not measured |
+//! | [`DhTreatment::Scls`] | smeared particle | a retention window | no | no | ~1.5-2x faster |
+//! | [`DhTreatment::SclsKernel`] | **fuel kernel** | a retention window | no | no | not measured |
+//! | [`DhTreatment::Homogenised`] | none (smeared) | none (smeared) | no | no | ~8x faster |
+//! | [`DhTreatment::RingRpt`] | none (fitted annulus) | none (fitted annulus) | no | **yes** | ~8x faster |
+//!
+//! **The `Inclusion` column is the one that decides accuracy on doubly
+//! heterogeneous fuel, and it is why there are two CLS arms and two SCLS arms.**
+//! Taking the *smeared particle* as the inclusion dilutes the fuel kernel
+//! through its own coatings before the sampler ever sees it, which destroys
+//! grain-level resonance self-shielding — the effect the whole treatment
+//! exists to capture. The kernel-level variants take the undiluted kernel
+//! instead. On the FHR reference unit cell that is worth **+3818 pcm**; see
+//! `docs/cls-scls-vv.md` for the measurement and for what it costs.
+//!
+//! The two `not measured` cells are honest rather than pessimistic: the
+//! geometry-only microbenchmark has not been re-run for the kernel arms. Their
+//! *eigenvalue-run* cost has been measured and is in that V&V doc, and it is
+//! not favourable — restoring the undiluted kernel restores delta tracking's
+//! majorant, so most of the speed advantage goes with it.
 //!
 //! Measured eigenvalues and their biases live in `examples/dh_keff_vv.rs`,
 //! which runs every arm on one pebble and prints the table. They are **not**
@@ -103,7 +120,7 @@
 //! approximate geometry can return, which multiplied their virtual-collision
 //! counts by roughly 25x at the U-238 resonances. Bounding over reachable
 //! materials only (2026-09-14) put all four arms at **1.7-2.2x faster** than
-//! delta tracking. The geometry-only benchmark's 20-60x still does not
+//! delta tracking. The geometry-only benchmark's 19-69x still does not
 //! transfer — the eigenvalue speedups are far smaller — but the sign was this
 //! crate's bug, not a property of the methods. Measure on your own case.
 //!
@@ -166,6 +183,7 @@
 //! every k-eff driver in this crate already consumes, which is why every
 //! treatment shares one transport path rather than each needing its own.
 
+use petir::mathf::RealMath;
 use std::sync::Mutex;
 
 use crate::geometry::position::Position;
@@ -175,7 +193,9 @@ use crate::pebble_beds::delta_tracking::Majorant;
 use crate::pebble_beds::fhr_pebble::{
     homogenise_by_volume, ExplicitTrisoPebble, TrisoMaterials, TrisoSpec,
 };
-use crate::pebble_beds::keff_delta::{run_keff_delta_in, DeltaDomain, MaterialQuery};
+use crate::pebble_beds::keff_delta::{
+    run_keff_delta_in, DeltaDomain, DeltaGenerationReport, DeltaPowerIteration, MaterialQuery,
+};
 use crate::pebble_beds::sphere_packing::{PackedSpheres, PackingConfig, PackingMethod};
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::stochastic::cls::ClsMedium;
@@ -223,6 +243,32 @@ pub enum DhTreatment {
     /// back-scatters re-crosses ground it has already covered and meets a
     /// freshly sampled medium rather than the one it just left, so CLS is
     /// least reliable in scattering-dominated, optically thick problems.
+    ///
+    /// # It also gives up grain-level self-shielding, and that is what costs
+    ///
+    /// **Measured 2026-09-18 on the FHR unit cell: `k = 1.34901 ± 0.00727`
+    /// against an exact `1.38050 ± 0.00791` — `-3149 pcm`, resolved at 2.9σ.**
+    /// That is only about 1000 pcm better than removing the double
+    /// heterogeneity altogether, which is a poor showing for a stochastic-media
+    /// method, and the reason is not the chord sampling.
+    ///
+    /// This variant takes the **whole particle** as the inclusion and fills it
+    /// with a volume-homogenised kernel-plus-coatings material, which smears
+    /// the fuel kernel over **7.7x its own volume** on the FHR spec. Resonance
+    /// self-shielding is exactly what that dilution destroys, and grain-level
+    /// shielding is the larger of the two effects a doubly-heterogeneous
+    /// treatment exists to keep.
+    ///
+    /// [`Self::ChordLengthKernel`] applies CLS at the kernel instead and
+    /// measures **`+669 pcm`, not resolved from exact (0.65σ)** — a recovery of
+    /// **+3818 pcm** on the same problem, same seed, same fuel inventory.
+    ///
+    /// **Prefer [`Self::ChordLengthKernel`] for doubly-heterogeneous fuel.**
+    /// This variant remains the right one for a genuinely single-level
+    /// stochastic medium, where the inclusion really is the thing being
+    /// sampled, and it is the faster of the two (68.9 s against 157.6 s) — but
+    /// that speed is bought with the very dilution that loses the reactivity.
+    /// See `docs/cls-scls-vv.md`.
     ChordLength,
 
     /// **Semi-implicit chord-length sampling (SCLS).** CLS, but with bounded
@@ -238,22 +284,201 @@ pub enum DhTreatment {
     /// SCLS at pf 0.2, with SCLS over-correcting past it. Measure on your own
     /// problem; do not assume the more elaborate method wins.
     ///
-    /// # Known wiring limitation — read before quoting an SCLS eigenvalue
+    /// # Wiring, and a correction — 2026-09-14
     ///
-    /// SCLS memory is meant to be **reset at every history boundary**
-    /// ([`SclsMedium::begin_flight`](crate::stochastic::scls::SclsMedium::begin_flight)).
-    /// The point-query seam the k-eff drivers expose is a bare
-    /// `Fn(Position) -> Option<usize>` with no history-boundary notification, so
-    /// through [`DhUniverse::keff`] the retention window is **not** reset and
-    /// one history inherits the previous history's remembered inclusions.
+    /// SCLS has two kinds of state and they are reset differently. The
+    /// in-progress **flight** is per-history and is discarded at each history
+    /// boundary through
+    /// [`MaterialQuery::begin_history`](crate::pebble_beds::keff_delta::MaterialQuery::begin_history).
+    /// The **retained inclusions** are not per-history at all — they are a
+    /// progressively reconstructed model of the packing, and
+    /// [`SclsMedium::begin_flight`](crate::stochastic::scls::SclsMedium::begin_flight)
+    /// deliberately keeps them so a later history in the same neighbourhood
+    /// still benefits.
     ///
-    /// That is not SCLS. The direction and size of the resulting bias have not
-    /// been measured, so an SCLS eigenvalue from this path is a measurement of
-    /// *this wiring*, not of the method. Fixing it needs a per-history hook on
-    /// the delta driver, tracked as a bead. The geometry-only timing in
-    /// `examples/dh_tracking_speedup.rs` is unaffected — it drives the medium
-    /// directly and does reset per flight.
+    /// **Two defects here made this arm CLS in all but name, and both are
+    /// fixed.** `begin_history` restored a pristine medium, wiping the retained
+    /// geometry every history; and the retention window was seeded from
+    /// `mean_chord_matrix()`, a *geometric* inter-inclusion distance, where the
+    /// rule calls for a *transport mean free path* — 0.132 cm against ~2.6 cm
+    /// on the FHR pebble, about **15x too small**. Both pushed SCLS towards CLS,
+    /// and the V&V duly measured the two within statistics of each other. Any
+    /// SCLS number recorded before 2026-09-14 is a measurement of that wiring,
+    /// not of the method.
+    ///
+    /// # SCLS is the WRONG METHOD for a graphite pebble, and fixing the wiring is what showed it
+    ///
+    /// The retention window is `lambda_transport-mfp + R_largest`. In a
+    /// graphite-moderated pebble at thermal energy that is about **2.68 cm**,
+    /// against a fuel zone of radius **1.9 cm** — the window is larger than the
+    /// region it is supposed to be a *local* view of.
+    ///
+    /// When the window exceeds the domain nothing is ever culled, so the
+    /// retained set grows to every inclusion the neutron has ever met, and
+    /// [`SclsMedium::material_at`](crate::stochastic::scls::SclsMedium::material_at)
+    /// scans it **linearly on every query**. Bounded memory — the entire premise
+    /// of the method — does not hold, and the result is slower than explicit
+    /// delta tracking, which answers the same question from an O(1) grid.
+    ///
+    /// So SCLS pays off only where `lambda_tr` is genuinely *small* against the
+    /// domain: optically thick media, strong absorbers, larger geometries. On
+    /// this problem it is dominated by delta tracking on both accuracy and cost,
+    /// and the honest recommendation is not to use it here. The window is capped
+    /// at the domain (beyond it there is no geometry to retain) and a warning is
+    /// logged, but a cap cannot rescue the premise.
+    ///
+    /// **Measured 2026-09-18**, FHR reference unit cell, 800 x [15 + 40], same
+    /// seed and geometry as the exact arm:
+    ///
+    /// | | k | vs exact | time |
+    /// |---|---|---|---|
+    /// | delta tracking (exact) | 1.38050 +/- 0.00791 | — | 148.4 s |
+    /// | this variant | 1.33799 +/- 0.00638 | **-4251 pcm** (4.2 sigma, resolved) | **2158.7 s** |
+    ///
+    /// **14.5x slower than the exact method it approximates, and resolved
+    /// 4251 pcm away from it.** For scale, naive homogenisation of the whole
+    /// fuel zone scored -3403 pcm in 83.1 s on the same run — so on this problem
+    /// SCLS is both *less accurate* and *26x more expensive* than smearing
+    /// everything. That is the strongest form the recommendation above can take.
+    ///
+    /// Most of the -4251 pcm is **not** SCLS's retention machinery: this variant
+    /// inherits the whole-particle homogenisation defect that
+    /// [`Self::SclsKernel`] fixes. See `docs/cls-scls-vv.md`.
+    ///
+    /// This was invisible while the window was 15x too small: the wiring bug was
+    /// hiding a methodological mismatch behind an accidental speed-up.
     Scls,
+
+    /// **Chord-length sampling at the KERNEL level** — CLS applied to the fuel
+    /// kernels rather than to whole TRISO particles.
+    ///
+    /// # Why this variant exists
+    ///
+    /// [`Self::ChordLength`] takes the **whole particle** as the inclusion and
+    /// fills it with a volume-homogenised kernel-plus-coatings material. That
+    /// is a defensible reading of "the layering is below the model's
+    /// resolution", but it **smears the fuel kernel over 7.7x its own volume**
+    /// on the FHR reference spec (kernel `r = 0.0215 cm` inside an OPyC
+    /// `r = 0.0425 cm`), and resonance self-shielding is precisely what that
+    /// dilution destroys. Grain-level shielding is the larger of the two
+    /// effects a doubly-heterogeneous treatment exists to keep, so discarding
+    /// it leaves CLS only about 1000 pcm better than full homogenisation, which
+    /// is what the measured eigenvalues show.
+    ///
+    /// This variant keeps it: the **inclusion is the kernel at full density**,
+    /// and the matrix is everything else in the fuel zone — the four coating
+    /// layers and the graphite matrix, homogenised together. The packing
+    /// fraction follows from the geometry rather than being chosen:
+    ///
+    /// ```text
+    /// pf_kernel = pf_particle * (r_kernel / r_opyc)^3
+    ///           = 0.30 * (0.0215/0.0425)^3 = 0.0388   (FHR reference)
+    /// ```
+    ///
+    /// # This also moves CLS into the regime where it is accurate
+    ///
+    /// `examples/cls_scls_regime_sweep.rs` measures CLS's error against
+    /// explicit geometry as a function of packing fraction: **unresolved at
+    /// `pf = 0.05`, and +0.0369 (about 5 combined standard errors) by
+    /// `pf = 0.20`**, because the Markovian matrix chord cannot represent the
+    /// exclusion correlation of non-overlapping spheres, and that correlation
+    /// grows with `pf`. Whole-particle CLS runs at `pf = 0.30`, the worst end
+    /// of that range and past where plain RSA can even build a packing.
+    /// Kernel-level CLS runs at `pf = 0.039`, where the sweep says the method
+    /// is accurate.
+    ///
+    /// So the two defects point the same way, and this variant addresses both:
+    /// it keeps the shielding that matters and it uses CLS where CLS works.
+    ///
+    /// # What this variant still approximates — the coatings lose their address
+    ///
+    /// Fixing the inclusion does not make the treatment exact, and the residual
+    /// is worth naming rather than leaving for a reader to discover.
+    ///
+    /// The buffer, IPyC, SiC and OPyC shells are **homogenised into the
+    /// matrix**. Their inventory is conserved exactly — the fuel zone holds the
+    /// same atoms of every nuclide as the whole-particle arm, pinned to 1e-12
+    /// per nuclide by `kernel_level_cls_conserves_the_fuel_zone_inventory` —
+    /// and the grain number density is preserved exactly too
+    /// (`kernel_level_variants_preserve_the_grain_number_density`). What is lost
+    /// is their **spatial correlation with the kernel**: physically every
+    /// coating shell wraps a specific kernel, so a neutron leaving a kernel
+    /// always crosses ~210 um of low-absorption carbon and SiC before it can
+    /// reach graphite. In this model it instead enters a matrix that carries
+    /// those materials at their *average* concentration everywhere, including
+    /// far from any grain.
+    ///
+    /// Expected to be second order, for a stated reason: the coatings are
+    /// carbon and SiC, i.e. scatterers with little absorption and no
+    /// resonances of consequence, so what they perturb is the moderation a
+    /// neutron undergoes between grains rather than the shielding of the
+    /// resonance absorber itself. The large effect — the kernel's own U-238
+    /// resonances seeing their true density instead of a 7.7x dilution — is
+    /// the one this variant restores.
+    ///
+    /// **"Expected" is not "measured".** No ablation has separated this term,
+    /// so it is a candidate for part of the residual bias against exact delta
+    /// tracking, and it should not be quoted as small on the strength of the
+    /// argument above. Isolating it needs a three-phase CLS (kernel / coating
+    /// shell / graphite), which this module does not implement. See
+    /// `docs/cls-scls-vv.md`.
+    ChordLengthKernel,
+
+    /// **Semi-implicit CLS at the KERNEL level** — [`Self::Scls`]'s retention
+    /// window applied to a kernel-level medium rather than a whole-particle one.
+    ///
+    /// Exists because [`Self::Scls`] inherits the same defect
+    /// [`Self::ChordLengthKernel`] fixes: it builds its inner CLS medium from
+    /// the *whole particle* with the kernel smeared through it, so its measured
+    /// `-3365 pcm` is mostly that homogenisation and not its retention
+    /// machinery. Any comparison of SCLS against CLS that uses the
+    /// whole-particle form is therefore comparing two treatments that share a
+    /// larger error than the one being studied.
+    ///
+    /// # This does NOT make SCLS usable on a graphite pebble
+    ///
+    /// The retention window is `lambda_transport + R_largest`. Moving to the
+    /// kernel shrinks `R_largest` from 0.0425 cm to 0.0215 cm, which is
+    /// negligible beside a thermal `lambda_transport` of about 2.6 cm — still
+    /// larger than the 1.9 cm fuel zone. The window is capped at the domain, so
+    /// nothing is ever culled, the retained set grows without bound, and
+    /// `material_at` scans it linearly. **SCLS remains slower than the exact
+    /// delta tracking it approximates on this geometry, in both forms.**
+    ///
+    /// This variant is here so that SCLS is *correct* where it is appropriate —
+    /// optically thick media, strong absorbers, geometries large against
+    /// `lambda_transport` — not because it is recommended for an FHR pebble.
+    /// See `docs/cls-scls-vv.md`.
+    ///
+    /// # Measured 2026-09-18 — FHR reference unit cell, 800 x [15 + 40]
+    ///
+    /// | | k | vs exact | sigma | time |
+    /// |---|---|---|---|---|
+    /// | delta tracking (exact) | 1.38050 +/- 0.00791 | — | — | 148.4 s |
+    /// | [`Self::Scls`] (whole particle) | 1.33799 +/- 0.00638 | -4251 pcm | 4.2, **resolved** | 2158.7 s |
+    /// | **this variant** | **1.37587 +/- 0.00625** | **-463 pcm** | **0.46, not resolved** | 3298.3 s |
+    ///
+    /// **Moving SCLS to the kernel recovers +3788 pcm** and leaves it the arm
+    /// closest to exact of every approximation measured — 0.46 sigma, ahead of
+    /// even [`Self::ChordLengthKernel`]'s 0.65 sigma.
+    ///
+    /// **The confirmation worth having is that this recovery matches CLS's.**
+    /// [`Self::ChordLengthKernel`] recovers **+3818 pcm** on the same run; this
+    /// variant recovers **+3788 pcm**. They agree to **30 pcm** against a
+    /// combined standard error of order 1000 pcm, which is what must happen if
+    /// the defect being removed is the shared homogenisation rather than
+    /// anything either algorithm does — and the two share no sampling
+    /// machinery (CLS re-samples chord statistics; SCLS ray-traces materialised
+    /// spheres). Nothing in `build_kernel_level_cls` ties their eigenvalues
+    /// together.
+    ///
+    /// **Cost is the opposite story: 22.2x exact delta tracking**, the most
+    /// expensive arm measured, and 1.53x [`Self::Scls`]'s own cost. The
+    /// recommendation above is unchanged and is now measured from both sides —
+    /// on this geometry SCLS is accurate only at a price nothing here justifies.
+    /// What it buys, as ever, is **O(1) memory**: 0 particles stored against
+    /// delta tracking's 26 801.
+    SclsKernel,
 
     /// **Naive homogenisation.** One smeared material — TRISO particles and
     /// the matrix they sit in, mixed at the packing fraction — fills the whole
@@ -319,19 +544,23 @@ impl DhTreatment {
     /// answer is not zero.
     pub const FHR_REFERENCE_RPT_INNER: f64 = 1.493_359_375;
 
-    /// Every variant, for sweeping all five in a comparison.
+    /// Every variant, for sweeping all seven in a comparison.
     ///
     /// [`Self::RingRpt`] appears at [`Self::FHR_REFERENCE_RPT_INNER`], which is
     /// only meaningful on the FHR reference pebble. Sweeping `ALL` on some
     /// other fuel will build a ring-RPT arm at a radius fitted for something
     /// else — construct that variant yourself with your own fitted radius
     /// rather than reading a number out of this array.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
         Self::DeltaTracking,
         Self::ChordLength,
+        Self::ChordLengthKernel,
         Self::Scls,
+        Self::SclsKernel,
         Self::Homogenised,
-        Self::RingRpt { inner_radius: Self::FHR_REFERENCE_RPT_INNER },
+        Self::RingRpt {
+            inner_radius: Self::FHR_REFERENCE_RPT_INNER,
+        },
     ];
 
     /// Short human-readable name, e.g. for table rows.
@@ -339,10 +568,31 @@ impl DhTreatment {
         match self {
             Self::DeltaTracking => "delta tracking",
             Self::ChordLength => "chord-length sampling (CLS)",
+            Self::ChordLengthKernel => "CLS, kernel-level",
+            Self::SclsKernel => "SCLS, kernel-level",
             Self::Scls => "semi-implicit CLS (SCLS)",
             Self::Homogenised => "naive homogenisation",
             Self::RingRpt { .. } => "ring-RPT (fitted annulus)",
         }
+    }
+
+    /// Whether this treatment samples the **fuel kernel** as the inclusion
+    /// rather than the whole TRISO particle.
+    ///
+    /// The kernel-level variants deliberately differ from every other arm in
+    /// two visible ways, and both are consequences of keeping grain-level
+    /// self-shielding rather than smearing it away:
+    ///
+    /// - they model the **kernel** packing fraction,
+    ///   `pf_particle * (r_kernel/r_opyc)^3`, not the particle one;
+    /// - they make the **undiluted kernel reachable**, which legitimately
+    ///   raises the delta-tracking majorant.
+    ///
+    /// Provided so those two facts are asserted in one place instead of being
+    /// special-cased wherever they surface.
+    #[must_use]
+    pub fn is_kernel_level(self) -> bool {
+        matches!(self, Self::ChordLengthKernel | Self::SclsKernel)
     }
 
     /// Whether this treatment resolves the particle geometry exactly.
@@ -445,7 +695,40 @@ impl PebbleParams {
     /// coolant at index 7. Supply FLiBe at the temperature the rest of the
     /// table uses; the deck it matches runs at 600 K.
     pub fn fhr_unit_cell() -> Self {
-        Self { coolant_radius: Some(3.0), ..Self::fhr_reference() }
+        Self {
+            coolant_radius: Some(3.0),
+            ..Self::fhr_reference()
+        }
+    }
+
+    /// The **HTR-10 fuel pebble**, as specified by Li, Yu & Wei (2014), HTR 2014
+    /// (Weihai), Table 2: a 6 cm ball with a 0.5 cm fuel-free graphite shell, so
+    /// a 2.5 cm fuel zone holding 8335 TRISO particles
+    /// ([`TrisoSpec::HTR10_LI2014`]) at 5.02 % packing. Reflective at the pebble
+    /// surface — this is the bare pebble's own k-infinity, with no coolant and
+    /// no surrounding lattice.
+    ///
+    /// `materials` is left empty and **must be filled in** before use — the
+    /// geometry is reference data, the composition is yours. See
+    /// `examples/htr10_pebble_delta_tracking.rs` for the seven-material table
+    /// built from the same source, including the boron impurities.
+    ///
+    /// # Helium is absent, deliberately
+    ///
+    /// HTR-10 is helium-cooled at 3 MPa, but helium at that pressure is
+    /// neutronically negligible and Table 2 gives no coolant composition. The
+    /// boundary therefore sits at the pebble surface. Reach for
+    /// [`Self::with_coolant`] if a surrounding medium is wanted; nothing in this
+    /// preset assumes one.
+    pub fn htr10_li2014() -> Self {
+        Self {
+            spec: TrisoSpec::HTR10_LI2014,
+            fuel_zone_radius: 2.5,
+            pebble_radius: 3.0,
+            coolant_radius: None,
+            materials: Vec::new(),
+            seed: 0x4854_5231_3020_0A01,
+        }
     }
 
     /// Replace the material table, returning `self` so constructors can chain.
@@ -501,19 +784,25 @@ enum DhGeometry {
         matrix_material: usize,
         outer: OuterShells,
     },
-    /// Semi-implicit chord-length sampling — CLS plus a retention window, reset
-    /// at each history boundary through
-    /// [`MaterialQuery::begin_history`](crate::pebble_beds::keff_delta::MaterialQuery::begin_history).
-    /// `template` is the pristine medium a new history is rebuilt from.
+    /// Semi-implicit chord-length sampling — CLS plus a retention window whose
+    /// *flight* is reset at each history boundary through
+    /// [`MaterialQuery::begin_history`](crate::pebble_beds::keff_delta::MaterialQuery::begin_history),
+    /// while the retained inclusions persist as reconstructed geometry.
+    ///
+    /// `window_set` guards the one-time sizing of the retention radius, which
+    /// needs cross sections and so cannot happen at construction.
     Scls {
         medium: Mutex<(SclsMedium, u64)>,
-        template: SclsMedium,
+        window_set: std::sync::atomic::AtomicBool,
         particle_material: usize,
         matrix_material: usize,
         outer: OuterShells,
     },
     /// Naive homogenisation — one smeared material filling the whole fuel zone.
-    Homogenised { homogenised: usize, outer: OuterShells },
+    Homogenised {
+        homogenised: usize,
+        outer: OuterShells,
+    },
     /// Ring-RPT — matrix ball inside `inner_radius`, homogenised particle
     /// material in the annulus out to `fuel_outer_radius`, matrix again from
     /// there to the fuel-zone boundary.
@@ -590,6 +879,7 @@ pub struct DhUniverse {
     materials: Vec<Material>,
     domain: DeltaDomain,
     particles: usize,
+    packing_fraction: f64,
 }
 
 impl DhUniverse {
@@ -615,6 +905,9 @@ impl DhUniverse {
                 params.fuel_zone_radius, params.pebble_radius
             )));
         }
+        // The five TRISO layers occupy 0..=4 in the order kernel, buffer,
+        // IPyC, SiC, OPyC -- the order `homogenise_particle` relies on too.
+        const KERNEL_IDX: usize = 0;
         const MATRIX_IDX: usize = 5;
         const SHELL_IDX: usize = 6;
         const COOLANT_IDX: usize = 7;
@@ -646,6 +939,16 @@ impl DhUniverse {
 
         let pf = params.spec.packing_fraction;
         let r_particle = params.spec.opyc;
+        // What the explicit packing actually realises inside the fuel zone. The
+        // approximate treatments do not pack, so they smear at the requested
+        // `pf`; `pack_in_ball` is responsible for making that the same number.
+        // Kept as a field so a caller can check rather than assume.
+        //
+        // Only the delta-tracking arm falls through to the final constructor;
+        // every approximate arm returns early with `pf`, which is exactly the
+        // fraction it smears at. So this is assigned on the one path that reads
+        // it, and the compiler checks that rather than a default hiding a gap.
+        let achieved_pf: f64;
         let r_boundary = params.coolant_radius.unwrap_or(params.pebble_radius);
         let domain = DeltaDomain::Sphere { radius: r_boundary };
         let outer = OuterShells {
@@ -657,7 +960,10 @@ impl DhUniverse {
 
         let (geometry, particles) = match treatment {
             DhTreatment::DeltaTracking => {
-                let packing = pack_in_ball(r_particle, params.fuel_zone_radius, pf, params.seed)?;
+                let BallPacking {
+                    packing, realised, ..
+                } = pack_in_ball(r_particle, params.fuel_zone_radius, pf, params.seed)?;
+                achieved_pf = realised;
                 let n = packing.len();
                 let pebble = ExplicitTrisoPebble::new(
                     packing,
@@ -688,8 +994,12 @@ impl DhUniverse {
                 let mut materials = params.materials.clone();
                 materials.push(particle);
                 let particle_idx = materials.len() - 1;
-                let medium =
-                    ClsMedium::new(r_particle, pf, MaterialId(particle_idx), MaterialId(MATRIX_IDX));
+                let medium = ClsMedium::new(
+                    r_particle,
+                    pf,
+                    MaterialId(particle_idx),
+                    MaterialId(MATRIX_IDX),
+                );
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Cls {
@@ -701,6 +1011,58 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: pf,
+                });
+            }
+            DhTreatment::ChordLengthKernel => {
+                let (medium, materials, matrix_idx, pf_kernel) = build_kernel_level_cls(
+                    &params.materials,
+                    params.spec,
+                    r_particle,
+                    pf,
+                    KERNEL_IDX,
+                    MATRIX_IDX,
+                );
+                return Ok(Self {
+                    treatment,
+                    geometry: DhGeometry::Cls {
+                        medium: Mutex::new((medium, params.seed | 1)),
+                        particle_material: KERNEL_IDX,
+                        matrix_material: matrix_idx,
+                        outer,
+                    },
+                    materials,
+                    domain,
+                    particles: 0,
+                    packing_fraction: pf_kernel,
+                });
+            }
+            DhTreatment::SclsKernel => {
+                let (cls, materials, matrix_idx, pf_kernel) = build_kernel_level_cls(
+                    &params.materials,
+                    params.spec,
+                    r_particle,
+                    pf,
+                    KERNEL_IDX,
+                    MATRIX_IDX,
+                );
+                // Seeded from the matrix mean chord; `size_scls_window` replaces
+                // it with the real transport mfp once cross sections exist.
+                let window = cls.mean_chord_matrix();
+                let medium = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
+                return Ok(Self {
+                    treatment,
+                    geometry: DhGeometry::Scls {
+                        medium: Mutex::new((medium, params.seed | 1)),
+                        window_set: std::sync::atomic::AtomicBool::new(false),
+                        particle_material: KERNEL_IDX,
+                        matrix_material: matrix_idx,
+                        outer,
+                    },
+                    materials,
+                    domain,
+                    particles: 0,
+                    packing_fraction: pf_kernel,
                 });
             }
             DhTreatment::Scls => {
@@ -708,19 +1070,23 @@ impl DhUniverse {
                 let mut materials = params.materials.clone();
                 materials.push(particle);
                 let particle_idx = materials.len() - 1;
-                let cls =
-                    ClsMedium::new(r_particle, pf, MaterialId(particle_idx), MaterialId(MATRIX_IDX));
+                let cls = ClsMedium::new(
+                    r_particle,
+                    pf,
+                    MaterialId(particle_idx),
+                    MaterialId(MATRIX_IDX),
+                );
                 // Retention window radius. SCLS remembers inclusions within one
                 // transport mean free path; the matrix mean chord is the length
                 // scale the sampler itself works in, so it is the natural stand-in
                 // for a spectrum-averaged mfp we do not have at construction time.
                 let window = cls.mean_chord_matrix();
-                let template = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
+                let medium = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Scls {
-                        medium: Mutex::new((template.clone(), params.seed | 1)),
-                        template,
+                        medium: Mutex::new((medium, params.seed | 1)),
+                        window_set: std::sync::atomic::AtomicBool::new(false),
                         particle_material: particle_idx,
                         matrix_material: MATRIX_IDX,
                         outer,
@@ -728,6 +1094,7 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: pf,
                 });
             }
             DhTreatment::Homogenised => {
@@ -749,10 +1116,14 @@ impl DhUniverse {
                 let idx = materials.len() - 1;
                 return Ok(Self {
                     treatment,
-                    geometry: DhGeometry::Homogenised { homogenised: idx, outer },
+                    geometry: DhGeometry::Homogenised {
+                        homogenised: idx,
+                        outer,
+                    },
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: pf,
                 });
             }
             DhTreatment::RingRpt { inner_radius } => {
@@ -767,9 +1138,8 @@ impl DhUniverse {
                         params.fuel_zone_radius
                     )));
                 }
-                let r_outer3 =
-                    inner_radius.powi(3) + pf * params.fuel_zone_radius.powi(3);
-                let fuel_outer_radius = r_outer3.cbrt();
+                let r_outer3 = inner_radius.r_powi(3) + pf * params.fuel_zone_radius.r_powi(3);
+                let fuel_outer_radius = r_outer3.r_cbrt();
                 if fuel_outer_radius > params.fuel_zone_radius {
                     return Err(DhError::Geometry(format!(
                         "ring-RPT annulus outer radius {fuel_outer_radius:.4} exceeds the fuel \
@@ -794,6 +1164,7 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: pf,
                 });
             }
         };
@@ -804,6 +1175,7 @@ impl DhUniverse {
             materials: params.materials,
             domain,
             particles,
+            packing_fraction: achieved_pf,
         })
     }
     /// Build a cube of fuel particles dispersed through a matrix.
@@ -824,7 +1196,9 @@ impl DhUniverse {
         }
         const PARTICLE: usize = 0;
         const MATRIX: usize = 1;
-        let domain = DeltaDomain::Cube { half: params.half_width };
+        let domain = DeltaDomain::Cube {
+            half: params.half_width,
+        };
 
         let (geometry, particles) = match treatment {
             DhTreatment::DeltaTracking => {
@@ -835,13 +1209,12 @@ impl DhUniverse {
                     method: PackingMethod::Rsa,
                     seed: params.seed,
                 };
-                let spheres = cfg.generate().map_err(|e| DhError::Packing(format!("{e:?}")))?;
+                let spheres = cfg
+                    .generate()
+                    .map_err(|e| DhError::Packing(format!("{e:?}")))?;
                 let n = spheres.len();
-                let packing = PackedSpheres::from_spheres(
-                    spheres,
-                    params.half_width,
-                    params.particle_radius,
-                );
+                let packing =
+                    PackedSpheres::from_spheres(spheres, params.half_width, params.particle_radius);
                 (
                     DhGeometry::Dispersed {
                         packing,
@@ -868,6 +1241,21 @@ impl DhUniverse {
                     0,
                 )
             }
+            DhTreatment::ChordLengthKernel | DhTreatment::SclsKernel => {
+                // The kernel-level variants need the TRISO layer radii to derive the
+                // kernel packing fraction and to homogenise the coatings into
+                // the matrix. `DispersedParams` carries one particle radius and
+                // two materials, so that information does not exist here.
+                // A typed error, not a silent fall back to whole-particle CLS,
+                // which would quietly be a different method.
+                return Err(DhError::Materials(
+                    "the kernel-level CLS/SCLS variants need the TRISO layer spec \
+                     (kernel/buffer/IPyC/SiC/OPyC radii); dispersed() carries only one \
+                     particle radius. Use DhUniverse::pebble, or the whole-particle \
+                     DhTreatment::ChordLength / ::Scls."
+                        .into(),
+                ));
+            }
             DhTreatment::Scls => {
                 let cls = ClsMedium::new(
                     params.particle_radius,
@@ -876,11 +1264,11 @@ impl DhUniverse {
                     MaterialId(MATRIX),
                 );
                 let window = cls.mean_chord_matrix();
-                let template = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
+                let medium = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
                 (
                     DhGeometry::Scls {
-                        medium: Mutex::new((template.clone(), params.seed | 1)),
-                        template,
+                        medium: Mutex::new((medium, params.seed | 1)),
+                        window_set: std::sync::atomic::AtomicBool::new(false),
                         particle_material: PARTICLE,
                         matrix_material: MATRIX,
                         outer: OuterShells::none(),
@@ -910,6 +1298,7 @@ impl DhUniverse {
                     materials,
                     domain,
                     particles: 0,
+                    packing_fraction: params.packing_fraction,
                 });
             }
             DhTreatment::RingRpt { .. } => {
@@ -935,7 +1324,27 @@ impl DhUniverse {
             materials: params.materials,
             domain,
             particles,
+            packing_fraction: params.packing_fraction,
         })
+    }
+
+    /// The particle volume fraction this universe **actually** models.
+    ///
+    /// For [`DhTreatment::DeltaTracking`] this is measured from the packing that
+    /// was generated, not the number that was requested — those differ, because
+    /// the packer targets a cube while the fuel zone is the inscribed ball. For
+    /// every approximate treatment it is the requested fraction, since they
+    /// smear rather than pack.
+    ///
+    /// **Check it against what you asked for.** Until 2026-09-14 the explicit
+    /// arm silently realised 0.2894 against a requested 0.30 while the smeared
+    /// arms mixed at 0.30 exactly, so a comparison of *treatments* was also a
+    /// comparison of two fuel loadings 3.7 % apart — and the extra fuel
+    /// flattered every smeared arm. `pack_in_ball` now iterates onto the
+    /// requested fraction, and this accessor exists so the assumption is
+    /// checkable rather than implicit.
+    pub fn packing_fraction(&self) -> f64 {
+        self.packing_fraction
     }
 
     /// Which treatment this universe was built with.
@@ -1075,8 +1484,11 @@ impl DhUniverse {
         // majorant is a SILENT bias in delta tracking, not a crash — which is
         // why `reachable_materials` must return every index `material_at` can
         // produce, and is derived from the geometry rather than guessed.
+        // Since GitHub #585 `bounding` is also tabulated on every nuclide's
+        // own breakpoints, so it bounds pointwise data by construction.
         let reachable = self.reachable_materials();
         let majorant = Majorant::bounding(&reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+        self.size_scls_window(nuclides);
         run_keff_delta_in(
             self.domain,
             &self.materials,
@@ -1085,6 +1497,63 @@ impl DhUniverse {
             self,
             settings,
         )
+    }
+
+    /// The GitHub #585 caller audit of the majorant [`Self::keff`] builds:
+    /// the same reachable materials and arguments, through
+    /// [`crate::pebble_beds::delta_tracking::bounding_audit_line`], with the
+    /// old and new constructions side by side. Diagnostic only.
+    pub fn majorant_audit_line(&self, nuclides: &[Nuclide], label: &str) -> String {
+        let reachable = self.reachable_materials();
+        crate::pebble_beds::delta_tracking::bounding_audit_line(
+            label, &reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3,
+        )
+    }
+
+    /// [`Self::keff`] **one generation at a time**, for a caller that must
+    /// stream the run (the GitHub #785 web demo, one generation per worker
+    /// message). The same majorant arguments and SCLS window as `keff`, then
+    /// [`DeltaPowerIteration`], which is `run_keff_delta_seq_in` stepped.
+    ///
+    /// With `settings.compute` at its default
+    /// ([`ComputeType::CpuSingleThread`](crate::physics::compute::ComputeType))
+    /// every generation's `k`, and the final mean and its error, are bit for
+    /// bit `keff`'s: `power_iteration_steps_keff_bit_for_bit` pins it. The
+    /// compute type is otherwise ignored; this is always single-threaded.
+    pub fn power_iteration(
+        &self,
+        nuclides: &[Nuclide],
+        settings: &KeffSettings,
+    ) -> DhPowerIteration {
+        let reachable = self.reachable_materials();
+        let majorant = Majorant::bounding(&reachable, nuclides, 1.0e-4, 2.0e7, 4096, 32, 0.3);
+        self.size_scls_window(nuclides);
+        let it = DeltaPowerIteration::new(self.domain, &self.materials, nuclides, &self, settings);
+        DhPowerIteration { majorant, it }
+    }
+}
+
+/// A [`DhUniverse`] power iteration run one generation at a time
+/// ([`DhUniverse::power_iteration`]). Holds no reference to the universe (no
+/// lifetime parameter): pass the same one to every [`Self::step`].
+pub struct DhPowerIteration {
+    majorant: Majorant,
+    it: DeltaPowerIteration,
+}
+
+impl DhPowerIteration {
+    /// Transport the next generation; `None` once the run is over.
+    pub fn step(
+        &mut self,
+        universe: &DhUniverse,
+        nuclides: &[Nuclide],
+    ) -> Option<DeltaGenerationReport> {
+        self.it
+            .step(&universe.materials, nuclides, &self.majorant, &universe)
+    }
+
+    pub fn finished(&self) -> bool {
+        self.it.finished()
     }
 }
 
@@ -1125,11 +1594,25 @@ impl DhUniverse {
         let mut idx: Vec<usize> = match &self.geometry {
             // Explicit geometry reaches every material the caller supplied.
             DhGeometry::Pebble(_) => (0..self.materials.len()).collect(),
-            DhGeometry::Dispersed { particle_material, matrix_material, .. } => {
+            DhGeometry::Dispersed {
+                particle_material,
+                matrix_material,
+                ..
+            } => {
                 vec![*particle_material, *matrix_material]
             }
-            DhGeometry::Cls { particle_material, matrix_material, outer, .. }
-            | DhGeometry::Scls { particle_material, matrix_material, outer, .. } => {
+            DhGeometry::Cls {
+                particle_material,
+                matrix_material,
+                outer,
+                ..
+            }
+            | DhGeometry::Scls {
+                particle_material,
+                matrix_material,
+                outer,
+                ..
+            } => {
                 let mut v = vec![*particle_material, *matrix_material];
                 v.extend(outer.reachable());
                 v
@@ -1139,7 +1622,12 @@ impl DhUniverse {
                 v.extend(outer.reachable());
                 v
             }
-            DhGeometry::RingRpt { homogenised, matrix_material, outer, .. } => {
+            DhGeometry::RingRpt {
+                homogenised,
+                matrix_material,
+                outer,
+                ..
+            } => {
                 let mut v = vec![*homogenised, *matrix_material];
                 v.extend(outer.reachable());
                 v
@@ -1165,6 +1653,83 @@ impl core::fmt::Debug for DhUniverse {
     }
 }
 
+impl DhUniverse {
+    /// Size the SCLS retention window from real cross sections, once.
+    ///
+    /// SCLS's rule is `R = lambda_transport-mfp + R_largest`. The justification
+    /// is physical: one transport mean free path is the distance over which the
+    /// neutron's direction decorrelates, so geometry further away is unlikely to
+    /// be revisited before it would have been forgotten anyway. `R_largest`
+    /// guarantees an inclusion whose *body* still overlaps the neighbourhood is
+    /// retained even when its centre has just left.
+    ///
+    /// `lambda_transport-mfp` is a property of the **material and energy**, not
+    /// of the geometry, so it cannot be known when [`Self::pebble`] runs — there
+    /// are no nuclides yet. It is therefore set here, on the first
+    /// [`Self::keff`], and guarded so repeated calls do not re-cull.
+    ///
+    /// # The bug this replaces
+    ///
+    /// Construction seeded the window with `ClsMedium::mean_chord_matrix()`,
+    /// which is a **geometric** length — the mean distance *between* inclusions
+    /// — and not a transport mean free path, which is an *interaction* length.
+    /// On the FHR pebble that is 0.132 cm against roughly 2.6 cm: the window was
+    /// about **15x too small**, so nearly every remembered inclusion was culled
+    /// almost immediately and SCLS behaved like CLS. Combined with a
+    /// `begin_history` that also wiped the memory outright, that is why the two
+    /// measured within statistics of each other.
+    ///
+    /// # Approximations, stated
+    ///
+    /// - **One fixed radius for all energies.** The transport mfp varies by
+    ///   orders of magnitude across the spectrum; this evaluates it at thermal
+    ///   (0.0253 eV), which is where a graphite-moderated pebble does most of
+    ///   its scattering. A variable-radius SCLS is the design's own answer to
+    ///   this ([`SclsMedium::adapt_radius`], bead `op-eby.6`) and is not wired
+    ///   up here.
+    /// - **`lambda_tr` approximated by `1 / Sigma_t`**, i.e. the anisotropy
+    ///   correction `1 / (1 - mu_bar)` is dropped. For carbon `mu_bar = 2/(3A)`
+    ///   is 0.056, so this understates the window by ~6 % — three orders of
+    ///   magnitude less wrong than what it replaces, and in the conservative
+    ///   direction (a slightly smaller window retains slightly less).
+    fn size_scls_window(&self, nuclides: &[Nuclide]) {
+        use std::sync::atomic::Ordering;
+        let DhGeometry::Scls {
+            medium,
+            window_set,
+            matrix_material,
+            ..
+        } = &self.geometry
+        else {
+            return;
+        };
+        if window_set.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        const THERMAL_EV: f64 = 0.0253;
+        let sigma_t = self.materials[*matrix_material].macro_xs_total(THERMAL_EV, nuclides);
+        if !(sigma_t > 0.0) {
+            return; // a void matrix has no transport length to speak of
+        }
+        let Ok(mut guard) = medium.lock() else { return };
+        let r_largest = guard.0.cls().inclusion_radius();
+        let window = 1.0 / sigma_t + r_largest;
+
+        // Beyond the domain there is no geometry to retain, so a larger window
+        // buys nothing and only slows the retained-inclusion scan.
+        let cap = self.domain.bounding_half();
+        if window >= cap {
+            log::warn!(
+                "SCLS retention window {window:.2} cm reaches or exceeds the domain \
+                 ({cap:.2} cm): nothing will ever be culled, so SCLS degenerates to \
+                 remember-everything with a linear scan and will be SLOWER than explicit \
+                 delta tracking, which has an O(1) grid. See DhTreatment::Scls."
+            );
+        }
+        guard.0.set_sphere_radius(window.min(cap));
+    }
+}
+
 /// Lets a [`DhUniverse`] be handed straight to the delta-tracked k-eff drivers,
 /// and — the reason this is a trait impl rather than a closure — lets
 /// [`DhTreatment::Scls`] throw away its retention window at each history
@@ -1176,12 +1741,24 @@ impl MaterialQuery for &DhUniverse {
     }
 
     fn begin_history(&self) {
-        // Only SCLS carries per-history state. Restoring the pristine template
-        // resets the remembered inclusions and the flight phase together; the
-        // RNG stream deliberately carries on, so histories stay independent.
-        if let DhGeometry::Scls { medium, template, .. } = &self.geometry {
+        // Only SCLS carries per-history state, and the distinction between the
+        // two kinds of state is the whole method.
+        //
+        // `begin_flight` discards the in-progress FLIGHT — the phase the
+        // reconstruction is currently in — and deliberately KEEPS the retained
+        // inclusions, because those are *geometry*: a progressively
+        // reconstructed model of the packing that a later history in the same
+        // neighbourhood should still benefit from. Throwing them away every
+        // history is what degrades SCLS back into CLS, since each history would
+        // then start with no memory at all and could only accumulate within its
+        // own flight.
+        //
+        // This function did exactly that until 2026-09-14 (it restored a
+        // pristine clone), which is why SCLS and CLS measured within statistics
+        // of each other -- see the correction on [`DhTreatment::Scls`].
+        if let DhGeometry::Scls { medium, .. } = &self.geometry {
             if let Ok(mut guard) = medium.lock() {
-                guard.0 = template.clone();
+                guard.0.begin_flight();
             }
         }
     }
@@ -1245,9 +1822,7 @@ pub fn fit_ring_rpt_inner_radius(
     // Default bracket: from a solid smear (inner radius 0, i.e. all the
     // particle material in a central ball) out to most of the fuel zone. The
     // upper end is capped by conservation — the annulus cannot leave the zone.
-    let max_inner = (params.fuel_zone_radius.powi(3)
-        * (1.0 - params.spec.packing_fraction))
-        .cbrt();
+    let max_inner = (params.fuel_zone_radius.r_powi(3) * (1.0 - params.spec.packing_fraction)).r_cbrt();
     let (lo, hi) = bracket.unwrap_or((0.05 * params.fuel_zone_radius, 0.985 * max_inner));
 
     let k_at = |r: f64| -> Result<KeffResult, DhError> {
@@ -1326,7 +1901,9 @@ impl RingRptFit {
     /// The treatment this fit produced, ready to pass to
     /// [`DhUniverse::pebble`].
     pub fn treatment(&self) -> DhTreatment {
-        DhTreatment::RingRpt { inner_radius: self.inner_radius }
+        DhTreatment::RingRpt {
+            inner_radius: self.inner_radius,
+        }
     }
 
     /// Whether the fit converged to inside the target's own statistics.
@@ -1339,38 +1916,246 @@ impl RingRptFit {
     }
 }
 
-/// RSA-pack whole particles into a ball of `radius`, via a cube clip.
-fn pack_in_ball(
+/// One attempt of [`pack_in_ball`]: the fraction RSA was asked for over the
+/// cube, how many spheres it placed there, how many lay wholly inside the
+/// ball, and the fraction those realise inside the ball.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BallPackingAttempt {
+    /// Packing fraction requested of RSA over the cube.
+    pub request: f64,
+    /// Spheres RSA placed in the cube.
+    pub generated: usize,
+    /// Spheres lying wholly inside the ball ([`is_whole_in_ball`]).
+    pub kept: usize,
+    /// `kept * (particle_radius / radius)^3`: the fraction inside the ball.
+    pub realised: f64,
+}
+
+/// What [`pack_in_ball`] returns: the best packing, the fraction it realises
+/// inside the ball, and every attempt in order (the first is the request
+/// itself, the rest the secant rescales).
+#[derive(Debug, Clone)]
+pub struct BallPacking {
+    /// The kept whole particles of the best attempt.
+    pub packing: PackedSpheres,
+    /// Its realised fraction inside the ball.
+    pub realised: f64,
+    /// Every attempt, in order. Kept so the iteration can be shown (the
+    /// GitHub #785 demo replays each one) rather than only its result.
+    pub attempts: Vec<BallPackingAttempt>,
+}
+
+/// Whether a particle of `particle_radius` centred at `center` lies wholly
+/// inside a ball of `radius` at the origin: `|center| + particle_radius <=
+/// radius`. The keep rule of [`pack_in_ball`] (and of
+/// `sphere_packing::cubic_array_in_ball`).
+pub fn is_whole_in_ball(center: Position, particle_radius: f64, radius: f64) -> bool {
+    center.norm() + particle_radius <= radius
+}
+
+/// RSA-pack whole particles into a ball of `radius`, **hitting the requested
+/// packing fraction inside that ball** rather than inside the cube it was
+/// generated in.
+///
+/// Returns the packing, the fraction it actually realised, and every attempt
+/// ([`BallPacking`]). Public since 2026-10-07 (GitHub #785), so the rung-5 web
+/// demo can show the cut-particle iteration on this function rather than on a
+/// copy of it.
+///
+/// # Why this needs an iteration at all
+///
+/// [`PackingConfig`] targets its packing fraction over a **cube** of half-width
+/// `radius + particle_radius`, and this function then keeps only the spheres
+/// lying *wholly* inside the inscribed ball. Both steps move the fraction, in
+/// opposite directions and by different amounts, so the in-ball result is not
+/// the number that was asked for: on the FHR reference pebble a request of 0.30
+/// realised **0.2894**, i.e. 3.7 % less heavy metal than specified.
+///
+/// That mattered because the approximate treatments do not pack — they smear at
+/// `spec.packing_fraction` directly. An explicit arm at 0.2894 compared against
+/// smeared arms at 0.3000 is not a comparison of *treatments*, it is a
+/// comparison of two different fuel loadings, and the extra fuel flatters every
+/// smeared arm. `examples/fhr_ring_rpt_endf.rs` already corrected for this with
+/// a one-step rescale; this constructor did not.
+///
+/// # The measurement is exact, not sampled
+///
+/// Every kept sphere lies wholly inside the ball, so the realised fraction is
+/// `n * (r / R)^3` in closed form — no Monte Carlo estimate and no sampling
+/// error. (`PackedSpheres::volume_fraction_in_ball` samples, which is the right
+/// tool when spheres may straddle the boundary; here none do.)
+///
+/// # Convergence
+///
+/// The kept count is very nearly linear in the requested fraction, so a
+/// secant-style rescale `request *= target / realised` converges in two or
+/// three steps. The loop is capped and returns the best attempt rather than
+/// spinning.
+///
+/// # Cost
+///
+/// **This packs more than once**, where the previous version packed exactly
+/// once — typically twice, since the first attempt is off by ~3.7 % and the
+/// tolerance is 0.2 %. RSA-packing ~26 000 spheres is not free, so
+/// constructing a [`DhTreatment::DeltaTracking`] universe now costs roughly
+/// double what it did.
+///
+/// That is a deliberate trade: the alternative is an explicit arm modelling a
+/// different fuel loading from every arm it is compared against, which is a
+/// wrong answer rather than a slow one. Only the explicit arm pays it; the
+/// approximate treatments never pack. If it ever matters, the correction
+/// factor is deterministic in `(particle_radius, radius, packing_fraction,
+/// seed)` and could be cached rather than re-derived.
+pub fn pack_in_ball(
     particle_radius: f64,
     radius: f64,
     packing_fraction: f64,
     seed: u64,
-) -> Result<PackedSpheres, DhError> {
+) -> Result<BallPacking, DhError> {
+    const TOLERANCE: f64 = 2.0e-3; // 0.2 % of the requested fraction
+    const MAX_STEPS: usize = 6;
+
     let half = radius + particle_radius;
-    let cfg = PackingConfig {
-        particle_radius,
-        packing_fraction,
-        domain_half_width: half,
-        method: PackingMethod::Rsa,
-        seed,
+    let unit = (particle_radius / radius).r_powi(3); // one sphere's share of the ball
+
+    let attempt = |request: f64| -> Result<(PackedSpheres, BallPackingAttempt), DhError> {
+        let cfg = PackingConfig {
+            particle_radius,
+            packing_fraction: request,
+            domain_half_width: half,
+            method: PackingMethod::Rsa,
+            seed,
+        };
+        let spheres = cfg
+            .generate()
+            .map_err(|e| DhError::Packing(format!("{e:?}")))?;
+        let generated = spheres.len();
+        let kept: Vec<_> = spheres
+            .into_iter()
+            .filter(|s| is_whole_in_ball(s.center, particle_radius, radius))
+            .collect();
+        if kept.is_empty() {
+            return Err(DhError::Packing(
+                "no particles fell inside the fuel zone".into(),
+            ));
+        }
+        let realised = kept.len() as f64 * unit;
+        let record = BallPackingAttempt {
+            request,
+            generated,
+            kept: kept.len(),
+            realised,
+        };
+        Ok((
+            PackedSpheres::from_spheres(kept, half, particle_radius),
+            record,
+        ))
     };
-    let spheres = cfg.generate().map_err(|e| DhError::Packing(format!("{e:?}")))?;
-    let kept: Vec<_> = spheres
-        .into_iter()
-        .filter(|s| s.center.norm() + particle_radius <= radius)
-        .collect();
-    if kept.is_empty() {
-        return Err(DhError::Packing(
-            "no particles fell inside the fuel zone".into(),
-        ));
+
+    let mut request = packing_fraction;
+    let (packing, first) = attempt(request)?;
+    let mut realised = first.realised;
+    let mut attempts = vec![first];
+    let mut best = (packing, realised);
+    let mut best_err = (realised / packing_fraction - 1.0).abs();
+
+    for _ in 0..MAX_STEPS {
+        if best_err <= TOLERANCE {
+            break;
+        }
+        // Secant rescale. Clamped below random close packing so a bad step
+        // cannot ask the generator for something it must refuse.
+        request = (request * packing_fraction / realised).clamp(1.0e-4, 0.63);
+        let (p, r) = attempt(request)?;
+        realised = r.realised;
+        attempts.push(r);
+        let err = (realised / packing_fraction - 1.0).abs();
+        if err < best_err {
+            best_err = err;
+            best = (p, realised);
+        }
     }
-    Ok(PackedSpheres::from_spheres(kept, half, particle_radius))
+
+    Ok(BallPacking {
+        packing: best.0,
+        realised: best.1,
+        attempts,
+    })
 }
 
 /// Volume-homogenise the five TRISO layers into one particle material.
+/// Build the **kernel-level** CLS medium for a TRISO pebble: the inclusion is
+/// the fuel kernel at full density, and the matrix is the four coating layers
+/// plus the graphite, homogenised together.
+///
+/// Returns the medium, the material table it needs (the supplied materials plus
+/// the homogenised matrix appended), the matrix index, and the derived kernel
+/// packing fraction.
+///
+/// # Why the packing fraction is derived, not chosen
+///
+/// ```text
+/// pf_kernel = pf_particle * (r_kernel / r_opyc)^3
+/// ```
+///
+/// which is the same fuel inventory redistributed, not a different one —
+/// `kernel_level_cls_conserves_the_fuel_zone_inventory` pins that to 1e-12 per
+/// nuclide. See [`DhTreatment::ChordLengthKernel`] for what it buys and what it
+/// costs.
+///
+/// Shared by [`DhTreatment::ChordLengthKernel`] and
+/// [`DhTreatment::SclsKernel`] so the volume arithmetic exists once.
+fn build_kernel_level_cls(
+    materials: &[Material],
+    spec: TrisoSpec,
+    r_particle: f64,
+    pf: f64,
+    kernel_idx: usize,
+    matrix_idx: usize,
+) -> (ClsMedium, Vec<Material>, usize, f64) {
+    let r_kernel = spec.kernel;
+    let pf_kernel = pf * (r_kernel / r_particle).r_powi(3);
+
+    // Volume fractions of the fuel zone for everything that is NOT kernel:
+    // the four coating shells, then the graphite matrix.
+    let r = [spec.kernel, spec.buffer, spec.ipyc, spec.sic, spec.opyc];
+    let total = r_particle * r_particle * r_particle;
+    let mut parts: Vec<(&Material, f64)> = Vec::with_capacity(5);
+    let mut inner = r[0] * r[0] * r[0];
+    for (i, &outer_r) in r.iter().enumerate().skip(1) {
+        let v = pf * (outer_r * outer_r * outer_r - inner) / total;
+        parts.push((&materials[i], v));
+        inner = outer_r * outer_r * outer_r;
+    }
+    parts.push((&materials[matrix_idx], 1.0 - pf));
+    // Normalise by the non-kernel volume, so the result is a material rather
+    // than a diluted one.
+    let denom = 1.0 - pf_kernel;
+    let refs: Vec<(&Material, f64)> = parts.into_iter().map(|(m, v)| (m, v / denom)).collect();
+    let matrix = homogenise_by_volume(
+        &refs,
+        903,
+        "homogenised coatings + graphite matrix",
+        materials[0].temperature,
+    );
+
+    let mut out_materials = materials.to_vec();
+    out_materials.push(matrix);
+    let new_matrix_idx = out_materials.len() - 1;
+    let medium = ClsMedium::new(
+        r_kernel,
+        pf_kernel,
+        MaterialId(kernel_idx),
+        MaterialId(new_matrix_idx),
+    );
+    (medium, out_materials, new_matrix_idx, pf_kernel)
+}
+
 fn homogenise_particle(materials: &[Material], spec: TrisoSpec) -> Result<Material, DhError> {
     if materials.len() < 5 {
-        return Err(DhError::Materials("need the 5 TRISO layer materials".into()));
+        return Err(DhError::Materials(
+            "need the 5 TRISO layer materials".into(),
+        ));
     }
     let r = [spec.kernel, spec.buffer, spec.ipyc, spec.sic, spec.opyc];
     let total = r[4] * r[4] * r[4];
@@ -1437,9 +2222,21 @@ mod tests {
             "expected a real packing, got {}",
             delta.particle_count()
         );
-        for t in [DhTreatment::ChordLength, DhTreatment::Scls, DhTreatment::Homogenised, DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }] {
+        for t in [
+            DhTreatment::ChordLength,
+            DhTreatment::Scls,
+            DhTreatment::Homogenised,
+            DhTreatment::RingRpt {
+                inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+            },
+        ] {
             let u = DhUniverse::pebble(params(), t).unwrap();
-            assert_eq!(u.particle_count(), 0, "{} should store no particles", t.name());
+            assert_eq!(
+                u.particle_count(),
+                0,
+                "{} should store no particles",
+                t.name()
+            );
         }
     }
 
@@ -1449,7 +2246,14 @@ mod tests {
     fn approximate_treatments_extend_the_material_table() {
         let delta = DhUniverse::pebble(params(), DhTreatment::DeltaTracking).unwrap();
         assert_eq!(delta.materials().len(), 7);
-        for t in [DhTreatment::ChordLength, DhTreatment::Scls, DhTreatment::Homogenised, DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }] {
+        for t in [
+            DhTreatment::ChordLength,
+            DhTreatment::Scls,
+            DhTreatment::Homogenised,
+            DhTreatment::RingRpt {
+                inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+            },
+        ] {
             let u = DhUniverse::pebble(params(), t).unwrap();
             assert!(
                 u.materials().len() > 7,
@@ -1467,13 +2271,22 @@ mod tests {
             let u = DhUniverse::pebble(params(), t).unwrap();
             // Deep inside the fuel zone.
             assert!(
-                u.material_at(Position { x: 0.0, y: 0.0, z: 0.0 }).is_some(),
+                u.material_at(Position {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0
+                })
+                .is_some(),
                 "{}: no material at the centre",
                 t.name()
             );
             // In the fuel-free shell (fuel zone 1.9, pebble 2.0).
             assert_eq!(
-                u.material_at(Position { x: 0.0, y: 0.0, z: 1.95 }),
+                u.material_at(Position {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 1.95
+                }),
                 Some(6),
                 "{}: shell should be material 6",
                 t.name()
@@ -1506,7 +2319,31 @@ mod tests {
         ));
     }
 
-    /// Dispersed fuel takes the same three treatments as a pebble.
+    /// Every treatment, on dispersed fuel, either builds or is refused by name
+    /// — and which one it does is decided here rather than by accident.
+    ///
+    /// **Methodology.** Iterate [`DhTreatment::ALL`] and classify each variant
+    /// through an exhaustive `match`, so a new variant added later cannot
+    /// compile until someone states which side of the line it falls on. A
+    /// supported variant must build *and* answer `material_at` at the origin;
+    /// an unsupported one must come back as a typed [`DhError`], never as a
+    /// silent fall back to a different method.
+    ///
+    /// **Why three are refused.** [`DhTreatment::RingRpt`] is a spherical
+    /// construction and this geometry is a cube. The two kernel-level variants
+    /// need the five TRISO layer radii to derive the kernel packing fraction
+    /// and homogenise the coatings, and `DispersedParams` carries a single
+    /// particle radius and two materials — that information does not exist
+    /// here. In both cases a fallback would report a number under a method
+    /// name that never ran.
+    ///
+    /// **Result (2026-09-18).** 4 of 7 build (delta tracking, whole-particle
+    /// CLS, whole-particle SCLS, naive homogenisation); 3 of 7 return
+    /// [`DhError`] (ring-RPT, and both kernel-level arms). No variant panics
+    /// and none falls back silently.
+    ///
+    /// This test was previously named for "every treatment" while covering
+    /// only four of them — the name is now true rather than aspirational.
     #[test]
     fn dispersed_fuel_supports_every_treatment() {
         let p = || DispersedParams {
@@ -1516,17 +2353,50 @@ mod tests {
             materials: dummy_materials(2),
             seed: 42,
         };
-        for t in [
-            DhTreatment::DeltaTracking,
-            DhTreatment::ChordLength,
-            DhTreatment::Scls,
-            DhTreatment::Homogenised,
-        ] {
-            let u = DhUniverse::dispersed(p(), t)
-                .unwrap_or_else(|e| panic!("dispersed {} failed: {e}", t.name()));
-            assert_eq!(u.treatment(), t);
-            assert!(u.material_at(Position { x: 0.0, y: 0.0, z: 0.0 }).is_some());
+
+        let mut built = 0;
+        let mut refused = 0;
+        for t in DhTreatment::ALL {
+            // Exhaustive on purpose: a new variant must be classified here.
+            let supported = match t {
+                DhTreatment::DeltaTracking
+                | DhTreatment::ChordLength
+                | DhTreatment::Scls
+                | DhTreatment::Homogenised => true,
+                DhTreatment::ChordLengthKernel
+                | DhTreatment::SclsKernel
+                | DhTreatment::RingRpt { .. } => false,
+            };
+
+            match (supported, DhUniverse::dispersed(p(), t)) {
+                (true, Ok(u)) => {
+                    assert_eq!(u.treatment(), t);
+                    assert!(
+                        u.material_at(Position {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 0.0
+                        })
+                        .is_some(),
+                        "{} built but returns no material at the origin",
+                        t.name()
+                    );
+                    built += 1;
+                }
+                (true, Err(e)) => panic!("dispersed {} should build, but failed: {e}", t.name()),
+                (false, Err(_)) => refused += 1,
+                (false, Ok(_)) => panic!(
+                    "dispersed {} must be REFUSED, not built -- a silent fall back to \
+                     another method would report a number under a name that never ran",
+                    t.name()
+                ),
+            }
         }
+        assert_eq!(
+            (built, refused),
+            (4, 3),
+            "the supported/refused split moved"
+        );
     }
 
     /// Ring-RPT is a spherical construction, so a cube of dispersed fuel must
@@ -1544,13 +2414,18 @@ mod tests {
         };
         let e = DhUniverse::dispersed(
             p,
-            DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER },
+            DhTreatment::RingRpt {
+                inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+            },
         )
         .expect_err("ring-RPT on a cube should be refused");
         assert!(matches!(e, DhError::Geometry(_)), "wrong error kind: {e}");
         // The message must point at the treatment that IS right for a cube,
         // rather than only saying no.
-        assert!(format!("{e}").contains("Homogenised"), "unhelpful message: {e}");
+        assert!(
+            format!("{e}").contains("Homogenised"),
+            "unhelpful message: {e}"
+        );
     }
 
     /// The two smearing treatments must be distinguishable through the API, or
@@ -1562,20 +2437,39 @@ mod tests {
         let at = |t: DhTreatment, r: f64| {
             DhUniverse::pebble(params(), t)
                 .unwrap()
-                .material_at(Position { x: 0.0, y: 0.0, z: r })
+                .material_at(Position {
+                    x: 0.0,
+                    y: 0.0,
+                    z: r,
+                })
         };
-        let rpt = DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER };
+        let rpt = DhTreatment::RingRpt {
+            inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+        };
 
         // Naive: same material at the centre and near the fuel-zone edge.
-        assert_eq!(at(DhTreatment::Homogenised, 0.0), at(DhTreatment::Homogenised, 1.8));
+        assert_eq!(
+            at(DhTreatment::Homogenised, 0.0),
+            at(DhTreatment::Homogenised, 1.8)
+        );
 
         // Ring-RPT: matrix in the middle, homogenised fuel in the annulus.
         // r_outer^3 = 1.493359375^3 + 0.30 * 1.9^3 -> r_outer ~ 1.746 cm.
         let centre = at(rpt, 0.0).expect("centre");
         let annulus = at(rpt, 1.6).expect("annulus");
-        assert_ne!(centre, annulus, "ring-RPT annulus is not distinct from its inner ball");
-        assert_eq!(centre, 5, "ring-RPT inner ball should be the matrix (index 5)");
-        assert_eq!(at(rpt, 1.8), Some(5), "outside the annulus should be matrix again");
+        assert_ne!(
+            centre, annulus,
+            "ring-RPT annulus is not distinct from its inner ball"
+        );
+        assert_eq!(
+            centre, 5,
+            "ring-RPT inner ball should be the matrix (index 5)"
+        );
+        assert_eq!(
+            at(rpt, 1.8),
+            Some(5),
+            "outside the annulus should be matrix again"
+        );
     }
 
     /// A ring-RPT radius too large for the packing fraction cannot conserve
@@ -1600,8 +2494,22 @@ mod tests {
         let eight = PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8));
         let u = DhUniverse::pebble(eight, DhTreatment::Homogenised).expect("unit cell builds");
         // Coolant fills 2.0 < r < 3.0 for every treatment.
-        assert_eq!(u.material_at(Position { x: 0.0, y: 0.0, z: 2.5 }), Some(7));
-        assert_eq!(u.material_at(Position { x: 0.0, y: 0.0, z: 1.95 }), Some(6));
+        assert_eq!(
+            u.material_at(Position {
+                x: 0.0,
+                y: 0.0,
+                z: 2.5
+            }),
+            Some(7)
+        );
+        assert_eq!(
+            u.material_at(Position {
+                x: 0.0,
+                y: 0.0,
+                z: 1.95
+            }),
+            Some(6)
+        );
     }
 
     /// **The safety property behind the majorant.** `reachable_materials` bounds
@@ -1617,7 +2525,9 @@ mod tests {
     fn every_material_the_geometry_returns_is_declared_reachable() {
         let mut seed = 0x5EED_1234_u64;
         let mut next = || {
-            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             ((seed >> 11) as f64) / ((1u64 << 53) as f64)
         };
 
@@ -1682,13 +2592,460 @@ mod tests {
                 idx.len(),
                 n_delta
             );
+            // ChordLengthKernel is the one arm for which the undiluted kernel
+            // IS reachable: its inclusion *is* the kernel, at full density. The
+            // guard below is about a treatment declaring a material it never
+            // returns, which is not this. The price is a higher majorant, and
+            // that is a real cost of the method rather than a defect.
+            if !t.is_kernel_level() {
+                assert!(
+                    !idx.contains(&0),
+                    "{} declares the undiluted kernel (index 0) reachable, but no point in its \
+                     geometry returns it — that is the inflated-majorant bug this guards",
+                    t.name()
+                );
+            } else {
+                assert!(
+                    idx.contains(&0),
+                    "{} is kernel-level: the undiluted kernel MUST be reachable, or the \
+                     grain-level self-shielding it exists to keep is not there",
+                    t.name()
+                );
+            }
+        }
+    }
+
+    /// **Every arm must model the same fuel inventory**, or a treatment
+    /// Kernel-level CLS must hold the **same heavy metal per unit fuel-zone
+    /// volume** as whole-particle CLS — it redistributes the fuel, it does not
+    /// create or destroy it.
+    ///
+    /// This is the strongest available check on the variant's construction. The
+    /// two arms differ in *where* the fuel sits: whole-particle CLS smears the
+    /// kernel through the particle and inserts that at `pf = 0.30`;
+    /// kernel-level CLS keeps the kernel undiluted and inserts it at
+    /// `pf = 0.0388`. If the packing fraction and the homogenised matrix are
+    /// derived consistently, then for every nuclide
+    ///
+    /// ```text
+    /// pf_kernel * N_kernel + (1 - pf_kernel) * N_matrix
+    ///     == pf_particle * N_particle + (1 - pf_particle) * N_graphite
+    /// ```
+    ///
+    /// i.e. both arms describe the same fuel zone. A mis-derived `pf_kernel`,
+    /// or a matrix normalised by the wrong denominator, breaks this and would
+    /// otherwise show up only as an unexplained eigenvalue shift.
+    #[test]
+    fn kernel_level_cls_conserves_the_fuel_zone_inventory() {
+        let mats = dummy_materials(8);
+        let build = |t| {
+            DhUniverse::pebble(
+                PebbleParams::fhr_unit_cell().with_materials(mats.clone()),
+                t,
+            )
+            .unwrap_or_else(|e| panic!("build failed: {e}"))
+        };
+        // Volume-average the fuel zone's nuclide inventory for a CLS-style arm:
+        // pf * inclusion + (1 - pf) * matrix.
+        let inventory = |u: &DhUniverse| -> std::collections::BTreeMap<usize, f64> {
+            let DhGeometry::Cls {
+                particle_material,
+                matrix_material,
+                ..
+            } = &u.geometry
+            else {
+                panic!("expected a CLS geometry");
+            };
+            let pf = u.packing_fraction();
+            let mut acc: std::collections::BTreeMap<usize, f64> = Default::default();
+            for (m, w) in [
+                (&u.materials[*particle_material], pf),
+                (&u.materials[*matrix_material], 1.0 - pf),
+            ] {
+                for c in &m.components {
+                    *acc.entry(c.nuclide_idx).or_insert(0.0) += w * c.atom_density;
+                }
+            }
+            acc
+        };
+
+        let whole = inventory(&build(DhTreatment::ChordLength));
+        let kernel = inventory(&build(DhTreatment::ChordLengthKernel));
+
+        assert_eq!(
+            whole.keys().collect::<Vec<_>>(),
+            kernel.keys().collect::<Vec<_>>(),
+            "the two CLS arms describe different nuclide sets"
+        );
+        for (idx, n_whole) in &whole {
+            let n_kernel = kernel[idx];
             assert!(
-                !idx.contains(&0),
-                "{} declares the undiluted kernel (index 0) reachable, but no point in its \
-                 geometry returns it — that is the inflated-majorant bug this guards",
+                (n_kernel - n_whole).abs() <= 1.0e-12 * n_whole.abs().max(1.0e-30),
+                "nuclide {idx}: kernel-level CLS holds {n_kernel:.12e} atoms/b-cm of \
+                 fuel zone against whole-particle CLS's {n_whole:.12e} — the variant \
+                 must redistribute the fuel, not change how much there is"
+            );
+        }
+    }
+
+    /// The kernel-level variants must describe the SAME GRAINS as their
+    /// whole-particle counterparts — one fuel kernel per TRISO particle — seen
+    /// at a smaller radius, not a different number of them.
+    ///
+    /// **Methodology.** A CLS medium is fully specified by an inclusion radius
+    /// and a packing fraction, and the quantity with physical meaning is the
+    /// number density those two imply,
+    ///
+    /// ```text
+    /// n = pf / ((4/3) pi r^3)
+    /// ```
+    ///
+    /// Because `build_kernel_level_cls` sets
+    /// `pf_kernel = pf * (r_kernel / r_particle)^3`, that ratio cancels
+    /// identically and `n_kernel == n_particle` — so this is a check on the
+    /// exponent and on which radius each factor is paired with, the two things
+    /// an algebra slip in that function would get wrong while still leaving
+    /// `pf_kernel` a plausible-looking number. Pass criterion: relative
+    /// agreement to 1e-12.
+    ///
+    /// **Result (2026-09-18).** Both kernel arms reproduce the whole-particle
+    /// grain number density to **0.0 relative** — the arithmetic is exact in
+    /// binary, since the same three multiplications are undone in the opposite
+    /// order. Interpretation: the kernel arms are the same dispersion of
+    /// grains, re-described; the eigenvalue difference they produce is
+    /// therefore self-shielding and not an inventory or a geometry change.
+    ///
+    /// Complements `kernel_level_cls_conserves_the_fuel_zone_inventory`, which
+    /// pins how much fuel there is; this pins how it is divided up.
+    #[test]
+    fn kernel_level_variants_preserve_the_grain_number_density() {
+        let spec = TrisoSpec::FHR_HALEU_UCO;
+        let r_particle = spec.opyc;
+        let r_kernel = spec.kernel;
+
+        // Number density up to the common 4/3 pi, which cancels in the ratio.
+        let density = |pf: f64, r: f64| pf / (r * r * r);
+
+        for (whole, kernel) in [
+            (DhTreatment::ChordLength, DhTreatment::ChordLengthKernel),
+            (DhTreatment::Scls, DhTreatment::SclsKernel),
+        ] {
+            let build = |t| {
+                DhUniverse::pebble(
+                    PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8)),
+                    t,
+                )
+                .unwrap_or_else(|e| panic!("{} failed to build: {e}", DhTreatment::name(t)))
+            };
+            let n_whole = density(build(whole).packing_fraction(), r_particle);
+            let n_kernel = density(build(kernel).packing_fraction(), r_kernel);
+
+            assert!(
+                (n_kernel - n_whole).abs() <= 1.0e-12 * n_whole.abs(),
+                "{} implies {n_kernel:.12e} grains per unit volume against {}'s \
+                 {n_whole:.12e} — the kernel-level variant must re-describe the \
+                 same TRISO grains at the kernel radius, not invent or lose any",
+                kernel.name(),
+                whole.name()
+            );
+        }
+    }
+
+    /// comparison is also a comparison of two different reactors.
+    ///
+    /// The explicit arm packs; the approximate arms smear at
+    /// `spec.packing_fraction`. Those agree only if the packing actually hits
+    /// the fraction it was asked for, and before 2026-09-14 it did not — it
+    /// realised 0.2894 against a requested 0.30, handing every smeared arm
+    /// 3.7 % more heavy metal than the reference it was judged against.
+    #[test]
+    fn every_treatment_models_the_same_packing_fraction() {
+        let target = TrisoSpec::FHR_HALEU_UCO.packing_fraction;
+        let mut fractions = Vec::new();
+        for t in DhTreatment::ALL {
+            let u = DhUniverse::pebble(
+                PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8)),
+                t,
+            )
+            .unwrap_or_else(|e| panic!("{} failed to build: {e}", t.name()));
+            let pf = u.packing_fraction();
+            if t.is_kernel_level() {
+                // This arm deliberately models the KERNEL packing fraction, not
+                // the particle one — that is the whole point of the variant. It
+                // is still pinned, to the exact geometric relation, so a wrong
+                // derivation cannot pass as "a different level".
+                let spec = TrisoSpec::FHR_HALEU_UCO;
+                let expected = target * (spec.kernel / spec.opyc).r_powi(3);
+                assert!(
+                    (pf / expected - 1.0).abs() <= 1.0e-9,
+                    "{} models pf {pf:.6} against the derived kernel fraction {expected:.6} \
+                     = pf_particle * (r_kernel/r_opyc)^3",
+                    t.name()
+                );
+                continue;
+            }
+            assert!(
+                (pf / target - 1.0).abs() <= 5.0e-3,
+                "{} models pf {pf:.5} against a requested {target:.5} ({:+.2} %) — the arms \
+                 are not comparable",
+                t.name(),
+                100.0 * (pf / target - 1.0)
+            );
+            fractions.push(pf);
+        }
+        let (lo, hi) = (
+            fractions.iter().cloned().fold(f64::INFINITY, f64::min),
+            fractions.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+        );
+        assert!(
+            (hi / lo - 1.0).abs() <= 5.0e-3,
+            "arms span pf {lo:.5}..{hi:.5}, a {:+.2} % inventory difference between \
+             treatments that are supposed to differ only in how geometry is resolved",
+            100.0 * (hi / lo - 1.0)
+        );
+    }
+
+    /// The realised fraction is exact, not sampled: every kept sphere lies
+    /// wholly inside the ball, so it is `n * (r/R)^3` in closed form. Pinning
+    /// that keeps the accessor honest if the clip convention ever changes.
+    #[test]
+    fn reported_packing_fraction_matches_the_stored_particles() {
+        let u = DhUniverse::pebble(
+            PebbleParams::fhr_reference().with_materials(dummy_materials(7)),
+            DhTreatment::DeltaTracking,
+        )
+        .unwrap();
+        let spec = TrisoSpec::FHR_HALEU_UCO;
+        let expected = u.particle_count() as f64 * (spec.opyc / 1.9_f64).r_powi(3);
+        assert!(
+            (u.packing_fraction() - expected).abs() < 1.0e-12,
+            "reported {:.6} but {} particles imply {expected:.6}",
+            u.packing_fraction(),
+            u.particle_count()
+        );
+    }
+
+    /// The stepped run is `keff`, bit for bit, on the single-thread backend
+    /// (GitHub #785): every generation's `k` and the final mean and error, for
+    /// the explicit arm and for CLS (whose sampler is stateful, so each run
+    /// gets its own freshly built universe). LOW embedded data, a tiny run.
+    #[test]
+    fn power_iteration_steps_keff_bit_for_bit() {
+        let nuclides: Vec<Nuclide> = ["U235", "U238", "O16", "C0", "Si28"]
+            .iter()
+            .map(|n| Nuclide::from_core(n).unwrap())
+            .collect();
+        let mat = |id: i32, comps: &[(usize, f64)]| Material {
+            id,
+            name: format!("m{id}"),
+            temperature: 293.6,
+            components: comps
+                .iter()
+                .map(|&(nuclide_idx, atom_density)| NuclideComponent {
+                    nuclide_idx,
+                    atom_density,
+                })
+                .collect(),
+        };
+        let materials = vec![
+            mat(0, &[(0, 4.40e-3), (1, 1.77e-2), (2, 2.27e-2), (3, 9.10e-3)]),
+            mat(1, &[(3, 5.02e-2)]),
+            mat(2, &[(3, 9.53e-2)]),
+            mat(3, &[(4, 4.79e-2), (3, 4.79e-2)]),
+            mat(4, &[(3, 9.53e-2)]),
+            mat(5, &[(3, 8.53e-2)]),
+            mat(6, &[(3, 8.78e-2)]),
+        ];
+        let settings = KeffSettings {
+            n_particles: 150,
+            n_inactive: 2,
+            n_active: 3,
+            ..KeffSettings::default()
+        };
+        for t in [DhTreatment::DeltaTracking, DhTreatment::ChordLength] {
+            let build = || {
+                DhUniverse::pebble(
+                    PebbleParams::fhr_reference().with_materials(materials.clone()),
+                    t,
+                )
+                .unwrap()
+            };
+            let whole = build().keff(&nuclides, &settings);
+            let u = build();
+            let mut it = u.power_iteration(&nuclides, &settings);
+            let (mut ks, mut last) = (Vec::new(), None);
+            while let Some(g) = it.step(&u, &nuclides) {
+                ks.push(g.k.to_bits());
+                last = g.k_mean;
+            }
+            assert!(it.finished(), "{}", t.name());
+            let want: Vec<u64> = whole.k_by_generation.iter().map(|k| k.to_bits()).collect();
+            assert_eq!(ks, want, "{}", t.name());
+            let (m, e) = last.unwrap();
+            assert_eq!(
+                (m.to_bits(), e.to_bits()),
+                (whole.k_mean.to_bits(), whole.k_std.to_bits()),
+                "{}",
                 t.name()
             );
         }
+    }
+
+    /// `pack_in_ball`'s attempt record is the iteration it ran (GitHub #785):
+    /// the first attempt asks for the target itself and falls short (the cut
+    /// particles), every attempt replays bit for bit through the public
+    /// `pack_spheres` and `is_whole_in_ball`, and the returned packing is the
+    /// best attempt, inside the 0.2 % tolerance.
+    #[test]
+    fn pack_in_ball_records_the_attempts_it_ran() {
+        use crate::pebble_beds::sphere_packing::pack_spheres;
+        let spec = TrisoSpec::FHR_HALEU_UCO;
+        let (r_p, big_r, pf, seed) = (
+            spec.opyc,
+            1.9,
+            spec.packing_fraction,
+            0x0DDF_1234_5678_9ABC_u64 | 1,
+        );
+        let b = pack_in_ball(r_p, big_r, pf, seed).unwrap();
+        assert!(b.attempts.len() >= 2, "{:?}", b.attempts);
+        assert_eq!(b.attempts[0].request, pf);
+        assert!(
+            b.attempts[0].realised < pf,
+            "whole-only at the bare request falls short"
+        );
+        for a in &b.attempts {
+            let s = pack_spheres(r_p, big_r + r_p, a.request, seed).unwrap();
+            assert_eq!(s.len(), a.generated);
+            assert_eq!(
+                s.iter()
+                    .filter(|s| is_whole_in_ball(s.center, r_p, big_r))
+                    .count(),
+                a.kept
+            );
+        }
+        assert!((b.realised / pf - 1.0).abs() <= 2.0e-3);
+        assert!(b
+            .attempts
+            .iter()
+            .any(|a| a.realised == b.realised && a.kept == b.packing.len()));
+    }
+
+    /// **SCLS must remember geometry across history boundaries.** That is the
+    /// entire difference between it and CLS.
+    ///
+    /// `begin_history` resets the in-progress *flight* but must keep the
+    /// retained inclusions, which are a reconstructed model of the packing
+    /// rather than per-history state. Until 2026-09-14 it restored a pristine
+    /// medium instead, so every history began with no memory and SCLS decayed
+    /// into CLS — measured, and indistinguishable from it.
+    #[test]
+    fn scls_retains_inclusions_across_history_boundaries() {
+        let u = DhUniverse::pebble(
+            PebbleParams::fhr_reference().with_materials(dummy_materials(7)),
+            DhTreatment::Scls,
+        )
+        .expect("SCLS pebble builds");
+
+        let retained = || match &u.geometry {
+            DhGeometry::Scls { medium, .. } => medium.lock().unwrap().0.histories().len(),
+            _ => unreachable!("built as SCLS"),
+        };
+
+        // Size the retention window exactly as `keff` does. Without this the
+        // window is still the construction-time placeholder, and a walk longer
+        // than it culls everything — which is precisely the second defect, and
+        // is worth noting as the reason this line is not optional.
+        let nucs = vec![Nuclide::from_core("C0").expect("embedded carbon")];
+        u.size_scls_window(&nucs);
+
+        // Walk a line through the fuel zone so the sampler meets inclusions.
+        let walk = |z0: f64| {
+            for i in 0..400 {
+                let z = z0 + 0.002 * i as f64;
+                let _ = u.material_at(Position { x: 0.0, y: 0.0, z });
+            }
+        };
+
+        MaterialQuery::begin_history(&&u);
+        walk(-1.0);
+        let after_first = retained();
+        assert!(
+            after_first > 0,
+            "SCLS remembered nothing at all during a history — the sampler is not \
+             retaining inclusions"
+        );
+
+        // The boundary that used to wipe everything.
+        MaterialQuery::begin_history(&&u);
+        let after_boundary = retained();
+        assert_eq!(
+            after_boundary,
+            after_first,
+            "begin_history dropped {} of {after_first} retained inclusions; it must reset the \
+             flight only, not the reconstructed geometry",
+            after_first - after_boundary
+        );
+
+        // And a second history keeps accumulating rather than starting over.
+        walk(-1.0);
+        assert!(
+            retained() >= after_first,
+            "memory shrank across a second pass: {} < {after_first}",
+            retained()
+        );
+    }
+
+    /// The retention window must be a **transport** mean free path, not the
+    /// geometric distance between inclusions. Seeding it from
+    /// `mean_chord_matrix()` made it ~15x too small on the FHR pebble, so
+    /// almost everything was culled immediately.
+    ///
+    /// This checks the sizing actually happens and lands on the right order of
+    /// magnitude, using a matrix whose total cross section is known.
+    #[test]
+    fn scls_window_is_a_transport_mfp_not_a_chord_length() {
+        let u = DhUniverse::pebble(
+            PebbleParams::fhr_reference().with_materials(dummy_materials(7)),
+            DhTreatment::Scls,
+        )
+        .unwrap();
+
+        let radius = || match &u.geometry {
+            DhGeometry::Scls { medium, .. } => medium.lock().unwrap().0.sphere().radius,
+            _ => unreachable!(),
+        };
+        let before = radius();
+
+        // dummy_materials uses 8.0e-2 atoms/b-cm of nuclide 0; from_core("C0")
+        // gives a real carbon evaluation, so 1/Sigma_t is a genuine mfp.
+        let nucs = vec![Nuclide::from_core("C0").expect("embedded carbon")];
+        u.size_scls_window(&nucs);
+        let after = radius();
+
+        let sigma_t = u.materials[5].macro_xs_total(0.0253, &nucs);
+        let uncapped = 1.0 / sigma_t + TrisoSpec::FHR_HALEU_UCO.opyc;
+        // Capped at the domain: beyond it there is no geometry to retain.
+        let expected = uncapped.min(2.0);
+        assert!(
+            (after - expected).abs() < 1.0e-9,
+            "window {after:.4} cm, expected min(1/Sigma_t + r, domain) = {expected:.4} cm \
+             (uncapped would be {uncapped:.4})"
+        );
+        // On THIS problem the cap binds, and that is the finding rather than an
+        // implementation detail: a retention window larger than the region it is
+        // meant to be a local view of means nothing is ever culled, so SCLS's
+        // bounded-memory premise does not hold here at all.
+        assert!(
+            uncapped > 2.0,
+            "expected the graphite transport mfp ({uncapped:.2} cm) to exceed the 2.0 cm \
+             domain on this pebble -- if it no longer does, the degeneracy recorded on \
+             DhTreatment::Scls needs re-checking"
+        );
+        assert!(
+            after > 5.0 * before,
+            "window barely moved ({before:.4} -> {after:.4} cm); the chord-length seed was \
+             ~15x too small, so a correct sizing must be much larger"
+        );
     }
 
     /// A coolant radius inside the pebble is a contradiction, not a clamp.

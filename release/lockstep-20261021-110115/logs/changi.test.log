@@ -1,0 +1,407 @@
+    Blocking waiting for file lock on build directory
+   Compiling approx v0.5.1
+   Compiling changi v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/changi)
+    Finished `release` profile [optimized] target(s) in 22.97s
+     Running unittests src/lib.rs (target/release/deps/changi-3b3c75c1256cfdf9)
+
+running 116 tests
+test activity::accident_airborne_release::tests::every_entry_is_positive_and_finite ... ok
+test activity::accident_airborne_release::tests::depressurization_noble_gases_and_h3_exceed_the_primary_helium_activity ... ok
+test activity::accident_airborne_release::tests::spot_checks_against_the_published_table ... ok
+test activity::accident_airborne_release::tests::depressurization_releases_more_gas_water_ingress_more_iodine_131_and_caesium ... ok
+test activity::accident_airborne_release::tests::the_printed_c4_label_is_not_a_lookup_key_and_absent_is_none ... ok
+test activity::accident_airborne_release::tests::the_table_has_all_eighteen_published_nuclides_in_order ... ok
+test activity::accident_airborne_release::tests::water_ingress_noble_gases_h3_and_c14_are_0_30_of_primary_helium ... ok
+test activity::airborne_release::tests::an_unlisted_nuclide_is_none_rather_than_zero ... ok
+test activity::airborne_release::tests::ar41_dominates_and_tritium_is_second_as_the_source_states ... ok
+test activity::airborne_release::tests::every_entry_is_positive_and_finite ... ok
+test activity::airborne_release::tests::spot_checks_against_the_published_table ... ok
+test activity::airborne_release::tests::the_sum_reproduces_the_totals_the_source_states ... ok
+test activity::airborne_release::tests::the_table_has_all_twenty_two_published_nuclides ... ok
+test activity::chi_over_q::tests::a_stable_nuclide_is_the_undecayed_sum ... ok
+test activity::chi_over_q::tests::bins_carry_exact_travel_time ... ok
+test activity::chi_over_q::tests::a_fixed_stability_class_overrides_the_wind_derived_one ... ok
+test activity::chi_over_q::tests::decay_weights_each_bin_by_its_own_exact_travel_time ... ok
+test activity::chi_over_q::tests::segment_lookup_closes_the_last_interval_at_its_upper_end ... ok
+test activity::chi_over_q::tests::the_unit_response_scales_exactly_with_mass ... ok
+test activity::chi_over_q::tests::every_receptor_beyond_reach_panics_rather_than_returning_zeros - should panic ... ok
+test activity::decay_transfer::tests::a_stable_parent_produces_no_daughter ... ok
+test activity::decay_transfer::tests::an_ingrowing_daughter_rises_before_it_falls ... ok
+test activity::decay_transfer::tests::cram48_matches_expm_on_the_two_step_matrix ... ok
+test activity::decay_transfer::tests::equal_decay_constants_use_the_analytic_limit ... ok
+test activity::decay_transfer::tests::bateman_two_step_matches_cram48 ... ok
+test activity::decay_transfer::tests::negligibility_is_computed_not_assumed ... ok
+test activity::decay_transfer::tests::one_half_life_halves_it ... ok
+test activity::decay_transfer::tests::stable_and_degenerate_inputs_give_unit_gain ... ok
+test activity::decay_transfer::tests::the_documented_neglect_table_is_correct ... ok
+test activity::decay_transfer::tests::the_gain_is_the_exponential ... ok
+test activity::chi_over_q::tests::splitting_a_window_into_equal_segments_conserves_the_total ... ok
+test activity::deposition::tests::a_negative_deposition_velocity_is_rejected - should panic ... ok
+test activity::deposition::tests::deposition_is_velocity_times_air_concentration ... ok
+test activity::deposition::tests::noble_gases_deposit_exactly_nothing ... ok
+test activity::deposition::tests::selenium_and_tellurium_deposit_as_aerosols_not_halogens ... ok
+test activity::deposition::tests::the_consequence_dominant_aerosols_are_classified_as_aerosols ... ok
+test activity::deposition::tests::the_noble_gases_are_all_classified_as_such ... ok
+test activity::fuel_release::tests::table_2_is_transcribed ... ok
+test activity::inventory::tests::an_unlisted_nuclide_is_none_rather_than_zero ... ok
+test activity::inventory::tests::every_entry_is_positive_and_finite ... ok
+test activity::inventory::tests::spot_checks_against_the_published_table ... ok
+test activity::inventory::tests::the_table_has_all_twenty_two_published_nuclides ... ok
+test activity::primary_helium::tests::an_unlisted_nuclide_is_none_rather_than_zero ... ok
+test activity::primary_helium::tests::every_entry_is_positive_and_finite ... ok
+test activity::primary_helium::tests::group_sums_reproduce_the_totals_the_source_states ... ok
+test activity::primary_helium::tests::spot_checks_against_the_published_table ... ok
+test activity::primary_helium::tests::the_table_has_all_twenty_published_nuclides ... ok
+test activity::source::tests::a_gap_between_windows_is_rejected - should panic ... ok
+test activity::source::tests::a_negative_release_is_rejected - should panic ... ok
+test activity::source::tests::a_nuclide_must_carry_one_activity_per_window - should panic ... ok
+test activity::source::tests::a_zero_length_window_is_rejected - should panic ... ok
+test activity::source::tests::boundaries_are_one_longer_than_the_windows ... ok
+test activity::source::tests::totals_sum_across_windows ... ok
+test activity::units::tests::dilution_times_activity_is_a_time_integrated_concentration ... ok
+test activity::units::tests::mean_concentration_divides_by_the_averaging_time ... ok
+test activity::units::tests::uom_carries_the_curie_so_the_conversion_never_has_to_be_written_out ... ok
+test flexpart::calendar::tests::round_trips_a_leap_day ... ok
+test flexpart::calendar::tests::unix_epoch_is_jdn_2440588_at_midnight ... ok
+test flexpart::domainfill::tests::layout_matches_fortran_column_major ... ok
+test flexpart::domainfill::tests::two_release_heights_are_refused_before_any_change ... ok
+test flexpart::fluxes::tests::eastward_crossings ... ok
+test flexpart::fluxes::tests::wrap_around_flux_is_dropped ... ok
+test flexpart::outgrid::tests::global_grid_area_is_the_sphere ... ok
+test flexpart::outgrid::tests::sample_off_the_grid_is_refused ... ok
+test flexpart::outgrid::tests::straddling_row_uses_the_arc_length ... ok
+test flexpart::release::tests::full_store_is_refused_like_upstream_stop ... ok
+test flexpart::release::tests::instantaneous_release_fills_npart_slots ... ok
+test flexpart::release::tests::static_read_past_the_grid_is_zero_or_aliases ... ok
+test flexpart::shift_field::tests::shift_rotates_and_closes ... ok
+test puff::climatology::tests::components_preserve_the_scalar_speed ... ok
+test puff::climatology::tests::night_time_singapore_conditions_are_ambiguous_except_in_a_surge ... ok
+test puff::climatology::tests::the_mean_wind_sits_on_a_pasquill_band_edge ... ok
+test puff::climatology::tests::the_northeast_monsoon_blows_toward_the_southwest ... ok
+test puff::climatology::tests::the_southwest_monsoon_blows_toward_the_northwest ... ok
+test puff::concentration::tests::an_unmoved_puff_reports_zero_not_infinity ... ok
+test puff::concentration::tests::concentration_is_linear_in_puff_mass ... ok
+test puff::concentration::tests::ground_reflection_doubles_the_surface_value ... ok
+test puff::concentration::tests::matches_upstreams_documented_example ... ok
+test puff::concentration::tests::no_flux_passes_through_the_ground ... ok
+test puff::concentration::tests::the_horizontal_profile_is_circular_in_plan ... ok
+test puff::concentration::tests::the_peak_matches_the_closed_form ... ok
+test activity::chi_over_q::tests::unit_response_agrees_with_the_ported_sum ... ok
+test puff::dispersion::tests::a_distance_on_a_bin_edge_takes_the_lower_bin ... ok
+test puff::dispersion::tests::class_c_is_a_single_unbinned_power_law ... ok
+test puff::dispersion::tests::matches_upstreams_documented_example ... ok
+test puff::dispersion::tests::non_positive_distance_has_no_defined_spread ... ok
+test puff::dispersion::tests::sigma_y_sign_change_is_far_beyond_any_physical_range ... ok
+test puff::dispersion::tests::sigma_z_saturates_at_the_cap ... ok
+test puff::simulate::tests::a_non_multiple_puff_interval_is_rejected - should panic ... ok
+test puff::simulate::tests::a_veering_wind_bends_a_lagrangian_puff_and_teleports_an_upstream_one ... ok
+test puff::simulate::tests::doubling_the_mass_does_not_double_the_concentration ... ok
+test puff::simulate::tests::grid_modes_last_output_row_is_never_written ... ok
+test puff::simulate::tests::sources_superpose_linearly ... ok
+test puff::simulate::tests::the_default_policy_emits_one_puff_per_event ... ok
+test puff::simulate::tests::the_policies_agree_where_stability_is_unambiguous ... ok
+test puff::simulate::tests::the_two_advection_policies_agree_on_a_constant_wind ... ok
+test puff::stability::tests::daytime_window_is_inclusive_at_both_ends ... ok
+test puff::stability::tests::missing_wind_speed_gives_neutral ... ok
+test puff::stability::tests::negative_wind_speed_is_rejected - should panic ... ok
+test puff::stability::tests::primary_is_the_more_unstable_of_an_ambiguous_pair ... ok
+test puff::stability::tests::six_of_ten_regimes_are_ambiguous ... ok
+test puff::wgsl::tests::field_auto_is_field_pooled_with_the_feature_off ... ok
+test puff::wgsl::tests::row_zero_is_the_northernmost ... ok
+test puff::wgsl::tests::states_pack_at_the_shader_stride ... ok
+test puff::wgsl::tests::the_degenerate_cases_are_empty_not_panics ... ok
+test puff::wgsl::tests::the_f32_mirror_agrees_with_the_f64_kernel ... ok
+test puff::wgsl::tests::the_pooled_field_is_bit_identical_to_the_serial_one ... ok
+test puff::wgsl::tests::the_shader_declares_what_the_rust_side_expects ... ok
+test puff::wind::tests::a_northerly_pushes_air_south ... ok
+test puff::wind::tests::a_single_observation_is_a_constant_wind ... ok
+test puff::wind::tests::an_easterly_pushes_air_west ... ok
+test puff::wind::tests::interpolation_hits_the_observations_it_passes_through ... ok
+test puff::wind::tests::speed_is_recovered_from_components ... ok
+test puff::concentration::tests::the_puff_integrates_to_its_own_mass ... ok
+test puff::concentration::tests::a_ground_level_release_also_integrates_to_its_mass ... ok
+test puff::concentration::tests::the_second_moment_recovers_the_dispersion_parameter ... ok
+
+test result: ok. 116 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/activity_properties.rs (target/release/deps/activity_properties-fd5caee358af7930)
+
+running 7 tests
+test a_stable_nuclide_through_the_whole_chain_matches_simulate_sensor_mode ... ok
+test deposition_scales_exactly_with_the_deposition_velocity ... ok
+test a_noble_gas_deposits_exactly_zero_through_the_whole_chain ... ok
+test everything_downstream_is_exactly_linear_in_the_released_activity ... ok
+test splitting_the_release_across_windows_conserves_the_total ... ok
+test decay_in_transit_is_monotone_in_the_half_life ... ok
+test ground_level_and_breathing_height_differ_by_a_sign_that_depends_on_distance ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/flexpart_advance_code_to_code.rs (target/release/deps/flexpart_advance_code_to_code-cf7c08f4b7d0a8b4)
+
+running 3 tests
+test initialize_matches_flexpart ... ok
+test get_vdep_prob_matches_flexpart ... ok
+test advance_matches_flexpart ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/flexpart_cmapf_code_to_code.rs (target/release/deps/flexpart_cmapf_code_to_code-4140e8ce2505cd65)
+
+running 21 tests
+test cg2cll ... ok
+test ccrvll ... ok
+test cc2gll ... ok
+test ccrvxy ... ok
+test cgszll ... ok
+test cgszxy ... ok
+test cg2cxy ... ok
+test cnxyll ... ok
+test cnllxy ... ok
+test cll2xy ... ok
+test coordtrafo_stop ... ok
+test coordtrafo_count ... ok
+test cpolll ... ok
+test cspanf ... ok
+test eqvlat ... ok
+test coordtrafo_survivors ... ok
+test cpolxy ... ok
+test stcm1p ... ok
+test stcm2p ... ok
+test stlmbr ... ok
+test cxy2ll ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/flexpart_code_to_code.rs (target/release/deps/flexpart_code_to_code-4ef154e20d338aa6)
+
+running 15 tests
+test decay_convenience_helpers ... ok
+test decay_constant_matches_flexpart ... ok
+test ew_matches_flexpart ... ok
+test obukhov_ecmwf_matches_flexpart ... ok
+test obukhov_ncep_matches_flexpart ... ok
+test part0_scalar_cunningham_matches_flexpart ... ok
+test part0_mass_fraction_matches_flexpart ... ok
+test psih_matches_flexpart ... ok
+test part0_schmidt_matches_flexpart ... ok
+test part0_settling_matches_flexpart ... ok
+test psim_matches_flexpart ... ok
+test raerod_matches_flexpart ... ok
+test scalev_matches_flexpart ... ok
+test surviving_fraction_matches_flexpart ... ok
+test viscosity_matches_flexpart ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/flexpart_concout_code_to_code.rs (target/release/deps/flexpart_concout_code_to_code-21c37b9b5ebb7eef)
+
+running 14 tests
+test concoutput_receptor_records ... ok
+test concoutput_reset_behaviour_is_as_documented ... ok
+test concoutput_dense_arrays ... ok
+test concoutput_file_time_records ... ok
+test concoutput_record_counts ... ok
+test timemanager_after_advance ... ok
+test timemanager_before_advance ... ok
+test concoutput_uncertainty_totals ... ok
+test timemanager_output_clock ... ok
+test timemanager_deposition_decay ... ok
+test tiny_masses_report_zero_uncertainty ... ok
+test concoutput_sparse_records ... ok
+test inputs_match_the_driver ... ok
+test timemanager_particle_splitting ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/flexpart_convection_code_to_code.rs (target/release/deps/flexpart_convection_code_to_code-1e3277d0473744b0)
+
+running 9 tests
+test calcmatrix_restores_remembered_flux_when_convection_stops ... ok
+test calcmatrix_fmassfrac_matches_flexpart ... ok
+test calcmatrix_matches_flexpart ... ok
+test convect_nconvtop_unassigned_exactly_on_early_returns ... ok
+test convect_matches_flexpart ... ok
+test sort2_permutation_vs_stable_sort ... ok
+test redist_matches_flexpart ... ok
+test convmix_matches_flexpart ... ok
+test convect_fmass_matches_flexpart ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/flexpart_interp_code_to_code.rs (target/release/deps/flexpart_interp_code_to_code-485aaec9026a9e43)
+
+running 5 tests
+test interpol_vdep_matches_flexpart ... ok
+test interpol_wind_matches_flexpart ... ok
+test interpol_all_matches_flexpart ... ok
+test interpol_wind_short_matches_flexpart ... ok
+test interpol_misslev_matches_flexpart ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/flexpart_met_code_to_code.rs (target/release/deps/flexpart_met_code_to_code-c792c058ed7d5014)
+
+running 19 tests
+test assignland_matches_flexpart ... ok
+test calcpar_matches_flexpart ... ok
+test calcpar_refuses_undefined_cases ... ok
+test calcpar_inputs_identical_in_both_builds ... ok
+test calcpar_z0_water_matches_flexpart ... ok
+test formula_tables_match_driver ... ok
+test get_wetscav_refuses_undefined_level ... ok
+test calcpv_matches_flexpart ... ok
+test interpol_rain_matches_flexpart ... ok
+test gethourly_oh_matches_flexpart ... ok
+test ohreaction_matches_flexpart ... ok
+test ohreaction_refuses_undefined_level ... ok
+test wetdepo_counts_match_flexpart ... ok
+test wetdepo_grids_match_flexpart ... ok
+test wetdepo_masses_match_flexpart ... ok
+test wetdepo_refuses_undefined_state ... ok
+test wetdepokernel_matches_flexpart ... ok
+test get_wetscav_matches_flexpart ... ok
+test assignland_refuses_out_of_range ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/flexpart_outgrid_code_to_code.rs (target/release/deps/flexpart_outgrid_code_to_code-17bd779b9d38dbe3)
+
+running 13 tests
+test calcfluxes_wrapping_steps_record_no_zonal_flux ... ok
+test fluxoutput_layouts_are_exercised ... ok
+test calcfluxes_single_steps ... ok
+test fluxoutput_records ... ok
+test calcfluxes_accumulated ... ok
+test outgrid_area_real4_residual_is_the_formulas_conditioning ... ok
+test outgrid_init_cell_geometry ... ok
+test outgrid_init_nest_cell_geometry ... ok
+test initial_cond_calc_refuses_above_the_top_model_level ... ok
+test initial_cond_calc_accumulated ... ok
+test initial_cond_calc_single_particles ... ok
+test outgrid_init_nest_orography ... ok
+test outgrid_init_orography ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/flexpart_output_code_to_code.rs (target/release/deps/flexpart_output_code_to_code-c35a61f288cec67b)
+
+running 12 tests
+test centerofmass_matches_upstream ... ok
+test conccalc_receptors_match_upstream ... ok
+test conccalc_refuses_undefined_upstream_states ... ok
+test conccalc_output_grids_match_upstream ... ok
+test mean_matches_upstream ... ok
+test particle_count_mode_mixes_counts_and_masses_upstream ... ok
+test clustering_matches_upstream ... ok
+test plumetraj_matches_upstreams_record ... ok
+test plumetraj_skips_old_and_empty_releases ... ok
+test conccalc_fills_exactly_upstreams_cells ... ok
+test drydepokernel_matches_upstream ... ok
+test partpos_average_matches_upstream ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s
+
+     Running tests/flexpart_physics_code_to_code.rs (target/release/deps/flexpart_physics_code_to_code-a58065e4717c78d9)
+
+running 20 tests
+test distance2_matches_flexpart ... ok
+test caldate_real4_century_leap_day_defect_is_upstreams ... ok
+test distance_matches_flexpart ... ok
+test get_settling_matches_flexpart ... ok
+test caldate_matches_flexpart ... ok
+test getrb_matches_flexpart ... ok
+test getrc_matches_flexpart ... ok
+test hanna1_matches_flexpart ... ok
+test hanna_matches_flexpart ... ok
+test juldate_matches_flexpart ... ok
+test partdep_matches_flexpart ... ok
+test hanna_short_matches_flexpart ... ok
+test photo_o1d_matches_flexpart ... ok
+test pbl_profile_matches_flexpart ... ok
+test qvsat_matches_flexpart ... ok
+test windalign_matches_flexpart ... ok
+test richardson_matches_flexpart ... ok
+test zenithangle_matches_flexpart ... ok
+test getvdep_matches_flexpart ... ok
+test cbl_matches_flexpart ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/flexpart_release_code_to_code.rs (target/release/deps/flexpart_release_code_to_code-20effc5bdfabb378)
+
+running 7 tests
+test domainfill_counters ... ok
+test domainfill_boundary_heights ... ok
+test domainfill_boundary_accumulators ... ok
+test port_changes_only_what_fortran_changes ... ok
+test domainfill_slots ... ok
+test releaseparticles_counters ... ok
+test releaseparticles_slots ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+     Running tests/flexpart_stochastic_advance.rs (target/release/deps/flexpart_stochastic_advance-c16717cf18b3b7f6)
+
+running 2 tests
+test advance_statistics_match_flexpart_real4 ... ok
+test advance_statistics_match_flexpart_real8 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+
+     Running tests/flexpart_stochastic_redist.rs (target/release/deps/flexpart_stochastic_redist-9428f3cc553566a9)
+
+running 2 tests
+test redist_statistics_match_flexpart_real8 ... ok
+test redist_statistics_match_flexpart_real4 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/flexpart_vert_code_to_code.rs (target/release/deps/flexpart_vert_code_to_code-c379fbf23033da30)
+
+running 10 tests
+test ecmwf_zgrid ... ok
+test ecmwf_clouds ... ok
+test gfs_clouds ... ok
+test gfs_zgrid ... ok
+test nests_clouds ... ok
+test ecmwf_fields ... ok
+test shift_field_0_matches ... ok
+test shift_field_matches ... ok
+test nests_fields ... ok
+test gfs_fields ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/puff_code_to_code.rs (target/release/deps/puff_code_to_code-8426a961d1fb08d0)
+
+running 18 tests
+test gpuff_ambiguous_class_uses_only_the_first ... ok
+test gpuff_wind_speed_argument_is_inert ... ok
+test interpolated_wind_u_matches_upstream ... ok
+test gpuff_matches_upstream ... ok
+test interpolated_wind_v_matches_upstream ... ok
+test is_day_matches_upstream ... ok
+test sigma_y_matches_upstream ... ok
+test sigma_z_matches_upstream ... ok
+test simulate_grid_mode_last_row_is_never_written ... ok
+test simulate_sensor_mode_row_count_matches_upstream ... ok
+test stability_class_count_matches_upstream ... ok
+test stability_primary_class_matches_upstream ... ok
+test stability_secondary_class_matches_upstream ... ok
+test wind_u_component_matches_upstream ... ok
+test wind_v_component_matches_upstream ... ok
+test simulate_sensor_mode_two_sources_matches_upstream ... ok
+test simulate_sensor_mode_matches_upstream ... ok
+test simulate_grid_mode_matches_upstream ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/puff_mass_conservation.rs (target/release/deps/puff_mass_conservation-53bdc6586d21c340)
+
+running 2 tests
+test the_image_is_present_whole_line_holds_twice_the_mass ... ok
+test one_puff_holds_its_mass_in_the_half_space ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+

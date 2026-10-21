@@ -1,0 +1,37 @@
+{
+	"name": "crossref_rest_book",
+	"kind": "forced",
+	"translator": "0a61e167-de9a-4f93-a68a-628b48855909",
+	"search": {
+		"itemType": "journalArticle",
+		"DOI": "10.1145/1947940"
+	},
+	"status": 200,
+	"translatorUsed": "0a61e167-de9a-4f93-a68a-628b48855909",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "conferencePaper",
+			"creators": [],
+			"tags": [],
+			"ISBN": "9781450304641",
+			"publisher": "ACM",
+			"conferenceName": "ICCCS '11: International Conference on Communication, Computing & Security",
+			"place": "Rourkela Odisha India",
+			"date": "2011-02-12",
+			"DOI": "10.1145/1947940",
+			"url": "https://dl.acm.org/doi/proceedings/10.1145/1947940",
+			"title": "Proceedings of the 2011 International Conference on Communication, Computing & Security",
+			"libraryCatalog": "Crossref",
+			"accessDate": "NOW"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://api.crossref.org/works/?filter=doi:10.1145/1947940",
+			"body": null
+		}
+	]
+}

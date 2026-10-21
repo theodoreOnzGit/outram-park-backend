@@ -58,7 +58,21 @@
 //! - **First-order index** (Saltelli's form of the Sobol'/Homma–Saltelli
 //!   estimator):
 //!
-//!   `V_i = (1/n) * sum_j y_B[j] * (y_AB_i[j] - y_A[j])`,  `S_i = V_i / V`
+//!   ~~`V_i = (1/n) * sum_j y_B[j] * (y_AB_i[j] - y_A[j])`,  `S_i = V_i / V`~~
+//!
+//!   `V_i = (1/n) * sum_j (y_B[j] - ybar) * (y_AB_i[j] - y_A[j])`,  `S_i = V_i / V`
+//!
+//!   **CORRECTED 2026-10-07 (gh:#584): `y_B` is centred on the pooled mean
+//!   `ybar` above.** Subtracting a constant changes nothing in expectation —
+//!   `y_AB_i` and `y_A` are identically distributed, so `E[y_AB_i - y_A] = 0`
+//!   — but the uncentred product's sampling error scales with `ybar / sqrt(V)`.
+//!   On `outram-mc-libs`' `sobol_design_on_an_additive_model` (`ybar/sd ~ 34`,
+//!   `n = 512`) the uncentred first-order sum came out at `-1.437` against an
+//!   exact `1`; a 2000-seed replica of that design put the uncentred sum at
+//!   mean `1.07`, sd `2.17`, and the centred one at mean `1.000`, sd `0.058`
+//!   (gh:#584, 2026-10-06 audit). SALib's `sobol.analyze` standardises the
+//!   outputs before the same estimator for the same reason. The Jansen
+//!   total-effect estimator below is a difference of outputs and is unchanged.
 //!
 //! - **Total-effect index** (Jansen's estimator, the one Saltelli et al. (2010)
 //!   recommend for `S_Ti`):
@@ -101,9 +115,9 @@
 //!
 //! | Gate | Reference | Achieved |
 //! |---|---|---|
-//! | Sudret polynomial, `N = 3` | `S_i = 25/91`, `S_Ti = 36/91` exactly | max abs error `2.681e-4` on `S_i`, `3.266e-4` on `S_Ti` at `n = 65536` |
-//! | Ishigami function | `S = (0.313905, 0.442411, 0)`, `S_T = (0.557589, 0.442411, 0.243684)` | max abs error `3.723e-4` on `S`, `5.105e-5` on `S_T` at `n = 65536` |
-//! | Additive linear model | `S_i = S_Ti = c_i^2 / sum(c^2)`, `sum S_i = 1` | max abs error `2.493e-4`; `sum S_i = 0.999441` |
+//! | Sudret polynomial, `N = 3` | `S_i = 25/91`, `S_Ti = 36/91` exactly | max abs error ~~`2.681e-4`~~ `2.079e-4` (centred `y_B`, 2026-10-07) on `S_i`, `3.266e-4` on `S_Ti` at `n = 65536` |
+//! | Ishigami function | `S = (0.313905, 0.442411, 0)`, `S_T = (0.557589, 0.442411, 0.243684)` | max abs error ~~`3.723e-4`~~ `3.788e-4` (centred `y_B`, 2026-10-07) on `S`, `5.105e-5` on `S_T` at `n = 65536` |
+//! | Additive linear model | `S_i = S_Ti = c_i^2 / sum(c^2)`, `sum S_i = 1` | max abs error on `S` ~~`2.493e-4`~~ `8.956e-5` (centred `y_B`, 2026-10-07); `sum S_i =` ~~`0.999441`~~ `1.000128` |
 //! | Pearson / Spearman | exact constructions (`+1`, `-1`, `0`, known `r = 0.6`) | machine precision |
 //!
 //! **Still open, not claimed:** the Sobol g-function gate named in the crate
@@ -691,7 +705,9 @@ pub fn sobol_indices(layout: SobolSampleLayout, outputs: &[f64]) -> Result<Sobol
         // Jansen's total-effect estimator.
         let mut v_ti = 0.0;
         for j in 0..n {
-            v_i += y_b[j] * (y_ab[j] - y_a[j]);
+            // `y_b` centred on the pooled mean: same expectation, far smaller
+            // variance when |mean| >> sd (module docs, gh:#584).
+            v_i += (y_b[j] - mean) * (y_ab[j] - y_a[j]);
             let d = y_a[j] - y_ab[j];
             v_ti += d * d;
         }
@@ -715,6 +731,7 @@ pub fn sobol_indices(layout: SobolSampleLayout, outputs: &[f64]) -> Result<Sobol
 #[cfg(test)]
 mod tests {
     use super::*;
+    use petir::mathf::RealMath;
     use core::f64::consts::PI;
 
     /// Base samples per matrix used by every Sobol gate below. With `k = 3`
@@ -808,8 +825,11 @@ mod tests {
     ///
     /// *Results, measured 2026-08-06* (release build, x86_64 Linux):
     ///
-    /// - `S = (0.2747259, 0.2747998, 0.2744571)` against `25/91 = 0.2747253`;
-    ///   max abs error **`2.681e-4`**.
+    /// - ~~`S = (0.2747259, 0.2747998, 0.2744571)` against `25/91 = 0.2747253`;
+    ///   max abs error **`2.681e-4`**.~~ **Re-measured 2026-10-07** after
+    ///   `y_B` was centred in the first-order estimator (gh:#584; module docs):
+    ///   `S = (0.2748427, 0.2749332, 0.2745296)`, max abs error **`2.079e-4`**.
+    ///   `S_T`, mean and variance below are unchanged (Jansen does not use `y_B`).
     /// - `S_T = (0.3957005, 0.3955792, 0.3959310)` against
     ///   `36/91 = 0.3956044`; max abs error **`3.266e-4`**.
     /// - `mean = 0.999756` against `1.0`; `variance = 0.727560` against
@@ -886,8 +906,13 @@ mod tests {
     ///
     /// *Results, measured 2026-08-06* (release build, x86_64 Linux):
     ///
-    /// - `S = (0.3137574, 0.4422647, -0.0003723)` against
-    ///   `(0.3139052, 0.4424111, 0)`; max abs error **`3.723e-4`**.
+    /// - ~~`S = (0.3137574, 0.4422647, -0.0003723)` against
+    ///   `(0.3139052, 0.4424111, 0)`; max abs error **`3.723e-4`**.~~
+    ///   **Re-measured 2026-10-07** after `y_B` was centred (gh:#584):
+    ///   `S = (0.3137570, 0.4422572, -0.0003788)`; max abs error **`3.788e-4`**
+    ///   — slightly worse here, where `|mean|/sd` is already below 1 (~0.94),
+    ///   so centring buys little; the change is within the sampling error.
+    ///   `S_T` and variance unchanged.
     /// - `S_T = (0.5575378, 0.4424477, 0.2437088)` against
     ///   `(0.5575889, 0.4424111, 0.2436837)`; max abs error **`5.105e-5`**.
     /// - `variance = 13.844014` against `13.844588`.
@@ -903,10 +928,10 @@ mod tests {
         const A: f64 = 7.0;
         const B: f64 = 0.1;
 
-        let d = A * A / 8.0 + B * PI.powi(4) / 5.0 + B * B * PI.powi(8) / 18.0 + 0.5;
-        let d1 = B * PI.powi(4) / 5.0 + B * B * PI.powi(8) / 50.0 + 0.5;
+        let d = A * A / 8.0 + B * PI.r_powi(4) / 5.0 + B * B * PI.r_powi(8) / 18.0 + 0.5;
+        let d1 = B * PI.r_powi(4) / 5.0 + B * B * PI.r_powi(8) / 50.0 + 0.5;
         let d2 = A * A / 8.0;
-        let d13 = 8.0 * B * B * PI.powi(8) / 225.0;
+        let d13 = 8.0 * B * B * PI.r_powi(8) / 225.0;
         // The decomposition must be exact; a slip in the reference values
         // themselves would show up here before the estimator is even run.
         assert!((d1 + d2 + d13 - d).abs() < 1e-9);
@@ -921,7 +946,7 @@ mod tests {
             let x1 = -PI + 2.0 * PI * u1;
             let x2 = -PI + 2.0 * PI * u2;
             let x3 = -PI + 2.0 * PI * u3;
-            x1.sin() + A * x2.sin().powi(2) + B * x3.powi(4) * x1.sin()
+            x1.r_sin() + A * x2.r_sin().r_powi(2) + B * x3.r_powi(4) * x1.r_sin()
         });
         let s = sobol_indices(layout, &outputs).unwrap();
 
@@ -968,11 +993,14 @@ mod tests {
     ///
     /// *Results, measured 2026-08-06* (release build, x86_64 Linux):
     ///
-    /// - `S = (0.0713310, 0.2854650, 0.6426454)` against
-    ///   `(0.0714286, 0.2857143, 0.6428571)`; max abs error **`2.493e-4`**.
+    /// - ~~`S = (0.0713310, 0.2854650, 0.6426454)` against
+    ///   `(0.0714286, 0.2857143, 0.6428571)`; max abs error **`2.493e-4`**.~~
+    ///   **Re-measured 2026-10-07** after `y_B` was centred (gh:#584):
+    ///   `S = (0.0714521, 0.2857291, 0.6429467)`; max abs error **`8.956e-5`**.
     /// - `S_T = (0.0714363, 0.2857442, 0.6429543)`; max abs error
     ///   **`9.715e-5`**.
-    /// - `sum S_i = 0.999441`; `variance = 1.166564` against `1.1666667`.
+    /// - `sum S_i =` ~~`0.999441`~~ `1.000128` (2026-10-07, centred);
+    ///   `variance = 1.166564` against `1.1666667`.
     ///
     /// *Interpretation.* First-order and total indices agree to `3.1e-4` of
     /// each other, and the first-order indices sum to 1 within `5.6e-4` — the
@@ -1179,7 +1207,7 @@ mod tests {
         assert!((p_r - 0.6).abs() < 1e-12, "pearson 0.6: {p_r}");
 
         // 5. monotone non-linear transform: Spearman preserved, Pearson not
-        let y_exp: Vec<f64> = x.iter().map(|v| v.exp()).collect();
+        let y_exp: Vec<f64> = x.iter().map(|v| v.r_exp()).collect();
         let p_exp = pearson_correlation(&x, &y_exp).unwrap();
         let s_exp = spearman_correlation(&x, &y_exp).unwrap();
         assert!((s_exp - 1.0).abs() < 1e-12, "spearman exp: {s_exp}");

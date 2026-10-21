@@ -1,5 +1,31 @@
+//! # BOON LAY
+//!
+//! **BO**mbardment of neutrons **O**n **N**uclides with **L**agrangian
+//! transport **a**nd transmutation **Y**ields.
+//!
+//! TRISO-particle and Lagrangian decay / transmutation simulator, and host of
+//! the TRISO-ATOPS fork (`triso_atops_fork`), which supplies the fission-product
+//! release physics that `sembawang` orchestrates.
+
+// Rustdoc without source pages (teaching site, gh:#518): lessons show
+// anchored snippets and link to GitHub at the build commit instead.
+#![doc(html_no_source)]
+
+// `alloc` by name, for the no_std + alloc RustBCA copy below (a std crate
+// does not put `alloc` in its extern prelude on its own).
+extern crate alloc;
+
 /// prelude is here for easy imports
 pub mod prelude;
+
+/// **A copy of RustBCA, not boon-lay's own code** — the binary-collision
+/// Monte Carlo for ions and the recoils they knock on (fission fragments,
+/// alphas, recoil knock-ons), copied from `lcpp-org/RustBCA` v3.0.0
+/// (`a356280d`, GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
+/// `alloc`. boon-lay re-exports it here (gh:#876, item 7). The module docs
+/// carry the attribution and every local change; fragment results are
+/// illustrative until V&V'd.
+pub mod rustbca;
 
 /// Compute-backend selector (`ComputeType` / `ThreadCount`) — the runtime CPU vs
 /// wgpu resource switcher for the Walk-on-Spheres ensembles, mirroring the
@@ -50,6 +76,27 @@ pub mod gpu;
 /// breakthrough, graphite-attenuation models) to predict per-nuclide release
 /// fractions. See `docs/triso-atops-fork.md` and the module-level docs.
 pub mod triso_atops_fork;
+
+/// **Extensions of the TRISO-ATOPS model — NOT a port.** boon-lay's own
+/// additions built on [`triso_atops_fork`] without modifying it: removal rates
+/// per transport group or per element instead of one `k_plate` / `k_clean` per
+/// reactor (gh:#583). Each reduces exactly to the port when given upstream's
+/// inputs. See the module docs.
+pub mod triso_atops_extensions;
+
+/// **boon-lay fuel failure** — TRISO coated-particle failure fractions. This
+/// is boon-lay's own model: a Rust implementation of the *formulas* published
+/// in the PANAMA-I report (Verfondern & Nabielek, Jülich HTA-IB-03/90, 1990),
+/// coded agentically by an AI coding agent. It is **not** the PANAMA code, whose
+/// source this project does not have; see the module docs on naming. Supplies what
+/// [`triso_atops_fork`]'s `FailureFractions` currently takes as a
+/// hand-entered number. See the module docs for what is implemented and what
+/// is deliberately left as an input.
+pub mod fuel_failure;
+
+/// Cited chemical-attack rate laws (graphite-steam oxidation, kernel
+/// hydrolysis) for the water-ingress source term (gh:#401).
+pub mod chemistry;
 
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
 /// `rayon` does not build. See the module docs.

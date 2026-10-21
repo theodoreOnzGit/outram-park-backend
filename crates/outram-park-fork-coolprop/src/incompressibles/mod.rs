@@ -62,6 +62,7 @@
 //! Mass-based SI: `T` \[K\], `p` \[Pa\], density \[kg/m³\], `c` \[J/(kg·K)\],
 //! `λ` \[W/(m·K)\], `μ` \[Pa·s\].
 
+use petir::mathf::RealMath;
 mod fluid_enum;
 pub mod fluids;
 
@@ -407,7 +408,7 @@ fn poly2d_integral_dt(coeffs: &[&[f64]], dt: f64, dx: f64) -> f64 {
     coeffs
         .iter()
         .enumerate()
-        .map(|(i, row)| horner(row, dx) / (i as f64 + 1.0) * dt.powi(i as i32 + 1))
+        .map(|(i, row)| horner(row, dx) / (i as f64 + 1.0) * dt.r_powi(i as i32 + 1))
         .sum()
 }
 
@@ -422,7 +423,7 @@ fn eval_fit(
 ) -> Result<f64, IncompressibleError> {
     match fit.form {
         PropertyForm::Polynomial => Ok(poly2d(fit.coeffs, t - t_base, x - x_base)),
-        PropertyForm::ExpPolynomial => Ok(poly2d(fit.coeffs, t - t_base, x - x_base).exp()),
+        PropertyForm::ExpPolynomial => Ok(poly2d(fit.coeffs, t - t_base, x - x_base).r_exp()),
         PropertyForm::Exponential => {
             // exp(c0/(T+c1) - c2); CoolProp::IncompressibleFluid::baseExponential,
             // called with ybase=0.0 (NOT Tbase) for this fit form -- confirmed
@@ -433,7 +434,7 @@ fn eval_fit(
             // fitted range crosses that singularity.
             let row = fit.coeffs[0];
             let (c0, c1, c2) = (row[0], row[1], row[2]);
-            Ok((c0 / (t + c1) - c2).exp())
+            Ok((c0 / (t + c1) - c2).r_exp())
         }
         PropertyForm::LogExponential => {
             // y = T + c0 (ybase=0.0, same as Exponential); (1/y + 1/y^2)^c1 * exp(c2).
@@ -443,7 +444,7 @@ fn eval_fit(
             let (c0, c1, c2) = (row[0], row[1], row[2]);
             let y = t + c0;
             let inner = 1.0 / y + 1.0 / (y * y);
-            Ok(inner.powf(c1) * c2.exp())
+            Ok(inner.r_powf(c1) * c2.r_exp())
         }
     }
 }
@@ -462,18 +463,18 @@ fn eval_fit(
 fn eval_t_freeze(fit: &PropertyFit, x: f64, x_base: f64) -> f64 {
     match fit.form {
         PropertyForm::Polynomial => poly2d(fit.coeffs, 0.0, x - x_base),
-        PropertyForm::ExpPolynomial => poly2d(fit.coeffs, 0.0, x - x_base).exp(),
+        PropertyForm::ExpPolynomial => poly2d(fit.coeffs, 0.0, x - x_base).r_exp(),
         PropertyForm::Exponential => {
             let row = fit.coeffs[0];
             let (c0, c1, c2) = (row[0], row[1], row[2]);
-            (c0 / (x + c1) - c2).exp()
+            (c0 / (x + c1) - c2).r_exp()
         }
         PropertyForm::LogExponential => {
             let row = fit.coeffs[0];
             let (c0, c1, c2) = (row[0], row[1], row[2]);
             let y = x + c0;
             let inner = 1.0 / y + 1.0 / (y * y);
-            inner.powf(c1) * c2.exp()
+            inner.r_powf(c1) * c2.r_exp()
         }
     }
 }
@@ -507,11 +508,11 @@ fn entropy_raw_integral(coeffs: &[&[f64]], t: f64, dx: f64, t_base: f64) -> f64 
         .map(|(j, row)| {
             let d_j = horner(row, dx);
             let j = j as i32;
-            let mut cap = (-1.0f64).powi(j) * t.ln() * t_base.powi(j);
+            let mut cap = (-1.0f64).r_powi(j) * t.r_ln() * t_base.r_powi(j);
             for k in 0..j {
-                cap += binom(j, k) * (-1.0f64).powi(k) / (j - k) as f64
-                    * t.powi(j - k)
-                    * t_base.powi(k);
+                cap += binom(j, k) * (-1.0f64).r_powi(k) / (j - k) as f64
+                    * t.r_powi(j - k)
+                    * t_base.r_powi(k);
             }
             d_j * cap
         })

@@ -1,0 +1,30 @@
+{
+	"case": "arxiv_old",
+	"input": {
+		"kind": "identifier",
+		"text": "math/0211159"
+	},
+	"recordedOn": "2026-10-07T01:47:41.758Z",
+	"userAgent": "kovan-zotero-reference/0.1 (outram-park-backend kovan-literature; recording public bibliographic metadata fixtures for code-to-code tests; https://github.com/theodoreOnzGit/outram-park-backend)",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://export.arxiv.org/api/query?id_list=math%2F0211159&max_results=1",
+				"headers": {
+					"Accept": "*/*"
+				},
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://export.arxiv.org/api/query?id_list=math%2F0211159&max_results=1",
+				"headers": {
+					"content-type": "application/atom+xml; charset=utf-8"
+				},
+				"body": "<?xml version='1.0' encoding='UTF-8'?>\n<feed xmlns:opensearch=\"http://a9.com/-/spec/opensearch/1.1/\" xmlns:arxiv=\"http://arxiv.org/schemas/atom\" xmlns=\"http://www.w3.org/2005/Atom\">\n  <id>https://arxiv.org/api/lKCilGocRVRzImoSlmKElzmyFUU</id>\n  <title>arXiv Query: search_query=&amp;id_list=math/0211159&amp;start=0&amp;max_results=1</title>\n  <updated>2026-10-07T01:49:56Z</updated>\n  <link href=\"https://arxiv.org/api/query?search_query=&amp;start=0&amp;max_results=1&amp;id_list=math/0211159\" type=\"application/atom+xml\"/>\n  <opensearch:itemsPerPage>1</opensearch:itemsPerPage>\n  <opensearch:totalResults>1</opensearch:totalResults>\n  <opensearch:startIndex>0</opensearch:startIndex>\n  <entry>\n    <id>http://arxiv.org/abs/math/0211159v1</id>\n    <title>The entropy formula for the Ricci flow and its geometric applications</title>\n    <updated>2002-11-11T16:11:49Z</updated>\n    <link href=\"https://arxiv.org/abs/math/0211159v1\" rel=\"alternate\" type=\"text/html\"/>\n    <link href=\"https://arxiv.org/pdf/math/0211159v1\" rel=\"related\" type=\"application/pdf\" title=\"pdf\"/>\n    <summary>  We present a monotonic expression for the Ricci flow, valid in all dimensions and without curvature assumptions. It is interpreted as an entropy for a certain canonical ensemble. Several geometric applications are given. In particular, (1) Ricci flow, considered on the space of riemannian metrics modulo diffeomorphism and scaling, has no nontrivial periodic orbits (that is, other than fixed points); (2) In a region, where singularity is forming in finite time, the injectivity radius is controlled by the curvature; (3) Ricci flow can not quickly turn an almost euclidean region into a very curved one, no matter what happens far away. We also verify several assertions related to Richard Hamilton's program for the proof of Thurston geometrization conjecture for closed three-manifolds, and give a sketch of an eclectic proof of this conjecture, making use of earlier results on collapsing with local lower curvature bound.</summary>\n    <category term=\"math.DG\" scheme=\"http://arxiv.org/schemas/atom\"/>\n    <published>2002-11-11T16:11:49Z</published>\n    <arxiv:comment>39 pages</arxiv:comment>\n    <arxiv:primary_category term=\"math.DG\"/>\n    <author>\n      <name>Grisha Perelman</name>\n    </author>\n  </entry>\n</feed>\n",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

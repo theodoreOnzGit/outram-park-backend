@@ -17,7 +17,20 @@
 //! Fortran flat offsets rather than translated to 0-indexed, for the same
 //! reason: direct line-by-line checkability against the source matters
 //! more here than idiomatic style.
+//!
+//! # Not folded into `petir::linalg` (gh:#992, checked 2026-10-20)
+//!
+//! Every inverter here works on **complex**-symmetric matrices, and
+//! `petir::linalg` is real-only (`SquareMatrix`, `Matrix`, LU, QR); it has
+//! no complex type and no symmetric-indefinite (Bunch-Kaufman) factorisation.
+//! Beyond the type gap, the arithmetic is the point of the port: `twoch` and
+//! `threech` carry `samm.f90`'s own magnitude rescaling and its
+//! `bbr + bbi == bbr`-style underflow branches, and `yfour` reproduces
+//! LINPACK `CSPFA`/`CSPSL` pivoting. A real LU on a split real/imaginary
+//! `2n x 2n` system would compute the same inverse in exact arithmetic but
+//! not upstream's rounding, so it was not substituted.
 
+use petir::mathf::RealMath;
 use crate::samm::linpack::{xspfa, xspsl, PackedComplexMatrix};
 
 #[inline]
@@ -130,8 +143,8 @@ pub fn twoch(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
 
         let bbr = g(&rmat.re, K11) * g(&rmat.re, K22)
             - g(&rmat.im, K11) * g(&rmat.im, K22)
-            - g(&rmat.re, K21).powi(2)
-            + g(&rmat.im, K21).powi(2);
+            - g(&rmat.re, K21).r_powi(2)
+            + g(&rmat.im, K21).r_powi(2);
         let bbi = g(&rmat.re, K11) * g(&rmat.im, K22) + g(&rmat.im, K11) * g(&rmat.re, K22)
             - 2.0 * g(&rmat.re, K21) * g(&rmat.im, K21);
 
@@ -196,7 +209,7 @@ pub fn twoch(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         }
     } else if g(&rmat.im, K21) != 0.0 {
         // Real part is zero everywhere; imaginary part is dense.
-        let a = g(&rmat.im, K11) * g(&rmat.im, K22) - g(&rmat.im, K21).powi(2);
+        let a = g(&rmat.im, K11) * g(&rmat.im, K22) - g(&rmat.im, K21).r_powi(2);
         s(&mut rinv.im, K11, -g(&rmat.im, K22) / a);
         s(&mut rinv.im, K21, g(&rmat.im, K21) / a);
         s(&mut rinv.im, K22, -g(&rmat.im, K11) / a);
@@ -343,8 +356,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(&mut rinv.im, 6, -1.0 / g(&rmat.im, 6));
     } else {
         let (rr, ri) = (&rmat.re, &rmat.im);
-        let fc1r = g(rr, K22) * g(rr, K33) - g(ri, K22) * g(ri, K33) - g(rr, K32).powi(2)
-            + g(ri, K32).powi(2);
+        let fc1r = g(rr, K22) * g(rr, K33) - g(ri, K22) * g(ri, K33) - g(rr, K32).r_powi(2)
+            + g(ri, K32).r_powi(2);
         let fc1i =
             g(ri, K22) * g(rr, K33) + g(rr, K22) * g(ri, K33) - 2.0 * g(rr, K32) * g(ri, K32);
         let fc2r = g(rr, K21) * g(rr, K33) - g(ri, K21) * g(ri, K33) - g(rr, K31) * g(rr, K32)
@@ -386,8 +399,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.re,
             K22,
-            (g(rr, K11) * g(rr, K33) - g(rr, K31).powi(2) - g(ri, K11) * g(ri, K33)
-                + g(ri, K31).powi(2))
+            (g(rr, K11) * g(rr, K33) - g(rr, K31).r_powi(2) - g(ri, K11) * g(ri, K33)
+                + g(ri, K31).r_powi(2))
                 * dcr
                 - (g(ri, K11) * g(rr, K33) - 2.0 * g(rr, K31) * g(ri, K31)
                     + g(rr, K11) * g(ri, K33))
@@ -396,8 +409,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.im,
             K22,
-            (g(rr, K11) * g(rr, K33) - g(rr, K31).powi(2) - g(ri, K11) * g(ri, K33)
-                + g(ri, K31).powi(2))
+            (g(rr, K11) * g(rr, K33) - g(rr, K31).r_powi(2) - g(ri, K11) * g(ri, K33)
+                + g(ri, K31).r_powi(2))
                 * dci
                 + (g(ri, K11) * g(rr, K33) - 2.0 * g(rr, K31) * g(ri, K31)
                     + g(rr, K11) * g(ri, K33))
@@ -428,8 +441,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.re,
             K33,
-            (g(rr, K11) * g(rr, K22) - g(rr, K21).powi(2) - g(ri, K11) * g(ri, K22)
-                + g(ri, K21).powi(2))
+            (g(rr, K11) * g(rr, K22) - g(rr, K21).r_powi(2) - g(ri, K11) * g(ri, K22)
+                + g(ri, K21).r_powi(2))
                 * dcr
                 - (g(ri, K11) * g(rr, K22) - 2.0 * g(rr, K21) * g(ri, K21)
                     + g(rr, K11) * g(ri, K22))
@@ -438,8 +451,8 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.im,
             K33,
-            (g(rr, K11) * g(rr, K22) - g(rr, K21).powi(2) - g(ri, K11) * g(ri, K22)
-                + g(ri, K21).powi(2))
+            (g(rr, K11) * g(rr, K22) - g(rr, K21).r_powi(2) - g(ri, K11) * g(ri, K22)
+                + g(ri, K21).r_powi(2))
                 * dci
                 + (g(ri, K11) * g(rr, K22) - 2.0 * g(rr, K21) * g(ri, K21)
                     + g(rr, K11) * g(ri, K22))
@@ -479,4 +492,148 @@ pub fn yfour(rmat: &PackedComplexMatrix, n: i64) -> PackedComplexMatrix {
         }
     }
     rinv
+}
+
+#[cfg(test)]
+mod tests {
+    //! `Y·Y^-1 = I` for every inverter, the `n >= 4` path above all
+    //! (GitHub #339).
+    //!
+    //! **Methodology.** Build complex-symmetric matrices in this module's
+    //! packed storage, invert with [`invert`] (`yfour` for `n >= 4`, the
+    //! closed forms below that), and form the dense product `Y·Y^-1`. The
+    //! oracle is the identity, which needs no reference code. Pass: every
+    //! element within `1e-12` of the identity. The cases reach each branch of
+    //! `xspfa`'s Bunch-Kaufman pivoting: diagonally dominant (1x1 pivots, no
+    //! swap), a small diagonal with a large far coupling (a swap), and a zero
+    //! trailing 2x2 diagonal (a 2x2 pivot).
+    //!
+    //! **Results, 2026-10-01.** Every case passes at round-off. Re-run
+    //! against the pre-fix `xdot` in `linpack::xspsl`, all three tests fail
+    //! at O(1): `|Y·Y^-1 - I|` = 1.49 on the coupled `n = 4` case, 40.5 on
+    //! the Fe-57 block, and 0.71 on the `n = 4` 2x2-pivot case.
+    use super::*;
+
+    /// 0-indexed packed position of `(i, j)`.
+    fn pk(i: usize, j: usize) -> usize {
+        if i <= j {
+            i + j * (j + 1) / 2
+        } else {
+            j + i * (i + 1) / 2
+        }
+    }
+
+    fn from_fn(n: usize, f: impl Fn(usize, usize) -> (f64, f64)) -> PackedComplexMatrix {
+        let mut m = PackedComplexMatrix::zeros(n);
+        for j in 0..n {
+            for i in 0..=j {
+                let (re, im) = f(i, j);
+                m.re[pk(i, j)] = re;
+                m.im[pk(i, j)] = im;
+            }
+        }
+        m
+    }
+
+    fn max_dev_from_identity(y: &PackedComplexMatrix, yi: &PackedComplexMatrix, n: usize) -> f64 {
+        let mut worst = 0.0_f64;
+        for i in 0..n {
+            for j in 0..n {
+                let (mut re, mut im) = (0.0, 0.0);
+                for k in 0..n {
+                    let (ar, ai) = (y.re[pk(i, k)], y.im[pk(i, k)]);
+                    let (br, bi) = (yi.re[pk(k, j)], yi.im[pk(k, j)]);
+                    re += ar * br - ai * bi;
+                    im += ar * bi + ai * br;
+                }
+                let t = if i == j { 1.0 } else { 0.0 };
+                worst = worst.max((re - t).abs()).max(im.abs());
+            }
+        }
+        worst
+    }
+
+    #[test]
+    fn every_inverter_inverts_coupled_matrices() {
+        for n in 1..=6 {
+            let y = from_fn(n, |i, j| {
+                if i == j {
+                    (3.0 + i as f64, -1.0 - 0.5 * i as f64)
+                } else {
+                    (0.3 / (1.0 + (i + j) as f64), 0.1 * (i as f64 - j as f64))
+                }
+            });
+            let yi = invert(&y, n as i64);
+            let d = max_dev_from_identity(&y, &yi, n);
+            assert!(d < 1e-12, "n={n}: |Y Y^-1 - I| = {d:e}");
+        }
+    }
+
+    /// Fe-57's J=1⁻ level matrix at 110.3688 keV (ENDF/B-VIII.0), printed to
+    /// 5 figures: two coupled channels among four, the case that exposed the
+    /// defect.
+    #[test]
+    fn yfour_inverts_the_fe57_block_structure() {
+        let y = from_fn(4, |i, j| match (i, j) {
+            (0, 0) => (1.0440e1, -2.2409e0),
+            (0, 2) => (9.7609e0, -2.8765e-2),
+            (2, 2) => (1.0584e1, -2.4098e0),
+            (1, 1) | (3, 3) => (0.0, -1.0),
+            _ => (0.0, 0.0),
+        });
+        let yi = invert(&y, 4);
+        let d = max_dev_from_identity(&y, &yi, 4);
+        assert!(d < 1e-12, "|Y Y^-1 - I| = {d:e}");
+    }
+
+    /// `xspfa`'s swap and 2x2-pivot branches.
+    #[test]
+    fn yfour_inverts_matrices_needing_swaps_and_2x2_pivots() {
+        for n in 4..=6 {
+            // Zero trailing 2x2 diagonal with a large coupling: a 2x2 pivot.
+            let two_by_two = from_fn(n, |i, j| {
+                if i == j {
+                    if j + 2 >= n {
+                        (0.0, 0.0)
+                    } else {
+                        (2.0 + i as f64, 0.5)
+                    }
+                } else if i + 2 == n && j + 1 == n {
+                    (5.0, -1.0)
+                } else {
+                    (0.2, 0.05 * (i + j) as f64)
+                }
+            });
+            // Small last diagonal, largest coupling on row 0: a swap.
+            let swap = from_fn(n, |i, j| {
+                if i == j {
+                    if j + 1 == n {
+                        (1e-3, 0.0)
+                    } else {
+                        (4.0 + i as f64, -0.3)
+                    }
+                } else if i == 0 && j + 1 == n {
+                    (2.0, 0.7)
+                } else {
+                    (0.1, -0.02 * (i + j) as f64)
+                }
+            });
+            for (name, y) in [("2x2", two_by_two), ("swap", swap)] {
+                let mut f = PackedComplexMatrix {
+                    re: y.re.clone(),
+                    im: y.im.clone(),
+                };
+                let (kpvt, _) = xspfa(&mut f, n as i64);
+                let yi = invert(&y, n as i64);
+                let d = max_dev_from_identity(&y, &yi, n);
+                assert!(d < 1e-12, "{name} n={n} kpvt={kpvt:?}: |Y Y^-1 - I| = {d:e}");
+                // The case must reach the branch it is named for.
+                let k = kpvt[n - 1];
+                match name {
+                    "2x2" => assert!(k < 0, "{name} n={n}: kpvt={kpvt:?} has no 2x2 pivot"),
+                    _ => assert!(k != n as i64, "{name} n={n}: kpvt={kpvt:?} has no swap"),
+                }
+            }
+        }
+    }
 }

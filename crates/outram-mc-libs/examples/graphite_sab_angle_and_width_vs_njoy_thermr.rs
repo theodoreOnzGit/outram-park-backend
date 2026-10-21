@@ -79,6 +79,7 @@
 //!     --example graphite_sab_angle_and_width_vs_njoy_thermr
 //! ```
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::thermal::ThermalScattering;
 
 const TEMP: f64 = 600.0;
@@ -148,8 +149,8 @@ fn main() {
             .iter()
             .filter(|(e, _)| (1.0e-3..=4.0).contains(e))
             .min_by(|a, b| {
-                ((a.0 / probe).ln().abs())
-                    .partial_cmp(&(b.0 / probe).ln().abs())
+                ((a.0 / probe).r_ln().abs())
+                    .partial_cmp(&(b.0 / probe).r_ln().abs())
                     .unwrap()
             })
         else {
@@ -214,8 +215,8 @@ fn main() {
             .iter()
             .filter(|(e, _)| (1.0e-3..=4.0).contains(e))
             .min_by(|a, b| {
-                ((a.0 / probe).ln().abs())
-                    .partial_cmp(&(b.0 / probe).ln().abs())
+                ((a.0 / probe).r_ln().abs())
+                    .partial_cmp(&(b.0 / probe).r_ln().abs())
                     .unwrap()
             })
         else {
@@ -294,6 +295,12 @@ fn main() {
 /// \u{3bc}\u{304}_elastic** at 0.2 eV. The full table, with the per-row standard errors, is
 /// in the golden table's doc comment.
 ///
+/// **Re-measured 2026-10-04** (GitHub #524; `develop` at `bfeb81a083`, same
+/// seeds, 13 s for this program on one core of an i9-13900K shared with other
+/// jobs, CPU only): worst **−0.0040 on mu-bar inelastic at 5 meV** and
+/// **+0.0021 on mu-bar elastic at 0.2 eV**, all 13 rows inside the envelopes.
+/// The 0.0253 eV row is now −0.0011.
+///
 /// # What this rules out
 ///
 /// \u{3bc}\u{304}_total is \u{2248} 0.05 over the whole thermal range, so an error of 0.005 moves
@@ -368,7 +375,12 @@ fn golden_gate(law: &ThermalScattering) {
 /// `N_EMIT_GRID` 48 → 384 and `N_OUTGOING` 16 → 64 (both sized by the sweep in
 /// `examples/thermal_emission_grid_convergence.rs`) it is **one-signed narrow at
 /// every energy, worst −2.32 % at 0.1035 eV** here at 400 000 samples, and
-/// −2.33 % at the 200 000-sample test gate. The before/after table and the
+/// −2.33 % at the 200 000-sample test gate.
+///
+/// **Re-measured 2026-10-04** (GitHub #524; `develop` at `bfeb81a083`):
+/// ~~worst −2.32 % at 0.1035 eV~~ **still one-signed narrow at every energy,
+/// worst −1.14 % at 2.6 meV**; 0.1035 eV is now −0.90 %. The per-row values
+/// are in [`outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL_WIDTH`]'s doc. The before/after table and the
 /// measured k-worth on the FHR ring-RPT CSG pebble are in the golden table's
 /// doc comment.
 ///

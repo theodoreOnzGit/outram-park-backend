@@ -1,0 +1,61 @@
+    Updating crates.io index
+   Packaging kovan-web v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-web)
+    Updating crates.io index
+    Packaged 29 files, 644.5KiB (182.1KiB compressed)
+   Verifying kovan-web v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-web)
+ Downloading crates ...
+  Downloaded kovan-common v0.0.4
+   Compiling syn v3.0.9
+   Compiling smallvec v1.16.3
+   Compiling hashbrown v0.17.1
+   Compiling polycool v0.4.0
+   Compiling thiserror v2.0.21
+   Compiling once_cell v1.21.4
+   Compiling kurbo v0.13.1
+   Compiling bytemuck_derive v1.12.1
+   Compiling serde_derive v1.0.229
+   Compiling bytemuck v1.25.2
+   Compiling font-types v0.12.7
+   Compiling color v0.3.3
+   Compiling thiserror-impl v2.0.21
+   Compiling euclid v0.22.14
+   Compiling serde v1.0.229
+   Compiling linebender_resource_handle v0.1.1
+   Compiling zerocopy v0.8.63
+   Compiling peniko v0.6.1
+   Compiling guillotiere v0.7.0
+   Compiling read-fonts v0.41.0
+   Compiling ahash v0.8.12
+   Compiling unicode-general-category v1.1.0
+   Compiling fearless_simd v0.4.1
+   Compiling log v0.4.34
+   Compiling vello_common v0.1.0
+   Compiling indexmap v2.14.2
+   Compiling parking_lot_core v0.9.12
+   Compiling toml_datetime v0.6.11
+   Compiling serde_spanned v0.6.9
+   Compiling emath v0.36.2
+   Compiling toml_edit v0.22.27
+   Compiling ecolor v0.36.2
+   Compiling parking_lot v0.12.5
+   Compiling skrifa v0.44.0
+   Compiling harfrust v0.12.0
+   Compiling vello_cpu v0.1.0
+   Compiling epaint_default_fonts v0.36.2
+   Compiling nohash-hasher v0.2.0
+   Compiling self_cell v1.3.0
+   Compiling uuid v1.28.0
+   Compiling accesskit v0.24.1
+   Compiling epaint v0.36.2
+   Compiling itertools v0.15.0
+   Compiling toml v0.8.23
+   Compiling kovan-common v0.0.4
+   Compiling egui v0.36.2
+   Compiling kopitiam-syntax v0.2.5
+   Compiling kovan-web v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/target/package/kovan-web-0.0.3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.29s
+   Uploading kovan-web v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/kovan-web)
+    Uploaded kovan-web v0.0.3 to registry `crates-io`
+note: waiting for kovan-web v0.0.3 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published kovan-web v0.0.3 at registry `crates-io`

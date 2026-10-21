@@ -1,0 +1,25 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-semantics"
+dir = "crates/kovan-semantics/examples"
+
+[module."adapters.rs"]
+path = "example:adapters"
+
+[[module."adapters.rs".function]]
+id = "fn:01ef4e96342d9796"
+name = "main"
+qual = "main"
+lines = [
+    9,
+    34,
+]
+hash = "sha256:59401ac9802b024878f1bbfcf207725f0e0f92b8f380c30e87277f0ceeff50dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5c14377cf68b43f9",
+    "fn:8003ef159e6c87c8",
+    "fn:f32dd0b33fa086c8",
+    "fn:f910cfd5724a7262",
+]
+uses = ["fn:85dc5410ff538180"]

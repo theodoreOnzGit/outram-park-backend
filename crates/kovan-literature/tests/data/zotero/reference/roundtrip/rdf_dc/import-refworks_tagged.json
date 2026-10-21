@@ -1,0 +1,103 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Stephen",
+						"lastName": "Stansfeld",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Rebecca",
+						"lastName": "Fuhrer",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Depression and coronary heart disease",
+				"publisher": "BMJ Books",
+				"date": "2002",
+				"ISBN": "0727912771 (PAPERBACK)"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "C. D.",
+						"lastName": "Catrambone",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Effect of a case management intervention on symptoms of asthma in high risk children",
+				"university": "Rush University, College of Nursing",
+				"date": "2000",
+				"ISBN": "0-599-73664-X",
+				"thesisType": "thesis"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Steven",
+						"lastName": "Allan",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Paul",
+						"lastName": "Gilbert",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Anger and anger expression in relation to perceptions of social rank, entrapment and depressive symptoms",
+				"publisher": "Elsevier Science, England, [URL:http:// www.elsevier.nl]",
+				"date": "Feb 2002",
+				"ISSN": "0191-8869"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Timothy",
+						"lastName": "Brennan",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "The Empire's New Clothes",
+				"date": "January 01 2003"
+			}
+		]
+	}
+}

@@ -1,0 +1,1120 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/common"
+test_ids = [
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::build_validation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::error_policy_rejects_out_of_range",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::extrapolation_extends_linearly",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::fixed_clamps",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::integral_cartesian_trapezoid",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::integral_step_rectangles",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::linear_between_knots",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::next_and_last_point",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/interpolate_table.rs::step_holds_previous_value",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::constant_profile_is_flat",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::length_mismatch_rejected",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::non_ascending_times_rejected",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::start_time_offset_shifts_query",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::table_clamps_out_of_range",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::table_linear_interpolation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/common/time_profile.rs::too_few_points_rejected",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_power_conservation_across_meshes",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_steady_state_negative_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::mesh_doppler_feedback_lowers_keff",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::negative_feedback_reduces_power",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::picard_loop_converges_consistently",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::prescribed_region_is_inert",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/rbf_mapping.rs::build_rejects_collinear_samples",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/rbf_mapping.rs::build_rejects_empty",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/rbf_mapping.rs::interpolates_samples_exactly",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/rbf_mapping.rs::linear_reproduction_exact",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/rbf_mapping.rs::map_onto_column_linear",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::a_zero_velocity_field_reproduces_the_chi_eff_collapse",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_conserves_the_total_delayed_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_lowers_k_eff_and_the_effect_grows_with_the_flow",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_critical_buckling",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_mesh_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::kinf_infinite_medium",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::warm_start_reaches_the_same_k_in_fewer_iterations",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_no_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_with_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_order_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::approaches_diffusion_as_slab_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::differs_on_small_slab",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::kinf_reduces_to_diffusion",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::do_not_parametrize_suppresses_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::doppler_log_interpolation_hits_arithmetic_mean_at_geometric_mean_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::one_energy_constant_parameter_falls_back_to_reference",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::one_energy_reproduces_nodes",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::one_energy_two_point_is_linear",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::precursor_constants_sum_beta",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rbf_basis_function_closed_forms",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::reference_group_constants_match_input",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rejects_length_mismatch",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rejects_missing_reference_variable",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rejects_non_reference_first_state",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::rejects_out_of_range_indices",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/xs/tests.rs::scattering_matrix_reproduces_reference",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/time_field_table.rs::clamps_outside_tabulated_range",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/time_field_table.rs::inconsistent_row_length_rejected",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/time_field_table.rs::length_mismatch_rejected",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/time_field_table.rs::linear_interpolation_between_rows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/time_field_table.rs::too_few_time_points_rejected",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/boundary_conditions/time_field_table.rs::zero_face_table_still_validates_time_axis",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/mod.rs::integrated_steady_state_energy_balance",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/mod.rs::pump_momentum_source_passthrough",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/mod.rs::scram_relaxes_structure_to_fluid",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_power_adiabatic_step_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_power_steady_state_matches_hand_calc",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::fixed_temperature_evaluates_profile",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::power_off_zeroes_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/power_model.rs::power_profile_scales_initial_density",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/pump.rs::coast_down_scales_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/pump.rs::constant_pump_is_time_invariant",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/tests.rs::the_minimal_dictionary_round_trips_into_cross_section_data",
+    "crates/outram-foam-appbuilder-lib/src/io/nuclear_data/writer.rs::written_nuclear_data_reads_back_identically",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::genfoam_slab_1g_diffusion_is_critical",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
+]
+
+[module."interpolate_table.rs"]
+path = "crate::genfoam::common::interpolate_table"
+
+[[module."interpolate_table.rs".function]]
+id = "fn:312797db83bb59e9"
+name = "InterpolationMethod"
+qual = "InterpolationMethod"
+item = "type"
+shape = "enum"
+lines = [
+    89,
+    100,
+]
+hash = "sha256:b2ece2004c7fac26a71d3eee4fbc116fde1e1a6a230dd33f0cb1e54abc4c45c1"
+doc_hash = "sha256:3d6eadb0ca0f3f31857960f3d5f8b75bef2ca49ce1c1e8effc231a93af1a94a5"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:0ea8e6408ec256f3"
+name = "OutOfBounds"
+qual = "OutOfBounds"
+item = "type"
+shape = "enum"
+lines = [
+    102,
+    117,
+]
+hash = "sha256:f34db68f8d718afb187d3a7c82057d064086b8a9c8d769b77eb6a3025e025de0"
+doc_hash = "sha256:0f1db10af196320ceacbc843425600308e6532a036ed2fe388a0a352b1771e77"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:d4fa86d8e854d7f7"
+name = "InterpolateTableError"
+qual = "InterpolateTableError"
+item = "type"
+shape = "enum"
+lines = [
+    119,
+    160,
+]
+hash = "sha256:fb01ce0b3ec698e89982340df2b9578f2e85c7098f2b4865161494234b9cbaf3"
+doc_hash = "sha256:e6227b69eb337c332098ccc6a99630536a6828a616f5f4e589104d09614d9718"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:8298fe5427282214"
+name = "ScalarInterpolateTable"
+qual = "ScalarInterpolateTable"
+item = "type"
+shape = "struct"
+lines = [
+    162,
+    176,
+]
+hash = "sha256:2c9792020613856aaa51fbab5b438ca12974215067311f8753eafc2499079b22"
+doc_hash = "sha256:12169df42c06560a2a17ec044ace857e6d6b9a37dba6210b937f783de997dcdc"
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:7075955b006c0708"
+name = "new"
+qual = "ScalarInterpolateTable::new"
+lines = [
+    179,
+    222,
+]
+hash = "sha256:5007ed7489564ae1c396047af05c4a848e43e6dc0c64ba23e815728b12f0f5af"
+doc_hash = "sha256:9c9f39fa45ca01147f31884c53cf65849c638d5b3ab931a756a4028a03338bf6"
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+    "fn:d4fa86d8e854d7f7",
+]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:fd32f9c3179adb5b"
+name = "method"
+qual = "ScalarInterpolateTable::method"
+lines = [
+    224,
+    227,
+]
+hash = "sha256:4e751871f3df033773852cebffbc356d9fdf16af96c66885bb1c66d141a0b8d8"
+doc_hash = "sha256:c85285a152f62f3eff9fe89f156fafb48551010701b0c9d50fd88a1807fb2e51"
+uses = [
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:4612961226ab6184"
+name = "out_of_bounds"
+qual = "ScalarInterpolateTable::out_of_bounds"
+lines = [
+    229,
+    232,
+]
+hash = "sha256:fbb3e37dc06812bcccc68a1a42e0fbefd12becbbf32806dcebec9e31bf65d0b2"
+doc_hash = "sha256:a791c7c111ad3513281704c91e0225bd8c3f77d38d2fbb34988287fa3aafbd77"
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:8298fe5427282214",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:ef130ae93e0e0bb0"
+name = "interpolate"
+qual = "ScalarInterpolateTable::interpolate"
+lines = [
+    234,
+    278,
+]
+hash = "sha256:260fde4e2fde9e379ae4f2e6caf5fce207ffd4df46007865063f68798f71c2e6"
+doc_hash = "sha256:afc9f31fa33c2d86ae2fd3edd473091807e1f1876913690f01c056ad236b2f5a"
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+    "fn:d4fa86d8e854d7f7",
+]
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#9",
+    "#11",
+    "#59",
+    "#62",
+    "#64",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:f49facccfc35cf04"
+name = "integral"
+qual = "ScalarInterpolateTable::integral"
+lines = [
+    280,
+    300,
+]
+hash = "sha256:ca068a191115dfb50c4c3503331420b1f3cd9969c2202643994838f760fef371"
+doc_hash = "sha256:644a940275ae4b7f35df0d3c21f28a9b1e73a3620bdfbc8ce295ec2e14e69a4a"
+uses = [
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+]
+reached_by = [
+    "#7",
+    "#8",
+]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:ad24c4a918bdae34"
+name = "next_point"
+qual = "ScalarInterpolateTable::next_point"
+lines = [
+    302,
+    323,
+]
+hash = "sha256:6d65a8b6b8b91d25084863953776c05f460468440760858518972ce8befbf3f5"
+doc_hash = "sha256:33cd014997799e440dbe202ba92327723263566d21dcd0431e6f4f441648e5c4"
+uses = [
+    "fn:8298fe5427282214",
+    "fn:d4fa86d8e854d7f7",
+]
+reached_by = ["#10"]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:84d19106a7eddb3f"
+name = "last_point"
+qual = "ScalarInterpolateTable::last_point"
+lines = [
+    325,
+    328,
+]
+hash = "sha256:f65a34e0943bc89c7173fed8196334e068e67baa9ab232958e3e925bbd602943"
+doc_hash = "sha256:cb4dab2a57ab397a52244fd14cf4f5b7366f47b65f1c1f34c00f561a6e056f52"
+uses = ["fn:8298fe5427282214"]
+reached_by = ["#10"]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:fffbcdb0a9e333fc"
+name = "first_point"
+qual = "ScalarInterpolateTable::first_point"
+lines = [
+    330,
+    333,
+]
+hash = "sha256:928100fb653b1a2694a104879ec54aa57050972bd2e9bb490dfa7aa5659c2ace"
+doc_hash = "sha256:0153b57754ba39912547a8ffb3360273264edfb380b4c31ea374487631634b3d"
+uses = ["fn:8298fe5427282214"]
+reached_by = ["#10"]
+
+[[module."interpolate_table.rs".function]]
+id = "fn:23c3b10c3c4283b3"
+name = "linear_fixed"
+qual = "linear_fixed"
+lines = [
+    340,
+    343,
+]
+hash = "sha256:db14483ed723259e470f10e23786dd138023569b41b0f4279a61053421dc559b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7075955b006c0708"]
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:fd3a9d716b66394b"
+name = "linear_between_knots"
+qual = "linear_between_knots"
+lines = [
+    345,
+    353,
+]
+hash = "sha256:6eaf7c991cb9330cf24b3ddecddc605dacb962e1556b824e50569e2a82fc54d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:23c3b10c3c4283b3",
+    "fn:ef130ae93e0e0bb0",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:e9817c71fd142a55"
+name = "step_holds_previous_value"
+qual = "step_holds_previous_value"
+lines = [
+    355,
+    371,
+]
+hash = "sha256:4d8ad0380311425ec4ccb87c89c90fdbec460e64443db7e5164d58fe37d9c534"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7075955b006c0708",
+    "fn:ef130ae93e0e0bb0",
+]
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:3065fff53caf6e4a"
+name = "fixed_clamps"
+qual = "fixed_clamps"
+lines = [
+    373,
+    378,
+]
+hash = "sha256:83bbef2f7cbb6491ba618efb77658299139fdec26b9d8feb34c4b99300a5044f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:23c3b10c3c4283b3",
+    "fn:ef130ae93e0e0bb0",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:4e27c2deb79294bc"
+name = "error_policy_rejects_out_of_range"
+qual = "error_policy_rejects_out_of_range"
+lines = [
+    380,
+    399,
+]
+hash = "sha256:fd9cd0e10660df47348d593c2274ff6e003028b75ad41182d031143be16642ce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7075955b006c0708",
+    "fn:ef130ae93e0e0bb0",
+]
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+    "fn:d4fa86d8e854d7f7",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:1ad5e1430e84ec85"
+name = "extrapolation_extends_linearly"
+qual = "extrapolation_extends_linearly"
+lines = [
+    401,
+    413,
+]
+hash = "sha256:a0a22267b9a23aeccc06fac7252b46580e961c9971d594483735209aed81a882"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7075955b006c0708",
+    "fn:ef130ae93e0e0bb0",
+]
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:03c8d955f6213914"
+name = "integral_cartesian_trapezoid"
+qual = "integral_cartesian_trapezoid"
+lines = [
+    415,
+    420,
+]
+hash = "sha256:d6abdf7cc531f19b7ccff099cf8b129a1087e915a28e16ecff6d47393401a54d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:23c3b10c3c4283b3",
+    "fn:f49facccfc35cf04",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:a018f498edba9dc6"
+name = "integral_step_rectangles"
+qual = "integral_step_rectangles"
+lines = [
+    422,
+    433,
+]
+hash = "sha256:69ecc38dfac4742df18acd71e2434cb980a229456e8e64106ec084d4651dad12"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7075955b006c0708",
+    "fn:f49facccfc35cf04",
+]
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:42987ed08f201178"
+name = "next_and_last_point"
+qual = "next_and_last_point"
+lines = [
+    435,
+    443,
+]
+hash = "sha256:bf5329cb16d1cb2044e796ed49a6e5949ab4c56e25c76efe8b3360fb1db46cb6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:23c3b10c3c4283b3",
+    "fn:84d19106a7eddb3f",
+    "fn:ad24c4a918bdae34",
+    "fn:fffbcdb0a9e333fc",
+]
+test = true
+
+[[module."interpolate_table.rs".function]]
+id = "fn:531114cca6f7ae26"
+name = "build_validation"
+qual = "build_validation"
+lines = [
+    445,
+    481,
+]
+hash = "sha256:21bc828e9bceea3e446a363ae7fc46f50f211d01ac9d7ced542a90499094403a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7075955b006c0708"]
+uses = [
+    "fn:0ea8e6408ec256f3",
+    "fn:312797db83bb59e9",
+    "fn:8298fe5427282214",
+    "fn:d4fa86d8e854d7f7",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::genfoam::common"
+
+[module."rbf.rs"]
+path = "crate::genfoam::common::rbf"
+
+[[module."rbf.rs".function]]
+id = "fn:a48d998e88b809fa"
+name = "polyharmonic_spline_function"
+qual = "polyharmonic_spline_function"
+lines = [
+    81,
+    103,
+]
+hash = "sha256:fc8298d47d78977f0979aa58f60d3ead9575e0076696b960c4db8e0dc3923110"
+doc_hash = "sha256:95b8d2242dee3951d39341597ed2167e12db48060a0ec8c8b4db9b4add890f02"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+]
+
+[[module."rbf.rs".function]]
+id = "fn:719f4c1b10ade923"
+name = "solve_polyharmonic_spline"
+qual = "solve_polyharmonic_spline"
+lines = [
+    105,
+    173,
+]
+hash = "sha256:a6367f293e5553583d648d4b34ec764f09133a89ac659d120d13edf09673f538"
+doc_hash = "sha256:feb56f17bce11ba3cd78d37621d9616e47120a31f9c98c337845d54d61664d25"
+callees = [
+    "fn:04372eb2cb9f9bc3",
+    "fn:151aad4ebbbcd1a5",
+    "fn:6dc82a6475c2f1e2",
+    "fn:a48d998e88b809fa",
+]
+uses = [
+    "fn:11cee6578cd45823",
+    "fn:33a2eb8456953def",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#19",
+    "#20",
+    "#21",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+]
+
+[[module."rbf.rs".function]]
+id = "fn:86c55adc18aaa615"
+name = "polyharmonic_spline"
+qual = "polyharmonic_spline"
+lines = [
+    175,
+    214,
+]
+hash = "sha256:f252ab7d206e54c40c489ff4eb156d0e4a48b406f32fcbafc6db7f02d3ca09fb"
+doc_hash = "sha256:4c27435164cb253c885f39e5d6dd080f38bdf7c754c401e2d676b98360a16811"
+callees = ["fn:a48d998e88b809fa"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#53",
+    "#57",
+    "#58",
+    "#77",
+    "#78",
+    "#79",
+    "#80",
+    "#81",
+    "#82",
+    "#83",
+    "#84",
+    "#85",
+]
+
+[module."time_profile.rs"]
+path = "crate::genfoam::common::time_profile"
+
+[[module."time_profile.rs".function]]
+id = "fn:89ca3a9d50d14e0c"
+name = "TimeProfileError"
+qual = "TimeProfileError"
+item = "type"
+shape = "enum"
+lines = [
+    97,
+    126,
+]
+hash = "sha256:6d0cc4b11712afcd410f710ff9620c0c56548ee681c96ec831fbd29ab2b6a02c"
+doc_hash = "sha256:afb513d3b7e31250b24834c241585ac0e698737ae72c27d5c190d38a992fd287"
+reached_by = [
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#72",
+    "#73",
+]
+
+[[module."time_profile.rs".function]]
+id = "fn:fb76ad3e1db00f51"
+name = "ProfileKind"
+qual = "ProfileKind"
+item = "type"
+shape = "enum"
+lines = [
+    128,
+    138,
+]
+hash = "sha256:bc92372b3d316f9bcc976dcb3d996b4928ec8c78d709abba6a78d892ed008921"
+doc_hash = "sha256:d070d0db4ba5a4abdcd2ef0c558a9bcbe09442373e5bf3710acadeab08053bae"
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+]
+
+[[module."time_profile.rs".function]]
+id = "fn:7216e163fddce258"
+name = "TimeProfile"
+qual = "TimeProfile"
+item = "type"
+shape = "struct"
+lines = [
+    140,
+    156,
+]
+hash = "sha256:d8c4d9d2b5eca1bc499dc276a2fd28cf8112ab3855baa89f5bc078cda80adfc9"
+doc_hash = "sha256:71ef48a6a04b41f151b84ad7a21d9501ff4f0d1d290a538d629bdb7d6c80e84a"
+uses = ["fn:fb76ad3e1db00f51"]
+reached_by = [
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+]
+
+[[module."time_profile.rs".function]]
+id = "fn:5fa4fcfb6f242785"
+name = "constant"
+qual = "TimeProfile::constant"
+lines = [
+    159,
+    169,
+]
+hash = "sha256:8bbe799268b7dc8354cb8244c1d8ab046d1478aab5087f7c05f0f111b28f06a5"
+doc_hash = "sha256:ba3be9128492741cd7cbb76dd631aa60fd924f7df265501a785db2d78c34a36f"
+uses = [
+    "fn:7216e163fddce258",
+    "fn:fb76ad3e1db00f51",
+]
+reached_by = ["#12"]
+
+[[module."time_profile.rs".function]]
+id = "fn:a38fa655c7e3be26"
+name = "table"
+qual = "TimeProfile::table"
+lines = [
+    171,
+    216,
+]
+hash = "sha256:36a083da7357ebf6255acde5f43234e1e5e2755afca86ded1d06ccb81141c144"
+doc_hash = "sha256:a8af043c4de45a5f1f1b81a2fc45ac3f1a32888c6e00bd17259978d047eaa498"
+uses = [
+    "fn:7216e163fddce258",
+    "fn:89ca3a9d50d14e0c",
+    "fn:fb76ad3e1db00f51",
+]
+reached_by = [
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#72",
+    "#73",
+]
+physical_interface = true
+
+[[module."time_profile.rs".function]]
+id = "fn:0360fb6e849812f2"
+name = "with_start_time"
+qual = "TimeProfile::with_start_time"
+lines = [
+    218,
+    226,
+]
+hash = "sha256:4599dbd83381da532e389772d50f1a6e080e0a57b80d567a6ae288eec8336620"
+doc_hash = "sha256:bdf0f041d829fe1105a68bfc7195df02d925c8a1521b4d127c140fdb52497965"
+uses = ["fn:7216e163fddce258"]
+reached_by = ["#15"]
+physical_interface = true
+
+[[module."time_profile.rs".function]]
+id = "fn:b84c488e35057cc6"
+name = "start_time"
+qual = "TimeProfile::start_time"
+lines = [
+    228,
+    231,
+]
+hash = "sha256:b5328294bf6fe29a9421e54e3c43245858ca35de577831160730656de7940937"
+doc_hash = "sha256:bb732f2cbdd80711a0f90b05e4b0e40b42902cff086cb2fc6f73c0f92d547ceb"
+uses = ["fn:7216e163fddce258"]
+reached_by = ["#15"]
+physical_interface = true
+
+[[module."time_profile.rs".function]]
+id = "fn:14f727f1bfa3a7ac"
+name = "valid"
+qual = "TimeProfile::valid"
+lines = [
+    233,
+    239,
+]
+hash = "sha256:edb22f4b038884556025bcb6f18b22f6d477f19ee38a80dac415eb2795c33de9"
+doc_hash = "sha256:440ce47a283a37b8f323c8cbc83c4fc8754e61b89aaa4da51807ce46b12629be"
+uses = ["fn:7216e163fddce258"]
+reached_by = ["#12"]
+
+[[module."time_profile.rs".function]]
+id = "fn:d522ed1b84d49d71"
+name = "value"
+qual = "TimeProfile::value"
+lines = [
+    241,
+    253,
+]
+hash = "sha256:8e23ded46ffcebec06704a6316fe90822108004871e0c250970f7061a5c57ad9"
+doc_hash = "sha256:0dd1de9703ce8d47b9f37d5f62e05312945953f396dbff117aac37167b37a38e"
+callees = ["fn:99088336107d423b"]
+uses = [
+    "fn:7216e163fddce258",
+    "fn:fb76ad3e1db00f51",
+]
+reached_by = [
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+]
+physical_interface = true
+
+[[module."time_profile.rs".function]]
+id = "fn:ef714a30710bcec7"
+name = "s"
+qual = "s"
+lines = [
+    260,
+    262,
+]
+hash = "sha256:f14c909ae4b26f730573a5a8701a704cea33afbce669d3294b4abfc5d18e4bc3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."time_profile.rs".function]]
+id = "fn:2291693eff11f2bf"
+name = "constant_profile_is_flat"
+qual = "constant_profile_is_flat"
+lines = [
+    264,
+    271,
+]
+hash = "sha256:f92d6f8a67ef0d720c5509a900bf1dcdb312b08e241759cf546122a1c2dfabc7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14f727f1bfa3a7ac",
+    "fn:5fa4fcfb6f242785",
+    "fn:d522ed1b84d49d71",
+    "fn:ef714a30710bcec7",
+]
+uses = ["fn:7216e163fddce258"]
+test = true
+
+[[module."time_profile.rs".function]]
+id = "fn:af5b20e0195323dc"
+name = "table_linear_interpolation"
+qual = "table_linear_interpolation"
+lines = [
+    273,
+    280,
+]
+hash = "sha256:dc853c3f8da3f6bf9b0ef34217388823861e4784a0229a359a680857798f13da"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a38fa655c7e3be26",
+    "fn:d522ed1b84d49d71",
+    "fn:ef714a30710bcec7",
+]
+uses = ["fn:7216e163fddce258"]
+test = true
+
+[[module."time_profile.rs".function]]
+id = "fn:b71b02c7342691ea"
+name = "table_clamps_out_of_range"
+qual = "table_clamps_out_of_range"
+lines = [
+    282,
+    287,
+]
+hash = "sha256:62e777fa399d0e527de49d405e71b684b2619d7f2b777c852ec2c0f184aa4d09"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a38fa655c7e3be26",
+    "fn:d522ed1b84d49d71",
+    "fn:ef714a30710bcec7",
+]
+uses = ["fn:7216e163fddce258"]
+test = true
+
+[[module."time_profile.rs".function]]
+id = "fn:24c31ab0b8fe1a2d"
+name = "start_time_offset_shifts_query"
+qual = "start_time_offset_shifts_query"
+lines = [
+    289,
+    301,
+]
+hash = "sha256:566211c59d0b5d68786e447307b02a5675853aeeff670df503352e2a04c94556"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0360fb6e849812f2",
+    "fn:a38fa655c7e3be26",
+    "fn:b84c488e35057cc6",
+    "fn:d522ed1b84d49d71",
+    "fn:ef714a30710bcec7",
+]
+uses = ["fn:7216e163fddce258"]
+test = true
+
+[[module."time_profile.rs".function]]
+id = "fn:96c561b4afecfb0f"
+name = "length_mismatch_rejected"
+qual = "length_mismatch_rejected"
+lines = [
+    303,
+    313,
+]
+hash = "sha256:041b54af5455bee35ac613e5c97beae127e73df45c55c4589b5cbe02e1004f52"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a38fa655c7e3be26",
+    "fn:ef714a30710bcec7",
+]
+uses = [
+    "fn:7216e163fddce258",
+    "fn:89ca3a9d50d14e0c",
+]
+test = true
+
+[[module."time_profile.rs".function]]
+id = "fn:4e898381ecd28997"
+name = "too_few_points_rejected"
+qual = "too_few_points_rejected"
+lines = [
+    315,
+    319,
+]
+hash = "sha256:54f446047d01d89cc8fe2caaddb57f44788f58651afc91e5fc2cf38f7253c051"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a38fa655c7e3be26",
+    "fn:ef714a30710bcec7",
+]
+uses = [
+    "fn:7216e163fddce258",
+    "fn:89ca3a9d50d14e0c",
+]
+test = true
+
+[[module."time_profile.rs".function]]
+id = "fn:deb09cab6e17f296"
+name = "non_ascending_times_rejected"
+qual = "non_ascending_times_rejected"
+lines = [
+    321,
+    333,
+]
+hash = "sha256:871d17d159205d0ebae9b9771a68973821f523e699a4607c27503f9c5aa9d74e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a38fa655c7e3be26",
+    "fn:ef714a30710bcec7",
+]
+uses = [
+    "fn:7216e163fddce258",
+    "fn:89ca3a9d50d14e0c",
+]
+test = true

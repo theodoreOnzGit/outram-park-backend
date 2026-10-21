@@ -1,3 +1,6 @@
+#[cfg(test)]
+use petir::mathf::RealMath;
+
 ///
 /// As mentioned by Du:
 /// 1/U = 1/h_t d_o/d_i + d_o/(2 lambda_w) ln (d_o/d_i)
@@ -26,7 +29,7 @@ pub fn check_wall_side_htc() {
     let tube_side_od = Length::new::<meter>(0.014);
     let tube_side_id = Length::new::<meter>(0.01);
     let reciprocal_tube_side_solid_term = tube_side_od / (2.0 as f64 * lambda_wall_du_paper)
-        * (tube_side_od / tube_side_id).get::<ratio>().ln();
+        * (tube_side_od / tube_side_id).get::<ratio>().r_ln();
 
     let wall_heat_transfer_expected = HeatTransfer::new::<watt_per_square_meter_kelvin>(6920.0);
 

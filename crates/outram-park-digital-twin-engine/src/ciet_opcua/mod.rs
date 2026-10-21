@@ -68,16 +68,27 @@
 //! systems, and its outputs are not authoritative for any operational,
 //! licensing or safety purpose.
 
+// On wasm32 only `state` is built (gh:#924): the CIET browser demo needs the
+// plant state, and the rest is the OPC-UA server, which has no browser
+// equivalent.
+#[cfg(not(target_arch = "wasm32"))]
 pub mod discovery;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod node_map;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod pki_paths;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod server;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod simulator;
 pub mod state;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod user_controls;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use node_map::{
     CietControl, CietSignal, CietSwitch, CIET_NAMESPACE_URI, DEFAULT_OPCUA_PORT, ENDPOINT_PATH,
 };
+#[cfg(not(target_arch = "wasm32"))]
 pub use simulator::{CietNode, CietOpcuaSimulator, CIET_OPCUA_PROFILE};
 pub use state::{CietState, HeaterControlSettings, HeaterType, SharedCietState};

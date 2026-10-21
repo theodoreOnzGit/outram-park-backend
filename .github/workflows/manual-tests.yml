@@ -1,0 +1,168 @@
+# Manual test runner — dispatch-only, any branch, any scope.
+#
+# WHY THIS EXISTS (maintainer request, 2026-09-20). `fast-tests.yml` runs on
+# `develop` with the long tier OFF, and `full-tests.yml` runs on `main` with it
+# ON. Neither lets you say "run the FULL suite against develop, now" without
+# pushing something. This one does: it has no push or pull_request trigger at
+# all, so it only ever runs when a human asks, and the dispatch UI's branch
+# selector chooses the ref.
+#
+# ── TWO WAYS TO START IT, AND WHY THERE ARE TWO ──────────────────────────────
+#
+# 1. `workflow_dispatch` -- the good one, with the inputs below and a branch
+#    picker. REQUIRES THIS FILE ON THE DEFAULT BRANCH (`main`). GitHub exposes
+#    `workflow_dispatch` only for workflows present there: a dispatch-only
+#    workflow living solely on `develop` is invisible to both the UI and the
+#    REST API. Measured 2026-09-20 -- `full-tests.yml` already carried
+#    `workflow_dispatch:` and `POST /actions/workflows/full-tests.yml/dispatches`
+#    still returned 404, and `GET /actions/workflows` listed only
+#    `fast-tests.yml`. Once the file IS on `main` you can dispatch it against
+#    any ref, and GitHub runs the copy FROM THAT REF, so later edits on
+#    `develop` take effect without a second `main` push.
+#
+# 2. `push` to a `ci-run/**` branch -- the escape hatch that works TODAY, with
+#    nothing on `main`. The default-branch rule covers `workflow_dispatch`,
+#    `schedule` and `repository_dispatch`; it does NOT cover `push`, because a
+#    push event runs the workflow file from the pushed ref itself. So:
+#
+#        git push -f origin develop:ci-run/develop
+#
+#    runs this full suite against develop's exact tree. Force-push is expected
+#    and safe here: `ci-run/**` branches are disposable triggers, they are never
+#    merged from, and nothing else reads them. Delete them whenever.
+#
+#    The cost of this path is that it takes no inputs -- a push carries no
+#    parameters -- so it always runs the FULL scope over the whole workspace.
+#    That is the common case anyway; use dispatch when you want to narrow it.
+#
+# ── Scope ────────────────────────────────────────────────────────────────────
+#
+# `full` runs the workspace HARD RULE command:
+#     cargo test --workspace --lib --tests --release
+# which includes every test gated behind the default-on `long-tests` feature.
+#
+# `fast` runs the repo's own alias, the same one `fast-tests.yml` uses:
+#     cargo quick-test   ==   cargo test --release --lib --tests --no-default-features
+# `--no-default-features` is Cargo's only lever for switching off a single
+# default feature, so it also drops `kovan`'s `gui` and `petir`'s `transfer-fn`.
+# Both test fine without, and dropping `gui` is desirable headless anyway.
+#
+# A green `fast` run means "nothing fast is broken", NEVER "the suite passes" --
+# the same caveat `fast-tests.yml`'s own header carries.
+
+name: manual tests
+
+on:
+  # See "TWO WAYS TO START IT" above. This one needs the file on `main`.
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "full = long tests ON (the real gate); fast = quick-test, long tests OFF"
+        type: choice
+        required: true
+        default: full
+        options:
+          - full
+          - fast
+      crate:
+        description: "Optional: restrict to one package (e.g. nee_soon). Blank = whole workspace."
+        type: string
+        required: false
+        default: ""
+      filter:
+        description: "Optional: only tests whose name contains this substring."
+        type: string
+        required: false
+        default: ""
+
+  # The no-`main`-needed path. Push any tree to a `ci-run/**` branch and the
+  # full suite runs against it. Deliberately NOT `develop` or `main`: this must
+  # never fire on ordinary work, only when someone asks for it by pushing a
+  # branch whose name says so.
+  push:
+    branches:
+      - "ci-run/**"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+
+concurrency:
+  # Keyed on the ref so two people can run different branches at once, but a
+  # second dispatch of the SAME branch queues rather than racing the first.
+  # Never cancels: a deliberate manual run is not superseded noise.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  manual:
+    # `inputs.*` is empty on a push event, so every use below falls back to
+    # the full scope over the whole workspace -- see the push trigger note.
+    name: ${{ inputs.scope || 'full' }} suite on ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    # The long tier is minutes-per-test by construction; 90 minutes is the fast
+    # job's budget and is not enough. Matches full-tests.yml.
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `reference-data/ace` is 102 MB of gzipped NJOY2016 tables. As of
+          # 2026-09-20 no test reads it at runtime, but the full tier's
+          # reference-data tests are the ones most likely to start, so check it
+          # out here rather than discover the gap mid-run.
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Separate cache key per scope: the two builds differ in features, so
+          # sharing one key would thrash the cache between runs.
+          key: manual-${{ inputs.scope || 'full' }}-ubuntu-latest
+          cache-on-failure: true
+
+      - name: Show what will run
+        run: |
+          echo "event  : ${{ github.event_name }}"
+          echo "ref    : ${{ github.ref_name }} ($(git rev-parse --short HEAD))"
+          echo "scope  : ${{ inputs.scope || 'full' }}"
+          echo "crate  : ${CRATE:-<whole workspace>}"
+          echo "filter : ${FILTER:-<none>}"
+        env:
+          CRATE: ${{ inputs.crate }}
+          FILTER: ${{ inputs.filter }}
+
+      # DO NOT add `--test-threads=1`. The TUAS natural-circulation cases are a
+      # workspace HARD RULE: they must run in parallel, and serialising them
+      # turns a long job into an impossible one.
+      - name: Run tests
+        env:
+          SCOPE: ${{ inputs.scope || 'full' }}
+          CRATE: ${{ inputs.crate }}
+          FILTER: ${{ inputs.filter }}
+        run: |
+          set -euo pipefail
+
+          # Package selector: one crate, or the whole workspace.
+          if [ -n "$CRATE" ]; then
+            PKG=(-p "$CRATE")
+          else
+            PKG=(--workspace)
+          fi
+
+          # `quick-test` is an alias that already carries its own flags, so the
+          # two scopes cannot share one command line.
+          if [ "$SCOPE" = "fast" ]; then
+            CMD=(cargo test --release --lib --tests --no-default-features "${PKG[@]}")
+          else
+            CMD=(cargo test "${PKG[@]}" --lib --tests --release)
+          fi
+
+          # A trailing bare filter is a test-NAME substring, not a cargo flag.
+          if [ -n "$FILTER" ]; then
+            CMD+=("$FILTER")
+          fi
+
+          printf 'running:'; printf ' %q' "${CMD[@]}"; printf '\n'
+          "${CMD[@]}"

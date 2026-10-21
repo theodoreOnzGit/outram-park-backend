@@ -1,0 +1,11 @@
+<Project>
+  <!-- Build-copy-only: .NET 8 MSBuild has no AL task, which links satellite
+       assemblies for culture-qualified .resx (GUI dialog translations). Drop
+       those resources once MSBuild has classified them, so nothing tries to
+       build or copy a satellite. The neutral resources are unaffected. -->
+  <Target Name="OutramDropCultureResources" AfterTargets="SplitResourcesByCulture">
+    <ItemGroup>
+      <EmbeddedResource Remove="@(EmbeddedResource)" Condition="'%(EmbeddedResource.WithCulture)' == 'true'" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -77,8 +77,7 @@ use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
 use uom::si::available_energy::joule_per_kilogram;
 
 // this is for the root finding algorithms
-extern crate peroxide;
-use peroxide::fuga::*;
+use crate::numerical_methods::{bisection_residual, gauss_legendre_20};
 
 use crate::tuas_lib_error::TuasLibError;
 
@@ -177,7 +176,9 @@ pub fn get_custom_fluid_enthalpy(
     // with tolerance of 1e-9
     // and 100 max iterations
 
-    let integration_method = Integral::GaussLegendre(20);
+    // peroxide `Integral::GaussLegendre(20)`: the fixed 20-point rule
+    // chosen in v0.1.1 (docs/notes.md). Now PETIR's port of the same rule;
+    // see crate::numerical_methods::gauss_legendre_20 for why not qag (gh:#989).
 
     // next, my cp function needs to be converted into a f64 type function
     // first let me get my fluid temperature and lower bound temperature
@@ -205,14 +206,12 @@ pub fn get_custom_fluid_enthalpy(
     // note that I define zero enthalpy at the lower bound temperautre
     // provided
 
-    let specific_enthalpy_joule_per_kilogram = integrate(
-        // cp function float
+    let specific_enthalpy_joule_per_kilogram = gauss_legendre_20(
         cp_fn_float,
-        // bounds from lower bound to upper bound
-        (lower_bound_temp_kelvin, fluid_temp_kelvin),
-        // integration method described earlier
-        integration_method,
-    );
+        lower_bound_temp_kelvin,
+        fluid_temp_kelvin,
+        "custom fluid: specific enthalpy",
+    )?;
 
     let enthalpy = AvailableEnergy::new::<joule_per_kilogram>(specific_enthalpy_joule_per_kilogram);
 
@@ -279,18 +278,14 @@ pub fn get_custom_fluid_temperature_from_enthalpy(
     lower_bound_temperature: ThermodynamicTemperature,
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     if fluid_enthalpy.value < 0_f64 {
-        panic!(
+        return Err(TuasLibError::GenericStringError(
             "user supplied fluid: get_temperature_from_enthalpy \n
                enthalpy < 0.0 , out of correlation range"
-        );
+                .to_string(),
+        ));
     }
 
     // now solve using bisection
-
-    let bisect = BisectionMethod {
-        max_iter: 100,
-        tol: 1e-8,
-    };
 
     let problem = CustomFluidTemperatureFromEnthalpy {
         lower_bound_temperature,
@@ -298,16 +293,22 @@ pub fn get_custom_fluid_temperature_from_enthalpy(
         fluid_enthalpy,
         cp_function,
     };
-    let fluid_temperature_degrees_cresult = bisect.find(&problem).unwrap();
-
-    let fluid_temperature_degrees_c = fluid_temperature_degrees_cresult[0];
+    // peroxide `BisectionMethod { max_iter: 100, tol: 1e-8 }` over the
+    // user's bounds, now on PETIR with peroxide's residual test kept
+    // (crate::numerical_methods::bisection_residual, gh:#989).
+    let fluid_temperature_degrees_c = bisection_residual(
+        |t| problem.enthalpy_root(t),
+        problem.initial_guess(),
+        100,
+        1e-8,
+        "custom fluid: temperature from specific enthalpy",
+    )?;
 
     return Ok(ThermodynamicTemperature::new::<degree_celsius>(
         fluid_temperature_degrees_c,
     ));
 }
 
-use anyhow::Result;
 struct CustomFluidTemperatureFromEnthalpy {
     pub lower_bound_temperature: ThermodynamicTemperature,
     pub upper_bound_temperature: ThermodynamicTemperature,
@@ -318,11 +319,10 @@ struct CustomFluidTemperatureFromEnthalpy {
 impl CustomFluidTemperatureFromEnthalpy {
     // let's define a function
     // LHS is actual enthalpy value we compare against
-    fn enthalpy_root(&self, temp_degrees_c: Pt<1>) -> Result<Pt<1>> {
+    fn enthalpy_root(&self, temp_degrees_c_value_double: f64) -> f64 {
         // first let's convert enthalpy to a double (f64)
         let enthalpy_value_joule_per_kg = self.fluid_enthalpy.get::<joule_per_kilogram>();
         let lhs_value = enthalpy_value_joule_per_kg;
-        let temp_degrees_c_value_double: f64 = temp_degrees_c[0];
 
         let fluid_temperature =
             ThermodynamicTemperature::new::<degree_celsius>(temp_degrees_c_value_double);
@@ -335,14 +335,12 @@ impl CustomFluidTemperatureFromEnthalpy {
         .unwrap();
         let rhs_value = rhs.get::<joule_per_kilogram>();
 
-        return Ok([lhs_value - rhs_value]);
+        lhs_value - rhs_value
     }
 }
 
-impl RootFindingProblem<1, 1, (f64, f64)> for CustomFluidTemperatureFromEnthalpy {
-    fn function(&self, temp_degrees_c: Pt<1>) -> Result<Pt<1>> {
-        self.enthalpy_root(temp_degrees_c)
-    }
+impl CustomFluidTemperatureFromEnthalpy {
+    /// The bisection bracket, in degrees Celsius: the user-supplied bounds.
     fn initial_guess(&self) -> (f64, f64) {
         // i use degrees c for conversion here because of legacy reasons.
         // as long as the conversions are consistent, it doesn't matter whether

@@ -32,6 +32,7 @@
 //! The slope is what makes the plastic return mapping solvable in one Newton
 //! step for a linear curve, and quadratically convergent for a curved one.
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::mechanics::LinearElastic;
 
@@ -351,7 +352,7 @@ impl FraptranCoefficients {
         let mut n = if t < 419.4 {
             0.114_05
         } else if t <= 1099.0722 {
-            -9.490e-2 + 1.165e-3 * t - 1.992e-6 * t.powi(2) + 9.558e-10 * t.powi(3)
+            -9.490e-2 + 1.165e-3 * t - 1.992e-6 * t.r_powi(2) + 9.558e-10 * t.r_powi(3)
         } else if t <= 1600.0 {
             -0.226_551_19 + 2.5e-4 * t
         } else {
@@ -373,13 +374,13 @@ impl FraptranCoefficients {
 
         // Strength coefficient K(T) [Pa], then cold-work and fluence factors.
         let mut k = if t < 750.0 {
-            1.176_28e9 + 4.548_59e5 * t - 3.281_85e3 * t.powi(2) + 1.727_52 * t.powi(3)
+            1.176_28e9 + 4.548_59e5 * t - 3.281_85e3 * t.r_powi(2) + 1.727_52 * t.r_powi(3)
         } else if t < 1090.0 {
-            2.522_488e6 * (2.850_002_7e6 / t.powi(2)).exp()
+            2.522_488e6 * (2.850_002_7e6 / t.r_powi(2)).r_exp()
         } else if t < 1255.0 {
             1.841_376_039e8 - 1.434_544_8e5 * t
         } else {
-            4.330e7 - 6.685e4 * t + 37.579 * t.powi(2) - 7.33e-3 * t.powi(3)
+            4.330e7 - 6.685e4 * t + 37.579 * t.r_powi(2) - 7.33e-3 * t.r_powi(3)
         };
         let k_cw = 0.546 * cw;
         // NOTE — deliberate correction of an upstream defect. Upstream's
@@ -395,7 +396,7 @@ impl FraptranCoefficients {
             -0.1461
                 + 1.464e-25
                     * phi
-                    * ((2.25 * (-20.0 * cw).exp() * (1.0f64).min(((t - 550.0) / 10.0).exp())) + 1.0)
+                    * ((2.25 * (-20.0 * cw).r_exp() * (1.0f64).min(((t - 550.0) / 10.0).r_exp())) + 1.0)
         } else if phi < 2.0e25 {
             2.928e-26 * phi
         } else if phi < 12.0e25 {
@@ -409,7 +410,7 @@ impl FraptranCoefficients {
         let k = k.max(1.0);
 
         let rate = inputs.equivalent_strain_rate.max(1.0e-3);
-        let rate_factor = (rate / 1.0e-3).powf(m);
+        let rate_factor = (rate / 1.0e-3).r_powf(m);
 
         Ok(Self {
             k,
@@ -425,8 +426,8 @@ impl FraptranCoefficients {
     /// the flow curve with the elastic line.
     fn yield_stress(&self, eq_plastic_strain: f64, elastic: LinearElastic) -> f64 {
         let sigma_y0 =
-            (self.k / elastic.young.powf(self.n) * self.rate_factor).powf(1.0 / (1.0 - self.n));
-        let flow = self.k * eq_plastic_strain.powf(self.n) * self.rate_factor;
+            (self.k / elastic.young.r_powf(self.n) * self.rate_factor).r_powf(1.0 / (1.0 - self.n));
+        let flow = self.k * eq_plastic_strain.r_powf(self.n) * self.rate_factor;
         sigma_y0.max(flow)
     }
 
@@ -434,12 +435,12 @@ impl FraptranCoefficients {
     /// that branch is active, and zero on the initial-yield plateau.
     fn hardening_modulus(&self, eq_plastic_strain: f64, elastic: LinearElastic) -> f64 {
         let sigma_y0 =
-            (self.k / elastic.young.powf(self.n) * self.rate_factor).powf(1.0 / (1.0 - self.n));
-        let flow = self.k * eq_plastic_strain.powf(self.n) * self.rate_factor;
+            (self.k / elastic.young.r_powf(self.n) * self.rate_factor).r_powf(1.0 / (1.0 - self.n));
+        let flow = self.k * eq_plastic_strain.r_powf(self.n) * self.rate_factor;
         if flow <= sigma_y0 || eq_plastic_strain <= 0.0 {
             return 0.0;
         }
-        let slope = self.n * self.k * eq_plastic_strain.powf(self.n - 1.0) * self.rate_factor;
+        let slope = self.n * self.k * eq_plastic_strain.r_powf(self.n - 1.0) * self.rate_factor;
         if slope.is_finite() {
             slope.max(0.0)
         } else {

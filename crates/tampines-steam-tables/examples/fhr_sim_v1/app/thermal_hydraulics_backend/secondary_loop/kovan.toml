@@ -1,0 +1,62 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/fhr_sim_v1/app/thermal_hydraulics_backend/secondary_loop"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v1::app::thermal_hydraulics_backend::secondary_loop"
+
+[[module."mod.rs".function]]
+id = "fn:fadd90ef973bb9c5"
+name = "secondary_loop_single_timestep_steady_state_simplified"
+qual = "FHRSimulatorApp::secondary_loop_single_timestep_steady_state_simplified"
+lines = [
+    15,
+    165,
+]
+hash = "sha256:e9372ea506ab36afe00125127dd79581647f17f35620c49153c10cc6c9df6603"
+doc_hash = "sha256:8c7610e3e7785ba54e74cffcec168cded66aff74038de2937b5cfa0f49ecbbf1"
+callees = [
+    "fn:5a5bee728eb800cd",
+    "fn:68614abcb2c30c3d",
+    "fn:8862646fe4088877",
+    "fn:8b94a7a7c1140cef",
+    "fn:a034500d55b2a2be",
+    "fn:a7e7cd55f47c47fa",
+    "fn:eff47085ca6952fe",
+    "fn:f09f00cc4fcef6cc",
+    "fn:f472eb21333733c8",
+]
+uses = [
+    "fn:56d3675cc5aad081",
+    "fn:d2bc200eb1fa4ffa",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d2bc200eb1fa4ffa"
+name = "SecondaryLoopState"
+qual = "SecondaryLoopState"
+item = "type"
+shape = "struct"
+lines = [
+    168,
+    191,
+]
+hash = "sha256:b5740a2035e79b3d14b13eb6cc7d0856931c58bd1c9a17927b3d48a72b065ac4"
+doc_hash = "sha256:0fc133357fe121d5863c1a55ccfb8d7275ceff60c5a84d2c2d4a62dc469a7ca3"
+
+[module."pool_boiling.rs"]
+path = "example:fhr_sim_v1::app::thermal_hydraulics_backend::secondary_loop::pool_boiling"
+
+[[module."pool_boiling.rs".function]]
+id = "fn:d045e4d588c812d7"
+name = "pool_boiling_improvised_correlation_as_fraction_of_maximum"
+qual = "pool_boiling_improvised_correlation_as_fraction_of_maximum"
+lines = [
+    60,
+    80,
+]
+hash = "sha256:77464c551f58844bb733e033eb31324fabb82aa954ce96097418ec1c4e561671"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true

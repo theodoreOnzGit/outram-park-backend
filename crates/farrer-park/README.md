@@ -1,7 +1,7 @@
 # FARRER PARK
 
 **F**inite-element **A**nalysis for **R**eactor **R**eliability, **E**ngineering
-**R**esponse, **P**lasticity **A**nd **R**isk.
+**R**esponse, **P**lasticity **A**nd **R**is**K**. The K is the last letter of Ris**K** (~~**R**isk~~ **CORRECTED 2026-10-13**: the earlier lettering spelled FARRER PAR).
 
 FEM structural mechanics for the OUTRAM PARK suite: small-strain elasticity,
 J2 plasticity and rate-dependent **crystal plasticity** on unstructured meshes,
@@ -139,7 +139,7 @@ in a browser or on a device.
 
 ## Licensing
 
-GPL-3.0-only. Ported from MOOSE, PRISMS-Plasticity and PRISMS-Fatigue, all
+~~GPL-3.0-only~~ **AGPL-3.0-only, as a combined work** (relicensed 2026-10-20, gh:#973): the ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE` (see `docs/relicensing-agpl-2026-10-20.md`). Ported from MOOSE, PRISMS-Plasticity and PRISMS-Fatigue, all
 LGPL-2.1, relicensed under LGPL-2.1 §3. The flow is one-way — see
 [`NOTICE`](NOTICE).
 

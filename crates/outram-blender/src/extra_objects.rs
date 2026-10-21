@@ -41,6 +41,7 @@
 //! All radii / lengths are dimensionless model-space quantities; angles are
 //! radians; tooth/segment counts are clamped to sane minimums.
 
+use petir::mathf::RealMath;
 use std::f64::consts::{PI, TAU};
 
 use crate::math::Vec3;
@@ -168,11 +169,11 @@ pub fn capsule(radius: f64, length: f64, segments: usize, rings: usize) -> Mesh 
     let mut profile: Vec<Vec3> = Vec::new();
     for i in 0..=hr {
         let a = -PI / 2.0 + (PI / 2.0) * i as f64 / hr as f64; // -90°..0°
-        profile.push(Vec3::new(radius * a.cos(), 0.0, -hl + radius * a.sin()));
+        profile.push(Vec3::new(radius * a.r_cos(), 0.0, -hl + radius * a.r_sin()));
     }
     for i in 1..=hr {
         let a = (PI / 2.0) * i as f64 / hr as f64; // 0°..90°
-        profile.push(Vec3::new(radius * a.cos(), 0.0, hl + radius * a.sin()));
+        profile.push(Vec3::new(radius * a.r_cos(), 0.0, hl + radius * a.r_sin()));
     }
     let m = crate::revolve::revolve(&profile, Vec3::ZERO, Vec3::new(0.0, 0.0, 1.0), n, TAU);
     crate::weld::weld(&m, 1e-6)
@@ -210,7 +211,7 @@ pub fn spur_gear(
             (c + tip_half, tip),
         ];
         for (ang, rad) in pts {
-            outline.push([rad * ang.cos(), rad * ang.sin()]);
+            outline.push([rad * ang.r_cos(), rad * ang.r_sin()]);
         }
     }
     extrude_outline(&outline, -width * 0.5, width * 0.5)
@@ -262,7 +263,7 @@ pub fn elbow(
         (0..nt)
             .map(|i| {
                 let a = TAU * i as f64 / nt as f64;
-                (rad * a.cos(), rad * a.sin())
+                (rad * a.r_cos(), rad * a.r_sin())
             })
             .collect()
     };
@@ -273,9 +274,9 @@ pub fn elbow(
     let mut stations: Vec<(usize, usize)> = Vec::new(); // (outer_base, inner_base) per station
     for s in 0..=na {
         let t = angle * s as f64 / na as f64;
-        let centre = Vec3::new(bend_radius * t.cos(), bend_radius * t.sin(), 0.0);
+        let centre = Vec3::new(bend_radius * t.r_cos(), bend_radius * t.r_sin(), 0.0);
         // Frame: tangent along the arc, "up" is +z, "right" points outward radially.
-        let right = Vec3::new(t.cos(), t.sin(), 0.0);
+        let right = Vec3::new(t.r_cos(), t.r_sin(), 0.0);
         let up = Vec3::new(0.0, 0.0, 1.0);
         let ob = positions.len();
         for &(r, u) in &outer_sec {
@@ -350,7 +351,7 @@ pub fn star(points: usize, outer_radius: f64, inner_radius: f64, depth: f64) -> 
         } else {
             inner_radius
         };
-        outline.push([r * a.cos(), r * a.sin()]);
+        outline.push([r * a.r_cos(), r * a.r_sin()]);
     }
     if depth <= 0.0 {
         let positions: Vec<Vec3> = outline.iter().map(|&[x, y]| Vec3::new(x, y, 0.0)).collect();
@@ -382,7 +383,7 @@ pub fn honeycomb(rows: usize, cols: usize, cell_radius: f64) -> Mesh {
             let base = positions.len();
             for k in 0..6 {
                 let a = PI / 180.0 * (60.0 * k as f64 - 90.0);
-                positions.push(Vec3::new(cx + r * a.cos(), cy + r * a.sin(), 0.0));
+                positions.push(Vec3::new(cx + r * a.r_cos(), cy + r * a.r_sin(), 0.0));
             }
             faces.push((base..base + 6).collect());
         }
@@ -522,13 +523,13 @@ mod tests {
 
     #[test]
     fn z_function_surface_takes_a_closure() {
-        let m = z_function_surface(8, 8, 2.0, 2.0, |x, y| 0.5 * (x * x + y * y).sqrt().sin());
+        let m = z_function_surface(8, 8, 2.0, 2.0, |x, y| 0.5 * (x * x + y * y).sqrt().r_sin());
         assert_eq!(m.vertex_count(), 81);
         assert_eq!(m.face_count(), 64);
         assert_eq!(m.euler_characteristic(), 1);
         // Height matches the function at a sample corner.
         let corner = m.vertex(crate::mesh::VertexId(0)).unwrap().position;
-        let expect = 0.5 * ((corner.x * corner.x + corner.y * corner.y).sqrt()).sin();
+        let expect = 0.5 * ((corner.x * corner.x + corner.y * corner.y).sqrt()).r_sin();
         assert!((corner.z - expect).abs() < 1e-9);
     }
 }

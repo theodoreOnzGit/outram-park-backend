@@ -42,7 +42,7 @@ helpers mirroring `Cf64`. The host uploads the identical Weideman coefficient
 table, scaling `L`, and constants (`K_BOLTZMANN`, `SQRT_PI`) the CPU uses, so the
 only difference from the CPU is single vs double precision.
 
-This is genuinely the hot part of WMP: **U-238 carries 602 poles**, and each
+This is genuinely the hot part of WMP: **U-238 carries ~~602~~ 4 062 poles** (**CORRECTED 2026-10-05, GitHub #536**: counted with `WmpLibrary::core().get("U238")`; 602 is U-238's size in KB in `docs/wmp-nuclide-manifest.md`, misread as a pole count), and each
 energy sums a window's poles, each pole needing a `w(z)` — a compute-heavy,
 per-energy-independent workload, i.e. a real GPU target (unlike memory-bound MC
 transport).
@@ -73,7 +73,7 @@ The dev box has a real **NVIDIA GeForce RTX 3050** (Vulkan, NVIDIA proprietary
 driver), so `probe()` returned `Some` and both GPU tests **ran on hardware** (no
 llvmpipe, no skip):
 
-- `gpu_wmp::tests::gpu_wmp_agrees_with_cpu_or_skips` — U-238 (602 poles), 2000
+- `gpu_wmp::tests::gpu_wmp_agrees_with_cpu_or_skips` — U-238 (~~602~~ 4 062 poles, corrected 2026-10-05, #536), 2000
   log-spaced energies over `[e_min, e_max]`, 300 K: **max relative error of the
   total (scatter + absorption) = 2.98e-3 (~0.3 %)** at E ≈ 8.77e3 eV, vs the
   `f64` CPU reference. Gate `< 5e-2` (kept loose so it never flakes across
@@ -180,7 +180,7 @@ crates/njoy-outram-park-fork/scripts/test.sh                                 # f
    specific numbers are committed (the template `.md` carries none). Confirm
    `HardwareInfo` (GPU name, core count, OS) is acceptable to write locally.
 5. **Buffer/edge cases.** `n_energy == 0` early-returns; zero-pole nuclides pad
-   buffers to one dummy element (U-238 has 602, never triggered); very large
+   buffers to one dummy element (U-238 has ~~602~~ 4 062, corrected 2026-10-05, #536; never triggered); very large
    grids single-submit (no chunking) — confirm 1e6 energies (48 MB output) is
    within the target device limits generally, not just the RTX 3050.
 6. **Run-to-run timing variance.** GPU ms vary (61x vs 69x at 1e6 seen);

@@ -25,24 +25,35 @@
 
 //! # outram-blender
 //!
+//! **Geometry description + meshing** (scope widened 2026-10-02, GitHub
+//! issue #486): the CSG geometry description and its pure navigation kernel
+//! ([`csg`], an OpenMC port moved here from `outram-mc-libs`, which re-exports
+//! it), the OpenMC geometry plotter ([`csg::plot`]), the tally-mesh description
+//! ([`spatial_mesh`]), and the mesh-authoring frontend described below.
+//!
 //! A pure-Rust, headless **mesh-authoring frontend** for the OUTRAM PARK
 //! multiphysics suite, inspired by the **architecture** of
 //! [Blender](https://github.com/blender/blender) (GPLv2-or-later, which is
 //! GPLv3-compatible). It authors and procedurally generates geometry, then
 //! bridges it into two OUTRAM PARK solver workflows:
 //!
-//! - **Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
+//! - ~~**Monte Carlo neutron transport** (feature `mc-export`). Author a surface,
 //!   fit it to an `outram-mc-libs` CSG universe ([`export`]), attach materials,
 //!   and run a k-eigenvalue (criticality) calculation returning `k_eff ± σ`
 //!   (the `sim` module). This path is driven by the **MC Studio** egui app
-//!   (`examples/mc_studio`).
+//!   (`examples/mc_studio`).~~ **MOVED 2026-10-02 (GitHub #486):** this crate
+//!   no longer depends on `outram-mc-libs` (outram-mc depends on *it*, for the
+//!   CSG description). Fit a surface to CSG here ([`export::to_csg_primitive`]);
+//!   the bridge onto outram-mc and the k-eigenvalue run driver (`sim`) live in
+//!   `nee_soon` (`nee_soon::blender_bridge`, `nee_soon::sim`), which MC Studio
+//!   in `dhoby-ghaut` drives.
 //! - **CFD / thermal-hydraulics volume meshing** (feature `foam-mesh`). Hand a
 //!   closed surface to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
 //!   pipeline and write out an OpenFOAM `polyMesh` (the `foam_mesh` module). This
 //!   path is driven by the **Mesh Studio** egui app (`examples/mesh_studio`).
 //!
 //! The base authoring library (primitives, mesh operators, modifiers, procedural
-//! evaluator, geometry processing) pulls in neither solver — both bridges are
+//! evaluator, geometry processing) pulls in no solver — the CFD bridges are
 //! opt-in cargo features, so the default build stays light and Android-buildable.
 //!
 //! > **⚠️ Not a Blender port.** Blender is millions of lines of C/C++/Python;
@@ -74,7 +85,7 @@
 //! |---|---|---|
 //! | [`math`] | `blenlib` `BLI_math` vector types | **real** — a minimal pure-Rust [`math::Vec3`] |
 //! | [`transform`] | `Object.matrix_world` affine placement | **real** — [`transform::Affine3`] per-vertex transform (CPU reference for the GPU kernel) |
-//! | `gpu` *(desktop only)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); one wired kernel (parallel affine vertex transform) with probe + graceful CPU fallback. Compiled unconditionally on desktop, absent on Android |
+//! | `gpu` *(feature `gpu`, default-on; never on Android)* | — (no Blender analogue) | **real** — headless `wgpu` compute (WGSL); ~~one wired kernel (parallel affine vertex transform)~~ **two wired kernels since 2026-10-20 (gh #1005)**: the parallel affine vertex transform and ARAP's per-vertex closest rotations (`arap::arap_deform_on_gpu`, `f32`, opt-in), with probe + graceful CPU fallback. ~~Compiled unconditionally on desktop~~ **CORRECTED 2026-10-02**: behind the default-on `gpu` feature; absent on Android, or with `--no-default-features` |
 //! | [`mesh`] | `bmesh` (`BMVert`/`BMEdge`/`BMLoop`/`BMFace`) | **real** — index-based half-edge topology |
 //! | [`selection`] | `editmesh_select.cc` / `BM_select_*` | **real** — select modes + flush; all/none/invert; box/sphere/lasso region; linked; mirror; edge/face loop, ring, boundary loop, shortest path; more/less; select similar; checker deselect; non-manifold / loose / interior-faces / faces-by-sides (GH issue #37 §A — `op-hzs.54.1`–`.4`) |
 //! | [`topology`] | `bmesh_queries.cc` / `bmesh_walkers_impl.cc` | **real** — precomputed radial (edge→faces) + disk (vertex→edges) adjacency; edge-loop / edge-ring / face-loop walkers; Dijkstra + BFS path helpers |
@@ -125,7 +136,7 @@
 //! | [`ops`] | `bmesh/operators/*` (`bmo_*`) mesh operators | **real** — extrude / midpoint-subdivide / vertex-bevel (flat or rounded multi-segment; boolean delegates to [`boolean`]) |
 //! | [`subdivision`] | OpenSubdiv / `MOD_subsurf` | **real** — Catmull-Clark surface subdivision (local stencils) |
 //! | [`loop_subdivision`] | `MOD_subsurf` (triangle path) | **real** — Loop subdivision surface for triangle meshes |
-//! | [`laplacian`] | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin smoothing (first `faer` sparse solve) |
+//! | [`laplacian`] | `MOD_laplaciansmooth` / `bmo_smooth_laplacian` | **real** — cotangent/uniform discrete Laplacian + implicit & Taubin smoothing (first sparse solve; ~~`faer`~~ `petir::sparse` since 2026-10-20, gh #994) |
 //! | [`parameterize`] | UV unwrap (harmonic map) | **real** — Tutte/harmonic planar parameterization of a disk (reuses the Laplacian sparse solve) |
 //! | [`arap`] | "As Rigid As Possible" deform | **real** — ARAP handle-based deformation (local rotation fit + cotangent-Laplacian global solve) |
 //! | [`decimate`] | `MOD_decimate` (Collapse) | **real** — QEM (Garland–Heckbert) edge-collapse mesh simplification |
@@ -144,9 +155,10 @@
 //! | [`boolean_classify`] | `mesh_boolean.cc` inside/outside classification | **real** — point-in-closed-mesh via generalized winding number (+ ray-parity cross-check) |
 //! | [`modifiers`] | `modifiers/intern/MOD_*` modifier stack | **real** — subsurf / mirror / array |
 //! | [`procedural`] | Geometry Nodes (`nodes/geometry/*`) | **real** — node-graph evaluator |
-//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridges (`foam-export`, `mc-export`) |
+//! | [`export`] | I/O exporters (`io/*`) | **real** — OpenFOAM polyMesh text + CSG fitting (box/sphere/cylinder/convex-faceted) + DAGMC faceted-solid (with an opt-in closed-2-manifold gate, [`export::to_faceted_solid_checked`]) + feature-gated real-type bridge (`foam-export`; ~~`mc-export`~~ retired 2026-10-02, #486) |
 //! | [`stl`] | STL I/O | **real** — ASCII + binary STL read/write (surface-mesh interchange / DAGMC / Monte-Carlo feed) |
-//! | `sim` *(feature `mc-export`)* | — (no Blender analogue) | **real** — Monte Carlo setup + run: build materials, bundle geometry/source/settings, run a k-eigenvalue criticality calc (`k_eff ± σ`) via `outram-mc-libs`. Backend of **MC Studio** |
+//! | ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (GitHub #486): the Monte Carlo setup + run driver, backend of **MC Studio** |
+//! | [`unstructured`] | — (OpenFOAM `primitiveMesh` geometry port) | **draft** (2026-10-03, #492) — the neutral FV/FE/MC mesh (`UnstructuredMesh`), converters (`convert::{foam, block_mesh, cfmesh, fem}`, feature-gated), the 1-D mesher, a mesh plotter. Unit tests written, not yet run |
 //! | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet→dual→boundary-layers pipeline → OpenFOAM `polyMesh`, gated by a closed-2-manifold check on the surface. Backend of **Mesh Studio** |
 //!
 //! ## Design rules honoured here (workspace `CLAUDE.md`)
@@ -190,6 +202,8 @@ pub mod boolean_general;
 pub mod boolean_predicates;
 pub mod bridge;
 pub mod connect;
+pub mod connect_concave;
+pub mod connect_nonplanar;
 pub mod convex_hull;
 pub mod curve;
 pub mod curve_mesh;
@@ -203,11 +217,31 @@ pub mod edge_bevel;
 pub mod edge_tools;
 pub mod export;
 
-/// Monte Carlo simulation setup + run (feature `mc-export`) — build materials,
-/// bundle geometry + source + settings, run a k-eigenvalue criticality
-/// calculation. The backend the MC Studio GUI drives.
-#[cfg(feature = "mc-export")]
-pub mod sim;
+/// **CSG geometry description and its pure navigation kernel** (surfaces,
+/// cells, universes, lattices, locate / distance-to-boundary, TRISO particle).
+/// Moved here from `outram-mc-libs` on 2026-10-02 (GitHub issue #486);
+/// outram-mc-libs re-exports it under `outram_mc_libs::geometry::*`. Core: no
+/// feature, no dependency, Android- and wasm-clean.
+pub mod csg;
+
+/// **Spatial (tally) mesh description**: regular, rectilinear, cylindrical,
+/// spherical and (since 2026-10-03, GitHub #492) **unstructured** meshes and
+/// [`spatial_mesh::MeshKind`]. Moved here from `outram-mc-libs`
+/// (`tally::mesh`) on 2026-10-02 (GitHub issue #486); bin lookup and scoring
+/// stay in outram-mc-libs. Core: no feature, no dependency.
+pub mod spatial_mesh;
+
+/// **The neutral unstructured mesh** (GitHub #492): one description that FV
+/// (`polyMesh` / `FvMesh`), FE (`farrer-park` typed elements) and Monte Carlo
+/// tallies (`spatial_mesh::MeshKind::Unstructured`) are all built from, with
+/// feature-gated converters and orchestration of the workspace's meshers
+/// (blockMesh / snappyHexMesh, cfMesh, farrer-park generators, the 1-D
+/// mesher) and a mesh plotter. Core: no feature.
+pub mod unstructured;
+
+/// Serial `rayon` stand-in for wasm32 (the plotter's `into_par_iter`).
+#[cfg(target_arch = "wasm32")]
+mod wasm_par;
 
 /// Volume-meshing bridge (feature `foam-mesh`) — hand a blender surface [`mesh::Mesh`]
 /// (or a built-in primitive) to `outram-park-fork-cfmesh`'s tet→dual→boundary-layers
@@ -215,6 +249,13 @@ pub mod sim;
 /// OpenFOAM `polyMesh`. The backend the Mesh Studio GUI drives.
 #[cfg(feature = "foam-mesh")]
 pub mod foam_mesh;
+
+/// CSG cell-adjacency graph for RAFFLES' graph networks (feature `gnn-graph`)
+/// — turns `outram-mc-libs` CSG [`Cell`](outram_mc_libs::geometry::cell::Cell)s
+/// into a [`raffles::gnn::Graph`]. Moved here from `raffles::gnn::mc_geometry`
+/// on 2026-10-02: this crate owns geometry description (GitHub issue #486).
+#[cfg(feature = "gnn-graph")]
+pub mod gnn_graph;
 pub mod array_patterns;
 pub mod bool_tool;
 pub mod draw_tool;
@@ -226,6 +267,7 @@ pub mod fill_holes;
 pub mod inset;
 pub mod knife;
 pub mod laplacian;
+pub mod limited_dissolve;
 pub mod loop_cut;
 pub mod loop_tools;
 pub mod loop_subdivision;
@@ -240,7 +282,10 @@ pub mod normals;
 pub mod nurbs_surface;
 pub mod object_ops;
 pub mod ops;
+pub mod planar_faces;
 pub mod poke_quads;
+pub mod polyfill;
+pub mod polyfill_beautify;
 pub mod primitives;
 pub mod primitives_extra;
 pub mod procedural;
@@ -268,35 +313,17 @@ pub mod transform_ops;
 pub mod triangulate;
 pub mod weld;
 
-/// Heavy linear-algebra backend for the *large* mesh solves the advanced
-/// operators will need — Laplacian mesh editing, ARAP deformation, and mesh
-/// parameterization all build a sparse Laplacian over the mesh and solve
-/// `A x = b`. Re-exports [`faer`], a pure-Rust, Android-safe dense **and**
-/// sparse linear-algebra library (SIMD via `pulp`, no system BLAS).
-///
-/// **Division of labour:** per-element geometry math (positions, normals,
-/// transforms) stays in the fixed-size [`math`] types — small, fast, no
-/// allocation. `faer` is only for the big systems. For interactive editing
-/// (same matrix, many right-hand sides) prefer `faer`'s sparse **Cholesky**
-/// factorization over an iterative solve. An *optional* bridge to
-/// `outram-foam-basic-lib`'s CG/GAMG iterative solvers is tracked separately for
-/// large one-off sparse solves (see beads `op-hzs`).
-///
-/// **First consumer:** [`laplacian`] — the cotangent/uniform discrete Laplacian
-/// and implicit Laplacian smoothing assemble a sparse system and solve it with
-/// `faer`'s sparse Cholesky. Future ARAP / parameterization operators reuse the
-/// same path.
-pub use faer;
-
-/// Headless GPU compute via `wgpu`. Compiled **unconditionally on every desktop
-/// target** (no cargo feature to opt in) so the GPU path is used as far as
-/// possible; **absent only on Android** (`target_os = "android"`), which has no
-/// system Vulkan/Metal loader and where the workspace Android rule forbids GPU
-/// deps in the library build. Whether or not this module is present, callers get
-/// a graceful CPU fallback: on Android the GPU attempt is compiled out entirely,
-/// and on desktop [`gpu::probe`] returning `None` or a recoverable
-/// [`gpu::GpuError`] routes to the CPU reference path. See
+/// Headless GPU compute via `wgpu`. Behind the **default-on `gpu` feature**
+/// (~~compiled unconditionally on every desktop target, no cargo feature~~
+/// **CORRECTED 2026-10-02**, GitHub issue #486) and **absent on Android**
+/// (`target_os = "android"`) whatever the feature says, since Android has no
+/// system Vulkan/Metal loader and the workspace Android rule forbids GPU deps
+/// in the library build. Whether or not this module is present, callers get
+/// a graceful CPU fallback: with the feature off or on Android the GPU attempt
+/// is compiled out entirely, and otherwise `gpu::probe` returning `None` or a
+/// recoverable `gpu::GpuError` routes to the CPU reference path. See
 /// [`transform::Affine3::transform_points_best_effort`] for the unified
-/// try-GPU-then-CPU entry point, and [`gpu`] for the fallback contract.
-#[cfg(not(target_os = "android"))]
+/// try-GPU-then-CPU entry point, and the `gpu` module for the fallback
+/// contract.
+#[cfg(all(feature = "gpu", not(target_os = "android")))]
 pub mod gpu;

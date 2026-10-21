@@ -249,8 +249,20 @@ fn quartic_real_roots(a: f32, b: f32, c: f32, d: f32, e: f32) -> Roots {
     }
     let coeffs = array<f32, 5>(a, b, c, d, e);
     let deriv = array<f32, 5>(4.0 * a, 3.0 * b, 2.0 * c, d, 0.0);
-    let crit3 = cubic_real_roots(4.0 * a, 3.0 * b, 2.0 * c, d);
-    // crit3 is already ascending from collect_real_roots / quadratic fallback.
+    // Sort explicitly, matching `sort_small_f32(&mut crit[..nc])` in the Rust
+    // mirror (surface_distance.rs). collect_real_roots below is correct only if
+    // its breakpoint array is increasing, and that invariant used to be enforced
+    // by an explicit sort on the Rust side and by a comment here -- the comment
+    // was true (both cubic exits emit ascending order) but load-bearing and
+    // unchecked. See bn:op-9s8.13.
+    //
+    // It really is load-bearing, and that was measured rather than argued:
+    // reversing cubic_real_roots' output in
+    // tests/gpu_geometry_helpers_directly.rs breaks the torus distance test as
+    // well as the ordering one. The sort is a no-op on already-sorted input --
+    // at most three comparisons -- so enforcing it costs nothing and removes an
+    // invariant that only one side of the translation guaranteed.
+    let crit3 = sort_roots(cubic_real_roots(4.0 * a, 3.0 * b, 2.0 * c, d));
     let crits = array<f32, 3>(crit3.r[0], crit3.r[1], crit3.r[2]);
     return collect_real_roots(coeffs, 5u, deriv, 4u, crits, crit3.n);
 }

@@ -38,15 +38,40 @@
 //! [`crate::pebble_beds::sphere_packing`], which stays where it is because the
 //! delta-tracking path depends on it directly.
 //!
-//! # Status: scaffold
+//! # Status — CORRECTED 2026-09-18
 //!
-//! The chord statistics, the SCLS retention machinery and the brute-force index are
-//! implemented and unit-tested. The **CLS and SCLS transport drivers are not** — those
-//! paths return typed `NotImplemented` errors rather than fabricated answers.
+//! ~~Status: scaffold. The CLS and SCLS transport drivers are not implemented —
+//! those paths return typed `NotImplemented` errors. No accuracy claim is
+//! made.~~
 //!
-//! **No accuracy claim is made for CLS or SCLS.** Whether either reproduces the
-//! explicit-RSA reference is an empirical question the benchmark suite (bead
-//! `op-eby.7`) must measure before anything here may be called validated.
+//! **All three statements were stale.** Both drivers are implemented, no
+//! `NotImplemented` remains on either path, and accuracy has been measured and
+//! published: [`crate::dh_universe::DhTreatment`] runs CLS and SCLS as full arms
+//! of the FHR unit-cell k-eigenvalue comparison, and `examples/dh_keff_vv.rs`
+//! reports their eigenvalues against an exact delta-tracked reference.
+//!
+//! What *is* still true, and matters more than the scaffold label did:
+//!
+//! - **The old text asked whether CLS reproduces the explicit-RSA reference,
+//!   and left it open. It does not, and the reason is implementation —
+//!   specifically *what CLS was applied to*.** Whole-particle CLS measures `-3149 pcm`
+//!   (2.9σ, resolved) because it smears the fuel kernel over 7.7x its volume
+//!   and destroys grain-level self-shielding. Applying CLS at the **kernel**
+//!   instead — [`crate::dh_universe::DhTreatment::ChordLengthKernel`] — gives
+//!   `+669 pcm`, **not resolved from exact** at these statistics: a recovery of
+//!   **+3818 pcm**. The price is the whole speed advantage (157.6 s against
+//!   exact delta tracking's 148.4 s); what survives is O(1) memory.
+//! - The absorbing-inclusion benchmark ([`benchmark`]) independently measures
+//!   CLS **over-absorbing** against an explicit RSA reference — the same sign.
+//! - One implementation defect is found and fixed: inclusion chords were drawn
+//!   exponentially rather than from a sphere's chord law, see
+//!   [`cls::sample_chord_sphere`]. It preserved the mean, so the mean-only tests
+//!   passed, while putting 22 % of sampled chords beyond `2R`. Correcting it
+//!   moves absorption *up*, so it does not explain the eigenvalue gap — it was
+//!   masking part of it.
+//!
+//! **Nothing here is validated.** These are measurements against another code
+//! path, not against experiment.
 //!
 //! Scaffolded per the *OUTRAM-MC Design Scaffold v0.1* (Theodore Ong, Zhe Chuan Tan),
 //! tracked under beads epic `op-eby`. This is **new work**, not an OpenMC port —

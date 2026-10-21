@@ -1,5 +1,5 @@
-use peroxide::fuga::{CubicSpline, Spline};
-use roots::{find_root_brent, SimpleConvergency};
+use crate::numerical_methods::{bracketed_root, NaturalCubicSpline};
+use petir::roots::BracketingMethod;
 use specific_enthalpy::try_get_h;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::*;
@@ -70,12 +70,14 @@ pub fn fiberglass_thermal_conductivity_zou_zweibaum_spline(
     let thermal_conductivity_values_watt_per_meter_kelvin =
         c!(0.028616, 0.033060, 0.038916, 0.044066, 0.054366, 0.064666);
 
-    let s = CubicSpline::from_nodes(
+    let s = NaturalCubicSpline::new(
         &thermal_cond_temperature_values_kelvin,
         &thermal_conductivity_values_watt_per_meter_kelvin,
-    );
+        "fiberglass: thermal_cond_temperature_values_kelvin -> thermal_conductivity_values_watt_per_meter_kelvin",
+        "K",
+    )?;
 
-    let fiberglass_thermal_conductivity_value = s.unwrap().eval(temperature_value_kelvin);
+    let fiberglass_thermal_conductivity_value = s.eval(temperature_value_kelvin)?;
 
     return Ok(ThermalConductivity::new::<watt_per_meter_kelvin>(
         fiberglass_thermal_conductivity_value,
@@ -134,7 +136,7 @@ fn fiberglass_enthalpy_test() {
 #[inline]
 pub(crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
     h_fiberglass: AvailableEnergy,
-) -> ThermodynamicTemperature {
+) -> Result<ThermodynamicTemperature, TuasLibError> {
     // the idea is basically to evaluate enthalpy at the
     // following temperatures
     let temperature_values_kelvin: Vec<f64> = c!(200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0);
@@ -168,7 +170,7 @@ pub(crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
             // i can of course unwrap the result,
             // but i want to leave it more explicit in case
             // i wish to manually handle the error
-            Err(error_msg) => panic!("{}", error_msg),
+            Err(e) => return Err(e),
         };
 
         // once i evalute the enthalpy value, pass it on to the vector
@@ -181,18 +183,28 @@ pub(crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
     // as an output
 
     let enthalpy_to_temperature_spline =
-        CubicSpline::from_nodes(&enthalpy_vector, &temperature_values_kelvin);
+        NaturalCubicSpline::new(
+        &enthalpy_vector,
+        &temperature_values_kelvin,
+        "fiberglass: enthalpy_vector -> temperature_values_kelvin",
+        "J/kg",
+    )?;
 
     // now let's get our enthalpy in joules_per_kg
     let h_fiberglass_joules_per_kg = h_fiberglass.get::<joule_per_kilogram>();
 
-    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline
-        .unwrap()
-        .eval(h_fiberglass_joules_per_kg);
+    let temperature_from_enthalpy_kelvin = enthalpy_to_temperature_spline.eval(h_fiberglass_joules_per_kg)?;
 
     // now, the fiberglass enthalpy will not be quite near
     // enough, but it is very close. We can bracket
     // the root
+
+    // `find_root_brent` takes a closure returning f64, so a property
+    // error inside it cannot be propagated with `?`. Capture it instead and
+    // re-raise after the solve, so this path returns an error rather than
+    // aborting the process.
+    let captured_error: std::cell::RefCell<Option<TuasLibError>> =
+        std::cell::RefCell::new(None);
 
     let enthalpy_root = |temp_degrees_c_value: f64| -> f64 {
         let lhs_value = h_fiberglass.get::<joule_per_kilogram>();
@@ -205,8 +217,15 @@ pub(crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
 
         let rhs_value = match rhs {
             Ok(enthalpy_val) => enthalpy_val.get::<joule_per_kilogram>(),
-            // fall back to guess value,
-            Err(error_msg) => panic!("{}", error_msg),
+            // Record the first error and return a sentinel so the root
+            // finder terminates instead of panicking; the enclosing
+            // function checks `captured_error` immediately afterwards.
+            Err(e) => {
+                if captured_error.borrow().is_none() {
+                    *captured_error.borrow_mut() = Some(e);
+                }
+                return 0.0;
+            }
         };
 
         return lhs_value - rhs_value;
@@ -218,17 +237,27 @@ pub(crate) fn fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
 
     let lower_limit: f64 = temperature_from_enthalpy_kelvin - brent_error_bound;
 
-    let mut convergency = SimpleConvergency {
-        eps: 1e-8f64,
-        max_iter: 30,
-    };
-    let fluid_temperature_degrees_c_result =
-        find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
+    // roots::find_root_brent with SimpleConvergency { eps: 1e-8, max_iter: 30 }
+    // replaced by PETIR's GSL Brent with the same bracket and the same
+    // two-part test; see crate::numerical_methods::bracketed_root (gh:#989).
+    let fluid_temperature_degrees_c_result = bracketed_root(
+        BracketingMethod::Brent,
+        &enthalpy_root,
+        upper_limit,
+        lower_limit,
+        1e-8,
+        30,
+        "fiberglass: temperature from specific enthalpy",
+    );
 
-    let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result.unwrap();
+    if let Some(e) = captured_error.into_inner() {
+        return Err(e);
+    }
+
+    let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result?;
 
     // return temperature
-    ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin)
+    Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))
 }
 
 /// test of a spline function for fibreglass
@@ -251,7 +280,7 @@ pub fn fiberglass_temperature_from_enthalpy_test_spline_1() {
     // now we have an enthalpy, let's check the temperature
 
     let temperature_from_enthalpy_test =
-        fiberglass_spline_temp_attempt_1_from_specific_enthalpy(enthalpy_spline_zweibaum_375k);
+        fiberglass_spline_temp_attempt_1_from_specific_enthalpy(enthalpy_spline_zweibaum_375k).unwrap();
 
     // we are basically by about 5K, which is
     // not within measurement error, probably have to do more work

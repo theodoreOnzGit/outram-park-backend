@@ -1,0 +1,1052 @@
+# Transport-kernel physics: what is implemented, verified, and ablatable
+
+**Date: 2026-09-16.** A systematic enumeration of every physics mechanism in
+`outram-mc-libs`' collision kernel and every module of `njoy-outram-park-fork`,
+against three independent questions:
+
+| column | question |
+|---|---|
+| **impl** | is the mechanism implemented at all? |
+| **verified** | is there a test comparing it to something outside itself? |
+| **ablatable** | can it be switched off *in-process*, so its worth can be priced? |
+| **control** | is there a test asserting the ablation actually ablates? |
+
+**The fourth column is the one that is usually missing, and it is not a
+formality.** An ablation hook with no control test reports "no difference" when
+it silently fails, and that reads as "this physics does not matter" — the worst
+failure mode an ablation study has, and one this crate has hit before
+(`op-50vu`: free-gas and bound eigenvalues came out bit-identical because the
+S(α,β) wiring was not reaching the sampler).
+
+**Ablatable means in-process.** A mechanism switchable only through an
+environment variable read once per process cannot be used for a paired-seed
+study, because both arms cannot exist at once over the same seeds. Those are
+marked `env` and count as a gap, not as coverage.
+
+---
+
+## `outram-mc-libs` — the collision kernel
+
+| mechanism | impl | verified against | ablatable | control |
+|---|---|---|---|---|
+| Elastic energy (two-body, target at rest) | ✅ | analytic two-body closed form | n/a (not removable) | n/a |
+| **Elastic angular** (MF=4/MT=2) | ✅ | quadrature vs CDF inversion, 8 nuclides × 5 energies | ✅ `with_isotropic_elastic_scattering` | ✅ ×3 |
+| **Free-gas target motion** | ✅ | analytic Doppler integral (≤0.09 % on H-1); Maxwellian fixed point | ✅ `with_target_at_rest` (closed 2026-09-16) | ✅ ×2 |
+| **S(α,β) bound thermal** | ✅ | NJOY THERMR; detailed-balance fixed point | ⚠️ **`env` only** (`OUTRAM_RINGRPT_FREE_GAS_GRAPHITE`) | ✅ (6 files touch `with_thermal_scattering`) |
+| Discrete inelastic energy (MT=51…90) | ✅ | ENDF level table; threshold invariant | ✅ `without_inelastic` | ✅ (closed 2026-09-16) |
+| **Discrete inelastic angular** (MF=4/MT=51…90) | ✅ | per-level `⟨μ_cm⟩` vs OpenMC ACE (3.1e-3) | ✅ `with_isotropic_inelastic_scattering` | ✅ ×2 |
+| **Continuum inelastic energy** (MF=6 LAW=1 `f₀`) | ✅ | NJOY/ENDF tape; `⟨E'/E⟩` | ✅ `without_evaluated_continuum` | ✅ ×1 |
+| **Continuum inelastic angular** (MF=6 `LANG=1`) | ✅ | tape's own `a₁` (2.2e-4) | ✅ `with_isotropic_continuum_scattering` | ✅ (closed 2026-09-16) |
+| **Continuum inelastic angular** (MF=6 `LANG=2` Kalbach) | ✅ | closed form `r·(coth a − 1/a)` | ✅ (same hook) | ✅ (same) |
+| (n,2n) MT=16 multiplicity | ✅ | ENDF yield, per-subsection sum | ✅ `with_unit_n2n_multiplicity` (closed 2026-09-16) | ✅ ×2 (incl. a **kernel-level** one) |
+| **(n,3n) MT=17 multiplicity** | ✅ (2026-09-16) | ENDF MT=17 σ + MF=6 MT=17 law; threshold invariant | ✅ same hook (scope widened) | ✅ ×2 |
+| Tabulated **source** energy distribution | ✅ (2026-09-16) | uniform-CDF inversion; degenerate-table bounds | n/a | ✅ ×2 |
+| **DBRC / resonance elastic upscatter** | ✅ (2026-09-16) | 0 K elastic structure (175× across U-238's 6.67 eV resonance); inert above its limit; `None` path bit-identical | ✅ `without_dbrc` | ✅ ×3 |
+| ν̄(E) energy dependence | ✅ | MF=1/452 tape | ✅ `with_frozen_nubar` (closed 2026-09-16) | ✅ ×2 |
+| χ(E→E') fission spectrum (MF=5) | ✅ | MF=5 tape; `⟨E_out⟩` vs OpenMC (0.018 %); **sampler vs the tape's own row means, ≤1 %** | ✅ `with_frozen_fission_spectrum` (closed 2026-09-16) | ✅ ×2 |
+| Threshold behaviour (σ = 0 below threshold) | ✅ | ENDF redundancy relation; gh:#193 gate | n/a | n/a |
+| Delta (Woodcock) tracking | ✅ | vs surface-tracked CSG (18 pcm) | ✅ (method choice) | ✅ |
+| CSG geometry / surface tracking | ✅ | analytic intersections; lattice overlap | n/a | n/a |
+| RNG stream independence | ✅ | seed-to-seed `sd` gate (`op-rbo`) | n/a | ✅ |
+| **URR probability tables** | ✅ (2026-09-16) | **NJOY2016 PURR: Bondarenko elastic 4.2e-7, capture 3.0e-7** | ✅ `without_urr_probability_tables` | ✅ ×3 |
+| MF=6 incident-energy interpolation flag | 🟡 **carried, not honoured** (2026-09-16) | measured: 17 ranges INT=22 unit-base, **9 ranges INT=12 corresponding-point** | n/a | ✅ survey gate |
+| MF=6 `LANG = 11…15` (tabulated cosines) | ❌ retained, unsampled | — | n/a | n/a |
+
+## `njoy-outram-park-fork` — the data path
+
+| module | port status | verified against |
+|---|---|---|
+| RECONR (SLBW/MLBW/Reich-Moore) | ✅ | NJOY2016 PENDF, 7 s.f. |
+| RECONR LRF=4 (Adler-Adler) | ✅ | ⚠️ **no LRF=4 evaluation held** (gh:#172) |
+| RECONR LRF=7 (R-matrix limited) | ✅ | NJOY2016, 44 326 pts, worst 9.8e-3 |
+| BROADR | ✅ | NJOY2016; `thnmax` bound (`op-sdbk`) |
+| UNRESR / PURR | ✅ kernel + transport-facing tables; PENDF MT=152/153 *writer* still unported | ✅ NJOY2016, converged Bondarenko moments to 4.2e-7 (elastic) / 3.0e-7 (capture) |
+| THERMR | ✅ | NJOY2016 MF=6, 7 s.f. after gh:#188 |
+| ACER | ✅ | NJOY2016 ACE, 5.3e-11 |
+| GROUPR / GAMINR / COVR / ERRORR / LEAPR | ✅ | NJOY2016 |
+| WMP | 🟡 `from_blob` TODO |
+| MF=5 LF=5 (general evaporation) | ❌ not ported | no sampling consumer |
+
+---
+
+## The gap list, in priority order
+
+Priority is by **flux-weighted worth × absence of a control**, not by how easy
+each is.
+
+### ~~1. `with_isotropic_continuum_scattering` has no control test~~ — CLOSED 2026-09-16
+
+The hook `examples/godiva_continuum_anisotropy_ablation.rs` depends on. Its
+existing control (`tests/continuum_angular_ablation_control.rs`) tests
+`ContinuumAngularMode` — the *enum passed to the scatter function* — not the
+`Nuclide`-level hook the example actually calls. Those are different code
+paths, and only the untested one is used to produce a number.
+
+### ~~2. `without_inelastic` has no control test~~ — CLOSED 2026-09-16
+
+It removes the largest single reactivity mechanism this crate has measured
+(−4190 pcm on the FHR pebble, the row that localised gh:#193 to F-19). A silent
+failure here would have derailed that investigation.
+
+### ~~3. Free-gas target motion is not ablatable in-process~~ — CLOSED 2026-09-16
+
+Worth **−2242 pcm** on the FHR pebble — the positive control in gh:#193's
+pricing table and the single biggest effect in it. It was reachable only by
+zeroing the transport temperature through one example's environment variable,
+so it could not take part in a paired-seed study alongside the other
+mechanisms.
+
+**Closed by `Nuclide::with_target_at_rest`**, a per-nuclide flag consulted
+through `Nuclide::free_gas_kt(temp_k)`. Every transport driver now takes its
+elastic-kinematics temperature from that one call rather than multiplying
+`K_BOLTZMANN_EV_PER_K` itself (5 sites in `keff.rs`/`transport_csg.rs`/
+`keff_delta.rs`, 2 in `slowing_down.rs`), so the hook cannot be reachable from
+one driver and not another — the constant is no longer imported by any of them.
+The ablation is expressed *through* the production path: a zero `kT` makes
+`free_gas_elastic_scatter` take its own target-at-rest branch, so no branch was
+added to the transport kernel.
+
+Controls in `tests/ablation_hook_controls.rs` (2 tests, both passing):
+
+- **It ablates, and had something to ablate.** Measured on ENDF/B-VIII.0 U-238
+  at 293.6 K: `kT 2.530049e-2 -> 0` eV, and up-scatter — the signature of target
+  motion, since a target at rest can only take energy away — goes
+  **4207/8192 -> 0/8192** at 0.0253 eV. The ablated arm's outcomes are confined
+  to `[2.487485e-2, 2.529998e-2]` eV, inside `[α·E, E]` with `α = 0.98319`, and
+  cross sections are bit-identical across the hook.
+- **It is a bit-for-bit no-op above `400·kT`.** 2048/2048 paired draws at 2 MeV
+  give identical outgoing energy *and* leave the RNG streams in lockstep
+  (threshold `1.0120e1` eV). This is
+  what makes the recorded prediction — ~zero worth on a bare fast metal sphere,
+  whose flux is almost all above the 10.12 eV threshold — a prediction rather
+  than a hope: a non-zero Godiva reading would mean the wiring, not the physics.
+
+**One thing this hook does NOT have, stated because the others do.** It breaks
+RNG-stream invariance. The free-gas kernel draws a target velocity (a rejection
+loop plus a rotation) that the target-at-rest kernel never draws, so the two
+arms diverge at the first thermal collision. The angular ablations swap one
+sampled quantity for another drawn from the same number of variates and stay in
+lockstep history by history; this one is attributable **statistically over an
+ensemble of seeds only**. A single paired run measures nothing here, and the
+doc comment says so.
+
+### ~~4. ν̄(E) and χ(E→E') cannot be ablated at all~~ — CLOSED 2026-09-16
+
+Both are verified against the tape and against OpenMC, so their *data* was
+sound. Neither could be priced. For a bare fast sphere ν̄(E)'s slope is a direct
+reactivity lever, and it was the one mechanism in the fast kernel with no way to
+ask "what is it worth".
+
+**Closed by `Nuclide::with_frozen_nubar(e_ref)` and
+`Nuclide::with_frozen_fission_spectrum(e_ref)`**, routed through `nu_bar(e)` and
+a private `chi_incident_energy(e_in)` the way the free-gas hook is routed
+through `free_gas_kt`. Both *freeze* rather than remove: a zero ν̄ is not an
+ablation, it is a subcritical block of metal, and the arms would differ by the
+whole eigenvalue instead of one mechanism's worth. What is worth pricing is the
+**slope**.
+
+Controls in `tests/ablation_hook_controls.rs` (3 tests), measured on
+ENDF/B-VIII.0 U-235 at 293.6 K:
+
+- **ν̄** — `2.42985` at 0.0253 eV against `2.64574` at 2 MeV, a rise of
+  `0.21589`. Frozen at thermal it reads `2.42985` at every energy and
+  `nu_fission` at 2 MeV falls `3.40904 -> 3.13086 b`, **−8.16 %**, with cross
+  sections bit-identical.
+- **χ** — LF=1 on **22 incident rows**, 1.000e-5 … 3.000e7 eV. The tape's own
+  pdfs integrate to mean birth energy `1.99980e6` eV at 1e-5, `2.01746e6` eV at
+  14 MeV (**+0.883 %**), `2.30184e6` eV at 30 MeV (**+15.103 %**), and the
+  **sampler reproduces both endpoint rows to within 1 %**.
+- **They compose** with each other and with the scattering hooks, so one
+  paired-seed study can vary several mechanisms without confounding them.
+
+**A prediction this licenses, recorded before measuring it.** The two factors of
+the fission source are very unequal levers on a fast system: freezing ν̄ costs
+8.16 % of `nu_fission` at 2 MeV — thousands of pcm — while χ's dependence is
+worth 0.883 % in mean birth energy across the entire range a fission spectrum
+occupies, so freezing χ should move `k` by **well under 100 pcm on Godiva**. A
+larger χ reading means the wiring, not the physics.
+
+**A methodological correction worth keeping.** The χ control first asserted "the
+sampled mean must move more than 1 % from thermal to 14 MeV" and **failed at
++0.904 %**. The arbitrary threshold was the defect, not the sampler — reading
+the tape showed χ barely moves through the fission-spectrum range and hardens
+only above ~15 MeV, where third-chance fission sets in. The test now takes its
+"there was something to remove" condition from the evaluation's own rows and
+additionally cross-checks the sampler against them, which is a stronger claim
+than any threshold on the difference would have been. Same lesson as the
+`without_inelastic` partition assumption two commits earlier: state what the
+data says, then assert it — do not assert what it ought to say.
+
+**Known partial no-op, stated because it is silent.** On the LOW (`Core`) tier
+*above* the WMP `e_max`, `nu_fission` comes from fast MGXS group data with ν̄
+already baked into the group constant, so there is no separate ν̄ factor for
+`with_frozen_nubar` to freeze up there. It is complete on the HIGH
+(`Pointwise`) tier, which every case that would ask this question runs on.
+
+### 5. `op-os8x` — the open physics question, now localised
+
+Measured on HEAD 2026-09-16 against OpenMC on identical data: mean `E`
+**+0.42 %** (4.6 σ), flux below 300 keV **−1.22 %** (6.0 σ), while `k` agrees to
+`−32 ± 34 pcm`. Localised per-bin to **+0.88 % excess flux at 1.9–3.0 MeV**
+(4.7 σ, 13.8 % of the flux) against **1.4–1.9 % deficits at 67–174 keV**.
+
+Only inelastic scattering moves a 2 MeV neutron to ~100 keV in one collision.
+Excluded by measurement: the angular laws (both in, and the continuum one's
+ablation shows it does not move the spectrum), the cross sections (≤0.06 %
+flux-weighted), and `k`.
+
+### The leading suspect is now EXCLUDED too (2026-09-16)
+
+**The MT=91 continuum `f₀(E→E')` shape was the leading suspect. It is not the
+cause.** `tests/mt91_transfer_vs_openmc.rs` compares our law against OpenMC's
+own, extracted from the HDF5 built in-session off the same ENDF/B-VIII.0 tape,
+across all **18** incident rows in 1.5–3.5 MeV. Mean outgoing energy, median and
+`P(E' < 300 keV)` agree on **every row to the 7 significant figures printed** —
+worst deviation `0.0000 %`, signed bias `−0.0000 %`. The two are the same table.
+
+**A correction to the method recorded on this gap.** The measurement previously
+named here was "a per-MT collision tally in the 1.9–3.0 MeV band on both sides".
+Working it through, **that measurement cannot discriminate**: a collision rate is
+flux × σ, the cross sections already agree to ≤0.06 % flux-weighted, so a rate
+comparison would largely restate the flux difference it is meant to explain.
+What discriminates is the **transfer** — where an MT=91 collision at 2–3 MeV puts
+the neutron — and that needs no transport, no seeds and no statistics at all.
+
+### What that leaves
+
+Cross sections, angular laws, `k`, the transfer table, the within-row CDF
+inversion and the inter-row unit-base rule are **all excluded by measurement**.
+`op-os8x` remains unexplained. What is left:
+
+1. **The CM→lab transform on the continuum law.** Both codes store this law in
+   the centre-of-mass frame (`LCT=2`; OpenMC reports `center_of_mass == True`)
+   and each transforms at sampling time. The transform couples the sampled
+   `μ_cm` to `E'`, so a difference here moves the spectrum while leaving every
+   table identical — exactly the signature left.
+2. ~~**Inter-row (unit-base) interpolation.**~~ **MEASURED AND EXCLUDED
+   2026-09-16.** Our sampled `⟨E'⟩` at 8 incident energies deliberately
+   *between* tabulated rows agrees with the closed-form mean of OpenMC's
+   unit-base construction to a worst `0.0228 %` and a flat signed `−0.0205 %`,
+   with no energy dependence. The within-row CDF inversion goes with it: on-grid
+   `r = 0` makes the rescale the identity, and the sampled mean sits the same
+   flat `−0.05 %` from the exact row mean there.
+
+   **This one nearly became a false positive, and the near-miss is the point.**
+   The first run reported a systematic `+0.60 %` bias growing to `+1.76 %` with
+   energy — precisely the `op-os8x` signature — and it was written up as a
+   probable cause. The defect was in the **reference**: the mean was computed as
+   `∫E·p dE / ∫p dE` by the trapezoid rule on both sides. The denominator is
+   exact (`p` is linear between points); the numerator is not (`E·p(E)` is
+   quadratic), and its error `−h³m/6` grows with bin width and pdf slope, hence
+   with incident energy. Against the exact lin-lin integral the sampler is a
+   flat `−0.05 %` at 1.945, 2.4 and 3.0 MeV, where the trapezoid error ran
+   `+0.089 %`, `−0.259 %`, `−1.632 %`.
+
+   **Fifth reference-side error in this study.** The four "nearest-point trap"
+   instances in the crate's `CLAUDE.md` were about reading a table at the wrong
+   index; this one is about integrating it with the wrong rule. The general
+   form is the same: *a reference is not right merely for being external, or for
+   being the obvious formula.*
+
+   It also qualifies the row-by-row result above. That comparison applied the
+   *same* inexact rule to the *same* tables, so its exact agreement was partly
+   guaranteed. It still establishes what it claims — the tables are identical —
+   but it was never evidence that either side's moment was right. Both the test
+   and the oracle scripts now integrate the first moment in closed form.
+3. **The competing-channel branching at 2–3 MeV** — which MT a collision is
+   assigned to, as distinct from the cross sections themselves.
+
+Of the three, only the CM→lab transform and the channel branching are still
+open — item 2 was measured and excluded (above). **Neither of the remaining two
+has been measured.** They are where to look next, not findings.
+
+### 6. Two public names for one ablation (the (n,2n) half is now closed)
+
+Found while closing gaps 3 and 4, and recorded rather than silently changed —
+renaming a public method on a crate the maintainer has declared mature is their
+decision, not an agent's.
+
+- **`Nuclide::with_isotropic_elastic_scattering` and
+  `Nuclide::with_isotropic_elastic` are the same hook.** Both clear
+  `elastic_angular` to its default and nothing else; the bodies are identical
+  up to `ElasticAngular::default()` versus `Default::default()`. Both are in
+  use — the first from two call sites, the second from
+  `tests/elastic_anisotropy_vs_endf_mf4.rs`. Two names for one behaviour is
+  precisely the discoverability failure the root `CLAUDE.md` "Human interface
+  layer" section is about: a reader hovering one has no way to learn the other
+  exists, and a study that cites "the elastic ablation" is ambiguous about
+  which it ran even though the answer is the same. Proposed fix: keep
+  `with_isotropic_elastic_scattering` (the longer name matches its three
+  siblings, `with_isotropic_inelastic_scattering` and
+  `with_isotropic_continuum_scattering`), migrate the one test, and delete the
+  short one.
+- ~~**(n,2n) MT=16 multiplicity still has no dedicated control.**~~ **CLOSED
+  2026-09-16** by `Nuclide::with_unit_n2n_multiplicity`, which cuts the yield
+  from 2 to 1. The emission *law* on MT=16 was already covered
+  (`without_evaluated_continuum`, `with_isotropic_continuum_scattering`); the
+  **yield** was not, and was ablatable only lumped in with everything else via
+  `without_inelastic`.
+
+  **The secondary is drawn either way and only its *emission* is gated.**
+  Skipping the draw would have saved a few variates and desynchronised the two
+  arms; drawing it keeps them in exact lockstep, so the paired difference is
+  deterministic on a shared seed. That is a strictly better-conditioned
+  ablation than `with_target_at_rest`, which cannot have this property.
+
+  Measured: U-238 `σ_n2n = 1.45833 b` at 12 MeV and exactly 0 below threshold
+  at 2 MeV; cross sections (σ_n2n included) bit-identical across the hook and
+  the MT=16 energy law intact. At the kernel, a bare U-235 sphere on one shared
+  seed gives `k` **0.973390 → 0.972432, −95.8 pcm** — negative, as it must be,
+  since deleting a neutron source cannot raise the eigenvalue. That is **one
+  paired sample on one seed and one material, not the Godiva worth**; pricing it
+  is ensemble work for a bigger machine.
+
+  **This closure found a real defect, and it is the reason the kernel-level test
+  exists.** On its first run the two arms came out bit-identical: the hook had
+  been wired into four of the **five** emission sites, and the one missed was in
+  `physics::keff`'s `transport_history` — the path `run_keff` actually takes. A
+  data-level control would have passed and the hook would have shipped reporting
+  that (n,2n) multiplicity is worth nothing, which is precisely `op-50vu`
+  recurring. Every new ablation hook whose mechanism lives in the transport
+  kernel should get a kernel-level control, not only a data-level one.
+
+### 7. Known-absent physics, correctly documented
+
+~~URR probability tables~~ **— CLOSED 2026-09-16.** PURR is now verified
+against NJOY2016 and wired into transport; see the row above and
+`crates/njoy-outram-park-fork/tests/purr_u238_ptables_vs_njoy.rs`. What
+remains unported is the **PENDF MT=152/153 tape writer**, which transport does
+not need — `outram-mc-libs` never reads a PENDF, it reads ENDF and builds a
+`Nuclide` — so the writer matters only for NJOY interoperability.
+
+**Three more found by re-surveying on 2026-09-16, two already fixed:**
+
+- ~~**(n,3n) MT=17 had no branch in any kernel.**~~ **FIXED.** MT=17 is inside
+  MT=1, so the collision happened but fell through to the *elastic* arm and both
+  extra neutrons were silently lost. Now evaluated, branched on in all five
+  kernels, and emitting two extras from the MF=6 MT=17 law. Measured: U-238
+  `σ_n3n = 0.43176 b` at 14 MeV and **exactly 0** at every reactor-spectrum
+  energy — so the new arm's bound coincides with the old `else` boundary there
+  and the partition is bit-identical, which the control asserts directly.
+- ~~**`TabulatedEnergy::sample` was `todo!()`.**~~ **FIXED.** A constructible
+  source distribution that aborted the run if anything drew from it. Nothing in
+  the crate constructed one, which is exactly how a latent panic survives a test
+  suite. Now a piecewise-linear CDF inversion with two tests, including
+  degenerate tables.
+- ~~**DBRC (Doppler Broadening Rejection Correction) is absent.**~~
+  **IMPLEMENTED 2026-09-16.** Free-gas elastic used the constant-cross-section
+  approximation and never resampled σ at the relative energy inside a resonance.
+  Now a second rejection on `σ_s^{0K}(E_rel)/σ_max`, layered on upstream's own
+  relative-speed rejection as two independent accept tests (which is what makes
+  the product of the weights right, and is what OpenMC does).
+
+  The 0 K elastic grid is retained at construction — up to `DBRC_GRID_MAX_EV`
+  = 25 keV, clearing U-238's 20 keV resolved range — because the target motion
+  is modelled explicitly and a *broadened* σ would count Doppler broadening
+  twice. Measured: 34 916 points below 1 keV, and the 6.67 eV resonance towers
+  **175×** over the potential scattering at 3 eV. Opt-in via `with_dbrc(e_max)`;
+  1 keV is OpenMC's default.
+
+  **Not priced.** The literature puts DBRC at order 100–200 pcm in an LWR pin
+  cell. This crate cannot see that on Godiva — a bare fast sphere has
+  essentially no flux in U-238's resolved resonances — so measuring it needs a
+  thermal or epithermal case. That is the same gap recorded below as the
+  project's largest, and DBRC is now a second reason to close it.
+
+**The MF=6 incident-energy interpolation flag — measured 2026-09-16, and the
+finding is not what the survey assumed.** It was recorded as "dropped", which
+was true: the parser read the TAB2's `INT` and `ChiTabular` threw it away, so
+no consumer could see what the evaluation asked for. It is now **carried**.
+
+What it says is more interesting than expected. ENDF File 6 uses the extended
+codes — `11..=15` is *corresponding-point* interpolation, `21..=25` is
+*unit-base* — not the plain `1`/`2` a reader would assume. Across this
+workspace's 27 neutron tapes on MT=16/17/91: **17 ranges are INT=22 (unit-base)
+and 9 are INT=12 (corresponding-point)**. Our samplers apply unit-base to all
+of them, so roughly a third get the wrong rule *relative to the evaluation*.
+
+**It is not a discrepancy against our reference implementation**, which is what
+makes this a maintainer decision rather than a fix. NJOY's ACER preserves the
+flag into the ACE Law-4 header, OpenMC applies unit-base regardless, and this
+port's sampled spectra reproduce OpenMC's construction to 0.02 %
+(`mt91_transfer_vs_openmc.rs`). Honouring corresponding-point would make this
+crate deviate from the code it is a port of. Carried, measured, documented —
+deliberately not acted on unilaterally.
+
+The survey that produced those counts is a permanent in-crate gate
+(`acer::energy::mf6`'s `survey_incident_energy_interpolation_laws`) and counts
+its own skips, so it cannot report a clean answer about a fraction of the data.
+It found two: H-2 and Be-9 MT=16 use **LAW=6/LAW=7**, not LAW=1 — a separate,
+previously unrecorded gap in the continuum path.
+
+**MF=6 LAW=6 (phase space) — CLOSED 2026-09-16.** H-2's MT=16 was falling back
+to the Weisskopf stand-in with nothing recording it. `from_endf_mf6` now
+converts LAW=6 into the tabulated form the samplers already consume: the law's
+shape is incident-independent in `x = E'/E'_max`, so evaluating
+`E'_max(E) = ((APSX−AWP)/APSX)·(AWR/(AWR+1)·E + Q)` (upstream `f6psp`,
+`groupr.f90:12658`) on an incident grid reuses the entire existing sampler —
+**no new sampling path, no kernel change, no second implementation to drift**.
+Angular is `EvaluatedIsotropic`, which phase space is by construction.
+Verified against upstream's closed form: **worst relative shape difference
+0.0000** over 7 incident rows, `E'_max` 7.3042e4 → 6.5133e7 eV.
+
+**MF=6 LAW=7 (Be-9 MT=16) — the parser is FIXED 2026-09-16; the *sampler* is
+still unported.** Two defects sat behind the "unported" label, and looking for
+one found the other.
+
+1. **The per-cosine normalisation was discarded at parse time.** LAW=7 stores a
+   lab-cosine grid and, per cosine, an outgoing-energy table; the *relative
+   sizes* of those tables **are** `f(mu)` — there is no separate angular record.
+   Each table was pushed through `normalize_pdf_cdf`, which scales it to unit
+   area, and the divisor was thrown away. Anything built on the parsed structure
+   would have sampled `mu` uniformly. Same class as `op-og56` (MF=6 `LANG`
+   coefficients dropped at parse time): data read, silently discarded, leaving a
+   law that samples plausibly and incorrectly. `Law7MuTable::weight` now retains
+   it. Measured on Be-9: worst per-cosine spread `(max−min)/mean = 3.67`, so the
+   discarded quantity was a strongly anisotropic distribution, not a constant.
+
+2. **The reader was reading the wrong record type, and had never parsed
+   anything.** It followed `acefc.f90`'s `acelf6`, which reads the
+   per-incident-energy record as a `TAB1` with `INTMU = L1`, `NMU = L2`. That is
+   right **for ACER only** — ACER runs on NJOY's own intermediate File 6, and
+   `skip6a`'s header comment says so outright. A genuine ENDF-6 tape puts that
+   record as a `TAB2` with `NMU` in `N2`. On Be-9 the old code read `L1 = L2 =
+   0`, built **zero cosine tables**, and consumed the real data as the TAB1's own
+   pairs. It now follows `groupr.f90`'s `getmf6`, NJOY's reader for real
+   evaluation tapes.
+
+   This is the "read upstream first" rule with a twist worth keeping: the right
+   upstream routine is the one that owns *this input format*, not the one whose
+   name matches the task. Two NJOY routines read LAW=7 and they disagree,
+   correctly, because they are fed different files.
+
+   **The sharpest part: that rule was already written thirty lines above the
+   defect.** `skip_mf6_subsection`'s doc comment sets out the `skip6`/`skip6a`
+   split in full, quotes `skip6a`'s header, states LAW=7's per-incident record is
+   "**one TAB2** whose `N2` is `NMU`", and names Be-9 MF=6/MT=16 as the case that
+   exercises it. The skipper obeyed it; the parser next to it did not. Written
+   guidance does not propagate itself to the next function that needs it — which
+   is the argument for gates over prose, and why this landed as two tests rather
+   than a third paragraph.
+
+**Verification — the evaluation's own normalisation, not ours.** ENDF-102
+normalises LAW=7 so the double integral of `f(mu, E')` is 1, so integrating the
+retained weights over the cosine grid must give 1. Measured at all 24 of Be-9's
+incident energies: **1.000000–1.000001**, within `1e-6`. That is independent
+evidence both that the TAB2 records are read at the right offsets and that
+`weight` is `f(mu)` itself rather than something proportional to it.
+`tests/mf6_law7_mu_weights.rs`.
+
+**LAW=7 sampling landed the same day.** The conversion reuses the existing
+machinery rather than adding a law, exactly as LAW=6 did. LAW=7 tabulates the
+joint `f(mu, E')`; the samplers want the marginal `f(E')` and the conditional
+`P(mu|E')`, and both fall out of `f(mu_j, E') = w_j * p_j(E')` with `w_j` the
+retained per-cosine weight. The one construction step is a **merged outgoing-
+energy grid** — the union of every cosine's own knots — which is exact rather
+than approximate, since evaluating a piecewise-linear density on a superset of
+its own knots reproduces it identically. The angular half becomes
+`ContinuumAngular::LabTabulated`, kept distinct from `Legendre` because it is a
+different representation **and** laboratory-frame by construction (ENDF-102:
+LAW=7 is in the lab regardless of `LCT`), so it must never acquire a CM->lab
+transform. `INTMU = 1` (histogram over cosine) returns `Ok(None)` and keeps the
+caller's fallback rather than silently applying the lin-lin rule; Be-9 uses
+`INTMU = 2`.
+
+Two measurements, both against oracles rather than assertions:
+
+| check | result |
+|---|---|
+| converted `<E'>` and `<mu>` vs the raw LAW=7 tables, 24 incident energies | **7e-16 / 9e-16** worst relative |
+| sampled `<mu>` through the transport kernel at 14 MeV vs the law's closed form | **+0.254104 +- 0.001210** against **+0.253844**, 0.21 sigma |
+| isotropic-ablation arm (control) | **+0.001801 +- 0.001290**, identical final RNG seed |
+
+So Be-9 (n,2n) was emitting isotropically a law whose laboratory `<mu>` is
+`+0.25` to `+0.58`. Both moment integrals are done in **closed form on each
+linear segment**, never by trapezoid: trapezoid is exact for `int f` but not for
+`int x f`, the error that produced a false "+0.60 % bias" earlier in this port.
+
+**A correction from that work, worth more than the result.** The transport test's
+first oracle weighted `mubar` by `pdf[k]`, copying the older Legendre control,
+and read **3.30 sigma** — close enough to pass its 4 sigma gate and wrong. The
+sampler selects row `k` with probability `cdf[k+1] - cdf[k]`, because
+`sample_ct_table_indexed` returns the lower edge of the CDF bin. Weighting it the
+way the code behaves gives 0.21 sigma. The defect was in the oracle; a looser
+gate would have buried the distinction rather than exposing it.
+
+Be-9 is in none of this workspace's criticality cases, so none of this moves a
+`k_eff`. What it closes is a silent fallback.
+
+**MF=6 `LANG = 11…15` and MF=5 LF=5 — measured 2026-09-16, and both turn out to
+be unused by any held evaluation.** They are now *enforced* absences rather than
+documented ones: two survey gates assert it, so a tape using either fails loudly
+instead of silently degrading.
+
+- **`LANG = 11…15`** (tabulated cosines): across 27 tapes only `Legendre` and
+  `KalbachMann` appear, both implemented. A tape using 11…15 would have fallen
+  back to isotropic without a word.
+- **MF=5 `LF`**: only **LF=1** (12 subsections) and **LF=9** (1) appear, both
+  ported. An unported LF makes the *whole* MF=5 fall back to the thermal-Watt
+  stand-in, so the gate matters more than the count suggests.
+
+**A wrong comment corrected while doing it.** The code said LF=5 was
+"unsupported upstream". **NJOY supports it** — `groupr.f90:12355` is literally
+"law 5. general evaporation spectrum", with `acefc.f90` handling it in three
+more places. That is the kind of error that stops someone porting something,
+and the comment now records both the correction and the fact that LF=5 is a
+tabulated `g(x)` with `x = E'/θ(E)` — the same "universal shape, moving scale"
+form as LAW=6, so it would convert the same way if a tape ever needs it.
+
+Nothing from this survey is left open: LAW=6, LAW=7 (parser **and** sampler),
+`LANG = 1`, `LANG = 2`, the `LANG = 11…15` absence and the MF=5 `LF` absence are
+all either implemented or *enforced* by a gate that fails loudly on a tape that
+would need them.
+
+---
+
+## Where the Weisskopf stand-in still fires — asked directly, and the answer was "11 places it shouldn't"
+
+The survey above looks at MF=6. A second one
+(`njoy-outram-park-fork`'s `tests/continuum_law_coverage_survey.rs`) asks the
+question from the other end: **for every `(tape, MT)` a transport run reaches,
+does it sample the evaluation's law or a Weisskopf evaporation shape?**
+
+Its first version counted 11 sections as benign — *"the evaluation carries no
+MF=6, so the stand-in is all there is"*. Checking rather than assuming showed
+otherwise: **all 11 carry both MF=4 and MF=5**, the pre-ENDF-6 way of writing the
+same physics. Li-7 MT=16, C-12 MT=91, Sr-88 and the JENDL-3.3 U-238 and Pu-239
+MT=16/17/91. Ten use `LF=1`, one `LF=9`, and **all eleven are `LCT = 1`
+(laboratory)** — every format involved already ported. The gap was the reading.
+
+**Closed 2026-09-16.** `UncorrelatedEmission` + `Nuclide::sample_inelastic_emission`.
+Coverage is now **42 sections from MF=6, 11 from MF=4/5, 0 on the stand-in.**
+
+This one is deliberately *not* converted into `ChiTabular` the way LAW=6 and
+LAW=7 were: `sample_chi` already samples every ported MF=5 `LF` and
+`sample_mf4_mu_cm` already implements OpenMC's statistical-neighbour convention
+on MF=4's own grid, so converting would have swapped two exact samplers for one
+tabulated approximation. Measured on JENDL-3.3 U-238 MT=91 at 13 MeV over
+200 000 collisions: `⟨E'⟩` 1.58 σ and `⟨μ⟩` 0.72 σ from the evaluation's own
+values.
+
+**Scope:** no criticality case here is affected — Godiva and the thermal cases
+run on ENDF/B-VIII.0 evaluations that all carry MF=6.
+
+---
+
+## A V&V reference that was wrong, and the library defect it was hiding
+
+Found while doing the above, and the more important of the two.
+
+`EnergyAngular::mean_cosine` integrated `μ·f(μ)` by the **trapezoid rule**, under
+a comment asserting that was exact because `f` is lin-lin. **`f` linear makes
+`μ·f(μ)` quadratic**, and trapezoid is exact only for a linear integrand.
+
+The truth needs no quadrature at all: for an MF=4 `LTT=1` section the mean cosine
+is **exactly `a₁`**, the first normalised Legendre coefficient, read straight off
+the tape. On U-235 MT=2:
+
+| E (eV) | grid pts | `a₁` (exact) | closed form | trapezoid |
+|---|---|---|---|---|
+| 1.0e3 | 9 | +0.001195 | **+0.001195** | +0.001232 |
+| 1.0e5 | 9 | +0.126123 | **+0.126091** | +0.130067 |
+| 2.0e6 | 92 | +0.621682 | **+0.622143** | +0.622697 |
+
+At 1.0e5 eV the trapezoid rule is **123 times** further from the truth.
+
+**And it had propagated into a V&V reference.**
+`outram-mc-libs`'s `tests/elastic_mubar_vs_openmc.rs` compares against OpenMC
+`⟨μ⟩` values that its own provenance note describes as *"the trapezoidal integral
+of `μ·p(μ)` over the stored cosine grid"*. Its committed `0.13007` at 1.0e5 eV
+reproduces **our trapezoid** to 3e-6, while the true value is `0.12612`. That
+test was passing on **two matching errors** — precisely the failure mode a
+cross-code check exists to prevent — and it surfaced only because fixing the
+library made it fail.
+
+Resolved with nothing loosened:
+
+- `mean_cosine` integrates in closed form.
+- A new **exact** gate, `tests/mf4_mean_cosine_vs_legendre_a1.rs`: 1857 Legendre
+  rows over U-235 and U-238, worst **1.20e-3 below 6 MeV** (gated at 2e-3, which
+  the trapezoid's 3.9e-3 fails), 6.21e-3 over the full range to 30 MeV.
+- Both OpenMC μ̄ tests now reproduce the oracle's *own* quadrature locally,
+  clearly labelled, so they compare like with like at their original tolerances:
+  elastic back to **5.58e-4** (recorded 5.6e-4), inelastic **3.13e-3** (recorded
+  3.1e-3). They still check the **parse** against an independent code; the
+  **integral** is now checked far more sharply by `a₁`.
+
+**A hypothesis checked and killed.** The residual above 6 MeV was first blamed on
+`legendre_cosine_law`'s positivity clamp, which would legitimately move the mean
+off `a₁`. The test evaluates the raw Legendre series at every grid point itself:
+**zero rows are clamped.** It is the lineariser's `ANGLE_TOL = 5e-3`, stated on
+`f` and leaving a residual in a *moment* of `f` — U-238 MT=59 at 13 MeV has 129
+grid points and still differs by 6.2e-3, so it is not a coarse grid.
+
+**Flagged, not fixed:** tightening `ANGLE_TOL` would shrink it at the cost of
+larger tables. The whole effect sits above 6 MeV, and changing that tolerance
+moves every angular table in the workspace — its own paired measurement, not a
+drive-by.
+
+---
+
+## The thermal validation gap — CLOSED 2026-09-16
+
+This document's standing caution was that the project targets **thermal**
+reactors while nearly all its validation was a bare fast sphere, and that
+LCT-008 — the one thermal benchmark — had not been re-run since GitHub #188's
+thermal-kernel fix. It has now been run, and #188's own stated criterion ("the
+three `Δk` must collapse together and toward zero") is met on both counts:
+
+| case | 2026-09-13 | **2026-09-16** |
+|---|---|---|
+| 1 | +2665 ± 128 pcm | **+157 ± 119 pcm** |
+| 2 | +2086 ± 118 pcm | **+1 ± 126 pcm** |
+| 8 | +1605 ± 114 pcm | **+124 ± 124 pcm** |
+
+Spread across the three: **1060 → 156 pcm**. Mean `|Δk|`: **94 pcm**, every case
+within 1.3 σ of a measured critical experiment. The pairwise differences — which
+are truly zero, since every case is independently critical — went from
+**+579 ± 174 (3.3 σ)** and **+481 ± 164 (2.9 σ)** to **−156 ± 173 (0.9 σ)** and
+**+123 ± 177 (0.7 σ)**. *"Its boron is worth too little"*, this case's
+load-bearing finding for weeks, is resolved.
+
+**DBRC and URR were then priced on this case, and both are BOUNDED rather than
+resolved** (`--dbrc` / `--urr`, added to `lct008_keff`; both default off so the
+no-flag arm reproduces the baseline):
+
+| arm | `Δk` | worth |
+|---|---|---|
+| neither | +157 ± 119 pcm | — |
+| `--dbrc` | +197 ± 129 | **+40 ± 176 (0.2 σ)** |
+| `--urr` | +60 ± 132 | **−97 ± 178 (0.5 σ)** |
+| both | +210 ± 129 | **+53 ± 176 (0.3 σ)** |
+
+All consistent with zero. **None is a measurement**: `σ_diff ≈ 176 pcm` here, so
+a single paired run resolves only effects above **~350 pcm at 2 σ**, and the
+published DBRC value for an LWR pin cell (100–200 pcm) sits *below* that. This
+does not contradict the literature — it cannot see an effect that size.
+Resolving either needs a paired-seed ensemble, which is CPU rather than physics.
+
+The run did establish one thing beyond the bound: **the URR wiring generalises**
+past U-238, building tables for all three actinides (U-234, U-235, U-238) in
+~5 s total. The control test could only show U-238.
+
+## What "correctly represented" would mean
+
+Every row of the first table having ✅ in all four columns, or an explicit
+recorded reason why a column does not apply. That is not the state today and
+this document is the list of what stands between.
+
+The column that matters is **control**. A mechanism can be implemented and
+verified and still be un-priceable, and an un-priceable mechanism is one whose
+contribution to a residual like `op-os8x` cannot be tested — which is precisely
+the position this crate was in before the ablation controls existed.
+
+
+---
+
+## The four open items, worked (2026-09-16/17)
+
+### 1. `ANGLE_TOL` — priced, and deliberately left alone
+
+The MF=4 lineariser's residual in `⟨μ⟩` was flagged as needing "its own paired
+measurement". It got one (`njoy`'s `tests/mf4_linearisation_tolerance_study.rs`),
+over 1857 Legendre rows:
+
+| criterion | tol | worst | worst <6 MeV | **Watt-weighted** | pts/row |
+|---|---|---|---|---|---|
+| rel. local (shipped) | 5e-3 | 6.21e-3 | 1.20e-3 | **1.44e-4** | 43.8 |
+| rel. local | 1e-3 | 3.95e-4 | 2.18e-4 | 2.90e-5 | 95.7 |
+| rel. peak | 5e-3 | 1.46e-1 | 1.14e-2 | 3.07e-4 | 21.5 |
+
+**A hypothesis measurement killed.** The obvious diagnosis — that a
+relative-to-local-`f` criterion is wrong for a moment, because it permits the
+largest absolute error exactly where `f` is biggest — predicts that scaling to
+the peak helps. It is **24× worse**: it loosens the tolerance in the tails,
+which act on `⟨μ⟩` through a long lever arm in `μ`.
+
+**Decision: `ANGLE_TOL` stays at 5e-3.** Weighted by a fission spectrum the
+error is `1.44e-4`, i.e. **0.019 % in `Σ_tr`**, sub-pcm on Godiva. Tightening
+costs 2.2× the grid points in every angular table for nothing measurable. The
+6.2e-3 worst case is real and sits at **13–28 MeV** — a fusion or
+deep-shielding application should tighten it and pay the memory.
+
+### 2. Tally filters — all eight landed
+
+`Zernike, SphericalHarmonics, Mu, PolarAzimuthal, Surface, DelayedGroup, Time,
+Particle`. Five could not previously have been written at all: `FilterEvent` had
+no field for an angle, a time, a particle type or a delayed group.
+
+Verified against their defining properties rather than themselves. The
+orthogonality gate tests **convergence**, not smallness — a fixed `1e-9`
+tolerance failed at `2.9e-5` and *looked* like a defect when it was the midpoint
+quadrature. Under 4× refinement both expansions fall by exactly **16.0×**, the
+second-order rate.
+
+**A hard-rule violation found and fixed on the way.** `Tally` held
+`Vec<Box<dyn Filter>>` and `IndependentSource` three more `Box<dyn ...>`, both
+banned by the workspace's Rust design rules. All are now enum dispatch with the
+traits kept as per-struct contracts — which is what gives the exhaustiveness
+check that made adding eight filters safe. **Zero `Box<dyn` remain in either
+crate.**
+
+### 3. Depletion coupled to a transport flux
+
+`OneGroupWeighting::TabulatedFlux` collapses against a measured spectrum, and
+`deplete_coupled` **re-solves it before every step** rather than freezing
+beginning-of-life data across the whole burnup — which `deplete_predictor` does,
+and which is only right if the spectrum does not move.
+
+Measured on a reflective HEU pin cell, spectrum tallied from `run_keff_csg` with
+an `EnergyFilter` at every step:
+
+| arm | one-group `k_inf` at BOL |
+|---|---|
+| `SingleEnergy` (0.0253 eV) | 1.92205 |
+| `ThermalFissionSpectrum` (`iwt = 4`) | 0.59300 |
+| **transport-solved flux** | **1.59737** |
+
+**The weighting choice moves the answer by a factor of three**, and the two
+frozen arms are wrong in *opposite* directions — a single thermal point
+maximises U-235 fission while barely seeing U-238 capture, and a generic
+thermal-reactor weight assumes moderation this geometry (16.3 % below 1 eV,
+43.3 % above 100 keV) does not have. These `k_inf` values are the collapse's own
+consistency metric, **not criticality results**; their spread is the finding.
+
+It is **operator splitting**, not predictor-corrector: no second solve at the
+end of a step, so first-order splitting error in step length.
+
+### 4. `op-os8x` — both named leads now measured and excluded
+
+The study had narrowed the residual to two unmeasured candidates. Both are now
+measured, neither is the cause.
+
+**Lead 1, the CM→lab transform** (`outram-mc`'s
+`tests/cm_to_lab_vs_kinematics.rs`). Checked against **Galilean velocity
+addition derived from first principles**, not against a copied formula — copying
+OpenMC's expression and matching it would test transcription. Over 2268 cases
+spanning A = 1…236, the full cosine range and `E'/E'_max` from 1e-6 to 0.99:
+agreement to **< 1e-14 of the input energy scale**, with the elastic reduction
+to `E(A² + 2Aμ + 1)/(A+1)²` exact to 1.18e-16.
+
+*A numerical trap on the way:* the first bound was **relative** and failed at
+5.1e-12, every worst case at A ≈ 1 with backward emission at `E'` near maximum —
+catastrophic cancellation (`v_cm ≈ 0.500√E` minus `v' ≈ 0.497√E`), where a
+relative bound measures the cancellation, not the transform.
+
+**Lead 2, channel branching at 2–3 MeV** (`tests/channel_branching_consistency.rs`).
+The kernel decides *whether* a collision is inelastic from `MicroXS::inelastic`
+and *which level* from the per-MT partials, in two different places, and nothing
+structurally forces them to agree. They agree **bit-identically** (`0.000e0`),
+and the sampled continuum share matches the cross sections within **1.23 σ**
+over 200 000 draws per point across 1.9–3.0 MeV.
+
+**`op-os8x` therefore remains open, with no candidate left on its list.** That
+is a more useful state than two open suspicions: the next hypothesis has to come
+from somewhere not yet considered.
+
+### A new defect that search turned up: MT=5 has no branch
+
+The collision partition closes to **1.4e-8** through 5 MeV and then does not:
+**7.0e-4 relative at 10 MeV, 2.7e-3 at 14 MeV**. `MT=1` exceeds the sum of its
+own partials by exactly the shortfall while `MT=4` equals `sum(51..91)` to 1e-8,
+so the inelastic decomposition is sound and the missing piece is outside it. It
+is **MT=5, "(n,anything)"** — 99.7 % of the shortfall at 10 MeV, 94.8 % at 14 MeV
+— which ENDF/B-VIII.0 uses to lump high-energy channels. The kernel has no arm
+for it, so those collisions fall through to whichever branch is last. Same class
+as the MT=17 defect that was losing two neutrons into the elastic arm.
+
+**Flagged and pinned, not fixed.** Sampling it needs its own emission law (MF=6
+for MT=5), a port rather than a branch. It is **zero below ~5 MeV**, so it
+cannot affect any fission-spectrum case here — including `op-os8x`, whose band
+is 1.9–3.0 MeV — but it is 0.27 % of all collisions for a 14 MeV source. The
+gate pins it so it cannot grow unnoticed and so closing it must update a test.
+
+
+---
+
+## MT=5 wired, and chi's SHAPE excluded (2026-09-17)
+
+### MT=5, "(n,anything)" — fixed, not just flagged
+
+The partition-closure measurement found it; this closes it. `MicroXS::mt5`,
+`ContinuumLaws::mt5` (from MF=6 MT=5, which on ENDF/B-VIII.0's U-235 is a
+`ZAP=1, LAW=1` subsection with a 56-point yield table), and a collision arm in
+all four transport paths.
+
+**Result: the above-6 MeV shortfall falls from `2.7e-3` to `1.38e-4` relative —
+19x.** Below 6 MeV closure is `1.7e-7`.
+
+**Its multiplicity is tabulated, not fixed.** Because MT=5 lumps unresolved
+channels, the evaluation gives an average `y(E)`, realised by splitting the
+fractional part stochastically so the expectation is `y(E)` exactly. Sampled
+against the table: worst **1.73 sigma** over 400 000 draws per point.
+
+**Two things the work got wrong first, both caught by measurement:**
+
+1. **"MT=5 is zero below 5 MeV" is false.** It carries `QM = QI = +11.1 MeV` —
+   **exothermic, no threshold** — and its MF=3 runs from 1e-5 eV with a 1/v-like
+   tail. The closure measurement only *showed* a shortfall above 6 MeV because
+   below it the share is ~1e-7, under the gate. The honest statement is
+   "negligible and measured", not "zero": MT=5 neutron **production** per
+   collision below 100 keV is at most **3.8e-14**.
+
+2. **A defect in the new wiring, caught by the test written for it.** `y(E) = 0`
+   below ~100 keV means MT=5 emits **no neutron** there — it is acting as
+   absorption. The first version of the arm scattered the neutron anyway, which
+   would have **created neutrons the evaluation says do not exist**. It now
+   returns `Dead`. Not a corner case: even at 20 MeV `y = 0.47`, so more than
+   half of MT=5 collisions emit nothing.
+
+### chi's shape — a new `op-os8x` hypothesis, tested and excluded
+
+With every candidate on the study's list measured and excluded, the next
+hypothesis had to come from outside it. chi was the obvious one: it had been
+"cleared" on its **mean** (`⟨E_out⟩` to 0.018 %), and a mean **cannot see a
+redistribution** that moves probability out of ~100 keV into the MeV window
+while the 10 MeV tail compensates — which is exactly the residual's signature.
+And chi is the largest single source of neutrons in a bare fast assembly.
+
+Measured band by band against OpenMC's own tabulated chi (extracted and
+**analytically integrated**, so the oracle carries no Monte Carlo noise —
+`chi_shape_oracle.py`), 4 000 000 draws per incident energy:
+
+| band | flux residual | **chi shift** |
+|---|---|---|
+| 67–174 keV | −1.2 to −1.9 % | **+0.085 %** (wrong sign, 15x too small) |
+| 1.9–3.0 MeV | +0.42 % | **+0.029 %** (right sign, 14x too small) |
+
+Worst band deviation **3.04 sigma**, in a band holding 0.7 % of chi — consistent
+with sampling. **chi's shape is excluded.**
+
+### Where `op-os8x` stands
+
+Measured and excluded: cross sections, both angular laws, the MT=91 transfer
+table, the within-row CDF inversion, the inter-row unit-base rule, the CM→lab
+transform, channel branching, chi's mean, and now chi's shape.
+
+Every secondary-energy law, every angular law, the cross sections and the
+branching all agree — while the flux does not. That is a sharper constraint than
+the study has ever had, and it points away from per-collision physics
+altogether. The candidates it leaves are ones nobody has written down yet; the
+honest next move is to look at what differs *between* collisions rather than
+within one.
+
+
+---
+
+## `op-os8x`: the cross sections excluded properly, and the residual shown robust (2026-09-17)
+
+### The "excluded" verdict on the cross sections rested on a mean
+
+`compare_xs.py` excluded them on two numbers: the **flux-weighted** difference
+over the whole range (≤0.06 %) and the worst **pointwise** difference. Neither
+can exclude a band-local difference. A flux-weighted average is a **mean**, and
+a mean cannot see a redistribution — the same blind spot that hid χ's shape
+behind χ's mean. The worst pointwise number is dominated by grid alignment
+inside resonances, which the study deliberately does not chase.
+
+What sets the flux in a band is the **band-averaged** cross section: a 1 %
+difference across 67–174 keV produces roughly a 1 % flux difference there, which
+is the size of the residual.
+
+Measured (`tests/band_averaged_xs_vs_openmc.rs`, oracle `band_xs_oracle.py`) as
+a lethargy average `∫σ dE/E ÷ ∫dE/E` — a weight that needs **no flux**, so the
+comparison cannot be contaminated by the difference it is meant to explain:
+
+| nuclide | band-summed σ, 67–174 keV | 1.9–3.0 MeV |
+|---|---|---|
+| U-235 | **+0.0000 %** | **+0.0000 %** |
+| U-238 | **−0.0000 %** | **+0.0000 %** |
+
+Worst band-summed difference across both nuclides and all six bands:
+**0.0000 %** (1e-6 relative). **The cross sections are now excluded band by
+band, not on a mean.**
+
+*A skip that read as a pass, caught:* the first run named U-238's tape
+`n-092_U_238-ENDF8.0.endf`, which does not exist — it is `n-092_U_238.endf` — so
+half the comparison vanished and the test still passed. U-238 is the half that
+matters here, carrying the resonances in the deficit band. The test now fails
+rather than skips if either nuclide is missing.
+
+### Is the residual itself real? Yes — measured, not assumed
+
+When every component of a difference agrees and the difference does not, the
+next thing to doubt is the difference. `compare_spectrum.py` uses seed-to-seed
+spread as its uncertainty, which is the right construction, but with **8 seeds**
+the sample standard deviation carries ~25 % uncertainty of its own — enough that
+a "4.6 σ" could really be nearer 3.5.
+
+`residual_robustness.py` reads the committed statepoints directly (no transport
+needed) and measures the OpenMC side's own scatter:
+
+| band | share | rel. sem, 8 seeds | residual | σ from this side alone |
+|---|---|---|---|---|
+| 67–174 keV | 0.074951 | **0.232 %** | −1.2 to −1.9 % | 5–8 |
+| 1.9–3.0 MeV | 0.230661 | **0.078 %** | +0.42 % | 5.4 |
+
+**The small-ensemble explanation is not supported.** The residual is a real
+difference between two codes whose every measured component agrees to 1e-6.
+
+### What this leaves, and the environmental limit
+
+Measured and excluded: the cross sections (band-averaged **and** flux-weighted),
+both angular laws, the MT=91 transfer table, the within-row CDF inversion, the
+inter-row unit-base rule, the CM→lab transform, channel branching, χ's mean,
+χ's shape, and the residual's own statistical robustness.
+
+**Further progress needs OpenMC runs that this container cannot do.** Only
+OpenMC's *Python API* is installed here — the `openmc` executable is absent, so
+new transport runs are impossible; the eight committed statepoints are all the
+reference data there is. The discriminating experiments that remain (a reflective
+`k_inf` spectrum comparison isolating the per-collision term, and per-MT
+collision tallies on both sides) all require it. A session with `openmc` built
+can run them; this one measured everything that could be measured without it.
+
+
+---
+
+## `op-os8x`: the discriminating experiment finally run (2026-09-17)
+
+### First, a correction: it was never blocked
+
+The previous entry said further progress needed OpenMC runs "this container
+cannot do", on the strength of `which openmc` returning nothing. **That was
+wrong.** The executable is at `/home/user/openmc-install/bin/openmc` — OpenMC
+0.15.3, commit `27e38e89`, the exact build the study used — simply not on
+`PATH`. A run takes **4 seconds**.
+
+This is the failure mode the workspace's own rules name: *"Check before you claim
+a tool is absent. Run the check. Do not infer it from a failure."* An absence was
+inferred from one negative probe, and a cheap experiment was written off as
+impossible.
+
+### The residual is PER-COLLISION: it survives zero leakage
+
+The experiment the study had wanted and never run: the same spectrum comparison
+under a **reflective** boundary, where leakage is removed entirely (OpenMC
+confirms `Leakage Fraction = 0.00000`) and only per-collision terms survive.
+8 seeds a side, `godiva.py --kinf --spectrum` against the new `OURS_KINF=1` arm
+of `examples/godiva_spectrum_vs_openmc.rs`.
+
+| quantity | vacuum (recorded) | **reflective, zero leakage** |
+|---|---|---|
+| mean `E` | +0.42 % (4.6 σ) | **+0.37 % (3.6 σ)** |
+| mean `ln E` | +0.05 % (8.9 σ) | **+0.04 % (5.6 σ)** |
+| flux below 300 keV | −1.22 % (6.0 σ) | **−0.63 % (3.8 σ)** |
+
+**Essentially unchanged.** `op-os8x` is not leakage- or geometry-coupled; it is
+in the collision physics.
+
+### And it re-localises — which exposed a hole in an earlier exclusion
+
+With leakage gone the strongest bin moves:
+
+| band | difference | σ | share of flux |
+|---|---|---|---|
+| 67–108 keV | −1.07 % | 3.1 | 3.2 % |
+| 108–174 keV | −0.75 % | 3.2 | 6.4 % |
+| **3.0–4.8 MeV** | **+0.95 %** | **4.5** | 6.6 % |
+
+The strongest bin is now **3.0–4.8 MeV** — and the MT=91 transfer comparison, the
+one previously reported as excluding that law, **stopped at 3.4 MeV**. Its oracle
+carried `BAND = (1.5e6, 3.5e6)`, the band the residual sat in *at the time*:
+reasonable then, and it meant "the MT=91 transfer table is excluded" was a
+statement about **18 of the law's 96 incident rows**, with nothing above
+3.4 MeV.
+
+**Extended to 10 MeV and re-run: it still agrees**, worst `+0.05 %` on-grid
+across 37 rows. So the exclusion is now real over the band that matters rather
+than over the band that used to matter.
+
+### State
+
+Measured and excluded: cross sections (band-averaged **and** flux-weighted),
+both angular laws, the MT=91 transfer table **to 10 MeV**, the within-row CDF
+inversion, the inter-row unit-base rule, the CM→lab transform, channel
+branching, χ's mean, χ's shape, the residual's statistical robustness, and now
+**leakage and geometry**.
+
+`op-os8x` remains unexplained, but it is a much sharper object than it was: a
+per-collision effect, strongest at 3.0–4.8 MeV, with every law feeding that
+region agreeing to ≤0.05 %. The lesson that keeps repeating — and that produced
+two of this session's findings — is that **an exclusion is only as wide as the
+window it was measured in**: χ's mean hid χ's shape, the flux-weighted σ hid the
+band-averaged σ, and the 1.5–3.5 MeV oracle band hid everything above it.
+
+
+---
+
+## The enumeration itself (2026-09-17)
+
+Every entry above came from working an *open list*. This is the list being
+built: a module-by-module sweep of `njoy-outram-park-fork` against its own test
+suite, asking the question directly — **which ported modules have no V&V at
+all?**
+
+| module | tests | | module | tests |
+|---|---|---|---|---|
+| `reconr` | 31 | | `unresr` | 9 |
+| `thermr` | 20 | | `moder` | 4 |
+| `groupr` | 15 | | `purr` | 4 |
+| `broadr` | 13 | | `dtfr` | 3 |
+| `nuclear_data` | 12 | | `covr`, `mixr`, `samm`, `wmp` | 2 |
+| `leapr` | 12 | | `gaminr`, `heatr`, `resxsr`, `wimsr` | **1** |
+| `acer` | 10 | | `ccccr`, `gaspr`, `matxsr`, `plotr`, `powr`, `viewr` | **0** |
+| `errorr` | 9 | | | |
+
+Four of the zero-test modules are honest stubs — `ccccr`, `matxsr`, `powr` and
+`viewr` are 17–18 lines that return `NotPorted`, and they are output formats and
+plotting rather than physics. The rest is a real finding:
+
+| module | lines | `NotPorted` | tests | what it is |
+|---|---|---|---|---|
+| `gaminr` | 2549 | **0** | 1 | gamma production matrices |
+| `heatr` | 1505 | **0** | 1 | **KERMA + damage energy** |
+| `gaspr` | 469 | — | **0** | gas production (He/H) |
+
+**~4500 lines of fully ported physics carried two tests between them**, while
+`reconr` had 31. That is not a claim those modules are wrong — it is that
+nothing would have said so.
+
+### KERMA verified first, because a KERMA error is invisible to every other gate
+
+Heating is what couples neutronics to thermal hydraulics. A KERMA error does not
+move `k`, so **no criticality test can catch it** — it moves the power
+distribution, which is what the coupled calculations here are ultimately for.
+
+`tests/heatr_kerma_vs_kinematics.rs` checks it against the closed forms the
+models are *defined* by, not against the code itself: elastic
+`sigma_el * E * 2A/(A+1)^2` (derived here from the two-body kinematics),
+local capture `sigma * (E + Q)`, and the fission term. On U-238, 441 694 grid
+points:
+
+| check | result |
+|---|---|
+| KERMA vs closed form, at KERMA's own grid points | **0 to 1.8e-16** |
+| ratio flatness over 12 points (guaranteed by linearity in `sigma`) | spread **4.4e-16** |
+| negative heating anywhere | **none** |
+
+**Two oracle errors the test caught before it passed**, both mine and both the
+recurring kind:
+
+1. **Off-grid probing.** `Kerma::eval` interpolates `H` lin-lin between knots
+   while the closed form evaluates `sigma` exactly, and `sigma(E)*E` is not
+   linear between them — 3e-4 off-grid against <1e-12 on-grid. The
+   nearest-point/interpolation family again, for the fourth time in this record.
+2. **An incomplete oracle.** U-238 has **subthreshold fission open at every
+   energy** with `Q ~ +200 MeV`, so a `sigma_f` of ~1e-3 b contributes
+   materially. Omitting it left the comparison 6e-3 out — and the failure was in
+   what I wrote down, not in the code.
+
+### Still open from this enumeration
+
+- **`gaspr`** (gas production, 469 lines) — **no test of any kind.**
+- **`gaminr`** (gamma production, 2549 lines) — one synthetic-golden test.
+- **`heatr`'s damage-energy half** (`damage.rs`, DPA) — untested; this entry
+  covers KERMA only.
+- **HEATR against NJOY2016's own output** — no reference tape is held here, so
+  the verification above is against the models' defining formulae rather than
+  cross-code.
+
+These are named rather than worked because the enumeration is what was asked for
+and this is its output; each is a bounded piece of work with a clear oracle.

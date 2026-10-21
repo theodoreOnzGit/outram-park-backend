@@ -1,0 +1,126 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/src/humid_air"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/cooling_tower_tab.rs::an_unresolvable_air_state_is_reported_not_substituted",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/cooling_tower_tab.rs::the_exit_humidity_slider_walks_the_plume_from_invisible_to_full",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/cooling_tower_tab.rs::the_physics_card_reports_only_what_the_component_holds",
+    "crates/outram-park-digital-twin-engine/examples/widget_studio/cooling_tower_tab.rs::the_tab_owns_the_clock_that_turns_the_fan",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::a_stopped_tower_is_drawn_stopped",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_air_states_come_from_the_coolprop_psychrometrics",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_approach_and_range_are_real_temperature_differences",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_fan_angle_is_omega_times_time",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_physics_path_draws_no_plume_and_no_approach",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_scalar_path_colours_from_the_supplied_psychrometric_states",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_scalar_path_passes_state_through_unchanged",
+]
+
+[module."mod.rs"]
+path = "crate::humid_air"
+
+[[module."mod.rs".function]]
+id = "fn:507a3ab6c05627e1"
+name = "HumidAirState"
+qual = "HumidAirState"
+item = "type"
+shape = "struct"
+lines = [
+    26,
+    50,
+]
+hash = "sha256:c5bdd2f6f91378e560fccfc625a5355e9642c45a8ef55835b804974faa0dd325"
+doc_hash = "sha256:30d747c62944b6db2de8ca368a78e2c481f7e300a41a2494814c32fc0cfe1cfe"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4ad42a9326b99eec"
+name = "state_from_t_p_w"
+qual = "state_from_t_p_w"
+lines = [
+    52,
+    65,
+]
+hash = "sha256:19090db8ba99f9865ac6d59e5176934610d518951115288fcf011ca46810c50f"
+doc_hash = "sha256:ad7b29b901a8e827454093a1b407025924ae04b5331e6e1bd2045c375d52c31a"
+callees = ["fn:69cbdc9e300c2c3d"]
+uses = [
+    "fn:507a3ab6c05627e1",
+    "fn:6eefa889d808eea4",
+    "fn:eeeec4b51b370172",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:8e36031d7ab99f83"
+name = "state_from_t_p_r"
+qual = "state_from_t_p_r"
+lines = [
+    67,
+    79,
+]
+hash = "sha256:439707d81f2d6ffb7b85eb8855ceba53f505fc088064ff36bb6d0323753a44da"
+doc_hash = "sha256:dacecab8d54aec9948a8665ab6a8c9199c2498c782cd7e3407be2d82892c49b7"
+callees = ["fn:69cbdc9e300c2c3d"]
+uses = [
+    "fn:507a3ab6c05627e1",
+    "fn:6eefa889d808eea4",
+    "fn:eeeec4b51b370172",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:69cbdc9e300c2c3d"
+name = "state_from_inputs"
+qual = "state_from_inputs"
+lines = [
+    81,
+    132,
+]
+hash = "sha256:6b8816124471ffc77385fe9638b2ae64b3ace84c2fc289c9243352167ffc0925"
+doc_hash = "sha256:51747a8e3c620bd4b68af6614f4b26d39aee70056db37740714d8f72baabcee6"
+callees = ["fn:5b065f30b2d25796"]
+uses = [
+    "fn:507a3ab6c05627e1",
+    "fn:6eefa889d808eea4",
+    "fn:b8d235f81b94d4e9",
+    "fn:eeeec4b51b370172",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+]

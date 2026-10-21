@@ -1,0 +1,529 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "George A.",
+						"lastName": "Akerlof",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "labor",
+						"type": 1
+					},
+					{
+						"tag": "exchange",
+						"type": 1
+					},
+					{
+						"tag": "gift",
+						"type": 1
+					}
+				],
+				"title": "Labor Contracts as Partial Gift Exchange",
+				"volume": "97",
+				"issue": "4",
+				"publisher": "Oxford University Press",
+				"pages": "543",
+				"language": "en",
+				"publicationTitle": "The Quarterly Journal of Economics",
+				"date": "1982-11-01"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Marianne",
+						"lastName": "Bertrand",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sendhil",
+						"lastName": "Mullainathan",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "labor market discrimination",
+						"type": 1
+					},
+					{
+						"tag": "emily",
+						"type": 1
+					}
+				],
+				"title": "Are Emily and Greg More Employable Than Lakisha and Jamal? A Field Experiment on Labor Market Discrimination",
+				"volume": "94",
+				"issue": "4",
+				"publisher": "American Economic Association",
+				"pages": "991-1013",
+				"language": "en",
+				"publicationTitle": "The American Economic Review",
+				"date": "2004-09-01"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Colin F.",
+						"lastName": "Camerer",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Robin M.",
+						"lastName": "Hogarth",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "financial incentives",
+						"type": 1
+					},
+					{
+						"tag": "experiments",
+						"type": 1
+					},
+					{
+						"tag": "capital-labor-production",
+						"type": 1
+					}
+				],
+				"title": "The Effects of Financial Incentives in Experiments: A Review and Capital-Labor-Production Framework",
+				"publisher": "Springer Nature",
+				"pages": "7-48",
+				"language": "en",
+				"bookTitle": "Springer eBooks",
+				"date": "1999-01-01"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Melinda",
+						"lastName": "Cooper",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Catherine",
+						"lastName": "Waldby",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "labor",
+						"type": 1
+					},
+					{
+						"tag": "clinical",
+						"type": 1
+					}
+				],
+				"title": "Clinical Labor",
+				"publisher": "Duke University Press",
+				"date": "2014-01-01"
+			}
+		]
+	},
+	"testCase04": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Stanley Joseph",
+						"lastName": "Stepanic",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "gulag",
+						"type": 1
+					},
+					{
+						"tag": "forced labor",
+						"type": 1
+					},
+					{
+						"tag": "camp",
+						"type": 1
+					},
+					{
+						"tag": "laogai",
+						"type": 1
+					}
+				],
+				"title": "The GULag and Laogai: A Comparative Study of Forced Labor through Camp Literature",
+				"university": "University of Virginia",
+				"language": "en",
+				"date": "2017-08-09"
+			}
+		]
+	},
+	"testCase05": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "G.",
+						"lastName": "Wentworth",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "amplifier phase distortion",
+						"type": 1
+					},
+					{
+						"tag": "audibility",
+						"type": 1
+					}
+				],
+				"title": "On the audibility of amplifier phase distortion",
+				"volume": "AU-13",
+				"issue": "4",
+				"publisher": "Institute of Electrical and Electronics Engineers",
+				"pages": "99",
+				"language": "en",
+				"publicationTitle": "IEEE Transactions on Audio",
+				"date": "1965-07-01"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Notices",
+				"volume": "308",
+				"issue": "2",
+				"publisher": "Massachusetts Medical Society",
+				"pages": "112",
+				"publicationTitle": "The New England Journal of Medicine",
+				"date": "1983-01-13"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Moses John",
+						"lastName": "Strydom",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Sheryl",
+						"lastName": "Buckley",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "big data research ecosystem",
+						"type": 1
+					},
+					{
+						"tag": "big data",
+						"type": 1
+					}
+				],
+				"title": "The Big Data Research Ecosystem",
+				"publisher": "IGI Global",
+				"pages": "2027-2057",
+				"language": "en",
+				"bookTitle": "IGI Global eBooks",
+				"date": "2020-11-27"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "L. V.",
+						"lastName": "Nevzgodina",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "В. Г.",
+						"lastName": "Кузнецов",
+						"creatorType": "author"
+					},
+					{
+						"name": "Sychkov",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "cabbage seeds",
+						"type": 1
+					},
+					{
+						"tag": "high energy protons",
+						"type": 1
+					},
+					{
+						"tag": "relative biological effectiveness",
+						"type": 1
+					}
+				],
+				"title": "Relative Biological Effectiveness of High Energy Protons Affecting Cabbage Seeds",
+				"publisher": "Serbian Genetics Society",
+				"language": "de",
+				"publicationTitle": "Genetika",
+				"date": "1966-08-01"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Ying",
+						"lastName": "Pang",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "credit risk",
+						"type": 1
+					},
+					{
+						"tag": "preventions",
+						"type": 1
+					}
+				],
+				"title": "Reasons and Preventions of the Credit Risk with Village Banks",
+				"language": "en",
+				"publicationTitle": "Journal of Shangqiu Vocational and Technical College",
+				"date": "2012-01-01"
+			}
+		]
+	},
+	"testCase06": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [
+					{
+						"firstName": "Riccardo",
+						"lastName": "Volpi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Hongseok",
+						"lastName": "Namkoong",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ozan",
+						"lastName": "Şener",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "John C.",
+						"lastName": "Duchi",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vittorio",
+						"lastName": "Murino",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Silvio",
+						"lastName": "Savarese",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Domain Adaptation",
+						"type": 1
+					},
+					{
+						"tag": "Unsupervised Learning",
+						"type": 1
+					},
+					{
+						"tag": "Adversarial Examples",
+						"type": 1
+					},
+					{
+						"tag": "Transfer Learning",
+						"type": 1
+					},
+					{
+						"tag": "Representation Learning",
+						"type": 1
+					}
+				],
+				"title": "Generalizing to Unseen Domains via Adversarial Data Augmentation",
+				"volume": "31",
+				"pages": "5334-5344",
+				"language": "en",
+				"proceedingsTitle": "Neural Information Processing Systems",
+				"date": "2018-05-01"
+			}
+		]
+	},
+	"testCase07": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Fabián",
+						"lastName": "Pedregosa",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Gaël",
+						"lastName": "Varoquaux",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Alexandre",
+						"lastName": "Gramfort",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vincent",
+						"lastName": "Michel",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Bertrand",
+						"lastName": "Thirion",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Olivier",
+						"lastName": "Grisel",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Mathieu",
+						"lastName": "Blondel",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Peter",
+						"lastName": "Prettenhofer",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ron J.",
+						"lastName": "Weiss",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Vincent",
+						"lastName": "Dubourg",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jake",
+						"lastName": "Vanderplas",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Alexandre",
+						"lastName": "Passos",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "David",
+						"lastName": "Cournapeau",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Matthieu",
+						"lastName": "Brucher",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Marc de",
+						"lastName": "Perrot",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Édouard",
+						"lastName": "Duchesnay",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Python",
+						"type": 1
+					},
+					{
+						"tag": "Robust Learning",
+						"type": 1
+					}
+				],
+				"title": "Scikit-learn: Machine Learning in Python",
+				"publisher": "Cornell University",
+				"language": "en",
+				"date": "2012-01-01"
+			}
+		]
+	}
+}

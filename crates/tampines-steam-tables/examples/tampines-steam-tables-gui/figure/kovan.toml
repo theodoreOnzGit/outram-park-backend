@@ -1,0 +1,2498 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure"
+test_ids = [
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/app.rs::default_app_state_yields_finite_plottable_data_on_every_tab",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/custom_lines.rs::every_custom_line_type_builds_a_tagged_layer_at_its_default_value",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::export_style_palette_reaches_the_rendered_png",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::scenes_assemble_with_finite_ranges_and_the_required_caveats",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::write_single_file_writes_the_exact_path_and_rejects_csv",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/csv_export.rs::csv_export_is_byte_reproducible",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/font.rs::every_glyph_stays_inside_its_box",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/font.rs::printable_ascii_is_fully_covered",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/layout.rs::a_nan_breaks_the_curve_instead_of_joining_it",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/layout.rs::liang_barsky_clips_at_the_frame",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/layout.rs::tick_generation_stays_in_range_and_labels_only_majors",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/mod.rs::autoscale_brackets_the_data_and_reports_an_empty_scene",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/mod.rs::axis_scales_round_trip_and_reject_unrepresentable_values",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/pdf.rs::pdf_xref_offsets_are_correct_and_output_is_reproducible",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/png.rs::dashing_splits_a_line_into_on_pieces",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/png.rs::raster_output_decodes_and_contains_ink",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/svg.rs::svg_output_is_byte_reproducible",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::every_reference_layer_yields_points",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::layer_selection_restricts_which_isobars_and_isotherms_are_drawn",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::legend_groups_collapse_the_families_issue_26_names",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::tabulated_single_phase_axis_toggle_works_on_every_diagram",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::tabulated_single_phase_pairs_a_smooth_curve_where_not_degenerate",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::wagner_single_phase_points_respect_the_isobar_isotherm_selection",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/main.rs::headless_export_writes_valid_files_for_all_four_diagrams",
+]
+
+[module."csv_export.rs"]
+path = "example:tampines-steam-tables-gui::figure::csv_export"
+
+[[module."csv_export.rs".function]]
+id = "fn:83f1c83b285bb07a"
+name = "HEADER"
+qual = "HEADER"
+item = "const"
+shape = "const"
+lines = [
+    39,
+    51,
+]
+hash = "sha256:37891a2514a4908279c1c17c7fa41666fa4cb7a8593f871e36c39d8a5fb1ef07"
+doc_hash = "sha256:89b5d26d42d39864e1667c750d4257a3da40ac11412be34444a57298ed5ffcd0"
+reached_by = [
+    "#5",
+    "#24",
+]
+
+[[module."csv_export.rs".function]]
+id = "fn:2a52d7c71ee23abe"
+name = "render"
+qual = "render"
+lines = [
+    53,
+    116,
+]
+hash = "sha256:fcf1fc5fb0d3b844a1e34c97f7c6d0f0ed82d758f7fdb523c0617f2edc36d843"
+doc_hash = "sha256:e42df6c177f419aa595ef8634ae51c737033f4698b2fcfef30ba1276dc7b6444"
+callees = [
+    "fn:1d3e59eb6e2e5e95",
+    "fn:adf4a51fb3c531c2",
+    "fn:af3a976a8e15a781",
+    "fn:ddacf756e657bfa5",
+    "fn:ded77421d18bf6b6",
+    "fn:e75f5d6226b8ad20",
+    "fn:e8ca990a7a9e133a",
+]
+uses = [
+    "fn:0805ee9aadc6637b",
+    "fn:18b68a70dff9614c",
+    "fn:83f1c83b285bb07a",
+    "fn:9ab5d92f662e4090",
+]
+reached_by = [
+    "#5",
+    "#24",
+]
+
+[[module."csv_export.rs".function]]
+id = "fn:e75f5d6226b8ad20"
+name = "number"
+qual = "number"
+lines = [
+    118,
+    130,
+]
+hash = "sha256:68d92b42a6d4b78ba98a2fb7ed288efd67ab09337fcb544ced97b0f48fa27765"
+doc_hash = "sha256:eab534da14a155d698a659dbce2cd25078f2cb71ea9c36770fda819a9050c85c"
+reached_by = [
+    "#5",
+    "#24",
+]
+
+[[module."csv_export.rs".function]]
+id = "fn:ddacf756e657bfa5"
+name = "quote"
+qual = "quote"
+lines = [
+    132,
+    141,
+]
+hash = "sha256:c9f3a42d34db69c087d00f7e7ccebf4b6c1f859cd7eb348f459c9a401303e9d4"
+doc_hash = "sha256:75c9bebcf554eadf38de3a718b8f00ca8be97dc3f22e50a1ef052ed52d4af640"
+reached_by = [
+    "#5",
+    "#24",
+]
+
+[[module."csv_export.rs".function]]
+id = "fn:e99138934103992a"
+name = "csv_export_is_byte_reproducible"
+qual = "csv_export_is_byte_reproducible"
+lines = [
+    143,
+    206,
+]
+hash = "sha256:074bfe46591d70adb6dba8891d30c67ab2f452fc441a4f0b61ea7302e4c368fa"
+doc_hash = "sha256:1d19b55c18b77737586107872ef584820befddce2f48e6cd493b2d99c045034c"
+callees = [
+    "fn:2a52d7c71ee23abe",
+    "fn:2c69e2acd67bd407",
+    "fn:6c8166513c596782",
+    "fn:7af6ccc18f8bd5c1",
+    "fn:df388d3277dc7762",
+]
+uses = [
+    "fn:0805ee9aadc6637b",
+    "fn:18b68a70dff9614c",
+    "fn:6df96d2db3ae44ed",
+    "fn:755100071919d93e",
+    "fn:83f1c83b285bb07a",
+    "fn:9ab5d92f662e4090",
+]
+test = true
+
+[[module."csv_export.rs".function]]
+id = "fn:df388d3277dc7762"
+name = "split_row"
+qual = "split_row"
+lines = [
+    208,
+    227,
+]
+hash = "sha256:d2dbd1e4be6aba8c608eba0fa3735aa9aafe3b88fb2227d585e407388c338228"
+doc_hash = "sha256:97d045bba1b8c46bc8bedd0894fa139d82c07b4f2b9315b4ae95d814ff69742f"
+reached_by = ["#5"]
+
+[module."font.rs"]
+path = "example:tampines-steam-tables-gui::figure::font"
+
+[[module."font.rs".function]]
+id = "fn:ecc49a8b4d2a6ddf"
+name = "CAP_HEIGHT"
+qual = "CAP_HEIGHT"
+item = "const"
+shape = "const"
+lines = [
+    45,
+    46,
+]
+hash = "sha256:2882330734761099560af5470eb7af719563ad1f63fcf1f2d54121977a010b9b"
+doc_hash = "sha256:69bd37d69e38e82afd7ef689e0e3d8fb6ffd1eb54884d1d71e4c44f462cebc5d"
+reached_by = [
+    "#2",
+    "#4",
+    "#6",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."font.rs".function]]
+id = "fn:2610885b79400523"
+name = "X_HEIGHT"
+qual = "X_HEIGHT"
+item = "const"
+shape = "const"
+lines = [
+    47,
+    53,
+]
+hash = "sha256:73f0710a7ab830a3bc105010ae512c9c0ebe7927142c9645e889162653b97c11"
+doc_hash = "sha256:d442e63504d91f16d517c8deac45f20c397b512294da676514fd104978f61313"
+
+[[module."font.rs".function]]
+id = "fn:d6600bc30bb20b39"
+name = "DESCENDER"
+qual = "DESCENDER"
+item = "const"
+shape = "const"
+lines = [
+    54,
+    60,
+]
+hash = "sha256:12a8335d3283ce6056cbdaf05ce36d72091bf79fea8c4f18f17d3cc6a9e62528"
+doc_hash = "sha256:e9538fe5a13b67694e03dcdd9a9b7591acc924e9992a21e0ea0b356b6fde8ec3"
+reached_by = ["#6"]
+
+[[module."font.rs".function]]
+id = "fn:c2d7a3d3e820b6fd"
+name = "ADVANCE"
+qual = "ADVANCE"
+item = "const"
+shape = "const"
+lines = [
+    61,
+    63,
+]
+hash = "sha256:0001c7d3151dbfd354fb8704a8c85f0677ff0bb522a0021d7eabedf168c50966"
+doc_hash = "sha256:085a553d03cea6ec7fd7b9c621d511a51859a2dd0dee878a1c26703e77ffbdde"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."font.rs".function]]
+id = "fn:5c5237df1df3d1cd"
+name = "Glyph"
+qual = "Glyph"
+item = "type"
+shape = "alias"
+lines = [
+    65,
+    66,
+]
+hash = "sha256:fb18de90e59074a3eb2a0e84faddfbd5dda2f6c1c9799b061403b3b0ed5ffd2c"
+doc_hash = "sha256:2b8a027897621cf692cae6a36b9f23af251c5592ef15c4b736602674657604f6"
+reached_by = [
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."font.rs".function]]
+id = "fn:4e42e765109d70bc"
+name = "TOFU"
+qual = "TOFU"
+item = "const"
+shape = "const"
+lines = [
+    68,
+    70,
+]
+hash = "sha256:d9e460354dfb3669bb7e85cab789ebefc66272b36affcf9099f3a65b5a61e343"
+doc_hash = "sha256:bb0894ec8044d149df6ff1b0fcb7449dd4cca0f2e21d493145950528cbfc0188"
+uses = ["fn:5c5237df1df3d1cd"]
+reached_by = [
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."font.rs".function]]
+id = "fn:3bdabe9c750f6dac"
+name = "glyph"
+qual = "glyph"
+lines = [
+    72,
+    514,
+]
+hash = "sha256:09e672f7f6ecf9459792fe45c3902bba66652a208ae9420d2257830c257b6780"
+doc_hash = "sha256:19eca9f3dc4dd7697a0fbf16296655731d5cebe10f2dc7fedaa4cab63b91cd0e"
+uses = [
+    "fn:4e42e765109d70bc",
+    "fn:5c5237df1df3d1cd",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#6",
+    "#7",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."font.rs".function]]
+id = "fn:a7d13eebc4466652"
+name = "text_width_units"
+qual = "text_width_units"
+lines = [
+    516,
+    519,
+]
+hash = "sha256:2524b2c420bdb2949f92e831af481fb4e61344fce7f4244256a858a7aacc2b83"
+doc_hash = "sha256:5156032412301820d4cb34957e88de8c7a85a2adb647c647f038aa3662c41b74"
+uses = ["fn:c2d7a3d3e820b6fd"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."font.rs".function]]
+id = "fn:ced9c85925b6c85b"
+name = "text_polylines"
+qual = "text_polylines"
+lines = [
+    521,
+    541,
+]
+hash = "sha256:388a07b9c848270d53ab196a3411f40d764684e9722b5114766502c9c1f73023"
+doc_hash = "sha256:86b2429703a324c952679b71ce8dc7f94d48622555074f53a62e09e11563f8a5"
+callees = ["fn:3bdabe9c750f6dac"]
+uses = ["fn:c2d7a3d3e820b6fd"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."font.rs".function]]
+id = "fn:77b269c7977b52d6"
+name = "every_glyph_stays_inside_its_box"
+qual = "every_glyph_stays_inside_its_box"
+lines = [
+    543,
+    576,
+]
+hash = "sha256:baa7dd95d296835fce05b502c7e1a1b867f0db0b2e1f601bf7b288fb6fa44e8b"
+doc_hash = "sha256:55b7878176bf7f4b59acf738f3c1e6825f1bc343a2905cae9472d6a2b3d5e378"
+callees = ["fn:3bdabe9c750f6dac"]
+uses = [
+    "fn:d6600bc30bb20b39",
+    "fn:ecc49a8b4d2a6ddf",
+]
+test = true
+
+[[module."font.rs".function]]
+id = "fn:76ba38b3497ddb70"
+name = "printable_ascii_is_fully_covered"
+qual = "printable_ascii_is_fully_covered"
+lines = [
+    578,
+    599,
+]
+hash = "sha256:8ebbeaa734e72431ee11fb7f627a830b8d179642b7fb0acd51447ecf271c0e3b"
+doc_hash = "sha256:48c0b0d623341ff483a02db85d70df839203c72f3ab6fe1387151ad97615b93c"
+callees = ["fn:3bdabe9c750f6dac"]
+uses = ["fn:4e42e765109d70bc"]
+test = true
+
+[module."layout.rs"]
+path = "example:tampines-steam-tables-gui::figure::layout"
+
+[[module."layout.rs".function]]
+id = "fn:0421ed2bc43c28e9"
+name = "PageSize"
+qual = "PageSize"
+item = "type"
+shape = "struct"
+lines = [
+    29,
+    36,
+]
+hash = "sha256:f92f211ad713449e43b05a883e3a47dece64dc3c0678b694dbe5504f0b32dba5"
+doc_hash = "sha256:77988f9e75ca5224158bdd96d7ee8b79388076c1731ee93cd7c907338f7d3bcb"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:645bd711c9524e95"
+name = "Rect"
+qual = "Rect"
+item = "type"
+shape = "struct"
+lines = [
+    47,
+    58,
+]
+hash = "sha256:cb4a15d8fd3f01f028ac0483852101bc0e692f0b510431e95e43fc0195a3caba"
+doc_hash = "sha256:5e460dee683a5d46eb43b9441a327672afedfce29a0d951c1d7a1d1336bf4166"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#9",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:e500c85bdeaddc09"
+name = "width"
+qual = "Rect::width"
+lines = [
+    61,
+    64,
+]
+hash = "sha256:3b06fba9158ec983e1feb11b00cde9abb6e65601d40ee4f8678056d5a84f4e86"
+doc_hash = "sha256:d48be0dceae84d5a1c3cc858174a59f59d150ad5a052ee87228c683ce73ea4b9"
+uses = ["fn:645bd711c9524e95"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:2ddfc1c7b09baa3d"
+name = "height"
+qual = "Rect::height"
+lines = [
+    65,
+    68,
+]
+hash = "sha256:3224b0d2377f3b2666b00533e3c6f8809634619ff7ce043fb38b3e98b0dc1a4f"
+doc_hash = "sha256:e1d7c64d3ea6234fba33abd0d6fb4d08af4c77b4635ad729990e6b92ffb13a20"
+uses = ["fn:645bd711c9524e95"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:c056bef0cd4abd8f"
+name = "contains"
+qual = "Rect::contains"
+lines = [
+    69,
+    72,
+]
+hash = "sha256:4da06860db3e6e34c116a41df24ea7d6d2c28e060c6be4a764b7ed00c67f962b"
+doc_hash = "sha256:92768dc0911f30396998e1229a9a17191dea3a1c27bfb293c635a36d357143dc"
+uses = ["fn:645bd711c9524e95"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:bcc91074352d83db"
+name = "HAnchor"
+qual = "HAnchor"
+item = "type"
+shape = "enum"
+lines = [
+    75,
+    84,
+]
+hash = "sha256:9ec22f3e4bde5e8a99f8f400da54183cadd83de2d1693fdbed1b57c3c3ecef1e"
+doc_hash = "sha256:181077a80bc3a380ea46dea2cc07ca11178276b5caaede6652ead9fda8190d99"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:35f7da4647a4f82f"
+name = "VAnchor"
+qual = "VAnchor"
+item = "type"
+shape = "enum"
+lines = [
+    86,
+    99,
+]
+hash = "sha256:c6aaf9cdc32952fd64fa3253291ff1f63e5efa150b9b218dc53d34262e24efec"
+doc_hash = "sha256:181cb8fba98470a69935b66018bd734fdbf61d0f97cb83b6c598ea546dccbac5"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:601e0e8550767319"
+name = "DrawOp"
+qual = "DrawOp"
+item = "type"
+shape = "enum"
+lines = [
+    101,
+    122,
+]
+hash = "sha256:4335698ad7280af98b338db71601e37dcc235b431699231db08da1c56dc13573"
+doc_hash = "sha256:3e223d3aecc7b7112ff51e6559366c3213625350123ffcccb8e300b1f3c59138"
+uses = ["fn:eb2fa3cc57213726"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:1dafa34ab8c48629"
+name = "TITLE_SIZE"
+qual = "TITLE_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    124,
+    125,
+]
+hash = "sha256:3c32b511e6195aa103e901fe429b02153d53e185e4a869c7354caaa2db282b02"
+doc_hash = "sha256:9c19afdbd04f7aa8f24a5b474e20dedd94762e44ca6891d35d40d7c19f932e1a"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:1676ee838e600616"
+name = "AXIS_LABEL_SIZE"
+qual = "AXIS_LABEL_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    126,
+    127,
+]
+hash = "sha256:261f154fcf5fac04f2144a446aee07feb2be9eedb68eb10b88465f499d3f5834"
+doc_hash = "sha256:2106ab425811eedf0f80ac36a6411dc04fa5da9ed1f96b95886fa66ec81432d3"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:895f73a062cda543"
+name = "TICK_LABEL_SIZE"
+qual = "TICK_LABEL_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    128,
+    129,
+]
+hash = "sha256:24d4b673907ebba2647f36dfd90c864f2bd3d94a0a4209a99c4ed575cf00ef39"
+doc_hash = "sha256:4226b10568368f4fc6db43d70b40eb7a2d3498aef9c761c0f31048360dd00141"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:be38a6737d2ea723"
+name = "SMALL_SIZE"
+qual = "SMALL_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    130,
+    131,
+]
+hash = "sha256:8efebc62342f1510d38da59e43292777d9304612eb1dc7f1806f8754eaa21fcc"
+doc_hash = "sha256:ac3f4822d8f4603ea7b02e717cae4d2d923a8284c87d22b2830f673af868ebdd"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:2a1b350502d1d694"
+name = "TEXT_STROKE"
+qual = "TEXT_STROKE"
+item = "const"
+shape = "const"
+lines = [
+    132,
+    133,
+]
+hash = "sha256:ed5cb7d42eb82fd55dce41cae2db25348977209cebe0750f16bf1004751cd85d"
+doc_hash = "sha256:dd99b1778a905de525cac2f6b2a797749b3b4bf8ca4517e5c8a71cb1b7b56089"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:6bb4b9ccf0fbe351"
+name = "TICK_LEN"
+qual = "TICK_LEN"
+item = "const"
+shape = "const"
+lines = [
+    134,
+    135,
+]
+hash = "sha256:ae2c297afe4ee0f76dbe59db60c57dc9c7c65095975951d7f9393439ff3fdf77"
+doc_hash = "sha256:07a998e8de7c1cd51eb7eba232cec8b58b9d794fe4b46bc45aad80db7dad0da1"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:4653da99a1f5f1a9"
+name = "to_draw_ops"
+qual = "to_draw_ops"
+lines = [
+    137,
+    332,
+]
+hash = "sha256:9613ba8dc04ba3a003dd406a0d46383aaf63b9f5f96140390d020d79bc4c12c7"
+doc_hash = "sha256:993c236bec24dcd5895e747a1748f17b52462511b0d9ef60486d87ddd8e19a14"
+callees = [
+    "fn:12ba591a88e5966a",
+    "fn:2ddfc1c7b09baa3d",
+    "fn:318522632360aa31",
+    "fn:470256d1be5c6af0",
+    "fn:661a852c75977cc8",
+    "fn:9237ac9b06908b10",
+    "fn:99f102e4712fbe20",
+    "fn:ab0952e8c7916824",
+    "fn:bfa1b7954d490a83",
+    "fn:d7cd93bcbb642916",
+    "fn:e500c85bdeaddc09",
+]
+uses = [
+    "fn:0421ed2bc43c28e9",
+    "fn:1676ee838e600616",
+    "fn:1dafa34ab8c48629",
+    "fn:35f7da4647a4f82f",
+    "fn:5162bbc07454b237",
+    "fn:601e0e8550767319",
+    "fn:645bd711c9524e95",
+    "fn:6bb4b9ccf0fbe351",
+    "fn:895f73a062cda543",
+    "fn:8bfb7f61a193896e",
+    "fn:bcc91074352d83db",
+    "fn:be38a6737d2ea723",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:bfa1b7954d490a83"
+name = "fitted_size"
+qual = "fitted_size"
+lines = [
+    334,
+    344,
+]
+hash = "sha256:fdb5978dc1ee302e5af63137021e7b0d278a575c19c3cd68bbb30f4f071f272b"
+doc_hash = "sha256:8899aa0ea1346531e3f664efacf5fac8f275880b8d8cdc53026ee6372db532fe"
+callees = ["fn:a7d13eebc4466652"]
+uses = ["fn:ecc49a8b4d2a6ddf"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:470256d1be5c6af0"
+name = "wrap_notes"
+qual = "wrap_notes"
+lines = [
+    346,
+    374,
+]
+hash = "sha256:ba5c59471c80e26009f1165ba5482f540c63a144bb9af2b9b8401fac7c3c4c56"
+doc_hash = "sha256:9c78e9be3a90760d4b8295e2b1f27ed8301d2013ec41b49d6ba99c2ddc4ab2b0"
+uses = [
+    "fn:c2d7a3d3e820b6fd",
+    "fn:ecc49a8b4d2a6ddf",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:5162bbc07454b237"
+name = "LegendLayout"
+qual = "LegendLayout"
+item = "type"
+shape = "struct"
+lines = [
+    376,
+    394,
+]
+hash = "sha256:e8c51b0fe0d74f2e1b8f20f821c901cb515b57b4cd4e3ccfd418997f09e9c148"
+doc_hash = "sha256:8553a8e98e0f83a45e9e0b553fdd5731d1e4a7793bfec4ce5ba81c8b21fb9e62"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:bde51fe9d9e8af6c"
+name = "LEGEND_SWATCH"
+qual = "LEGEND_SWATCH"
+item = "const"
+shape = "const"
+lines = [
+    396,
+    397,
+]
+hash = "sha256:722dc1efa7710999b16700fc3265f28fdda4c1f7d250102819779cddee02c307"
+doc_hash = "sha256:7cda0e2caf50e605294cca4cdfb8d24d1f4e8efe59554cf56de1f3b506862a90"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:ab0952e8c7916824"
+name = "measure"
+qual = "LegendLayout::measure"
+lines = [
+    400,
+    429,
+]
+hash = "sha256:441be307cf232d8950d595c869f2083a910a6726b001bbf234c9eaa3ce3bea40"
+doc_hash = "sha256:ae4e434ded22c21decb909a3f0ee31612eb436efe8adcfc3df5a4bcfe3a68446"
+uses = [
+    "fn:5162bbc07454b237",
+    "fn:be38a6737d2ea723",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:318522632360aa31"
+name = "draw"
+qual = "LegendLayout::draw"
+lines = [
+    431,
+    480,
+]
+hash = "sha256:95ee3dc3db9e2d5aee7fe2f9e58c20f7984c5f971f11b465562c6b4deb695710"
+doc_hash = "sha256:970d5c73590ddcc04a74efd50fa8f92eef7841071d52f173e0ab705b15bff56f"
+callees = [
+    "fn:12ba591a88e5966a",
+    "fn:13fa3d9063db1210",
+]
+uses = [
+    "fn:0030a0c49c7e106e",
+    "fn:35f7da4647a4f82f",
+    "fn:5162bbc07454b237",
+    "fn:601e0e8550767319",
+    "fn:a493016b3246f1fa",
+    "fn:bcc91074352d83db",
+    "fn:bde51fe9d9e8af6c",
+    "fn:be38a6737d2ea723",
+    "fn:c2d7a3d3e820b6fd",
+    "fn:e82e5b894122ede9",
+    "fn:eb2fa3cc57213726",
+    "fn:ecc49a8b4d2a6ddf",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:661a852c75977cc8"
+name = "draw_series"
+qual = "draw_series"
+lines = [
+    483,
+    510,
+]
+hash = "sha256:fa4155345186b096d1581858f2c4a17870f5fd91910e026d9da134ba7837f1b7"
+doc_hash = "sha256:d1299156d68417d03d652451c7cc3bd3576c1f8701a4296ed8f81729e49397cf"
+callees = [
+    "fn:13fa3d9063db1210",
+    "fn:3df8a98ec4adec83",
+    "fn:4fb610906d9544d5",
+    "fn:c056bef0cd4abd8f",
+]
+uses = [
+    "fn:0030a0c49c7e106e",
+    "fn:601e0e8550767319",
+    "fn:645bd711c9524e95",
+    "fn:a493016b3246f1fa",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:3df8a98ec4adec83"
+name = "mapped_runs"
+qual = "mapped_runs"
+lines = [
+    512,
+    532,
+]
+hash = "sha256:2f714f8f1895fa079249610a7fb9a495b855cf0a6b5934ceb9a2fa0c40e1f569"
+doc_hash = "sha256:8f939ac5cb2fda595fd717ff226bc917d578a0aadf48ee84f21fad5e473647bc"
+callees = [
+    "fn:9237ac9b06908b10",
+    "fn:d7cd93bcbb642916",
+]
+uses = [
+    "fn:645bd711c9524e95",
+    "fn:a493016b3246f1fa",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:9237ac9b06908b10"
+name = "map_x"
+qual = "map_x"
+lines = [
+    534,
+    543,
+]
+hash = "sha256:c478821dc26b09ad73bc89b493e3431ca1298b7e4a7a1ee79762ea284df9cd81"
+doc_hash = "sha256:6e9a69f8ba895e932942dfa0879793fcb8087d41e93aa6480c851def7e8216f1"
+callees = [
+    "fn:e500c85bdeaddc09",
+    "fn:e67f3b5bf3fb0f84",
+]
+uses = [
+    "fn:645bd711c9524e95",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:d7cd93bcbb642916"
+name = "map_y"
+qual = "map_y"
+lines = [
+    545,
+    554,
+]
+hash = "sha256:0a94981f23adea292826d1731cd04f7e3994e602251d6b387fbe7c5f5b17a177"
+doc_hash = "sha256:7539d92937d99339565baf4a508daad84d25e36165338666d78f45dd8b0f876c"
+callees = [
+    "fn:2ddfc1c7b09baa3d",
+    "fn:e67f3b5bf3fb0f84",
+]
+uses = [
+    "fn:645bd711c9524e95",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:4fb610906d9544d5"
+name = "clip_polyline"
+qual = "clip_polyline"
+lines = [
+    556,
+    593,
+]
+hash = "sha256:b6be733fa6a9d51e5fb39584c33beb21c2a6ce8a1371568301b5d496f17a8036"
+doc_hash = "sha256:42d58b2e4b9a0ce90ac291e86787cf7a54e16349e90182e2b17c2f07db0ec67a"
+callees = [
+    "fn:a73a8efd4355dc1b",
+    "fn:fe8e6248ac47108a",
+]
+uses = ["fn:645bd711c9524e95"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:a73a8efd4355dc1b"
+name = "approx_same"
+qual = "approx_same"
+lines = [
+    595,
+    600,
+]
+hash = "sha256:a483c89c58521667d15c581680772662b44d80790c36d08cc7ff2df77b11d699"
+doc_hash = "sha256:af95cd8cdbce303abf855324c689fc5cd012a0f853e00cd8c7ef5a06e44811b1"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:fe8e6248ac47108a"
+name = "clip_segment"
+qual = "clip_segment"
+lines = [
+    602,
+    643,
+]
+hash = "sha256:5404607f8a2913b8eb64f946d614f21c8a7bb89cdca7e1cf36a28904b03bb7db"
+doc_hash = "sha256:e5032322789d8338215d351ad012e98f1f1c96f6a5455d8dc5c794c1723d27e0"
+uses = ["fn:645bd711c9524e95"]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#9",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:13fa3d9063db1210"
+name = "push_marker"
+qual = "push_marker"
+lines = [
+    645,
+    727,
+]
+hash = "sha256:b1a796ee0c8a25c1eefd10eece9be56e4d579eda79bce628938887b2444298ee"
+doc_hash = "sha256:537b5621a3a41be602520431caefb8475c445a5b0907660784eac273023e9145"
+uses = [
+    "fn:54832b1aca926946",
+    "fn:601e0e8550767319",
+    "fn:eb2fa3cc57213726",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:12ba591a88e5966a"
+name = "push_text"
+qual = "push_text"
+lines = [
+    729,
+    784,
+]
+hash = "sha256:76fe21d2c324855e957614d652eb8b36cbec56958299ab58ac547270c20a24fe"
+doc_hash = "sha256:46e5545e7c4f061fbcd40f12e7df84fb9299d8a2170be5976cd44758818cf12f"
+callees = [
+    "fn:a7d13eebc4466652",
+    "fn:ced9c85925b6c85b",
+]
+uses = [
+    "fn:2a1b350502d1d694",
+    "fn:35f7da4647a4f82f",
+    "fn:601e0e8550767319",
+    "fn:bcc91074352d83db",
+    "fn:eb2fa3cc57213726",
+    "fn:ecc49a8b4d2a6ddf",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:ed8d255cb4f2e6ee"
+name = "Tick"
+qual = "Tick"
+item = "type"
+shape = "struct"
+lines = [
+    786,
+    795,
+]
+hash = "sha256:3699441d524ecaca8a858a9755c759f5732f6b2d085a0915ddf176ddee1a562b"
+doc_hash = "sha256:379331d447e89c86950e17164de982968236d357acf22ce26ae9b4a420dc1de2"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#10",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:99f102e4712fbe20"
+name = "ticks_for"
+qual = "ticks_for"
+lines = [
+    797,
+    862,
+]
+hash = "sha256:c9bfc439fd90d9830930394a0c3914784ceab54bb87c7dff5f055e1f1346f0dc"
+doc_hash = "sha256:135330a13e9d278a3f6b02727517a53c96820d05db5bc8dbd1b97118f5c55180"
+callees = [
+    "fn:22c41cdba58bde1e",
+    "fn:9261348c8c77e79b",
+    "fn:c97b94749ddf4a89",
+]
+uses = [
+    "fn:9ef2474ac5b66048",
+    "fn:ed8d255cb4f2e6ee",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#10",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:c97b94749ddf4a89"
+name = "nice_step"
+qual = "nice_step"
+lines = [
+    864,
+    884,
+]
+hash = "sha256:08aef86e613747a09b16a51452f97e5f285927211e17d72ec16160ddc737dcdb"
+doc_hash = "sha256:3e19acc4d0fe57f70a7dd4c5a6cdf7c3b005a4c6219a4c1c2e44a218d3e876a6"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#10",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:22c41cdba58bde1e"
+name = "format_linear"
+qual = "format_linear"
+lines = [
+    886,
+    899,
+]
+hash = "sha256:979e3fb1485ca2df54d4bf2a9f8ba40a69dc31d2e65835aae256c238ef0395e5"
+doc_hash = "sha256:52ee344cf6178559bf1aab6a2bcc06d882a63af1221bbf4f4a84ed1e208663b0"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#10",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:9261348c8c77e79b"
+name = "format_log_decade"
+qual = "format_log_decade"
+lines = [
+    901,
+    914,
+]
+hash = "sha256:4d47cbcee85156581865f319f37e5753af0de4c2d1a0dcefb7b4b8ad194a12f2"
+doc_hash = "sha256:01a71aee055c4e94891717ce618a72df492b72388fb43457736e8b2dc841bd99"
+reached_by = [
+    "#2",
+    "#4",
+    "#8",
+    "#10",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."layout.rs".function]]
+id = "fn:0a30b44f3afe4a4e"
+name = "liang_barsky_clips_at_the_frame"
+qual = "liang_barsky_clips_at_the_frame"
+lines = [
+    916,
+    947,
+]
+hash = "sha256:ec8e03f08fae56c0994b1e817c007ea4ce95ef1ebd5d271b708604b2ddef08e4"
+doc_hash = "sha256:cb956ec68dab08c7abf781c573bd5ab066f2b6974c83953764cb28707dfc9499"
+callees = ["fn:fe8e6248ac47108a"]
+uses = ["fn:645bd711c9524e95"]
+test = true
+
+[[module."layout.rs".function]]
+id = "fn:711589d5d49b5c10"
+name = "a_nan_breaks_the_curve_instead_of_joining_it"
+qual = "a_nan_breaks_the_curve_instead_of_joining_it"
+lines = [
+    949,
+    989,
+]
+hash = "sha256:4fb53d81a64fd9a65f6ab89e7b0d44333425cde75b1c64b9684162837425f4fa"
+doc_hash = "sha256:318b222e4404b43f9e2d677151bcdb529fa8f5ee194884301f82e5a71f14df90"
+callees = [
+    "fn:44d311adc2291d22",
+    "fn:4653da99a1f5f1a9",
+    "fn:674cf89da12f5b12",
+]
+uses = [
+    "fn:0030a0c49c7e106e",
+    "fn:0421ed2bc43c28e9",
+    "fn:601e0e8550767319",
+    "fn:8bfb7f61a193896e",
+    "fn:a493016b3246f1fa",
+    "fn:e82e5b894122ede9",
+    "fn:eb2fa3cc57213726",
+]
+test = true
+
+[[module."layout.rs".function]]
+id = "fn:192e771f6b64471d"
+name = "tick_generation_stays_in_range_and_labels_only_majors"
+qual = "tick_generation_stays_in_range_and_labels_only_majors"
+lines = [
+    991,
+    1031,
+]
+hash = "sha256:699678171a7bebbdb147a18e707c57899bbd0757f5ab92ad137b8122f5fdae0d"
+doc_hash = "sha256:ca2c41aca4843c28f9b75e70817edceaa22a1e8b95ad396486bf3c29d89a36ac"
+callees = ["fn:99f102e4712fbe20"]
+uses = ["fn:9ef2474ac5b66048"]
+test = true
+
+[module."mod.rs"]
+path = "example:tampines-steam-tables-gui::figure"
+
+[[module."mod.rs".function]]
+id = "fn:eb2fa3cc57213726"
+name = "Rgb"
+qual = "Rgb"
+item = "type"
+shape = "struct"
+lines = [
+    40,
+    49,
+]
+hash = "sha256:d1d5629738a89bd0983965f90b8234d5bf68ae7a5862812c0428a01f9e058556"
+doc_hash = "sha256:0d8330ef495b33124e8f70c7e0b5ba75075415ccdfdf0d31c1aa157865affe46"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#11",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:674cf89da12f5b12"
+name = "new"
+qual = "Rgb::new"
+lines = [
+    52,
+    55,
+]
+hash = "sha256:eea64b23b14a01048f9d8f744a52884b59406f1e3b252e11684e9a45f73c7482"
+doc_hash = "sha256:1767a395832d7d3e6da210c3e12ec771c9565acbd98a8f54fe0a015666f3cf6c"
+uses = ["fn:eb2fa3cc57213726"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a6fc35af0285d64e"
+name = "as_unit_floats"
+qual = "Rgb::as_unit_floats"
+lines = [
+    57,
+    65,
+]
+hash = "sha256:15d71b27d681610c38fad843382f0cff630520b7a5bcee89ff14417a5fa07742"
+doc_hash = "sha256:b71d66972f29f122040a962d9aff7e77702edf9b92c16adcb72038c9dcff3847"
+uses = ["fn:eb2fa3cc57213726"]
+reached_by = [
+    "#2",
+    "#4",
+    "#13",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0a7539d3e32600cb"
+name = "as_hex"
+qual = "Rgb::as_hex"
+lines = [
+    67,
+    70,
+]
+hash = "sha256:bd65def447fb3125f615173469679274ab18cbd3ced3181d552072a162206afc"
+doc_hash = "sha256:2a83a6c2b67fd98a2d328b3729e5d2019a29f672bd4af424d152d616793cf12a"
+uses = ["fn:eb2fa3cc57213726"]
+reached_by = [
+    "#2",
+    "#4",
+    "#16",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9393584d12bcc3f3"
+name = "INK"
+qual = "INK"
+item = "const"
+shape = "const"
+lines = [
+    73,
+    74,
+]
+hash = "sha256:10c3fbb8a31dbdd6ecdd0e2f6472206dc6741b3920476add82b0131cdf203539"
+doc_hash = "sha256:604c3c2df5761fe51f88fc57617a4b023da8ca1fbf8cce9248935afc864eecbc"
+uses = ["fn:eb2fa3cc57213726"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#11",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0d6c3e612a47f3a4"
+name = "GRID"
+qual = "GRID"
+item = "const"
+shape = "const"
+lines = [
+    75,
+    76,
+]
+hash = "sha256:985e375c8bf1a7456f677919e29646a54bf0b6951deba85c175d47304a2f78dd"
+doc_hash = "sha256:681f917acd923db3a1de1314729954677e0af1df728f4494bd6832f0f3a5e005"
+uses = ["fn:eb2fa3cc57213726"]
+
+[[module."mod.rs".function]]
+id = "fn:5199c181b37dac9d"
+name = "PAPER"
+qual = "PAPER"
+item = "const"
+shape = "const"
+lines = [
+    77,
+    78,
+]
+hash = "sha256:d188518d4e37c643aa9c2d528576743a33595c7b817c7fa37dce5e3e495fabc1"
+doc_hash = "sha256:d46fcc63b0aab5fc310661ed4bed82f5bfb59fbb2a0e14ba7cd43eaa1d60cdb7"
+uses = ["fn:eb2fa3cc57213726"]
+
+[[module."mod.rs".function]]
+id = "fn:8bfb7f61a193896e"
+name = "FigurePalette"
+qual = "FigurePalette"
+item = "type"
+shape = "struct"
+lines = [
+    80,
+    98,
+]
+hash = "sha256:1fca62dcfe7c4ba110f72e1c399f02777456bd8ccb8d04550cb756da5d3be0d2"
+doc_hash = "sha256:2c739dd2744cd1368deeab038c0af401441a13942de672c65e1c10aa6c41aee7"
+uses = ["fn:eb2fa3cc57213726"]
+reached_by = [
+    "#0",
+    "#2",
+    "#4",
+    "#8",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9ef2474ac5b66048"
+name = "AxisScale"
+qual = "AxisScale"
+item = "type"
+shape = "enum"
+lines = [
+    120,
+    133,
+]
+hash = "sha256:5eea39e637231475dff29eb1433d25115bb359ec943d0362c04988d32420fbc4"
+doc_hash = "sha256:f22e920836a38a62d567927179fbf1b1317e30f4b31fec852f619ecf2727b044"
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e67f3b5bf3fb0f84"
+name = "forward"
+qual = "AxisScale::forward"
+lines = [
+    136,
+    153,
+]
+hash = "sha256:9ce5aa61cb02950f53521d4654f5bf90a63ed535dd6e866c117090f96143b930"
+doc_hash = "sha256:b7c8a6167d5994d2a837b74acc2b7a68e924ff61ee69cbbfad83a27550627add"
+uses = ["fn:9ef2474ac5b66048"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ef7380485d654826"
+name = "inverse"
+qual = "AxisScale::inverse"
+lines = [
+    155,
+    161,
+]
+hash = "sha256:9a96ca1ed00d54263b8097b9ade74dde46304419f71f45989b9910c3f96b781e"
+doc_hash = "sha256:38ceba757aa308c1c500716823c644f29aecb1e3863c1a0c3faf0f5f23165402"
+uses = ["fn:9ef2474ac5b66048"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#11",
+    "#12",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:54832b1aca926946"
+name = "MarkerShape"
+qual = "MarkerShape"
+item = "type"
+shape = "enum"
+lines = [
+    164,
+    185,
+]
+hash = "sha256:865b5c5f9ef65ccd9fb27dbffbbafcb275bfdf1193e61c125d59d18ddee23a57"
+doc_hash = "sha256:0409861abdb23212625f2141559c79966d98615dfd2d15fe85fe0ed4023aea0a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#11",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0030a0c49c7e106e"
+name = "SeriesStyle"
+qual = "SeriesStyle"
+item = "type"
+shape = "enum"
+lines = [
+    187,
+    208,
+]
+hash = "sha256:449b8573067fe7fe901d51af3f905184ed295b0d858c2dbd6762e14a62f412cd"
+doc_hash = "sha256:b9b36421a581d090ed04f4093c51a4af1349e29224efab11f2e19da4bd475560"
+uses = ["fn:54832b1aca926946"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#8",
+    "#11",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a493016b3246f1fa"
+name = "Series"
+qual = "Series"
+item = "type"
+shape = "struct"
+lines = [
+    210,
+    233,
+]
+hash = "sha256:7ec73bf1c1199d0610fa6a9ae2c3d4aba2608e98a1a3d0749ebd72224d9d758b"
+doc_hash = "sha256:cec366f176647ae79cf3c918b0108cf7927896a28466896f04413e75dd815b20"
+uses = [
+    "fn:0030a0c49c7e106e",
+    "fn:eb2fa3cc57213726",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#11",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e82e5b894122ede9"
+name = "Scene"
+qual = "Scene"
+item = "type"
+shape = "struct"
+lines = [
+    235,
+    259,
+]
+hash = "sha256:4e200c1632c2e7194886c27d19061338e011863375a301e3635217d4c0e08fd9"
+doc_hash = "sha256:de6fd2999f1f273efdd9132ac11db4e8cb8e69671b5178e47dadf18c3d3a39bc"
+uses = [
+    "fn:9ef2474ac5b66048",
+    "fn:a493016b3246f1fa",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#11",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:44d311adc2291d22"
+name = "new"
+qual = "Scene::new"
+lines = [
+    262,
+    279,
+]
+hash = "sha256:5fa815f6e5873faf720d7d208f5d99f14c363e3c994f413d561b29683847d336"
+doc_hash = "sha256:d1b1c5dd555223520f016b67475aeb5ff1d3aa88747ddaaf1a55cb169e340f5f"
+uses = [
+    "fn:9ef2474ac5b66048",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#8",
+    "#11",
+    "#13",
+    "#15",
+    "#16",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c9b2cd6153138955"
+name = "autoscale"
+qual = "Scene::autoscale"
+lines = [
+    281,
+    313,
+]
+hash = "sha256:f3b100eaa96b2fddbb10d700f9929cf58c929cf92d6c45ef95b0155a6415cf0b"
+doc_hash = "sha256:60df92c8af70244b4aa93cb2539022c3f690aff9928c826f4a79857585e732b4"
+callees = [
+    "fn:da433095b38fb004",
+    "fn:e67f3b5bf3fb0f84",
+]
+uses = ["fn:e82e5b894122ede9"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#11",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:da433095b38fb004"
+name = "pad_range"
+qual = "pad_range"
+lines = [
+    316,
+    334,
+]
+hash = "sha256:1244428d3ae52747976e3d5b019ed099d0b548f5974ca737e867a14b8b59ba7d"
+doc_hash = "sha256:493b6144323c13f4c565306e8cc092f8d92e2f9ca0f89ba028c734f1f62669e5"
+callees = [
+    "fn:e67f3b5bf3fb0f84",
+    "fn:ef7380485d654826",
+]
+uses = ["fn:9ef2474ac5b66048"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#11",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3f07789d401c4a18"
+name = "PALETTE"
+qual = "PALETTE"
+item = "const"
+shape = "const"
+lines = [
+    336,
+    352,
+]
+hash = "sha256:175af332bdfaee6bb91e577868346a1d0d279599caf6c01aad29025bb5075cbd"
+doc_hash = "sha256:84fd9505d7b4edc1523e13a515207df5bf95fb95941e05b1037aa169148b20ba"
+uses = ["fn:eb2fa3cc57213726"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:26ebd48b82dd74e7"
+name = "lerp_rgb"
+qual = "lerp_rgb"
+lines = [
+    354,
+    360,
+]
+hash = "sha256:78615fded0ad6c7712c30bece315d89d56456a8bfd2c23e3d1cc34e9828b617f"
+doc_hash = "sha256:7fd1aa77fb8c9239a235f2472e0114e52859bf9f796e26ac000f297096d66bb8"
+callees = ["fn:674cf89da12f5b12"]
+uses = ["fn:eb2fa3cc57213726"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2409d7ecafd07ed1"
+name = "ISOTHERM_GRADIENT_MIN_DEGC"
+qual = "ISOTHERM_GRADIENT_MIN_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    362,
+    364,
+]
+hash = "sha256:083d0465df536d2fc3004e1cf6e99c95dab54de928da3148a409a2e5ec733ce7"
+doc_hash = "sha256:05001548063471a13c5ac1e6605663e96c71d3b94a6d6f41fda9b80e844d33d0"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:80c303ef4acddda3"
+name = "ISOTHERM_GRADIENT_MAX_DEGC"
+qual = "ISOTHERM_GRADIENT_MAX_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    365,
+    367,
+]
+hash = "sha256:047f512db97a306d9a5e4049d4b38e7bb2242b8dd77a4594338ea36e91748d57"
+doc_hash = "sha256:cd35c4e169c47feb6bcaa529a52dbb894c6f080470e8d4f9a763c3ef6f888ee2"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d4dcb28f32de456c"
+name = "isotherm_colour"
+qual = "isotherm_colour"
+lines = [
+    369,
+    390,
+]
+hash = "sha256:0d9e96dc5eb19100cbe8d26f1bc58bdc39449d35f4d093279472389a1a9168b7"
+doc_hash = "sha256:bf6536f0fc5c509c96b8eb52ae55fee17856c87be922e6439fcdd18849d48c98"
+callees = [
+    "fn:26ebd48b82dd74e7",
+    "fn:674cf89da12f5b12",
+]
+uses = [
+    "fn:2409d7ecafd07ed1",
+    "fn:80c303ef4acddda3",
+    "fn:eb2fa3cc57213726",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+]
+
+[[module."mod.rs".function]]
+id = "fn:39e74ef31f0035d4"
+name = "axis_scales_round_trip_and_reject_unrepresentable_values"
+qual = "axis_scales_round_trip_and_reject_unrepresentable_values"
+lines = [
+    392,
+    423,
+]
+hash = "sha256:03ca55600f5d022702fb468310ece4bb39e2e2612b00ab2fccc2d4e45371d5b2"
+doc_hash = "sha256:41e729f2e988f184ae7637e9a6749f872939c44e34dd96ceeb0b6bd5182b1cfe"
+callees = [
+    "fn:e67f3b5bf3fb0f84",
+    "fn:ef7380485d654826",
+]
+uses = ["fn:9ef2474ac5b66048"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5c9081221d94dd01"
+name = "autoscale_brackets_the_data_and_reports_an_empty_scene"
+qual = "autoscale_brackets_the_data_and_reports_an_empty_scene"
+lines = [
+    425,
+    468,
+]
+hash = "sha256:534ee390ae5882f79f67870db45a8772d135627b46eeca7f9d97bff223b5471a"
+doc_hash = "sha256:d03d0f8524d5f6d30db549cbe1f9b83de38d64ebc206a966ad88004d53832711"
+callees = [
+    "fn:44d311adc2291d22",
+    "fn:c9b2cd6153138955",
+]
+uses = [
+    "fn:0030a0c49c7e106e",
+    "fn:9393584d12bcc3f3",
+    "fn:9ef2474ac5b66048",
+    "fn:a493016b3246f1fa",
+    "fn:e82e5b894122ede9",
+]
+test = true
+
+[module."pdf.rs"]
+path = "example:tampines-steam-tables-gui::figure::pdf"
+
+[[module."pdf.rs".function]]
+id = "fn:236032e3a88e4d22"
+name = "render"
+qual = "render"
+lines = [
+    36,
+    40,
+]
+hash = "sha256:14789b2a69340c67c41c3010a9415945e5c658b7dcf4de32c350123957463097"
+doc_hash = "sha256:e1d9c76eba5cb8e0ed2a4d3cc2cc54299357e7a26f62e8fc83fa7314099608bc"
+callees = [
+    "fn:382516a25986b841",
+    "fn:4653da99a1f5f1a9",
+]
+uses = [
+    "fn:0421ed2bc43c28e9",
+    "fn:8bfb7f61a193896e",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#13",
+    "#24",
+]
+
+[[module."pdf.rs".function]]
+id = "fn:382516a25986b841"
+name = "render_ops"
+qual = "render_ops"
+lines = [
+    42,
+    46,
+]
+hash = "sha256:b906d89f54519da850e8c590cec6b70a3fda7ac2d8380925baa51125698a83ba"
+doc_hash = "sha256:ef530b78f9cdf104d123181cd60c57f4d3e2be6b6ef4d82e5df3951428bf020d"
+callees = [
+    "fn:5fe44838fbc56a01",
+    "fn:f76ccad30af3ed85",
+]
+uses = [
+    "fn:0421ed2bc43c28e9",
+    "fn:601e0e8550767319",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#13",
+    "#24",
+]
+
+[[module."pdf.rs".function]]
+id = "fn:f76ccad30af3ed85"
+name = "content_stream"
+qual = "content_stream"
+lines = [
+    48,
+    101,
+]
+hash = "sha256:6978ad590b8a9a439fd7e47e308798498812902dc9eba8516713e7491c80710f"
+doc_hash = "sha256:98842f604cd7e3480d2c387ca80ea9b5ec665850fb5a1c3cc240165812377f08"
+callees = [
+    "fn:a6fc35af0285d64e",
+    "fn:cca50657200a116b",
+]
+uses = [
+    "fn:0421ed2bc43c28e9",
+    "fn:601e0e8550767319",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#13",
+    "#24",
+]
+
+[[module."pdf.rs".function]]
+id = "fn:5fe44838fbc56a01"
+name = "assemble"
+qual = "assemble"
+lines = [
+    103,
+    152,
+]
+hash = "sha256:8d97c7007db1665bebb21e765d910f3a0a73ca72e2cc93f7023fa396205008af"
+doc_hash = "sha256:b830a7ef5e87797a8c3fc9eb9ad21604499a0577b7df98670c6172d7211a382a"
+callees = ["fn:cca50657200a116b"]
+uses = ["fn:0421ed2bc43c28e9"]
+reached_by = [
+    "#2",
+    "#4",
+    "#13",
+    "#24",
+]
+
+[[module."pdf.rs".function]]
+id = "fn:cca50657200a116b"
+name = "num"
+qual = "num"
+lines = [
+    154,
+    167,
+]
+hash = "sha256:a687b391e5b864078b12b20100397ea56562d13687d15edcc0370da3c4a7df87"
+doc_hash = "sha256:87d9f4b44ba314489569349549c8feada6886bf52853c2ee904993185b4ef7d2"
+reached_by = [
+    "#2",
+    "#4",
+    "#13",
+    "#24",
+]
+
+[[module."pdf.rs".function]]
+id = "fn:df392759c6c62d90"
+name = "pdf_xref_offsets_are_correct_and_output_is_reproducible"
+qual = "pdf_xref_offsets_are_correct_and_output_is_reproducible"
+lines = [
+    169,
+    244,
+]
+hash = "sha256:1e859c3e2792c1d282bc1e6719307005a61fafc77833e974b015a3b965f666d4"
+doc_hash = "sha256:de2c153eb52ee6e726b6955a73514c54ca8a5f49260430a9819d7e6832bb3d31"
+callees = [
+    "fn:236032e3a88e4d22",
+    "fn:44d311adc2291d22",
+]
+uses = [
+    "fn:0030a0c49c7e106e",
+    "fn:0421ed2bc43c28e9",
+    "fn:8bfb7f61a193896e",
+    "fn:9393584d12bcc3f3",
+    "fn:a493016b3246f1fa",
+    "fn:e82e5b894122ede9",
+]
+test = true
+
+[module."png.rs"]
+path = "example:tampines-steam-tables-gui::figure::png"
+
+[[module."png.rs".function]]
+id = "fn:0e0a0c98053997d2"
+name = "DEFAULT_PIXELS_PER_POINT"
+qual = "DEFAULT_PIXELS_PER_POINT"
+item = "const"
+shape = "const"
+lines = [
+    27,
+    30,
+]
+hash = "sha256:1f9d6b2ed6a27c7c42760f1007661908cca5967207c725fca41570ae1129e6d6"
+doc_hash = "sha256:aef28d9196034845fdf22b69693c7b2c4f53c2e53fdbf85f5a52a7b1c176c14a"
+reached_by = [
+    "#0",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:721bf7416791bc48"
+name = "render"
+qual = "render"
+lines = [
+    32,
+    45,
+]
+hash = "sha256:27f329c83c51faa14b86c288a0332815f90e6b48327584340e9860ac20f422e8"
+doc_hash = "sha256:fd33a8892ff532e39a007fa45851a520cc4dd6ac7c33d50b19282017153ccc73"
+callees = [
+    "fn:3ce144ddc7b43660",
+    "fn:4653da99a1f5f1a9",
+]
+uses = [
+    "fn:0421ed2bc43c28e9",
+    "fn:8bfb7f61a193896e",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:3ce144ddc7b43660"
+name = "render_ops"
+qual = "render_ops"
+lines = [
+    47,
+    93,
+]
+hash = "sha256:ec5a1b810c0bc2bd9969c65fe494925a0b3f55ed03e16ff357a7f8bcbf5c3759"
+doc_hash = "sha256:3036aca8237368d6d8d137fd291e5622da4779b3943c6ba72a370e746ac994aa"
+callees = [
+    "fn:0427fc8efbf81c5c",
+    "fn:614cdd5d94630e9d",
+    "fn:81749172643f2d3a",
+    "fn:d5fd453201482739",
+    "fn:e1f68570c93f4bce",
+]
+uses = [
+    "fn:0421ed2bc43c28e9",
+    "fn:5f8b8bb3ae80bb69",
+    "fn:601e0e8550767319",
+    "fn:eb2fa3cc57213726",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:5f8b8bb3ae80bb69"
+name = "Canvas"
+qual = "Canvas"
+item = "type"
+shape = "struct"
+lines = [
+    95,
+    100,
+]
+hash = "sha256:c709b41bb183d7f96c222a6838f06f4f1a2939713112a2aebcd276d04ccba966"
+doc_hash = "sha256:5e46be59d486ee15c1dccb3b60f79fce6361242b687b64755c66f8b82f76cf10"
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:614cdd5d94630e9d"
+name = "new"
+qual = "Canvas::new"
+lines = [
+    103,
+    113,
+]
+hash = "sha256:feafc6afccf76596cc006b92c1730b5ff177a6c9286849e3098c5fe2ba0f287d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5f8b8bb3ae80bb69",
+    "fn:eb2fa3cc57213726",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:c4c61d68beddb639"
+name = "blend"
+qual = "Canvas::blend"
+lines = [
+    115,
+    127,
+]
+hash = "sha256:e72e7d0dc7bdb67937738086a085a13775bca28ee65e4e0d06696ed6b4b2c5f1"
+doc_hash = "sha256:d15fbc7bf1974c2fb0d282ce3ddc8ef15e20fb2abbc742819e74df3483384f2d"
+uses = [
+    "fn:5f8b8bb3ae80bb69",
+    "fn:eb2fa3cc57213726",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:0427fc8efbf81c5c"
+name = "stroke_polyline"
+qual = "Canvas::stroke_polyline"
+lines = [
+    129,
+    151,
+]
+hash = "sha256:2fc8cc3417f9e91c0791d0a65f8a3fe82930884ce3db598c954827b3767ad48e"
+doc_hash = "sha256:030168eec08b63675f5b020ee2ac8e7f50b8b0f71498a64343c6cc6c398a9e98"
+callees = [
+    "fn:6aeebbb18eb87ec6",
+    "fn:c4c61d68beddb639",
+]
+uses = [
+    "fn:5f8b8bb3ae80bb69",
+    "fn:eb2fa3cc57213726",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:d5fd453201482739"
+name = "fill_polygon"
+qual = "Canvas::fill_polygon"
+lines = [
+    153,
+    195,
+]
+hash = "sha256:65d7f367f826e5d97292a9c37e2a70dca36ea88b313400d1c8f885bbc658ce4d"
+doc_hash = "sha256:97619be5a4536326301878a9794357ccc7c3771c480e429b8a2108163e9a0f61"
+callees = [
+    "fn:0c65c23b026c888f",
+    "fn:c4c61d68beddb639",
+]
+uses = [
+    "fn:5f8b8bb3ae80bb69",
+    "fn:eb2fa3cc57213726",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:81749172643f2d3a"
+name = "encode_png"
+qual = "Canvas::encode_png"
+lines = [
+    197,
+    209,
+]
+hash = "sha256:12923ef476d8fcb940de1bad02443d984550f64347d62bcb555c22cb8e364c74"
+doc_hash = "sha256:9589378007272263d9ee486afc00cd90d179983cffe85ae1bcd9cb6c24bffe10"
+uses = ["fn:5f8b8bb3ae80bb69"]
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:6aeebbb18eb87ec6"
+name = "distance_to_segment"
+qual = "distance_to_segment"
+lines = [
+    212,
+    225,
+]
+hash = "sha256:53a6b89e0a7dace1028f562fd6723c654f6e09ae2fa1a00a01f93c9d54fb0647"
+doc_hash = "sha256:c27b35c0cd4d8e7698289e9ea4486095d8d24deca697592a0b4e8985892f2b6f"
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:0c65c23b026c888f"
+name = "point_in_polygon"
+qual = "point_in_polygon"
+lines = [
+    227,
+    243,
+]
+hash = "sha256:7733426d96254222dd973a93a943cc1d8268a3d8cad9ccd9d7fff1b9cd847209"
+doc_hash = "sha256:2967faa11e953d7842e9959b75a4a94e6109ae50fd1f59a59f5e02575f01f6ae"
+reached_by = [
+    "#2",
+    "#4",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:e1f68570c93f4bce"
+name = "dash_polyline"
+qual = "dash_polyline"
+lines = [
+    245,
+    291,
+]
+hash = "sha256:9ad9ad4f3f33263325b05b3cf53d7c1d241c828d027981f0ce48f1e669e9b6ae"
+doc_hash = "sha256:afe2e2f24279e86da1c784ab079ac0becf152303b1d7e1549fe4176fa2a53323"
+reached_by = [
+    "#2",
+    "#4",
+    "#14",
+    "#15",
+    "#24",
+]
+
+[[module."png.rs".function]]
+id = "fn:cd604f93841dea26"
+name = "raster_output_decodes_and_contains_ink"
+qual = "raster_output_decodes_and_contains_ink"
+lines = [
+    293,
+    341,
+]
+hash = "sha256:638c18d8586a948e46b93413f70464ad954078c193f15b8638c3f343f84a3f5b"
+doc_hash = "sha256:0c9bb9a677913aa59fbf8bff2cbfc2ea06d650c4028d11b79a0828235e556a78"
+callees = [
+    "fn:44d311adc2291d22",
+    "fn:721bf7416791bc48",
+]
+uses = [
+    "fn:0030a0c49c7e106e",
+    "fn:0421ed2bc43c28e9",
+    "fn:8bfb7f61a193896e",
+    "fn:9393584d12bcc3f3",
+    "fn:a493016b3246f1fa",
+    "fn:e82e5b894122ede9",
+]
+test = true
+
+[[module."png.rs".function]]
+id = "fn:db09898927ad0e42"
+name = "dashing_splits_a_line_into_on_pieces"
+qual = "dashing_splits_a_line_into_on_pieces"
+lines = [
+    343,
+    370,
+]
+hash = "sha256:5142d74f902289202ea0e2e07492c8f22f884b2d4e54beb4ea981229d40c29b7"
+doc_hash = "sha256:789a5d9379d6a2aa7f28f452422ee6a8a7e0c1dbbe79ebdbf2ade828ced35ea1"
+callees = ["fn:e1f68570c93f4bce"]
+test = true
+
+[module."svg.rs"]
+path = "example:tampines-steam-tables-gui::figure::svg"
+
+[[module."svg.rs".function]]
+id = "fn:497a67d2295b235a"
+name = "render"
+qual = "render"
+lines = [
+    14,
+    18,
+]
+hash = "sha256:6bf07c5391357d55aaf1b9f535945f8d2eb99e3da609f59b64b9f30312f83b8d"
+doc_hash = "sha256:bc371d4d43bb959b32e294d592ee93b3fd2f41bdb8b480d7d6bdd98d402c28ad"
+callees = [
+    "fn:4653da99a1f5f1a9",
+    "fn:7225355538ba40c7",
+]
+uses = [
+    "fn:0421ed2bc43c28e9",
+    "fn:8bfb7f61a193896e",
+    "fn:e82e5b894122ede9",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#16",
+    "#24",
+]
+
+[[module."svg.rs".function]]
+id = "fn:7225355538ba40c7"
+name = "render_ops"
+qual = "render_ops"
+lines = [
+    20,
+    69,
+]
+hash = "sha256:e1695a2df8c0935638901f16eb529f6e8f05de17aa34810bf3f7af9da02eb1f3"
+doc_hash = "sha256:025b8cece03e2caa8f1ea72e28f56336ac5a5021307e66e33f655dfb37c8ffb8"
+callees = [
+    "fn:0a7539d3e32600cb",
+    "fn:efce03a7d6a1792c",
+    "fn:faba699df1a15493",
+]
+uses = [
+    "fn:0421ed2bc43c28e9",
+    "fn:601e0e8550767319",
+]
+reached_by = [
+    "#2",
+    "#4",
+    "#16",
+    "#24",
+]
+
+[[module."svg.rs".function]]
+id = "fn:faba699df1a15493"
+name = "point_list"
+qual = "point_list"
+lines = [
+    71,
+    81,
+]
+hash = "sha256:28f77960b1b94358a2778a88edd20428b49d9622d32ae839070a3f5eb6949d7b"
+doc_hash = "sha256:3ab4f826ba3d529f4d84a0a09bb63c4e56193202fb25ffcda71d17e50ba527cd"
+callees = ["fn:efce03a7d6a1792c"]
+reached_by = [
+    "#2",
+    "#4",
+    "#16",
+    "#24",
+]
+
+[[module."svg.rs".function]]
+id = "fn:efce03a7d6a1792c"
+name = "trim"
+qual = "trim"
+lines = [
+    83,
+    94,
+]
+hash = "sha256:ee4698b5297f63ae1da7188c6925d5c001b0475f59b0569ee997e3ceb0c262b1"
+doc_hash = "sha256:65736649a97e3be91e99a6a475020aaa81cba8012e4ac534d2806f7dab9fd259"
+reached_by = [
+    "#2",
+    "#4",
+    "#16",
+    "#24",
+]
+
+[[module."svg.rs".function]]
+id = "fn:94deba4ffa23492b"
+name = "_rgb_is_used"
+qual = "_rgb_is_used"
+lines = [
+    96,
+    98,
+]
+hash = "sha256:b254c0b098823d670fb07c55b19391b9382e9859d465790c2993b67d721f9a8a"
+doc_hash = "sha256:53523b1ba30ae76eab1ce5a0bca1f43bcf605367fc142eef9abd2fc3d2e8fb89"
+uses = ["fn:eb2fa3cc57213726"]
+
+[[module."svg.rs".function]]
+id = "fn:5c79410c053d02a0"
+name = "svg_output_is_byte_reproducible"
+qual = "svg_output_is_byte_reproducible"
+lines = [
+    100,
+    132,
+]
+hash = "sha256:7c553b69571a47fb1f1a44042750dd35cc1974f126f0669a94ef1e806d9ef022"
+doc_hash = "sha256:53609ac27f1feb70372b2a25be8fbe109378e6871ca9926965eff008bcd8d298"
+callees = [
+    "fn:44d311adc2291d22",
+    "fn:497a67d2295b235a",
+]
+uses = [
+    "fn:0030a0c49c7e106e",
+    "fn:0421ed2bc43c28e9",
+    "fn:8bfb7f61a193896e",
+    "fn:9393584d12bcc3f3",
+    "fn:a493016b3246f1fa",
+    "fn:e82e5b894122ede9",
+]
+test = true

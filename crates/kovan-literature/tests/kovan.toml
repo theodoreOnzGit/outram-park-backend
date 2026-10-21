@@ -1,0 +1,5443 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-literature"
+dir = "crates/kovan-literature/tests"
+
+[module."citeproc_intermediate.rs"]
+path = "test:citeproc_intermediate"
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:54c05778485ada7b"
+name = "DIGESTS"
+qual = "DIGESTS"
+item = "const"
+shape = "const"
+lines = [
+    88,
+    88,
+]
+hash = "sha256:43d98bfc1086c87748334bbc2888e644563eef762aae7b2c05001eec8fef6a77"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:d88f0b9cfdac787f"
+name = "REDUCED"
+qual = "REDUCED"
+item = "const"
+shape = "const"
+lines = [
+    89,
+    89,
+]
+hash = "sha256:f2c450f5d04476645a82b1077ce08e49c280e90f75612ea55d89389e9e049c87"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:af8e00ebe4d19738"
+name = "XML"
+qual = "XML"
+item = "const"
+shape = "const"
+lines = [
+    90,
+    90,
+]
+hash = "sha256:80e48aa048365b5b4596ed23a7c97654aa05d1db03ed24d7f4445c0ed55e06f3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:bc6c565b9ef1f77e"
+name = "KNOWN"
+qual = "KNOWN"
+item = "const"
+shape = "const"
+lines = [
+    91,
+    91,
+]
+hash = "sha256:1113d71aed796c317be8de13910582f02b43ea4c371cc0d6d5884b71b20ad248"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:70ba9f6aeb37c13d"
+name = "RESULTS_NOTE"
+qual = "RESULTS_NOTE"
+item = "const"
+shape = "const"
+lines = [
+    93,
+    94,
+]
+hash = "sha256:0d84b2635d44e45eac595e9a57887b34e1674405608ca5603eb499b3e22798d9"
+doc_hash = "sha256:7363b717945a7ac608c93ba9fa8986bb71720de239810ac3eb3c2f447002e8e0"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:29e85be5a2e495a2"
+name = "workspace_root"
+qual = "workspace_root"
+lines = [
+    96,
+    98,
+]
+hash = "sha256:8db2f4ea2de0140eef829001f9efb6f90b3651347be893139ae528a2b2d825a4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:9c74d5f0c6b3020c"
+name = "fixture_dir"
+qual = "fixture_dir"
+lines = [
+    100,
+    102,
+]
+hash = "sha256:be2375f5f8cb20b837f349f6bb3aef5e6887c2e03669f92f97d0bbfb79d8483b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:29e85be5a2e495a2"]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:960f652db3e7a98d"
+name = "locale_dir"
+qual = "locale_dir"
+lines = [
+    104,
+    106,
+]
+hash = "sha256:2541e58efaf457f76c320ce8517dd43bea71d9da3c8a6a84ca60aa3c5fa9027b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:29e85be5a2e495a2"]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:4d6773734e50e8db"
+name = "site_dir"
+qual = "site_dir"
+lines = [
+    108,
+    110,
+]
+hash = "sha256:5de3138ab5f142fd884e84120e2b4d63620e012ed8c7d5b23cbcb313f7dd956b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:fcefcadeb9f46cbb"
+name = "skip"
+qual = "skip"
+lines = [
+    112,
+    114,
+]
+hash = "sha256:9554cc0aa0dd3dfa4076dc2ded8b7d4826eb95eed18bf19798f5e5c20df0bfc5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:0bdb4dc74d6b49b0"
+name = "SECTIONS"
+qual = "SECTIONS"
+item = "const"
+shape = "const"
+lines = [
+    118,
+    138,
+]
+hash = "sha256:060d904b4837ec66688fca451b4bd4529f7ba4f43424010deb0f6ba3d823c8e7"
+doc_hash = "sha256:e1c5b3f5aba8888c6bad2fbaa90856e3345c3cd91a8dbfdf3b4c1baa2bf05cc2"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:e051b97f5ba4a1b8"
+name = "Fixture"
+qual = "Fixture"
+item = "type"
+shape = "struct"
+lines = [
+    140,
+    152,
+]
+hash = "sha256:1b53bb95f69839af6b890f105f81625a871ef9d1a015bf6d5aad92f5178c43a1"
+doc_hash = "sha256:c66626e0474d0e16b6e6cc37005b86377d61e1e6206652afc7b55ee0da51f22d"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:fff24090d0784625"
+name = "read_sections"
+qual = "read_sections"
+lines = [
+    154,
+    195,
+]
+hash = "sha256:7f157c47b7789b24c19534062a2701f8f3f5269ff68186a2d6e82d28c63bf6d7"
+doc_hash = "sha256:5e40fb9decb1bcefaa221f16c6e18e51a05d7f407ecbe124487975c007a5e4d0"
+uses = ["fn:0bdb4dc74d6b49b0"]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:3e6abe2e426149e7"
+name = "parse_fixture_text"
+qual = "parse_fixture_text"
+lines = [
+    197,
+    228,
+]
+hash = "sha256:18cf02190c2d503cb0bcfec45abc92240ba51957c5a3eaa74fab6ae4ce6327d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:fff24090d0784625"]
+uses = ["fn:e051b97f5ba4a1b8"]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:2482cb5fb8bdb6b0"
+name = "load_fixtures"
+qual = "load_fixtures"
+lines = [
+    230,
+    251,
+]
+hash = "sha256:01c39cc0e83cdb2e9b179f45360bf35a47ef55f96572cf94952e8dac16a83193"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3e6abe2e426149e7",
+    "fn:9c74d5f0c6b3020c",
+    "fn:fcefcadeb9f46cbb",
+]
+uses = ["fn:e051b97f5ba4a1b8"]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:691424ca26465d1b"
+name = "load_locales"
+qual = "load_locales"
+lines = [
+    253,
+    279,
+]
+hash = "sha256:58153c7a033b8d8f5a57cba1a6ead326c6350070b32ca249856ee5ba7128276b"
+doc_hash = "sha256:936ba6215d81b6e6bd734ac4988dcc605d255d1d6eec84f362890f0eee37dd51"
+callees = [
+    "fn:960f652db3e7a98d",
+    "fn:fcefcadeb9f46cbb",
+]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:205f42f8bfed7cd5"
+name = "strings"
+qual = "strings"
+lines = [
+    283,
+    291,
+]
+hash = "sha256:660ddf326d74d3609a049486a350edbbbe78f0cde222f5f92913e63471aeef3f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:6c126f08e614eb4b"
+name = "fixture_engine"
+qual = "fixture_engine"
+lines = [
+    293,
+    379,
+]
+hash = "sha256:b1258d309e586b22ad271e8f24a7c0c443155cf09c7c5e3df35201b510943a2c"
+doc_hash = "sha256:9c97e2b9693bb658b801225e7084de9546a6c8503a04ad1c4c93a9d0e98f0b66"
+callees = [
+    "fn:205f42f8bfed7cd5",
+    "fn:433efec3d1e74e9c",
+    "fn:44f3720008968a31",
+    "fn:6aacb6fdd74f2b20",
+    "fn:7ba0f3cd0f8fe95c",
+    "fn:88c87385429c2eb4",
+    "fn:8cca601a52bdd95f",
+    "fn:b4af4693c9557208",
+    "fn:c8a643952689744b",
+    "fn:d10aa0833baf7370",
+    "fn:eac8a0f83f6e4260",
+    "fn:ed89ddce1dc7497c",
+    "fn:fd3a2f0379d7787c",
+]
+uses = [
+    "fn:423824f779721e9f",
+    "fn:745f323f82df8c14",
+    "fn:827e2b5f2c4ce1da",
+    "fn:990194189e6701c3",
+    "fn:e051b97f5ba4a1b8",
+]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:745f323f82df8c14"
+name = "TURKISH_MONTHS"
+qual = "TURKISH_MONTHS"
+item = "const"
+shape = "const"
+lines = [
+    381,
+    385,
+]
+hash = "sha256:285898d964a2726f39a691d7afcc9df74bb11f0f6d7191d0ea0157e1d81ea78e"
+doc_hash = "sha256:d7df15bca99501862a507579216f075b599e31e2a95c50903566869f94f54d55"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:dd2b8f19cf952785"
+name = "SITE_STYLES"
+qual = "SITE_STYLES"
+item = "const"
+shape = "const"
+lines = [
+    387,
+    394,
+]
+hash = "sha256:770edceda9a4eac64ea8e57d499e24bff8fc819d806074c5d45c935aaa535496"
+doc_hash = "sha256:4ca10343913d19df0a8682200eb0711becdf7e3bef8eaf9a4397290178c8e026"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:1718f8ff72db51ac"
+name = "site_engine"
+qual = "site_engine"
+lines = [
+    396,
+    426,
+]
+hash = "sha256:867c05af68f9e3759c0492ac61827ae63eed72afcc7c4fd8fa9f980ea010abca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4d6773734e50e8db",
+    "fn:88c87385429c2eb4",
+    "fn:d10aa0833baf7370",
+    "fn:fd3a2f0379d7787c",
+]
+uses = [
+    "fn:423824f779721e9f",
+    "fn:827e2b5f2c4ce1da",
+    "fn:990194189e6701c3",
+]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:327830a2a12c0db3"
+name = "split_selector"
+qual = "split_selector"
+lines = [
+    430,
+    440,
+]
+hash = "sha256:823e671dd6bed2ec23babd5f455278db32aaca62eac77b8d5e32afa73bc2a879"
+doc_hash = "sha256:3d245874288769cd5ced33b1d4f1d435a0938156f0b9eafe01ad78f95ecae9da"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:b5702ef943ed254d"
+name = "SECTION_NAMES"
+qual = "SECTION_NAMES"
+item = "const"
+shape = "const"
+lines = [
+    442,
+    452,
+]
+hash = "sha256:100ef3342cdd617d28be03a3012bfbd5b06dfd27ff80666514e7e31809f32176"
+doc_hash = "sha256:7cc01c3c957f4380820d48ce14454af0c4f9381aaf101b09c0aeabc92fbdaca5"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:59c7aeee2200e615"
+name = "citation_lists"
+qual = "citation_lists"
+lines = [
+    454,
+    475,
+]
+hash = "sha256:de6937451f38ad448fc969d540f6f3c7330d9d31be81db8ca51750ec2e6ee336"
+doc_hash = "sha256:9d4cf962286b0a8fd258fae9e1fb88fe0d8a898bea4a6558851ba305a46843ee"
+uses = ["fn:e051b97f5ba4a1b8"]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:c601cb288ff9c653"
+name = "Built"
+qual = "Built"
+item = "type"
+shape = "enum"
+lines = [
+    477,
+    491,
+]
+hash = "sha256:3a2776af850eab1faa6da7174da4f0d73bf58958282589bfd5ea1bedc5f8ce24"
+doc_hash = "sha256:690ce0d9b527d44f67b1c1126ea30a7adf84d447af8e01b904e70e7668956ef1"
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:e0df5ecc9745d1e3"
+name = "built_of"
+qual = "built_of"
+lines = [
+    493,
+    559,
+]
+hash = "sha256:c9e25b3870ec6adf3701728ce0bf57d62798dd7281552b92b2e73b28f3c63418"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:15f423913c0732ab",
+    "fn:2b2d77fd84d341ef",
+    "fn:32f988039e7176c2",
+    "fn:adb701c12ac9e064",
+    "fn:d75ecde2fc348f80",
+    "fn:e21c0d52b89e62f1",
+]
+uses = [
+    "fn:990194189e6701c3",
+    "fn:c601cb288ff9c653",
+]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:4f3436111f0386bd"
+name = "known_groups"
+qual = "known_groups"
+lines = [
+    561,
+    578,
+]
+hash = "sha256:4179bb46aaffa88c3a9ed5f7398e83cf146f87ee4807b74f921e733996ae67ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:bc6c565b9ef1f77e"]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:bbed9d958fb70084"
+name = "the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences"
+qual = "the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences"
+lines = [
+    580,
+    728,
+]
+hash = "sha256:0ce29fff83881f929ca572c07bdd28bf50523dab902dc97aa202362ccc315dc1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1718f8ff72db51ac",
+    "fn:2482cb5fb8bdb6b0",
+    "fn:327830a2a12c0db3",
+    "fn:4f3436111f0386bd",
+    "fn:59c7aeee2200e615",
+    "fn:691424ca26465d1b",
+    "fn:6c126f08e614eb4b",
+    "fn:e0df5ecc9745d1e3",
+]
+uses = [
+    "fn:54c05778485ada7b",
+    "fn:af8e00ebe4d19738",
+    "fn:b5702ef943ed254d",
+    "fn:c601cb288ff9c653",
+    "fn:d88f0b9cfdac787f",
+    "fn:dd2b8f19cf952785",
+]
+test = true
+
+[[module."citeproc_intermediate.rs".function]]
+id = "fn:f0459ea30a6f30e8"
+name = "the_committed_references_cover_the_same_cases"
+qual = "the_committed_references_cover_the_same_cases"
+lines = [
+    730,
+    762,
+]
+hash = "sha256:aafe46713725de64f563ec549793e1421f74a0ea819ad7b15b1627c5e1d784d7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4f3436111f0386bd"]
+uses = [
+    "fn:54c05778485ada7b",
+    "fn:b5702ef943ed254d",
+    "fn:d88f0b9cfdac787f",
+]
+test = true
+
+[module."citeproc_test_suite.rs"]
+path = "test:citeproc_test_suite"
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:e15d57246b69f79e"
+name = "REFERENCE"
+qual = "REFERENCE"
+item = "const"
+shape = "const"
+lines = [
+    96,
+    96,
+]
+hash = "sha256:ab019faabb109c7cee19fba28272c64cc8574fc61d5e856dc27157ae5285a637"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:e032a5d8d102af1a"
+name = "PORTED_AREAS"
+qual = "PORTED_AREAS"
+item = "const"
+shape = "const"
+lines = [
+    97,
+    97,
+]
+hash = "sha256:2e00585b8a9ee05ffb5619f2c16c6d83ec904c30e5311038f2f4e4cd459e38f1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:30dc6d870811adf0"
+name = "KNOWN"
+qual = "KNOWN"
+item = "const"
+shape = "const"
+lines = [
+    98,
+    98,
+]
+hash = "sha256:0a5028cc48097ff39bd8d6684b1757f4229fe3d31b2f49923ad7a642dcf97605"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:e6a92c87e8b654d6"
+name = "workspace_root"
+qual = "workspace_root"
+lines = [
+    100,
+    102,
+]
+hash = "sha256:8db2f4ea2de0140eef829001f9efb6f90b3651347be893139ae528a2b2d825a4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:e8b614a39a283108"
+name = "fixture_dir"
+qual = "fixture_dir"
+lines = [
+    104,
+    106,
+]
+hash = "sha256:be2375f5f8cb20b837f349f6bb3aef5e6887c2e03669f92f97d0bbfb79d8483b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:e6a92c87e8b654d6"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:9d2f40e6f74c3955"
+name = "locale_dir"
+qual = "locale_dir"
+lines = [
+    108,
+    110,
+]
+hash = "sha256:6d6a334897ef1bc4fc02e8e08a33517b03a172744927bb927e810f8fc8aa607c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:e6a92c87e8b654d6"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:b18050fd2177c7a5"
+name = "skip"
+qual = "skip"
+lines = [
+    112,
+    115,
+]
+hash = "sha256:9554cc0aa0dd3dfa4076dc2ded8b7d4826eb95eed18bf19798f5e5c20df0bfc5"
+doc_hash = "sha256:dd7438a0d60d79ba3ca3ba74d62bfeef2e30558094bace04515e4be60395bf08"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:db0184f6e25dea96"
+name = "SECTIONS"
+qual = "SECTIONS"
+item = "const"
+shape = "const"
+lines = [
+    119,
+    139,
+]
+hash = "sha256:060d904b4837ec66688fca451b4bd4529f7ba4f43424010deb0f6ba3d823c8e7"
+doc_hash = "sha256:e1c5b3f5aba8888c6bad2fbaa90856e3345c3cd91a8dbfdf3b4c1baa2bf05cc2"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:c3729760f466dfce"
+name = "Fixture"
+qual = "Fixture"
+item = "type"
+shape = "struct"
+lines = [
+    141,
+    158,
+]
+hash = "sha256:be6e165170df08864e031a52cb74cb06a9bc57511f495b580ac8722fd47cb071"
+doc_hash = "sha256:6385121f314f20045949127d1106486e3c539c4b9b338cdabfd32ae19baeb710"
+uses = ["fn:1b809a25aab55f8b"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:2c946d3e85855594"
+name = "read_sections"
+qual = "read_sections"
+lines = [
+    160,
+    208,
+]
+hash = "sha256:9194987f88bb32a992ea6b95a3ad09e98cd20fe422d2b3941af359a30ada525f"
+doc_hash = "sha256:8f62798b83a6ce61edcc2896c39162e19fc5480258557ae436c6f180bebf7238"
+uses = ["fn:db0184f6e25dea96"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:278b8c1e8d3c352e"
+name = "parse_fixture_text"
+qual = "parse_fixture_text"
+lines = [
+    210,
+    281,
+]
+hash = "sha256:315f16f0d00d79cd593e0cf8da5b58a3dcb3efcbc50da15b5f8f14567ec47da6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c946d3e85855594",
+    "fn:7b59f22e58c2fe8b",
+]
+uses = [
+    "fn:1b809a25aab55f8b",
+    "fn:c3729760f466dfce",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:4005f89e20ff7937"
+name = "area_of"
+qual = "area_of"
+lines = [
+    283,
+    285,
+]
+hash = "sha256:c4c8be935274dbe5ff6043ca73ffd7ee6e50ca566cf461fc6df3e8ea616b530d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:3587968752416903"
+name = "load_fixtures"
+qual = "load_fixtures"
+lines = [
+    287,
+    309,
+]
+hash = "sha256:53af31152ba5a22393980471b061c64c9b9f8090fe226453110f76d975cbc01f"
+doc_hash = "sha256:b2d9b65406e550fa080c4cb3c543bfba70b43a11afe9ed88beb919dcb2e4f1c5"
+callees = [
+    "fn:278b8c1e8d3c352e",
+    "fn:b18050fd2177c7a5",
+    "fn:e8b614a39a283108",
+]
+uses = ["fn:c3729760f466dfce"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:142c560a732323e2"
+name = "load_locales"
+qual = "load_locales"
+lines = [
+    311,
+    337,
+]
+hash = "sha256:2a0dafa691e55f7d903d424ee94fcb72341a98438dd0624b38d490cb5e161520"
+doc_hash = "sha256:e78dfcfbdff9b170f068b6177ef23156423f58a2dfd98d4798c0a2d7e9b5dcf7"
+callees = [
+    "fn:9d2f40e6f74c3955",
+    "fn:b18050fd2177c7a5",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:33171a8f9f44558b"
+name = "truthy"
+qual = "truthy"
+lines = [
+    341,
+    350,
+]
+hash = "sha256:ce72fe1ecdefca1f5d4eb86e7dc8906b41560c9415a922d13db468cc57bd0c7f"
+doc_hash = "sha256:7c25bba76b6666d0240d5cf717419a376c4d3844d67e9f2cc9f2c65e503d05b6"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:98b19a249fa2fb71"
+name = "js_string"
+qual = "js_string"
+lines = [
+    352,
+    361,
+]
+hash = "sha256:34161b980f85b3e2da79b8b34f488222686755b7f99bf1ae603bb0ec1c2943cc"
+doc_hash = "sha256:ba1f45d556c1793dcfc91babb702a79cac17ae01edc471585230727dda18a7e1"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:d7c80fe85dac6243"
+name = "normalize_abbrevs_key"
+qual = "normalize_abbrevs_key"
+lines = [
+    363,
+    384,
+]
+hash = "sha256:704f4492e4c3775ae251eff5a0789bcbae65f29da64e27980b4b5c0421a02e41"
+doc_hash = "sha256:97ba0094eb68e82294a0ab5ef754993d0c844c16140ecfd05940562d2827fa29"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:c385872c9fe4657f"
+name = "build_abbreviations"
+qual = "build_abbreviations"
+lines = [
+    386,
+    426,
+]
+hash = "sha256:27f9b6f0441924940f4cee4299f592691cc5e3efa84b292d00a1bccf72de8800"
+doc_hash = "sha256:dd2ca8d17692a18fb0086753512b1ddcfbdb1721dd8802b7a86fab07d08065a1"
+callees = [
+    "fn:98b19a249fa2fb71",
+    "fn:d7c80fe85dac6243",
+]
+uses = ["fn:5f234f6d8d0a6f06"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:57c4cb64b1501bcf"
+name = "DocEntry"
+qual = "DocEntry"
+item = "type"
+shape = "struct"
+lines = [
+    428,
+    433,
+]
+hash = "sha256:51463e0163bb222df0305ce5aaf09de2c20d7ac48c2184219029346baaa9933e"
+doc_hash = "sha256:db1ab6fc4911d9fc6234c1b6b69752f5b5c763dcfde74ab9f26898701f5c1eb5"
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:c4642d33621ecfcd"
+name = "update_doc"
+qual = "update_doc"
+lines = [
+    435,
+    512,
+]
+hash = "sha256:5286663e9bd55fec54921e83cc1503055679a594f11ebc8dcfb376fb597f0e8b"
+doc_hash = "sha256:b94b3585016d0f692e4f25a34edb56ddadc25ca1c68f0e127d032c0862095c4f"
+callees = [
+    "fn:32cc8d8e02782491",
+    "fn:5b653f4270d49eab",
+    "fn:82bda7fc1d42e99c",
+    "fn:e617383cb60ef549",
+]
+uses = [
+    "fn:37442ccf5c34f697",
+    "fn:57c4cb64b1501bcf",
+    "fn:8be6e66805dfd6de",
+    "fn:990194189e6701c3",
+    "fn:b763dd289ec2cf7c",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:f08602a3644148e9"
+name = "run_fixture"
+qual = "run_fixture"
+lines = [
+    514,
+    668,
+]
+hash = "sha256:310d747d169db12c6c175ebf2336dfd94dae44c4d5331b785fd691b1fee77881"
+doc_hash = "sha256:c398142540645bebbed95293b0e823b4d7c80af9c435b30f373aad550e3fadc9"
+callees = [
+    "fn:13fc249f9253fb3b",
+    "fn:177ae9498a7b55c7",
+    "fn:2fc1f8fee5c760e6",
+    "fn:33171a8f9f44558b",
+    "fn:433efec3d1e74e9c",
+    "fn:5b653f4270d49eab",
+    "fn:6aacb6fdd74f2b20",
+    "fn:7b59f22e58c2fe8b",
+    "fn:7ba0f3cd0f8fe95c",
+    "fn:7e28e062895b7613",
+    "fn:805bf75e549be7a7",
+    "fn:84344e4c294b0ffc",
+    "fn:88c87385429c2eb4",
+    "fn:8cca601a52bdd95f",
+    "fn:8d252997cf4cb8d0",
+    "fn:98b19a249fa2fb71",
+    "fn:b4af4693c9557208",
+    "fn:c385872c9fe4657f",
+    "fn:c4642d33621ecfcd",
+    "fn:d10aa0833baf7370",
+    "fn:d68fa935e396bf4b",
+    "fn:ea0e722bc45207cd",
+    "fn:eac8a0f83f6e4260",
+    "fn:ed89ddce1dc7497c",
+    "fn:fd3a2f0379d7787c",
+]
+uses = [
+    "fn:1b809a25aab55f8b",
+    "fn:423824f779721e9f",
+    "fn:57c4cb64b1501bcf",
+    "fn:827e2b5f2c4ce1da",
+    "fn:8be6e66805dfd6de",
+    "fn:990194189e6701c3",
+    "fn:b763dd289ec2cf7c",
+    "fn:c3729760f466dfce",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:06e67ae466188ff7"
+name = "reference"
+qual = "reference"
+lines = [
+    672,
+    674,
+]
+hash = "sha256:499daad1ce1233880780e269b6020bb55070045c39bc2c4f6f59e2f505119b21"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e15d57246b69f79e"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:a765ff57ef257dbc"
+name = "ported_areas"
+qual = "ported_areas"
+lines = [
+    676,
+    684,
+]
+hash = "sha256:8c9c60c66dcafba963bf44ff6c34b6b4272176b332701e81d8af31a628302989"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:e032a5d8d102af1a"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:68a131ceb21c1c38"
+name = "the_ported_fixtures_match_citeproc_js_except_the_recorded_differences"
+qual = "the_ported_fixtures_match_citeproc_js_except_the_recorded_differences"
+lines = [
+    686,
+    763,
+]
+hash = "sha256:2188947faabf23145440e89c00fe3a54a7ce83cb79f8161f5a8cc57e1cd2879a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:06e67ae466188ff7",
+    "fn:142c560a732323e2",
+    "fn:3587968752416903",
+    "fn:4005f89e20ff7937",
+    "fn:a765ff57ef257dbc",
+    "fn:f08602a3644148e9",
+]
+uses = ["fn:30dc6d870811adf0"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:feff4f1ff51ffbea"
+name = "the_committed_reference_matches_the_vendored_fixtures"
+qual = "the_committed_reference_matches_the_vendored_fixtures"
+lines = [
+    765,
+    810,
+]
+hash = "sha256:1b42b7c05b1944ead7ccdd596bbb9d8afa40f997dad4c04360175ababa4adf75"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:06e67ae466188ff7",
+    "fn:3587968752416903",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:1a23c64d9b401389"
+name = "the_parser_follows_the_runner_on_synthetic_text"
+qual = "the_parser_follows_the_runner_on_synthetic_text"
+lines = [
+    812,
+    869,
+]
+hash = "sha256:c0e0daf94a5f2bff055c650d9e2c17b868fd3d97562e8d19240d51f0b2b4c0b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:278b8c1e8d3c352e",
+    "fn:2c946d3e85855594",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:572571bd9619bda2"
+name = "the_parser_reads_real_fixtures"
+qual = "the_parser_reads_real_fixtures"
+lines = [
+    871,
+    902,
+]
+hash = "sha256:aa27c6a096f029bc012dcefe077c49c8c31ad4b264f040fb4e37b473fd9c5822"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:06e67ae466188ff7",
+    "fn:278b8c1e8d3c352e",
+    "fn:b18050fd2177c7a5",
+    "fn:e8b614a39a283108",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:859c60e7bdca68d9"
+name = "the_driver_reaches_the_engine_and_reports_errors_instead_of_panicking"
+qual = "the_driver_reaches_the_engine_and_reports_errors_instead_of_panicking"
+lines = [
+    904,
+    945,
+]
+hash = "sha256:e7796640bbc4e21674b0057e6845a091f05d6a81a6d50ae2d939416575a67b14"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:278b8c1e8d3c352e",
+    "fn:f08602a3644148e9",
+]
+uses = ["fn:b763dd289ec2cf7c"]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:93be852d9af44725"
+name = "abbreviation_keys_are_normalised_as_the_runner_does"
+qual = "abbreviation_keys_are_normalised_as_the_runner_does"
+lines = [
+    947,
+    959,
+]
+hash = "sha256:70f9cd415c44a3fd9d2cd7ca7251edae6eeb7c54ea769b4c7c41e839caa8b782"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:c385872c9fe4657f",
+    "fn:d7c80fe85dac6243",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:18b737c62b113f32"
+name = "update_doc_keeps_the_document_the_way_the_runner_does"
+qual = "update_doc_keeps_the_document_the_way_the_runner_does"
+lines = [
+    961,
+    984,
+]
+hash = "sha256:c22e2f9459d7d971e6de4f2b992ab6c5f1bd53e1a1b952ffd6ba83ccfa07c663"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:c4642d33621ecfcd",
+    "fn:d10aa0833baf7370",
+]
+uses = [
+    "fn:57c4cb64b1501bcf",
+    "fn:827e2b5f2c4ce1da",
+    "fn:990194189e6701c3",
+    "fn:b763dd289ec2cf7c",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:afe17f1d6768f047"
+name = "js_coercions_match_javascript"
+qual = "js_coercions_match_javascript"
+lines = [
+    986,
+    999,
+]
+hash = "sha256:6baa14c8c1a8c109d5d6809a1491aa598b25268f8745ede503e9b4f1fb75c6d3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:33171a8f9f44558b",
+    "fn:98b19a249fa2fb71",
+]
+test = true
+
+[[module."citeproc_test_suite.rs".function]]
+id = "fn:b4e0f54be6c044ac"
+name = "report_per_area"
+qual = "report_per_area"
+lines = [
+    1001,
+    1083,
+]
+hash = "sha256:9b5a955961c52ad322afc1142819cf65706b461245bc9e0f52b13a87ad626e87"
+doc_hash = "sha256:055f1b7113b68025f6bf2ab9c3e1c9b5bd1638a16c6bbb47c1a55e27cc6d1beb"
+callees = [
+    "fn:06e67ae466188ff7",
+    "fn:142c560a732323e2",
+    "fn:3587968752416903",
+    "fn:4005f89e20ff7937",
+    "fn:f08602a3644148e9",
+]
+test = true
+
+[module."concept_proposals.rs"]
+path = "test:concept_proposals"
+
+[[module."concept_proposals.rs".function]]
+id = "fn:3c62454d48d23ad4"
+name = "Skeleton"
+qual = "Skeleton"
+item = "type"
+shape = "struct"
+lines = [
+    26,
+    30,
+]
+hash = "sha256:a5fad9cd4cdce05f1db52092e86323d51303f483f9d5c0b412cb149ba40f1292"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:5bc69a5fe6d2ecbd",
+    "fn:5dc065a6fd141d03",
+]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:5bc69a5fe6d2ecbd"
+name = "Document"
+qual = "Document"
+item = "type"
+shape = "struct"
+lines = [
+    32,
+    35,
+]
+hash = "sha256:904941f878ae2ab4c30901208fda659163ce874b79b99d5983610ecf03c50114"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:5dc065a6fd141d03"
+name = "Node"
+qual = "Node"
+item = "type"
+shape = "struct"
+lines = [
+    37,
+    41,
+]
+hash = "sha256:d3696e90d25a206061a80b23d9cc62d58f25a8b63748b9bda3368aaed335a0b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:ba84ef2b5fba5438"
+name = "Proposals"
+qual = "Proposals"
+item = "type"
+shape = "struct"
+lines = [
+    43,
+    47,
+]
+hash = "sha256:134a34045b33eb5e7eae49841b2b51cd7df4fa3f82b073b641a305e1e9247116"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1c42c77dbb2d59e8",
+    "fn:2b3f01def08de7ed",
+]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:1c42c77dbb2d59e8"
+name = "Concept"
+qual = "Concept"
+item = "type"
+shape = "struct"
+lines = [
+    49,
+    62,
+]
+hash = "sha256:6f64734ff189e40775fbe7c49600ed02d6124175eec7c2e01c3c5d3725648616"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:6f796c5b298b7c30"]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:6f796c5b298b7c30"
+name = "Source"
+qual = "Source"
+item = "type"
+shape = "struct"
+lines = [
+    64,
+    68,
+]
+hash = "sha256:bc7c827aa9eb1f7e17ca6d00528c99cdee4bdfa0291cd83eddfe4cbe898c2119"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:2b3f01def08de7ed"
+name = "Implementation"
+qual = "Implementation"
+item = "type"
+shape = "struct"
+lines = [
+    70,
+    90,
+]
+hash = "sha256:996e901955b51cd668d7f95a377a8da4248fc0ac63f56536c5455833290def6a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:e45c60f7d7b7907a"
+name = "skeleton"
+qual = "skeleton"
+lines = [
+    92,
+    94,
+]
+hash = "sha256:bac544553f50ad59617375fe2e77cee94a409686e79456d9252b537165fae40a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:3c62454d48d23ad4"]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:85f19d72682a7463"
+name = "proposals"
+qual = "proposals"
+lines = [
+    96,
+    98,
+]
+hash = "sha256:222cb8b7903ade696a510beee4fd689337aafe9d8e1d4f797690065249b15caa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ba84ef2b5fba5438"]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:a92740963f0fffbc"
+name = "workspace_root"
+qual = "workspace_root"
+lines = [
+    100,
+    102,
+]
+hash = "sha256:7ef29fcb44c77130442f06abb2a2955d480c5c7b93cd84e4564e1c3815a347cb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:d941ef8513e8fa9a"
+name = "workspace_member_crates"
+qual = "workspace_member_crates"
+lines = [
+    104,
+    117,
+]
+hash = "sha256:ced3013fd534f272c6f4269520ebcdc076b7dc4371c268e8cad77fcd2f4403e9"
+doc_hash = "sha256:62ad4d72f4178bc3ebd042edf5e13b85f92c398df6e7e220cb4c823e32a8311a"
+callees = ["fn:a92740963f0fffbc"]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:e34d932d2a5916b0"
+name = "module_file"
+qual = "module_file"
+lines = [
+    119,
+    136,
+]
+hash = "sha256:4ea3c4ca274492bfeadad4df9212f1b8bff6be2917ce1c07add9c4e31d3ef310"
+doc_hash = "sha256:ba3b822c9ed98ea919f48c2176a1d02c3cbcdd02c686c5addd2cc6eed6fd278a"
+callees = ["fn:a92740963f0fffbc"]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:07cd1a958a181a44"
+name = "concepts_are_unique_and_hang_under_existing_nodes"
+qual = "concepts_are_unique_and_hang_under_existing_nodes"
+lines = [
+    138,
+    169,
+]
+hash = "sha256:57d2aa69beb5518ae0f9f761bc6a08d90f8371f20cf3be127f24d007f313fc1b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:85f19d72682a7463",
+    "fn:e45c60f7d7b7907a",
+]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:fe2dc26fdeec94fc"
+name = "the_standard_tree_is_the_skeleton_plus_approved_and_deferred_concepts"
+qual = "the_standard_tree_is_the_skeleton_plus_approved_and_deferred_concepts"
+lines = [
+    171,
+    201,
+]
+hash = "sha256:58f669308f913e940eeb7e02c1d45e89932c4a76e2d64304fd6d692e5a982754"
+doc_hash = "sha256:678f5dba4cd7caa6e1abc958b76cf665cde7be89868c6e66cf9a2347bca2184d"
+callees = [
+    "fn:232609ef84cab802",
+    "fn:85f19d72682a7463",
+    "fn:8e002eeaae589a52",
+    "fn:9c144a1d86195be8",
+    "fn:e45c60f7d7b7907a",
+    "fn:fc8c509f322cfc8f",
+]
+uses = ["fn:a8636bc6f8967f3a"]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:04db58341b2ddc7b"
+name = "origins_and_sources_are_declared"
+qual = "origins_and_sources_are_declared"
+lines = [
+    203,
+    224,
+]
+hash = "sha256:94eb27edc8f6d1c69bdcd23312484d928546dd526e4dc6ca6d854e2c2886085e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:85f19d72682a7463",
+    "fn:e45c60f7d7b7907a",
+]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:6692c33031b38c72"
+name = "implementations_name_existing_concepts_crates_and_modules"
+qual = "implementations_name_existing_concepts_crates_and_modules"
+lines = [
+    226,
+    258,
+]
+hash = "sha256:779125857a24f8d9e05965ad2ea3cd328d99aca04effaba519da85107cf32825"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:85f19d72682a7463",
+    "fn:d941ef8513e8fa9a",
+    "fn:e34d932d2a5916b0",
+    "fn:e45c60f7d7b7907a",
+]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:ecd0774795aa45c0"
+name = "render"
+qual = "render"
+lines = [
+    260,
+    384,
+]
+hash = "sha256:c609c985a028964795a783b2e2ed87d111fe1683c67a37ea28fa6625b894469c"
+doc_hash = "sha256:8fb40e23742e8518ffad7c69f5df73a036ae0580b76bfd476f40d9522ed8d61c"
+callees = [
+    "fn:85f19d72682a7463",
+    "fn:e34d932d2a5916b0",
+    "fn:e45c60f7d7b7907a",
+]
+uses = [
+    "fn:1c42c77dbb2d59e8",
+    "fn:2b3f01def08de7ed",
+    "fn:5dc065a6fd141d03",
+]
+test = true
+
+[[module."concept_proposals.rs".function]]
+id = "fn:4c0683f679fd4ca7"
+name = "review_document_is_current"
+qual = "review_document_is_current"
+lines = [
+    386,
+    399,
+]
+hash = "sha256:f954b61f5102e2c7007cf24ae1defb0e2e085a8c6887d4d748c629b5025b4a66"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ecd0774795aa45c0"]
+test = true
+
+[module."concept_sciences.rs"]
+path = "test:concept_sciences"
+
+[[module."concept_sciences.rs".function]]
+id = "fn:2937c1d97d8c60db"
+name = "Skeleton"
+qual = "Skeleton"
+item = "type"
+shape = "struct"
+lines = [
+    35,
+    39,
+]
+hash = "sha256:94b3b6673488a92f0a51f7f3882241b5d54b1ca5ff079705ac02655829fece4e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:a57278f678e43365",
+    "fn:b763ca3a80109677",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:a57278f678e43365"
+name = "SkelDocument"
+qual = "SkelDocument"
+item = "type"
+shape = "struct"
+lines = [
+    41,
+    45,
+]
+hash = "sha256:04df7bd9e00e5e354b3c808a7eb18b938049167331f0a6de2f518344d1897657"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:b763ca3a80109677"
+name = "SkelNode"
+qual = "SkelNode"
+item = "type"
+shape = "struct"
+lines = [
+    47,
+    51,
+]
+hash = "sha256:d3696e90d25a206061a80b23d9cc62d58f25a8b63748b9bda3368aaed335a0b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:ad3320b738243ec9"
+name = "Proposals"
+qual = "Proposals"
+item = "type"
+shape = "struct"
+lines = [
+    53,
+    57,
+]
+hash = "sha256:134a34045b33eb5e7eae49841b2b51cd7df4fa3f82b073b641a305e1e9247116"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:082a3a1522a65d97",
+    "fn:e54962a592bc0eae",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:e54962a592bc0eae"
+name = "Concept"
+qual = "Concept"
+item = "type"
+shape = "struct"
+lines = [
+    59,
+    64,
+]
+hash = "sha256:fdb636a0dd3a7c6965652a65cc4a14dba8edecc8c7416d661daf47930e6a505a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:082a3a1522a65d97"
+name = "Implementation"
+qual = "Implementation"
+item = "type"
+shape = "struct"
+lines = [
+    66,
+    73,
+]
+hash = "sha256:6f34440a7812f5175c994aaf69a25311abcfd1c7d72f3cff862df38ac0ab0667"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:ca93526539892c0e"
+name = "Sciences"
+qual = "Sciences"
+item = "type"
+shape = "struct"
+lines = [
+    75,
+    84,
+]
+hash = "sha256:0cfeeb7475f2c61b7b046bc0b5b5d96b9eaafc68c89a722ca5843073cb0f9b1a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1539675edd240834",
+    "fn:8a00f402a6c0c484",
+    "fn:ed54d602d963fc0a",
+    "fn:ee35580e3d4c578a",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:ed54d602d963fc0a"
+name = "Document"
+qual = "Document"
+item = "type"
+shape = "struct"
+lines = [
+    86,
+    100,
+]
+hash = "sha256:1143b02b1e7735abf2fcb5caecc1db442c2024cbbe9a7f3d73dc73c25d4454f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:8a00f402a6c0c484"
+name = "Science"
+qual = "Science"
+item = "type"
+shape = "struct"
+lines = [
+    102,
+    129,
+]
+hash = "sha256:0451ce198f6b78a7db4a25acdc36dd6b8d0b24443b4b3442973ccb1104c8cad9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c5f7c05cbbee76c0"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:c5f7c05cbbee76c0"
+name = "Source"
+qual = "Source"
+item = "type"
+shape = "struct"
+lines = [
+    131,
+    136,
+]
+hash = "sha256:e3b73ad47383c688494b7da3897800ac2dccb248f9e2890b233c36204026d6a1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:ee35580e3d4c578a"
+name = "Reference"
+qual = "Reference"
+item = "type"
+shape = "struct"
+lines = [
+    138,
+    151,
+]
+hash = "sha256:4e9358e886424797337ae1db7ced1929df0f148a5f144a5065f519e80ed242ff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:1539675edd240834"
+name = "Candidate"
+qual = "Candidate"
+item = "type"
+shape = "struct"
+lines = [
+    153,
+    160,
+]
+hash = "sha256:f44b9b72b337c805d6c3ca890ea46dc6eaf48323296b3a91bdd28597051cab8b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:18f54c5669e0ab61"
+name = "SCIENCES_TOML"
+qual = "SCIENCES_TOML"
+item = "const"
+shape = "const"
+lines = [
+    162,
+    162,
+]
+hash = "sha256:f5efbb28a6b7232778aac372d3de6fafd5893b81694344df367372d991a06516"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:18304da84ef66b88"
+name = "APPROVED_TXT"
+qual = "APPROVED_TXT"
+item = "const"
+shape = "const"
+lines = [
+    163,
+    163,
+]
+hash = "sha256:b2b43de8a6d93b5828a3bb8908a405c514deb2572642ea35ea7b8fb393627468"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:6faf47963030ae63"
+name = "COMPUTATION_PROBLEMS"
+qual = "COMPUTATION_PROBLEMS"
+item = "const"
+shape = "const"
+lines = [
+    164,
+    164,
+]
+hash = "sha256:da0193efd2b143b838fa47d00a116945dd64e366d7c9873dd1411645b5c66c2d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:686d894920c6cc5c"
+name = "THEOREMS"
+qual = "THEOREMS"
+item = "const"
+shape = "const"
+lines = [
+    165,
+    165,
+]
+hash = "sha256:f461ae29e5fa165a6070dc334de197978d9310da3cec99eb97ddf55ec5e62139"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:8dc8b3da030f5b82"
+name = "AIMS"
+qual = "AIMS"
+item = "const"
+shape = "const"
+lines = [
+    166,
+    166,
+]
+hash = "sha256:e6cb22186a173848bb720e32aa95989816f6c65f5da484f19a29c28e0837c6a8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:e05b4223662b2b82"
+name = "NOT_READ"
+qual = "NOT_READ"
+item = "const"
+shape = "const"
+lines = [
+    167,
+    167,
+]
+hash = "sha256:fd623f2702921b35bf8090ae2c593b2bea8bb1062ec1677c0328c70725a46334"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:5216772d87cff559"
+name = "skeleton"
+qual = "skeleton"
+lines = [
+    169,
+    172,
+]
+hash = "sha256:bac544553f50ad59617375fe2e77cee94a409686e79456d9252b537165fae40a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2937c1d97d8c60db"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:f8c6adb9d6591420"
+name = "proposals"
+qual = "proposals"
+lines = [
+    174,
+    177,
+]
+hash = "sha256:222cb8b7903ade696a510beee4fd689337aafe9d8e1d4f797690065249b15caa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ad3320b738243ec9"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:a0b1a16bd652f428"
+name = "sciences"
+qual = "sciences"
+lines = [
+    179,
+    181,
+]
+hash = "sha256:b48b1440e1226f9fef83fa082bb0e435375fed4def7cbe3ac3db80e30c456178"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:18f54c5669e0ab61",
+    "fn:ca93526539892c0e",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:236d3bfa140d205a"
+name = "workspace_root"
+qual = "workspace_root"
+lines = [
+    183,
+    187,
+]
+hash = "sha256:7ef29fcb44c77130442f06abb2a2955d480c5c7b93cd84e4564e1c3815a347cb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:5be557ae811d9f48"
+name = "workspace_member_crates"
+qual = "workspace_member_crates"
+lines = [
+    189,
+    207,
+]
+hash = "sha256:ced3013fd534f272c6f4269520ebcdc076b7dc4371c268e8cad77fcd2f4403e9"
+doc_hash = "sha256:3197f4068181113fd219abcfb9ace1115e788ab823e93c1081093caa16f81155"
+callees = ["fn:236d3bfa140d205a"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:034ca1ab46dec445"
+name = "science_paths"
+qual = "science_paths"
+lines = [
+    209,
+    211,
+]
+hash = "sha256:a8d3eb8e7d3c245cecc53205c1657d7f3af14e9e11a2155a08932bba5a3456da"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ca93526539892c0e"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:74c0e282f6c75988"
+name = "parent"
+qual = "parent"
+lines = [
+    213,
+    215,
+]
+hash = "sha256:2519bd9967fde877613266212fd4b7c6c975203fe8ae5ec80d4257b5ad9d1ad5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:8aa7f9ff64de27a5"
+name = "approved_ledger"
+qual = "approved_ledger"
+lines = [
+    217,
+    223,
+]
+hash = "sha256:6ec0a65defdbb4a90a646e7da17540c3aec4bb7fb6396c597cd7876c7cd23f0d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:18304da84ef66b88"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:19150748ca67e93e"
+name = "paths_are_permanent_shaped_unique_and_parented"
+qual = "paths_are_permanent_shaped_unique_and_parented"
+lines = [
+    225,
+    268,
+]
+hash = "sha256:04edae2d8d0275d6b63e62c941062651a1033ae71c645f010364ca00e60933e1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:034ca1ab46dec445",
+    "fn:5be557ae811d9f48",
+    "fn:74c0e282f6c75988",
+    "fn:a0b1a16bd652f428",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:f9fb32da58734554"
+name = "sources_name_declared_documents_and_every_document_is_cited"
+qual = "sources_name_declared_documents_and_every_document_is_cited"
+lines = [
+    270,
+    359,
+]
+hash = "sha256:8c2480ae264b415ba314a5b4b9eea0d5b89243b4700d6970d827ec7e7eb1a1c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5216772d87cff559",
+    "fn:a0b1a16bd652f428",
+]
+uses = ["fn:e05b4223662b2b82"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:6bac3f88c92bb945"
+name = "cross_links_resolve_within_sciences"
+qual = "cross_links_resolve_within_sciences"
+lines = [
+    361,
+    375,
+]
+hash = "sha256:8f7843eaf0e76e712f006b43020cd0d3f50f0b83e47001e26b6201ba8e0c0576"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:034ca1ab46dec445",
+    "fn:a0b1a16bd652f428",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:11c6ad6db8df332f"
+name = "method_leaves_sit_under_problems_and_name_theorems_and_aims"
+qual = "method_leaves_sit_under_problems_and_name_theorems_and_aims"
+lines = [
+    377,
+    445,
+]
+hash = "sha256:e2cd4d6b8212094a68295091bcdda79ad6b4ffaa0bb3ee323054604ddfe9beec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:034ca1ab46dec445",
+    "fn:a0b1a16bd652f428",
+]
+uses = [
+    "fn:686d894920c6cc5c",
+    "fn:6faf47963030ae63",
+    "fn:8dc8b3da030f5b82",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:86ff044ba5c8abe1"
+name = "references_and_sciences_fields_resolve"
+qual = "references_and_sciences_fields_resolve"
+lines = [
+    447,
+    518,
+]
+hash = "sha256:fa88cfb5efbf9053ffee200027663ba799925c6bcab40f21f85aa256fe81539c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:034ca1ab46dec445",
+    "fn:5216772d87cff559",
+    "fn:a0b1a16bd652f428",
+    "fn:f8c6adb9d6591420",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:cf0ddc6f56461c03"
+name = "the_tree_reader_accepts_a_sciences_field"
+qual = "the_tree_reader_accepts_a_sciences_field"
+lines = [
+    520,
+    532,
+]
+hash = "sha256:8def34d5a94a62e8b8e700c3d86d56d75e4c879e579c81d3cfe73f83eb9ac8e6"
+doc_hash = "sha256:2e695a4265aa7800b31cc54da8ea7f2bcbac35799e4e73980b9f76e5a3e7e60f"
+callees = [
+    "fn:232609ef84cab802",
+    "fn:6187a6ea5626f0c2",
+]
+uses = ["fn:12da1a8e729225fb"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:03ae16e9d7bd7def"
+name = "approved_sciences_ids_never_disappear"
+qual = "approved_sciences_ids_never_disappear"
+lines = [
+    534,
+    564,
+]
+hash = "sha256:f900d36c7130dc4f8864b1de3f129f088b162933515917eee4c1a1b07843d68f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:8aa7f9ff64de27a5",
+    "fn:a0b1a16bd652f428",
+]
+uses = ["fn:8a00f402a6c0c484"]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:c065f67ecc31f882"
+name = "md"
+qual = "md"
+lines = [
+    566,
+    568,
+]
+hash = "sha256:5722927be56fdcb3e67ccdd09f52d1e18d6fb6d586941e88d3b2f092d5a3e458"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:7fc731b678bdd476"
+name = "render"
+qual = "render"
+lines = [
+    570,
+    913,
+]
+hash = "sha256:9049d3ec779d473ff6ec4570405871dadcd7100407016a40d8c9c5273184c149"
+doc_hash = "sha256:dea3658c2cd31cedfaaface113f82142e2fc85f1f4c5f3defefcb76a1c7d0b6e"
+callees = [
+    "fn:5216772d87cff559",
+    "fn:74c0e282f6c75988",
+    "fn:a0b1a16bd652f428",
+    "fn:c065f67ecc31f882",
+]
+uses = [
+    "fn:8a00f402a6c0c484",
+    "fn:e05b4223662b2b82",
+    "fn:ee35580e3d4c578a",
+]
+test = true
+
+[[module."concept_sciences.rs".function]]
+id = "fn:2206508575013e92"
+name = "review_document_is_current"
+qual = "review_document_is_current"
+lines = [
+    915,
+    930,
+]
+hash = "sha256:b433b7f50536b7407e91c544eb265f2f03ec3decb249849376b8fd8e054cb39b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7fc731b678bdd476"]
+test = true
+
+[module."concept_skeleton.rs"]
+path = "test:concept_skeleton"
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:b38c119662b6c596"
+name = "Skeleton"
+qual = "Skeleton"
+item = "type"
+shape = "struct"
+lines = [
+    22,
+    26,
+]
+hash = "sha256:a5fad9cd4cdce05f1db52092e86323d51303f483f9d5c0b412cb149ba40f1292"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:3addc6e5823f8aec",
+    "fn:ac614420db11daf3",
+]
+test = true
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:ac614420db11daf3"
+name = "Document"
+qual = "Document"
+item = "type"
+shape = "struct"
+lines = [
+    28,
+    33,
+]
+hash = "sha256:9016aae5b01974d92c85f25626f37e2c5fe79319972c47eaf33f89c8791dc9ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:3addc6e5823f8aec"
+name = "Node"
+qual = "Node"
+item = "type"
+shape = "struct"
+lines = [
+    35,
+    42,
+]
+hash = "sha256:b0fcf635be4d2e6232d3d86e097ef4afe35b584ce7b4b96aa7d5832e74833683"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1040b3fcb72655e6"]
+test = true
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:1040b3fcb72655e6"
+name = "Source"
+qual = "Source"
+item = "type"
+shape = "struct"
+lines = [
+    44,
+    47,
+]
+hash = "sha256:74fc52596ab4ce70d815841c8512fa5ef7d1b59c05d8354e0af14b9066f903c5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:aed0db2004e467dc"
+name = "skeleton"
+qual = "skeleton"
+lines = [
+    49,
+    51,
+]
+hash = "sha256:bac544553f50ad59617375fe2e77cee94a409686e79456d9252b537165fae40a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b38c119662b6c596"]
+test = true
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:b493051f45d539de"
+name = "level_one_is_the_nineteen_iaea_issues_in_order"
+qual = "level_one_is_the_nineteen_iaea_issues_in_order"
+lines = [
+    53,
+    74,
+]
+hash = "sha256:fe8684a9cd9d2a11731d539e177426c94564daf2a4451f29f867c672d0433299"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:232609ef84cab802",
+    "fn:241dd30032d40534",
+    "fn:aed0db2004e467dc",
+    "fn:b21478eb146ab9ad",
+    "fn:fc8c509f322cfc8f",
+]
+test = true
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:76c2ec8d0820a4bc"
+name = "paths_are_unique_parents_exist_and_level_two_is_unnumbered"
+qual = "paths_are_unique_parents_exist_and_level_two_is_unnumbered"
+lines = [
+    76,
+    98,
+]
+hash = "sha256:f8d236a16c01ba2d4a9f22b62747418707832306dee6607310574bc9d3935679"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aed0db2004e467dc"]
+test = true
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:8a85eadc8b6ca185"
+name = "every_source_links_to_a_declared_document_and_every_document_is_used"
+qual = "every_source_links_to_a_declared_document_and_every_document_is_used"
+lines = [
+    100,
+    119,
+]
+hash = "sha256:59c827e5a4ce69f5fcb76f3d9a3d345ccd3aff682ecdcfc3cd809d476e185a2d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aed0db2004e467dc"]
+uses = ["fn:ac614420db11daf3"]
+test = true
+
+[[module."concept_skeleton.rs".function]]
+id = "fn:b31d190e53868944"
+name = "standard_tier_files_exist_in_the_corpus_checkout"
+qual = "standard_tier_files_exist_in_the_corpus_checkout"
+lines = [
+    121,
+    131,
+]
+hash = "sha256:0421beaf141d414ce562f10ddbdce1f2249c38ef74c37083639f51012e48a3fa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:aed0db2004e467dc"]
+test = true
+
+[module."csl_vs_citeproc_js.rs"]
+path = "test:csl_vs_citeproc_js"
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:e49b4abfed5a58e8"
+name = "BIB"
+qual = "BIB"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    56,
+]
+hash = "sha256:e44a7d4d1de131701def4d59d3258c2e25df966f9bc26c08a9f45d1940d908ec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:0433de562044bf97"
+name = "ITEMS"
+qual = "ITEMS"
+item = "const"
+shape = "const"
+lines = [
+    57,
+    57,
+]
+hash = "sha256:3d2b679bb1a66f3d801520a1918705ff17e5e913757f371be5ee171f0e47ba12"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:67f6061ac5060216"
+name = "REFERENCE"
+qual = "REFERENCE"
+item = "const"
+shape = "const"
+lines = [
+    58,
+    58,
+]
+hash = "sha256:e0d0cb935d62a82ffee732e02e9d6c978f6582c85dc5f16e16624423c21f0cc0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:ced3cb9774cdcabf"
+name = "KNOWN"
+qual = "KNOWN"
+item = "const"
+shape = "const"
+lines = [
+    59,
+    59,
+]
+hash = "sha256:3bd976f3e7511ba7f504b4ffa248df7452ad0ee95364b946ff93bd8c2f5d1cc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:88a9ff33f5592c2e"
+name = "normalise"
+qual = "normalise"
+lines = [
+    61,
+    94,
+]
+hash = "sha256:2175be9d3352d06f48264d5ceb1fa735bee19c333590bec0eda467dfb73ecec9"
+doc_hash = "sha256:4614d039fbf61587ec6e0aaea6d31debaa90546ae379897e7458f6c0c9d5f974"
+callees = ["fn:4632caf55d31ae47"]
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:4632caf55d31ae47"
+name = "decode"
+qual = "decode"
+lines = [
+    96,
+    107,
+]
+hash = "sha256:35d414c0f3643b8b6ffeddddda74572466cf51d42b297f54d45fb9b2f907067e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:b36c1e39857bd13c"
+name = "port_outputs"
+qual = "port_outputs"
+lines = [
+    109,
+    152,
+]
+hash = "sha256:ecf2098f9184ca3a1003fa72d03643b63505aa909c919d4969d06def62e1f1e5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3c3ff8769e532821",
+    "fn:88a9ff33f5592c2e",
+    "fn:f62daf714c7af53d",
+]
+uses = [
+    "fn:24c2ab3148f0c481",
+    "fn:cea887b4f3fb2def",
+    "fn:fcf513164f86f154",
+]
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:69f97e37b57c1c93"
+name = "differences"
+qual = "differences"
+lines = [
+    154,
+    185,
+]
+hash = "sha256:20096e0d66a3f035173f5a33e3ac11700596ded89296f8f7c70aff24d0cca1ed"
+doc_hash = "sha256:ebea533168d1dfe038e2cc4ee7c2a443216d8963d838113730514df0e982b7d7"
+callees = [
+    "fn:88a9ff33f5592c2e",
+    "fn:b2690c32afe6f449",
+    "fn:b36c1e39857bd13c",
+]
+uses = [
+    "fn:0529f6ee4c155323",
+    "fn:24c2ab3148f0c481",
+    "fn:cea887b4f3fb2def",
+]
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:0529f6ee4c155323"
+name = "PARTS"
+qual = "PARTS"
+item = "const"
+shape = "const"
+lines = [
+    187,
+    187,
+]
+hash = "sha256:b93cadba1de142ee51ffdcbc0da2e3b2f6816659625620eace11c6138d984698"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:80556691f0198ba5"
+name = "check_styles"
+qual = "check_styles"
+lines = [
+    189,
+    229,
+]
+hash = "sha256:5909861a59ea2b97cd9ddc2c08322af1c6fc94157b2751abcd9068ac73793def"
+doc_hash = "sha256:6f9d9446c59b361c7ea590bf12ff6c78a19518dce001f70eb8e6d574e59b4c69"
+callees = [
+    "fn:008544f41ecb9e75",
+    "fn:1fbd7cbf60a75422",
+    "fn:69f97e37b57c1c93",
+]
+uses = [
+    "fn:0529f6ee4c155323",
+    "fn:24c2ab3148f0c481",
+    "fn:ced3cb9774cdcabf",
+    "fn:e49b4abfed5a58e8",
+]
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:256abc6264c1db2b"
+name = "the_reference_was_made_from_the_csl_json_this_crate_produces"
+qual = "the_reference_was_made_from_the_csl_json_this_crate_produces"
+lines = [
+    231,
+    244,
+]
+hash = "sha256:c893fb8c4da20197ec9ec28afce0969132292784dffcad5dab0cf31c122518ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:008544f41ecb9e75",
+    "fn:1fbd7cbf60a75422",
+    "fn:6165ff98742298a4",
+]
+uses = [
+    "fn:0433de562044bf97",
+    "fn:24c2ab3148f0c481",
+    "fn:e49b4abfed5a58e8",
+]
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:fc82f44bedc108b6"
+name = "apa_matches_citeproc_js_except_the_recorded_differences"
+qual = "apa_matches_citeproc_js_except_the_recorded_differences"
+lines = [
+    246,
+    251,
+]
+hash = "sha256:e21e521b852c67166f1888016852a104e543b8d9e6ed995e5b468bc63c3951f6"
+doc_hash = "sha256:aad5e7986c4d2b8c8949ed5a89f60fd9ef865a623c07b3cb1f99c89095761b48"
+callees = ["fn:80556691f0198ba5"]
+uses = ["fn:67f6061ac5060216"]
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:c24b30fa81101827"
+name = "normalisation_is_the_same_for_both_engines_markup"
+qual = "normalisation_is_the_same_for_both_engines_markup"
+lines = [
+    253,
+    263,
+]
+hash = "sha256:54bdd8802b13774dce27f47b4dd4724d1aae619670a89c7ddb7bb28418384a7b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:88a9ff33f5592c2e"]
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:c56c72a0f1b219af"
+name = "the_five_style_references_cover_every_item"
+qual = "the_five_style_references_cover_every_item"
+lines = [
+    265,
+    313,
+]
+hash = "sha256:7fb79cab5592b39aca1652e365e0bfb59256d5f928b78a5e64ae9f2ac8c98282"
+doc_hash = "sha256:bda4b080dd693c7659823befefaebce392493dc2f9c41086790f1340845a0f85"
+uses = [
+    "fn:0433de562044bf97",
+    "fn:67f6061ac5060216",
+]
+test = true
+
+[[module."csl_vs_citeproc_js.rs".function]]
+id = "fn:aab717ff35406f4c"
+name = "other_styles_match_citeproc_js_except_the_recorded_differences"
+qual = "other_styles_match_citeproc_js_except_the_recorded_differences"
+lines = [
+    315,
+    332,
+]
+hash = "sha256:7aaa52c0488f0f8efa705ce52306dbece5c41b49ba7679c874950da78a95f4aa"
+doc_hash = "sha256:615a9f3c1b3840e6a104d2461b29ff9b843220ed0b0ace8547dae84f53bf56aa"
+callees = ["fn:80556691f0198ba5"]
+test = true
+
+[module."zotero_local_library.rs"]
+path = "test:zotero_local_library"
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:1f5404cbf86796bf"
+name = "ITEM_JSON"
+qual = "ITEM_JSON"
+item = "const"
+shape = "const"
+lines = [
+    64,
+    64,
+]
+hash = "sha256:7f85b51f813b0b098fc21013f3edcc1a1a7a5413ec2166bb004667b3a3b90dab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:e9da65cb6ff78664"
+name = "item"
+qual = "item"
+lines = [
+    66,
+    68,
+]
+hash = "sha256:fb9511b2a01a90ae5f3e23a5220391e4ed7305fd891fb7ee9f1ab52de201cbe9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0183256288552f4c"]
+uses = ["fn:5315e59b99e3c06d"]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:d1eefe9681913384"
+name = "collection"
+qual = "collection"
+lines = [
+    70,
+    72,
+]
+hash = "sha256:f595f03d4d8cd3143149d8ee612339a1cf9e21208a7e73b14574ed4026cd41af"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7bb6f12bbf559e60"]
+uses = ["fn:69d76da05965d2cc"]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:98e18a530139858f"
+name = "every_upstream_item_json_reads_back_exactly"
+qual = "every_upstream_item_json_reads_back_exactly"
+lines = [
+    74,
+    119,
+]
+hash = "sha256:6d2e595c0caba55942eb91f07cd8b4066bef289003cec9db026130ecc76dd652"
+doc_hash = "sha256:4e2075abc1d26c3b0c4f81f747f66ca22dff1983216c9a269edd23e8b177807e"
+callees = [
+    "fn:386b3e5e0926f9a6",
+    "fn:572701544d88e8ff",
+    "fn:668eb05f51e9321e",
+    "fn:71a5ad5b38945717",
+    "fn:b29793fb5c8a6108",
+    "fn:e9da65cb6ff78664",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:0408507d7ce1e88c",
+    "fn:1f5404cbf86796bf",
+    "fn:37a9b3c60254c43e",
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:86ebd6994a8717e8"
+name = "Fixture"
+qual = "Fixture"
+item = "type"
+shape = "struct"
+lines = [
+    121,
+    128,
+]
+hash = "sha256:dac5cc0206e84e7cbde1769ac08f016f2a4daa0f51b6b26e0e415424f84df832"
+doc_hash = "sha256:2ffde1e9c6c3ada36b55d35dfb7764eb81c786188f69d1f8949c2f9d759b02a2"
+uses = [
+    "fn:5315e59b99e3c06d",
+    "fn:69d76da05965d2cc",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:318a1767d59c99ff"
+name = "data_dir"
+qual = "data_dir"
+lines = [
+    130,
+    132,
+]
+hash = "sha256:c17d505403241eb59ea2a3e3d078c06999a95781e39c49ae7e90d19a223b08ad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:86ebd6994a8717e8"]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:ca6b760b463ad95b"
+name = "build_library"
+qual = "build_library"
+lines = [
+    134,
+    322,
+]
+hash = "sha256:70a29d9e4650a8105864d1b7663bcc8884e54fab049535408bd7fcd24a54dc80"
+doc_hash = "sha256:635266253b6f0e1d680e35fb458e50c3e4c7c8bd57b8e10bca07852a8560dbb7"
+callees = [
+    "fn:00f32b6631339511",
+    "fn:2e512511936b5f86",
+    "fn:4fe5dd9a15412023",
+    "fn:51b7e8a0d12948e8",
+    "fn:71a5ad5b38945717",
+    "fn:7446e6bb1f08564e",
+    "fn:b29793fb5c8a6108",
+    "fn:d1eefe9681913384",
+    "fn:e9da65cb6ff78664",
+    "fn:eaa771ce2c8fc4fd",
+    "fn:f032bb7f3a4ebd84",
+]
+uses = [
+    "fn:0408507d7ce1e88c",
+    "fn:86ebd6994a8717e8",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:ee83dd0f8f5817e7"
+name = "check_library"
+qual = "check_library"
+lines = [
+    324,
+    421,
+]
+hash = "sha256:b5ba681073ff30b25b41888535e6deefa3308cd252ca90017f59f737920286ff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:02809be24ce22bab",
+    "fn:23ae4e67b6b54384",
+    "fn:318a1767d59c99ff",
+    "fn:386b3e5e0926f9a6",
+    "fn:572701544d88e8ff",
+    "fn:668eb05f51e9321e",
+    "fn:83e76d2ac1ce6e4a",
+    "fn:be1e973e67493141",
+]
+uses = [
+    "fn:86ebd6994a8717e8",
+    "fn:8cd0e0d72260962d",
+    "fn:92e76ddad6bdcf9a",
+    "fn:9f9f0fc23dab2a89",
+    "fn:cc8acce2bfcf896c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:3d58e0740d706050"
+name = "a_full_library_reads_back_exactly"
+qual = "a_full_library_reads_back_exactly"
+lines = [
+    423,
+    442,
+]
+hash = "sha256:fb77e007ddf9e2b29f829511941c393e7c7447e4797f17edb614a72d8b1b3393"
+doc_hash = "sha256:c3b68f65f9b57f7c5b5a55b813b049adb886fa4f23c45eba8edd34f618ae0962"
+callees = [
+    "fn:ca6b760b463ad95b",
+    "fn:ee83dd0f8f5817e7",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:c0350627c67a4ee3"
+name = "ids_are_resolved_by_name_not_assumed"
+qual = "ids_are_resolved_by_name_not_assumed"
+lines = [
+    444,
+    451,
+]
+hash = "sha256:734fbe89132a2b8407ba8ccbbe64a049009346708bce2ddb763fcee1bf4e750d"
+doc_hash = "sha256:ea1cfd6f32ac22fe5bc1927607782e16db7be58c13245980d3b3884159430aa8"
+callees = [
+    "fn:ca6b760b463ad95b",
+    "fn:ee83dd0f8f5817e7",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:6a7689adae8f2407"
+name = "file_bytes"
+qual = "file_bytes"
+lines = [
+    453,
+    455,
+]
+hash = "sha256:a95340b762ccea5ca1a20d7adff1dd5340a87cbab8733ec2492906a357b5d938"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:9f98e48ca559ab6f"
+name = "a_locked_live_database_is_read_through_a_private_copy"
+qual = "a_locked_live_database_is_read_through_a_private_copy"
+lines = [
+    457,
+    504,
+]
+hash = "sha256:1046224e151be93fbc06a4021dfbb1766f453a30fb491fa3f0612dcc95fdfe0f"
+doc_hash = "sha256:cb919f1577504230c05568645a14f03be514ffc6a32dfbb5ea4067b8174be9df"
+callees = [
+    "fn:386b3e5e0926f9a6",
+    "fn:668eb05f51e9321e",
+    "fn:6a7689adae8f2407",
+    "fn:71a5ad5b38945717",
+    "fn:b29793fb5c8a6108",
+    "fn:e9da65cb6ff78664",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:0408507d7ce1e88c",
+    "fn:37a9b3c60254c43e",
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:0d56f2e808569aac"
+name = "a_corrupt_live_database_falls_back_to_the_backup"
+qual = "a_corrupt_live_database_falls_back_to_the_backup"
+lines = [
+    506,
+    541,
+]
+hash = "sha256:ff5e02e55b592b31de6b965106032c301532f3fdc4bb5badd626c151ed25b1db"
+doc_hash = "sha256:dc023a41e2d96f6148d15f5d94fe422ae85a080a6e015aef383258257ad4de9c"
+callees = [
+    "fn:318a1767d59c99ff",
+    "fn:668eb05f51e9321e",
+    "fn:ca6b760b463ad95b",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:37a9b3c60254c43e",
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:04d08f7489ad8c61"
+name = "unsupported_versions_are_refused"
+qual = "unsupported_versions_are_refused"
+lines = [
+    543,
+    586,
+]
+hash = "sha256:36de4b550cf7ed05311b6e0ae78700a39293e5c4fdf2a0ca947f5ceebdb19813"
+doc_hash = "sha256:9c9cd24423d186f2b05833df8e877338d298506dd1e38cf54617242f33a9c76b"
+callees = [
+    "fn:668eb05f51e9321e",
+    "fn:71a5ad5b38945717",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:0408507d7ce1e88c",
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+    "fn:f60f3421069716e6",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:4592d4408a855949"
+name = "import_into_kovan_documents_reports_what_is_lost"
+qual = "import_into_kovan_documents_reports_what_is_lost"
+lines = [
+    588,
+    654,
+]
+hash = "sha256:e30d945093bc12bffad7f6bf51bde1a4f2d9148ddb98581f3ec8e73a3cab38cb"
+doc_hash = "sha256:33bc0a736292b5f85671d198a1b7e024e17980dab3ba24470d50f9fbaa5cc94b"
+callees = [
+    "fn:318a1767d59c99ff",
+    "fn:58998d810017bbee",
+    "fn:668eb05f51e9321e",
+    "fn:6c46be0cf92a38fa",
+    "fn:800cf32b3cb81dee",
+    "fn:ca6b760b463ad95b",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:9f9f0fc23dab2a89",
+    "fn:b07b8e5717934b35",
+    "fn:ca9a316827bd26e5",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:cb98068de1202ec4"
+name = "opt_in_real_data_folder_summary"
+qual = "opt_in_real_data_folder_summary"
+lines = [
+    656,
+    713,
+]
+hash = "sha256:34ce888dc2c3c03a0e0878af00fda2a9b74c35994723448001d89e8b8bce2705"
+doc_hash = "sha256:0acb4644d073eec5172d3e8f7ed6f6c3411f3420407d8567ffff2bafa8cf93d3"
+callees = [
+    "fn:572701544d88e8ff",
+    "fn:58998d810017bbee",
+    "fn:668eb05f51e9321e",
+    "fn:6c46be0cf92a38fa",
+    "fn:83e76d2ac1ce6e4a",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:8cd0e0d72260962d",
+    "fn:9f9f0fc23dab2a89",
+    "fn:ca9a316827bd26e5",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:e7869212252a1d20"
+name = "reading_from_bytes_equals_reading_the_folder"
+qual = "reading_from_bytes_equals_reading_the_folder"
+lines = [
+    715,
+    733,
+]
+hash = "sha256:7ae862518b971a16b94d3115094c3ff5a1f282971b82b49be5e4731664f526e3"
+doc_hash = "sha256:383ad3a8ef40f7748eb125ae602974c53e7ec68e17bb6767a8e3c4d19a894ca1"
+callees = [
+    "fn:285acf17066e8734",
+    "fn:318a1767d59c99ff",
+    "fn:668eb05f51e9321e",
+    "fn:87ad079813ebbb6c",
+    "fn:ca6b760b463ad95b",
+    "fn:ee83dd0f8f5817e7",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:57b75ece1401aff8",
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:0b831d7cd68b1752"
+name = "key"
+qual = "key"
+lines = [
+    735,
+    745,
+]
+hash = "sha256:2d3e7d5f044a5476dd60bdcadd437cbcbd82eb4303360d92b02ea7c02bb607d2"
+doc_hash = "sha256:4420d6b4c6b821b38ff9859384b84dd270b2677a5b71ee6d1827e46d39493603"
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:7c815bfe1bfece56"
+name = "many_items_and_a_long_note_only_in_the_wal"
+qual = "many_items_and_a_long_note_only_in_the_wal"
+lines = [
+    747,
+    855,
+]
+hash = "sha256:d388a62a771de0d09373ea42cf6bc55628e02bd32b0b7bc3f7443d08d696ac41"
+doc_hash = "sha256:4320689d8fd2b8c0381c271e6fa342e820264f5bee9af09aecd43e805eaa4994"
+callees = [
+    "fn:0b831d7cd68b1752",
+    "fn:285acf17066e8734",
+    "fn:386b3e5e0926f9a6",
+    "fn:71a5ad5b38945717",
+    "fn:87ad079813ebbb6c",
+    "fn:b29793fb5c8a6108",
+    "fn:e9da65cb6ff78664",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:0408507d7ce1e88c",
+    "fn:57b75ece1401aff8",
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+]
+test = true
+
+[[module."zotero_local_library.rs".function]]
+id = "fn:837962e4662a169b"
+name = "a_hot_journal_falls_back_to_the_backup"
+qual = "a_hot_journal_falls_back_to_the_backup"
+lines = [
+    857,
+    904,
+]
+hash = "sha256:ba434403059aa50c4275f9792e549e0f6b044a2c64bb6607e5f255dfc38ac1b5"
+doc_hash = "sha256:aed9cde247a5c52319a2089707482c967d7419383a1da4bc6130c7cfa48587d2"
+callees = [
+    "fn:318a1767d59c99ff",
+    "fn:668eb05f51e9321e",
+    "fn:ca6b760b463ad95b",
+    "fn:fb88cb7665464f69",
+]
+uses = [
+    "fn:37a9b3c60254c43e",
+    "fn:9f9f0fc23dab2a89",
+    "fn:eabcd37171d23b7c",
+    "fn:f60f3421069716e6",
+]
+test = true
+
+[module."zotero_search.rs"]
+path = "test:zotero_search"
+
+[[module."zotero_search.rs".function]]
+id = "fn:3195d93984ec24ce"
+name = "dir"
+qual = "dir"
+lines = [
+    43,
+    45,
+]
+hash = "sha256:c8593fc8d3e815b8ed0ea82e537f03292ebe46a0d3e20ee5628b64ed62ad604b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:5ea61ee50c3cc9df"
+name = "read_json"
+qual = "read_json"
+lines = [
+    47,
+    51,
+]
+hash = "sha256:3af101eab6f2f3262c8c511ef3c7b99edecef0d3188a747cd7bff658b414a2a1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3195d93984ec24ce"]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:358e9a1015b35f2c"
+name = "NOW"
+qual = "NOW"
+item = "const"
+shape = "const"
+lines = [
+    53,
+    54,
+]
+hash = "sha256:a5cbff92e03bc526c7b177cca29a510883314e2b8716d8e93e99952af7e52700"
+doc_hash = "sha256:6d6c227b8eaaecf86d38441610ba88a44908542015b14536f9c8043487480f42"
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:ad66836b968643ed"
+name = "options"
+qual = "options"
+lines = [
+    56,
+    81,
+]
+hash = "sha256:7557a3f2b31cef6ce7e73361ac6333ae34b2a5125c5c9f63e41ae33573240a06"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:58308cdf744b33ef",
+    "fn:5ea61ee50c3cc9df",
+]
+uses = [
+    "fn:358e9a1015b35f2c",
+    "fn:4d9d6af1d21070bb",
+    "fn:bfcbcbff795af588",
+    "fn:d57238349ec99458",
+]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:56f9e1864fa12f45"
+name = "Replay"
+qual = "Replay"
+item = "type"
+shape = "struct"
+lines = [
+    83,
+    87,
+]
+hash = "sha256:3eaead8e7e4bfaba4fb01c049516da51d045e38cd5de66f5b2d8886cefe01a2f"
+doc_hash = "sha256:490f3c91d33391e619bc02196522bdaea40f7e88319019fde15dccd5cbc79292"
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:510183525a8faefa"
+name = "new"
+qual = "Replay::new"
+lines = [
+    90,
+    106,
+]
+hash = "sha256:6f5929a010b2484ad53e0a18bedd9db9137b89836276f1cd1a1a119d2736e195"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:56f9e1864fa12f45"]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:f33bb458d0220b22"
+name = "fetch"
+qual = "Replay::fetch"
+lines = [
+    108,
+    138,
+]
+hash = "sha256:8f985992838af7bb4c7cb55c08db3ebfa99b4f2a5425fcac20c541fec71824f7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:c414f60809101bdb",
+    "fn:efb3f7389c26d8da",
+]
+uses = [
+    "fn:375d8d3977d3d593",
+    "fn:56f9e1864fa12f45",
+    "fn:771a57d6ce8ad6d5",
+    "fn:d7b28adf7499497f",
+]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:efb3f7389c26d8da"
+name = "answer"
+qual = "Replay::answer"
+lines = [
+    140,
+    155,
+]
+hash = "sha256:1054b2957b72729dc8478231ce2af1bceb5e1084e7bba7917fc41dd338a1d5be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:db14750e14423621"]
+uses = [
+    "fn:56f9e1864fa12f45",
+    "fn:771a57d6ce8ad6d5",
+    "fn:d7b28adf7499497f",
+]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:db14750e14423621"
+name = "base64"
+qual = "base64"
+lines = [
+    158,
+    180,
+]
+hash = "sha256:47afad121bc6949493ac6735a1bc335bdd342d571bebef29f5def1f3efed23b8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:d888f759e13d697c"
+name = "iso"
+qual = "iso"
+lines = [
+    182,
+    184,
+]
+hash = "sha256:e757c793468f1c1105732f7b93f1053d5f2404c72a2249b00b0d2b8865ce9467"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cf010a1c45ee0827"]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:ff586637d16b0763"
+name = "check_case"
+qual = "check_case"
+lines = [
+    186,
+    269,
+]
+hash = "sha256:685399da26967926ae365c937e136254ce304ed8ad416c62da4330063f9744fd"
+doc_hash = "sha256:b76d3191397798cb0e2d9bffe9d8abf671630a00d251b29f50d5f0afdf4bf583"
+callees = [
+    "fn:051efe98a2448eb6",
+    "fn:3fd28d4b74eba0b4",
+    "fn:510183525a8faefa",
+    "fn:58ae0e5c635ef431",
+    "fn:5ea61ee50c3cc9df",
+    "fn:9e657f48bd358c16",
+    "fn:abdedc846e40fc78",
+    "fn:ad66836b968643ed",
+    "fn:bc43918a5c13111c",
+    "fn:d888f759e13d697c",
+    "fn:e2c36ebb7ba9aaf5",
+    "fn:e4167f538090c093",
+    "fn:f33bb458d0220b22",
+]
+uses = [
+    "fn:1d3d14c4901280a4",
+    "fn:208bdcd6bb956739",
+    "fn:358e9a1015b35f2c",
+    "fn:56f9e1864fa12f45",
+    "fn:f961a669079588a5",
+]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:384f8560fb43c696"
+name = "every_reference_case_is_tested"
+qual = "every_reference_case_is_tested"
+lines = [
+    314,
+    328,
+]
+hash = "sha256:6d04ce04b7d40a8d93dfaff1977da0af4738c0ae71acd532ac3efd6bd2dc9aac"
+doc_hash = "sha256:c6f1280e915435e2694173e1638fad4ca65c545ee04e528a73d5a46e1bbe631d"
+callees = ["fn:3195d93984ec24ce"]
+test = true
+
+[[module."zotero_search.rs".function]]
+id = "fn:8bc06480ae436dd1"
+name = "extract_identifiers_matches_upstream"
+qual = "extract_identifiers_matches_upstream"
+lines = [
+    330,
+    343,
+]
+hash = "sha256:330d21488106b0dfb7f293e0af8ce919f3882859a1a0f1d76b4755a9157f5a24"
+doc_hash = "sha256:c21474960a19fbd75031a3346a65c1e7bacafa24cceabfc1c9bea672345e7f34"
+callees = [
+    "fn:5ea61ee50c3cc9df",
+    "fn:9e657f48bd358c16",
+    "fn:e4167f538090c093",
+]
+test = true
+
+[module."zotero_search_failures.rs"]
+path = "test:zotero_search_failures"
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:673880e4343ae330"
+name = "DOI"
+qual = "DOI"
+item = "const"
+shape = "const"
+lines = [
+    20,
+    20,
+]
+hash = "sha256:75f885672717aac1e5f5a83e17dd359292bc42c4e97e0de798fbe80c350a2e99"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:b25f41428dbd3832"
+name = "lookup"
+qual = "lookup"
+lines = [
+    22,
+    27,
+]
+hash = "sha256:ea8491b9fa822e0965b084a960ed76676186cad445a8aca49eb35da6ffa3caf1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:051efe98a2448eb6",
+    "fn:675c60a11749143a",
+    "fn:bc43918a5c13111c",
+]
+uses = [
+    "fn:1d3d14c4901280a4",
+    "fn:375d8d3977d3d593",
+    "fn:673880e4343ae330",
+    "fn:771a57d6ce8ad6d5",
+    "fn:afb1cf73045345b3",
+    "fn:bfcbcbff795af588",
+    "fn:d7b28adf7499497f",
+]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:ff0799c7332f4bce"
+name = "resp"
+qual = "resp"
+lines = [
+    29,
+    37,
+]
+hash = "sha256:969844cb0b11ef14e65950458a849e35245704e89d02d6f6f9ef67468defbbac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d7b28adf7499497f"]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:9017007fe2293d8b"
+name = "offline"
+qual = "offline"
+lines = [
+    39,
+    45,
+]
+hash = "sha256:3d166c00837c6edb155de7e5a1c7f675ae1ccb40f34d4fa918e6bf4a6497acad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b25f41428dbd3832"]
+uses = [
+    "fn:771a57d6ce8ad6d5",
+    "fn:afb1cf73045345b3",
+]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:7fcb1b8f1546f735"
+name = "connect_failure"
+qual = "connect_failure"
+lines = [
+    47,
+    53,
+]
+hash = "sha256:64395c32d379fcab98a962337226bcf998ae913c438c15a5d07e1e978e78ee7c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b25f41428dbd3832"]
+uses = [
+    "fn:771a57d6ce8ad6d5",
+    "fn:afb1cf73045345b3",
+]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:8756705d43696fb1"
+name = "timeout"
+qual = "timeout"
+lines = [
+    55,
+    61,
+]
+hash = "sha256:9ebd531e4bb032357504820c4ca17b81e9803a73918a1f5294a8d3cc2061e9d6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b25f41428dbd3832"]
+uses = [
+    "fn:771a57d6ce8ad6d5",
+    "fn:afb1cf73045345b3",
+]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:b3e46eb5800e3792"
+name = "not_found_404"
+qual = "not_found_404"
+lines = [
+    63,
+    67,
+]
+hash = "sha256:9707c12fa9fe9a104b4c4c8c311678744ae56ee5ab3d6126577c15d0feac6963"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b25f41428dbd3832",
+    "fn:ff0799c7332f4bce",
+]
+uses = ["fn:afb1cf73045345b3"]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:26483a761b719a43"
+name = "rate_limited_429"
+qual = "rate_limited_429"
+lines = [
+    69,
+    84,
+]
+hash = "sha256:a72c0e0f69a863a26f76e4fe7bac994e33a417fb1942b97439a1ef835a0fa0ef"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b25f41428dbd3832",
+    "fn:ff0799c7332f4bce",
+]
+uses = ["fn:afb1cf73045345b3"]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:cefbafb800a0173c"
+name = "server_error_500"
+qual = "server_error_500"
+lines = [
+    86,
+    96,
+]
+hash = "sha256:7c40b9d8f00ba8c542e0740046d948ba65d567402d059ce7fdde06cb6a7fac1f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b25f41428dbd3832",
+    "fn:ff0799c7332f4bce",
+]
+uses = ["fn:afb1cf73045345b3"]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:0da6ac9d0a97ef54"
+name = "missing_content_type"
+qual = "missing_content_type"
+lines = [
+    98,
+    102,
+]
+hash = "sha256:2c83e6af8ca8f21367ab13f516777d231f15a587909df34d159e038c5d5a1516"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:b25f41428dbd3832",
+    "fn:ff0799c7332f4bce",
+]
+uses = ["fn:afb1cf73045345b3"]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:fc45a7e59f95f408"
+name = "truncated_body"
+qual = "truncated_body"
+lines = [
+    104,
+    117,
+]
+hash = "sha256:1763e0a75a727d4d31d2436501824ac95452acd486394eec38e29aa9867f0c8d"
+doc_hash = "sha256:8ede4b782dd88da7c84e8d48fe8d6f189e3952ac1e0ffeff4c108d310fa61143"
+callees = [
+    "fn:b25f41428dbd3832",
+    "fn:ff0799c7332f4bce",
+]
+uses = ["fn:afb1cf73045345b3"]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:10072d430d189025"
+name = "garbage_body_to_json_request"
+qual = "garbage_body_to_json_request"
+lines = [
+    119,
+    138,
+]
+hash = "sha256:61ae34e946842a39c4d02d4ef263483c91b6239da34ed964152350782d81b250"
+doc_hash = "sha256:0a534facde7097f02ef35ef25d77b8752119e48207737916a2dd1ac72df496d2"
+callees = [
+    "fn:051efe98a2448eb6",
+    "fn:62a57721fdce4aef",
+    "fn:675c60a11749143a",
+    "fn:e2c36ebb7ba9aaf5",
+    "fn:f9a8072a9af91de9",
+]
+uses = [
+    "fn:1d3d14c4901280a4",
+    "fn:208bdcd6bb956739",
+    "fn:afb1cf73045345b3",
+    "fn:bfcbcbff795af588",
+    "fn:d7b28adf7499497f",
+    "fn:f961a669079588a5",
+]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:07ed6532e9fd4ca9"
+name = "garbage_body_to_doi_is_not_found_as_upstream"
+qual = "garbage_body_to_doi_is_not_found_as_upstream"
+lines = [
+    140,
+    155,
+]
+hash = "sha256:c73471144fc6593dd96962e62f4a2b1468a8594aca27b26d97e14d379f2b783e"
+doc_hash = "sha256:5ab7d6c2590519cead879ce2d91130150a50849fa8bd663a61e2ef9cf18efd8a"
+callees = [
+    "fn:b25f41428dbd3832",
+    "fn:ff0799c7332f4bce",
+]
+uses = ["fn:afb1cf73045345b3"]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:d334cc23e677fe4f"
+name = "unsupported_target"
+qual = "unsupported_target"
+lines = [
+    157,
+    163,
+]
+hash = "sha256:38ec86f50e6fa9505a391990b7daa0030b80fff4f719048165a7897f78e4e229"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:b25f41428dbd3832"]
+uses = [
+    "fn:771a57d6ce8ad6d5",
+    "fn:afb1cf73045345b3",
+]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:95cbc89cfa663a27"
+name = "no_identifier"
+qual = "no_identifier"
+lines = [
+    165,
+    171,
+]
+hash = "sha256:2a34ddc357e96a4a4370af641517fd56534382f1939eb68b80461b9287e96a54"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:675c60a11749143a",
+    "fn:bc43918a5c13111c",
+]
+uses = [
+    "fn:1d3d14c4901280a4",
+    "fn:afb1cf73045345b3",
+    "fn:bfcbcbff795af588",
+]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:23e83ec18000d83a"
+name = "arbitrary_responses_never_panic"
+qual = "arbitrary_responses_never_panic"
+lines = [
+    173,
+    227,
+]
+hash = "sha256:467b0e2add6bb8ce91de45245eb6f890dbf7c3fefbb98c5fa3aa530f3f47ee3c"
+doc_hash = "sha256:9969f62c89b5ce679a4f08c2e99633a85155c74edfca574b990496c509bd09ec"
+callees = [
+    "fn:051efe98a2448eb6",
+    "fn:62a57721fdce4aef",
+    "fn:675c60a11749143a",
+    "fn:e2c36ebb7ba9aaf5",
+    "fn:f9a8072a9af91de9",
+]
+uses = [
+    "fn:1d3d14c4901280a4",
+    "fn:208bdcd6bb956739",
+    "fn:673880e4343ae330",
+    "fn:bfcbcbff795af588",
+    "fn:d7b28adf7499497f",
+    "fn:f961a669079588a5",
+]
+test = true
+
+[[module."zotero_search_failures.rs".function]]
+id = "fn:b64b513d3707cf18"
+name = "step_returns_the_request_instead_of_fetching"
+qual = "step_returns_the_request_instead_of_fetching"
+lines = [
+    229,
+    239,
+]
+hash = "sha256:a2f6f0e3c259399657936ae027d6a6da9e78044fb0230a23c65e58ef1e529067"
+doc_hash = "sha256:9df91729a5043c9841ff0e4922a6c034576074d52029db574e214ba1deabce4b"
+callees = [
+    "fn:675c60a11749143a",
+    "fn:924a3e4366d31afa",
+    "fn:bc43918a5c13111c",
+    "fn:d72cc1530d4672ac",
+]
+uses = [
+    "fn:1d3d14c4901280a4",
+    "fn:673880e4343ae330",
+    "fn:771a57d6ce8ad6d5",
+    "fn:802e0144d7757e2a",
+    "fn:afb1cf73045345b3",
+    "fn:bfcbcbff795af588",
+]
+test = true
+
+[module."zotero_translators.rs"]
+path = "test:zotero_translators"
+
+[[module."zotero_translators.rs".function]]
+id = "fn:ad3b00072cc29db9"
+name = "data_dir"
+qual = "data_dir"
+lines = [
+    61,
+    63,
+]
+hash = "sha256:6afa48fdb209a542c260659f475475aa2b072d175fd84fe83e04243a33722217"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:a5c1af462d6c981b"
+name = "read_json"
+qual = "read_json"
+lines = [
+    65,
+    69,
+]
+hash = "sha256:cd6d238150f2399a73789f530373f3694c8bd3de01f0931ff5de6aa074ad238b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ad3b00072cc29db9"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:2b614d4b9340e708"
+name = "options"
+qual = "options"
+lines = [
+    71,
+    89,
+]
+hash = "sha256:6680ea1ac043ec218a2acd9a4b0abd1cefbf687b4f454c896d9b8fb5672e9d75"
+doc_hash = "sha256:c439c000a46e962300bb07af43450bd91f7ab0dad764ce4bc72dbe6c0768061a"
+callees = [
+    "fn:330673d37614c5a8",
+    "fn:58308cdf744b33ef",
+    "fn:a5c1af462d6c981b",
+    "fn:c6e3f23fa757b98e",
+]
+uses = [
+    "fn:4d9d6af1d21070bb",
+    "fn:92018222abe1a707",
+    "fn:9cb17a5ee667012b",
+    "fn:d57238349ec99458",
+]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:c6e3f23fa757b98e"
+name = "iso_to_unix"
+qual = "iso_to_unix"
+lines = [
+    91,
+    101,
+]
+hash = "sha256:14ee3dc09ddd708e394d3e8fe6f5d645bda41f187b01c55064b602ef858a6563"
+doc_hash = "sha256:653a2bb327f6531a34e23f98bdafecfbe7ad6a2579a04a47282dbf64b70a3f9e"
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:ac3ae1be8ecfe9aa"
+name = "Diff"
+qual = "Diff"
+item = "type"
+shape = "struct"
+lines = [
+    103,
+    111,
+]
+hash = "sha256:8e857f3e393a2a061a36ab90da9f06be921339bbc6704451e5e963b34ef69ad5"
+doc_hash = "sha256:055781b8a3c9db6bf7e482478d6637420fcfefd6c9bf02ac2b88458a5db7fd6b"
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:7eaae4e18cd1caba"
+name = "to_json"
+qual = "Diff::to_json"
+lines = [
+    114,
+    117,
+]
+hash = "sha256:6c3984114878ab4898a04f2f25a6cb61d4674fb911b37486a5d24b34a152c9ba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:ac3ae1be8ecfe9aa"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:68b39c295aab98f4"
+name = "json_diff"
+qual = "json_diff"
+lines = [
+    120,
+    147,
+]
+hash = "sha256:18bff5cd1b115f4f629860f3fa8f7f58849d54c2c3de7e69cb3784b73ee0b4cd"
+doc_hash = "sha256:bb5d523af0e54bd7c689ad64fbee5e96a236ce6edbe86cfc8480122f00f2656a"
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:7b8a09ff43c9065f"
+name = "text_diff"
+qual = "text_diff"
+lines = [
+    149,
+    195,
+]
+hash = "sha256:ba5eae09e2faecc48fbdcb04bf061731502d3b46ad76c60e0bac01bd7beaaa3b"
+doc_hash = "sha256:223d6a1fe355050650e768e327f7c40c8405dec313f1e41fb70f54b79780e8e6"
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:d16f5e2f3580d73f"
+name = "assert_known"
+qual = "assert_known"
+lines = [
+    197,
+    242,
+]
+hash = "sha256:8895c5c0f72a3ce19f2e2e291dbea419cbbdaef0a9bac01d104b35c7d2a34686"
+doc_hash = "sha256:8fb7d5249bb20887d0d5539bc0a5c927c48bef7a7d68be4d008ef7f736633735"
+callees = [
+    "fn:7eaae4e18cd1caba",
+    "fn:a5c1af462d6c981b",
+    "fn:ad3b00072cc29db9",
+]
+uses = ["fn:ac3ae1be8ecfe9aa"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:e4b5b953eb9a10ee"
+name = "import_diffs"
+qual = "import_diffs"
+lines = [
+    244,
+    280,
+]
+hash = "sha256:cc05046784bd4a3727733af1755bdb3a7f3567a796bd89813c71f9fe53d44a80"
+doc_hash = "sha256:52798bffa202184a54f0535802b7dd2cb4c9fb6a92e01f675a2ee0c2880cf727"
+callees = [
+    "fn:1eebd74e0e582fb1",
+    "fn:2b614d4b9340e708",
+    "fn:68b39c295aab98f4",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a5c1af462d6c981b",
+    "fn:d00fd6080f5aa628",
+    "fn:dfb8e1eb8f818ada",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:ac3ae1be8ecfe9aa",
+]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:467bdb7597ffce6a"
+name = "export_sets"
+qual = "export_sets"
+lines = [
+    282,
+    295,
+]
+hash = "sha256:77bafe6eeb3125e0e003e0e375950d3677acddf14b7b96d09823f1f6a7b47201"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ad3b00072cc29db9"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:56a35efb83d11ed1"
+name = "export_lists"
+qual = "export_lists"
+lines = [
+    297,
+    303,
+]
+hash = "sha256:23e6a508f41cb20d9094ab8e13db1714a60660cbf3ec7c2a0de34c532ef45ac5"
+doc_hash = "sha256:c968dac841cca32fb7390a320b10142b9e414ba2955ecf2dd252e462748e2042"
+callees = ["fn:ad3b00072cc29db9"]
+uses = ["fn:208bdcd6bb956739"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:b9317da86748a6a1"
+name = "export_diffs"
+qual = "export_diffs"
+lines = [
+    305,
+    342,
+]
+hash = "sha256:aa98a15c9673572e34f353ed5f7a71947e1467ab01b8386a8b026189baecde7e"
+doc_hash = "sha256:d947bea80742c8ed21079fee7b0c6a8742372540999367e8b47166c20389a3f8"
+callees = [
+    "fn:2b614d4b9340e708",
+    "fn:467bdb7597ffce6a",
+    "fn:56a35efb83d11ed1",
+    "fn:7b8a09ff43c9065f",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a5c1af462d6c981b",
+    "fn:bc6f32ab2c18d174",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:9f9868e613cd65c8",
+    "fn:ac3ae1be8ecfe9aa",
+]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:cad65bed205a1a04"
+name = "server_import"
+qual = "server_import"
+lines = [
+    344,
+    355,
+]
+hash = "sha256:c43497d3414dddb1435da86bcfbb84a284927139c9c49c422ccd41af45f3504a"
+doc_hash = "sha256:49440e781a3a9f9e83d612d7f4f78f3a3468a98e73e793bd5901e3c763f3fb19"
+callees = [
+    "fn:1eebd74e0e582fb1",
+    "fn:2b614d4b9340e708",
+    "fn:8b8562bb5907c067",
+    "fn:d00fd6080f5aa628",
+]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:e971ac4cbfb1532f"
+name = "roundtrip_diffs"
+qual = "roundtrip_diffs"
+lines = [
+    357,
+    398,
+]
+hash = "sha256:af948e73008e8e3333b290b3cc6ccf6b65bb908f09cfce5733d9c9c24d46f954"
+doc_hash = "sha256:d22156a2a172ee44f984574741eaf5b06caf3541e59e4fab69e25d5a0a71b74c"
+callees = [
+    "fn:467bdb7597ffce6a",
+    "fn:59c7a55f73179c58",
+    "fn:68b39c295aab98f4",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a5c1af462d6c981b",
+    "fn:cad65bed205a1a04",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:ac3ae1be8ecfe9aa",
+]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:38c656db56c01f65"
+name = "stability"
+qual = "stability"
+lines = [
+    400,
+    429,
+]
+hash = "sha256:dc1f4ff2e19602c5c4688d4b7d3a16f5c73c49f7003383c29a647e26baaa1aa0"
+doc_hash = "sha256:185063f03b3b9f83d3c2a2112e67988426bb0b1cb7d1fe24d0e49f38b4408145"
+callees = [
+    "fn:2b614d4b9340e708",
+    "fn:30c198a402aab4e9",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a5c1af462d6c981b",
+    "fn:bc6f32ab2c18d174",
+    "fn:cad65bed205a1a04",
+]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:9cb17a5ee667012b",
+]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:51db3ad800b0d942"
+name = "csl_json_import_matches_upstream"
+qual = "csl_json_import_matches_upstream"
+lines = [
+    431,
+    443,
+]
+hash = "sha256:221751a88b2aeb8affc14334cfb2ddaf3efaaba03aa3a5fc8ed54b950310cc8a"
+doc_hash = "sha256:91c595d534b5a9ee7927069c49e1ad7b1099b966bd3e99bf49a4410541992880"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:5bb36801d1d1c996"
+name = "csl_json_export_matches_upstream"
+qual = "csl_json_export_matches_upstream"
+lines = [
+    445,
+    456,
+]
+hash = "sha256:6c08c263a30097850f4c505acf622007f44e40951fc23266ab286b8718909d47"
+doc_hash = "sha256:3772b4c0b3f2957b6ccd2aa8ae0e8b54904e02efb1bb901019c186de8b7eac0f"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:0d9a21d84e6f804c"
+name = "csl_json_roundtrip_matches_upstream"
+qual = "csl_json_roundtrip_matches_upstream"
+lines = [
+    458,
+    463,
+]
+hash = "sha256:0b11a4fd5e631ec588254eb1125f8af65ffaf4335642496901eb07a5330e9e42"
+doc_hash = "sha256:d205dabcf114938270ec73309d27b9d301b349775b5b65d225fc72ad9d059b34"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e971ac4cbfb1532f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:cd8efdd2c6691d20"
+name = "csl_json_chain_stable_where_upstream_is"
+qual = "csl_json_chain_stable_where_upstream_is"
+lines = [
+    465,
+    471,
+]
+hash = "sha256:55192982d5dc6dcabd893f1ae9e88e9fe60077c9cd08b59f48211c714edf79c1"
+doc_hash = "sha256:038d05c8c1898f84535480ea91478bca5854afa48588138d9bc0c084a72c94ef"
+callees = ["fn:38c656db56c01f65"]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:eae1fae509053b0c"
+name = "bibtex_import_matches_upstream"
+qual = "bibtex_import_matches_upstream"
+lines = [
+    473,
+    488,
+]
+hash = "sha256:e27032a3b7001ec02fc2996dc72703187c84f1685ecb1e9d0386f8421d4f945a"
+doc_hash = "sha256:38976958fc6ab35380ddbceddba3251f3cc687fd7f9801eb75376bf7d78f79b0"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:b34cb0a13aa87648"
+name = "bibtex_export_matches_upstream"
+qual = "bibtex_export_matches_upstream"
+lines = [
+    490,
+    505,
+]
+hash = "sha256:82d118b282f985004a86ab2da5369bd4dd5b1244a41d4b6baf6eefce3665cb37"
+doc_hash = "sha256:5bcbff1e4e5290ccdaf50d213b4220a48f79b56e774d5181e86dfe609403bb82"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:f430f74d21cb15d6"
+name = "bibtex_roundtrip_matches_upstream"
+qual = "bibtex_roundtrip_matches_upstream"
+lines = [
+    507,
+    521,
+]
+hash = "sha256:c901ac73a4cea428e90494f4bd0bea4d81d0a72253e8a270e4fa23f2aa949a32"
+doc_hash = "sha256:8698e8dba845f68bf00828498881e3e3c8e478fc2d49e0c0af50faad75e762f1"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e971ac4cbfb1532f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:5d7d65eaf431ef38"
+name = "bibtex_chain_stable_where_upstream_is"
+qual = "bibtex_chain_stable_where_upstream_is"
+lines = [
+    523,
+    532,
+]
+hash = "sha256:d02a93356367ea3571d6fd5036f9d1b69fb7530264fe198fc173d5953d37802f"
+doc_hash = "sha256:cb0df0056cadfb71b2bddcf3ff5c4f62c3fdc515fae4fa232313565b919664f9"
+callees = ["fn:38c656db56c01f65"]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:18584a8375178145"
+name = "biblatex_export_matches_upstream"
+qual = "biblatex_export_matches_upstream"
+lines = [
+    534,
+    545,
+]
+hash = "sha256:a57420d220e425d800d5a1163dc150174c6cd2532c3ea85b809f3e69f94fc797"
+doc_hash = "sha256:5e96115e7ef9751adf4614eda1121d886caa7177ee40b0362d6e57549b904cab"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:582fced576a6c108"
+name = "ris_import_matches_upstream"
+qual = "ris_import_matches_upstream"
+lines = [
+    547,
+    566,
+]
+hash = "sha256:a6527ecbc2189934ba42b693519a831d4aed095ffba03083ee60df6cdf1ee643"
+doc_hash = "sha256:fffe513c9493cfde941417f315de0fb62b42528201c925c45e260f5b5cbff7f0"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:c2f67d39dfa0c470"
+name = "ris_export_matches_upstream"
+qual = "ris_export_matches_upstream"
+lines = [
+    568,
+    590,
+]
+hash = "sha256:a3ab6b743135f20005a9b4d8a8e0fee2a4f60464b53cab8fde1e9910b6b0ccef"
+doc_hash = "sha256:672d03853730f993b6504b480da318c9de98621404c24641a2c91e6f148ec5a0"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:38dff2a18c5d1a90"
+name = "ris_roundtrip_matches_upstream"
+qual = "ris_roundtrip_matches_upstream"
+lines = [
+    592,
+    606,
+]
+hash = "sha256:0bc83bda5e20899ee0e380b75883e8edd3c389939be5cadf1242381f01998df3"
+doc_hash = "sha256:e4361b41b8f018598ff3577d8d8626d2c5d3373c563b78a2fd8ec7241a0590cc"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e971ac4cbfb1532f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:3850eedda800f089"
+name = "ris_chain_stable_where_upstream_is"
+qual = "ris_chain_stable_where_upstream_is"
+lines = [
+    608,
+    638,
+]
+hash = "sha256:3449caae352cc8deb334ea3a46ce4ff2884d5041194b13e02f45eb9c78fdf273"
+doc_hash = "sha256:7f1fb5488dcab7e3bde2eccc39307b5fe4ea275ed2a85f24be19926c92a11ee8"
+callees = ["fn:38c656db56c01f65"]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:1a2785f63681cfc8"
+name = "utilities_match_upstream"
+qual = "utilities_match_upstream"
+lines = [
+    640,
+    724,
+]
+hash = "sha256:6b025fa5dda4b341c8e114b3527f1e1cccaa9bc0f4a24596bbf14ea17df434db"
+doc_hash = "sha256:13f5f5bae385b903c022f26e45894f5b1c55458a2b2443016d9e78dc05c23adf"
+callees = [
+    "fn:048ac6cff4803df7",
+    "fn:83fcbe7e1dca60e3",
+    "fn:9ad7ba22c4d7e8e0",
+    "fn:a5c1af462d6c981b",
+    "fn:ba4bb0a02a74fd04",
+    "fn:d16f5e2f3580d73f",
+    "fn:d3e67fe732790a6a",
+    "fn:f81e2b6d81f47d28",
+]
+uses = ["fn:ac3ae1be8ecfe9aa"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:dea1c109ed3f4b13"
+name = "detection_749_matches_upstream"
+qual = "detection_749_matches_upstream"
+lines = [
+    743,
+    779,
+]
+hash = "sha256:732b881a155efc85213bc72a4df6dc39ec8d545f8209d37242bf70fae03258b9"
+doc_hash = "sha256:2b6fa834f0d5920e4d107a742581c534eaa56c8a5612eb4264634e9202a90f4c"
+callees = [
+    "fn:35269d2cf1706cb1",
+    "fn:59c7a55f73179c58",
+    "fn:8b8562bb5907c067",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a5c1af462d6c981b",
+    "fn:ad3b00072cc29db9",
+    "fn:dfb8e1eb8f818ada",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:b2cc02c16d2a20ae"
+name = "utilities_749_match_upstream"
+qual = "utilities_749_match_upstream"
+lines = [
+    781,
+    823,
+]
+hash = "sha256:c6af2ec121d3fba6a2ea7f77ccd35432fa8bae720975dbc77009c93895528f3c"
+doc_hash = "sha256:c2f3b2e07d31d9dec6cde5c9fb8dce2ca3bebb1bb3b3f359b8bf86169c722232"
+callees = [
+    "fn:0dbf9e700f8c6de6",
+    "fn:4654d7e3bec49f81",
+    "fn:a5c1af462d6c981b",
+    "fn:d0c159454204eeda",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:ac3ae1be8ecfe9aa"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:99697fedcf4fbadf"
+name = "refer_import_matches_upstream"
+qual = "refer_import_matches_upstream"
+lines = [
+    825,
+    835,
+]
+hash = "sha256:98d09858e33aba510b02d522259e3a687a24ff122e75dafd0fb813478030ba7f"
+doc_hash = "sha256:ba752f4b956edefe604f396c755360bb1d90407dd459402b9408bb335bf18555"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:90a0e8ad7f5c4791"
+name = "refer_export_matches_upstream"
+qual = "refer_export_matches_upstream"
+lines = [
+    837,
+    847,
+]
+hash = "sha256:bb1fde34d1d8baa0924c60f65af6dd7d5cd8269561c0d6ef1997948aad4cb3fd"
+doc_hash = "sha256:666fc93a277861775bb899b085196c11c710561438af834ae6b4d67e97e6d5e6"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:627ef1e1150098cf"
+name = "refer_roundtrip_matches_upstream"
+qual = "refer_roundtrip_matches_upstream"
+lines = [
+    849,
+    856,
+]
+hash = "sha256:fa0b2746e664622148175d0fa5eccb5cfd8817e0edf2957bb57da76b365dded1"
+doc_hash = "sha256:b14881924f1150c9ac10425ffd651e2db24eb24ef482e305c70ec7ff113a81f8"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e971ac4cbfb1532f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:1e90888c71b21adf"
+name = "refer_chain_stable_where_upstream_is"
+qual = "refer_chain_stable_where_upstream_is"
+lines = [
+    858,
+    865,
+]
+hash = "sha256:43bf01ad147a1301643d0b570340ecbee8263b0fb77ccbc9607b525e474e9d98"
+doc_hash = "sha256:f013190c83d644f031ee2769921677db92a25d51235cb9cca90489934fac319c"
+callees = ["fn:38c656db56c01f65"]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:38b692b1d2535183"
+name = "refworks_tagged_import_matches_upstream"
+qual = "refworks_tagged_import_matches_upstream"
+lines = [
+    867,
+    878,
+]
+hash = "sha256:87972355bc3df25e1e184e518ac48d521f169eb9af9ee0a101f0f3294c3d99d6"
+doc_hash = "sha256:e59b19b84644fbc5a51ca1e73daab0d5f0feafbf140e3fae82a878ab1a99cca9"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:06eb6f197b963350"
+name = "refworks_tagged_export_matches_upstream"
+qual = "refworks_tagged_export_matches_upstream"
+lines = [
+    880,
+    888,
+]
+hash = "sha256:20fd52545ea7382907a86cf92a3aa07a129458d990d5e0fa67ecc0be1b0121e0"
+doc_hash = "sha256:3ff89c56572ce4e53357f0ebcf3f3bc77111688dd0fd504204255eb2e5e374f9"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:899cf5b26ed005cd"
+name = "refworks_tagged_roundtrip_matches_upstream"
+qual = "refworks_tagged_roundtrip_matches_upstream"
+lines = [
+    890,
+    896,
+]
+hash = "sha256:0c428bdc7abdaf26a8bac7dd61fb3049305e4cc014a13fe4d31acd6a583328d4"
+doc_hash = "sha256:3906db7530ffb456c52a89478776f07c0673fcdf4d9d5cf8203a3d3254a97b7d"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e971ac4cbfb1532f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:56f36a540dce77b6"
+name = "refworks_tagged_chain_stable_where_upstream_is"
+qual = "refworks_tagged_chain_stable_where_upstream_is"
+lines = [
+    898,
+    905,
+]
+hash = "sha256:c676d01338db0298764ca52499e48fca0c15eb3a3c8c817414d5917da7b2d413"
+doc_hash = "sha256:6729b75fb7c93dfc7aef20a0751a3e89cbfb5fdfca95d50c4df828299973a9e0"
+callees = ["fn:38c656db56c01f65"]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:45e1e741a748e6af"
+name = "bookmarks_import_matches_upstream"
+qual = "bookmarks_import_matches_upstream"
+lines = [
+    907,
+    919,
+]
+hash = "sha256:44adac55b0bd8df1347f141eae46614084f0ce1be7d35e8e6ac848275cab96fd"
+doc_hash = "sha256:ffe01a6d101eecdd9b9d717e74db6d97e74cd93d268100f60194b735d30430ee"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:2cee693251d35f64"
+name = "bookmarks_export_matches_upstream"
+qual = "bookmarks_export_matches_upstream"
+lines = [
+    921,
+    929,
+]
+hash = "sha256:9c36db38f3f24e0cf2add0602a039b9ee0891b62cdf4d131fd6ba642923b59ac"
+doc_hash = "sha256:f38a3a4fde660be0b2254b953a094398e6a27804a81f3240c4c06fcb41c8b32e"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:1d48cd332b0a75ba"
+name = "bookmarks_roundtrip_matches_upstream"
+qual = "bookmarks_roundtrip_matches_upstream"
+lines = [
+    931,
+    938,
+]
+hash = "sha256:5cfc416a66cb02a0a2b82161647627f46d56a67cef99c84ae06506f1200ede03"
+doc_hash = "sha256:e6be185f4a1dfb253527da863b3f2a03148ffff9086ba21e8212a9fce62be066"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e971ac4cbfb1532f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:82998292164c13c2"
+name = "bookmarks_chain_stable_where_upstream_is"
+qual = "bookmarks_chain_stable_where_upstream_is"
+lines = [
+    940,
+    947,
+]
+hash = "sha256:ba5ab0d60ce659b09f273bf2c0ae6f4e82d52866b207a75766c9288d8964765a"
+doc_hash = "sha256:8582c5952b4cd867e5d836e96b47299a30b9552d8ab137f3a0d64a7ca9d6d2a7"
+callees = ["fn:38c656db56c01f65"]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:ed20674f95d8a358"
+name = "medline_nbib_import_matches_upstream"
+qual = "medline_nbib_import_matches_upstream"
+lines = [
+    949,
+    968,
+]
+hash = "sha256:f3f144375814280532054555fc75436baf44dbb7309d22e0d64196ce427a5aa9"
+doc_hash = "sha256:b7027ee824e3f0697e740e29d11fcf3d914c82baee6f528cd9ef67e8166da89b"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:0082f8e792179831"
+name = "ovid_tagged_import_matches_upstream"
+qual = "ovid_tagged_import_matches_upstream"
+lines = [
+    970,
+    989,
+]
+hash = "sha256:81c80f082e7b7b1553b128b9416f29b16886bf34c0ec521e7aa18d7bf367433f"
+doc_hash = "sha256:eab1091961a15b7fed953582cb5c98ee762fa79fabe77aa9231171980e96f1f4"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:61296e6fad08d827"
+name = "wos_tagged_import_matches_upstream"
+qual = "wos_tagged_import_matches_upstream"
+lines = [
+    991,
+    1009,
+]
+hash = "sha256:9fb7a84987733d1a0e42e7c70c5ad4189eb6671f250166dda330b8c2e6375e95"
+doc_hash = "sha256:7b894e1f51314cfdbe060810ce560f642d4e696b5ff29d934765b2a7d40c9bf6"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:917640b7e27cc3c0"
+name = "mab2_import_matches_upstream"
+qual = "mab2_import_matches_upstream"
+lines = [
+    1011,
+    1026,
+]
+hash = "sha256:8270eaf7eacc1aca4485aff13188b645e077d13411a59d3c8229ebc29b9fa623"
+doc_hash = "sha256:c4e9e043fc71e99cf0cb77eb56500ce2e6b4fbfb6dfe3ab1ceffa74539d2b1c4"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:0ff03a7d487315f1"
+name = "datacite_json_import_matches_upstream"
+qual = "datacite_json_import_matches_upstream"
+lines = [
+    1028,
+    1042,
+]
+hash = "sha256:343068588d9a473c4ef53986e07b6fa7bbfaead35d7c6f6290c7716f0de8258e"
+doc_hash = "sha256:7743e18705899b85cf0af7aa58a71ecdee6c6ca53c50e25126e8b2822c4c1104"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:57c98183df2a6797"
+name = "openalex_json_import_matches_upstream"
+qual = "openalex_json_import_matches_upstream"
+lines = [
+    1044,
+    1057,
+]
+hash = "sha256:0a9657a59edd696252e9f129a3afca53926ec0d2a1dcef970da7f0efdfdcd8e5"
+doc_hash = "sha256:ed2a76f0fd9d9c299d4fa7b29d16075fe5a60ceda87db08a0fdc6bb2edea5f00"
+callees = [
+    "fn:d16f5e2f3580d73f",
+    "fn:e4b5b953eb9a10ee",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:5538d67135b29ef3"
+name = "csv_export_matches_upstream"
+qual = "csv_export_matches_upstream"
+lines = [
+    1059,
+    1074,
+]
+hash = "sha256:1710af8c04479d8c85cc2b6c2c228602fd09aef1dc7d34df0819fa6617172cfe"
+doc_hash = "sha256:2a40221ae84c41fd01261ae670e5539481f975aefcc6786d397061da6eb03dab"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:23da01f137041a6e"
+name = "coins_export_matches_upstream"
+qual = "coins_export_matches_upstream"
+lines = [
+    1076,
+    1089,
+]
+hash = "sha256:551dd0938448e29bcfeac4ea8f8d4ba7562bfadb1a1fd19cf7344e659d9edf19"
+doc_hash = "sha256:6cf25c2a10dfb3e8dabce39538806ce82c6988af1b266d9443c7e34b64988f68"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:c7d911b0ddee828a"
+name = "wikipedia_citation_templates_export_matches_upstream"
+qual = "wikipedia_citation_templates_export_matches_upstream"
+lines = [
+    1091,
+    1106,
+]
+hash = "sha256:9beca8bc54e765293192428ea973d8941992747bb6f60de8b1d6c94c472db6b4"
+doc_hash = "sha256:19808729034fdef57b5f4f3a190921637f4ac276a6c9bb0b886a166a7faf3789"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:91332c76d0bfef61"
+name = "wikidata_quickstatements_export_matches_upstream"
+qual = "wikidata_quickstatements_export_matches_upstream"
+lines = [
+    1108,
+    1120,
+]
+hash = "sha256:51bb5fd8f74e0ba2de6adc60a9e7d1c12b3eb8e3bd410b07ce02087d561e1c8a"
+doc_hash = "sha256:83075cfb5def27387f40b7d59b1ad80cccd73c2abb991b95c8b0007fe4f43ec6"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:a961cddcf447e75e"
+name = "cff_export_matches_upstream"
+qual = "cff_export_matches_upstream"
+lines = [
+    1122,
+    1134,
+]
+hash = "sha256:28ff72dc18bbad940f5b4b5a43e1827365b058728e4f2b29035f7e93cd65d2ca"
+doc_hash = "sha256:78441a7168810d0312080c28d66b0605a219a08857d64f9406a52103ad1a83fd"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:7eef91fcf70d17c7"
+name = "cff_references_export_matches_upstream"
+qual = "cff_references_export_matches_upstream"
+lines = [
+    1136,
+    1150,
+]
+hash = "sha256:c285a5d19dfef4b1f9b93edfdda8dc598fb811c6ab5d32eb40775c53e6654076"
+doc_hash = "sha256:bdd976e50631f46991c459b0828acc8389b2805b05ad6a6596210ca5e6329275"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators.rs".function]]
+id = "fn:041a3af9f9abe091"
+name = "evernote_export_matches_upstream"
+qual = "evernote_export_matches_upstream"
+lines = [
+    1152,
+    1167,
+]
+hash = "sha256:f3b467f164dd725c59d4c762c2dcf90760e462188e9ccb3665737da6d04b14d5"
+doc_hash = "sha256:3072cee07f35a1ce174739bdbad06abecdb9cb3fbfad2224d5fb451041df4baf"
+callees = [
+    "fn:b9317da86748a6a1",
+    "fn:d16f5e2f3580d73f",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[module."zotero_translators_rdf.rs"]
+path = "test:zotero_translators_rdf"
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:20ea5f258fc6f2dd"
+name = "data_dir"
+qual = "data_dir"
+lines = [
+    65,
+    67,
+]
+hash = "sha256:6afa48fdb209a542c260659f475475aa2b072d175fd84fe83e04243a33722217"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:48fe4cc49af6a9b0"
+name = "read_json"
+qual = "read_json"
+lines = [
+    69,
+    73,
+]
+hash = "sha256:cd6d238150f2399a73789f530373f3694c8bd3de01f0931ff5de6aa074ad238b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:20ea5f258fc6f2dd"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:ebb957dd8b66413a"
+name = "iso_to_unix"
+qual = "iso_to_unix"
+lines = [
+    75,
+    85,
+]
+hash = "sha256:14ee3dc09ddd708e394d3e8fe6f5d645bda41f187b01c55064b602ef858a6563"
+doc_hash = "sha256:653a2bb327f6531a34e23f98bdafecfbe7ad6a2579a04a47282dbf64b70a3f9e"
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:289e3e63cf6dd439"
+name = "options"
+qual = "options"
+lines = [
+    87,
+    104,
+]
+hash = "sha256:dab4fddeae3a7b944784c7cede15675134911d450c181d359fdd2fb127b9f25c"
+doc_hash = "sha256:f3ebe7a59e71bcffb8294c37a183ac1da48d85655a72a327c700e5e8d07fd0b1"
+callees = [
+    "fn:330673d37614c5a8",
+    "fn:48fe4cc49af6a9b0",
+    "fn:58308cdf744b33ef",
+    "fn:ebb957dd8b66413a",
+]
+uses = [
+    "fn:4d9d6af1d21070bb",
+    "fn:92018222abe1a707",
+    "fn:9cb17a5ee667012b",
+    "fn:d57238349ec99458",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:fda76b485d75dbca"
+name = "Diff"
+qual = "Diff"
+item = "type"
+shape = "struct"
+lines = [
+    106,
+    113,
+]
+hash = "sha256:8e857f3e393a2a061a36ab90da9f06be921339bbc6704451e5e963b34ef69ad5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:9dc6053257580bca"
+name = "to_json"
+qual = "Diff::to_json"
+lines = [
+    116,
+    119,
+]
+hash = "sha256:6c3984114878ab4898a04f2f25a6cb61d4674fb911b37486a5d24b34a152c9ba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:fda76b485d75dbca"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:14172a3938df22be"
+name = "json_diff"
+qual = "json_diff"
+lines = [
+    122,
+    149,
+]
+hash = "sha256:18bff5cd1b115f4f629860f3fa8f7f58849d54c2c3de7e69cb3784b73ee0b4cd"
+doc_hash = "sha256:8acb2a0f2af5f93df96f11e41033a242fc9e1a4e398c19213ea5866ad0020d38"
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:e45f32c170fbc195"
+name = "text_diff"
+qual = "text_diff"
+lines = [
+    151,
+    194,
+]
+hash = "sha256:ba5eae09e2faecc48fbdcb04bf061731502d3b46ad76c60e0bac01bd7beaaa3b"
+doc_hash = "sha256:4ba76f45f8ba1aee9942cacbc66c0bea4ccf149c9d8e767063bc0f1c69eb3eea"
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:ae1db3fa9bdfe80a"
+name = "assert_known"
+qual = "assert_known"
+lines = [
+    196,
+    235,
+]
+hash = "sha256:8efdbbb391a1709490b1d54a7f0c81c4287122271a9c65bcc502bcf3c364785d"
+doc_hash = "sha256:c498b38c3e2bcce7b09be2c93d4c20a2b43f5f8148b1b266fc4e959d0ca74c23"
+callees = [
+    "fn:20ea5f258fc6f2dd",
+    "fn:48fe4cc49af6a9b0",
+    "fn:9dc6053257580bca",
+]
+uses = ["fn:fda76b485d75dbca"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:7e1c26c79c7d6760"
+name = "server_import"
+qual = "server_import"
+lines = [
+    237,
+    251,
+]
+hash = "sha256:fd8d1f53185eba85a26a97ffcc0eb3122beae4bbe51b2c9afa99c74e26965459"
+doc_hash = "sha256:5c45b847f05f25d0992e57f3d47ced65878f1c0b404e1242c63cb08135f7dc3a"
+callees = [
+    "fn:1eebd74e0e582fb1",
+    "fn:289e3e63cf6dd439",
+    "fn:8b8562bb5907c067",
+    "fn:d00fd6080f5aa628",
+    "fn:dfb8e1eb8f818ada",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:640361f677de31ff"
+name = "upstream_import"
+qual = "upstream_import"
+lines = [
+    253,
+    264,
+]
+hash = "sha256:8a1a3b1b0239206fb15f9418b191b8bf585ab1ce5261dd5e8adc417f546b2f02"
+doc_hash = "sha256:1d38e0eb3b1d4596b01bc7b6367aa1e115054788a357b0c259d1a768ded53562"
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:c426a550302e3336"
+name = "import_diffs"
+qual = "import_diffs"
+lines = [
+    266,
+    294,
+]
+hash = "sha256:ab3e75a62c5f85c45f4c3a79b628ef37c89559027749ad148cfefb19eb1529ee"
+doc_hash = "sha256:880c11cbf219fe0fa2b2f98a16bc72a2b65a2a7dc80454daf955ddff29af517d"
+callees = [
+    "fn:14172a3938df22be",
+    "fn:48fe4cc49af6a9b0",
+    "fn:640361f677de31ff",
+    "fn:7e1c26c79c7d6760",
+]
+uses = ["fn:fda76b485d75dbca"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:02edb5c4143eea8a"
+name = "export_sets"
+qual = "export_sets"
+lines = [
+    296,
+    309,
+]
+hash = "sha256:3c8824a7a3838701fecec20d9c0370de56bc88d6b219ec92a6bbdf76821a2ac4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:20ea5f258fc6f2dd"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:a3632cbfd0c33090"
+name = "export_lists"
+qual = "export_lists"
+lines = [
+    311,
+    315,
+]
+hash = "sha256:c591f93d2ffb080510e330bda60fd15919e45fcaa3521af9ae30375624d4d7c8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:20ea5f258fc6f2dd"]
+uses = ["fn:208bdcd6bb956739"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:96f4d20e03473af7"
+name = "first_node_id"
+qual = "first_node_id"
+lines = [
+    317,
+    321,
+]
+hash = "sha256:d825e3e37d3ae8309f5faec2434eadf49606dbadf30f561eaa0454e5de68150e"
+doc_hash = "sha256:0a721c46e0f846165e23b214b607b8820573c7fd5dc083f0263ce03efa685ad0"
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:3e294946f54198ac"
+name = "port_export"
+qual = "port_export"
+lines = [
+    323,
+    337,
+]
+hash = "sha256:e4569f88c09b87c1155df578ab96db778cc1ae1e34fc759194bfe0f45b1fcdc8"
+doc_hash = "sha256:cb2c09431f4232e200205574120a6808ed8f266666e083db433592568a1b1331"
+callees = [
+    "fn:289e3e63cf6dd439",
+    "fn:96f4d20e03473af7",
+    "fn:bc6f32ab2c18d174",
+]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:9cb17a5ee667012b",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:049b222098ba422f"
+name = "ERROR"
+qual = "ERROR"
+item = "const"
+shape = "const"
+lines = [
+    339,
+    339,
+]
+hash = "sha256:8b838ab069e66aa064e76aa960c1a53ed0ba8ea74940a78cb37c258ca6fd633b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:13f060db1fdfc0c5"
+name = "export_diffs"
+qual = "export_diffs"
+lines = [
+    341,
+    374,
+]
+hash = "sha256:79a9cece70abda305673e8477ddd3a701c77b87b2b88356782dfe6c3f0395d5a"
+doc_hash = "sha256:927ffa65e722f41afee58956c85854675704c4473d7d91e7cb66fe3b2e03ff25"
+callees = [
+    "fn:02edb5c4143eea8a",
+    "fn:3e294946f54198ac",
+    "fn:48fe4cc49af6a9b0",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a3632cbfd0c33090",
+    "fn:e45f32c170fbc195",
+]
+uses = [
+    "fn:049b222098ba422f",
+    "fn:9cb17a5ee667012b",
+    "fn:fda76b485d75dbca",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:1aa453ee0b3ef0ed"
+name = "roundtrip_diffs"
+qual = "roundtrip_diffs"
+lines = [
+    376,
+    416,
+]
+hash = "sha256:89774d986e2b2ed38512cfa5b7aa54b829fac4e9f2fe63a59685a5ffe6c8103e"
+doc_hash = "sha256:345b7b34e611b0484f3a884dd40a0b590018a06628bf639878df3cc7e9702ad2"
+callees = [
+    "fn:02edb5c4143eea8a",
+    "fn:14172a3938df22be",
+    "fn:48fe4cc49af6a9b0",
+    "fn:59c7a55f73179c58",
+    "fn:640361f677de31ff",
+    "fn:7e1c26c79c7d6760",
+    "fn:8d2d5ffe721a2a13",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:fda76b485d75dbca",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:35c9d76dde2f0464"
+name = "read_library"
+qual = "read_library"
+lines = [
+    418,
+    430,
+]
+hash = "sha256:22078fe4d361905b9633fd9a4a57a564c69a55d5b2c76e8ae85deee0836a123c"
+doc_hash = "sha256:2f3f2ce3dfd44145607f7cb62696875a821745c695a7bbb157b3ff6336fb77bf"
+callees = ["fn:20ea5f258fc6f2dd"]
+uses = ["fn:208bdcd6bb956739"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:f54d23575ae1f612"
+name = "collection_json"
+qual = "collection_json"
+lines = [
+    432,
+    445,
+]
+hash = "sha256:b33e30a585f303d86c2987a3cc9c96e28ea5883c77617c32a133fd5ee5b71631"
+doc_hash = "sha256:7aa926b691198f1ee5c847dea86c36302e728d0db1a442f14ff1c63ee0587421"
+uses = [
+    "fn:34b60bcef134aa6c",
+    "fn:b3de68919f62c038",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:b3060ba88f17f345"
+name = "inproc_import_diffs"
+qual = "inproc_import_diffs"
+lines = [
+    447,
+    452,
+]
+hash = "sha256:ad296b79ce9c05e3e67a345c7022a6c3ef60417c89f60dbcfb56bb1e804b16ef"
+doc_hash = "sha256:50533a1346e6e40e2c688ada590daa7de402d839b9a4c2c8ada5bf5ea1658182"
+callees = ["fn:f8dced1083108494"]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:fda76b485d75dbca",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:f8dced1083108494"
+name = "import_record_diffs"
+qual = "import_record_diffs"
+lines = [
+    454,
+    486,
+]
+hash = "sha256:8720e5122ce775abd6769e7ff2fa923e17cfc48923790e0e5059e7ba3abbc061"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14172a3938df22be",
+    "fn:1eebd74e0e582fb1",
+    "fn:289e3e63cf6dd439",
+    "fn:8b32527f789faf0a",
+    "fn:d00fd6080f5aa628",
+    "fn:f54d23575ae1f612",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:fda76b485d75dbca",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:6457b4eae004af23"
+name = "rdf_import_matches_upstream"
+qual = "rdf_import_matches_upstream"
+lines = [
+    488,
+    503,
+]
+hash = "sha256:56a9cdebdc72b302dbe14035aad4016466ebd6fd106f7f40b549cdbab459d2bb"
+doc_hash = "sha256:66cf96fc510bd69bae598ea1cd2d46b64b9229e34967d1f0b69af33430ad7b8c"
+callees = [
+    "fn:ae1db3fa9bdfe80a",
+    "fn:c426a550302e3336",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:da0d923ed7f459a2"
+name = "bibliontology_import_matches_upstream"
+qual = "bibliontology_import_matches_upstream"
+lines = [
+    505,
+    514,
+]
+hash = "sha256:6eae2ea318ab163eeb312479ab8acde4fb8823a274685113e807d99b86f584ed"
+doc_hash = "sha256:0237de6c9d60991e75a4b4285a5c186c3ae4d3d4753b8d82ec95f7e4c9847393"
+callees = [
+    "fn:ae1db3fa9bdfe80a",
+    "fn:c426a550302e3336",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:378caa5fef74fc69"
+name = "forced_imports_match_upstream"
+qual = "forced_imports_match_upstream"
+lines = [
+    516,
+    547,
+]
+hash = "sha256:87d6e00ae73c73f99130af90b16f56cac476c21ae3acd9a42faec9749ca29891"
+doc_hash = "sha256:b20256290ea71dec9d8185e517c126d27bdbf17f89ce3a502f2c36bfd367fbc0"
+callees = [
+    "fn:48fe4cc49af6a9b0",
+    "fn:ae1db3fa9bdfe80a",
+    "fn:b3060ba88f17f345",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:b34e548e50e203eb"
+name = "zotero_rdf_export_matches_upstream"
+qual = "zotero_rdf_export_matches_upstream"
+lines = [
+    549,
+    575,
+]
+hash = "sha256:74fbec89ae94e1ab5edd1963d047660af9aeecd525b118fe251fbd7c224b0d0e"
+doc_hash = "sha256:8ff5475c302e410d610ad6698e0c0f843a1f22181bfe0c3b4d697f40ef2a2121"
+callees = [
+    "fn:13f060db1fdfc0c5",
+    "fn:ae1db3fa9bdfe80a",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:8856d879f65b8831"
+name = "bibliontology_export_matches_upstream"
+qual = "bibliontology_export_matches_upstream"
+lines = [
+    577,
+    593,
+]
+hash = "sha256:24651bd723e448657034831aceee50860736eec85b0c121d44855bf2d2691a60"
+doc_hash = "sha256:8d37dbfafa5c7e092c5ed819edfad16dcfb2e9ce7b8ace4df6c107edf0e8a65c"
+callees = [
+    "fn:13f060db1fdfc0c5",
+    "fn:ae1db3fa9bdfe80a",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:dbc4ccdec36ce461"
+name = "dc_rdf_export_matches_upstream"
+qual = "dc_rdf_export_matches_upstream"
+lines = [
+    595,
+    605,
+]
+hash = "sha256:6c24a6da7f0d56636156d076d3d84310595fb54692c0aef271d45784bed6ea59"
+doc_hash = "sha256:3ef48aef667cdf8d02aeb6c5e0bf55b98652dd51f02171137a02387636343c33"
+callees = [
+    "fn:13f060db1fdfc0c5",
+    "fn:ae1db3fa9bdfe80a",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:cf8e1295b556c1a6"
+name = "rdf_roundtrips_match_upstream"
+qual = "rdf_roundtrips_match_upstream"
+lines = [
+    607,
+    630,
+]
+hash = "sha256:aa3889fe5c9996f925d0b401d50bf475198443803d9c079ba461985704106799"
+doc_hash = "sha256:a277ec2a59ad25a3593e255e64d1fcfb1281b0947140c6ece7a423a7f7295c72"
+callees = [
+    "fn:1aa453ee0b3ef0ed",
+    "fn:8d2d5ffe721a2a13",
+    "fn:ae1db3fa9bdfe80a",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:3c454080c6e2ebbb"
+name = "library_round_trip_matches_upstream"
+qual = "library_round_trip_matches_upstream"
+lines = [
+    632,
+    710,
+]
+hash = "sha256:aabd1d37e1298ec4da6ca43ae853d72e0533bac0787525cdf69a955ba668226c"
+doc_hash = "sha256:94b6f2fe40eceba0684faabda3c8aa5e415b526e9e32e5667d620433e5edae2c"
+callees = [
+    "fn:2041f9d7dadb58f2",
+    "fn:289e3e63cf6dd439",
+    "fn:35c9d76dde2f0464",
+    "fn:48fe4cc49af6a9b0",
+    "fn:ae1db3fa9bdfe80a",
+    "fn:e45f32c170fbc195",
+    "fn:f8dced1083108494",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:fda76b485d75dbca",
+]
+test = true
+
+[[module."zotero_translators_rdf.rs".function]]
+id = "fn:0691ac75958972c1"
+name = "library_round_trip_port_chain_equals_upstream_chain"
+qual = "library_round_trip_port_chain_equals_upstream_chain"
+lines = [
+    712,
+    738,
+]
+hash = "sha256:c38be9ed4ebe5d203a043c48b46c5b0c200bfd792e654b29bc08ccde6ac06c3a"
+doc_hash = "sha256:a70bb95886602361153f529c239a21297eea0814d8fe9ec9f61a3addd45a5cce"
+callees = [
+    "fn:1eebd74e0e582fb1",
+    "fn:2041f9d7dadb58f2",
+    "fn:289e3e63cf6dd439",
+    "fn:30c198a402aab4e9",
+    "fn:35c9d76dde2f0464",
+    "fn:48fe4cc49af6a9b0",
+    "fn:d00fd6080f5aa628",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[module."zotero_xml_translators.rs"]
+path = "test:zotero_xml_translators"
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:0eabe04c91345624"
+name = "data_dir"
+qual = "data_dir"
+lines = [
+    47,
+    49,
+]
+hash = "sha256:6afa48fdb209a542c260659f475475aa2b072d175fd84fe83e04243a33722217"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:da0535e7e942f40f"
+name = "read_json"
+qual = "read_json"
+lines = [
+    51,
+    55,
+]
+hash = "sha256:cd6d238150f2399a73789f530373f3694c8bd3de01f0931ff5de6aa074ad238b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0eabe04c91345624"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:8723157826e52fe2"
+name = "options"
+qual = "options"
+lines = [
+    57,
+    73,
+]
+hash = "sha256:6680ea1ac043ec218a2acd9a4b0abd1cefbf687b4f454c896d9b8fb5672e9d75"
+doc_hash = "sha256:f3ebe7a59e71bcffb8294c37a183ac1da48d85655a72a327c700e5e8d07fd0b1"
+callees = [
+    "fn:330673d37614c5a8",
+    "fn:58308cdf744b33ef",
+    "fn:c74f2939525bb70e",
+    "fn:da0535e7e942f40f",
+]
+uses = [
+    "fn:4d9d6af1d21070bb",
+    "fn:92018222abe1a707",
+    "fn:9cb17a5ee667012b",
+    "fn:d57238349ec99458",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:c74f2939525bb70e"
+name = "iso_to_unix"
+qual = "iso_to_unix"
+lines = [
+    75,
+    85,
+]
+hash = "sha256:14ee3dc09ddd708e394d3e8fe6f5d645bda41f187b01c55064b602ef858a6563"
+doc_hash = "sha256:653a2bb327f6531a34e23f98bdafecfbe7ad6a2579a04a47282dbf64b70a3f9e"
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:c1bce72de51ee38e"
+name = "Diff"
+qual = "Diff"
+item = "type"
+shape = "struct"
+lines = [
+    87,
+    95,
+]
+hash = "sha256:8e857f3e393a2a061a36ab90da9f06be921339bbc6704451e5e963b34ef69ad5"
+doc_hash = "sha256:055781b8a3c9db6bf7e482478d6637420fcfefd6c9bf02ac2b88458a5db7fd6b"
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:2bb7440e5014e93d"
+name = "to_json"
+qual = "Diff::to_json"
+lines = [
+    98,
+    101,
+]
+hash = "sha256:6c3984114878ab4898a04f2f25a6cb61d4674fb911b37486a5d24b34a152c9ba"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c1bce72de51ee38e"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:1222288929e8130b"
+name = "json_diff"
+qual = "json_diff"
+lines = [
+    104,
+    131,
+]
+hash = "sha256:18bff5cd1b115f4f629860f3fa8f7f58849d54c2c3de7e69cb3784b73ee0b4cd"
+doc_hash = "sha256:bb5d523af0e54bd7c689ad64fbee5e96a236ce6edbe86cfc8480122f00f2656a"
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:4af56724693a8bc7"
+name = "text_diff"
+qual = "text_diff"
+lines = [
+    133,
+    176,
+]
+hash = "sha256:ba5eae09e2faecc48fbdcb04bf061731502d3b46ad76c60e0bac01bd7beaaa3b"
+doc_hash = "sha256:0c118e38df3e8fb452a1d72d34c67433f29b40582946601c1ce8ea6c57ebe986"
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:75fcdbd4a7066a9e"
+name = "assert_known"
+qual = "assert_known"
+lines = [
+    178,
+    219,
+]
+hash = "sha256:8895c5c0f72a3ce19f2e2e291dbea419cbbdaef0a9bac01d104b35c7d2a34686"
+doc_hash = "sha256:07722be9c512601a8fcf652f002c56c2e3c190e172acd385e255f45de902e39a"
+callees = [
+    "fn:0eabe04c91345624",
+    "fn:2bb7440e5014e93d",
+    "fn:da0535e7e942f40f",
+]
+uses = ["fn:c1bce72de51ee38e"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:39a1617c402c56b6"
+name = "server_import"
+qual = "server_import"
+lines = [
+    221,
+    231,
+]
+hash = "sha256:35f4915271d3b85458b42da1d8225eb4fe5e1f8df5c58912aa7a30b8cb33a255"
+doc_hash = "sha256:256cc5616213e3c8c10f9d0ee4f45412d4bb06d85d2b38762c25a7d61412f43c"
+callees = [
+    "fn:1eebd74e0e582fb1",
+    "fn:8723157826e52fe2",
+    "fn:8b8562bb5907c067",
+    "fn:d00fd6080f5aa628",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:0e6a2a266e5bc33c"
+name = "upstream_result"
+qual = "upstream_result"
+lines = [
+    233,
+    237,
+]
+hash = "sha256:2b79f622198d9e27d5d675701f55220afbd57099847a2e8ef6e767d6a5dc550f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:bfe3d098b1f963e4"
+name = "import_diffs"
+qual = "import_diffs"
+lines = [
+    239,
+    279,
+]
+hash = "sha256:16b189588278e0a48efa7de66d004d6e407068bb1926a92fd09b98299115a738"
+doc_hash = "sha256:12963034033dc65b84b69542ddff2f6ba396ea05037237b651e3f252b6cd2ffd"
+callees = [
+    "fn:0e6a2a266e5bc33c",
+    "fn:1222288929e8130b",
+    "fn:1eebd74e0e582fb1",
+    "fn:39a1617c402c56b6",
+    "fn:59c7a55f73179c58",
+    "fn:8723157826e52fe2",
+    "fn:8d2d5ffe721a2a13",
+    "fn:d00fd6080f5aa628",
+    "fn:da0535e7e942f40f",
+    "fn:dfb8e1eb8f818ada",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:c1bce72de51ee38e",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:6b2a208d7f2e8c03"
+name = "export_sets"
+qual = "export_sets"
+lines = [
+    281,
+    294,
+]
+hash = "sha256:77bafe6eeb3125e0e003e0e375950d3677acddf14b7b96d09823f1f6a7b47201"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0eabe04c91345624"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:a426273e94186e87"
+name = "export_lists"
+qual = "export_lists"
+lines = [
+    296,
+    299,
+]
+hash = "sha256:f653fcf4b00029a7ce3d8fe9df9abdd50e19bc18a78ee3980479e0d909189b43"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0eabe04c91345624"]
+uses = ["fn:208bdcd6bb956739"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:bf95573ed707f961"
+name = "export_one"
+qual = "export_one"
+lines = [
+    301,
+    311,
+]
+hash = "sha256:397629079ad319f15604877d4c931e2b27daba279430760bb660ff93631ea97b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:8723157826e52fe2",
+    "fn:bc6f32ab2c18d174",
+]
+uses = [
+    "fn:208bdcd6bb956739",
+    "fn:9cb17a5ee667012b",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:2375c3d952d578af"
+name = "export_diffs"
+qual = "export_diffs"
+lines = [
+    313,
+    338,
+]
+hash = "sha256:7bec9aad1d79f0057eab091c031a9ba66a2e1ce611f045cb9248bcf32047f5b9"
+doc_hash = "sha256:168dcf46579c1b586482bc05b9012eef60b24809ff0d81c2267ffa51f2850e0b"
+callees = [
+    "fn:4af56724693a8bc7",
+    "fn:6b2a208d7f2e8c03",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a426273e94186e87",
+    "fn:bf95573ed707f961",
+    "fn:da0535e7e942f40f",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:c1bce72de51ee38e",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:8b74248d1a15c03e"
+name = "roundtrip_diffs"
+qual = "roundtrip_diffs"
+lines = [
+    340,
+    374,
+]
+hash = "sha256:4fd902c0851cf5412cba3bf2054e128e3ae11c773efa3c9065917b323ce363b5"
+doc_hash = "sha256:3cc9dc683de524a9859cdad22448cc38d38923e909a349ee3b3c78c03998a497"
+callees = [
+    "fn:0e6a2a266e5bc33c",
+    "fn:1222288929e8130b",
+    "fn:39a1617c402c56b6",
+    "fn:59c7a55f73179c58",
+    "fn:6b2a208d7f2e8c03",
+    "fn:8d2d5ffe721a2a13",
+    "fn:da0535e7e942f40f",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:c1bce72de51ee38e",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:1d701d5a7dd3860d"
+name = "chain_diffs"
+qual = "chain_diffs"
+lines = [
+    376,
+    420,
+]
+hash = "sha256:2cf2d90bb49030b059a70804dcca72aad15f55573dc340afeb9b6166ec1e571d"
+doc_hash = "sha256:9ce2e6128a7a84a0d7187d246887c54013f4ef6a1d720328cd79119ddc2386fd"
+callees = [
+    "fn:0e6a2a266e5bc33c",
+    "fn:1222288929e8130b",
+    "fn:39a1617c402c56b6",
+    "fn:4af56724693a8bc7",
+    "fn:59c7a55f73179c58",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a426273e94186e87",
+    "fn:bf95573ed707f961",
+    "fn:da0535e7e942f40f",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:c1bce72de51ee38e",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:ccee5ec8b1b098f0"
+name = "XML_IMPORT"
+qual = "XML_IMPORT"
+item = "const"
+shape = "const"
+lines = [
+    422,
+    435,
+]
+hash = "sha256:88149c87d0f80b624fae9d314f8fb7b7ea9ec369692da4144ad494d90067f489"
+doc_hash = "sha256:68b3e0475f66397831a870f813f6ca7990570e24e30e03357ed279b1ae52055e"
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:4deb8bc7c060e830"
+name = "xml_detection_matches_upstream"
+qual = "xml_detection_matches_upstream"
+lines = [
+    437,
+    464,
+]
+hash = "sha256:35448444c53e3021ab93fcb0f6ed27c7a5df1166f402874fa46d1640b951e061"
+doc_hash = "sha256:077c42c1941f6ea913ddc82c1e75fd1169de736632c0579c8668d6132aeefafc"
+callees = [
+    "fn:59c7a55f73179c58",
+    "fn:75fcdbd4a7066a9e",
+    "fn:8b8562bb5907c067",
+    "fn:8d2d5ffe721a2a13",
+    "fn:da0535e7e942f40f",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:c1bce72de51ee38e",
+    "fn:ccee5ec8b1b098f0",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:561a2bad37781519"
+name = "mods_import_matches_upstream"
+qual = "mods_import_matches_upstream"
+lines = [
+    466,
+    478,
+]
+hash = "sha256:692113abcf980d1e8b9435c7a23fb2b0fdb07746b11eb2ac58ddebb47c2f15db"
+doc_hash = "sha256:97a0aa9feac14ff57c657fb83dd0df4f891ef92e828e3986a51e96000b5e3903"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:930be093d9985d9d"
+name = "mods_export_matches_upstream"
+qual = "mods_export_matches_upstream"
+lines = [
+    480,
+    493,
+]
+hash = "sha256:c93c6fa1b44992aba05c85424f1321560840f8e4feab9834643b7357cc73daa2"
+doc_hash = "sha256:41dca178ab60a9c370734dd254db4982c2c806df5bdee8ab2a8ff5df01b28170"
+callees = [
+    "fn:2375c3d952d578af",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:64973d5ae2e7bc0d"
+name = "mods_roundtrip_matches_upstream"
+qual = "mods_roundtrip_matches_upstream"
+lines = [
+    495,
+    506,
+]
+hash = "sha256:e66ed8c5e55c269f1f6de5d3af30deb5fce993633644705c675f81e5a7dbb76f"
+doc_hash = "sha256:b2442c17fbfd10ccd591f637c0a836b4be57db7917d1666ce27d98f414680500"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:8b74248d1a15c03e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:fa1b87c8c9e8be22"
+name = "mods_chain_matches_upstream"
+qual = "mods_chain_matches_upstream"
+lines = [
+    508,
+    519,
+]
+hash = "sha256:1ff3c2debdd20905a6195abdebe76c79973eaf12cc0c87ce82bc26796a81a0b7"
+doc_hash = "sha256:772c1c9690e60c79497f213cf73c3e950c0b341c6e18967c57837eca225a5ff0"
+callees = [
+    "fn:1d701d5a7dd3860d",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:d467a9b76f398d43"
+name = "endnote_xml_import_matches_upstream"
+qual = "endnote_xml_import_matches_upstream"
+lines = [
+    521,
+    533,
+]
+hash = "sha256:7002ce6522effcef9e2678e6870deadd6a652c5abef70cbff7116167fbab82fa"
+doc_hash = "sha256:1045496662c7f569423ae78d55c3363adf712139ee30fb048d1a8b54cfc7ae53"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:8cd34139d3c9229f"
+name = "endnote_xml_export_matches_upstream"
+qual = "endnote_xml_export_matches_upstream"
+lines = [
+    535,
+    549,
+]
+hash = "sha256:cf261c6233a26a0901892cdc8be5a8589f99df66ad0081f0b367c733d7a4a2f8"
+doc_hash = "sha256:3f671b9d9941f8ba6da79c7a3d110272dedd56d213db4a770dbd70d720550854"
+callees = [
+    "fn:2375c3d952d578af",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:64169fc242666782"
+name = "endnote_xml_roundtrip_matches_upstream"
+qual = "endnote_xml_roundtrip_matches_upstream"
+lines = [
+    551,
+    562,
+]
+hash = "sha256:239b38255fdb13a7502b4a15d2266e84c2521601eafdbbf0321c1e3da1e75f99"
+doc_hash = "sha256:b9e1f3465d0ccba7fd175cf2cc3941d31589dde1e787b84eaf97ac953887ea03"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:8b74248d1a15c03e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:1e749eebd3838544"
+name = "endnote_xml_chain_matches_upstream"
+qual = "endnote_xml_chain_matches_upstream"
+lines = [
+    564,
+    574,
+]
+hash = "sha256:076bc9177e9704d0b266351be4f07a32bcd640ed082563f8db4efae282893097"
+doc_hash = "sha256:83b1fa3a35c0fbc79704e004b704236b9ec973cc1b5dcf21ec32fe568c9a68dc"
+callees = [
+    "fn:1d701d5a7dd3860d",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:fba90c95745c1f24"
+name = "tei_export_matches_upstream"
+qual = "tei_export_matches_upstream"
+lines = [
+    576,
+    591,
+]
+hash = "sha256:a73a92f514b802096cd7cae4d52f2d6484af1b93dbe4fd51cc95aae3c4f293b7"
+doc_hash = "sha256:50c6b46856c6ad46bd00586d3353bbd8e3a369d7e0a640fbd29ddfc4288ee5bc"
+callees = [
+    "fn:2375c3d952d578af",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:058a646454869dfa"
+name = "crossref_unixref_xml_import_matches_upstream"
+qual = "crossref_unixref_xml_import_matches_upstream"
+lines = [
+    593,
+    609,
+]
+hash = "sha256:bba6bdad97e5c8b2d8ad404ba1973b37fbde020dad7eb3588b7c8428735a462d"
+doc_hash = "sha256:a0bae01508aac2ae4420886f9191380928343155eec122c219eb2290083998dc"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:4317c08b233b9e47"
+name = "marcxml_import_matches_upstream"
+qual = "marcxml_import_matches_upstream"
+lines = [
+    611,
+    624,
+]
+hash = "sha256:282c3cc1f0350d3fb09de750a20716390a06d9346790ab96e5cc2beb8d71526a"
+doc_hash = "sha256:641f322d8bd32bb0b91e90228cda981cf4db397e07a2f02c4dccbd344aacc25f"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:3fc9ff826afcc92d"
+name = "marc_import_matches_upstream"
+qual = "marc_import_matches_upstream"
+lines = [
+    626,
+    639,
+]
+hash = "sha256:36589df8383c0f09ff00d382938a982bb31c77654f2e0574b79f47a03fb5c37d"
+doc_hash = "sha256:23a0812d80e3367746b41669a5b9daa7fe3922f6dc8be29f9142027dd30b0591"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:3e682a82888e462d"
+name = "pubmed_xml_import_matches_upstream"
+qual = "pubmed_xml_import_matches_upstream"
+lines = [
+    641,
+    656,
+]
+hash = "sha256:d4d4d3bae258f6407a0cd202fdae3fd7f402387fccff7644a28d8a4c965f3e8d"
+doc_hash = "sha256:7c9d80152cd537b6247a055782b784c138ae343461e7faba59fff2630db73a69"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:2355f696f156832f"
+name = "mets_import_matches_upstream"
+qual = "mets_import_matches_upstream"
+lines = [
+    658,
+    673,
+]
+hash = "sha256:5722daa9da5829309eb9a8fa467b7c7bc1cfb199d7d9b2ee091e1023fdce3ad5"
+doc_hash = "sha256:fed764a9494277abbb1e0377376a6106630ce8d3bbbad1a66b1c9d02585cb743"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:8394c8e955f559cc"
+name = "primo_normalized_xml_import_matches_upstream"
+qual = "primo_normalized_xml_import_matches_upstream"
+lines = [
+    675,
+    690,
+]
+hash = "sha256:48a9c00e70eda7fcef20d69e5f1a4b05d67190ee78bb77958a89162a96f50918"
+doc_hash = "sha256:605f83c28e14389e73b0562b678b3d3bfbe05eb3203d8a46d1839563945f8b2b"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:cccd58a505cc58ed"
+name = "dspace_intermediate_metadata_import_matches_upstream"
+qual = "dspace_intermediate_metadata_import_matches_upstream"
+lines = [
+    692,
+    712,
+]
+hash = "sha256:73c8b1fa42dbd06432f4a740587aea7ace0f2aabe5a55eeeb057e3584e60a7a5"
+doc_hash = "sha256:fe191b37413723358fb7f175f5261121f82b4ab8ee33bfceceb3a3be6361c5c5"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:5b754b56fd826b8d"
+name = "citavi5_xml_import_matches_upstream"
+qual = "citavi5_xml_import_matches_upstream"
+lines = [
+    714,
+    739,
+]
+hash = "sha256:5c8b1b9482375ca9130074ff76211bb9eeb1369b2666e52f5edf5d732da89eec"
+doc_hash = "sha256:497d1caa26e133d923e4be0ac0d1d0db2854e1677279deac7fc8a452bf11e010"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:c49c10b5c78ed7ce"
+name = "xml_contextobject_import_matches_upstream"
+qual = "xml_contextobject_import_matches_upstream"
+lines = [
+    741,
+    756,
+]
+hash = "sha256:cbfc3724a678b7921b4cddc86eaf80b946f25657f702c45af9623b6bc1f1667a"
+doc_hash = "sha256:cbb01b5b0c514a10c39ba9779bbe01c425a458b2537542a567490e440a3896e7"
+callees = [
+    "fn:75fcdbd4a7066a9e",
+    "fn:bfe3d098b1f963e4",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:47aad3ea364cbec7"
+name = "note_probe_diffs"
+qual = "note_probe_diffs"
+lines = [
+    758,
+    784,
+]
+hash = "sha256:da26e18d08230b394701bd4f4ee265e08fc20ee688525baf15e37ca6fc542e89"
+doc_hash = "sha256:07aa4797ff4b93cca74f81c37285f32fdf5d4b34344ba6ca2ad0873897b4b148"
+callees = [
+    "fn:4af56724693a8bc7",
+    "fn:8d2d5ffe721a2a13",
+    "fn:a426273e94186e87",
+    "fn:bf95573ed707f961",
+    "fn:da0535e7e942f40f",
+]
+uses = [
+    "fn:9cb17a5ee667012b",
+    "fn:c1bce72de51ee38e",
+]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:c98d129d960c2bb9"
+name = "note_html_probes_match_upstream"
+qual = "note_html_probes_match_upstream"
+lines = [
+    786,
+    802,
+]
+hash = "sha256:3372992d50f05ca13b4d40268a3de398471a201f5012101aef7a8a2c6b33028e"
+doc_hash = "sha256:90b3341d87f49108bfd2772d8795e962c25e061b9c0c3efff7e270a9c2d60e2d"
+callees = [
+    "fn:47aad3ea364cbec7",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:d7415c785ada1dff"
+name = "note_markdown_probes_match_upstream"
+qual = "note_markdown_probes_match_upstream"
+lines = [
+    804,
+    819,
+]
+hash = "sha256:85abd60580d3e50bc6f0caefbbad05c01c156bcebcf6d466671cd0b8a2dade20"
+doc_hash = "sha256:f873b92674c830b9b7e8b69fcea369ad8c3ee0418f8946b8008cdf70c3e7f319"
+callees = [
+    "fn:47aad3ea364cbec7",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:9ea5e625dae38a80"
+name = "note_html_export_matches_upstream"
+qual = "note_html_export_matches_upstream"
+lines = [
+    821,
+    833,
+]
+hash = "sha256:18c7c67279e37b6bcf14215030146ebf26d579dc3e4276ee079d6d76bfaf5c92"
+doc_hash = "sha256:9f13c852cfc81f751ae53f9cf88605ccafb2ab51848b600daa327e9be7b9145c"
+callees = [
+    "fn:2375c3d952d578af",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true
+
+[[module."zotero_xml_translators.rs".function]]
+id = "fn:586805940e1025fc"
+name = "note_markdown_export_matches_upstream"
+qual = "note_markdown_export_matches_upstream"
+lines = [
+    835,
+    845,
+]
+hash = "sha256:2cb99f4dbf573cb7b0c69aaffedff11c4235a2a89a513bcd1a34c894b7c25f2f"
+doc_hash = "sha256:7d3cdda3f488861fed88a2fff66224cda10ad31cb23bc300da53e160f2fc9fd1"
+callees = [
+    "fn:2375c3d952d578af",
+    "fn:75fcdbd4a7066a9e",
+]
+uses = ["fn:9cb17a5ee667012b"]
+test = true

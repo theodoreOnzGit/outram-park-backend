@@ -1,0 +1,300 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/single_control_vol/tests"
+
+[module."automatic_timestep_using_lumped_capacitance.rs"]
+path = "crate::single_control_vol::tests::automatic_timestep_using_lumped_capacitance"
+
+[[module."automatic_timestep_using_lumped_capacitance.rs".function]]
+id = "fn:a5ad99717c56ba8f"
+name = "lumped_capacitance_timestep_adjustment"
+qual = "lumped_capacitance_timestep_adjustment"
+lines = [
+    307,
+    553,
+]
+hash = "sha256:ae09d785681a679da32b34334984d287b8ec00341fc11de22cd9a08713ec5d1a"
+doc_hash = "sha256:8ba649d2630a5bcce4dfce67cca984145ee227f9918c28cc4790ac058b0e7773"
+callees = [
+    "fn:04f1b4d679bb74fd",
+    "fn:1971325e25d34c9b",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:632b49eedc889d4b",
+    "fn:a635cc199a23e301",
+    "fn:c0d12a216ab731be",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:14cad68ccaa57f69",
+    "fn:1d3817b8eede3ea9",
+    "fn:1f4a9fe6d1e170a3",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+test = true
+
+[[module."automatic_timestep_using_lumped_capacitance.rs".function]]
+id = "fn:daab307e4eddc234"
+name = "lumped_capacitance_timestep_adjustment_improved_api"
+qual = "lumped_capacitance_timestep_adjustment_improved_api"
+lines = [
+    555,
+    807,
+]
+hash = "sha256:09cdb5df8412d1dc955324119a2f0d86ecf6d967730bf3a082ecf7a9b1a23267"
+doc_hash = "sha256:2c133f180b377e5c2fc60dbe7c708f67390c4a5ea02cc6b360a54b8a5db1a541"
+callees = [
+    "fn:04f1b4d679bb74fd",
+    "fn:1971325e25d34c9b",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:632b49eedc889d4b",
+    "fn:a635cc199a23e301",
+    "fn:b24dcaa3a2d254df",
+    "fn:c0d12a216ab731be",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:14cad68ccaa57f69",
+    "fn:1d3817b8eede3ea9",
+    "fn:1f4a9fe6d1e170a3",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+test = true
+
+[[module."automatic_timestep_using_lumped_capacitance.rs".function]]
+id = "fn:8954dae6e206bce0"
+name = "short_version_lumped_capacitance_timestep_adjustment_improved_api"
+qual = "short_version_lumped_capacitance_timestep_adjustment_improved_api"
+lines = [
+    809,
+    1065,
+]
+hash = "sha256:94a91e0a68a97f01ece4744b4c2e270fdf069386154d888f21f3910a55e93961"
+doc_hash = "sha256:d222907d483bd3ef9d6e9a07dd544c1f55c45af950498fd7a9be61618ae2e052"
+callees = [
+    "fn:04f1b4d679bb74fd",
+    "fn:1971325e25d34c9b",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:632b49eedc889d4b",
+    "fn:a635cc199a23e301",
+    "fn:b24dcaa3a2d254df",
+    "fn:c0d12a216ab731be",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:14cad68ccaa57f69",
+    "fn:1d3817b8eede3ea9",
+    "fn:1f4a9fe6d1e170a3",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+test = true
+
+[module."lumped_heat_capacitance.rs"]
+path = "crate::single_control_vol::tests::lumped_heat_capacitance"
+
+[[module."lumped_heat_capacitance.rs".function]]
+id = "fn:a8821549bfe15018"
+name = "lumped_heat_capacitance_steel_ball_in_air"
+qual = "lumped_heat_capacitance_steel_ball_in_air"
+lines = [
+    303,
+    578,
+]
+hash = "sha256:05cbb386720b769fc3eb0b690032c1fdd731183acd8b17d11c371ca3fc00b169"
+doc_hash = "sha256:abf9c3a5fdf0f47fdeedb44e79a6bed0a4efcd5c234d7d09eb962794bba5e84d"
+callees = [
+    "fn:39b1dfdff20f4ecd",
+    "fn:5740a9cd9ae0d032",
+    "fn:632b49eedc889d4b",
+    "fn:688af171e3e001e7",
+    "fn:a635cc199a23e301",
+    "fn:c0d12a216ab731be",
+    "fn:e04a45132823706f",
+    "fn:e914b3ed909034f5",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:14cad68ccaa57f69",
+    "fn:1d3817b8eede3ea9",
+    "fn:1f4a9fe6d1e170a3",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+test = true
+
+[[module."lumped_heat_capacitance.rs".function]]
+id = "fn:e107c4d6a04c808a"
+name = "lumped_heat_capacitance_steel_ball_in_air_improved_api"
+qual = "lumped_heat_capacitance_steel_ball_in_air_improved_api"
+lines = [
+    580,
+    780,
+]
+hash = "sha256:95b86d62d583f0fb9c5b5f6a10479aed8853d351427bd97255b3b00806b5c420"
+doc_hash = "sha256:0dfc2e2d8033e12f0e68dbb397c55e4650919d0d1ca6ca05470e9bb3aa04f90f"
+callees = [
+    "fn:1971325e25d34c9b",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:5e3e746d7a558eea",
+    "fn:632b49eedc889d4b",
+    "fn:a635cc199a23e301",
+    "fn:c0d12a216ab731be",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+]
+uses = [
+    "fn:036e8889bc2cf6ec",
+    "fn:14cad68ccaa57f69",
+    "fn:1d3817b8eede3ea9",
+    "fn:1f4a9fe6d1e170a3",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:54679033f1efb4f4",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+test = true
+
+[module."mixing_joint.rs"]
+path = "crate::single_control_vol::tests::mixing_joint"
+
+[[module."mixing_joint.rs".function]]
+id = "fn:df43b7fba72f050d"
+name = "adiabatic_mixing_joint_test_single_cv_only"
+qual = "adiabatic_mixing_joint_test_single_cv_only"
+lines = [
+    1,
+    186,
+]
+hash = "sha256:1cb7e77005f2cb761fa5a44df382860e3a0f98c9bc1a3589609ceb8d45968a46"
+doc_hash = "sha256:f95b2c483020af5b25054b7026fb2c20c3e5a7b15b4ebf3798c056c3ae168c78"
+callees = [
+    "fn:1f39a292fc17b372",
+    "fn:3ab99241909cec96",
+    "fn:4cad4ddd84ccee48",
+    "fn:558aaadeaf06062d",
+    "fn:5e3e746d7a558eea",
+    "fn:618c4cf4f7a78751",
+    "fn:98267f409610f0e7",
+    "fn:e114ff0ae3345cd5",
+    "fn:f3cde3d60d3dff8d",
+]
+uses = [
+    "fn:4a19e9ba06c44963",
+    "fn:7a10a768152b5992",
+    "fn:b0d8ad2797566c83",
+    "fn:de020efa1d48c9ac",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::single_control_vol::tests"
+
+[module."semi_infinite_one_dimension_transient_conduction.rs"]
+path = "crate::single_control_vol::tests::semi_infinite_one_dimension_transient_conduction"
+
+[[module."semi_infinite_one_dimension_transient_conduction.rs".function]]
+id = "fn:14f4ca7e0daf4278"
+name = "transient_conduction_semi_infinite_copper_medium"
+qual = "transient_conduction_semi_infinite_copper_medium"
+lines = [
+    27,
+    621,
+]
+hash = "sha256:61dceb30afeb397976cdb36dc487c2457b7d905b45efba595fd218220ff9f3ba"
+doc_hash = "sha256:201f070fac59f29e2419af7a39b8303fcb5779042ac895206ba1a70fdaaa4f0b"
+callees = [
+    "fn:04f1b4d679bb74fd",
+    "fn:1971325e25d34c9b",
+    "fn:39b1dfdff20f4ecd",
+    "fn:596f306f3fb318d5",
+    "fn:b24dcaa3a2d254df",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:f58bb8cc279a2ab8",
+]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:4a19e9ba06c44963",
+    "fn:540617e338f429d7",
+    "fn:631601b455e86caa",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+test = true
+
+[[module."semi_infinite_one_dimension_transient_conduction.rs".function]]
+id = "fn:89ce9ece25e6f951"
+name = "arraycv_transient_conduction_copper_medium"
+qual = "arraycv_transient_conduction_copper_medium"
+lines = [
+    623,
+    1012,
+]
+hash = "sha256:0eeff24275dac374a449d58bac612530c8a2d791b6f56d774cf691be6d2c86d0"
+doc_hash = "sha256:751de828ccb430332315f7393f8ac318f344260221a6cd25346522516338a4e1"
+callees = [
+    "fn:04f1b4d679bb74fd",
+    "fn:1971325e25d34c9b",
+    "fn:39b1dfdff20f4ecd",
+    "fn:3e8b46d93d8bf888",
+    "fn:6bd9026c12bed4b8",
+    "fn:9cf2732f8b0c6890",
+    "fn:b24dcaa3a2d254df",
+    "fn:e4ef3b79543287e1",
+    "fn:e599bee289f690ce",
+    "fn:e914b3ed909034f5",
+    "fn:e9d8ccbd9de53b00",
+    "fn:eb89be045205dc88",
+]
+uses = [
+    "fn:1d3817b8eede3ea9",
+    "fn:540617e338f429d7",
+    "fn:5811ccd622a4f7ee",
+    "fn:631601b455e86caa",
+    "fn:7a10a768152b5992",
+    "fn:9447740069e81383",
+    "fn:a691d2ed675791b7",
+    "fn:a6efe5f766b47fef",
+]
+test = true

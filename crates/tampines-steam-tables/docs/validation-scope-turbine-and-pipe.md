@@ -291,7 +291,7 @@ cases; what exists is reference *implementations* and reference *papers*.
 
 | Library | What it has | Licence | Position for us |
 |---|---|---|---|
-| **ClaRa** (`xrg-simulation/ClaRa-official`, mirror `ClaRaLibrary/ClaRa`) | `SteamTurbineVLE_L1.mo` — "A steam turbine model based on STODOLA's law": mass + energy conservation, isentropic efficiency, and an optional mechanical port with moment of inertia `J`. Structurally **exactly** the "HemSteamCv with sink terms" design in §1, including the rotor coupling | **BSD-3-Clause**, verified at three levels — see §6.1 | GPLv3-compatible one-way: may be incorporated into this GPLv3 workspace **with copyright notice, licence conditions and disclaimer retained**. The best structural reference |
+| **ClaRa** (`xrg-simulation/ClaRa-official`, mirror `ClaRaLibrary/ClaRa`) | `SteamTurbineVLE_L1.mo` — "A steam turbine model based on STODOLA's law": mass + energy conservation, isentropic efficiency, and an optional mechanical port with moment of inertia `J`. Structurally **exactly** the "HemSteamCv with sink terms" design in §1, including the rotor coupling | **BSD-3-Clause**, verified at three levels — see §6.1 | GPLv3-compatible one-way: may be incorporated into this ~~GPLv3~~ AGPL-3.0-only (relicensed 2026-10-20, gh:#973; GPLv3-combinable) workspace **with copyright notice, licence conditions and disclaimer retained**. The best structural reference |
 | **ThermoPower** (`casella/ThermoPower`, Politecnico di Milano) | `TurbineStodola` and friends; applied to steam generators, combined cycles, Gen-III/IV nuclear plants | **Modelica License 2** | **Do not port.** ML2 is not clearly GPL-compatible and does not cleanly permit forking. Read for ideas only; no code, no structure-copying |
 | **MOOSE Thermal Hydraulics Module** (INL) | Component-network system TH — pipes, junctions, valves; regression + MMS verification | LGPL 2.1 | Reference for component-network architecture. **Note:** an Edwards–O'Brien case could *not* be confirmed in its public docs during this search — do not assume one exists |
 | **OpenFOAM** `wallBoiling` sub-models + published validations | RPI wall-partitioning validated against Bartolomei and DEBORA | GPL | Directly relevant to §4.2; the arXiv:1709.01783 paper is the usable write-up |
@@ -406,10 +406,8 @@ operational-facility data, and none may be introduced to satisfy it.
 
 ## 9. Issue tracker
 
-Filed 2026-08-04 into beads-rs; the store now belongs to kopi-beans (`bn`) —
-run `bn show <id>` for per-case detail, `bn ready` for what is unblocked (see
-root `CLAUDE.md` "Issue tracking & roadmap — kopi-beans" for the live
-format-version blocker on that store as of 2026-08-07).
+Filed 2026-08-04 into the workspace's tracker at the time, since retired; the
+`op-*` ids below are historical. Live work is tracked in GitHub issues.
 
 **Pipe / property / nozzle — under `op-21g` (tampines-steam-tables):**
 

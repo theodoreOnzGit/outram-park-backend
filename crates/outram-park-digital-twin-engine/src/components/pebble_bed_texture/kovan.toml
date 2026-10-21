@@ -1,0 +1,278 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/components/pebble_bed_texture"
+
+[module."tests.rs"]
+path = "crate::components::pebble_bed_texture::tests"
+
+[[module."tests.rs".function]]
+id = "fn:6a9d769841462c13"
+name = "EXAMPLE_VESSEL_BOX"
+qual = "EXAMPLE_VESSEL_BOX"
+item = "const"
+shape = "const"
+lines = [
+    18,
+    21,
+]
+hash = "sha256:22babe725c011e6a46c61843244d05b3674857cdc4b528ae52162f3f00ff524a"
+doc_hash = "sha256:eae8aceac2cc22f0b6f5909047a389890c71c0e03d611cfe3b2eccde3516404d"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1e9d43243d359548"
+name = "EXAMPLE_FHR_BOX"
+qual = "EXAMPLE_FHR_BOX"
+item = "const"
+shape = "const"
+lines = [
+    23,
+    25,
+]
+hash = "sha256:28f114aec4bf618a30edbae5f1af74ab69c5a4cd0eaa4e50a86f2a144dbe65a9"
+doc_hash = "sha256:0b2bd97afba8923a39947fc69ff89b17d26dadfd3fe8b1fe9416d4e487be3857"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:265c6f2f933ca1e2"
+name = "BenchVessel"
+qual = "BenchVessel"
+item = "type"
+shape = "enum"
+lines = [
+    27,
+    38,
+]
+hash = "sha256:bab3e5bddeea1525735c6be2e21dbc005006339459ea693099990cf27bb72bf0"
+doc_hash = "sha256:157515b5ebc22c9c6ca966be445da94f709a9d51943079faabf5fe284164cf78"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:abaf88d887258eac"
+name = "headless_context"
+qual = "headless_context"
+lines = [
+    40,
+    52,
+]
+hash = "sha256:6dd68ca45cfdb98b1f95837eb47c791577e4065c7d4f608a42c441c5d9b1c97f"
+doc_hash = "sha256:9ec91c7c640b785f7eb99734ae971582fe6a512b75c45fd07ec436af52035b8c"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b70f2eac8561bcf4"
+name = "FrameCost"
+qual = "FrameCost"
+item = "type"
+shape = "struct"
+lines = [
+    54,
+    62,
+]
+hash = "sha256:4411af6c7f2da5e5a9a99811d6435f31009167073ea3b983a554adb17ff049a3"
+doc_hash = "sha256:ea33d6ee4130bec37a8d72ad672efaa57e24c34de6511c2941e8bcf5e6e8664c"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d7f5a1374469e429"
+name = "measure_vessel_frame"
+qual = "measure_vessel_frame"
+lines = [
+    64,
+    130,
+]
+hash = "sha256:02869a21ef4b6190c05e83d903aa9431b41f3639d7a7487269a072bd28577f1b"
+doc_hash = "sha256:800b9bb2c6c6f8410ad3f8f7aee299202bc64b0efc2c6c8a531fd6fe70512344"
+callees = [
+    "fn:5cedec083a4498fd",
+    "fn:c2b1db5aa20c11f6",
+]
+uses = [
+    "fn:265c6f2f933ca1e2",
+    "fn:2ea46930fe21adf3",
+    "fn:8bc029c647a9bcb5",
+    "fn:b70f2eac8561bcf4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:972bb9ddfc79ffa0"
+name = "composite_matches_the_direct_blend_on_interiors"
+qual = "composite_matches_the_direct_blend_on_interiors"
+lines = [
+    132,
+    225,
+]
+hash = "sha256:4fcc430b8c4e84bfa9bce4e94b4ce8dfda706c918eae47f0542ad672745490f8"
+doc_hash = "sha256:8836122ff80e3776baa4e522856b6814205224c7b7946c31c0b32c167e745663"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:51e70507ffb20b47"
+name = "the_cache_key_ignores_position_and_tracks_pixel_size"
+qual = "the_cache_key_ignores_position_and_tracks_pixel_size"
+lines = [
+    227,
+    271,
+]
+hash = "sha256:b331dad277440f39773b665f87665e8a65e33a1f9495f2cb11e5e3883fffbe5e"
+doc_hash = "sha256:fb125f613dffe7591b99c3dd698eb6b1eb1a5084eb48caa90a50fac4da363a09"
+callees = [
+    "fn:6ba555e768ab0b4e",
+    "fn:e377725cacfcae15",
+]
+uses = [
+    "fn:517af8acb544d0d1",
+    "fn:526aee2178a76bbf",
+    "fn:60bdd0684176e795",
+    "fn:e44b50c322b9aa1e",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:fe97a3561ae8c8d9"
+name = "an_axial_tint_grades_up_the_bed_and_respects_buoyancy"
+qual = "an_axial_tint_grades_up_the_bed_and_respects_buoyancy"
+lines = [
+    273,
+    334,
+]
+hash = "sha256:38930b8aea1e9e113b7ac50808f19814b11c63df7997864d7e920975b850c029"
+doc_hash = "sha256:6fde3880f33aa12c87b465895fd919ff455c37e3cd214d151edd774027c63d6d"
+callees = [
+    "fn:4c965af193700063",
+    "fn:abaf88d887258eac",
+    "fn:f68ec44c3783347c",
+]
+uses = [
+    "fn:93ae51addb732267",
+    "fn:e44b50c322b9aa1e",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1d3c48bb424ccb9e"
+name = "the_strategy_switches_on_speckle_and_texture_limits"
+qual = "the_strategy_switches_on_speckle_and_texture_limits"
+lines = [
+    336,
+    373,
+]
+hash = "sha256:4a1374acc4ff5b89951554fa741716106cb47cbb3043e84abb7f5ef704a334b0"
+doc_hash = "sha256:7f04b6beafcbaf89a5cf11ad129843b41ac3c756542a01d275cf5350c3cd7437"
+callees = ["fn:e5b834089ac05a0e"]
+uses = ["fn:8c4259e43f4e59fb"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:652fe91850b0edf8"
+name = "the_rasteriser_covers_the_whole_packing_without_clipping"
+qual = "the_rasteriser_covers_the_whole_packing_without_clipping"
+lines = [
+    375,
+    440,
+]
+hash = "sha256:4a04995be540a6ea44706857b1fb9ee8b82ba461d7206e3cf27bc5fa83115869"
+doc_hash = "sha256:5da789bc5358b879b0331e3fcc5910b9f4fb02af83fad6a6be59d3ba091e85ee"
+callees = [
+    "fn:06eced01fac2a80c",
+    "fn:6ba555e768ab0b4e",
+    "fn:b09cbf4e1aa149fc",
+    "fn:dfdade2d0f4762b2",
+    "fn:f873514b7114cef3",
+]
+uses = [
+    "fn:517af8acb544d0d1",
+    "fn:60bdd0684176e795",
+    "fn:e44b50c322b9aa1e",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:170840795203285a"
+name = "the_cache_holds_one_bake_per_vessel_and_re_bakes_on_resize"
+qual = "the_cache_holds_one_bake_per_vessel_and_re_bakes_on_resize"
+lines = [
+    442,
+    477,
+]
+hash = "sha256:604affc51e295b25affbf542e54a42ea733fba26dcc75d1a3bc0bfe0aca37d94"
+doc_hash = "sha256:1f75e1f31cde2dbffba273c5edaa62de8ab9abb4c81fbdb1fd558d0fad009401"
+callees = [
+    "fn:abaf88d887258eac",
+    "fn:d7f5a1374469e429",
+]
+uses = [
+    "fn:265c6f2f933ca1e2",
+    "fn:6a9d769841462c13",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6e341e2951620c71"
+name = "baking_the_bed_cuts_the_frame_cost"
+qual = "baking_the_bed_cuts_the_frame_cost"
+lines = [
+    479,
+    596,
+]
+hash = "sha256:f45c0c55fef7b82a1ee23a68f67a4d14bb2c90a3e100fe92a9569e82e3712ffa"
+doc_hash = "sha256:f83bce89ea5642d293fc4b46db0f4abaa94253f72d264a51a40cbf242a8dd9a8"
+callees = [
+    "fn:96c9348f6cb9e5f7",
+    "fn:abaf88d887258eac",
+    "fn:d7f5a1374469e429",
+]
+uses = [
+    "fn:1e9d43243d359548",
+    "fn:265c6f2f933ca1e2",
+    "fn:6a9d769841462c13",
+    "fn:b70f2eac8561bcf4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6165c263e703f456"
+name = "the_bake_cost_is_paid_only_on_resize"
+qual = "the_bake_cost_is_paid_only_on_resize"
+lines = [
+    598,
+    645,
+]
+hash = "sha256:15ccd2fca170729955c5b7ec6b8f6efb8574d736a4cc7ecb8a6751a598fceea0"
+doc_hash = "sha256:35a1d94eb74f6189b6480ab240f26b79fd56195563d6fe362c29e50d58d1c7f6"
+callees = [
+    "fn:06eced01fac2a80c",
+    "fn:6ba555e768ab0b4e",
+    "fn:b09cbf4e1aa149fc",
+    "fn:dfdade2d0f4762b2",
+    "fn:f873514b7114cef3",
+]
+uses = [
+    "fn:517af8acb544d0d1",
+    "fn:60bdd0684176e795",
+    "fn:e44b50c322b9aa1e",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:508625f8f541c2e9"
+name = "the_baked_box_matches_the_packings_published_bounds"
+qual = "the_baked_box_matches_the_packings_published_bounds"
+lines = [
+    647,
+    676,
+]
+hash = "sha256:eb08ae1f60b2d7b352ccd5d1d1c9af892e75cc0a9cfffa775d25857d5c401b6d"
+doc_hash = "sha256:2161d18395ee71f4091b2136dbe02f73173a77de940728d1949529496c508ad4"
+callees = [
+    "fn:6ba555e768ab0b4e",
+    "fn:b09cbf4e1aa149fc",
+]
+uses = [
+    "fn:219c7c4befa9be7d",
+    "fn:517af8acb544d0d1",
+    "fn:716946324f699968",
+]
+test = true

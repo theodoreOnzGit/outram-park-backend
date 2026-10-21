@@ -24,6 +24,7 @@
 //! dropped when `|s| < 1e-10`, and multiplied by `cflx(ig)·ABN`; the
 //! relative covariance is scaled by `p_i p_j` (`errorr.f90:4959-4967`).
 
+use petir::mathf::RealMath;
 use crate::common::phys::{AMASSN_AMU, PI};
 use crate::endf::records::SectionCursor;
 use crate::reconr::slbw::WAVE_K;
@@ -60,8 +61,8 @@ pub fn ggunr1(e: f64, a: &[f64], amur: &[[f64; 3]]) -> Result<[f64; 4], NjoyErro
         let njs = a[inow + 5].round() as usize;
         let arat = awri / (awri + 1.0);
         let aw = awri * AMASSN_AMU;
-        let ra = RC1 * aw.powf(THIRD) + RC2;
-        let konst = (2.0 * PI * PI) / (WAVE_K * arat).powi(2);
+        let ra = RC1 * aw.r_powf(THIRD) + RC2;
+        let konst = (2.0 * PI * PI) / (WAVE_K * arat).r_powi(2);
         inow += 6;
         for j in 0..njs {
             let dx = a[inow];
@@ -91,7 +92,7 @@ pub fn ggunr1(e: f64, a: &[f64], amur: &[[f64; 3]]) -> Result<[f64; 4], NjoyErro
             let vl = vl0 * e2;
             // potential scattering
             if j == 0 {
-                spot = 4.0 * PI * (2.0 * ll as f64 + 1.0) * (ps.sin() / k).powi(2);
+                spot = 4.0 * PI * (2.0 * ll as f64 + 1.0) * (ps.r_sin() / k).r_powi(2);
             }
             // cross section contributions
             let gnx = gnox * vl;
@@ -130,7 +131,7 @@ pub fn ggunr1(e: f64, a: &[f64], amur: &[[f64; 3]]) -> Result<[f64; 4], NjoyErro
             let gff = gff * terf;
             let mut gs = gs * ters;
             // interference correction
-            let add = konst * gj * 2.0 * gnx * ps.sin().powi(2) / (e * dx);
+            let add = konst * gj * 2.0 * gnx * ps.r_sin().r_powi(2) / (e * dx);
             gs -= add;
             sigp[1] += gs;
             sigp[2] += gff;

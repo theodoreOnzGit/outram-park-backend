@@ -20,6 +20,7 @@
 //! `β^T_{ij}`, `γ^T_{ij}`, `β^v_{ij}`, `γ^v_{ij}` are pair-specific data (see
 //! [`super::binary_pairs`]).
 
+use petir::mathf::RealMath;
 use super::Mixture;
 
 /// The shared GERG-2008 mixing kernel `f_{ij}(x_i, x_j, β) = x_i x_j (x_i+x_j)
@@ -61,7 +62,7 @@ pub fn reducing_density(mix: &Mixture) -> f64 {
             let vcj = 1.0 / mix.components[j].eos().rho_critical;
             let pair = super::binary_pairs::lookup(mix.components[i], mix.components[j]);
             let (beta_v, gamma_v) = pair.map(|p| p.beta_gamma_v).unwrap_or((1.0, 1.0));
-            let vc_ij = (vci.cbrt() + vcj.cbrt()).powi(3) / 8.0;
+            let vc_ij = (vci.r_cbrt() + vcj.r_cbrt()).r_powi(3) / 8.0;
             vr += 2.0 * beta_v * gamma_v * vc_ij * f_ij(xi, xj, beta_v);
         }
     }

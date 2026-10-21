@@ -1,0 +1,4439 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src/workbench"
+test_ids = [
+    "crates/dhoby-ghaut/src/workbench/catalogue.rs::every_reactor_key_round_trips_and_every_generation_has_a_type",
+    "crates/dhoby-ghaut/src/workbench/catalogue.rs::only_the_htgr_pebble_bed_is_offered_as_buildable",
+    "crates/dhoby-ghaut/src/workbench/exports.rs::the_report_is_read_back_by_kovan",
+    "crates/dhoby-ghaut/src/workbench/exports.rs::write_all_writes_files_that_load_back",
+    "crates/dhoby-ghaut/src/workbench/meshes.rs::mapping_follows_upstream_semantics",
+    "crates/dhoby-ghaut/src/workbench/meshes.rs::splitting_the_bed_keeps_every_region_consistent",
+    "crates/dhoby-ghaut/src/workbench/meshes.rs::the_parts_tile_the_model",
+    "crates/dhoby-ghaut/src/workbench/mgxs.rs::ln_t_interpolation_hits_the_mean_at_the_geometric_mean",
+    "crates/dhoby-ghaut/src/workbench/multiphysics.rs::an_older_recipe_has_no_step_9",
+    "crates/dhoby-ghaut/src/workbench/multiphysics.rs::neutronics_inputs_say_what_is_missing",
+    "crates/dhoby-ghaut/src/workbench/multiphysics.rs::step_9_round_trips_through_kovan_markdown",
+    "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::a_map_round_trips_through_plain_toml",
+    "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::a_two_axis_map_recovers_a_bilinear_law",
+    "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::an_exact_sqrt_t_law_is_recovered",
+    "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::the_held_out_error_separates_an_adequate_order_from_an_inadequate_one",
+    "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::the_map_refuses_to_extrapolate",
+    "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::the_planner_puts_lobatto_nodes_in_the_fitting_variable_and_skips_runs_made",
+    "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::too_few_runs_or_one_state_is_refused",
+    "crates/dhoby-ghaut/src/workbench/recipe.rs::a_missing_section_or_a_foreign_format_is_refused",
+    "crates/dhoby-ghaut/src/workbench/recipe.rs::a_recipe_round_trips_through_kovan_markdown",
+    "crates/dhoby-ghaut/src/workbench/recipe.rs::a_recipe_without_step_6_reads_as_multiphysics",
+    "crates/dhoby-ghaut/src/workbench/recipe.rs::an_older_recipe_without_a_bed_source_reads_as_the_lattice",
+    "crates/dhoby-ghaut/src/workbench/recipe.rs::kovan_reads_every_section_as_a_note_artifact",
+    "crates/dhoby-ghaut/src/workbench/recipe.rs::rfc3339_formats_known_instants",
+    "crates/dhoby-ghaut/src/workbench/steps.rs::every_step_is_built",
+    "crates/dhoby-ghaut/src/workbench/steps.rs::steps_are_numbered_zero_to_eleven_with_the_gate_between_four_and_five",
+    "crates/dhoby-ghaut/src/workbench/steps.rs::unimplemented_steps_name_their_issue",
+]
+
+[module."catalogue.rs"]
+path = "crate::workbench::catalogue"
+
+[[module."catalogue.rs".function]]
+id = "fn:8af0195a79a850f4"
+name = "Generation"
+qual = "Generation"
+item = "type"
+shape = "enum"
+lines = [
+    13,
+    24,
+]
+hash = "sha256:e15901bf53dcc62bdf18077cc49020037dc0aa7fe108330e5817f9f6fb614035"
+doc_hash = "sha256:36dca6c1577427295d307794c9b7105b071863d3b97ae1c1c50cae10ce87abce"
+reached_by = ["#0"]
+
+[[module."catalogue.rs".function]]
+id = "fn:01251117c9e8008c"
+name = "title"
+qual = "Generation::title"
+lines = [
+    35,
+    44,
+]
+hash = "sha256:06bcf88c6a9cd01b76c3242f3f56a5a7ac566fdf2d7d1e292735c1188df9abb4"
+doc_hash = "sha256:fccf45a710f56263b777ed259c4c201f24c17eb1116b8103b37e1db6a6a5a03a"
+uses = ["fn:8af0195a79a850f4"]
+
+[[module."catalogue.rs".function]]
+id = "fn:44a3b7bef9a1075b"
+name = "Support"
+qual = "Support"
+item = "type"
+shape = "enum"
+lines = [
+    47,
+    57,
+]
+hash = "sha256:d3a30614fd29ea20a3ce53da866524e77debec3790f50fe9b37f863d527a0b69"
+doc_hash = "sha256:bbdc8acd506657fee158cb3033c0f09dafb293efc9beeb202dc38c8ee9ebadf5"
+reached_by = ["#1"]
+
+[[module."catalogue.rs".function]]
+id = "fn:437f4dce22a3f0c0"
+name = "badge"
+qual = "Support::badge"
+lines = [
+    60,
+    68,
+]
+hash = "sha256:b08164d0612d4154e00305cb72d2437285b5b3580ea6328b23f5316483e9dd82"
+doc_hash = "sha256:95ded9e6264f918c09aac6b43dca248a0d165a7572bdeec5d2f4bfb9f34a740a"
+uses = ["fn:44a3b7bef9a1075b"]
+
+[[module."catalogue.rs".function]]
+id = "fn:79c21190871fed09"
+name = "ReactorType"
+qual = "ReactorType"
+item = "type"
+shape = "enum"
+lines = [
+    71,
+    98,
+]
+hash = "sha256:d21c09de9383e7593c6287bde5f7ccf54862202df41749fa106dda898bf914e7"
+doc_hash = "sha256:19f710a620a9499912b68766b8b895f1890953b3071fadd9694f278393118a0b"
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."catalogue.rs".function]]
+id = "fn:94a4c9597e8b6b5b"
+name = "label"
+qual = "ReactorType::label"
+lines = [
+    117,
+    134,
+]
+hash = "sha256:94ff8bf4d851bfe413a173b42121b8c59faf2f90b1464aa4b159fd2773ac7fda"
+doc_hash = "sha256:6741cdf19aa3ed6f699a15b993c5ec61fcccf88cf0a1f242b27107671f281c43"
+uses = ["fn:79c21190871fed09"]
+
+[[module."catalogue.rs".function]]
+id = "fn:67cdb0e47828b5a2"
+name = "key"
+qual = "ReactorType::key"
+lines = [
+    136,
+    153,
+]
+hash = "sha256:b2f4a1d5603b027eceeb87957fb704fdefbcb4889543bc9d3c294b5f61078b29"
+doc_hash = "sha256:bd5ae81be4af01df48962c181fb762c11057d22a2f33a87dca1d0420f054daad"
+uses = ["fn:79c21190871fed09"]
+reached_by = ["#0"]
+
+[[module."catalogue.rs".function]]
+id = "fn:37c3e6c9e7548294"
+name = "from_key"
+qual = "ReactorType::from_key"
+lines = [
+    155,
+    159,
+]
+hash = "sha256:c995c94b37da99c1594efa41c5744d339072a4b60c1d0a17c4dc591a3c4c9137"
+doc_hash = "sha256:ad8c6e385c075b1d54927a900aecb3955b7edcf435c2408e1384488c8b285349"
+callees = ["fn:67cdb0e47828b5a2"]
+uses = ["fn:79c21190871fed09"]
+reached_by = ["#0"]
+
+[[module."catalogue.rs".function]]
+id = "fn:ad49626f5e9b4dcb"
+name = "generation"
+qual = "ReactorType::generation"
+lines = [
+    161,
+    170,
+]
+hash = "sha256:0831615c4fc234539aa865826f0eef0f17c54e314a65c086e798028657e36719"
+doc_hash = "sha256:a60b4ca944c7754a3c9216be4fbc6b337613088a3a8f57b9011ecb5e6399e16f"
+uses = [
+    "fn:79c21190871fed09",
+    "fn:8af0195a79a850f4",
+]
+reached_by = ["#0"]
+
+[[module."catalogue.rs".function]]
+id = "fn:8aaeb9b8ed5b1224"
+name = "support"
+qual = "ReactorType::support"
+lines = [
+    172,
+    180,
+]
+hash = "sha256:30e8ec53e707f9be40adeedf9ee5a4263058dd755d308a97f4999f52d981d854"
+doc_hash = "sha256:e7c0a7596d4441451dbeb51fdb5151f4b06a7395b331fd7f6ee574b43f1c0e4f"
+uses = [
+    "fn:44a3b7bef9a1075b",
+    "fn:79c21190871fed09",
+]
+reached_by = ["#1"]
+
+[[module."catalogue.rs".function]]
+id = "fn:765fb9bab4f3b3f6"
+name = "note"
+qual = "ReactorType::note"
+lines = [
+    182,
+    201,
+]
+hash = "sha256:decfbd8a6f25b24001c6e25fe7ab08419b55261233674a28ee1396256f31def5"
+doc_hash = "sha256:0e7ea114ac27a0a5f9410feface4d6780b09467e2a983701156f5fd50c4a8749"
+uses = ["fn:79c21190871fed09"]
+
+[[module."catalogue.rs".function]]
+id = "fn:301959f97d8f1c5b"
+name = "HtgrCore"
+qual = "HtgrCore"
+item = "type"
+shape = "enum"
+lines = [
+    204,
+    211,
+]
+hash = "sha256:24487f668b277fdabba1df0fa52f97301a441192fe9bd6559bb206d419f7388e"
+doc_hash = "sha256:e367c26b22dee812a05401d431c4e4766fe176020563b132bd5830cbd787b20c"
+reached_by = ["#1"]
+
+[[module."catalogue.rs".function]]
+id = "fn:a12c656fcf541c61"
+name = "label"
+qual = "HtgrCore::label"
+lines = [
+    214,
+    221,
+]
+hash = "sha256:255d1bfd3319f2eda3351dcd2748d699361b7e2997d05f01ca4a86375fa9164b"
+doc_hash = "sha256:6741cdf19aa3ed6f699a15b993c5ec61fcccf88cf0a1f242b27107671f281c43"
+uses = ["fn:301959f97d8f1c5b"]
+
+[[module."catalogue.rs".function]]
+id = "fn:d360d02a4c56442e"
+name = "available"
+qual = "HtgrCore::available"
+lines = [
+    223,
+    227,
+]
+hash = "sha256:66adb70d9189117c7a7ee2ec836f6db4507adfdaf20b162c8da3d894748c9e36"
+doc_hash = "sha256:3120fe7e2faf87e11d2e0e9573056272c18716ba28c76e87d1f0e8d2ebc16672"
+uses = ["fn:301959f97d8f1c5b"]
+reached_by = ["#1"]
+
+[[module."catalogue.rs".function]]
+id = "fn:753510b39c51b620"
+name = "note"
+qual = "HtgrCore::note"
+lines = [
+    229,
+    241,
+]
+hash = "sha256:fa393ccc579b358e0303600e4cff29926354260c3db2521f81693900c2928671"
+doc_hash = "sha256:c8e9e74e213e384fdcd65504f0c7d1593933d2c14f8ea70c16193c781fadd3b0"
+uses = ["fn:301959f97d8f1c5b"]
+
+[[module."catalogue.rs".function]]
+id = "fn:d453c8dc212cd7f2"
+name = "Mode"
+qual = "Mode"
+item = "type"
+shape = "enum"
+lines = [
+    244,
+    252,
+]
+hash = "sha256:dc51ca3cf74c7a03dcafd95ab761816b1eb8e1e96b9631d5e5710931f0bbf02e"
+doc_hash = "sha256:e906238fef6d5cd7a69dff1d422ee4e0703fccb1d4147e1d0a2e5f24dc384938"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."catalogue.rs".function]]
+id = "fn:b6d01df9df2318e0"
+name = "every_reactor_key_round_trips_and_every_generation_has_a_type"
+qual = "every_reactor_key_round_trips_and_every_generation_has_a_type"
+lines = [
+    258,
+    269,
+]
+hash = "sha256:d9f41de67e0716c11f4c69eb3d7bb97e047c5abb2bf564dc8e816591a2e29e7d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:37c3e6c9e7548294",
+    "fn:67cdb0e47828b5a2",
+    "fn:ad49626f5e9b4dcb",
+]
+uses = [
+    "fn:79c21190871fed09",
+    "fn:8af0195a79a850f4",
+]
+test = true
+
+[[module."catalogue.rs".function]]
+id = "fn:bff66a94e7b10c21"
+name = "only_the_htgr_pebble_bed_is_offered_as_buildable"
+qual = "only_the_htgr_pebble_bed_is_offered_as_buildable"
+lines = [
+    271,
+    282,
+]
+hash = "sha256:22bb0cee07de14c2b85031956b0c3d7aadabcd368439a208e1fc729a3ca606ae"
+doc_hash = "sha256:6734a50c6070f435b746e2e52e97287ee29cb61a044d1edf68b861f4b593be28"
+callees = [
+    "fn:8aaeb9b8ed5b1224",
+    "fn:d360d02a4c56442e",
+]
+uses = [
+    "fn:301959f97d8f1c5b",
+    "fn:44a3b7bef9a1075b",
+    "fn:79c21190871fed09",
+]
+test = true
+
+[module."exports.rs"]
+path = "crate::workbench::exports"
+
+[[module."exports.rs".function]]
+id = "fn:eb03df2b31c3346f"
+name = "Spectrum"
+qual = "Spectrum"
+item = "type"
+shape = "struct"
+lines = [
+    18,
+    28,
+]
+hash = "sha256:d3f802dffab0fcd0013d90cca307914725f7abdb8d38e97ceb76e31c3a0e8299"
+doc_hash = "sha256:1817ba2523388e88732b62cc8a50b06cbcd94c9f41837f6e335dc69726ecd2fe"
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."exports.rs".function]]
+id = "fn:234ac652d0f4b709"
+name = "runs_csv"
+qual = "runs_csv"
+lines = [
+    30,
+    54,
+]
+hash = "sha256:c55d04e262d1a601e1f68ecc7418fe5154f4f5e06ad9eb94db4b840db6a1bd56"
+doc_hash = "sha256:a4e47160c8b2f52829d21ad318796e8cca2fdd00042f5881d9af85bee816f4d5"
+callees = [
+    "fn:65fa329ba9896a82",
+    "fn:669138bd3e56e267",
+]
+uses = ["fn:cfea910aaa6d067b"]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."exports.rs".function]]
+id = "fn:0b5865a39ebcdb57"
+name = "spectra_csv"
+qual = "spectra_csv"
+lines = [
+    56,
+    72,
+]
+hash = "sha256:dcf98caaedb3b5cb9efdc7d83239dd4715a8bc18984d37a6cf3101ded6d0f9a1"
+doc_hash = "sha256:62da5fdef34eba61208ec2fb852914d5fe14c5a87ae7b61a3f835db043f4c3e1"
+uses = ["fn:eb03df2b31c3346f"]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."exports.rs".function]]
+id = "fn:e7d23a0ecda50b9a"
+name = "artifact"
+qual = "artifact"
+lines = [
+    74,
+    96,
+]
+hash = "sha256:1b3998d257d2f7edbd83bd29132f2eb2cb5461bf51c63a35d1a6a3594fb1e798"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4949a3753315782a"]
+uses = [
+    "fn:687cfeb6e4cb706d",
+    "fn:6c7c5ab69eec9c19",
+    "fn:74fb8d21458a5f0e",
+    "fn:f9432a8854a0448c",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."exports.rs".function]]
+id = "fn:8017c79e61bfed64"
+name = "report_markdown"
+qual = "report_markdown"
+lines = [
+    98,
+    223,
+]
+hash = "sha256:9878dc79aee43c8e7acb97a03bcd70d0afa3f713d89ff9b8d5340fe70910f4d7"
+doc_hash = "sha256:f17bf606af124e30aa92ca9ff4d7ae03b14caf2c4889c164b877e3d2733d2ca7"
+callees = [
+    "fn:215187c83aa703a3",
+    "fn:65fa329ba9896a82",
+    "fn:669138bd3e56e267",
+    "fn:779e222087e9d526",
+    "fn:e7d23a0ecda50b9a",
+]
+uses = [
+    "fn:687cfeb6e4cb706d",
+    "fn:747ae6a0a70d0be4",
+    "fn:9669573af7fecc94",
+    "fn:eb03df2b31c3346f",
+    "fn:f7016ab7d7ca6555",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."exports.rs".function]]
+id = "fn:37b1f76e42678337"
+name = "verify_round_trip"
+qual = "verify_round_trip"
+lines = [
+    225,
+    240,
+]
+hash = "sha256:862745a2a686bf5ab8efe2e2688f4ac1dc3a59fce5badaa8bdcc430138731a68"
+doc_hash = "sha256:1a98a08aa577f2c46342d695c49da095c37252f7d3db3546f0f9ecf42e4f00d0"
+callees = [
+    "fn:10c597b2aa82c0f4",
+    "fn:174363db37bba78a",
+    "fn:ac5a1cd88737d34c",
+    "fn:af1944ad5c15fddb",
+]
+uses = ["fn:9669573af7fecc94"]
+reached_by = ["#3"]
+
+[[module."exports.rs".function]]
+id = "fn:ac5a1cd88737d34c"
+name = "differing_sections"
+qual = "differing_sections"
+lines = [
+    242,
+    263,
+]
+hash = "sha256:be7f38ff96f4c232d6c9605883dba1fcfe97c1a2fddd6e583307bfe30b1578c9"
+doc_hash = "sha256:c46813f07150d2014046f3329c785cf93f8db801e71432668b95cf3eace4a13c"
+uses = ["fn:9669573af7fecc94"]
+reached_by = ["#3"]
+
+[[module."exports.rs".function]]
+id = "fn:cd10b4336132b7f2"
+name = "write_all"
+qual = "write_all"
+lines = [
+    265,
+    303,
+]
+hash = "sha256:131e310f2578934115d1f15951ba9a6daadf7e2c61f8f0306fddf88c5ee5a8bb"
+doc_hash = "sha256:3482d31c1a0857f1e88e51db38861c569cb2385bf965d6df451c29f8155931b7"
+callees = [
+    "fn:0b5865a39ebcdb57",
+    "fn:234ac652d0f4b709",
+    "fn:6ad5041203c86659",
+    "fn:8017c79e61bfed64",
+    "fn:af1944ad5c15fddb",
+    "fn:df198b628ad81585",
+]
+uses = [
+    "fn:747ae6a0a70d0be4",
+    "fn:9669573af7fecc94",
+    "fn:eb03df2b31c3346f",
+]
+reached_by = ["#3"]
+
+[[module."exports.rs".function]]
+id = "fn:6d022fd22843fdd7"
+name = "synthetic_recipe"
+qual = "synthetic_recipe"
+lines = [
+    310,
+    331,
+]
+hash = "sha256:cb5fa59ec5a772e1d0a405c078115c606d7219b45885ccfba21ab8a08ce55b7c"
+doc_hash = "sha256:db876649f8fea95427977859f271dadbc0be81b95fb3257244c8ceea29d1c5f2"
+callees = ["fn:99d4c9c3eeeddaa4"]
+uses = [
+    "fn:9669573af7fecc94",
+    "fn:cfea910aaa6d067b",
+]
+test = true
+
+[[module."exports.rs".function]]
+id = "fn:e0c33c1202718712"
+name = "synthetic_map"
+qual = "synthetic_map"
+lines = [
+    333,
+    344,
+]
+hash = "sha256:492d1e897b5cca0967443da984100b166b0419ab9706bf2597c8d993f9c59fa7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:808aacd6e89400d0",
+    "fn:ae13f65272dbbd13",
+]
+uses = [
+    "fn:747ae6a0a70d0be4",
+    "fn:82be2ebf1f65573b",
+    "fn:9669573af7fecc94",
+    "fn:99e9bfcb78c5d0e1",
+    "fn:b5560d98b6d985df",
+]
+test = true
+
+[[module."exports.rs".function]]
+id = "fn:99a40d7f3728227c"
+name = "the_report_is_read_back_by_kovan"
+qual = "the_report_is_read_back_by_kovan"
+lines = [
+    346,
+    367,
+]
+hash = "sha256:b937714df1b3178f4dd673456f5b99d9e73b422f3515d22930462d48d040aa0c"
+doc_hash = "sha256:ae991f7da4a97dffcde805c2f3a84c73fc62f4cb4c9100a521310685ec56eb2f"
+callees = [
+    "fn:0b5865a39ebcdb57",
+    "fn:234ac652d0f4b709",
+    "fn:3fff6b937e3a059f",
+    "fn:6d022fd22843fdd7",
+    "fn:8017c79e61bfed64",
+    "fn:e0c33c1202718712",
+    "fn:f85705ce92973218",
+]
+uses = ["fn:eb03df2b31c3346f"]
+test = true
+
+[[module."exports.rs".function]]
+id = "fn:5738397b7770caa6"
+name = "write_all_writes_files_that_load_back"
+qual = "write_all_writes_files_that_load_back"
+lines = [
+    369,
+    392,
+]
+hash = "sha256:92acb7c1eab268b9861c662151843a5d6aea352bba7e9ee6c9e8cb13d57e3090"
+doc_hash = "sha256:dd143bda4bbc6dcce46e38a3228c9561f4a001a98266ff98d9ad07ccbb3bf61a"
+callees = [
+    "fn:020072d2d1d902e3",
+    "fn:174363db37bba78a",
+    "fn:37b1f76e42678337",
+    "fn:6d022fd22843fdd7",
+    "fn:ac5a1cd88737d34c",
+    "fn:cd10b4336132b7f2",
+    "fn:e0c33c1202718712",
+]
+uses = [
+    "fn:747ae6a0a70d0be4",
+    "fn:9669573af7fecc94",
+]
+test = true
+
+[module."meshes.rs"]
+path = "crate::workbench::meshes"
+
+[[module."meshes.rs".function]]
+id = "fn:90e023debe155188"
+name = "MeshRole"
+qual = "MeshRole"
+item = "type"
+shape = "enum"
+lines = [
+    55,
+    65,
+]
+hash = "sha256:9ed22ec72de763af5b1150ea8f939d2cec508e423120d01c3a52077f7357454a"
+doc_hash = "sha256:3bd43f6dc0befb000e5d7332c2926141be4a13c6f15e714a1e29c6b6050ada3b"
+reached_by = [
+    "#4",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:0de6936f3e14fbce"
+name = "index"
+qual = "MeshRole::index"
+lines = [
+    71,
+    79,
+]
+hash = "sha256:305ae59341aa9d52770a5c0d1225c819a2af3cf1b8842897cc0faf8108e6502e"
+doc_hash = "sha256:6f6fb6f92b6d9cbc71f8cdfbc9bbad19643ea3f72034f0c2a24560ed13a7f194"
+uses = ["fn:90e023debe155188"]
+
+[[module."meshes.rs".function]]
+id = "fn:48fba8d37115b5c6"
+name = "name"
+qual = "MeshRole::name"
+lines = [
+    81,
+    89,
+]
+hash = "sha256:4b2ccc49dff3781f40117d9ba5af07183625d2519cd865b6f68ddf402b5ab381"
+doc_hash = "sha256:b83bc5463611a7d8eeddff247f79fbcf47f200b343b2b8364c7b8fd7987a0873"
+uses = ["fn:90e023debe155188"]
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:8e3151aa074c9704"
+name = "genfoam_region"
+qual = "MeshRole::genfoam_region"
+lines = [
+    91,
+    99,
+]
+hash = "sha256:5ee8f1d0386ea8ad9be6c804ad387d732402c87312c17381cd2dbdb9d40c31b1"
+doc_hash = "sha256:0490d400af054aeaa3737f71ef6fcd92cc1c8089b02802ea8ab856007403179e"
+uses = ["fn:90e023debe155188"]
+
+[[module."meshes.rs".function]]
+id = "fn:429408367e6b3a36"
+name = "slug"
+qual = "MeshRole::slug"
+lines = [
+    101,
+    109,
+]
+hash = "sha256:f574607ea7be4890926eecd4da3dc8a250f48015301ed35a9aedfd87055d0414"
+doc_hash = "sha256:ca78f20a64f3095958fd9129c8c44acad6134d5c2085c41dd47e72c54dcc128a"
+uses = ["fn:90e023debe155188"]
+
+[[module."meshes.rs".function]]
+id = "fn:9f9a7fd72868c9db"
+name = "RegionClass"
+qual = "RegionClass"
+item = "type"
+shape = "enum"
+lines = [
+    112,
+    126,
+]
+hash = "sha256:0e3eb53d033170a19820ae38287e28cab77ddd9826cce8019df4a7ea1907513e"
+doc_hash = "sha256:d7b88a01561035b85f6e2596d07f50223281e99c2761a6440572c20d7aba1657"
+reached_by = [
+    "#5",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:0396ad84cbb1a588"
+name = "label"
+qual = "RegionClass::label"
+lines = [
+    129,
+    138,
+]
+hash = "sha256:35705ea6301d5f5c2d87e166ae1eda5dc798333da0a3576aa5c7f1dc7f34e81d"
+doc_hash = "sha256:01c55adce8f4be238b74f169e1a6561aeb0ef50b1a128911a9df4efd5e3a90bd"
+uses = ["fn:9f9a7fd72868c9db"]
+
+[[module."meshes.rs".function]]
+id = "fn:3ad73b0c572d78c4"
+name = "th_cells"
+qual = "RegionClass::th_cells"
+lines = [
+    140,
+    148,
+]
+hash = "sha256:3727956dbc621e7b3a96423facbcc750e515ab329b0921c2180079cc1b8c2eef"
+doc_hash = "sha256:74e72f5f994810bda5cc3955077a89b7a408c31b11e5a80ff493a62b11755962"
+uses = [
+    "fn:38ebd1fac36959f0",
+    "fn:9f9a7fd72868c9db",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:38ebd1fac36959f0"
+name = "CellType"
+qual = "CellType"
+item = "type"
+shape = "enum"
+lines = [
+    151,
+    160,
+]
+hash = "sha256:8fd9ecb89c716be3e3e61ef39fe8d97494e6c2c020695d6179f1f9011fac0c0a"
+doc_hash = "sha256:55e0d51c1914e18535ec4dc6b6fd89f2d1fc29c4671bb5df4f0da03e489149af"
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:9ed588089e051ee2"
+name = "label"
+qual = "CellType::label"
+lines = [
+    163,
+    171,
+]
+hash = "sha256:7ba9d0573f42f871440d2653c4644497140b7112ad521f350d05bae080d192e7"
+doc_hash = "sha256:01c55adce8f4be238b74f169e1a6561aeb0ef50b1a128911a9df4efd5e3a90bd"
+uses = ["fn:38ebd1fac36959f0"]
+
+[[module."meshes.rs".function]]
+id = "fn:ca60e8d90cee00ed"
+name = "RzBox"
+qual = "RzBox"
+item = "type"
+shape = "struct"
+lines = [
+    174,
+    184,
+]
+hash = "sha256:d419c4f5a01ac2c98bdfbfe526a42ef7ddebaa3d80e1833e1ead22a436ffc992"
+doc_hash = "sha256:61cc7e7bd46ac148a8ead421d27db6430744c640e8564fa0d25b03adfee968c7"
+reached_by = [
+    "#5",
+    "#6",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:d99c138ad46b2c51"
+name = "RzDomain"
+qual = "RzDomain"
+item = "type"
+shape = "struct"
+lines = [
+    186,
+    211,
+]
+hash = "sha256:d7dd94c3c20b8e52848b50bf5a7c5e3487516144fe0a9d0700ee2ccec42af5ee"
+doc_hash = "sha256:86458e22dee0824dc31453fbdae23d344e5d4e3623641f620e1c67ba34b71b71"
+uses = ["fn:ca60e8d90cee00ed"]
+reached_by = [
+    "#5",
+    "#6",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:2e9d3873b056f461"
+name = "RzPart"
+qual = "RzPart"
+item = "type"
+shape = "enum"
+lines = [
+    213,
+    228,
+]
+hash = "sha256:081899d23c4d45ef07cd970624ebdb08f8bed5ca5d1de14e751ba315e0f3069d"
+doc_hash = "sha256:0bae863a358ce4227e6b9438e70317d092b041a7dd03dbf21dadc0928b63a4c6"
+reached_by = [
+    "#5",
+    "#6",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:a23bb7516006ea23"
+name = "conus_radius"
+qual = "RzDomain::conus_radius"
+lines = [
+    231,
+    237,
+]
+hash = "sha256:73667f3b67e26b631fd66e168a33d659b3d6773007b71b0bdfcba683336c50d2"
+doc_hash = "sha256:90981cfda1eac70a91428238a0eef1d78fd2900ec58d3a2d29977bc21d15b67f"
+uses = ["fn:d99c138ad46b2c51"]
+reached_by = [
+    "#5",
+    "#6",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:e3966e985f89432e"
+name = "part_at"
+qual = "RzDomain::part_at"
+lines = [
+    239,
+    267,
+]
+hash = "sha256:23f1ac1a9af4b5f7d28a241c6071facf12ffc50069c01bd12e337387706c8352"
+doc_hash = "sha256:20af33b564c0978b0d334bfe3bc5c883f8dfc98a4ffd2e03c39172ee5357c0df"
+callees = ["fn:a23bb7516006ea23"]
+uses = [
+    "fn:2e9d3873b056f461",
+    "fn:d99c138ad46b2c51",
+]
+reached_by = [
+    "#5",
+    "#6",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:9284bb353039fc29"
+name = "parts"
+qual = "RzDomain::parts"
+lines = [
+    269,
+    281,
+]
+hash = "sha256:1fc25466a87a808c3448f0ea9bf0f9acd9af3a0e85f51eacd8e13f7387401cfa"
+doc_hash = "sha256:6ddd851561fd7a1f677f7fb4c8cd0b71a91f5a57480ba9cc8dadcb1706e4c006"
+uses = [
+    "fn:2e9d3873b056f461",
+    "fn:d99c138ad46b2c51",
+]
+reached_by = ["#6"]
+
+[[module."meshes.rs".function]]
+id = "fn:d03b377253341f2f"
+name = "th_profile"
+qual = "RzDomain::th_profile"
+lines = [
+    283,
+    295,
+]
+hash = "sha256:09daf47e01de22551ffe313b24fe68727271c310be048eb14880de71a9afbf86"
+doc_hash = "sha256:06d86a49afe498f1dd90777aa937646773fee7982228479dc48c1d173b3d60f5"
+uses = ["fn:d99c138ad46b2c51"]
+
+[[module."meshes.rs".function]]
+id = "fn:0949c425a5569d64"
+name = "structural_profile"
+qual = "RzDomain::structural_profile"
+lines = [
+    297,
+    311,
+]
+hash = "sha256:c13f7cd77387de09fc324389485705aedc08c2dbc048358d95591519c3b67ede"
+doc_hash = "sha256:4229012cb9769ff1f6928f8027273164d1d0a5e4ab79957c9b6a0c45887700a9"
+uses = ["fn:d99c138ad46b2c51"]
+
+[[module."meshes.rs".function]]
+id = "fn:b9b41da538d4f846"
+name = "neutronics_profile"
+qual = "RzDomain::neutronics_profile"
+lines = [
+    313,
+    322,
+]
+hash = "sha256:90a97dee270b13c00d70d839f318a38d1aab769eb00d441e05fcf3fbe230f18a"
+doc_hash = "sha256:77b3ccad9e95651e06249369cd84341afa391bb6110a0b7ac3d6c336e15030a8"
+uses = ["fn:d99c138ad46b2c51"]
+
+[[module."meshes.rs".function]]
+id = "fn:b382a0ccdf891e7d"
+name = "part_volumes"
+qual = "RzDomain::part_volumes"
+lines = [
+    324,
+    347,
+]
+hash = "sha256:e02957d195fb3df8f7e28f25ef6c0df5f7a9906bebbaa59e591eddce30cf11b0"
+doc_hash = "sha256:a9c73d6240f89bf84ba7cd27490484c43bc4e02988cc1cab15677edd3338bfd7"
+callees = [
+    "fn:9284bb353039fc29",
+    "fn:e3966e985f89432e",
+]
+uses = [
+    "fn:2e9d3873b056f461",
+    "fn:d99c138ad46b2c51",
+]
+reached_by = ["#6"]
+
+[[module."meshes.rs".function]]
+id = "fn:1ec6ae421fbe4652"
+name = "Region"
+qual = "Region"
+item = "type"
+shape = "struct"
+lines = [
+    350,
+    361,
+]
+hash = "sha256:c3349987026c6fa99cbc9b31c0732297a4aed2dd7e50cfce88f3495348845ec4"
+doc_hash = "sha256:2296ea70e4d29ce3f45604f607ceb22234baabb7cde157ddcc44c3bed26ccdc0"
+uses = ["fn:9f9a7fd72868c9db"]
+reached_by = [
+    "#5",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:193888e5c25e9aaf"
+name = "RegionMode"
+qual = "RegionMode"
+item = "type"
+shape = "enum"
+lines = [
+    363,
+    370,
+]
+hash = "sha256:a804d79bf5c28f6103c7bea0343bd7d8ac925caf79272b75b2c71321a56e8665"
+doc_hash = "sha256:87e5a464c2f2e7eeb176d85582fd9413434f1ef13efedf3feb82c0769884c28f"
+reached_by = [
+    "#5",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:a7bce7360ddfb169"
+name = "RegionMap"
+qual = "RegionMap"
+item = "type"
+shape = "struct"
+lines = [
+    372,
+    394,
+]
+hash = "sha256:bdc1758f98dbc710184a801c155f76ba641780feff0b0c790c9b4b52a242fc7f"
+doc_hash = "sha256:b1847f21c8115540b21996fc0f7c3fa64722d8e70c637d09e93fd40ad8158cdd"
+uses = [
+    "fn:193888e5c25e9aaf",
+    "fn:1ec6ae421fbe4652",
+]
+reached_by = [
+    "#5",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:acc0b179040ff3f2"
+name = "rg"
+qual = "rg"
+lines = [
+    396,
+    403,
+]
+hash = "sha256:67c10f8c928576d08489278d8d4430cc36652fc9fdcc945f3d5ef6b1f6a9d336"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:1ec6ae421fbe4652",
+    "fn:9f9a7fd72868c9db",
+]
+reached_by = [
+    "#5",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:9be5b34e38e47f4b"
+name = "basic"
+qual = "RegionMap::basic"
+lines = [
+    406,
+    510,
+]
+hash = "sha256:ea60bdf882d18571f855363fabea10701a9802bcf9dc2b95143a1abd34dca4d4"
+doc_hash = "sha256:bf74775db3e4bf8f98b7040c744a22cafcbfa86a7a2273b0345638fd8e7d947f"
+callees = ["fn:acc0b179040ff3f2"]
+uses = [
+    "fn:193888e5c25e9aaf",
+    "fn:9f9a7fd72868c9db",
+    "fn:a7bce7360ddfb169",
+    "fn:d99c138ad46b2c51",
+]
+reached_by = [
+    "#5",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:4c08a63a147877f9"
+name = "split_bed"
+qual = "RegionMap::split_bed"
+lines = [
+    512,
+    560,
+]
+hash = "sha256:ec78e4a43104219b85f09bb3fdbb6c4b4b3143c5c416d018b11eaa7de50f5446"
+doc_hash = "sha256:7fc57e1e94c31fcdd48a7dd92356013593b679bb3176bc9a67d2a299e5dde320"
+uses = [
+    "fn:193888e5c25e9aaf",
+    "fn:1ec6ae421fbe4652",
+    "fn:9f9a7fd72868c9db",
+    "fn:a7bce7360ddfb169",
+]
+reached_by = ["#5"]
+
+[[module."meshes.rs".function]]
+id = "fn:fc2068bc1dadcf54"
+name = "is_bed"
+qual = "RegionMap::is_bed"
+lines = [
+    562,
+    567,
+]
+hash = "sha256:9154b0bd9692baf08416791bc670b5385aad5e36035d15c8751be78063641b44"
+doc_hash = "sha256:9b7a0307b20b41bb087a1053881d6fc8a845335dbedd060008482dca045ff614"
+uses = ["fn:a7bce7360ddfb169"]
+
+[[module."meshes.rs".function]]
+id = "fn:598e0bb65ddfe8db"
+name = "region_at"
+qual = "RegionMap::region_at"
+lines = [
+    569,
+    588,
+]
+hash = "sha256:5c0a3e4425a370ce967ee6a6d93ebac618130221320e49a61f6d1f2bcf6a0c33"
+doc_hash = "sha256:534e41d8ca84341170574028f655cbfb3fa9d01e65f15ee4ab7588e523a45815"
+callees = ["fn:e3966e985f89432e"]
+uses = [
+    "fn:2e9d3873b056f461",
+    "fn:a7bce7360ddfb169",
+    "fn:d99c138ad46b2c51",
+]
+reached_by = ["#5"]
+
+[[module."meshes.rs".function]]
+id = "fn:0a7acc089486c386"
+name = "exact_volumes"
+qual = "RegionMap::exact_volumes"
+lines = [
+    590,
+    609,
+]
+hash = "sha256:8e9876f9b14977473a8a8062fce74b2f9886e55a4fe0ab6560cecb5e722709a2"
+doc_hash = "sha256:13d66ad77aa77489c5bc9ad441377fa25c00cb242242ead5f2422ad8c444129e"
+callees = ["fn:598e0bb65ddfe8db"]
+uses = [
+    "fn:a7bce7360ddfb169",
+    "fn:d99c138ad46b2c51",
+]
+reached_by = ["#5"]
+
+[[module."meshes.rs".function]]
+id = "fn:42765c34a5b54281"
+name = "assign_box"
+qual = "RegionMap::assign_box"
+lines = [
+    611,
+    625,
+]
+hash = "sha256:a517b769492a74563991ee6ff599501ba7986700c2af93fd03fd36e2e633bf8a"
+doc_hash = "sha256:27914d7b1a176df5bb06b001b1547d2c84948ffaf7ac51ab1773f21f2657f255"
+uses = [
+    "fn:193888e5c25e9aaf",
+    "fn:a7bce7360ddfb169",
+]
+reached_by = ["#5"]
+
+[[module."meshes.rs".function]]
+id = "fn:39732376c6107087"
+name = "add_region"
+qual = "RegionMap::add_region"
+lines = [
+    627,
+    632,
+]
+hash = "sha256:1cf33a5ca858b050d9eba51c3dc139426b34a87b1230085c2690fa160cc77e4e"
+doc_hash = "sha256:4fa08edebee057a655947a3bce224feb6ca7c6ace77b5813ecd7cbfdde3464f9"
+callees = ["fn:acc0b179040ff3f2"]
+uses = [
+    "fn:193888e5c25e9aaf",
+    "fn:9f9a7fd72868c9db",
+    "fn:a7bce7360ddfb169",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:371acee77be2dd46"
+name = "RoleSettings"
+qual = "RoleSettings"
+item = "type"
+shape = "struct"
+lines = [
+    635,
+    651,
+]
+hash = "sha256:9373cd8e6b617e81a158d568daa87ded4e1c0e4fa54f3ae702f11f7249d0d4e6"
+doc_hash = "sha256:b41af1b4721b4353d7a93ccab2e391361c66a9ffd4e4ac66e6ee991253fde847"
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:f4464574d1b287f3"
+name = "MeshPlan"
+qual = "MeshPlan"
+item = "type"
+shape = "struct"
+lines = [
+    653,
+    660,
+]
+hash = "sha256:862f7ab1fdcbc3782038131e0c30a07e8c490ad217da92ba68016b4377f3bbcb"
+doc_hash = "sha256:4f5b04ba3931539b5b09ba63f5e2d3ef2d7ab23d172659a5ae747a89798ffb9b"
+uses = [
+    "fn:371acee77be2dd46",
+    "fn:a7bce7360ddfb169",
+]
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:45e78e6e0a100b5c"
+name = "default_for"
+qual = "MeshPlan::default_for"
+lines = [
+    663,
+    697,
+]
+hash = "sha256:0df5f67bba4e7e11d8562f29c1056991e3d44232431c39259f514e9ec66c2562"
+doc_hash = "sha256:e2f14952b0e8be730f120d035e8d22307c7f4342c2ede5890affd4bce2733373"
+callees = ["fn:9be5b34e38e47f4b"]
+uses = [
+    "fn:371acee77be2dd46",
+    "fn:a7bce7360ddfb169",
+    "fn:d99c138ad46b2c51",
+    "fn:f4464574d1b287f3",
+]
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:abb50d482bcfa9ec"
+name = "RegionVolume"
+qual = "RegionVolume"
+item = "type"
+shape = "struct"
+lines = [
+    700,
+    711,
+]
+hash = "sha256:a77ec092f0caf16f7ce9f658220cd3c5b95c4de62fd485b718ae05f3dc8fb0c1"
+doc_hash = "sha256:eb579ce508b5d595cc13353d559f5d1eba51bcfee41264b10756dbf83f246ce0"
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:0eee592e15dc891e"
+name = "MeshSummary"
+qual = "MeshSummary"
+item = "type"
+shape = "struct"
+lines = [
+    713,
+    750,
+]
+hash = "sha256:6d9823f73c0dfcf90942a122bafd860642c93d5445ac9112e944fe8cd5e56b3d"
+doc_hash = "sha256:a3cd0e1ffd6a6004205986f805a66c2dc026658895e664c2cc879742543beda3"
+uses = [
+    "fn:38ebd1fac36959f0",
+    "fn:90e023debe155188",
+    "fn:abb50d482bcfa9ec",
+]
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:3fff613c688ef53b"
+name = "MeshMapping"
+qual = "MeshMapping"
+item = "type"
+shape = "struct"
+lines = [
+    752,
+    773,
+]
+hash = "sha256:13f2c8e148e90fcd9b27dfbc39541baaa97777e42d9c49b91b62f0818126f889"
+doc_hash = "sha256:4d6a0760b7f0720a9e986414c7314aa8b7d51b755eb5e7628e534d5fcae8bd9a"
+uses = ["fn:90e023debe155188"]
+reached_by = [
+    "#4",
+    "#9",
+]
+
+[[module."meshes.rs".function]]
+id = "fn:3a3e254e740fa7e3"
+name = "map"
+qual = "MeshMapping::map"
+lines = [
+    776,
+    791,
+]
+hash = "sha256:838a6b65dd39f9f64425ee31fb458042616240276e81cb5cb55730fe6f841cdb"
+doc_hash = "sha256:48d8c506edbf5507c3557bb944552a1dcce3b64501730de60617ea2abf2584b1"
+uses = ["fn:3fff613c688ef53b"]
+reached_by = ["#4"]
+
+[[module."meshes.rs".function]]
+id = "fn:d24073789a63d561"
+name = "genfoam_default_fields"
+qual = "genfoam_default_fields"
+lines = [
+    794,
+    822,
+]
+hash = "sha256:c2edececbe4a7e2049c00f06648e72fb3bb857255e0fe8fa1b095c8d103d8b03"
+doc_hash = "sha256:889c4b5a001b47ff12f77b38f2c6f0997844c83d7a0e929d7d34bee395b53804"
+uses = ["fn:90e023debe155188"]
+
+[[module."meshes.rs".function]]
+id = "fn:cfdee4b01add8050"
+name = "MeshSet"
+qual = "MeshSet"
+item = "type"
+shape = "struct"
+lines = [
+    824,
+    835,
+]
+hash = "sha256:90abf94ad2f869ca0196bc144725d30c65ead5e652bbdb405fb6cf46087d85a6"
+doc_hash = "sha256:dc6fb0621c93b66a5cfef5ee5be9a05a65aa18129204f139cdb598c25eae7ed5"
+uses = [
+    "fn:0eee592e15dc891e",
+    "fn:3fff613c688ef53b",
+    "fn:d99c138ad46b2c51",
+    "fn:f4464574d1b287f3",
+]
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:f1a9bc8585f3565b"
+name = "mapping"
+qual = "MeshSet::mapping"
+lines = [
+    838,
+    842,
+]
+hash = "sha256:132fb0fe0f2e49d22b6c2ec942620a0f8e7074be02edf5852c24be485c1a1a5e"
+doc_hash = "sha256:ecbf6c318f150eb0fd38c1fc50482e414389948f7cae245aac8537ecb6fc52f3"
+uses = [
+    "fn:3fff613c688ef53b",
+    "fn:90e023debe155188",
+    "fn:cfdee4b01add8050",
+]
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:0c392680e90d6fe2"
+name = "mesh"
+qual = "MeshSet::mesh"
+lines = [
+    844,
+    848,
+]
+hash = "sha256:c3bfc1439feb7ce8db2e1aad613192c076dd8f39983daa15bb932e789bb0d7b6"
+doc_hash = "sha256:0533afbaf99dfab776f2556bc8faa8b512357744b1f16729e5fd95924a7f1d0e"
+uses = [
+    "fn:0eee592e15dc891e",
+    "fn:90e023debe155188",
+    "fn:cfdee4b01add8050",
+]
+reached_by = ["#9"]
+
+[[module."meshes.rs".function]]
+id = "fn:406b6e6ee9fc5f97"
+name = "NotAvailable"
+qual = "NotAvailable"
+item = "type"
+shape = "struct"
+lines = [
+    851,
+    860,
+]
+hash = "sha256:038130f7a27c5cde64d89efd7bdfa744f13e6d1f99f83785e402a93d128bfd8a"
+doc_hash = "sha256:3da3137afacff81a3ad0d9182d62e3f6fe5b3bd01d6ad2aa025917f78e424e30"
+
+[[module."meshes.rs".function]]
+id = "fn:680fa47ab074126f"
+name = "not_available"
+qual = "not_available"
+lines = [
+    862,
+    892,
+]
+hash = "sha256:8e2b533791926f383b87bbb6a6e824ce1928ccb3c69a32a4e7fa7894410d7955"
+doc_hash = "sha256:31653e75901c88ad60615b878e48ac7111e4b61f665ce51949b54f50d333bd99"
+uses = ["fn:406b6e6ee9fc5f97"]
+
+[[module."meshes.rs".function]]
+id = "fn:3099754e090c7a47"
+name = "htr10_like"
+qual = "htr10_like"
+lines = [
+    898,
+    932,
+]
+hash = "sha256:6ff63e304ae1d9bf44d2073214b454964d987c4f4ec8877e63b317ea37a9b686"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:ca60e8d90cee00ed",
+    "fn:d99c138ad46b2c51",
+]
+test = true
+
+[[module."meshes.rs".function]]
+id = "fn:9c23869a10cc5780"
+name = "the_parts_tile_the_model"
+qual = "the_parts_tile_the_model"
+lines = [
+    934,
+    947,
+]
+hash = "sha256:4c79951d65e910361f175434e62c14cc1b50678a62bfe25f18b8aefefe10b34a"
+doc_hash = "sha256:f0c367e0dccc0b27c601327c663ecb68846e56d98628b2350014dba7e99f5fd0"
+callees = [
+    "fn:3099754e090c7a47",
+    "fn:b382a0ccdf891e7d",
+    "fn:e3966e985f89432e",
+]
+uses = ["fn:2e9d3873b056f461"]
+test = true
+
+[[module."meshes.rs".function]]
+id = "fn:2eb7756ad4386713"
+name = "splitting_the_bed_keeps_every_region_consistent"
+qual = "splitting_the_bed_keeps_every_region_consistent"
+lines = [
+    949,
+    969,
+]
+hash = "sha256:a2c4f561af55f44edf90d61171fbf1daa5d7323ab3614b1ea83b4064432f2912"
+doc_hash = "sha256:2c548a1937fd9a821e0fe7f435da8b5da66f392ee4ce5b25570640e0cf8d9405"
+callees = [
+    "fn:0a7acc089486c386",
+    "fn:3099754e090c7a47",
+    "fn:42765c34a5b54281",
+    "fn:4c08a63a147877f9",
+    "fn:9be5b34e38e47f4b",
+]
+uses = [
+    "fn:193888e5c25e9aaf",
+    "fn:a7bce7360ddfb169",
+]
+test = true
+
+[[module."meshes.rs".function]]
+id = "fn:e58a0b4abb3d55b5"
+name = "mapping_follows_upstream_semantics"
+qual = "mapping_follows_upstream_semantics"
+lines = [
+    971,
+    986,
+]
+hash = "sha256:591593a667b392fbe4c7dc2532bf6b549c062237b8bc23d856a6e6767c9cf0ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3a3e254e740fa7e3"]
+uses = [
+    "fn:3fff613c688ef53b",
+    "fn:90e023debe155188",
+]
+test = true
+
+[module."mgxs.rs"]
+path = "crate::workbench::mgxs"
+
+[[module."mgxs.rs".function]]
+id = "fn:91690e6abdbf991b"
+name = "InterpLaw"
+qual = "InterpLaw"
+item = "type"
+shape = "enum"
+lines = [
+    43,
+    53,
+]
+hash = "sha256:ab5be0132337ed7e68310bf0c4c142bb61679fbefbd000c6406fa799690a5340"
+doc_hash = "sha256:98af2d7b2088759fb4aa1667914a5f5f9710896257175efc50e57a3ccbd85dc1"
+reached_by = [
+    "#7",
+    "#9",
+]
+
+[[module."mgxs.rs".function]]
+id = "fn:566c484d9aabea68"
+name = "transform"
+qual = "InterpLaw::transform"
+lines = [
+    56,
+    64,
+]
+hash = "sha256:578bdb1ed58e7fa95c9c3bb83cbb404808b1bf4c198e2f3a876b33a0c959564f"
+doc_hash = "sha256:58a76241228483dc9a2ea41a6e77d80f11a911d81c7cf3d0df731cb09951bbf6"
+uses = ["fn:91690e6abdbf991b"]
+reached_by = ["#7"]
+
+[[module."mgxs.rs".function]]
+id = "fn:158f587838897c95"
+name = "keyword"
+qual = "InterpLaw::keyword"
+lines = [
+    66,
+    74,
+]
+hash = "sha256:ac1ced7eea881003c48c5f5457347e8b86d0b917fb0a686dfe14cffe0c3aa15d"
+doc_hash = "sha256:e9978ae96b040400428046fcdd950104ce6bce3317e6f69583bb2d540a8a093d"
+uses = ["fn:91690e6abdbf991b"]
+
+[[module."mgxs.rs".function]]
+id = "fn:a9740989bef10115"
+name = "label"
+qual = "InterpLaw::label"
+lines = [
+    76,
+    84,
+]
+hash = "sha256:79f972361e4d9bfe3b09a5aa9e4a67cfc6ebaf2a680ff46aa35900caa35cc6a3"
+doc_hash = "sha256:01c55adce8f4be238b74f169e1a6561aeb0ef50b1a128911a9df4efd5e3a90bd"
+uses = ["fn:91690e6abdbf991b"]
+
+[[module."mgxs.rs".function]]
+id = "fn:2a6149b29c2a0b3c"
+name = "GroupPreset"
+qual = "GroupPreset"
+item = "type"
+shape = "enum"
+lines = [
+    87,
+    98,
+]
+hash = "sha256:4e153abf2a906452d35ea4002dd2f1222f5e3e5ba4063992c1d694761ea25e9e"
+doc_hash = "sha256:d1503e79b50091e252deaed29a99ae503dc9f94255128a57237094e450d73a04"
+
+[[module."mgxs.rs".function]]
+id = "fn:20e583962a654ab5"
+name = "edges_ev"
+qual = "GroupPreset::edges_ev"
+lines = [
+    101,
+    109,
+]
+hash = "sha256:e697150764d8d19a1c822c1f960faf4718ab872dbbb8c511e2948a2210e72fa1"
+doc_hash = "sha256:90bb70cb325ff207dfdf80569b1886015d04035cae0ce7ff205f99b1dbd3f161"
+uses = ["fn:2a6149b29c2a0b3c"]
+
+[[module."mgxs.rs".function]]
+id = "fn:f04c983ba6266cd6"
+name = "label"
+qual = "GroupPreset::label"
+lines = [
+    111,
+    119,
+]
+hash = "sha256:67ff658dbc5eacc576a1a10b6cd9843b6e24434d327b9984c0a161e70f3f906a"
+doc_hash = "sha256:01c55adce8f4be238b74f169e1a6561aeb0ef50b1a128911a9df4efd5e3a90bd"
+uses = ["fn:2a6149b29c2a0b3c"]
+
+[[module."mgxs.rs".function]]
+id = "fn:29f50c8957c0e3c1"
+name = "MgxsPlan"
+qual = "MgxsPlan"
+item = "type"
+shape = "struct"
+lines = [
+    122,
+    141,
+]
+hash = "sha256:6f907193ade1da1461b93fe97391f3eed7ea90ecce510985fd413524bbe55a23"
+doc_hash = "sha256:cc269394753f3c8fece457c3d937bf58cd110c352d2652cc213b82da31a17cd6"
+uses = [
+    "fn:2a6149b29c2a0b3c",
+    "fn:91690e6abdbf991b",
+]
+
+[[module."mgxs.rs".function]]
+id = "fn:d586f77cf04a272d"
+name = "default"
+qual = "MgxsPlan::default"
+lines = [
+    144,
+    159,
+]
+hash = "sha256:c104a90f184b11268751277ff36123c05802d658b1ee0b3c5aa9608b72df94b1"
+doc_hash = "sha256:5efa43f741fd447f8c7eae71389dd7300e35f345160e5f68dea84071f925713d"
+uses = [
+    "fn:29f50c8957c0e3c1",
+    "fn:2a6149b29c2a0b3c",
+    "fn:91690e6abdbf991b",
+]
+
+[[module."mgxs.rs".function]]
+id = "fn:b0293f47a656a9cc"
+name = "RegionXs"
+qual = "RegionXs"
+item = "type"
+shape = "struct"
+lines = [
+    162,
+    193,
+]
+hash = "sha256:04b4c3c15aaf64a2bfdbc22d7dcba82d90035bc92a7457b86dcd57bcab0cdac7"
+doc_hash = "sha256:ccb1745b32e1bf21bf333d99723f0ef65dd1c336ce641e59abd0fe88888ce945"
+reached_by = [
+    "#7",
+    "#9",
+]
+
+[[module."mgxs.rs".function]]
+id = "fn:13bd9f832b446e78"
+name = "diffusion"
+qual = "RegionXs::diffusion"
+lines = [
+    196,
+    200,
+]
+hash = "sha256:97aa6bbed1efa0d9380338b65f7a7d875bca8b64c3b814a40da7e47e0147783c"
+doc_hash = "sha256:cae94352d4256634fc5f4337a10fedac4f3c31d5434cff45ba5ec5d90146dc73"
+uses = ["fn:b0293f47a656a9cc"]
+
+[[module."mgxs.rs".function]]
+id = "fn:ba089e58f612d9db"
+name = "removal"
+qual = "RegionXs::removal"
+lines = [
+    202,
+    206,
+]
+hash = "sha256:8f5e086625eb63b03d293f3a7c8f768cad76c611ad9d14e3fe0bf65c37b228c1"
+doc_hash = "sha256:a8dfdac99ec14a41a50820f1298499e9c16006a224631302f5686f871979d3ba"
+uses = ["fn:b0293f47a656a9cc"]
+
+[[module."mgxs.rs".function]]
+id = "fn:34e18544583677f3"
+name = "StateXs"
+qual = "StateXs"
+item = "type"
+shape = "struct"
+lines = [
+    209,
+    227,
+]
+hash = "sha256:d35b5613c8109323ee0202f34196a600943b0f1b2b9471f597524309ebf0bff1"
+doc_hash = "sha256:b909407f459b1c845bb976089a5386885845b7b9ce3d8deedbbd0a7a96cb4a1b"
+uses = ["fn:b0293f47a656a9cc"]
+reached_by = [
+    "#7",
+    "#9",
+]
+
+[[module."mgxs.rs".function]]
+id = "fn:07d17babc22625b2"
+name = "MgxsSet"
+qual = "MgxsSet"
+item = "type"
+shape = "struct"
+lines = [
+    229,
+    242,
+]
+hash = "sha256:9cbf9e68aed4a6393077d56f3a7efa4ae56004add38f4faf7de6ca6a24902f9a"
+doc_hash = "sha256:f376ebd7689ce09caf18ea5b5cbd30a0dc742ad18a28ddce1cd6cb5ef8be22fb"
+uses = [
+    "fn:34e18544583677f3",
+    "fn:91690e6abdbf991b",
+]
+reached_by = [
+    "#7",
+    "#9",
+]
+
+[[module."mgxs.rs".function]]
+id = "fn:1bc6bc2ef4d8cb59"
+name = "n_groups"
+qual = "MgxsSet::n_groups"
+lines = [
+    245,
+    249,
+]
+hash = "sha256:2628f7c79061be478652674c9850dc776b4baf7f3545a66431cfb46353c61468"
+doc_hash = "sha256:09e68eac260bed060a10ed6d1e41e31f1d50bbcc3ed7fbc7699bbacd5866b113"
+uses = ["fn:07d17babc22625b2"]
+reached_by = ["#9"]
+
+[[module."mgxs.rs".function]]
+id = "fn:ae7442d15eefa034"
+name = "to_toml"
+qual = "MgxsSet::to_toml"
+lines = [
+    251,
+    260,
+]
+hash = "sha256:a05e7d36f72530d567bc0974c8201842a6b870b254b9f1e4491c3b6fc01351a1"
+doc_hash = "sha256:7e607418486faa279de4d9c3b296babbbbb74d3b678131c306277b3c5e0a3c09"
+uses = ["fn:07d17babc22625b2"]
+reached_by = ["#7"]
+
+[[module."mgxs.rs".function]]
+id = "fn:4f3208d9d81e0283"
+name = "from_toml"
+qual = "MgxsSet::from_toml"
+lines = [
+    262,
+    269,
+]
+hash = "sha256:cd7e2d16130dd9d1d53eba4bf7b58e78d32015f40a6e200f316ce83731e7cbea"
+doc_hash = "sha256:1c80ff45bf788ab0446088a4a1afee4b6a02d3c78f6f3066577e1c9f9351865f"
+uses = ["fn:07d17babc22625b2"]
+reached_by = ["#7"]
+
+[[module."mgxs.rs".function]]
+id = "fn:e294af6a98b95ae9"
+name = "region"
+qual = "MgxsSet::region"
+lines = [
+    271,
+    275,
+]
+hash = "sha256:f68cbd5017bce18e2d5813ab87515a35e33b22daa12a54d3925d17ccf819b4af"
+doc_hash = "sha256:34f65fbea4f3f572d39ea078f76a1458283d06bc124b2d31bb3b91d2c2169669"
+uses = [
+    "fn:07d17babc22625b2",
+    "fn:b0293f47a656a9cc",
+]
+reached_by = ["#7"]
+
+[[module."mgxs.rs".function]]
+id = "fn:fc719ee0ba4267a7"
+name = "interpolate"
+qual = "MgxsSet::interpolate"
+lines = [
+    277,
+    333,
+]
+hash = "sha256:ce2dc02c20e7a523eac983d1c528eafd8ed90e4d47b71f5e32ab5969891b5a39"
+doc_hash = "sha256:035ac29700c39132004e28de4c59408ebe694f331291f8c1c4ecf54930863c27"
+callees = [
+    "fn:566c484d9aabea68",
+    "fn:e294af6a98b95ae9",
+]
+uses = [
+    "fn:07d17babc22625b2",
+    "fn:b0293f47a656a9cc",
+]
+reached_by = ["#7"]
+
+[[module."mgxs.rs".function]]
+id = "fn:b4b9f075a89ebdc9"
+name = "not_available"
+qual = "not_available"
+lines = [
+    336,
+    356,
+]
+hash = "sha256:404e3aacaa81964103429074b11a418062a9ea9cab306768fbd532f56fcad441"
+doc_hash = "sha256:80a929c3b0a218f667cafbbc084f7a02385b2c6bd77546fd1af214adf75cb1cf"
+uses = ["fn:406b6e6ee9fc5f97"]
+
+[[module."mgxs.rs".function]]
+id = "fn:0b91ff069077c2c9"
+name = "rx"
+qual = "rx"
+lines = [
+    362,
+    378,
+]
+hash = "sha256:9bc25598276912bb4a5febfc36d86401c946777384ce2fea208f538fd3bb9a5e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:b0293f47a656a9cc"]
+test = true
+
+[[module."mgxs.rs".function]]
+id = "fn:3d8657b7b155a8a5"
+name = "st"
+qual = "st"
+lines = [
+    380,
+    390,
+]
+hash = "sha256:3d29a676b5f1194cee2aed407ef7bb18b503a647904ea369e10b3e8d7070b2cb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0b91ff069077c2c9"]
+uses = ["fn:34e18544583677f3"]
+test = true
+
+[[module."mgxs.rs".function]]
+id = "fn:9f164e7431218f8e"
+name = "ln_t_interpolation_hits_the_mean_at_the_geometric_mean"
+qual = "ln_t_interpolation_hits_the_mean_at_the_geometric_mean"
+lines = [
+    392,
+    412,
+]
+hash = "sha256:d82479b35c2badf56f29ec4c5c139c2ee51b365f71a0c65a3478c7b4b1f81364"
+doc_hash = "sha256:d4b4f5c8a1435712cf63449159a7579bf144f0356681c15e60fbb9e82eb45c10"
+callees = [
+    "fn:3d8657b7b155a8a5",
+    "fn:4f3208d9d81e0283",
+    "fn:ae7442d15eefa034",
+    "fn:fc719ee0ba4267a7",
+]
+uses = [
+    "fn:07d17babc22625b2",
+    "fn:91690e6abdbf991b",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::workbench"
+
+[module."multiphysics.rs"]
+path = "crate::workbench::multiphysics"
+
+[[module."multiphysics.rs".function]]
+id = "fn:9193eb9d2a982a12"
+name = "SECTION_ID"
+qual = "SECTION_ID"
+item = "const"
+shape = "const"
+lines = [
+    41,
+    42,
+]
+hash = "sha256:b1ac82e00bdb34b00b1eb4e547dc6a8dd209bf41625551fdacb76751c474827d"
+doc_hash = "sha256:9c6821acc5756f5fee54568d4d2a9b21da890ecfc33452609792e15c1dca1210"
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:bc239a0f65b66760"
+name = "SECTION_HEADING"
+qual = "SECTION_HEADING"
+item = "const"
+shape = "const"
+lines = [
+    43,
+    44,
+]
+hash = "sha256:441bacbbf2d4f1a3db60071930391b853d0afb40ecd804717eaa23767cf1ffc8"
+doc_hash = "sha256:8c3995209d950740dcf537c255e8d55ccb3ef1c066372ca6ca3d998d10713338"
+reached_by = ["#10"]
+
+[[module."multiphysics.rs".function]]
+id = "fn:3d5440175b3455f3"
+name = "MultiphysicsInputs"
+qual = "MultiphysicsInputs"
+item = "type"
+shape = "struct"
+lines = [
+    48,
+    74,
+]
+hash = "sha256:843197fc2266dc6d79dc30a54c9aeaa5d25dff32d4786340fc2fdd0c524f7238"
+doc_hash = "sha256:0b0f0cec786afed224c094325196f9e2d85d867f27d1a36fafd9d5718bbec350"
+uses = [
+    "fn:07d17babc22625b2",
+    "fn:cfdee4b01add8050",
+]
+reached_by = ["#9"]
+
+[[module."multiphysics.rs".function]]
+id = "fn:1dcb812dfd1b5300"
+name = "check_for_neutronics"
+qual = "MultiphysicsInputs::check_for_neutronics"
+lines = [
+    77,
+    144,
+]
+hash = "sha256:fa15214443ce6c4ee2bfff9aa5119bb797106f7912cbf62ee9a924a453da0081"
+doc_hash = "sha256:f8d3c91e7132d9e242f09b9b1000c8738b6e651e3aa3e35793bd3f2967ac088b"
+callees = [
+    "fn:0c392680e90d6fe2",
+    "fn:1bc6bc2ef4d8cb59",
+    "fn:48fba8d37115b5c6",
+    "fn:f1a9bc8585f3565b",
+]
+uses = [
+    "fn:3d5440175b3455f3",
+    "fn:90e023debe155188",
+]
+reached_by = ["#9"]
+
+[[module."multiphysics.rs".function]]
+id = "fn:203aa9df7fa29ffb"
+name = "WallCondition"
+qual = "WallCondition"
+item = "type"
+shape = "enum"
+lines = [
+    149,
+    156,
+]
+hash = "sha256:511d778f8b17e824e2068b85c4f333cd803b09bced7ebf37e5e60ee2d502643c"
+doc_hash = "sha256:e74280cea7274804372510f0443c2893a7c98f40ac827a8f435002ac33bf6eb4"
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:e4b0772ac7931c49"
+name = "FoamSide"
+qual = "FoamSide"
+item = "type"
+shape = "struct"
+lines = [
+    158,
+    200,
+]
+hash = "sha256:6ab72f57bbcd05e10d6bc57de3932841316a265582407a73440dd20834e3e032"
+doc_hash = "sha256:cb67405b8f299120b958d9a338732893ccea69682e23e18199bea685b0da8c46"
+uses = ["fn:203aa9df7fa29ffb"]
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:88c9233a3b18b22e"
+name = "PowerShape"
+qual = "PowerShape"
+item = "type"
+shape = "enum"
+lines = [
+    202,
+    223,
+]
+hash = "sha256:525519f1d074a77059a419fb6fad453b956dd21cb41e90f62bc8a171624f8c05"
+doc_hash = "sha256:83c9fefe59688e976827f81e64c5a5b8a0fe75e2eb7e043fd4d1971f4d333b7e"
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:9d797c6b44a558e4"
+name = "is_solved"
+qual = "PowerShape::is_solved"
+lines = [
+    226,
+    231,
+]
+hash = "sha256:839d201e8f721e5c359d2dd877e856e8f806006aae842d00a854efcd6352d6ab"
+doc_hash = "sha256:59e7b9ded595faddc54703357b33248a8f37eefca36e89b3ddee8dea0459f0d9"
+uses = ["fn:88c9233a3b18b22e"]
+
+[[module."multiphysics.rs".function]]
+id = "fn:0e02caa7b7370ccc"
+name = "FeedbackWeighting"
+qual = "FeedbackWeighting"
+item = "type"
+shape = "enum"
+lines = [
+    234,
+    243,
+]
+hash = "sha256:38d3b75ef2a062a9aea139d5964078ff4a004aec3ff1962cd42f46a8268d74e6"
+doc_hash = "sha256:79e88cd7352032db5f7a519bcc72a2170dbe1d026c1214f0051b26b9a5bfa277"
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:72c3bfbee9aea78e"
+name = "NeutronicsSide"
+qual = "NeutronicsSide"
+item = "type"
+shape = "struct"
+lines = [
+    245,
+    262,
+]
+hash = "sha256:61790aa1dcf97db2257a9cf8eb91efc6601eaba793d9a7a19c4c4ff69ef69d0c"
+doc_hash = "sha256:62db28843dc1ba89b2b4bc386d799252d2cea852968e9474c3840a9755b5eeca"
+uses = [
+    "fn:0e02caa7b7370ccc",
+    "fn:88c9233a3b18b22e",
+]
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:d64e654b44221aaa"
+name = "default_power_relaxation"
+qual = "default_power_relaxation"
+lines = [
+    264,
+    266,
+]
+hash = "sha256:c19546062e23af5f8d9fbbaaa86980161a6fff34c9e8a506454c7eaeffd184e6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."multiphysics.rs".function]]
+id = "fn:44a2fd32ead46a3c"
+name = "default_power_tolerance"
+qual = "default_power_tolerance"
+lines = [
+    267,
+    269,
+]
+hash = "sha256:7b303c17aceb80d8c498a186abe81825b39bfd940f06e0703d97146c3d99f677"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."multiphysics.rs".function]]
+id = "fn:08dd553df5bb76f3"
+name = "default_k_tolerance"
+qual = "default_k_tolerance"
+lines = [
+    270,
+    272,
+]
+hash = "sha256:b57ba607dac30766a5cd093913e18630754f286951de944d1e905c6c228a94b1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."multiphysics.rs".function]]
+id = "fn:f86adf130f3f5d9a"
+name = "CouplingSettings"
+qual = "CouplingSettings"
+item = "type"
+shape = "struct"
+lines = [
+    274,
+    300,
+]
+hash = "sha256:00e00f43a5a29c27aabf8c3d58bf7d348c9f3e6c5dddddf0acf299481fdbd16d"
+doc_hash = "sha256:c8a22881c922be81a48497a2bd287c81ad73c0d0bbd423c82b8948d8cedb169a"
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:a881e976b03ab771"
+name = "StructuralSide"
+qual = "StructuralSide"
+item = "type"
+shape = "struct"
+lines = [
+    302,
+    314,
+]
+hash = "sha256:e7d7a67ca107404595b74f8815d45d0f980f39c40ef0531bc94751af39f55c7c"
+doc_hash = "sha256:a7e1f51fc94db199c1103cea3fba5397ca0b3b74cc9ca34b1ff3a535c28e4e7d"
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:668e3ece8bde6ab0"
+name = "MultiphysicsSetup"
+qual = "MultiphysicsSetup"
+item = "type"
+shape = "struct"
+lines = [
+    316,
+    333,
+]
+hash = "sha256:1d918c7dfb063b4f58e3c56bfb161ce1d043f0f5f2a584ed1873008a72d3f7e5"
+doc_hash = "sha256:fb9353f8a198ee5e232d44ec6f48faa2b5c6ed040b3688ff20d4aa6797f3989f"
+uses = [
+    "fn:295d4b53dc2d85a3",
+    "fn:4c9c60d5a4f4608a",
+    "fn:72c3bfbee9aea78e",
+    "fn:a881e976b03ab771",
+    "fn:e4b0772ac7931c49",
+    "fn:f86adf130f3f5d9a",
+]
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:a9e679d32580acc7"
+name = "SetupError"
+qual = "SetupError"
+item = "type"
+shape = "enum"
+lines = [
+    335,
+    346,
+]
+hash = "sha256:53a3af1c0c6a0ba31f8bfe5f9bd38176be68570a75a6d3a7cefd0cee331c8377"
+doc_hash = "sha256:a807c7460a30bb8fa1d76f8fdcc2ef735f1a2af7adda47bdaba19013d9498cd7"
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:54abe7199e708841"
+name = "fmt"
+qual = "SetupError::fmt"
+lines = [
+    349,
+    358,
+]
+hash = "sha256:4680439d707100811116341ae57ee98ce95ef99503a5af26fe916f7c7c8d3d9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:a9e679d32580acc7"]
+
+[[module."multiphysics.rs".function]]
+id = "fn:68fb867196e809a7"
+name = "settings_fence"
+qual = "settings_fence"
+lines = [
+    363,
+    380,
+]
+hash = "sha256:b7cbdb7885cb8251e0f13f80c1eadae5952d02e47b031069bdca2d5b76a0e4c4"
+doc_hash = "sha256:7bcf1abb56241e1210b17226d3049f5a1b9c162b15448487137afd409edc4804"
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:8837715eb9870577"
+name = "to_markdown_section"
+qual = "MultiphysicsSetup::to_markdown_section"
+lines = [
+    383,
+    417,
+]
+hash = "sha256:b6989ff737cafc6c9f3a38cfc1ffa42071b470372a39a9cc9483a8280ea3d677"
+doc_hash = "sha256:9adffeecb1c580c66a07204dfd9fb2a3c86cdd58d1b7ea9116a2aae5a18cfb1d"
+callees = ["fn:4949a3753315782a"]
+uses = [
+    "fn:668e3ece8bde6ab0",
+    "fn:6c7c5ab69eec9c19",
+    "fn:74fb8d21458a5f0e",
+    "fn:9193eb9d2a982a12",
+    "fn:a9e679d32580acc7",
+    "fn:bc239a0f65b66760",
+    "fn:f9432a8854a0448c",
+]
+reached_by = ["#10"]
+
+[[module."multiphysics.rs".function]]
+id = "fn:064232ccbe79de9c"
+name = "from_recipe_markdown"
+qual = "MultiphysicsSetup::from_recipe_markdown"
+lines = [
+    419,
+    432,
+]
+hash = "sha256:e2160c0d4d7b98d39d1598144dc6be788197ca6961a5cc04d01beb7e7777c924"
+doc_hash = "sha256:dcbe4ee1e2e11a1fb91db116a5cb240a9681a42d8f2ae9280b8a606b26fba949"
+callees = [
+    "fn:3fff6b937e3a059f",
+    "fn:68fb867196e809a7",
+    "fn:f85705ce92973218",
+]
+uses = [
+    "fn:668e3ece8bde6ab0",
+    "fn:9193eb9d2a982a12",
+    "fn:a9e679d32580acc7",
+]
+reached_by = [
+    "#8",
+    "#10",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:9ddf711f60b9a77f"
+name = "write_into"
+qual = "MultiphysicsSetup::write_into"
+lines = [
+    434,
+    450,
+]
+hash = "sha256:e226268066446e124552d400e083c5fbc0da1e4b4c4c117bab9ea8aa939b8d53"
+doc_hash = "sha256:b69c5832625ee369196f3a165dea2f5f4c7326cd59d408ff18457be51821c25c"
+callees = ["fn:8837715eb9870577"]
+uses = [
+    "fn:668e3ece8bde6ab0",
+    "fn:a9e679d32580acc7",
+]
+reached_by = ["#10"]
+
+[[module."multiphysics.rs".function]]
+id = "fn:553268f4a6ef2e6b"
+name = "fully_modelled"
+qual = "MultiphysicsSetup::fully_modelled"
+lines = [
+    452,
+    458,
+]
+hash = "sha256:7521f6f91e617f7f55f74bd73dd676310e9412d142d10c5ff9132b92d1671c79"
+doc_hash = "sha256:20cd049caa899405887168709580ffb713be6834a69a5b6797181f58c8d2256f"
+uses = [
+    "fn:668e3ece8bde6ab0",
+    "fn:f7016ab7d7ca6555",
+]
+
+[[module."multiphysics.rs".function]]
+id = "fn:1caa0a2c78a2f874"
+name = "sample"
+qual = "sample"
+lines = [
+    465,
+    523,
+]
+hash = "sha256:3e360d52d040a3122c4e0a69af1cdf19354adcde96451b4339e3817ca9ea9640"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:0e02caa7b7370ccc",
+    "fn:203aa9df7fa29ffb",
+    "fn:295d4b53dc2d85a3",
+    "fn:4c9c60d5a4f4608a",
+    "fn:668e3ece8bde6ab0",
+    "fn:72c3bfbee9aea78e",
+    "fn:88c9233a3b18b22e",
+    "fn:a881e976b03ab771",
+    "fn:e4b0772ac7931c49",
+    "fn:f7016ab7d7ca6555",
+    "fn:f86adf130f3f5d9a",
+]
+test = true
+
+[[module."multiphysics.rs".function]]
+id = "fn:143b57d2bd6715f1"
+name = "step_9_round_trips_through_kovan_markdown"
+qual = "step_9_round_trips_through_kovan_markdown"
+lines = [
+    525,
+    550,
+]
+hash = "sha256:59fc41c7ee931ccbf35aad3cb07f4725b91c1ae69ee0cd90d3480cc7ee3bd639"
+doc_hash = "sha256:5701c0bc1b5f1d5dc8d5cbb17004e4236fd99391eeb6634294bc92cb779ba9f3"
+callees = [
+    "fn:064232ccbe79de9c",
+    "fn:1caa0a2c78a2f874",
+    "fn:3fff6b937e3a059f",
+    "fn:8837715eb9870577",
+    "fn:9ddf711f60b9a77f",
+]
+uses = [
+    "fn:668e3ece8bde6ab0",
+    "fn:bc239a0f65b66760",
+]
+test = true
+
+[[module."multiphysics.rs".function]]
+id = "fn:b797c0984dd9b4a8"
+name = "an_older_recipe_has_no_step_9"
+qual = "an_older_recipe_has_no_step_9"
+lines = [
+    552,
+    556,
+]
+hash = "sha256:6663aabe672ab8b6572340d20539e333b25b7de0b9384e2a6f78ca14c15a804c"
+doc_hash = "sha256:9511af6b90d52f87ad2d11f339c8e6313567e9aa15d0fcac8c5be4f4c97cbb89"
+callees = ["fn:064232ccbe79de9c"]
+uses = ["fn:668e3ece8bde6ab0"]
+test = true
+
+[[module."multiphysics.rs".function]]
+id = "fn:491336ae5f118bfd"
+name = "neutronics_inputs_say_what_is_missing"
+qual = "neutronics_inputs_say_what_is_missing"
+lines = [
+    558,
+    654,
+]
+hash = "sha256:397de3b6d3fe8101fa379b5b659058cada8feec835aa0fd729526b6b62f12c87"
+doc_hash = "sha256:be80bf03aee8e8edb457273f342c0f5a363acd3f2789cedb9ee6bd0828a30baa"
+callees = [
+    "fn:1dcb812dfd1b5300",
+    "fn:3099754e090c7a47",
+    "fn:45e78e6e0a100b5c",
+]
+uses = [
+    "fn:07d17babc22625b2",
+    "fn:0eee592e15dc891e",
+    "fn:34e18544583677f3",
+    "fn:38ebd1fac36959f0",
+    "fn:3d5440175b3455f3",
+    "fn:3fff613c688ef53b",
+    "fn:90e023debe155188",
+    "fn:91690e6abdbf991b",
+    "fn:a7bce7360ddfb169",
+    "fn:b0293f47a656a9cc",
+    "fn:cfdee4b01add8050",
+    "fn:f4464574d1b287f3",
+]
+test = true
+
+[module."reactivity_map.rs"]
+path = "crate::workbench::reactivity_map"
+
+[[module."reactivity_map.rs".function]]
+id = "fn:4092d1c91725f10d"
+name = "MAP_FORMAT"
+qual = "MAP_FORMAT"
+item = "const"
+shape = "const"
+lines = [
+    61,
+    62,
+]
+hash = "sha256:c8acff00c10dbf2a84481f5a33e731698e462fed6db894fc2d55664ed1a84ad4"
+doc_hash = "sha256:2fd0b2c58e7cf793075a03a959e0033eb80360a28017556f93eac8042c8e7faa"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:4bad47d033fdf389"
+name = "MAP_VERSION"
+qual = "MAP_VERSION"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    64,
+]
+hash = "sha256:ffdc87a4f63f5b5a33270fb90a44b3530b9d3f2f849c714e09d3e5a17dd94286"
+doc_hash = "sha256:98d8c5e2b81879e5f4973570b4bb84aa64dadc02d01f68ca9904582eaa6d5b9c"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:0e16aab766608d40"
+name = "FIDELITY"
+qual = "FIDELITY"
+item = "const"
+shape = "const"
+lines = [
+    66,
+    70,
+]
+hash = "sha256:adb97af3c22f632379708a388a2c8e27f4ef5f5e824d90e0ffef39d6ad5ad3ea"
+doc_hash = "sha256:599d922506e2b7d3c8412560d9c7978c995719df1ec01b53b97088c1673ca0fa"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:84da0cbca59a63cf"
+name = "EVALUATION"
+qual = "EVALUATION"
+item = "const"
+shape = "const"
+lines = [
+    72,
+    78,
+]
+hash = "sha256:bd866bd40b9817bb41f8cef834c59149833425ccf5017c480eb5521097b52f74"
+doc_hash = "sha256:d038eba58f67e4d87615c0346991e48d34e63539a113687a67d2900cf3530075"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:e0b0508fd4cd189d"
+name = "AxisName"
+qual = "AxisName"
+item = "type"
+shape = "enum"
+lines = [
+    80,
+    88,
+]
+hash = "sha256:dd5797c1a191734adb638572418b2d920fb4b4347a8bc9d5c5585ded0df15b31"
+doc_hash = "sha256:67a4d47a9353c5c3d46abe00f48a50d8c6202c220f2b5860da20b06652a3ad33"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:408373aa70f7777a"
+name = "of"
+qual = "AxisName::of"
+lines = [
+    94,
+    101,
+]
+hash = "sha256:76c4688860a096bc4884864985b9f94441891d6368735bf31c99a104dc9cf396"
+doc_hash = "sha256:6970021ac8da0afe1fe82102f53c1bca168fe8e805115ed42937e90986cb7204"
+uses = [
+    "fn:cfea910aaa6d067b",
+    "fn:e0b0508fd4cd189d",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:215187c83aa703a3"
+name = "label"
+qual = "AxisName::label"
+lines = [
+    103,
+    110,
+]
+hash = "sha256:7ee500d870fe46992ec1cf00763531bbae57b0b6b545d345d53abbd98c2e2f99"
+doc_hash = "sha256:ff5ed7b514eb128c8b530312743843cba55857c4480f56d2d4c72bd03b7ba0d9"
+uses = ["fn:e0b0508fd4cd189d"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:82be2ebf1f65573b"
+name = "AxisBasis"
+qual = "AxisBasis"
+item = "type"
+shape = "enum"
+lines = [
+    113,
+    124,
+]
+hash = "sha256:79fbf7be65dd50f219cfd7e6f59fafddec96049d2a8986beeff71ae5d897d902"
+doc_hash = "sha256:93cf308cc578030a26c4a7521ced7d1f89f5718c5bbf8de91e63ab3af709352e"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:c754362dc025dc76"
+name = "u"
+qual = "AxisBasis::u"
+lines = [
+    130,
+    138,
+]
+hash = "sha256:afce25a777736c70f85d81116bd09adb9c785f15b46ee131f719e9591fff8507"
+doc_hash = "sha256:18d3db344439489fbfbba3a1290111b4c540395de210662525411f465da0d5d2"
+uses = ["fn:82be2ebf1f65573b"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:250042a387bc4291"
+name = "x"
+qual = "AxisBasis::x"
+lines = [
+    140,
+    148,
+]
+hash = "sha256:34feb55f5bb8814ba7fc7eb0ee49dfe54f8971db80f72d50f40f10fa294d19e8"
+doc_hash = "sha256:63527675b1389a811d8ec725a5a4dfc2635a117fa71ff7c6ee43634663120d27"
+uses = ["fn:82be2ebf1f65573b"]
+reached_by = ["#16"]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:59053e6b30d1d9df"
+name = "label"
+qual = "AxisBasis::label"
+lines = [
+    150,
+    158,
+]
+hash = "sha256:b079450a4e7ddeb264274e4e9df9fba4b408da4a40755838d19e02ee55701bf9"
+doc_hash = "sha256:56b834d06f5e5f4117b428f9bbda7fec0b59fbd9d30e61c257afd1f0d35b3406"
+uses = ["fn:82be2ebf1f65573b"]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:99e9bfcb78c5d0e1"
+name = "MapSettings"
+qual = "MapSettings"
+item = "type"
+shape = "struct"
+lines = [
+    161,
+    169,
+]
+hash = "sha256:6d37c38085d824feab9b1d76166d1c6bcfd11da5472ca2604063a08f94d92831"
+doc_hash = "sha256:08b5d108d51467d0b3ca3aaf47bf8ad36ffd3d268b3efdd66b02b595c2e6b23e"
+uses = ["fn:82be2ebf1f65573b"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:a4d7436d71cfb14d"
+name = "default"
+qual = "MapSettings::default"
+lines = [
+    172,
+    177,
+]
+hash = "sha256:58f20dee6c4c8f987544753c8cc3c3770c49ab76a2a3d702b0119635aba92e4a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:82be2ebf1f65573b",
+    "fn:99e9bfcb78c5d0e1",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:bc5c01b569c6cf02"
+name = "MapAxis"
+qual = "MapAxis"
+item = "type"
+shape = "struct"
+lines = [
+    180,
+    191,
+]
+hash = "sha256:ca1c3da62bcec7b27c16a04ddd815ab79848870e5b0871003fbac80989dc0b8a"
+doc_hash = "sha256:be02c11723f8adbfb523e19fee51f3997c80751608354bba697f81ac42d180d9"
+uses = [
+    "fn:82be2ebf1f65573b",
+    "fn:e0b0508fd4cd189d",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:a2bcf297d7ba727d"
+name = "FixedAxis"
+qual = "FixedAxis"
+item = "type"
+shape = "struct"
+lines = [
+    193,
+    202,
+]
+hash = "sha256:3af2bfe5001a89bb312f5f69db461b2f0ae035ab77a271924de2e3526e2a04cd"
+doc_hash = "sha256:24d1c6bcdc24ed08de3f20b48d3925c5e9ba28dba81fb5782698671a07aa5bd7"
+uses = ["fn:e0b0508fd4cd189d"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:36bbadafd05a85a7"
+name = "Term"
+qual = "Term"
+item = "type"
+shape = "struct"
+lines = [
+    204,
+    211,
+]
+hash = "sha256:43f07647b62c85ac876251320bf9ca1e4321af1f8ce1af9ef6cfccdf74343820"
+doc_hash = "sha256:4dac6f7683eaa2d885602bb6843f0621ca73a36f2de3a7f4828936e2dd590e2e"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:e19ccf7c37ff17b8"
+name = "HeldOut"
+qual = "HeldOut"
+item = "type"
+shape = "struct"
+lines = [
+    213,
+    226,
+]
+hash = "sha256:1c70f52d9a5e16556c87ad0cc8f908aa3e6c1bf8b428947918ac2e81e9f06a09"
+doc_hash = "sha256:de3b50ab86da297d85d198a3bb7adf2a52c36aff9829bd9d66d41decc4460849"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:b4c20eccc527eb84"
+name = "error_pcm"
+qual = "HeldOut::error_pcm"
+lines = [
+    229,
+    233,
+]
+hash = "sha256:bac5f19daf4f283086b4e4af9bba7c5870ec01516e43328a2c179391d55f1e98"
+doc_hash = "sha256:b3f345293528eca7d235193a1e5e7d5640c5a99d85cfceab5c9a578a498ba006"
+uses = ["fn:e19ccf7c37ff17b8"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:5353a90a791e55b7"
+name = "FitSummary"
+qual = "FitSummary"
+item = "type"
+shape = "struct"
+lines = [
+    236,
+    264,
+]
+hash = "sha256:18f3caa4ba3218d6539703a1bbf2adbcee240491f11ed22914305ca4f7aa9a2a"
+doc_hash = "sha256:8543d1a70b5ac85a7cffdc2f29c798081b8b63d6f65c9ecbd76a888e59a124b0"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:b5560d98b6d985df"
+name = "Provenance"
+qual = "Provenance"
+item = "type"
+shape = "struct"
+lines = [
+    266,
+    293,
+]
+hash = "sha256:f9831083ca973f3a59212b970526708203d233ef3351e5f235533e34b57ee9ce"
+doc_hash = "sha256:483a1417bc6d6ffa2bdb65c71aeb52f1d1ce496228ab77bf7cd843db68f13860"
+uses = ["fn:cfea910aaa6d067b"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:ae13f65272dbbd13"
+name = "from_recipe"
+qual = "Provenance::from_recipe"
+lines = [
+    296,
+    322,
+]
+hash = "sha256:8e2d163d535c91595248e4fafd167505dcdc5d7c05e553e76d44ccf519bd9dcf"
+doc_hash = "sha256:9d42530ddba5acc1bd09d83f4aa2fb8f0be1d558d80f09274b1edebea8f95689"
+callees = ["fn:779e222087e9d526"]
+uses = [
+    "fn:9669573af7fecc94",
+    "fn:b5560d98b6d985df",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:747ae6a0a70d0be4"
+name = "ReactivityMap"
+qual = "ReactivityMap"
+item = "type"
+shape = "struct"
+lines = [
+    325,
+    352,
+]
+hash = "sha256:c8adbdd2df2e61dae78f98204a31128b5acf76197739ba047dbb87c4253115b8"
+doc_hash = "sha256:c57abe6adc5384d0c78133126236ebcbd1aebf098c86bcb35d7c14868e340d40"
+uses = [
+    "fn:36bbadafd05a85a7",
+    "fn:5353a90a791e55b7",
+    "fn:a2bcf297d7ba727d",
+    "fn:b5560d98b6d985df",
+    "fn:bc5c01b569c6cf02",
+    "fn:e19ccf7c37ff17b8",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:22c772bd2e3d206d"
+name = "MapError"
+qual = "MapError"
+item = "type"
+shape = "enum"
+lines = [
+    354,
+    392,
+]
+hash = "sha256:91223dd25d4b9f14ba1885d641b822e5855af3e161af07c24e100ed52ba8bd5c"
+doc_hash = "sha256:126f9d11428e18b50cafd46925d99074c21be28b6ca7b2aef3a3760aab783cbb"
+uses = ["fn:e0b0508fd4cd189d"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:0adcb8ea84c24e82"
+name = "fmt"
+qual = "MapError::fmt"
+lines = [
+    395,
+    416,
+]
+hash = "sha256:99f0b87d54935e48cbc0c2e8ef7fedac9412c78a94c42cf162090089dee5d6b2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:215187c83aa703a3"]
+uses = ["fn:22c772bd2e3d206d"]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:669138bd3e56e267"
+name = "rho_pcm"
+qual = "rho_pcm"
+lines = [
+    421,
+    425,
+]
+hash = "sha256:3f18c207779d41715988ffc3e79b9042d21c5f52391fe88220028255a46eb14a"
+doc_hash = "sha256:aa4de47211d3df0511821a93246f4a4011049d1209bdb3c2ed18744026f5f17a"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:65fa329ba9896a82"
+name = "sigma_rho_pcm"
+qual = "sigma_rho_pcm"
+lines = [
+    427,
+    431,
+]
+hash = "sha256:d34cec7d16235b36d7c08b3e5877bd0abcc1cb6c40540ae7692cd145c8619419"
+doc_hash = "sha256:056748a1a29dbcb2ebb2adf9e6ad63d1d52bb3811a8881b64058cad227b84a54"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:779e222087e9d526"
+name = "recipe_hash"
+qual = "recipe_hash"
+lines = [
+    433,
+    447,
+]
+hash = "sha256:850f02596d299f6fcd451f0a7e31a80f82627a85918c5a030326c6518ca7c59b"
+doc_hash = "sha256:e6dc6e0fa2a3613d68a918f939478beb7f6a0c518f578f4cd27bd088068e258f"
+callees = [
+    "fn:2afcc984c7795c65",
+    "fn:af1944ad5c15fddb",
+]
+uses = ["fn:9669573af7fecc94"]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:92d0f952e3a52419"
+name = "multi_indices"
+qual = "multi_indices"
+lines = [
+    449,
+    458,
+]
+hash = "sha256:7a14161994aa5d281ea12724c412253e637a0113305963151763bdf5b5ee3482"
+doc_hash = "sha256:faf3ab8f25d5d840522da317883224fa5a2490ecc2f7ea3dbfa4e155cb0b30f2"
+callees = ["fn:53e6020f1dce61d5"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:53e6020f1dce61d5"
+name = "fill"
+qual = "fill"
+lines = [
+    460,
+    470,
+]
+hash = "sha256:ee8c12b2efadd74982d4d39cf7bcbfd101a6bcaa422c7ad026b0a131a825c57f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:1e129aed30acfde7"
+name = "basis_row"
+qual = "basis_row"
+lines = [
+    472,
+    486,
+]
+hash = "sha256:73397596c8982c13ec404678fb0c52029c6f0e70881011340428e568c8180efd"
+doc_hash = "sha256:ad1ac68069f616a0b82a5ad625be95d8001ebf1d01f0e0d894a95653b19f35c5"
+callees = ["fn:89bdbf25fa159f76"]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:da6a46e4c10783aa"
+name = "solve"
+qual = "solve"
+lines = [
+    488,
+    510,
+]
+hash = "sha256:1ecaae8865d59d77e0e6b4ef320d7f789c62b38f7e0e0eb5744ace7ec6aaf543"
+doc_hash = "sha256:a6076c51f13ccc2bb2fcf47fa86146cc5f214adb9ade8827ae6a7819c953df5d"
+callees = [
+    "fn:094f415070da869b",
+    "fn:1e129aed30acfde7",
+    "fn:357dec7edc8ba78e",
+    "fn:45926da7bbc48a45",
+    "fn:c32be21466290fa6",
+    "fn:f5c6e3617027d74f",
+]
+uses = [
+    "fn:18d6673008420ac6",
+    "fn:22c772bd2e3d206d",
+    "fn:6c57aee03a7ea8f2",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:91cc40d043b4ee9c"
+name = "same"
+qual = "same"
+lines = [
+    512,
+    515,
+]
+hash = "sha256:f2cde4fdd5fbcc2bb6e35c836956f558430c719425a087df2d0ac949c02f75c2"
+doc_hash = "sha256:4be86af832ff777e76f680cb65b9d6603c89157b0386f2ee5b14615532777535"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:808aacd6e89400d0"
+name = "fit"
+qual = "ReactivityMap::fit"
+lines = [
+    518,
+    661,
+]
+hash = "sha256:f44a01eb52b810045397acb1f8c8547057afc4dd963ed819dd99619925fe41e9"
+doc_hash = "sha256:411dcbb5e1a72063e2e579842db3f5090bcb818fdddaf410d68d216c29616ac2"
+callees = [
+    "fn:1e129aed30acfde7",
+    "fn:215187c83aa703a3",
+    "fn:408373aa70f7777a",
+    "fn:65fa329ba9896a82",
+    "fn:669138bd3e56e267",
+    "fn:7e24133b2363b2e4",
+    "fn:91cc40d043b4ee9c",
+    "fn:92d0f952e3a52419",
+    "fn:b4c20eccc527eb84",
+    "fn:c754362dc025dc76",
+    "fn:da6a46e4c10783aa",
+]
+uses = [
+    "fn:0e16aab766608d40",
+    "fn:22c772bd2e3d206d",
+    "fn:36bbadafd05a85a7",
+    "fn:4092d1c91725f10d",
+    "fn:4bad47d033fdf389",
+    "fn:5353a90a791e55b7",
+    "fn:747ae6a0a70d0be4",
+    "fn:82be2ebf1f65573b",
+    "fn:84da0cbca59a63cf",
+    "fn:99e9bfcb78c5d0e1",
+    "fn:a2bcf297d7ba727d",
+    "fn:b5560d98b6d985df",
+    "fn:bc5c01b569c6cf02",
+    "fn:cfea910aaa6d067b",
+    "fn:e0b0508fd4cd189d",
+    "fn:e19ccf7c37ff17b8",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:cf3b842115045cce"
+name = "rho_pcm_at"
+qual = "ReactivityMap::rho_pcm_at"
+lines = [
+    663,
+    708,
+]
+hash = "sha256:bc1732d0cbfa30e37ef2cfab64fe1a8e37ac639a338b13273a67de9a81d6aef8"
+doc_hash = "sha256:b94e7a1812f5080654cbf35f76b5cbf9acf3653952ee6160cb610694e0fef28a"
+callees = [
+    "fn:1e129aed30acfde7",
+    "fn:215187c83aa703a3",
+    "fn:7e24133b2363b2e4",
+    "fn:91cc40d043b4ee9c",
+    "fn:c754362dc025dc76",
+]
+uses = [
+    "fn:22c772bd2e3d206d",
+    "fn:747ae6a0a70d0be4",
+    "fn:e0b0508fd4cd189d",
+]
+reached_by = [
+    "#3",
+    "#12",
+    "#13",
+    "#15",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:68e0b698e8d6beb5"
+name = "rho_pcm"
+qual = "ReactivityMap::rho_pcm"
+lines = [
+    710,
+    721,
+]
+hash = "sha256:7769327a5cc6367f18387f76bc589aa713ad0feb498afa6709d00689439f9a70"
+doc_hash = "sha256:6e1dc288590d45972dbf94c822a4ebd5b29df3988a56b0fac26d1f648cf9c936"
+callees = ["fn:cf3b842115045cce"]
+uses = [
+    "fn:22c772bd2e3d206d",
+    "fn:747ae6a0a70d0be4",
+    "fn:e0b0508fd4cd189d",
+]
+reached_by = ["#13"]
+physical_interface = true
+
+[[module."reactivity_map.rs".function]]
+id = "fn:df198b628ad81585"
+name = "to_toml"
+qual = "ReactivityMap::to_toml"
+lines = [
+    723,
+    733,
+]
+hash = "sha256:95e71adb2c51fd2f3967f52ed17faab7ef875641bfb511addcc5ce8f5191ea86"
+doc_hash = "sha256:1bd97e7308352d7586534c41c76cb365280247ce7790366b55c4e28dc2728d09"
+uses = [
+    "fn:22c772bd2e3d206d",
+    "fn:747ae6a0a70d0be4",
+]
+reached_by = [
+    "#3",
+    "#11",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:020072d2d1d902e3"
+name = "from_toml"
+qual = "ReactivityMap::from_toml"
+lines = [
+    735,
+    753,
+]
+hash = "sha256:675403688acca39a388a33e1256fe0d8ab3465a914772da0a9fc937b8b6dbb2b"
+doc_hash = "sha256:4b055ba1c73b77e15b0f7a1f016f270040db093d50195b080b41372d92b74c42"
+uses = [
+    "fn:22c772bd2e3d206d",
+    "fn:4092d1c91725f10d",
+    "fn:4bad47d033fdf389",
+    "fn:747ae6a0a70d0be4",
+]
+reached_by = [
+    "#3",
+    "#11",
+]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:6ad5041203c86659"
+name = "grid_csv"
+qual = "ReactivityMap::grid_csv"
+lines = [
+    755,
+    780,
+]
+hash = "sha256:8e2e31b7ccd2115621e640118fa8b472e54905b956cfd700f7eb08b7222fcfc7"
+doc_hash = "sha256:ff0b47af526aa3ed0b27007c6ac2162f7405861501cbc2c74706c3b6ee1878d3"
+callees = ["fn:cf3b842115045cce"]
+uses = [
+    "fn:747ae6a0a70d0be4",
+    "fn:e0b0508fd4cd189d",
+]
+reached_by = ["#3"]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:cd55f92fff2a94e6"
+name = "plan_temperatures"
+qual = "plan_temperatures"
+lines = [
+    783,
+    810,
+]
+hash = "sha256:67755583d61d5125c59720396b68c30e88caa304a35ba223841dff7f8fa3247a"
+doc_hash = "sha256:7ff80c7f0351211c8c4f8e7d18b25137b7f3bbe4e9b9355c362b1ba10118abc5"
+callees = [
+    "fn:250042a387bc4291",
+    "fn:91cc40d043b4ee9c",
+    "fn:c754362dc025dc76",
+]
+uses = ["fn:82be2ebf1f65573b"]
+reached_by = ["#16"]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:a67815405242a216"
+name = "runs_needed"
+qual = "runs_needed"
+lines = [
+    812,
+    817,
+]
+hash = "sha256:3cce53b28308c8c9ca7b34a0aa89bda884d899921078285dc0c538c008084ddc"
+doc_hash = "sha256:16b58164ba90fa7bd270ad16210f001d9ba716c690562f72bfa1eee64acb4244"
+callees = ["fn:92d0f952e3a52419"]
+reached_by = ["#16"]
+
+[[module."reactivity_map.rs".function]]
+id = "fn:2bf7708b4a1b9ea3"
+name = "synthetic"
+qual = "synthetic"
+lines = [
+    823,
+    838,
+]
+hash = "sha256:8ae51bf19441b5a298a197d0dc393942ac7866675314d8a29be4f99867b0d3d5"
+doc_hash = "sha256:4fc30d27db878e865a1fd07325ab0d29d6a71557ac20b7edd6735859468178cd"
+uses = ["fn:cfea910aaa6d067b"]
+test = true
+
+[[module."reactivity_map.rs".function]]
+id = "fn:aa695e4e07f61523"
+name = "an_exact_sqrt_t_law_is_recovered"
+qual = "an_exact_sqrt_t_law_is_recovered"
+lines = [
+    840,
+    856,
+]
+hash = "sha256:4db772e50a1623e7c046e569363ae5fafd31a57d7f149aafe78f6537f749aaf8"
+doc_hash = "sha256:fcb14738012ffc9a58675a365d4b20eea8f189cfe86cd7b287172e63fb81ee55"
+callees = [
+    "fn:2bf7708b4a1b9ea3",
+    "fn:68e0b698e8d6beb5",
+    "fn:808aacd6e89400d0",
+]
+uses = [
+    "fn:747ae6a0a70d0be4",
+    "fn:82be2ebf1f65573b",
+    "fn:99e9bfcb78c5d0e1",
+    "fn:cfea910aaa6d067b",
+]
+test = true
+
+[[module."reactivity_map.rs".function]]
+id = "fn:9dae0c0f2c012caa"
+name = "the_held_out_error_separates_an_adequate_order_from_an_inadequate_one"
+qual = "the_held_out_error_separates_an_adequate_order_from_an_inadequate_one"
+lines = [
+    858,
+    880,
+]
+hash = "sha256:bd4e880602e1973a46a9715363fca2b0a435d4ff62dba01c9a6b44289c3427e5"
+doc_hash = "sha256:03852c233b1c4d7d03f271a1d7a1423027d7bf142030f9fcf8293691f927a87b"
+callees = [
+    "fn:2bf7708b4a1b9ea3",
+    "fn:808aacd6e89400d0",
+]
+uses = [
+    "fn:747ae6a0a70d0be4",
+    "fn:82be2ebf1f65573b",
+    "fn:99e9bfcb78c5d0e1",
+    "fn:cfea910aaa6d067b",
+]
+test = true
+
+[[module."reactivity_map.rs".function]]
+id = "fn:0c78f1bb66bfa883"
+name = "a_two_axis_map_recovers_a_bilinear_law"
+qual = "a_two_axis_map_recovers_a_bilinear_law"
+lines = [
+    882,
+    897,
+]
+hash = "sha256:84854a556fd820a23292cb5bf8c2f1d5192ee6b2edaffc05540944f63d863ecc"
+doc_hash = "sha256:bf6e394bb692a66a15a90fe760a7662e4744e7162e7001d69c53841b45a33763"
+callees = [
+    "fn:2bf7708b4a1b9ea3",
+    "fn:808aacd6e89400d0",
+    "fn:cf3b842115045cce",
+]
+uses = [
+    "fn:747ae6a0a70d0be4",
+    "fn:82be2ebf1f65573b",
+    "fn:99e9bfcb78c5d0e1",
+    "fn:e0b0508fd4cd189d",
+]
+test = true
+
+[[module."reactivity_map.rs".function]]
+id = "fn:f5f13c8b08071847"
+name = "the_map_refuses_to_extrapolate"
+qual = "the_map_refuses_to_extrapolate"
+lines = [
+    899,
+    915,
+]
+hash = "sha256:70ed5130e3171e8db99279255bc2615bc902b5b3d5d346a39a56a78feedf0b1c"
+doc_hash = "sha256:73a10613ac401ffa1362f20717ab56621e71565b40598f55c708bcc82f20c205"
+callees = [
+    "fn:2bf7708b4a1b9ea3",
+    "fn:808aacd6e89400d0",
+    "fn:cf3b842115045cce",
+]
+uses = [
+    "fn:22c772bd2e3d206d",
+    "fn:747ae6a0a70d0be4",
+    "fn:82be2ebf1f65573b",
+    "fn:99e9bfcb78c5d0e1",
+    "fn:cfea910aaa6d067b",
+    "fn:e0b0508fd4cd189d",
+]
+test = true
+
+[[module."reactivity_map.rs".function]]
+id = "fn:2a4bc7e212bbf783"
+name = "too_few_runs_or_one_state_is_refused"
+qual = "too_few_runs_or_one_state_is_refused"
+lines = [
+    917,
+    928,
+]
+hash = "sha256:b3dd784235e9673babcbc8decace6132f8ec88065af642d02344054b3ee2cc9f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2bf7708b4a1b9ea3",
+    "fn:808aacd6e89400d0",
+    "fn:a4d7436d71cfb14d",
+]
+uses = [
+    "fn:22c772bd2e3d206d",
+    "fn:747ae6a0a70d0be4",
+    "fn:99e9bfcb78c5d0e1",
+]
+test = true
+
+[[module."reactivity_map.rs".function]]
+id = "fn:39ec3645485f7541"
+name = "a_map_round_trips_through_plain_toml"
+qual = "a_map_round_trips_through_plain_toml"
+lines = [
+    930,
+    946,
+]
+hash = "sha256:c5770b08ab8ee4c22222c8910ee6a5fbd2bd220761059072e2672bb2f35a8383"
+doc_hash = "sha256:29353bbeb869c90f3b2cbc74154d58f86cd49c59b7732d9cc42afeb597d24c04"
+callees = [
+    "fn:020072d2d1d902e3",
+    "fn:2bf7708b4a1b9ea3",
+    "fn:808aacd6e89400d0",
+    "fn:df198b628ad81585",
+]
+uses = [
+    "fn:747ae6a0a70d0be4",
+    "fn:82be2ebf1f65573b",
+    "fn:99e9bfcb78c5d0e1",
+    "fn:cfea910aaa6d067b",
+]
+test = true
+
+[[module."reactivity_map.rs".function]]
+id = "fn:6e268787613b050f"
+name = "the_planner_puts_lobatto_nodes_in_the_fitting_variable_and_skips_runs_made"
+qual = "the_planner_puts_lobatto_nodes_in_the_fitting_variable_and_skips_runs_made"
+lines = [
+    948,
+    959,
+]
+hash = "sha256:f124a84db2d65b1fa5a9681ebb3e2fd9eb7566b04de99772949711e3e0f39429"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:a67815405242a216",
+    "fn:cd55f92fff2a94e6",
+]
+uses = ["fn:82be2ebf1f65573b"]
+test = true
+
+[module."recipe.rs"]
+path = "crate::workbench::recipe"
+
+[[module."recipe.rs".function]]
+id = "fn:58236c26b1ceb69d"
+name = "FORMAT"
+qual = "FORMAT"
+item = "const"
+shape = "const"
+lines = [
+    74,
+    75,
+]
+hash = "sha256:0dbdeb5bd640f5e4c6d254e4b1f3fd184d3f736dfe2c45634e8ea47c33adb220"
+doc_hash = "sha256:a34dfa84f4cc7935e4b96d51e4cc8e7af9a757ef9e5a47a906d1e055dd3c2fdc"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:0e8b492daf082b44"
+name = "VERSION"
+qual = "VERSION"
+item = "const"
+shape = "const"
+lines = [
+    76,
+    77,
+]
+hash = "sha256:ffdc87a4f63f5b5a33270fb90a44b3530b9d3f2f849c714e09d3e5a17dd94286"
+doc_hash = "sha256:3624850faca6cc16c1ddefabf682ac8650c2425b465fec345b6cd085d3e9943e"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:4c9c60d5a4f4608a"
+name = "Citation"
+qual = "Citation"
+item = "type"
+shape = "struct"
+lines = [
+    79,
+    91,
+]
+hash = "sha256:3f6cb35a16488c2f1791464b9b0f6e4a5df0f1146709369d6a27b582b2e6b272"
+doc_hash = "sha256:e7b79a819b1c99183cf281f6b4de4e57f3a7c516654661fbc3ae6d8012430b69"
+reached_by = [
+    "#2",
+    "#3",
+    "#8",
+    "#10",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:f7016ab7d7ca6555"
+name = "ElementStatus"
+qual = "ElementStatus"
+item = "type"
+shape = "enum"
+lines = [
+    93,
+    105,
+]
+hash = "sha256:4cef038b24ae4dfe7e53d3a5f2ae5fac2d803be37e58c95f0e712418db9e8500"
+doc_hash = "sha256:16989003b7a887cdb9cec43ad5eb0d0d101b0efc0c1df0bc76408048a1784834"
+reached_by = [
+    "#2",
+    "#3",
+    "#8",
+    "#10",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:cc910caf2562a1f2"
+name = "badge"
+qual = "ElementStatus::badge"
+lines = [
+    108,
+    116,
+]
+hash = "sha256:b81a3ca4410bda14962f27b12ada8283811ce865ec0cc8a56f58fa3ad7ffa371"
+doc_hash = "sha256:01c200a2863621f4f19778c0d61308be39b34d62fcea9cf7ea443d6bb6482e09"
+uses = ["fn:f7016ab7d7ca6555"]
+
+[[module."recipe.rs".function]]
+id = "fn:295d4b53dc2d85a3"
+name = "ModelElement"
+qual = "ModelElement"
+item = "type"
+shape = "struct"
+lines = [
+    119,
+    128,
+]
+hash = "sha256:7e8f172ad7388be8a43259dabd7b055b60d9ebe4327f11a8ed57530e8ccd963d"
+doc_hash = "sha256:bda9999208d876e2d47a38912509a22015d25b0335544384d256dd9f8e09e7eb"
+uses = ["fn:f7016ab7d7ca6555"]
+reached_by = [
+    "#2",
+    "#3",
+    "#8",
+    "#10",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:db2f69678cd21596"
+name = "RecipeHeader"
+qual = "RecipeHeader"
+item = "type"
+shape = "struct"
+lines = [
+    130,
+    152,
+]
+hash = "sha256:3d0bf49464bceee0c3723dd1c5232110352631b20e55b2870b8a7ad1524dec11"
+doc_hash = "sha256:b8a0836e0b668c08166fe0daa5538bcd89261d6a1aba959149dc9bd7bcb22e26"
+uses = ["fn:d453c8dc212cd7f2"]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:25a5747333d05fbc"
+name = "reactor_type"
+qual = "RecipeHeader::reactor_type"
+lines = [
+    155,
+    159,
+]
+hash = "sha256:9afe0dd764fd89aaea63d37e321d1e27c3f3ecb9980853c318bef99675f82016"
+doc_hash = "sha256:81ad19c32319595645f11861f85d0c8ca9594f6108cc5088093ca8e08e7c7593"
+callees = ["fn:37c3e6c9e7548294"]
+uses = [
+    "fn:79c21190871fed09",
+    "fn:db2f69678cd21596",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:b4b2893e975b26aa"
+name = "NuclearDataStep"
+qual = "NuclearDataStep"
+item = "type"
+shape = "struct"
+lines = [
+    162,
+    174,
+]
+hash = "sha256:c576e762213d7dcedda14e7fbfd95f6a0ae2af94c0192e2abd9a36bbe451395b"
+doc_hash = "sha256:4bfa3416213e29407c6b983ebf87e9b21b49b83d685d93c066c126957ab150ba"
+uses = ["fn:4c9c60d5a4f4608a"]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:f7ebc9b905c93ffd"
+name = "temperature"
+qual = "NuclearDataStep::temperature"
+lines = [
+    177,
+    181,
+]
+hash = "sha256:79852c8cb8772abacc5ed103c7e015dce76f7895e56e4593b20f26db5dfeee70"
+doc_hash = "sha256:55f53603fa0af559c283b6d99680df8fa5fc350c8b695573259b90f48ba68669"
+uses = ["fn:b4b2893e975b26aa"]
+physical_interface = true
+
+[[module."recipe.rs".function]]
+id = "fn:1eb95cda189b3a1b"
+name = "PebbleMix"
+qual = "PebbleMix"
+item = "type"
+shape = "struct"
+lines = [
+    184,
+    195,
+]
+hash = "sha256:32590ba085275e5393ee6a49645eee58ee5915c57724b1af722f61fa48a36d45"
+doc_hash = "sha256:de452b47b638990e2cec51e4b326ffb48448b7fe11fbce571c562c28b6933b87"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:80e03265b38f2d78"
+name = "total"
+qual = "PebbleMix::total"
+lines = [
+    198,
+    202,
+]
+hash = "sha256:36f1374f5257a5cad2b725d0999a109fd781d712d8f0382f14e9a5feb44228d4"
+doc_hash = "sha256:c4804d74eed832966bea6176a0904476c4774d948c8eb45fb271dce51d93cb57"
+uses = ["fn:1eb95cda189b3a1b"]
+
+[[module."recipe.rs".function]]
+id = "fn:5aaa8be97c966d6b"
+name = "PebbleBedStep"
+qual = "PebbleBedStep"
+item = "type"
+shape = "struct"
+lines = [
+    205,
+    228,
+]
+hash = "sha256:1a000bb8a904e20efa4d276c62b740e145ee3b8816d7db89ed18aac7cc49ee17"
+doc_hash = "sha256:92134b5d43917713c403cab64105dff84a8b99ab6ebe3e3fcf3403eee13ebacf"
+uses = [
+    "fn:1eb95cda189b3a1b",
+    "fn:2201fbd7b9eaa049",
+    "fn:4c9c60d5a4f4608a",
+    "fn:69e5a3ab858d7f77",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:2201fbd7b9eaa049"
+name = "BedSource"
+qual = "BedSource"
+item = "type"
+shape = "enum"
+lines = [
+    230,
+    240,
+]
+hash = "sha256:0e3a96dc0d6de18fbd17e5c35a583c03aa7880a601b1fc4ef398ca34acbf4a66"
+doc_hash = "sha256:86f11a90a48224b0838e0245ff3f5e9e3f80221ee630e444c3e83fb8d9ca72f9"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:69e5a3ab858d7f77"
+name = "DemPour"
+qual = "DemPour"
+item = "type"
+shape = "struct"
+lines = [
+    242,
+    263,
+]
+hash = "sha256:38d34c91bef9c905b24061989d99660f6d8395ba7e7d8158294bb03845aaad01"
+doc_hash = "sha256:6c3da141584ee352e9388176c3fad8e57db5f8be832a64e6795886366d0b26ae"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:40e0c3d1c128e70f"
+name = "Triso"
+qual = "Triso"
+item = "type"
+shape = "struct"
+lines = [
+    265,
+    278,
+]
+hash = "sha256:fede69573ee1e0a797f4b79e8449a2eaf24633a1ffd3b00c70d8d874e167f40e"
+doc_hash = "sha256:94fb151aa6244071e760752292ce0c08ebbdd46e53c103cae3097b50dcabc574"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:89755234feea71d4"
+name = "PebbleDesign"
+qual = "PebbleDesign"
+item = "type"
+shape = "struct"
+lines = [
+    280,
+    295,
+]
+hash = "sha256:30e93706bf310f3bf5d4d2d6de4cb21203196195de4d46d40957bff154283f60"
+doc_hash = "sha256:c0292968462f96ce5b4693ea2a3ff149f8cd77f1bc18ebdccf81905d048a3b4a"
+uses = ["fn:40e0c3d1c128e70f"]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:b74271f5455e11ec"
+name = "PebbleDesignStep"
+qual = "PebbleDesignStep"
+item = "type"
+shape = "struct"
+lines = [
+    297,
+    308,
+]
+hash = "sha256:7f023a761e1d5fa1af825fdfdb114377a2bd7412063dd5ca649203cb56652686"
+doc_hash = "sha256:0ec4494a2916ee5f1a58bd9f94f21673492d53058b9fbec81e3dff0d8aec7277"
+uses = [
+    "fn:4c9c60d5a4f4608a",
+    "fn:89755234feea71d4",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:f5918637de777243"
+name = "ReflectorStep"
+qual = "ReflectorStep"
+item = "type"
+shape = "struct"
+lines = [
+    310,
+    325,
+]
+hash = "sha256:b4fda5a0d88034913a94aaae56cbe94374342f743fb28dea4b82ba9d1e8cdb45"
+doc_hash = "sha256:f65923e9bf2a9be925fa8ffc9db319bbf5e434defc66fefb85d79089605f516d"
+uses = [
+    "fn:295d4b53dc2d85a3",
+    "fn:4c9c60d5a4f4608a",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:40ac9ae8e504b399"
+name = "InsertStep"
+qual = "InsertStep"
+item = "type"
+shape = "struct"
+lines = [
+    327,
+    344,
+]
+hash = "sha256:0737ca36e0f8f25036bc0012d9ff18fb42e40592e753dfbcea92af6697ab09ef"
+doc_hash = "sha256:039f72902825557c7f68108a46991565df876070e467e73a3bcdaea24e700a2a"
+uses = [
+    "fn:295d4b53dc2d85a3",
+    "fn:4c9c60d5a4f4608a",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:4979e79ea28ffb76"
+name = "ReviewGate"
+qual = "ReviewGate"
+item = "type"
+shape = "struct"
+lines = [
+    346,
+    355,
+]
+hash = "sha256:2a9ec93ef3b564b8f7073f2289448e6d513ecbba8d69a83e02cef560f1e0b633"
+doc_hash = "sha256:d5ac622ea650f5a9dbb34a863597356d3ee8838a62e96373843cc46ea3ce802d"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:704bb7aad6a09445"
+name = "passed"
+qual = "ReviewGate::passed"
+lines = [
+    358,
+    362,
+]
+hash = "sha256:ba57e3cca22911eae471d86d7de90ab1c50badb6899a767d4002e634e66ef04a"
+doc_hash = "sha256:979a96cc96cc9ff2a1e56098f3b03d8c77a16ec525c7ee555b9a12e5225ca104"
+uses = ["fn:4979e79ea28ffb76"]
+
+[[module."recipe.rs".function]]
+id = "fn:cfea910aaa6d067b"
+name = "RunRecord"
+qual = "RunRecord"
+item = "type"
+shape = "struct"
+lines = [
+    365,
+    389,
+]
+hash = "sha256:b19f636b4ee25e82bf2672f9e95f2c79f9c778a26ec97f46af97fd1d1ad3bd9b"
+doc_hash = "sha256:8d6a148ae68d1b75bbfb05ccaea0f05e2962d4840ba1b4496dec291d9126ba36"
+reached_by = [
+    "#2",
+    "#3",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:66d7990450c8723d"
+name = "MonteCarloStep"
+qual = "MonteCarloStep"
+item = "type"
+shape = "struct"
+lines = [
+    391,
+    422,
+]
+hash = "sha256:edf58e46d7a7630800f8d89e6ef896395f4c8b63c3efe8ab00e03af606908a3d"
+doc_hash = "sha256:b81e5021ddb5329be6ca42ea0ae2d16e9bc5e69d21ea019cbea9795858a07391"
+uses = [
+    "fn:4c9c60d5a4f4608a",
+    "fn:cfea910aaa6d067b",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:9ca91aeb10e25753"
+name = "Branch"
+qual = "Branch"
+item = "type"
+shape = "enum"
+lines = [
+    424,
+    434,
+]
+hash = "sha256:e308d92c8e4513e4e37418443ecfbed0430ed286a15d7ab2bf3aaa79499ae211"
+doc_hash = "sha256:88e557d4b25e92932dbebf77fb6fb0dfca291b746e3c7815b14d1547912bafa4"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:df756a13ab37f988"
+name = "BranchStep"
+qual = "BranchStep"
+item = "type"
+shape = "struct"
+lines = [
+    436,
+    451,
+]
+hash = "sha256:9724c30afcb13fa0caf3e799f08bc6275cd942c28fd5fa00cce948fb3ebea451"
+doc_hash = "sha256:a3cd28de08513d99d4e6b1db45ee86d098272771cc771aaa6511ad6408352919"
+uses = [
+    "fn:99e9bfcb78c5d0e1",
+    "fn:9ca91aeb10e25753",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:2afcc984c7795c65"
+name = "default"
+qual = "BranchStep::default"
+lines = [
+    454,
+    462,
+]
+hash = "sha256:913ad6d93a63723baa9cc91acc6eb6e99a63c09968e7eaf3e2c3ef6a41632f56"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:a4d7436d71cfb14d"]
+uses = [
+    "fn:99e9bfcb78c5d0e1",
+    "fn:9ca91aeb10e25753",
+    "fn:df756a13ab37f988",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:9669573af7fecc94"
+name = "Recipe"
+qual = "Recipe"
+item = "type"
+shape = "struct"
+lines = [
+    465,
+    487,
+]
+hash = "sha256:afa815171706a001eebfaaed6035aed342f6dc347f1b9b3eb435b23c84488d6e"
+doc_hash = "sha256:7d7310298bb011e8445944a88274c82e2466f71f3cc081a6f3088204f149e3fb"
+uses = [
+    "fn:40ac9ae8e504b399",
+    "fn:4979e79ea28ffb76",
+    "fn:5aaa8be97c966d6b",
+    "fn:66d7990450c8723d",
+    "fn:b4b2893e975b26aa",
+    "fn:b74271f5455e11ec",
+    "fn:db2f69678cd21596",
+    "fn:df756a13ab37f988",
+    "fn:f5918637de777243",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:687cfeb6e4cb706d"
+name = "RecipeError"
+qual = "RecipeError"
+item = "type"
+shape = "enum"
+lines = [
+    489,
+    510,
+]
+hash = "sha256:a753bc453664e597398a5d713b4273e4c51f0df776c674ca1ae64ae601c5f5d5"
+doc_hash = "sha256:9c2c0a7a4335fcc998cd363950062020373066ab53ddb787c1a4f2da18b19e97"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:a7fa9d2dda6e9985"
+name = "fmt"
+qual = "RecipeError::fmt"
+lines = [
+    513,
+    529,
+]
+hash = "sha256:9edd975d42cd69e71872223f2ef34ec3eded18a617b2ec99388ae86d1a872da4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:687cfeb6e4cb706d"]
+
+[[module."recipe.rs".function]]
+id = "fn:95db3752c548ced6"
+name = "SECTIONS"
+qual = "SECTIONS"
+item = "const"
+shape = "const"
+lines = [
+    534,
+    581,
+]
+hash = "sha256:5fa87b494c58b3aff771121a5dae68de4432598b556ca7a0e52d61ac14d95b5b"
+doc_hash = "sha256:17ceb23ab0610d03db8453f9a017cffaf7f63a19e03ab6e13dd88d7892be187c"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:1e9438ce6e68b452"
+name = "STEP6_ID"
+qual = "STEP6_ID"
+item = "const"
+shape = "const"
+lines = [
+    583,
+    584,
+]
+hash = "sha256:4a46544da03cdbc1d04ea320529c0ad1e46bdf7145ec7db66961a94b6f39fcc3"
+doc_hash = "sha256:a00dd02495f77b299f811844676c2fa1f1be175843f9f1734b594ad1fd71a09b"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:976957d60a74b1ec"
+name = "STEP6_HEADING"
+qual = "STEP6_HEADING"
+item = "const"
+shape = "const"
+lines = [
+    585,
+    585,
+]
+hash = "sha256:3f58f441dab74e087643f72ca1af5dd794afa2d24c1f417dbabec4dcebb858e4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:7252368060b4d874"
+name = "STEP6_PROSE"
+qual = "STEP6_PROSE"
+item = "const"
+shape = "const"
+lines = [
+    586,
+    587,
+]
+hash = "sha256:94e9845891e565775ab195b678056dd8244eddf93f15b31d02dcf0ae2d793b41"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."recipe.rs".function]]
+id = "fn:c0fac24ba7cb124d"
+name = "settings_fence"
+qual = "settings_fence"
+lines = [
+    589,
+    606,
+]
+hash = "sha256:b7cbdb7885cb8251e0f13f80c1eadae5952d02e47b031069bdca2d5b76a0e4c4"
+doc_hash = "sha256:2b8b0eec99b5d24ad3a8cc0ec42fdd283db8495c1840a1a4832e5a01488356c3"
+reached_by = [
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:af1944ad5c15fddb"
+name = "to_markdown"
+qual = "Recipe::to_markdown"
+lines = [
+    609,
+    682,
+]
+hash = "sha256:137d43f0d0f1935c71fe084135412887e88695dd044c955ba1cfb1fef45b386b"
+doc_hash = "sha256:cd107f0411a854aed7ebeb83c938d219e4af32e5e557a96b93d64a4f8bfbcbdb"
+callees = ["fn:4949a3753315782a"]
+uses = [
+    "fn:1e9438ce6e68b452",
+    "fn:687cfeb6e4cb706d",
+    "fn:6c7c5ab69eec9c19",
+    "fn:74fb8d21458a5f0e",
+    "fn:95db3752c548ced6",
+    "fn:9669573af7fecc94",
+    "fn:976957d60a74b1ec",
+    "fn:f9432a8854a0448c",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:174363db37bba78a"
+name = "from_markdown"
+qual = "Recipe::from_markdown"
+lines = [
+    684,
+    734,
+]
+hash = "sha256:e27d2a649cd30ad650804643d4b92d8e5579482a78aca8c828eb066caa2306c8"
+doc_hash = "sha256:c86de7197da98f3c90da29f3f95e4783793599e4217337b1014e98703a7c75a8"
+callees = [
+    "fn:2afcc984c7795c65",
+    "fn:3fff6b937e3a059f",
+    "fn:c0fac24ba7cb124d",
+    "fn:f85705ce92973218",
+]
+uses = [
+    "fn:0e8b492daf082b44",
+    "fn:1e9438ce6e68b452",
+    "fn:58236c26b1ceb69d",
+    "fn:687cfeb6e4cb706d",
+    "fn:9669573af7fecc94",
+    "fn:db2f69678cd21596",
+    "fn:df756a13ab37f988",
+    "fn:ea9bdaccf9952c2c",
+]
+reached_by = [
+    "#3",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:ee9470c9737ca7e2"
+name = "citations"
+qual = "Recipe::citations"
+lines = [
+    736,
+    752,
+]
+hash = "sha256:7aa5183d8d06f8f840b3e15ac57274bd8fa08a04714bbd2769a5140848d957e8"
+doc_hash = "sha256:c2c6bc8c7bc43ee2e2ba2013d3b2edda37973d89b914e2dd836f3cf6707cbc05"
+uses = [
+    "fn:4c9c60d5a4f4608a",
+    "fn:9669573af7fecc94",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:10c597b2aa82c0f4"
+name = "now_rfc3339"
+qual = "now_rfc3339"
+lines = [
+    755,
+    764,
+]
+hash = "sha256:93f42de05ee4e9863cfb7c22d30b1f70c7c8a5efcf191317661b82c3a52a2be7"
+doc_hash = "sha256:20d61805d0a8fb8458dbccd4dffcc8d43f539d1a9522ee56fc6149a326a7bafd"
+callees = ["fn:d22373763b38d7dd"]
+reached_by = ["#3"]
+
+[[module."recipe.rs".function]]
+id = "fn:d22373763b38d7dd"
+name = "rfc3339_from_unix"
+qual = "rfc3339_from_unix"
+lines = [
+    766,
+    786,
+]
+hash = "sha256:3f140e82c96acd7f7c392a61aea62f2684193d8794715aa6796c7ad6ce77ea3d"
+doc_hash = "sha256:a235d448d36a602e5b8ea45919ca71569181f3f4587e2713138715bdea728113"
+reached_by = [
+    "#3",
+    "#23",
+]
+
+[[module."recipe.rs".function]]
+id = "fn:99d4c9c3eeeddaa4"
+name = "sample"
+qual = "sample"
+lines = [
+    792,
+    914,
+]
+hash = "sha256:a7d49d7dbd8235c5fdc28b4b30dccb4b5abf8b6f62d5b38f646febb7a4508403"
+doc_hash = "sha256:a513b5f0b2c9d1a69ec02f367fc134d3b80b2a8d9294c09977057b46d9d34c4f"
+callees = ["fn:2afcc984c7795c65"]
+uses = [
+    "fn:0e8b492daf082b44",
+    "fn:1eb95cda189b3a1b",
+    "fn:2201fbd7b9eaa049",
+    "fn:295d4b53dc2d85a3",
+    "fn:40ac9ae8e504b399",
+    "fn:40e0c3d1c128e70f",
+    "fn:4979e79ea28ffb76",
+    "fn:4c9c60d5a4f4608a",
+    "fn:58236c26b1ceb69d",
+    "fn:5aaa8be97c966d6b",
+    "fn:66d7990450c8723d",
+    "fn:69e5a3ab858d7f77",
+    "fn:89755234feea71d4",
+    "fn:9669573af7fecc94",
+    "fn:9ca91aeb10e25753",
+    "fn:b4b2893e975b26aa",
+    "fn:b74271f5455e11ec",
+    "fn:cfea910aaa6d067b",
+    "fn:d453c8dc212cd7f2",
+    "fn:db2f69678cd21596",
+    "fn:df756a13ab37f988",
+    "fn:f5918637de777243",
+    "fn:f7016ab7d7ca6555",
+]
+test = true
+
+[[module."recipe.rs".function]]
+id = "fn:f0d5e6d95bf46eb7"
+name = "a_recipe_round_trips_through_kovan_markdown"
+qual = "a_recipe_round_trips_through_kovan_markdown"
+lines = [
+    916,
+    923,
+]
+hash = "sha256:3f94b77a2556d0408485a011b134c6d4884707addf07637ce631630d907f6e5a"
+doc_hash = "sha256:c60f39d4e8d3b25fb1e844dd548642f3213b28de22309bccbd59c05e416ce3ff"
+callees = [
+    "fn:174363db37bba78a",
+    "fn:99d4c9c3eeeddaa4",
+    "fn:af1944ad5c15fddb",
+]
+uses = ["fn:9669573af7fecc94"]
+test = true
+
+[[module."recipe.rs".function]]
+id = "fn:07746084b367c8e5"
+name = "kovan_reads_every_section_as_a_note_artifact"
+qual = "kovan_reads_every_section_as_a_note_artifact"
+lines = [
+    925,
+    940,
+]
+hash = "sha256:9e40ae0e3e48648efc8612417bf92ecd5efb859937e5efe9a9b0f034c6214c8a"
+doc_hash = "sha256:8bf1dfbdf3c1e07c92cdefa0c85f1d5844bd526f7d21b266b32ed24bc1a62ebf"
+callees = [
+    "fn:3fff6b937e3a059f",
+    "fn:99d4c9c3eeeddaa4",
+    "fn:af1944ad5c15fddb",
+    "fn:ed48f1495d19976f",
+]
+uses = [
+    "fn:1e9438ce6e68b452",
+    "fn:74fb8d21458a5f0e",
+    "fn:95db3752c548ced6",
+]
+test = true
+
+[[module."recipe.rs".function]]
+id = "fn:9ede94e7dbe3ab80"
+name = "a_missing_section_or_a_foreign_format_is_refused"
+qual = "a_missing_section_or_a_foreign_format_is_refused"
+lines = [
+    942,
+    955,
+]
+hash = "sha256:95a45f7246ac39bf8cf58af7f15dfa1558ac877d0c7f0075da2abf00f67835ed"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:174363db37bba78a",
+    "fn:99d4c9c3eeeddaa4",
+    "fn:af1944ad5c15fddb",
+]
+uses = [
+    "fn:687cfeb6e4cb706d",
+    "fn:9669573af7fecc94",
+]
+test = true
+
+[[module."recipe.rs".function]]
+id = "fn:def5c613c6db2c2d"
+name = "rfc3339_formats_known_instants"
+qual = "rfc3339_formats_known_instants"
+lines = [
+    957,
+    964,
+]
+hash = "sha256:1c0b3a78aaedf6428f3c667fdbfa392b4ea6edc6e28df55c2e9822060c865756"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d22373763b38d7dd"]
+test = true
+
+[[module."recipe.rs".function]]
+id = "fn:31625bb12305f6ca"
+name = "an_older_recipe_without_a_bed_source_reads_as_the_lattice"
+qual = "an_older_recipe_without_a_bed_source_reads_as_the_lattice"
+lines = [
+    966,
+    979,
+]
+hash = "sha256:65019411282a20e5b9186b2feeee37c4390b5f78a64786c261b537aaedcf3b8d"
+doc_hash = "sha256:f4f808eaae677d3ba3f64fe17daf354dbe38774c0c24cb80b7cf8386be2a3676"
+callees = [
+    "fn:174363db37bba78a",
+    "fn:99d4c9c3eeeddaa4",
+    "fn:af1944ad5c15fddb",
+]
+uses = [
+    "fn:2201fbd7b9eaa049",
+    "fn:9669573af7fecc94",
+]
+test = true
+
+[[module."recipe.rs".function]]
+id = "fn:4ea423304818b88a"
+name = "a_recipe_without_step_6_reads_as_multiphysics"
+qual = "a_recipe_without_step_6_reads_as_multiphysics"
+lines = [
+    981,
+    991,
+]
+hash = "sha256:d58959e90ba770905182f33e0770812dd74edb03a564a115e9b671481ad05e6b"
+doc_hash = "sha256:b89ba9af78d444ac6b65463108a28d2f479745c1ab55784f88f1153778116dcf"
+callees = [
+    "fn:174363db37bba78a",
+    "fn:2afcc984c7795c65",
+    "fn:99d4c9c3eeeddaa4",
+    "fn:af1944ad5c15fddb",
+]
+uses = [
+    "fn:9669573af7fecc94",
+    "fn:9ca91aeb10e25753",
+    "fn:df756a13ab37f988",
+]
+test = true
+
+[module."steps.rs"]
+path = "crate::workbench::steps"
+
+[[module."steps.rs".function]]
+id = "fn:b35b7d8f8e462268"
+name = "WizardStep"
+qual = "WizardStep"
+item = "type"
+shape = "enum"
+lines = [
+    8,
+    37,
+]
+hash = "sha256:8c009c48bf6ffde014c47ced3fe0898a205d1e4dac509b28e03e10f2ce250ac2"
+doc_hash = "sha256:245237783b818484445bf31158fcd12da5d526ac17f99bb3b1470d96bb673bbd"
+reached_by = [
+    "#24",
+    "#25",
+    "#26",
+]
+
+[[module."steps.rs".function]]
+id = "fn:c9c28df0f05fd90c"
+name = "number"
+qual = "WizardStep::number"
+lines = [
+    57,
+    76,
+]
+hash = "sha256:aae0f266611ffc02d87d93ca466af1eaa930f89c02e1695d7409633ee82b12b3"
+doc_hash = "sha256:2e061ff4743b8bdc072a5fc69b1da259e687fa3374b4cd7301cdea0b813b2ec3"
+uses = ["fn:b35b7d8f8e462268"]
+reached_by = ["#25"]
+
+[[module."steps.rs".function]]
+id = "fn:c785386883d1e441"
+name = "name"
+qual = "WizardStep::name"
+lines = [
+    78,
+    96,
+]
+hash = "sha256:8b532b204792fcd8340a82fdc5cbbb54eb08a9dd944645250a266f2ef9d84dc1"
+doc_hash = "sha256:1cd6a4c163f8d576bf620b60ff09166a9bfb0b327b72721765d13468eb737c0a"
+uses = ["fn:b35b7d8f8e462268"]
+
+[[module."steps.rs".function]]
+id = "fn:35ca6663a00050f6"
+name = "title"
+qual = "WizardStep::title"
+lines = [
+    98,
+    105,
+]
+hash = "sha256:65b2421f62bda0e4b2af80509cc3c3e61a8b81165e014dd295dd15ed7ce480f0"
+doc_hash = "sha256:3d67176834dfd37d2a7134329c58fb336d93f7fa70c395a173e0304640f30c4b"
+callees = [
+    "fn:c785386883d1e441",
+    "fn:c9c28df0f05fd90c",
+]
+uses = ["fn:b35b7d8f8e462268"]
+
+[[module."steps.rs".function]]
+id = "fn:d5a22aeeaf8fde26"
+name = "phase"
+qual = "WizardStep::phase"
+lines = [
+    107,
+    117,
+]
+hash = "sha256:c9cc71f87d82b79cacb1e9eb8f4ddaa619a9ee5074bb97e36c0148ab1f3a3052"
+doc_hash = "sha256:fc4d027a07b4e3a8619cd3eb1e5367c88de7590c8079411c7f5c85d2837e9b47"
+uses = ["fn:b35b7d8f8e462268"]
+
+[[module."steps.rs".function]]
+id = "fn:8b0d17573f3caf8b"
+name = "implemented"
+qual = "WizardStep::implemented"
+lines = [
+    119,
+    127,
+]
+hash = "sha256:0285c1d7564f3ba623010d1d9aacfb9d7244e249d2753c26ae4ff86fd53168a4"
+doc_hash = "sha256:b0114b1780b8d26736ad75361477aaf95cf91d6741bbc1a94d6cb04ce331cba2"
+uses = ["fn:b35b7d8f8e462268"]
+reached_by = [
+    "#24",
+    "#26",
+]
+
+[[module."steps.rs".function]]
+id = "fn:61c95fe2c31da256"
+name = "issue"
+qual = "WizardStep::issue"
+lines = [
+    129,
+    134,
+]
+hash = "sha256:3d7b94337a6eb26dc27436f82ef4bec9f8427fa524eea90ce006856b3f407360"
+doc_hash = "sha256:516b4fd76555ea97d2f78b0308fa4e2c1fd6cc52fe24b85f0fe862aeaf603613"
+uses = ["fn:b35b7d8f8e462268"]
+reached_by = ["#26"]
+
+[[module."steps.rs".function]]
+id = "fn:ffc5a51f282f5f5c"
+name = "guide"
+qual = "WizardStep::guide"
+lines = [
+    136,
+    201,
+]
+hash = "sha256:a09028cacd34e6c268f4365ca02f9d2fffc7ee267a467d70af764f5b1565e299"
+doc_hash = "sha256:865620eb3e162adf962d8c1b64d5265a883f616a00f6faa2b8242888ac8889a6"
+uses = ["fn:b35b7d8f8e462268"]
+
+[[module."steps.rs".function]]
+id = "fn:1296f6b0394bf708"
+name = "steps_are_numbered_zero_to_eleven_with_the_gate_between_four_and_five"
+qual = "steps_are_numbered_zero_to_eleven_with_the_gate_between_four_and_five"
+lines = [
+    208,
+    215,
+]
+hash = "sha256:56b7ff678c55c7928ef15b847f4ae83dc8b03326cb824fd6e21671ced20c3a53"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:c9c28df0f05fd90c"]
+uses = ["fn:b35b7d8f8e462268"]
+test = true
+
+[[module."steps.rs".function]]
+id = "fn:8301ec1f3bde06ac"
+name = "unimplemented_steps_name_their_issue"
+qual = "unimplemented_steps_name_their_issue"
+lines = [
+    217,
+    223,
+]
+hash = "sha256:8410c297bf0047493a67e613d71c4b590c6e6f63fe4c5078f59e4c2fd7e13d3e"
+doc_hash = "sha256:ac8a15f8300172971c1c3dea3a9d51d906faf1f29726334fd3aef15351e157a4"
+callees = [
+    "fn:61c95fe2c31da256",
+    "fn:8b0d17573f3caf8b",
+]
+uses = ["fn:b35b7d8f8e462268"]
+test = true
+
+[[module."steps.rs".function]]
+id = "fn:9a019ac301367a98"
+name = "every_step_is_built"
+qual = "every_step_is_built"
+lines = [
+    225,
+    230,
+]
+hash = "sha256:02cc8d35a374afbf44c2008c1b5564dfb6b42ac9083b42314b0865a2ad48be8b"
+doc_hash = "sha256:9c5c6a2c9db69716edb63dc2358fe53cc111b38901cda110cdce403601c19a8d"
+callees = ["fn:8b0d17573f3caf8b"]
+uses = ["fn:b35b7d8f8e462268"]
+test = true

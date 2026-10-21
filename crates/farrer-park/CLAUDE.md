@@ -1,7 +1,53 @@
 # CLAUDE.md — `farrer-park`
 
+
 Crate-specific guidance. The workspace-root `CLAUDE.md` still binds; this file
 adds to it and never relaxes it.
+
+## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
+
+**Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
+`CLAUDE.md` of `outram-mc-libs`, `nee_soon`, every `outram-foam-*` crate and
+every crate downstream of them; a crate that newly depends on one of those
+takes the rule into its own `CLAUDE.md` (check with `cargo metadata`).
+
+**Whenever you build or change a complex reactor geometry** — CSG cells and
+surfaces, lattices, pebble beds, TRISO particles, reflector zones, control-rod
+bands, a CFD/FEM mesh, anything a solver will transport or integrate through —
+**draw it, as images a human can open (PNG, or JPG/SVG), and hand them over**
+before any result computed on it is reported as more than tentative.
+
+- **Draw what the solver sees, not what you meant.** Render from the ASSEMBLED
+  geometry (cell / material lookup at each pixel, or the mesh itself), never
+  from the named constants. A picture of the constants hides exactly the
+  defects this rule exists to catch.
+- **Minimum set:** an axial slice (R-Z / x-z) of the whole model; radial (x-y)
+  slices at the heights that matter; and, for nested geometry, zoomed slices at
+  every level down to the smallest (pebble, TRISO particle). Colour by
+  material, with a legend and the key dimensions marked.
+- **Commit the images with the change** (beside the V&V record or the
+  manuscript package) and point the human at them by path in your summary.
+  Regenerate them whenever the geometry changes.
+- **Say what you checked in them, and what you could not** — an image nobody
+  was told to look at checks nothing.
+
+**Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom reflector
+mirrored from the top and up to 107 cm short; a core cavity that grew with the
+bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
+(gh:#309, #310); and a TRISO lattice holding 8240 particles while reporting
+8340 (gh:#316, +353 pcm). Every run completed with green diagnostics. Each was
+found by looking at the built geometry, not by the eigenvalue.
+
+**Tools.** ~~`outram_mc_libs::geometry::plot` samples a slice of an assembled
+CSG geometry; OpenMC-parity image output (PNG/JPG) is the preferred path once
+it lands.~~ **UPDATED 2026-09-25 — it has landed (gh:#268):**
+`outram_mc_libs::geometry::plot` is a port of OpenMC's plotter that writes PNG
+directly — slices, wireframe and solid ray traces — verified pixel-for-pixel
+against `openmc --plot`
+(`crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+`render_material_slice` draws a material-coloured slice with a legend and cm
+axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
+worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 ## What this crate is
 
@@ -72,16 +118,62 @@ result is wrong, read the MOOSE or PRISMS routine that owns the behaviour
 *before* reasoning from first principles or from this crate's own comments. In
 a translation, the overwhelmingly likely cause is that upstream does something
 the port does not — most often a bound, a guard, or a branch, not a wrong
-formula. Record what you find in the bead, including when upstream turns out to
+formula. Record what you find in the issue, including when upstream turns out to
 do exactly what we do.
 
 ## Maturity
 
-**NOT DECLARED MATURE.** The dogfooding/API-usability rule does not yet apply
-to this crate, and must not be enforced on it.
+**DECLARED MATURE 2026-09-13 by the maintainer.** The dogfooding/API-usability
+rule now applies to this crate — see "What maturity turns on" below, because it
+is not a formality.
 
-Proposed bar, for the maintainer to accept, amend or reject — an agent may
-propose maturity with cited runs and numbers but must **not** declare it:
+- 2026-09-13 — **mature.** Bar, as corrected on 2026-09-11 and met with margin:
+  observed L2 convergence order within 0.15 of theory under MMS for every
+  implemented element; patch test to 1e-12 relative; thick-walled cylinder
+  **displacement** within 1% of the closed-form Lamé solution on a converged
+  mesh, with **stress** judged on observed convergence order (1 ± 0.2 linear,
+  2 ± 0.2 quadratic) rather than an absolute tolerance. Evidence class:
+  **analytical / MMS**.
+
+  Measured at declaration, on rustc 1.98.1, release, 101 tests green:
+
+    MMS L2 / H1 order   Tri3 1.997/0.998, Quad4 1.998/1.000, Tri6 2.978/1.989,
+                        Tet4 1.957/0.969, Hex8 1.983/1.008 (theory p+1 / p)
+    patch test          9.0e-17 displacement, 1.3e-14 stress, every element
+    Lamé                u_r 2.07e-4 at order 1.998; sigma_r order 0.959
+    uniaxial J2         exact to 1.95e-14 through load, unload and reverse yield
+    Newton order        2.004, preserved under B-bar
+    crystal plasticity  analytic Schmid 1.5e-15, frame indifference 7.6e-16,
+                        Richardson-extrapolated tangent 3.6e-9
+
+  **What this bar does NOT claim.** It is verification against analytical and
+  manufactured solutions only. No published benchmark, no physical measurement,
+  and no human V&V sign-off — the `README.md` bookkeeping axes remain ❌ and are
+  the maintainer's to clear separately. Maturity here means the numerics are
+  demonstrably right, not that the physics has been shown to represent reality.
+  Do not cite this entry as validation.
+
+  Known gaps live alongside it and are not waived by the declaration: shear
+  locking is measured and uncured (`op-uqqg`), ILU(0) stagnates on nearly
+  incompressible systems (`op-ldaz`), no curved elements, small strain only so
+  no lattice reorientation or backstress (`op-tau7`), and fatigue is partial
+  (`op-q1zn`).
+
+### What maturity turns on
+
+Declaring maturity is not cosmetic. Two workspace rules begin to bind here:
+
+- **The small-model API dogfood** ("if it is too complex for Haiku, it is a bad
+  API"). Farrer Park has no Python wheel, so the literal wheel-only form does
+  not apply as written; the Rust-caller half does. Its traits should carry
+  `#[diagnostic::on_unimplemented]` naming the concrete types that implement
+  them (workspace audit `op-wiep`), and a fresh-context reader should be able to
+  assemble a case from the public API and its doc comments alone.
+- **The bar is now a standing commitment**, not an aspiration. A change that
+  degrades any number above is a regression to be reported, not a new baseline.
+
+Superseded proposals, kept because the rule says to keep them and because the
+mistake below is instructive:
 
 - 2026-09-11 (morning) — proposed bar: observed L2 convergence order within
   0.15 of theory under MMS for every implemented element; patch test satisfied
@@ -236,3 +328,13 @@ Release mode only: `cargo test --release -p farrer-park`. Keep the suite fast
 enough to run on every change — if a verification case needs a large mesh, gate
 the expensive refinement level behind `#[ignore]` and say so in its doc comment,
 rather than letting the default suite become too slow to run.
+
+## Meshing nexus: outram-blender exports into this crate (GitHub #492, 2026-10-03)
+
+`outram-blender`'s neutral `unstructured::UnstructuredMesh` is the one mesh
+description the FV, FE and Monte Carlo solvers are built from. Its `fem-export` feature converts neutral meshes to and from this crate's `mesh::Mesh` (`convert::fem`) and **calls this crate's structured generators** (`box_hex8`, `box_tet4`, `rectangle_quad4`, `rectangle_tri6`, `quarter_annulus_quad4`) through `convert::fem::FemGenerator`. The generators stay here (maintainer default). The node orderings of `element::ElementType` are the neutral mesh's, so conversion copies connectivity unchanged; do not renumber them without updating `outram_blender::unstructured::element`.
+
+**This crate must never depend on `outram-blender`** (GitHub #486 dependency
+rule 1): blender depends on this crate, optionally, to export into it, and
+Cargo counts optional dependencies when it looks for cycles. Mesh types stay
+defined here; the converters live in `outram_blender::unstructured::convert`.

@@ -1,13 +1,41 @@
 [package]
 name = "kovan-codegen"
 description = "KOVAN deterministic engineering-code generation for known numerical methods."
-version = "0.0.1"
+version = "0.0.4"
 edition.workspace = true
-license.workspace = true
+license = "AGPL-3.0-only"  # all of kovan is AGPL since 2026-10-07 (NOTICE)
+# `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
+# write-ups. Excluded so it never ships to crates.io (size, and it is
+# not part of the published API surface).
+exclude = ["docs"]
 repository.workspace = true
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 1
+topic = "knowledge-management"
+maturity = 1
 
 [dependencies]
 kovan-common.workspace = true
+# The Zotero schema generator (`zotero` module, GitHub #748) reads schema.json.
+serde.workspace = true
+serde_json.workspace = true
 # Placeholder stage: no macro/codegen crates yet. When implementing, `syn`,
 # `quote`, and `proc-macro2` are the expected additions for procedural macros;
 # declarative macros and `build.rs` generation need no extra deps.
+
+[dev-dependencies]
+# Only the test modules call transcendentals; they route through PETIR for
+# cross-platform bit identity (gh:#985).
+petir = { workspace = true }

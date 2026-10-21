@@ -30,6 +30,7 @@
 //! Units: energies in eV; cross sections in barns (1 b = 10⁻²⁴ cm²).
 //! [`WAVE_K`] is chosen so that `k` is in (10⁻¹² cm)⁻¹ and `π/k²` is in barns.
 
+use petir::mathf::RealMath;
 use crate::common::phys::{AMU_G, AMASSN_AMU, EV_ERG, PI};
 
 /// k = WAVE_K × (A/(A+1)) × √E \[eV\], giving k in (10⁻¹² cm)⁻¹.
@@ -62,16 +63,27 @@ const RC1: f64 = 0.123;
 /// See [`RC1`].
 const RC2: f64 = 0.08;
 
+/// NJOY's `third` (`reconr.f90:899`), deliberately not `1.0/3.0`.
+const THIRD: f64 = 0.333333333;
+
 /// Compute the channel radius r_a \[10⁻¹² cm\].
 ///
-/// - `naps == 0`: empirical formula `0.123·(AMASSN·AWR)^{1/3} + 0.08`.
+/// - `naps == 0`: empirical formula `0.123·(AMASSN·AWR)^{0.333333333} + 0.08`
+///   (upstream's exponent literal, see [`THIRD`]).
 /// - `naps == 1`: use `ap` (the ENDF potential scattering radius) directly.
 pub fn channel_radius(awri: f64, naps: i32, ap: f64) -> f64 {
     if naps == 1 {
         ap
     } else {
         let aw = AMASSN_AMU * awri;
-        RC1 * aw.cbrt() + RC2
+        // `ra=rc1*aw**third+rc2` with `third=.333333333e0_kr` -- a decimal
+        // literal, NOT 1/3 (`reconr.f90:899`, and the same in `unresr.f90:901`
+        // and `purr.f90:1309`). ~~`aw.cbrt()`~~ CORRECTED 2026-09-26: for
+        // AWR ~ 235 the exact cube root is ~2e-9 larger, enough to flip a
+        // 7th-figure rounding. Measured on U-235 ENDF/B-VIII.0: no change --
+        // it uses NAPS = 1, where `ra = AP` -- so this is recorded as a
+        // fidelity fix, not as the cause of any residual seen there.
+        RC1 * aw.r_powf(THIRD) + RC2
     }
 }
 
@@ -97,7 +109,9 @@ pub fn shift_and_penetrability(l: u32, rho: f64) -> (f64, f64) {
         }
         2 => {
             let r4 = r2 * r2;
-            let den = 9.0 + 3.0 * r2 + r4;
+            // `den=3*r2+r4+9` (`reconr.f90:1605`), in that order: addition is
+            // not associative in the last bit.
+            let den = 3.0 * r2 + r4 + 9.0;
             (-(18.0 + 3.0 * r2) / den, r4 * rho / den)
         }
         3 => {
@@ -128,17 +142,37 @@ pub fn shift_and_penetrability(l: u32, rho: f64) -> (f64, f64) {
 /// | 0 | ρ                                    |
 /// | 1 | ρ − atan(ρ)                          |
 /// | 2 | ρ − atan(3ρ/(3−ρ²))                 |
+///
+/// This is the unguarded form, `unresr`'s `unfac`. RECONR's resonance
+/// routines call [`facphi`], which zeroes a vanishing shift.
 pub fn phase_shift(l: u32, rho_c: f64) -> f64 {
     let r2 = rho_c * rho_c;
     match l {
         0 => rho_c,
-        1 => rho_c - rho_c.atan(),
-        2 => rho_c - (3.0 * rho_c / (3.0 - r2)).atan(),
-        3 => rho_c - ((15.0 * rho_c - rho_c * r2) / (15.0 - 6.0 * r2)).atan(),
+        1 => rho_c - rho_c.r_atan(),
+        2 => rho_c - (3.0 * rho_c / (3.0 - r2)).r_atan(),
+        3 => rho_c - ((15.0 * rho_c - rho_c * r2) / (15.0 - 6.0 * r2)).r_atan(),
         _ => {
             let r4 = r2 * r2;
-            rho_c - ((105.0 * rho_c - 10.0 * r2 * rho_c) / (105.0 - 45.0 * r2 + r4)).atan()
+            rho_c - ((105.0 * rho_c - 10.0 * r2 * rho_c) / (105.0 - 45.0 * r2 + r4)).r_atan()
         }
+    }
+}
+
+/// RECONR's hard-sphere phase shift, `facphi` (`reconr.f90:4441-4471`):
+/// [`phase_shift`], set to zero for `l >= 2` when `phi/rho < 1e-6`.
+///
+/// The guard matters at the last bit. Ti-48's d-wave at 6.7 keV has
+/// `phi/rho ~ 7e-7`; keeping `phi ~ 5e-8` moved the Reich-Moore elastic by
+/// 3e-8 relative and flipped its 7-figure rounding at four energies against
+/// NJOY2016 (GitHub #875).
+pub fn facphi(l: u32, rho: f64) -> f64 {
+    const TEST: f64 = 1.0e-6;
+    let phi = phase_shift(l, rho);
+    if l >= 2 && phi / rho < TEST {
+        0.0
+    } else {
+        phi
     }
 }
 
@@ -158,7 +192,7 @@ pub fn potential_scattering(e: f64, awri: f64, ap: f64) -> f64 {
     let k = WAVE_K * arat * e.sqrt();
     let pifac = PI / (k * k);
     let rhoc = k * ap;
-    let sinsq = rhoc.sin().powi(2);
+    let sinsq = rhoc.r_sin().r_powi(2);
     4.0 * pifac * sinsq
 }
 
@@ -221,10 +255,10 @@ pub fn eval_slbw_lstate(
     let rhoc = k * ap;
 
     let (se, pe) = shift_and_penetrability(l, rho);
-    let phi = phase_shift(l, rhoc);
-    let cos2p = (2.0 * phi).cos();
-    let sin2p = (2.0 * phi).sin();
-    let sinsq = phi.sin().powi(2);
+    let phi = facphi(l, rhoc);
+    let cos2p = (2.0 * phi).r_cos();
+    let sin2p = (2.0 * phi).r_sin();
+    let sinsq = phi.r_sin().r_powi(2);
 
     let spot = 4.0 * (2 * l + 1) as f64 * pifac * sinsq;
     let spifac = 1.0 / (2.0 * spi + 1.0);
@@ -299,9 +333,9 @@ pub fn eval_mlbw_lstate(
     let rho = k * ra;
     let rhoc = k * ap;
     let (se, pe) = shift_and_penetrability(l, rho);
-    let phi = phase_shift(l, rhoc);
-    let cos2p = 1.0 - (2.0 * phi).cos();
-    let sin2p = (2.0 * phi).sin();
+    let phi = facphi(l, rhoc);
+    let cos2p = 1.0 - (2.0 * phi).r_cos();
+    let sin2p = (2.0 * phi).r_sin();
 
     // the J sequence of this l-state and its statistical weights
     let den = 4.0 * spi + 2.0;
@@ -342,7 +376,7 @@ pub fn eval_mlbw_lstate(
     }
     let mut sig_el = 0.0;
     for j in 0..nj {
-        sig_el += gj[j] * ((cos2p - sigj[0][j]).powi(2) + (sin2p + sigj[1][j]).powi(2));
+        sig_el += gj[j] * ((cos2p - sigj[0][j]).r_powi(2) + (sin2p + sigj[1][j]).r_powi(2));
     }
     sig_el += 2.0 * diff * cos2p;
 

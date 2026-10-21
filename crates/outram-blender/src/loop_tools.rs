@@ -46,6 +46,7 @@
 //!
 //! Positions are dimensionless model-space quantities (see [`crate::math`]).
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{Mesh, VertexId};
 
@@ -107,14 +108,14 @@ pub fn circle(mesh: &Mesh, loop_verts: &[VertexId], _cyclic: bool) -> Mesh {
     let radius = pts.iter().map(|p| p.sub(c).length()).sum::<f64>() / pts.len() as f64;
     let a0 = {
         let d = pts[0].sub(c);
-        d.dot(v).atan2(d.dot(u))
+        d.dot(v).r_atan2(d.dot(u))
     };
     let n = loop_verts.len();
     for (k, vid) in loop_verts.iter().enumerate() {
         let a = a0 + std::f64::consts::TAU * k as f64 / n as f64;
         positions[vid.0] = c
-            .add(u.scale(radius * a.cos()))
-            .add(v.scale(radius * a.sin()));
+            .add(u.scale(radius * a.r_cos()))
+            .add(v.scale(radius * a.r_sin()));
     }
     rebuilt(&positions, &faces)
 }
@@ -465,7 +466,7 @@ mod tests {
             .map(|v| m.vertex(*v).unwrap().position.z)
             .collect();
         let mean = zs.iter().sum::<f64>() / zs.len() as f64;
-        zs.iter().map(|z| (z - mean).powi(2)).sum::<f64>() / zs.len() as f64
+        zs.iter().map(|z| (z - mean).r_powi(2)).sum::<f64>() / zs.len() as f64
     }
 
     #[test]

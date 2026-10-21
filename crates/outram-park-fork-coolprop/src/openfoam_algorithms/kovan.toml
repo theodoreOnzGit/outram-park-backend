@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/openfoam_algorithms"
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms"

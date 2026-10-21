@@ -1,0 +1,128 @@
+# Extended: windowed multipole and the GPU path
+
+> **Research, education and V&V only.** Not for reactor operation, licensing,
+> safety decisions or emergency response.
+
+> **Review status: first draft, 2026-10-04, AI-assisted, not yet reviewed by a
+> human.**
+
+*Part II, extended deep dive. Modules: `wmp`, `gpu_wmp`, `gpu`. This is
+**not** a port of NJOY: windowed multipole is the work of the MIT
+Computational Reactor Physics Group, re-implemented from OpenMC's MIT-licensed
+`src/wmp.cpp` [(Romano et al., 2015)](#ref-romano2015openmc), with its own attribution in `LICENSE-WMP` and `NOTICE`.*
+
+## The question
+
+Rung 3 broadens σ(E) to **one** temperature and stores a table per
+temperature. A reactor has a temperature field, different in every pellet.
+**Can σ(E, T) be evaluated at any T on the fly, without a table per
+temperature?**
+
+## The shortest answer
+
+Yes, by rewriting the resolved-resonance cross section as a **sum over poles**
+in the complex plane (Hwang's multipole representation). Doppler broadening a
+single pole has a closed form, the **Faddeeva function** `w(z)`, so σ(E, T)
+becomes an analytic evaluation at any temperature. "Windowed" means only the
+poles near E are summed exactly; the far ones are absorbed into a smooth
+polynomial curve fit per energy window (Josey, Romano, Forget and Smith,
+*J. Comput. Phys.* 2016).
+
+## The formula
+
+For reaction `x` in the window containing `E`, as
+[`wmp/evaluate.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/wmp/evaluate.rs)
+computes it:
+
+```text
+σ_x(E, T) = Σ_poles in window  Re[ r_x,j · √π · D · W(z_j) ] / E   +   Σ_n a_x,n · F_n(E, D)
+
+  D   = √(A / k_B T)                the inverse Doppler width in √E
+  z_j = (√E − p_j) · D              p_j, r_x,j : pole and residue (complex)
+  W   = OpenMC's faddeeva(z) wrapper around w(z) = e^(−z²) erfc(−iz)
+  F_n   the Doppler-broadened version of the curve-fit term E^(n/2 − 1)
+        (Josey et al. 2016, Eq. 16; at T = 0, F_n = E^(n/2 − 1))
+```
+
+`w(z)` is evaluated by Weideman's rational approximation. At `T = 0` the code
+takes a separate branch, `Re[ r_j · (−i) / (p_j − √E) ] / E`, the unbroadened
+resonance sum.
+
+## Where it sits in the ladder
+
+The lesson philosophy says a faster data path arrives **at the rung whose
+problem it solves**, not before. In the Monte Carlo track that is rung 3
+(lumped uranium in graphite), where temperature-dependent self-shielding first
+matters. Until then the Monte Carlo lessons use ENDF processed by rungs 1–4.
+
+**And note the data.** The embedded CORE library (125 nuclides,
+`src/data/wmp_core.wmpl`, MIT CRPG) is fitted to **ENDF/B-VII.1**, not the
+ENDF/B-VIII.0 tapes every other rung uses. A WMP result and an ENDF-route
+result differ by the evaluation as well as the method.
+
+## In the code
+
+> **On the [Code Review map](../../code-review/):** start at [`XsProvider::micro`](../../code-review/#crates/njoy-outram-park-fork/src/nuclear_data/mod.rs::XsProvider::micro) and follow its callees (▸) to [`faddeeva`](../../code-review/#crates/njoy-outram-park-fork/src/wmp/evaluate.rs::faddeeva). Each card opens the function's source and shows its review stamp.
+
+> **The physics functions:** [Where the physics is](./physics-functions.md#wmp) lists only the functions on the map that compute this rung's physics, without the entry point and plumbing above it (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
+**Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
+
+| hop | function | what it does | resolved (kopitiam pass, 2026-10-04) |
+|---|---|---|---|
+| 0 | `XsProvider::micro` | the consumer call: `(E, T)` → `MicroXs` | entry point ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/nuclear_data/mod.rs#@@L:crates/njoy-outram-park-fork/src/nuclear_data/mod.rs:fn=micro@@)) |
+| 1 | `WindowedMultipole::evaluate`, `WmpXs::total`, `WmpXs::capture` | find the window, sum its poles, add the curve fit | kopitiam |
+| 2 | `wmp::faddeeva` (Weideman), `broaden_wmp_polynomials` | the broadened line shape of one pole; the broadened curve fit | filled by hand |
+| 1 | `NuBar::at`; `Mgxs::micro` on the other branch | ν̄ for ν σ_f (WMP does not carry it); the fast-range multigroup fallback | kopitiam |
+| 0 | `gpu_wmp::wmp_evaluate_batch_cpu` | the `f64` CPU reference over a whole energy grid | entry point ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/gpu_wmp.rs#@@L:crates/njoy-outram-park-fork/src/gpu_wmp.rs:fn=wmp_evaluate_batch_cpu@@)) |
+| 0 | `GpuContext::wmp_evaluate_batch` (after `gpu::probe`) | the same in `f32` WGSL; **acceleration only**, `None` without a GPU | entry point ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/gpu_wmp.rs#@@L:crates/njoy-outram-park-fork/src/gpu_wmp.rs:fn=wmp_evaluate_batch@@)) |
+
+
+`gpu` itself offers only the curve-fit background on the GPU
+(`curvefit_background_batch`); `gpu_wmp` adds the full pole sum. On Android
+both are replaced by a pure-CPU shim with the same call surface, and the CPU
+path is always the trusted reference.
+
+## The checks
+
+| what | result | record |
+|---|---|---|
+| analytic broadening at arbitrary T (U-238, 6.674 eV resonance, CORE library) | peak σ_a 22 257 b (0 K) → 3 953 b (1200 K), factor 5.6 down; wing ×1.85 up; 723.5 K evaluates between 700 and 750 K | [`tests/wmp_arbitrary_temperature.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/tests/wmp_arbitrary_temperature.rs) (2026-09-22) |
+| √T interpolation between tabulated temperatures, against analytic WMP | error is **large at the peak** for brackets of a few hundred K; printed by the test | same file (2026-09-24) |
+| WMP HDF5 write, read by OpenMC | σ(E, T) agrees to 1.2e-12 relative; bit-exact round trip | [`wmp_h5_write_2026_09_24.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/wmp_h5_write/wmp_h5_write_2026_09_24.md) |
+| GPU against CPU | per-machine report, not committed (methodology template) | [`gpu_wmp_benchmark.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/gpu_wmp_benchmark.md) |
+
+**What is not verified, stated:** WMP against a direct NJOY BROADR
+broadening of the same evaluation (the interpolation test says so in its own
+doc). And the faster path's fidelity contract: `XsProvider::Mgxs`, the fast
+range above WMP's `e_max`, is a 10-group Watt-weighted set with **no**
+self-shielding, deliberately low fidelity.
+
+**A discrepancy found while writing this page,** ~~not resolved~~ **resolved
+2026-10-05:** the GPU benchmark record and its example said U-238 in the CORE
+library has **602 poles**; the WMP-write record says **4 062 poles** (and 4 309
+windows). Both could not describe the same table. ~~**Not re-checked**~~
+**Re-checked 2026-10-05** by decoding the embedded table and counting:
+
+| nuclide | `poles.len()` | `windows.len()` | fit order | `e_max` (eV) |
+|---|---|---|---|---|
+| U-238 | **4 062** | 4 309 | 2 | 2.0e4 |
+| U-235 | 5 254 | 2 250 | 3 | 2.25e3 |
+| Fe-56 | 347 | 850 | 2 | 8.5e5 |
+
+The WMP-write record is right. The **602** is U-238's row in
+`docs/wmp-nuclide-manifest.md`, whose last column is the payload size in
+**KB**, copied into the GPU benchmark as a pole count. The benchmark example
+now prints `poles.len()` instead of a constant, and the wrong records carry
+strike-throughs. Nothing numerical depended on it: the benchmark always
+evaluated the real table. Issue:
+[#536](https://github.com/theodoreOnzGit/outram-park-backend/issues/536).
+
+**Next:** [The consumer surface](./consumer-surface.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., &#38; Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <i>Annals of Nuclear Energy</i>, <i>82</i>, 90–97.</p>
+
+<!-- references:end -->

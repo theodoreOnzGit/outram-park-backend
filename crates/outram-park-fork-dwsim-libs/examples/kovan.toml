@@ -1,0 +1,59 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/examples"
+
+[module."crude_column_from_prelude.rs"]
+path = "example:crude_column_from_prelude"
+
+[[module."crude_column_from_prelude.rs".function]]
+id = "fn:73cd8c1fd80471bb"
+name = "main"
+qual = "main"
+lines = [
+    74,
+    257,
+]
+hash = "sha256:4b180936fb80989ae5973cec6ef015534175b119259f397ff754c7aef1d81277"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:14ebbd2feaebdc92",
+    "fn:163f26b3d7c814f0",
+    "fn:35f03e4ab8752616",
+    "fn:5cb8104874325377",
+    "fn:675062bec70c937f",
+    "fn:72a144266672d6dc",
+    "fn:99a6859da115e245",
+    "fn:a66c5bf079468d95",
+    "fn:d24474a4a8d9fc99",
+    "fn:d6ed59e3ad732e57",
+    "fn:fd2eeabac011a9c5",
+]
+uses = [
+    "fn:11e06b8268881263",
+    "fn:5e5c06fa0d321ca8",
+    "fn:73691a54a7a8ba1a",
+    "fn:822da933dc9257f1",
+    "fn:931c0dfe6cf44cd9",
+    "fn:c971ff31acbc2d46",
+]
+
+[module."pt_flash.rs"]
+path = "example:pt_flash"
+
+[[module."pt_flash.rs".function]]
+id = "fn:cf3a9e3b4377a75e"
+name = "main"
+qual = "main"
+lines = [
+    52,
+    152,
+]
+hash = "sha256:4053686e675eea8695c47eaee6b02f9a28ff5703ea9522af938f29c86928e3b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:8a065a3fc9faf480",
+    "fn:cfbb8a5609a498a9",
+    "fn:f771bc8cb652a5d8",
+]
+uses = ["fn:11e06b8268881263"]

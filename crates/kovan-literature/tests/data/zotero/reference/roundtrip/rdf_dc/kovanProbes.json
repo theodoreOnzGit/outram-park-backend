@@ -1,0 +1,172 @@
+{
+	"all": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kovan",
+						"lastName": "Collaboration",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Dates & markup: a <i>kovan</i> probe",
+				"date": "2021 May",
+				"ISSN": "1234-5678",
+				"DOI": "10.1234/ABC.def"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Second Record",
+				"publisher": "Kovan Press",
+				"date": "1999-12-31",
+				"ISBN": "978-3-16-148410-0 3161484100"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Ranges and seasons",
+				"university": "Kovan University",
+				"date": "2010-2012",
+				"thesisType": "thesis"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [],
+				"tags": [],
+				"title": "Summer proceedings",
+				"date": "Summer 2015"
+			}
+		]
+	},
+	"KPROBE22": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Kovan",
+						"lastName": "Collaboration",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Dates & markup: a <i>kovan</i> probe",
+				"date": "2021 May",
+				"ISSN": "1234-5678",
+				"DOI": "10.1234/ABC.def"
+			}
+		]
+	},
+	"KPROBE33": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A Second Record",
+				"publisher": "Kovan Press",
+				"date": "1999-12-31",
+				"ISBN": "978-3-16-148410-0 3161484100"
+			}
+		]
+	},
+	"KPROBE44": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Ranges and seasons",
+				"university": "Kovan University",
+				"date": "2010-2012",
+				"thesisType": "thesis"
+			}
+		]
+	},
+	"KPROBE55": {
+		"status": 200,
+		"translatorID": "5e3ad958-ac79-463d-812b-a86a9235c28f",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [],
+				"tags": [],
+				"title": "Summer proceedings",
+				"date": "Summer 2015"
+			}
+		]
+	}
+}

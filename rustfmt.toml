@@ -20,6 +20,13 @@
 # Pin the edition. Without this rustfmt assumes 2015 and can misparse modern
 # code -- notably `async`, and `dyn` in older positions.
 edition = "2021"
+#
+# Never pass `--edition` (or `--style-edition`) to rustfmt on the command
+# line: a command-line value OVERRIDES this file, so the file gets formatted in
+# a style the rest of the workspace does not use, including code nobody
+# touched. On 2026-09-22 an agent's `rustfmt --edition 2024` did exactly this
+# in kovan. The edition here matches every crate's Cargo `edition`; change the
+# two together, deliberately, or not at all.
 
 # 100 columns. Measured against the tree before adopting this file: 100 gives
 # the least churn of the widths tried (110 and 120 were both WORSE, because the

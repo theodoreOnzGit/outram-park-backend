@@ -1,0 +1,172 @@
+# Approved Sciences node ids (OUTRAM PARK #727). APPEND-ONLY.
+#
+# One path per line, e.g. `sciences/physical-principles/conservation-laws`.
+# A Sciences id is permanent once approved (maintainer, 2026-10-10: "they are
+# physics, fixed"): never edit or delete a line here. A method that is
+# replaced stays listed; its node gains `superseded_by` instead.
+# `tests/concept_sciences.rs` fails if a listed path is missing from
+# `concept_sciences_proposals.toml` or is no longer `approved`, and if an
+# `approved` node there is not listed here.
+#
+
+# 2026-10-10, maintainer: "I accept the nuclear chemistry part" (#829)
+sciences/nuclear-chemistry
+sciences/nuclear-chemistry/fission-product-yields
+sciences/nuclear-chemistry/decay-chains-and-inventory
+sciences/nuclear-chemistry/chemical-speciation-and-thermochemistry
+sciences/nuclear-chemistry/fission-product-release-from-fuel
+sciences/nuclear-chemistry/transport-and-deposition-in-coolant
+sciences/nuclear-chemistry/radiolysis-and-coolant-chemistry
+sciences/nuclear-chemistry/release-to-environment-and-dispersion
+
+# 2026-10-10, maintainer on physical principles: "Not sure about Cauchy but rest checks out" (#829).
+# Held back as proposed: solid-continuum-momentum (Cauchy), the new kinetics branch, and
+# radioactive-decay and nuclide-balance (they may move under kinetics).
+sciences/physical-principles
+sciences/physical-principles/conservation-laws
+sciences/physical-principles/conservation-laws/mass-balance
+sciences/physical-principles/conservation-laws/mass-balance/continuity-equation
+sciences/physical-principles/conservation-laws/mass-balance/species-transport
+sciences/physical-principles/conservation-laws/momentum-balance
+sciences/physical-principles/conservation-laws/momentum-balance/navier-stokes-equations
+sciences/physical-principles/conservation-laws/momentum-balance/porous-media-flow
+sciences/physical-principles/conservation-laws/momentum-balance/discrete-particle-dynamics
+sciences/physical-principles/conservation-laws/energy-balance
+sciences/physical-principles/conservation-laws/energy-balance/enthalpy-balance
+sciences/physical-principles/conservation-laws/energy-balance/nuclear-energy-release
+sciences/physical-principles/conservation-laws/particle-balance
+sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation
+sciences/physical-principles/conservation-laws/particle-balance/multiplication-eigenvalue
+sciences/physical-principles/radiation-interaction-with-matter
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/cross-sections
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/resonances
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/fission
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/radiative-capture
+sciences/physical-principles/radiation-interaction-with-matter/nuclear-reactions/scattering
+sciences/physical-principles/radiation-interaction-with-matter/target-motion
+sciences/physical-principles/radiation-interaction-with-matter/target-motion/doppler-broadening
+sciences/physical-principles/radiation-interaction-with-matter/target-motion/thermal-scattering-law
+sciences/physical-principles/radiation-interaction-with-matter/target-motion/resonance-elastic-scattering
+sciences/physical-principles/radiation-interaction-with-matter/photon-and-charged-particle-interactions
+sciences/physical-principles/thermodynamics-and-statistical-mechanics
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/equation-of-state
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/phase-equilibrium
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/maxwell-boltzmann-distribution
+sciences/physical-principles/constitutive-relations
+sciences/physical-principles/constitutive-relations/fouriers-law
+sciences/physical-principles/constitutive-relations/newtonian-viscous-stress
+sciences/physical-principles/constitutive-relations/ficks-law
+sciences/physical-principles/constitutive-relations/hookes-law
+sciences/physical-principles/constitutive-relations/darcys-law
+sciences/physical-principles/constitutive-relations/thermal-radiation-exchange
+
+# 2026-10-10, maintainer: "Decay stays under nuclear physics and reactions as a first. Nuclide
+# balance I think comes under mass conservation" (#829)
+sciences/physical-principles/radiation-interaction-with-matter/radioactive-decay
+sciences/physical-principles/conservation-laws/mass-balance/nuclide-balance
+
+# 2026-10-10, maintainer: "I approve boltzmann"; "Quantum number conservation is okay (I think)" (#829)
+sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/diffusion-limit
+sciences/physical-principles/conservation-laws/particle-balance/boltzmann-transport-equation/radiative-transfer
+sciences/physical-principles/conservation-laws/quantum-number-conservation
+
+# 2026-10-10, maintainer: "Cauchy accepted" (#829)
+sciences/physical-principles/conservation-laws/momentum-balance/solid-continuum-momentum
+# 2026-10-10, maintainer: "Neutronics materials and Th all approved" (#829)
+sciences/neutronics
+sciences/neutronics/nuclear-data-processing
+sciences/neutronics/monte-carlo-transport
+sciences/neutronics/deterministic-transport
+sciences/neutronics/reactor-kinetics
+sciences/neutronics/reactivity-feedback
+sciences/neutronics/depletion-and-transmutation
+sciences/thermal-hydraulics
+sciences/thermal-hydraulics/single-phase-flow
+sciences/thermal-hydraulics/two-phase-flow
+sciences/thermal-hydraulics/heat-transfer-correlations
+sciences/thermal-hydraulics/natural-circulation
+sciences/thermal-hydraulics/packed-beds
+sciences/thermal-hydraulics/heat-exchangers
+sciences/thermal-hydraulics/core-heat-generation-and-decay-heat
+sciences/materials
+sciences/materials/fuel-performance
+sciences/materials/structural-mechanics
+sciences/materials/irradiation-damage
+sciences/materials/corrosion-and-chemistry
+sciences/materials/thermophysical-properties-of-solids
+sciences/materials/creep
+# 2026-10-10, maintainer: "Human factors node accepted (leave it as a stub for now)" (#829)
+sciences/human-factors
+# 2026-10-11, maintainer: "Chem reaction kinetics approved"; "With Neutron kinetics under it (approved otherwise)" (moved under nuclear-reaction-kinetics before approval) (#829)
+sciences/physical-principles/kinetics/chemical-reaction-kinetics
+sciences/physical-principles/kinetics/nuclear-reaction-kinetics/neutron-population-kinetics
+# 2026-10-11, maintainer: "Okay approved all, single source is fine, cos standard corpus is ok for now, users can find their own sources" (kinetics branch) (#829)
+sciences/physical-principles/kinetics
+sciences/physical-principles/kinetics/heat-transfer
+sciences/physical-principles/kinetics/heat-transfer/heat-conduction-equation
+sciences/physical-principles/kinetics/heat-transfer/convective-heat-transfer
+sciences/physical-principles/kinetics/heat-transfer/radiative-heat-transfer
+sciences/physical-principles/kinetics/mass-transfer
+sciences/physical-principles/kinetics/mass-transfer/diffusive-mass-transfer
+sciences/physical-principles/kinetics/mass-transfer/convective-mass-transfer
+sciences/physical-principles/kinetics/nuclear-reaction-kinetics
+sciences/physical-principles/kinetics/nuclear-reaction-kinetics/nuclear-transmutation-kinetics
+sciences/physical-principles/kinetics/nuclear-reaction-kinetics/fission-product-generation-kinetics
+sciences/physical-principles/kinetics/multistep-processes
+sciences/physical-principles/kinetics/multistep-processes/rate-determining-step
+sciences/physical-principles/kinetics/multistep-processes/secular-and-transient-equilibrium
+# 2026-10-11, maintainer: "I like the new radiation interaction w matter node, is ok. If no source for gamma laser leave it proposed." (photofission has no source either, so it also stays proposed) (#829)
+sciences/physical-principles/radiation-interaction-with-matter/charged-particle-induced-reactions
+sciences/physical-principles/radiation-interaction-with-matter/charged-particle-induced-reactions/fusion
+sciences/physical-principles/radiation-interaction-with-matter/photonuclear-reactions
+# 2026-10-11, maintainer: "Thermodynamics approved" (#829)
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/first-law
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/laws-of-thermodynamics/second-law-and-entropy
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/entropy-and-microstates
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/random-walk-and-diffusion
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/random-thermal-motion/kinetic-theory-of-gases
+# 2026-10-11, maintainer: "Thermo all approved" (disciplinary views) (#829)
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/heat-engines-and-power-cycles
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/solution-thermodynamics
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/gibbs-free-energy-and-chemical-equilibrium
+sciences/physical-principles/thermodynamics-and-statistical-mechanics/disciplinary-views/thermodynamics-of-solids
+# 2026-10-11, maintainer: "Part 1 ok, yes approved." (computation shape) (#829)
+sciences/computation
+sciences/computation/problems
+sciences/computation/governing-theorems
+sciences/computation/aims
+# 2026-10-11, maintainer: "Part 2 ok also." (problems and methods; optimisation and search-and-sorting deferred to #832) (#829)
+sciences/computation/problems/transport-equations
+sciences/computation/problems/transport-equations/monte-carlo-particle-histories
+sciences/computation/problems/transport-equations/discrete-ordinates
+sciences/computation/problems/transport-equations/spherical-harmonics-pn-and-spn
+sciences/computation/problems/linear-systems
+sciences/computation/problems/linear-systems/krylov-gmres
+sciences/computation/problems/eigenproblems
+sciences/computation/problems/eigenproblems/power-iteration
+sciences/computation/problems/quadrature
+sciences/computation/problems/ode-and-pde-evolution
+sciences/computation/problems/ode-and-pde-evolution/finite-volume-discretisation
+sciences/computation/problems/ode-and-pde-evolution/semi-implicit-time-coupling
+sciences/computation/problems/ode-and-pde-evolution/predictor-corrector-depletion
+sciences/computation/problems/root-finding
+sciences/computation/problems/sampling-from-distributions
+sciences/computation/problems/sampling-from-distributions/rejection-sampling
+sciences/computation/problems/sampling-from-distributions/probability-table-lookup
+sciences/computation/problems/function-approximation
+sciences/computation/problems/data-representation
+# 2026-10-11, maintainer: "Add those only with verified sources" (part 3; each cited passage re-read in the file that day; conditioning, Amdahl and approximation theory deferred to #832) (#829)
+sciences/computation/governing-theorems/convergence
+sciences/computation/governing-theorems/law-of-large-numbers-and-central-limit-theorem
+sciences/computation/governing-theorems/computational-complexity
+sciences/computation/governing-theorems/finite-precision
+sciences/computation/aims/accuracy
+sciences/computation/aims/speed
+sciences/computation/aims/trust
+sciences/computation/aims/trust/determinism-and-reproducibility
+sciences/computation/aims/trust/structure-preservation
+sciences/computation/aims/trust/verifiability

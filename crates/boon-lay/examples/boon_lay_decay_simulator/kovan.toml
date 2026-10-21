@@ -1,0 +1,30 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/examples/boon_lay_decay_simulator"
+
+[module."main.rs"]
+path = "example:boon_lay_decay_simulator"
+
+[[module."main.rs".function]]
+id = "fn:29eb45fb479b722f"
+name = "main"
+qual = "main#1"
+lines = [
+    5,
+    9,
+]
+hash = "sha256:847a14826bbddd5cee467592e460fd0f3893578d249308a86442700496b542fb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:438e8ad082342a12"]
+
+[[module."main.rs".function]]
+id = "fn:9be2398501b2dbfa"
+name = "main"
+qual = "main#2"
+lines = [
+    14,
+    15,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

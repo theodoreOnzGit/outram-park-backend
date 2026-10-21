@@ -1,0 +1,66 @@
+[package]
+name = "kaki-bukit"
+version = "0.0.2"
+edition.workspace = true
+# GPL-3.0-only. This crate is an independent Rust translation of CYCLUS and
+# CYCAMORE, both BSD-3-Clause (verified 2026-09-16 by reading the cloned
+# LICENSE.rst in each repository — see upstream_source/README.md). BSD-3-Clause
+# is GPLv3-compatible, so the translation may be distributed under the
+# workspace's GPL-3.0-only default. The flow is ONE-WAY: code here cannot go
+# back upstream under BSD-3-Clause.
+license.workspace = true
+description = "KAKI BUKIT (Kernel for Agent-based Key-resource Inventory, Backend for Utility, Key Infrastructure and Transactions). Independent no_std pure-Rust fork/translation of CYCLUS (agent-based nuclear fuel-cycle simulation kernel) and CYCAMORE (its additional-modules agent library). Dynamic resource exchange, material/composition bookkeeping and fuel-cycle facility agents, with all numerics taken from PETIR. SCAFFOLD: AI-assisted draft, no human V&V. Not affiliated with or endorsed by the Cyclus project or the University of Wisconsin CNERG."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `docs/` is the repo-only API mirror; `upstream_source/{cyclus,cycamore}` are
+# the gitignored reference clones. Neither is packaged.
+# upstream_source/README.md is NOT excluded — the provenance record must travel
+# with the crate.
+exclude = ["docs", "upstream_source/cyclus", "upstream_source/cycamore"]
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "fuel-cycle"
+fidelity = 0
+maturity = 1
+backronym = "Kernel for Agent-based Key-resource Inventory, Backend for Utility, Key Infrastructure and Transactions"
+
+[dependencies]
+# PETIR is the ONLY dependency, and that is the point of this crate's design.
+#
+# Every numerical kernel Cyclus needs — the Uniform Taylor matrix exponential
+# behind decay, the Kahan compensated summation behind composition sums, the
+# natural logarithm behind the enrichment value function — is taken from PETIR
+# rather than reimplemented here or pulled from `std`. Two consequences follow,
+# both deliberate:
+#
+#   1. This crate inherits PETIR's `no_std` guarantee and its cross-platform
+#      bit-identical transcendentals. A fuel-cycle simulation that reproduces
+#      exactly is worth a great deal when the output is a mass balance someone
+#      will cite.
+#   2. `default-features = false` drops PETIR's `transfer-fn` module and with it
+#      `uom`. Cyclus's kernel is dimensionless bookkeeping (kg and dimensionless
+#      composition fractions, by upstream's own convention — `Material::units()`
+#      returns the literal string "kg"), so there is nothing here for `uom` to
+#      type and no reason to carry it.
+petir = { path = "../petir", version = "0.0.3", default-features = false }
+
+[features]
+default = []
+# Opt in to `std` for downstream convenience (`std::error::Error` on
+# `CyclusError`). The library itself must keep compiling and passing without it
+# — that is checked by the bare-metal and wasm builds recorded in README.md.
+std = []

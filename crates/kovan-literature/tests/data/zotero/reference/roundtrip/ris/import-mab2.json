@@ -1,0 +1,82 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Kim",
+						"lastName": "Lee",
+						"creatorType": "author"
+					},
+					{
+						"name": "Deutsche Forschungsgemeinschaft",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Hans",
+						"lastName": "Müller",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "Anna",
+						"lastName": "Schmidt",
+						"creatorType": "translator"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Kernreaktor",
+						"type": 1
+					},
+					{
+						"tag": "Geschicht",
+						"type": 1
+					},
+					{
+						"tag": "Deutschlan",
+						"type": 1
+					}
+				],
+				"title": "Die Kernreaktortechnik: eine Einführung",
+				"date": "1999",
+				"edition": "2., überarb. Aufl",
+				"language": "ger",
+				"publisher": "Springer",
+				"ISBN": "3-540-12345-X",
+				"url": "http://example.org/toc.pdf",
+				"series": "Lehrbuchreihe Physik ; 7",
+				"place": "Berlin"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "film",
+				"creators": [],
+				"tags": [],
+				"title": "Ein Film",
+				"date": "1975"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "manuscript",
+				"creators": [],
+				"tags": [],
+				"title": "Handschrift ohne Autor"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "artwork",
+				"creators": [],
+				"tags": [],
+				"title": "Plakat"
+			}
+		]
+	}
+}

@@ -1,11 +1,18 @@
-//! Parse ENDF MF=4 elastic angular distributions and convert them to the ACE
+//! Parse ENDF MF=4 angular distributions and convert them to the ACE
 //! tabulated-cosine form used by the AND block.
 //!
 //! Ports the angular-distribution path of NJOY2016 `acefc.f90` (`topfil` +
-//! `ptleg`/`pttab` for the `newfor=1` "new format") for **elastic scattering
-//! (MT=2)** only — the one angular distribution OpenMC needs before it can track
-//! a single collision. Inelastic-level and continuum angular distributions
-//! (which couple with the MF=5/MF=6 energy distributions) are a later increment.
+//! `ptleg`/`pttab` for the `newfor=1` "new format"). The conversion is
+//! **MT-agnostic** — MF=4 has one record structure whatever reaction it
+//! describes — so the same routine serves **elastic (MT=2)** and the
+//! **discrete inelastic levels (MT=51…90)**. Use [`parse_mf4_angular`] for any
+//! MT; [`parse_elastic_angular`] is the original elastic-named entry point,
+//! kept because it is published API.
+//!
+//! **Continuum angular data is NOT here.** MT=91 and (n,2n) carry their angular
+//! law coupled to the secondary-energy distribution in MF=6, not MF=4; see
+//! [`crate::nuclear_data::secondary::ContinuumEmission`], which reads the energy
+//! law and documents the angular correlation it still drops.
 //!
 //! ## ENDF MF=4 → ACE conversion
 //!
@@ -49,6 +56,11 @@ pub struct EnergyAngular {
     pub pdf: Vec<f64>,
     /// Cumulative distribution on `cosines`: `cdf[0] = 0`, `cdf[last] = 1`.
     pub cdf: Vec<f64>,
+    /// `true` when the law is a **histogram** in μ: ACE AND `intt = 1` and the
+    /// 32 equiprobable bins, which OpenMC reads as a histogram `Tabular`
+    /// (`angle_distribution.py:176-185`). `false` (lin-lin) for everything
+    /// else, including every law built from ENDF MF=4. GitHub #365 audit.
+    pub histogram: bool,
 }
 
 impl EnergyAngular {
@@ -60,21 +72,59 @@ impl EnergyAngular {
     /// Mean scattering cosine μ̄ = ∫₋₁¹ μ f(μ) dμ at this incident energy, in the
     /// frame the distribution is tabulated in (CM for elastic, ENDF LCT=2).
     ///
-    /// Trapezoidal integration of `μ·pdf` over the `cosines` grid. Returns `0.0`
-    /// for an isotropic energy (no stored cosines) — the correct μ̄ of a flat
+    /// Integrated in **closed form on each linear segment**. Returns `0.0` for an
+    /// isotropic energy (no stored cosines) — the correct μ̄ of a flat
     /// distribution. This is the P1 (first Legendre) moment of the angular
     /// distribution, the single number a transport-corrected or linearly-
     /// anisotropic group model needs.
+    ///
+    /// # This used to use the trapezoid rule, and that was wrong (fixed 2026-09-16)
+    ///
+    /// The old code integrated `g(μ) = μ f(μ)` by trapezoid, under a comment
+    /// reading *"∫ μ f(μ) dμ over [x0, x1] with f linear ⇒ trapezoid of
+    /// g(μ) = μ f(μ)"*. The premise is right and the conclusion does not follow:
+    /// **`f` linear makes `μ f(μ)` quadratic**, and the trapezoid rule is exact
+    /// for a linear integrand only. On a segment `[a, b]` the exact value is
+    ///
+    /// ```text
+    /// (b - a) * ( a*(2 f_a + f_b) + b*(f_a + 2 f_b) ) / 6
+    /// ```
+    ///
+    /// which differs from the trapezoid by `-(b-a)^3 (f_b - f_a) / 12` per
+    /// segment — second order in the grid spacing, and it does **not** cancel
+    /// across segments when `f` is monotone, which a forward-peaked angular
+    /// distribution is over most of its range.
+    ///
+    /// **Measured on JENDL-3.3 U-238 MT=91's MF=4 at 13 MeV:** trapezoid
+    /// `+0.342991` against exact `+0.339994`, an error of `+0.0030` absolute
+    /// (`+0.88 %` relative). Found because a sampled `⟨μ⟩` sat **3.20 σ** from
+    /// this function and **0.72 σ** from the closed form — the sampler was right
+    /// and the reference was wrong.
+    ///
+    /// # Why it mattered beyond a test
+    ///
+    /// [`ElasticAngular::mean_cosine`] wraps this, and that is what bakes the
+    /// per-group `μ̄` column into the fast MGXS. `μ̄` enters transport as
+    /// `Σ_tr = Σ_t (1 − μ̄)`, so an overstated `μ̄` understates `Σ_tr`. This is
+    /// the same integration trap that produced a false "+0.60 % sampler bias"
+    /// earlier in this port's history, and it had been sitting in the library
+    /// itself rather than in a one-off oracle.
     pub fn mean_cosine(&self) -> f64 {
         if self.cosines.len() < 2 {
             return 0.0;
         }
         let mut acc = 0.0;
         for i in 0..self.cosines.len() - 1 {
-            let (x0, x1) = (self.cosines[i], self.cosines[i + 1]);
-            let (f0, f1) = (self.pdf[i], self.pdf[i + 1]);
-            // ∫ μ f(μ) dμ over [x0, x1] with f linear ⇒ trapezoid of g(μ)=μ f(μ).
-            acc += 0.5 * (x0 * f0 + x1 * f1) * (x1 - x0);
+            let (a, b) = (self.cosines[i], self.cosines[i + 1]);
+            let (fa, fb) = (self.pdf[i], self.pdf[i + 1]);
+            if self.histogram {
+                // Histogram: f = fa on [a, b) (GitHub #365 audit).
+                acc += fa * (b - a) * 0.5 * (a + b);
+                continue;
+            }
+            // Exact for f linear on [a, b]; see the note above on why the
+            // trapezoid rule is not.
+            acc += (b - a) * (a * (2.0 * fa + fb) + b * (fa + 2.0 * fb)) / 6.0;
         }
         acc
     }
@@ -86,10 +136,45 @@ impl EnergyAngular {
 /// Built by [`parse_elastic_angular`]. An empty [`energies`](Self::energies)
 /// list (or one where every entry is isotropic) means elastic is isotropic
 /// overall — the AND block then stores locator `0` for the reaction.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ElasticAngular {
     /// Per-incident-energy distributions, ascending in energy.
     pub energies: Vec<EnergyAngular>,
+    /// The section's **reference frame**, ENDF `LCT`: `1` laboratory, `2` centre
+    /// of mass. Read from MF=4's second CONT record (`0.0, AWR, LI, LCT, 0, 0`).
+    ///
+    /// # Why this is stored (added 2026-09-16)
+    ///
+    /// It used to be read and dropped, and this type's docs said so, calling it
+    /// "a real latent gap rather than a safe assumption ... left as-is only
+    /// because no evaluation this port reads exercises it". **That last clause
+    /// was false.** Every MF=4 section for MT=16/17/91 in `reference-data/endf/`
+    /// — 11 of them, across Li-7, C-12, Sr-88 and the JENDL-3.3 U-238 and
+    /// Pu-239 — carries `LCT = 1`, laboratory. A consumer assuming CM would
+    /// apply a frame transform to cosines that are already in the lab.
+    ///
+    /// NJOY treats this flag the same way: `acefc.f90:5825-5869` reads `lct`
+    /// from exactly this record and sets the ACE `TY` sign negative when
+    /// `lct >= 2`, which is how a downstream code learns to transform. One flag
+    /// per reaction, taken from MF=4 — not from MF=5, which ENDF-102 defines as
+    /// laboratory always.
+    ///
+    /// `Default` gives `2` (centre of mass), which is what elastic and the
+    /// discrete inelastic levels use on every actinide evaluation here, so an
+    /// empty/isotropic default does not silently claim the laboratory frame.
+    pub lct: i32,
+}
+
+impl Default for ElasticAngular {
+    fn default() -> Self {
+        ElasticAngular {
+            energies: Vec::new(),
+            // See `lct`'s docs: CM is the frame of elastic and the discrete
+            // levels, which is what an empty distribution most often stands in
+            // for. Defaulting to `1` would be the dangerous direction.
+            lct: 2,
+        }
+    }
 }
 
 impl ElasticAngular {
@@ -133,23 +218,69 @@ impl ElasticAngular {
     }
 }
 
-/// Parse an MF=4/MT=2 section into ACE elastic angular distributions.
+/// Parse an MF=4 section (any MT, despite the name) into the **AND words
+/// NJOY's ACER writes** -- the ACE builder's entry point.
 ///
-/// Handles LTT = 1 (Legendre), 2 (tabulated), and 3 (both), and the LI=1 /
-/// LTT=0 fully-isotropic case (returns an empty distribution).
+/// ~~Thin delegate to [`parse_mf4_angular`] ... prefer [`parse_mf4_angular`]
+/// in new code.~~ **CHANGED 2026-09-26**: this now delegates to
+/// [`super::acensd::parse_mf4_for_acer`], the port of `ptleg2`/`pttab2`/
+/// `acensd`, because every ACE-building path calls it (`build_full`,
+/// `build_emissions`, `interface`) and those must reproduce NJOY's table.
+/// [`parse_mf4_angular`] is unchanged and remains the ENDF transport route's
+/// parser: it tabulates to a looser tolerance and marks isotropic energies as
+/// empty, where ACER writes `-1, 0, +1`.
 ///
 /// # Errors
 /// Returns [`NjoyError::EndfParse`] if the record structure is malformed.
 pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyError> {
+    super::acensd::parse_mf4_for_acer(section)
+}
+
+/// Parse an MF=4 section — **any MT** — into ACE tabulated-cosine angular
+/// distributions.
+///
+/// Handles LTT = 1 (Legendre), 2 (tabulated), and 3 (both), and the LI=1 /
+/// LTT=0 fully-isotropic case (returns an empty distribution).
+///
+/// # Which reactions this covers
+///
+/// Elastic (MT=2), the discrete inelastic levels (MT=51…90), **and the continuum
+/// channels MT=16/17/91 on evaluations that predate MF=6**. MF=4 stores one
+/// record structure regardless of reaction, so no per-MT branching is needed.
+///
+/// # A correction (2026-09-16)
+///
+/// This doc used to state that "the continuum channels (MT=91, MT=16) do **not**
+/// appear in MF=4 at all — their angular law lives in MF=6". That is true of a
+/// modern evaluation and false in general: an evaluation with no MF=6 for those
+/// MTs puts the energy law in MF=5 and the cosine law here. `reference-data/endf/`
+/// holds 11 such sections (Li-7 MT=16, C-12 MT=91, Sr-88 and the JENDL-3.3
+/// U-238 and Pu-239 MT=16/17/91). The claim was written from the modern tapes
+/// and generalised without checking the older ones.
+///
+/// # Frame
+///
+/// Cosines come back in the frame the evaluation names in `LCT`, now **stored**
+/// as [`ElasticAngular::lct`] — see that field for why, and for the measurement
+/// that falsified the previous "no evaluation this port reads exercises it".
+///
+/// # Errors
+/// Returns [`NjoyError::EndfParse`] if the record structure is malformed.
+pub fn parse_mf4_angular(section: &Section) -> Result<ElasticAngular, NjoyError> {
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?; // ZA, AWR, 0, LTT, 0, 0
     let ltt = head.l2;
     let trans = cur.read_cont()?; // 0, AWR, LI, LCT, 0, 0
     let li = trans.l1;
+    let lct = trans.l2;
 
-    // Fully isotropic: no angular data follows.
+    // Fully isotropic: no angular data follows. The frame flag is still carried
+    // -- it is a property of the section, not of whether it happens to be flat.
     if ltt == 0 || li == 1 {
-        return Ok(ElasticAngular::default());
+        return Ok(ElasticAngular {
+            energies: Vec::new(),
+            lct,
+        });
     }
 
     let mut energies: Vec<EnergyAngular> = Vec::new();
@@ -175,7 +306,39 @@ pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyEr
     }
 
     energies.sort_by(|a, b| a.e_mev.partial_cmp(&b.e_mev).unwrap());
-    Ok(ElasticAngular { energies })
+    Ok(ElasticAngular { energies, lct })
+}
+
+/// Linearise a normalised Legendre angular density into a samplable
+/// tabulated-cosine law, returning `(cosines, pdf, cdf)`.
+///
+/// `coeffs` are the normalised coefficients `a₁ … a_NL` with `a₀ ≡ 1`, so the
+/// density is `f(μ) = Σ_{l≥0} ((2l+1)/2)·a_l·P_l(μ)` over `μ ∈ [−1, 1]`. The
+/// grid is bisected adaptively until lin-lin interpolation reproduces `f`
+/// within [`ANGLE_TOL`], then clamped non-negative and renormalised to unit
+/// integral — a truncated Legendre series is not guaranteed non-negative, and
+/// a density that dips below zero cannot be sampled.
+///
+/// Returns `None` when every coefficient is zero, i.e. the law is isotropic and
+/// there is nothing to tabulate. The caller samples `μ = 2ξ − 1` in that case.
+///
+/// # Why this is public
+///
+/// ENDF stores an angular law as harmonics in two different places —
+/// MF=4 (elastic and the discrete inelastic levels) and the `f₁ … f_NA` columns
+/// of an MF=6 LAW=1 continuum row — and both need the same conversion to
+/// something a Monte Carlo code can invert. Exposing the one implementation
+/// keeps the continuum path from growing a second linearisation that drifts
+/// from this one.
+pub fn legendre_cosine_law(coeffs: &[f64]) -> Option<(Vec<f64>, Vec<f64>, Vec<f64>)> {
+    if coeffs.is_empty() || coeffs.iter().all(|&a| a == 0.0) {
+        return None;
+    }
+    let ea = from_legendre(0.0, coeffs);
+    if ea.cosines.is_empty() {
+        return None;
+    }
+    Some((ea.cosines, ea.pdf, ea.cdf))
 }
 
 /// Convert one Legendre incident-energy point to ACE tabulated-cosine form.
@@ -211,6 +374,7 @@ fn isotropic(e_ev: f64) -> EnergyAngular {
         cosines: Vec::new(),
         pdf: Vec::new(),
         cdf: Vec::new(),
+        histogram: false,
     }
 }
 
@@ -247,6 +411,7 @@ fn finalize(e_ev: f64, grid: Vec<(f64, f64)>) -> EnergyAngular {
         cosines,
         pdf,
         cdf,
+        histogram: false,
     }
 }
 

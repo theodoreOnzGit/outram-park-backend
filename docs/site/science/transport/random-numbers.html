@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where do the random numbers come from?</title>
+<meta name="description" content="Transport, page 4: a Monte Carlo code is deterministic. A 64-bit linear congruential generator with a PCG output permutation feeds every history its own stream, found by a jump-ahead, so that a run repeats exactly for any number of workers. The generator is OpenMC's, written here in 64-bit integers and checked against values pinned in the Rust crate.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="transport.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Widget: transport.js stream (BigInt port of crates/petir/src/rng/lcg.rs, checked in check-transport.js against the pinned values of its test moved_stream_is_pinned). A wasm RNG demo would need new dhoby-ghaut work (listed in the report). Seeding: transport_csg.rs run_keff_csg_par_progress :1020-1050, HIST_STRIDE/GEN_STRIDE :201-207; gh:#700 (open when this was written). Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Where do the random numbers come from?</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>A "random" number in a Monte Carlo code is not random. It is the next number of a fixed sequence that merely looks random. That is a feature: <b>the same seed gives the same run, every time</b>.</p>
+
+<h2>The generator</h2>
+<p>The code uses OpenMC's generator <a href="#ref-romano2015openmc">(Romano et al., 2015)</a>, in the <code>petir</code> crate (<code>petir::rng::lcg</code>, <code>outram_mc_libs::rng::lcg</code> re-exports it). Its <b>state</b> is a 64-bit integer advanced by a linear congruential step, wrapping at 2<sup>64</sup>:</p>
+<p class="eq-block">x &larr; 6364136223846793005&thinsp;x + 1442695040888963407 &nbsp;(mod 2<sup>64</sup>)</p>
+<p>The number handed out is <b>not</b> the state. A raw LCG's outputs fall on a small number of planes when you look at consecutive draws together, which is exactly what a history does (a distance, then a direction, then an energy). So the state is passed through the <b>PCG-RXS-M-XS</b> output permutation (a data-dependent shift, a multiply, a final shift) before it is turned into a number in [0,&nbsp;1). The recurrence is untouched by the permutation, so the jump-ahead below still works.</p>
+<p>Starting from the seed 1 the first draw has the 64-bit pattern <b data-hex="first">0x3fe6bf040c43dded</b> and the state after four draws is <b data-hex="state">0x620355cd119357c5</b>. Those are not computed on this page and compared with themselves: they are the values pinned in the Rust crate's own test, <code>moved_stream_is_pinned</code> (<code>crates/petir/src/rng/lcg.rs:278</code>), and <code>check-transport.js</code> recomputes them with the 64-bit integer port used by the widget below. The same check confirms the mean, variance and a 100-bin chi-square of a million draws.</p>
+
+<h2>Jumping ahead</h2>
+<p>Because the step is linear, n steps compose into one step with a different multiplier and increment, which can be found in about log<sub>2</sub>&thinsp;n operations (<code>future_seed</code>, Knuth's method). So the code can place a stream <i>n</i> draws further along without drawing those n numbers. That is what lets every history have a stream of its own.</p>
+<ul>
+  <li>Each <b>generation</b> g starts 2<sup>40</sup> draws on from the run's master seed (<code>GEN_STRIDE</code>).</li>
+  <li>Each <b>history</b> h of that generation starts <i>h</i> &times; 152&thinsp;917 draws on from the generation's start (<code>HIST_STRIDE</code>, the same per-particle stride OpenMC reserves). No history uses 152&thinsp;917 draws, so neighbouring streams do not overlap, and 2<sup>40</sup> is far more than a million histories' strides (a check on this page: the ratio is 0.14).</li>
+</ul>
+<p>So history h of generation g depends only on <i>(master seed, g, h)</i>, nothing else. It does not matter which worker transports it, or when.</p>
+<p class="predict"><b>Predict first:</b> in the toy below, a thousand histories each draw five numbers. Serve them with 1 worker, then with 4 workers that finish in a shuffled order. How many histories get different numbers when each has its own stream? When all share one stream?</p>
+
+<section class="widget-card">
+  <h3>Streams, workers and the total</h3>
+  <div class="widget" id="stream">
+    <canvas aria-label="Text readout of a history seed and of how many histories change their result when the number of workers changes, with per-history streams and with one shared stream"></canvas>
+  </div>
+  <p class="note">The generator and the jump-ahead are the transport code&rsquo;s (<code>crates/petir/src/rng/lcg.rs</code>), written with 64-bit integers, so the numbers shown are the ones the Rust code would draw. The toy run is not transport: it only shows what stream layout does to a sum. JavaScript sketch; the real thing is the pool of the page-11 demo.</p>
+</section>
+
+<h2>Why reproducibility earns its keep</h2>
+<ul>
+  <li><b>Regression tests.</b> A test that pins a k to a seed (as the crate's tests do) fails the moment anything that should not have changed an answer does. That is how a refactor is proved to move nothing: the same seed gives the same digits, as the move of the generator from <code>outram-mc-libs</code> to <code>petir</code> was (it changed no random number).</li>
+  <li><b>Debugging.</b> A bad history can be replayed alone: its seed is a function of (seed, generation, history), so the code can restart exactly it (<code>particle_restart.rs</code> documents <code>history_seed = future_seed(hist_idx * HIST_STRIDE, gen_base_seed)</code>).</li>
+  <li><b>The answer does not depend on the number of workers.</b> The multi-threaded run (<code>run_keff_csg_par</code>) and the browser demo's pool of Web Workers give the same k, bit for bit, for any number of workers (the pool is <code>transport_csg::distributed</code>; the page-11 demo's whole-core run records it).</li>
+</ul>
+
+<h2>A known defect: streams that alias</h2>
+<p>Everything above is how the <i>transport</i> stream of each history is laid out. The code also gives each history three auxiliary streams by jumping a small multiple of the stride on from its own seed: one for the delayed-neutron group (3 strides), one for the unresolved-resonance probability bands (5 strides) and one for a split child under weight windows (1 stride). Those jumps land where <b>other histories' transport streams start</b>: history i's resonance-band draws are history i+5's transport draws. The widget's arithmetic shows it, and <code>check-transport.js</code> asserts it of the layout. OpenMC avoids this by starting each stream of a particle from a different master seed. <b>This is an open issue, gh:#700</b> (audit of 2026-10-06, as of this page's commit). Its effect on k has <b>not been measured</b>: each history still sees uniform numbers, so the mean is unaffected, but neighbouring histories are not fully independent, and the quoted error bar assumes they are (page 10).</p>
+
+<h2>Next question</h2>
+<p>With a flight sampled, the neutron moved and the surfaces handled, the neutron is finally at a collision. <b>With which nucleus, and what happens?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., &#38; Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <i>Annals of Nuclear Energy</i>, <i>82</i>, 90–97.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

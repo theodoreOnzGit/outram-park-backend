@@ -30,6 +30,7 @@
 //! | [`baseline`] | The per-clone baseline that makes "since the last commit" meaningful |
 //! | [`tokens`] | Write side (git hooks) and query side (history) |
 //! | [`historian`] | The pre-merge-to-`main` report generator |
+//! | [`zotero`] | Zotero library counts and the Zotero -> kovan import report (GitHub #751) |
 //!
 //! ## The two rules that govern this crate
 //!
@@ -66,3 +67,4 @@ pub mod kloc;
 pub mod tokens;
 pub mod trailer;
 pub mod transcript;
+pub mod zotero;

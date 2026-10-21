@@ -1,0 +1,26 @@
+   Compiling njoy-outram-park-fork v0.0.3 (/home/teddy0/Documents/research/outram-park-backend/crates/njoy-outram-park-fork)
+   Compiling outram-mc-libs v0.0.4 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:162:19
+    |
+150 | impl Site {
+    | --------- associated function in this implementation
+...
+162 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling nee_soon v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/crates/nee_soon)
+warning: `outram-mc-libs` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 9.44s
+     Running tests/htr10_geometry_integrity.rs (target/release/deps/htr10_geometry_integrity-68553076f2361b64)
+
+running 4 tests
+test the_bed_reproduces_the_published_ball_inventory ... ok
+test the_reflector_covers_every_zone_the_model_can_reference ... ok
+test the_tile_assignment_agrees_with_the_continuum_split ... ok
+test the_triso_array_matches_the_adjudicated_geometry ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

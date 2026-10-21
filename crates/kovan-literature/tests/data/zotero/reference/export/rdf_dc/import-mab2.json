@@ -1,0 +1,6 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"output": "<rdf:RDF\n xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n    <rdf:Description rdf:about=\"urn:isbn:3-540-12345-X\">\n        <dc:title>Die Kernreaktortechnik: eine Einführung</dc:title>\n        <dc:type>book</dc:type>\n        <dc:contributor>Müller, Hans</dc:contributor>\n        <dc:contributor>Schmidt, Anna</dc:contributor>\n        <dc:creator>Lee, Kim</dc:creator>\n        <dc:creator>Deutsche Forschungsgemeinschaft</dc:creator>\n        <dc:publisher>Springer</dc:publisher>\n        <dc:date>1999</dc:date>\n        <dc:identifier>ISBN 3-540-12345-X</dc:identifier>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n42438\">\n        <dc:title>Ein Film</dc:title>\n        <dc:type>film</dc:type>\n        <dc:creator>Fassbinder, Rainer Werner</dc:creator>\n        <dc:date>1975</dc:date>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n42439\">\n       <dc:title>Handschrift ohne Autor</dc:title><dc:type>manuscript</dc:type>\n    </rdf:Description>\n    <rdf:Description rdf:nodeID=\"n42440\">\n        <dc:title>Plakat</dc:title>\n        <dc:type>artwork</dc:type>\n        <dc:creator>Bauhaus</dc:creator>\n    </rdf:Description>\n</rdf:RDF>\n"
+	}
+}

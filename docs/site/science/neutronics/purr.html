@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PURR: make up the resonances</title>
+<meta name="description" content="Neutronics, page 19: in the unresolved range nobody knows where the resonances are, but their statistics are known. NJOY's PURR makes up ladders of resonances that obey those statistics (Wigner spacings, chi-square widths), samples them, and keeps how likely each value of the cross section is. Run by OUTRAM PARK's PURR port on U-238.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="purr-data.js" defer></script>
+<script src="purr.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 19 of the design comment of 2026-10-16 and its amendments (steps 1-4, step 5 as one paragraph; no Monte Carlo transport, no MT 153 / LUNR / ACER plumbing, no self-shielding; the LSSF = 1 note for U-238). The nuclear-data demo's PURR rung is not embedded: its on-screen note speaks of self-shielding factors. Source: NJOY2016 manual §23.1-23.2. Numbers: purr-data.js (examples/lesson_purr.rs, OUTRAM PARK's PURR port), checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>PURR: make up the resonances</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Page 18's smearing kept the <b>average</b> and threw away how &sigma; <b>fluctuates</b>. Can we keep the fluctuations without knowing where the resonances are?</p>
+<p>Nobody knows where any single resonance sits in the unresolved range, or how wide it is. But we do know their <b>statistics</b>: for each spin sequence, the mean spacing and the mean widths, and how spacings and widths scatter about those means. So NJOY's PURR does something bold: <b>it makes up resonances that obey the statistics</b>.</p>
+<p class="note">Where do the statistics come from? From the evaluation, which uses measurements where it can and nuclear models where it must. U-238's ENDF/B-VIII.0 description <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> says, for example, that its average capture width was extracted from GELINA data below 1.2 keV and projected to 75 keV with a giant-dipole-resonance model, and that its neutron strength functions were set to reproduce an optical model. The <i>shapes</i> of the scatter are statistical theory: "the Wigner distribution" for spacings and "chi-square distributions" for widths <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>.</p>
+
+<h2>Four steps</h2>
+<ol>
+  <li><b>Build one made-up ladder.</b> For each spin sequence, put the first resonance at a <b>random</b> place, draw its widths from the chi-square distributions, step up by a Wigner-distributed spacing to the next one, and repeat until the energy range is full. Add up all the sequences: one plausible forest, made up but statistically right.</li>
+  <li><b>Sample it.</b> Pick random energies in the range, away from its ends, and compute the cross sections there. Random energies are fair because a neutron's energy loss in a collision is large compared with any resonance's width (page 17's log-steps), so "neutrons arrive at random energies that are not correlated with the resonance structure" (§23.1).</li>
+  <li><b>Count.</b> Bin the total cross sections: how often does each value occur? For each bin, also keep the average elastic, capture and fission of the samples that landed in it.</li>
+  <li><b>Don't trust one ladder.</b> Repeat with many ladders, until the sampled averages settle on the infinitely dilute values that the same parameters give directly.</li>
+</ol>
+
+<section class="widget-card">
+  <h3>Make up a ladder, sample it, count</h3>
+  <div class="widget" id="purr">
+    <canvas aria-label="PURR's steps: a made-up resonance ladder, the cross section at random sample energies, the histogram of sampled total cross sections, and the running average over many ladders"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-stage="ladder">1 Ladder</button> <button type="button" class="btn ghost" data-stage="sample">2 Sample</button> <button type="button" class="btn ghost" data-stage="hist">3 Count</button> <button type="button" class="btn ghost" data-stage="many">4 Many ladders</button></p>
+  <p class="actions" data-lads><button type="button" class="btn ghost" data-nlad="1">1 ladder</button> <button type="button" class="btn ghost" data-nlad="10">10 ladders</button> <button type="button" class="btn ghost" data-nlad="64">64 ladders</button></p>
+  <p class="note">Every number is OUTRAM PARK's port of PURR <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>, with NJOY's own random-number generator and seed, on U-238's unresolved parameters at 50 keV and 293.6 K. Our port's tables match NJOY2016's in every word (the <a href="../../deep-dives/nuclear-data/purr.html">nuclear-data deep dive</a>).</p>
+</section>
+
+<p>The made-up ladders agree with the parameters: averaged over <b data-nladr>64</b> ladders, the total cross section comes out at <b data-aver="total">12.905</b> b, against the <b data-infd="total">12.911</b> b the parameters give directly, and capture at <b data-aver="cap">0.317</b> b against <b data-infd="cap">0.315</b> b. The NJOY2016 manual shows the same check for U-235, as "aver" against "infd" (§23.1).</p>
+
+<h2>All temperatures at once</h2>
+<p>PURR evaluates each ladder at every requested temperature, at the <b>same</b> sample energies. So the tables for different temperatures come from the same made-up resonances, and stay consistent with each other: "all temperatures are computed simultaneously to preserve temperature correlations" (§23.2).</p>
+
+<h2>And for U-238?</h2>
+<p>Page 18 noted that U-238's evaluation gives its infinitely dilute cross sections directly, in File 3 (LSSF = 1). Its resonance parameters then have one job: to supply the fluctuations. "When LSSF=1, all the cross section values are divided by the corresponding infinitely dilute cross sections", so each bin holds a "dimensionless fluctuation factor", applied to the cross section in File 3 <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>.</p>
+
+<h2>Why is this so? What do we end up with?</h2>
+<p>A <b>table of how likely each value of &sigma; is</b>, at each energy of the unresolved range, with the matching elastic, capture and fission values for each. The fluctuations are kept, and no individual resonance had to be known.</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -25,6 +25,8 @@
 //!
 //! Pressure MPa, enthalpy kJ/kg, temperature K.
 
+use petir::mathf::RealMath;
+
 use super::basic::{h1_pt, h2_pt};
 use super::region4::{p_b13_sat, psat_t, tsat_p, T_MIN};
 
@@ -91,7 +93,7 @@ pub fn t1_ph(p: f64, h: f64) -> f64 {
     ];
     let eta = h / 2500.0;
     (0..20)
-        .map(|k| N[k] * p.powi(I[k]) * (eta + 1.0).powi(J[k]))
+        .map(|k| N[k] * p.r_powi(I[k]) * (eta + 1.0).r_powi(J[k]))
         .sum()
 }
 
@@ -143,7 +145,7 @@ pub fn t2a_ph(p: f64, h: f64) -> f64 {
     ];
     let eta = h / 2000.0;
     (0..34)
-        .map(|k| N[k] * p.powi(I[k]) * (eta - 2.1).powi(J[k]))
+        .map(|k| N[k] * p.r_powi(I[k]) * (eta - 2.1).r_powi(J[k]))
         .sum()
 }
 
@@ -199,7 +201,7 @@ pub fn t2b_ph(p: f64, h: f64) -> f64 {
     ];
     let eta = h / 2000.0;
     (0..38)
-        .map(|k| N[k] * (p - 2.0).powi(I[k]) * (eta - 2.6).powi(J[k]))
+        .map(|k| N[k] * (p - 2.0).r_powi(I[k]) * (eta - 2.6).r_powi(J[k]))
         .sum()
 }
 
@@ -241,7 +243,7 @@ pub fn t2c_ph(p: f64, h: f64) -> f64 {
     ];
     let eta = h / 2000.0;
     (0..23)
-        .map(|k| N[k] * (p + 25.0).powi(I[k]) * (eta - 1.8).powi(J[k]))
+        .map(|k| N[k] * (p + 25.0).r_powi(I[k]) * (eta - 1.8).r_powi(J[k]))
         .sum()
 }
 

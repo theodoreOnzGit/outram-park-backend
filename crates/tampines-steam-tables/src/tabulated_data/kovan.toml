@@ -1,0 +1,802 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/tabulated_data"
+test_ids = [
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/app.rs::default_app_state_yields_finite_plottable_data_on_every_tab",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/curves.rs::saturation_curve_matches_the_wagner_steam_table",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::export_style_palette_reaches_the_rendered_png",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::scenes_assemble_with_finite_ranges_and_the_required_caveats",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/export.rs::write_single_file_writes_the_exact_path_and_rejects_csv",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/figure/csv_export.rs::csv_export_is_byte_reproducible",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::every_reference_layer_yields_points",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::isobar_and_isotherm_layers_pair_their_line_with_published_wagner_crosses",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::layer_selection_restricts_which_isobars_and_isotherms_are_drawn",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::legend_groups_collapse_the_families_issue_26_names",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::tabulated_single_phase_axis_toggle_works_on_every_diagram",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::tabulated_single_phase_pairs_a_smooth_curve_where_not_degenerate",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/layers.rs::wagner_single_phase_points_respect_the_isobar_isotherm_selection",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/main.rs::headless_export_writes_valid_files_for_all_four_diagrams",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/reference_data/mod.rs::no_dataset_carries_a_non_finite_number",
+    "crates/tampines-steam-tables/examples/tampines-steam-tables-gui/reference_data/mod.rs::row_counts_match_fixtures",
+    "crates/tampines-steam-tables/src/tabulated_data/mod.rs::cross_section_dispatches_by_variant",
+    "crates/tampines-steam-tables/src/tabulated_data/mod.rs::isobar_finds_the_published_rows_it_should_and_nothing_it_should_not",
+    "crates/tampines-steam-tables/src/tabulated_data/mod.rs::isotherm_finds_rows_across_multiple_tabulated_isobars",
+    "crates/tampines-steam-tables/src/tabulated_data/mod.rs::saturation_curve_is_complete_and_finite",
+    "crates/tampines-steam-tables/src/tabulated_data/mod.rs::wagner_row_counts_match_the_source_fixtures",
+]
+
+[module."mod.rs"]
+path = "crate::tabulated_data"
+
+[[module."mod.rs".function]]
+id = "fn:4cc6fd8fa97dcaca"
+name = "TabulatedQuantity"
+qual = "TabulatedQuantity"
+item = "type"
+shape = "enum"
+lines = [
+    47,
+    59,
+]
+hash = "sha256:5c5bb1cddf292b9fd067d119277c37bc74a8d0a4d323637db62efc7445c6da7d"
+doc_hash = "sha256:2b22ee004993715c24dbaeb14cf2364b2c5e981d75aa0914691226e5d34a64d7"
+reached_by = ["#16"]
+
+[[module."mod.rs".function]]
+id = "fn:129cdc5b02f10068"
+name = "TabulatedState"
+qual = "TabulatedState"
+item = "type"
+shape = "struct"
+lines = [
+    61,
+    69,
+]
+hash = "sha256:5c146edca6a8d6651afd6018157586909c99b1184bb62a3b74fb92576549cccf"
+doc_hash = "sha256:d5e9e8965ff9f393d9d7347cc446ffca7e48d29ced768d8b8dfa7625984dfe34"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a58bd886bbbe83ac"
+name = "TabulatedSaturationState"
+qual = "TabulatedSaturationState"
+item = "type"
+shape = "struct"
+lines = [
+    71,
+    80,
+]
+hash = "sha256:78c42f4af85bbf8923cfd6c56e71df0cf1502f46a2e9923d2ef3a615594817f2"
+doc_hash = "sha256:19525fc446326c0a64aee14b73cbde75cce2a8a9537a9fd734e03a6d4dee8162"
+reached_by = ["#19"]
+
+[[module."mod.rs".function]]
+id = "fn:c16744601e2a75c6"
+name = "DEFAULT_ISOBAR_TOLERANCE_RELATIVE"
+qual = "DEFAULT_ISOBAR_TOLERANCE_RELATIVE"
+item = "const"
+shape = "const"
+lines = [
+    82,
+    87,
+]
+hash = "sha256:8593f7c365839e0dceb088c331ae16e3e47a5fb20d7bb357483f74df246ef58d"
+doc_hash = "sha256:d723975486bf29df36e537ec39f1163444695e81ffdc18e362828d2f90116e4a"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#17",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b4f184383790d360"
+name = "DEFAULT_ISOTHERM_TOLERANCE_KELVIN"
+qual = "DEFAULT_ISOTHERM_TOLERANCE_KELVIN"
+item = "const"
+shape = "const"
+lines = [
+    89,
+    94,
+]
+hash = "sha256:827af758a332f6ec5f9d09307bc457f7cf4562030c7ffa1e9d1d0efa23ee09c3"
+doc_hash = "sha256:15cf579719bbc3028ae4850b512abcea7340e15e4f3e819c41d3fde3603386d8"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c996391df79adc41"
+name = "TabulatedData"
+qual = "TabulatedData"
+item = "type"
+shape = "struct"
+lines = [
+    96,
+    105,
+]
+hash = "sha256:d8614b0816a91583135c5bbe0ef5395c033365a4bab6ddf5c2827e27977e85fc"
+doc_hash = "sha256:a9d4216dd57f38710e3a3e79dd59d551f5aa085f4d55c46f8eb50fbd3a8eb59e"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d726da0089210f43"
+name = "isobar"
+qual = "TabulatedData::isobar"
+lines = [
+    108,
+    119,
+]
+hash = "sha256:834dcd9848eb78e3848ba68f5ca7959cea14504772a0bc762fc345aaec61135d"
+doc_hash = "sha256:ed65d2cf92a9adbcaa1f4ede20592c7ac636884fb03f7336412adede385b7ef4"
+callees = ["fn:022e040e5b5aebbf"]
+uses = [
+    "fn:129cdc5b02f10068",
+    "fn:c996391df79adc41",
+    "fn:f5b72b5b0f19602c",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#17",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:6e42589e35e6551c"
+name = "isobar_default_tolerance"
+qual = "TabulatedData::isobar_default_tolerance"
+lines = [
+    121,
+    124,
+]
+hash = "sha256:3459dee3ce7403ad5d400a940d857788e555de07f2519361943cf116df4668cf"
+doc_hash = "sha256:bc2cf70f6da5d63ee0a89a6e8bb17a8a4bcfdfe19fd500bfed6fe23449ce7dd4"
+callees = ["fn:d726da0089210f43"]
+uses = [
+    "fn:129cdc5b02f10068",
+    "fn:c16744601e2a75c6",
+    "fn:c996391df79adc41",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#17",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:95897e822d732176"
+name = "isotherm"
+qual = "TabulatedData::isotherm"
+lines = [
+    126,
+    152,
+]
+hash = "sha256:d110b8a6a85e3f931ae26126494b9624bb3f14bb063d61d403cd80566dc0008a"
+doc_hash = "sha256:215324dbf36d1550234b62b261e649bae362bf65c02b18693cf43bbf42787243"
+callees = ["fn:022e040e5b5aebbf"]
+uses = [
+    "fn:129cdc5b02f10068",
+    "fn:c996391df79adc41",
+    "fn:f5b72b5b0f19602c",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#18",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ded6409928d60d83"
+name = "isotherm_default_tolerance"
+qual = "TabulatedData::isotherm_default_tolerance"
+lines = [
+    154,
+    157,
+]
+hash = "sha256:faef72cd1b75d77d0caa1c4fab75361b08439cf63ac8616ccc14fa3a3c996ff3"
+doc_hash = "sha256:5b3817ea834e25fc1ec22d15c782a8fdcade024dfe09146505d70638caa8a789"
+callees = ["fn:95897e822d732176"]
+uses = [
+    "fn:129cdc5b02f10068",
+    "fn:b4f184383790d360",
+    "fn:c996391df79adc41",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#18",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:05683ecc64f8d80c"
+name = "cross_section"
+qual = "TabulatedData::cross_section"
+lines = [
+    159,
+    166,
+]
+hash = "sha256:0bf9dd6f38cd9ca228cc51a538ae314fefcdb0ccb49dc6c14e47f922884562cb"
+doc_hash = "sha256:e637225f8b68781ffd6ed7515d7016192aa1e563dfe7c7a9892d6a808e60347c"
+callees = [
+    "fn:6e42589e35e6551c",
+    "fn:ded6409928d60d83",
+]
+uses = [
+    "fn:129cdc5b02f10068",
+    "fn:4cc6fd8fa97dcaca",
+    "fn:c996391df79adc41",
+]
+reached_by = ["#16"]
+
+[[module."mod.rs".function]]
+id = "fn:d92bff4338cb9bfc"
+name = "saturation_curve"
+qual = "TabulatedData::saturation_curve"
+lines = [
+    168,
+    185,
+]
+hash = "sha256:dba700f1dd45ffe9027d09895b40770ee8f6580353138ed8a7135a0493446aad"
+doc_hash = "sha256:71bd75138172d9f6ac5a4ad7058675112ed3889ea091e613ede8a3a1f636566e"
+uses = [
+    "fn:0a4174ba85f0edf5",
+    "fn:2bee84cd93d4285b",
+    "fn:3fa0cf79458d6998",
+    "fn:6b3dd2c865f02929",
+    "fn:9938e136b63df7e3",
+    "fn:a58bd886bbbe83ac",
+    "fn:c996391df79adc41",
+    "fn:db3887c86baa3454",
+    "fn:f5490c42b737f97b",
+]
+reached_by = ["#19"]
+
+[[module."mod.rs".function]]
+id = "fn:022e040e5b5aebbf"
+name = "row_to_state"
+qual = "row_to_state"
+lines = [
+    188,
+    195,
+]
+hash = "sha256:44ee0d463ed3a0827aeddca650fd03d1d0417dccb7466df8ecc39ee5ed9ccd01"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:129cdc5b02f10068",
+    "fn:a7b3ab423a695b22",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ed04c68b93101caf"
+name = "wagner_row_counts_match_the_source_fixtures"
+qual = "wagner_row_counts_match_the_source_fixtures"
+lines = [
+    202,
+    213,
+]
+hash = "sha256:9da98820eceb903891085e5f9ef0da431e6b06c1de7a4b8d0aae7bcc4c424521"
+doc_hash = "sha256:0416b4fd804420e201f904cf72b8b4b0d16cac66f068e831b9e4ac4ad13cdb5d"
+uses = [
+    "fn:db3887c86baa3454",
+    "fn:f5b72b5b0f19602c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7d700d17f6e86882"
+name = "isobar_finds_the_published_rows_it_should_and_nothing_it_should_not"
+qual = "isobar_finds_the_published_rows_it_should_and_nothing_it_should_not"
+lines = [
+    215,
+    249,
+]
+hash = "sha256:9ccb2637b5577c2d9d6dae7f73622b82a1cc9d5dd0a213fdc2a0b95f2215dc8d"
+doc_hash = "sha256:0aa3f7f04900766c913a16c880265e812861043ed6c816dd077c090ca3994e8c"
+callees = ["fn:6e42589e35e6551c"]
+uses = [
+    "fn:c16744601e2a75c6",
+    "fn:c996391df79adc41",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d9841b592823d9ee"
+name = "isotherm_finds_rows_across_multiple_tabulated_isobars"
+qual = "isotherm_finds_rows_across_multiple_tabulated_isobars"
+lines = [
+    251,
+    275,
+]
+hash = "sha256:7e0ffa0aebc6c2579902b2750145325d878f754f5b4341217d55da37f1d73fbb"
+doc_hash = "sha256:1336354ea2a1a0daf6b00803d935d706d9288f107b55d680cff301671809836f"
+callees = ["fn:ded6409928d60d83"]
+uses = [
+    "fn:b4f184383790d360",
+    "fn:c996391df79adc41",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ee3b804db3518613"
+name = "cross_section_dispatches_by_variant"
+qual = "cross_section_dispatches_by_variant"
+lines = [
+    277,
+    284,
+]
+hash = "sha256:1c9d3188b7b3a96bfb156f30e72ab6cef6e8b622c28fcde741cf7aba441dd875"
+doc_hash = "sha256:728cec2d34b520c8718785ea2bd6354231892e09fe5fa4d2083f6d501e4cb9a3"
+callees = [
+    "fn:05683ecc64f8d80c",
+    "fn:6e42589e35e6551c",
+]
+uses = [
+    "fn:4cc6fd8fa97dcaca",
+    "fn:c996391df79adc41",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:dc6fc372c14615f8"
+name = "saturation_curve_is_complete_and_finite"
+qual = "saturation_curve_is_complete_and_finite"
+lines = [
+    286,
+    306,
+]
+hash = "sha256:7c819de081e338fa54e898732c750744c2024e3b4f7448aff3641b1a9462aa4d"
+doc_hash = "sha256:593406af09aa1ef30f9dc55875034c706e38f9843f8767dc6fe2bf336608e070"
+callees = ["fn:d92bff4338cb9bfc"]
+uses = [
+    "fn:c996391df79adc41",
+    "fn:db3887c86baa3454",
+]
+test = true
+
+[module."wagner_kretzschmar_2019.rs"]
+path = "crate::tabulated_data::wagner_kretzschmar_2019"
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:c461583a2ec461cf"
+name = "WagnerSaturationRow"
+qual = "WagnerSaturationRow"
+item = "type"
+shape = "alias"
+lines = [
+    62,
+    77,
+]
+hash = "sha256:380f9af6710ab0994d0beeb1bfb906edca30658655b5cd3ec7ff641e6c2497a3"
+doc_hash = "sha256:5bbd27c270c6877dfd425a3614342e4af1b5a3054c1bdaa2a2261f00548b2597"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#19",
+    "#20",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:a7b3ab423a695b22"
+name = "WagnerSinglePhaseRow"
+qual = "WagnerSinglePhaseRow"
+item = "type"
+shape = "alias"
+lines = [
+    79,
+    88,
+]
+hash = "sha256:17221d396d783ce8a27edfc460a24738fdf6cf8c9b81b46e0d299352be565de2"
+doc_hash = "sha256:d13c33b7b34ab76d6e2462c2ceefbc5fe225c1cb266c2c700f176858d517cd04"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:6b3dd2c865f02929"
+name = "SAT_COL_T_DEGC"
+qual = "SAT_COL_T_DEGC"
+item = "const"
+shape = "const"
+lines = [
+    90,
+    91,
+]
+hash = "sha256:55922d70fee2703be4265116e6b7736a8c01671da5c41425a21a905ab4c7b72d"
+doc_hash = "sha256:51a3829a2ad733b20d90aa66d281548c6ba3b3ca24944c3415058d459b78f437"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#19",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:0a4174ba85f0edf5"
+name = "SAT_COL_P_BAR"
+qual = "SAT_COL_P_BAR"
+item = "const"
+shape = "const"
+lines = [
+    92,
+    93,
+]
+hash = "sha256:1fba0217c1208464f6c0a2ea135aa119eb08f382185bf5d94d463b493951c232"
+doc_hash = "sha256:c55f8709507f27e9baa183dd15e9fd448316c44f080a4cc2797de0edb4cc4044"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#19",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:3fa0cf79458d6998"
+name = "SAT_COL_H_LIQ"
+qual = "SAT_COL_H_LIQ"
+item = "const"
+shape = "const"
+lines = [
+    94,
+    95,
+]
+hash = "sha256:5d847a8fda7180bb94a194e84161e64a71028a28dfadd272861db5b35db810d0"
+doc_hash = "sha256:84443a332c5a527f23cf6f677c44f466843f40d251107cbc1c7bf219872faf84"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#19",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:2bee84cd93d4285b"
+name = "SAT_COL_H_VAP"
+qual = "SAT_COL_H_VAP"
+item = "const"
+shape = "const"
+lines = [
+    96,
+    97,
+]
+hash = "sha256:92e5ce1065e6f0125c779c7592e9b90a8bc922ca8d5690cc00fde11b8b2e2326"
+doc_hash = "sha256:16d0c03294ef116bfab4da88a30eecadcef02e19f92edbd4589aec8161d9b80c"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#19",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:9938e136b63df7e3"
+name = "SAT_COL_S_LIQ"
+qual = "SAT_COL_S_LIQ"
+item = "const"
+shape = "const"
+lines = [
+    98,
+    99,
+]
+hash = "sha256:e71188550680b8ca1f603958f1eb01f4101a8088dedc7e2fdbc0054fe2d63f89"
+doc_hash = "sha256:910301ea8aadc9904615ef5939aa6e29bc7f664f96c59c4b4f994e48114f3959"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#19",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:f5490c42b737f97b"
+name = "SAT_COL_S_VAP"
+qual = "SAT_COL_S_VAP"
+item = "const"
+shape = "const"
+lines = [
+    100,
+    101,
+]
+hash = "sha256:84de5d85a4acececec3cc5e5adb92cc1478fe38cc3a7525026af9faecdabf62c"
+doc_hash = "sha256:5b3b67b28f7d80a9c29d289bb1f19e415d8ace499f3c0cf493b28a0103091742"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#19",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:db3887c86baa3454"
+name = "WAGNER_SATURATION_TABLE"
+qual = "WAGNER_SATURATION_TABLE"
+item = "const"
+shape = "const"
+lines = [
+    103,
+    779,
+]
+hash = "sha256:18c4afe13d3033f7cd8295ebbc609e0f62cd631beb7cc415bc9a60eda53dc48d"
+doc_hash = "sha256:88c6edf2cbfce7e81ec720cceb6822668e2de44d1959458360c5ef858e5019aa"
+uses = ["fn:c461583a2ec461cf"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#19",
+    "#20",
+]
+
+[[module."wagner_kretzschmar_2019.rs".function]]
+id = "fn:f5b72b5b0f19602c"
+name = "WAGNER_SINGLE_PHASE_TABLE"
+qual = "WAGNER_SINGLE_PHASE_TABLE"
+item = "const"
+shape = "const"
+lines = [
+    781,
+    3146,
+]
+hash = "sha256:a5dfd8b13ed11914af477b99238866f8c3729d328d4aebfef7f9b2b0d7db3937"
+doc_hash = "sha256:8e6247107808592562f3eb138541dfbc2db4467487732ada57cd38a5790aed85"
+uses = ["fn:a7b3ab423a695b22"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#20",
+]

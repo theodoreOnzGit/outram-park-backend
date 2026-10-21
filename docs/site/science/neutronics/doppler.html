@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doppler broadening: lone atoms, warm</title>
+<meta name="description" content="Neutronics, page 22: the simplest thermal case is a gas of lone atoms. Their motion spreads the relative speeds at which a neutron meets them, so averaging the 0 K cross section over that spread makes each resonance lower and wider, keeping its area. U-238's 6.67 eV resonance broadened by OUTRAM PARK's BROADR port; the nuclear-data demo's BROADR rung embedded.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="kinematics.js" defer></script>
+<script src="doppler-data.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 22, per the design comment, the amendment that superseded its flow (concept, "we do this integration thing", the area rule of thumb with its condition, reuse the BROADR rung) and the amendment that Doppler broadening works at all temperatures and energies. Reuses page 3's thermal-motion widget (kinematics.js) and embeds demos/nuclear-data/?rung=broadr. No self-shielding; no BROADR plumbing. Source: NJOY2016 manual §4.1. Numbers: doppler-data.js (examples/lesson_doppler.rs), checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Doppler broadening: lone atoms, warm</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>A lattice is complicated, so start with the simplest thermal case: a gas of <b>lone atoms</b>, each drifting freely, the nuclei of page 3.</p>
+
+<h2>Moving nuclei, a spread of meetings</h2>
+<p>The nuclei move with the Maxwell&ndash;Boltzmann spread of velocities. So a neutron of one speed meets them at a <b>spread of relative speeds</b>, and the hotter the material, the wider that spread. Page 3's demo, again:</p>
+
+<section class="widget-card">
+  <h3>Nuclei in thermal motion</h3>
+  <div class="widget" id="thermal" data-awr-h1="0.9991673" data-awr-c12="11.89365" data-awr-u238="236.0058">
+    <canvas aria-label="Nuclei moving with thermal velocities, the velocity triangle for one neutron-nucleus pair, and a histogram of encounter energies"></canvas>
+  </div>
+  <p class="note">Page 3's widget: a free gas, each velocity component drawn from a Gaussian of spread &radic;(kT/M), with M from each nucleus's ENDF/B-VIII.0 atomic weight ratio <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> and k from CODATA 2018 <a href="#ref-tiesinga2021codata2018">(Tiesinga et al., 2021)</a>.</p>
+</section>
+
+<p>A resonance is sharp in the <b>relative</b> energy (pages 12&ndash;16). If the meetings happen at a spread of relative energies, the peak the material shows is smeared too.</p>
+
+<h2>We do an integration, that's all</h2>
+<p>The cross section at temperature T is "that cross section that gives the same reaction rate for stationary target nuclei as the real cross section gives for moving nuclei" <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. In other words: take the 0 K cross section and average it over the spread of relative speeds. That is all NJOY's BROADR does. It takes RECONR's straight-line 0 K curve (page 6's points plus interpolation), integrates it exactly, piece by piece, against the spread, and writes a new straight-line curve at temperature T.</p>
+<details class="optional">
+  <summary>Deeper: the integral</summary>
+  <p>With &rho; the target density, v the neutron's speed and P(v&prime;, T) the Maxwell&ndash;Boltzmann distribution of target velocities (NJOY2016 manual, eq. 82):</p>
+  <p class="eq-block">&rho; v &sigma;(v, T) = &int; dv&prime; &rho; |v &minus; v&prime;| &sigma;(|v &minus; v&prime;|) P(v&prime;, T)</p>
+  <p>It reduces to &sigma;(v) = &sigma;*(v) &minus; &sigma;*(&minus;v), with &sigma;*(v) an integral of the 0 K cross section against the Gaussian kernel e<sup>&minus;&alpha;(V&minus;v)&sup2;</sup>, &alpha; = A/kT (eq. 86). The Gaussian is the Maxwell&ndash;Boltzmann bell curve; it cuts the integral off beyond about 4/&radic;&alpha; on either side of v.</p>
+</details>
+
+<p class="predict"><b>Predict first:</b> heat the fuel. Does U-238's 6.67 eV capture peak get taller or shorter? Wider or narrower?</p>
+
+<h2>Rule of thumb: the area stays the same</h2>
+<p>It is the same resonance, with the same width and the same probability, only <b>smeared out</b>. So a wider range of neutron energies can now meet it, and the peak gets lower and wider while the area under it stays put. That is <b>Doppler broadening</b>. Our BROADR port on U-238's 6.674 eV capture resonance:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Temperature</th><th>Peak</th><th>Full width at half maximum</th><th>Area, 5.5&ndash;8 eV</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Temperature">0 K</td><td data-label="Peak"><span data-peak="0">22 763</span> b</td><td data-label="Width"><span data-fwhm="0">24.2</span> meV</td><td data-label="Area"><span data-area="0">860.50</span> b eV</td></tr>
+    <tr><td data-label="Temperature">293.6 K</td><td data-label="Peak"><span data-peak="293.6">7 196</span> b</td><td data-label="Width"><span data-fwhm="293.6">102.7</span> meV</td><td data-label="Area"><span data-area="293.6">860.56</span> b eV</td></tr>
+    <tr><td data-label="Temperature">1200 K</td><td data-label="Peak"><span data-peak="1200">3 997</span> b</td><td data-label="Width"><span data-fwhm="1200">193.3</span> meV</td><td data-label="Area"><span data-area="1200">860.58</span> b eV</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="note">ENDF/B-VIII.0 U-238, reconstructed by OUTRAM PARK's RECONR port at 0 K and broadened with its BROADR kernel (NJOY's SIGMA1). At 0 K the width is the level's own, &Gamma; = 24.2 meV (page 12).</p>
+<p>The rule of thumb holds very well here, and it has a condition: the manual warns that "contrary to 'popular knowledge', the area under a resonance does not remain unchanged unless E &#8811; kT/A" (§4.1). For U-238, kT/A is <b data-kta="293.6">1.1&times;10<sup>&minus;4</sup></b> eV at 293.6 K, so a resonance at 6.67 eV sits tens of thousands of times above it.</p>
+<div class="misconception" role="note"><b>Common misconception: "The area under a Doppler-broadened resonance is exactly conserved."</b>
+  <p>It is a rule of thumb, excellent for resonances far above kT/A, which in practice is all of them. Near kT/A it fails: each resonance grows a small 1/v tail (below).</p></div>
+<details class="optional">
+  <summary>Deeper: when the area rule fails</summary>
+  <p>Near kT/A, each resonance grows a small 1/v tail at low energy, and the area is no longer kept. A pure 1/v cross section is the special case that does not change at all: broadening keeps the reaction rate v&sigma;(v), and for 1/v that is a constant. Our BROADR kernel leaves a 1/v curve unchanged to <b data-onev>5&times;10<sup>&minus;5</sup></b> between 0.01 and 10 eV, about the accuracy of drawing it with straight lines between table points. And a constant cross section, such as elastic scattering, does the opposite: it grows a 1/v tail at low energy (§4.1).</p>
+</details>
+
+<h2>See it in the real code</h2>
+<p>The nuclear-data demo runs our RECONR and BROADR ports in your browser on U-238 between 1 and 300 eV. Slide the temperature and watch the 6.67, 20.9 and 36.7 eV capture peaks fall and widen while the area under them stays put.</p>
+<div class="iframe-slot" data-title="BROADR: Doppler broadening of U-238" data-src="../../demos/nuclear-data/?rung=broadr">
+  <button type="button" class="btn">Load the demo</button>
+</div>
+
+<h2>It works at every energy</h2>
+<p>Doppler broadening is not only a thermal-neutron effect. The nuclei are moving at any temperature above zero, so the reaction rate is averaged over relative speeds at <b>every</b> neutron energy: thermal, eV, keV. That is why it matters most for <b>resonances</b>, at eV to keV, far above thermal: heating the material changes them even though the neutrons meeting them are not thermal.</p>
+<ul>
+  <li><b>It shows only where &sigma; changes over the spread.</b> The manual's energy scale is E<sub>m</sub> = 16kT/A, for example <b>0.0017</b> eV for U-235 at 300 K; broadening matters for features narrower than about 2&radic;(E<sub>m</sub>E), so "for <sup>235</sup>U at 100 eV, Doppler effects are important for features smaller than about 0.8 eV" (§4.1). A smooth cross section barely changes; a 1/v one not at all; a sharp resonance a lot.</li>
+  <li><b>The free-gas form is exact only for free atoms.</b> At thermal energies, for atoms bound in a lattice or a molecule, it is not the right physics: that is S(&alpha;, &beta;)'s job (pages 20&ndash;21). So it applies wherever the target can be treated as free.</li>
+  <li><b>NJOY handles each range with its own module.</b> BROADR broadens up to the top of the resolved resonance range; in the unresolved range PURR's tables carry the temperature (page 19); in the thermal range, THERMR.</li>
+</ul>
+<p>Why heating the fuel this way matters for a reactor is a later lesson.</p>
+
+<h2>Back to the lattice</h2>
+<p><b>Now that we understand thermal effects for free atoms, let's go back to the lattice.</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-tiesinga2021codata2018" style="padding-left: 2em; text-indent: -2em;">Tiesinga, E., Mohr, P. J., Newell, D. B., &#38; Taylor, B. N. (2021). CODATA recommended values of the fundamental physical constants: 2018. <i>Reviews of Modern Physics</i>, <i>93</i>(2), 025010. https://doi.org/10.1103/RevModPhys.93.025010</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

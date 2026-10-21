@@ -1,0 +1,64 @@
+MODEL TwoTrain/two_train_alignment
+CCF off
+ALIGNMENT Maintenance
+PHASE Normal
+TOPNAME TopEvent
+TOTAL exact 0.0361
+PRODUCT 2 ValveOne ValveTwo
+PRODUCT 2 ValveOne PumpTwo
+PRODUCT 2 PumpOne ValveTwo
+PRODUCT 2 PumpOne PumpTwo
+END
+MODEL TwoTrain/two_train_alignment
+CCF off
+ALIGNMENT Maintenance
+PHASE PumpOne
+TOPNAME TopEvent
+TOTAL exact 0.019
+PRODUCT 2 ValveTwo ValveOne
+PRODUCT 2 PumpTwo ValveOne
+END
+MODEL TwoTrain/two_train_alignment
+CCF off
+ALIGNMENT Maintenance
+PHASE PumpTwo
+TOPNAME TopEvent
+TOTAL exact 0.019
+PRODUCT 2 ValveOne ValveTwo
+PRODUCT 2 PumpOne ValveTwo
+END
+MODEL TwoTrain/two_train_alignment
+CCF on
+ALIGNMENT Maintenance
+PHASE Normal
+TOPNAME TopEvent
+TOTAL exact 0.0622587
+PRODUCT 2 [ValveTwo] [ValveOne]
+PRODUCT 2 [ValveTwo] [PumpOne]
+PRODUCT 2 [PumpTwo] [ValveOne]
+PRODUCT 2 [PumpTwo] [PumpOne]
+PRODUCT 1 [ValveOne,ValveTwo]
+PRODUCT 1 [PumpOne,PumpTwo]
+END
+MODEL TwoTrain/two_train_alignment
+CCF on
+ALIGNMENT Maintenance
+PHASE PumpOne
+TOPNAME TopEvent
+TOTAL exact 0.0333694
+PRODUCT 2 [PumpTwo] [ValveOne]
+PRODUCT 2 [PumpOne,PumpTwo] [ValveOne]
+PRODUCT 2 [ValveTwo] [ValveOne]
+PRODUCT 1 [ValveOne,ValveTwo]
+END
+MODEL TwoTrain/two_train_alignment
+CCF on
+ALIGNMENT Maintenance
+PHASE PumpTwo
+TOPNAME TopEvent
+TOTAL exact 0.0333694
+PRODUCT 2 [PumpOne] [ValveTwo]
+PRODUCT 2 [PumpOne,PumpTwo] [ValveTwo]
+PRODUCT 2 [ValveOne] [ValveTwo]
+PRODUCT 1 [ValveOne,ValveTwo]
+END

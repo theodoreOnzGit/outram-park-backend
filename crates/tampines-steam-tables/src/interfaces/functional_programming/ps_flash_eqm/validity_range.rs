@@ -1,5 +1,6 @@
 use uom::si::{f64::*, pressure::megapascal, thermodynamic_temperature::kelvin};
 
+use crate::region_5_steam_at_800_plus_degc::s_tp_5;
 use crate::{
     interfaces::functional_programming::pt_flash_eqm::s_tp_eqm_single_phase,
     region_1_subcooled_liquid::s_tp_1, region_4_vap_liq_equilibrium::sat_pressure_4,
@@ -88,4 +89,16 @@ pub(crate) fn is_above_isotherm_t_1073_15(p: Pressure, s: SpecificHeatCapacity) 
     };
 
     return false;
+}
+
+/// Returns `true` when the `(p,s)` point lies above Region 5's upper isotherm,
+/// `T = 2273.15 K`, and is therefore outside IAPWS-IF97 altogether.
+///
+/// `p` is pressure and `s` specific entropy. Evaluated with the Region 5
+/// forward equation, which is the formulation that owns that isotherm.
+pub(crate) fn is_above_isotherm_t_2273_15(p: Pressure, s: SpecificHeatCapacity) -> bool {
+    let upper_temp_bound = ThermodynamicTemperature::new::<kelvin>(
+        crate::interfaces::functional_programming::ph_flash_eqm::REGION_5_MAX_TEMP_KELVIN,
+    );
+    s > s_tp_5(upper_temp_bound, p)
 }

@@ -9,7 +9,7 @@
 //   Carbide." MS thesis, North Carolina State University (advisor A. I.
 //   Hawari). Chapter 3.1 (Eqs. 3.4-3.8) and Chapter 4.1.
 //   Catalogued in this workspace as
-//   `crates/kovan-literature/open/theses/zhu2014thermal.{json,pdf}`.
+//   `zhu2014thermal` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`).
 //
 //   Companion paper (NOT catalogued here — no freely available copy located):
 //   Zhu, Y. and Hawari, A. I. (2015). "Implementation of a Generalized Coherent
@@ -83,6 +83,7 @@
 //! the bottom of this file for the measured numbers. **Untrusted AI-assisted
 //! draft** per crate policy: no human has reviewed the physics.
 
+use petir::mathf::RealMath;
 use crate::common::phys::PI;
 use crate::leapr::coher::BraggEdges;
 use crate::leapr::vintage::PhysicalConstants;
@@ -304,7 +305,7 @@ fn coher_general_inner(
     // f_i = 16 pi^3 |F|^2_barn / (V econ N_cell npr tau).
     // |F|^2 arrives in fm^2, so the fm^2 -> barn conversion (1 barn = 100 fm^2)
     // is folded into `scon` once rather than per edge.
-    let scon = 16.0 * PI.powi(3) / (volume * econ * n_cell * npr * 100.0);
+    let scon = 16.0 * PI.r_powi(3) / (volume * econ * n_cell * npr * 100.0);
 
     let recip = structure.reciprocal_cm();
 
@@ -343,9 +344,9 @@ fn coher_general_inner(
                         * (hf * atom.fractional[0]
                             + kf * atom.fractional[1]
                             + lf * atom.fractional[2]);
-                    let (s, c) = phase.sin_cos();
+                    let (s, c) = phase.r_sin_cos();
                     let b = match w_prime_per_atom.get(j) {
-                        Some(w) => atom.b_coh_fm * (-2.0 * w * tsq * recon).exp(),
+                        Some(w) => atom.b_coh_fm * (-2.0 * w * tsq * recon).r_exp(),
                         None => atom.b_coh_fm,
                     };
                     re += b * c;
@@ -705,7 +706,7 @@ mod tests {
                     "{}: edge energies must match ({ec:e} vs {ee:e})",
                     structure.name
                 );
-                let expected = fc * (-4.0 * W * ec).exp();
+                let expected = fc * (-4.0 * W * ec).r_exp();
                 if expected > 1e-30 {
                     worst = worst.max((fe - expected).abs() / expected);
                 }
@@ -818,7 +819,7 @@ mod tests {
                 .unwrap_or(0.0)
         };
         let ratio = |n: f64| {
-            let c = pick(&compound.edges, n) * (-4.0 * mean * n * e1).exp();
+            let c = pick(&compound.edges, n) * (-4.0 * mean * n * e1).r_exp();
             let x = pick(&exact.edges, n);
             (x - c).abs() / c
         };

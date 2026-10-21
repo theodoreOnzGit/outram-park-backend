@@ -38,6 +38,7 @@
 //! - [`orientation_from_selection`] — a [`TransformBasis`] from a
 //!   vertex / edge / face selection (Blender's *Create Orientation*).
 
+use petir::mathf::RealMath;
 use std::collections::BTreeSet;
 
 use crate::math::Vec3;
@@ -317,7 +318,7 @@ fn axis_unit(axis: Axis) -> Vec3 {
 }
 
 fn rotate_about_axis(v: Vec3, k: Vec3, theta: f64) -> Vec3 {
-    let (s, c) = theta.sin_cos();
+    let (s, c) = theta.r_sin_cos();
     v.scale(c)
         .add(k.cross(v).scale(s))
         .add(k.scale(k.dot(v) * (1.0 - c)))

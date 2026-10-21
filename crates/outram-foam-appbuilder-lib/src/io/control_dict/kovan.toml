@@ -1,0 +1,431 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/io/control_dict"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::missing_case_directory_is_an_io_error",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::non_end_time_stop_controls_run_no_steps",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::time_span_lifts_start_and_end",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::time_span_of_a_default_control_is_runnable",
+    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::unwired_solvers_refuse_before_reading_the_case",
+    "crates/outram-foam-appbuilder-lib/src/solvers/hrm_foam/mod.rs::default_relaxation_time_matches_downar_zapolski_constants",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::boussinesq_coefficients_convert_to_kinematic_units",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::temperature_solver_defaults_to_a_tight_tolerance",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::velocity_field_keeps_its_name_after_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::wall_face_fluxes_are_constrained_to_the_velocity_bc",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::arrhenius_reaction_burns_fuel_and_heats_gas",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::inert_species_conserve_sum",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::mass_transfer_moves_volume_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::reaction_heat_raises_phase_temperature",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::rejects_mesh_mismatch",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::thermal_equilibration_conserves_energy",
+    "crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs::compressible_lid_cavity_stays_stable",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::gallium_melting_cavity_gau_viskanta_configuration",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::stefan_problem_matches_similarity_solution",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs::sod_shock_tube_timed_series",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::homogeneous_decay_matches_analytic_k_omega_solution",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_openfoam_vs_rust_csv",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_pressure_matches_openfoam",
+    "crates/outram-foam-appbuilder-lib/tutorials/rho_central_foam_shock_tube.rs::shock_tube_shock_position",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::rho_central_foam_matches_sod_table_ii",
+    "crates/outram-foam-cli/tests/ci_smoke/sod.rs::sod_shock_tube_timed_series",
+]
+
+[module."mod.rs"]
+path = "crate::io::control_dict"
+
+[[module."mod.rs".function]]
+id = "fn:b0768c6e7263ae77"
+name = "ControlDict"
+qual = "ControlDict"
+item = "type"
+shape = "struct"
+lines = [
+    40,
+    92,
+]
+hash = "sha256:30fa0fcde751b2e3a7f32bf714215991cea6fb0cd6db4ee47c8202267f1cad24"
+doc_hash = "sha256:77ee6df4f2054156d065afc8d9b3c10b3467f58f9d3d5a3b8c98257595cb4d8c"
+uses = [
+    "fn:6ba3358f6a29c123",
+    "fn:908575806c2b42df",
+    "fn:913de6f723708336",
+    "fn:f11bcf88c9cf8afa",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:f11bcf88c9cf8afa"
+name = "StartControl"
+qual = "StartControl"
+item = "type"
+shape = "enum"
+lines = [
+    94,
+    110,
+]
+hash = "sha256:0dd424cbba43039f73baff5b77397b03223d1c3e6f3335aea13c93a1d36e0f5c"
+doc_hash = "sha256:e20f5e246ac25d93c6dd7eaa36d260711763db01dd52c1bdf65e60db38d72862"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6ba3358f6a29c123"
+name = "StopControl"
+qual = "StopControl"
+item = "type"
+shape = "enum"
+lines = [
+    112,
+    127,
+]
+hash = "sha256:545f9adcf32455ac1b0da834fecbdbb00696f5765ac4719032127f367f3ada36"
+doc_hash = "sha256:7a44f75a03651b8302535c425001877306d24fd407209270d1fb206e0e0c476e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:913de6f723708336"
+name = "WriteControl"
+qual = "WriteControl"
+item = "type"
+shape = "enum"
+lines = [
+    129,
+    148,
+]
+hash = "sha256:51e24f82a528dcd5d7ca84d610485bdbf42c619251da6d42607fbf8d1fa929ea"
+doc_hash = "sha256:354072f5ca5ca575e09f75aebb1e320599fb8f298ad69d9bcac44902153734f8"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:908575806c2b42df"
+name = "WriteFormat"
+qual = "WriteFormat"
+item = "type"
+shape = "enum"
+lines = [
+    150,
+    158,
+]
+hash = "sha256:649097fbb1f5cafbb4518bb212dcbb7a7f7fd449b1a8b58e00b54e627cfcdb56"
+doc_hash = "sha256:840fa29ece8594f3dac2bff051769758bf577f1fee5983d73f3e83717455fe96"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]
+
+[[module."mod.rs".function]]
+id = "fn:40c3879156834611"
+name = "read"
+qual = "ControlDict::read"
+lines = [
+    161,
+    181,
+]
+hash = "sha256:883ac93a8d555a83191e83d3020ae25a9a8f16774814481c46a228332aaf387c"
+doc_hash = "sha256:2703757fa71f656e060eea8aced8399bd89978b634983b72614f7649bbc6f755"
+uses = [
+    "fn:35e5ba76ac9ceafb",
+    "fn:b0768c6e7263ae77",
+]
+
+[[module."mod.rs".function]]
+id = "fn:25026aef8dc412e6"
+name = "default"
+qual = "ControlDict::default"
+lines = [
+    185,
+    201,
+]
+hash = "sha256:717c2d8517e1c410778843baed25cf504bdcf319824398e3c4eae86fd352dc5a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:6ba3358f6a29c123",
+    "fn:908575806c2b42df",
+    "fn:913de6f723708336",
+    "fn:b0768c6e7263ae77",
+    "fn:f11bcf88c9cf8afa",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#6",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+]

@@ -1,0 +1,2 @@
+converged,iterations,core_exit_c,vessel_outlet_c,max_helium_c,max_surface_c,max_kernel_c,dp_kpa,t_feedback_c,rho_pcm,k_vs_cold_critical,node_peak_to_mean,max_power_density_w_cm3,k_eff
+true,15,760.9,695.9,924.8,1005.5,1081.6,0.499,593.6,-7933,0.9265,1.4503,2.9660,1.082987

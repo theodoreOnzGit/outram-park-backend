@@ -465,7 +465,7 @@ build.
 ## 6. Proposed crate structure
 
 Workspace convention (`docs/ecosystem-naming.md` and the members table in
-`CLAUDE.md`) gives **`outram-park-fork-raven`**, GPL-3.0, described as an
+`CLAUDE.md`) gives **`outram-park-fork-raven`**, ~~GPL-3.0~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), described as an
 independent fork, not affiliated with INL or Battelle Energy Alliance.
 
 ```
@@ -952,7 +952,7 @@ carry different attribution requirements.
 Additionally, `crow/contrib/include/boost/` vendors Boost `predef` headers
 (Boost Software License). Out of scope with the rest of `crow`.
 
-### 9.3 Apache-2.0 into GPL-3.0 is one-way
+### 9.3 Apache-2.0 into ~~GPL-3.0~~ AGPL-3.0-only is one-way
 
 Apache-2.0 is compatible with GPL-3.0 **in one direction only**: Apache-2.0
 code may be incorporated into a GPL-3.0 work, and the combined work is
@@ -961,7 +961,7 @@ reverse.
 
 **Concretely, for this port:**
 
-- `outram-park-fork-raven` is **GPL-3.0**, like the rest of the workspace.
+- `outram-park-fork-raven` is ~~**GPL-3.0**~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), like the rest of the workspace.
 - **Nothing from this port can be contributed back to RAVEN upstream.** Once
   our derived work is GPL-3.0, INL cannot take it into an Apache-2.0 project.
   If the maintainer ever wants to contribute upstream, that contribution must
@@ -992,8 +992,8 @@ must not be stripped during refactors.** For this port:
 //                     Produced under U.S. DOE Contract DE-AC07-05ID14517.
 //   Upstream licence: Apache-2.0
 //
-// This file is part of OUTRAM PARK and is licensed GPL-3.0-or-later.
-// Apache-2.0 permits incorporation into a GPL-3.0 work; the reverse does not
+// This file is part of OUTRAM PARK and is licensed ~~GPL-3.0-or-later~~ AGPL-3.0-only.
+// Apache-2.0 permits incorporation into a ~~GPL-3.0~~ AGPL-3.0 work; the reverse does not
 // hold, so this file cannot be contributed back to RAVEN upstream.
 //
 // Changes from upstream: <state them — Apache-2.0 section 4(b) requires this>

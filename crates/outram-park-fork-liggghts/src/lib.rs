@@ -32,7 +32,8 @@
 //! > **Licensing (see `NOTICE`).** LIGGGHTS-PUBLIC's source headers declare
 //! > **"GNU Public License, version 2 or later"**, which **is compatible with
 //! > GPL-3.0** (the "or later" option permits use under GPLv3) — so
-//! > LIGGGHTS-PUBLIC source may be ported into this GPL-3.0-only crate.
+//! > LIGGGHTS-PUBLIC source may be ported into this ~~GPL-3.0-only~~ **AGPL-3.0-only** (relicensed
+//! > 2026-10-20, gh:#973) crate.
 //! > (Correcting an earlier note that wrongly said "GPL-2.0-only / blocked".)
 //! > When porting, confirm the specific file's "or later" header and keep its
 //! > attribution + provenance. LAMMPS-proper headers are version-unspecified
@@ -61,6 +62,28 @@
 //! Phases 2-4 are **clean-room, unit-tested foundations, not benchmark-validated**
 //! (that is a later human step) — see each module's "Honest scope".
 //!
+//! ## LIGGGHTS-faithful path (translated from upstream, cross-code verified)
+//!
+//! Added 2026-09-15. These modules are a **direct translation of
+//! LIGGGHTS-PUBLIC** (commit `3d5c00f2`), each carrying its upstream provenance
+//! header, and are verified against an upstream run committed under
+//! `reference-data/liggghts/` — see `docs/verification-and-validation.md`.
+//!
+//! - [`granular`] — the contact chain (`surface_model_default` →
+//!   `normal_model_hertz`/`hooke` → `tangential_model_history`/`no_history`),
+//!   **including the per-contact tangential shear history** that [`contact`]
+//!   omits.
+//! - [`granular_system`] — the history-aware driver, in LIGGGHTS' step order.
+//! - [`integrator`] — `fix nve/sphere` kick–drift–kick velocity-Verlet.
+//! - [`timestep`] — `fix check/timestep/gran` Rayleigh and Hertz criteria.
+//!
+//! **Use these for any packed-bed or settling problem.** [`contact`] hard-codes
+//! the tangential displacement to zero, so it has no shear *spring*: a static
+//! assembly built on it cannot carry shear, and a heap has zero angle of
+//! repose. [`particle::Particle::integrate`] is likewise not symplectic (its
+//! own doc comment explains the measured consequences) and should not drive
+//! contact dynamics.
+//!
 //! ## Extensions (clean-room, unit-tested)
 //!
 //! - [`simulation`] — multi-particle DEM engine: linked-cell neighbor search +
@@ -78,14 +101,30 @@
 
 pub mod bonded;
 pub mod boundary;
+pub mod compute;
 pub mod contact;
 pub mod coupling;
+#[cfg(feature = "gnn")]
+pub mod gnn_bridge;
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+pub mod gpu;
+pub mod granular;
+pub mod granular_system;
+// A fresh HTR-10 pour from empty, steppable by a UI (gh:#561, dhoby-ghaut Step 1).
+pub mod htr10_fill;
+pub mod integrator;
 pub mod mesh_wall;
 pub mod particle;
+pub mod rdf;
 pub mod rolling;
 pub mod simulation;
 pub mod thermal;
 pub mod thermal_radiation;
+pub mod timestep;
+/// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
+/// `rayon` does not build. Numerically exact here — see the module docs.
+#[cfg(target_arch = "wasm32")]
+pub(crate) mod wasm_par;
 
 /// Errors produced by the DEM library in this crate.
 #[derive(Debug, thiserror::Error)]

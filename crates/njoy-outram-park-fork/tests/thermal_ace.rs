@@ -9,6 +9,7 @@
 //! cargo test -p njoy-outram-park-fork --test thermal_ace --release
 //! ```
 
+use petir::mathf::RealMath;
 use std::fs::File;
 
 use njoy_outram_park_fork::{
@@ -32,7 +33,7 @@ fn al27_thermal() -> AceTable {
     let ne = 40;
     let (elo, ehi) = (1.0e-4_f64, 4.0_f64);
     let grid: Vec<f64> = (0..ne)
-        .map(|i| elo * (ehi / elo).powf(i as f64 / (ne - 1) as f64))
+        .map(|i| elo * (ehi / elo).r_powf(i as f64 / (ne - 1) as f64))
         .collect();
 
     let temp = mf7.incoherent_inelastic.as_ref().unwrap().temperature_k;
@@ -42,37 +43,32 @@ fn al27_thermal() -> AceTable {
         natom: 1.0,
         // THERMR card-4 emax; bounds the calcem grid the bins come from.
         emax_ev: 4.0,
+        ..Default::default()
     };
     AceTable::thermal_from_mf7(&mf7, temp, "al27", 0, &grid, opts).unwrap()
 }
 
-/// Minimal Type-1 parser: skip the 6 header/IZAW lines, read NXS(16)+JXS(32)
-/// (6 lines of 8 ints), then the XSS values.
+/// Parse a Type-1 table through the library reader.
+///
+/// This was a hand-rolled parser — one of five near-identical copies in this
+/// crate — until `acer::read` landed on 2026-09-21. Going through the library
+/// turns this from "the writer produced text my test can re-read" into a real
+/// **write -> read round trip**: the same reader that consumes NJOY2016's
+/// output consumes ours, so a table this crate writes but the reader cannot
+/// read now fails here.
 fn parse_type1(text: &str) -> (Vec<i32>, Vec<i32>, Vec<f64>) {
-    let lines: Vec<&str> = text.lines().collect();
-    let mut ints: Vec<i32> = Vec::new();
-    for line in &lines[6..12] {
-        for tok in line.split_whitespace() {
-            ints.push(tok.parse().unwrap());
-        }
-    }
-    let mut xss: Vec<f64> = Vec::new();
-    for line in &lines[12..] {
-        for tok in line.split_whitespace() {
-            xss.push(tok.parse().unwrap());
-        }
-    }
-    (ints[..16].to_vec(), ints[16..].to_vec(), xss)
+    let t = njoy_outram_park_fork::acer::read::parse_type1(text)
+        .expect("our own Type-1 output must be readable by our own reader");
+    (t.nxs.to_vec(), t.jxs.to_vec(), t.xss)
 }
 
 #[test]
 fn thermal_table_header_and_dimensions() {
     let ace = al27_thermal();
-    assert!(
-        ace.zaid.starts_with("al27") && ace.zaid.ends_with('t'),
-        "ZAID {}",
-        ace.zaid
-    );
+    // `(a6,f3.2,'t')` with the name right-justified in 6 columns
+    // (`acer.f90:386-387`, `aceth.f90:665`), as NJOY2016 writes it since
+    // GitHub #865; ~~`starts_with("al27")`~~ CORRECTED 2026-10-14.
+    assert_eq!(ace.zaid, "  al27.00t", "ZAID");
     assert_eq!(ace.nxs[nxs::IDPNI], 3, "S(α,β) inelastic mode");
     assert_eq!(ace.nxs[nxs::NIL], 7, "NIL = nang − 1 = 7");
     assert_eq!(ace.nxs[nxs::NIEB], 16, "16 outgoing energies");

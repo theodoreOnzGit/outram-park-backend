@@ -3,19 +3,33 @@
 //! An independent pure-Rust port of the uncertainty-quantification (UQ) and
 //! risk-analysis core of [RAVEN](https://github.com/idaholab/raven), the
 //! probabilistic risk-analysis / UQ framework developed by Idaho National
-//! Laboratory. Upstream is Apache-2.0; RAFFLES is GPL-3.0-only. That direction
+//! Laboratory. Upstream is Apache-2.0; RAFFLES is AGPL-3.0-only (was GPL-3.0-only until 2026-10-20, gh:#973). That direction
 //! is **one-way** — see [Licensing](#licensing) below.
 //!
 //! **Owner: Adolphus Lye.** They chose the RAFFLES backronym and this crate is
 //! theirs to steer; changes of direction are their call. See the crate
 //! `CLAUDE.md`.
 //!
-//! ## Status — SCAFFOLD ONLY
+//! ## Status — PARTLY IMPLEMENTED, NO HUMAN V&V
 //!
-//! Nothing is implemented. Every module below is an empty, documented
-//! placeholder that states its own scope. No distribution, sampler, estimator
-//! or surrogate exists yet, and none of this has been through human V&V. Do
-//! not describe any part of this crate as working, verified or validated.
+//! This crate is no longer the empty scaffold its first commits described.
+//! Every module below — [`distributions`], [`samplers`], [`sensitivity`],
+//! [`bayesian`], [`distance`], [`abc`], [`imprecise`], [`model_selection`],
+//! [`scram`], [`gnn`] and [`surrogate`] — carries working, unit-tested code
+//! whose verification methodology and measured results are recorded in the doc
+//! comments of the tests themselves.
+//!
+//! Two carry less than their names suggest and say so in their own docs:
+//! [`surrogate`] has polynomial regression and a `burn`-backed neural
+//! regressor but no Gaussian process and no polynomial chaos, and [`scram`]
+//! has no preprocessor, so a model whose variable ordering matters is at the
+//! mercy of a first-appearance heuristic.
+//!
+//! **None of it has been through human V&V.** Everything here is AI-assisted
+//! draft material under the workspace `RESPONSIBLE_USE.md` rules until the
+//! maintainer and the crate owner have reviewed it — so do not describe any
+//! part of this crate as validated, and read "verified" as "checked against a
+//! reference by an automated test", which is what it is.
 //!
 //! ## What belongs in this crate
 //!
@@ -28,6 +42,28 @@
 //!   of sample points: Monte Carlo, Latin hypercube, grid / stratified.
 //! - **[`sensitivity`]** — importance measures computed from an existing
 //!   sample set: Sobol variance decomposition, correlation coefficients.
+//! - **[`distance`]** — statistical distances between two sample sets:
+//!   Euclidean on summaries, Bhattacharyya, Hellinger, Jensen-Shannon,
+//!   Bray-Curtis and the 1-Wasserstein area metric.
+//! - **[`model_selection`]** — comparing competing models by their evidence:
+//!   Bayes factors, posterior model probabilities, the Kass-Raftery scale.
+//! - **[`imprecise`]** — imprecise probability: intervals, probability boxes,
+//!   Clopper-Pearson confidence boxes, and coherent-system reliability with or
+//!   without a dependence assumption.
+//! - **[`abc`]** — Approximate Bayesian Computation: inference when the model
+//!   can be run but no likelihood can be written down.
+//! - **[`bayesian`]** — Bayesian model updating: priors, likelihoods, MCMC
+//!   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
+//!   posterior sample and the evidence.
+//! - **[`scram`]** — fault trees: build one, generate its minimal cut sets,
+//!   derive its prime implicants, quantify the top-event probability by cut
+//!   sets or by a binary decision diagram, and rank the basic events by the
+//!   five standard importance measures. Coherent and non-coherent, though on
+//!   a non-coherent tree cut sets are conservative where the prime implicants
+//!   and the BDD are exact.
+//! - **[`gnn`]** — graph neural networks for physics: message-passing
+//!   topology, the physics-guided bound on message-passing iterations, and
+//!   (behind the `burn` feature) the network itself.
 //! - **[`surrogate`]** — reduced-order models fitted to a sample set and
 //!   evaluated in place of the expensive simulation.
 //!
@@ -39,7 +75,14 @@
 //! - **Simulation drivers, job scheduling, file/XML input parsing, plotting,
 //!   databases.** RAVEN is a whole workflow application; RAFFLES ports only
 //!   its statistical core. A caller drives their own runs and hands RAFFLES
-//!   arrays of numbers.
+//!   arrays of numbers. ~~[`scram`] holds to the same line: it takes a fault
+//!   tree a caller has built in Rust, never a SCRAM input model.~~
+//!   **CORRECTED 2026-09-22** — [`scram`] no longer holds to that line: the
+//!   workspace maintainer directed that everything of SCRAM except its GUI be
+//!   translated, and [`scram::mef`] reads SCRAM's own Model Exchange Format
+//!   input models. Building a tree in Rust is still supported and is still
+//!   what the rest of the module takes. The line does hold for the
+//!   RAVEN-derived modules, where no such direction was given.
 //! - **Optimisation.** RAVEN's optimisers (gradient descent, genetic
 //!   algorithms, Bayesian optimisation) are out of scope unless the crate
 //!   owner decides otherwise.
@@ -84,13 +127,22 @@
 //!
 //! ## Licensing
 //!
-//! Upstream RAVEN is **Apache-2.0**; RAFFLES is **GPL-3.0-only**. Apache-2.0
-//! code may be taken into a GPLv3 work, but GPLv3 code may **not** be taken
+//! Upstream RAVEN is **Apache-2.0**; RAFFLES is ~~**GPL-3.0-only**~~
+//! **AGPL-3.0-only** (2026-10-20, gh:#973), a combined work whose GPL-3.0 ports
+//! keep GPL-3.0 (`LICENSE.GPL-3.0`). Apache-2.0
+//! code may be taken into an (A)GPLv3 work, but (A)GPLv3 code may **not** be taken
 //! into an Apache-2.0 work. Code therefore flows RAVEN -> RAFFLES and never
 //! RAFFLES -> RAVEN. Do not contribute RAFFLES code upstream. Full provenance,
 //! the required Battelle Energy Alliance / Idaho National Laboratory
 //! attribution, and the verbatim upstream licence text are in the crate's
 //! `NOTICE`, `LICENSE-APACHE-RAVEN` and `NOTICE-RAVEN`.
+//!
+//! **RAVEN is not the only upstream, and the others are not Apache-2.0.**
+//! [`scram`] derives from [SCRAM](https://github.com/rakhimov/scram) and parts
+//! of [`bayesian`] and [`gnn`] from other projects, all **GPL-3.0** (those
+//! files keep it, combined with the AGPL crate under §13), so none
+//! carries the one-way constraint above. Check which upstream a file comes
+//! from before writing an attribution header; the `NOTICE` lists all of them.
 //!
 //! ## Intended use
 //!
@@ -105,8 +157,16 @@
 //! what order — is written up in `docs/raven-port-scoping.md` at the workspace
 //! root.
 
+pub mod abc;
+pub mod bayesian;
+pub mod distance;
 pub mod distributions;
+pub mod estimators;
+pub mod gnn;
+pub mod imprecise;
+pub mod model_selection;
 pub mod samplers;
+pub mod scram;
 pub mod sensitivity;
 pub mod surrogate;
 

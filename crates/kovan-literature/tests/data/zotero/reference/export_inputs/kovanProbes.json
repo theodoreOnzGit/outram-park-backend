@@ -1,0 +1,246 @@
+{
+	"all": [
+		{
+			"key": "KPROBE22",
+			"version": 0,
+			"itemType": "journalArticle",
+			"title": "Dates & markup: a <i>kovan</i> probe",
+			"creators": [
+				{
+					"creatorType": "author",
+					"firstName": "John",
+					"lastName": "Smith"
+				},
+				{
+					"creatorType": "author",
+					"firstName": "Jean",
+					"lastName": "de la Fontaine"
+				},
+				{
+					"creatorType": "author",
+					"name": "Kovan Collaboration"
+				},
+				{
+					"creatorType": "editor",
+					"firstName": "Ed",
+					"lastName": "Editor"
+				}
+			],
+			"publicationTitle": "Journal of Testing & Probing",
+			"journalAbbreviation": "J. Test.",
+			"volume": "12",
+			"issue": "3",
+			"pages": "101-110",
+			"date": "2021 May",
+			"DOI": "10.1234/ABC.def",
+			"ISSN": "1234-5678",
+			"url": "http://example.com/a?b=c&d=e",
+			"accessDate": "2020-03-04T05:06:07Z",
+			"language": "en",
+			"abstractNote": "An abstract with \"quotes\", {braces} and 100% $pecial_chars#.",
+			"extra": "Citation Key: smith2021probe\nOriginal Date: 1999",
+			"tags": [
+				{
+					"tag": "alpha"
+				},
+				{
+					"tag": "beta gamma",
+					"type": 1
+				}
+			],
+			"collections": [],
+			"relations": {},
+			"dateAdded": "2021-05-01T10:00:00Z",
+			"dateModified": "2021-05-02T11:00:00Z",
+			"notes": [
+				{
+					"itemType": "note",
+					"note": "<p>A <b>child</b> note &amp; an entity.</p>",
+					"tags": []
+				}
+			]
+		},
+		{
+			"key": "KPROBE33",
+			"version": 0,
+			"itemType": "book",
+			"title": "A Second Record",
+			"creators": [
+				{
+					"creatorType": "editor",
+					"firstName": "Ed",
+					"lastName": "Editor"
+				}
+			],
+			"date": "1999-12-31",
+			"place": "Singapore",
+			"publisher": "Kovan Press",
+			"ISBN": "978-3-16-148410-0 3161484100",
+			"numPages": "300",
+			"tags": [],
+			"collections": [],
+			"relations": {}
+		},
+		{
+			"key": "KPROBE44",
+			"version": 0,
+			"itemType": "thesis",
+			"title": "Ranges and seasons",
+			"creators": [
+				{
+					"creatorType": "author",
+					"firstName": "Ann",
+					"lastName": "Student"
+				}
+			],
+			"date": "2010-2012",
+			"university": "Kovan University",
+			"thesisType": "PhD Thesis",
+			"place": "Kovan",
+			"extra": "issued: 2010/2012",
+			"tags": [],
+			"collections": [],
+			"relations": {}
+		},
+		{
+			"key": "KPROBE55",
+			"version": 0,
+			"itemType": "conferencePaper",
+			"title": "Summer proceedings",
+			"creators": [],
+			"date": "Summer 2015",
+			"proceedingsTitle": "Proceedings of the Kovan Conference",
+			"conferenceName": "Kovan Conference 2015",
+			"place": "Singapore",
+			"pages": "5",
+			"tags": [],
+			"collections": [],
+			"relations": {}
+		}
+	],
+	"KPROBE22": [
+		{
+			"key": "KPROBE22",
+			"version": 0,
+			"itemType": "journalArticle",
+			"title": "Dates & markup: a <i>kovan</i> probe",
+			"creators": [
+				{
+					"creatorType": "author",
+					"firstName": "John",
+					"lastName": "Smith"
+				},
+				{
+					"creatorType": "author",
+					"firstName": "Jean",
+					"lastName": "de la Fontaine"
+				},
+				{
+					"creatorType": "author",
+					"name": "Kovan Collaboration"
+				},
+				{
+					"creatorType": "editor",
+					"firstName": "Ed",
+					"lastName": "Editor"
+				}
+			],
+			"publicationTitle": "Journal of Testing & Probing",
+			"journalAbbreviation": "J. Test.",
+			"volume": "12",
+			"issue": "3",
+			"pages": "101-110",
+			"date": "2021 May",
+			"DOI": "10.1234/ABC.def",
+			"ISSN": "1234-5678",
+			"url": "http://example.com/a?b=c&d=e",
+			"accessDate": "2020-03-04T05:06:07Z",
+			"language": "en",
+			"abstractNote": "An abstract with \"quotes\", {braces} and 100% $pecial_chars#.",
+			"extra": "Citation Key: smith2021probe\nOriginal Date: 1999",
+			"tags": [
+				{
+					"tag": "alpha"
+				},
+				{
+					"tag": "beta gamma",
+					"type": 1
+				}
+			],
+			"collections": [],
+			"relations": {},
+			"dateAdded": "2021-05-01T10:00:00Z",
+			"dateModified": "2021-05-02T11:00:00Z",
+			"notes": [
+				{
+					"itemType": "note",
+					"note": "<p>A <b>child</b> note &amp; an entity.</p>",
+					"tags": []
+				}
+			]
+		}
+	],
+	"KPROBE33": [
+		{
+			"key": "KPROBE33",
+			"version": 0,
+			"itemType": "book",
+			"title": "A Second Record",
+			"creators": [
+				{
+					"creatorType": "editor",
+					"firstName": "Ed",
+					"lastName": "Editor"
+				}
+			],
+			"date": "1999-12-31",
+			"place": "Singapore",
+			"publisher": "Kovan Press",
+			"ISBN": "978-3-16-148410-0 3161484100",
+			"numPages": "300",
+			"tags": [],
+			"collections": [],
+			"relations": {}
+		}
+	],
+	"KPROBE44": [
+		{
+			"key": "KPROBE44",
+			"version": 0,
+			"itemType": "thesis",
+			"title": "Ranges and seasons",
+			"creators": [
+				{
+					"creatorType": "author",
+					"firstName": "Ann",
+					"lastName": "Student"
+				}
+			],
+			"date": "2010-2012",
+			"university": "Kovan University",
+			"thesisType": "PhD Thesis",
+			"place": "Kovan",
+			"extra": "issued: 2010/2012",
+			"tags": [],
+			"collections": [],
+			"relations": {}
+		}
+	],
+	"KPROBE55": [
+		{
+			"key": "KPROBE55",
+			"version": 0,
+			"itemType": "conferencePaper",
+			"title": "Summer proceedings",
+			"creators": [],
+			"date": "Summer 2015",
+			"proceedingsTitle": "Proceedings of the Kovan Conference",
+			"conferenceName": "Kovan Conference 2015",
+			"place": "Singapore",
+			"pages": "5",
+			"tags": [],
+			"collections": [],
+			"relations": {}
+		}
+	]
+}

@@ -1,0 +1,69 @@
+[package]
+name = "changi"
+version = "0.0.2"
+edition.workspace = true
+license.workspace = true
+description = "CHANGI — atmospheric dispersion, plume transport, deposition and ground contamination. Pure-Rust port of FLEXPART. Research, education and V&V only."
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+# The upstream FLEXPART clone is reference-only and gitignored; it is never
+# compiled into the crate and never packaged.
+exclude = ["docs", "upstream_source/*", "dev/*"]
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "risk"
+fidelity = [1, 3]
+maturity = 2
+backronym = "Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts"
+
+[dependencies]
+uom   = { workspace = true }
+# petir supplies the numerics. Its erf/erfc are GSL-derived and carry their own
+# test suite, so `part0` uses them rather than porting FLEXPART's erf.f90 --
+# the workspace "reuse before porting, port before writing" rule.
+petir = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+# The stochastic FLEXPART comparison (tests/flexpart_stochastic_advance.rs)
+# draws its Gaussian deviates from RAFFLES' seeded Box-Muller sampler on
+# petir's LCG -- the workspace's random source -- instead of any port of
+# FLEXPART's Numerical Recipes generators (gh:#410).
+raffles = { workspace = true }
+
+# ── rayon: native + Android only ─────────────────────────────────────────────
+# The Gaussian puff field's own thread pool (see `puff::wgsl::pool`) --
+# the map refreshes at 10 Hz beside a physics loop, and sharing the global
+# pool means whichever grabs the workers first stalls the other.
+#
+# Target-gated off wasm ONLY, matching `boon-lay`'s own rayon-vs-wasm32
+# constraint (`crates/boon-lay/Cargo.toml`, bead op-okqo.1): rayon is pure
+# Rust and Android is in scope, so Termux keeps the multi-core path. On
+# `wasm32-unknown-unknown`, which has no OS threads, `puff::wgsl::field_pooled`
+# falls back to the serial `field_serial` kernel under the same name rather
+# than depending on rayon at all -- see that function's doc comment.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+[features]
+# gpu — dispatches `puff::wgsl::field_gpu`/`field_auto`'s GPU path through
+# PETIR's headless runner. OFF BY DEFAULT, matching `petir/wgpu`'s own
+# default: a host with no adapter (or this feature disabled) simply uses
+# `puff::wgsl::field_pooled`. See `puff::wgsl`'s module doc for why both
+# paths must exist -- `outram-mc-libs/CLAUDE.md`'s GPU policy is a hard rule
+# across this workspace, and `petir/wgpu` is itself target-gated off Android
+# and wasm, which this feature does not change.
+gpu = ["petir/wgpu"]

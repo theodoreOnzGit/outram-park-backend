@@ -14,4 +14,4 @@ mod p_rho_h;
 mod region_4_near_critical_hs;
 mod region_5_t_ph_ps;
 
-mod vv_report;
+pub(crate) mod vv_report;

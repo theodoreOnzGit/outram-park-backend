@@ -41,7 +41,7 @@ The point reactor kinetics code here copies some of the time stepping
 algorithm source files available in OpenFOAM. These are licensed files  
 are available under GPLv3. The source files in Rust directly translte 
 these source files. To respect OpenFOAM copyright, the PRKE files here 
-are also released under GPLv3.
+are also released under GPLv3 (~~GPLv3~~ the crate is **AGPL-3.0-only** as a combined work, ported files keep GPL-3.0; relicensed 2026-10-20, gh:#973).
 
 **The dense LU matrix solver (`src/matrix.rs`) is also from OpenFOAM** —
 specifically, it is an inlined copy of `outram-foam-basic-lib`'s

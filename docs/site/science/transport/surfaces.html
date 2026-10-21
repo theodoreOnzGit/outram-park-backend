@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surfaces: where the flight ends</title>
+<meta name="description" content="Transport, page 3: the neutron flies the shorter of the distance to collision and the distance to the nearest surface. At a surface the boundary condition decides: transmit into the next cell, reflect, scatter diffusely, or leak. Standing exactly on a surface is numerically delicate; here is why and how the code handles it.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="transport.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Widget: transport.js roundoff (JavaScript doubles, the same IEEE arithmetic as the Rust f64; the real surface code is in crates/outram-mc-libs/src/geometry/crossing/mod.rs: cross_surface :459-560, nudge_across :704, cross_surface_in_frame :562; transport_csg.rs :1689-1740, :1876, :2458-2500). Deep dive with the full story: crates/outram-mc-libs/docs/lessons/src/surface-tracking.md. Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Surfaces: where the flight ends</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>The flight of page 1 was sampled as if the medium went on forever. It does not. At every point the neutron is inside a <b>cell</b> of the geometry, a region made of one material and bounded by <b>surfaces</b> (planes, spheres, cylinders). So the code asks two questions at the start of each flight:</p>
+<ol>
+  <li><b>distance to collision</b>: d<sub>col</sub> = &minus;ln&thinsp;&xi;/&Sigma;<sub>t</sub>, from the material of the cell the neutron is in;</li>
+  <li><b>distance to boundary</b>: d<sub>b</sub>, along the neutron's direction, to the nearest surface of the cell, over every level of nested geometry (<code>distance_to_boundary</code>).</li>
+</ol>
+<p>If d<sub>col</sub> &lt; d<sub>b</sub> the neutron moves d<sub>col</sub> and collides. Otherwise it moves d<sub>b</sub> to the surface, the <b>boundary condition</b> of that surface is applied, and the neutron starts a new flight in whatever cell it is now in. Because the flight is memoryless (page 1), the new flight is simply drawn again: nothing is lost by stopping at the surface. This loop is steps 2 to 6 of the module doc of <code>transport_csg.rs</code>, ported in structure from OpenMC's history-based transport <a href="#ref-romano2015openmc">(Romano et al., 2015)</a>.</p>
+
+<h2>Boundary conditions</h2>
+<p>What happens at a surface is a property of the surface, chosen by whoever built the model (<code>Geometry::cross_surface</code>, <code>crossing/mod.rs</code>):</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Boundary</th><th>What happens to the neutron</th><th>Used for</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Boundary">Transmissive (an ordinary interface)</td><td data-label="What">passes through to the cell on the far side; a new flight starts there</td><td data-label="Used for">the inside of the model: fuel to cladding, pebble to coolant</td></tr>
+    <tr><td data-label="Boundary">Vacuum</td><td data-label="What">the neutron is killed and counted as <b>leakage</b></td><td data-label="Used for">the outside of a bare assembly such as Godiva</td></tr>
+    <tr><td data-label="Boundary">Reflective</td><td data-label="What">specular reflection; at a corner the reflections off every reflective wall meeting there are composed, so the neutron leaves the corner instead of staying in it</td><td data-label="Used for">a symmetry plane, or the wall of a repeated cell: a single pebble in its reflective cell stands for an infinite array</td></tr>
+    <tr><td data-label="Boundary">White</td><td data-label="What">re-emitted with a cosine-law (diffuse) angular distribution</td><td data-label="Used for">a wall that returns neutrons with an isotropic (cosine-law) distribution</td></tr>
+    <tr><td data-label="Boundary">Periodic</td><td data-label="What"><b>refused</b>: not implemented, so the code stops with a message (GitHub #259)</td><td data-label="Used for">it needs a partner surface; reflective is not a substitute</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Until 2026-09-22 white and periodic fell through to a specular reflection and returned a plausible k for a different problem; that was corrected by refusing the one and implementing the other (the comment in <code>cross_surface</code> keeps the old claim struck through).</p>
+
+<h2>Standing on a surface is the hard part</h2>
+<p>After the neutron moves d<sub>b</sub> it sits <b>on</b> the surface, to within rounding. Which cell is it in now? The obvious answer is to put the point into the surface's equation (for a sphere, f&nbsp;=&nbsp;|<b>r</b>|<sup>2</sup>&nbsp;&minus;&nbsp;R<sup>2</sup>) and read the sign. But on the surface f is zero in exact arithmetic, and in floating point it is whatever rounding left. If the sign is wrong the neutron is put back in the cell it was leaving; the next distance-to-boundary then ignores the surface it is standing on, finds nothing ahead, and the neutron <b>streams out of the problem</b>. <b>A tracking error reads exactly like leakage.</b></p>
+<p class="predict"><b>Predict first:</b> a neutron enters a sphere, so it is inside. If you decide its side by the sign of the surface equation at the point it was moved to, how often are you right at head-on incidence? At grazing incidence?</p>
+
+<section class="widget-card">
+  <h3>Which side is the neutron on?</h3>
+  <div class="widget" id="roundoff">
+    <canvas aria-label="Bars showing how often a neutron stepped onto a sphere is found inside, by the sign of the surface equation, by the recorded side, and after a nudge"></canvas>
+  </div>
+  <p class="note">Doubles, as the transport code uses (IEEE 754 binary64, identical in JavaScript and Rust). Each of 20&thinsp;000 random rays is stepped onto a unit sphere by the flight distance. The first bar decides the side by the sign of the surface equation; the second uses the recorded side; the third nudges the point 1e&minus;9&nbsp;cm along the normal first. The check on this page prints the result at four impact parameters: 0&nbsp;% head on (where f is exactly zero and reads as not-inside), 100&nbsp;% at b&nbsp;=&nbsp;0.5, about 93&nbsp;% near grazing. The sign is not evidence of the side, and the two fixes are right every time. JavaScript sketch; the real code is <code>nudge_across</code> in <code>crossing/mod.rs</code>.</p>
+</section>
+
+<p>The code does two independent things about it (<code>geometry/crossing/mod.rs</code>):</p>
+<ol>
+  <li><b>Record the side; do not re-derive it.</b> At the crossing the outgoing side is known exactly: it is the sign of <b>u</b>&middot;<b>n</b>, the direction against the surface normal. The crossing returns it as a signed surface token and <code>locate</code> trusts it. OpenMC does the same with its signed surface index.</li>
+  <li><b>Nudge along the normal.</b> As a second guard, which OpenMC does not have, the neutron is moved 10<sup>&minus;9</sup>&nbsp;cm <i>across</i> the surface along the normal (<code>nudge_across</code>), so the equation changes sign however tangent the direction is.</li>
+</ol>
+<p>The case that made both necessary (GitHub #168): on a pebble made of concentric shells with a reflective outer wall, where physical leakage is zero, the tracker lost <b>85&nbsp;%</b> of the source neutrons. The regression test <code>reflective_concentric_shells_do_not_leak</code> records, measured 2026-09-10: with both fixes disabled the geometry leaks <b>0.0860</b> per source neutron (k = 2.03432 &plusmn; 0.01644); with both in place it leaks <b>exactly 0.0</b> (k = 2.22599 &plusmn; 0.01072) (<code>crossing/tests.rs:285</code>). The bug moved k by about 9&nbsp;% and gave a perfectly plausible number; nothing crashed.</p>
+<div class="misconception" role="note"><b>Common misconception: "a geometry bug shows up as an error message."</b>
+  <p>It shows up as a believable change in leakage or k. The only defence is a test whose right answer is known exactly, such as zero leakage from a fully reflective model.</p></div>
+
+<h2>Nested geometry has its own frame</h2>
+<p>A TRISO particle inside a pebble inside a core is a stack of <b>universes</b>, and each universe's surfaces are defined about its own origin. A sphere's normal evaluated at the <i>global</i> position points about the wrong centre, and the nudge then pushes the neutron the wrong way. <code>cross_surface_in_frame</code> evaluates the crossing in the universe's own frame. The doc comment records the measurement that found it: on a 3&times;3&times;3 TRISO lattice (2026-09-14), <b>37.4&nbsp;%</b> of kernel-sphere crossings assigned the next flight to the wrong cell, against 0.0&nbsp;% of crossings of root-level planes (<code>crossing/mod.rs:388</code>). The full story, with the code, is in the Monte Carlo deep dive, <a href="../../deep-dives/monte-carlo/surface-tracking.html">Surface tracking and the leak that was not physics</a>.</p>
+
+<h2>Next question</h2>
+<p>The loop above needs random numbers: one for each flight, more at every collision. <b>Where do they come from, and why does it matter that they can be replayed exactly?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., &#38; Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <i>Annals of Nuclear Energy</i>, <i>82</i>, 90–97.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

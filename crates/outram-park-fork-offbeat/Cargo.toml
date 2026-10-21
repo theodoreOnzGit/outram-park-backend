@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-offbeat"
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
 description = "Pure-Rust fork of OFFBEAT (foam-for-nuclear) — multi-dimensional nuclear fuel-performance: solid mechanics, rheology, fuel/cladding gap and contact, material property correlations, burnup and fission-gas release, on the OUTRAM-FOAM finite-volume substrate. SCAFFOLD/early: no human V&V. Independent OUTRAM PARK fork, not the official OFFBEAT."
@@ -11,7 +11,27 @@ categories.workspace = true
 # docs/ is the repo-only rustdoc mirror; never shipped in the packaged crate.
 exclude = ["docs"]
 
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 2
+topic = "fuel-performance"
+fidelity = 3
+maturity = 2
+
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Pure-Rust, Android-safe deps only (no BLAS / C toolchain). `uom` types the
 # physical API boundary; `thiserror` the crate error enum. The finite-volume
 # framework (FvMesh, VolScalarField/VolSymmTensorField, fvc/fvm operators, the

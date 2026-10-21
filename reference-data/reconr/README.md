@@ -94,3 +94,136 @@ particle-pair channel as upstream `emerge` does.
 
 Data policy: derived product of open ENDF/B-VII.1 data processed with the
 BSD-licensed NJOY2016; the input tape is NJOY2016's own test resource.
+
+## `sr88-ENDF8.1-0K-err0.001.pendf` — the LRF=7 background-R-matrix oracle
+
+Added 2026-09-14. NJOY2016 upstream `ac5adf5f` (2016.79), gfortran 13.3.0,
+built and run in-session; generated from `../endf/n-038_Sr_088-ENDF8.1.endf`
+(MAT 3837) with the deck committed beside it as
+`sr88-ENDF8.1-0K-err0.001.njoy-input`.
+
+~~Sr-88 is the **only LRF=7 (R-matrix limited) evaluation** held in~~
+**CORRECTED 2026-10-01**: Sr-88 is one of seven `LRF=7` evaluations held in
+`../endf/` (with Cl-35, Fe-54, Fe-57, Cu-63, Cu-65, Mo-95); see the Fe-57 /
+Mo-95 section below. Sr-88 is held in
+`../endf/`, and it is the oracle for `KBK > 0` — a background R-matrix.
+All seven of its spin groups carry `KBK = 1` with `LCH = 2`, `LBK = 2`
+(SAMMY parametrisation) on the elastic channel, and all 443 of its
+resonances sit at or above 12.41 keV, so at thermal that background term
+carries essentially the whole elastic cross section beyond hard-sphere
+scattering.
+
+Consumed by `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`, which compares
+MF=3 MT=1/2/102 on NJOY's own 44,326-point grid across the resolved range.
+It is the regression gate for gh:#202 / `bn:op-hb9l`, where discarding this
+term left elastic flat at the potential value `4 pi a^2 = 4.969327 b`
+against NJOY's 8.843210 b at 1e-5 eV.
+
+## `fe58-…-0K-err0.001.mt152.pendf`, `u238-…-0K-err0.001.mt152.pendf` — the Case A and `LSSF=1` MT=152 oracles
+
+Added 2026-09-15. NJOY2016 upstream `ac5adf5f` (2016.79), gfortran 13.3.0,
+built and run in-session, from `../endf/n-026_Fe_058-ENDF8.0-Beta4.endf`
+(MAT 2637) and `../endf/n-092_U_238.endf` (MAT 9237), with the decks
+committed beside them as `*.njoy-input`.
+
+**These two hold only the MF=2/MT=152 section**, wrapped in the minimum ENDF
+terminators needed to parse — unlike every other file here, which is a whole
+PENDF. U-238's full RECONR output is 97 MB, far past what belongs in a
+repository, and extracting the one section keeps both materials on a single
+convention. To regenerate either in full, run the committed deck; to reduce it
+to what is committed here, keep the records whose columns 71-75 read `  2152`
+and append a SEND/FEND/MEND/TEND.
+
+They exist because the U-234 oracle beside them reaches only Case C with
+`LSSF = 0`, leaving two paths in the MT=152 writer untested:
+
+- **Fe-58** carries `LRU=2, LRF=1, LFW=0, LSSF=1` over `3.5e5 .. 3.0e6 eV`.
+  It is the **only** `LRU=2/LRF=1` range in `../endf/` (screened with
+  `../endf/screen_endf_flags.py`), so it is the only Case A oracle available,
+  and it happens to be `LSSF = 1` as well.
+- **U-238** carries Case C with `LSSF = 1` and `L <= 2`, which isolates the
+  `LSSF = 1` early return from the Case A grid change.
+
+Consumed by `tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs`. U-238 agrees
+to **1e-13** on all 336 stored values.
+
+**Fe-58's stored cross sections are wrong, and are committed deliberately as
+the record of an upstream defect.** `unfac` (`reconr.f90:4473-4496`) has no
+`l >= 3` branch — no `else` after `else if (l.eq.2)` — so `vl` and `ps` keep
+their previous values, and `csunr1`'s `vl = vl*e2` (`:4010`) sits inside the
+J loop, multiplying `vl` by another `sqrt(E)` per J-state. Fe-58 has `NLS = 4`,
+so its stored total runs `1.42e4 b` at 350 keV to `6.62e5 b` at 3 MeV, roughly
+1900x the unitarity limit and rising with energy. The test reproduces those
+numbers from the defective recurrence to 2.7e-7, so the diagnosis is measured
+rather than asserted. NJOY's *UNRESR* does not share the defect: `uunfac`
+(`unresr.f90:1213-1239`) writes a bare `else`, and this crate's kernel ports
+`uunfac`. With `LSSF = 1` the values never reach a transport calculation —
+the evaluation's own MF=3 carries the cross sections, and MT=152 is consumed
+by UNRESR/PURR only as the denominator of self-shielding ratios.
+
+Data policy: derived products of open ENDF/B-VIII.0 data processed with the
+BSD-licensed NJOY2016. Fe-58 is the ENDF/B-VIII.0 Beta4 release; see
+`../endf/README.md` for both tapes' provenance.
+
+## `synthetic-caseb-lfw1-0K-err0.001.mt152.pendf` — the Case B MT=152 oracle
+
+Added 2026-09-15. NJOY2016 upstream `ac5adf5f` (2016.79), gfortran 13.3.0,
+built and run in-session, from `../endf/synthetic-caseb-lfw1.endf` (MAT 9998),
+deck beside it as `synthetic-caseb-lfw1-0K-err0.001.njoy-input`. Reduced to the
+MF=2/MT=152 section like the Fe-58 and U-238 oracles above.
+
+The input tape is **synthetic and not an evaluation** — Case B (`LRU=2, LRF=1,
+LFW=1`) appears in none of the tapes in `../endf/`, so there was no oracle for
+that branch of `rdf2u1` until one was constructed. See
+`../endf/README.md` for what the tape contains and why, and
+`../endf/synthetic-caseb-lfw1.generator.py` for how to regenerate it.
+
+NJOY stores 16 energies: the four fission-grid energies, the `egridu` fill
+across the two gaps wider than `wide = 1.26`, and the two shaded range bounds.
+This crate reproduces that grid exactly, with `LSSF = 0` and `intunr = 5`
+(Case B has no `INT` of its own, so `rdfil2:809`'s default stands), and agrees
+on all 64 stored cross sections to **4.22e-7** — the seven-figure floor
+`genunr`'s own `sigfig(...,7,0)` imposes once the MF=3 background is added.
+
+Data policy: derived product of a synthetic input containing no evaluated,
+proprietary, or restricted data, processed with the BSD-licensed NJOY2016.
+
+## `fe57-…-0K-err0.001.pendf`, `mo95-…-0K-err0.001.pendf`: `LRF=7` with threshold channels
+
+Added 2026-10-01 for GitHub #339. Built with NJOY2016 upstream `ac5adf5`
+(2016.79), from the local build at `~/Documents/research/NJOY2016/build/njoy`
+(binary dated 2026-09-16, system gfortran). That build was checked first on
+the deck committed above, and its Sr-88 `tape22` is **byte-identical** to
+`sr88-ENDF8.1-0K-err0.001.pendf`. Each deck is committed beside its PENDF
+as `*.njoy-input`. The deck is `reconr 20 22 / <mat> 0 0 / 0.001 / 0 /`
+(err = 0.001, 0 K, `errmax`/`errint` defaulted).
+
+| Tape | Material | Input | Points | SHA-256 |
+|---|---|---|---|---|
+| `fe57-ENDF8.0-0K-err0.001.pendf` (4.7 MB) | Fe-57, MAT 2634, `LRU=1/LRF=7/KRM=3`, 1e-5 eV – 190 keV, pairs (γ, n, n'₁ MT=51 at Q = -14.413 keV), 6 spin groups, two with four explicit channels | `../endf/n-026_Fe_057-ENDF8.0.endf`: ENDF/B-VIII.0, CIELO, EVAL-Oct16 (Brown, Nobre, Herman, Leal, Trkov et al.), NDS 148, 214 (2018), DIST-FEB18 | 17 213 per section (unionised); MT=51 and MT=4 14 007 | `4aa63bd0…0c83bba93b` |
+| `mo95-ENDF8.0beta-0K-err0.001.pendf` (5.8 MB) | Mo-95, MAT 4234, `LRU=1/LRF=7`, 4 particle pairs, 10 spin groups | `../endf/n-042_Mo_095-ENDF8.0-beta.endf`: ENDF/B-VIII beta, BNL/KAERI, EVAL-DEC10 (Kim, Herman, Mughabghab et al.), NDS 148, 1 (2018) | 34 939 per section (unionised) | `30dc9ab1…cca2f2241d` |
+
+Fe-57's full digest is
+`4aa63bd0f8e5aafe32397619959cd2aae0b4098b5fb29ba5375d5c0a83bba93b`; Mo-95's
+is `30dc9ab12a1524459099f588eae11bd7b4ae28c60f8a18fbef8c04cca2f2241d`.
+
+**Why these two.** They are the only `LRF=7` evaluations here whose spin
+groups reach `yfour`, the general inverter for four or more channels, with
+a coupled level matrix. They are also the two that ran out of memory in
+this crate's RECONR until 2026-10-01. The cause was a wrong `Y^-1` from
+`yfour` (`xspsl`'s `xdot`), plus the missing negative-partial guard in
+`sigma`; `tests/reconr_lrf7_threshold_channels_vs_njoy2016.rs` has the
+mechanism.
+
+**Measured agreement (2026-10-01).** Consumed by that test, which asserts
+every MF=3 word. Fe-57: 82 sections, **0 differing words**, 0.10 s, 24 MB.
+Mo-95: 84 sections, **0 differing words**, 0.40 s.
+
+Fe-54 (MAT 2625), Cu-63 (MAT 2925) and Cu-65 (MAT 2931), the other `LRF=7`
+tapes, were compared the same day against PENDFs from the same build and
+deck. All three are identical in every word. Their PENDFs are not committed;
+Fe-54's alone is 16.6 MB.
+
+Data policy: derived products of open ENDF/B-VIII.0 data (Mo-95: its public
+beta release) processed with the BSD-licensed NJOY2016; no proprietary
+content.

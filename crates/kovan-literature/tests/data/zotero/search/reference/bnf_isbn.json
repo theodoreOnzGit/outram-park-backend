@@ -1,0 +1,48 @@
+{
+	"name": "bnf_isbn",
+	"kind": "forced",
+	"translator": "f349954c-9957-4b5f-be24-1a8bb52f7fbd",
+	"search": {
+		"itemType": "book",
+		"ISBN": "9781841692203"
+	},
+	"status": 200,
+	"translatorUsed": "f349954c-9957-4b5f-be24-1a8bb52f7fbd",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "book",
+			"creators": [
+				{
+					"firstName": "Keith A.",
+					"lastName": "Markus",
+					"creatorType": "author"
+				},
+				{
+					"firstName": "Denny",
+					"lastName": "Borsboom",
+					"creatorType": "author"
+				}
+			],
+			"tags": [],
+			"ISBN": "9781841692203",
+			"language": "eng",
+			"title": "Frontiers in test validity theory: measurement, causation and meaning",
+			"place": "New York",
+			"publisher": "Routledge",
+			"date": "2013",
+			"series": "Multivariate applications series",
+			"callNumber": "150.287",
+			"libraryCatalog": "BnF ISBN",
+			"shortTitle": "Frontiers in test validity theory"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=bib.isbn%20all%20%229781841692203%22",
+			"body": null
+		}
+	]
+}

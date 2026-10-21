@@ -98,8 +98,5 @@ fn error_estimates_are_finite_and_nonnegative() {
 fn domain_and_range_failures_are_reported_not_fatal() {
     assert!(expint_e1(0.0).is_err(), "E1(0) diverges");
     // Far below -xmax: upstream's OVERFLOW_ERROR.
-    assert!(
-        expint_e1(-1.0e4).is_err(),
-        "E1 overflows for very negative x"
-    );
+    assert!(expint_e1(-1.0e4).is_err(), "E1 overflows for very negative x");
 }

@@ -1,0 +1,378 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/tests"
+
+[module."ciet_v2_headless_remote_control.rs"]
+path = "test:ciet_v2_headless_remote_control"
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:12963fdd5fd2d6db"
+name = "TEST_PORT"
+qual = "TEST_PORT"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    53,
+]
+hash = "sha256:8c361a88a4bb3a2afbdc0b54635dcecd72ba28f553b9a9b88d34b52633f06d5f"
+doc_hash = "sha256:0e824222f9a953bffb5146779ba3d8458e1aaa3c0e7cdfe09d9d8d3c8fd0751b"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:f35b7354b1d32a39"
+name = "COMMANDED_HEATER_KW"
+qual = "COMMANDED_HEATER_KW"
+item = "const"
+shape = "const"
+lines = [
+    55,
+    57,
+]
+hash = "sha256:10d6e8a99a9e6941666ab7d0ff7183ebdae2581b8899a1f115964a515389d700"
+doc_hash = "sha256:369241fcc16d7e0dcaf8e150b9294ea53f84d38ba145caf51ff22f1578d36757"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:e682291dbdc3dc39"
+name = "COMMANDED_PUMP_PA"
+qual = "COMMANDED_PUMP_PA"
+item = "const"
+shape = "const"
+lines = [
+    59,
+    62,
+]
+hash = "sha256:3f8f922bf4bf80027766ef0e29e3678f9df09ef5ca82fb4ac40a4a37a6028382"
+doc_hash = "sha256:734b1ada8e409b6ff5f4e7fe1c3e2eb3fd108f090461a73a94bac6caf5f86859"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:1ca2ec0228b29237"
+name = "TARGET_SIM_SECONDS"
+qual = "TARGET_SIM_SECONDS"
+item = "const"
+shape = "const"
+lines = [
+    64,
+    65,
+]
+hash = "sha256:5ab2e53ece1c7bc4445a4ea0ae1b8fef8def0a5f133caac4d6c04ec02c321a4e"
+doc_hash = "sha256:43cfe73d66620e7e67daa72fef33a96c71a0af17632262c96d914f841b0d11b3"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:08fb4a0414ac1619"
+name = "WALL_CLOCK_BUDGET"
+qual = "WALL_CLOCK_BUDGET"
+item = "const"
+shape = "const"
+lines = [
+    67,
+    69,
+]
+hash = "sha256:8461ca5d340af206c182e6fc8e18a8f9f58ad6bc5ab6acee79a81b9ce8c88a9c"
+doc_hash = "sha256:978ea4b74081883cdff68214fcf9b14619bccccaa4fe6904a793882ab1696924"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:99aeaf878b410d80"
+name = "SimulatorProcess"
+qual = "SimulatorProcess"
+item = "type"
+shape = "struct"
+lines = [
+    71,
+    77,
+]
+hash = "sha256:9b8f843e10a9ce5fc4f68eca62d0d18066c31211b1cbb54ad2b2d5e419c5940f"
+doc_hash = "sha256:f6c900424aff027e84850a4633c7fa667745c9d02d7bc59e6d3208898a4799b3"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:84ae33743659ab65"
+name = "drop"
+qual = "SimulatorProcess::drop"
+lines = [
+    80,
+    83,
+]
+hash = "sha256:d4c2294096335949ab65013443372aa83e7668769fbfbed4e003f1f75043dd3c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:99aeaf878b410d80"]
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:aa3b3ab846a298d1"
+name = "launch_headless_simulator"
+qual = "launch_headless_simulator"
+lines = [
+    86,
+    109,
+]
+hash = "sha256:52305bcd5d75f68472030cf04c7ca4938bde8f89e4596957bf7a301aa4b55898"
+doc_hash = "sha256:98154f157bc6be86b297f2068c27b9501e9499b90a0ecda2289bcf6596d247e0"
+uses = [
+    "fn:12963fdd5fd2d6db",
+    "fn:99aeaf878b410d80",
+]
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:aba8887c7f7c6271"
+name = "connect_with_retry"
+qual = "connect_with_retry"
+lines = [
+    111,
+    163,
+]
+hash = "sha256:a67a036f03d2de77026547412c736788cc9dd3fc59ceec86a9fe6a91acf517ff"
+doc_hash = "sha256:e64fad238f1e230ce271675701f9aad275d6f2435e52a5abc839f6b24b255c38"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:49936229f7b582ff"
+name = "resolve_namespace_index"
+qual = "resolve_namespace_index"
+lines = [
+    165,
+    199,
+]
+hash = "sha256:f958f5f7bb68226db4526696b9a7dae2f8a665c5d02e3474d946ae105d34da2c"
+doc_hash = "sha256:cb6393aecbe39005ff410e151c06818170c0f755056bb50a84b8b53ec2313db2"
+uses = ["fn:7d3630110974a908"]
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:5ec592a3fb308f41"
+name = "read_double"
+qual = "read_double"
+lines = [
+    201,
+    219,
+]
+hash = "sha256:bdab3811dea9ae5f429a5b6073014dec75a6d1666b65137699a68bcd5f669169"
+doc_hash = "sha256:7a6e68775aed6f3e921ff0422f26bc236a8178f9e8cf962171dc146a566e6929"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:98d3e9fe4ab9560d"
+name = "write_checked"
+qual = "write_checked"
+lines = [
+    221,
+    240,
+]
+hash = "sha256:64aaed38a12a747426e458f142fd09a76f850ce411280f1784d9cee60f9f6ef7"
+doc_hash = "sha256:01c6747b7988f2e6ae75b4c3643b12502dfcef9df233dd5eb10a6279c33e9bf2"
+test = true
+
+[[module."ciet_v2_headless_remote_control.rs".function]]
+id = "fn:ffe527b7674ec91f"
+name = "a_remote_client_can_drive_the_ciet_loop"
+qual = "a_remote_client_can_drive_the_ciet_loop"
+lines = [
+    242,
+    461,
+]
+hash = "sha256:3ab8c81c18d5ef0652c2baada108a1813e244ad7fcaec72d225877d286567e2c"
+doc_hash = "sha256:098db0634943327a194cbb0f103613c79f65ac3aff221200c26c43c630cb59af"
+callees = [
+    "fn:270633e525f74392",
+    "fn:3f743e94e1e6ff19",
+    "fn:43a8c52d1ba3c4ee",
+    "fn:49936229f7b582ff",
+    "fn:5ec592a3fb308f41",
+    "fn:98d3e9fe4ab9560d",
+    "fn:aa3b3ab846a298d1",
+    "fn:aba8887c7f7c6271",
+]
+uses = [
+    "fn:08fb4a0414ac1619",
+    "fn:1ca2ec0228b29237",
+    "fn:46a38038e6e48b36",
+    "fn:ca3f35cd998810eb",
+    "fn:e682291dbdc3dc39",
+    "fn:ea877f050f651099",
+    "fn:f35b7354b1d32a39",
+]
+test = true
+
+[module."ciet_v2_opcua_roundtrip.rs"]
+path = "test:ciet_v2_opcua_roundtrip"
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:3f181a6870e8e6eb"
+name = "TEST_PORT"
+qual = "TEST_PORT"
+item = "const"
+shape = "const"
+lines = [
+    56,
+    61,
+]
+hash = "sha256:2d62ec1bc94b50715fd7979dc58990cf9fb747edb7d2545aea6e2ad3737cd6a7"
+doc_hash = "sha256:6fff380008174413dfb4b04bf8e859fbf9ed328e3e7455c23298f122685afd23"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:ac3a9490aa499f74"
+name = "SERVER_START_GRACE"
+qual = "SERVER_START_GRACE"
+item = "const"
+shape = "const"
+lines = [
+    63,
+    64,
+]
+hash = "sha256:5cc932329284b84faac266c6fd0445bef1413868b16d35a321b0097c044fa08e"
+doc_hash = "sha256:d8e6c7fe80d521a989c65c3458f732aa2284403ba866e01507d220e914c3aac1"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:f75d3d9e360e2669"
+name = "PUBLISH_GRACE"
+qual = "PUBLISH_GRACE"
+item = "const"
+shape = "const"
+lines = [
+    66,
+    68,
+]
+hash = "sha256:adb7a57ff056de7472099e73835452c7190f70cd0782b3a11a8e7b8bb00213ff"
+doc_hash = "sha256:f605af8a132d477a3ba75c9c11686ffe695c2696268bc6a0e5ba6ce03b528b45"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:9978e6b7aed52caf"
+name = "start_test_server"
+qual = "start_test_server"
+lines = [
+    70,
+    89,
+]
+hash = "sha256:6ae5c830970aeb431838ad29f10f6a38829572ecb4c87ecd4ba383c623b0b402"
+doc_hash = "sha256:f2d6bb037584a58ea936eb49919b267367f37628bfd0c99fa340a32c9baf5d8d"
+callees = ["fn:b68944c3202f6de9"]
+uses = [
+    "fn:3f181a6870e8e6eb",
+    "fn:43bc0cc706c60f1c",
+    "fn:ac3a9490aa499f74",
+    "fn:b01ad8002516f636",
+    "fn:e99c2eb67ae43082",
+]
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:ce499df22c04083f"
+name = "pump_pending_requests"
+qual = "pump_pending_requests"
+lines = [
+    91,
+    102,
+]
+hash = "sha256:2ac03a90e5cba18d5cca21bc7d94b18fb8f9aa37299946a1879876f6c2d4dbd0"
+doc_hash = "sha256:c0c796df42d7a3a344123e720585d808d577df997601fd7b7d42a4ac408a6b51"
+callees = ["fn:0591a6bdb3e08418"]
+uses = [
+    "fn:43bc0cc706c60f1c",
+    "fn:b01ad8002516f636",
+]
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:e85faddbc2ea2648"
+name = "connect_client"
+qual = "connect_client"
+lines = [
+    104,
+    138,
+]
+hash = "sha256:ef77bd104034ebb85db394301d18f70a3ff2af032f28d2f781b73aed960e79ca"
+doc_hash = "sha256:c8d055c7d1a286f2991a0fd15f4d81ec14e16ab6c9411fdffc788eebec6f9234"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:f6c16594fb2c4fbd"
+name = "resolve_namespace_index"
+qual = "resolve_namespace_index"
+lines = [
+    140,
+    181,
+]
+hash = "sha256:c9c849d6b3c56ac38a07ec81be982ac88f7846619e26a37de54a9860afc864a0"
+doc_hash = "sha256:a97929e805b5b191b7d3fd3466e51ba3b8edf44aae82d869665d9693906c85f1"
+uses = ["fn:7d3630110974a908"]
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:c63e900fede9b18e"
+name = "read_double"
+qual = "read_double"
+lines = [
+    183,
+    205,
+]
+hash = "sha256:558b8853e4d26f6fba9d06599481e39252173d80503faddc163fd0fa774cab01"
+doc_hash = "sha256:3f7ec8e387c63f79a2784fada5cfdadefa42d6bffb5cfd1de647c944714c8a8e"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:526fe8d147776c6a"
+name = "read_bool"
+qual = "read_bool"
+lines = [
+    207,
+    224,
+]
+hash = "sha256:72c040f80ed32f5efa157eb8a2698ce2701fa75c4110208858e49fa28b1312c6"
+doc_hash = "sha256:3af367f17183380141eb0e46df8b7de8d84d3bda88c12e1329c37c2a483eb829"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:5a808c562546d2be"
+name = "write_variant"
+qual = "write_variant"
+lines = [
+    226,
+    246,
+]
+hash = "sha256:939c7fc24e65804e2eb84a17c6cc1b50756d83966df4f6b135494e0668d312d1"
+doc_hash = "sha256:5d9b871c45f52efcb0960c516a75417e4321240bfd02ec0fbbf4b1052b00ecbc"
+test = true
+
+[[module."ciet_v2_opcua_roundtrip.rs".function]]
+id = "fn:4199eb7dfe79cd4e"
+name = "opcua_interface_round_trips_controls_and_outputs"
+qual = "opcua_interface_round_trips_controls_and_outputs"
+lines = [
+    248,
+    472,
+]
+hash = "sha256:2060919b5312a4f34898696025c15a731661a54a7df235111c4f808aa55ab4a6"
+doc_hash = "sha256:2025764e5f60787ff61654f0001408761b357aa3252720d4974aab5f5be13629"
+callees = [
+    "fn:0960b45df6218448",
+    "fn:0ced28846e3a9aa8",
+    "fn:270633e525f74392",
+    "fn:3ce0398e4c7f5494",
+    "fn:3f743e94e1e6ff19",
+    "fn:43a8c52d1ba3c4ee",
+    "fn:526fe8d147776c6a",
+    "fn:5a808c562546d2be",
+    "fn:7658a1d9a1433dcc",
+    "fn:9978e6b7aed52caf",
+    "fn:c63e900fede9b18e",
+    "fn:ce499df22c04083f",
+    "fn:e85faddbc2ea2648",
+    "fn:f4ac6dd2e65dae2a",
+    "fn:f6c16594fb2c4fbd",
+]
+uses = [
+    "fn:46a38038e6e48b36",
+    "fn:ca3f35cd998810eb",
+    "fn:ea877f050f651099",
+    "fn:f75d3d9e360e2669",
+]
+test = true

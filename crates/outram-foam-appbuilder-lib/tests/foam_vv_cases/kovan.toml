@@ -1,0 +1,144 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases"
+
+[module."main.rs"]
+path = "test:foam_vv_cases"
+
+[[module."main.rs".function]]
+id = "fn:43aec5d761dd1722"
+name = "line_mesh"
+qual = "line_mesh"
+lines = [
+    56,
+    100,
+]
+hash = "sha256:49ea09a374e6a0693131cfe457f171140a764e9c6be114c75b9d28d37b393946"
+doc_hash = "sha256:652d128228e17c411aada17c6c4f1cd5cee18049fa847e7980392391d268d9c3"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:a9cef7bb5f1145fb"
+name = "genfoam_slab_1g_diffusion_is_critical"
+qual = "genfoam_slab_1g_diffusion_is_critical"
+lines = [
+    106,
+    291,
+]
+hash = "sha256:cd828dbbd87ddcd2c41b518e8725f2d6423207d58372c92a78c3b1d3000cd1fc"
+doc_hash = "sha256:473facd35de461183ffe4a5a8758e3c7acbb618ee143df20734f6400fdeb2798"
+callees = [
+    "fn:0dae5eba52d1c8eb",
+    "fn:1997bf3e13135b6f",
+    "fn:396518fd7ec63634",
+    "fn:43aec5d761dd1722",
+    "fn:4aea3161a87c6021",
+    "fn:4d640dbf60fc6075",
+    "fn:65b415d212b73fac",
+    "fn:7ed13c51aace611b",
+    "fn:a34bf592be75221c",
+    "fn:fc3e9008bc829799",
+]
+uses = [
+    "fn:36e194d3fcbe0bdd",
+    "fn:3b9722db91bba537",
+    "fn:3ff7989783b3f5b9",
+    "fn:56a595a14b3ca5e9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:b11c440f559911d4",
+    "fn:cce1fb20b5334a14",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:1063f7e05ee9bba8"
+name = "openfoam_simple_udm_coeff"
+qual = "openfoam_simple_udm_coeff"
+lines = [
+    297,
+    311,
+]
+hash = "sha256:b84843a6549ea88085f6e22ec3f363ce70a502e745ed101eb75ddb538dc6e2a6"
+doc_hash = "sha256:b8aa6a7b4149255519192a50825bc29c0a046109d3155701c3238f0da81e2379"
+test = true
+
+[[module."main.rs".function]]
+id = "fn:25fac6bcf08e1f58"
+name = "drift_flux_dahl_settling_column"
+qual = "drift_flux_dahl_settling_column"
+lines = [
+    313,
+    472,
+]
+hash = "sha256:52c2b96eeb82ba7d57e90d4d7aab0a6aef81250c506e34ba1aec0fde02e5f8eb"
+doc_hash = "sha256:85af500725eaf6b1af1f8b3c8dd98511f5aa76946627db919745e8cb4f485226"
+callees = [
+    "fn:1063f7e05ee9bba8",
+    "fn:43aec5d761dd1722",
+    "fn:4aea3161a87c6021",
+    "fn:5d619f5358925643",
+    "fn:72651aacda5124f1",
+    "fn:9e501e5f4cce23ae",
+    "fn:dce0e0ba60ec0164",
+    "fn:dea2c131aa9176a0",
+    "fn:e84afd60431b7298",
+]
+uses = [
+    "fn:8a33a24917e36113",
+    "fn:ac802c6b9c9a1213",
+    "fn:bb0d906581f1414d",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."main.rs".function]]
+id = "fn:eed38aaee4fad372"
+name = "two_fluid_bubble_column_terminal_slip"
+qual = "two_fluid_bubble_column_terminal_slip"
+lines = [
+    478,
+    634,
+]
+hash = "sha256:7b8a3f06862cd4fc6790a58409ed0e1d7e8504338ba0381d637c32dec3ac592b"
+doc_hash = "sha256:9269d844e9be7cccb333ea69edbc0b8541f90fca68a766024b2cac58e1618c1d"
+callees = [
+    "fn:0938405a51285eea",
+    "fn:43aec5d761dd1722",
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:6930bdae9610dd50",
+    "fn:9707668a29a7996b",
+    "fn:9c279afb77391351",
+    "fn:9e501e5f4cce23ae",
+]
+uses = [
+    "fn:302c4eebe8967304",
+    "fn:44dd425f0d990f52",
+    "fn:8d6cd763d46808ac",
+    "fn:9a4ac5a6426dc2d4",
+    "fn:ef05859ef19acee7",
+]
+test = true

@@ -39,9 +39,41 @@ pub enum ResonanceFormalism {
     /// (zero-temperature only, matching this crate's SLBW/Reich-Moore
     /// reconstruction — Doppler broadening is BROADR's job).
     AdlerAdler,
-    /// LRF=7: R-Matrix Limited. Parsed and reconstructed via
-    /// `crate::samm` (Reich-Moore-limited, `KRM=3`/`IFG=0` only, matching
-    /// what `samm.f90` itself supports — see `crate::samm`'s module doc).
+    /// LRF=7: R-Matrix Limited. **Parsed** via
+    /// `crate::samm::mf2::parse_rml_section` (Reich-Moore-limited, `KRM=3`/
+    /// `IFG=0` only, matching what `samm.f90` itself supports — see
+    /// `crate::samm`'s module doc) **and reconstructed** via
+    /// `crate::reconr::rml::add_rml_range`.
+    ///
+    /// # Verified against NJOY2016 (2026-09-14, gh:#202)
+    ///
+    /// Sr-88 (MAT 3837, ~~the only LRF=7 evaluation in `reference-data/endf/`~~
+    /// **CORRECTED 2026-10-01**: one of seven there; see `crate::samm`'s doc)
+    /// reproduces NJOY2016 2016.79 to within the reconstruction tolerance over
+    /// **all 44,326 points of NJOY's own grid** inside the resolved range:
+    /// worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
+    /// `2.39e-3`. Full record:
+    /// `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:
+    /// `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
+    ///
+    /// # The defect that made this look unwired, and the wrong inference to avoid
+    ///
+    /// This path did once return the bare potential term (`4 pi a^2 = 4.969 b`
+    /// on Sr-88, flat where NJOY varies). **The cause was a discarded background
+    /// R-matrix** (`KBK > 0`): the parser stepped its cursor past those records
+    /// and threw the contents away under a comment calling them "a secondary,
+    /// rarer LRF=7 feature". They are not secondary here — all 7 of Sr-88's spin
+    /// groups carry `KBK = 1` with `LCH = 2`, `LBK = 2`, and all 443 of its
+    /// resonances sit at or above 12.41 keV, so below that the background term
+    /// carries essentially the whole elastic cross section beyond hard-sphere
+    /// scattering.
+    ///
+    /// **`crate::samm::run` returning [`crate::NjoyError::NotPorted`] is not
+    /// evidence about this path and must not be read as such.** It is vestigial
+    /// and nothing calls it; RECONR goes `reconr/mod.rs → rml::add_rml_range →
+    /// samm::setup + cssammy`, which ran end to end the whole time. gh:#202
+    /// drew exactly that inference and following it would have cost a wasted
+    /// port of a module that was already there.
     RMatrixLimited,
 }
 
@@ -704,9 +736,56 @@ fn parse_reich_moore(
 
 /// LRU=2: unresolved resonance region — header parse only.
 ///
-/// RECONR does not use unresolved parameters (that is PURR's job). We read the
-/// SPI/AP header CONT so the cursor advances past the range header, then return
-/// a placeholder.
+/// We read the SPI/AP header CONT so the cursor advances past the range
+/// header, then return a placeholder.
+///
+/// # ~~This is a KNOWN GAP, not a design decision~~
+///
+/// **CORRECTED 2026-10-04:** the gap below is closed. This parser still reads
+/// only the header, but RECONR now reconstructs the infinitely-dilute
+/// unresolved cross sections from the full LRU=2 parameters elsewhere:
+/// `reconr()` calls `urr::add_unresolved_ranges`, which evaluates
+/// [`crate::unresr::unresolved_cross_sections`] at `sig0 = 1e10`
+/// (see `crate::reconr::urr`'s module doc, 2026-09-14, and
+/// `tests/reconr_urr_kernel_vs_njoy2016.rs`). The history is kept because the
+/// mistaken comment made a real hole look intended.
+///
+/// **This doc comment used to say "RECONR does not use unresolved parameters
+/// (that is PURR's job)". That is wrong about upstream** and the correction is
+/// kept here because the mistaken version made a real hole look intended.
+/// `reconr.f90`'s own header (`:81-87`) says the opposite: *"If unresolved
+/// parameters are present, the infinitely dilute cross sections are computed
+/// on a special energy grid … and the table is also used to compute the
+/// unresolved contributions in MF3."* PURR's job is the *self-shielded*
+/// treatment; the *infinitely dilute* one belongs here.
+///
+/// # What it costs, and why it is invisible on the usual materials
+///
+/// Whether it matters is decided by the range's **`LSSF` flag**, not by
+/// anything in this port:
+///
+/// - **`LSSF = 1`** — MF=3 already carries the infinitely-dilute unresolved
+///   cross sections, so RECONR adds nothing and skipping them is correct.
+///   ENDF/B-VIII.0 **U-235** and **U-238** are both `LSSF = 1`, which is why
+///   every case built on them looks healthy.
+/// - **`LSSF = 0`** — MF=3 does **not** carry them, and RECONR is expected to
+///   reconstruct them from the unresolved parameters. Skipping them leaves the
+///   whole unresolved window at **zero cross section**.
+///
+/// Measured 2026-09-14 on **U-234** (ENDF/B-VIII.0, MAT 9225, `LSSF = 0`,
+/// URR `1.5e3 .. 1.0e5 eV`): 7 of 10 log-spaced samples of MT=1 across that
+/// window come back `0.0`, against NJOY2016's `2.032567e1 b` at 1700 eV. MT=2,
+/// MT=18 and MT=102 are zero there too, and the MF=3 background is itself zero
+/// — so nothing fills the gap. **A zero total cross section is an infinite
+/// flight in transport**, and U-234 is one of Godiva's three ICSBEP nuclides.
+///
+/// # The machinery already exists — this is wiring, not porting
+///
+/// [`crate::unresr::unresolved_cross_sections`] computes exactly what is
+/// needed; pass `sig0 = [1e10]` for infinite dilution. ~~It is currently
+/// consumed only by PURR.~~ **CORRECTED 2026-10-04:** `reconr::urr` consumes
+/// it too (checked: `reconr/urr.rs` calls it in `add_unresolved_ranges`).
+/// Tracked as `bn:op-12lu` (historical id).
 fn parse_lru2_header(
     cur: &mut SectionCursor<'_>,
     el: f64,

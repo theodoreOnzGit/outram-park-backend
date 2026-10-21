@@ -1,0 +1,1927 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/feedback.rs::cumulative_profile_matches_free_expansion_at_tip",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/feedback.rs::free_expansion_matches_analytical",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/feedback.rs::mesh_displacement_replaces_axial_component",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/material.rs::lame_parameters_match_hand_computation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/material.rs::rejects_incompressible_poisson_ratio",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/material.rs::thermal_diffusivity_matches_hand_computation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mesh_solve.rs::deqn_linear_temperature_constrained_bar",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mesh_solve.rs::deqn_uniform_heating_constrained_bar_thermal_stress",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mesh_solve.rs::mesh_displacement_wires_axial_expansion",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mesh_solve.rs::teqn_conduction_with_source_matches_parabola",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mod.rs::dispatch_constrained_bar",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mod.rs::model_axial_expansion_wired",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/stress.rs::free_expansion_is_stress_free",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/stress.rs::fully_constrained_bar_thermal_stress",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/stress.rs::uniaxial_stress_von_mises_equals_magnitude",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::genfoam_and_offbeat_agree_on_the_clamped_thermoelastic_bar",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_agreement_and_the_convergence_order_survive_refinement",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_agree_through_a_transient_elastic_response",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_disagree_on_the_thermal_load_at_a_dirichlet_boundary",
+]
+
+[module."feedback.rs"]
+path = "crate::genfoam::thermo_mechanics::feedback"
+
+[[module."feedback.rs".function]]
+id = "fn:789b3740c9c454e1"
+name = "free_axial_expansion"
+qual = "free_axial_expansion"
+lines = [
+    81,
+    104,
+]
+hash = "sha256:4c5b2a12c2b0bd74a97ef57d53535b20cc53b3fd61e02884d51e707a7e2117d3"
+doc_hash = "sha256:d06b1d9bc06ed7589ef133f2b78138b370d00e2f06ef687054c08c5fc9a32f50"
+uses = [
+    "fn:115e1b67fce0411a",
+    "fn:1aa58218af2ff1a9",
+]
+reached_by = [
+    "#1",
+    "#11",
+]
+physical_interface = true
+
+[[module."feedback.rs".function]]
+id = "fn:b453be138a62aa9e"
+name = "axial_expansion_profile"
+qual = "axial_expansion_profile"
+lines = [
+    106,
+    139,
+]
+hash = "sha256:f837a8b067d06e0b39c2639eed5dc0eff6365c586a68d250c027d29810ae7cb1"
+doc_hash = "sha256:95dd40c7e64698e43bdb53aabab4cbae776ba5c5fa9694e9d75ede111881690b"
+uses = [
+    "fn:115e1b67fce0411a",
+    "fn:1aa58218af2ff1a9",
+]
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."feedback.rs".function]]
+id = "fn:c795f6df9b25778b"
+name = "assemble_mesh_displacement"
+qual = "assemble_mesh_displacement"
+lines = [
+    141,
+    175,
+]
+hash = "sha256:7e5b1970b00f7800a709695d666b90a67f89aa8818b644805e600ad3f9e83e26"
+doc_hash = "sha256:b1a4f0bcaf2136f2185999d6bf82554af6266c17da38af6dc180fd402994a6f3"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:99b51c50cec539c3",
+    "fn:ec7982e28dd4da1d",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:115e1b67fce0411a",
+    "fn:a449133be151ce9a",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#2",
+    "#8",
+]
+physical_interface = true
+
+[[module."feedback.rs".function]]
+id = "fn:d59839dfc1b9db7a"
+name = "free_expansion_matches_analytical"
+qual = "free_expansion_matches_analytical"
+lines = [
+    182,
+    198,
+]
+hash = "sha256:31c5a168ba8cf3fe1a4883b1702fd3202330324f40a20fbd92331c8d1c8c0fd6"
+doc_hash = "sha256:9a56f0830c330da640d9eef8c05980db82e59fed8af84999d4981cb79c37ad50"
+callees = ["fn:789b3740c9c454e1"]
+uses = ["fn:1aa58218af2ff1a9"]
+test = true
+
+[[module."feedback.rs".function]]
+id = "fn:ef9304cfbffb934b"
+name = "cumulative_profile_matches_free_expansion_at_tip"
+qual = "cumulative_profile_matches_free_expansion_at_tip"
+lines = [
+    200,
+    218,
+]
+hash = "sha256:94572b435512e82252b254a3bf19ab5d2a0f8533e4c73f43fcd17b50299765a3"
+doc_hash = "sha256:0d25759554164db61623ea5aa92b6ca55e902e65e57a2526e93a9bbd41828134"
+callees = ["fn:b453be138a62aa9e"]
+uses = ["fn:1aa58218af2ff1a9"]
+test = true
+
+[[module."feedback.rs".function]]
+id = "fn:07db57ae3ba0f4d0"
+name = "mesh_displacement_replaces_axial_component"
+qual = "mesh_displacement_replaces_axial_component"
+lines = [
+    220,
+    234,
+]
+hash = "sha256:ab41aff28447748abadecc36f49ed6e23dd77fb2ddf3f252ee93699af41bf5f6"
+doc_hash = "sha256:70b55ddb53c65c3c6493014cec6086261f09b40820ebda767581df1f9ee5d14a"
+callees = [
+    "fn:9e501e5f4cce23ae",
+    "fn:c795f6df9b25778b",
+]
+uses = ["fn:ef05859ef19acee7"]
+test = true
+
+[module."material.rs"]
+path = "crate::genfoam::thermo_mechanics::material"
+
+[[module."material.rs".function]]
+id = "fn:5fd2a838ef9fa8ee"
+name = "YoungsModulus"
+qual = "YoungsModulus"
+item = "type"
+shape = "alias"
+lines = [
+    75,
+    77,
+]
+hash = "sha256:5b688d9b11b9ee2708dc73e5148bc4c4b39ca6e52f1d357363a5b75006d8c3a8"
+doc_hash = "sha256:c0dadeba33fc3efa64e401ccff46241cd9e04e5199c12c666ec62ecc9cccae2a"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."material.rs".function]]
+id = "fn:40e71853356f0016"
+name = "ShearModulus"
+qual = "ShearModulus"
+item = "type"
+shape = "alias"
+lines = [
+    79,
+    80,
+]
+hash = "sha256:5b688d9b11b9ee2708dc73e5148bc4c4b39ca6e52f1d357363a5b75006d8c3a8"
+doc_hash = "sha256:8c56ee2a74d7a1ca36daed6b128cf58c94fc340199ffe0d5e94066228c19533b"
+reached_by = [
+    "#3",
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."material.rs".function]]
+id = "fn:bec7d718da619057"
+name = "LameLambda"
+qual = "LameLambda"
+item = "type"
+shape = "alias"
+lines = [
+    82,
+    83,
+]
+hash = "sha256:5b688d9b11b9ee2708dc73e5148bc4c4b39ca6e52f1d357363a5b75006d8c3a8"
+doc_hash = "sha256:05d726d63aca8372a2471d336d747631a0bd106d7b758af0fe40f44b3a2b079f"
+reached_by = [
+    "#3",
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."material.rs".function]]
+id = "fn:010d249c178cd8aa"
+name = "BulkModulusTerm"
+qual = "BulkModulusTerm"
+item = "type"
+shape = "alias"
+lines = [
+    85,
+    87,
+]
+hash = "sha256:5b688d9b11b9ee2708dc73e5148bc4c4b39ca6e52f1d357363a5b75006d8c3a8"
+doc_hash = "sha256:0dd5e6c897103d4588aeac8389eff29dd49c287ae37f309437d6d444e7ba2370"
+reached_by = [
+    "#3",
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."material.rs".function]]
+id = "fn:f2722652ea1745a9"
+name = "Stress"
+qual = "Stress"
+item = "type"
+shape = "alias"
+lines = [
+    89,
+    90,
+]
+hash = "sha256:5b688d9b11b9ee2708dc73e5148bc4c4b39ca6e52f1d357363a5b75006d8c3a8"
+doc_hash = "sha256:e55c165d9300b1382200cff8a432a467d7da7df882aee4342b3588db6d2f4d90"
+reached_by = [
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+]
+
+[[module."material.rs".function]]
+id = "fn:1aa58218af2ff1a9"
+name = "ThermalExpansionCoeff"
+qual = "ThermalExpansionCoeff"
+item = "type"
+shape = "alias"
+lines = [
+    92,
+    94,
+]
+hash = "sha256:1d121280c1f7b83f7086c0d6efb8b7455023ed4ccfaaf505709bf58db526259a"
+doc_hash = "sha256:d943f01d04de496d3a1d7b3087a5150ff39b4ffd563cccd83b796ac288f612da"
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."material.rs".function]]
+id = "fn:40ef0eb9cb8a78fc"
+name = "ThermalDiffusivity"
+qual = "ThermalDiffusivity"
+item = "type"
+shape = "alias"
+lines = [
+    96,
+    97,
+]
+hash = "sha256:24817a664e723b5c7deef9d611db11d0ce9ebdce20f4bd831007de53cdb4d154"
+doc_hash = "sha256:edb2d295b0514526a17d4a4d329d25f357e943a4abeb658a55f2dc2020968f02"
+reached_by = ["#5"]
+
+[[module."material.rs".function]]
+id = "fn:115e1b67fce0411a"
+name = "Displacement"
+qual = "Displacement"
+item = "type"
+shape = "alias"
+lines = [
+    99,
+    101,
+]
+hash = "sha256:d58d3f6439a246ec5ec320e74b4238e6a3cc1eb18c7b791f18143ed034cb61cc"
+doc_hash = "sha256:1185d80f6f2a9090cd9893b8b5b89be43d2deaf9b33c94f748d3fa6359af288e"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#8",
+    "#11",
+]
+
+[[module."material.rs".function]]
+id = "fn:913d89e34de79e5f"
+name = "RheologyOption"
+qual = "RheologyOption"
+item = "type"
+shape = "enum"
+lines = [
+    107,
+    122,
+]
+hash = "sha256:63dcc090bae2abc192a4ff8a91417b0e9b927cedfd2b87135753be6368b0945f"
+doc_hash = "sha256:013d1b0e94608ec31e0cb0853d1583182c72b1072b32f9d2be735c6ae98a62db"
+reached_by = [
+    "#3",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."material.rs".function]]
+id = "fn:509610b8286d9a95"
+name = "MaterialError"
+qual = "MaterialError"
+item = "type"
+shape = "enum"
+lines = [
+    128,
+    148,
+]
+hash = "sha256:d35b3a9962e6df58e26548217d7b2f53de13b5c3faf0244637d4179286022ad2"
+doc_hash = "sha256:5e003a430271b202c6567235a097644c9df4a6e4466c03e2c3095747fb45b3fa"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."material.rs".function]]
+id = "fn:e526b00b64679df5"
+name = "ElasticMaterial"
+qual = "ElasticMaterial"
+item = "type"
+shape = "struct"
+lines = [
+    154,
+    184,
+]
+hash = "sha256:a7ce95b248d4577bf10e2b4d617e9b0ac3abccd6c30dd61326f9abbf4870cb5f"
+doc_hash = "sha256:47d8ba93077a2562d9c7265ed6cbe73774fc82792e63b8a7e805e3adac705b25"
+uses = [
+    "fn:1aa58218af2ff1a9",
+    "fn:5fd2a838ef9fa8ee",
+]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."material.rs".function]]
+id = "fn:551c2e4979a0fc57"
+name = "new"
+qual = "ElasticMaterial::new"
+lines = [
+    187,
+    240,
+]
+hash = "sha256:f540f62a026a02026de71131af4d59f26316a62590385420520c375b97db52ac"
+doc_hash = "sha256:0171f7e985239c359542390c9e9c51c2eb9cbbd6e978ebbd442de63cea07a1f6"
+uses = [
+    "fn:1aa58218af2ff1a9",
+    "fn:509610b8286d9a95",
+    "fn:5fd2a838ef9fa8ee",
+    "fn:e526b00b64679df5",
+]
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:a1957cff7aa011f4"
+name = "youngs_modulus"
+qual = "ElasticMaterial::youngs_modulus"
+lines = [
+    242,
+    245,
+]
+hash = "sha256:becad8a65b66241972635d876a4cf1b95f37a5c1aa7e2937f425456aab8d2cbe"
+doc_hash = "sha256:db550706fe1f849f3303a6fda2f418b62259897f9750caf16e78ba70e010000e"
+uses = [
+    "fn:5fd2a838ef9fa8ee",
+    "fn:e526b00b64679df5",
+]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:caee1ac4a2989909"
+name = "poisson_ratio"
+qual = "ElasticMaterial::poisson_ratio"
+lines = [
+    247,
+    250,
+]
+hash = "sha256:fa769e65f85f82ec0c29a9b2d2976279098339476cd9606cbda8ac173f0b7778"
+doc_hash = "sha256:86a3045992666da9c438bb778452e710176a91d439e46b60087dd82edd063718"
+uses = ["fn:e526b00b64679df5"]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:68f388c125c5915d"
+name = "thermal_expansion"
+qual = "ElasticMaterial::thermal_expansion"
+lines = [
+    252,
+    255,
+]
+hash = "sha256:f116a2f4e15f606e8e190c726dcd6489ac48c4738fe17415d79c598f1e8cf058"
+doc_hash = "sha256:933f18c9df9e575dba669674144bcffa041ed7d066f1b0af75cde2538f01601c"
+uses = [
+    "fn:1aa58218af2ff1a9",
+    "fn:e526b00b64679df5",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:8781c4b0fc2b6ee9"
+name = "density"
+qual = "ElasticMaterial::density"
+lines = [
+    257,
+    260,
+]
+hash = "sha256:19769fc6cd3cc99c91ec212f4d95e79d662cf26dbfcd053289e9de685590842c"
+doc_hash = "sha256:5d8906f2ce9f566943b1d2686510f1120c10e3cc47357564acf48be18b6499b9"
+uses = ["fn:e526b00b64679df5"]
+reached_by = [
+    "#6",
+    "#7",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:be2551ecdf4a066f"
+name = "specific_heat"
+qual = "ElasticMaterial::specific_heat"
+lines = [
+    262,
+    265,
+]
+hash = "sha256:fbe7d09a849a28be0aa2102e8e7f89cf8a0cce381061ab3bafa4084ddf47c817"
+doc_hash = "sha256:cfa71bf8554486cfbc782d8706bdf29d8610705bbb7db4709ab2b6fedd3ac0a5"
+uses = ["fn:e526b00b64679df5"]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:8be2d1453898cd8e"
+name = "conductivity"
+qual = "ElasticMaterial::conductivity"
+lines = [
+    267,
+    270,
+]
+hash = "sha256:4957001f030f5bc347aef620bbf5d1f1dcf62ee2d7b2f76c18f99bacaf75f38a"
+doc_hash = "sha256:485e7570cd4e0e0a49630bd05a4f9f4f360d86718a00a68e4ffffb1dcb575e79"
+uses = ["fn:e526b00b64679df5"]
+reached_by = [
+    "#6",
+    "#9",
+]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:334cd6ac0908cf8f"
+name = "shear_modulus"
+qual = "ElasticMaterial::shear_modulus"
+lines = [
+    272,
+    278,
+]
+hash = "sha256:c9f0f17498e54923a621634ccd15f60b2ed1fb00ea127393863449821eec01d1"
+doc_hash = "sha256:e4e621607001535decc05638f2831eb3d53bbe42d5602f5d9df50e50407cb7ac"
+uses = [
+    "fn:40e71853356f0016",
+    "fn:e526b00b64679df5",
+]
+reached_by = [
+    "#3",
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:57bc88ad7e2600e8"
+name = "lame_lambda"
+qual = "ElasticMaterial::lame_lambda"
+lines = [
+    280,
+    291,
+]
+hash = "sha256:c901db4112b5afe0ec9a1a15d92b8e1b133341da8652539f294611984e86acbb"
+doc_hash = "sha256:8c73a9dfd552d967169de4b616cc463e3a79bdd4920bc7e911c4d50f143ff2f5"
+uses = [
+    "fn:913d89e34de79e5f",
+    "fn:bec7d718da619057",
+    "fn:e526b00b64679df5",
+]
+reached_by = [
+    "#3",
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:d7599c7ed10e707c"
+name = "bulk_modulus_three_k"
+qual = "ElasticMaterial::bulk_modulus_three_k"
+lines = [
+    293,
+    307,
+]
+hash = "sha256:bb476fbba8c2250cd66f44462b0120f442806ed849333b3963472e60b07c9a74"
+doc_hash = "sha256:62773df0d91e4b9c4c61c0317672ec9d6ca57eb84c8fc65c9f0f5e54449c6a96"
+uses = [
+    "fn:010d249c178cd8aa",
+    "fn:913d89e34de79e5f",
+    "fn:e526b00b64679df5",
+]
+reached_by = [
+    "#3",
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:bef299aefbb32a03"
+name = "thermal_diffusivity"
+qual = "ElasticMaterial::thermal_diffusivity"
+lines = [
+    309,
+    313,
+]
+hash = "sha256:c6e1f8961b1f703361c16860503f37e2777234feb886c98d82c6ae81e23c9d05"
+doc_hash = "sha256:d2346fd048337fe322939b86dfd04d815dd7b1a41b64b7597566e02224964ef7"
+uses = [
+    "fn:40ef0eb9cb8a78fc",
+    "fn:e526b00b64679df5",
+]
+reached_by = ["#5"]
+physical_interface = true
+
+[[module."material.rs".function]]
+id = "fn:71bda263d52608e0"
+name = "steel"
+qual = "steel"
+lines = [
+    326,
+    337,
+]
+hash = "sha256:2a26eef8e92692fa668bfa2789f8b61f9ed9c86449cde69f9ecaaaf0290d7b84"
+doc_hash = "sha256:6530903cbeec25d527ef2becacba30544c5f53eb06b2667af61c4ca9648c55e3"
+callees = ["fn:551c2e4979a0fc57"]
+uses = [
+    "fn:1aa58218af2ff1a9",
+    "fn:5fd2a838ef9fa8ee",
+    "fn:e526b00b64679df5",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:c16efad2d3a1e143"
+name = "lame_parameters_match_hand_computation"
+qual = "lame_parameters_match_hand_computation"
+lines = [
+    339,
+    358,
+]
+hash = "sha256:8d45abdc9df6f2f4886f7099d2f2e2d8060602b8990ccd99389d740ba9d79c7f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:334cd6ac0908cf8f",
+    "fn:57bc88ad7e2600e8",
+    "fn:71bda263d52608e0",
+    "fn:d7599c7ed10e707c",
+]
+uses = ["fn:913d89e34de79e5f"]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:f87e8ccf116b1957"
+name = "thermal_diffusivity_matches_hand_computation"
+qual = "thermal_diffusivity_matches_hand_computation"
+lines = [
+    360,
+    368,
+]
+hash = "sha256:0167acea92231cb69b8c89cba4d3990560f44b171cc20cc6412a67f64ba71443"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:71bda263d52608e0",
+    "fn:bef299aefbb32a03",
+]
+test = true
+
+[[module."material.rs".function]]
+id = "fn:aa8ae5683157793d"
+name = "rejects_incompressible_poisson_ratio"
+qual = "rejects_incompressible_poisson_ratio"
+lines = [
+    370,
+    381,
+]
+hash = "sha256:5af2cf525ac0916c37081b4ee1105d9191e2bba2334f882d3da3d27a6756ab6d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:551c2e4979a0fc57"]
+uses = [
+    "fn:1aa58218af2ff1a9",
+    "fn:509610b8286d9a95",
+    "fn:5fd2a838ef9fa8ee",
+    "fn:e526b00b64679df5",
+]
+test = true
+
+[module."mesh_solve.rs"]
+path = "crate::genfoam::thermo_mechanics::mesh_solve"
+
+[[module."mesh_solve.rs".function]]
+id = "fn:ade901e2be1937a8"
+name = "DisplacementReport"
+qual = "DisplacementReport"
+item = "type"
+shape = "struct"
+lines = [
+    137,
+    152,
+]
+hash = "sha256:d8e440c6597000b775d30b80d5b7e58d887f4a4f89dd68618c82a492563a483d"
+doc_hash = "sha256:dcec67fd65bc776f272a63f16ad3394697b694ab8516b236c79153087939f33c"
+reached_by = [
+    "#6",
+    "#7",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:5752d3673b04a1de"
+name = "MechanicsMeshSolver"
+qual = "MechanicsMeshSolver"
+item = "type"
+shape = "struct"
+lines = [
+    154,
+    220,
+]
+hash = "sha256:494d2cacf964223806490cca415ee30eded1c1a09c87a0705acd71d601709f13"
+doc_hash = "sha256:e5ce3b31525b9dbe5929858c3a1adec8b48bb7bf322ea23c93ac9e9e1c0ef7bb"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:4f8013f6f4ebe6b6",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:93bd20f3a924e9fd",
+    "fn:f354cdd32c8e9ebe",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:c4204da53704fc9b"
+name = "new"
+qual = "MechanicsMeshSolver::new"
+lines = [
+    223,
+    265,
+]
+hash = "sha256:c1a82f6db08af49de55b3d4f7f30393482f659bb32e0b9b87028eafa59174857"
+doc_hash = "sha256:08a7bfcdfac2d8021b9d0e8252f5bbee6a034ef48e872a8f01e5201ab334043c"
+callees = ["fn:f947d18d47e7b06e"]
+uses = [
+    "fn:5752d3673b04a1de",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:93bd20f3a924e9fd",
+    "fn:f354cdd32c8e9ebe",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:708fbdd0f296c50a"
+name = "set_corrector_control"
+qual = "MechanicsMeshSolver::set_corrector_control"
+lines = [
+    267,
+    273,
+]
+hash = "sha256:b5e5217369903dd441dc78caa6d32d13c83f578e5cbc865e6df3ab35566513b0"
+doc_hash = "sha256:cc720ed69973d1200136f75fd980667e521b1f67f78ac5bdd7f0b608d8784145"
+uses = ["fn:5752d3673b04a1de"]
+reached_by = [
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:c71f5ad992b9382e"
+name = "displacement"
+qual = "MechanicsMeshSolver::displacement"
+lines = [
+    275,
+    278,
+]
+hash = "sha256:33bcb4a7d5aec83b307351432c4595ab3e2c2e9cbb8a21f17487b8d20fd00cef"
+doc_hash = "sha256:5460cb2913d6fdf0f06af7b6f2739d20f1e210bd57b7fb62cbcbc132abb3d2c3"
+uses = [
+    "fn:5752d3673b04a1de",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = [
+    "#6",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:76f37b9001d33115"
+name = "temperature"
+qual = "MechanicsMeshSolver::temperature"
+lines = [
+    280,
+    283,
+]
+hash = "sha256:bbf3f666739590ccd653f2542ae903f4e6a86e8ea235219a6a67e8738eff76b8"
+doc_hash = "sha256:e9becfa819f13a13f8ba86313f96dd495208e15a5ffdc2766223c6332917a21c"
+uses = [
+    "fn:5752d3673b04a1de",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#6",
+    "#9",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:aaa81c5ce81f1d4a"
+name = "stress"
+qual = "MechanicsMeshSolver::stress"
+lines = [
+    285,
+    289,
+]
+hash = "sha256:18766a1a53889a6172f7c731e9e39d05eeebf25bd4d280cc352726fb5b4f6ebd"
+doc_hash = "sha256:340b23efb305f43a10a164c252dd7fa810ca4478ac24397920d0f57814a7a3a4"
+uses = [
+    "fn:4f8013f6f4ebe6b6",
+    "fn:5752d3673b04a1de",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#15",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:a0784268c93b658f"
+name = "solve_temperature"
+qual = "MechanicsMeshSolver::solve_temperature"
+lines = [
+    293,
+    360,
+]
+hash = "sha256:ffef5d0f4f5f67ac7146b153ff158b8838236aa03dc71f7c08d193b9ab0c04a5"
+doc_hash = "sha256:5cfe9d4142b567b782ed3518dead639a9225cd0896836132ad0285e0d915efd2"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:35109efd2ed02837",
+    "fn:3d2d1d17a13cb836",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:8be2d1453898cd8e",
+    "fn:995c44e8dd4bfdb1",
+    "fn:a5457a6081dc438d",
+    "fn:fb73e8d34cdb6dcd",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:5752d3673b04a1de",
+    "fn:639c94738fe92715",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
+reached_by = [
+    "#6",
+    "#9",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:b42f680bddd0ecbf"
+name = "solve_displacement"
+qual = "MechanicsMeshSolver::solve_displacement"
+lines = [
+    364,
+    472,
+]
+hash = "sha256:509036009011929f337cfffec9a16df4b8acfe98d02cf4f657494d859149c072"
+doc_hash = "sha256:b701973ed74784f82a4fae8e98ea40b3511617c1fb005c97d4e132da38785464"
+callees = [
+    "fn:0cdfd2e472ca4db7",
+    "fn:125dd0e237c8271f",
+    "fn:12a06403e27e4888",
+    "fn:1e0c0abc3044dc8b",
+    "fn:334cd6ac0908cf8f",
+    "fn:3d2d1d17a13cb836",
+    "fn:3ec5e342ab76d57e",
+    "fn:4aea3161a87c6021",
+    "fn:57bc88ad7e2600e8",
+    "fn:5c51e269259b4b9b",
+    "fn:636ae5a21be9336b",
+    "fn:636e75b664f14254",
+    "fn:68f388c125c5915d",
+    "fn:6b0b052d3dcb7724",
+    "fn:841689f1b7c8d863",
+    "fn:8781c4b0fc2b6ee9",
+    "fn:95630e24fcf1635e",
+    "fn:9573429ffda5c360",
+    "fn:a8a8aa01bdeead4b",
+    "fn:ac15f3658e8bdb49",
+    "fn:bcd3c0fddc1f933d",
+    "fn:d7599c7ed10e707c",
+    "fn:ea6b6e6095ea6573",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:5752d3673b04a1de",
+    "fn:7aa70dd1c009cc88",
+    "fn:ade901e2be1937a8",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:b16124ad779b8cb3"
+name = "advance_time"
+qual = "MechanicsMeshSolver::advance_time"
+lines = [
+    474,
+    482,
+]
+hash = "sha256:59b5243e5a2a870d0951855bd8f59264fa2f826b569a2c9265bb8983835b83a7"
+doc_hash = "sha256:c1d3afb7c795cd9abd6b98b36dfc9a01492556015f2e773173849095f2466a44"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+]
+uses = ["fn:5752d3673b04a1de"]
+reached_by = ["#17"]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:85f9de6e1e04cd1e"
+name = "mesh_displacement"
+qual = "MechanicsMeshSolver::mesh_displacement"
+lines = [
+    486,
+    527,
+]
+hash = "sha256:4392a52136fcad9a3bb00ef71289d0e69e0f289107e768f37467be4f02640b4c"
+doc_hash = "sha256:26f6ffdd33f5c23ae6a63d46d2a8ac630816621e8040d3e3e36a6d519a55828b"
+callees = [
+    "fn:13d801bd97c5b69d",
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:a44e88aef7a7c4ab",
+    "fn:c795f6df9b25778b",
+]
+uses = [
+    "fn:5752d3673b04a1de",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
+reached_by = ["#8"]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:5c51e269259b4b9b"
+name = "thermal_load_field"
+qual = "MechanicsMeshSolver::thermal_load_field"
+lines = [
+    531,
+    560,
+]
+hash = "sha256:2cfa8a726eda5392f7da120511d30410b31ec2fbb50dec91a83e5bf7d48fb3ce"
+doc_hash = "sha256:e21727e79dd22494aa1e6d1b21f45855d2dba6f4c28fb08dc5b4a0478bf13090"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:75b525d4515cc08e",
+    "fn:a44e88aef7a7c4ab",
+]
+uses = [
+    "fn:5752d3673b04a1de",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:125dd0e237c8271f"
+name = "compact_stress_correction"
+qual = "MechanicsMeshSolver::compact_stress_correction"
+lines = [
+    562,
+    591,
+]
+hash = "sha256:60f5da895c588535074c32ce82cc8d0eb817442e87881d29faeb0addecdd37a0"
+doc_hash = "sha256:2968d6d450c9093db54a5a96d440ec3fe56e2729f9ed848ca190423f4f6c701d"
+callees = [
+    "fn:0092425b3c803de4",
+    "fn:2ae038f03542083e",
+    "fn:31a5e8bef3f237ac",
+    "fn:456ce8c84f72ae6e",
+    "fn:49581439b8714460",
+    "fn:4a9caf9bb5f34034",
+    "fn:75b525d4515cc08e",
+    "fn:8dddc1ee50dd25e4",
+    "fn:abc7404e3cca132a",
+]
+uses = [
+    "fn:24a3d15a404f9a52",
+    "fn:250c638c8bd6b322",
+    "fn:5752d3673b04a1de",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7a05aabc9b2c5609",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:0cdfd2e472ca4db7"
+name = "update_stress"
+qual = "MechanicsMeshSolver::update_stress"
+lines = [
+    593,
+    611,
+]
+hash = "sha256:14ee4b0c5301cf6a33e6a9a4331907a0a2d77f80133791566cc2703b0761205e"
+doc_hash = "sha256:bdb11e6c8e54d5b481b680bb1728b5ea10a67c88aa6a9f465839deedd0a66584"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:2ebc29ca2f7699ef",
+    "fn:4aea3161a87c6021",
+    "fn:8eaaefe1990ebf16",
+    "fn:9573429ffda5c360",
+]
+uses = [
+    "fn:010d249c178cd8aa",
+    "fn:1aa58218af2ff1a9",
+    "fn:40e71853356f0016",
+    "fn:5752d3673b04a1de",
+    "fn:bec7d718da619057",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:f947d18d47e7b06e"
+name = "zero_symm_tensor_field"
+qual = "zero_symm_tensor_field"
+lines = [
+    614,
+    627,
+]
+hash = "sha256:3c53ddae70fc1b522c2e2ccd94b8fddb7da899d578d7ee209be3ebd87968eac4"
+doc_hash = "sha256:0e4684fb6ed84c667c010a8e1c97016a0874d21373853ab41c9bcacee1edc6e4"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:618f17745dcaca0f",
+    "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:250c638c8bd6b322",
+    "fn:4f8013f6f4ebe6b6",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mesh_solve.rs".function]]
+id = "fn:d88a668f7464d106"
+name = "bar_mesh"
+qual = "bar_mesh"
+lines = [
+    650,
+    689,
+]
+hash = "sha256:d4428020e5dfd109827eb611987a2f282039695c737f5151a3a71d1c3e88812c"
+doc_hash = "sha256:fd58ddee209c2ce0c93d4b2d85487604942d5783178321f75fb8e6ce31b768f5"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:7f9a734eeda1f243"
+name = "material"
+qual = "material"
+lines = [
+    691,
+    704,
+]
+hash = "sha256:175e72575b2269de650f54c812150a970a8012f590cddfe444d4d58969a35baf"
+doc_hash = "sha256:f25468c8cd4d82cfe49cbbfcdf257861a573c13f49cbed48902d5e3eb70db12b"
+callees = ["fn:551c2e4979a0fc57"]
+uses = [
+    "fn:1aa58218af2ff1a9",
+    "fn:5fd2a838ef9fa8ee",
+    "fn:e526b00b64679df5",
+]
+test = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:870a44ec1dff4048"
+name = "clamped_disp"
+qual = "clamped_disp"
+lines = [
+    706,
+    725,
+]
+hash = "sha256:dfe314ecb8be4eff26589ac02bc687a8a89c7a1d0bd1d77ae643e1147b06e08b"
+doc_hash = "sha256:b199e62fbbf0800e62ae0a7fce77459465da692e530e759fa9a3264c3f561c83"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:9e501e5f4cce23ae",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:388f8b0f2df87d00"
+name = "end_temp_field"
+qual = "end_temp_field"
+lines = [
+    727,
+    746,
+]
+hash = "sha256:60b33580d9802fe0803ef67161877edeb3c439702601a4a543ebf1952db9abd8"
+doc_hash = "sha256:88218168f5e979d832aa672c4477f3a74aa3e4d6b467b43d525d524ec9507779"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:a44e88aef7a7c4ab",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:ff87670307f57f23"
+name = "solver"
+qual = "solver"
+lines = [
+    748,
+    770,
+]
+hash = "sha256:83f0df4bb0ca25e298f3637719b7fa48e95a0edc2f8b36b887f9a9c71ef98a85"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:385bd814ba5c49f6",
+    "fn:7f9a734eeda1f243",
+    "fn:c4204da53704fc9b",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5752d3673b04a1de",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:913d89e34de79e5f",
+    "fn:93bd20f3a924e9fd",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:6711af1a158085ae"
+name = "teqn_conduction_with_source_matches_parabola"
+qual = "teqn_conduction_with_source_matches_parabola"
+lines = [
+    772,
+    815,
+]
+hash = "sha256:da15272ef1a1f3d12c91f89828e31f23048d838e8ec3aecbdf450d3c07616ce5"
+doc_hash = "sha256:d235d594f043610c9d22010c9639df09d76efec8f2bc7a239888d6e74b6d0a84"
+callees = [
+    "fn:388f8b0f2df87d00",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:76f37b9001d33115",
+    "fn:870a44ec1dff4048",
+    "fn:a0784268c93b658f",
+    "fn:d88a668f7464d106",
+    "fn:ff87670307f57f23",
+]
+uses = ["fn:7aa70dd1c009cc88"]
+test = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:4845871d7e128012"
+name = "deqn_linear_temperature_constrained_bar"
+qual = "deqn_linear_temperature_constrained_bar"
+lines = [
+    817,
+    897,
+]
+hash = "sha256:bb5dde88cf79d317ec49cf8a143e583c15381ff1a7478c418386047dbf683934"
+doc_hash = "sha256:417aed9f85b0c584e233bed516ed033bc503f059e10906ef36f83a5a4dbe5200"
+callees = [
+    "fn:326a7282820617b2",
+    "fn:388f8b0f2df87d00",
+    "fn:4aea3161a87c6021",
+    "fn:4e47885c89f349ef",
+    "fn:76f37b9001d33115",
+    "fn:870a44ec1dff4048",
+    "fn:a0784268c93b658f",
+    "fn:aaa81c5ce81f1d4a",
+    "fn:b42f680bddd0ecbf",
+    "fn:c71f5ad992b9382e",
+    "fn:d88a668f7464d106",
+    "fn:ff87670307f57f23",
+]
+test = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:9d8d4d94c92d0e37"
+name = "deqn_uniform_heating_constrained_bar_thermal_stress"
+qual = "deqn_uniform_heating_constrained_bar_thermal_stress"
+lines = [
+    899,
+    941,
+]
+hash = "sha256:406e0e60ad24158240bd03f4faf459b3f39348033dcac0d0e1096f6fe595b4a5"
+doc_hash = "sha256:3cdfdc8e5c8c069bea957b6b1cfe6513207d566f6af95503ae8915ab220157e0"
+callees = [
+    "fn:388f8b0f2df87d00",
+    "fn:4aea3161a87c6021",
+    "fn:870a44ec1dff4048",
+    "fn:aaa81c5ce81f1d4a",
+    "fn:b42f680bddd0ecbf",
+    "fn:d88a668f7464d106",
+    "fn:ff87670307f57f23",
+]
+test = true
+
+[[module."mesh_solve.rs".function]]
+id = "fn:6f033f9e8fd541b4"
+name = "mesh_displacement_wires_axial_expansion"
+qual = "mesh_displacement_wires_axial_expansion"
+lines = [
+    943,
+    973,
+]
+hash = "sha256:e5cecdc5e3493b8cf375cebb16915e34b50edbaabc67ab9aca3c3676e825cc1c"
+doc_hash = "sha256:c7a69bb387820589dcae47b7f06f803c940feff51cbddd4a0e7835cee66818ff"
+callees = [
+    "fn:388f8b0f2df87d00",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:85f9de6e1e04cd1e",
+    "fn:870a44ec1dff4048",
+    "fn:9e501e5f4cce23ae",
+    "fn:d88a668f7464d106",
+    "fn:ff87670307f57f23",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::genfoam::thermo_mechanics"
+
+[[module."mod.rs".function]]
+id = "fn:93bd20f3a924e9fd"
+name = "LegacyThermoMechanics"
+qual = "LegacyThermoMechanics"
+item = "type"
+shape = "struct"
+lines = [
+    113,
+    159,
+]
+hash = "sha256:60505f225f03a792f195d01ff398bbf1cf27122d402ede73df7ba1ee5e1de66a"
+doc_hash = "sha256:ff74e54c731f82567b22459a80dbcb7fc711de04a773a043cb7f5264a755983b"
+uses = [
+    "fn:913d89e34de79e5f",
+    "fn:e526b00b64679df5",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:385bd814ba5c49f6"
+name = "new"
+qual = "LegacyThermoMechanics::new"
+lines = [
+    162,
+    165,
+]
+hash = "sha256:75d2b51cd8ab99e3e76013665065ea680094fe164560559dd456e8fc91061c10"
+doc_hash = "sha256:37bc17472674748e9d4bc9b037c0064405651219b1ebce76eec9e04131d0f8db"
+uses = [
+    "fn:913d89e34de79e5f",
+    "fn:93bd20f3a924e9fd",
+    "fn:e526b00b64679df5",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3d2d1d17a13cb836"
+name = "material"
+qual = "LegacyThermoMechanics::material"
+lines = [
+    167,
+    170,
+]
+hash = "sha256:bfc8afdeb4c390d2d6a5777553225e73c880862ec17783ae075783ea0986ee4c"
+doc_hash = "sha256:f8bdb77be2f4be0aa95ce529b4fd354ad7c4dd6aaa26e70f7d8263bc0f9afd64"
+uses = [
+    "fn:93bd20f3a924e9fd",
+    "fn:e526b00b64679df5",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#9",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ac15f3658e8bdb49"
+name = "rheology"
+qual = "LegacyThermoMechanics::rheology"
+lines = [
+    172,
+    175,
+]
+hash = "sha256:6b7f16982bfcfe5e0aade12c7fdf99fd4883236f18edd94055c302ecf5e5f715"
+doc_hash = "sha256:4a7aa2ebc7406e8e5f6ef5462b39c679f1f4b9044afe79c32da7713904c2ed2e"
+uses = [
+    "fn:913d89e34de79e5f",
+    "fn:93bd20f3a924e9fd",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[[module."mod.rs".function]]
+id = "fn:758acf374af640bd"
+name = "stress"
+qual = "LegacyThermoMechanics::stress"
+lines = [
+    177,
+    189,
+]
+hash = "sha256:984050247fc466f99b875f61cd4c25241d282aeed54dad937923aad63408868e"
+doc_hash = "sha256:8d9831292455465e83c4b6d055a0d07332d26074e891cab113252ce2c225a15b"
+callees = [
+    "fn:2ebc29ca2f7699ef",
+    "fn:334cd6ac0908cf8f",
+    "fn:57bc88ad7e2600e8",
+    "fn:68f388c125c5915d",
+    "fn:d7599c7ed10e707c",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:93bd20f3a924e9fd",
+]
+reached_by = ["#10"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:27b4e94d941aa9d7"
+name = "von_mises"
+qual = "LegacyThermoMechanics::von_mises"
+lines = [
+    191,
+    195,
+]
+hash = "sha256:3408e5f674519cd855025e978cfab5a3baf837bf48ae0207e8fd42e78437efbd"
+doc_hash = "sha256:845e9d7b9c04a6c25319aaf530031e0a31f2b0d571cb704f88abba68a2a365b1"
+callees = [
+    "fn:478c60b87b8576b3",
+    "fn:758acf374af640bd",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:93bd20f3a924e9fd",
+    "fn:f2722652ea1745a9",
+]
+reached_by = ["#10"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:b5422b613153de32"
+name = "free_axial_expansion"
+qual = "LegacyThermoMechanics::free_axial_expansion"
+lines = [
+    197,
+    205,
+]
+hash = "sha256:9345fe45ac3c73a23dc9d77123f9e88cb86aef4e1f0fac2c1ff1dd392a1abd22"
+doc_hash = "sha256:ac4df2f558540bbaffaf8246b1fa5055c88291702f3e927ce750fd6b54e0dd88"
+callees = [
+    "fn:68f388c125c5915d",
+    "fn:789b3740c9c454e1",
+]
+uses = [
+    "fn:115e1b67fce0411a",
+    "fn:93bd20f3a924e9fd",
+]
+reached_by = ["#11"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:ff7d0b76aba32aa6"
+name = "axial_expansion_profile"
+qual = "LegacyThermoMechanics::axial_expansion_profile"
+lines = [
+    207,
+    216,
+]
+hash = "sha256:3aa8720979ac9848316ac9582ebcbf4f827f3287702f201dccd903def64fd9d1"
+doc_hash = "sha256:ed50672e204be2a402bd64dc570b4a8e963f22aab2648c77d66f08b804481ff4"
+callees = [
+    "fn:68f388c125c5915d",
+    "fn:b453be138a62aa9e",
+]
+uses = [
+    "fn:115e1b67fce0411a",
+    "fn:93bd20f3a924e9fd",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:9bcc0a9dad936eb9"
+name = "mesh_displacement"
+qual = "LegacyThermoMechanics::mesh_displacement"
+lines = [
+    218,
+    228,
+]
+hash = "sha256:0d8d714fa875cb995391ea79b9826e2f52ac19dec24065d7c3615da64202f106"
+doc_hash = "sha256:1985541444ac1746ddfb2d9bc6b43f526a0f7e3a2452e6cdbc31653212b99716"
+callees = ["fn:c795f6df9b25778b"]
+uses = [
+    "fn:115e1b67fce0411a",
+    "fn:93bd20f3a924e9fd",
+    "fn:ef05859ef19acee7",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0a1d84ab813c4ab4"
+name = "ThermoMechanicsModel"
+qual = "ThermoMechanicsModel"
+item = "type"
+shape = "enum"
+lines = [
+    231,
+    243,
+]
+hash = "sha256:370fad07353702fea44a2b7dc8649e5f769d065c6e0ff34effb118d0ef26e747"
+doc_hash = "sha256:8c0b710d44050b4b6f526f8236fef4f82a9f8b3ec226cb5d7ba22607db0fbf38"
+uses = ["fn:93bd20f3a924e9fd"]
+reached_by = [
+    "#10",
+    "#11",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7c4fe304406c2abd"
+name = "stress"
+qual = "ThermoMechanicsModel::stress"
+lines = [
+    246,
+    252,
+]
+hash = "sha256:5d455b84d42ec03148f3eaa402b9a6eedc4ddfb94d19a12bb78f4090ba7ab2c8"
+doc_hash = "sha256:7517be0ddf9ae9cad2b8a35ab23de9b28f053400ce371f27410e40042bf594fb"
+callees = ["fn:758acf374af640bd"]
+uses = [
+    "fn:0a1d84ab813c4ab4",
+    "fn:250c638c8bd6b322",
+]
+reached_by = ["#10"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:a855d19e9a839b8b"
+name = "von_mises"
+qual = "ThermoMechanicsModel::von_mises"
+lines = [
+    254,
+    259,
+]
+hash = "sha256:c926a3488f6c6173103d5d7a0626e79da347dc0f2200c5fbebf0c904d9961c24"
+doc_hash = "sha256:f8c4c0b33bb58fa9509d6241b12854e32a93c756219c6862dc866d1c24d751d6"
+callees = ["fn:27b4e94d941aa9d7"]
+uses = [
+    "fn:0a1d84ab813c4ab4",
+    "fn:250c638c8bd6b322",
+    "fn:f2722652ea1745a9",
+]
+reached_by = ["#10"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:237affac794968ea"
+name = "model"
+qual = "model"
+lines = [
+    275,
+    289,
+]
+hash = "sha256:0a5ccbba83f92fdea92c4007244510503ddda773c3a1a7ebbcf87d2cbb201df5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:385bd814ba5c49f6",
+    "fn:551c2e4979a0fc57",
+]
+uses = [
+    "fn:0a1d84ab813c4ab4",
+    "fn:1aa58218af2ff1a9",
+    "fn:5fd2a838ef9fa8ee",
+    "fn:913d89e34de79e5f",
+    "fn:93bd20f3a924e9fd",
+    "fn:e526b00b64679df5",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:cd05b4a4c8521516"
+name = "dispatch_constrained_bar"
+qual = "dispatch_constrained_bar"
+lines = [
+    291,
+    302,
+]
+hash = "sha256:9460ca7409a6adcd4fc13dd983c31c8fcd0c06171c13096160dfbcf15d26dfbe"
+doc_hash = "sha256:71ce788e0f403f927a64226f24b45ff81eede95201086603e1456d1c0d77e6d6"
+callees = [
+    "fn:237affac794968ea",
+    "fn:7c4fe304406c2abd",
+    "fn:951b44f93711cd90",
+    "fn:a855d19e9a839b8b",
+]
+uses = ["fn:250c638c8bd6b322"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:1188e9cc54a523b4"
+name = "model_axial_expansion_wired"
+qual = "model_axial_expansion_wired"
+lines = [
+    304,
+    312,
+]
+hash = "sha256:ebc4f76d81dce6235c73c79ac89f118c43e6e2e52cda9155b1691d5cb17bfabd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:237affac794968ea",
+    "fn:b5422b613153de32",
+]
+uses = ["fn:0a1d84ab813c4ab4"]
+test = true
+
+[module."stress.rs"]
+path = "crate::genfoam::thermo_mechanics::stress"
+
+[[module."stress.rs".function]]
+id = "fn:df8b32b02fea6f63"
+name = "deviatoric_plus_volumetric_stress"
+qual = "deviatoric_plus_volumetric_stress"
+lines = [
+    75,
+    100,
+]
+hash = "sha256:271a7b5778367e5a9559c1ca009cf4ccc36c96c33c4b08449b3f0bb0fc9446b5"
+doc_hash = "sha256:ecdca6a82cbb9d9ed622fa3a4ad92f7aaf66c27afde2b7d0026c991291e83486"
+callees = [
+    "fn:2ae038f03542083e",
+    "fn:4a9caf9bb5f34034",
+    "fn:5542d71db464f60b",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:40e71853356f0016",
+    "fn:bec7d718da619057",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."stress.rs".function]]
+id = "fn:2ebc29ca2f7699ef"
+name = "thermal_stress"
+qual = "thermal_stress"
+lines = [
+    102,
+    132,
+]
+hash = "sha256:d0297c30c153ef637be66af4e038f08380e2b5f120124a6cec9e86fc1e5ed55a"
+doc_hash = "sha256:6479da0750758de215d2e68e0a852918995af2c73e8130c722925ef3e27f3ca0"
+callees = [
+    "fn:35604fe4fbd322dd",
+    "fn:4a9caf9bb5f34034",
+    "fn:df8b32b02fea6f63",
+]
+uses = [
+    "fn:010d249c178cd8aa",
+    "fn:1aa58218af2ff1a9",
+    "fn:250c638c8bd6b322",
+    "fn:40e71853356f0016",
+    "fn:bec7d718da619057",
+]
+reached_by = [
+    "#6",
+    "#7",
+    "#10",
+    "#12",
+    "#13",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+physical_interface = true
+
+[[module."stress.rs".function]]
+id = "fn:478c60b87b8576b3"
+name = "von_mises_stress"
+qual = "von_mises_stress"
+lines = [
+    134,
+    145,
+]
+hash = "sha256:72cc8f3b419eb7a8d72f4c414208705e9a2cf2f3599c95ad24d90054fb7d8bef"
+doc_hash = "sha256:e880a9576fca770643bf0396e2db15e7ebecbfde2d0182b041683c575549f7bd"
+callees = [
+    "fn:326a7282820617b2",
+    "fn:4e47885c89f349ef",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:f2722652ea1745a9",
+]
+reached_by = [
+    "#10",
+    "#12",
+    "#13",
+    "#14",
+]
+physical_interface = true
+
+[[module."stress.rs".function]]
+id = "fn:951b44f93711cd90"
+name = "hydrostatic_stress"
+qual = "hydrostatic_stress"
+lines = [
+    147,
+    157,
+]
+hash = "sha256:e5229c1bc44d3d6394b53e533f832e6568562314cbb0f416e34d3892a5f802a0"
+doc_hash = "sha256:2eeb8dbb9027d53f2faf62c2f50e7d243fbf0904d00ff6729a5a03d8a522b731"
+callees = ["fn:5542d71db464f60b"]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:f2722652ea1745a9",
+]
+reached_by = [
+    "#10",
+    "#13",
+]
+physical_interface = true
+
+[[module."stress.rs".function]]
+id = "fn:a0f76c6b4583d492"
+name = "steel"
+qual = "steel"
+lines = [
+    174,
+    184,
+]
+hash = "sha256:2a26eef8e92692fa668bfa2789f8b61f9ed9c86449cde69f9ecaaaf0290d7b84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:551c2e4979a0fc57"]
+uses = [
+    "fn:1aa58218af2ff1a9",
+    "fn:5fd2a838ef9fa8ee",
+    "fn:e526b00b64679df5",
+]
+test = true
+
+[[module."stress.rs".function]]
+id = "fn:94d183b32ab92362"
+name = "free_expansion_is_stress_free"
+qual = "free_expansion_is_stress_free"
+lines = [
+    186,
+    207,
+]
+hash = "sha256:0feb1c22cc137b2011f40d8f387462f63c178ddc967d2e0df6a67b388a000c4d"
+doc_hash = "sha256:27850997685c7a648ac7afb5adce0b4ac1b99a3987959ad660d5b70e4659566f"
+callees = [
+    "fn:0dda29372b4defe7",
+    "fn:2ebc29ca2f7699ef",
+    "fn:334cd6ac0908cf8f",
+    "fn:478c60b87b8576b3",
+    "fn:4a9caf9bb5f34034",
+    "fn:57bc88ad7e2600e8",
+    "fn:68f388c125c5915d",
+    "fn:a0f76c6b4583d492",
+    "fn:d7599c7ed10e707c",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:913d89e34de79e5f",
+]
+test = true
+
+[[module."stress.rs".function]]
+id = "fn:0df66cdd9cfb15c1"
+name = "fully_constrained_bar_thermal_stress"
+qual = "fully_constrained_bar_thermal_stress"
+lines = [
+    209,
+    231,
+]
+hash = "sha256:b160469fb8b92537a28ce385f3a063defd7ff5a74988017c63e970cb658362a2"
+doc_hash = "sha256:3e49417f3fbd01100edc731b8a66d91487fa6f9cd7b80a6f65e4ffc4eae24f64"
+callees = [
+    "fn:2ebc29ca2f7699ef",
+    "fn:334cd6ac0908cf8f",
+    "fn:478c60b87b8576b3",
+    "fn:57bc88ad7e2600e8",
+    "fn:68f388c125c5915d",
+    "fn:951b44f93711cd90",
+    "fn:a0f76c6b4583d492",
+    "fn:d7599c7ed10e707c",
+]
+uses = [
+    "fn:250c638c8bd6b322",
+    "fn:913d89e34de79e5f",
+]
+test = true
+
+[[module."stress.rs".function]]
+id = "fn:45118cd18ee3aeb0"
+name = "uniaxial_stress_von_mises_equals_magnitude"
+qual = "uniaxial_stress_von_mises_equals_magnitude"
+lines = [
+    233,
+    245,
+]
+hash = "sha256:cc198c7d582e7b1fa31ed85a88345a4f2c5240c6f6b4043e341cc3c7ffc0a67f"
+doc_hash = "sha256:bf5854eb5c3ebc4434efa960c4209f4c86abd48fe49f3080016b60c53944c061"
+callees = [
+    "fn:478c60b87b8576b3",
+    "fn:adb6ff61789851e5",
+]
+uses = ["fn:250c638c8bd6b322"]
+test = true

@@ -7,7 +7,7 @@
 //! "Monte Carlo core" half of the plan-named boundary, ladder generation
 //! lives in [`super::ladder`].
 
-use super::ladder::{generate_ladder, InfiniteDilutionResult, Rng, SequenceLadderParams};
+use super::ladder::{generate_ladder, InfiniteDilutionResult, LadderResonance, Rng, SequenceLadderParams};
 use super::wfun::DopplerTable;
 use crate::NjoyError;
 
@@ -155,6 +155,212 @@ pub struct ProbabilityTableResult {
     pub convergence: ConvergenceStats,
 }
 
+// purr.f90:1835-1836 — unrest's OWN local `con1`/`con2` (a resonance
+// significant-range cutoff), unrelated to unresx's Doppler-width `con1`
+// (see the doc note in `infinite_dilution_reference`).
+const CON1_RANGE: f64 = 31.83;
+const CON2_RANGE: f64 = 20.0;
+const T_REF: f64 = 300.0;
+const ELOW: f64 = 10.0;
+const NAVOID: f64 = 300.0;
+const NERMAX: f64 = 1000.0;
+const BIG: f64 = 1.0e6;
+
+/// The energy span one ladder covers and the window its samples are drawn
+/// from (`purr.f90:1867-1880`).
+#[derive(Debug, Clone, Copy)]
+struct LadderSpan {
+    ehigh: f64,
+    emin: f64,
+    espan: f64,
+}
+
+impl LadderSpan {
+    /// Sized off the smallest sequence spacing so `nermax` resonances
+    /// comfortably span it; samples avoid `navoid` mean spacings at each end.
+    fn new(sequences: &[SequenceLadderParams], inf_dilution: &InfiniteDilutionResult) -> Result<Self, NjoyError> {
+        let dmin = sequences
+            .iter()
+            .map(|s| s.dbar)
+            .fold(f64::INFINITY, f64::min);
+        let erange = 9.0 * NERMAX * dmin / 10.0;
+        let dbarin = inf_dilution.mean_inverse_spacing;
+        let nres = erange * dbarin;
+        let ehigh = ELOW + erange;
+        let emin = ELOW + NAVOID / dbarin;
+        let emax = ehigh - NAVOID / dbarin;
+        let espan = emax - emin;
+        if nres <= 0.0 || emax < emin {
+            return Err(NjoyError::EndfParse(
+                "purr: bad value for nres or emin>emax, increase dmin".to_string(),
+            ));
+        }
+        Ok(Self { ehigh, emin, espan })
+    }
+}
+
+/// One ladder of `unrest`'s main loop (`purr.f90:1904-2216`): draw the
+/// sorted random energies into `es`, build one ladder per sequence with
+/// [`generate_ladder`], and accumulate every resonance's Doppler line shape
+/// into the per-temperature `cap`/`fis`/`els` samples (the elastic ones start
+/// at the potential scattering `spot`), then clamp negative elastic values.
+/// [`probability_table`] calls it once per ladder; [`sample_ladder`] calls it
+/// once and keeps the ladders. The random numbers are drawn in upstream's
+/// order either way.
+#[allow(clippy::too_many_arguments)]
+fn sample_one_ladder(
+    span: &LadderSpan,
+    sequences: &[SequenceLadderParams],
+    spot: f64,
+    bkg: [f64; 4],
+    temp: &[f64],
+    rng: &mut Rng,
+    table: &DopplerTable,
+    es: &mut [f64],
+    cap: &mut [Vec<f64>],
+    fis: &mut [Vec<f64>],
+    els: &mut [Vec<f64>],
+    mut keep: Option<&mut Vec<Vec<LadderResonance>>>,
+) {
+    let (ntemp, nsamp) = (temp.len(), es.len());
+    let rpi = std::f64::consts::PI.sqrt();
+    // purr.f90:1904-1913 — random energy grid, sorted.
+    for ie in 0..nsamp {
+        es[ie] = span.emin + span.espan * rng.next();
+        for itemp in 0..ntemp {
+            cap[itemp][ie] = 0.0;
+            fis[itemp][ie] = 0.0;
+            els[itemp][ie] = spot;
+        }
+    }
+    es.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    // purr.f90:1916-2209 — loop over sequences, temperatures, resonances.
+    for seq in sequences {
+        let ladder = generate_ladder(seq, ELOW, span.ehigh, rng);
+        if let Some(k) = keep.as_mut() {
+            k.push(ladder.clone());
+        }
+        for (itemp, &t) in temp.iter().enumerate() {
+            let ctx = seq.cth_ref * (T_REF / t).sqrt();
+            for res in &ladder {
+                // purr.f90:1925-1934 — significant energy range + index
+                // window (direct binary search on the sorted `es`,
+                // rather than upstream's reused-boundary search chain —
+                // this one boundary computation is not part of the
+                // per-point tier classification the module docs discuss,
+                // it is just "which points are close enough to this
+                // resonance to matter at all").
+                let chek1 = CON1_RANGE * res.total_width;
+                let chek2 = CON2_RANGE / ctx;
+                let chekn = chek1.max(chek2);
+                let delr = chek1 + chekn;
+                let elo = res.energy - delr;
+                let ehi_res = res.energy + delr;
+                // `call fsrch(ehi,es,ne,i7,mfl)`, then
+                // `call fsrch(elo,es,i7,i0,mfl)`, and the loop runs
+                // `ie=i0,i7` INCLUSIVE (`purr.f90:1931-1934`). `fsrch`
+                // returns the last point at or below its argument, so the
+                // window takes one sample below `elo` as well.
+                // ~~`partition_point` from the first sample at or above
+                // `elo`~~ -- CHANGED 2026-09-26: it dropped that sample,
+                // which moved U-234's first probability band by a count.
+                let i7u = fsrch(ehi_res, &es);
+                let i0u = fsrch(elo, &es[..=i7u]);
+                if i0u == i7u {
+                    continue;
+                }
+                let (i0, i7) = (i0u, i7u + 1);
+
+                let y = ctx * res.total_width / 2.0;
+                let yy = y * y;
+                let szy = seq.csz * res.gn_frac * rpi * y;
+                let cc2 = szy * (seq.cc2p - 1.0 + res.gn_frac);
+                let cs2 = szy * seq.cs2p;
+                let ccg = szy * res.gg_frac;
+                let ccf = szy * res.gf_frac;
+
+                // Upstream finds the x <= -100 asymptotic run with
+                // `fsrch(-100, xs(i0), it, i1, mfl)` and then tests
+                // `if (i1.le.i0) go to 240` (`purr.f90:1952-1957`), so a
+                // run of EXACTLY ONE sample is skipped, and the next tier
+                // starts at `i1+1`: that sample gets nothing from this
+                // resonance. It can fire only when the window edge,
+                // x = -(63.66 y + max(63.66 y, 20)), is below -100, i.e.
+                // y >~ 0.8. At U-234's 1.5 keV the edge is at x ~ -21, so
+                // it never fires there. Whether it fires in U-235 or
+                // U-238 was not measured; all three match NJOY with it.
+                // (`i0 + 1 < i7` always holds here: the window has at
+                // least two samples, since `i0u == i7u` was skipped.)
+                let skip_first = y <= 100.0
+                    && ctx * (es[i0] - res.energy) <= -100.0
+                    && ctx * (es[i0 + 1] - res.energy) > -100.0;
+                let first = if skip_first { i0 + 1 } else { i0 };
+                for ie in first..i7 {
+                    let x = ctx * (es[ie] - res.energy);
+                    let (rew, aimw) = line_shape(x, y, yy, table);
+                    cap[itemp][ie] += ccg * rew;
+                    fis[itemp][ie] += ccf * rew;
+                    els[itemp][ie] += cc2 * rew + cs2 * aimw;
+                }
+            }
+        }
+    }
+
+    // purr.f90:2211-2216 — clamp negative elastic cross sections.
+    for itemp in 0..ntemp {
+        for ie in 0..nsamp {
+            if els[itemp][ie] < -bkg[1] {
+                els[itemp][ie] = -bkg[1] + 1.0 / BIG;
+            }
+        }
+    }
+}
+
+/// One sampled ladder and the cross sections at its sample energies, for one
+/// temperature: what [`probability_table`] bins, before binning.
+#[derive(Debug, Clone)]
+pub struct LadderSamples {
+    /// The ladder of each sequence, in the order of `sequences`.
+    pub ladders: Vec<Vec<LadderResonance>>,
+    /// The sorted sample energies \[eV\], on the ladder's own energy scale
+    /// (`ELOW` = 10 eV upward), not the evaluation's.
+    pub energies: Vec<f64>,
+    /// `[total, elastic, fission, capture]` \[b\] at each sample energy,
+    /// File-3 background `bkg` included as [`probability_table`] includes it.
+    pub xs: Vec<[f64; 4]>,
+}
+
+/// Build one ladder and sample it, exactly as one iteration of
+/// [`probability_table`]'s main loop does at temperature `temp` \[K\]
+/// (`purr.f90:1904-2216`), and return the ladders and per-sample cross
+/// sections instead of binning them. Used by the neutronics lessons to show
+/// the step before the table; `rng` advances as one ladder of
+/// [`probability_table`] would advance it.
+///
+/// # Errors
+///
+/// As [`probability_table`], when the ladder span is invalid.
+pub fn sample_ladder(
+    sequences: &[SequenceLadderParams],
+    inf_dilution: &InfiniteDilutionResult,
+    bkg: [f64; 4],
+    temp: f64,
+    nsamp: usize,
+    rng: &mut Rng,
+    table: &DopplerTable,
+) -> Result<LadderSamples, NjoyError> {
+    let span = LadderSpan::new(sequences, inf_dilution)?;
+    let mut es = vec![0.0; nsamp];
+    let (mut cap, mut fis, mut els) = (vec![vec![0.0; nsamp]], vec![vec![0.0; nsamp]], vec![vec![0.0; nsamp]]);
+    let mut ladders = Vec::new();
+    sample_one_ladder(&span, sequences, inf_dilution.potential_scattering, bkg, &[temp], rng, table, &mut es, &mut cap, &mut fis, &mut els, Some(&mut ladders));
+    let xs = (0..nsamp)
+        .map(|i| [els[0][i] + fis[0][i] + cap[0][i] + bkg[0], els[0][i] + bkg[1], fis[0][i] + bkg[2], cap[0][i] + bkg[3]])
+        .collect();
+    Ok(LadderSamples { ladders, energies: es, xs })
+}
+
 /// Compute probability tables and Bondarenko moments at one energy by Monte
 /// Carlo ladder sampling — ported from `unrest` (`purr.f90:1789-2543`).
 ///
@@ -197,17 +403,6 @@ pub fn probability_table(
     rng: &mut Rng,
     table: &DopplerTable,
 ) -> Result<ProbabilityTableResult, NjoyError> {
-    // purr.f90:1835-1836 — unrest's OWN local `con1`/`con2` (a resonance
-    // significant-range cutoff), unrelated to unresx's Doppler-width `con1`
-    // (see the doc note in `infinite_dilution_reference`).
-    const CON1_RANGE: f64 = 31.83;
-    const CON2_RANGE: f64 = 20.0;
-    const T_REF: f64 = 300.0;
-    const ELOW: f64 = 10.0;
-    const NAVOID: f64 = 300.0;
-    const NERMAX: f64 = 1000.0;
-    const BIG: f64 = 1.0e6;
-
     if nbin < 15 {
         return Err(NjoyError::EndfParse(
             "purr: nbin should be 15 or more".to_string(),
@@ -217,27 +412,8 @@ pub fn probability_table(
     let ntemp = temp.len();
     let nsig0 = sig0.len();
     let ns = sequences.len();
-    let rpi = std::f64::consts::PI.sqrt();
 
-    // purr.f90:1867-1880 — ladder energy span, sized off the smallest
-    // sequence spacing so `nermax` resonances comfortably span it.
-    let dmin = sequences
-        .iter()
-        .map(|s| s.dbar)
-        .fold(f64::INFINITY, f64::min);
-    let erange = 9.0 * NERMAX * dmin / 10.0;
-    let dbarin = inf_dilution.mean_inverse_spacing;
-    let nres = erange * dbarin;
-    let ehigh = ELOW + erange;
-    let emin = ELOW + NAVOID / dbarin;
-    let emax = ehigh - NAVOID / dbarin;
-    let espan = emax - emin;
-    if nres <= 0.0 || emax < emin {
-        return Err(NjoyError::EndfParse(
-            "purr: bad value for nres or emin>emax, increase dmin".to_string(),
-        ));
-    }
-
+    let span = LadderSpan::new(sequences, inf_dilution)?;
     let spot = inf_dilution.potential_scattering;
 
     // Per-temperature Monte Carlo accumulators.
@@ -260,69 +436,7 @@ pub fn probability_table(
 
     // --- Main ladder loop ----------------------------------------------
     for iladr in 0..nladr {
-        // purr.f90:1904-1913 — random energy grid, sorted.
-        for ie in 0..nsamp {
-            es[ie] = emin + espan * rng.next();
-            for itemp in 0..ntemp {
-                cap[itemp][ie] = 0.0;
-                fis[itemp][ie] = 0.0;
-                els[itemp][ie] = spot;
-            }
-        }
-        es.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-        // purr.f90:1916-2209 — loop over sequences, temperatures, resonances.
-        for seq in sequences {
-            let ladder = generate_ladder(seq, ELOW, ehigh, rng);
-            for (itemp, &t) in temp.iter().enumerate() {
-                let ctx = seq.cth_ref * (T_REF / t).sqrt();
-                for res in &ladder {
-                    // purr.f90:1925-1934 — significant energy range + index
-                    // window (direct binary search on the sorted `es`,
-                    // rather than upstream's reused-boundary search chain —
-                    // this one boundary computation is not part of the
-                    // per-point tier classification the module docs discuss,
-                    // it is just "which points are close enough to this
-                    // resonance to matter at all").
-                    let chek1 = CON1_RANGE * res.total_width;
-                    let chek2 = CON2_RANGE / ctx;
-                    let chekn = chek1.max(chek2);
-                    let delr = chek1 + chekn;
-                    let elo = res.energy - delr;
-                    let ehi_res = res.energy + delr;
-                    let i0 = es.partition_point(|&e| e < elo);
-                    let i7 = es.partition_point(|&e| e < ehi_res);
-                    if i0 >= i7 {
-                        continue;
-                    }
-
-                    let y = ctx * res.total_width / 2.0;
-                    let yy = y * y;
-                    let szy = seq.csz * res.gn_frac * rpi * y;
-                    let cc2 = szy * (seq.cc2p - 1.0 + res.gn_frac);
-                    let cs2 = szy * seq.cs2p;
-                    let ccg = szy * res.gg_frac;
-                    let ccf = szy * res.gf_frac;
-
-                    for ie in i0..i7 {
-                        let x = ctx * (es[ie] - res.energy);
-                        let (rew, aimw) = line_shape(x, y, yy, table);
-                        cap[itemp][ie] += ccg * rew;
-                        fis[itemp][ie] += ccf * rew;
-                        els[itemp][ie] += cc2 * rew + cs2 * aimw;
-                    }
-                }
-            }
-        }
-
-        // purr.f90:2211-2216 — clamp negative elastic cross sections.
-        for itemp in 0..ntemp {
-            for ie in 0..nsamp {
-                if els[itemp][ie] < -bkg[1] {
-                    els[itemp][ie] = -bkg[1] + 1.0 / BIG;
-                }
-            }
-        }
+        sample_one_ladder(&span, sequences, spot, bkg, temp, rng, table, &mut es, &mut cap, &mut fis, &mut els, None);
 
         // purr.f90:2218-2250 — running infinite-dilution average
         // (temperature index 0 only, matching upstream's `els(1,ie)` etc).
@@ -411,7 +525,13 @@ pub fn probability_table(
                 if tot > tmax[itemp] {
                     tmax[itemp] = tot;
                 }
-                let ii = tval[itemp].partition_point(|&v| v < tot).min(nbin - 1);
+                // `call fsrch(tot,tval,nbin,ii,mfl)`, then
+                // `if (mfl.ne.2.and.ii.lt.nbin) ii=ii+1` (`purr.f90:2333-2335`):
+                // a sample EQUAL to an edge goes to the bin above it. The
+                // edges are themselves samples (`es(ibin)`), so ties are
+                // common. ~~`partition_point(|&v| v < tot)`~~ put them below
+                // (CORRECTED 2026-09-26).
+                let ii = tval[itemp].partition_point(|&v| v <= tot).min(nbin - 1);
                 tsum[itemp] += 1.0;
                 tabl[itemp][ii][0] += 1.0;
                 tabl[itemp][ii][1] += tot;
@@ -575,4 +695,36 @@ pub fn probability_table(
         tables,
         convergence,
     })
+}
+
+/// `fsrch` (`purr.f90:2835-2875`): the 0-based index `i` with
+/// `x >= xarray[i]` and `x < xarray[i+1]`; `0` below the first point and
+/// `n-1` above the last. Its bisection is reproduced as written, so ties
+/// resolve as upstream's do.
+pub(super) fn fsrch(x: f64, xarray: &[f64]) -> usize {
+    let n = xarray.len();
+    // Upstream's bisection never terminates for n = 1 with x == xarray(1)
+    // (`i1+1 == i2` cannot become true). One point has one answer.
+    if n == 1 {
+        return 0;
+    }
+    if x < xarray[0] {
+        return 0;
+    }
+    if x > xarray[n - 1] {
+        return n - 1;
+    }
+    let (mut i1, mut i2) = (1usize, n); // 1-based
+    loop {
+        if i1 + 1 == i2 {
+            break;
+        }
+        let mid = (i1 + i2) / 2;
+        if x >= xarray[mid - 1] {
+            i1 = mid;
+        } else {
+            i2 = mid;
+        }
+    }
+    i1 - 1
 }

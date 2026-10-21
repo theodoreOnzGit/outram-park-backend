@@ -1,0 +1,14 @@
+# HTR-10 slow recirculation | label=bake787_mu10_mur00 mu=0.1 mu_r=0 batches=40x50 settle=2000 threads=3
+# start bed htr10_settled.csv: N = 27554, discharge mesh 480 facets
+# presettle   2000  phi 0.5685  top 2.1492  KE/E_drop 7.82e-1  [26 s]
+# presettle   4000  phi 0.5689  top 2.0819  KE/E_drop 2.85e0  [56 s]
+# presettle   6000  phi 0.5838  top 1.9666  KE/E_drop 4.34e0  [95 s]
+# presettle   8000  phi 0.6045  top 1.8834  KE/E_drop 1.23e-1  [144 s]
+# presettle  10000  phi 0.5975  top 1.9061  KE/E_drop 6.52e-2  [190 s]
+# presettle  12000  phi 0.6070  top 1.8835  KE/E_drop 6.40e-2  [242 s]
+# presettle  14000  phi 0.6070  top 1.8757  KE/E_drop 2.48e-3  [301 s]
+# presettle  16000  phi 0.6083  top 1.8677  KE/E_drop 3.58e-4  [356 s]
+# wrote htr10_phi_vs_step_bake787_mu10_mur00.csv (32 samples)
+# --trace-only: pre-settle complete at step 16000; stopping before recirculation
+EXIT 0
+wall_s 

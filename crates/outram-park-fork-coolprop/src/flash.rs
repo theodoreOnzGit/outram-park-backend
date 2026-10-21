@@ -21,9 +21,16 @@
 //! [`FlashError::NonConvergent`] rather than a wrong number. All quantities are
 //! raw SI `f64` (kelvin, pascal, kg/m³, J/kg, J/(kg·K)); the `uom`-typed wrapper
 //! is [`crate::single_cv::OPCPFluidSingleCV`].
+//!
+//! The one function here that does reach into the dome is
+//! [`hem_sound_speed_ph`], the homogeneous-equilibrium speed of sound at
+//! `(p, h)`: single-phase EOS speed outside the dome, a finite difference of
+//! the equilibrium isentrope through the Maxwell VLE ([`crate::vle`]) inside it.
 
+use petir::mathf::RealMath;
 use crate::fluid::Fluid;
 use crate::props::{state_trho, FluidState};
+use crate::vle::{phase_at_ph, saturation_at_temperature, saturation_temperature, PhaseAtPh};
 
 /// Why a flash solve did not produce a state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,7 +113,7 @@ pub fn density_pt(fluid: Fluid, t: f64, p: f64) -> Result<f64, FlashError> {
     let steps = 400;
     for i in 1..=steps {
         let frac = i as f64 / steps as f64;
-        let rho_cur = rho_prev.max(1e-8) * (rho_max / 1e-8).powf(1.0 / steps as f64);
+        let rho_cur = rho_prev.max(1e-8) * (rho_max / 1e-8).r_powf(1.0 / steps as f64);
         let _ = frac;
         let (p_cur, dpdrho) = pressure_and_dpdrho(fluid, t, rho_cur);
         let g_cur = p_cur - p;
@@ -639,5 +646,198 @@ mod hrho_tests {
             temperature_hrho(Fluid::Helium, 1.0, f64::NAN),
             Err(FlashError::NonPhysicalInput)
         );
+    }
+}
+
+// ── Homogeneous-equilibrium speed of sound ──────────────────────────────────
+//
+// Not a flash, but it is the `(p, h)` → sound-speed closure every `(p, h)`
+// flow solver needs, and it dispatches between the single-phase `(p, h)` flash
+// above and the Maxwell VLE in `crate::vle`.
+
+/// Sound speed `c` \[m/s\] at a cell's `(p, h)` state, from the **CoolProp
+/// Helmholtz EOS** (single phase) or the **HEM equilibrium** finite-difference
+/// (two phase). This is the speed used for *both* the regime Mach number *and*
+/// the KNP characteristic wave speeds `u ± c`.
+///
+/// - **Single phase** (the state `(p, h)` classifies outside the saturation
+///   dome, or the fluid ships no VLE ancillaries): the thermodynamic sound speed
+///   `√((∂p/∂ρ)_s)` from the EOS ([`crate::props::FluidState::speed_of_sound`],
+///   reached by the single-phase `(p, h)` flash). In a single phase the
+///   equilibrium and frozen sound speeds *coincide* — there is no phase change to
+///   lag — so this EOS value **is** the equilibrium sound speed, not a frozen
+///   approximation of one.
+/// - **Two-phase dome** (Region between the saturated-liquid and -vapour lines,
+///   detected by [`crate::vle::phase_at_ph`]): the true
+///   **homogeneous-equilibrium (HEM)** sound speed `a = √((∂p/∂ρ)_s)` evaluated
+///   along the *equilibrium* isentrope by a central finite difference —
+///   [`hem_c_two_phase_fd`]. This is the CoolProp analogue of how the
+///   `tampines-steam-tables` twin uses IAPWS-IF97's `w_ps_eqm_region4_kieffer`:
+///   the mixture density is re-equilibrated (re-flashed on the saturation curve)
+///   at each perturbed pressure at fixed entropy, so the flashing compliance
+///   `(v_g − v_f)·dx/dp` is included — never a frozen / Wood–Wallis / single-phase
+///   speed. If that FD degenerates (perturbation leaves the dome, or a
+///   near-critical VLE solve fails) it is clamped to `c_min`.
+///
+/// The result is clamped to `c ≥ c_min` (m/s) so a pathological non-finite value
+/// cannot poison downstream arithmetic.
+///
+/// Public since 2026-10-16 (gh #901, epic #896 step M2); it was a private helper
+/// of the `HybridAllMach` KNP path, ~~which now re-exports it from here~~.
+/// **Updated 2026-10-16:** that path was retired (gh:#914); the callers are now
+/// [`crate::single_cv`] and `tampines`' CoolProp HEM equation of state. A
+/// homogeneous-equilibrium flow model built on this crate must use this speed,
+/// not [`crate::props::FluidState::speed_of_sound`], inside the dome.
+///
+/// ## Parameters
+/// - `fluid` — working fluid (its EOS / VLE close the sound speed)
+/// - `p_pa`  — pressure \[Pa\]
+/// - `h_jkg` — static specific enthalpy \[J/kg\]
+/// - `c_min` — defensive lower bound on the returned speed \[m/s\]
+pub fn hem_sound_speed_ph(fluid: Fluid, p_pa: f64, h_jkg: f64, c_min: f64) -> f64 {
+    let c = match phase_at_ph(fluid, p_pa, h_jkg) {
+        PhaseAtPh::TwoPhase { .. } => hem_c_two_phase_fd(fluid, p_pa, h_jkg).unwrap_or(c_min),
+        PhaseAtPh::SinglePhase => match state_ph(fluid, p_pa, h_jkg) {
+            Ok(s) => s.speed_of_sound,
+            // Single-phase flash did not converge (e.g. unreachable branch); the
+            // caller's `safe[]` gate keeps such faces out of the dissipation, so
+            // the floor here is only a defensive placeholder for the Mach number.
+            Err(_) => c_min,
+        },
+    };
+
+    if c.is_finite() && c > c_min {
+        c
+    } else {
+        c_min
+    }
+}
+
+/// Equilibrium (HEM) mixture mass density \[kg/m³\] at pressure `p` \[Pa\] and
+/// specific entropy `s` \[J/(kg·K)\], on the saturation dome.
+///
+/// Re-flashes the Maxwell VLE at `p` ([`crate::vle::saturation_temperature`] then
+/// [`crate::vle::saturation_at_temperature`]), reads the saturated-liquid /
+/// -vapour entropies, and picks the equilibrium quality `x = (s − s')/(s'' − s')`
+/// that reproduces `s`; the mixture density follows from
+/// `1/ρ = (1−x)/ρ' + x/ρ''`. Returns [`None`] if the state is not sub-critical /
+/// two-phase at `p` or the VLE solve fails (near-critical). `x` is clamped to
+/// `[0, 1]` so a small isentrope excursion just past a saturation line maps to
+/// the nearest saturated single-phase density rather than an extrapolated one.
+fn mixture_rho_ps_eqm(fluid: Fluid, p: f64, s: f64) -> Option<f64> {
+    let t_sat = saturation_temperature(fluid, p)?;
+    let sat = saturation_at_temperature(fluid, t_sat)?;
+    let s_l = state_trho(fluid, t_sat, sat.rho_liquid).entropy;
+    let s_v = state_trho(fluid, t_sat, sat.rho_vapour).entropy;
+    // Require a well-ordered dome (`s'' > s'`); a NaN entropy fails this and, if
+    // it slipped through, is caught by the `v.is_finite()` guard below.
+    if s_v <= s_l {
+        return None;
+    }
+    let x = ((s - s_l) / (s_v - s_l)).clamp(0.0, 1.0);
+    let v = (1.0 - x) / sat.rho_liquid + x / sat.rho_vapour;
+    if v.is_finite() && v > 0.0 {
+        Some(1.0 / v)
+    } else {
+        None
+    }
+}
+
+/// HEM **equilibrium** two-phase sound speed \[m/s\] at `(p, h)` by a central
+/// finite difference of the equilibrium isentrope: `a = √((∂p/∂ρ)_s)`.
+///
+/// The mixture entropy `s` at `(p, h)` is obtained from the saturated-phase
+/// enthalpies/entropies at `T_sat(p)`; the density is then re-equilibrated at
+/// `p ± dp` **at fixed `s`** ([`mixture_rho_ps_eqm`]) and
+/// `a² = 2·dp / (ρ(p+dp) − ρ(p−dp))`. Because the quality is re-solved at each
+/// perturbed pressure, the derivative includes the flashing term — this is the
+/// equilibrium speed, not a frozen one. Returns [`None`] if any VLE solve on the
+/// perturbed points fails or the difference is non-physical (caller clamps to
+/// `c_min`).
+fn hem_c_two_phase_fd(fluid: Fluid, p: f64, h: f64) -> Option<f64> {
+    let t_sat = saturation_temperature(fluid, p)?;
+    let sat = saturation_at_temperature(fluid, t_sat)?;
+    let sl = state_trho(fluid, t_sat, sat.rho_liquid);
+    let sv = state_trho(fluid, t_sat, sat.rho_vapour);
+    let (h_l, h_v) = (sl.enthalpy, sv.enthalpy);
+    let (s_l, s_v) = (sl.entropy, sv.entropy);
+    // Well-ordered dome guard (`h'' > h'`); a NaN is rejected here and, failing
+    // that, by the `a2.is_finite()` guard below.
+    if h_v <= h_l {
+        return None;
+    }
+    let x = ((h - h_l) / (h_v - h_l)).clamp(0.0, 1.0);
+    let s = (1.0 - x) * s_l + x * s_v;
+
+    // Central FD step in pressure. Kept a modest fraction of `p` and floored so it
+    // does not underflow at very low pressures; both perturbed points must stay
+    // sub-critical for the VLE solve, which the `?` on `mixture_rho_ps_eqm` below
+    // enforces (a near-critical perturbation returns None ⇒ clamp to c_min).
+    let dp = (p * 1.0e-3).max(50.0);
+    let rho_hi = mixture_rho_ps_eqm(fluid, p + dp, s)?;
+    let rho_lo = mixture_rho_ps_eqm(fluid, p - dp, s)?;
+    let drho = rho_hi - rho_lo;
+    // Density must rise with pressure along the isentrope; a NaN `drho` yields a
+    // NaN `a2`, caught by the `a2.is_finite()` guard below.
+    if drho <= 0.0 {
+        return None;
+    }
+    let a2 = 2.0 * dp / drho;
+    if a2.is_finite() && a2 > 0.0 {
+        Some(a2.sqrt())
+    } else {
+        None
+    }
+}
+
+/// [`hem_sound_speed_ph`] checks, moved here 2026-10-16 from the deleted
+/// `openfoam_algorithms::rhoPimpleFoam::central_upwind` tests when the KNP
+/// hybrid that owned that module was retired (gh:#914). The Mach-blend
+/// assertion they also carried went with the hybrid.
+#[cfg(test)]
+mod hem_sound_speed_tests {
+    use super::*;
+
+    /// Floor passed as `c_min`, the value the retired hybrid used.
+    const C_MIN_MPS: f64 = 1.0;
+
+    /// Single phase: Nitrogen gas at (1 bar, 300 K) gives a physical vapour
+    /// speed (300–420 m/s) equal to the EOS `speed_of_sound` to 1e-9.
+    #[test]
+    fn hem_c_single_phase_gas_matches_eos() {
+        let h = state_pt(Fluid::Nitrogen, 300.0, 1.0e5).unwrap().enthalpy;
+        let st = state_ph(Fluid::Nitrogen, 1.0e5, h).unwrap();
+        let c = hem_sound_speed_ph(Fluid::Nitrogen, 1.0e5, st.enthalpy, C_MIN_MPS);
+        assert!(c.is_finite() && c > C_MIN_MPS, "c = {c} not physical");
+        assert!(
+            (c - st.speed_of_sound).abs() / st.speed_of_sound < 1e-9,
+            "single-phase HEM speed {c} should equal the EOS speed_of_sound {}",
+            st.speed_of_sound
+        );
+        assert!(
+            (300.0..420.0).contains(&c),
+            "N2 gas sound speed {c} m/s outside expected band"
+        );
+    }
+
+    /// Two phase: Water at 1 bar, x about 0.5 (built from the saturated-phase
+    /// enthalpies at `T_sat`, so the point is guaranteed in-dome) gives a
+    /// finite, positive equilibrium speed well below the liquid speed. This
+    /// exercises the finite difference along the equilibrium isentrope.
+    #[test]
+    fn hem_c_two_phase_equilibrium_is_finite_and_low() {
+        let p = 1.0e5_f64;
+        let t_sat = saturation_temperature(Fluid::Water, p).expect("water sat T at 1 bar");
+        let sat = saturation_at_temperature(Fluid::Water, t_sat).unwrap();
+        let h_l = state_trho(Fluid::Water, t_sat, sat.rho_liquid).enthalpy;
+        let h_v = state_trho(Fluid::Water, t_sat, sat.rho_vapour).enthalpy;
+        let h = 0.5 * (h_l + h_v);
+        assert!(
+            matches!(phase_at_ph(Fluid::Water, p, h), PhaseAtPh::TwoPhase { .. }),
+            "sample must classify two-phase"
+        );
+        let c = hem_sound_speed_ph(Fluid::Water, p, h, C_MIN_MPS);
+        assert!(c.is_finite() && c > C_MIN_MPS, "two-phase HEM c = {c} not physical");
+        assert!(c < 800.0, "two-phase HEM speed {c} m/s should be well below the liquid speed");
     }
 }

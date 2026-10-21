@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::{
     try_get_diffusion_coeff_jiang, TrisoPebbleLayerMaterial,
 };
@@ -70,7 +71,7 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic() {
 
         dbg!(&temperature);
         // expected D in m^2/s
-        let expected_d_m2_s = 10f64.powf(log10_d);
+        let expected_d_m2_s = 10f64.r_powf(log10_d);
 
         // Convert `got` to f64 in m^2/s. Adjust accessor to match your type.
         // Common patterns:
@@ -145,7 +146,7 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc() {
                 .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
         // expected D in m^2/s
-        let expected_d_m2_s = 10f64.powf(log10_d);
+        let expected_d_m2_s = 10f64.r_powf(log10_d);
 
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
@@ -211,7 +212,7 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel() {
             try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
                 .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
-        let expected_d_m2_s = 10f64.powf(log10_d);
+        let expected_d_m2_s = 10f64.r_powf(log10_d);
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
         dbg!(&temperature);
@@ -265,7 +266,7 @@ fn test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer() {
             try_get_diffusion_coeff_jiang(triso_layer, nuclide, temperature, gamma_neutron_fluence)
                 .unwrap_or_else(|| panic!("Expected Some(D) at T={t_k} K, got None"));
 
-        let expected_d_m2_s = 10f64.powf(log10_d);
+        let expected_d_m2_s = 10f64.r_powf(log10_d);
         let got_d_m2_s = got.get::<uom::si::diffusion_coefficient::square_meter_per_second>();
 
         assert_relative_eq!(got_d_m2_s, expected_d_m2_s, max_relative = rtol,);

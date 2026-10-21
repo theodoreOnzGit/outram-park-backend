@@ -1,0 +1,622 @@
+//! The **stamp dialog**'s drawing (GitHub #770, #740): a window over the
+//! Code Review tab, opened by the review bar's Stamp or Needs fix.
+//!
+//! **A movable window, not a modal (maintainer, 2026-10-12: "it is
+//! obscuring the code").** It opens docked to the right edge at full height,
+//! over the sidebar, so the source on the left stays readable while the
+//! comments are written; it can be dragged and resized. A second Stamp or
+//! Needs fix while it is open is ignored (`CodeReviewView::take_request`
+//! waits for this one to close). Every
+//! decision (steps, transitions, form checks, the background jobs) is
+//! [`crate::stamping::flow::StampFlow`]'s, tested in
+//! `stamping/flow_tests.rs`; this file only draws the current step and turns
+//! clicks into the flow's calls.
+//!
+//! **No lag (root `CLAUDE.md`, HARD RULE).** The flow runs git, the KDF and
+//! the writes on worker threads; drawing calls only [`StampFlow::poll`],
+//! which never blocks, and shows a spinner while a job runs.
+
+use egui::RichText;
+use kovan_common::review::wizard::{GateReason, ReviewWizard, TestAuthorship};
+
+use std::collections::BTreeSet;
+
+use crate::stamping::commit_push::CommitPushJob;
+use crate::stamping::flow::{Purpose, StampFlow, Step, WizardForm};
+
+/// Draw the dialog; returns whether it was closed. GUI drawing code
+/// (exempt from the test rule): the logic is `stamping::flow`, and
+/// `code_review_view`'s headless test draws every step.
+pub(crate) fn show(
+    ctx: &egui::Context,
+    f: &mut StampFlow,
+    commit: &mut CommitPushJob,
+    root: Option<&std::path::Path>,
+    session: &BTreeSet<String>,
+) -> bool {
+    f.poll();
+    if f.busy() {
+        ctx.request_repaint_after(std::time::Duration::from_millis(150));
+    }
+    let mut close = false;
+    let screen = ctx.content_rect();
+    let width = (screen.width() * 0.38)
+        .clamp(320.0, 600.0)
+        .min(screen.width());
+    egui::Window::new("Stamp")
+        .id(egui::Id::new("code-review-stamp-dialog"))
+        .title_bar(true)
+        .collapsible(false)
+        .movable(true)
+        .resizable(true)
+        .default_pos(egui::pos2(screen.right() - width, screen.top()))
+        .default_size(egui::vec2(width, screen.height()))
+        .min_size(egui::vec2(240.0, 200.0))
+        .constrain(true)
+        .show(ctx, |ui| {
+            let what = match f.purpose {
+                Purpose::Stamp => "Stamp",
+                Purpose::NeedsFix => "Needs fix",
+                Purpose::Reconfirm => "Re-confirm",
+            };
+            ui.heading(format!("{what}: {}", f.target.name));
+            ui.monospace(&f.target.function);
+            if let Some(k) = f.key() {
+                if !matches!(f.step, Step::Loading | Step::PickKey | Step::SetupKey) {
+                    ui.weak(format!("Signing identity: {} (key {})", k.reviewer, k.key));
+                }
+            }
+            ui.separator();
+            // The buttons stay at the bottom of the window; the body scrolls.
+            egui::Panel::bottom("stamp-dialog-buttons").show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    let label = if matches!(f.step, Step::Done(_)) {
+                        "Close"
+                    } else {
+                        "Cancel"
+                    };
+                    if ui
+                        .add_enabled(!f.working(), egui::Button::new(label))
+                        .on_disabled_hover_text("Wait for the step running to finish")
+                        .clicked()
+                    {
+                        close = true;
+                    }
+                });
+            });
+            egui::ScrollArea::vertical()
+                .auto_shrink(false)
+                .show(ui, |ui| body(ui, f, commit, root, session));
+        });
+    close
+}
+
+/// A spinner and a line. GUI drawing code (exempt).
+fn working(ui: &mut egui::Ui, text: &str) {
+    ui.horizontal_wrapped(|ui| {
+        ui.spinner();
+        ui.label(text);
+    });
+    ui.weak("This runs in the background; kovan stays responsive.");
+}
+
+fn error(ui: &mut egui::Ui, text: &str) {
+    ui.colored_label(ui.visuals().error_fg_color, text);
+}
+
+/// The current step. GUI drawing code (exempt).
+fn body(
+    ui: &mut egui::Ui,
+    f: &mut StampFlow,
+    commit: &mut CommitPushJob,
+    root: Option<&std::path::Path>,
+    session: &BTreeSet<String>,
+) {
+    for n in &f.notices {
+        ui.label(RichText::new(n).strong());
+    }
+    if !f.notices.is_empty() {
+        ui.add_space(4.0);
+    }
+    match f.step.clone() {
+        Step::Loading => working(ui, "Reading your signing keys\u{2026}"),
+        Step::NoRoot => {
+            error(ui, "This workspace has no kovan_root.toml (its reviewer registry).");
+            ui.label("Run Index fresh in the Code Map tab first, then press Stamp again.");
+        }
+        Step::SetupKey => setup_key(ui, f),
+        Step::Generating => working(
+            ui,
+            "Generating your key, encrypting it with your passphrase (argon2) and registering it\u{2026}",
+        ),
+        Step::PickKey => {
+            ui.label("Several signing keys are in your keystore. Which one is yours for this workspace?");
+            for i in 0..f.keys.len() {
+                let k = &f.keys[i];
+                let text = format!(
+                    "{} (key {}){}",
+                    k.reviewer,
+                    k.key,
+                    if k.registered { "" } else { " \u{2014} not in kovan_root.toml yet" }
+                );
+                ui.radio_value(&mut f.chosen, i, text);
+            }
+            if ui.button("Use this key").clicked() {
+                f.use_key();
+            }
+        }
+        Step::Register => {
+            if let Some(k) = f.key() {
+                ui.label(format!(
+                    "Your key {} (key {}) is not in this workspace's kovan_root.toml, so a stamp \
+                     signed with it would not count.",
+                    k.reviewer, k.key
+                ));
+                ui.weak(k.path.display().to_string());
+            }
+            if let Some(e) = &f.error {
+                error(ui, e);
+            }
+            if ui
+                .button("Register it in kovan_root.toml")
+                .on_hover_text("Appends your reviewer entry or key; every existing line is kept. kovan commits nothing.")
+                .clicked()
+            {
+                f.register_chosen();
+            }
+        }
+        Step::Registering => working(ui, "Registering your key in kovan_root.toml\u{2026}"),
+        Step::Preparing => working(ui, "Checking the function at HEAD and reading git\u{2026}"),
+        Step::Refused { message, hint } => {
+            ui.label("kovan cannot stamp this function now:");
+            ui.add(egui::Label::new(
+                RichText::new(&message)
+                    .monospace()
+                    .color(ui.visuals().error_fg_color),
+            ));
+            ui.label(&hint);
+            if ui.button("Try again").clicked() {
+                f.prepare();
+            }
+        }
+        Step::Wizard => wizard(ui, f),
+        Step::PreparingReconfirm => working(
+            ui,
+            "Checking the function at HEAD, its review and the callees that changed\u{2026}",
+        ),
+        Step::Reconfirm => reconfirm(ui, f),
+        Step::Signing => working(
+            ui,
+            "Unlocking your key (argon2, a second or two), signing and writing review.md\u{2026}",
+        ),
+        Step::NeedsFixForm => {
+            ui.label("What needs fixing? This is written to the folder's review.md as an open needs-fix entry.");
+            ui.weak("A needs-fix entry is not signed (the review.md format has no signature for it).");
+            ui.add(
+                egui::TextEdit::multiline(&mut f.note)
+                    .desired_rows(4)
+                    .desired_width(f32::INFINITY),
+            );
+            if let Some(e) = &f.error {
+                error(ui, e);
+            }
+            if ui
+                .add_enabled(f.can_write_needs_fix(), egui::Button::new("Write needs fix"))
+                .clicked()
+            {
+                f.write_needs_fix();
+            }
+        }
+        Step::WritingNeedsFix => working(ui, "Writing the needs-fix entry\u{2026}"),
+        Step::Done(o) => {
+            ui.label(
+                RichText::new(format!(
+                    "Wrote {}{}",
+                    o.review_md,
+                    if o.replaced {
+                        " (replacing your earlier entry)"
+                    } else {
+                        ""
+                    }
+                ))
+                .strong(),
+            );
+            // ~~"Commit it yourself (lazygit); kovan does not commit yet
+            // (#771)."~~ CORRECTED 2026-10-10 (#771): kovan commits and
+            // pushes the files it wrote, never to main.
+            ui.weak("A stamp counts once it is committed after the commit it certifies; until then it shows as unverified.");
+            super::need_you_view::commit_push_controls(ui, commit, root, session);
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                if f.busy() {
+                    ui.spinner();
+                    ui.label("Refreshing the review states\u{2026}");
+                } else {
+                    match &f.target_state {
+                        Some(s) => {
+                            let kind = s.state.map(|k| k.label().to_string()).unwrap_or_default();
+                            ui.label(format!("Now: {kind}"));
+                            if !s.reason.is_empty() {
+                                ui.weak(&s.reason);
+                            }
+                        }
+                        None => {
+                            ui.weak("Now: no recorded state");
+                        }
+                    }
+                }
+                if let Some(e) = &f.refresh_error {
+                    error(ui, e);
+                }
+                if ui
+                    .add_enabled(!f.busy(), egui::Button::new("Refresh states"))
+                    .on_hover_text("Recompute every function's state from review.md (after you commit)")
+                    .clicked()
+                {
+                    f.refresh();
+                }
+            });
+        }
+        Step::Failed(e) => error(ui, &e),
+    }
+}
+
+/// The new-key form. GUI drawing code (exempt).
+fn setup_key(ui: &mut egui::Ui, f: &mut StampFlow) {
+    ui.strong("Set up your signing key");
+    ui.label(
+        "Stamps are signed with your own key, encrypted with a passphrase only you know. \
+         kovan never stores the passphrase.",
+    );
+    ui.weak(format!("Key files live in {}", f.keystore_dir().display()));
+    egui::Grid::new("stamp-key-setup")
+        .num_columns(2)
+        .show(ui, |ui| {
+            ui.label("Reviewer id");
+            ui.add(egui::TextEdit::singleline(&mut f.setup.reviewer).hint_text("github:<handle>"));
+            ui.end_row();
+            ui.label("Display name");
+            ui.add(egui::TextEdit::singleline(&mut f.setup.name).hint_text("optional"));
+            ui.end_row();
+            ui.label("Passphrase");
+            ui.add(egui::TextEdit::singleline(&mut f.setup.passphrase).password(true));
+            ui.end_row();
+            ui.label("Confirm");
+            ui.add(egui::TextEdit::singleline(&mut f.setup.confirm).password(true));
+            ui.end_row();
+        });
+    let problems = f.setup.problems();
+    for p in &problems {
+        ui.weak(p);
+    }
+    if let Some(e) = &f.error {
+        error(ui, e);
+    }
+    if ui
+        .add_enabled(problems.is_empty(), egui::Button::new("Generate"))
+        .clicked()
+    {
+        f.generate_key();
+    }
+}
+
+fn authorship(t: TestAuthorship) -> &'static str {
+    match t {
+        TestAuthorship::Human => "no agent trailer",
+        TestAuthorship::Agent => "an agent trailer",
+        TestAuthorship::Unknown => "not known",
+    }
+}
+
+/// The wizard, the live gate and the sign form. GUI drawing code (exempt).
+fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
+    let mut to_needs_fix = false;
+    let mut sign = false;
+    let can_sign = f.can_sign();
+    let err = f.error.clone();
+    let Some(w) = f.wizard.as_mut() else { return };
+    let a = w.applicability();
+    // A type or constant says what it is in plain words (#843), and a rung
+    // 4 review says so as soon as the hand-written answer is chosen (#855).
+    if let Some(shape) = a.shape {
+        ui.label(format!("You are reviewing a {}.", shape.plain_name()));
+    }
+    if a.hand_written_vv {
+        ui.label("Rung 4 review: the questions on physical accuracy and usability are asked below. Both must pass to open rung 4.");
+    }
+    ui.weak(format!(
+        "Port: {} \u{b7} physical interface: {} \u{b7} git on the reaching tests: {}{}",
+        if a.is_port { "yes" } else { "no" },
+        if a.physical_interface { "yes" } else { "no" },
+        authorship(a.tests),
+        if w.ctx.restamp {
+            " \u{b7} re-stamp: starts from your previous answers"
+        } else {
+            ""
+        }
+    ));
+    ui.add_space(4.0);
+    questions(ui, w);
+    ui.separator();
+    let g = w.gate();
+    let wz = ReviewWizard::embedded();
+    let qtext = |k: &str| {
+        wz.question(k)
+            .map(|q| q.text.trim().to_string())
+            .unwrap_or_else(|| k.to_string())
+    };
+    let otext = |q: &str, o: &str| {
+        wz.question(q)
+            .and_then(|q| q.option(o))
+            .map(|o| o.label.trim().to_string())
+            .unwrap_or_else(|| o.to_string())
+    };
+    ui.label(
+        RichText::new(format!(
+            "Rung {}: derived from the V&V answers and git, never chosen",
+            g.rung.as_u8()
+        ))
+        .strong(),
+    );
+    for b in &g.blocked_by {
+        let line = match b {
+            GateReason::Unanswered(q) => format!("Not answered: {}", qtext(q)),
+            GateReason::Answer(c) => format!(
+                "Blocks the stamp: {} \u{2014} {}",
+                qtext(&c.question),
+                otext(&c.question, &c.option)
+            ),
+            GateReason::Invalid(e) => format!("Answer not accepted: {e}"),
+        };
+        error(ui, &line);
+    }
+    for c in &g.flags {
+        ui.colored_label(
+            ui.visuals().warn_fg_color,
+            format!(
+                "Needs improvement (does not block): {} \u{2014} {}",
+                qtext(&c.question),
+                otext(&c.question, &c.option)
+            ),
+        );
+    }
+    if !g.prompts.is_empty() {
+        for c in &g.prompts {
+            ui.colored_label(
+                ui.visuals().warn_fg_color,
+                format!(
+                    "{} \u{2014} {}",
+                    qtext(&c.question),
+                    otext(&c.question, &c.option)
+                ),
+            );
+        }
+        if ui.button("Mark as Needs fix instead?").clicked() {
+            to_needs_fix = true;
+        }
+    }
+    super::organisations_view::attestation_picker(ui, w);
+    ui.add_space(6.0);
+    concept_finder(ui, w);
+    ui.add_space(4.0);
+    no_concept(ui, w);
+    if let Some(p) = w.concept_problem() {
+        error(ui, &p);
+    }
+    ui.add_space(6.0);
+    ui.label("Comments (written under the entry in review.md, optional)");
+    ui.add(
+        egui::TextEdit::multiline(&mut w.comments)
+            .desired_rows(2)
+            .desired_width(f32::INFINITY),
+    );
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Passphrase");
+        ui.add(egui::TextEdit::singleline(&mut w.passphrase).password(true));
+    });
+    if let Some(e) = &err {
+        error(ui, e);
+    }
+    if ui
+        .add_enabled(can_sign, egui::Button::new("Sign and write review.md"))
+        .on_disabled_hover_text("Answer every question (nothing blocking) and type your passphrase")
+        .clicked()
+    {
+        sign = true;
+    }
+    if to_needs_fix {
+        f.switch_to_needs_fix();
+    } else if sign {
+        f.sign();
+    }
+}
+
+/// The concept finder (#740 decision 11): type to search the concept tree
+/// and the workspace's own topics; suggested (seeded) concepts first.
+/// Choosing one links it (`implements`) and clears the no-concept reason.
+/// GUI drawing code (exempt; the ranking and the exclusion are
+/// `stamping::concepts` and `WizardForm`, tested there).
+fn concept_finder(ui: &mut egui::Ui, w: &mut WizardForm) {
+    ui.label(RichText::new("Concept: what this function implements").strong());
+    let mut unlink = false;
+    if let Some(c) = &w.concept {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(format!(
+                "Linked: {}",
+                crate::stamping::concepts::concept_title(c)
+            ));
+            ui.monospace(c);
+            if ui.small_button("Unlink").clicked() {
+                unlink = true;
+            }
+        });
+    }
+    if unlink {
+        w.concept = None;
+    }
+    ui.add(
+        egui::TextEdit::singleline(&mut w.concept_query)
+            .hint_text("type to find a concept (title or path)")
+            .desired_width(f32::INFINITY),
+    );
+    let mut chosen: Option<String> = None;
+    for c in w.concept_matches() {
+        let text = format!(
+            "{}{} \u{b7} {}",
+            if c.suggested { "suggested: " } else { "" },
+            c.title,
+            c.path
+        );
+        let selected = w.concept.as_deref() == Some(c.id.as_str());
+        if ui.selectable_label(selected, text).on_hover_text(&c.id).clicked() {
+            chosen = Some(c.id.clone());
+        }
+    }
+    if let Some(id) = chosen {
+        w.choose_concept(&id);
+    }
+}
+
+/// The re-confirm step (#740 decision 8): the review re-confirmed, each
+/// changed callee's unified diff, the passphrase, and "Mark for re-review"
+/// to the full wizard instead. GUI drawing code (exempt; the logic is
+/// `stamping::reconfirm` and the flow, tested there).
+fn reconfirm(ui: &mut egui::Ui, f: &mut StampFlow) {
+    let can = f.can_reconfirm();
+    let mut sign = false;
+    let mut review = false;
+    if let Some(rc) = &f.reconfirm {
+        ui.label(format!(
+            "Only callees changed since your review of {} on {}. Re-confirming signs your \
+             previous answers again at HEAD, without the wizard; the comments note the \
+             re-confirm.",
+            rc.path, rc.previous.review.date
+        ));
+        for c in &rc.changed {
+            ui.label(RichText::new(&c.name).strong().monospace());
+            match &c.diff {
+                Ok(d) => super::review_mode_panel::diff_view(ui, d, &c.id),
+                Err(e) => error(ui, e),
+            }
+            ui.separator();
+        }
+    }
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Passphrase");
+        ui.add(egui::TextEdit::singleline(&mut f.reconfirm_passphrase).password(true));
+    });
+    if let Some(e) = &f.error {
+        error(ui, e);
+    }
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .add_enabled(can, egui::Button::new("Sign the re-confirmation"))
+            .on_disabled_hover_text("Type your passphrase")
+            .clicked()
+        {
+            sign = true;
+        }
+        if ui
+            .button("Mark for re-review")
+            .on_hover_text("Review it in full with the wizard instead")
+            .clicked()
+        {
+            review = true;
+        }
+    });
+    if sign {
+        f.sign_reconfirm();
+    } else if review {
+        f.switch_to_review();
+    }
+}
+
+/// The "no concept" marker (#740 U3; #760 q11): a reason from the list or
+/// Other (at least 2 characters), pre-filled for a port, and the suggested
+/// architecture node, off until ticked. GUI drawing code (exempt; the
+/// rules are `review_mode::prefill`, tested there).
+fn no_concept(ui: &mut egui::Ui, w: &mut WizardForm) {
+    use crate::stamping::review_mode::prefill::{NO_CONCEPT_REASONS, OTHER};
+    ui.label(RichText::new("No concept: this function links no concept (no implements relation)").strong());
+    if w.ctx.no_concept.is_some() && w.ctx.applicability.is_port && !w.ctx.restamp {
+        ui.weak("Pre-filled because the folder is a confirmed port: confirm or change it.");
+    }
+    if ui
+        .radio(w.no_concept.choice.is_none(), "No marker")
+        .on_hover_text("No reason chosen: link a concept above instead")
+        .clicked()
+    {
+        w.choose_reason(None);
+    }
+    for (k, label) in NO_CONCEPT_REASONS {
+        let selected = w.no_concept.choice.as_deref() == Some(*k);
+        if ui.radio(selected, *label).on_hover_text("Choosing a reason unlinks the concept").clicked() {
+            w.choose_reason(Some(k));
+        }
+        if selected && *k == OTHER {
+            ui.indent("stamp-no-concept-other", |ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut w.no_concept.other)
+                        .hint_text("at least 2 characters")
+                        .desired_width(f32::INFINITY),
+                );
+            });
+        }
+    }
+    if let Some(r) = w.ctx.suggested_architecture.clone() {
+        ui.checkbox(
+            &mut w.no_concept.link_architecture,
+            format!("Link this review to the architecture node {} (part_of)", r.target),
+        );
+    }
+}
+
+/// Every applicable question: radio options, a text box for an option
+/// that needs text, the source clauses folded. GUI drawing code (exempt).
+fn questions(ui: &mut egui::Ui, w: &mut WizardForm) {
+    for q in w.questions() {
+        ui.add_space(6.0);
+        ui.label(RichText::new(q.text.trim()).strong());
+        let ctx = w.applicability();
+        for o in q.options.iter().filter(|o| o.offered(ctx)) {
+            let selected = w.options.get(&q.key) == Some(&o.key);
+            if ui.radio(selected, o.label.trim()).clicked() {
+                w.options.insert(q.key.clone(), o.key.clone());
+            }
+            if selected && o.requires_text {
+                let t = w.texts.entry(q.key.clone()).or_default();
+                ui.indent(("stamp-q-text", &q.key), |ui| {
+                    ui.add(
+                        egui::TextEdit::singleline(t)
+                            .hint_text("at least 2 characters")
+                            .desired_width(f32::INFINITY),
+                    );
+                });
+            }
+        }
+        if !q.sources.is_empty() || q.workspace_rule.is_some() {
+            egui::CollapsingHeader::new(RichText::new("Sources").small())
+                .id_salt(("stamp-q-src", &q.key))
+                .show(ui, |ui| {
+                    if let Some(r) = &q.workspace_rule {
+                        ui.small(format!("Workspace rule: {r}"));
+                    }
+                    for s in &q.sources {
+                        let mut line = s.document.clone();
+                        if let Some(sec) = &s.section {
+                            line.push_str(&format!(", {sec}"));
+                        }
+                        if let Some(p) = &s.page {
+                            line.push_str(&format!(", p. {p}"));
+                        }
+                        ui.small(line);
+                        if let Some(qt) = &s.quote {
+                            ui.small(
+                                RichText::new(format!("\u{201c}{}\u{201d}", qt.trim())).italics(),
+                            );
+                        }
+                    }
+                });
+        }
+    }
+}

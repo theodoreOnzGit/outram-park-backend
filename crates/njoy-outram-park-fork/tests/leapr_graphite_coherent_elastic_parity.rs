@@ -38,8 +38,14 @@
 //!   (2489-2814) and `endout`'s coherent-elastic writer (3192-3289).
 //! - **NJOY constant vintages** are read from NJOY2016's own git history
 //!   (`src/phys.f90`), not guessed — see [`SEP17 constants`](Sep17Econ) below.
-//! - Neither data file is checked in. Tests read them from `GRAPHITE_TSL_DIR`
-//!   (env override) or the default directory, and **skip** (print a note, pass)
+//! - ~~Neither file is checked in.~~ **CORRECTED 2026-10-14:** both are: the
+//!   deck as `src/leapr/decks/tsl-crystalline-graphite.leapr` and the tape as
+//!   `reference-data/endf/tsl-crystalline-graphite.endf`, byte-identical to
+//!   the ENDF/B-VIII.0 thermal sublibrary's copies. Until this date the tests
+//!   looked only in a fixed folder outside the repository, which was absent,
+//!   so they printed SKIP and passed without running. They now read the
+//!   committed files, or `GRAPHITE_TSL_DIR` when it is set, and still
+//!   **skip** (print a note, pass)
 //!   when absent.
 //!
 //! # Methodology
@@ -228,6 +234,7 @@
 //! [`FrequencyModel::start`]: njoy_outram_park_fork::leapr::frequency::FrequencyModel::start
 //! [`LeaprDeck::input_at_temperature`]: njoy_outram_park_fork::leapr::deck::LeaprDeck::input_at_temperature
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::leapr::coher::{coher, BraggEdges, CoherentLattice};
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
@@ -238,8 +245,9 @@ use njoy_outram_park_fork::leapr::vintage::PhysicalConstants;
 use njoy_outram_park_fork::leapr::SabMatrix;
 use njoy_outram_park_fork::thermr::mf7::{parse_mf7, CoherentElastic};
 
-/// Default location of the ENDF/B-VIII.0 thermal-scattering sublibrary.
-const DEFAULT_DIR: &str = "/home/teddy0/Documents/research/ENDF-B-VIII.0/thermal_scatt";
+// ~~`DEFAULT_DIR`, a fixed folder outside the repository~~ **CORRECTED
+// 2026-10-14:** without `GRAPHITE_TSL_DIR` the committed copies are read
+// ([`committed_path`]).
 /// The LEAPR job that generated the graphite evaluation.
 const DECK_FILE: &str = "tsl-crystalline-graphite.leapr";
 /// The ENDF tape it generated.
@@ -294,10 +302,15 @@ fn sep17_econ_ratio() -> f64 {
     econ(ev_new, amassn_new, amu_new, hbar_new) / econ(ev_old, amassn_old, amu_old, hbar_old) - 1.0
 }
 
-/// The directory to look for the data files in: `GRAPHITE_TSL_DIR` if set, else
-/// [`DEFAULT_DIR`].
-fn data_dir() -> String {
-    std::env::var("GRAPHITE_TSL_DIR").unwrap_or_else(|_| DEFAULT_DIR.to_string())
+/// Where a graphite data file is when `GRAPHITE_TSL_DIR` is not set: the deck
+/// in this crate's committed LEAPR decks, the tape in `reference-data/endf/`.
+fn committed_path(file: &str) -> Option<std::path::PathBuf> {
+    if file.ends_with(".leapr") {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/leapr/decks").join(file);
+        p.exists().then_some(p)
+    } else {
+        njoy_outram_park_fork::reference_data::reference_endf(file)
+    }
 }
 
 /// Resolve `dir/file`, or `None` plus a skip note when it is not there.
@@ -319,9 +332,16 @@ fn data_path_in(dir: &str, file: &str) -> Option<std::path::PathBuf> {
     }
 }
 
-/// Resolve a data-file path (env override -> default), or `None` + a skip note.
+/// Resolve a data-file path (env override -> the committed copies), or
+/// `None` + a skip note.
 fn data_path(file: &str) -> Option<std::path::PathBuf> {
-    data_path_in(&data_dir(), file)
+    match std::env::var("GRAPHITE_TSL_DIR") {
+        Ok(dir) => data_path_in(&dir, file),
+        Err(_) => committed_path(file).or_else(|| {
+            eprintln!("SKIP leapr_graphite_coherent_elastic_parity: {file} not committed (set GRAPHITE_TSL_DIR)");
+            None
+        }),
+    }
 }
 
 /// The Bragg edges [`coher`] would produce if it ran with the physical
@@ -645,10 +665,10 @@ fn bragg_edge_residual_is_the_econ_constant_vintage() {
     // so carries no information about the constants.
     let n = ours.bragg_energies_ev.len() - 1;
     let ratios: Vec<f64> = (0..n)
-        .map(|i| (theirs.bragg_energies_ev[i] / ours.bragg_energies_ev[i]).ln())
+        .map(|i| (theirs.bragg_energies_ev[i] / ours.bragg_energies_ev[i]).r_ln())
         .collect();
     let fitted = ratios.iter().sum::<f64>() / n as f64;
-    let scatter = (ratios.iter().map(|r| (r - fitted).powi(2)).sum::<f64>() / n as f64).sqrt();
+    let scatter = (ratios.iter().map(|r| (r - fitted).r_powi(2)).sum::<f64>() / n as f64).sqrt();
     let predicted = sep17_econ_ratio();
     let agreement = (fitted - predicted).abs() / predicted.abs();
     eprintln!(

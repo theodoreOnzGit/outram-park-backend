@@ -1,0 +1,450 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/sorption"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::divalent_selectivity_preference",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::exchange_fractions_sum_to_one_and_bounded",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::freundlich_n1_reduces_to_linear",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::freundlich_value_and_derivative",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::ion_exchange_constructor_validation",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::isotherm_constructor_validation",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::langmuir_saturates_and_slope_positive_decreasing",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::linear_matches_kd_and_constant_retardation",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::raising_a_cation_raises_its_exchanger_fraction",
+    "crates/outram-park-fork-pflotran/src/sorption/mod.rs::symmetric_binary_splits_by_concentration",
+    "crates/outram-park-fork-pflotran/src/transport/mod.rs::linear_sorption_retards_the_front",
+]
+
+[module."mod.rs"]
+path = "crate::sorption"
+
+[[module."mod.rs".function]]
+id = "fn:9456499e419bf008"
+name = "SorptionIsotherm"
+qual = "SorptionIsotherm"
+item = "type"
+shape = "enum"
+lines = [
+    95,
+    141,
+]
+hash = "sha256:35f8f7e9872cc67bdd7417c733d4592c4d54dd3523885440117e4e53e53bcd46"
+doc_hash = "sha256:21266f383b3059c8a5ef0eb76120ced260db90a52f91dd06001f02ee9ef24f94"
+reached_by = [
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c7ba1856f3a891da"
+name = "sorbed"
+qual = "SorptionIsotherm::sorbed"
+lines = [
+    144,
+    164,
+]
+hash = "sha256:5cff0715c0e8e3392043e31613aa509eea9bd1db746b66d0e3f9a254b9fb40ea"
+doc_hash = "sha256:89aac3b3e39fe831f91060011a1d9aff6383fe2c86ae2823d74b7e339496524f"
+uses = ["fn:9456499e419bf008"]
+reached_by = [
+    "#2",
+    "#3",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0225ca3e269f2cca"
+name = "d_sorbed_d_c"
+qual = "SorptionIsotherm::d_sorbed_d_c"
+lines = [
+    166,
+    196,
+]
+hash = "sha256:af1664290601403cd9227b560367eb48a1d959c1869c3cfbf8c83a06bad7c3a2"
+doc_hash = "sha256:5240d9a195cfee5783dde050212363acce34b70bd66ed27b8f9c67dda7547c85"
+uses = ["fn:9456499e419bf008"]
+reached_by = [
+    "#2",
+    "#3",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7ffd3de2c225e973"
+name = "retardation"
+qual = "SorptionIsotherm::retardation"
+lines = [
+    198,
+    211,
+]
+hash = "sha256:96f8982fa69bb8d88ecec8b8492fbc8eba6fd01daf9b07b02ed3380fd9c69c6e"
+doc_hash = "sha256:51a54c7c114a0d10075ce1b95114e37d30cb4c976b718cd9eca84dcdb6e251aa"
+callees = ["fn:0225ca3e269f2cca"]
+uses = ["fn:9456499e419bf008"]
+reached_by = ["#7"]
+
+[[module."mod.rs".function]]
+id = "fn:6fa9b4559ffbf051"
+name = "new_langmuir"
+qual = "SorptionIsotherm::new_langmuir"
+lines = [
+    213,
+    230,
+]
+hash = "sha256:b0c07a1a450dbdcbe9923934513497d5d3bbd636a167c750b275e14bd05b8b22"
+doc_hash = "sha256:a304b5e0dda509df27e14c0a0aa3f3af8f9c6ffb73abf511d98ceb1625186f40"
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:9456499e419bf008",
+]
+reached_by = [
+    "#5",
+    "#6",
+    "#10",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ad0ac2e5de55f262"
+name = "new_freundlich"
+qual = "SorptionIsotherm::new_freundlich"
+lines = [
+    232,
+    249,
+]
+hash = "sha256:c70d2921630858913c6160d7941dc91d7c4c41f863c9b3c40eb18cdcb190030e"
+doc_hash = "sha256:a4524defd5454e508845f55842327c06ab7fc40e5acd69e51b9c6d50e4768295"
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:9456499e419bf008",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:93ebcc9848cd61ee"
+name = "IonExchange"
+qual = "IonExchange"
+item = "type"
+shape = "struct"
+lines = [
+    252,
+    308,
+]
+hash = "sha256:e03c3213f7b9ed8aca368c6b4649a294b9cbb94faf608d54b17ec3c3718e8561"
+doc_hash = "sha256:c323cc8d6edf3db7c15e0f73d766e7c351a0c74ee2441697414f8b6fdd3e453a"
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e282dbc949141b38"
+name = "new"
+qual = "IonExchange::new"
+lines = [
+    311,
+    367,
+]
+hash = "sha256:623fb48f93e28ce4838006e5ba34bff522a3ac58fccd58e49e19270749b3557a"
+doc_hash = "sha256:def406d27d84853e192ef642a2170fce366983f3a15a0916dbe8ebc5712c9543"
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:93ebcc9848cd61ee",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ef22c030424c1610"
+name = "n_cations"
+qual = "IonExchange::n_cations"
+lines = [
+    369,
+    372,
+]
+hash = "sha256:0e04ab715fe471ea62d0d48ccd625e41d332f4b242ff8aa12b1b8bf881b15333"
+doc_hash = "sha256:c4120c3b36e4e308a4367d6566b998b35ead9eba4294444392de817b4a8b723c"
+uses = ["fn:93ebcc9848cd61ee"]
+
+[[module."mod.rs".function]]
+id = "fn:656986419525b7d0"
+name = "cec"
+qual = "IonExchange::cec"
+lines = [
+    374,
+    377,
+]
+hash = "sha256:a0993903f6551796c4e513b78a69ae9cda8d071f1c1dfe5c72987ba85cda2882"
+doc_hash = "sha256:2edeb4947c61bfb63bb950522a6da1258bcb6fa656955e7a3b2ad6053490aa16"
+uses = ["fn:93ebcc9848cd61ee"]
+
+[[module."mod.rs".function]]
+id = "fn:4052587cd6391e46"
+name = "exchange_fractions"
+qual = "IonExchange::exchange_fractions"
+lines = [
+    379,
+    440,
+]
+hash = "sha256:030caa0fe9a9c53adebc37714f3189a5b6d5fc475ece585628eecc9760b8129f"
+doc_hash = "sha256:7505a00931e4e7018f23cb736ee52900bc439c74656d92593dba41ddefb0d133"
+callees = ["fn:21ebedf3c3e258d3"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:93ebcc9848cd61ee",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8d32073e6ba40543"
+name = "sorbed_amounts"
+qual = "IonExchange::sorbed_amounts"
+lines = [
+    442,
+    457,
+]
+hash = "sha256:a0de0a4fc48a4c7d74eb1769504f4585b3b6b07327bce9a42ce6c087daf7e891"
+doc_hash = "sha256:38eb09b704e05fb6ac87030a333a5b50a52fe999f8498bd768f2e2217855d0aa"
+callees = ["fn:4052587cd6391e46"]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:93ebcc9848cd61ee",
+]
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:21ebedf3c3e258d3"
+name = "solve_site_term"
+qual = "IonExchange::solve_site_term"
+lines = [
+    459,
+    549,
+]
+hash = "sha256:b6b16f86de8822fb56aa10663baedbd09b51e7871feab56e7390fbed2dab3838"
+doc_hash = "sha256:a51865c76a46526235dae7039b82b236a2c0c963eee8bd9cf2873ef750462f80"
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:93ebcc9848cd61ee",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#8",
+    "#9",
+]
+
+[[module."mod.rs".function]]
+id = "fn:011f574a6e0c75e3"
+name = "fd_dsdc"
+qual = "fd_dsdc"
+lines = [
+    556,
+    559,
+]
+hash = "sha256:a20e3f7ad5a7ce8df07bc730e5b5541495d2dba3246418002c3375a2a95762b4"
+doc_hash = "sha256:b05f3d45482ef6fa60f7ee4a85174c4ddba910fb423dbfbe401dd377ebf7fabc"
+callees = ["fn:c7ba1856f3a891da"]
+uses = ["fn:9456499e419bf008"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7491bb66b6af2a72"
+name = "linear_matches_kd_and_constant_retardation"
+qual = "linear_matches_kd_and_constant_retardation"
+lines = [
+    561,
+    576,
+]
+hash = "sha256:181dd95f6ef7a3f75d20642e9b3ae12ded704baaf44add1962cf96578b3e41a6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0225ca3e269f2cca",
+    "fn:7ffd3de2c225e973",
+    "fn:c7ba1856f3a891da",
+]
+uses = ["fn:9456499e419bf008"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:793a496508d65199"
+name = "langmuir_saturates_and_slope_positive_decreasing"
+qual = "langmuir_saturates_and_slope_positive_decreasing"
+lines = [
+    578,
+    598,
+]
+hash = "sha256:e85cbea2c2f5aa5198cef0822edb367723214b2723c94c47ac65c9b208b34836"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:011f574a6e0c75e3",
+    "fn:0225ca3e269f2cca",
+    "fn:6fa9b4559ffbf051",
+    "fn:c7ba1856f3a891da",
+]
+uses = ["fn:9456499e419bf008"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0f595e1367da6dbc"
+name = "freundlich_value_and_derivative"
+qual = "freundlich_value_and_derivative"
+lines = [
+    600,
+    618,
+]
+hash = "sha256:6c3bb6309dfb7dd330bbe4312987aa15036a4672394cb4d19d856f85add42529"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:011f574a6e0c75e3",
+    "fn:0225ca3e269f2cca",
+    "fn:ad0ac2e5de55f262",
+    "fn:c7ba1856f3a891da",
+]
+uses = ["fn:9456499e419bf008"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c6e1455229737adc"
+name = "freundlich_n1_reduces_to_linear"
+qual = "freundlich_n1_reduces_to_linear"
+lines = [
+    620,
+    629,
+]
+hash = "sha256:612dcefbe3566322709ee6a4290798c5f5273dee4a804594b926779e03a15618"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0225ca3e269f2cca",
+    "fn:ad0ac2e5de55f262",
+    "fn:c7ba1856f3a891da",
+]
+uses = ["fn:9456499e419bf008"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d587f38c36f6e686"
+name = "isotherm_constructor_validation"
+qual = "isotherm_constructor_validation"
+lines = [
+    631,
+    644,
+]
+hash = "sha256:41d83cb75a2e19231cf81adfc1815efe3a75b3d599d77aa7b3ecc759d5f10651"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:6fa9b4559ffbf051",
+    "fn:ad0ac2e5de55f262",
+]
+uses = ["fn:9456499e419bf008"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:921436b521c67321"
+name = "exchange_fractions_sum_to_one_and_bounded"
+qual = "exchange_fractions_sum_to_one_and_bounded"
+lines = [
+    646,
+    663,
+]
+hash = "sha256:51425e4a88f4370060409079db5719cab218f45e68549c0b047016aa698b07f1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4052587cd6391e46",
+    "fn:8d32073e6ba40543",
+    "fn:e282dbc949141b38",
+]
+uses = ["fn:93ebcc9848cd61ee"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:00f48f1fec205ea5"
+name = "symmetric_binary_splits_by_concentration"
+qual = "symmetric_binary_splits_by_concentration"
+lines = [
+    665,
+    687,
+]
+hash = "sha256:fae4a09c677b764490958149e12c9818bad5f7bc99a80982a0dc4e64eea3985a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4052587cd6391e46",
+    "fn:e282dbc949141b38",
+]
+uses = ["fn:93ebcc9848cd61ee"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:29e2699896b2a900"
+name = "raising_a_cation_raises_its_exchanger_fraction"
+qual = "raising_a_cation_raises_its_exchanger_fraction"
+lines = [
+    689,
+    710,
+]
+hash = "sha256:0d48169d289ab5a4ac40948a5290c4963ec5c4d2f8578f4a58361bf5e432cb6e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4052587cd6391e46",
+    "fn:e282dbc949141b38",
+]
+uses = ["fn:93ebcc9848cd61ee"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c169b1cf5d2dd152"
+name = "divalent_selectivity_preference"
+qual = "divalent_selectivity_preference"
+lines = [
+    712,
+    723,
+]
+hash = "sha256:d5bf1375b29992e444243dfc2061f6d9d83d656460834f2e4391de1c9473b027"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4052587cd6391e46",
+    "fn:e282dbc949141b38",
+]
+uses = ["fn:93ebcc9848cd61ee"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d9845ba425583f4d"
+name = "ion_exchange_constructor_validation"
+qual = "ion_exchange_constructor_validation"
+lines = [
+    725,
+    738,
+]
+hash = "sha256:81b09dcff13046634709c8f8ca2d6ecc697da8a61490674bdbaa754d55bdffdb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4052587cd6391e46",
+    "fn:e282dbc949141b38",
+]
+uses = ["fn:93ebcc9848cd61ee"]
+test = true

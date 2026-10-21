@@ -40,6 +40,7 @@
 //! The `LCOMP=1` reader (`errorr.f90:3389-3417`) is ported alongside but
 //! has no oracle tape.
 
+use petir::mathf::RealMath;
 use crate::endf::records::SectionCursor;
 use crate::mixr::mix::sigfig;
 use crate::samm::mf2::RmlSection;
@@ -117,7 +118,7 @@ fn resonance_nodes(section: &RmlSection, el: f64, eh: f64) -> Vec<f64> {
             if r.energy > 0.0 {
                 let q = r.energy / (hw / 10.0);
                 ndig = if q.is_finite() && q > 0.0 {
-                    2 + q.log10().round() as i32
+                    2 + q.r_log10().round() as i32
                 } else {
                     9
                 };
@@ -272,7 +273,7 @@ fn read_covariance(
                         "errorr::rpxsamm: INTG records need the tape's raw MF=32 text".into(),
                     )
                 })?;
-                let fact = 2.0 * 10f64.powi(nx);
+                let fact = 2.0 * 10f64.r_powi(nx);
                 let start = cur.position();
                 cur.skip_rows(nm)?;
                 for line in &raw[start..start + nm] {
@@ -566,9 +567,8 @@ pub fn rpxsamm(
                         if k2 != 0 {
                             let a = ctx.derived.get(n2, n1, k - 1);
                             if a != 0.0 {
-                                sigs[i1][n1] += a * de
-                                    * (p.sigp[k2 - 1] * wt + pl.sigp[k2 - 1] * wtl)
-                                    / 2.0;
+                                sigs[i1][n1] +=
+                                    a * de * (p.sigp[k2 - 1] * wt + pl.sigp[k2 - 1] * wtl) / 2.0;
                             }
                         }
                     }

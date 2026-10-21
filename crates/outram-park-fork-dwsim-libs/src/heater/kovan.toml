@@ -1,0 +1,265 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/heater"
+test_ids = [
+    "crates/outram-park-fork-dwsim-libs/src/cooler/mod.rs::heat_removed_outlet_enthalpy",
+    "crates/outram-park-fork-dwsim-libs/src/heater/mod.rs::heat_added_outlet_enthalpy",
+    "crates/outram-park-fork-dwsim-libs/src/heater/mod.rs::outlet_temperature_duty_constant_cp",
+    "crates/outram-park-fork-dwsim-libs/src/heater/mod.rs::outlet_temperature_duty_rigorous_closure",
+    "crates/outram-park-fork-dwsim-libs/src/heater/mod.rs::pressure_drop_and_temperature_change",
+    "crates/outram-park-fork-dwsim-libs/src/heater/mod.rs::zero_duty_degenerate",
+]
+
+[module."mod.rs"]
+path = "crate::heater"
+
+[[module."mod.rs".function]]
+id = "fn:c23699c2372152ce"
+name = "outlet_pressure"
+qual = "outlet_pressure"
+lines = [
+    69,
+    78,
+]
+hash = "sha256:0de7d4479891164003faead7d8d2c0deab82d046198e7b82b0b74ae7591d1e4a"
+doc_hash = "sha256:be9d8d0c93012c3a72a284f44f1096edad6a5fd97084d6a6faf893c80e0deb6e"
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:cf7f09d671a82902"
+name = "outlet_temperature_from_change"
+qual = "outlet_temperature_from_change"
+lines = [
+    80,
+    92,
+]
+hash = "sha256:c451234b278a7b776e9a13067050b35eff9ae2395786d29d975ebb71a79939b5"
+doc_hash = "sha256:99900301909281a4a46c4c4195c6a64ec22b372fd6e03ac1f193d3ced9fdbffa"
+reached_by = ["#4"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:10b75dfc25eb7cae"
+name = "outlet_enthalpy_heat_added"
+qual = "outlet_enthalpy_heat_added"
+lines = [
+    94,
+    118,
+]
+hash = "sha256:ccb70bf1d9f98c3d6d3ba9950ef6ee40179e38d813b0e47ecb0623346ebf2aa1"
+doc_hash = "sha256:003750249d47a8e1e4b169c699d21caf3efab8ffeb325085d111c132a552cd28"
+reached_by = [
+    "#0",
+    "#1",
+    "#5",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0dfe0f81a5e3be91"
+name = "duty_from_outlet_enthalpy"
+qual = "duty_from_outlet_enthalpy"
+lines = [
+    120,
+    140,
+]
+hash = "sha256:22841d97bf27c392210f9193e6f88d4e2580f35969a43e5584d4594629e9b7d1"
+doc_hash = "sha256:4cb082d15a603b4a8146ada4395940b4ed665d0fe3e82cac7ee64d5771cf1d42"
+reached_by = [
+    "#3",
+    "#5",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:268820675b044dbc"
+name = "duty_constant_cp"
+qual = "duty_constant_cp"
+lines = [
+    142,
+    167,
+]
+hash = "sha256:dd65c295cb08f65f16207d7a0fad060da0312e684cebe82606b0d3099929d20e"
+doc_hash = "sha256:2956c2bf72955884e80904c11a8a7b48100750446032b84bc783d5578fb99477"
+reached_by = [
+    "#2",
+    "#5",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:36a9e4ba102788aa"
+name = "duty_from_outlet_temperature"
+qual = "duty_from_outlet_temperature"
+lines = [
+    169,
+    193,
+]
+hash = "sha256:bddab33f446832eee380b8c56008dbd0974ccb0ff1ab89ffece24e60078997b9"
+doc_hash = "sha256:1d8410bb77848feac2723ad3ab80b388777fa6522babe25725860fe5f0bbed12"
+callees = ["fn:0dfe0f81a5e3be91"]
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:813123d4519005c7"
+name = "jkg"
+qual = "jkg"
+lines = [
+    203,
+    205,
+]
+hash = "sha256:9b5374fab8d1509f77228b443636e7e435e027c4fae902460e36a3a257b4cdb6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:2db389a7ef28a2c5"
+name = "w_"
+qual = "w_"
+lines = [
+    206,
+    208,
+]
+hash = "sha256:db461f918158bb177cc93ad085c5a366c93a0e80c37b9948b7bb1f2538b4589f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:c202edc7d0c0ac54"
+name = "kgs"
+qual = "kgs"
+lines = [
+    209,
+    211,
+]
+hash = "sha256:a34802e40d9c5e35063a189bc86f258853e30ba8252722e073155f144e9d6915"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4097cbcb971a4e6a"
+name = "eta"
+qual = "eta"
+lines = [
+    212,
+    214,
+]
+hash = "sha256:a500297501cfa7d906f6313e1dbef06b95129b0212901730652c8efc9bb74eb1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d695ba27c8442139"
+name = "t_k"
+qual = "t_k"
+lines = [
+    215,
+    217,
+]
+hash = "sha256:21fd6248e17a1bd2ad6deca6587d6b55f58805d7d74c600f1f2681a4a8b48390"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:de5f04613909d2ae"
+name = "heat_added_outlet_enthalpy"
+qual = "heat_added_outlet_enthalpy"
+lines = [
+    219,
+    245,
+]
+hash = "sha256:02a0ec2e5c44ec18d5d5f07e1db690e390239eb89052752c67f4ff84d7c8cec4"
+doc_hash = "sha256:9791fe0219c7ec18653193397d1bf77381f9e101509c4d2a19db21f138e630fa"
+callees = [
+    "fn:10b75dfc25eb7cae",
+    "fn:2db389a7ef28a2c5",
+    "fn:4097cbcb971a4e6a",
+    "fn:813123d4519005c7",
+    "fn:c202edc7d0c0ac54",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:f708129c293d6360"
+name = "outlet_temperature_duty_constant_cp"
+qual = "outlet_temperature_duty_constant_cp"
+lines = [
+    247,
+    267,
+]
+hash = "sha256:938fc2f7042e1041903ba4c5947fb1d7c8893947b566a73b1ff7c306d10b5e2e"
+doc_hash = "sha256:2cb7e180ac0f9e32ec6452929efe1f0346bb6cf5b076895d66c9ced5515da13c"
+callees = [
+    "fn:268820675b044dbc",
+    "fn:4097cbcb971a4e6a",
+    "fn:c202edc7d0c0ac54",
+    "fn:d695ba27c8442139",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:552f6760d46881ad"
+name = "outlet_temperature_duty_rigorous_closure"
+qual = "outlet_temperature_duty_rigorous_closure"
+lines = [
+    269,
+    290,
+]
+hash = "sha256:dc4af7980d95ba342055c4abf237b5eb60e0a2aae11788e33d0386ef2265c536"
+doc_hash = "sha256:6509d4be81ec7cf33995e4100e9af10f3875f6fed207f29f1e51ae2cec8cc61f"
+callees = [
+    "fn:0dfe0f81a5e3be91",
+    "fn:36a9e4ba102788aa",
+    "fn:4097cbcb971a4e6a",
+    "fn:813123d4519005c7",
+    "fn:c202edc7d0c0ac54",
+    "fn:d695ba27c8442139",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:af458ee99aaa92fe"
+name = "zero_duty_degenerate"
+qual = "zero_duty_degenerate"
+lines = [
+    292,
+    312,
+]
+hash = "sha256:c310962f9a2da206f63a09ae3792de96d9bb4ce289929aae73bd3c58a58826b3"
+doc_hash = "sha256:494ff123621d3f4de5a2886b177f4d91ce51d6cda7aaae0671a56f2b083918b9"
+callees = [
+    "fn:0dfe0f81a5e3be91",
+    "fn:10b75dfc25eb7cae",
+    "fn:268820675b044dbc",
+    "fn:2db389a7ef28a2c5",
+    "fn:4097cbcb971a4e6a",
+    "fn:813123d4519005c7",
+    "fn:c202edc7d0c0ac54",
+    "fn:d695ba27c8442139",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:843c903a1916fe2c"
+name = "pressure_drop_and_temperature_change"
+qual = "pressure_drop_and_temperature_change"
+lines = [
+    314,
+    335,
+]
+hash = "sha256:cb87ddb9da18bbb1435eeb23748109add3fac9c415c1ac99d4f13ec71e0e1fa5"
+doc_hash = "sha256:39a63d7001f6f5238f4b6dca8d71735a00af2e055585f113b5cf5095c29c7364"
+callees = [
+    "fn:c23699c2372152ce",
+    "fn:cf7f09d671a82902",
+    "fn:d695ba27c8442139",
+]
+test = true

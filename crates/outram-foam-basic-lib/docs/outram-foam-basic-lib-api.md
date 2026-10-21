@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.2
+**Version:** 0.1.4
 
 **Format Version:** 61
 
@@ -132,6 +132,445 @@ convert at the buffer boundary and convert back.
 pub mod compute { /* ... */ }
 ```
 
+### Modules
+
+## Module `hybrid`
+
+Data-level co-execution: split one batch between the CPU and the GPU.
+
+A selection policy over the existing backends, not a fourth backend. Always
+compiled — with no GPU available it plans every lane onto the CPU, which is
+the correct answer rather than a degraded one.
+**Data-level co-execution** — split one batch between the CPU and the GPU
+so both run at once. Bead `op-yvj.4.8`, GitHub #18.
+
+# What this is, and what it is not
+
+This is a **selection policy over the existing backends**, exactly as #18
+asked: it decides how many lanes go to `CpuMulti` and how many to `Gpu`,
+then calls the kernels that already exist. It is **not** a fourth
+implementation of every kernel, and nothing here contains numerical code.
+
+Of the three forms #18 identified, this module implements **form 2,
+data-level co-execution**, because that is the one the issue called "the
+direct answer to the question and the easiest real speedup". Form 1
+(task-level overlap of a sequential preconditioner with GPU SpMV) needs the
+wgpu dispatch to be genuinely async — this crate's
+[`crate::compute::gpu::GpuContext::dispatch`] blocks on readback — so it is
+out of scope here and noted in "Not implemented" below. Form 3
+(transfer/compute overlap) is a scheduling detail of form 2 and is likewise
+not attempted while dispatch is synchronous.
+
+# The two caveats #18 required be settled *before* implementation
+
+Both are settled here, in the API rather than in prose.
+
+**Mixed precision within one result.** A split batch computes some lanes in
+`f64` on the CPU and others in `f32` on the GPU, so two adjacent cells can
+differ in accuracy purely by which side of the split they landed on. That
+is real and it is not hidden: [`SplitPlan::precision_note`] states it per
+call, and [`CoExecution::MatchGpuPrecision`] exists for callers who would
+rather have *uniform* `f32`-grade accuracy across the whole array than a
+seam in the middle of it. Choosing is the caller's; the default
+([`CoExecution::NativePrecision`]) keeps the CPU half at full `f64`,
+because silently degrading correct arithmetic to match a less accurate
+path is the worse default.
+
+**Reproducibility.** The split is **static and deterministic** by default:
+[`SplitPlan::for_lanes`] is a pure function of the lane count and the
+ratio, so the same input gives the same split, and therefore the same
+answer, on every run. #18 recommended precisely this, and warned that a
+dynamic work-stealing split reorders reductions and changes the last bits
+run to run. Work-stealing is therefore **not** offered here; if it is
+wanted later it belongs behind an explicit opt-in whose docs say bitwise
+reproducibility is surrendered.
+
+# Where the default ratio comes from
+
+[`SplitRatio::Measured`] is not a guess. `examples/hybrid_gpu_report.rs`
+swept 4 096 to 4 194 304 lanes on the reference machine and the GPU lost to
+`CpuMulti` at **every** size, by 5x to 100x. The honest ratio on that
+hardware is therefore **zero GPU lanes**, and that is what
+[`SplitRatio::Measured`] resolves to — a co-execution planner that
+truthfully reports "do not use the GPU here" is doing its job. A caller on
+better hardware supplies [`SplitRatio::Fixed`] from their own run of the
+report.
+
+# Not implemented, deliberately
+
+- **Task-level concurrency** (#18 form 1) — needs async dispatch.
+- **Dynamic work stealing** — surrenders reproducibility; see above.
+- **Transfer/compute overlap** (#18 form 3) — subsumed by the above.
+
+```rust
+pub mod hybrid { /* ... */ }
+```
+
+### Types
+
+#### Enum `SplitRatio`
+
+How to choose the CPU/GPU lane split.
+
+```rust
+pub enum SplitRatio {
+    Measured,
+    Fixed(f64),
+}
+```
+
+##### Variants
+
+###### `Measured`
+
+Use the ratio measured by `examples/hybrid_gpu_report.rs` on the
+reference hardware.
+
+On that machine the measured answer is **0.0** — the GPU never beat
+`CpuMulti` — so this resolves to a CPU-only plan. That is a real
+measurement, not a placeholder: see the module docs.
+
+###### `Fixed`
+
+A caller-supplied fraction of lanes to send to the GPU, clamped to
+`[0.0, 1.0]`. Take it from your own run of the crossover report rather
+than guessing.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `CoExecution`
+
+What precision the CPU half of a split batch should run at.
+
+```rust
+pub enum CoExecution {
+    NativePrecision,
+    MatchGpuPrecision,
+}
+```
+
+##### Variants
+
+###### `NativePrecision`
+
+CPU lanes stay `f64`, GPU lanes are `f32`. Fastest and most accurate
+overall, but the output array is **not uniform in accuracy** — see the
+module docs.
+
+###### `MatchGpuPrecision`
+
+Round the CPU half's results to `f32` as well, so every lane in the
+output has the same accuracy grade.
+
+This makes the array *uniform*, not *better*: it throws away good bits
+on the CPU lanes to remove the seam. Choose it when downstream code
+compares cells against each other and a discontinuity at the split
+point would be mistaken for physics.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `SplitPlan`
+
+A resolved, deterministic plan for one batch.
+
+Produced by [`SplitPlan::for_lanes`]. Holds no borrows and no lifetimes,
+per the workspace rules.
+
+```rust
+pub struct SplitPlan {
+    pub lanes: usize,
+    pub cpu_lanes: usize,
+    pub gpu_lanes: usize,
+    pub cpu_backend: crate::compute::ComputeBackend,
+    pub co_execution: CoExecution,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lanes` | `usize` | Total lanes in the batch. |
+| `cpu_lanes` | `usize` | Lanes `0 .. cpu_lanes` run on the CPU backend. |
+| `gpu_lanes` | `usize` | Lanes `cpu_lanes .. lanes` run on the GPU. |
+| `cpu_backend` | `crate::compute::ComputeBackend` | The CPU backend the plan will actually use, already resolved. |
+| `co_execution` | `CoExecution` | Precision policy for the CPU half. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn for_lanes(lanes: usize, ratio: SplitRatio, co_execution: CoExecution) -> Self { /* ... */ }
+  ```
+  Build the deterministic plan for `lanes` work items.
+
+- ```rust
+  pub fn is_co_executing(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this plan actually uses both sides.
+
+- ```rust
+  pub fn precision_note(self: &Self) -> &'static str { /* ... */ }
+  ```
+  A one-line, caller-facing statement of the precision this plan will
+
+- ```rust
+  pub fn harmonise_cpu_half(self: &Self, cpu_values: &mut [f64]) { /* ... */ }
+  ```
+  Apply the [`CoExecution`] policy to the CPU half of a completed result.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Types
 
 #### Enum `ComputeBackend`
@@ -223,7 +662,7 @@ GPU compute via `wgpu` (`gpu` feature, non-Android, adapter present).
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ComputeBackend { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -239,7 +678,7 @@ GPU compute via `wgpu` (`gpu` feature, non-Android, adapter present).
 
 - **Default**
   - ```rust
-    fn default() -> ComputeBackend { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -263,7 +702,7 @@ GPU compute via `wgpu` (`gpu` feature, non-Android, adapter present).
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ComputeBackend) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -282,7 +721,7 @@ GPU compute via `wgpu` (`gpu` feature, non-Android, adapter present).
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -370,7 +809,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThreadCount { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -386,7 +825,7 @@ Fields:
 
 - **Default**
   - ```rust
-    fn default() -> ThreadCount { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -404,7 +843,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThreadCount) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -423,7 +862,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -712,6 +1151,11 @@ pub enum BoundaryCondition<T: Clone> {
         ref_value: T,
         ref_grad: T,
     },
+    MixedField {
+        value_fraction: crate::fields::field::Field<f64>,
+        ref_value: crate::fields::field::Field<T>,
+        ref_grad: crate::fields::field::Field<T>,
+    },
     InletOutlet {
         inlet_value: T,
     },
@@ -819,6 +1263,42 @@ Fields:
 | `value_fraction` | `f64` | Dirichlet/Neumann blend weight, dimensionless, `∈ [0, 1]`. |
 | `ref_value` | `T` | Dirichlet reference value (`[T]`). |
 | `ref_grad` | `T` | Neumann reference normal gradient (`[T]·m⁻¹`). |
+
+###### `MixedField`
+
+Robin / mixed boundary condition with **per-face** coefficients — the
+non-uniform counterpart of [`Mixed`](Self::Mixed).
+
+Same algebra, face by face: with `w = value_fraction[i]`, `delta` the
+owner-cell-to-face distance of face `i` and `φ_c` the owner cell value,
+
+```text
+  φ_face[i] = w·ref_value[i] + (1 − w)·(φ_c + ref_grad[i]·delta)
+```
+
+# When the uniform form will not do
+
+A Robin coefficient is rarely constant along a patch, because it is built
+from quantities that are not: the cell-to-face distance on a graded mesh,
+a heat-transfer coefficient that tracks the local flow, or — the case
+this was added for — a **neutron albedo**, whose weight
+`w = (γ·delta/D)/(1 + γ·delta/D)` carries both the local mesh spacing and
+the local diffusion coefficient. Collapsing that to one number per patch
+is an approximation, and an unquantified one, which is exactly what a
+code-to-code comparison must not contain.
+
+All three fields are sized to the patch. Use [`Mixed`](Self::Mixed) when
+the coefficients genuinely are uniform; it is cheaper and reads better.
+
+OpenFOAM: `mixedFvPatchField` with non-uniform `valueFraction`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `value_fraction` | `crate::fields::field::Field<f64>` | Per-face Dirichlet/Neumann blend weight, dimensionless, each `∈ [0, 1]`. |
+| `ref_value` | `crate::fields::field::Field<T>` | Per-face Dirichlet reference value (`[T]`). |
+| `ref_grad` | `crate::fields::field::Field<T>` | Per-face Neumann reference normal gradient (`[T]·m⁻¹`). |
 
 ###### `InletOutlet`
 
@@ -1118,7 +1598,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoundaryCondition<T> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1159,7 +1639,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1281,7 +1761,7 @@ pub struct PatchField<T: Clone> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PatchField<T> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1322,7 +1802,7 @@ pub struct PatchField<T: Clone> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1537,7 +2017,7 @@ pub struct Field<T> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Field<T> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -1648,7 +2128,7 @@ pub struct Field<T> {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Field<T>) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -1677,7 +2157,7 @@ pub struct Field<T> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -1688,6 +2168,39 @@ pub struct Field<T> {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+#### Type Alias `ScalarField`
+
+Flat field of `f64` — the element type of [`VolScalarField`](crate::fields::VolScalarField).
+
+```rust
+pub type ScalarField = Field<f64>;
+```
+
+#### Type Alias `VectorField`
+
+Flat field of [`Vector3`] — the element type of [`VolVectorField`](crate::fields::VolVectorField).
+
+```rust
+pub type VectorField = Field<crate::primitives::Vector3>;
+```
+
+#### Type Alias `TensorField`
+
+Flat field of [`Tensor`] — the element type of [`VolTensorField`](crate::fields::VolTensorField).
+
+```rust
+pub type TensorField = Field<crate::primitives::Tensor>;
+```
+
+#### Type Alias `SymmTensorField`
+
+Flat field of [`SymmTensor`] — the element type of
+[`VolSymmTensorField`](crate::fields::VolSymmTensorField).
+
+```rust
+pub type SymmTensorField = Field<crate::primitives::SymmTensor>;
+```
+
 ## Module `parallel`
 
 Backend-dispatched kernels for the element-wise field algebra.
@@ -2766,7 +3279,7 @@ pub struct SurfaceField<T: Clone> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SurfaceField<T> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -2831,7 +3344,7 @@ pub struct SurfaceField<T: Clone> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -2945,7 +3458,7 @@ pub struct VolField<T: Clone> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> VolField<T> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3014,7 +3527,7 @@ pub struct VolField<T: Clone> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3167,6 +3680,30 @@ pub fn dev2_of_symm(vol: &crate::fields::vol_field::VolSymmTensorField) -> crate
 
 ```rust
 pub use field::Field;
+```
+
+#### Re-export `ScalarField`
+
+```rust
+pub use field::ScalarField;
+```
+
+#### Re-export `SymmTensorField`
+
+```rust
+pub use field::SymmTensorField;
+```
+
+#### Re-export `TensorField`
+
+```rust
+pub use field::TensorField;
+```
+
+#### Re-export `VectorField`
+
+```rust
+pub use field::VectorField;
 ```
 
 #### Re-export `field_parallel_crossover`
@@ -3348,7 +3885,7 @@ pub struct PsiThermo<M: TransportModel> {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3498,7 +4035,7 @@ pub struct RhoThermo<M: TransportModel> {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -3587,7 +4124,7 @@ pub struct ConstSolidThermo {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ConstSolidThermo { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -3653,7 +4190,7 @@ pub struct ConstSolidThermo {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4023,13 +4560,563 @@ surface-normal gradient
 (`sn_grad`), linear face interpolation (`interpolate`) and flux assembly
 (`flux`, `buoyancy_flux`), least-squares velocity reconstruction
 (`reconstruct`), the Rhie–Chow time-derivative flux correction
-(`ddt_corr`), and MUSCL / TVD limited face reconstruction
-(`reconstruct_pos_neg`, `Limiter`). Field values carry raw
+(`ddt_corr`), MUSCL / TVD limited face reconstruction
+(`reconstruct_pos_neg`, `Limiter`), and the EOS-free
+Kurganov–Noelle–Petrova central-upwind face flux (`central_upwind`). Field values carry raw
 `f64` / `Vector3` / `Tensor` element data (no `uom`), consistent with the
 rest of the FV operator layer.
 
 ```rust
 pub mod fvc { /* ... */ }
+```
+
+### Modules
+
+## Module `central_upwind`
+
+Kurganov–Noelle–Petrova (KNP) central-upwind face flux for the compressible
+Euler equations — **one EOS-free kernel** shared by every solver in the
+workspace that needs it (epic gh #896, issue gh #901).
+
+# What it computes
+
+For a face with unit normal `n` (owner → neighbour) and the two
+reconstructed face states `L` (owner-biased, OpenFOAM's `pos`) and `R`
+(neighbour-biased, `neg`), the KNP flux per unit face area is
+
+```text
+F_KNP = (a⁺·F(W_L) − a⁻·F(W_R) + a⁺·a⁻·(W_R − W_L)) / (a⁺ − a⁻)
+a⁻ = min(u_n,L − c_L,  u_n,R − c_R,  0)
+a⁺ = max(u_n,L + c_L,  u_n,R + c_R,  0)
+```
+
+with `W = [ρ, ρU, w_e]` and physical flux
+`F(W) = [ρ u_n,  ρ u_n U + p n,  ρ u_n f_e]`, where `u_n = U·n`.
+Kurganov, A., Noelle, S. & Petrova, G. (2001), "Semidiscrete central-upwind
+schemes for hyperbolic conservation laws and Hamilton–Jacobi equations",
+*SIAM J. Sci. Comput.* 23(3), 707–740, eq. (3.7) with the one-sided local
+speeds of eq. (3.8).
+
+# Why the energy pair `(w_e, f_e)` and not a fixed energy variable
+
+The flux needs only `ρ, U, p, c` and **one energy pair per side**: the
+energy density that is conserved (`w_e`, J/m³) and the energy carried per
+unit mass flux (`f_e`, J/kg). Letting the caller choose them lets the same
+kernel serve both energy formulations in this workspace:
+
+| solver family | `w_e` | `f_e` | constructor |
+|---|---|---|---|
+| density-based, total energy (`rhoCentralFoam`) | `ρE`, `E = e + ½\|U\|²` | `H = E + p/ρ` | [`KnpFaceState::total_energy`] |
+| pressure-based, static enthalpy (~~the `HybridAllMach` PIMPLE arrays~~; no consumer since 2026-10-16) | `ρ·h` | `h` | [`KnpFaceState::static_enthalpy`] |
+
+**Consumers, updated 2026-10-16.** ~~The steam-tables and CoolProp
+`HybridAllMach` PIMPLE arrays~~ used the static-enthalpy pair,
+[`central_face_flux`] and [`mach_blend`] until the KNP hybrid was retired
+(maintainer decision D7, gh:#914). The remaining consumers are the
+density-based ones: `tampines-steam-tables`' `HemPipe` and appbuilder's
+`RhoCentralFoam`. The three hybrid-only items are kept as tested public
+API of this crate, with no consumer in the workspace.
+
+The kernel has **no equation of state**. The pressure `p` and the sound
+speed `c` arrive with each face state; which sound speed that is (perfect
+gas `√(γp/ρ)`, or a two-phase homogeneous-*equilibrium* speed) is the
+caller's physics. For a flashing two-phase flow it must be the equilibrium
+speed, because the wave speeds `a±` are where the characteristics sit.
+
+# Relation to upstream `rhoCentralFoam.C`
+
+OpenFOAM writes the same flux in a weighted form: `a_pos = ap/(ap − am)`,
+`aSf = am·a_pos`, `aphiv_pos = a_pos·phiv_pos − aSf`,
+`aphiv_neg = a_neg·phiv_neg + aSf`, and e.g.
+`phi = aphiv_pos·rho_pos + aphiv_neg·rho_neg`. Expanding those gives the KNP
+expression above term for term; this port keeps the paper's form because
+the three solvers it replaces (gh #901) were all written in it, and the
+refactor had to leave their results bit-identical. OpenFOAM's `Tadmor`
+flux-scheme switch (`aSf = −½·amaxSf`, `a_pos = ½`) is **not** ported.
+
+# Units
+
+Raw SI `f64` throughout, like the rest of the finite-volume operator layer:
+kg/m³, m/s, Pa, J/m³, J/kg. Fluxes are per unit face area; multiply by
+`|Sf|` (m²) for the face total.
+
+# What is not here
+
+Reconstruction (use [`super::reconstruct_pos_neg`]), boundary ghost states,
+the time update, and any clamping of non-physical states. Those belong to
+the solver, which is where the policy (clamp, or report and stop) is set.
+
+```rust
+pub mod central_upwind { /* ... */ }
+```
+
+### Types
+
+#### Struct `KnpFaceState`
+
+One side's reconstructed state at a face, as the KNP flux consumes it.
+
+Plain SI `f64`; see the module doc for the meaning of the energy pair.
+
+```rust
+pub struct KnpFaceState {
+    pub rho: f64,
+    pub u: crate::primitives::vector::Vector3,
+    pub p: f64,
+    pub c: f64,
+    pub w_e: f64,
+    pub f_e: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `rho` | `f64` | Density ρ \[kg/m³\]. |
+| `u` | `crate::primitives::vector::Vector3` | Velocity **U** \[m/s\]. Only its normal component `U·n` enters the wave<br>speeds; the full vector is transported by the momentum flux. |
+| `p` | `f64` | Static pressure `p` \[Pa\]. |
+| `c` | `f64` | Sound speed `c` \[m/s\] that sets the wave speeds `U·n ± c`. Must be<br>non-negative; for two-phase flow, the equilibrium speed. |
+| `w_e` | `f64` | Conserved energy density `w_e` \[J/m³\] (`ρE`, or `ρ·h`). |
+| `f_e` | `f64` | Energy carried per unit mass flux `f_e` \[J/kg\] (`H`, or `h`), so the<br>physical energy flux is `ρ u_n f_e`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total_energy(rho: f64, u: Vector3, p: f64, c: f64, e: f64) -> Self { /* ... */ }
+  ```
+  A face state for a **total-energy** solver (`rhoCentralFoam`):
+
+- ```rust
+  pub fn static_enthalpy(rho: f64, u: Vector3, p: f64, c: f64, h: f64) -> Self { /* ... */ }
+  ```
+  A face state for a **static-enthalpy** solver (the segregated
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KnpFaceFlux`
+
+A face flux per unit face area, in the face-normal direction.
+
+```rust
+pub struct KnpFaceFlux {
+    pub mass: f64,
+    pub momentum: crate::primitives::vector::Vector3,
+    pub energy: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mass` | `f64` | Mass flux `ρ u_n` \[kg/(m²·s)\]. |
+| `momentum` | `crate::primitives::vector::Vector3` | Momentum flux `ρ u_n U + p n` \[Pa\]. |
+| `energy` | `f64` | Energy flux `ρ u_n f_e` \[W/m²\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `KnpWaveSpeeds`
+
+The KNP one-sided local wave speeds of a face \[m/s\].
+
+```rust
+pub struct KnpWaveSpeeds {
+    pub a_minus: f64,
+    pub a_plus: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a_minus` | `f64` | `a⁻ = min(u_n,L − c_L, u_n,R − c_R, 0) ≤ 0` (upstream `am`, per unit area). |
+| `a_plus` | `f64` | `a⁺ = max(u_n,L + c_L, u_n,R + c_R, 0) ≥ 0` (upstream `ap`, per unit area). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `knp_wave_speeds`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+The one-sided local wave speeds `a⁻`, `a⁺` of a face (KNP 2001 eq. 3.8;
+upstream `am`, `ap` divided by `|Sf|`). `n_f` is the unit face normal.
+
+```rust
+pub fn knp_wave_speeds(l: &KnpFaceState, r: &KnpFaceState, n_f: crate::primitives::vector::Vector3) -> KnpWaveSpeeds { /* ... */ }
+```
+
+#### Function `physical_face_flux`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+The physical (Euler) flux `F(W) = [ρ u_n, ρ u_n U + p n, ρ u_n f_e]` of a
+single state through a face with unit normal `n_f`, per unit area.
+
+This is what a solver applies on a boundary face whose ghost state equals
+the owner state (zero-gradient extrapolation), and it is the `F(W_L)`,
+`F(W_R)` of the KNP flux.
+
+```rust
+pub fn physical_face_flux(s: &KnpFaceState, n_f: crate::primitives::vector::Vector3) -> KnpFaceFlux { /* ... */ }
+```
+
+#### Function `knp_face_flux`
+
+The KNP central-upwind numerical flux through a face, per unit area (see
+the module doc for the formula and the reference). `n_f` is the unit face
+normal pointing from the `l` (owner) side to the `r` (neighbour) side.
+
+Consistency: for `l == r` it equals [`physical_face_flux`] up to the
+rounding of `(a⁺ − a⁻)/(a⁺ − a⁻)`.
+
+```rust
+pub fn knp_face_flux(l: &KnpFaceState, r: &KnpFaceState, n_f: crate::primitives::vector::Vector3) -> KnpFaceFlux { /* ... */ }
+```
+
+#### Function `central_face_flux`
+
+The KNP flux with its `a⁺a⁻(W_R − W_L)` jump term removed: the central,
+non-dissipative part of the flux.
+
+`knp_face_flux − central_face_flux` is therefore exactly the KNP numerical
+dissipation, ~~which is what the pressure-based `HybridAllMach` solvers add
+as a deferred correction~~ (they did until the KNP hybrid of the PIMPLE arrays was retired 2026-10-16 (gh:#914); no
+workspace consumer since, kept as tested public API). It vanishes
+identically when `l == r`.
+
+```rust
+pub fn central_face_flux(l: &KnpFaceState, r: &KnpFaceState, n_f: crate::primitives::vector::Vector3) -> KnpFaceFlux { /* ... */ }
+```
+
+#### Function `local_wave_speed_max`
+
+The largest local characteristic speed at a face, `max(|a⁻|, |a⁺|)`
+\[m/s\].
+
+This is upstream `rhoCentralFoam.C`'s **first** `amaxSf = max(mag(am),
+mag(ap))`, per unit area. It is the speed a classical CFL bound uses:
+`Δt ≤ Co·Δx / max_f a_max,f`. Compare [`central_flux_speed_max`], which
+is the quantity upstream finally feeds to its Courant number.
+
+```rust
+pub fn local_wave_speed_max(l: &KnpFaceState, r: &KnpFaceState, n_f: crate::primitives::vector::Vector3) -> f64 { /* ... */ }
+```
+
+#### Function `central_flux_speed_max`
+
+Upstream `rhoCentralFoam.C`'s **reused** `amaxSf`, per unit area \[m/s\]:
+`max(|aphiv_pos|, |aphiv_neg|)` with `a_pos = a⁺/(a⁺ − a⁻)`,
+`aSf = a⁻·a_pos`, `aphiv_pos = a_pos·u_n,L − aSf` and
+`aphiv_neg = (1 − a_pos)·u_n,R + aSf`.
+
+Upstream's `centralCourantNo.H` computes
+`CoNum = ½·max_cells(Σ_faces amaxSf / V)·Δt` from this quantity, and
+`setDeltaT.H` scales `Δt` by `maxCo/CoNum`. A solver that wants to
+reproduce upstream's time-step control uses this function with that
+formula. For a quiescent face it equals `c/2` (where
+[`local_wave_speed_max`] gives `c`), and the `½·Σ_faces` then makes
+upstream's `CoNum` half the classical `c·Δt/Δx` in 1-D.
+
+The denominator `a⁺ − a⁻` is floored at [`KNP_MIN_WAVE_SPEED_SPAN`]
+(upstream divides unguarded).
+
+```rust
+pub fn central_flux_speed_max(l: &KnpFaceState, r: &KnpFaceState, n_f: crate::primitives::vector::Vector3) -> f64 { /* ... */ }
+```
+
+#### Function `mach_blend`
+
+**Attributes:**
+
+- `Other("#[attr = Inline(Hint)]")`
+
+Continuous Mach-blend weight `β(Ma) = clamp((Ma − lo)/(hi − lo), 0, 1)`.
+
+~~Used by the pressure-based `HybridAllMach` solvers~~ (until the KNP hybrid of the PIMPLE arrays was retired 2026-10-16 (gh:#914);
+no workspace consumer since, kept as tested public API) to switch the KNP
+dissipation on only near the sonic point: `β = 0` for `Ma ≤ lo` (no added
+dissipation), `β = 1` for `Ma ≥ hi`, linear and monotone in between.
+`lo`, `hi` are dimensionless Mach numbers with `hi > lo` (the arrays
+defaulted to `0.3` and `1.0`); a degenerate `hi ≤ lo` becomes a hard step
+at `hi`.
+
+```rust
+pub fn mach_blend(ma: f64, lo: f64, hi: f64) -> f64 { /* ... */ }
+```
+
+#### Function `velocity_component`
+
+Extract one Cartesian component (`comp` = 0 → x, 1 → y, any other → z) of a
+[`VolVectorField`] as a [`VolScalarField`], with matching scalar boundary
+conditions, so that MUSCL reconstruction of that component sees correct
+boundary gradients.
+
+Mirrors OpenFOAM's `U.component(cmpt)`. `rhoCentralFoam` needs it because
+it reconstructs `U` component by component (`interpolate(U, pos/neg)`).
+
+Every `BoundaryCondition` variant is mapped explicitly (no catch-all), so a
+new variant is a compile error here rather than a silently wrong boundary:
+variants with a vector payload are mapped component-wise, payload-free
+markers are kept as they are, and `FlowRateInletVelocity`'s scalar
+whole-patch flow rate is carried through unchanged.
+
+```rust
+pub fn velocity_component(u: &crate::fields::vol_field::VolVectorField, comp: usize) -> crate::fields::vol_field::VolScalarField { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `KNP_MIN_WAVE_SPEED_SPAN`
+
+Floor on the KNP denominator `a⁺ − a⁻` \[m/s\]. It only acts when both
+one-sided speeds vanish (`u = 0` and `c = 0` on both sides), where the flux
+is `0/0`; the floor turns that into a zero flux instead of a NaN. Inherited
+unchanged from the three copies this kernel replaced.
+
+```rust
+pub const KNP_MIN_WAVE_SPEED_SPAN: f64 = 1e-10;
 ```
 
 ### Re-exports
@@ -4210,6 +5297,18 @@ pub use div_vec::div_vec;
 
 ```rust
 pub use laplacian::laplacian;
+```
+
+#### Re-export `laplacian_with_delta`
+
+```rust
+pub use laplacian::laplacian_with_delta;
+```
+
+#### Re-export `DeltaCoeff`
+
+```rust
+pub use laplacian::DeltaCoeff;
 ```
 
 #### Re-export `laplacian_corrected`
@@ -4487,7 +5586,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FvModel { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4528,7 +5627,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4580,7 +5679,7 @@ pub struct EquationField<''n>(pub &'n str);
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> EquationField<''n> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4610,7 +5709,7 @@ pub struct EquationField<''n>(pub &'n str);
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &EquationField<''n>) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4629,7 +5728,7 @@ pub struct EquationField<''n>(pub &'n str);
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4726,7 +5825,7 @@ pub struct FvModels {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FvModels { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4741,7 +5840,7 @@ pub struct FvModels {
 
 - **Default**
   - ```rust
-    fn default() -> FvModels { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -4772,7 +5871,7 @@ pub struct FvModels {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -4837,7 +5936,7 @@ pub struct SourceContribution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SourceContribution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -4853,7 +5952,7 @@ pub struct SourceContribution {
 
 - **Default**
   - ```rust
-    fn default() -> SourceContribution { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -4871,7 +5970,7 @@ pub struct SourceContribution {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SourceContribution) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -4890,7 +5989,7 @@ pub struct SourceContribution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5165,7 +6264,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CaseField { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5206,7 +6305,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5288,7 +6387,7 @@ pub struct FoamCase {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FoamCase { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5329,7 +6428,7 @@ pub struct FoamCase {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5420,7 +6519,7 @@ pub struct Dimensioned {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Dimensioned { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5448,7 +6547,7 @@ pub struct Dimensioned {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Dimensioned) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5467,7 +6566,7 @@ pub struct Dimensioned {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5488,6 +6587,7 @@ pub enum FoamValue {
     Word(String),
     Str(String),
     List(Vec<FoamValue>),
+    Dict(FoamDict),
 }
 ```
 
@@ -5534,6 +6634,26 @@ Fields:
 |-------|------|---------------|
 | 0 | `Vec<FoamValue>` |  |
 
+###### `Dict`
+
+A `{ … }` sub-dictionary appearing **as a list element**.
+
+OpenFOAM lists routinely carry dictionaries: `constant/polyMesh/boundary`
+and `cellZones` are `N ( name { … } name { … } )`, and GeN-Foam's
+`nuclearData` writes its `states` and `zones` the same way. Without this
+variant the braces tokenise into stray [`Word`](Self::Word)s and the
+entry silently flattens into nonsense rather than failing.
+
+The *name* preceding each such dictionary is a separate
+[`Word`](Self::Word) element in the enclosing list — this variant holds
+only the braced body, exactly as the grammar has it.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `FoamDict` |  |
+
 ##### Implementations
 
 ###### Methods
@@ -5572,7 +6692,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FoamValue { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5600,7 +6720,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FoamValue) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5619,7 +6739,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5742,7 +6862,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FoamEntry { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5770,7 +6890,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FoamEntry) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5789,7 +6909,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -5888,7 +7008,7 @@ pub struct FoamDict {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FoamDict { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -5903,7 +7023,7 @@ pub struct FoamDict {
 
 - **Default**
   - ```rust
-    fn default() -> FoamDict { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -5921,7 +7041,7 @@ pub struct FoamDict {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FoamDict) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -5940,7 +7060,7 @@ pub struct FoamDict {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6029,7 +7149,7 @@ pub struct FoamHeader {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FoamHeader { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6044,7 +7164,7 @@ pub struct FoamHeader {
 
 - **Default**
   - ```rust
-    fn default() -> FoamHeader { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -6062,7 +7182,7 @@ pub struct FoamHeader {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FoamHeader) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6081,7 +7201,7 @@ pub struct FoamHeader {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6131,6 +7251,11 @@ pub struct FoamFile {
   Read and parse a dictionary file from `path`.
 
 - ```rust
+  pub fn read_with_includes</* synthetic */ impl AsRef<Path>: AsRef<Path>>(path: impl AsRef<Path>) -> Result<Self, IoError> { /* ... */ }
+  ```
+  Read and parse a dictionary file from `path`, splicing in any
+
+- ```rust
   pub fn to_foam_string(self: &Self) -> String { /* ... */ }
   ```
   Serialise to OpenFOAM ASCII text (banner + header + body).
@@ -6159,7 +7284,7 @@ pub struct FoamFile {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FoamFile { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6187,7 +7312,7 @@ pub struct FoamFile {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FoamFile) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6206,7 +7331,7 @@ pub struct FoamFile {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6217,6 +7342,19 @@ pub struct FoamFile {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+### Constants and Statics
+
+#### Constant `MAX_INCLUDE_DEPTH`
+
+Maximum `#include` nesting depth for [`FoamFile::read_with_includes`].
+
+A cyclic include would otherwise recurse until the stack runs out; this
+turns that into a plain error naming the file.
+
+```rust
+pub const MAX_INCLUDE_DEPTH: usize = 16;
+```
+
 ## Module `field`
 
 Time-directory **field** file read/write (`0/p`, `0/U`, …).
@@ -6377,7 +7515,7 @@ pub struct MeshFace {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshFace { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6405,7 +7543,7 @@ pub struct MeshFace {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshFace) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6424,7 +7562,7 @@ pub struct MeshFace {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6521,7 +7659,7 @@ pub struct PolyMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolyMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -6549,7 +7687,7 @@ pub struct PolyMesh {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PolyMesh) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -6568,7 +7706,7 @@ pub struct PolyMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -6709,7 +7847,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7016,7 +8154,7 @@ pub struct KrylovSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KrylovSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7064,7 +8202,7 @@ pub struct KrylovSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7118,7 +8256,7 @@ pub struct KrylovResult {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KrylovResult { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7160,7 +8298,7 @@ pub struct KrylovResult {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7273,13 +8411,19 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **OperatorPreconditioner**
+  - ```rust
+    fn apply(self: &Self, r: &[f64], z: &mut [f64]) { /* ... */ }
+    ```
+    Bridges the existing finite-volume preconditioner enum onto the generic
+
 - **RefUnwindSafe**
 - **Same**
 - **Send**
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7547,7 +8691,7 @@ pub struct FvMatrix {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7597,7 +8741,7 @@ pub struct SolverSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SolverSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7644,7 +8788,7 @@ pub struct SolverSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7696,7 +8840,7 @@ pub struct SolverPerformance {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SolverPerformance { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7738,7 +8882,7 @@ pub struct SolverPerformance {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -7867,7 +9011,7 @@ pub struct FvVectorMatrix {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FvVectorMatrix { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -7923,7 +9067,7 @@ pub struct FvVectorMatrix {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8024,7 +9168,7 @@ pub struct LduMatrix {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LduMatrix { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8050,6 +9194,29 @@ pub struct LduMatrix {
     ```
     Calls `U::from(self)`.
 
+- **LinearOperator**
+  - ```rust
+    fn n_rows(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn n_cols(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn apply(self: &Self, x: &[f64], y: &mut [f64]) { /* ... */ }
+    ```
+    Face-addressed sparse multiply, delegating to
+
+  - ```rust
+    fn diagonal(self: &Self, d: &mut [f64]) { /* ... */ }
+    ```
+
+  - ```rust
+    fn residual(self: &Self, x: &[f64], b: &[f64], r: &mut [f64]) { /* ... */ }
+    ```
+    Delegates to [`LduMatrix::residual`], the crate's existing fused kernel.
+
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8065,7 +9232,7 @@ pub struct LduMatrix {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8373,7 +9540,7 @@ pub struct LduTopology {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LduTopology { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8402,7 +9569,7 @@ pub struct LduTopology {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LduTopology) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -8421,7 +9588,7 @@ pub struct LduTopology {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -8588,7 +9755,7 @@ pub struct HybridLdu {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HybridLdu { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -8629,7 +9796,7 @@ pub struct HybridLdu {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9471,7 +10638,7 @@ forward/backward sweep per iteration. **Default.**
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PreconditionerKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9487,7 +10654,7 @@ forward/backward sweep per iteration. **Default.**
 
 - **Default**
   - ```rust
-    fn default() -> PreconditionerKind { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -9506,7 +10673,7 @@ forward/backward sweep per iteration. **Default.**
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PreconditionerKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9525,7 +10692,7 @@ forward/backward sweep per iteration. **Default.**
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9588,7 +10755,7 @@ Prefer it when BiCGStab stalls or breaks down.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KrylovMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9604,7 +10771,7 @@ Prefer it when BiCGStab stalls or breaks down.
 
 - **Default**
   - ```rust
-    fn default() -> KrylovMethod { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -9623,7 +10790,7 @@ Prefer it when BiCGStab stalls or breaks down.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &KrylovMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -9642,7 +10809,7 @@ Prefer it when BiCGStab stalls or breaks down.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -9712,7 +10879,7 @@ pub struct KrylovOptions {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> KrylovOptions { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -9760,7 +10927,7 @@ pub struct KrylovOptions {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10084,6 +11251,517 @@ pub use solvers::krylov_solve::KrylovOptions;
 pub use solvers::krylov_solve::PreconditionerKind;
 ```
 
+## Module `linear_operator`
+
+Layer 2 — the discretisation-agnostic `LinearOperator` contract and the
+generic Krylov drivers (`cg_op`, `bicgstab_op`, `gmres_op`) written against
+it, so a finite-element crate can reuse this solver layer without adopting
+the finite-volume `LduMatrix` layout (GitHub issue #175). Purely additive:
+the existing finite-volume solvers are unchanged.
+Discretisation-agnostic linear-algebra contract, plus Krylov solvers written
+against it.
+
+# What belongs in this module
+
+The [`LinearOperator`] contract — "I am an `n x n` linear map you can apply
+to a vector, and I can hand you my diagonal" — and the
+[`OperatorPreconditioner`] contract, together with the three matrix-free
+Krylov drivers [`cg_op`], [`bicgstab_op`] and [`gmres_op`] that need nothing
+more than those two contracts.
+
+# What does NOT belong here
+
+Any storage format. This module stores no coefficients of its own: it is the
+seam at which a *representation* (LDU for the face-addressed finite-volume
+side, CSR for a finite-element side) meets the *solvers*.
+
+# Why it exists
+
+Before this module every Krylov entry point in the crate
+([`crate::krylov::gmres`], [`crate::krylov::bicgstab`],
+[`crate::ldu_matrix::solvers::conjugate_gradient`], GAMG, Gauss-Seidel) took
+a concrete `&LduMatrix`. `LduMatrix` is a *good* representation for a
+finite-volume mesh — one coefficient per internal face, owner/neighbour
+addressing straight off the mesh — and a poor one for a finite-element
+stiffness matrix, whose degree-of-freedom graph is denser than the cell graph
+and has no face to hang a coefficient on.
+
+A finite-element crate therefore had exactly two bad options: reformulate
+structural mechanics as finite volume so it could reuse the solvers, or
+reimplement the solvers so it could keep its own matrix. This module is the
+third option (GitHub issue #175): **one Krylov layer, two matrix layouts.**
+
+# Additive by construction
+
+Nothing in this module changes any existing function. The existing
+finite-volume solvers keep their `&LduMatrix` signatures and their exact
+behaviour; the functions here are *new* generic siblings. [`LduMatrix`]
+implements [`LinearOperator`], so the finite-volume side may use them too,
+but is not obliged to.
+
+# No trait objects
+
+Per the workspace design rules, [`LinearOperator`] and
+[`OperatorPreconditioner`] are used **only as generic bounds**
+(`fn cg_op<A: LinearOperator, M: OperatorPreconditioner>`), never as
+`Box<dyn LinearOperator>`. Each call site monomorphises to one concrete
+matrix type, so the matrix-vector product inlines exactly as it would have
+done in a hand-written solver.
+
+# Units
+
+Everything here is dimensionless `f64`. A Krylov subspace mixes residuals,
+search directions and solution increments that share no single physical
+dimension, so no `uom` typing is applied — exactly as in
+[`crate::krylov`]. Apply units at the layer that assembles the matrix.
+
+# Example
+
+```rust
+use outram_foam_basic_lib::krylov::KrylovSettings;
+use outram_foam_basic_lib::ldu_matrix::LduMatrix;
+use outram_foam_basic_lib::linear_operator::{cg_op, JacobiOperatorPreconditioner};
+
+// Symmetric positive-definite 3-cell chain.
+let mut a = LduMatrix::new(3, vec![0, 1], vec![1, 2]);
+a.diag = vec![4.0, 4.0, 4.0];
+a.lower = vec![-1.0, -1.0];
+a.upper = vec![-1.0, -1.0];
+let b = vec![1.0, 2.0, 3.0];
+
+let m = JacobiOperatorPreconditioner::new(&a);
+let settings = KrylovSettings { tolerance: 1e-12, max_iter: 100, restart: 30 };
+let (x, result) = cg_op(&a, &b, None, &m, &settings);
+
+assert!(result.converged);
+let mut ax = vec![0.0; 3];
+outram_foam_basic_lib::linear_operator::LinearOperator::apply(&a, &x, &mut ax);
+for i in 0..3 {
+    assert!((ax[i] - b[i]).abs() < 1e-9);
+}
+```
+
+```rust
+pub mod linear_operator { /* ... */ }
+```
+
+### Types
+
+#### Struct `IdentityPreconditioner`
+
+No preconditioning: `M = I`, so `z = r`.
+
+The correct choice when the system is already well conditioned, and the
+baseline any other preconditioner must beat.
+
+```rust
+pub struct IdentityPreconditioner;
+```
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **OperatorPreconditioner**
+  - ```rust
+    fn apply(self: &Self, r: &[f64], z: &mut [f64]) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `JacobiOperatorPreconditioner`
+
+Diagonal (Jacobi) preconditioning built from any [`LinearOperator`]:
+`z[i] = r[i] / A[i][i]`.
+
+Stores the reciprocal diagonal, so applying it is one multiply per row.
+Cannot break down: a diagonal entry whose magnitude is below `1e-300` is
+treated as `1.0`, matching [`crate::krylov::JacobiPreconditioner`].
+
+# Units
+
+The stored reciprocals carry the inverse of whatever units the matrix
+entries had; treated as dimensionless `f64` here.
+
+```rust
+pub struct JacobiOperatorPreconditioner {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new<A: LinearOperator + ?Sized>(a: &A) -> Self { /* ... */ }
+  ```
+  Extract and invert the diagonal of `a`.
+
+- ```rust
+  pub fn reciprocal_diagonal(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The stored reciprocal diagonal `1 / A[i][i]`, length `n`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **OperatorPreconditioner**
+  - ```rust
+    fn apply(self: &Self, r: &[f64], z: &mut [f64]) { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Traits
+
+#### Trait `LinearOperator`
+
+**Attributes:**
+
+- `Other("#[attr = OnUnimplemented {directive: Directive {is_rustc_attr: false,\nfilters: [],\nmessage: FormatString {input: \"`{Self}` cannot be used as a Krylov system matrix: it does not implement `LinearOperator`\",\npieces: [Lit(\"`\"), Arg(SelfUpper),\nLit(\"` cannot be used as a Krylov system matrix: it does not implement `LinearOperator`\")]},\nlabel: FormatString {input: \"not a linear operator\",\npieces: [Lit(\"not a linear operator\")]},\nnotes: [FormatString {input: \"implemented by `outram_foam_basic_lib::ldu_matrix::LduMatrix` (finite volume) and `farrer_park::sparse::CsrMatrix` (finite element)\",\npieces: [Lit(\"implemented by `outram_foam_basic_lib::ldu_matrix::LduMatrix` (finite volume) and `farrer_park::sparse::CsrMatrix` (finite element)\")]},\nFormatString {input: \"to add your own, implement `n_rows`, `n_cols`, `apply` and `diagonal`\",\npieces: [Lit(\"to add your own, implement `n_rows`, `n_cols`, `apply` and `diagonal`\")]}]}}]")`
+
+A square linear map `A` that can be applied to a vector.
+
+This is the single contract the discretisation-agnostic Krylov solvers in
+this module need. Implement it for any sparse (or dense, or matrix-free)
+representation and [`cg_op`] / [`bicgstab_op`] / [`gmres_op`] work on it
+unchanged.
+
+# Contract
+
+- [`n_rows`](Self::n_rows) and [`n_cols`](Self::n_cols) must be equal and
+  constant for the lifetime of the operator: these solvers are square-system
+  solvers.
+- [`apply`](Self::apply) must be **linear** and **deterministic**: the same
+  `x` must give bitwise the same `y`, and `A(u + v) = Au + Av` to rounding.
+  A Krylov method that is handed a non-linear or noisy operator does not
+  merely converge slowly, it converges to the wrong answer.
+- [`diagonal`](Self::diagonal) must write `A[i][i]` into `d[i]`.
+
+# Units
+
+Dimensionless. `x` and `y` are bare `f64` slices in whatever units the
+assembling layer chose; this contract neither knows nor enforces them.
+
+# Implemented by
+
+[`LduMatrix`] in this crate (face-addressed, finite-volume), and
+`farrer_park::sparse::CsrMatrix` (row-compressed, finite-element).
+
+```rust
+pub trait LinearOperator {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `n_rows`: Number of rows of `A` (dimensionless count). Equals the length of `y` in
+- `n_cols`: Number of columns of `A` (dimensionless count). Equals the length of `x`
+- `apply`: Write the matrix-vector product `y = A x`.
+- `diagonal`: Write the main diagonal `A[i][i]` into `d`, which has length
+
+##### Provided Methods
+
+- ```rust
+  fn residual(self: &Self, x: &[f64], b: &[f64], r: &mut [f64]) { /* ... */ }
+  ```
+  Write the residual `r = b - A x`.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `crate::ldu_matrix::LduMatrix`
+
+#### Trait `OperatorPreconditioner`
+
+**Attributes:**
+
+- `Other("#[attr = OnUnimplemented {directive: Directive {is_rustc_attr: false,\nfilters: [],\nmessage: FormatString {input: \"`{Self}` cannot be used as a Krylov preconditioner: it does not implement `OperatorPreconditioner`\",\npieces: [Lit(\"`\"), Arg(SelfUpper),\nLit(\"` cannot be used as a Krylov preconditioner: it does not implement `OperatorPreconditioner`\")]},\nlabel: FormatString {input: \"not a preconditioner\",\npieces: [Lit(\"not a preconditioner\")]},\nnotes: [FormatString {input: \"implemented by `IdentityPreconditioner`, `JacobiOperatorPreconditioner`, and `outram_foam_basic_lib::krylov::Preconditioner`\",\npieces: [Lit(\"implemented by `IdentityPreconditioner`, `JacobiOperatorPreconditioner`, and `outram_foam_basic_lib::krylov::Preconditioner`\")]},\nFormatString {input: \"pass `&IdentityPreconditioner` for an unpreconditioned solve\",\npieces: [Lit(\"pass `&IdentityPreconditioner` for an unpreconditioned solve\")]}]}}]")`
+
+An approximate inverse `M^{-1} ~ A^{-1}` usable by the generic Krylov
+drivers.
+
+# Contract
+
+[`apply`](Self::apply) writes `z = M^{-1} r`, with `r` and `z` the same
+length as the system. It must be **linear** and **deterministic** for the
+same reasons [`LinearOperator::apply`] must be, and for [`cg_op`] it must
+additionally be **symmetric positive definite** — preconditioned CG is only
+a conjugate-gradient method in the `M^{-1}`-inner product, and an
+unsymmetric `M` silently destroys that.
+
+# Units
+
+Dimensionless, as [`LinearOperator`].
+
+```rust
+pub trait OperatorPreconditioner {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `apply`: Write `z = M^{-1} r`. Both slices have the system length; `z` is fully
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `IdentityPreconditioner`
+- `JacobiOperatorPreconditioner`
+- `crate::krylov::Preconditioner`
+
+### Functions
+
+#### Function `cg_op`
+
+Preconditioned conjugate gradients for a **symmetric positive-definite**
+operator.
+
+The right solver for a finite-element stiffness matrix, which is symmetric
+by construction (`K = integral of B^T D B` with `D` symmetric), and for the
+finite-volume pressure Poisson equation.
+
+# Not a replacement for [`crate::ldu_matrix::solvers::conjugate_gradient`]
+
+That function is the finite-volume path and keeps its DIC preconditioner and
+its `&LduMatrix` signature unchanged. This one is generic over the operator
+and takes the preconditioner from the caller. Neither calls the other.
+
+# Arguments
+
+- `a` — the SPD system operator. Behaviour on a non-symmetric or indefinite
+  operator is undefined (CG may stagnate or diverge); use [`gmres_op`] or
+  [`bicgstab_op`] there.
+- `b` — right-hand side, length `a.n_rows()`, caller's units.
+- `x0` — optional initial guess; `None` means the zero vector. Pass the
+  previous Newton iterate to warm-start.
+- `precond` — SPD preconditioner `M^{-1}`.
+- `settings` — `tolerance` (relative, on `||b - A x||_2 / ||b||_2`) and
+  `max_iter`. `restart` is ignored.
+
+# Returns
+
+`(x, result)`. `result.final_residual` is the **true** relative residual of
+the returned iterate, recomputed from `a` and `b`, never an internal
+estimate. An exactly-zero `b` returns `x = 0`, converged, `0` iterations.
+
+# Cost
+
+One [`LinearOperator::apply`] and one [`OperatorPreconditioner::apply`] per
+iteration, plus `O(n)` vector work. Storage `O(n)`.
+
+```rust
+pub fn cg_op<A, M>(a: &A, b: &[f64], x0: Option<&[f64]>, precond: &M, settings: &crate::krylov::KrylovSettings) -> (Vec<f64>, crate::krylov::KrylovResult)
+where
+    A: LinearOperator + ?Sized,
+    M: OperatorPreconditioner + ?Sized { /* ... */ }
+```
+
+#### Function `bicgstab_op`
+
+Preconditioned BiCGStab for a general (possibly non-symmetric) operator.
+
+The generic sibling of [`crate::krylov::bicgstab`]: same algorithm and same
+breakdown guards, but over [`LinearOperator`] instead of `&LduMatrix`, and
+with the preconditioner supplied by the caller rather than built from an
+`LduMatrix`. The existing function is untouched.
+
+# Arguments and returns
+
+As [`cg_op`], except that `a` need not be symmetric. `settings.restart` is
+ignored.
+
+# Cost
+
+Two [`LinearOperator::apply`] and two [`OperatorPreconditioner::apply`] per
+iteration; fixed `O(n)` storage.
+
+```rust
+pub fn bicgstab_op<A, M>(a: &A, b: &[f64], x0: Option<&[f64]>, precond: &M, settings: &crate::krylov::KrylovSettings) -> (Vec<f64>, crate::krylov::KrylovResult)
+where
+    A: LinearOperator + ?Sized,
+    M: OperatorPreconditioner + ?Sized { /* ... */ }
+```
+
+#### Function `gmres_op`
+
+Restarted right-preconditioned GMRES(m) for a general operator.
+
+The generic sibling of [`crate::krylov::gmres`], algorithmically identical
+(modified Gram-Schmidt Arnoldi, Givens rotations, happy-breakdown guard at
+`1e-300`) but over [`LinearOperator`]. The existing function is untouched.
+
+# Arguments and returns
+
+As [`cg_op`], plus `settings.restart` = the subspace dimension `m`; `0` is
+treated as `m = max_iter` (unrestarted up to the cap).
+
+# Cost
+
+One [`LinearOperator::apply`] and one [`OperatorPreconditioner::apply`] per
+inner iteration; storage `O(m n)` for the Arnoldi basis.
+
+```rust
+pub fn gmres_op<A, M>(a: &A, b: &[f64], x0: Option<&[f64]>, precond: &M, settings: &crate::krylov::KrylovSettings) -> (Vec<f64>, crate::krylov::KrylovResult)
+where
+    A: LinearOperator + ?Sized,
+    M: OperatorPreconditioner + ?Sized { /* ... */ }
+```
+
 ## Module `limiters`
 
 TVD flux limiters — field-agnostic `psi(r)` functions on plain `f64`.
@@ -10235,7 +11913,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FluxLimiter { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10264,7 +11942,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &FluxLimiter) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10283,7 +11961,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10831,7 +12509,7 @@ share no points.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffScheme { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -10847,7 +12525,7 @@ share no points.
 
 - **Default**
   - ```rust
-    fn default() -> DiffScheme { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -10871,7 +12549,7 @@ share no points.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DiffScheme) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -10890,7 +12568,7 @@ share no points.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -10994,7 +12672,7 @@ pub struct DiffSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11029,7 +12707,7 @@ pub struct DiffSettings {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DiffSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11048,7 +12726,7 @@ pub struct DiffSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11141,7 +12819,7 @@ restriction is documented on [`jacobian`].
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffStatus { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11176,7 +12854,7 @@ restriction is documented on [`jacobian`].
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DiffStatus) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11195,7 +12873,7 @@ restriction is documented on [`jacobian`].
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11277,7 +12955,7 @@ pub struct DerivativeSolution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DerivativeSolution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11306,7 +12984,7 @@ pub struct DerivativeSolution {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DerivativeSolution) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11325,7 +13003,7 @@ pub struct DerivativeSolution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11392,7 +13070,7 @@ pub struct DiffBatchFailure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DiffBatchFailure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11428,7 +13106,7 @@ pub struct DiffBatchFailure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DiffBatchFailure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11452,7 +13130,7 @@ pub struct DiffBatchFailure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11558,7 +13236,7 @@ pub struct DerivativeBatch {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DerivativeBatch { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11586,7 +13264,7 @@ pub struct DerivativeBatch {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &DerivativeBatch) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -11605,7 +13283,7 @@ pub struct DerivativeBatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11691,7 +13369,7 @@ pub struct JacobianSolution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> JacobianSolution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11732,7 +13410,7 @@ pub struct JacobianSolution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -11832,7 +13510,7 @@ pub struct JacobianBatch {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> JacobianBatch { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -11873,7 +13551,7 @@ pub struct JacobianBatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -12047,7 +13725,7 @@ pub struct NumericalJacobian<S> {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13318,7 +14996,7 @@ Locate the abscissa where the objective is largest.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Sense { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13334,7 +15012,7 @@ Locate the abscissa where the objective is largest.
 
 - **Default**
   - ```rust
-    fn default() -> Sense { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -13358,7 +15036,7 @@ Locate the abscissa where the objective is largest.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Sense) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13377,7 +15055,7 @@ Locate the abscissa where the objective is largest.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13484,7 +15162,7 @@ pub struct MinProblem {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MinProblem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13513,7 +15191,7 @@ pub struct MinProblem {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MinProblem) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13532,7 +15210,7 @@ pub struct MinProblem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13652,7 +15330,7 @@ pub struct MinSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MinSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13686,7 +15364,7 @@ pub struct MinSettings {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MinSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13705,7 +15383,7 @@ pub struct MinSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13810,7 +15488,7 @@ structure left to recover from.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MinStatus { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -13845,7 +15523,7 @@ structure left to recover from.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MinStatus) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -13864,7 +15542,7 @@ structure left to recover from.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -13974,7 +15652,7 @@ pub struct MinSolution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MinSolution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14003,7 +15681,7 @@ pub struct MinSolution {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MinSolution) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14022,7 +15700,7 @@ pub struct MinSolution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14142,7 +15820,7 @@ pub struct MinBatch {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MinBatch { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14170,7 +15848,7 @@ pub struct MinBatch {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MinBatch) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14189,7 +15867,7 @@ pub struct MinBatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14258,7 +15936,7 @@ pub struct MinBatchFailure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MinBatchFailure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14294,7 +15972,7 @@ pub struct MinBatchFailure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MinBatchFailure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -14318,7 +15996,7 @@ pub struct MinBatchFailure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -14973,7 +16651,7 @@ Brent, *Algorithms for Minimization without Derivatives*, Prentice-Hall
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RootMethod { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -14989,7 +16667,7 @@ Brent, *Algorithms for Minimization without Derivatives*, Prentice-Hall
 
 - **Default**
   - ```rust
-    fn default() -> RootMethod { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -15013,7 +16691,7 @@ Brent, *Algorithms for Minimization without Derivatives*, Prentice-Hall
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RootMethod) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15032,7 +16710,7 @@ Brent, *Algorithms for Minimization without Derivatives*, Prentice-Hall
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15130,7 +16808,7 @@ pub struct RootProblem {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RootProblem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15159,7 +16837,7 @@ pub struct RootProblem {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RootProblem) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15178,7 +16856,7 @@ pub struct RootProblem {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15277,7 +16955,7 @@ pub struct RootSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RootSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15311,7 +16989,7 @@ pub struct RootSettings {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RootSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15330,7 +17008,7 @@ pub struct RootSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15434,7 +17112,7 @@ answer.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RootStatus { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15469,7 +17147,7 @@ answer.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RootStatus) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15488,7 +17166,7 @@ answer.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15589,7 +17267,7 @@ pub struct RootSolution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RootSolution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15618,7 +17296,7 @@ pub struct RootSolution {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RootSolution) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15637,7 +17315,7 @@ pub struct RootSolution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15753,7 +17431,7 @@ pub struct RootBatch {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RootBatch { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15781,7 +17459,7 @@ pub struct RootBatch {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RootBatch) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15800,7 +17478,7 @@ pub struct RootBatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -15868,7 +17546,7 @@ pub struct RootBatchFailure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RootBatchFailure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -15904,7 +17582,7 @@ pub struct RootBatchFailure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RootBatchFailure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -15928,7 +17606,7 @@ pub struct RootBatchFailure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17043,7 +18721,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MatrixError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17077,7 +18755,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MatrixError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17101,7 +18779,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17199,7 +18877,7 @@ pub struct SquareMatrix {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SquareMatrix { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17240,7 +18918,7 @@ pub struct SquareMatrix {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17405,7 +19083,7 @@ pub struct AmiOverlap {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AmiOverlap { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17434,7 +19112,7 @@ pub struct AmiOverlap {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AmiOverlap) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17453,7 +19131,7 @@ pub struct AmiOverlap {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17513,7 +19191,7 @@ pub struct AmiWeight {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AmiWeight { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17542,7 +19220,7 @@ pub struct AmiWeight {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AmiWeight) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17561,7 +19239,7 @@ pub struct AmiWeight {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17638,7 +19316,7 @@ pub struct AmiCoupling {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AmiCoupling { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17666,7 +19344,7 @@ pub struct AmiCoupling {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AmiCoupling) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17685,7 +19363,7 @@ pub struct AmiCoupling {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -17880,7 +19558,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> MeshError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -17914,7 +19592,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &MeshError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -17938,7 +19616,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18028,7 +19706,7 @@ pub struct BoundaryPatch {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> BoundaryPatch { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18057,7 +19735,7 @@ pub struct BoundaryPatch {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &BoundaryPatch) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -18076,7 +19754,7 @@ pub struct BoundaryPatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18162,7 +19840,7 @@ Inter-processor decomposition seam.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PatchKind { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18192,7 +19870,7 @@ Inter-processor decomposition seam.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &PatchKind) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -18211,7 +19889,7 @@ Inter-processor decomposition seam.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18289,7 +19967,7 @@ pub struct CyclicCoupling {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CyclicCoupling { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18319,7 +19997,7 @@ pub struct CyclicCoupling {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CyclicCoupling) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -18338,7 +20016,7 @@ pub struct CyclicCoupling {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18364,6 +20042,35 @@ Only the data required by the FV operators is stored.
 ```
 The `neighbour` array has length `n_internal_faces`; boundary faces have no
 entry in `neighbour`.
+
+## Getting one
+
+This was a documented friction point in an API dogfood run (gh #58): the
+prelude exports `FvMesh`, but nothing told the reader *how to obtain one*,
+and they ended up reading the test suite to find out. The ready-made
+constructors are listed here so that is not necessary:
+
+- [`FvMesh::periodic_1d`] — a 1-D periodic column of `n` cells. The usual
+  choice for verifying an operator against an analytic solution, since
+  periodicity removes boundary treatment from the comparison.
+- [`FvMesh::periodic_ring_ami`](crate::mesh::ami) — a periodic ring with a
+  non-conformal AMI interface, for exercising the AMI paths.
+- [`FvMeshBuilder`] — build one face by face when neither fits.
+
+Meshes are shared by the field types via `Arc`, so wrap it once:
+
+```
+use outram_foam_basic_lib::prelude::*;
+use std::sync::Arc;
+
+// 16 cells over a unit length, unit cross-sectional area.
+let mesh = Arc::new(FvMesh::periodic_1d(16, 1.0, 1.0));
+assert_eq!(mesh.n_cells, 16);   // a public field, not a method
+
+// A field is then built on that mesh.
+let phi = VolScalarField::uniform("phi", mesh.clone(), 0.0);
+assert_eq!(phi.internal.len(), 16);
+```
 
 ```rust
 pub struct FvMesh {
@@ -18484,7 +20191,7 @@ pub struct FvMesh {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> FvMesh { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18525,7 +20232,7 @@ pub struct FvMesh {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18638,9 +20345,24 @@ pub struct FvMeshBuilder {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
 - **Default**
   - ```rust
-    fn default() -> FvMeshBuilder { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Freeze**
@@ -18660,9 +20382,18 @@ pub struct FvMeshBuilder {
 - **Same**
 - **Send**
 - **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18752,7 +20483,7 @@ pub struct RegionInterface {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RegionInterface { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18793,7 +20524,7 @@ pub struct RegionInterface {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -18948,7 +20679,7 @@ pub struct Euler {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Euler { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -18989,7 +20720,7 @@ pub struct Euler {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19240,7 +20971,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OdeSolver { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19281,7 +21012,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19332,7 +21063,7 @@ pub struct NoTypedSystem;
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> NoTypedSystem { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19348,7 +21079,7 @@ pub struct NoTypedSystem;
 
 - **Default**
   - ```rust
-    fn default() -> NoTypedSystem { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -19376,7 +21107,7 @@ pub struct NoTypedSystem;
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &NoTypedSystem) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -19395,7 +21126,7 @@ pub struct NoTypedSystem;
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19495,7 +21226,7 @@ pub struct TypedStateIntegrator<S: OdeSystem> {
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19567,7 +21298,7 @@ pub struct DynSystemIntegrator {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> DynSystemIntegrator { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -19608,7 +21339,7 @@ pub struct DynSystemIntegrator {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -19768,7 +21499,7 @@ Fields:
 - **Sync**
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20148,7 +21879,7 @@ pub struct OdeLane<S: OdeSystem> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OdeLane<S> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20176,7 +21907,7 @@ pub struct OdeLane<S: OdeSystem> {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OdeLane<S>) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20195,7 +21926,7 @@ pub struct OdeLane<S: OdeSystem> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20305,7 +22036,7 @@ zero-length integration that succeeded.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OdeLaneStatus { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20340,7 +22071,7 @@ zero-length integration that succeeded.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OdeLaneStatus) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20359,7 +22090,7 @@ zero-length integration that succeeded.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20457,7 +22188,7 @@ pub struct OdeLaneSolution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OdeLaneSolution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20485,7 +22216,7 @@ pub struct OdeLaneSolution {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OdeLaneSolution) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20504,7 +22235,7 @@ pub struct OdeLaneSolution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20633,7 +22364,7 @@ pub struct OdeEnsemble {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OdeEnsemble { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20661,7 +22392,7 @@ pub struct OdeEnsemble {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OdeEnsemble) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20680,7 +22411,7 @@ pub struct OdeEnsemble {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20752,7 +22483,7 @@ pub struct OdeEnsembleFailure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OdeEnsembleFailure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20787,7 +22518,7 @@ pub struct OdeEnsembleFailure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OdeEnsembleFailure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20811,7 +22542,7 @@ pub struct OdeEnsembleFailure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -20885,7 +22616,7 @@ pub struct QuadratureInterval {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadratureInterval { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -20914,7 +22645,7 @@ pub struct QuadratureInterval {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadratureInterval) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -20933,7 +22664,7 @@ pub struct QuadratureInterval {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21035,7 +22766,7 @@ Eight-point rule, exact to degree 15.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> GaussOrder { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21051,7 +22782,7 @@ Eight-point rule, exact to degree 15.
 
 - **Default**
   - ```rust
-    fn default() -> GaussOrder { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Eq**
@@ -21075,7 +22806,7 @@ Eight-point rule, exact to degree 15.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &GaussOrder) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21094,7 +22825,7 @@ Eight-point rule, exact to degree 15.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21233,7 +22964,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadratureRule { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21268,7 +22999,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadratureRule) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21287,7 +23018,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21354,7 +23085,7 @@ pub struct AdaptiveSettings {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> AdaptiveSettings { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21388,7 +23119,7 @@ pub struct AdaptiveSettings {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &AdaptiveSettings) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21407,7 +23138,7 @@ pub struct AdaptiveSettings {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21507,7 +23238,7 @@ integrate over.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadratureStatus { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21542,7 +23273,7 @@ integrate over.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadratureStatus) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21561,7 +23292,7 @@ integrate over.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21654,7 +23385,7 @@ pub struct QuadratureSolution {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadratureSolution { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21683,7 +23414,7 @@ pub struct QuadratureSolution {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadratureSolution) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21702,7 +23433,7 @@ pub struct QuadratureSolution {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21822,7 +23553,7 @@ pub struct QuadratureBatch {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadratureBatch { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21850,7 +23581,7 @@ pub struct QuadratureBatch {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadratureBatch) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21869,7 +23600,7 @@ pub struct QuadratureBatch {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -21936,7 +23667,7 @@ pub struct QuadratureBatchFailure {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadratureBatchFailure { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -21972,7 +23703,7 @@ pub struct QuadratureBatchFailure {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadratureBatchFailure) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -21996,7 +23727,7 @@ pub struct QuadratureBatchFailure {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -22885,7 +24616,7 @@ pub struct Rkf45 {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Rkf45 { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -22926,7 +24657,7 @@ pub struct Rkf45 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23004,7 +24735,7 @@ pub struct Rosenbrock23 {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Rosenbrock23 { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23045,7 +24776,7 @@ pub struct Rosenbrock23 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23110,7 +24841,7 @@ pub struct OdeSolverConfig {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OdeSolverConfig { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23156,7 +24887,7 @@ pub struct OdeSolverConfig {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23239,7 +24970,7 @@ the wrong cause.
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> OdeError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23273,7 +25004,7 @@ the wrong cause.
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &OdeError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23297,7 +25028,7 @@ the wrong cause.
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23614,7 +25345,7 @@ pub struct CubicEqn {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> CubicEqn { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23643,7 +25374,7 @@ pub struct CubicEqn {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &CubicEqn) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23662,7 +25393,7 @@ pub struct CubicEqn {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23747,7 +25478,7 @@ pub struct LinearEqn {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> LinearEqn { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23776,7 +25507,7 @@ pub struct LinearEqn {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &LinearEqn) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -23795,7 +25526,7 @@ pub struct LinearEqn {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -23903,7 +25634,7 @@ pub struct Polynomial<const N: usize> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Polynomial<N> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -23945,7 +25676,7 @@ pub struct Polynomial<const N: usize> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24032,7 +25763,7 @@ pub struct QuadraticEqn {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> QuadraticEqn { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24061,7 +25792,7 @@ pub struct QuadraticEqn {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &QuadraticEqn) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24080,7 +25811,7 @@ pub struct QuadraticEqn {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24170,7 +25901,7 @@ Discriminant value: `4`
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RootType { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24200,7 +25931,7 @@ Discriminant value: `4`
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &RootType) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -24219,7 +25950,7 @@ Discriminant value: `4`
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -24327,7 +26058,7 @@ pub struct Roots<const N: usize> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Roots<N> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -24374,7 +26105,7 @@ pub struct Roots<const N: usize> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -25105,6 +26836,24 @@ pub use crate::fv_operators::fvc;
 
 ```rust
 pub use crate::fv_operators::fvm;
+```
+
+#### Re-export `KnpFaceFlux`
+
+```rust
+pub use crate::fv_operators::fvc::central_upwind::KnpFaceFlux;
+```
+
+#### Re-export `KnpFaceState`
+
+```rust
+pub use crate::fv_operators::fvc::central_upwind::KnpFaceState;
+```
+
+#### Re-export `KnpWaveSpeeds`
+
+```rust
+pub use crate::fv_operators::fvc::central_upwind::KnpWaveSpeeds;
 ```
 
 #### Re-export `grad_least_squares`
@@ -26381,7 +28130,7 @@ pub struct SphericalTensor {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SphericalTensor { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26397,7 +28146,7 @@ pub struct SphericalTensor {
 
 - **Default**
   - ```rust
-    fn default() -> SphericalTensor { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Div**
@@ -26462,7 +28211,7 @@ pub struct SphericalTensor {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SphericalTensor) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -26502,7 +28251,7 @@ pub struct SphericalTensor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -26799,7 +28548,7 @@ pub struct SymmTensor {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SymmTensor { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -26815,7 +28564,7 @@ pub struct SymmTensor {
 
 - **Default**
   - ```rust
-    fn default() -> SymmTensor { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Div**
@@ -26885,7 +28634,7 @@ pub struct SymmTensor {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &SymmTensor) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -26930,7 +28679,7 @@ pub struct SymmTensor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27368,7 +29117,7 @@ pub struct Tensor {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Tensor { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27384,7 +29133,7 @@ pub struct Tensor {
 
 - **Default**
   - ```rust
-    fn default() -> Tensor { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Div**
@@ -27450,7 +29199,7 @@ pub struct Tensor {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Tensor) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -27495,7 +29244,7 @@ pub struct Tensor {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -27778,7 +29527,7 @@ pub struct Vector3 {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> Vector3 { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -27794,7 +29543,7 @@ pub struct Vector3 {
 
 - **Default**
   - ```rust
-    fn default() -> Vector3 { /* ... */ }
+    fn default() -> Self { /* ... */ }
     ```
 
 - **Div**
@@ -27845,7 +29594,7 @@ pub struct Vector3 {
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &Vector3) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -27874,7 +29623,7 @@ pub struct Vector3 {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28218,7 +29967,7 @@ pub struct IcoPolynomial<const N: usize> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> IcoPolynomial<N> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28301,7 +30050,7 @@ pub struct IcoPolynomial<const N: usize> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28382,7 +30131,7 @@ pub struct PengRobinsonGas {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PengRobinsonGas { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28471,7 +30220,7 @@ pub struct PengRobinsonGas {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28537,7 +30286,7 @@ pub struct PerfectGas {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PerfectGas { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28620,7 +30369,7 @@ pub struct PerfectGas {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28686,7 +30435,7 @@ pub struct RhoConst {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> RhoConst { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28769,7 +30518,7 @@ pub struct RhoConst {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -28868,7 +30617,7 @@ Fields:
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ThermoError { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -28902,7 +30651,7 @@ Fields:
 
 - **PartialEq**
   - ```rust
-    fn eq(self: &Self, other: &ThermoError) -> bool { /* ... */ }
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
     ```
 
 - **RefUnwindSafe**
@@ -28926,7 +30675,7 @@ Fields:
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29281,7 +31030,7 @@ pub struct HConstThermo<E: EquationOfState> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HConstThermo<E> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29384,7 +31133,7 @@ pub struct HConstThermo<E: EquationOfState> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29463,7 +31212,7 @@ pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HPolynomialThermo<E, N> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29566,7 +31315,7 @@ pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29638,7 +31387,7 @@ pub struct HTabulatedThermo<E: EquationOfState> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> HTabulatedThermo<E> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29741,7 +31490,7 @@ pub struct HTabulatedThermo<E: EquationOfState> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -29822,7 +31571,7 @@ pub struct JanafThermo<E: EquationOfState> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> JanafThermo<E> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -29925,7 +31674,7 @@ pub struct JanafThermo<E: EquationOfState> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30047,7 +31796,7 @@ pub struct ConstTransport<T: ThermoModel> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> ConstTransport<T> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30159,7 +31908,7 @@ pub struct ConstTransport<T: ThermoModel> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30228,7 +31977,7 @@ pub struct PolynomialTransport<T: ThermoModel, const N: usize> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> PolynomialTransport<T, N> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30340,7 +32089,7 @@ pub struct PolynomialTransport<T: ThermoModel, const N: usize> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30419,7 +32168,7 @@ pub struct SutherlandTransport<T: ThermoModel> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> SutherlandTransport<T> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30531,7 +32280,7 @@ pub struct SutherlandTransport<T: ThermoModel> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**
@@ -30600,7 +32349,7 @@ pub struct TabulatedTransport<T: ThermoModel> {
 
 - **Clone**
   - ```rust
-    fn clone(self: &Self) -> TabulatedTransport<T> { /* ... */ }
+    fn clone(self: &Self) -> Self { /* ... */ }
     ```
 
 - **CloneToUninit**
@@ -30712,7 +32461,7 @@ pub struct TabulatedTransport<T: ThermoModel> {
 
 - **TryFrom**
   - ```rust
-    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
     ```
 
 - **TryInto**

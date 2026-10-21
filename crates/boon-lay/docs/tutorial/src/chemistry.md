@@ -1,0 +1,232 @@
+# Rung 6 — Air and steam: chemical attack
+
+> **Research, education and V&V only.** Nothing here is for reactor
+> operation, licensing, safety-critical decisions or emergency response
+> ([`RESPONSIBLE_USE.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/RESPONSIBLE_USE.md)).
+> **Review status:** AI-assisted draft, 2026-10-04, not yet human-reviewed.
+> [Something doesn't tally?](https://github.com/theodoreOnzGit/outram-park-backend/issues/new?title=boon-lay%20lesson%20rung%206%20doesn%27t%20tally)
+
+**Core lesson, rung 6 of 8.** Rung 5 broke particles with heat and
+pressure in helium. This rung lets something else into the core: air or
+steam. It is the thinnest rung in the crate, and the page says so.
+
+## The hook
+
+> **The problem.** If a pipe breaks and air or water vapour reaches hot
+> graphite, the graphite burns or gasifies, and a bare kernel meeting steam
+> lets go of gas it was holding. *How fast, and what does this crate
+> actually model?*
+
+**Demo:** [open this rung](../../demos/triso-atops/?rung=chemistry). The three rate laws against
+temperature, computed in your browser by the code this page walks, with
+sliders for the oxygen, steam and hydrogen partial pressures; each curve is
+dotted inside its measured range and dashed where it is extrapolated.
+
+What exists is **three cited rate laws**, each a transcription of one
+published correlation with its validity range, added on 2026-09-29 for the
+`htgr_sim_v1` digital twin's water-ingress stage (gh:#401). None of them is a
+port and none is a mechanistic attack model
+([`chemistry/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/mod.rs)).
+
+---
+
+## Step 1. How fast does graphite burn in air?
+
+**The question.** Air reaches graphite at 900 °C. How much carbon is lost
+per second?
+
+**The shortest answer.** Whichever is slower: the chemistry, or the oxygen
+supply. At reactor temperatures the chemistry is so fast that **every oxygen
+molecule that arrives reacts**, so the supply sets the rate.
+
+**The formula.** The chemical (Regime 1) rate is Arrhenius, first order in
+oxygen:
+
+$$k = A\ e^{-E_a/RT}\ \frac{p_{O_2}}{p_{O_2,\text{ref}}},\qquad E_a = 191\ \text{kJ/mol},\ \ln A = 13.0\ (A\ \text{in s}^{-1}),$$
+
+from Contescu et al., ORNL/TM-2022/1839, Table 3 (p. 39), row Contescu
+(2011), IG-110 in air, 597–694 °C. The carbon gasified is then
+
+$$\dot n_C = \min\left(\frac{k\ m_{\text{graphite}}}{M_C},\ \dot n_{O_2}\right).$$
+
+The review is in the open corpus; its validity statement (p. 46, IG-110 at
+191–195 kJ/mol, ln A 13.0–13.1) is what the code cites.
+**The oxygen order $n = 1$ is an assumption**: the review gives no order for
+IG-110, and the code labels it as such.
+
+**The illustration** (JavaScript; slide the temperature and the oxygen
+supply, and see which limit binds):
+
+<div class="bl-anim" data-anim="oxidation"></div>
+
+**In the code.**
+
+*In words, read from the source by hand:*
+
+<!-- walk-in-words: from=crates/boon-lay/src/chemistry/graphite_air.rs::gasification_rate to=crates/boon-lay/src/chemistry/graphite_air.rs::kinetic_specific_rate -->
+1. [`graphite_air::gasification_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_air.rs#@@L:crates/boon-lay/src/chemistry/graphite_air.rs:fn=gasification_rate@@): **branch** kinetic ≤ supply → `Limit::Kinetic`; otherwise → `Limit::OxygenSupply`;
+2. → [`kinetic_specific_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_air.rs#@@L:crates/boon-lay/src/chemistry/graphite_air.rs:fn=kinetic_specific_rate@@): the Arrhenius rate and a `Validity` flag (inside 870–967 K or extrapolated).
+<!-- /walk-in-words -->
+
+
+> **On the [Code Review map](../../code-review/):** start at [`gasification_rate`](../../code-review/#crates/boon-lay/src/chemistry/graphite_air.rs::gasification_rate) and follow its callees (▸) to [`kinetic_specific_rate`](../../code-review/#crates/boon-lay/src/chemistry/graphite_air.rs::kinetic_specific_rate). Each card opens the function's source and shows its review stamp.
+
+
+```rust,ignore
+{{#include ../../../src/chemistry/graphite_air.rs:93:107}}
+```
+
+**The check.** A transcription check only (**verification** of the copy,
+not of the physics): at 650 °C in air the rate equals a hand evaluation,
+6.8877·10⁻⁶ s⁻¹, to 10⁻⁴; at 900 °C with 5000 kg of graphite and 1 mol/s of
+O₂ the supply limit binds (`table_3_is_transcribed_and_supply_binds_at_core_temperature`,
+recorded 2026-09-29).
+
+**Re-run 2026-10-04** (this track's run, `develop` atop `5e802df3a4`, `--release`): printed **6.8877·10⁻⁶ s⁻¹**, pass.
+
+**Who uses it.** Nothing in this crate. The digital twin's depressurisation
+model
+([`depressurisation.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/depressurisation.rs))
+calls it. Since 2026-09-30 (gh:#420) its oxygen supply is an **assumed**
+exchange of the core gas at Gao & Shi's reactor-cavity ventilation rate
+(100 % a day for 72 h); no core air-ingress rate is published for HTR-10.
+
+**Predict.** Above the measured range the Arrhenius law keeps climbing.
+Does that make the code over- or under-state the graphite lost, if the
+supply limit were not there?
+
+---
+
+## Step 2. How fast does steam gasify graphite?
+
+**The question.** Steam, not air: $\mathrm{C + H_2O \to CO + H_2}$. This one
+*absorbs* heat (+131.3 kJ/mol), and the hydrogen it makes slows it down.
+
+**The shortest answer.** A Langmuir–Hinshelwood rate law: steam adsorbs on
+the surface and reacts; hydrogen competes for the sites.
+
+**The formula** (Wang & Sun 2023, *Nucl. Eng. Des.* 410, 112382, Eqs (2)–(3);
+coefficients from Table 8, p. 11, "Unknown n" column):
+
+$$R = \frac{k_1 e^{-E_1/RT}\ p_{H_2O}^{m(T)}}{1 + k_2 e^{-E_2/RT}\ p_{H_2}^{n} + k_3 e^{-E_3/RT}\ p_{H_2O}^{m(T)}},$$
+
+with $m(T)$ a smooth step between two orders. Valid over 850–1100 °C,
+$p_{H_2O}$ 0.5–20 kPa, $p_{H_2}$ ≤ 2 kPa. The paper is proprietary-tier: it is
+cited by page, not quoted.
+
+**In the code.**
+
+*In words, read from the source by hand:*
+
+<!-- walk-in-words: from=crates/boon-lay/src/chemistry/graphite_steam.rs::specific_rate depth=1 -->
+1. [`graphite_steam::specific_rate`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_steam.rs#@@L:crates/boon-lay/src/chemistry/graphite_steam.rs:fn=specific_rate@@): evaluates the fit and flags `InsideMeasuredRange` or `Extrapolated`;
+2. ← its coefficients from [`BlhCoefficients::wang_sun_2023_ig110`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/graphite_steam.rs#@@L:crates/boon-lay/src/chemistry/graphite_steam.rs:fn=wang_sun_2023_ig110@@).
+3. Called from outside the crate by `htgr_sim_v1`'s [`water_ingress.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/water_ingress.rs#L248), which reports when it extrapolates.
+<!-- /walk-in-words -->
+
+
+> **On the [Code Review map](../../code-review/):** start at [`specific_rate`](../../code-review/#crates/boon-lay/src/chemistry/graphite_steam.rs::specific_rate). Each card opens the function's source and shows its review stamp.
+
+
+**The check.** Transcription again: at 1050 °C, 5 kPa steam and no
+hydrogen, the code gives 2.004984·10⁻⁶ s⁻¹, equal to an independent hand
+evaluation to 10⁻⁴, and inside the 10⁻⁶–10⁻⁵ s⁻¹ band of the paper's
+measured points at that temperature (Fig. 17, read off the rendered page).
+Hydrogen inhibits, temperature accelerates (`the_blh_fit_is_transcribed_and_behaves`,
+2026-09-29). The band comparison is the only contact with measured data on
+this rung, and it is a loose one.
+
+**Re-run 2026-10-04** (same run): printed **2.0050·10⁻⁶ s⁻¹**, `InsideMeasuredRange`, pass.
+
+**Predict.** In a water-ingress accident the steam partial pressure is
+hundreds of kPa. Where is that relative to the fit's range?
+
+---
+
+## Step 3. What does steam do to a bare kernel?
+
+**The question.** A particle whose coatings have failed (rung 5) exposes its
+kernel. Steam reaches it. What comes out?
+
+**The shortest answer.** A one-time burst of the noble gas stored in the
+kernel. A fit to the HFR-B1 and HRB-17 steam-injection tests gives the
+fraction.
+
+**The formula** (IAEA-TECDOC-978, §5.3.1.1, Eq. (5-2), p. 223; proprietary
+tier, cited by page):
+
+$$f = 2.13\times10^{13}\ P^{-4.353 + 6503/T}\ e^{-47\ 257/T},$$
+
+$P$ in Pa, $T$ in K, fitted over 820–1040 °C and 2.8–1051 Pa. It is a
+fraction of an inventory, so it is clamped to $[0, 1]$, and the clamp is
+reported.
+
+**In the code.**
+
+*In words, read from the source by hand:*
+
+<!-- walk-in-words: from=crates/boon-lay/src/chemistry/kernel_hydrolysis.rs::stored_gas_fraction to=crates/boon-lay/src/chemistry/kernel_hydrolysis.rs::stored_gas_fraction -->
+1. [`kernel_hydrolysis::stored_gas_fraction`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/chemistry/kernel_hydrolysis.rs#@@L:crates/boon-lay/src/chemistry/kernel_hydrolysis.rs:fn=stored_gas_fraction@@): three exits — `InsideFittedRange`, `Extrapolated`, `ClampedToWholeInventory`.
+<!-- /walk-in-words -->
+
+
+> **On the [Code Review map](../../code-review/):** start at [`stored_gas_fraction`](../../code-review/#crates/boon-lay/src/chemistry/kernel_hydrolysis.rs::stored_gas_fraction) and follow its callees (▸) to [`stored_gas_fraction`](../../code-review/#crates/boon-lay/src/chemistry/kernel_hydrolysis.rs::stored_gas_fraction). Each card opens the function's source and shows its review stamp.
+
+
+**The check.** At 1000 °C and 1000 Pa, $f = 0.296875$, equal to a hand
+evaluation to 10⁻⁴ (`eq_5_2_is_transcribed_and_clamped`, 2026-09-29).
+
+**Re-run 2026-10-04** (same run): printed **f = 0.29687**, pass.
+
+**The known limitation, stated not hidden (gh:#418).** In an HTGR
+water-ingress accident the steam pressure is three orders of magnitude above
+the fit, so the function returns `ClampedToWholeInventory`: every exposed
+kernel gives up its whole stored noble gas. Callers must surface that flag.
+Not modelled at all: the slower stage-2 enhancement under continued steam,
+and iodine or metal release from hydrolysed kernels.
+
+---
+
+## What is missing on this rung, with its issues
+
+The oxidation-attack chain on a pebble, layer by layer, is the open epic
+**gh:#441**. Its children say what each step needs:
+
+```text
+oxidant at the pebble surface
+  -> fuel-free graphite shell recedes            (graphite_air / graphite_steam: rate only)
+  -> fuelled matrix recedes, particles exposed   (not modelled)
+  -> OPyC burned off                             (not modelled)
+  -> SiC oxidised, thinned -> stress failure     (rung 5's thinning factor could take it; not wired)
+  -> exposed kernel attacked                     (steam: kernel_hydrolysis; air UO2 -> U3O8: missing, gh:#444)
+```
+
+- **gh:#444:** the steam half exists and is unchecked against Kugeler 2017's
+  AVR and cracked-kernel krypton numbers; the **air** half (UO₂ → U₃O₈
+  oxidation of an exposed kernel, and the release that follows) is missing.
+- **gh:#442 / #443:** oxidant transport and matrix recession; SiC passive
+  and active oxidation feeding rung 5's thinning factor. Neither exists.
+- **gh:#457:** check `graphite_air` against IAEA-TECDOC-978 Fig. 5-18 (fuel
+  compact weight loss in air at 1400 °C), the first contact with measured
+  data this module could have.
+- **gh:#418:** the hydrolysis fit far outside its range.
+- **gh:#420:** the twin's oxygen supply is an assumed cavity-ventilation
+  exchange, not a published core air-ingress rate.
+
+## Deliberate liberties on this rung
+
+- **First order in oxygen** for graphite–air (no published order for IG-110).
+- **Kinetic regime fits used above their range**, with the supply limit as
+  the guard for air; the in-pore and boundary-layer regimes are not modelled.
+- **Reaction enthalpies at 298 K**, temperature dependence not carried.
+
+## Use, modify, create
+
+- **Use:** `cargo test --release -p boon-lay --lib chemistry -- --nocapture`.
+- **Modify:** evaluate `stored_gas_fraction` at 1000 °C for 10, 100 and
+  1000 Pa. Plot it. Where does it reach 1?
+- **Create:** write down, before looking anything up, which of the five
+  attack steps you would expect to be slowest at 900 °C in air, and why.
+  Then read gh:#441.
+
+**Next:** [rung 7, to the coolant](./coolant.md).

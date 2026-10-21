@@ -36,6 +36,9 @@ structure.
 
 ## Existing content in this folder
 
+- **`htr10-mgxs-desktop-runbook.md`** — how to run the HTR-10 MGXS cases of
+  `src/htr10_mgxs/` on a separate machine with few tokens to spend (gh:#845).
+
 - **`xin-wang-thesis/`** — the extracted methodology and case data for the Xin
   Wang SP3 workflow (`src/xin_wang_sp3_workflow/`). Five markdown files:
   `00-overview.md`, `02-methodology-sp3.md`,

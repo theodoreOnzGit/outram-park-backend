@@ -37,6 +37,7 @@
 //! laws remain untrusted draft material until a human has reviewed them and
 //! they have been run against a published benchmark.
 
+use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
@@ -318,7 +319,7 @@ fn vendochab_flow_rate_matches_the_upstream_power_law() {
     let dt = 0.01;
 
     let (rate, linearised) = law.hardening_rate(sigma_eff, r, dt);
-    let reference = ((sigma_eff - p.yield_stress) / (p.k * r.powf(1.0 / p.m))).powf(p.n);
+    let reference = ((sigma_eff - p.yield_stress) / (p.k * r.r_powf(1.0 / p.m))).r_powf(p.n);
     println!(
         "port rate = {rate:.6e} 1/s, reference = {reference:.6e} 1/s, \
          relative difference = {:.3e}, linearised = {linearised}",
@@ -357,8 +358,8 @@ fn vendochab_rate_guard_is_the_tangent_linearisation_at_the_switch() {
     let r = 0.02_f64;
     let rate_star: f64 = 0.1 / dt;
     // Overstress at which the bare power law gives exactly rate*.
-    let sc = p.k * r.powf(1.0 / p.m);
-    let overstress_switch = sc * rate_star.powf(1.0 / p.n);
+    let sc = p.k * r.r_powf(1.0 / p.m);
+    let overstress_switch = sc * rate_star.r_powf(1.0 / p.n);
 
     let below = law.hardening_rate(p.yield_stress + overstress_switch * (1.0 - 1.0e-9), r, dt);
     let above = law.hardening_rate(p.yield_stress + overstress_switch * (1.0 + 1.0e-9), r, dt);
@@ -566,7 +567,7 @@ fn vendochab_coupled_solve_is_first_order_in_time() {
         println!("  N = {n:4}  |error| = {err:.6e}");
     }
     for window in errors.windows(2) {
-        let order = (window[0] / window[1]).log2();
+        let order = (window[0] / window[1]).r_log2();
         println!("  measured order = {order:.4}");
         assert!(
             (0.5..=1.5).contains(&order),
@@ -642,7 +643,7 @@ fn upstream_nmvexi_reads_the_wrong_material_slots() {
          ratio = {:.6}, rate ratio at R_D = {} is {:.6}",
         defective / correct,
         p.damage_exponent,
-        (defective / correct).powf(p.damage_exponent)
+        (defective / correct).r_powf(p.damage_exponent)
     );
     assert!((defective - correct).abs() > 1.0e-3 * correct.abs());
 }
@@ -732,7 +733,7 @@ fn visc_endo_lema_drives_damage_with_the_effective_stress() {
     let chi_l = lema.damage_equivalent_stress(sigma, damage);
     let rate_v = vendochab.damage_rate(chi_v, damage);
     let rate_l = lema.damage_rate(chi_l, damage);
-    let expected = (1.0 - damage).powf(-p.damage_exponent);
+    let expected = (1.0 - damage).r_powf(-p.damage_exponent);
 
     println!(
         "chi_VENDOCHAB = {chi_v:.6e} Pa, chi_VISC_ENDO_LEMA = {chi_l:.6e} Pa; \
@@ -1162,7 +1163,9 @@ fn gtn_surface_has_the_two_exact_limits() {
 
     let d = 0.15_f64;
     let q2 = gtn_params().q2;
-    let mean = 2.0 * s_star / (3.0 * q2) * (((1.0 + d * d) / (2.0 * d)).acosh());
+    // RealMath has no acosh: petir::real::Real by trait path (gh:#985).
+    let mean =
+        2.0 * s_star / (3.0 * q2) * petir::real::Real::acosh((1.0 + d * d) / (2.0 * d));
     let phi = law.yield_function(0.0, mean, s_star, d);
     println!("D = {d}: hydrostatic strength sigma_m = {mean:.6e} Pa, Phi there = {phi:.6e}");
     assert!(phi.abs() < 1.0e-12);

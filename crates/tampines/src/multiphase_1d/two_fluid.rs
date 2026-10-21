@@ -258,6 +258,7 @@
 //! `W/m³`, `kg/(m³·s)` — because every one of them is read per cell per
 //! corrector per step. Every raw-`f64` boundary says so.
 
+use petir::mathf::RealMath;
 use outram_foam_multiphase::two_fluid::RESIDUAL_ALPHA;
 
 use uom::si::available_energy::joule_per_kilogram;
@@ -2344,7 +2345,7 @@ fn wall_friction_acceleration(u: f64, rho: f64, mu: f64, d_h: f64) -> f64 {
     let f = if re < 2300.0 {
         64.0 / re
     } else {
-        0.316 * re.powf(-0.25)
+        0.316 * re.r_powf(-0.25)
     };
     f * u.abs() * u / (2.0 * d_h)
 }

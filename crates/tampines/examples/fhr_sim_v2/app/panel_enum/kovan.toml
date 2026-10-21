@@ -1,0 +1,28 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines"
+dir = "crates/tampines/examples/fhr_sim_v2/app/panel_enum"
+test_ids = [
+    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/tampines/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+]
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::panel_enum"
+
+[[module."mod.rs".function]]
+id = "fn:ee3f3d1c5d981e1a"
+name = "Panel"
+qual = "Panel"
+item = "type"
+shape = "enum"
+lines = [
+    1,
+    6,
+]
+hash = "sha256:19959dec2d0d0c021b7b23d81a9744fd92b254f0eec9ab52e7be4e5dbcc34d89"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+]

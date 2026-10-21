@@ -1,3 +1,4 @@
+use petir::uom_math::QuantityMath;
 use outram_mc_libs::rng::distributions::sample_normal;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -115,7 +116,7 @@ impl SingleParticleDiffusionSimulatorMC {
             no_of_collisions_per_second,
             mean_free_path,
         );
-        let std_deviation: Length = per_component_variance.sqrt();
+        let std_deviation: Length = per_component_variance.r_sqrt();
 
         [
             n1 * std_deviation / unit_timestep,

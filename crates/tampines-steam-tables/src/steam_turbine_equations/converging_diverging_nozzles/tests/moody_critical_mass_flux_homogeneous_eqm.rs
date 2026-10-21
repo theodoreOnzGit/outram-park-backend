@@ -1,3 +1,5 @@
+use petir::uom_math::QuantityMath;
+use petir::mathf::RealMath;
 use uom::ConstZero;
 use uom::si::area::square_foot;
 use uom::si::available_energy::btu_it_per_pound;
@@ -401,8 +403,8 @@ fn validate_moody_isobar_inner(
         };
         let g_ref_log = g_ref_expected
             .get::<kilogram_per_square_meter_second>()
-            .log10();
-        let g_test_log = g_test.get::<kilogram_per_square_meter_second>().log10();
+            .r_log10();
+        let g_test_log = g_test.get::<kilogram_per_square_meter_second>().r_log10();
         let err = (g_ref_log - g_test_log).abs();
         let bucket = if is_deep_subcooled { "DEEP" } else { "R4" };
         let status = if err <= tol { "ok" } else { "FAIL" };
@@ -436,7 +438,7 @@ fn subcooling_ratio(p0: Pressure, h0: AvailableEnergy) -> f64 {
     let t_b = sat_temp_4(p_b);
     let rho_f = v_tp_eqm_two_phase(t_b, p_b, 0.0).recip();
     let h_f = h_tp_eqm_two_phase(t_b, p_b, 0.0);
-    let v_b = (2.0 * (h0 - h_f).max(AvailableEnergy::ZERO)).sqrt();
+    let v_b = (2.0 * (h0 - h_f).max(AvailableEnergy::ZERO)).r_sqrt();
     let g_sonic = mass_flux_ps_eqm_throat(p_b, s0);
     (v_b * rho_f / g_sonic).get::<uom::si::ratio::ratio>()
 }
@@ -1610,10 +1612,10 @@ fn diagnose_deep_subcooled_failures() {
         eprintln!("  h_ps_eqm(pb,s0) = {:.3} kJ/kg", h_at_pb.get::<uom::si::available_energy::kilojoule_per_kilogram>());
         eprintln!("  ke at p_b    = {:.3} J/kg", ke_at_pb.get::<uom::si::available_energy::joule_per_kilogram>());
         eprintln!("  rho at p_b   = {:.3} kg/m³", rho_at_pb.get::<uom::si::mass_density::kilogram_per_cubic_meter>());
-        eprintln!("  G at p_b     = {:.1} kg/(m²s) (lg={:.3})", g_at_pb, g_at_pb.log10());
-        eprintln!("  G_Bernoulli  = {:.1} kg/(m²s) (lg={:.3})", g_bernoulli_val, g_bernoulli_val.log10());
-        eprintln!("  G_ref        = {:.1} kg/(m²s) (lg={:.3})", g_ref_expected.get::<kilogram_per_square_meter_second>(), g_ref_expected.get::<kilogram_per_square_meter_second>().log10());
-        eprintln!("  G_solver     = {:.1} kg/(m²s) (lg={:.3})", g_test.get::<kilogram_per_square_meter_second>(), g_test.get::<kilogram_per_square_meter_second>().log10());
+        eprintln!("  G at p_b     = {:.1} kg/(m²s) (lg={:.3})", g_at_pb, g_at_pb.r_log10());
+        eprintln!("  G_Bernoulli  = {:.1} kg/(m²s) (lg={:.3})", g_bernoulli_val, g_bernoulli_val.r_log10());
+        eprintln!("  G_ref        = {:.1} kg/(m²s) (lg={:.3})", g_ref_expected.get::<kilogram_per_square_meter_second>(), g_ref_expected.get::<kilogram_per_square_meter_second>().r_log10());
+        eprintln!("  G_solver     = {:.1} kg/(m²s) (lg={:.3})", g_test.get::<kilogram_per_square_meter_second>(), g_test.get::<kilogram_per_square_meter_second>().r_log10());
     }
 }
 */

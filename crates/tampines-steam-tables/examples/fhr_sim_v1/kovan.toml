@@ -1,0 +1,142 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/fhr_sim_v1"
+
+[module."main.rs"]
+path = "example:fhr_sim_v1"
+
+[[module."main.rs".function]]
+id = "fn:0c180558d1081412"
+name = "main"
+qual = "main#1"
+lines = [
+    8,
+    10,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:c0429605be24d2a725b6bdfcc37ea3e957fcd6c820197344d1af14333b6ea485"
+
+[[module."main.rs".function]]
+id = "fn:cbf88bc91566b6f3"
+name = "main"
+qual = "main#2"
+lines = [
+    12,
+    21,
+]
+hash = "sha256:6ca83b8b7ad43411761a5ab9a9e153b880f16d30107b99b2afbce7c66c727f97"
+doc_hash = "sha256:074f2830a52b507fab83db986337a95dec02d780b762ba16b2ab25bbff5abe20"
+callees = ["fn:eb996769391b775e"]
+
+[[module."main.rs".function]]
+id = "fn:eb996769391b775e"
+name = "fhr_simulator_v1"
+qual = "fhr_simulator_v1"
+lines = [
+    34,
+    101,
+]
+hash = "sha256:b46656a1575ee0da40acb9dfa932d9e70c50313cf43caea4ce57beed7f7915ae"
+doc_hash = "sha256:af275aab7ee91a9dd2fd6ea8bc18ade8a1f65199c298e206ac1789f448baf59d"
+callees = ["fn:80e8aa7b0f177d20"]
+uses = ["fn:118a5c79ed67493a"]
+
+[[module."main.rs".function]]
+id = "fn:118a5c79ed67493a"
+name = "FHRSimulatorApp"
+qual = "FHRSimulatorApp"
+item = "type"
+shape = "struct"
+lines = [
+    102,
+    115,
+]
+hash = "sha256:dbb485fe54b428d17aba69d4491cd9b64ac05f7efcc624187421234d5d453240"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:273d771359223f8f",
+    "fn:6e3bb10a54f0f2ee",
+    "fn:91598bd5de0ec2f5",
+]
+
+[[module."main.rs".function]]
+id = "fn:273d771359223f8f"
+name = "FHRState"
+qual = "FHRState"
+item = "type"
+shape = "struct"
+lines = [
+    117,
+    220,
+]
+hash = "sha256:c4a899dde5cfd46c36920e693b271d31344bb72b04be9de97fccdf571a9ab016"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:0e3ca768eb01880b"
+name = "default"
+qual = "FHRState::default"
+lines = [
+    224,
+    288,
+]
+hash = "sha256:f0e8f43c4bc02d6b715bffdf45f835ca88db63f100f764fd17280a4945698239"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:273d771359223f8f"]
+
+[[module."main.rs".function]]
+id = "fn:afb945deff689d87"
+name = "obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter"
+qual = "FHRState::obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter"
+lines = [
+    293,
+    300,
+]
+hash = "sha256:551a456b2e340eeaea38af79b9518e94939be7d4a650d20e79d38ccae759fd5e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:273d771359223f8f"]
+physical_interface = true
+
+[[module."main.rs".function]]
+id = "fn:80e8aa7b0f177d20"
+name = "new"
+qual = "FHRSimulatorApp::new"
+lines = [
+    305,
+    344,
+]
+hash = "sha256:15a4c38a85c4468cd30f5877e8a8fd6af22789e45f4db64164cfd31cfb5ff948"
+doc_hash = "sha256:70d0e5349f6d492e8f3b4c3173fe8e05f0b3f501bba7dbfe9cd6e130c61388de"
+callees = [
+    "fn:064c47424ba76695",
+    "fn:62407fdf6318b0d9",
+    "fn:b8d3cecbf4a65e8b",
+    "fn:d19166635ce5937a",
+]
+uses = [
+    "fn:118a5c79ed67493a",
+    "fn:273d771359223f8f",
+    "fn:91598bd5de0ec2f5",
+]
+
+[[module."main.rs".function]]
+id = "fn:62407fdf6318b0d9"
+name = "default"
+qual = "FHRSimulatorApp::default"
+lines = [
+    348,
+    360,
+]
+hash = "sha256:34876cbe1ff3119957a97303b2df40e62a418f146f22860f0eceeb3ea08f69b1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0e3ca768eb01880b",
+    "fn:7a54a8560d391e37",
+]
+uses = [
+    "fn:118a5c79ed67493a",
+    "fn:273d771359223f8f",
+    "fn:6e3bb10a54f0f2ee",
+    "fn:91598bd5de0ec2f5",
+]

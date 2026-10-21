@@ -1,0 +1,7 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1999\"\nLAST\tP953\t\"http://example.org/toc.pdf\"\nLAST\tP393\t\"2\"\nLAST\tP2093\t\"Kim Lee\"\tP1545\t\"1\"\nLAST\tP2093\t\"Deutsche Forschungsgemeinschaft\"\tP1545\t\"2\"\nLAST\tP577\t+1999-00-00T00:00:00Z/9\nLAST\tP957\t\"3-540-12345-X\"\nLAST\tLmul\t\"Die Kernreaktortechnik: eine Einführung\"\nLAST\tLen\t\"Die Kernreaktortechnik: eine Einführung\"\nLAST\tP1476\tund:\"Die Kernreaktortechnik: eine Einführung\"\nCREATE\nLAST\tP31\tQ11424\nLAST\tDen\t\"film published in 1975\"\nLAST\tP2093\t\"Rainer Werner Fassbinder\"\tP1545\t\"1\"\nLAST\tP577\t+1975-00-00T00:00:00Z/9\nLAST\tLmul\t\"Ein Film\"\nLAST\tLen\t\"Ein Film\"\nLAST\tP1476\tund:\"Ein Film\"\nCREATE\nLAST\tP31\tQ87167\nLAST\tDen\t\"manuscript\"\nLAST\tLmul\t\"Handschrift ohne Autor\"\nLAST\tLen\t\"Handschrift ohne Autor\"\nLAST\tP1476\tund:\"Handschrift ohne Autor\"\nCREATE\nLAST\tP31\tQ838948\nLAST\tDen\t\"artwork\"\nLAST\tP2093\t\"Bauhaus\"\tP1545\t\"1\"\nLAST\tLmul\t\"Plakat\"\nLAST\tLen\t\"Plakat\"\nLAST\tP1476\tund:\"Plakat\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

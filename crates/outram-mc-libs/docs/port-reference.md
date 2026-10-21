@@ -12,18 +12,25 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 ### RNG
 | Rust file | C++ source |
 |---|---|
-| `src/rng/lcg.rs` | `src/random_lcg.cpp`, `include/openmc/random_lcg.h` |
+| ~~`src/rng/lcg.rs`~~ `petir/src/rng/lcg.rs` (**moved 2026-10-02**, re-exported as `rng::lcg`) | `src/random_lcg.cpp`, `include/openmc/random_lcg.h` |
 | `src/rng/distributions.rs` | `src/random_dist.cpp`, `src/distribution_energy.cpp`, `src/distribution_angle.cpp` |
 
 ### Geometry
+
+**MOVED 2026-10-02 (GitHub #486)** to `outram-blender` (`crates/outram-blender/src/csg/`),
+re-exported here under the same `geometry::*` paths. The transport-state half
+of `src/geometry.cpp` stays in this crate as `src/geometry/crossing/`.
+
 | Rust file | C++ source |
 |---|---|
-| `src/geometry/position.rs` | `include/openmc/position.h` |
-| `src/geometry/surface.rs` | `src/surface.cpp` (1422 LOC), `include/openmc/surface.h` |
-| `src/geometry/cell.rs` | `src/cell.cpp` (1861 LOC), `include/openmc/cell.h` |
-| `src/geometry/universe.rs` | `src/universe.cpp` (217 LOC) |
-| `src/geometry/lattice.rs` | `src/lattice.cpp` (1219 LOC) |
-| `src/geometry/geometry.rs` | `src/geometry.cpp` (495 LOC), `src/geometry_aux.cpp` |
+| ~~`src/geometry/position.rs`~~ `outram-blender/src/csg/position.rs` | `include/openmc/position.h` |
+| ~~`src/geometry/surface.rs`~~ `outram-blender/src/csg/surface/{mod,quadric,torus}.rs` | `src/surface.cpp` (1422 LOC), `include/openmc/surface.h` |
+| ~~`src/geometry/cell.rs`~~ `outram-blender/src/csg/cell.rs` | `src/cell.cpp` (1861 LOC), `include/openmc/cell.h` |
+| ~~`src/geometry/universe.rs`~~ `outram-blender/src/csg/universe.rs` | `src/universe.cpp` (217 LOC) |
+| ~~`src/geometry/lattice/mod.rs`~~ `outram-blender/src/csg/lattice/{mod,rect,hex,hex_build}.rs` | `src/lattice.cpp` (1219 LOC) |
+| ~~`src/geometry/geometry.rs`~~ `outram-blender/src/csg/geometry.rs` (locate, distance_to_boundary) + `src/geometry/crossing/mod.rs` here (cross_surface and the rest of the transport-state work) | `src/geometry.cpp` (495 LOC), `src/geometry_aux.cpp` |
+| ~~`src/geometry/plot/`~~ `outram-blender/src/csg/plot/` | `src/plot.cpp`, `openmc/plots.py`, `openmc/model/model.py` |
+| ~~`src/tally/mesh.rs`~~ (description) `outram-blender/src/spatial_mesh.rs`; bin lookup stays in `src/tally/mesh.rs` | `src/mesh.cpp`, `include/openmc/mesh.h` |
 
 ### Particle
 | Rust file | C++ source |
@@ -58,18 +65,19 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 | Rust file | C++ source |
 |---|---|
 | `src/physics/transport.rs` | `src/physics.cpp` (1249 LOC) — history-based loop notes (still a stub; the live loop is `transport_csg.rs`) |
-| `src/physics/transport_csg.rs` | `src/physics.cpp`, `src/geometry.cpp` — the **live** CSG k-eigenvalue transport loop (`run_keff_csg`); its `transport_history` is the per-history kernel reused by the fixed-source driver |
+| `src/physics/transport_csg.rs` | `src/physics.cpp`, `src/geometry.cpp` — the **live** CSG k-eigenvalue transport loop (`run_keff_csg`); its `transport_history_vr` is the per-history kernel reused by the fixed-source driver |
 | `src/physics/fixed_source.rs` | new orchestration (not a direct port) over `transport_csg::transport_history` — **fixed-source** driver (`run_fixed_source`): external point/box source, sub-critical multiplication, no `k_eff`; analytic void-streaming V&V |
 | `src/physics/scatter.rs` | `src/physics_common.cpp`, `src/physics.cpp` |
 | `src/physics/fission.rs` | `src/physics.cpp` — `fission()`, `create_fission_sites()` |
-| `src/physics/physics_mg.rs` | `src/physics_mg.cpp` |
+| `src/physics/physics_mg.rs` | `src/physics_mg.cpp`, `src/mgxs.cpp` — **implemented** (`Mgxs`, `MgxsLibrary`, `run_keff_mg`) |
 
 ### Depletion (new work — not a direct transport-module port)
 | Rust file | C++ / Python source |
 |---|---|
 | `src/depletion/chain.rs` | `src/chain.cpp`, `openmc/deplete/chain.py` — decay/transmutation chain |
-| `src/depletion/cram.rs` | `openmc/deplete/cram.py` — CRAM `exp(A·dt)` matrix-exponential solver |
-| `src/depletion/matrix.rs` | `openmc/deplete/` — sparse burnup matrix assembly |
+| `src/depletion/cram.rs` | `openmc/deplete/cram.py` — CRAM `exp(A·dt)` matrix-exponential solver. **Moved 2026-10-17 to `petir::depletion::cram` (gh:#950)**; this file re-exports it and keeps the panicking `cram16`/`cram48` wrappers |
+| `src/depletion/integrators.rs` | `openmc/deplete/integrators.py`, `abc.py` — the eight integrators **live in `petir::depletion::integrators` (gh:#950)**; this file keeps the one-group operator (`OneGroupOperator`), `MicroXs`, `deplete_independent` and transfer rates |
+| `src/depletion/matrix.rs` | ~~`openmc/deplete/` — sparse burnup matrix assembly~~ **CORRECTED 2026-10-17**: a dense matrix type (never sparse), moved to `petir::depletion::matrix` (gh:#950) and re-exported here; the assembly is `chain.rs`'s `build_matrix` |
 | `src/depletion/operator.rs` | `openmc/deplete/coupled_operator.py` — one-group depletion operator |
 
 ### Pebble beds (new work — doubly-heterogeneous specialization, absent upstream)
@@ -81,13 +89,13 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 
 ## Porting order (bottom-up dependency order)
 
-1. `rng/lcg.rs` — no deps ✅ (implemented)
+1. `rng/lcg.rs` — no deps ✅ (implemented; moved to `petir::rng::lcg` 2026-10-02)
 2. `geometry/position.rs` — no deps ✅ (implemented)
-3. `rng/distributions.rs` — depends on lcg ✅ (stubs)
+3. `rng/distributions.rs` — depends on lcg ✅ (~~stubs~~ **CORRECTED 2026-09-22** — implemented: `uniform`, `sample_normal`, `sample_normal_3d`, `sample_exp`, `maxwell`, `watt`, `isotropic_direction`)
 4. `geometry/surface.rs` — depends on position. **Full OpenMC surface set ✅**: axis planes (`XPlane`/`YPlane`/`ZPlane`) + general `Plane`, `Sphere`, `XCylinder`/`YCylinder`/`ZCylinder`, `XCone`/`YCone`/`ZCone`, general `Quadric` (op-ah7), and `XTorus`/`YTorus`/`ZTorus` (op-e5k, quartic ray intersection via an in-file degree-≤4 real-root solver) — evaluate/sense/distance/normal/reflect, all unit-tested.
 5. `geometry/cell.rs` — depends on surface (struct ✅; `contains()` RPN region eval ✅)
 6. `geometry/universe.rs` — depends on cell (struct ✅; `find_cell()` ✅)
-7. `geometry/lattice.rs` — depends on universe (`RectLattice` ✅; `HexLattice` ring construction + indexing ✅)
+7. `geometry/lattice/mod.rs` — depends on universe (`RectLattice` ✅; `HexLattice` ring construction + indexing ✅)
 8. `geometry/geometry.rs` — depends on cell/universe/lattice (`locate()` nested lattice descent ✅)
 9. `particle/bank.rs` — depends on position ✅ (implemented)
 10. `particle/particle.rs` — depends on position ✅ (implemented)
@@ -95,24 +103,24 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 12. `material/reaction.rs` — depends on nuclide (✅)
 13. `material/thermal.rs` — depends on nuclide (✅; S(α,β) thermal-scatter tables)
 14. `material/material.rs` — depends on nuclide + reaction (✅; nuclide mixture + macroscopic XS)
-15. `source/spatial.rs` — depends on position + lcg (point + box ✅; sphere TODO)
-16. `source/energy.rs` — depends on distributions (stubs)
-17. `source/angle.rs` — depends on position + distributions (stubs)
+15. `source/spatial.rs` — depends on position + lcg (point + box ✅; ~~sphere TODO~~ **CORRECTED 2026-09-22** — `SphericalSource` is implemented and in `SpatialKind`)
+16. `source/energy.rs` — depends on distributions (~~stubs~~ **CORRECTED 2026-09-22** — `Monoenergetic`, `MaxwellSpectrum`, `WattSpectrum`, `TabulatedEnergy` ✅)
+17. `source/angle.rs` — depends on position + distributions (~~stubs~~ **CORRECTED 2026-09-22** — `IsotropicAngle`, `MonodirectionalAngle` ✅; `PolarAzimuthal`/`Mu` source angle distributions are genuinely absent)
 18. `source/source.rs` — depends on spatial/energy/angle ✅ (implemented)
-19. `tally/filter.rs` — no physics deps ✅ (4 filters implemented)
+19. `tally/filter.rs` — no physics deps ✅ (~~4 filters implemented~~ **CORRECTED 2026-09-22** — **15** `FilterKind` variants: Cell, Material, Energy, EnergyOut, Universe, Mesh, Surface, Mu, PolarAzimuthal, Time, Particle, DelayedGroup, SpatialLegendre, Zernike, SphericalHarmonics)
 20. `tally/tally.rs` — depends on filter ✅ (implemented)
 21. `tally/scoring.rs` — depends on particle + tally (✅; flux/reaction-rate scoring)
 22. `physics/scatter.rs` — depends on particle + nuclide (✅; elastic + CM-frame kinematics)
 23. `physics/fission.rs` — depends on particle + bank + nuclide (✅; ν sampling + fission-site banking)
 24. `physics/transport_csg.rs` — depends on all of the above (✅; live CSG k-eigenvalue loop, `run_keff_csg`). The generic history-based `physics/transport.rs` variant is still a stub.
-25. `physics/physics_mg.rs` — depends on transport (still a stub — last; multigroup mode pending)
+25. `physics/physics_mg.rs` — depends on transport (~~still a stub — last; multigroup mode pending~~ **CORRECTED 2026-09-22** — implemented, 771 lines: `Mgxs` / `MgxsLibrary` group constants and `run_keff_mg`, the MG twin of `run_keff_csg`. The `mg-mode-part-i` notebook harness runs it live. What is still absent is *generating* MGXS from CE data — that is the `njoy-outram-park-fork` track — and anisotropic MG scattering (`src/scattdata.cpp`: Legendre/tabular/histogram `max_order`), which is fixed at isotropic-in-lab here)
 
 ---
 
 ## Test backlog
 
 ### P0 — First things to verify
-- `rng/lcg.rs`: `future_seed(n, s)` matches n sequential `prn()` calls for n ∈ {1, 100, 10000} ✅
+- `rng/lcg.rs` (now `petir/src/rng/lcg.rs`): `future_seed(n, s)` matches n sequential `prn()` calls for n ∈ {1, 100, 10000} ✅
 - `geometry/position.rs`: `stream()` correctness, `from_unnormalised()` gives unit vector ✅
 - `geometry/surface.rs`: `XPlane/YPlane/ZPlane` evaluate + distance
 - `rng/distributions.rs`: `uniform()` stays in [0,1)
@@ -138,8 +146,12 @@ navigates surfaces/cells/universes/lattices (rect **and** hex), samples collisio
 scatters, and banks fission sites. It is validated against the **Godiva bare-sphere**
 benchmark (ICSBEP HEU-MET-FAST-001), see `docs/validation.md`. The
 `hexagonal-lattice` and `triso` notebook harnesses run this loop live. Still
-pending: the generic history-based `transport.rs`, multigroup (`physics_mg.rs`),
-DAGMC/unstructured mesh, photon transport, and the C-API.
+pending: the generic history-based `transport.rs`, ~~multigroup (`physics_mg.rs`),~~
+DAGMC/~~unstructured mesh~~, photon transport, and the C-API. **CORRECTED 2026-09-22**
+— multigroup is no longer pending; see item 25 of the porting order.
+**CORRECTED 2026-10-03 (GitHub #492)** — unstructured-mesh **tallies** exist
+(`MeshKind::Unstructured`, `tally::mesh_unstructured`; tests written, not yet
+run). DAGMC geometry is still pending.
 
 **Godiva k_eff figures — status after `op-jis` (2026-08-06).** `rng::lcg::prn`
 gained OpenMC's PCG-RXS-M-XS output permutation; the LCG **state recurrence is

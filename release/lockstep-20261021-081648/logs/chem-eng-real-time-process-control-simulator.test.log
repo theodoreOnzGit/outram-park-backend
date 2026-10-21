@@ -1,0 +1,53 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling serde_core v1.0.229
+   Compiling memchr v2.8.3
+   Compiling csv-core v0.1.13
+   Compiling approx v0.5.1
+   Compiling csv v1.4.0
+   Compiling chem-eng-real-time-process-control-simulator v0.2.4 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/chem-eng-real-time-process-control-simulator)
+    Finished `release` profile [optimized] target(s) in 3.47s
+     Running unittests src/lib/lib.rs (target/release/deps/chem_eng_real_time_process_control_simulator-55e88dbd879e9b59)
+
+running 32 tests
+test alpha_nightly::stable_transfer_functions::recurrence_tests::block_state_size_does_not_grow_with_step_index ... ok
+test alpha_nightly::stable_transfer_functions::recurrence_tests::decaying_exponential_recurrence_matches_analytic_superposition ... ok
+test alpha_nightly::stable_transfer_functions::recurrence_tests::first_order_recurrence_handles_dead_time_with_a_bounded_queue ... ok
+test alpha_nightly::stable_transfer_functions::recurrence_tests::first_order_recurrence_is_exact_on_an_irregular_time_grid ... ok
+test alpha_nightly::stable_transfer_functions::recurrence_tests::decaying_sinusoid_recurrence_matches_analytic_superposition ... ok
+test alpha_nightly::stable_transfer_functions::recurrence_tests::first_order_recurrence_matches_analytic_superposition ... ok
+test alpha_nightly::stable_transfer_functions::recurrence_tests::first_order_with_zeroes_recurrence_matches_analytic_superposition ... ok
+test alpha_nightly::stable_transfer_functions::recurrence_tests::pid_step_cost_does_not_grow_with_step_index ... ok
+test alpha_nightly::timesq_test ... ok
+test alpha_nightly::transfer_fn_wrapper_and_enums::generic_second_order::test_dead_time ... ok
+test beta_testing::stable_transfer_functions::recurrence_tests::block_state_size_does_not_grow_with_step_index ... ok
+test beta_testing::stable_transfer_functions::recurrence_tests::decaying_sinusoid_recurrence_matches_analytic_superposition ... ok
+test beta_testing::stable_transfer_functions::recurrence_tests::first_order_recurrence_handles_dead_time_with_a_bounded_queue ... ok
+test beta_testing::stable_transfer_functions::recurrence_tests::first_order_recurrence_is_exact_on_an_irregular_time_grid ... ok
+test beta_testing::stable_transfer_functions::recurrence_tests::first_order_recurrence_matches_analytic_superposition ... ok
+test beta_testing::stable_transfer_functions::recurrence_tests::first_order_step_cost_does_not_grow_with_step_index ... ok
+test beta_testing::stable_transfer_functions::recurrence_tests::first_order_with_zeroes_recurrence_matches_analytic_superposition ... ok
+test alpha_nightly::stable_transfer_functions::recurrence_tests::second_order_recurrence_matches_analytic_superposition ... ok
+test beta_testing::timesq_test ... ok
+test beta_testing::transfer_fn_wrapper_and_enums::generic_second_order::test_dead_time ... ok
+test beta_testing::z_domain::verification_tests::discrete_block_state_size_does_not_grow ... ok
+test beta_testing::z_domain::verification_tests::error_paths_return_documented_variants ... ok
+test beta_testing::z_domain::verification_tests::filt_docstring_example_impulse_response ... ok
+test beta_testing::z_domain::verification_tests::matched_maps_poles_zeros_and_matches_dc_gain ... ok
+test beta_testing::z_domain::verification_tests::matched_round_trip_recovers_continuous_coefficients ... ok
+test beta_testing::z_domain::verification_tests::prewarp_matches_continuous_frequency_response_at_w0 ... ok
+test beta_testing::z_domain::verification_tests::tustin_integrator_is_trapezoidal_rule ... ok
+test beta_testing::z_domain::verification_tests::tustin_round_trip_recovers_continuous_coefficients ... ok
+test beta_testing::z_domain::verification_tests::zoh_first_order_coefficients_match_analytic_closed_form ... ok
+test beta_testing::z_domain::verification_tests::zoh_first_order_reproduces_o1_recurrence_block ... ok
+test beta_testing::z_domain::verification_tests::zoh_second_order_step_response_exact_at_samples ... ok
+test beta_testing::stable_transfer_functions::recurrence_tests::second_order_recurrence_matches_analytic_superposition ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+     Running unittests src/main.rs (target/release/deps/library_demo-58c72309dde7cfcd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

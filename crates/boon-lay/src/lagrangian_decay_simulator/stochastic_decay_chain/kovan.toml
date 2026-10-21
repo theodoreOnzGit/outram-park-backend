@@ -1,0 +1,417 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/lagrangian_decay_simulator/stochastic_decay_chain"
+test_ids = [
+    "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/tests.rs::decay_chain_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/tests.rs::stochastic_half_life_calculator",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ba137m",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_c14",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_co60",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_cs137",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_h3",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_i131",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_k40",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_kr85",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_na22",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_po210",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_pu239",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ra226",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_rn222",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_sr90",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_test_tritium",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_th232",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u235",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u238",
+    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_xe135",
+    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_decay_chain",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."iterator_for_decay_chain.rs"]
+path = "crate::lagrangian_decay_simulator::stochastic_decay_chain::iterator_for_decay_chain"
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:bf034958dfa63f73"
+name = "iter"
+qual = "StochasticDecayChain::iter"
+lines = [
+    10,
+    12,
+]
+hash = "sha256:fc5c943021e67ea0def2ba5a5be6b33e382ee498809dc649e86e0473fb97008e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:4e312f4bbef66ef2"]
+uses = ["fn:1c6c392e898a19fe"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:b9550d420fde8801"
+name = "iter_mut"
+qual = "StochasticDecayChain::iter_mut"
+lines = [
+    14,
+    16,
+]
+hash = "sha256:3bf083d16b59c4eb5c3c759d17ec0e05fb7d711bf2cc02ba9232ec9b239264f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7bcf36df8617ac82"]
+uses = ["fn:00f1d1bbb38d5fb1"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:c4ee564c7c233cf1"
+name = "DecayChainIntoIter"
+qual = "DecayChainIntoIter"
+item = "type"
+shape = "struct"
+lines = [
+    20,
+    22,
+]
+hash = "sha256:32b2cc501e17825ac333b4232421baeec930f68009024e0a9e7f9caae52328fb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2544367c1b848785"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:bfd031f6a4524466"
+name = "next"
+qual = "DecayChainIntoIter::next"
+lines = [
+    27,
+    29,
+]
+hash = "sha256:05c9624566fe2e94950e224ef4a43c23b78a150ab9089ecb5de114cad53f9d63"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c4ee564c7c233cf1"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:ffdbebcd7a0d929c"
+name = "size_hint"
+qual = "DecayChainIntoIter::size_hint"
+lines = [
+    31,
+    33,
+]
+hash = "sha256:674677856b7ab7ad78c47348fe6530bf564c6ae586da2dfb852096f489b23221"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c4ee564c7c233cf1"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:db489da0991e0522"
+name = "into_iter"
+qual = "StochasticDecayChain::into_iter"
+lines = [
+    43,
+    47,
+]
+hash = "sha256:3cf330531cf28ae5b879c227e9f0beb0ee3158e1279188cc052747fe5d3426d7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:c4ee564c7c233cf1"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:1c6c392e898a19fe"
+name = "DecayChainIter"
+qual = "DecayChainIter"
+item = "type"
+shape = "struct"
+lines = [
+    51,
+    53,
+]
+hash = "sha256:4975574592aca6cd109dcbeaf93809f5278704e91a757e548afd02c41c27d380"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2544367c1b848785"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:c4c973b133ee9abc"
+name = "next"
+qual = "DecayChainIter::next"
+lines = [
+    58,
+    60,
+]
+hash = "sha256:05c9624566fe2e94950e224ef4a43c23b78a150ab9089ecb5de114cad53f9d63"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1c6c392e898a19fe"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:43cca6f46cfacb63"
+name = "size_hint"
+qual = "DecayChainIter::size_hint"
+lines = [
+    62,
+    64,
+]
+hash = "sha256:674677856b7ab7ad78c47348fe6530bf564c6ae586da2dfb852096f489b23221"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1c6c392e898a19fe"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:4e312f4bbef66ef2"
+name = "into_iter"
+qual = "'a StochasticDecayChain::into_iter"
+lines = [
+    74,
+    78,
+]
+hash = "sha256:793a9b923bfa946073ca6748768c9dd31c8c3911632ddc67873fbea4275c222d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1c6c392e898a19fe"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:00f1d1bbb38d5fb1"
+name = "DecayChainIterMut"
+qual = "DecayChainIterMut"
+item = "type"
+shape = "struct"
+lines = [
+    82,
+    84,
+]
+hash = "sha256:85b98375d52ab14c87a636d3242a38aa72710236db0585863beaef17dde1dbb9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2544367c1b848785"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:2eebebb1adc34f88"
+name = "next"
+qual = "DecayChainIterMut::next"
+lines = [
+    89,
+    91,
+]
+hash = "sha256:05c9624566fe2e94950e224ef4a43c23b78a150ab9089ecb5de114cad53f9d63"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:00f1d1bbb38d5fb1"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:e5648f4e43f03355"
+name = "size_hint"
+qual = "DecayChainIterMut::size_hint"
+lines = [
+    93,
+    95,
+]
+hash = "sha256:674677856b7ab7ad78c47348fe6530bf564c6ae586da2dfb852096f489b23221"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:00f1d1bbb38d5fb1"]
+
+[[module."iterator_for_decay_chain.rs".function]]
+id = "fn:7bcf36df8617ac82"
+name = "into_iter"
+qual = "'a mut StochasticDecayChain::into_iter"
+lines = [
+    105,
+    109,
+]
+hash = "sha256:1b2fd9d69788c88a54dd53ce85809317d6b37b5a084f22ade45534d6a9e9f695"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:00f1d1bbb38d5fb1"]
+
+[module."mod.rs"]
+path = "crate::lagrangian_decay_simulator::stochastic_decay_chain"
+
+[[module."mod.rs".function]]
+id = "fn:72e9a39cf82b0ce8"
+name = "StochasticDecayChain"
+qual = "StochasticDecayChain"
+item = "type"
+shape = "struct"
+lines = [
+    6,
+    11,
+]
+hash = "sha256:beeb7546ff69bd5d0ebe5f25d4ab84da93196bbf17f027933ac9f7507f2ab883"
+doc_hash = "sha256:e9201f9d1266529d6ca8606ac327c8676b895181a450972119c6dded77c46883"
+uses = ["fn:2544367c1b848785"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3dbac5330a933de5"
+name = "new_single_stochastic_chain_from_nuclide"
+qual = "StochasticDecayChain::new_single_stochastic_chain_from_nuclide"
+lines = [
+    20,
+    120,
+]
+hash = "sha256:fee4e41430a02d47f3b8b009f4542ed98cdafb4e61809a4bd7cf386b53b7143b"
+doc_hash = "sha256:f42b672355b6c0a1e3a4324f416f2dd01ae699ceba883e5d4abcc896210dc748"
+callees = [
+    "fn:094c1bcb03a9b17f",
+    "fn:1bbce34bc990f028",
+    "fn:36cf72a08cea7372",
+    "fn:437114f4cf54fbaf",
+]
+uses = [
+    "fn:2544367c1b848785",
+    "fn:4e41f8c2e2e72b73",
+    "fn:72e9a39cf82b0ce8",
+    "fn:c611e024756fd19b",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+]

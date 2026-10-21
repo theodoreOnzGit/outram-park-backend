@@ -73,11 +73,11 @@ it contains **no volume front matter**, and the volume-level distribution
 statement could not be inspected. Committed on the basis of the absence of any
 restriction on the retrieved pages plus the government-agency origin.
 
-Committed to:
-
-- `crates/kovan-literature/open/reports/jaeri-conf-96-010-htr10-general-design.pdf`
-- `crates/kovan-literature/open/reports/jaeri-conf-96-010-htr10-general-design.json`
-- `crates/kovan-literature/generated/markdown/open/jaeri-conf-96-010-htr10-general-design.md`
+~~Committed to `crates/kovan-literature/open/reports/` (PDF, JSON) and
+`generated/markdown/open/`.~~ **CHANGED 2026-09-22:** reclassified
+proprietary (no copyright or licence statement found) and moved, PDF and
+extracted text, to the maintainer's private literature repository; see
+`crates/kovan-literature/CATALOGUE.md` (`qin1996htr10design`).
 
 ### [S3] Sunny and Ilas 2010 — SCALE 6 analysis (ANS proceedings, restricted)
 
@@ -119,9 +119,11 @@ posted in PNNL's own public technical-reports directory.
 
 Committed to:
 
-- `crates/kovan-literature/open/reports/pnnl-20869-htgr-codes-and-standards.pdf`
-- `crates/kovan-literature/open/reports/pnnl-20869-htgr-codes-and-standards.json`
-- `crates/kovan-literature/generated/markdown/open/pnnl-20869-htgr-codes-and-standards.md`
+- ~~`crates/kovan-literature/open/reports/pnnl-20869-htgr-codes-and-standards.{pdf,json}`
+  and its generated Markdown.~~ **CHANGED 2026-09-22:** reclassified proprietary
+  (no copyright or licence statement found) and moved to the maintainer's
+  private literature repository; see `crates/kovan-literature/CATALOGUE.md`
+  (`mcdowell2011htgrcodes`).
 
 ### [S5] Gao and Shi 2002 — thermal-hydraulic calculation (Elsevier, restricted)
 
@@ -139,9 +141,10 @@ own section below ([Section 7](#7-thermal-hydraulic-modelling-s5)).
 
 ### Sources deliberately not re-derived
 
-IAEA-TECDOC-1382 is already in the committed archive
+IAEA-TECDOC-1382 is ~~already in the committed archive
 (`crates/kovan-literature/open/reports/iaea-tecdoc-1382-part1.pdf` and
-`-part2.pdf`) and is covered by `htr10-neutronics.md`. It is a neutronics
+`-part2.pdf`)~~ in the maintainer's private literature repository
+(reclassified proprietary 2026-09-22; see `crates/kovan-literature/CATALOGUE.md`) and is covered by `htr10-neutronics.md`. It is a neutronics
 benchmark and is not a source for the plant geometry in this sheet.
 
 ## 3. Baseline already established (from [S1])

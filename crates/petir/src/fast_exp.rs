@@ -413,8 +413,8 @@ pub(crate) fn top12(x: f64) -> u32 {
 /// docs.
 ///
 /// # Errors
-/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the result
-/// exceeds the double range), and [`PetirError::Tolerance`] where it returns
+/// [`PetirError::Overflow`] where upstream returns `__math_oflow` (the result
+/// exceeds the double range), and [`PetirError::Underflow`] where it returns
 /// `__math_uflow` (the result is below the smallest normal). Upstream signals
 /// these through errno and a returned infinity/zero; this port returns them,
 /// consistent with the rest of PETIR.
@@ -442,9 +442,9 @@ fn exp_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
             // +inf; both also raise the corresponding IEEE flag, which Rust
             // has no portable way to do.
             return if x.to_bits() >> 63 != 0 {
-                Err((PetirError::Tolerance, 0.0))
+                Err((PetirError::Underflow, 0.0))
             } else {
-                Err((PetirError::ZeroDivide, f64::INFINITY))
+                Err((PetirError::Overflow, f64::INFINITY))
             };
         }
         // Large x is special-cased below.
@@ -461,9 +461,18 @@ fn exp_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
     let r = x + kd * NEG_LN2_HI_N + kd * NEG_LN2_LO_N;
     let idx = (2 * (ki % N)) as usize;
     let top = ki << (52 - TABLE_BITS);
-    let tail = f64::from_bits(TAB[idx]);
+    // `idx = 2 * (ki % N)` and `TAB` holds `2 * N` entries, so both reads are
+    // in range for every input -- but by arithmetic the compiler cannot
+    // follow. Fetching through `get` keeps the values (and therefore the
+    // bit-identity with upstream, pinned by
+    // tests/fast_exp_vs_arm_optimized_routines.rs) exactly as they were,
+    // while removing the panic the subscripts carried.
+    let (Some(&tab_lo), Some(&tab_hi)) = (TAB.get(idx), TAB.get(idx + 1)) else {
+        return Err((PetirError::Range, f64::NAN));
+    };
+    let tail = f64::from_bits(tab_lo);
     // Valid as a scale only for -1023*N < k < 1024*N.
-    let sbits = TAB[idx + 1].wrapping_add(top);
+    let sbits = tab_hi.wrapping_add(top);
 
     let r2 = r * r;
     // EXP_POLY_ORDER == 5.
@@ -499,7 +508,7 @@ fn specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (Peti
         let y = P1009 * (scale + scale * tmp);
         // check_oflow
         return if y.is_infinite() {
-            Err((PetirError::ZeroDivide, y))
+            Err((PetirError::Overflow, y))
         } else {
             Ok(y)
         };
@@ -524,7 +533,7 @@ fn specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (Peti
     let y = f64::MIN_POSITIVE * y; // 0x1p-1022
                                    // check_uflow
     if y == 0.0 {
-        Err((PetirError::Tolerance, y))
+        Err((PetirError::Underflow, y))
     } else {
         Ok(y)
     }
@@ -537,9 +546,9 @@ fn specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (Peti
 ///
 /// # Errors
 ///
-/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the
+/// [`PetirError::Overflow`] where upstream returns `__math_oflow` (the
 /// result exceeds the double range; upstream returns `+inf`), and
-/// [`PetirError::Tolerance`] where it returns `__math_uflow` (the result is
+/// [`PetirError::Underflow`] where it returns `__math_uflow` (the result is
 /// below the smallest subnormal; upstream returns `+0.0`).
 #[inline]
 pub fn exp(x: f64) -> Result<f64> {

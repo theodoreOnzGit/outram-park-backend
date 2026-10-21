@@ -38,8 +38,10 @@
 //! momentum balance keeps the **acceleration** term `G^2 (1/rho_out -
 //! 1/rho_in)` that a heated gas duct generates, reported separately from
 //! friction so a caller can see its size. Nothing here is valid at
-//! transonic conditions; for those, reach for
-//! `outram-park-fork-coolprop`'s `SolverMode::HybridAllMach`.
+//! transonic conditions; for those, reach for ~~`outram-park-fork-coolprop`'s
+//! `SolverMode::HybridAllMach`~~ (retired 2026-10-16, gh:#914) the
+//! density-based KNP solver `tampines::hem::HemPipe`, which takes the
+//! CoolProp equation of state.
 //!
 //! ## Correlations and their validity ranges
 //!
@@ -93,6 +95,7 @@
 //! and published correlation properties. AI-assisted draft pending human
 //! review per `RESPONSIBLE_USE.md`.
 
+use petir::mathf::RealMath;
 use super::properties::{helium_state, helium_state_ph, HeliumState, SpecificEnthalpy};
 use super::MassFlux;
 use crate::TampinesError;
@@ -277,9 +280,9 @@ pub fn churchill_friction_factor(
             "Churchill friction factor: relative roughness {rr} must be finite and non-negative"
         )));
     }
-    let a = (-2.457 * ((7.0 / re).powf(0.9) + 0.27 * rr).ln()).powi(16);
-    let b = (37530.0 / re).powi(16);
-    let f = 8.0 * ((8.0 / re).powi(12) + 1.0 / (a + b).powf(1.5)).powf(1.0 / 12.0);
+    let a = (-2.457 * ((7.0 / re).r_powf(0.9) + 0.27 * rr).r_ln()).r_powi(16);
+    let b = (37530.0 / re).r_powi(16);
+    let f = 8.0 * ((8.0 / re).r_powi(12) + 1.0 / (a + b).r_powf(1.5)).r_powf(1.0 / 12.0);
     Ok(Ratio::new::<ratio>(f))
 }
 
@@ -313,10 +316,10 @@ pub fn nusselt_number(
                     darcy_friction_factor.get::<ratio>()
                 )));
             }
-            f8 * (re - 1000.0) * pr / (1.0 + 12.7 * f8.sqrt() * (pr.powf(2.0 / 3.0) - 1.0))
+            f8 * (re - 1000.0) * pr / (1.0 + 12.7 * f8.sqrt() * (pr.r_powf(2.0 / 3.0) - 1.0))
         }
-        HeatTransferCorrelation::DittusBoelterHeating => 0.023 * re.powf(0.8) * pr.powf(0.4),
-        HeatTransferCorrelation::DittusBoelterCooling => 0.023 * re.powf(0.8) * pr.powf(0.3),
+        HeatTransferCorrelation::DittusBoelterHeating => 0.023 * re.r_powf(0.8) * pr.r_powf(0.4),
+        HeatTransferCorrelation::DittusBoelterCooling => 0.023 * re.r_powf(0.8) * pr.r_powf(0.3),
     };
     if !nu.is_finite() || nu <= 0.0 {
         return Err(TampinesError::Unphysical(format!(
@@ -452,7 +455,7 @@ impl GasDuct {
                     let ntu = htc * self.wall_area().get::<square_meter>() / (mdot * cp);
                     let t_wall = t_w.get::<kelvin>();
                     let t_i = inlet_temperature.get::<kelvin>();
-                    let t_target = t_wall - (t_wall - t_i) * (-ntu).exp();
+                    let t_target = t_wall - (t_wall - t_i) * (-ntu).r_exp();
                     mdot * cp * (t_target - t_i)
                 }
             };
@@ -577,7 +580,7 @@ mod tests {
             let f = churchill_friction_factor(Ratio::new::<ratio>(1.0e9), Ratio::new::<ratio>(rr))
                 .unwrap()
                 .get::<ratio>();
-            let von_karman = (1.14 - 2.0 * rr.log10()).powi(-2);
+            let von_karman = (1.14 - 2.0 * rr.r_log10()).r_powi(-2);
             let rel = (f - von_karman).abs() / von_karman;
             println!("e/D = {rr:.0e}  Churchill f = {f:.9}  von Karman = {von_karman:.9}  rel = {rel:.3e}");
             assert!(
@@ -599,7 +602,7 @@ mod tests {
                     .get::<ratio>();
                 // Colebrook-White: 1/sqrt(f) = -2 log10(e/(3.7 D) + 2.51/(Re sqrt(f)))
                 let lhs = 1.0 / f.sqrt();
-                let rhs = -2.0 * (rr / 3.7 + 2.51 / (re * f.sqrt())).log10();
+                let rhs = -2.0 * (rr / 3.7 + 2.51 / (re * f.sqrt())).r_log10();
                 let rel = (lhs - rhs).abs() / rhs;
                 println!("Re = {re:.0e} e/D = {rr:.0e}  f = {f:.9}  CW residual rel = {rel:.3e}");
                 assert!(

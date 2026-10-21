@@ -126,6 +126,7 @@
 //! No experimental electrolyte database is bundled; parameters in tests are
 //! public-literature constants (`Kw`, `Ksp`) or closed-form-checkable values.
 
+use petir::mathf::RealMath;
 use crate::thermo::electrolyte::DebyeHuckel;
 
 /// Physical role of a species in the aqueous electrolyte, selecting its
@@ -539,7 +540,7 @@ impl SvleSystem {
                     SvleActivity::Ideal => 1.0,
                     SvleActivity::DebyeHuckel(dh) => {
                         if s.role == SpeciesRole::Ion {
-                            dh.ln_gamma_ion(s.charge, im).exp()
+                            dh.ln_gamma_ion(s.charge, im).r_exp()
                         } else {
                             1.0
                         }
@@ -576,14 +577,14 @@ impl SvleSystem {
         for (i, &ai) in a.iter().enumerate() {
             // guard against a≤0 (kept away by the feasibility clamp); a huge
             // negative ln pushes the solver back toward the feasible interior.
-            ln_a[i] = if ai > 1.0e-300 { ai.ln() } else { -690.0 };
+            ln_a[i] = if ai > 1.0e-300 { ai.r_ln() } else { -690.0 };
         }
         let f = self
             .reactions
             .iter()
             .map(|rx| {
                 let ln_q: f64 = rx.stoich.iter().zip(&ln_a).map(|(&nu, &la)| nu * la).sum();
-                rx.k.ln() - ln_q
+                rx.k.r_ln() - ln_q
             })
             .collect();
         (f, n)
@@ -953,7 +954,7 @@ impl SaltSolubility {
     /// from cation and anion **activities** (molality×γ, \[mol/kg\]).
     #[must_use]
     pub fn ion_product(&self, a_cation: f64, a_anion: f64) -> f64 {
-        a_cation.powf(self.nu_cation) * a_anion.powf(self.nu_anion)
+        a_cation.r_powf(self.nu_cation) * a_anion.r_powf(self.nu_anion)
     }
 
     /// `true` if the solution is **supersaturated** (`IAP > Ksp`), i.e. the
@@ -971,8 +972,8 @@ impl SaltSolubility {
     #[must_use]
     pub fn solubility(&self) -> f64 {
         let p = self.nu_cation + self.nu_anion;
-        let denom = self.nu_cation.powf(self.nu_cation) * self.nu_anion.powf(self.nu_anion);
-        (self.ksp / denom).powf(1.0 / p)
+        let denom = self.nu_cation.r_powf(self.nu_cation) * self.nu_anion.r_powf(self.nu_anion);
+        (self.ksp / denom).r_powf(1.0 / p)
     }
 
     /// Precipitate a **1:1** salt from a supersaturated solution: find the
@@ -1118,7 +1119,7 @@ mod tests {
         let m_h = m[1];
         assert_relative_eq!(m_h, 1.0e-7, epsilon = 1e-4 * 1e-7);
         assert_relative_eq!(m[1], m[2], epsilon = 1e-12); // H+ == OH-
-        let ph = -(m_h).log10();
+        let ph = -(m_h).r_log10();
         assert_relative_eq!(ph, 7.0, epsilon = 1e-3);
         assert!(res.net_charge_molality.abs() < 1e-12);
         assert!(res.residual < 1e-9);

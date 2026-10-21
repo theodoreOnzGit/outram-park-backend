@@ -152,7 +152,7 @@ impl SonicFoam {
         // ── UEqn: ∂(ρU)/∂t + ∇·(ρUU) − ∇·(μ∇U) ────────────────────────────
         let mut u_eqn = fvm::ddt_coeff_vec(&self.rho, &self.u, &u_old, dt, mesh.clone())
             + fvm::div_vec(&self.phi, &self.u, mesh.clone())
-            - fvm::laplacian_vec(&self.mu, &self.u, mesh.clone());
+            + fvm::laplacian_vec(&self.mu, &self.u, mesh.clone());
 
         let a = u_eqn.a_field();
         let rau = {
@@ -332,5 +332,97 @@ impl SonicFoam {
             time += dt;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use petir::mathf::RealMath;
+    use super::*;
+    use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
+    use outram_foam_basic_lib::primitives::Vector3;
+    use uom::si::area::square_meter;
+    use uom::si::f64::{Area, Length};
+    use uom::si::length::meter;
+
+    /// **Sign of the momentum diffusion term (gh:#952).**
+    ///
+    /// Upstream sonicFoam's `UEqn.H` is `fvm::ddt(rho,U) + fvm::div(phi,U) +
+    /// turbulence->divDevRhoReff(U) == ...`, and `divDevRhoReff` contains
+    /// `- fvm::laplacian(muEff, U)` with OpenFOAM's NEGATIVE-definite
+    /// `fvm::laplacian`, i.e. physical viscous diffusion. This workspace's
+    /// `fvm::laplacian_vec` is the POSITIVE operator `-div(mu grad U)`, so the
+    /// port must ADD it; subtracting it is anti-diffusion.
+    ///
+    /// Methodology: closed 1-D slab (L = 1, N = 20, zero-gradient ends), a
+    /// transverse shear mode `U = (0, cos(m pi x / L), 0)` (`m = 5`) which
+    /// carries no face flux so `p` stays uniform and the step's final `U` is
+    /// `HbyA = H(U*)/A`. With `rho = 1`, `mu = 1`, `mu dt / (rho dx^2) = 0.2`,
+    /// the implicit predictor is `U* = f cos`, `f = 1/(1 + 0.2 mu_m)`,
+    /// `mu_m = 2 - 2 cos(m pi/N)` (exact cell-centred Neumann eigenvector), and
+    /// per cell `H_c = R U_old_c + c sum_nb U*_nb`, `A_c = R + n_nb c`, with
+    /// `R = rho V/dt`, `c = mu |S|/dx`. Pass: every cell agrees with that
+    /// closed form to 1e-5 absolute (mode amplitude 1).
+    ///
+    /// Prediction (before the run): with the subtraction in place the
+    /// predictor amplitude is `1/(1 - 0.2 mu_m) = 1.133` instead of `0.895`
+    /// and the cells miss the closed form by O(0.2).
+    #[test]
+    fn momentum_diffusion_follows_the_hbya_closed_form() {
+        const N: usize = 20;
+        const MODE: usize = 5;
+        const RATIO: f64 = 0.2;
+        let pi = std::f64::consts::PI;
+        let mode = |i: usize| (MODE as f64 * pi * (i as f64 + 0.5) / N as f64).r_cos();
+        let mu_m = 2.0 - 2.0 * (MODE as f64 * pi / N as f64).r_cos();
+
+        let mesh = Arc::new(
+            create_one_d_mesh(
+                Length::new::<meter>(1.0),
+                Area::new::<square_meter>(1.0),
+                N as i64,
+            )
+            .expect("mesh"),
+        );
+        let dx = 1.0 / N as f64;
+        let control = ControlDict {
+            delta_t: RATIO * dx * dx,
+            ..ControlDict::default()
+        };
+        let mut s = SonicFoam::new(
+            mesh.clone(),
+            control,
+            FvSchemes::default(),
+            FvSolution::default(),
+        );
+        s.mu = VolScalarField::uniform("mu", mesh, 1.0);
+        for i in 0..N {
+            s.u.internal[i] = Vector3::new(0.0, mode(i), 0.0);
+        }
+        s.step().expect("step");
+
+        let r = dx / s.control.delta_t;
+        let c = 1.0 / dx;
+        let f = 1.0 / (1.0 + RATIO * mu_m);
+        let mut worst: f64 = 0.0;
+        for i in 0..N {
+            let mut h = r * mode(i);
+            let mut a = r;
+            for nb in [i.checked_sub(1), (i + 1 < N).then_some(i + 1)]
+                .into_iter()
+                .flatten()
+            {
+                h += c * f * mode(nb);
+                a += c;
+            }
+            let got = s.u.internal[i].y;
+            assert!(got.is_finite(), "u_y[{i}] is {got}");
+            worst = worst.max((got - h / a).abs());
+        }
+        eprintln!("sonicFoam U: worst |u_y - HbyA closed form| = {worst:.3e}");
+        assert!(
+            worst < 1e-5,
+            "momentum diffusion departs from the closed form by {worst}"
+        );
     }
 }

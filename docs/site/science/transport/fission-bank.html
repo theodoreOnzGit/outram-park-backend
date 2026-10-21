@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The fission bank and k</title>
+<meta name="description" content="Transport, page 9: a criticality run is a power iteration. Each fission banks sites for the next generation, nu/k of them on average, the bank is resampled to a fixed size by a uniform comb, and k of a generation is the fission production per source neutron. Shannon entropy says when the source has settled.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="transport.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Widget: transport.js comb (ports of sample_num_neutrons and comb_resample, outram-mc-libs/src/physics/fission.rs :45,:76). Code: transport_csg.rs run_keff_csg_seq_progress :663-800 (k_gen = production / n_particles, entropy before resampling, resample), transport_csg.rs fission arm :2009-2060, fission.rs. Real demo: ?rung=godiva&mode=run. Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>The fission bank and k</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>Until now the neutron was a stranger who appeared from nowhere. In a criticality problem there is no outside source: the neutrons of one <b>generation</b> are born at the fissions of the previous one. That makes k the ratio</p>
+<p class="eq-block">k = (neutrons in one generation) / (neutrons in the generation before)</p>
+<p>and Monte Carlo finds it by <b>power iteration</b>: run a generation, collect its fission sites, make them the next generation's source, repeat.</p>
+
+<h2>Banking the sites</h2>
+<p>When a collision turns out to be a fission (page 5) the neutron's history ends, and the code <b>banks</b> the new neutrons: their position (the fission site), an isotropic direction, an energy from the nuclide's own fission spectrum, and, for delayed neutrons, a precursor group with its own softer spectrum. How many? The expected number is &nu;&#772;/k, with &nu;&#772; the neutrons per fission and k the running eigenvalue. Dividing by k keeps the bank near the same size from generation to generation. The integer is a floor plus a Bernoulli draw on the remainder (<code>sample_num_neutrons</code>): &lfloor;&nu;&#772;/k&rfloor; + [&xi; &lt; frac(&nu;&#772;/k)].</p>
+
+<h2>One generation, one number</h2>
+<p>The estimate of k from a generation is its <b>fission production per source neutron</b>, k<sub>gen</sub> = &sum;(w&thinsp;&nu;&#772;)/n, summed over every fission in the generation (<code>production / n_particles</code>, <code>run_keff_csg_seq_progress</code>). The reported k is the mean of the <i>active</i> generations' k<sub>gen</sub>; the first few (<b>inactive</b>) generations are thrown away, because the first source is a guess: a box of points rejected into the fissionable cells.</p>
+
+<h2>Back to a fixed size</h2>
+<p>The bank after a generation is not exactly n sites. It must be brought back to n. Until 2026-09-30 the code drew n sites with replacement; it now uses OpenMC's <b>uniform comb</b> (<code>comb_resample</code>): n evenly spaced teeth with one random offset, so every site is taken either &lfloor;n/total&rfloor; or &lceil;n/total&rceil; times. Sampling with replacement is unbiased for one generation but adds multinomial noise, and power iteration with a finite bank already carries a small negative bias of order 1/N (gh:#460).</p>
+<p class="predict"><b>Predict first:</b> resample 10 banked sites down to 8. With the comb, how many sites can end up dropped entirely? With replacement?</p>
+
+<section class="widget-card">
+  <h3>Banking and combing</h3>
+  <div class="widget" id="comb">
+    <canvas aria-label="Histogram of banked sites per fission and bar chart of how many times each banked site is taken when resampled"></canvas>
+  </div>
+  <p class="note">Ports of <code>sample_num_neutrons</code> and <code>comb_resample</code> (<code>outram-mc-libs/src/physics/fission.rs</code>), JavaScript sketch with a handful of sites so the multiplicities are legible; the real banks hold thousands. <code>check-transport.js</code> verifies that the mean sites per fission is &nu;&#772;/k, that the comb returns exactly n sites each taken &lfloor;n/total&rfloor; or &lceil;n/total&rceil; times, and that sampling with replacement breaks that.</p>
+</section>
+
+<h2>Has the source settled? Shannon entropy</h2>
+<p>k alone is a poor test of convergence: it is an integral and can look settled long before the <i>shape</i> of the fission source has. Given a spatial mesh, the code computes the <b>Shannon entropy</b> of the fission source in each generation, from the bank <i>before</i> resampling (ported from OpenMC): when it stops drifting the shape has settled. Using it to judge the inactive generations goes back to Brown's study of the fission-source convergence of criticality calculations <a href="#ref-brown2006shannon">(F. B. Brown, 2006)</a>.</p>
+<p>The demo below draws, for Godiva, k per generation and the source entropy as the run goes. The neutrons drawn are real histories born at the run's fission sites (they are not counted in k).</p>
+<div class="iframe-slot" data-title="Godiva, a k_eff run" data-src="../../demos/monte-carlo/?rung=godiva&amp;mode=run">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(D. A. Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. Run k_eff takes your numbers of neutrons and generations. The page stays responsive meanwhile.</p>
+</div>
+
+<h2>Next question</h2>
+<p>The run gives k &plusmn; something. <b>Why should that &plusmn; be believed?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-brown2006shannon" style="padding-left: 2em; text-indent: -2em;">Brown, F. B. (2006, September). On the Use of Shannon Entropy of the Fission Distribution for Assessing Convergence of Monte Carlo Criticality Calculations. <i>PHYSOR 2006: ANS Topical Meeting on Reactor Physics</i>.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

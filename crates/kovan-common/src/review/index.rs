@@ -1,0 +1,625 @@
+//! The per-folder code-review **`kovan.toml`** (maintainer, #739 decisions
+//! 2, 8, 10, 11, 13 and "kovan.toml is a disposable cache", 2026-10-07).
+//!
+//! One per folder, covering every `.rs` file in it. Machine-owned: generated
+//! deterministically from the source, `review.md` and git, never
+//! hand-edited, and **fully rebuildable**. A missing, malformed,
+//! hand-edited or conflicted one is regenerated silently by the caller; this
+//! module only reads and writes it and reports, with [`IndexError`], why a
+//! file could not be read.
+//!
+//! It is a **new kind** of `kovan.toml` (`kind = "code_folder"`), so the
+//! literature entity `kovan.toml` files (`kind = "paper"`, …) are untouched,
+//! and [`FolderIndex::parse`] refuses one of those with
+//! [`IndexError::NotACodeFolder`] rather than misreading it.
+//!
+//! ```toml
+//! schema_version = 1
+//! kind = "code_folder"
+//! crate = "tampines"
+//! dir = "crates/tampines/src"
+//! commit = "<sha>"                  # optional; `kovan-cli index` leaves it out (#767: it would change every file on every commit)
+//!
+//! [module."steam.rs"]
+//! path = "crate::steam"
+//!
+//! [[module."steam.rs".function]]
+//! id = "fn:3f2a9c0d1e4b5a67"       # stable join key (`super::id`)
+//! name = "flash"                    # display only
+//! qual = "SteamTable::flash"        # the code-walk path today
+//! lines = [120, 158]
+//! hash = "sha256:…"
+//! doc_hash = "sha256:…"
+//! callees = ["fn:0a1b2c3d4e5f6071"]
+//! reached_by = ["crates/tampines/tests/flash.rs::flash_matches_iapws"]
+//!
+//! [test_run]                        # last `kovan-cli test` evidence
+//! commit = "<sha>"
+//! cargo_lock = "sha256:…"
+//! suite = "full"
+//! passed = ["…"]
+//! failed = []
+//! edited = []                       # tests edited in the change: never count
+//!
+//! [upstream]                        # cached from review.md
+//! …
+//!
+//! [[review]]                        # cached list of review.md's reviews
+//! function = "…"
+//! by = "github:…"
+//! artifact = "review-…"
+//!
+//! [[deleted_folder]]                # crate root folder only (#739 D6)
+//! dir = "crates/tampines/src/old"
+//! [[deleted_folder.function]]
+//! …
+//! ```
+//!
+//! # Stable ids
+//!
+//! ~~A function's `id` is the call graph's key at first index~~
+//! **CORRECTED 2026-10-07** (hybrid id, #764): a function's `id` is the
+//! opaque `fn:<16 hex>` of [`super::id`], minted at first index from (first
+//! path, first hash, first-seen commit) and kept through renames and moves.
+//! The indexer matches ids back from `review.md` (an entry's `target`), and
+//! for a function no entry names it may reuse the previous `kovan.toml`'s
+//! id for the same path and hash or mint a new one: nothing outside
+//! `review.md` refers to an unreviewed function's id, so a new id for it is
+//! harmless. `qual` and the folder/file say where it is now.
+//!
+//! # Determinism
+//!
+//! Modules are a `BTreeMap` keyed by file name; [`FolderIndex::to_toml`]
+//! sorts functions by first line then id, and every list it owns.
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use super::review_md::{DeletedFunction, UpstreamTable};
+use super::types::{check_commit, check_hash, FieldError};
+
+/// The `schema_version` this module writes. Additive changes never bump it
+/// (decision 11); readers accept any version up to this one.
+pub const INDEX_SCHEMA_VERSION: u32 = 1;
+
+/// `kind = "code_folder"`.
+pub const CODE_FOLDER_KIND: &str = "code_folder";
+
+/// What kind of item an entry is. Functions are hashed today; the
+/// maintainer ruled (#739, 2026-10-06) that nested functions, constants and
+/// types are stamped too, which later indexers add without a schema change.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemKind {
+    #[default]
+    Fn,
+    Const,
+    Static,
+    Type,
+}
+
+impl ItemKind {
+    /// A function; every other kind is reviewed with the item questions.
+    pub fn is_fn(self) -> bool {
+        self == ItemKind::Fn
+    }
+}
+
+/// Which kind of non-function item an entry is (GitHub #843, additive,
+/// 2026-10-13). [`ItemKind`] keeps the three coarse kinds a first-version
+/// reader knows; this says which questions the review wizard asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemShape {
+    /// A record: a named group of values.
+    Struct,
+    /// A list of cases.
+    Enum,
+    Union,
+    /// An interface: what every model of some kind must provide.
+    Trait,
+    /// A shorthand name for an existing type.
+    Alias,
+    /// A named number.
+    Const,
+    Static,
+}
+
+impl ItemShape {
+    /// The coarse kind written as `item`.
+    pub fn item(self) -> ItemKind {
+        match self {
+            ItemShape::Const => ItemKind::Const,
+            ItemShape::Static => ItemKind::Static,
+            _ => ItemKind::Type,
+        }
+    }
+
+    /// The plain-language name shown to a reviewer (maintainer, #843,
+    /// 2026-10-13: no software jargon in review questions).
+    pub fn plain_name(self) -> &'static str {
+        match self {
+            ItemShape::Struct | ItemShape::Union => "record",
+            ItemShape::Enum => "list of cases",
+            ItemShape::Trait => "interface",
+            ItemShape::Alias => "shorthand name",
+            ItemShape::Const | ItemShape::Static => "named number",
+        }
+    }
+}
+
+/// One function (item) of a file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FunctionIndex {
+    /// The stable join key, `fn:<opaque>` (module doc). A first-version
+    /// file holds call-graph keys here; the cache is regenerated, so they
+    /// are never migrated.
+    pub id: String,
+    /// Display only.
+    pub name: String,
+    /// The code-walk path within the file (`name` or `Type::name`).
+    pub qual: String,
+    #[serde(default, skip_serializing_if = "is_fn")]
+    pub item: ItemKind,
+    /// Added 2026-10-13 (#843, additive): which kind of non-function item;
+    /// absent for a function.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<ItemShape>,
+    /// 1-based inclusive line range, doc comment included.
+    pub lines: [u32; 2],
+    pub hash: String,
+    pub doc_hash: String,
+    /// Resolved workspace callees, by stable id (std, external and
+    /// unresolved calls are not listed).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub callees: Vec<String>,
+    /// Added 2026-10-13 (#843, additive): the workspace types and constants
+    /// this entry uses, by stable id. Kept apart from `callees` so that a
+    /// review written before items were indexed still compares its recorded
+    /// callees with `callees` alone. For a type or constant, `reached_by`
+    /// lists the tests that use it, directly or through a function.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uses: Vec<String>,
+    /// Every test that reaches the function (by test id).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reached_by: Vec<String>,
+    /// A test function, or inside `#[cfg(test)]`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub test: bool,
+    /// Added 2026-10-07 (#767, additive): written by the rust-analyzer-free
+    /// refresh ([`crate::code_index::refresh`]) when the function is new or
+    /// its code changed since the last full `kovan-cli index`, so its
+    /// `callees` and `reached_by` could not be recomputed. Shown as "index
+    /// out of date: run kovan-cli index", never silently trusted.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub index_out_of_date: bool,
+    /// Added 2026-10-07 (#767, additive): a physical quantity (a `uom`
+    /// type or a workspace alias of one) crosses the signature, so the
+    /// review wizard's units question applies
+    /// ([`crate::code_index::physical`]).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub physical_interface: bool,
+}
+
+impl FunctionIndex {
+    /// Everything this entry rests on: the functions it calls, then the
+    /// types and constants it uses. What the bottom-up rule requires
+    /// reviewed first, and what a new review records the hashes of.
+    pub fn depends_on(&self) -> impl Iterator<Item = &String> {
+        self.callees.iter().chain(self.uses.iter())
+    }
+}
+
+fn is_fn(k: &ItemKind) -> bool {
+    *k == ItemKind::Fn
+}
+
+/// `[module."<file>.rs"]`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModuleIndex {
+    /// The module path, `crate::steam`.
+    pub path: String,
+    #[serde(default, rename = "function", skip_serializing_if = "Vec::is_empty")]
+    pub functions: Vec<FunctionIndex>,
+}
+
+/// Which suite produced the evidence (#739 decision 12: only the full suite
+/// counts).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Suite {
+    /// `cargo test --workspace --lib --tests --release`, long tests included.
+    Full,
+    /// `cargo quick-test`: recorded, never counted.
+    Quick,
+}
+
+/// `[test_run]`: the evidence `kovan-cli test` recorded (D4), mapped onto
+/// test ids by [`super::evidence::map::to_test_run`] (only counted,
+/// full-suite runs) and written here by
+/// [`crate::code_index::test_run::write_counted`]. ~~Projected from the
+/// workspace's `kovan_test_evidence.toml`~~ **CORRECTED 2026-10-07**: this
+/// table is the record (maintainer, #766); regeneration carries it over.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TestRun {
+    pub commit: String,
+    /// Hash of `Cargo.lock` at the run.
+    pub cargo_lock: String,
+    pub suite: Suite,
+    #[serde(default)]
+    pub passed: Vec<String>,
+    #[serde(default)]
+    pub failed: Vec<String>,
+    /// Tests edited in the change under test: never counted as evidence.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub edited: Vec<String>,
+}
+
+/// `[[review]]`: the cached list of `review.md`'s reviews, so a deleted
+/// `review.md` is noticed (kovan then asks before restoring it from git).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct CachedReview {
+    pub function: String,
+    pub by: String,
+    pub artifact: String,
+}
+
+/// `[[deleted_folder]]`: a deleted folder's review history, kept in the
+/// crate root folder's `kovan.toml` (#739 D6).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeletedFolder {
+    pub dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deleted_commit: Option<String>,
+    #[serde(default, rename = "function", skip_serializing_if = "Vec::is_empty")]
+    pub functions: Vec<DeletedFunction>,
+}
+
+/// One folder's `kovan.toml`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FolderIndex {
+    pub schema_version: u32,
+    pub kind: String,
+    #[serde(rename = "crate")]
+    pub krate: String,
+    /// The folder, workspace-relative, `/`-separated.
+    pub dir: String,
+    /// Whether this is the crate's root folder (the one holding `lib.rs` or
+    /// `main.rs`); only that one keeps `deleted_folder` history.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub crate_root: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    #[serde(default, rename = "module", skip_serializing_if = "BTreeMap::is_empty")]
+    pub modules: BTreeMap<String, ModuleIndex>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_run: Option<TestRun>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream: Option<UpstreamTable>,
+    #[serde(default, rename = "review", skip_serializing_if = "Vec::is_empty")]
+    pub reviews: Vec<CachedReview>,
+    #[serde(default, rename = "deleted_folder", skip_serializing_if = "Vec::is_empty")]
+    pub deleted_folders: Vec<DeletedFolder>,
+    /// Added 2026-10-07 (#767, additive; **on disk only**): the folder's
+    /// test-id table. [`FolderIndex::to_toml`] writes every test id once
+    /// here and each `reached_by` / `[test_run]` list entry as `"#<index>"`
+    /// into it; [`FolderIndex::parse`] expands them back and leaves this
+    /// empty, so in memory the lists always hold full test ids. Measured on
+    /// `njoy-outram-park-fork/src/reconr` (2026-10-07): the full ids made
+    /// 1.54 MB of a 1.59 MB file. A file without the table (the first
+    /// version) reads as before.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub test_ids: Vec<String>,
+}
+
+/// `"#<k>"` -> `table[k]`; anything else is a full id, kept.
+fn expand_test_ref(table: &[String], s: &str) -> Result<String, IndexError> {
+    match s.strip_prefix('#') {
+        Some(k) => k
+            .parse::<usize>()
+            .ok()
+            .and_then(|k| table.get(k))
+            .cloned()
+            .ok_or_else(|| IndexError::Toml(format!("test reference {s:?} is not in test_ids"))),
+        None => Ok(s.to_string()),
+    }
+}
+
+/// Why a `kovan.toml` could not be read as a code-review folder index.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IndexError {
+    /// Not TOML, or not this schema (the caller regenerates).
+    Toml(String),
+    /// A `kovan.toml` of another kind (a literature entity): not ours.
+    NotACodeFolder { kind: String },
+    /// Written by a newer kovan than this one.
+    NewerSchema(u32),
+    /// A hash or commit field is malformed.
+    Field(FieldError),
+    /// Two functions share an id.
+    DuplicateId(String),
+}
+
+impl std::fmt::Display for IndexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Toml(e) => write!(f, "kovan.toml: {e}"),
+            Self::NotACodeFolder { kind } => {
+                write!(f, "kovan.toml has kind {kind:?}, not {CODE_FOLDER_KIND:?}")
+            }
+            Self::NewerSchema(v) => write!(
+                f,
+                "kovan.toml schema_version {v} is newer than {INDEX_SCHEMA_VERSION}"
+            ),
+            Self::Field(e) => write!(f, "kovan.toml: {e}"),
+            Self::DuplicateId(id) => write!(f, "kovan.toml: function id {id} appears twice"),
+        }
+    }
+}
+
+impl std::error::Error for IndexError {}
+
+impl FolderIndex {
+    /// An empty index of `dir` in `krate`.
+    pub fn new(krate: impl Into<String>, dir: impl Into<String>) -> FolderIndex {
+        FolderIndex {
+            schema_version: INDEX_SCHEMA_VERSION,
+            kind: CODE_FOLDER_KIND.to_string(),
+            krate: krate.into(),
+            dir: dir.into(),
+            crate_root: false,
+            commit: None,
+            modules: BTreeMap::new(),
+            test_run: None,
+            upstream: None,
+            reviews: Vec::new(),
+            deleted_folders: Vec::new(),
+            test_ids: Vec::new(),
+        }
+    }
+
+    /// Read a `kovan.toml`, checking that it is a code-folder index and that
+    /// its hashes and ids are well formed.
+    pub fn parse(text: &str) -> Result<FolderIndex, IndexError> {
+        let v: toml::Value = toml::from_str(text).map_err(|e| IndexError::Toml(e.to_string()))?;
+        let kind = v.get("kind").and_then(|k| k.as_str()).unwrap_or("");
+        if kind != CODE_FOLDER_KIND {
+            return Err(IndexError::NotACodeFolder {
+                kind: kind.to_string(),
+            });
+        }
+        let mut idx: FolderIndex = toml::from_str(text).map_err(|e| IndexError::Toml(e.to_string()))?;
+        if idx.schema_version > INDEX_SCHEMA_VERSION {
+            return Err(IndexError::NewerSchema(idx.schema_version));
+        }
+        let table = std::mem::take(&mut idx.test_ids);
+        let expand = |v: &mut Vec<String>| -> Result<(), IndexError> {
+            for s in v.iter_mut() {
+                *s = expand_test_ref(&table, s)?;
+            }
+            Ok(())
+        };
+        for m in idx.modules.values_mut() {
+            for f in &mut m.functions {
+                expand(&mut f.reached_by)?;
+            }
+        }
+        if let Some(r) = &mut idx.test_run {
+            for v in [&mut r.passed, &mut r.failed, &mut r.edited] {
+                expand(v)?;
+            }
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for f in idx.functions() {
+            check_hash("hash", &f.1.hash).map_err(IndexError::Field)?;
+            check_hash("doc_hash", &f.1.doc_hash).map_err(IndexError::Field)?;
+            if !seen.insert(f.1.id.clone()) {
+                return Err(IndexError::DuplicateId(f.1.id.clone()));
+            }
+        }
+        if let Some(r) = &idx.test_run {
+            check_commit("test_run.commit", &r.commit).map_err(IndexError::Field)?;
+            check_hash("test_run.cargo_lock", &r.cargo_lock).map_err(IndexError::Field)?;
+        }
+        Ok(idx)
+    }
+
+    /// Every function with its file name, in file then line order.
+    pub fn functions(&self) -> impl Iterator<Item = (&str, &FunctionIndex)> {
+        self.modules
+            .iter()
+            .flat_map(|(file, m)| m.functions.iter().map(move |f| (file.as_str(), f)))
+    }
+
+    /// The workspace-relative path of `file` in this folder.
+    pub fn file_path(&self, file: &str) -> String {
+        if self.dir.is_empty() {
+            file.to_string()
+        } else {
+            format!("{}/{file}", self.dir)
+        }
+    }
+
+    /// Sort everything this module owns (module doc, Determinism).
+    pub fn normalise(&mut self) {
+        for m in self.modules.values_mut() {
+            m.functions
+                .sort_by(|a, b| (a.lines[0], &a.id).cmp(&(b.lines[0], &b.id)));
+            for f in &mut m.functions {
+                f.callees.sort();
+                f.callees.dedup();
+                f.uses.sort();
+                f.uses.dedup();
+                f.reached_by.sort();
+                f.reached_by.dedup();
+            }
+        }
+        if let Some(r) = &mut self.test_run {
+            for v in [&mut r.passed, &mut r.failed, &mut r.edited] {
+                v.sort();
+                v.dedup();
+            }
+        }
+        self.reviews.sort();
+        self.reviews.dedup();
+        self.deleted_folders.sort_by(|a, b| a.dir.cmp(&b.dir));
+        for d in &mut self.deleted_folders {
+            d.functions.sort();
+        }
+    }
+
+    /// The `kovan.toml` text, normalised first, so the same data gives the
+    /// same bytes.
+    pub fn to_toml(&self) -> Result<String, IndexError> {
+        let mut c = self.clone();
+        c.normalise();
+        // The test-id table (field doc): sorted, every id once.
+        let mut all: std::collections::BTreeSet<String> = c.test_ids.drain(..).collect();
+        for m in c.modules.values() {
+            for f in &m.functions {
+                all.extend(f.reached_by.iter().cloned());
+            }
+        }
+        if let Some(r) = &c.test_run {
+            all.extend(r.passed.iter().chain(&r.failed).chain(&r.edited).cloned());
+        }
+        let table: Vec<String> = all.into_iter().collect();
+        let refer = |v: &mut Vec<String>| {
+            for s in v.iter_mut() {
+                if let Ok(k) = table.binary_search(s) {
+                    *s = format!("#{k}");
+                }
+            }
+        };
+        for m in c.modules.values_mut() {
+            for f in &mut m.functions {
+                refer(&mut f.reached_by);
+            }
+        }
+        if let Some(r) = &mut c.test_run {
+            for v in [&mut r.passed, &mut r.failed, &mut r.edited] {
+                refer(v);
+            }
+        }
+        c.test_ids = table;
+        toml::to_string_pretty(&c).map_err(|e| IndexError::Toml(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn h(c: char) -> String {
+        format!("sha256:{}", c.to_string().repeat(64))
+    }
+
+    pub(crate) fn sample() -> FolderIndex {
+        let mut idx = FolderIndex::new("tampines", "crates/tampines/src");
+        idx.crate_root = true;
+        idx.commit = Some("0123456789abcdef0123456789abcdef01234567".into());
+        idx.modules.insert(
+            "steam.rs".into(),
+            ModuleIndex {
+                path: "crate::steam".into(),
+                functions: vec![FunctionIndex {
+                    id: "crates/tampines/src/steam.rs::flash".into(),
+                    name: "flash".into(),
+                    qual: "flash".into(),
+                    item: ItemKind::Fn,
+                    shape: None,
+                    uses: Vec::new(),
+                    lines: [10, 20],
+                    hash: h('a'),
+                    doc_hash: h('b'),
+                    callees: vec!["crates/tampines/src/steam.rs::sat".into()],
+                    reached_by: vec!["crates/tampines/tests/t.rs::t".into()],
+                    test: false,
+                    index_out_of_date: false,
+                    physical_interface: false,
+                }],
+            },
+        );
+        idx.test_run = Some(TestRun {
+            commit: "0123456789abcdef0123456789abcdef01234567".into(),
+            cargo_lock: h('c'),
+            suite: Suite::Full,
+            passed: vec!["crates/tampines/tests/t.rs::t".into()],
+            failed: vec![],
+            edited: vec![],
+        });
+        idx
+    }
+
+    /// Methodology: an index with every section round-trips through
+    /// [`FolderIndex::to_toml`] and [`FolderIndex::parse`] byte for byte;
+    /// a literature `kovan.toml` (kind `paper`) is refused as not ours; a
+    /// newer schema, a bad hash and a duplicate id are typed errors.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn index_round_trips_and_refuses_what_is_not_ours() {
+        let idx = sample();
+        let text = idx.to_toml().unwrap();
+        let back = FolderIndex::parse(&text).unwrap();
+        assert_eq!(back, idx);
+        assert_eq!(back.to_toml().unwrap(), text);
+        assert!(text.contains("[module.\"steam.rs\"]"));
+        let lit = "schema_version = 1\nid = \"smith2020\"\nkind = \"paper\"\n";
+        assert_eq!(
+            FolderIndex::parse(lit),
+            Err(IndexError::NotACodeFolder { kind: "paper".into() })
+        );
+        let newer = text.replace("schema_version = 1", "schema_version = 99");
+        assert_eq!(FolderIndex::parse(&newer), Err(IndexError::NewerSchema(99)));
+        let bad = text.replacen(&h('a'), "sha256:xyz", 1);
+        assert!(matches!(FolderIndex::parse(&bad), Err(IndexError::Field(_))));
+        let mut dup = idx.clone();
+        let f = dup.modules["steam.rs"].functions[0].clone();
+        dup.modules.get_mut("steam.rs").unwrap().functions.push(f);
+        let dup_text = toml::to_string_pretty(&dup).unwrap();
+        assert!(matches!(FolderIndex::parse(&dup_text), Err(IndexError::DuplicateId(_))));
+    }
+
+    /// Methodology: additive schema (decision 11). A minimal `kovan.toml`
+    /// written with only the required keys (as a first-version writer
+    /// would), and one carrying a key this version does not know, both read.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn older_and_newer_additive_files_load() {
+        let minimal = "schema_version = 1\nkind = \"code_folder\"\ncrate = \"x\"\ndir = \"crates/x/src\"\n";
+        let idx = FolderIndex::parse(minimal).unwrap();
+        assert!(idx.modules.is_empty() && idx.test_run.is_none());
+        let extra = format!("{minimal}future_field = 3\n[module.\"a.rs\"]\npath = \"crate::a\"\nnew_key = true\n");
+        assert!(FolderIndex::parse(&extra).is_ok());
+    }
+
+    /// Methodology: the on-disk test-id table (#767). The sample written by
+    /// [`FolderIndex::to_toml`] holds the test id once in `test_ids` and
+    /// `"#0"` in `reached_by` and `[test_run] passed`; parsing gives back
+    /// full ids and an empty table. The first-version form (full ids in
+    /// the lists, no table, as `tests/fixtures/review/v1` has) reads to the
+    /// same index; the new fields `index_out_of_date` and
+    /// `physical_interface` default to false; a reference outside the
+    /// table is an error.
+    ///
+    /// Result (2026-10-07): passes.
+    #[test]
+    fn test_ids_are_written_once_and_expanded_on_read() {
+        let idx = sample();
+        let text = idx.to_toml().unwrap();
+        assert!(text.contains("test_ids = [\"crates/tampines/tests/t.rs::t\"]"), "{text}");
+        assert_eq!(text.matches("crates/tampines/tests/t.rs::t").count(), 1);
+        assert!(text.contains("\"#0\""));
+        let back = FolderIndex::parse(&text).unwrap();
+        assert_eq!(back, idx);
+        assert!(back.test_ids.is_empty());
+        let old = toml::to_string_pretty(&idx).unwrap();
+        assert!(!old.contains("test_ids") && !old.contains("index_out_of_date"));
+        assert_eq!(FolderIndex::parse(&old).unwrap(), idx);
+        let bad = text.replace("\"#0\"", "\"#7\"");
+        assert!(matches!(FolderIndex::parse(&bad), Err(IndexError::Toml(_))));
+    }
+}

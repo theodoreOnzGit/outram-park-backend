@@ -48,26 +48,77 @@ pub mod advanced_git;
 /// behaviour change, and (per grep) touched no reference outside this
 /// crate's own doc comments. Renaming `DigitiseApp` itself to a name that
 /// reflects shell (not digitiser) ownership is a separate, deliberately
-/// deferred follow-up — see the crate's `bn` tracker.
+/// deferred follow-up.
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 pub mod app;
 pub mod artifact;
 pub mod autocomplete;
+/// The workspace call graph, crate → module → function, with function
+/// source (GitHub #737). Moved 2026-10-06 to the wasm-clean
+/// [`kovan_common::call_graph`] for web-kovan (#736); re-exported here.
+pub use kovan_common::call_graph;
 pub mod classify;
+/// The code map of a Cargo workspace from its `[package.metadata.kovan]`
+/// tags (GitHub #734): model, layout and SVG. GUI-free; see [`code_map`].
+pub mod code_map;
+/// The data folder the app's Code Review view reads, built from a
+/// workspace's saved SCIP index (GitHub #820). GUI-free.
+pub mod code_review_data;
+pub(crate) mod collection_picker;
+pub mod concept_ops;
 pub mod commands;
+pub mod code_connections;
+pub mod code_review_artifacts;
+pub mod connections;
+pub mod corpus;
+pub mod corpus_repos;
+pub mod corpus_tiers;
 pub mod digitiser;
 pub mod entity;
+pub mod fingerprint;
+/// Moved 2026-10-06 to the wasm-clean [`kovan_common::fuzzy`] (web-kovan's
+/// search bar, #736); re-exported here under its old path.
+pub use kovan_common::fuzzy;
 pub mod graph;
 pub mod index;
+pub mod index_fresh;
 pub mod mindmap;
 pub mod mindmap_layout;
 pub mod mindmap_model;
+/// Moved 2026-10-06 to the wasm-clean [`kovan_common::mindmap_view`] for
+/// web-kovan (#736); re-exported here under its old path.
+pub use kovan_common::mindmap_view;
+pub mod navigation;
+pub mod node_id;
+pub mod page_rotation;
 pub mod ingest;
+/// The network behind identifier lookup (GitHub #756), opt-in.
+pub mod lookup_net;
 pub mod session;
+/// Full-text search over the built Pages site (gh:#876 item 8).
+pub mod site_search;
+pub mod standard_corpus;
 pub mod project;
 pub mod relation;
+pub mod repo_management;
 pub mod repository;
 pub mod research_record;
+/// Recently opened papers — local, derived state in `.kovan/`, surfaced
+/// in the map and the Wiki beside Unsorted. See [`recent`].
+pub mod recent;
 pub mod root;
+pub mod runtime_graph;
+/// Is rust-analyzer installed, and installing it with rustup (GitHub #820):
+/// the Code Map view's check before "Index fresh". GUI-free.
+pub mod rust_analyzer_setup;
+pub mod save_push;
+pub mod scip;
+/// Signed review stamps for desktop kovan's stamp dialog (GitHub #770,
+/// #762, #765): draft, write `review.md`, register keys, per-function
+/// states from `review.md`. GUI-free. See [`stamping`].
+pub mod stamping;
 pub mod sync;
 pub mod tui;
+/// Zotero import into a Kovan folder and export from it (GitHub #752,
+/// epic #747); `kovan-cli zotero` is its front end.
+pub mod zotero;

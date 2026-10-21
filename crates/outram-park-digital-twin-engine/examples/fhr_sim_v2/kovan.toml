@@ -1,0 +1,186 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::cloning_the_whole_fhr_state_is_not_the_bottleneck",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_first_frame_pays_the_pebble_bed_bake_and_no_later_frame_does",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_whole_render_body_costs_a_small_fraction_of_a_frame",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+]
+
+[module."main.rs"]
+path = "example:fhr_sim_v2"
+
+[[module."main.rs".function]]
+id = "fn:701662e90ccd6471"
+name = "main"
+qual = "main#1"
+lines = [
+    9,
+    10,
+]
+hash = "sha256:a32336f06f58e19f16f1b15b2998bc3fd5602540accacba125c4fac21797d3ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:0bd6b7c5e89cf90f"
+name = "main"
+qual = "main#2"
+lines = [
+    12,
+    21,
+]
+hash = "sha256:7233f357d097998cf84a0341457288338bb1f213df42407727ce6bc458ad2254"
+doc_hash = "sha256:074f2830a52b507fab83db986337a95dec02d780b762ba16b2ab25bbff5abe20"
+callees = ["fn:415ddd30d392a19d"]
+
+[[module."main.rs".function]]
+id = "fn:415ddd30d392a19d"
+name = "fhr_simulator_v2"
+qual = "fhr_simulator_v2"
+lines = [
+    38,
+    105,
+]
+hash = "sha256:15ca23436aec8e258d83d078a5bf661731bab4aceb8e55b4db9ac25254a09f89"
+doc_hash = "sha256:af275aab7ee91a9dd2fd6ea8bc18ade8a1f65199c298e206ac1789f448baf59d"
+callees = ["fn:1a305e2bab9fd539"]
+uses = ["fn:a70fc38a274a1899"]
+
+[[module."main.rs".function]]
+id = "fn:a70fc38a274a1899"
+name = "FHRSimulatorApp"
+qual = "FHRSimulatorApp"
+item = "type"
+shape = "struct"
+lines = [
+    106,
+    152,
+]
+hash = "sha256:2d1afd9c5cebb2d14bbf2b5591623174e2b1b3fac3e046fb4e2ea782ca26c2ce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:0256baab788d6320",
+    "fn:5244d7529c279542",
+    "fn:5d225cbd74f7f43d",
+    "fn:8fa1d61f79295f85",
+    "fn:ef79e1598de007c9",
+    "fn:f32c12308e75fae8",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."main.rs".function]]
+id = "fn:8fa1d61f79295f85"
+name = "FHRState"
+qual = "FHRState"
+item = "type"
+shape = "struct"
+lines = [
+    154,
+    258,
+]
+hash = "sha256:bd680c338f8b1f36c48d9ac6d8f29b81d89c029084d39a4994a309a530d01fee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."main.rs".function]]
+id = "fn:a3264904f4da2ab9"
+name = "default"
+qual = "FHRState::default"
+lines = [
+    262,
+    327,
+]
+hash = "sha256:a098133f16995f5c48da537ed8695d60adba3a9eb40df0016c3f82d0a510355a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8fa1d61f79295f85"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."main.rs".function]]
+id = "fn:f7a0c96b766c7729"
+name = "obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter"
+qual = "FHRState::obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter"
+lines = [
+    332,
+    339,
+]
+hash = "sha256:551a456b2e340eeaea38af79b9518e94939be7d4a650d20e79d38ccae759fd5e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8fa1d61f79295f85"]
+physical_interface = true
+
+[[module."main.rs".function]]
+id = "fn:1a305e2bab9fd539"
+name = "new"
+qual = "FHRSimulatorApp::new"
+lines = [
+    344,
+    399,
+]
+hash = "sha256:58632799d405911b07db087b131ce40961b324679f077b50474a688519980327"
+doc_hash = "sha256:70d0e5349f6d492e8f3b4c3173fe8e05f0b3f501bba7dbfe9cd6e130c61388de"
+callees = [
+    "fn:46d589dc47357f00",
+    "fn:50405425c945732b",
+    "fn:749d4e379545ed45",
+    "fn:c63f881c6e77c9a9",
+    "fn:e823218dee1d7627",
+]
+uses = [
+    "fn:5244d7529c279542",
+    "fn:5d225cbd74f7f43d",
+    "fn:8fa1d61f79295f85",
+    "fn:a70fc38a274a1899",
+    "fn:f32c12308e75fae8",
+]
+
+[[module."main.rs".function]]
+id = "fn:50405425c945732b"
+name = "default"
+qual = "FHRSimulatorApp::default"
+lines = [
+    403,
+    418,
+]
+hash = "sha256:ab4cbddd6c0a38d5e635fdd6101e2e6db8760498a7d01f7b7fc8fc3fe82aa02b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:8574c272754a100e",
+    "fn:9aa6a2ec87e1c839",
+    "fn:a3264904f4da2ab9",
+    "fn:c6a3c2940b75a583",
+]
+uses = [
+    "fn:0256baab788d6320",
+    "fn:5244d7529c279542",
+    "fn:5d225cbd74f7f43d",
+    "fn:8fa1d61f79295f85",
+    "fn:a70fc38a274a1899",
+    "fn:ef79e1598de007c9",
+    "fn:f32c12308e75fae8",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]

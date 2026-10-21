@@ -1,0 +1,22 @@
+{
+	"testCase00": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase01": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase02": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	},
+	"testCase03": {
+		"status": 500,
+		"translatorID": null,
+		"error": "No suitable translators found"
+	}
+}

@@ -1,0 +1,545 @@
+[
+	{
+		"name": "testCase00",
+		"source": "translators/Endnote XML.js testCases[0]",
+		"input": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<xml>\n  <records>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Report\">10</ref-type>\n      <contributors>\n        <authors>\n          <author>Ahlquist, John S</author>\n          <author>Breunig, Christian</author>\n        </authors>\n      </contributors>\n      <titles>\n        <title>Country Clustering in Comparative Political Economy</title>\n      </titles>\n      <periodical/>\n      <pages>32</pages>\n      <keywords/>\n      <dates>\n        <year>2009</year>\n      </dates>\n      <pub-location>Cologne</pub-location>\n      <urls>\n        <pdf-urls>\n          <url>internal-pdf://Ahlquist and Breunig _ 2009 _ Country Clustering in Comparative Political Econom.pdf</url>\n        </pdf-urls>\n      </urls>\n    </record>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Book\">1</ref-type>\n      <contributors>\n        <authors>\n          <author>Dunnett, Nigel</author>\n          <author>Kingsbury, Noël</author>\n        </authors>\n      </contributors>\n      <titles>\n        <title>Planting green roofs and living walls</title>\n      </titles>\n      <periodical/>\n      <edition>2</edition>\n      <keywords/>\n      <dates>\n        <year>2008</year>\n      </dates>\n      <pub-location>Portland, OR</pub-location>\n      <publisher>Timber Press</publisher>\n      <isbn>0881929115</isbn>\n      <urls/>\n      <abstract>The latest techniques for planting roofs and walls to enhance our buildings and benefit the environment. The green roof industry is booming and the technology changing fast as professionals respond to the unique challenges of each new planting. In this comprehensively updated, fully revised edition of their authoritative reference, Nigel Dunnett and Nol Kingsbury reveal the very latest techniques, materials, and plants, and showcase some spectacular new case studies for the non-professional. Green roofs and walls reduce pollution and runoff, help insulate and reduce the maintenance needs of buildings, contribute to biodiversity, and provide habitats for wildlife. In addition to all this, they are attractive to look at and enhance the quality of life of residents. In Planting Green Roofs and Living Walls, Revised and Updated Edition, the authors describe and illustrate the practical techniques required to design, implement, and maintain a green roof or wall to the highest standards. This informative, up-to-the-minute reference will encourage gardeners everywhere to consider the enormous benefits to be gained from planting on their roofs and walls.</abstract>\n    </record>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Journal Article\">0</ref-type>\n      <contributors>\n        <authors>\n          <author>Foderaro, Lisa W</author>\n        </authors>\n      </contributors>\n      <titles>\n        <title>Rooftop greenhouse will boost city farming</title>\n        <secondary-title>New York Times</secondary-title>\n      </titles>\n      <periodical>\n        <full-title>New York Times</full-title>\n      </periodical>\n      <pages>A20</pages>\n      <keywords/>\n      <dates>\n        <year>2012</year>\n      </dates>\n      <pub-location>New York</pub-location>\n      <urls/>\n    </record>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Book\">1</ref-type>\n      <contributors>\n        <secondary-authors>\n          <author>Hancké, Bob</author>\n          <author>Rhodes, Martin</author>\n          <author>Thatcher, Mark</author>\n        </secondary-authors>\n      </contributors>\n      <titles>\n        <title>Beyond varieties of capitalism : Conflict, contradiction, and complementarities in the European economy</title>\n        <short-title>Beyond varieties of capitalism</short-title>\n      </titles>\n      <periodical/>\n      <keywords/>\n      <dates>\n        <year>2007</year>\n      </dates>\n      <pub-location>Oxford and New York</pub-location>\n      <publisher>Oxford University Press</publisher>\n      <isbn>9780199206483</isbn>\n      <urls/>\n    </record>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Book\">1</ref-type>\n      <contributors>\n        <authors>\n          <author>Isaacson, Walter</author>\n        </authors>\n      </contributors>\n      <titles>\n        <title>Steve Jobs</title>\n      </titles>\n      <periodical/>\n      <keywords/>\n      <dates>\n        <year>2011</year>\n      </dates>\n      <pub-location>New York, {NY}</pub-location>\n      <publisher>Simon &amp; Schuster</publisher>\n      <isbn>9781451648539</isbn>\n      <urls/>\n    </record>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Book Section\">7</ref-type>\n      <contributors>\n        <authors>\n          <author>Mares, Isabela</author>\n        </authors>\n        <secondary-authors>\n          <author>Hall, Peter A</author>\n          <author>Soskice, David</author>\n        </secondary-authors>\n      </contributors>\n      <titles>\n        <title>Firms and the welfare state: When, why, and how does social policy matter to employers?</title>\n        <secondary-title>Varieties of capitalism. The institutional foundations of comparative advantage</secondary-title>\n      </titles>\n      <periodical>\n        <full-title>Varieties of capitalism. The institutional foundations of comparative advantage</full-title>\n      </periodical>\n      <pages>184-213</pages>\n      <keywords/>\n      <dates>\n        <year>2001</year>\n      </dates>\n      <pub-location>New York</pub-location>\n      <publisher>Oxford University Press</publisher>\n      <urls/>\n    </record>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Book\">1</ref-type>\n      <contributors>\n        <authors>\n          <author>McInnis, Maurie Dee</author>\n          <author>Nelson, Louis P</author>\n        </authors>\n      </contributors>\n      <titles>\n        <title>Shaping the body politic: Art and political formation in early america</title>\n      </titles>\n      <periodical/>\n      <keywords/>\n      <dates>\n        <year>2011</year>\n      </dates>\n      <pub-location>Charlottesville, VA</pub-location>\n      <publisher>University of Virginia Press</publisher>\n      <isbn>0813931029</isbn>\n      <urls/>\n      <abstract>Traditional narratives imply that art in early America was severely limited in scope. By contrast, these essays collectively argue that visual arts played a critical role in shaping an early American understanding of the body politic. American artists in the late colonial and early national periods enlisted the arts to explore and exploit their visions of the relationship of the American colonies to the mother country and, later, to give material shape to the ideals of modern republican nationhood. Taking a uniquely broad view of both politics and art, Shaping the Body Politic ranges in topic from national politics to the politics of national identity, and from presidential portraits to the architectures of the ordinary. The book covers subject matter from the 1760s to the 1820s, ranging from Patience Wright's embodiment of late colonial political tension to Thomas Jefferson's designs for the entry hall at Monticello as a museum. Paul Staiti, Maurie {McInnis}, and Roger Stein offer new readings of canonical presidential images and spaces: Jean-Antoine Houdon's George Washington, Gilbert Stuart's the Lansdowne portrait of Washington, and Thomas Jefferson's Monticello. In essays that engage print and painting, portraiture and landscape, Wendy Bellion, David Steinberg, and John Crowley explore the formation of national identity. The volume's concluding essays, by Susan Rather and Bernard Herman, examine the politics of the everyday. The accompanying eighty-five illustrations and color plates demonstrate the broad range of politically resonant visual material in early America. {ContributorsWendy} Bellion, University of Delaware * John E. Crowley, Dalhousie University * Bernard L. Herman, University of North Carolina, Chapel Hill * Maurie D. {McInnis}, University of Virginia * Louis P. Nelson, University of Virginia * Susan Rather, University of Texas, Austin * Paul Staiti, Mount Holyoke College * Roger B. Stein, emeritus, University of Virginia * David Steinberg, Independent Scholar Thomas Jefferson Foundation Distinguished Lecture Series</abstract>\n    </record>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Patent\">25</ref-type>\n      <contributors>\n        <authors>\n          <author>Van Dan Elzen, Hans</author>\n        </authors>\n      </contributors>\n      <titles>\n        <title>Yo-yo having a modifiable string gap</title>\n      </titles>\n      <periodical/>\n      <isbn>WO2011US30214</isbn>\n      <keywords/>\n      <dates>\n        <year>2011</year>\n      </dates>\n      <urls/>\n      <abstract>The invention is a yo-yo that includes unique features that enable a user to adjust the yo-yo's string gap. In the preferred embodiment, at least one of the yo-yo's side assemblies includes a screw engaged to a nut that has two thru-bores located in a side-by-side relation. The screw is located to one side of the yo-yo's axis of rotation and can be rotated by a user to adjust the position of the associated side assembly on the yo-yo's axle structure. By appropriate positioning of the side assembly, a user can adjust the yo-yo's performance characteristics.</abstract>\n    </record>\n    <record>\n      <database name=\"endnote.enl\" path=\"endnote.enl\">endnote.enl</database>\n      <ref-type name=\"Web Page\">16</ref-type>\n      <titles>\n        <title>CSL search by example</title>\n        <secondary-title>Citation Style Editor</secondary-title>\n      </titles>\n      <periodical>\n        <full-title>Citation Style Editor</full-title>\n      </periodical>\n      <keywords/>\n      <urls>\n        <web-urls>\n          <url>http://editor.citationstyles.org/searchByExample/</url>\n        </web-urls>\n      </urls>\n    </record>\n  </records>\n</xml>",
+		"upstreamTestItems": [
+			{
+				"itemType": "report",
+				"title": "Country Clustering in Comparative Political Economy",
+				"creators": [
+					{
+						"firstName": "John S.",
+						"lastName": "Ahlquist",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Christian",
+						"lastName": "Breunig",
+						"creatorType": "author"
+					}
+				],
+				"date": "2009",
+				"pages": "32",
+				"place": "Cologne",
+				"attachments": [
+					{
+						"title": "Ahlquist and Breunig _ 2009 _ Country Clustering in Comparative Political Econom",
+						"path": "PDF/Ahlquist and Breunig _ 2009 _ Country Clustering in Comparative Political Econom.pdf",
+						"mimeType": "application/pdf"
+					}
+				],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			},
+			{
+				"itemType": "book",
+				"title": "Planting green roofs and living walls",
+				"creators": [
+					{
+						"firstName": "Nigel",
+						"lastName": "Dunnett",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Noël",
+						"lastName": "Kingsbury",
+						"creatorType": "author"
+					}
+				],
+				"date": "2008",
+				"ISBN": "0881929115",
+				"abstractNote": "The latest techniques for planting roofs and walls to enhance our buildings and benefit the environment. The green roof industry is booming and the technology changing fast as professionals respond to the unique challenges of each new planting. In this comprehensively updated, fully revised edition of their authoritative reference, Nigel Dunnett and Nol Kingsbury reveal the very latest techniques, materials, and plants, and showcase some spectacular new case studies for the non-professional. Green roofs and walls reduce pollution and runoff, help insulate and reduce the maintenance needs of buildings, contribute to biodiversity, and provide habitats for wildlife. In addition to all this, they are attractive to look at and enhance the quality of life of residents. In Planting Green Roofs and Living Walls, Revised and Updated Edition, the authors describe and illustrate the practical techniques required to design, implement, and maintain a green roof or wall to the highest standards. This informative, up-to-the-minute reference will encourage gardeners everywhere to consider the enormous benefits to be gained from planting on their roofs and walls.",
+				"edition": "2",
+				"place": "Portland, OR",
+				"publisher": "Timber Press",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			},
+			{
+				"itemType": "journalArticle",
+				"title": "Rooftop greenhouse will boost city farming",
+				"creators": [
+					{
+						"firstName": "Lisa W.",
+						"lastName": "Foderaro",
+						"creatorType": "author"
+					}
+				],
+				"date": "2012",
+				"pages": "A20",
+				"publicationTitle": "New York Times",
+				"attachments": [],
+				"tags": [],
+				"notes": [
+					{
+						"note": "The following values have no corresponding Zotero field:<br/>pub-location: New York",
+						"tags": [
+							"_EndnoteXML import"
+						]
+					}
+				],
+				"seeAlso": []
+			},
+			{
+				"itemType": "book",
+				"title": "Beyond varieties of capitalism : Conflict, contradiction, and complementarities in the European economy",
+				"creators": [
+					{
+						"firstName": "Bob",
+						"lastName": "Hancké",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "Martin",
+						"lastName": "Rhodes",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "Mark",
+						"lastName": "Thatcher",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"date": "2007",
+				"ISBN": "9780199206483",
+				"place": "Oxford and New York",
+				"publisher": "Oxford University Press",
+				"shortTitle": "Beyond varieties of capitalism",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			},
+			{
+				"itemType": "book",
+				"title": "Steve Jobs",
+				"creators": [
+					{
+						"firstName": "Walter",
+						"lastName": "Isaacson",
+						"creatorType": "author"
+					}
+				],
+				"date": "2011",
+				"ISBN": "9781451648539",
+				"place": "New York, {NY}",
+				"publisher": "Simon & Schuster",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			},
+			{
+				"itemType": "bookSection",
+				"title": "Firms and the welfare state: When, why, and how does social policy matter to employers?",
+				"creators": [
+					{
+						"firstName": "Isabela",
+						"lastName": "Mares",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Peter A.",
+						"lastName": "Hall",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "David",
+						"lastName": "Soskice",
+						"creatorType": "editor"
+					}
+				],
+				"date": "2001",
+				"bookTitle": "Varieties of capitalism. The institutional foundations of comparative advantage",
+				"pages": "184-213",
+				"place": "New York",
+				"publisher": "Oxford University Press",
+				"attachments": [],
+				"tags": [],
+				"notes": [
+					{
+						"note": "The following values have no corresponding Zotero field:<br/>periodical: Varieties of capitalism. The institutional foundations of comparative advantage",
+						"tags": [
+							"_EndnoteXML import"
+						]
+					}
+				],
+				"seeAlso": []
+			},
+			{
+				"itemType": "book",
+				"title": "Shaping the body politic: Art and political formation in early america",
+				"creators": [
+					{
+						"firstName": "Maurie Dee",
+						"lastName": "McInnis",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Louis P.",
+						"lastName": "Nelson",
+						"creatorType": "author"
+					}
+				],
+				"date": "2011",
+				"ISBN": "0813931029",
+				"abstractNote": "Traditional narratives imply that art in early America was severely limited in scope. By contrast, these essays collectively argue that visual arts played a critical role in shaping an early American understanding of the body politic. American artists in the late colonial and early national periods enlisted the arts to explore and exploit their visions of the relationship of the American colonies to the mother country and, later, to give material shape to the ideals of modern republican nationhood. Taking a uniquely broad view of both politics and art, Shaping the Body Politic ranges in topic from national politics to the politics of national identity, and from presidential portraits to the architectures of the ordinary. The book covers subject matter from the 1760s to the 1820s, ranging from Patience Wright's embodiment of late colonial political tension to Thomas Jefferson's designs for the entry hall at Monticello as a museum. Paul Staiti, Maurie {McInnis}, and Roger Stein offer new readings of canonical presidential images and spaces: Jean-Antoine Houdon's George Washington, Gilbert Stuart's the Lansdowne portrait of Washington, and Thomas Jefferson's Monticello. In essays that engage print and painting, portraiture and landscape, Wendy Bellion, David Steinberg, and John Crowley explore the formation of national identity. The volume's concluding essays, by Susan Rather and Bernard Herman, examine the politics of the everyday. The accompanying eighty-five illustrations and color plates demonstrate the broad range of politically resonant visual material in early America. {ContributorsWendy} Bellion, University of Delaware * John E. Crowley, Dalhousie University * Bernard L. Herman, University of North Carolina, Chapel Hill * Maurie D. {McInnis}, University of Virginia * Louis P. Nelson, University of Virginia * Susan Rather, University of Texas, Austin * Paul Staiti, Mount Holyoke College * Roger B. Stein, emeritus, University of Virginia * David Steinberg, Independent Scholar Thomas Jefferson Foundation Distinguished Lecture Series",
+				"place": "Charlottesville, VA",
+				"publisher": "University of Virginia Press",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			},
+			{
+				"itemType": "patent",
+				"title": "Yo-yo having a modifiable string gap",
+				"creators": [
+					{
+						"firstName": "Hans",
+						"lastName": "Van Dan Elzen",
+						"creatorType": "inventor"
+					}
+				],
+				"issueDate": "2011",
+				"abstractNote": "The invention is a yo-yo that includes unique features that enable a user to adjust the yo-yo's string gap. In the preferred embodiment, at least one of the yo-yo's side assemblies includes a screw engaged to a nut that has two thru-bores located in a side-by-side relation. The screw is located to one side of the yo-yo's axis of rotation and can be rotated by a user to adjust the position of the associated side assembly on the yo-yo's axle structure. By appropriate positioning of the side assembly, a user can adjust the yo-yo's performance characteristics.",
+				"patentNumber": "WO2011US30214",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			},
+			{
+				"itemType": "webpage",
+				"title": "CSL search by example",
+				"creators": [],
+				"url": "http://editor.citationstyles.org/searchByExample/",
+				"websiteTitle": "Citation Style Editor",
+				"attachments": [],
+				"tags": [],
+				"notes": [
+					{
+						"note": "The following values have no corresponding Zotero field:<br/>periodical: Citation Style Editor",
+						"tags": [
+							"_EndnoteXML import"
+						]
+					}
+				],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "report",
+				"creators": [
+					{
+						"firstName": "John S.",
+						"lastName": "Ahlquist",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Christian",
+						"lastName": "Breunig",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Country Clustering in Comparative Political Economy",
+				"pages": "32",
+				"date": "2009",
+				"place": "Cologne"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Nigel",
+						"lastName": "Dunnett",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Noël",
+						"lastName": "Kingsbury",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Planting green roofs and living walls",
+				"edition": "2",
+				"date": "2008",
+				"place": "Portland, OR",
+				"publisher": "Timber Press",
+				"ISBN": "0881929115",
+				"abstractNote": "The latest techniques for planting roofs and walls to enhance our buildings and benefit the environment. The green roof industry is booming and the technology changing fast as professionals respond to the unique challenges of each new planting. In this comprehensively updated, fully revised edition of their authoritative reference, Nigel Dunnett and Nol Kingsbury reveal the very latest techniques, materials, and plants, and showcase some spectacular new case studies for the non-professional. Green roofs and walls reduce pollution and runoff, help insulate and reduce the maintenance needs of buildings, contribute to biodiversity, and provide habitats for wildlife. In addition to all this, they are attractive to look at and enhance the quality of life of residents. In Planting Green Roofs and Living Walls, Revised and Updated Edition, the authors describe and illustrate the practical techniques required to design, implement, and maintain a green roof or wall to the highest standards. This informative, up-to-the-minute reference will encourage gardeners everywhere to consider the enormous benefits to be gained from planting on their roofs and walls."
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "Lisa W.",
+						"lastName": "Foderaro",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Rooftop greenhouse will boost city farming",
+				"publicationTitle": "New York Times",
+				"pages": "A20",
+				"date": "2012",
+				"place": "New York"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Bob",
+						"lastName": "Hancké",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "Martin",
+						"lastName": "Rhodes",
+						"creatorType": "seriesEditor"
+					},
+					{
+						"firstName": "Mark",
+						"lastName": "Thatcher",
+						"creatorType": "seriesEditor"
+					}
+				],
+				"tags": [],
+				"title": "Beyond varieties of capitalism : Conflict, contradiction, and complementarities in the European economy",
+				"shortTitle": "Beyond varieties of capitalism",
+				"date": "2007",
+				"place": "Oxford and New York",
+				"publisher": "Oxford University Press",
+				"ISBN": "9780199206483"
+			},
+			{
+				"key": "KVN22226",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Walter",
+						"lastName": "Isaacson",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Steve Jobs",
+				"date": "2011",
+				"place": "New York, {NY}",
+				"publisher": "Simon & Schuster",
+				"ISBN": "9781451648539"
+			},
+			{
+				"key": "KVN22227",
+				"version": 0,
+				"itemType": "bookSection",
+				"creators": [
+					{
+						"firstName": "Isabela",
+						"lastName": "Mares",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Peter A.",
+						"lastName": "Hall",
+						"creatorType": "editor"
+					},
+					{
+						"firstName": "David",
+						"lastName": "Soskice",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "Firms and the welfare state: When, why, and how does social policy matter to employers?",
+				"bookTitle": "Varieties of capitalism. The institutional foundations of comparative advantage",
+				"pages": "184-213",
+				"date": "2001",
+				"place": "New York",
+				"publisher": "Oxford University Press"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22227",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Varieties of capitalism. The institutional foundations of comparative advantage"
+			},
+			{
+				"key": "KVN22228",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Maurie Dee",
+						"lastName": "McInnis",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Louis P.",
+						"lastName": "Nelson",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Shaping the body politic: Art and political formation in early america",
+				"date": "2011",
+				"place": "Charlottesville, VA",
+				"publisher": "University of Virginia Press",
+				"ISBN": "0813931029",
+				"abstractNote": "Traditional narratives imply that art in early America was severely limited in scope. By contrast, these essays collectively argue that visual arts played a critical role in shaping an early American understanding of the body politic. American artists in the late colonial and early national periods enlisted the arts to explore and exploit their visions of the relationship of the American colonies to the mother country and, later, to give material shape to the ideals of modern republican nationhood. Taking a uniquely broad view of both politics and art, Shaping the Body Politic ranges in topic from national politics to the politics of national identity, and from presidential portraits to the architectures of the ordinary. The book covers subject matter from the 1760s to the 1820s, ranging from Patience Wright's embodiment of late colonial political tension to Thomas Jefferson's designs for the entry hall at Monticello as a museum. Paul Staiti, Maurie {McInnis}, and Roger Stein offer new readings of canonical presidential images and spaces: Jean-Antoine Houdon's George Washington, Gilbert Stuart's the Lansdowne portrait of Washington, and Thomas Jefferson's Monticello. In essays that engage print and painting, portraiture and landscape, Wendy Bellion, David Steinberg, and John Crowley explore the formation of national identity. The volume's concluding essays, by Susan Rather and Bernard Herman, examine the politics of the everyday. The accompanying eighty-five illustrations and color plates demonstrate the broad range of politically resonant visual material in early America. {ContributorsWendy} Bellion, University of Delaware * John E. Crowley, Dalhousie University * Bernard L. Herman, University of North Carolina, Chapel Hill * Maurie D. {McInnis}, University of Virginia * Louis P. Nelson, University of Virginia * Susan Rather, University of Texas, Austin * Paul Staiti, Mount Holyoke College * Roger B. Stein, emeritus, University of Virginia * David Steinberg, Independent Scholar Thomas Jefferson Foundation Distinguished Lecture Series"
+			},
+			{
+				"key": "KVN22229",
+				"version": 0,
+				"itemType": "patent",
+				"creators": [
+					{
+						"firstName": "Hans",
+						"lastName": "Van Dan Elzen",
+						"creatorType": "inventor"
+					}
+				],
+				"tags": [],
+				"title": "Yo-yo having a modifiable string gap",
+				"patentNumber": "WO2011US30214",
+				"issueDate": "2011",
+				"abstractNote": "The invention is a yo-yo that includes unique features that enable a user to adjust the yo-yo's string gap. In the preferred embodiment, at least one of the yo-yo's side assemblies includes a screw engaged to a nut that has two thru-bores located in a side-by-side relation. The screw is located to one side of the yo-yo's axis of rotation and can be rotated by a user to adjust the position of the associated side assembly on the yo-yo's axle structure. By appropriate positioning of the side assembly, a user can adjust the yo-yo's performance characteristics."
+			},
+			{
+				"key": "KVN2222A",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "CSL search by example",
+				"websiteTitle": "Citation Style Editor",
+				"url": "http://editor.citationstyles.org/searchByExample/"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN2222A",
+				"note": "The following values have no corresponding Zotero field:<br/>periodical: Citation Style Editor"
+			}
+		]
+	},
+	{
+		"name": "testCase01",
+		"source": "translators/Endnote XML.js testCases[1]",
+		"input": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><xml><records><record><database name=\"My EndNote Library.enl\" path=\"C:\\BACK_THIS_UP\\Desktop\\My EndNote Library.enl\">My EndNote Library.enl</database><source-app name=\"EndNote\" version=\"16.0\">EndNote</source-app><rec-number>1</rec-number><foreign-keys><key app=\"EN\" db-id=\"dstt999adpex2qeprz9xtt0fe2rrpwtarfwv\">1</key></foreign-keys><ref-type name=\"Journal Article\">17</ref-type><contributors></contributors><titles><title><style face=\"normal\" font=\"default\" size=\"100%\">Plain </style><style face=\"bold\" font=\"default\" size=\"100%\">Bold</style><style face=\"italic\" font=\"default\" size=\"100%\"> Italics</style><style face=\"normal\" font=\"default\" size=\"100%\"> </style><style face=\"underline\" font=\"default\" size=\"100%\">Underline</style><style face=\"normal\" font=\"default\" size=\"100%\"> </style><style face=\"superscript\" font=\"default\" size=\"100%\">Superscript</style><style face=\"normal\" font=\"default\" size=\"100%\"> </style><style face=\"subscript\" font=\"default\" size=\"100%\">Subscript</style><style face=\"normal\" font=\"default\" size=\"100%\"> </style><style face=\"normal\" font=\"Symbol\" charset=\"2\" size=\"100%\">SymbolFont</style><style face=\"normal\" font=\"default\" size=\"100%\"> </style><style face=\"normal\" font=\"Courier New\" size=\"100%\">CourierNew</style><style face=\"normal\" font=\"default\" size=\"100%\"> </style><style face=\"normal\" font=\"default\" size=\"7\">SmallerSize</style><style face=\"normal\" font=\"default\" size=\"100%\"> </style><style face=\"normal\" font=\"default\" size=\"12\">Size12 </style><style face=\"bold italic underline superscript\" font=\"Times New Roman\" size=\"100%\">TimesNewRoman-Bold-Italics-Underline-Superscript</style></title></titles><dates></dates><urls></urls></record></records></xml>",
+		"upstreamTestItems": [
+			{
+				"itemType": "journalArticle",
+				"title": "Plain <b>Bold</b><i> Italics</i> Underline <sup>Superscript</sup> <sub>Subscript</sub> SymbolFont CourierNew SmallerSize Size12 <b><i><sup>TimesNewRoman-Bold-Italics-Underline-Superscript</sup></i></b>",
+				"creators": [],
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [],
+				"tags": [],
+				"title": "Plain <b>Bold</b><i> Italics</i> Underline <sup>Superscript</sup> <sub>Subscript</sub> SymbolFont CourierNew SmallerSize Size12 <b><i><sup>TimesNewRoman-Bold-Italics-Underline-Superscript</sup></i></b>"
+			}
+		]
+	},
+	{
+		"name": "testCase02",
+		"source": "translators/Endnote XML.js testCases[2]",
+		"input": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><xml><records><record><database name=\"My EndNote Library.enl\" path=\"My EndNote Library.enl\">My EndNote Library.enl</database><source-app name=\"EndNote\" version=\"20.1\">EndNote</source-app><rec-number>1</rec-number><foreign-keys><key app=\"EN\" db-id=\"rvtvez0v1e2ezne5ws050zwvfrezp0w20se2\">1</key></foreign-keys><ref-type name=\"Book\">6</ref-type><contributors><authors><author><style face=\"normal\" font=\"default\" size=\"100%\">Author, Test</style></author></authors></contributors><titles><title><style face=\"normal\" font=\"default\" size=\"100%\">A test item (with a citekey)</style></title></titles><dates><year><style face=\"normal\" font=\"default\" size=\"100%\">2021</style></year></dates><label><style face=\"normal\" font=\"default\" size=\"100%\">test_item_2021</style></label><urls></urls></record><record><database name=\"My EndNote Library.enl\" path=\"/Users/abe/Documents/My EndNote Library.enl\">My EndNote Library.enl</database><source-app name=\"EndNote\" version=\"20.1\">EndNote</source-app><rec-number>2</rec-number><foreign-keys><key app=\"EN\" db-id=\"rvtvez0v1e2ezne5ws050zwvfrezp0w20se2\">2</key></foreign-keys><ref-type name=\"Book\">6</ref-type><contributors><authors><author><style face=\"normal\" font=\"default\" size=\"100%\">Author, Test Jr.</style></author></authors></contributors><titles><title><style face=\"normal\" font=\"default\" size=\"100%\">A test item (without a citekey)</style></title></titles><dates><year><style face=\"normal\" font=\"default\" size=\"100%\">2021</style></year></dates><urls></urls></record></records></xml>",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "A test item (with a citekey)",
+				"creators": [
+					{
+						"firstName": "Test",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"date": "2021",
+				"extra": "Citation Key: test_item_2021",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			},
+			{
+				"itemType": "book",
+				"title": "A test item (without a citekey)",
+				"creators": [
+					{
+						"firstName": "Test Jr",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"date": "2021",
+				"attachments": [],
+				"tags": [],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "eb7059a4-35ec-4961-a915-3cf58eb9784b",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Test",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A test item (with a citekey)",
+				"date": "2021",
+				"extra": "Citation Key: test_item_2021"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Test Jr",
+						"lastName": "Author",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "A test item (without a citekey)",
+				"date": "2021"
+			}
+		]
+	}
+]

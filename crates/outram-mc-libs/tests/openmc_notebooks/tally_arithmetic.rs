@@ -73,6 +73,8 @@
 //! asserted identities are exact algebra over whatever the tally holds and are
 //! therefore data-independent — they did not move**, and no tolerance changed.
 
+use petir::mathf::RealMath;
+use outram_mc_libs::tally::filter::FilterKind;
 use std::io::Write;
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
@@ -203,9 +205,9 @@ fn pincell_geometry(r_fuel: f64, half: f64) -> Geometry {
 
 /// `n`-bin log-spaced energy grid from `e_lo` to `e_hi` \[eV\] (`n+1` ascending edges).
 fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
-    let (l0, l1) = (e_lo.ln(), e_hi.ln());
+    let (l0, l1) = (e_lo.r_ln(), e_hi.r_ln());
     (0..=n)
-        .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).exp())
+        .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
         .collect()
 }
 
@@ -257,7 +259,7 @@ fn tally_arithmetic_derived() {
     let mut tally = Tally {
         id: 1,
         name: "flux+fission spectrum".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Energy(filter)],
         scores: vec![ScoreType::Flux, ScoreType::Fission],
         bins: vec![TallyBin::default(); n_groups * 2],
     };

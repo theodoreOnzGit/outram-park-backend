@@ -1,6 +1,6 @@
 [package]
 name = "nee_soon"
-version = "0.0.2"
+version = "0.0.4"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,11 +8,41 @@ description = "Neutron Energy-dependent Simulation using Open-source Object-Orie
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
-# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
-# and never shipped in the packaged crate.
-exclude = ["verification_and_validation/*.csv"]
+# The V&V records (verification_and_validation/: CSVs, plots, scripts) are
+# not shipped in the packaged crate: nothing reads them at build time, and
+# they took the package from 73 kB to 7.4 MiB (maintainer, 2026-10-07). They
+# stay in the repository.
+exclude = ["docs", "verification_and_validation"]
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 3
+topic = "neutronics"
+fidelity = 4
+maturity = 2
+backronym = "NEutron Energy-dependent Simulation using Open-source Object-Oriented Numerics"
+
+[features]
+default = ["long-tests"]
+# Tests over five minutes, or that need the reference nuclear data, are
+# gated behind this feature, on by default
+# (docs/claude-md/long-tests-and-ci.md). Added 2026-10-13 (gh:#849).
+long-tests = []
 
 [dependencies]
+# Every transcendental routes through PETIR for cross-platform bit identity
+# (gh:#985). petir is no_std, so this edge adds nothing Android- or wasm-hostile.
+petir = { workspace = true }
 # Integration targets — the crates NEE_SOON composes and re-exposes. Declared
 # here so the coupling surface is wired even though the scaffold does not yet
 # call into them.
@@ -24,8 +54,17 @@ teh-o-prke            = { workspace = true }   # point reactor kinetics (PRKE)
 # port is in progress in a parallel session; the scaffold codes against its
 # intended NeutronicsModel::Sp3 / Sp3Neutronics interface (see op-fr2.2.4).
 outram-foam-appbuilder-lib = { workspace = true }   # GeN-Foam SP3 multiphysics host
+outram-foam-basic-lib      = { workspace = true }   # FvMesh / fields, for the GeN-Foam bridge
+# Geometry authoring: `blender_bridge` (surface mesh -> outram-mc CSG) and the
+# `sim` run driver moved here from outram-blender's retired `mc-export` feature
+# (GitHub #486, 2026-10-02). The edge runs coupler -> blender, never back.
+outram-blender        = { workspace = true }
 
 # Public API primitives — dimensioned quantities and error types for the
 # object-oriented surface.
 uom                   = { workspace = true }
 thiserror             = { workspace = true }
+# Saved MGXS case records (`htr10_mgxs`): the library and run metadata as JSON,
+# so an expensive Monte Carlo run is reloaded rather than repeated.
+serde                 = { workspace = true }
+serde_json            = { workspace = true }

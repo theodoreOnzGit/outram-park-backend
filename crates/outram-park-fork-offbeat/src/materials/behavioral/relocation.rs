@@ -115,6 +115,7 @@
 //! [`OffbeatError::OutOfRange`]: crate::error::OffbeatError::OutOfRange
 //! [`OffbeatError::Unphysical`]: crate::error::OffbeatError::Unphysical
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 use crate::materials::MaterialState;
 
@@ -451,7 +452,7 @@ fn modified_gap_closure(burnup: f64, q_prime: f64) -> f64 {
     } else {
         0.445
     };
-    let burnup_term = 0.5795 + 0.2447 * burnup.ln();
+    let burnup_term = 0.5795 + 0.2447 * burnup.r_ln();
     FLOOR + amplitude.min(amplitude * burnup_term)
 }
 

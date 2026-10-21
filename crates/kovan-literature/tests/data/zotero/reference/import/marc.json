@@ -1,0 +1,458 @@
+[
+	{
+		"name": "testCase00",
+		"source": "translators/MARC.js testCases[0]",
+		"input": "01841cam a2200385Ma 45\u00020001000700000005001700007008004100024010001700065035002300082035001800105040003000123043001200153050001500165049001500180100003900195245028100234260005900515300006100574500019500635500014500830510003000975510002701005510004501032500002601077610004401103600004001147600004801187650004501235610004501280852005801325946003101383910001001414994001201424947001901436\u001e790862\u001e20080120004008.0\u001e880726s1687    sp bf         000 0cspa d\u001e  \u001fa   03021876 \u001e  \u001fa(OCoLC)ocm29051663\u001e  \u001fa(NBYdb)790862\u001e  \u001faMNU\u001fcMNU\u001fdOCL\u001fdDIBAM\u001fdIBV\u001e  \u001fas-py---\u001e0 \u001faF2681\u001fb.X3\u001e  \u001faIBVA\u001flbklr\u001e1 \u001faXarque, Francisco,\u001fdca. 1609-1691.\u001e10\u001faInsignes missioneros de la Compañia de Jesus en la prouincia del Paraguay :\u001fbestado presente de sus missiones en Tucuman, Paraguay, y Rio de la Plata, que comprehende su distrito /\u001fcpor el doct. d. Francisco Xarque, dean de la Catredral [sic] de Santa Maria de Albarrazin ...\u001e  \u001faEn Pamplona :\u001fbPor Juan Micòn, Impressor,\u001fcaño 1687.\u001e  \u001fa[24], 432 p., [1] folded leaf of plates :\u001fbmap ;\u001fc22 cm.\u001e  \u001faBrunet and Graesse both mention a map of Paraguay; this copy has a map of Chile with title: Tabula geocraphica [sic] regni Chile / studio et labore P. Procuratoris Chilensis Societatis Jesu.\u001e  \u001faIn 3 books; the first two are biographies of Jesuits, Simon Mazeta and Francisco Diaz Taño, the 3rd deals with Jesuit missions in Paraguay.\u001e4 \u001faNUC pre-1956,\u001fcNX0000604.\u001e4 \u001faSabin,\u001fc105716 (v.29).\u001e4 \u001faPalau y Dulcet (2nd ed.),\u001fc123233 (v.7).\u001e  \u001faHead and tail pieces.\u001e20\u001faJesuits\u001fzParaguay\u001fvEarly works to 1800.\u001e10\u001faMasseta, Simon,\u001fdca. 1582-ca. 1656.\u001e10\u001faCuellar y Mosquera, Gabriel de,\u001fd1593-1677.\u001e 0\u001faMissions\u001fzParaguay\u001fvEarly works to 1800.\u001e20\u001faJesuits\u001fvBiography\u001fvEarly works to 1800.\u001e8 \u001fbvau,ayer\u001fkVAULT\u001fhAyer\u001fi1343\u001fi.J515\u001fiP211\u001fiX2\u001fi1687\u001ft1\u001e  \u001faOCLC RECON PROJECT\u001farc3758\u001e  \u001fa35535\u001e  \u001fa02\u001fbIBV\u001e  \u001faMARS\u001fa20071227\u001e\u001d",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "Insignes missioneros de la Compañia de Jesus en la prouincia del Paraguay: estado presente de sus missiones en Tucuman, Paraguay, y Rio de la Plata, que comprehende su distrito",
+				"creators": [
+					{
+						"firstName": "Francisco",
+						"lastName": "Xarque",
+						"creatorType": "author"
+					}
+				],
+				"date": "1687",
+				"callNumber": "VAULT Ayer 1343 .J515 P211 X2 1687",
+				"extra": "OCLC: ocm29051663",
+				"numPages": "24",
+				"place": "En Pamplona",
+				"publisher": "Por Juan Micòn, Impressor",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "Biography Early works to 1800"
+					},
+					{
+						"tag": "Cuellar y Mosquera, Gabriel de"
+					},
+					{
+						"tag": "Early works to 1800"
+					},
+					{
+						"tag": "Early works to 1800"
+					},
+					{
+						"tag": "Jesuits"
+					},
+					{
+						"tag": "Jesuits"
+					},
+					{
+						"tag": "Masseta, Simon"
+					},
+					{
+						"tag": "Missions"
+					},
+					{
+						"tag": "Paraguay"
+					},
+					{
+						"tag": "Paraguay"
+					}
+				],
+				"notes": [
+					{
+						"note": "Brunet and Graesse both mention a map of Paraguay; this copy has a map of Chile with title: Tabula geocraphica [sic] regni Chile / studio et labore P. Procuratoris Chilensis Societatis Jesu In 3 books; the first two are biographies of Jesuits, Simon Mazeta and Francisco Diaz Taño, the 3rd deals with Jesuit missions in Paraguay Head and tail pieces"
+					}
+				],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "a6ee60df-1ddc-4aae-bb25-45e0537be973",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Francisco",
+						"lastName": "Xarque",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Masseta, Simon",
+						"type": 1
+					},
+					{
+						"tag": "Cuellar y Mosquera, Gabriel de",
+						"type": 1
+					},
+					{
+						"tag": "Jesuits",
+						"type": 1
+					},
+					{
+						"tag": "Paraguay",
+						"type": 1
+					},
+					{
+						"tag": "Early works to 1800",
+						"type": 1
+					},
+					{
+						"tag": "Jesuits",
+						"type": 1
+					},
+					{
+						"tag": "Biography Early works to 1800",
+						"type": 1
+					},
+					{
+						"tag": "Missions",
+						"type": 1
+					},
+					{
+						"tag": "Paraguay",
+						"type": 1
+					},
+					{
+						"tag": "Early works to 1800",
+						"type": 1
+					}
+				],
+				"title": "Insignes missioneros de la Compañia de Jesus en la prouincia del Paraguay: estado presente de sus missiones en Tucuman, Paraguay, y Rio de la Plata, que comprehende su distrito",
+				"place": "En Pamplona",
+				"publisher": "Por Juan Micòn, Impressor",
+				"date": "1687",
+				"numPages": "24",
+				"callNumber": "VAULT Ayer 1343 .J515 P211 X2 1687",
+				"extra": "OCLC: ocm29051663"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "Brunet and Graesse both mention a map of Paraguay; this copy has a map of Chile with title: Tabula geocraphica [sic] regni Chile / studio et labore P. Procuratoris Chilensis Societatis Jesu In 3 books; the first two are biographies of Jesuits, Simon Mazeta and Francisco Diaz Taño, the 3rd deals with Jesuit missions in Paraguay Head and tail pieces"
+			}
+		]
+	},
+	{
+		"name": "testCase01",
+		"source": "translators/MARC.js testCases[1]",
+		"input": "18789nmm a2201429 c 4500001001000000003000700010005001700017007001500034008004100049015001900090016002200109020003700131020003700168024003600205024003500241035002100276035001600297035001800313035002100331035002200352035002500374040002900399041000800428050001100436082001300447245010000460260003900560300003400599337001000633490007600643500014600719520109000865533015001955650005902105650005602164650005502220650006302275650002302338650000802361653002502369653002802394653002302422653000802445689005402453689005102507689005002558689005802608689002002666689002302686689001102709700005902720711006402779830003002843856004802873856003402921856004702955856007303002856005503075856007503130856007103205856007503276856008003351856008503431856014303516900010603659900025003765900024704015900023204262900024104494900024704735900024504982900025005227900024705477900033005724900031306054900024906367900025106616900025106867900028907118900019807407900035207605900028307957900024708240900025008487900030108737900025309038900030309291900030209594900026109896900030810157912001510465912002010480912001510500950003910515951001210554954010910566954024910675954024810924954023611172954024911408954024811657954024811905954025512153954024812408954032812656954032312984954024913307954024913556954024913805954028614054954019814340954035514538954028414893954025015177954025015427954029615677954024915973954029616222954029616518954024916814954029617063\u001e607843365\u001eDE-601\u001e20141226042756.0\u001ecr uuu---uuuuu\u001e090828s2009    gw            000 0 ger d\u001e  \u001fa09A450429\u001f2dnb\u001e7 \u001fa99753513X\u001f2DE-101\u001e  \u001fa9783642002304\u001f9978-3-642-00230-4\u001e  \u001fa9783642002298\u001f9978-3-642-00229-8\u001e7 \u001faurn:nbn:de:1111-2009102027\u001f2urn\u001e7 \u001fa10.1007/978-3-642-00230-4\u001f2doi\u001e  \u001fa(OCoLC)699070134\u001e  \u001faebr10318806\u001e  \u001fa9783642002304\u001e  \u001fa(OCoLC)646815275\u001e  \u001fa(ZDB-22-CAN)30851\u001e  \u001fa(DE-599)GBV607843365\u001e  \u001faGBVCP\u001fbger\u001fcGBVCP\u001ferakwb\u001e0 \u001fager\u001e 0\u001faKK7058\u001e09\u001fa330\u001fa340\u001e00\u001faEigentumsverfassung und Finanzkrise\u001fhElektronische Ressource\u001fcherausgegeben von Otto Depenheuer\u001e3 \u001faBerlin ;Heidelberg\u001fbSpringer\u001fc2009\u001e  \u001faOnline-Ressource\u001fbv.: digital\u001e  \u001faeBook\u001e0 \u001faBibliothek des Eigentums, Im Auftrag der Deutschen Stiftung Eigentum\u001fv7\u001e  \u001fa\"Unter dem Thema 'Eigentumsverfassung und Finanzkrise' veranstaltete die Deutsche Stiftung Eigentum am 22. April 2009 in Berlin ein Symposion\u001e  \u001faDie weltweite Finanzkrise ist Anlass, an Funktion und Wirkweise des privaten Eigentums in einer freiheitlichen Gesellschafts- und Wirtschaftsordnung zu erinnern. Privates Eigentum muss es geben, damit Verantwortung zugerechnet und Haftung realisiert, Gewinn und Verlust einem konkreten Verantwortungsträger persönlich zugerechnet werden können. Die Verletzung dieser konstitutiven Regeln einer auf privatem Eigentum basierenden Wirtschaftsordnung ist wesentlich ursächlich für das eingetretene Desaster auf den Finanzmärkten. Wie alle kulturellen Errungenschaften muss auch die Idee des privaten Eigentums, insbesondere die ihr immanente Bereitschaft zur Übernahme persönlicher Verantwortung des Eigentümers, jeder Generation erneut wieder in Erinnerung gerufen, überzeugend um sie geworben und vor allem vorbildhaft von den Akteuren in Politik und Wirtschaft vorgelebt werden. Nur so kann strukturelles Vertrauen in das Finanzsystem wieder gewonnen werden. Denn in ihrer vertrauensbildenden Kraft liegt die ordnungspolitische Funktion der Gewährleistung privaten Eigentums.\u001e  \u001faOnline-Ausg.\u001fd2009\u001ffSpringer eBook Collection. Humanities, Social Science\u001fnElectronic reproduction; Available via World Wide Web\u001f7|2009||||||||||\u001e 7\u001f0(DE-601)587272910\u001f0(DE-588)7635855-0\u001faFinanzkrise\u001f2gnd\u001e 7\u001f0(DE-601)106341901\u001f0(DE-588)4013793-4\u001faEigentum\u001f2gnd\u001e 7\u001f0(DE-601)106306553\u001f0(DE-588)4022898-8\u001faHaftung\u001f2gnd\u001e 7\u001f0(DE-601)105665223\u001f0(DE-588)4135420-5\u001faOrdnungspolitik\u001f2gnd\u001e 0\u001faConstitutional law\u001e 0\u001faLaw\u001e 7\u001faAufsatzsammlung\u001f2gnd\u001e 7\u001faOnline-Publikation\u001f2gnd\u001e 0\u001faConstitutional law\u001e 0\u001faLaw\u001e00\u001f0(DE-601)587272910\u001f0(DE-588)7635855-0\u001faFinanzkrise\u001e01\u001f0(DE-601)106341901\u001f0(DE-588)4013793-4\u001faEigentum\u001e02\u001f0(DE-601)106306553\u001f0(DE-588)4022898-8\u001faHaftung\u001e03\u001f0(DE-601)105665223\u001f0(DE-588)4135420-5\u001faOrdnungspolitik\u001e04\u001faAufsatzsammlung\u001e05\u001faOnline-Publikation\u001e0 \u001f5DE-101\u001e1 \u001faDepenheuer, Otto\u001f0(DE-601)50677211X\u001f0(DE-588)130850616\u001e2 \u001faSymposion. Deutsche Stiftung Eigentum\u001fd(2009.04.22\u001fcBerlin)\u001e  \u001fw(DE-601)601927117\u001fv7\u001f9700\u001e40\u001fuhttp://dx.doi.org/10.1007/978-3-642-00230-4\u001e40\u001fuhttp://d-nb.info/99753513X/34\u001e40\u001fuhttp://www.springerlink.com/content/v441t4\u001e40\u001fuhttp://site.ebrary.com/lib/alltitles/docDetail.action?docID=10318806\u001e40\u001fuhttp://nbn-resolving.de/urn:nbn:de:1111-2009102027\u001e41\u001fuhttp://ebooks.ciando.com/book/index.cfm/bok_id/30851\u001fmCIANDO\u001f3Volltext\u001e42\u001fyC\u001fuhttp://www.ciando.com/img/books/3642002307_k.jpg\u001fmCIANDO\u001f3Cover\u001e42\u001fyC\u001fuhttp://www.ciando.com/img/books/big/3642002307_k.jpg\u001fmCIANDO\u001f3Cover\u001e42\u001fyC\u001fuhttp://www.ciando.com/img/books/width167/3642002307_k.jpg\u001fmCIANDO\u001f3Cover\u001e42\u001fyC\u001fuhttp://www.ciando.com/pictures/bib/3642002307bib_t_1_70483.jpg\u001fmCIANDO\u001f3Cover\u001e42\u001fuhttp://external.dandelon.com/download/attachments/dandelon/ids/DEAGIDC0E3B4C91F575E1C12575DF005CF4D3.pdf\u001fmV:DE-601;AGI\u001f3Inhaltsverzeichnis\u001e  \u001faGBV\u001fbSUB Bremen <46>\u001ffFreie Nutzung im Campusnetz der Universität und der Hochschulen im Land Bremen\u001e  \u001faGBV\u001fbSUB+Uni Hamburg <18>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbTUB Hamburg <830>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbTHULB Jena <27>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden.\u001e  \u001faGBV\u001fbHAW Hamburg\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbHSU Hamburg <705>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbUB Rostock <28>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbULB Halle <3>\u001fdebook\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbUB Greifswald <9>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbTIB/UB Hannover <89>\u001ffCampusweiter Zugriff (Universität Hannover). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001ffErworben aus Studienbeiträgen\u001e  \u001faGBV\u001fbHAWK HHG\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001ffFreie Nutzung im Campusnetz der Hochschule und für registrierte Benutzer\u001e  \u001faGBV\u001fbUB Magdeburg <Ma 9>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbMZB Magdeburg <Ma 14>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbUB Lüneburg <Luen 4>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbBIS Uni Oldenburg <715>\u001ffCampusweiter Zugriff (Universität Oldenburg). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden.\u001e  \u001faGBV\u001fbUB Osnabrück <700>\u001ffVervielfältigungen (z. B. Kopien, Downloads) nur für den eigenen wissenschaftlichen Gebrauch. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots\u001e  \u001faGBV\u001fbUB Vechta <Va 1>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001ffZugriff von allen internetfähigen Rechnern innerhalb des Campusnetzes der Universität Vechta möglich.\u001e  \u001faGBV\u001fbHS Osnabrueck <959>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001ffFinanziert aus Studienbeiträgen\u001e  \u001faGBV\u001fbHS Wismar <Wis 1>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbHSB Emden/Leer <755>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbHochschule Hannover <960>\u001ffCampusweiter Zugriff (Hochschule Hannover). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbHS Neubrandenburg <519>\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbHS Magdeburg-Stendal <551>\u001ffCampusweiter Zugriff (HS Magdeburg-Stendal). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbHS MD-SDL (Stendal) <552>\u001ffCampusweiter Zugriff (HS Magdeburg-Stendal). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbUB Potsdam <517>\u001fd!1960! \u001fxL\u001fzC\u001ffVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faGBV\u001fbBibl. Kurt-Schwitters-F. <960/3>\u001ffCampusweiter Zugriff (Hochschule Hannover). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001e  \u001faZDB-38-EBR\u001e  \u001faZDB-2-SGR\u001fb2009\u001e  \u001faZDB-22-CAN\u001e  \u001faPolitik Wirtschaftspolitik\u001f2ciando\u001e  \u001faww\u001f2120\u001e  \u001fa21\u001fb204841267\u001fc01\u001fkFreie Nutzung im Campusnetz der Universität und der Hochschulen im Land Bremen\u001fx0046\u001e  \u001fa22\u001fb1157518338\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0018\u001e  \u001fa23\u001fb204845807\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0830\u001e  \u001fa31\u001fb1110832494\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden.\u001fx0027\u001e  \u001fa34\u001fb1112445323\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx3551\u001e  \u001fa60\u001fb204839033\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0705\u001e  \u001fa62\u001fb204864348\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0028\u001e  \u001fa65\u001fb204864933\u001fc01\u001fdebook\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0003\u001e  \u001fa69\u001fb204847389\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0009\u001e  \u001fa70\u001fb204843235\u001fc01\u001fkCampusweiter Zugriff (Universität Hannover). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fkErworben aus Studienbeiträgen\u001fx0089\u001e  \u001fa91\u001fb204828465\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fkFreie Nutzung im Campusnetz der Hochschule und für registrierte Benutzer\u001fx3091\u001e  \u001fa100\u001fb204854784\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx3100\u001e  \u001fa101\u001fb204859581\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx3101\u001e  \u001fa110\u001fb204849047\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx3110\u001e  \u001fa120\u001fb1107373360\u001fc01\u001fkCampusweiter Zugriff (Universität Oldenburg). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden.\u001fx0715\u001e  \u001fa130\u001fb204860288\u001fc01\u001fkVervielfältigungen (z. B. Kopien, Downloads) nur für den eigenen wissenschaftlichen Gebrauch. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots\u001fx0700\u001e  \u001fa131\u001fb204865581\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fkZugriff von allen internetfähigen Rechnern innerhalb des Campusnetzes der Universität Vechta möglich.\u001fx3131\u001e  \u001fa132\u001fb1109827059\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fkFinanziert aus Studienbeiträgen\u001fx0959\u001e  \u001fa136\u001fb1177584336\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx3526\u001e  \u001fa160\u001fb1348735406\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0755\u001e  \u001fa161\u001fb1284974146\u001fc01\u001fkCampusweiter Zugriff (Hochschule Hannover). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0960\u001e  \u001fa186\u001fb204837022\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0519\u001e  \u001fa213\u001fb204835119\u001fc01\u001fkCampusweiter Zugriff (HS Magdeburg-Stendal). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0551\u001e  \u001fa230\u001fb204836433\u001fc01\u001fkCampusweiter Zugriff (HS Magdeburg-Stendal). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0552\u001e  \u001fa285\u001fb204862256\u001fc01\u001fkVervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx0517\u001e  \u001fa293\u001fb1284989569\u001fc01\u001fkCampusweiter Zugriff (Hochschule Hannover). - Vervielfältigungen (z.B. Kopien, Downloads) sind nur von einzelnen Kapiteln oder Seiten und nur zum eigenen wissenschaftlichen Gebrauch erlaubt. Keine Weitergabe an Dritte. Kein systematisches Downloaden durch Robots.\u001fx3293\u001e\u001d",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "Eigentumsverfassung und Finanzkrise",
+				"creators": [
+					{
+						"firstName": "Otto",
+						"lastName": "Depenheuer",
+						"creatorType": "editor"
+					}
+				],
+				"date": "2009",
+				"ISBN": "9783642002304 9783642002298",
+				"abstractNote": "Die weltweite Finanzkrise ist Anlass, an Funktion und Wirkweise des privaten Eigentums in einer freiheitlichen Gesellschafts- und Wirtschaftsordnung zu erinnern. Privates Eigentum muss es geben, damit Verantwortung zugerechnet und Haftung realisiert, Gewinn und Verlust einem konkreten Verantwortungsträger persönlich zugerechnet werden können. Die Verletzung dieser konstitutiven Regeln einer auf privatem Eigentum basierenden Wirtschaftsordnung ist wesentlich ursächlich für das eingetretene Desaster auf den Finanzmärkten. Wie alle kulturellen Errungenschaften muss auch die Idee des privaten Eigentums, insbesondere die ihr immanente Bereitschaft zur Übernahme persönlicher Verantwortung des Eigentümers, jeder Generation erneut wieder in Erinnerung gerufen, überzeugend um sie geworben und vor allem vorbildhaft von den Akteuren in Politik und Wirtschaft vorgelebt werden. Nur so kann strukturelles Vertrauen in das Finanzsystem wieder gewonnen werden. Denn in ihrer vertrauensbildenden Kraft liegt die ordnungspolitische Funktion der Gewährleistung privaten Eigentums",
+				"callNumber": "KK7058",
+				"extra": "OCLC: 699070134",
+				"language": "ger",
+				"place": "Berlin ;Heidelberg",
+				"publisher": "Springer",
+				"series": "Bibliothek des Eigentums, Im Auftrag der Deutschen Stiftung Eigentum",
+				"seriesNumber": "7",
+				"url": "http://dx.doi.org/10.1007/978-3-642-00230-4",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "Aufsatzsammlung"
+					},
+					{
+						"tag": "Constitutional law"
+					},
+					{
+						"tag": "Constitutional law"
+					},
+					{
+						"tag": "Eigentum"
+					},
+					{
+						"tag": "Finanzkrise"
+					},
+					{
+						"tag": "Haftung"
+					},
+					{
+						"tag": "Law"
+					},
+					{
+						"tag": "Law"
+					},
+					{
+						"tag": "Online-Publikation"
+					},
+					{
+						"tag": "Ordnungspolitik"
+					}
+				],
+				"notes": [
+					{
+						"note": "\"Unter dem Thema 'Eigentumsverfassung und Finanzkrise' veranstaltete die Deutsche Stiftung Eigentum am 22. April 2009 in Berlin ein Symposion"
+					}
+				],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "a6ee60df-1ddc-4aae-bb25-45e0537be973",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Otto",
+						"lastName": "Depenheuer",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Finanzkrise",
+						"type": 1
+					},
+					{
+						"tag": "Eigentum",
+						"type": 1
+					},
+					{
+						"tag": "Haftung",
+						"type": 1
+					},
+					{
+						"tag": "Ordnungspolitik",
+						"type": 1
+					},
+					{
+						"tag": "Constitutional law",
+						"type": 1
+					},
+					{
+						"tag": "Law",
+						"type": 1
+					},
+					{
+						"tag": "Aufsatzsammlung",
+						"type": 1
+					},
+					{
+						"tag": "Online-Publikation",
+						"type": 1
+					},
+					{
+						"tag": "Constitutional law",
+						"type": 1
+					},
+					{
+						"tag": "Law",
+						"type": 1
+					}
+				],
+				"ISBN": "9783642002304 9783642002298",
+				"language": "ger",
+				"abstractNote": "Die weltweite Finanzkrise ist Anlass, an Funktion und Wirkweise des privaten Eigentums in einer freiheitlichen Gesellschafts- und Wirtschaftsordnung zu erinnern. Privates Eigentum muss es geben, damit Verantwortung zugerechnet und Haftung realisiert, Gewinn und Verlust einem konkreten Verantwortungsträger persönlich zugerechnet werden können. Die Verletzung dieser konstitutiven Regeln einer auf privatem Eigentum basierenden Wirtschaftsordnung ist wesentlich ursächlich für das eingetretene Desaster auf den Finanzmärkten. Wie alle kulturellen Errungenschaften muss auch die Idee des privaten Eigentums, insbesondere die ihr immanente Bereitschaft zur Übernahme persönlicher Verantwortung des Eigentümers, jeder Generation erneut wieder in Erinnerung gerufen, überzeugend um sie geworben und vor allem vorbildhaft von den Akteuren in Politik und Wirtschaft vorgelebt werden. Nur so kann strukturelles Vertrauen in das Finanzsystem wieder gewonnen werden. Denn in ihrer vertrauensbildenden Kraft liegt die ordnungspolitische Funktion der Gewährleistung privaten Eigentums",
+				"title": "Eigentumsverfassung und Finanzkrise",
+				"place": "Berlin ;Heidelberg",
+				"publisher": "Springer",
+				"date": "2009",
+				"series": "Bibliothek des Eigentums, Im Auftrag der Deutschen Stiftung Eigentum",
+				"seriesNumber": "7",
+				"callNumber": "KK7058",
+				"extra": "OCLC: 699070134",
+				"format": "Elektronische Ressource",
+				"url": "http://dx.doi.org/10.1007/978-3-642-00230-4",
+				"DOI": "10.1007/978-3-642-00230-4"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "\"Unter dem Thema 'Eigentumsverfassung und Finanzkrise' veranstaltete die Deutsche Stiftung Eigentum am 22. April 2009 in Berlin ein Symposion"
+			}
+		]
+	},
+	{
+		"name": "testCase02",
+		"source": "translators/MARC.js testCases[2]",
+		"input": "01527pam a2200421 cc4500001001000000003000700010005001700017007000300034008004100037015003400078016002200112020008000134024001800214028002300232035002500255035002100280040003500301041000800336044001300344082002900357084002700386090000600413100006900419245011400488250001400602259000700616260004600623300003200669653004200701653003200743653002800775653002600803653004800829773002600877856008100903856011400984925000701098\u001e987805282\u001eDE-101\u001e20080603235442.0\u001etu\u001e080304s2008    gw ||||| |||| 00||||ger  \u001e  \u001fa08,A24,0901\u001fz08,N12,0064\u001f2dnb\u001e7 \u001f2DE-101\u001fa987805282\u001e  \u001fa9783540774310\u001fckart. : EUR 24.95, sfr 41.00 (freier Pr.)\u001f9978-3-540-77431-0\u001e3 \u001fa9783540774310\u001e52\u001faBest.-Nr. 12208951\u001e  \u001fa(DE-599)DNB987805282\u001e  \u001fa(OCoLC)244010073\u001e  \u001fa1145\u001fbger\u001fcDE-101\u001fd9999\u001ferakwb\u001e  \u001fager\u001e  \u001fcXA-DE-BE\u001e74\u001fa510\u001fa004\u001fqDE-101\u001f222sdnb\u001e  \u001fa510\u001fa004\u001fqDE-101\u001f2sdnb\u001e  \u001fab\u001e1 \u001f0(DE-588)140501037\u001f0(DE-101)140501037\u001faTeschl, Gerald\u001fd1970-\u001f4aut\u001e10\u001faMathematik für Informatiker\u001fnBd. 1\u001fpDiskrete Mathematik und lineare Algebra\u001fcGerald Teschl ; Susanne Teschl\u001e  \u001fa3., Aufl.\u001e  \u001fa13\u001e3 \u001faBerlin\u001faHeidelberg\u001fbSpringer Vieweg\u001fc2008\u001e  \u001faXIII, 514 S.\u001fbgraph. Darst.\u001e  \u001fa(VLB-FS)Mathematik für Informatiker\u001e  \u001fa(VLB-FS)Diskrete Mathematik\u001e  \u001fa(VLB-FS)Lineare Algebra\u001e  \u001fa(VLB-PF)BC: Paperback\u001e  \u001fa(VLB-WN)1632: HC/Informatik, EDV/Informatik\u001e08\u001fq11\u001fw(DE-101)976481294\u001e42\u001fmB:DE-101\u001fqapplication/pdf\u001fuhttp://d-nb.info/987805282/04\u001f3Inhaltsverzeichnis\u001e42\u001fmX:MVB\u001fqtext/html\u001fuhttp://deposit.d-nb.de/cgi-bin/dokserv?id=3077737&prov=M&dok_var=1&dok_ext=htm\u001f3Inhaltstext\u001er \u001fara\u001e\u001d",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "Mathematik für Informatiker. Bd. 1: Diskrete Mathematik und lineare Algebra",
+				"creators": [
+					{
+						"firstName": "Gerald",
+						"lastName": "Teschl",
+						"creatorType": "author"
+					}
+				],
+				"date": "2008",
+				"ISBN": "9783540774310",
+				"callNumber": "b",
+				"edition": "3., Aufl",
+				"language": "ger",
+				"numPages": "514",
+				"place": "Berlin Heidelberg",
+				"publisher": "Springer Vieweg",
+				"attachments": [],
+				"tags": [
+					"(VLB-FS)Diskrete Mathematik",
+					"(VLB-FS)Lineare Algebra",
+					"(VLB-FS)Mathematik für Informatiker",
+					"(VLB-PF)BC: Paperback",
+					"(VLB-WN)1632: HC/Informatik, EDV/Informatik"
+				],
+				"notes": [],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "a6ee60df-1ddc-4aae-bb25-45e0537be973",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Gerald",
+						"lastName": "Teschl",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "(VLB-FS)Mathematik für Informatiker",
+						"type": 1
+					},
+					{
+						"tag": "(VLB-FS)Diskrete Mathematik",
+						"type": 1
+					},
+					{
+						"tag": "(VLB-FS)Lineare Algebra",
+						"type": 1
+					},
+					{
+						"tag": "(VLB-PF)BC: Paperback",
+						"type": 1
+					},
+					{
+						"tag": "(VLB-WN)1632: HC/Informatik, EDV/Informatik",
+						"type": 1
+					}
+				],
+				"ISBN": "9783540774310",
+				"language": "ger",
+				"title": "Mathematik für Informatiker. Bd. 1: Diskrete Mathematik und lineare Algebra",
+				"edition": "3., Aufl",
+				"place": "Berlin Heidelberg",
+				"publisher": "Springer Vieweg",
+				"date": "2008",
+				"numPages": "514",
+				"callNumber": "b"
+			}
+		]
+	},
+	{
+		"name": "testCase03",
+		"source": "translators/MARC.js testCases[3]",
+		"input": "03613    a2200469   4500001000300000005001700003024004300020037001000063245007200073251000700145269001500152336001200167500024700179510021700426520026800643536002500911540051800936650001701454650002401471650002301495650001401518651001801532655002201550720005701572791014401629856013801773856019701911856017102108906002702279908001302306910002702319912022802346914007202574924022402646926000602870927013602876930006803012980001303080980001303093980001103106981002603117\u001e70\u001e20241218140557.0\u001e70\u001fahttps://doi.org/10.3886/qkqw-yg74\u001f2DOI\u001e  \u001faADMIN\u001e  \u001faDiffusion Time Metrics for Facebook Posts with 100 or More Reshares\u001e  \u001fav1\u001e  \u001fa2024-12-10\u001e  \u001faDataset\u001e  \u001faThe U.S. 2020 Facebook and Instagram Election Study (US 2020 FIES) is a partnership between Meta and academic researchers to understand the impact of Facebook and Instagram on key political attitudes and behaviors during the US 2020 election.\u001e  \u001faMeta Platforms, Inc. Diffusion Time Metrics for Facebook Posts with 100 or More Reshares. Inter-university Consortium for Political and Social Research [distributor], 2024-12-10. https://doi.org/10.3886/qkqw-yg74\u001e  \u001faThis dataset contains aggregated information about all content reshared 100 or more times from July 1, 2020 through February 1, 2021. Each row of the dataset corresponds to an individual tree and its size and depth at specific hours and days from initial posting.\u001e  \u001foMeta Platforms, Inc.\u001e  \u001faThis dataset has two levels of access: Public and Restricted.\n<ul>\n<li>Public files can be downloaded directly from the dataset record. Typically, documentation files such as READMEs and codebooks are made public.</li>\n\n<li>Restricted data files require a Restricted Data Application and will be accessed through a secure virtual data enclave. <a href=\"https://docs.google.com/document/d/1NcohZjrhh_F_GpbdArI7DvHBB1adZ80ojFzhy7zvBM4/edit?usp=sharing \">Learn more about applying for restricted data.</a></li>\n</ul>\u001e  \u001fasocial media\u001e  \u001fapolitical attitudes\u001e  \u001fapolitical behavior\u001e  \u001faelections\u001e  \u001fzUnited States\u001e  \u001faweb platform data\u001e  \u001faMeta Platforms, Inc.\u001feData Collector\u001f7Organizational\u001e  \u001ftThe Diffusion and Reach of (Mis)Information on Facebook during the US 2020 Election\u001faJournal Article\u001fwhttps://doi.org/10.15195/v11.a41\u001f2DOI\u001e4 \u001fuhttps://socialmediaarchive.org/record/70/files/US2020_Glossary_v1.csv\u001fyGlossary of terms\u001f98a2f2464-fb91-47f4-8bb1-30943b39ae53\u001fs37282\u001e4 \u001fuhttps://socialmediaarchive.org/record/70/files/data_dictionary_diffusion_time_metrics_facebook_posts_with_100_or_more_reshares.csv\u001fyData dictionary\u001f9b7b7b1e4-b130-4671-af00-1d885d273132\u001fs32034\u001e4 \u001fuhttps://socialmediaarchive.org/record/70/files/US2020_FB%26IG_Elections_External_Codebook_v3.pdf\u001fyProject-level codebook\u001f984602a60-15eb-4955-ae57-feaa347b1699\u001fs848845\u001e  \u001fa2020-07-01\u001fb2021-02-01\u001e  \u001faFacebook\u001e  \u001fauser behavior tracking\u001e  \u001faThis table is used to analyze the spread of different types of content on Facebook before and after the 2020 election, as part of the U.S. 2020 Facebook and Instagram Election Study. See the codebook for additional details.\u001e  \u001faDownload the data dictionary for variables present in this dataset.\u001e  \u001faThe data in this study were analyzed using R (version 4.4.1). The analysis code imports several R packages available on CRAN, including renv (1.0.11), dplyr (1.1.4), ggplot2 (3.5.1), xtable (1.8-4), and quantreg (5.98).\u001e  \u001faR\u001e  \u001faR 4.4.1\u001fdR packages available on CRAN, including renv (1.0.11), dplyr (1.1.4), ggplot2 (3.5.1), xtable (1.8-4), and quantreg (5.98)\u001e  \u001fahttps://somar.infoready4.com/#freeformCompetitionDetail/1910437\u001e  \u001faFacebook\u001e  \u001faDatasets\u001e  \u001faUS2020\u001e  \u001faPublished\u001fb2024-12-10\u001e\u001d",
+		"upstreamTestItems": [
+			{
+				"itemType": "book",
+				"title": "Diffusion Time Metrics for Facebook Posts with 100 or More Reshares",
+				"creators": [
+					{
+						"firstName": "Inc",
+						"lastName": "Meta Platforms",
+						"creatorType": "editor"
+					}
+				],
+				"abstractNote": "This dataset contains aggregated information about all content reshared 100 or more times from July 1, 2020 through February 1, 2021. Each row of the dataset corresponds to an individual tree and its size and depth at specific hours and days from initial posting",
+				"attachments": [],
+				"tags": [
+					{
+						"tag": "United States"
+					},
+					{
+						"tag": "elections"
+					},
+					{
+						"tag": "political attitudes"
+					},
+					{
+						"tag": "political behavior"
+					},
+					{
+						"tag": "social media"
+					},
+					{
+						"tag": "web platform data"
+					}
+				],
+				"notes": [
+					{
+						"note": "The U.S. 2020 Facebook and Instagram Election Study (US 2020 FIES) is a partnership between Meta and academic researchers to understand the impact of Facebook and Instagram on key political attitudes and behaviors during the US 2020 election"
+					}
+				],
+				"seeAlso": []
+			}
+		],
+		"status": 200,
+		"translatorID": "a6ee60df-1ddc-4aae-bb25-45e0537be973",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Inc",
+						"lastName": "Meta Platforms",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "social media",
+						"type": 1
+					},
+					{
+						"tag": "political attitudes",
+						"type": 1
+					},
+					{
+						"tag": "political behavior",
+						"type": 1
+					},
+					{
+						"tag": "elections",
+						"type": 1
+					},
+					{
+						"tag": "United States",
+						"type": 1
+					},
+					{
+						"tag": "web platform data",
+						"type": 1
+					}
+				],
+				"abstractNote": "This dataset contains aggregated information about all content reshared 100 or more times from July 1, 2020 through February 1, 2021. Each row of the dataset corresponds to an individual tree and its size and depth at specific hours and days from initial posting",
+				"title": "Diffusion Time Metrics for Facebook Posts with 100 or More Reshares"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "The U.S. 2020 Facebook and Instagram Election Study (US 2020 FIES) is a partnership between Meta and academic researchers to understand the impact of Facebook and Instagram on key political attitudes and behaviors during the US 2020 election"
+			}
+		]
+	}
+]

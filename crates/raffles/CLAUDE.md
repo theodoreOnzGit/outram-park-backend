@@ -1,8 +1,17 @@
 # CLAUDE.md — raffles
 
+
 Crate-specific guidance for Claude Code and other AI assistants working in
-`crates/raffles`. The workspace-root `CLAUDE.md` still binds in full — this
-file adds to it, and relaxes nothing.
+`crates/raffles`. ~~The workspace-root `CLAUDE.md` still binds in full — this
+file adds to it, and relaxes nothing.~~ **CORRECTED 2026-10-12** — the
+workspace-root `CLAUDE.md` still binds, except where maintainer direction
+recorded in [`AGENTS.md`](AGENTS.md) relaxes it for this crate.
+
+**Read [`AGENTS.md`](AGENTS.md) first.** It holds maintainer direction that
+binds every agent working here, and it takes precedence over this file and the
+root `CLAUDE.md` where they differ. Currently it covers one topic:
+**calibration is acceptable when it is the intention, and surrogate models
+calibrate by definition** (maintainer direction, 2026-10-12).
 
 **RAFFLES** — **R**isk **A**nalysis **F**ramework **F**or **L**earning &
 **E**nsemble **S**imulation. An independent pure-Rust port of the
@@ -10,11 +19,66 @@ uncertainty-quantification and risk-analysis core of
 [RAVEN](https://github.com/idaholab/raven) (Idaho National Laboratory,
 Apache-2.0).
 
-**Current state: scaffold.** Module boundaries, licensing and provenance only.
-No distribution, sampler, estimator or surrogate exists. Do not describe any
-part of this crate as working, verified or validated.
+**Current state: implemented in part, with no human V&V.** Distributions,
+samplers, sensitivity, Bayesian model updating, distances, ABC, imprecise
+probability, model selection, fault-tree quantification, GNNs and surrogates
+all carry working, tested code. All of it is AI-assisted draft material until
+the maintainer and the crate owner have reviewed it, so do not describe any
+part of it as validated, and read "verified" as "checked against a reference by
+an automated test".
 
 ---
+
+## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
+
+> **Note, 2026-10-02.** This crate took the rule below on through its
+> dependency on `outram-mc-libs`, which it no longer has (see "RNG" below). The
+> rule is left in force here — RAFFLES' graph work still consumes reactor
+> geometry through `outram_blender::gnn_graph` and liggghts' `gnn_bridge` —
+> and whether to drop it is the maintainer's call, not an assistant's.
+
+**Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
+`CLAUDE.md` of `outram-mc-libs`, `nee_soon`, every `outram-foam-*` crate and
+every crate downstream of them; a crate that newly depends on one of those
+takes the rule into its own `CLAUDE.md` (check with `cargo metadata`).
+
+**Whenever you build or change a complex reactor geometry** — CSG cells and
+surfaces, lattices, pebble beds, TRISO particles, reflector zones, control-rod
+bands, a CFD/FEM mesh, anything a solver will transport or integrate through —
+**draw it, as images a human can open (PNG, or JPG/SVG), and hand them over**
+before any result computed on it is reported as more than tentative.
+
+- **Draw what the solver sees, not what you meant.** Render from the ASSEMBLED
+  geometry (cell / material lookup at each pixel, or the mesh itself), never
+  from the named constants. A picture of the constants hides exactly the
+  defects this rule exists to catch.
+- **Minimum set:** an axial slice (R-Z / x-z) of the whole model; radial (x-y)
+  slices at the heights that matter; and, for nested geometry, zoomed slices at
+  every level down to the smallest (pebble, TRISO particle). Colour by
+  material, with a legend and the key dimensions marked.
+- **Commit the images with the change** (beside the V&V record or the
+  manuscript package) and point the human at them by path in your summary.
+  Regenerate them whenever the geometry changes.
+- **Say what you checked in them, and what you could not** — an image nobody
+  was told to look at checks nothing.
+
+**Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom reflector
+mirrored from the top and up to 107 cm short; a core cavity that grew with the
+bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
+(gh:#309, #310); and a TRISO lattice holding 8240 particles while reporting
+8340 (gh:#316, +353 pcm). Every run completed with green diagnostics. Each was
+found by looking at the built geometry, not by the eigenvalue.
+
+**Tools.** ~~`outram_mc_libs::geometry::plot` samples a slice of an assembled
+CSG geometry; OpenMC-parity image output (PNG/JPG) is the preferred path once
+it lands.~~ **UPDATED 2026-09-25 — it has landed (gh:#268):**
+`outram_mc_libs::geometry::plot` is a port of OpenMC's plotter that writes PNG
+directly — slices, wireframe and solid ray traces — verified pixel-for-pixel
+against `openmc --plot`
+(`crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+`render_material_slice` draws a material-coloured slice with a legend and cm
+axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
+worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 ## Ownership — Adolphus Lye
 
@@ -60,17 +124,17 @@ The crate `NOTICE` is the authoritative provenance record.
 `upstream_source/README.md` holds the clone command and the map from RAFFLES
 modules to upstream paths.
 
-### Apache-2.0 into GPL-3.0 is ONE-WAY — the rule you must not get wrong
+### Apache-2.0 into ~~GPL-3.0~~ AGPL-3.0 is ONE-WAY — the rule you must not get wrong
 
-RAFFLES is **GPL-3.0-only**. Apache-2.0 is one-way compatible with GPLv3:
+RAFFLES is ~~**GPL-3.0-only**~~ **AGPL-3.0-only** (relicensed 2026-10-20, gh:#973), an AGPL-3.0-only combined work under GPLv3 §13 / AGPLv3 §13: its GPL-3.0 ports (SCRAM, Physics-guided-MPNN, pba.r) keep GPL-3.0, and the crate ships `LICENSE.GPL-3.0`. Apache-2.0 is one-way compatible with GPLv3 and AGPLv3 alike:
 
-- Code may flow **RAVEN (Apache-2.0) into RAFFLES (GPL-3.0-only)**.
-- Code may **not** flow **RAFFLES (GPL-3.0-only) into RAVEN (Apache-2.0)**.
+- Code may flow **RAVEN (Apache-2.0) into RAFFLES (~~GPL-3.0-only~~ AGPL-3.0-only)**.
+- Code may **not** flow **RAFFLES (~~GPL-3.0-only~~ AGPL-3.0-only) into RAVEN (Apache-2.0)**.
 
 Never contribute RAFFLES code, patches or translated files upstream to RAVEN,
 never open a pull request against `idaholab/raven` out of this workspace, and
 never offer RAFFLES code to anyone under Apache-2.0 terms. Once a translation
-lands here it is GPLv3 and stays GPLv3. Relicensing would require every RAFFLES
+lands here it is ~~GPLv3 and stays GPLv3~~ AGPLv3 (or GPLv3, for a GPL-upstream port) and stays so. Relicensing would require every RAFFLES
 copyright holder's agreement — which no AI assistant may arrange, and no
 contributor may arrange unilaterally.
 
@@ -78,6 +142,207 @@ This restricts the direction of *code* flow only. Reading RAVEN's papers,
 theory manual and documentation and implementing the published algorithms is
 unaffected — and where the algorithm is published, an independent
 implementation from the paper is usually the better route anyway.
+
+### SCRAM is a second upstream, and it is NOT Apache-2.0
+
+`src/scram/` is ported from **[SCRAM](https://github.com/rakhimov/scram)**
+(Olzhas Rakhimov), commit `b85b78940de38996eeffec54d946824bd4280a1c`,
+accessed 2026-09-21. SCRAM is **GPL-3.0-or-later** — ~~the same licence family~~ **CORRECTED 2026-10-20**: since the AGPL relicence (gh:#973) the SCRAM ports stay GPL-3.0 and combine with the AGPL crate under §13; originally the same licence family
+as this crate — so it carries **none** of the one-way constraint the RAVEN
+grant does, and the Apache-2.0 header template below is **wrong** for those
+files. Use the GPL header the existing `src/scram/` files carry.
+
+**Part of `src/scram/` is a port and part deliberately is not, and the
+difference is load-bearing.** Ported, with attribution headers:
+
+| file | upstream |
+|---|---|
+| `probability.rs` | `RareEventCalculator`, `McubCalculator`, `CutSetProbabilityCalculator` |
+| `importance.rs` | `ImportanceAnalyzerBase::Analyze`'s five derived factors |
+| `bdd.rs` (the probability recurrence only) | `ProbabilityAnalyzer<Bdd>::CalculateProbability` |
+| `zbdd.rs` | `ConvertBdd`, `Minimize`, `Subsume`, `ConvertBddPrimeImplicants`, `Bdd::Consensus`, `ConvertGraph`, `Apply<kAnd>`, `Apply<kOr>`, `EliminateComplements` |
+| `fault_tree.rs`'s `Connective` taxonomy | `pdag.h`'s `enum Connective` |
+| `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators, and the seven random deviates' `value`/`Validate`/`interval` |
+| `mef.rs` | `initializer`, `xml`, `element`, `model`, `fault_tree`, `event` — the MEF reader, including `Initializer::GetEntity`'s name resolution and `Pdag::ConstructComplexGate`'s rewrites |
+| `ccf.rs` | `ccf_group.{h,cc}` — all four common-cause models, `CalculateProbabilities`, the combination reciprocal and `ApplyModel`'s proxy-gate rewrite |
+| `alignment.rs` | `alignment.{h,cc}` and the phase application of `RiskAnalysis::RunAnalysis` — mission-time scaling and `<set-house-event>` |
+| `uncertainty.rs` | `uncertainty_analysis.{h,cc}` — the Monte Carlo loop and every statistic, including the `n/(n-1)` variance correction |
+| `substitution.rs` | `substitution.{h,cc}`, plus `Pdag::ConstructSubstitution` (declarative, a tree rewrite) and `Zbdd::ApplySubstitutions` (non-declarative, a pass over products) |
+
+**Not** ports, each saying so in its own doc instead:
+
+- `mocus.rs` — upstream's MOCUS drives a ZBDD over a preprocessed Boolean
+  graph (`zbdd` + `pdag` + `preprocessor` + `bdd` = 9,076 lines). This is the
+  classical top-down expansion from the literature, kept as an unrelated
+  second opinion now that `zbdd.rs` is the scalable path.
+- The exact top-event probability by cut sets — inclusion-exclusion, not a BDD
+  traversal.
+- The Birnbaum factor — its definition, not a BDD derivative.
+- `bdd.rs`'s diagram construction — Bryant's algorithm from the tree, where
+  upstream builds from a preprocessed `Pdag`.
+- The rest of `fault_tree.rs` — a plain indexed structure, not upstream's
+  `Initializer`/`Model`/`Formula`. `mef.rs` is what builds one from XML.
+- `mef.rs`'s **schema validation**, because there is none. Upstream validates
+  against `share/input.rng` with libxml2 first; this checks only what it needs
+  to build the model. Every construct it does not understand is an error
+  rather than a skip, which is what stands in for the grammar.
+
+**Do not retrofit an attribution header onto any of those.** A header is a
+statement about where a file came from, and the whole value of them is that
+they are *independent* of upstream: two unrelated algorithms agreeing is
+evidence, a translation agreeing with its original is much weaker. That is the
+same rule the paper-derived Bayesian modules follow.
+
+**SCOPE WIDENED AGAIN, 2026-09-22 (maintainer direction):** *everything
+except the GUI* is to be translated, with V&V. That brings XML input, event
+trees, alignments, CCF groups, substitutions, the expression library,
+`define-component` namespaces and the preprocessor **into** scope — all of
+which this file and the README previously recorded as out of it. The memory
+cap stays an exception (the largest Aralia benchmarks remain out), and the
+non-BDD ZBDD constructor was named explicitly.
+
+~~Still to do under that direction: XML input (`initializer`, `xml`), the
+`expression` library, …~~ **CORRECTED 2026-09-22** — the first two landed:
+`src/scram/expression.rs` and `src/scram/mef.rs`. Still to do:
+event trees and sequences, the preprocessor, `pdag`, and the reporter. Progress is tracked in `docs/scram-port-verification.md`.
+
+~~expressions~~ **CORRECTED 2026-09-22** — `src/scram/expression.rs` landed,
+verified on `HIPPS`, upstream's own model whose every basic event is defined
+by a `<periodic-test>` or `<GLM>` expression and whose probabilities therefore
+appear nowhere as literals.
+
+~~XML input, `<define-component>` private namespaces~~ **CORRECTED
+2026-09-22** — `src/scram/mef.rs` landed. It removed the transcription step
+that stood between upstream's models and the tests: `tests/scram_mef.rs` reads
+upstream's own `.xml` (committed verbatim under
+`reference-data/scram/upstream-input/`), evaluates every basic-event
+probability from the model's own expressions, and checks the cut sets, totals
+and importance factors that follow. **`ThreeMotor/three_motor` is covered end
+to end for the first time** — the model that no route reached, because its
+`<define-component role="private">` declares a second `E1`. Name resolution is
+upstream's `Initializer::GetEntity` rule for rule, and two details it is easy
+to get wrong are asserted separately: a `<define-fault-tree>` **is** a path
+component, and a component's role **inherits** its container's rather than
+defaulting to private.
+
+**A claim this port made about the format was wrong, and is corrected.** An
+earlier `mef.rs` carried machinery for arbitrarily nested formulas. MEF has
+none: `share/input.rng` lets a connective take only an event reference, a
+`<not>` around one event, or a `<constant>`. SCRAM itself rejects a nested
+formula. Do not re-add that machinery.
+
+~~the random deviates (`SmallTree/SmallTree` and `BSCU/BSCU` are the two
+upstream models this costs)~~ **CORRECTED 2026-09-22** — all seven landed, and
+both models read. ~~Only their deterministic `value()` is ported~~ **CORRECTED 2026-09-22** —
+`Expression::sample` and `src/scram/uncertainty.rs` landed together, which is
+the order that made the sampling checkable at all.
+**The random stream differs from upstream's** (one static `std::mt19937`
+there, `petir::rng::lcg` here (~~`outram_mc_libs::rng::lcg`~~, the same
+generator before it moved on 2026-10-02), reused per the
+search-before-building rule), so this is the **one part of the SCRAM port
+whose verification is statistical rather than exact**. Do not tighten
+`scram_uncertainty`'s tolerances into exact comparisons: they are set by the
+sample sizes, and SCRAM's own 1000 trials dominate every band. Their arrival is also what gave
+`Interval`/`Expression::interval` a purpose — a normal deviate's mean can be a
+good probability while its six-sigma domain is not, and upstream rejects the
+argument on the domain check.
+
+~~CCF groups~~ **CORRECTED 2026-09-22** — `src/scram/ccf.rs` landed, porting
+all four models (beta-factor, MGL, alpha-factor, phi-factor) and
+`ApplyModel`'s proxy-gate rewrite. **They are applied BY DEFAULT**, not behind
+a flag as upstream's `--ccf` is, per the workspace rule that physics the data
+supplies is applied unless a caller ablates it; `MefModel::without_ccf` is the
+visible ablation and both paths are pinned against the corresponding SCRAM
+run. The default is asserted by
+`scram_ccf::ccf_is_applied_by_default_and_the_ablation_is_the_independent_analysis`
+— do not turn it off. Only upstream's `beta-factor` appears in any upstream
+input model, so `models-for-this-port/ccf_models.xml` carries all four.
+
+~~substitutions~~ **CORRECTED 2026-09-22** — `src/scram/substitution.rs`
+landed. Both upstream models are checked end to end, and the work turned up a
+**defect in upstream**: `ImportanceAnalyzer<Bdd>::CalculateMif` omits the
+root-complement negation that `CalculateTotalProbability` applies, so every
+Birnbaum factor of an affected model comes out with the wrong sign. This had
+been recorded as an unexplained 108-event divergence on `Aralia/das9601`;
+`TwoTrain/substitutions` reproduces it on six events, small enough to check by
+hand, and two hand calculations in opposite directions land on this port's
+sign. **Do not "fix" the sign to match SCRAM.**
+
+~~alignments~~ **CORRECTED 2026-09-22** — `src/scram/alignment.rs` landed.
+A model with an alignment has **no single answer**: `MefModel::in_phase`
+returns the model as it stands in one phase and the caller loops, which is
+upstream's own arrangement. Upstream mutates the model and restores it with a
+`scope_guard`; this returns a new model, so two phases cannot interfere.
+
+Still absent, and refused rather than skipped when a model uses them:
+event trees, the trigonometric operators and `<switch>`.
+`<define-extern-function>` is refused **deliberately and permanently** — it
+loads a shared library named by the input file, which the workspace
+`RESPONSIBLE_USE.md` rule on autonomous access forbids.
+
+~~house events~~ **CORRECTED 2026-09-21** — `Arg::Constant` and
+`FaultTreeBuilder::house_event` landed the same day. Upstream's only
+house-event model, `ThreeMotor`, also uses `<define-component>` (private
+namespaces the structure extractor does not model), so a small model was
+written to give the feature real oracle coverage rather than repeat
+`Connective::Null`'s position of shipping unverified.
+
+~~prime implicants~~ **CORRECTED 2026-09-21** — `zbdd::prime_implicants`
+landed the same day, porting `ConvertBddPrimeImplicants` and `Bdd::Consensus`.
+It is what makes a non-coherent answer *exact* rather than conservative.
+Verified against `scram --prime-implicants` on 9 models, 441 implicants, signs
+included. Note upstream itself does not finish `--prime-implicants` on
+`Aralia/das9601` within five minutes — the cost is the algorithm's, not this
+port's.
+
+~~ZBDD~~ **CORRECTED 2026-09-21** — `src/scram/zbdd.rs` landed the same day,
+porting `ConvertBdd`/`Minimize`/`Subsume`. It is how `Aralia/das9601`'s 4,259
+cut sets are verified: `mocus` cannot reach them at any order limit, and the
+ZBDD produces all of them in under a second.
+
+~~BDD~~ **CORRECTED 2026-09-21** — `src/scram/bdd.rs` landed the same day: a
+Bryant-style diagram built straight from the tree, with upstream's probability
+recurrence ported verbatim. It removed the largest limitation the port had —
+exact probability no longer needs cut sets, so it is no longer capped at 20 of
+them. Verified against SCRAM's own BDD on 10 models, including `Aralia/das9601`
+(288 gates, non-coherent, 386,261 nodes) which `mocus` cannot touch.
+
+~~complement elimination (so **non-coherent trees are refused, not
+approximated**)~~ **CORRECTED 2026-09-21** — complement elimination landed the
+same day. `mocus` now expands negated gates through their De Morgan duals,
+drops contradictory partial sets, deletes the complements and re-minimises,
+matching what upstream's `Zbdd::EliminateComplement` does. **The answers mean
+something different, though**: minimal cut sets of a non-coherent tree are
+conservative, so quantifying them is an upper bound, not the probability.
+Measured on the fixture's small non-coherent model, ours is `0.622` against
+SCRAM's exact BDD value of `0.5032` — `+23.6 %`, and correct. Do not "fix"
+that gap.
+
+~~upstream's probability cut-off on products~~ **CORRECTED 2026-09-21** — that
+was listed as absent, wrongly. SCRAM 0.16.2 stores and validates
+`Settings::cut_off_` but **never reads it**: the getter has no callers, and
+`--cut-off 0.5` on a model whose top-event probability is `1.17e-3` discards
+none of its 392 products. There is nothing to port, and truncating by cut-set
+order only is not a divergence. Do not "fix" this by implementing one.
+
+Verification record: [`docs/scram-port-verification.md`](docs/scram-port-verification.md),
+oracle in `reference-data/scram/`. Upstream was **built and run** — nothing in
+that fixture was reasoned out from reading SCRAM's source.
+
+### Computing with Confidence and pba.r (gh:#987) — a third and fourth upstream
+
+`src/scram/pba.rs` ports the pba.r operations that Adolphus Lye's "Coherent
+systems" scripts call; `src/scram/pbox_tree.rs` evaluates a `FaultTree` with
+c-box basic events. Provenance: Lye's scripts have no licence file (the author
+asked for the port; maintainer confirmed AGPLv3 fine, 2026-10-20); `pba.r` is
+Scott Ferson's, GPL-3.0, so `pba.rs` carries a pba.r header. **`sra.r` in the
+same upstream folder is "All rights reserved": never read, port or run it.**
+Verified against the original R scripts (R 4.6.1) and an Octave Monte Carlo:
+`docs/computing-with-confidence-verification.md`, which also lists what is
+NOT verified. Two traps recorded there: `KN` is `cbox_binomial` except at the
+support ends and the `1e-6` clamp (`pba::kn` / `kn_exact`), and the published
+Case study 4 overwrites its c-boxes with point values. AI-assisted draft, no
+human or owner review.
 
 ### Third-party BSD code inside RAVEN
 
@@ -249,6 +514,7 @@ The reference for each family:
 | Sobol indices | The **Ishigami function** — closed-form first-order and total indices at the conventional parameters. Plus an additive linear model (first-order indices sum to 1 and equal the total indices) and the Sobol g-function for a strongly interacting case |
 | Correlation measures | A construction with a known correlation matrix; and a monotone non-linear transform of it, where Spearman is preserved and Pearson is not |
 | Surrogate | Exact reproduction of a polynomial at the matching expansion order; a published test problem with reported error metrics |
+| Fault trees | Upstream **SCRAM built from source and run** on upstream's own input models — cut sets compared set-for-set against SCRAM's products, then totals in all three modes and all five importance factors for every basic event. Fixtures in `reference-data/scram/` |
 
 **Document methodology AND results.** Per the workspace V&V rule, a test whose
 docs say only what it does is incomplete. State the reference, the inputs,
@@ -265,8 +531,11 @@ enough?") is a separate question and is not answered by any of the above.
 ## Android / Termux
 
 The crate is Android-clean, and stays that way. Its dependencies are
-`thiserror` and `outram-mc-libs` (the RNG — see below); both build for
-`aarch64-linux-android`.
+`thiserror`, `petir` (the RNG — see below; ~~`outram-mc-libs`~~ **CORRECTED
+2026-10-02**), `xml-rs` (the MEF reader), and the optional `burn`
+(see "Machine learning" below); all three build for `aarch64-linux-android` —
+`cargo check -p raffles --all-targets --features burn --target
+aarch64-linux-android` was clean on 2026-09-16 (burn 0.21.0, rustc 1.94.1).
 
 - **Never** add `ndarray-linalg`, or anything needing system BLAS/LAPACK, a C
   or Fortran toolchain, or windowing GUI, as an unconditional dependency.
@@ -298,7 +567,21 @@ Note the workspace rule while you are here: Android's `target_os` is
 
 ### RNG — reuse, do not add or hand-roll one
 
-**Sampling draws from `outram_mc_libs::rng::lcg`** (OpenMC's 64-bit LCG port),
+**RAFFLES must never depend on `outram-mc-libs` (or any crate that depends on
+RAFFLES) again (2026-10-02).** It used to, for this generator and for a CSG
+graph adapter (`gnn::mc_geometry`). Once `outram-mc-libs` took on
+`outram-park-fork-liggghts` for DEM pebble beds, that edge closed the cycle
+`outram-mc-libs -> liggghts -> raffles -> outram-mc-libs`. The generator moved
+to `petir::rng::lcg`; the adapter moved to `outram_blender::gnn_graph` (feature
+`gnn-graph`, GitHub issue #486). Adapters from a physics or geometry crate INTO
+RAFFLES' types live in that crate, never here. The reverse edge
+`outram-mc-libs -> raffles` is explicitly allowed (maintainer, 2026-10-02:
+RAFFLES' statistics can speed up Monte Carlo), which is exactly why RAFFLES
+must stay free of physics and geometry dependencies.
+
+**Sampling draws from `petir::rng::lcg`** (OpenMC's 64-bit LCG port;
+~~`outram_mc_libs::rng::lcg`~~ **CORRECTED 2026-10-02** — the generator moved
+to `petir` unchanged, at the maintainer's direction),
 not from a `rand` crate and not from a PRNG written inside RAFFLES. Whether the
 workspace should take a general `rand` dependency is an open maintainer
 question (`docs/raven-port-scoping.md` section 10, question 1) and is not a
@@ -307,7 +590,7 @@ port agent's call. Seeding stays **explicit** — every `generate` takes a
 streams via `future_seed` jump-ahead. See `src/samplers.rs`.
 
 **Resolved upstream defect — the warning that used to sit here is obsolete.**
-`outram_mc_libs::rng::lcg::init_seed` was wrong: it added where OpenMC
+`init_seed` (then `outram_mc_libs::rng::lcg::init_seed`) was wrong: it added where OpenMC
 multiplies, so consecutive `id`s landed one LCG *step* apart instead of one
 *stride*, making per-stream derivation produce near-perfectly correlated
 streams. **Fixed in `op-rbo`** — it now matches
@@ -328,22 +611,161 @@ that change is stale and needs re-measuring before it is cited
 Proxy check, all targets:
 
 ```bash
-cargo check -p raffles --all-targets --target aarch64-linux-android
+cargo check --release -p raffles --all-targets --target aarch64-linux-android
 ```
 
 The authoritative check is a native build inside Termux.
 
 ---
 
+## Machine learning — `burn` replaces PyTorch, and is optional here
+
+Upstream RAVEN backs its machine-learning surrogates with **PyTorch**. The
+Rust replacement for PyTorch in this workspace is **`burn`** (tracel-ai,
+MIT OR Apache-2.0 — permissive into GPL-3.0, one-way, like RAVEN itself), per
+maintainer direction on 2026-09-16: reach for `burn` wherever the upstream
+reaches for PyTorch, as far as `burn` will go. Do not add a second ML
+framework, and do not hand-roll a tensor/autodiff layer alongside it — the same
+reasoning as the RNG rule above.
+
+**It is optional and off by default.** `burn` is declared once in the root
+`[workspace.dependencies]` with `default-features = false`, and RAFFLES takes
+it as `burn = { workspace = true, optional = true }` behind its own `burn`
+feature:
+
+```bash
+cargo build -p raffles --release --features burn
+```
+
+- **`no_std` + `alloc`.** That is what `default-features = false` buys, and it
+  is deliberate: `burn` runs on `core` + `alloc`, which is all a tensor library
+  needs, and it keeps the Android/Termux and wasm builds clean. `alloc` is
+  implicit in that mode (`burn` declares `extern crate alloc` itself — there is
+  no `alloc` feature to name). A `std` binary links a `no_std` `burn` happily,
+  so do not turn the defaults back on for convenience; the `std` feature is
+  where `burn`'s dataset/network/train/sqlite machinery lives.
+- **Backend: `ndarray` only, for now.** The crate's `burn` feature enables
+  `burn/ndarray` — the one backend that is pure Rust and libm-backed, with no
+  system BLAS and no C/Fortran toolchain. Never swap it for `tch`, `candle`,
+  `cuda`, `rocm` or any `blas-*` feature: every one of those violates the
+  Android rule above.
+- **GPU is out of scope for this first pass** (maintainer direction,
+  2026-09-16). When `wgpu`/`vulkan`/`metal`/`webgpu` is wanted, it goes behind
+  its own feature under `cfg(not(target_os = "android"))`, following
+  `outram-mc-libs`'s gating convention — not into the default build.
+- **Three modules consume it:** `surrogate::neural` (a feed-forward regressor),
+  `gnn::mpnn` (the message-passing network) and `gnn::training`. Everything
+  else in the crate builds without it, which is why it stays off by default.
+  `autodiff` is not separable from `ndarray` here — training needs gradients,
+  and a `burn` feature that could only run a forward pass would be a trap.
+  These are subject to the same verification requirement as everything else —
+  a fitted network that reproduces its training data is not a verified
+  surrogate.
+
+Verified clean on 2026-09-16 with `burn` 0.21.0 and rustc 1.94.1 (warnings in
+the output came from `outram-mc-libs`/`njoy-outram-park-fork` and predate this):
+
+```bash
+cargo check --release -p raffles --lib         --features burn
+cargo check --release -p raffles --all-targets --features burn --target aarch64-linux-android
+cargo check --release -p raffles --lib         --features burn --target wasm32-unknown-unknown
+```
+
+---
+
 ## Scope boundaries (do not widen without the owner's say-so)
 
 **In scope:** probability distributions, sampling strategies, sensitivity
-measures, surrogate models — the statistical core.
+measures, surrogate models — the statistical core. Plus, since 2026-09-21,
+fault-tree quantification in `src/scram/` (see below).
+
+**`src/scram/` was added at the workspace maintainer's direction, not the crate
+owner's**, and has since grown to a fairly complete fault-tree analysis layer:
+tree construction, cut sets by two routes, prime implicants, a BDD, and the
+quantification and importance measures. It widens this crate well past the
+RAVEN-derived statistical core it was scoped to.
+
+That is a direction call, and by the ownership rule above it is **Adolphus
+Lye's to confirm or reverse**. It is recorded here so it stays visible rather
+than absorbed silently.
+
+**An earlier revision of this file said "do not build further on it, or extend
+it toward cut-set generation, without checking with them first." That is what
+happened anyway**, on the maintainer's explicit instruction to fill in the
+port's remaining gaps — the maintainer being the person who set the SCRAM
+direction in the first place. The instruction is recorded as superseded rather
+than deleted, because the crate owner's review is still outstanding and the
+scope has moved a long way since it was written.
+
+**`src/estimators.rs` and `src/distributions/seeded.rs` were added on
+2026-10-02 at the workspace maintainer's direction, not the crate owner's**
+(GitHub issue #500, under the outram-mc ↔ RAFFLES epic #493). They hold
+generic statistics moved out of `outram-mc-libs` — sample mean and standard
+error, seed pooling, Shannon entropy over counts, the trigger's running-sum
+uncertainty and batch prediction, first-order error propagation — and three
+seed-driven samplers (`uniform`, Box-Muller `sample_normal`, `sample_exp`).
+The rule they follow: the maths on numbers lives here, and deciding *what* is
+counted stays in the physics crate. #493's ownership comment classes a new
+basic-estimators module as **needing Adolphus Lye's OK**; the maintainer
+directed it to land now, so, as with `scram/`, it is recorded here as a
+direction call that is **theirs to confirm or reverse**, with their review
+outstanding. (`src/estimators.rs` moved, content unchanged, to
+`src/estimators/mod.rs` on 2026-10-03 so the submodules below could sit
+beside it.) Until they decide, two constraints bind anyone editing these
+files:
+
+- **Bit-identity is the contract.** `outram-mc-libs` pins k-eff results to the
+  bit through these functions (`tests/stats_move_fingerprints.rs` there). Do
+  not "tidy" an expression — a reassociated sum or a `sqrt(a)/sqrt(b)` in
+  place of `sqrt(a/b)` moves recorded results.
+- **They are not RAVEN ports** and carry no RAVEN header; each function names
+  the outram-mc file (and, through it, the OpenMC routine) it came from.
+
+**Estimator submodules added 2026-10-03 under epic #493, at the workspace
+maintainer's direction, not the crate owner's.** #493's ownership comment
+classes each of these as **needing Adolphus Lye's OK**; the maintainer directed
+them to land now, so they are recorded here like `estimators` itself — a
+direction call that is **theirs to confirm or reverse**, with their review
+outstanding. They are generic statistics on arrays of numbers; the simulation
+drivers that call them (the seed-ensemble runner, the learned weight windows,
+the UQ and sweep loops) stay in `outram-mc-libs::stats`, outside this crate's
+scope. None of them changes any function that existed before, so the
+bit-identity contract above is untouched.
+
+- `src/estimators/seed_consistency.rs` (#494) — `χ²/dof` of seed values
+  against their internal `σ` with a fixed two-sided 95 % band, leave-one-out
+  Bonferroni outlier flags, disjoint-group-mean scatter (the measured `1/√N`
+  check).
+- `src/estimators/autocorrelation.rs` (#495) — lag autocorrelations, integrated
+  autocorrelation time with Sokal's automatic window (`c = 5`, fixed),
+  non-overlapping batch means (default batch `⌊√n⌋`, fixed; leading remainder
+  dropped), and `CorrelatedMean`, which always carries the naive `s/√n`
+  beside the corrected estimates.
+- `src/estimators/stationarity.rs` (#496) — MSER-5 truncation (White 1997),
+  Geweke's 10 %/50 % two-window z with batch-means errors (`|z| > 1.96`,
+  fixed), and a single change-point in the mean (exact posterior under flat
+  mean / Jeffreys variance priors, BIC verdict on the Kass–Raftery scale via
+  `model_selection`).
+
+Also added 2026-10-03, but as **ordinary contribution** rather than a scope
+change: `src/surrogate/validation.rs` (leave-one-out refits and jackknife+
+prediction intervals for `PolynomialSurrogate`; first consumers #497 and
+#499). It fills the "cross-validation machinery" that `src/surrogate/mod.rs`
+already lists as in scope. The owner has not reviewed it.
+
+`outram-mc-libs` now depends on RAFFLES (allowed edge, maintainer 2026-10-02),
+which is exactly why RAFFLES must stay free of physics and geometry
+dependencies.
 
 **Out of scope:** physics of any kind; simulation drivers, job scheduling and
-run-directory management; input-file / XML parsing; databases; plotting and
-reporting; RAVEN's optimisers; adaptive / model-in-the-loop samplers (they need
-the model-evaluation loop this crate deliberately does not own).
+run-directory management; databases; RAVEN's optimisers; adaptive /
+model-in-the-loop samplers (they need the model-evaluation loop this crate
+deliberately does not own).
+
+~~input-file / XML parsing; plotting and reporting~~ **CORRECTED 2026-09-22**
+— brought into scope for `src/scram/` by the maintainer's "everything except
+the GUI" direction. It remains out of scope for the RAVEN-derived modules,
+where no such instruction was given.
 
 The caller runs their own model and hands RAFFLES arrays of numbers.
 
@@ -355,11 +777,19 @@ what order — lives in the workspace-root **`docs/raven-port-scoping.md`**.
 ## Build and test
 
 ```bash
-cargo check -p raffles --lib
+cargo check --release -p raffles --lib
 cargo test  -p raffles --lib --tests --release
 ```
 
 Always `--release` for builds and tests, per the workspace rule.
+
+The optional `burn` feature is **not** in the default build, so add it
+explicitly when the work touches the surrogate path:
+
+```bash
+cargo check --release -p raffles --lib --features burn
+cargo test  -p raffles --lib --tests --release --features burn
+```
 
 ---
 

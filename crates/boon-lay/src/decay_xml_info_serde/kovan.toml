@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/decay_xml_info_serde"
+
+[module."mod.rs"]
+path = "crate::decay_xml_info_serde"

@@ -1,7 +1,7 @@
 //! Tests for the transient mean-flow turbine (bead `op-yi7m`).
 //!
-//! These check the coupling between the stage model and the 1-D HEM KNP hybrid
-//! solver, not the solver itself, which has its own validation under
+//! These check the coupling between the stage model and the 1-D HEM PIMPLE
+//! array (~~KNP hybrid solver~~, retired 2026-10-16), not the solver itself, which has its own validation under
 //! `openfoam_algorithms/`. What matters here is that the triangle is built on
 //! the solved flow, that the work leaves through the energy equation, and that
 //! the limits behave.
@@ -23,7 +23,6 @@ use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
-use crate::openfoam_algorithms::rhoPimpleFoam::SolverMode;
 use crate::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 
 use super::*;
@@ -119,17 +118,20 @@ fn impose_descending_pressure(machine: &mut TransientMeanFlowTurbine) {
         machine.array.p.internal[cell] = Pressure::new::<bar>(*pressure_bar).get::<pascal>();
     }
 
-    machine.array.correct_thermo();
+    machine.array.correct_thermo().unwrap();
 }
 
-/// The constructor must select the KNP hybrid, not the array's own PIMPLE
-/// default. Turbine passages run near-sonic, which is the regime the plain
-/// pressure-based path rings in.
+/// The constructor meshes one cell per stage.
+///
+/// ~~It also asserted that the constructor selects `SolverMode::HybridAllMach`.~~
+/// **RETIRED 2026-10-16**: the KNP hybrid and `SolverMode` were removed
+/// (gh:#914) and the machine runs the array's PIMPLE path. Every scenario in
+/// this file gave identical numbers under both modes before the removal; the
+/// table is in the module docs of `transient.rs`.
 #[test]
-fn constructor_selects_the_knp_hybrid_solver_mode() {
+fn constructor_meshes_one_cell_per_stage() {
     let machine = build_machine(0.5);
 
-    assert_eq!(machine.array.get_solver_mode(), SolverMode::HybridAllMach);
     assert_eq!(machine.array.mesh.n_cells, 4, "one cell per stage");
 }
 
@@ -481,3 +483,4 @@ fn a_turning_shaft_delivers_electrical_power() {
         "simulated time must advance"
     );
 }
+

@@ -28,6 +28,8 @@
 //! `tbar = F_2 / (2 tbeta)`. These are the standard incoherent-Gaussian
 //! Debye-Waller and effective-temperature integrals.
 
+use petir::mathf::RealMath;
+
 /// Result of the `start` calculation for one temperature: the integral functions
 /// of the phonon frequency distribution plus the first phonon-expansion term
 /// `T_1(beta)`.
@@ -89,13 +91,13 @@ impl Moment {
 fn fsum(moment: Moment, p: &[f64], tau: f64, deltab: f64) -> f64 {
     let n = moment.power();
     let an = moment.hyperbolic_sign();
-    let edsq = (deltab * tau / 2.0).exp();
+    let edsq = (deltab * tau / 2.0).r_exp();
     let mut v = 1.0_f64;
     let mut be = 0.0_f64;
     let mut fs = 0.0_f64;
     let np = p.len();
     for (ij, &pij) in p.iter().enumerate() {
-        let w = if n > 0 { be.powi(n) } else { 1.0 };
+        let w = if n > 0 { be.r_powi(n) } else { 1.0 };
         let mut ff = (pij * v * v + (pij * an / v) / v) * w;
         if ij == 0 || ij == np - 1 {
             ff /= 2.0;
@@ -129,7 +131,7 @@ impl FrequencyModel {
 
         // --copy input spectrum, convert rho(E) into P(beta) = rho/(2 beta sinh(beta/2))
         let mut p = rho.to_vec();
-        let v = (deltab / 2.0).exp();
+        let v = (deltab / 2.0).r_exp();
         // beta = 0 limit uses rho at the first non-zero beta over deltab^2
         p[0] = p[1] / (deltab * deltab);
         let mut u = deltab;
@@ -154,7 +156,7 @@ impl FrequencyModel {
         // --convert P(beta) into T_1(beta) = P(beta) e^{beta/2} / f0
         for (i, pi) in p.iter_mut().enumerate() {
             let be = deltab * (i as f64);
-            *pi = *pi * (be / 2.0).exp() / f0;
+            *pi = *pi * (be / 2.0).r_exp() / f0;
         }
 
         FrequencyModel {
@@ -225,7 +227,7 @@ mod tests {
             .enumerate()
             .map(|(i, &t1)| {
                 let be = fm.deltab * i as f64;
-                t1 * fm.f0 * (-be / 2.0).exp()
+                t1 * fm.f0 * (-be / 2.0).r_exp()
             })
             .collect();
         let f1 = fsum(Moment::First, &p, 0.5, fm.deltab);

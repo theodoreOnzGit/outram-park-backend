@@ -235,7 +235,7 @@ impl eframe::App for DecaySimApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
 
-        egui::TopBottomPanel::top("top_panel").show(&ctx, |ui| {
+        egui::Panel::top("top_panel").show(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 egui::widgets::global_theme_preference_buttons(ui);
             });
@@ -256,7 +256,7 @@ impl eframe::App for DecaySimApp {
             });
         });
 
-        egui::SidePanel::right("Supplementary Info").show(&ctx, |ui| match self.open_panel {
+        egui::Panel::right("Supplementary Info").show(ui, |ui| match self.open_panel {
             Panel::MainPage => {
                 egui::ScrollArea::both().show(ui, |ui| {
                     self.side_panel(ui);
@@ -277,14 +277,14 @@ impl eframe::App for DecaySimApp {
             }
         });
 
-        egui::TopBottomPanel::bottom("github").show(&ctx, |ui| {
+        egui::Panel::bottom("github").show(ui, |ui| {
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 powered_by_egui_and_eframe(ui);
                 egui::warn_if_debug_build(ui);
             });
         });
 
-        egui::CentralPanel::default().show(&ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             match self.open_panel {
                 Panel::MainPage => {
                     egui::ScrollArea::both().show(ui, |ui| {

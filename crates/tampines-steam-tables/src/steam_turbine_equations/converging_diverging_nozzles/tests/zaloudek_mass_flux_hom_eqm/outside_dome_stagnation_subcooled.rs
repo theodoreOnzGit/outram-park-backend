@@ -11,6 +11,7 @@
 //! Subcooled stagnation tends to be the high-pressure tail of each quality
 //! curve; lower-pressure throats backward-map into the dome.
 
+use petir::mathf::RealMath;
 use uom::si::f64::*;
 use uom::si::area::square_foot;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
@@ -72,8 +73,8 @@ fn validate_zaloudek_curve_subcooled(
         );
 
         approx::assert_relative_eq!(
-            g_calc.get::<kilogram_per_square_meter_second>().log10(),
-            g_expected.get::<kilogram_per_square_meter_second>().log10(),
+            g_calc.get::<kilogram_per_square_meter_second>().r_log10(),
+            g_expected.get::<kilogram_per_square_meter_second>().r_log10(),
             max_relative = mass_flux_log_tolerance,
         );
     }
@@ -167,7 +168,7 @@ fn diagnose_bubble_point_artifact() {
         // HEM mass flux evaluated DIRECTLY at the throat (the validated inverse
         // map) — if this matches Zaloudek but the forward solver doesn't, the
         // discrepancy is in the forward solver, not HEM physics.
-        let thr_dg = g_throat.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+        let thr_dg = g_throat.get::<kilogram_per_square_meter_second>().r_log10() - g_exp.r_log10();
 
         // bubble point along the isentrope, and vg/vf there
         let s0 = crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm(p0, h0);
@@ -197,14 +198,14 @@ fn diagnose_bubble_point_artifact() {
         let sub_dp = (p_sub_kpa - p_throat_ref.get::<kilopascal>())
             / p_throat_ref.get::<kilopascal>()
             * 100.0;
-        let sub_dg = g_sub.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+        let sub_dg = g_sub.get::<kilogram_per_square_meter_second>().r_log10() - g_exp.r_log10();
 
         // in-dome solver result (the alternative branch) for comparison
         let (p_dome, g_dome) = get_critical_pressure_and_mass_flux_ph_vle_dome(p0, h0);
         let dome_dp = (p_dome.get::<kilopascal>() - p_throat_ref.get::<kilopascal>())
             / p_throat_ref.get::<kilopascal>()
             * 100.0;
-        let dome_dg = g_dome.get::<kilogram_per_square_meter_second>().log10() - g_exp.log10();
+        let dome_dg = g_dome.get::<kilogram_per_square_meter_second>().r_log10() - g_exp.r_log10();
 
         eprintln!("{:>6.0} {:>8.1} {:>9.1} {:>8.0} {:>9.2} {:>8?} | {:>+8.1}% {:>+8.3} {:>7} | {:>+7.1}% {:>+8.3} | {:>+8.3}",
             p_psia, p0.get::<kilopascal>(), p_bub_kpa, vg_vf, dhsub_kjkg, region,

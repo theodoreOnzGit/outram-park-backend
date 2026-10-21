@@ -1,0 +1,742 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/pipe"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::cell_temperature_drives_hotness",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::divider_uses_the_mean_of_its_two_solid_cells",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::from_scalars_builds_a_scalar_backed_run",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::length_is_proportional_to_run_length",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::no_wall_array_reports_none",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::scalar_state_reports_its_single_temperature",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::thickness_is_proportional_to_cross_sectional_area",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::wall_mapping_is_proportional_not_index_for_index",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::with_tracer_attaches_an_application_owned_train",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::non_positive_timestep_is_rejected",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::residence_time_is_length_over_velocity",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stagnant_run_places_no_mark",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stepping_advances_the_backend",
+    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::tracer_phase_persists_across_steps",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/beggs_brill.rs::gas_dominated_flow_gives_low_holdup",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/beggs_brill.rs::horizontal_high_liquid_fraction_gives_distributed_or_intermittent",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/beggs_brill.rs::uphill_elevation_adds_positive_hydrostatic_drop",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/friction_factor.rs::laminar_friction_factor_is_64_over_re",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/friction_factor.rs::reynolds_number_water_in_pipe",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/friction_factor.rs::turbulent_pressure_drop_is_positive_and_scales_with_length",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/lockhart_martinelli.rs::horizontal_pipe_has_zero_elevation_drop",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/lockhart_martinelli.rs::martinelli_parameter_large_for_liquid_dominated_flow",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/mod.rs::both_correlations_dispatch_and_produce_positive_pressure_drop",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/mod.rs::default_is_beggs_brill",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/transient.rs::pipe_cell_density_matches_mass_over_volume",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/transient.rs::pipe_cell_mass_balance_accumulates_correctly",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/transient.rs::solve_intercell_mass_flow_finds_root_of_linear_resistance",
+    "crates/outram-park-fork-dwsim-libs/src/pipe/transient.rs::solve_intercell_mass_flow_handles_reverse_flow",
+]
+
+[module."beggs_brill.rs"]
+path = "crate::pipe::beggs_brill"
+
+[[module."beggs_brill.rs".function]]
+id = "fn:2d77e80d6fc36411"
+name = "G"
+qual = "G"
+item = "const"
+shape = "const"
+lines = [
+    27,
+    28,
+]
+hash = "sha256:9b4710f1fcd7075916a9228c05ee941518c398a7a27c48a1ea05f2a0aecd7471"
+doc_hash = "sha256:ecbaab147e5087149d7d0c4c6aec2dca516c6bfae1ef860ecf3484a61ea6fa5f"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#22",
+]
+
+[[module."beggs_brill.rs".function]]
+id = "fn:4f935ea91b6e4df3"
+name = "FlowRegime"
+qual = "FlowRegime"
+item = "type"
+shape = "enum"
+lines = [
+    30,
+    41,
+]
+hash = "sha256:4e42274f2debf0878e33f59c74478ee39a2a75ee720e5e56d6f772b3c1b6a2ea"
+doc_hash = "sha256:6a26bf7f4175a82864ea853d98a63220202e871401e86a9235b4e1a2a30c6015"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#22",
+]
+
+[[module."beggs_brill.rs".function]]
+id = "fn:81806d82284fadac"
+name = "BeggsBrillResult"
+qual = "BeggsBrillResult"
+item = "type"
+shape = "struct"
+lines = [
+    43,
+    56,
+]
+hash = "sha256:231956b6f580716e9a968b68ff038dd51a0390febf0b245914e71e266899174f"
+doc_hash = "sha256:4879146779ac229f7b050b6e2be7de28f64b972c49b595aaeb32d72a28a9765f"
+uses = ["fn:4f935ea91b6e4df3"]
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#22",
+]
+
+[[module."beggs_brill.rs".function]]
+id = "fn:92dff91ac2724879"
+name = "total_pressure_drop"
+qual = "BeggsBrillResult::total_pressure_drop"
+lines = [
+    59,
+    62,
+]
+hash = "sha256:f2fde76a49daf96ab89aa6ed3f75ca8c0e7372dca5aed541b26b64b4485af2e6"
+doc_hash = "sha256:10936453f32b394231f5bd5f9bb0e0422afd9fbb33d77b236850d7373db97bf8"
+uses = ["fn:81806d82284fadac"]
+reached_by = [
+    "#15",
+    "#22",
+]
+physical_interface = true
+
+[[module."beggs_brill.rs".function]]
+id = "fn:e6cc1a20b695ae14"
+name = "holdup_horizontal"
+qual = "holdup_horizontal"
+lines = [
+    65,
+    74,
+]
+hash = "sha256:b10bc3bfa18772be00d418581f0d6a0121d62f85a7ddeb52e1865bfa464beb18"
+doc_hash = "sha256:7095ee2f7cdf7a20dee6e423d8b7561c85c72bfe5df7e975e2598d4fb7d66473"
+uses = ["fn:4f935ea91b6e4df3"]
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#22",
+]
+
+[[module."beggs_brill.rs".function]]
+id = "fn:8ca1ab0a2c5dab8a"
+name = "beta"
+qual = "beta"
+lines = [
+    76,
+    86,
+]
+hash = "sha256:4047933bf43c946718e5291da1c759a1b55a8fcfc99a553c9b4c39ef3fa39fd3"
+doc_hash = "sha256:e5f56cf642652b513d862dbfd348266c7b3d005ca5041a92c406806851289091"
+uses = ["fn:4f935ea91b6e4df3"]
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#22",
+]
+
+[[module."beggs_brill.rs".function]]
+id = "fn:3c1cd72ed76fac10"
+name = "beggs_brill_pressure_drop"
+qual = "beggs_brill_pressure_drop"
+lines = [
+    88,
+    192,
+]
+hash = "sha256:cfb9b72965c664a261d4ddbce66a899315363c3a4a1952612351a04a28dd7f7f"
+doc_hash = "sha256:b098ad6e6ff765330b5c3b52e23d98eaa11eed806ac8819ec6d3fc003cce4437"
+callees = [
+    "fn:141cb6c85224503b",
+    "fn:1641ea462461e14d",
+    "fn:8ca1ab0a2c5dab8a",
+    "fn:e6cc1a20b695ae14",
+]
+uses = [
+    "fn:2d77e80d6fc36411",
+    "fn:4f935ea91b6e4df3",
+    "fn:81806d82284fadac",
+]
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#22",
+]
+physical_interface = true
+
+[[module."beggs_brill.rs".function]]
+id = "fn:e8f82f86e2839045"
+name = "horizontal_high_liquid_fraction_gives_distributed_or_intermittent"
+qual = "horizontal_high_liquid_fraction_gives_distributed_or_intermittent"
+lines = [
+    203,
+    220,
+]
+hash = "sha256:f0fce4b27c5e9d66b72e70ede688c4596cdc50cb7b3f819e14654926e344f57a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3c1cd72ed76fac10",
+    "fn:92dff91ac2724879",
+]
+test = true
+
+[[module."beggs_brill.rs".function]]
+id = "fn:0a0350dd71d37f5f"
+name = "gas_dominated_flow_gives_low_holdup"
+qual = "gas_dominated_flow_gives_low_holdup"
+lines = [
+    222,
+    237,
+]
+hash = "sha256:da1c8f879ab24464fc1b929513b40065126191c14b23c0252ae3a22d4335cb80"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3c1cd72ed76fac10"]
+test = true
+
+[[module."beggs_brill.rs".function]]
+id = "fn:50b4988ba102a4fc"
+name = "uphill_elevation_adds_positive_hydrostatic_drop"
+qual = "uphill_elevation_adds_positive_hydrostatic_drop"
+lines = [
+    239,
+    254,
+]
+hash = "sha256:9d23207d4b0e6b81a8a574c9a4691536b2e0512affcadc0890bbf2c1a0eb1731"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3c1cd72ed76fac10"]
+test = true
+
+[module."friction_factor.rs"]
+path = "crate::pipe::friction_factor"
+
+[[module."friction_factor.rs".function]]
+id = "fn:141cb6c85224503b"
+name = "reynolds_number"
+qual = "reynolds_number"
+lines = [
+    12,
+    21,
+]
+hash = "sha256:4853468872548386be46170ca89125e6e30bbab16eacd79942cbebc0655d181a"
+doc_hash = "sha256:a27ad5279fc2879f271401eb0b9f58a5073227dbae2a7d11da332abe5691fa52"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+physical_interface = true
+
+[[module."friction_factor.rs".function]]
+id = "fn:1641ea462461e14d"
+name = "darcy_friction_factor"
+qual = "darcy_friction_factor"
+lines = [
+    23,
+    55,
+]
+hash = "sha256:ed55b66a5c501aa50d282a35558eefff3d1ed452efc48c8b9e451e4c1a3a4777"
+doc_hash = "sha256:c96ae884dd6940c87e20a26a2bed258ca63a74f77d9b16a5ebd412768f0fd896"
+reached_by = [
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+physical_interface = true
+
+[[module."friction_factor.rs".function]]
+id = "fn:a38e9a2d4e747ddc"
+name = "frictional_pressure_drop"
+qual = "frictional_pressure_drop"
+lines = [
+    57,
+    72,
+]
+hash = "sha256:65198ce654356691000ed14c9e9a0d77e4b113355a8107806fef762a5b05d3a6"
+doc_hash = "sha256:86cb095855bbc2b59b5352309742f2fae036c33b0b88fffe8e89781ab24740ec"
+reached_by = [
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+]
+physical_interface = true
+
+[[module."friction_factor.rs".function]]
+id = "fn:4493b084a83f2b1f"
+name = "laminar_friction_factor_is_64_over_re"
+qual = "laminar_friction_factor_is_64_over_re"
+lines = [
+    84,
+    91,
+]
+hash = "sha256:28dbbf2c402b45186ebe1ab29c6d066b2dd4399d1d668da098b6cf935e6d75db"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:1641ea462461e14d"]
+test = true
+
+[[module."friction_factor.rs".function]]
+id = "fn:4adff674bcbf87dd"
+name = "reynolds_number_water_in_pipe"
+qual = "reynolds_number_water_in_pipe"
+lines = [
+    93,
+    103,
+]
+hash = "sha256:0d6abab49b3c1d7f597b888f673bb34df9358cd1960c57a11072a8333fe94973"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:141cb6c85224503b"]
+test = true
+
+[[module."friction_factor.rs".function]]
+id = "fn:e6691ae15973b03c"
+name = "turbulent_pressure_drop_is_positive_and_scales_with_length"
+qual = "turbulent_pressure_drop_is_positive_and_scales_with_length"
+lines = [
+    105,
+    123,
+]
+hash = "sha256:76ebac35d96594d8bd1d3f21981d2e9308a8fd434aa15eeb0a2a99faebf5c34e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:141cb6c85224503b",
+    "fn:1641ea462461e14d",
+    "fn:a38e9a2d4e747ddc",
+]
+test = true
+
+[module."lockhart_martinelli.rs"]
+path = "crate::pipe::lockhart_martinelli"
+
+[[module."lockhart_martinelli.rs".function]]
+id = "fn:77db6c5b03951b8d"
+name = "G"
+qual = "G"
+item = "const"
+shape = "const"
+lines = [
+    21,
+    22,
+]
+hash = "sha256:9b4710f1fcd7075916a9228c05ee941518c398a7a27c48a1ea05f2a0aecd7471"
+doc_hash = "sha256:ecbaab147e5087149d7d0c4c6aec2dca516c6bfae1ef860ecf3484a61ea6fa5f"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."lockhart_martinelli.rs".function]]
+id = "fn:d86e328e45970178"
+name = "LockhartMartinelliResult"
+qual = "LockhartMartinelliResult"
+item = "type"
+shape = "struct"
+lines = [
+    24,
+    35,
+]
+hash = "sha256:bef117b32161627339b81896561665b8bba40ec93b7a89ddd4a42e61fe982a9d"
+doc_hash = "sha256:b6d70ba322ee4c1ac9f8b193fb06512540cbc471b56145a3222fca978c6d0474"
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+]
+
+[[module."lockhart_martinelli.rs".function]]
+id = "fn:e39209a512e8a649"
+name = "total_pressure_drop"
+qual = "LockhartMartinelliResult::total_pressure_drop"
+lines = [
+    38,
+    41,
+]
+hash = "sha256:f2fde76a49daf96ab89aa6ed3f75ca8c0e7372dca5aed541b26b64b4485af2e6"
+doc_hash = "sha256:10936453f32b394231f5bd5f9bb0e0422afd9fbb33d77b236850d7373db97bf8"
+uses = ["fn:d86e328e45970178"]
+reached_by = [
+    "#21",
+    "#22",
+]
+physical_interface = true
+
+[[module."lockhart_martinelli.rs".function]]
+id = "fn:bdcc93017c8e56e5"
+name = "lockhart_martinelli_pressure_drop"
+qual = "lockhart_martinelli_pressure_drop"
+lines = [
+    44,
+    97,
+]
+hash = "sha256:d1910cdeec95ba1d6fdaeabcb03803a4ba3de02efd32d8da997b3edd61209e01"
+doc_hash = "sha256:03cbf96da4deedbbfcea664bd003db6b54d11aeb354769104780c83ac2642bad"
+callees = [
+    "fn:141cb6c85224503b",
+    "fn:1641ea462461e14d",
+    "fn:a38e9a2d4e747ddc",
+]
+uses = [
+    "fn:77db6c5b03951b8d",
+    "fn:d86e328e45970178",
+]
+reached_by = [
+    "#20",
+    "#21",
+    "#22",
+]
+physical_interface = true
+
+[[module."lockhart_martinelli.rs".function]]
+id = "fn:36f6dbffed45d791"
+name = "martinelli_parameter_large_for_liquid_dominated_flow"
+qual = "martinelli_parameter_large_for_liquid_dominated_flow"
+lines = [
+    108,
+    127,
+]
+hash = "sha256:4e2b4b65f24eb7651605f207c39be299aa56a303060bf01656f6cc877c400f6a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:bdcc93017c8e56e5",
+    "fn:e39209a512e8a649",
+]
+test = true
+
+[[module."lockhart_martinelli.rs".function]]
+id = "fn:a8603707838e1dbc"
+name = "horizontal_pipe_has_zero_elevation_drop"
+qual = "horizontal_pipe_has_zero_elevation_drop"
+lines = [
+    129,
+    144,
+]
+hash = "sha256:30fd4f184443d793a4861a72e8a01cad04f177f627908f62ff16ffd7d04fffac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:bdcc93017c8e56e5"]
+test = true
+
+[module."mod.rs"]
+path = "crate::pipe"
+
+[[module."mod.rs".function]]
+id = "fn:1779f80f5303c9ec"
+name = "PipeFlowInputs"
+qual = "PipeFlowInputs"
+item = "type"
+shape = "struct"
+lines = [
+    21,
+    48,
+]
+hash = "sha256:189a9ea5eb90dea464d56e623df85fb248913a77c305e0363b73ad12f84eaa02"
+doc_hash = "sha256:93597642e21c61f0dc44966d9e7e92cdff734700c9df25d7176cd7a52bfd0696"
+reached_by = ["#22"]
+
+[[module."mod.rs".function]]
+id = "fn:dd665e2931930b13"
+name = "PipeFlowResult"
+qual = "PipeFlowResult"
+item = "type"
+shape = "enum"
+lines = [
+    50,
+    59,
+]
+hash = "sha256:5207ab7d4eb80e29dccbfe04e8010f17d1a2dc7aa09c5316f28af2603f233837"
+doc_hash = "sha256:a0b8b49f5b029f61594cfe677302e5f16d4ec502869f11661fba6f2681d55abb"
+uses = [
+    "fn:81806d82284fadac",
+    "fn:d86e328e45970178",
+]
+reached_by = ["#22"]
+
+[[module."mod.rs".function]]
+id = "fn:51b7dfc15e024de1"
+name = "total_pressure_drop"
+qual = "PipeFlowResult::total_pressure_drop"
+lines = [
+    62,
+    69,
+]
+hash = "sha256:ee04b51ba4a11ae34e0b8c4340a4fd40169e2ac8f33a684740664810c3984185"
+doc_hash = "sha256:28404f9b8c493f3a517d85284794772408d32294fb95754421b2daf6ef79b7ad"
+callees = [
+    "fn:92dff91ac2724879",
+    "fn:e39209a512e8a649",
+]
+uses = ["fn:dd665e2931930b13"]
+reached_by = ["#22"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:685827613e907e70"
+name = "PipeFlowCorrelation"
+qual = "PipeFlowCorrelation"
+item = "type"
+shape = "enum"
+lines = [
+    72,
+    85,
+]
+hash = "sha256:23017fef475264b3bc04739816367d70652f21f8734e861881c848d3ae528e81"
+doc_hash = "sha256:4ba20aed86ed14b4dd41e513977134f9f231a50b319f56a3c41a3061107fcce2"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#22",
+    "#23",
+]
+
+[[module."mod.rs".function]]
+id = "fn:559ad43d20384f0b"
+name = "pressure_drop"
+qual = "PipeFlowCorrelation::pressure_drop"
+lines = [
+    88,
+    134,
+]
+hash = "sha256:9c11b786edcb8748513f732d6941170d2c7a3044a4451657a7141923b6af75a6"
+doc_hash = "sha256:04af4654d4d2532dc4f256f906a1f806ad0c1e7b982a7d6390cad5cfc8109aa4"
+callees = [
+    "fn:3c1cd72ed76fac10",
+    "fn:bdcc93017c8e56e5",
+]
+uses = [
+    "fn:1779f80f5303c9ec",
+    "fn:685827613e907e70",
+    "fn:dd665e2931930b13",
+]
+reached_by = ["#22"]
+
+[[module."mod.rs".function]]
+id = "fn:7166bec91261cbb1"
+name = "sample_inputs"
+qual = "sample_inputs"
+lines = [
+    147,
+    161,
+]
+hash = "sha256:bb623ff6a60cd6535108579ce68b37b3cf6670777394ad82e69cadd99506feac"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1779f80f5303c9ec"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d70f61b8b4a8ae48"
+name = "default_is_beggs_brill"
+qual = "default_is_beggs_brill"
+lines = [
+    163,
+    169,
+]
+hash = "sha256:24578b8bea847b72eb77ddd6d5d89d724267d5f03fbd2a238e38ac9007bc51a3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:685827613e907e70"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5c02eb727a192ae0"
+name = "both_correlations_dispatch_and_produce_positive_pressure_drop"
+qual = "both_correlations_dispatch_and_produce_positive_pressure_drop"
+lines = [
+    171,
+    181,
+]
+hash = "sha256:917980fb76f9b98a113c398b4e3f8f78b9aed876fd7941535153cc48ff546b3a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:51b7dfc15e024de1",
+    "fn:559ad43d20384f0b",
+    "fn:7166bec91261cbb1",
+]
+uses = ["fn:685827613e907e70"]
+test = true
+
+[module."petalas_aziz.rs"]
+path = "crate::pipe::petalas_aziz"
+
+[[module."petalas_aziz.rs".function]]
+id = "fn:81858118d5f30da5"
+name = "petalas_aziz_pressure_drop"
+qual = "petalas_aziz_pressure_drop"
+lines = [
+    56,
+    68,
+]
+hash = "sha256:88700b59d2ce230769a8d2d60c21278ed37278754f9e6914541f238faec92ce9"
+doc_hash = "sha256:15b1b5942ec71e1d0f295b813ebc3221de6d90ebaa51097c8c88510e4566e90f"
+
+[module."transient.rs"]
+path = "crate::pipe::transient"
+
+[[module."transient.rs".function]]
+id = "fn:a6c6a9e398fd91d8"
+name = "PipeCell"
+qual = "PipeCell"
+item = "type"
+shape = "struct"
+lines = [
+    28,
+    39,
+]
+hash = "sha256:bf0a5f2b58513356ba2383a43a79bfd19b5559ffb1c55bb61a9e2b236f9df478"
+doc_hash = "sha256:267676658b752efdf528d17f1fdd6086d34397d258b30f3cc0d8cfb3a6a197f7"
+reached_by = [
+    "#24",
+    "#25",
+]
+
+[[module."transient.rs".function]]
+id = "fn:284699145ed82fdd"
+name = "new"
+qual = "PipeCell::new"
+lines = [
+    42,
+    48,
+]
+hash = "sha256:124f5b6ff9ab18b21d0d42ac9d93969990ec50ea59d2b7d696abc335aa0da554"
+doc_hash = "sha256:fa09dfd03d85f4b274885d34449874fc76ce5785cad9eccdae5a2714cf992ad8"
+uses = ["fn:a6c6a9e398fd91d8"]
+reached_by = [
+    "#24",
+    "#25",
+]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:0b9523247f65df24"
+name = "density"
+qual = "PipeCell::density"
+lines = [
+    50,
+    53,
+]
+hash = "sha256:faf3c540d6818e898cf9e8371340fc241e36c8613b4eb9c80cd22c2bf454a555"
+doc_hash = "sha256:3a9e061eef692f02447d0b70bc0495cde1e51cf03fb4e7f43d85f88b5ede2942"
+uses = ["fn:a6c6a9e398fd91d8"]
+reached_by = ["#24"]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:b9c05dcdd63b6078"
+name = "advance_mass_balance"
+qual = "PipeCell::advance_mass_balance"
+lines = [
+    55,
+    62,
+]
+hash = "sha256:164c4e698bba3596b66e6cbc2968e25eed37700faa3f1b36d34439efea0d0674"
+doc_hash = "sha256:11f7b32172648a7bc887380e53bd34dd11d9c098453f7af676981363c63d7060"
+uses = ["fn:a6c6a9e398fd91d8"]
+reached_by = ["#25"]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:7311d623d31aaf4d"
+name = "solve_intercell_mass_flow"
+qual = "solve_intercell_mass_flow"
+lines = [
+    65,
+    101,
+]
+hash = "sha256:0689017385454f6158cb6df85036a4bed5d09abd379977f0bbd1183df075e5bd"
+doc_hash = "sha256:650c8f12ed4a902389ef6091f9cf86868dda1765974f6da5460dec80a10bdbf8"
+reached_by = [
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:f066944a1a6382d5"
+name = "solve_intercell_mass_flow_finds_root_of_linear_resistance"
+qual = "solve_intercell_mass_flow_finds_root_of_linear_resistance"
+lines = [
+    111,
+    133,
+]
+hash = "sha256:5294544a1d30f9a3f67451d1919cbd769d31065b4938cfc50faf1b08ee6c832c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7311d623d31aaf4d"]
+test = true
+
+[[module."transient.rs".function]]
+id = "fn:326f6ba5041e3bab"
+name = "solve_intercell_mass_flow_handles_reverse_flow"
+qual = "solve_intercell_mass_flow_handles_reverse_flow"
+lines = [
+    135,
+    155,
+]
+hash = "sha256:c2d33e8cfa7366d29629f55e81f544a516ccce25493d2cc997750419447b92f5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:7311d623d31aaf4d"]
+test = true
+
+[[module."transient.rs".function]]
+id = "fn:cec7eea51e9cd1a8"
+name = "pipe_cell_mass_balance_accumulates_correctly"
+qual = "pipe_cell_mass_balance_accumulates_correctly"
+lines = [
+    157,
+    168,
+]
+hash = "sha256:6b2906bb1ca48e985ab356eec7f76c40ebee862b62d31c6612c24c5f3c9db559"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:284699145ed82fdd",
+    "fn:b9c05dcdd63b6078",
+]
+uses = ["fn:a6c6a9e398fd91d8"]
+test = true
+
+[[module."transient.rs".function]]
+id = "fn:07896220a73374b1"
+name = "pipe_cell_density_matches_mass_over_volume"
+qual = "pipe_cell_density_matches_mass_over_volume"
+lines = [
+    170,
+    177,
+]
+hash = "sha256:3ce4eabc8cc1478e7a85f97d8c4ae593a2d6e792c3f7345e394ca8375a25e788"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0b9523247f65df24",
+    "fn:284699145ed82fdd",
+]
+uses = ["fn:a6c6a9e398fd91d8"]
+test = true

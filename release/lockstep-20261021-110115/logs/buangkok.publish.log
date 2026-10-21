@@ -1,0 +1,15 @@
+    Updating crates.io index
+   Packaging buangkok v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/buangkok)
+    Updating crates.io index
+    Packaged 83 files, 1.3MiB (340.5KiB compressed)
+   Verifying buangkok v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/buangkok)
+ Downloading crates ...
+  Downloaded changi v0.0.2
+   Compiling changi v0.0.2
+   Compiling buangkok v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/target/package/buangkok-0.0.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.70s
+   Uploading buangkok v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/crates/buangkok)
+    Uploaded buangkok v0.0.1 to registry `crates-io`
+note: waiting for buangkok v0.0.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published buangkok v0.0.1 at registry `crates-io`

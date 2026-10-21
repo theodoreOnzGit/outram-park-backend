@@ -56,3 +56,42 @@ interpretation of what the numbers mean and whether the pass criterion was met.
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).
 
+## Geometry images
+
+- [`htr10_geometry_images/`](htr10_geometry_images/README.md) — the assembled
+  HTR-10 explicit-TRISO core drawn as PNG (R-Z, x-y at bed / conus / cavity,
+  zooms down to one TRISO particle), with what was and was not checked in
+  them. Regenerate with `cargo run --release -p nee_soon --example
+  htr10_geometry_images` whenever the geometry changes.
+
+## HTR-10 multigroup cross sections
+
+- [`htr10_mgxs_runs/`](htr10_mgxs_runs/README.md) — in-core MGXS of the full
+  HTR-10 core at isothermal state points, one folder per case of
+  `nee_soon::htr10_mgxs` (gh:#845), run with `examples/htr10_mgxs_case.rs`
+  following [`../docs/htr10-mgxs-desktop-runbook.md`](../docs/htr10-mgxs-desktop-runbook.md).
+
+## HTR-10 k against loading height
+
+- [`htr10_endf8_kvsh_quick_2026-10-02/`](htr10_endf8_kvsh_quick_2026-10-02/README.md)
+  and [`htr10_endf8_kvsh_heavy_2026-10-02/`](htr10_endf8_kvsh_heavy_2026-10-02/README.md) — the whole ENDF/B-VIII.0 sweep from
+  `examples/htr10_endf8_kvsh_quick.rs` / `_heavy.rs` (gh:#501), against RMC
+  and both MCNP columns, with the figure script that drew them.
+- [`htr10_seker_2026_10_01_10k/`](htr10_seker_2026_10_01_10k/README.md) — the
+  same sweep on VIII.0 and VII.0 at 10 000 × [5 + 135], run through
+  `htr10_rmc_keff`.
+  Measured on a majorant under-bound 14× at 661 eV (gh:#589).
+- [`htr10_seker_2026_10_05_majorant_fix/`](htr10_seker_2026_10_05_majorant_fix/README.md):
+  the re-measurement on the bounded majorant (gh:#589). It covers 4 of the
+  heights on VIII.0 and 1 on VII.0, at 10 000 × [5 + 20], and includes a
+  same-code control that switches back to the old majorant.
+- [`htr10_seker_2026_10_07_10k/`](htr10_seker_2026_10_07_10k/README.md) —
+  **the current record**: all 22 points (N = 10 to 20, VIII.0 and VII.0) on
+  the bounded majorant at 10 000 × [5 + 135]. Supersedes the two above.
+- [`htr10_dem_bed_keff_2026_10_08/`](htr10_dem_bed_keff_2026_10_08/README.md) —
+  the same driver and statistics on a DEM random bed (the gh:#216 pour) cut
+  to the lattice's 16 681 balls: 0.989293 ± 0.000962, −583 ± 143 pcm from
+  the lattice at N = 12 (gh:#787, one pour; the prediction failed).
+- [`htr10_run_all.sh`](htr10_run_all.sh) — the reusable launcher for the
+  sweep (`htr10_run_all.sh <out_dir>`; statistics, heights, libraries and
+  slots set by environment variables listed in its header).

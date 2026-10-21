@@ -102,9 +102,19 @@ impl TampinesSteamTableCV {
 
     /// Creates a new control volume from a `(p,h)` flash, where pressure
     /// `p` is in Pa, specific enthalpy `h` is in J/kg, and `volume` (m^3) is
-    /// the fixed control-volume size. Region (1-4) is resolved internally by
-    /// `ph_flash_eqm::ph_flash_region`; Region 5 `(p,h)` flashes are
-    /// unsupported (IAPWS-IF97 has no backward `(p,h)` correlation there).
+    /// the fixed control-volume size. The region is resolved internally by
+    /// `ph_flash_eqm::ph_flash_region`.
+    ///
+    /// ~~Region (1-4) is resolved internally; Region 5 `(p,h)` flashes are
+    /// unsupported (IAPWS-IF97 has no backward `(p,h)` correlation there).~~
+    /// **CORRECTED 2026-09-27** — Region 5 `(p,h)` flashes **work** as of commit
+    /// `2ab91fefc3` (2026-09-14). IAPWS-IF97 still has no backward `(p,h)`
+    /// correlation there, which is why the temperature comes from this crate's
+    /// own Chebyshev fit `t_ph_5` and must be read as a fit, not an IF97 value.
+    /// **Verified by running**
+    /// `tests/boundary_273_15_repro.rs::does_lambda_ph_eqm_work_in_region_5`:
+    /// `t_ph_eqm(1 MPa, 5218.863 kJ/kg) = 1499.999 K`, no panic. Region 5's own
+    /// 50 MPa ceiling and 2273.15 K isotherm are still refused.
     pub fn new_from_ph(p: Pressure, h: AvailableEnergy, volume: Volume) -> Self {
         let t = ph_flash_eqm::t_ph_eqm(p, h);
         let specific_volume = ph_flash_eqm::v_ph_eqm(p, h);

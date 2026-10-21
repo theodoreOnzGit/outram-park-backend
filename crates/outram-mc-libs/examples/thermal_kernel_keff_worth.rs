@@ -71,15 +71,54 @@
 //!
 //! # Results
 //!
-//! Recorded in the doc comment of
+//! ~~Recorded in the doc comment of
 //! [`outram_mc_libs::vv::njoy_golden::GRAPHITE_KERNEL_WIDTH`], with the date and
-//! the history count they took.
+//! the history count they took.~~ **CORRECTED 2026-10-04:** that doc comment
+//! never carried them (it held unfilled `<PEB_OLD>` / `<PEB_NEW>` placeholders
+//! for a different run). The 2026-09-12 numbers are in
+//! `verification_and_validation/thermal_sab/emission_tabulation_rebaseline.md`
+//! §4.1, "The k-worth, decomposed by dimension".
+//!
+//! ## Re-measured 2026-10-04 (GitHub #524) — the recorded worth does NOT reproduce
+//!
+//! Same program at the record's own settings (`-- 4000 20 180 1`: 4000
+//! particles x [20 + 180], one replica, 720 000 active histories per
+//! tabulation, master seed 20 260 912), `develop` at `bfeb81a083`; 484 s on one
+//! core of an i9-13900K (16 logical cores, 62 GB, Linux, shared with other
+//! jobs), CPU only.
+//!
+//! ```text
+//!   tabulation                k_inf              2026-09-12
+//!   48 x 16  (superseded)     1.38460 +/- 0.00136   1.38976 +/- 0.00138
+//!   384 x 16 (grid only)      1.38598 +/- 0.00145   1.38351 +/- 0.00146
+//!   48 x 64  (bins only)      1.38418 +/- 0.00141   1.38737 +/- 0.00148
+//!   384 x 64 (current)        1.38566 +/- 0.00156   1.38605 +/- 0.00137
+//!   worth 384x64 vs 48x16     +107 +/- 207 pcm      -371 +/- 194 pcm
+//! ```
+//!
+//! **The current tabulation reproduces its record** (1.38566 against 1.38605,
+//! -39 +/- 207 pcm, 0.2 sigma). **The superseded one does not**: it moved
+//! -516 +/- 194 pcm (2.7 sigma), and with it the worth of the repair went from
+//! ~~-371 +/- 194 pcm (1.9 sigma)~~ to **+107 +/- 207 pcm, consistent with zero
+//! (0.5 sigma)**; the grid-only and bins-only arms are likewise now within
+//! 1 sigma of the current one. The likely reason, not isolated here: since
+//! 2026-09-29 the S(alpha,beta) tables are sampled with OpenMC's scheme
+//! (GitHub #407; the old equiprobable sampling survives only as the
+//! `with_legacy_equiprobable_sampling` ablation), and the defect the 48 x 16
+//! tables carried was a property of the old sampler on a coarse grid. **So
+//! the -371 pcm worth is a statement about the pre-#407 code and must not be
+//! quoted as the present cost of a coarse tabulation.** Whether the coarse
+//! tables are now harmless in general is not established by one 720 000-history
+//! run; the kernel-shape oracles
+//! (`graphite_sab_angle_and_width_vs_njoy_thermr.rs`) are the better
+//! instrument for that.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
-use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
+use outram_mc_libs::pebble_beds::delta_tracking::{bounding_audit_line, Majorant};
 use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings};
 use std::path::PathBuf;
@@ -172,6 +211,16 @@ fn main() {
         sets.push((label.to_string(), v));
     }
 
+    // `OUTRAM_MAJORANT_AUDIT=1`: audit the old and new majorant on these
+    // materials, with the settings below, and stop (GitHub #585).
+    if std::env::var_os("OUTRAM_MAJORANT_AUDIT").is_some() {
+        for (label, nucs) in &sets {
+            let mats = std::slice::from_ref(&material);
+            let tag = format!("thermal_kernel_keff_worth [{label}]");
+            println!("{}", bounding_audit_line(&tag, mats, nucs, 1.0e-4, 2.0e7, 4096, 32, 0.1));
+        }
+        return;
+    }
     // k[config][replica], and the run's own generation-spread sigma alongside.
     let mut k: Vec<Vec<f64>> = vec![Vec::with_capacity(n_replicas); sets.len()];
     let mut ks: Vec<Vec<f64>> = vec![Vec::with_capacity(n_replicas); sets.len()];
@@ -275,7 +324,7 @@ fn sem_of(xs: &[f64]) -> f64 {
         return f64::NAN;
     }
     let m = xs.iter().sum::<f64>() / n;
-    let var = xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0);
+    let var = xs.iter().map(|x| (x - m).r_powi(2)).sum::<f64>() / (n - 1.0);
     (var / n).sqrt()
 }
 
@@ -291,7 +340,7 @@ fn load(name: &str, file: &str) -> Nuclide {
     let p = endf_dir().join(file);
     eprint!("  reconstructing {name:<6} … ");
     let t0 = std::time::Instant::now();
-    let n = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
+    let n = Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
         .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
     eprintln!("{:.1?}", t0.elapsed());
     n

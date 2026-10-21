@@ -1,0 +1,192 @@
+{
+	"artwork": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"audioRecording": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"bill": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"blogPost": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"book": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"bookSection": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"case": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"computerProgram": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"conferencePaper": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"dataset": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"dictionaryEntry": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"document": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"email": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"encyclopediaArticle": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"film": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"forumPost": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"hearing": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"instantMessage": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"interview": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"journalArticle": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"letter": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"magazineArticle": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"manuscript": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"map": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"newspaperArticle": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"patent": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"podcast": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"preprint": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"presentation": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"radioBroadcast": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"report": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"standard": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"statute": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"thesis": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"tvBroadcast": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"videoRecording": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"webpage": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"all": {
+		"status": 200,
+		"output": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><div class=\"zotero-notes\"></div></body></html>",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

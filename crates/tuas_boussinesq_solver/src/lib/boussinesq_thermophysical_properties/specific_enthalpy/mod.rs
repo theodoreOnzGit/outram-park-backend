@@ -119,8 +119,8 @@ pub fn try_get_h(
     _pressure: Pressure,
 ) -> Result<AvailableEnergy, TuasLibError> {
     let specific_enthalpy: AvailableEnergy = match material {
-        Material::Solid(_) => solid_specific_enthalpy(material, temperature),
-        Material::Liquid(_) => liquid_specific_enthalpy(material, temperature),
+        Material::Solid(_) => solid_specific_enthalpy(material, temperature)?,
+        Material::Liquid(_) => liquid_specific_enthalpy(material, temperature)?,
     };
 
     return Ok(specific_enthalpy);
@@ -192,10 +192,10 @@ pub fn try_get_temperature_from_h(
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     let specific_enthalpy: ThermodynamicTemperature = match material {
         Material::Solid(_) => {
-            get_solid_temperature_from_specific_enthalpy(material, material_enthalpy)
+            get_solid_temperature_from_specific_enthalpy(material, material_enthalpy)?
         }
         Material::Liquid(_) => {
-            get_liquid_temperature_from_specific_enthalpy(material, material_enthalpy)
+            get_liquid_temperature_from_specific_enthalpy(material, material_enthalpy)?
         }
     };
 

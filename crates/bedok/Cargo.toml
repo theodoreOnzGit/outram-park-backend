@@ -1,19 +1,57 @@
 [package]
 name = "bedok"
-version = "0.0.0"
+version = "0.0.2"
 edition = "2021"
-license = "GPL-3.0-only"
+license.workspace = true
 description = "BEDOK — systems-level multiphysics coupling: 3-D nodal-diffusion neutronics coupled to thermal hydraulics. Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation."
 repository = "https://github.com/theodoreOnzGit/outram-park-backend"
 readme = "README.md"
-publish = false
+# Publishing on crates.io approved by Than Yan Ren and Xiao SiCong
+# (maintainer, 2026-10-20); `publish = false` removed.
+
+# Where this crate sits in kovan's code map (GitHub #729, #733; maintainer
+# decisions 2026-10-06). row: degree of integration, 0-1 utilities and
+# standalone crates, 2 domain solvers, 3 coupled multiphysics, 4 integrated
+# GUI apps. topic: the box it is drawn in. fidelity: 0 lumped (no spatial
+# discretisation), 1 one resolved dimension (system-code-like), 2 two
+# (subchannel), 3 three (full CFD, diffusion), 4 brute force (Monte Carlo,
+# first-principles data); a resolved non-spatial axis (nuclides, pointwise
+# energy, time) counts as a dimension; [lo, hi] when the crate spans levels;
+# absent for utilities and knowledge management. maturity:
+# 0 concept, 1 AI draft, 2 AI V&V, 3 human reviewed, 4 human V&V (ready); the
+# crate's LOWEST part, with higher-rated modules listed below it.
+[package.metadata.kovan]
+row = 3
+topic = "neutronics"
+fidelity = 3
+maturity = 2
+backronym = "Broad-scope Environment for Dual-phase advanced reactor Operation simulation Kit"
+
+[features]
+# `long-tests` (GitHub #503, 2026-10-02): the workspace rule
+# (docs/claude-md/long-tests-and-ci.md) gates any test over 5 minutes behind
+# this default-on feature. MEASURED 2026-10-02 on an i9-13900K, each test run
+# alone (RAYON_NUM_THREADS=12 pinned to 14 cores; the two transients re-run on
+# 10 cores / 8 threads): the slowest is neacrpd1t's
+# `the_two_kinetics_schemes_agree_on_a_gentle_window` at 202 s (14 cores) /
+# 206 s (10 cores), then 108 s, 99 s, 95 s; no test reaches 5 minutes, so
+# NOTHING is gated yet. The 49-minute run that prompted #503 was CPU
+# oversubscription (each test runs faer/rayon in parallel internally, and the
+# harness ran 14 of them at once), not a slow test: the whole lib suite takes
+# 1509 s at `--test-threads=4` (14 then 10 cores). See CLAUDE.md.
+# **CHANGED 2026-10-20 (gh #994):** the sparse solves moved from faer (rayon)
+# to the serial `petir::sparse`, so each test is now single-threaded; the
+# timings above predate that and are re-measured in CLAUDE.md.
+default = ["long-tests"]
+long-tests = []
 
 # Dependencies are added as the modules that need them land, rather than all up
 # front, so an unused entry never implies a capability the crate does not have.
 #
 # Expected additions, with the module that will pull each one in:
 #   csv                     -> the benchmark case files (neacrpd1, iaea3ds, ...)
-#   faer                    -> the sparse solves in diffusion_solverxyz
+#   ~~faer                  -> the sparse solves in diffusion_solverxyz~~
+#                           (landed, then replaced by petir::sparse, gh #994)
 #   plotters (workspace dep -> plotreactor3dcolour
 #     to be added)
 #
@@ -24,7 +62,28 @@ publish = false
 # NOTICE as that licence requires.
 [dependencies]
 thiserror.workspace = true
-# Sparse linear algebra, for the two flux solvers.
+# Platform-independent transcendentals for the nodal coupling coefficients.
+#
+# `calc_abefghxyz` builds its coefficients from `sinh` and `cosh`. Rust's
+# inherent `f64::sinh` dispatches to the SYSTEM C library, and glibc and the
+# MSVC CRT disagree in the last ulp — which is enough to change the flux
+# solve's convergence path and move k_eff by 14 pcm. PETIR routes them through
+# the pure-Rust `libm` (fdlibm) instead, one fixed implementation on every
+# platform. See GitHub issue #222 and `petir::real`.
+#
+# `faer` + `std` (2026-10-20, gh #994, maintainer: "bring faer into petir
+# under a feature, then wire it into bedok"; "You can give petir a std feature
+# also"): the sparse solves run on the real faer through
+# `petir::sparse::SparseBackend::Faer`, with faer's runtime CPU detection.
+# Results then depend on the CPU; `matlab::set_sparse_backend(Ported)` gives
+# PETIR's deterministic port instead. See CLAUDE.md.
+petir = { workspace = true, features = ["faer", "std"] }
+# Sparse linear algebra, for the two flux solvers: ~~`faer`~~ ~~**since
+# 2026-10-20 (gh #994) `petir::sparse`**, a no_std port of faer 0.24.4's
+# simplicial sparse LU (COLAMD ordering), reached through the `petir`
+# dependency above. faer is no longer a dependency of this crate.~~
+# **CHANGED again 2026-10-20 (gh #994):** faer itself, reached through
+# `petir`'s `faer` feature (above), by default; PETIR's port on request.
 #
 # Everything ported before them avoided a sparse solve: the A2 system in
 # calc_a1234_expansionxyz only *looks* like a philen-square solve and is in fact
@@ -33,4 +92,3 @@ thiserror.workspace = true
 # sanodaldiffusion_solverxyz solve the full flux system, which couples nodes
 # spatially, and both factorise LHS once and reuse that factorisation across
 # power iterations (MATLAB `decomposition`).
-faer.workspace = true

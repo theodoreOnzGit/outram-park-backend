@@ -1,0 +1,46 @@
+{
+	"name": "synthetic_ads_bibcode",
+	"kind": "forced",
+	"synthetic": true,
+	"translator": "09bd8037-a9bb-4f9a-b3b9-d18b2564b49e",
+	"search": {
+		"adsBibcode": "2021PhDT.........5C"
+	},
+	"status": 200,
+	"translatorUsed": "09bd8037-a9bb-4f9a-b3b9-d18b2564b49e",
+	"items": [
+		{
+			"key": "KVN22222",
+			"version": 0,
+			"itemType": "thesis",
+			"creators": [
+				{
+					"firstName": "Thomas A.",
+					"lastName": "Callister",
+					"creatorType": "author"
+				}
+			],
+			"tags": [],
+			"abstractNote": "Kovan-authored placeholder abstract for a synthetic test fixture (not the record's real abstract).",
+			"url": "https://ui.adsabs.harvard.edu/abs/2021PhDT.........5C",
+			"title": "Searching for the Astrophysical Gravitational-Wave Background and Prompt Radio Emission from Compact Binaries",
+			"date": "2021-06-01",
+			"extra": "ADS Bibcode: 2021PhDT.........5C",
+			"thesisType": "Ph.D. thesis",
+			"libraryCatalog": "NASA ADS",
+			"accessDate": "NOW"
+		}
+	],
+	"requests": [
+		{
+			"method": "GET",
+			"url": "https://api.adsabs.harvard.edu/v1/accounts/bootstrap",
+			"body": null
+		},
+		{
+			"method": "POST",
+			"url": "https://api.adsabs.harvard.edu/v1/export/ris",
+			"body": "{\"bibcode\":[\"2021PhDT.........5C\"],\"sort\":[\"no sort\"]}"
+		}
+	]
+}

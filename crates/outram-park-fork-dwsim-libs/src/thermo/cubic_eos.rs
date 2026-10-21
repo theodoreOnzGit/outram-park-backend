@@ -65,6 +65,7 @@
 //! > operation, reactor control, safety-critical, or licensing decisions.
 //! > Independent OUTRAM PARK fork, not the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::Component;
 
 /// Universal gas constant `R` [J/(mol·K)] — CODATA 2018 exact value.
@@ -367,7 +368,7 @@ impl CubicEos {
     ) -> Option<f64> {
         let am = self.a_mix(comps, z, t, kij);
         let bm = self.b_mix(comps, z);
-        let a = am * p / (R * t).powi(2);
+        let a = am * p / (R * t).r_powi(2);
         let b = bm * p / (R * t);
         let roots = self.z_roots(a, b);
         select_root(&roots, phase, b)
@@ -421,16 +422,16 @@ impl CubicEos {
         let am = self.a_mix(comps, z, t, kij);
         let bm = self.b_mix(comps, z);
         let apart = self.a_partial(&ai, z, kij);
-        let a = am * p / (R * t).powi(2);
+        let a = am * p / (R * t).r_powi(2);
         let b = bm * p / (R * t);
         let zf = select_root(&self.z_roots(a, b), phase, b)?;
 
         let sq = self.sqrt_disc();
-        let lg = ((2.0 * zf + b * (self.u() + sq)) / (2.0 * zf + b * (self.u() - sq))).ln();
+        let lg = ((2.0 * zf + b * (self.u() + sq)) / (2.0 * zf + b * (self.u() - sq))).r_ln();
         let mut out = vec![0.0; n];
         for i in 0..n {
             let t1 = bi[i] * (zf - 1.0) / bm;
-            let t2 = -(zf - b).ln();
+            let t2 = -(zf - b).r_ln();
             let t3 = a * (2.0 * apart[i] / am - bi[i] / bm) / (b * sq);
             out[i] = t1 + t2 - t3 * lg;
         }
@@ -537,15 +538,15 @@ impl CubicEos {
     ) -> Option<(f64, f64, f64)> {
         let am = self.a_mix(comps, z, t, kij);
         let bm = self.b_mix(comps, z);
-        let a = am * p / (R * t).powi(2);
+        let a = am * p / (R * t).r_powi(2);
         let b = bm * p / (R * t);
         let zf = select_root(&self.z_roots(a, b), phase, b)?;
         let dadt = self.dadt(comps, z, t, kij);
 
         let sq = self.sqrt_disc();
-        let lg = ((2.0 * zf + b * (self.u() - sq)) / (2.0 * zf + b * (self.u() + sq))).ln();
-        let da_res = am / (bm * sq) * lg - R * t * ((zf - b) / zf).ln() - R * t * zf.ln();
-        let ds_res = R * ((zf - b) / zf).ln() + R * zf.ln() - 1.0 / (sq * bm) * dadt * lg;
+        let lg = ((2.0 * zf + b * (self.u() - sq)) / (2.0 * zf + b * (self.u() + sq))).r_ln();
+        let da_res = am / (bm * sq) * lg - R * t * ((zf - b) / zf).r_ln() - R * t * zf.r_ln();
+        let ds_res = R * ((zf - b) / zf).r_ln() + R * zf.r_ln() - 1.0 / (sq * bm) * dadt * lg;
         Some((da_res, ds_res, zf))
     }
 }
@@ -601,8 +602,8 @@ fn real_cubic_roots(c2: f64, c1: f64, c0: f64) -> Vec<f64> {
     if disc > 0.0 {
         // One real root.
         let sqrt_disc = disc.sqrt();
-        let u = (-half_q + sqrt_disc).cbrt();
-        let v = (-half_q - sqrt_disc).cbrt();
+        let u = (-half_q + sqrt_disc).r_cbrt();
+        let v = (-half_q - sqrt_disc).r_cbrt();
         roots.push(u + v - shift);
     } else if p.abs() < 1e-300 {
         // Triple root at t = 0.
@@ -610,19 +611,63 @@ fn real_cubic_roots(c2: f64, c1: f64, c0: f64) -> Vec<f64> {
     } else {
         // Three real roots — trigonometric form.
         let m = 2.0 * (-third_p).sqrt();
-        let theta = (3.0 * q / (p * m)).clamp(-1.0, 1.0).acos() / 3.0;
+        let theta = (3.0 * q / (p * m)).clamp(-1.0, 1.0).r_acos() / 3.0;
         for k in 0..3 {
-            let t = m * (theta - 2.0 * std::f64::consts::PI * f64::from(k) / 3.0).cos();
+            let t = m * (theta - 2.0 * std::f64::consts::PI * f64::from(k) / 3.0).r_cos();
             roots.push(t - shift);
         }
     }
-    roots.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    // `total_cmp` rather than `partial_cmp(..).unwrap()`: the trigonometric and
+    // Cardano branches can both emit a NaN root for a degenerate cubic (a zero
+    // or positive `p` reaching `(-p/3).sqrt()`, or a zero `p * m` divisor), and
+    // unwrapping a `None` comparison turns that into a library panic. A panic is
+    // never the right answer here — `select_root` already requires `r.is_finite()`,
+    // so a NaN that survives sorting is rejected there and the caller sees
+    // `None`, which every call site already handles. Found 2026-09-13 by driving
+    // a 6-stage methane/ethane column: the solver panicked at this line rather
+    // than reporting a failed stage flash.
+    roots.sort_by(f64::total_cmp);
     roots
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **Regression — the cubic root solver must never panic.**
+    ///
+    /// **Methodology.** `real_cubic_roots` sorts its roots before returning.
+    /// Until 2026-09-13 that sort used `partial_cmp(..).unwrap()`, which panics
+    /// the moment any root is NaN — and both the Cardano and the trigonometric
+    /// branch can produce one for a degenerate cubic. This drives the solver
+    /// with coefficients that are themselves non-finite, the cheapest way to
+    /// guarantee a NaN reaches the sort, and asserts only that the call
+    /// *returns*.
+    ///
+    /// **Result (2026-09-13).** Returns without panicking. Any NaN that
+    /// survives is rejected downstream by `select_root`'s `is_finite()` guard,
+    /// so callers see `None` rather than a poisoned root.
+    ///
+    /// **Why this matters.** Found by driving a 6-stage methane/ethane column:
+    /// the column solver panicked here instead of reporting a failed stage
+    /// flash. A library must not abort the process on a physically reachable
+    /// input; it now returns `BubblePointFailed { .. }` naming the stage.
+    #[test]
+    fn cubic_root_sort_never_panics_on_non_finite_input() {
+        for (c2, c1, c0) in [
+            (f64::NAN, 0.0, 0.0),
+            (0.0, f64::NAN, 0.0),
+            (0.0, 0.0, f64::NAN),
+            (f64::INFINITY, f64::NEG_INFINITY, 0.0),
+            (0.0, 0.0, 0.0),
+        ] {
+            let roots = real_cubic_roots(c2, c1, c0);
+            // No assertion on the values: the contract is only that sorting a
+            // NaN-bearing vector must not abort.
+            assert!(roots.len() <= 3, "at most three real roots");
+        }
+    }
+
     use crate::thermo::component::reference;
     use approx::assert_relative_eq;
 
@@ -693,7 +738,7 @@ mod tests {
         // Residual of the cubic at the returned root is ~0.
         let am = pr.a_mix(&comps, &z, t, None);
         let bm = pr.b_mix(&comps, &z);
-        let a = am * p / (R * t).powi(2);
+        let a = am * p / (R * t).r_powi(2);
         let b = bm * p / (R * t);
         let c2 = b - 1.0;
         let c1 = a - 2.0 * b - 3.0 * b * b;
@@ -908,7 +953,7 @@ mod tests {
                      would be NaN"
                 );
                 assert!(
-                    (z - b).ln().is_finite(),
+                    (z - b).r_ln().is_finite(),
                     "ln(Z - B) is not finite for {phase:?} root {z}"
                 );
             }

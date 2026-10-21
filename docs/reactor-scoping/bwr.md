@@ -78,8 +78,11 @@ Verified this session: `outram-foam-multiphase` 67 tests pass.
   `crates/outram-foam-appbuilder-lib/.../solver/mod.rs:80` carries the to-do
   naming bead `op-p6p.7.12`. The closures it would wire **are** written; the
   wiring is absent. That bead is marked in progress and assigned.
-- **`crates/tampines/src/multiphase_1d/two_fluid.rs` is a documented scaffold**
-  computing nothing — 139 lines, returns not-implemented. Its own docs correctly
+- ~~**`crates/tampines/src/multiphase_1d/two_fluid.rs` is a documented scaffold**
+  computing nothing — 139 lines, returns not-implemented.~~ **CORRECTED
+  2026-10-16** — `two_fluid.rs` is now 2488 lines, `TwoFluid1d` was
+  implemented 2026-08-12, and its `two_fluid_tests.rs` battery runs
+  (invariants and limits only, compared against no experiment). Its own docs correctly
   flag the reason it is hard: the naive six-equation system is ill-posed and the
   regularisation choice changes the answer.
 - In `outram-foam-multiphase`, the CHF, subcooled-CHF, dryout and film-boiling
@@ -91,9 +94,13 @@ Verified this session: `outram-foam-multiphase` 67 tests pass.
   drag is real when most of it is implemented; anyone auditing by reading module
   docs will materially under-count what exists. Conversely the two-phase solver
   table overstates.
-- **`crates/bedok` has never been run against its benchmark.** Every benchmark
+- ~~**`crates/bedok` has never been run against its benchmark.** Every benchmark
   gate is ignored, no parity run has been done, and its README makes no parity
-  claim. Its six-equation channel kernel is missing from the upstream snapshot
+  claim.~~ **CORRECTED 2026-10-16** (from `crates/bedok/CLAUDE.md` and README;
+  not re-run this session): NEACRP D1 tests run (e.g.
+  `neacrpd1::tests::the_coupled_loop_runs_on_the_benchmark_case`, 24 s), and
+  the README records parity with the upstream MATLAB, code-to-code only; no
+  transient is compared to a published curve. Its six-equation channel kernel is missing from the upstream snapshot
   and was never written. Fifty-seven known upstream defects are deliberately
   preserved unrepaired.
 - `crates/tampines` component wrappers — turbine and condenser — return
@@ -107,6 +114,10 @@ it precisely: near saturation, the `(p,h)` region classification and the
 conductivity path's internal `(T,p)` re-classification can disagree, reaching a
 `todo!()` in the two-phase region. Its own comment says a real boiling steam
 generator tube passes through that boundary, so it must be addressed first.
+**CORRECTED 2026-10-16** — that comment was itself stale and is now struck
+through: a test in the same module heats feedwater into the two-phase region
+without panicking, after a two-phase conductivity fix. The `Region4` arm is now
+a `panic!`, not a `todo!()`; the 17.7 mK floor mismatch remains (gh:#342).
 
 **A BWR core channel crosses that boundary on every cell, every step.** This is
 the crux of "how mature is the two-phase path": the `(p,h)` flash carries phase
@@ -149,10 +160,15 @@ bookkeeping only. There is no gravity or buoyancy term in it at all.
    workspace-wide grep for separator or dryer returns only GUI calls. Even a
    lumped model needs carryover, **carryunder**, separator pressure drop, and a
    vessel inventory that lets dome pressure slide.
-9. **Two-phase pressure drop.** No two-phase multiplier exists anywhere; the
-   drift-flux marcher uses single-phase friction on mixture properties.
-10. Run `crates/bedok`'s benchmark case end to end. There is currently zero
-    evidence it executes.
+9. **Two-phase pressure drop.** ~~No two-phase multiplier exists anywhere;~~
+   **CORRECTED 2026-10-16** — the GeN-Foam port has them
+   (`outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/ff_drag/multipliers.rs`),
+   but none is wired into `tampines`: the drift-flux marcher still uses
+   single-phase friction on mixture properties (`drift_flux.rs`,
+   `wall_friction_acceleration`).
+10. ~~Run `crates/bedok`'s benchmark case end to end. There is currently zero
+    evidence it executes.~~ **CORRECTED 2026-10-16**: it executes (see above);
+    what remains is comparing it to a published result.
 
 **Large**
 

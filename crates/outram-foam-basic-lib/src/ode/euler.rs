@@ -104,6 +104,7 @@ impl Euler {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     struct DecayOde;
@@ -136,7 +137,7 @@ mod tests {
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
         solver.integrate(&ode, 0.0, 1.0, &mut y, &mut dx).unwrap();
-        let expected = (-1.0_f64).exp();
+        let expected = (-1.0_f64).r_exp();
         assert!(
             (y[0] - expected).abs() < 1e-2,
             "y={}, expected {}",

@@ -145,30 +145,42 @@ fn thermal_cross_section_matches_bound_light_water() {
 /// σ(E) relaxes onto the free-atom limit by the thermal cutoff, so the join to
 /// the free-gas treatment above it is smooth.
 ///
-/// **Methodology.** Evaluate σ_inel across 0.1 → 1 → 3.9 eV (the top of the grid
-/// sits at the 4 eV cutoff) and compare the highest point against
+/// **Methodology.** Evaluate σ_inel across 0.1 → 1 → 0.975 × cutoff eV (~~3.9 eV;
+/// the top of the grid sits at the 4 eV cutoff~~ the cutoff is the tape's 10 eV
+/// E_max since 2026-09-30) and compare the highest point against
 /// σ_free = 20.436 b/H.
 ///
 /// **Pass criterion:** strictly decreasing, and within 5 % of σ_free just below
 /// the cutoff. A discontinuity here would show up in a pin-cell spectrum as an
-/// artefact at 4 eV.
+/// artefact at the cutoff.
 ///
 /// **Result (2026-08-14):** 33.044 → 21.950 → 21.087 b/H; the 3.9 eV value is
 /// **+3.19 %** of σ_free.
+///
+/// **Re-measured 2026-09-30 (GitHub #459).** The cutoff is now the tape's
+/// 10 eV E_max and σ is THERMR's `calcem` xsi, so the top probe is
+/// 0.975 × cutoff = 9.75 eV: 32.555 → 21.504 → 20.540 b/H, **+0.51 %** of
+/// σ_free. The join to free gas is smoother than it was at 4 eV.
 #[test]
 fn approaches_the_free_atom_limit_at_the_cutoff() {
     let th = light_water();
+    // ~~The default thermal cutoff is 4 eV~~ **CORRECTED 2026-09-30 (GitHub
+    // #459):** it is the tape's own E_max, as OpenMC's library has it
+    // (`njoy.py` runs THERMR with `emax` = MF7/MT4 B(4)): 10 eV for H in H2O.
+    let (lo, hi) = outram_mc_libs::vv::njoy_golden::H2O_LAW_UPPER_BOUND_EV;
     assert!(
-        (th.cutoff_ev() - 4.0).abs() < 1e-9,
-        "the default thermal cutoff is 4 eV, got {}",
+        (lo..=hi).contains(&th.cutoff_ev()),
+        "the H-in-H2O thermal cutoff is the tape's 10 eV E_max, got {}",
         th.cutoff_ev()
     );
 
+    let e_hi = 0.975 * th.cutoff_ev();
     let (s_lo, s_mid, s_hi) = (
         th.inelastic_xs(0.1),
         th.inelastic_xs(1.0),
-        th.inelastic_xs(3.9),
+        th.inelastic_xs(e_hi),
     );
+    println!("sigma_inel: 0.1 eV {s_lo:.3}, 1 eV {s_mid:.3}, {e_hi:.3} eV {s_hi:.3} b/H");
     assert!(
         s_lo > s_mid && s_mid > s_hi,
         "sigma must decrease toward the free-atom limit: {s_lo} {s_mid} {s_hi}"
@@ -176,7 +188,7 @@ fn approaches_the_free_atom_limit_at_the_cutoff() {
     let rel = (s_hi - SIGMA_FREE_PER_H).abs() / SIGMA_FREE_PER_H;
     assert!(
         rel < 0.05,
-        "sigma(3.9 eV) = {s_hi} b within 5 % of sigma_free = {SIGMA_FREE_PER_H} b \
+        "sigma({e_hi} eV) = {s_hi} b within 5 % of sigma_free = {SIGMA_FREE_PER_H} b \
          (got {:.2} %)",
         rel * 100.0
     );
@@ -260,6 +272,8 @@ fn cold_neutrons_upscatter_toward_the_maxwellian() {
 /// **Result (2026-08-14):** at 0.0253 eV the bound path gives **52.444 b**
 /// against the free-gas nuclide's **30.082 b** (1.74 ×); at 10 eV, above the
 /// 4 eV cutoff, both give **20.461 b** — identical to machine precision.
+/// (Since 2026-09-30 the cutoff is the tape's 10 eV E_max, GitHub #459, and
+/// the above-cutoff probe is 20 eV.)
 ///
 /// The free-gas 30.082 b at 0.0253 eV is H-1's own Doppler-broadened elastic
 /// cross section, not the 20.436 b free-atom asymptote — which is why the
@@ -283,7 +297,9 @@ fn attaches_to_a_nuclide_and_overrides_below_the_cutoff() {
         "below the cutoff the bound law must replace free gas: {xs_bound} vs {xs_free}"
     );
 
-    let above = 10.0;
+    // ~~10 eV~~: the cutoff is the tape's 10 eV E_max since GitHub #459
+    // (2026-09-30), so the probe is twice that.
+    let above = 20.0;
     let (xs_free_hi, xs_bound_hi) = (
         free_gas.xs_at_energy(above, T_K).elastic,
         bound.xs_at_energy(above, T_K).elastic,

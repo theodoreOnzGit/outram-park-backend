@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OUTRAM PARK</title>
+<meta name="description" content="OUTRAM PARK: open-source reactor simulation in Rust. Search, or choose a pathway: learn the science, learn the code, or run the simulations in your browser.">
+<link rel="stylesheet" href="style.css">
+<!-- Opens demo links in a new tab; the breadcrumb part skips the main menu. -->
+<script src="site-nav.js" defer></script>
+<script src="search.js" defer></script>
+</head>
+<body class="landing">
+<!-- The landing page (gh:#906 spec §2, maintainer 2026-10-16): deliberately
+     sparse. Help the reader see through the information before showing it
+     all: search for those who know what they want, three pathways for those
+     who do not. Everything the old front page showed is still on the site,
+     one step deeper (code/, demos/, science/); nothing was removed. -->
+<main class="hero">
+  <h1 class="wordmark">OUTRAM PARK</h1>
+  <p class="tagline">Open-source reactor simulation, from the neutron to the plant, in Rust.</p>
+  <form class="site-search" data-scope="all" role="search">
+    <label class="visually-hidden" for="q">Search OUTRAM PARK</label>
+    <input id="q" type="search" placeholder="Search OUTRAM PARK…" autocomplete="off">
+    <button type="submit">Search</button>
+  </form>
+  <div class="search-results" aria-live="polite"></div>
+  <nav class="pathways" aria-label="Pathways">
+    <a class="pathway" href="science/"><b>Learn the science</b><span>Physics first, code later.</span></a>
+    <a class="pathway" href="code/"><b>Learn to code</b><span>How the science is implemented.</span></a>
+    <a class="pathway" href="demos/"><b>See cool web demos</b><span>Real simulations in your browser.</span></a>
+  </nav>
+</main>
+
+<footer class="landing-foot">
+  <p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. These pages are AI-assisted drafts until a human has reviewed them; each page states its review status.</p>
+  <p>Also here: <a href="code-map/">the code map</a> · <a href="icsbep/">ICSBEP benchmarks</a> · <a href="code-review/">Code Review</a> · <a href="kovan-schema/">the Kovan Markdown schema</a> · <a href="code/#credits">credits &amp; upstream code</a> · <a href="https://github.com/theodoreOnzGit/outram-park-backend">source on GitHub</a>.</p>
+  <p>This site tracks the <code>develop</code> branch, never <code>main</code>: built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance (see <a href="https://github.com/theodoreOnzGit/outram-park-backend/blob/develop/AI_USAGE.md">AI_USAGE.md</a>).</p>
+</footer>
+</body>
+</html>

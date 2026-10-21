@@ -33,7 +33,8 @@
 //! matrix (`mtd = 516`) — is ported in [`super::gtff`], and the photon
 //! `gpanel`, `dspla`'s normalisation and the total-heating edit in
 //! [`super::matrix`] (`gaminr_reaction`). Those carry the oracle
-//! (`tests/gaminr_synthetic_photoat_golden.rs`); this module remains the
+//! (~~`tests/gaminr_synthetic_photoat_golden.rs`~~ `tests/gaminr_vs_njoy2016.rs`,
+//! renamed; corrected 2026-10-05); this module remains the
 //! lightweight vector-only entry point.
 
 // Re-export the shared numeric engine with GAMINR-facing names, so a GAMINR user

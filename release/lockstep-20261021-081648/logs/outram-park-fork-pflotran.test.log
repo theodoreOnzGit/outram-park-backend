@@ -1,0 +1,358 @@
+   Compiling naga-types v30.0.1
+   Compiling bytemuck_derive v1.12.1
+   Compiling spirv v0.4.0+sdk-1.4.341.0
+   Compiling bytemuck v1.25.2
+   Compiling wgpu-types v30.0.1
+   Compiling naga v30.0.1
+   Compiling gpu-allocator v0.28.0
+   Compiling outram-foam-basic-lib v0.1.6 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-foam-basic-lib)
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling either v1.19.0
+   Compiling rayon v1.12.0
+   Compiling tampines-steam-tables v0.3.0 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/tampines-steam-tables)
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:24:9
+   |
+24 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+25 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+26 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: constant `LIQUID_SNAP_PRESSURE_FRACTION` is never used
+    --> crates/tampines-steam-tables/src/interfaces/functional_programming/rho_h_flash_eqm/mod.rs:1132:7
+     |
+1132 | const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tampines-steam-tables` (lib) generated 2 warnings
+   Compiling wgpu v30.0.1
+   Compiling outram-park-mpi v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-mpi)
+   Compiling outram-park-fork-pflotran v0.0.1 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/outram-park-fork-pflotran)
+    Finished `release` profile [optimized] target(s) in 38.11s
+     Running unittests src/lib.rs (target/release/deps/outram_park_fork_pflotran-38fdcd71c701ac75)
+
+running 285 tests
+test activity::tests::a_constant_value ... ok
+test activity::tests::davies_spot_check_i_0p1 ... ok
+test activity::tests::debye_huckel_bdot_raises_gamma ... ok
+test activity::tests::dilute_limit_gamma_one ... ok
+test activity::tests::divalent_depressed_more_than_monovalent ... ok
+test activity::tests::ideal_always_one ... ok
+test activity::tests::gamma_decreases_with_ionic_strength ... ok
+test activity::tests::ionic_strength_length_mismatch_rejected ... ok
+test activity::tests::ionic_strength_nacl ... ok
+test activity::tests::ionic_strength_negative_concentration_rejected ... ok
+test activity::tests::neutral_species_gamma_one ... ok
+test decay::tests::branching_loss_accounted ... ok
+test decay::tests::atom_conservation_no_branching_loss ... ok
+test decay::tests::constructor_rejects_bad_daughter_index ... ok
+test decay::tests::constructor_rejects_branchings_over_one ... ok
+test decay::tests::constructor_rejects_nonpositive_half_life ... ok
+test decay::tests::converging_branching_chain_general_integrator ... ok
+test decay::tests::cram48_expm_and_exact_agree_on_the_stiff_thorium_c_branch ... ok
+test decay::tests::cram48_expm_and_bateman_agree_on_the_radon_chain ... ok
+test decay::tests::cram48_is_the_default_solver ... ok
+test decay::tests::decay_rejects_length_mismatch_and_bad_dt ... ok
+test decay::tests::secular_equilibrium ... ok
+test decay::tests::single_nuclide_matches_exponential_law ... ok
+test decay::tests::stable_nuclide_is_unchanged ... ok
+test decay::tests::three_member_chain_matches_bateman ... ok
+test decay::tests::two_member_chain_matches_bateman_daughter ... ok
+test decay::tests::zero_dt_is_identity ... ok
+test decay::upstream::tests::backward_euler_local_error_is_half_lambda_dt_squared ... ok
+test decay::upstream::tests::decay_constants_match_upstreams_half_life_card ... ok
+test decay::upstream::tests::ported_lu_solves_and_refuses_a_zero_row ... ok
+test decay::upstream::tests::ufd_guards_refuse_self_ancestry_and_equal_rates ... ok
+test decay::upstream::tests::backward_euler_is_first_order_and_conservative ... ok
+test decay::upstream::tests::ufd_implicit_is_backward_euler_to_its_newton_tolerance ... ok
+test decay::upstream::tests::ufd_implicit_against_the_vectorised_o2_build ... ok
+test decay::upstream::tests::ufd_implicit_reports_where_upstream_hangs_or_aborts ... ok
+test decay::upstream::tests::ufd_implicit_skips_an_inventory_of_ones ... ok
+test decay::upstream::tests::ufd_three_generation_ignores_branching_like_upstream ... ok
+test decay::upstream::tests::ufd_three_generation_is_exact_for_depth_three ... ok
+test decay::upstream::tests::ufd_implicit_matches_compiled_upstream_bit_for_bit ... ok
+test decay::upstream::tests::ufd_three_generation_matches_compiled_upstream_bit_for_bit ... ok
+test deck::tests::parse_fortran_float_variants ... ok
+test deck::tests::parses_full_example_deck ... ok
+test deck::tests::rejects_missing_required_block ... ok
+test deck::tests::rejects_unclosed_block ... ok
+test deck::tests::rejects_unknown_top_level_keyword ... ok
+test deck::tests::rejects_unsupported_card_in_block ... ok
+test deck::tests::robust_to_comments_blanks_and_mixed_case ... ok
+test decay::upstream::tests::ufd_three_generation_truncation_is_second_order_at_fixed_time ... ok
+test deck::tests::time_to_seconds_units ... ok
+test deck::tests::unknown_mode_preserved_verbatim ... ok
+test decomposition::cartesian2d::tests::block_partition_tiles_the_grid_without_gaps ... ok
+test decomposition::cartesian2d::tests::distributed_2d_residual_is_near_zero ... ok
+test decomposition::krylov::tests::distributed_cg_actually_solves_the_system ... ok
+test decomposition::cartesian2d::tests::distributed_2d_cg_matches_serial_on_various_process_grids ... ok
+test decomposition::krylov::tests::distributed_dot_matches_serial ... ok
+test decomposition::krylov::tests::distributed_cg_matches_serial_across_rank_counts ... ok
+test decomposition::ldu::tests::distributed_solve_matches_serial_ldu_cg ... ok
+test decomposition::ldu::tests::distributed_solve_residual_is_near_zero ... ok
+test decomposition::ldu::tests::distributed_spmv_matches_real_ldu_multiply ... ok
+test decomposition::ldu::tests::distributed_bicgstab_solves_nonsymmetric_advection_diffusion ... ok
+test decomposition::ldu::tests::local_assembly_equals_global_extract_and_solves ... ok
+test decomposition::newton::tests::distributed_newton_drives_residual_to_zero ... ok
+test decomposition::operator::tests::distributed_matvec_matches_serial_matvec ... ok
+test decomposition::operator::tests::distributed_variable_coefficient_solve_matches_serial ... ok
+test decomposition::operator::tests::jacobi_pcg_matches_serial_and_cuts_iterations ... ok
+test decomposition::tests::distributed_jacobi_matches_serial_across_rank_counts ... ok
+test decomposition::tests::halo_exchange_moves_edge_values_to_neighbours ... ok
+test decomposition::tests::jacobi_converges_toward_the_linear_profile ... ok
+test decomposition::tests::partition_is_balanced_and_covers_the_domain ... ok
+test decomposition::transport::tests::distributed_energy_conduction_matches_serial ... ok
+test decomposition::transport::tests::distributed_pure_advection_matches_serial ... ok
+test decomposition::newton::tests::distributed_newton_matches_serial_on_nonlinear_diffusion ... ok
+test decomposition::transport::tests::distributed_transport_matches_serial_for_nonuniform_flow ... ok
+test decomposition::transport::tests::distributed_transport_matches_serial_with_dirichlet_inflow ... ok
+test decomposition::transport::tests::distributed_transport_matches_serial_with_tvd_superbee ... ok
+test energy::tests::closed_domain_conserves_energy ... ok
+test energy::tests::constructor_validates_inputs ... ok
+test energy::tests::pure_conduction_steady_is_linear ... ok
+test energy::tests::steady_advection_conduction_matches_closed_form ... ok
+test eos_co2_brine::brine::tests::brine_density_increases_with_salinity ... ok
+test eos_co2_brine::brine::tests::brine_rejects_invalid_inputs ... ok
+test eos_co2_brine::brine::tests::brine_seawater_density_about_1024 ... ok
+test eos_co2_brine::brine::tests::brine_viscosity_salinity_and_temperature_trends ... ok
+test eos_co2_brine::co2::tests::co2_compressibility_approaches_unity_at_low_pressure ... ok
+test eos_co2_brine::co2::tests::co2_density_decreases_with_temperature ... ok
+test eos_co2_brine::co2::tests::co2_density_increases_with_pressure ... ok
+test eos_co2_brine::co2::tests::co2_density_supercritical_40c_10mpa_rk_underpredicts ... ok
+test eos_co2_brine::co2::tests::co2_rejects_invalid_inputs ... ok
+test eos_co2_brine::co2::tests::co2_viscosity_dilute_gas_value_and_temperature_trend ... ok
+test eos_real::tests::agrees_with_simple_slightly_compressible_model_at_25c ... ok
+test eos_real::tests::density_decreases_with_temperature_at_fixed_pressure ... ok
+test eos_real::tests::density_liquid_water_at_20c_is_about_998 ... ok
+test eos_real::tests::enthalpy_and_internal_energy_increase_with_temperature ... ok
+test eos_real::tests::rejects_states_outside_region_1 ... ok
+test eos_real::tests::specific_heat_near_ambient_is_about_4180 ... ok
+test eos_real::tests::viscosity_at_20c_is_about_1_millipascal_second_and_falls_with_temperature ... ok
+test flow::richards::tests::closed_box_uniform_field_is_stationary ... ok
+test flow::richards::tests::closed_domain_conserves_total_mass ... ok
+test flow::richards::tests::haverkamp_sand_column_runs_and_wets_up ... ok
+test flow::richards::tests::saturated_1d_steady_state_is_linear ... ok
+test flow::tests::flow_mode_reports_its_name ... ok
+test flow::tests::flow_mode_step_advances_time ... ok
+test decomposition::transport::tests::distributed_transport_step_matches_serial_solute_transport ... ok
+test general_mode::tests::closed_uniform_column_is_stationary ... ok
+test general_mode::tests::constructors_reject_bad_inputs ... ok
+test general_mode::tests::closed_domain_conserves_water_gas_and_energy ... ok
+test general_mode::tests::step_converges_and_stays_bounded ... ok
+test general_mode::tests::isothermal_limit_reduces_to_two_phase_imbibition ... ok
+test geochemistry::network::tests::general_network_mass_balance_and_action ... ok
+test geochemistry::network::tests::initial_guess_reaches_same_solution ... ok
+test geochemistry::network::tests::no_secondary_returns_totals ... ok
+test geochemistry::network::tests::validation_rejects_bad_shapes_and_totals ... ok
+test geochemistry::network::tests::weak_acid_dissociation_analytical ... ok
+test general_mode::tests::thermal_coupling_hot_boundary_warms_and_changes_flow ... ok
+test gpu::tests::cpu_reference_matches_van_genuchten ... ok
+test grid::tests::index_roundtrip_is_x_fastest ... ok
+test grid::tests::invalid_inputs_are_rejected ... ok
+test grid::tests::ldu_addressing_matches_connections_and_owner_lt_neighbour ... ok
+test grid::tests::rectilinear_connection_distance_is_half_plus_half ... ok
+test grid::tests::single_cell_gets_both_min_and_max_on_each_axis ... ok
+test grid::tests::three_cubed_uniform_counts ... ok
+test grid::tests::two_by_one_by_one_has_one_connection_with_correct_transmissibility ... ok
+test grid::tests::two_cubed_has_24_boundary_faces ... ok
+test grid::tests::volume_and_center_correctness ... ok
+test hdf5_io::tests::from_grid_fields_extracts_axes_and_validates_lengths ... ok
+test hdf5_io::tests::round_trip_of_a_grid_snapshot_preserves_fields ... ok
+test hdf5_io::tests::round_trips_through_a_real_file ... ok
+test hdf5_io::tests::snapshot_round_trips_through_hdf5_bytes ... ok
+test io::parse::tests::error_on_missing_grid_block ... ok
+test io::parse::tests::error_on_out_of_range_porosity ... ok
+test io::parse::tests::error_on_unclosed_block ... ok
+test io::parse::tests::error_on_unknown_keyword_reports_line ... ok
+test io::parse::tests::error_on_wrong_arity ... ok
+test io::parse::tests::multiple_boundary_conditions_accumulate ... ok
+test io::parse::tests::parses_the_reference_example_field_by_field ... ok
+test io::parse::tests::robust_to_comments_blank_lines_mixed_case_and_whitespace ... ok
+test io::writers::tests::csv_cell_centre_coordinates_are_half_spacing ... ok
+test io::writers::tests::csv_has_header_plus_one_row_per_cell ... ok
+test io::writers::tests::csv_uses_x_fastest_ordering ... ok
+test io::writers::tests::vtk_emits_one_value_line_per_cell_per_field ... ok
+test io::writers::tests::vtk_header_is_well_formed ... ok
+test io::writers::tests::writers_reject_mismatched_slice_length ... ok
+test io::writers::tests::writers_reject_zero_dimension ... ok
+test kinetics::tests::approach_to_equilibrium ... ok
+test kinetics::tests::constructor_validation ... ok
+test kinetics::tests::mole_conservation ... ok
+test kinetics::tests::no_mineral_clamp ... ok
+test kinetics::tests::supersaturated_precipitates_from_zero ... ok
+test microbial::tests::constructor_validation ... ok
+test microbial::tests::dual_monod_limited_by_scarce_substrate ... ok
+test microbial::tests::inhibition_reduces_rate ... ok
+test microbial::tests::monod_saturation_and_starvation ... ok
+test microbial::tests::react_biomass_decays_when_starved ... ok
+test microbial::tests::react_consumes_substrate_forms_product_grows_biomass ... ok
+test microbial::tests::stoichiometric_conservation ... ok
+test multiphase::tests::capillary_pressure_inverts_retention_curve ... ok
+test multiphase::tests::closed_domain_conserves_phase_masses ... ok
+test multiphase::tests::closed_uniform_column_is_stationary ... ok
+test multiphase::tests::constructors_reject_bad_inputs ... ok
+test multiphase::tests::imbibition_column_wets_up_and_stays_bounded ... ok
+test pitzer::tests::a_phi_constant_value ... ok
+test pitzer::tests::cacl2_high_molality_upturn ... ok
+test pitzer::tests::dilute_limit_recovers_unity ... ok
+test pitzer::tests::ionic_strength_convention ... ok
+test pitzer::tests::nacl_dips_then_rises ... ok
+test pitzer::tests::nacl_mean_activity_coefficient_published ... ok
+test pitzer::tests::nacl_osmotic_coefficient_published ... ok
+test pitzer::tests::negative_molality_rejected ... ok
+test properties::curves::tests::bc_air_entry_saturated_below_bubbling_pressure ... ok
+test properties::curves::tests::constructors_reject_bad_inputs ... ok
+test properties::curves::tests::d_kr_d_se_matches_finite_difference ... ok
+test properties::curves::tests::d_se_d_pc_matches_finite_difference ... ok
+test properties::curves::tests::haverkamp_d_kr_d_se_matches_finite_difference ... ok
+test properties::curves::tests::haverkamp_d_se_d_pc_matches_finite_difference ... ok
+test properties::curves::tests::haverkamp_kr_bounds_and_endpoints ... ok
+test properties::curves::tests::haverkamp_rejects_bad_inputs ... ok
+test properties::curves::tests::haverkamp_residual_is_theta_ratio ... ok
+test properties::curves::tests::haverkamp_se_bounds_and_monotone ... ok
+test properties::curves::tests::inputs_are_clamped ... ok
+test properties::curves::tests::kr_in_unit_interval_and_endpoints ... ok
+test properties::curves::tests::residual_saturation_reported ... ok
+test properties::curves::tests::saturated_zone_is_fully_saturated ... ok
+test properties::curves::tests::se_in_unit_interval_and_monotone_decreasing ... ok
+test properties::curves::tests::vg_dkr_endpoints_no_nan ... ok
+test properties::curves::tests::vg_dse_dpc_is_nonpositive ... ok
+test properties::curves::tests::vg_new_sets_m ... ok
+test properties::eos::tests::d_density_d_pressure_matches_finite_difference ... ok
+test properties::eos::tests::density_equals_reference_at_reference_pressure ... ok
+test properties::eos::tests::density_increases_with_pressure ... ok
+test properties::eos::tests::new_rejects_bad_inputs ... ok
+test properties::eos::tests::viscosity_is_constant_and_positive ... ok
+test properties::eos::tests::water_defaults_are_valid_and_match_new ... ok
+test properties::thermal::tests::d_density_d_temperature_is_non_positive ... ok
+test properties::thermal::tests::d_density_d_temperature_matches_finite_difference ... ok
+test properties::thermal::tests::density_decreases_with_temperature ... ok
+test properties::thermal::tests::density_equals_reference_at_reference_state ... ok
+test properties::thermal::tests::density_increases_with_pressure ... ok
+test properties::thermal::tests::generic_rock_defaults_are_valid_and_match_new ... ok
+test properties::thermal::tests::rock_new_rejects_bad_inputs ... ok
+test properties::thermal::tests::transport_coefficients_are_returned ... ok
+test properties::thermal::tests::viscosity_decreases_with_temperature ... ok
+test properties::thermal::tests::viscosity_equals_reference_at_reference_temperature ... ok
+test properties::thermal::tests::water_defaults_are_valid_and_match_new ... ok
+test properties::thermal::tests::water_new_rejects_bad_inputs ... ok
+test reactive_transport::tests::closed_domain_conserves_component_mass ... ok
+test reactive_transport::tests::constructor_validates_inputs ... ok
+test reactive_transport::tests::post_step_speciation_is_equilibrium ... ok
+test reactive_transport::tests::single_component_matches_solute_transport ... ok
+test solver::block::tests::block_bicgstab_matches_dense_lu ... ok
+test solver::block::tests::block_bicgstab_zero_rhs_short_circuits ... ok
+test solver::block::tests::block_spmv_matches_dense ... ok
+test solver::block::tests::coupled_nonlinear_newton_converges_to_manufactured ... ok
+test solver::block::tests::wrong_length_guess_is_rejected ... ok
+test solver::block::tests::zero_iteration_budget_reports_nonconvergence ... ok
+test solver::tests::bratu_converges_and_residual_decreases ... ok
+test solver::tests::linear_system_converges_in_one_step ... ok
+test solver::tests::wrong_length_guess_is_rejected ... ok
+test solver::tests::zero_iteration_budget_reports_nonconvergence ... ok
+test sorption::tests::divalent_selectivity_preference ... ok
+test sorption::tests::exchange_fractions_sum_to_one_and_bounded ... ok
+test sorption::tests::freundlich_n1_reduces_to_linear ... ok
+test sorption::tests::freundlich_value_and_derivative ... ok
+test sorption::tests::ion_exchange_constructor_validation ... ok
+test sorption::tests::isotherm_constructor_validation ... ok
+test sorption::tests::langmuir_saturates_and_slope_positive_decreasing ... ok
+test sorption::tests::linear_matches_kd_and_constant_retardation ... ok
+test sorption::tests::raising_a_cation_raises_its_exchanger_fraction ... ok
+test sorption::tests::symmetric_binary_splits_by_concentration ... ok
+test surface_complexation::tests::dilute_metal_fraction_is_independent_of_concentration ... ok
+test surface_complexation::tests::dlm_potential_negative_at_high_ph ... ok
+test surface_complexation::tests::electrostatics_shift_the_edge_and_both_converge ... ok
+test surface_complexation::tests::extreme_conditions_do_not_panic_or_diverge ... ok
+test surface_complexation::tests::input_validation_rejects_bad_parameters ... ok
+test surface_complexation::tests::protonation_charge_sign_flips_across_pzc ... ok
+test surface_complexation::tests::site_balance_conserved_all_models ... ok
+test surface_complexation::tests::sorption_edge_is_rising_sigmoid_crossing_half ... ok
+test surface_complexation::tests::zero_metal_gives_zero_sorbed_fraction ... ok
+test thermal_convection::tests::buoyancy_onset_across_critical_rayleigh ... ok
+test thermal_convection::tests::constructors_reject_bad_inputs ... ok
+test gpu::tests::best_effort_agrees_with_cpu_reference ... ok
+test thermal_convection::tests::heated_from_above_stays_stable ... ok
+test thermal_convection::tests::rayleigh_number_matches_textbook ... ok
+test thermal_convection::tests::step_adaptive_covers_interval_and_advances_time ... ok
+test thermal_convection::tests::no_buoyancy_gives_pure_conduction_no_flow ... ok
+test thermal_convection::tests::step_adaptive_validates_inputs ... ok
+test transport::tests::closed_domain_conserves_mass ... ok
+test transport::tests::constructor_validates_inputs ... ok
+test thermal_convection::tests::step_converges_and_energy_responds_to_heating ... ok
+test transport::tests::pure_diffusion_steady_is_linear ... ok
+test transport::tests::radioactive_decay_halves_after_one_half_life ... ok
+test transport::tests::linear_sorption_retards_the_front ... ok
+test transport::tests::steady_advection_diffusion_matches_closed_form ... ok
+test transport::tests::upwind_advection_is_monotone_and_advances ... ok
+test unstructured::tests::cell_id_index ... ok
+test unstructured::tests::empty_grid_rejected ... ok
+test unstructured::tests::from_faces_two_cell_mesh ... ok
+test unstructured::tests::invalid_face_references_nonexistent_cell ... ok
+test unstructured::tests::invalid_internal_face_self_connection ... ok
+test unstructured::tests::invalid_mismatched_lengths ... ok
+test unstructured::tests::invalid_negative_area_or_volume ... ok
+test unstructured::tests::invalid_zero_length_normal_and_coincident_centroids ... ok
+test unstructured::tests::ldu_addressing_lengths_and_ordering ... ok
+test unstructured::tests::ldu_addressing_normalises_reversed_connection ... ok
+test unstructured::tests::reversed_normal_gives_same_positive_transmissibility ... ok
+test unstructured::tests::single_cell_column_has_no_internal_faces ... ok
+test unstructured::tests::tpfa_projection_reduces_to_area_over_distance_for_unnormalised_normal ... ok
+test unstructured::tests::transmissibility_scales_as_area_over_distance ... ok
+test unstructured::tests::uniform_column_boundary_faces_have_one_owner_each ... ok
+test unstructured::tests::uniform_column_geometry_and_connectivity ... ok
+test unstructured::tests::uniform_column_invalid_inputs ... ok
+test unstructured::tests::volume_and_centroid_accessors_return_constructed_values ... ok
+test wells::tests::bhp_well_sign_convention ... ok
+test wells::tests::cell_rates_validates_pressure_length_and_indices ... ok
+test wells::tests::constructor_validation ... ok
+test wells::tests::hydrostatic_increases_downward ... ok
+test transport::tests::tvd_reduces_numerical_diffusion_and_stays_bounded ... ok
+test wells::tests::rate_controlled_is_mobility_independent ... ok
+test wells::tests::rate_controlled_sums_to_target_and_splits_by_wi ... ok
+test wells::tests::seepage_face_switch_encoding ... ok
+test wells::tests::source_sink_mass_to_volumetric ... ok
+test wells::tests::time_varying_interpolates_and_clamps ... ok
+test wells::tests::time_varying_validation ... ok
+test wells::tests::well_index_increases_with_permeability ... ok
+test wells::tests::well_index_matches_isotropic_closed_form ... ok
+test wells::tests::well_index_rejects_bad_inputs ... ok
+
+test result: ok. 285 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/integration.rs (target/release/deps/integration-cd5b368f718b96b5)
+
+running 5 tests
+test infiltration_column_runs_and_is_physically_sensible ... ok
+test flow_mode_run_matches_direct_simulation ... ok
+test richards_transport_coupling_advects_a_tracer ... ok
+test output_writers_produce_wellformed_csv_and_vtk ... ok
+test th_coupling_advects_a_thermal_front ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/regression.rs (target/release/deps/regression-bfe600180eed1277)
+
+running 2 tests
+test print_baseline ... ignored, prints a fresh baseline; not an assertion
+test transient_column_matches_frozen_baseline ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/verification.rs (target/release/deps/verification-bafb1a571ebf58df)
+
+running 3 tests
+test hydrostatic_column_matches_analytical_gravity ... ok
+test saturated_linear_profile_is_exact ... ok
+test mms_saturated_operator_is_second_order ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

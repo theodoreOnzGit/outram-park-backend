@@ -1,0 +1,82 @@
+# Decay-data plumbing
+
+> **Research, education and V&V only** ([`RESPONSIBLE_USE.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/RESPONSIBLE_USE.md)).
+> **Review status:** AI-assisted draft, 2026-10-04, not yet human-reviewed.
+
+**Extended deep dive.** Covers
+[`nuclide_reaction_and_decay_data`](../../api/boon_lay/nuclide_reaction_and_decay_data/index.html),
+[`decay_xml_info_serde`](../../api/boon_lay/decay_xml_info_serde/index.html)
+and [`prelude`](../../api/boon_lay/prelude/index.html). [Rung 2](../../tutorials/triso-atops/decay.html)
+used this data; this page shows where it comes from and what can go wrong.
+
+## Where the numbers live
+
+- **The `Nuclide` enum** (about 3000 nuclides) comes from the crate
+  `fission-yields-data` [(Ong, 2026a)](#ref-ong2026fissionyieldsdata), re-exported at the crate root.
+- **Half-lives, decay energies and branches** come from OpenMC's ENDF/B-VIII.0 [(Brown & others, 2018)](#ref-brown2018endf8)
+  depletion chain, embedded as XML strings in the crate
+  `openmc-endf-8-depletion-lib-b` (MIT) [(Ong, 2026b)](#ref-ong2026openmcdepletionb), one Rust file per element.
+  `decay_xml_info_serde` is a thin re-export of its serde types
+  ([`decay_xml_info_serde/mod.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/decay_xml_info_serde/mod.rs)).
+  An entry looks like
+  `<nuclide name="Ba116" half_life="1.3" …><decay type="ec/beta+" target="Cs116" branching_ratio="0.97"/>…`.
+
+## From XML to a library
+
+*In words, read from the source by hand:*
+
+<!-- walk-in-words: from=crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs::new to=crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs::parse_from_string -->
+1. [`DecayLibrary::new`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs:fn=new@@): one field per element, H to Rg, each filled by
+2. → [`parse_nuclides_to_decay_data_vec_by_element`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs:fn=parse_nuclides_to_decay_data_vec_by_element@@): a `match` on $Z$ picks the element's `get_<element>_xml_serde_data()`;
+3. → `impl From<SerdeNuclideData> for NuclideReactionAndDecayData` ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:fn=from@@)): renumbers isomers (`m2`→`m1`, …), parses each branch's target, and maps the type string through
+4. → [`DecayType::parse_from_string`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs:fn=parse_from_string@@).
+<!-- /walk-in-words -->
+
+
+> **On the [Code Review map](../../code-review/):** start at [`new`](../../code-review/#crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/mod.rs::new) and follow its callees (▸) to [`parse_from_string`](../../code-review/#crates/boon-lay/src/nuclide_reaction_and_decay_data/mod.rs::parse_from_string). Each card opens the function's source and shows its review stamp.
+
+Lookup afterwards is
+[`DecayLibrary::try_match_nuclides_to_decay_data`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/indexing_using_nuclide.rs:fn=try_match_nuclides_to_decay_data@@),
+which returns `None` for an element with no data (copernicium and heavier).
+[`computationally_expensive_parse_nuclide_to_decay_data`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/parse_nuclides_to_decay_data.rs:fn=computationally_expensive_parse_nuclide_to_decay_data@@)
+builds a whole library for one lookup, and is named for it.
+
+## Things a caller should know
+
+| Item | What happens | Status |
+|---|---|---|
+| the library's generator | seeded with the constant **77** in `new` | reproducible; two libraries replay the same stream |
+| a branch with no daughter (spontaneous fission) | `get_next_target_nuclide_with_float` calls `target.unwrap()` | **panics**; gh:#538 |
+| branching ratios summing below 1 | ξ beyond the sum reaches `todo!("code is buggy!")` | **panics**; gh:#538 |
+| [`get_decay_branch_info`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs#@@L:crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/mod.rs:fn=get_decay_branch_info@@) | public, body is `todo!()` | **panics if called**; nothing in the crate calls it |
+| branches with ratio 0.0 | present in the data (e.g. Ba-114's α branch) | harmless: never selected |
+
+## The checks
+
+About 70 unit tests, in `lagrangian_decay_simulator/tests/mod.rs` and the
+per-element files beside `nuclide_reaction_and_decay_data/` (actinides,
+alkali metals and hydrogen, alkaline earths, the boron and carbon groups,
+chalcogens, halogens, lanthanides, noble gases, pnictogens, transition
+metals, the heaviest elements), compare parsed half-lives and decay modes
+with handbook values, mostly to 1 % relative. They check that the data was
+**read** correctly. They do not check the evaluation itself, and they do not
+sample branches.
+
+## The other decay table
+
+TRISO-ATOPS carries its own 84-nuclide table with IAEA Live Chart half-lives,
+because the port reproduces upstream
+([Running TRISO-ATOPS](./running-triso-atops.md)). The two halves of the
+crate therefore do not share one decay-data source, and a comparison between
+them should expect small half-life differences.
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-ong2026fissionyieldsdata" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026a). <i>fission-yields-data: Fission yields for various nuclides using ENDF and other library data</i>. GitHub. https://github.com/theodoreOnzGit/fission-yields-data</p>
+
+<p class="csl-entry" id="ref-ong2026openmcdepletionb" style="padding-left: 2em; text-indent: -2em;">Ong, T. K. C. (2026b). <i>openmc-endf-8-depletion-lib-b: Rust parser for OpenMC ENDF/B-VIII.0 depletion chain data, part two</i>. GitHub. https://github.com/theodoreOnzGit/openmc-endf-8-depletion-lib-b</p>
+
+<!-- references:end -->

@@ -1,0 +1,27 @@
+    Updating crates.io index
+   Packaging boon-lay v0.2.1 (/home/teddy0/Documents/research/outram-park-backend/crates/boon-lay)
+warning: ignoring example `boon_lay_decay_simulator` as `examples/boon_lay_decay_simulator/main.rs` is not included in the published package
+warning: ignoring example `first_passage_realtime` as `examples/first_passage_realtime.rs` is not included in the published package
+warning: ignoring example `layer_diffusion_table` as `examples/layer_diffusion_table.rs` is not included in the published package
+warning: ignoring example `rustbca_cascades` as `examples/rustbca_cascades.rs` is not included in the published package
+warning: ignoring example `triso_cell_slice` as `examples/triso_cell_slice.rs` is not included in the published package
+warning: ignoring example `triso_simulator` as `examples/triso_simulator/main.rs` is not included in the published package
+warning: ignoring test `mhtgr_stoyer_workflow` as `tests/mhtgr_stoyer_workflow.rs` is not included in the published package
+warning: ignoring test `triso_atops_booth_vs_crp6` as `tests/triso_atops_booth_vs_crp6.rs` is not included in the published package
+warning: ignoring test `triso_atops_code_to_code` as `tests/triso_atops_code_to_code.rs` is not included in the published package
+warning: ignoring test `triso_atops_fork_verification` as `tests/triso_atops_fork_verification.rs` is not included in the published package
+warning: ignoring test `triso_atops_upstream_run_file` as `tests/triso_atops_upstream_run_file.rs` is not included in the published package
+warning: ignoring test `wasm_fallback` as `tests/wasm_fallback.rs` is not included in the published package
+    Updating crates.io index
+    Packaged 143 files, 1.7MiB (441.1KiB compressed)
+   Verifying boon-lay v0.2.1 (/home/teddy0/Documents/research/outram-park-backend/crates/boon-lay)
+   Compiling anyhow v1.0.104
+   Compiling serde_json v1.0.154
+   Compiling outram-mc-libs v0.0.6
+   Compiling boon-lay v0.2.1 (/home/teddy0/Documents/research/outram-park-backend/target/package/boon-lay-0.2.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.80s
+   Uploading boon-lay v0.2.1 (/home/teddy0/Documents/research/outram-park-backend/crates/boon-lay)
+    Uploaded boon-lay v0.2.1 to registry `crates-io`
+note: waiting for boon-lay v0.2.1 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published boon-lay v0.2.1 at registry `crates-io`

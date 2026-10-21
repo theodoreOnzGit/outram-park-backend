@@ -1,3 +1,6 @@
+use petir::uom_math::QuantityMath;
+use petir::mathf::RealMath;
+
 use uom::ConstZero;
 use uom::si::f64::*;
 use uom::si::pressure::pascal;
@@ -186,7 +189,7 @@ pub fn get_choked_flow_supersonic_nozzle_exit_area_and_state(
     let state_exit = TampinesSteamTableCV::new_from_ps(p_exit, s0, ref_vol);
 
     let h_exit = state_exit.get_specific_enthalpy();
-    let v_exit: Velocity = (2.0 * (h0 - h_exit)).sqrt();
+    let v_exit: Velocity = (2.0 * (h0 - h_exit)).r_sqrt();
     let rho_exit = state_exit.get_rho();
     let a_exit = mass_flowrate / v_exit / rho_exit;
 
@@ -195,6 +198,7 @@ pub fn get_choked_flow_supersonic_nozzle_exit_area_and_state(
 
 #[cfg(test)]
 mod choked_flow_examples {
+    use petir::uom_math::QuantityMath;
     use uom::si::area::square_centimeter;
     use uom::si::available_energy::kilojoule_per_kilogram;
     use uom::si::mass_rate::kilogram_per_second;
@@ -279,7 +283,7 @@ mod choked_flow_examples {
             max_relative = 1e-3,
         );
 
-        let v_throat: Velocity = (2.0 * (h0 - h_throat)).sqrt();
+        let v_throat: Velocity = (2.0 * (h0 - h_throat)).r_sqrt();
 
         // if we can see here, v_throat and c is about the same
         // Cengel's answer is 585.8 m/s
@@ -358,7 +362,7 @@ mod choked_flow_examples {
         // as the reference, since it is the same through the
         // whole nozzle
 
-        let v_exit = (2.0 * (h0 - h_exit)).sqrt();
+        let v_exit = (2.0 * (h0 - h_exit)).r_sqrt();
         approx::assert_relative_eq!(v_exit.get::<meter_per_second>(), 929.8, max_relative = 1e-3,);
 
         // exit mach number is 1.804
@@ -429,7 +433,7 @@ mod choked_flow_examples {
 
         // lastly, get mach number for exit
 
-        let v_exit = (2.0 * (h0 - h_exit)).sqrt();
+        let v_exit = (2.0 * (h0 - h_exit)).r_sqrt();
         let state_exit = TampinesSteamTableCV::new_from_ph(p_exit, h_exit, ref_vol);
         let mach_number = state_exit.get_mach_number(v_exit);
 
@@ -466,7 +470,7 @@ pub fn get_critical_pressure_ratio_ideal_gas_using_throat_ph(
     let exponent: f64 = (k / k_minus_one).get::<ratio>();
     let coeff: f64 = (2.0 / k_plus_one).get::<ratio>();
 
-    let ratio_value = coeff.powf(exponent);
+    let ratio_value = coeff.r_powf(exponent);
 
     Ratio::new::<ratio>(ratio_value)
 }
@@ -541,7 +545,7 @@ pub fn get_critical_pressure_pure_vapour_ph_stagnation_properties(
         }
 
         let v_squared = 2.0 * delta_h;
-        let v = v_squared.sqrt();
+        let v = v_squared.r_sqrt();
 
         // Check if Mach = 1 (v = w)
         let mach = v / w_mid;

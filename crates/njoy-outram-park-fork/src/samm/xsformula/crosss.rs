@@ -149,7 +149,11 @@ pub fn cross_sections_with_derivs(
         .enumerate()
         .map(|(n, g)| abpart(&g.resonances, &amplitudes[n], energy))
         .collect();
-    let nchan_full: Vec<usize> = section.spin_groups.iter().map(|g| g.channels.len()).collect();
+    let nchan_full: Vec<usize> = section
+        .spin_groups
+        .iter()
+        .map(|g| g.channels.len())
+        .collect();
     let terms = abpart_derivs(ds, &nchan_full, &alpha_all);
 
     for (n, group) in section.spin_groups.iter().enumerate() {

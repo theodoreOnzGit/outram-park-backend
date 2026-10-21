@@ -1,0 +1,651 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-offbeat"
+dir = "crates/outram-park-fork-offbeat/src/mechanics/solver"
+
+[module."rheology_tests.rs"]
+path = "crate::mechanics::solver::rheology_tests"
+
+[[module."rheology_tests.rs".function]]
+id = "fn:d02bea3018e8882b"
+name = "box_column_mesh"
+qual = "box_column_mesh"
+lines = [
+    37,
+    115,
+]
+hash = "sha256:5c9bff41eeec65829d7181f7a0a893c306cb454b34fc2c8c6aaad4562373244b"
+doc_hash = "sha256:45a2d2b87067d53024da50609db5dcaaa145fbab30181a034225713ef37175c8"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:65f8f3c9daf074d2",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:f29e798b1d89c080"
+name = "prescribed_boundary"
+qual = "prescribed_boundary"
+lines = [
+    117,
+    140,
+]
+hash = "sha256:2cbbf427efd03097562bba4d4cdb1ecbc72bd1ebd79d9b1576e130b6b0df600a"
+doc_hash = "sha256:a7f87c0c762c17e17adf75d56d932ed5d5d78403bc96639edc168bd863084f7a"
+callees = ["fn:f59a35e9cbd8b293"]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:048a5e21d3fe6756"
+name = "reference_material"
+qual = "reference_material"
+lines = [
+    142,
+    146,
+]
+hash = "sha256:a28134a5cb6997c22bfbfe5c2e72984ab221fc895eb53695a0cf9baac642cd4d"
+doc_hash = "sha256:09f294753819a2f9ea1a75c9965a14fbc1c8c36cb27d506260d816d432615d63"
+callees = ["fn:a848817c23e36bf8"]
+uses = ["fn:fe4ab311fef60459"]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:c82cedc3c6fb3a50"
+name = "linear_creep_law"
+qual = "linear_creep_law"
+lines = [
+    148,
+    164,
+]
+hash = "sha256:5a31d6fff5041249d99b2c82e55fc5be06e9179618adf66b5be4606a3521113d"
+doc_hash = "sha256:38bb622416396b3e51a35dd7b28927a6c5942504df28fccaedf622595cad99d2"
+uses = [
+    "fn:73b730f76b0f9895",
+    "fn:fe7c46e9694eb4b8",
+    "fn:feeb02b3be360dc1",
+]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:44fecbdde161fead"
+name = "relaxation_time"
+qual = "relaxation_time"
+lines = [
+    166,
+    176,
+]
+hash = "sha256:6eedb5771015d0d207b54f981254101d706ae17b8c415b497ebd4509b75e48e3"
+doc_hash = "sha256:c6f68a499959b99b6052c475fd449a0e990b5a53acdb3cf5462ac995e7783469"
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:344c11d379fd265f"
+name = "clamped_bar_relaxes_to_closed_form_exponential"
+qual = "clamped_bar_relaxes_to_closed_form_exponential"
+lines = [
+    182,
+    338,
+]
+hash = "sha256:957a4427fca8e2c347c05d6315969a34e60c3972b111361b121616ae5697d2f3"
+doc_hash = "sha256:05a48f84b16fb0812c665f5e7ba58b4ad716de9eed3fa7597a6d65c6a85e9e61"
+callees = [
+    "fn:02099b65ce05b715",
+    "fn:048a5e21d3fe6756",
+    "fn:0dda29372b4defe7",
+    "fn:1178f990a63ed83e",
+    "fn:27a3bd2a8412d493",
+    "fn:2ae038f03542083e",
+    "fn:35604fe4fbd322dd",
+    "fn:36fa75011896ea88",
+    "fn:44fecbdde161fead",
+    "fn:4a9caf9bb5f34034",
+    "fn:4aea3161a87c6021",
+    "fn:5542d71db464f60b",
+    "fn:59fe5b1ed5211786",
+    "fn:694e73f0a94d3c0f",
+    "fn:6d2ec5eab6ee7c11",
+    "fn:70997b1aa3fd6691",
+    "fn:8ce25c725811d069",
+    "fn:97425ad989a2551a",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb6ff61789851e5",
+    "fn:c82cedc3c6fb3a50",
+    "fn:d02bea3018e8882b",
+    "fn:ee33b4b2f915a269",
+    "fn:f22f3981801a5d10",
+    "fn:f24f8ff07be74b55",
+    "fn:f29e798b1d89c080",
+]
+uses = [
+    "fn:0e1058c71efc2c45",
+    "fn:1d99713b5b44b590",
+    "fn:250c638c8bd6b322",
+    "fn:8cf471b3dfcde8e5",
+    "fn:cbb2de68f053ddc9",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:9b44fb55d637bf53"
+name = "free_thermal_expansion_with_creep_produces_no_creep_strain"
+qual = "free_thermal_expansion_with_creep_produces_no_creep_strain"
+lines = [
+    344,
+    489,
+]
+hash = "sha256:ea8a2bbc2b5c98ed613a23bf662e4c59cebab7571735d89455bc344c94451fe3"
+doc_hash = "sha256:a661756aebb0efe996ff45db419a6593b54d36e270d06cc2cf879bf8cefe337e"
+callees = [
+    "fn:00a1c69a3e9e59a5",
+    "fn:048a5e21d3fe6756",
+    "fn:1178f990a63ed83e",
+    "fn:14091f710ec6ef61",
+    "fn:27a3bd2a8412d493",
+    "fn:348d01f52eaf4e2e",
+    "fn:4a9caf9bb5f34034",
+    "fn:4aea3161a87c6021",
+    "fn:59fe5b1ed5211786",
+    "fn:694e73f0a94d3c0f",
+    "fn:6ed2267648523ab8",
+    "fn:70997b1aa3fd6691",
+    "fn:8c94d9505d0981c0",
+    "fn:8ce25c725811d069",
+    "fn:9e501e5f4cce23ae",
+    "fn:a4798167222ac8a5",
+    "fn:c82cedc3c6fb3a50",
+    "fn:c890c589041075da",
+    "fn:d02bea3018e8882b",
+    "fn:d54503dfdcd009eb",
+    "fn:ee33b4b2f915a269",
+    "fn:f24f8ff07be74b55",
+    "fn:f29e798b1d89c080",
+    "fn:f44faff67d698ff7",
+]
+uses = [
+    "fn:0e1058c71efc2c45",
+    "fn:169a25de7d0b7dd3",
+    "fn:1d99713b5b44b590",
+    "fn:250c638c8bd6b322",
+    "fn:3b779c8d4a4e88ba",
+    "fn:8cf471b3dfcde8e5",
+    "fn:ab99acdb6ed1b6ff",
+    "fn:cbb2de68f053ddc9",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:70b0e305eaa0ff0a"
+name = "constitutive_state_advances_once_per_step_not_once_per_corrector"
+qual = "constitutive_state_advances_once_per_step_not_once_per_corrector"
+lines = [
+    495,
+    583,
+]
+hash = "sha256:28eb02c445ad5902050f9b9480eb90a3185fa02d4a17c9e120ddd3a6c66a4a17"
+doc_hash = "sha256:59c465001fa7d257f93299c214e815be2fb96b8f3bf2698aaeb55281dadb0cfa"
+callees = [
+    "fn:048a5e21d3fe6756",
+    "fn:1178f990a63ed83e",
+    "fn:27a3bd2a8412d493",
+    "fn:2f5213cc12cfc684",
+    "fn:36fa75011896ea88",
+    "fn:44fecbdde161fead",
+    "fn:59fe5b1ed5211786",
+    "fn:694e73f0a94d3c0f",
+    "fn:6ed2267648523ab8",
+    "fn:70997b1aa3fd6691",
+    "fn:9cf64ec150a3c7e9",
+    "fn:9e501e5f4cce23ae",
+    "fn:c82cedc3c6fb3a50",
+    "fn:d02bea3018e8882b",
+    "fn:ee33b4b2f915a269",
+    "fn:f29e798b1d89c080",
+]
+uses = [
+    "fn:0e1058c71efc2c45",
+    "fn:1d99713b5b44b590",
+    "fn:8cf471b3dfcde8e5",
+    "fn:cbb2de68f053ddc9",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:e70f44875afd7ec7"
+name = "spatially_varying_creep_keeps_the_axial_stress_uniform"
+qual = "spatially_varying_creep_keeps_the_axial_stress_uniform"
+lines = [
+    585,
+    786,
+]
+hash = "sha256:e1983de2b69c36514c1fa90c01c64809863e3b52fff94418d0e73a04544ee4f0"
+doc_hash = "sha256:13246521546d41d3b062d45a74b64c39d800d5fb19bae2b239c7d1860553bcb3"
+callees = [
+    "fn:048a5e21d3fe6756",
+    "fn:1178f990a63ed83e",
+    "fn:27a3bd2a8412d493",
+    "fn:2f5213cc12cfc684",
+    "fn:348d01f52eaf4e2e",
+    "fn:36fa75011896ea88",
+    "fn:44fecbdde161fead",
+    "fn:4aea3161a87c6021",
+    "fn:59fe5b1ed5211786",
+    "fn:694e73f0a94d3c0f",
+    "fn:6ed2267648523ab8",
+    "fn:70997b1aa3fd6691",
+    "fn:8ce25c725811d069",
+    "fn:8d8222679b330ce7",
+    "fn:9e501e5f4cce23ae",
+    "fn:b0e77fa65a0d34c4",
+    "fn:c82cedc3c6fb3a50",
+    "fn:d02bea3018e8882b",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:0e1058c71efc2c45",
+    "fn:1d99713b5b44b590",
+    "fn:7217c4fc0f1bc32b",
+    "fn:73b730f76b0f9895",
+    "fn:75b64c5620c869e8",
+    "fn:8cf471b3dfcde8e5",
+    "fn:cbb2de68f053ddc9",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:3773d2212308d18d"
+name = "creep_time_step_control_bounds_the_next_step"
+qual = "creep_time_step_control_bounds_the_next_step"
+lines = [
+    788,
+    869,
+]
+hash = "sha256:6b275ff4b0976ade646afbe40f394d47a3fc4a25f9f89843c69e86add3099d83"
+doc_hash = "sha256:85ff0f5992b4f243cc86730cc1b666b9e29e59c5c74867e507e6af61b26db03e"
+callees = [
+    "fn:048a5e21d3fe6756",
+    "fn:1178f990a63ed83e",
+    "fn:27a3bd2a8412d493",
+    "fn:36fa75011896ea88",
+    "fn:44fecbdde161fead",
+    "fn:59fe5b1ed5211786",
+    "fn:694e73f0a94d3c0f",
+    "fn:70997b1aa3fd6691",
+    "fn:9e501e5f4cce23ae",
+    "fn:c82cedc3c6fb3a50",
+    "fn:cdf459af02a76c06",
+    "fn:d02bea3018e8882b",
+    "fn:ee33b4b2f915a269",
+    "fn:f29e798b1d89c080",
+]
+uses = [
+    "fn:0e1058c71efc2c45",
+    "fn:1d99713b5b44b590",
+    "fn:8cf471b3dfcde8e5",
+    "fn:cbb2de68f053ddc9",
+    "fn:dcd6291ca4f5524f",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."rheology_tests.rs".function]]
+id = "fn:9edb2e6cf04be351"
+name = "creep_step_rejects_a_missing_law_and_a_negative_timestep"
+qual = "creep_step_rejects_a_missing_law_and_a_negative_timestep"
+lines = [
+    871,
+    900,
+]
+hash = "sha256:f5c091d6a0a062d05ecb193f63ccf7bc22274aae1acbc9f563af2907b87ca321"
+doc_hash = "sha256:902aa123cee4f34589673fe52cdf2a34f3d16688e5638d0a16c9623589b02309"
+callees = [
+    "fn:048a5e21d3fe6756",
+    "fn:1178f990a63ed83e",
+    "fn:27a3bd2a8412d493",
+    "fn:70997b1aa3fd6691",
+    "fn:9e501e5f4cce23ae",
+    "fn:d02bea3018e8882b",
+    "fn:ee33b4b2f915a269",
+    "fn:f29e798b1d89c080",
+]
+uses = [
+    "fn:0e1058c71efc2c45",
+    "fn:1d99713b5b44b590",
+    "fn:73b730f76b0f9895",
+    "fn:cbb2de68f053ddc9",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[module."tests.rs"]
+path = "crate::mechanics::solver::tests"
+
+[[module."tests.rs".function]]
+id = "fn:46fb393965a9717f"
+name = "line_mesh"
+qual = "line_mesh"
+lines = [
+    28,
+    82,
+]
+hash = "sha256:4b9bae2443e895e2c39251c711536fb491c5e3b1a53f6f2c3af0fdf9f7d11b89"
+doc_hash = "sha256:603cbe015ccb1a557fe20afa2d8fe37a131102135ff9b9390389d3a07bb44097"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:cc06dc846a7c99aa"
+name = "clamped_all"
+qual = "clamped_all"
+lines = [
+    84,
+    90,
+]
+hash = "sha256:2c496bf47c48f63b73072420564bd291c9314be949dd17a356faf9012d75be77"
+doc_hash = "sha256:a36c8aa1d63f064311e89c418ae4161913672856bd456d66afedf8b6ac55583e"
+callees = [
+    "fn:8d8222679b330ce7",
+    "fn:9e501e5f4cce23ae",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:75b64c5620c869e8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:878e830be7930866"
+name = "reference_material"
+qual = "reference_material"
+lines = [
+    92,
+    98,
+]
+hash = "sha256:a28134a5cb6997c22bfbfe5c2e72984ab221fc895eb53695a0cf9baac642cd4d"
+doc_hash = "sha256:26bf5f9d3e6de9242304f01d0d4b3aab2e0f50365d174f699eb5765708cbfaef"
+callees = ["fn:a848817c23e36bf8"]
+uses = ["fn:fe4ab311fef60459"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:052c4ce33a1e605f"
+name = "lame_parameters_match_closed_form"
+qual = "lame_parameters_match_closed_form"
+lines = [
+    100,
+    132,
+]
+hash = "sha256:0bbb87beec021f4bb1577294e0438b428255fd8bd19516071189c5bb09e844c2"
+doc_hash = "sha256:b2d090a3a2de7e36aff1fedd593d855d42f4ae70a81b7dde82248959cc63f051"
+callees = [
+    "fn:36fa75011896ea88",
+    "fn:878e830be7930866",
+    "fn:97425ad989a2551a",
+    "fn:f24f8ff07be74b55",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ac40d92cbc5e5862"
+name = "unphysical_elastic_constants_are_rejected"
+qual = "unphysical_elastic_constants_are_rejected"
+lines = [
+    134,
+    144,
+]
+hash = "sha256:4a1300cafa5d6243557c4ce2d44fdd58b580878b94550ff24c82ad3cf0ef13d8"
+doc_hash = "sha256:cf24c80a54c04d05aa5f561be34efe2262b3ccf062abcd305164bc8986c6d6e5"
+callees = ["fn:a848817c23e36bf8"]
+uses = ["fn:fe4ab311fef60459"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6f3314baf4efef98"
+name = "fully_constrained_eigenstrain_gives_hydrostatic_compression"
+qual = "fully_constrained_eigenstrain_gives_hydrostatic_compression"
+lines = [
+    146,
+    208,
+]
+hash = "sha256:28eb99890a51076dabbee55254c37b2724133d216c23385af3f582eb67b73c8a"
+doc_hash = "sha256:e39ca588b87f641ebfe79bec999399e7ec3732db9d8ceb2bb2731c1da9d3944a"
+callees = [
+    "fn:00a1c69a3e9e59a5",
+    "fn:3181e8908c7995ba",
+    "fn:46fb393965a9717f",
+    "fn:4aea3161a87c6021",
+    "fn:70997b1aa3fd6691",
+    "fn:878e830be7930866",
+    "fn:8c94d9505d0981c0",
+    "fn:8ce25c725811d069",
+    "fn:a4798167222ac8a5",
+    "fn:cc06dc846a7c99aa",
+    "fn:f24f8ff07be74b55",
+]
+uses = [
+    "fn:1d99713b5b44b590",
+    "fn:3b779c8d4a4e88ba",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b1df73bf5c9b4a9f"
+name = "stress_is_linear_in_eigenstrain"
+qual = "stress_is_linear_in_eigenstrain"
+lines = [
+    210,
+    237,
+]
+hash = "sha256:c3cd16e659ed39c174051106856273bc51233d23263b2955b4b08364d3d56807"
+doc_hash = "sha256:9c6c3435108958e65b297dacdf26da4d195863d2668ae930521d188428ea6df2"
+callees = [
+    "fn:00a1c69a3e9e59a5",
+    "fn:3181e8908c7995ba",
+    "fn:46fb393965a9717f",
+    "fn:4aea3161a87c6021",
+    "fn:70997b1aa3fd6691",
+    "fn:878e830be7930866",
+    "fn:8ce25c725811d069",
+    "fn:a4798167222ac8a5",
+    "fn:cc06dc846a7c99aa",
+]
+uses = [
+    "fn:1d99713b5b44b590",
+    "fn:3b779c8d4a4e88ba",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:61f42f25ce248783"
+name = "eigenstrain_sources_superpose_and_cancel"
+qual = "eigenstrain_sources_superpose_and_cancel"
+lines = [
+    239,
+    282,
+]
+hash = "sha256:ab76314463b232da810e044375d5546e9f02612e04fedd50bd420b2ddccd130b"
+doc_hash = "sha256:2ebc0132faf3505c630b09ed14ebf2808b595065f88accf957b62731d9bb816d"
+callees = [
+    "fn:00a1c69a3e9e59a5",
+    "fn:3181e8908c7995ba",
+    "fn:46fb393965a9717f",
+    "fn:4aea3161a87c6021",
+    "fn:70997b1aa3fd6691",
+    "fn:878e830be7930866",
+    "fn:8ce25c725811d069",
+    "fn:cc06dc846a7c99aa",
+]
+uses = [
+    "fn:1d99713b5b44b590",
+    "fn:3b779c8d4a4e88ba",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0cd228709d7604e6"
+name = "imposed_uniform_strain_gives_oedometric_stress"
+qual = "imposed_uniform_strain_gives_oedometric_stress"
+lines = [
+    284,
+    345,
+]
+hash = "sha256:5189f4c8733b7da369323500cfc1d4c167c741d1ec902f4987726fb5655de821"
+doc_hash = "sha256:7e3560adf26625ebdcddd0400d559016469c7aaea550a7a7d17384dd36dc4e62"
+callees = [
+    "fn:2f5213cc12cfc684",
+    "fn:3181e8908c7995ba",
+    "fn:46fb393965a9717f",
+    "fn:4aea3161a87c6021",
+    "fn:70997b1aa3fd6691",
+    "fn:878e830be7930866",
+    "fn:8ce25c725811d069",
+    "fn:8d8222679b330ce7",
+    "fn:9e501e5f4cce23ae",
+    "fn:f22f3981801a5d10",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:1d99713b5b44b590",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d2356d674efa4e6c"
+name = "displacement_profile_is_linear"
+qual = "displacement_profile_is_linear"
+lines = [
+    347,
+    391,
+]
+hash = "sha256:1fcff0f028336b868213157e8bad9643c7a608cda952f36152192a6bc94d904f"
+doc_hash = "sha256:50cced7a30893d232823cb5ad7b39d8a27619315ad393bc04d2d9b6d472ebb9f"
+callees = [
+    "fn:2f5213cc12cfc684",
+    "fn:3181e8908c7995ba",
+    "fn:348d01f52eaf4e2e",
+    "fn:46fb393965a9717f",
+    "fn:4aea3161a87c6021",
+    "fn:70997b1aa3fd6691",
+    "fn:878e830be7930866",
+    "fn:8d8222679b330ce7",
+    "fn:9e501e5f4cce23ae",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:1d99713b5b44b590",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:735d153514bbbb92"
+name = "imposed_strain_solution_is_grid_independent"
+qual = "imposed_strain_solution_is_grid_independent"
+lines = [
+    393,
+    463,
+]
+hash = "sha256:d9a6567d595c2270f175e6f3fa352e7b2c9a6bc62e0430c7a8656a1fa4ac90b6"
+doc_hash = "sha256:e486ff3ba18ddfc00042e772927daeb39c63a9a0277c21e450264628a86c40b1"
+callees = [
+    "fn:3181e8908c7995ba",
+    "fn:348d01f52eaf4e2e",
+    "fn:46fb393965a9717f",
+    "fn:4aea3161a87c6021",
+    "fn:70997b1aa3fd6691",
+    "fn:878e830be7930866",
+    "fn:8ce25c725811d069",
+    "fn:8d8222679b330ce7",
+    "fn:9e501e5f4cce23ae",
+    "fn:f22f3981801a5d10",
+]
+uses = [
+    "fn:1d99713b5b44b590",
+    "fn:75b64c5620c869e8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3cb71b54b0f6e808"
+name = "the_matpro_zircaloy_poisson_crossover_refuses_the_case_rather_than_clamping"
+qual = "the_matpro_zircaloy_poisson_crossover_refuses_the_case_rather_than_clamping"
+lines = [
+    465,
+    549,
+]
+hash = "sha256:71f2f7eeda09b51fd74bdf653df4699aaf6fee106be06ddc903ff7954fc8e73b"
+doc_hash = "sha256:83bed24e49efcffa51a84cee62b6d82058f36f91f289fd50270c216ae644af1c"
+callees = [
+    "fn:14f22354d5039df4",
+    "fn:28dcc1657732ef62",
+    "fn:59fe5b1ed5211786",
+    "fn:97425ad989a2551a",
+]
+uses = [
+    "fn:1548415144f100f1",
+    "fn:5ae5329d7a4bd69e",
+    "fn:8cf471b3dfcde8e5",
+    "fn:a3d963a4f0e4783d",
+    "fn:fe4ab311fef60459",
+]
+test = true

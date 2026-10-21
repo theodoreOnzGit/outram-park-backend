@@ -13,6 +13,7 @@
 //! [`DepartureTerm::Gaussian`]/[`DepartureTerm::GergExponential`] — no special
 //! casing needed).
 
+use petir::mathf::RealMath;
 use crate::eos::HelmholtzDerivs;
 
 /// One term of a binary departure function.
@@ -62,10 +63,10 @@ impl DepartureTerm {
                 let (e, dl) = if l == 0.0 {
                     (1.0, 0.0)
                 } else {
-                    let dpow_l = delta.powf(l);
-                    ((-dpow_l).exp(), l * dpow_l)
+                    let dpow_l = delta.r_powf(l);
+                    ((-dpow_l).r_exp(), l * dpow_l)
                 };
-                let a = n * delta.powf(d) * tau.powf(t) * e;
+                let a = n * delta.r_powf(d) * tau.r_powf(t) * e;
                 let fd = (d - dl) / delta;
                 let ft = t / tau;
                 let fdd = ((d - dl) * (d - 1.0 - dl) - l * dl) / (delta * delta);
@@ -81,8 +82,8 @@ impl DepartureTerm {
                 gamma,
             } => {
                 // Identical to ResidualTerm::Gaussian's per-term math (eos.rs).
-                let g = (-eta * (delta - epsilon).powi(2) - beta * (tau - gamma).powi(2)).exp();
-                let a = n * delta.powf(d) * tau.powf(t) * g;
+                let g = (-eta * (delta - epsilon).r_powi(2) - beta * (tau - gamma).r_powi(2)).r_exp();
+                let a = n * delta.r_powf(d) * tau.r_powf(t) * g;
                 let fd = d / delta - 2.0 * eta * (delta - epsilon);
                 let ft = t / tau - 2.0 * beta * (tau - gamma);
                 add(
@@ -109,7 +110,7 @@ impl DepartureTerm {
                 let dm = delta - epsilon;
                 let u = -eta * dm * dm - beta * (delta - gamma);
                 let du_ddelta = -2.0 * eta * dm - beta;
-                let a = n * delta.powf(d) * tau.powf(t) * u.exp();
+                let a = n * delta.r_powf(d) * tau.r_powf(t) * u.r_exp();
                 let fd = d / delta + du_ddelta;
                 let ft = t / tau;
                 let dfd_ddelta = -d / (delta * delta) - 2.0 * eta;

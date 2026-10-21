@@ -1,5 +1,20 @@
 # kovan-metrics
 
+**KOVAN** — **K**nowledge **O**riented **V**&V **A**nalysis for **N**uclear
+**S**ciences. This crate is part of KOVAN: its repository
+accounting (token trailers and the historian report).
+
+> **On crates.io (2026-10-07):** the KOVAN app is published as
+> `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`, its backronym
+> spelled out (`kovan` on crates.io is an unrelated crate). Install it with
+> `cargo install knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`;
+> the binaries are still `kovan`, `kovan-cli` and `kovan-tui`, and the library
+> is still `kovan`.
+
+> ⚠️ **Research, education and V&V only.** Not for nuclear facility operation,
+> reactor control, licensing, safety-critical decisions or emergency response.
+> See the workspace `RESPONSIBLE_USE.md`.
+
 **KOVAN repository accounting** — per-commit API-token trailers and the
 pre-merge-to-`main` historian report, for the OUTRAM PARK workspace.
 
@@ -10,18 +25,23 @@ Python interpreter**: on Windows, `python3` routinely resolves to a Microsoft
 Store alias stub that prints an advert and exits, which silently turned the git
 hooks into no-ops and let commits ship carrying no `API-Usage` trailer at all.
 
-Driven through the `kovan` CLI (`crates/kovan`):
+~~Driven through the `kovan` CLI (`crates/kovan`):~~ **CORRECTED 2026-09-25** —
+driven through the **`kovan-cli`** binary (`crates/kovan`). Since the 3-binary
+split of 2026-08-21, `kovan` is the GUI and hangs a headless session; the
+`tokens` and `historian` subcommands live on `kovan-cli` (checked with
+`kovan-cli --help` and `kovan-cli tokens --help`), and `.githooks/kovan-bin.sh`
+resolves `kovan-cli`, not `kovan`. The block below previously read `kovan …`:
 
 ```bash
-kovan tokens trailer <msgfile>   # prepare-commit-msg: stamp the trailers
-kovan tokens record              # post-commit: advance baseline, refresh ledger
-kovan tokens report              # regenerate docs/token-usage.md
-kovan tokens init                # stamp the baseline (installer)
-kovan tokens show                # live cumulative + delta since last commit
-kovan tokens query --from 010826 --to 130826 --branch develop [--per-commit] [--json]
+kovan-cli tokens trailer <msgfile>   # prepare-commit-msg: stamp the trailers
+kovan-cli tokens record              # post-commit: advance baseline, refresh ledger
+kovan-cli tokens report              # regenerate docs/token-usage.md
+kovan-cli tokens init                # stamp the baseline (installer)
+kovan-cli tokens show                # live cumulative + delta since last commit
+kovan-cli tokens query --from 010826 --to 130826 --branch develop [--per-commit] [--json]
 
-kovan historian --from 010826 --to 130826           # explicit window
-kovan historian                                     # develop not yet on main
+kovan-cli historian --from 010826 --to 130826           # explicit window
+kovan-cli historian                                     # develop not yet on main
 ```
 
 ## What it measures, and from where
@@ -45,8 +65,8 @@ touched. The baseline that makes this meaningful lives at
 
 **Never block a commit.** The write-side entry points run inside
 `prepare-commit-msg` and `post-commit`. They swallow their own errors and
-degrade to a zero/`source=none` trailer rather than failing. A missing `kovan`
-binary is a no-op, not an error.
+degrade to a zero/`source=none` trailer rather than failing. A missing ~~`kovan`~~
+`kovan-cli` (**CORRECTED 2026-09-25**, see above) binary is a no-op, not an error.
 
 **Never invent a number.** A commit made outside a Claude session honestly reads
 `total=0 source=none`; a commit predating the hooks honestly carries no trailer
@@ -68,6 +88,36 @@ binary, which `kovan-discovery`'s typed `CommitInfo` cannot express (it carries
 no message body and no diff statistics). That is safe here because this code
 runs inside git hooks, where `git` is present by construction.
 
+## Zotero library and import accounting (`zotero`, GitHub #751)
+
+Kovan's own accounting over a Zotero library, built on `kovan-common`'s port
+of the Zotero data model and its `ZoteroItem` -> `KovanDocument` conversion
+(#748). Not a port: Zotero has no import report.
+
+| API | What |
+|---|---|
+| `LibraryCounts::of(&lib)` | items per item type, per collection (direct and including subcollections), per tag (manual/automatic), per attachment link mode, per annotation type, per relation predicate; saved searches; top-level, child, trashed and unfiled totals |
+| `import_library(&lib) -> (Vec<KovanDocument>, ImportReport)` | converts every top-level, non-trashed regular item with a key; skips children, standalone notes/attachments/annotations, trashed, keyless and duplicate-key items, each with its reason |
+| `.to_markdown()` on both | deterministic Markdown reports (sorted; no time, locale or file system) |
+
+**How "lossy" is measured.** Empirically, from the conversion itself: each
+item goes Zotero -> kovan -> Zotero with the verbatim `zotero_item` copy
+removed, and every property the round trip does not reproduce is reported as
+*dropped*, *altered* (e.g. `date` kept only as a year) or *moved to Extra*.
+Fields are compared through their base field. "Lossy" means **not carried by
+kovan's own document fields**: the item itself is kept in `zotero_item`, so
+the full round trip is lossless. Skipped child items are preserved nowhere.
+
+**V&V** (`tests/zotero_accounting.rs`, methodology and results in its doc
+comment). On Zotero's own `itemJSON` fixture (one item of each of the 37
+regular item types, every field filled) the report gives 37 imported, 0
+skipped, 839 loss entries over 105 properties; the journal article's 28
+losses were predicted from kovan-common's documented field map before the
+first run and matched exactly. Seven tests, all passing on the first run
+(2026-10-07).
+
+**Maturity: AI draft (1).**
+
 ## Bookkeeping status
 
 > Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping
@@ -87,7 +137,7 @@ runs inside git hooks, where `git` is present by construction.
 > the scripts were deleted the same day ("we will just dogfood rust ones in
 > kovan from now on"). A direct comparison is therefore **no longer possible
 > without recovering them from git history** — they were last present at commit
-> `c12624a41e`. This crate's outputs are covered by its own 37 unit tests and by
+> `c12624a41e`. This crate's outputs are covered by its own ~~37 unit tests~~ unit tests (**CORRECTED 2026-09-25** — `grep` now counts 88 `#[test]` functions under `src/`, many added with the later `kloc` module, plus 4 in `tests/kloc_parity.rs`; counted, not run) and by
 > hand-verification against real repository history, **not** by equivalence to
 > the originals. Note also that equivalence would have been the wrong bar: the
 > Python's transcript-directory slug never matched on Windows, so it read zero
@@ -95,4 +145,4 @@ runs inside git hooks, where `git` is present by construction.
 
 ## Licence
 
-GPL-3.0, as the rest of the workspace.
+~~GPL-3.0.~~ **AGPL-3.0-only since 2026-10-07**, like all of kovan (see [`NOTICE`](NOTICE)).

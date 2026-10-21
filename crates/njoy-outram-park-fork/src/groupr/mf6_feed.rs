@@ -526,13 +526,7 @@ impl Mf6Feed {
             // `:7988-7997`.
             let (law, lang, lep, int_raw, nne) = {
                 let sub = &self.subs[iss];
-                (
-                    sub.law,
-                    sub.lang,
-                    sub.lep,
-                    sub.int_code,
-                    sub.tables.len(),
-                )
+                (sub.law, sub.lang, sub.lep, sub.int_code, sub.tables.len())
             };
             let mut lepn = lep;
             if law == 1 && self.lct == 2 {

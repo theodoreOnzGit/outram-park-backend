@@ -1,0 +1,1042 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-appbuilder-lib"
+dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence"
+test_ids = [
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::drag_coefficient_degenerate_case_is_finite_not_nan",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::drag_coefficient_round_trips_through_kd",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::lahey_bubble_induced_eddy_viscosity_reference_value",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::lahey_bubble_terms_vanish_at_zero_void_fraction",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::mixture_ct0_tends_to_one_as_beta_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::mixture_ct2_collapses_to_ct0_squared_at_zero_void_fraction",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::mixture_effective_gas_density_reference_value",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::mixture_quantities_reduce_to_liquid_only_at_alpha_liquid_one",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::nut_stabilization_vanishes_as_laminar_re_struct_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::porous_2phase_equilibrium_k_reduces_to_1phase_at_zero_alpha_coeff",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::porous_equilibrium_epsilon_matches_openfoam_mixing_length_correlation",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/turbulence/tests.rs::porous_equilibrium_k_matches_openfoam_intensity_correlation",
+]
+
+[module."lahey_k_epsilon.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::turbulence::lahey_k_epsilon"
+
+[[module."lahey_k_epsilon.rs".function]]
+id = "fn:a8813d076e85df4d"
+name = "LaheyBubbleClosure"
+qual = "LaheyBubbleClosure"
+item = "type"
+shape = "struct"
+lines = [
+    64,
+    84,
+]
+hash = "sha256:71f8c5e7e7847a7c2cadaecb041bd503c88711ce4248c2872777131721a20c7a"
+doc_hash = "sha256:f1bacae5866cbead45d92cc4e51af391458bc6fdb85ed4bec20c8a9e6df2de75"
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."lahey_k_epsilon.rs".function]]
+id = "fn:9505694ce6ee1b48"
+name = "new_default"
+qual = "LaheyBubbleClosure::new_default"
+lines = [
+    87,
+    96,
+]
+hash = "sha256:f168808c693d13c407d7b5eb1e2e70b5ab728ddd9d76d4d36de93e4ea064a16f"
+doc_hash = "sha256:7ac2baa0829889b48141e105b63aa6583aceca289bd0ae819c79e6ec01aa9ce8"
+uses = ["fn:a8813d076e85df4d"]
+reached_by = [
+    "#2",
+    "#3",
+]
+
+[[module."lahey_k_epsilon.rs".function]]
+id = "fn:a62ebdaf05c68561"
+name = "drag_coefficient"
+qual = "LaheyBubbleClosure::drag_coefficient"
+lines = [
+    98,
+    118,
+]
+hash = "sha256:1ba4daca904dc9a4d685e46e3d36d0b3bf973dd13fa7194d0594ecc23909dc3a"
+doc_hash = "sha256:cfa3dc95f60ba19c710537a3d43576545744be06d5255bd084da0c3c123f0fae"
+callees = ["fn:efe5fc1f1b79e0b1"]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:1b659534ab5ec8e0",
+    "fn:1dde93839c85f8d8",
+    "fn:5ef60b6ae229ce72",
+    "fn:a8813d076e85df4d",
+    "fn:c63a9b892cf7bef0",
+]
+physical_interface = true
+
+[[module."lahey_k_epsilon.rs".function]]
+id = "fn:3d47b0c601d94f0e"
+name = "bubble_induced_eddy_viscosity"
+qual = "LaheyBubbleClosure::bubble_induced_eddy_viscosity"
+lines = [
+    120,
+    139,
+]
+hash = "sha256:e1c40a2d3883666081d8337d2b11a627e518d2b5997f3c36412a10684923dafe"
+doc_hash = "sha256:f75aa47b1b630c6aefda99e6d5b30442a52a604a6f0373a4438f48f693807cc4"
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:4de9934014aa2fee",
+    "fn:5ef60b6ae229ce72",
+    "fn:a8813d076e85df4d",
+    "fn:c63a9b892cf7bef0",
+]
+reached_by = [
+    "#2",
+    "#3",
+]
+physical_interface = true
+
+[[module."lahey_k_epsilon.rs".function]]
+id = "fn:6ae49c4d25b76d6c"
+name = "bubble_induced_production"
+qual = "LaheyBubbleClosure::bubble_induced_production"
+lines = [
+    141,
+    162,
+]
+hash = "sha256:b4c020dbfa34f8871437b6e781e2c781798afb3b366c85dd07443b6d7cd8e651"
+doc_hash = "sha256:ff29c684699cf68a9c477586e612a25aeba51c54b357b3b95bccc5d1d8d8f3f0"
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:1b399ad6a8d9729a",
+    "fn:1dde93839c85f8d8",
+    "fn:5ef60b6ae229ce72",
+    "fn:a8813d076e85df4d",
+    "fn:c63a9b892cf7bef0",
+]
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."lahey_k_epsilon.rs".function]]
+id = "fn:0126f85fb374d4fb"
+name = "phase_transfer_rate"
+qual = "LaheyBubbleClosure::phase_transfer_rate"
+lines = [
+    164,
+    188,
+]
+hash = "sha256:5c4020e304c24bc2167d0043c66a65dedc66962925f125785e3b3db0a9041a38"
+doc_hash = "sha256:ef6fa45413be97206c58c2704f57a15d0e7289910c6a2bbd3d1d552be81059b0"
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:a8813d076e85df4d",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+]
+physical_interface = true
+
+[[module."lahey_k_epsilon.rs".function]]
+id = "fn:fdc323ef86c1ce5b"
+name = "k_production_rate"
+qual = "LaheyBubbleClosure::k_production_rate"
+lines = [
+    190,
+    219,
+]
+hash = "sha256:627c00a6de0ca66d41e00e47aa783a3687777497f261467a490a83518ce096ba"
+doc_hash = "sha256:9d6d185aa12c0564c48f7ec77a511ac3f2217d442635e0f0301c0451949616be"
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:a8813d076e85df4d",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+]
+physical_interface = true
+
+[[module."lahey_k_epsilon.rs".function]]
+id = "fn:4ae9c5daceb0e31a"
+name = "epsilon_production_rate"
+qual = "LaheyBubbleClosure::epsilon_production_rate"
+lines = [
+    221,
+    254,
+]
+hash = "sha256:9f0c4895d9783c2ab5b809b627b396e73a3c6594f0256cc308f18fa71169e768"
+doc_hash = "sha256:1f4de267571a03b28b6720d31350eabccd474f1161e1f5324a48ae8e66efcc22"
+callees = ["fn:77e5c440dee420bd"]
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:82936655360e409d",
+    "fn:a8813d076e85df4d",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+]
+physical_interface = true
+
+[module."mixture_k_epsilon.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::turbulence::mixture_k_epsilon"
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:7fd8889e6ee7a271"
+name = "MixtureKEpsilonClosure"
+qual = "MixtureKEpsilonClosure"
+item = "type"
+shape = "struct"
+lines = [
+    71,
+    89,
+]
+hash = "sha256:986e549f48656405c9f79df5911163d87abd9bae3edc9a679cef0e7c7cb9bb79"
+doc_hash = "sha256:40a9c3138e40ffca8647ff33bd65d6471db18d7a5adc8c74794dd661580849bb"
+reached_by = [
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:5ef85a5577c0835d"
+name = "new_default"
+qual = "MixtureKEpsilonClosure::new_default"
+lines = [
+    92,
+    101,
+]
+hash = "sha256:e52658a003d5460d3a93942f764b7e038c71f388da693cd1571033a1013268df"
+doc_hash = "sha256:7078fc6a16fb7ff68aa92f3bc5a26f016b8e423d1735dd9bbde5bed3eaf85762"
+uses = ["fn:7fd8889e6ee7a271"]
+reached_by = [
+    "#4",
+    "#5",
+]
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:643daf00892e4130"
+name = "drag_coefficient"
+qual = "MixtureKEpsilonClosure::drag_coefficient"
+lines = [
+    103,
+    123,
+]
+hash = "sha256:1ba4daca904dc9a4d685e46e3d36d0b3bf973dd13fa7194d0594ecc23909dc3a"
+doc_hash = "sha256:84638755bf78707934731949b5e02da41440128d7da945360760f85399c2f308"
+callees = ["fn:efe5fc1f1b79e0b1"]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:1b659534ab5ec8e0",
+    "fn:1dde93839c85f8d8",
+    "fn:5ef60b6ae229ce72",
+    "fn:7fd8889e6ee7a271",
+    "fn:c63a9b892cf7bef0",
+]
+physical_interface = true
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:781d9328752a7aa5"
+name = "dispersion_coefficient"
+qual = "MixtureKEpsilonClosure::dispersion_coefficient"
+lines = [
+    125,
+    161,
+]
+hash = "sha256:5021e0551a534df8396df834b67e33d348c7e014f510603368e9b451362e758b"
+doc_hash = "sha256:0d8c711047ab7128c7d75ede1bd9969e412c4224015c74f50804f60a88294df2"
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:1b659534ab5ec8e0",
+    "fn:7fd8889e6ee7a271",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+]
+reached_by = [
+    "#4",
+    "#5",
+]
+physical_interface = true
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:eef5c4194bfc17ca"
+name = "effective_gas_density"
+qual = "MixtureKEpsilonClosure::effective_gas_density"
+lines = [
+    163,
+    177,
+]
+hash = "sha256:6c12c913cd226043d5f558ebd345e5216792806d7dd21864da05c19428e45ee8"
+doc_hash = "sha256:a8882c9fd5c6468206e1990155db6b6efc6322e9f8de677d025bac2c5ecabb02"
+uses = ["fn:7fd8889e6ee7a271"]
+reached_by = ["#6"]
+physical_interface = true
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:88d93dfff0719e3c"
+name = "mixture_density"
+qual = "MixtureKEpsilonClosure::mixture_density"
+lines = [
+    179,
+    190,
+]
+hash = "sha256:870cfa5496f7cf10123a215673ee46a91394f765984665d5644c29e92f5a7bb8"
+doc_hash = "sha256:8271549b01b426e0fee6ae1cc4a5e0d2f4eb40c44e4f2b1894d1afbde4acee8d"
+uses = [
+    "fn:7fd8889e6ee7a271",
+    "fn:c63a9b892cf7bef0",
+]
+reached_by = ["#7"]
+physical_interface = true
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:71c5a598e15ce4ec"
+name = "mix_k"
+qual = "MixtureKEpsilonClosure::mix_k"
+lines = [
+    192,
+    215,
+]
+hash = "sha256:dc2f7c61a5587e7ab1a2d785dcc3edb27a6a15086d5e2826315972db12db2e43"
+doc_hash = "sha256:6ad14e65f954a3b58d5bf3e59ad829e17f75ea5b0c45296e329f00fff80ad286"
+callees = ["fn:88d93dfff0719e3c"]
+uses = [
+    "fn:7fd8889e6ee7a271",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+]
+reached_by = ["#7"]
+physical_interface = true
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:4fe38d2466616310"
+name = "mix_epsilon"
+qual = "MixtureKEpsilonClosure::mix_epsilon"
+lines = [
+    217,
+    239,
+]
+hash = "sha256:8a6b28a5d8df32817832b5717383209ac6176fe9f5b0c0e7ee0fb8563fa2c057"
+doc_hash = "sha256:c32ea92b51ef1771fc38d50e4ad138bc2660baef993a5d6cc9caaa9b19f5c09d"
+callees = ["fn:88d93dfff0719e3c"]
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:7fd8889e6ee7a271",
+    "fn:c63a9b892cf7bef0",
+]
+reached_by = ["#7"]
+physical_interface = true
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:282ad8bfb75cf17a"
+name = "bubble_induced_production"
+qual = "MixtureKEpsilonClosure::bubble_induced_production"
+lines = [
+    241,
+    268,
+]
+hash = "sha256:1438316031dcbbe6a580d070e2495580f3ea1a8c00b0c4c31ae610c0d60ef6aa"
+doc_hash = "sha256:d725a354f666d3c6993d3f60ed109bfe858178edfe9f570a444daedd7bc6f57f"
+callees = ["fn:fab6d453a863f32e"]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:1dde93839c85f8d8",
+    "fn:5ef60b6ae229ce72",
+    "fn:7fd8889e6ee7a271",
+    "fn:98ecbbbecb50ff80",
+    "fn:c63a9b892cf7bef0",
+]
+physical_interface = true
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:c2e59846868a94ff"
+name = "k_production_rate"
+qual = "MixtureKEpsilonClosure::k_production_rate"
+lines = [
+    270,
+    281,
+]
+hash = "sha256:bb3c5255fdf732c5e007b2713800ea978faafd1d12f4cbb7e67693cdb1b2cfd8"
+doc_hash = "sha256:fb535657c7d10195f109710970edd4b6e6a53683d37bec00167efc85f27cacc1"
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:7fd8889e6ee7a271",
+    "fn:98ecbbbecb50ff80",
+]
+physical_interface = true
+
+[[module."mixture_k_epsilon.rs".function]]
+id = "fn:e7a5207b486a7e58"
+name = "epsilon_production_rate"
+qual = "MixtureKEpsilonClosure::epsilon_production_rate"
+lines = [
+    283,
+    299,
+]
+hash = "sha256:d58f14d74251234591d58aaf8010440b9574632775a42572611dd13aa89444f8"
+doc_hash = "sha256:99c2c889a019f5846623c87b5b02f41d8ff9a04ce66bdba186865b533ef04976"
+callees = ["fn:77e5c440dee420bd"]
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:7fd8889e6ee7a271",
+    "fn:82936655360e409d",
+    "fn:98ecbbbecb50ff80",
+    "fn:b05693c22af2782f",
+]
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::turbulence"
+
+[[module."mod.rs".function]]
+id = "fn:efe5fc1f1b79e0b1"
+name = "drag_coefficient_from_kd"
+qual = "drag_coefficient_from_kd"
+lines = [
+    113,
+    156,
+]
+hash = "sha256:01be438992c169cef290721813f2e66c88ad194b86fc9656149abc5ec8bd3792"
+doc_hash = "sha256:a44cbdebb78a917ff839a5d3d23e098241a25fb6daec98ac257ab81585c973e2"
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:1b659534ab5ec8e0",
+    "fn:1dde93839c85f8d8",
+    "fn:5ef60b6ae229ce72",
+    "fn:c63a9b892cf7bef0",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[module."porous_k_epsilon.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::turbulence::porous_k_epsilon"
+
+[[module."porous_k_epsilon.rs".function]]
+id = "fn:36222f09c9a803eb"
+name = "SMALL_LENGTH"
+qual = "SMALL_LENGTH"
+item = "const"
+shape = "const"
+lines = [
+    78,
+    81,
+]
+hash = "sha256:c8f6bf6a6d9544cd7b38034b6ce8d3aa224db6857ec946ca6b8f677c26b4c4ad"
+doc_hash = "sha256:867ecafef574a5d92e6c4fc914562ee7134ca10838673d07675204d665507d60"
+reached_by = ["#10"]
+
+[[module."porous_k_epsilon.rs".function]]
+id = "fn:ee1995f1fe422097"
+name = "PorousKEpsilonClosure"
+qual = "PorousKEpsilonClosure"
+item = "type"
+shape = "struct"
+lines = [
+    83,
+    105,
+]
+hash = "sha256:c2aa5ab734de66e2d624471b59ecf8f4de879d94716124680b46ef1b6900eafb"
+doc_hash = "sha256:45534979665ce8b7e5aaaef47977155d850bdb29ff60c47195ae60771013ebd1"
+reached_by = [
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."porous_k_epsilon.rs".function]]
+id = "fn:cfdf3da03bc8663a"
+name = "equilibrium_k"
+qual = "PorousKEpsilonClosure::equilibrium_k"
+lines = [
+    108,
+    125,
+]
+hash = "sha256:80ab83f9c73189ef395f0fd037987c00b9890dfd9a0ee64976169ad3d5f20e68"
+doc_hash = "sha256:21cb6e498b403840c3218cab9a8ef0a3a01cbfb1434d75c75a24b697a6115f94"
+uses = [
+    "fn:b05693c22af2782f",
+    "fn:d45bd48797fb1b2f",
+    "fn:ee1995f1fe422097",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+]
+physical_interface = true
+
+[[module."porous_k_epsilon.rs".function]]
+id = "fn:dbd4f44b8b47b7ab"
+name = "equilibrium_epsilon"
+qual = "PorousKEpsilonClosure::equilibrium_epsilon"
+lines = [
+    127,
+    144,
+]
+hash = "sha256:0864fdda32cd693995dd8d46a0932536e5f5d4329140228854806bd70b08aad5"
+doc_hash = "sha256:8a44b9bc33d42877bec67029a93adfd67a3d638a222e79489ab69beb0ec5d172"
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:1b399ad6a8d9729a",
+    "fn:36222f09c9a803eb",
+    "fn:b05693c22af2782f",
+    "fn:ee1995f1fe422097",
+]
+reached_by = ["#10"]
+physical_interface = true
+
+[[module."porous_k_epsilon.rs".function]]
+id = "fn:33abd80d85afa903"
+name = "relaxation_coefficient"
+qual = "PorousKEpsilonClosure::relaxation_coefficient"
+lines = [
+    146,
+    166,
+]
+hash = "sha256:9f36e643f0f127b74a262d3f65de94e2d397c0becc5c53cdd297a7532e53f27c"
+doc_hash = "sha256:245c2a0830532032d320b35623be6f57e791f810e44448e35214909c75d97a95"
+callees = ["fn:7cb5461ca21dbf25"]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:1b659534ab5ec8e0",
+    "fn:c63a9b892cf7bef0",
+    "fn:ee1995f1fe422097",
+]
+physical_interface = true
+
+[[module."porous_k_epsilon.rs".function]]
+id = "fn:303ad4da0d8f9575"
+name = "nut_stabilization"
+qual = "PorousKEpsilonClosure::nut_stabilization"
+lines = [
+    168,
+    186,
+]
+hash = "sha256:059ef45b844e4ba603fd47ecaaf19b9358bb5d239500f9b42355238a4d858558"
+doc_hash = "sha256:796a7773f57a3003086abbdab6575eb652f67fa03680ff7d2eaff69430584edb"
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:4de9934014aa2fee",
+    "fn:ee1995f1fe422097",
+]
+reached_by = ["#8"]
+physical_interface = true
+
+[[module."porous_k_epsilon.rs".function]]
+id = "fn:91b8af626e995043"
+name = "PorousKEpsilon2PhaseClosure"
+qual = "PorousKEpsilon2PhaseClosure"
+item = "type"
+shape = "struct"
+lines = [
+    189,
+    205,
+]
+hash = "sha256:d0474ea214c6bd1e875a69bda0cc0a1557a1c1c4eec4613d1886cd40759d9afe"
+doc_hash = "sha256:269acc3798e39d5ef09dddb37d1ee2f2aea6bd7543efb954f09037c76bb58ef8"
+uses = ["fn:ee1995f1fe422097"]
+reached_by = ["#9"]
+
+[[module."porous_k_epsilon.rs".function]]
+id = "fn:1af4dd9bfcd8cd34"
+name = "equilibrium_k"
+qual = "PorousKEpsilon2PhaseClosure::equilibrium_k"
+lines = [
+    208,
+    235,
+]
+hash = "sha256:6a89b2b306aaf079a7e16c2d1722ab030ac6431f1ef4b7ccf592496f4ae4701e"
+doc_hash = "sha256:22b4d379986d8d6fb6675001728ae9eb30b954136f85577ba0eae8c9d3ae22f4"
+uses = [
+    "fn:91b8af626e995043",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+    "fn:d45bd48797fb1b2f",
+]
+reached_by = ["#9"]
+physical_interface = true
+
+[module."tests.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::turbulence::tests"
+
+[[module."tests.rs".function]]
+id = "fn:5a49969eff5615fb"
+name = "lahey_bubble_terms_vanish_at_zero_void_fraction"
+qual = "lahey_bubble_terms_vanish_at_zero_void_fraction"
+lines = [
+    130,
+    143,
+]
+hash = "sha256:23cce40878258f56a88003d0e0c928e1cba47be3b3a5dd82458d3d045c61c72f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3d47b0c601d94f0e",
+    "fn:6ae49c4d25b76d6c",
+    "fn:9505694ce6ee1b48",
+]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:5ef60b6ae229ce72",
+    "fn:a8813d076e85df4d",
+    "fn:c63a9b892cf7bef0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e174fdce44b69b7d"
+name = "lahey_bubble_induced_eddy_viscosity_reference_value"
+qual = "lahey_bubble_induced_eddy_viscosity_reference_value"
+lines = [
+    145,
+    161,
+]
+hash = "sha256:e0735d3ef3a2d3ca36685ff750381bfe40679f08a0f2a2428f3c45c423478dd4"
+doc_hash = "sha256:7727c5243ceaf9886fbb1451e0b6ec6d4d3c07605ea3fd5761af65976e9dca9e"
+callees = [
+    "fn:3d47b0c601d94f0e",
+    "fn:9505694ce6ee1b48",
+]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:5ef60b6ae229ce72",
+    "fn:a8813d076e85df4d",
+    "fn:c63a9b892cf7bef0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7047b117988ed377"
+name = "drag_coefficient_round_trips_through_kd"
+qual = "drag_coefficient_round_trips_through_kd"
+lines = [
+    167,
+    190,
+]
+hash = "sha256:4d096771353917517e0d9cc91d34e3c8e3944c04e3096f806f3b4e79003b37a0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7cb5461ca21dbf25",
+    "fn:efe5fc1f1b79e0b1",
+]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:5ef60b6ae229ce72",
+    "fn:c63a9b892cf7bef0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:4a097f405e842eff"
+name = "drag_coefficient_degenerate_case_is_finite_not_nan"
+qual = "drag_coefficient_degenerate_case_is_finite_not_nan"
+lines = [
+    192,
+    205,
+]
+hash = "sha256:bdd58a1601ff6c1f99f0bbb3a8c6e8671739f162eb4d39d617b0b6fd650c8061"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7cb5461ca21dbf25",
+    "fn:efe5fc1f1b79e0b1",
+]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:5ef60b6ae229ce72",
+    "fn:c63a9b892cf7bef0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2ce4f78595fe02a8"
+name = "mixture_ct2_collapses_to_ct0_squared_at_zero_void_fraction"
+qual = "mixture_ct2_collapses_to_ct0_squared_at_zero_void_fraction"
+lines = [
+    211,
+    227,
+]
+hash = "sha256:31c5c47134d17816b7451068bc66fe31d919a9418a8a76878466efbccf871c84"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5ef85a5577c0835d",
+    "fn:781d9328752a7aa5",
+    "fn:7cb5461ca21dbf25",
+]
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:7fd8889e6ee7a271",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f9447cba911923da"
+name = "mixture_ct0_tends_to_one_as_beta_grows"
+qual = "mixture_ct0_tends_to_one_as_beta_grows"
+lines = [
+    229,
+    246,
+]
+hash = "sha256:a95aad3b1262831e2ce257b672bc5de905cbceea52af2fca21b85a31c1a82404"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5ef85a5577c0835d",
+    "fn:781d9328752a7aa5",
+    "fn:7cb5461ca21dbf25",
+]
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:7fd8889e6ee7a271",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:dbf499f03ba8ae78"
+name = "mixture_quantities_reduce_to_liquid_only_at_alpha_liquid_one"
+qual = "mixture_quantities_reduce_to_liquid_only_at_alpha_liquid_one"
+lines = [
+    252,
+    284,
+]
+hash = "sha256:99a973aa217896b5bdf21fccc628e751dde8a01e9601d3aa0f9e9f5f9fd63469"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4fe38d2466616310",
+    "fn:71c5a598e15ce4ec",
+    "fn:88d93dfff0719e3c",
+]
+uses = [
+    "fn:007e11a2f1b9079c",
+    "fn:7fd8889e6ee7a271",
+    "fn:b05693c22af2782f",
+    "fn:c63a9b892cf7bef0",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ef1d90f1dfa0f9fe"
+name = "mixture_effective_gas_density_reference_value"
+qual = "mixture_effective_gas_density_reference_value"
+lines = [
+    286,
+    297,
+]
+hash = "sha256:3c56eaff85d506bcb3265b4dfb0a038ec356537be5458c4c2d56c91b7c82b08d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:eef5c4194bfc17ca"]
+uses = ["fn:7fd8889e6ee7a271"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9c73ef53c344cc87"
+name = "porous_equilibrium_k_matches_openfoam_intensity_correlation"
+qual = "porous_equilibrium_k_matches_openfoam_intensity_correlation"
+lines = [
+    303,
+    327,
+]
+hash = "sha256:9b6a05145450981a4f1bd8043b0ea3cbf5a084505a233b63ebab4b81893b5fac"
+doc_hash = "sha256:910b4026519e45c778b83fcee3768559d33323f4561ffe52a139efa15bfbb3e0"
+callees = [
+    "fn:983b1442c904d828",
+    "fn:cfdf3da03bc8663a",
+]
+uses = ["fn:ee1995f1fe422097"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:08dd8fd45b7f803d"
+name = "porous_equilibrium_epsilon_matches_openfoam_mixing_length_correlation"
+qual = "porous_equilibrium_epsilon_matches_openfoam_mixing_length_correlation"
+lines = [
+    329,
+    355,
+]
+hash = "sha256:f8bc98265710d541a99353661db6cc3ffefa9a476dd89b38cc0c6c6186c3f8cf"
+doc_hash = "sha256:5a227a4ce67e6cc4b6f641cf3f34d7d2f7a899e63ae1d9839725f166d91ba68e"
+callees = [
+    "fn:983b1442c904d828",
+    "fn:cfdf3da03bc8663a",
+    "fn:dbd4f44b8b47b7ab",
+]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:ee1995f1fe422097",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1ba058f17131a82a"
+name = "porous_2phase_equilibrium_k_reduces_to_1phase_at_zero_alpha_coeff"
+qual = "porous_2phase_equilibrium_k_reduces_to_1phase_at_zero_alpha_coeff"
+lines = [
+    361,
+    385,
+]
+hash = "sha256:ed82fe60e26dd7a5c2a18c8c2f6b2c0d0f8d7539b4eab8d728d1a975a617a32b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1af4dd9bfcd8cd34",
+    "fn:983b1442c904d828",
+    "fn:cfdf3da03bc8663a",
+]
+uses = [
+    "fn:91b8af626e995043",
+    "fn:c63a9b892cf7bef0",
+    "fn:ee1995f1fe422097",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e3304015fb8e95b2"
+name = "nut_stabilization_vanishes_as_laminar_re_struct_grows"
+qual = "nut_stabilization_vanishes_as_laminar_re_struct_grows"
+lines = [
+    391,
+    405,
+]
+hash = "sha256:414417412374a1aba80aa4ff8b97c2e8736df770302f9e08917e77258ca527aa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:303ad4da0d8f9575"]
+uses = [
+    "fn:1b399ad6a8d9729a",
+    "fn:ee1995f1fe422097",
+]
+test = true
+
+[module."units.rs"]
+path = "crate::genfoam::thermal_hydraulics::closures::turbulence::units"
+
+[[module."units.rs".function]]
+id = "fn:c63a9b892cf7bef0"
+name = "VoidFraction"
+qual = "VoidFraction"
+item = "type"
+shape = "alias"
+lines = [
+    62,
+    66,
+]
+hash = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+doc_hash = "sha256:9652275b97aed947b128b777ddf38c26da9da1587c2b89dc8a997df4256cae59"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#9",
+]
+
+[[module."units.rs".function]]
+id = "fn:5ef60b6ae229ce72"
+name = "RelativeVelocity"
+qual = "RelativeVelocity"
+item = "type"
+shape = "alias"
+lines = [
+    68,
+    70,
+]
+hash = "sha256:1c78e0fc5a83320eef07e27bc7b513e84565ae68e39208845d4821fbc6f1c203"
+doc_hash = "sha256:8ce9d3d27107fc6b8f6fb36e2b2f23ad5cfd4c4e8792175774c67e18276f4682"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."units.rs".function]]
+id = "fn:1b399ad6a8d9729a"
+name = "HydraulicDiameter"
+qual = "HydraulicDiameter"
+item = "type"
+shape = "alias"
+lines = [
+    72,
+    75,
+]
+hash = "sha256:67e05a22b147183d9da112a22a096aaf13e5f341605e09469d51a3e3089ef9b7"
+doc_hash = "sha256:a677c34686a144fdf51c6f029e9a750ffda3b7184be2ca451ad7b0befc0ac3d5"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#8",
+    "#10",
+]
+
+[[module."units.rs".function]]
+id = "fn:4de9934014aa2fee"
+name = "EddyViscosity"
+qual = "EddyViscosity"
+item = "type"
+shape = "alias"
+lines = [
+    77,
+    79,
+]
+hash = "sha256:e91d4b247b34d25fc5d5a6d6826460df9a2a7141618e602e802013f007362408"
+doc_hash = "sha256:554e01f4a034562c62d0f0c46165d8ff8b38cf1329c38b3a1560c505337a7de5"
+reached_by = [
+    "#2",
+    "#3",
+    "#8",
+]
+
+[[module."units.rs".function]]
+id = "fn:b05693c22af2782f"
+name = "TurbulentKineticEnergy"
+qual = "TurbulentKineticEnergy"
+item = "type"
+shape = "alias"
+lines = [
+    81,
+    86,
+]
+hash = "sha256:0048b90bbb6d738b64fdcd69d2f7357381327ee1e4355206bedd58dde7bf320b"
+doc_hash = "sha256:bb347c1467090c4dac1be938f87d69933ac9ed2d1c6714c80f1e078df6ce20da"
+reached_by = [
+    "#4",
+    "#5",
+    "#7",
+    "#9",
+    "#10",
+    "#11",
+]
+
+[[module."units.rs".function]]
+id = "fn:007e11a2f1b9079c"
+name = "TurbulentDissipationRate"
+qual = "TurbulentDissipationRate"
+item = "type"
+shape = "alias"
+lines = [
+    88,
+    92,
+]
+hash = "sha256:c7619375d3e8c4803509749445d69010c17e29d1d61217c59d6c72fbd62ff87e"
+doc_hash = "sha256:2257d57b125e550d72a52276e74edcab2e489684babe9948efe120bdfda6b68f"
+reached_by = [
+    "#3",
+    "#4",
+    "#5",
+    "#7",
+    "#10",
+]
+
+[[module."units.rs".function]]
+id = "fn:1dde93839c85f8d8"
+name = "DragCoefficient"
+qual = "DragCoefficient"
+item = "type"
+shape = "alias"
+lines = [
+    94,
+    96,
+]
+hash = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+doc_hash = "sha256:d97dcb4d85958bce62d5674e01da3434782887922ae90cf4ecc08c5f1056c1d7"
+reached_by = [
+    "#0",
+    "#1",
+    "#3",
+]
+
+[[module."units.rs".function]]
+id = "fn:1b659534ab5ec8e0"
+name = "VolumetricRelaxationCoefficient"
+qual = "VolumetricRelaxationCoefficient"
+item = "type"
+shape = "alias"
+lines = [
+    98,
+    110,
+]
+hash = "sha256:feddb3cda33d6c0bc5e0d3aa9087ec924a1831dff0ec707a29d9078ff434df92"
+doc_hash = "sha256:48e72371036de3bbb9fe8c186dd5fcaaf680002a166677d4f736ef07de3baf0a"
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#5",
+]
+
+[[module."units.rs".function]]
+id = "fn:98ecbbbecb50ff80"
+name = "MixtureBubbleProduction"
+qual = "MixtureBubbleProduction"
+item = "type"
+shape = "alias"
+lines = [
+    112,
+    122,
+]
+hash = "sha256:dd7b4c31f34ec2396332a973cd8455198d92b8d4246874082bc63055a98e3796"
+doc_hash = "sha256:2bb4a4f10b0a241352b4d6a681336905a23bc386b652bac910b8dbab64a6a8ef"
+
+[[module."units.rs".function]]
+id = "fn:82936655360e409d"
+name = "TurbulentDissipationRateOfChange"
+qual = "TurbulentDissipationRateOfChange"
+item = "type"
+shape = "alias"
+lines = [
+    124,
+    132,
+]
+hash = "sha256:c5b580e9d153a576491b2ddbc11692ca5613c94aba2b02f79167c86faab05491"
+doc_hash = "sha256:60599eafd8e5211ced7cade3612f89f6226f19317e20d943b8a41e6503aa6850"
+
+[[module."units.rs".function]]
+id = "fn:7cb5461ca21dbf25"
+name = "volumetric_relaxation_coefficient"
+qual = "volumetric_relaxation_coefficient"
+lines = [
+    134,
+    144,
+]
+hash = "sha256:1caad197ca0022e416b9c88257bbbde6e7723dc919b8b6f340b07472dd662db2"
+doc_hash = "sha256:e339dca6d740280dddaa22c324e06beb4793301f605a0f5eff97ca2d0308c527"
+uses = ["fn:1b659534ab5ec8e0"]
+reached_by = [
+    "#0",
+    "#1",
+    "#4",
+    "#5",
+]
+physical_interface = true
+
+[[module."units.rs".function]]
+id = "fn:fab6d453a863f32e"
+name = "mixture_bubble_production"
+qual = "mixture_bubble_production"
+lines = [
+    146,
+    156,
+]
+hash = "sha256:4b53d309d309ef51bfb6bba3446719dcc8b579b2ad1b05aa3b5edf147acea385"
+doc_hash = "sha256:2a713792eec55215029ef72ede3fef4bd75fbb8faa293ee5068995b48dd9359b"
+uses = ["fn:98ecbbbecb50ff80"]
+physical_interface = true
+
+[[module."units.rs".function]]
+id = "fn:77e5c440dee420bd"
+name = "dissipation_rate_of_change"
+qual = "dissipation_rate_of_change"
+lines = [
+    158,
+    168,
+]
+hash = "sha256:e94eff2ea7ac3cdaf2b3a749d7e025babbc6b53aa4401b12d5610e0ed485d30f"
+doc_hash = "sha256:f188259f33303b10b8afa4f92fd38afbda3d305c315279682fd1c29fbb2a8ef0"
+uses = ["fn:82936655360e409d"]
+physical_interface = true

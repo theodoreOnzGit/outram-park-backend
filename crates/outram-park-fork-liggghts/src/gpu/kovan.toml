@@ -1,0 +1,170 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-liggghts"
+dir = "crates/outram-park-fork-liggghts/src/gpu"
+test_ids = [
+    "crates/outram-park-fork-liggghts/tests/htr10_rdf.rs::cpu_backends_agree_exactly",
+    "crates/outram-park-fork-liggghts/tests/htr10_rdf.rs::gpu_backend_matches_cpu_within_f32_binning",
+    "crates/outram-park-fork-liggghts/tests/htr10_rdf.rs::radial_distribution_of_every_htr10_bed",
+]
+
+[module."mod.rs"]
+path = "crate::gpu"
+
+[[module."mod.rs".function]]
+id = "fn:dc5639c29707a69e"
+name = "MAX_BINS"
+qual = "MAX_BINS"
+item = "const"
+shape = "const"
+lines = [
+    51,
+    56,
+]
+hash = "sha256:3acf1909f58ade65aa4807679034f4f029b060df87b87e47b66bd8214b59fcde"
+doc_hash = "sha256:bfd9fd4d4c91fcd563a772480cd0d73820c7da4bc81a4822af552daf53978e7f"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b0573b852c1ea339"
+name = "WG_SIZE"
+qual = "WG_SIZE"
+item = "const"
+shape = "const"
+lines = [
+    58,
+    59,
+]
+hash = "sha256:209842ade790f8677030d94fd041f32012e5d58300147127f2f81fb6bd34286c"
+doc_hash = "sha256:2167dca9933873d04c6976fa24a44c4379ab18b41760dffe1705aeb29dde80af"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:927ebfbb61e6ff4a"
+name = "GpuContext"
+qual = "GpuContext"
+item = "type"
+shape = "struct"
+lines = [
+    61,
+    70,
+]
+hash = "sha256:ea0940dc2eb940f55c96e82a17eb5b44740e7d1b7551167939f940b28c797242"
+doc_hash = "sha256:5ae7902325f54c3eb8d5d5655505cf391449c6afb13483a92d73b827ca591bca"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2b44df282bfdcaf8"
+name = "fmt"
+qual = "GpuContext::fmt"
+lines = [
+    73,
+    79,
+]
+hash = "sha256:281c7a34d07e85adf9e6d400927475f54ca69e4b3c9644535eda19af01d986f6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:927ebfbb61e6ff4a"]
+
+[[module."mod.rs".function]]
+id = "fn:45bb58b1cc13c9d1"
+name = "probe"
+qual = "probe"
+lines = [
+    82,
+    110,
+]
+hash = "sha256:d05bc90648b6ab6a0cd03af2621c4bfcc5a6720bd2e3423e76a34dfecfdecebc"
+doc_hash = "sha256:ca50e322678d2f869835a077031186d1628a312c034a5dd3aa0b7fe2d3169ce7"
+callees = ["fn:0e783ffb5a50b88c"]
+uses = ["fn:927ebfbb61e6ff4a"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0d6a0df53dc2ff22"
+name = "rdf_histogram"
+qual = "rdf_histogram"
+lines = [
+    112,
+    258,
+]
+hash = "sha256:64d183c1b512a24574af0b81e8fee88c8cf4f83764fa156212ea1222644c09a0"
+doc_hash = "sha256:c5ab0902de103c5bed236a887104749fe03f72b23e68d4b0918c7c4b39d7adcd"
+callees = [
+    "fn:090248de45c18ba5",
+    "fn:45bb58b1cc13c9d1",
+    "fn:6be0b3ae03c70b84",
+]
+uses = [
+    "fn:b0573b852c1ea339",
+    "fn:dc5639c29707a69e",
+    "fn:ffb2806719a2b1e6",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:6be0b3ae03c70b84"
+name = "bytes_of"
+qual = "bytes_of"
+lines = [
+    260,
+    269,
+]
+hash = "sha256:9af76d9f72ba462ef8648ad12cead22a7bec4b5b813bcfc5115d9f22d40f9efd"
+doc_hash = "sha256:af176118f70f25829655a2c6f9bb6fc7c1529589ae707c3fd0e1acfd6f428f11"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:090248de45c18ba5"
+name = "slice_bytes"
+qual = "slice_bytes"
+lines = [
+    271,
+    276,
+]
+hash = "sha256:c26a8296d59a8ee8f3347de808dc773077ae54216f20e92b7cea37a333582748"
+doc_hash = "sha256:c688f8403c53c8ce018851dab0165528c2a8814c3d30e1d3c3df2ecb811a7081"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0e783ffb5a50b88c"
+name = "block_on"
+qual = "block_on"
+lines = [
+    278,
+    303,
+]
+hash = "sha256:36445334a17ab7db9b517ff919c746b3c5b8bba4936d75a5ab38a420f10058d3"
+doc_hash = "sha256:b442ff2dde551fc1ebd8fe7b6d55a81d3a5c7bc237e90ee3e724b37195363f5d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]

@@ -1,0 +1,71 @@
+# The push CI's short test selection (GitHub #314, #415, #416).
+#
+# Chosen by the maintainer on 2026-09-29: "Godiva, Edwards, the outram-foam
+# cavity and the Sod shock tube. That's all." Godiva runs the HIGH tier from
+# the repo's own ENDF/B-VIII.0 tapes ("the high information tier, not the low
+# one; use the ENDFs provided").
+#
+# Every entry is a COPY placed in a TOP crate (one no other member depends
+# on). The compile gate builds every library once as a dependency (#414), and
+# a test left in a low-level crate would rebuild that crate a second time as a
+# test program. The ORIGINALS in `sources` stay authoritative. Each copy's
+# header names the commit it was copied at and every edit made.
+#
+#   kovan-cli ci smoke            # check this file against the tree
+#   kovan-cli ci smoke --run      # ...and run it
+#   kovan-cli ci known-failures   # run [[known_failure]] by exact name
+#
+# The check fails if a host is not a top crate, if a test target is missing,
+# or if a source no longer exists.
+#
+# Measured 2026-09-29 (36 threads, release): the engine target takes 72 s
+# (Godiva 67 s of RECONR/BROADR + 5 s transport, Edwards 39 s, run in
+# parallel); the foam target takes 30 s. RECONR scales with cores, so expect
+# several minutes on a 4-core runner.
+
+[[smoke]]
+name = "godiva"
+crate = "outram-park-digital-twin-engine"
+test = "ci_smoke"
+sources = ["crates/outram-mc-libs/examples/godiva_keff_endf_local.rs"]
+why = """ICSBEP HEU-MET-FAST-001 on the HIGH tier, reconstructed from ENDF/B-VIII.0 \
+(RECONR + BROADR + transport): the only experiment-judged check of the Monte \
+Carlo stack. 2026-09-29: +35 +/- 168 pcm, both gates pass."""
+
+[[smoke]]
+name = "edwards"
+crate = "outram-park-digital-twin-engine"
+test = "ci_smoke"
+sources = ["crates/tampines/src/multiphase_1d/edwards_tests.rs"]
+why = """Edwards-O'Brien blowdown on tampines' drift flux vs the digitised GS-1 \
+experiment: flashing, choking and slip in one 600 ms transient. 2026-09-29: \
+RMSE 29.0 psia, plateau 354.3 psia."""
+
+[[smoke]]
+name = "cavity"
+crate = "outram-foam-cli"
+test = "ci_smoke"
+sources = ["crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs"]
+why = """Lid-driven cavity: pimpleFoam port vs OpenFOAM icoFoam (Re = 10) and vs \
+Ghia 1982 (Re = 100) on the coarse and fine meshes. The 297 s grid-convergence \
+and 123 s pressure-solver studies are ignored in the copy and run in the source."""
+
+[[smoke]]
+name = "sod"
+crate = "outram-foam-cli"
+test = "ci_smoke"
+sources = ["crates/outram-foam-appbuilder-lib/tests/sod_shock_tube_validation/main.rs"]
+why = """Sod shock tube: exact Riemann solver and the rhoCentralFoam port vs Sod \
+1978 Table II. All four tests, 1.2 s."""
+
+# Tests left failing ON PURPOSE go here, marked in their source with
+# `#[ignore = "known failing, #NNN"]` and never "fixed" by editing the
+# assertion. CI runs them in a job that is allowed to fail. Empty on
+# 2026-09-29: the boon-lay burnup-ordering failure (#301) was fixed on develop
+# by 27143819f.
+#
+# [[known_failure]]
+# crate = "<top crate>"
+# test = "<test target>"
+# name = "<module::test_fn>"
+# issue = 0

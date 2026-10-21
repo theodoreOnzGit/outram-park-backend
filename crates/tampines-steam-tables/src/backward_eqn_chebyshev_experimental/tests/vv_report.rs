@@ -31,6 +31,9 @@ pub struct VvReport {
     /// Document title.
     title: String,
     body: String,
+    /// Replaces the default status blurb, for a report whose subject is not an
+    /// in-house experimental correlation.
+    status: Option<String>,
 }
 
 impl VvReport {
@@ -40,7 +43,19 @@ impl VvReport {
             slug: slug.to_string(),
             title: title.to_string(),
             body: String::new(),
+            status: None,
         }
+    }
+
+    /// Overrides the default status blurb.
+    ///
+    /// The default states that the subject is an in-house, non-IAPWS fit, which
+    /// is right for this module tree and wrong for anything IAPWS-traceable.
+    /// A report about an inversion of the published backward equations must
+    /// call this, so the generated file states its real provenance.
+    pub fn with_status(mut self, status: &str) -> Self {
+        self.status = Some(status.to_string());
+        self
     }
 
     /// Adds a `## ` section heading.
@@ -97,21 +112,13 @@ impl VvReport {
              > ```\n\
              >\n\
              > Generated {date} (UTC).\n\n\
-             ## Status\n\n\
-             These are **experimental, non-IAPWS correlations** fitted in-house \
-             (see GitHub issue #34). IAPWS-IF97 publishes no backward equations \
-             for some of the cases covered here, so where a reference is quoted \
-             it is either an IAPWS equation already implemented in this crate or \
-             this crate's own forward equations — never a published backward-\
-             equation reference value.\n\n\
-             Per `RESPONSIBLE_USE.md` this is AI-assisted draft material: the \
-             numbers below are measurements, **not a validation sign-off**. No \
-             human has reviewed them.\n\
+             ## Status\n\n{status}\n\
              {body}",
             title = self.title,
             regenerate_with = regenerate_with,
             date = utc_date_string(),
             body = self.body,
+            status = self.status.clone().unwrap_or_else(default_status),
         )
         .expect("could not write the V&V report");
 
@@ -186,4 +193,22 @@ pub fn percentile_cells(errors: &mut [f64], as_percent: bool) -> Vec<String> {
         format_one(pick(0.99)),
         format_one(errors[errors.len() - 1]),
     ]
+}
+
+/// The status blurb used when a report does not override it.
+///
+/// Correct for this module tree, whose correlations are in-house fits with no
+/// IAPWS provenance. A report about IAPWS-traceable code must supply its own
+/// via [`VvReport::with_status`], rather than inherit a provenance claim that
+/// would be wrong for it.
+fn default_status() -> String {
+    "These are **experimental, non-IAPWS correlations** fitted in-house \
+     (see GitHub issue #34). IAPWS-IF97 publishes no backward equations \
+     for some of the cases covered here, so where a reference is quoted \
+     it is either an IAPWS equation already implemented in this crate or \
+     this crate's own forward equations — never a published backward-\
+     equation reference value.\n\nPer `RESPONSIBLE_USE.md` this is \
+     AI-assisted draft material: the numbers below are measurements, \
+     **not a validation sign-off**. No human has reviewed them."
+        .to_string()
 }

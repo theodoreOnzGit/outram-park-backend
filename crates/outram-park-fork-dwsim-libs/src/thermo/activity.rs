@@ -76,6 +76,7 @@
 //! > They do **not** validate any parameter set against experimental VLE data,
 //! > and nothing here is cleared for nuclear / safety-critical use.
 
+use petir::mathf::RealMath;
 use crate::thermo::Component;
 
 /// DWSIM's gas constant for the NRTL/UNIQUAC `tau` reduction:
@@ -227,7 +228,7 @@ impl NrtlParams {
         }
         for i in 0..n {
             for j in 0..n {
-                g[i][j] = (-self.alpha[i][j] * tau[i][j]).exp();
+                g[i][j] = (-self.alpha[i][j] * tau[i][j]).r_exp();
             }
         }
 
@@ -252,7 +253,7 @@ impl NrtlParams {
             for j in 0..n {
                 ln_g += x[j] * g[i][j] * (tau[i][j] - c[j] / s[j]) / s[j];
             }
-            gamma[i] = ln_g.exp();
+            gamma[i] = ln_g.r_exp();
         }
         gamma
     }
@@ -356,7 +357,7 @@ impl UniquacParams {
         for i in 0..n {
             for j in 0..n {
                 let e = -self.a[i][j] + self.b[i][j] * t + self.c[i][j] * t * t;
-                tau[i][j] = (e / (R_CAL * t)).exp();
+                tau[i][j] = (e / (R_CAL * t)).r_exp();
             }
         }
 
@@ -390,16 +391,16 @@ impl UniquacParams {
             let j_i = self.r[i] / r_mix; // = phi_i / x_i
             let l_i = self.q[i] / q_mix; // = theta_i / x_i
             let jl = j_i / l_i;
-            let ln_gc = 1.0 - j_i + j_i.ln() - (z / 2.0) * self.q[i] * (1.0 - jl + jl.ln());
+            let ln_gc = 1.0 - j_i + j_i.r_ln() - (z / 2.0) * self.q[i] * (1.0 - jl + jl.r_ln());
 
             // Residual part (UNIQUAC.vb:432): q_i (1 - ln s_i - sum_j theta_j tau_ij / s_j)
             let mut sum1 = 0.0;
             for j in 0..n {
                 sum1 += theta[j] * tau[i][j] / s[j];
             }
-            let ln_gr = self.q[i] * (1.0 - s[i].ln() - sum1);
+            let ln_gr = self.q[i] * (1.0 - s[i].r_ln() - sum1);
 
-            gamma[i] = (ln_gc + ln_gr).exp();
+            gamma[i] = (ln_gc + ln_gr).r_exp();
         }
         gamma
     }
@@ -528,9 +529,9 @@ mod tests {
         // Closed-form limit, derived independently of the general routine.
         let tau12 = a12 / (R_CAL * t);
         let tau21 = a21 / (R_CAL * t);
-        let g12 = (-alpha * tau12).exp();
+        let g12 = (-alpha * tau12).r_exp();
         let ln_g1_inf = tau21 + tau12 * g12;
-        assert_relative_eq!(g[0], ln_g1_inf.exp(), epsilon = 1e-9);
+        assert_relative_eq!(g[0], ln_g1_inf.r_exp(), epsilon = 1e-9);
 
         // Hand-computed number (dated 2026-07-24).
         assert_relative_eq!(g[0], 4.423_378_352_180_1, epsilon = 1e-9);
@@ -554,7 +555,7 @@ mod tests {
         let h = 1e-6;
         let ln_at = |x1: f64| {
             let g = p.activity_coefficients(&[x1, 1.0 - x1], t);
-            (g[0].ln(), g[1].ln())
+            (g[0].r_ln(), g[1].r_ln())
         };
         let (l1p, l2p) = ln_at(x1 + h);
         let (l1m, l2m) = ln_at(x1 - h);
@@ -626,8 +627,8 @@ mod tests {
             let ji = r[i] / r_mix;
             let li = q[i] / q_mix;
             let jl = ji / li;
-            let ln_gc = 1.0 - ji + ji.ln() - (z / 2.0) * q[i] * (1.0 - jl + jl.ln());
-            assert_relative_eq!(g[i], ln_gc.exp(), epsilon = 1e-12);
+            let ln_gc = 1.0 - ji + ji.r_ln() - (z / 2.0) * q[i] * (1.0 - jl + jl.r_ln());
+            assert_relative_eq!(g[i], ln_gc.r_exp(), epsilon = 1e-12);
         }
         // Combinatorial term is non-trivial (r/q asymmetry) but residual is off.
         assert!((g[0] - 1.0).abs() > 1e-3 && (g[1] - 1.0).abs() > 1e-3);
@@ -649,7 +650,7 @@ mod tests {
         let h = 1e-6;
         let ln_at = |x1: f64| {
             let g = p.activity_coefficients(&[x1, 1.0 - x1], t);
-            (g[0].ln(), g[1].ln())
+            (g[0].r_ln(), g[1].r_ln())
         };
         let (l1p, l2p) = ln_at(x1 + h);
         let (l1m, l2m) = ln_at(x1 - h);

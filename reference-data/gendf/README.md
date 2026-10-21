@@ -121,7 +121,34 @@ MF=23 is already lin-lin): `gaminr 20 20 0 21 / 600 3 3 3 1 /` — LANL
 12-group structure (`igg = 3`), `iwt = 3` (1/E with roll-offs), `lord = 3`,
 reactions `23/501 502 504 516 522`, `26/502 504 516`, `23/525` (total
 heating, last). 288 lines. Consumed by
-`crates/njoy-outram-park-fork/tests/gaminr_synthetic_photoat_golden.rs`.
+~~`crates/njoy-outram-park-fork/tests/gaminr_synthetic_photoat_golden.rs`~~ `crates/njoy-outram-park-fork/tests/gaminr_vs_njoy2016.rs` (renamed; corrected 2026-10-05).
+
+### `photoat-U000-ENDF8.0-lanl12-iwt3-lord3.gendf` and `…-sepunits.gendf`
+
+(Listed here 2026-10-05; the first was committed 2026-09-17 in `0c81e1b2d`
+without a README entry.) **GAMINR** on the real ENDF/B-VIII.0 uranium
+photoatomic evaluation `../endf/photoat-092_U_000-ENDF8.0.endf` (MAT 9200),
+same reactions, group structure, weight and order as the synthetic deck above.
+NJOY2016 upstream `ac5adf5`.
+
+| file | deck | units | lines | SHA-256 |
+|---|---|---|---|---|
+| `photoat-U000-ENDF8.0-lanl12-iwt3-lord3.gendf` | `…-lord3.njoy-input` | `gaminr 20 20 0 21` (`nendf = npend`) | 201 | `a84ae3fc…18c0c6` |
+| `photoat-U000-ENDF8.0-lanl12-iwt3-lord3-sepunits.gendf` | `…-sepunits.njoy-input` | `gaminr 20 22 0 21` (`tape22` a copy of `tape20`) | 288 | `5c792654…22d462` |
+
+**Use the `-sepunits` tape; the other is kept as evidence of an NJOY input
+artefact (GitHub #534).** With `nendf = npend` GAMINR reads both the MF=23
+cross section (`gtsig`, lazily through `gety1`, one `npage = 306`-word page at a
+time) and the MF=27 form factor (`gtff`'s initialisation, `findf(matd,27,…)`)
+on the *same* Fortran unit. The `findf` moves the unit to MF=27, so every MF=23
+point past the first page of MT=502 and MT=504 is read from MF=27 records. On
+the synthetic tape (53 points) the whole table fits in one page and nothing
+shows; on uranium (thousands of points) the MF=26 MT=502/504 matrices and the
+MT=525 heating that depends on MT=504 come out wrong. With distinct units NJOY's
+MF=26/502 `l = 0` in group 1 is 182.232750, equal to its own MF=23/502 as the
+`ff(1) = 1` normalisation requires, against 139.482685 in the shared-unit run.
+Rebuilt and rerun 2026-10-05 (gfortran 13.3.0): the shared-unit deck reproduces
+the 2026-09-17 tape byte for byte.
 
 ### `u235-ENDF8.0-293.6K-29g-iwt3-1sigz-mf10.gendf`
 

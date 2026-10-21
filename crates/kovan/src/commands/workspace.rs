@@ -133,6 +133,31 @@ pub fn resolve(explicit: Option<&Path>) -> io::Result<(PathBuf, String)> {
     ))
 }
 
+/// Fetch the workspace's literature submodule if it was never checked out
+/// ([`crate::corpus_repos::ensure_workspace_corpus`]), telling the caller on
+/// stderr only when something happened: a fetch, or a failure. Called by
+/// every `kovan-cli` command that resolves the workspace, so the first one
+/// run in a plain clone brings the literature in.
+///
+/// Skipped when `CI` is set: a CI runner has no use for the PDF corpus, and
+/// fetching it there would cost every job the download.
+pub fn fetch_literature(root: &Path) {
+    if std::env::var_os("CI").is_some() {
+        return;
+    }
+    use crate::corpus_repos::{ensure_workspace_corpus, RepoState, WORKSPACE_CORPUS_PATH};
+    match ensure_workspace_corpus(root) {
+        Ok(Some(RepoState::Cloned)) => {
+            eprintln!("literature: fetched the {WORKSPACE_CORPUS_PATH} submodule (it was empty)");
+        }
+        Ok(_) => {}
+        Err(e) => eprintln!(
+            "literature: {WORKSPACE_CORPUS_PATH} is empty and could not be fetched ({e}); \
+             run `git submodule update --init {WORKSPACE_CORPUS_PATH}`"
+        ),
+    }
+}
+
 /// Choose where a generated directory such as `agent-docs/` should live.
 ///
 /// # The order
@@ -259,9 +284,16 @@ mod tests {
         );
     }
 
+    /// Held by every test that changes the process's working directory or
+    /// `HOME`: both are process-wide, and tests run in parallel, so without it
+    /// one test's directory leaks into another's (seen 2026-09-22 as an
+    /// intermittent failure of the workspace-preference test).
+    static PROCESS_STATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     /// The failure must name what it tried, or "not found" is unactionable.
     #[test]
     fn a_failed_search_names_every_path_it_tried() {
+        let _guard = PROCESS_STATE.lock().unwrap_or_else(|e| e.into_inner());
         // Point HOME somewhere empty so the search cannot succeed, and run from
         // a directory with no workspace above it.
         let tmp = tempfile::tempdir().unwrap();
@@ -304,6 +336,7 @@ mod tests {
     /// the repository's .gitignore already covers it.
     #[test]
     fn the_workspace_is_preferred_when_one_can_be_found() {
+        let _guard = PROCESS_STATE.lock().unwrap_or_else(|e| e.into_inner());
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path().join("ws");
         make_workspace(&root);
@@ -317,7 +350,27 @@ mod tests {
 
         let (dir, how) = resolved.unwrap();
         assert_eq!(dir.file_name().unwrap(), "agent-docs");
-        assert!(dir.starts_with(&root), "got {}", dir.display());
+
+        // Compare CANONICAL paths, not the raw tempdir path.
+        //
+        // `output_dir` resolves through `current_dir()`, and macOS returns that
+        // canonicalised: `/var/folders/...` comes back as `/private/var/folders/...`
+        // because `/var` is a symlink to `/private/var`. `root` is the raw
+        // `tempfile` path, so `starts_with` compared a canonical path against a
+        // non-canonical one and failed on macOS alone -- the whole macOS CI job,
+        // on every run, for a reason that has nothing to do with this code.
+        //
+        // Canonicalise `root` rather than `dir`: `dir` need not exist yet (it is
+        // an output directory this function only resolves, never creates), and
+        // `canonicalize` errors on a missing path. Falling back to `root` keeps
+        // the assertion meaningful on any platform where canonicalisation fails.
+        let root_canonical = dunce::canonicalize(&root).unwrap_or_else(|_| root.clone());
+        assert!(
+            dir.starts_with(&root_canonical),
+            "got {}, expected it under {}",
+            dir.display(),
+            root_canonical.display()
+        );
         assert!(how.contains("workspace"));
     }
 

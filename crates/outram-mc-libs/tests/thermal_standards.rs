@@ -12,6 +12,7 @@
 //! external number (B-10's 2200 m/s absorption) is asserted loosely on purpose,
 //! with the tight check carried by the analytic one beside it.
 
+use petir::mathf::RealMath;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 
@@ -26,7 +27,7 @@ fn nuclide_or_skip(name: &str, file: &str) -> Option<Nuclide> {
         println!("[{name}] SKIP: {file} not in reference-data/endf/");
         return None;
     };
-    match Nuclide::from_endf_file(&path, name, TEMP, 1.0e-3) {
+    match Nuclide::from_endf_file(&path, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP), 1.0e-3) {
         Ok(n) => Some(n),
         Err(e) => {
             println!("[{name}] SKIP: {e}");
@@ -44,7 +45,7 @@ fn erf(x: f64) -> f64 {
         - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t - 0.284_496_736) * t
             + 0.254_829_592)
             * t
-            * (-x * x).exp();
+            * (-x * x).r_exp();
     s * y
 }
 
@@ -183,7 +184,7 @@ fn h1_free_gas_elastic_matches_the_analytic_doppler_broadened_free_atom() {
     let doppler_factor = |e: f64| {
         let beta = (awr * e / kt).sqrt();
         (1.0 + 1.0 / (2.0 * beta * beta)) * erf(beta)
-            + (-beta * beta).exp() / (beta * std::f64::consts::PI.sqrt())
+            + (-beta * beta).r_exp() / (beta * std::f64::consts::PI.sqrt())
     };
 
     // Anchor σ_free where broadening is a 1.3 % correction, from our own data.

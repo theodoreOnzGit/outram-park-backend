@@ -123,6 +123,7 @@
 //!   Sci.* **59**(3), 525–541 (2004) — the restitution-based damping
 //!   coefficient and Hertz–Mindlin assembly used here.
 
+use petir::mathf::RealMath;
 use uom::si::f64::Pressure;
 use uom::si::pressure::pascal;
 
@@ -237,12 +238,22 @@ pub trait ContactLaw {
 
         // --- Tangential force ----------------------------------------------
         // Surface relative velocity of a w.r.t. b at the contact point:
-        //   v_surf = (v_a - v_b) + (r_a ω_a + r_b ω_b) × n̂
+        //   v_surf = (v_a - v_b) + (c_ra ω_a + c_rb ω_b) × n̂
         // (the angular terms are ⟂ n̂ so they do not affect the normal part).
+        //
+        // The moment arms are the CONTACT RADII c_r = r − δ_n/2, not the
+        // particle radii: upstream LIGGGHTS evaluates the surface velocity and
+        // the torque at the contact plane, which for overlapping spheres sits
+        // half an overlap inside each surface
+        // (`surface_model_default.h::surfacesIntersect`). Using `r` instead
+        // biases both the slip velocity and the spin-up torque by O(δ_n) — 2 %
+        // at δ_n = 2e-4 m on r = 5e-3 m. Fixed 2026-09-16.
+        let cra = a.radius - 0.5 * delta_n;
+        let crb = b.radius - 0.5 * delta_n;
         let omega_term = a
             .angular_velocity
-            .scale(a.radius)
-            .add(b.angular_velocity.scale(b.radius));
+            .scale(cra)
+            .add(b.angular_velocity.scale(crb));
         let v_surf = v_rel.add(omega_term.cross(n));
         let v_t_vec = v_surf.sub(n.scale(v_surf.dot(n)));
         let v_t = v_t_vec.norm();
@@ -264,12 +275,13 @@ pub trait ContactLaw {
         let force_on_a = normal_on_a.add(tangential_on_a);
         let force_on_b = force_on_a.scale(-1.0);
 
-        // Contact point is at r_a·n̂ from a's centre and −r_b·n̂ from b's.
-        // Normal force is collinear with n̂ → zero moment; only friction spins.
-        let torque_on_a = n.scale(a.radius).cross(tangential_on_a);
-        // b's tangential force is −tangential_on_a at lever −r_b·n̂:
-        //   τ_b = (−r_b n̂) × (−tangential_on_a) = (r_b n̂) × tangential_on_a.
-        let torque_on_b = n.scale(b.radius).cross(tangential_on_a);
+        // Contact point is at c_ra·n̂ from a's centre and −c_rb·n̂ from b's
+        // (contact radii, as above). Normal force is collinear with n̂ → zero
+        // moment; only friction spins.
+        let torque_on_a = n.scale(cra).cross(tangential_on_a);
+        // b's tangential force is −tangential_on_a at lever −c_rb·n̂:
+        //   τ_b = (−c_rb n̂) × (−tangential_on_a) = (c_rb n̂) × tangential_on_a.
+        let torque_on_b = n.scale(crb).cross(tangential_on_a);
 
         Some(ContactForce {
             force_on_a,
@@ -509,7 +521,7 @@ impl HertzContact {
     /// (elastic, no damping). The damping coefficients use `|β|`.
     #[must_use]
     pub fn damping_beta(&self) -> f64 {
-        let ln_e = self.restitution.ln();
+        let ln_e = self.restitution.r_ln();
         let pi = std::f64::consts::PI;
         ln_e / (ln_e * ln_e + pi * pi).sqrt()
     }
@@ -519,7 +531,7 @@ impl ContactLaw for HertzContact {
     fn normal_force_scalar(&self, delta_n: f64, v_n: f64, r_eff: f64, m_eff: f64) -> f64 {
         let e_star = self.effective_modulus();
         // Elastic Hertzian spring: (4/3) E* √R* δ^{3/2}.
-        let elastic = (4.0 / 3.0) * e_star * r_eff.sqrt() * delta_n.powf(1.5);
+        let elastic = (4.0 / 3.0) * e_star * r_eff.sqrt() * delta_n.r_powf(1.5);
         // Viscoelastic damping: c_n·v_n with c_n = 2√(5/6)|β|√(S_n m*),
         // S_n = 2 E* √(R* δ) the normal contact stiffness.
         let s_n = 2.0 * e_star * (r_eff * delta_n).sqrt();
@@ -824,8 +836,8 @@ mod tests {
             epsilon = 1.0
         );
         // β = ln(0.8)/sqrt(ln(0.8)^2 + π^2)
-        let ln_e = 0.8_f64.ln();
-        let beta_expected = ln_e / (ln_e * ln_e + std::f64::consts::PI.powi(2)).sqrt();
+        let ln_e = 0.8_f64.r_ln();
+        let beta_expected = ln_e / (ln_e * ln_e + std::f64::consts::PI.r_powi(2)).sqrt();
         assert_abs_diff_eq!(hertz.damping_beta(), beta_expected, epsilon = 1.0e-15);
         assert!(hertz.damping_beta() < 0.0);
     }

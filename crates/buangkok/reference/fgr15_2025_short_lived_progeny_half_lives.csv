@@ -1,0 +1,5 @@
+# Ba-137m half-life 2.552 minutes: FGR-15 (EPA 402-R-25-001, July 2025),
+# Appendix worked Example 4, printed page 269. Format is pyDOSEIA's progeny
+# half-life text ("<number> m" = minutes). Provenance: docs/References.md.
+nuclide,half_life
+Ba-137m,2.552 m

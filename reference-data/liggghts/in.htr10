@@ -1,0 +1,67 @@
+# HTR-10 pebble-bed core, full scale. Geometry is the published IAEA-TECDOC-1382
+# design point, read from Htr10DesignPoint::iaea_benchmark() in
+# outram-park-digital-twin-engine (the same struct htgr_sim_v1 derives its
+# geometry from):
+#     core diameter   180 cm  -> cylinder R = 0.90 m   (D/d = 30)
+#     pebble diameter   6 cm  -> r = 0.03 m
+#     graphite density 1.73 g/cm^3 -> 1730 kg/m^3
+#     fuel elements  27 000
+#     published volumetric filling fraction f = 0.61 (porosity 0.39)
+#
+# STANDARD DEM SIMPLIFICATIONS (documented, not silent):
+#  * Young's modulus REDUCED from nuclear graphite's ~9 GPa to 1e8 Pa. This is
+#    the usual pebble-bed DEM softening: the settling problem is quasi-static,
+#    so the packing structure is set by geometry and friction rather than by
+#    stiffness, while the stable timestep scales as sqrt(m/k). The price is
+#    larger overlaps; the run reports the measured maximum so the assumption is
+#    checkable rather than asserted. The first attempt used 1e8 Pa (a 90x
+#    softening) and measured 3.80 % of the pebble radius -- too soft under a 2 m
+#    bed load -- so E was raised, twice, against the measurement: 1e8 gave
+#    3.80 % of the pebble radius, 3e8 gave 2.13 %, and 5e8 is the setting here.
+#    dt = 3.5e-5 s is 11.7 % of the Rayleigh time at 5e8, and the step counts
+#    are raised so the physical insertion time still exceeds the ~1.07 s a
+#    pebble needs to fall the height of the fill zone.
+#  * Hertz-Mindlin normal + tangential HISTORY spring + CDT rolling friction --
+#    the standard pebble-bed contact set. Without the history spring a bed
+#    cannot carry static shear; without rolling friction monodisperse spheres
+#    over-pack.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -1.0 1.0 -1.0 1.0 -0.05 6.00 units box
+create_box	1 reg
+neighbor	0.018 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 5.0e8
+fix 		m2 all property/global poissonsRatio peratomtype 0.2
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.4
+fix 		m5 all property/global coefficientRollingFriction peratomtypepair 1 0.1
+pair_style	gran model hertz tangential history rolling_friction cdt
+pair_coeff	* *
+timestep	3.5e-5
+fix		cyl all wall/gran model hertz tangential history rolling_friction cdt primitive type 1 zcylinder 0.90 0. 0.
+fix		zwall all wall/gran model hertz tangential history rolling_friction cdt primitive type 1 zplane 0.0
+region		fillzone cylinder z 0. 0. 0.90 0.03 5.60 units box
+fix		pts all particletemplate/sphere 15485863 atom_type 1 density constant 1730 radius constant 0.03
+fix		pdd all particledistribution/discrete 15485867 1 pts 1.0
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd &
+		insert_every 2000 overlapcheck yes all_in yes vel constant 0. 0. -0.5 &
+		region fillzone particles_in_region 27000
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+thermo_style	custom step atoms ke
+thermo		5000
+thermo_modify	lost ignore norm no
+run		60000
+unfix		ins
+write_dump	all custom dump.htr10_init id x y z vx vy vz modify sort id
+variable	n1 equal count(all)
+print		"INSERTED ${n1}"
+run		50000
+write_dump	all custom dump.htr10_settled id x y z vx vy vz modify sort id
+variable	ke2 equal ke
+print		"FINAL_KE ${ke2}"

@@ -36,6 +36,7 @@
 //! - Mesh analysis: [`overhang`], [`distortion`], [`sharp_edges`],
 //!   [`self_intersections`], [`thickness`].
 
+use petir::mathf::RealMath;
 use crate::math::Vec3;
 use crate::mesh::{EdgeId, FaceId, Mesh, VertexId};
 use crate::topology::MeshTopology;
@@ -99,7 +100,7 @@ pub fn dihedral_angle(mesh: &Mesh, e: EdgeId) -> Option<f64> {
     }
     let n0 = mesh.face_normal(f[0]);
     let n1 = mesh.face_normal(f[1]);
-    Some(n0.dot(n1).clamp(-1.0, 1.0).acos())
+    Some(n0.dot(n1).clamp(-1.0, 1.0).r_acos())
 }
 
 /// Interior angle of face `f` at corner `v`, in radians.
@@ -113,7 +114,7 @@ pub fn corner_angle(mesh: &Mesh, f: FaceId, v: VertexId) -> Option<f64> {
     Some(
         (a.dot(b) / (a.length() * b.length() + 1e-12))
             .clamp(-1.0, 1.0)
-            .acos(),
+            .r_acos(),
     )
 }
 
@@ -201,7 +202,7 @@ impl Protractor {
         let v = self.b.sub(self.vertex);
         (u.dot(v) / (u.length() * v.length() + 1e-12))
             .clamp(-1.0, 1.0)
-            .acos()
+            .r_acos()
     }
 }
 
@@ -215,7 +216,7 @@ pub fn overhang(mesh: &Mesh, f: FaceId, up: Vec3) -> f64 {
     } else {
         Vec3::new(0.0, 0.0, 1.0)
     };
-    n.dot(u).clamp(-1.0, 1.0).acos()
+    n.dot(u).clamp(-1.0, 1.0).r_acos()
 }
 
 /// Distortion: how far face `f` deviates from planar, as the maximum angle
@@ -240,7 +241,7 @@ pub fn distortion(mesh: &Mesh, f: FaceId) -> f64 {
     let mut worst = 0.0;
     for i in 0..norms.len() {
         for j in i + 1..norms.len() {
-            worst = f64::max(worst, norms[i].dot(norms[j]).clamp(-1.0, 1.0).acos());
+            worst = f64::max(worst, norms[i].dot(norms[j]).clamp(-1.0, 1.0).r_acos());
         }
     }
     worst

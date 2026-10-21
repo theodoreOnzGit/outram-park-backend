@@ -4,7 +4,7 @@
 //! graph — which nodes exist, which are currently visible, and the three
 //! behavioural rules the maintainer's headless Python dogfood
 //! (`collaboration/kovan-issue-35-prototypes/layer3-mindmap-ui/mindmap_model.py`,
-//! a behaviour spec, not code to port literally — see `bn show op-30um.7`)
+//! a behaviour spec, not code to port literally; retired tracker id `op-30um.7`)
 //! pins down:
 //!
 //! 1. **Expansion/collapse is explicit user state and is the only thing
@@ -21,7 +21,7 @@
 //! the ASCII renderer (that is [`crate::mindmap_layout`]); egui widgets and
 //! rendering, colour resolution, and wiring into the existing hand-rolled
 //! painter (that is [`crate::mindmap`] and `crate::app`, out of scope for
-//! this pass per `bn show op-30um.7`); and the canonical user-authored
+//! this pass per retired tracker id `op-30um.7`); and the canonical user-authored
 //! relation model (`RelationKind`/`UserRelation`, `op-30um.1`, landing in
 //! [`crate::relation`]) — this module only consumes a plain [`TypedEdge`]
 //! input, documented below as the seam that later work plugs into.
@@ -391,12 +391,23 @@ fn map_node_kind_for_artifact(kind: ArtifactKind) -> Option<MapNodeKind> {
         // IS the paper node the caller already added — emitting any of them
         // would duplicate or mis-shape the graph (GH issue #35, 2026-09-08).
         ArtifactKind::Paper | ArtifactKind::Relation | ArtifactKind::Mindmap => None,
+        // Code-review records (#764) are not literature map nodes; the code
+        // review map shows them.
+        ArtifactKind::Review
+        | ArtifactKind::NeedsFix
+        | ArtifactKind::Upstream
+        | ArtifactKind::DeletedFunctions
+        | ArtifactKind::Architecture => None,
         ArtifactKind::Note
         | ArtifactKind::Annotation
         | ArtifactKind::SourceReference
         | ArtifactKind::Formula
         | ArtifactKind::DigitisedTable
-        | ArtifactKind::DigitisedGraph => Some(MapNodeKind::Artifact(kind)),
+        | ArtifactKind::DigitisedGraph
+        | ArtifactKind::LessonSection
+        | ArtifactKind::WalkStep
+        | ArtifactKind::CodeWalk
+        | ArtifactKind::RecipeStep => Some(MapNodeKind::Artifact(kind)),
     }
 }
 

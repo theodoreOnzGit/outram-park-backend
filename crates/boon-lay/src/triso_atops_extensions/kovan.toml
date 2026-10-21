@@ -1,0 +1,649 @@
+schema_version = 1
+kind = "code_folder"
+crate = "boon-lay"
+dir = "crates/boon-lay/src/triso_atops_extensions"
+test_ids = [
+    "crates/boon-lay/src/triso_atops_extensions/normal_operation.rs::one_group_or_element_changes_only_itself",
+    "crates/boon-lay/src/triso_atops_extensions/normal_operation.rs::upstream_rates_reproduce_the_port_bit_for_bit",
+    "crates/boon-lay/src/triso_atops_extensions/removal_rates.rs::element_overrides_its_group",
+    "crates/boon-lay/src/triso_atops_extensions/removal_rates.rs::per_cycle_fractions_become_first_order_rates",
+    "crates/boon-lay/src/triso_atops_extensions/removal_rates.rs::upstream_routes_as_trisoatops",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::layers_match_the_recorded_table_and_skip_the_todo",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_carries_every_modelled_nuclide",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_flows_balance_and_follow_upstream_routing",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::release_pools_reach_equilibrium_and_rise_with_temperature",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::the_slice_is_the_assembled_geometry",
+    "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::walk_and_its_check",
+]
+
+[module."mod.rs"]
+path = "crate::triso_atops_extensions"
+
+[module."normal_operation.rs"]
+path = "crate::triso_atops_extensions::normal_operation"
+
+[[module."normal_operation.rs".function]]
+id = "fn:3253c8fec18163c8"
+name = "normal_operation_node_with_rates"
+qual = "normal_operation_node_with_rates"
+lines = [
+    55,
+    130,
+]
+hash = "sha256:de183ba7a6256529f9a88c343efe34db391b9f97b1bddb501edc8785035cfba5"
+doc_hash = "sha256:88656715099033588b84732a1783e8ed64ce346abeb077c76502a60859adaa30"
+callees = [
+    "fn:1365b3b5318e0a5d",
+    "fn:2095c07b5f4097a8",
+    "fn:2a3b6cbe3931c7f4",
+    "fn:34ff47a5448224c9",
+    "fn:8bc4c3bc717bd99d",
+    "fn:9515687f16091d7e",
+    "fn:98e15d9c13a78899",
+    "fn:9d27b0efc9f673f8",
+    "fn:d51049d00f066bb6",
+    "fn:f539e7a44fe9c7e3",
+]
+uses = [
+    "fn:2816dd8674f2b148",
+    "fn:49cbfd358a6976d4",
+    "fn:546333a5363bc5a2",
+    "fn:8f6c972c90fdceff",
+    "fn:a1f17cdf51adec8f",
+    "fn:dcb6acb5e841b5b0",
+    "fn:e6c95a55e6568166",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+physical_interface = true
+
+[[module."normal_operation.rs".function]]
+id = "fn:62b0c9917508518c"
+name = "FRACTIONS"
+qual = "FRACTIONS"
+item = "const"
+shape = "const"
+lines = [
+    145,
+    150,
+]
+hash = "sha256:f6a3585c5ec7d4fe7568d5f534ec35c8f5e488b482c976150420ba8023af43cf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:2816dd8674f2b148"]
+test = true
+
+[[module."normal_operation.rs".function]]
+id = "fn:52a4c3498d3ff7ab"
+name = "plant"
+qual = "plant"
+lines = [
+    152,
+    165,
+]
+hash = "sha256:af39c49bd36a456a49b789fb1bab45b9a34694bdf1b728c16a08c6dd41483395"
+doc_hash = "sha256:8488c32813ef30f462c92cf124b2f7e89bf13a69972f6db90b07989e138cba51"
+uses = ["fn:515e6933ab0603f9"]
+test = true
+
+[[module."normal_operation.rs".function]]
+id = "fn:08a6572dd61031c3"
+name = "node"
+qual = "node"
+lines = [
+    167,
+    170,
+]
+hash = "sha256:9b344ffb1390bb6eb5bd5d5346cefd944feec6d6f73305a6980bc216fb39d98c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8f6c972c90fdceff"]
+test = true
+
+[[module."normal_operation.rs".function]]
+id = "fn:e3643db3289f77db"
+name = "bits"
+qual = "bits"
+lines = [
+    172,
+    185,
+]
+hash = "sha256:40100f9cff47fcb4b8ec62c9ce94abf18146489af2a47a7365678763ef832070"
+doc_hash = "sha256:0dc537915f66769f9c4e0c7f51cf3b31aff82a6b33ccbe522bea34979b86d79d"
+uses = ["fn:dcb6acb5e841b5b0"]
+test = true
+
+[[module."normal_operation.rs".function]]
+id = "fn:854f6b76e1b30918"
+name = "with_rates"
+qual = "with_rates"
+lines = [
+    187,
+    210,
+]
+hash = "sha256:fdb3d1993042d64edcbcc9f40b10a5ba8c8d54b4d8f29f502c338055ff13067f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3253c8fec18163c8",
+    "fn:44fd31aa536c0e7c",
+    "fn:52a4c3498d3ff7ab",
+]
+uses = [
+    "fn:49cbfd358a6976d4",
+    "fn:546333a5363bc5a2",
+    "fn:62b0c9917508518c",
+    "fn:8f6c972c90fdceff",
+    "fn:a1f17cdf51adec8f",
+    "fn:dcb6acb5e841b5b0",
+]
+test = true
+
+[[module."normal_operation.rs".function]]
+id = "fn:7d89e73fea0b34f7"
+name = "upstream_rates_reproduce_the_port_bit_for_bit"
+qual = "upstream_rates_reproduce_the_port_bit_for_bit"
+lines = [
+    212,
+    263,
+]
+hash = "sha256:86114bc7cd68833c7cff27ced54e43f5735c2e4a95ca4b47a44f7b0fa9017adb"
+doc_hash = "sha256:f3ca8059542a6217720e4b61d67f55b33628ea43a40584233b31bbac8d80f4bb"
+callees = [
+    "fn:08a6572dd61031c3",
+    "fn:44fd31aa536c0e7c",
+    "fn:521d4591f6090c64",
+    "fn:52a4c3498d3ff7ab",
+    "fn:745bd77be64f687a",
+    "fn:854f6b76e1b30918",
+    "fn:9a8a6835861d321b",
+    "fn:d3507d0419becf9f",
+    "fn:e3643db3289f77db",
+    "fn:e503a3d0722ff508",
+    "fn:e51690ceac62577b",
+]
+uses = [
+    "fn:49cbfd358a6976d4",
+    "fn:62b0c9917508518c",
+    "fn:a1f17cdf51adec8f",
+    "fn:dcb6acb5e841b5b0",
+]
+test = true
+
+[[module."normal_operation.rs".function]]
+id = "fn:e863da6c4371fb07"
+name = "one_group_or_element_changes_only_itself"
+qual = "one_group_or_element_changes_only_itself"
+lines = [
+    265,
+    301,
+]
+hash = "sha256:91f277c6326f53ba741c37f007691cbaa1e33d0aaaffcec958efaa31a30a5c8a"
+doc_hash = "sha256:6e6d77abc3e38c4399e757205d30092d762f9518cd1b5df52e42f9dede324308"
+callees = [
+    "fn:08a6572dd61031c3",
+    "fn:521d4591f6090c64",
+    "fn:52a4c3498d3ff7ab",
+    "fn:854f6b76e1b30918",
+    "fn:8f085bc93b986d69",
+    "fn:d3507d0419becf9f",
+    "fn:ddb8066c67dc6d1e",
+    "fn:e3643db3289f77db",
+    "fn:e503a3d0722ff508",
+]
+uses = [
+    "fn:49cbfd358a6976d4",
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
+test = true
+
+[module."removal_rates.rs"]
+path = "crate::triso_atops_extensions::removal_rates"
+
+[[module."removal_rates.rs".function]]
+id = "fn:db2f598905bf3f45"
+name = "GroupRates"
+qual = "GroupRates"
+item = "type"
+shape = "struct"
+lines = [
+    50,
+    57,
+]
+hash = "sha256:d6d770394902b2f63bb63bddaa43255a0b3186070ab82ad33b2add80be0f28c4"
+doc_hash = "sha256:dd24517fce09bdf9e7567b9cc7e1a2975d3d9d55ccb8019b2b8d9bf1aa1f35ed"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:7f7ae797bf59c901"
+name = "per_second"
+qual = "GroupRates::per_second"
+lines = [
+    60,
+    67,
+]
+hash = "sha256:72dc2e86eb6a44840b7393c28cf0b733822b56013369d6791d3f24fbe89823a2"
+doc_hash = "sha256:ba867a2203cf3cc6e966448f9b5d1ab2816a8621824abba0a69f88b73299e850"
+uses = ["fn:db2f598905bf3f45"]
+reached_by = [
+    "#2",
+    "#4",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:870d0c055d2e2c33"
+name = "zero"
+qual = "GroupRates::zero"
+lines = [
+    69,
+    73,
+]
+hash = "sha256:1f53352ee86325392d5b906b07bbea3d472f5e21d9738eda56beb01ee0bbcda6"
+doc_hash = "sha256:9fb04b7a258f216dde7d2673c66213def4ecc886abafcbef0e5c50be722b9dfd"
+callees = ["fn:7f7ae797bf59c901"]
+uses = ["fn:db2f598905bf3f45"]
+reached_by = ["#4"]
+
+[[module."removal_rates.rs".function]]
+id = "fn:a1f17cdf51adec8f"
+name = "RemovalRates"
+qual = "RemovalRates"
+item = "type"
+shape = "struct"
+lines = [
+    76,
+    89,
+]
+hash = "sha256:a6a882bda66ce1e87b3f50caeba0badf1fe107538e130f09d60f96523bccafa4"
+doc_hash = "sha256:325585202947a2c3fa25afe4b3b792a83b4d6abb91e2596d2b78a3a9855d2e57"
+uses = ["fn:db2f598905bf3f45"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:d3507d0419becf9f"
+name = "upstream"
+qual = "RemovalRates::upstream"
+lines = [
+    92,
+    108,
+]
+hash = "sha256:1e4be38d046d61aa9941dd6a47cbdf94e1fde0e6e06c76923ddf2a7befaccccc"
+doc_hash = "sha256:373dc4153ead33b58d05c22fb37fa26ab7f4ac3ce1fe174887de9455b72f5f5f"
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:db2f598905bf3f45",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."removal_rates.rs".function]]
+id = "fn:e51690ceac62577b"
+name = "without_purification"
+qual = "RemovalRates::without_purification"
+lines = [
+    110,
+    128,
+]
+hash = "sha256:18986c63b9b0fe7e761c6c88c9bb359eb527a2702a2c86774323be66dfe242a6"
+doc_hash = "sha256:184fd56d798705327622ca8562300a45184a7c2233362774598e082f1d517219"
+uses = ["fn:a1f17cdf51adec8f"]
+reached_by = [
+    "#1",
+    "#4",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:8f085bc93b986d69"
+name = "with_group"
+qual = "RemovalRates::with_group"
+lines = [
+    130,
+    135,
+]
+hash = "sha256:b7495f05697a0a8cd6c0b085cbd30d7140827d0d26d76f2053854d053a5a341b"
+doc_hash = "sha256:7b580e3348b619470200dbfe63ccdf82b77207aee5b613cb8c0ed29912663d3b"
+callees = ["fn:ada5ea0a58f61554"]
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
+reached_by = [
+    "#0",
+    "#2",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:ddb8066c67dc6d1e"
+name = "with_element"
+qual = "RemovalRates::with_element"
+lines = [
+    137,
+    144,
+]
+hash = "sha256:69e212f523dda82b88a5d5476d3baa82d09eddf026461817f93babe1e16f584d"
+doc_hash = "sha256:2a4fe027577931f0fd256e2f0cd906d839f58b0e7d5758575c560a74aa2f7d0e"
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:db2f598905bf3f45",
+]
+reached_by = [
+    "#0",
+    "#2",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:ce93455eba03d31d"
+name = "group"
+qual = "RemovalRates::group"
+lines = [
+    146,
+    156,
+]
+hash = "sha256:931e141e403d4837a178d94d07017383b80608ae6cd2c079215bfedfe9c52037"
+doc_hash = "sha256:b79c7d70edaa8db1db4574b61e24d3723a6eb653daae65966de55b36d435ae34"
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:ada5ea0a58f61554"
+name = "group_mut"
+qual = "RemovalRates::group_mut"
+lines = [
+    158,
+    166,
+]
+hash = "sha256:1c17078c738e1f33510d42dba0683ce512d0dc68959e11c0565f7850583a1176"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
+reached_by = [
+    "#0",
+    "#2",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:f539e7a44fe9c7e3"
+name = "for_element"
+qual = "RemovalRates::for_element"
+lines = [
+    168,
+    177,
+]
+hash = "sha256:b1d1b9a1a22a66a73531212ee24d3f2d3eb6f33cb7181fadefef4fa373d0d38e"
+doc_hash = "sha256:8c2697cc6008cfcd6361afb2dc1f448020c91e0b18e1f465d33ba3f42e2bbdb2"
+callees = [
+    "fn:2e610cfd767d4eb5",
+    "fn:ce93455eba03d31d",
+]
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+
+[[module."removal_rates.rs".function]]
+id = "fn:3c8b9234066db2cd"
+name = "pool_rates"
+qual = "RemovalRates::pool_rates"
+lines = [
+    179,
+    193,
+]
+hash = "sha256:fb4c688b6cccd60a1e1622a7ad37dec7cfe58fda9b1e0513822c7fa0c78f535f"
+doc_hash = "sha256:26e8168efb3bfe2fa633d2b58e229180bf023d4a3646b8b00e0852a4f988bc9a"
+callees = ["fn:f539e7a44fe9c7e3"]
+uses = [
+    "fn:60da73c1a5c2618c",
+    "fn:a1f17cdf51adec8f",
+]
+reached_by = [
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+]
+physical_interface = true
+
+[[module."removal_rates.rs".function]]
+id = "fn:b32f19d771959a08"
+name = "from_per_cycle"
+qual = "RemovalRates::from_per_cycle"
+lines = [
+    195,
+    246,
+]
+hash = "sha256:d1a4bd3f72b51e9ead3dd276fd1f2c6abe84cee29f6248543846b69df1bbf7d1"
+doc_hash = "sha256:57bffdae9757e24cd6610142f68fd2b7f2a5fdd157de45dc8f2d9ec89d69d3a9"
+callees = [
+    "fn:24f71475f80c2d4b",
+    "fn:a121cb5bbac3e82f",
+    "fn:ddb8066c67dc6d1e",
+    "fn:f539e7a44fe9c7e3",
+]
+uses = [
+    "fn:74ae5e4416322e44",
+    "fn:a1f17cdf51adec8f",
+    "fn:db2f598905bf3f45",
+]
+physical_interface = true
+
+[[module."removal_rates.rs".function]]
+id = "fn:a121cb5bbac3e82f"
+name = "rate_from_fraction_per_cycle"
+qual = "rate_from_fraction_per_cycle"
+lines = [
+    249,
+    263,
+]
+hash = "sha256:1cd9d73f755df0a1cbb22a00f8211ef3dc98898e0c1e1076a59314309eea9034"
+doc_hash = "sha256:3ee5c6646af48ff05645719ef0b459f32e25d6f00df7d07cb236a634bfd30cb0"
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."removal_rates.rs".function]]
+id = "fn:24f71475f80c2d4b"
+name = "purification_rate"
+qual = "purification_rate"
+lines = [
+    265,
+    278,
+]
+hash = "sha256:e40eed5c560d85db4f0fc486ed7e84a6700ef5868681b487f955d13536c20605"
+doc_hash = "sha256:73856d18dbd8e10c8e3301dcd23893c8f53246c110948e4715413a46cbabdae1"
+callees = ["fn:a121cb5bbac3e82f"]
+reached_by = ["#3"]
+physical_interface = true
+
+[[module."removal_rates.rs".function]]
+id = "fn:74ae5e4416322e44"
+name = "PerCycleRemoval"
+qual = "PerCycleRemoval"
+item = "type"
+shape = "struct"
+lines = [
+    280,
+    292,
+]
+hash = "sha256:af7f373a6e7959e666c416e8b0e42df3df3bf366d72aa701797327b5686d5f7d"
+doc_hash = "sha256:42a475f03557cf5baa5f5e17f056a27db8f26d7619635873f233deef0d4e4ffe"
+
+[[module."removal_rates.rs".function]]
+id = "fn:969715cc977ff30c"
+name = "liu_cao_2002_htr10"
+qual = "liu_cao_2002_htr10"
+lines = [
+    294,
+    327,
+]
+hash = "sha256:5660f2947994e283adfd629c2a1dd1d648d4ca9c9093d276ed44dae6daa52940"
+doc_hash = "sha256:55252535d9d2027930cee855103a3376ead33c8298dcb95f0a6dcb6ec6b1ac4b"
+uses = ["fn:74ae5e4416322e44"]
+
+[[module."removal_rates.rs".function]]
+id = "fn:c833166e9eac0e21"
+name = "hz"
+qual = "hz"
+lines = [
+    333,
+    335,
+]
+hash = "sha256:3fcdf00ac8acee78bd7db87dde50475af16862bca6ce737f8da44cf23992cb2f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#2",
+    "#4",
+]
+physical_interface = true
+
+[[module."removal_rates.rs".function]]
+id = "fn:0db0e2da65038a84"
+name = "upstream_routes_as_trisoatops"
+qual = "upstream_routes_as_trisoatops"
+lines = [
+    337,
+    353,
+]
+hash = "sha256:e7bfaf37c69615a67e46af3fc5732612b59b62f33ef9711c7c97b6310160051e"
+doc_hash = "sha256:f6bee59e64af0e8fee7cafc527a75e2c2be7627aaaf6fcd4b6000f7ba70bf837"
+callees = [
+    "fn:7f7ae797bf59c901",
+    "fn:870d0c055d2e2c33",
+    "fn:c833166e9eac0e21",
+    "fn:d3507d0419becf9f",
+    "fn:e51690ceac62577b",
+    "fn:f539e7a44fe9c7e3",
+]
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:db2f598905bf3f45",
+]
+test = true
+
+[[module."removal_rates.rs".function]]
+id = "fn:a7a9885866ecadfb"
+name = "element_overrides_its_group"
+qual = "element_overrides_its_group"
+lines = [
+    355,
+    366,
+]
+hash = "sha256:b95f0e6fa54eae4a62fbe098a93656cf690d349f3dc337db25e032a00e12ac78"
+doc_hash = "sha256:e89f75e53c2fb0d9dc6914dd6d73a63178c083ed87cf61f7b61bbed63f093c8b"
+callees = [
+    "fn:7f7ae797bf59c901",
+    "fn:8f085bc93b986d69",
+    "fn:c833166e9eac0e21",
+    "fn:d3507d0419becf9f",
+    "fn:ddb8066c67dc6d1e",
+    "fn:f539e7a44fe9c7e3",
+]
+uses = [
+    "fn:a1f17cdf51adec8f",
+    "fn:d9fc661a522b11ce",
+    "fn:db2f598905bf3f45",
+]
+test = true
+
+[[module."removal_rates.rs".function]]
+id = "fn:34b6a366b3371e1e"
+name = "per_cycle_fractions_become_first_order_rates"
+qual = "per_cycle_fractions_become_first_order_rates"
+lines = [
+    368,
+    382,
+]
+hash = "sha256:e116f3203ec42aeef693c12632d14197b2353a738c631ca73ebcfaf16cdd6a41"
+doc_hash = "sha256:fb1b8bae64efa4908e109119552880ab1493eb792981a1876bde24a336a76c23"
+callees = [
+    "fn:24f71475f80c2d4b",
+    "fn:a121cb5bbac3e82f",
+]
+test = true

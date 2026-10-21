@@ -34,6 +34,8 @@
 //! increment — and in the direction of *more* accuracy, since the discarded
 //! residual is now carried rather than thrown away.
 
+use petir::mathf::RealMath;
+
 use std::time::Instant;
 
 use uom::si::f64::*;
@@ -54,7 +56,7 @@ use crate::beta_testing::transfer_fn_wrapper_and_enums::{TransferFnFirstOrder, T
 /// consecutive samples differ by far more than 1e-9 at every timestep used
 /// in these tests, so the block's "input unchanged" guard never fires.
 fn drive_signal(time_seconds: f64) -> Ratio {
-    Ratio::new::<ratio>((0.37 * time_seconds).sin() * 0.5 + 0.021 * time_seconds)
+    Ratio::new::<ratio>((0.37 * time_seconds).r_sin() * 0.5 + 0.021 * time_seconds)
 }
 
 /// The absolute value of a dimensionless quantity, as a plain `f64`.
@@ -450,7 +452,7 @@ fn first_order_recurrence_is_exact_on_an_irregular_time_grid() {
 
     for step in 0..2000usize {
         // deterministic but irregular: roughly 0.002 s to 0.05 s
-        let jitter = ((step as f64 * 12.9898).sin() * 43758.5453).fract().abs();
+        let jitter = ((step as f64 * 12.9898).r_sin() * 43758.5453).fract().abs();
         let current_time = Time::new::<second>(time_seconds);
         let current_input = drive_signal(time_seconds);
 

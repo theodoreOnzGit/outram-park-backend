@@ -1,0 +1,31 @@
+{
+	"case": "synthetic_camara_isbn",
+	"input": {
+		"kind": "forced",
+		"translator": "Camara Brasileira do Livro ISBN.js",
+		"search": {
+			"itemType": "book",
+			"ISBN": "8532511015"
+		}
+	},
+	"synthetic": true,
+	"source": "kovan-authored response (2026-10-07, #756) in the shape of the CBL ISBN search index's JSON answer (fields as Camara Brasileira do Livro ISBN.js reads them); the service was not contacted (its API is called with an api-key, which DATA_POLICY.md keeps out of the repository). The record content is invented test data. Request headers are omitted (the api-key header differs between upstream and the port by design).",
+	"exchanges": [
+		{
+			"request": {
+				"method": "POST",
+				"url": "https://isbn-search-br.search.windows.net/indexes/isbn-index/docs/search?api-version=2016-09-01",
+				"body": "{\"count\":true,\"facets\":[],\"filter\":\"\",\"orderby\":null,\"queryType\":\"full\",\"search\":\"8532511015 OR 9788532511010\",\"searchFields\":\"FormattedKey,RowKey\",\"searchMode\":\"any\",\"select\":\"*\",\"skip\":0,\"top\":1}"
+			},
+			"response": {
+				"status": 200,
+				"url": "https://isbn-search-br.search.windows.net/indexes/isbn-index/docs/search?api-version=2016-09-01",
+				"headers": {
+					"content-type": "application/json; odata.metadata=minimal"
+				},
+				"body": "{\"@odata.context\":\"https://isbn-search-br.search.windows.net/indexes('isbn-index')/$metadata#docs(*)\",\"@odata.count\":1,\"value\":[{\"@search.score\":12.5,\"RowKey\":\"8532511015\",\"FormattedKey\":\"85-325-1101-5\",\"Title\":\"INTRODUÇÃO À FÍSICA DE REATORES\",\"Subtitle\":\"teoria e prática\",\"Sinopse\":\"Um texto introdutório de exemplo.\",\"Colection\":\"COLEÇÃO ENGENHARIA\",\"Edicao\":\"1\",\"Cidade\":\"Rio de Janeiro\",\"UF\":\"RJ\",\"Imprint\":\"EDITORA EXEMPLO\",\"Date\":\"2001-05-01T00:00:00Z\",\"Paginas\":\"240\",\"IdiomasObra\":[\"português (Brasil)\"],\"Authors\":[\"JOÃO CARLOS DA SILVA FILHO\",\"Souza, Maria\",\"Pedro Alves\"],\"Profissoes\":[\"Autor\",\"Tradutor\",\"Revisor\"],\"Subject\":\"Física nuclear\",\"PalavrasChave\":[\"Reatores\",\"Energia nuclear\"]}]}",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- kovan-authored probe (#749): Dublin Core 1.1 and terms, PRISM 2.0 and
+     FOAF on a journal article with its journal as a node of its own. -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:dcterms="http://purl.org/dc/terms/"
+         xmlns:prism="http://prismstandard.org/namespaces/basic/2.0/"
+         xmlns:bib="http://purl.org/net/biblio#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/">
+  <bib:Article rdf:about="http://example.org/articles/42">
+    <dc:title>Thermal &amp; hydraulic probes: a <![CDATA[<kovan>]]> test</dc:title>
+    <dc:creator>Smith, Jane Q.</dc:creator>
+    <dc:creator>Kovan Probe Consortium</dc:creator>
+    <dc:contributor>Doe, John</dc:contributor>
+    <dcterms:isPartOf>
+      <bib:Journal rdf:about="urn:issn:1234-5679">
+        <dc:title>Journal of Probes</dc:title>
+        <dcterms:alternative>J. Probes</dcterms:alternative>
+        <dc:identifier>ISSN 1234-5679</dc:identifier>
+      </bib:Journal>
+    </dcterms:isPartOf>
+    <prism:volume>7</prism:volume>
+    <prism:number>3</prism:number>
+    <prism:startingPage>11</prism:startingPage>
+    <prism:endingPage>19</prism:endingPage>
+    <dc:date>2019-02-30</dc:date>
+    <dc:identifier>DOI 10.5555/probe.42</dc:identifier>
+    <dc:identifier>
+      <dcterms:URI><rdf:value>http://example.org/articles/42</rdf:value></dcterms:URI>
+    </dc:identifier>
+    <dc:subject>thermal hydraulics</dc:subject>
+    <dc:subject>probes</dc:subject>
+    <dc:subject>
+      <dcterms:LCC><rdf:value>TK9202 .P76</rdf:value></dcterms:LCC>
+    </dc:subject>
+    <dc:language xml:lang="en">en-GB</dc:language>
+    <dc:rights>CC BY 4.0</dc:rights>
+    <dcterms:abstract>An abstract, with a comma.</dcterms:abstract>
+    <dc:description>A description that is not Zotero RDF's Extra.</dc:description>
+    <dc:relation rdf:resource="http://example.org/articles/41"/>
+  </bib:Article>
+  <bib:Book rdf:about="urn:isbn:9780306406157">
+    <dc:title>A Book with an ISBN in its URI</dc:title>
+    <bib:authors>
+      <rdf:Seq>
+        <rdf:li><foaf:Person><foaf:surname>Author</foaf:surname><foaf:givenName>Ann</foaf:givenName></foaf:Person></rdf:li>
+        <rdf:li><foaf:Organization><foaf:name>An Organisation, Inc.</foaf:name></foaf:Organization></rdf:li>
+      </rdf:Seq>
+    </bib:authors>
+    <bib:editors>
+      <rdf:Seq><rdf:li>Editor, Ed</rdf:li></rdf:Seq>
+    </bib:editors>
+    <dc:publisher>
+      <foaf:Organization>
+        <foaf:name>Probe Press</foaf:name>
+        <vcard:adr xmlns:vcard="http://nwalsh.com/rdf/vCard#"><vcard:Address><vcard:locality>Singapore</vcard:locality></vcard:Address></vcard:adr>
+      </foaf:Organization>
+    </dc:publisher>
+    <dcterms:isPartOf>
+      <bib:Series><dc:title>Probe Series</dc:title><dc:identifier>12</dc:identifier></bib:Series>
+    </dcterms:isPartOf>
+    <dc:identifier>ISBN 978-0-306-40615-7</dc:identifier>
+    <dc:date>2001</dc:date>
+  </bib:Book>
+</rdf:RDF>

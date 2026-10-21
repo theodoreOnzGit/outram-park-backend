@@ -52,6 +52,7 @@
 //! mean reproducing the evaluation's own error. **AI-assisted draft, no human
 //! review**: the finding is about a published evaluation and needs one.
 
+use petir::mathf::RealMath;
 use njoy_outram_park_fork::leapr::decks::{embedded_deck_text, SabMaterial};
 use njoy_outram_park_fork::leapr::deck::LeaprDeck;
 use njoy_outram_park_fork::leapr::generate::{generate_tape, ElasticChannel};
@@ -397,7 +398,10 @@ fn published_sic_bragg_pattern_matches_an_invalid_centring_not_zinc_blende() {
 /// about 2.7 of the 3.6 percentage points, and the ~1 % that remains is the
 /// Debye-Waller/difference-reflection effect documented alongside.
 ///
-/// (The −3.03 % headline in this file's module doc is the *shipped* pipeline
+/// (The ~~−3.03 % headline in this file's module doc~~ −3.03 % of
+/// `docs/leapr-sic-coherent-elastic-vv.md` Result 1 (2.85169 b; this file's
+/// module doc records −2.96 %, 2.853825 b, from 2026-08-19; CORRECTED
+/// 2026-10-14) is the *shipped* pipeline
 /// at 296 K with its own `W'`, not this common-`W'` comparison. The two differ
 /// because the fitted tape `W'` is ~10 % larger; both are stated where they
 /// are measured.)
@@ -408,7 +412,7 @@ fn swapping_in_the_tapes_implied_basis_recovers_most_of_the_thermal_point_gap() 
             .edges
             .iter()
             .take_while(|&&(edge, _)| edge <= e)
-            .map(|&(edge, f)| f * (-four_w * edge).exp())
+            .map(|&(edge, f)| f * (-four_w * edge).r_exp())
             .sum::<f64>()
             / e
     }

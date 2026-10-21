@@ -5,7 +5,9 @@
 //! # Why
 //!
 //! Two benchmarks already bracket the FHR pebble study's machinery: Godiva
-//! (ICSBEP HEU-MET-FAST-001, fast, bare metal) at +57 ± 173 pcm and
+//! (ICSBEP HEU-MET-FAST-001, fast, bare metal) at ~~+57 ± 173 pcm~~
+//! **+16 ± 11 pcm (256 seeds, pooled)** (CORRECTED 2026-09-18: +57 was a single-seed
+//! draw, superseded by the 256-seed pooled mean) and
 //! HEU-SOL-THERM-009 (thermal, water-moderated solution) at −18 ± 171 pcm. Both
 //! are **highly enriched**: U-238 is 5 % of Godiva's heavy metal and 5 % of
 //! HST-009's. The pebble's residual has been narrowed to U-238 absorption, so
@@ -61,7 +63,46 @@
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example jemima_keff
 //! ```
+//!
+//! `OUTRAM_SPEED=standard|fast|very-fast` picks the nuclides' `SpeedTier`.
+//! Unset means `fast` (the default, exactly the same `k` as `standard`);
+//! `very-fast` coarsens RECONR/BROADR to 1 %, an approximation whose
+//! measured effect is in `docs/profiling/speed_tiers_2026_09_27.md`.
 
+//!
+//! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! | | dk vs benchmark |
+//! |---|---|
+//! | **pooled mean, 32 seeds** | **-253 pcm, sem +/-34** |
+//! | seed-to-seed sd | 195 pcm — what ONE run scatters by |
+//! | previously recorded (SINGLE seed) | `+6 ± 173 pcm` |
+//!
+//! //! **The previously recorded `+6` was a 1.3-sd lucky draw.** It made this case
+//! read as near-perfect agreement; the pooled answer is `-253 pcm`. The single
+//! draw was not wrong, it was one sample from a distribution 195 pcm wide, and
+//! nothing in a single-seed report can reveal that. This is the clearest
+//! illustration in the repo of why `op-awwi` exists.
+//!
+//! **`-253 +/- 34` is still INSIDE the benchmark's own ~300 pcm band**, so the
+//! honest statement is "agrees, at -253 +/- 34 pcm" — NOT "disagrees at 7
+//! sigma". The `distance from benchmark = 7.3 sem` the example prints is
+//! measured in OUR sampling error, which pooling has made small enough that it
+//! is no longer the dominant term.
+//!
+//!
+//! **PROVENANCE WARNING on that band (added 2026-09-18).** The `± ~0.003` is
+//! NOT a quoted ICSBEP case uncertainty — this file's own line ~49 calls it
+//! *"pessimistic here"*, since fast metal assemblies have smaller
+//! uncertainties than solutions. So "inside the band" is being judged against
+//! a deliberately generous stand-in. Against a realistic fast-assembly
+//! uncertainty (nearer +/-100-200 pcm) `-253 +/- 34` is **marginal and
+//! possibly outside**. Do not publish this as agreement until the real
+//! case-specific uncertainty is obtained (bead filed 2026-09-18).
+//! This closes `gh:#196` / `bn:op-awwi` for this case: the headline is now a
+//! pooled mean, not a draw. Note the comparison is now limited by the
+//! BENCHMARK's uncertainty (ICSBEP `1.0000 ± ~0.003`, i.e. ~300 pcm), not ours — quote agreement against that
+//! band, not against our sem.
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::vv::assert_reproduces_keff;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
@@ -94,8 +135,111 @@ fn main() {
     let nuclides: Vec<Nuclide> = vec![
         load("U234", "n-092_U_234-ENDF8.0.endf"),
         load("U235", "n-092_U_235-ENDF8.0.endf"),
-        load("U238", "n-092_U_238.endf"),
+        // OUTRAM_U238_ENDF7=1 swaps U-238 ALONE to ENDF/B-VII.0, every other
+        // nuclide held at VIII.0. Isolates one nuclide's evaluation: the four
+        // pooled ICSBEP residuals split by U-238 content and the two U-238-heavy
+        // cases disagree in SIGN, which a whole-library swap could not separate.
+        load("U238", if std::env::var("OUTRAM_U238_ENDF7").is_ok() { "n-092_U_238-ENDF7.0.endf" } else { "n-092_U_238.endf" }),
     ];
+    // OUTRAM_URR=1 adds UNRESOLVED-RESONANCE self-shielding via PURR
+    // probability tables, which this example otherwise does NOT carry.
+    //
+    // WHY THIS MATTERS HERE, AND WHY IT IS NOT A TUNING KNOB. U-238's
+    // unresolved range spans roughly 20-149 keV. With LSSF=1 the evaluation's
+    // MF=3 holds INFINITELY DILUTE unresolved cross sections, so a transport
+    // code that reads MF=3 and stops is running an unshielded reflector: it
+    // OVER-absorbs, and k comes out LOW. Jemima's reflector is 99.3 % U-238
+    // and its spectrum slows down straight through that range, so it is the
+    // most URR-exposed case in this set. Godiva is bare and 93.7 % U-235, so
+    // the same physics should be worth far less there -- which is the
+    // Jemima/Godiva asymmetry every other candidate tested here has lacked.
+    //
+    // Note LCT-008 already enables this (its --urr flag); Jemima did not.
+    let nuclides: Vec<Nuclide> = if std::env::var("OUTRAM_URR").is_ok() {
+        eprintln!("  URR: adding PURR probability tables to the actinides");
+        nuclides
+            .into_iter()
+            .zip(["n-092_U_234-ENDF8.0.endf", "n-092_U_235-ENDF8.0.endf", "n-092_U_238.endf"])
+            .map(|(n, file)| {
+                let p = reference_endf(file).expect("tape");
+                let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+                let mat = tape.materials()[0];
+                let n = n
+                    // PURR at route 4's settings since gh:#931 (`process`'s 20 / 64 / 10 000; was 20 / 16 / 2000).
+                    .with_urr_probability_tables(&tape, mat, TEMP_K, 20, 64, 10_000)
+                    .expect("PURR");
+                if let Some((lo, hi)) = n.urr_range_ev() {
+                    eprintln!("    URR tables over [{lo:.3e}, {hi:.3e}] eV");
+                }
+                n
+            })
+            .collect()
+    } else {
+        nuclides
+    };
+
+    // OUTRAM_JEMIMA_ISO_INELASTIC=1 samples every inelastic collision
+    // isotropically in the CM frame, ablating the ENDF MF=4/MT=51..90 discrete
+    // angular distributions that `op-tm9f` wired in.
+    //
+    // WHY ON JEMIMA. That fix was priced on Godiva (-224 +/- 44 pcm), which is
+    // 93.7 % U-235 and only ~5 % U-238. Jemima is 83 % U-238 by heavy metal
+    // and 99.3 % U-238 in its reflector, so it is far more exposed to the same
+    // treatment. Measuring the SENSITIVITY here bounds how large a residual
+    // error in that treatment would have to be to explain Jemima's
+    // -253 +/- 34 pcm: if the term is worth S pcm on Jemima, an error of
+    // f * S explains the residual, and f is then checkable against Godiva's
+    // own -55 +/- 34.
+    //
+    // This is a SENSITIVITY measurement, not a correctness one. It cannot say
+    // the treatment is wrong -- only how much room there is for it to matter.
+    let nuclides: Vec<Nuclide> = if std::env::var("OUTRAM_JEMIMA_ISO_INELASTIC").is_ok() {
+        eprintln!("  ABLATION: inelastic sampled ISOTROPICALLY in CM (MF=4/MT=51..90 off)");
+        nuclides
+            .into_iter()
+            .map(Nuclide::with_isotropic_inelastic_scattering)
+            .collect()
+    } else {
+        nuclides
+    };
+
+    // OUTRAM_FROZEN_NUBAR=1 freezes nu-bar(E) at thermal, ablating its energy
+    // dependence. `with_frozen_nubar(0.0253)`.
+    //
+    // WHY THIS PAIR. The inelastic ablation eliminated itself by SCALING: the
+    // term was worth 1.53x more on Jemima while the residuals differ by 4.6x.
+    // So the cause must be something Jemima HAS and Godiva LARGELY DOES NOT,
+    // not something it has more of. The structural difference is that Jemima
+    // is NATURAL-URANIUM REFLECTED on all sides (99.3 % U-238) while Godiva is
+    // a BARE sphere with vacuum outside.
+    //
+    // nu-bar(E) rises steeply with energy and is sampled at every fission --
+    // including fissions in Jemima's reflector, which Godiva does not have at
+    // all. If the Jemima/Godiva worth-ratio comes out near 1.5 it is
+    // eliminated by the same argument as inelastic; if it is much larger, it
+    // is a live candidate.
+    let nuclides: Vec<Nuclide> = if std::env::var("OUTRAM_FROZEN_NUBAR").is_ok() {
+        eprintln!("  ABLATION: nu-bar frozen at 0.0253 eV (energy dependence off)");
+        nuclides.into_iter().map(|n| n.with_frozen_nubar(0.0253)).collect()
+    } else {
+        nuclides
+    };
+
+
+    // OUTRAM_ISO_ELASTIC=1 makes ELASTIC scattering isotropic in the CM frame,
+    // ablating the ENDF MF=4/MT=2 angular law. Unlike the three ablations
+    // already run (evaluation, inelastic angular, nu-bar) this one targets the
+    // channel that dominates REFLECTOR RETURN: 3 of Jemima's 4 cells are
+    // natural-U reflector (99.3 % U-238), and Godiva is BARE. So this is the
+    // first candidate whose Jemima/Godiva worth-ratio has a structural reason
+    // to be large -- the earlier three all died on a ratio near or below 1.5.
+    let nuclides: Vec<Nuclide> = if std::env::var("OUTRAM_ISO_ELASTIC").is_ok() {
+        eprintln!("  ABLATION: elastic scattering isotropic in CM (MF=4/MT=2 off)");
+        nuclides.into_iter().map(Nuclide::with_isotropic_elastic_scattering).collect()
+    } else {
+        nuclides
+    };
+
     eprintln!(
         "Nuclear data ready in {:.1} s.\n",
         t0.elapsed().as_secs_f64()
@@ -129,10 +273,17 @@ fn main() {
     let geom = build_geometry();
     check_geometry(&geom);
 
+    // OUTRAM_NPART overrides the per-generation population. Fission-source
+    // UNDERSAMPLING bias scales as ~1/N per generation and is a BIAS, not
+    // variance -- pooling seeds does not remove it, exactly like the
+    // convergence bias tested above. 5000/generation is small, so this is
+    // a live candidate. Raising N must leave k unchanged if it is absent.
+    // OUTRAM_NINACTIVE / OUTRAM_NACTIVE likewise (`vv::bench_run_size`).
+    let (n_particles, n_inactive, n_active) = outram_mc_libs::vv::bench_run_size(5000, 40, 120);
     let settings = KeffSettings {
-        n_particles: 5000,
-        n_inactive: 40,
-        n_active: 120,
+        n_particles,
+        n_inactive,
+        n_active,
         temperature_k: TEMP_K,
         compute: ComputeType::CpuMultiThread(Default::default()),
         ..KeffSettings::default()
@@ -147,13 +298,67 @@ fn main() {
         "  core r < {R_CORE} cm, z {Z_CORE_LO}–{Z_CORE_HI}; natural-U reflector to \
          r = {R_OUT} cm and z = {Z_BOT}/{Z_TOP} (vacuum)"
     );
+    eprintln!("  speed tier: {} (OUTRAM_SPEED)", outram_mc_libs::vv::bench_speed());
     eprintln!(
         "  {} histories/gen, {} inactive + {} active generations\n",
         settings.n_particles, settings.n_inactive, settings.n_active
     );
 
     let t = Instant::now();
-    let result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    // Seed ensemble (OUTRAM_BENCH_SEEDS, default 1 -- unchanged single-seed
+    // behaviour). One run of this case scatters by far more than the effects
+    // being argued about, so a single draw cannot resolve a 100-200 pcm change;
+    // see outram_mc_libs::vv::pooled. `run_keff_csg` is already internally
+    // multi-threaded, so seeds run sequentially and each uses every core.
+    let n_seeds = outram_mc_libs::vv::bench_seeds();
+    let mut ens: Vec<f64> = Vec::with_capacity(n_seeds);
+    let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    ens.push((result.k_mean - 1.0) * 1.0e5);
+    outram_mc_libs::vv::report_transport_losses("jemima_keff seed 1", &result);
+    outram_mc_libs::vv::report_source_convergence("jemima_keff seed 1", &result, settings.n_inactive);
+    // Pool the active-phase drift across seeds. A real source-convergence bias
+    // is systematic and survives this averaging; statistical scatter does not.
+    let mut drifts: Vec<f64> =
+        vec![outram_mc_libs::vv::source_convergence_drift_pcm(&result, settings.n_inactive)];
+    for seed in 2..=n_seeds as u64 {
+        let s = KeffSettings {
+            seed,
+            ..settings.clone()
+        };
+        let r = run_keff_csg(&geom, &materials, &nuclides, src, &s, None);
+        eprintln!("    seed {seed}: k = {:.5} +/- {:.5}", r.k_mean, r.k_std);
+        ens.push((r.k_mean - 1.0) * 1.0e5);
+        drifts.push(outram_mc_libs::vv::source_convergence_drift_pcm(&r, s.n_inactive));
+        // Deliberately NOT `result = r`. Everything downstream -- the
+        // convergence trace, the printed k_eff, the V&V gate and the
+        // bounded-geometry cross-check -- is sized against SEED 1, which is
+        // also what the single-seed default runs. Reassigning here silently
+        // repoints all of them at the last seed of the ensemble.
+    }
+    if n_seeds > 1 {
+        let good: Vec<f64> = drifts.iter().copied().filter(|d| d.is_finite()).collect();
+        if good.len() > 1 {
+            let (dm, dsd, dsem) = outram_mc_libs::vv::pooled(&good);
+            println!("\n  POOLED SOURCE-CONVERGENCE DRIFT ({} seeds)", good.len());
+            println!("    active-half drift = {dm:+.0} +/- {dsem:.0} pcm   (seed-to-seed sd {dsd:.0})");
+            if dm.abs() > 2.0 * dsem {
+                println!("    => RESOLVED systematic drift: the source is STILL MOVING while");
+                println!("       scoring. This is a BIAS, not variance -- pooling k does not");
+                println!("       remove it. n_inactive is too low for this case.");
+            } else {
+                println!("    => not resolved; consistent with statistical scatter.");
+            }
+        }
+        let (mean, sd, sem) = outram_mc_libs::vv::pooled(&ens);
+        println!("\n  ENSEMBLE IEU-MET-FAST-002 (Jemima): {n_seeds} seeds");
+        println!("    pooled dk    = {mean:+.0} pcm");
+        println!("    seed-to-seed sd  = {sd:.0} pcm   (what ONE run scatters by)");
+        println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");
+        println!(
+            "    distance from benchmark = {:.1} sem",
+            (mean / sem).abs()
+        );
+    }
     eprintln!("  transport: {:.1} s", t.elapsed().as_secs_f64());
     println!("  k_eff = {:.5} ± {:.5}", result.k_mean, result.k_std);
     println!("  ICSBEP IEU-MET-FAST-002 (critical) = 1.0000 ± ~0.003");
@@ -325,8 +530,8 @@ fn load(name: &str, file: &str) -> Nuclide {
     let p = reference_endf(file).unwrap_or_else(|| panic!("missing reference tape {file}"));
     eprint!("  reconstructing {name:<6} … ");
     let t0 = Instant::now();
-    let n = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
-        .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
+    let n = Nuclide::from_endf_file_with_speed(&p, name, TEMP_K, outram_mc_libs::vv::bench_speed())
+        .unwrap_or_else(|e| panic!("from_endf_file_with_speed({}): {e}", p.display()));
     eprintln!("{:.1?}", t0.elapsed());
     n
 }

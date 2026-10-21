@@ -10,7 +10,7 @@
 
 use outram_mc_libs::material::material::Material;
 use outram_mc_libs::material::nuclide::Nuclide;
-use outram_mc_libs::tally::filter::EnergyFilter;
+use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind};
 use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
 use outram_mc_libs::mathf::RealMath;
 
@@ -40,7 +40,7 @@ pub fn new_spectrum_tally() -> (Tally, Vec<f64>) {
     let tally = Tally {
         id: 1,
         name: "spectrum overlay".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Energy(filter)],
         scores: vec![ScoreType::Flux],
         bins: vec![TallyBin::default(); N_SPECTRUM_BINS],
     };

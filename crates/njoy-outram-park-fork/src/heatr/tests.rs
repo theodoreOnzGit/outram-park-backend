@@ -1,5 +1,6 @@
 //! Unit tests for `heatr` (moved verbatim out of `heatr/mod.rs` on split).
 
+use petir::mathf::RealMath;
 use super::damage::*;
 use super::kerma::*;
 use super::spectra::*;
@@ -26,6 +27,7 @@ fn recon(awr: f64, sections: Vec<ReconrSection>) -> ReconrResult {
         material: material(awr),
         sections,
         resonance_upper_limit: None,
+        unresolved_table: None,
     }
 }
 
@@ -34,6 +36,7 @@ fn recon(awr: f64, sections: Vec<ReconrSection>) -> ReconrResult {
 #[test]
 fn hydrogen_elastic_loses_half_its_energy() {
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![(1.0e5, 20.0), (1.0e6, 20.0), (1.0e7, 20.0)], // flat 20 b
@@ -59,6 +62,7 @@ fn hydrogen_elastic_loses_half_its_energy() {
 #[test]
 fn heavy_target_transfers_small_fraction() {
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![(1.0e6, 5.0), (2.0e6, 5.0)],
@@ -92,6 +96,7 @@ fn heavy_target_transfers_small_fraction() {
 #[test]
 fn multineutron_without_spectrum_contributes_nothing() {
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt16N2n,
         qi: -8.0e6,
         pairs: vec![(1.0e5, 1.0), (1.0e6, 1.0)],
@@ -115,6 +120,7 @@ fn multineutron_without_spectrum_contributes_nothing() {
 fn capture_deposits_e_plus_q() {
     let q = 6.0e6; // representative (n,γ) Q-value
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt102Capture,
         qi: q,
         pairs: vec![(1.0e5, 2.0), (1.0e6, 2.0)],
@@ -141,6 +147,7 @@ fn capture_deposits_e_plus_q() {
 fn charged_particle_only_exit_deposits_e_plus_q() {
     let q = 2.0e6;
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt107NAlpha,
         qi: q,
         pairs: vec![(1.0e6, 0.5)],
@@ -166,6 +173,7 @@ fn charged_particle_only_exit_deposits_e_plus_q() {
 fn single_neutron_at_q_zero_matches_elastic_formula() {
     let awr = 12.0;
     let level = ReconrSection {
+        lr: 0,
         mt: MtReaction::from_any(52),
         qi: 0.0,
         pairs: vec![(1.0e6, 3.0)],
@@ -177,7 +185,7 @@ fn single_neutron_at_q_zero_matches_elastic_formula() {
         &[],
     );
     let h = kerma.eval(1.0e6);
-    let expected = 3.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).powi(2);
+    let expected = 3.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).r_powi(2);
     assert!(
         (h - expected).abs() / expected < 1.0e-9,
         "H={h}, want {expected}"
@@ -194,6 +202,7 @@ fn discrete_level_heating_is_reduced_by_negative_q() {
     let awr = 12.0;
     let q = -4.4e6; // e.g. carbon-12's first excited state
     let level = ReconrSection {
+        lr: 0,
         mt: MtReaction::from_any(51),
         qi: q,
         pairs: vec![(1.0e7, 1.0)],
@@ -205,12 +214,12 @@ fn discrete_level_heating_is_reduced_by_negative_q() {
         &[],
     );
     let h = kerma.eval(1.0e7);
-    let expected = 1.0 * (1.0e7 * 2.0 * awr / (awr + 1.0).powi(2) + q / (awr + 1.0));
+    let expected = 1.0 * (1.0e7 * 2.0 * awr / (awr + 1.0).r_powi(2) + q / (awr + 1.0));
     assert!(
         (h - expected).abs() / expected.abs() < 1.0e-9,
         "H={h}, want {expected}"
     );
-    let h_elastic_only = 1.0 * 1.0e7 * 2.0 * awr / (awr + 1.0).powi(2);
+    let h_elastic_only = 1.0 * 1.0e7 * 2.0 * awr / (awr + 1.0).r_powi(2);
     assert!(
         h < h_elastic_only,
         "negative Q must reduce heating below the Q=0 term"
@@ -225,6 +234,7 @@ fn nn_alpha_family_uses_single_neutron_formula() {
     let awr = 27.0;
     let q = -3.0e6;
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt22NnAlpha,
         qi: q,
         pairs: vec![(8.0e6, 0.2)],
@@ -236,7 +246,7 @@ fn nn_alpha_family_uses_single_neutron_formula() {
         &[],
     );
     let h = kerma.eval(8.0e6);
-    let expected = 0.2 * (8.0e6 * 2.0 * awr / (awr + 1.0).powi(2) + q / (awr + 1.0));
+    let expected = 0.2 * (8.0e6 * 2.0 * awr / (awr + 1.0).r_powi(2) + q / (awr + 1.0));
     assert!(
         (h - expected).abs() / expected.abs() < 1.0e-9,
         "H={h}, want {expected}"
@@ -248,16 +258,19 @@ fn nn_alpha_family_uses_single_neutron_formula() {
 fn all_three_phases_sum_additively() {
     let awr = 56.0;
     let elastic = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![(1.0e6, 10.0)],
     };
     let capture = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt102Capture,
         qi: 6.0e6,
         pairs: vec![(1.0e6, 1.0)],
     };
     let level = ReconrSection {
+        lr: 0,
         mt: MtReaction::from_any(51),
         qi: -1.0e6,
         pairs: vec![(1.0e6, 0.3)],
@@ -269,7 +282,7 @@ fn all_three_phases_sum_additively() {
         &[],
     );
     let h = kerma.eval(1.0e6);
-    let f = 2.0 * awr / (awr + 1.0).powi(2);
+    let f = 2.0 * awr / (awr + 1.0).r_powi(2);
     let h_elastic = 10.0 * 1.0e6 * f;
     let h_capture = 1.0 * (1.0e6 + 6.0e6);
     let h_level = 0.3 * (1.0e6 * f + (-1.0e6) / (awr + 1.0));
@@ -285,11 +298,13 @@ fn all_three_phases_sum_additively() {
 #[test]
 fn elastic_and_capture_sum_additively() {
     let elastic = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![(1.0e6, 10.0)],
     };
     let capture = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt102Capture,
         qi: 6.0e6,
         pairs: vec![(1.0e6, 1.0)],
@@ -302,7 +317,7 @@ fn elastic_and_capture_sum_additively() {
         &[],
     );
     let h = kerma.eval(1.0e6);
-    let h_elastic = 10.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).powi(2);
+    let h_elastic = 10.0 * 1.0e6 * 2.0 * awr / (awr + 1.0).r_powi(2);
     let h_capture = 1.0 * (1.0e6 + 6.0e6);
     assert!(
         (h - (h_elastic + h_capture)).abs() < 1.0,
@@ -317,6 +332,7 @@ fn elastic_and_capture_sum_additively() {
 #[test]
 fn eval_interpolates_between_grid_points() {
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![(1.0e6, 10.0), (2.0e6, 10.0)],
@@ -340,6 +356,7 @@ fn fission_heating_matches_energy_balance_formula() {
     let q_fission = 200.0e6; // representative U-235 fission Q-value
     let sigma_f = 2.0; // barn, flat for simplicity
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt18Fission,
         qi: q_fission,
         pairs: vec![(1.0e5, sigma_f), (1.0e6, sigma_f)],
@@ -347,6 +364,8 @@ fn fission_heating_matches_energy_balance_formula() {
     let nu = NuBar {
         energy: vec![1.0e5, 1.0e6],
         nu_total: vec![2.4, 2.6],
+        poly: None,
+        interp: Vec::new(),
     };
     let chi = FissionSpectrum::Watt {
         a: 0.988e6,
@@ -376,6 +395,7 @@ fn fission_heating_is_positive_and_order_200_mev() {
     let q_fission = 200.0e6;
     let sigma_f = 1.5;
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt18Fission,
         qi: q_fission,
         pairs: vec![(1.0e5, sigma_f), (1.0e6, sigma_f)],
@@ -383,6 +403,8 @@ fn fission_heating_is_positive_and_order_200_mev() {
     let nu = NuBar {
         energy: vec![1.0e5, 1.0e6],
         nu_total: vec![2.44, 2.44],
+        poly: None,
+        interp: Vec::new(),
     };
     let chi = FissionSpectrum::default(); // thermal-Watt stand-in
     let kerma = Kerma::from_reconr(&recon(235.0, vec![sec]), &nu, &chi, &[]);
@@ -406,21 +428,25 @@ fn fission_heating_is_positive_and_order_200_mev() {
 fn all_four_phases_sum_additively() {
     let awr = 235.0;
     let elastic = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![(1.0e6, 10.0)],
     };
     let capture = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt102Capture,
         qi: 6.0e6,
         pairs: vec![(1.0e6, 1.0)],
     };
     let level = ReconrSection {
+        lr: 0,
         mt: MtReaction::from_any(51),
         qi: -1.0e6,
         pairs: vec![(1.0e6, 0.3)],
     };
     let fission = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt18Fission,
         qi: 200.0e6,
         pairs: vec![(1.0e6, 1.2)],
@@ -428,6 +454,8 @@ fn all_four_phases_sum_additively() {
     let nu = NuBar {
         energy: vec![1.0e6],
         nu_total: vec![2.5],
+        poly: None,
+        interp: Vec::new(),
     };
     let chi = FissionSpectrum::Watt {
         a: 0.988e6,
@@ -441,7 +469,7 @@ fn all_four_phases_sum_additively() {
     );
     let h = kerma.eval(1.0e6);
 
-    let f = 2.0 * awr / (awr + 1.0).powi(2);
+    let f = 2.0 * awr / (awr + 1.0).r_powi(2);
     let h_elastic = 10.0 * 1.0e6 * f;
     let h_capture = 1.0 * (1.0e6 + 6.0e6);
     let h_level = 0.3 * (1.0e6 * f + (-1.0e6) / (awr + 1.0));
@@ -463,6 +491,7 @@ fn n2n_heating_subtracts_two_neutron_means() {
     let q = -6.0e6; // representative (n,2n) threshold Q
     let sigma = 0.7; // barn, flat
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt16N2n,
         qi: q,
         pairs: vec![(1.0e7, sigma), (1.4e7, sigma)],
@@ -500,6 +529,7 @@ fn n3n_and_n4n_use_higher_multiplicity() {
     let e = 2.0e7;
     for (mt, yld) in [(MtReaction::Mt17N3n, 3.0), (MtReaction::Mt37N4n, 4.0)] {
         let sec = ReconrSection {
+            lr: 0,
             mt,
             qi: q,
             pairs: vec![(e, sigma)],
@@ -532,6 +562,7 @@ fn continuum_inelastic_is_single_neutron_with_spectrum_mean() {
     let mean_e_prime = 1.5 * a + 0.25 * a * a * b;
     let e = 5.0e6;
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt91NnContinuum,
         qi: q,
         pairs: vec![(e, sigma)],
@@ -564,6 +595,7 @@ fn n2n_heating_is_small_and_positive_at_14_mev() {
     let sigma = 0.5;
     let e = 1.4e7;
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt16N2n,
         qi: q,
         pairs: vec![(e, sigma)],
@@ -603,26 +635,31 @@ fn h5_sums_additively_with_all_prior_phases() {
     let awr = 235.0;
     let e = 1.4e7;
     let elastic = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![(e, 5.0)],
     };
     let capture = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt102Capture,
         qi: 6.0e6,
         pairs: vec![(e, 0.1)],
     };
     let level = ReconrSection {
+        lr: 0,
         mt: MtReaction::from_any(51),
         qi: -1.0e6,
         pairs: vec![(e, 0.2)],
     };
     let fission = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt18Fission,
         qi: 200.0e6,
         pairs: vec![(e, 1.0)],
     };
     let n2n = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt16N2n,
         qi: -8.0e6,
         pairs: vec![(e, 0.6)],
@@ -630,6 +667,8 @@ fn h5_sums_additively_with_all_prior_phases() {
     let nu = NuBar {
         energy: vec![e],
         nu_total: vec![2.6],
+        poly: None,
+        interp: Vec::new(),
     };
     let chi = FissionSpectrum::Watt {
         a: 0.988e6,
@@ -647,7 +686,7 @@ fn h5_sums_additively_with_all_prior_phases() {
     );
     let h = kerma.eval(e);
 
-    let f = 2.0 * awr / (awr + 1.0).powi(2);
+    let f = 2.0 * awr / (awr + 1.0).r_powi(2);
     let mean_chi = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
     let mean_n2n = 1.5 * a + 0.25 * a * a * b;
     let expected = 5.0 * e * f
@@ -714,6 +753,7 @@ fn elastic_damage_is_bounded_by_heating() {
     let e_d = default_displacement_energy(z);
     let sigma = 3.0; // barn, flat
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![
@@ -728,7 +768,7 @@ fn elastic_damage_is_bounded_by_heating() {
     // E_max at 100 eV: 4·56/57²·100 ≈ 6.9 eV < E_d=40 ⇒ no damage.
     assert_eq!(dmg.eval(1.0e2), 0.0, "below-threshold recoil ⇒ zero damage");
 
-    let f = 2.0 * awr / (awr + 1.0).powi(2); // H1 heating factor
+    let f = 2.0 * awr / (awr + 1.0).r_powi(2); // H1 heating factor
     let mut prev = 0.0;
     for &e in &[1.0e5, 1.0e6, 1.4e7] {
         let d = dmg.eval(e);
@@ -749,6 +789,7 @@ fn elastic_damage_is_bounded_by_heating() {
 fn damage_empty_without_recoil_channels() {
     // Pure capture (MT=102): no two-body neutron-scattering recoil channel.
     let sec = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt102Capture,
         qi: 6.0e6,
         pairs: vec![(1.0e5, 2.0), (1.0e6, 2.0)],
@@ -766,7 +807,7 @@ fn damage_empty_without_recoil_channels() {
 fn two_body_recoil_bounds_narrow_with_negative_q() {
     let awr = 56.0_f64;
     let e = 5.0e6_f64;
-    let c = awr / (awr + 1.0).powi(2) * e;
+    let c = awr / (awr + 1.0).r_powi(2) * e;
     let (el_min, el_max) = two_body_recoil_bounds(e, 0.0, awr);
     assert!((el_min).abs() < 1.0, "elastic E_min≈0, got {el_min}");
     assert!(
@@ -788,11 +829,13 @@ fn discrete_level_adds_to_damage() {
     let z = 26;
     let e_d = default_displacement_energy(z);
     let elastic = ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt2Elastic,
         qi: 0.0,
         pairs: vec![(1.0e6, 3.0), (5.0e6, 3.0)],
     };
     let level = ReconrSection {
+        lr: 0,
         mt: MtReaction::from_any(51),
         qi: -0.85e6, // Fe-56 first level ~0.85 MeV
         pairs: vec![(1.0e6, 1.0), (5.0e6, 1.0)],
@@ -803,6 +846,7 @@ fn discrete_level_adds_to_damage() {
             awr,
             vec![
                 ReconrSection {
+                    lr: 0,
                     mt: MtReaction::Mt2Elastic,
                     qi: 0.0,
                     pairs: vec![(1.0e6, 3.0), (5.0e6, 3.0)],

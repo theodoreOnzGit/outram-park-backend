@@ -1,0 +1,11 @@
+   Compiling bishan v0.0.2 (/home/teddy0/Documents/research/outram-park-backend/.claude/worktrees/agent-a3631f089c5e5b0f1/crates/bishan)
+    Finished `release` profile [optimized] target(s) in 0.17s
+     Running unittests src/lib.rs (target/release/deps/bishan-9c0b0632860c764d)
+
+running 3 tests
+test building::tests::the_steady_building_passes_inflow_less_decay ... ok
+test tests::the_scope_is_recorded ... ok
+test building::tests::atoms_are_conserved_and_small_steps_equal_one_big_step ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

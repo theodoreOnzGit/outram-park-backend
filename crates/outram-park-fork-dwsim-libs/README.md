@@ -57,9 +57,8 @@ pure-component reference points, not against experimental VLE/property
 datasets. `tampines` is the intended downstream consumer.
 
 See `docs/port-scope.md` and `docs/chemistry-model-survey.md` for the full
-porting scope and per-model status, and `bn show op-qo2` (kopi-beans; see root
-`CLAUDE.md` for the live format-version blocker on that store as of
-2026-08-07) for the current backlog. Remaining deferred items include: Petalas-Aziz, full Tinker
+porting scope and per-model status, and the crate's GitHub issues for the
+current backlog (the retired tracker's epic was `op-qo2`). Remaining deferred items include: Petalas-Aziz, full Tinker
 shell-and-tube rating, the flash-coupled pressure update for the transient pipe
 network, the Mathias-Copeman / Twu α-variants, the advanced-EOS tier
 (PC-SAFT / GERG-2008), and the LIQUAC full-package glue.
@@ -79,8 +78,8 @@ network, the Mathias-Copeman / Twu α-variants, the advanced-EOS tier
 
 ## License
 
-GPL-3.0-only (see the workspace root `LICENSE`), matching DWSIM's own
-upstream license directly — no relicensing step is needed. See
+~~GPL-3.0-only~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`); the ported files match DWSIM's own
+upstream license (GPL-3.0) directly. See
 `TRADEMARKS.md` for the full non-affiliation notice.
 
 ## Copyright

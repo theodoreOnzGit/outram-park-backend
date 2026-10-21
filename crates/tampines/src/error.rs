@@ -55,4 +55,11 @@ pub enum TampinesError {
     /// string — the provenance of a failure is part of the diagnosis.
     #[error("TAMPINES multiphase closure failed: {0}")]
     Closure(#[from] outram_foam_multiphase::MultiphaseError),
+
+    /// The HEM pipe solver ([`crate::hem::HemPipe`], which lives in
+    /// `tampines_steam_tables::hem`) failed. Its own error is kept whole, so a
+    /// `CourantViolation` or the cell of an `Unphysical` state survives the
+    /// conversion.
+    #[error("TAMPINES HEM pipe: {0}")]
+    Hem(#[from] tampines_steam_tables::hem::HemError),
 }

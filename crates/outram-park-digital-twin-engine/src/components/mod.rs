@@ -17,12 +17,17 @@ pub mod distillation_column;
 pub mod excursion;
 pub mod fhr_reactor_vessel;
 pub mod heat_exchanger;
+pub(crate) mod htr10_conus_packing;
+pub mod htr10_plant;
+pub mod htr10_reactor_schematic;
 pub mod htr10_reactor_vessel;
+pub mod htr10_steam_generator;
 pub mod instrumentation;
 mod legend;
 pub(crate) mod pebble_bed_texture;
 pub mod pebble_packing;
 pub mod pipe;
+pub mod pipe_route;
 mod pipe_component;
 pub mod pump;
 pub mod reactor_archetype;
@@ -45,10 +50,15 @@ pub use heat_exchanger::{
     ApproachVerdict, HeatExchangerConstruction, HeatExchangerDisplayRange, HeatExchangerKind,
     HeatExchangerScalars, HeatExchangerVisual, HeatExchangerVisualState,
 };
+pub use htr10_reactor_schematic::Htr10ReactorSchematic;
 pub use htr10_reactor_vessel::{Htr10FlowAnchors, Htr10ReactorVesselVisual};
+pub use htr10_steam_generator::Htr10SteamGeneratorVisual;
 pub use instrumentation::InstrumentationVisual;
 pub use legend::{LegendUnit, TemperatureLegend};
-pub use pipe::{PipePhaseShade, PipeScalars, PipeScale, PipeVisual, PipeVisualState};
+pub use pipe::{
+    CoaxialDuctGeometry, CoaxialDuctVisual, PipePhaseShade, PipeScalars, PipeScale, PipeVisual,
+    PipeVisualState,
+};
 pub use pipe_component::PipeComponent;
 pub use pump::PumpVisual;
 pub use reactor_archetype::{ReactorArchetype, ReactorArchetypeVisual};

@@ -12,6 +12,7 @@
 //! crates/njoy-outram-park-fork/scripts/test.sh --test thermal_ace_zrh
 //! ```
 
+use petir::mathf::RealMath;
 use std::fs::File;
 
 use njoy_outram_park_fork::{
@@ -41,7 +42,7 @@ fn hzrh_thermal() -> AceTable {
     let ne = 40;
     let (elo, ehi) = (1.0e-4_f64, 4.0_f64);
     let grid: Vec<f64> = (0..ne)
-        .map(|i| elo * (ehi / elo).powf(i as f64 / (ne - 1) as f64))
+        .map(|i| elo * (ehi / elo).r_powf(i as f64 / (ne - 1) as f64))
         .collect();
     let temp = mf7.incoherent_inelastic.as_ref().unwrap().temperature_k;
     let opts = ThermalAceOptions {
@@ -50,27 +51,23 @@ fn hzrh_thermal() -> AceTable {
         natom: 1.0,
         // THERMR card-4 emax; bounds the calcem grid the bins come from.
         emax_ev: 4.0,
+        ..Default::default()
     };
     AceTable::thermal_from_mf7(&mf7, temp, "hzrh", 0, &grid, opts).unwrap()
 }
 
-/// Minimal Type-1 parser: skip the 6 header/IZAW lines, read NXS(16)+JXS(32)
-/// (6 lines of 8 ints), then the XSS values.
+/// Parse a Type-1 table through the library reader.
+///
+/// This was a hand-rolled parser — one of five near-identical copies in this
+/// crate — until `acer::read` landed on 2026-09-21. Going through the library
+/// turns this from "the writer produced text my test can re-read" into a real
+/// **write -> read round trip**: the same reader that consumes NJOY2016's
+/// output consumes ours, so a table this crate writes but the reader cannot
+/// read now fails here.
 fn parse_type1(text: &str) -> (Vec<i32>, Vec<i32>, Vec<f64>) {
-    let lines: Vec<&str> = text.lines().collect();
-    let mut ints: Vec<i32> = Vec::new();
-    for line in &lines[6..12] {
-        for tok in line.split_whitespace() {
-            ints.push(tok.parse().unwrap());
-        }
-    }
-    let mut xss: Vec<f64> = Vec::new();
-    for line in &lines[12..] {
-        for tok in line.split_whitespace() {
-            xss.push(tok.parse().unwrap());
-        }
-    }
-    (ints[..16].to_vec(), ints[16..].to_vec(), xss)
+    let t = njoy_outram_park_fork::acer::read::parse_type1(text)
+        .expect("our own Type-1 output must be readable by our own reader");
+    (t.nxs.to_vec(), t.jxs.to_vec(), t.xss)
 }
 
 #[test]
@@ -122,11 +119,9 @@ fn incoherent_elastic_cross_section_physics() {
 #[test]
 fn thermal_table_uses_idpnc3_elastic_branch() {
     let ace = hzrh_thermal();
-    assert!(
-        ace.zaid.starts_with("hzrh") && ace.zaid.ends_with('t'),
-        "ZAID {}",
-        ace.zaid
-    );
+    // `(a6,f3.2,'t')`, name right-justified in 6 columns as NJOY2016 writes
+    // it (GitHub #865); ~~`starts_with("hzrh")`~~ CORRECTED 2026-10-14.
+    assert_eq!(ace.zaid, "  hzrh.00t", "ZAID");
     assert_eq!(ace.nxs[nxs::IDPNI], 3, "S(α,β) inelastic mode");
     assert_eq!(
         ace.nxs[nxs::IDPNC],

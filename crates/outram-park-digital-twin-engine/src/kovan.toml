@@ -1,0 +1,11 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src"
+crate_root = true
+
+[module."lib.rs"]
+path = "crate"
+
+[module."prelude.rs"]
+path = "crate::prelude"

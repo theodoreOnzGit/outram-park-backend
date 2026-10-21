@@ -9,7 +9,7 @@ by hand at every librarian pass; last full pass **2026-08-11**.
 on GitHub will meet it. It is deliberately *not* the crate `README.md` — a
 crate README carries code-facing duties (crate description, the maintainer's
 Bookkeeping-status sign-off block) that do not belong in a library catalogue.
-(The crate currently has no `README.md`; writing one is tracked in `op-1lti`.)
+~~(The crate currently has no `README.md`; writing one is tracked in `op-1lti`.)~~ **CORRECTED 2026-09-25** — `README.md` now exists (GitHub issue #221); it points here for the document index.
 
 ## How the archive works
 
@@ -18,16 +18,137 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
   INIS, gen-4.org, nucleus.iaea.org) does not grant redistribution rights.
   When unsure: proprietary. See `kovan_import/README.md` (workspace root) for
   the full intake workflow and `DATA_POLICY.md` for the provenance rules.
-- **`open/`** is committed; `.gitignore` deliberately un-ignores
-  `open/**/*.pdf` so collaborators get the open literature with the repo.
+- ~~**`open/`** is committed; `.gitignore` deliberately un-ignores
+  `open/**/*.pdf` so collaborators get the open literature with the repo.~~
+  **CHANGED 2026-09-22 (maintainer direction):** PDFs no longer live in this
+  repository. Open PDFs are in [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature) (`kovan-standard-open-corpus/`
+  for Kovan's built-in corpus, `theodore-open-corpus/` for the rest); proprietary
+  documents, PDF and extracted text alike, are in the private repository `propreitrary-literature-theodore`.
+  `open/` keeps only open documents' metadata JSON (and some Markdown); the
+  generated Markdown and BibTeX stay under `generated/`.
 - **`proprietary/`** and `generated/markdown/proprietary/` are gitignored and
-  never leave the machine. The JSON records under `proprietary/` hold
+  ~~never leave the machine~~ never enter this public repository. **CHANGED
+  2026-09-22:** the maintainer's copies are kept in the private GitHub
+  repository `propreitrary-literature-theodore`. The JSON records under `proprietary/` hold
   bibliographic facts only in their metadata; they and their PDFs stay local.
 - The canonical record for each document is its **`KovanDocument` JSON**;
   `kovan lit bibtex <json>` regenerates a citation from it on demand. Every
   record below round-trips through `lit bibtex` cleanly (checked 2026-08-11).
 
 ## Open tier
+
+> **2026-10-13 — McSpaden et al. 2025, "The MUSIC Critical Benchmark and
+> Nuclear Data", filed into Kovan's standard corpus** (owner, on being shown
+> its licence: "add it in then"). *Nuclear Science and Engineering* 199(5),
+> 699–724, DOI 10.1080/00295639.2024.2384817, Los Alamos authors. Open
+> access under **CC BY-NC-ND 4.0**, stated on the article's first page
+> (journal page 699), so it is kept unmodified and its figures are not to be
+> reproduced in our own documents. In
+> `reactor-literature/kovan-standard-open-corpus/cc-by-nc-nd/` (ground 9),
+> SHA-256 `3b1a069c…bf7e68`; the publisher's PDF as the owner downloaded it,
+> not re-fetched. A `LITERATURE` entry in `crates/kovan/src/corpus.rs`
+> (`mcspaden-2025-music-benchmark`), filed under nuclear criticality safety
+> and nuclear data. The licence covers the article only: the MUSIC
+> evaluation itself is in the ICSBEP Handbook, which is not held here.
+
+> **2026-10-10 — six DOE Fundamentals Handbook volumes filed into Kovan's
+> standard corpus** (OUTRAM PARK #829, the Sciences concept tree; owner: "For
+> DOE, as long as redistributable, and copyright checks out and can be
+> verified, I'm fine adding them in"): DOE-HDBK-1017/1-93 and /2-93 (Material
+> Science), DOE-HDBK-1015/1-93 and /2-93 (Chemistry), DOE-HDBK-1014/1-92 and
+> /2-92 (Mathematics), in `reactor-literature/kovan-standard-open-corpus/us-doe/`
+> beside DOE-HDBK-1012 and 1019 (ground 4). Fetched from energy.gov that day;
+> every cover (PDF page 1) reads "Distribution Statement A. Approved for
+> public release; distribution is unlimited.", and no volume's full text
+> carries a copyright notice. Quoted with URL and SHA-256 in that folder's
+> README, section 4. All six are `LITERATURE` entries in
+> `crates/kovan/src/corpus.rs` and `[[document]]`s of the Sciences proposals
+> (`src/concept_sciences_proposals.toml`).
+
+> **2026-10-02: `kabach2021intercomparison` logged.** O. Kabach, A. Chetaine,
+> A. Benchrif, H. Amsil, *An inter-comparison between ENDF/B-VIII.0-NECP-Atlas
+> and ENDF/B-VIII.0-NJOY results …*, Nucl. Eng. Technol. 53 (2021) 2445–2453,
+> doi:10.1016/j.net.2021.02.012. **CC BY-NC-ND 4.0** (PDF page 1). It was added
+> by a Kovan save to `reactor-literature/theodore-open-corpus/` without a
+> README row; logged under the new README ground 7 (reactor-literature
+> `359bb76`, `03afc72`). The PDF was briefly dropped by Kovan's reset on a
+> rejected push and restored (#502).
+
+> **2026-10-02 — NJOY2016 manual (`2022laur1720093`) logged with its licence
+> basis.** It had been in ~~`reactor-literature/theodore-open-corpus/`~~
+> (**MOVED 2026-10-07**, see the next entry) without a
+> README row. Basis: LANS BSD-3-Clause-style licence of
+> <https://github.com/njoy/NJOY2016-manual> (checked at `9a2951f`), also
+> printed on PDF page 2. README ground 6 added (reactor-literature `f5e8292`).
+
+> **2026-10-07 — NJOY2016 manual moved to Kovan's standard corpus.** Owner's
+> decision (GitHub #760, question 8). Now
+> `reactor-literature/kovan-standard-open-corpus/lanl/2022laur1720093.pdf`,
+> with the licence text copied verbatim beside it as
+> `lanl/LICENSE-NJOY2016-manual.txt`; basis recorded as that README's new
+> ground 7 (section 8, permissive open-source licence). Re-verified that day:
+> the LICENSE at `master` commit `9a2951f` (still the latest) grants
+> redistribution; our PDF ("Updated for NJOY2016.53, November 7, 2019") is
+> byte-identical to the repository's `njoy16.pdf` (same Git blob `7660ec9`).
+> Hardcoded into Kovan as `LITERATURE` entry `la-ur-17-20093`
+> (`crates/kovan/src/corpus.rs`), filed under
+> `02-nuclear-safety/nuclear-design/nuclear-data-processing`.
+> **Also filed 2026-10-07** (maintainer request) under that concept's module
+> sub-concepts, which now cite the manual chapter by chapter with printed and
+> PDF pages (RECONR, BROADR, UNRESR/PURR, THERMR/LEAPR, ACER, GROUPR and the
+> multigroup writers, ERRORR/COVR, HEATR); NJOY, MODER, RESXSR, PLOTR, VIEWR,
+> MIXR and GASPR have no sub-concept and stay under the parent only.
+
+> **2026-10-07 — 26 software-properties sources filed into Kovan's standard
+> corpus** (OUTRAM PARK #760; owner's decisions of that day), for the new
+> branch `07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties`
+> (ten properties plus performance, timing and scalability). Each file was
+> re-read for its redistribution statement, its SHA-256 computed, and its
+> bytes matched against the official URL (or the Internet Archive's copy of
+> it where the agency refuses scripted requests); all quoted, with where, in
+> `reactor-literature/kovan-standard-open-corpus/README.md`. BTP 7-14 Rev. 6
+> and RGs 1.152 Rev. 4, 1.168 Rev. 2, 1.169-1.173 Rev. 1 (`nrc/`, ground 1);
+> arXiv:2505.01671v1 and 2311.06995v1 (`cc-by/`, ground 2 extended to arXiv);
+> NSA CSI *Software Memory Safety* v1.1 and NSA/CISA *Memory Safe Languages*
+> (`nsa/`, new ground 10, "may be shared broadly"); CISA et al. *The Case for
+> Memory Safe Roadmaps* (`cisa/`, new ground 11, TLP:CLEAR, with the caveat
+> that five co-authoring agencies are non-U.S.); the MCO MIB Phase I report,
+> NASA-STD-8739.8B, NPR 7150.2D, NASA-STD-7009B, NASA-HDBK-7009B (as
+> published, DRAFT header), TM-103863 (NAS Parallel Benchmarks) and
+> TM-2001-210876 (MC/DC tutorial) (`nasa/`, new ground 12); AC 20-115D,
+> Order 8110.49A, AC 00-69, AC 20-193, AC 25.1309-1B (`faa/`, new ground 13);
+> NISTIR 8397 (`nist/`, new ground 14). Cite-only, not filed: NASA-GB-8719.13,
+> CAST papers, DOT/FAA contractor reports, DOE ASCR/ECP reports, DO-178C and
+> DO-332; NISTIR 8151 skipped. All are `LITERATURE` entries in
+> `crates/kovan/src/corpus.rs` and `[[document]]`s of the concept tree.
+
+> **2026-10-07 — 34 documents filed into Kovan's standard corpus** (OUTRAM
+> PARK #760), each re-verified from the file or its official landing page
+> before filing; the basis of each is quoted, with where it is, the URL and
+> the SHA-256, in `reactor-literature/kovan-standard-open-corpus/README.md`.
+> 22 bedrock documents for the IAEA Milestones issues: eleven NRC
+> (`nrc/`, ground 1), CRS R42853, CRS IF10821 and GAO-15-652 (`us-congress/`,
+> new ground 8, U.S. Government works that say they are not copyrighted),
+> DOE-HDBK-1019 Vols 1–2, DOE-HDBK-1012 Vols 1–3, the Nuclear Fuel Working
+> Group report, ORNL/TM-2020/1522 and ORNL/TM-2014/88 (`us-doe/`, ground 4).
+> 12 solver-pattern sources: SAND2011-2195 (LIME), LA-UR-06-7094 and
+> LA-UR-09-02377 (`us-doe/`, ground 4); Kim et al. 2022 and Zhang & Zhou 2023
+> (`cc-by/`, ground 2); multiRegionFoam arXiv:2306.01924v2 (`cc-by-sa/`), Wang
+> arXiv:2301.00289v3 and Cosgrove et al. 2020 (`cc-by-nc-nd/`, new ground 9);
+> OpenMC `depletion.rst`/`eigenvalue.rst` and MOOSE `SIMPLE.md`/`PIMPLE.md`
+> pinned to commits with their licence files (`openmc-docs/`, `moose-docs/`,
+> ground 7 extended to project documentation under MIT/LGPL). All are
+> `LITERATURE` entries in `crates/kovan/src/corpus.rs`; the solver sources
+> are `[[document]]`s of the concept tree.
+
+> **2026-10-02 — `conlin2017njoy21` added to the public open corpus.** J.L.
+> Conlin, A.C. Kahler, A.P. McCartney, D.A. Rehn, *NJOY21: Next generation
+> nuclear data processing capabilities*, EPJ Web of Conferences 146, 09040
+> (2017), doi:10.1051/epjconf/201714609040. CC BY 4.0, stated on PDF page 1.
+> Previously held only in the maintainer's private library
+> (`local-kovan-repo/literature/proprietary/`), which is not this repository.
+> Now `reactor-literature/theodore-open-corpus/cc-by/conlin2017-njoy21-next-generation-nuclear-data-processing.pdf`
+> (reactor-literature `ceffde2`). Not hardcoded into Kovan.
 
 ### Papers (`open/papers/`)
 
@@ -38,6 +159,7 @@ Technology (VINANST-15), Nha Trang, Vietnam, 9–11 August 2023. IAEA INIS
 record [9cr77-d5t43](https://inis.iaea.org/records/9cr77-d5t43),
 proceedings report INIS-VN-006.
 - Files: `choo-htr10-criticality.{json,pdf}`.
+- **RECLASSIFIED 2026-09-22 → proprietary** (maintainer decision: no verified reuse licence). The PDF and all extracted text (JSON, Markdown, BibTeX) moved to the private repository `propreitrary-literature-theodore`; nothing of it remains in this repository. The entry is kept here as the record of what it was.
 - *Good for:* HTR-10 initial-criticality modelling with Serpent and the HTR
   Code Package (HCP); the SNRSI-local companion to the IAEA benchmark. The
   authors are the maintainer's supervisor (Xiao) and a former colleague.
@@ -66,6 +188,7 @@ proceedings report INIS-VN-006.
 in Energy Research 9:704116.
 [doi:10.3389/fenrg.2021.704116](https://doi.org/10.3389/fenrg.2021.704116).
 - Files: `she2021pangu.{json,pdf}`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/cc-by/she2021pangu.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Licence:* **CC-BY**, verified from the copyright statement in the document
   itself — redistribution with attribution permitted, PDF committed.
 - *Good for:* the full HTR-10 operation history (Jan 2003 – May 2007) as a
@@ -84,6 +207,8 @@ Benchmark analysis related to initial testing of the HTTR and HTR-10.*
 IAEA-TECDOC-1382, Vienna, November 2003. Source:
 [www-pub.iaea.org](https://www-pub.iaea.org/MTCD/publications/PDF/te_1382_web/).
 - Files: `iaea-tecdoc-1382-part1.{json,pdf}`, `iaea-tecdoc-1382-part2.{json,pdf}`.
+- **RECLASSIFIED 2026-09-22 → proprietary** (maintainer decision: no verified reuse licence). The PDF and all extracted text (JSON, Markdown, BibTeX) moved to the private repository `propreitrary-literature-theodore`; nothing of it remains in this repository. The entry is kept here as the record of what it was.
+  The derived dataset `derived/tecdoc1382-htr10-control-rods.md` (facts, with provenance) stays committed.
 - *Tier basis:* openly published IAEA TECDOC.
 - *Good for:* **part 2, Chapter 4 is the HTR-10 core-physics benchmark** —
   problems B1 (critical loading height), B2 (k_eff vs. temperature), B3/B4
@@ -101,6 +226,7 @@ IAEA-TECDOC-1382, Vienna, November 2003. Source:
 (V)HTR-Modul.* EUR 28712 EN, JRC107642, Publications Office of the European
 Union. [doi:10.2760/270321](https://doi.org/10.2760/270321).
 - Files: `vhtr-modul-safety-jrc.json`, PDF archived as `kjna28712enn.pdf`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), ~~`theodore-open-corpus/jrc/kjna28712enn.pdf`~~ **CORRECTED 2026-10-20:** now `kovan-standard-open-corpus/eu-jrc/kjna28712enn.pdf` (moved there 2026-10-06, as `crates/boon-lay/src/fuel_failure/htr10/qualification.rs` records; checked in the submodule checkout: `theodore-open-corpus/jrc/` no longer exists). The JSON, Markdown and BibTeX stay here.
 - *Licence:* reuse authorised provided the source is acknowledged (EC Decision
   2011/833/EU); photos not under EU copyright need separate permission.
 - *Good for:* the reference safety treatment of pebble-bed HTGRs — decay-heat
@@ -117,6 +243,7 @@ Multinational project (Denmark, Finland, France, Netherlands, Norway, Sweden,
 USA, West Germany).
 - Files: `nureg-cr-2671-marviken.{json,pdf}`; generated markdown at
   `generated/markdown/open/nureg-cr-2671-marviken.md`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/nrc/nureg-cr-2671-marviken.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Tier basis:* US NRC / NTIS publication — US federal government work, openly
   published. Access tier OPEN, decided from the document's own front matter.
 - *Good for:* THE reference for the Marviken full-scale critical-flow
@@ -161,6 +288,7 @@ Stainless Steels.* ANL-75-55, Argonne National Laboratory, Chemical Engineering
 Division, September 1975. Distribution category LMFBR Fuels and Materials
 (UC-79b). [OSTI 4152287](https://www.osti.gov/servlets/purl/4152287).
 - Files: `kim1975-thermophysical-properties-stainless-steels.{json,md,pdf}`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/us-doe/kim1975-thermophysical-properties-stainless-steels.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Licence:* **US Government work — public domain.** Prepared under contract
   W-31-109-Eng-38 for the U.S. Energy Research and Development Administration;
   the title page carries "DISTRIBUTION OF THIS DOCUMENT IS UNLIMITED". PDF
@@ -193,6 +321,7 @@ Pottlacher, G. *Measurements of thermophysical properties of solid and liquid
 NIST SRM 316L stainless steel.* Journal of Materials Science, Springer.
 [doi:10.1007/s10853-019-04261-6](https://doi.org/10.1007/s10853-019-04261-6).
 - Files: `pichler2020-316l-thermophysical-properties.{json,md,pdf}`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/cc-by/pichler2020-316l-thermophysical-properties.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Licence:* **CC BY 4.0**, verified from the copyright statement in the
   document, *and* declared an "Official contribution of the National Institute
   of Standards and Technology; not subject to copyright in the United States".
@@ -214,6 +343,13 @@ NIST SRM 316L stainless steel.* Journal of Materials Science, Springer.
   liquid-metal material exists (see `op-k74g`).
 
 ### Theses (`open/theses/`)
+
+> **RECLASSIFIED 2026-09-22 → proprietary**, all four (maintainer decision). This
+> subsection and the "Proprietary tier — theses" section below had listed the
+> three UC Berkeley theses in both tiers at once; that contradiction is resolved
+> in favour of proprietary. The PDFs, extracted text, BibTeX and
+> `open/theses/References.md` moved to the private repository `propreitrary-literature-theodore`. The text below is
+> kept as the record of what was here.
 
 Four open-access theses, each with committed PDF, generated markdown and
 BibTeX. The first three are UC Berkeley dissertations from eScholarship; full
@@ -251,6 +387,7 @@ under the direction of Ayman I. Hawari. NCSU Repository handle
 - Files: `zhu2014thermal.{json,pdf}`; markdown at
   `generated/markdown/open/zhu2014thermal.md`; BibTeX round-trips cleanly
   (checked 2026-08-19).
+- **RECLASSIFIED 2026-09-22 → proprietary** (maintainer decision: no verified reuse licence). The PDF and all extracted text (JSON, Markdown, BibTeX) moved to the private repository `propreitrary-literature-theodore`; nothing of it remains in this repository. The entry is kept here as the record of what it was.
 - *Tier decision:* Open. Copyright page reads "© Copyright 2014 Yuwei Zhu, All
   Rights Reserved" with no explicit redistribution licence stated, but the
   thesis is deposited and freely downloadable via NCSU's institutional
@@ -388,6 +525,21 @@ Energy 5, 1–93.
 - *Used by:* `op-jyyp.8` (fix the suspect decay-heat model), digitiser V&V.
 - *Note:* 1980 scan OCR'd in 2003 — text quality imperfect in places.
 
+**`liu2002htr10fp`** — Liu Yuanzhong and Cao Jianzhu (2002). *Fission product
+release and its environment impact for normal reactor operations and for
+relevant accidents.* Nuclear Engineering and Design 218, 81–90.
+[doi:10.1016/S0029-5493(02)00200-5](https://doi.org/10.1016/S0029-5493(02)00200-5).
+© 2002 Elsevier, all rights reserved. Catalogued 2026-09-30; the copy is in the private repository as `yuanzhong2002fission.pdf`.
+- *Good for:* the HTR-10 source term. Its Tables 1, 3, 5 and 8 are already in `changi::activity`, and Tables 7 and 9 in `buangkok::published`. The design fuel-defect fractions and the accident release assumptions are in **`derived/liu-cao2002-htr10-source-term-assumptions.md`**.
+- *Used by:* `changi::activity` (inventory, circulating, airborne and accident release), `buangkok::published`, the conservative bound #434/#435.
+
+**`gao2002htr10transient`** — Gao Zuying and Shi Lei (2002). *Thermal hydraulic
+transient analysis of the HTR-10.* Nuclear Engineering and Design 218, 65–80.
+[doi:10.1016/S0029-5493(02)00199-1](https://doi.org/10.1016/S0029-5493(02)00199-1).
+© 2002 Elsevier, all rights reserved. **Not the same paper as `gao2002htr10th`** (51–64). Catalogued 2026-09-30; the copy is in the private repository as `zuying2002thermal.pdf`.
+- *Good for:* HTR-10's accident-analysis results (THERMIX/REACT, so **calculated, not measured**). Table 5 gives peak fuel temperature, power, pressure, graphite corrosion and particle exposure per initiating event; §5.3 covers depressurisation and air ingress, and §5.4 water ingress. Transcribed in **`derived/gao-shi2002-htr10-accident-results.md`**.
+- *Used by:* `htgr_sim_v1` `physics/depressurisation.rs` (§5.3.1); #420, #435, #441, #442.
+
 ## Proprietary tier — reports (`proprietary/reports/`)
 
 **`terry2005evaluation`** — Terry, W. K., Kim, S. S., Montierth, L. M.,
@@ -415,7 +567,32 @@ Group Meeting, November 2005. Obtained from
 - *Used by:* `docs/reactor-scoping/htr10-neutronics.md` (final section, Table 2
   values transcribed with provenance); `op-tvmf`, `op-lhu6`, `op-5c5r`.
 
+**`qin1996htr10design`** — Qin, Z. *General Design of the 10MW HTR.* Institute
+of Nuclear Energy Technology, Tsinghua University. JAERI-Conf 96-010, 3rd JAERI
+Symposium on HTGR Technologies (read from the document's title page; not
+catalogued before 2026-09-22).
+- *Tier rationale:* no copyright or licence statement found in the document.
+  Moved from `open/reports/` on 2026-09-22 (maintainer decision) to the private repository `propreitrary-literature-theodore`.
+
+**`mcdowell2011htgrcodes`** — McDowell, B.K., Mitchell, M.R., Pugh, R. et al.
+(2011). *High Temperature Gas Reactors: Assessment of Applicable Codes and
+Standards.* PNNL-20869, Pacific Northwest National Laboratory, prepared for the
+U.S. NRC, October 2011 (read from the title page; not catalogued before
+2026-09-22).
+- *Tier rationale:* no copyright or licence statement found in the document.
+  Moved from `open/reports/` on 2026-09-22 (maintainer decision) to the private repository `propreitrary-literature-theodore`.
+
+**`iaea1997tecdoc978`** — IAEA (1997). *Fuel performance and fission product
+behaviour in gas cooled reactors.* IAEA-TECDOC-978, Vienna. 533 pp.
+Catalogued 2026-09-30; the copy is in the private repository as `2002iaeatecdoc978.pdf`.
+- *Tier rationale:* proprietary, following the 2026-09-22 reclassification of TECDOC-1382 (no verified reuse licence).
+- *Good for:* Chapter 5, water and air ingress. §5.4 has the JAERI burning tests (Table 5-6), KORA (Table 5-7, the same data as Kugeler 2017 Table 9), Nabielek's air-ingress failure model (Eqs. 5-9 to 5-11, two-mechanism constants) and the SiC active/passive oxidation discussion. Eq. 5-2 is the kernel-hydrolysis burst already in `boon_lay::chemistry::kernel_hydrolysis`. Transcribed in **`derived/tecdoc978-air-oxidation-particle-failure.md`**.
+- *Used by:* `boon_lay::chemistry::kernel_hydrolysis`; #435, #441, #443.
+
 ## Proprietary tier — theses (`proprietary/theses/`)
+
+> **2026-09-22:** these three, and `zhu2014thermal` (NC State MS thesis, "©
+> Copyright 2014 Yuwei Zhu, All Rights Reserved"), are held in the private repository `propreitrary-literature-theodore`.
 
 All three are UC Berkeley Electronic Theses and Dissertations, publicly readable
 via eScholarship but carrying a bare `Copyright <year>` with no reuse licence —
@@ -444,8 +621,134 @@ Implementation Criteria.* PhD thesis, UC Berkeley.
   advanced reactors. Context for the digital-twin engine's intended-use
   boundary — note RESPONSIBLE_USE.md forbids operational deployment.
 
+**`1991finnemann-neacrp-l-335`** — Finnemann, Herbert and Galati, Aldo (1991).
+*NEACRP 3-D LWR Core Transient Benchmark: Final Specifications.*
+NEACRP-L-335 (Revision 1), OECD Nuclear Energy Agency, October 1991 (January
+1992). Scanned committee document, 75 pages, with a February 1992 Siemens/KWU
+covering letter bound in front as an addendum.
+- *Licence:* **none stated.** The document carries **no copyright line, no
+  licence and no distribution statement** anywhere in its front matter — title
+  pages, covering letter and introduction were all checked. It is a scanned
+  NEACRP committee paper bearing an NEA Data Bank routing stamp.
+- *Tier decision:* **proprietary**, on the archive's standing "unsure means
+  proprietary" rule. The document is reported to be publicly available online,
+  but per `DATA_POLICY.md` public hosting grants no redistribution rights and
+  the tier is decided from the document itself, not from where it was found.
+  **Flip to `open/` only against an explicit licence statement**, not against
+  availability.
+- *Good for:* the **source specification for the NEACRP cases in `bedok`** —
+  PWR control-assembly ejection (A1/A2) and BWR case D1 cold water injection /
+  E1 core pressurisation. Section 2 covers the reference PWR, section 5 the
+  reference BWR, sections 3/6 the problems and 4/7 the output requested.
+- *Used by:* `crates/bedok`, and it settled defect-register entries **K9**
+  (withdrawn) and **K8** (downgraded) on 2026-08-22. Section 5.3 defines the
+  BWR cross sections as
+  `Sigma = Sigma_0 + Sigma_rho*(rho - rho_0) + Sigma_T*(sqrt(T) - sqrt(T_0))`
+  — two derivative terms, water density and sqrt(Doppler temperature) — and
+  section 5.8 repeats it in prose, so the absence of a coolant-temperature
+  feedback table in `neacrpd1.m` is the specification, not an omission.
+  Section 5.3 also places control and burnable absorbers *inside* the
+  compositions for the BWR, which is why its control-rod section is
+  legitimately empty where the PWR half carries a separate `DeltaSigma_CA`
+  overlay (Tables 2.5.1/2.5.2). Pinned by
+  `neacrpd1::tests::k9_the_feedback_channels_match_the_benchmark_specification`.
+- *Extraction note:* `kovan lit import`'s metadata extractor got **five of six
+  fields wrong** — year 1999 (a scan artefact; the document says October 1991),
+  slug `1999neacrp` from that year, an empty author list, `document_type:
+  Other`, and a title that concatenated the real title with both authors'
+  names and affiliations separated by literal `<br>`. All corrected from the
+  title page; `lit bibtex` then round-trips cleanly. The extracted
+  `markdown_body` (44,403 chars) is usable. Worth filing against the extractor
+  alongside `op-szai`.
+
 ## Librarian history
 
+- **2026-09-30** — three proprietary documents catalogued: `liu2002htr10fp`, `gao2002htr10transient` and `iaea1997tecdoc978`. Five derived datasets were added (facts with provenance, extracted by an AI agent, **not human-reviewed**) for the fission-product bound #434 and the oxidation epic #441:
+  - `liu-cao2002-htr10-source-term-assumptions.md`
+  - `gao-shi2002-htr10-accident-results.md`
+  - `tecdoc978-air-oxidation-particle-failure.md`
+  - `kugeler2017-oxidising-accident-tests.md`
+  - `epa-fgr11-fgr13-breathing-rates.md`
+
+- **2026-09-28** — two U.S. EPA Federal Guidance Reports added to **Kovan's
+  standard open corpus** (maintainer request), as
+  [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature)
+  `kovan-standard-open-corpus/epa/`, with README rows (new section 3) and
+  `CorpusLiterature` entries in `crates/kovan/src/corpus.rs`:
+  - **`epa-fgr-11`**: Eckerman, K.F., Wolbarst, A.B. and Richardson, A.C.B.
+    (1988). *Limiting Values of Radionuclide Intake and Air Concentration and
+    Dose Conversion Factors for Inhalation, Submersion, and Ingestion.* Federal
+    Guidance Report No. 11, EPA-520/1-88-020, Office of Radiation Programs,
+    U.S. EPA, September 1988; 234 pp. File `epa/fgr-11-epa-520-1-88-020.pdf`,
+    SHA-256 `3d5479f4…8b74`, byte-identical to
+    <https://www.epa.gov/sites/default/files/2015-05/documents/520-1-88-020.pdf>.
+  - **`epa-fgr-13`**: Eckerman, K.F., Leggett, R.W., Nelson, C.B., Puskin,
+    J.S. and Richardson, A.C.B. (1999). *Cancer Risk Coefficients for
+    Environmental Exposure to Radionuclides.* Federal Guidance Report No. 13,
+    EPA 402-R-99-001, Office of Radiation and Indoor Air, U.S. EPA, September
+    1999; 336 pp. (EPA's 2025 accessibility re-issue). File
+    `epa/fgr-13-epa-402-r-99-001.pdf`, SHA-256 `8376c058…ecff4`,
+    byte-identical to
+    <https://www.epa.gov/system/files/documents/2025-03/402-r-99-001_508-d_2.pdf>.
+
+  *Tier basis:* neither report carries a copyright notice or licence statement
+  (full text searched); both carry only the U.S.-Government sponsorship
+  disclaimer. Both were prepared jointly by EPA and Oak Ridge National
+  Laboratory (DOE contractor-operated), so they are **not** claimed as public
+  domain under 17 U.S.C. § 105. They are held on the EPA's own "Copyright
+  Status" statement (<https://www.epa.gov/web-policies-and-procedures/epa-disclaimers>,
+  accessed 2026-09-28): "These documents may be freely distributed and used
+  for non-commercial, scientific and educational purposes. Commercial use ...
+  may be protected", quoted in full in the corpus README. Recorded in
+  `corpus.rs` as `VerifiedOpenLicence` with that non-commercial limit stated
+  in `status_basis`; this is a narrower basis than the NRC and CC BY
+  documents beside them. Filed under a new topic,
+  `nuclear-engineering/safety/radiation-protection` ("Radiation Protection &
+  Dosimetry"), with one corpus connection (FGR-13's preface cites FGR-11).
+
+  Like the other standard-corpus documents, no metadata JSON, extracted
+  Markdown or BibTeX is kept for them in this crate; the `corpus.rs` entry is
+  their record.
+
+  **FGR-15 not added.** The maintainer's copy of Federal Guidance Report
+  No. 15 is EPA 402-R-19-002 (revised August 2019). EPA's FGR-15 page
+  (accessed 2026-09-28) states that "Previous versions of this report (EPA
+  402-R-18-001 and 402-R-19-002) contained errors in the dose coefficient
+  tables ... the previous versions should be discarded"; the current
+  revision is EPA 402-R-25-001 (July 2025). ~~Which version goes into the
+  corpus is left to the maintainer.~~ **SETTLED 2026-09-28**: the maintainer
+  chose the 2025 revision. `epa-fgr-15` added: Bellamy, Samuels, Dewji,
+  Leggett, Hiller, Veinot, Manger, Ryman, Easterly, Hertel, Stewart &
+  Eckerman (ORNL), EPA 402-R-25-001, July 2025,
+  `epa/fgr-15-epa-402-r-25-001.pdf`, SHA-256 `a91cda89…21ae`, from
+  <https://www.epa.gov/system/files/documents/2025-07/fgr15_rev2025july_final_508.pdf>.
+  No copyright notice in its front matter; same EPA basis (non-commercial).
+  The withdrawn 2019 copy is not held.
+
+- **2026-09-17** — `li2014htr10rmc` catalogued (**proprietary**, no licence
+  statement anywhere in the document). Li, Yu & Wei, *Research on Benchmark
+  Calculation and Analysis of HTR-10 with RMC Code*, HTR 2014 Weihai, paper
+  HTR2014-51207. It is the benchmark target for `bn:op-867c` / gh #214, so it
+  is a dependency of the code and belongs in the archive rather than on a
+  desktop.
+
+  The extractor mis-read **three** fields, the same failure modes already on
+  record: the title came out as the Word template furniture
+  `"HTR 2010 Templage"`, the author as `"MF"`, and the document type as
+  `Other`. All corrected by hand from the title page; `kovan lit bibtex`
+  round-trips cleanly, which is the acceptance check.
+
+  Tier decision: **proprietary**, because the HTR-2014 proceedings carry no
+  copyright or licence statement on the paper's own pages. Per `DATA_POLICY.md`
+  unsure means proprietary — that direction is recoverable and the other is a
+  licence violation in a public repository. No TDM/AI-training reservation was
+  found. Body and metadata are both gitignored; only this entry is committed.
+
+- **2026-08-22** — `1991finnemann-neacrp-l-335` catalogued (proprietary,
+  no licence statement in the document). Imported to settle `bedok` defect
+  K9; five of six extracted metadata fields were wrong and were corrected
+  from the title page. `bn` is not installed on this clone, so the
+  extractor defect is recorded here rather than filed as a bead.
 - **2026-08-11** — full pass: staging cleared (two new documents catalogued,
   eight SHA-verified duplicates deleted); metadata defects fixed across the
   archive (furniture titles, scan-date years, missing hashes, wrong slugs);

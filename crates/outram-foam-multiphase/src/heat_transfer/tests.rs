@@ -11,6 +11,7 @@
 //! transcribed independently. Nothing is compared against a measured
 //! heat-transfer coefficient and no such agreement is claimed.
 
+use petir::mathf::RealMath;
 use super::*;
 
 /// **Methodology.** Ranz-Marshall's defining property is its stagnant limit:
@@ -38,7 +39,7 @@ fn ranz_marshall_recovers_the_stagnant_sphere_limit() {
     let mut previous = nu0;
     for re in [1.0, 10.0, 100.0, 1000.0, 10_000.0] {
         let nu = model.nusselt(0.9, re, pr, res).expect("valid inputs");
-        let closed = 2.0 + 0.6 * re.sqrt() * pr.cbrt();
+        let closed = 2.0 + 0.6 * re.sqrt() * pr.r_cbrt();
         let k = model
             .volumetric_coefficient_si(alpha_d, 0.9, kappa_c, 0.02, d, re, pr, res)
             .expect("valid inputs");

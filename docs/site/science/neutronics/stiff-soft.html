@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 5c: stiff springs, soft springs</title>
+<meta name="description" content="Neutronics maths track, rung 5c: how much the zero-point jiggle adds depends on the spring: when one step hbar omega is bigger than kT, zero-point jiggle dominates and the effective temperature is well above T; when it is smaller, the mode is nearly classical. The crystal's density of states weights them into one effective temperature: 1.73 T for Si in alpha-quartz at 293.6 K, from OUTRAM PARK's LEAPR port.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 5c, with the stiffness stated as the comparison of hbar omega with kT; formula in a box. Widget: mathtrack.js #zero in "stiff" mode. Quartz Tbar from the LEAPR port, checked in check-physics.js against the rho-weighted coth sum. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 5c: stiff springs, soft springs</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>How much zero-point jiggle a mode adds depends on its spring, or more exactly on <b>one step &#8463;&omega; compared with the thermal energy kT</b>:</p>
+<ul>
+  <li><b>Stiff spring, step bigger than kT</b>: high-energy vibrations. The quantum jiggle dominates the thermal jiggle, and T&#772; ends up well above T.</li>
+  <li><b>Soft spring, step smaller than kT</b>: low-energy vibrations. They behave almost classically: thermal jiggle dominates, and T&#772; &asymp; T.</li>
+</ul>
+
+<section class="widget-card">
+  <h3>Stiff or soft?</h3>
+  <div class="widget" id="zero" data-zero="stiff">
+    <canvas aria-label="A swing's ladder and position cloud, with the step size and the temperature as sliders, and the effective temperature against the real one"></canvas>
+  </div>
+  <label class="energy-control"><span>One step &#8463;&omega; <b data-zhw-out></b></span><input type="range" data-zhw min="2" max="400" step="1" value="100" aria-label="Step in meV"></label>
+  <label class="energy-control"><span>Temperature <b data-zt-out></b></span><input type="range" data-zt min="10" max="1500" step="5" value="293.6" aria-label="Temperature in kelvin"></label>
+</section>
+
+<p>A real crystal has both, soft and stiff, in proportions set by its structure: that is its density of states &rho; (pages 24&ndash;25). LEAPR combines them into one effective temperature, weighting each vibration by &rho;. For Si in &alpha;-quartz at 293.6 K, OUTRAM PARK's port of LEAPR gives <b data-qtbar>1.731</b> times the real temperature, about <b data-qtbark>508</b> K: quartz's stiff modes add a lot.</p>
+<details class="optional"><summary>Deeper: the formula</summary>
+  <p>One oscillator contributes (&beta;/2) coth(&beta;/2) T to T&#772;, with &beta; = &#8463;&omega;/kT (NJOY2016 manual, discrete oscillators). For a small step (soft) this tends to T; for a large one (stiff), to &#8463;&omega;/2k. LEAPR weights it by &rho;; summing (&beta;/2)coth(&beta;/2) over quartz's &rho; reproduces the port's 1.731 to nine figures.</p></details>
+<p class="note"><b>Conventions on these pages.</b> &beta; = (E&prime; &minus; E)/kT is positive when the neutron <b>gains</b> energy; &alpha; measures the size of the kick. S is LEAPR's asymmetric scattering law (the NJOY2016 manual's script S); ENDF stores the symmetric S = e<sup>&beta;/2</sup> times it (page 21).</p>
+<h2>Why is this so? Why a bell at all?</h2>
+<p>We know where the bell sits and what sets its width. But <b>why is it a bell curve in the first place?</b> Start with what a hard kick sees.</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

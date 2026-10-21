@@ -55,6 +55,7 @@
 //! detail, and caveats.
 
 pub mod ladder;
+pub mod tables;
 pub mod unrest;
 pub mod wfun;
 
@@ -65,7 +66,8 @@ pub use ladder::{
     generate_ladder, infinite_dilution_reference, read_heating_cross_sections,
     InfiniteDilutionResult, LadderResonance, Rng, SequenceLadderParams,
 };
-pub use unrest::{probability_table, ConvergenceStats, ProbabilityTable, ProbabilityTableResult};
+pub use tables::{UrrProbabilityTables, UrrSample, PURR_SEED};
+pub use unrest::{probability_table, sample_ladder, ConvergenceStats, LadderSamples, ProbabilityTable, ProbabilityTableResult};
 
 use crate::NjoyError;
 

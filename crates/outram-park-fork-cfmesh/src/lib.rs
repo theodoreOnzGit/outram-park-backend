@@ -256,7 +256,7 @@
 //! Android/Termux.
 //!
 //! > **Not affiliated with Creative Fields or the cfMesh project**, and not the
-//! > official cfMesh software — an independent GPL fork. **Untrusted
+//! > official cfMesh software — an independent fork (~~GPL~~ AGPL-3.0-only combined work, 2026-10-20). **Untrusted
 //! > AI-assisted draft** until human-reviewed, per the workspace
 //! > `RESPONSIBLE_USE.md`. For education / research / V&V only; not for reactor
 //! > operation, licensing, or safety-critical decisions.

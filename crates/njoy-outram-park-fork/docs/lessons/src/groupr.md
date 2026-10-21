@@ -1,0 +1,155 @@
+# Rung 7 — GROUPR and GAMINR: multigroup constants
+
+> **Research, education and V&V only.** Not for reactor operation, licensing,
+> safety decisions or emergency response.
+
+> **Review status: first draft, 2026-10-04, AI-assisted, not yet reviewed by a
+> human.**
+
+**Modules:** `groupr` (neutrons; also photon *production* matrices), `gaminr`
+(photon interaction).
+**Demo:** [open the nuclear data demo at this rung](../../demos/nuclear-data/?rung=groupr): group averages of U-238 capture, infinitely dilute and self-shielded, with group count and σ₀ sliders.
+
+## The question
+
+A Monte Carlo code can afford σ(E) at a million energies. A deterministic code
+(diffusion, discrete ordinates, a lattice code like WIMS) solves for a few
+dozen to a few hundred **energy groups**. **What one number should stand for
+σ in a group that contains fifty resonances?**
+
+## The shortest answer
+
+The number that preserves the **reaction rate**. Within a group `g` the true
+rate is `∫ σ(E) φ(E) dE`, so the group cross section is the flux-weighted
+average:
+
+```text
+σ_g = ∫_g σ(E) φ(E) dE  /  ∫_g φ(E) dE
+```
+
+Everything difficult is in `φ(E)`, which is the answer the deterministic code
+has not computed yet. GROUPR [(MacFarlane et al., 2017)](#ref-njoy2016) uses a **weighting spectrum** (`iwt`: 1/E, a
+fission plus 1/E plus Maxwellian shape, a user table, …) and, for resonance
+materials, a **self-shielded** flux that dips where σ_t peaks.
+
+## The formula for self-shielding
+
+In the narrow-resonance (Bondarenko) approximation, a nuclide diluted in a
+background cross section `σ₀` (barns per atom of this nuclide, standing for
+everything else in the mixture) sees
+
+```text
+φ(E; σ₀) = C(E) · (σ₀ + σ_pot) / (σ_t(E) + σ₀)
+
+  σ₀ → ∞ :  φ → C(E)                   infinitely dilute, no shielding
+  σ₀ → 0 :  φ → C(E) σ_pot / σ_t(E)    the 1/σ_t dips of a pure absorber
+```
+
+GROUPR tabulates σ_g at several σ₀ ("sigma-zeros"); the deterministic code
+interpolates at its own σ₀. The port of `genflx`'s weight
+(`groupr.f90:5650, 5653`):
+
+```rust,ignore
+{{#include ../../../src/groupr/unresolved.rs:lesson_bondarenko}}
+```
+
+Beyond vectors, GROUPR produces **group-to-group transfer matrices**
+(elastic, discrete and continuum inelastic, fission χ, photon production),
+Legendre moments P0…P`lord`, and MF=10 isomer production. GAMINR does the
+same for photons: photo-atomic cross sections, heating, and the coherent and
+incoherent scattering matrices.
+
+## In the code
+
+GROUPR has no single typed driver yet; the golden tests compose its pieces,
+and so does this walk.
+
+> **On the [Code Review map](../../code-review/):** start at [`self_shielded_group_xs`](../../code-review/#crates/njoy-outram-park-fork/src/groupr/self_shielded.rs::self_shielded_group_xs) and follow its callees (▸) to [`group_integral`](../../code-review/#crates/njoy-outram-park-fork/src/groupr/panel.rs::group_integral). Each card opens the function's source and shows its review stamp.
+
+> **The physics functions:** [Where the physics is](./physics-functions.md#groupr) lists only the functions on the map that compute this rung's physics, without the entry point and plumbing above it (a proposal for maintainer review, 2026-10-14; the entry-point link above stays until it is accepted).
+
+**Reading the path.** The table below is the path the Code Review map link above follows, with what each hop does:
+
+| hop | function | what it does | resolved (kopitiam pass, 2026-10-04) |
+|---|---|---|---|
+| 0 | `groupr::self_shielded_group_xs` | σ_g(σ₀) for every group and dilution | entry point ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/groupr/self_shielded.rs#@@L:crates/njoy-outram-park-fork/src/groupr/self_shielded.rs:fn=self_shielded_group_xs@@)) |
+| 1 | `genflx_bondarenko_urr` | the weighting flux, with URR shielding from MT=152 | kopitiam |
+| 2 | `bondarenko_flux_value`, `weights::AnalyticWeight` (`getwtf`) | the formula above; the `iwt` spectrum | filled by hand |
+| 1 | `build_shielded_xs`, `panel::group_integral`, `GroupIntegral::average` | trapezoid of φ and of σφ over each sub-panel; the ratio | kopitiam |
+| 0 | `group_average_vector` | the plain collapse over a group structure | entry point; calls `group_integral` (kopitiam) ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/groupr/panel.rs#@@L:crates/njoy-outram-park-fork/src/groupr/panel.rs:fn=group_average_vector@@)) |
+| 0 | `matrix::scatter_matrix`, `matrix_panel::two_body_matrix`, `feed_matrix` | MF=6 transfer matrices | entry points ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/groupr/matrix.rs#@@L:crates/njoy-outram-park-fork/src/groupr/matrix.rs:fn=scatter_matrix@@)) |
+| 0 | `gaminr::gaminr_reaction`, `gtff_coherent` / `gtff_incoherent` / `gtff_pair` | photon groups and matrices (the card-deck `gaminr::run_with_input` validates its input and then returns `NotPorted`; kopitiam shows it) | entry points ([source](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/src/gaminr/matrix.rs#@@L:crates/njoy-outram-park-fork/src/gaminr/matrix.rs:fn=gaminr_reaction@@)) |
+
+
+## The checks
+
+Recorded in
+[`groupr_gaminr_covr_leapr_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/groupr_gaminr_covr_leapr_vs_njoy2016.md)
+(2026-09-10) and
+[`tests/groupr_u238_gendf_golden.rs`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/tests/groupr_u238_gendf_golden.rs):
+U-238 ENDF/B-VIII.0, 293.6 K, 29 groups, `iwt = 3` (1/E), six dilutions
+(1e10, 1e4, 1e3, 1e2, 10, 1 b), against NJOY2016 `ac5adf5`'s GENDF.
+
+| tier | pointwise input | worst relative difference |
+|---|---|---|
+| 1 engine isolation | NJOY's own PENDF | MT=1 6.85e-7, MT=2 4.55e-7, MT=18 2.07e-6, MT=102 2.65e-6; flux 4.93e-7 (NJOY prints 7 figures, ~5e-7) |
+| 2 end to end | this crate's RECONR + BROADR | MT=1/2/102 ≤ 9.2e-4; MT=18 1.1e-2 |
+
+**Why tier 2's fission was 1 %, and why that record predates a change.** On
+2026-09-10 NJOY's RECONR produced 448 168 points and this crate's 961 k: NJOY
+relaxes its tolerance (`errint = err/20000`) on U-238's 2.5e-7 b
+sub-threshold fission, and the port then did not. Since 2026-09-26 (#340) the
+port's RECONR reproduces NJOY's PENDF word for word, so tier 2 should now
+coincide with tier 1. **Not re-measured here**; the tier-2 test takes about
+3 min and is on [the re-measurement log](./remeasured.md) if it was run.
+
+Transfer matrices (same record): elastic P0–P3 at the 7-figure floor
+(2 064 words at `lord = 3`); discrete inelastic levels ≤ 1e-5; MF=10 isomer
+production on U-235 ≤ 2.2e-6.
+
+~~**GAMINR: a real disagreement, open.**~~ **GAMINR: a disagreement that was
+the oracle's, resolved 2026-10-05.** On the synthetic Z = 6 photo-atomic
+tape every section agrees to ≤ 4.4e-7. On the **real** ENDF/B-VIII.0 uranium
+photo-atomic evaluation (record
+[`gaminr_u_photoatomic_vs_njoy2016.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/njoy-outram-park-fork/verification_and_validation/gaminr_u_photoatomic_vs_njoy2016.md),
+2026-09-17) every vector agreed to ≤ 2.7e-7, but the **coherent and
+incoherent scattering matrices (MF=26 MT=502, 504) disagreed**. They are the
+two that consume MF=27 form factors, and the total-heating edit was off by
+0.61 % through MT=504's heating slot.
+
+Reading `gaminr.f90` found the cause in the **NJOY input deck**, not in either
+code. The deck gave NJOY the same file unit for the ENDF tape and the PENDF
+tape (`gaminr 20 20 0 21`). NJOY reads the cross section from the PENDF unit
+one 153-point page at a time, and reading the form factor from the ENDF unit
+moves that same file to MF=27. So every page after the first came from the
+wrong section. The prediction, written before the run: with separate units,
+NJOY's coherent `l = 0` in group 1 rises from 139.48 to 182.23 (its own
+MF=23 value) and the unchanged port agrees. It did. Every word of every
+reaction now agrees to **≤ 3.7e-7**, heating included, and all are asserted
+([#534](https://github.com/theodoreOnzGit/outram-park-backend/issues/534)).
+The lesson generalises: **an oracle is a deck as well as a program**. The
+synthetic tape could never have shown this, because its 53 points fit in one
+page.
+
+
+All of this is **verification** of the averaging against NJOY2016. Whether a
+1/E-weighted, Bondarenko-shielded 29-group set is good enough for a given
+reactor is a separate question, answered by the deterministic code's own
+benchmarks.
+
+## Predict
+
+Every number on this site so far comes with no error bar. Yet the evaluator
+fitted those resonance parameters to measurements that had one. **If U-238's
+capture at 6.67 eV is uncertain by 1 %, is its capture at 20.9 eV
+uncertain independently, or do the two move together? Why would it matter
+for a reactor calculation?**
+
+**Next:** [Rung 8 — ERRORR and COVR: how sure are we?](./errorr.md).
+
+<!-- references:begin -->
+## References
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->

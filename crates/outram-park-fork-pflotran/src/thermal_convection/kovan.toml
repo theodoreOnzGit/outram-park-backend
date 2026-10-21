@@ -1,0 +1,1096 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/thermal_convection"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::buoyancy_onset_across_critical_rayleigh",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::constructors_reject_bad_inputs",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::heated_from_above_stays_stable",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::no_buoyancy_gives_pure_conduction_no_flow",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::rayleigh_number_matches_textbook",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_adaptive_covers_interval_and_advances_time",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_adaptive_validates_inputs",
+    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_converges_and_energy_responds_to_heating",
+]
+
+[module."mod.rs"]
+path = "crate::thermal_convection"
+
+[[module."mod.rs".function]]
+id = "fn:2a98d12c5e76f55a"
+name = "STANDARD_GRAVITY"
+qual = "STANDARD_GRAVITY"
+item = "const"
+shape = "const"
+lines = [
+    137,
+    139,
+]
+hash = "sha256:faf5517249a098b5e7a65a74119361cdefbbe61b0233824f906e1130f0e6431f"
+doc_hash = "sha256:d8d2577e49a56223142ee40fe0bc67680d75a35a03eac8d50819d8c2576ed230"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:aee0ebbfd69fac8a"
+name = "CRITICAL_RAYLEIGH_NUMBER"
+qual = "CRITICAL_RAYLEIGH_NUMBER"
+item = "const"
+shape = "const"
+lines = [
+    141,
+    148,
+]
+hash = "sha256:1a091b5acf2ed2df5085094c29a2e765806a05dec8e81e59e2aaf006b164bf11"
+doc_hash = "sha256:2872ea5c20a904b6222984bcc39f19c01c8a1e42ac277c64678a25ccb15b9dae"
+reached_by = [
+    "#0",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0a0d14c987c697c9"
+name = "ConvectionParameters"
+qual = "ConvectionParameters"
+item = "type"
+shape = "struct"
+lines = [
+    150,
+    196,
+]
+hash = "sha256:cea977d9df6199dcfd6441346b82f116ecfcf92d7604afcfa2a3d762eaa003c3"
+doc_hash = "sha256:499c7b4f94c7c845108abb44b4d6f0473e45b921682d95ba445b471c2ce21473"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1b449269eba47195"
+name = "water_saturated"
+qual = "ConvectionParameters::water_saturated"
+lines = [
+    199,
+    228,
+]
+hash = "sha256:7c407d7b1546805943da7dfb1851b5fa8f3003f0db023d08e20dbf11d3e90ad8"
+doc_hash = "sha256:e1f2cd9648e2196be8c05c3b139ea60c5b7c675ddddd3366a206d5d536744ea3"
+uses = [
+    "fn:0a0d14c987c697c9",
+    "fn:2a98d12c5e76f55a",
+]
+reached_by = ["#1"]
+
+[[module."mod.rs".function]]
+id = "fn:6205b1e259937574"
+name = "new"
+qual = "ConvectionParameters::new"
+lines = [
+    230,
+    332,
+]
+hash = "sha256:206b8474771c4f6a8fbfd584fd66ec1021c227177c7629dc8a0b250f849322c4"
+doc_hash = "sha256:aa892d34b2f2ad75dec2ec17f7b2d18dd095b8ac6efb96ba7f6536cfbbc4181d"
+uses = [
+    "fn:0a0d14c987c697c9",
+    "fn:1bb0a85b7ffe5a70",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:cf503a5529b3217d"
+name = "fluid_density"
+qual = "ConvectionParameters::fluid_density"
+lines = [
+    334,
+    343,
+]
+hash = "sha256:31ee84a8a6ae745767e23d23cbc7c94ddd4f1d88eadc98ff9e564b0e9b381767"
+doc_hash = "sha256:1f68946615502142c748fd495638035fdf97b8c5502c8226cad7b6a5a896d68e"
+uses = ["fn:0a0d14c987c697c9"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:e880d9692907e596"
+name = "volumetric_heat_capacity"
+qual = "ConvectionParameters::volumetric_heat_capacity"
+lines = [
+    345,
+    352,
+]
+hash = "sha256:dbbdf7b24f99d97e45e5623e6d078ed1f4f31628d415c1e58bc5965ef0487166"
+doc_hash = "sha256:a8cef204c1671b50b40b5eee8b391c838097978c7a7915445c7cf27962a005dd"
+uses = ["fn:0a0d14c987c697c9"]
+reached_by = ["#7"]
+
+[[module."mod.rs".function]]
+id = "fn:7bad0b780b8f4856"
+name = "rayleigh_number"
+qual = "rayleigh_number"
+lines = [
+    355,
+    380,
+]
+hash = "sha256:e862c3fb377d57eabeffdf49e40022d714bdd3f89ccc6f6a5a543cbf9ba79c50"
+doc_hash = "sha256:9818431548531a421290bb69a2878c458d653c2bf64dbb8ba57988f68809b4ea"
+uses = ["fn:0a0d14c987c697c9"]
+reached_by = [
+    "#0",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8c17789b8df4dece"
+name = "ConvectionBoundaryKind"
+qual = "ConvectionBoundaryKind"
+item = "type"
+shape = "enum"
+lines = [
+    382,
+    404,
+]
+hash = "sha256:ebfb70ccba465a92147f53a0aec6d8e240b17842122701f015ee27e4313f9456"
+doc_hash = "sha256:71475bcadb296e4410ed010c8dc5e448631ce05ab2820263fd407690a8e3935d"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:81e0ceaf36581974"
+name = "ConvectionBoundaryCondition"
+qual = "ConvectionBoundaryCondition"
+item = "type"
+shape = "struct"
+lines = [
+    406,
+    413,
+]
+hash = "sha256:d93ad32307c7f107fa4cc8bcf9c43c7607700fcf8994afd9c0efd9641b0ee102"
+doc_hash = "sha256:e8037c435359490774e412d130dfc3095a18a5e2f2d024a4b74022e8c0c00374"
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:8c17789b8df4dece",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ac7a06232b79060e"
+name = "location_index"
+qual = "location_index"
+lines = [
+    415,
+    425,
+]
+hash = "sha256:0eea3875b873bdc1d9c6656f9aee7df670533568f9e4491e0f55a41f3edeb79a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1ded25b48be00a9e"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ef7ecb6a77172138"
+name = "axis_index"
+qual = "axis_index"
+lines = [
+    427,
+    434,
+]
+hash = "sha256:d3fa33e9dfa66c679254975f6e1d351dc5c085d58e677c4ac7d88e617fcefeec"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:1da5498269dbf733"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7b1c971a4138047c"
+name = "ThermalConvection"
+qual = "ThermalConvection"
+item = "type"
+shape = "struct"
+lines = [
+    436,
+    459,
+]
+hash = "sha256:3bf106de0201430790f6a6b2ae3a1f2087aa49a231106442de785e5d33d5b8b1"
+doc_hash = "sha256:f91e33f4fd06c3eabcd28384e2241e8babfe2a3f801619fa88c8b19814cccbb9"
+uses = [
+    "fn:0a0d14c987c697c9",
+    "fn:8c17789b8df4dece",
+    "fn:bef06f63e37dba1c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d97f1a948db3507e"
+name = "new"
+qual = "ThermalConvection::new"
+lines = [
+    462,
+    525,
+]
+hash = "sha256:00df68cc5d138df75f4b885446711eec963098bff472df191b0257d4aa09b540"
+doc_hash = "sha256:eda606a96a4af88a67a397b88196667ebfaac5f1570f7b60cbcf7994428d2828"
+callees = [
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:7678e9ebaa44ff77",
+    "fn:ac7a06232b79060e",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:0a0d14c987c697c9",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:7b1c971a4138047c",
+    "fn:81e0ceaf36581974",
+    "fn:8c17789b8df4dece",
+    "fn:bef06f63e37dba1c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9b89132d7fe6d6c4"
+name = "set_timestep"
+qual = "ThermalConvection::set_timestep"
+lines = [
+    527,
+    533,
+]
+hash = "sha256:df6ef712d4e95bbc6e646e9dce5a955a993e27b94d067123a0b18dd67140f863"
+doc_hash = "sha256:001a91a862c2adb6bcd228da1a6b0888fcfc20f3dfcad889128a49dbce7a593b"
+uses = ["fn:7b1c971a4138047c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:357b6db0ab39de0d"
+name = "set_previous"
+qual = "ThermalConvection::set_previous"
+lines = [
+    535,
+    552,
+]
+hash = "sha256:d28ab155dcfdb498832e15cbc4452841d94c82eea2c00f0cf896fe8a782b6c46"
+doc_hash = "sha256:3220fea37acd7e65a3b9ad9d0f592c152f9719afd687373065781098b0bbe8f0"
+callees = ["fn:cc21726779f422b1"]
+uses = ["fn:7b1c971a4138047c"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:be213075d491a39f"
+name = "grid"
+qual = "ThermalConvection::grid"
+lines = [
+    554,
+    557,
+]
+hash = "sha256:329ce82ff4246863e2d59c1df365be6384d519ba3cf4d7af0effa378963820c3"
+doc_hash = "sha256:69c94fa5589bce0f22fc55695a5a92d756787407aaeeb52f9fce3155bf2116cd"
+uses = [
+    "fn:7b1c971a4138047c",
+    "fn:bef06f63e37dba1c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b53e5f5aad02e729"
+name = "params"
+qual = "ThermalConvection::params"
+lines = [
+    559,
+    562,
+]
+hash = "sha256:661ef0d63ce3efbd455575715daf055af212951393975eed8b3a5c7116d8b4ed"
+doc_hash = "sha256:e24141d8ecb06cdba6451b5303194e1a70fe12f0f8eca3cdb21e89feb9c52cf7"
+uses = [
+    "fn:0a0d14c987c697c9",
+    "fn:7b1c971a4138047c",
+]
+
+[[module."mod.rs".function]]
+id = "fn:2b411c3079d8db07"
+name = "total_energy"
+qual = "ThermalConvection::total_energy"
+lines = [
+    564,
+    575,
+]
+hash = "sha256:32ce039a8f13536b7bf86efed709ea40de56ad1564c31c9e4e40ccdaf9c9fbfd"
+doc_hash = "sha256:933730bd374c8c9065bbd9e0daa6fa010978c7d75e2105b35862c6996271f772"
+callees = [
+    "fn:417586cedef290ff",
+    "fn:cc21726779f422b1",
+    "fn:e880d9692907e596",
+]
+uses = ["fn:7b1c971a4138047c"]
+reached_by = ["#7"]
+
+[[module."mod.rs".function]]
+id = "fn:422108cdbdf39f5f"
+name = "peak_velocity"
+qual = "ThermalConvection::peak_velocity"
+lines = [
+    577,
+    622,
+]
+hash = "sha256:3e8e8ddb412693bb3b408a227a4dc445c67570c9b70b766e81a86d0076809df2"
+doc_hash = "sha256:94dd7ae5e89aaf949b68fed53ebc2d330cc7ffc5da95338182ca4ec7b37b8e84"
+callees = [
+    "fn:6cbbeb09ec2ceba3",
+    "fn:cc21726779f422b1",
+    "fn:cf503a5529b3217d",
+    "fn:ef7ecb6a77172138",
+]
+uses = ["fn:7b1c971a4138047c"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:215c48ccf987d31d"
+name = "face_fluxes"
+qual = "ThermalConvection::face_fluxes"
+lines = [
+    624,
+    653,
+]
+hash = "sha256:a52708d1b8695652735691cfc211cbe67e9ab4367e8ff8e18df93e1aaee2fe36"
+doc_hash = "sha256:b47677cd58df8202a3fbb670eb7297630513e91ec573920d9a6957789a91becc"
+callees = ["fn:cf503a5529b3217d"]
+uses = ["fn:7b1c971a4138047c"]
+
+[[module."mod.rs".function]]
+id = "fn:7356eb0a2516d183"
+name = "cell_residual"
+qual = "ThermalConvection::cell_residual"
+lines = [
+    655,
+    751,
+]
+hash = "sha256:15bc37ed292b74a30bc23233619ac8f978efce1c673033cf3a94001cb1f00cdd"
+doc_hash = "sha256:f6872be08a3cc3973f8dfdeb40c686a5faaca241e4d34c9f2775e5f53bf992a5"
+callees = [
+    "fn:215c48ccf987d31d",
+    "fn:417586cedef290ff",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:73269c3067ab9f80",
+    "fn:ac7a06232b79060e",
+    "fn:e880d9692907e596",
+]
+uses = [
+    "fn:1ded25b48be00a9e",
+    "fn:7b1c971a4138047c",
+    "fn:8c17789b8df4dece",
+]
+
+[[module."mod.rs".function]]
+id = "fn:66d81b3c77c60809"
+name = "n_cells"
+qual = "ThermalConvection::n_cells"
+lines = [
+    755,
+    757,
+]
+hash = "sha256:b82d3816e9b65cf3604cec465a2543bd28f2e3e0bf61d44b6675d5822e5b097d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:cc21726779f422b1"]
+uses = ["fn:7b1c971a4138047c"]
+
+[[module."mod.rs".function]]
+id = "fn:55d02021a253939d"
+name = "dof_per_cell"
+qual = "ThermalConvection::dof_per_cell"
+lines = [
+    759,
+    761,
+]
+hash = "sha256:9b8d1f6de9ccdd2beb65badd0ad789c38004f2e2221b7f52652b81e59bd09fc4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7b1c971a4138047c"]
+
+[[module."mod.rs".function]]
+id = "fn:fa22a366dcfcc30f"
+name = "ldu_addressing"
+qual = "ThermalConvection::ldu_addressing"
+lines = [
+    763,
+    765,
+]
+hash = "sha256:b7ccc3d2b709004f6492f8dc6f387e54aedb48242d36b4cf426a2eb9706e9535"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:62fc954337041036"]
+uses = ["fn:7b1c971a4138047c"]
+
+[[module."mod.rs".function]]
+id = "fn:a3982a2e58ccb36e"
+name = "assemble_residual"
+qual = "ThermalConvection::assemble_residual"
+lines = [
+    767,
+    780,
+]
+hash = "sha256:4e8e114b5f01fff06584310f8dec99e512b4067c2f3d1b3f43d8db092e7d8aff"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:7356eb0a2516d183",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:7b1c971a4138047c",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d3d76c0ff79f08d0"
+name = "assemble_jacobian"
+qual = "ThermalConvection::assemble_jacobian"
+lines = [
+    782,
+    837,
+]
+hash = "sha256:1da2e9f2eb7c1b8dbad50397dcaeb7a4a1cb8c7dc575ea20748cf10faeac089a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:5ed2c8d03c2354b7",
+    "fn:657b5e131eb47a83",
+    "fn:6cbbeb09ec2ceba3",
+    "fn:7356eb0a2516d183",
+    "fn:73b951b3ddc91119",
+    "fn:a6b33e3a85c96cf3",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:7b1c971a4138047c",
+    "fn:ca6f3662610c7f35",
+]
+
+[[module."mod.rs".function]]
+id = "fn:c97d8487a98e26c2"
+name = "AdaptiveStepReport"
+qual = "AdaptiveStepReport"
+item = "type"
+shape = "struct"
+lines = [
+    840,
+    862,
+]
+hash = "sha256:72d10caf6c17db36d983b2214b06f36f0232b742dafe3a15e798c86c3e251e53"
+doc_hash = "sha256:0f186ad2181010f54e8e0a9de775650e12e1472226652c925c92ec8145cdce05"
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:029c3b390fb3bedf"
+name = "ThermalConvectionSimulation"
+qual = "ThermalConvectionSimulation"
+item = "type"
+shape = "struct"
+lines = [
+    864,
+    873,
+]
+hash = "sha256:d707bd0fa7afe76cf265494b06b3073d78436e8403a31c05587418225dd7e769"
+doc_hash = "sha256:9ac716cd2c3c9def384ce14f77829122b64fd35600071ca1f3ab8f308aa44917"
+uses = [
+    "fn:0d2b12571b1f875c",
+    "fn:7b1c971a4138047c",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:ca0bde63ad32fe66"
+name = "new"
+qual = "ThermalConvectionSimulation::new"
+lines = [
+    876,
+    902,
+]
+hash = "sha256:865ac5c4d5aba7f9025d70247e7b353ff7d3e4ac4d898db9571becc19f7d2778"
+doc_hash = "sha256:b8540e96bfaa1195cc103c6b9d6e5b9715fd49b3e74e9240e84afae2618d7169"
+callees = [
+    "fn:5cc3ea60020e426f",
+    "fn:be213075d491a39f",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:0d2b12571b1f875c",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:7b1c971a4138047c",
+    "fn:d61db7b6ae7ffc76",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:01373ad8a3d2020b"
+name = "step"
+qual = "ThermalConvectionSimulation::step"
+lines = [
+    904,
+    929,
+]
+hash = "sha256:1553f39e7b95aecdff7d4dff431b4909e99dc049293d6b28ca0cc42cce5db241"
+doc_hash = "sha256:b7f91ee10af3b82951688a5fb897212771a7331398f8c52620d5a3315ad631f1"
+callees = [
+    "fn:357b6db0ab39de0d",
+    "fn:9b89132d7fe6d6c4",
+    "fn:c4ebdfe505360a1d",
+]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:6f84bbb4cdf88156",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+]
+
+[[module."mod.rs".function]]
+id = "fn:13048944a28c0d57"
+name = "step_adaptive"
+qual = "ThermalConvectionSimulation::step_adaptive"
+lines = [
+    931,
+    1015,
+]
+hash = "sha256:964066657f42db492fcad83c9c63953a1480c2c428051ea7578024b28817a668"
+doc_hash = "sha256:c52ed0dad5a36ebae1a8e1ac6fcba0acf16fca375d0c1e9b9537658632c98c48"
+callees = ["fn:01373ad8a3d2020b"]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:c97d8487a98e26c2",
+]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:0f9fd6af1091cdea"
+name = "time"
+qual = "ThermalConvectionSimulation::time"
+lines = [
+    1017,
+    1020,
+]
+hash = "sha256:87f5dee3845a9f2b9d52e0479f0b817b6496a65d771129e2236bce59c3824604"
+doc_hash = "sha256:a683eeed18eeceb508ef5583eeb7e0e51b53937bda4df33c561dd52d7b26ea77"
+uses = ["fn:029c3b390fb3bedf"]
+reached_by = ["#5"]
+
+[[module."mod.rs".function]]
+id = "fn:110f86089f0dfa87"
+name = "temperature"
+qual = "ThermalConvectionSimulation::temperature"
+lines = [
+    1022,
+    1027,
+]
+hash = "sha256:73892970dc510375994fed142c80c5864c4bed968b6576ccbfb50161a57d67bd"
+doc_hash = "sha256:493beb6913f0413de568455a8ed231e983969bd9baefef19fd4c4637dc634f8c"
+callees = [
+    "fn:be213075d491a39f",
+    "fn:cc21726779f422b1",
+]
+uses = ["fn:029c3b390fb3bedf"]
+reached_by = ["#3"]
+
+[[module."mod.rs".function]]
+id = "fn:318fd39e871724c0"
+name = "pressure"
+qual = "ThermalConvectionSimulation::pressure"
+lines = [
+    1029,
+    1034,
+]
+hash = "sha256:e0ec287d415e4699683edcc5515df18c92b647333488ec3b106ed498d86517c2"
+doc_hash = "sha256:8aa81be33e11c449ead4d0887c3a9784cd60d4f0f177c91e1cbb213bae56be48"
+callees = [
+    "fn:be213075d491a39f",
+    "fn:cc21726779f422b1",
+]
+uses = ["fn:029c3b390fb3bedf"]
+
+[[module."mod.rs".function]]
+id = "fn:7f08002d46560944"
+name = "peak_velocity"
+qual = "ThermalConvectionSimulation::peak_velocity"
+lines = [
+    1036,
+    1040,
+]
+hash = "sha256:da2162d799d0691dbf53391a081d85478b8bc3d6f21e2c6946ceaa0471b848c4"
+doc_hash = "sha256:98ba80439a1814aa61b0fa17777773da3993154ff086d7d17c57eb15b58bca1b"
+callees = ["fn:422108cdbdf39f5f"]
+uses = ["fn:029c3b390fb3bedf"]
+reached_by = [
+    "#0",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:1241164a3f646e87"
+name = "total_energy"
+qual = "ThermalConvectionSimulation::total_energy"
+lines = [
+    1042,
+    1046,
+]
+hash = "sha256:699a1a57e65d7dcba4c55ec98f84b2c41a2e10e71ef76398cf42fad66a2ea1b3"
+doc_hash = "sha256:019e53824390745d3c3454dab72a73bbf67d16940faec3a9d62ec7e0169a3926"
+callees = ["fn:2b411c3079d8db07"]
+uses = ["fn:029c3b390fb3bedf"]
+reached_by = ["#7"]
+
+[[module."mod.rs".function]]
+id = "fn:4520b5cabead80c7"
+name = "problem"
+qual = "ThermalConvectionSimulation::problem"
+lines = [
+    1048,
+    1051,
+]
+hash = "sha256:38e4821ebc02c124de9f0a84aaa543aa1232eeb8aad8daafd71f0d6e06eba264"
+doc_hash = "sha256:e6dc26a19a36fdd035fb956af1aeef522c4d9920a7ecee2327be6a0b77ea7ec0"
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:7b1c971a4138047c",
+]
+
+[[module."mod.rs".function]]
+id = "fn:90de7cbc9f438dae"
+name = "state"
+qual = "ThermalConvectionSimulation::state"
+lines = [
+    1053,
+    1057,
+]
+hash = "sha256:cd42636763a06620e6dd1dd8e74c42ff1bae5f44e92cb52856db0559ab6296b3"
+doc_hash = "sha256:aa702f5ea70cba68f16838e137e676a509e65cf790e9970b6117dc3e18ce72ec"
+uses = ["fn:029c3b390fb3bedf"]
+
+[[module."mod.rs".function]]
+id = "fn:ca9ed91bde92246e"
+name = "m"
+qual = "m"
+lines = [
+    1066,
+    1068,
+]
+hash = "sha256:12d93f4cfa558480f631aebdd46bbae812f955d45a9aa5faf81fcd390aacd21c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:a0e7877ac6319570"
+name = "test_config"
+qual = "test_config"
+lines = [
+    1070,
+    1090,
+]
+hash = "sha256:4664858cfb698b06b4177773f0910d3d40e68a69746aecb4b86432fa1dae7e61"
+doc_hash = "sha256:5bb86b50e9a96de76934505edcf3053f04fb47ba049537b1a23e6dd4846ce640"
+uses = ["fn:d61db7b6ae7ffc76"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0d6e83a9e0f8d777"
+name = "hrl_params"
+qual = "hrl_params"
+lines = [
+    1092,
+    1111,
+]
+hash = "sha256:a6ef0e4f9711b0061922c1f358624609a7d09cf8cb4974a18ef1458113ac7b7b"
+doc_hash = "sha256:247815d3d207b49e064f7e6ce217ef4759e841dc115c79800f7221d0458cbe27"
+callees = ["fn:6205b1e259937574"]
+uses = [
+    "fn:0a0d14c987c697c9",
+    "fn:2a98d12c5e76f55a",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0d6aecf6addfe876"
+name = "unit_square"
+qual = "unit_square"
+lines = [
+    1113,
+    1118,
+]
+hash = "sha256:ca7a36357bf937c5d96dc738337bad646d28096caa49febe9af9999c2dd32b01"
+doc_hash = "sha256:f6ea62c4198512c4e92ad8ecc8da7ae83c9ef946535c84bb1e83359dad6bf40e"
+callees = [
+    "fn:2767d8f4a3c9f6f1",
+    "fn:ca9ed91bde92246e",
+]
+uses = ["fn:bef06f63e37dba1c"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:0e04da7d5cb2c039"
+name = "seeded_state"
+qual = "seeded_state"
+lines = [
+    1120,
+    1144,
+]
+hash = "sha256:b5b156a78ea9901e5cd3853c65120f6c309d528a0827eca3b6e69adb76bf0393"
+doc_hash = "sha256:0cb7542fbc25f19cac2a8bf6ec73c82bbc8db47870d3a6c749186a898ac121db"
+callees = [
+    "fn:7678e9ebaa44ff77",
+    "fn:cc21726779f422b1",
+]
+uses = [
+    "fn:0a0d14c987c697c9",
+    "fn:bef06f63e37dba1c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:92fb19227d08bab1"
+name = "run_hrl"
+qual = "run_hrl"
+lines = [
+    1146,
+    1183,
+]
+hash = "sha256:476c7aed593213d8f0b2039cf82863ded8b14d82e899e93b5f633e271b8fc783"
+doc_hash = "sha256:39ebe2d58b39b7f9b824ed8386f15f6d39518236ebeb80fba4768e16687f57cb"
+callees = [
+    "fn:0e04da7d5cb2c039",
+    "fn:13048944a28c0d57",
+    "fn:7f08002d46560944",
+    "fn:a0e7877ac6319570",
+    "fn:ca0bde63ad32fe66",
+    "fn:d97f1a948db3507e",
+]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:0a0d14c987c697c9",
+    "fn:1ded25b48be00a9e",
+    "fn:7b1c971a4138047c",
+    "fn:81e0ceaf36581974",
+    "fn:8c17789b8df4dece",
+    "fn:bef06f63e37dba1c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d8de39f04df348ad"
+name = "no_buoyancy_gives_pure_conduction_no_flow"
+qual = "no_buoyancy_gives_pure_conduction_no_flow"
+lines = [
+    1185,
+    1229,
+]
+hash = "sha256:9d3163cde4e09ca598949d0d3922fb7d32986cc8d0d938696417572483e212a6"
+doc_hash = "sha256:fed417e59c69d31587eac891b053dbdcd1cdeb054fff83f140a887bf12b914f4"
+callees = [
+    "fn:01373ad8a3d2020b",
+    "fn:0d6aecf6addfe876",
+    "fn:0d6e83a9e0f8d777",
+    "fn:0e04da7d5cb2c039",
+    "fn:110f86089f0dfa87",
+    "fn:7678e9ebaa44ff77",
+    "fn:92fb19227d08bab1",
+    "fn:a0e7877ac6319570",
+    "fn:ca0bde63ad32fe66",
+    "fn:cc21726779f422b1",
+    "fn:d97f1a948db3507e",
+]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:1ded25b48be00a9e",
+    "fn:7b1c971a4138047c",
+    "fn:81e0ceaf36581974",
+    "fn:8c17789b8df4dece",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ac542d96ae2151b2"
+name = "buoyancy_onset_across_critical_rayleigh"
+qual = "buoyancy_onset_across_critical_rayleigh"
+lines = [
+    1231,
+    1289,
+]
+hash = "sha256:ef07b560621f21dd216de88b7622c51ea4956a29020c8023f46c85640ea950b7"
+doc_hash = "sha256:e48b795eb14129c5353d65322cc6caf1a4ff36fe41695c1ad4317fb5e09897d0"
+callees = [
+    "fn:0d6aecf6addfe876",
+    "fn:0d6e83a9e0f8d777",
+    "fn:7bad0b780b8f4856",
+    "fn:92fb19227d08bab1",
+]
+uses = ["fn:aee0ebbfd69fac8a"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:2b00fdd0c0fb69c3"
+name = "heated_from_above_stays_stable"
+qual = "heated_from_above_stays_stable"
+lines = [
+    1291,
+    1308,
+]
+hash = "sha256:35e253cc725e916b721707b9657ece7c45af897d96a8374a8c8d55e8606ccff1"
+doc_hash = "sha256:70a208f8391f44a87741e7a5e9ad4a28ec07ba9a7e769fd8b9c1a7d43c8d5961"
+callees = [
+    "fn:0d6aecf6addfe876",
+    "fn:0d6e83a9e0f8d777",
+    "fn:92fb19227d08bab1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:82ee9c5f0a7d439d"
+name = "step_adaptive_covers_interval_and_advances_time"
+qual = "step_adaptive_covers_interval_and_advances_time"
+lines = [
+    1310,
+    1327,
+]
+hash = "sha256:a6f50bcee035e9b520984d17c50c5b82b1504590ea09ab04da57733e63b94d09"
+doc_hash = "sha256:780f96767771f41e4cca8e6635aa26f7a84f00963b3b37ae053875ba57fb497f"
+callees = [
+    "fn:0d6aecf6addfe876",
+    "fn:0d6e83a9e0f8d777",
+    "fn:0e04da7d5cb2c039",
+    "fn:0f9fd6af1091cdea",
+    "fn:13048944a28c0d57",
+    "fn:a0e7877ac6319570",
+    "fn:ca0bde63ad32fe66",
+    "fn:d97f1a948db3507e",
+]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:7b1c971a4138047c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:1b40228ccd9b1aab"
+name = "step_adaptive_validates_inputs"
+qual = "step_adaptive_validates_inputs"
+lines = [
+    1329,
+    1344,
+]
+hash = "sha256:6148b5a7657f8b2e11a2aa10125136f8d3aa3df03e921dc899d1ea6d7b70ce13"
+doc_hash = "sha256:c5e09c785e80aeece01b5306b273d49f6e4fa74dfadd635dde9dcdf416fa4675"
+callees = [
+    "fn:0d6aecf6addfe876",
+    "fn:0d6e83a9e0f8d777",
+    "fn:0e04da7d5cb2c039",
+    "fn:13048944a28c0d57",
+    "fn:a0e7877ac6319570",
+    "fn:ca0bde63ad32fe66",
+    "fn:d97f1a948db3507e",
+]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:7b1c971a4138047c",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ad5e178fb6194ed9"
+name = "rayleigh_number_matches_textbook"
+qual = "rayleigh_number_matches_textbook"
+lines = [
+    1346,
+    1365,
+]
+hash = "sha256:481b72e56366787fdcbf380e59e1461df53bde2ea0ea44c53276172ea7756d94"
+doc_hash = "sha256:be3a40661f3d3dc78e880e45615c10ac35a1aab2179fd33386b0a3268254b117"
+callees = [
+    "fn:0d6e83a9e0f8d777",
+    "fn:7bad0b780b8f4856",
+]
+uses = ["fn:aee0ebbfd69fac8a"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:e4ab6554fa4111b1"
+name = "step_converges_and_energy_responds_to_heating"
+qual = "step_converges_and_energy_responds_to_heating"
+lines = [
+    1367,
+    1407,
+]
+hash = "sha256:5df9fdd5ac01f94f2a5d9cb81dd423b10766f33dded722bf694a87f9cacb65d2"
+doc_hash = "sha256:dd42ebfacaf60754738d0d3f19b7dca04ea25bb807d5f2a3645de316ab98d068"
+callees = [
+    "fn:01373ad8a3d2020b",
+    "fn:0d6aecf6addfe876",
+    "fn:0d6e83a9e0f8d777",
+    "fn:1241164a3f646e87",
+    "fn:a0e7877ac6319570",
+    "fn:ca0bde63ad32fe66",
+    "fn:cc21726779f422b1",
+    "fn:d97f1a948db3507e",
+]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:1ded25b48be00a9e",
+    "fn:7b1c971a4138047c",
+    "fn:81e0ceaf36581974",
+    "fn:8c17789b8df4dece",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:864aeda3e9c3dfab"
+name = "constructors_reject_bad_inputs"
+qual = "constructors_reject_bad_inputs"
+lines = [
+    1409,
+    1444,
+]
+hash = "sha256:561224d232e0020c1f9e24e0a062010b589198cbf236876dd46b94d2ec053966"
+doc_hash = "sha256:1d19b7f512721cbdec8868efbb45c81e5b8b19f8999942199276b1701199a38d"
+callees = [
+    "fn:01373ad8a3d2020b",
+    "fn:0d6aecf6addfe876",
+    "fn:1b449269eba47195",
+    "fn:6205b1e259937574",
+    "fn:a0e7877ac6319570",
+    "fn:be213075d491a39f",
+    "fn:ca0bde63ad32fe66",
+    "fn:cc21726779f422b1",
+    "fn:d97f1a948db3507e",
+]
+uses = [
+    "fn:029c3b390fb3bedf",
+    "fn:0a0d14c987c697c9",
+    "fn:7b1c971a4138047c",
+]
+test = true

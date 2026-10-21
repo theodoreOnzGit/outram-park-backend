@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<!--
+Written for RAFFLES' SCRAM port, NOT taken from upstream's input/ suite.
+
+Upstream has no SMALL non-coherent model: of the seven inputs containing a
+negating connective, four produce no products at all, two are event-tree or
+alignment models the port does not handle, and the only usable one is
+Aralia/das9601 at 288 gates and 4259 products — not something a failure can
+be diagnosed from. This is the small diagnosable case that gap left missing.
+
+SCRAM is still the oracle: the expected answers in oracle.txt come from
+running the compiled binary on this file, exactly as for upstream's own
+models. Only the question is ours.
+
+Gates are kept flat — one connective each — because the structure extractor
+reads that form only and refuses a nested formula rather than guessing.
+
+By hand, for a reader: g1 is `a AND NOT b`, so its implicant is {a+, b-};
+g2 is `c XOR d`, giving {c+, d-} and {c-, d+}. Deleting the complements and
+absorbing leaves {a}, {c}, {d} — which is what SCRAM reports.
+-->
+<opsa-mef>
+  <define-fault-tree name="noncoherent_small">
+    <define-gate name="top">
+      <or>
+        <gate name="g1"/>
+        <gate name="g2"/>
+      </or>
+    </define-gate>
+    <define-gate name="g1">
+      <and>
+        <basic-event name="a"/>
+        <gate name="not_b"/>
+      </and>
+    </define-gate>
+    <define-gate name="not_b">
+      <not>
+        <basic-event name="b"/>
+      </not>
+    </define-gate>
+    <define-gate name="g2">
+      <xor>
+        <basic-event name="c"/>
+        <basic-event name="d"/>
+      </xor>
+    </define-gate>
+    <define-basic-event name="a"><float value="0.1"/></define-basic-event>
+    <define-basic-event name="b"><float value="0.2"/></define-basic-event>
+    <define-basic-event name="c"><float value="0.3"/></define-basic-event>
+    <define-basic-event name="d"><float value="0.4"/></define-basic-event>
+  </define-fault-tree>
+</opsa-mef>

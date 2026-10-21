@@ -11,9 +11,12 @@
 //! [`CustomLineType::Isentrope`] and [`CustomLineType::Isenthalp`] sweep
 //! pressure through this crate's own `(p,s)`/`(p,h)` flashes
 //! ([`curves::isentrope`], [`curves::isenthalp`]); [`CustomLineType::Isochore`]
-//! has no such flash to reuse, so [`curves::isochore`] bisects pressure at
-//! each temperature against the forward single-phase volume dispatcher — see
-//! that function's doc comment for why.
+//! has no forward flash to reuse — IAPWS-IF97 publishes no `p(rho,h)` — so
+//! [`curves::isochore`] sweeps enthalpy at fixed density and recovers the
+//! pressure by inverting the backward equations. It previously bisected
+//! pressure at each temperature against the forward single-phase volume
+//! dispatcher, which could not cross the two-phase dome; it now does. See that
+//! function's doc comment.
 //!
 //! [`CustomLineType::Quality`] (issue #26, requested after the first custom
 //! line types shipped) is the odd one out: it is not a single-phase sweep at

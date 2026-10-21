@@ -1,0 +1,13 @@
+{
+ "summary": {
+  "engine_under_test": "kovan_literature::citeproc (the citeproc-js 2.4.63 port, GitHub #790) via kovan_literature::csl",
+  "reference": "citeproc-js 2.4.63",
+  "styles": ["apa", "chicago-author-date", "ieee", "nature", "vancouver"],
+  "items": 223,
+  "compared_per_style": 669,
+  "differences": 0,
+  "note": "Measured 2026-10-08 (#797) on docs/site/references.bib: 0 differences in 5 x 669 item-level comparisons (parenthetical, narrative, bibliography for 223 items) and 0 in the five bibliography orders. An entry in 'differences' must carry a 'style', a 'reason' and a 'deviation' naming a registered Dnn of src/citeproc/DEVIATIONS.md; any other difference is a defect in the port or the driver.",
+  "history": "Until 2026-10-08 the engine under test was hayagriva 0.10.1, APA only: 176 of 669 comparisons differed plus the bibliography order (missing given-name disambiguation 'J. Li et al.', stray comma '(2013,)', missing year suffixes, a corporate-author mis-grouping SECY-24-0035, 'Arxiv' capitalisation, ...). That list was the reason to port citeproc-js (#790) and was removed when hayagriva was replaced (#797); it is in git history (this file at commit a4649599f)."
+ },
+ "differences": []
+}

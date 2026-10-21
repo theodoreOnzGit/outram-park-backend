@@ -74,6 +74,7 @@
 //!   [`Selection::select_faces_by_sides`] ([`NumberCompare`]). "Ungrouped
 //!   vertices" waits on vertex groups in `op-hzs.54.28`.
 
+use petir::mathf::RealMath;
 use std::collections::{BTreeSet, HashMap};
 
 use crate::math::Vec3;
@@ -1509,7 +1510,7 @@ fn dir_parallel(a: Vec3, b: Vec3, angle_tol: f64) -> bool {
     if la < 1e-12 || lb < 1e-12 {
         return false;
     }
-    (a.dot(b).abs() / (la * lb)).min(1.0) >= angle_tol.cos()
+    (a.dot(b).abs() / (la * lb)).min(1.0) >= angle_tol.r_cos()
 }
 
 /// One selected-element trait value for [`Selection::select_similar`] in edge

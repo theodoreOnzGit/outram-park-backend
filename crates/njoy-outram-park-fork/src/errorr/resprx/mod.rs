@@ -472,7 +472,8 @@ pub fn resprx(
             if lrf == 7 {
                 // errorr.f90:3221-3223
                 if isr != 0 || isru {
-                    rc.messages.push("resprx: scat. radius unc not ready for lrf=7".into());
+                    rc.messages
+                        .push("resprx: scat. radius unc not ready for lrf=7".into());
                 }
             } else if isr == 1 {
                 if lrf == 1 || lrf == 2 {

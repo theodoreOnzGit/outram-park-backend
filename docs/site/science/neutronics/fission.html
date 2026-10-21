@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fission: fissile and fissionable</title>
+<meta name="description" content="Neutronics, page 11: fissile nuclides (U-235) fission with neutrons of any energy, fissionable ones (U-238) only above a threshold. Pairing makes the difference: capture into even-even U-236 releases about 1.7 MeV more than into U-239. ENDF/B-VIII.0 fission cross sections reconstructed by OUTRAM PARK's RECONR port.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="reaction-data.js" defer></script>
+<script src="reactions.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 11 of the design comment of 2026-10-16 and its amendment. Only the core distinction is here; the rest of fission is to be designed with the maintainer. No fission-barrier heights (they are not in ENDF and none is quoted from memory). Ends on the closing segue of the amendment and the §24 cursor, not designed yet. Numbers: reaction-data.js, checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Fission: fissile and fissionable</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>Some nuclei split with a neutron of almost any energy. Others split only when the neutron is fast. Two words keep them apart:</p>
+<ul>
+  <li><b>Fissile</b>: fissions with neutrons of essentially any energy, thermal ones included. U-235, Pu-239 and U-233.</li>
+  <li><b>Fissionable but not fissile</b>: fissions only above a threshold neutron energy. U-238, above roughly 1&ndash;1.5 MeV, rising steeply near 1.3&ndash;1.5 MeV.</li>
+</ul>
+
+<section class="widget-card">
+  <h3>The fission cross sections of U-235 and U-238</h3>
+  <div class="widget" id="fission">
+    <canvas aria-label="The fission cross sections of U-235 and U-238 against neutron energy on log-log axes, with the energy from which U-238's stays high marked"></canvas>
+  </div>
+  <p class="note">ENDF/B-VIII.0 <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, MT 18, reconstructed at 0 K by OUTRAM PARK's RECONR port <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. U-238's threshold is marked where its cross section stays above 10 % of its 2 MeV value: a definition on the data, not a tabulated number.</p>
+</section>
+
+<p>At thermal energies U-235's fission cross section is hundreds of barns and U-238's is next to nothing. Above about a mega-electronvolt, U-238 begins to split too.</p>
+
+<h2>Why? Pairing, from page 9</h2>
+<p>When a neutron joins U-235 it makes U-236: 92 protons and 144 neutrons, both even. Pairing makes that nucleus extra tightly bound, so the capture releases more energy. U-238 plus a neutron makes U-239, with an odd 147 neutrons, and releases less. The evaluations' capture Q-values (MT 102) say how much: <b data-q="U-235">6.54 MeV</b> for U-235 against <b data-q="U-238">4.81 MeV</b> for U-238, about 1.7 MeV more <a href="#ref-krane1987introductory">(Krane, 1987)</a>.</p>
+<p>To split, the compound nucleus has to get over a <b>fission barrier</b>. Barrier heights are not in ENDF, and they depend on the model: the actinide barriers are double-humped, and what matters is the higher hump. For U-236 it is &asymp; 5.2&ndash;5.7 MeV, for U-239 &asymp; 6.1&ndash;6.5 MeV (Maslov's compilation fitted to fission data, for RIPL <a href="#ref-capote2009ripl">(Capote et al., 2009)</a>, and the ETFSI calculation <a href="#ref-mamdouh2001etfsi">(Mamdouh et al., 2001)</a>, both as read from the TALYS database <a href="#ref-koning2026talys">(Koning et al., 2026)</a>).</p>
+<ul>
+  <li><b>U-235 + n</b>: the binding energy alone lifts U-236 &asymp; 0.9&ndash;1.3 MeV <b>above</b> its barrier, so even a neutron at rest will do.</li>
+  <li><b>U-238 + n</b>: U-239 is left &asymp; 1.3&ndash;1.6 MeV <b>short</b>, so the neutron has to bring roughly 1.3&ndash;1.7 MeV of kinetic energy, depending on the barrier model. That is the steep rise you can see above. The small fission below it is the nucleus tunnelling through the barrier, so the threshold is not sharp.</li>
+</ul>
+
+<h2>The same levels, every time</h2>
+<p>It is the <b>same idea</b> throughout. The compound nucleus has allowed energy levels (pages 8 and 9). Each reaction is a different way out of them (page 10): send the neutron back out, send it out and leave the nucleus excited, emit a gamma ray, emit a proton or an alpha particle, emit two neutrons, or split. So the same levels show up <b>differently in each reaction's cross section</b>.</p>
+<p>And there are a lot of them. U-238's evaluated resolved-resonance range alone lists <b data-levels="0">926</b> resonances with l = 0 and <b data-levels="1">2 419</b> with l = 1, and that is one nuclide.</p>
+<p><b>How do we represent them?</b> Not as thousands of dense tables of points: we store a few numbers per level, and rebuild each peak from them.</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-capote2009ripl" style="padding-left: 2em; text-indent: -2em;">Capote, R., Herman, M., Obložinský, P., Young, P. G., Goriely, S., Belgya, T., Ignatyuk, A. V., Koning, A. J., Hilaire, S., Plujko, V. A., Avrigeanu, M., Bersillon, O., Chadwick, M. B., Fukahori, T., Ge, Z., Han, Y., Kailas, S., Kopecky, J., Maslov, V. M., … Talou, P. (2009). RIPL – Reference Input Parameter Library for Calculation of Nuclear Reactions and Nuclear Data Evaluations. <i>Nuclear Data Sheets</i>, <i>110</i>(12), 3107–3214. https://doi.org/10.1016/j.nds.2009.10.004</p>
+
+<p class="csl-entry" id="ref-koning2026talys" style="padding-left: 2em; text-indent: -2em;">Koning, A., Hilaire, S., &#38; Goriely, S. (2026). <i>TALYS-2.24: Simulation of nuclear reactions</i> (IAEA NDS Document Series IAEA(NDS)-0255). International Atomic Energy Agency, Nuclear Data Section. https://nds.iaea.org/talys</p>
+
+<p class="csl-entry" id="ref-krane1987introductory" style="padding-left: 2em; text-indent: -2em;">Krane, K. S. (1987). <i>Introductory Nuclear Physics</i>. Wiley.</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-mamdouh2001etfsi" style="padding-left: 2em; text-indent: -2em;">Mamdouh, A., Pearson, J. M., Rayet, M., &#38; Tondeur, F. (2001). Fission barriers of neutron-rich and superheavy nuclei calculated with the ETFSI method. <i>Nuclear Physics A</i>, <i>679</i>(3–4), 337–358. https://doi.org/10.1016/S0375-9474(00)00358-4</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

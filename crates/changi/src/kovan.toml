@@ -1,0 +1,8 @@
+schema_version = 1
+kind = "code_folder"
+crate = "changi"
+dir = "crates/changi/src"
+crate_root = true
+
+[module."lib.rs"]
+path = "crate"

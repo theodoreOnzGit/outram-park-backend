@@ -1,0 +1,445 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/cold_leg_validation.rs::cold_leg_validation_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_insulation_thickness_calibration_v1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/primary_loop_heat_loss_calib/insul_calib/hot_leg_calibration.rs::hot_leg_validation_set_c9",
+]
+
+[module."cold_leg_validation.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::cold_leg_validation"
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:fbf364600244accd"
+name = "cold_leg_regression_set_c1"
+qual = "cold_leg_regression_set_c1"
+lines = [
+    1,
+    25,
+]
+hash = "sha256:1938c9c36c213cacce0626148a9badc7ba6e6c694bf6d71502c39de04420eebd"
+doc_hash = "sha256:3970746670456c3ba1787542482be4e8160e4479051cc04da2eaa20a07da99a0"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:a5ee4e95e6c559a7"
+name = "cold_leg_regression_set_c2"
+qual = "cold_leg_regression_set_c2"
+lines = [
+    26,
+    53,
+]
+hash = "sha256:f1fc57a28c734b4b42b27528925b60db2317c012dbd0cbe1a047d66970af61ad"
+doc_hash = "sha256:b9a5fc3a1f4bda8f71b5ba801843a1591580699fdc4413afffc1361b373ed4ae"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:5063d6ce65e5467f"
+name = "cold_leg_validation_set_c3"
+qual = "cold_leg_validation_set_c3"
+lines = [
+    54,
+    78,
+]
+hash = "sha256:6c359ccaa5207566557c52f7a96fa22d9301f38aa7722fde96ac3d4acd5615a3"
+doc_hash = "sha256:2d2405adcaf63b23a03f16b874e95e0dd254f2374e7418f8515b9a7a78e96be6"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:522dddde80a8201b"
+name = "cold_leg_validation_set_c4"
+qual = "cold_leg_validation_set_c4"
+lines = [
+    79,
+    103,
+]
+hash = "sha256:e085c2fb7272dbbd83ad56fbeb8868bda0ef3acdbfe1bd0b2362d4811467e368"
+doc_hash = "sha256:e69c075eb4e9ed64194304af963c27a858b3aec7519b0ee6456552e4820788ff"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:9310c9574a785f09"
+name = "cold_leg_validation_set_c5"
+qual = "cold_leg_validation_set_c5"
+lines = [
+    104,
+    128,
+]
+hash = "sha256:c22ab1b04466d3fdcbd9c9b75df6741512564cf4af600ccd35b4e0db58f1f6a3"
+doc_hash = "sha256:8e5cb0f4909c4239c356d45a4b890f6d0ca70d81a66d425e419ca401bd6d7cfd"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:2e077313ab7fb5ac"
+name = "cold_leg_validation_set_c6"
+qual = "cold_leg_validation_set_c6"
+lines = [
+    129,
+    153,
+]
+hash = "sha256:98c0ca8e912ba95bfec575a1d1cedbf641abfa86fdfe9f8787f2bbd3be62e0c7"
+doc_hash = "sha256:1ac359edcc90a57ab77468c7fd9fe2fc3427516ccbcb129bf15b38b253b1d83d"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:7f0ccb713da87537"
+name = "cold_leg_validation_set_c7"
+qual = "cold_leg_validation_set_c7"
+lines = [
+    154,
+    178,
+]
+hash = "sha256:4025a4dfaa495b4a97e0dfb2058b1c423011484940e00838d72caa4719bbcfbd"
+doc_hash = "sha256:cc719be523b74ae336193e3f518b4fb0950df2c738ed9920d144871ee7400598"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:299138f9558dc057"
+name = "cold_leg_validation_set_c8"
+qual = "cold_leg_validation_set_c8"
+lines = [
+    179,
+    203,
+]
+hash = "sha256:c0174dfe8d945d29a70da844fd776f01e60c86fa4ef5c4c72ad41212c14f852a"
+doc_hash = "sha256:6596437a7a9e2ffca0f6473e83c699a229dc02ef7ecbb556c9710991942c4f99"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:5a78f57e97dc1441"
+name = "cold_leg_validation_set_c9"
+qual = "cold_leg_validation_set_c9"
+lines = [
+    204,
+    230,
+]
+hash = "sha256:ad6d6f2d023b715a0bc88966d6b3cdadc982d4a6487b631616abe02c19668b61"
+doc_hash = "sha256:f1b25e88aa6a167688908036ca1db34fb47c9ab6b8f6412d4cc8ac32f37603d5"
+callees = ["fn:059abf14bb1d5203"]
+test = true
+
+[[module."cold_leg_validation.rs".function]]
+id = "fn:059abf14bb1d5203"
+name = "cold_leg_insulation_thickness_validation_test_v1"
+qual = "cold_leg_insulation_thickness_validation_test_v1"
+lines = [
+    232,
+    649,
+]
+hash = "sha256:865eab9e933dc682d142830c5315c271095b6ada0d276d3ee72137ee47aff444"
+doc_hash = "sha256:376af1734d03da4e77bfd59953b1cd834e1194f6c2bad398421e33eb92297c09"
+callees = [
+    "fn:089c40400fdd61ff",
+    "fn:192c73709e4fae1b",
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:3fdf94385bd7ffd4",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:5620afcc5d9c6da0",
+    "fn:579dd6b20de3f7d0",
+    "fn:6256de6e1d4d986a",
+    "fn:625dce0bc183471b",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:9319b2b56ae29f2c",
+    "fn:9da319fa8e4815f6",
+    "fn:a062bfc4d1c08565",
+    "fn:a466cf7d23703edb",
+    "fn:b06e224b136ceb6f",
+    "fn:b9acd02ee51732d3",
+    "fn:c2da8a31daabb980",
+    "fn:c3c32a0780662c1d",
+    "fn:dda41651835c793f",
+    "fn:ee48fed6fbd70492",
+    "fn:f66c6613b2fa9c0c",
+    "fn:ff8521081362840f",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[module."hot_leg_calibration.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib::hot_leg_calibration"
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:47413d4331521029"
+name = "hot_leg_insulation_thickness_calibration_v1"
+qual = "hot_leg_insulation_thickness_calibration_v1"
+lines = [
+    1,
+    136,
+]
+hash = "sha256:3676419097a0fd380f72f9fc3f1a59ea816b9ceb3624d9d75d85d7db6c3a1856"
+doc_hash = "sha256:eee54c967fb9adc2efd1e53b5cc11ef2b511cdbda5cc6e82185c464e7d57ba88"
+callees = ["fn:adf30547cc37fbb8"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:03e12ae7eaee831c"
+name = "hot_leg_validation_set_c1"
+qual = "hot_leg_validation_set_c1"
+lines = [
+    137,
+    160,
+]
+hash = "sha256:6d86c2c3199b28ffcebfa768e541cbc1e7b660b230ab2a017c2cfff6dc110ec4"
+doc_hash = "sha256:3d1325664978b6b6cf7ce3af3b1a3107ac6eb4ba6eb14962ac4b7301f1a73cb1"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:23ccc19fb800b7ed"
+name = "hot_leg_validation_set_c2"
+qual = "hot_leg_validation_set_c2"
+lines = [
+    161,
+    184,
+]
+hash = "sha256:063f67665562cf6c039975442cb91a56b022bbf279a12e9a527b93e646c85279"
+doc_hash = "sha256:32b97793048bd7b8c1c9f69eaf7b1344d853d2ef777bfaf3df5cc89afd121605"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:1c8bbad4b2ff2f0e"
+name = "hot_leg_validation_set_c3"
+qual = "hot_leg_validation_set_c3"
+lines = [
+    185,
+    208,
+]
+hash = "sha256:050be6796b95fd1af7afc6f274003a66a116bdcd410f846ee1d09c18812359ef"
+doc_hash = "sha256:d676cca750f32af0fa0f1b6c998479a2bd5d8c121e2075485c0802af4136fd5a"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:dece391d3251a321"
+name = "hot_leg_validation_set_c4"
+qual = "hot_leg_validation_set_c4"
+lines = [
+    209,
+    232,
+]
+hash = "sha256:2b84ebc3440e17586be0956078ccfca8c1e24a73c5710d793c5096dd2f743c57"
+doc_hash = "sha256:41003cbcdb8d153ef8635b3398aa0eb775b1669ee03bfc92c6bac27229972724"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:82544ccd82793665"
+name = "hot_leg_validation_set_c5"
+qual = "hot_leg_validation_set_c5"
+lines = [
+    233,
+    258,
+]
+hash = "sha256:11f6c9119fbeef3014ec65c1d37067fd13495c66ebbcd4bb7bc4f4a68a4e81b4"
+doc_hash = "sha256:b9aabf291133fa1cc97484af200c4a3f405c78c147771ad77c767a5d8f79534c"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:9b765c98d3571da6"
+name = "hot_leg_validation_set_c6"
+qual = "hot_leg_validation_set_c6"
+lines = [
+    260,
+    286,
+]
+hash = "sha256:f363837f1bd43a5d68681ab6b4f2b30677adea3c464e1db43aff4d5a86cb70bd"
+doc_hash = "sha256:1901606aee4fe8d48c1e186f94da5ef29b243b361085df119b3aeefc44fa03b5"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:87f6013ce0d39240"
+name = "hot_leg_validation_set_c7"
+qual = "hot_leg_validation_set_c7"
+lines = [
+    288,
+    312,
+]
+hash = "sha256:d4baf92cd5800562eba762fcbfa55afad13657eee9de24453d6c9f7c2d7fa936"
+doc_hash = "sha256:946d5510df270fe3f689a5f6ee66884c90cd7adc03a8a9c392d792b48c9db1cb"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:2cb4f12997e29ca4"
+name = "hot_leg_validation_set_c8"
+qual = "hot_leg_validation_set_c8"
+lines = [
+    314,
+    338,
+]
+hash = "sha256:78fae0fae25cc64464ccde2fe2e166e326ddf3c5ba39f92162da1a4fe6f82ee6"
+doc_hash = "sha256:5f5fddeaf6b1131e44f64ebeb06d660dfb184ffcd07ed314ba7435839b0da53b"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:53d7a3d9194e337b"
+name = "hot_leg_validation_set_c9"
+qual = "hot_leg_validation_set_c9"
+lines = [
+    340,
+    363,
+]
+hash = "sha256:142c9d0071d77f2c368f8aa2fde168a185ec3acea5806c06e237bb264675b314"
+doc_hash = "sha256:6e272c75a119238831105ffed14a3678727ed78a3764d41f81edee727ea20f9a"
+callees = ["fn:9a0c25b6857e8864"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:adf30547cc37fbb8"
+name = "pri_loop_hot_leg_insulation_thickness_calibration_regression_test_v1"
+qual = "pri_loop_hot_leg_insulation_thickness_calibration_regression_test_v1"
+lines = [
+    364,
+    761,
+]
+hash = "sha256:7b39ee7933863b8b6421afe1a35e20dfe2822a352130a7f16624eca099894c46"
+doc_hash = "sha256:f194ddf19a99a4e4a23ad6c92321be785568adc8dacb228c06d135ec75ac8171"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:42677954ee03d9db",
+    "fn:428a459b059dec74",
+    "fn:429944a98c495fc2",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:85342ea4b7e5933b",
+    "fn:a062bfc4d1c08565",
+    "fn:a466cf7d23703edb",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b57c94f7ef5cfea0",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:d57dbe3f80933fd7",
+    "fn:dda41651835c793f",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:ff8521081362840f",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = ["#9"]
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:9a0c25b6857e8864"
+name = "pri_loop_hot_leg_insulation_thickness_calibration_validation_test_v1"
+qual = "pri_loop_hot_leg_insulation_thickness_calibration_validation_test_v1"
+lines = [
+    763,
+    1158,
+]
+hash = "sha256:b6956a9f3c5d0772cff0ef62281e78241730506f472c013b4ba77a13be480473"
+doc_hash = "sha256:9b2a35470000da6f06022ce5074c1c76a0f6001de049f8b78f68a2fb5300019b"
+callees = [
+    "fn:3ab99241909cec96",
+    "fn:3e41f0f4036b1c69",
+    "fn:3f6427f87e7e0f62",
+    "fn:42677954ee03d9db",
+    "fn:428a459b059dec74",
+    "fn:429944a98c495fc2",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:679eea7225e5e653",
+    "fn:85342ea4b7e5933b",
+    "fn:a062bfc4d1c08565",
+    "fn:a466cf7d23703edb",
+    "fn:aea1a2ba0c77b742",
+    "fn:b06e224b136ceb6f",
+    "fn:b57c94f7ef5cfea0",
+    "fn:c11620d5a699bac7",
+    "fn:c2da8a31daabb980",
+    "fn:c37f21204d34d24b",
+    "fn:d57dbe3f80933fd7",
+    "fn:dda41651835c793f",
+    "fn:e0f6ccbea3b4fcfc",
+    "fn:ff8521081362840f",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:7dd4a12481be2f3d",
+    "fn:9d066208d78729d1",
+    "fn:a2e0e0424ca708af",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+]
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::primary_loop_heat_loss_calib::insul_calib"

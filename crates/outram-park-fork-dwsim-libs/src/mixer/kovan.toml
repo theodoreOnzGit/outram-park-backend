@@ -1,0 +1,350 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-dwsim-libs"
+dir = "crates/outram-park-fork-dwsim-libs/src/mixer"
+test_ids = [
+    "crates/outram-park-fork-dwsim-libs/src/mixer/mod.rs::composition_mass_and_mole_mixing",
+    "crates/outram-park-fork-dwsim-libs/src/mixer/mod.rs::each_pressure_mode_picks_correct_outlet_pressure",
+    "crates/outram-park-fork-dwsim-libs/src/mixer/mod.rs::empty_and_zero_flow_error_handling",
+    "crates/outram-park-fork-dwsim-libs/src/mixer/mod.rs::enthalpy_is_flow_weighted_average",
+    "crates/outram-park-fork-dwsim-libs/src/mixer/mod.rs::single_stream_passthrough",
+    "crates/outram-park-fork-dwsim-libs/src/mixer/mod.rs::two_stream_mass_sum",
+]
+
+[module."mod.rs"]
+path = "crate::mixer"
+
+[[module."mod.rs".function]]
+id = "fn:42d1e76d9c8568c0"
+name = "PressureBehavior"
+qual = "PressureBehavior"
+item = "type"
+shape = "enum"
+lines = [
+    49,
+    65,
+]
+hash = "sha256:fe8f61dc846106c10eae5be0cf91e2ac090201fcc20b2ed71eb8a528192de85d"
+doc_hash = "sha256:8a1bda83fa884658f872853b4c8ffc506d6568efc1f62a03bf5d3aa191f7b5fd"
+reached_by = [
+    "#1",
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9d01fd5c6145740f"
+name = "InletStream"
+qual = "InletStream"
+item = "type"
+shape = "struct"
+lines = [
+    67,
+    85,
+]
+hash = "sha256:bbc30466ee5b5143e4ace938a2d52512a2c9188949a8dd5ae61057c20b459dd1"
+doc_hash = "sha256:1d67d35da920989b1a7479138d0d34b7a5c696290d45c6fd7f70aeea52c34e2b"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9251d369834760ac"
+name = "from_si"
+qual = "InletStream::from_si"
+lines = [
+    88,
+    96,
+]
+hash = "sha256:d24842d57dd0a03248eff481ee5f4011f5a42df1adeb99f225f8788f2741a96f"
+doc_hash = "sha256:f5e71ccf5dbcc56830da0b307988b029fff576bc7e0235d8f1e29687c2f24444"
+uses = ["fn:9d01fd5c6145740f"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dd9c586b29f73e71"
+name = "MixerOutlet"
+qual = "MixerOutlet"
+item = "type"
+shape = "struct"
+lines = [
+    99,
+    112,
+]
+hash = "sha256:ade13160d45c2c00e4533ab397f658857d1bb6218584c65922d3ca279ee53932"
+doc_hash = "sha256:a340a24de2097890ce10f434d33799e8014e7e44041a750733688fde13300eba"
+reached_by = [
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:d56c3d02e2440745"
+name = "MixerError"
+qual = "MixerError"
+item = "type"
+shape = "enum"
+lines = [
+    114,
+    127,
+]
+hash = "sha256:ae94112368ba7d9da797e987d1da52e0ea87ec5b5abaebbb35988f1913827853"
+doc_hash = "sha256:0121ab05f3e71fe6bb76639f6c33c14d13dd9c7abf32db86190c7fee0f6fee09"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:00dc4dab53d29fd7"
+name = "fmt"
+qual = "MixerError::fmt"
+lines = [
+    130,
+    140,
+]
+hash = "sha256:eb84c905fc89a9151118a51f0984ffd57ab72200e42801b9b7df4cece0e46127"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:d56c3d02e2440745"]
+
+[[module."mod.rs".function]]
+id = "fn:b4022b131f2876be"
+name = "total_mass_flow"
+qual = "total_mass_flow"
+lines = [
+    145,
+    155,
+]
+hash = "sha256:925cfbfa8604e2610d105c5e4108db59f5ff9c1a9a6f140650e53cf8d4b6dfe0"
+doc_hash = "sha256:bc77f43e2c9c52ed70af7721f2fcce43c74a005d3f94977b8ffd6b2b894af793"
+uses = ["fn:9d01fd5c6145740f"]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:5e3c90f601bbd08c"
+name = "mixed_specific_enthalpy"
+qual = "mixed_specific_enthalpy"
+lines = [
+    157,
+    184,
+]
+hash = "sha256:515df9b2940de18629ce77e8f3165f3a25e6743af3d0ea24afabf57845d86f29"
+doc_hash = "sha256:e68e9493b78f0234529177cfe170b485b44e59e33cc736966a174536ca038eed"
+callees = ["fn:b4022b131f2876be"]
+uses = [
+    "fn:9d01fd5c6145740f",
+    "fn:d56c3d02e2440745",
+]
+reached_by = [
+    "#2",
+    "#3",
+    "#4",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:0c1379de08141bd9"
+name = "outlet_pressure"
+qual = "outlet_pressure"
+lines = [
+    186,
+    213,
+]
+hash = "sha256:64a358d98c02baec75c5e43273fab348ffd27a6a90babfa31040a59d36c57df0"
+doc_hash = "sha256:5079c9d51ddad999de50b64c8c799501408b8e618e32af25d7f595ddcda2803f"
+uses = [
+    "fn:42d1e76d9c8568c0",
+    "fn:9d01fd5c6145740f",
+    "fn:d56c3d02e2440745",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#4",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:fc1341734fa11d16"
+name = "mix"
+qual = "mix"
+lines = [
+    215,
+    239,
+]
+hash = "sha256:e5bcb171c4d62003d6cee16d3e4237ac69f101f832ed699600a3557583a23f9e"
+doc_hash = "sha256:aad05785debdeead624962611c0b13e4d36fc6bab4e2bd290cf07200fee26690"
+callees = [
+    "fn:0c1379de08141bd9",
+    "fn:5e3c90f601bbd08c",
+    "fn:b4022b131f2876be",
+]
+uses = [
+    "fn:42d1e76d9c8568c0",
+    "fn:9d01fd5c6145740f",
+    "fn:d56c3d02e2440745",
+    "fn:dd9c586b29f73e71",
+]
+reached_by = [
+    "#2",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9a71b29f921396d5"
+name = "mixed_mass_fraction"
+qual = "mixed_mass_fraction"
+lines = [
+    241,
+    281,
+]
+hash = "sha256:2003acb79f56a1f0a71c84d5ea578ce50690a5587d74709862bbae4affbe6f21"
+doc_hash = "sha256:a11f7820a2c856a7e851b5695df9c03b3d923bece7c00641692845fc24747563"
+uses = ["fn:d56c3d02e2440745"]
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:19060de59dbc54e9"
+name = "mass_to_mole_fractions"
+qual = "mass_to_mole_fractions"
+lines = [
+    283,
+    316,
+]
+hash = "sha256:b7647f361b95403d13aff523ecb6a5201de0296005df347a5c8ddc1be65fa108"
+doc_hash = "sha256:3dd0da6b8ea2c1d15fc729f1f0045eec7e7adda5a3aa66570ac257844e1d7093"
+reached_by = ["#0"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:903b5a7f4bb73e3d"
+name = "two_stream_mass_sum"
+qual = "two_stream_mass_sum"
+lines = [
+    330,
+    344,
+]
+hash = "sha256:970b9573d4f70cdca09aff804c44444bc137408da762824f51b5bb55996e631b"
+doc_hash = "sha256:06bd797ed8eb9d0af010e0ffcec0001965efec000e59166b915143c164518bdd"
+callees = [
+    "fn:9251d369834760ac",
+    "fn:b4022b131f2876be",
+]
+uses = ["fn:9d01fd5c6145740f"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c7ec92adee5a0c1b"
+name = "enthalpy_is_flow_weighted_average"
+qual = "enthalpy_is_flow_weighted_average"
+lines = [
+    346,
+    358,
+]
+hash = "sha256:bd58725d1e378b8fc075d8d652376c5dd9b8aae14853feae324c3bd7ea14d03b"
+doc_hash = "sha256:d18a7b0fa7d85bc579653aac48e5177177880f3897f339be2205218350c0b290"
+callees = [
+    "fn:5e3c90f601bbd08c",
+    "fn:9251d369834760ac",
+]
+uses = ["fn:9d01fd5c6145740f"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:ec35bd407727c014"
+name = "each_pressure_mode_picks_correct_outlet_pressure"
+qual = "each_pressure_mode_picks_correct_outlet_pressure"
+lines = [
+    360,
+    391,
+]
+hash = "sha256:ff1c749c8ca98750c5b8c4f13380a4adbe840a1103e8d3c4471164d18d5828a3"
+doc_hash = "sha256:0596589c7737ed2bdd0deffc97c72673c7acaa192c4edfb37729f05934956b5e"
+callees = [
+    "fn:0c1379de08141bd9",
+    "fn:9251d369834760ac",
+]
+uses = [
+    "fn:42d1e76d9c8568c0",
+    "fn:9d01fd5c6145740f",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:514b8eb79ae6c8ce"
+name = "single_stream_passthrough"
+qual = "single_stream_passthrough"
+lines = [
+    393,
+    418,
+]
+hash = "sha256:20b0d384024db87865f5b4b6a60911229fe41d78b8fef93a9beaeaca3b8526e5"
+doc_hash = "sha256:e8a126f77ab8a8148c32885dff783df14b52d24600fed67623ebc595b32fac05"
+callees = [
+    "fn:9251d369834760ac",
+    "fn:fc1341734fa11d16",
+]
+uses = [
+    "fn:42d1e76d9c8568c0",
+    "fn:9d01fd5c6145740f",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d2d374941cc0e120"
+name = "empty_and_zero_flow_error_handling"
+qual = "empty_and_zero_flow_error_handling"
+lines = [
+    420,
+    458,
+]
+hash = "sha256:adb62f04fccd2893eaa124a7106591ee474fe2ff377e22eab0adf362ff364e97"
+doc_hash = "sha256:6d6cfac42f6383ba85147b6fc2647323d48ed22c253b702d9a888e07ad061a82"
+callees = [
+    "fn:0c1379de08141bd9",
+    "fn:5e3c90f601bbd08c",
+    "fn:9251d369834760ac",
+    "fn:fc1341734fa11d16",
+]
+uses = [
+    "fn:42d1e76d9c8568c0",
+    "fn:9d01fd5c6145740f",
+    "fn:d56c3d02e2440745",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:7ef2a29ecf29cce4"
+name = "composition_mass_and_mole_mixing"
+qual = "composition_mass_and_mole_mixing"
+lines = [
+    460,
+    491,
+]
+hash = "sha256:9b394f09ecff54a262f3830c77745c5ee0da58f4a400249492ff403ede96de5f"
+doc_hash = "sha256:fdc5841c38a0173b766b3ed3144927761760cee9fb2941df957b742c37931d0b"
+callees = [
+    "fn:19060de59dbc54e9",
+    "fn:9a71b29f921396d5",
+]
+test = true

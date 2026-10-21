@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 use uom::si::ratio::ratio;
 use uom::si::f64::*;
@@ -71,7 +73,7 @@ pub fn h1_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEnergy 
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma - 1.09).powf(ii) * (sigma + 0.366e-4).powf(ji);
+        eta += ni * (sigma - 1.09).r_powf(ii) * (sigma + 0.366e-4).r_powf(ji);
     }
 
     return h_ref * eta;
@@ -91,7 +93,7 @@ pub fn h3a_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEnergy
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma - 1.09).powf(ii) * (sigma + 0.366e-4).powf(ji);
+        eta += ni * (sigma - 1.09).r_powf(ii) * (sigma + 0.366e-4).r_powf(ji);
     }
 
     return h_ref * eta;

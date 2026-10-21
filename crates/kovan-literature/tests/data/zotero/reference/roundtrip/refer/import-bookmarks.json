@@ -1,0 +1,42 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "881f60f2-0802-411a-9228-ce5f47b64c7d",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "webpage",
+				"creators": [],
+				"tags": [],
+				"title": "Pond - Pond",
+				"url": "https://pond.imperialviolet.org",
+				"abstractNote": "For secure, synchronous communication we have OTR and, when run over Tor, this is pretty good. But while we have secure asynchronous messaging in the form of PGP email, it's not forward secure and it gratuitously leaks traffic information. While a desire for forward secure PGP is hardly new, it still hasn't materialised in a widely usable manner."
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [],
+				"tags": [
+					{
+						"tag": "software",
+						"type": 1
+					},
+					{
+						"tag": "security",
+						"type": 1
+					},
+					{
+						"tag": "social_networking",
+						"type": 1
+					},
+					{
+						"tag": "todo",
+						"type": 1
+					}
+				]
+			}
+		]
+	}
+}

@@ -119,7 +119,11 @@ fn library_matches_njoy_wimsd_tape() {
     );
     assert_eq!(out.lines.len(), want_lines.len(), "{LABEL}: line count");
     assert!(worst < 1e-8, "{LABEL}: numeric deviation {worst:.3e}");
-    assert_eq!(identical, want_lines.len(), "{LABEL}: library not byte-identical");
+    assert_eq!(
+        identical,
+        want_lines.len(),
+        "{LABEL}: library not byte-identical"
+    );
 }
 
 /// The `iprint = 2` listing values (`reference-data/wimsr/*.njoy-listing`).
@@ -148,13 +152,17 @@ fn listing_stage_values() {
     check(
         "sigma potential (16-23)",
         spot,
-        &[9.3358e0, 1.4437e1, 6.8948e0, 9.0852e0, 1.3952e1, 5.9629e0, 8.7257e0, 1.0140e1],
+        &[
+            9.3358e0, 1.4437e1, 6.8948e0, 9.0852e0, 1.3952e1, 5.9629e0, 8.7257e0, 1.0140e1,
+        ],
         6e-5,
     );
     check(
         "scattering power per unit lethargy (16-23)",
         sdp,
-        &[4.9393e-2, 7.5613e-1, 6.7407e-3, 4.9319e-1, 1.8469e-3, 2.2979e-1, 1.9735e-1, 4.1883e-1],
+        &[
+            4.9393e-2, 7.5613e-1, 6.7407e-3, 4.9319e-1, 1.8469e-3, 2.2979e-1, 1.9735e-1, 4.1883e-1,
+        ],
         6e-5,
     );
     check(
@@ -171,9 +179,9 @@ fn listing_stage_values() {
         "absorption (1-23)",
         ab0,
         &[
-            1.1662e0, 8.3999e-1, 5.6522e-1, 3.3245e-1, 1.2268e-1, 1.2946e-1, 2.3304e-1,
-            4.2596e-1, 6.0475e-1, 7.7597e-1, 1.1841e0, 1.9054e0, 3.4378e0, 5.4271e0, 1.8950e1,
-            1.7659e1, 3.6651e-1, 1.4221e2, 3.9342e-1, 2.9414e2, 1.5263e0, 4.8840e-1, 8.2753e-1,
+            1.1662e0, 8.3999e-1, 5.6522e-1, 3.3245e-1, 1.2268e-1, 1.2946e-1, 2.3304e-1, 4.2596e-1,
+            6.0475e-1, 7.7597e-1, 1.1841e0, 1.9054e0, 3.4378e0, 5.4271e0, 1.8950e1, 1.7659e1,
+            3.6651e-1, 1.4221e2, 3.9342e-1, 2.9414e2, 1.5263e0, 4.8840e-1, 8.2753e-1,
         ],
         6e-5,
     );
@@ -182,9 +190,8 @@ fn listing_stage_values() {
         &ti.current_spectrum,
         &[
             1.9876e0, 1.6320e0, 1.6329e0, 1.4763e0, 1.2638e0, 1.7588e0, 5.2633e-1, 5.8185e-1,
-            5.7208e-1, 5.8513e-1, 8.7797e-1, 9.0731e-1, 8.0604e-1, 6.9433e-1, 9.9561e-1,
-            8.7388e-1, 1.2550e-1, 4.8983e-1, 2.2945e-1, 8.5720e-2, 5.5567e-1, 5.4069e-1,
-            2.1534e-1,
+            5.7208e-1, 5.8513e-1, 8.7797e-1, 9.0731e-1, 8.0604e-1, 6.9433e-1, 9.9561e-1, 8.7388e-1,
+            1.2550e-1, 4.8983e-1, 2.2945e-1, 8.5720e-2, 5.5567e-1, 5.4069e-1, 2.1534e-1,
         ],
         6e-5,
     );
@@ -198,7 +205,9 @@ fn listing_stage_values() {
     check(
         "absorption at 294 K (24-29)",
         &td.record[6..12],
-        &[6.0727e2, 6.8039e0, 4.9044e-1, 5.3861e-1, 9.0950e-1, 2.8932e1],
+        &[
+            6.0727e2, 6.8039e0, 4.9044e-1, 5.3861e-1, 9.0950e-1, 2.8932e1,
+        ],
         6e-5,
     );
     // resonance integrals: group 16 and 20 absorption, group 20 fission yield
@@ -206,25 +215,33 @@ fn listing_stage_values() {
     check(
         "resonance integral absorption group 16",
         &ri.groups[0].absorption[0],
-        &[7.87028e-1, 9.79770e-1, 2.21060e0, 6.62746e0, 1.42090e1, 1.76593e1],
+        &[
+            7.87028e-1, 9.79770e-1, 2.21060e0, 6.62746e0, 1.42090e1, 1.76593e1,
+        ],
         6e-6,
     );
     check(
         "resonance integral absorption group 20",
         &ri.groups[4].absorption[0],
-        &[4.69350e0, 6.29521e0, 1.59550e1, 6.00922e1, 1.87050e2, 2.94139e2],
+        &[
+            4.69350e0, 6.29521e0, 1.59550e1, 6.00922e1, 1.87050e2, 2.94139e2,
+        ],
         6e-6,
     );
     check(
         "resonance integral fission yield group 20",
         &ri.groups[4].nu_fission.as_ref().unwrap()[0],
-        &[2.64616e-5, 3.56895e-5, 9.18682e-5, 3.50292e-4, 1.09452e-3, 1.72233e-3],
+        &[
+            2.64616e-5, 3.56895e-5, 9.18682e-5, 3.50292e-4, 1.09452e-3, 1.72233e-3,
+        ],
         6e-6,
     );
     check(
         "flux per unit lethargy group 17",
         &ri.groups[1].flux_per_lethargy[0],
-        &[7.69683e-1, 9.38730e-1, 1.03657e0, 1.02279e0, 1.00583e0, 1.00000e0],
+        &[
+            7.69683e-1, 9.38730e-1, 1.03657e0, 1.02279e0, 1.00583e0, 1.00000e0,
+        ],
         6e-6,
     );
     // p1 rows: group 1 (l1=1, l2=2) and group 26 (l1=25, l2=29)
@@ -242,5 +259,10 @@ fn listing_stage_values() {
     );
     // fission spectrum: 23 groups, first three
     assert_eq!(out.xsecs.nfiss, 23);
-    check("fission spectrum (1-3)", &out.xsecs.uff[0..3], &[2.8546e-3, 6.0297e-2, 3.3594e-1], 6e-5);
+    check(
+        "fission spectrum (1-3)",
+        &out.xsecs.uff[0..3],
+        &[2.8546e-3, 6.0297e-2, 3.3594e-1],
+        6e-5,
+    );
 }

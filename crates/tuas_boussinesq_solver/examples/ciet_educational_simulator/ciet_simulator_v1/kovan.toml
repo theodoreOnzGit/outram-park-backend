@@ -1,0 +1,149 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/examples/ciet_educational_simulator/ciet_simulator_v1"
+
+[module."app.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app"
+
+[[module."app.rs".function]]
+id = "fn:70e5323cdebe5b88"
+name = "CIETApp"
+qual = "CIETApp"
+item = "type"
+shape = "struct"
+lines = [
+    18,
+    52,
+]
+hash = "sha256:65fcd4142282df2a482f8b67f70839930fdb3db6138d9432d77793820ccda73b"
+doc_hash = "sha256:e160bdf7cde11674d702afb338945640f1e2db83ea57a57fd4737ccdafe75192"
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:52e4e83f79c797bb",
+    "fn:779983fa0c4c3607",
+    "fn:821987f224600a60",
+    "fn:f232a9a6a595ee30",
+]
+
+[[module."app.rs".function]]
+id = "fn:c4ec6691ad91ff56"
+name = "default"
+qual = "CIETApp::default"
+lines = [
+    59,
+    76,
+]
+hash = "sha256:a05485e74723413eb01558dc611025e132a8edd6b542bef6427933a008cfea51"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:dabb3e6a7737a14f",
+    "fn:df965f0010868bb2",
+    "fn:f44878efcd217386",
+]
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:52e4e83f79c797bb",
+    "fn:70e5323cdebe5b88",
+    "fn:779983fa0c4c3607",
+    "fn:821987f224600a60",
+    "fn:f232a9a6a595ee30",
+]
+
+[[module."app.rs".function]]
+id = "fn:2f88d82e34ab9ce2"
+name = "new"
+qual = "CIETApp::new"
+lines = [
+    80,
+    119,
+]
+hash = "sha256:00049e5ebc2d30f5a4062a6a6e2f7c9aeabfcecff9d999ac3b89bea009cc8b94"
+doc_hash = "sha256:70d0e5349f6d492e8f3b4c3173fe8e05f0b3f501bba7dbfe9cd6e130c61388de"
+callees = [
+    "fn:32628c0a082e1407",
+    "fn:c4ec6691ad91ff56",
+    "fn:e9ee368b9fc3b537",
+]
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:52e4e83f79c797bb",
+    "fn:70e5323cdebe5b88",
+]
+
+[[module."app.rs".function]]
+id = "fn:17bdd0915bb7bb9b"
+name = "save"
+qual = "CIETApp::save"
+lines = [
+    123,
+    126,
+]
+hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
+doc_hash = "sha256:05c1f790602727e494c4b0061fcf288c7b4f4052fcc9a030b2fafe7b89c27aad"
+uses = ["fn:70e5323cdebe5b88"]
+
+[[module."app.rs".function]]
+id = "fn:b897cb2a9fc00a66"
+name = "ui"
+qual = "CIETApp::ui"
+lines = [
+    128,
+    333,
+]
+hash = "sha256:9e688a8edcb7ad693df5724a6192f740b6855fb9645c763c4df4ed40de37433f"
+doc_hash = "sha256:b582ab9c4712fc1dbdfe425b9eb4cb806dfc87f9ca904ab0c49fbcad65755b06"
+callees = [
+    "fn:045011bd58f386f4",
+    "fn:15be6afb7b961c32",
+    "fn:3951a2c1ebfca3fa",
+    "fn:39bf411ed49c1232",
+    "fn:3dae95be2729dac1",
+    "fn:4b95bc1e42918e8c",
+    "fn:5a1cb96d834e37c2",
+    "fn:5c305b988841bc87",
+    "fn:744cb12f240bde21",
+    "fn:7ba8eadd883fd09e",
+    "fn:7e461cc1205dec80",
+    "fn:96dfa859f218af5e",
+    "fn:9a90331ae58e0e9a",
+    "fn:a722e42f55f7b260",
+    "fn:a735ea6ad879896c",
+    "fn:baa7274352e8a96c",
+    "fn:cf8b50bfd6e22a15",
+    "fn:dda58812d1660e2f",
+    "fn:e8132c57f96edcb4",
+]
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:70e5323cdebe5b88",
+    "fn:779983fa0c4c3607",
+    "fn:f232a9a6a595ee30",
+]
+
+[[module."app.rs".function]]
+id = "fn:baa7274352e8a96c"
+name = "powered_by_egui_and_eframe"
+qual = "powered_by_egui_and_eframe"
+lines = [
+    336,
+    348,
+]
+hash = "sha256:1ce2c849c23f39f3a1c5e893be8b4a165089abf5391f3b79ebb3f03836f89609"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."mod.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1"
+
+[[module."mod.rs".function]]
+id = "fn:9da27eddc16deaf7"
+name = "ciet_simulator_v1"
+qual = "ciet_simulator_v1"
+lines = [
+    1,
+    19,
+]
+hash = "sha256:c1d12fde58963d75946907f6a1d8792a4485e828479c7daf8322e3b521bd323f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:2f88d82e34ab9ce2"]
+uses = ["fn:70e5323cdebe5b88"]

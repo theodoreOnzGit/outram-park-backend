@@ -60,7 +60,7 @@ use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::transport_csg::{run_keff_csg_reactor_physics, SourceBox};
-use crate::tally::filter::{EnergyFilter, MaterialFilter};
+use crate::tally::filter::{EnergyFilter, FilterKind, MaterialFilter};
 use crate::tally::tally::{ScoreType, Tally, TallyBin};
 use crate::mathf::RealMath;
 
@@ -134,10 +134,13 @@ impl Estimate {
     /// thermal group of an unmoderated system).
     fn ratio(num: Estimate, den: Estimate) -> Estimate {
         if den.mean == 0.0 {
-            return Estimate { mean: 0.0, std: 0.0 };
+            return Estimate {
+                mean: 0.0,
+                std: 0.0,
+            };
         }
         let mean = num.mean / den.mean;
-        let rel = (num.rel().powi(2) + den.rel().powi(2)).sqrt();
+        let rel = (num.rel().r_powi(2) + den.rel().r_powi(2)).sqrt();
         Estimate {
             mean,
             std: mean.abs() * rel,
@@ -147,7 +150,7 @@ impl Estimate {
     /// Product of independent estimates: relative variances add.
     fn product(parts: &[Estimate]) -> Estimate {
         let mean: f64 = parts.iter().map(|e| e.mean).product();
-        let rel2: f64 = parts.iter().map(|e| e.rel().powi(2)).sum();
+        let rel2: f64 = parts.iter().map(|e| e.rel().r_powi(2)).sum();
         Estimate {
             mean,
             std: mean.abs() * rel2.sqrt(),
@@ -302,10 +305,26 @@ impl SixFactors {
         let p_total = prod[0] + prod[1] + prod[2];
         let a_fuel_thermal = self.thermal_absorption_fuel.mean;
 
-        let eta = if a_fuel_thermal > 0.0 { p_thermal / a_fuel_thermal } else { 0.0 };
-        let f = if a_thermal > 0.0 { a_fuel_thermal / a_thermal } else { 0.0 };
-        let p = if a_total > 0.0 { a_thermal / a_total } else { 0.0 };
-        let epsilon = if p_thermal > 0.0 { p_total / p_thermal } else { 0.0 };
+        let eta = if a_fuel_thermal > 0.0 {
+            p_thermal / a_fuel_thermal
+        } else {
+            0.0
+        };
+        let f = if a_thermal > 0.0 {
+            a_fuel_thermal / a_thermal
+        } else {
+            0.0
+        };
+        let p = if a_total > 0.0 {
+            a_thermal / a_total
+        } else {
+            0.0
+        };
+        let epsilon = if p_thermal > 0.0 {
+            p_total / p_thermal
+        } else {
+            0.0
+        };
         (eta, f, p, epsilon)
     }
 }
@@ -352,10 +371,11 @@ pub struct ReactorPhysicsReport {
 /// Why [`run_keff_reactor_physics`] could not produce a report.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReactorPhysicsError {
-    /// No material contains a nuclide whose name starts with `"U23"`, so the
-    /// fuel cannot be identified and the thermal-utilisation factor f is
-    /// undefined. (Mirrors the reference `_fuel_materials`; MOX/Pu fuel and
-    /// U-233 are not detected.)
+    /// No material contains a fissionable nuclide, so the fuel cannot be
+    /// identified and the thermal-utilisation factor f is undefined.
+    /// (~~a nuclide whose name starts with `"U23"`; MOX/Pu fuel and U-233
+    /// are not detected~~ CORRECTED 2026-10-17, gh #940: any nuclide with
+    /// `Nuclide::is_fissionable`, so Pu and Th fuels are found.)
     NoFuelMaterial,
     /// The energy grid is ill-posed:
     /// `energy_min_ev < thermal_cutoff_ev < resonance_upper_ev < energy_max_ev`
@@ -368,7 +388,7 @@ impl std::fmt::Display for ReactorPhysicsError {
         match self {
             Self::NoFuelMaterial => write!(
                 fmt,
-                "no uranium-bearing material found (need a nuclide named 'U23*'); \
+                "no material holds a fissionable nuclide; \
                  cannot identify the fuel for the thermal-utilisation factor f"
             ),
             Self::BadEnergyGrid => write!(
@@ -386,7 +406,7 @@ impl std::error::Error for ReactorPhysicsError {}
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// `n`-bin log-spaced grid from `e_lo` to `e_hi` \[eV\] (`n + 1` ascending edges).
-fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
+pub(crate) fn log_energy_grid(e_lo: f64, e_hi: f64, n: usize) -> Vec<f64> {
     let (l0, l1) = (e_lo.r_ln(), e_hi.r_ln());
     (0..=n)
         .map(|i| (l0 + (l1 - l0) * i as f64 / n as f64).r_exp())
@@ -449,7 +469,23 @@ fn group_of(e_hi: f64, cut_t: f64, cut_r: f64) -> Group {
 /// indexed `[thermal, resonance, fast]`; `a_thermal_fuel` is thermal absorption
 /// in the fuel materials. See the module docs for the formulas — they telescope
 /// exactly to `η·f·p·ε·P_FNL·P_TNL = P_total / (A_total + L_total)`.
-fn assemble_six_factors(
+///
+/// # Why this is public
+///
+/// `p` and `ε` are **not convention-free** — this module's own docs record a
+/// case where comparing two differently-defined `p` values made them look
+/// 8.8 % apart while their product differed by 2.2 %, which was read as
+/// physics and was not. A deterministic (diffusion / SP3) solve that wants to
+/// be compared against a Monte Carlo run must therefore use *this* assembly on
+/// its own group-resolved rates, rather than reimplementing the formulas
+/// against the same names. Supply rates in the same units on both sides — per
+/// source neutron per generation — and the two decompositions are comparable
+/// term by term.
+///
+/// A deterministic solve has no statistical uncertainty, so pass
+/// [`Estimate`]s with zero standard deviation; the propagation then reduces to
+/// the means and the resulting `1σ` fields are zero, as they should be.
+pub fn assemble_six_factors(
     a: [Estimate; 3],
     a_thermal_fuel: Estimate,
     p: [Estimate; 3],
@@ -465,6 +501,7 @@ fn assemble_six_factors(
     let s_tr = Estimate::sum(&[a[0], l[0], a[1], l[1]]); // + A_r + L_r
     let s_trf = Estimate::sum(&[s_tr, l[2]]); // + L_f
 
+    // ANCHOR: six_factors (mdBook include, Monte Carlo tutorial rung 2, gh:#524)
     let eta = Estimate::ratio(p[0], a_thermal_fuel);
     let f = Estimate::ratio(a_thermal_fuel, a[0]);
     let p_tnl = Estimate::ratio(a[0], s_t);
@@ -479,6 +516,7 @@ fn assemble_six_factors(
     ]);
 
     let k_from_factors = Estimate::product(&[eta, f, p_esc, epsilon, p_fnl, p_tnl]);
+    // ANCHOR_END: six_factors
 
     SixFactors {
         eta,
@@ -508,7 +546,10 @@ fn assemble_six_factors(
 fn bin_estimate(bin: &TallyBin, n: u64, per_source: f64) -> Estimate {
     let mean = bin.mean(n) / per_source;
     if mean == 0.0 {
-        return Estimate { mean: 0.0, std: 0.0 };
+        return Estimate {
+            mean: 0.0,
+            std: 0.0,
+        };
     }
     let rsd = bin.rel_std_dev(n);
     let rsd = if rsd.is_finite() { rsd } else { 0.0 };
@@ -526,7 +567,8 @@ fn bin_estimate(bin: &TallyBin, n: u64, per_source: f64) -> Estimate {
 /// `nuclides` is the global nuclide array the materials index into.
 ///
 /// # Errors
-/// - [`ReactorPhysicsError::NoFuelMaterial`] — no `U23*` material is present.
+/// - [`ReactorPhysicsError::NoFuelMaterial`] — no material holds a
+///   fissionable nuclide.
 /// - [`ReactorPhysicsError::BadEnergyGrid`] — the energy grid is ill-posed.
 ///
 /// # Caveats
@@ -538,14 +580,19 @@ pub fn run_keff_reactor_physics(
     nuclides: &[Nuclide],
     config: &ReactorPhysicsConfig,
 ) -> Result<ReactorPhysicsReport, ReactorPhysicsError> {
-    // ── Fuel materials (any nuclide named "U23*") ─────────────────────────────
+    // ── Fuel materials: any fissionable nuclide ──────────────────────────────
+    // ~~any nuclide named "U23*"~~ CORRECTED 2026-10-17 (gh #940): a name
+    // test missed plutonium and thorium fuels, so eta and f came out wrong
+    // for them. A material is fuel when it holds a nuclide that can fission
+    // (`Nuclide::is_fissionable`, nu-bar > 0). Unchanged for every uranium
+    // case recorded so far: their fuels are the materials holding U23x.
     let fuel_mask: Vec<bool> = materials
         .iter()
         .map(|m| {
             m.components.iter().any(|c| {
                 nuclides
                     .get(c.nuclide_idx)
-                    .map(|n| n.name.starts_with("U23"))
+                    .map(Nuclide::is_fissionable)
                     .unwrap_or(false)
             })
         })
@@ -566,10 +613,10 @@ pub fn run_keff_reactor_physics(
         id: 0,
         name: "reactor_physics".into(),
         filters: vec![
-            Box::new(EnergyFilter {
+            FilterKind::Energy(EnergyFilter {
                 bins: edges.clone(),
             }),
-            Box::new(MaterialFilter {
+            FilterKind::Material(MaterialFilter {
                 material_indices: all_mats,
             }),
         ],
@@ -667,7 +714,10 @@ pub fn run_keff_reactor_physics(
         .map(|e| {
             let du = (edges[e + 1] / edges[e]).r_ln();
             if du <= 0.0 || total_flux <= 0.0 || flux_raw[e] == 0.0 {
-                return Estimate { mean: 0.0, std: 0.0 };
+                return Estimate {
+                    mean: 0.0,
+                    std: 0.0,
+                };
             }
             let psi = flux_raw[e] / (du * total_flux);
             // du and the common normalisation S are treated as exact for the
@@ -703,8 +753,9 @@ pub fn run_keff_reactor_physics(
     } else {
         f64::NAN
     };
-    let consistent =
-        consistency_gap.is_finite() && consistency_gap > CONSISTENCY_BAND.0 && consistency_gap < CONSISTENCY_BAND.1;
+    let consistent = consistency_gap.is_finite()
+        && consistency_gap > CONSISTENCY_BAND.0
+        && consistency_gap < CONSISTENCY_BAND.1;
 
     Ok(ReactorPhysicsReport {
         keff,
@@ -735,9 +786,18 @@ mod tests {
             name: "Godiva HEU".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         }
     }
@@ -759,7 +819,12 @@ mod tests {
     /// (thick moderator) softens the spectrum toward thermal.
     fn pincell_sized(bc: BoundaryType, r_fuel: f64, half: f64) -> Geometry {
         let surfaces = vec![
-            SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: r_fuel, bc: BoundaryType::Transmissive }),
+            SurfaceKind::ZCylinder(ZCylinder {
+                x0: 0.0,
+                y0: 0.0,
+                r: r_fuel,
+                bc: BoundaryType::Transmissive,
+            }),
             SurfaceKind::XPlane(XPlane { x0: -half, bc }),
             SurfaceKind::XPlane(XPlane { x0: half, bc }),
             SurfaceKind::YPlane(YPlane { y0: -half, bc }),
@@ -767,21 +832,39 @@ mod tests {
         ];
         let fuel = Cell::material(
             1,
-            vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+            vec![RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Inside,
+            }],
             0,
             293.6,
         );
         let moder = Cell::material(
             2,
             vec![
-                RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-                RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside },
+                RegionToken::HalfSpace {
+                    surface_idx: 0,
+                    sense: HalfSpaceSense::Outside,
+                },
+                RegionToken::HalfSpace {
+                    surface_idx: 1,
+                    sense: HalfSpaceSense::Outside,
+                },
                 RegionToken::Intersection,
-                RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside },
+                RegionToken::HalfSpace {
+                    surface_idx: 2,
+                    sense: HalfSpaceSense::Inside,
+                },
                 RegionToken::Intersection,
-                RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside },
+                RegionToken::HalfSpace {
+                    surface_idx: 3,
+                    sense: HalfSpaceSense::Outside,
+                },
                 RegionToken::Intersection,
-                RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside },
+                RegionToken::HalfSpace {
+                    surface_idx: 4,
+                    sense: HalfSpaceSense::Inside,
+                },
                 RegionToken::Intersection,
             ],
             1,
@@ -790,7 +873,10 @@ mod tests {
         Geometry {
             surfaces,
             cells: vec![fuel, moder],
-            universes: vec![Universe { id: 0, cell_indices: vec![0, 1] }],
+            universes: vec![Universe {
+                id: 0,
+                cell_indices: vec![0, 1],
+            }],
             lattices: vec![],
             root_universe: 0,
         }
@@ -808,7 +894,10 @@ mod tests {
                 id: 2,
                 name: "H moderator".into(),
                 temperature: 293.6,
-                components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 6.6e-2 }],
+                components: vec![NuclideComponent {
+                    nuclide_idx: 3,
+                    atom_density: 6.6e-2,
+                }],
             },
         ]
     }
@@ -879,20 +968,42 @@ mod tests {
     /// - leakage has the right sign and the non-leakage factors respond.
     #[test]
     fn machinery_invariants_fast_pincell() {
+        // 10 000 histories per generation, not `cheap_keff`'s 250. Measured
+        // 2026-09-30 over 40 seeds (Vacuum): at 250 the direct-k gap below has
+        // a per-run spread of 0.113 (mean -0.005 +/- 0.018), so the +/-0.10
+        // gate was about one sigma and passed only on this seed's luck. It
+        // failed (+0.128) when the fission source became combed (GitHub
+        // #460), which leaves the distribution unchanged (old sampler: spread
+        // 0.115, mean -0.007 +/- 0.018). At 10 000 the spread is 0.014 (mean
+        // +0.001 +/- 0.002), so the gate is seven sigma and means something.
+        // The protocol was fixed; the threshold was not moved.
+        let mut cfg = config_for(0.4);
+        cfg.keff.n_particles = 10_000;
         for bc in [BoundaryType::Reflective, BoundaryType::Vacuum] {
-            let report =
-                run_keff_reactor_physics(&pincell(bc), &materials(), &nuclides(), &config_for(0.4))
-                    .expect("Ok");
+            let report = run_keff_reactor_physics(&pincell(bc), &materials(), &nuclides(), &cfg)
+                .expect("Ok");
             log_report(
-                if bc == BoundaryType::Reflective { "fast/refl" } else { "fast/vac" },
+                if bc == BoundaryType::Reflective {
+                    "fast/refl"
+                } else {
+                    "fast/vac"
+                },
                 &report,
             );
             let sf = &report.six_factors;
 
             for v in [
-                sf.eta.mean, sf.f.mean, sf.p.mean, sf.epsilon.mean, sf.p_fnl.mean, sf.p_tnl.mean,
+                sf.eta.mean,
+                sf.f.mean,
+                sf.p.mean,
+                sf.epsilon.mean,
+                sf.p_fnl.mean,
+                sf.p_tnl.mean,
             ] {
-                assert!(v.is_finite() && v >= 0.0, "factor {v} not finite/non-negative ({bc:?})");
+                assert!(
+                    v.is_finite() && v >= 0.0,
+                    "factor {v} not finite/non-negative ({bc:?})"
+                );
             }
 
             let a_tot: f64 = sf.absorption_by_group.iter().map(|e| e.mean).sum();
@@ -908,7 +1019,7 @@ mod tests {
             let direct_k = p_tot / (a_tot + l_tot);
             let gap = (report.keff.k_mean - direct_k) / report.keff.k_mean;
             // With real Σ_a the gap is small; the margin here absorbs the
-            // 250-history statistical noise and the LOW-tier free-gas treatment
+            // statistical noise (see above) and the LOW-tier free-gas treatment
             // on this hard spectrum. A tight gate lives in the ENDF+S(α,β)
             // Phase-C V&V.
             assert!(
@@ -920,10 +1031,17 @@ mod tests {
             let edges = &sp.energy_edges_ev;
             let mut integral = 0.0;
             for (i, psi) in sp.flux_per_lethargy.iter().enumerate() {
-                assert!(psi.mean >= 0.0 && psi.mean.is_finite(), "psi[{i}] = {}", psi.mean);
+                assert!(
+                    psi.mean >= 0.0 && psi.mean.is_finite(),
+                    "psi[{i}] = {}",
+                    psi.mean
+                );
                 integral += psi.mean * (edges[i + 1] / edges[i]).r_ln();
             }
-            assert!((integral - 1.0).abs() < 1e-9, "lethargy integral {integral} ({bc:?})");
+            assert!(
+                (integral - 1.0).abs() < 1e-9,
+                "lethargy integral {integral} ({bc:?})"
+            );
 
             match bc {
                 BoundaryType::Reflective => {
@@ -962,9 +1080,13 @@ mod tests {
     #[test]
     #[ignore = "slow: thick free-gas-H moderator; a spectrum-direction diagnostic, not a gate"]
     fn thicker_moderator_softens_spectrum() {
-        let tight =
-            run_keff_reactor_physics(&pincell(BoundaryType::Reflective), &materials(), &nuclides(), &config_for(0.4))
-                .expect("Ok");
+        let tight = run_keff_reactor_physics(
+            &pincell(BoundaryType::Reflective),
+            &materials(),
+            &nuclides(),
+            &config_for(0.4),
+        )
+        .expect("Ok");
         let wide = run_keff_reactor_physics(
             &pincell_sized(BoundaryType::Reflective, 0.4, 1.4),
             &materials(),
@@ -995,12 +1117,15 @@ mod tests {
             id: 1,
             name: "graphite".into(),
             temperature: 293.6,
-            components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 8.0e-2 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 8.0e-2,
+            }],
         };
         let nucs = vec![Nuclide::from_core("C0").unwrap()];
         let geom = pincell(BoundaryType::Reflective);
-        let err = run_keff_reactor_physics(&geom, &[moderator], &nucs, &config_for(0.4))
-            .unwrap_err();
+        let err =
+            run_keff_reactor_physics(&geom, &[moderator], &nucs, &config_for(0.4)).unwrap_err();
         assert_eq!(err, ReactorPhysicsError::NoFuelMaterial);
     }
 
@@ -1017,8 +1142,16 @@ mod tests {
 
         // Non-leaking.
         let sf = assemble_six_factors(a, a_tf, p, [e(0.0); 3], (0.625, 1.0e5));
-        assert!((sf.p_fnl.mean - 1.0).abs() < 1e-12, "P_FNL {}", sf.p_fnl.mean);
-        assert!((sf.p_tnl.mean - 1.0).abs() < 1e-12, "P_TNL {}", sf.p_tnl.mean);
+        assert!(
+            (sf.p_fnl.mean - 1.0).abs() < 1e-12,
+            "P_FNL {}",
+            sf.p_fnl.mean
+        );
+        assert!(
+            (sf.p_tnl.mean - 1.0).abs() < 1e-12,
+            "P_TNL {}",
+            sf.p_tnl.mean
+        );
         let a_tot = 0.60 + 0.10 + 0.05;
         let p_tot = 0.55 + 0.15 + 0.05;
         assert!(

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Complication: bursts</title>
+<meta name="description" content="Fission products, lesson 24: when fuel is heated quickly, release can jump: what built up in the grains and on their boundaries comes out at once.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="kernel-data.js" defer></script>
+<script src="kernel-recorded.js" defer></script>
+<script src="cascade-recorded.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="kernel-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 3, lesson 24. ILLUSTRATIVE bend; burst
+     mechanisms source pending. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-20), not yet reviewed by a human.</p>
+<span id="kd-numbers" hidden></span>
+
+<h1>Complication 5: bursts on heating</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Booth assumes a steady temperature. Heat the fuel quickly and D jumps up (Arrhenius, lesson 7), so atoms that were creeping now rush out. And gas that was waiting in boundary bubbles (lesson 14) can be let go at once if the boundaries crack open. The release comes as a <b>burst</b>.</p>
+
+<section class="widget-card">
+  <h3>How a heat-up bends the clean curve</h3>
+  <div class="widget" data-bend="burst">
+    <canvas aria-label="Released fraction against time: the clean curve and a bent one that jumps upward after a heat-up partway through."></canvas>
+  </div>
+</section>
+
+<p>The burst&rsquo;s size and its mechanisms in UO<sub>2</sub>: <span class="pending">source pending</span>. SCIANTIX models boundary micro-cracking (<code>grain_boundary_microcracking.rst</code>); boon-lay&rsquo;s TRISO-ATOPS port has a transient Booth on &int;D&nbsp;dt for accidents (the code chapter covers it). Link back: in the <a href="kernel-many-spheres.html">many-spheres model</a>, every grain&rsquo;s D follows the temperature in time.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<p>With a time-varying temperature, Booth&rsquo;s formula still works if D&nbsp;t is replaced by &int;D(<i>T</i>(<i>t</i>))&nbsp;d<i>t</i>, the integral of D along the temperature history, because the diffusion equation only cares about that integral when D does not depend on position.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

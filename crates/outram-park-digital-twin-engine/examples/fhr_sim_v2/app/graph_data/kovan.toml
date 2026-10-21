@@ -1,0 +1,139 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/graph_data"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::cloning_the_whole_fhr_state_is_not_the_bottleneck",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_first_frame_pays_the_pebble_bed_bake_and_no_later_frame_does",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/frame_cost.rs::the_whole_render_body_costs_a_small_fraction_of_a_frame",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::delayed_neutron_layer_damps_power_oscillation",
+    "crates/outram-park-digital-twin-engine/examples/fhr_sim_v2/app/prke_backend/mod.rs::shipped_prke_timestep_settles",
+]
+
+[module."mod.rs"]
+path = "example:fhr_sim_v2::app::graph_data"
+
+[[module."mod.rs".function]]
+id = "fn:5d225cbd74f7f43d"
+name = "PagePlotData"
+qual = "PagePlotData"
+item = "type"
+shape = "struct"
+lines = [
+    6,
+    20,
+]
+hash = "sha256:368819c21a6ba774171e8ca872fedf6e66d9afb23a1e0c022bd55ae840728bae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+
+[[module."mod.rs".function]]
+id = "fn:4e942b99d2831cd4"
+name = "NUM_DATA_PTS_IN_PLOTS"
+qual = "NUM_DATA_PTS_IN_PLOTS"
+item = "const"
+shape = "const"
+lines = [
+    22,
+    22,
+]
+hash = "sha256:13bbe99d34c046607a90b39b85332d1ef245e30c15fe4c866859c6e6edd6ccd0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3136c8d7d19cf6ad"
+name = "insert_reactor_power_data"
+qual = "PagePlotData::insert_reactor_power_data"
+lines = [
+    25,
+    67,
+]
+hash = "sha256:adcf5dd017949d6d0e8c6afc938ecad3917d12cbaf8573a4480855f5bf7c2794"
+doc_hash = "sha256:d7bfd07a9138e65aa608dd7c46c5a9672e9614b1f941ca3c13e90f47d4983ec4"
+uses = [
+    "fn:4e942b99d2831cd4",
+    "fn:5d225cbd74f7f43d",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:4d7bd61d2d16c9c4"
+name = "get_reactor_power_megawatts_vs_time_secs_vec"
+qual = "PagePlotData::get_reactor_power_megawatts_vs_time_secs_vec"
+lines = [
+    69,
+    91,
+]
+hash = "sha256:568cecf5a5ae5da1e33f2369533993c6f171b751ccbf2968864f68b3668b5bf4"
+doc_hash = "sha256:d71a94e3984baac61100f7ef8a8795aa7fa4146295fdf8ed14042df122111e86"
+uses = ["fn:5d225cbd74f7f43d"]
+reached_by = [
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:3f3a53305e8a28ff"
+name = "get_reactor_power_no_decay_heat_megawatts_vs_time_secs_vec"
+qual = "PagePlotData::get_reactor_power_no_decay_heat_megawatts_vs_time_secs_vec"
+lines = [
+    93,
+    118,
+]
+hash = "sha256:99843a26cd8225640a512362246f51d93292e823ac0a551f160722157961eb83"
+doc_hash = "sha256:d71a94e3984baac61100f7ef8a8795aa7fa4146295fdf8ed14042df122111e86"
+uses = ["fn:5d225cbd74f7f43d"]
+reached_by = [
+    "#1",
+    "#2",
+]
+
+[[module."mod.rs".function]]
+id = "fn:9aa6a2ec87e1c839"
+name = "default"
+qual = "PagePlotData::default"
+lines = [
+    122,
+    137,
+]
+hash = "sha256:fd95312ad93d0e1c277ccc14911081e7e14c190f51c884e9565528dcf8ce8da6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = [
+    "fn:4e942b99d2831cd4",
+    "fn:5d225cbd74f7f43d",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+]
+
+[module."update.rs"]
+path = "example:fhr_sim_v2::app::graph_data::update"
+
+[[module."update.rs".function]]
+id = "fn:46d589dc47357f00"
+name = "update_plot_from_fhr_state"
+qual = "FHRSimulatorApp::update_plot_from_fhr_state"
+lines = [
+    14,
+    56,
+]
+hash = "sha256:18ca25c3c8631d3b43ba81a1095058183b7678352826cb961ea52dd35409a4be"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:3136c8d7d19cf6ad"]
+uses = [
+    "fn:5d225cbd74f7f43d",
+    "fn:8fa1d61f79295f85",
+]

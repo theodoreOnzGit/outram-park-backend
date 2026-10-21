@@ -156,7 +156,11 @@ pub fn compute_iform1(
         for k in 1..nmu {
             mubar += 0.5 * (uj[k] - uj[k - 1]) * (sj[k] + sj[k - 1]) * (uj[k] + uj[k - 1]);
         }
-        mubar = if sum_outer != 0.0 { 0.5 * mubar / sum_outer } else { 0.0 };
+        mubar = if sum_outer != 0.0 {
+            0.5 * mubar / sum_outer
+        } else {
+            0.0
+        };
 
         // ── Step 2: per-mu continuous E' law (thermr.f90:2374-2404). ──────────
         let mut mu_distributions = Vec::with_capacity(nmu);
@@ -172,7 +176,16 @@ pub fn compute_iform1(
             }
             let points: Vec<(f64, f64)> = r.points[..nep_trim]
                 .iter()
-                .map(|&(ep, val)| (ep, if sum_outer != 0.0 { val * 2.0 / sum_outer } else { 0.0 }))
+                .map(|&(ep, val)| {
+                    (
+                        ep,
+                        if sum_outer != 0.0 {
+                            val * 2.0 / sum_outer
+                        } else {
+                            0.0
+                        },
+                    )
+                })
                 .collect();
             mu_distributions.push(MuDistribution { mu, points });
         }

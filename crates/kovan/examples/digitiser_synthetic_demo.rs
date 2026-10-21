@@ -7,7 +7,7 @@
 //! you can also try the CLI on it:
 //!
 //! ```text
-//! cargo run --release -p kovan --example digitiser_synthetic_demo
+//! cargo run --release -p knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan --example digitiser_synthetic_demo
 //! kovan-cli digitise --image digitiser_demo_loglog.png \
 //!     --x-scale log --x-range 1,1e6 --y-scale log --y-range 0.1,10 \
 //!     --figure "synthetic demo" --json demo.json --csv demo.csv
@@ -16,6 +16,8 @@
 //! This is a *self-consistency* demonstration (the digitiser reading a curve
 //! this crate itself drew) — see the `digitiser` module docs for the honest
 //! limits versus real scanned figures.
+
+use petir::mathf::RealMath;
 
 use kovan::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
 use kovan::digitiser::calibration::AxisScale;
@@ -26,7 +28,7 @@ use kovan::digitiser::trace::TraceConfig;
 
 /// The known curve: a decay-heat-like power law.
 fn power_law(x: f64) -> f64 {
-    8.0 * x.powf(-0.28)
+    8.0 * x.r_powf(-0.28)
 }
 
 fn main() {

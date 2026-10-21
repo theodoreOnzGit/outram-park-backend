@@ -11,14 +11,20 @@
 //! copyright the OpenMC development team (MIT, Massachusetts Institute of
 //! Technology) and Argonne National Laboratory, licensed MIT. That license
 //! is GPL-compatible, so this translation is distributed under
-//! `GPL-3.0-only` — the same license as the rest of the OUTRAM PARK
-//! workspace, as permitted by the terms of the upstream MIT license.
+//! ~~`GPL-3.0-only`~~ **`AGPL-3.0-only`** (relicensed 2026-10-20, gh:#973;
+//! see `docs/relicensing-agpl-2026-10-20.md`) — the same license as the rest
+//! of the OUTRAM PARK workspace, as permitted by the terms of the upstream MIT
+//! license.
 //!
 //! **This is OUTRAM PARK's independent Rust translation of selected OpenMC
 //! algorithms — it is not the official OpenMC software, and is not
 //! affiliated with, endorsed by, or sanctioned by MIT or Argonne National
 //! Laboratory.** See `TRADEMARKS.md` (this crate's directory, mirrored from
 //! the workspace root) for the full attribution and non-affiliation notice.
+
+// Rustdoc without source pages (teaching site, gh:#518): lessons show
+// anchored snippets and link to GitHub at the build commit instead.
+#![doc(html_no_source)]
 
 /// The error type every ENDF-reading entry point in this crate returns
 /// (`Nuclide::from_endf_file`, `from_tape`, `from_endf`).
@@ -39,6 +45,16 @@ pub mod dh_universe;
 pub mod pebble_beds;
 pub mod stochastic;
 pub mod depletion;
+/// The radionuclide inventory a depletion run hands to a source-term
+/// calculation (`sembawang`), or that a caller prescribes: nuclides by
+/// Z/A/metastable state, `uom` amounts by region, the time point and who
+/// produced it (gh:#951).
+pub mod inventory;
+pub mod plotter;
+/// Beginner thermal profile: a coarse steady conduction solve on any CSG
+/// shape (outram-foam-basic-lib), from a stated power and a ballpark
+/// heat-removal preset, with an energy balance (gh:#949).
+pub mod thermal_profile;
 /// Optional headless GPU compute (wgpu) for embarrassingly-parallel MC kernels.
 /// Desktop gets the real path; Android gets a CPU-only shim. GPU is acceleration
 /// only — the CPU raw-`f64` path stays the trusted, deterministic reference.
@@ -48,7 +64,22 @@ pub mod gpu;
 /// report from measured benchmark timings. Machine-specific output is written to
 /// a gitignored local path — see [`perf_report`].
 pub mod perf_report;
+/// Per-run diagnostic record: which nuclear-data files a run used, how long
+/// each took to process, and how long transport took — reported separately,
+/// because they scale with different things. Written to the gitignored
+/// local-perf directory. See [`run_diagnostics`].
+pub mod run_diagnostics;
 pub mod vv;
+/// Statistics for Monte Carlo results on top of RAFFLES (epic GitHub #493):
+/// seed ensembles, correlated-sample `σ`, source-convergence diagnostics,
+/// learned weight windows, UQ and surrogate sweeps. Report-only or opt-in;
+/// no driver calls it. See [`stats`].
+pub mod stats;
+/// **The beginner API** (epic GitHub #925): materials described as an
+/// engineer or a benchmark describes them, shapes filled with materials, a
+/// `Model` and a k_eff run sized by one `MCSettings` word, lowered onto the
+/// transport below. Start at [`model::prelude`].
+pub mod model;
 pub mod prelude;
 
 /// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where

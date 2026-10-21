@@ -123,61 +123,9 @@ impl NuclideCatalog {
     }
 }
 
-/// Score how well `query` matches `candidate` (both assumed already
-/// lowercased), or `None` if it does not match at all.
-///
-/// Two match kinds, contiguous substring preferred over subsequence:
-/// - **Substring**: `candidate` contains `query` verbatim. Scored highest,
-///   with a bonus for matching at the very start (prefix match) and a
-///   penalty proportional to leftover length (a tighter candidate ranks
-///   above a looser one containing the same substring).
-/// - **Subsequence**: every character of `query` appears in `candidate`, in
-///   order, but not necessarily contiguous (classic fuzzy-find). Scored
-///   below any substring match, with a penalty for how spread out the
-///   matched characters are (tighter clusters rank higher).
-///
-/// Returns `None` if `query` is not even a subsequence of `candidate`.
-pub fn fuzzy_score(query: &str, candidate: &str) -> Option<i32> {
-    if query.is_empty() {
-        return Some(0);
-    }
-    const SUBSTRING_BASE: i32 = 1_000;
-    const SUBSEQUENCE_BASE: i32 = 0;
-
-    if let Some(pos) = candidate.find(query) {
-        let prefix_bonus = if pos == 0 { 50 } else { 0 };
-        let tightness = 100 - (candidate.len() as i32 - query.len() as i32).min(100);
-        return Some(SUBSTRING_BASE + prefix_bonus + tightness);
-    }
-
-    // Subsequence scan: greedily match query chars left-to-right through
-    // candidate, tracking the span consumed to penalize spread.
-    let cand: Vec<char> = candidate.chars().collect();
-    let mut ci = 0usize;
-    let mut first_match: Option<usize> = None;
-    let mut last_match: usize = 0;
-    for qc in query.chars() {
-        let mut found = false;
-        while ci < cand.len() {
-            if cand[ci] == qc {
-                if first_match.is_none() {
-                    first_match = Some(ci);
-                }
-                last_match = ci;
-                ci += 1;
-                found = true;
-                break;
-            }
-            ci += 1;
-        }
-        if !found {
-            return None;
-        }
-    }
-    let span = last_match - first_match.unwrap_or(0) + 1;
-    let spread_penalty = span as i32 - query.len() as i32;
-    Some(SUBSEQUENCE_BASE - spread_penalty)
-}
+/// The fuzzy scorer, shared with the browser's ACE picker since 2026-10-17
+/// (gh #936): it moved into the library, `njoy_outram_park_fork::endf_library`.
+pub use njoy_outram_park_fork::endf_library::fuzzy_score;
 
 #[cfg(test)]
 mod tests {

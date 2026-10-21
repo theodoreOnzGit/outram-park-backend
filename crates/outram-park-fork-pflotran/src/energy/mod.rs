@@ -547,6 +547,7 @@ fn location_index(loc: BoundaryLocation) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use crate::units::GeoLength;
     use uom::si::f64::Length;
@@ -659,7 +660,7 @@ mod tests {
         let mut max_err = 0.0_f64;
         for i in 0..n {
             let x = (i as f64 + 0.5) * dx;
-            let exact = (pe.exp() - (pe * x / l).exp()) / (pe.exp() - 1.0);
+            let exact = (pe.r_exp() - (pe * x / l).r_exp()) / (pe.r_exp() - 1.0);
             max_err = max_err.max((t[i] - exact).abs());
         }
         assert!(

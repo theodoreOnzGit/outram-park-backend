@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<!-- __BUILD__ is the commit, written by build.sh: every file URL carries it,
+     so each deploy is fetched fresh and the page, its wasm and its worker
+     always come from the same build (GitHub Pages caches each file for 10
+     minutes under an unchanged name). -->
+<html lang="en" data-build="__BUILD__">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRISO-ATOPS demo · OUTRAM PARK</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1014; color: #d8dce4;
+               font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #triso_canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+             text-align: center; padding: 24px; }
+  #loading .box { max-width: 34em; }
+  #loading .spin { width: 28px; height: 28px; margin: 0 auto 16px; border-radius: 50%;
+                   border: 3px solid #3a4150; border-top-color: #7aa7ff; animation: s 0.9s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  noscript, .err { color: #ff8a8a; }
+  #loading a, #refs a { color: #7aa7ff; }
+  /* References (gh:#789): a collapsed button fixed in the corner, so the full-page main view is
+     untouched; opened, the list scrolls inside a box that never exceeds the screen width. */
+  #refs { position: fixed; right: 8px; bottom: 8px; z-index: 10; max-width: calc(100vw - 16px); font-size: 13px; }
+  #refs summary { cursor: pointer; width: max-content; margin-left: auto; padding: 6px 10px;
+                  background: #1b1f27; border: 1px solid #3a4150; border-radius: 6px; }
+  #refs .refs-body { width: min(36em, calc(100vw - 16px)); max-height: 55vh; overflow: auto; margin-top: 4px;
+                     padding: 2px 12px; background: #14171d; border: 1px solid #3a4150; border-radius: 6px;
+                     overflow-wrap: anywhere; }
+  #refs h2 { font-size: 14px; margin: 8px 0; }
+  #refs p.csl-entry { margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<canvas id="triso_canvas"></canvas>
+<div id="loading">
+  <div class="box">
+    <div class="spin"></div>
+    <p><strong>Loading the WebAssembly module…</strong></p>
+    <p>The TRISO fuel particle as OUTRAM PARK's <code>boon-lay</code> crate models it: its layers, decay, the
+      Walk-on-Spheres walk, fuel failure, chemistry and release, computed in a background worker in this tab, one rung of
+      the TRISO-ATOPS lessons at a time.</p>
+    <p>Research, education and V&amp;V only. Not for reactor operation, licensing, safety decisions or emergency response.</p>
+    <p>Methods and data: fission-product transport in TRISO particles follows Jiang et al. <a href="#ref-jiang2023fission">(Jiang et al., 2023)</a>, the nuclear data are ENDF/B-VIII.0 <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, and the HTR design data are from IAEA-TECDOC-1382 <a href="#ref-iaeatecdoc1382">(International Atomic Energy Agency, 2003)</a>.</p>
+    <noscript>This demo needs JavaScript and WebAssembly.</noscript>
+  </div>
+</div>
+<details id="refs">
+  <summary>References</summary>
+  <div class="refs-body">
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-iaeatecdoc1382" style="padding-left: 2em; text-indent: -2em;">International Atomic Energy Agency. (2003). <i>Evaluation of High Temperature Gas Cooled Reactor Performance</i> (IAEA-TECDOC-1382). International Atomic Energy Agency.</p>
+
+<p class="csl-entry" id="ref-jiang2023fission" style="padding-left: 2em; text-indent: -2em;">Jiang, W., Toptan, A., Hales, J. D., Spencer, B. W., &#38; Novascone, S. R. (2023). <i>Fission product transport in TRISO particles and pebbles</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</p>
+
+<!-- references:end -->
+  </div>
+</details>
+<script>
+  // A citation link in the loading text opens the list at its entry.
+  addEventListener("hashchange", function () {
+    var d = document.getElementById("refs");
+    if (d && location.hash.indexOf("#ref-") === 0) {
+      d.open = true;
+      var t = document.getElementById(location.hash.slice(1));
+      if (t) t.scrollIntoView();
+    }
+  });
+</script>
+<script type="module">
+  import init from "./triso_atops_web.js?v=__BUILD__";
+  init({ module_or_path: "./triso_atops_web_bg.wasm?v=__BUILD__" }).catch((e) => {
+    const el = document.getElementById("loading");
+    if (el) el.innerHTML = '<p class="err">Could not start: ' + String(e) + "</p>";
+    console.error(e);
+  });
+</script>
+</body>
+</html>

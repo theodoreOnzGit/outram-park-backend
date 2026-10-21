@@ -79,6 +79,7 @@
 //! > safety-critical, or licensing decisions. Independent OUTRAM PARK fork, not
 //! > the official DWSIM.
 
+use petir::mathf::RealMath;
 use crate::thermo::cubic_eos::R;
 use crate::thermo::Component;
 
@@ -221,10 +222,10 @@ impl LkConstants {
         let vr2 = vr * vr;
         1.0 + b / vr
             + c / vr2
-            + d / vr.powi(5)
+            + d / vr.r_powi(5)
             + self.c4 / (tr * tr * tr * vr2)
                 * (self.beta + self.gamma / vr2)
-                * (-self.gamma / vr2).exp()
+                * (-self.gamma / vr2).r_exp()
     }
 }
 
@@ -349,12 +350,12 @@ pub fn enthalpy_departure_dimensionless(
     let z = pr * vr / tr;
     let vr2 = vr * vr;
     let e = k.c4 / (2.0 * tr * tr * tr * k.gamma)
-        * (k.beta + 1.0 - (k.beta + 1.0 + k.gamma / vr2) * (-k.gamma / vr2).exp());
+        * (k.beta + 1.0 - (k.beta + 1.0 + k.gamma / vr2) * (-k.gamma / vr2).r_exp());
     let val = tr
         * (z - 1.0
             - (k.b2 + 2.0 * k.b3 / tr + 3.0 * k.b4 / (tr * tr)) / (tr * vr)
             - (k.c2 - 3.0 * k.c3 / (tr * tr)) / (2.0 * tr * vr2)
-            + k.d2 / (5.0 * tr * vr.powi(5))
+            + k.d2 / (5.0 * tr * vr.r_powi(5))
             + 3.0 * e);
     Some(val)
 }
@@ -380,11 +381,11 @@ pub fn entropy_departure_dimensionless(
     let z = pr * vr / tr;
     let vr2 = vr * vr;
     let e = k.c4 / (2.0 * tr * tr * tr * k.gamma)
-        * (k.beta + 1.0 - (k.beta + 1.0 + k.gamma / vr2) * (-k.gamma / vr2).exp());
-    let val = z.ln()
+        * (k.beta + 1.0 - (k.beta + 1.0 + k.gamma / vr2) * (-k.gamma / vr2).r_exp());
+    let val = z.r_ln()
         - (k.b1 + k.b3 / (tr * tr) + 2.0 * k.b4 / (tr * tr * tr)) / vr
         - (k.c1 - 2.0 * k.c3 / (tr * tr * tr)) / (2.0 * vr2)
-        - k.d1 / (5.0 * vr.powi(5))
+        - k.d1 / (5.0 * vr.r_powi(5))
         + 2.0 * e;
     Some(val)
 }
@@ -435,12 +436,12 @@ pub fn ln_phi_pure(tr: f64, pr: f64, w: f64, phase: Phase) -> Option<f64> {
         let z = pr * vr / tr;
         let vr2 = vr * vr;
         let e = k.c4 / (2.0 * tr * tr * tr * k.gamma)
-            * (k.beta + 1.0 - (k.beta + 1.0 + k.gamma / vr2) * (-k.gamma / vr2).exp());
+            * (k.beta + 1.0 - (k.beta + 1.0 + k.gamma / vr2) * (-k.gamma / vr2).r_exp());
         Some(
-            z - 1.0 - z.ln()
+            z - 1.0 - z.r_ln()
                 + k.b_of_tr(tr) / vr
                 + k.c_of_tr(tr) / (2.0 * vr2)
-                + k.d_of_tr(tr) / (5.0 * vr.powi(5))
+                + k.d_of_tr(tr) / (5.0 * vr.r_powi(5))
                 + e,
         )
     };
@@ -507,7 +508,7 @@ pub fn mix_crit_props(
     // Vc_ij and Tc_ij combining matrices.
     let vc = |i: usize| comps[i].critical_volume;
     let vcjk = |i: usize, j: usize| {
-        let s = vc(i).cbrt() + vc(j).cbrt();
+        let s = vc(i).r_cbrt() + vc(j).r_cbrt();
         s * s * s / 8.0
     };
     let tcjk = |i: usize, j: usize| {
@@ -524,10 +525,10 @@ pub fn mix_crit_props(
     let mut tcm = 0.0;
     for i in 0..n {
         for j in 0..n {
-            tcm += z[i] * z[j] * vcjk(i, j).powf(0.25) * tcjk(i, j);
+            tcm += z[i] * z[j] * vcjk(i, j).r_powf(0.25) * tcjk(i, j);
         }
     }
-    tcm /= vcm.powf(0.25);
+    tcm /= vcm.r_powf(0.25);
 
     let pcm = (0.2905 - 0.085 * wm) * R * tcm / vcm;
     (tcm, pcm, vcm, wm)
@@ -605,7 +606,7 @@ mod tests {
         let (tr, pr) = (2.0, 0.1);
         let z0 = z_fluid(LkFluid::Simple, tr, pr, Phase::Vapor).unwrap();
         // Pitzer/Prausnitz generalized second-virial reference.
-        let b0 = 0.083 - 0.422 / tr.powf(1.6);
+        let b0 = 0.083 - 0.422 / tr.r_powf(1.6);
         let z_ref = 1.0 + b0 * pr / tr;
         assert_relative_eq!(z_ref, 0.997190, max_relative = 1e-5);
         assert_relative_eq!(z0, z_ref, max_relative = 1e-3);

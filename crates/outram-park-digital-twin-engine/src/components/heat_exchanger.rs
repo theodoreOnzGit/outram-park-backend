@@ -1748,6 +1748,7 @@ impl HeatExchangerVisual {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_park_fork_dwsim_libs::heat_exchanger::lmtd::lmtd;
     use uom::si::power::kilowatt as kilowatt_unit;
@@ -1987,7 +1988,7 @@ mod tests {
             );
             println!("{kind:?}: dt1 = {dt1:.4} K, dt2 = {dt2:.4} K");
             if dt1 > 0.0 && dt2 > 0.0 && (dt1 - dt2).abs() > 1e-9 {
-                let ours = (dt1 - dt2) / (dt1 / dt2).ln();
+                let ours = (dt1 - dt2) / (dt1 / dt2).r_ln();
                 let theirs = lmtd(
                     kind.arrangement(),
                     s.hot_inlet_temp,

@@ -13,10 +13,13 @@ use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 
 use outram_park_digital_twin_engine::app_scaffold::{CsvSnapshotPanel, PanelSet, SharedState};
+use outram_park_digital_twin_engine::components::htr10_reactor_schematic::{
+    pebble_handling_controls, pebble_handling_id,
+};
 use outram_park_digital_twin_engine::components::LegendUnit;
 
-use crate::app::geometry_tab::{draw_geometry, ZoomLevel};
-use crate::app::schematic::{draw_schematic, SchematicTracers};
+use crate::app::plant_v1_1::draw_plant_v1_1;
+use crate::app::schematic::SchematicTracers;
 use crate::app::state::{HtgrPlotData, HtgrSnapshot};
 use crate::physics::secondary_loop::ranges;
 
@@ -114,8 +117,14 @@ pub enum Panel {
     Plots,
     /// Numeric diagnostics table.
     Diagnostics,
-    /// Static HTR-10 R-Z benchmark geometry viewer (issue #23).
-    Geometry,
+    /// Live thermal state and fission-product release: the R-Z core coloured
+    /// from plant state, drilled down through the pebble to the TRISO
+    /// particle, plus the TRISO-ATOPS release table. See
+    /// [`crate::app::thermal_tab`]. It replaced the static "HTR-10 Geometry"
+    /// viewer (issue #23), deleted 2026-09-22 at the maintainer's direction.
+    Thermal,
+    /// Gaussian puff atmospheric dispersion. See [`crate::app::map_tab`].
+    Map,
 }
 
 impl PanelSet for Panel {
@@ -123,7 +132,8 @@ impl PanelSet for Panel {
         Self::Schematic,
         Self::Plots,
         Self::Diagnostics,
-        Self::Geometry,
+        Self::Thermal,
+        Self::Map,
     ];
 
     fn label(&self) -> &'static str {
@@ -131,7 +141,8 @@ impl PanelSet for Panel {
             Self::Schematic => "Plant Schematic",
             Self::Plots => "Time-History Plots",
             Self::Diagnostics => "Diagnostics",
-            Self::Geometry => "HTR-10 Geometry",
+            Self::Thermal => "Live thermal state and FP release",
+            Self::Map => "Map",
         }
     }
 }
@@ -149,6 +160,67 @@ pub enum PlotsSidePanel {
     /// The plot history as one copyable CSV block -- see
     /// [`draw_plots_csv_panel`].
     Csv,
+}
+
+/// The heading of the peak-fuel indicator. The wording is the honest scope:
+/// the kernel of a **core-average** pebble, not the core hot spot.
+pub(crate) const PEAK_FUEL_LABEL: &str = "Peak fuel (kernel of a core-average pebble)";
+
+/// The hover text of the peak-fuel indicator (gh:#964).
+pub(crate) const PEAK_FUEL_HOVER: &str = "The running maximum, since the plant was built or \
+     Reset peak was pressed, of the centre of the hottest UO2 kernel in a CORE-AVERAGE \
+     pebble. This is NOT the core hot spot: the bed is one node with no axial or radial \
+     power shape, so a real hot-spot pebble runs hotter. At a rated 10 MW point this model \
+     reads about 168 K BELOW Gao & Shi (2002) Table 2's 918.7 degC maximum fuel \
+     temperature (physics::PeakFuelRecord). A shape function is tracked in #965. \
+     From the opening state it includes the first-second start-up excursion (about \
+     2334 K); press Reset peak to drop it.";
+
+/// The indicator's value text: the running maximum in the display unit and
+/// the plant time it was reached, or "not resolved by this tier" when the
+/// record is empty (`NAN`) -- never a substitute temperature.
+pub(crate) fn peak_fuel_text(unit: LegendUnit, peak_k: f64, time_s: f64) -> String {
+    if peak_k.is_finite() {
+        format!(
+            "{} at t = {:.1} s",
+            kelvin_scalar_display(unit, peak_k, 1),
+            time_s
+        )
+    } else {
+        "not resolved by this tier".to_string()
+    }
+}
+
+/// Draw the peak-fuel indicator and its **Reset peak** button on the main
+/// (Schematic) page. GUI drawing code, exempt from a reaching test (egui paint
+/// cannot be driven here); it wraps the tested [`peak_fuel_text`]. The button
+/// only raises a request flag, which the physics thread consumes.
+fn draw_peak_fuel_indicator(
+    ui: &mut Ui,
+    physics: &SharedState<HtgrSnapshot>,
+    snapshot: &HtgrSnapshot,
+    display_unit: LegendUnit,
+) {
+    ui.label(egui::RichText::new(PEAK_FUEL_LABEL).strong())
+        .on_hover_text(PEAK_FUEL_HOVER);
+    ui.label(
+        egui::RichText::new(peak_fuel_text(
+            display_unit,
+            snapshot.peak_kernel_max_k,
+            snapshot.peak_kernel_max_time_s,
+        ))
+        .size(28.0)
+        .strong()
+        .color(egui::Color32::from_rgb(220, 120, 40)),
+    )
+    .on_hover_text(PEAK_FUEL_HOVER);
+    if ui
+        .button("Reset peak")
+        .on_hover_text("Restart the recorded maximum from the current value.")
+        .clicked()
+    {
+        physics.update(|s| s.peak_fuel_reset_requested = true);
+    }
 }
 
 /// Control side-panel: every operator input, written straight back into the
@@ -267,21 +339,50 @@ pub fn draw_controls(
 
     ui.add_space(8.0);
     ui.label("Helium circulator flow");
-    // Range bracketing the published HTR-10 operating point of 4.3 kg/s: down
-    // to roughly 7% flow at the bottom (below the circulator's regulated 30%
-    // turndown, so a loss-of-flow can be driven) and half again above nominal
-    // at the top. The primary loop clamps to its own circulator ceiling, so
-    // the slider cannot command a flow the machine could not pass.
+    // The slider now reaches ZERO, and that is the loss-of-forced-cooling
+    // control: turn the helium off and the blower has stopped.
+    //
+    // Below the circulator's regulated 30% turndown the machine cannot hold a
+    // setpoint at all, so anything under 0.3 kg/s is read as "stopped" rather
+    // than as a commanded flow. That is what makes the plant enter
+    // `Scenario::Lofc`: the flow floor is lifted (a commanded zero really
+    // reaches zero instead of being raised to 7% of rated) and the protection
+    // system isolates the secondary circuit 12 s later, as it did in the
+    // HTR-10 test of 15 October 2003.
     let flow_changed = ui
-        .add(egui::Slider::new(&mut helium_flow, 0.3..=6.0).text("kg/s"))
+        .add(egui::Slider::new(&mut helium_flow, 0.0..=6.0).text("kg/s"))
         .changed();
+
+    // A stopped blower is not a small commanded flow, so the scenario is
+    // derived here rather than being a second control the operator has to
+    // remember to set consistently with the slider.
+    let tripped = helium_flow < crate::physics::CIRCULATOR_REGULATING_FLOOR_KG_PER_S;
 
     if rho_changed || flow_changed {
         physics.update(|s| {
             s.control_rod_insertion_fraction = rod_insertion;
             s.helium_flow_setpoint_kg_per_s = helium_flow;
+            s.circulator_tripped = tripped;
         });
     }
+
+    if tripped {
+        ui.colored_label(
+            egui::Color32::from_rgb(220, 120, 40),
+            "Blower stopped. Leave the rods where they are for the ATWS case --\n\
+             the reactor should shut itself down on temperature feedback alone.",
+        );
+        // Say plainly what this model cannot do, next to the control that
+        // provokes it, rather than only in a doc comment nobody opens.
+        ui.colored_label(
+            egui::Color32::from_rgb(160, 160, 160),
+            "No decay-heat removal path is modelled (no reflector, barrel, \
+             cavity or RCCS),\nso the core cannot cool and will NOT go \
+             recritical as the real HTR-10 did.",
+        );
+    }
+
+    draw_pebble_handling_controls(ui);
 
     draw_secondary_controls(ui, physics, snapshot, *display_unit);
 
@@ -313,6 +414,7 @@ pub fn draw_controls(
         "Reactivity margin: {:+.3} $",
         snapshot.reactivity_margin_dollars
     ));
+    draw_reactivity_budget(ui, snapshot);
     // Reference marker: where the published bank worth and cold clean excess
     // imply criticality. Indicative only -- it carries no burnup, xenon or
     // temperature defect, so it is not where HTR-10's rods actually sit. The
@@ -351,6 +453,63 @@ pub fn draw_controls(
          inventories are illustrative, not a specific licensed design. Not \
          validated; not for any operational, licensing or safety use.",
     );
+}
+
+/// The **[Add pebble]** / **[Remove pebble]** buttons, and the label that says
+/// what they do not do.
+///
+/// # These change the DRAWING only, and that is the maintainer's call
+///
+/// **Maintainer direction, 2026-09-27 (GitHub issue #347).** Asked what these
+/// buttons should do, the maintainer chose **schematic animation only, with no
+/// physics coupling**: a pebble is drawn travelling up the refuelling chute or
+/// down the defuelling route of
+/// [`Htr10ReactorSchematic`](outram_park_digital_twin_engine::components::Htr10ReactorSchematic),
+/// and **no physical number moves**. That is permitted route 1 of the two in
+/// this crate's `CLAUDE.md` ("The only two ways a hardcoded value is
+/// permitted" — the maintainer asked for it), recorded here so a later reader
+/// does not "fix" it back into physics.
+///
+/// Two options were considered and **not** chosen, recorded in #347 so they are
+/// not re-litigated: making the live inventory operator-commanded
+/// (`physics::pebble_bed::pebble_count()`, which is called from about ten sites
+/// and against which several V&V numbers are recorded), and modelling HTR-10's
+/// real online refuelling, which needs a burnup or residence-time state the
+/// one-node bed does not carry.
+///
+/// # Why the label is the load-bearing part
+///
+/// A control that looks like it changes the plant and does not is the same
+/// class of defect as a hardcoded animation: it cannot be wrong on screen, so
+/// it can never reveal a fault — and a user will reasonably read a pebble
+/// leaving as inventory changing. So the caption says so in as many words, and
+/// it **quotes `physics::pebble_bed::pebble_count()`** rather than the literal
+/// 27 000, so the figure it calls fixed is the one the model actually uses.
+///
+/// # Where the state lives
+///
+/// In `egui`'s per-context store, not on
+/// [`HtgrSimApp`](crate::app::HtgrSimApp): this panel is handed only the shared
+/// physics state and a display unit, and the drawing that consumes the transits
+/// is in a different panel
+/// ([`crate::app::plant_v1_1::draw_plant_v1_1`]). Both sides reach it through
+/// the engine's `pebble_handling_id`, and the engine advances it at most once
+/// per frame whichever panel gets there first — so a pebble does not freeze
+/// mid-chute while the operator is on another tab.
+fn draw_pebble_handling_controls(ui: &mut Ui) {
+    ui.add_space(12.0);
+    ui.separator();
+    ui.label(egui::RichText::new("Pebble handling \u{2014} drawing only").strong());
+    pebble_handling_controls(ui, pebble_handling_id());
+    ui.small(format!(
+        "[Add pebble] lifts one pebble up the refuelling chute; [Remove pebble] sends one, \
+         highlighted, down the defuelling route and out. THESE CHANGE THE DRAWING ONLY. The \
+         bed inventory is fixed at the derived {:.0} fuel elements and no physical number \
+         moves - not filling fraction, thermal mass, heat-transfer area, reactivity or any \
+         time constant. Animation-only was the maintainer's call, 2026-09-27 (GitHub issue \
+         #347).",
+        crate::physics::pebble_bed::pebble_count()
+    ));
 }
 
 /// Secondary-side operator controls: the feedwater station and the condenser.
@@ -490,6 +649,83 @@ fn draw_secondary_controls(
          resistive load with no governor and no throttle valve, so there is \
          nothing to command. Feedwater flow is what moves the load.",
     );
+
+    // ── Meteorology ─────────────────────────────────────────────────────
+    //
+    // Weather, not plant state, and grouped last because it commands nothing
+    // about the reactor -- it only steers the dispersion map on the Map tab.
+    // An operator would read these off a met mast rather than set them, which
+    // is why the labels name the measurement rather than a setpoint.
+    ui.separator();
+    ui.label("Meteorology (drives the Map tab's dispersion rose)");
+    let mut wind_speed = snapshot.wind_speed_m_per_s;
+    let mut wind_from = snapshot.wind_from_deg;
+
+    // 0.5 m/s floor, not zero: the Pasquill-Gifford stability lookup is
+    // defined from a non-zero wind, and a dead calm is a regime a Gaussian
+    // puff model cannot represent at all (nothing advects, so the puffs pile
+    // up at the source and the model's own travel-distance sigmas are
+    // undefined). Stated rather than silently clamped.
+    //
+    // ~~0.5..=15.0~~ CHANGED 2026-09-29, maintainer: "limit the upper limit of
+    // the slider to 5 m/s so we don't change regime". The map's regime and
+    // Pasquill class are fixed (`map_puff_model`); speed only scales dilution
+    // and advection.
+    use crate::physics::map_puff_model::{MAX_SPEED_M_PER_S, MIN_SPEED_M_PER_S};
+    let speed_changed = ui
+        .add(
+            egui::Slider::new(&mut wind_speed, MIN_SPEED_M_PER_S..=MAX_SPEED_M_PER_S)
+                .text("wind speed (m/s)")
+                .drag_value_speed(0.01),
+        )
+        .changed();
+    // A CONTINUOUS slider, restored 2026-09-24. It was briefly stepped to the
+    // receptor sectors, on the reasoning that a finer control would imply a
+    // resolution the 8 evaluated bearings did not have. The Map tab now paints
+    // an evaluated field on a 64 x 64 grid, so the angular resolution is the
+    // grid, not the ring -- the plume really does swing continuously, and the
+    // control should too.
+    let direction_changed = ui
+        .add(
+            egui::Slider::new(&mut wind_from, 0.0..=360.0)
+                .text("wind FROM (deg from north)")
+                .suffix("\u{00B0}")
+                .drag_value_speed(0.1),
+        )
+        .changed();
+    ui.horizontal(|ui| {
+        ui.weak(format!(
+            "blowing towards {:.0}\u{00B0} ({})",
+            (wind_from + 180.0).rem_euclid(360.0),
+            compass_point((wind_from + 180.0).rem_euclid(360.0))
+        ));
+    });
+
+    ui.small(crate::physics::map_puff_model::regime_label());
+    ui.small(
+        "Meteorological convention: the direction the wind blows FROM. A wind \
+         from 0 deg (north) carries the plume SOUTH. Below 0.5 m/s a Gaussian \
+         puff model has nothing to advect and the stability lookup is \
+         undefined, so the slider stops there rather than clamping silently.",
+    );
+
+    if speed_changed || direction_changed {
+        physics.update(|s| {
+            s.wind_speed_m_per_s = wind_speed;
+            s.wind_from_deg = wind_from;
+        });
+    }
+}
+
+/// The compass point a bearing falls in, to eight points.
+///
+/// Eight, matching `RECEPTOR_SECTORS`: naming a bearing "NNE" when the model
+/// cannot resolve finer than 45 degrees would be the same overstatement the
+/// stepped control exists to avoid.
+fn compass_point(bearing_deg: f64) -> &'static str {
+    const POINTS: [&str; 8] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+    let idx = ((bearing_deg.rem_euclid(360.0) / 45.0).round() as usize) % 8;
+    POINTS[idx]
 }
 
 /// Schematic panel body.
@@ -499,26 +735,39 @@ fn draw_secondary_controls(
 /// temperature on screen (display only -- see [`temperature_display`]).
 pub fn draw_schematic_panel(
     ui: &mut Ui,
+    physics: &SharedState<HtgrSnapshot>,
     snapshot: &HtgrSnapshot,
     tracers: &SchematicTracers,
     display_unit: LegendUnit,
 ) {
-    ui.heading(
-        "HTGR (helium-cooled, graphite-moderated pebble bed) -- demonstration model, \
-         HTR-10-style two-vessel arrangement",
+    // The version title, drawn large and first so it is always on screen.
+    ui.label(
+        egui::RichText::new("HTGR Simulator v1.1")
+            .size(26.0)
+            .strong(),
+    );
+    ui.label(
+        "HTR-10-style helium-cooled pebble-bed plant, driven by the running model \
+         -- offline demonstration only",
     );
     // egui's built-in whole-window zoom (Options::zoom_with_keyboard,
     // default on) -- not schematic-specific, but this heading is the first
     // thing a reader sees, so it is the natural place to mention it.
     ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
     ui.separator();
-    draw_schematic(ui, snapshot, tracers, display_unit);
+    // The headline readout (gh:#964, maintainer 2026-10-19: on the MAIN page,
+    // the screen the simulator opens on, no tab switch needed).
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        draw_peak_fuel_indicator(ui, physics, snapshot, display_unit);
+    });
+    ui.separator();
+    // v1.1 replaced the v1 schematic (2026-09-22). The shared plant drawing
+    // has no unit toggle yet; `display_unit` only formats the peak-fuel
+    // headline above.
+    // The central panel already scrolls; the plant scales itself to fit it.
+    draw_plant_v1_1(ui, snapshot, tracers);
 }
 
-/// HTR-10 R-Z benchmark geometry panel body -- see [`crate::app::geometry_tab`].
-pub fn draw_geometry_panel(ui: &mut Ui, zoom: &mut ZoomLevel) {
-    draw_geometry(ui, zoom);
-}
 
 /// Time-history plots panel body.
 ///
@@ -544,11 +793,55 @@ pub fn draw_plots_csv_panel(ui: &mut Ui, panel: &mut CsvSnapshotPanel, plots: &H
     );
 }
 
-pub fn draw_plots_panel(ui: &mut Ui, plots: &HtgrPlotData, display_unit: LegendUnit) {
+/// Height one of the two stacked plots gets, from the tab's viewport and the
+/// **measured** height of one heading row.
+///
+/// **Maintainer direction, 2026-09-25: "make the graphs fill most of the
+/// space, i don't want empty space".** Two plots share whatever the two
+/// headings and the gap between them leave.
+///
+/// `heading_h` is measured from the first heading actually drawn -- the
+/// cursor's travel across it -- rather than assumed from the default font.
+/// A guessed constant would be wrong at any other text size or DPI scale, and
+/// wrong in the direction that matters: too small, and the second plot
+/// overflows the viewport by exactly the error.
+fn plot_height(view_height: f32, heading_h: f32, gap: f32) -> f32 {
+    ((view_height - 2.0 * heading_h - gap) / 2.0).max(PLOT_MIN_H)
+}
+
+/// Gap between the two stacked plots \[points\]. A drawing choice with no
+/// physical counterpart; it is subtracted from the height the plots share so
+/// it cannot push the second one off the bottom.
+const PLOTS_GAP_H: f32 = 12.0;
+
+/// Floor on a plot's height \[points\].
+///
+/// Below this a time history is a smear rather than a readout. A window too
+/// short for two of these gets a scrollbar -- the tab is inside a two-way
+/// scroll area -- instead of two unreadable plots.
+const PLOT_MIN_H: f32 = 180.0;
+
+pub fn draw_plots_panel(
+    ui: &mut Ui,
+    plots: &HtgrPlotData,
+    display_unit: LegendUnit,
+    view: egui::Vec2,
+) {
+    // Fill the width too: `Plot` otherwise takes whatever its content asks
+    // for, which inside a scroll area is the last frame's width and leaves a
+    // margin that never closes.
+    let width = view.x.max(PLOT_MIN_H);
+    let before_heading = ui.cursor().top();
     ui.heading("Reactor power vs time");
+    // The cursor's travel across the heading IS the heading's height plus its
+    // spacing -- the quantity the split below needs, taken from the widget
+    // rather than from a font-size assumption.
+    let heading_h = ui.cursor().top() - before_heading;
+    let height = plot_height(view.y, heading_h, PLOTS_GAP_H);
     Plot::new("htgr_power_plot")
         .legend(Legend::default())
-        .height(240.0)
+        .width(width)
+        .height(height)
         .show(ui, |plot_ui| {
             plot_ui.line(Line::new(
                 "Total power [MW]",
@@ -568,12 +861,13 @@ pub fn draw_plots_panel(ui: &mut Ui, plots: &HtgrPlotData, display_unit: LegendU
             ));
         });
 
-    ui.add_space(12.0);
+    ui.add_space(PLOTS_GAP_H);
     let symbol = temperature_unit_symbol(display_unit);
     ui.heading(format!("Temperatures vs time [{symbol}]"));
     Plot::new("htgr_temperature_plot")
         .legend(Legend::default())
-        .height(240.0)
+        .width(width)
+        .height(height)
         .show(ui, |plot_ui| {
             plot_ui.line(Line::new(
                 format!("Bed (pebble) temp [{symbol}]"),
@@ -693,7 +987,9 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             );
             row(
                 ui,
-                "Loop residence time",
+                // Whole loop, inventory / m_dot. Not the tracers' timing: each
+                // drawn run uses its own (2026-10-01, `SchematicTracers`).
+                "Residence time (whole loop)",
                 format!("{:.2} s", s.helium_residence_time_s),
             );
             row(
@@ -775,7 +1071,7 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             );
             row(
                 ui,
-                "Loop residence time",
+                "Residence time (whole piping)",
                 format!("{:.2} s", s.secondary_residence_time_s),
             );
             row(
@@ -810,6 +1106,53 @@ pub fn draw_diagnostics_panel(ui: &mut Ui, s: &HtgrSnapshot, display_unit: Legen
             );
             temperature_row(ui, "Cooling-water outlet", s.cooling_water_outlet_temp_k);
         });
+}
+
+/// **Reactivity budget**: each term the kinetics integrate, in dollars and in
+/// pcm, and their net (highlighted). Every value is read off
+/// [`HtgrSnapshot`], which the physics fills from `HtgrKinetics`' own terms;
+/// nothing is re-derived here except the display conversion
+/// [`crate::app::state::reactivity_pcm`], at the kinetics' own `beta`.
+///
+/// The external term is what the kinetics were handed (after any scram
+/// demand), so it can differ from the "External reactivity" line above, the
+/// operator's rod command. Both use the one `beta` (gh:#387, 2026-09-29).
+fn draw_reactivity_budget(ui: &mut egui::Ui, snapshot: &HtgrSnapshot) {
+    use crate::app::state::reactivity_pcm;
+    let beta = snapshot.kinetics_beta;
+    ui.add_space(4.0);
+    ui.label(egui::RichText::new("Reactivity budget (kinetics' own terms)").strong());
+    let row = |ui: &mut egui::Ui, name: &str, dollars: f64| {
+        ui.label(format!(
+            "  {name}: {dollars:+.4} $  =  {:+.1} pcm",
+            reactivity_pcm(dollars, beta)
+        ));
+    };
+    row(ui, "External (rods)", snapshot.budget_external_dollars);
+    row(ui, "Fuel / Doppler feedback", snapshot.budget_fuel_dollars);
+    row(ui, "Moderator feedback", snapshot.budget_moderator_dollars);
+    row(ui, "Xenon", snapshot.budget_xenon_dollars);
+    ui.label(
+        egui::RichText::new(format!(
+            "  NET: {:+.4} $  =  {:+.1} pcm",
+            snapshot.budget_net_dollars,
+            reactivity_pcm(snapshot.budget_net_dollars, beta)
+        ))
+        .strong()
+        .color(egui::Color32::from_rgb(230, 170, 40)),
+    );
+    ui.small(format!(
+        "One beta everywhere: beta_eff = {beta:.5} ({:.0} pcm, Chen et al. 2009), for \
+         the rods, the prompt layer and the delayed-neutron bank.",
+        beta * 1e5
+    ));
+    ui.small(
+        "Delayed-neutron precursors start EMPTY and fill over the first minutes (the \
+         longest group's ~56 s half-life sets the scale; within 1 % of equilibrium after \
+         245 s at 10 MW). Until then the power sags at 0 $: early-transient numbers are \
+         the precursors filling, not plant behaviour. Decay heat starts at equilibrium \
+         (conservative). Rod worth vs feedback reference is demo-grade (gh:#408).",
+    );
 }
 
 #[cfg(test)]
@@ -932,5 +1275,79 @@ mod tests {
 
         let back = in_display_unit(&source, LegendUnit::Kelvin);
         assert_eq!(back, before, "a kelvin display must be the stored values");
+    }
+
+    /// The compass label matches the sector the arrows step through, to eight
+    /// points. Naming a bearing "NNE" when the model resolves 45 degrees
+    /// would overstate it in exactly the way the stepped control avoids.
+    #[test]
+    fn the_compass_point_matches_the_sector() {
+        for (deg, want) in [
+            (0.0, "N"),
+            (45.0, "NE"),
+            (90.0, "E"),
+            (135.0, "SE"),
+            (180.0, "S"),
+            (225.0, "SW"),
+            (270.0, "W"),
+            (315.0, "NW"),
+            (360.0, "N"),
+        ] {
+            assert_eq!(compass_point(deg), want, "{deg} deg");
+        }
+    }
+
+    /// Bearings wrap both ways rather than running off the end, which is what
+    /// the arrows rely on at 0 and 360.
+    #[test]
+    fn the_compass_point_wraps_in_both_directions() {
+        assert_eq!(compass_point(-45.0), "NW");
+        assert_eq!(compass_point(-1.0), "N");
+        assert_eq!(compass_point(405.0), "NE");
+        assert_eq!(compass_point(719.0), "N");
+    }
+
+    /// Stepping a full turn in either direction returns to the start, and
+    /// every step lands on a sector the model actually evaluates.
+    #[test]
+    fn stepping_a_full_turn_returns_to_the_start() {
+        const SECTOR: f64 = 360.0 / crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS as f64;
+        let mut deg: f64 = 0.0;
+        for _ in 0..crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS {
+            deg = (deg + SECTOR).rem_euclid(360.0);
+            assert!(
+                (deg / SECTOR).fract().abs() < 1e-9,
+                "{deg} is not on a sector boundary"
+            );
+        }
+        assert!((deg - 0.0).abs() < 1e-9, "clockwise full turn ended at {deg}");
+
+        for _ in 0..crate::physics::atmospheric_dispersion::RECEPTOR_SECTORS {
+            deg = (deg - SECTOR).rem_euclid(360.0);
+        }
+        assert!((deg - 0.0).abs() < 1e-9, "anticlockwise full turn ended at {deg}");
+    }
+
+
+    /// The peak-fuel indicator's text (gh:#964): the running maximum in the
+    /// display unit with its time, and an explicit "not resolved" for `NAN`
+    /// -- never a substitute temperature. The label says "core-average" and
+    /// the hover text says it is not the hot spot and points at #965.
+    /// (`draw_peak_fuel_indicator` itself is GUI drawing code: no test can
+    /// drive egui paint here; it is a thin wrapper over these.)
+    #[test]
+    fn the_peak_fuel_indicator_text_is_honest() {
+        use super::{peak_fuel_text, PEAK_FUEL_HOVER, PEAK_FUEL_LABEL};
+        let t = peak_fuel_text(LegendUnit::Kelvin, 1150.0, 12.34);
+        assert!(t.contains("1150") && t.contains("12.3 s"), "{t}");
+        let c = peak_fuel_text(LegendUnit::Celsius, 1150.0, 0.0);
+        assert!(c.contains("876.9"), "{c}");
+        assert_eq!(
+            peak_fuel_text(LegendUnit::Kelvin, f64::NAN, f64::NAN),
+            "not resolved by this tier"
+        );
+        assert!(PEAK_FUEL_LABEL.contains("core-average pebble"));
+        assert!(PEAK_FUEL_HOVER.contains("NOT the core hot spot"));
+        assert!(PEAK_FUEL_HOVER.contains("#965"));
     }
 }

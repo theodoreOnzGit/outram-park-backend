@@ -1,0 +1,70 @@
+--- a/src/thermr.f90	2026-06-30 14:19:22.729288349 +0800
++++ b/src/thermr.f90	2026-10-14 12:57:44.314677075 +0800
+@@ -2498,6 +2498,7 @@
+    real(kr),parameter::sigmin=1.e-10_kr
+    real(kr),parameter::sabflg=-225.e0_kr
+    real(kr),parameter::amin=1.e-6_kr
++   integer,save::ncall=0
+    real(kr),parameter::test1=0.2e0_kr
+    real(kr),parameter::test2=30.e0_kr
+    real(kr),parameter::zero=0
+@@ -2562,6 +2563,8 @@
+    sig=0
+    if (s-bb/2.gt.sabflg) sig=exp(s-bb/2)
+    sig=sigc*sb*sig
++   ncall=ncall+1
++   if (mod(ncall,40).eq.0) write(98,'(5es25.17,i2)') e,ep,u,s,sig,1
+    if (sig.lt.sigmin) sig=0
+    return
+ 
+@@ -2594,6 +2597,8 @@
+    endif
+     if (abs(e-10).lt..01.and.abs(u-.99219).lt..0001) then
+     endif
++   ncall=ncall+1
++   if (mod(ncall,40).eq.0) write(98,'(5es25.17,i2)') e,ep,u,s,sig,2
+    if (sig.lt.sigmin) sig=0
+    return
+ 
+@@ -2682,6 +2687,7 @@
+    real(kr),parameter::zero=0
+    real(kr),parameter::xtol=.00001e0_kr
+    real(kr),parameter::ytol=.001e0_kr
++   integer,save::nlcall=0
+    real(kr)::one=1
+    real(kr),parameter::half=.5e0_kr
+    real(kr),parameter::third=.333333333e0_kr
+@@ -2746,6 +2752,8 @@
+    do il=1,nl
+       s(il)=0
+    enddo
++   nlcall=nlcall+1
++   if (nlcall.le.100000) write(97,'(*(es25.17))') e,ep,(s(il),il=1,nl)
+    return
+ 
+    !--prime stack for equally-probable angles
+@@ -2868,6 +2876,8 @@
+    if (i.gt.1) go to 150
+    if (i.eq.1) go to 160
+   260 continue
++   nlcall=nlcall+1
++   if (nlcall.le.100000) write(97,'(*(es25.17))') e,ep,(s(il),il=1,nl)
+    return
+    end subroutine sigl
+ 
+@@ -3307,6 +3317,7 @@
+          if (xsi(ie).eq.zero)&
+            call error('tpend','cross section=0.',' ')
+          rxsec=1/xsi(ie)
++         write(96,'(i5,es25.17)') ie,xsi(ie)
+          indx=1
+          call listio(nscr,0,0,scr(indx),nb,nw)
+          indx=indx+nw
+@@ -3321,6 +3332,7 @@
+          indx=8-nl1
+          do i=1,j
+             yy=scr(nl1*i+indx)*rxsec
++            if (ie.eq.1) write(95,'(i5,3es25.17)') i,scr(nl1*i+indx-1),scr(nl1*i+indx),yy
+             if (yy.ge.em9) then
+                scr(nl1*i+indx)=sigfig(yy,7,0)
+             else

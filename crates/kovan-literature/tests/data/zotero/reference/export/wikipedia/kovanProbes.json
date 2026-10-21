@@ -1,0 +1,22 @@
+{
+	"all": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1234/ABC.def| issn = 1234-5678| volume = 12| issue = 3| pages = 101–110| last1 = Smith| first1 = John| last2 = de la Fontaine| first2 = Jean| last3 = Kovan Collaboration| others = Ed Editor (ed.)| title = Dates & markup: a <i>kovan</i> probe| journal = Journal of Testing & Probing| access-date = 2020-03-04| date = 2021-05| url = http://example.com/a?b=c&d=e}}\r\n{{Cite book| publisher = Kovan Press| isbn = 978-3-16-148410-0 3161484100| others = Ed Editor (ed.)| title = A Second Record| location = Singapore| date = 1999-12-31}}\r\n{{Cite paper| publisher = Kovan University| last = Student| first = Ann| title = Ranges and seasons| location = Kovan| date = 2010}}\r\n{{Cite conference| conference = Kovan Conference 2015| pages = 5| title = Summer proceedings| booktitle = Proceedings of the Kovan Conference| location = Singapore| date = 2015}}"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "{{Cite journal| doi = 10.1234/ABC.def| issn = 1234-5678| volume = 12| issue = 3| pages = 101–110| last1 = Smith| first1 = John| last2 = de la Fontaine| first2 = Jean| last3 = Kovan Collaboration| others = Ed Editor (ed.)| title = Dates & markup: a <i>kovan</i> probe| journal = Journal of Testing & Probing| access-date = 2020-03-04| date = 2021-05| url = http://example.com/a?b=c&d=e}}"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "{{Cite book| publisher = Kovan Press| isbn = 978-3-16-148410-0 3161484100| others = Ed Editor (ed.)| title = A Second Record| location = Singapore| date = 1999-12-31}}"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "{{Cite paper| publisher = Kovan University| last = Student| first = Ann| title = Ranges and seasons| location = Kovan| date = 2010}}"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "{{Cite conference| conference = Kovan Conference 2015| pages = 5| title = Summer proceedings| booktitle = Proceedings of the Kovan Conference| location = Singapore| date = 2015}}"
+	}
+}

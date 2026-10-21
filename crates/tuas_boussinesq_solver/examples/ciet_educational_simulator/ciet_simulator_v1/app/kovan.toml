@@ -1,0 +1,98 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/examples/ciet_educational_simulator/ciet_simulator_v1/app"
+
+[module."useful_functions.rs"]
+path = "example:ciet_educational_simulator::ciet_simulator_v1::app::useful_functions"
+
+[[module."useful_functions.rs".function]]
+id = "fn:80e67b391fd02e24"
+name = "put_widget_with_size_and_centre"
+qual = "CIETApp::put_widget_with_size_and_centre"
+lines = [
+    16,
+    44,
+]
+hash = "sha256:cf6784e33401b367a13f50f662019f2568dd563548485e683b28cd13cebc3f9a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."useful_functions.rs".function]]
+id = "fn:3c6788aaaca0e4a2"
+name = "place_vertical_widget_with_length"
+qual = "CIETApp::place_vertical_widget_with_length"
+lines = [
+    46,
+    73,
+]
+hash = "sha256:462d8af3aab80019d8f065a53fcfcbf0453c806e47684b51957ce80fcbdc21f2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:80e67b391fd02e24"]
+
+[[module."useful_functions.rs".function]]
+id = "fn:c65bd1cc2d51306d"
+name = "place_horizontal_widget_with_length"
+qual = "CIETApp::place_horizontal_widget_with_length"
+lines = [
+    75,
+    101,
+]
+hash = "sha256:906748fe71a03352800ce3e1d5d6ca99b48432f5c6a1d057feddc33cb6a753da"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:80e67b391fd02e24"]
+
+[[module."useful_functions.rs".function]]
+id = "fn:d43de390377cf9c8"
+name = "new_temp_sensitive_button"
+qual = "new_temp_sensitive_button"
+lines = [
+    104,
+    116,
+]
+hash = "sha256:607c9fd59b589a7860d2b649c8044430be9a43bbb26155b474fd7d942135356c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:22440e73686ab13f"]
+
+[[module."useful_functions.rs".function]]
+id = "fn:22440e73686ab13f"
+name = "hot_to_cold_colour"
+qual = "hot_to_cold_colour"
+lines = [
+    118,
+    137,
+]
+hash = "sha256:2e427ac3e5a9b3437dba3319b27745b79bf965e20c40a18586100ca6a4a59820"
+doc_hash = "sha256:c99c76be19eb01b131e49bdbe9730f8efa244f9dc69d008b5e288cabed04eb40"
+
+[[module."useful_functions.rs".function]]
+id = "fn:32628c0a082e1407"
+name = "update_ciet_plot_from_ciet_state"
+qual = "update_ciet_plot_from_ciet_state"
+lines = [
+    144,
+    304,
+]
+hash = "sha256:f8e15c3e5990d69e867ecf6a7171f012a819c01a8d58523561fe475dc431edad"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:047d8092554dde26",
+    "fn:04f1b1765ba0dd4f",
+    "fn:0ee82ebebb31072c",
+    "fn:1a10c4651f78fed7",
+    "fn:1cd87bf04f48554c",
+    "fn:3ead508013368d10",
+    "fn:3fa4f42679c1707f",
+    "fn:7ef77350dbde39bd",
+    "fn:93bffa7380bbb26f",
+    "fn:abc3999063c636c1",
+    "fn:aebd06a0388f51d7",
+    "fn:b128906be017e56d",
+    "fn:b56c00cc152edbc2",
+    "fn:cddc8b1ca977e814",
+    "fn:e0faff442f948e02",
+    "fn:f9571f9105f5c310",
+]
+uses = [
+    "fn:2ae0e867e1dae4b3",
+    "fn:52e4e83f79c797bb",
+]

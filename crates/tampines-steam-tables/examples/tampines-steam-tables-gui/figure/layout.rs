@@ -23,6 +23,7 @@
 //! (the pen-up convention documented on [`Series::points`]), which is how a
 //! genuinely discontinuous curve is drawn without inventing a joining segment.
 
+use petir::mathf::RealMath;
 use super::font;
 use super::{AxisScale, FigurePalette, MarkerShape, Rgb, Scene, Series, SeriesStyle};
 
@@ -650,7 +651,7 @@ fn push_marker(ops: &mut Vec<DrawOp>, at: [f64; 2], shape: MarkerShape, size: f6
         (0..segments)
             .map(|i| {
                 let a = std::f64::consts::TAU * i as f64 / segments as f64;
-                [cx + r * a.cos(), cy + r * a.sin()]
+                [cx + r * a.r_cos(), cy + r * a.r_sin()]
             })
             .collect()
     };
@@ -760,7 +761,7 @@ pub fn push_text(
         VAnchor::Middle => size * 0.5,
         VAnchor::Top => size,
     };
-    let (sin, cos) = (rotate_deg.to_radians().sin(), rotate_deg.to_radians().cos());
+    let (sin, cos) = (rotate_deg.to_radians().r_sin(), rotate_deg.to_radians().r_cos());
     for stroke in font::text_polylines(text) {
         let points: Vec<[f64; 2]> = stroke
             .iter()
@@ -829,13 +830,13 @@ pub fn ticks_for(range: (f64, f64), scale: AxisScale, target: usize) -> Vec<Tick
             if lo <= 0.0 {
                 return Vec::new();
             }
-            let d_lo = lo.log10().floor() as i32;
-            let d_hi = hi.log10().ceil() as i32;
+            let d_lo = lo.r_log10().floor() as i32;
+            let d_hi = hi.r_log10().ceil() as i32;
             let decades = d_hi - d_lo;
             let minors = decades <= 6;
             let mut ticks = Vec::new();
             for d in d_lo..=d_hi {
-                let base = 10.0_f64.powi(d);
+                let base = 10.0_f64.r_powi(d);
                 if base >= lo && base <= hi {
                     ticks.push(Tick {
                         value: base,
@@ -866,8 +867,8 @@ fn nice_step(raw: f64) -> f64 {
     if !raw.is_finite() || raw <= 0.0 {
         return f64::NAN;
     }
-    let exponent = raw.log10().floor();
-    let magnitude = 10.0_f64.powf(exponent);
+    let exponent = raw.r_log10().floor();
+    let magnitude = 10.0_f64.r_powf(exponent);
     let mantissa = raw / magnitude;
     let nice = if mantissa <= 1.0 {
         1.0
@@ -894,7 +895,7 @@ fn format_linear(value: f64, step: f64) -> String {
     if snapped != 0.0 && (snapped.abs() >= 1e5 || snapped.abs() < 1e-3) {
         return format!("{snapped:.1e}");
     }
-    let decimals = (-step.log10().floor() as i32).clamp(0, 6) as usize;
+    let decimals = (-step.r_log10().floor() as i32).clamp(0, 6) as usize;
     format!("{snapped:.decimals$}")
 }
 
@@ -902,7 +903,7 @@ fn format_linear(value: f64, step: f64) -> String {
 /// `10^n` otherwise.
 fn format_log_decade(decade: i32) -> String {
     if (-3..=5).contains(&decade) {
-        let value = 10.0_f64.powi(decade);
+        let value = 10.0_f64.r_powi(decade);
         if decade >= 0 {
             format!("{value:.0}")
         } else {

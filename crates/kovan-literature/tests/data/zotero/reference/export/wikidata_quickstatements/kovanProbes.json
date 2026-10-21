@@ -1,0 +1,27 @@
+{
+	"all": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Journal of Testing & Probing' published in 2021\"\nLAST\tP356\t\"10.1234/ABC.def\"\nLAST\tP953\t\"http://example.com/a?b=c&d=e\"\nLAST\tP478\t\"12\"\nLAST\tP433\t\"3\"\nLAST\tP304\t\"101-110\"\nLAST\tP1104\t10\nLAST\tP2093\t\"John Smith\"\tP1545\t\"1\"\nLAST\tP2093\t\"Jean de la Fontaine\"\tP1545\t\"2\"\nLAST\tP2093\t\"Kovan Collaboration\"\tP1545\t\"3\"\nLAST\tP577\t+2021-05-00T00:00:00Z/10\nLAST\tLmul\t\"Dates & markup: a <i>kovan</i> probe\"\nLAST\tLen\t\"Dates & markup: a <i>kovan</i> probe\"\nLAST\tP1476\ten:\"Dates & markup: a <i>kovan</i> probe\"\nLAST\tP407\tQ1860\nCREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1999\"\nLAST\tP1104\t300\nLAST\tP577\t+1999-12-31T00:00:00Z/11\nLAST\tLmul\t\"A Second Record\"\nLAST\tLen\t\"A Second Record\"\nLAST\tP1476\tund:\"A Second Record\"\nCREATE\nLAST\tP31\tQ1266946\nLAST\tDen\t\"thesis from 'Kovan University' published in 2010\"\nLAST\tP2093\t\"Ann Student\"\tP1545\t\"1\"\nLAST\tP577\t+2010-00-00T00:00:00Z/9\nLAST\tLmul\t\"Ranges and seasons\"\nLAST\tLen\t\"Ranges and seasons\"\nLAST\tP1476\tund:\"Ranges and seasons\"\nCREATE\nLAST\tP31\tQ23927052\nLAST\tDen\t\"conference paper from 'Proceedings of the Kovan Conference' published in 2015\"\nLAST\tP304\t\"5\"\nLAST\tP577\t+2015-00-00T00:00:00Z/9\nLAST\tLmul\t\"Summer proceedings\"\nLAST\tLen\t\"Summer proceedings\"\nLAST\tP1476\tund:\"Summer proceedings\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"KPROBE22": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ13442814\nLAST\tDen\t\"journal article from 'Journal of Testing & Probing' published in 2021\"\nLAST\tP356\t\"10.1234/ABC.def\"\nLAST\tP953\t\"http://example.com/a?b=c&d=e\"\nLAST\tP478\t\"12\"\nLAST\tP433\t\"3\"\nLAST\tP304\t\"101-110\"\nLAST\tP1104\t10\nLAST\tP2093\t\"John Smith\"\tP1545\t\"1\"\nLAST\tP2093\t\"Jean de la Fontaine\"\tP1545\t\"2\"\nLAST\tP2093\t\"Kovan Collaboration\"\tP1545\t\"3\"\nLAST\tP577\t+2021-05-00T00:00:00Z/10\nLAST\tLmul\t\"Dates & markup: a <i>kovan</i> probe\"\nLAST\tLen\t\"Dates & markup: a <i>kovan</i> probe\"\nLAST\tP1476\ten:\"Dates & markup: a <i>kovan</i> probe\"\nLAST\tP407\tQ1860\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"KPROBE33": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ3331189\nLAST\tDen\t\"book published in 1999\"\nLAST\tP1104\t300\nLAST\tP577\t+1999-12-31T00:00:00Z/11\nLAST\tLmul\t\"A Second Record\"\nLAST\tLen\t\"A Second Record\"\nLAST\tP1476\tund:\"A Second Record\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"KPROBE44": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ1266946\nLAST\tDen\t\"thesis from 'Kovan University' published in 2010\"\nLAST\tP2093\t\"Ann Student\"\tP1545\t\"1\"\nLAST\tP577\t+2010-00-00T00:00:00Z/9\nLAST\tLmul\t\"Ranges and seasons\"\nLAST\tLen\t\"Ranges and seasons\"\nLAST\tP1476\tund:\"Ranges and seasons\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"KPROBE55": {
+		"status": 200,
+		"output": "CREATE\nLAST\tP31\tQ23927052\nLAST\tDen\t\"conference paper from 'Proceedings of the Kovan Conference' published in 2015\"\nLAST\tP304\t\"5\"\nLAST\tP577\t+2015-00-00T00:00:00Z/9\nLAST\tLmul\t\"Summer proceedings\"\nLAST\tLen\t\"Summer proceedings\"\nLAST\tP1476\tund:\"Summer proceedings\"\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

@@ -30,10 +30,15 @@
 //! `walk_on_spheres`, which checks the density is uniform to a few percent
 //! across a 10x diffusivity contrast.)
 //!
-//! This is the piece that turns SiC — whose `D` is ~10^6 times smaller than the
-//! pyrolytic-carbon layers around it — into the containment barrier: a walker
+//! This is the piece that turns SiC into the containment barrier: a walker
 //! arriving from PyC transmits into SiC with probability `~ D_SiC / D_PyC`, i.e.
-//! it is reflected back the overwhelming majority of the time.
+//! it is reflected back nearly every time. ~~SiC's `D` is ~10^6 times smaller
+//! than the pyrolytic-carbon layers around it.~~ **CORRECTED 2026-10-04
+//! (gh:#531):** that compared the Jiang prefactors `D1` (6.3e-8 against
+//! 5.5e-14 for Cs) and left out the Arrhenius factors. With them, the PyC/SiC
+//! contrast this crate's coefficients give is 13 to 4100 over Cs, Sr, Ag and
+//! Kr at 1000–1600 °C (Cs: 120 at 1000 °C, 440 at 1600 °C), measured with
+//! `examples/layer_diffusion_table.rs`.
 
 use outram_mc_libs::rng::lcg::prn;
 use uom::si::diffusion_coefficient::square_meter_per_second;

@@ -1,0 +1,79 @@
+{
+	"case": "synthetic_open_worldcat",
+	"input": {
+		"kind": "forced",
+		"translator": "Open WorldCat.js",
+		"search": {
+			"itemType": "book",
+			"ISBN": "978-0-585-03015-9"
+		}
+	},
+	"synthetic": true,
+	"source": "kovan-authored responses shaped as the ones Open WorldCat.js reads (search.worldcat.org and web.archive.org were not contacted: WorldCat is scraped behind a session token). The home page answers 503 so that the archive.org fallback runs; the token, build ID and record are invented. Written 2026-10-07 for #756.",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://search.worldcat.org/",
+				"body": null
+			},
+			"response": {
+				"status": 503,
+				"url": "https://search.worldcat.org/",
+				"headers": {
+					"content-type": "text/html"
+				},
+				"body": "<html><body>Service Unavailable</body></html>",
+				"bodyEncoding": "utf8"
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://web.archive.org/web/https://search.worldcat.org/",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://web.archive.org/web/20261001000000/https://search.worldcat.org/",
+				"headers": {
+					"content-type": "text/html; charset=utf-8"
+				},
+				"body": "<!DOCTYPE html><html><head><title>WorldCat</title></head><body><div id='__next'></div><script id='__NEXT_DATA__' type='application/json'>\n  {\"props\":{},\"page\":\"/\",\"buildId\":\"kovanSyntheticBuild1\"}\n</script></body></html>",
+				"bodyEncoding": "utf8"
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://search.worldcat.org/_next/data/kovanSyntheticBuild1/en/search.json",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://search.worldcat.org/_next/data/kovanSyntheticBuild1/en/search.json",
+				"headers": {
+					"content-type": "application/json"
+				},
+				"body": "{\"pageProps\":{\"secureToken\":\"kovan synthetic/token=1\"}}",
+				"bodyEncoding": "utf8"
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://search.worldcat.org/api/search?q=bn%3A978-0-585-03015-9",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://search.worldcat.org/api/search?q=bn%3A978-0-585-03015-9",
+				"headers": {
+					"content-type": "application/json; charset=utf-8"
+				},
+				"body": "{\"numberOfRecords\":2,\"briefRecords\":[{\"oclcNumber\":42854423,\"title\":\"[Synthetic reactor physics : a kovan test record]\",\"edition\":\"2nd ed.\",\"publisher\":\"[Synthetic Press]\",\"publicationPlace\":\"Singapore\",\"publicationDate\":\"1999\",\"catalogingLanguage\":\"eng\",\"summary\":\"An invented record.\",\"physicalDescription\":\"1 online resource (xii, 345 pages) : illustrations\",\"series\":\"Kovan test series\",\"subjectsText\":[\"Nuclear reactors\",\"Reactor physics\"],\"doi\":\"\",\"issns\":[\"0029-5450\"],\"digitalAccessAndLocations\":[{\"uri\":\"https://example.org/synthetic\"}],\"isbns\":[\"0585030154\",\"9780585030159\"],\"publication\":\"\",\"contributors\":[{\"firstName\":{\"text\":\"Jane\"},\"secondName\":{\"text\":\"Doe\"},\"relatorCodes\":[\"aut\"]},{\"firstName\":{\"text\":\"Synthetic Institute\"}},{\"firstName\":{\"text\":\"P\"},\"secondName\":{\"text\":\"Pub\"},\"relatorCodes\":[\"pbl\"]},{\"firstName\":{\"text\":\"Ed\"},\"secondName\":{\"text\":\"Itor\"},\"relatorCodes\":[\"xyz\"]},{\"secondName\":{\"text\":\"Only\"},\"relatorCodes\":[\"\"]}],\"generalFormat\":\"Book\",\"specificFormat\":\"PrintBook\"},{\"oclcNumber\":\"1\",\"title\":\"Second record, never used\"}]}",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

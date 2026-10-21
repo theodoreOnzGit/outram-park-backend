@@ -93,6 +93,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use petir::mathf::RealMath;
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::material::material::{Material, NuclideComponent};
     use outram_mc_libs::material::nuclide::Nuclide;
@@ -104,8 +105,15 @@ mod desktop {
     const TEMP_K: f64 = 293.6;
     /// ICSBEP HEU-MET-FAST-001 sphere radius \[cm\].
     const RADIUS_CM: f64 = 8.7407;
-    /// Worker threads. Each runs whole seeds; transport inside a seed is serial.
-    const WORKERS: usize = 4;
+    /// Worker threads, taken from the machine rather than hard-coded. The
+    /// result does not depend on it: seeds are chunked in order and each
+    /// writes its own slot, so the per-seed vector is thread-count
+    /// independent, not merely the mean.
+    fn workers() -> usize {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+    }
 
     /// `(tape file, nuclide name, atom density \[atoms/barn·cm\])` — the three
     /// ICSBEP nuclides, same numbers as `godiva_keff_endf_local`.
@@ -119,7 +127,7 @@ mod desktop {
     fn stats(x: &[f64]) -> (f64, f64, f64) {
         let n = x.len() as f64;
         let mean = x.iter().sum::<f64>() / n;
-        let var = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+        let var = x.iter().map(|v| (v - mean).r_powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
         let sd = var.sqrt();
         (mean, sd, sd / n.sqrt())
     }
@@ -127,12 +135,10 @@ mod desktop {
     /// Run one arm over `seeds`, returning Δk from the benchmark in pcm per seed.
     fn run_arm(nuclides: &Arc<Vec<Nuclide>>, material: &Material, seeds: &[u64]) -> Vec<f64> {
         let mut out = vec![0.0; seeds.len()];
-        let chunk = seeds.len().div_ceil(WORKERS);
+        let chunk = seeds.len().div_ceil(workers().min(seeds.len()).max(1));
         std::thread::scope(|s| {
-            for (wi, (sd_chunk, out_chunk)) in seeds
-                .chunks(chunk)
-                .zip(out.chunks_mut(chunk))
-                .enumerate()
+            for (wi, (sd_chunk, out_chunk)) in
+                seeds.chunks(chunk).zip(out.chunks_mut(chunk)).enumerate()
             {
                 let nuclides = Arc::clone(nuclides);
                 s.spawn(move || {
@@ -166,10 +172,12 @@ mod desktop {
         let mut with_mf6 = Vec::new();
         for &(file, name, _) in NUCLIDES {
             let Some(p) = reference_endf(file) else {
-                println!("  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping.");
+                println!(
+                    "  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping."
+                );
                 return;
             };
-            let n = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
+            let n = Nuclide::from_endf_file(&p, name, uom::si::f64::ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(TEMP_K), 1.0e-3)
                 .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
             println!(
                 "  {name}: MF=6 continuum law {}",
@@ -186,7 +194,10 @@ mod desktop {
             .cloned()
             .map(Nuclide::without_evaluated_continuum)
             .collect();
-        println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+        println!(
+            "Nuclear data ready in {:.1} s.\n",
+            t0.elapsed().as_secs_f64()
+        );
 
         let material = Material {
             id: 1,
@@ -212,7 +223,10 @@ mod desktop {
         println!("  MF6 arm done in {:.1} s", t.elapsed().as_secs_f64());
         let t = Instant::now();
         let b = run_arm(&without_mf6, &material, &seeds);
-        println!("  WEISSKOPF arm done in {:.1} s\n", t.elapsed().as_secs_f64());
+        println!(
+            "  WEISSKOPF arm done in {:.1} s\n",
+            t.elapsed().as_secs_f64()
+        );
 
         let (ma, sa, ea) = stats(&a);
         let (mb, sb, eb) = stats(&b);
@@ -221,8 +235,20 @@ mod desktop {
 
         println!("Δk from ICSBEP HEU-MET-FAST-001 = 1.0000, pcm");
         println!("  arm         n     mean      sd     sem");
-        println!("  MF6       {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", a.len(), ma, sa, ea);
-        println!("  WEISSKOPF {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", b.len(), mb, sb, eb);
+        println!(
+            "  MF6       {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+            a.len(),
+            ma,
+            sa,
+            ea
+        );
+        println!(
+            "  WEISSKOPF {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+            b.len(),
+            mb,
+            sb,
+            eb
+        );
         println!(
             "  difference (MF6 − WEISSKOPF) = {:+.0} ± {:.0} pcm  ({:.1} sigma)",
             diff,

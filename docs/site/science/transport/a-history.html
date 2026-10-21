@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repeat: one neutron, birth to death</title>
+<meta name="description" content="Transport, page 6: a neutron history is the loop of the previous pages repeated until the neutron is captured, causes a fission or leaks. Follow real histories through Godiva and through a TRISO pebble in OUTRAM PARK's own code, and see what a track records.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Real demos: ../../demos/monte-carlo/?rung=godiva&mode=watch and ?rung=triso&mode=watch. Code: transport_csg.rs transport_history_vr (the 'history loop), track_output.rs TrackEvent. Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Repeat: one neutron, birth to death</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>Put the pages together. A history is this loop, run until something ends it (<code>transport_history_vr</code> in <code>transport_csg.rs</code>):</p>
+<ol class="two-q">
+  <li><b>Locate</b> the neutron: which cell, which material (<code>Geometry::locate</code>); &Sigma;<sub>t</sub> from that material at the neutron's energy.</li>
+  <li><b>Sample</b> the flight, d<sub>col</sub>&nbsp;=&nbsp;&minus;ln&thinsp;&xi;/&Sigma;<sub>t</sub> (page 1), and find d<sub>b</sub>, the distance to the nearest surface (page 3).</li>
+  <li>If <b>d<sub>col</sub> &lt; d<sub>b</sub></b>: move there (page 2) and handle the collision (page 5): draw the nuclide, then the reaction. A scatter changes the energy and direction and the loop goes back to step 1; capture and fission end the history.</li>
+  <li>Otherwise <b>move to the surface</b> and apply its boundary condition: pass into the next cell, reflect (back to step 1), or leak (the history ends).</li>
+</ol>
+<p>That is all a history is. Everything else in a transport code is bookkeeping around it, the choice of where the neutrons start (page 9), or a way to make step 2 cheaper (page 8).</p>
+<p class="predict"><b>Predict first:</b> in a bare uranium sphere, what is the most common end of a history: capture, fission or leak? In a graphite-moderated pebble, where the neutron must first slow down?</p>
+
+<div class="iframe-slot" data-title="Godiva, neutron tracks" data-src="../../demos/monte-carlo/?rung=godiva&amp;mode=watch">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. It opens on recorded tracks, labelled as recorded, and switches to live ones when the data are ready. The page stays responsive meanwhile.</p>
+</div>
+
+<p>Watch several tracks in Godiva and note how each ends. Then compare with a neutron in the TRISO rung, a <b>two-dimensional analogue</b> of an HTR-10 fuel pebble in a reflective cell, in which the particles are infinite rods and not spheres (the rung's own header says to treat it as a picture of how neutrons move in a TRISO pebble, not as a model of the HTR-10). The fuel is a speck of uranium oxide in graphite, and the neutron spends most of its life in carbon, slowing down:</p>
+<div class="iframe-slot" data-title="A TRISO pebble, neutron tracks" data-src="../../demos/monte-carlo/?rung=triso&amp;mode=watch">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. It opens on recorded tracks, labelled as recorded, and switches to live ones when the data are ready. The page stays responsive meanwhile.</p>
+</div>
+
+<p>Things the picture tells you without a number: in Godiva the paths are straight and fast and the neutron rarely loses much energy per collision, because uranium is heavy (page 2 of the neutronics lessons); in graphite it loses energy in small steps, and slowing down takes many collisions. The collision strip of the demo's cross-section panel draws the energy after each collision.</p>
+
+<h2>What a track records</h2>
+<p>For each history the code can keep a <b>track</b>: the position, direction, energy, time and weight at the birth and after every event, with the kind of event. The kinds are <i>born, surface crossing, scatter, fission, absorption, rouletted, leak, lost</i> (<code>TrackEvent</code>). The demos draw those tracks; the numbers in their panels (scatters, crossings, path length, time of flight, minimum energy) are computed from them (<code>History::from_track</code> in the demo's <code>history.rs</code>).</p>
+
+<h2>Next question</h2>
+<p>A neutron in a pebble had to cross the pebble's graphite and the fuel zone, and the fuel zone holds thousands of tiny spheres. <b>What does that do to the loop?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

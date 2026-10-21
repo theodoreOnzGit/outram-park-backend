@@ -42,6 +42,7 @@
 //! `n >= 130`) — a documented, mesh-refinement-vanishing geometric bias.
 //! Cell volumes use the exact arc measure `dx * A`.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
@@ -110,13 +111,13 @@ impl RingMesh {
         let cell_centres: Vec<Vector3> = (0..n)
             .map(|i| {
                 let th = (i as f64 + 0.5) * dtheta;
-                Vector3::new(radius * th.cos(), radius * th.sin(), 0.0)
+                Vector3::new(radius * th.r_cos(), radius * th.r_sin(), 0.0)
             })
             .collect();
         let face_centres: Vec<Vector3> = (0..n)
             .map(|i| {
                 let th = (i as f64 + 1.0) * dtheta;
-                Vector3::new(radius * th.cos(), radius * th.sin(), 0.0)
+                Vector3::new(radius * th.r_cos(), radius * th.r_sin(), 0.0)
             })
             .collect();
         // Face normal = counter-clockwise tangent (owner -> neighbour
@@ -124,7 +125,7 @@ impl RingMesh {
         let face_area_vectors: Vec<Vector3> = (0..n)
             .map(|i| {
                 let th = (i as f64 + 1.0) * dtheta;
-                Vector3::new(-flow_area * th.sin(), flow_area * th.cos(), 0.0)
+                Vector3::new(-flow_area * th.r_sin(), flow_area * th.r_cos(), 0.0)
             })
             .collect();
         let cell_volumes = vec![dx * flow_area; n];

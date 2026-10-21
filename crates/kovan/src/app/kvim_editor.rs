@@ -43,17 +43,58 @@
 //! - **Esc** always returns to Normal, same as pressing it on a keyboard.
 //! - The current mode is always shown (`Mode::label`), so a non-Vim user
 //!   is never left wondering why typing did something unexpected.
+//! - **Ctrl+C / Ctrl+X / Ctrl+V** use the system clipboard, like any other
+//!   text box — see [`KvimEditorState::paste`] and GH issue #280. kvim's
+//!   own `y`/`p` registers are untouched and still work as in Vim.
+//!
+//! # Why the clipboard needs code here at all (GH issue #280)
+//!
+//! It is not a missing key mapping. `egui-winit` recognises the clipboard
+//! chords itself and pushes [`egui::Event::Cut`]/[`egui::Event::Copy`]/
+//! [`egui::Event::Paste`] — **returning before it emits any
+//! [`egui::Event::Key`]**, so those three chords never reach [`map_event`]
+//! as keys at all. Until this was handled, the focused editor dropped all
+//! three, which is why *"i cannot ctrl-shift-v to paste inside the summary
+//! text box"* (maintainer, 2026-09-23).
+//!
+//! `Ctrl+Shift+V` works for the same reason `Ctrl+V` does: egui-winit's
+//! `is_paste_command` is `command && V` and never looks at shift.
+
+//!
+//! # Code buffers (GitHub #857)
+//!
+//! A buffer holding source code ([`KvimEditorState::set_code`], used by the
+//! review panel's quick fix) is drawn with syntax colours, indents with
+//! spaces, and completes names from kovan's cached index on Ctrl+N /
+//! Ctrl+P (Enter accepts, Esc closes; it never opens by itself). None of it
+//! starts a language server (maintainer, 2026-10-13: a second
+//! rust-analyzer is "too memory intensive").
+//!
+//! # Where the caret is drawn
+//!
+//! ~~Column `c` was drawn at `c × (width of a space)`.~~ **CORRECTED
+//! 2026-10-13**: that is right only while every character is one cell
+//! wide. A tab is drawn four cells wide, and a character the monospace
+//! font takes from a fallback font (`σ`, `·`, an arrow) need not be one
+//! cell; the caret, the selection and a click then landed on the wrong
+//! character. Plain ASCII was never affected (measured: within a pixel). All three now ask the laid-out
+//! line where a column is (`KvimEditorState::x_of`, `col_at`).
+
+use std::sync::Arc;
 
 use eframe::egui::{self, Color32, FontId, Pos2, Rect, Sense, Stroke, Vec2};
+use kovan_web::syntax::{self, HighlightSpan, Language};
 use kopitiam_neovim::core::{Mode, Position, Range};
+use kopitiam_neovim::editor::CommandKind;
 use kopitiam_neovim::editor::key::{Key as KvimKey, KeyCode as KvimKeyCode, Modifiers as KvimModifiers};
-use kopitiam_neovim::editor::Editor;
+use kopitiam_neovim::editor::{Editor, EditorResponse};
 
 use crate::autocomplete::{self, Candidate};
 use crate::index::KnowledgeIndex;
 use crate::research_record::ResearchRecordIndex;
 use crate::root::KovanRoot;
 use crate::session::PaperSession;
+use crate::stamping::review_mode::code_words::{self, CodeWord, CodeWords};
 
 const CHAR_SIZE: f32 = 14.0;
 const LINE_SPACING: f32 = 1.35;
@@ -125,6 +166,34 @@ fn detect_trigger(line_text: &str, cursor: Position) -> Option<(Trigger, String)
     None
 }
 
+/// What an ex-command typed in the buffer asked the **host** to do.
+///
+/// kvim deliberately does not perform I/O itself -- `kopitiam_neovim`'s
+/// `EditorResponse::Write` carries the *intent* and leaves the writing to
+/// whoever owns the thing being written (see that crate's `ex` module docs).
+/// Here the owner is the panel hosting the buffer: the page-context editor
+/// writes a paper's markdown, the annotation editor saves one note. Same
+/// keystroke, different meaning of "save", so the host decides.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditorSignal {
+    /// `:w` -- save, stay open.
+    Write,
+    /// `:q` on a clean buffer, or `:q!` -- close.
+    Quit,
+    /// `:q` **refused** because the buffer has unsaved changes.
+    ///
+    /// Vim's answer is "use `:q!`", and for a real file that is right -- the
+    /// page-context editor shows the message and stays open. But the
+    /// annotation panel's buffer *is* the note being written, always dirty by
+    /// the time anyone types `:q`, and there Cancel means exactly "throw this
+    /// away". So the intent is reported and the **host** decides whether
+    /// unsaved changes are a reason to refuse (maintainer, 2026-09-24: ":q
+    /// revokes changes in annotation").
+    QuitUnsaved,
+    /// `:wq` / `:x` -- save, then close.
+    WriteThenQuit,
+}
+
 /// State for one `kopitiam-neovim`-backed editor surface.
 pub struct KvimEditorState {
     editor: Editor,
@@ -146,6 +215,22 @@ pub struct KvimEditorState {
     /// snapping back (op-j178: the PDF reader's page-context panel jumping
     /// to an artifact's heading).
     pending_scroll_to_line: Option<usize>,
+    /// Where the caret was at the end of the previous frame, so
+    /// [`Self::text_area`] can tell a caret that **moved** from one merely
+    /// sitting still. Only a move scrolls -- following every frame would pin
+    /// the view to the caret and make wheel-scrolling a focused editor
+    /// impossible, the view snapping back the instant you let go.
+    last_cursor: Option<Position>,
+    /// The ex-command intent this frame's keys produced, if any, waiting
+    /// for [`Self::ui`] to hand it to the host. Held on the struct rather
+    /// than returned straight out of the key loop because that loop runs
+    /// inside `ui.input_mut`, which cannot yield a value.
+    signal: Option<EditorSignal>,
+    /// The engine's last `EditorResponse::Message` -- `:` command errors
+    /// and feedback (`:s` match counts, "no write since last change").
+    /// Discarding these is why a refused `:q` looked like a key that did
+    /// nothing at all.
+    last_message: Option<String>,
     /// 0-based, end-exclusive line ranges painted with a faint band — every
     /// block anchored to the PDF reader's current page (op-j178: the
     /// page-context panel's read-only preview marks what is double-clickable).
@@ -160,6 +245,79 @@ pub struct KvimEditorState {
     /// focus, so the cursor greyed out and further typing did nothing —
     /// which reads exactly like being kicked back to Normal mode).
     text_area_id: Option<egui::Id>,
+    /// The line a press landed on in the **read-only** preview, kept until
+    /// the button comes back up so an unhurried press-release can still be
+    /// recognised as a click on that line (GH issue #282 — same egui
+    /// threshold that broke click-to-insert in the editable path).
+    preview_press_line: Option<usize>,
+    /// Set by [`Self::begin_insert`]; consumed by the next [`Self::text_area`],
+    /// which hands keyboard focus to the text area once it has an id to give
+    /// it. A one-shot flag, not a mode: after that frame the ordinary focus
+    /// rules apply (GH issue #282).
+    pending_focus: bool,
+    /// The row height [`Self::text_area`] last painted with, so a scroll
+    /// offset can be turned back into a line number.
+    line_height: f32,
+    /// The 0-based buffer line at the top of the viewport as last painted —
+    /// what the kvim tab's Markdown preview follows (VS Code-style scroll
+    /// sync, 2026-09-28). See [`Self::top_visible_line`].
+    top_line: usize,
+    /// The language of a code buffer ([`Self::set_code`]); `None` for the
+    /// Markdown and note buffers, which are drawn plain as before.
+    language: Option<Language>,
+    /// The names a code buffer completes from (the cached index).
+    code_words: Option<Arc<CodeWords>>,
+    /// The completion list for the name being typed, refreshed every frame
+    /// by [`Self::refresh_code_popup`]; empty: no popup.
+    popup: Vec<CodeWord>,
+    /// Which of [`Self::popup`] Tab accepts.
+    popup_sel: usize,
+    /// Where the name being typed starts.
+    popup_start: Position,
+    /// Whether the completion list is open. Only Ctrl+N / Ctrl+P open it;
+    /// accepting, Esc, leaving Insert mode or running out of matches shut it.
+    popup_open: bool,
+}
+
+/// A key the completion popup takes before the engine sees it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PopupAction {
+    Accept,
+    Next,
+    Previous,
+    Dismiss,
+}
+
+/// Ctrl+N and Ctrl+P open the list and choose in it; with it open, Enter
+/// accepts, the arrows choose too, and Esc shuts it (and still reaches the
+/// engine, to leave Insert mode, as in Vim). Nothing opens it but Ctrl+N
+/// and Ctrl+P (maintainer, 2026-10-13: "I'd rather the completion come
+/// only if I press Ctrl N and Ctrl P. Enter to accept. Esc to close").
+fn popup_action(event: &egui::Event, open: bool) -> Option<PopupAction> {
+    let egui::Event::Key { key, pressed: true, modifiers, .. } = event else {
+        return None;
+    };
+    match key {
+        egui::Key::N if modifiers.ctrl => Some(PopupAction::Next),
+        egui::Key::P if modifiers.ctrl => Some(PopupAction::Previous),
+        egui::Key::Enter if open && !modifiers.any() => Some(PopupAction::Accept),
+        egui::Key::ArrowDown if open => Some(PopupAction::Next),
+        egui::Key::ArrowUp if open => Some(PopupAction::Previous),
+        egui::Key::Escape if open => Some(PopupAction::Dismiss),
+        _ => None,
+    }
+}
+
+/// An engine for `language`: the maintainer's defaults, except that code
+/// which is conventionally indented with spaces gets `expandtab`. The
+/// engine's own default (their Neovim's: a literal tab) put a tab on every
+/// new block line of a Rust function, which rustfmt then rewrites.
+fn engine_for(language: Option<Language>) -> Editor {
+    let mut config = kopitiam_neovim::Config::default();
+    if matches!(language, Some(Language::Rust | Language::Python | Language::Toml)) {
+        config.options.expandtab = true;
+    }
+    Editor::with_config(config)
 }
 
 impl Default for KvimEditorState {
@@ -170,21 +328,164 @@ impl Default for KvimEditorState {
             dragging: false,
             text_area_origin: Pos2::ZERO,
             pending_scroll_to_line: None,
+            last_cursor: None,
+            signal: None,
+            last_message: None,
             anchor_bands: Vec::new(),
             hover_band: None,
+            preview_press_line: None,
+            pending_focus: false,
             text_area_id: None,
+            line_height: CHAR_SIZE * LINE_SPACING,
+            top_line: 0,
+            language: None,
+            code_words: None,
+            popup: Vec::new(),
+            popup_sel: 0,
+            popup_start: Position::ORIGIN,
+            popup_open: false,
         }
     }
 }
 
 impl KvimEditorState {
+    /// Make this a **code buffer** (#857): drawn with `language`'s syntax
+    /// colours, indented with spaces where the language calls for it, and
+    /// completing names from `words`. Call it before [`Self::load_text`],
+    /// which builds the engine with these settings.
+    pub fn set_code(&mut self, language: Option<Language>, words: Option<Arc<CodeWords>>) {
+        self.language = language;
+        self.code_words = words;
+    }
+
+    /// Tell the buffer its text is now what is on disk (after a save that
+    /// keeps the editor open), so it reads as unmodified.
+    pub fn mark_saved(&mut self) {
+        self.loaded_text = self.text();
+    }
+
+    /// The text of the line up to column `pos.col`.
+    fn prefix(&self, pos: Position) -> String {
+        self.editor.buffer().slice(Range::new(Position::new(pos.line, 0), pos))
+    }
+
+    /// Line `line` laid out in the editor's font, uncoloured: what the
+    /// caret, the selection and a click measure against. (Colours do not
+    /// change widths, so the painted line has the same geometry.)
+    fn line_galley(&self, ui: &egui::Ui, line: usize) -> Arc<egui::Galley> {
+        let text = self.editor.buffer().line(line).unwrap_or_default();
+        let job = egui::text::LayoutJob::simple_singleline(text, FontId::monospace(CHAR_SIZE), Color32::WHITE);
+        ui.painter().layout_job(job)
+    }
+
+    /// The x offset, from the left edge of the text, of column `pos.col` on
+    /// its line (module doc, "Where the caret is drawn").
+    fn x_of(&self, ui: &egui::Ui, pos: Position) -> f32 {
+        let chars = self.prefix(pos).chars().count();
+        self.line_galley(ui, pos.line).pos_from_cursor(egui::text::CCursor::new(chars)).min.x
+    }
+
+    /// The column of line `line` nearest x offset `x`: the inverse of
+    /// [`Self::x_of`].
+    fn col_at(&self, ui: &egui::Ui, line: usize, x: f32) -> usize {
+        let chars = self.line_galley(ui, line).cursor_from_pos(Vec2::new(x.max(0.0), 0.0)).index.0;
+        let len = self.editor.buffer().line_len(line);
+        // A column is a grapheme and may hold several characters: take the
+        // first column that reaches the character the layout pointed at.
+        (0..=len).find(|&c| self.prefix(Position::new(line, c)).chars().count() >= chars).unwrap_or(len)
+    }
+
+    /// The buffer position under `pointer`.
+    fn position_at(&self, ui: &egui::Ui, rect: Rect, line_height: f32, pointer: Pos2) -> Position {
+        let rel = pointer - rect.min;
+        let line = (rel.y / line_height).max(0.0) as usize;
+        let line = line.min(self.editor.buffer().line_count().saturating_sub(1));
+        self.editor.buffer().clamp(Position::new(line, self.col_at(ui, line, rel.x)))
+    }
+
+    /// Work out the completion list for the name being typed (#857). Pure
+    /// state, no drawing: [`Self::popup`] is empty unless the list has been
+    /// opened (Ctrl+N / Ctrl+P) in a code buffer in Insert mode and there
+    /// is something to offer for the name before the cursor. While open it
+    /// follows the typing; it shuts itself when nothing matches any more.
+    fn refresh_code_popup(&mut self) {
+        let was = std::mem::take(&mut self.popup);
+        let Some(words) = self.code_words.clone().filter(|_| self.popup_open) else {
+            self.popup_open = false;
+            return;
+        };
+        if self.editor.mode() != Mode::Insert {
+            self.popup_open = false;
+            return;
+        }
+        let cursor = self.editor.cursor();
+        let before = self.prefix(cursor);
+        let word = code_words::word_before(&before);
+        let in_buffer = code_words::buffer_words(&self.text());
+        self.popup = words.complete(word, &in_buffer, 12);
+        // One grapheme per character holds for a name (letters, digits, `_`).
+        self.popup_start = Position::new(cursor.line, cursor.col.saturating_sub(word.chars().count()));
+        if self.popup != was {
+            self.popup_sel = 0;
+        }
+        self.popup_sel = self.popup_sel.min(self.popup.len().saturating_sub(1));
+        self.popup_open = !self.popup.is_empty();
+    }
+
+    /// Replace the name being typed with completion `index` of the popup.
+    fn accept_completion(&mut self, index: usize) {
+        let Some(word) = self.popup.get(index).cloned() else {
+            return;
+        };
+        let cursor = self.editor.cursor();
+        self.editor.replace_range(Range::new(self.popup_start, cursor), &word.name);
+        let end = Position::new(cursor.line, self.popup_start.col + word.name.chars().count());
+        if self.editor.mode() != Mode::Insert {
+            let _ = self.editor.handle_key(KvimKey::esc());
+            let _ = self.editor.handle_key(KvimKey::char('i'));
+        }
+        self.editor.move_cursor(end);
+        self.popup.clear();
+        self.popup_open = false;
+    }
+
+    /// Draw the completion list under the caret; a click accepts. GUI
+    /// drawing code: the list itself and accepting from it are tested
+    /// through [`Self::refresh_code_popup`] and the keys.
+    fn code_popup_ui(&mut self, ui: &mut egui::Ui) {
+        if self.popup.is_empty() {
+            return;
+        }
+        let cursor = self.editor.cursor();
+        let anchor = self.text_area_origin
+            + Vec2::new(self.x_of(ui, self.popup_start), (cursor.line + 1) as f32 * self.line_height);
+        let mut chosen = None;
+        egui::Area::new(ui.id().with("kvim-code-popup")).fixed_pos(anchor).order(egui::Order::Foreground).show(ui.ctx(), |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                for (i, w) in self.popup.iter().enumerate() {
+                    let label = format!("{}  —  {}", w.name, w.detail);
+                    if ui.selectable_label(i == self.popup_sel, egui::RichText::new(label).monospace()).clicked() {
+                        chosen = Some(i);
+                    }
+                }
+                ui.weak("Enter accepts · Ctrl+N / Ctrl+P choose · Esc closes");
+            });
+        });
+        if let Some(i) = chosen {
+            self.accept_completion(i);
+            if let Some(id) = self.text_area_id {
+                ui.ctx().memory_mut(|m| m.request_focus(id));
+            }
+        }
+    }
+
     /// Load `text` as the buffer's whole content, replacing whatever was
     /// there. Goes through [`Editor::replace_range`] (the engine's own
     /// sanctioned "swap in new text" path — used for completion-accept and
     /// snippet expansion) rather than reconstructing the buffer directly,
     /// since `Editor` exposes no way to install a different `Buffer` value.
     pub fn load_text(&mut self, text: &str) {
-        self.editor = Editor::new();
+        self.editor = engine_for(self.language);
         let end = self
             .editor
             .buffer()
@@ -256,9 +557,13 @@ impl KvimEditorState {
     /// one-line mode/status bar. `completion`, when given, enables §29/§30's
     /// citation/wiki autocomplete popup — omit it for a scratch buffer with
     /// no library context (e.g. before a Kovan root is open).
-    pub fn ui(&mut self, ui: &mut egui::Ui, completion: Option<CompletionSource<'_>>) {
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        completion: Option<CompletionSource<'_>>,
+    ) -> Option<EditorSignal> {
         ui.horizontal(|ui| {
-            ui.strong(self.editor.mode().label());
+            ui.strong(self.mode_label());
             let pos = self.editor.cursor();
             ui.weak(format!("{}:{}", pos.line + 1, pos.col + 1));
             if self.is_modified() {
@@ -267,14 +572,106 @@ impl KvimEditorState {
         });
         ui.separator();
 
-        egui::ScrollArea::both()
+        let out = egui::ScrollArea::both()
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 self.text_area(ui, false);
             });
+        self.record_top_line(out.state.offset.y);
 
         if let Some(source) = completion {
             self.completion_popup_ui(ui, source);
+        }
+        self.refresh_code_popup();
+        self.code_popup_ui(ui);
+        self.command_line_ui(ui);
+        self.signal.take()
+    }
+
+    /// Draw the buffer **locked**: the same text, cursor and scroll as
+    /// [`Self::ui`], but no key, clipboard or mouse edit reaches the engine
+    /// (it is [`Self::text_area`]'s read-only path, the one the page-context
+    /// preview already uses). The kvim tab shows this until the operator has
+    /// clicked Edit and accepted the schema warning (maintainer, 2026-09-28:
+    /// "kvim editor is read-only by default").
+    pub fn ui_locked(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.strong("READ-ONLY");
+            let pos = self.editor.cursor();
+            ui.weak(format!("{}:{}", pos.line + 1, pos.col + 1));
+            if self.is_modified() {
+                ui.weak("[+]");
+            }
+        });
+        ui.separator();
+        let out = egui::ScrollArea::both()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                let _ = self.text_area(ui, true);
+            });
+        self.record_top_line(out.state.offset.y);
+    }
+
+    fn record_top_line(&mut self, offset_y: f32) {
+        self.top_line = (offset_y.max(0.0) / self.line_height.max(1.0)) as usize;
+    }
+
+    /// The 0-based buffer line at the top of the editor's viewport, as of
+    /// the last [`Self::ui`]/[`Self::ui_locked`] paint.
+    pub fn top_visible_line(&self) -> usize {
+        self.top_line
+    }
+
+    /// The command line, along the bottom, as vim puts it.
+    ///
+    /// **Reuses the engine's own command line** -- `Editor::command_line`,
+    /// `command_line_kind` and `command_cursor` have existed all along;
+    /// kovan simply never asked. That accessor's own doc comment describes
+    /// this exact failure: "`:` commands were invisible while you typed
+    /// them ... the editor half was right, the renderer half was right, and
+    /// nothing joined them." kovan was the missing half.
+    ///
+    /// When no prompt is open the row shows the engine's last message
+    /// instead, which is the other half of the same problem: a refused `:q`
+    /// ("no write since last change") reported an error that nothing
+    /// displayed, so the key looked dead.
+    fn command_line_ui(&mut self, ui: &mut egui::Ui) {
+        let font = egui::FontId::monospace(CHAR_SIZE);
+        match (self.editor.command_line_kind(), self.editor.command_line()) {
+            (Some(kind), Some(text)) => {
+                let prefix = match kind {
+                    CommandKind::Ex => ':',
+                    CommandKind::SearchForward => '/',
+                    CommandKind::SearchBackward => '?',
+                };
+                // A block caret drawn INTO the string: the row is a label,
+                // not a focused widget, and egui will not paint a caret for
+                // it. `command_cursor` is in graphemes, matching the engine.
+                let cursor = self.editor.command_cursor().unwrap_or(text.chars().count());
+                let mut shown = String::with_capacity(text.len() + 2);
+                shown.push(prefix);
+                for (i, c) in text.chars().enumerate() {
+                    if i == cursor {
+                        shown.push('\u{2588}');
+                    }
+                    shown.push(c);
+                }
+                if cursor >= text.chars().count() {
+                    shown.push('\u{2588}');
+                }
+                ui.separator();
+                ui.label(egui::RichText::new(shown).font(font));
+            }
+            _ => {
+                if let Some(msg) = &self.last_message {
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new(msg)
+                            .font(font)
+                            .color(egui::Color32::from_rgb(230, 160, 60)),
+                    );
+                }
+            }
         }
     }
 
@@ -399,6 +796,182 @@ impl KvimEditorState {
         }
     }
 
+    /// The current mode's label — "NORMAL", "INSERT", "VISUAL", … — as shown
+    /// in the editor's own status line. The one reading of the engine's mode
+    /// a caller outside this module gets, so nothing else has to reach into
+    /// [`Editor`].
+    pub fn mode_label(&self) -> &'static str {
+        self.editor.mode().label()
+    }
+
+    /// Open this editor ready to type: Insert mode, with keyboard focus
+    /// claimed on the next frame (GH issue #282).
+    ///
+    /// For the callers that open an editor *because the user already
+    /// clicked* — the PDF reader's page-context panel opening a block from
+    /// its card or its banded preview line. [`Self::load_text`] builds a
+    /// fresh [`Editor`], which starts in Normal mode with no focus, so
+    /// without this the click that asked for an editor lands the user in
+    /// front of one where typing runs Vim commands. GH issue #35's own ask:
+    /// "a single click to bring me into insert mode, not double click".
+    ///
+    /// Call it *after* `load_text`, which resets the editor.
+    /// Drive the buffer with vim keys directly, bypassing egui's event
+    /// plumbing. Tests only -- it is how a test asserts that a key *edits*
+    /// rather than being inserted literally, without standing up a `Ui` and a
+    /// focus cycle.
+    #[cfg(test)]
+    pub(crate) fn feed_for_test(&mut self, keys: &str) {
+        for k in kopitiam_neovim::editor::key::parse(keys) {
+            let _ = self.editor.handle_key(k);
+        }
+    }
+
+    pub fn begin_insert(&mut self) {
+        if self.editor.mode() != Mode::Insert {
+            let _ = self.editor.handle_key(KvimKey::esc());
+            let _ = self.editor.handle_key(KvimKey::char('i'));
+        }
+        self.pending_focus = true;
+    }
+
+    /// Finish a mouse drag: a drag that selected **nothing** was really a
+    /// click, so treat it as one and enter Insert mode (GH issue #282).
+    ///
+    /// egui promotes a press to a drag once it passes *either* of
+    /// [`egui::Options`]' thresholds — `max_click_dist` (6 px: a trackpad
+    /// wobble) or `max_click_duration` (0.8 s: resting on the button) — and
+    /// from then on `Response::clicked()` never fires. `text_area`'s
+    /// click-to-insert arm therefore missed every unhurried click, leaving
+    /// the editor in the Visual mode the drag had entered, where typing runs
+    /// Vim commands instead of inserting text. The maintainer's report,
+    /// 2026-09-23: "when i click the page context editor in kvim, i expect
+    /// to go into insert mode. It doesn't do that."
+    ///
+    /// A drag that *did* select something is left alone — that is a real
+    /// selection the user made on purpose.
+    fn end_drag(&mut self) {
+        self.dragging = false;
+        if self
+            .editor
+            .selection()
+            .is_some_and(|(start, end)| start == end)
+        {
+            let _ = self.editor.handle_key(KvimKey::esc());
+            let _ = self.editor.handle_key(KvimKey::char('i'));
+        }
+    }
+
+    /// Insert `text` at the cursor — what `Ctrl+V` (and `Ctrl+Shift+V`) does
+    /// (GH issue #280).
+    ///
+    /// With a Visual selection up, the selection is replaced, because that is
+    /// what every other text box on the machine does with a paste. The delete
+    /// is the engine's own `d`, so charwise, linewise and blockwise
+    /// selections are all handled by kvim rather than re-derived here — and
+    /// the replaced text lands in kvim's unnamed register, as `v…d` always
+    /// would.
+    ///
+    /// Otherwise the text goes in **at** the cursor, i.e. before the grapheme
+    /// the cursor sits on. That is a deliberate difference from Vim's `p`,
+    /// which puts *after* it: `Ctrl+V` is the GUI gesture, and a GUI paste
+    /// lands where the caret is. `p` is unchanged for anyone who wants Vim's
+    /// behaviour.
+    ///
+    /// Works in every mode, Insert included, and is a single undoable edit
+    /// ([`Editor::replace_range`] goes through the buffer's undo stack).
+    pub fn paste(&mut self, text: &str) {
+        if text.is_empty() {
+            return;
+        }
+        if self.editor.mode().is_visual() {
+            let _ = self.editor.handle_key(KvimKey::char('d'));
+        }
+        let at = self.editor.cursor();
+        self.editor.replace_range(Range::point(at), text);
+    }
+
+    /// What `Ctrl+C` puts on the system clipboard: the Visual selection, or
+    /// — with nothing selected — the whole cursor line, newline included.
+    ///
+    /// Copying the line rather than nothing is the useful reading of "copy"
+    /// when no selection exists; it is also what makes `Ctrl+X` behave like
+    /// `dd`, which is the Vim answer to the same gesture.
+    pub fn clipboard_text(&self) -> String {
+        self.selection_text().unwrap_or_else(|| {
+            let line = self.editor.cursor().line;
+            match self.editor.buffer().line(line) {
+                Some(text) => format!("{text}\n"),
+                None => String::new(),
+            }
+        })
+    }
+
+    /// [`Self::clipboard_text`], then delete what was copied — `Ctrl+X`.
+    /// Returns the text so the caller can hand it to the clipboard.
+    ///
+    /// The deletion is `d` over the selection, or `dd` on the line, so it is
+    /// kvim's own delete: undoable, and in the unnamed register afterwards.
+    pub fn cut(&mut self) -> String {
+        let text = self.clipboard_text();
+        if self.editor.mode().is_visual() {
+            let _ = self.editor.handle_key(KvimKey::char('d'));
+        } else {
+            let _ = self.editor.handle_key(KvimKey::char('d'));
+            let _ = self.editor.handle_key(KvimKey::char('d'));
+        }
+        text
+    }
+
+    /// The text a Visual selection covers, or `None` outside Visual mode.
+    ///
+    /// All three visual granularities are distinct here, and conflating them
+    /// is [`Editor::selection`]'s own documented "classic mistake":
+    /// charwise includes the grapheme **under** the cursor (hence the `+ 1`),
+    /// linewise takes whole lines and ignores the columns, and blockwise is
+    /// the column rectangle, line by line.
+    fn selection_text(&self) -> Option<String> {
+        let (start, end) = self.editor.selection()?;
+        let buffer = self.editor.buffer();
+        Some(match self.editor.mode() {
+            Mode::VisualLine => {
+                let last_line = buffer.line_count().saturating_sub(1);
+                let from = Position::new(start.line, 0);
+                // Take the trailing newline with the line, unless this is the
+                // last line and there is none to take.
+                let to = if end.line < last_line {
+                    Position::new(end.line + 1, 0)
+                } else {
+                    Position::new(end.line, buffer.line_len(end.line))
+                };
+                buffer.slice(Range::new(from, to))
+            }
+            Mode::VisualBlock => {
+                let (first, last) = (start.col.min(end.col), start.col.max(end.col));
+                (start.line..=end.line)
+                    .map(|line| {
+                        let len = buffer.line_len(line);
+                        if first >= len {
+                            return String::new();
+                        }
+                        buffer.slice(Range::new(
+                            Position::new(line, first),
+                            Position::new(line, (last + 1).min(len)),
+                        ))
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            }
+            _ => {
+                let len = buffer.line_len(end.line);
+                buffer.slice(Range::new(
+                    start,
+                    Position::new(end.line, (end.col + 1).min(len)),
+                ))
+            }
+        })
+    }
+
     /// Draw and interact with the buffer. In `read_only` mode no edit
     /// happens — a single **click** returns its 0-based line so
     /// [`Self::ui_readonly`]'s caller can open a per-block editor. Returns
@@ -407,6 +980,7 @@ impl KvimEditorState {
         let font = FontId::monospace(CHAR_SIZE);
         let char_width = ui.ctx().fonts_mut(|f| f.glyph_width(&font, ' ')).max(1.0);
         let line_height = ui.ctx().fonts_mut(|f| f.row_height(&font)) * LINE_SPACING;
+        self.line_height = line_height;
 
         let line_count = self.editor.buffer().line_count().max(1);
         let width = ui.available_width().max(400.0);
@@ -421,19 +995,30 @@ impl KvimEditorState {
             ui.scroll_to_rect(target, Some(egui::Align::Center));
         }
 
-        let to_position = |pointer: Pos2| -> Position {
-            let rel = pointer - rect.min;
-            let line = (rel.y / line_height).max(0.0) as usize;
-            let col = (rel.x / char_width).round().max(0.0) as usize;
-            self.editor.buffer().clamp(Position::new(line, col))
-        };
 
         if read_only {
             let mut clicked_line = None;
             if let Some(p) = response.interact_pointer_pos() {
-                if response.clicked() {
-                    clicked_line = Some(to_position(p).line);
+                let line = self.position_at(ui, rect, line_height, p).line;
+                if response.drag_started() {
+                    self.preview_press_line = Some(line);
                 }
+                if response.clicked() {
+                    clicked_line = Some(line);
+                } else if response.drag_stopped() {
+                    // A press egui promoted to a drag (held past 0.8 s, or
+                    // wobbled past 6 px) never reports `clicked()`, so
+                    // clicking a banded block to open it used to fail for
+                    // exactly the unhurried clicks people make — #282. A
+                    // press and release on the *same line* is a click; a
+                    // drag across lines is not, and still opens nothing.
+                    if self.preview_press_line.take() == Some(line) {
+                        clicked_line = Some(line);
+                    }
+                }
+            }
+            if !response.is_pointer_button_down_on() {
+                self.preview_press_line = None;
             }
             self.paint(ui, rect, char_width, line_height, line_count, &response);
             return clicked_line;
@@ -444,6 +1029,38 @@ impl KvimEditorState {
         if response.clicked() || response.drag_started() {
             response.request_focus();
         }
+        // **Own the keyboard while focused** (GH issue #289). Without this,
+        // egui's own focus system gets these keys first: `Memory::begin_pass`
+        // reads the focused widget's `EventFilter`, and with the default one
+        // **Escape surrenders focus**, Tab moves to the next widget and the
+        // arrow keys move focus by direction. In a modal editor that is
+        // fatal rather than untidy — pressing Esc to leave Insert dropped
+        // focus, so the `u` after it never reached the engine at all and
+        // fell through to the app's own shortcuts (`j`/`k` turn the PDF
+        // reader's pages). The maintainer, 2026-09-23: "i want kvim to act
+        // like vim keys ... u to undo etc."
+        //
+        // `set_focus_lock_filter` only takes effect from the *second* frame
+        // of focus (it requires `had_focus_last_frame`), which is egui's own
+        // constraint and the same one its `TextEdit` lives with.
+        if response.has_focus() {
+            ui.memory_mut(|m| {
+                m.set_focus_lock_filter(
+                    response.id,
+                    egui::EventFilter {
+                        tab: true,
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                        escape: true,
+                    },
+                );
+            });
+        }
+        // An editor opened by a click elsewhere (a page-context card, a
+        // banded preview line) takes focus on its first frame — #282.
+        if std::mem::take(&mut self.pending_focus) {
+            response.request_focus();
+        }
 
         // Discoverability for §29/§30's triggers — you cannot guess `@`/`[[`
         // from an empty buffer (maintainer, 2026-09-02). Deliberately a slow
@@ -452,11 +1069,15 @@ impl KvimEditorState {
         ui.style_mut().interaction.tooltip_delay = 2.0;
         response
             .clone()
-            .on_hover_text("use @ for citation autocomplete, and [[ for other autocomplete");
+            .on_hover_text(if self.code_words.is_some() {
+                "Ctrl+N / Ctrl+P complete the name being typed; Enter accepts, Esc closes"
+            } else {
+                "use @ for citation autocomplete, and [[ for other autocomplete"
+            });
 
         if response.drag_started() {
             if let Some(pointer) = response.interact_pointer_pos() {
-                let pos = to_position(pointer);
+                let pos = self.position_at(ui, rect, line_height, pointer);
                 // Leave Insert mode first (op-6w9n: a drag-to-select started
                 // while still in Insert mode used to send the 'v' below
                 // straight into the buffer as literal typed text — Insert
@@ -471,13 +1092,14 @@ impl KvimEditorState {
             }
         } else if self.dragging && response.dragged() {
             if let Some(pointer) = response.interact_pointer_pos() {
-                self.editor.move_cursor(to_position(pointer));
+                let pos = self.position_at(ui, rect, line_height, pointer);
+                self.editor.move_cursor(pos);
             }
         } else if response.drag_stopped() {
-            self.dragging = false;
+            self.end_drag();
         } else if response.clicked() {
             if let Some(pointer) = response.interact_pointer_pos() {
-                let pos = to_position(pointer);
+                let pos = self.position_at(ui, rect, line_height, pointer);
                 self.editor.move_cursor(pos);
                 if self.editor.mode() != kopitiam_neovim::core::Mode::Insert {
                     let _ = self.editor.handle_key(KvimKey::esc());
@@ -486,21 +1108,155 @@ impl KvimEditorState {
             }
         }
 
-        if response.has_focus() {
-            // **Consume** the events this editor handles (GH issue #35
-            // 2026-09-02: while typing in Insert mode, `j`/`k` etc. were
-            // still reaching the PDF reader's page-turn shortcuts). A
-            // focused text editor owns its keystrokes.
-            let editor = &mut self.editor;
+        if response.has_focus() && self.code_words.is_some() && self.editor.mode() == Mode::Insert {
+            // The completion list takes its keys before the engine does.
+            let open = self.popup_open;
+            let mut actions = Vec::new();
             ui.input_mut(|i| {
-                i.events.retain(|event| match map_event(event) {
-                    Some(key) => {
-                        let _ = editor.handle_key(key);
+                i.events.retain(|event| match popup_action(event, open) {
+                    // Esc shuts the list and still reaches the engine.
+                    Some(PopupAction::Dismiss) => {
+                        actions.push(PopupAction::Dismiss);
+                        true
+                    }
+                    Some(a) => {
+                        actions.push(a);
                         false
                     }
                     None => true,
                 });
             });
+            for a in actions {
+                let opening = !self.popup_open && matches!(a, PopupAction::Next | PopupAction::Previous);
+                if opening {
+                    // Ctrl+N opens on the first name, Ctrl+P on the last.
+                    self.popup_open = true;
+                    self.refresh_code_popup();
+                    if a == PopupAction::Previous {
+                        self.popup_sel = self.popup.len().saturating_sub(1);
+                    }
+                    continue;
+                }
+                let n = self.popup.len().max(1);
+                match a {
+                    PopupAction::Accept => self.accept_completion(self.popup_sel),
+                    PopupAction::Next => self.popup_sel = (self.popup_sel + 1) % n,
+                    PopupAction::Previous => self.popup_sel = (self.popup_sel + n - 1) % n,
+                    PopupAction::Dismiss => {
+                        self.popup.clear();
+                        self.popup_open = false;
+                    }
+                }
+            }
+        }
+
+        if response.has_focus() {
+            // Clipboard first, and separately from the key loop below: these
+            // arrive as their own events rather than as keys (see the module
+            // doc, GH issue #280), and acting on them needs the whole state,
+            // not just `self.editor`.
+            let mut clipboard = Vec::new();
+            ui.input_mut(|i| {
+                i.events.retain(|event| match clipboard_action(event) {
+                    Some(action) => {
+                        clipboard.push(action);
+                        false
+                    }
+                    None => true,
+                });
+            });
+            for action in clipboard {
+                match action {
+                    ClipboardAction::Paste(text) => self.paste(&text),
+                    ClipboardAction::Copy => {
+                        let text = self.clipboard_text();
+                        if !text.is_empty() {
+                            ui.ctx().copy_text(text);
+                        }
+                    }
+                    ClipboardAction::Cut => {
+                        let text = self.cut();
+                        if !text.is_empty() {
+                            ui.ctx().copy_text(text);
+                        }
+                    }
+                }
+            }
+
+            // **Consume** the events this editor handles (GH issue #35
+            // 2026-09-02: while typing in Insert mode, `j`/`k` etc. were
+            // still reaching the PDF reader's page-turn shortcuts). A
+            // focused text editor owns its keystrokes.
+            let editor = &mut self.editor;
+            let mut signal = None;
+            let mut message = None;
+            ui.input_mut(|i| {
+                i.events.retain(|event| match map_event(event) {
+                    Some(key) => {
+                        // `:w`/`:q`/`:wq` do not write anything here -- the
+                        // engine reports the INTENT and the host performs it
+                        // (see [`EditorSignal`]). Discarding this response,
+                        // as this loop used to, is why `:w` in an annotation
+                        // note silently did nothing.
+                        match editor.handle_key(key) {
+                            Ok(EditorResponse::Write { .. }) => signal = Some(EditorSignal::Write),
+                            Ok(EditorResponse::Quit) | Ok(EditorResponse::QuitAll) => {
+                                signal = Some(EditorSignal::Quit)
+                            }
+                            Ok(EditorResponse::WriteThenQuit { .. }) => {
+                                signal = Some(EditorSignal::WriteThenQuit)
+                            }
+                            Ok(EditorResponse::WriteAll { then_quit }) => {
+                                signal = Some(if then_quit {
+                                    EditorSignal::WriteThenQuit
+                                } else {
+                                    EditorSignal::Write
+                                })
+                            }
+                            Ok(EditorResponse::Message(text)) => message = Some(text),
+                            Err(kopitiam_neovim::Error::UnsavedChanges) => {
+                                signal = Some(EditorSignal::QuitUnsaved);
+                                message = Some(
+                                    "no write since last change (use :q! to discard)".to_string(),
+                                );
+                            }
+                            Err(e) => message = Some(e.to_string()),
+                            _ => {}
+                        }
+                        false
+                    }
+                    None => true,
+                });
+            });
+            if signal.is_some() {
+                self.signal = signal;
+            }
+            if message.is_some() {
+                self.last_message = message;
+            }
+        }
+
+        // **Follow the caret.** Typing past the bottom of the viewport -- or
+        // moving with `j`/`G`/`n` -- used to leave it off-screen: this is a
+        // custom-painted area rather than an `egui::TextEdit`, so the
+        // surrounding `ScrollArea` has no idea where the caret is
+        // (maintainer, 2026-09-24: "when i go to the next line, the scrollbar
+        // should auto go down").
+        //
+        // `Align::None` scrolls the MINIMUM distance to bring the row into
+        // view, so a caret already on screen does not recentre the text under
+        // the reader's eyes -- the view moves only when it has to.
+        let caret = self.editor.cursor();
+        if self.last_cursor != Some(caret) {
+            self.last_cursor = Some(caret);
+            let target = Rect::from_min_size(
+                Pos2::new(
+                    rect.min.x + self.x_of(ui, caret),
+                    rect.min.y + caret.line as f32 * line_height,
+                ),
+                Vec2::new(char_width.max(1.0), line_height),
+            );
+            ui.scroll_to_rect(target, None);
         }
 
         self.paint(ui, rect, char_width, line_height, line_count, &response);
@@ -553,8 +1309,14 @@ impl KvimEditorState {
                     line_len.max(col_start + 1)
                 };
                 let y = rect.min.y + line as f32 * line_height;
-                let x0 = rect.min.x + col_start as f32 * char_width;
-                let x1 = rect.min.x + col_end as f32 * char_width;
+                let x0 = rect.min.x + self.x_of(ui, Position::new(line, col_start));
+                // Past the last character (an empty line, or the cursor
+                // cell at the end) the selection is one cell wide.
+                let x1 = if col_end > line_len {
+                    rect.min.x + self.x_of(ui, Position::new(line, line_len)) + char_width
+                } else {
+                    rect.min.x + self.x_of(ui, Position::new(line, col_end))
+                };
                 painter.rect_filled(
                     Rect::from_min_max(Pos2::new(x0, y), Pos2::new(x1, y + line_height)),
                     0.0,
@@ -563,22 +1325,27 @@ impl KvimEditorState {
             }
         }
 
-        for line in 0..line_count {
+        // Syntax colours for a code buffer (#857); the lexer carries block
+        // comments and raw strings from line to line, so it runs from the top.
+        let spans: Vec<Vec<HighlightSpan>> =
+            self.language.map(|l| syntax::highlight(&self.text(), l)).unwrap_or_default();
+        let (dark, plain) = (ui.visuals().dark_mode, ui.visuals().text_color());
+        // Only the lines on screen are laid out.
+        let clip = ui.clip_rect();
+        let first = (((clip.min.y - rect.min.y) / line_height).floor().max(0.0)) as usize;
+        let last = ((((clip.max.y - rect.min.y) / line_height).ceil().max(0.0)) as usize).min(line_count);
+        for line in first..last {
             let Some(text) = self.editor.buffer().line(line) else {
                 continue;
             };
             let y = rect.min.y + line as f32 * line_height;
-            painter.text(
-                Pos2::new(rect.min.x, y),
-                egui::Align2::LEFT_TOP,
-                text,
-                font.clone(),
-                ui.visuals().text_color(),
-            );
+            let line_spans = spans.get(line).map_or(&[][..], |s| s.as_slice());
+            let job = kovan_web::ui::syntax_ui::job(&text, line_spans, font.clone(), plain, dark, Color32::TRANSPARENT);
+            painter.galley(Pos2::new(rect.min.x, y), ui.painter().layout_job(job), plain);
         }
 
         let cursor = self.editor.cursor();
-        let cx = rect.min.x + cursor.col as f32 * char_width;
+        let cx = rect.min.x + self.x_of(ui, cursor);
         let cy = rect.min.y + cursor.line as f32 * line_height;
         let cursor_color = if response.has_focus() {
             Color32::from_rgb(230, 180, 60)
@@ -602,6 +1369,26 @@ impl KvimEditorState {
             Stroke::new(1.0, cursor_color),
             egui::StrokeKind::Outside,
         );
+    }
+}
+
+/// One clipboard gesture taken off the event queue, to be applied after the
+/// borrow of `ui.input_mut` ends.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ClipboardAction {
+    Paste(String),
+    Copy,
+    Cut,
+}
+
+/// Recognise the three clipboard events egui delivers instead of keys
+/// (GH issue #280). `None` leaves the event on the queue for [`map_event`].
+fn clipboard_action(event: &egui::Event) -> Option<ClipboardAction> {
+    match event {
+        egui::Event::Paste(text) => Some(ClipboardAction::Paste(text.clone())),
+        egui::Event::Copy => Some(ClipboardAction::Copy),
+        egui::Event::Cut => Some(ClipboardAction::Cut),
+        _ => None,
     }
 }
 
@@ -708,6 +1495,382 @@ mod tests {
         assert!(state.editor.cursor().line < 999);
     }
 
+    // ------------------------------------------------------------------
+    // GH issue #289 — the editor owns the keyboard while it has focus.
+    // ------------------------------------------------------------------
+
+    /// Drive the editable editor headlessly (no window, no GPU) across
+    /// `frames`, each a list of events, and give back the buffer at the end.
+    fn drive(state: &mut KvimEditorState, frames: Vec<Vec<egui::Event>>) -> String {
+        drive_in(&egui::Context::default(), state, frames)
+    }
+
+    /// [`drive`] in a context the caller keeps, so keyboard focus carries
+    /// from one batch of frames to the next.
+    fn drive_in(ctx: &egui::Context, state: &mut KvimEditorState, frames: Vec<Vec<egui::Event>>) -> String {
+        for (n, events) in frames.into_iter().enumerate() {
+            let input = egui::RawInput {
+                time: Some(n as f64 * 0.1),
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(800.0, 600.0),
+                )),
+                events,
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    state.ui(ui, None);
+                });
+            });
+        }
+        state.text()
+    }
+
+    fn key(key: egui::Key) -> egui::Event {
+        egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        }
+    }
+
+    /// The maintainer, 2026-09-23: "i want kvim to act like vim keys ... u to
+    /// undo etc." Type in Insert, press Escape, press `u` — and the edit is
+    /// undone.
+    ///
+    /// The failure this pins is not in the engine (which undoes correctly
+    /// when driven directly) but in egui's focus system: with a default
+    /// `EventFilter`, **Escape surrenders focus**, so the `u` that follows
+    /// never reaches the editor and is handled by the app instead. Checked
+    /// capable of failing by removing the `set_focus_lock_filter` call.
+    #[test]
+    fn escape_then_u_undoes_rather_than_dropping_focus() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello\n");
+        state.begin_insert();
+
+        let text = drive(
+            &mut state,
+            vec![
+                Vec::new(),                          // focus lands
+                Vec::new(),                          // focus lock applies
+                vec![egui::Event::Text("X".into())], // type in Insert
+                vec![key(egui::Key::Escape)],        // leave Insert
+                vec![egui::Event::Text("u".into())], // undo
+            ],
+        );
+
+        assert_eq!(
+            state.mode_label(),
+            "NORMAL",
+            "Escape did not reach the engine"
+        );
+        assert_eq!(text, "hello\n", "`u` did not undo: {text:?}");
+    }
+
+    /// Tab and the arrow keys are the editor's too, not egui's focus
+    /// navigation — the same filter, and the same failure mode if it is not
+    /// set: the keystroke moves focus to another widget instead of editing.
+    #[test]
+    fn arrow_keys_move_the_cursor_instead_of_moving_focus() {
+        let mut state = KvimEditorState::default();
+        state.load_text("abc\ndef\n");
+        state.begin_insert();
+
+        drive(
+            &mut state,
+            vec![
+                Vec::new(),
+                Vec::new(),
+                vec![key(egui::Key::Escape)],
+                vec![key(egui::Key::ArrowDown), key(egui::Key::ArrowRight)],
+                vec![egui::Event::Text("x".into())],
+            ],
+        );
+
+        // `x` in Normal mode deletes the grapheme under the cursor, so where
+        // it landed says where the arrows took it.
+        assert_eq!(
+            state.text(),
+            "abc\ndf\n",
+            "the arrows did not move the cursor to line 2, column 2"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // GH issue #282 — click-to-insert.
+    // ------------------------------------------------------------------
+
+    /// The maintainer's report, 2026-09-23: clicking the page-context editor
+    /// did not enter Insert mode. egui calls a press a *drag* once it passes
+    /// `max_click_dist` (6 px) or `max_click_duration` (0.8 s), so an
+    /// unhurried click never reached the `clicked()` arm and left the editor
+    /// in the Visual mode the drag had entered. A drag that selected nothing
+    /// is a click.
+    #[test]
+    fn a_drag_that_selected_nothing_is_a_click_and_enters_insert_mode() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello world\n");
+        // Exactly what `text_area` does on `drag_started` with no movement.
+        state.editor.move_cursor(Position::new(0, 4));
+        state.editor.handle_key(KvimKey::char('v')).unwrap();
+        state.dragging = true;
+
+        state.end_drag();
+
+        assert_eq!(state.editor.mode(), Mode::Insert);
+        assert!(!state.dragging);
+        assert_eq!(
+            state.text(),
+            "hello world\n",
+            "no key leaked into the buffer"
+        );
+    }
+
+    /// A drag that *did* select something is a real selection and is left
+    /// alone — the fix must not undo dragging-to-select.
+    #[test]
+    fn a_drag_that_selected_text_stays_in_visual_mode() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello world\n");
+        select(&mut state, Position::new(0, 0), Position::new(0, 4));
+        state.dragging = true;
+
+        state.end_drag();
+
+        assert_eq!(state.editor.mode(), Mode::Visual);
+        assert_eq!(state.clipboard_text(), "hello");
+    }
+
+    /// An editor opened by a click elsewhere (a page-context card, a banded
+    /// preview line) comes up ready to type, and asks for focus once.
+    #[test]
+    fn begin_insert_opens_ready_to_type_and_claims_focus_once() {
+        let mut state = KvimEditorState::default();
+        state.load_text("the prose body\n");
+        assert_eq!(
+            state.editor.mode(),
+            Mode::Normal,
+            "load_text starts in Normal"
+        );
+
+        state.begin_insert();
+
+        assert_eq!(state.editor.mode(), Mode::Insert);
+        assert!(state.pending_focus);
+        // The flag is one-shot: the next paint consumes it.
+        assert!(std::mem::take(&mut state.pending_focus));
+        assert!(!state.pending_focus);
+        assert_eq!(
+            state.text(),
+            "the prose body\n",
+            "no key leaked into the buffer"
+        );
+    }
+
+    /// Drive the read-only preview headlessly (no window, no GPU) through a
+    /// press at one position and a release at the same position `hold`
+    /// seconds later, and report which line it opened.
+    fn preview_press_release(hold: f64) -> Option<usize> {
+        let ctx = egui::Context::default();
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\nthree\nfour\nfive\n");
+        let pos = egui::pos2(30.0, 70.0);
+        let mut opened = None;
+
+        let mut frame = |time: f64, events: Vec<egui::Event>| {
+            let input = egui::RawInput {
+                time: Some(time),
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(800.0, 600.0),
+                )),
+                events,
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    if let Some(line) = state.ui_readonly(ui) {
+                        opened = Some(line);
+                    }
+                });
+            });
+        };
+
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(0.0, vec![egui::Event::PointerMoved(pos)]);
+        frame(0.1, vec![button(true)]);
+        frame(0.1 + hold, Vec::new());
+        frame(0.1 + hold, vec![button(false)]);
+        opened
+    }
+
+    /// GH issue #282, the other half: the page-context **preview** opens a
+    /// block on click, and a press egui promoted to a drag (held past its
+    /// 0.8 s `max_click_duration`) never reports `clicked()` — so an
+    /// unhurried click on a banded block used to open nothing at all.
+    ///
+    /// Asserted as "the slow press opens the same line the quick one does",
+    /// so the test does not depend on font metrics or panel layout.
+    #[test]
+    fn a_slow_press_on_the_preview_opens_the_same_line_a_quick_click_does() {
+        let quick = preview_press_release(0.0);
+        assert!(
+            quick.is_some(),
+            "the quick click did not land on the text area"
+        );
+        assert_eq!(
+            preview_press_release(1.5),
+            quick,
+            "a press held past egui's max_click_duration must still open its line"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // GH issue #280 — the system clipboard.
+    // ------------------------------------------------------------------
+
+    /// Put the editor in charwise Visual mode from `from` to `to`, the way
+    /// a mouse drag does.
+    fn select(state: &mut KvimEditorState, from: Position, to: Position) {
+        state.editor.move_cursor(from);
+        state.editor.handle_key(KvimKey::char('v')).unwrap();
+        state.editor.move_cursor(to);
+    }
+
+    /// The three events egui delivers *instead of* a key are recognised, and
+    /// nothing else is taken off the queue — a typed character must still
+    /// reach the editor as text.
+    #[test]
+    fn only_the_clipboard_events_are_taken_off_the_queue() {
+        assert_eq!(
+            clipboard_action(&egui::Event::Paste("hello".into())),
+            Some(ClipboardAction::Paste("hello".into()))
+        );
+        assert_eq!(
+            clipboard_action(&egui::Event::Copy),
+            Some(ClipboardAction::Copy)
+        );
+        assert_eq!(
+            clipboard_action(&egui::Event::Cut),
+            Some(ClipboardAction::Cut)
+        );
+        assert_eq!(clipboard_action(&egui::Event::Text("a".into())), None);
+        assert_eq!(
+            clipboard_action(&egui::Event::Key {
+                key: egui::Key::V,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::CTRL,
+            }),
+            None,
+            "a Ctrl+V that did arrive as a key is kvim's <C-v>, not a paste"
+        );
+    }
+
+    /// The maintainer's actual case (2026-09-23): a multi-line licence
+    /// statement pasted into a paper's `## Summary` while ingesting the NJOY
+    /// manual. Pastes at the cursor, keeps its line breaks, and marks the
+    /// buffer modified so Save offers itself.
+    #[test]
+    fn pasting_lands_at_the_cursor_and_keeps_its_line_breaks() {
+        let mut state = KvimEditorState::default();
+        state.load_text("# njoy2016\n\n## Summary\n\n\n");
+        state.editor.move_cursor(Position::new(4, 0));
+        state.paste("Distributed under the LGPL.\nSee LICENSE.\n");
+        assert_eq!(
+            state.text(),
+            "# njoy2016\n\n## Summary\n\nDistributed under the LGPL.\nSee LICENSE.\n\n"
+        );
+        assert!(state.is_modified());
+    }
+
+    /// A paste with a selection up replaces it, as every other text box on
+    /// the machine does.
+    #[test]
+    fn pasting_over_a_selection_replaces_it() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello world\n");
+        select(&mut state, Position::new(0, 0), Position::new(0, 4));
+        state.paste("goodbye");
+        assert_eq!(state.text(), "goodbye world\n");
+        assert_eq!(state.editor.mode(), Mode::Normal);
+    }
+
+    /// Pasting mid-typing must work too — Insert mode is where a user
+    /// actually is when they reach for Ctrl+V.
+    #[test]
+    fn pasting_works_from_insert_mode() {
+        let mut state = KvimEditorState::default();
+        state.load_text("ab\n");
+        state.editor.handle_key(KvimKey::char('i')).unwrap();
+        state.editor.handle_key(KvimKey::char('X')).unwrap();
+        state.paste("YZ");
+        assert_eq!(state.text(), "XYZab\n");
+    }
+
+    #[test]
+    fn an_empty_paste_changes_nothing() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello\n");
+        state.paste("");
+        assert_eq!(state.text(), "hello\n");
+        assert!(!state.is_modified());
+    }
+
+    /// Copy takes the selection, including the grapheme under the cursor —
+    /// the charwise rule `Editor::selection` warns about.
+    #[test]
+    fn copy_takes_the_charwise_selection_cursor_grapheme_included() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello world\n");
+        select(&mut state, Position::new(0, 6), Position::new(0, 10));
+        assert_eq!(state.clipboard_text(), "world");
+    }
+
+    /// A linewise selection takes whole lines with their newlines, columns
+    /// ignored — the other half of that rule.
+    #[test]
+    fn copy_takes_whole_lines_in_visual_line_mode() {
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\nthree\n");
+        state.editor.move_cursor(Position::new(0, 2));
+        state.editor.handle_key(KvimKey::char('V')).unwrap();
+        state.editor.move_cursor(Position::new(1, 1));
+        assert_eq!(state.editor.mode(), Mode::VisualLine);
+        assert_eq!(state.clipboard_text(), "one\ntwo\n");
+    }
+
+    /// With nothing selected, Ctrl+C copies the cursor line — and Ctrl+X
+    /// removes it, i.e. behaves as `dd`.
+    #[test]
+    fn with_no_selection_copy_takes_the_line_and_cut_removes_it() {
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\nthree\n");
+        state.editor.move_cursor(Position::new(1, 1));
+        assert_eq!(state.clipboard_text(), "two\n");
+        assert_eq!(state.cut(), "two\n");
+        assert_eq!(state.text(), "one\nthree\n");
+    }
+
+    #[test]
+    fn cutting_a_selection_returns_it_and_removes_it() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello world\n");
+        select(&mut state, Position::new(0, 0), Position::new(0, 5));
+        assert_eq!(state.cut(), "hello ");
+        assert_eq!(state.text(), "world\n");
+    }
+
     #[test]
     fn typing_marks_the_buffer_modified() {
         let mut state = KvimEditorState::default();
@@ -793,5 +1956,474 @@ mod tests {
             },
         };
         assert_eq!(map_event(&ctrl_d), Some(KvimKey::ctrl('d')));
+    }
+
+    // ------------------------------------------------------------------
+    // Caret-follow scrolling (maintainer, 2026-09-24).
+    // ------------------------------------------------------------------
+
+    /// The editor must know where the caret is after a frame, because that is
+    /// what the ScrollArea is asked to follow. A custom-painted text area gets
+    /// none of this for free the way `egui::TextEdit` would.
+    #[test]
+    fn a_frame_records_where_the_caret_is() {
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\nthree\n");
+        assert_eq!(state.last_cursor, None, "nothing recorded before a frame");
+        drive(&mut state, vec![vec![]]);
+        assert_eq!(
+            state.last_cursor,
+            Some(state.editor.cursor()),
+            "after a frame the recorded caret is the live one"
+        );
+    }
+
+    /// Moving down a line must change the recorded caret -- that difference is
+    /// precisely the signal that triggers a scroll. If this stops changing,
+    /// the view silently stops following.
+    #[test]
+    fn moving_to_the_next_line_moves_the_recorded_caret() {
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\nthree\nfour\n");
+        state.begin_insert();
+        // All frames in ONE `drive`: it builds a fresh `egui::Context` per
+        // call, so focus does not survive across calls.
+        drive(
+            &mut state,
+            vec![
+                Vec::new(),                          // focus lands
+                Vec::new(),                          // focus lock applies
+                vec![key(egui::Key::Escape)],        // to Normal
+                vec![egui::Event::Text("j".into())], // down one line
+            ],
+        );
+        assert_eq!(
+            state.last_cursor.expect("recorded").line,
+            1,
+            "j must move down a line, and that move must be recorded"
+        );
+    }
+
+    /// Typing a newline in Insert mode moves the caret down -- the exact
+    /// reported case ("when i go to the next line, the scrollbar should auto
+    /// go down").
+    #[test]
+    fn a_newline_in_insert_mode_advances_the_recorded_caret() {
+        let mut state = KvimEditorState::default();
+        state.load_text("");
+        state.begin_insert();
+        drive(
+            &mut state,
+            vec![Vec::new(), Vec::new(), vec![key(egui::Key::Enter)]],
+        );
+        assert_eq!(
+            state.last_cursor.expect("recorded").line,
+            1,
+            "Enter in Insert mode must advance the recorded caret a line"
+        );
+    }
+
+    /// An idle frame must NOT re-trigger a scroll, or the view would be pinned
+    /// to the caret and wheel-scrolling a focused editor would snap straight
+    /// back. The caret is unchanged across consecutive idle frames.
+    #[test]
+    fn an_idle_frame_does_not_move_the_caret() {
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\n");
+        drive(&mut state, vec![vec![]]);
+        let first = state.last_cursor;
+        drive(&mut state, vec![vec![], vec![]]);
+        assert_eq!(
+            state.last_cursor, first,
+            "idle frames leave the caret alone, so nothing asks to scroll"
+        );
+    }
+
+    /// End to end, not just the recorded caret: `G` on a long buffer must
+    /// actually move the `ScrollArea` so the caret's line is on screen, and
+    /// `gg` must bring it back (maintainer, 2026-09-28: "when the cursor
+    /// moves beyond the scroll area ... the scrollbar shld follow"). The
+    /// idle frames after each jump let egui's scroll animation (0.1-0.3 s)
+    /// finish; `drive` spaces frames 0.1 s apart.
+    #[test]
+    fn jumping_past_the_viewport_scrolls_it_to_the_caret() {
+        let text: String = (1..=300).map(|n| format!("line {n}\n")).collect();
+        let mut state = KvimEditorState::default();
+        state.load_text(&text);
+        state.begin_insert();
+        let idle = || vec![Vec::new(); 5];
+        let mut frames = vec![Vec::new(), Vec::new(), vec![key(egui::Key::Escape)]];
+        frames.push(vec![egui::Event::Text("G".into())]);
+        frames.extend(idle());
+        drive(&mut state, frames.clone());
+        let caret = state.editor.cursor().line;
+        let top = state.top_visible_line();
+        let page = (600.0 / state.line_height) as usize;
+        assert!(caret >= 299, "G reached the end (line {caret})");
+        assert!(top > 0, "the view scrolled down (top line {top})");
+        assert!(
+            top <= caret && caret < top + page,
+            "the caret's line {caret} is inside the view starting at {top} ({page} lines max)"
+        );
+
+        // `gg` back up, in ONE `drive` from a fresh state: focus does not
+        // survive across `drive` calls. The frames above already put the
+        // view at the bottom, as just asserted.
+        let mut again = KvimEditorState::default();
+        again.load_text(&text);
+        again.begin_insert();
+        frames.push(vec![egui::Event::Text("g".into())]);
+        frames.push(vec![egui::Event::Text("g".into())]);
+        frames.extend(idle());
+        drive(&mut again, frames);
+        assert_eq!(again.editor.cursor().line, 0, "gg reached the top");
+        assert_eq!(again.top_visible_line(), 0, "and the view followed it up");
+    }
+
+    // ------------------------------------------------------------------
+    // Ex-command intents reach the host (maintainer, 2026-09-24).
+    // ------------------------------------------------------------------
+
+    /// `:w` must reach the host as [`EditorSignal::Write`]. kvim performs no
+    /// I/O itself, so a discarded response is a `:w` that silently does
+    /// nothing -- which is what used to happen.
+    #[test]
+    fn write_reaches_the_host() {
+        let mut state = KvimEditorState::default();
+        state.load_text("note\n");
+        state.begin_insert();
+        let out = drive_signal(
+            &mut state,
+            vec![
+                key(egui::Key::Escape),
+                egui::Event::Text(":".into()),
+                egui::Event::Text("w".into()),
+                key(egui::Key::Enter),
+            ],
+        );
+        assert_eq!(out, Some(EditorSignal::Write));
+    }
+
+    /// `:q` must reach the host as [`EditorSignal::Quit`] so the panel can
+    /// treat it as Cancel.
+    ///
+    /// The buffer is left **unmodified** here: vim refuses a bare `:q` on a
+    /// dirty buffer ("no write since last change"), and that refusal is a
+    /// `Message`, not a `Quit`. See
+    /// [`a_dirty_buffer_refuses_bare_quit_and_says_why`] for that half.
+    #[test]
+    fn quit_reaches_the_host() {
+        let mut state = KvimEditorState::default();
+        state.load_text("note\n");
+        state.begin_insert();
+        let out = drive_signal(
+            &mut state,
+            vec![
+                key(egui::Key::Escape),
+                egui::Event::Text(":".into()),
+                egui::Event::Text("q".into()),
+                key(egui::Key::Enter),
+            ],
+        );
+        // `load_text` leaves the engine buffer dirty, which is also the state
+        // a real annotation note is in the moment anyone types `:q`. Vim
+        // refuses a bare `:q` there; the signal reports the refusal so the
+        // host can decide, and the annotation panel takes it as Cancel.
+        assert_eq!(out, Some(EditorSignal::QuitUnsaved));
+        assert!(
+            state
+                .last_message
+                .as_deref()
+                .unwrap_or("")
+                .contains("no write"),
+            "the refusal must be VISIBLE -- discarding it is why :q looked dead"
+        );
+    }
+
+    /// `:wq` collapses to WriteThenQuit, which the annotation panel treats as
+    /// a plain save -- saving there already closes the editor.
+    #[test]
+    fn write_then_quit_reaches_the_host() {
+        let mut state = KvimEditorState::default();
+        state.load_text("note\n");
+        state.begin_insert();
+        let out = drive_signal(
+            &mut state,
+            vec![
+                key(egui::Key::Escape),
+                egui::Event::Text(":".into()),
+                egui::Event::Text("w".into()),
+                egui::Event::Text("q".into()),
+                key(egui::Key::Enter),
+            ],
+        );
+        assert_eq!(out, Some(EditorSignal::WriteThenQuit));
+    }
+
+    /// Ordinary typing signals nothing -- the host must not save on every
+    /// keystroke.
+    #[test]
+    fn ordinary_typing_signals_nothing() {
+        let mut state = KvimEditorState::default();
+        state.load_text("");
+        state.begin_insert();
+        let out = drive_signal(
+            &mut state,
+            "hello"
+                .chars()
+                .map(|c| egui::Event::Text(c.to_string()))
+                .collect(),
+        );
+        assert_eq!(out, None);
+        assert_eq!(state.text(), "hello");
+    }
+
+    /// A signal is consumed once. Leaving it latched would re-save (or
+    /// re-cancel) on the next frame, for as long as the panel stayed open.
+    #[test]
+    fn a_signal_is_delivered_once() {
+        let mut state = KvimEditorState::default();
+        state.load_text("note\n");
+        state.begin_insert();
+        let first = drive_signal(
+            &mut state,
+            vec![
+                key(egui::Key::Escape),
+                egui::Event::Text(":".into()),
+                egui::Event::Text("w".into()),
+                key(egui::Key::Enter),
+            ],
+        );
+        assert_eq!(first, Some(EditorSignal::Write));
+        let second = drive_signal(&mut state, vec![]);
+        assert_eq!(second, None, "the signal must not latch across frames");
+    }
+
+    /// Drive one focused frame-set and return whatever signal `ui` produced.
+    fn drive_signal(state: &mut KvimEditorState, events: Vec<egui::Event>) -> Option<EditorSignal> {
+        let ctx = egui::Context::default();
+        let mut out = None;
+        // Two empty frames first so focus lands and the focus lock applies,
+        // then the frame carrying the keys -- all in one Context, since a
+        // fresh Context loses focus.
+        for (n, ev) in [Vec::new(), Vec::new(), events].into_iter().enumerate() {
+            let input = egui::RawInput {
+                time: Some(n as f64 * 0.1),
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(800.0, 600.0),
+                )),
+                events: ev,
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    if let Some(sig) = state.ui(ui, None) {
+                        out = Some(sig);
+                    }
+                });
+            });
+        }
+        out
+    }
+
+    // ------------------------------------------------------------------
+    // Code buffers (#857): space indent, caret placement, completion.
+    // ------------------------------------------------------------------
+
+    fn text(t: &str) -> Vec<egui::Event> {
+        t.chars().map(|c| egui::Event::Text(c.to_string())).collect()
+    }
+
+    fn words(names: &[&str]) -> Arc<CodeWords> {
+        use kovan_common::review::index::{FunctionIndex, ItemKind};
+        let entries: Vec<FunctionIndex> = names
+            .iter()
+            .map(|n| FunctionIndex {
+                id: format!("fn:{n}"),
+                name: (*n).into(),
+                qual: (*n).into(),
+                item: ItemKind::Fn,
+                shape: None,
+                lines: [1, 2],
+                hash: String::new(),
+                doc_hash: String::new(),
+                callees: Vec::new(),
+                uses: Vec::new(),
+                reached_by: Vec::new(),
+                test: false,
+                index_out_of_date: false,
+                physical_interface: false,
+            })
+            .collect();
+        Arc::new(CodeWords::from_entries(entries.iter().map(|f| ("a/src/x.rs", true, f)), "a/src/x.rs"))
+    }
+
+    /// **Methodology.** The same keys, `A` then Enter then `y`, are typed at
+    /// the end of `fn a() {` in a Rust code buffer and in a plain buffer.
+    /// Pass: the Rust buffer's new line is indented with four spaces and
+    /// holds no tab; the plain buffer keeps the engine default, a tab (the
+    /// maintainer's own Neovim setting, which the Markdown editor keeps).
+    ///
+    /// **Result (2026-10-13).** As stated. Before this change the quick fix
+    /// used the plain engine, so every new block line of a Rust function
+    /// began with a literal tab.
+    #[test]
+    fn a_rust_buffer_indents_with_spaces_where_a_plain_one_keeps_tabs() {
+        let frames = || vec![Vec::new(), Vec::new(), text("A"), vec![key(egui::Key::Enter)], text("y")];
+        let mut code = KvimEditorState::default();
+        code.set_code(Some(Language::Rust), None);
+        code.load_text("fn a() {\n}\n");
+        code.pending_focus = true;
+        assert_eq!(drive(&mut code, frames()), "fn a() {\n    y\n}\n");
+
+        let mut plain = KvimEditorState::default();
+        plain.load_text("fn a() {\n}\n");
+        plain.pending_focus = true;
+        assert_eq!(drive(&mut plain, frames()), "fn a() {\n\ty\n}\n");
+    }
+
+    /// Run `f` inside one headless frame, with a `Ui` to measure text in.
+    fn in_frame<T>(f: impl FnOnce(&egui::Ui) -> T) -> T {
+        let ctx = egui::Context::default();
+        let mut out = None;
+        let mut f = Some(f);
+        let _ = ctx.run_ui(egui::RawInput::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                if let Some(f) = f.take() {
+                    out = Some(f(ui));
+                }
+            });
+        });
+        out.expect("the frame ran")
+    }
+
+    /// **Methodology.** Two lines are measured column by column: one with a
+    /// tab and characters outside ASCII (`σ`, `·`, an arrow), one of plain
+    /// ASCII. The reference for "where the text is drawn" is independent of
+    /// the code under test: the width of the line's first `c` columns laid
+    /// out on their own. Pass criteria: (1) `x_of` equals that width at
+    /// every column of both lines, to within one pixel (the layout snaps each
+    /// character to a whole pixel, a lone prefix keeps its last fraction); (2) a click at a column's own x lands
+    /// back on that column (`col_at` inverts `x_of`); (3) the column after
+    /// the tab is more than one space-width in.
+    ///
+    /// **Result (2026-10-13).** All three hold in the headless default font.
+    /// On the plain ASCII line the old rule (`column × width of a space`)
+    /// agrees with the drawn text to within a pixel at every column, so
+    /// ordinary text was never the problem; the last two assertions pin
+    /// that, and that the tab line is where the old rule is wrong (by three
+    /// cells per tab). A quick fix used to INSERT a tab on every new block
+    /// line, which is how a Rust function came to have the caret three
+    /// cells left of the text.
+    #[test]
+    fn the_caret_sits_where_the_text_is_drawn() {
+        let mut state = KvimEditorState::default();
+        state.load_text("\tlet σ_t = r·p; // → Pa\nlet x = 1;\n");
+        in_frame(|ui| {
+            let font = FontId::monospace(CHAR_SIZE);
+            let space = ui.ctx().fonts_mut(|f| f.glyph_width(&font, ' '));
+            let drawn_width = |t: String| {
+                ui.painter().layout_job(egui::text::LayoutJob::simple_singleline(t, font.clone(), Color32::WHITE)).size().x
+            };
+            for line in 0..2 {
+                let len = state.editor.buffer().line_len(line);
+                for c in 0..=len {
+                    let x = state.x_of(ui, Position::new(line, c));
+                    let reference = drawn_width(state.prefix(Position::new(line, c)));
+                    assert!((x - reference).abs() < 1.0, "line {line} column {c}: {x} vs drawn {reference}");
+                    assert_eq!(state.col_at(ui, line, x + 0.01), c, "a click at line {line} column {c}'s own x");
+                }
+            }
+            assert!(state.x_of(ui, Position::new(0, 1)) > 1.5 * space, "the tab is wider than one cell");
+            let end = state.editor.buffer().line_len(1);
+            for c in 0..=end {
+                let x = state.x_of(ui, Position::new(1, c));
+                assert!((x - c as f32 * space).abs() < 1.0, "plain text, column {c}: {x} vs old rule {}", c as f32 * space);
+            }
+            let after_tab = state.x_of(ui, Position::new(0, 1));
+            assert!(after_tab - space > 2.5 * space, "old rule is about three cells short after a tab: {after_tab} vs {space}");
+        });
+    }
+
+    fn ctrl(key: egui::Key) -> egui::Event {
+        egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::CTRL }
+    }
+
+    /// **Methodology.** In a Rust code buffer with three indexed names,
+    /// `layer.iso` is typed on a fresh line. Pass: nothing opens while
+    /// typing; Ctrl+N opens the list on the two names that start with
+    /// `iso`, nearest and shortest first; a second Ctrl+N moves to the
+    /// second; Enter replaces `iso` with it WITHOUT breaking the line, and
+    /// leaves Insert mode on with the caret after the name.
+    ///
+    /// **Result (2026-10-13).** As stated.
+    #[test]
+    fn a_name_completes_on_ctrl_n_and_enter_accepts() {
+        let mut state = KvimEditorState::default();
+        state.set_code(Some(Language::Rust), Some(words(&["isothermal_thinning_factor", "isotherm", "actual_thickness"])));
+        state.load_text("fn a() {\n}\n");
+        state.pending_focus = true;
+        let ctx = egui::Context::default();
+        drive_in(&ctx, &mut state, vec![Vec::new(), Vec::new(), text("o"), text("layer.iso")]);
+        assert!(state.popup.is_empty(), "typing alone never opens the list");
+        drive_in(&ctx, &mut state, vec![vec![ctrl(egui::Key::N)]]);
+        let offered: Vec<&str> = state.popup.iter().map(|w| w.name.as_str()).collect();
+        assert_eq!(offered, ["isotherm", "isothermal_thinning_factor"]);
+        assert_eq!(state.popup_sel, 0, "Ctrl+N opens on the first name");
+        let out = drive_in(&ctx, &mut state, vec![vec![ctrl(egui::Key::N)], vec![key(egui::Key::Enter)], text("()")]);
+        assert_eq!(out, "fn a() {\n    layer.isothermal_thinning_factor()\n}\n");
+        assert_eq!(state.mode_label(), "INSERT");
+        assert!(state.popup.is_empty() && !state.popup_open, "the list shuts once a name is accepted");
+        // With the list shut, Enter is an ordinary new line again.
+        let out = drive_in(&ctx, &mut state, vec![vec![key(egui::Key::Enter)]]);
+        assert!(out.starts_with("fn a() {\n    layer.isothermal_thinning_factor()\n"), "{out:?}");
+        assert_eq!(out.lines().count(), 4, "{out:?}");
+    }
+
+    /// The list opens only in a code buffer and only on Ctrl+N / Ctrl+P;
+    /// Ctrl+P opens on the last name; it follows the typing and shuts when
+    /// nothing matches; Esc shuts it and leaves Insert mode.
+    #[test]
+    fn the_completion_list_opens_only_when_asked() {
+        let mut plain = KvimEditorState::default();
+        plain.load_text("\n");
+        plain.pending_focus = true;
+        drive(&mut plain, vec![Vec::new(), Vec::new(), text("i"), text("isoth"), vec![ctrl(egui::Key::N)]]);
+        assert!(plain.popup.is_empty(), "a plain buffer has no code completion");
+
+        let mut state = KvimEditorState::default();
+        state.set_code(Some(Language::Rust), Some(words(&["isotherm", "isobar"])));
+        state.load_text("\n");
+        state.pending_focus = true;
+        let ctx = egui::Context::default();
+        drive_in(&ctx, &mut state, vec![Vec::new(), Vec::new(), text("i"), text("iso")]);
+        assert!(state.popup.is_empty(), "not while typing");
+        drive_in(&ctx, &mut state, vec![vec![ctrl(egui::Key::P)]]);
+        assert_eq!(state.popup.len(), 2);
+        assert_eq!(state.popup[state.popup_sel].name, "isotherm", "Ctrl+P opens on the last name");
+        drive_in(&ctx, &mut state, vec![text("t")]);
+        assert_eq!(state.popup.iter().map(|w| w.name.as_str()).collect::<Vec<_>>(), ["isotherm"], "it follows the typing");
+        drive_in(&ctx, &mut state, vec![text("z")]);
+        assert!(state.popup.is_empty() && !state.popup_open, "nothing matches: it shuts");
+        drive_in(&ctx, &mut state, vec![vec![key(egui::Key::Backspace)], vec![ctrl(egui::Key::N)]]);
+        assert_eq!(state.popup.len(), 1);
+        drive_in(&ctx, &mut state, vec![vec![key(egui::Key::Escape)]]);
+        assert!(state.popup.is_empty() && state.mode_label() == "NORMAL", "Esc shuts it and leaves Insert");
+    }
+
+    /// A Rust code buffer paints through the coloured path without losing
+    /// text, and reads as unmodified again after `mark_saved`.
+    #[test]
+    fn a_code_buffer_draws_and_tracks_saves() {
+        let mut state = KvimEditorState::default();
+        state.set_code(Some(Language::Rust), None);
+        state.load_text("/// Doc.\nfn a() -> u8 { 1 } // one\n");
+        state.pending_focus = true;
+        let out = drive(&mut state, vec![Vec::new(), Vec::new(), text("A"), text("x")]);
+        assert_eq!(out, "/// Doc.x\nfn a() -> u8 { 1 } // one\n");
+        assert!(state.is_modified());
+        state.mark_saved();
+        assert!(!state.is_modified());
     }
 }

@@ -1,0 +1,102 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T The physical volcanology of the 1600 eruption of Huaynaputina, southern Peru\r\n%V 62\r\n%P 493–518\r\n%J Bulletin of Volcanology\r\n%A Adams, Nancy K\r\n%A DeSilva, Shanaka L\r\n%A Self, Steven\r\n%A Salas, Guido\r\n%A Schubring, Steven\r\n%A Permenter, Jason L\r\n%A Arbesman, Kendra\r\n%D 2001\r\n%K Vulcanian eruptions\r\nbreadcrust\r\nplinian\r\n\r\n"
+	},
+	"testCase01": {
+		"status": 200,
+		"output": "%0 Book\r\n%7 ninth Dover printing, tenth GPO printing\r\n%T Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables\r\n%C New York\r\n%I Dover\r\n%A Abramowitz, Milton\r\n%A Stegun, Irene A.\r\n%D 1964\r\n\r\n%0 Book\r\n%T The Yankee Years\r\n%I Doubleday\r\n%@ 0385527403\r\n%A Torre, Joe\r\n%A Verducci, Tom\r\n%D 2008\r\n\r\n"
+	},
+	"testCase02": {
+		"status": 200,
+		"output": "%0 Conference Paper\r\n%T Some publication title\r\n%P 330—331\r\n%A Author, First\r\n%A Author, Second\r\n\r\n%0 Book\r\n%T Proceedings of the Xth Conference on XYZ\r\n%E Editor, First\r\n%E Editor, Second\r\n%D 2006-10\r\n\r\n"
+	},
+	"testCase03": {
+		"status": 200,
+		"output": "%0 Book\r\n%7 1st,\r\n%T Design of a Carbon Fiber Composite Grid Structure for the GLAST Spacecraft Using a Novel Manufacturing Technique\r\n%C Palo Alto\r\n%I Stanford Press\r\n%@ 0-69-697269-4\r\n%A von Hicks, Michael, III\r\n%D 2001\r\n\r\n"
+	},
+	"testCase04": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T USGS monitoring ecological impacts\r\n%V 107\r\n%N 29\r\n%P 29\r\n%J Oil & Gas Journal\r\n%A Oliveira, A\r\n%D 2009\r\n\r\n"
+	},
+	"testCase05": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T non-braking space: ; accented characters: ñ and ñ; tilde operator: ∼\r\n\r\n"
+	},
+	"testCase06": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Test of markupconversion: Italics, bold, superscript, subscript, and small caps: Mitochondrial DNA₂ sequences suggest unexpected phylogenetic position of Corso-Sardinian grass snakes (<i>Natrix cetti</i>) and <b>do not</b> support their <span style=\"small-caps\">species status</span>, with notes on phylogeography and subspecies delineation of grass snakes.\r\n%V 12\r\n%P 71-80\r\n%J Actes du 4<sup>ème</sup> Congrès Français d'Acoustique\r\n%A Fritz, U.\r\n%A Corti, C.\r\n%A Päckert, M.\r\n%D 2012\r\n\r\n"
+	},
+	"testCase07": {
+		"status": 200,
+		"output": "%0 Generic\r\n%T Public Service Research Foundation\r\n%U http://www.americanrightsatwork.org/blogcategory-275/\r\n%A Work, American Rights at\r\n%D 2012\r\n\r\n"
+	},
+	"testCase08": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Zotero: single attachment\r\n\r\n%0 Journal Article\r\n%T Zotero: multiple attachments\r\n\r\n%0 Journal Article\r\n%T Zotero: linked attachments (old)\r\n\r\n%0 Journal Article\r\n%T Zotero: linked attachments\r\n\r\n%0 Journal Article\r\n%T Mendeley: single attachment\r\n%U https://forums.zotero.org/discussion/28347/unable-to-get-pdfs-stored-on-computer-into-zotero-standalone/\r\n\r\n%0 Journal Article\r\n%T Mendeley: escaped characters\r\n\r\n%0 Journal Article\r\n%T Citavi: single attachment\r\n%U https://forums.zotero.org/discussion/35909/bibtex-import-from-citavi-including-pdf-attachments/\r\n\r\n"
+	},
+	"testCase09": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T extbackslash extbackslash{}: {\r\n\r\n"
+	},
+	"testCase10": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Increasing cardiopulmonary resuscitation provision in communities with low bystander cardiopulmonary resuscitation rates: a science advisory from the American Heart Association for healthcare providers, policymakers, public health departments, and community leaders\r\n%V 127\r\n%N 12\r\n%P 1342–1350\r\n%G eng\r\n%J Circulation\r\n%A Sasson, Comilla\r\n%A Meischke, Hendrika\r\n%A Abella, Benjamin S\r\n%A Berg, Robert A\r\n%A Bobrow, Bentley J\r\n%A Chan, Paul S\r\n%A Root, Elisabeth Dowling\r\n%A Heisler, Michele\r\n%A Levy, Jerrold H\r\n%A Link, Mark\r\n%A Masoudi, Frederick\r\n%A Ong, Marcus\r\n%A Sayre, Michael R\r\n%A Rumsfeld, John S\r\n%A Rea, Thomas D\r\n%A American Heart Association Council on Quality of Care and Outcomes Research\r\n%A Emergency Cardiovascular Care Committee\r\n%A Council on Cardiopulmonary, Critical Care, Perioperative and Resuscitation\r\n%A Council on Clinical Cardiology\r\n%A Council on Cardiovascular Surgery and Anesthesia\r\n%D 2013-03\r\n%K Administrative Personnel\r\nAmerican Heart Association\r\nCardiopulmonary Resuscitation\r\nCommunity Health Services\r\nHealth Personnel\r\nHeart Arrest\r\nHumans\r\nLeadership\r\nPublic Health\r\nUnited States\r\n\r\n"
+	},
+	"testCase11": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Testing identifier import\r\n%A Smith, John\r\n\r\n"
+	},
+	"testCase12": {
+		"status": 200,
+		"output": "%0 Book Section\r\n%T Testing identifier import chapter\r\n%A Smith, John\r\n\r\n"
+	},
+	"testCase13": {
+		"status": 200,
+		"output": "%0 Thesis\r\n%T Regelbasierte Extraktion und asymmetrische Fusion bibliographischer Informationen\r\n%I Diplomarbeit, Universität Trier, FB IV, DBIS/DBLP\r\n%R Master's Thesis\r\n%U http://dblp.uni-trier.de/papers/DiplomarbeitOliverHoffmann.pdf\r\n%A Hoffmann, Oliver\r\n%D 2009\r\n\r\n%0 Thesis\r\n%T Algorithms for the Bregman k-Median problem\r\n%I University of Paderborn\r\n%R PhD Thesis\r\n%U http://digital.ub.uni-paderborn.de/hs/content/titleinfo/1561\r\n%A Ackermann, Marcel R.\r\n%D 2009\r\n\r\n"
+	},
+	"testCase14": {
+		"status": 200,
+		"output": "%0 Conference Paper\r\n%T Trajectory Pattern Mining\r\n%S KDD '07\r\n%C New York, NY, USA\r\n%I ACM\r\n%P 330–339\r\n%@ 978-1-59593-609-7\r\n%U http://doi.acm.org/10.1145/1281192.1281230\r\n%B Proceedings of the 13th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining\r\n%A Giannotti, Fosca\r\n%A Nanni, Mirco\r\n%A Pinelli, Fabio\r\n%A Pedreschi, Dino\r\n%D 2007\r\n%K spatio-temporal data mining\r\ntrajectory patterns\r\n\r\n"
+	},
+	"testCase15": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Die Alterung der Gesellschaft und der Generationenkonflikt in Europa\r\n%V 44\r\n%N 6\r\n%C Stuttgart\r\n%I Lucius & Lucius\r\n%P 426–446\r\n%U https://madoc.bib.uni-mannheim.de/40756/\r\n%G Deutsch\r\n%J Zeitschrift für Soziologie : ZfS\r\n%A Naumann, Elias\r\n%A Heß, Moritz\r\n%A Steinkopf, Leander\r\n%D 2015\r\n\r\n%0 Journal Article\r\n%T Higher-order Erdős-Szekeres theorems\r\n%V 244\r\n%P 1–15\r\n%U http://dx.doi.org/10.1016/j.aim.2013.04.020\r\n%J Advances in Mathematics\r\n%A Eliáš, Marek\r\n%A Matoušek, Jiří\r\n%D 2013\r\n\r\n"
+	},
+	"testCase16": {
+		"status": 200,
+		"output": "%0 Book Section\r\n%T Búsáhaldabyltingin : Pólitískt jafnræði og þátttaka almennings í mótmælum\r\n%C Reykjavik\r\n%I Félagsvísindastofnun Háskóla Íslands\r\n%P 36–44\r\n%G isl\r\n%A Önnudóttir, Eva H.\r\n%D 2011\r\n\r\n"
+	},
+	"testCase17": {
+		"status": 200,
+		"output": "%0 Web Page\r\n%T Zotero's Homepage\r\n%U https://www.zotero.org/\r\n%A Scholarship, Corporation for Digital\r\n%D 2019\r\n\r\n"
+	},
+	"testCase18": {
+		"status": 200,
+		"output": "%0 Book\r\n%T The impossible ℡—book\r\n%I D\\ëad Po<sub>eee</sub>t Society\r\n%A Swe\\ıg, Stefan\r\n%A D\\écoret, Xavier\r\n%D 1942-03\r\n\r\n"
+	},
+	"testCase19": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T A Rural Mobile Health Obesity Wellness Intervention for Older Adults with Obesity\r\n%* the authors\r\n%U https://www.cs.dartmouth.edu/~kotz/research/batsis-rural/index.html\r\n%J BMC Geriatrics\r\n%A Batsis, John A.\r\n%A Petersen, Curtis L.\r\n%A Clark, Matthew M.\r\n%A Cook, Summer B.\r\n%A Kotz, David\r\n%A Gooding, Tyler L.\r\n%A Roderka, Meredith N.\r\n%A Al-Nimr, Rima I.\r\n%A Pidgeon, Dawna M.\r\n%A Haedrich, Ann\r\n%A Wright, K. C.\r\n%A Aquila, Christina\r\n%A Mackenzie, Todd A.\r\n%D 2020-12\r\n\r\n"
+	},
+	"testCase20": {
+		"status": 200,
+		"output": "%0 Report\r\n%T Benchmarking Methodology for EVPN and PBB-EVPN\r\n%I Internet Engineering Task Force\r\n%R Internet-Draft\r\n%U https://datatracker.ietf.org/doc/html/draft-ietf-bmwg-evpntest-09\r\n%X This document defines methodologies for benchmarking EVPN and PBB- EVPN performance. EVPN is defined in RFC 7432, and is being deployed in Service Provider networks. Specifically, this document defines the methodologies for benchmarking EVPN/PBB-EVPN convergence, data plane performance, and control plane performance.\r\n%A jacob, sudhin\r\n%A Tiruveedhula, Kishore\r\n%D 2021-06-18\r\n\r\n"
+	},
+	"testCase21": {
+		"status": 200,
+		"output": "%0 Conference Paper\r\n%T White Functionals for Anomaly Detection in Dynamical Systems\r\n%V 22\r\n%I Curran Associates, Inc.\r\n%U https://proceedings.neurips.cc/paper/2009/file/0188e8b8b014829e2fa0f430f0a95961-Paper.pdf\r\n%B Advances in Neural Information Processing Systems\r\n%A Cuturi, Marco\r\n%A Vert, Jean-philippe\r\n%A D' aspremont, Alexandre\r\n%E Bengio, Y.\r\n%E Schuurmans, D.\r\n%E Lafferty, J.\r\n%E Williams, C.\r\n%E Culotta, A.\r\n%D 2009\r\n\r\n"
+	},
+	"testCase22": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Production of Σ⁰ Hyperon and Search of Σ⁰ Hypernuclei at LHC with ALICE\r\n%V 85\r\n%N 6\r\n%P 970-975\r\n%U https://cds.cern.ch/record/2855446\r\n%J Phys. At. Nucl.\r\n%A Borissov, Alexander\r\n%A Solokhin, Sergei\r\n%D 2023\r\n\r\n"
+	},
+	"testCase23": {
+		"status": 200,
+		"output": "%0 Book\r\n%T Poczucie jakości życia a swoboda działania i odpowiedzialność\r\n%I Stowarzyszenie Psychologia i Architektura\r\n%A Derbis, Romuald\r\n%A Bańka, Augustyn\r\n%D 1998\r\n\r\n"
+	},
+	"dates_and_markup": {
+		"status": 200,
+		"output": "%0 Journal Article\r\n%T Dates and Markup in \\emphBib\\TeX: a kovan probe\r\n%V 12\r\n%N 3\r\n%P 101–110\r\n%U http://example.com/a?b=c&d=e\r\n%J Journal of Testing and Probing\r\n%A Smith, John\r\n%A de la Fontaine, Jean\r\n%A Kovan Collaboration\r\n%D 2021-05\r\n%K alpha\r\nbeta\r\ngamma\r\n\r\n%0 Book\r\n%T A Second Record\r\n%C Singapore\r\n%I Kovan Press\r\n%@ 978-3-16-148410-0\r\n%E Editor, Ed\r\n%D 1999\r\n\r\n%0 Generic\r\n%T Date only\r\n%D 2021 May\r\n\r\n"
+	}
+}

@@ -1,0 +1,27 @@
+Reconstructing ENDF/B-VIII.0 cross sections at 600 K (setup, not transport):
+  graphite S(alpha,beta): ENDF/B-VIII.0 tsl-crystalline-graphite @ 600 K … ok
+  reconstructing U235   from n-092_U_235-ENDF8.0.endf … 23.9s
+  reconstructing U238   from n-092_U_238.endf … 20.5s
+  reconstructing O16    from n-008_O_016-ENDF8.0.endf … 241.1ms
+  reconstructing C12    from n-006_C_012-ENDF8.0.endf … 50.8ms
+  reconstructing C12    from n-006_C_012-ENDF8.0.endf … 50.8ms
+  reconstructing Si28   from n-014_Si_028-ENDF8.0.endf … 113.7ms
+  reconstructing Li6    from n-003_Li_006-ENDF8.0.endf … 35.2ms
+  reconstructing Li7    from n-003_Li_007-ENDF8.0.endf … 34.7ms
+  reconstructing Be9    from n-004_Be_009-ENDF8.0.endf … 29.9ms
+  reconstructing F19    from n-009_F_019-ENDF8.0.endf … 77.9ms
+  data ready in 53.5 s
+
+DH treatment V&V — FHR reference UNIT CELL, every treatment
+===========================================================
+  histories  : 7200 x [15 inactive + 40 active]
+  data       : HIGH tier, ENDF/B-VIII.0 + crystalline-graphite S(a,b), 600 K
+  geometry   : 1.9 cm fuel zone / 2.0 cm pebble / FLiBe to r = 3.0 cm, reflective
+  reference  : OpenMC explicit TRISO k = 1.36510 +/- 0.00063
+
+(ring-RPT uses the OpenMC-fitted r_inner = 1.4934 cm; set OUTRAM_DH_VV_FIT_RPT=1
+ to fit this code's own radius instead — about a dozen extra solves)
+
+  naive homogenisation         k = 1.34019 +/- 0.00280      29.9 s   0 particles stored
+
+No exact arm completed — nothing to compare against.

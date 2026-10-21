@@ -1,0 +1,47 @@
+{
+	"case": "synthetic_lulu",
+	"input": {
+		"kind": "forced",
+		"translator": "Lulu.js",
+		"search": {
+			"itemType": "book",
+			"ISBN": "9780951470329"
+		}
+	},
+	"synthetic": true,
+	"source": "kovan-authored HTML shaped as the pages Lulu.js scrapes (lulu.com was not contacted; the translator is disabled upstream). Written 2026-10-07 for #756.",
+	"exchanges": [
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://www.lulu.com/shop/search.ep?keyWords=9780951470329",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://www.lulu.com/shop/search.ep?keyWords=9780951470329",
+				"headers": {
+					"content-type": "text/html; charset=utf-8"
+				},
+				"body": "<!DOCTYPE html><html><head><title>Search</title></head><body><div class='middle-column'><div class='products'><div><p><a class='title' href='/shop/jane-doe/a-synthetic-book/paperback/product-12345.html'>A Synthetic Book</a></p></div><div><a class='title' href='/shop/other/product-999.html'>Other</a></div></div></div></body></html>",
+				"bodyEncoding": "utf8"
+			}
+		},
+		{
+			"request": {
+				"method": "GET",
+				"url": "https://www.lulu.com/shop/jane-doe/a-synthetic-book/paperback/product-12345.html",
+				"body": null
+			},
+			"response": {
+				"status": 200,
+				"url": "https://www.lulu.com/shop/jane-doe/a-synthetic-book/paperback/product-12345.html",
+				"headers": {
+					"content-type": "text/html; charset=utf-8"
+				},
+				"body": "<!DOCTYPE html><html><head><title>A Synthetic Book</title></head><body><div class='product-information'><h2>a SYNTHETIC book about reactor kinetics: theory   and practice</h2><h2>second heading</h2><span class='authors'><a href='#'><span>Dr. Jane Q. Doe Ph.D.</span></a>, <a href='#'><span>john   smith</span></a></span></div><div class='description'><span>First part of the text.<span class='more-text'>  and   the rest.</span></span><span class='expandable-text'>more</span></div><dl class='product-details'><dt>ISBN</dt><dd class='isbn'>978-0-9514703-2-9</dd><dd class='publisher'> Synthetic  Press </dd><dd class='copyright-info'>Standard Copyright License</dd><dd class='language'>English</dd><dd class='publication-date'>March 3, 2012</dd><dd class='pages'>212</dd></dl></body></html>",
+				"bodyEncoding": "utf8"
+			}
+		}
+	]
+}

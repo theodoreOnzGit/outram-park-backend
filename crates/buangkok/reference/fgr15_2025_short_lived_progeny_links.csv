@@ -1,0 +1,7 @@
+# Short-lived progeny used for the external-pathway progeny correction.
+# Cs-137 -> Ba-137m in 94.4 % of decays: FGR-15 (EPA 402-R-25-001, July 2025),
+# Appendix worked Example 4, printed pages 269-270 ("In 94.4 percent of the
+# 137Cs transformations, the radioactive decay product 137mBa is formed";
+# "0.944"). Provenance: crates/buangkok/docs/References.md.
+parent,daughter,yield
+Cs-137,Ba-137m,0.944

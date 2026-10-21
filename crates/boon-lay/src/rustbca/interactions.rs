@@ -1,0 +1,572 @@
+// SPDX-License-Identifier: GPL-3.0
+//
+// RustBCA copy — provenance
+// -------------------------
+// Upstream project : RustBCA — https://github.com/lcpp-org/RustBCA
+// Upstream version : v3.0.0, commit a356280d564bbdfbe74b97f32db0776444da58a5
+// Upstream source  : src/interactions.rs
+// Authors          : Jon Drobny <drobny2@illinois.edu>, Jon Drobny
+//                    <jdrobny@tae.com> (upstream Cargo.toml); no copyright line upstream
+// Original license : GNU GPL v3 (upstream LICENSE copied beside this file)
+// Local changes    : libm routing (Real::); the three LazyLock tables replaced by
+//                    direct, bit-identical evaluation (table_pair,
+//                    coulomb_constant_lookup); coulomb_constant made pub(super)
+//                    (full list: module docs in mod.rs)
+
+use super::*;
+use math::triangular_index;
+
+/// Analytic solutions to outermost root of the interaction potential.
+pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
+
+    match interaction_potential {
+        InteractionPotential::LENNARD_JONES_12_6{sigma, ..} | InteractionPotential::LENNARD_JONES_65_6{sigma, ..} => sigma,
+        InteractionPotential::MORSE{D, alpha, r0} => (alpha*r0 - Real::ln(2.0_f64))/alpha,
+        InteractionPotential::WW => 50.*ANGSTROM,
+        _ => 10.*ANGSTROM,
+    }
+}
+
+fn smootherstep(x: f64, k: f64, x0: f64) -> f64 {
+    let x_transformed = x*k/8.0; //Constant to match sigmoid, determined by eye
+    let x0_transformed = x0*k/8.0;
+
+    if x_transformed <= x0_transformed - 0.5 {
+        0.
+    } else if x_transformed >= 0.5 + x0_transformed {
+        1.
+    } else {
+        let x1 = x_transformed - x0_transformed + 0.5;
+        x1 * x1 * x1 * (x1 * (6. * x1 - 15.) + 10.)
+    }
+}
+
+/// Interaction potential between two particles a and b at a distance `r`.
+pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
+            screened_coulomb(r, a, Za, Zb, interaction_potential)
+        },
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
+            lennard_jones(r, sigma, epsilon)
+        },
+        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
+            lennard_jones_65_6(r, sigma, epsilon)
+        },
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            morse(r, D, alpha, r0)
+        },
+        InteractionPotential::WW => {
+            tungsten_tungsten_cubic_spline(r)
+        },
+        InteractionPotential::COULOMB{Za, Zb} => {
+            coulomb(r, Za, Zb)
+        },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0)
+        }
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            four_eight(r, alpha, beta)
+        }
+    }
+}
+
+/// Analytic energy threshold above which the distance of closest approach function is guaranteed to have only one root.
+pub fn energy_threshold_single_root(interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential{
+        InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => f64::INFINITY,
+        InteractionPotential::MORSE{..} | InteractionPotential::KRC_MORSE{..} => f64::INFINITY,
+        InteractionPotential::FOUR_EIGHT{..} => f64::INFINITY,
+        InteractionPotential::WW => f64::INFINITY,
+        InteractionPotential::COULOMB{..} => f64::INFINITY,
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
+    }
+}
+
+/// Distance of closest approach function for screened coulomb potentials.
+fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
+    //Nonlinear equation to determine distance of closest approach
+    x0 - interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta/x0
+}
+
+/// First derivative w.r.t. `r` of the distance of closest approach function for screened coulomb potentials.
+fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
+    //First differential of distance of closest approach function for N-R solver
+    beta*beta/x0/x0 - interactions::dphi(x0, interaction_potential)/reduced_energy + 1.
+}
+
+/// Singularity-free version of the screened-coulomb distance of closest approach function.
+fn doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
+    //Singularity free version of doca function
+    x0*x0 - x0*interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta
+}
+
+/// First derivative w.r.t. `r` of the singularity-free version of the screened-coulomb distance of closest approach function.
+fn diff_doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
+    //First differential of distance of closest approach function for N-R solver
+    2.*x0 - interactions::phi(x0, interaction_potential)/reduced_energy
+}
+
+/// Distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
+pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
+            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
+            let beta: f64 = impact_parameter/a;
+            doca_function(r/a, beta, reduced_energy, interaction_potential)
+
+        },
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
+            doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
+            doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
+        },
+        InteractionPotential::WW => {
+            doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
+        },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            doca_krc_morse(r, impact_parameter, relative_energy, a, Za, Zb, D, alpha, r0, k, x0)
+        },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            doca_four_eight(r, impact_parameter, relative_energy, alpha, beta)
+        }
+        InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
+    }
+}
+
+/// Singularity-free distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
+pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
+    if r.is_nan() {
+        panic!("Numerical error: r is NaN in distance of closest approach function. Check Rootfinder.")
+    }
+    match interaction_potential {
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
+            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
+            let beta: f64 = impact_parameter/a;
+            doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
+        },
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
+            doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
+            doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
+        },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            doca_krc_morse(r, impact_parameter, relative_energy, a, Za, Zb, D, alpha, r0, k, x0)
+        },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            doca_four_eight(r, impact_parameter, relative_energy, alpha, beta)
+        }
+        InteractionPotential::WW => {
+            doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
+        },
+        InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
+    }
+}
+
+/// Scaling function used to keep the distance of closest approach function ~1 for the CPR rootfinder.
+pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
+            1./(1. + Real::powi(r/a, 2))
+        },
+        InteractionPotential::LENNARD_JONES_12_6{sigma, ..} => {
+            1./(1. + Real::powi(r/sigma, 11))
+        },
+        InteractionPotential::LENNARD_JONES_65_6{sigma, ..} => {
+            1./(1. + Real::powi(r/sigma, 6))
+        },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            1./(1. + Real::powi(r, 8)/beta)
+        }
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            1./(1. + Real::powi(r*alpha, 2))
+        }
+        InteractionPotential::WW => {
+            1.
+        },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            1./(1. + Real::powi(r*alpha, 2))
+        }
+        InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
+    }
+}
+
+/// First derivative w.r.t. `r` of the distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
+pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN |InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
+            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
+            let beta: f64 = impact_parameter/a;
+            diff_doca_function(r/a, beta, reduced_energy, interaction_potential)
+        },
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
+            diff_doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
+            diff_doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.", interaction_potential)
+    }
+}
+
+/// First derivative w.r.t. `r` of the singularity-free distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
+pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
+            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
+            let beta: f64 = impact_parameter/a;
+            diff_doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
+        },
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
+            diff_doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
+            diff_doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.", interaction_potential)
+    }
+}
+
+// boon-lay local change (no_std, gh:#876 item 7): upstream caches the three
+// tables below (COULOMB_CONSTANT_TABLE, LINDHARD_SCREENING_LENGTH_TABLE,
+// ZBL_SCREENING_LENGTH_TABLE) in `std::sync::LazyLock` statics, which do not
+// exist in `core`. Each lookup now evaluates the same function on the same
+// truncated, ordered integer pair (i >= j, the triangular-index order) that
+// upstream's table builder used, so every value is bit-identical to the table
+// entry (pinned by `local_change_tests::lazylock_replacements_match_upstream_tables`). An
+// atomic number at or above Z_MAX still panics, as upstream's out-of-bounds
+// index did. Cost: one function evaluation per lookup instead of an array
+// read; upstream's comment credits the tables with "~10% speedup" (not
+// re-measured here).
+/// The ordered, truncated table index pair `(i, j)`, `i >= j`, upstream's
+/// lookup tables were keyed by, with upstream's out-of-range panic.
+pub(super) fn table_pair(Za: f64, Zb: f64) -> (usize, usize) {
+    let mut i = Za as usize;
+    let mut j = Zb as usize;
+    let index = triangular_index(&mut i, &mut j);
+    assert!(index < TABLE_SIZE, "index out of bounds: the len is {} but the index is {}", TABLE_SIZE, index);
+    (i, j)
+}
+
+/// Replaces upstream's `COULOMB_CONSTANT_TABLE[triangular_index(Za, Zb)]`.
+pub(super) fn coulomb_constant_lookup(Za: f64, Zb: f64) -> f64 {
+    let (i, j) = table_pair(Za, Zb);
+    coulomb_constant(i as f64, j as f64)
+}
+
+pub(super) fn coulomb_constant(Za: f64, Zb: f64) -> f64 {
+    Za*Zb*Q*Q/4./PI/EPS0
+}
+
+/// Screened coulomb interaction potential.
+pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
+    coulomb_constant_lookup(Za, Zb)/r*phi(r/a, interaction_potential)
+}
+
+/// Coulombic interaction potential.
+pub fn coulomb(r: f64, Za: f64, Zb: f64) -> f64 {
+    coulomb_constant_lookup(Za, Zb)/r
+}
+
+/// Screening functions for screened-coulomb interaction potentials.
+pub fn phi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::MOLIERE => moliere(xi),
+        InteractionPotential::KR_C => kr_c(xi),
+        InteractionPotential::ZBL => zbl(xi),
+        InteractionPotential::LENZ_JENSEN => lenz_jensen(xi),
+        InteractionPotential::TRIDYN => kr_c(xi),
+        _ => panic!("Input error: Screened Coulomb cannot be used with {}", interaction_potential)
+    }
+}
+
+/// First derivative w.r.t. `r` of the screening functions for screened-coulomb interaction potentials.
+pub fn dphi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::MOLIERE => diff_moliere(xi),
+        InteractionPotential::KR_C => diff_kr_c(xi),
+        InteractionPotential::ZBL => diff_zbl(xi),
+        InteractionPotential::LENZ_JENSEN => diff_lenz_jensen(xi),
+        InteractionPotential::TRIDYN => diff_kr_c(xi),
+        _ => panic!("Input error: Screened Coulomb cannot be used with {}", interaction_potential)
+    }
+}
+
+/// Screening length of interatomic potentials.
+pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        //ZBL screening length, Eckstein (4.1.8)
+        InteractionPotential::ZBL => zbl_screening_length_lookup(Za as u64, Zb as u64),
+        //Lindhard/Firsov screening length, Eckstein (4.1.5)
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN | InteractionPotential::WW => lindhard_screening_length_lookup(Za as u64, Zb as u64),
+        InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
+        InteractionPotential::MORSE{D, alpha, r0} => alpha,
+        InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => zbl_screening_length_lookup(Za as u64, Zb as u64),
+        InteractionPotential::KRC_MORSE{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
+        InteractionPotential::FOUR_EIGHT{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
+    }
+}
+
+// It turns out it's faster (~10% speedup) to just generate every possible screening length as a lookup table
+// (boon-lay: no longer a table; see the local-change note above COULOMB's lookup.)
+#[inline]
+pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
+    let (i, j) = table_pair(Za as f64, Zb as f64);
+    lindhard_screening_length(i as f64, j as f64)
+}
+
+pub fn zbl_screening_length(Za: f64, Zb: f64) -> f64{
+    0.88534*A0/(Real::powf(Za, 0.23) + Real::powf(Zb, 0.23))
+}
+
+pub fn lindhard_screening_length(Za: f64, Zb: f64) -> f64 {
+    0.8853*A0*Real::powf(Za.sqrt() + Zb.sqrt(), -2./3.)
+}
+
+#[inline]
+pub fn zbl_screening_length_lookup(Za: u64, Zb: u64) -> f64{
+    let (i, j) = table_pair(Za as f64, Zb as f64);
+    zbl_screening_length(i as f64, j as f64)
+}
+
+/// Coefficients of inverse-polynomial interaction potentials.
+/// Note: these go in order of decreasing orders of r, e.g., [r^n, r^n-1, r^n-2, ... r, 1].
+pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
+    match interaction_potential {
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
+            let epsilon_ev = epsilon/EV;
+            let relative_energy_ev = relative_energy/EV;
+            vec![1.0, -Real::powi(impact_parameter, 2), 0.0, 4.*epsilon_ev*Real::powi(sigma, 6)/relative_energy_ev, 0.0, 0.0, -4.*epsilon_ev*Real::powi(sigma, 12)/relative_energy_ev]
+        },
+        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
+            let epsilon_ev = epsilon/EV;
+            let relative_energy_ev = relative_energy/EV;
+            vec![1., 0., 0., 0., -Real::powi(impact_parameter, 2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*Real::powi(sigma, 6)/relative_energy_ev, -4.*epsilon_ev*Real::powf(sigma, 6.5)/relative_energy_ev]
+        },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            //Note: I've transformed to angstroms here to help the rootfinder with numerical issues.
+            //The units on alpha [m^4 J] and beta [m^8 J] make them unreasonably small to use numerically.
+            let alpha_angstroms4_joule = alpha/Real::powi(ANGSTROM, 4);
+            let beta_angstroms8_joule = beta/Real::powi(ANGSTROM, 8);
+            let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
+            vec![1., -Real::powi(impact_parameteter_angstroms, 2), alpha_angstroms4_joule/relative_energy, 0., -beta_angstroms8_joule/relative_energy,]
+        }
+        _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
+    }
+}
+
+/// Inverse-polynomial interaction potentials transformation to reduce numercial issues for the polynomial rootfinder.
+/// This is for if, for example, you have non-integer powers and need to multiply by a factor to get to integer powers.
+/// E.g., the 6.5-6 potential needs to be squared (x*x) giving you a 13th order polynomial in polynomial_coefficients().
+pub fn inverse_transform(x: f64, interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::LENNARD_JONES_12_6{..} => {
+            x.sqrt()
+        },
+        InteractionPotential::LENNARD_JONES_65_6{..} => {
+            x*x
+        },
+        | InteractionPotential::FOUR_EIGHT{..} => {
+            x.sqrt()*ANGSTROM
+        }
+        _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder transformation.")
+    }
+}
+
+/// Four-Eight potential (Born repulsion)
+pub fn four_eight(r: f64, alpha: f64, beta: f64) -> f64 {
+    let a = Real::powf(alpha, 1./4.);
+    let b = Real::powf(beta, 1./8.);
+    -Real::powi(a/r, 4) + Real::powi(b/r, 8)
+}
+
+/// Lennard-Jones 12-6
+pub fn lennard_jones(r: f64, sigma: f64, epsilon: f64) -> f64 {
+    4.*epsilon*(Real::powi(sigma/r, 12) - Real::powi(sigma/r, 6))
+}
+
+/// Lennard-Jones 6.5-6
+pub fn lennard_jones_65_6(r: f64, sigma: f64, epsilon: f64) -> f64 {
+    4.*epsilon*(Real::powf(sigma/r, 6.5) - Real::powi(sigma/r, 6))
+}
+
+/// Morse potential
+pub fn morse(r: f64, D: f64, alpha: f64, r0: f64) -> f64 {
+    D*(Real::exp(-2.*alpha*(r - r0)) - 2.*Real::exp(-alpha*(r - r0)))
+}
+
+/// Kr-C + Morse potential with smootherstep interpolation at crossing point of two potentials
+pub fn krc_morse(r: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
+    smootherstep(r, k, x0)*morse(r, D, alpha, r0) + smootherstep(r, -k, x0)*screened_coulomb(r, a, Za, Zb, InteractionPotential::KR_C)
+}
+
+/// Distance of closest approach function for four-eight potential (Born repulsion)
+pub fn doca_four_eight(r: f64, impact_parameter: f64, relative_energy: f64, alpha: f64, beta: f64) -> f64 {
+    let a = Real::powf(alpha, 1./4.);
+    let b = Real::powf(beta, 1./8.);
+    let b4 = beta.sqrt();
+    Real::powi(r/b, 8) - (-(a*r/b/b) + 1.)/relative_energy - (impact_parameter*Real::powi(r, 3)/b4)
+}
+
+/// Distance of closest approach function for Morse potential.
+pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
+    Real::powi(r*alpha, 2) - Real::powi(r*alpha, 2)*D/relative_energy*(Real::exp(-2.*alpha*(r - r0)) - 2.*Real::exp(-alpha*(r - r0))) - Real::powi(impact_parameter*alpha, 2)
+}
+
+/// Distance of closest approach function for Morse potential.
+pub fn doca_krc_morse(r: f64, impact_parameter: f64, relative_energy: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
+    Real::powi(r*alpha, 2) - Real::powi(r*alpha, 2)/relative_energy*krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0) - Real::powi(impact_parameter*alpha, 2)
+}
+
+/// Distance of closest approach function for LJ 6.5-6 potential.
+pub fn doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
+    Real::powf(r/sigma, 6.5) - 4.*epsilon/relative_energy*(1. - Real::powf(r/sigma, 0.5)) - Real::powi(p/sigma, 2)*Real::powf(r/sigma, 4.5)
+}
+
+/// Distance of closest approach function for LJ 12-6 potential.
+pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
+    Real::powi(r/sigma, 12) - 4.*epsilon/relative_energy*(1. - Real::powi(r/sigma, 6)) - Real::powi(p, 2)*Real::powi(r, 10)/Real::powi(sigma, 12)
+}
+
+/// First derivative w.r.t. `r` of the distance of closest approach function for LJ 12-6 potential.
+pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
+    12.*Real::powi(r/sigma, 11)/sigma + 4.*epsilon/relative_energy*6.*Real::powi(r/sigma, 5)/sigma - 10.*Real::powi(p, 2)*Real::powi(r, 9)/Real::powi(sigma, 12)
+}
+
+/// First derivative w.r.t. `r` of the distance of closest approach function for LJ 6.5-6 potential.
+pub fn diff_doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
+    6.5*Real::powf(r/sigma, 5.5)/sigma + 4.*epsilon/relative_energy*0.5/(sigma*r).sqrt() - Real::powi(p/sigma, 2)*4.5*Real::powf(r/sigma, 3.5)/sigma
+}
+
+/// W-W cublic spline potential from Bjorkas et al.
+pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
+
+    let x = r/ANGSTROM;
+    let x1 = 1.10002200044;
+    let x2 = 2.10004200084;
+
+    if x <= x1 {
+
+        let a = screening_length(74., 74., InteractionPotential::ZBL);
+        screened_coulomb(r, a, 74., 74., InteractionPotential::ZBL)
+
+    } else if x <= x2 {
+
+        let a = [1.389653276380862E4,
+            -3.596912431628216E4,
+            3.739206756369099E4,
+            -1.933748081656593E4,
+            0.495516793802426E4,
+            -0.050264585985867E4];
+
+        (a[0] + a[1]*x + a[2]*Real::powi(x, 2) + a[3]*Real::powi(x, 3) + a[4]*Real::powi(x, 4) + a[5]*Real::powi(x, 5))*EV
+
+    } else {
+
+        let a = [
+            -0.1036435865158945,
+            -0.2912948318493851,
+            -2.096765499656263,
+            19.160_454_527_010_1,
+            -41.01619862085917,
+            46.05205617244703,
+            26.42203930654883,
+            15.35211507804088,
+            14.12806259323987,
+        ];
+
+        let delta = [
+            4.268_9,
+            3.985_68,
+            3.702_46,
+            3.419_24,
+            3.136_02,
+            2.852_8,
+            2.741_1,
+            2.604_045,
+            2.466_99,
+        ];
+
+        a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*Real::powi(delta_i - x, 3)*heaviside(delta_i - x)).sum::<f64>()
+    }
+}
+
+/// Distance of closest approach function for the W-W cublic spline potential from Bjorkas et al.
+pub fn doca_tungsten_tungsten_cubic_spline(r: f64, p: f64, relative_energy: f64) -> f64 {
+
+    let x = r/ANGSTROM;
+    let x1 = 1.10002200044;
+    let x2 = 2.10004200084;
+
+    if x <= x1 {
+        let a = screening_length(74., 74., InteractionPotential::ZBL);
+        distance_of_closest_approach_function_singularity_free(r, a, 74., 74., relative_energy, p, InteractionPotential::ZBL)
+    } else {
+        Real::powi(r/ANGSTROM, 2) - Real::powi(r/ANGSTROM, 2)*tungsten_tungsten_cubic_spline(r)/relative_energy - Real::powi(p, 2)/Real::powi(ANGSTROM, 2)
+    }
+}
+
+fn heaviside(x: f64) -> f64 {
+    if x >= 0. {
+        1.
+    } else {
+        0.
+    }
+}
+
+fn moliere(xi: f64) -> f64 {
+    0.35*Real::exp(-0.3*xi) + 0.55*Real::exp(-1.2*xi) + 0.10*Real::exp(-6.0*xi)
+}
+
+fn kr_c(xi: f64) -> f64 {
+    0.190945*Real::exp(-0.278544*xi) + 0.473674*Real::exp(-0.637174*xi) + 0.335381*Real::exp(-1.919249*xi)
+}
+
+fn zbl(xi: f64) -> f64 {
+    0.02817*Real::exp(-0.20162*xi) + 0.28022*Real::exp(-0.40290*xi) + 0.50986*Real::exp(-0.94229*xi) + 0.18175*Real::exp(-3.1998*xi)
+}
+
+fn lenz_jensen(xi: f64) -> f64 {
+    0.01018*Real::exp(-0.206*xi) + 0.24330*Real::exp(-0.3876*xi) + 0.7466*Real::exp(-1.038*xi)
+}
+
+fn diff_moliere(xi: f64) -> f64 {
+    -0.35*0.3*Real::exp(-0.3*xi) -0.55*1.2*Real::exp(-1.2*xi) -0.10*6.0*Real::exp(-6.0*xi)
+}
+
+fn diff_kr_c(xi: f64) -> f64 {
+    -0.278544*0.190945*Real::exp(-0.278544*xi) - 0.637174*0.473674*Real::exp(-0.637174*xi) - 0.335381*1.919249*Real::exp(-1.919249*xi)
+}
+
+fn diff_zbl(xi: f64) -> f64 {
+    -0.20162*0.02817*Real::exp(-0.20162*xi) -0.40290*0.28022*Real::exp(-0.40290*xi) -0.94229*0.50986*Real::exp(-0.94229*xi) -3.1998*0.18175*Real::exp(-3.1998*xi)
+}
+
+fn diff_lenz_jensen(xi: f64) -> f64 {
+     -0.206*0.01018*Real::exp(-0.206*xi) -0.3876*0.24330*Real::exp(-0.3876*xi) -1.038*0.7466*Real::exp(-1.038*xi)
+}
+
+/// Normalized first screening radius. Used in Oen-Robinson electronic stopping.
+pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f64 {
+    match interaction_potential {
+        InteractionPotential::MOLIERE => 0.3,
+        InteractionPotential::KR_C => 0.278544,
+        InteractionPotential::ZBL => 0.20162,
+        InteractionPotential::LENZ_JENSEN => 0.206,
+        InteractionPotential::TRIDYN => 0.278544,
+        InteractionPotential::LENNARD_JONES_12_6{..} => 1.,
+        InteractionPotential::LENNARD_JONES_65_6{..} => 1.,
+        InteractionPotential::MORSE{..} | InteractionPotential::KRC_MORSE{..} => 1.,
+        InteractionPotential::WW => 1.,
+        InteractionPotential::COULOMB{..} => 0.3,
+        InteractionPotential::FOUR_EIGHT{..} => 1.,
+    }
+}

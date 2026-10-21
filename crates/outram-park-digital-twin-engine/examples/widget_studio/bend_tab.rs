@@ -10,6 +10,8 @@
 //! **Offline demonstration only.** Geometry and states are illustrative round
 //! numbers, per `RESPONSIBLE_USE.md`.
 
+use petir::mathf::RealMath;
+
 use egui::{Pos2, RichText, Vec2};
 use outram_park_digital_twin_engine::components::{
     PipeBendVisual, PipeComponent, PipePhaseShade, PipeVisual,
@@ -275,7 +277,7 @@ pub fn draw(ui: &mut egui::Ui, demo: &BendDemo) {
     // Screen y grows downward, so a positive angle turns UP the screen.
     let a = demo.angle_deg.to_radians();
     let d_in = Vec2::new(1.0, 0.0);
-    let d_out = Vec2::new(a.cos(), -a.sin());
+    let d_out = Vec2::new(a.r_cos(), -a.r_sin());
 
     // Outward normals, on the outside of the turn (see PipeBendVisual).
     let cross = d_in.x * d_out.y - d_in.y * d_out.x;

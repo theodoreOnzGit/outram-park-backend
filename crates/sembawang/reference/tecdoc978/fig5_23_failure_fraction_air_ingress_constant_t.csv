@@ -1,0 +1,74 @@
+# IAEA, "Fuel performance and fission product behaviour in gas cooled reactors", IAEA-TECDOC-978, Vienna, 1997. Proprietary tier: cited, the PDF is not redistributed; the values are the maintainer's digitisation.
+# Fig 5-23: Particle Failure Fraction during air ingress at constant temperatures (printed page 257).
+# Maintainer's digitisation in kovan: id fig-5-23-particle-failure-fraction-during-air-ingress-at-constant-temperatures, method manual_digitisation, by teddy0 via kovan (gui, hand-placed), at 2026-09-30T02:10:04Z;
+# copied verbatim from ~/Documents/local-kovan-repo/papers/2002/2002iaeatecdoc978/ on 2026-09-30 (#453).
+# x_axis: linear scale, px 196.9886474609375 = 0 , px 730.591064453125 = 600
+# y_axis: log scale, px 702.654052734375 = 0.00001 , px 331.6039733886719 = 1
+# Long format: one row per digitised point, series named as in the figure legend.
+series,Time (hrs),Failure Fraction
+"1300C Meas AVR 89/19 sphere (lined squares)",270.3061649575147,0.00006400042614977157
+"1300C Meas AVR 89/19 sphere (lined squares)",322.5233118697056,0.00012672698304509213
+"1300C Meas AVR 89/19 sphere (lined squares)",347.87616690889223,0.0001788065407953048
+"1300C Meas AVR 89/19 sphere (lined squares)",378.09529539577846,0.00024980785104954356
+"1400C meas AVR 92/8 Schenk (small circles)",3.4045246794353403,0.00012286365609331625
+"1400C meas AVR 92/8 Schenk (small circles)",5.140038217717455,0.00019497397288140264
+"1400C meas AVR 92/8 Schenk (small circles)",5.41140094036723,0.0003677499791114544
+"1400C meas AVR 92/8 Schenk (small circles)",5.490119464110095,0.0002403905780877512
+"1400C meas AVR 92/8 Schenk (small circles)",18.230235553915556,0.0004877201570290564
+"1400C meas AVR 92/8 Schenk (small circles)",24.862906006056363,0.000517785534800461
+"1400C meas AVR 92/8 Schenk (small circles)",33.612946898053224,0.0009230138998455566
+"1400C meas AVR 92/8 Schenk (small circles)",33.84265125635084,0.0006593777794764103
+"1400C meas AVR 92/8 Schenk (small circles)",34.53821554417468,0.0007877366696116508
+"1300C Prediction Nabielek (dot dashed lines)",113.58046664231067,0.000024709202692755365
+"1300C Prediction Nabielek (dot dashed lines)",124.82479352115209,0.00002930709127708539
+"1300C Prediction Nabielek (dot dashed lines)",145.06458190306662,0.00003935390037537383
+"1300C Prediction Nabielek (dot dashed lines)",156.30890878190806,0.00004595831863484719
+"1300C Prediction Nabielek (dot dashed lines)",177.67312985170676,0.00005890691673271484
+"1300C Prediction Nabielek (dot dashed lines)",202.41064898515788,0.00008033762556385361
+"1300C Prediction Nabielek (dot dashed lines)",250.76125456417597,0.00012404314578711898
+"1300C Prediction Nabielek (dot dashed lines)",273.2499083218588,0.00014942538777720923
+"1300C Prediction Nabielek (dot dashed lines)",315.97835046145616,0.0002037872888076687
+"1300C Prediction Nabielek (dot dashed lines)",366.57782141624256,0.0002736479231487246
+"1300C Prediction Nabielek (dot dashed lines)",419.42615774679723,0.0003674575891447473
+"1300C Prediction Nabielek (dot dashed lines)",471.15006138946774,0.0004426483414397099
+"1300C Prediction Nabielek (dot dashed lines)",515.0029362169493,0.0005332249488583645
+"1300C Prediction Nabielek (dot dashed lines)",537.4915899746321,0.0005852430584341479
+"1400C meas (first of 10 particles Schenk)",394.7429935137858,0.09286890274422574
+"1400C prediction Nabielek (dashed lines)",12.381524732737915,0.0001259825534756317
+"1400C prediction Nabielek (dashed lines)",16.87925548427448,0.000257182620074855
+"1400C prediction Nabielek (dashed lines)",18.003688172158622,0.0002694353169468442
+"1400C prediction Nabielek (dashed lines)",50.612236120798734,0.0019627807995745983
+"1400C prediction Nabielek (dashed lines)",68.603159126945,0.0037077874984276006
+"1400C prediction Nabielek (dashed lines)",74.2253225663657,0.004197743673554407
+"1400C prediction Nabielek (dashed lines)",91.09181288462784,0.006685670451796939
+"1400C prediction Nabielek (dashed lines)",114.70489933019482,0.010648146448680817
+"1400C prediction Nabielek (dashed lines)",133.82025502422522,0.014749060275614297
+"1400C prediction Nabielek (dashed lines)",145.06458190306662,0.016959110325588875
+"1400C prediction Nabielek (dashed lines)",166.42880297286536,0.022422317370461953
+"1400C prediction Nabielek (dashed lines)",186.6685913547799,0.027432775558961713
+"1400C prediction Nabielek (dashed lines)",196.78848554573716,0.029645441689422018
+"1400C prediction Nabielek (dashed lines)",219.27713930341997,0.03683704759917525
+"1400C prediction Nabielek (dashed lines)",223.77487005495655,0.037997942852922656
+"1400C prediction Nabielek (dashed lines)",245.13909112475525,0.04369168563597156
+"1400C prediction Nabielek (dashed lines)",278.87207176127947,0.05513956367490186
+"1400C prediction Nabielek (dashed lines)",300.2362928310782,0.06439315068102747
+"1400C prediction Nabielek (dashed lines)",332.8448407797183,0.07637542854352396
+"1400C prediction Nabielek (dashed lines)",359.83122528893773,0.08781978611717382
+"1400C prediction Nabielek (dashed lines)",420.55059043468134,0.11976917967361507
+"1400C prediction Nabielek (dashed lines)",449.78584031966903,0.12942949300090614
+"1400C prediction Nabielek (dashed lines)",472.27449407735185,0.14427686433559178
+"1400C prediction Nabielek (dashed lines)",482.39438826830917,0.14882365453591437
+"1400C prediction Nabielek (dashed lines)",503.7586093381078,0.16589580718866578
+"1400C prediction Nabielek (dashed lines)",537.4915899746321,0.18781768787740577
+"1400C prediction Nabielek (dashed lines)",559.980243732315,0.20296664120786595
+"1400C prediction Nabielek (dashed lines)",589.2154936173026,0.22978715323740248
+"1500C prediction-2 mec model, also fits 1300C and 1400C as well as shown here (dashed circle)",3.499233975656051,0.06524906816420119
+"1500C prediction-2 mec model, also fits 1300C and 1400C as well as shown here (dashed circle)",11.245013178089392,0.27943040020976107
+"1500C prediction-2 mec model, also fits 1300C and 1400C as well as shown here (dashed circle)",18.360357891331834,0.8141995534565823
+"1400C meas AVR 92/22 Schenk (crosses)",2.7423831649879404,0.00040929606366079
+"1400C meas AVR 92/22 Schenk (crosses)",8.492815933855393,0.0004686963089148872
+"1400C meas AVR 92/22 Schenk (crosses)",9.909131691903795,0.0008579937280085497
+"1400C meas AVR 92/22 Schenk (crosses)",15.627514285890763,0.0006332036677075616
+"1400C meas AVR 92/22 Schenk (crosses)",18.23977511346242,0.0009017295300472314
+"1500 C meas part 73/8 4.7% FIMA (dashed small circle)",9.086464783354772,0.09260835868853033
+"1500 C meas part 73/8 4.7% FIMA (dashed small circle)",23.71294298614751,0.9818239051907257

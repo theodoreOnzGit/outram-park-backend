@@ -41,6 +41,8 @@
 //! proportioned by eye from the figure, not dimensioned from it, and nothing
 //! here is a validated model. See `RESPONSIBLE_USE.md`.
 
+use petir::mathf::RealMath;
+
 use crate::components::pebble_bed_texture::{bed_bounding_box, draw_bed, BedTint};
 use crate::components::pebble_packing::{
     PackedPebble, BARREL_HEIGHT, BED_BOUNDS, CHUTE_RADIUS, CONE_HEIGHT, PACKED_PEBBLES,
@@ -514,7 +516,7 @@ pub(crate) fn triso_dot_count(radius: f32) -> usize {
             // `N = -ln(1 - fill) * (r_zone / r_dot)^2`.
             let zone = FUELLED_ZONE_FRAC * radius;
             let dot = triso_dot_radius(radius);
-            let n = -(1.0 - TRISO_TARGET_FILL).ln() * (zone * zone) / (dot * dot);
+            let n = -(1.0 - TRISO_TARGET_FILL).r_ln() * (zone * zone) / (dot * dot);
             (n as usize).clamp(24, 260)
         }
     }
@@ -560,11 +562,11 @@ pub(crate) fn triso_dot_offset(index: i32, k: usize, radius: f32) -> Vec2 {
     let k = k as i32;
     let angle = pebble_hash(index, k, 11) * std::f32::consts::TAU;
     let rho = max_rho * pebble_hash(index, k, 12).sqrt();
-    Vec2::new(rho * angle.cos(), rho * angle.sin())
+    Vec2::new(rho * angle.r_cos(), rho * angle.r_sin())
 }
 
 /// Linear interpolation between two colours, keeping `a`'s alpha.
-fn blend_rgb(a: Color32, b: Color32, t: f32) -> Color32 {
+pub(crate) fn blend_rgb(a: Color32, b: Color32, t: f32) -> Color32 {
     let t = t.clamp(0.0, 1.0);
     let mix = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
     Color32::from_rgba_unmultiplied(
@@ -618,7 +620,7 @@ pub(crate) fn draw_triso_pebble(
 /// Left slightly translucent so the bed fill behind the packing still shows
 /// through between and beneath pebbles, which is what gives the bed depth
 /// rather than reading as a flat field of discs.
-const PEBBLE_MATRIX: Color32 = Color32::from_rgba_premultiplied(28, 28, 32, 214);
+pub(crate) const PEBBLE_MATRIX: Color32 = Color32::from_rgba_premultiplied(28, 28, 32, 214);
 
 /// Draws the **settled** pebble bed: the baked DEM packing, placed by
 /// `transform` and cropped to `window`.
@@ -726,7 +728,7 @@ pub(crate) fn draw_packed_pebbles_direct(
 /// Not black: a bed lit from the front still scatters some light into its
 /// interior, and fading to pure black makes the far layers read as holes rather
 /// than as pebbles further away.
-const BED_BACKDROP: Color32 = Color32::from_rgb(16, 16, 20);
+pub(crate) const BED_BACKDROP: Color32 = Color32::from_rgb(16, 16, 20);
 
 /// Brightness a pebble is drawn at, given its depth fraction.
 ///

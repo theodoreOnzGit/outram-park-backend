@@ -27,6 +27,7 @@
 //! `gsl_sf_gamma_inc` is the **upper**. [`petir::gamma_inc_lower`] is the
 //! lower one, matching SLATEC.
 
+use petir::mathf::RealMath;
 use petir::{expint_e1, gamma_inc_lower};
 
 use crate::NjoyError;
@@ -55,8 +56,8 @@ pub fn fmn(e2: f64, efl: f64, efh: f64, tm: f64) -> Result<f64, NjoyError> {
     let g = |ef: f64| -> Result<f64, NjoyError> {
         let s_e2 = e2.sqrt();
         let s_ef = ef.sqrt();
-        let u1 = (s_e2 - s_ef).powi(2) / tm;
-        let u2 = (s_e2 + s_ef).powi(2) / tm;
+        let u1 = (s_e2 - s_ef).r_powi(2) / tm;
+        let u2 = (s_e2 + s_ef).r_powi(2) / tm;
         // E_1(0) diverges; upstream reaches u1 = 0 only at e2 == ef, where the
         // u1 terms cancel to zero in the limit. Take that limit rather than
         // propagating a refusal for a point the spectrum is finite at.
@@ -69,7 +70,7 @@ pub fn fmn(e2: f64, efl: f64, efh: f64, tm: f64) -> Result<f64, NjoyError> {
             let gm = gamma_inc_lower(1.5, u1)
                 .map_err(|_| NjoyError::NotPorted("madland_nix: gami(1.5, u1) refused"))?
                 .0;
-            (u1.powf(1.5) * e1, gm)
+            (u1.r_powf(1.5) * e1, gm)
         };
         let e1_u2 = expint_e1(u2)
             .map_err(|_| NjoyError::NotPorted("madland_nix: E_1 refused at u2"))?
@@ -77,7 +78,7 @@ pub fn fmn(e2: f64, efl: f64, efh: f64, tm: f64) -> Result<f64, NjoyError> {
         let gam_u2 = gamma_inc_lower(1.5, u2)
             .map_err(|_| NjoyError::NotPorted("madland_nix: gami(1.5, u2) refused"))?
             .0;
-        Ok((u2.powf(1.5) * e1_u2 - e1_u1 + gam_u2 - gam_u1) / (3.0 * (ef * tm).sqrt()))
+        Ok((u2.r_powf(1.5) * e1_u2 - e1_u1 + gam_u2 - gam_u1) / (3.0 * (ef * tm).sqrt()))
     };
     Ok((g(efl)? + g(efh)?) / 2.0)
 }
@@ -233,12 +234,19 @@ mod tests {
             .max_by(|a, b| a.1 .1.partial_cmp(&b.1 .1).unwrap())
             .map(|(i, _)| i)
             .unwrap();
-        assert!(imax > 0 && imax < vals.len() - 1, "peak at the edge: index {imax}");
+        assert!(
+            imax > 0 && imax < vals.len() - 1,
+            "peak at the edge: index {imax}"
+        );
         for w in vals[..=imax].windows(2) {
             assert!(w[1].1 >= w[0].1, "not rising before the peak at {}", w[1].0);
         }
         for w in vals[imax..].windows(2) {
-            assert!(w[1].1 <= w[0].1, "not decaying after the peak at {}", w[1].0);
+            assert!(
+                w[1].1 <= w[0].1,
+                "not decaying after the peak at {}",
+                w[1].0
+            );
         }
         println!("  peak at E' = {:.3e} eV", vals[imax].0);
     }

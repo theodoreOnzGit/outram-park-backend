@@ -1,0 +1,92 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples/fhr_sim_v1/app"
+
+[module."mod.rs"]
+path = "example:fhr_sim_v1::app"
+
+[[module."mod.rs".function]]
+id = "fn:f77abf69225f617a"
+name = "save"
+qual = "FHRSimulatorApp::save"
+lines = [
+    20,
+    23,
+]
+hash = "sha256:ee5b663383af4346062f6c5afe09f3c56f3ed9f42247d25e88d8338717248339"
+doc_hash = "sha256:05c1f790602727e494c4b0061fcf288c7b4f4052fcc9a030b2fafe7b89c27aad"
+
+[[module."mod.rs".function]]
+id = "fn:a081bae8affb5b6c"
+name = "ui"
+qual = "FHRSimulatorApp::ui"
+lines = [
+    25,
+    84,
+]
+hash = "sha256:4fbb7e89be66a19d2434bb1a8292472a644a7aa04c433edf3ac9b6f2c79c6cd5"
+doc_hash = "sha256:b582ab9c4712fc1dbdfe425b9eb4cb806dfc87f9ca904ab0c49fbcad65755b06"
+callees = [
+    "fn:0fa878fecf804b46",
+    "fn:7316ff8b8586d631",
+    "fn:e614ee8a4e9e3049",
+    "fn:f2a46ee63ee99d3f",
+]
+uses = ["fn:6e3bb10a54f0f2ee"]
+
+[[module."mod.rs".function]]
+id = "fn:e614ee8a4e9e3049"
+name = "main_page"
+qual = "FHRSimulatorApp::main_page"
+lines = [
+    88,
+    954,
+]
+hash = "sha256:3e60fb0e757e55bfa3c91f0f0dbb19335e66ed2ac59be20bec0e0ec249b68645"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:308363ce3a9a5fef",
+    "fn:689fad0043679540",
+    "fn:9724dcfb779271dc",
+    "fn:d0609f342aac407b",
+    "fn:d115185563bbb8f3",
+    "fn:eb6f838d54b58e21",
+]
+uses = [
+    "fn:243c2aeaec2904ad",
+    "fn:273d771359223f8f",
+    "fn:7b783d8b0f8ccddf",
+    "fn:b33b1bb52c704fd3",
+    "fn:e5d2a36734b99400",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7316ff8b8586d631"
+name = "powered_by_egui_and_eframe"
+qual = "powered_by_egui_and_eframe"
+lines = [
+    957,
+    969,
+]
+hash = "sha256:1ce2c849c23f39f3a1c5e893be8b4a165089abf5391f3b79ebb3f03836f89609"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."side_panel.rs"]
+path = "example:fhr_sim_v1::app::side_panel"
+
+[[module."side_panel.rs".function]]
+id = "fn:0fa878fecf804b46"
+name = "side_panel"
+qual = "FHRSimulatorApp::side_panel"
+lines = [
+    12,
+    518,
+]
+hash = "sha256:ef342d41c50163e18ee4f5475d0ee286faba5ff25f9a46221a1536f72ad91481"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3ba0620451cd8859",
+    "fn:b8b019c3a996720c",
+]
+uses = ["fn:273d771359223f8f"]

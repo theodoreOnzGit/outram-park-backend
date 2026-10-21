@@ -1,0 +1,12 @@
+{
+	"testCase00": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	},
+	"csl_ranges": {
+		"status": 200,
+		"output": "# This CITATION.cff file was generated with Zotero.\n",
+		"via": "in-process (zotero-reference.mjs inProcessExport)"
+	}
+}

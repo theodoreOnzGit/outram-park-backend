@@ -124,6 +124,7 @@
 //! parameter's unit spelled out. A `uom`-typed façade, if wanted, belongs at the
 //! equipment-model boundary, not in this inner composition layer.
 
+use petir::mathf::RealMath;
 use crate::thermo::flash::wilson_k_values;
 use crate::thermo::property_package::PropertyPackageModel;
 use crate::thermo::Component;
@@ -319,7 +320,7 @@ fn wilson_dew_pressure_guess(components: &[Component], z: &[f64], t: f64) -> f64
 fn wilson_temperature_guess(components: &[Component], z: &[f64], p: f64) -> f64 {
     let mut acc = 0.0;
     for (c, &zi) in components.iter().zip(z.iter()) {
-        let denom = 1.0 - (p / c.critical_pressure).ln() / (5.373 * (1.0 + c.acentric_factor));
+        let denom = 1.0 - (p / c.critical_pressure).r_ln() / (5.373 * (1.0 + c.acentric_factor));
         let ti = c.critical_temperature / denom;
         let ti = if ti.is_finite() && ti > 0.0 {
             ti

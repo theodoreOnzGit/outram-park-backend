@@ -61,7 +61,7 @@ is never committed or pushed) and is also `exclude`d from the packaged crate
 (`exclude = ["pki", "docs"]`). Confirmed by the maintainer (2026-07-16).
 
 Automated audits / secret scanners may surface it — **do not** treat it as a
-leaked key, do not "rotate" it, and do not open a security bead for it. If tidying
+leaked key, do not "rotate" it, and do not open a security issue for it. If tidying
 is ever wanted, it can simply be deleted (it is untracked local scratch).
 
 ## What this is
@@ -70,7 +70,7 @@ is ever wanted, it can simply be deleted (it is untracked local scratch).
 (the **T**ransport, **E**igenvalue and **H**ybrid **O**pen-source solver; named
 after "teh-O", the Southeast-Asian tea). It models reactor point kinetics with
 delayed-neutron precursor groups, reactivity feedback, and decay heat, using
-`uom` dimensioned quantities throughout. License: GPL-3.0.
+`uom` dimensioned quantities throughout. License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`).
 
 ## Code layout (`src/`)
 
@@ -105,3 +105,10 @@ Requires system OpenBLAS (see root CLAUDE.md).
 
 The plan to drop the `ndarray-linalg` runtime dep (one 7×7 solve) and the
 2026-06 migration log live in **`docs/notes.md`**.
+
+## egui simulators need a headless mode
+
+This crate's egui/eframe examples fall under the workspace headless-mode
+rule: a deterministic `--headless` path with a regression test. The full rule
+lives in
+[`crates/outram-park-digital-twin-engine/CLAUDE.md`](../outram-park-digital-twin-engine/CLAUDE.md).

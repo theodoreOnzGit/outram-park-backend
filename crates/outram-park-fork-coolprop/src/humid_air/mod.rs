@@ -75,6 +75,7 @@
 //! temperature K, pressure Pa, humidity ratio `W` kg-water/kg-dry-air,
 //! relative humidity `R` \[0, 1\], `H` J/kg-dry-air, `V` m³/kg-dry-air.
 
+use petir::mathf::RealMath;
 pub mod saturation;
 pub mod virials;
 
@@ -447,8 +448,8 @@ const P0_ENTROPY_REF: f64 = 101_325.0;
 fn ideal_gas_molar_entropy_air(t: f64, p: f64) -> f64 {
     let a = 9.2486716590e-04;
     let b = 2.8557221776e+01;
-    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).ln()
-        - R_BAR * (p / P0_ENTROPY_REF).ln()
+    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).r_ln()
+        - R_BAR * (p / P0_ENTROPY_REF).r_ln()
 }
 
 /// Ideal-gas molar entropy of water vapour `s_w(T, p)` \[J/(mol·K)\].
@@ -471,8 +472,8 @@ fn ideal_gas_molar_entropy_water(t: f64, p: f64) -> f64 {
     let a = 2.7030251618e-03;
     let b = 3.1994361015e+01;
     let s_w0 = ideal_gas_molar_enthalpy_water(T0_ENTROPY_REF) / T0_ENTROPY_REF;
-    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).ln()
-        - R_BAR * (p / P0_ENTROPY_REF).ln()
+    2.0 * a * (t - T0_ENTROPY_REF) + b * (t / T0_ENTROPY_REF).r_ln()
+        - R_BAR * (p / P0_ENTROPY_REF).r_ln()
         + s_w0
 }
 
@@ -491,7 +492,7 @@ fn molar_entropy(t: f64, p: f64, psi_w: f64, vbar: f64) -> f64 {
         R_BAR * ((bm + t * d_bm_dt) / vbar + (cm + t * d_cm_dt) / (2.0 * vbar * vbar));
 
     let mixing_term = if psi_w > 0.0 && psi_w < 1.0 {
-        -R_BAR * ((1.0 - psi_w) * (1.0 - psi_w).ln() + psi_w * psi_w.ln())
+        -R_BAR * ((1.0 - psi_w) * (1.0 - psi_w).r_ln() + psi_w * psi_w.r_ln())
     } else {
         0.0
     };

@@ -2,6 +2,7 @@
 //!
 //! Ported from the read path of `contio`/`lineio`/`a11` in NJOY2016 `endf.f90`.
 
+use petir::mathf::RealMath;
 use crate::NjoyError;
 
 /// Parse one ENDF 11-column float field.
@@ -50,16 +51,43 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
             // the field silently became 0.0 (bead op-sti5).
             let mantissa = s[..sep].trim_end_matches(['E', 'e', 'D', 'd']);
             let exponent = &s[sep..]; // includes the `+`/`-`
-            let mant: Option<f64> = if mantissa.is_empty() || mantissa == "+" || mantissa == "-" {
-                Some(1.0_f64.copysign(if mantissa.starts_with('-') { -1.0 } else { 1.0 }))
+            // ANCHOR: lesson_float_once
+            // ONE correctly-rounded conversion of the whole decimal, as a
+            // Fortran formatted read does.
+            //
+            // ~~`m * 10^e`~~ **CORRECTED 2026-09-26**: that rounds twice (the
+            // mantissa, then the product), so `1.090000+7` could come out an
+            // ulp off 10 900 000. It mattered: `acelf5`'s MT=18 tail
+            // supplement tests `dele > 2e5` strictly, and on U-235 the
+            // 10.9-11.1 MeV panels are exactly 200 keV wide in the evaluation
+            // -- NJOY left them alone and this crate split them, 16 extra
+            // points per incident energy and 2 568 extra DLW words.
+            let mantissa = if mantissa.is_empty() || mantissa == "+" || mantissa == "-" {
+                if mantissa.starts_with('-') {
+                    "-1"
+                } else {
+                    "1"
+                }
             } else {
-                mantissa.parse::<f64>().ok()
+                mantissa
             };
-            let exp: Option<i32> = exponent.parse::<i32>().ok();
-            match (mant, exp) {
-                (Some(m), Some(e)) => Some(m * 10_f64.powi(e)),
-                _ => None,
+            match exponent.parse::<i32>() {
+                Ok(e) => {
+                    let mut buf = [0u8; 40];
+                    let mut w = std::io::Cursor::new(&mut buf[..]);
+                    use std::io::Write;
+                    if write!(w, "{mantissa}e{e}").is_ok() {
+                        let n = w.position() as usize;
+                        std::str::from_utf8(&buf[..n])
+                            .ok()
+                            .and_then(|t| t.parse::<f64>().ok())
+                    } else {
+                        None
+                    }
+                }
+                Err(_) => None,
             }
+            // ANCHOR_END: lesson_float_once
         }
     };
 
@@ -121,13 +149,13 @@ fn format_a11_normal(x: f64) -> String {
     // endf.f90:921 — `n=int(log10(abs(xx)))`. Fortran `int()` truncates
     // toward zero; `as i32` on f64 does the same, so this matches exactly.
     let xx = x;
-    let n0 = xx.abs().log10() as i32;
+    let n0 = xx.abs().r_log10() as i32;
 
     let (f, s, n);
     if xx.abs() < ONE {
         // endf.f90:933-944 (label 110)
         let mut nn = 1 - n0;
-        let mut ff = xx * TEN.powi(nn);
+        let mut ff = xx * TEN.r_powi(nn);
         if within_a11_bound(nn, ff, TOP7, TOP6, TOP5) {
             s = '-';
         } else {
@@ -140,7 +168,7 @@ fn format_a11_normal(x: f64) -> String {
     } else {
         // endf.f90:922-932 (fallthrough from label 100)
         let mut nn = n0;
-        let mut ff = xx / TEN.powi(nn);
+        let mut ff = xx / TEN.r_powi(nn);
         if !within_a11_bound(nn, ff, TOP7, TOP6, TOP5) {
             ff = ff / TEN + UP;
             nn += 1;
@@ -191,7 +219,7 @@ fn format_a11_extended(x: f64) -> String {
     const TENTH: f64 = 0.1;
 
     // endf.f90:956 — `n=int(log10(abs(x)))`
-    let n0 = x.abs().log10() as i32;
+    let n0 = x.abs().r_log10() as i32;
 
     let (f, s, mut n);
     if x.abs() < ONEM {
@@ -201,7 +229,7 @@ fn format_a11_extended(x: f64) -> String {
         n = -1;
     } else {
         // endf.f90:958-964
-        let mut ff = x / TEN.powi(n0);
+        let mut ff = x / TEN.r_powi(n0);
         let mut nn = n0;
         let bound = if nn.abs() < 10 { TOP9 } else { BOT9 };
         if ff.abs() >= bound {
@@ -218,7 +246,7 @@ fn format_a11_extended(x: f64) -> String {
     // decimal digits = 8 - max(n,0), field width always 11.
     let scale = n.max(0);
     let decimals = (8 - scale) as usize;
-    let displayed = f * TEN.powi(scale);
+    let displayed = f * TEN.r_powi(scale);
     let mut hx = format!("{:11.decimals$}", displayed);
 
     // endf.f90:976 — relabel the exponent before the fallback checks below.

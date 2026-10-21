@@ -1,0 +1,341 @@
+    Updating crates.io index
+   Packaging outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+warning: ignoring example `ace_vs_endf_nuclide_probe` as `examples/ace_vs_endf_nuclide_probe.rs` is not included in the published package
+warning: ignoring example `ace_vs_endf_route_cost` as `examples/ace_vs_endf_route_cost.rs` is not included in the published package
+warning: ignoring example `auto_watcher_927` as `examples/auto_watcher_927.rs` is not included in the published package
+warning: ignoring example `b10_thermal_probe` as `examples/b10_thermal_probe.rs` is not included in the published package
+warning: ignoring example `beginner_thermal_profile` as `examples/beginner_thermal_profile.rs` is not included in the published package
+warning: ignoring example `cls_scls_regime_sweep` as `examples/cls_scls_regime_sweep.rs` is not included in the published package
+warning: ignoring example `depletion_integrator_order_scan` as `examples/depletion_integrator_order_scan.rs` is not included in the published package
+warning: ignoring example `depletion_step_convergence_scan` as `examples/depletion_step_convergence_scan.rs` is not included in the published package
+warning: ignoring example `dh_keff_vv` as `examples/dh_keff_vv.rs` is not included in the published package
+warning: ignoring example `dh_thread_scaling` as `examples/dh_thread_scaling.rs` is not included in the published package
+warning: ignoring example `dh_tracking_speedup` as `examples/dh_tracking_speedup.rs` is not included in the published package
+warning: ignoring example `diagnostics_report_in_memory` as `examples/diagnostics_report_in_memory.rs` is not included in the published package
+warning: ignoring example `dump_xs_for_openmc_compare` as `examples/dump_xs_for_openmc_compare.rs` is not included in the published package
+warning: ignoring example `endf_to_keff` as `examples/endf_to_keff.rs` is not included in the published package
+warning: ignoring example `epithermal_slowing_down` as `examples/epithermal_slowing_down.rs` is not included in the published package
+warning: ignoring example `fhr_pebble_quickstart` as `examples/fhr_pebble_quickstart.rs` is not included in the published package
+warning: ignoring example `fhr_pebble_target_at_rest_ablation` as `examples/fhr_pebble_target_at_rest_ablation.rs` is not included in the published package
+warning: ignoring example `fhr_ring_rpt_endf` as `examples/fhr_ring_rpt_endf.rs` is not included in the published package
+warning: ignoring example `godiva_ace_roundtrip` as `examples/godiva_ace_roundtrip.rs` is not included in the published package
+warning: ignoring example `godiva_anisotropy_ablation` as `examples/godiva_anisotropy_ablation.rs` is not included in the published package
+warning: ignoring example `godiva_continuum_anisotropy_ablation` as `examples/godiva_continuum_anisotropy_ablation.rs` is not included in the published package
+warning: ignoring example `godiva_continuum_spectrum_ablation` as `examples/godiva_continuum_spectrum_ablation.rs` is not included in the published package
+warning: ignoring example `godiva_delta_vs_surface_tracking` as `examples/godiva_delta_vs_surface_tracking.rs` is not included in the published package
+warning: ignoring example `godiva_fission_source_ablation` as `examples/godiva_fission_source_ablation.rs` is not included in the published package
+warning: ignoring example `godiva_gpu_benchmark` as `examples/godiva_gpu_benchmark.rs` is not included in the published package
+warning: ignoring example `godiva_inelastic_anisotropy_ablation` as `examples/godiva_inelastic_anisotropy_ablation.rs` is not included in the published package
+warning: ignoring example `godiva_keff` as `examples/godiva_keff.rs` is not included in the published package
+warning: ignoring example `godiva_keff_endf` as `examples/godiva_keff_endf.rs` is not included in the published package
+warning: ignoring example `godiva_keff_endf_local` as `examples/godiva_keff_endf_local.rs` is not included in the published package
+warning: ignoring example `godiva_keff_ensemble` as `examples/godiva_keff_ensemble.rs` is not included in the published package
+warning: ignoring example `godiva_kinetics_k_ratio` as `examples/godiva_kinetics_k_ratio.rs` is not included in the published package
+warning: ignoring example `godiva_kinf_vs_openmc` as `examples/godiva_kinf_vs_openmc.rs` is not included in the published package
+warning: ignoring example `godiva_mf6_continuum_ensemble` as `examples/godiva_mf6_continuum_ensemble.rs` is not included in the published package
+warning: ignoring example `godiva_spectrum_vs_openmc` as `examples/godiva_spectrum_vs_openmc.rs` is not included in the published package
+warning: ignoring example `godiva_target_at_rest_ablation` as `examples/godiva_target_at_rest_ablation.rs` is not included in the published package
+warning: ignoring example `graphite_energy_decrement` as `examples/graphite_energy_decrement.rs` is not included in the published package
+warning: ignoring example `graphite_kernel_vs_njoy_thermr` as `examples/graphite_kernel_vs_njoy_thermr.rs` is not included in the published package
+warning: ignoring example `graphite_sab_angle_and_width_vs_njoy_thermr` as `examples/graphite_sab_angle_and_width_vs_njoy_thermr.rs` is not included in the published package
+warning: ignoring example `graphite_vs_njoy_thermr` as `examples/graphite_vs_njoy_thermr.rs` is not included in the published package
+warning: ignoring example `h2o_kernel_vs_njoy_thermr` as `examples/h2o_kernel_vs_njoy_thermr.rs` is not included in the published package
+warning: ignoring example `h2o_vs_njoy_thermr` as `examples/h2o_vs_njoy_thermr.rs` is not included in the published package
+warning: ignoring example `hst009_keff` as `examples/hst009_keff.rs` is not included in the published package
+warning: ignoring example `htr10_fuel_zone_kinf` as `examples/htr10_fuel_zone_kinf.rs` is not included in the published package
+warning: ignoring example `htr10_pebble_delta_tracking` as `examples/htr10_pebble_delta_tracking.rs` is not included in the published package
+warning: ignoring example `icsbep_five_route_keff` as `examples/icsbep_five_route_keff.rs` is not included in the published package
+warning: ignoring example `jemima_keff` as `examples/jemima_keff.rs` is not included in the published package
+warning: ignoring example `lct008_ace_roundtrip` as `examples/lct008_ace_roundtrip.rs` is not included in the published package
+warning: ignoring example `lct008_keff` as `examples/lct008_keff.rs` is not included in the published package
+warning: ignoring example `lct008_pitch_sweep` as `examples/lct008_pitch_sweep.rs` is not included in the published package
+warning: ignoring example `lct008_urr_dbrc_ablation` as `examples/lct008_urr_dbrc_ablation.rs` is not included in the published package
+warning: ignoring example `lesson_collision` as `examples/lesson_collision.rs` is not included in the published package
+warning: ignoring example `lesson_fission_products` as `examples/lesson_fission_products/main.rs` is not included in the published package
+warning: ignoring example `lump_self_shielding_scan` as `examples/lump_self_shielding_scan.rs` is not included in the published package
+warning: ignoring example `lumped_ugraphite_kinf` as `examples/lumped_ugraphite_kinf.rs` is not included in the published package
+warning: ignoring example `majorant_absorber_price` as `examples/majorant_absorber_price.rs` is not included in the published package
+warning: ignoring example `majorant_bound_audit` as `examples/majorant_bound_audit.rs` is not included in the published package
+warning: ignoring example `mg_scatter_anisotropy_ablation` as `examples/mg_scatter_anisotropy_ablation.rs` is not included in the published package
+warning: ignoring example `nd_wasm_probe` as `examples/nd_wasm_probe/lib.rs` is not included in the published package
+warning: ignoring example `process_precision_vs_route4` as `examples/process_precision_vs_route4.rs` is not included in the published package
+warning: ignoring example `route4_purr_table_shift` as `examples/route4_purr_table_shift.rs` is not included in the published package
+warning: ignoring example `slowing_down_oracle` as `examples/slowing_down_oracle.rs` is not included in the published package
+warning: ignoring example `stats_sweep_loo` as `examples/stats_sweep_loo.rs` is not included in the published package
+warning: ignoring example `temperature_interpolation_947` as `examples/temperature_interpolation_947.rs` is not included in the published package
+warning: ignoring example `thermal_emission_grid_convergence` as `examples/thermal_emission_grid_convergence.rs` is not included in the published package
+warning: ignoring example `thermal_fixed_point_sweep` as `examples/thermal_fixed_point_sweep.rs` is not included in the published package
+warning: ignoring example `thermal_kernel_keff_worth` as `examples/thermal_kernel_keff_worth.rs` is not included in the published package
+warning: ignoring example `triso_delta_tracking` as `examples/triso_delta_tracking.rs` is not included in the published package
+warning: ignoring example `triso_four_methods` as `examples/triso_four_methods.rs` is not included in the published package
+warning: ignoring example `triso_gpu_benchmark` as `examples/triso_gpu_benchmark.rs` is not included in the published package
+warning: ignoring example `triso_stochastic_gpu` as `examples/triso_stochastic_gpu.rs` is not included in the published package
+warning: ignoring example `triso_stochastic_media` as `examples/triso_stochastic_media.rs` is not included in the published package
+warning: ignoring example `tutorial_hst009` as `examples/tutorial_hst009.rs` is not included in the published package
+warning: ignoring example `tutorial_htr10_pebble` as `examples/tutorial_htr10_pebble.rs` is not included in the published package
+warning: ignoring example `tutorial_lct008` as `examples/tutorial_lct008.rs` is not included in the published package
+warning: ignoring example `tutorial_material_and_tallies` as `examples/tutorial_material_and_tallies.rs` is not included in the published package
+warning: ignoring example `tutorial_seker_bed` as `examples/tutorial_seker_bed.rs` is not included in the published package
+warning: ignoring example `tutorial_seker_layer` as `examples/tutorial_seker_layer.rs` is not included in the published package
+warning: ignoring example `tutorial_triso_particle` as `examples/tutorial_triso_particle.rs` is not included in the published package
+warning: ignoring example `u238_recon_fingerprint` as `examples/u238_recon_fingerprint.rs` is not included in the published package
+warning: ignoring example `u238_resonance_escape` as `examples/u238_resonance_escape.rs` is not included in the published package
+warning: ignoring example `u238_resonance_integral` as `examples/u238_resonance_integral.rs` is not included in the published package
+warning: ignoring example `u238_urr_probe` as `examples/u238_urr_probe.rs` is not included in the published package
+warning: ignoring example `u238_vs_njoy_pendf` as `examples/u238_vs_njoy_pendf.rs` is not included in the published package
+warning: ignoring example `ugraphite_four_factor` as `examples/ugraphite_four_factor.rs` is not included in the published package
+warning: ignoring example `variance_reduction_ablation` as `examples/variance_reduction_ablation.rs` is not included in the published package
+warning: ignoring example `wmp_local_temperature_948` as `examples/wmp_local_temperature_948.rs` is not included in the published package
+warning: ignoring test `ablation_hook_controls` as `tests/ablation_hook_controls.rs` is not included in the published package
+warning: ignoring test `ablation_suite` as `tests/ablation_suite.rs` is not included in the published package
+warning: ignoring test `ace_absorption_levels_without_lump` as `tests/ace_absorption_levels_without_lump.rs` is not included in the published package
+warning: ignoring test `ace_discrete_lines_vs_openmc` as `tests/ace_discrete_lines_vs_openmc.rs` is not included in the published package
+warning: ignoring test `ace_interp_regions_vs_openmc` as `tests/ace_interp_regions_vs_openmc.rs` is not included in the published package
+warning: ignoring test `ace_law4_continuum_cosine` as `tests/ace_law4_continuum_cosine.rs` is not included in the published package
+warning: ignoring test `ace_lnw_mixture_f19` as `tests/ace_lnw_mixture_f19.rs` is not included in the published package
+warning: ignoring test `ace_mt5_yield_vs_openmc` as `tests/ace_mt5_yield_vs_openmc.rs` is not included in the published package
+warning: ignoring test `ace_new_laws_reach_transport` as `tests/ace_new_laws_reach_transport.rs` is not included in the published package
+warning: ignoring test `ace_nu_polynomial_vs_openmc` as `tests/ace_nu_polynomial_vs_openmc.rs` is not included in the published package
+warning: ignoring test `ace_transport_channels_vs_openmc` as `tests/ace_transport_channels_vs_openmc.rs` is not included in the published package
+warning: ignoring test `anisotropy_ablation_control` as `tests/anisotropy_ablation_control.rs` is not included in the published package
+warning: ignoring test `band_averaged_xs_vs_openmc` as `tests/band_averaged_xs_vs_openmc.rs` is not included in the published package
+warning: ignoring test `band_xs_from_hdf5_reader` as `tests/band_xs_from_hdf5_reader.rs` is not included in the published package
+warning: ignoring test `bounded_delta_flight` as `tests/bounded_delta_flight.rs` is not included in the published package
+warning: ignoring test `cell_translation` as `tests/cell_translation.rs` is not included in the published package
+warning: ignoring test `channel_branching_consistency` as `tests/channel_branching_consistency.rs` is not included in the published package
+warning: ignoring test `cm_to_lab_vs_kinematics` as `tests/cm_to_lab_vs_kinematics.rs` is not included in the published package
+warning: ignoring test `continuum_angular_ablation_control` as `tests/continuum_angular_ablation_control.rs` is not included in the published package
+warning: ignoring test `correct_physics_is_default` as `tests/correct_physics_is_default.rs` is not included in the published package
+warning: ignoring test `correlated_angle_vs_openmc` as `tests/correlated_angle_vs_openmc.rs` is not included in the published package
+warning: ignoring test `cubic_triso_array` as `tests/cubic_triso_array.rs` is not included in the published package
+warning: ignoring test `cylinder_delta_domain` as `tests/cylinder_delta_domain.rs` is not included in the published package
+warning: ignoring test `dbrc_control` as `tests/dbrc_control.rs` is not included in the published package
+warning: ignoring test `dbrc_from_ace` as `tests/dbrc_from_ace.rs` is not included in the published package
+warning: ignoring test `dbrc_single_scatter_vs_openmc` as `tests/dbrc_single_scatter_vs_openmc.rs` is not included in the published package
+warning: ignoring test `delayed_from_ace` as `tests/delayed_from_ace.rs` is not included in the published package
+warning: ignoring test `delayed_group_sampling` as `tests/delayed_group_sampling.rs` is not included in the published package
+warning: ignoring test `delayed_spectra_vs_openmc` as `tests/delayed_spectra_vs_openmc.rs` is not included in the published package
+warning: ignoring test `delta_collision_estimator` as `tests/delta_collision_estimator.rs` is not included in the published package
+warning: ignoring test `delta_tracking_audit` as `tests/delta_tracking_audit.rs` is not included in the published package
+warning: ignoring test `delta_tracking_bit_identity` as `tests/delta_tracking_bit_identity.rs` is not included in the published package
+warning: ignoring test `depletion_chain_xml_vs_transcription` as `tests/depletion_chain_xml_vs_transcription.rs` is not included in the published package
+warning: ignoring test `depletion_coupled_to_transport` as `tests/depletion_coupled_to_transport.rs` is not included in the published package
+warning: ignoring test `depletion_move_fingerprints` as `tests/depletion_move_fingerprints.rs` is not included in the published package
+warning: ignoring test `depletion_one_group_collapse` as `tests/depletion_one_group_collapse.rs` is not included in the published package
+warning: ignoring test `depletion_step_convergence` as `tests/depletion_step_convergence.rs` is not included in the published package
+warning: ignoring test `distribcell_end_to_end` as `tests/distribcell_end_to_end.rs` is not included in the published package
+warning: ignoring test `elastic_anisotropy_vs_endf_mf4` as `tests/elastic_anisotropy_vs_endf_mf4.rs` is not included in the published package
+warning: ignoring test `elastic_mubar_vs_openmc` as `tests/elastic_mubar_vs_openmc.rs` is not included in the published package
+warning: ignoring test `elastic_xi_h1_o16` as `tests/elastic_xi_h1_o16.rs` is not included in the published package
+warning: ignoring test `every_filter_kind_is_reachable` as `tests/every_filter_kind_is_reachable.rs` is not included in the published package
+warning: ignoring test `filter_extra_vs_upstream` as `tests/filter_extra_vs_upstream.rs` is not included in the published package
+warning: ignoring test `fission_energy_below_data_max` as `tests/fission_energy_below_data_max.rs` is not included in the published package
+warning: ignoring test `fission_spectrum_shape_vs_openmc` as `tests/fission_spectrum_shape_vs_openmc.rs` is not included in the published package
+warning: ignoring test `fission_spectrum_vs_openmc` as `tests/fission_spectrum_vs_openmc.rs` is not included in the published package
+warning: ignoring test `from_endf_file_name_and_temperature` as `tests/from_endf_file_name_and_temperature.rs` is not included in the published package
+warning: ignoring test `geometry_plot` as `tests/geometry_plot.rs` is not included in the published package
+warning: ignoring test `geometry_plot_openmc_parity` as `tests/geometry_plot_openmc_parity.rs` is not included in the published package
+warning: ignoring test `gpu_geometry_helpers_directly` as `tests/gpu_geometry_helpers_directly.rs` is not included in the published package
+warning: ignoring test `gpu_kinematics_invariants` as `tests/gpu_kinematics_invariants.rs` is not included in the published package
+warning: ignoring test `gpu_lcg_advance_directly` as `tests/gpu_lcg_advance_directly.rs` is not included in the published package
+warning: ignoring test `gpu_root_finders_vs_petir` as `tests/gpu_root_finders_vs_petir.rs` is not included in the published package
+warning: ignoring test `gpu_sampling_helpers_directly` as `tests/gpu_sampling_helpers_directly.rs` is not included in the published package
+warning: ignoring test `hex_lattice_axial_frame` as `tests/hex_lattice_axial_frame.rs` is not included in the published package
+warning: ignoring test `htr10_graphite_thermal_scattering_pebble_bed` as `tests/htr10_graphite_thermal_scattering_pebble_bed.rs` is not included in the published package
+warning: ignoring test `hybrid_tracking_equivalence` as `tests/hybrid_tracking_equivalence.rs` is not included in the published package
+warning: ignoring test `inelastic_anisotropy_ablation_control` as `tests/inelastic_anisotropy_ablation_control.rs` is not included in the published package
+warning: ignoring test `inelastic_channel_vs_endf` as `tests/inelastic_channel_vs_endf.rs` is not included in the published package
+warning: ignoring test `inelastic_mubar_vs_openmc` as `tests/inelastic_mubar_vs_openmc.rs` is not included in the published package
+warning: ignoring test `lattice_tile_clipping` as `tests/lattice_tile_clipping.rs` is not included in the published package
+warning: ignoring test `law7_lab_angle_energy_transport` as `tests/law7_lab_angle_energy_transport.rs` is not included in the published package
+warning: ignoring test `lesson_fission_products` as `tests/lesson_fission_products.rs` is not included in the published package
+warning: ignoring test `light_water_thermal_scattering` as `tests/light_water_thermal_scattering.rs` is not included in the published package
+warning: ignoring test `lump_collision_probability` as `tests/lump_collision_probability.rs` is not included in the published package
+warning: ignoring test `majorant_bounds_endf` as `tests/majorant_bounds_endf.rs` is not included in the published package
+warning: ignoring test `majorant_temperature_cover` as `tests/majorant_temperature_cover.rs` is not included in the published package
+warning: ignoring test `mesh_vs_openmc` as `tests/mesh_vs_openmc.rs` is not included in the published package
+warning: ignoring test `mf45_uncorrelated_emission` as `tests/mf45_uncorrelated_emission.rs` is not included in the published package
+warning: ignoring test `model_diagnostics` as `tests/model_diagnostics.rs` is not included in the published package
+warning: ignoring test `model_hst009_tutorial` as `tests/model_hst009_tutorial.rs` is not included in the published package
+warning: ignoring test `model_lct008_tutorial` as `tests/model_lct008_tutorial.rs` is not included in the published package
+warning: ignoring test `model_lowering_bit_for_bit` as `tests/model_lowering_bit_for_bit.rs` is not included in the published package
+warning: ignoring test `model_pebble` as `tests/model_pebble.rs` is not included in the published package
+warning: ignoring test `model_repeated_structures` as `tests/model_repeated_structures.rs` is not included in the published package
+warning: ignoring test `model_seker_bed` as `tests/model_seker_bed.rs` is not included in the published package
+warning: ignoring test `model_seker_layer` as `tests/model_seker_layer.rs` is not included in the published package
+warning: ignoring test `mt5_anything_channel` as `tests/mt5_anything_channel.rs` is not included in the published package
+warning: ignoring test `mt91_transfer_vs_openmc` as `tests/mt91_transfer_vs_openmc.rs` is not included in the published package
+warning: ignoring test `nd_wasm_probe_native` as `tests/nd_wasm_probe_native.rs` is not included in the published package
+warning: ignoring test `nested_lattice_depth3` as `tests/nested_lattice_depth3.rs` is not included in the published package
+warning: ignoring test `nuclear_data_loading` as `tests/nuclear_data_loading.rs` is not included in the published package
+warning: ignoring test `nuclide_from_ace_vs_endf` as `tests/nuclide_from_ace_vs_endf.rs` is not included in the published package
+warning: ignoring test `openmc_notebooks` as `tests/openmc_notebooks.rs` is not included in the published package
+warning: ignoring test `other_neutron_channels_vs_openmc` as `tests/other_neutron_channels_vs_openmc.rs` is not included in the published package
+warning: ignoring test `particle_clock` as `tests/particle_clock.rs` is not included in the published package
+warning: ignoring test `processed_evaluation_round_trip` as `tests/processed_evaluation_round_trip.rs` is not included in the published package
+warning: ignoring test `python_plot_parity` as `tests/python_plot_parity.rs` is not included in the published package
+warning: ignoring test `region_temperature` as `tests/region_temperature.rs` is not included in the published package
+warning: ignoring test `ring_rpt_hunt_lessons` as `tests/ring_rpt_hunt_lessons.rs` is not included in the published package
+warning: ignoring test `ring_rpt_model_matches_openmc_deck` as `tests/ring_rpt_model_matches_openmc_deck.rs` is not included in the published package
+warning: ignoring test `route4_is_process` as `tests/route4_is_process.rs` is not included in the published package
+warning: ignoring test `scatter_matrix_tally` as `tests/scatter_matrix_tally.rs` is not included in the published package
+warning: ignoring test `shannon_entropy_in_keff` as `tests/shannon_entropy_in_keff.rs` is not included in the published package
+warning: ignoring test `shannon_entropy_vs_openmc` as `tests/shannon_entropy_vs_openmc.rs` is not included in the published package
+warning: ignoring test `slowing_down_kinematics` as `tests/slowing_down_kinematics.rs` is not included in the published package
+warning: ignoring test `source_polar_azimuthal` as `tests/source_polar_azimuthal.rs` is not included in the published package
+warning: ignoring test `speed_tier_fast_is_exact` as `tests/speed_tier_fast_is_exact.rs` is not included in the published package
+warning: ignoring test `stats_move_fingerprints` as `tests/stats_move_fingerprints.rs` is not included in the published package
+warning: ignoring test `surface_source_two_stage` as `tests/surface_source_two_stage.rs` is not included in the published package
+warning: ignoring test `tally_filters_vs_definitions` as `tests/tally_filters_vs_definitions.rs` is not included in the published package
+warning: ignoring test `temperature_interpolation_947` as `tests/temperature_interpolation_947.rs` is not included in the published package
+warning: ignoring test `temperature_precedence` as `tests/temperature_precedence.rs` is not included in the published package
+warning: ignoring test `thermal_cutoff_is_tape_emax` as `tests/thermal_cutoff_is_tape_emax.rs` is not included in the published package
+warning: ignoring test `thermal_endf_route_xs_vs_njoy` as `tests/thermal_endf_route_xs_vs_njoy.rs` is not included in the published package
+warning: ignoring test `thermal_equiprobable_vs_openmc` as `tests/thermal_equiprobable_vs_openmc.rs` is not included in the published package
+warning: ignoring test `thermal_from_ace` as `tests/thermal_from_ace.rs` is not included in the published package
+warning: ignoring test `thermal_graphite_elastic` as `tests/thermal_graphite_elastic.rs` is not included in the published package
+warning: ignoring test `thermal_h2o_leapr_vs_tsl` as `tests/thermal_h2o_leapr_vs_tsl.rs` is not included in the published package
+warning: ignoring test `thermal_ifeng2_vs_openmc` as `tests/thermal_ifeng2_vs_openmc.rs` is not included in the published package
+warning: ignoring test `thermal_incoherent_elastic_vs_openmc` as `tests/thermal_incoherent_elastic_vs_openmc.rs` is not included in the published package
+warning: ignoring test `thermal_kernel_stationary_distribution` as `tests/thermal_kernel_stationary_distribution.rs` is not included in the published package
+warning: ignoring test `thermal_laws_vs_njoy_thermr` as `tests/thermal_laws_vs_njoy_thermr.rs` is not included in the published package
+warning: ignoring test `thermal_mixed_elastic_vs_openmc` as `tests/thermal_mixed_elastic_vs_openmc.rs` is not included in the published package
+warning: ignoring test `thermal_skewed_vs_openmc` as `tests/thermal_skewed_vs_openmc.rs` is not included in the published package
+warning: ignoring test `thermal_standards` as `tests/thermal_standards.rs` is not included in the published package
+warning: ignoring test `total_fast_path_matches_full` as `tests/total_fast_path_matches_full.rs` is not included in the published package
+warning: ignoring test `track_capture` as `tests/track_capture.rs` is not included in the published package
+warning: ignoring test `tracking_method_regions` as `tests/tracking_method_regions.rs` is not included in the published package
+warning: ignoring test `tracking_trace` as `tests/tracking_trace.rs` is not included in the published package
+warning: ignoring test `triso_shell_thermal_scattering` as `tests/triso_shell_thermal_scattering.rs` is not included in the published package
+warning: ignoring test `u238_vs_njoy_pendf_golden` as `tests/u238_vs_njoy_pendf_golden.rs` is not included in the published package
+warning: ignoring test `uncorrelated_cm_emission` as `tests/uncorrelated_cm_emission.rs` is not included in the published package
+warning: ignoring test `urr_band_flight_consistency` as `tests/urr_band_flight_consistency.rs` is not included in the published package
+warning: ignoring test `urr_ptable_control` as `tests/urr_ptable_control.rs` is not included in the published package
+warning: ignoring test `urr_sampling_vs_openmc` as `tests/urr_sampling_vs_openmc.rs` is not included in the published package
+warning: ignoring test `urr_tally_end_to_end_953` as `tests/urr_tally_end_to_end_953.rs` is not included in the published package
+warning: ignoring test `urr_tally_scoring_953` as `tests/urr_tally_scoring_953.rs` is not included in the published package
+warning: ignoring test `variance_reduction_is_bit_identical_when_analog` as `tests/variance_reduction_is_bit_identical_when_analog.rs` is not included in the published package
+warning: ignoring test `variance_reduction_parallel_and_weighted_fission` as `tests/variance_reduction_parallel_and_weighted_fission.rs` is not included in the published package
+warning: ignoring test `volume_calc_vs_analytic` as `tests/volume_calc_vs_analytic.rs` is not included in the published package
+warning: ignoring test `wasm_route4_runtime` as `tests/wasm_route4_runtime.rs` is not included in the published package
+warning: ignoring test `white_boundary_vs_openmc` as `tests/white_boundary_vs_openmc.rs` is not included in the published package
+warning: ignoring test `wmp_local_temperature_948` as `tests/wmp_local_temperature_948.rs` is not included in the published package
+warning: ignoring test `xs_and_tracks_plot_parity` as `tests/xs_and_tracks_plot_parity.rs` is not included in the published package
+    Updating crates.io index
+    Packaged 189 files, 4.0MiB (1.1MiB compressed)
+   Verifying outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+ Downloading crates ...
+  Downloaded outram-park-fork-liggghts v0.0.2
+  Downloaded outram-blender v0.0.6
+  Downloaded njoy-outram-park-fork v0.0.6
+   Compiling syn v3.0.9
+   Compiling num-traits v0.2.19
+   Compiling syn v2.0.119
+   Compiling bitflags v2.13.2
+   Compiling rustversion v1.0.23
+   Compiling spirv v0.4.0+sdk-1.4.341.0
+   Compiling uom v0.38.0
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling either v1.19.0
+   Compiling ordered-float v5.5.0
+   Compiling errno v0.3.14
+   Compiling zerocopy-derive v0.8.63
+   Compiling thiserror-impl v2.0.21
+   Compiling bytemuck_derive v1.12.1
+   Compiling bytemuck v1.25.2
+   Compiling thiserror v2.0.21
+   Compiling naga-types v30.0.1
+   Compiling gpu-allocator v0.28.0
+   Compiling wgpu-types v30.0.1
+   Compiling zerocopy v0.8.63
+   Compiling ident_case v1.0.1
+   Compiling strsim v0.11.1
+   Compiling signal-hook v0.3.18
+   Compiling darling_core v0.24.1
+   Compiling signal-hook-registry v1.4.8
+   Compiling num-complex v0.4.6
+   Compiling half v2.7.1
+   Compiling num-integer v0.1.47
+   Compiling naga v30.0.1
+   Compiling crc32fast v1.5.2
+   Compiling rustix v0.38.44
+   Compiling strum_macros v0.26.4
+   Compiling darling_macro v0.24.1
+   Compiling ndarray v0.17.2
+   Compiling serde_derive v1.0.229
+   Compiling mio v1.2.4
+   Compiling simd-adler32 v0.3.10
+   Compiling foldhash v0.1.5
+   Compiling linux-raw-sys v0.4.15
+   Compiling paste v1.0.15
+   Compiling miniz_oxide v0.9.1
+   Compiling petir v0.0.3
+   Compiling hashbrown v0.15.5
+   Compiling serde v1.0.229
+   Compiling signal-hook-mio v0.2.5
+   Compiling rayon v1.12.0
+   Compiling strum v0.26.3
+   Compiling darling v0.24.1
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling itertools v0.13.0
+   Compiling castaway v0.2.4
+   Compiling ryu v1.0.23
+   Compiling xml v1.4.0
+   Compiling unicode-segmentation v1.13.3
+   Compiling wgpu-naga-bridge v30.0.1
+   Compiling wgpu-hal v30.0.1
+   Compiling itoa v1.0.18
+   Compiling option-ext v0.2.0
+   Compiling indoc v2.0.8
+   Compiling hdf5-pure v0.20.1
+   Compiling unicode-width v0.1.14
+   Compiling unicode-truncate v1.1.0
+   Compiling instability v0.3.14
+   Compiling dirs-sys v0.4.1
+   Compiling compact_str v0.8.2
+   Compiling serde-xml-rs v0.8.2
+   Compiling digest v0.10.7
+   Compiling flate2 v1.1.10
+   Compiling crossterm v0.28.1
+   Compiling wgpu-core-deps-windows-linux-android v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling lru v0.12.5
+   Compiling cpufeatures v0.2.17
+   Compiling cassowary v0.3.0
+   Compiling byteorder v1.5.0
+   Compiling njoy-outram-park-fork v0.0.6
+   Compiling ratatui v0.29.0
+   Compiling sha2 v0.10.9
+   Compiling openmc-endf-8-depletion-lib-a v1.0.1
+   Compiling directories v5.0.1
+   Compiling outram-foam-basic-lib v0.1.7
+   Compiling approx v0.5.1
+   Compiling wgpu v30.0.1
+   Compiling fs2 v0.4.3
+   Compiling raffles v0.0.3
+   Compiling outram-park-fork-liggghts v0.0.2
+   Compiling tampines-steam-tables v0.3.0
+   Compiling openmc-endf-8-depletion-lib-b v1.0.0
+   Compiling outram-blender v0.0.6
+   Compiling fission-yields-data v0.1.6
+   Compiling outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/target/package/outram-mc-libs-0.0.6)
+warning: associated function `new_from_fission` is never used
+   --> src/physics/transport_csg.rs:182:19
+    |
+169 | impl Site {
+    | --------- associated function in this implementation
+...
+182 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `outram-mc-libs` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 27.72s
+   Uploading outram-mc-libs v0.0.6 (/home/teddy0/Documents/research/outram-park-backend/crates/outram-mc-libs)
+    Uploaded outram-mc-libs v0.0.6 to registry `crates-io`
+note: waiting for outram-mc-libs v0.0.6 to be available at registry `crates-io`
+help: you may press ctrl-c to skip waiting; the crate should be available shortly
+   Published outram-mc-libs v0.0.6 at registry `crates-io`

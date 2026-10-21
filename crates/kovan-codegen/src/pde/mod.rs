@@ -63,6 +63,7 @@ pub fn generate(scheme: PdeScheme) -> Result<String, CodegenError> {
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
 
     #[test]
@@ -75,14 +76,14 @@ mod tests {
             0.0,
             1.0,
             200,
-            |x| PI * PI * (PI * x).sin(),
+            |x| PI * PI * (PI * x).r_sin(),
             0.0,
             0.0,
         )
         .unwrap();
         let mut max_err = 0.0_f64;
         for (x, u) in xs.iter().zip(us.iter()) {
-            let exact = (PI * x).sin();
+            let exact = (PI * x).r_sin();
             max_err = max_err.max((u - exact).abs());
         }
         assert!(max_err < 1e-4, "max error {max_err}");

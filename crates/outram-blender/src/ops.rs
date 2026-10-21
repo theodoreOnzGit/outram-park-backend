@@ -58,6 +58,7 @@
 //!   Manifold library). This is the operator most relevant to feeding
 //!   `outram-mc-libs` CSG geometry.
 
+use petir::mathf::RealMath;
 use std::collections::{HashMap, HashSet};
 
 use crate::math::Vec3;
@@ -494,7 +495,8 @@ fn truncate_skeleton(mesh: &Mesh, width: f64) -> TruncSkeleton {
         let map = &links[v];
         let mut ring: Vec<usize> = Vec::new();
         if !map.is_empty() {
-            let start = *map.keys().next().expect("non-empty link map");
+            // Lowest key, not the map's first (randomly seeded, gh #1002).
+            let start = *map.keys().min().expect("non-empty link map");
             let mut cur = start;
             // Bounded by the degree so a non-manifold vertex can't loop forever.
             for _ in 0..=map.len() {
@@ -677,16 +679,16 @@ fn push_oriented(faces: &mut Vec<Vec<usize>>, positions: &[Vec3], centre: Vec3, 
 /// there, but this keeps the result finite for the rounded-bevel cap).
 fn slerp(a: Vec3, b: Vec3, t: f64) -> Vec3 {
     let dot = a.dot(b).clamp(-1.0, 1.0);
-    let omega = dot.acos();
+    let omega = dot.r_acos();
     if omega < 1e-9 {
         return a;
     }
     if omega > std::f64::consts::PI - 1e-9 {
         return a.scale(1.0 - t).add(b.scale(t)).normalize();
     }
-    let so = omega.sin();
-    a.scale(((1.0 - t) * omega).sin() / so)
-        .add(b.scale((t * omega).sin() / so))
+    let so = omega.r_sin();
+    a.scale(((1.0 - t) * omega).r_sin() / so)
+        .add(b.scale((t * omega).r_sin() / so))
 }
 
 /// A closed set of mesh-editing operators.

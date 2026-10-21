@@ -67,17 +67,46 @@
 //! # Results — measured 2026-09-14
 //!
 //! 200 000 histories per arm, 51 193 TRISO particles packed by RSA, release
-//! build, single-threaded, one container core. **Five consecutive runs**; the
-//! speedups are quoted as the observed range, because run-to-run spread is
-//! about +/-10 % and a single figure would misrepresent the precision.
+//! build, single-threaded. **Six consecutive runs**; the speedups are quoted as
+//! the observed range, because run-to-run spread is about +/-10 % and a single
+//! figure would misrepresent the precision.
 //!
 //! | Arm | us/history | Speedup | P(absorb) | Bias vs exact |
 //! |---|---|---|---|---|
-//! | Surface tracking (exact) | 4.30-5.06 | 1.0x (baseline) | 0.8047 +/- 0.0009 | -- |
+//! | Surface tracking (exact) | 4.17-5.06 | 1.0x (baseline) | 0.8047 +/- 0.0009 | -- |
 //! | Delta (Woodcock) tracking | 0.52-0.75 | **6.3-8.1x** | 0.8034 +/- 0.0009 | -1.0 sigma, NOT resolved |
-//! | CLS (memoryless) | 0.22-0.23 | **19.8-23.2x** | 0.8062 +/- 0.0009 | +1.2 sigma, NOT resolved |
-//! | SCLS (bounded window) | 0.43-0.47 | **9.6-11.0x** | 0.8128 +/- 0.0009 | +6.5 sigma, **resolved** |
-//! | Naive homogenisation (no DH) | 0.07 | **59.4-68.7x** | 0.7475 +/- 0.0010 | -43.5 sigma, **resolved** |
+//! | CLS (memoryless) | 0.21-0.23 | **19.4-23.2x** | 0.8062 +/- 0.0009 | +1.2 sigma, NOT resolved |
+//! | SCLS (bounded window) | 0.43-0.47 | **9.5-11.0x** | 0.8128 +/- 0.0009 | +6.5 sigma, **resolved** |
+//! | Naive homogenisation (no DH) | 0.07-0.08 | **53.6-68.7x** | 0.7475 +/- 0.0010 | -43.5 sigma, **resolved** |
+//!
+//! ## Machine the timings were taken on
+//!
+//! | | |
+//! |---|---|
+//! | CPU | Intel Xeon @ 2.10 GHz, **4 cores / 4 threads** (1 thread per core, no SMT) |
+//! | Cache | L1d 192 KiB, L1i 128 KiB, L2 8 MiB (4x2 MiB), **L3 260 MiB shared** |
+//! | ISA | x86-64 with AVX-512 (F/DQ/CD/BW/VL, VNNI, BF16), AMX, SHA-NI |
+//! | RAM | **15.7 GiB** (16 461 028 kB), no swap |
+//! | Virtualisation | KVM, full virtualisation — a cloud container, not bare metal |
+//! | Kernel | Linux 6.18.44 |
+//! | Toolchain | rustc 1.94.1 (e408947bf, 2026-03-25), `--release` |
+//! | Threads | single-threaded — **one of the four cores in use**, 3 idle |
+//!
+//! **The L3 is 260 MiB, which flatters the exact arms.** The 51 193-sphere
+//! packing and its lookup grid are a few megabytes at most, so on this machine
+//! the explicit geometry is comfortably cache-resident and surface and delta
+//! tracking are close to their best case. On a host with an ordinary few-MiB
+//! L3 the two exact arms would suffer more cache pressure than the
+//! geometry-free arms, so the speedups here should be read as a **lower**
+//! bound on what a smaller-cache machine would show.
+//!
+//! It is also a virtualised, shared host, which is where the +/-10 % run-to-run
+//! spread comes from. The sixth run (added 2026-09-14, after the arm-5 rename)
+//! landed slightly below the bottom of four of the five previously quoted
+//! ranges, and those ranges have been widened to include it rather than
+//! presented as the tighter five-run spread. `P(absorb)` was **bit-identical**
+//! across all six — the seed is fixed, so only the timings move, which is what
+//! makes the ranges attributable to the machine rather than to the physics.
 //!
 //! Packing and grid construction are excluded from the timings and reported
 //! separately (~0.5 s and ~0.2 s); they are one-off setup, not per-history cost.
@@ -108,8 +137,8 @@
 //!
 //! ## Two findings worth not glossing over
 //!
-//! **SCLS is both slower AND more biased than CLS here** (9.6-11.0x vs
-//! 19.8-23.2x; +6.5 sigma vs not-resolved). That runs against its design
+//! **SCLS is both slower AND more biased than CLS here** (9.5-11.0x vs
+//! 19.4-23.2x; +6.5 sigma vs not-resolved). That runs against its design
 //! intent: SCLS retains a bounded window of inclusions precisely so it can beat
 //! memoryless CLS on accuracy, paying for it in time. It pays the time and does
 //! not obviously collect. Whether that is the model, this implementation's
@@ -126,20 +155,24 @@
 //!
 //! ## What this is not
 //!
-//! Not a V&V case and not a k-eff comparison. The CLS family has no eigenvalue
+//! Not a V&V case and not a k-eff comparison. ~~The CLS family has no eigenvalue
 //! path in this crate, so a common k-eff benchmark across all five arms is not
-//! currently possible; cost per history on a shared fixed-source walk is what
-//! *is* comparable. Absolute microseconds are machine-specific — the speedup
+//! currently possible;~~ **CORRECTED 2026-10-05 (#528):** the CLS family does
+//! have an eigenvalue path: `DhUniverse::keff` runs `DhTreatment::ChordLength`
+//! and `DhTreatment::Scls` (and their kernel-level variants) through
+//! `run_keff_delta_in`, and `examples/dh_keff_vv.rs` compares their k against
+//! exact delta tracking. This example still has no surface-tracking k arm, so
+//! cost per history on a shared fixed-source walk is what *is* comparable
+//! here. Absolute microseconds are machine-specific — the speedup
 //! ratios are the portable quantity.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 use std::time::Instant;
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::pebble_beds::fhr_pebble::TrisoSpec;
-use outram_mc_libs::pebble_beds::sphere_packing::{
-    PackedSpheres, PackingConfig, PackingMethod, Sphere,
-};
+use outram_mc_libs::pebble_beds::sphere_packing::{PackedSpheres, PackingConfig, PackingMethod, Sphere};
 use outram_mc_libs::stochastic::cls::ClsMedium;
 use outram_mc_libs::stochastic::medium::{MaterialId, RsaMedium, StochasticMedium};
 use outram_mc_libs::stochastic::scls::SclsMedium;
@@ -172,7 +205,9 @@ const SEED: u64 = 0x5EED_1234_ABCD_0001;
 /// call overhead — every arm pays exactly this same cost.
 #[inline]
 fn rand_unit(seed: &mut u64) -> f64 {
-    *seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+    *seed = seed
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1_442_695_040_888_963_407);
     ((*seed >> 11) as f64) / ((1u64 << 53) as f64)
 }
 
@@ -182,7 +217,7 @@ fn isotropic(seed: &mut u64) -> (f64, f64, f64) {
     let mu = 2.0 * rand_unit(seed) - 1.0;
     let phi = std::f64::consts::TAU * rand_unit(seed);
     let s = (1.0 - mu * mu).max(0.0).sqrt();
-    (s * phi.cos(), s * phi.sin(), mu)
+    (s * phi.r_cos(), s * phi.r_sin(), mu)
 }
 
 /// A uniform random point in the packing cube.
@@ -241,7 +276,11 @@ impl SurfaceGrid {
             v.sort_unstable();
             v.dedup();
         }
-        Self { cells, spheres, cell }
+        Self {
+            cells,
+            spheres,
+            cell,
+        }
     }
 
     /// Distance \[cm\] along `d` from `p` to the nearest sphere surface, if any
@@ -263,11 +302,7 @@ impl SurfaceGrid {
             if t > limit {
                 break;
             }
-            let k = (
-                key(p.x + d.0 * t),
-                key(p.y + d.1 * t),
-                key(p.z + d.2 * t),
-            );
+            let k = (key(p.x + d.0 * t), key(p.y + d.1 * t), key(p.z + d.2 * t));
             if seen == Some(k) {
                 continue;
             }
@@ -364,7 +399,7 @@ fn run_surface(packing: &PackedSpheres, grid: &SurfaceGrid, mut seed: u64) -> Ar
             if collisions >= MAX_COLLISIONS || outside_cube(p) {
                 break;
             }
-            let flight = -rand_unit(&mut seed).ln() / sigma_of(mat);
+            let flight = -rand_unit(&mut seed).r_ln() / sigma_of(mat);
             match grid.nearest_surface(p, d, flight) {
                 // A surface comes first: move to it, swap material, resample.
                 Some((t_hit, entering)) => {
@@ -424,7 +459,7 @@ fn run_delta(packing: &PackedSpheres, mut seed: u64) -> ArmResult {
         let mut d = isotropic(&mut seed);
         let mut collisions = 0usize;
         while collisions < MAX_COLLISIONS {
-            let flight = -rand_unit(&mut seed).ln() / sigma_maj;
+            let flight = -rand_unit(&mut seed).r_ln() / sigma_maj;
             p = Position {
                 x: p.x + d.0 * flight,
                 y: p.y + d.1 * flight,
@@ -481,7 +516,7 @@ fn run_cls_family(name: &'static str, mut medium: StochasticMedium, mut seed: u6
         let mut d = isotropic(&mut seed);
         let mut collisions = 0usize;
         while collisions < MAX_COLLISIONS {
-            let flight = -rand_unit(&mut seed).ln() / sigma_maj;
+            let flight = -rand_unit(&mut seed).r_ln() / sigma_maj;
             p = Position {
                 x: p.x + d.0 * flight,
                 y: p.y + d.1 * flight,
@@ -506,7 +541,10 @@ fn run_cls_family(name: &'static str, mut medium: StochasticMedium, mut seed: u6
             collisions += 1;
         }
     }
-    assert_eq!(failed, 0, "{name}: medium returned NotImplemented — the arm is not measurable");
+    assert_eq!(
+        failed, 0,
+        "{name}: medium returned NotImplemented — the arm is not measurable"
+    );
     ArmResult {
         name,
         secs: t0.elapsed().as_secs_f64(),
@@ -535,7 +573,7 @@ fn run_homogenised(mut seed: u64) -> ArmResult {
         let mut d = isotropic(&mut seed);
         let mut collisions = 0usize;
         while collisions < MAX_COLLISIONS {
-            let flight = -rand_unit(&mut seed).ln() / sigma_h;
+            let flight = -rand_unit(&mut seed).r_ln() / sigma_h;
             p = Position {
                 x: p.x + d.0 * flight,
                 y: p.y + d.1 * flight,
@@ -590,7 +628,10 @@ fn main() {
 
     let t_grid = Instant::now();
     let grid = SurfaceGrid::build(&packing);
-    println!("  surface grid built        : {:.2} s\n", t_grid.elapsed().as_secs_f64());
+    println!(
+        "  surface grid built        : {:.2} s\n",
+        t_grid.elapsed().as_secs_f64()
+    );
 
     let cls_medium = ClsMedium::new(r_particle, PACKING_FRACTION, INCLUSION, MATRIX);
     // Transport mfp for the SCLS Dynamic Inclusion Sphere: the matrix mfp.
@@ -615,7 +656,10 @@ fn main() {
     let baseline = results[0].secs;
     let base_abs = results[0].absorbed;
 
-    println!("{:<32} {:>10} {:>12} {:>11} {:>10}", "arm", "time [s]", "us/history", "speedup", "P(abs)");
+    println!(
+        "{:<32} {:>10} {:>12} {:>11} {:>10}",
+        "arm", "time [s]", "us/history", "speedup", "P(abs)"
+    );
     println!("{}", "-".repeat(80));
     for r in &results {
         let us = r.secs / HISTORIES as f64 * 1.0e6;
@@ -623,7 +667,13 @@ fn main() {
         let mark = if r.exact { " " } else { "*" };
         println!(
             "{:<32} {:>10.3} {:>12.2} {:>10.1}x {:>9.4}{} +/-{:.4}",
-            r.name, r.secs, us, speedup, r.absorbed, mark, r.sem()
+            r.name,
+            r.secs,
+            us,
+            speedup,
+            r.absorbed,
+            mark,
+            r.sem()
         );
     }
     println!("{}", "-".repeat(80));
@@ -636,7 +686,11 @@ fn main() {
         let d = r.absorbed - base_abs;
         let sigma = (base_sem * base_sem + r.sem() * r.sem()).sqrt();
         let n_sigma = d / sigma;
-        let verdict = if n_sigma.abs() < 2.0 { "NOT resolved" } else { "resolved" };
+        let verdict = if n_sigma.abs() < 2.0 {
+            "NOT resolved"
+        } else {
+            "resolved"
+        };
         println!(
             "    {:<32} {:+.4} +/- {:.4}  ({:+.1} sigma, {})",
             r.name, d, sigma, n_sigma, verdict

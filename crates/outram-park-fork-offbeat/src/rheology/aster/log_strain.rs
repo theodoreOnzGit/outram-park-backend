@@ -65,6 +65,7 @@
 //! conversion happens. Do not feed a small-strain tensor to this wrapper
 //! directly; it expects a deformation gradient.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{
     eigen_values_symm, eigen_vectors_symm_with, SymmTensor, Tensor, Vector3,
 };
@@ -204,7 +205,7 @@ impl LogarithmicStrain {
                     // nearly-equal logarithms and divide by nearly zero.
                     2.0 / (li + lj)
                 } else {
-                    (li.ln() - lj.ln()) / (li - lj)
+                    (li.r_ln() - lj.r_ln()) / (li - lj)
                 }
             }
         };

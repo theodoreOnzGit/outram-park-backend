@@ -78,7 +78,9 @@ fn terpa_lookup(tab: &Tab1, x: f64) -> Result<(f64, f64, bool), NjoyError> {
     let pairs = &tab.pairs;
     let n = pairs.len();
     if n == 0 {
-        return Err(NjoyError::EndfParse("terpa: TAB1 has no data points".into()));
+        return Err(NjoyError::EndfParse(
+            "terpa: TAB1 has no data points".into(),
+        ));
     }
     let (x_first, _) = pairs[0];
     if x < x_first {

@@ -68,6 +68,7 @@
 //! Strict SI (kelvin, W/m/K, kilogram, mole, pascal, m³) with the single
 //! documented exception of [`GapGasSpecies::molar_mass_g_per_mol`].
 
+use petir::mathf::RealMath;
 use crate::error::{OffbeatError, Result};
 
 /// Universal gas constant `R` \[J/(mol·K)\], CODATA exact value.
@@ -228,7 +229,7 @@ impl GapGasSpecies {
             return 0.0;
         }
         let (a, b) = self.conductivity_coefficients();
-        a * t.powf(b)
+        a * t.r_powf(b)
     }
 }
 
@@ -506,10 +507,10 @@ impl GapGasMixture {
                 }
                 let m_j = GapGasSpecies::ALL[j].molar_mass();
                 let ratio_m = m_i / m_j;
-                let phi = (1.0 + (k[i] / k[j]).sqrt() * ratio_m.powf(0.25)).powi(2)
-                    / (2.0f64.powf(1.5) * (1.0 + ratio_m).sqrt());
+                let phi = (1.0 + (k[i] / k[j]).sqrt() * ratio_m.r_powf(0.25)).r_powi(2)
+                    / (2.0f64.r_powf(1.5) * (1.0 + ratio_m).sqrt());
                 let psi =
-                    phi * (1.0 + 2.41 * ((m_i - m_j) * (m_i - 0.142 * m_j)) / (m_i + m_j).powi(2));
+                    phi * (1.0 + 2.41 * ((m_i - m_j) * (m_i - 0.142 * m_j)) / (m_i + m_j).r_powi(2));
                 sum_term += psi * x_j;
             }
             k_mix += k[i] * x_i / (x_i + sum_term);

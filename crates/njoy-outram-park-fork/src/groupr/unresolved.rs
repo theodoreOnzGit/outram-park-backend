@@ -67,6 +67,7 @@
 //!   flag but [`UnresolvedTable::shield`] does **not** apply the `xtot`
 //!   correction — it evaluates the `iovl == 0` path. Flagged as a follow-up.
 
+use petir::mathf::RealMath;
 use std::sync::Arc;
 
 use crate::endf::interp::{terp1, IntLaw};
@@ -98,6 +99,7 @@ use crate::NjoyError;
 ///
 /// Returns `weight_c` for the degenerate `sigma_t + sigma_0 == 0` case rather
 /// than a `NaN`.
+// ANCHOR: lesson_bondarenko
 pub fn bondarenko_flux_value(sigma_t: f64, weight_c: f64, sigma_pot: f64, sigma_0: f64) -> f64 {
     if sigma_0.is_infinite() {
         return weight_c;
@@ -108,6 +110,7 @@ pub fn bondarenko_flux_value(sigma_t: f64, weight_c: f64, sigma_pot: f64, sigma_
     }
     weight_c * (sigma_0 + sigma_pot) / denom
 }
+// ANCHOR_END: lesson_bondarenko
 
 /// A set of self-shielded weighting fluxes, one per background dilution — the
 /// output of the Bondarenko branch of `genflx`.
@@ -552,6 +555,34 @@ impl UnresolvedTable {
         self.points.len()
     }
 
+    /// The stored URR energy points themselves, ascending in energy.
+    ///
+    /// [`Self::shield`] is the interpolating lookup this table exists for;
+    /// this is the raw tabulation behind it, exposed so a caller can compare a
+    /// stored table against an independent evaluation **at the energies the
+    /// table was actually evaluated at** rather than through the
+    /// interpolation. That distinction is the whole subject of
+    /// `verification_and_validation/urr_interpolation_study/`: a value read
+    /// between two stored points is an interpolation, and comparing against it
+    /// measures the interpolation, not the physics.
+    ///
+    /// Each point's `xs[column][dilution]` is indexed by
+    /// [`UrrReaction::column`] and by position in [`Self::sigma0_grid`].
+    pub fn points(&self) -> &[UrrEnergyPoint] {
+        &self.points
+    }
+
+    /// Number of reaction columns stored (`nx`).
+    ///
+    /// RECONR writes five (`genunr`, `reconr.f90:1628-1735`): total, elastic,
+    /// fission, capture, and then **the total again** — `sunr(l+5)=sunr(l+1)`
+    /// at `:1690`. The fifth column is a duplicate, not a transport cross
+    /// section, which is worth knowing before comparing column 5 against a
+    /// kernel whose fifth output is transport.
+    pub fn n_reactions(&self) -> usize {
+        self.n_reactions
+    }
+
     /// Retrieve the self-shielded cross section at energy `e` and correct the
     /// per-dilution background `sig` — the port of `getunr`
     /// (`groupr.f90:6896-6994`), `iovl == 0` path.
@@ -814,7 +845,7 @@ pub fn terpu(sigz: f64, xs: &[f64], sigs: &[f64]) -> f64 {
                     if st > RHI * s_two {
                         continue;
                     }
-                    terp *= (sigz / st).ln() / (sm / st).ln();
+                    terp *= (sigz / st).r_ln() / (sm / st).r_ln();
                 }
             } else {
                 // path before label 130 (groupr.f90:7020-7023)

@@ -1,0 +1,460 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-pflotran"
+dir = "crates/outram-park-fork-pflotran/src/microbial"
+test_ids = [
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::constructor_validation",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::dual_monod_limited_by_scarce_substrate",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::inhibition_reduces_rate",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::monod_saturation_and_starvation",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::react_biomass_decays_when_starved",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::react_consumes_substrate_forms_product_grows_biomass",
+    "crates/outram-park-fork-pflotran/src/microbial/mod.rs::stoichiometric_conservation",
+]
+
+[module."mod.rs"]
+path = "crate::microbial"
+
+[[module."mod.rs".function]]
+id = "fn:81e3378daaf76286"
+name = "ODE_ABS_TOL"
+qual = "ODE_ABS_TOL"
+item = "const"
+shape = "const"
+lines = [
+    115,
+    116,
+]
+hash = "sha256:059f5353e5b7a681870f6ffc1b07cf1a8f2600d2a5ccce0428d50ab76b524bd7"
+doc_hash = "sha256:dd1edfbf083327b80e6686d1157fc409596bc0b4089d0f0bac518251c3a205ce"
+reached_by = [
+    "#0",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:63d098c8eb47ba8a"
+name = "ODE_REL_TOL"
+qual = "ODE_REL_TOL"
+item = "const"
+shape = "const"
+lines = [
+    118,
+    119,
+]
+hash = "sha256:2d5154459a6aa1b91acaadb18345da6bff87735beb7642e01bab3c8b6886930e"
+doc_hash = "sha256:89f521535b6f20e3b2cf7b77dba7cb39f2f7154bbb08338bfb2207ec7003ea89"
+reached_by = [
+    "#0",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:454c1a686e77eaf6"
+name = "MAX_MACRO_STEPS"
+qual = "MAX_MACRO_STEPS"
+item = "const"
+shape = "const"
+lines = [
+    121,
+    124,
+]
+hash = "sha256:667614f6007812253859d50aa96c9caee1e271457bb08e3128af76fc772af0ab"
+doc_hash = "sha256:3c848ff5122a1d3e9395bf3f0925abeebb981608b22491c92620f65dd8ebd591"
+reached_by = [
+    "#0",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:140e6ec75278cf92"
+name = "MonodReaction"
+qual = "MonodReaction"
+item = "type"
+shape = "struct"
+lines = [
+    126,
+    174,
+]
+hash = "sha256:ee52c0e8a1fc3ed5fa9763f6a00c09f5e61cb901234b3e41ce82a91c1990df45"
+doc_hash = "sha256:bfeb0507cb9eb151cb7f605cbe56454daf189a96f33eb848e15a54fa2075057a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:280bf9c2208101c1"
+name = "MicrobialSystem"
+qual = "MicrobialSystem"
+item = "type"
+shape = "struct"
+lines = [
+    176,
+    193,
+]
+hash = "sha256:c9b6060ec2194a9e006848e09014e76a29fe8373fc6c8264c83ac4839e5c5182"
+doc_hash = "sha256:616a0f481e956acc79ab2633c417d717e443fc7125c2994bed797d5dbcf47442"
+uses = ["fn:140e6ec75278cf92"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:91d320f00453664f"
+name = "new"
+qual = "MicrobialSystem::new"
+lines = [
+    196,
+    289,
+]
+hash = "sha256:45c52fc2097745be1b3adfd96d3290334d7657a2df7e1b1a7a65dd3f559f9f19"
+doc_hash = "sha256:9117e7bc17b2d27d7c98ce613919cca92e133e5f050ca61b475a8d355c044e54"
+uses = [
+    "fn:140e6ec75278cf92",
+    "fn:1bb0a85b7ffe5a70",
+    "fn:280bf9c2208101c1",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:32ed41db3900f425"
+name = "n_species"
+qual = "MicrobialSystem::n_species"
+lines = [
+    291,
+    294,
+]
+hash = "sha256:3028990e030401fb6ab19345cb499435251846c2bbfc3b8270a5f37feb6d471c"
+doc_hash = "sha256:f871266472dbf560abb40798394323289608f295f796877afd4ac59d6c2f4ad9"
+uses = ["fn:280bf9c2208101c1"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:98f5cd6a5fde8755"
+name = "n_reactions"
+qual = "MicrobialSystem::n_reactions"
+lines = [
+    296,
+    299,
+]
+hash = "sha256:ebfd395b8109aa2eb658813a01d7d10a1aec7e4800c9ced856572568a62122cf"
+doc_hash = "sha256:8433acdf12070539d96784734eaf8f03e51fdd14b61fe9b027ca9150dcbd341b"
+uses = ["fn:280bf9c2208101c1"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:3f5c6c7e220dd801"
+name = "reactions"
+qual = "MicrobialSystem::reactions"
+lines = [
+    301,
+    304,
+]
+hash = "sha256:b605d2538d5aa7be7b6f9f7bff0aa9a23a5acc62ffdd3f93023e06427778131c"
+doc_hash = "sha256:daf03955cbbafb85db336f36966b04b34467415da0fb135bea5988a4f0bd974a"
+uses = [
+    "fn:140e6ec75278cf92",
+    "fn:280bf9c2208101c1",
+]
+
+[[module."mod.rs".function]]
+id = "fn:24c0115d311753d3"
+name = "rate"
+qual = "MicrobialSystem::rate"
+lines = [
+    306,
+    348,
+]
+hash = "sha256:fed7af49b37f049296f5759e172a688e5cd2de8f8d3c5bb15b88a468621d8848"
+doc_hash = "sha256:54ad9bcb994927223d60409bccaa98cdf0523f9d0876e2d2f7f377e7b1234d66"
+callees = ["fn:28bd301e3f3ae659"]
+uses = ["fn:280bf9c2208101c1"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:dc2eb47c494b039e"
+name = "react"
+qual = "MicrobialSystem::react"
+lines = [
+    350,
+    465,
+]
+hash = "sha256:c97fe1a7c12543c3824b266da9c52f22bb8759bd7a8c22bdad845287e55a3617"
+doc_hash = "sha256:9dc4f97b5cc1d2887b95105e75d5ac9003ebaa1523b56f3aa17fab2283d8f5db"
+callees = [
+    "fn:496d456afc410ea1",
+    "fn:dda43f6617e2aa9e",
+]
+uses = [
+    "fn:1bb0a85b7ffe5a70",
+    "fn:1e5f50bce5f19f8a",
+    "fn:280bf9c2208101c1",
+    "fn:454c1a686e77eaf6",
+    "fn:63d098c8eb47ba8a",
+    "fn:7aa26509cdc2653d",
+    "fn:81e3378daaf76286",
+]
+reached_by = [
+    "#0",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:8dea90af0cfa81a8"
+name = "monod_factor"
+qual = "monod_factor"
+lines = [
+    468,
+    477,
+]
+hash = "sha256:b76b65067710d98cb997badf16570d9d5cae66c142876cc105107eada0121c1b"
+doc_hash = "sha256:50e5871c28fdf35b3bf0273681b8ee8bfb36e2b1585b37120cae23ddb2a0de8b"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:28bd301e3f3ae659"
+name = "reaction_rate"
+qual = "reaction_rate"
+lines = [
+    479,
+    504,
+]
+hash = "sha256:6dfe1a8facab029e2801f7b7e3113d769ff964e284e43a12a860e7bd6508fd54"
+doc_hash = "sha256:70ad677859732a3fcd31b93e462c2a3cedd986eca9eba434d6993673f249a945"
+callees = ["fn:8dea90af0cfa81a8"]
+uses = ["fn:140e6ec75278cf92"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+]
+
+[[module."mod.rs".function]]
+id = "fn:7aa26509cdc2653d"
+name = "MicrobialOde"
+qual = "MicrobialOde"
+item = "type"
+shape = "struct"
+lines = [
+    506,
+    514,
+]
+hash = "sha256:7c3e32702745c29d5212a68322f58510b316811502f5de278d0e61015f1b3954"
+doc_hash = "sha256:305e9d44f1f70ce7d28480819e5f201239d53bb6d394cac8c40f4d91878fb074"
+uses = ["fn:140e6ec75278cf92"]
+reached_by = [
+    "#0",
+    "#4",
+    "#5",
+    "#6",
+]
+
+[[module."mod.rs".function]]
+id = "fn:34241fa566768381"
+name = "n_eqns"
+qual = "MicrobialOde::n_eqns"
+lines = [
+    517,
+    519,
+]
+hash = "sha256:b348403e6fa8f05661f3a6ee2dc1e54897a3f56a6fa03c6c32310debd4264a61"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:7aa26509cdc2653d"]
+
+[[module."mod.rs".function]]
+id = "fn:33100b83c3fb0e2f"
+name = "derivatives"
+qual = "MicrobialOde::derivatives"
+lines = [
+    521,
+    546,
+]
+hash = "sha256:417d870de12a3acff53293fdc3df394d267df3638fa7723d8a003ea934e7761f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:28bd301e3f3ae659"]
+uses = ["fn:7aa26509cdc2653d"]
+
+[[module."mod.rs".function]]
+id = "fn:b1b21509b4451620"
+name = "one_reaction"
+qual = "one_reaction"
+lines = [
+    553,
+    570,
+]
+hash = "sha256:b6b7979d6d952dc8e20fbe446fc75b43d87eec38d8b8e9a4766a4084b37d8ee6"
+doc_hash = "sha256:7e77d51c743b2097424a3bfc384df5c79ede6876de5bec88f19e8d84a3dbd965"
+uses = ["fn:140e6ec75278cf92"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:aef065680263e9be"
+name = "monod_saturation_and_starvation"
+qual = "monod_saturation_and_starvation"
+lines = [
+    572,
+    599,
+]
+hash = "sha256:936a319bc5fe31b50e821e1fbb4318798cfab813b49951f869a2a9aee7ac3fff"
+doc_hash = "sha256:60741433dcb3f17c5e40a0b270195cdd02332783341de754e72df11d30e76382"
+callees = [
+    "fn:24c0115d311753d3",
+    "fn:91d320f00453664f",
+    "fn:b1b21509b4451620",
+]
+uses = ["fn:280bf9c2208101c1"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:c4ef134bf9446df2"
+name = "dual_monod_limited_by_scarce_substrate"
+qual = "dual_monod_limited_by_scarce_substrate"
+lines = [
+    601,
+    633,
+]
+hash = "sha256:b42a726de1d9c9fe2703356129c83d88117e096bdd554235d15bc5cf9af188b7"
+doc_hash = "sha256:8ce7766392a7d4242e39f40fb8469f47c61f9cfaeb7637f5dbb9bb1020d16046"
+callees = [
+    "fn:24c0115d311753d3",
+    "fn:91d320f00453664f",
+    "fn:b1b21509b4451620",
+]
+uses = ["fn:280bf9c2208101c1"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:8476adf009cbb5e0"
+name = "inhibition_reduces_rate"
+qual = "inhibition_reduces_rate"
+lines = [
+    635,
+    669,
+]
+hash = "sha256:2a4d931e6e4d82f7f9464cd7c6a9e85aa1fa4086fb5dd913f8e0099ab072d4d6"
+doc_hash = "sha256:497dc271e03329163d9995961bda38997375a8928f7ff3981d6973c890717c8d"
+callees = [
+    "fn:24c0115d311753d3",
+    "fn:91d320f00453664f",
+]
+uses = [
+    "fn:140e6ec75278cf92",
+    "fn:280bf9c2208101c1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:52e381e51a23dfa5"
+name = "react_consumes_substrate_forms_product_grows_biomass"
+qual = "react_consumes_substrate_forms_product_grows_biomass"
+lines = [
+    671,
+    710,
+]
+hash = "sha256:919901451b85336dd42ae47db751264904c62a56d9f213b535cc8927cdf121ed"
+doc_hash = "sha256:787ab09e9a5406d3ec1d7e090f77cda90dc77c478e80c67782c975887f029426"
+callees = [
+    "fn:91d320f00453664f",
+    "fn:dc2eb47c494b039e",
+]
+uses = [
+    "fn:140e6ec75278cf92",
+    "fn:280bf9c2208101c1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fcb17fbbf771d451"
+name = "react_biomass_decays_when_starved"
+qual = "react_biomass_decays_when_starved"
+lines = [
+    712,
+    748,
+]
+hash = "sha256:bac140aa03e50712aa03457909627dd3d0d38c8f37ed06c3b7cae288e99e865d"
+doc_hash = "sha256:897761d8606410d20dc86100589a7bf8440c25109c1b3c288c1cdb87907c3dab"
+callees = [
+    "fn:91d320f00453664f",
+    "fn:dc2eb47c494b039e",
+]
+uses = [
+    "fn:140e6ec75278cf92",
+    "fn:280bf9c2208101c1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5f530c1e188eb663"
+name = "stoichiometric_conservation"
+qual = "stoichiometric_conservation"
+lines = [
+    750,
+    791,
+]
+hash = "sha256:75d1bd3114645217c96617d717c690236056c88e2e2f4ade1f1099cba549b1c4"
+doc_hash = "sha256:7975db5e59046e1f6e2f6c2228a2fd39bebcf0de00408a709f9224517e5baedd"
+callees = [
+    "fn:91d320f00453664f",
+    "fn:dc2eb47c494b039e",
+]
+uses = [
+    "fn:140e6ec75278cf92",
+    "fn:280bf9c2208101c1",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:15faa3b1f758c493"
+name = "constructor_validation"
+qual = "constructor_validation"
+lines = [
+    793,
+    852,
+]
+hash = "sha256:69c8934d83cd0d8b40af95d790c02f138798bcc40e8f6092480e62a3cf1cc8e3"
+doc_hash = "sha256:3305e65e3c781bd754856a109119baaa4fe77f7e46534e209fab1c045f1c2035"
+callees = [
+    "fn:32ed41db3900f425",
+    "fn:91d320f00453664f",
+    "fn:98f5cd6a5fde8755",
+    "fn:b1b21509b4451620",
+    "fn:dc2eb47c494b039e",
+]
+uses = ["fn:280bf9c2208101c1"]
+test = true

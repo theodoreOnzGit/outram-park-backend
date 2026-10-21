@@ -35,6 +35,7 @@
 //!   [`crate::weld::weld`] / Blender's *Merge by Distance* and the operation
 //!   an **Auto-Merge** editor toggle runs after each edit.
 
+use petir::mathf::RealMath;
 use std::collections::HashMap;
 
 use crate::math::Vec3;
@@ -87,7 +88,11 @@ pub fn merge_vertices(mesh: &Mesh, verts: &[VertexId], target: MergeTarget) -> M
 pub fn merge_edges(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
     let positions = mesh.positions();
     let mut remap: HashMap<usize, usize> = HashMap::new();
-    let mut moved: HashMap<usize, Vec3> = HashMap::new();
+    // Moves in edge order. ~~A `HashMap<usize, Vec3>`~~ (gh #1002): folding it
+    // below, two representatives that resolve to the same final vertex kept
+    // whichever the randomly seeded hash order visited last. Folding this log
+    // instead lets the last merged edge win, every run.
+    let mut moved: Vec<(usize, Vec3)> = Vec::new();
     for &e in edges {
         let Some(ed) = mesh.edge(e) else { continue };
         let (a, b) = (ed.verts[0].0, ed.verts[1].0);
@@ -100,7 +105,7 @@ pub fn merge_edges(mesh: &Mesh, edges: &[EdgeId]) -> Mesh {
         let gone = ra.max(rb);
         remap.insert(gone, keep);
         let mid = positions[a].add(positions[b]).scale(0.5);
-        moved.insert(keep, mid);
+        moved.push((keep, mid));
     }
     if remap.is_empty() {
         return mesh.clone();
@@ -125,7 +130,7 @@ pub fn merge_by_distance(mesh: &Mesh, verts: &[VertexId], threshold: f64) -> Mes
     set.sort_unstable();
     set.dedup();
     let positions = mesh.positions();
-    let t2 = threshold.max(0.0).powi(2);
+    let t2 = threshold.max(0.0).r_powi(2);
 
     let mut remap: HashMap<usize, usize> = HashMap::new();
     for i in 0..set.len() {

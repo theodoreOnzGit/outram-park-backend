@@ -23,6 +23,14 @@
 //!   is the piece ported here: the eight aqueous acid/base/hydrolysis reactions,
 //!   their mass-action laws, and DWSIM's pH-parametrized charge-balance solve
 //!   (see the Honest-scope note on the solver choice).
+//!   **Amended 2026-10-02 — a port of the method, not line-for-line.** Measured
+//!   against compiled upstream (`tests/upstream_sourwater_parity.rs`), this port
+//!   differs from upstream at two places, and in both upstream is wrong:
+//!   `:475` (the HS⁻ closure applies the total-sulfide formula to free H2S, so
+//!   upstream violates its own K5 by ×487 and reads +0.11 to +0.59 pH high) and
+//!   `:407`/`:535-541` (a mass-weighted carbon closure with a stray `m/1000`,
+//!   so every CO2 case fails or deletes the carbon). With `:475` patched in a
+//!   build copy, upstream reproduces this port's speciation to 1.8e-7.
 //! - `DWSIM.Thermodynamics/Assets/swreactions.dwrxm` — the embedded reaction
 //!   set: the eight `ln K(T)` correlations (`Expression` fields), evaluated as
 //!   `K = exp(expr(1.8 T))` per
@@ -157,6 +165,7 @@
 
 #![forbid(unsafe_code)]
 
+use petir::mathf::RealMath;
 use crate::thermo::electrolyte_svle::{EquilibriumReaction, SvleSpecies};
 
 /// Convert an absolute temperature `t` \[K\] to the **Rankine** scale
@@ -230,8 +239,8 @@ impl Species {
 #[must_use]
 pub fn ln_k_co2_ionization(t: f64) -> f64 {
     let tr = rankine(t);
-    -241.79 + 536_256.0 / tr - 4.812_3e8 / tr.powi(2) + 1.94e11 / tr.powi(3)
-        - 2.964_45e13 / tr.powi(4)
+    -241.79 + 536_256.0 / tr - 4.812_3e8 / tr.r_powi(2) + 1.94e11 / tr.r_powi(3)
+        - 2.964_45e13 / tr.r_powi(4)
 }
 
 /// Natural log of the **carbonate-production** constant
@@ -239,8 +248,8 @@ pub fn ln_k_co2_ionization(t: f64) -> f64 {
 #[must_use]
 pub fn ln_k_carbonate(t: f64) -> f64 {
     let tr = rankine(t);
-    -295.60 + 655_893.0 / tr - 5.966_7e8 / tr.powi(2) + 2.424_9e11 / tr.powi(3)
-        - 3.719_2e13 / tr.powi(4)
+    -295.60 + 655_893.0 / tr - 5.966_7e8 / tr.r_powi(2) + 2.424_9e11 / tr.r_powi(3)
+        - 3.719_2e13 / tr.r_powi(4)
 }
 
 /// Natural log of the **ammonia-ionization** constant
@@ -264,8 +273,8 @@ pub fn ln_k_carbamate(t: f64) -> f64 {
 #[must_use]
 pub fn ln_k_h2s_ionization(t: f64) -> f64 {
     let tr = rankine(t);
-    -293.88 + 683_858.0 / tr - 6.271_25e8 / tr.powi(2) + 2.555e11 / tr.powi(3)
-        - 3.917_57e13 / tr.powi(4)
+    -293.88 + 683_858.0 / tr - 6.271_25e8 / tr.r_powi(2) + 2.555e11 / tr.r_powi(3)
+        - 3.917_57e13 / tr.r_powi(4)
 }
 
 /// Natural log of the **sulfide-production** constant `K6 = [S-2][H+]/[HS-]`
@@ -273,8 +282,8 @@ pub fn ln_k_h2s_ionization(t: f64) -> f64 {
 #[must_use]
 pub fn ln_k_sulfide(t: f64) -> f64 {
     let tr = rankine(t);
-    -657.965 + 1_649_360.0 / tr - 15.896_4e8 / tr.powi(2) + 6.724_72e11 / tr.powi(3)
-        - 10.604_3e13 / tr.powi(4)
+    -657.965 + 1_649_360.0 / tr - 15.896_4e8 / tr.r_powi(2) + 6.724_72e11 / tr.r_powi(3)
+        - 10.604_3e13 / tr.r_powi(4)
 }
 
 /// Natural log of the **water self-ionization** constant `Kw = [OH-][H+]`
@@ -282,8 +291,8 @@ pub fn ln_k_sulfide(t: f64) -> f64 {
 #[must_use]
 pub fn ln_kw(t: f64) -> f64 {
     let tr = rankine(t);
-    39.5554 - 177_822.0 / tr + 1.843e8 / tr.powi(2) - 0.854_1e11 / tr.powi(3)
-        + 1.429_2e13 / tr.powi(4)
+    39.5554 - 177_822.0 / tr + 1.843e8 / tr.r_powi(2) - 0.854_1e11 / tr.r_powi(3)
+        + 1.429_2e13 / tr.r_powi(4)
 }
 
 /// The SWEQ **NaOH dissociation** `ln K8` (reaction 8), a temperature-independent
@@ -298,13 +307,13 @@ pub const LN_K_NAOH: f64 = 15.72;
 #[must_use]
 pub fn equilibrium_constants(t: f64) -> [f64; 7] {
     [
-        ln_k_co2_ionization(t).exp(),
-        ln_k_carbonate(t).exp(),
-        ln_k_ammonia_ionization(t).exp(),
-        ln_k_carbamate(t).exp(),
-        ln_k_h2s_ionization(t).exp(),
-        ln_k_sulfide(t).exp(),
-        ln_kw(t).exp(),
+        ln_k_co2_ionization(t).r_exp(),
+        ln_k_carbonate(t).r_exp(),
+        ln_k_ammonia_ionization(t).r_exp(),
+        ln_k_carbamate(t).r_exp(),
+        ln_k_h2s_ionization(t).r_exp(),
+        ln_k_sulfide(t).r_exp(),
+        ln_kw(t).r_exp(),
     ]
 }
 
@@ -330,7 +339,7 @@ pub fn ionic_strength_correction_k1(
     ionic_strength: f64,
 ) -> f64 {
     let tr = rankine(t);
-    (k1.ln() - 0.278 * h2s_molality + (-1.32 + 1558.8 / tr) * ionic_strength.abs().powf(0.4)).exp()
+    (k1.r_ln() - 0.278 * h2s_molality + (-1.32 + 1558.8 / tr) * ionic_strength.abs().r_powf(0.4)).r_exp()
 }
 
 /// DWSIM's empirical **CO2 correction** to `K5`
@@ -344,7 +353,7 @@ pub fn ionic_strength_correction_k1(
 /// only by [`SourWaterSystem::speciate_corrected`].
 #[must_use]
 pub fn co2_correction_k5(k5: f64, co2_molality: f64) -> f64 {
-    (k5.ln() + 0.427 * co2_molality).exp()
+    (k5.r_ln() + 0.427 * co2_molality).r_exp()
 }
 
 // ---------------------------------------------------------------------------
@@ -367,20 +376,20 @@ pub fn co2_correction_k5(k5: f64, co2_molality: f64) -> f64 {
 #[must_use]
 pub fn henry_volatility(t: f64, cas: f64, cc: f64, cs: f64) -> (f64, f64, f64) {
     let tr = rankine(t);
-    let v_nh3 = (178.339 - 15_517.91 / tr - 25.6767 * tr.ln()
+    let v_nh3 = (178.339 - 15_517.91 / tr - 25.6767 * tr.r_ln()
         + 0.019_66 * tr
         + (131.4 / tr - 0.1682) * cas)
-        .exp()
+        .r_exp()
         + 0.06 * (2.0 * cc + cs);
-    let v_co2 = (18.33 - 24_895.1 / tr + 22_399_600.0 / tr.powi(2) - 9_091_800_000.0 / tr.powi(3)
-        + 1_260_100_000_000.0 / tr.powi(4))
-    .exp();
-    let v_h2s = (100.684 - 246_254.0 / tr + 239_029_000.0 / tr.powi(2)
-        - 101_898_000_000.0 / tr.powi(3)
-        + 15_973_400_000_000.0 / tr.powi(4)
+    let v_co2 = (18.33 - 24_895.1 / tr + 22_399_600.0 / tr.r_powi(2) - 9_091_800_000.0 / tr.r_powi(3)
+        + 1_260_100_000_000.0 / tr.r_powi(4))
+    .r_exp();
+    let v_h2s = (100.684 - 246_254.0 / tr + 239_029_000.0 / tr.r_powi(2)
+        - 101_898_000_000.0 / tr.r_powi(3)
+        + 15_973_400_000_000.0 / tr.r_powi(4)
         - 0.05 * cas
         + (0.965 - 486.0 / tr) * cc)
-        .exp();
+        .r_exp();
     (v_nh3, v_co2, v_h2s)
 }
 
@@ -749,7 +758,7 @@ impl SourWaterSystem {
             ionic_strength += 0.5 * z * z * m[i];
         }
         let m_h = m[Species::HPlus.index()];
-        let ph = -m_h.log10();
+        let ph = -m_h.r_log10();
         Ok(SourWaterResult {
             molality: m,
             ph,
@@ -880,10 +889,10 @@ mod tests {
     fn sweq_constants_reproduce_textbook_pk() {
         let t = 298.15;
         let k = equilibrium_constants(t);
-        let pkw = -k[6].log10();
-        let pka1_h2s = -k[4].log10(); // K5 = [HS-][H+]/[H2S] = Ka1
-        let pka1_co2 = -k[0].log10(); // K1 = [H+][HCO3-]/[CO2] = Ka1
-        let pka_nh4 = k[2].log10(); // K3 = 1/Ka(NH4+), so pKa = +log10(K3)
+        let pkw = -k[6].r_log10();
+        let pka1_h2s = -k[4].r_log10(); // K5 = [HS-][H+]/[H2S] = Ka1
+        let pka1_co2 = -k[0].r_log10(); // K1 = [H+][HCO3-]/[CO2] = Ka1
+        let pka_nh4 = k[2].r_log10(); // K3 = 1/Ka(NH4+), so pKa = +log10(K3)
         assert!((pkw - 14.0).abs() < 1.0, "pKw = {pkw}");
         assert!((pka1_h2s - 7.0).abs() < 1.0, "pKa1(H2S) = {pka1_h2s}");
         assert!((pka1_co2 - 6.35).abs() < 1.0, "pKa1(CO2) = {pka1_co2}");
@@ -909,7 +918,7 @@ mod tests {
 
         let ka1 = sys.constants()[4];
         let h_closed = (ka1 * c).sqrt();
-        let ph_closed = -h_closed.log10();
+        let ph_closed = -h_closed.r_log10();
         assert!(
             (res.ph - ph_closed).abs() < 0.05,
             "pH {} vs closed-form {}",
@@ -944,7 +953,7 @@ mod tests {
         let k3 = sys.constants()[2];
         let kb = kw * k3;
         let oh_closed = (kb * c).sqrt();
-        let ph_closed = -kw.log10() + oh_closed.log10();
+        let ph_closed = -kw.r_log10() + oh_closed.r_log10();
         assert!(
             (res.ph - ph_closed).abs() < 0.1,
             "pH {} vs closed-form {}",

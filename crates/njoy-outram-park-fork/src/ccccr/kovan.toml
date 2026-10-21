@@ -1,0 +1,19 @@
+schema_version = 1
+kind = "code_folder"
+crate = "njoy-outram-park-fork"
+dir = "crates/njoy-outram-park-fork/src/ccccr"
+
+[module."mod.rs"]
+path = "crate::ccccr"
+
+[[module."mod.rs".function]]
+id = "fn:81525cdc959e8985"
+name = "run"
+qual = "run"
+lines = [
+    15,
+    18,
+]
+hash = "sha256:dffa1aece04d29d49532a7581d1a48aa34903b9baf2df117a43a1a4b82a76aa3"
+doc_hash = "sha256:21a00586e4b8b21f3f46fb9460facb6c852b317966c2861b1f79ba24d6400788"
+uses = ["fn:fedfdbf7bfe57f84"]

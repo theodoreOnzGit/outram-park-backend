@@ -1,0 +1,6 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"output": "TY  - BOOK\r\nTI  - Die Kernreaktortechnik: eine Einführung\r\nAU  - Lee, Kim\r\nAU  - Deutsche Forschungsgemeinschaft\r\nT2  - Lehrbuchreihe Physik ; 7\r\nA3  - Müller, Hans\r\nA4  - Schmidt, Anna\r\nCY  - Berlin\r\nDA  - 1999///\r\nPY  - 1999\r\nET  - 2., überarb. Aufl\r\nLA  - ger\r\nPB  - Springer\r\nSN  - 3-540-12345-X\r\nUR  - http://example.org/toc.pdf\r\nKW  - Kernreaktor\r\nKW  - Geschicht\r\nKW  - Deutschlan\r\nER  - \r\n\r\nTY  - MPCT\r\nTI  - Ein Film\r\nDA  - 1975///\r\nPY  - 1975\r\nER  - \r\n\r\nTY  - MANSCPT\r\nTI  - Handschrift ohne Autor\r\nER  - \r\n\r\nTY  - ART\r\nTI  - Plakat\r\nER  - \r\n\r\n"
+	}
+}

@@ -1,0 +1,166 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/mesh"
+test_ids = [
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/mesh/region_interface.rs::exchange_temperature_matching",
+    "crates/tampines-steam-tables/src/openfoam_algorithms/openfoam_source/mesh/region_interface.rs::non_matching_interface_nearest_centre",
+]
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::mesh"
+
+[module."region_interface.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::mesh::region_interface"
+
+[[module."region_interface.rs".function]]
+id = "fn:952937f6f5264c9b"
+name = "RegionInterface"
+qual = "RegionInterface"
+item = "type"
+shape = "struct"
+lines = [
+    30,
+    48,
+]
+hash = "sha256:58cd082f6f86dc929ad70947a6b7150268f72b884182340c571c16bafabbf470"
+doc_hash = "sha256:6698953b679bdf757fa8cb27ed1da88fbb091343623ee97193de02af5cd4d44d"
+uses = ["fn:05040b6b1b09bb4e"]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."region_interface.rs".function]]
+id = "fn:bb9e9fd6fa20a775"
+name = "matching"
+qual = "RegionInterface::matching"
+lines = [
+    51,
+    70,
+]
+hash = "sha256:0567590fe046000e4bee969c637bbed451c4f6746c36167e5063666fab60a8fe"
+doc_hash = "sha256:b8d45d9bcd8dd7ba2a924ebff4d00a92b6f7b2eebc3d11f616d7801952fa2cd1"
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:952937f6f5264c9b",
+]
+reached_by = ["#0"]
+
+[[module."region_interface.rs".function]]
+id = "fn:252ff9e1bc71b5c9"
+name = "from_face_centres"
+qual = "RegionInterface::from_face_centres"
+lines = [
+    72,
+    114,
+]
+hash = "sha256:5f63dd6e5ef4849d3adfdc3a522f04a6c8ee1ae00fdfa0d1ee96398d30f89cdc"
+doc_hash = "sha256:8619f599b3a6791d87b83022bbd7201788c447a1ebaf9f9f188b51e5b4234b82"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:927492c9c3315b25",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:952937f6f5264c9b",
+    "fn:ef05859ef19acee7",
+]
+reached_by = ["#1"]
+
+[[module."region_interface.rs".function]]
+id = "fn:83d81932dcc2c298"
+name = "exchange_temperature"
+qual = "RegionInterface::exchange_temperature"
+lines = [
+    116,
+    163,
+]
+hash = "sha256:8c797af560163d05f85e58911ca3556604f6ee63ad5ff04c3a9d94b0becc3726"
+doc_hash = "sha256:349afd6129ed5eb671a92b3245db7d179036419aed970f720521b84776c85b83"
+callees = [
+    "fn:06a8878c5f5ab966",
+    "fn:365b4ebf95314225",
+]
+uses = [
+    "fn:529cdf9967e527a2",
+    "fn:79f66aa1939afae3",
+    "fn:952937f6f5264c9b",
+    "fn:aed0adc6bf107c03",
+    "fn:c3de34f26eb12a7f",
+]
+reached_by = ["#0"]
+
+[[module."region_interface.rs".function]]
+id = "fn:7b9bbe5918591f6b"
+name = "simple_mesh"
+qual = "simple_mesh"
+lines = [
+    174,
+    203,
+]
+hash = "sha256:357abb43bbd4a449187eece27d4ae29f01e0e5a74448acb040433f85545740a4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."region_interface.rs".function]]
+id = "fn:85caaf8ac57aad29"
+name = "exchange_temperature_matching"
+qual = "exchange_temperature_matching"
+lines = [
+    205,
+    219,
+]
+hash = "sha256:fb283fbb21440f8abe5ffe4397234f1a3d98d5e94253331ce63242677e8eb396"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:33dfd11cf34a421e",
+    "fn:365b4ebf95314225",
+    "fn:7b9bbe5918591f6b",
+    "fn:83d81932dcc2c298",
+    "fn:bb9e9fd6fa20a775",
+]
+uses = [
+    "fn:952937f6f5264c9b",
+    "fn:aed0adc6bf107c03",
+]
+test = true
+
+[[module."region_interface.rs".function]]
+id = "fn:19513c5ac9fdedb6"
+name = "non_matching_interface_nearest_centre"
+qual = "non_matching_interface_nearest_centre"
+lines = [
+    221,
+    228,
+]
+hash = "sha256:d4626bfd0f03e5a7367a26d2a32743adad5ac62ee78bb5874aee1d7e432a939d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:252ff9e1bc71b5c9",
+    "fn:7b9bbe5918591f6b",
+]
+uses = ["fn:952937f6f5264c9b"]
+test = true

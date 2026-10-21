@@ -31,8 +31,9 @@
 
 //! The k-eigenvalue outer power iteration (see [`super`]).
 
-use outram_foam_basic_lib::prelude::{fvm, Field, VolScalarField};
+use outram_foam_basic_lib::prelude::{fvm, Field, SurfaceScalarField, VolScalarField};
 
+use super::precursor_drift;
 use super::{DiffusionNeutronics, EigenvalueReport};
 use crate::genfoam::neutronics::NeutronicsError;
 
@@ -66,6 +67,12 @@ impl DiffusionNeutronics {
 
         // Precompute the effective fission spectrum chi_g = chi_p,g (1-beta)
         // + chi_d,g beta per cell (prompt + equilibrium-delayed collapse).
+        //
+        // This is the STATIONARY-fuel source. When the fuel circulates
+        // (`self.drift` is set) the delayed half is replaced by a transported
+        // delayed source, and only `chi_p,g (1-beta)` of this is used — see
+        // `precursor_drift` for the equation and for the proof that the two
+        // agree when the velocity is zero.
         let chi_eff: Vec<Vec<f64>> = (0..g)
             .map(|gg| {
                 let cp = self.xs.chi_prompt[gg].internal.as_slice();
@@ -76,6 +83,18 @@ impl DiffusionNeutronics {
                     .collect()
             })
             .collect();
+
+        // Circulating fuel: the per-group precursor removal coefficient
+        // `lambda_k alpha` and the face diffusivity are constant across the
+        // outer loop, so build them once.
+        let drift_fields = self.drift.as_ref().map(|t| {
+            let mesh = self.state.mesh().clone();
+            let face = t.diffusivity_face();
+            let lambda_alpha: Vec<VolScalarField> = (0..self.prec_groups())
+                .map(|k| precursor_drift::removal_coefficient(&mesh, &self.xs.lambda[k], &t.alpha))
+                .collect();
+            (face, lambda_alpha)
+        });
 
         // Seed: renormalise the (uniform-1) flux so F = 1.
         let mut s_fis = self.fission_production();
@@ -108,13 +127,41 @@ impl DiffusionNeutronics {
             let s_fis_field = self.fission_production();
             let s_fis_slice = s_fis_field.internal.as_slice().to_vec();
 
+            // Circulating fuel: transport the precursors at this iteration's
+            // fission source and collect the delayed neutron source they
+            // produce where they have drifted to. `None` for stationary fuel,
+            // in which case the `chi_eff` collapse below carries the delayed
+            // half instead.
+            let delayed = drift_fields.as_ref().map(|(face, lambda_alpha)| {
+                self.solve_precursors(&s_fis_slice, k, face, lambda_alpha)
+            });
+
             // Gauss-Seidel sweep over groups (in-scatter uses latest flux).
             for (gg, chi_g) in chi_eff.iter().enumerate() {
                 let scatter = self.scattering_source(gg);
-                // Explicit RHS source q_g = chi_g/k * S_n + S_{s,g}.
-                let q_vals: Vec<f64> = (0..n)
-                    .map(|c| chi_g[c] / k * s_fis_slice[c] + scatter[c])
-                    .collect();
+                // Explicit RHS source q_g.
+                //
+                // Stationary fuel: `chi_eff,g S_n / k + S_s,g`.
+                // Circulating fuel: `chi_p,g (1-beta) S_n / k + chi_d,g S_delayed
+                // + S_s,g` — upstream's `fluxEq.H`, where the delayed term is
+                // NOT divided by k a second time.
+                let q_vals: Vec<f64> = match &delayed {
+                    None => (0..n)
+                        .map(|c| chi_g[c] / k * s_fis_slice[c] + scatter[c])
+                        .collect(),
+                    Some(s_delayed) => {
+                        let cp = self.xs.chi_prompt[gg].internal.as_slice();
+                        let cd = self.xs.chi_delayed[gg].internal.as_slice();
+                        let bt = self.xs.beta_tot.internal.as_slice();
+                        (0..n)
+                            .map(|c| {
+                                cp[c] * (1.0 - bt[c]) / k * s_fis_slice[c]
+                                    + cd[c] * s_delayed[c]
+                                    + scatter[c]
+                            })
+                            .collect()
+                    }
+                };
                 let q_field = VolScalarField::uniform("q", self.state.mesh().clone(), 0.0);
                 let q_field = with_values(q_field, q_vals);
 
@@ -122,8 +169,11 @@ impl DiffusionNeutronics {
                 // Loss operator (symmetric positive-definite: SPD laplacian +
                 // positive removal diagonal) minus the explicit fission /
                 // in-scatter source — solved with warm-started CG.
-                let eqn = fvm::laplacian(&self.xs.d_face[gg], flux_g)
-                    + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
+                let eqn = fvm::laplacian_with_delta(
+                    &self.xs.d_face[gg],
+                    flux_g,
+                    self.settings.delta_coeff,
+                ) + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
                     - fvm::su(&q_field, flux_g);
                 let (sol, _perf) =
                     eqn.solve_cg_with_guess(format!("flux{gg}"), flux_g, self.settings.linear);
@@ -155,8 +205,15 @@ impl DiffusionNeutronics {
         }
 
         self.state.set_k_eff_raw(k);
-        // Equilibrium precursors C_k = beta_k S_n / (k lambda_k).
-        self.set_equilibrium_precursors(k);
+        // Leave the precursors consistent with the converged flux: transported
+        // if the fuel circulates, at their algebraic equilibrium if not.
+        match &drift_fields {
+            Some((face, lambda_alpha)) => {
+                let s = self.fission_production().internal.as_slice().to_vec();
+                let _ = self.solve_precursors(&s, k, face, lambda_alpha);
+            }
+            None => self.set_equilibrium_precursors(k),
+        }
         self.update_derived_fields();
 
         let report = EigenvalueReport {
@@ -175,6 +232,75 @@ impl DiffusionNeutronics {
                 flux_residual,
             })
         }
+    }
+
+    /// Transport every precursor group at the given fission source and return
+    /// the delayed neutron source `sum_k lambda_k C_k` it produces, per cell.
+    ///
+    /// Writes the solved `C_k = alpha C*_k` (per **total** volume, upstream's
+    /// `prec_`) back into the state as it goes, so the converged state carries
+    /// the drifted precursor distribution rather than an algebraic equilibrium.
+    ///
+    /// `s_fis` is the lagged fission production `S_n` and `k` the current
+    /// `k_eff`; the per-group source is `S_n Beta_k / k`, matching
+    /// `precEq.H`'s `neutroSource_/keff_*Beta[precI]`.
+    fn solve_precursors(
+        &mut self,
+        s_fis: &[f64],
+        k: f64,
+        diffusivity_face: &SurfaceScalarField,
+        lambda_alpha: &[VolScalarField],
+    ) -> Vec<f64> {
+        let mesh = self.state.mesh().clone();
+        let n = mesh.n_cells;
+        let transport = self
+            .drift
+            .as_ref()
+            .expect("solve_precursors called without a PrecursorTransport")
+            .clone();
+        let alpha = transport.alpha.internal.as_slice().to_vec();
+
+        let mut delayed = vec![0.0; n];
+        for kk in 0..self.prec_groups() {
+            let beta = self.xs.beta[kk].internal.as_slice().to_vec();
+            let lambda = self.xs.lambda[kk].internal.as_slice().to_vec();
+            let src: Vec<f64> = (0..n).map(|c| beta[c] * s_fis[c] / k).collect();
+            let src_field = with_values(
+                VolScalarField::uniform("precSource", mesh.clone(), 0.0),
+                src,
+            );
+
+            // Warm-start from the previous iterate's C* = C/alpha.
+            let guess: Vec<f64> = self.state.precursors()[kk]
+                .internal
+                .as_slice()
+                .iter()
+                .zip(alpha.iter())
+                .map(|(c, a)| if *a > 0.0 { c / a } else { 0.0 })
+                .collect();
+            let c_star = with_values(
+                VolScalarField::uniform("precStar", mesh.clone(), 0.0),
+                guess,
+            );
+
+            let sol = precursor_drift::solve_group(
+                &c_star,
+                &lambda_alpha[kk],
+                &transport,
+                diffusivity_face,
+                &src_field,
+                self.settings.linear,
+                self.settings.delta_coeff,
+            );
+
+            // prec = precStar * alpha -- precursors per TOTAL volume.
+            let dst = self.state.precursors_mut()[kk].internal.as_mut_slice();
+            for c in 0..n {
+                dst[c] = sol[c] * alpha[c];
+                delayed[c] += lambda[c] * dst[c];
+            }
+        }
+        delayed
     }
 
     /// Scale every group flux by `factor` (renormalisation).

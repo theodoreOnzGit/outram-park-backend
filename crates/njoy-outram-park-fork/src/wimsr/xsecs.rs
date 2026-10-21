@@ -27,6 +27,7 @@
 //! matrix must be present at every temperature or the run stops there
 //! ("mti missing from higher temps").
 
+use petir::mathf::RealMath;
 use crate::dtfr::gendf::GendfGroupRecord;
 use crate::NjoyError;
 
@@ -174,7 +175,11 @@ fn scatter_block(
 /// an error upstream (the first entry is used, with a message); an empty
 /// tape is.
 #[allow(clippy::needless_range_loop)] // Fortran index loops kept verbatim
-pub fn xsecs(inp: &WimsrInput, mat: &GendfMaterial, cnt: &Counts) -> Result<XsecsResult, NjoyError> {
+pub fn xsecs(
+    inp: &WimsrInput,
+    mat: &GendfMaterial,
+    cnt: &Counts,
+) -> Result<XsecsResult, NjoyError> {
     const DILINF: f64 = 1.0e10;
     let ngnd = inp.ngnd;
     let nfg = inp.nfg;
@@ -222,8 +227,8 @@ pub fn xsecs(inp: &WimsrInput, mat: &GendfMaterial, cnt: &Counts) -> Result<Xsec
     let mut jfis = 0i32;
     let mut ifiss = 0i32;
     // aver. log. decrement per collision, isotropic scattering (l.1130-1132)
-    let alf = ((mat.awr - 1.0) / (mat.awr + 1.0)).powi(2);
-    let xxi = 1.0 + alf.ln() * alf / (1.0 - alf);
+    let alf = ((mat.awr - 1.0) / (mat.awr + 1.0)).r_powi(2);
+    let xxi = 1.0 + alf.r_ln() * alf / (1.0 - alf);
 
     let mut jtemp = 0usize;
     let mut blocks = mat.blocks.iter();
@@ -482,9 +487,9 @@ pub fn xsecs(inp: &WimsrInput, mat: &GendfMaterial, cnt: &Counts) -> Result<Xsec
                             // 301: treated as temperature-independent
                             to_365 = mf6_independent(
                                 rec, mfh, mth, nl, nzs, ng2, ig2lo, jg, ngnd, nfg, nrg, mti, mtc,
-                                isg, iz, jtemp, &mut if6, &mut nth1, &mut nth, &mut xs,
-                                &mut scat, &mut csp1, &out.p1flx, &mut l1, &mut l2, &mut snus,
-                                &mut chi, &mut cspc, &mut jfiss, &mut jfspp, true,
+                                isg, iz, jtemp, &mut if6, &mut nth1, &mut nth, &mut xs, &mut scat,
+                                &mut csp1, &out.p1flx, &mut l1, &mut l2, &mut snus, &mut chi,
+                                &mut cspc, &mut jfiss, &mut jfspp, true,
                             );
                         } else {
                             let mut max = 0usize;
@@ -535,9 +540,9 @@ pub fn xsecs(inp: &WimsrInput, mat: &GendfMaterial, cnt: &Counts) -> Result<Xsec
                         if jtemp <= 1 {
                             to_365 = mf6_independent(
                                 rec, mfh, mth, nl, nzs, ng2, ig2lo, jg, ngnd, nfg, nrg, mti, mtc,
-                                isg, iz, jtemp, &mut if6, &mut nth1, &mut nth, &mut xs,
-                                &mut scat, &mut csp1, &out.p1flx, &mut l1, &mut l2, &mut snus,
-                                &mut chi, &mut cspc, &mut jfiss, &mut jfspp, false,
+                                isg, iz, jtemp, &mut if6, &mut nth1, &mut nth, &mut xs, &mut scat,
+                                &mut csp1, &out.p1flx, &mut l1, &mut l2, &mut snus, &mut chi,
+                                &mut cspc, &mut jfiss, &mut jfspp, false,
                             );
                         }
                     }
@@ -616,7 +621,7 @@ pub fn xsecs(inp: &WimsrInput, mat: &GendfMaterial, cnt: &Counts) -> Result<Xsec
                     l1[jg] = jg2;
                 }
             }
-            sdp[i] = scat[i] * xi[i] / (egb[i - 1] / egb[i]).ln();
+            sdp[i] = scat[i] * xi[i] / (egb[i - 1] / egb[i]).r_ln();
             if sigp == 0.0 {
                 spot[i] = scat[i];
             }

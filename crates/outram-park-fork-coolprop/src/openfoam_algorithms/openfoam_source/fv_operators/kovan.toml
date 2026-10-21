@@ -1,0 +1,128 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-fork-coolprop"
+dir = "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators"
+test_ids = [
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators/adjust_phi.rs::balances_net_outflow",
+    "crates/outram-park-fork-coolprop/src/openfoam_algorithms/openfoam_source/fv_operators/adjust_phi.rs::no_adjustment_when_balanced",
+]
+
+[module."adjust_phi.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::fv_operators::adjust_phi"
+
+[[module."adjust_phi.rs".function]]
+id = "fn:1b2e94f79d18648c"
+name = "adjust_phi"
+qual = "adjust_phi"
+lines = [
+    26,
+    69,
+]
+hash = "sha256:fc5549af68d2508093fe3fd29eac34c9ff40edd673680effa025eacb86a5b214"
+doc_hash = "sha256:b2bda7c8db693aeefa7eb0b2817af25e156af676915317db03ff388c3bb8535f"
+callees = [
+    "fn:09632ebb2b55664e",
+    "fn:e14e270bde8aa9cf",
+]
+uses = [
+    "fn:2f81e70b0c38a8b8",
+    "fn:7c9b08e0bc1a9ec9",
+    "fn:c8f5f58ed857597c",
+]
+reached_by = [
+    "#0",
+    "#1",
+]
+
+[[module."adjust_phi.rs".function]]
+id = "fn:3dfaf4fecc6e9e70"
+name = "two_cell_mesh"
+qual = "two_cell_mesh"
+lines = [
+    83,
+    112,
+]
+hash = "sha256:e94fe7918596b19542984a682bf9c0c1d5b7d7f14d100cb755413a2c1ac4cbcf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."adjust_phi.rs".function]]
+id = "fn:9f68761411065fc3"
+name = "balances_net_outflow"
+qual = "balances_net_outflow"
+lines = [
+    114,
+    150,
+]
+hash = "sha256:d2000fde5b629859d1079e28451d39c8edbee430da529929a45777e6ae1d8448"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1b2e94f79d18648c",
+    "fn:3dfaf4fecc6e9e70",
+    "fn:7a1ee56033ebe84c",
+    "fn:8733c9380b844f17",
+    "fn:9e501e5f4cce23ae",
+    "fn:a5c9ab054db5f6dc",
+    "fn:be9269a88d02873a",
+]
+uses = [
+    "fn:2f81e70b0c38a8b8",
+    "fn:55cfa8e1bccf93d0",
+    "fn:7c9b08e0bc1a9ec9",
+    "fn:97ec06680e7cc4b3",
+    "fn:c8f5f58ed857597c",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."adjust_phi.rs".function]]
+id = "fn:594566b1c873914a"
+name = "no_adjustment_when_balanced"
+qual = "no_adjustment_when_balanced"
+lines = [
+    152,
+    179,
+]
+hash = "sha256:b8ee48206df06cc14073c7229582374553698f7e219e9d4e3d70e0e48e4674e1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1b2e94f79d18648c",
+    "fn:3dfaf4fecc6e9e70",
+    "fn:7a1ee56033ebe84c",
+    "fn:a5c9ab054db5f6dc",
+    "fn:be9269a88d02873a",
+]
+uses = [
+    "fn:2f81e70b0c38a8b8",
+    "fn:55cfa8e1bccf93d0",
+    "fn:7c9b08e0bc1a9ec9",
+    "fn:97ec06680e7cc4b3",
+    "fn:c8f5f58ed857597c",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::openfoam_algorithms::openfoam_source::fv_operators"

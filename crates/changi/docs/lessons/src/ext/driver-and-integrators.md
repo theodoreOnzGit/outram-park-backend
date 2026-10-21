@@ -1,0 +1,127 @@
+# The dose driver, DCF screening and the integrators
+
+> **Extended deep dive.** Read [rung 6](../rungs/06-dose.md) first.
+> **Research, education and V&V only.** A dose here is a property of a model,
+> never a dose to a real person (`RESPONSIBLE_USE.md`).
+
+> **Review status:** AI-assisted first draft, 2026-10-04, not yet reviewed by
+> a human. Built from commit
+> [`@@COMMIT_SHORT@@`](https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@).
+
+Rung 6 walked each pathway on its own. This page covers what turns them into
+pyDOSEIA's whole run, and the numerical machinery under plume shine.
+
+## 1. The driver: `run_assessment`
+
+Upstream runs `python main.py --config_file input.yaml`. The port's
+replacement is
+[`assessment::run_assessment`](../../../api/buangkok/pydoseia/assessment/fn.run_assessment.html),
+fed a [`config::PyDoseiaConfig`](../../../api/buangkok/pydoseia/config/struct.PyDoseiaConfig.html)
+and the caller's tables. For every (distance, age) cell it takes the largest
+dilution factor of the release mode
+([`dilution_for_distance`](../../../api/buangkok/pydoseia/assessment/fn.dilution_for_distance.html)),
+runs every pathway ([`pathway_doses`](../../../api/buangkok/pydoseia/assessment/fn.pathway_doses.html)),
+and assembles upstream's summary tables (`plant_boundary_totals`,
+`summary_rows`, `plume_shine_maxima`, `dcf_report`). Upstream parallelises
+the grid with `joblib`; the port runs a loop, which gives the same numbers
+because every cell is independent (the `driver` group compares against
+upstream's own joblib run).
+
+> **On the [Code Review map](../../../code-review/):** start at [`main`](../../../code-review/#crates/buangkok/examples/pydoseia_assessment.rs::main) and follow its callees (▸) to [`pathway_doses`](../../../code-review/#crates/buangkok/src/pydoseia/assessment.rs::pathway_doses). Each card opens the function's source and shows its review stamp.
+
+Run it (every table synthetic, from the code-to-code fixture; the numbers are
+not doses to anyone and not properties of any real nuclide):
+
+```bash
+cargo run --release -p buangkok --example pydoseia_assessment
+```
+
+**Upstream behaviours the driver reproduces, by name** (full table,
+D1–D26, in
+[`pydoseia-code-to-code.md`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/docs/pydoseia-code-to-code.md#upstream-defects-found-while-porting),
+tracked in gh:#364):
+
+| Behaviour | Port's handle |
+|---|---|
+| D2: "maximum" dilution factor is class A's value (`.T[0].max()` on a 1-D array) | `upstream_internal_max_dilution_factor`; the driver uses the real maximum, `max_dilution_factor`, as upstream's driver does |
+| D9: the driver scrambles a transposed ingestion array across nuclides | `driver_ingestion_matrix` reproduces it |
+| D13: an age other than 1 or > 17 leaves ingestion unbound (`UnboundLocalError`) | `IngestionFailure::AgeHasNoReceiver` for that cell |
+| D14: pandas copy-on-write makes the zeroing a no-op under pandas 3 | `Zeroing::ChainedAssignmentNoOp` vs `Zeroing::ZeroMilkAndMeat` |
+| D20: the summary counts ingestion twice | `SummaryIngestion::UpstreamDoubleCounted` vs `PerNuclideRowsOnly` |
+| The plant-boundary total excludes plume shine | kept |
+| numpy/pandas summation orders | `pandas_sum`, `numpy_pairwise_sum`, `pandas_groupby_sum`, so totals agree to the bit |
+
+`config` holds the schema, upstream's input-generator defaults
+(`input_generator_defaults`), the validation, and `unused_upstream_keys`: the
+keys upstream accepts and never reads.
+
+## 2. Dose coefficients: lookup and screening
+
+- [`dcf`](../../../api/buangkok/pydoseia/dcf/index.html): age brackets
+  (`AgeBracket::from_age_years`), lung absorption types, the inhalation and
+  external tables, and the **progeny correction** (`ProgenyChains`,
+  `ProgenyCorrection`, `external_dcf`), which adds short-lived daughters in
+  equilibrium. Defect D4: the daughter is matched by **substring**, so `Y-90`
+  also matches `Y-90m` (`ExternalDcfTable::lookup_contains` reproduces it).
+- [`dcf_screening`](../../../api/buangkok/pydoseia/dcf_screening/index.html):
+  upstream's multi-source screening across five inhalation and two ingestion
+  compilations, reporting the requested absorption type or the largest value.
+  Defect D7: the coefficient it **reports** need not be the one the dose
+  **uses** (a different table). D18: ICRP 119 Annex H is never read. D19:
+  DOE-STD-1196 values are never seen for ages 2–17 (singular column names). No
+  compilation ships with the crate (ICRP copyright; JAERI terms not
+  established).
+- [`nuclide`](../../../api/buangkok/pydoseia/nuclide/index.html): half-life
+  text parsing and the decay constant as upstream writes it,
+  `UPSTREAM_LN2 = 0.693`. Two year lengths coexist upstream (31 556 952 s in
+  the primary parser, 365 days elsewhere); both are kept.
+- [`units`](../../../api/buangkok/pydoseia/units/index.html): `EffectiveDose`,
+  a millisievert newtype, because `uom` 0.38 has no sievert quantity; `chi/Q`
+  is `changi`'s `DilutionFactor`, never a second s/m³ type.
+- [`coefficients`](../../../api/buangkok/coefficients/index.html): the
+  freely usable FGR-15 (2025) and FGR-11 values, returned as the port's own
+  table types (rung 6).
+
+## 3. Plume shine's integrators: one algorithm, two implementations
+
+The finite-cloud integral of rung 6 is a **triple** integral of a kernel with
+a `1/r^2` point singularity at the receptor. Upstream calls SciPy's `tplquad`,
+which nests QUADPACK's adaptive `dqagse` (bisection plus Wynn epsilon
+extrapolation) three deep.
+
+| Integrator | What it is | Role |
+|---|---|---|
+| `PlumeShineIntegrator::Petir` (default) | nested `petir::integration::qags_with_status`, a port of GSL 2.8 `gsl_integration_qags`, itself QUADPACK `dqagse` | the production path |
+| `PlumeShineIntegrator::ScipyQuadpackReference` | `pydoseia::quadpack::{qagse, tplquad}`, a port of SciPy's C QUADPACK (BSD-3) | the bit-exact regression reference |
+
+The walk to the integrator:
+
+> **On the [Code Review map](../../../code-review/):** start at [`line_integral`](../../../code-review/#crates/buangkok/src/pydoseia/plume_shine/integral.rs::line_integral) and follow its callees (▸) to [`petir_tplquad`](../../../code-review/#crates/buangkok/src/pydoseia/plume_shine/integral.rs::petir_tplquad). Each card opens the function's source and shows its review stamp.
+
+**Measured, as recorded 2026-09-28**
+(`tests/plume_shine_petir_vs_quadpack.rs` and
+[`pydoseia-code-to-code.md`, "Plume shine on petir"](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/buangkok/docs/pydoseia-code-to-code.md#plume-shine-on-petir-2026-09-28)):
+120 triple integrals (five geometries, four synthetic gamma lines, six
+classes), **bit-identical in all 120**; 265 812 one-dimensional QAGS calls
+against 55 560 for a run with no subdivision anywhere, so the adaptive paths
+are exercised, and none reports a failure. The tolerance-derived bound is
+**uninformative** (smallest `2E / |I|` is 716) because pyDOSEIA's absolute
+tolerance exceeds the integrals; the check that can fail is the petir path
+reproducing the fixture bit for bit.
+
+Why QAGS and not plain QAG: measured first, plain `qag` also met the
+tolerance on these cases (106 of 120 bit-identical, worst 4.3e-16). QAGS was
+kept because it is upstream's algorithm (so the default reproduces upstream's
+numbers), because receptors inside the integration box produce the singular
+integrands its extrapolation is for, and because it returns its estimate with
+a status on failure, as SciPy does.
+
+## Coverage
+
+| Item | Section |
+|---|---|
+| `assessment::{run_assessment, dilution_for_distance, pathway_doses, driver_ingestion_matrix, plant_boundary_totals, summary_rows, plume_shine_maxima, dcf_report, pandas_sum, numpy_pairwise_sum, pandas_groupby_sum}` and its result types | 1 |
+| `config::{PyDoseiaConfig, ReleaseScenario, DilutionSource, MetSettings, ConfigError}` | 1 |
+| `dcf`, `dcf_screening`, `nuclide`, `units`, `coefficients` | 2 |
+| `quadpack::{qagse, tplquad, QuadResult, SCIPY_QUAD_LIMIT}`, `plume_shine::{petir_tplquad, NestedQuadrature, PlumeShineIntegrator}` | 3 |
+| `plume_shine::{tables, point_source_dose, per_sector_with_met, integration_limits_*, kernel_*}` | rung 6, step 3 |

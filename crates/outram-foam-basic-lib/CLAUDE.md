@@ -1,5 +1,6 @@
 # CLAUDE.md — outram-foam-basic-lib
 
+
 This crate is a pure-Rust translation of the OpenFOAM C++ primitive and
 finite-volume library layer, scoped to the primitives needed to implement
 compressible solvers equivalent to **rhoPimpleFoam**, **sonicFoam**, and
@@ -7,6 +8,51 @@ compressible solvers equivalent to **rhoPimpleFoam**, **sonicFoam**, and
 
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openfoam/`
+
+## Reactor geometry is DRAWN for a human to check before it is trusted (HARD RULE)
+
+**Maintainer direction, 2026-09-25.** Binds this crate. The same rule is in the
+`CLAUDE.md` of `outram-mc-libs`, `nee_soon`, every `outram-foam-*` crate and
+every crate downstream of them; a crate that newly depends on one of those
+takes the rule into its own `CLAUDE.md` (check with `cargo metadata`).
+
+**Whenever you build or change a complex reactor geometry** — CSG cells and
+surfaces, lattices, pebble beds, TRISO particles, reflector zones, control-rod
+bands, a CFD/FEM mesh, anything a solver will transport or integrate through —
+**draw it, as images a human can open (PNG, or JPG/SVG), and hand them over**
+before any result computed on it is reported as more than tentative.
+
+- **Draw what the solver sees, not what you meant.** Render from the ASSEMBLED
+  geometry (cell / material lookup at each pixel, or the mesh itself), never
+  from the named constants. A picture of the constants hides exactly the
+  defects this rule exists to catch.
+- **Minimum set:** an axial slice (R-Z / x-z) of the whole model; radial (x-y)
+  slices at the heights that matter; and, for nested geometry, zoomed slices at
+  every level down to the smallest (pebble, TRISO particle). Colour by
+  material, with a legend and the key dimensions marked.
+- **Commit the images with the change** (beside the V&V record or the
+  manuscript package) and point the human at them by path in your summary.
+  Regenerate them whenever the geometry changes.
+- **Say what you checked in them, and what you could not** — an image nobody
+  was told to look at checks nothing.
+
+**Why.** On 2026-09-24/25 the HTR-10 model carried, at once: a bottom reflector
+mirrored from the top and up to 107 cm short; a core cavity that grew with the
+bed; pebbles interpenetrating by 1.1 cm with 4.8 % of core carbon clipped away
+(gh:#309, #310); and a TRISO lattice holding 8240 particles while reporting
+8340 (gh:#316, +353 pcm). Every run completed with green diagnostics. Each was
+found by looking at the built geometry, not by the eigenvalue.
+
+**Tools.** ~~`outram_mc_libs::geometry::plot` samples a slice of an assembled
+CSG geometry; OpenMC-parity image output (PNG/JPG) is the preferred path once
+it lands.~~ **UPDATED 2026-09-25 — it has landed (gh:#268):**
+`outram_mc_libs::geometry::plot` is a port of OpenMC's plotter that writes PNG
+directly — slices, wireframe and solid ray traces — verified pixel-for-pixel
+against `openmc --plot`
+(`crates/outram-mc-libs/verification_and_validation/geometry_plotting/`).
+`render_material_slice` draws a material-coloured slice with a legend and cm
+axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
+worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
 ## Maturity: DECLARED MATURE (2026-09-05)
 
@@ -151,13 +197,21 @@ compiles and links natively on **all five** target platforms:
 If a function is missing from **any** of these five (e.g. it only exists on
 POSIX systems), it must be implemented in pure Rust instead.
 
-The current `extern "C"` calls to `erf`, `erfc`, `tgamma`, and `lgamma` in
+~~The current `extern "C"` calls to `erf`, `erfc`, `tgamma`, and `lgamma` in
 `inc_gamma.rs` and `inv_inc_gamma.rs` satisfy this rule (minimum Android
-API 21 for `tgamma`, which covers ~98% of active devices).
+API 21 for `tgamma`, which covers ~98% of active devices).~~
+**CORRECTED 2026-10-20** (gh:#985) — there are no `extern "C"` calls left in
+this crate: `inc_gamma.rs` and `inv_inc_gamma.rs` take `erf`, `erfc`,
+`tgamma` and `lgamma` from `petir::real` (pure Rust, checked by grep for
+`extern "C"` under `src/`).
 
-Prefer Rust stdlib equivalents where they exist — `f64::gamma()` and
+~~Prefer Rust stdlib equivalents where they exist — `f64::gamma()` and
 `f64::ln_gamma()` (stable since Rust 1.83) can replace `tgamma`/`lgamma`
-with no FFI at all.
+with no FFI at all.~~ **SUPERSEDED 2026-10-20** (gh:#985, maintainer
+direction): every `f64` transcendental goes through PETIR
+(`petir::mathf::RealMath`, or `petir::real` for the special functions), never
+the platform libm, for cross-platform bit identity. `sqrt`, `abs`, `floor`,
+`ceil`, `trunc` and `mul_add` stay on `std` (exact or correctly rounded).
 
 ---
 
@@ -227,3 +281,13 @@ OpenFOAM's fixed `IOobject` name), not an audit trail. Full write-up in
 - **`docs/porting-roadmap.md`** — remaining work before the solver crates can
   be written (icoFoam / chtMultiRegionFoam prerequisites), the `#[ignore]`-d
   known test failures to investigate, and the prioritised test backlog (P0–P2).
+
+## Meshing nexus: outram-blender exports into this crate (GitHub #492, 2026-10-03)
+
+`outram-blender`'s neutral `unstructured::UnstructuredMesh` is the one mesh
+description the FV, FE and Monte Carlo solvers are built from. Its `foam-export` feature converts neutral meshes to and from `io::PolyMesh` and to `mesh::FvMesh` (`convert::foam`, through `PolyMesh::to_fv_mesh`, so the FV geometry is computed here). **Since the same day this crate is also the one copy of `FvMesh`, `MeshError`, the 1-D mesher and the tensor primitives** for `tampines-steam-tables` and `outram-park-fork-coolprop`, which re-export them (their copies were code-identical); a change to those items is now a change to both. Solver infrastructure (LDU matrices, Krylov solvers) stays here (maintainer decision).
+
+**This crate must never depend on `outram-blender`** (GitHub #486 dependency
+rule 1): blender depends on this crate, optionally, to export into it, and
+Cargo counts optional dependencies when it looks for cycles. Mesh types stay
+defined here; the converters live in `outram_blender::unstructured::convert`.

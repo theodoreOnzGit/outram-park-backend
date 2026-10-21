@@ -85,11 +85,11 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 |---|---|---|---|
 | `modules::acer` (driver) | `acer.f90` | ~1k | 🟡 CE cross-section + elastic/discrete angular + partial energy dists |
 | `ace` (fast CE) | `acefc.f90` | **19.7k** | 🟡 ESZ/MTR/SIG + LAND/AND + partial LDLW/DLW; the bulk still open |
-| `ace::thermal` | `aceth.f90` | ~2k | 🟡 thermal `…t` tables: elastic blocks done; ITXE secondary dists open |
+| `ace::thermal` | `aceth.f90` | ~2k | ✅ thermal `…t` tables: elastic blocks, and ITXE in all three IFENG forms (2026-09-22) |
 | — | `acecm.f90` | ~1k | 🟡 ACE shared utilities; ported on demand |
 | — | `acepn.f90` | 3.8k | ⬜ photonuclear ACE |
-| — | `acepa.f90` | ~2k | ⬜ photoatomic ACE |
-| — | `acedo.f90` | ~1k | ⬜ dosimetry ACE |
+| — | `acepa.f90` | ~2k | ✅ photoatomic ACE — `src/acer/photoatomic/` (2026-09-21) |
+| — | `acedo.f90` | ~1k | ✅ dosimetry ACE — `src/acer/dosimetry.rs` (2026-09-21) |
 | `wmp` | *(MIT WMP_Library — not NJOY)* | — | 🟡 4g evaluator + Faddeeva + `load_h5` done; `from_blob` TODO (`src/wmp/`) |
 
 ### Multigroup & covariance (Phase 5 — not needed by OpenMC CE)
@@ -101,7 +101,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | `modules::errorr` | `errorr.f90` | 11.2k | 🟢 **MF=33 path ported and validated** (`src/errorr/mf33.rs` `run_mf33`: `gridd`/`uniong`, `grpav`/`epanel`/`gety1`, `covcal` `LB` 0–6/8, `sigc`/`covout` + output tape) — element-for-element against nine NJOY2016 ERRORR tapes (H-2 ×2, Be-9, Li-6, C-12, F-19, Si-30, U-234, U-238 with lumped MTs) at the tape printing precision (worst 4.9e-7), `tests/errorr_mf33_golden.rs`, golden data in `reference-data/errorr/`. 🟢 MF=32 `resprx` chain (2026-09-10/11): MLBW `LCOMP=1/2` + `LRU=2` validated on TENDL Ar-37 (`tests/errorr_mf32_ar37_golden.rs`), `LRF=7` `rpxsamm` with the SAMM derivatives validated on ENDF/B-VII.1 Cl-35 to 4.8e-7 (`tests/errorr_mf32_cl35_rml_golden.rs`), `covadd` (999 option). 🟢 `LRF=3` ERRORJ sensitivities (`ggrmat`) + `LCOMP=1` validated on JENDL-3.3 U-238 to 4.95e-7 (`tests/errorr_mf32_j33u238_lrf3_golden.rs`, 2026-09-11). 🟡 Not ported: `LCOMP=0`, `LRF=1` ERRORJ sensitivities, `NRO≠0`, `NLRS>0`, INTG in the ERRORJ branch, `resprp`, MF=31/34/35/40, `iread` 1/2, `nstan`/`nin`, `colaps` (GENDF input) |
 | `modules::covr` | `covr.f90` | ~3k | 🟢 library option (ERRORR tape → BOXER) ported and byte-identical to NJOY on 9 materials × 2 matrix types (`tests/covr_boxer_golden.rs`); PostScript plotting out of scope |
 | `modules::leapr` | `leapr.f90` | 3.6k | 🟡 *generate* MF=7 S(α,β) (upstream of THERMR) — ported (`src/leapr/`); translation-level, V&V pending |
-| `modules::samm` | `samm.f90` | 7.2k | 🟢 Cross sections **and** resonance-parameter derivatives verified against NJOY2016 on ENDF/B-VII.1 Cl-35 (2026-09-11): every node of NJOY's RECONR grid at the 7-figure floor (`tests/reconr_cl35_rml_njoy_golden.rs`), derivatives through ERRORR MF=32 to 4.8e-7 (`samm::derivs`, `tests/errorr_mf32_cl35_rml_golden.rs`); RECONR carries the extra particle-pair channels (`MT=600`). 🟡 Not ported: angular distributions (dead upstream — both callers set `Want_Angular_Dist=.false.`), `derext`/`KBK` background terms, `KRM≠3`, `IFG=1`; `yfour` (4+ channels) unexercised |
+| `modules::samm` | `samm.f90` | 7.2k | 🟢 Cross sections **and** resonance-parameter derivatives verified against NJOY2016 on ENDF/B-VII.1 Cl-35 (2026-09-11): every node of NJOY's RECONR grid at the 7-figure floor (`tests/reconr_cl35_rml_njoy_golden.rs`), derivatives through ERRORR MF=32 to 4.8e-7 (`samm::derivs`, `tests/errorr_mf32_cl35_rml_golden.rs`); RECONR carries the extra particle-pair channels (`MT=600`). 🟡 Not ported: angular distributions (dead upstream — both callers set `Want_Angular_Dist=.false.`), `derext`/`KBK` background terms, `KRM≠3`, `IFG=1`; ~~`yfour` (4+ channels) unexercised~~ `yfour` fixed and verified 2026-10-01 (#339: Fe-57, Mo-95 RECONR word-for-word NJOY2016) |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
@@ -283,7 +283,12 @@ and one is validated:
     **continuum** correlated angle (MF=6 producers still isotropic — LANG=1
     Legendre → Law 61, LANG=2 Kalbach → Law 44); and MF=6 **LAW=2** (two-body) /
     **LAW=6** (phase space), currently skipped gracefully (e.g. H-2 (n,2n)).
-  - **4e — heating (ESZ column 5).** ✅ `src/ace/build.rs` +
+  - **4e — heating (ESZ column 5).** ✅ **CHANGED 2026-10-05 (GitHub #535):**
+    the KERMA now comes from `heatr::heatr_kerma`, the whole-module HEATR
+    translation (byte-identical to NJOY2016's HEATR tape on 62 evaluations);
+    the heating number is `acefc.f90:5636-5645`'s
+    `sigfig(sigfig(gety1(MT301),7)/1e6/σt,7)`. The H1-H5 description below is
+    the earlier route. `src/ace/build.rs` +
     `src/interface.rs`. `from_reconr_full` takes an optional `&Kerma`; when
     supplied, the ESZ heating column is filled with the ACE heating number
     `H(E) = KERMA(E)/σ_total(E)` \[MeV\] (`acefc`'s `xss(ih+j) = s/emev/σ_t`).
@@ -291,8 +296,11 @@ and one is validated:
     and the H5 emission spectra via `heatr::build_emission_spectra`, which reads
     each (n,2n)/(n,3n)/continuum reaction's MF=6 LAW=1 or MF=5 law) and threads
     it in. V&V (`tests/acer.rs::esz_heating_column_is_physical`, 2026-07-04): the
-    U-235 heating column is populated, everything in `[0, 200] MeV`, peak ≈ 160
-    MeV/collision (thermal-fission dominated — ~185 MeV × fission/total). The
+    U-235 heating column is populated, everything in `[0, 200] MeV`, ~~peak ≈ 160
+    MeV/collision (thermal-fission dominated — ~185 MeV × fission/total)~~
+    **re-measured 2026-10-05 through HEATR:** peak 142.8833 MeV/collision,
+    +2.0e-6 from the evaluation's own estimate EFR (169.13 MeV, MF=1/458) ×
+    max σ_f/σ_t (0.84481). The
     `write_ace` example prints the same peak. Damage (MT=444) as a separate MTR
     reaction is not yet wired (needs H7 anisotropy + the MTR/SIG slot).
   - **4f — thermal S(α,β) ACE table.** ✅ **done** for the standard case

@@ -45,8 +45,9 @@ LICENCE VERIFICATION (per bn:op-chyp.3 — verified, not asserted)
       the Free Software Foundation; either version 3 of the License, or (at
       your option) any later version.
 
-  GSL is therefore GPL-3.0-or-later. This workspace is GPL-3.0-only, which is
-  compatible: the "or later" option is exercised by choosing version 3.
+  GSL is therefore GPL-3.0-or-later. The GSL-derived files here are GPL-3.0-only, which is
+  compatible: the "or later" option is exercised by choosing version 3. (~~This workspace is GPL-3.0-only~~
+  The crate conveys as an AGPL-3.0-only combined work since 2026-10-20, gh:#973.)
 
   The flow is ONE-WAY. Code here cannot go back upstream under a different
   licence.
@@ -60,6 +61,107 @@ COPYRIGHT HOLDERS
     GSL cheb/eval.c, cheb/init.c, cheb/deriv.c, cheb/integ.c,
     cheb/gsl_chebyshev.h   Copyright (C) 1996, 1997, 1998, 1999, 2000
                            Gerard Jungman
+
+    GSL integration/qags.c, qelg.c, qpsrt.c, qpsrt2.c, util.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Brian Gough
+    GSL integration/initialise.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001,
+                           2007 Brian Gough
+    GSL integration/positivity.c, set_initial.c, reset.c
+                           no header of their own; #included into qags.c
+                           and covered by its notice
+      -> src/integration/qags.rs (ported 2026-09-28, read at the commit above)
+    GSL linalg/lu.c        Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007,
+                           2009 Gerard Jungman, Brian Gough;
+                           Copyright (C) 2019, 2021 Patrick Alken
+    GSL cblas/source_ger.h, cblas/source_trsv_r.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+    GSL permutation/permute_source.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Brian Gough
+      -> src/linalg/lu_decomp.rs (ported 2026-10-20, gh:#992, read at the
+         commit above)
+
+    GSL linalg/cholesky.c  Copyright (C) 2000 Thomas Walter;
+                           (C) 2000, 2001, 2002, 2003, 2005, 2007 Brian
+                           Gough, Gerard Jungman; (C) 2016, 2019 Patrick Alken
+    GSL linalg/invtri.c    Copyright (C) 2016, 2017, 2018, 2019 Patrick Alken
+    GSL linalg/trimult.c   Copyright (C) 2019 Patrick Alken
+    GSL cblas/source_trsv_r.h, source_trmv_r.h, source_gemv_r.h,
+    source_dot_r.h, source_scal_r.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+      -> src/linalg/cholesky.rs (ported 2026-10-20, gh:#993)
+
+    GSL linalg/symmtd.c    Copyright (C) 2001, 2007 Brian Gough;
+                           (C) 2019 Patrick Alken
+    GSL linalg/householder.c (householder_left)
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2004,
+                           2007, 2010 Gerard Jungman, Brian Gough
+    GSL cblas/source_symv.h, source_syr2.h, source_axpy_r.h, source_ger.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+      -> src/linalg/symmtd.rs (ported 2026-10-20, gh:#993)
+    GSL eigen/symm.c, eigen/symmv.c
+                           Copyright (C) 2001, 2007 Brian Gough
+    GSL eigen/qrstep.c     Copyright (C) 2007, 2010 Brian Gough
+    GSL eigen/sort.c       Copyright (C) 1996, 1997, 1998, 1999, 2000, 2006,
+                           2007 Gerard Jungman, Patrick Alken
+      -> src/linalg/eigen_symm.rs (ported 2026-10-20, gh:#993)
+    GSL linalg/svd.c       Copyright (C) 1996, 1997, 1998, 1999, 2000, 2004,
+                           2007, 2010 Gerard Jungman, Brian Gough
+    GSL linalg/svdstep.c   Copyright (C) 2007, 2010 Brian Gough
+    GSL linalg/bidiag.c    Copyright (C) 2001, 2007 Brian Gough
+    GSL linalg/householder.c (householder_right, householder_hm1) -- as above
+    GSL linalg/gsl_linalg.h (gsl_linalg_givens)
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2006,
+                           2007, 2019 Gerard Jungman, Brian Gough, Patrick Alken
+      -> src/linalg/svd.rs (ported 2026-10-20, gh:#993)
+    GSL eigen/nonsymm.c    Copyright (C) 2006 Patrick Alken
+    GSL eigen/francis.c    Copyright (C) 2006, 2007 Patrick Alken
+    GSL linalg/hessenberg.c, linalg/balancemat.c
+                           Copyright (C) 2006 Patrick Alken
+    GSL linalg/householder.c (householder_hm, householder_mh) -- as above
+    GSL sys/hypot.c        Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Gerard Jungman, Brian Gough, Patrick Alken
+      -> src/linalg/eigen_nonsymm.rs (ported 2026-10-20, gh:#993)
+    GSL cblas/source_gemm_r.h
+                           Copyright (C) 2001, 2007 Brian Gough
+    GSL matrix/prop_source.c (gsl_matrix_norm1), cblas/source_asum_r.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007
+                           Gerard Jungman, Brian Gough (asum: 1996-2000
+                           Gerard Jungman)
+      -> src/linalg/octave.rs (Matrix::mul, Norm::One; 2026-10-20, gh:#993)
+
+  GNU Octave (not GSL): scripts/linear-algebra/expm.m, Octave 11.3.0,
+  sha256 3f97a52a9c9ef91340d72f80438577fadc53438db7e6b6b914ddc6b65bef7345,
+  Copyright (C) 2008-2026 The Octave Project Developers, GPL-3.0-or-later
+  (read from the file's header; used under version 3)
+      -> src/linalg/expm.rs (ported 2026-10-20, gh:#993; ~~balancing omitted,
+         see that file~~ balancing ported 2026-10-20, gh:#998)
+
+  GNU Octave (not GSL): liboctave/numeric/aepbalance.h (permuting_vector,
+  scaling_vector) and aepbalance.cc (the DGEBAL job letter), Octave 11.3.0
+  source tarball, Copyright (C) 1994-2026 The Octave Project Developers,
+  GPL-3.0-or-later (used under version 3)
+      -> src/linalg/gebal.rs (octave_balance; 2026-10-20, gh:#998)
+
+    GSL interpolation/linear.c, integ_eval.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+    GSL interpolation/cspline.c
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001,
+                           2002, 2004 Gerard Jungman
+    GSL interpolation/gsl_interp.h
+                           Copyright (C) 1996, 1997, 1998, 1999, 2000, 2004
+                           Gerard Jungman
+    GSL interpolation/interp.c
+                           Copyright (C) 2007 Brian Gough;
+                           1996, 1997, 1998, 1999, 2000 Gerard Jungman
+      -> src/interp.rs (ported 2026-09-14; eval_integ added 2026-10-20,
+         gh:#989, read at the commit above)
 
 ================================================================================
 DERIVED WORK — ARM optimized-routines
@@ -101,7 +203,7 @@ LICENCE VERIFICATION (read from upstream, not asserted)
       SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
 
   Both options are permissive and GPL-3.0-compatible, so this derivative work
-  is GPL-3.0-only like the rest of the workspace. The flow is ONE-WAY: code
+  is GPL-3.0-only like the GSL-derived files (the crate conveys as an AGPL-3.0-only combined work since 2026-10-20, gh:#973). The flow is ONE-WAY: code
   here cannot go back upstream under the original licence.
 
 COPYRIGHT HOLDERS
@@ -119,6 +221,270 @@ COPYRIGHT HOLDERS
     math/math_err.c       Copyright (c) 2018, Arm Limited
 
 ================================================================================
+DERIVED WORK — OpenMC (random number generator)
+================================================================================
+
+`src/rng/lcg.rs` ports OpenMC's `src/random_lcg.cpp` and
+`include/openmc/random_lcg.h` (the 64-bit LCG, its PCG-RXS-M-XS output
+permutation adapted by OpenMC from pcg-c, the O(log n) jump-ahead of
+F. Brown 1994, and `init_seed`). `src/wgsl/shaders/lcg.wgsl` transcribes its
+state advance to WGSL. Both were moved here on 2026-10-02 from
+`outram-mc-libs`, where they were first ported; the attribution moved with
+them.
+
+  Project    : OpenMC
+  Upstream   : https://github.com/openmc-dev/openmc
+  Commit     : d7d3284a1b13d7cae020e0d8fea9f1e60d91b18b (2026-09-05)
+  Licence    : MIT
+
+  `LICENSE` in the upstream tree opens:
+
+      Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
+      Argonne LLC, and OpenMC contributors
+
+  followed by the standard MIT permission notice. MIT is permissive and
+  GPL-3.0-compatible; the flow is ONE-WAY.
+
+================================================================================
+DERIVED WORK — OpenMC (depletion: integrators, CRAM, burnup matrix)
+================================================================================
+
+`src/depletion/` ports OpenMC's `openmc/deplete/integrators.py` (all eight
+integrators), `openmc/deplete/_matrix_funcs.py`, the time-integration
+drivers of `openmc/deplete/abc.py` (`Integrator`, `SIIntegrator`,
+`DepSystemSolver`), the single-material path of `openmc/deplete/pool.py`
+(`deplete`) and `openmc/deplete/cram.py` (`IPFCramSolver`, with the Pusa
+2016 coefficients it embeds). `cram.rs` and `matrix.rs` were first ported in
+`outram-mc-libs` and moved here on 2026-10-17 (gh:#950); the attribution
+moved with them. Ported at the maintainer's direction recorded on gh:#950.
+
+  Project    : OpenMC
+  Upstream   : https://github.com/openmc-dev/openmc
+  Commit     : d7d3284a1b13d7cae020e0d8fea9f1e60d91b18b (2026-09-05)
+  Licence    : MIT
+
+      Copyright (c) 2011-2026 Massachusetts Institute of Technology, UChicago
+      Argonne LLC, and OpenMC contributors
+
+  followed by the standard MIT permission notice (reproduced below, as MIT
+  requires the notice to accompany substantial portions):
+
+      Permission is hereby granted, free of charge, to any person obtaining a
+      copy of this software and associated documentation files (the
+      "Software"), to deal in the Software without restriction, including
+      without limitation the rights to use, copy, modify, merge, publish,
+      distribute, sublicense, and/or sell copies of the Software, and to
+      permit persons to whom the Software is furnished to do so, subject to
+      the following conditions:
+
+      The above copyright notice and this permission notice shall be included
+      in all copies or substantial portions of the Software.
+
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+      OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+      MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+      CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+      TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+  MIT flows ONE-WAY into GPL-3.0-only. This is an OUTRAM PARK translation,
+  not official OpenMC.
+
+================================================================================
+DERIVED WORK — ONIX (order-16 CRAM, partial-fraction form)
+================================================================================
+
+`src/depletion/onix_cram.rs` ports ONIX's `CRAM16` (`onix/salameche/cram.py`,
+lines 6-59), with its pole, residue and limit coefficients digit for digit.
+It was first ported in `outram-park-fork-onix/src/cram.rs` (2026-08-04) and
+moved here on 2026-10-20 (gh:#999), at the maintainer's direction "The cram
+from Onix can go to petir and attribute onix"; the attribution moved with
+it. ONIX is gratefully acknowledged.
+
+  Project    : ONIX
+  Upstream   : https://github.com/jlanversin/ONIX
+  Commit     : 7328dc6acf705827470819a4367ef2a98c642b74
+  Licence    : MIT
+
+      MIT License
+
+      Copyright (c) 2019-2020 Julien de Troullioud de Lanversin
+
+      Permission is hereby granted, free of charge, to any person obtaining a
+      copy of this software and associated documentation files (the
+      "Software"), to deal in the Software without restriction, including
+      without limitation the rights to use, copy, modify, merge, publish,
+      distribute, sublicense, and/or sell copies of the Software, and to
+      permit persons to whom the Software is furnished to do so, subject to
+      the following conditions:
+
+      The above copyright notice and this permission notice shall be included
+      in all copies or substantial portions of the Software.
+
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+      OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+      MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+      CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+      TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+  MIT flows ONE-WAY into this crate's licence. This is an OUTRAM PARK
+  translation, not affiliated with or endorsed by the ONIX project.
+
+================================================================================
+DERIVED WORK — Clawpack / PyClaw (SSP Runge-Kutta time integrators)
+================================================================================
+
+`src/ssprk.rs` ports the 'SSP22', 'SSP33' and 'SSP104' branches of
+`SharpClawSolver.step` and its helpers `ssp22` / `ssp104` from PyClaw's
+`src/pyclaw/sharpclaw/solver.py` (file author David Ketcheson). Ported
+2026-10-16 at the maintainer's direction (decision D3, gh:#896/#903: "port an
+SSP Runge-Kutta time integrator from OpenFOAM or wherever suitable";
+OpenFOAM-10 and OpenFOAM-dev have none). The full BSD-3-Clause notice is
+reproduced in the file header.
+
+  Project    : Clawpack — PyClaw
+  Upstream   : https://github.com/clawpack/pyclaw
+  Commit     : f522337ef75abef1153e2025a204b7ef4f7c5c9f (2026-06-25)
+  Licence    : BSD-3-Clause
+
+      Copyright (c) 1994-2018, Clawpack Developers
+
+  BSD-3-Clause is permissive and GPL-3.0-compatible; the flow is ONE-WAY.
+  The non-endorsement clause binds: do not use the Clawpack name to promote
+  this crate.
+
+================================================================================
+DERIVED WORK — Reference-LAPACK (DGEBAL, DGEBAK) and reference BLAS (DNRM2, IDAMAX)
+=========================================================================
+
+
+
+`src/linalg/gebal.rs` ports LAPACK's SRC/dgebal.f and SRC/dgebak.f and the
+reference BLAS routines they call, BLAS/SRC/dnrm2.f90 and BLAS/SRC/idamax.f.
+Ported 2026-10-20 at the maintainer's direction (gh:#998: "Dgebal also
+port"), so that linalg::expm balances exactly as GNU Octave's expm.m does.
+The full modified-BSD notice is reproduced in the file header, as source
+redistribution requires.
+
+  Project    : Reference-LAPACK
+  Upstream   : https://github.com/Reference-LAPACK/lapack
+  Version    : 3.12.1, tag v3.12.1, commit
+               6ec7f2bc4ecf4c4a93496aa2fa519575bc0e39ca (2024-12-03)
+  Licence    : modified BSD (LAPACK's LICENSE file, read 2026-10-20)
+
+      Copyright (c) 1992-2023 The University of Tennessee and The University
+                              of Tennessee Research Foundation.  All rights
+                              reserved.
+      Copyright (c) 2000-2023 The University of California Berkeley. All
+                              rights reserved.
+      Copyright (c) 2006-2023 The University of Colorado Denver.  All rights
+                              reserved.
+
+  Modified BSD is permissive and GPL/AGPL-compatible; the flow is ONE-WAY.
+  The non-endorsement clause binds: do not use the copyright holders' names
+  to promote this crate.
+
+================================================================================
+DERIVED WORK — CORE-MATH (correctly rounded hypot)
+================================================================================
+
+`src/hypot.rs` ports CORE-MATH's `cr_hypot` (src/binary64/hypot/hypot.c) and
+`cr_hypotf` (src/binary32/hypot/hypotf.c). Ported 2026-10-20 at the
+maintainer's direction (gh:#997: "Port"). The full MIT notice is reproduced
+in the file header.
+
+  Project    : CORE-MATH
+  Upstream   : https://gitlab.inria.fr/core-math/core-math
+  Commit     : 7ebab73913c5a33a25402ee51c96ec06b3a18095 (2026-10-20)
+  Licence    : MIT (verified from LICENSE and both file headers)
+
+      Copyright (c) 2022-2026 Alexei Sibidanov <sibid@uvic.ca>   (hypot.c)
+      Copyright (c) 2022-2025 Alexei Sibidanov                   (hypotf.c)
+
+  MIT is permissive and GPL/AGPL-compatible; the flow is ONE-WAY.
+=======
+DERIVED WORK — faer (sparse LU / Cholesky), and through it SuiteSparse AMD/COLAMD
+================================================================================
+
+`src/sparse/` ports faer 0.24.4's sparse LU (`sp_lu`, with its COLAMD
+column ordering) and sparse Cholesky (`sp_cholesky`, with its AMD
+ordering), the elimination-tree helpers and the single-column sparse triangular
+solves. Ported 2026-10-20 at the maintainer's direction (gh #994: "if faer
+functions are needed, export no_std versions of them through petir"), so that
+`bedok` and `outram-blender` could drop faer. The full MIT notice is reproduced
+in every file header; amd.rs and colamd.rs also carry the SuiteSparse BSD-3
+notices faer ships.
+
+  Project    : faer
+  Upstream   : https://codeberg.org/sarah-quinones/faer
+  Version    : 0.24.4 (the published crates.io source, read 2026-10-20)
+  Licence    : MIT (Cargo.toml `license = "MIT"`; the crate ships no LICENSE
+               file, so the standard MIT text is reproduced in each header)
+
+      Copyright (c) sarah quiñones <sarah@veganb.tw> and the faer contributors
+
+  faer's amd.rs and colamd.rs are themselves ports of SuiteSparse:
+
+      AMD, Copyright (c), 1996-2022, Timothy A. Davis, Patrick R. Amestoy,
+      and Iain S. Duff.  All Rights Reserved.  BSD-3-Clause.
+      COLAMD, Copyright 1998-2022, Timothy A. Davis.  BSD-3-Clause.
+
+  MIT and BSD-3-Clause flow ONE-WAY into this crate's licence. The BSD
+  non-endorsement clause binds: do not use the SuiteSparse authors' names to
+  promote this crate.
+
+  Added 2026-10-20 (gh #994, maintainer: "Port lah", "Whatever faer does,
+  port into petir"): faer's SUPERNODAL sparse LU and Cholesky
+  (src/sparse/{supernodal,lu_supernodal,cholesky_supernodal}.rs), and the
+  dense kernels they call (src/sparse/dense/), whose arithmetic is replayed
+  in scalar code from faer's `linalg::{matmul, triangular_solve, lu, cholesky}`
+  and from the three crates faer's f64 kernels run on an AVX2 CPU:
+
+  Project    : nano-gemm 0.2.2 (with nano-gemm-codegen 0.2.1)
+  Upstream   : https://github.com/sarah-ek/nano-gemm
+  Licence    : MIT (Cargo.toml `license = "MIT"`)
+      Copyright (c) sarah quiñones
+
+  Project    : private-gemm-x86 0.1.22
+  Upstream   : https://github.com/sarah-quinones/gemm-x64-v2
+  Licence    : MIT (ships LICENSE)
+      Copyright (c) 2025 sarah quiñones el kazdadi
+
+  Project    : pulp 0.22.3
+  Upstream   : https://github.com/sarah-quinones/pulp
+  Licence    : MIT (ships LICENSE)
+      Copyright (c) sarah quiñones
+
+  The MIT notice is reproduced in src/sparse/dense/mod.rs's header, which the
+  other dense files refer to. The flow is ONE-WAY.
+
+================================================================================
+DERIVED WORK — faer (dense SVD), faer-traits and pulp
+================================================================================
+
+`src/faer_dense/` ports the path faer 0.24.4's `Mat::svd()` runs for a small
+square f64 matrix: Householder bidiagonalisation (`svd/bidiag.rs`), the
+bidiagonal QR algorithm (`svd/bidiag_svd.rs`), the block-size-1 reflector
+application (`householder.rs`), the dot / matvec / norm / Givens kernels, the
+scalar `hypot` of faer-traits 0.24.0, and a scalar model of pulp 0.22.3's V3
+(AVX2+FMA) lane semantics that faer's SIMD kernels run on. Ported 2026-10-20
+at the maintainer's direction (gh #996: "Whatever faer does, port into
+petir"), so that `outram-blender` could drop faer. The full MIT notice is
+reproduced in every file header.
+
+  Projects   : faer 0.24.4, faer-traits 0.24.0, pulp 0.22.3
+  Upstream   : https://codeberg.org/sarah-quinones/faer (faer, faer-traits),
+               https://github.com/sarah-quinones/pulp
+  Licence    : MIT (each Cargo.toml `license = "MIT"`)
+
+      Copyright (c) sarah quiñones <sarah@veganb.tw> and the faer contributors
+
+  MIT flows ONE-WAY into this crate's licence.
+
+================================================================================
 OTHER UPSTREAM SOURCES
 ================================================================================
 
@@ -132,12 +498,283 @@ OTHER UPSTREAM SOURCES
   vendored at present.
 
 ================================================================================
+IN-WORKSPACE UPSTREAMS (lifted verbatim)
+================================================================================
+
+  Beyond the ports above, PETIR carries code lifted BYTE-FOR-BYTE from two
+  other crates in this workspace. Both are GPL-3.0-only and authored here, so
+  no new licence obligation arises -- but the provenance still travels with
+  every file, and `tests/verbatim_provenance.rs` checks mechanically that the
+  copies have not drifted from their sources. As of 2026-09-14 all nineteen
+  lifts are at ZERO declared deviation.
+
+  outram-foam-basic-lib (GPL-3.0-only; derived from OpenFOAM,
+  Copyright (C) 2004-2023 OpenFOAM Foundation and 2016-2023 OpenCFD Ltd)
+
+    src/matrix/square_matrix.rs        -> linalg/square_matrix.rs
+    src/polynomial/{roots, linear_eqn,
+      quadratic_eqn, cubic_eqn,
+      polynomial}.rs                   -> poly/
+    src/math/erf_inv.rs                -> specfunc/erf_inv.rs
+    src/math/inc_gamma.rs              -> specfunc/inc_gamma.rs
+    src/math/inv_inc_gamma.rs          -> specfunc/inv_inc_gamma.rs
+    src/primitives/scalar.rs           -> scalar.rs
+
+  chem-eng-real-time-process-control-simulator (GPL-3.0-only; itself a port of
+  the GNU Octave control package, GPL-3.0-or-later)
+
+    src/lib/beta_testing/z_domain/*.rs -> transfer_fn/
+    src/lib/beta_testing/
+      stable_transfer_functions/*.rs   -> transfer_fn/
+
+  Not lifted: that crate's `transfer_fn_wrapper_and_enums` layer, which writes
+  simulation output through `csv::Writer` -- a std-and-filesystem dependency
+  with no place in a no_std numerics crate.
+
+================================================================================
 DEPENDENCY LICENCES
 ================================================================================
 
   libm  MIT OR Apache-2.0 — a pure-Rust port of musl's libm. Permissive into
         GPL-3.0. Required, not optional: in no_std the f64 transcendentals are
         std-only, and GSL calls them throughout.
+
+  uom   Apache-2.0 OR MIT — dimensional analysis. Permissive into GPL-3.0.
+        OPTIONAL, behind the default-on `transfer-fn` feature, and used only by
+        the transfer-function blocks, where a sample time genuinely is a Time
+        and a signal genuinely is a Ratio. Every numerics layer takes bare f64.
+        Built with default-features off: uom's defaults include `std`.
+
+================================================================================
+PRIOR ART IN RUST — ACKNOWLEDGEMENT
+================================================================================
+
+  PETIR is not the first attempt to bring these algorithms to Rust, and the
+  people who got there earlier deserve saying so by name. Two crates in
+  particular cover ground PETIR covers, and both are in this workspace's
+  dependency graph already (root `[workspace.dependencies]`):
+
+    peroxide 0.41.2   MIT OR Apache-2.0
+                      Tae Geun Kim ("axect", <axect@outlook.kr>)
+                      https://github.com/Axect/Peroxide
+                      A full numeric/scientific-computing stack for Rust:
+                      linear algebra, statistics, ODE integration,
+                      interpolation, root finding, special functions,
+                      automatic differentiation.
+
+    roots 0.0.8       BSD-2-Clause
+                      Mikhail Vorotilov <mikhail.vorotilov@gmail.com>
+                      https://github.com/vorot/roots
+                      Closed-form solvers for polynomials up to quartic, and
+                      the bracketed iterative root finders (bisection, regula
+                      falsi, Brent-Dekker, inverse quadratic, Newton-Raphson).
+
+  WHERE THEY OVERLAP PETIR, MODULE BY MODULE. Recorded specifically rather
+  than as a generic wave at "scientific computing", because a vague
+  acknowledgement is worth less than an accurate one. Read from the published
+  sources at the versions above on 2026-09-15, not from memory:
+
+    petir module            peroxide 0.41.2              roots 0.0.8
+    --------------------    -------------------------    ---------------------
+    roots (6 methods)       numerical/root.rs,           numerical/{brent,
+                            numerical/newton.rs          regula_falsi, secant,
+                                                         newton_raphson,
+                                                         inverse_quadratic}.rs
+    poly (exact solvers)    structure/polynomial.rs      analytical/{linear,
+                                                         quadratic, cubic,
+                                                         quartic, biquadratic}
+    linalg::qr              traits/matrix.rs `QR<M>`     --
+    interp (spline)         numerical/{interp,spline}    --
+    integration             numerical/integral.rs        --
+    ode                     numerical/ode.rs             --
+    min                     numerical/optimize.rs        --
+    cheb                    structure/polynomial.rs      --
+                            `chebyshev_polynomial`,
+                            numerical/interp.rs
+                            `chebyshev_nodes`
+
+  THE NEWEST WORK IN PETIR IS THE MOST OVERLAPPED, WHICH IS WORTH SAYING
+  PLAINLY. The QR factorisation, the least-squares path and the Chebyshev
+  machinery added in September 2026 are precisely the ground peroxide had
+  already covered -- it carries a `QR<M>` decomposition, `chebyshev_polynomial`
+  and `chebyshev_nodes`. Arriving at the same place later, by a different
+  route, is not discovery.
+
+  ONE PRECISION, so this does not overstate their reach: peroxide's
+  `least_square` (src/ml/reg.rs) is simple linear regression -- it fits
+  `ax + b` from accumulated means -- not a general least-squares fit in an
+  arbitrary basis, which is what `ChebSeries::fit` does. peroxide has the QR
+  that such a fit needs; this file does not claim it exposes the fit itself.
+
+  AND WHERE THEY GO FURTHER THAN PETIR, which matters just as much:
+
+    - roots solves QUARTIC and BIQUADRATIC polynomials in closed form.
+      PETIR had no quartic solver at all until 2026-09-15, when this gap was
+      closed by PORTING theirs -- see the derivation section below. The rest
+      of that crate (its numerical bracketing and polishing solvers) remains
+      unported; PETIR's equivalents come from GSL.
+    - peroxide carries eigenvalue decomposition, sparse matrices, automatic
+      differentiation, a dataframe and a statistics layer. PETIR has none of
+      these and no plan to acquire them. Its polynomial ALGEBRA and its
+      orthogonal-family generators are no longer a gap here -- they were
+      ported, with attribution, into src/poly/dense.rs; see below.
+
+  DERIVATION FROM BOTH CRATES -- THREE MODULES, AND REAL LICENCE OBLIGATIONS.
+
+    src/poly/quartic.rs    DERIVED FROM `roots` 0.0.8.
+                           Copyright (c) 2015, Mikhail Vorotilov. BSD-2-Clause.
+
+    src/poly/companion.rs  DERIVED FROM `roots` 0.0.8.
+                           Copyright (c) 2015, Mikhail Vorotilov. BSD-2-Clause.
+                           And through it from JAMA and EISPACK -- see below.
+
+    src/poly/dense.rs      DERIVED FROM `peroxide` 0.41.2.
+                           Copyright (c) Tae Geun Kim. MIT OR Apache-2.0,
+                           taken under the MIT option.
+
+  The full upstream notice sits in each file's header, as source
+  redistribution requires, together with the per-deviation reasoning. What
+  each port took:
+
+    quartic.rs    ported 2026-09-15 from `roots`' `src/analytical/`:
+                  quartic.rs, quartic_depressed.rs, biquadratic.rs,
+                  cubic_normalized.rs, quadratic.rs, linear.rs, roots.rs.
+
+    companion.rs  ported 2026-09-15 from `roots`' `src/numerical/eigen.rs`.
+                  This one carries a longer chain, and every link in it asked
+                  to be named: Martin and Wilkinson's Algol `hqr2`/`orthes`
+                  (Handbook for Automatic Computation Vol. II, 1971) -> the
+                  EISPACK Fortran -> JAMA's public-domain
+                  EigenvalueDecomposition.java (NIST / The MathWorks) ->
+                  Stepan Yakovenko's hand transpilation to Rust, whose own
+                  header asks "hopefully someone will appreciate my one day of
+                  manual code conversion nightmare and mention me in the
+                  source code" -> Mikhail Vorotilov, who added it to `roots`
+                  0.0.5 at his request. All five are named in the file.
+
+    dense.rs      ported 2026-09-15 from `peroxide`'s
+                  `src/structure/polynomial.rs`: the Polynomial type and its
+                  operators, long and synthetic division, translate_x, the
+                  Calculus methods, lagrange_polynomial, and the Legendre,
+                  Chebyshev, Hermite and Bessel generators.
+
+    src/integration/gauss_legendre.rs and gauss_legendre_tables.rs
+                  DERIVED FROM `peroxide` 0.41.2, same copyright and licence.
+                  Ported 2026-09-15 from `src/numerical/integral.rs`: the
+                  Gauss-Legendre and Newton-Cotes quadrature routines, and the
+                  58 node/weight tables for orders 2 to 30.
+
+                  SIX OF THOSE 928 VALUES DIFFER FROM UPSTREAM DELIBERATELY.
+                  Three node values in `peroxide` are wrong, each appearing
+                  twice by symmetry:
+
+                    order 11  0.519096129110681 -> 0.5190961292068118
+                    order 12  0.36783149891818  -> 0.3678314989981802
+                    order 12  0.125333408511469 -> 0.1252334085114689
+
+                  The last is a single-digit typo -- a 2 became a 3 in the
+                  fourth decimal -- and costs upstream's 12-point rule about
+                  ten significant figures. All three were found by
+                  `tests/gauss_legendre_table_audit.rs`, which checks every
+                  value against Bonnet's recurrence, and all three corrections
+                  agree with the standard published tables. Every WEIGHT is
+                  correct at every order. This is reported upstream as a bead.
+
+  BSD-2-Clause into GPL-3.0-only, and MIT into GPL-3.0-only, are both ONE-WAY
+  flows. None of these three files may be contributed back to its upstream
+  under that upstream's licence without its author's agreement, and the same
+  applies to anything derived from them here.
+
+  EVERYTHING ELSE IN PETIR IS NOT DERIVED FROM EITHER CRATE. Outside those
+  three files, no code here is copied from, translated from, or derived from
+  `roots` or from `peroxide`; every other routine traces to the upstream named
+  in its own file header -- GSL, ARM optimized-routines, OpenFOAM by way of
+  outram-foam-basic-lib, or the GNU Octave control package by way of chem-eng
+  -- and `tests/verbatim_provenance.rs` and the code-to-code reference sets
+  under `reference-data/` are what hold that claim to account.
+
+  NEITHER CRATE IS A DEPENDENCY. All three modules were ported, not linked, so
+  `Cargo.toml` names neither crate; the obligations above are
+  source-redistribution obligations, not dependency ones.
+
+  WHAT WAS DELIBERATELY NOT PORTED, and why -- since both crates overlap PETIR
+  far more widely than three files.
+
+    The GSL-verified modules, from either crate. PETIR's maturity rests on
+    bit-identity with GSL 2.8 compiled and executed; five of seven numerics
+    surfaces agree with it exactly, every iterate. `roots`' Brent is not GSL's
+    Brent, so swapping it in would break every one of those comparisons by
+    construction and buy no capability. Every port above is ADDITIVE: each
+    fills a gap GSL does not cover and replaces nothing that is verified.
+
+    `roots`' find_roots_sturm, which is broken. Measured against upstream
+    compiled and run (reference-data/roots/), it never returns more than three
+    roots at any degree -- 3, 3, 3, 1, 3, 1, 1 for degrees 4 through 10 of
+    prod(x-k) -- and reports no error when it drops the rest. A root finder
+    that silently returns some of the roots is worse than none. A test pins
+    that measurement so a future upstream fix gets noticed rather than the
+    decision inherited.
+
+    `peroxide` as a DEPENDENCY, which remains impossible: it pulls `blas`,
+    `blas-src`, `lapack`, `lapack-src`, `netcdf`, `arrow`, `csv` and `json`
+    across its feature set, and PETIR's crate rules forbid anything bringing
+    system BLAS/LAPACK, a C or Fortran toolchain, `std`, threads, or an
+    allocator beyond `alloc`. That has no bearing on PORTING from it: a
+    pure-Rust routine copied across brings none of those with it, which is why
+    dense.rs is here.
+
+  It is recorded because credit for solving a problem first is not contingent
+  on someone else having used your solution, and because a reader comparing
+  PETIR against the Rust ecosystem should be pointed at the work that came
+  before it rather than left to assume there was none.
+
+  Both crates were EARLY to this in Rust -- doing the unglamorous work of
+  getting real numerical methods into the language while the ecosystem was
+  still thin, without which "just use the Rust crate" would not have been a
+  sentence anyone could say. That is the part worth acknowledging, and it is
+  not diminished by PETIR having different constraints.
+
+  WHY PETIR EXISTS ALONGSIDE THEM, since that is the obvious next question:
+  PETIR is `no_std` unconditionally and carries provenance to a specific
+  upstream commit for every routine, because this workspace needs kernels that
+  build for bare metal and wasm AND that a reviewer can diff line-for-line
+  against a reference implementation with its own test suite. Those are
+  constraints particular to this project, not deficiencies in either crate
+  above.
+
+================================================================================
+DERIVED WORK — rand, rand_core, rand_distr and chacha20 (random numbers)
+================================================================================
+
+`src/rng/traits.rs`, `src/rng/chacha.rs`, `src/rng/uniform.rs`,
+`src/rng/normal.rs` and `src/rng/ziggurat_tables.rs` port the pieces of the
+Rand project's crates (and RustCrypto's `chacha20`, which `rand` re-exports
+as `rand::rngs::ChaCha8Rng`) that boon-lay's RustBCA copy used. Read from
+the crates.io registry copies of the exact versions boon-lay's `Cargo.lock`
+pinned on 2026-10-20. Ported at the maintainer's direction recorded on
+GitHub issue #995 (2026-10-20). Each file's header carries the full MIT
+notice and the copyright lines of the files it was ported from.
+
+  Project    : rand 0.10.3, rand_core 0.10.1, rand_distr 0.6.0
+  Upstream   : https://github.com/rust-random/rand,
+               https://github.com/rust-random/rand_core,
+               https://github.com/rust-random/rand_distr
+  Licence    : MIT OR Apache-2.0 (used here under MIT)
+  Copyright  : rand_core LICENSE-MIT: "Copyright (c) 2018-2026 The Rand
+               Project Developers"; rand LICENSE-MIT: "Copyright 2018
+               Developers of the Rand project", "Copyright (c) 2014 The Rust
+               Project Developers"; rand_distr LICENSE-MIT: "Copyright 2018
+               Developers of the Rand project"; plus "The Rust Project
+               Developers" (2013, 2013-2017, 2017) in individual file headers.
+
+  Project    : chacha20 0.10.2
+  Upstream   : https://github.com/RustCrypto/stream-ciphers
+  Licence    : MIT OR Apache-2.0 (used here under MIT)
+  Copyright  : "Copyright (c) 2019-2026 The RustCrypto Project Developers"
+
+  MIT is permissive and compatible with this crate's licence; the flow is
+  ONE-WAY. `ziggurat_tables.rs` is a verbatim data lift; the rest is ported
+  with the deviations listed in each file (none changes an output).
 
 ================================================================================
 NOT AFFILIATED
@@ -146,3 +783,29 @@ NOT AFFILIATED
   PETIR is an independent port. It is not affiliated with, endorsed by, or
   supported by the GSL maintainers, the Free Software Foundation, or any of the
   copyright holders named above.
+
+Relicense: GPL-3.0-only -> AGPL-3.0-only, as a COMBINED WORK (2026-10-20)
+-------------------------------------------------------------------------
+
+At the maintainer's direction (GitHub issue #973), this crate is licensed
+AGPL-3.0-only from this date, and `LICENSE` is the AGPL-3.0 text.
+
+This crate contains code translated from a COPYLEFT upstream (named elsewhere
+in this file). A translation is a derivative work of that upstream's
+copyright, so those files CANNOT be relicensed: they stay GPL-3.0 and their
+SPDX headers are unchanged. No file header in this crate was touched by this
+pass. "Or later" does not help -- AGPLv3 is not a later version of the GPL.
+
+The crate therefore conveys as a COMBINED WORK under GPLv3 section 13 and
+AGPLv3 section 13, each of which grants permission to combine the two: the
+GPL-3.0 parts remain under the GPL, and the AGPL's network-interaction
+obligation applies to the combination as such. The GPL-3.0 text ships beside
+the AGPL-3.0 one as `LICENSE.GPL-3.0`, because GPLv3 section 4 requires the
+licence text to travel with the covered work and a crates.io tarball holds
+only this directory.
+
+Versions already published to crates.io keep the licence they were published
+under, forever; this affects future versions only. No version was bumped.
+
+The per-crate record is `docs/relicensing-agpl-2026-10-20.md`; the audit it
+rests on is the first comment on GitHub issue #973.

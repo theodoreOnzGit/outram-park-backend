@@ -9,6 +9,7 @@
 //! ([`crate::xsdata::sample_log_log`]) and reformatting the axis labels back
 //! to `10^n`-style physical values for display.
 
+use petir::mathf::RealMath;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
@@ -36,7 +37,7 @@ pub enum PlotAction {
 /// e.g. `2.0 -> "1e2"`, matching how JANIS and similar tools label a log
 /// cross-section axis.
 fn log_label(log_value: f64) -> String {
-    format!("{:.0e}", 10f64.powf(log_value))
+    format!("{:.0e}", 10f64.r_powf(log_value))
 }
 
 pub fn render(f: &mut Frame, area: Rect, state: &PlotState) {

@@ -26,6 +26,7 @@
 //! table for `theta` once and reuse it for every hop of every walker, converting
 //! to a physical time with `t = theta * R^2 / D`.
 
+use petir::mathf::RealMath;
 use std::f64::consts::PI;
 use std::sync::OnceLock;
 
@@ -75,7 +76,7 @@ pub fn survival_probability(theta: f64) -> f64 {
     let mut sign = 1.0_f64;
     for k in 1..=2_000_000_u64 {
         let kf = k as f64;
-        let term = (-kf * kf * PI * PI * theta).exp();
+        let term = (-kf * kf * PI * PI * theta).r_exp();
         sum += sign * term;
         sign = -sign;
         if term < 1e-15 {
@@ -106,14 +107,14 @@ impl ExitTimeInverseCdf {
         const M: usize = 6001;
         const THETA_MIN: f64 = 1e-5;
         const THETA_MAX: f64 = 8.0;
-        let ln_min = THETA_MIN.ln();
-        let ln_max = THETA_MAX.ln();
+        let ln_min = THETA_MIN.r_ln();
+        let ln_max = THETA_MAX.r_ln();
 
         let mut cdf = Vec::with_capacity(M);
         let mut ln_theta = Vec::with_capacity(M);
         for i in 0..M {
             let lt = ln_min + (ln_max - ln_min) * (i as f64) / ((M - 1) as f64);
-            let theta = lt.exp();
+            let theta = lt.r_exp();
             cdf.push(1.0 - survival_probability(theta));
             ln_theta.push(lt);
         }
@@ -126,10 +127,10 @@ impl ExitTimeInverseCdf {
         let first = self.cdf[0];
         let last = *self.cdf.last().unwrap();
         if u <= first {
-            return self.ln_theta[0].exp();
+            return self.ln_theta[0].r_exp();
         }
         if u >= last {
-            return self.ln_theta[self.ln_theta.len() - 1].exp();
+            return self.ln_theta[self.ln_theta.len() - 1].r_exp();
         }
         // First index whose CDF value is >= u (cdf is ascending).
         let hi = self.cdf.partition_point(|&x| x < u);
@@ -141,7 +142,7 @@ impl ExitTimeInverseCdf {
         } else {
             0.0
         };
-        (l_lo + w * (l_hi - l_lo)).exp()
+        (l_lo + w * (l_hi - l_lo)).r_exp()
     }
 }
 
@@ -225,7 +226,7 @@ mod tests {
         let r = Length::new::<micrometer>(100.0);
         let d = DiffusionCoefficient::new::<square_meter_per_second>(1e-8);
         let tau = mean_first_passage_time(r, d);
-        let expected = (1e-4_f64).powi(2) / (6.0 * 1e-8);
+        let expected = (1e-4_f64).r_powi(2) / (6.0 * 1e-8);
         assert_relative_eq!(tau.get::<second>(), expected, max_relative = 1e-12);
         assert!(tau.get::<second>() < 1.0);
     }

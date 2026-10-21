@@ -31,6 +31,7 @@
 //! Every measured number quoted in a doc comment below was printed by the test
 //! it appears on and transcribed.
 
+use petir::mathf::RealMath;
 use approx::assert_relative_eq;
 use outram_foam_basic_lib::primitives::SymmTensor;
 
@@ -146,7 +147,7 @@ fn the_compliance_matches_the_upstream_expression() {
     let (phi_m, dphi, t) = (1.0e25, 5.0e24, 620.0);
     let phi_p = phi_m + dphi;
 
-    let expected = (-p.activation_temperature / t).exp()
+    let expected = (-p.activation_temperature / t).r_exp()
         * (p.primary_compliance * p.primary_fluence_constant
             / (1.0 + p.primary_fluence_constant * phi_p)
             + p.secondary_compliance)
@@ -490,7 +491,7 @@ fn the_identified_hardening_curve_passes_through_both_tensile_points() {
 
     let at_proof = h.flow_stress(IRRAD3M_PROOF_STRAIN);
     let at_necking = h.flow_stress(p.uniform_elongation);
-    let true_uts = p.ultimate_strength * p.uniform_elongation.exp();
+    let true_uts = p.ultimate_strength * p.uniform_elongation.r_exp();
     println!(
         "sigma_y(pe)  = {:.12} MPa (target {:.12} MPa)",
         at_proof / 1e6,
@@ -644,7 +645,7 @@ fn the_swelling_closed_form_is_the_exact_integral() {
     let p = irrad3m_parameters();
     let rate = |phi: f64| {
         p.swelling_rate
-            / (3.0 * (1.0 + (p.swelling_sharpness * (p.swelling_onset_dose - phi)).exp()))
+            / (3.0 * (1.0 + (p.swelling_sharpness * (p.swelling_onset_dose - phi)).r_exp()))
     };
 
     let (a, b, n) = (0.0_f64, 100.0_f64, 20_000usize);
@@ -999,11 +1000,11 @@ fn anisotropy_rotates_the_flow_direction_away_from_the_deviator() {
     let aniso = meta_lema_ani().alpha_anisotropy;
     let angle = cos_angle(aniso.flow_direction(sigma))
         .clamp(-1.0, 1.0)
-        .acos()
+        .r_acos()
         .to_degrees();
     let iso_angle = cos_angle(HillAnisotropy::VON_MISES.flow_direction(sigma))
         .clamp(-1.0, 1.0)
-        .acos()
+        .r_acos()
         .to_degrees();
     println!("anisotropic misalignment = {angle:.13} degrees");
     println!("isotropic  misalignment = {iso_angle:.14e} degrees");
@@ -1131,9 +1132,9 @@ fn the_arrhenius_exponent_cancels_in_the_rate() {
     let t = 900.0;
     let gamma = phase.reference_stress(t);
     let n = phase.stress_exponent;
-    let got = gamma.powf(-n);
-    let expected = phase.amplitude.powf(-n) * (-phase.activation_temperature / t).exp();
-    let mistranscribed = (phase.amplitude * (phase.activation_temperature / t).exp()).powf(-n);
+    let got = gamma.r_powf(-n);
+    let expected = phase.amplitude.r_powf(-n) * (-phase.activation_temperature / t).r_exp();
+    let mistranscribed = (phase.amplitude * (phase.activation_temperature / t).r_exp()).r_powf(-n);
     println!("gamma = {gamma:.14e} Pa.s^(1/n)");
     println!("gamma^-n = {got:.14e}, a^-n exp(-Q/T) = {expected:.14e}");
     println!("mis-transcribed form would give {mistranscribed:.14e}");

@@ -20,9 +20,6 @@ use std::fs::File;
 use njoy_outram_park_fork::{
     acer::{angular::parse_elastic_angular, energy::build_emissions, jxs, nxs, AceTable},
     endf::tape::Tape,
-    heatr::{build_emission_spectra, Kerma},
-    nuclear_data::secondary::{FissionSpectrum, NuBar},
-    photon::PhotonProduction,
     reconr::{reconr, ReconrConfig},
 };
 
@@ -74,11 +71,26 @@ fn build_full(name: &str, mat: i32) -> AceTable {
     let ang = tape
         .section(mat, 4, 2)
         .map(|s| parse_elastic_angular(s).unwrap());
-    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, None)
+    AceTable::from_reconr_full(
+        &res,
+        0.0,
+        0,
+        ang.as_ref(),
+        &emissions,
+        None,
+        None,
+        false,
+        None,
+    )
 }
 
-/// Build the full table **with the HEATR heating column** (ESZ column 5).
-fn build_heated(name: &str, mat: i32) -> AceTable {
+/// Build the full table **with the HEATR heating column** (ESZ column 5), as
+/// the production ACE route builds it: `acer::build_full` runs the HEATR
+/// translation (`heatr::heatr`, byte-identical to NJOY2016's HEATR on all 62
+/// neutron evaluations in `reference-data/endf/`) and takes MT=301 from it.
+/// ~~It used to assemble `Kerma::from_reconr(..).with_energy_balance(..)`
+/// here, a separate approximation of the same column.~~ (changed 2026-10-05)
+fn build_heated(name: &str, mat: i32) -> (AceTable, Tape, njoy_outram_park_fork::reconr::ReconrResult) {
     let tape = Tape::read(File::open(fixture(name)).unwrap()).unwrap();
     let cfg = ReconrConfig {
         mat,
@@ -86,23 +98,8 @@ fn build_heated(name: &str, mat: i32) -> AceTable {
         temperature: 0.0,
     };
     let res = reconr(&tape, &cfg).unwrap();
-    let partials: Vec<(i32, f64)> = res
-        .sections
-        .iter()
-        .map(|s| (i32::from(s.mt), s.qi))
-        .collect();
-    let emissions = build_emissions(&tape, mat, res.material.awr, &partials);
-    let ang = tape
-        .section(mat, 4, 2)
-        .map(|s| parse_elastic_angular(s).unwrap());
-    let nu = NuBar::from_endf(&tape, mat).unwrap().unwrap_or_default();
-    let chi = FissionSpectrum::from_endf_mf5(&tape, mat)
-        .unwrap()
-        .unwrap_or_default();
-    let emission = build_emission_spectra(&tape, mat);
-    let photons = PhotonProduction::from_endf(&tape, mat, &res);
-    let kerma = Kerma::from_reconr(&res, &nu, &chi, &emission).with_energy_balance(&photons, &res);
-    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, Some(&kerma))
+    let ace = njoy_outram_park_fork::acer::build_full(&tape, mat, &res, 0.0, 0).unwrap();
+    (ace, tape, res)
 }
 
 /// A minimal parsed Type-1 ACE table: just the arrays we need to validate.
@@ -112,31 +109,24 @@ struct ParsedAce {
     xss: Vec<f64>,
 }
 
-/// Parse a Type-1 ASCII ACE table written by [`AceTable::write_to`].
+/// Parse a Type-1 ASCII ACE table written by [`AceTable::write_to`], through
+/// the library reader.
 ///
-/// Layout: 2 header lines, 4 IZAW lines, 6 lines of NXS(16)+JXS(32) (8 ints
-/// each), then the XSS data (4 values per line). Numeric fields are
-/// whitespace-separable because every field is right-justified in its column.
+/// This was a hand-rolled parser — one of five near-identical copies in this
+/// crate — until `acer::read` landed on 2026-09-21. Going through the library
+/// makes this a real **write -> read round trip**: the same reader that
+/// consumes NJOY2016's output consumes ours. A table this crate writes but its
+/// own reader cannot read now fails here, and so does one whose `NXS(1)`
+/// disagrees with the number of values actually written — a check the
+/// hand-rolled version did not make.
 fn parse_type1(text: &str) -> ParsedAce {
-    let lines: Vec<&str> = text.lines().collect();
-    // Skip 2 header + 4 IZAW lines.
-    let mut ints: Vec<i32> = Vec::new();
-    for line in &lines[6..12] {
-        for tok in line.split_whitespace() {
-            ints.push(tok.parse().unwrap());
-        }
+    let t = njoy_outram_park_fork::acer::read::parse_type1(text)
+        .expect("our own Type-1 output must be readable by our own reader");
+    ParsedAce {
+        nxs: t.nxs.to_vec(),
+        jxs: t.jxs.to_vec(),
+        xss: t.xss,
     }
-    assert_eq!(ints.len(), 48, "expected 16 NXS + 32 JXS integers");
-    let nxs = ints[..16].to_vec();
-    let jxs = ints[16..].to_vec();
-
-    let mut xss: Vec<f64> = Vec::new();
-    for line in &lines[12..] {
-        for tok in line.split_whitespace() {
-            xss.push(tok.parse().unwrap());
-        }
-    }
-    ParsedAce { nxs, jxs, xss }
 }
 
 #[test]
@@ -186,17 +176,51 @@ fn esz_total_equals_elastic_plus_partials() {
     assert!(energy[0] > 0.0);
 
     // Re-sum the SIG partials at each grid point and compare to the ESZ total.
+    //
+    // STORED IS NOT THE SAME AS SUMMED. A discrete charged-particle level
+    // (MT=600-849) is stored so it can be tallied, but is excluded from the
+    // ESZ total whenever its lumped total (MT=103-107) is also present,
+    // because the lumped section already sums those levels. That is upstream's
+    // `mt103.eq.0 .and. mth.ge.mpmin …` guard (`acefc.f90` ~5670), and it is
+    // why this invariant is "elastic + Σ CONTRIBUTING partials" rather than
+    // "elastic + Σ partials".
+    //
+    // Before MT=600-849 were stored at all (2026-09-20) the two were the same
+    // statement, and this test asserted the simpler one. Widening the
+    // tolerance to absorb the difference would have hidden exactly the
+    // double-count the guard exists to prevent, so the rule is encoded instead.
+    let mtr0 = ace.jxs[jxs::MTR] as usize;
+    let mts: Vec<i32> = (0..ntr)
+        .map(|i| ace.xss[mtr0 - 1 + i].round() as i32)
+        .collect();
+    const LUMPED: [(i32, i32, i32); 5] = [
+        (103, 600, 649),
+        (104, 650, 699),
+        (105, 700, 749),
+        (106, 750, 799),
+        (107, 800, 849),
+    ];
+    let contributes = |mt: i32| -> bool {
+        !LUMPED
+            .iter()
+            .any(|&(lump, lo, hi)| (lo..=hi).contains(&mt) && mts.contains(&lump))
+    };
+
     let sig0 = ace.jxs[jxs::SIG] as usize; // 1-based
+    let lsig0 = ace.jxs[jxs::LSIG] as usize; // 1-based
     for j in 0..nes {
         let mut sum = elastic[j];
         for i in 0..ntr {
-            // Each SIG entry is [IE, NE, σ(1..NE)] laid contiguously; IE=1, NE=nes.
-            let base = (sig0 - 1) + i * (2 + nes);
+            // Each SIG entry is [IE, NE, σ(IE..NES)], located through LSIG.
+            // ~~IE=1, NE=nes~~ -- since 2026-09-26 an entry starts at its
+            // threshold index, as `acelod` stores it; nothing below IE.
+            let base = (sig0 - 1) + (ace.xss[lsig0 - 1 + i] as usize - 1);
             let ie = ace.xss[base] as usize;
             let ne = ace.xss[base + 1] as usize;
-            assert_eq!(ie, 1);
-            assert_eq!(ne, nes);
-            sum += ace.xss[base + 2 + j];
+            assert_eq!(ie + ne - 1, nes, "an entry runs from IE to the grid top");
+            if contributes(mts[i]) && j + 1 >= ie {
+                sum += ace.xss[base + 2 + (j + 1 - ie)];
+            }
         }
         let t = total[j];
         assert!(
@@ -330,8 +354,16 @@ fn h2_elastic_angular_block_is_valid() {
     assert!(n >= 1, "H-2 elastic is anisotropic above ~100 eV");
 }
 
-/// Walk the LDLW/DLW blocks and assert every producer's law is well-formed.
-/// Returns (number of Law 3 entries, number of Law 4 entries).
+/// Walk the LDLW/DLW blocks and assert every producer's first law is
+/// well-formed. Returns (number of Law 3 entries, number of tabulated
+/// entries -- laws 4, 44 and 61).
+///
+/// ~~Every entry is `[LNW=0, LAW in {3,4}, IDAT=header+9, NR=0, NE=2, ...,
+/// P=1, P=1]`.~~ CHANGED 2026-09-26: that was this writer's generic header.
+/// Entries now carry NJOY's own (`acelf5`/`acelf6`, and the inline Law 3
+/// header), whose layout is verified word for word against NJOY2016 by
+/// `examples/ace_blocks_vs_reference.rs`; this walker checks the structure
+/// every ACE reader relies on.
 fn check_dlw_block(ace: &AceTable) -> (usize, usize) {
     let nr = ace.nxs[nxs::NR] as usize;
     let ldlw = ace.jxs[jxs::LDLW];
@@ -339,71 +371,79 @@ fn check_dlw_block(ace: &AceTable) -> (usize, usize) {
     assert!(nr > 0 && ldlw > 0 && dlw > 0, "DLW present when NR>0");
 
     let dlw0 = (dlw - 1) as usize; // 0-based DLW start
-    let (mut n_law3, mut n_law4) = (0, 0);
+    let (mut n_law3, mut n_tab) = (0, 0);
 
     for i in 0..nr {
-        // LDLW[i] is a DLW-relative 1-based locator to the law-validity header.
+        // LDLW[i] is a DLW-relative 1-based locator to the law header.
         let loc = ace.xss[(ldlw - 1) as usize + i] as i64;
-        assert!(loc >= 1, "LDLW locator ≥ 1");
+        assert!(loc >= 1, "LDLW locator >= 1");
         let h = dlw0 + (loc as usize) - 1; // 0-based header position
-
-        let lnw = ace.xss[h] as i64;
         let law = ace.xss[h + 1] as i64;
         let idat = ace.xss[h + 2] as i64;
-        let nr_app = ace.xss[h + 3] as i64;
-        let ne_app = ace.xss[h + 4] as i64;
-        assert_eq!(lnw, 0, "single law (LNW=0)");
-        assert!(law == 3 || law == 4, "LAW ∈ {{3,4}}, got {law}");
-        assert_eq!(nr_app, 0);
-        assert_eq!(ne_app, 2, "applicability over an energy range");
-        // Probabilities P=1 at both ends.
-        assert!((ace.xss[h + 7] - 1.0).abs() < 1e-9 && (ace.xss[h + 8] - 1.0).abs() < 1e-9);
+        assert!(
+            matches!(law, 3 | 4 | 44 | 61 | 66),
+            "LAW in {{3,4,44,61,66}}, got {law}"
+        );
+        // Law-applicability table: [NR, (NBT,INT)*NR, NE, E(NE), P(NE)].
+        let nr_app = ace.xss[h + 3] as usize;
+        let ne_app = ace.xss[h + 4 + 2 * nr_app] as usize;
+        assert!(ne_app >= 2, "applicability over an energy range");
+        let e_app = &ace.xss[h + 5 + 2 * nr_app..h + 5 + 2 * nr_app + ne_app];
+        assert!(e_app.windows(2).all(|w| w[1] >= w[0]), "applicability E ascending");
+        assert!(idat > loc, "IDAT past the header");
 
         let d = dlw0 + (idat as usize) - 1; // 0-based law-data position
-        assert_eq!(idat, loc + 9, "IDAT = header + 9 words");
-
-        if law == 3 {
-            n_law3 += 1;
-            // Law 3: [ldat1, ldat2]; slope (A/(A+1))² ∈ (0,1).
-            let ldat2 = ace.xss[d + 1];
-            assert!(
-                ldat2 > 0.0 && ldat2 < 1.0,
-                "Law 3 slope in (0,1), got {ldat2}"
-            );
-        } else {
-            n_law4 += 1;
-            // Law 4: [NR, NE, E_in(NE), L(NE), dists…]. NR=0 here (lin-lin).
-            let nr4 = ace.xss[d] as i64;
-            let ne_pos = d + 1 + if nr4 == 0 { 0 } else { 2 * nr4 as usize };
-            let ne = ace.xss[ne_pos] as usize;
-            assert!(ne >= 1, "Law 4 has incident energies");
-            let e_in = &ace.xss[ne_pos + 1..ne_pos + 1 + ne];
-            let l = &ace.xss[ne_pos + 1 + ne..ne_pos + 1 + 2 * ne];
-            assert!(e_in.windows(2).all(|w| w[1] >= w[0]), "E_in ascending");
-            // Follow each distribution locator and validate its pdf/cdf.
-            for &lf in l {
-                let dp = dlw0 + (lf as usize) - 1;
-                let intt = ace.xss[dp] as i64;
-                assert!(intt == 1 || intt == 2, "INTT ∈ {{1,2}}");
-                let np = ace.xss[dp + 1] as usize;
-                assert!(np >= 1);
-                let cdf = &ace.xss[dp + 2 + 2 * np..dp + 2 + 3 * np];
-                assert!((cdf[np - 1] - 1.0).abs() < 1e-5, "cdf ends at 1");
-                assert!(cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+        match law {
+            3 => {
+                n_law3 += 1;
+                // Law 3: [ldat1, ldat2]; slope (A/(A+1))^2 in (0,1).
+                let ldat2 = ace.xss[d + 1];
+                assert!(ldat2 > 0.0 && ldat2 < 1.0, "Law 3 slope in (0,1), got {ldat2}");
             }
+            4 | 44 | 61 => {
+                n_tab += 1;
+                // [NR, (NBT,INT)*NR, NE, E_in(NE), L(NE), dists...]
+                let nr4 = ace.xss[d] as usize;
+                let ne_pos = d + 1 + 2 * nr4;
+                let ne = ace.xss[ne_pos] as usize;
+                assert!(ne >= 1, "tabulated law has incident energies");
+                let e_in = &ace.xss[ne_pos + 1..ne_pos + 1 + ne];
+                let l = &ace.xss[ne_pos + 1 + ne..ne_pos + 1 + 2 * ne];
+                assert!(e_in.windows(2).all(|w| w[1] >= w[0]), "E_in ascending");
+                for &lf in l {
+                    let dp = dlw0 + (lf as usize) - 1;
+                    // INTT = LEP + 10*ND for the correlated laws.
+                    let intt = ace.xss[dp] as i64 % 10;
+                    assert!(intt == 1 || intt == 2, "INTT in {{1,2}}");
+                    let np = ace.xss[dp + 1] as usize;
+                    assert!(np >= 1);
+                    let cdf = &ace.xss[dp + 2 + 2 * np..dp + 2 + 3 * np];
+                    assert!((cdf[np - 1] - 1.0).abs() < 1e-5, "cdf ends at 1");
+                    assert!(cdf.windows(2).all(|w| w[1] >= w[0] - 1e-9), "cdf monotone");
+                }
+            }
+            _ => {}
         }
     }
-    (n_law3, n_law4)
+    (n_law3, n_tab)
 }
 
 #[test]
-fn h2_unsupported_law6_producer_is_skipped_gracefully() {
+fn h2_law6_producer_is_written_as_ace_law_66() {
     // H-2's only neutron producer, MT16 (n,2n), uses ENDF MF=6 LAW=6 (n-body
-    // phase space), which is not yet ported. It must be skipped cleanly: NR=0,
-    // no DLW block, and the rest of the table still valid and self-consistent.
+    // phase space). ~~Not yet ported, so it must be skipped cleanly: NR=0, no
+    // DLW block.~~ CHANGED 2026-09-26: `acer::acelf6` writes it as ACE law 66,
+    // which is what NJOY2016 writes for H-2 MT=16 (this crate's CLAUDE.md,
+    // "The ACE reader caught up"), with LAND = -1 and a CM-frame TYR.
     let ace = build_full("n-001_H_002-ENDF8.0.endf", 128);
-    assert_eq!(ace.nxs[nxs::NR], 0, "LAW=6 producer skipped ⇒ no NR");
-    assert_eq!(ace.jxs[jxs::LDLW], 0, "no DLW block");
+    assert_eq!(ace.nxs[nxs::NR], 1, "MT=16 is the one producer");
+    assert!(ace.jxs[jxs::LDLW] > 0, "DLW block present");
+    let ldlw = ace.jxs[jxs::LDLW] as usize;
+    let dlw = ace.jxs[jxs::DLW] as usize;
+    let entry = dlw - 1 + ace.xss[ldlw - 1] as usize - 1;
+    assert_eq!(ace.xss[entry + 1], 66.0, "ACE law 66");
+    let land = ace.jxs[jxs::LAND] as usize;
+    assert_eq!(ace.xss[land], -1.0, "LAND = -1: angle is in the law");
     assert_eq!(ace.jxs[jxs::END] as usize, ace.xss.len());
     assert_eq!(ace.nxs[nxs::LEN_XSS] as usize, ace.xss.len());
 }
@@ -420,7 +460,7 @@ fn u235_full_table_mixes_law3_and_law4() {
     );
     let (n3, n4) = check_dlw_block(&ace);
     assert!(n3 > 5, "several discrete-level Law 3 producers, got {n3}");
-    assert!(n4 >= 1, "at least one Law 4 producer, got {n4}");
+    assert!(n4 >= 1, "at least one tabulated (4/44/61) producer, got {n4}");
 
     // TYR must be non-zero for exactly the NR producers.
     let tyr0 = (ace.jxs[jxs::TYR] - 1) as usize;
@@ -450,10 +490,12 @@ fn u235_discrete_levels_carry_mf4_angular() {
         anisotropic > 5,
         "discrete levels should carry MF=4 angular, got {anisotropic} anisotropic producers"
     );
-    // Every LAND locator is a valid AND-relative index or 0/isotropic.
+    // Every LAND locator is a valid AND-relative index, 0 (isotropic), or
+    // -1: the angle is carried by a correlated DLW law (MF=6 LAW=1/6,
+    // `acefc.f90:5846-5847`) -- ~~never negative~~, stale since `acelf6`.
     assert!(
-        producer_land.iter().all(|&l| l >= 0.0),
-        "no negative producer LAND"
+        producer_land.iter().all(|&l| l >= -1.0),
+        "producer LAND is a locator, 0, or -1"
     );
 }
 
@@ -506,25 +548,29 @@ fn angular_table_roundtrips_through_file() {
 
 /// **HEATR → ACE 4e (heating column) V&V.**
 ///
-/// **Methodology.** Build the U-235 (MAT=9228, ENDF/B-VIII.0) ACE table with the
-/// HEATR MT=301 KERMA wired into the ESZ heating column (H1–H5 kinematic terms
-/// **plus H6 energy balance**: the ~7 MeV/fission of prompt photon energy is
-/// subtracted as escaping). The heating column stores the ACE "heating number"
-/// `H(E) = KERMA(E)/σ_total(E)` in MeV (`acefc`'s `xss(ih+j)`). Assert it is
-/// (a) present and non-trivial (not the all-zero placeholder), (b) physically
-/// bounded — every value ≥ 0 and below the ~200 MeV/fission ceiling, and
-/// (c) fission-dominated at low energy: the peak heating number is
-/// ~150–200 MeV/collision (U-235's ~185 MeV fission deposition, minus escaping
-/// photons, times the thermal fission/total fraction).
+/// **Methodology.** Build the U-235 (MAT=9228, ENDF/B-VIII.0) ACE table through
+/// the production route (`acer::build_full`), whose heating column is HEATR's
+/// MT=301 (`heatr::heatr`, `local = 0`) divided by the total, as NJOY's ACER
+/// writes it (`acefc.f90:5641-5645`). Assert the column is (a) present and
+/// non-trivial, (b) never negative and below 200 MeV, and (c) at its peak
+/// within **3 %** of the evaluation's own estimate, `max_E EFR·σ_f(E)/σ_t(E)`:
+/// in thermal fission the locally deposited energy is the fragments' kinetic
+/// energy, EFR (MF=1/MT=458), while the neutrons and, with `local = 0`, the
+/// photons leave. The 3 % was fixed before the run from the terms that
+/// estimate omits, each under 1 % of EFR: the difference between MT=458's
+/// prompt-photon energy and the photon files' (the energy balance removes
+/// the latter), and the capture and elastic recoils.
 ///
-/// **Results (2026-07-04, ENDF/B-VIII.0).** Peak heating number ≈ 154
-/// MeV/collision (fission-dominated thermal region; ~6 MeV lower than the
-/// kinematic limit's ~160, the escaping prompt-γ energy); all values in
-/// `[0, 200] MeV`; the column is non-zero (many hundreds of positive entries).
-/// The `write_ace` example prints the same ~1.54e2 MeV peak.
+/// **Results.** ~~(2026-07-04) Peak heating number ≈ 154 MeV/collision~~,
+/// from the old `Kerma` approximation, against a `150..200 MeV` band that
+/// was set from that same result. **CHANGED 2026-10-05**: through the HEATR
+/// translation (byte-identical to NJOY2016's HEATR) the peak is **142.88
+/// MeV**; the band's own reasoning, done with EFR (169 MeV) instead of the
+/// 185 MeV total, predicts ~142. Criterion (c): peak 142.8833 MeV against
+/// EFR 169.13 MeV × max σ_f/σ_t 0.84481 = 142.8830 MeV, **+2.0e-6**.
 #[test]
 fn esz_heating_column_is_physical() {
-    let ace = build_heated("n-092_U_235-ENDF8.0.endf", 9228);
+    let (ace, tape, res) = build_heated("n-092_U_235-ENDF8.0.endf", 9228);
     let nes = ace.nxs[nxs::NES] as usize;
     let esz = ace.jxs[jxs::ESZ] as usize - 1; // 1-based locator
     let heat = &ace.xss[esz + 4 * nes..esz + 5 * nes];
@@ -533,22 +579,98 @@ fn esz_heating_column_is_physical() {
     let hmax = heat.iter().copied().fold(0.0_f64, f64::max);
 
     // (a) not the all-zero placeholder.
-    assert!(
-        n_positive > 100,
-        "heating column should be populated, got {n_positive} > 0"
+    assert!(n_positive > 100, "heating column should be populated, got {n_positive} > 0");
+    // (b) never negative, nothing above the ~200 MeV ceiling.
+    assert!(heat.iter().all(|&h| h >= 0.0), "heating numbers must be >= 0");
+    assert!(heat.iter().all(|&h| h < 200.0), "heating numbers must be < 200 MeV");
+    // (c) the peak against EFR·σ_f/σ_t from the evaluation itself.
+    let efr_mev = {
+        let s = tape.section(9228, 1, 458).expect("MT=458");
+        let mut c = njoy_outram_park_fork::endf::records::SectionCursor::new(&s.rows);
+        c.read_cont().unwrap();
+        c.read_list().unwrap().data[0] * 1.0e-6
+    };
+    let xs = |mt: i32| res.sections.iter().find(|s| i32::from(s.mt) == mt).map(|s| s.pairs.clone()).unwrap();
+    let (tot, fis) = (xs(1), xs(18));
+    let ratio_max = tot
+        .iter()
+        .map(|&(e, t)| if t > 0.0 { njoy_outram_park_fork::reconr::eval_lin_lin(&fis, e) / t } else { 0.0 })
+        .fold(0.0_f64, f64::max);
+    let estimate = efr_mev * ratio_max;
+    let rel = (hmax - estimate) / estimate;
+    println!("peak heating {hmax:.4} MeV; EFR {efr_mev:.4} MeV x max(sf/st) {ratio_max:.5} = {estimate:.4} MeV; rel {rel:+.3e}");
+    assert!(rel.abs() < 0.03, "peak heating {hmax} MeV is {rel:+.3e} from EFR*sf/st = {estimate} MeV");
+}
+
+
+/// **One writer, and the continuous-energy class can now write Type 2.**
+///
+/// Until 2026-09-22 this crate had two independent Type-1 serialisers —
+/// `AceTable`'s own in `src/acer/write.rs` and `RawAceTable::to_type1_string`
+/// in `src/acer/read.rs` — with two copies of the Fortran edit descriptors
+/// between them, which had drifted (the read-side copy wrote `1pE11.4` of
+/// zero as `0.0000` and dropped `f11.0`'s decimal point). `AceTable` now
+/// converts to `RawAceTable` and there is one serialiser.
+///
+/// Two consequences are checked here:
+///
+/// 1. **The text a built table writes is exactly what the shared serialiser
+///    produces** — i.e. the delegation is real rather than a second path that
+///    happens to agree today.
+/// 2. **A continuous-energy table has a binary form now.** The old
+///    `AceTable`-specific writer could emit Type 1 only, so nothing this crate
+///    built could be written as Type 2. Both containers must read back to the
+///    same table, which is the same property
+///    `tests/ace_read_type1_vs_type2.rs` asserts for NJOY's own files.
+#[test]
+fn one_writer_and_both_containers_for_a_built_table() {
+    use njoy_outram_park_fork::acer::read::{self, AceFileType};
+
+    let ace = build_full("n-001_H_002-ENDF8.0.endf", 128);
+
+    // (1) `write_to` is the shared serialiser, byte for byte.
+    let mut buf: Vec<u8> = Vec::new();
+    ace.write_to(&mut buf).unwrap();
+    let raw = ace.to_raw(AceFileType::Type1Ascii).expect("to_raw");
+    assert_eq!(
+        String::from_utf8(buf).unwrap(),
+        raw.to_type1_string(),
+        "AceTable::write_to must be RawAceTable::to_type1_string and nothing else"
     );
-    // (b) physically bounded: no negatives, nothing above the ~200 MeV ceiling.
-    assert!(
-        heat.iter().all(|&h| h >= 0.0),
-        "heating numbers must be ≥ 0"
+    assert_eq!(raw.header.class, read::AceClass::ContinuousNeutron);
+    assert_eq!(
+        raw.xss_is_int.as_ref().map(|m| m.len()),
+        Some(ace.xss.len()),
+        "the built table's own integer mask must be carried, not re-derived \
+         by the reader's heuristic"
     );
-    assert!(
-        heat.iter().all(|&h| h < 200.0),
-        "heating numbers must be < 200 MeV"
+
+    // (2) Type 2 round trip, through a real file so the record framing is
+    // exercised rather than an in-memory buffer.
+    let dir = std::env::temp_dir().join(format!(
+        "outram-ace-type2-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).expect("scratch dir");
+    let path = dir.join("h2.type2.ace");
+    ace.write_type2(&path).expect("write Type 2");
+    let back = read::read(&path).expect("read Type 2 back");
+    assert_eq!(back.nxs, ace.nxs, "NXS through Type 2");
+    assert_eq!(back.jxs, ace.jxs, "JXS through Type 2");
+    assert_eq!(back.xss.len(), ace.xss.len(), "XSS length through Type 2");
+    // Type 2 stores raw doubles, so this is exact -- unlike Type 1, which
+    // rounds to 12 printed digits.
+    let differing = back
+        .xss
+        .iter()
+        .zip(ace.xss.iter())
+        .filter(|(a, b)| a != b)
+        .count();
+    assert_eq!(
+        differing, 0,
+        "Type 2 is a binary container, so every value must come back bit-identical"
     );
-    // (c) fission-dominated peak, ~150–200 MeV/collision for U-235.
-    assert!(
-        (150.0..200.0).contains(&hmax),
-        "peak heating {hmax} MeV should be ~185 MeV (thermal-fission dominated)"
-    );
+    // And the container is sniffed, not assumed.
+    assert_eq!(back.file_type, AceFileType::Type2Binary);
+    let _ = std::fs::remove_dir_all(&dir);
 }

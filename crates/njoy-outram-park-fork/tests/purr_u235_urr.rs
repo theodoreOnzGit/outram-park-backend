@@ -53,9 +53,21 @@ fn rel(a: f64, b: f64) -> f64 {
 /// NJOY UNRESR at 300 K: `[total, elastic, fission, capture]` for σ₀ = 1e10
 /// and σ₀ = 1 (first and last columns of the printed block).
 const UNRESR_ORACLE: [(f64, [f64; 4], [f64; 4]); 3] = [
-    (2.25e3, [19.78, 12.11, 5.636, 2.036], [19.16, 12.01, 5.270, 1.884]),
-    (5.5e3, [16.97, 11.92, 3.725, 1.327], [16.92, 11.89, 3.710, 1.320]),
-    (1.0e4, [15.69, 11.73, 2.921, 1.032], [15.70, 11.73, 2.935, 1.037]),
+    (
+        2.25e3,
+        [19.78, 12.11, 5.636, 2.036],
+        [19.16, 12.01, 5.270, 1.884],
+    ),
+    (
+        5.5e3,
+        [16.97, 11.92, 3.725, 1.327],
+        [16.92, 11.89, 3.710, 1.320],
+    ),
+    (
+        1.0e4,
+        [15.69, 11.73, 2.921, 1.032],
+        [15.70, 11.73, 2.935, 1.037],
+    ),
 ];
 
 /// NJOY PURR's `unresx` reference at the same energies:
@@ -66,8 +78,18 @@ const UNRESR_ORACLE: [(f64, [f64; 4], [f64; 4]); 3] = [
 /// NJOY's first grid energy is `sigfig(EL,7,+1)` = 2250.001 eV, a 5e-7
 /// relative shift that is invisible at this precision.
 const UNRESX_ORACLE: [(f64, f64, f64, [f64; 4]); 3] = [
-    (2.25e3, 11.700, 0.16137, [19.77818, 12.10549, 5.636382, 2.036314]),
-    (5.5e3, 11.646, 0.16032, [16.96934, 11.91663, 3.725428, 1.327288]),
+    (
+        2.25e3,
+        11.700,
+        0.16137,
+        [19.77818, 12.10549, 5.636382, 2.036314],
+    ),
+    (
+        5.5e3,
+        11.646,
+        0.16032,
+        [16.96934, 11.91663, 3.725428, 1.327288],
+    ),
     (1.0e4, 0.0, 0.0, [15.68594, 11.73279, 2.920641, 1.032492]),
 ];
 
@@ -102,33 +124,84 @@ fn unresr_and_infinite_dilution_reference_match_njoy() {
                 s.dbar, s.gn_mean, s.gf_mean, s.gg_mean, s.gx_mean, s.ndf_n, s.ndf_f, s.ndf_x, s.csz);
         }
         if spot > 0.0 {
-            check(rel(inf.potential_scattering, spot) < 1e-4, format!("spot at {e}"));
-            check(rel(1.0 / inf.mean_inverse_spacing, dbar) < 1e-4, format!("dbar at {e}"));
+            check(
+                rel(inf.potential_scattering, spot) < 1e-4,
+                format!("spot at {e}"),
+            );
+            check(
+                rel(1.0 / inf.mean_inverse_spacing, dbar) < 1e-4,
+                format!("dbar at {e}"),
+            );
         }
         // 7-figure oracle; 2e-5 leaves room for the 2250.001 grid shift and
         // summation order.
-        check(rel(tot, infd[0]) < 2e-5, format!("infd total at {e}: {tot} vs {}", infd[0]));
-        check(rel(el, infd[1]) < 2e-5, format!("infd elastic at {e}: {el} vs {}", infd[1]));
-        check(rel(inf.sigma_fission_inf, infd[2]) < 2e-5, format!("infd fission at {e}: {} vs {}", inf.sigma_fission_inf, infd[2]));
-        check(rel(inf.sigma_capture_inf, infd[3]) < 2e-5, format!("infd capture at {e}: {} vs {}", inf.sigma_capture_inf, infd[3]));
+        check(
+            rel(tot, infd[0]) < 2e-5,
+            format!("infd total at {e}: {tot} vs {}", infd[0]),
+        );
+        check(
+            rel(el, infd[1]) < 2e-5,
+            format!("infd elastic at {e}: {el} vs {}", infd[1]),
+        );
+        check(
+            rel(inf.sigma_fission_inf, infd[2]) < 2e-5,
+            format!(
+                "infd fission at {e}: {} vs {}",
+                inf.sigma_fission_inf, infd[2]
+            ),
+        );
+        check(
+            rel(inf.sigma_capture_inf, infd[3]) < 2e-5,
+            format!(
+                "infd capture at {e}: {} vs {}",
+                inf.sigma_capture_inf, infd[3]
+            ),
+        );
     }
 
     for &(e, dilute, shielded) in &UNRESR_ORACLE {
-        let rows = unresolved_cross_sections(&ranges, e, 300.0, &[1e10, 1.0], [0.0; 4], &wtable)
-            .unwrap();
+        let rows =
+            unresolved_cross_sections(&ranges, e, 300.0, &[1e10, 1.0], [0.0; 4], &wtable).unwrap();
         println!("unresr E={e}: sig0=1e10 {:?} (NJOY {dilute:?})", rows[0]);
         println!("             sig0=1    {:?} (NJOY {shielded:?})", rows[1]);
         for k in 0..4 {
             // 4 printed significant figures → ±5e-4 relative rounding.
-            check(rel(rows[0][k], dilute[k]) < 1.5e-3, format!("E={e} sig0=1e10 col {k}: {} vs NJOY {}", rows[0][k], dilute[k]));
-            check(rel(rows[1][k], shielded[k]) < 1.5e-3, format!("E={e} sig0=1 col {k}: {} vs NJOY {}", rows[1][k], shielded[k]));
+            check(
+                rel(rows[0][k], dilute[k]) < 1.5e-3,
+                format!(
+                    "E={e} sig0=1e10 col {k}: {} vs NJOY {}",
+                    rows[0][k], dilute[k]
+                ),
+            );
+            check(
+                rel(rows[1][k], shielded[k]) < 1.5e-3,
+                format!(
+                    "E={e} sig0=1 col {k}: {} vs NJOY {}",
+                    rows[1][k], shielded[k]
+                ),
+            );
         }
         // UNRESR at σ₀ → ∞ and PURR's analytic reference are the same
         // width-fluctuation theory; they must agree with each other too.
         let inf = infinite_dilution_reference(&ranges, e).unwrap();
-        check(rel(rows[0][3], inf.sigma_capture_inf) < 2e-3, format!("unresr vs unresx capture at {e}: {} vs {}", rows[0][3], inf.sigma_capture_inf));
-        check(rel(rows[0][2], inf.sigma_fission_inf) < 2e-3, format!("unresr vs unresx fission at {e}: {} vs {}", rows[0][2], inf.sigma_fission_inf));
-        check(rel(rows[0][1], inf.sigma_elastic_inf + inf.potential_scattering) < 2e-3, format!("unresr vs unresx elastic at {e}"));
+        check(
+            rel(rows[0][3], inf.sigma_capture_inf) < 2e-3,
+            format!(
+                "unresr vs unresx capture at {e}: {} vs {}",
+                rows[0][3], inf.sigma_capture_inf
+            ),
+        );
+        check(
+            rel(rows[0][2], inf.sigma_fission_inf) < 2e-3,
+            format!(
+                "unresr vs unresx fission at {e}: {} vs {}",
+                rows[0][2], inf.sigma_fission_inf
+            ),
+        );
+        check(
+            rel(rows[0][1], inf.sigma_elastic_inf + inf.potential_scattering) < 2e-3,
+            format!("unresr vs unresx elastic at {e}"),
+        );
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
@@ -144,13 +217,30 @@ fn purr_probability_table_at_first_energy_matches_njoy() {
     let e = 2.25e3;
     let inf = infinite_dilution_reference(&ranges, e).unwrap();
     let sig0 = [1e10, 1e4, 1e3, 100.0, 10.0, 1.0];
-    let r = probability_table(&inf.sequences, &inf, [0.0; 4], &sig0, &[300.0], 20, 32, 10_000, &mut rng, &dtable)
-        .unwrap();
+    let r = probability_table(
+        &inf.sequences,
+        &inf,
+        [0.0; 4],
+        &sig0,
+        &[300.0],
+        20,
+        32,
+        10_000,
+        &mut rng,
+        &dtable,
+    )
+    .unwrap();
     let c = &r.convergence;
     println!(
         "aver {:.4} {:.4} {:.4} {:.4}   pcsd {:.2} {:.2} {:.2} {:.2}",
-        c.mean_total, c.mean_elastic, c.mean_fission, c.mean_capture,
-        c.pct_std_total, c.pct_std_elastic, c.pct_std_fission, c.pct_std_capture
+        c.mean_total,
+        c.mean_elastic,
+        c.mean_fission,
+        c.mean_capture,
+        c.pct_std_total,
+        c.pct_std_elastic,
+        c.pct_std_fission,
+        c.pct_std_capture
     );
     let t = &r.tables[0];
     println!("bondarenko: {:?}", t.bondarenko);
@@ -174,13 +264,26 @@ fn purr_probability_table_at_first_energy_matches_njoy() {
     // Probability-weighted table means reproduce the (renormalised)
     // infinite-dilution values.
     for k in 0..4 {
-        let mean: f64 = t.bin_probability.iter().zip(&t.bin_xs).map(|(p, x)| p * x[k]).sum();
-        assert!(rel(mean, t.bondarenko[0][k]) < 1e-6, "col {k}: table mean {mean} vs {}", t.bondarenko[0][k]);
+        let mean: f64 = t
+            .bin_probability
+            .iter()
+            .zip(&t.bin_xs)
+            .map(|(p, x)| p * x[k])
+            .sum();
+        assert!(
+            rel(mean, t.bondarenko[0][k]) < 1e-6,
+            "col {k}: table mean {mean} vs {}",
+            t.bondarenko[0][k]
+        );
     }
     // Self-shielding must be monotone in σ₀ for total, fission, capture.
     for k in [0, 2, 3] {
         for w in t.bondarenko.windows(2) {
-            assert!(w[1][k] <= w[0][k] * (1.0 + 1e-12), "col {k} not monotone: {:?}", t.bondarenko);
+            assert!(
+                w[1][k] <= w[0][k] * (1.0 + 1e-12),
+                "col {k} not monotone: {:?}",
+                t.bondarenko
+            );
         }
     }
 
@@ -191,17 +294,37 @@ fn purr_probability_table_at_first_energy_matches_njoy() {
     // printed values above tell the tighter story.
     let ours = [c.mean_total, c.mean_elastic, c.mean_fission, c.mean_capture];
     for k in 0..4 {
-        assert!(rel(ours[k], njoy_aver[k]) < 3e-2, "aver col {k}: {} vs NJOY {}", ours[k], njoy_aver[k]);
-        assert!(rel(t.bondarenko_direct_sampling[0][k], njoy_ds_inf[k]) < 3e-2, "ds inf col {k}");
-        assert!(rel(t.bondarenko_direct_sampling[5][k], njoy_ds_1[k]) < 3e-2, "ds sig0=1 col {k}");
+        assert!(
+            rel(ours[k], njoy_aver[k]) < 3e-2,
+            "aver col {k}: {} vs NJOY {}",
+            ours[k],
+            njoy_aver[k]
+        );
+        assert!(
+            rel(t.bondarenko_direct_sampling[0][k], njoy_ds_inf[k]) < 3e-2,
+            "ds inf col {k}"
+        );
+        assert!(
+            rel(t.bondarenko_direct_sampling[5][k], njoy_ds_1[k]) < 3e-2,
+            "ds sig0=1 col {k}"
+        );
     }
     // The self-shielding *ratio* at σ₀ = 1 b is far less noisy than the
     // absolute values: NJOY 0.9557 (total), 0.9904 (elastic), 0.9034
     // (fission), 0.8956 (capture).
     let ratio = |k: usize| t.bondarenko[5][k] / t.bondarenko[0][k];
-    let njoy_ratio = [18.963 / 19.842, 11.985 / 12.101, 5.1204 / 5.6676, 1.8573 / 2.0738];
+    let njoy_ratio = [
+        18.963 / 19.842,
+        11.985 / 12.101,
+        5.1204 / 5.6676,
+        1.8573 / 2.0738,
+    ];
     for k in 0..4 {
-        println!("self-shielding ratio col {k}: {:.4} vs NJOY {:.4}", ratio(k), njoy_ratio[k]);
+        println!(
+            "self-shielding ratio col {k}: {:.4} vs NJOY {:.4}",
+            ratio(k),
+            njoy_ratio[k]
+        );
         assert!((ratio(k) - njoy_ratio[k]).abs() < 0.02, "ratio col {k}");
     }
 }

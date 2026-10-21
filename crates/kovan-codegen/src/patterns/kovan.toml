@@ -1,0 +1,85 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-codegen"
+dir = "crates/kovan-codegen/src/patterns"
+test_ids = ["crates/kovan-codegen/src/patterns/mod.rs::generate_is_deterministic"]
+
+[module."mod.rs"]
+path = "crate::patterns"
+
+[[module."mod.rs".function]]
+id = "fn:a573be49e9a16e63"
+name = "EngineeringPattern"
+qual = "EngineeringPattern"
+item = "type"
+shape = "enum"
+lines = [
+    17,
+    27,
+]
+hash = "sha256:62f99d27e5fdeb95e490ab2f07b167730d870c03b6a70e69970f883cb6d071f6"
+doc_hash = "sha256:7111b12a7543adb0fe77a1a6a37281988f01bcbe19857e84cef2bca69859f9b6"
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:dec66bde2139c91d"
+name = "generate"
+qual = "generate"
+lines = [
+    45,
+    60,
+]
+hash = "sha256:0617290ae526f1dc1e08cb7d52e97d7390e708b2bf17bd06765fef32b18c07b6"
+doc_hash = "sha256:da136e1147a6d70f540e3588fea98125cfed63fe6c8cac47bb6b3be710e3f42e"
+uses = ["fn:a573be49e9a16e63"]
+reached_by = ["#0"]
+
+[[module."mod.rs".function]]
+id = "fn:4f9a19c1ea0c84c2"
+name = "rms_norm_of_known_vector"
+qual = "rms_norm_of_known_vector"
+lines = [
+    66,
+    72,
+]
+hash = "sha256:e791b94683f53f7e495a970773f79a147d7bf9c155413845a22e898777d7a57c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:a50a0e123ffec9a6"
+name = "under_relaxation_blends_correctly"
+qual = "under_relaxation_blends_correctly"
+lines = [
+    74,
+    82,
+]
+hash = "sha256:a865ec07bc116443b6e6a91ae1db9eb56fe520af9f7f6aa58f4dade624602da9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:1221cfb4eeaa93dd"
+name = "relative_change_is_scale_free_and_zero_safe"
+qual = "relative_change_is_scale_free_and_zero_safe"
+lines = [
+    84,
+    91,
+]
+hash = "sha256:a2e224e16a89961e4059ced0c47b52ff9728a452f99716a1947d9574c71e0eb7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3fa00c41cff056f6"
+name = "generate_is_deterministic"
+qual = "generate_is_deterministic"
+lines = [
+    93,
+    102,
+]
+hash = "sha256:9ab80a7ef293f23f5eec03d19e241e02aa65161fae16aa914cb429503d718a8c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:dec66bde2139c91d"]
+uses = ["fn:a573be49e9a16e63"]
+test = true

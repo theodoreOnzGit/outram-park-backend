@@ -1,0 +1,42 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-codegen"
+dir = "crates/kovan-codegen/examples"
+
+[module."catalogue.rs"]
+path = "example:catalogue"
+
+[[module."catalogue.rs".function]]
+id = "fn:937d74ed3491fb58"
+name = "main"
+qual = "main"
+lines = [
+    7,
+    31,
+]
+hash = "sha256:a19865ec56b85fef3594277dc3c200e0482c54b4fbecc02e942846736cd1bfa6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:558dea7d8bbcad5c"]
+uses = [
+    "fn:71f03f384bc537f1",
+    "fn:ad89d3c7d379e889",
+    "fn:c1f22eb1335777c5",
+    "fn:cee58e87314d867a",
+    "fn:d07b9a3fbb1a4247",
+]
+
+[module."zotero_schema.rs"]
+path = "example:zotero_schema"
+
+[[module."zotero_schema.rs".function]]
+id = "fn:cef2263dbd57d7d5"
+name = "main"
+qual = "main"
+lines = [
+    16,
+    42,
+]
+hash = "sha256:fcaa2cce2852c8245d8f34577dd1c645958e4aa24463ddde126e925bfe5fa28b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:d8be8f4fe9b0be28"]
+uses = ["fn:e24430d1dba775f3"]

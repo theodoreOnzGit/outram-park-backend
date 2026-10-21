@@ -58,7 +58,7 @@ a sub-step is live, the full notebook is not; **IGNORE** = scaffolded
 
 | Notebook operation | OpenMC API | njoy equivalent | Tractable now? | Notes |
 |---|---|---|---|---|
-| Load continuous-energy data | `IncidentNeutron.from_ace` / `from_hdf5` | `NuclearDataLibrary::from_file(path, mat).reconstruct(tol)`; `WmpLibrary::core().get(name)` | LIVE | njoy reconstructs from ENDF (RECONR) rather than reading an ACE/HDF5 blob; the *result* (pointwise σ(E)) is the same object. |
+| Load continuous-energy data | `IncidentNeutron.from_ace` / `from_hdf5` | ~~`NuclearDataLibrary::from_file(path, mat).reconstruct(tol)`~~ `NuclearDataLibrary::from_file(path)?.reconstruct(tol)` (MAT read from the tape, **CORRECTED 2026-10-17**, #933); `WmpLibrary::core().get(name)` | LIVE | njoy reconstructs from ENDF (RECONR) rather than reading an ACE/HDF5 blob; the *result* (pointwise σ(E)) is the same object. |
 | Read σ by MT at energy(ies) | `nuc[MT].xs[T](E)` | `lib.total_xs/elastic_xs/fission_xs/capture_xs(E)`, `lib.xs_for_reaction(MtReaction, E)` | LIVE | Verified against accepted U-235 thermal values (585/99/15/699 b). |
 | Temperature-dependent σ | `nuc[MT].xs['294K'](E)` | `lib.broaden(T)` (BROADR SIGMA1) and `WindowedMultipole::evaluate(E, T)` (analytic Doppler) | LIVE | Broadening lowers/​broadens a capture resonance monotonically with T. |
 | Energy grid | `nuc.energy['294K']` | `ContinuousEnergyData` reaction `(E, σ)` tables | LIVE | Grid spans 1e-5–2e7 eV. |

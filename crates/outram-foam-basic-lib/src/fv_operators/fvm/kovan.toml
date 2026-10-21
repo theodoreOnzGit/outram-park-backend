@@ -1,0 +1,3691 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-basic-lib"
+dir = "crates/outram-foam-basic-lib/src/fv_operators/fvm"
+test_ids = [
+    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
+    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
+    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_power_conservation_across_meshes",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::coupled_steady_state_negative_feedback",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/mesh_region.rs::mesh_doppler_feedback_lowers_keff",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::negative_feedback_reduces_power",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::picard_loop_converges_consistently",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/multi_region/outer_iteration.rs::prescribed_region_is_inert",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::a_non_physical_diffusion_coefficient_degrades_to_vacuum",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_discretised_weight_matches_the_analytic_robin_face_value",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_limits_reduce_to_zero_gradient_and_to_fixed_value",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_weight_tracks_the_groups_own_diffusion_coefficient",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::a_zero_velocity_field_reproduces_the_chi_eff_collapse",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_conserves_the_total_delayed_source",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/precursor_drift/tests.rs::drift_lowers_k_eff_and_the_effect_grows_with_the_flow",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_critical_buckling",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::keff_bare_slab_mesh_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::kinf_infinite_medium",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/diffusion/tests.rs::warm_start_reaches_the_same_k_in_fewer_iterations",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::scaffolds_report_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::scaffold_reports_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_no_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_kinf_with_scatter",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_order_convergence",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::approaches_diffusion_as_slab_grows",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::differs_on_small_slab",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::kinf_reduces_to_diffusion",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::null_transient_holds_steady",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sp3/tests.rs::scaffold_reports_not_implemented",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::porous_energy_equilibrates_to_wall_temperature",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mesh_solve.rs::deqn_linear_temperature_constrained_bar",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mesh_solve.rs::deqn_uniform_heating_constrained_bar_thermal_stress",
+    "crates/outram-foam-appbuilder-lib/src/genfoam/thermo_mechanics/mesh_solve.rs::teqn_conduction_with_source_matches_parabola",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::velocity_field_keeps_its_name_after_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::wall_face_fluxes_are_constrained_to_the_velocity_bc",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::arrhenius_reaction_burns_fuel_and_heats_gas",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::inert_species_conserve_sum",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::mass_transfer_moves_volume_fraction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::reaction_heat_raises_phase_temperature",
+    "crates/outram-foam-appbuilder-lib/src/solvers/reacting_two_phase_euler_foam/mod.rs::thermal_equilibration_conserves_energy",
+    "crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs::compressible_lid_cavity_stays_stable",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::backward_ddt_matches_the_bdf2_formula",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::linear_div_adds_the_exact_central_difference_correction",
+    "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::unimplemented_schemes_error_rather_than_falling_back",
+    "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::every_closure_variant_syncs_and_corrects",
+    "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::laminar_default_is_the_plain_molecular_laplacian",
+    "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::momentum_operator_picks_up_turbulent_viscosity",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::drift_flux_dahl_settling_column",
+    "crates/outram-foam-appbuilder-lib/tests/foam_vv_cases/main.rs::genfoam_slab_1g_diffusion_is_critical",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
+    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
+    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::gallium_melting_cavity_gau_viskanta_configuration",
+    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::stefan_problem_matches_similarity_solution",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
+    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::homogeneous_decay_matches_analytic_k_omega_solution",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-basic-lib/src/fluid_thermo/solid_thermo.rs::conduction_solve",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/d2dt2.rs::d2dt2_coeff_scales_diagonal_by_rho",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/d2dt2.rs::d2dt2_no_spatial_terms_continues_linearly",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/d2dt2.rs::d2dt2_of_quadratic_returns_constant_acceleration",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt.rs::ddt_coeff_diagonal_is_coeff_times_volume_over_dt",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt.rs::ddt_coeff_solves_to_old_when_no_spatial_terms",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt.rs::ddt_diagonal_is_volume_over_dt",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt.rs::ddt_solves_to_old_when_no_spatial_terms",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt_vec.rs::ddt_coeff_vec_diagonal_is_coeff_times_volume_over_dt",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt_vec.rs::ddt_coeff_vec_solves_to_old_when_no_spatial_terms",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt_vec.rs::ddt_vec_recovers_constant_field",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/div.rs::upwind_negative_flux_on_upper",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/div.rs::upwind_positive_flux_on_diagonal",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/div.rs::vv_ami_matching_advection_conserves",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/div.rs::vv_ami_nonconformal_advection_conserves",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/div.rs::vv_cyclic_advection_conserves_and_matches_ring",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/div.rs::vv_inlet_outlet_flux_switch",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/div_vec.rs::vv_ami_nonconformal_div_vec_conserves",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/div_vec.rs::zero_flux_gives_zero_matrix",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::laplacian_solves_linear_dirichlet",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::laplacian_symmetric_matrix",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::the_boundary_delta_is_the_patch_normal_projection",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::the_default_laplacian_is_the_orthogonal_scheme",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::the_non_orthogonal_delta_is_larger_by_one_over_cos_theta",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::the_two_delta_schemes_agree_on_an_orthogonal_mesh",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_ami_matching_diffusion_equals_cyclic",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_ami_nonconformal_diffusion_conserves",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_cyclic_diffusion_matches_ring_mesh",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_fixed_gradient_linear_profile",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_mixed_reduces_to_fixed_gradient",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_mixed_reduces_to_fixed_value",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_robin_convective_analytic",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_corrected.rs::correction_is_a_no_op_on_an_orthogonal_mesh",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_corrected.rs::geometry_reports_the_expected_angle_and_reduces_when_orthogonal",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_corrected.rs::limited_scheme_interpolates_between_the_two_extremes",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_corrected.rs::orthogonal_scheme_reproduces_the_uncorrected_matrix",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_vec.rs::laplacian_vec_1d_linear_profile",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_vec.rs::vv_ami_nonconformal_laplacian_vec_conserves",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_vec.rs::vv_cyclic_laplacian_vec_conserves",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/sup.rs::sp_su_scalar_solve_k_phi_equals_s",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/sup.rs::sp_su_vector_solve_componentwise",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/sup.rs::su_sp_scalar_routes_by_sign",
+    "crates/outram-foam-basic-lib/src/fv_operators/fvm/sup.rs::su_sp_vector_negative_goes_explicit",
+    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::krylov_beats_gauss_seidel_on_convection_diffusion",
+    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::krylov_matches_dense_lu_on_convection_diffusion",
+    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::solve_krylov_dispatch_matches_the_named_entry_points",
+    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::warm_started_krylov_costs_fewer_iterations",
+    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::corrected_laplacian_recovers_a_linear_field_on_a_wavy_mesh",
+    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::least_squares_gradient_is_exact_for_a_linear_field_on_a_wavy_mesh",
+    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::limited_scheme_is_monotone_between_orthogonal_and_corrected",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_ghia_grid_convergence_re100",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
+    "crates/outram-foam-cli/tests/ci_smoke/cavity.rs::cavity_velocity_matches_icofoam",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::genfoam_and_offbeat_agree_on_the_clamped_thermoelastic_bar",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_agreement_and_the_convergence_order_survive_refinement",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_agree_through_a_transient_elastic_response",
+    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_disagree_on_the_thermal_load_at_a_dirichlet_boundary",
+    "crates/outram-foam-multiphase/src/drift_flux.rs::alpha_advects_downstream_and_stays_bounded",
+    "crates/outram-foam-multiphase/src/drift_flux.rs::alpha_clamped_under_extreme_drift",
+    "crates/outram-foam-multiphase/src/drift_flux.rs::alpha_unchanged_with_no_flow_no_drift",
+    "crates/outram-foam-multiphase/src/pimple.rs::alpha_stays_bounded_under_coupling",
+    "crates/outram-foam-multiphase/src/pimple.rs::hydrostatic_pressure_gradient",
+    "crates/outram-foam-multiphase/src/pimple.rs::one_step_stays_finite_and_bounded",
+    "crates/outram-foam-multiphase/src/pimple.rs::quiescent_stays_at_rest",
+    "crates/outram-foam-multiphase/src/two_fluid.rs::advance_rejects_nonpositive_dt",
+    "crates/outram-foam-multiphase/src/two_fluid.rs::dispersed_alpha_advects_downstream_and_stays_bounded",
+    "crates/outram-foam-multiphase/src/two_fluid.rs::dispersed_alpha_clamped_under_extreme_advection",
+    "crates/outram-foam-multiphase/src/two_fluid.rs::dispersed_alpha_unchanged_with_no_flow",
+    "crates/outram-foam-multiphase/src/two_fluid_pimple.rs::hydrostatic_pressure_gradient",
+    "crates/outram-foam-multiphase/src/two_fluid_pimple.rs::one_step_stays_finite_and_bounded",
+    "crates/outram-foam-multiphase/src/two_fluid_pimple.rs::quiescent_stays_at_rest",
+    "crates/outram-foam-multiphase/src/two_fluid_pimple.rs::saturation_constraint_holds_under_coupling",
+    "crates/outram-foam-multiphase/src/two_fluid_pimple.rs::solve_rejects_bad_controls",
+    "crates/outram-foam-multiphase/src/two_fluid_pimple.rs::strong_drag_equilibrates_phase_velocities",
+    "crates/outram-foam-turbulence-lib/src/k_epsilon/mod.rs::correct_keeps_k_epsilon_positive_and_finite",
+    "crates/outram-foam-turbulence-lib/src/k_omega/mod.rs::correct_keeps_k_omega_positive_and_finite",
+    "crates/outram-foam-turbulence-lib/src/k_omega_sst/mod.rs::correct_keeps_k_omega_positive_and_finite",
+    "crates/outram-foam-turbulence-lib/src/laminar/mod.rs::shear_velocity_yields_finite_nonzero_stress",
+    "crates/outram-foam-turbulence-lib/src/laminar/mod.rs::uniform_velocity_yields_zero_stress",
+    "crates/outram-foam-turbulence-lib/src/spalart_allmaras/mod.rs::correct_keeps_nu_tilde_nonneg_and_nut_finite",
+    "crates/outram-park-fork-moltres/src/circulating.rs::flow_reduces_reactivity_monotonically",
+    "crates/outram-park-fork-moltres/src/circulating.rs::zero_flow_matches_static_solver",
+    "crates/outram-park-fork-moltres/src/diffusion.rs::beta_split_is_invisible_when_spectra_match",
+    "crates/outram-park-fork-moltres/src/diffusion.rs::one_group_bare_slab_matches_analytic",
+    "crates/outram-park-fork-moltres/src/diffusion.rs::two_group_bare_slab_matches_analytic",
+    "crates/outram-park-fork-moltres/src/precursors.rs::flow_depletes_in_core_precursors",
+    "crates/outram-park-fork-moltres/src/precursors.rs::steady_flow_conserves_production_vs_decay",
+    "crates/outram-park-fork-moltres/src/precursors.rs::transient_relaxes_to_steady",
+    "crates/outram-park-fork-moltres/src/precursors.rs::zero_flow_matches_algebraic_equilibrium",
+    "crates/outram-park-fork-moltres/src/thermal.rs::steady_loop_energy_balance",
+    "crates/outram-park-fork-moltres/src/thermal.rs::temperature_feedback_reduces_k_with_power",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::clamped_bar_relaxes_to_closed_form_exponential",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::constitutive_state_advances_once_per_step_not_once_per_corrector",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::creep_step_rejects_a_missing_law_and_a_negative_timestep",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::creep_time_step_control_bounds_the_next_step",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::free_thermal_expansion_with_creep_produces_no_creep_strain",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::spatially_varying_creep_keeps_the_axial_stress_uniform",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::displacement_profile_is_linear",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::eigenstrain_sources_superpose_and_cancel",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::fully_constrained_eigenstrain_gives_hydrostatic_compression",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::imposed_strain_solution_is_grid_independent",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::imposed_uniform_strain_gives_oedometric_stress",
+    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::stress_is_linear_in_eigenstrain",
+]
+
+[module."d2dt2.rs"]
+path = "crate::fv_operators::fvm::d2dt2"
+
+[[module."d2dt2.rs".function]]
+id = "fn:de831ad08ed8ee91"
+name = "d2dt2"
+qual = "d2dt2"
+lines = [
+    31,
+    83,
+]
+hash = "sha256:6ab64173f40cbcf45ea287eed5d53bede2bdafde646fce5b4ee2d357c397f8bd"
+doc_hash = "sha256:98ede90ae368313f4bf3aa8abb1d3d1b6e2286f3ea3b65a48e6fc955337f17f8"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:1e0c0abc3044dc8b",
+    "fn:3ec5e342ab76d57e",
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+    "fn:636ae5a21be9336b",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5c58987100382184",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = [
+    "#80",
+    "#81",
+]
+
+[[module."d2dt2.rs".function]]
+id = "fn:6b0b052d3dcb7724"
+name = "d2dt2_coeff"
+qual = "d2dt2_coeff"
+lines = [
+    85,
+    113,
+]
+hash = "sha256:2da0685ee3ef87d8f38f1c4ac5571525dea06b5e17166f2d7ece2052bd40d41d"
+doc_hash = "sha256:9064e0cb8a59813d44d34b47f55e3fdce54d5b8800e4068ef1db0a64324bb787"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:1e0c0abc3044dc8b",
+    "fn:3ec5e342ab76d57e",
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+    "fn:636ae5a21be9336b",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = [
+    "#36",
+    "#37",
+    "#79",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+]
+
+[[module."d2dt2.rs".function]]
+id = "fn:7e1e7c04e052e60f"
+name = "unit_mesh"
+qual = "unit_mesh"
+lines = [
+    122,
+    151,
+]
+hash = "sha256:e94fe7918596b19542984a682bf9c0c1d5b7d7f14d100cb755413a2c1ac4cbcf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."d2dt2.rs".function]]
+id = "fn:9b1abd1f150f97ab"
+name = "d2dt2_of_quadratic_returns_constant_acceleration"
+qual = "d2dt2_of_quadratic_returns_constant_acceleration"
+lines = [
+    153,
+    200,
+]
+hash = "sha256:fde3e5c8bc1b3a4cbba11cac605dcdaf320ef76ed23dcf3c0547feb5f2ed91e1"
+doc_hash = "sha256:209ae141a4075e622bb743fb41d6c040a571bfa014a973a207184fa14e051176"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:7e1e7c04e052e60f",
+    "fn:9e501e5f4cce23ae",
+    "fn:de831ad08ed8ee91",
+]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."d2dt2.rs".function]]
+id = "fn:691aa1c9c774127b"
+name = "d2dt2_no_spatial_terms_continues_linearly"
+qual = "d2dt2_no_spatial_terms_continues_linearly"
+lines = [
+    202,
+    221,
+]
+hash = "sha256:caac14911ac67c37c2e0cdd792cea575de0025302324f461cf8dbd4eb787889f"
+doc_hash = "sha256:077a3d30df92c5f23072add94343995b92bdf0733182f6774e5727c0eeb1786f"
+callees = [
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:7e1e7c04e052e60f",
+    "fn:8b1e80d2a2add1f9",
+    "fn:95630e24fcf1635e",
+    "fn:9e501e5f4cce23ae",
+    "fn:acfb0f2d7b950994",
+    "fn:de831ad08ed8ee91",
+]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."d2dt2.rs".function]]
+id = "fn:e5ab9497d37b581a"
+name = "d2dt2_coeff_scales_diagonal_by_rho"
+qual = "d2dt2_coeff_scales_diagonal_by_rho"
+lines = [
+    223,
+    245,
+]
+hash = "sha256:36666c441805c89555a1123bc197540ed3349328e415b2101f462b3d3cab249b"
+doc_hash = "sha256:409b13f96b35c978e8eb36a1368877ca167ba182f55e638a4628e806772e019a"
+callees = [
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:6b0b052d3dcb7724",
+    "fn:7e1e7c04e052e60f",
+    "fn:9e501e5f4cce23ae",
+    "fn:acfb0f2d7b950994",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[module."ddt.rs"]
+path = "crate::fv_operators::fvm::ddt"
+
+[[module."ddt.rs".function]]
+id = "fn:9ede23afd5c79bc4"
+name = "ddt"
+qual = "ddt"
+lines = [
+    25,
+    37,
+]
+hash = "sha256:2d249545d3a780fd4d0baa53fd7ca03b865b7c448c26cc6535e06870ed86a596"
+doc_hash = "sha256:c870c35aa7c26126a9bd6a850b521bef334e68817f397a7c91a938a94234b74d"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:3c1bb92df17bd4a4",
+    "fn:4aea3161a87c6021",
+]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#56",
+    "#58",
+    "#59",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#84",
+    "#85",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#167",
+]
+
+[[module."ddt.rs".function]]
+id = "fn:53d4791d95d80de6"
+name = "ddt_coeff"
+qual = "ddt_coeff"
+lines = [
+    39,
+    58,
+]
+hash = "sha256:b0560aec5eee9410b07485158322fbc6de200467036414012947fb6e80c94d39"
+doc_hash = "sha256:99ceca717fce25b8802e3027246bf9c737d37c76f6061bdde05d1b6611bafb2f"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:3c1bb92df17bd4a4",
+    "fn:4aea3161a87c6021",
+]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#19",
+    "#31",
+    "#33",
+    "#34",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#82",
+    "#83",
+]
+
+[[module."ddt.rs".function]]
+id = "fn:e7f58a77dc26235d"
+name = "unit_mesh"
+qual = "unit_mesh"
+lines = [
+    68,
+    97,
+]
+hash = "sha256:b6cbd9ea53e0b84bdff052bfbf0613e1171da0da2b1c34ee555e716702fe9159"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."ddt.rs".function]]
+id = "fn:a2912fb4b2484338"
+name = "ddt_diagonal_is_volume_over_dt"
+qual = "ddt_diagonal_is_volume_over_dt"
+lines = [
+    99,
+    109,
+]
+hash = "sha256:a97437810c449c2722de6c4a96f6814650f7b4e8e3cd23731818780c62205b9e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:9ede23afd5c79bc4",
+    "fn:e7f58a77dc26235d",
+]
+uses = ["fn:7aa70dd1c009cc88"]
+test = true
+
+[[module."ddt.rs".function]]
+id = "fn:f792d67558766b28"
+name = "ddt_solves_to_old_when_no_spatial_terms"
+qual = "ddt_solves_to_old_when_no_spatial_terms"
+lines = [
+    111,
+    123,
+]
+hash = "sha256:aca83a1c81fb846760c5c2c6e8797eb07400b570c59d3d742bbca016d4265c9c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:7493954e75e3a317",
+    "fn:8b1e80d2a2add1f9",
+    "fn:9ede23afd5c79bc4",
+    "fn:d6a9c884aaeb7775",
+    "fn:e7f58a77dc26235d",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."ddt.rs".function]]
+id = "fn:b17fd2d3e556b5e1"
+name = "ddt_coeff_diagonal_is_coeff_times_volume_over_dt"
+qual = "ddt_coeff_diagonal_is_coeff_times_volume_over_dt"
+lines = [
+    125,
+    137,
+]
+hash = "sha256:22c32b4e4cfb29fedd70bbe9ec77819ee91742e889f887bfa64945fb247fbc4b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4aea3161a87c6021",
+    "fn:53d4791d95d80de6",
+    "fn:636e75b664f14254",
+    "fn:d6a9c884aaeb7775",
+    "fn:e7f58a77dc26235d",
+]
+uses = ["fn:7aa70dd1c009cc88"]
+test = true
+
+[[module."ddt.rs".function]]
+id = "fn:5729ac5e30498e55"
+name = "ddt_coeff_solves_to_old_when_no_spatial_terms"
+qual = "ddt_coeff_solves_to_old_when_no_spatial_terms"
+lines = [
+    139,
+    151,
+]
+hash = "sha256:8865fe07aeaec1e25709853d8d75ff20dc8e0e740417089005abaed81a9eef37"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4aea3161a87c6021",
+    "fn:53d4791d95d80de6",
+    "fn:636e75b664f14254",
+    "fn:7493954e75e3a317",
+    "fn:8b1e80d2a2add1f9",
+    "fn:d6a9c884aaeb7775",
+    "fn:e7f58a77dc26235d",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[module."ddt_vec.rs"]
+path = "crate::fv_operators::fvm::ddt_vec"
+
+[[module."ddt_vec.rs".function]]
+id = "fn:4b926a3051111128"
+name = "ddt_vec"
+qual = "ddt_vec"
+lines = [
+    28,
+    51,
+]
+hash = "sha256:10aba5627394b972aac48a835a00e13b1ee14d02eaddd9369b8b4dcb5fbd1790"
+doc_hash = "sha256:fd7cdf907ff1067a274d8c57119c0b2b49243f301c44a30b2226b894da8aa323"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5c58987100382184",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = [
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#50",
+    "#52",
+    "#58",
+    "#59",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#88",
+    "#116",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+]
+
+[[module."ddt_vec.rs".function]]
+id = "fn:2c30f932a22ffb56"
+name = "ddt_coeff_vec"
+qual = "ddt_coeff_vec"
+lines = [
+    53,
+    74,
+]
+hash = "sha256:153d6435d04bb1d83071914245038b01ce829075b69301dacfc87cfada5a78d9"
+doc_hash = "sha256:dc9a3a876c5b47f21852cd8419b3051fc42c31e66813088c73674074bdefef6f"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = [
+    "#33",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#86",
+    "#87",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+]
+
+[[module."ddt_vec.rs".function]]
+id = "fn:e822c76969fb6b42"
+name = "unit_mesh"
+qual = "unit_mesh"
+lines = [
+    83,
+    112,
+]
+hash = "sha256:e94fe7918596b19542984a682bf9c0c1d5b7d7f14d100cb755413a2c1ac4cbcf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."ddt_vec.rs".function]]
+id = "fn:e3737fdcc2395880"
+name = "ddt_vec_recovers_constant_field"
+qual = "ddt_vec_recovers_constant_field"
+lines = [
+    114,
+    125,
+]
+hash = "sha256:53f4e2ca82c7a2bf1894d093fa9d02ebbbab1c59fdbec4a2c8cb19a55d965712"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:4b926a3051111128",
+    "fn:8b1e80d2a2add1f9",
+    "fn:95630e24fcf1635e",
+    "fn:9e501e5f4cce23ae",
+    "fn:e822c76969fb6b42",
+]
+uses = [
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."ddt_vec.rs".function]]
+id = "fn:a335cef2ec64b880"
+name = "ddt_coeff_vec_diagonal_is_coeff_times_volume_over_dt"
+qual = "ddt_coeff_vec_diagonal_is_coeff_times_volume_over_dt"
+lines = [
+    127,
+    139,
+]
+hash = "sha256:e49cf8b99fa4b7b731d20056468044aa7cf025e3362d00ea5f65328f322333fe"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c30f932a22ffb56",
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:9e501e5f4cce23ae",
+    "fn:acfb0f2d7b950994",
+    "fn:e822c76969fb6b42",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."ddt_vec.rs".function]]
+id = "fn:37a5d86f4f815cc4"
+name = "ddt_coeff_vec_solves_to_old_when_no_spatial_terms"
+qual = "ddt_coeff_vec_solves_to_old_when_no_spatial_terms"
+lines = [
+    141,
+    153,
+]
+hash = "sha256:3b8a8c7f2031f2bedce4522f0c6fa033d0f3e655e756524a937745f8c7cf1c52"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:2c30f932a22ffb56",
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:8b1e80d2a2add1f9",
+    "fn:95630e24fcf1635e",
+    "fn:9e501e5f4cce23ae",
+    "fn:acfb0f2d7b950994",
+    "fn:e822c76969fb6b42",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[module."div.rs"]
+path = "crate::fv_operators::fvm::div"
+
+[[module."div.rs".function]]
+id = "fn:c3f73100c19cafbf"
+name = "div"
+qual = "div"
+lines = [
+    28,
+    200,
+]
+hash = "sha256:b6e0e46bdcbdcf3a32bebb26f138fc8ce50b3eba1d5435909e19a7409ece1310"
+doc_hash = "sha256:58a2688ba41ad82e5734c340afcbb3eab4d283b84e877ec09fd550bd0f3bf145"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:3c1bb92df17bd4a4",
+    "fn:4aea3161a87c6021",
+    "fn:7fe2d8d6dcd0087d",
+    "fn:fa91fa438248db77",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:5283285159112606",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#33",
+    "#34",
+    "#35",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#89",
+    "#90",
+    "#91",
+    "#92",
+    "#93",
+    "#94",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#144",
+    "#145",
+    "#146",
+    "#147",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."div.rs".function]]
+id = "fn:a27052737fd72975"
+name = "unit_mesh"
+qual = "unit_mesh"
+lines = [
+    213,
+    242,
+]
+hash = "sha256:b6cbd9ea53e0b84bdff052bfbf0613e1171da0da2b1c34ee555e716702fe9159"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:aeec268f680f1686"
+name = "make_phi"
+qual = "make_phi"
+lines = [
+    244,
+    259,
+]
+hash = "sha256:5e037f468546954ef92df654f00005f27a7f8217d97dded4ac3e803396a3b9ae"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:35109efd2ed02837",
+    "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:316a72087ffbe525"
+name = "upwind_positive_flux_on_diagonal"
+qual = "upwind_positive_flux_on_diagonal"
+lines = [
+    261,
+    281,
+]
+hash = "sha256:3a5f7dc94ae57e4f79ff9438d11f0a704fe95aec2efad03923cd60360acb89dd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:636e75b664f14254",
+    "fn:a27052737fd72975",
+    "fn:aeec268f680f1686",
+    "fn:c3f73100c19cafbf",
+]
+uses = ["fn:7aa70dd1c009cc88"]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:31be17d59934cdcf"
+name = "upwind_negative_flux_on_upper"
+qual = "upwind_negative_flux_on_upper"
+lines = [
+    283,
+    293,
+]
+hash = "sha256:17aba48ada50d00653af50cfa787ae31c9e72a8a5d509bef915f1aecc76efcc2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:636e75b664f14254",
+    "fn:a27052737fd72975",
+    "fn:aeec268f680f1686",
+    "fn:c3f73100c19cafbf",
+]
+uses = ["fn:7aa70dd1c009cc88"]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:f531c60f3cd2cf77"
+name = "phi_right_only"
+qual = "phi_right_only"
+lines = [
+    295,
+    314,
+]
+hash = "sha256:9a3f91f23ac52ac30e37e756a569e1baaafea48d6d7034cc51fdb7d8ff6b4d67"
+doc_hash = "sha256:080f26d28066ef01d535c5803268f6bcd75641c64281360c97bcb9fc8a8b9b22"
+callees = [
+    "fn:35109efd2ed02837",
+    "fn:a5457a6081dc438d",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:6216eb8ee918078b"
+name = "vv_inlet_outlet_flux_switch"
+qual = "vv_inlet_outlet_flux_switch"
+lines = [
+    316,
+    361,
+]
+hash = "sha256:262f083081df5a35a3b6208071cb93c0dd9178114fe5ef5de849397ac3255c3f"
+doc_hash = "sha256:8fcfa18cb97b01c798d97d296edb59498b9344dedbcd2510ce491aba2292b42e"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:a27052737fd72975",
+    "fn:c3f73100c19cafbf",
+    "fn:ca4222e53c9b2667",
+    "fn:f531c60f3cd2cf77",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:eec478c1d4816372"
+name = "ring_mesh"
+qual = "ring_mesh"
+lines = [
+    366,
+    399,
+]
+hash = "sha256:ad052e58f0dc9c57d6738508c30e86bf35485cf6d603cd4ebbaf44bdb2d53639"
+doc_hash = "sha256:f3d7a62942eea8638bd5d9c4ce40f948de4341059c1b703756d89cd9199e43db"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:475a848f3a6adba0"
+name = "vv_cyclic_advection_conserves_and_matches_ring"
+qual = "vv_cyclic_advection_conserves_and_matches_ring"
+lines = [
+    401,
+    491,
+]
+hash = "sha256:763bb41c3eff582b86f0a16fa810a10c6f108f4873b19598bfa5dead05447eb9"
+doc_hash = "sha256:b962be85366acb84fa880d28ff2840d4492f47d533fbf79f957a72df0ab53501"
+callees = [
+    "fn:35109efd2ed02837",
+    "fn:636e75b664f14254",
+    "fn:a5457a6081dc438d",
+    "fn:b692bc050120bba2",
+    "fn:c3f73100c19cafbf",
+    "fn:ce5c06050c849e86",
+    "fn:eec478c1d4816372",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:1f96367d477df0c1"
+name = "ring_uniform_phi"
+qual = "ring_uniform_phi"
+lines = [
+    496,
+    519,
+]
+hash = "sha256:598445c055f5b2264d14caf9e89e76aa046433294b1036e233eee3bc0e5b0ff8"
+doc_hash = "sha256:5618705bb440e725433b71f060b7e07fad51e2a05977fe3e3d170330103a8c23"
+callees = [
+    "fn:35109efd2ed02837",
+    "fn:a5457a6081dc438d",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:4269c40df6f9685a"
+name = "vv_ami_nonconformal_advection_conserves"
+qual = "vv_ami_nonconformal_advection_conserves"
+lines = [
+    521,
+    553,
+]
+hash = "sha256:1495d8e715e56c13bfa104d131d25fd7b4a0f23e12ee9e1913b444ed6f17ea57"
+doc_hash = "sha256:9f1c18b0f5977f355f6c6db8163106aa6ed8234125ef5cb260b88ef809ee73ba"
+callees = [
+    "fn:1f96367d477df0c1",
+    "fn:636e75b664f14254",
+    "fn:b5e7ac7d52bee96b",
+    "fn:b692bc050120bba2",
+    "fn:c3f73100c19cafbf",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
+test = true
+
+[[module."div.rs".function]]
+id = "fn:8411119b2dd16246"
+name = "vv_ami_matching_advection_conserves"
+qual = "vv_ami_matching_advection_conserves"
+lines = [
+    555,
+    579,
+]
+hash = "sha256:346d8dcdcb31f0e6e6216d2909a6dd75b21e10b72e580bc45bae5060ab4ac209"
+doc_hash = "sha256:3f12ace81ce509350fdea5925babd288deeaa8aa82b1e1f67ddffaf5b138c27c"
+callees = [
+    "fn:1f96367d477df0c1",
+    "fn:636e75b664f14254",
+    "fn:b5e7ac7d52bee96b",
+    "fn:b692bc050120bba2",
+    "fn:c3f73100c19cafbf",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
+test = true
+
+[module."div_vec.rs"]
+path = "crate::fv_operators::fvm::div_vec"
+
+[[module."div_vec.rs".function]]
+id = "fn:329ec62309c98f22"
+name = "div_vec"
+qual = "div_vec"
+lines = [
+    30,
+    162,
+]
+hash = "sha256:b8f563c8b33530743d7078436187d7b4d47e3bbc06a4a31f51c0033c009ce674"
+doc_hash = "sha256:9a092f02bb7711920379500cee9a750f14922ba7a93418f46f597bb491d539d0"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+    "fn:636ae5a21be9336b",
+    "fn:7fe2d8d6dcd0087d",
+    "fn:fa91fa438248db77",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:5c58987100382184",
+    "fn:7217c4fc0f1bc32b",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = [
+    "#33",
+    "#35",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#51",
+    "#52",
+    "#58",
+    "#59",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#95",
+    "#96",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+]
+
+[[module."div_vec.rs".function]]
+id = "fn:333a7e77ada5f514"
+name = "two_cell_mesh"
+qual = "two_cell_mesh"
+lines = [
+    173,
+    202,
+]
+hash = "sha256:e94fe7918596b19542984a682bf9c0c1d5b7d7f14d100cb755413a2c1ac4cbcf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."div_vec.rs".function]]
+id = "fn:121a1fb65dfaaab8"
+name = "zero_flux_gives_zero_matrix"
+qual = "zero_flux_gives_zero_matrix"
+lines = [
+    204,
+    220,
+]
+hash = "sha256:7b7db9ff2586467d1dc4cf6efbf580b84aac29ea1a23a7542ca9e3d84e5d202a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:329ec62309c98f22",
+    "fn:333a7e77ada5f514",
+    "fn:35109efd2ed02837",
+    "fn:4a6cc3f294b0f158",
+    "fn:9e501e5f4cce23ae",
+    "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."div_vec.rs".function]]
+id = "fn:a667a61f174c6c04"
+name = "vv_ami_nonconformal_div_vec_conserves"
+qual = "vv_ami_nonconformal_div_vec_conserves"
+lines = [
+    222,
+    256,
+]
+hash = "sha256:c12784d85517816e331c378624d4388a4b234c4bc13f2fabc9bead8e4e46229d"
+doc_hash = "sha256:44880c99f9f7d9cff058b587dfc9ecf7e78450a169ce7351fe7bf1011b3baf07"
+callees = [
+    "fn:329ec62309c98f22",
+    "fn:35109efd2ed02837",
+    "fn:4a6cc3f294b0f158",
+    "fn:9e501e5f4cce23ae",
+    "fn:a5457a6081dc438d",
+    "fn:b5e7ac7d52bee96b",
+    "fn:b692bc050120bba2",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[module."laplacian.rs"]
+path = "crate::fv_operators::fvm::laplacian"
+
+[[module."laplacian.rs".function]]
+id = "fn:6213b225ad6b4978"
+name = "NON_ORTH_FLOOR"
+qual = "NON_ORTH_FLOOR"
+item = "const"
+shape = "const"
+lines = [
+    29,
+    32,
+]
+hash = "sha256:ff10b9419d12916d705df7bea3fa047f648e475109e4e0e353805bb696669658"
+doc_hash = "sha256:8191ad035d816966f3449c8b4cad445e0402a0ebd4b08d28a186f2269c1c41ba"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#113",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."laplacian.rs".function]]
+id = "fn:d2509979eb067127"
+name = "DeltaCoeff"
+qual = "DeltaCoeff"
+item = "type"
+shape = "enum"
+lines = [
+    34,
+    73,
+]
+hash = "sha256:168342800517679d423a43c94928bb2329eacc5c80ed1477e353fd41649b146d"
+doc_hash = "sha256:216ccaa01c2d52302add41cd87d03469c630be2f3a883131483a006eabd1698a"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#113",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."laplacian.rs".function]]
+id = "fn:4af3901984e0a863"
+name = "interior_delta"
+qual = "DeltaCoeff::interior_delta"
+lines = [
+    76,
+    91,
+]
+hash = "sha256:689a920f09da889ded52e2992f0e4d713992a14217472bf65be39b05bcc47996"
+doc_hash = "sha256:60864227aa1178336d982dca3943534f9b9fa565407ceb09d9a71e356bde8476"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:9c754bd776e5dcc8",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:d2509979eb067127",
+]
+reached_by = ["#101"]
+
+[[module."laplacian.rs".function]]
+id = "fn:592ba81db630e42b"
+name = "boundary_delta"
+qual = "DeltaCoeff::boundary_delta"
+lines = [
+    93,
+    105,
+]
+hash = "sha256:2157cb271797afd65f69da6b90774483f68671454b65852e20665e25431b3749"
+doc_hash = "sha256:0b582aca32fcc90c6e1ec130ecaa8805cfd1c1fd745bae854bd17da3befc2fef"
+callees = [
+    "fn:0b57fe6e8041a5ae",
+    "fn:12a06403e27e4888",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:d2509979eb067127",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#99",
+]
+
+[[module."laplacian.rs".function]]
+id = "fn:9c754bd776e5dcc8"
+name = "interior_delta"
+qual = "interior_delta"
+lines = [
+    108,
+    123,
+]
+hash = "sha256:574ec95acb63a7649fa8995d2e7a1496a7ea68eb9f90b5d6c985b0b83e105441"
+doc_hash = "sha256:9809f8a491e9d6d0a2a807dd5f2c461f2de488c00bf68a93f5c3735b000e4916"
+callees = [
+    "fn:636ae5a21be9336b",
+    "fn:99b51c50cec539c3",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:6213b225ad6b4978",
+    "fn:d2509979eb067127",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#97",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#113",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."laplacian.rs".function]]
+id = "fn:0b57fe6e8041a5ae"
+name = "boundary_delta"
+qual = "boundary_delta"
+lines = [
+    125,
+    143,
+]
+hash = "sha256:751f15f2ccfc76139acb740427f88d6d8942b7500f7bc2a73664510169d1dde2"
+doc_hash = "sha256:66cb251f1948b5ee9f5493db523c029d020d3fe1584c79aa28d06c860a859371"
+callees = [
+    "fn:636ae5a21be9336b",
+    "fn:99b51c50cec539c3",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:6213b225ad6b4978",
+    "fn:d2509979eb067127",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#97",
+    "#98",
+    "#99",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#113",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."laplacian.rs".function]]
+id = "fn:59eb3d0c2dbf04b2"
+name = "laplacian"
+qual = "laplacian"
+lines = [
+    145,
+    186,
+]
+hash = "sha256:6f43140f2a045e25fbe0b322cdf41669cda91e75ea832f66eea74231ba8cf395"
+doc_hash = "sha256:447902a6a2ab64bfed38aaa76da25fc982a12f18242536788a3d22a774edbb2b"
+callees = ["fn:6f38d5e07fe3fca5"]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
+reached_by = [
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#58",
+    "#59",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#97",
+    "#98",
+    "#100",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#113",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."laplacian.rs".function]]
+id = "fn:6f38d5e07fe3fca5"
+name = "laplacian_with_delta"
+qual = "laplacian_with_delta"
+lines = [
+    188,
+    370,
+]
+hash = "sha256:00cf3a2e2e152739b8e1416be1a84686dc811d52d02f7ee7b8571b67848d1be9"
+doc_hash = "sha256:ea22b2991504d739fb5efa59c848b3ac55ea7e5b5d74c242b4c29b148ed123ef"
+callees = [
+    "fn:0b57fe6e8041a5ae",
+    "fn:12a06403e27e4888",
+    "fn:1e0c0abc3044dc8b",
+    "fn:3c1bb92df17bd4a4",
+    "fn:4aea3161a87c6021",
+    "fn:7fe2d8d6dcd0087d",
+    "fn:9c754bd776e5dcc8",
+    "fn:ed7d718f646723fc",
+    "fn:fa91fa438248db77",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:5283285159112606",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#24",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#57",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#78",
+    "#97",
+    "#98",
+    "#100",
+    "#101",
+    "#102",
+    "#103",
+    "#104",
+    "#105",
+    "#106",
+    "#107",
+    "#108",
+    "#109",
+    "#110",
+    "#113",
+    "#121",
+    "#122",
+    "#123",
+    "#124",
+    "#125",
+    "#127",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#154",
+    "#155",
+    "#156",
+    "#159",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."laplacian.rs".function]]
+id = "fn:ac921500cca93ff9"
+name = "unit_mesh"
+qual = "unit_mesh"
+lines = [
+    383,
+    412,
+]
+hash = "sha256:b6cbd9ea53e0b84bdff052bfbf0613e1171da0da2b1c34ee555e716702fe9159"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:d8b113fe75db64b9"
+name = "uniform_gamma"
+qual = "uniform_gamma"
+lines = [
+    414,
+    426,
+]
+hash = "sha256:10fe5bea7443c136de27dd945f5f6e2a702df1fea55529974f66879bb3b33d0a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:35109efd2ed02837",
+    "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:d20b477b7ae94517"
+name = "laplacian_symmetric_matrix"
+qual = "laplacian_symmetric_matrix"
+lines = [
+    428,
+    438,
+]
+hash = "sha256:0c932a575c6d3ce3dcefa48c6481fceccd063aa8190b882e6a05c4737485fc96"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636e75b664f14254",
+    "fn:ac921500cca93ff9",
+    "fn:d8b113fe75db64b9",
+]
+uses = ["fn:7aa70dd1c009cc88"]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:ccb1c9780f3c4c83"
+name = "laplacian_solves_linear_dirichlet"
+qual = "laplacian_solves_linear_dirichlet"
+lines = [
+    440,
+    470,
+]
+hash = "sha256:08aa6385924aaf71359311769c70cd4137183f28333771673e875d9f8fe357b0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:7493954e75e3a317",
+    "fn:8b1e80d2a2add1f9",
+    "fn:ac921500cca93ff9",
+    "fn:ca4222e53c9b2667",
+    "fn:d8b113fe75db64b9",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:79541cc88d361101"
+name = "vv_mixed_reduces_to_fixed_value"
+qual = "vv_mixed_reduces_to_fixed_value"
+lines = [
+    476,
+    522,
+]
+hash = "sha256:8ba76a45b20aa8e84eb8b5a5f6eebac7a64c130cca94aac5a5fca0acc1c84383"
+doc_hash = "sha256:adf17325d6f613e21f3453f0e0db7ab7a16f528c2e3186165ade282c9cf76b2f"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:ac921500cca93ff9",
+    "fn:ca4222e53c9b2667",
+    "fn:d8b113fe75db64b9",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:41fa49bb1f2464fe"
+name = "vv_mixed_reduces_to_fixed_gradient"
+qual = "vv_mixed_reduces_to_fixed_gradient"
+lines = [
+    524,
+    570,
+]
+hash = "sha256:37e8e068b1799cc70749338a3f40e4792eebeed96d0b92c36d78d8987a195d7e"
+doc_hash = "sha256:6024bc027da97400a4171e2daa2e06a9d65c68b01196156f6bcd735faee67b61"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:ac921500cca93ff9",
+    "fn:ca4222e53c9b2667",
+    "fn:d8b113fe75db64b9",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:cd430df01824a251"
+name = "vv_fixed_gradient_linear_profile"
+qual = "vv_fixed_gradient_linear_profile"
+lines = [
+    572,
+    611,
+]
+hash = "sha256:b0f82f113c1d3923e9f8997b82066e5fd1803dd1da2e21ec7eff98b522d4681e"
+doc_hash = "sha256:c6430827fc3340da153fc3b1ab7e63f0254c730a3d15348240a35207dec6242f"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:7493954e75e3a317",
+    "fn:8b1e80d2a2add1f9",
+    "fn:ac921500cca93ff9",
+    "fn:ca4222e53c9b2667",
+    "fn:d8b113fe75db64b9",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:e90d1b2df463d6e6"
+name = "vv_robin_convective_analytic"
+qual = "vv_robin_convective_analytic"
+lines = [
+    613,
+    660,
+]
+hash = "sha256:45ab3db2ea6cf9b9d0e6f527c45aedee669bf0dc175105c3911a39ab27706107"
+doc_hash = "sha256:bb6b947085c7a2b6aac3411dffc0bd3e7df41fd50919ca088265847dfc039b35"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:7493954e75e3a317",
+    "fn:8b1e80d2a2add1f9",
+    "fn:ac921500cca93ff9",
+    "fn:ca4222e53c9b2667",
+    "fn:d8b113fe75db64b9",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:dde232a1ea648ca8",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:6ad96f5707f319a8"
+name = "ring_mesh"
+qual = "ring_mesh"
+lines = [
+    665,
+    703,
+]
+hash = "sha256:ad052e58f0dc9c57d6738508c30e86bf35485cf6d603cd4ebbaf44bdb2d53639"
+doc_hash = "sha256:56bfe45ccefc5792f2ff0c2065abac6efb345675c22dd94f80dd1da807b8fadf"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:ff33bf6569fc792d"
+name = "uniform_gamma_any"
+qual = "uniform_gamma_any"
+lines = [
+    705,
+    717,
+]
+hash = "sha256:363cb4ce65218f029cac32abe69fc38e0f5c310449ee5b83736ea41321ea1d84"
+doc_hash = "sha256:3de757770a4c7617af30c7b29a6ce699a96733e5c24e613f4649501e89eb1ef5"
+callees = [
+    "fn:35109efd2ed02837",
+    "fn:a5457a6081dc438d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:0b243742bf3a6be9",
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:e32418b0d46446be"
+name = "vv_cyclic_diffusion_matches_ring_mesh"
+qual = "vv_cyclic_diffusion_matches_ring_mesh"
+lines = [
+    719,
+    808,
+]
+hash = "sha256:b058f712bfd5ec6e305686927aea07b3a0b4562fd2ae4998c9dfd87a9777aa80"
+doc_hash = "sha256:27b887269c1de4f901e6bb2a736b13e54a98a460ac24faa9d05d497ee95f91ce"
+callees = [
+    "fn:18855a2a89aa525e",
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636e75b664f14254",
+    "fn:6ad96f5707f319a8",
+    "fn:7493954e75e3a317",
+    "fn:8b1e80d2a2add1f9",
+    "fn:b692bc050120bba2",
+    "fn:ce5c06050c849e86",
+    "fn:ff33bf6569fc792d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:be93faaecdc2d629"
+name = "vv_ami_matching_diffusion_equals_cyclic"
+qual = "vv_ami_matching_diffusion_equals_cyclic"
+lines = [
+    813,
+    891,
+]
+hash = "sha256:02643694dace07c39cd6cfb18437a7806cd0df34f1655b2b6a86bfd39d427709"
+doc_hash = "sha256:89fecc677995513ad5a6a70e65c5102777292377e82708a5619d33ab94563d96"
+callees = [
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636e75b664f14254",
+    "fn:b5e7ac7d52bee96b",
+    "fn:b692bc050120bba2",
+    "fn:ce5c06050c849e86",
+    "fn:ff33bf6569fc792d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:183f89215c2015be"
+name = "vv_ami_nonconformal_diffusion_conserves"
+qual = "vv_ami_nonconformal_diffusion_conserves"
+lines = [
+    893,
+    933,
+]
+hash = "sha256:48aa332c50eb67db130170023503ce93718259b6cba78aa2bf71d2143949a665"
+doc_hash = "sha256:12598e7212509db062bd7424b6481cc0fd94bd572a1861a7a376b0a3b7a66242"
+callees = [
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636e75b664f14254",
+    "fn:9d5e3f33a820d9e4",
+    "fn:b5e7ac7d52bee96b",
+    "fn:b692bc050120bba2",
+    "fn:ff33bf6569fc792d",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:5afd3b7f13055f17"
+name = "sheared_mesh"
+qual = "sheared_mesh"
+lines = [
+    935,
+    972,
+]
+hash = "sha256:ddfb2100aba16ab1a74107922c41140d9087ae6a98f760137a822c7eac89e891"
+doc_hash = "sha256:4b1dbb51acfda49a86c9fa4e0113bfb3e35a377f92866394cf2fdfea77d72379"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:5502fbfc0cf4c87c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:dfd3f2f5fe182423"
+name = "the_two_delta_schemes_agree_on_an_orthogonal_mesh"
+qual = "the_two_delta_schemes_agree_on_an_orthogonal_mesh"
+lines = [
+    974,
+    988,
+]
+hash = "sha256:7571e227fc7572b3edbb860ddc513f5f60ea17f8f7606417cf36ae370911e1b5"
+doc_hash = "sha256:28c289acc483ccc2c05863ed16c2d92238e9797fe360bfacf63669d42bad46c6"
+callees = [
+    "fn:5afd3b7f13055f17",
+    "fn:636e75b664f14254",
+    "fn:6f38d5e07fe3fca5",
+    "fn:d8b113fe75db64b9",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:d714777f78215790"
+name = "the_non_orthogonal_delta_is_larger_by_one_over_cos_theta"
+qual = "the_non_orthogonal_delta_is_larger_by_one_over_cos_theta"
+lines = [
+    990,
+    1014,
+]
+hash = "sha256:5a86627e2cf513fe3c7954a9b24c9c8131e9c642756d6ebd7dc1d3bc41256912"
+doc_hash = "sha256:05d600c1f59368d777936fd29d776bdbedf7afc7844dc74e03cf1606d35b06a2"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:4af3901984e0a863",
+    "fn:5afd3b7f13055f17",
+    "fn:636e75b664f14254",
+    "fn:6f38d5e07fe3fca5",
+    "fn:d8b113fe75db64b9",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:9c28c36586691e06"
+name = "the_boundary_delta_is_the_patch_normal_projection"
+qual = "the_boundary_delta_is_the_patch_normal_projection"
+lines = [
+    1016,
+    1038,
+]
+hash = "sha256:572f62b50db599fc2d109b7a74fa5a48abace9a25e6dd7d4a17dc58b344dfc52"
+doc_hash = "sha256:977b2287b0152478acb8e6847731398ec51981b516dbfa38e666600a45de561a"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:592ba81db630e42b",
+    "fn:5afd3b7f13055f17",
+    "fn:ed7d718f646723fc",
+]
+uses = ["fn:d2509979eb067127"]
+test = true
+
+[[module."laplacian.rs".function]]
+id = "fn:8968ad2c3a198f98"
+name = "the_default_laplacian_is_the_orthogonal_scheme"
+qual = "the_default_laplacian_is_the_orthogonal_scheme"
+lines = [
+    1040,
+    1053,
+]
+hash = "sha256:0720b6f25f30a188325cb9fa1df720118d919d5163ce832acec508d99f531ed7"
+doc_hash = "sha256:ed9dc16da48ca0d53326869e3af1086a7d8e0ddb204ede68454c0c4e0c755865"
+callees = [
+    "fn:59eb3d0c2dbf04b2",
+    "fn:5afd3b7f13055f17",
+    "fn:636e75b664f14254",
+    "fn:6f38d5e07fe3fca5",
+    "fn:d8b113fe75db64b9",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:d2509979eb067127",
+]
+test = true
+
+[module."laplacian_corrected.rs"]
+path = "crate::fv_operators::fvm::laplacian_corrected"
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:46c53b109be69aa0"
+name = "NON_ORTH_FLOOR"
+qual = "NON_ORTH_FLOOR"
+item = "const"
+shape = "const"
+lines = [
+    104,
+    110,
+]
+hash = "sha256:ff10b9419d12916d705df7bea3fa047f648e475109e4e0e353805bb696669658"
+doc_hash = "sha256:92ad7b0441a139b1b44ced295f0d303bacec8f5356840256e860c86c6032b1e4"
+reached_by = [
+    "#110",
+    "#111",
+    "#113",
+    "#125",
+    "#126",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:c3f2c486b6b43c0a"
+name = "NonOrthoScheme"
+qual = "NonOrthoScheme"
+item = "type"
+shape = "enum"
+lines = [
+    112,
+    136,
+]
+hash = "sha256:2a44fd12f8000aed665df9125762ff51cd9c97bdece7bbee4c097a9c19ca7fc2"
+doc_hash = "sha256:030dca469e921521248aeb22d573154129daf0d99eff795468edb85abd279eec"
+reached_by = [
+    "#110",
+    "#112",
+    "#113",
+    "#125",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:8ce9d825236ee8a2"
+name = "correction_fraction"
+qual = "NonOrthoScheme::correction_fraction"
+lines = [
+    139,
+    147,
+]
+hash = "sha256:eaa768147c06686c09e0138a80f715ca590fcd0b3b9de334c2e6e6531d54e6ef"
+doc_hash = "sha256:a3a0a3c665b7164f31b4af12ed643678b34cfd8417d2442d0461a2a6041ecc55"
+uses = ["fn:c3f2c486b6b43c0a"]
+reached_by = [
+    "#110",
+    "#112",
+    "#113",
+    "#125",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:656ee84dfc83efaf"
+name = "NonOrthoGeometry"
+qual = "NonOrthoGeometry"
+item = "type"
+shape = "struct"
+lines = [
+    150,
+    167,
+]
+hash = "sha256:bfa2a023caaa1d4549648cb604417240f7b5c76fdeeb9c8a4acecb3a08958b47"
+doc_hash = "sha256:b6d4ef5ea68009a3f2c3c2645d2265ba3e26d2750e2c94ecf0a1ac72eae9865b"
+uses = ["fn:ef05859ef19acee7"]
+reached_by = [
+    "#110",
+    "#111",
+    "#113",
+    "#125",
+    "#126",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:021ed5ddfcd2619c"
+name = "non_ortho_geometry"
+qual = "non_ortho_geometry"
+lines = [
+    169,
+    204,
+]
+hash = "sha256:a182f6a49edb05373c88f1a1e2854ce724c4dab5f4539bd4cac6477a9efc8eea"
+doc_hash = "sha256:c59b5a1781553b8984bad062de350f55cd6c763c891c95e86059cf1c0a524686"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:636ae5a21be9336b",
+    "fn:99b51c50cec539c3",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:46c53b109be69aa0",
+    "fn:656ee84dfc83efaf",
+    "fn:ef05859ef19acee7",
+]
+reached_by = [
+    "#110",
+    "#111",
+    "#113",
+    "#125",
+    "#126",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:c9732e7a28fa08b7"
+name = "max_non_orthogonality_deg"
+qual = "max_non_orthogonality_deg"
+lines = [
+    206,
+    225,
+]
+hash = "sha256:77f7af9d1b212566f36b17976d29a5c2c0645de3332bc2bf5c24554d6754a89b"
+doc_hash = "sha256:6bb16d850b572e92f4c353cb7bcac4f27766a5d84bf925bed491a46c643d8172"
+callees = [
+    "fn:021ed5ddfcd2619c",
+    "fn:12a06403e27e4888",
+]
+uses = ["fn:05040b6b1b09bb4e"]
+reached_by = [
+    "#110",
+    "#125",
+    "#126",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:0a8f6d20a5b504ad"
+name = "laplacian_corrected"
+qual = "laplacian_corrected"
+lines = [
+    227,
+    360,
+]
+hash = "sha256:43c6869cfa37e52fd91818a6dd5a4a3c8bd9d9227c9b60a6585d0275197987b7"
+doc_hash = "sha256:f8ec36e73e07b40f10d15c3e9ca0ec111a6ce3f84561a2041b15b597d2038260"
+callees = [
+    "fn:021ed5ddfcd2619c",
+    "fn:12a06403e27e4888",
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:8ce9d825236ee8a2",
+    "fn:99b51c50cec539c3",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:293183d62b7ee5f9",
+    "fn:5283285159112606",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:c3f2c486b6b43c0a",
+]
+reached_by = [
+    "#110",
+    "#113",
+    "#125",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:a98b7a301d0f07de"
+name = "solve_laplacian_non_orthogonal"
+qual = "solve_laplacian_non_orthogonal"
+lines = [
+    362,
+    419,
+]
+hash = "sha256:903aefe82f59d4b0a0180150ec1e9b6a8d4200ece66ba0fbeccd31a2779fab47"
+doc_hash = "sha256:fa7c77412bdbcb1cce628662a0f2524cecdd17f56f9f4ded69381f6baa886993"
+callees = [
+    "fn:0a8f6d20a5b504ad",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:8bfa348bdafb8a29",
+    "fn:b51f08d410db1219",
+    "fn:e32041d842fa6ce7",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:639c94738fe92715",
+    "fn:7aa70dd1c009cc88",
+    "fn:c3f2c486b6b43c0a",
+    "fn:d6ec27e4e9b49b4e",
+    "fn:f354cdd32c8e9ebe",
+]
+reached_by = [
+    "#125",
+    "#127",
+]
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:56f21c46159a0f8f"
+name = "ortho_mesh"
+qual = "ortho_mesh"
+lines = [
+    428,
+    458,
+]
+hash = "sha256:9082ea09d41e48b116e2fffda718b2de2fdb5f8528fbd4833f882b30f3ec5bb0"
+doc_hash = "sha256:c95ba8c44063b90036d4f6c0049512a65fe22b7c0ea8e7900e5f7ad27d5aa417"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:384d5154aa7faab9"
+name = "orthogonal_scheme_reproduces_the_uncorrected_matrix"
+qual = "orthogonal_scheme_reproduces_the_uncorrected_matrix"
+lines = [
+    460,
+    483,
+]
+hash = "sha256:51f66c72fd9fb8fef704cc9efe8d44d82b8b4368953b6ba27b85cf34dd1d91b3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0a8f6d20a5b504ad",
+    "fn:456ce8c84f72ae6e",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:4aea3161a87c6021",
+    "fn:56f21c46159a0f8f",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:87fd00d3d79c0534",
+    "fn:8bfa348bdafb8a29",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:c3f2c486b6b43c0a",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:35496801e6d63690"
+name = "correction_is_a_no_op_on_an_orthogonal_mesh"
+qual = "correction_is_a_no_op_on_an_orthogonal_mesh"
+lines = [
+    485,
+    511,
+]
+hash = "sha256:ca648ecd4c892eca934e7e33b22745b130be7e3d57c8196fce263f9817dead2c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0a8f6d20a5b504ad",
+    "fn:456ce8c84f72ae6e",
+    "fn:4a3d63f4a0e47a1c",
+    "fn:4aea3161a87c6021",
+    "fn:56f21c46159a0f8f",
+    "fn:59eb3d0c2dbf04b2",
+    "fn:87fd00d3d79c0534",
+    "fn:8bfa348bdafb8a29",
+    "fn:c9732e7a28fa08b7",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:0b243742bf3a6be9",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:c3f2c486b6b43c0a",
+    "fn:dde232a1ea648ca8",
+]
+test = true
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:c13f7a5996447691"
+name = "geometry_reports_the_expected_angle_and_reduces_when_orthogonal"
+qual = "geometry_reports_the_expected_angle_and_reduces_when_orthogonal"
+lines = [
+    513,
+    527,
+]
+hash = "sha256:88c7ab1b6548e37934eb5df32ff50eb5beae8c539f1150b3b205bd05cb2f563e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:021ed5ddfcd2619c",
+    "fn:12a06403e27e4888",
+    "fn:9e501e5f4cce23ae",
+    "fn:ed7d718f646723fc",
+]
+uses = ["fn:ef05859ef19acee7"]
+test = true
+
+[[module."laplacian_corrected.rs".function]]
+id = "fn:c3691e898170527e"
+name = "limited_scheme_interpolates_between_the_two_extremes"
+qual = "limited_scheme_interpolates_between_the_two_extremes"
+lines = [
+    529,
+    537,
+]
+hash = "sha256:0988dd68439424f68237a52992a8c67a1c6adbc287f73248aaa458c4ce1aa7ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:8ce9d825236ee8a2"]
+uses = ["fn:c3f2c486b6b43c0a"]
+test = true
+
+[module."laplacian_vec.rs"]
+path = "crate::fv_operators::fvm::laplacian_vec"
+
+[[module."laplacian_vec.rs".function]]
+id = "fn:a8a8aa01bdeead4b"
+name = "laplacian_vec"
+qual = "laplacian_vec"
+lines = [
+    30,
+    188,
+]
+hash = "sha256:dbe3577c72311ef266a043a04f2cad686015ddbe1ab59693f86861b325b58a3b"
+doc_hash = "sha256:ca7536e5913c0a7d1c72748e47d8526c6b468e1cd234153c38811fff2c3fdbc9"
+callees = [
+    "fn:12a06403e27e4888",
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+    "fn:636ae5a21be9336b",
+    "fn:65f8f3c9daf074d2",
+    "fn:7fe2d8d6dcd0087d",
+    "fn:92fd53f240dcfb8e",
+    "fn:ed7d718f646723fc",
+    "fn:fa91fa438248db77",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:5c58987100382184",
+    "fn:7217c4fc0f1bc32b",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = [
+    "#33",
+    "#35",
+    "#36",
+    "#37",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#53",
+    "#54",
+    "#55",
+    "#58",
+    "#59",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
+    "#76",
+    "#77",
+    "#114",
+    "#115",
+    "#116",
+    "#128",
+    "#129",
+    "#130",
+    "#131",
+    "#132",
+    "#133",
+    "#134",
+    "#135",
+    "#136",
+    "#140",
+    "#141",
+    "#142",
+    "#143",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+    "#157",
+    "#158",
+    "#171",
+    "#172",
+    "#173",
+    "#174",
+    "#175",
+    "#176",
+    "#177",
+    "#178",
+    "#179",
+    "#180",
+    "#181",
+    "#182",
+]
+
+[[module."laplacian_vec.rs".function]]
+id = "fn:9a536118b854ffe6"
+name = "line_mesh"
+qual = "line_mesh"
+lines = [
+    200,
+    237,
+]
+hash = "sha256:ff9c0da041897200d861a9f98d15185e1a0a2f62a6d5dd5961e9a08ad1c3d5d8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."laplacian_vec.rs".function]]
+id = "fn:6a93ef8f8b5113ee"
+name = "vv_cyclic_laplacian_vec_conserves"
+qual = "vv_cyclic_laplacian_vec_conserves"
+lines = [
+    239,
+    276,
+]
+hash = "sha256:85108015ed5e6c0985d590480a352c8673a03018257b3223b37b2c4c90816c3d"
+doc_hash = "sha256:639ee4272fe09afedce68e079ad439d7d5d2893db4534db28a3d76eef8e42e5f"
+callees = [
+    "fn:4a6cc3f294b0f158",
+    "fn:4b926a3051111128",
+    "fn:636e75b664f14254",
+    "fn:7fe2d8d6dcd0087d",
+    "fn:9e501e5f4cce23ae",
+    "fn:a8a8aa01bdeead4b",
+    "fn:b692bc050120bba2",
+    "fn:ce5c06050c849e86",
+    "fn:ea6b6e6095ea6573",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."laplacian_vec.rs".function]]
+id = "fn:400fd67cb4d11b78"
+name = "vv_ami_nonconformal_laplacian_vec_conserves"
+qual = "vv_ami_nonconformal_laplacian_vec_conserves"
+lines = [
+    278,
+    300,
+]
+hash = "sha256:ac39fbde6c3fc931f7e3f906e08b4e69a64c2174f5e318c5accee5a383438425"
+doc_hash = "sha256:d121fde7f98379f22f46a1e1d80d2283c8da2eb14508ade9a20c7a701d076eb0"
+callees = [
+    "fn:4a6cc3f294b0f158",
+    "fn:636e75b664f14254",
+    "fn:9e501e5f4cce23ae",
+    "fn:a8a8aa01bdeead4b",
+    "fn:b5e7ac7d52bee96b",
+    "fn:b692bc050120bba2",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
+test = true
+
+[[module."laplacian_vec.rs".function]]
+id = "fn:91d95fc123e91a45"
+name = "laplacian_vec_1d_linear_profile"
+qual = "laplacian_vec_1d_linear_profile"
+lines = [
+    302,
+    328,
+]
+hash = "sha256:92488c7e6336d6a18e9b97e5ae05ddebeedf94733423715d0839316ab8281cb2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:456ce8c84f72ae6e",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:8b1e80d2a2add1f9",
+    "fn:95630e24fcf1635e",
+    "fn:9a536118b854ffe6",
+    "fn:9e501e5f4cce23ae",
+    "fn:a8a8aa01bdeead4b",
+    "fn:f59a35e9cbd8b293",
+]
+uses = [
+    "fn:7217c4fc0f1bc32b",
+    "fn:75b64c5620c869e8",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:dde232a1ea648ca8",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[module."mod.rs"]
+path = "crate::fv_operators::fvm"
+
+[module."sup.rs"]
+path = "crate::fv_operators::fvm::sup"
+
+[[module."sup.rs".function]]
+id = "fn:7d94409f5275095e"
+name = "sp"
+qual = "sp"
+lines = [
+    50,
+    61,
+]
+hash = "sha256:0d9c27be22b08981bf6b1417121eafb23d5a1ae9b1c92314f7076b46ac68d771"
+doc_hash = "sha256:6c4fc1e9953d4325c30486b075e07e53b4a823ce44075160d714072b8a4aab4d"
+callees = [
+    "fn:3c1bb92df17bd4a4",
+    "fn:4aea3161a87c6021",
+]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#57",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#117",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."sup.rs".function]]
+id = "fn:2aefc7a630854c09"
+name = "su"
+qual = "su"
+lines = [
+    63,
+    74,
+]
+hash = "sha256:0f6f3a5ee7e507d33bdfbd1da67e149219a218ab027698f30ac41f1407c5abd1"
+doc_hash = "sha256:b077357b1a8b090dbfc939a3230e38e202c61b76c3803ddfc7e1c0853947bdd7"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:3c1bb92df17bd4a4",
+    "fn:4aea3161a87c6021",
+]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#57",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
+    "#65",
+    "#66",
+    "#67",
+    "#117",
+    "#160",
+    "#161",
+    "#162",
+    "#163",
+    "#164",
+    "#165",
+    "#166",
+    "#167",
+    "#168",
+    "#169",
+    "#170",
+]
+
+[[module."sup.rs".function]]
+id = "fn:5602d1fee503f549"
+name = "su_sp"
+qual = "su_sp"
+lines = [
+    76,
+    92,
+]
+hash = "sha256:90c8bd682c812fb156db8861e6ec071bf33f9f9d00aec96e523f18e52a680fd2"
+doc_hash = "sha256:5962a80cb8597971022384935fc466c2083ee7a6ad821f1a0703514979fa0cf5"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:3c1bb92df17bd4a4",
+    "fn:4aea3161a87c6021",
+]
+uses = [
+    "fn:5283285159112606",
+    "fn:7aa70dd1c009cc88",
+]
+reached_by = ["#119"]
+
+[[module."sup.rs".function]]
+id = "fn:f15591cb2414a42f"
+name = "sp_vec"
+qual = "sp_vec"
+lines = [
+    96,
+    108,
+]
+hash = "sha256:7eadef5c5cc6bdf9dbb9c799477986afe1c1067210c0d80cea1a9f3fe7d89470"
+doc_hash = "sha256:d1a475d3ec9f96bf591456b90c6a2bf233081eae482811976b1a24ad83d6dabf"
+callees = [
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+]
+uses = [
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = [
+    "#33",
+    "#35",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#118",
+    "#148",
+    "#149",
+    "#150",
+    "#151",
+    "#152",
+    "#153",
+]
+
+[[module."sup.rs".function]]
+id = "fn:6f0368b848164ef2"
+name = "su_vec"
+qual = "su_vec"
+lines = [
+    110,
+    121,
+]
+hash = "sha256:62d875131a60fe967bdfff375faee8c5d8957c30eee06c1f34057fd523175a64"
+doc_hash = "sha256:2abd810e0c3ea7ffedf097235605f05e8635c03525ed6d17b4b0c5d1e839b8d2"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+    "fn:636ae5a21be9336b",
+    "fn:89dc43a078f68cb7",
+]
+uses = [
+    "fn:5c58987100382184",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = ["#118"]
+
+[[module."sup.rs".function]]
+id = "fn:e47f44b5ae14cb47"
+name = "su_sp_vec"
+qual = "su_sp_vec"
+lines = [
+    123,
+    138,
+]
+hash = "sha256:7778889aab70961fd415a15c80d21accd588750e79ae4b73d1d7a90da8a20c7e"
+doc_hash = "sha256:e95b31c345c3c377c32cf6b169ee2067869d2a12f96ed61be4cc88ed6620e7ed"
+callees = [
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:5054bbbfbd8e20ae",
+    "fn:636ae5a21be9336b",
+    "fn:89dc43a078f68cb7",
+]
+uses = [
+    "fn:5c58987100382184",
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+]
+reached_by = ["#120"]
+
+[[module."sup.rs".function]]
+id = "fn:0cc553a6337fc7c4"
+name = "unit_mesh"
+qual = "unit_mesh"
+lines = [
+    148,
+    177,
+]
+hash = "sha256:6624dae5b20a51a8d8100b380494ed1c028c68e5e9f837855f7e943e3a1d93ab"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:1c2829c4747e74c2",
+    "fn:37e095ca8b60d9f2",
+    "fn:3f65c61e733c613c",
+    "fn:76b4d512475e1d4e",
+    "fn:810e0bc026bbf2cc",
+    "fn:9e501e5f4cce23ae",
+    "fn:adb5ddedc0e135dd",
+    "fn:b1ecccc049c0caf1",
+    "fn:c09ec7916ad917de",
+    "fn:c23450f47974bb88",
+    "fn:c4abd6fae77993d3",
+    "fn:c5a8ca519aafae30",
+    "fn:fedb69c9749de9f4",
+]
+uses = [
+    "fn:05040b6b1b09bb4e",
+    "fn:293183d62b7ee5f9",
+    "fn:91df6861a4ea25c2",
+    "fn:ef05859ef19acee7",
+    "fn:f6c00374e8531f8a",
+]
+test = true
+
+[[module."sup.rs".function]]
+id = "fn:4b928afc04eec4a0"
+name = "sp_su_scalar_solve_k_phi_equals_s"
+qual = "sp_su_scalar_solve_k_phi_equals_s"
+lines = [
+    179,
+    206,
+]
+hash = "sha256:6b7872bcc79b39f9beba47390f644d5b714765fc4fa0815d06ec337cd01579cb"
+doc_hash = "sha256:fb7b7e776e1f53320b2ac2e13d11c339275dbb170d0c8c65e7caba2cf6442c32"
+callees = [
+    "fn:0cc553a6337fc7c4",
+    "fn:2aefc7a630854c09",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:7493954e75e3a317",
+    "fn:7d94409f5275095e",
+    "fn:8b1e80d2a2add1f9",
+    "fn:d6a9c884aaeb7775",
+    "fn:eae24a63871d2132",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."sup.rs".function]]
+id = "fn:1afa1aa5ea467835"
+name = "su_sp_scalar_routes_by_sign"
+qual = "su_sp_scalar_routes_by_sign"
+lines = [
+    208,
+    233,
+]
+hash = "sha256:f4589e9026e1232d65dc4a8f0e2e251ea2620b3fb9bedc06ce44753d2e0bdaf8"
+doc_hash = "sha256:3b7a9643823de91f8925a8c7690b57c6147ccb9632e0096d78b2ae3e469a4ada"
+callees = [
+    "fn:0cc553a6337fc7c4",
+    "fn:1e0c0abc3044dc8b",
+    "fn:4aea3161a87c6021",
+    "fn:5602d1fee503f549",
+    "fn:636e75b664f14254",
+]
+uses = ["fn:7aa70dd1c009cc88"]
+test = true
+
+[[module."sup.rs".function]]
+id = "fn:29556e76c930be62"
+name = "sp_su_vector_solve_componentwise"
+qual = "sp_su_vector_solve_componentwise"
+lines = [
+    235,
+    264,
+]
+hash = "sha256:455a83e74eceafc52213147efcc46a67bbf17da2c07fe33207e4ed023398ad6f"
+doc_hash = "sha256:d292b1d107d869a2b38e55131eb4ecc60c80d3c397be31fb6e4d65258a1eb9ed"
+callees = [
+    "fn:0cc553a6337fc7c4",
+    "fn:19c54bfb31ab3ffb",
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:6f0368b848164ef2",
+    "fn:8b1e80d2a2add1f9",
+    "fn:95630e24fcf1635e",
+    "fn:9e501e5f4cce23ae",
+    "fn:acfb0f2d7b950994",
+    "fn:f15591cb2414a42f",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+    "fn:f354cdd32c8e9ebe",
+]
+test = true
+
+[[module."sup.rs".function]]
+id = "fn:d49a0bfed25474e5"
+name = "su_sp_vector_negative_goes_explicit"
+qual = "su_sp_vector_negative_goes_explicit"
+lines = [
+    266,
+    282,
+]
+hash = "sha256:8430988a30c1a594eb8333d99e9829a2f087f7d6613e9a45ad4ef8aaa5ff48a5"
+doc_hash = "sha256:059c0995cf32a014e72e72d52c2f42f5494f2df8e2b340bdfc6de301b8977418"
+callees = [
+    "fn:0cc553a6337fc7c4",
+    "fn:4a6cc3f294b0f158",
+    "fn:4aea3161a87c6021",
+    "fn:636e75b664f14254",
+    "fn:9e501e5f4cce23ae",
+    "fn:e47f44b5ae14cb47",
+]
+uses = [
+    "fn:7aa70dd1c009cc88",
+    "fn:8d6cd763d46808ac",
+    "fn:ef05859ef19acee7",
+]
+test = true

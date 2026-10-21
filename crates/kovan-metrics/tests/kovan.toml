@@ -1,0 +1,282 @@
+schema_version = 1
+kind = "code_folder"
+crate = "kovan-metrics"
+dir = "crates/kovan-metrics/tests"
+
+[module."kloc_parity.rs"]
+path = "test:kloc_parity"
+
+[[module."kloc_parity.rs".function]]
+id = "fn:9307c73bade589f8"
+name = "fixture_dir"
+qual = "fixture_dir"
+lines = [
+    44,
+    50,
+]
+hash = "sha256:44411aff738313cf09bc50da6bc1c9b78dbd93e5f8f05218e88a719842cf8d01"
+doc_hash = "sha256:de623cb2a508529c0d4c4c883dfe0154845633d554c399777653b45aa1efaa45"
+test = true
+
+[[module."kloc_parity.rs".function]]
+id = "fn:a72f50ed8cd712fa"
+name = "the_parity_fixture_is_present_and_complete"
+qual = "the_parity_fixture_is_present_and_complete"
+lines = [
+    52,
+    68,
+]
+hash = "sha256:ca2f0738c36a4dc15ee441161cddf8f553f60cc1c3f52979dbaa6829641e1bd8"
+doc_hash = "sha256:243516f9e5a0b18d077bece021b78b5b414b1013b371d53c36f2a737c4a51ead"
+callees = ["fn:9307c73bade589f8"]
+test = true
+
+[[module."kloc_parity.rs".function]]
+id = "fn:b1da2f553942d0c9"
+name = "the_fixture_records_the_published_figures"
+qual = "the_fixture_records_the_published_figures"
+lines = [
+    70,
+    91,
+]
+hash = "sha256:3ebac5168f489cf0dc18d4d4dd7387f7167b3f457ddc1a7400c54523909b096e"
+doc_hash = "sha256:ff97c51712a2a22f61a4b14c1edec6d2a9c1672419a68cbe30e421e78d76e4e2"
+callees = ["fn:9307c73bade589f8"]
+test = true
+
+[[module."kloc_parity.rs".function]]
+id = "fn:fd6a80f1ea15c4a0"
+name = "the_fixture_csvs_are_crlf_terminated"
+qual = "the_fixture_csvs_are_crlf_terminated"
+lines = [
+    93,
+    106,
+]
+hash = "sha256:bf3e112fec205ec1020daf3892a6634f40b4d83daf195d749fa23fb280c531f4"
+doc_hash = "sha256:29b2ca356b341560e54483043928496c79a8ec135eb04f9b3d97fd6f36a6464e"
+callees = ["fn:9307c73bade589f8"]
+test = true
+
+[[module."kloc_parity.rs".function]]
+id = "fn:eeb753d2a406bed4"
+name = "kovan_kloc_reproduces_the_python_output"
+qual = "kovan_kloc_reproduces_the_python_output"
+lines = [
+    108,
+    115,
+]
+hash = "sha256:5911c1e33c391f44a2d7195e41db39dbe6d520a11891899aead59b389e30da7b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."zotero_accounting.rs"]
+path = "test:zotero_accounting"
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:3c7f553e4a09afae"
+name = "item_json_library"
+qual = "item_json_library"
+lines = [
+    42,
+    60,
+]
+hash = "sha256:532a2981ad1aad98999059b208cd525f590d1b5996fb187f50474da8d8ca3b1a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:0183256288552f4c"]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:5315e59b99e3c06d",
+]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:9060a7e6e8e52e90"
+name = "item_json_imports_every_regular_type"
+qual = "item_json_imports_every_regular_type"
+lines = [
+    62,
+    82,
+]
+hash = "sha256:424ed7411d40abf2c6fe17675806e42da44488f3e5d57f67403b4b2815a2a569"
+doc_hash = "sha256:d1b0153c891371b60503862f282e1790ed0967d973668bba93f381118f17756d"
+callees = [
+    "fn:3c7f553e4a09afae",
+    "fn:627f96f0b3f5aaea",
+    "fn:9c64c14fc82f3816",
+]
+uses = ["fn:b5ca786997fb77e4"]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:4f687fbf3fedd680"
+name = "journal_article_losses_match_the_documented_field_map"
+qual = "journal_article_losses_match_the_documented_field_map"
+lines = [
+    84,
+    156,
+]
+hash = "sha256:74bc62273cf4bac9c9170b76e0cfc8ef77be1f8d86590cbccf4eef6d8277bf59"
+doc_hash = "sha256:555643b0f4424b5a31be6384684f9ad411417adcb395fccb5b4001057cead583"
+callees = [
+    "fn:3c7f553e4a09afae",
+    "fn:9c64c14fc82f3816",
+]
+uses = ["fn:e16c14a67a161b1c"]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:03db1e2f970ec9d5"
+name = "webpage_item_type_is_altered"
+qual = "webpage_item_type_is_altered"
+lines = [
+    158,
+    181,
+]
+hash = "sha256:5c0c80a3dec2c97e89bd06a2e9fc684fbd85374ea83f045e2badb8d31ac8b359"
+doc_hash = "sha256:e57beafb29b54478df5aed47032eb45dc6a498b4584344c9af09aae9114c11d6"
+callees = [
+    "fn:3c7f553e4a09afae",
+    "fn:9c64c14fc82f3816",
+]
+uses = [
+    "fn:172326af75efdc60",
+    "fn:e16c14a67a161b1c",
+]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:dd27068a16821ad7"
+name = "item"
+qual = "item"
+lines = [
+    183,
+    187,
+]
+hash = "sha256:d6bb111df6778790aaa87b3a3967256a47ed1ec2b261f1df54d24c3dc1c39772"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = ["fn:ee7dfc4209de4402"]
+uses = [
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:f17491e18e55dcc3"
+name = "hand_built"
+qual = "hand_built"
+lines = [
+    189,
+    254,
+]
+hash = "sha256:68efc7377dfe2201ef520c54005e036c29a2bf922228fb1224264d3f6819207e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:16721c7f3982e622",
+    "fn:61cf55fde625da12",
+    "fn:d1f67a6565e9c44e",
+    "fn:dd27068a16821ad7",
+    "fn:ee7dfc4209de4402",
+]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:3401e09672b3090f",
+    "fn:4d2bc7a2050eb70b",
+    "fn:4dc7413f2da0eef4",
+    "fn:5315e59b99e3c06d",
+    "fn:69d76da05965d2cc",
+    "fn:8185c9e0c6849121",
+    "fn:8cb0a05f95b036a6",
+    "fn:8eae36010dc3938a",
+    "fn:a88980268a226fcb",
+    "fn:d4ea0d49816f0858",
+    "fn:fc9448e19be821dc",
+]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:e624e5b602a91e52"
+name = "hand_built_library_counts"
+qual = "hand_built_library_counts"
+lines = [
+    256,
+    322,
+]
+hash = "sha256:2f1b5a19e9b9642ec2d50087f90c37c28a211f9e3153a2ecc3080c70caafeea9"
+doc_hash = "sha256:997126df3e021b079f556e05605a28128dd585b97e25853cbb9c9c1645ce52ea"
+callees = [
+    "fn:627f96f0b3f5aaea",
+    "fn:f17491e18e55dcc3",
+]
+uses = [
+    "fn:2908344534d496c8",
+    "fn:b5ca786997fb77e4",
+    "fn:c14287c2b19fa94a",
+]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:e115c0d6c405894f"
+name = "hand_built_library_import"
+qual = "hand_built_library_import"
+lines = [
+    324,
+    375,
+]
+hash = "sha256:d91d8ca8345122a3f30f1999c132170c6c74b9492efa1baa541e8afebc0be343"
+doc_hash = "sha256:801c50dd08c90d9cecb4e4b4accc079ebbf8c17c339e7143805b9357c581c540"
+callees = [
+    "fn:6c852b9595551963",
+    "fn:9c64c14fc82f3816",
+    "fn:f17491e18e55dcc3",
+]
+uses = [
+    "fn:793b6d3aefac1bfa",
+    "fn:e16c14a67a161b1c",
+]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:3cc192d3fe4499f9"
+name = "duplicate_and_missing_keys_are_skipped"
+qual = "duplicate_and_missing_keys_are_skipped"
+lines = [
+    377,
+    398,
+]
+hash = "sha256:125165233d6350f46de9541e9c332f642ec031477c730938de7fc05180dc8341"
+doc_hash = "sha256:16c2da8a5b1b6c58e6f447b4a4675495b064753e7724b69a1c0c2c3021255620"
+callees = [
+    "fn:16721c7f3982e622",
+    "fn:9c64c14fc82f3816",
+    "fn:dd27068a16821ad7",
+    "fn:ee7dfc4209de4402",
+]
+uses = [
+    "fn:2f034faea09aec25",
+    "fn:3401e09672b3090f",
+    "fn:5315e59b99e3c06d",
+    "fn:793b6d3aefac1bfa",
+    "fn:d4ea0d49816f0858",
+]
+test = true
+
+[[module."zotero_accounting.rs".function]]
+id = "fn:494cf2e3dddaa04d"
+name = "markdown_is_deterministic_and_escaped"
+qual = "markdown_is_deterministic_and_escaped"
+lines = [
+    400,
+    421,
+]
+hash = "sha256:b94f7187b6b842ffc499e3cb26ad9ce366a795104573efae1d8c6950181420dd"
+doc_hash = "sha256:2a96eeeb235346841578a3eaba6e31f72a7b0a4dba55ece87bde5293d6e05003"
+callees = [
+    "fn:55a9073b28366499",
+    "fn:627f96f0b3f5aaea",
+    "fn:9126c63cae72d092",
+    "fn:9c64c14fc82f3816",
+    "fn:f17491e18e55dcc3",
+]
+uses = ["fn:b5ca786997fb77e4"]
+test = true

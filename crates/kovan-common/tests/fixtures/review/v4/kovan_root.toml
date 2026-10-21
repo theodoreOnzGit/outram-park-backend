@@ -1,0 +1,76 @@
+schema_version = 1
+
+[library]
+id = "outram-park-backend"
+name = "OUTRAM PARK backend"
+
+[code_review]
+rust_analyzer = "0.3.2645"
+
+[[code_review.developing_organisation]]
+name = "Outram Park project"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "CCCC"
+
+[[code_review.developing_organisation]]
+crate = "tampines"
+name = "Tampines group"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "DDDD"
+
+[[reviewer]]
+id = "github:theodoreOnzGit"
+name = "Theodore Ong"
+role = "maintainer"
+admitted = "2026-10-07"
+
+[[reviewer.qualification]]
+area = "concept:thermal-hydraulics"
+basis = "degree"
+evidence = ["https://doi.org/10.5281/zenodo.0000000"]
+
+[[reviewer.qualification]]
+area = "concept:software-quality-assurance"
+basis = "self_study"
+evidence = ["https://github.com/theodoreOnzGit/outram-park-backend"]
+self_declared = true
+
+[[reviewer.key]]
+id = "k1"
+alg = "ed25519"
+public = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+created = "2026-10-07"
+
+[[reviewer.organisation]]
+name = "Outram Park project"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "EEEE"
+
+[[reviewer]]
+id = "orcid:0000-0002-1825-0097"
+role = "reviewer"
+scope = ["crates/tampines/**"]
+admitted_by = { key = "k1", signature = "BBBB" }
+
+[[reviewer.qualification]]
+area = "concept:numerics"
+basis = "endorsement"
+endorsed_by = { by = "github:theodoreOnzGit" }
+
+[[reviewer.organisation]]
+name = "Example IV&V Ltd"
+date = "2026-10-08"
+signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+signature = "FFFF"
+
+[[reviewer.separation]]
+id = "sep-2026-10-08"
+organisation = "Example IV&V Ltd"
+developing_organisation = "Tampines group"
+date = "2026-10-08"
+audit_record = "https://github.com/theodoreOnzGit/outram-park-backend/issues/809"
+key = "o1"
+signature = "GGGG"

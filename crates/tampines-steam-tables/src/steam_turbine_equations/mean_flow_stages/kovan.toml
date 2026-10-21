@@ -1,0 +1,2584 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages"
+test_ids = [
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::cascade_drag_follows_the_sign_of_the_mean_relative_angle",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::diagnose_multistage_expansion",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::every_stage_of_the_machine_mixes_both_mechanisms",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::impulse_only_stage_reports_zero_reaction_fraction",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::impulse_optimum_blade_speed_ratio_is_half_sin_nozzle_angle",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::multistage_exhaust_is_wet_and_moisture_appears_part_way_down",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::multistage_expansion_conserves_energy",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::multistage_pressure_descends_monotonically",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::per_stage_isentropic_drops_exceed_the_single_step_drop",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::reaction_part_grows_with_rotor_enthalpy_drop",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::reaction_part_vanishes_without_a_rotor_pressure_drop",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::rising_pressure_stage_degrades_to_zero_work",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::single_mixed_stage_conserves_energy_and_uses_both_mechanisms",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::symmetric_impulse_matches_closed_form_euler_work",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/tests.rs::symmetric_impulse_reports_near_zero_degree_of_reaction",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::a_turning_shaft_delivers_electrical_power",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::constructor_selects_the_knp_hybrid_solver_mode",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::heavier_electrical_load_slows_the_shaft",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::initialise_uniform_puts_superheated_steam_in_every_cell",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::machine_spins_up_from_rest",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::moving_steam_extracts_work_from_both_mechanisms",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::power_sources_are_consumed_by_the_step",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::shaft_speed_is_solved_rather_than_held",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::short_run_stays_bounded",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::standstill_develops_starting_torque_but_no_power",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::still_steam_extracts_no_work",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::total_shaft_power_is_the_sum_of_the_stages",
+    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::zero_rotor_drop_fraction_gives_a_pure_impulse_stage",
+]
+
+[module."mod.rs"]
+path = "crate::steam_turbine_equations::mean_flow_stages"
+
+[[module."mod.rs".function]]
+id = "fn:ba2877bcc45afb1b"
+name = "MeanFlowTurbine"
+qual = "MeanFlowTurbine"
+item = "type"
+shape = "struct"
+lines = [
+    79,
+    91,
+]
+hash = "sha256:039805fc682770418db7e5d4ed4bdc18e7d29dc774c0b414f5c15dabbc3ddb30"
+doc_hash = "sha256:a90e62f776102fef86d044d488187158da650ac2cd4035f5cee74b0c02f371f3"
+uses = ["fn:237fc21f8029e789"]
+reached_by = [
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:a9a0cf20d2393927"
+name = "TurbineOutcome"
+qual = "TurbineOutcome"
+item = "type"
+shape = "struct"
+lines = [
+    93,
+    100,
+]
+hash = "sha256:e03a43a73c7b28be7821e19c44f729430fce1dcfa4f4c95fd2c1f399e6a2c5bf"
+doc_hash = "sha256:d839fc163148c98f00d56fc470ba462fb474b33f95b02a4a714361f46ddcc987"
+uses = [
+    "fn:a14080344daa6df5",
+    "fn:a490e693d7e67617",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[[module."mod.rs".function]]
+id = "fn:b1fcc375f07cd6da"
+name = "total_specific_work"
+qual = "TurbineOutcome::total_specific_work"
+lines = [
+    103,
+    109,
+]
+hash = "sha256:92b5b874c34acf6608915fe73a027bbbcecefe14e217cbdedf25787ef0bc1968"
+doc_hash = "sha256:19f0329b4a0c31f7cf4e393a9e00fae29fe05f3447a265e7b073e361ecd52319"
+callees = ["fn:dfef073b3e5936f0"]
+uses = ["fn:a9a0cf20d2393927"]
+reached_by = [
+    "#1",
+    "#6",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:222f69ad3cd02bbf"
+name = "total_isentropic_specific_work"
+qual = "TurbineOutcome::total_isentropic_specific_work"
+lines = [
+    111,
+    122,
+]
+hash = "sha256:db3b02f8f6d69efc2ea2ff071ec85b5b150cbc93eaebff489dbbe33df7c861db"
+doc_hash = "sha256:8a5266adbeb55c64e14c8385d21c4ddd05257480588007ec43e3800b91de6fb7"
+uses = ["fn:a9a0cf20d2393927"]
+reached_by = ["#8"]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:e317fea00d4fdaf1"
+name = "new"
+qual = "MeanFlowTurbine::new"
+lines = [
+    126,
+    132,
+]
+hash = "sha256:20719334fb7b5f915caa9c1ca7de854929cd91ac8a83fc8c3d617baeaa48acce"
+doc_hash = "sha256:9c14e43429aa4b888eab1eba04b617cf2eb732e23c3c7b0c7631367ffbf31b6e"
+uses = [
+    "fn:237fc21f8029e789",
+    "fn:ba2877bcc45afb1b",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:58f603cab28c3e43"
+name = "expand"
+qual = "MeanFlowTurbine::expand"
+lines = [
+    134,
+    150,
+]
+hash = "sha256:e25f8dd4b50a4594e78a6a65101dcfc3c037602d683331259f2ba0f180efdb34"
+doc_hash = "sha256:db2780ce5d635c0e07c2d528515dfb1a559f8c34ee6311042ea1c1892ba1eda0"
+callees = ["fn:57825de3fcab9f85"]
+uses = [
+    "fn:a490e693d7e67617",
+    "fn:a9a0cf20d2393927",
+    "fn:ba2877bcc45afb1b",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[module."stage.rs"]
+path = "crate::steam_turbine_equations::mean_flow_stages::stage"
+
+[[module."stage.rs".function]]
+id = "fn:16c41540ba45315b"
+name = "RotorBlading"
+qual = "RotorBlading"
+item = "type"
+shape = "struct"
+lines = [
+    44,
+    63,
+]
+hash = "sha256:1bd2ca57582c76f8e57fd0889f6a17cc1a5ec23ed4756cdb673fc857b74db476"
+doc_hash = "sha256:6565a960f72abb201c259550313c87ef4f12102083a4303b71689d24f057ae9b"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."stage.rs".function]]
+id = "fn:e9a5ce53b27b28fb"
+name = "StageWorkSplit"
+qual = "StageWorkSplit"
+item = "type"
+shape = "struct"
+lines = [
+    65,
+    76,
+]
+hash = "sha256:7c7b7805dd863046eb9a2889bb0f7e2c01cff6c698900f5998c936f579e798b3"
+doc_hash = "sha256:c0697e3dde8ff78e4612df344400ca77e2e47d82a7d26cf5f13fec9dc935bfc6"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."stage.rs".function]]
+id = "fn:96491544b3c2f1db"
+name = "total"
+qual = "StageWorkSplit::total"
+lines = [
+    79,
+    82,
+]
+hash = "sha256:a4c17be2762d449899f6589743a4c581a2e1a4c7ce266677c7784edc949f5ba4"
+doc_hash = "sha256:7778a1b0c557a136aa01704819f6f2a6eba37e76b1ca9b3e9af512e9c1d7f784"
+uses = ["fn:e9a5ce53b27b28fb"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:923c5f4c7cbe0eae"
+name = "reaction_fraction"
+qual = "StageWorkSplit::reaction_fraction"
+lines = [
+    84,
+    96,
+]
+hash = "sha256:e9f60db5429c234324d6bfe0de2fb9cd4ad3be2772bf0923272e56efd47c3bd1"
+doc_hash = "sha256:e63f354b89ee50a30f970400ea99f4dca138cd52075a1757c3c064410cfde651"
+callees = ["fn:96491544b3c2f1db"]
+uses = ["fn:e9a5ce53b27b28fb"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#12",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:37f6f10551072fc8"
+name = "impulse_specific_work"
+qual = "RotorBlading::impulse_specific_work"
+lines = [
+    100,
+    108,
+]
+hash = "sha256:2b7ebc89aaa306331f97a295114de2da27162d1cae1f914cfaeb0de87a11c60e"
+doc_hash = "sha256:b5b1773cc79d557b475220005916ccbe7f99c674c776b9041197e7f9e17033b9"
+callees = ["fn:c2046514da487e28"]
+uses = [
+    "fn:16c41540ba45315b",
+    "fn:51e72992b55d92e6",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:b479ed0782d036c4"
+name = "reaction_specific_work"
+qual = "RotorBlading::reaction_specific_work"
+lines = [
+    110,
+    154,
+]
+hash = "sha256:955a4a3af91832d8f3fc847dab12ef78c8201ff3a5fdaf41e995102d2da5a442"
+doc_hash = "sha256:fcfc92cbd9eeb7165c2681b039bee402263169fa1ba0d03b4f7b6598c6da10ca"
+callees = [
+    "fn:0f421dd1ae575236",
+    "fn:fc117de38008aaba",
+]
+uses = [
+    "fn:16c41540ba45315b",
+    "fn:51e72992b55d92e6",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:0f421dd1ae575236"
+name = "reaction_tangential_velocity_change"
+qual = "RotorBlading::reaction_tangential_velocity_change"
+lines = [
+    156,
+    189,
+]
+hash = "sha256:e9cf4ff7d742749912ab5806bc06b5b965626afb0129be6875f75ea52d003ce0"
+doc_hash = "sha256:6e1a2fde12e93766c5fe4fa5a72ce4eab6f9292e1f4b5857d8b0058c7f792210"
+callees = [
+    "fn:1d5f243170699af7",
+    "fn:3c7cd92b2a222793",
+    "fn:92c4a16f95a74fb9",
+    "fn:996f15c564808786",
+    "fn:ddc7c7ba2e6ee0d1",
+]
+uses = [
+    "fn:16c41540ba45315b",
+    "fn:51e72992b55d92e6",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:cad8301bb2ed3667"
+name = "tangential_velocity_change"
+qual = "RotorBlading::tangential_velocity_change"
+lines = [
+    191,
+    200,
+]
+hash = "sha256:b1db03becc41e5308ac4cda2bc4f587d93d41c3a2ce942993df1690c106ff831"
+doc_hash = "sha256:70d3cc62b1251b58dc3978bad1732dbc4735cb6ce5c2739eb40ba28ee4f866df"
+callees = [
+    "fn:0f421dd1ae575236",
+    "fn:43f1405df85992e4",
+]
+uses = [
+    "fn:16c41540ba45315b",
+    "fn:51e72992b55d92e6",
+]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:e3545014631127b4"
+name = "specific_work_split"
+qual = "RotorBlading::specific_work_split"
+lines = [
+    202,
+    213,
+]
+hash = "sha256:9cc04fa2101093be91bb43041f5566ce396cfbf0e1111bd46bb458edca683d49"
+doc_hash = "sha256:5733380c2f12945bf4ba062aa12528a367fe4b4de5e1231e809768a4655cebbd"
+callees = [
+    "fn:37f6f10551072fc8",
+    "fn:b479ed0782d036c4",
+]
+uses = [
+    "fn:16c41540ba45315b",
+    "fn:51e72992b55d92e6",
+    "fn:e9a5ce53b27b28fb",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:996f15c564808786"
+name = "accelerated_relative_speed"
+qual = "RotorBlading::accelerated_relative_speed"
+lines = [
+    215,
+    232,
+]
+hash = "sha256:1e877ea6b0178083e7557c8251d45f080cca39a5a5fd3e341582bec7f85806ab"
+doc_hash = "sha256:7a5d10c1f28d8c2f70c6586d2b3db059da408dcdc366ec8c051493b0c5927720"
+uses = ["fn:16c41540ba45315b"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:0c3feb898608e36d"
+name = "StageGeometry"
+qual = "StageGeometry"
+item = "type"
+shape = "struct"
+lines = [
+    235,
+    248,
+]
+hash = "sha256:ff904f4381875c138893c9d10ddc7b38d5c870de310005c41e55d62a43d32c7f"
+doc_hash = "sha256:8f5bf0b781cc9dd930bc28f96419833cc14550f682e0f554d0663b4311032c73"
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."stage.rs".function]]
+id = "fn:237fc21f8029e789"
+name = "TurbineStage"
+qual = "TurbineStage"
+item = "type"
+shape = "struct"
+lines = [
+    250,
+    269,
+]
+hash = "sha256:cdfac5ae5e7dfce993570e0cd8766860cbeee7c485816e340d33e8d5e6d7e99d"
+doc_hash = "sha256:af6cdca3c49406d5948c1c5c4373beaa36b667fdc999ed38d653e251518fcd4b"
+uses = [
+    "fn:0c3feb898608e36d",
+    "fn:16c41540ba45315b",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+]
+
+[[module."stage.rs".function]]
+id = "fn:a14080344daa6df5"
+name = "StageOutcome"
+qual = "StageOutcome"
+item = "type"
+shape = "struct"
+lines = [
+    271,
+    284,
+]
+hash = "sha256:8ef1c377216181dcc8119f31b96c7fa8744da1ece10d9af9ec549688a8ae455c"
+doc_hash = "sha256:eb2073595a8059384df9dce2b24421f31ef36bfa8064cd0dadf3add53c38d6ac"
+uses = [
+    "fn:51e72992b55d92e6",
+    "fn:a490e693d7e67617",
+    "fn:e9a5ce53b27b28fb",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+]
+
+[[module."stage.rs".function]]
+id = "fn:dfef073b3e5936f0"
+name = "specific_work"
+qual = "StageOutcome::specific_work"
+lines = [
+    287,
+    290,
+]
+hash = "sha256:e0bde50f95fd9982379870ee6e2a1aee300b2a5fe908c583280e8ec67dc33143"
+doc_hash = "sha256:879b1e6978f9b06f8a4bdc2fe3c8df3e6b56247bc923ec1bc06e968862873bc9"
+callees = ["fn:96491544b3c2f1db"]
+uses = ["fn:a14080344daa6df5"]
+reached_by = [
+    "#1",
+    "#6",
+    "#11",
+    "#12",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:0da2baf1f69a76aa"
+name = "stage_efficiency"
+qual = "StageOutcome::stage_efficiency"
+lines = [
+    292,
+    304,
+]
+hash = "sha256:0f0c474877dbe9747bd719f471e3993f77b8629d9866b0aa14dfd876c9b1bcf9"
+doc_hash = "sha256:aa09e050cc28fee0f1fb8d1d5ad59a7797e817385223ab92ba4c1806fa95282a"
+callees = ["fn:dfef073b3e5936f0"]
+uses = ["fn:a14080344daa6df5"]
+reached_by = ["#1"]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:57825de3fcab9f85"
+name = "expand"
+qual = "TurbineStage::expand"
+lines = [
+    308,
+    376,
+]
+hash = "sha256:3f2d2937f604e965baec1f0c87dfc16f731a6eb71021c8c29d125162d6058424"
+doc_hash = "sha256:97d71c87b49d97fab57f8d4fa0651c88721f3f03d606c8bff0ed12391b82c7ab"
+callees = [
+    "fn:0348e08fdb9da3e3",
+    "fn:96491544b3c2f1db",
+    "fn:97183a2b17ff1f95",
+    "fn:9875b087628a6192",
+    "fn:c365ffcc3efa433e",
+    "fn:c71f5f083ca5008c",
+    "fn:e3545014631127b4",
+    "fn:e47c8df95df831dc",
+    "fn:e931825ad285d24f",
+]
+uses = [
+    "fn:237fc21f8029e789",
+    "fn:51e72992b55d92e6",
+    "fn:a14080344daa6df5",
+    "fn:a490e693d7e67617",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:0348e08fdb9da3e3"
+name = "rotor_isentropic_enthalpy_drop"
+qual = "TurbineStage::rotor_isentropic_enthalpy_drop"
+lines = [
+    378,
+    391,
+]
+hash = "sha256:e6c133affb6a975ca0f412de13fdb3186ff1b28d505aaf118e8c4271f6f9ab4c"
+doc_hash = "sha256:a6193d11c875eb02ca3116a3d89cf7556ab4af40f26a3885be0041e8e4e548ee"
+callees = [
+    "fn:9875b087628a6192",
+    "fn:c365ffcc3efa433e",
+]
+uses = [
+    "fn:237fc21f8029e789",
+    "fn:a490e693d7e67617",
+]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+]
+physical_interface = true
+
+[[module."stage.rs".function]]
+id = "fn:97183a2b17ff1f95"
+name = "velocity_from_enthalpy_drop"
+qual = "TurbineStage::velocity_from_enthalpy_drop"
+lines = [
+    393,
+    406,
+]
+hash = "sha256:f54e730dcad7d2c209dfad576e18aaa387465d2a3c557dff6d97df4bce2798a4"
+doc_hash = "sha256:976b522f55fce5e2a7119b624d74b2be4ce971028500c0939648ee9081a2729d"
+uses = ["fn:237fc21f8029e789"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#11",
+    "#12",
+]
+physical_interface = true
+
+[module."tests.rs"]
+path = "crate::steam_turbine_equations::mean_flow_stages::tests"
+
+[[module."tests.rs".function]]
+id = "fn:2c279bb66d1f0b61"
+name = "unity"
+qual = "unity"
+lines = [
+    29,
+    31,
+]
+hash = "sha256:a4f92d5fb16b4e8df99d5a43e06cdfc6dbb1d139c4bab4a169527885bb817142"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."tests.rs".function]]
+id = "fn:bb976a6b0518ef20"
+name = "zero_enthalpy_drop"
+qual = "zero_enthalpy_drop"
+lines = [
+    33,
+    35,
+]
+hash = "sha256:827511438ddfb64b68403399a9e3a3a87dc15f9c36866ec192ee9449b515393e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."tests.rs".function]]
+id = "fn:777c0f03afd6cae3"
+name = "symmetric_impulse_triangle"
+qual = "symmetric_impulse_triangle"
+lines = [
+    37,
+    62,
+]
+hash = "sha256:b697fb28ed972af98e9fb7586e3420e8e9a313dcb09d954a03daac462a0d9dcf"
+doc_hash = "sha256:287745bd01757cdaa18b5b85a45f12413504029ef09d82bc20b7c6cc64cc87f4"
+callees = [
+    "fn:2c279bb66d1f0b61",
+    "fn:e47c8df95df831dc",
+    "fn:f06778b3cff91a74",
+]
+uses = ["fn:51e72992b55d92e6"]
+test = true
+physical_interface = true
+
+[[module."tests.rs".function]]
+id = "fn:507d771f8d12127a"
+name = "reference_blading"
+qual = "reference_blading"
+lines = [
+    64,
+    71,
+]
+hash = "sha256:e41ab71e69970ee45993e5fb89c24a9b44397e5075fff60c9bf8564d890621c7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:16c41540ba45315b"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1ec3a45fb9d9208f"
+name = "symmetric_impulse_matches_closed_form_euler_work"
+qual = "symmetric_impulse_matches_closed_form_euler_work"
+lines = [
+    73,
+    93,
+]
+hash = "sha256:49428bcfc1c948204cf6a03efeda5292272c4be4f75da6ca63408f35e7b541dd"
+doc_hash = "sha256:6acf513ff523dff52a1f7fb896f856f899dd29d1a1428ab19b2b991b40cc0226"
+callees = [
+    "fn:3c722b111e53c464",
+    "fn:777c0f03afd6cae3",
+    "fn:c2046514da487e28",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e4bae1fc987ec52d"
+name = "impulse_optimum_blade_speed_ratio_is_half_sin_nozzle_angle"
+qual = "impulse_optimum_blade_speed_ratio_is_half_sin_nozzle_angle"
+lines = [
+    95,
+    129,
+]
+hash = "sha256:ca12e182de2b8e9a72199f2ea36da9920d52e2c899d674708e9d607452022a43"
+doc_hash = "sha256:5507a5b6b17e6bc91eadcc6c8766fad3bef1d16293edcc62b057a3b0c2798df6"
+callees = [
+    "fn:777c0f03afd6cae3",
+    "fn:c2046514da487e28",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e41d1c476cf20dad"
+name = "symmetric_impulse_reports_near_zero_degree_of_reaction"
+qual = "symmetric_impulse_reports_near_zero_degree_of_reaction"
+lines = [
+    131,
+    145,
+]
+hash = "sha256:37c16238bb0253f79edb24d219a85fa30e8b922ee0852d31e08b44f3d81daee2"
+doc_hash = "sha256:05920788f392ca41f08a92c53505ede330b38a58c3447093ffff23297f2f5c7e"
+callees = [
+    "fn:56abf2208c715734",
+    "fn:777c0f03afd6cae3",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3469bb4c85d34f28"
+name = "reaction_part_vanishes_without_a_rotor_pressure_drop"
+qual = "reaction_part_vanishes_without_a_rotor_pressure_drop"
+lines = [
+    147,
+    173,
+]
+hash = "sha256:815558a56652550f6ed2d08ce9e190ed6b6da05e9dacc175318a6d55903ff45f"
+doc_hash = "sha256:5cff6b636d90b3ccf361da1ebc55d280a5f32ed7b2a0ed417749b06e85d04e09"
+callees = [
+    "fn:507d771f8d12127a",
+    "fn:777c0f03afd6cae3",
+    "fn:96491544b3c2f1db",
+    "fn:bb976a6b0518ef20",
+    "fn:c2046514da487e28",
+    "fn:e3545014631127b4",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:bee71f34f36f33f5"
+name = "reaction_part_grows_with_rotor_enthalpy_drop"
+qual = "reaction_part_grows_with_rotor_enthalpy_drop"
+lines = [
+    175,
+    201,
+]
+hash = "sha256:c53ec15d4a465aae4555e9ba5440830d7d25b7bf1809c8b3c0c9f83efdfc6579"
+doc_hash = "sha256:8ea074cb94446e89feff777ebba5c9190a15aaaf18308029d26c6af88bf5930d"
+callees = [
+    "fn:2c279bb66d1f0b61",
+    "fn:507d771f8d12127a",
+    "fn:b479ed0782d036c4",
+    "fn:e47c8df95df831dc",
+]
+uses = ["fn:51e72992b55d92e6"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:76a2b38ffa21f16c"
+name = "cascade_drag_follows_the_sign_of_the_mean_relative_angle"
+qual = "cascade_drag_follows_the_sign_of_the_mean_relative_angle"
+lines = [
+    203,
+    258,
+]
+hash = "sha256:40acf4f70784cdfa11fc2a67dc0de6a0a97b81d477052a619086faf4a127ef39"
+doc_hash = "sha256:c3ece81cbb802477259a527f9a728f6ba4d8c7693fd90e333a177dd88d34c2ae"
+callees = [
+    "fn:2c279bb66d1f0b61",
+    "fn:3c7cd92b2a222793",
+    "fn:507d771f8d12127a",
+    "fn:b479ed0782d036c4",
+    "fn:e47c8df95df831dc",
+]
+uses = [
+    "fn:16c41540ba45315b",
+    "fn:51e72992b55d92e6",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:604159244d61aa66"
+name = "admission_steam"
+qual = "admission_steam"
+lines = [
+    260,
+    267,
+]
+hash = "sha256:c9f13ce1b6e8a350d8c9baa0c0685627442de5e53a0fc492ba75399f1283b3e4"
+doc_hash = "sha256:66c867d29e888d817eb37025b371ef36e66d7a961b7b675544a11cb04cdcccff"
+callees = ["fn:57006ca6f00b0f92"]
+uses = ["fn:a490e693d7e67617"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b7ab721f9836d091"
+name = "stage_geometry"
+qual = "stage_geometry"
+lines = [
+    269,
+    276,
+]
+hash = "sha256:f7bb5f4929d4c155b8b53fcb74c39dae161d4146a0c8fe5530417fbbf93a0194"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0c3feb898608e36d"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d8f52e0afffab6a2"
+name = "mixed_stages"
+qual = "mixed_stages"
+lines = [
+    278,
+    309,
+]
+hash = "sha256:03e1caeb5b33dfdfcadaebd8247d9d8f750b377070e4c063a1e033a31a0cafda"
+doc_hash = "sha256:b3dc40df17a08a9ec9b1145e55ea57fca06780f2550830e851e7148478b4978d"
+callees = [
+    "fn:507d771f8d12127a",
+    "fn:b7ab721f9836d091",
+]
+uses = ["fn:237fc21f8029e789"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b96de2b7492b00ec"
+name = "shaft_speed"
+qual = "shaft_speed"
+lines = [
+    311,
+    313,
+]
+hash = "sha256:e2a45ad6d6599cf8f2fe392935e99504c84545983404aebbce5d35852dd8b880"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."tests.rs".function]]
+id = "fn:a4f5b521c8fafbcb"
+name = "single_mixed_stage_conserves_energy_and_uses_both_mechanisms"
+qual = "single_mixed_stage_conserves_energy_and_uses_both_mechanisms"
+lines = [
+    315,
+    354,
+]
+hash = "sha256:d47e3f25d797f9301d5b42598ad62928a42f443d8c4413ac4b6049ff2abe2822"
+doc_hash = "sha256:9caa65aac1cc264c61c3ec47dd82369f34694eaae5d5a8b6379148626831b215"
+callees = [
+    "fn:507d771f8d12127a",
+    "fn:57825de3fcab9f85",
+    "fn:604159244d61aa66",
+    "fn:923c5f4c7cbe0eae",
+    "fn:b7ab721f9836d091",
+    "fn:b96de2b7492b00ec",
+    "fn:c365ffcc3efa433e",
+    "fn:dfef073b3e5936f0",
+]
+uses = ["fn:237fc21f8029e789"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:3fe938b456f3f9f1"
+name = "impulse_only_stage_reports_zero_reaction_fraction"
+qual = "impulse_only_stage_reports_zero_reaction_fraction"
+lines = [
+    356,
+    382,
+]
+hash = "sha256:abe0a562d602ba3f934259ace6078a1d81710f1e834f317a0ea2347a416439c8"
+doc_hash = "sha256:6808af0186ee8e93db3526fa61303a3535177074acf3dd0fef0c780c1ad92c61"
+callees = [
+    "fn:507d771f8d12127a",
+    "fn:57825de3fcab9f85",
+    "fn:604159244d61aa66",
+    "fn:923c5f4c7cbe0eae",
+    "fn:b7ab721f9836d091",
+    "fn:b96de2b7492b00ec",
+]
+uses = ["fn:237fc21f8029e789"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:db577f833d950125"
+name = "multistage_expansion_conserves_energy"
+qual = "multistage_expansion_conserves_energy"
+lines = [
+    384,
+    399,
+]
+hash = "sha256:64cb0eee300babb0ddf215c8dfcb477508d8abd87dd36d29c054bb986ed8eb1d"
+doc_hash = "sha256:b829e329ec1cc40f0fda6441ce6055b53752c91f7ad43da79e0e4adbc6f584de"
+callees = [
+    "fn:58f603cab28c3e43",
+    "fn:604159244d61aa66",
+    "fn:b1fcc375f07cd6da",
+    "fn:b96de2b7492b00ec",
+    "fn:c365ffcc3efa433e",
+    "fn:d8f52e0afffab6a2",
+    "fn:e317fea00d4fdaf1",
+]
+uses = ["fn:ba2877bcc45afb1b"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:18b6585fa4c638aa"
+name = "multistage_exhaust_is_wet_and_moisture_appears_part_way_down"
+qual = "multistage_exhaust_is_wet_and_moisture_appears_part_way_down"
+lines = [
+    401,
+    432,
+]
+hash = "sha256:6ec5551a093d16094c00bbfedf40c56ce7f3eeb40d3b0cb07a7993f2f422064a"
+doc_hash = "sha256:abf67294c77fdc30da5d5a5f871c7a0f7f49dadd06262339ed061a9e89ec633f"
+callees = [
+    "fn:58f603cab28c3e43",
+    "fn:604159244d61aa66",
+    "fn:9b8e82f60a2467bf",
+    "fn:b96de2b7492b00ec",
+    "fn:d8f52e0afffab6a2",
+    "fn:e317fea00d4fdaf1",
+]
+uses = ["fn:ba2877bcc45afb1b"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d23aea147495900f"
+name = "every_stage_of_the_machine_mixes_both_mechanisms"
+qual = "every_stage_of_the_machine_mixes_both_mechanisms"
+lines = [
+    434,
+    450,
+]
+hash = "sha256:e2c37e5a162f42eff6e0dd120ef77622bae1090d286669e8555ad9ce9bb802d0"
+doc_hash = "sha256:9ffe698cfde3b0d358193083048235d17286d78d8181c95398568b30d6bc009c"
+callees = [
+    "fn:58f603cab28c3e43",
+    "fn:604159244d61aa66",
+    "fn:923c5f4c7cbe0eae",
+    "fn:b96de2b7492b00ec",
+    "fn:d8f52e0afffab6a2",
+    "fn:e317fea00d4fdaf1",
+]
+uses = ["fn:ba2877bcc45afb1b"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6bded0dc5b257198"
+name = "per_stage_isentropic_drops_exceed_the_single_step_drop"
+qual = "per_stage_isentropic_drops_exceed_the_single_step_drop"
+lines = [
+    452,
+    476,
+]
+hash = "sha256:3397fdd182a4344a299a26db43ed27f3b72cab3884f3e42f6afc0a38c531efef"
+doc_hash = "sha256:78b51c9e46019544f63352d0ba05ef2e1259ab36af2a80ad0f1c5f4c0ab48006"
+callees = [
+    "fn:222f69ad3cd02bbf",
+    "fn:58f603cab28c3e43",
+    "fn:604159244d61aa66",
+    "fn:9875b087628a6192",
+    "fn:9880a6d7b02ed0e6",
+    "fn:b96de2b7492b00ec",
+    "fn:c365ffcc3efa433e",
+    "fn:d8f52e0afffab6a2",
+    "fn:e317fea00d4fdaf1",
+]
+uses = ["fn:ba2877bcc45afb1b"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1ba2e8b0c31b01b0"
+name = "multistage_pressure_descends_monotonically"
+qual = "multistage_pressure_descends_monotonically"
+lines = [
+    478,
+    495,
+]
+hash = "sha256:ef4686c05141600d7bcc2efed46060d0746d3c6e7017568fed507340266e1bd7"
+doc_hash = "sha256:5b8c98c181e6ee834c1e436b4faee1db9bf27776f5dabcb31fc48ec8238f091b"
+callees = [
+    "fn:58f603cab28c3e43",
+    "fn:604159244d61aa66",
+    "fn:9880a6d7b02ed0e6",
+    "fn:b96de2b7492b00ec",
+    "fn:d8f52e0afffab6a2",
+    "fn:e317fea00d4fdaf1",
+]
+uses = ["fn:ba2877bcc45afb1b"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:d6123f909243179d"
+name = "rising_pressure_stage_degrades_to_zero_work"
+qual = "rising_pressure_stage_degrades_to_zero_work"
+lines = [
+    497,
+    518,
+]
+hash = "sha256:5a15d46b176bafb94585215f0a97ae8b063a08281285fe6b826afeb10b6197f9"
+doc_hash = "sha256:aa44f71b1abaabc1d7c77af37e1b0b517c68ba17fd2b8570e52a47ff1df1ac86"
+callees = [
+    "fn:507d771f8d12127a",
+    "fn:57825de3fcab9f85",
+    "fn:604159244d61aa66",
+    "fn:b7ab721f9836d091",
+    "fn:b96de2b7492b00ec",
+    "fn:dfef073b3e5936f0",
+]
+uses = ["fn:237fc21f8029e789"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:1a4b62e032ab12d3"
+name = "diagnose_multistage_expansion"
+qual = "diagnose_multistage_expansion"
+lines = [
+    520,
+    569,
+]
+hash = "sha256:b3cd88ce1392d74bc6712fd477726fb978b78f6bb888c1fb29126a40abf0a02a"
+doc_hash = "sha256:584e8aca2ce51bba8ecd3898f30e7cf75df99ea0226a022918f22602e7df3c59"
+callees = [
+    "fn:0da2baf1f69a76aa",
+    "fn:58f603cab28c3e43",
+    "fn:604159244d61aa66",
+    "fn:923c5f4c7cbe0eae",
+    "fn:9880a6d7b02ed0e6",
+    "fn:9b8e82f60a2467bf",
+    "fn:b1fcc375f07cd6da",
+    "fn:b96de2b7492b00ec",
+    "fn:c365ffcc3efa433e",
+    "fn:d8f52e0afffab6a2",
+    "fn:e317fea00d4fdaf1",
+]
+uses = ["fn:ba2877bcc45afb1b"]
+test = true
+
+[module."transient.rs"]
+path = "crate::steam_turbine_equations::mean_flow_stages::transient"
+
+[[module."transient.rs".function]]
+id = "fn:0d39e5d797d477f0"
+name = "TransientStage"
+qual = "TransientStage"
+item = "type"
+shape = "struct"
+lines = [
+    80,
+    95,
+]
+hash = "sha256:0a2feb880d1d5b222382eae243329d5e75c14192b01d43de7493255da3e243ff"
+doc_hash = "sha256:fca5d31f6867116e769bcf6331bc75e9a60c3cdbe26e4dc5dac6aa5ba0d30f3d"
+uses = [
+    "fn:0c3feb898608e36d",
+    "fn:16c41540ba45315b",
+]
+reached_by = [
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."transient.rs".function]]
+id = "fn:4d3062c28a377eaf"
+name = "TransientStageOutcome"
+qual = "TransientStageOutcome"
+item = "type"
+shape = "struct"
+lines = [
+    97,
+    113,
+]
+hash = "sha256:3396701690048f3f9ec8b1d3a52ba93899e9c66d97dc13bddf9ff1052036e0d8"
+doc_hash = "sha256:f9c3a8c19e9c72f8be3cb47ffc1f11167e54358a07696b174f66c2019b7b682d"
+uses = [
+    "fn:51e72992b55d92e6",
+    "fn:e9a5ce53b27b28fb",
+]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."transient.rs".function]]
+id = "fn:d3dc2396b973897c"
+name = "TransientStepOutcome"
+qual = "TransientStepOutcome"
+item = "type"
+shape = "struct"
+lines = [
+    115,
+    129,
+]
+hash = "sha256:2c6159b0a419002c659aebd681cc5ef9ecf9104285ec5729eed29fc59c5b252b"
+doc_hash = "sha256:efc1671abe0e5da478dc1fc55d4211ab3363ec97ebd396e4f603f39ee74f24b3"
+uses = ["fn:4d3062c28a377eaf"]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."transient.rs".function]]
+id = "fn:849b3f8178a2c945"
+name = "total_shaft_power"
+qual = "TransientStepOutcome::total_shaft_power"
+lines = [
+    132,
+    139,
+]
+hash = "sha256:538191b8e31374e2c89a90cd9938186ee37c35e72f1c6e224683b4ee3691893f"
+doc_hash = "sha256:c121ce1120844b92e3ad526552af72d2f5a68ce0e369fb3a1f0d1853cba653a1"
+uses = ["fn:d3dc2396b973897c"]
+reached_by = [
+    "#19",
+    "#20",
+    "#25",
+    "#26",
+]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:91919c58ca8d3a4d"
+name = "total_torque"
+qual = "TransientStepOutcome::total_torque"
+lines = [
+    141,
+    148,
+]
+hash = "sha256:586111b91064cd7aecc4185008ec8670d3e1b2fa3cd8774c5313711b0faf9885"
+doc_hash = "sha256:903c47bd96f689836eacbe442d0c8b1f1b6d76f80f36dac02c123fbb545f050e"
+uses = ["fn:d3dc2396b973897c"]
+reached_by = ["#24"]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:cff30511b957b1cb"
+name = "TransientMeanFlowTurbine"
+qual = "TransientMeanFlowTurbine"
+item = "type"
+shape = "struct"
+lines = [
+    151,
+    169,
+]
+hash = "sha256:8d2178283007e1b2dc2d18c082b91a281701fc210144dba530aed736ed744345"
+doc_hash = "sha256:25d949397f0132fbb8e086248e179fa6e1686b24575af05a0dbfe90f99b3d786"
+uses = [
+    "fn:0d39e5d797d477f0",
+    "fn:1e9e054cc5b5a361",
+    "fn:ed7d6d3f3ea52b6e",
+]
+reached_by = [
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."transient.rs".function]]
+id = "fn:094d60af2c2b04fc"
+name = "new"
+qual = "TransientMeanFlowTurbine::new"
+lines = [
+    172,
+    202,
+]
+hash = "sha256:e781d49a247fa1949b6177189f3003399c4ad74d86a3455216091bba620f8bd2"
+doc_hash = "sha256:cbcbb6d91f5a835db4cd6fb42667d8a588b856ebf2b0dacb755a66b6b48ac132"
+callees = [
+    "fn:1d2865f3c3a06a45",
+    "fn:aa275d192e194a48",
+]
+uses = [
+    "fn:0a92d21305e489af",
+    "fn:0d39e5d797d477f0",
+    "fn:1e9e054cc5b5a361",
+    "fn:7ad9851e47797e4f",
+    "fn:cff30511b957b1cb",
+    "fn:ed7d6d3f3ea52b6e",
+]
+reached_by = [
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:869013f59d88fa09"
+name = "shaft_speed"
+qual = "TransientMeanFlowTurbine::shaft_speed"
+lines = [
+    204,
+    207,
+]
+hash = "sha256:759b7c5e85a7580478060b9ae7f832b081e4e21059c71be093ac070ce52706ed"
+doc_hash = "sha256:b275bfb750006f204b28f48d59de810298b5c1e0422ec525ad2328f44d11e602"
+callees = ["fn:d8c7243358140d33"]
+uses = ["fn:cff30511b957b1cb"]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:8ca190ba28e0e601"
+name = "initialise_uniform"
+qual = "TransientMeanFlowTurbine::initialise_uniform"
+lines = [
+    209,
+    232,
+]
+hash = "sha256:e4e1aa4e179fbb36e0fd2554cd56813819a1b31a21fd35d416e9202611b77203"
+doc_hash = "sha256:7ef61bf4fd074f92fa614044baf4de9b9a3038b837e4453970b6c5039f271437"
+callees = [
+    "fn:a034500d55b2a2be",
+    "fn:b0abb2799e5065bb",
+    "fn:e3b184e79e6044fe",
+]
+uses = ["fn:cff30511b957b1cb"]
+reached_by = [
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."transient.rs".function]]
+id = "fn:8ae8dca4ba9feee8"
+name = "stage_control_volume"
+qual = "TransientMeanFlowTurbine::stage_control_volume"
+lines = [
+    234,
+    246,
+]
+hash = "sha256:09c5e69e093fd08fc5c77924eae400ca608fdd57b64a92b548a4454255f83388"
+doc_hash = "sha256:cb8f3b8e7d78bd93a4c1ba69a1ef6561ffafa0e302975fa557b9af635db22265"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:67093ab68bbef7b3",
+]
+uses = [
+    "fn:a490e693d7e67617",
+    "fn:cff30511b957b1cb",
+]
+reached_by = [
+    "#15",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."transient.rs".function]]
+id = "fn:f133847a30c7fba3"
+name = "step"
+qual = "TransientMeanFlowTurbine::step"
+lines = [
+    248,
+    305,
+]
+hash = "sha256:08bfcff9b505f99eeb085840db43826b87b506a4c9ebf771999106bb3e0cca00"
+doc_hash = "sha256:3ead4c8b77ad213730b0a5d256aef6a1eb2f1a29f5de5036cb809b8f3a8df583"
+callees = [
+    "fn:2df0bc2b2c703241",
+    "fn:3390f105b0074948",
+    "fn:637387e59ef6c0a9",
+    "fn:869013f59d88fa09",
+    "fn:9aba352809b5f2a4",
+    "fn:be2fb6277cf24ee2",
+]
+uses = [
+    "fn:cff30511b957b1cb",
+    "fn:d3dc2396b973897c",
+]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."transient.rs".function]]
+id = "fn:68bb1404f144d5cd"
+name = "run"
+qual = "TransientMeanFlowTurbine::run"
+lines = [
+    307,
+    316,
+]
+hash = "sha256:32d3168ea5cb443a1c3978b04082dd31e484324db37b28f09a16080283241851"
+doc_hash = "sha256:33d3184c84b402826cafb169847eecf33f080ae6d91a85f4fd6eba55e93e1d81"
+callees = ["fn:f133847a30c7fba3"]
+uses = [
+    "fn:cff30511b957b1cb",
+    "fn:d3dc2396b973897c",
+]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#23",
+]
+
+[[module."transient.rs".function]]
+id = "fn:637387e59ef6c0a9"
+name = "evaluate_stages"
+qual = "TransientMeanFlowTurbine::evaluate_stages"
+lines = [
+    318,
+    324,
+]
+hash = "sha256:1028fd358f095b6f655808f4a8e4796d87b39c78f1dc0414bdf6b6766cfd3ea2"
+doc_hash = "sha256:f558f9aec67e53953e9ca860a052a8eb60693243dd1b26fd0fe3e84d75894080"
+callees = ["fn:7d40842a5b4ff2d0"]
+uses = [
+    "fn:4d3062c28a377eaf",
+    "fn:cff30511b957b1cb",
+]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."transient.rs".function]]
+id = "fn:7d40842a5b4ff2d0"
+name = "evaluate_stage"
+qual = "TransientMeanFlowTurbine::evaluate_stage"
+lines = [
+    326,
+    374,
+]
+hash = "sha256:43c83e0762d093c34d0c812140c0e65be1397e780531448365638b891857b890"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:869013f59d88fa09",
+    "fn:96491544b3c2f1db",
+    "fn:cad8301bb2ed3667",
+    "fn:db797fcf5ec30f14",
+    "fn:e3545014631127b4",
+    "fn:e47c8df95df831dc",
+    "fn:ed7d718f646723fc",
+]
+uses = [
+    "fn:4d3062c28a377eaf",
+    "fn:51e72992b55d92e6",
+    "fn:cff30511b957b1cb",
+]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."transient.rs".function]]
+id = "fn:db797fcf5ec30f14"
+name = "rotor_enthalpy_drop"
+qual = "TransientMeanFlowTurbine::rotor_enthalpy_drop"
+lines = [
+    376,
+    407,
+]
+hash = "sha256:041cb32d0196f8c7f74c987f881636f87cd79ed489ebeea27374e8f879d34dd0"
+doc_hash = "sha256:149196f6e23649dd6311dba88f2d9b418a258db6bf1227d75ef63134350e01f2"
+callees = [
+    "fn:365b4ebf95314225",
+    "fn:8ae8dca4ba9feee8",
+    "fn:9875b087628a6192",
+    "fn:c365ffcc3efa433e",
+]
+uses = ["fn:cff30511b957b1cb"]
+reached_by = [
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[module."transient_tests.rs"]
+path = "crate::steam_turbine_equations::mean_flow_stages::transient_tests"
+
+[[module."transient_tests.rs".function]]
+id = "fn:1c46ed5ea4f71c0e"
+name = "test_generator"
+qual = "test_generator"
+lines = [
+    31,
+    47,
+]
+hash = "sha256:1ff13fab1a5f1e794dab721223c176c6ada0784e15bc16368d4ef9e79d5a0b5d"
+doc_hash = "sha256:595299060b8552dbf60ad646e36f48127e97fafc083f5339e94a1aae50074551"
+callees = ["fn:d4d988acf2e9129f"]
+uses = ["fn:1e9e054cc5b5a361"]
+test = true
+physical_interface = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:31d1e2304416040e"
+name = "nominal_load"
+qual = "nominal_load"
+lines = [
+    49,
+    51,
+]
+hash = "sha256:76babbb481d503bcff01ad09ff0d3f3f021efcde42c071c3761229e354ea1c86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:db20cf48816c7cad"
+name = "stage_geometry"
+qual = "stage_geometry"
+lines = [
+    53,
+    60,
+]
+hash = "sha256:f7bb5f4929d4c155b8b53fcb74c39dae161d4146a0c8fe5530417fbbf93a0194"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:0c3feb898608e36d"]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:31bd0f440b56dd99"
+name = "reference_blading"
+qual = "reference_blading"
+lines = [
+    62,
+    69,
+]
+hash = "sha256:e41ab71e69970ee45993e5fb89c24a9b44397e5075fff60c9bf8564d890621c7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:16c41540ba45315b"]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:a73ff68f43baf7bb"
+name = "transient_stages"
+qual = "transient_stages"
+lines = [
+    71,
+    79,
+]
+hash = "sha256:e76f1d66f6339ce58a9705f7e2475d3c9a88bf462341ba4d7c51cf85e4799054"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:31bd0f440b56dd99",
+    "fn:db20cf48816c7cad",
+]
+uses = ["fn:0d39e5d797d477f0"]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:9799adfa1afac529"
+name = "build_machine"
+qual = "build_machine"
+lines = [
+    81,
+    87,
+]
+hash = "sha256:b9bbe641830611acf0dc5003fec76ad75208b182a4f11e7c9761e09fb07976aa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0d9377c2345c699a",
+    "fn:31d1e2304416040e",
+]
+uses = ["fn:cff30511b957b1cb"]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:0d9377c2345c699a"
+name = "build_machine_with"
+qual = "build_machine_with"
+lines = [
+    89,
+    111,
+]
+hash = "sha256:285cb8e49b7dea986787bb2b98c8faedce49d0e7686cf41728dacbead18b4676"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:094d60af2c2b04fc",
+    "fn:1c46ed5ea4f71c0e",
+    "fn:8ca190ba28e0e601",
+    "fn:a73ff68f43baf7bb",
+]
+uses = ["fn:cff30511b957b1cb"]
+test = true
+physical_interface = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:364150913529ca13"
+name = "impose_descending_pressure"
+qual = "impose_descending_pressure"
+lines = [
+    113,
+    123,
+]
+hash = "sha256:59dd7e382f0c01e41ca953dd374440bfe2dcba7116abb5b524db2232dc776c1e"
+doc_hash = "sha256:49f1b4854bbae3b2c1f8f857d1286b0e8593b7cc7bd1fe50902791e11a7c98c4"
+callees = [
+    "fn:b0abb2799e5065bb",
+    "fn:e3b184e79e6044fe",
+]
+uses = ["fn:cff30511b957b1cb"]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:079f43ae593ca065"
+name = "constructor_selects_the_knp_hybrid_solver_mode"
+qual = "constructor_selects_the_knp_hybrid_solver_mode"
+lines = [
+    125,
+    134,
+]
+hash = "sha256:c4e21d558c084465497df440bc6ddd17642f5d45f34475b2313f180c02ae31c8"
+doc_hash = "sha256:34caebe5bad1dae614c92cc2eb72034095bed5ca2a1fc03f6c79a0199e457641"
+callees = [
+    "fn:79ab59ea71ac63e6",
+    "fn:9799adfa1afac529",
+]
+uses = ["fn:7ad9851e47797e4f"]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:454ad2ce9638561b"
+name = "initialise_uniform_puts_superheated_steam_in_every_cell"
+qual = "initialise_uniform_puts_superheated_steam_in_every_cell"
+lines = [
+    136,
+    161,
+]
+hash = "sha256:5befe750f938cb320a57bc0201498287a467f5b6e8150d634d2887e58c4c1e97"
+doc_hash = "sha256:7390b8db1c0f6a37439bdd7f06591eec7c4aad2f5b86139007615cbb92346a64"
+callees = [
+    "fn:8ae8dca4ba9feee8",
+    "fn:9799adfa1afac529",
+    "fn:9880a6d7b02ed0e6",
+    "fn:9b8e82f60a2467bf",
+    "fn:bd7f6306c44a28ce",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:8db72767b00d8116"
+name = "still_steam_extracts_no_work"
+qual = "still_steam_extracts_no_work"
+lines = [
+    163,
+    178,
+]
+hash = "sha256:7b1d98cc3378f073e214a90e9add53a0dc9b680ae514357eefffc756fd97305b"
+doc_hash = "sha256:0428c4f626dc754accf22b05df1528a6de81ae7096b8c7cee1bb476db89c814d"
+callees = [
+    "fn:849b3f8178a2c945",
+    "fn:9799adfa1afac529",
+    "fn:f133847a30c7fba3",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:ebd5feff33aa5c27"
+name = "moving_steam_extracts_work_from_both_mechanisms"
+qual = "moving_steam_extracts_work_from_both_mechanisms"
+lines = [
+    180,
+    226,
+]
+hash = "sha256:dca7c41e41565c20b4c5b1ec4db89050bcab95033d972b81b0be24df9b21954b"
+doc_hash = "sha256:9383bd7b4e8c6ec6eafc98b62f7da49a8fe67d86d5a5bf20dfc28759d43eb5e0"
+callees = [
+    "fn:364150913529ca13",
+    "fn:849b3f8178a2c945",
+    "fn:9799adfa1afac529",
+    "fn:a35132a84396237f",
+    "fn:f133847a30c7fba3",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:c16ebccc62996919"
+name = "zero_rotor_drop_fraction_gives_a_pure_impulse_stage"
+qual = "zero_rotor_drop_fraction_gives_a_pure_impulse_stage"
+lines = [
+    228,
+    259,
+]
+hash = "sha256:bd493312868290fc8b2755f13452933cdf595c37160eb70a42fcf4af670ca88c"
+doc_hash = "sha256:6c0e928db4c13cfd5b6af5e9ec078a26eebcd6ff11d313d65a59aa6d8a6d6327"
+callees = [
+    "fn:364150913529ca13",
+    "fn:9799adfa1afac529",
+    "fn:a35132a84396237f",
+    "fn:f133847a30c7fba3",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:03953070e42605c5"
+name = "power_sources_are_consumed_by_the_step"
+qual = "power_sources_are_consumed_by_the_step"
+lines = [
+    261,
+    278,
+]
+hash = "sha256:fcece785327cfca38cde538273a67cdef43786c724db562fa5ae4e5a817b034a"
+doc_hash = "sha256:4a60dd4fb1b0d1ce429e3cb00dc8cf8a3b1c25a9281423ded50a90aa71571b12"
+callees = [
+    "fn:364150913529ca13",
+    "fn:9799adfa1afac529",
+    "fn:a35132a84396237f",
+    "fn:f133847a30c7fba3",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:239d3c3b5d1925e4"
+name = "total_shaft_power_is_the_sum_of_the_stages"
+qual = "total_shaft_power_is_the_sum_of_the_stages"
+lines = [
+    280,
+    303,
+]
+hash = "sha256:31c49306dc45a686564ea04ba1d715922318f62bac2b501cc7d3d6ce1cc7c6a0"
+doc_hash = "sha256:6c0a86264c04e4f846f2e8d19a2b7bef5055a6b1430589e0b8c97f90ffeca693"
+callees = [
+    "fn:364150913529ca13",
+    "fn:849b3f8178a2c945",
+    "fn:9799adfa1afac529",
+    "fn:a35132a84396237f",
+    "fn:f133847a30c7fba3",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:a82b8fa7ec524a39"
+name = "short_run_stays_bounded"
+qual = "short_run_stays_bounded"
+lines = [
+    305,
+    332,
+]
+hash = "sha256:8ea7ebeb8c91039e20cbe94090633ef635f4544302cfdf9f9c43f3289f83a1e6"
+doc_hash = "sha256:f263076143fbbc05910ebc3fb92c3aac04cb590151048d2f976d1a3c8003bb06"
+callees = [
+    "fn:364150913529ca13",
+    "fn:365b4ebf95314225",
+    "fn:68bb1404f144d5cd",
+    "fn:8d8f877a378605bc",
+    "fn:9799adfa1afac529",
+    "fn:a35132a84396237f",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:93e2adcb6e548623"
+name = "standstill_develops_starting_torque_but_no_power"
+qual = "standstill_develops_starting_torque_but_no_power"
+lines = [
+    334,
+    369,
+]
+hash = "sha256:348bb7c4683d6478e1ef2e37eeb0c23ce8ddd6d925fbbaa81cbdf662486fd468"
+doc_hash = "sha256:bc657f67e7581cbf23b55cc345117d53bd15d09c64a039f62a44e1daa54b6d88"
+callees = [
+    "fn:0d9377c2345c699a",
+    "fn:31d1e2304416040e",
+    "fn:364150913529ca13",
+    "fn:91919c58ca8d3a4d",
+    "fn:a35132a84396237f",
+    "fn:f133847a30c7fba3",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:900c01948175cab0"
+name = "machine_spins_up_from_rest"
+qual = "machine_spins_up_from_rest"
+lines = [
+    371,
+    407,
+]
+hash = "sha256:c559417464dee1e1243aacf3ac53196eded918cc123d68d5d2aa714b0fa90460"
+doc_hash = "sha256:6868010e3915f0df708e94c3971e457b910c327fc4603d5a2afb27c001e74271"
+callees = [
+    "fn:0d9377c2345c699a",
+    "fn:31d1e2304416040e",
+    "fn:364150913529ca13",
+    "fn:68bb1404f144d5cd",
+    "fn:849b3f8178a2c945",
+    "fn:a35132a84396237f",
+    "fn:f133847a30c7fba3",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:9c7d856b03bf5801"
+name = "shaft_speed_is_solved_rather_than_held"
+qual = "shaft_speed_is_solved_rather_than_held"
+lines = [
+    409,
+    429,
+]
+hash = "sha256:9443c364dc6aa33aa53f3d648829d7931dc0d3478f347bffc29d2ba0cafdd192"
+doc_hash = "sha256:2aeeedfbea70d7be909234ba43d1a4c9a3bfab9a1de49f3a4b4ae0ea73a10d4e"
+callees = [
+    "fn:364150913529ca13",
+    "fn:869013f59d88fa09",
+    "fn:9799adfa1afac529",
+    "fn:a35132a84396237f",
+    "fn:f133847a30c7fba3",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:14a536c0b16236ac"
+name = "heavier_electrical_load_slows_the_shaft"
+qual = "heavier_electrical_load_slows_the_shaft"
+lines = [
+    431,
+    461,
+]
+hash = "sha256:084ec9e9ed9c8c3993d6a0407bdd2e9f529a00a7def43445e030a5530956d566"
+doc_hash = "sha256:b76f9c8bd8ef858cba5fc1fd0079d09587dbc0fc723b11cb3777b6dc8516573e"
+callees = [
+    "fn:0d9377c2345c699a",
+    "fn:364150913529ca13",
+    "fn:68bb1404f144d5cd",
+    "fn:869013f59d88fa09",
+    "fn:a35132a84396237f",
+]
+test = true
+
+[[module."transient_tests.rs".function]]
+id = "fn:f00fa6c92a03a557"
+name = "a_turning_shaft_delivers_electrical_power"
+qual = "a_turning_shaft_delivers_electrical_power"
+lines = [
+    463,
+    483,
+]
+hash = "sha256:1e71e8171d0bdd374d88da208b9f55148f34ed15fc3947ca09fe8d23883fcae4"
+doc_hash = "sha256:ebe5be3942ec7acbc283eadf2b5f2db1e35423227ff7a767f21c05e841bdd0ef"
+callees = [
+    "fn:364150913529ca13",
+    "fn:68bb1404f144d5cd",
+    "fn:9799adfa1afac529",
+    "fn:a35132a84396237f",
+]
+test = true
+
+[module."velocity_triangle.rs"]
+path = "crate::steam_turbine_equations::mean_flow_stages::velocity_triangle"
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:51e72992b55d92e6"
+name = "VelocityTriangle"
+qual = "VelocityTriangle"
+item = "type"
+shape = "struct"
+lines = [
+    32,
+    52,
+]
+hash = "sha256:4707a8f0348dd7c9052a3acfe30b3a015cf9ad143b055912ec3fccbff5b73080"
+doc_hash = "sha256:760fc8864a0cc882e2410189b2da8e2ac31f69039e5dd6138abed9b33b95b3f3"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:e47c8df95df831dc"
+name = "new_from_nozzle_and_blade_angles"
+qual = "VelocityTriangle::new_from_nozzle_and_blade_angles"
+lines = [
+    55,
+    105,
+]
+hash = "sha256:5742ee887361f91c72914ea9c6c630ad0677d5fdcfa387766d7c6781e64171ac"
+doc_hash = "sha256:ac344214f491b3510237330f6563a3b925ea21f162d3b75708502a2df9e06247"
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:43f1405df85992e4"
+name = "tangential_velocity_change"
+qual = "VelocityTriangle::tangential_velocity_change"
+lines = [
+    107,
+    119,
+]
+hash = "sha256:b96d794fd207a639edd52603a1c8fefd26640f685dd5642b97302507971bda78"
+doc_hash = "sha256:1036647e1de0271cfa1f8b9d876cbf2bd0e1df1605fc6a73d43709d828ff1819"
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:c2046514da487e28"
+name = "euler_specific_work"
+qual = "VelocityTriangle::euler_specific_work"
+lines = [
+    121,
+    129,
+]
+hash = "sha256:115a75baf93560ea679bbaa5d57c142b3dfc56e754324a56500454711c11df6b"
+doc_hash = "sha256:a5493da2d56d6fc0f8ef462f8024b2149e53deb3eaf7ba8184f5794a65258e9e"
+callees = ["fn:43f1405df85992e4"]
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:fc117de38008aaba"
+name = "get_blade_speed"
+qual = "VelocityTriangle::get_blade_speed"
+lines = [
+    131,
+    134,
+]
+hash = "sha256:43841d7df0051cc45c5d105201dbc275d8f17f19b57928bf73c582e85dd46359"
+doc_hash = "sha256:1d175fdd27ee1fec9925ae235d186e1bf452710b7c99c19bf847ec27360362fe"
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:ddc7c7ba2e6ee0d1"
+name = "get_axial_velocity"
+qual = "VelocityTriangle::get_axial_velocity"
+lines = [
+    136,
+    139,
+]
+hash = "sha256:15f0fef82a8a172231d488d632d8eaf5ec8292f19e6406ce131c2c99c0cb3d53"
+doc_hash = "sha256:7799d0679599b5071fb02de87d5d7ff18d38d167967300d180dac940d8400cfe"
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:3c722b111e53c464"
+name = "get_absolute_tangential_in"
+qual = "VelocityTriangle::get_absolute_tangential_in"
+lines = [
+    141,
+    144,
+]
+hash = "sha256:7a695ecbe0603a91d92fb97c635faca794e2d295aa9e9e96b7bc04599b30cf57"
+doc_hash = "sha256:69b01b45f379ee11b5de7df3ebe328962d10094ceb8ab3af0e6bb8e1ec347b20"
+uses = ["fn:51e72992b55d92e6"]
+reached_by = ["#13"]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:9c550a22e14eec8f"
+name = "get_absolute_tangential_out"
+qual = "VelocityTriangle::get_absolute_tangential_out"
+lines = [
+    146,
+    149,
+]
+hash = "sha256:9d05346ed83c9e17a1aa03506d4ced2d7d10d11c9a4fde12c25b956c9d92eb8f"
+doc_hash = "sha256:b872f4098c60bcf1dfb198902c3a36eb40ab763fd10e58d5f01a044afc2a9edd"
+uses = ["fn:51e72992b55d92e6"]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:c5a9ee1c7a06df98"
+name = "get_relative_tangential_in"
+qual = "VelocityTriangle::get_relative_tangential_in"
+lines = [
+    151,
+    154,
+]
+hash = "sha256:4de7a7ad91798135760e56ba1e466d8b4d7fc1f0fb8c0f2cdffb3cb83cf4cf29"
+doc_hash = "sha256:db29e13abdee569994cc7fbdb012dea3ab12b62652111c9154597be602e1d0b1"
+uses = ["fn:51e72992b55d92e6"]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:62f6dad307463784"
+name = "get_relative_tangential_out"
+qual = "VelocityTriangle::get_relative_tangential_out"
+lines = [
+    156,
+    159,
+]
+hash = "sha256:f9bab1934d86c0e442e4d79c409390b3abf72516b3cb33596f527f18d4d03f73"
+doc_hash = "sha256:23abd6ea2abb4ec9141bd265ac1679bca35dbc48605c850dd9ecce701de5ff15"
+uses = ["fn:51e72992b55d92e6"]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:f06778b3cff91a74"
+name = "get_relative_angle_in"
+qual = "VelocityTriangle::get_relative_angle_in"
+lines = [
+    161,
+    164,
+]
+hash = "sha256:6cb234a96532dda5beaab11756f060baf228e26b682f1b8d6fe60c1c2416343d"
+doc_hash = "sha256:aac325ef326c7f3946d34ef13a5e1e98a7c5f1d595f1f534d4f6abf0881cb833"
+callees = ["fn:76696d7b3ef9451d"]
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#4",
+    "#10",
+    "#13",
+    "#14",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:be730af746b3316d"
+name = "get_relative_angle_out"
+qual = "VelocityTriangle::get_relative_angle_out"
+lines = [
+    166,
+    169,
+]
+hash = "sha256:a2a5b7c3108b1d83cb0694792ccf556e30e7c515e795c7d3ecb5579c7e18d58f"
+doc_hash = "sha256:ad1c3db298f36794c8d029348ebf28429a4f2ff40a66e11431e7110c7a192f24"
+callees = ["fn:76696d7b3ef9451d"]
+uses = ["fn:51e72992b55d92e6"]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:bbf565480e10daef"
+name = "get_relative_speed_in"
+qual = "VelocityTriangle::get_relative_speed_in"
+lines = [
+    171,
+    174,
+]
+hash = "sha256:6de62c0c282be4352fdc39a6da8b9ac01a20a796d8d5f086fd3bb9b920008d8b"
+doc_hash = "sha256:b7f54a1af63359fad3c7be4eac4dbe0c56269ffd2a96c42db024f58834ac91c4"
+callees = ["fn:8200f89ead546c82"]
+uses = ["fn:51e72992b55d92e6"]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:92c4a16f95a74fb9"
+name = "get_relative_speed_out"
+qual = "VelocityTriangle::get_relative_speed_out"
+lines = [
+    176,
+    179,
+]
+hash = "sha256:7b9c59fff272c706af033478eced25007edf7b344d206127c11a851be37257dc"
+doc_hash = "sha256:4143ff4acf03620ae6ba3fa5f3ba195fe456954cf51eea33ff61585d27293e95"
+callees = ["fn:8200f89ead546c82"]
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:c150d67e8f13d538"
+name = "get_absolute_speed_out"
+qual = "VelocityTriangle::get_absolute_speed_out"
+lines = [
+    181,
+    185,
+]
+hash = "sha256:4aa4705e4640f96a96e2852a134ecff3826788046af364213b1e9088e42cefc3"
+doc_hash = "sha256:9dc5bec98241709a22f7a17d54fe28a650708d1d33b9fb2be60032acaf7ad6c7"
+callees = ["fn:8200f89ead546c82"]
+uses = ["fn:51e72992b55d92e6"]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:3c7cd92b2a222793"
+name = "get_mean_relative_angle"
+qual = "VelocityTriangle::get_mean_relative_angle"
+lines = [
+    187,
+    198,
+]
+hash = "sha256:0b69f5fceb81001bd7708b11d8ca367d3f1b996281223d2c73be1d640a4a9685"
+doc_hash = "sha256:558a5de096645e99a15c3cac6c8ff91527c3048d5a2e3fe421de31237a547f23"
+callees = ["fn:76696d7b3ef9451d"]
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:1d5f243170699af7"
+name = "get_mean_relative_speed"
+qual = "VelocityTriangle::get_mean_relative_speed"
+lines = [
+    200,
+    206,
+]
+hash = "sha256:cdc8f51f613129d32c55b991a64a00d7aaab9823a92c9d82a91e97ca71aae34b"
+doc_hash = "sha256:d50b30327c34e02021024844eb43541c75eec3ae6e5b781a4d656bc0cd91712e"
+callees = ["fn:3c7cd92b2a222793"]
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:56abf2208c715734"
+name = "get_degree_of_reaction"
+qual = "VelocityTriangle::get_degree_of_reaction"
+lines = [
+    208,
+    219,
+]
+hash = "sha256:90247c950face3e78728c3b950716d343962c97ea33b70ad80d98521da3d0d1a"
+doc_hash = "sha256:ad04bc4946023dcb40d5e56cb9983b93c843c5bbac798e4b8b1cfb569fe1d9ff"
+uses = ["fn:51e72992b55d92e6"]
+reached_by = ["#14"]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:76696d7b3ef9451d"
+name = "angle_from_axial"
+qual = "VelocityTriangle::angle_from_axial"
+lines = [
+    221,
+    226,
+]
+hash = "sha256:98ddfe0657c7a0b41350d4f6ef66049802886004a5ed31cadb4e44ee7134209b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true
+
+[[module."velocity_triangle.rs".function]]
+id = "fn:8200f89ead546c82"
+name = "magnitude"
+qual = "VelocityTriangle::magnitude"
+lines = [
+    228,
+    233,
+]
+hash = "sha256:bb20ae6ad67a350825b48c32c71a1cf8d13cd2c253d4fee3866710a649630bf6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:51e72992b55d92e6"]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#15",
+    "#17",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+]
+physical_interface = true

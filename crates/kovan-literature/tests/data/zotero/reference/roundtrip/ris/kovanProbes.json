@@ -1,0 +1,240 @@
+{
+	"all": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					},
+					{
+						"name": "Kovan Collaboration",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					},
+					{
+						"tag": "beta gamma",
+						"type": 1
+					}
+				],
+				"title": "Dates & markup: a kovan probe",
+				"abstractNote": "An abstract with \"quotes\", {braces} and 100% $pecial_chars#.",
+				"date": "2021-05",
+				"DOI": "10.1234/ABC.def",
+				"pages": "101-110",
+				"journalAbbreviation": "J. Test.",
+				"language": "en",
+				"ISSN": "1234-5678",
+				"url": "http://example.com/a?b=c&d=e",
+				"accessDate": "2020-03-04T05:06:07Z",
+				"publicationTitle": "Journal of Testing & Probing",
+				"volume": "12",
+				"issue": "3"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>A <b>child</b> note &amp; an entity.</p>"
+			},
+			{
+				"key": "KVN22223",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A Second Record",
+				"date": "1999-12-31",
+				"numPages": "300",
+				"publisher": "Kovan Press",
+				"ISBN": "978-3-16-148410-0 3161484100",
+				"place": "Singapore"
+			},
+			{
+				"key": "KVN22224",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Ranges and seasons",
+				"date": "2010",
+				"university": "Kovan University",
+				"place": "Kovan",
+				"thesisType": "PhD Thesis"
+			},
+			{
+				"key": "KVN22225",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [],
+				"tags": [],
+				"title": "Summer proceedings",
+				"place": "Singapore",
+				"proceedingsTitle": "Proceedings of the Kovan Conference",
+				"date": "2015",
+				"pages": "5",
+				"conferenceName": "Kovan Conference 2015"
+			}
+		]
+	},
+	"KPROBE22": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"firstName": "John",
+						"lastName": "Smith",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jean",
+						"lastName": "de la Fontaine",
+						"creatorType": "author"
+					},
+					{
+						"name": "Kovan Collaboration",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "alpha",
+						"type": 1
+					},
+					{
+						"tag": "beta gamma",
+						"type": 1
+					}
+				],
+				"title": "Dates & markup: a kovan probe",
+				"abstractNote": "An abstract with \"quotes\", {braces} and 100% $pecial_chars#.",
+				"date": "2021-05",
+				"DOI": "10.1234/ABC.def",
+				"pages": "101-110",
+				"journalAbbreviation": "J. Test.",
+				"language": "en",
+				"ISSN": "1234-5678",
+				"url": "http://example.com/a?b=c&d=e",
+				"accessDate": "2020-03-04T05:06:07Z",
+				"publicationTitle": "Journal of Testing & Probing",
+				"volume": "12",
+				"issue": "3"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "<p>A <b>child</b> note &amp; an entity.</p>"
+			}
+		]
+	},
+	"KPROBE33": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Ed",
+						"lastName": "Editor",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [],
+				"title": "A Second Record",
+				"date": "1999-12-31",
+				"numPages": "300",
+				"publisher": "Kovan Press",
+				"ISBN": "978-3-16-148410-0 3161484100",
+				"place": "Singapore"
+			}
+		]
+	},
+	"KPROBE44": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "thesis",
+				"creators": [
+					{
+						"firstName": "Ann",
+						"lastName": "Student",
+						"creatorType": "author"
+					}
+				],
+				"tags": [],
+				"title": "Ranges and seasons",
+				"date": "2010",
+				"university": "Kovan University",
+				"place": "Kovan",
+				"thesisType": "PhD Thesis"
+			}
+		]
+	},
+	"KPROBE55": {
+		"status": 200,
+		"translatorID": "32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "conferencePaper",
+				"creators": [],
+				"tags": [],
+				"title": "Summer proceedings",
+				"place": "Singapore",
+				"proceedingsTitle": "Proceedings of the Kovan Conference",
+				"date": "2015",
+				"pages": "5",
+				"conferenceName": "Kovan Conference 2015"
+			}
+		]
+	}
+}

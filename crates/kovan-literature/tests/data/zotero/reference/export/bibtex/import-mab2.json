@@ -1,0 +1,6 @@
+{
+	"kovan_probe": {
+		"status": 200,
+		"output": "\n@book{muller_kernreaktortechnik:_1999,\n\taddress = {Berlin},\n\tedition = {2., überarb. Aufl},\n\tseries = {Lehrbuchreihe {Physik} ; 7},\n\ttitle = {Die {Kernreaktortechnik}: eine {Einführung}},\n\tisbn = {3-540-12345-X},\n\turl = {http://example.org/toc.pdf},\n\tlanguage = {ger},\n\tpublisher = {Springer},\n\tauthor = {Lee, Kim and {Deutsche Forschungsgemeinschaft}},\n\teditor = {Müller, Hans},\n\ttranslator = {Schmidt, Anna},\n\tyear = {1999},\n\tnote = {Literaturverz. S. 330 - 340},\n\tkeywords = {Kernreaktor, Geschicht, Deutschlan},\n}\n\n@misc{fassbinder_film_1975,\n\ttitle = {Ein {Film}},\n\tcollaborator = {Fassbinder, Rainer Werner},\n\tyear = {1975},\n}\n\n@unpublished{noauthor_handschrift_nodate,\n\ttitle = {Handschrift ohne {Autor}},\n\tnote = {Diss., Univ. Wien, 1890},\n}\n\n@misc{bauhaus_plakat_nodate,\n\ttitle = {Plakat},\n\tcollaborator = {{Bauhaus}},\n}\n"
+	}
+}

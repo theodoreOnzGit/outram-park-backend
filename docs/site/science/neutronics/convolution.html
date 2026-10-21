@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maths 3½: what is a convolution?</title>
+<meta name="description" content="Neutronics maths track, rung 3 1/2: the chance that two dice total 7 is every way to make 7, chances multiplied and added: that is a convolution. Flip one distribution, slide it along, multiply the overlap and add. It gives the distribution of a sum of independent random things.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="leapr-data.js" defer></script>
+<script src="bound-data.js" defer></script>
+<script src="mathtrack.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics maths track (gh:#906): rung 3 1/2, the convolution page the reader test asked for: dice only, no phonons; flip and slide; sum not average; independence stated. Widget: mathtrack.js #dice. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>Maths 3½: what is a convolution?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>No phonons on this page, only dice. <b>What is the chance that two dice total 7?</b></p>
+<p><b>Count the ways.</b> The pairs that make 7 are (1,6), (2,5), (3,4), (4,3), (5,2), (6,1): 6 ways out of 36, so the chance is 6/36. A total of 2 has one way, (1,1); a total of 12 has one way, (6,6). The triangle of chances that peaks at 7 comes from exactly this counting.</p>
+<p><b>Going through every way to make each total, and adding up their chances, is called a convolution.</b> That is all a convolution is.</p>
+<p class="eq-block">P(total = t) = &Sigma;<sub>k</sub> P(first die = k) &times; P(second die = t &minus; k)</p>
+<p>Read it aloud: for each value k the first die could show, the second die must make up the rest, t &minus; k. Multiply the two chances and add over all k.</p>
+
+<section class="widget-card">
+  <h3>Flip, slide, multiply, add</h3>
+  <div class="widget" id="dice">
+    <canvas aria-label="Two dice's chances, the second flipped and slid under the first, and the chances of each total building up"></canvas>
+  </div>
+  <label class="energy-control"><span>Total <b data-total-out></b></span><input type="range" data-total min="2" max="12" step="1" value="7" aria-label="The total being counted"></label>
+  <p class="actions"><button type="button" class="btn" data-load="0">Fair dice</button> <button type="button" class="btn ghost" data-load="1">Loaded dice</button> <button type="button" class="btn ghost" data-roll="10000">Roll 10 000 times</button></p>
+</section>
+
+<p>The picture: flip the second die's chances back to front, and slide them along under the first. At each position, multiply the bars that overlap and add the products: that sum is one bar of the result. Sliding all the way along builds the whole triangle. <b>Roll 10 000 times</b> shows sampled totals landing on the counted chances: the sampling idea of the next page, in miniature.</p>
+<ul>
+  <li><b>Any two distributions</b> can be convolved the same way; the dice need not be fair.</li>
+  <li><b>With smooth curves</b> instead of bars, the sum becomes an integral, &int; f(k) g(t &minus; k) dk. Same idea: every way to make the total, chances multiplied, added up.</li>
+</ul>
+<p class="note">Two things to keep straight. A convolution gives the distribution of a <b>sum</b> of random things, not an average and not a product. And it assumes they are <b>independent</b>: the dice are rolled separately.</p>
+<h2>Why is this so? Back to phonons</h2>
+<p>A phonon's energy is like a die roll, drawn from the density of states &rho; (page 24). Two phonons together have a total energy, and its chances are the convolution of &rho;-shaped chances. <b>How does that build a real material's scattering?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

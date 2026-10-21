@@ -1,0 +1,105 @@
+schema_version = 1
+kind = "code_folder"
+crate = "farrer-park"
+dir = "crates/farrer-park/tests/common"
+
+[module."mod.rs"]
+path = "test:analytical::common"
+
+[[module."mod.rs".function]]
+id = "fn:6b6c6041066744c4"
+name = "jitter"
+qual = "jitter"
+lines = [
+    28,
+    43,
+]
+hash = "sha256:76bb5d64d11bc27f52534a7aa2f5568b16a77a70a5c428e07f9bcd33aeefe499"
+doc_hash = "sha256:19665804c159076ee55f188ead2edaa77f08568b6174f7a88cd021485cc89519"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:baaa968c84d68d6e"
+name = "linear_settings"
+qual = "linear_settings"
+lines = [
+    45,
+    61,
+]
+hash = "sha256:99e3307c7f2e6c7f29bbe86d1ba905305038c3eacc336e7a6102aef5ead002ca"
+doc_hash = "sha256:fcbcb75426022aa27c7d71ffcfa78e6fc8f15278e2e9e7fbf7f4c253d7564eae"
+uses = [
+    "fn:618e3e6f424c32bf",
+    "fn:9bf263c77be7fdd2",
+    "fn:c9c6f9afbce9f63f",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:83fe4e619f977a4e"
+name = "elastic_newton_with"
+qual = "elastic_newton_with"
+lines = [
+    63,
+    79,
+]
+hash = "sha256:a0ac3a999f8725ecd84d0996ba09f6cca1665f6b96d6d44fc4a6b78775c1ffd0"
+doc_hash = "sha256:89772b720042b8944d35095da90ed7ba65d8e9fe9add4745db86db8c496260af"
+callees = ["fn:baaa968c84d68d6e"]
+uses = [
+    "fn:e330c87916ccb340",
+    "fn:f3ab6285a77c327a",
+]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:3c300aecb5369dea"
+name = "elastic_newton"
+qual = "elastic_newton"
+lines = [
+    81,
+    85,
+]
+hash = "sha256:fe16b8c890ed4a5e83334f494b591397dff96754735de3b72bdbae2672fedf40"
+doc_hash = "sha256:ba7d109c5ce2b94fd348d14f452255be94bf6844353b0244680da6919c82ac09"
+callees = ["fn:83fe4e619f977a4e"]
+uses = ["fn:e330c87916ccb340"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:59dd162595597921"
+name = "mms_newton"
+qual = "mms_newton"
+lines = [
+    87,
+    95,
+]
+hash = "sha256:b98d3c9a0816856ed4c021778b36139b8a2877403d554c86d53a1d8beeaaeb1c"
+doc_hash = "sha256:7f11040949126f067d8ef55b9534cd7f4fbba483c6092d69407c4fb960a6c8c2"
+callees = ["fn:83fe4e619f977a4e"]
+uses = ["fn:e330c87916ccb340"]
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:40eb3b33d2aaa01b"
+name = "order"
+qual = "order"
+lines = [
+    97,
+    101,
+]
+hash = "sha256:95c5c5d88ac9177c19701a43fa1241879fe4705325944c3fd1c93d93dbdf415a"
+doc_hash = "sha256:f3b5b4990fc596ecf006b048f5fa1a6b0b93d3ab0b2379205e3b3af48f8763bc"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:d328a3b85fb51634"
+name = "max_rel_diff"
+qual = "max_rel_diff"
+lines = [
+    103,
+    111,
+]
+hash = "sha256:afdc4fa6210d546aa9631ff69a0f0ee40d4f5319af870f5b7e8041379cc1975f"
+doc_hash = "sha256:4a6c2c1685b1d850ea42c46195c0623a4b3fc85ae9ed4e5c233477f49ab13e30"
+test = true

@@ -215,6 +215,7 @@
 //! stress intensity factors in Pa m^(1/2), angles in radians. Poisson's ratio,
 //! Kolosov's `kappa` and the Legendre abscissa ratio are dimensionless.
 
+use petir::mathf::RealMath;
 use outram_foam_basic_lib::primitives::{SymmTensor, Tensor, Vector3};
 
 use crate::error::{OffbeatError, Result};
@@ -782,8 +783,8 @@ pub fn westergaard_unit_field(
     let cr1 = 1.0 / (4.0 * mu * (two_pi * r).sqrt());
     let cr2 = (r / two_pi).sqrt() / (2.0 * mu);
 
-    let (c_half, s_half) = ((0.5 * theta).cos(), (0.5 * theta).sin());
-    let (c_full, s_full) = (theta.cos(), theta.sin());
+    let (c_half, s_half) = ((0.5 * theta).r_cos(), (0.5 * theta).r_sin());
+    let (c_full, s_full) = (theta.r_cos(), theta.r_sin());
 
     // Displacement, and the polar derivatives (d/dr, d/dtheta), by mode.
     let (u, du_dr, du_dtheta) = match mode {
@@ -844,7 +845,7 @@ pub fn westergaard_unit_field(
 /// `d/dy = sin(t) d/dr + (cos(t)/r) d/dt`, with the `z` column zero because the
 /// leading Williams term is independent of position along the front.
 fn polar_gradient_to_cartesian(du_dr: Vector3, du_dtheta: Vector3, r: f64, theta: f64) -> Tensor {
-    let (c, s) = (theta.cos(), theta.sin());
+    let (c, s) = (theta.r_cos(), theta.r_sin());
     let dx = |dr: f64, dt: f64| c * dr - s / r * dt;
     let dy = |dr: f64, dt: f64| s * dr + c / r * dt;
 
@@ -1030,7 +1031,7 @@ pub fn max_hoop_stress_kink_angle(k1: f64, k2: f64) -> Result<f64> {
                      kink direction",
         });
     }
-    Ok(2.0 * tan_half.atan())
+    Ok(2.0 * tan_half.r_atan())
 }
 
 /// The near-tip hoop stress `sigma_theta_theta` times `sqrt(2 pi r)`.
@@ -1051,8 +1052,8 @@ pub fn max_hoop_stress_kink_angle(k1: f64, k2: f64) -> Result<f64> {
 /// `sqrt(2 pi r)` for a stress in pascals at radius `r` metres.
 #[must_use]
 pub fn scaled_hoop_stress(k1: f64, k2: f64, theta: f64) -> f64 {
-    let c_half = (0.5 * theta).cos();
-    c_half * (k1 * c_half * c_half - 1.5 * k2 * theta.sin())
+    let c_half = (0.5 * theta).r_cos();
+    c_half * (k1 * c_half * c_half - 1.5 * k2 * theta.r_sin())
 }
 
 // =====================================================================
@@ -1542,7 +1543,7 @@ fn legendre_abscissa(s: f64, front_length: f64) -> Result<f64> {
 /// the recurrence, so the port stays a transcription; the recurrence is used in
 /// the tests as an *independent* check.
 fn legendre_polynomial(degree: usize, x: f64) -> Result<f64> {
-    let (x2, x4, x6) = (x * x, x.powi(4), x.powi(6));
+    let (x2, x4, x6) = (x * x, x.r_powi(4), x.r_powi(6));
     Ok(match degree {
         0 => 1.0,
         1 => x,
@@ -1561,7 +1562,7 @@ fn legendre_polynomial(degree: usize, x: f64) -> Result<f64> {
 /// Transcribed from `dplegen.F90`'s `dpleg2..dpleg7` macros, with `P_0' = 0` and
 /// `P_1' = 1` inline there.
 fn legendre_polynomial_derivative(degree: usize, x: f64) -> Result<f64> {
-    let (x2, x3, x4, x5, x6) = (x * x, x.powi(3), x.powi(4), x.powi(5), x.powi(6));
+    let (x2, x3, x4, x5, x6) = (x * x, x.r_powi(3), x.r_powi(4), x.r_powi(5), x.r_powi(6));
     Ok(match degree {
         0 => 0.0,
         1 => 1.0,

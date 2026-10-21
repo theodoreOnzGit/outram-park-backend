@@ -206,6 +206,21 @@ pub struct DigitisedDataset {
     pub x_label: String,
     /// y-axis label as printed on the figure, units included.
     pub y_label: String,
+    /// Which **curve** on the figure these points came from, e.g.
+    /// `"235U thermal"` or `"1600 degC"`. `None` for a figure with a single
+    /// unlabelled curve, which is what every dataset written before this
+    /// field existed is.
+    ///
+    /// A figure routinely carries several curves against one pair of axes,
+    /// and they share everything except their points: the same calibration,
+    /// the same source, the same labels. Naming the curve is what makes a
+    /// multi-series export readable -- two unnamed columns of `y` are not
+    /// evidence of anything.
+    ///
+    /// `#[serde(default)]` keeps [`DATASET_SCHEMA_VERSION`] at 1: an older
+    /// record simply has no series, which is exactly true of it.
+    #[serde(default)]
+    pub series: Option<String>,
     /// Who ran the digitisation (a person, or e.g.
     /// `"kovan-cli digitise (automatic)"` for the unattended CLI).
     pub digitised_by: String,
@@ -273,6 +288,7 @@ impl DigitisedDataset {
             calibration,
             x_label: x_label.into(),
             y_label: y_label.into(),
+            series: None,
             digitised_by: digitised_by.into(),
             digitised_at: digitised_at.into(),
             trace: Some(trace_record),
@@ -402,13 +418,14 @@ impl DigitisedDataset {
         if let Some(t) = &self.trace {
             let _ = writeln!(s, "# engine: {}", t.engine);
         }
-        match &self.review {
-            ReviewStatus::Unreviewed => {
-                let _ = writeln!(s, "# review: UNREVIEWED — points not yet human-verified");
-            }
-            ReviewStatus::Reviewed { by, at, interface } => {
-                let _ = writeln!(s, "# review: reviewed by {by} at {at} via {interface:?}");
-            }
+        // Unreviewed emits NOTHING. The old "UNREVIEWED — points not yet
+        // human-verified" line was stale by the time anyone read it: the
+        // operator places every point by hand against the figure, so there
+        // is no unchecked machine output for the warning to be about
+        // (maintainer, 2026-09-24). A recorded review is still worth
+        // stating, because that carries a name and a date.
+        if let ReviewStatus::Reviewed { by, at, interface } = &self.review {
+            let _ = writeln!(s, "# review: reviewed by {by} at {at} via {interface:?}");
         }
         let _ = writeln!(s, "# per-point uncertainty and origin (auto-traced/hand-placed/hand-corrected) are in the JSON export, not this CSV");
         s.push_str(&self.to_csv_data_only());
@@ -431,6 +448,63 @@ impl DigitisedDataset {
     /// the full per-point record stays in
     /// [`Self::to_json_string`]. [`Self::to_csv_string`] still produces the
     /// commented form for anyone who wants one file carrying both.
+    /// Several series on one figure as a single CSV, with a leading `series`
+    /// column naming each curve.
+    ///
+    /// Long form, not wide: one row per point, carrying its series name.
+    /// Curves on a published figure are digitised at whatever x the reader
+    /// could place a marker, so two series almost never share an x grid --
+    /// a wide table would need interpolation onto a common axis, which is a
+    /// modelling decision and not something an exporter may quietly make.
+    /// Long form loses nothing and invents nothing; `pandas.pivot` or
+    /// `groupby` recovers the wide shape when the caller wants it.
+    ///
+    /// The axis labels head the `x`/`y` columns exactly as in
+    /// [`Self::to_csv_data_only`], and are taken from the **first** series --
+    /// they describe the figure's axes, which every series on it shares.
+    ///
+    /// An unnamed series is written as `series-1`, `series-2`, … by position,
+    /// so the column is never blank. Returns an empty string for no series.
+    pub fn many_to_csv_data_only(series: &[&Self]) -> String {
+        use std::fmt::Write;
+        let Some(first) = series.first() else {
+            return String::new();
+        };
+        let mut s = String::new();
+        let _ = writeln!(
+            s,
+            "series,{},{}",
+            Self::csv_field(&first.x_label, "x"),
+            Self::csv_field(&first.y_label, "y")
+        );
+        for (i, d) in series.iter().enumerate() {
+            let name = d
+                .series
+                .clone()
+                .filter(|n| !n.trim().is_empty())
+                .unwrap_or_else(|| format!("series-{}", i + 1));
+            let name = Self::csv_field(&name, "series");
+            for pt in &d.points {
+                let _ = writeln!(s, "{name},{},{}", pt.x, pt.y);
+            }
+        }
+        s
+    }
+
+    /// RFC 4180 quoting for one CSV field, with `fallback` for a blank one.
+    fn csv_field(label: &str, fallback: &str) -> String {
+        let l = if label.trim().is_empty() {
+            fallback
+        } else {
+            label
+        };
+        if l.contains(',') || l.contains('"') || l.contains('\n') {
+            format!("\"{}\"", l.replace('"', "\"\""))
+        } else {
+            l.to_string()
+        }
+    }
+
     pub fn to_csv_data_only(&self) -> String {
         use std::fmt::Write;
         // The header is the axis labels themselves (maintainer's
@@ -467,11 +541,7 @@ impl DigitisedDataset {
     ///
     /// `method` is the extraction method (e.g. `"manual_digitisation"`) and
     /// `engine` the tool where there was one (e.g. `"kopitiam-ocr"`).
-    pub fn extraction(
-        &self,
-        method: &str,
-        engine: Option<String>,
-    ) -> crate::artifact::Extraction {
+    pub fn extraction(&self, method: &str, engine: Option<String>) -> crate::artifact::Extraction {
         let (x_axis, y_axis) = match &self.calibration {
             PlotCalibration::AxisAligned { x: cx, y: cy } => (
                 Some(format!(
@@ -518,14 +588,15 @@ impl DigitisedDataset {
             y_axis,
             digitised_by: Some(no_hash(self.digitised_by.clone())).filter(|d| !d.is_empty()),
             digitised_at: Some(no_hash(self.digitised_at.clone())).filter(|d| !d.is_empty()),
-            review: Some(match &self.review {
-                ReviewStatus::Unreviewed => {
-                    "UNREVIEWED — points not yet human-verified".to_string()
-                }
+            // `None` when unreviewed, so the artifact's `[extraction]`
+            // table simply has no `review` row rather than a stale warning
+            // about machine output that hand-placed points never were.
+            review: match &self.review {
+                ReviewStatus::Unreviewed => None,
                 ReviewStatus::Reviewed { by, at, interface } => {
-                    format!("reviewed by {by} at {at} via {interface:?}")
+                    Some(format!("reviewed by {by} at {at} via {interface:?}"))
                 }
-            }),
+            },
         }
     }
 
@@ -719,6 +790,15 @@ mod tests {
         )
     }
 
+    /// A bare data point, for the multi-series export tests: only `x`/`y`
+    /// reach the CSV, so the rest is filled with the fixture's own shape.
+    fn point(x: f64, y: f64) -> DigitisedPoint {
+        let mut p = dataset().points[0].clone();
+        p.x = x;
+        p.y = y;
+        p
+    }
+
     #[test]
     fn empty_figure_designation_is_rejected() {
         assert!(FigureSource::new("  ").is_err());
@@ -774,10 +854,45 @@ mod tests {
         }
     }
 
+    /// An unreviewed dataset says **nothing** about review.
+    ///
+    /// The CSV used to carry "UNREVIEWED — points not yet human-verified".
+    /// That was stale: every point is placed by hand against the figure, so
+    /// there is no machine output for the warning to be about, and there is
+    /// no AI review step for it to be pending on (maintainer, 2026-09-24).
+    /// A recorded review still prints, because that carries a name and date.
     #[test]
-    fn unreviewed_status_is_stated_in_csv() {
+    fn an_unreviewed_dataset_says_nothing_about_review() {
         let csv = dataset().to_csv_string();
-        assert!(csv.contains("UNREVIEWED"));
+        assert!(
+            !csv.to_uppercase().contains("UNREVIEWED"),
+            "the stale marker must not come back:\n{csv}"
+        );
+        assert!(!csv.contains("# review:"), "no review line at all:\n{csv}");
+
+        // And `[extraction]` has no `review` row either.
+        assert!(dataset()
+            .extraction("manual_digitisation", None)
+            .review
+            .is_none());
+    }
+
+    /// A real review is still stated, with who and when.
+    #[test]
+    fn a_recorded_review_is_still_printed() {
+        let mut d = dataset();
+        d.review = ReviewStatus::Reviewed {
+            by: "teddy0".into(),
+            at: "2026-09-24T00:00:00Z".into(),
+            interface: ReviewInterface::Gui,
+        };
+        let csv = d.to_csv_string();
+        assert!(csv.contains("reviewed by teddy0"), "{csv}");
+        assert!(d
+            .extraction("manual_digitisation", None)
+            .review
+            .expect("recorded")
+            .contains("teddy0"));
     }
 
     /// Maintainer dogfooding feedback, 2026-09-02: per-point uncertainty
@@ -884,5 +999,81 @@ mod tests {
         // 20676 days after the epoch at 00:00:00 UTC).
         assert_eq!(civil_from_days(20_676), (2026, 8, 11));
         assert_eq!(civil_from_days(0), (1970, 1, 1));
+    }
+
+    /// Several curves on one figure export as ONE long-form table with a
+    /// leading `series` column. Two series almost never share an x grid --
+    /// each was digitised wherever a marker could be placed -- so a wide
+    /// table would need interpolation, which an exporter must not invent.
+    #[test]
+    fn many_series_export_long_form_with_a_series_column() {
+        let mut a = dataset();
+        a.series = Some("235U thermal".into());
+        a.x_label = "Energy (eV)".into();
+        a.y_label = "Cross section (b)".into();
+        a.points = vec![point(1.0, 10.0), point(2.0, 20.0)];
+
+        let mut b = a.clone();
+        b.series = Some("238U".into());
+        // Deliberately a DIFFERENT x grid, as real digitised curves are.
+        b.points = vec![point(1.5, 5.0)];
+
+        let csv = DigitisedDataset::many_to_csv_data_only(&[&a, &b]);
+        let lines: Vec<&str> = csv.lines().collect();
+        assert_eq!(lines[0], "series,Energy (eV),Cross section (b)");
+        assert_eq!(lines[1], "235U thermal,1,10");
+        assert_eq!(lines[2], "235U thermal,2,20");
+        assert_eq!(lines[3], "238U,1.5,5");
+        assert_eq!(lines.len(), 4, "no interpolation, no padding rows");
+    }
+
+    /// An unnamed series still gets a column value, by position -- a blank
+    /// series cell is not something a reader can take apart.
+    #[test]
+    fn an_unnamed_series_is_numbered_by_position() {
+        let mut a = dataset();
+        a.series = None;
+        a.points = vec![point(1.0, 2.0)];
+        let mut b = a.clone();
+        b.series = Some("  ".into()); // whitespace counts as unnamed
+        b.points = vec![point(3.0, 4.0)];
+
+        let csv = DigitisedDataset::many_to_csv_data_only(&[&a, &b]);
+        assert!(csv.contains("series-1,1,2"), "{csv}");
+        assert!(csv.contains("series-2,3,4"), "{csv}");
+    }
+
+    /// A series name containing a comma must be quoted, or the column count
+    /// changes mid-file and every downstream reader misparses it.
+    #[test]
+    fn a_series_name_with_a_comma_is_quoted() {
+        let mut a = dataset();
+        a.series = Some("1600 degC, ramped".into());
+        a.points = vec![point(1.0, 2.0)];
+        let csv = DigitisedDataset::many_to_csv_data_only(&[&a]);
+        assert!(
+            csv.contains("\"1600 degC, ramped\",1,2"),
+            "name must be RFC 4180 quoted: {csv}"
+        );
+    }
+
+    #[test]
+    fn no_series_exports_nothing() {
+        assert_eq!(DigitisedDataset::many_to_csv_data_only(&[]), "");
+    }
+
+    /// The field is additive: a record written before `series` existed still
+    /// deserialises, with no series -- which is exactly true of it. This is
+    /// why `DATASET_SCHEMA_VERSION` stays at 1.
+    #[test]
+    fn a_v1_record_without_a_series_field_still_loads() {
+        let d = dataset();
+        let mut json: serde_json::Value =
+            serde_json::from_str(&d.to_json_string()).expect("round trip");
+        json.as_object_mut().expect("object").remove("series");
+        let back: DigitisedDataset =
+            serde_json::from_value(json).expect("a pre-series record must still load");
+        assert_eq!(back.series, None);
+        assert_eq!(back.schema_version, DATASET_SCHEMA_VERSION);
     }
 }

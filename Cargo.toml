@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "crates/bedok",
-    "crates/petir",
     "crates/chem-eng-real-time-process-control-simulator",
     "crates/teh-o-prke",
     "crates/tuas_boussinesq_solver",
@@ -53,6 +52,9 @@ members = [
     # Consolidated 2026-08-21 from the former separate kovan-cli/kovan-tui
     # crates into binaries `kovan`/`kovan-tui`/`kovan-gui` in one crate.
     "crates/kovan",
+    # kovan-web — web-kovan, the read-only Code Review UI (egui, wasm32 and
+    # native; GitHub #736). AGPL-3.0-only like kovan.
+    "crates/kovan-web",
     # outram-blender — Blender-inspired mesh-authoring frontend (MC Studio +
     # tet-dual Mesh Studio; real mc-export / foam-mesh solver bridges).
     # NAME/TRADEMARK NOTE: workspace convention (op-ahi) is
@@ -81,16 +83,79 @@ members = [
     "crates/outram-park-fork-moltres",
     # raffles — RAFFLES (Risk Analysis Framework For Learning & Ensemble
     # Simulation): independent pure-Rust port of the UQ / risk-analysis core of
-    # RAVEN (Apache-2.0, Idaho National Laboratory). Apache-2.0 -> GPL-3.0 is
+    # RAVEN (Apache-2.0, Idaho National Laboratory). Apache-2.0 -> ~~GPL-3.0~~ AGPL-3.0 is
     # ONE-WAY; see crates/raffles/NOTICE. Owned by Adolphus Lye. SCAFFOLD:
     # module boundaries + provenance only, nothing implemented. Scoping doc:
     # docs/raven-port-scoping.md.
     "crates/raffles",
+    # petir — PETIR (Portable Embedded Toolkit for Iterative Routines): the
+    # workspace's `no_std` numerical core. Translations of the GNU Scientific
+    # Library (GPL-3.0) and GNU Octave (GPL-3.0) numerics, plus the dense
+    # matrix / polynomial / special-function kernels lifted verbatim from
+    # outram-foam-basic-lib and the Octave-derived transfer functions from
+    # chem-eng. `no_std` + `alloc`, libm-backed, no_std `uom` (epic op-petir).
+    "crates/petir",
+    # changi — atmospheric dispersion, plume transport, deposition and ground
+    # contamination ("what happens after release?"). Rust port of FLEXPART v10.4
+    # (GPL-3.0). Research/education/V&V only -- never emergency response or dose
+    # assessment for real populations (docs/ecosystem-naming.md decision 3).
+    "crates/changi",
+    # dhoby-ghaut — DHOBY GHAUT, the GUI home for the meshing toolbox and MC
+    # Studio. PLACEHOLDER (2026-09-17): no GUI implemented, no dependencies.
+    # Exists so the egui/eframe stack has somewhere to live that is NOT
+    # nee_soon (the CLI/headless integration layer, which must stay
+    # Android-buildable) and NOT outram-blender (authoring, no solver deps).
+    "crates/dhoby-ghaut",
+    # kaki-bukit — KAKI BUKIT: Kernel for Agent-based Key-resource Inventory,
+    # Backend for Utility, Key Infrastructure and Transactions. no_std pure-Rust
+    # translation of CYCLUS (fuel-cycle simulation kernel + dynamic resource
+    # exchange) and CYCAMORE (its facility agent library), both BSD-3-Clause
+    # upstream. Numerics come from petir. Named 2026-09-18 by the maintainer,
+    # replacing the provisional `kaki-bukit`. SCAFFOLD, epic op-r830.
+    "crates/kaki-bukit",
+    # sembawang — SEMBAWANG: severe accident progression (melt behaviour,
+    # relocation, vessel failure, MCCI, hydrogen, aerosols) producing the
+    # source term CHANGI consumes. PLACEHOLDER (2026-09-18): reserved name from
+    # docs/ecosystem-naming.md made visible in the workspace; no code, no deps.
+    # The largest of the reserved names -- needs a MELCOR-class port that has
+    # not been begun (docs/melcor-scoping.md).
+    "crates/sembawang",
+    # redhill — REDHILL: Radionuclide Effluent Dispersion solver for
+    # Hydrogeological Infiltration and Leaching through Layers. Groundwater and
+    # geological transport, the far end of SEMBAWANG -> CHANGI -> REDHILL.
+    # PLACEHOLDER (2026-09-18): no code, no deps. Expected to integrate the
+    # EXISTING outram-park-fork-pflotran rather than write a new solver, but
+    # that edge is deliberately not declared until something calls into it.
+    "crates/redhill",
+    # bishan — BISHAN (Building Internal Source-term and Hazard Analysis
+    # Network): Level 2 PSA — in-plant severe-accident progression, containment
+    # and building response, in-building aerosol transport and pool scrubbing,
+    # release categories. PLACEHOLDER (2026-09-28): name from the roadmap
+    # slides made visible in the workspace; no code, no deps. Boundary with
+    # SEMBAWANG's severe-accident scope is an open maintainer decision.
+    "crates/bishan",
+    # pasir-ris — PASIR RIS (Probabilistic Assessment of Safety In
+    # Reactors: Risk & Reliability Integrated Studio): the reserved
+    # integrated risk and reliability GUI over raffles, bishan, sembawang,
+    # changi and buangkok. PLACEHOLDER (2026-10-06): no code yet; depends on
+    # every PSA-related crate, all three levels (maintainer, 2026-10-06).
+    "crates/pasir-ris",
+    # buangkok — BUANGKOK (Bioeffects, Uncertainty and ALARA for Nuclear
+    # Guidance, Keeping Operational Knowledge): radiation dose and bioeffects
+    # for research-grade safety analysis. PLACEHOLDER (2026-09-28): no code, no
+    # deps. The home the maintainer chose for dose, so the dispersion and
+    # source-term crates keep their "no dose" boundary.
+    "crates/buangkok",
+    # dover — DOVER (Deck-based Open-source Visualisation Engine for Reactors).
+    # The low-fidelity counterpart of dhoby-ghaut (maintainer, 2026-09-25).
+    # First model (2026-09-25, merged 2026-09-30): a deck-driven steam-methane-
+    # reforming CSTR on outram-park-fork-dwsim-libs; see crates/dover/README.md.
+    "crates/dover",
 ]
 
-# Shared package metadata. Member crates keep their own `version` (they are
-# published independently) but inherit everything else from here so that the
-# whole OUTRAM PARK suite is released from this repository.
+# Shared package metadata. Member crates keep their own `version` but are
+# published together, in lockstep with the `outram-park` metacrate (gh:#971;
+# see docs/workspace-maintenance.md), and inherit everything else from here.
 [workspace.package]
 edition = "2021"
 authors = [
@@ -101,7 +166,20 @@ authors = [
     "National University of Singapore (NUS)",
     "Repository Contributors",
 ]
-license = "GPL-3.0-only"
+# Relicensed GPL-3.0-only -> AGPL-3.0-only on 2026-10-20 (gh:#973), at the
+# maintainer's direction. Crates whose own code is a translation of a COPYLEFT
+# upstream (OpenFOAM, GSL, cfMesh, DWSIM, FLEXPART, Blender, RustBCA, PFLOTRAN,
+# MOOSE/PRISMS, Moltres, the GNU Octave control package) keep those files'
+# GPL-3.0 headers: a translation is a derivative work and cannot be
+# relicensed. Those crates convey as AGPL COMBINED works under GPLv3 §13 /
+# AGPLv3 §13, and each ships `LICENSE.GPL-3.0` beside its `LICENSE` for the
+# GPL-3.0 parts. Every crate's own NOTICE states which case it is in.
+#
+# CORRECTED 2026-10-20: the five crates once held at GPL-3.0-only (bedok, raffles,
+# tampines, tampines-steam-tables, tuas_boussinesq_solver) were relicensed on the
+# maintainer's direction "All crates AGPLv3"; see
+# docs/relicensing-agpl-2026-10-20.md.
+license = "AGPL-3.0-only"
 homepage = "https://github.com/theodoreOnzGit/outram-park-backend"
 repository = "https://github.com/theodoreOnzGit/outram-park-backend"
 categories = ["science"]
@@ -114,7 +192,7 @@ categories = ["science"]
 approx = "0.5.1"            # 0.6 is only a pre-release; staying on latest stable
 csv = "1.4.0"
 # no_std f64 transcendentals for PETIR: a pure-Rust port of musl libm,
-# MIT OR Apache-2.0 (permissive into GPL-3.0). Required, not optional -- in
+# MIT OR Apache-2.0 (permissive into ~~GPL-3.0~~ AGPL-3.0). Required, not optional -- in
 # no_std, sin/cos/exp/log/sqrt/pow are std-only and GSL calls them throughout.
 # Bonus kept deliberately: ONE fixed implementation means bit-identical
 # transcendentals across platforms, where std dispatches to whatever
@@ -123,12 +201,36 @@ csv = "1.4.0"
 libm = { version = "0.2", default-features = false }
 ndarray = "0.17.2"
 ndarray-linalg = "0.18.1"  # features (openblas/intel-mkl) chosen per-target by each crate
-num-complex = "0.4.6"  # pure-Rust complex arithmetic (CRAM depletion resolvent solves); Android-safe, no BLAS
-peroxide = "0.41.2"
-roots = "0.0.8"
 thiserror = "2.0.18"
-uom = "0.38.0"
-# getrandom is never used directly by this workspace — it arrives transitively
+# uom WITHOUT its `std` feature (gh:#985, maintainer direction 2026-10-20: "I
+# want uom as no std in this workspace. Do the refactor using petir math.").
+# With `std` on, Quantity sqrt/powi/cbrt/hypot/mul_add, Ratio exp/ln/log*/
+# inverse trig and Angle trig dispatch to the platform libm, which differs in
+# the last ulp between glibc/macOS/MSVC -- a #985 determinism leak. Without it
+# uom drops those 27 methods; `petir::uom_math` restores every one on PETIR
+# maths under `r_`-prefixed names. `f32` is listed because it is on anyway:
+# fission-yields-data 0.1.6 enables it, and feature unification turns it on
+# for every crate built alongside that one; listing it keeps this line true.
+# Inheritance can only ADD features, so a member needing more adds it locally.
+# Do NOT add `std` back here: the `r_` names would keep PETIR's route, but
+# petir (which inherits this entry) would link std, breaking its no_std build.
+uom = { version = "0.38.0", default-features = false, features = ["autoconvert", "f32", "f64", "si"] }
+# boon-lay's copy of RustBCA (gh:#876 item 7; src/rustbca/). Versions are
+# upstream RustBCA v3.0.0's. ~~rand and rand_distr~~ REMOVED 2026-10-20
+# (gh:#995): the pieces RustBCA used are ported into `petir::rng`, draw for
+# draw (crates/petir/tests/rng_vs_rand.rs), and nothing else in the workspace
+# depended on them directly.
+# geo, indicatif, itertools: std-only, behind `rustbca-std` (geo also a
+# dev-dependency so upstream's Mesh2D tests run). float-cmp: upstream's test
+# assertions. Licences: geo, itertools MIT OR Apache-2.0;
+# indicatif MIT; float-cmp MIT -- all GPLv3-compatible.
+geo = "0.25.1"
+indicatif = "0.18.6"
+itertools = "0.15.0"
+float-cmp = "0.10.0"
+# ~~getrandom is never used directly by this workspace~~ CORRECTED 2026-10-20
+# (gh:#995): boon-lay's `rustbca-std` feature calls it directly for RustBCA's
+# entropy seed (it was rand's thread_rng). Otherwise it arrives transitively
 # via `peroxide` (which depends on `rand` unconditionally, with no feature to
 # switch it off) and via `uuid`. It is pinned here only so the crates that need
 # a wasm build can enable its `wasm_js` backend feature; see
@@ -138,9 +240,73 @@ getrandom = "0.3"
 # Pure-Rust dense+sparse linear algebra (SIMD via `pulp`, no system BLAS →
 # Android-safe). Used by outram-blender for the large mesh solves (Laplacian
 # editing / ARAP / parameterization); per-element math stays in fixed-size types.
-faer = "0.24"
+#
+# `default-features = false` HERE (GitHub #486, 2026-10-02) so a member can drop
+# faer's `rayon` and `rand` features on wasm32: `rayon` pulls spindle ->
+# atomic-wait (no wasm backend) and `rand` pulls getrandom (needs a wasm feature).
+# Every member therefore names its faer features itself. faer's own defaults are
+# `std`, `rayon`, `sparse-linalg`, `rand`, `npy`; outram-blender and bedok
+# request exactly those on native targets, so nothing changes off wasm.
+faer = { version = "0.24", default-features = false }
+# burn — deep-learning / tensor framework (tracel-ai), declared `no_std`.
+# MIT OR Apache-2.0, i.e. permissive into ~~GPL-3.0~~ AGPL-3.0 (ONE-WAY: our ~~GPL-3.0~~ AGPL-3.0 code
+# cannot flow back to burn).
+#
+# THIS IS THE WORKSPACE'S PYTORCH REPLACEMENT (maintainer direction,
+# 2026-09-16). Where an upstream code this suite ports from reaches for PyTorch,
+# the Rust side reaches for burn, as far as burn will go. First and currently
+# only consumer: `raffles`, whose upstream (RAVEN) backs its machine-learning
+# surrogates with PyTorch — it takes this optionally, behind its own `burn`
+# feature.
+#
+# `default-features = false` DROPS `std`, which is the whole point of declaring
+# it this way and is deliberate, not an oversight:
+#   * it keeps burn on `core` + `alloc` + `libm`, matching PETIR's `no_std`
+#     numerical core and the wasm gate (`scripts/check-wasm.sh`);
+#   * it drops burn's std-only side stack (`dataset`, `network`, `train`,
+#     `sqlite`, `tui`), none of which this workspace wants pulled in by a
+#     library;
+#   * a `std` consumer loses nothing by it — a `no_std` crate compiles and runs
+#     fine inside a `std` binary. Do NOT "fix" this by turning defaults back on;
+#     a crate that genuinely needs `std` adds `features = ["std"]` at its own
+#     `[dependencies]` entry and says why.
+#
+# BACKEND CHOICE IS PER-CRATE, NOT HERE. burn ships no tensor backend with
+# defaults off; a consumer opts into one alongside `burn.workspace = true`. The
+# `no_std`-clean one is `ndarray` (`burn-ndarray` with its own defaults off —
+# pure Rust, libm-backed, no system BLAS). ANDROID / WASM, per the workspace
+# rules: never enable `accelerate`, `blas-netlib`, `openblas`,
+# `openblas-system`, `tch`, `candle`, `cuda` or `rocm` in an unconditional
+# library build — every one of them wants a system BLAS/LAPACK or a C/C++
+# toolchain. burn's `wgpu`/`vulkan`/`metal`/`webgpu` backends are deliberately
+# OUT OF SCOPE for this first pass (maintainer direction, 2026-09-16); when one
+# is wanted it inherits the wgpu rule above — GPU/GUI scope only, behind a
+# feature/example/optional bin under `cfg(not(target_os = "android"))`.
+#
+# MSRV: burn 0.21 declares `rust-version = "1.92"` and `edition = "2024"`, so it
+# raises this workspace's effective toolchain floor to 1.92 for anyone building
+# a crate that inherits it (rustc 1.94.1 here). Note also that upstream has
+# marked `burn-ndarray` deprecated in the 0.22 pre-releases in favour of
+# `burn-flex`/`burn-cpu` — check that before bumping, since `burn-flex` is
+# cubecl-backed and its `no_std` story is not the same.
+burn = { version = "0.21.0", default-features = false }
 serde = { version = "1.0.228", features = ["derive"] }
 serde-xml-rs = "0.8.2"
+# Low-level pull XML parser. `serde-xml-rs` is the right tool for a FIXED
+# schema; the SCRAM Model Exchange Format is not one — its formulas nest
+# arbitrarily and its expression elements are an open set — so
+# `raffles::scram::mef` needs a reader it can drive itself. This costs the
+# build NOTHING new: `xml-rs` 0.8.28 is already in Cargo.lock as
+# `serde-xml-rs`'s own dependency (it appears there under its library name,
+# `xml`). Pure Rust, no C, so it keeps the Android/Termux and wasm builds
+# clean. Upstream SCRAM uses libxml2, which would not.
+xml-rs = "0.8.28"
+# The WHATWG HTML parsing algorithm (Servo; MIT OR Apache-2.0, pure Rust,
+# wasm32- and Android-clean). kovan-literature's Zotero port parses note HTML
+# with it (Note HTML / Note Markdown export, #749), where the translation-
+# server uses jsdom's parse5 (the same algorithm). Pin the major: tree-builder
+# API changes between 0.x releases.
+html5ever = "0.39"
 anyhow = "1.0.100"
 
 # OPC UA client/server — `async-opcua` (github.com/freeopcua/async-opcua), the
@@ -162,8 +328,8 @@ anyhow = "1.0.100"
 # research, and V&V. Nothing here is validated, supported, or claimed fit for
 # reactor operation, control, licensing, or safety-critical use.
 #
-# That is a statement of scope, not a restriction on you: this is GPLv3 software
-# supplied **as-is with no warranty** (GPLv3 §15-16), so downstream use is at the
+# That is a statement of scope, not a restriction on you: this is ~~GPLv3~~ AGPLv3 software
+# supplied **as-is with no warranty** (AGPLv3 §15-16), so downstream use is at the
 # user's own risk and their own responsibility. The project simply does not
 # certify it for operational deployment and will not represent that it is.
 #
@@ -171,9 +337,17 @@ anyhow = "1.0.100"
 # `async-opcua.workspace = true`.
 async-opcua = { version = "0.19.0", default-features = false }
 
+# Human written note: this is an alternative important server client interface 
+# besides OPC-UA
+rust-mqtt = "0.5.1"
+
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
 serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
+# CSL citation formatting (kovan-literature `csl`, GitHub #789): Typst's CSL
+# engine, MIT OR Apache-2.0, pure Rust. Default features (BibLaTeX input,
+# bundled style archive) off; the items come from our own Zotero import as
+# CSL-JSON, and the style and locale files are pinned in kovan-literature/data/csl.
 toml = "0.8"                 # metadata / config
 pulldown-cmark = { version = "0.12", default-features = false }  # the only Markdown parser KOVAN starts with
 ignore = "0.4"               # fd/ripgrep's walker: .gitignore-aware file discovery
@@ -181,6 +355,32 @@ grep-searcher = "0.1"        # ripgrep engine — deterministic text search ...
 grep-regex = "0.1"           # ... its regex matcher
 grep-matcher = "0.1"         # ... shared matcher trait
 regex = "1"                  # pure-Rust, Android-friendly regex — capture extraction in kovan-semantics' ripgrep-first symbol scanner
+# Unicode NFKD/NFC for kovan-discovery's port of Zotero's search normalisation
+# (`normalizeForSearch`, GitHub #751). Already in Cargo.lock (0.1.25, via
+# idna); pure Rust, Android- and wasm-clean.
+unicode-normalization = "0.1"
+# The citeproc-js port's collation (`citeproc::js::locale_compare`, GitHub #795): ICU4X, the
+# same CLDR collation data node's ICU uses for `localeCompare`. Unicode-3.0 licence
+# (permissive, GPL- and AGPL-compatible). Already in Cargo.lock (2.3.x, via hayagriva (since removed, #797) and
+# turso_core), so no new crate enters the tree; pure Rust, wasm- and Android-clean.
+icu_collator = "2"
+icu_locale_core = "2"
+# Locale-specific upper/lower casing (el, lt, tr, az) as V8/ICU does it: the port of
+# citeproc-js CSL.toLocaleUpperCase/LowerCase (GitHub #804). ICU4X; Unicode-3.0 licence
+# (GPL-/AGPL-compatible); pure Rust, wasm- and Android-clean.
+icu_casemap = "2"
+# Decomposition and Cased/Case_Ignorable for the hand-ported ICU Greek upper-casing
+# (citeproc::greek_upper, #804). Unicode-3.0; already in Cargo.lock via icu_collator.
+icu_normalizer = "2"
+icu_properties = "2"
+# Rust parser for kovan's review stamps (GitHub #739): locating a function by
+# its code-walk path and hashing its tokens. Already in Cargo.lock through the
+# proc-macro stack (syn 2.0.118, proc-macro2 1.0.106, quote 1.0.45), so no new
+# crate enters the tree; pure Rust, Android- and wasm-clean. `span-locations`
+# (set by the consumer) gives line numbers outside a proc macro.
+syn = { version = "2.0", default-features = false }
+proc-macro2 = "1.0"
+quote = { version = "1.0", default-features = false }
 # gitoxide (gix) *library* — pure-Rust git implementation (no libgit2/C), so it
 # builds clean on Android and stays offline (reads the local repo only). Powers
 # kovan-discovery's git-awareness module (repo discover/open, HEAD/branch,
@@ -205,7 +405,24 @@ pdf-extract = "0.12"         # deterministic pure-Rust PDF text extraction
 lopdf = "0.42"               # low-level PDF object model (metadata + assets)
 clap = { version = "4.5", features = ["derive"] }  # kovan (agent-facing CLI binary)
 which = "8.0"          # kovan's `setup`: PATH-presence check for curated external tools (pure-Rust, Android-fine)
+dunce = "1.0"          # kovan: Windows paths without the `\\?\` prefix for child processes (gh #834); std only, already in Cargo.lock via egui-file-dialog and gix-discover
 tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/search tests (pure-Rust, Android-friendly)
+# Reading a Zotero data folder's zotero.sqlite (kovan-literature `zotero::local_library`,
+# GitHub #750). Since 2026-10-07 the reader is pure Rust: turso_core is Turso's Rust
+# rewrite of SQLite (MIT, https://github.com/tursodatabase/turso), reading the SQLite
+# file format and WAL from memory, so it builds and runs on wasm32-unknown-unknown and
+# Android/Termux. Every C-backed feature is OFF: default-features = false drops `simd`
+# (simsimd, C) and mimalloc/io_uring/tantivy are not enabled; `pure-rust-crypto` makes
+# the mandatory `aegis` dependency skip its C build (its build.rs returns before `cc`
+# when `pure-rust` is set; on wasm32 it would otherwise link a prebuilt C archive).
+# `fs`, `uuid` and `json` are needed for turso_core 0.8.2 to compile at all (checked
+# 2026-10-07); `autovacuum` reads auto-vacuum databases. The `turso` crate (async API
+# over turso_core) is not used: the reader is synchronous.
+turso_core = { version = "0.8.2", default-features = false, features = ["pure-rust-crypto", "fs", "uuid", "json", "autovacuum"] }
+# Real SQLite, compiled from C (`bundled`): since 2026-10-07 ONLY a native
+# dev-dependency of kovan-literature, which builds Zotero test databases with it and
+# uses it as the code-to-code reference for the turso reader. No library depends on it.
+rusqlite = { version = "0.40", features = ["bundled"] }
 # TUI stack for the kovan-tui binary (human-facing). Pulled ONLY under a
 # `cfg(not(target_os = "android"))` table — TUI is desktop scope per the Android
 # rule; the libraries stay headless/Android-buildable. ratatui re-exports its
@@ -213,7 +430,11 @@ tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/s
 ratatui = "0.29"
 log = "0.4"
 rayon = "1.11.0"
-fission-yields-data = "0.1.4"
+# 0.1.6 (gh:#985): the first no_std + alloc release; its uom is
+# `default-features = false, features = ["autoconvert","f32","f64","si"]`.
+# 0.1.5 declared a bare `uom = "0.38"`, i.e. with `std`, which feature-unified
+# `uom/std` back on for the whole workspace.
+fission-yields-data = "0.1.6"
 openmc-endf-8-depletion-lib-a = "1.0.0"
 openmc-endf-8-depletion-lib-b = "1.0.0"
 # pure-Rust HDF5 (no system libhdf5) — staged for the Windowed Multipole (WMP)
@@ -237,6 +458,24 @@ fs2 = "0.4"            # advisory file locks (anti-thundering-herd for parallel 
 # deflate via flate2's miniz_oxide backend — no system zlib.
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 
+# kovan review-stamp signing (GitHub #762; design on #739, 2026-10-07): one
+# ed25519 key per reviewer, generated inside kovan, its private half stored
+# passphrase-encrypted (argon2id -> AES-256-GCM). All pure Rust (RustCrypto /
+# dalek), no C, no OpenSSL: wasm32 builds the verification half, Android the
+# whole. ed25519-dalek: BSD-3-Clause; argon2, aes-gcm, base64, zeroize:
+# MIT OR Apache-2.0. All GPLv3/AGPLv3-compatible.
+ed25519-dalek = "2.2"
+argon2 = "0.5"
+aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
+base64 = "0.22"
+zeroize = "1.8"
+# The local UTC offset for a stamp's `signed_at` (GitHub #783, maintainer
+# 2026-10-07): kovan signs in the reviewer's local time, e.g.
+# 2026-10-08T07:30:00+08:00. Pure Rust; the zone comes from iana-time-zone
+# (/etc/localtime on Linux, a system property on Android, the OS API on
+# Windows/macOS). Already in Cargo.lock via async-opcua. MIT OR Apache-2.0.
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+
 # GUI / example stack — egui ecosystem pinned to the matched 0.36 series
 # (egui 0.36 requires Rust >= 1.95). Bumped from 0.34.3 (op-9vo6.11,
 # GitHub issue #35): `kopitiam-pdf` 0.3.2's reusable reader
@@ -254,17 +493,21 @@ eframe = { version = "0.36.1", default-features = false, features = [
 ] }
 egui_plot = "0.37.0"  # 0.37 pairs with egui 0.36 (rust-version 1.95 matches)
 egui_extras = { version = "0.36.1", features = ["all_loaders"] }
+# Browser builds of the dhoby-ghaut web demos (wasm32-only dev-dependencies).
+# These are exactly the versions eframe 0.36.1 already resolves to in
+# Cargo.lock, so declaring them moves nothing. The `wasm-bindgen` CLI that
+# post-processes the .wasm must match the `wasm-bindgen` crate EXACTLY.
+wasm-bindgen = "0.2.127"
+wasm-bindgen-futures = "0.4.77"
+web-sys = "0.3.104"
+js-sys = "0.3.104"
 # In-app file/directory picker widget (pure egui, no GTK/native-dialog
 # backend). 0.15.0 is the first version pinned to egui 0.36.
 egui-file-dialog = "0.15.0"
-# Interactive graph widget (pan/zoom/node-drag/selection/hit-testing/layout)
-# for the Mindmap view (op-jvjc, GH issue #35 checkpoint S9), replacing
-# mindmap.rs's hand-rolled painter-based renderer. 0.32.0 pins
-# `egui = "0.36"` (default-features off, "persistence" feature) -- an exact
-# match to this workspace's own egui pin above -- and `petgraph = "0.8"`
-# (see the petgraph bump above). KOVAN's KnowledgeIndex/KnowledgeGraph stay
-# the sole authoritative data model; egui_graphs is presentation-only.
-egui_graphs = "0.32.0"
+# ~~egui_graphs = "0.32.0"~~ -- REMOVED 2026-09-22 (GitHub issue #243, epic
+# #241): kovan's Mindmap now draws its own cards on a scroll-area canvas. It
+# had no other consumer. The petgraph bump above was made for it and is left
+# as it stands.
 env_logger = "0.11.10"
 image = { version = "0.25.10", features = ["jpeg", "png"] }
 local-ip-address = "0.6.13"
@@ -316,56 +559,83 @@ tokio = { version = "1.53", features = [
 
 # internal workspace crates — depend on these by path so members use the
 # in-tree copy rather than a crates.io release.
-chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.1" }
-outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.0" }
-teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.5" }
-tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.6" }
-petir = { path = "crates/petir", version = "0.0.0" }
-tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.8" }
-outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.3" }
-raffles                      = { path = "crates/raffles",                      version = "0.0.0" }
-outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
-outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.3" }
-outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.2" }
-outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.0" }
-outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.1.0" }
-outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.4" }
-outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.3" }
-boon-lay            = { path = "crates/boon-lay",            version = "0.1.3" }
+chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-time-process-control-simulator", version = "0.2.4" }
+outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.1" }
+teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.7" }
+tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.8" }
+tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.3.0" }
+outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.7" }
+raffles                      = { path = "crates/raffles",                      version = "0.0.3" }
+petir                        = { path = "crates/petir",                        version = "0.0.3" }
+changi                       = { path = "crates/changi",                       version = "0.0.2" }
+bishan                       = { path = "crates/bishan",                       version = "0.0.2" }
+buangkok                     = { path = "crates/buangkok",                     version = "0.0.1" }
+sembawang                    = { path = "crates/sembawang",                    version = "0.0.1" }
+redhill                      = { path = "crates/redhill",                      version = "0.0.2" }
+outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.4" }
+outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.6" }
+outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.4" }
+outram-foam-mesh             = { path = "crates/outram-foam-mesh",             version = "0.1.2" }
+# FEM structural mechanics; first workspace-dep consumer: outram-blender's
+# optional `fem-export` bridge (GitHub #492).
+farrer-park                  = { path = "crates/farrer-park",                  version = "0.0.3" }
+outram-foam-cli              = { path = "crates/outram-foam-cli",              version = "0.0.1" }
+outram-mc-libs         = { path = "crates/outram-mc-libs",         version = "0.0.6" }
+# Granular DEM. `default-features = false` HERE, at the root, because workspace
+# inheritance can only ADD features: a member writing `default-features = false`
+# against a default-on root entry is silently ignored. Its defaults are
+# `long-tests` (its own slow tests -- meaningless to a dependent) and `gnn`
+# (pulls `raffles`); a member that wants either names it. First consumer:
+# outram-mc-libs (2026-10-02), for DEM-settled pebble beds.
+outram-park-fork-liggghts = { path = "crates/outram-park-fork-liggghts", version = "0.0.2", default-features = false }
+outram-park-fork-dwsim-libs = { path = "crates/outram-park-fork-dwsim-libs", version = "0.0.4" }
+boon-lay            = { path = "crates/boon-lay",            version = "0.2.1" }
 # All nuclear-data representation (ENDF processing, WMP + Faddeeva, lean ACE)
 # lives here; outram-mc-libs and nee_soon pull cross sections from it.
-njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.3" }
+njoy-outram-park-fork = { path = "crates/njoy-outram-park-fork", version = "0.0.6" }
 # Coupling / integration layer — composes njoy-outram-park-fork, outram-mc-libs and
 # teh-o-prke behind one object-oriented facade (scaffold).
-nee_soon            = { path = "crates/nee_soon",            version = "0.0.2" }
-outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.2" }
+nee_soon            = { path = "crates/nee_soon",            version = "0.0.4" }
+outram-park-fork-coolprop = { path = "crates/outram-park-fork-coolprop", version = "0.1.3" }
 # Central thermal-hydraulic framework — composes tuas_boussinesq_solver,
 # outram-park-fork-coolprop, tampines-steam-tables, outram-foam-basic-lib and
 # chem-eng-real-time-process-control-simulator (scaffold).
-tampines            = { path = "crates/tampines",            version = "0.0.2" }
+tampines            = { path = "crates/tampines",            version = "0.0.3" }
 # Reusable visualization framework — visual process objects whose rendering
 # derives directly from tampines/nee_soon physics state (scaffold).
-outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.2" }
+outram-park-digital-twin-engine = { path = "crates/outram-park-digital-twin-engine", version = "0.0.3" }
 
 # KOVAN knowledge-layer crates — depend on these by path (in-tree).
 # Publish batch 1 (op-3b7h, crates.io "burst of ~5 new names" limit):
 # common/discovery/codegen/literature/semantics bumped to 0.0.1 together —
 # keep each pin here in sync with that crate's own `version` (workspace-
 # maintenance.md's "drift" warning) whenever one changes.
-kovan-common     = { path = "crates/kovan-common",     version = "0.0.1" }
-kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.1" }
-kovan-literature = { path = "crates/kovan-literature", version = "0.0.1" }
-kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.1" }
-kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.1" }
+kovan-common     = { path = "crates/kovan-common",     version = "0.0.4" }
+kovan-discovery  = { path = "crates/kovan-discovery",  version = "0.0.4" }
+kovan-literature = { path = "crates/kovan-literature", version = "0.0.3" }
+kovan-semantics  = { path = "crates/kovan-semantics",  version = "0.0.3" }
+kovan-codegen    = { path = "crates/kovan-codegen",    version = "0.0.4" }
 # Batch 2 (after batch 1 is live + the rate-limit cooldown) — not bumped yet.
-kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.0" }
+kovan-metrics    = { path = "crates/kovan-metrics",    version = "0.0.3" }
+# The Code Review UI (egui). Desktop kovan embeds it (GitHub #820).
+kovan-web        = { path = "crates/kovan-web",        version = "0.0.3" }
+# The line lexer kopitiam-neovim highlights with (pure Rust, no dependencies,
+# already in Cargo.lock through kopitiam-neovim). Used directly since
+# 2026-10-13 (#857) to colour source in kovan's review views and its kvim
+# editor, with no language server.
+kopitiam-syntax  = "0.2.5"
 
 # outram-blender — Blender-inspired mesh-authoring frontend. Pure-Rust,
 # Android-safe by default. Two opt-in solver bridges are now real (not stubs):
 # `mc-export` (outram-mc-libs CSG → Monte Carlo, the MC Studio GUI) and
 # `foam-mesh` (outram-park-fork-cfmesh tet-dual pipeline → OpenFOAM polyMesh,
 # the Mesh Studio GUI).
-outram-blender   = { path = "crates/outram-blender",   version = "0.0.4" }
+#
+# `default-features = false` (GitHub #486, 2026-10-02): outram-mc-libs takes
+# blender's geometry description without blender's default-on `gpu` feature
+# (wgpu); outram-mc has its own GPU path. A member that wants blender's GPU
+# vertex transform names `features = ["gpu"]`.
+outram-blender   = { path = "crates/outram-blender",   version = "0.0.6", default-features = false }
 
 # outram-park-fork-cfmesh — Rust port of cfMesh (GPL-3.0): the volume-mesh
 # generation layer (tet / polyhedral cells + boundary layers) that sits between
@@ -373,7 +643,7 @@ outram-blender   = { path = "crates/outram-blender",   version = "0.0.4" }
 # Android-safe by default; its `foam-export` feature adds the (BLAS-free)
 # outram-foam-basic-lib polyMesh writer. Consumed by outram-blender's optional
 # `foam-mesh` bridge.
-outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.1" }
+outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "0.0.3" }
 
 # Optimize all dependencies even in debug builds — the thermal-hydraulic
 # solvers are expensive, so unoptimized deps make tests painfully slow.
@@ -381,3 +651,79 @@ outram-park-fork-cfmesh = { path = "crates/outram-park-fork-cfmesh", version = "
 # workspace root.)
 [profile.dev.package."*"]
 opt-level = 2
+
+# Integer overflow checks ON in release (GitHub #761, maintainer approval
+# 2026-10-07: "have them on then, though sometimes the LCG does integer
+# overflow intentionally").
+#
+# Rust's release profile defaults to `overflow-checks = false`, and the
+# workspace rule is "everything is release", so before this line every build,
+# test and V&V run here wrapped integer overflow silently (two's complement)
+# instead of panicking. An overflowing index, counter or size then gives a
+# wrong value rather than an error -- a defect a V&V number can absorb unseen.
+# With checks on, integer `+ - *`, `pow`, unary `-` on MIN, and a shift by at
+# least the bit width panic. `as` casts still truncate silently (checks do not
+# cover them) and floats are unaffected.
+#
+# Code that wraps ON PURPOSE (LCG/PCG state, hashes, checksums) must say so
+# with `wrapping_*` or `std::num::Wrapping<T>`; the checks then enforce that
+# every other wrap is a bug. A panic under this setting is a finding to fix,
+# never to silence.
+#
+# Measured cost (2026-10-07, 16-core desktop, RAYON_NUM_THREADS=6, 3 runs
+# each, median wall time off -> on; full table in #761):
+#   NJOY RECONR+BROADR (U-234/235/238, smoke Godiva)  35.1 s -> 38.0 s  +8.3 %
+#   Godiva HIGH smoke test, whole                     37.8 s -> 40.7 s  +7.7 %
+#   Edwards blowdown (tampines drift flux)            15.8 s -> 16.2 s  +2.7 %
+#   outram-foam cavity + Sod smoke target             12.0 s -> 12.1 s  +0.8 %
+#   MC transport (Godiva HIGH 2.6 s; LOW ex. 0.58 s)  unchanged at 0.1 s / 0.01 s
+# Run-to-run spread was <= 0.15 s on every case, and every printed result
+# (k_eff, RMSE, plateau) was identical with the checks on. The cost is
+# largest on NJOY reconstruction and negligible on the transport and CFD loops.
+#
+# Every other profile that `inherits = "release"` (e.g. `profiling` below)
+# inherits this too, so a profile is always of the checked program.
+[profile.release]
+overflow-checks = true
+
+# Profiling: RELEASE codegen with symbols, for `perf` / `cargo flamegraph`.
+#
+# This is NOT a debug profile and does not relax the workspace's "everything is
+# release" rule -- `inherits = "release"` means opt-level 3, the same LLVM
+# pipeline and the same generated code as a release build. The only additions
+# are DWARF line tables (`debug = 2`) and unstripped symbols, so `perf` can
+# attribute samples to functions and lines instead of to bare addresses.
+#
+# It exists as a separate profile rather than as `debug = true` on `release`
+# precisely so a profiling run cannot change what a release build is: turning
+# debug info on for `release` would rebuild every `target/release` artifact and
+# inflate the tree the 2026-09-19 release-only consolidation shrank.
+#
+# Use with frame pointers, which release omits and `perf` needs to walk stacks:
+#
+#     RUSTFLAGS="-C force-frame-pointers=yes" \
+#       cargo flamegraph --profile profiling --example htgr_sim_v1 -- --headless 12000 600
+#
+# `scripts/profile-icsbep.sh` (perf + callgrind on the four ICSBEP examples)
+# builds with this profile too, into `target/profiling/`.
+#
+# `debug = 2` rather than `true` (== 2) only to be explicit about full DWARF;
+# `debug = 1` gives line tables without variables and is enough for a
+# flamegraph, but not for `perf annotate` on a hot loop.
+[profile.profiling]
+inherits = "release"
+# Stated explicitly although `inherits = "release"` already carries it (#761,
+# 2026-10-07): a profile of the program with the checks removed would not be
+# a profile of the program the workspace runs.
+overflow-checks = true
+debug = 2
+strip = "none"
+# Inlining is what makes release fast and flamegraphs confusing: an inlined
+# frame is attributed to its caller. `perf` recovers them from DWARF, so this
+# stays at the release default rather than being lowered -- a profile of code
+# with inlining disabled is a profile of a program nobody ships.
+#
+# Also used by `scripts/profile-icsbep.sh` (perf + valgrind on the ICSBEP
+# cases), which adds `-C force-frame-pointers=yes`. That branch had defined
+# this profile with `debug = "line-tables-only"`; the merge keeps `debug = 2`,
+# a superset, so the script is unaffected.

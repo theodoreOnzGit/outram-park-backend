@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Which nucleus did the neutron hit?</title>
+<meta name="description" content="Neutronics, page 42: BROADR fixes how often a neutron meets a moving nucleus, not which nucleus it met. The transport code draws the target's velocity at each collision from the free gas, weighted by the relative speed. Drag the nucleus, temperature and neutron energy and see which targets get hit.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="dbrc-data.js" defer></script>
+<script src="dbrc.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906), maintainer's arc of 2026-10-18: where we are (two products), the rate versus the partner, the free gas target sampling. Widget: dbrc.js "svt", a port of crates/outram-mc-libs/src/physics/scatter.rs sample_cxs_target (OpenMC sample_cxs_target_velocity, physics.cpp:1024); the curves are exact integrals, the bars are 40 000 sampled targets, both checked in check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Which nucleus did the neutron hit?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+
+<h2>Where we are: two products</h2>
+<p>The lessons so far built two different things, for two different energy ranges:</p>
+<ul>
+  <li><b>Above the thermal range, every nuclide is treated as a gas of lone atoms.</b> NJOY's BROADR takes the 0&nbsp;K cross section and averages it over the motion of the nuclei (page 22). The result is one ordinary cross-section table per nuclide and temperature.</li>
+  <li><b>In the thermal range, atoms that are bound</b> (hydrogen in water, carbon in graphite) are described by the scattering law S(&alpha;,&beta;), which LEAPR makes from the phonon spectrum (pages 23&ndash;41) and THERMR turns into cross sections and outgoing-energy distributions.</li>
+</ul>
+<p>These are not applied on top of each other. Each covers its own energy range; page 45 shows where one hands over to the other. This page and the next stay on the first, the free gas.</p>
+
+<h2>BROADR fixed the rate, not the partner</h2>
+<p>BROADR answers one question: <i>how often does a neutron of energy E meet a nucleus, averaged over all the nuclei moving about?</i> That is a rate, and it is what the broadened cross section carries.</p>
+<p>A collision then has to happen, and what comes out of it (the neutron's new energy and direction) depends on <b>which</b> nucleus it was: one moving toward the neutron, away from it, fast or slow. The broadened table has averaged that away. <b>So the Monte Carlo code decides it at the moment of the collision</b>, by drawing the target's velocity <b>V</b> from the free gas.</p>
+<p class="predict"><b>Predict first:</b> the gas is a Maxwell&ndash;Boltzmann crowd. Are the nuclei a neutron hits a fair sample of that crowd, or are some more likely to be hit than others?</p>
+
+<h2>Fast closers are hit more often</h2>
+<p>A nucleus rushing at the neutron closes the gap faster, so it is met more often than one drifting away. The chance of meeting a given nucleus is proportional to the relative speed |<b>v</b>&nbsp;&minus;&nbsp;<b>V</b>|. The targets that actually get hit follow</p>
+<p class="eq-block">p(<b>V</b>) &prop; |<b>v</b> &minus; <b>V</b>| &middot; M(<b>V</b>)</p>
+<p>with M(<b>V</b>) the Maxwell&ndash;Boltzmann density of the gas. It is the same product that sat inside BROADR's integral on page 22, <i>without</i> the cross section &sigma;(|<b>v</b>&minus;<b>V</b>|) that integral also carried. Dropping it is the <b>constant cross-section approximation</b> (CXS): the cross section is taken to be flat across the spread of relative speeds the target can produce. The next page asks when that is not true.</p>
+
+<section class="widget-card">
+  <h3>The nuclei that get hit</h3>
+  <div class="widget" id="svt">
+    <canvas aria-label="Histogram of the speeds of the target nuclei a neutron hits, against the speeds of the gas as it sits, on a linear axis"></canvas>
+  </div>
+  <p class="note">Speeds are in units of the target's own thermal speed, so the gas curve is the same for every nucleus; what changes is where the neutron sits on the axis. The bars are 40&thinsp;000 targets drawn with the transport code's method; the solid curve is the exact integral of y<sup>2</sup>e<sup>&minus;y<sup>2</sup></sup>&middot;&lang;|v&minus;V|&rang;. The widget is a JavaScript port of <code>sample_cxs_target</code> in <code>outram-mc-libs</code>, checked against the integral in <code>check-physics.js</code>. Masses are ENDF/B-VIII.0 atomic weight ratios <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>.</p>
+</section>
+
+<p>Three things to see. The number that matters is where the neutron sits on the axis (the readout gives it): its speed in units of the target's own thermal speed.</p>
+<ul>
+  <li><b>Light target, slow neutron.</b> A 0.0253&nbsp;eV neutron on H-1 is about as fast as the hydrogen nuclei (1.00 thermal speeds). Then <b data-toward="h1,0.0253">63.0</b>&nbsp;% of the nuclei it hits are moving toward it, against 50&nbsp;% of the gas, and the hit curve visibly leans away from the gas curve.</li>
+  <li><b>Heavy target.</b> A uranium nucleus is slow: even a 0.0253&nbsp;eV neutron is 15 of its thermal speeds, and a 6.5&nbsp;eV one is 246. The relative speed then hardly depends on which nucleus it is, the two curves sit on top of each other, and <b data-toward="u238,6.5">50.2</b>&nbsp;% of the hit nuclei move toward the neutron, the same as the gas within the draw's noise (&plusmn;0.25&nbsp;%).</li>
+  <li><b>Raise the energy</b> on any target and the hit crowd tends to the gas as it sits: the thermal motion of the nuclei becomes a small blur on a fast neutron's own speed (page 3).</li>
+</ul>
+
+<h2>How the code draws one</h2>
+<p>It does not integrate anything. <code>sample_cxs_target</code> draws a speed from a two-branch mixture of Maxwellian-like densities, draws a direction, and keeps the pair with probability |<b>v</b>&minus;<b>V</b>|/(v+V). The kept pairs follow the density above exactly; the check on this page compares 200&thinsp;000 of them with the integral (&chi;<sup>2</sup> per degree of freedom 0.94 on 2026-10-18). It is a port of OpenMC's <code>sample_cxs_target_velocity</code> <a href="#ref-romano2015openmc">(Romano et al., 2015)</a>.</p>
+<p>The collision itself is then ordinary two-body kinematics (page 2) in the centre-of-mass frame of the neutron and <i>this</i> nucleus, rotated by the scattering angle the evaluation gives (page 7) and turned back into the laboratory frame. The neutron can leave with more energy than it came with: that is <b>up-scattering</b>, impossible off a nucleus at rest.</p>
+<details class="optional">
+  <summary>Deeper: when is the target at rest instead?</summary>
+  <p>Above 400&thinsp;kT, for any nuclide heavier than a neutron, the code skips the sampling and treats the nucleus as at rest (<code>FREE_GAS_THRESHOLD = 400</code>, <code>scatter.rs:210</code>, OpenMC's constant of the same name). At 293.6&nbsp;K that is about 10.1&nbsp;eV. A nuclide that carries a 0&nbsp;K elastic table, which is the next page's subject, is at rest only above its own limit, 1&nbsp;keV by default.</p>
+</details>
+
+<h2>Next question</h2>
+<p>The draw above weights each target by how fast it closes. It does not weigh it by <b>how likely that encounter is to scatter</b>. Next to a sharp resonance of a heavy nucleus, that is a very different thing.</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-romano2015openmc" style="padding-left: 2em; text-indent: -2em;">Romano, P. K., Horelik, N. E., Herman, B. R., Nelson, A. G., Forget, B., &#38; Smith, K. (2015). OpenMC: A state-of-the-art Monte Carlo code for research and development. <i>Annals of Nuclear Energy</i>, <i>82</i>, 90–97.</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

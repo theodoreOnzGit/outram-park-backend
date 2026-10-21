@@ -78,6 +78,7 @@
 //! the overall reaction order, exactly as in DWSIM (which leaves `A` and the
 //! rate's `VelUnit` to the user).
 
+use petir::mathf::RealMath;
 /// Universal gas constant `R` [J/(mol·K)].
 ///
 /// The literal `8.314` matches DWSIM's hard-coded value in the reactor rate
@@ -118,8 +119,10 @@ pub enum ReactionKind {
     Equilibrium,
     /// Arrhenius power-law rate kinetics.
     Kinetic,
-    /// Heterogeneous catalytic (Langmuir–Hinshelwood in DWSIM; power-law
-    /// placeholder here — see the type-level note).
+    /// Heterogeneous catalytic: Langmuir–Hinshelwood rate per kg of catalyst.
+    /// ~~power-law placeholder here~~ **CORRECTED 2026-10-02** — the CSTR and
+    /// PFR now evaluate [`Reaction::langmuir_hinshelwood_rate`] and scale it by
+    /// the catalyst mass / bed loading, as upstream does.
     HeterogeneousCatalytic,
 }
 
@@ -139,7 +142,12 @@ pub enum ReactionKind {
 pub enum ReactionBasis {
     /// Activity `aᵢ = γᵢ xᵢ` (ideal `γᵢ = 1` in this port).
     Activity,
-    /// Fugacity `fᵢ = φᵢ yᵢ P` (ideal `φᵢ = 1` in this port).
+    /// Fugacity, as upstream uses it in an equilibrium expression: the
+    /// dimensionless `fᵢ/P0 = φᵢ yᵢ P / P0`, `P0 = 101 325 Pa`
+    /// (`Equilibrium.vb:338-339`; ideal `φᵢ = 1` in this port). ~~`fᵢ = φᵢ yᵢ P`~~
+    /// **CORRECTED 2026-10-02** — the `/P0` was missing here, and the
+    /// equilibrium reactor returned plain `yᵢ` for this basis until the same
+    /// change (`tests/upstream_equilibrium_parity.rs`).
     Fugacity,
     /// Molar concentration `Cᵢ` [mol/m³]. The default kinetic basis.
     #[default]
@@ -259,11 +267,11 @@ impl EquilibriumConstant {
             EquilibriumConstant::Constant(k0) => k0,
             EquilibriumConstant::GibbsVantHoff { delta_h, delta_s } => {
                 let delta_g = delta_h - temperature_k * delta_s;
-                (-delta_g / (R_GAS * temperature_k)).exp()
+                (-delta_g / (R_GAS * temperature_k)).r_exp()
             }
             EquilibriumConstant::LnPolynomial { a, b, c, d } => {
-                let ln_k = a + b / temperature_k + c * temperature_k.ln() + d * temperature_k;
-                ln_k.exp()
+                let ln_k = a + b / temperature_k + c * temperature_k.r_ln() + d * temperature_k;
+                ln_k.r_exp()
             }
         }
     }
@@ -326,7 +334,7 @@ impl AdsorptionTerm {
     /// `8.314`), consistent with the reaction's rate constants.
     #[must_use]
     pub fn adsorption_constant(&self, temperature_k: f64) -> f64 {
-        self.a_ads * (-self.e_ads / (R_GAS * temperature_k)).exp()
+        self.a_ads * (-self.e_ads / (R_GAS * temperature_k)).r_exp()
     }
 
     /// This term's contribution `K_j(T) · C_j^{order}` \[-\] to the LH
@@ -339,7 +347,7 @@ impl AdsorptionTerm {
         let cpow = if self.order == 0.0 {
             1.0
         } else {
-            c.powf(self.order)
+            c.r_powf(self.order)
         };
         self.adsorption_constant(temperature_k) * cpow
     }
@@ -406,7 +414,7 @@ impl LangmuirHinshelwood {
         if self.exponent == 1.0 {
             sum
         } else {
-            sum.powf(self.exponent)
+            sum.r_powf(self.exponent)
         }
     }
 }
@@ -440,9 +448,19 @@ pub struct Reaction {
     /// by the conversion reactor; DWSIM stores this as a percentage 0–100 and
     /// divides by 100 — here it is already the fraction).
     pub conversion: f64,
-    /// Standard reaction enthalpy `ΔH°` [J/mol of reaction extent], DWSIM
-    /// `ReactionHeat`. Positive = endothermic (absorbs heat). Used for the
-    /// energy balance / heat-duty accounting.
+    /// Standard reaction enthalpy `ΔH°` [J/mol of reaction extent]. Positive =
+    /// endothermic (absorbs heat). Used for the energy balance / heat-duty
+    /// accounting.
+    ///
+    /// ~~DWSIM `ReactionHeat`.~~ **CORRECTED 2026-10-02** — not the same
+    /// quantity when `|ν_BC| ≠ 1`. Upstream's `ReactionHeat` is per mol of
+    /// **base reactant**, `(H_products − H_reactants)/|ν_BC|`
+    /// (`FlowsheetBase.vb:4368`, pinned `1abf72d1`), and its reactors multiply
+    /// it by `|Δn_BC|` (`Conversion.vb:704`). The two agree on heat released
+    /// only if this field is set to upstream's `ReactionHeat × |ν_BC|`.
+    /// Checked against compiled upstream: `CH4 + 2 O2` with O2 as base gives
+    /// `ReactionHeat = −401 309` J/mol, i.e. `ΔH° = −802 618` J/mol per extent
+    /// (`tests/upstream_conversion_parity.rs`).
     pub reaction_heat: f64,
     /// Lower temperature bound `T_min` [K] of kinetic validity (DWSIM `Tmin`).
     /// Below it the rate constants are forced to zero, per DWSIM.
@@ -569,7 +587,7 @@ impl Reaction {
         if temperature_k < self.t_min || temperature_k > self.t_max {
             return 0.0;
         }
-        self.a_forward * (-self.e_forward / (R_GAS * temperature_k)).exp()
+        self.a_forward * (-self.e_forward / (R_GAS * temperature_k)).r_exp()
     }
 
     /// Reverse rate constant `k_r = A_r · exp(−E_a,r / (R T))` at temperature
@@ -579,7 +597,7 @@ impl Reaction {
         if temperature_k < self.t_min || temperature_k > self.t_max {
             return 0.0;
         }
-        self.a_reverse * (-self.e_reverse / (R_GAS * temperature_k)).exp()
+        self.a_reverse * (-self.e_reverse / (R_GAS * temperature_k)).r_exp()
     }
 
     /// Net volumetric reaction rate `[mol/(m³·s)]` at temperature `temperature_k`
@@ -596,8 +614,12 @@ impl Reaction {
     /// production is obtained by multiplying by `νᵢ / |ν_BC|` in the reactor
     /// (see [`crate::reactors`]).
     ///
-    /// Applies to [`ReactionKind::Kinetic`] and, as a documented placeholder,
-    /// [`ReactionKind::HeterogeneousCatalytic`].
+    /// The rate of a [`ReactionKind::Kinetic`] reaction, and the numerator of a
+    /// [`ReactionKind::HeterogeneousCatalytic`] one.
+    /// ~~Applies to … as a documented placeholder, `HeterogeneousCatalytic`.~~
+    /// **CORRECTED 2026-10-02** — the reactors use
+    /// [`langmuir_hinshelwood_rate`](Self::langmuir_hinshelwood_rate) for
+    /// catalytic reactions.
     #[must_use]
     pub fn net_rate(&self, concentrations: &[f64], temperature_k: f64) -> f64 {
         let kf = self.forward_rate_constant(temperature_k);
@@ -607,10 +629,10 @@ impl Reaction {
         for c in &self.components {
             let conc = concentrations[c.component_index].max(0.0);
             if c.direct_order != 0.0 {
-                fwd *= conc.powf(c.direct_order);
+                fwd *= conc.r_powf(c.direct_order);
             }
             if c.reverse_order != 0.0 {
-                rev *= conc.powf(c.reverse_order);
+                rev *= conc.r_powf(c.reverse_order);
             }
         }
         kf * fwd - kr * rev
@@ -676,7 +698,7 @@ mod tests {
         .with_forward(1.0e6, 50_000.0);
 
         let k = rxn.forward_rate_constant(500.0);
-        let expected = 1.0e6 * (-50_000.0 / (R_GAS * 500.0)).exp();
+        let expected = 1.0e6 * (-50_000.0 / (R_GAS * 500.0)).r_exp();
         assert!((k - expected).abs() / expected < 1e-9);
 
         // E -> 0 limit: k = A.
@@ -741,7 +763,7 @@ mod tests {
         };
         assert!(kv.evaluate(1000.0) > kv.evaluate(500.0));
         let ln_expected = -40_000.0 / (R_GAS * 1000.0) + 30.0 / R_GAS;
-        assert!((kv.evaluate(1000.0).ln() - ln_expected).abs() < 1e-12);
+        assert!((kv.evaluate(1000.0).r_ln() - ln_expected).abs() < 1e-12);
 
         let kp = EquilibriumConstant::LnPolynomial {
             a: 1.0,
@@ -749,7 +771,7 @@ mod tests {
             c: 0.0,
             d: 0.0,
         };
-        assert!((kp.evaluate(500.0) - (1.0f64 - 2.0).exp()).abs() < 1e-12);
+        assert!((kp.evaluate(500.0) - (1.0f64 - 2.0).r_exp()).abs() < 1e-12);
     }
 
     /// **Methodology (LH reduces to power-law in the weak-adsorption limit).**
@@ -873,12 +895,12 @@ mod tests {
         );
         let c = [2.0, 2.0];
 
-        let k400 = (-e / (R_GAS * 400.0)).exp();
-        let d400 = (1.0 + 2.0 * k400 + 2.0 * k400).powi(2);
+        let k400 = (-e / (R_GAS * 400.0)).r_exp();
+        let d400 = (1.0 + 2.0 * k400 + 2.0 * k400).r_powi(2);
         assert!((lh.denominator_value(&c, 400.0) - d400).abs() < 1e-9);
 
-        let k800 = (-e / (R_GAS * 800.0)).exp();
-        let d800 = (1.0 + 2.0 * k800 + 2.0 * k800).powi(2);
+        let k800 = (-e / (R_GAS * 800.0)).r_exp();
+        let d800 = (1.0 + 2.0 * k800 + 2.0 * k800).r_powi(2);
         assert!((lh.denominator_value(&c, 800.0) - d800).abs() < 1e-9);
 
         // E>0 ⇒ K rises with T ⇒ more inhibition (bigger D) at 800 K.

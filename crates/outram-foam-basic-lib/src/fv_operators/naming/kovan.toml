@@ -1,0 +1,75 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-basic-lib"
+dir = "crates/outram-foam-basic-lib/src/fv_operators/naming"
+
+[module."tests.rs"]
+path = "crate::fv_operators::naming::tests"
+
+[[module."tests.rs".function]]
+id = "fn:cf6b6ba0506f0383"
+name = "first_application_is_unchanged_from_the_openfoam_spelling"
+qual = "first_application_is_unchanged_from_the_openfoam_spelling"
+lines = [
+    11,
+    29,
+]
+hash = "sha256:9cd3c8bae84f602133b963f834b8372d08869fa00c18387c5517a0d6f06471a2"
+doc_hash = "sha256:9f2251679bb9b9b4110f3e95fe70148e01949bcfacaaf65dbe81bd4c3e04aec0"
+callees = [
+    "fn:2be2dae8a4ef7a39",
+    "fn:f86d68dcb668b50a",
+]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:db6423fd6b577089"
+name = "repeated_self_feedback_reaches_a_fixed_point"
+qual = "repeated_self_feedback_reaches_a_fixed_point"
+lines = [
+    31,
+    68,
+]
+hash = "sha256:fc4128bf6e9c4e77f7c24a99ce223e917277ed5ddbabca40adf85289797d1017"
+doc_hash = "sha256:f299a195cd7bb3382f57e5005ade76536993064fd062f512c64ad9e5dca66915"
+callees = ["fn:f86d68dcb668b50a"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:7ca4f12b71c3f163"
+name = "repeated_unary_application_reaches_a_fixed_point"
+qual = "repeated_unary_application_reaches_a_fixed_point"
+lines = [
+    70,
+    91,
+]
+hash = "sha256:c3cf4dc3afad75a90401c69b1309c9f7920e582e871b6c01f1241fcfee72eda1"
+doc_hash = "sha256:f7b732ddfd0b9eac9f0ebaf3659d96ec842674e516f3535f108e5c1e51ab3ac8"
+callees = ["fn:2be2dae8a4ef7a39"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:e1fcc0b49f6e669b"
+name = "operands_are_elided_independently"
+qual = "operands_are_elided_independently"
+lines = [
+    93,
+    108,
+]
+hash = "sha256:e1a48389b6d0888cb08d3f9f85c82a88a1e07507ae9e806bc18aad7b5f418c5c"
+doc_hash = "sha256:6688e0f80f7c4624e30692681bf5ba8c2ffacddfa6c63726619b7fc87ae573cb"
+callees = ["fn:f86d68dcb668b50a"]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:256c5b6a96b49d09"
+name = "plain_field_names_are_not_treated_as_derived"
+qual = "plain_field_names_are_not_treated_as_derived"
+lines = [
+    110,
+    129,
+]
+hash = "sha256:02d2cb5932d4c3c86de6d00133cae5f6960801933f6e5a3ed435c1225d484f60"
+doc_hash = "sha256:61a9bb7f91b4b74149a15d01af40f27f705a2ced41ddd1ee9b6310f6926ed684"
+callees = ["fn:269193273067057f"]
+test = true

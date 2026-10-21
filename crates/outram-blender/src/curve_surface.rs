@@ -36,6 +36,7 @@
 //!   [`FillMode::Full`] triangulates the outline (a flat cap).
 //! - `caps` — close the ends of a swept open spline.
 
+use petir::mathf::RealMath;
 use crate::curve::Spline;
 use crate::math::Vec3;
 use crate::mesh::Mesh;
@@ -102,7 +103,7 @@ pub fn curve_to_mesh(spline: &Spline, opts: &CurveGeometry) -> Mesh {
             (0..n)
                 .map(|i| {
                     let a = std::f64::consts::TAU * i as f64 / n as f64;
-                    [a.cos(), a.sin()]
+                    [a.r_cos(), a.r_sin()]
                 })
                 .collect()
         }

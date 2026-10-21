@@ -1,0 +1,213 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tampines-steam-tables"
+dir = "crates/tampines-steam-tables/examples"
+
+[module."chebyshev_residual_export.rs"]
+path = "example:chebyshev_residual_export"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:20b4c81b7853c1cd"
+name = "P_MIN_MPA"
+qual = "P_MIN_MPA"
+item = "const"
+shape = "const"
+lines = [
+    81,
+    82,
+]
+hash = "sha256:2e469d4eec341c4a4f23fde9766e1167947b5290cf4f9366bedb61e0592d9ba4"
+doc_hash = "sha256:f9943450c94de7438e643e71ff27bf5f13c8749ea4ba40c5497cbc881860e388"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:465c47501bb8fdb1"
+name = "P_MAX_MPA"
+qual = "P_MAX_MPA"
+item = "const"
+shape = "const"
+lines = [
+    83,
+    83,
+]
+hash = "sha256:feda15112a7e8c50d39a993191a6015dcc6ba2e371e0180a99c0b0c2aec2cf4a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:1674b3f0b7161d5f"
+name = "T_MIN_K"
+qual = "T_MIN_K"
+item = "const"
+shape = "const"
+lines = [
+    84,
+    84,
+]
+hash = "sha256:ff7d8436439725470de934bdcbf3b5964cff30bb65fed83e7f3c1efc05374508"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:3c3c71a6ea0a57a3"
+name = "T_MAX_K"
+qual = "T_MAX_K"
+item = "const"
+shape = "const"
+lines = [
+    85,
+    85,
+]
+hash = "sha256:1be1a5b5bd6a1750eae1047bc48c5957fcec9ea79d3c3f4fd9de33f5a21faa1a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:9ddc3b44fea7a52e"
+name = "REGION_5_N"
+qual = "REGION_5_N"
+item = "const"
+shape = "const"
+lines = [
+    86,
+    86,
+]
+hash = "sha256:ae89f605a27f7f9f4721e3d914935fb310ac55ea69f7549a7bf4533ef3048845"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:c465481dd5f8a191"
+name = "T_LO_K"
+qual = "T_LO_K"
+item = "const"
+shape = "const"
+lines = [
+    88,
+    89,
+]
+hash = "sha256:9906fb86baf8367db95a17043ac00c535bdba410048464f9493e8eb7458184e6"
+doc_hash = "sha256:7f95c6d0ba10fdf7740331b6fecf3c9cc82bbf517eea94374a5e767e3769ee4a"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:e6e39e211de84ac8"
+name = "T_HI_K"
+qual = "T_HI_K"
+item = "const"
+shape = "const"
+lines = [
+    90,
+    90,
+]
+hash = "sha256:43f229df2260584a827d11cb1fa4df5cbc6bd296d98bebfbdfe5dcb5118072dc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:0b6832e92a489437"
+name = "REGION_4_N_T"
+qual = "REGION_4_N_T"
+item = "const"
+shape = "const"
+lines = [
+    91,
+    91,
+]
+hash = "sha256:2d57bd79397a204b69f061cd9f2970b2033898cb7d2940f94e83ff03244aa525"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:ef8c27a43d2ce1c3"
+name = "REGION_4_N_X"
+qual = "REGION_4_N_X"
+item = "const"
+shape = "const"
+lines = [
+    92,
+    92,
+]
+hash = "sha256:58dfdf89180652100634d2e57efcfd8861c71765a6bcd3bcaf871ac0e36c223c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:f93fdf7b2613ced7"
+name = "region_5_residuals"
+qual = "region_5_residuals"
+lines = [
+    94,
+    128,
+]
+hash = "sha256:3b5699ba73c42c5be6273dc9f984065feaf698fedd3316e1a3665be2aed72678"
+doc_hash = "sha256:e44bf3d6c47da4206869a25bb0e44e7133bc6d312755dec89c469c023942c408"
+callees = [
+    "fn:37cc24744a264da5",
+    "fn:5d8b7a24dc0afa5d",
+    "fn:6501588c6b651cf7",
+    "fn:c7c80b5dc74793ca",
+]
+uses = [
+    "fn:1674b3f0b7161d5f",
+    "fn:20b4c81b7853c1cd",
+    "fn:3c3c71a6ea0a57a3",
+    "fn:465c47501bb8fdb1",
+    "fn:9ddc3b44fea7a52e",
+]
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:0218f7a3c85c5555"
+name = "region_4_residuals"
+qual = "region_4_residuals"
+lines = [
+    130,
+    177,
+]
+hash = "sha256:785bce078d0cb403202702df2da384c3b9ab7d336375166cf08ed6e4d8d93f1a"
+doc_hash = "sha256:a92a8303c0108f3df3215be522659cf64165cb033b4b0f2b1f58f2c0d00ea744"
+callees = [
+    "fn:033bc390c16028c2",
+    "fn:10fd50fdf5bd20d0",
+    "fn:8862646fe4088877",
+    "fn:8b94a7a7c1140cef",
+    "fn:983f4c519d50d03a",
+    "fn:c163e9ad1c644298",
+]
+uses = [
+    "fn:0b6832e92a489437",
+    "fn:c465481dd5f8a191",
+    "fn:e6e39e211de84ac8",
+    "fn:ef8c27a43d2ce1c3",
+]
+
+[[module."chebyshev_residual_export.rs".function]]
+id = "fn:914554917ddd4f25"
+name = "main"
+qual = "main"
+lines = [
+    179,
+    202,
+]
+hash = "sha256:88bee7dbf8d7f5a9ecb85f195b4c3cd5f734f2120f93b94cbf7e5e51b9874248"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:0218f7a3c85c5555",
+    "fn:f93fdf7b2613ced7",
+]
+
+[module."tutorial_rankine_cycle.rs"]
+path = "example:tutorial_rankine_cycle"
+
+[[module."tutorial_rankine_cycle.rs".function]]
+id = "fn:5631aa73949be565"
+name = "main"
+qual = "main"
+lines = [
+    29,
+    362,
+]
+hash = "sha256:478ccf66368548eaab694c22cc8855de5c3efeb8605a482d92d81985ed54943c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+callees = [
+    "fn:3e6a48a264e481b8",
+    "fn:43cfe7d0b0274caa",
+    "fn:78e2c88468989a4c",
+    "fn:8ed7910b571e1ad9",
+    "fn:9880a6d7b02ed0e6",
+    "fn:bd7f6306c44a28ce",
+    "fn:c365ffcc3efa433e",
+    "fn:e9b278ccd8cf1504",
+]
+uses = ["fn:a490e693d7e67617"]

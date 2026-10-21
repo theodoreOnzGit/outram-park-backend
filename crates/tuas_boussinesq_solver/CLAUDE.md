@@ -36,7 +36,7 @@ maturity gate in that file for what this means and how the bar is revised.
   recording.
 
 
-License: GPL-3.0. Requires OpenBLAS on Linux/macOS, Intel MKL on Windows.
+License: ~~GPL-3.0~~ **AGPL-3.0-only** combined work (relicensed 2026-10-20, gh:#973; ported files keep GPL-3.0 and `LICENSE.GPL-3.0` ships beside `LICENSE`; see `docs/relicensing-agpl-2026-10-20.md`). Requires OpenBLAS on Linux/macOS, Intel MKL on Windows.
 
 ---
 
@@ -267,8 +267,15 @@ use tuas_boussinesq_solver::prelude::beta_testing::*;
 
 - `uom` — all physical quantities are unit-safe (`Length`, `ThermodynamicTemperature`, `MassRate`, etc.); import units via `uom::si::<quantity>::<unit>`.
 - `ndarray` + `ndarray-linalg` — matrix solvers for array CV energy equations (OpenBLAS on Linux/macOS, Intel MKL on Windows).
-- `peroxide` — numerical methods (used via `#[macro_use] extern crate peroxide` at crate root).
-- `roots` — root-finding (Brent-Dekker / regula falsi for flowrate solver).
+- ~~`peroxide` — numerical methods (used via `#[macro_use] extern crate peroxide` at crate root).~~
+- ~~`roots` — root-finding (Brent-Dekker / regula falsi for flowrate solver).~~
+  **CORRECTED 2026-10-20 (gh:#989, #991):** both removed. Root finding, quadrature,
+  `erfc` and the cubic-spline property tables now go through `petir` (GSL ports),
+  via the adapters in `src/lib/numerical_methods.rs`, which keep the old
+  convergence semantics. Out-of-table spline evaluation is now an error, not an
+  extrapolation; see `docs/peroxide-roots-to-petir-989.md`, including the
+  nuclear-graphite enthalpy finding.
+- `petir` — PETIR numerics (no_std GSL ports), see above.
 - `thiserror` — error enum derivation for `TuasLibError`.
 
 ---
@@ -298,3 +305,10 @@ longer applies.
 See **`docs/notes.md`** for the full workspace integration details, the 2026-06
 dependency migration log, and the v0.1.1 CustomSolid/CustomLiquid
 integration-hang bug writeup (peroxide G20K41 adaptive-tolerance fix).
+
+## egui simulators need a headless mode
+
+This crate's egui/eframe examples fall under the workspace headless-mode
+rule: a deterministic `--headless` path with a regression test. The full rule
+lives in
+[`crates/outram-park-digital-twin-engine/CLAUDE.md`](../outram-park-digital-twin-engine/CLAUDE.md).

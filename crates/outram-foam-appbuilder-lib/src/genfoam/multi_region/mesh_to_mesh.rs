@@ -384,6 +384,7 @@ fn inverse_distance_weights(source: &FvMesh, point: Vector3, n: usize) -> Vec<(u
 
 #[cfg(test)]
 mod tests {
+    use petir::mathf::RealMath;
     use super::*;
     use outram_foam_basic_lib::mesh::fv_mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
 
@@ -455,7 +456,7 @@ mod tests {
 
         let mut src = VolScalarField::uniform("phi", src_mesh.clone(), 0.0);
         for (i, c) in src_mesh.cell_centres.iter().enumerate() {
-            src.internal[i] = c.x.sin();
+            src.internal[i] = c.x.r_sin();
         }
         let tgt = m.interpolate_scalar(&src, "phi_mapped");
 

@@ -840,7 +840,11 @@ mod tests {
         let m = JacobiOperatorPreconditioner::new(&a);
         let (x, r) = cg_op(&a, &b, None, &m, &s);
         assert!(r.converged, "cg_op did not converge: {:?}", r);
-        assert!(rel_err(&x, &x_true) < 1e-9, "rel err {}", rel_err(&x, &x_true));
+        assert!(
+            rel_err(&x, &x_true) < 1e-9,
+            "rel err {}",
+            rel_err(&x, &x_true)
+        );
     }
 
     /// The generic drivers must reach the same answer as the existing

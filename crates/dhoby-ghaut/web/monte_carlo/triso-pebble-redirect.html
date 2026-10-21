@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRISO pebble demo (moved)</title>
+<!-- The TRISO pebble demo became the `triso` rung of the one Monte Carlo
+     demo on 2026-10-04 (gh:#521). scripts/build-pages.sh publishes this page
+     at demos/triso-pebble/ so the old URL keeps working. The query string
+     (e.g. ?autostart) is carried over. -->
+<meta http-equiv="refresh" content="0; url=../monte-carlo/?rung=triso&amp;mode=watch">
+<script>
+  const extra = location.search.replace(/^\?/, "");
+  location.replace("../monte-carlo/?rung=triso&mode=watch" + (extra ? "&" + extra : ""));
+</script>
+<style>body{font:15px/1.5 system-ui,sans-serif;margin:24px;background:#0e1014;color:#d8dce4}a{color:#7aa7ff}</style>
+</head>
+<body>
+<p>The TRISO pebble demo is now the <code>triso</code> rung of the Monte Carlo demo:
+<a href="../monte-carlo/?rung=triso&amp;mode=watch">open it here</a>.</p>
+</body>
+</html>

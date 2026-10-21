@@ -34,6 +34,18 @@ pub struct MacroXs {
     pub fission: f64,
     /// Fission production ν̄·Σ_f \[cm⁻¹\] — the k-eigenvalue source term.
     pub nu_fission: f64,
+    /// **Delayed** fission production ν̄_d·Σ_f \[cm⁻¹\] (GitHub #262).
+    ///
+    /// Zero for a material whose nuclides carry no ENDF MF=1/455. That zero is
+    /// a statement about the *data*, not a measurement of the delayed
+    /// fraction: `Material::has_delayed_data` distinguishes the two, and a
+    /// kinetics calculation that ignores the distinction would report
+    /// β_eff = 0 for a system whose evaluations simply do not carry MT=455.
+    pub nu_fission_delayed: f64,
+    /// Precursor-decay-weighted delayed production `Σ_k λ_k ν̄_d,k Σ_f`
+    /// \[cm⁻¹ s⁻¹\] — upstream's `SCORE_DECAY_RATE`
+    /// (`src/tallies/tally_scoring.cpp:773`), summed over groups.
+    pub decay_rate: f64,
     /// Absorption Σ_a \[cm⁻¹\] — **radiative capture + fission** (i.e. every
     /// reaction with no neutron in the exit channel, plus fission), aggregated
     /// from each nuclide's [`crate::material::nuclide::MicroXS::absorption`].
@@ -52,7 +64,16 @@ pub struct Material {
     pub id: i32,
     pub name: String,
     pub components: Vec<NuclideComponent>,
-    /// Temperature in Kelvin (passed straight to the WMP Doppler evaluator).
+    /// Temperature in Kelvin, passed to every cross-section lookup for this
+    /// material. ~~**Only windowed-multipole (`Core`) nuclides use it**~~
+    /// **Only windowed-multipole data use it** (corrected 2026-10-18, GitHub
+    /// #948): the LOW (`Core`) tier, and a pointwise nuclide with WMP
+    /// attached by `Nuclide::with_multipole` (inside its WMP range, and for
+    /// its elastic kinematics at every energy). A pointwise nuclide without
+    /// WMP (from ENDF reconstruction or an ACE table) is already broadened at
+    /// its build temperature and ignores it. Verified 2026-09-27: set to 1200 K on ACE nuclides, `k` is
+    /// bit-identical (`tests/temperature_precedence.rs`,
+    /// `docs/temperatures.md`).
     pub temperature: f64,
 }
 
@@ -62,16 +83,85 @@ impl Material {
     /// `nuclides` is the global nuclide array; each component indexes into it.
     /// Uses the material temperature for Doppler-broadened lookups.
     pub fn macro_xs(&self, e: f64, nuclides: &[Nuclide]) -> MacroXs {
+        self.macro_xs_with(e, nuclides, |nuc, _idx| nuc.xs_at_energy(e, self.temperature))
+    }
+
+    /// [`Self::macro_xs`] as a neutron carrying the URR stream seed `urr_seed`
+    /// sees it: every nuclide inside its unresolved range contributes its
+    /// **sampled-band** cross sections ([`Nuclide::xs_at_energy_urr`], band
+    /// variate [`urr_xi`]) instead of the infinitely dilute ones. This is the
+    /// set the flight ([`Self::macro_xs_total_urr`]) and the collision used, so
+    /// a tally multiplying by it scores what transport followed. OpenMC does
+    /// the same by reading the micro cross sections `calculate_urr_xs` cached
+    /// (`src/nuclide.cpp:826-865`; `get_nuclide_xs`, `src/tallies/
+    /// tally_scoring.cpp`). Outside the unresolved range, or with the tables
+    /// ablated, it equals [`Self::macro_xs`] bit for bit and draws nothing
+    /// (GitHub #953).
+    pub fn macro_xs_urr(&self, e: f64, nuclides: &[Nuclide], urr_seed: u64) -> MacroXs {
+        self.macro_xs_with(e, nuclides, |nuc, idx| {
+            if nuc.needs_urr_draw(e) {
+                nuc.xs_at_energy_urr(e, self.temperature, urr_xi(idx, urr_seed))
+            } else {
+                nuc.xs_at_energy(e, self.temperature)
+            }
+        })
+    }
+
+    fn macro_xs_with<F>(&self, e: f64, nuclides: &[Nuclide], micro: F) -> MacroXs
+    where
+        F: Fn(&Nuclide, usize) -> crate::material::nuclide::MicroXS,
+    {
         let mut m = MacroXs::default();
         for c in &self.components {
-            let x = nuclides[c.nuclide_idx].xs_at_energy(e, self.temperature);
+            let x = micro(&nuclides[c.nuclide_idx], c.nuclide_idx);
             m.total += c.atom_density * x.total;
             m.elastic += c.atom_density * x.elastic;
             m.fission += c.atom_density * x.fission;
             m.nu_fission += c.atom_density * x.nu_fission;
             m.absorption += c.atom_density * x.absorption;
+            // Delayed split (GitHub #262). `x.fission` is the microscopic
+            // fission cross section, so the delayed production is
+            // `sigma_f * nu_d(E)` and the decay-rate score weights each
+            // group's share by its own lambda.
+            let nuc = &nuclides[c.nuclide_idx];
+            if x.fission > 0.0 {
+                if let Some(d) = nuc.delayed() {
+                    let nu_d = d.nu_delayed_at(e);
+                    m.nu_fission_delayed += c.atom_density * x.fission * nu_d;
+                    for k in 0..d.n_groups() {
+                        m.decay_rate += c.atom_density
+                            * x.fission
+                            * nu_d
+                            * d.group_fraction(k, e)
+                            * d.lambda[k];
+                    }
+                }
+            }
         }
         m
+    }
+
+    /// **Prompt** fission production ν̄_p·Σ_f \[cm⁻¹\] = `nu_fission −
+    /// nu_fission_delayed`, floored at zero.
+    ///
+    /// See [`crate::material::nuclide::Nuclide::nu_prompt`] for why the floor
+    /// is there and how large it has ever needed to be.
+    pub fn nu_fission_prompt(xs: &MacroXs) -> f64 {
+        (xs.nu_fission - xs.nu_fission_delayed).max(0.0)
+    }
+
+    /// Whether **every** fissionable nuclide in this material carries
+    /// delayed-neutron data.
+    ///
+    /// A kinetics result from a material where this is `false` is missing part
+    /// of its delayed production and the β it produces is a lower bound, not a
+    /// measurement. Exposed so a caller can refuse rather than quietly report
+    /// the smaller number.
+    pub fn has_delayed_data(&self, nuclides: &[Nuclide]) -> bool {
+        self.components.iter().all(|c| {
+            let n = &nuclides[c.nuclide_idx];
+            n.delayed().is_some() || !n.is_fissionable()
+        })
     }
 
     /// Macroscopic total cross section Σ_t(E) \[cm⁻¹\] = Σ_i N_i·σ_t,i(E).
@@ -79,12 +169,80 @@ impl Material {
         self.components
             .iter()
             .map(|c| {
-                c.atom_density
-                    * nuclides[c.nuclide_idx]
-                        .xs_at_energy(e, self.temperature)
-                        .total
+                // `total_at_energy`, not `xs_at_energy(..).total`: identical
+                // value, but it skips ~45 grid evaluations per nuclide that
+                // this sum discards. See `Nuclide::total_at_energy`.
+                c.atom_density * nuclides[c.nuclide_idx].total_at_energy(e, self.temperature)
             })
             .sum()
+    }
+
+    /// Σ_t(E) \[cm⁻¹\] as a neutron carrying the URR stream seed `urr_seed`
+    /// sees it: each nuclide in its unresolved range contributes its **band**
+    /// total, the band chosen by `future_prn(nuclide_idx, urr_seed)`
+    /// ([`urr_xi`]), exactly as OpenMC's `Nuclide::calculate_urr_xs` draws it
+    /// (`src/nuclide.cpp`; one stream, `STREAM_URR_PTABLE`, offset by the
+    /// nuclide's global index). Outside the unresolved range this equals
+    /// [`Self::macro_xs_total`] bit for bit. GitHub #407.
+    pub fn macro_xs_total_urr(&self, e: f64, nuclides: &[Nuclide], urr_seed: u64) -> f64 {
+        self.components
+            .iter()
+            .map(|c| {
+                let nuc = &nuclides[c.nuclide_idx];
+                let t = if nuc.needs_urr_draw(e) {
+                    nuc.band_total(e, self.temperature, urr_xi(c.nuclide_idx, urr_seed))
+                } else {
+                    nuc.total_at_energy(e, self.temperature)
+                };
+                c.atom_density * t
+            })
+            .sum()
+    }
+
+    /// An upper bound on Σ_t(E) \[cm⁻¹\] over every URR band, for
+    /// delta-tracking majorants (GitHub #407). Equal to
+    /// [`Self::macro_xs_total`] outside the unresolved range.
+    pub fn macro_xs_total_upper_bound(&self, e: f64, nuclides: &[Nuclide]) -> f64 {
+        self.components
+            .iter()
+            .map(|c| c.atom_density * nuclides[c.nuclide_idx].total_upper_bound(e, self.temperature))
+            .sum()
+    }
+
+    /// [`Self::sample_nuclide`] with each nuclide weighted by its **band**
+    /// total (see [`Self::macro_xs_total_urr`]), as OpenMC's
+    /// `sample_nuclide` weights by the same cached micro total it flew on.
+    /// Identical to `sample_nuclide`, same draw, when no component is in its
+    /// unresolved range. GitHub #407.
+    pub fn sample_nuclide_urr(
+        &self,
+        e: f64,
+        seed: &mut u64,
+        nuclides: &[Nuclide],
+        urr_seed: u64,
+    ) -> usize {
+        if !self.components.iter().any(|c| nuclides[c.nuclide_idx].needs_urr_draw(e)) {
+            return self.sample_nuclide(e, seed, nuclides);
+        }
+        let t = |c: &NuclideComponent| {
+            let nuc = &nuclides[c.nuclide_idx];
+            if nuc.needs_urr_draw(e) {
+                nuc.band_total(e, self.temperature, urr_xi(c.nuclide_idx, urr_seed))
+            } else {
+                nuc.selection_total(e, self.temperature)
+            }
+        };
+        let totals: Vec<f64> = self.components.iter().map(|c| c.atom_density * t(c)).collect();
+        let sigma_t: f64 = totals.iter().sum();
+        let xi = prn(seed) * sigma_t;
+        let mut acc = 0.0;
+        for (i, st) in totals.iter().enumerate() {
+            acc += st;
+            if xi < acc {
+                return i;
+            }
+        }
+        self.components.len() - 1
     }
 
     /// Sample which nuclide the neutron collides with, weighted by each
@@ -94,27 +252,35 @@ impl Material {
     /// one component with positive total XS; the RNG draw is clamped to the last
     /// component to stay in bounds against floating-point round-off.
     pub fn sample_nuclide(&self, e: f64, seed: &mut u64, nuclides: &[Nuclide]) -> usize {
+        // `selection_total` is `xs_at_energy(..).total` on SpeedTier::Standard
+        // and the exactly-equal total-only path on the faster tiers, so the
+        // nuclide chosen for a given random number is the same on every exact
+        // tier.
         let sigma_t: f64 = self
             .components
             .iter()
-            .map(|c| {
-                c.atom_density
-                    * nuclides[c.nuclide_idx]
-                        .xs_at_energy(e, self.temperature)
-                        .total
-            })
+            .map(|c| c.atom_density * nuclides[c.nuclide_idx].selection_total(e, self.temperature))
             .sum();
         let xi = prn(seed) * sigma_t;
         let mut acc = 0.0;
         for (i, c) in self.components.iter().enumerate() {
-            acc += c.atom_density
-                * nuclides[c.nuclide_idx]
-                    .xs_at_energy(e, self.temperature)
-                    .total;
+            acc += c.atom_density * nuclides[c.nuclide_idx].selection_total(e, self.temperature);
             if xi < acc {
                 return i;
             }
         }
         self.components.len() - 1
     }
+}
+
+/// The URR band variate of nuclide `nuclide_idx` (its index in the global
+/// nuclide array) for a neutron whose URR stream seed is `urr_seed`: OpenMC's
+/// `future_prn(index_, p.seeds(STREAM_URR_PTABLE))` (`src/nuclide.cpp`,
+/// `calculate_urr_xs`). The same neutron at the same energy therefore sees the
+/// same band of a nuclide in every material and at every event until its
+/// energy changes, when the kernel advances `urr_seed` by the number of
+/// nuclides (`physics.cpp`, `advance_prn_seed(data::nuclides.size(), ..)`).
+pub fn urr_xi(nuclide_idx: usize, urr_seed: u64) -> f64 {
+    let mut s = crate::rng::lcg::future_seed(nuclide_idx as u64, urr_seed);
+    prn(&mut s)
 }

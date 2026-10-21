@@ -36,6 +36,10 @@
 ///
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 412 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 //#[ignore = "comment out for debugging"]
 pub fn case_c_tchx_out_313_kelvin_40_celsius() {
     use uom::si::{frequency::hertz, ratio::ratio, time::millisecond};

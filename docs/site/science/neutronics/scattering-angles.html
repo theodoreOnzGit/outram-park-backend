@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How does nuclear data store scattering angles?</title>
+<meta name="description" content="Neutronics, page 7: the scattering cosine, Legendre polynomials, and real ENDF/B-VIII.0 angular distributions of C-12 and U-238 rebuilt term by term; what NJOY ACER turns them into for ACE, and how a Monte Carlo code samples an outgoing direction.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="angular-data.js" defer></script>
+<script src="angles.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906 iteration 2 and the 2026-10-16 working-context checkpoint). One principal question per page (checkpoint §5); the sequence and its navigation are in lesson-kit.js. Shape: docs/lessons/lesson-philosophy.md (a chain of questions; predict before showing; honest numbers). This page: checkpoint §21-§23 and the angular addendum §8-§13 (page B of the split in addendum §14), ending on the §24 hook. Guardrails: ACE does not store the ENDF Legendre coefficients; NJOY behaviour is described from acecm.f90 ptleg2, read 2026-10-16. Data: angular-data.js (provenance in its header). Checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), not yet reviewed by a human.</p>
+
+<h1>How does nuclear data store scattering angles?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>A scattered neutron leaves in some direction. Measured from the direction it came in, that is one angle, the <b>scattering angle &theta;</b>. Nuclear data does not store &theta; itself but its cosine, the <b>scattering cosine</b>:</p>
+<p class="eq-block">&mu; = cos &theta;</p>
+<div class="mu-map" role="table" aria-label="Scattering angle and scattering cosine">
+  <p role="row"><span role="cell">&theta; = 0&deg;</span><span role="cell">&mu; = +1</span><span role="cell">forward</span></p>
+  <p role="row"><span role="cell">&theta; = 90&deg;</span><span role="cell">&mu; = 0</span><span role="cell">sideways</span></p>
+  <p role="row"><span role="cell">&theta; = 180&deg;</span><span role="cell">&mu; = &minus;1</span><span role="cell">backward</span></p>
+</div>
+<p>Why the cosine? Every direction on a sphere is equally likely exactly when every value of &mu; between &minus;1 and +1 is equally likely, so "isotropic" is simply a flat line in &mu;.</p>
+
+<h2>Legendre polynomials</h2>
+<p>For a curve that depends on &mu;, the natural shape functions are the <b>Legendre polynomials</b> P<sub>0</sub>(&mu;), P<sub>1</sub>(&mu;), P<sub>2</sub>(&mu;), &hellip;: the pole-to-pole shapes of the spherical harmonics on the last page. Look at the shapes before any formula.</p>
+
+<section class="widget-card">
+  <h3>The first six Legendre shapes</h3>
+  <div class="widget short" id="pshapes">
+    <canvas aria-label="The Legendre polynomials P0 to P5 plotted against the scattering cosine"></canvas>
+  </div>
+</section>
+
+<p>An angular distribution is then a weighted sum of them,</p>
+<p class="eq-block">f(&mu;) = &frac12; P<sub>0</sub> + <sup>3</sup>&frasl;<sub>2</sub> a<sub>1</sub> P<sub>1</sub>(&mu;) + <sup>5</sup>&frasl;<sub>2</sub> a<sub>2</sub> P<sub>2</sub>(&mu;) + &hellip;</p>
+<p>and <b>instead of storing the complete angular curve point by point, we store the coefficients a<sub>1</sub>, a<sub>2</sub>, &hellip; that say how much of each Legendre shape is present.</b> (The factors (2l+1)/2 are the ENDF convention that keeps the total probability 1 <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>; with it, a<sub>1</sub> is the average &mu;.)</p>
+
+<h2>Rebuild a real distribution</h2>
+<p class="predict"><b>Predict first.</b> A 5 MeV neutron scattering from uranium-238: how many Legendre terms does the evaluation need? And what goes wrong if you stop too early?</p>
+
+<section class="widget-card">
+  <h3>Add Legendre terms, one at a time</h3>
+  <div class="widget" id="rebuild">
+    <canvas aria-label="An evaluated elastic angular distribution against the scattering cosine, rebuilt from its Legendre coefficients term by term, with the ACE table"></canvas>
+  </div>
+  <p class="note">Elastic scattering of C-12 and U-238 from their ENDF/B-VIII.0 evaluations <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>, file MF=4, in the centre-of-mass frame, at the evaluation's energy nearest each button (U-238's "2 MeV" is 1.945 MeV). The coefficients are the evaluation's own, unchanged.</p>
+</section>
+
+<p>Forward-peaked distributions, from heavy nuclei at high energy, need many terms: U-238 at 5 MeV carries 20. Stop too early and the partial sum wobbles, and can even dip below zero, which no probability may. Low energies and light nuclei need few.</p>
+
+<h2>What NJOY and ACE do with it</h2>
+<p>An evaluation may give an angular distribution as Legendre coefficients, as a table of probabilities at chosen cosines, or as both, each over its own range of energies; C-12 and U-238 use coefficients up to some energy and tables above it <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>.</p>
+<p>A Monte Carlo code wants something quick to sample, so NJOY's ACER module converts all of them into tables <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. For Legendre coefficients, its routine <code>ptleg2</code> (<code>acecm.f90</code>) rebuilds the curve at cosines it chooses adaptively, until straight lines between them are within 0.02 % of the series; thins the points to a 0.2 % tolerance; lifts any negative value to 10<sup>&minus;10</sup>; normalises the area to 1; and writes the cosines, the density and the cumulative probability. <b>ACE stores that table, not the original Legendre coefficients.</b> Turn on <b>Show what ACE stores</b> to see its points on the curve.</p>
+<p class="chain">quantum neutron scattering &rarr; angular distribution &rarr; a finite representation (tabulated points or Legendre coefficients) &rarr; NJOY &rarr; ACE table &rarr; OutramMC &rarr; a sampled outgoing angle</p>
+<p class="note">The tables here come straight from OUTRAM PARK's own port of ACER, run on the evaluation.</p>
+
+<h2>Sampling the result</h2>
+<section class="widget-card">
+  <h3>Sample an outgoing direction</h3>
+  <div class="widget" id="sampler">
+    <canvas aria-label="A neutron arriving at a nucleus and leaving at a sampled scattering angle, above the ACE table's angular density with the sampled cosines marked on it"></canvas>
+  </div>
+  <p class="actions sample-actions"><button type="button" class="btn" data-sample="1">Sample scattering angle</button> <button type="button" class="btn ghost" data-sample="100">Sample 100 more</button></p>
+</section>
+<p>Each press draws a random number, finds where it falls on the table's cumulative probability, and reads off one cosine &mu;: the neutron leaves at &theta; = arccos &mu;, and the transport continues from there. That is the step OutramMC takes at every elastic collision, and it is part of what made the paths zig-zag in the <a href="meet-the-neutron.html">first demo</a>.</p>
+<p class="chain">stored nuclear data &rarr; probability distribution &rarr; random number &rarr; sampled direction &rarr; the neutron continues</p>
+<p>Press <b>Sample 100 more</b> a few times: the samples crowd where the curve is high, and their average cosine closes in on a<sub>1</sub>.</p>
+<p class="note"><b>This pattern comes back.</b> Angles are not the only thing stored as "how likely is each value". In the unresolved resonance range, nuclear data stores how likely each value of the <b>cross section</b> is, and a transport code samples one the same way (<a href="purr.html">page 19</a>). And random sampling is used <b>before</b> transport too: NJOY's PURR builds those tables by making up many statistically correct ladders of resonances and sampling them. There is randomness in making the data as well as in using it.</p>
+<p><b>We now know how nuclear data can store the shape of a scattering angular distribution, and how a Monte Carlo code can sample an outgoing direction from it.</b></p>
+
+<h2>But remember our neutron matter wave?</h2>
+<p>When we changed the neutron's momentum, its de Broglie wavelength changed (<a href="matter-waves.html">page 4</a>), and on <a href="quantum-scattering.html">page 5</a> the whole angular pattern changed with it. The nuclear interaction is strongly dependent on the neutron's energy; the evaluation shows it too, keeping a different set of coefficients at every energy.</p>
+<p><b>Why is this so?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

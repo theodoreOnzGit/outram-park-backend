@@ -44,9 +44,12 @@ converter, exactly as planned:
   SEND/FEND/MEND/TEND sentinels, using a new
   [`crate::endf::parse::format_endf_float`] — a faithful line-for-line port of
   `a11` (`endf.f90:882-981`), including its extended nine-significant-figure
-  branch and the two post-hoc fallback rewrites, verified by hand against the
+  branch and the two post-hoc fallback rewrites, ~~verified by hand against the
   values already used in `endf::parse`'s pre-existing `parse_endf_float` tests
-  (`" 2.004000+3"`, `" 9.991673-1"`).
+  (`" 2.004000+3"`, `" 9.991673-1"`)~~ **verified against NJOY2016 on
+  2026-10-05** (GitHub #536): all 59 098 float fields of a two-material
+  selection are character-identical to the tape NJOY's MODER writes (see
+  *Testing*).
 - **NJOY blocked-binary** — not ported. A fully in-memory Rust pipeline that
   passes typed `Tape` values between modules has no use for it (per
   `porting-plan.md` §5); port only if interchange with the upstream Fortran
@@ -54,38 +57,60 @@ converter, exactly as planned:
 
 ## Testing
 
-**TODO** (Opus verification pass). Gate (from `porting-plan.md` Phase 1): read
+~~**TODO** (Opus verification pass). Gate (from `porting-plan.md` Phase 1): read
 a reference ENDF tape, run it through `select_materials` and `Tape::write`, and
 assert structural equality against the original (MAT/MF/MT sections and record
 values within a tight float tolerance — not byte equality, since formatting
 differs). No tests were written as part of this translation pass, per the
-crate's model-division-of-labour rule (`CLAUDE.md`).
+crate's model-division-of-labour rule (`CLAUDE.md`).~~
+
+**Cross-code gate since 2026-10-05 (GitHub #536):**
+`tests/moder_vs_njoy2016.rs`, record
+`verification_and_validation/moder_vs_njoy2016.md`. NJOY2016 (`ac5adf5`) MODER
+selects H-2 (MAT 128) and Li-6 (MAT 325) from two ENDF/B-VIII.0 tapes onto one
+coded tape; the port does the same with `select_materials` + `Tape::write`, and
+the two are compared line by line. Measured: same 11 793 lines and the same
+MAT/MF/MT on every line; **59 098 / 59 098 `a11` float fields
+character-identical**; every parsed value bit-identical; ~~**1 / 11 793 lines
+byte-identical**, the rest differing exactly in the classes listed under
+*Caveats* below. One of them is data loss, not formatting: **the MF=1/MT=451
+descriptive text does not survive** (616 rows written as numbers).~~
+
+~~The test pins those divergences, so fixing one fails it and asks for the
+record to be updated.~~ **CHANGED 2026-10-05 (GitHub #553): all 11 793 lines
+byte-identical**, the MF=1/MT=451 text included. `layout.rs` ports MODER's
+record walkers (`file1` … `file40`, not `file32`), and `Tape::write` formats
+each line by the record it belongs to. The test asserts whole-line identity.
 
 ## Caveats
 
-- **CONT-record integer fields are not distinguished from LIST-record float
-  fields.** `crate::endf::tape::Section` stores every row as a uniform
-  `[f64; 6]` with no per-row tag, so `format_line`/`Tape::write` writes *every*
-  field (including a CONT record's L1/L2/N1/N2 integer control fields) in
-  exponential `a11` form, not upstream's plain right-justified `i11` integers.
-  The written **value** round-trips exactly through this crate's own reader
-  (e.g. an integer `5` becomes `5.000000+0`, which parses back to exactly
-  `5.0`), but the column layout does not byte-match genuine NJOY output for
-  those four fields per CONT record.
+- ~~**CONT-record integer fields are not distinguished from LIST-record float
+  fields.** … the column layout does not byte-match genuine NJOY output for
+  those four fields per CONT record.~~ **Fixed by #553:** `layout.rs` recovers
+  each line's record kind, and CONT integers are written as `i11`.
+- **Not byte-faithful for MF=32 and for GENDF/ERRORR materials**: `file32` is
+  not ported, and group materials take MODER's separate path. Those sections,
+  and any whose layout would blank a non-zero field, are written with every
+  field as `a11`; no value is dropped.
 - **Ascending-MAT-order check applied unconditionally.** Fortran only enforces
   it for the ENDF/PENDF path (`inout=1`); GENDF/covariance tapes do not require
   it. This port doesn't distinguish tape "kind", so the check always applies —
   a documented divergence for GENDF/covariance material selection.
-- **Sequence numbers (tape columns 76-80) are a simple monotonic counter**
+- ~~**Sequence numbers (tape columns 76-80) are a simple monotonic counter**
   across the whole written tape, not NJOY's per-file `nsh`/`nsp`/`nsc` reset
-  convention. This column is documented as cosmetic/ignored on read by every
-  reader in this crate (see `parse_line`), so it carries no information either
-  way.
+  convention.~~ **Fixed by #553:** each section counts from 1, SEND carries
+  99999, FEND/MEND/TEND carry 0.
 - The blocked-binary format is an NJOY implementation detail; a fully in-memory
   Rust pipeline may never need it. Port it only when interchange with the Fortran
   oracle demands it.
-- ASCII round-trips are structural, not byte-identical (field formatting differs,
-  and see the CONT-field caveat above).
+- ~~ASCII round-trips are structural, not byte-identical~~ **byte-identical to
+  NJOY's MODER on the H-2 + Li-6 selection since #553.**
+- ~~**MF=1/MT=451 descriptive text is lost on write** (measured 2026-10-05,
+  GitHub #536) …~~ **Fixed by #553:** `Tape::read` keeps MF=1/MT=451's raw
+  text, `select_materials` carries it to the new tape, and `Tape::write`
+  writes it verbatim; blank directory fields and blank sentinels are written
+  blank. A tape built in memory (`Tape::from_sections`) has no text to keep,
+  so its text lines are blank.
 
 ## References
 

@@ -1,0 +1,155 @@
+{
+	"testCase00": {
+		"status": 200,
+		"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "journalArticle",
+				"creators": [
+					{
+						"name": "余敏",
+						"creatorType": "author"
+					},
+					{
+						"name": "朱江",
+						"creatorType": "author"
+					},
+					{
+						"name": "丁照蕾",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "参考文献管理 文献管理软件 学术书签网站 Zotero",
+						"type": 1
+					}
+				],
+				"title": "参考文献管理工具研究",
+				"publicationTitle": "JOURNAL OF MODERN INFORMATION",
+				"volume": "29",
+				"issue": "2",
+				"date": "2009",
+				"archiveLocation": "北京万方数据股份有限公司",
+				"url": "http://d.wanfangdata.com.cn/Periodical_xdqb200902027.aspx",
+				"abstractNote": "介绍了参考文献管理的基本方法,对参考文献管理工具的主要功能进行了对比,最后分析了参考文献管理的趋势.",
+				"language": "chi"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "Yu Min\nZhu Jiang\nDing Zhaolei"
+			}
+		]
+	},
+	"testCase01": {
+		"status": 200,
+		"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "Italo",
+						"lastName": "Calvino",
+						"creatorType": "author"
+					},
+					{
+						"firstName": "Jorunn",
+						"lastName": "Aardal",
+						"creatorType": "translator"
+					},
+					{
+						"firstName": "Jørgen",
+						"lastName": "Stender Clausen",
+						"creatorType": "editor"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Italiensk litteratur",
+						"type": 1
+					},
+					{
+						"tag": "Idealbyer",
+						"type": 1
+					},
+					{
+						"tag": "kjernelitteratur",
+						"type": 1
+					}
+				],
+				"title": "Usynlige byer",
+				"ISBN": "8203107354",
+				"place": "Oslo",
+				"publisher": "Aschehoug",
+				"date": "1982",
+				"url": "https://urn.nb.no/URN:NBN:no-nb_digibok_2016062048105",
+				"language": "Flerspråklig, Norsk (Bokmål), Italiensk, Dansk"
+			},
+			{
+				"itemType": "note",
+				"parentItem": "KVN22222",
+				"note": "Elektronisk reproduksjon [Norge] Nasjonalbiblioteket Digital 2016-11-03"
+			}
+		]
+	},
+	"testCase02": {
+		"status": 200,
+		"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "book",
+				"creators": [
+					{
+						"firstName": "W. H.",
+						"lastName": "Newman",
+						"creatorType": "author"
+					}
+				],
+				"tags": [
+					{
+						"tag": "Corn -- Yields",
+						"type": 1
+					},
+					{
+						"tag": "Corn -- Varieties",
+						"type": 1
+					},
+					{
+						"tag": "Corn -- Field experiments",
+						"type": 1
+					}
+				],
+				"title": "Corn",
+				"publisher": "Uniontown, Ala. : Canebrake Agricultural Experiment Station",
+				"date": "1891"
+			}
+		]
+	},
+	"testCase03": {
+		"status": 200,
+		"translatorID": "0e2235e7-babf-413c-9acf-f27cce5f059c",
+		"items": [
+			{
+				"key": "KVN22222",
+				"version": 0,
+				"itemType": "audioRecording",
+				"creators": [],
+				"tags": [],
+				"title": "Diesseits von Eden: der Podcast der katholischen Fakultäten Österreichs & Südtirols",
+				"place": "Wien",
+				"label": "Studio Omega, Verein für Christliche Radioarbeit",
+				"date": "2021",
+				"url": "https://diesseits.theopodcast.at/home",
+				"language": "German"
+			}
+		]
+	}
+}

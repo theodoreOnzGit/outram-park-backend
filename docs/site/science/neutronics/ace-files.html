@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How is each ACE file put together?</title>
+<meta name="description" content="Neutronics, page 44: a continuous-energy ACE file is RECONR, BROADR, HEATR, PURR and ACER on one nuclide; a thermal ACE file is LEAPR, THERMR and ACER on a scattering law. What is in each, from OUTRAM PARK's own port, with the real block counts for H-1 and C-12 and for hydrogen in water and graphite.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906), maintainer's arc of 2026-10-18: the two products as files. No widget. Sources: NJOY2016 acer.f90 (iopt dispatch :465-466; newfor :158), aceth.f90 thrlod :639 and iwt->ifeng :674-676, thermr.f90 emax :135/:202; OUTRAM PARK port: crates/njoy-outram-park-fork/src/process/mod.rs (the four entry points), src/acer/mod.rs deck_modules :493 (HEATR before PURR) and assemble :541, src/process/thermal.rs, src/acer/thermal.rs. Counts in the tables: dbrc-data.js (examples/lesson_dbrc.rs, 2026-10-18), checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>How is each ACE file put together?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p>A Monte Carlo code does not read ENDF. It reads <b>ACE</b> files, one per nuclide (the continuous-energy kind) and one per bound scatterer (the thermal kind). Both are written by NJOY's last module, ACER <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>, from what the earlier modules left behind. Here is what goes into each, using our port's own output at 293.6&nbsp;K.</p>
+
+<h2>The free-gas file: one nuclide, every energy</h2>
+<p class="chain">ENDF evaluation &rarr; RECONR &rarr; BROADR &rarr; HEATR &rarr; PURR &rarr; ACER</p>
+<ul>
+  <li><b>RECONR</b> rebuilds the pointwise cross sections from the resonance parameters (pages 12&ndash;16) at 0&nbsp;K, on a grid that makes straight lines between points accurate.</li>
+  <li><b>BROADR</b> broadens them to the file's temperature (page 22). This is the free-gas treatment of the rate; it covers every energy above the thermal range for every nuclide, and below it for nuclides that are not bound.</li>
+  <li><b>HEATR</b> adds the heating (KERMA) column. In our port it runs before PURR, as in the NJOY deck, because PURR reads it.</li>
+  <li><b>PURR</b> makes the unresolved-resonance probability tables (pages 18&ndash;19) for nuclides that have an unresolved range. (UNRESR, NJOY's older unresolved module, is not part of this route.)</li>
+  <li><b>ACER</b> packs all of it, with the angular and energy distributions of each reaction, into one array. The deck's <code>newfor</code> switch selects the "new" cumulative angle distributions (<code>acer.f90:158</code>); our port writes that form.</li>
+</ul>
+<p>GASPR (gas production) is also ported, but the one-call route <code>process::ace</code> does not use it. Our route is <code>cross_sections</code> (RECONR, BROADR, HEATR, PURR) followed by ACER (<code>process/mod.rs</code>, <code>acer/mod.rs:493</code>). It keeps one thing besides the ACE file: the <b>0&nbsp;K elastic</b> cross section that DBRC needs (page 42), because the ACE file itself carries only the broadened one.</p>
+
+<h2>The bound-atom file: one scatterer, thermal energies only</h2>
+<p class="chain">LEAPR deck &rarr; S(&alpha;,&beta;) &rarr; THERMR (with the incident nuclide's own cross sections) &rarr; ACER</p>
+<ul>
+  <li><b>LEAPR</b> turns the phonon spectrum into S(&alpha;,&beta;) (pages 23&ndash;41). The whole law, whether from a deck or from a published thermal evaluation, is MF=7 data.</li>
+  <li><b>RECONR and BROADR on the incident nuclide</b> (H-1 for hydrogen in water, C-12 for graphite) supply the grid THERMR works on and the free-atom elastic cross section it needs.</li>
+  <li><b>THERMR</b> computes, from S(&alpha;,&beta;): the incoherent inelastic cross section at each incident energy with its outgoing-energy and angle distributions; the coherent elastic (Bragg) cross section for a crystal, or the incoherent elastic one for a hydrogenous solid, when the evaluation has them. It stops at <code>emax</code>, "maximum energy for thermal treatment" (<code>thermr.f90:135</code>); our default takes it from the law's own upper energy, <code>B(4)</code>.</li>
+  <li><b>ACER</b>, thermal option (<code>acer.f90:465-466</code>, <code>aceth.f90</code>), packs it as a <code>t</code> table: the inelastic energies and cross sections, a fixed number of equally probable outgoing energies for each (each with a fixed number of cosines), and the elastic block.</li>
+</ul>
+<p>Our port runs the chain in one call, <code>process::thermal_ace</code> (<code>process/thermal.rs</code>, <code>acer/thermal.rs</code>). It makes the inelastic form NJOY calls <code>iwt = 1</code> by default (equally probable outgoing energies, <code>IFENG = 0</code>); the skewed (0) and continuous (2) forms are also written (<code>aceth.f90:674-676</code>).</p>
+
+<h2>What is in them</h2>
+<p>The same four scatterers as on the next page, produced on 2026-10-18 by <code>examples/lesson_dbrc.rs</code>. The words are the length of the numeric array that holds the whole table.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>File</th><th>Energy points</th><th>Reactions besides elastic and total</th><th>Elastic angles</th><th>Words</th></tr></thead>
+  <tbody>
+    <tr><td data-label="File">H-1, continuous energy (<code>1001.00c</code>)</td><td data-label="Energies"><span data-nes="H-1">631</span></td><td data-label="Reactions"><span data-ntr="H-1">1</span> (capture)</td><td data-label="Angles">yes (AND block)</td><td data-label="Words"><span data-xss="H-1">8983</span></td></tr>
+    <tr><td data-label="File">C-12, continuous energy (<code>6012.00c</code>)</td><td data-label="Energies"><span data-nes="C-12">1615</span></td><td data-label="Reactions"><span data-ntr="C-12">19</span></td><td data-label="Angles">yes (AND block)</td><td data-label="Words"><span data-xss="C-12">206443</span></td></tr>
+  </tbody>
+</table>
+</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Thermal file</th><th>Inelastic energies, up to</th><th>Outgoing energies &times; cosines</th><th>Elastic block</th><th>Words</th></tr></thead>
+  <tbody>
+    <tr><td data-label="File">H in H<sub>2</sub>O</td><td data-label="Inelastic"><span data-nin="H in H2O">118</span> points to <span data-cut="H in H2O">10</span> eV</td><td data-label="Grid">16 &times; 16</td><td data-label="Elastic">none (a liquid)</td><td data-label="Words"><span data-xss="H in H2O">32333</span></td></tr>
+    <tr><td data-label="File">C in graphite</td><td data-label="Inelastic"><span data-nin="graphite">109</span> points to <span data-cut="graphite">4.9</span> eV</td><td data-label="Grid">16 &times; 16</td><td data-label="Elastic">coherent (Bragg): <span data-edges="graphite">168</span> edges</td><td data-label="Words"><span data-xss="graphite">30204</span></td></tr>
+  </tbody>
+</table>
+</div>
+<p class="note">Both thermal files are for 293.6&nbsp;K, kT = 0.0253&nbsp;eV, made from the embedded LEAPR decks of the ENDF/B-VIII.0 thermal sublibrary <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a>; the incident tapes are ENDF/B-VIII.0 H-1 and C-12. Cross sections are per principal atom (per hydrogen).</p>
+
+<p class="predict"><b>Predict first:</b> look at what the thermal file does <i>not</i> contain. If the code holds H-1's continuous-energy file and the water file, which one supplies hydrogen's capture cross section? Which supplies its scattering at 1&nbsp;eV? At 20&nbsp;eV?</p>
+
+<h2>What the thermal file leaves out</h2>
+<ul>
+  <li><b>No capture, no fission, no other reaction.</b> Absorption by bound hydrogen is the same as by free hydrogen, to the accuracy that matters, and it stays in the continuous-energy file at every energy.</li>
+  <li><b>No energies above its limit.</b> The inelastic grid ends at <code>emax</code>: 10&nbsp;eV for water, 4.9&nbsp;eV for graphite here. Above it, nothing in the thermal file says how the neutron scatters.</li>
+  <li><b>No free-gas physics.</b> The thermal file knows nothing of target-velocity sampling or DBRC; its outgoing energies and cosines come straight from S(&alpha;,&beta;).</li>
+</ul>
+
+<h2>Next question</h2>
+<p>The code now holds two files for hydrogen in water: H-1's continuous-energy file and the thermal file. Where does one stop and the other start, and what changes at the hand-over?</p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

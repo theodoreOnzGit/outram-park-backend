@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Do neighbouring peaks interfere?</title>
+<meta name="description" content="Neutronics, page 13: amplitudes add before they are squared, so cross sections of neighbouring same-spin levels do not simply add; the interference term makes peaks and dips. How SLBW, MLBW, Reich-Moore and R-Matrix Limited treat it, and why many levels coupled to many channels call for the R-matrix, the level matrix and the collision matrix.">
+<link rel="stylesheet" href="../../style.css">
+<script src="lesson-kit.js" defer></script>
+<script src="resonance-data.js" defer></script>
+<script src="resonance.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Neutronics lessons (gh:#906): page 13 of the reordering amendment of 2026-10-16 (full R-matrix: superposition, the same-J rule, the brute-force cost). The interfering curve is Reich-Moore (csrmat, through OUTRAM PARK's RECONR port), the closest formalism the port evaluates, and the page says so. Level counts from resonance-data.js, checked by check-physics.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-16), revised 2026-10-19 (documentation V3: interference and the matrices), not yet reviewed by a human.</p>
+
+<h1>Do neighbouring peaks interfere?</h1>
+<p class="kicker lesson-progress">Neutronics</p>
+<p><b>Yes, when they can.</b> <del>And in the exact theory, everything interferes with everything.</del> <b>Corrected 2026-10-19:</b> two levels interfere only when they share the same total angular momentum and parity (the same <em>spin group</em>) and lead through the same entrance and exit channels. Levels that differ in either cannot interfere, whatever theory is used.</p>
+
+<h2>Add amplitudes, not cross sections</h2>
+<p>Page 5 showed a neutron as a wave. Quantum mechanics adds up <b>amplitudes</b>, not probabilities. If two levels each give an amplitude for the same process, the amplitude for that process is their sum:</p>
+<p class="chain">A = A<sub>1</sub> + A<sub>2</sub></p>
+<p>This is linear: the equations of quantum mechanics stay linear in the amplitudes. What we measure, though, is a <b>cross section</b>, and a cross section is proportional to the amplitude <b>squared</b>:</p>
+<p class="chain">|A|&sup2; = |A<sub>1</sub> + A<sub>2</sub>|&sup2; = |A<sub>1</sub>|&sup2; + |A<sub>2</sub>|&sup2; + 2 Re(A<sub>1</sub> A<sub>2</sub>*)</p>
+<p>The first two terms are each level's own peak: what you get by adding the two cross sections, which is what page 12's SLBW does. The third, <b>2 Re(A<sub>1</sub> A<sub>2</sub>*)</b>, is the <b>interference term</b>. Adding cross sections means keeping |A<sub>1</sub>|&sup2; + |A<sub>2</sub>|&sup2; and silently dropping it.</p>
+<p><b>Why peaks and dips.</b> Each amplitude is a complex number whose phase turns by about half a turn as the energy passes through its level. Where the two amplitudes point the same way, the interference term is positive: <b>constructive</b>, and the cross section rises above the sum of the peaks. Where they point opposite ways it is negative: <b>destructive</b>, and the cross section falls below the sum, which can carve a dip between two levels. Nothing about the physics became nonlinear; the dip comes from squaring a sum.</p>
+<p><b>When the third term is zero.</b> Total angular momentum J and parity are conserved, so a level of one J&pi; and a level of another lead to different outgoing waves, which cannot add <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>. Their amplitudes never meet in the same sum, and their cross sections <em>do</em> simply add.</p>
+
+<section class="widget-card">
+  <h3>Two levels: coherent, incoherent, and the difference</h3>
+  <div class="widget" id="rmatrix">
+    <canvas aria-label="The elastic cross section of two neighbouring levels: amplitudes added then squared, each peak squared then added, and their difference, the interference contribution"></canvas>
+  </div>
+  <p class="actions"><button type="button" class="btn" data-j="same">Same J</button> <button type="button" class="btn ghost" data-j="diff">Different J</button></p>
+  <label class="energy-control"><span>Spacing between the levels <b data-sep-out></b></span>
+    <input type="range" data-sep min="0.5" max="8" step="0.05" value="2" aria-label="Spacing between the two levels in electronvolts"></label>
+  <p class="note">Three curves. <b>Coherent</b> (solid): the amplitudes added, then squared. <b>Incoherent</b> (dashed): each level's peak on its own, summed. <b>Interference</b> (dotted): their difference, &Delta;&sigma;<sub>int</sub>(E) = &sigma;<sub>coherent</sub>(E) &minus; &sigma;<sub>incoherent</sub>(E); above zero it is constructive, below zero destructive. Two made-up s-wave levels at 10 eV and above it, each &Gamma;<sub>n</sub> = 1 eV and &Gamma;<sub>&gamma;</sub> = 30 meV, on a target of mass 100 and spin &frac12;. The coherent curve is the <b>Reich&ndash;Moore</b> formula (page 14), NJOY2016's <code>csrmat</code> <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>, through OUTRAM PARK's RECONR port; the incoherent curve is the SLBW sum (<code>csslbw</code>). <b>It is not a full R-matrix calculation:</b> no code here evaluates the R-matrix with explicit gamma channels. For a lone level of these the two formulas agree (checked to 1 part in 10<sup>9</sup>), so &Delta;&sigma;<sub>int</sub> here is the level&ndash;level interference alone. 0 K.</p>
+</section>
+
+<p>Things to try:</p>
+<ul>
+  <li><b>Same J, close together.</b> The dotted curve dips well below zero between the levels (destructive: the dip in the solid curve) and sits slightly above zero outside them (constructive).</li>
+  <li><b>Different J.</b> The dotted curve lies flat on zero and the other two coincide. No interference, whatever the spacing.</li>
+  <li><b>Same J, far apart.</b> The dotted curve shrinks towards zero near each peak: interference matters most where the levels overlap.</li>
+</ul>
+
+<h2>How the formalisms treat interference</h2>
+<p>Every formalism on the next pages answers one question differently: <b>which amplitudes does it add before squaring, and in which reactions?</b> In ENDF's terms <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>, <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Formalism</th><th>Level&ndash;level interference in elastic</th><th>In capture and fission</th><th>Channels</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Formalism"><b>SLBW</b> (LRF 1, page 12)</td><td data-label="Elastic">none: each level on its own, summed</td><td data-label="Capture, fission">none</td><td data-label="Channels">each level independent</td></tr>
+    <tr><td data-label="Formalism"><b>MLBW</b> (LRF 2, page 15)</td><td data-label="Elastic"><b>yes</b>: the neutron amplitudes of a spin group are added before squaring</td><td data-label="Capture, fission">none: single-level peaks, summed</td><td data-label="Channels">no channel matrix; a limit valid when &Gamma;/D is small</td></tr>
+    <tr><td data-label="Formalism"><b>Reich&ndash;Moore</b> (LRF 3, page 14)</td><td data-label="Elastic"><b>yes</b></td><td data-label="Capture, fission">fission: <b>yes</b>, through the channel matrix; capture: obtained as the remainder, with the many gamma channels eliminated into one width per level</td><td data-label="Channels">neutron and up to two fission channels in a small matrix; gamma channels eliminated</td></tr>
+    <tr><td data-label="Formalism"><b>R-Matrix Limited</b> (LRF 7)</td><td data-label="Elastic"><b>yes</b></td><td data-label="Capture, fission">as Reich&ndash;Moore when KRM = 3 (the eliminated gamma width); every channel explicit when KRM = 4</td><td data-label="Channels">any number and type of channels, charged particles included</td></tr>
+  </tbody>
+</table>
+</div>
+<p><b>MLBW is not Reich&ndash;Moore with more lumping.</b> It is a different approximation: it keeps the multi-level sum only in the elastic amplitude and treats capture and fission one level at a time, with no channel matrix at all. Reich&ndash;Moore instead keeps a channel matrix and drops only the coupling through the gamma channels. Page 15 shows the two side by side.</p>
+
+<h2>Why matrices?</h2>
+<p><b>Interference alone does not need a matrix.</b> Two levels and one channel give two complex numbers to add; MLBW's elastic amplitude is exactly such a sum, one complex term per level.</p>
+<p>A matrix appears when <b>many levels couple to many channels at once</b>. Each level &lambda; connects to each channel c with its own amplitude, its <em>reduced width amplitude</em> &gamma;<sub>&lambda;c</sub> (the square root of a partial width, up to a penetrability factor, with a sign). Going in through one channel and out through another can pass through any level, and through the other channels on the way, so the amplitudes for every pair of channels depend on all the levels and all the couplings together. Writing that out by hand is hopeless; arranging it as matrices makes it systematic <a href="#ref-wigner1947higher">(Wigner &amp; Eisenbud, 1947)</a>, <a href="#ref-lane1958rmatrix">(Lane &amp; Thomas, 1958)</a>. Three matrices are worth telling apart:</p>
+<ul>
+  <li><b>The R-matrix</b>, one row and column per <b>channel</b>, each element a sum over the <b>levels</b> of the spin group: R<sub>cc&prime;</sub> = &Sigma;<sub>&lambda;</sub> &gamma;<sub>&lambda;c</sub> &gamma;<sub>&lambda;c&prime;</sub> / (E<sub>&lambda;</sub> &minus; E). It holds the resonance parameters.</li>
+  <li><b>The level matrix</b>, one row and column per <b>level</b>, each element a sum over the <b>channels</b>. It is the same physics written the other way round, and the natural form when there are fewer levels than channels.</li>
+  <li><b>The collision matrix U</b> (also called the scattering matrix), one row and column per <b>channel</b>: U<sub>cc&prime;</sub> is the amplitude for going in through c and out through c&prime;. The cross sections come from it. It is obtained from the R-matrix (or the level matrix) by a matrix inversion that also brings in each channel's penetrability and phase shift.</li>
+</ul>
+<p>R-matrix theory <a href="#ref-wigner1947higher">(Wigner &amp; Eisenbud, 1947)</a>, <a href="#ref-lane1958rmatrix">(Lane &amp; Thomas, 1958)</a> is the framework that ties these together. Every way in or out of the compound nucleus is a channel: the neutron, each fission path, each gamma-ray path. ENDF-6 can store it with every gamma channel on an equal footing: its R-Matrix Limited format with KRM = 4 is "R-Matrix without approximations" <a href="#ref-trkov2018endf6">(Trkov et al., 2018)</a>.</p>
+<p><del>R-matrix theory writes this down exactly.</del> <b>Corrected 2026-10-19:</b> the framework is formally exact for the channels it includes, but a practical calculation is not: it depends on which channels are kept, on boundary conditions, on how distant levels outside the resolved range are represented, on fitted parameters and on numerics.</p>
+
+<h2>OOOF: brute force</h2>
+<p>Let's count. U-238's evaluated resolved range lists <b data-levels="0">926</b> levels with l = 0 and <b data-levels="1">2 419</b> with l = 1, and every one of them enters the matrix elements of its spin group.</p>
+<p>The channel count is the real problem. A heavy compound nucleus can shed its energy through a great many different gamma cascades. Suppose, as an illustration only, that there were 1 000 gamma channels. The channel matrix is then 1 001 &times; 1 001, and inverting a dense n &times; n matrix by brute force takes about n&sup3; operations: about <b>10<sup>9</sup> operations, for one spin group, at one energy</b>, at each of the thousands to millions of energies of a reconstruction. <b>Corrected 2026-10-19:</b> that is a brute-force illustration, not a law: real codes exploit the structure, eliminate channels (page 14) or work with the smaller of the two matrix forms.</p>
+<p>So the all-channel form is the reference, and not something anyone runs for a heavy nucleus. None of the four R-Matrix Limited evaluations here (Fe-54, Fe-57, Cu-63, Cu-65) does it: all four use the simplification on the next page (KRM = 3; it is the only form OUTRAM PARK's port reads, and it reconstructs all four).</p>
+
+<details class="optional">
+  <summary>Deeper: from the collision matrix to cross sections</summary>
+  <p>Each partial cross section from the neutron channel n to a channel b comes from the collision matrix U (ENDF-102 App. D.1.3):</p>
+  <p class="eq-block">&sigma;<sub>nb</sub> = (&pi;/k&sup2;) g<sub>J</sub> |&delta;<sub>nb</sub> &minus; U<sub>nb</sub>|&sup2;</p>
+  <p><del>U is built from the level matrix, a matrix over channels whose elements sum over the levels r, which is then inverted.</del> <b>Corrected 2026-10-19:</b> the matrix over <em>channels</em> whose elements sum over the levels r is the R-matrix (the level matrix runs over levels instead). In the Reich&ndash;Moore form NJOY evaluates (page 14), its elements are &Sigma;<sub>r</sub> &Gamma;<sub>nr</sub><sup>&frac12;</sup> &Gamma;<sub>br</sub><sup>&frac12;</sup> / (E<sub>r</sub> &minus; E &minus; i&Gamma;<sub>&gamma;r</sub>/2), and U follows from inverting a small channel matrix built from it. The square root of a width is an amplitude, and the sum over r is where the levels interfere. Squaring |&delta; &minus; U| at the end is the |A<sub>1</sub> + A<sub>2</sub>|&sup2; above.</p>
+</details>
+
+<h2>Where this meets RECONR</h2>
+<p>RECONR, the first NJOY module, turns resonance parameters into a pointwise cross section <a href="#ref-njoy2016">(MacFarlane et al., 2017)</a>. For each energy range it reads the formalism flag (LRF) and calls the matching routine: <code>csslbw</code> for SLBW, <code>csmlbw</code> for MLBW, <code>csrmat</code> for Reich&ndash;Moore, and the R-Matrix Limited routine for LRF 7. So which interference a reconstructed cross section contains is decided by the evaluator's choice of formalism, row by row in the table above, and RECONR reproduces that choice. The curves in the widget are those routines, through OUTRAM PARK's port; reviewing them later means checking each against the formalism its row describes.</p>
+
+<h2>Why is this so? Can we simplify?</h2>
+<p>The full framework is clear, and unaffordable by brute force. Most of the cost is the gamma channels, and the gamma rays are not what a reactor physicist needs one by one: what matters is that the neutron was captured.</p>
+<p><b>Thousands of gamma paths: do we really need to track each one?</b></p>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-lane1958rmatrix" style="padding-left: 2em; text-indent: -2em;">Lane, A. M., &#38; Thomas, R. G. (1958). R-Matrix Theory of Nuclear Reactions. <i>Reviews of Modern Physics</i>, <i>30</i>(2), 257–353. https://doi.org/10.1103/RevModPhys.30.257</p>
+
+<p class="csl-entry" id="ref-njoy2016" style="padding-left: 2em; text-indent: -2em;">MacFarlane, R. E., Muir, D. W., Boicourt, R. M., Kahler, A. C., &#38; Conlin, J. L. (2017). <i>The NJOY Nuclear Data Processing System, Version 2016</i> (Technical Report LA-UR-17-20093). Los Alamos National Laboratory. https://www.osti.gov/biblio/1338791</p>
+
+<p class="csl-entry" id="ref-trkov2018endf6" style="padding-left: 2em; text-indent: -2em;">Trkov, A., Herman, M., &#38; Brown, D. A. (2018). <i>ENDF-6 Formats Manual: Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI, ENDF/B-VII and ENDF/B-VIII</i> (Technical Report BNL-203218-2018-INRE (CSEWG Document ENDF-102)). Brookhaven National Laboratory. https://www.nndc.bnl.gov/endfdocs/ENDF-102-2018.pdf</p>
+
+<p class="csl-entry" id="ref-wigner1947higher" style="padding-left: 2em; text-indent: -2em;">Wigner, E. P., &#38; Eisenbud, L. (1947). Higher Angular Momenta and Long Range Interaction in Resonance Reactions. <i>Physical Review</i>, <i>72</i>(1), 29–41. https://doi.org/10.1103/PhysRev.72.29</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

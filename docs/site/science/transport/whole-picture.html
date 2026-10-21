@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Godiva, a TRISO pebble, the HTR-10 core</title>
+<meta name="description" content="Transport, page 11: every process behind a Godiva run, a TRISO pebble run and a full-core HTR-10 run, in one table, with the recorded results and their sources. Run each in OUTRAM PARK's own code in your browser.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Transport lessons (gh:#906), the maintainer's second task of 2026-10-18: neutron tracking step by step, up to Godiva and the HTR-10. Real demos: ?rung=godiva&mode=run, ?rung=triso&mode=watch, ?rung=htr10&mode=watch&view=core. Numbers quoted, not re-run: Godiva godiva_keff_ensemble.rs (1024 seeds, 2026-10-05); TRISO fuel zone and HTR-10 core from crates/outram-mc-libs/docs/tutorial/src/triso.md (2026-10-05, 2026-10-07/08) and the records it cites. Numbers in the prose are data-* attributes checked by check-transport.js. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response. <strong>Review status:</strong> AI-assisted first draft (2026-10-18), not yet reviewed by a human.</p>
+
+<h1>Godiva, a TRISO pebble, the HTR-10 core</h1>
+<p class="kicker lesson-progress">Transport</p>
+
+<p>The ten pages before this one are the whole of the machinery. Here it is, three times.</p>
+
+<h2>Which process, which run</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Process (page)</th><th>Godiva</th><th>A TRISO pebble</th><th>The HTR-10 core</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Process">Flight from &Sigma;<sub>t</sub> (1), move (2)</td><td data-label="Godiva">yes: fast, a mean free path of a few cm (page 1)</td><td data-label="Pebble">yes: long flights in graphite, short in the kernel</td><td data-label="Core">yes</td></tr>
+    <tr><td data-label="Process">Surfaces and boundary conditions (3)</td><td data-label="Godiva">one sphere, vacuum: leakage</td><td data-label="Pebble">the Watch demo: a 2D pebble in a reflective cell, shell surfaces tracked one by one</td><td data-label="Core">the core cavity, reflector and vessel outside; the bed is delta-tracked</td></tr>
+    <tr><td data-label="Process">Random numbers (4)</td><td data-label="Godiva">a stream per history</td><td data-label="Pebble">same</td><td data-label="Core">same; the pool of workers gives the same k bit for bit for any number of workers</td></tr>
+    <tr><td data-label="Process">Collision: nuclide, reaction, scatter (5)</td><td data-label="Godiva">U-234/235/238; elastic, inelastic, fission, capture, (n,2n); target at rest above 1&nbsp;keV, DBRC and URR on</td><td data-label="Pebble">U-235, U-238, O-16, C-12/13, Si-28/29/30 (and boron as an impurity); <b>bound-graphite S(&alpha;,&beta;)</b> below its cutoff; free gas and DBRC above</td><td data-label="Core">38 nuclides and 5 thermal laws (as recorded in the tutorial)</td></tr>
+    <tr><td data-label="Process">Too many surfaces (7), delta tracking (8)</td><td data-label="Godiva">not needed</td><td data-label="Pebble">the Watch demo tracks by surfaces; the fuel-zone cell of the record is delta-tracked (the 3D k<sub>&infin;</sub> example)</td><td data-label="Core">the pebble bed is delta-tracked against one majorant, everything else by surfaces</td></tr>
+    <tr><td data-label="Process">Fission bank, k (9)</td><td data-label="Godiva">power iteration; 5000 neutrons &times; [40 + 120] in the demo</td><td data-label="Pebble">k<sub>&infin;</sub> of the fuel-zone cell (the Watch demo has no k run)</td><td data-label="Core">power iteration over the whole core</td></tr>
+    <tr><td data-label="Process">Statistics (10)</td><td data-label="Godiva">1024 seeds record</td><td data-label="Pebble">heterogeneous against homogenised, same atoms</td><td data-label="Core">one long run, about 1000 pcm of &sigma; at the demo's settings</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="note">The pebble column mixes two things on purpose, and says which: the Watch demo is the two-dimensional analogue (rods, reflective cell, tracks only), the record is the three-dimensional fuel-zone cell with spherical kernels. The columns for the pebble and the core describe what the repository's demos and records do (<code>crates/dhoby-ghaut/examples/monte_carlo_web</code>, <code>htr10/core/mod.rs</code>: "bed delta-tracked against <code>bed_majorant</code>, everything else" by surface tracking), not every possible way to run them.</p>
+
+<h2>What was recorded</h2>
+<p>Every number below is quoted from the file named; none was re-run for this page, and the first column says which kind of comparison it is. (<b>Verification</b> compares the code with itself or another code; only a measured experiment is <b>validation</b>.)</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Case</th><th>Result</th><th>What it is</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr><td data-label="Case">Godiva (HEU-MET-FAST-001, bare sphere)</td><td data-label="Result">k &minus; 1 = <b>&minus;6 &plusmn; 5 pcm</b> over 1024 seeds; one run scatters by 165 pcm</td><td data-label="Kind">validation against the experiment, whose own band is &plusmn;100 pcm: inside it</td><td data-label="Source"><code>examples/godiva_keff_ensemble.rs</code>, 2026-10-05, commit <code>6faff1ed8</code> (the current record; other numbers exist, such as &minus;10 &plusmn; 11 pcm over 288 seeds in the five-route study, and are earlier or smaller ensembles)</td></tr>
+    <tr><td data-label="Case">HTR-10 pebble fuel zone, an infinite cell</td><td data-label="Result">k<sub>&infin;</sub> 1.57136 &plusmn; 0.00088 with the kernels resolved, 1.44684 &plusmn; 0.00090 with the same atoms smeared: <b>&minus;12&thinsp;452 &plusmn; 126 pcm</b></td><td data-label="Kind">verification: the code against itself, with the prediction (&minus;10&thinsp;000 to &minus;20&thinsp;000 pcm) written first. Neither k is an HTR-10 result</td><td data-label="Source">tutorial <code>triso.md</code>, 2026-10-05</td></tr>
+    <tr><td data-label="Case">HTR-10 full core, regular-lattice bed</td><td data-label="Result">k = <b>0.995125 &plusmn; 0.001055</b>, &minus;429 &plusmn; 106 pcm from the reference code RMC (0.999419)</td><td data-label="Kind">code-to-code</td><td data-label="Source"><code>triso.md</code>; record <code>nee_soon/verification_and_validation/htr10_seker_2026_10_07_10k</code></td></tr>
+    <tr><td data-label="Case">HTR-10 full core, one poured random bed</td><td data-label="Result">k = <b>0.989293 &plusmn; 0.000962</b>, 583 &plusmn; 143 pcm below the lattice bed (4.1&sigma;), on <b>one</b> pour; the prediction written first (+100 pcm) was wrong in sign and size</td><td data-label="Kind">verification of a modelling liberty; one pour is one arrangement</td><td data-label="Source"><code>triso.md</code>; record <code>nee_soon/verification_and_validation/htr10_dem_bed_keff_2026_10_08</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>The tutorial lists the rest of what the HTR-10 model is not, and it is worth reading before quoting any of these: it is a cold, critical-loading-height model of a research reactor, for education and V&amp;V, and no part of this is for operation, licensing or safety decisions.</p>
+
+<h2>Run them</h2>
+<p><b>Godiva</b>, with a live k and entropy:</p>
+<div class="iframe-slot" data-title="Godiva, a k_eff run" data-src="../../demos/monte-carlo/?rung=godiva&amp;mode=run">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. It opens on recorded tracks, labelled as recorded, and switches to live ones when the data are ready. The page stays responsive meanwhile.</p>
+</div>
+
+<p><b>A TRISO pebble</b>, tracks:</p>
+<div class="iframe-slot" data-title="A TRISO pebble, neutron tracks" data-src="../../demos/monte-carlo/?rung=triso&amp;mode=watch">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. It opens on recorded tracks, labelled as recorded, and switches to live ones when the data are ready. The page stays responsive meanwhile.</p>
+</div>
+
+<p><b>The whole HTR-10 core</b>, on a pool of workers (this needs memory: each worker holds about half a gigabyte, as the tutorial records, and a phone may not manage it):</p>
+<div class="iframe-slot" data-title="The HTR-10 core, neutron tracks and a live k" data-src="../../demos/monte-carlo/?rung=htr10&amp;mode=watch&amp;view=core">
+  <button type="button" class="start-demo">Start the demo</button>
+  <p class="note">This is OUTRAM PARK's own transport code running in your browser (the Monte Carlo demo of the <code>dhoby-ghaut</code> crate, compiled to WebAssembly) on ENDF/B-VIII.0 nuclear data <a href="#ref-brown2018endf8">(Brown &amp; others, 2018)</a> that your browser downloads and processes first; allow about a minute the first time. It opens on recorded tracks, labelled as recorded, and switches to live ones when the data are ready. The page stays responsive meanwhile.</p>
+</div>
+
+<h2>Where to go next</h2>
+<ul>
+  <li>The code, with each rung's code review map: the <a href="../../tutorials/monte-carlo/">Monte Carlo tutorial</a>, one rung per page.</li>
+  <li>The reasons behind each design choice and the defects found: the <a href="../../deep-dives/monte-carlo/">Monte Carlo deep dive</a>.</li>
+  <li>Where the cross sections and thermal laws come from: the <a href="../neutronics/meet-the-neutron.html">neutronics lessons</a>.</li>
+</ul>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<!-- references:begin -->
+<h2>References</h2>
+
+<p class="csl-entry" id="ref-brown2018endf8" style="padding-left: 2em; text-indent: -2em;">Brown, D. A. &#38; others. (2018). ENDF/B-VIII.0: The 8th Major Release of the Nuclear Reaction Data Library with CIELO-project Cross Sections, New Standards and Thermal Scattering Data. <i>Nuclear Data Sheets</i>, <i>148</i>, 1–142. https://doi.org/10.1016/j.nds.2018.02.001</p>
+
+<!-- references:end -->
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AAGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

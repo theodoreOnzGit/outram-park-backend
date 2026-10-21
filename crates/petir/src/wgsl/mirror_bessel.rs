@@ -1,0 +1,1022 @@
+//! `f32` mirrors of `shaders/bessel.wgsl` — GSL's order-0 and order-1
+//! cylindrical Bessel functions.
+//!
+//! Generated from the same parse of [`crate::specfunc::bessel`] that produced
+//! the shader, so the two cannot drift in their 226 coefficients — GSL's
+//! single-precision order, where the `f64` order would need 358. See
+//! [`crate::wgsl::mirror`] for why a mirror exists at all.
+//!
+//! # These kernels cannot be held to bit-identity, and that is not a defect
+//!
+//! Every other family in this module that is pure arithmetic —
+//! [`crate::wgsl::mirror`]'s Horner and Clenshaw, the matrix and BLAS kernels
+//! — agrees with the GPU **exactly**, because IEEE-754 pins each operation to
+//! one correctly-rounded answer. The Bessel kernels call `sin`, `cos`, `sqrt`,
+//! `log` and `exp`, and WGSL specifies its builtins to an **ULP bound rather
+//! than correct rounding**. The device's `sin` and `libm`'s `sinf` are
+//! different functions that agree to about an ulp, so a bound of zero would
+//! fail on a conforming device.
+//!
+//! # Where the error comes from — and a prediction the measurement refuted
+//!
+//! The expectation written here before anything was run was that the
+//! asymptotic branch would dominate: past `x = 4`, `J` and `Y` are evaluated
+//! as `cos(x - pi/4 + theta/x)`, the phase is `x` itself, and an `f32` `x`
+//! near 50 carries about 4e-6 of representation error, so the branch past
+//! `x = 4` should be visibly worse than the Chebyshev branch below it.
+//!
+//! **It is not.** Measured over 400 points on `[0.125, 50]`, restricted to
+//! arguments where `|f| > 0.05` so that cancellation at a zero cannot
+//! contaminate a relative figure:
+//!
+//! | function | below `x = 4` | above `x = 4` |
+//! |---|---|---|
+//! | `J_0` | 1.830e-07 | 2.441e-07 |
+//! | `J_1` | 6.595e-07 | 2.161e-07 |
+//! | `Y_0` | 3.031e-07 | 2.525e-07 |
+//! | `Y_1` | 2.382e-07 | 2.908e-07 |
+//!
+//! The two branches are indistinguishable, and both sit at the `f32` floor.
+//! `J_1` is *worse* below `x = 4` than above it, which is the opposite of the
+//! prediction. `the_asymptotic_branch_is_no_worse_than_the_chebyshev_one`
+//! pins this so the claim cannot quietly revert to the guess.
+//!
+//! # What the error actually is: the zeros
+//!
+//! Unrestricted, the worst relative errors are `J_1` 7.354e-06 at `x = 3.875`
+//! and `Y_1` 2.786e-05 at `x = 11.75`. Both are zeros: `J_1`'s first is at
+//! 3.8317 and `Y_1` has one at 11.7492. A function passing through zero has
+//! unbounded *relative* error for any implementation in any precision, because
+//! the value vanishes and the error does not. `J_1`'s worst sits in the
+//! **Chebyshev** branch, which is the clearest evidence that proximity to a
+//! zero, not the asymptotic form, is the mechanism.
+//!
+//! So: **the bounded quantity for `J` and `Y` is the absolute error** —
+//! 1.275e-07 (`J_1`), 7.542e-07 (`Y_1`) over the same sweep — and a caller
+//! wanting a relative bound must stay away from the zeros, exactly as in
+//! `f64`.
+//!
+//! `I` and `K` have no zeros on the positive axis and are accordingly clean:
+//! 1.575e-07 to 1.748e-07 relative, which is one `f32` ulp.
+
+// Under a std-linked build (`cargo test`) f32's inherent sqrt/exp/... shadow
+// these trait methods, leaving the import formally unused. See crate::real.
+#[allow(unused_imports)]
+use crate::real::Real;
+
+#[rustfmt::skip]
+const BI0: [f32; 12] = [
+    -0.0766054725, 1.92733795, 0.228264459, 0.0130489147, 0.00043442709, 9.42265769e-06,
+    1.43400629e-07, 1.61384907e-09, 1.39665004e-11, 9.579451e-14, 5.3339e-16, 2.45e-18
+];
+
+#[rustfmt::skip]
+const AI0: [f32; 14] = [
+    0.0757599449, 0.00759138081, 0.000415313134, 1.07007646e-05, -7.90117998e-06,
+    -7.8261435e-07, 2.78384994e-07, 8.2524726e-09, -1.20446394e-08, 1.55964859e-09,
+    2.2925563e-10, -1.1916228e-10, 1.757854e-11, 1.12822e-12,
+];
+
+#[rustfmt::skip]
+const AI02: [f32; 12] = [
+    0.054490411, 0.00336911648, 6.88975835e-05, 2.89137052e-06, 2.04891859e-07,
+    2.26666899e-08, 3.39623203e-09, 4.9406022e-10, 1.188914e-11, -3.149915e-11,
+    -1.32158e-11, -1.79419e-12,
+];
+
+#[rustfmt::skip]
+const BI1: [f32; 11] = [
+    -0.00197171326, 0.407348877, 0.0348389943, 0.00154539456, 4.18885211e-05,
+    7.64902676e-07, 1.00424939e-08, 9.9322077e-11, 7.6638e-13, 4.741e-15, 2.4e-17
+];
+
+#[rustfmt::skip]
+const AI1: [f32; 12] = [
+    -0.0284674418, -0.0192295323, -0.000611518586, -2.06997125e-05, 8.58561915e-06,
+    1.04949825e-06, -2.91833892e-07, -1.55937815e-08, 1.31801237e-08, -1.44842341e-09,
+    -2.9085122e-10, 1.2663889e-10,
+];
+
+#[rustfmt::skip]
+const AI12: [f32; 10] = [
+    0.028576235, -0.00976109749, -0.000110588939, -3.88256481e-06, -2.51223624e-07,
+    -2.63146885e-08, -3.83538039e-09, -5.5897433e-10, -1.897495e-11, 3.252602e-11,
+];
+
+#[rustfmt::skip]
+const BJ0: [f32; 10] = [
+    0.100254162, -0.665223008, 0.248983703, -0.0332527232, 0.00231141793, -9.91127742e-05,
+    2.89167086e-06, -6.12108587e-08, 9.83865079e-10, -1.24235515e-11,
+];
+
+#[rustfmt::skip]
+const BJ1: [f32; 9] = [
+    -0.117261415, -0.253615218, 0.050127081, -0.00463151481, 0.000247996229,
+    -8.67894869e-06, 2.14293917e-07, -3.93609308e-09, 5.5911823e-11,
+];
+
+#[rustfmt::skip]
+const BY0: [f32; 9] = [
+    -0.0112778394, -0.128345238, -0.104378848, 0.0236627492, -0.00209039165, 0.000103975454,
+    -3.36974716e-06, 7.72938427e-08, -1.32497677e-09,
+];
+
+#[rustfmt::skip]
+const BY1: [f32; 11] = [
+    0.032080471, 1.2627079, 0.0064999619, -0.0893616453, 0.0132508812, -0.000897905912,
+    3.64736149e-05, -1.00137438e-06, 1.99453966e-08, -3.0230656e-10, 3.60987815e-12,
+];
+
+#[rustfmt::skip]
+const AK0: [f32; 11] = [
+    -0.0328737867, -0.0449369058, 0.00298149992, -0.000303693649, 3.91085569e-05,
+    -5.86872422e-06, 9.8287371e-07, -1.78978645e-07, 3.48332307e-08, -7.1590921e-09,
+    1.5401993e-09,
+];
+
+#[rustfmt::skip]
+const AK02: [f32; 9] = [
+    -0.0120186983, -0.00917485269, 0.000144455093, -4.01361418e-06, 1.56783181e-07,
+    -7.77011044e-09, 4.61118258e-10, -3.158593e-11, 2.43501804e-12,
+];
+
+#[rustfmt::skip]
+const AK1: [f32; 10] = [
+    0.207996868, 0.162581565, -0.00587070424, 0.00049502152, -5.78958348e-05, 8.1861461e-06,
+    -1.31604832e-06, 2.32546032e-07, -4.42206518e-08, 8.92163995e-09,
+];
+
+#[rustfmt::skip]
+const AK12: [f32; 8] = [
+    0.0637930834, 0.0283288781, -0.000247537067, 5.77197245e-06, -2.06893922e-07,
+    9.73998344e-09, -5.58533614e-10, 3.73299663e-11,
+];
+
+#[rustfmt::skip]
+const BM0: [f32; 11] = [
+    0.0928496164, -0.00142987707, 2.83057927e-05, -1.43300611e-06, 1.2028628e-07,
+    -1.39711301e-08, 2.04076188e-09, -3.5399669e-10, 7.024759e-11, -1.554107e-11,
+    3.76226e-12,
+];
+
+#[rustfmt::skip]
+const BTH0: [f32; 13] = [
+    -0.246391638, 0.00173709831, -6.21836334e-05, 4.36805017e-06, -4.5609302e-07,
+    6.21974001e-08, -1.03004429e-08, 1.97952678e-09, -4.28198396e-10, 1.0203584e-10,
+    -2.6363898e-11, 7.297935e-12, -2.144188e-12,
+];
+
+#[rustfmt::skip]
+const BM1: [f32; 11] = [
+    0.104736251, 0.00442443894, -5.6616395e-05, 2.31349417e-06, -1.7377182e-07,
+    1.89320993e-08, -2.65416023e-09, 4.4740209e-10, -8.691795e-11, 1.891492e-11,
+    -4.51884e-12,
+];
+
+#[rustfmt::skip]
+const BTH1: [f32; 13] = [
+    0.74060141, -0.00457175566, 0.000119818511, -6.96456189e-06, 6.55495621e-07,
+    -8.40662289e-08, 1.33768866e-08, -2.49956565e-09, 5.294951e-10, -1.24135944e-10,
+    3.1656485e-11, -8.66864e-12, 2.523758e-12,
+];
+
+#[rustfmt::skip]
+const K0_POLY: [f32; 8] = [
+    0.115931516, 0.278982879, 0.0252489299, 0.000846035091, 1.49147192e-05, 1.62710689e-07,
+    1.20826603e-09, 6.61171047e-12
+];
+
+#[rustfmt::skip]
+const I0_POLY: [f32; 7] = [
+    1.0, 0.25, 0.0277777778, 0.00173611111, 6.9444476e-05, 1.92882658e-06, 3.99082206e-08
+];
+
+#[rustfmt::skip]
+const K1_POLY: [f32; 9] = [
+    -0.307965758, -0.0853707197, -0.00464218277, -0.00011253607, -1.55928877e-06,
+    -1.40301637e-08, -8.87189986e-11, -4.16143236e-13, -1.52612934e-15
+];
+
+#[rustfmt::skip]
+const I1_POLY: [f32; 6] = [
+    0.0833333333, 0.00694444444, 0.000347222222, 1.1574076e-05, 2.755587e-07,
+    4.97243862e-09
+];
+
+const SQRT2: f32 = 1.4142135623730951;
+const ROOT_EIGHT: f32 = 2.8284271247461903;
+const SQRT_DBL_EPSILON: f32 = 1.4901161193847656e-8;
+const ROOT5_DBL_EPSILON: f32 = 7.4009597974140505e-4;
+const TWO_OVER_PI: f32 = 0.6366197723675814;
+const LN2: f32 = 0.6931471805599453;
+const XMAX: f32 = 4.503599627370496e15;
+
+/// Clenshaw in GSL's convention, closing with `0.5 c[0]`. Mirrors every
+/// `petir_bessel_cheb_*` in the shader, which inline this loop around their
+/// own table.
+///
+/// The shader indexes its array directly; this walks `c[1..]` in reverse,
+/// which is the same sequence of operations in the same order.
+fn cheb(x: f32, c: &[f32]) -> f32 {
+    let Some((&c0, rest)) = c.split_first() else {
+        return 0.0;
+    };
+    let (mut d, mut dd) = (0.0_f32, 0.0_f32);
+    let y2 = 2.0 * x;
+    for &ci in rest.iter().rev() {
+        let temp = d;
+        d = y2 * d - dd + ci;
+        dd = temp;
+    }
+    x * d - dd + 0.5 * c0
+}
+
+/// Horner, ascending coefficients — GSL's `gsl_poly_eval`. Mirrors every
+/// `petir_bessel_poly_*`.
+fn poly(x: f32, c: &[f32]) -> f32 {
+    let Some((&last, head)) = c.split_last() else {
+        return 0.0;
+    };
+    let mut ans = last;
+    for &ci in head.iter().rev() {
+        ans = ci + x * ans;
+    }
+    ans
+}
+
+/// `(sin eps, cos eps)`. Mirrors `petir_bessel_sin_cos_eps`.
+fn sin_cos_eps(eps: f32) -> (f32, f32) {
+    if eps.abs() < ROOT5_DBL_EPSILON {
+        let e2 = eps * eps;
+        (
+            eps * (1.0 - e2 / 6.0 * (1.0 - e2 / 20.0)),
+            1.0 - e2 / 2.0 * (1.0 - e2 / 12.0),
+        )
+    } else {
+        (Real::sin(eps), Real::cos(eps))
+    }
+}
+
+/// `cos(y - pi/4 + eps)`. Mirrors `petir_bessel_cos_pi4`.
+fn cos_pi4(y: f32, eps: f32) -> f32 {
+    let (sy, cy) = (Real::sin(y), Real::cos(y));
+    let (s, d) = (sy + cy, sy - cy);
+    let (seps, ceps) = sin_cos_eps(eps);
+    (ceps * s - seps * d) / SQRT2
+}
+
+/// `sin(y - pi/4 + eps)`. Mirrors `petir_bessel_sin_pi4`.
+fn sin_pi4(y: f32, eps: f32) -> f32 {
+    let (sy, cy) = (Real::sin(y), Real::cos(y));
+    let (s, d) = (sy + cy, sy - cy);
+    let (seps, ceps) = sin_cos_eps(eps);
+    (ceps * d + seps * s) / SQRT2
+}
+
+/// `J_0(x)` in `f32`. Mirrors `petir_bessel_j0`.
+pub fn j0(x: f32) -> f32 {
+    let y = x.abs();
+    if y < 2.0 * SQRT_DBL_EPSILON {
+        return 1.0;
+    }
+    if y <= 4.0 {
+        return cheb(0.125 * y * y - 1.0, &BJ0);
+    }
+    let z = 32.0 / (y * y) - 1.0;
+    let ca = cheb(z, &BM0);
+    let ct = cheb(z, &BTH0);
+    let cp = cos_pi4(y, ct / y);
+    (0.75 + ca) / Real::sqrt(y) * cp
+}
+
+/// `J_1(x)` in `f32`. Mirrors `petir_bessel_j1`.
+pub fn j1(x: f32) -> f32 {
+    let y = x.abs();
+    if y == 0.0 {
+        return 0.0;
+    }
+    if y < ROOT_EIGHT * SQRT_DBL_EPSILON {
+        return 0.5 * x;
+    }
+    if y < 4.0 {
+        return x * (0.25 + cheb(0.125 * y * y - 1.0, &BJ1));
+    }
+    let z = 32.0 / (y * y) - 1.0;
+    let ca = cheb(z, &BM1);
+    let ct = cheb(z, &BTH1);
+    let sp = sin_pi4(y, ct / y);
+    let ampl = (0.75 + ca) / Real::sqrt(y);
+    (if x < 0.0 { -ampl } else { ampl }) * sp
+}
+
+/// `Y_0(x)` in `f32`, `NaN` for `x <= 0`. Mirrors `petir_bessel_y0`.
+pub fn y0(x: f32) -> f32 {
+    if !(x > 0.0) {
+        return f32::NAN;
+    }
+    if x < 4.0 {
+        let j0v = j0(x);
+        let c = cheb(0.125 * x * x - 1.0, &BY0);
+        return TWO_OVER_PI * (-LN2 + Real::ln(x)) * j0v + 0.375 + c;
+    }
+    if x < XMAX {
+        let z = 32.0 / (x * x) - 1.0;
+        let c1 = cheb(z, &BM0);
+        let c2 = cheb(z, &BTH0);
+        let sp = sin_pi4(x, c2 / x);
+        return (0.75 + c1) / Real::sqrt(x) * sp;
+    }
+    0.0
+}
+
+/// `Y_1(x)` in `f32`, `NaN` for `x <= 0`. Mirrors `petir_bessel_y1`.
+pub fn y1(x: f32) -> f32 {
+    if !(x > 0.0) {
+        return f32::NAN;
+    }
+    if x < 2.0 * SQRT_DBL_EPSILON {
+        let j1v = j1(x);
+        let c = cheb(-1.0, &BY1);
+        return TWO_OVER_PI * Real::ln(0.5 * x) * j1v + (0.5 + c) / x;
+    }
+    if x < 4.0 {
+        let c = cheb(0.125 * x * x - 1.0, &BY1);
+        let j1v = j1(x);
+        return TWO_OVER_PI * Real::ln(0.5 * x) * j1v + (0.5 + c) / x;
+    }
+    if x < XMAX {
+        let z = 32.0 / (x * x) - 1.0;
+        let ca = cheb(z, &BM1);
+        let ct = cheb(z, &BTH1);
+        let cp = cos_pi4(x, ct / x);
+        return -(0.75 + ca) / Real::sqrt(x) * cp;
+    }
+    0.0
+}
+
+/// `e^{-|x|} I_0(x)` in `f32`. Mirrors `petir_bessel_i0_scaled`.
+pub fn i0_scaled(x: f32) -> f32 {
+    let y = x.abs();
+    if y < 2.0 * SQRT_DBL_EPSILON {
+        return 1.0 - y;
+    }
+    if y <= 3.0 {
+        return Real::exp(-y) * (2.75 + cheb(y * y / 4.5 - 1.0, &BI0));
+    }
+    if y <= 8.0 {
+        return (0.375 + cheb((48.0 / y - 11.0) / 5.0, &AI0)) / Real::sqrt(y);
+    }
+    (0.375 + cheb(16.0 / y - 1.0, &AI02)) / Real::sqrt(y)
+}
+
+/// `I_0(x)` in `f32`; `+inf` past `|x| ~ 88`. Mirrors `petir_bessel_i0`.
+pub fn i0(x: f32) -> f32 {
+    let y = x.abs();
+    if y < 2.0 * SQRT_DBL_EPSILON {
+        return 1.0;
+    }
+    if y <= 3.0 {
+        return 2.75 + cheb(y * y / 4.5 - 1.0, &BI0);
+    }
+    Real::exp(y) * i0_scaled(x)
+}
+
+/// `e^{-|x|} I_1(x)` in `f32`. Mirrors `petir_bessel_i1_scaled`.
+pub fn i1_scaled(x: f32) -> f32 {
+    let y = x.abs();
+    if y == 0.0 {
+        return 0.0;
+    }
+    if y < ROOT_EIGHT * SQRT_DBL_EPSILON {
+        return 0.5 * x;
+    }
+    if y <= 3.0 {
+        return x * Real::exp(-y) * (0.875 + cheb(y * y / 4.5 - 1.0, &BI1));
+    }
+    let c = if y <= 8.0 {
+        cheb((48.0 / y - 11.0) / 5.0, &AI1)
+    } else {
+        cheb(16.0 / y - 1.0, &AI12)
+    };
+    let b = (0.375 + c) / Real::sqrt(y);
+    if x > 0.0 {
+        b
+    } else {
+        -b
+    }
+}
+
+/// `I_1(x)` in `f32`; overflows past `|x| ~ 88` with the sign of its
+/// argument. Mirrors `petir_bessel_i1`.
+pub fn i1(x: f32) -> f32 {
+    let y = x.abs();
+    if y == 0.0 {
+        return 0.0;
+    }
+    if y < ROOT_EIGHT * SQRT_DBL_EPSILON {
+        return 0.5 * x;
+    }
+    if y <= 3.0 {
+        return x * (0.875 + cheb(y * y / 4.5 - 1.0, &BI1));
+    }
+    Real::exp(y) * i1_scaled(x)
+}
+
+/// `e^{x} K_0(x)` in `f32`, `NaN` for `x <= 0`. Mirrors
+/// `petir_bessel_k0_scaled`.
+pub fn k0_scaled(x: f32) -> f32 {
+    if !(x > 0.0) {
+        return f32::NAN;
+    }
+    if x < 1.0 {
+        let x2 = x * x;
+        let i0v = 1.0 + 0.25 * x2 * poly(0.25 * x2, &I0_POLY);
+        return Real::exp(x) * (poly(x2, &K0_POLY) - Real::ln(x) * i0v);
+    }
+    if x <= 8.0 {
+        return (1.203125 + cheb((16.0 / x - 9.0) / 7.0, &AK0)) / Real::sqrt(x);
+    }
+    (1.25 + cheb(16.0 / x - 1.0, &AK02)) / Real::sqrt(x)
+}
+
+/// `K_0(x)` in `f32`, `NaN` for `x <= 0`. Mirrors `petir_bessel_k0`.
+pub fn k0(x: f32) -> f32 {
+    if !(x > 0.0) {
+        return f32::NAN;
+    }
+    if x < 1.0 {
+        let x2 = x * x;
+        let i0v = 1.0 + 0.25 * x2 * poly(0.25 * x2, &I0_POLY);
+        return poly(x2, &K0_POLY) - Real::ln(x) * i0v;
+    }
+    Real::exp(-x) * k0_scaled(x)
+}
+
+/// `e^{x} K_1(x)` in `f32`, `NaN` for `x <= 0`. Mirrors
+/// `petir_bessel_k1_scaled`.
+pub fn k1_scaled(x: f32) -> f32 {
+    if !(x > 0.0) {
+        return f32::NAN;
+    }
+    if x < 1.0 {
+        let x2 = x * x;
+        let t = 0.25 * x2;
+        let i1v = 0.5 * x * (1.0 + t * (0.5 + t * poly(t, &I1_POLY)));
+        return Real::exp(x) * (x2 * poly(x2, &K1_POLY) + x * Real::ln(x) * i1v + 1.0) / x;
+    }
+    if x <= 8.0 {
+        return (1.375 + cheb((16.0 / x - 9.0) / 7.0, &AK1)) / Real::sqrt(x);
+    }
+    (1.25 + cheb(16.0 / x - 1.0, &AK12)) / Real::sqrt(x)
+}
+
+/// `K_1(x)` in `f32`, `NaN` for `x <= 0`. Mirrors `petir_bessel_k1`.
+pub fn k1(x: f32) -> f32 {
+    if !(x > 0.0) {
+        return f32::NAN;
+    }
+    if x < 1.0 {
+        let x2 = x * x;
+        let t = 0.25 * x2;
+        let i1v = 0.5 * x * (1.0 + t * (0.5 + t * poly(t, &I1_POLY)));
+        return (x2 * poly(x2, &K1_POLY) + x * Real::ln(x) * i1v + 1.0) / x;
+    }
+    Real::exp(-x) * k1_scaled(x)
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+    use super::*;
+    use crate::specfunc::bessel as f64_bessel;
+    use crate::wgsl::log_budget::{log_err, worst_ulps, Sh};
+
+    /// A sweep spanning every branch: the small-argument cuts, the `3`/`4`/`8`
+    /// Chebyshev boundaries, and the asymptotic tails.
+    fn sweep() -> impl Iterator<Item = f32> {
+        (1..=400).map(|k| 0.125 * k as f32)
+    }
+
+    /// Worst relative difference between a mirror function and its `f64`
+    /// original, over a filtered sweep. Returns `(worst, x)`.
+    fn worst_vs_f64(
+        mirror: impl Fn(f32) -> f32,
+        exact: impl Fn(f64) -> f64,
+        keep: impl Fn(f32) -> bool,
+    ) -> (f32, f32) {
+        let (mut worst, mut at) = (0.0_f32, 0.0_f32);
+        for x in sweep().filter(|x| keep(*x)) {
+            let r = exact(x as f64);
+            if r == 0.0 || !r.is_finite() {
+                continue;
+            }
+            let e = ((mirror(x) as f64 - r) / r).abs() as f32;
+            if e > worst {
+                worst = e;
+                at = x;
+            }
+        }
+        (worst, at)
+    }
+
+    /// The `f32` mirror against PETIR's `f64` Bessel functions — what `f32`
+    /// costs, measured rather than assumed.
+    ///
+    /// # Results, measured 2026-09-19 over `x` in `[0.125, 50]`, 400 points
+    ///
+    /// | function | worst relative | at |
+    /// |---|---|---|
+    /// | `I_0` | 1.576e-07 | 12.625 |
+    /// | `I_1` | 1.748e-07 | 33.250 |
+    /// | `K_0` | ~~1.629e-07~~ | ~~17.500~~ |
+    /// | `K_1` | 1.736e-07 | 24.000 |
+    /// | `J_0` | 2.744e-06 | 30.625 |
+    /// | `J_1` | 7.354e-06 | 3.875 |
+    /// | `Y_0` | 1.288e-05 | 16.500 |
+    /// | `Y_1` | 2.786e-05 | 11.750 |
+    ///
+    /// **Re-measured 2026-10-20 through the shipped `libm` (gh #1001):**
+    /// `K_0` is now **1.605e-07 at 44.5**; the other three `I`/`K` rows are
+    /// unchanged. The 2026-09-19 numbers went through glibc's `expf`/`logf`
+    /// (std shadowed the mirror's maths in the test build before gh #1001),
+    /// and `K_0`'s worst point is one where the two libraries differ.
+    ///
+    /// Every location in the lower half is a zero: `J_0` has one at 30.635,
+    /// `J_1` at 3.8317, `Y_0` at 16.5366, `Y_1` at 11.7492. See the module
+    /// documentation — away from the zeros all eight sit at one `f32` ulp.
+    ///
+    /// # The instrument for `I` and `K`: log error against a derived budget (gh #1003)
+    ///
+    /// ~~Asserted: worst relative error under `3e-7` for `I_0`, `I_1`,
+    /// `K_0`, `K_1`.~~ **REPLACED 2026-10-20 (gh #1003).** `3e-7` was set a
+    /// little above the measured 1.75e-7, not derived, and measured through
+    /// glibc. Past `x = 3` (`I`) and `x = 1` (`K`) the functions are
+    /// `exp(±x)` times a scaled form, so the fair instrument is the log error
+    /// (maintainer direction 2026-10-20).
+    ///
+    /// **The metric now** is `|ln f_f32 - ln f_f64|` at every point of the
+    /// sweep, against a budget derived from that point's own operations by
+    /// [`crate::wgsl::log_budget::Sh`] (first order in `u = 2^-24`, every
+    /// rounding at its bound):
+    ///
+    /// - **`exp(±x)`**: `x` is the exact input, so the argument carries no
+    ///   rounding and `exp` contributes only its own faithful ulp, between
+    ///   `u` and `2u` of the result. (This is the case where the "`|argument|
+    ///   * u`" term is zero, and it is why `I`/`K` sit near one ulp while
+    ///   `F_{3/2}` and the synchrotron tail do not.)
+    /// - **The scaled form** `(c_0 + C(t)) / sqrt(x)`: the argument map
+    ///   (`48/x - 11` then `/5`, `16/x - 9` then `/7`, or `16/x - 1`, each
+    ///   operation one rounding, reaching `C` through `|C'(t)|`), Clenshaw
+    ///   ([`crate::wgsl::log_budget::cheb_budget`]), the dropped tail
+    ///   `sum |c_k|` of every coefficient GSL's `f64` table carries beyond
+    ///   the single-precision order (`AI0` keeps 14 of 21, `AK0` 11 of 24), the
+    ///   addition, `sqrt` (correctly rounded) and the division.
+    /// - **Small `x`** (`I` for `x <= 3`, `K` for `x < 1`): the same for the
+    ///   unscaled Chebyshev form, and for `K` the two Horner polynomials
+    ///   (each coefficient's exact distance from GSL's `f64` entry) and
+    ///   `ln x` (faithful).
+    ///
+    /// The assumptions, TESTED below: `expf` faithful on `[0.125, 50]` and
+    /// `[-50, -1]`, `logf` faithful on `[0.125, 1]`.
+    ///
+    /// `J` and `Y` are not converted (outside gh #1003; they are
+    /// oscillatory, not exp-propagated, and their bounded quantity is the
+    /// absolute error, below). They keep `5e-5` relative.
+    ///
+    /// **Prediction, written before the run.** At `I_0`'s worst point,
+    /// `x = 12.625`: one ulp of `e^x` (`1.7 u`) plus about five roundings
+    /// in the scaled form, a budget of about `6.7 u = 4.0e-7`, so the
+    /// measured 1.58e-7 sits near 0.4. All four alike: budgets 3.5e-7 to
+    /// 4.5e-7, worst ratios 0.3 to 0.5. Negative control: the measured
+    /// error is about `2.6 u` and each ulp of `e^x` adds `1` to `2 u`, so
+    /// `e^x` about three ulps off is the smallest defect caught.
+    ///
+    /// # Results, 2026-10-20, through the shipped `libm` (gh #1001)
+    ///
+    /// Every point holds, and the budget's `f32` shadow is bit-identical to
+    /// the shipped function at every point.
+    ///
+    /// | | worst log error / budget | at | largest log error | its budget | ratio |
+    /// |---|---|---|---|---|---|
+    /// | `I_0` | 0.457 | 32.5 | 1.576e-7 at 12.625 | 3.515e-7 | 0.448 |
+    /// | `I_1` | **0.563** | 33.25 | 1.748e-7 at 33.25 | 3.104e-7 | 0.563 |
+    /// | `K_0` | 0.519 | 44.5 | 1.605e-7 at 44.5 | 3.091e-7 | 0.519 |
+    /// | `K_1` | 0.514 | 24.0 | 1.736e-7 at 24.0 | 3.378e-7 | 0.514 |
+    ///
+    /// Every worst point is in the `exp(±x)` branch. **Against the
+    /// prediction:** budgets 3.1e-7 to 3.5e-7 (predicted 3.5e-7 to 4.5e-7,
+    /// so the roundings were slightly overcounted), ratios 0.45 to 0.56
+    /// (predicted 0.3 to 0.5, slightly exceeded). The new budget is about
+    /// the old `3e-7` bound: derived, it lands where the guess did.
+    ///
+    /// **Negative controls: the budget can fail.** `e^{±x}` moved `k` ulps,
+    /// in the direction that adds to the shipped error, at each function's
+    /// largest error; ratio of log error to budget:
+    ///
+    /// | | `|k| = 1` | 2 | 3 | 4 |
+    /// |---|---|---|---|---|
+    /// | `I_0` at 12.625, `k < 0` | 0.448 | 0.771 | **1.093** | 1.415 |
+    /// | `I_1` at 33.25, `k > 0` | 0.563 | 0.921 | 0.921 | **1.280** |
+    /// | `K_0` at 44.5, `k < 0` | 0.519 | 0.815 | **1.110** | 1.406 |
+    /// | `K_1` at 24.0, `k < 0` | 0.776 | **1.037** | 1.299 | 1.561 |
+    ///
+    /// So an `expf` two to four ulps off is caught, one ulp is not: that is
+    /// this instrument's resolution here (each ulp of `e^x` is one to two `u`
+    /// of the result, against a budget of about `5.5 u`). In the other
+    /// direction the defect first cancels the shipped error, and `I_0` needs
+    /// five ulps at 12.625. The four bold cells are asserted.
+    #[test]
+    fn the_f32_cost_is_what_it_was_measured_to_be() {
+        // The assumptions the budgets rest on.
+        for (name, (worst, at)) in [
+            (
+                "expf",
+                worst_ulps(<f32 as Real>::exp, <f64 as Real>::exp, 0.125, 50.0, 3),
+            ),
+            (
+                "expf",
+                worst_ulps(<f32 as Real>::exp, <f64 as Real>::exp, -50.0, -1.0, 3),
+            ),
+            (
+                "logf",
+                worst_ulps(<f32 as Real>::ln, <f64 as Real>::ln, 0.125, 1.0, 1),
+            ),
+        ] {
+            assert!(
+                worst < 1.0,
+                "{name} is assumed faithful; it is {worst} ulp off at {at:e}"
+            );
+        }
+
+        let budgeted: [(&str, fn(f32) -> f32, fn(f64) -> f64, fn(f32, i32) -> Sh); 4] = [
+            ("I_0", i0, f64_bessel::bessel_i0, |x, k| {
+                i_budget(x, false, k)
+            }),
+            ("I_1", i1, f64_bessel::bessel_i1, |x, k| {
+                i_budget(x, true, k)
+            }),
+            ("K_0", k0, f64_bessel::bessel_k0, |x, k| {
+                k_budget(x, false, k)
+            }),
+            ("K_1", k1, f64_bessel::bessel_k1, |x, k| {
+                k_budget(x, true, k)
+            }),
+        ];
+        for (name, m, e, budget) in budgeted {
+            for x in sweep() {
+                let r = e(f64::from(x));
+                let sh = budget(x, 0);
+                assert_eq!(
+                    sh.f.to_bits(),
+                    m(x).to_bits(),
+                    "{name} at {x}: the budget's f32 shadow is not the shipped \
+                     arithmetic"
+                );
+                let (l, b) = (log_err(m(x), r), sh.log_bound());
+                assert!(
+                    l <= b,
+                    "{name} at x = {x}: log error {l:e} against a derived budget of \
+                     {b:e}. More error than f32 arithmetic on this formula can \
+                     produce: a transcription defect, or a libm routine worse than \
+                     faithful"
+                );
+            }
+        }
+
+        // Not converted (outside gh #1003): the old relative bound stands.
+        let cases: [(&str, fn(f32) -> f32, fn(f64) -> f64, f32); 4] = [
+            ("J_0", j0, f64_bessel::bessel_j0, 5e-5),
+            ("J_1", j1, f64_bessel::bessel_j1, 5e-5),
+            ("Y_0", y0, f64_bessel::bessel_y0, 5e-5),
+            ("Y_1", y1, f64_bessel::bessel_y1, 5e-5),
+        ];
+        for (name, m, e, budget) in cases {
+            let (worst, at) = worst_vs_f64(m, e, |_| true);
+            assert!(
+                worst < budget,
+                "{name}: worst f32 relative error {worst:e} at x = {at} exceeds {budget:e}"
+            );
+        }
+
+        // Negative controls: the budget can fail. e^{±x} moved k ulps (away
+        // from zero for k > 0, toward it for k < 0), at each function's
+        // largest error, in the direction that adds to the shipped error.
+        let controls: [(&str, f32, fn(f64) -> f64, fn(f32, i32) -> Sh, i32, f64); 4] = [
+            (
+                "I_0",
+                12.625,
+                f64_bessel::bessel_i0,
+                |x, k| i_budget(x, false, k),
+                -3,
+                1.093,
+            ),
+            (
+                "I_1",
+                33.25,
+                f64_bessel::bessel_i1,
+                |x, k| i_budget(x, true, k),
+                4,
+                1.280,
+            ),
+            (
+                "K_0",
+                44.5,
+                f64_bessel::bessel_k0,
+                |x, k| k_budget(x, false, k),
+                -3,
+                1.110,
+            ),
+            (
+                "K_1",
+                24.0,
+                f64_bessel::bessel_k1,
+                |x, k| k_budget(x, true, k),
+                -2,
+                1.037,
+            ),
+        ];
+        for (name, x, e, budget, k, documented) in controls {
+            let b = budget(x, 0).log_bound();
+            let l = log_err(budget(x, k).f, e(f64::from(x)));
+            assert!(
+                l > b,
+                "negative control, {name} at x = {x}: e^x {k} ulps off was measured \
+                 at {documented} of the budget; it now reads {:.3}, so the budget can \
+                 no longer see it",
+                l / b
+            );
+        }
+    }
+
+    /// `I_0` (`order1 = false`) or `I_1`'s running error bound for `x > 0`.
+    /// `k` moves `e^x` by `k` ulps: the negative control's defect, an `expf`
+    /// worse than faithful.
+    fn i_budget(x: f32, order1: bool, k: i32) -> Sh {
+        let xs = Sh::exact(x);
+        let one = Sh::exact(1.0);
+        if x <= 3.0 {
+            let t = xs.mul(xs).div(Sh::exact(4.5)).sub(one);
+            return if order1 {
+                xs.mul(Sh::exact(0.875).add(t.cheb(&BI1, &f64_bessel::PROBE_BI1)))
+            } else {
+                Sh::exact(2.75).add(t.cheb(&BI0, &f64_bessel::PROBE_BI0))
+            };
+        }
+        let (c32, c64): (&[f32], &[f64]) = match (order1, x <= 8.0) {
+            (false, true) => (&AI0, &f64_bessel::PROBE_AI0),
+            (false, false) => (&AI02, &f64_bessel::PROBE_AI02),
+            (true, true) => (&AI1, &f64_bessel::PROBE_AI1),
+            (true, false) => (&AI12, &f64_bessel::PROBE_AI12),
+        };
+        let t = if x <= 8.0 {
+            Sh::exact(48.0)
+                .div(xs)
+                .sub(Sh::exact(11.0))
+                .div(Sh::exact(5.0))
+        } else {
+            Sh::exact(16.0).div(xs).sub(one)
+        };
+        let scaled = Sh::exact(0.375).add(t.cheb(c32, c64)).div(xs.sqrt());
+        xs.exp().bump(k).mul(scaled)
+    }
+
+    /// `K_0` (`order1 = false`) or `K_1`'s running error bound. `k` moves
+    /// `e^{-x}` by `k` ulps.
+    fn k_budget(x: f32, order1: bool, k: i32) -> Sh {
+        let xs = Sh::exact(x);
+        let one = Sh::exact(1.0);
+        if x < 1.0 {
+            let x2 = xs.mul(xs);
+            if order1 {
+                let t = x2.scale(0.25);
+                let p = t.horner(&I1_POLY, &f64_bessel::PROBE_I1_POLY);
+                let i1v = xs
+                    .scale(0.5)
+                    .mul(one.add(t.mul(Sh::exact(0.5).add(t.mul(p)))));
+                let a = x2.mul(x2.horner(&K1_POLY, &f64_bessel::PROBE_K1_POLY));
+                return a.add(xs.mul(xs.ln()).mul(i1v)).add(one).div(xs);
+            }
+            let q = x2.scale(0.25);
+            let i0v = one.add(q.mul(q.horner(&I0_POLY, &f64_bessel::PROBE_I0_POLY)));
+            return x2
+                .horner(&K0_POLY, &f64_bessel::PROBE_K0_POLY)
+                .sub(xs.ln().mul(i0v));
+        }
+        let (c32, c64, lead): (&[f32], &[f64], f32) = match (order1, x <= 8.0) {
+            (false, true) => (&AK0, &f64_bessel::PROBE_AK0, 1.203125),
+            (false, false) => (&AK02, &f64_bessel::PROBE_AK02, 1.25),
+            (true, true) => (&AK1, &f64_bessel::PROBE_AK1, 1.375),
+            (true, false) => (&AK12, &f64_bessel::PROBE_AK12, 1.25),
+        };
+        let t = if x <= 8.0 {
+            Sh::exact(16.0)
+                .div(xs)
+                .sub(Sh::exact(9.0))
+                .div(Sh::exact(7.0))
+        } else {
+            Sh::exact(16.0).div(xs).sub(one)
+        };
+        let scaled = Sh::exact(lead).add(t.cheb(c32, c64)).div(xs.sqrt());
+        xs.neg().exp().bump(k).mul(scaled)
+    }
+
+    /// Away from the zeros every function is at one `f32` ulp — which is the
+    /// claim that makes the table above readable rather than alarming.
+    ///
+    /// `|f| > 0.05` is the filter. It is not tuned: any threshold that
+    /// excludes the immediate neighbourhood of a zero gives the same answer,
+    /// because the error is a cliff at the zero and flat everywhere else.
+    #[test]
+    fn away_from_the_zeros_every_function_is_at_the_f32_floor() {
+        let cases: [(&str, fn(f32) -> f32, fn(f64) -> f64); 8] = [
+            ("I_0", i0, f64_bessel::bessel_i0),
+            ("I_1", i1, f64_bessel::bessel_i1),
+            ("K_0", k0, f64_bessel::bessel_k0),
+            ("K_1", k1, f64_bessel::bessel_k1),
+            ("J_0", j0, f64_bessel::bessel_j0),
+            ("J_1", j1, f64_bessel::bessel_j1),
+            ("Y_0", y0, f64_bessel::bessel_y0),
+            ("Y_1", y1, f64_bessel::bessel_y1),
+        ];
+        for (name, m, e) in cases {
+            let mut worst = 0.0_f32;
+            let mut at = 0.0_f32;
+            for x in sweep() {
+                let r = e(x as f64);
+                if !r.is_finite() || r.abs() <= 0.05 {
+                    continue;
+                }
+                let rel = (((m(x) as f64) - r) / r).abs() as f32;
+                if rel > worst {
+                    worst = rel;
+                    at = x;
+                }
+            }
+            assert!(
+                worst < 1e-6,
+                "{name} away from its zeros: {worst:e} at {at}, not the f32 floor"
+            );
+        }
+    }
+
+    /// The asymptotic branch past `x = 4` is **not** worse than the Chebyshev
+    /// branch below it, contradicting the prediction recorded in this module's
+    /// documentation.
+    ///
+    /// The prediction was that the phase `x` carrying `f32` representation
+    /// error would degrade the asymptotic branch measurably by `x = 50`. It
+    /// does not: the two branches agree to within a factor of four, and `J_1`
+    /// is worse *below* the cut. Keeping the assertion means the documented
+    /// explanation stays falsifiable.
+    #[test]
+    fn the_asymptotic_branch_is_no_worse_than_the_chebyshev_one() {
+        let cases: [(&str, fn(f32) -> f32, fn(f64) -> f64); 4] = [
+            ("J_0", j0, f64_bessel::bessel_j0),
+            ("J_1", j1, f64_bessel::bessel_j1),
+            ("Y_0", y0, f64_bessel::bessel_y0),
+            ("Y_1", y1, f64_bessel::bessel_y1),
+        ];
+        for (name, m, e) in cases {
+            let (mut lo, mut hi) = (0.0_f32, 0.0_f32);
+            for x in sweep() {
+                let r = e(x as f64);
+                if !r.is_finite() || r.abs() <= 0.05 {
+                    continue;
+                }
+                let rel = (((m(x) as f64) - r) / r).abs() as f32;
+                if x < 4.0 {
+                    lo = lo.max(rel);
+                } else {
+                    hi = hi.max(rel);
+                }
+            }
+            assert!(
+                hi < 4.0 * lo.max(1e-7),
+                "{name}: the asymptotic branch ({hi:e}) is documented as no \
+                 worse than the Chebyshev one ({lo:e}); if that has changed, \
+                 re-measure and rewrite the module docs rather than deleting \
+                 this assertion"
+            );
+        }
+    }
+
+    /// For `J` and `Y` the **absolute** error is the bounded quantity, since
+    /// the relative one is unbounded at a zero. Measured over the same sweep:
+    /// `J_0` 9.927e-08, `J_1` 1.275e-07, `Y_0` 2.396e-07, `Y_1` 7.542e-07.
+    #[test]
+    fn the_oscillatory_functions_are_bounded_in_absolute_error() {
+        let cases: [(&str, fn(f32) -> f32, fn(f64) -> f64); 4] = [
+            ("J_0", j0, f64_bessel::bessel_j0),
+            ("J_1", j1, f64_bessel::bessel_j1),
+            ("Y_0", y0, f64_bessel::bessel_y0),
+            ("Y_1", y1, f64_bessel::bessel_y1),
+        ];
+        for (name, m, e) in cases {
+            let mut worst = 0.0_f32;
+            for x in sweep() {
+                let r = e(x as f64);
+                if !r.is_finite() {
+                    continue;
+                }
+                worst = worst.max((((m(x) as f64) - r).abs()) as f32);
+            }
+            assert!(worst < 2e-6, "{name} absolute error {worst:e}");
+        }
+    }
+
+    /// The `J`/`Y` Wronskian in `f32`. It constrains all six tables at once
+    /// and cannot be satisfied by a mirror that copied one of them wrongly.
+    #[test]
+    fn the_j_y_wronskian_holds_in_f32() {
+        let mut worst = 0.0_f32;
+        for x in sweep() {
+            let w = j0(x) * y1(x) - j1(x) * y0(x);
+            let exact = -2.0 / (core::f32::consts::PI * x);
+            worst = worst.max(((w - exact) / exact).abs());
+        }
+        assert!(worst < 1e-3, "J/Y Wronskian in f32: {worst:e}");
+    }
+
+    /// The `I`/`K` Wronskian in `f32`.
+    #[test]
+    fn the_i_k_wronskian_holds_in_f32() {
+        let mut worst = 0.0_f32;
+        for x in sweep() {
+            let w = i0(x) * k1(x) + i1(x) * k0(x);
+            worst = worst.max((w * x - 1.0).abs());
+        }
+        assert!(worst < 1e-5, "I/K Wronskian in f32: {worst:e}");
+    }
+
+    /// The scaled forms agree with the unscaled ones where both are
+    /// representable in `f32` — a much narrower window than in `f64`, since
+    /// `e^{x}` leaves `f32` at `x = 88`.
+    #[test]
+    fn the_scaled_forms_agree_with_the_unscaled_ones() {
+        let mut worst = 0.0_f32;
+        for x in sweep().filter(|&x| x <= 40.0) {
+            for (scaled, plain, factor) in [
+                (i0_scaled(x), i0(x), (-x).exp()),
+                (i1_scaled(x), i1(x), (-x).exp()),
+                (k0_scaled(x), k0(x), x.exp()),
+                (k1_scaled(x), k1(x), x.exp()),
+            ] {
+                let expect = plain * factor;
+                if expect != 0.0 && expect.is_finite() {
+                    worst = worst.max(((scaled - expect) / expect).abs());
+                }
+            }
+        }
+        assert!(
+            worst < 1e-5,
+            "scaled/unscaled disagreement in f32: {worst:e}"
+        );
+    }
+
+    /// The second-kind functions reject non-positive arguments, and the
+    /// shader's `!(x > 0.0)` spelling of that test propagates `NaN` too.
+    #[test]
+    fn the_second_kind_functions_reject_non_positive_arguments_and_nan() {
+        for x in [-1.0, 0.0, f32::NAN] {
+            assert!(y0(x).is_nan(), "Y_0({x})");
+            assert!(y1(x).is_nan(), "Y_1({x})");
+            assert!(k0(x).is_nan(), "K_0({x})");
+            assert!(k1(x).is_nan(), "K_1({x})");
+        }
+    }
+
+    /// Parity is carried by explicit sign branches rather than by the series,
+    /// so it is pinned exactly.
+    #[test]
+    fn the_parities_hold_exactly() {
+        for x in sweep() {
+            assert_eq!(j0(x), j0(-x));
+            assert_eq!(i0(x), i0(-x));
+            assert_eq!(j1(x), -j1(-x));
+            assert_eq!(i1(x), -i1(-x));
+        }
+    }
+
+    /// `I_0` and `I_1` leave `f32` near `x = 88`, far earlier than the
+    /// `f64` module's `x = 709`. The scaled forms must still work there,
+    /// which is the whole reason they are in the shader.
+    ///
+    /// `K_0(100)` does **not** flush to zero as expected — it lands on
+    /// 4e-45, a `f32` subnormal, and the assertion below records the measured
+    /// value rather than the guess. Subnormals carry only a few bits of
+    /// significand, so this is a value to detect and not to compute with;
+    /// that is what `k0_scaled` is for.
+    #[test]
+    fn the_modified_functions_overflow_f32_near_88_and_the_scaled_ones_do_not() {
+        assert!(i0(100.0).is_infinite());
+        let k = k0(100.0);
+        assert!(k > 0.0 && k < 1e-44, "K_0(100) in f32 is {k:e}");
+        let x = 100.0_f32;
+        let i0s = i0_scaled(x);
+        let k0s = k0_scaled(x);
+        assert!(i0s.is_finite() && i0s > 0.0);
+        assert!(k0s.is_finite() && k0s > 0.0);
+        // Their product tends to 1/(2x).
+        assert!((i0s * k0s * 2.0 * x - 1.0).abs() < 1e-2);
+    }
+}

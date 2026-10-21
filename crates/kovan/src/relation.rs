@@ -68,9 +68,12 @@
 //! ([`crate::entity::EntityConfig`]) have no fenced-TOML-block mechanism —
 //! that machinery ([`crate::artifact::parse_document`],
 //! [`crate::artifact::render_artifact_block`]) exists only for artifacts
-//! inside a paper's research Markdown. So [`add_connection`] only accepts a
-//! `source` that parses as `artifact:<citekey>#<id>`
-//! ([`crate::graph::artifact_node`]'s own format). Every entry point this
+//! inside a paper's research Markdown. So [`add_connection`] ~~only accepts a
+//! `source` that parses as `artifact:<citekey>#<id>`~~ **CORRECTED
+//! 2026-10-07** (the code accepts more; found by the Zotero port, #751):
+//! accepts a `source` that belongs to a paper, i.e. `artifact:<citekey>#<id>`
+//! ([`crate::graph::artifact_node`]'s own format) or `paper:<citekey>`
+//! (`owning_paper`); a `collection:` source is refused. Every entry point this
 //! epic wires up (the PDF canvas's annotation right-click menu, op-30um.3)
 //! only ever draws a connection *from* an annotation or other page-anchored
 //! artifact, so this costs nothing in practice today. A `target`, by
@@ -113,7 +116,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::artifact::{
@@ -131,78 +133,11 @@ use crate::index::KnowledgeIndex;
 use crate::root::KovanRoot;
 use crate::session::{PaperSession, SessionError};
 
-/// What kind of relationship a [`UserRelation`] records between two nodes
-/// (the layer-1 prototype's `RelationKind`, ported verbatim).
-///
-/// Deliberately not exhaustive of every scientific-argument shape a user
-/// might want — it is the fixed vocabulary the prototype dogfooded and
-/// agreed on; widening it is a future decision, not something this module
-/// pre-empts by adding a catch-all variant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RelationKind {
-    /// A generic, otherwise-unclassified relationship.
-    RelatedTo,
-    /// The source's argument or data supports the target's.
-    Supports,
-    /// The source's argument or data contradicts the target's.
-    Contradicts,
-    /// The source was derived from the target (e.g. a fit derived from a
-    /// digitised dataset).
-    DerivedFrom,
-    /// The source uses data owned by the target (e.g. a model that consumes
-    /// a digitised graph's CSV payload).
-    UsesDataFrom,
-    /// The source validates the target against reality/experiment.
-    Validates,
-    /// The source was checked against the target as a verification
-    /// reference (numerics/implementation correctness, not physical
-    /// validity — see `VERIFICATION_AND_VALIDATION.md`'s verification vs.
-    /// validation distinction).
-    VerifiedAgainst,
-    /// The source implements a method/model the target describes.
-    Implements,
-}
-
-impl RelationKind {
-    /// Every variant, in the fixed order the layer-1 prototype declared
-    /// them. The one canonical ordering a UI cycles or lists through (e.g.
-    /// the PDF canvas connection picker, op-30um.3) — never re-derived
-    /// per call site.
-    pub const ALL: [RelationKind; 8] = [
-        RelationKind::RelatedTo,
-        RelationKind::Supports,
-        RelationKind::Contradicts,
-        RelationKind::DerivedFrom,
-        RelationKind::UsesDataFrom,
-        RelationKind::Validates,
-        RelationKind::VerifiedAgainst,
-        RelationKind::Implements,
-    ];
-
-    /// A short, lower-case, human-readable label, e.g. `"supports"` — reads
-    /// naturally inline ("this note supports that table").
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::RelatedTo => "related to",
-            Self::Supports => "supports",
-            Self::Contradicts => "contradicts",
-            Self::DerivedFrom => "derived from",
-            Self::UsesDataFrom => "uses data from",
-            Self::Validates => "validates",
-            Self::VerifiedAgainst => "verified against",
-            Self::Implements => "implements",
-        }
-    }
-
-    /// The next variant in [`Self::ALL`]'s fixed order, wrapping back to the
-    /// first after the last — the whole implementation of a UI's "cycle
-    /// kind" button, so no call site hand-rolls its own wraparound.
-    pub fn next(self) -> Self {
-        let i = Self::ALL.iter().position(|k| *k == self).unwrap_or(0);
-        Self::ALL[(i + 1) % Self::ALL.len()]
-    }
-}
+/// The relation schema types, moved to `kovan_common::artifact::relation`
+/// on 2026-10-07 (GitHub #764) and re-exported here unchanged.
+pub use kovan_common::artifact::relation::{
+    CodeTarget, RelationKind, RelationRecord, Relations, CODE_PREFIX,
+};
 
 /// One user-authored relation between two graph nodes, in memory.
 ///
@@ -214,8 +149,9 @@ pub struct UserRelation {
     /// Stable id, unique within the library. Generated once by
     /// [`add_connection`] and never recomputed.
     pub id: String,
-    /// The node this relation originates from. Always an artifact node
-    /// identity (`artifact:<citekey>#<id>`) in the current implementation —
+    /// The node this relation originates from: a node that belongs to a
+    /// paper, `artifact:<citekey>#<id>` or `paper:<citekey>` (~~always an
+    /// artifact node~~ CORRECTED 2026-10-07, `owning_paper` accepts both) —
     /// see the module docs' "Restriction accepted for v1".
     pub source: NodeId,
     /// The node this relation points at. Any node identity string —
@@ -225,44 +161,13 @@ pub struct UserRelation {
     pub kind: RelationKind,
 }
 
-impl RelationKind {
-    /// The snake_case wire name, as written in a relation artifact's
-    /// `[relation] kind` and shown in its heading.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::RelatedTo => "related_to",
-            Self::Supports => "supports",
-            Self::Contradicts => "contradicts",
-            Self::DerivedFrom => "derived_from",
-            Self::UsesDataFrom => "uses_data_from",
-            Self::Validates => "validates",
-            Self::VerifiedAgainst => "verified_against",
-            Self::Implements => "implements",
-        }
-    }
-}
-
-/// The `[relation]` table of a relation artifact.
-///
-/// Both endpoints are explicit: a relation is its own artifact now, not a
-/// record nested inside the thing it starts from, so nothing about it is
-/// implied by where it is written. The id lives in `[kovan] id`, like every
-/// other artifact's.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RelationRecord {
-    /// The node this relation starts at.
-    pub source: NodeId,
-    /// The node this relation points at.
-    pub target: NodeId,
-    /// What kind of relationship this is.
-    pub kind: RelationKind,
-}
-
 /// Errors from the connection CRUD operations.
 #[derive(Debug)]
 pub enum RelationError {
-    /// `source` did not parse as `artifact:<citekey>#<id>` — only an
-    /// artifact node may be a relation's source (see the module docs).
+    /// `source` does not belong to a paper: it is neither
+    /// `artifact:<citekey>#<id>` nor `paper:<citekey>` (see the module docs;
+    /// ~~only an artifact node~~ CORRECTED 2026-10-07). The variant keeps its
+    /// name so callers do not break.
     SourceNotArtifact(String),
     /// `add_connection` was asked to relate a node to itself.
     SelfRelation(String),
@@ -284,7 +189,7 @@ impl std::fmt::Display for RelationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SourceNotArtifact(node) => {
-                write!(f, "{node:?} is not an artifact node (artifact:<citekey>#<id>) — only an artifact may be a relation's source")
+                write!(f, "{node:?} does not belong to a paper (artifact:<citekey>#<id> or paper:<citekey>) — only those may be a relation's source")
             }
             Self::SelfRelation(node) => write!(f, "cannot relate {node:?} to itself"),
             Self::Session(e) => write!(f, "{e}"),
@@ -354,12 +259,15 @@ fn open_mindmap(root: &KovanRoot) -> Result<(std::path::PathBuf, String), Relati
     let path = root.mindmap_markdown();
     if !path.is_file() {
         let header = ArtifactToml {
+            extra: Default::default(),
             kovan: ArtifactMeta {
+                extra: Default::default(),
                 id: MINDMAP_DOC.to_string(),
                 kind: ArtifactKind::Mindmap,
                 created: utc_now_iso8601(),
                 modified: utc_now_iso8601(),
                 reviewed: None,
+                origin: None,
             },
             source: None,
             classification: Classification::default(),
@@ -434,22 +342,25 @@ fn link_back(root: &KovanRoot, node: &str, relation_id: &str, add: bool) -> Resu
 /// belongs in the artifacts it joins.
 fn render_relation_artifact(rel: &UserRelation, created: &str) -> Result<String, RelationError> {
     let toml = ArtifactToml {
+        extra: Default::default(),
         kovan: ArtifactMeta {
+            extra: Default::default(),
             id: rel.id.clone(),
             kind: ArtifactKind::Relation,
             created: created.to_string(),
             modified: utc_now_iso8601(),
             reviewed: None,
+            origin: None,
         },
         source: None,
         classification: Classification::default(),
         extraction: None,
         connections: Vec::new(),
-        relation: Some(RelationRecord {
-            source: rel.source.clone(),
-            target: rel.target.clone(),
-            kind: rel.kind,
-        }),
+        relation: Some(Relations::One(RelationRecord::new(
+            rel.source.clone(),
+            rel.target.clone(),
+            rel.kind,
+        ))),
     };
     render_artifact_block(ARTIFACT_LEVEL, &relation_heading(rel), &toml, "")
         .map_err(RelationError::Render)
@@ -477,7 +388,7 @@ fn all_relations(root: &KovanRoot, _index: &KnowledgeIndex) -> Vec<UserRelation>
         .iter()
         .filter(|a| a.kind() == ArtifactKind::Relation)
         .filter_map(|a| {
-            a.toml.relation.as_ref().map(|r| UserRelation {
+            a.toml.relation.as_ref().and_then(Relations::one).map(|r| UserRelation {
                 id: a.id().to_string(),
                 source: r.source.clone(),
                 target: r.target.clone(),
@@ -735,7 +646,12 @@ mod tests {
         let map_doc = parse_document(&mindmap);
         let a = map_doc.get(&rel.id).expect("relation artifact in mindmap.md");
         assert_eq!(a.kind(), ArtifactKind::Relation);
-        let record = a.toml.relation.as_ref().expect("[relation] table");
+        let record = a
+            .toml
+            .relation
+            .as_ref()
+            .and_then(Relations::one)
+            .expect("[relation] table");
         assert_eq!(record.source, source, "names the artifact it came from");
         assert_eq!(record.target, target);
         assert_eq!(record.kind, RelationKind::Supports);
@@ -925,12 +841,13 @@ mod tests {
     }
 
     #[test]
-    fn relation_kind_all_has_eight_unique_variants() {
+    // ~~eight~~ nine variants since `part_of` (GitHub #764, 2026-10-07).
+    fn relation_kind_all_has_nine_unique_variants() {
         let mut all: Vec<_> = RelationKind::ALL.to_vec();
         all.sort_by_key(|k| k.label());
         all.dedup();
-        assert_eq!(RelationKind::ALL.len(), 8);
-        assert_eq!(all.len(), 8, "ALL must not repeat a variant");
+        assert_eq!(RelationKind::ALL.len(), 9);
+        assert_eq!(all.len(), 9, "ALL must not repeat a variant");
     }
 
     #[test]

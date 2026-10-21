@@ -1,0 +1,284 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-foam-basic-lib"
+dir = "crates/outram-foam-basic-lib/src/thermophysics"
+test_ids = [
+    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::correct_recovers_temperature_from_he",
+    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::correct_rho_clamps",
+    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::initial_state_consistent",
+    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::mu_and_kappa_fields_populated",
+    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::correct_updates_temperature",
+    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::initial_state_consistent",
+    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::psi_vs_rho_thermo_match",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/ico_polynomial.rs::psi_is_zero",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::co2_ideal_gas_limit",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::co2_nist_density_400k_10mpa",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::co2_nist_density_400k_5mpa",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::cp_m_cv_approaches_r_at_low_pressure",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::h_eos_zero_at_low_pressure",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::methane_density_at_moderate_conditions",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::n2_nist_density_200k_5mpa",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::n2_nist_density_300k_10mpa",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::psi_times_p_approx_rho",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/perfect_gas.rs::air_density_at_stp",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/perfect_gas.rs::air_r",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/perfect_gas.rs::psi_times_p_equals_rho",
+    "crates/outram-foam-basic-lib/src/thermophysics/eos/rho_const.rs::zero_compressibility",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_const.rs::cp_is_constant",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_const.rs::ha_roundtrip",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_const.rs::hs_plus_hc_equals_ha",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::const_poly_cp",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::entropy_increases_with_temperature",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::ha_roundtrip",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::hs_plus_hc_equals_ha",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::linear_poly_cp",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::cp_from_table",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::entropy_increases_with_temperature",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::ha_from_table_at_knot",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::ha_roundtrip",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_tabulated.rs::hs_plus_hc_equals_ha",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::cp_at_300k_is_reasonable",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::cp_both_ranges_are_reasonable",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::ha_roundtrip",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::hs_plus_hc_equals_ha",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::newton_converges_from_bad_initial_guess",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::newton_crosses_tcommon_discontinuity",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::newton_t_max_clamp_returns_err",
+    "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::newton_t_min_clamp_returns_err",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::alpha_h_equals_kappa_over_cp",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::kappa_from_pr",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::mu_is_constant",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::alpha_h_is_kappa_over_cp",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::kappa_at_300k",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::mu_at_300k",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::mu_increases_with_temperature",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/sutherland.rs::mu_at_293k",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/sutherland.rs::mu_increases_with_temperature",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/sutherland.rs::two_point_reconstruction",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::alpha_h_is_kappa_over_cp",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::kappa_at_knot",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_at_knot",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_increases_with_temperature",
+    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_interpolated",
+]
+
+[module."constants.rs"]
+path = "crate::thermophysics::constants"
+
+[[module."constants.rs".function]]
+id = "fn:f0388587d0dc9d2d"
+name = "R_UNIVERSAL"
+qual = "R_UNIVERSAL"
+item = "const"
+shape = "const"
+lines = [
+    22,
+    24,
+]
+hash = "sha256:3eb7e8af83569a60e40f72c011df29343d9680dc1725e7b11b1c960c36773946"
+doc_hash = "sha256:77929920bcdb3753f729a5df35b71af0c75bf019454081eb58177b0c434133c1"
+reached_by = [
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+]
+
+[[module."constants.rs".function]]
+id = "fn:b84de9c0735c4caa"
+name = "T_STD"
+qual = "T_STD"
+item = "const"
+shape = "const"
+lines = [
+    26,
+    27,
+]
+hash = "sha256:2427d4c53adcbbf67b690a37f3ffa0a93999d60f3eab60cb09bbd3b5425cd48f"
+doc_hash = "sha256:6a05332b67dfd0ce2ce05eabcb0851893c3c19e539872adc0be8f0c17c4d17c4"
+reached_by = [
+    "#25",
+    "#26",
+    "#27",
+    "#37",
+]
+
+[[module."constants.rs".function]]
+id = "fn:1eca699827a095e7"
+name = "T_MIN"
+qual = "T_MIN"
+item = "const"
+shape = "const"
+lines = [
+    29,
+    30,
+]
+hash = "sha256:25b0b6b5855bff81efdd2c33e76639d4f6b12b2a83c4f0341a39d6b3275a474f"
+doc_hash = "sha256:9607a9ca930e0bb0f66c24e28960783e11ce692ea479b245b7f9c3546de6a975"
+
+[[module."constants.rs".function]]
+id = "fn:8e16fb5e71de4a70"
+name = "T_MAX"
+qual = "T_MAX"
+item = "const"
+shape = "const"
+lines = [
+    32,
+    33,
+]
+hash = "sha256:e46acb09b2fb8417e786c6ce32a2594b580f7ef9a3dbca4a3b583617ac5092da"
+doc_hash = "sha256:ffca238a4f96feac683b78d5262791b988142233b886efef22a4cf7da6994fd3"
+
+[[module."constants.rs".function]]
+id = "fn:c1202348ef6fa1dd"
+name = "P_REF"
+qual = "P_REF"
+item = "const"
+shape = "const"
+lines = [
+    35,
+    36,
+]
+hash = "sha256:fca6e0210279f461d8c9f3c08b877e6d67479de2a34b197770ae0260eaf6064a"
+doc_hash = "sha256:088b0b60c672e12c960858cc4191417d223599b1d302f4493bb5fe256d776567"
+
+[module."error.rs"]
+path = "crate::thermophysics::error"
+
+[[module."error.rs".function]]
+id = "fn:8f10e3c0c0110028"
+name = "ThermoError"
+qual = "ThermoError"
+item = "type"
+shape = "enum"
+lines = [
+    22,
+    28,
+]
+hash = "sha256:2be34b7e42f17ac599b113ad3c0464fbe889f2734d9c2cefb368ad8f7be4571c"
+doc_hash = "sha256:f216cf618f187718f82505e4cefc61b31a95042e862a80d131656b72fadb1d79"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+]
+
+[[module."error.rs".function]]
+id = "fn:cc80a7ae855545b3"
+name = "fmt"
+qual = "ThermoError::fmt"
+lines = [
+    31,
+    39,
+]
+hash = "sha256:510c27885941e00b233959ac0553dda6a957e653a2df8625ca7e80cc267338d0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+uses = ["fn:8f10e3c0c0110028"]
+
+[module."imports.rs"]
+path = "crate::thermophysics::imports"
+
+[module."mod.rs"]
+path = "crate::thermophysics"
+
+[module."quantities.rs"]
+path = "crate::thermophysics::quantities"
+
+[[module."quantities.rs".function]]
+id = "fn:b7255aef0d0cd2ba"
+name = "Compressibility"
+qual = "Compressibility"
+item = "type"
+shape = "alias"
+lines = [
+    25,
+    29,
+]
+hash = "sha256:3f1ca6f56fbfb96e7f1f2ef2d5154750628904ff866fef705336511913c3c3e3"
+doc_hash = "sha256:3869d8059522feea3c1573a159635ad0794ad073f484883ec0e81126a5349fa9"
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#16",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
+    "#37",
+    "#38",
+    "#39",
+    "#40",
+    "#41",
+    "#42",
+    "#43",
+    "#44",
+    "#45",
+    "#46",
+    "#47",
+    "#48",
+    "#49",
+    "#50",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+]

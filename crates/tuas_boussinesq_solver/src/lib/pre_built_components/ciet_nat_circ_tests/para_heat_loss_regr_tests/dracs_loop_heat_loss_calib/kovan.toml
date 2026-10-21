@@ -1,0 +1,364 @@
+schema_version = 1
+kind = "code_folder"
+crate = "tuas_boussinesq_solver"
+dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib"
+test_ids = [
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/cold_leg_calibration.rs::cold_leg_regression_set_c9",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c1",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c2",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c3",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c4",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c5",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c6",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c7",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c8",
+    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_heat_loss_calib/hot_leg_calibration.rs::hot_leg_regression_set_c9",
+]
+
+[module."cold_leg_calibration.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::cold_leg_calibration"
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:5f89183fca6667b9"
+name = "cold_leg_regression_set_c1"
+qual = "cold_leg_regression_set_c1"
+lines = [
+    1,
+    26,
+]
+hash = "sha256:a9dfa7e61a9af15d4bc61f2d1188d34b874c2058ee2ef5ed9789597ee5dd5bdd"
+doc_hash = "sha256:585565df4e0fb7371ac441aca622bb4484ed06e1c796d4bcc82761ffcfc76290"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:2c2b6ec5527e2c37"
+name = "cold_leg_regression_set_c2"
+qual = "cold_leg_regression_set_c2"
+lines = [
+    27,
+    51,
+]
+hash = "sha256:5cc376975a943c1f58b0312db5479ab75e3236d8416b791142c79d9ad57d6511"
+doc_hash = "sha256:1cc5b9b1efbbd1f16143d80d0254437032adcb5101874723dddbcacf100a6448"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:d4c8774ea311d060"
+name = "cold_leg_regression_set_c3"
+qual = "cold_leg_regression_set_c3"
+lines = [
+    52,
+    76,
+]
+hash = "sha256:11918fa98986d118ba483d34b164b5c300076060bbf5828c1a205420554c46d9"
+doc_hash = "sha256:88b078bd6d5f10bd20d758d20f15380b77a5c1f350a21ba28aaa00369e6ab147"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:0313703aeec63061"
+name = "cold_leg_regression_set_c4"
+qual = "cold_leg_regression_set_c4"
+lines = [
+    77,
+    101,
+]
+hash = "sha256:6a369c99029cfeaf2c09c1d23ed0dca8d4389abfe1483d605ec38c5a018d004d"
+doc_hash = "sha256:f5ffa995bf26885e795692c5a3bb71de4cb04c89075596d24b1079bab252f484"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:e7460ee7055b09e9"
+name = "cold_leg_regression_set_c5"
+qual = "cold_leg_regression_set_c5"
+lines = [
+    102,
+    126,
+]
+hash = "sha256:0662328cc989bda12c91412f3f8672d0bd1098068be686ffd7789e394491ce4b"
+doc_hash = "sha256:d4f47e961beb70a3be0da2e0d7d51fbd21e5bde1274911cdccfb06b368ad47c8"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:db1bafb6202bdf76"
+name = "cold_leg_regression_set_c6"
+qual = "cold_leg_regression_set_c6"
+lines = [
+    127,
+    151,
+]
+hash = "sha256:4b8371e0f3ce33744ba78ba53407d4e088d2b68d32eb2fbf4bf7df8f810b5f49"
+doc_hash = "sha256:58054ccaa9260a704f95386b39c335dc63a8b106e25341389d206c2745bae397"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:70f0ce243ebca07e"
+name = "cold_leg_regression_set_c7"
+qual = "cold_leg_regression_set_c7"
+lines = [
+    152,
+    176,
+]
+hash = "sha256:21267ec5eeb8ad880915ad60ed441254f3d28ac105e379f1254350463e3273f4"
+doc_hash = "sha256:3e8a4e5056da53602033c23ebc4b626f36d8b14de1e3e887f5dc4de9c006409b"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:618cda43635a7ca3"
+name = "cold_leg_regression_set_c8"
+qual = "cold_leg_regression_set_c8"
+lines = [
+    177,
+    201,
+]
+hash = "sha256:5861c290eb4a54b5d475a51de64dd6ae4dd4c5560d690f601d3d0c5c3dddde2e"
+doc_hash = "sha256:caa47856741fe64daf9e49533e8d8bb37991a002d8363dc7c430d86c20440ff4"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:007e4bf56d143a35"
+name = "cold_leg_regression_set_c9"
+qual = "cold_leg_regression_set_c9"
+lines = [
+    202,
+    226,
+]
+hash = "sha256:8847643f20e2ea322398d0dbd41c80915f006ed026299e2239683e0d31e1f2e6"
+doc_hash = "sha256:2544add9ba43f3648cc3630469e02670a91739bdb9587db737290e5932d42880"
+callees = ["fn:1b91200a045b8f58"]
+test = true
+
+[[module."cold_leg_calibration.rs".function]]
+id = "fn:1b91200a045b8f58"
+name = "dracs_cold_leg_insulation_thickness_calibration_validation_test_v1"
+qual = "dracs_cold_leg_insulation_thickness_calibration_validation_test_v1"
+lines = [
+    228,
+    520,
+]
+hash = "sha256:dc4185ee74b6fc822bc9e0cb5ea8e1dd34464c29a249a0af0b589f399e799548"
+doc_hash = "sha256:7378ab3da8a02d629fbcd0eb16ca92f00fb36706452f4006a2610339789eec75"
+callees = [
+    "fn:089c40400fdd61ff",
+    "fn:26e415a2516474b8",
+    "fn:3ab99241909cec96",
+    "fn:3f6427f87e7e0f62",
+    "fn:428a459b059dec74",
+    "fn:4cad4ddd84ccee48",
+    "fn:4e7dcb14e36b36c7",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6472671d822a61ab",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:6fdf5b3db5ce2173",
+    "fn:75d1e2e16257fc20",
+    "fn:91f7627d113aa8f5",
+    "fn:a16a9747f145abfe",
+    "fn:b06e224b136ceb6f",
+    "fn:dda41651835c793f",
+    "fn:f66c6613b2fa9c0c",
+    "fn:ff8521081362840f",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+]
+
+[module."hot_leg_calibration.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib::hot_leg_calibration"
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:725eb265d6bc28ac"
+name = "hot_leg_regression_set_c1"
+qual = "hot_leg_regression_set_c1"
+lines = [
+    1,
+    25,
+]
+hash = "sha256:b9ea4aea05857e356716a6c838abe260e38254f0aaf2af4db039e35fc29573a2"
+doc_hash = "sha256:01c3bee21341dd3ac0bd3d51f483ca4f33aaaa455ce3cf6fbaf6729fec1e03e5"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:c75cd10394b7ea70"
+name = "hot_leg_regression_set_c2"
+qual = "hot_leg_regression_set_c2"
+lines = [
+    26,
+    50,
+]
+hash = "sha256:2c103d6b1e666e900eed1791b95db706ffd3ff9b3ccdc37acbad90c99b917145"
+doc_hash = "sha256:95d9e1be09923b1528161763eb167250b5b5577a74011871d5cd8ffc64578d20"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:71797db9513ece15"
+name = "hot_leg_regression_set_c3"
+qual = "hot_leg_regression_set_c3"
+lines = [
+    51,
+    75,
+]
+hash = "sha256:a21a66968621789e3f5c0321d417d8342f3174c3549376b03ac3a7f05d881ae7"
+doc_hash = "sha256:43d005bdcd0b8a5cf645dbdc62bda6618788474b3360e7ca494546e03ec959ad"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:735edc4d04a4edbf"
+name = "hot_leg_regression_set_c4"
+qual = "hot_leg_regression_set_c4"
+lines = [
+    76,
+    100,
+]
+hash = "sha256:7a7fd14adb7106db240dbd6aee72f0a766030405883278ad2129673ddf3d4b90"
+doc_hash = "sha256:44574df57448f6974efe391ce4ae02cec3c03e28e6bc39956903532827f2f375"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:892e5877b9e16b01"
+name = "hot_leg_regression_set_c5"
+qual = "hot_leg_regression_set_c5"
+lines = [
+    101,
+    125,
+]
+hash = "sha256:6f21c459a65a7839561abe44e0db7d4d90e97a4815dae9d0bdac63050aa34c00"
+doc_hash = "sha256:33a9b743ab949a6e1dd98be82f6e270f426c029ad83d6ced6fb65343422a7f95"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:79d34f68f3e3c411"
+name = "hot_leg_regression_set_c6"
+qual = "hot_leg_regression_set_c6"
+lines = [
+    126,
+    150,
+]
+hash = "sha256:b51f32abeb7fe218279d744744adc3a6388f1484af976c0a4105bdc3cb9eda73"
+doc_hash = "sha256:810a1082a31963dd1d02d2569d8c825a23c006b04627d3dc14b2bd0ab115051a"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:2705448237858dce"
+name = "hot_leg_regression_set_c7"
+qual = "hot_leg_regression_set_c7"
+lines = [
+    151,
+    175,
+]
+hash = "sha256:3e51c8496eb0f97e8bc6ec1bf61482b7f50d2a14f6743c45075c734566374a9e"
+doc_hash = "sha256:53e48a5ad386640e3064ee08eda27477c36d87372c91c6b90b93ef8c3d7beb34"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:eb17545fc57c4c82"
+name = "hot_leg_regression_set_c8"
+qual = "hot_leg_regression_set_c8"
+lines = [
+    176,
+    200,
+]
+hash = "sha256:43d2c6e5406226035af1b6631bc7a72755a0f4131e3e3be88dc27f6ab043703c"
+doc_hash = "sha256:076325641de97e04fb98f8db3a4ff4aa1d4f26e5d75c9d164cead556e77f7310"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:a12e31b69fd0d1a6"
+name = "hot_leg_regression_set_c9"
+qual = "hot_leg_regression_set_c9"
+lines = [
+    201,
+    225,
+]
+hash = "sha256:13bb555e31ea19414c8f8309bb3ed403425a3fc271338558689e947074b2c378"
+doc_hash = "sha256:79745bd7f14f44cf9d0bc637e78e4b9895b04de094a160c511fb8f21b5febe5d"
+callees = ["fn:39786a335649b029"]
+test = true
+
+[[module."hot_leg_calibration.rs".function]]
+id = "fn:39786a335649b029"
+name = "dracs_hot_leg_insulation_thickness_calibration_validation_test_v1"
+qual = "dracs_hot_leg_insulation_thickness_calibration_validation_test_v1"
+lines = [
+    227,
+    499,
+]
+hash = "sha256:d20b4c4b2daa86dec6030b9a9038bc7af2a00018d36f46ed793956e045af000e"
+doc_hash = "sha256:ed6088602beb68b38ca50fbd6d9dfa49bf8d3ac4807dc71a99969c61ea9287be"
+callees = [
+    "fn:089c40400fdd61ff",
+    "fn:165e0de92fdc30f9",
+    "fn:3ab99241909cec96",
+    "fn:3f6427f87e7e0f62",
+    "fn:428a459b059dec74",
+    "fn:44b0242f8ce5613f",
+    "fn:4cad4ddd84ccee48",
+    "fn:4f08e35087543a15",
+    "fn:6256de6e1d4d986a",
+    "fn:6495f5fa3bc8a5b5",
+    "fn:7ee6570130bd052b",
+    "fn:ab7102b91b02cb50",
+    "fn:b06e224b136ceb6f",
+    "fn:d080d9cf81960954",
+    "fn:dda41651835c793f",
+    "fn:e1d822f0823e13bf",
+    "fn:f66c6613b2fa9c0c",
+    "fn:ff8521081362840f",
+]
+uses = [
+    "fn:07c5060b9c48fc1b",
+    "fn:7a10a768152b5992",
+    "fn:a6efe5f766b47fef",
+    "fn:de020efa1d48c9ac",
+]
+reached_by = [
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+
+[module."mod.rs"]
+path = "crate::pre_built_components::ciet_nat_circ_tests::para_heat_loss_regr_tests::dracs_loop_heat_loss_calib"

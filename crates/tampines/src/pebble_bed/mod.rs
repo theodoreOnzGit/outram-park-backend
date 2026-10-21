@@ -86,7 +86,7 @@ pub mod zbs;
 pub use cht::PackedBedConvection;
 pub use feedback::GraphiteModeratorFeedback;
 pub use pebble::{DispersionModel, Pebble, PebbleTemperatureProfile};
-pub use triso::{TrisoLayer, TrisoParticle, TrisoTemperatureProfile};
+pub use triso::{CorrelationWindow, TrisoLayer, TrisoParticle, TrisoTemperatureProfile};
 pub use zbs::ZbsBed;
 
 /// The difference between two absolute temperatures, as a `uom`
