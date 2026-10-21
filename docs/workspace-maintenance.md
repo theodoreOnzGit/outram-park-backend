@@ -125,6 +125,22 @@ pin bumped whenever an upstream is bumped.
 Publish each with `cargo publish -p <crate>` from the workspace root (commit
 first; `cargo publish` refuses a dirty tree without `--allow-dirty`).
 
+### Tests green before each publish; test ahead of the queue (maintainer, 2026-10-21)
+
+When publishing to crates.io in lockstep, every crate's tests must be green
+before that crate is published. Low-level crates are tested and published
+first, concurrently with the tests of the higher-level crates still running,
+so the publish queue starts early and crates.io's rate limits are spread over
+the run instead of hitting at the end. Ideally a script drives this; the agent
+manages it.
+
+The script is `scripts/release-lockstep.sh`: a test worker pool (bounded by
+`JOBS`) runs `cargo test --release -p <crate> --lib --tests` in topological
+order (normal + dev edges), and one serial publisher publishes each crate once
+its tests are green and every internal dependency is live. A red crate is not
+published, nor is anything that depends on it. Per-crate logs and a summary
+TSV land under `release/`.
+
 ### Drift: the published version is not the local version
 
 A crate whose `version` is unchanged since it was published, but whose `src/`

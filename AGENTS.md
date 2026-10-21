@@ -31,6 +31,14 @@ gh issue comment <number> --body "..."           # progress
   in the hand-off.
 - The tracker holds *work to do*. Durable facts and preferences go in the
   per-project `memory/` files and `MEMORY.md`.
+- **Lockstep crates.io releases: tests green before each publish** (maintainer,
+  2026-10-21, gh:#971). When publishing to crates.io in lockstep, every
+  crate's tests must be green before that crate is published. Low-level crates
+  are tested and published first, concurrently with the tests of the
+  higher-level crates still running, so the publish queue starts early and
+  crates.io's rate limits are spread over the run instead of hitting at the
+  end. Ideally a script drives this (`scripts/release-lockstep.sh`); the agent
+  manages it.
 
 ## Non-Interactive Shell Commands
 
