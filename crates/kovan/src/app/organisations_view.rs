@@ -142,10 +142,8 @@ fn body(ui: &mut egui::Ui, p: &mut OrgPanel) {
             "reviewer"
         });
     });
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Passphrase");
-        ui.add(egui::TextEdit::singleline(&mut p.forms.passphrase).password(true));
-    });
+    let unlocked = p.unlocked();
+    super::key_window::passphrase_row(ui, unlocked, &mut p.forms.passphrase);
     if p.busy() {
         ui.horizontal(|ui| {
             ui.spinner();

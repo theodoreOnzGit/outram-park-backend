@@ -691,6 +691,23 @@ stamp's key moves to the new commit with its signature untouched (see
 "`review carry-forward`" below). A stamp whose anchor is gone and whose code
 changed shows as changed since review, not unverified.
 
+Added 2026-10-22 (#1020): **the signing key is unlocked once per
+session.** The first signing (a stamp, a re-confirm, a re-anchor, an
+organisation record or an attestation) asks for the passphrase; kovan then
+keeps the unlocked key in memory, never on disk, and later signings ask for
+nothing. It locks after 30 minutes without signing (set in the Code Review
+tab's **Signing key…** window, saved in kovan's config folder), on
+**Lock now** (the strip shows the lock state), and when kovan closes. The
+same window **exports** your key, a byte-for-byte copy of its encrypted
+`.kovankey` file, to a file you choose, and **imports** one on another
+machine: it checks the file's header against its encryption with your
+passphrase, accepts only a key the workspace's `kovan_root.toml` already
+lists, and never overwrites a different key file. Both sides show the key's
+`SHA256:` fingerprint, so you can check it is the same key; there is nothing
+new to endorse. kovan sends the file nowhere: carrying it is yours
+(`kovan_common::review::signing::session`, `Keystore::export`/`import`,
+`src/stamping/key_panel.rs`).
+
 Added 2026-10-10 (#770): an inherited-stale function (only callees
 changed) offers **Re-confirm**: the dialog shows each changed callee's
 diff and signs your previous answers again at `HEAD`, without the wizard

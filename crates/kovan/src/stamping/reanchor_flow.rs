@@ -14,14 +14,16 @@
 //! ```
 //!
 //! One passphrase entry signs every ready review of the module (maintainer,
-//! 2026-10-12: re-anchoring is done "by modules, rather than by functions").
+//! 2026-10-12: re-anchoring is done "by modules, rather than by functions"),
+//! and none at all while the app's key session holds the key (GitHub #1020).
 
 use std::path::PathBuf;
 
-use kovan_common::review::signing::keystore::{Keystore, KeystoreError};
+use kovan_common::review::signing::keystore::Keystore;
+use kovan_common::review::signing::session::{with_session_key, SharedKeySession};
 use zeroize::Zeroize;
 
-use super::flow::{find_keys, KeyInfo, SignFailure, Worker};
+use super::flow::{find_keys, session_holds, sign_failure, KeyInfo, SignFailure, Worker};
 use super::reanchor::{prepare_reanchor_module, sign_reanchor_module, ModuleReanchor};
 use super::relocate::RelocateReport;
 
@@ -57,6 +59,8 @@ pub struct ReanchorFlow {
     /// The last signing failure.
     pub error: Option<String>,
     job: Option<Job>,
+    /// The app's key session (GitHub #1020); its own empty one by default.
+    session: SharedKeySession,
 }
 
 impl Drop for ReanchorFlow {
@@ -95,7 +99,19 @@ impl ReanchorFlow {
             passphrase: String::new(),
             error: None,
             job: Some(Job::Prepare(Worker::spawn(move || prepare(&r, &ks, &m)))),
+            session: SharedKeySession::default(),
         }
+    }
+
+    /// Sign through the app's key `session` (GitHub #1020).
+    pub fn with_session(mut self, session: SharedKeySession) -> ReanchorFlow {
+        self.session = session;
+        self
+    }
+
+    /// The signing key is unlocked in the session: no passphrase is asked.
+    pub fn unlocked(&self) -> bool {
+        session_holds(&self.session, self.key.as_ref())
     }
 
     pub fn busy(&self) -> bool {
@@ -129,11 +145,12 @@ impl ReanchorFlow {
         }
     }
 
-    /// Whether "Sign" is enabled: something is ready and a passphrase typed.
+    /// Whether "Sign" is enabled: something is ready, and a passphrase
+    /// typed or the key unlocked in the session.
     pub fn can_sign(&self) -> bool {
         self.step == ReanchorStep::Ready
             && self.job.is_none()
-            && !self.passphrase.is_empty()
+            && (self.unlocked() || !self.passphrase.is_empty())
             && self.prepared.as_ref().is_some_and(|m| !m.ready.is_empty())
     }
 
@@ -146,20 +163,16 @@ impl ReanchorFlow {
             return false;
         };
         let mut pass = std::mem::take(&mut self.passphrase);
-        let (root, ks) = (self.root.clone(), self.keystore.clone());
+        let (root, ks, session) = (self.root.clone(), self.keystore.clone(), self.session.clone());
         self.error = None;
         self.step = ReanchorStep::Signing;
         self.job = Some(Job::Sign(Worker::spawn(move || {
             let kf = ks
                 .load(&k.reviewer, &k.key)
                 .map_err(|e| SignFailure::Other(e.to_string()))?;
-            let unlocked = kf.unlock(&pass);
+            let signed = with_session_key(&session, &kf, &pass, |key| sign_reanchor_module(&root, &m, key));
             pass.zeroize();
-            let key = unlocked.map_err(|e| match e {
-                KeystoreError::WrongPassphrase => SignFailure::WrongPassphrase,
-                other => SignFailure::Other(other.to_string()),
-            })?;
-            sign_reanchor_module(&root, &m, &key).map_err(SignFailure::Other)
+            signed.map_err(sign_failure)?.map_err(SignFailure::Other)
         })));
         true
     }

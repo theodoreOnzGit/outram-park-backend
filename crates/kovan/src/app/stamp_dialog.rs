@@ -63,7 +63,23 @@ pub(crate) fn show(
             ui.monospace(&f.target.function);
             if let Some(k) = f.key() {
                 if !matches!(f.step, Step::Loading | Step::PickKey | Step::SetupKey) {
-                    ui.weak(format!("Signing identity: {} (key {})", k.reviewer, k.key));
+                    ui.weak(format!(
+                        "Signing identity: {} (key {}, {})",
+                        k.reviewer, k.key, k.fingerprint
+                    ));
+                    // The key session (GitHub #1020): unlocked once, then
+                    // no passphrase until it locks.
+                    let unlocked = f.unlocked();
+                    ui.horizontal_wrapped(|ui| {
+                        if unlocked {
+                            ui.label("\u{1F513} Unlocked for this session");
+                            if ui.small_button("Lock now").clicked() {
+                                crate::stamping::key_panel::try_lock(f.session());
+                            }
+                        } else {
+                            ui.weak("\u{1F512} Locked: your passphrase is asked once, at the first signing");
+                        }
+                    });
                 }
             }
             ui.separator();
@@ -187,7 +203,14 @@ fn body(
         Step::Reconfirm => reconfirm(ui, f),
         Step::Signing => working(
             ui,
-            "Unlocking your key (argon2, a second or two), signing and writing review.md\u{2026}",
+            // ~~"Unlocking your key (argon2, …)" on every signing~~
+            // CHANGED 2026-10-22 (#1020): only the first signing of a
+            // session unlocks; later ones use the key the session holds.
+            if f.unlocked() {
+                "Signing with your unlocked key and writing review.md\u{2026}"
+            } else {
+                "Unlocking your key (argon2, a second or two), signing and writing review.md\u{2026}"
+            },
         ),
         Step::NeedsFixForm => {
             ui.label("What needs fixing? This is written to the folder's review.md as an open needs-fix entry.");
@@ -298,6 +321,14 @@ fn setup_key(ui: &mut egui::Ui, f: &mut StampFlow) {
     {
         f.generate_key();
     }
+    ui.separator();
+    ui.label(
+        "Already have a key on another machine? Import it instead: the same key everywhere, \
+         nothing new to endorse.",
+    );
+    if ui.button("Import a key from another machine\u{2026}").clicked() {
+        f.wants_key_window = true;
+    }
 }
 
 fn authorship(t: TestAuthorship) -> &'static str {
@@ -313,6 +344,7 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
     let mut to_needs_fix = false;
     let mut sign = false;
     let can_sign = f.can_sign();
+    let unlocked = f.unlocked();
     let err = f.error.clone();
     let Some(w) = f.wizard.as_mut() else { return };
     let a = w.applicability();
@@ -410,16 +442,13 @@ fn wizard(ui: &mut egui::Ui, f: &mut StampFlow) {
             .desired_rows(2)
             .desired_width(f32::INFINITY),
     );
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Passphrase");
-        ui.add(egui::TextEdit::singleline(&mut w.passphrase).password(true));
-    });
+    super::key_window::passphrase_row(ui, unlocked, &mut w.passphrase);
     if let Some(e) = &err {
         error(ui, e);
     }
     if ui
         .add_enabled(can_sign, egui::Button::new("Sign and write review.md"))
-        .on_disabled_hover_text("Answer every question (nothing blocking) and type your passphrase")
+        .on_disabled_hover_text("Answer every question (nothing blocking) and, while your key is locked, type your passphrase")
         .clicked()
     {
         sign = true;
@@ -501,10 +530,8 @@ fn reconfirm(ui: &mut egui::Ui, f: &mut StampFlow) {
             ui.separator();
         }
     }
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Passphrase");
-        ui.add(egui::TextEdit::singleline(&mut f.reconfirm_passphrase).password(true));
-    });
+    let unlocked = f.unlocked();
+    super::key_window::passphrase_row(ui, unlocked, &mut f.reconfirm_passphrase);
     if let Some(e) = &f.error {
         error(ui, e);
     }

@@ -17,6 +17,8 @@
 //!   ───────────────────────────              ────────────────────────────────────────
 //!   keystore::generate ──> KeyFile (argon2id + AES-256-GCM, kovan config dir)
 //!   KeyFile::unlock(passphrase) ──> UnlockedKey (memory only, while the app is open)
+//!   session::KeySession holds it: one unlock per session, auto-lock (#1020)
+//!   Keystore::export / import: the same encrypted key file on each machine (#1020)
 //!   UnlockedKey::sign_review ──> [review.signature] ──> verify_review(entry, &Registry)
 //!   UnlockedKey::endorse/admit/revoke/unretire ──> kovan_root.toml ──> Registry::build
 //! ```
@@ -136,6 +138,13 @@ pub mod registry;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod keystore;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod session;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/session_tests.rs"]
+mod session_tests;
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "signing/tests.rs"]

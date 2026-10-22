@@ -18,6 +18,7 @@ mod code_review_view;
 mod code_sync;
 mod connection_picker;
 mod index_fresh_view;
+mod key_window;
 mod need_you_view;
 mod box_handles;
 mod corpus_folder;
@@ -170,6 +171,11 @@ enum FileDialogTarget {
     CodeMapWorkspace,
     /// Picked file is a `code_map.json` for the Code Map view (#734).
     CodeMapJson,
+    /// Picked path is where the Code Review view's "Signing key" window
+    /// exports the chosen key's encrypted file (GitHub #1020).
+    KeyExport,
+    /// Picked file is a key file the "Signing key" window imports (#1020).
+    KeyImport,
 }
 
 impl FileDialogTarget {
@@ -192,7 +198,7 @@ impl FileDialogTarget {
     fn is_save(self) -> bool {
         matches!(
             self,
-            Self::JsonExport | Self::CsvExport
+            Self::JsonExport | Self::CsvExport | Self::KeyExport
         )
     }
 
@@ -207,6 +213,7 @@ impl FileDialogTarget {
             Self::Pdf | Self::PdfIngest => Some("PDF"),
             Self::JsonExport | Self::CodeMapJson => Some("JSON"),
             Self::CsvExport => Some("CSV"),
+            Self::KeyExport | Self::KeyImport => Some("Kovan key"),
             Self::KovanRootOpen
             | Self::KovanRootCreate
             | Self::SetupFolder
@@ -658,6 +665,7 @@ impl Default for DigitiseApp {
                 .add_file_filter_extensions("Images", vec!["png", "jpg", "jpeg"])
                 .add_file_filter_extensions("PDF", vec!["pdf"])
                 .add_file_filter_extensions("JSON", vec!["json"])
+                .add_file_filter_extensions("Kovan key", vec!["kovankey"])
                 .default_file_filter("Images"),
             file_dialog_target: None,
             home: HomeState::default(),
@@ -3128,6 +3136,13 @@ impl DigitiseApp {
     /// always coming up filtered to "Images" regardless of what was actually
     /// being opened.
     fn open_picker(&mut self, target: FileDialogTarget) {
+        self.open_picker_named(target, "");
+    }
+
+    /// [`Self::open_picker`] with a default file name for a save target
+    /// (the exported key's own name, GitHub #1020); empty for none.
+    fn open_picker_named(&mut self, target: FileDialogTarget, file_name: &str) {
+        self.file_dialog.config_mut().default_file_name = file_name.to_string();
         self.file_dialog_target = Some(target);
         if target.is_directory() {
             self.file_dialog.pick_directory();
@@ -3169,6 +3184,8 @@ impl DigitiseApp {
                 self.code_map.load_workspace(std::path::PathBuf::from(path))
             }
             FileDialogTarget::CodeMapJson => self.code_map.load_json(std::path::PathBuf::from(path)),
+            FileDialogTarget::KeyExport => self.code_review.key_picked(true, std::path::PathBuf::from(path)),
+            FileDialogTarget::KeyImport => self.code_review.key_picked(false, std::path::PathBuf::from(path)),
             FileDialogTarget::PdfIngest => {
                 if let Some(root) = self.home.root().cloned() {
                     self.begin_ingest(&root, std::path::Path::new(&path));
@@ -3551,6 +3568,11 @@ impl eframe::App for DigitiseApp {
     // CentralPanel last (same pattern as the workspace's digital-twin GUIs).
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.theme.apply(ui.ctx());
+        // Lock the signing key when kovan closes (GitHub #1020): it lives
+        // in memory only and is zeroised as it drops.
+        if ui.ctx().input(|i| i.viewport().close_requested()) {
+            self.code_review.lock_key();
+        }
 
         // Back/forward from the keyboard and mouse side buttons, applied
         // before anything draws so the whole frame shows the new location.
@@ -3805,6 +3827,14 @@ impl eframe::App for DigitiseApp {
                 // reviews again when it is next shown (#844).
                 self.mindmap.invalidate_code_reviews();
                 egui::CentralPanel::default().show(ui, |ui| self.code_review.ui(ui));
+                // The "Signing key" window's file pickers (#1020).
+                match self.code_review.take_key_pick() {
+                    Some(key_window::KeyPick::Export(name)) => {
+                        self.open_picker_named(FileDialogTarget::KeyExport, &name)
+                    }
+                    Some(key_window::KeyPick::Import) => self.open_picker(FileDialogTarget::KeyImport),
+                    None => {}
+                }
             }
             View::AdvancedGit => {
                 if let Some(root) = self.home.root().cloned() {

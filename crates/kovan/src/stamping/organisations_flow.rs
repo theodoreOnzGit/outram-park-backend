@@ -13,6 +13,9 @@
 //!            └─ wrong passphrase / refused ──> the form, error shown, nothing written
 //! ```
 //!
+//! **One unlock per session (GitHub #1020).** Signing goes through the
+//! app's key session: no passphrase is asked while it holds the key.
+//!
 //! **No lag (root `CLAUDE.md`, HARD RULE).** Reading the keystore, the KDF
 //! and the write run on worker threads ([`super::super::flow::Worker`]);
 //! [`OrgPanel::poll`] never blocks. The passphrase is taken out of the form
@@ -22,14 +25,15 @@ use std::path::{Path, PathBuf};
 
 use kovan_common::review::root::Role;
 use kovan_common::review::signed_at::{date_of, now_local};
-use kovan_common::review::signing::keystore::{Keystore, KeystoreError};
+use kovan_common::review::signing::keystore::{Keystore, UnlockedKey};
+use kovan_common::review::signing::session::{with_session_key, SharedKeySession};
 use zeroize::Zeroize;
 
 use super::{
     add_developing_organisation, add_reviewer_organisation, add_separation_attestation,
     check_audit_record, next_attestation_id, overview, AttestationInput, Overview,
 };
-use crate::stamping::flow::{find_keys, KeyInfo, SignFailure, Worker};
+use crate::stamping::flow::{find_keys, session_holds, sign_failure, KeyInfo, SignFailure, Worker};
 
 /// What the panel can sign.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,11 +88,59 @@ pub struct OrgPanel {
     job: Option<Job>,
     /// The action of the sign job running (or last run).
     signing: Option<Action>,
+    /// The app's key session (GitHub #1020); its own empty one by default.
+    session: SharedKeySession,
 }
 
 /// Today, `YYYY-MM-DD`, local.
 fn today() -> String {
     date_of(&now_local()).unwrap_or_default()
+}
+
+/// What a sign job signs: the action and the forms' values.
+struct SignInput {
+    action: Action,
+    dev_name: String,
+    dev_crate: String,
+    rev_reviewer: String,
+    rev_name: String,
+    att: AttestationInput,
+}
+
+/// Sign `input`'s record with `key` and append it to the root; the notice
+/// to show. Runs on the sign job's worker, under the key session's lock.
+fn sign_action(root: &Path, key: &UnlockedKey, input: &SignInput) -> Result<String, String> {
+    let date = today();
+    let SignInput { action, dev_name, dev_crate, rev_reviewer, rev_name, att } = input;
+    match action {
+        Action::DevelopingOrganisation => {
+            let krate = Some(dev_crate.trim()).filter(|c| !c.is_empty());
+            add_developing_organisation(root, key, dev_name, krate, &date).map(|e| {
+                format!(
+                    "Signed and recorded the developing organisation {} ({}) from {}.",
+                    e.name,
+                    e.krate.map_or("workspace".into(), |c| format!("crate {c}")),
+                    e.date
+                )
+            })
+        }
+        Action::ReviewerOrganisation => {
+            add_reviewer_organisation(root, key, rev_reviewer, rev_name, &date).map(|e| {
+                format!(
+                    "Signed and recorded {}'s organisation {} from {}.",
+                    rev_reviewer.trim(),
+                    e.name,
+                    e.date
+                )
+            })
+        }
+        Action::Attestation => add_separation_attestation(root, key, att).map(|a| {
+            format!(
+                "Signed and recorded separation attestation {}: {} is separate from {}.",
+                a.id, a.organisation, a.developing_organisation
+            )
+        }),
+    }
 }
 
 impl OrgPanel {
@@ -106,9 +158,21 @@ impl OrgPanel {
             error: None,
             job: None,
             signing: None,
+            session: SharedKeySession::default(),
         };
         p.load();
         p
+    }
+
+    /// Sign through the app's key `session` (GitHub #1020).
+    pub fn with_session(mut self, session: SharedKeySession) -> OrgPanel {
+        self.session = session;
+        self
+    }
+
+    /// The signing key is unlocked in the session: no passphrase is asked.
+    pub fn unlocked(&self) -> bool {
+        session_holds(&self.session, self.key())
     }
 
     /// The workspace.
@@ -272,7 +336,7 @@ impl OrgPanel {
                 }
             }
         }
-        if f.passphrase.is_empty() {
+        if f.passphrase.is_empty() && !self.unlocked() {
             p.push("Type your passphrase.".into());
         }
         p
@@ -289,61 +353,31 @@ impl OrgPanel {
         };
         let mut pass = std::mem::take(&mut self.forms.passphrase);
         let f = &self.forms;
-        let (dev_name, dev_crate) = (f.dev_name.clone(), f.dev_crate.clone());
-        let (rev_reviewer, rev_name) = (f.rev_reviewer.clone(), f.rev_name.clone());
-        let att = AttestationInput {
-            date: today(),
-            ..f.attestation.clone()
+        let input = SignInput {
+            action,
+            dev_name: f.dev_name.clone(),
+            dev_crate: f.dev_crate.clone(),
+            rev_reviewer: f.rev_reviewer.clone(),
+            rev_name: f.rev_name.clone(),
+            att: AttestationInput {
+                date: today(),
+                ..f.attestation.clone()
+            },
         };
-        let (root, ks) = (self.root.clone(), self.keystore.clone());
+        let (root, ks, session) = (self.root.clone(), self.keystore.clone(), self.session.clone());
         self.error = None;
         self.job = Some(Job::Sign(Worker::spawn(move || {
             let kf = ks
                 .load(&k.reviewer, &k.key)
                 .map_err(|e| SignFailure::Other(e.to_string()))?;
-            let unlocked = kf.unlock(&pass);
+            let signed = with_session_key(&session, &kf, &pass, |key| sign_action(&root, key, &input));
             pass.zeroize();
-            let key = unlocked.map_err(|e| match e {
-                KeystoreError::WrongPassphrase => SignFailure::WrongPassphrase,
-                other => SignFailure::Other(other.to_string()),
-            })?;
-            let date = today();
-            let done = match action {
-                Action::DevelopingOrganisation => {
-                    let krate = Some(dev_crate.trim()).filter(|c| !c.is_empty());
-                    add_developing_organisation(&root, &key, &dev_name, krate, &date).map(|e| {
-                        format!(
-                            "Signed and recorded the developing organisation {} ({}) from {}.",
-                            e.name,
-                            e.krate.map_or("workspace".into(), |c| format!("crate {c}")),
-                            e.date
-                        )
-                    })
-                }
-                Action::ReviewerOrganisation => {
-                    add_reviewer_organisation(&root, &key, &rev_reviewer, &rev_name, &date).map(
-                        |e| {
-                            format!(
-                                "Signed and recorded {}'s organisation {} from {}.",
-                                rev_reviewer.trim(),
-                                e.name,
-                                e.date
-                            )
-                        },
-                    )
-                }
-                Action::Attestation => add_separation_attestation(&root, &key, &att).map(|a| {
-                    format!(
-                        "Signed and recorded separation attestation {}: {} is separate from {}.",
-                        a.id, a.organisation, a.developing_organisation
-                    )
-                }),
-            };
-            done.map_err(SignFailure::Other)
+            signed.map_err(sign_failure)?.map_err(SignFailure::Other)
         })));
         self.signing = Some(action);
         true
     }
+
 
     /// Poll until no job runs (tests only; the UI never waits).
     #[cfg(test)]
