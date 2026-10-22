@@ -718,6 +718,13 @@ mod tests {
         git(&theirs, &["commit", "-qam", "theirs"]);
         git(&theirs, &["push", "-q", "origin", "main"]);
 
+        // A local identity, because `pull_in` runs git without the test's
+        // `-c user.*`. Under `pull.rebase = false` (as on the Windows CI
+        // runner) git asks for one before it reports the overwritten local
+        // change (kovan CI, 2026-10-22; reproduced on Linux).
+        git(&ours, &["config", "user.name", "t"]);
+        git(&ours, &["config", "user.email", "t@example.com"]);
+
         (dir, remote, ours)
     }
 
