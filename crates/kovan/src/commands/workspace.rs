@@ -364,9 +364,18 @@ mod tests {
         // an output directory this function only resolves, never creates), and
         // `canonicalize` errors on a missing path. Falling back to `root` keeps
         // the assertion meaningful on any platform where canonicalisation fails.
+        //
+        // Canonicalise `dir`'s parent too (it is the workspace root, which
+        // exists): on Windows `current_dir()` keeps the 8.3 short form the
+        // runner's TEMP holds (`C:\Users\RUNNER~1\...`) while canonicalising
+        // `root` expands it (`C:\Users\runneradmin\...`), the same folder
+        // spelled two ways (kovan CI, Windows runner, 2026-10-22).
         let root_canonical = dunce::canonicalize(&root).unwrap_or_else(|_| root.clone());
-        assert!(
-            dir.starts_with(&root_canonical),
+        let parent = dir.parent().unwrap();
+        let parent_canonical = dunce::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
+        assert_eq!(
+            parent_canonical,
+            root_canonical,
             "got {}, expected it under {}",
             dir.display(),
             root_canonical.display()

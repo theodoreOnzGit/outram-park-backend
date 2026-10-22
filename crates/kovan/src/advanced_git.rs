@@ -677,7 +677,11 @@ mod tests {
     }
 
     /// A bare "remote" whose `main` holds `f.txt = theirs`, plus a clone
-    /// left one commit behind on `f.txt = base`.
+    /// left one commit behind on `f.txt = base`. Both clones are made with
+    /// `core.autocrlf = false`, so their worktrees hold the committed bytes
+    /// on every platform: these tests are about pulls, and Git for Windows'
+    /// system `core.autocrlf = true` would check `theirs\n` out as
+    /// `theirs\r\n` (kovan CI, Windows runner, 2026-10-22).
     fn diverging_pair() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
         let dir = tempfile::tempdir().unwrap();
         let remote = dir.path().join("remote.git");
@@ -691,7 +695,7 @@ mod tests {
             .unwrap()
             .success());
         assert!(StdCommand::new("git")
-            .args(["clone", "-q"])
+            .args(["clone", "-q", "-c", "core.autocrlf=false"])
             .arg(&remote)
             .arg(&theirs)
             .status()
@@ -703,7 +707,7 @@ mod tests {
         git(&theirs, &["push", "-q", "origin", "main"]);
 
         assert!(StdCommand::new("git")
-            .args(["clone", "-q"])
+            .args(["clone", "-q", "-c", "core.autocrlf=false"])
             .arg(&remote)
             .arg(&ours)
             .status()
@@ -713,6 +717,13 @@ mod tests {
         write(&theirs, "f.txt", "theirs\n");
         git(&theirs, &["commit", "-qam", "theirs"]);
         git(&theirs, &["push", "-q", "origin", "main"]);
+
+        // A local identity, because `pull_in` runs git without the test's
+        // `-c user.*`. Under `pull.rebase = false` (as on the Windows CI
+        // runner) git asks for one before it reports the overwritten local
+        // change (kovan CI, 2026-10-22; reproduced on Linux).
+        git(&ours, &["config", "user.name", "t"]);
+        git(&ours, &["config", "user.email", "t@example.com"]);
 
         (dir, remote, ours)
     }
@@ -895,10 +906,11 @@ mod tests {
         std::fs::create_dir(ours.join("notes")).unwrap();
         write(&ours, "notes/a.md", "also never saved\n");
 
-        assert!(matches!(
-            pull_in(&ours, "origin", "main"),
-            Err(RemoteError::Conflict { .. })
-        ));
+        let pulled = pull_in(&ours, "origin", "main");
+        assert!(
+            matches!(pulled, Err(RemoteError::Conflict { .. })),
+            "{pulled:?}"
+        );
 
         force_pull_in(&ours, "origin", "main").unwrap();
 

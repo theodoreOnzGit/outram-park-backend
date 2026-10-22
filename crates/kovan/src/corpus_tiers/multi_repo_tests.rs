@@ -138,6 +138,10 @@ fn fixture() -> Option<Fixture> {
 
     let config = crate::root::RootConfig::new("lib", "Lib").with_private_submodule(prop.clone());
     let mut root = KovanRoot::create(&t.join("lib"), config, true).unwrap();
+    // `KovanRoot::create`'s `gix::init` names the first branch from the
+    // user's `init.defaultBranch` (`master` on the Windows CI runner,
+    // 2026-10-22); every remote here, and `tip`, use `main`.
+    g(root.path(), &["symbolic-ref", "HEAD", "refs/heads/main"]);
     root.set_corpora(CorporaConfig {
         open_remote: Some(open.clone()),
         proprietary_remote: Some(prop.clone()),
