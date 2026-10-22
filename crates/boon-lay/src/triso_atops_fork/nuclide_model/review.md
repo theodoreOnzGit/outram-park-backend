@@ -60,3 +60,60 @@ value = "7osxvU6NPI3nyeCbXT1KJSpoN6JpVMl9sfAeLjljbzdiSP88/HRILE+KfEEY3Xh2mMq3Kzo
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-22, commit 85d72a7d15.
+
+# Review: TrisoAtopsNuclide::decay_constant (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-decay-constant-theodoreonzgit-34ff47a5"
+kind = "review"
+origin = "human"
+created = "2026-10-22T17:06:25+08:00"
+modified = "2026-10-22T17:06:25+08:00"
+target = "fn:34ff47a5448224c9"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::TrisoAtopsNuclide::decay_constant"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-22"
+signed_at = "2026-10-22T17:06:26+08:00"
+commit = "9c13a3e5c9f71ff7c567782ba0c5288e7b8ec383"
+hash = "sha256:1565117e190704e250537a267fcc591cbd6f4f74e8c74c62d6c58955f5437378"
+doc_hash = "sha256:36eb9f1f43ffcb35a159439586cb3cea2e7d3870ac509d8ce8ca486e043fe6b9"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:546333a5363bc5a2" = "sha256:601d879e0b2947c8c69562c0278d67beccee30a0999a8eb86181de5ebcd65549"
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: decay constant lah, no need so complex"
+independence = "someone_else"
+limits_and_guards = "guard_waived_research: It's a simple decay constant lambda"
+maintainability = "yes"
+numerical_hazards = "other: again, it's not like we are going to use 0 half life here"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "afSRRxLeDYZnB9LvDjOqAFXlpF1dxu1md8BcSGdzQXQd4tm6/SkJOOM9GAxu1dnVLvJaQbAONg5JUdDP1mUdBA=="
+```
+
+half life only lah to decay constant
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-22, commit 9c13a3e5c9.
