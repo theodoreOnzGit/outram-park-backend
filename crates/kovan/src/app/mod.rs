@@ -31,6 +31,9 @@ mod kvim_tab;
 mod literature_list;
 mod nav;
 mod organisations_view;
+mod user_management_view;
+#[cfg(test)]
+mod headless_shot;
 mod page_canvas;
 mod pdf_reader;
 mod plot_setup;
