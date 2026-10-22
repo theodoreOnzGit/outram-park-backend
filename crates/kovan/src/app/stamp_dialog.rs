@@ -234,7 +234,11 @@ fn body(
         Step::Done(o) => {
             ui.label(
                 RichText::new(format!(
-                    "Wrote {}{}",
+                    "{} \u{2714}, written to {}{}",
+                    match o.what {
+                        crate::stamping::flow::Purpose::NeedsFix => "Needs fix recorded",
+                        _ => "Stamped",
+                    },
                     o.review_md,
                     if o.replaced {
                         " (replacing your earlier entry)"
@@ -250,35 +254,13 @@ fn body(
             ui.weak("A stamp counts once it is committed after the commit it certifies; until then it shows as unverified.");
             super::need_you_view::commit_push_controls(ui, commit, root, session);
             ui.add_space(4.0);
-            ui.horizontal_wrapped(|ui| {
-                if f.busy() {
-                    ui.spinner();
-                    ui.label("Refreshing the review states\u{2026}");
-                } else {
-                    match &f.target_state {
-                        Some(s) => {
-                            let kind = s.state.map(|k| k.label().to_string()).unwrap_or_default();
-                            ui.label(format!("Now: {kind}"));
-                            if !s.reason.is_empty() {
-                                ui.weak(&s.reason);
-                            }
-                        }
-                        None => {
-                            ui.weak("Now: no recorded state");
-                        }
-                    }
-                }
-                if let Some(e) = &f.refresh_error {
-                    error(ui, e);
-                }
-                if ui
-                    .add_enabled(!f.busy(), egui::Button::new("Refresh states"))
-                    .on_hover_text("Recompute every function's state from review.md (after you commit)")
-                    .clicked()
-                {
-                    f.refresh();
-                }
-            });
+            // GitHub #1018: the dialog never waits on the refresh. The
+            // states update in the background (the Code Review strip shows
+            // it); this function shows "stamped, updating…" until then.
+            ui.weak(
+                "Its review state updates in the background (see the Code Review strip); \
+                 you can close this and start the next stamp now.",
+            );
         }
         Step::Failed(e) => error(ui, &e),
     }

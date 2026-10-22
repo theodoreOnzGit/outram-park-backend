@@ -48,6 +48,11 @@ pub enum StateKind {
     /// stamp by a reviewer marked novice there, with no valid stamp by a
     /// trusted reviewer or a maintainer beside it. It does not count yet.
     AwaitingTrustedReviewer,
+    /// "stamped, updating…" (GitHub #1018): desktop kovan's optimistic
+    /// state for a function just stamped, shown from the entry just
+    /// written until the background refresh gives the engine's verdict.
+    /// The engine never produces it, and it never counts.
+    Updating,
 }
 
 /// How a view should colour a state.
@@ -66,7 +71,7 @@ pub enum Tone {
 
 impl StateKind {
     /// Every kind, in declaration order.
-    pub const ALL: [StateKind; 15] = [
+    pub const ALL: [StateKind; 16] = [
         Self::Valid,
         Self::DirectlyStale,
         Self::DocChanged,
@@ -82,6 +87,7 @@ impl StateKind {
         Self::PendingWorkspaceTest,
         Self::Invalid,
         Self::AwaitingTrustedReviewer,
+        Self::Updating,
     ];
 
     /// Plain-English label.
@@ -102,6 +108,7 @@ impl StateKind {
             Self::PendingWorkspaceTest => "pending workspace test",
             Self::Invalid => "review invalid",
             Self::AwaitingTrustedReviewer => "1 of 2: awaiting a trusted reviewer",
+            Self::Updating => "stamped, updating\u{2026}",
         }
     }
 
@@ -144,7 +151,8 @@ impl StateKind {
             | Self::Moved
             | Self::Fixed
             | Self::PendingWorkspaceTest
-            | Self::AwaitingTrustedReviewer => Tone::Attention,
+            | Self::AwaitingTrustedReviewer
+            | Self::Updating => Tone::Attention,
             Self::Deleted
             | Self::NeedsFixOpen
             | Self::Unverified

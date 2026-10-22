@@ -253,6 +253,14 @@ fn flow_sets_up_a_key_signs_and_turns_valid() {
     let entry = doc.reviews().next().unwrap();
     assert_eq!(entry.review.checklist, clean(), "signed = answered");
     assert!(entry.review.signature.is_some() && md.contains("Checked by hand."));
+    // No refresh on its own any more (GitHub #1018): the write is handed
+    // to the host's background refresher, and nothing is outstanding here.
+    assert!(!f.busy() && f.take_states().is_none());
+    let st = f.take_stamped().expect("the write is handed to the host");
+    assert_eq!((st.function.as_str(), st.reviewer.as_str()), (format!("{LIB}::leaf").as_str(), BY));
+    assert!(f.take_stamped().is_none(), "once");
+    f.refresh();
+    f.wait();
     assert!(f.take_states().is_some());
     let s = f.target_state.clone().expect("a state for leaf");
     assert_eq!(s.state, Some(StateKind::Unverified), "{}", s.reason);
@@ -346,6 +354,9 @@ fn flow_refuses_a_dirty_file_then_writes_needs_fix() {
     assert!(f.write_needs_fix());
     f.wait();
     assert!(matches!(&f.step, Step::Done(o) if o.what == Purpose::NeedsFix));
+    assert!(f.take_stamped().is_some());
+    f.refresh();
+    f.wait();
     let s = f.target_state.clone().unwrap();
     assert_eq!(s.state, Some(StateKind::NeedsFixOpen), "{}", s.reason);
 }

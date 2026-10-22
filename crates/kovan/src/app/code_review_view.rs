@@ -50,6 +50,16 @@
 //! states since 1c2319ffda, and `stamps.toml` is gone, #825), so the
 //! view stays current after each stamp.
 //!
+//! **Refreshes never block stamping (GitHub #1018, maintainer 2026-10-22).**
+//! The states are recomputed by one background
+//! [`crate::stamping::refresh::Refresher`]: after the data loads, on the
+//! strip's "Refresh states" (never greyed out; it queues), and after each
+//! stamp, debounced and coalesced, at most one at a time. A function just
+//! stamped shows "stamped, updating…" at once. The stamp dialog's Done step
+//! does not wait, a new dialog opens and prepares while a refresh runs,
+//! and a finished refresh only replaces the states shown. Each refresh's
+//! phase timings go to kovan's log and the button's tooltip.
+//!
 //! **The signing key, once per session (GitHub #1020).** The view owns the
 //! app's key session ([`SharedKeySession`]), which outlives a change of
 //! workspace: every signing window it opens (the stamp dialog,
@@ -78,7 +88,8 @@ use crate::code_review_data::{build, data_dir, data_state, BuildReport, DataStat
 use crate::commands::index_control::{Progress, RunControl};
 use crate::stamping::commit_push::CommitPushJob;
 use super::review_mode_panel::PanelRequest;
-use crate::stamping::flow::{Purpose, StampFlow, StatesResult, Target, Worker};
+use crate::stamping::flow::{Purpose, StampFlow, Target};
+use crate::stamping::refresh::Refresher;
 use crate::stamping::key_panel::{settings_file, status_line, try_lock, KeyPanel, KeySessionSettings};
 use crate::stamping::organisations::panel::OrgPanel;
 use crate::stamping::user_management::UserPanel;
@@ -122,9 +133,12 @@ pub(crate) struct CodeReviewView {
     pending: Option<HostRequest>,
     /// The stamp dialog of `pending`.
     dialog: Option<StampFlow>,
-    /// Stamp states from `review.md` being computed (after the data loads,
-    /// or a refresh still running when the dialog closed).
-    states_job: Option<Worker<StatesResult>>,
+    /// The review states, recomputed in the background (GitHub #1018):
+    /// after the data loads, on "Refresh states", and debounced after
+    /// each stamp. ~~`states_job`, one full refresh per stamp, handed over
+    /// by the dialog~~ **CORRECTED 2026-10-22**: one coalesced refresher;
+    /// the dialog never waits on it.
+    refresher: Refresher,
     /// Why the states could not be computed, or the dialog not opened.
     states_note: Option<String>,
     /// The keystore the dialog reads (tests inject a temporary one; `None`
@@ -408,35 +422,39 @@ impl CodeReviewView {
                 // decision 7): show the new diff first.
                 self.review_mode.reload();
             }
-            if let Some(s) = d.take_states() {
-                self.set_stamps(s);
-            }
-            if let Some(w) = d.take_refresh() {
-                self.states_job = Some(w);
-            }
+            self.take_stamped(&mut d);
         }
         self.pending = None;
     }
 
-    /// Compute the stamp states from `review.md` on a worker.
-    fn load_states(&mut self) {
-        if let Some(dir) = self.workspace.clone() {
-            self.states_job = Some(Worker::spawn(move || crate::stamping::stamp_states(&dir)));
+    /// A write the dialog made (GitHub #1018): its function shows
+    /// "stamped, updating…" at once, and a background refresh is asked
+    /// for (debounced, coalesced with other stamps).
+    fn take_stamped(&mut self, d: &mut StampFlow) {
+        if let Some(st) = d.take_stamped() {
+            self.refresher.set_root(self.workspace.clone());
+            if let Some(s) = self.refresher.stamped(&st.function, &st.reviewer, &st.date) {
+                self.set_stamps(s);
+            }
         }
     }
 
-    /// Take the states job's result, if any, without blocking.
+    /// Recompute the stamp states from `review.md` in the background, now
+    /// (queued behind one running, never blocking).
+    fn load_states(&mut self) {
+        self.refresher.set_root(self.workspace.clone());
+        self.refresher.request_now();
+    }
+
+    /// Take a finished refresh and start a due one, without blocking.
     fn poll_states(&mut self) {
-        let Some(r) = self.states_job.as_ref().and_then(Worker::try_take) else {
-            return;
-        };
-        self.states_job = None;
-        match r {
-            Ok(s) => {
-                self.states_note = None;
-                self.set_stamps(s);
-            }
-            Err(e) => self.states_note = Some(format!("Review states from review.md: {e}")),
+        self.refresher.set_root(self.workspace.clone());
+        if let Some(s) = self.refresher.poll() {
+            self.states_note = None;
+            self.set_stamps(s);
+        }
+        if let Some(e) = self.refresher.error.take() {
+            self.states_note = Some(format!("Review states from review.md: {e}"));
         }
     }
 
@@ -490,7 +508,7 @@ impl CodeReviewView {
             // Repaint by the auto-lock, so the key is dropped on time.
             ui.ctx().request_repaint_after(left + std::time::Duration::from_secs(1));
         }
-        if self.states_job.is_some() {
+        if self.refresher.outstanding() {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(200));
         }
@@ -517,6 +535,7 @@ impl CodeReviewView {
         let mut open_key = false;
         let mut lock_now = false;
         let mut sync_now = false;
+        let mut refresh_now = false;
         // Review mode (#770): its workspace and keystore, and the function
         // selected on the embedded map, which [Review >] starts from.
         self.review_mode
@@ -632,9 +651,21 @@ impl CodeReviewView {
                         open_key = true;
                     }
                 }
-                if self.states_job.is_some() {
+                if let Some(st) = self.refresher.status() {
                     ui.spinner();
-                    ui.weak("review states\u{2026}");
+                    ui.weak(st);
+                }
+                if self.review.is_some() {
+                    let timing = self.refresher.last_timings.map(|t| t.line());
+                    let b = ui
+                        .small_button("Refresh states")
+                        .on_hover_text(timing.unwrap_or_else(|| {
+                            "Recompute every function's state from review.md in the background".into()
+                        }));
+                    if b.clicked() {
+                        // Never greyed out: queued behind a running one.
+                        refresh_now = true;
+                    }
                 }
                 if self.workspace.is_some() {
                     let label = match self.need_you.count() {
@@ -659,6 +690,9 @@ impl CodeReviewView {
         });
         if rebuild {
             self.rebuild(true);
+        }
+        if refresh_now {
+            self.load_states();
         }
         if sync_now {
             if let Some(dir) = self.workspace.clone() {
@@ -841,6 +875,10 @@ impl CodeReviewView {
                         &self.session,
                     );
                     fresh = d.take_states();
+                }
+                if let Some(mut d) = self.dialog.take() {
+                    self.take_stamped(&mut d);
+                    self.dialog = Some(d);
                 }
                 if let Some(s) = fresh {
                     self.set_stamps(s);
@@ -1395,5 +1433,105 @@ mod tests {
         // Back to the map: the tab is kept across a workspace re-set.
         v.set_workspace(Some(r.path()));
         assert_eq!(v.tab, ReviewTab::Users);
+    }
+
+    /// Headless (GitHub #1018; maintainer: "refreshing UI doesn't block
+    /// dialog", "starting a stamp should not wait on refresh"), on the
+    /// stamp layer's git fixture with a temporary keystore. The view's
+    /// refresher is given a manual clock and a gated (slow) runner. After a
+    /// first refresh, a slow one is started and held. While it is still
+    /// running: the stamp dialog for `leaf` opens and **prepares to the
+    /// wizard**, signs, and its Done step is not busy; `leaf` shows
+    /// "stamped, updating…" at once; then, back to back, the dialog for
+    /// `twice` opens, prepares and signs the same way. Pass: both dialogs
+    /// reached the wizard and Done with the slow refresh still running;
+    /// the held refresh is superseded and exactly one more runs (three in
+    /// all), nothing is outstanding at the end, and both functions end
+    /// valid (rung 3), with no "updating" row left.
+    ///
+    /// Result (2026-10-22): passes.
+    #[test]
+    fn stamping_never_waits_on_the_background_refresh() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        use crate::stamping::flow::{Step, WizardForm};
+        use crate::stamping::refresh::{RefreshRunner, Refresher};
+        use crate::stamping::tests::{clean, founder_key, Repo, LIB, PASS};
+        use crate::stamping::StampContext;
+        use kovan_common::review::signing::session::SessionClock;
+        use kovan_common::review::state::StateKind;
+
+        let r = Repo::new();
+        let store = tempfile::tempdir().unwrap();
+        founder_key(&r, store.path());
+        let clock = SessionClock::manual();
+        let gate = Arc::new(AtomicBool::new(true));
+        let mut v = CodeReviewView {
+            workspace: Some(r.path().to_path_buf()),
+            review: Some(kovan_web::ui::CodeReview::new(
+                kovan_web::Mode::Desktop,
+                kovan_web::data::DataSource::Dir { data: r.path().to_path_buf(), workspace: r.path().to_path_buf() },
+            )),
+            checked: true,
+            keystore: Some(Keystore::at(store.path())),
+            refresher: Refresher::new(clock.clone(), std::time::Duration::from_secs(1), RefreshRunner::Gated(gate.clone())),
+            ..CodeReviewView::default()
+        };
+        v.load_states();
+        let first = v.refresher.settle().expect("the first states");
+        v.set_stamps(first);
+        // A slow refresh, held running.
+        gate.store(false, Ordering::SeqCst);
+        v.load_states();
+        v.poll_states();
+        assert!(v.refresher.busy());
+        let ctx = egui::Context::default();
+        let fref = |q: &str| FunctionRef {
+            id: format!("{LIB}::{q}"),
+            krate: "demo".into(),
+            file: LIB.into(),
+            name: q.into(),
+            callees: None,
+            lines: None,
+        };
+        for q in ["leaf", "twice"] {
+            v.open(HostRequest::Stamp(fref(q)));
+            let d = v.dialog.as_mut().expect("the dialog opens at once");
+            d.wait();
+            assert_eq!(d.step, Step::Wizard, "{q}: {:?}", d.error);
+            assert!(v.refresher.busy(), "{q} prepared while the slow refresh still runs");
+            let d = v.dialog.as_mut().unwrap();
+            let w = d.wizard.as_mut().unwrap();
+            let c = StampContext { answers: clean(), ..w.ctx.clone() };
+            *w = WizardForm::new(c);
+            w.choose_reason(Some("plumbing"));
+            w.passphrase = PASS.into();
+            assert!(d.sign());
+            d.wait();
+            assert!(matches!(d.step, Step::Done(_)), "{q}: {:?} {:?}", d.step, d.error);
+            assert!(!d.busy(), "the Done step never waits on a refresh");
+            let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+            let shown = v.refresher.shown().unwrap();
+            let row = shown.iter().find(|s| s.function == format!("{LIB}::{q}")).expect("an optimistic row");
+            assert_eq!(row.state, Some(StateKind::Updating));
+            assert!(v.refresher.busy(), "{q}: the slow refresh is still the one running");
+            v.close_dialog();
+            r.commit(&format!("stamp {q}"));
+        }
+        assert_eq!(v.refresher.started, 2);
+        gate.store(true, Ordering::SeqCst);
+        let last = v.refresher.settle().expect("the final states");
+        assert_eq!((v.refresher.started, v.refresher.superseded), (3, 1), "coalesced: one rerun");
+        assert!(!v.refresher.outstanding());
+        for q in ["leaf", "twice"] {
+            let s = last.iter().find(|s| s.function == format!("{LIB}::{q}")).unwrap();
+            assert_eq!((s.state, s.rung), (Some(StateKind::Valid), 3), "{q}: {}", s.reason);
+        }
+        assert!(!last.iter().any(|s| s.state == Some(StateKind::Updating)));
+        // The strip draws its Refresh button and status headless.
+        v.load_states();
+        let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
+        let _ = v.refresher.settle();
     }
 }

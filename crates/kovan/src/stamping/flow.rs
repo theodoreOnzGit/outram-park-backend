@@ -33,7 +33,10 @@
 //!                            v
 //!                         WritingNeedsFix (worker: draft_needs_fix_for, write_needs_fix)
 //!                            v
-//!                          Done ── Refresh (worker: stamp_states) ──> the review bar
+//!                          Done ("Stamped ✓, written to …"; finished at once)
+//!                            └─ take_stamped() ──> the host's background refresh
+//!                               (`super::refresh::Refresher`, GitHub #1018): an
+//!                               optimistic "stamped, updating…" row, then the states
 //!
 //!  Reconfirm (added 2026-10-10, #770, #740 decision 8) ── key as for Stamp ──>
 //!  PreparingReconfirm (worker: reconfirm::prepare_reconfirm)
@@ -578,6 +581,17 @@ enum Job {
 /// The states job's output.
 pub type StatesResult = Result<Vec<WebStamp>, String>;
 
+/// What a finished write tells the host (GitHub #1018): which function
+/// changed, by whom and when, for its optimistic "stamped, updating…" row
+/// and its background refresh.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stamped {
+    /// The call-graph id the dialog was opened on.
+    pub function: String,
+    pub reviewer: String,
+    pub date: String,
+}
+
 /// The dialog's whole state (module doc).
 pub struct StampFlow {
     root: PathBuf,
@@ -607,6 +621,8 @@ pub struct StampFlow {
     /// or nothing recorded for it).
     pub target_state: Option<WebStamp>,
     pub refresh_error: Option<String>,
+    /// The last write, until the host takes it ([`Self::take_stamped`]).
+    stamped: Option<Stamped>,
     /// The files this dialog wrote, workspace-relative (`review.md`, and
     /// `kovan_root.toml` after a key registration): what commit-and-push
     /// may commit (GitHub #771, `super::commit_push`).
@@ -656,6 +672,7 @@ impl StampFlow {
             states: None,
             target_state: None,
             refresh_error: None,
+            stamped: None,
             wrote: BTreeSet::new(),
             comments_seed: String::new(),
             reconfirm: None,
@@ -702,15 +719,17 @@ impl StampFlow {
         self.keystore.dir()
     }
 
-    /// A step's job is running (Close waits for it; a refresh does not
-    /// hold the dialog: [`Self::take_refresh`]).
+    /// A step's job is running (Close waits for it; a refresh never holds
+    /// the dialog: the host refreshes in the background, GitHub #1018).
     pub fn working(&self) -> bool {
         self.job.is_some()
     }
 
-    /// A job (or a refresh) is running.
+    /// A step's job is running. ~~A job (or a refresh) is running~~
+    /// **CORRECTED 2026-10-22** (GitHub #1018): a refresh never makes the
+    /// dialog busy; after a write the host refreshes in the background.
     pub fn busy(&self) -> bool {
-        self.job.is_some() || self.refresh.is_some()
+        self.job.is_some()
     }
 
     /// The key in use.
@@ -1160,11 +1179,24 @@ impl StampFlow {
             review_md,
             replaced: w.replaced,
         });
-        self.refresh();
+        // No refresh here (GitHub #1018): the host's background refresher
+        // takes this and coalesces it with other stamps.
+        self.stamped = Some(Stamped {
+            function: self.target.function.clone(),
+            reviewer: self.key().map(|k| k.reviewer.clone()).unwrap_or_default(),
+            date: date_of(&now_local()).unwrap_or_default(),
+        });
     }
 
-    /// Recompute every function's state from `review.md` (worker); the
-    /// result goes to the review bar through [`Self::take_states`].
+    /// The last write, once (GitHub #1018).
+    pub fn take_stamped(&mut self) -> Option<Stamped> {
+        self.stamped.take()
+    }
+
+    /// Recompute every function's state from `review.md` (worker), on
+    /// request only (tests and tools); the result goes to the review bar
+    /// through [`Self::take_states`]. The app refreshes after a write with
+    /// `super::refresh::Refresher` instead, in the background.
     pub fn refresh(&mut self) {
         if self.refresh.is_none() {
             let root = self.root.clone();
@@ -1177,17 +1209,11 @@ impl StampFlow {
         self.states.take()
     }
 
-    /// The refresh still running, for the host to keep polling after the
-    /// dialog closes.
-    pub fn take_refresh(&mut self) -> Option<Worker<StatesResult>> {
-        self.refresh.take()
-    }
-
     /// Poll until no job runs (tests only; the UI never waits).
     #[cfg(test)]
     pub fn wait(&mut self) {
         let start = std::time::Instant::now();
-        while self.busy() {
+        while self.busy() || self.refresh.is_some() {
             assert!(
                 start.elapsed() < std::time::Duration::from_secs(120),
                 "stamp flow job did not finish"
