@@ -50,7 +50,10 @@
 //! - Q1 HIT: 84 nuclides, 5 groups, and no exception at all (the table has no
 //!   Br). Y-90 is in Other, with the nominal D, although the paper says Y
 //!   uses Sr's diffusivities (printed p. 9): a paper-versus-code difference
-//!   the port inherits from upstream.
+//!   the port inherits from upstream. (2026-10-22, gh:#1015: still so under
+//!   the default `TrisoAtopsVariant::Upstream`, which this generator runs via
+//!   `PlantConstants::new`; the paper's grouping is the opt-in
+//!   `atops2026paper` variant, which lessons 40-42 and 45 mention in prose.)
 //! - Q2 HIT: Cs kernel 700, graphite 550; Sr 700, 800; Ag graphite 475 on
 //!   the 25 °C grid (490 in the code); no clamp on the Kr kernel, the Ag
 //!   kernel or Ag in SiC.

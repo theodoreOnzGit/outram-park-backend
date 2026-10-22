@@ -183,6 +183,7 @@ src/
     run_selection/mod.rs                  ← nuclide selection (sl, parent_decay), name normalisation, half-life screens
     run_file/mod.rs                       ← the port's own RunFile / RunConfig format
     run_file/upstream.rs                  ← reads UPSTREAM / GUI-written run files; code-to-code verified vs process_run_file (#449)
+    variant.rs                            ← **NOT a port** (2026-10-22, gh:#1015): TrisoAtopsVariant { Upstream (default, bit for bit), Atops2026Paper(PaperReadings) }; the paper's equations as written, the ten paper-vs-code differences, converged series. Selected by `PlantConstants::new(..).with_variant(v)` and the accident `*_for` functions. Added to this map 2026-10-22
   triso_atops_extensions/                 ← **NOT a port** (2026-10-05, gh:#583): boon-lay's own extensions of TRISO-ATOPS, kept OUT of triso_atops_fork (which they call unchanged and never modify)
     removal_rates.rs                      ← RemovalRates: k_plate / k_clean per transport group or per element (Z); ::upstream reproduces upstream's routing; per-cycle conversions; liu_cao_2002_htr10 table
     normal_operation.rs                   ← normal_operation_node_with_rates: the ported chain with the rates from a RemovalRates; bit-for-bit equal to the port under ::upstream (336 cases)
@@ -217,10 +218,28 @@ Python→Rust module map, and V&V results: **`docs/triso-atops-fork.md`**.
 
 ## triso_atops_extensions — what goes in the fork, and what does not
 
-**The fork stays a faithful port; extensions live in `triso_atops_extensions`**
+~~**The fork stays a faithful port; extensions live in `triso_atops_extensions`**
 (maintainer direction, 2026-10-05). Do not change `triso_atops_fork` to add
 capability upstream does not have: its contract is code-to-code agreement
-with upstream `de374c8`. Put the addition in `triso_atops_extensions`, label
+with upstream `de374c8`.~~ **CORRECTED 2026-10-22 (gh:#1015, maintainer: "i'm
+okay with ports starting faithful, and making reasoned deviations"):** the fork
+**starts** as a faithful port and **may make reasoned deviations**. Each
+deviation must be:
+
+- **explicit**: an opt-in, named option, never a silent change to the ported
+  path;
+- **documented with its reason and its source** (for `atops2026paper`, the
+  paper's equation and printed page for each of the ten differences, in
+  `variant.rs` and `docs/triso-atops-2026-paper-reproduction.md`);
+- **reversible to upstream**: the upstream behaviour stays available and is
+  the pinned default, here `TrisoAtopsVariant::Upstream`, so every
+  code-to-code test still runs against upstream `de374c8` unchanged, and a
+  test pins the deviation's upstream readings bit for bit to the default
+  (`paper_variant_with_upstream_readings_is_upstream_bit_for_bit`).
+
+The first such deviation is `variant.rs` (`atops2026paper`). The rest of this
+section still holds for **extensions**, i.e. capability that neither upstream
+nor its paper has. Put the addition in `triso_atops_extensions`, label
 the file **NOT a port** in its header, call the ported functions rather than
 copying them, and add a test that the extension **reduces to the port** when
 its addition is switched off (bit for bit where the arithmetic is the same,

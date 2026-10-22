@@ -70,6 +70,7 @@ the module (until 2026-10-14, a generated code walk). "Rung" is the demo's
 | `normal_operation` | [7](../../tutorials/triso-atops/coolant.html) | [source term](./source-term.md) | rung 7, steps 1–2 | code to code (3.1·10⁻¹¹); MHTGR/Stoyer | `k_plate` misprint |
 | `accident` | [7](../../tutorials/triso-atops/coolant.html) step 3 | [source term](./source-term.md) | rung 7, step 3 | code to code; MHTGR/Stoyer heat-up (~0.90 factor) | gh:#446, #447 |
 | `run_selection` | — | [running](./running-triso-atops.md) | running page | code to code (name normalisation) | gh:#219 |
+| `variant` (`TrisoAtopsVariant`, `PaperReadings`) | — | [paper reproduction](./atops2026-paper.md) | paper reproduction page | `Atops2026Paper(UPSTREAM_CODE)` = `Upstream` bit for bit; the paper's printed releases (Table 19: upstream 8/8, `atops2026paper` 6/8) | not code to code (no upstream counterpart); gh:#1015 |
 | `run_file`, `run_file::upstream` | — | [running](./running-triso-atops.md) | — | code to code vs `process_run_file` | — |
 
 ## Compute (`compute`, `gpu`, `wasm_par`)

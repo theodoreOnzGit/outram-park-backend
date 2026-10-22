@@ -36,7 +36,7 @@
 
 <h2>Clamped, or extrapolated</h2>
 <p>Each law was fitted over a temperature range. Below it the code does one of two things. For some laws it <b>clamps</b>: it uses the value at the bottom of the range. The output shows the Cs kernel law flat below <span data-ad="csClampK">&hellip;</span> and in graphite below <span data-ad="csClampG">&hellip;</span>; Sr below <span data-ad="srClampK">&hellip;</span> and <span data-ad="srClampG">&hellip;</span>; Ag in graphite below <span data-ad="agClampG">&hellip;</span> on this 25 &deg;C grid (490 &deg;C in the code). For the others it <b>extrapolates</b> the Arrhenius law down. The prediction held.</p>
-<p>Here the paper and the code differ. The paper says that where the temperature falls below a range&rsquo;s lower bound, the nearest temperature in the range is used, to avoid extrapolating at low temperature (Stoyer et al. 2026, pp. 8&ndash;9). The code does that only for the laws above: krypton&rsquo;s (also used for Xe, I, Te and Se) and silver&rsquo;s are extrapolated. The port follows upstream&rsquo;s code. Reported, not changed.</p>
+<p>Here the paper and the code differ. The paper says that where the temperature falls below a range&rsquo;s lower bound, the nearest temperature in the range is used, to avoid extrapolating at low temperature (Stoyer et al. 2026, pp. 8&ndash;9). The code does that only for the laws above: krypton&rsquo;s (also used for Xe, I, Te and Se) and silver&rsquo;s are extrapolated. <del>The port follows upstream&rsquo;s code. Reported, not changed.</del> <b>Corrected 2026-10-22:</b> the port still follows upstream&rsquo;s code by default, and now offers the paper&rsquo;s rule as a named option, <code>atops2026paper</code> (see &ldquo;Learn more&rdquo; below).</p>
 <p>Krypton&rsquo;s kernel law also switches branch at 1500 &deg;C (the dotted line). boon-lay&rsquo;s random walker switches the same values at 700 &deg;C; which is right is gh:#974.</p>
 <p>Everything outside the four correlations gets 10<sup>&minus;19</sup> m&sup2;/s, in kernel and graphite alike: the paper&rsquo;s reasoning is that those elements have never been seen released from TRISO fuel (p. 9).</p>
 
@@ -49,6 +49,13 @@
 <summary>Learn more advanced stuff</summary>
 <h3>Why the kernel law is UO<sub>2</sub>&rsquo;s</h3>
 <p>The paper notes that the kernel diffusivities are for UO<sub>2</sub>, because no data exist for uranium oxycarbide (UCO), the kernel of the MHTGR fuel it models (p. 8).</p>
+<h3>The <code>atops2026paper</code> option</h3>
+<p>boon-lay&rsquo;s port runs upstream&rsquo;s code unless asked otherwise (<code>TrisoAtopsVariant::<wbr>Upstream</code>, the default). The option <code>TrisoAtopsVariant::<wbr>ATOPS2026PAPER</code> runs the paper&rsquo;s equations as written instead (gh:#1015). For the diffusion laws it changes two things:</p>
+<ul>
+<li><b>The low-temperature clamp.</b> Every law is held at the bottom of its range, as the paper says (pp. 8&ndash;9). That adds krypton&rsquo;s kernel law (so Kr, Xe, I, Te and Se) and silver in SiC, both held below 700 &deg;C. At 400 &deg;C krypton&rsquo;s D is then about 10<sup>3</sup> times the extrapolated value.</li>
+<li><b>Yttrium&rsquo;s group.</b> Yttrium joins Sr, Ba and Eu and takes strontium&rsquo;s diffusivities (Table 1, p. 6; p. 9), instead of the nominal 10<sup>&minus;19</sup> m&sup2;/s.</li>
+</ul>
+<p>The paper&rsquo;s own printed results were computed with upstream&rsquo;s code, so the default is the one that reproduces them. The tutorial case <a href="../../deep-dives/triso-atops/atops2026-paper.html">Reproducing the TRISO-ATOPS 2026 paper&rsquo;s release results</a> shows both side by side, with the code that runs them.</p>
 <h3>Compared with chapter 4</h3>
 <p>Chapter 4&rsquo;s per-layer coefficients (Jiang et al. 2023) and these (the NP-MHTGR compilation) are different data sets. They share the Kr kernel values but switch them at different temperatures (gh:#974).</p>
 </details>

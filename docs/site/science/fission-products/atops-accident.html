@@ -36,7 +36,7 @@
 
 <h2>D&middot;t becomes the integral of D</h2>
 <p>Booth&rsquo;s series and the silver breakthrough depend on D&middot;t. When the temperature changes, the code replaces D&middot;t by &int;D&nbsp;dt, summed sample by sample (trapezoids). Kernel and graphite each get their own integral; noble gases and halogens are given nothing in the graphite. At the end of the hold of the 1600 &deg;C heat-up, <span data-ad="rfCs1600">&hellip;</span> of the caesium has left the kernels (predicted: at least 99 %).</p>
-<p>Two simplifications ride along. The accident uses the kernel radius as Booth&rsquo;s sphere, not normal operation&rsquo;s smaller &radic;(2&nbsp;a<sub>grain</sub>&nbsp;r) (lesson 42). And the 5000-term floor of lesson 42 is there too, snapped to zero only below 10<sup>&minus;6</sup>, which the floor is not.</p>
+<p>Two simplifications ride along. The accident uses the kernel radius as Booth&rsquo;s sphere, not normal operation&rsquo;s smaller &radic;(2&nbsp;a<sub>grain</sub>&nbsp;r) (lesson 42). The paper uses one sphere for both; boon-lay offers that as the option <code>atops2026paper</code> (see &ldquo;Learn more&rdquo; below). And the 5000-term floor of lesson 42 is there too, snapped to zero only below 10<sup>&minus;6</sup>, which the floor is not.</p>
 
 <h2>Venting only</h2>
 <p>The release has to leave the vessel. In the model the only driver is the gas expanding as the core heats after a breach: the fraction of coolant pushed out follows the ideal gas law. When the core starts to cool, the gas contracts and draws air back in, and the release stops (Stoyer et al. 2026, pp. 4 and 13, which call this &ldquo;breathing&rdquo;). The black line ends there; the shaded part is release that stays in the core.</p>
@@ -52,6 +52,9 @@
 <summary>Learn more advanced stuff</summary>
 <h3>The physical accident</h3>
 <p>The theory book follows a loss-of-cooling accident step by step and lists what TRISO-ATOPS does not simulate: <a href="../../tutorials/fp-transport-theory/15-dlofc.html">step 16</a>.</p>
+<h3>The <code>atops2026paper</code> option</h3>
+<p>boon-lay&rsquo;s port runs upstream&rsquo;s code by default (<code>TrisoAtopsVariant::<wbr>Upstream</code>). Under the option <code>TrisoAtopsVariant::<wbr>ATOPS2026PAPER</code>, the paper&rsquo;s equations as written (gh:#1015), the accident&rsquo;s Booth sphere is normal operation&rsquo;s radius, <span data-ad="rmsR">&hellip;</span>, not the <span data-ad="r">&hellip;</span> kernel radius (pp. 8, 11&ndash;12). The smaller sphere releases more: the kernel release rises by the ratio of the radii, 1.41. The option also gives palladium silver&rsquo;s laws, and scales the plate-out in the accident inventory by irradiation time over run time (pp. 11&ndash;13). In code, the variant is an argument of the accident functions ending in <code>_for</code>, such as <code>release_<wbr>fraction_<wbr>transient_<wbr>for</code>.</p>
+<p><b>The paper&rsquo;s printed release numbers come from upstream&rsquo;s code, not from its written equations.</b> Run as written, the model misses most of the paper&rsquo;s printed accident releases. Run as the code, it reproduces every initial release (with the plate-out constant gh:#413 found misprinted). The tutorial case <a href="../../deep-dives/triso-atops/atops2026-paper.html">Reproducing the TRISO-ATOPS 2026 paper&rsquo;s release results</a> shows how this was found, with the source code of the test.</p>
 <h3>Other pieces of the accident</h3>
 <p>The circulating coolant is released at once when the boundary breaks, and a user-chosen fraction of the plated-out activity lifts off (pp. 4 and 12). Only nuclides with a half-life longer than 4 % of the accident are followed (p. 11).</p>
 </details>

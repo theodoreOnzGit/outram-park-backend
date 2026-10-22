@@ -40,7 +40,7 @@
 <p>Within a group, nuclides still differ by half-life. A nuclide counts as <b>short-lived</b> if its half-life is under 20 % of the irradiation time; it then reaches a steady release-to-birth ratio (lesson 19) instead of a growing release fraction (p. 5; the port&rsquo;s <code>select_<wbr>nuclides</code>).</p>
 
 <h2>One disagreement between the paper and the code</h2>
-<p>The paper says strontium&rsquo;s diffusivities are used for barium, <b>yttrium</b> and europium (p. 9). The code gives Sr&rsquo;s coefficients to Sr, Ba and Eu only: yttrium falls into &ldquo;other&rdquo;, with the nominal 10<sup>&minus;19</sup> m&sup2;/s. The port reproduces upstream&rsquo;s code, so this is a difference between the paper and upstream, not a porting error. It is reported, not changed.</p>
+<p>The paper says strontium&rsquo;s diffusivities are used for barium, <b>yttrium</b> and europium (p. 9). The code gives Sr&rsquo;s coefficients to Sr, Ba and Eu only: yttrium falls into &ldquo;other&rdquo;, with the nominal 10<sup>&minus;19</sup> m&sup2;/s. The port reproduces upstream&rsquo;s code, so this is a difference between the paper and upstream, not a porting error. <del>It is reported, not changed.</del> <b>Corrected 2026-10-22:</b> upstream&rsquo;s grouping is still the default; the paper&rsquo;s, with yttrium in the Sr group, is now a named option, <code>atops2026paper</code> (lesson 41; gh:#1015).</p>
 
 <p><b>Next:</b> each group&rsquo;s diffusion law, and what the code does below its valid range.</p>
 

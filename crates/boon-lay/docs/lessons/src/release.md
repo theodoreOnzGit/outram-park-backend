@@ -26,6 +26,13 @@ The dispatcher
 [`rb_fail`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/boon-lay/src/triso_atops_fork/release_models/mod.rs#@@L:crates/boon-lay/src/triso_atops_fork/release_models/mod.rs:fn=rb_fail@@)
 picks the model by group.
 
+This table is the upstream code, the default. The opt-in `atops2026paper`
+variant (gh:#1015) follows the published paper instead: yttrium joins the
+special metals, "other" metals use Booth on `D = 1e-19 m²/s`, and long-lived
+gases use Booth rather than the correlation. The
+[tutorial case](./atops2026-paper.md) compares both with the paper's printed
+releases.
+
 ### The Booth equivalent sphere
 
 Booth's idea (1957) is to replace the real multi-shell particle, for one

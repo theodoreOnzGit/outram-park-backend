@@ -9,6 +9,7 @@
 - [HTR-10: an extrapolation and its qualification data](./htr10.md)
 - [Getting out: diffusion and release in depth](./release.md)
 - [Into the source term in depth](./source-term.md)
+- [Tutorial case: reproducing the TRISO-ATOPS 2026 paper's release results](./atops2026-paper.md)
 - [Running TRISO-ATOPS: nuclides, selection, run files](./running-triso-atops.md)
 - [Transmutation while walking](./transmutation.md)
 - [Decay-data plumbing](./decay-data.md)

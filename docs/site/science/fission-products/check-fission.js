@@ -698,5 +698,13 @@ AT.nodes.forEach((n) => check(`50 Q7 ${n.name}: |live circulating − node| / no
   });
 }
 
+// 53. gh:#1015 (maintainer, 2026-10-22: "mention the options pls"): lessons
+//     41, 42 and 45 name the `atops2026paper` option, say the default is
+//     upstream's code, and link the tutorial case that reproduces the paper.
+["atops-diffusion.html", "atops-release-models.html", "atops-accident.html"].forEach((f) => {
+  const html = fs.readFileSync(path.join(__dirname, f), "utf8");
+  check(`53 ${f}: atops2026paper option, Upstream default, tutorial link`, html.includes("ATOPS2026PAPER") && html.includes("TrisoAtopsVariant::<wbr>Upstream") && html.includes("../../deep-dives/triso-atops/atops2026-paper.html") ? 0 : 1, 0);
+});
+
 if (failed) { console.log(`${failed} check(s) failed`); process.exit(1); }
 console.log("all fission-products checks passed");

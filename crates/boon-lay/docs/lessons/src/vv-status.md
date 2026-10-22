@@ -92,6 +92,12 @@ inputs
   densely resampled (reported 2026-09-30): final over paper is about 0.90
   across all nuclides (Case A range 0.84–0.94). That common factor of about
   0.90 is **not diagnosed**. Case B has outliers (Cs-134 0.67, Kr-85 0.68).
+- The paper's equations as written, the `atops2026paper` variant
+  (gh:#1015, 2026-10-22): **not** reproduced by them. Table 19 6/8 (Kr-85
+  +62.8 %, Sr-90 −56.1 %) against upstream's 8/8; Case A graphite 0/40
+  against 40/40. The printed numbers came from the code. The tutorial case
+  [reproducing the TRISO-ATOPS 2026 paper](./atops2026-paper.md) walks
+  through the test.
 
 ## boon-lay fuel failure against the PANAMA-I report
 

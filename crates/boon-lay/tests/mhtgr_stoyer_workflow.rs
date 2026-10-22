@@ -173,6 +173,7 @@ fn port_case(
     port_case_nodal(case, inventory_file, delta_t, k_plate_override).0
 }
 
+// ANCHOR: setup
 /// The model variant and nuclide-selection policy a run uses (gh:#1015).
 #[derive(Clone, Copy)]
 struct Setup {
@@ -185,6 +186,7 @@ const UPSTREAM: Setup = Setup {
     variant: TrisoAtopsVariant::Upstream,
     policy: ParentDecayPolicy::UpstreamTableDefault,
 };
+// ANCHOR_END: setup
 
 /// [`port_case`] plus the per-node state the accident path starts from.
 fn port_case_nodal(
@@ -216,17 +218,19 @@ fn port_case_nodal_with(
         }
         f(&consts[k], &format!("case_{case}"))
     };
-    let plant = PlantConstants {
-        k_plate: Frequency::new::<hertz>(c("k_plate")),
-        k_clean: Frequency::new::<hertz>(c("k_clean")),
-        graphite_thickness: Length::new::<meter>(c("a_graph")),
-        grain_size: Length::new::<meter>(c("a_grain")),
-        sic_thickness: Length::new::<meter>(c("a_SiC")),
-        kernel_radius: Length::new::<meter>(c("r_kernel")),
-        run_time: Time::new::<second>(c("run_time") * YEAR_S),
-        irradiation_time: Time::new::<second>(c("irradiation_time") * YEAR_S),
-        variant: setup.variant,
-    };
+    // ANCHOR: plant_constants
+    let plant = PlantConstants::new(
+        Frequency::new::<hertz>(c("k_plate")),
+        Frequency::new::<hertz>(c("k_clean")),
+        Length::new::<meter>(c("a_graph")),
+        Length::new::<meter>(c("a_grain")),
+        Length::new::<meter>(c("a_SiC")),
+        Length::new::<meter>(c("r_kernel")),
+        Time::new::<second>(c("run_time") * YEAR_S),
+        Time::new::<second>(c("irradiation_time") * YEAR_S),
+    )
+    .with_variant(setup.variant);
+    // ANCHOR_END: plant_constants
     let fractions = FailureFractions {
         heavy_metal: c("f_hm"),
         sic: c("f_sic"),
@@ -240,6 +244,7 @@ fn port_case_nodal_with(
     assert_eq!(temps.len(), N_AXIAL);
     let inventories = table(inventory_file);
     let names: Vec<&str> = inventories.iter().map(|r| r["nuclide"].as_str()).collect();
+    // ANCHOR: select_nuclides
     let (selected, skipped) = select_nuclides(
         &names,
         plant.irradiation_time,
@@ -247,6 +252,7 @@ fn port_case_nodal_with(
         setup.policy,
     );
     assert!(skipped.is_empty(), "{skipped:?}");
+    // ANCHOR_END: select_nuclides
 
     let mut nodal: HashMap<String, Vec<NodalActivities>> = HashMap::new();
     let mut per_node = Nodal::new();
@@ -546,6 +552,7 @@ fn port_accident_curve_with(
     let t_run = Time::new::<second>(c("run_time") * YEAR_S);
     let mut out = HashMap::new();
     for nuc in selected {
+        // ANCHOR: accident_release_fractions
         let group = nuc.element_group_for(variant);
         let volatile = matches!(group, ElementGroup::NobleGas | ElementGroup::Halogen);
         let lam = nuc.decay_constant().get::<hertz>();
@@ -597,6 +604,7 @@ fn port_accident_curve_with(
                 })
                 .collect()
         });
+        // ANCHOR_END: accident_release_fractions
         let (mut k_sum, mut g_sum) = (vec![0.0; n_keep], vec![0.0; n_keep]);
         let (mut circ, mut plate) = (0.0, 0.0);
         for (act, inv_ci) in &nodal[nuc.name] {
@@ -612,6 +620,7 @@ fn port_accident_curve_with(
             circ += act.circulating_activity;
             plate += act.plate_out_activity;
             for t in 0..n_keep {
+                // ANCHOR: accident_release_activity
                 k_sum[t] += atoms_to_curies(
                     release_activity_for(
                         variant,
@@ -628,6 +637,7 @@ fn port_accident_curve_with(
                     ),
                     lam,
                 );
+                // ANCHOR_END: accident_release_activity
                 if let Some(rg) = &rf_g {
                     g_sum[t] += atoms_to_curies(
                         release_activity_for(
@@ -821,8 +831,12 @@ fn accident_final_releases_port_upstream_and_paper() {
 // gh:#1015: the `atops2026paper` variant against the paper's printed releases.
 // Method, the candidate readings (ranked before any run), predictions and the
 // full results: crates/boon-lay/docs/triso-atops-2026-paper-reproduction.md.
+// The `// ANCHOR: name` / `// ANCHOR_END: name` comments in this file mark
+// the code the deep dive `crates/boon-lay/docs/lessons/src/atops2026-paper.md`
+// pulls in with mdBook's {{#include}} at build time: move them with the code.
 // ---------------------------------------------------------------------------
 
+// ANCHOR: paper_variant
 /// The paper variant with one reading changed from the as-written default.
 fn paper_with(change: impl FnOnce(&mut PaperReadings)) -> TrisoAtopsVariant {
     let mut r = PaperReadings::AS_WRITTEN;
@@ -832,7 +846,9 @@ fn paper_with(change: impl FnOnce(&mut PaperReadings)) -> TrisoAtopsVariant {
 
 /// The paper's reading of parent coupling (A11): short-lived parents only.
 const PAPER_POLICY: ParentDecayPolicy = ParentDecayPolicy::ShortLivedParentOnly;
+// ANCHOR_END: paper_variant
 
+// ANCHOR: configurations
 /// The candidate list of the reproduction doc, s.2, in that order: the
 /// as-written paper variant, then each ambiguity moved to its next candidate
 /// with every other reading kept as written, then upstream.
@@ -869,6 +885,7 @@ fn configurations() -> Vec<(&'static str, Setup)> {
         ("upstream (de374c8)", UPSTREAM),
     ]
 }
+// ANCHOR_END: configurations
 
 /// One case's score against the paper: per pool `(within 2 %, compared)`
 /// for graphite, circulating, plate-out, HPS and the initial release; the
@@ -938,6 +955,7 @@ fn score_case(case: &str, inv: &str, dt: f64, kp: Option<f64>, setup: Setup) -> 
     }
 }
 
+// ANCHOR: table19
 /// Table 19's complete-failure release fractions under `setup`:
 /// `(nuclide, ours, paper)`. One node at 1250 °C (core and graphite, p. 21),
 /// `t_irrad = t_run = 3 yr` (p. 21, "run for 3 years"; A13), `f_HM = 1` and
@@ -949,17 +967,17 @@ fn table19(setup: Setup) -> Vec<(String, f64, f64)> {
     let rows = table("table19_complete_failure_release_fraction.csv");
     let names: Vec<&str> = rows.iter().map(|r| r["nuclide"].as_str()).collect();
     let three_years = Time::new::<second>(3.0 * YEAR_S);
-    let plant = PlantConstants {
-        k_plate: Frequency::new::<hertz>(7.5e-4),
-        k_clean: Frequency::new::<hertz>(0.0),
-        graphite_thickness: Length::new::<meter>(4.5e-3),
-        grain_size: Length::new::<meter>(1.0e-5),
-        sic_thickness: Length::new::<meter>(3.5e-5),
-        kernel_radius: Length::new::<meter>(2.13e-4),
-        run_time: three_years,
-        irradiation_time: three_years,
-        variant: setup.variant,
-    };
+    let plant = PlantConstants::new(
+        Frequency::new::<hertz>(7.5e-4),
+        Frequency::new::<hertz>(0.0),
+        Length::new::<meter>(4.5e-3),
+        Length::new::<meter>(1.0e-5),
+        Length::new::<meter>(3.5e-5),
+        Length::new::<meter>(2.13e-4),
+        three_years,
+        three_years,
+    )
+    .with_variant(setup.variant);
     let fractions = FailureFractions {
         heavy_metal: 1.0,
         sic: 0.0,
@@ -1003,7 +1021,9 @@ fn table19(setup: Setup) -> Vec<(String, f64, f64)> {
     }
     out
 }
+// ANCHOR_END: table19
 
+// ANCHOR: bit_for_bit
 /// **gh:#1015: `Atops2026Paper(PaperReadings::UPSTREAM_CODE)` is `Upstream`,
 /// bit for bit**, on both MHTGR cases: every normal-operation pool of every
 /// nuclide, and every accident total on the sparse Fig. 5 points.
@@ -1030,6 +1050,7 @@ fn paper_variant_with_upstream_readings_is_upstream_bit_for_bit() {
         }
     }
 }
+// ANCHOR_END: bit_for_bit
 
 /// **gh:#1015: the `atops2026paper` variant against the paper's own printed
 /// releases, with the sensitivity to every ambiguity.** Reported, not gated.
@@ -1130,6 +1151,7 @@ fn atops2026paper_against_the_papers_printed_releases() {
     println!("Table 19 (p. 25), complete-failure release fraction at 1250 degC");
     println!("| nuclide | paper | upstream | rel. diff | atops2026paper | rel. diff |");
     println!("|---|---|---|---|---|---|");
+    // ANCHOR: table19_comparison
     let up = table19(UPSTREAM);
     let pa = table19(Setup {
         variant: TrisoAtopsVariant::ATOPS2026PAPER,
@@ -1142,4 +1164,5 @@ fn atops2026paper_against_the_papers_printed_releases() {
             100.0 * (a / p - 1.0)
         );
     }
+    // ANCHOR_END: table19_comparison
 }
