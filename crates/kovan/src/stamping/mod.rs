@@ -84,6 +84,7 @@ use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, Review
 pub mod git;
 
 pub mod authorship;
+pub mod carry_forward;
 pub mod commit_push;
 /// Concept links, the finder, formulas and concept areas (#770, #810).
 pub mod concepts;

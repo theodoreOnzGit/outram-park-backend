@@ -22,7 +22,21 @@
 //!    the function's hash recomputed **at that certified commit** must equal
 //!    the recorded hash (time-bound stamps). The reviewer must be registered
 //!    in `kovan_root.toml`, and the stamp dated before any revocation (or
-//!    compromise). With [`SignaturePolicy::Enforce`] the signature must
+//!    compromise).
+//!    **Carried forward** (GitHub #838, #1018; [`CarriedForward`]): when a
+//!    squash, merge, rebase or cherry-pick took the certified commit out of
+//!    `HEAD`'s history and verified carry-forward records
+//!    ([`super::carry_forward`]) lead to a commit in it, that commit is the
+//!    stamp's **effective key**: the caller gives the history and hash
+//!    facts for it. The "added after the certified commit" rule is not
+//!    applied (the rewrite destroyed that order by construction, and the
+//!    signature names the original commit, which existed before signing);
+//!    the agent-trailer rule is not applied when the stamp arrived in a
+//!    hop's own commit (a squash message concatenates every commit's, so it
+//!    says nothing about who stamped; agents cannot sign). The signed
+//!    fields are untouched. A stamp whose certified commit is gone with no
+//!    record, and whose code changed since, is **directly stale**: no
+//!    record can exist for it and it needs a full review. With [`SignaturePolicy::Enforce`] the signature must
 //!    verify against the registry (#762): a scope refusal there is **outside
 //!    scope**, a revocation or compromise is unverified with that reason,
 //!    anything else unverified with the signature's reason.
@@ -193,6 +207,44 @@ pub struct StampFacts {
     /// git facts as of that commit; `None` when not computed (then git's
     /// view is unknown: rung 3, and no new-test flags).
     pub tests_at_review: Option<TestsAtReview>,
+    /// Set when verified carry-forward records moved the stamp's key to a
+    /// commit in `HEAD`'s history (GitHub #838, #1018). Then
+    /// `added_in.certified_in_history` and `hash_at_commit` are about the
+    /// effective key, while `reviewed_commit_time` stays the **original**
+    /// commit's (`None` when it is not in this clone: the #783 check is
+    /// then not checkable, never judged against the new commit's time).
+    pub carried_forward: Option<CarriedForward>,
+}
+
+/// A stamp carried forward to a new key (GitHub #838, #1018;
+/// [`super::carry_forward`]). Facts, built by the caller from verified
+/// records.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CarriedForward {
+    /// The effective key: the last verified hop's `to`.
+    pub key: String,
+    /// Where the function is at the key (`file.rs::qual`), from the last
+    /// hop: where its hash, tests and permalink are read.
+    pub path: String,
+    /// Each verified hop, `(from, to)`, in order.
+    pub hops: Vec<(String, String)>,
+    /// The commit that added the stamp on this branch is one of the hops'
+    /// `to` (a squash folded the stamp in): its message says nothing about
+    /// who stamped.
+    pub stamp_arrived_in_hop: bool,
+}
+
+/// Whether the #783 "signed before the reviewed commit" check could be run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ReviewedCommitTiming {
+    /// The reviewed commit's time was known and checked.
+    Checked,
+    /// Not looked up (no git facts, or an unreadable entry).
+    #[default]
+    NotLookedUp,
+    /// The stamp was carried forward and its original commit is not in
+    /// this clone: not checkable (squashed), neither passed nor failed.
+    NotCheckableSquashed,
 }
 
 /// The tests reaching a function at its review commit (maintainer on #765,
@@ -553,6 +605,10 @@ pub struct ReviewReport {
     /// 2026-10-14), each `"<question> = <answer as written>"`: the review is
     /// capped at rung 3 and flagged.
     pub waived: Vec<String>,
+    /// The stamp's carry-forward, when its key moved (GitHub #838, #1018).
+    pub carried_forward: Option<CarriedForward>,
+    /// Whether #783's reviewed-commit timing check ran (GitHub #1018).
+    pub reviewed_commit_timing: ReviewedCommitTiming,
 }
 
 /// One function, judged.
@@ -819,10 +875,12 @@ fn authenticity_git(r: &ReviewEntry, git: &GitFacts, registry: &Registry) -> Opt
     if !added.certified_in_history {
         return Some(UnverifiedReason::CertifiedCommitNotInHistory);
     }
-    if added.agent_trailer {
+    // Carried forward (#838, #1018; module doc, rule 2).
+    let carried = facts.carried_forward.as_ref();
+    if added.agent_trailer && !carried.is_some_and(|c| c.stamp_arrived_in_hop) {
         return Some(UnverifiedReason::AgentTrailer);
     }
-    if !added.after_certified {
+    if !added.after_certified && carried.is_none() {
         return Some(UnverifiedReason::NotAfterCertifiedCommit);
     }
     if facts.hash_at_commit.as_deref() != Some(b.hash.as_str()) {
@@ -898,6 +956,8 @@ pub fn evaluate(
                 vv_case: Vec::new(),
                 separation_attestation: b.separation_attestation.clone(),
                 signed_at: b.signed_at.clone(),
+                carried_forward: None,
+                reviewed_commit_timing: ReviewedCommitTiming::NotLookedUp,
             };
             let is_port = fr.doc.upstream().is_some_and(|u| u.is_port);
             // 1. Find the function.
@@ -943,6 +1003,12 @@ pub fn evaluate(
                 candidates.iter().filter_map(|c| current.get(c.as_str())).collect()
             };
             let stamp_facts = git.stamps.get(&ReviewKey { function: fid.clone(), by: b.by.clone() });
+            report.carried_forward = stamp_facts.and_then(|f| f.carried_forward.clone());
+            report.reviewed_commit_timing = match stamp_facts {
+                Some(f) if f.reviewed_commit_time.is_some() => ReviewedCommitTiming::Checked,
+                Some(f) if f.carried_forward.is_some() => ReviewedCommitTiming::NotCheckableSquashed,
+                _ => ReviewedCommitTiming::NotLookedUp,
+            };
             let at_review = stamp_facts.and_then(|f| f.tests_at_review.as_ref());
             report.vv_case = super::ivv::vv_case_problems(
                 &b.checklist,
@@ -1031,6 +1097,8 @@ pub fn evaluate(
                     signed_at: None,
                     rung4_axes_unrecorded: false,
                     waived: Vec::new(),
+                    carried_forward: None,
+                    reviewed_commit_timing: ReviewedCommitTiming::NotLookedUp,
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),
@@ -1223,6 +1291,15 @@ fn judge(
     let b = &r.review;
     // 2. Authenticity.
     match authenticity(r, git, registry, policy) {
+        // #838, #1018: the anchor is gone with no carry-forward and the code
+        // changed since: no record can exist for it and a re-anchor would be
+        // refused, so it is what it is, changed since the review.
+        Some(Denial::Unverified(UnverifiedReason::CertifiedCommitNotInHistory)) if cur.f.hash != b.hash => {
+            return StampState::DirectlyStale(StaleWhy::CodeChanged {
+                reviewed: b.hash.clone(),
+                now: cur.f.hash.clone(),
+            })
+        }
         Some(Denial::Unverified(why)) => return StampState::Unverified(why),
         Some(Denial::OutsideScope) => return StampState::OutsideScope,
         None => {}

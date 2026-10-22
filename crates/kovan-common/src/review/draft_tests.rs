@@ -138,6 +138,7 @@ fn git_for(r: &ReviewEntry) -> GitFacts {
             }),
             reviewed_commit_time: None,
             tests_at_review: None,
+            carried_forward: None,
         },
     );
     g

@@ -652,8 +652,9 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         cargo_args: Vec<String>,
     },
-    /// Read-only review reports from `review.md` (GitHub #810). Never signs
-    /// or writes: kovan-cli has no signing command.
+    /// Review reports from `review.md` (GitHub #810), and the unsigned
+    /// carry-forward records (#838). Never signs: kovan-cli has no signing
+    /// command.
     Review {
         #[command(subcommand)]
         command: ReviewCommand,
@@ -693,6 +694,31 @@ enum ReviewCommand {
         /// Only functions whose `fn:` id, call-graph id or `file.rs::qual`
         /// path contains this.
         function: Option<String>,
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+    },
+    /// After a squash, merge, rebase or cherry-pick (GitHub #838, #1018):
+    /// for every signed stamp whose commit is not in the history of `--to`,
+    /// write an unsigned carry-forward record to
+    /// kovan_carry_forward/<to>.toml when the function at `--to` hashes
+    /// exactly to the signed hash; the stamp's key moves there, and the
+    /// signed stamp is untouched. A function that changed gets no record
+    /// (it goes stale). Commit the file afterwards. `--check` re-verifies
+    /// every record instead and fails on any that does not verify.
+    CarryForward {
+        /// Where the reviewed code came from (the review branch, or
+        /// `refs/pull/<n>/head`); fetched from origin when missing. Limits
+        /// the run to stamps whose key is that commit or an ancestor.
+        #[arg(long)]
+        from: Option<String>,
+        /// The commit that brought the code in (default HEAD); must be HEAD
+        /// or an ancestor of it.
+        #[arg(long)]
+        to: Option<String>,
+        /// Re-check every record; write nothing.
+        #[arg(long, conflicts_with_all = ["from", "to"])]
+        check: bool,
         /// Workspace root; found from the current directory when omitted.
         #[arg(long)]
         workspace: Option<PathBuf>,
@@ -924,6 +950,21 @@ fn run(command: Command) -> Result<(), String> {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;
             commands::review_ivv::run(&root, function.as_deref())
+        }
+        Command::Review {
+            command:
+                ReviewCommand::CarryForward {
+                    from,
+                    to,
+                    check,
+                    workspace,
+                },
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let out = kovan::stamping::carry_forward::run(&root, from.as_deref(), to.as_deref(), check)?;
+            print!("{out}");
+            Ok(())
         }
         Command::Test {
             root,
@@ -1260,6 +1301,29 @@ mod tests {
                 command: ReviewCommand::Ivv { function: None, .. }
             }
         ));
+    }
+
+    /// `review carry-forward [--from] [--to] [--check]` parses (GitHub
+    /// #838); `--check` does not combine with `--from`/`--to`.
+    #[test]
+    fn review_carry_forward_parses() {
+        match parse(&["review", "carry-forward", "--from", "refs/pull/7/head", "--to", "HEAD~1"]).command {
+            Command::Review {
+                command: ReviewCommand::CarryForward { from, to, check, workspace },
+            } => {
+                assert_eq!(from.as_deref(), Some("refs/pull/7/head"));
+                assert_eq!(to.as_deref(), Some("HEAD~1"));
+                assert!(!check && workspace.is_none());
+            }
+            _ => panic!("wrong variant"),
+        }
+        assert!(matches!(
+            parse(&["review", "carry-forward", "--check"]).command,
+            Command::Review {
+                command: ReviewCommand::CarryForward { check: true, .. }
+            }
+        ));
+        assert!(Cli::try_parse_from(["kovan-cli", "review", "carry-forward", "--check", "--to", "x"]).is_err());
     }
 
     /// The `test` and `index` help texts are each their own (the `Test`

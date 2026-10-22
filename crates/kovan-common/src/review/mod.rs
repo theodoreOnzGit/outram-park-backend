@@ -81,9 +81,15 @@
 //! reviewer or key in `kovan_root.toml` as appended text. The gathering and
 //! file I/O are `kovan::stamping`.
 //!
+//! Carry-forward (GitHub #838, #1018, 2026-10-22): when reviewed code
+//! reaches a branch by a squash, merge, rebase or cherry-pick, an unsigned
+//! record that anyone can re-check moves a stamp's key to the new commit,
+//! and the signed stamp is never edited ([`carry_forward`]).
+//!
 //! Rung 5 is IV&V by a technically and managerially separate organisation
 //! (GitHub #809, NUREG/BR-0167 §3.1): [`crate::review::ivv`].
 
+pub mod carry_forward;
 pub mod draft;
 pub mod engine;
 pub mod evidence;

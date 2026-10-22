@@ -239,6 +239,7 @@ kovan-cli code-map --format svg -o code_map.svg
 kovan-cli code-map --format json -o code_map.json
 kovan-cli call-graph --crates outram-park-digital-twin-engine,boon-lay -o call_graph.json
 kovan-cli review ivv
+kovan-cli review carry-forward --from refs/pull/12/head
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -679,8 +680,14 @@ code, doc comment, callees and `Cargo.lock` are unchanged, and signs them
 all again at `HEAD` with one passphrase entry, checklists carried over; a
 function that changed is listed with the reason and needs Stamp. Commit
 the result after the squash (`src/stamping/reanchor.rs`,
-`src/stamping/reanchor_flow.rs`). **Do not squash or rebase a branch that
-holds stamps unless you mean to re-anchor them.**
+`src/stamping/reanchor_flow.rs`). ~~**Do not squash or rebase a branch that
+holds stamps unless you mean to re-anchor them.**~~ **CORRECTED 2026-10-22**
+(#838, #1018): a squash, merge, rebase or cherry-pick no longer needs a
+re-anchor when the code is unchanged. `kovan-cli review carry-forward`
+writes an unsigned carry-forward record that anyone can re-check, and the
+stamp's key moves to the new commit with its signature untouched (see
+"`review carry-forward`" below). A stamp whose anchor is gone and whose code
+changed shows as changed since review, not unverified.
 
 Added 2026-10-10 (#770): an inherited-stale function (only callees
 changed) offers **Re-confirm**: the dialog shows each changed callee's
@@ -735,6 +742,29 @@ concepts its reviews link with an `implements` relation, chosen in the stamp
 dialog's concept finder (a qualification covers a concept at its node or
 any ancestor). A function whose reviews link no concept still shows "the
 function has no known concept area" and cannot reach rung 5.
+
+### `review carry-forward` — stamps survive squash, merge, rebase and cherry-pick (`stamping::carry_forward`, GitHub #838, #1018)
+
+`kovan-cli review carry-forward [--from <ref>] [--to <ref>] [--workspace <dir>]`
+is run after reviewed code reaches a branch (by CI on a push to `develop` or
+`main`, or by hand). For every signed stamp whose commit is not in the
+history of `--to` (default `HEAD`), it hashes the function at `--to`; when
+that equals the signed `hash`, it writes an **unsigned** record `{stamp,
+target, path, hash, from, to}` to `kovan_carry_forward/<to>.toml` at the
+workspace root, and the stamp's key moves to `to`. The signed stamp is never
+edited. A function that changed gets no record and goes stale. A regular
+merge keeps the original commit in history and writes nothing. Commit the
+file afterwards. `--from <ref>` (the review branch, or `refs/pull/<n>/head`)
+limits the run to stamps from there and fetches it when missing, which also
+brings the original commits back for the signing-time check (#783); without
+them that check reads "not checkable (squashed)". Each hop of review branch
+→ `develop` → `main` is its own record.
+
+`kovan-cli review carry-forward --check` re-verifies every record with no
+key and exits non-zero when one does not verify: a record whose hash is not
+the signed one, which names another function, or whose function at `to`
+hashes otherwise is rejected and carries nothing. The record format and
+why one file per `to` commit is in `kovan_common::review::carry_forward`.
 
 ### `site-index` — full-text search of the built Pages site (`site_search`, GitHub #876 item 8)
 
