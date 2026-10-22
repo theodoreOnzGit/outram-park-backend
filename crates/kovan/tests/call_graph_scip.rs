@@ -33,6 +33,8 @@
 //! **Result (2026-10-07, rust-analyzer 1.98.0):** passes. Re-run 2026-10-13
 //! with the schema-4 uses checks (rust-analyzer 1.98.0): passes.
 
+mod support;
+
 use std::path::Path;
 use std::process::Command;
 
@@ -112,7 +114,7 @@ fn write(root: &Path, rel: &str, text: &str) {
 
 #[test]
 fn scip_backend_agrees_with_lsp_and_adds_operators() {
-    if which::which("rust-analyzer").is_err() {
+    if !support::rust_analyzer_runs() {
         eprintln!("SKIPPED: rust-analyzer is not on PATH (rustup component add rust-analyzer)");
         return;
     }
