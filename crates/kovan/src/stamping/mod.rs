@@ -88,6 +88,9 @@ pub mod commit_push;
 /// Concept links, the finder, formulas and concept areas (#770, #810).
 pub mod concepts;
 pub mod flow;
+/// The "Signing key" window: lock state, auto-lock, export and import
+/// (GitHub #1020).
+pub mod key_panel;
 pub mod new_code;
 /// Organisations and separation attestations (GitHub #810).
 pub mod organisations;

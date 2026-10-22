@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 use kovan_common::review::review_md::parse_review_md;
 use kovan_common::review::signing::keystore::{generate, Keystore};
+use kovan_common::review::signing::session::{KeySession, SessionClock, DEFAULT_AUTO_LOCK};
 use kovan_common::review::state::StateKind;
 use kovan_common::review::wizard::{Applicability, GateReason};
 
@@ -207,6 +208,11 @@ fn flow_sets_up_a_key_signs_and_turns_valid() {
     assert!(f.key().unwrap().registered);
     r.commit("register key");
 
+    // Since #1020 the passphrase just typed holds the new key for the
+    // session; lock it to exercise the passphrase path below.
+    assert!(f.unlocked(), "the generated key is held for the session");
+    assert_eq!(super::key_panel::try_lock(f.session()), Some(true));
+    assert!(!f.unlocked());
     set_answers(&mut f, &clean());
     assert!(!f.can_sign(), "no passphrase yet");
     f.wizard.as_mut().unwrap().passphrase = "wrong passphrase".into();
@@ -387,4 +393,69 @@ fn flow_without_root_and_with_several_keys() {
         "{:?}",
         f.notices
     );
+}
+
+/// Methodology (GitHub #1020): one key session shared by three stamp
+/// dialogs, as the app shares it, on a manual clock. Stamp `leaf` with the
+/// passphrase; commit; stamp `twice` with **no** passphrase typed; commit.
+/// Then let the auto-lock pass and open a re-stamp of `leaf`; sign it with
+/// the passphrase, and press Lock now.
+///
+/// Pass: the first dialog needs the passphrase, the second signs without
+/// one and both stamps are valid at rung 3 against the registry; after the
+/// auto-lock the third needs the passphrase again; after Lock now the
+/// session holds nothing.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn one_unlock_signs_two_stamps_then_auto_lock_and_lock_now_ask_again() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    founder_key(&r, store.path());
+    let clock = SessionClock::manual();
+    let session = KeySession::shared(DEFAULT_AUTO_LOCK, clock.clone());
+    let open = |qual: &str| {
+        let mut f = StampFlow::new(r.path().to_path_buf(), Keystore::at(store.path()), Purpose::Stamp, target(qual))
+            .with_session(session.clone());
+        f.wait();
+        assert_eq!(f.step, Step::Wizard, "{:?}", f.error);
+        set_answers(&mut f, &clean());
+        f
+    };
+
+    let mut first = open("leaf");
+    assert!(!first.unlocked() && !first.can_sign(), "locked: the passphrase is asked");
+    first.wizard.as_mut().unwrap().passphrase = PASS.into();
+    assert!(first.sign());
+    first.wait();
+    assert!(matches!(first.step, Step::Done(_)), "{:?} {:?}", first.step, first.error);
+    assert!(first.unlocked());
+    r.commit("stamp leaf");
+
+    clock.advance(std::time::Duration::from_secs(60));
+    let mut second = open("twice");
+    assert!(second.unlocked());
+    assert!(second.wizard.as_ref().unwrap().passphrase.is_empty());
+    assert!(second.can_sign(), "no passphrase needed while unlocked");
+    assert!(second.sign());
+    second.wait();
+    assert!(matches!(second.step, Step::Done(_)), "{:?} {:?}", second.step, second.error);
+    r.commit("stamp twice");
+    for q in ["leaf", "twice"] {
+        let s = r.state(q).unwrap();
+        assert_eq!((s.state, s.rung), (Some(StateKind::Valid), 3), "{q}: {}", s.reason);
+    }
+
+    clock.advance(DEFAULT_AUTO_LOCK);
+    let mut third = open("leaf");
+    assert!(!third.unlocked() && !third.can_sign(), "auto-locked: asked again");
+    third.wizard.as_mut().unwrap().passphrase = PASS.into();
+    assert!(third.can_sign());
+    assert!(third.sign());
+    third.wait();
+    assert!(matches!(third.step, Step::Done(_)), "{:?} {:?}", third.step, third.error);
+    assert!(third.unlocked());
+    assert_eq!(super::key_panel::try_lock(&session), Some(true), "Lock now");
+    assert!(!third.unlocked());
+    assert!(session.read().unwrap().status().is_none());
 }
