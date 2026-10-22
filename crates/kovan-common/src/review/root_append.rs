@@ -23,6 +23,14 @@
 //!   block spliced in at the end of that reviewer's section, as a key is.
 //!   An attestation whose id the reviewer already uses is refused (a stamp
 //!   names it by id).
+//! - **Lifecycle (GitHub #1019, the User management tab):**
+//!   [`append_key_event`] adds one `[[reviewer.key.history]]` event at the
+//!   end of that key's section (endorse, retire, un-retire, revoke or
+//!   compromise a key); [`record_admission`] admits a registered reviewer,
+//!   replacing only the `role`, `scope` and `admitted` lines of its own
+//!   table and appending the `admitted` event to its first key;
+//!   [`append_revocation`] adds `[reviewer.revoked]`, never over an
+//!   existing one.
 //!
 //! No workspace member depends on `toml_edit` directly (checked
 //! 2026-10-10; it is only `toml`'s own dependency), so the splice is by line, and every result is **read back**: the
@@ -39,7 +47,7 @@ use serde::Serialize;
 
 use super::root::{
     DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, ReviewRoot, Reviewer, ReviewerKey,
-    ReviewerOrganisation, RootError, Role, SeparationAttestation,
+    ReviewerOrganisation, Revocation, RootError, Role, SeparationAttestation,
 };
 
 /// Why a registration was refused. Nothing is changed on any refusal.
@@ -60,6 +68,19 @@ pub enum AppendError {
     /// The reviewer has a separation attestation with this id already
     /// (#810).
     AttestationExists { reviewer: String, id: String },
+    /// No key with this id under the reviewer, or two of them (GitHub
+    /// #1019, [`append_key_event`]).
+    UnknownKey { reviewer: String, key: String },
+    /// The key's history is still in the v1 legacy fields (no
+    /// `[[reviewer.key.history]]` in the file): an event appended now would
+    /// start a history without its `created` entry (#1019).
+    LegacyKey { reviewer: String, key: String },
+    /// The reviewer is admitted already, or is the founder (#1019,
+    /// [`record_admission`]).
+    AlreadyAdmitted(String),
+    /// The reviewer already carries a `[reviewer.revoked]` (#1019,
+    /// [`append_revocation`]).
+    AlreadyRevoked(String),
 }
 
 impl std::fmt::Display for AppendError {
@@ -77,6 +98,16 @@ impl std::fmt::Display for AppendError {
             Self::AttestationExists { reviewer, id } => {
                 write!(f, "reviewer {reviewer} already has a separation attestation {id}")
             }
+            Self::UnknownKey { reviewer, key } => {
+                write!(f, "reviewer {reviewer} has no single key {key}")
+            }
+            Self::LegacyKey { reviewer, key } => write!(
+                f,
+                "key {key} of {reviewer} has no [[reviewer.key.history]] yet (v1 fields): \
+                 nothing can be appended to it"
+            ),
+            Self::AlreadyAdmitted(id) => write!(f, "{id} is admitted already"),
+            Self::AlreadyRevoked(id) => write!(f, "{id} is revoked already"),
             Self::NotReadBack(m) => write!(
                 f,
                 "kovan_root.toml would not read back as intended ({m}); nothing written"
@@ -190,10 +221,11 @@ pub fn append_reviewer_key(
     Ok(text)
 }
 
-/// `existing` with `block` spliced in at the end of the `pos`-th
-/// `[[reviewer]]` section: before the next header that is not one of its
-/// own sub-tables, and before any comment lines leading into that header.
-fn splice_into_reviewer(existing: &str, pos: usize, block: &str) -> Result<String, AppendError> {
+/// The lines of `existing`, its table headers (line index, dotted name),
+/// and the line span `[start, end)` of the `pos`-th `[[reviewer]]`
+/// section: from its header to the next header that is not one of its own
+/// sub-tables.
+fn reviewer_span(existing: &str, pos: usize) -> Result<(Vec<&str>, Vec<(usize, String)>, usize, usize), AppendError> {
     let lines: Vec<&str> = existing.split_inclusive('\n').collect();
     let heads: Vec<(usize, String)> = lines
         .iter()
@@ -212,10 +244,18 @@ fn splice_into_reviewer(existing: &str, pos: usize, block: &str) -> Result<Strin
             "cannot find the [[reviewer]] header".into(),
         ));
     };
-    let mut end = heads
+    let end = heads
         .iter()
         .find(|(i, h)| *i > start && !h.starts_with("reviewer."))
         .map_or(lines.len(), |(i, _)| *i);
+    Ok((lines, heads, start, end))
+}
+
+/// `lines` with `block` spliced in before line `end` (a section's end,
+/// `start` its header): before the comment and blank lines that lead into
+/// the next header, unless `end` is the end of the file.
+fn splice_at(lines: &[&str], start: usize, end: usize, block: &str) -> String {
+    let mut end = end;
     if end < lines.len() {
         while end > start + 1 && {
             let t = lines[end - 1].trim();
@@ -232,7 +272,15 @@ fn splice_into_reviewer(existing: &str, pos: usize, block: &str) -> Result<Strin
         text.push('\n');
     }
     text.push_str(&lines[end..].concat());
-    Ok(text)
+    text
+}
+
+/// `existing` with `block` spliced in at the end of the `pos`-th
+/// `[[reviewer]]` section: before the next header that is not one of its
+/// own sub-tables, and before any comment lines leading into that header.
+fn splice_into_reviewer(existing: &str, pos: usize, block: &str) -> Result<String, AppendError> {
+    let (lines, _, start, end) = reviewer_span(existing, pos)?;
+    Ok(splice_at(&lines, start, end, block))
 }
 
 /// `key = "value"`, TOML-quoted.
@@ -365,6 +413,250 @@ pub fn append_separation_attestation(
     Ok(text)
 }
 
+/// The value of a top-level `key = value` line (`None`: another key, a
+/// header, a comment or not TOML on its own, e.g. the first line of a
+/// multi-line array).
+fn line_value(line: &str, key: &str) -> Option<toml::Value> {
+    let t: toml::Table = toml::from_str(line).ok()?;
+    t.get(key).cloned()
+}
+
+/// The line span `[start, end)` of the key `key` of the `pos`-th reviewer,
+/// from its `[[reviewer.key]]` header to the next header that is not one of
+/// its own sub-tables (`[[reviewer.key.history]]`).
+fn key_span(existing: &str, pos: usize, key: &str) -> Result<(Vec<String>, usize, usize), AppendError> {
+    let (lines, heads, start, end) = reviewer_span(existing, pos)?;
+    let in_section: Vec<&(usize, String)> = heads.iter().filter(|(i, _)| *i > start && *i < end).collect();
+    for (n, (i, h)) in in_section.iter().enumerate() {
+        if h != "reviewer.key" {
+            continue;
+        }
+        let next = in_section[n + 1..]
+            .iter()
+            .find(|(_, h2)| !h2.starts_with("reviewer.key."))
+            .map_or(end, |(j, _)| *j);
+        let body_end = in_section.get(n + 1).map_or(end, |(j, _)| *j);
+        let named = lines[*i + 1..body_end]
+            .iter()
+            .any(|l| line_value(l, "id").and_then(|v| v.as_str().map(|s| s == key)) == Some(true));
+        if named {
+            return Ok((lines.iter().map(|l| l.to_string()).collect(), *i, next));
+        }
+    }
+    Err(AppendError::NotReadBack(format!("cannot find the [[reviewer.key]] {key}")))
+}
+
+/// One `[[reviewer.key.history]]` block.
+fn event_block(ev: &KeyEvent) -> String {
+    let mut block = String::from("[[reviewer.key.history]]\n");
+    block.push_str(&format!("event = {}\n", toml::Value::String(ev.event.as_str().into())));
+    block.push_str(&kv("date", &ev.date));
+    if let Some(sg) = &ev.signer {
+        block.push_str(&signer_line(sg));
+    }
+    if let Some(sig) = &ev.signature {
+        block.push_str(&kv("signature", sig));
+    }
+    if ev.legacy {
+        block.push_str("legacy = true\n");
+    }
+    block
+}
+
+/// `existing` with `ev` appended to the history of key `key` of
+/// `reviewer` (GitHub #1019: the User management tab's endorse, retire,
+/// un-retire, key revocation and admission events). The block goes at the
+/// end of that key's section; every existing byte is kept. Refused for an
+/// unknown or duplicated key, and for a key whose history is still in the
+/// v1 legacy fields ([`AppendError::LegacyKey`]). The caller signs `ev`
+/// first (`UnlockedKey::{endorse, unretire, revoke_key}`) or makes an
+/// unsigned one ([`super::signing::registry::retire_key`]).
+pub fn append_key_event(
+    existing: &str,
+    reviewer: &str,
+    key: &str,
+    ev: &KeyEvent,
+) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    let Some(pos) = before.reviewers.iter().position(|r| r.id == reviewer) else {
+        return Err(AppendError::UnknownReviewer(reviewer.into()));
+    };
+    let unknown = || AppendError::UnknownKey { reviewer: reviewer.into(), key: key.into() };
+    let keys = &before.reviewers[pos].keys;
+    if keys.iter().filter(|k| k.id == key).count() != 1 {
+        return Err(unknown());
+    }
+    let j = keys.iter().position(|k| k.id == key).ok_or_else(unknown)?;
+    if keys[j].history.is_empty() {
+        return Err(AppendError::LegacyKey { reviewer: reviewer.into(), key: key.into() });
+    }
+    let (lines, start, end) = key_span(existing, pos, key)?;
+    let refs: Vec<&str> = lines.iter().map(String::as_str).collect();
+    let text = splice_at(&refs, start, end, &event_block(ev));
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expected.reviewers[pos].keys[j].history.push(ev.clone());
+    if after != expected {
+        return Err(AppendError::NotReadBack(format!(
+            "[[reviewer.key.history]] {} of {reviewer}'s key {key}",
+            ev.event.as_str()
+        )));
+    }
+    Ok(text)
+}
+
+/// Whether `r` carries an admission (an `admitted` event, or a v1
+/// `admitted_by`).
+fn has_admission(r: &Reviewer) -> bool {
+    r.admitted_by.is_some()
+        || r.keys.iter().any(|k| k.history.iter().any(|e| e.event == KeyEventKind::Admitted))
+}
+
+/// `existing` with a registered, not yet admitted reviewer admitted
+/// (GitHub #1019): `admitted` is that reviewer as `UnlockedKey::admit`
+/// left it, i.e. the entry in the file with `role`, `scope` and
+/// `admitted` set and one `admitted` event appended to its first key.
+/// Those three lines of the reviewer's own table are replaced (every other
+/// line, comments included, is kept) and the event is appended as
+/// [`append_key_event`] does. Refused when the reviewer is unknown, is the
+/// founder, is admitted already, or `admitted` differs from the entry in
+/// any other way.
+pub fn record_admission(existing: &str, admitted: &Reviewer) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    let id = admitted.id.as_str();
+    let Some(pos) = before.reviewers.iter().position(|r| r.id == id) else {
+        return Err(AppendError::UnknownReviewer(id.into()));
+    };
+    let old = &before.reviewers[pos];
+    let founder = before.code_review.as_ref().and_then(|c| c.founder.as_deref());
+    if has_admission(old) || founder == Some(id) {
+        return Err(AppendError::AlreadyAdmitted(id.into()));
+    }
+    let (Some(k0), Some(ev)) = (old.keys.first(), admitted.keys.first().and_then(|k| k.history.last())) else {
+        return Err(AppendError::NotReadBack(format!("{id} has no first key to admit")));
+    };
+    let mut expected_r = old.clone();
+    expected_r.role = admitted.role;
+    expected_r.scope = admitted.scope.clone();
+    expected_r.admitted = admitted.admitted.clone();
+    expected_r.keys[0].history.push(ev.clone());
+    if ev.event != KeyEventKind::Admitted || expected_r != *admitted {
+        return Err(AppendError::NotReadBack(format!(
+            "the admission of {id} changes more than its role, scope, admitted date and one \
+             admitted event"
+        )));
+    }
+    // The reviewer's own table: header line to its first sub-table.
+    let (lines, heads, start, end) = reviewer_span(existing, pos)?;
+    let head_end = heads.iter().find(|(i, _)| *i > start && *i < end).map_or(end, |(i, _)| *i);
+    let mut kept: Vec<String> = Vec::new();
+    let mut skipping_array = 0i32;
+    for l in &lines[start + 1..head_end] {
+        if skipping_array > 0 {
+            skipping_array += bracket_balance(l);
+            continue;
+        }
+        let key = l.split('=').next().map(str::trim).unwrap_or("");
+        if l.contains('=') && matches!(key, "role" | "scope" | "admitted") {
+            let b = bracket_balance(l);
+            if b > 0 {
+                skipping_array = b;
+            }
+            continue;
+        }
+        kept.push(l.to_string());
+    }
+    // New lines after the last line with content (comments and blank
+    // lines leading into the next table stay where they were).
+    let at = kept
+        .iter()
+        .rposition(|l| {
+            let t = l.trim();
+            !t.is_empty() && !t.starts_with('#')
+        })
+        .map_or(0, |i| i + 1);
+    let mut fields = format!("role = {}\n", toml::Value::String(role_name(admitted.role).into()));
+    if !admitted.scope.is_empty() {
+        let globs = toml::Value::Array(admitted.scope.iter().cloned().map(toml::Value::String).collect());
+        fields.push_str(&format!("scope = {globs}\n"));
+    }
+    if let Some(d) = &admitted.admitted {
+        fields.push_str(&kv("admitted", d));
+    }
+    if at > 0 && !kept[at - 1].ends_with('\n') {
+        kept[at - 1].push('\n');
+    }
+    kept.insert(at, fields);
+    let mut text: String = lines[..=start].concat();
+    text.push_str(&kept.concat());
+    text.push_str(&lines[head_end..].concat());
+    // Then the event, on the first key.
+    let text = append_key_event(&text, id, &k0.id, ev)?;
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expected.reviewers[pos] = admitted.clone();
+    if after != expected {
+        return Err(AppendError::NotReadBack(format!("the admission of {id}")));
+    }
+    Ok(text)
+}
+
+/// `[` minus `]` on a line, outside strings (good enough for the arrays of
+/// globs this file holds; the read-back check catches the rest).
+fn bracket_balance(line: &str) -> i32 {
+    let mut n = 0;
+    let mut in_str = false;
+    for c in line.chars() {
+        match c {
+            '"' => in_str = !in_str,
+            '[' if !in_str => n += 1,
+            ']' if !in_str => n -= 1,
+            '#' if !in_str => break,
+            _ => {}
+        }
+    }
+    n
+}
+
+fn role_name(r: Role) -> &'static str {
+    match r {
+        Role::Maintainer => "maintainer",
+        Role::Reviewer => "reviewer",
+    }
+}
+
+/// `existing` with `rev` as reviewer `reviewer`'s `[reviewer.revoked]`
+/// (GitHub #1019), spliced in at the end of that reviewer's section.
+/// Refused when the reviewer is unknown or revoked already: a revocation is
+/// never edited.
+pub fn append_revocation(existing: &str, reviewer: &str, rev: &Revocation) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    let Some(pos) = before.reviewers.iter().position(|r| r.id == reviewer) else {
+        return Err(AppendError::UnknownReviewer(reviewer.into()));
+    };
+    if before.reviewers[pos].revoked.is_some() {
+        return Err(AppendError::AlreadyRevoked(reviewer.into()));
+    }
+    let mut block = String::from("[reviewer.revoked]\n");
+    block.push_str(&kv("date", &rev.date));
+    if let Some(c) = &rev.compromised_from {
+        block.push_str(&kv("compromised_from", c));
+    }
+    block.push_str(&kv("by", &rev.by));
+    if let Some(s) = &rev.signature {
+        let q = |v: &str| toml::Value::String(v.to_string()).to_string();
+        block.push_str(&format!("signature = {{ key = {}, signature = {} }}\n", q(&s.key), q(&s.signature)));
+    }
+    let text = splice_into_reviewer(existing, pos, &block)?;
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expected.reviewers[pos].revoked = Some(rev.clone());
+    if after != expected {
+        return Err(AppendError::NotReadBack(format!("[reviewer.revoked] of {reviewer}")));
+    }
+    Ok(text)
+}
+
 /// `existing` with `[code_review] founder = id` (module doc).
 pub fn declare_founder(existing: &str, id: &str) -> Result<String, AppendError> {
     let before = parse(existing)?;
@@ -451,3 +743,7 @@ mod tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "root_append_ivv_tests.rs"]
 mod ivv_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "root_append_lifecycle_tests.rs"]
+mod lifecycle_tests;
