@@ -25,6 +25,22 @@ this codebase. **Use `kovan-cli`**, the agent front end.
 Run `kovan-cli skill-gen` to (re)generate `kovan_skill.md` for an agent
 session that hasn't read this file.
 
+### Agents change kovan's files only through `kovan-cli`
+
+**Maintainer direction, 2026-10-22: "agents should use kovan-cli to interact
+with kovan.toml".** An agent reads and writes kovan's own files (`kovan.toml`,
+and the review artefacts kovan manages beside them, such as `review.md`
+entries and the `[[reviewer]]` registry in `kovan_root.toml`) **through
+`kovan-cli`, never by editing them by hand.** The CLI validates, hashes and
+formats what it writes; a hand edit can silently break an anchor, a hash or
+a signature.
+
+- **If the command an agent needs does not exist,** do not hand-edit as a
+  workaround: say so in the hand-off and file an issue for the command
+  (e.g. agent justifications on the reviewer roster, GitHub #1019).
+- Agents still never sign: `kovan-cli` has no signing command, by design
+  (#762). Signing stays in desktop kovan, by a human.
+
 **KOPITIAM is no longer dogfooded here** (maintainer direction, 2026-09-21).
 It may still be used where it helps, but it is not mandated and its rough
 edges no longer need filing from this workspace. The former rule, and the
