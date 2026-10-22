@@ -16,7 +16,11 @@
 > (`variant.rs`, labelled NOT a port). The default, `TrisoAtopsVariant::Upstream`,
 > is still the faithful fork, bit for bit: every existing code-to-code test runs
 > it unchanged, and `Atops2026Paper(PaperReadings::UPSTREAM_CODE)` is pinned
-> equal to it. See "Model variant: `atops2026paper`" below.
+> equal to it. See "Model variant: `atops2026paper`" below. The rule this
+> follows, set 2026-10-22 (maintainer: "i'm okay with ports starting faithful,
+> and making reasoned deviations"): a port starts faithful; each deviation is
+> explicit, documented with its reason and source, and keeps the upstream
+> behaviour available as the pinned default (`crates/boon-lay/CLAUDE.md`).
 
 `boon_lay::triso_atops_fork` is a Rust **fork of Idaho National Laboratory's
 TRISO-ATOPS** (TRISO Analysis TOol for Predictive Source terms). It provides the
@@ -425,8 +429,15 @@ to offer the paper as an explicit, named option, with the code as the default.
 pass the variant to `release_fraction_transient_for`,
 `integrate_diffusion_over_time_for` and `release_activity_for`. Use
 `ParentDecayPolicy::ShortLivedParentOnly`, the paper's reading of parent
-coupling. `TrisoAtopsVariant::default()` is `Upstream`. Every
-`PlantConstants` literal in the workspace now names its variant.
+coupling. `TrisoAtopsVariant::default()` is `Upstream`. ~~Every
+`PlantConstants` literal in the workspace now names its variant.~~
+**CORRECTED 2026-10-22 (gh:#1015, maintainer: "give it a constructor"):**
+`PlantConstants::new(k_plate, k_clean, a_graph, a_grain, a_SiC, r, run_time,
+t_irrad)` sets `Upstream`, and `.with_variant(TrisoAtopsVariant::ATOPS2026PAPER)`
+selects the paper. The workspace's callers use the constructor; one unit test
+keeps a struct literal as the constructor's reference. A worked tutorial of the
+paper reproduction, with the test's source pulled in, is the deep-dive page
+`docs/lessons/src/atops2026-paper.md`.
 
 **What it changes.** These are the ten items in the `variant` module docs:
 

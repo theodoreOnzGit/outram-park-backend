@@ -44,17 +44,16 @@ pub fn years(y: f64) -> Time {
 
 /// MHTGR Case A plant constants (constants.csv; paper Table 3, p. 7).
 pub fn case_a() -> PlantConstants {
-    PlantConstants {
-        k_plate: Frequency::new::<hertz>(7.5e-5),
-        k_clean: Frequency::new::<hertz>(8.77e-5),
-        graphite_thickness: m(4.5e-3),
-        grain_size: m(1.0e-5),
-        sic_thickness: m(3.5e-5),
-        kernel_radius: m(2.13e-4),
-        run_time: years(40.0),
-        irradiation_time: years(3.0),
-        variant: boon_lay::triso_atops_fork::TrisoAtopsVariant::Upstream,
-    }
+    PlantConstants::new(
+        Frequency::new::<hertz>(7.5e-5),
+        Frequency::new::<hertz>(8.77e-5),
+        m(4.5e-3),
+        m(1.0e-5),
+        m(3.5e-5),
+        m(2.13e-4),
+        years(40.0),
+        years(3.0),
+    )
 }
 /// MHTGR Case A failure fractions (constants.csv; paper Table 2, p. 7).
 pub fn fractions_a() -> FailureFractions {

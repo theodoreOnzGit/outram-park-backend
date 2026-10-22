@@ -458,8 +458,12 @@ which fails if the disagreement ever exceeds `3e-16` or disappears.
 `TrisoAtopsVariant` (`triso_atops_fork::variant`) adds the published paper's
 equations as an opt-in model. **Every comparison in this document runs
 `TrisoAtopsVariant::Upstream`, the default, and was re-run unchanged after the
-variant landed.** The `PlantConstants` literals in the suites now name
-`variant: Upstream` explicitly; nothing else in them changed. Each `*_for`
+variant landed.** ~~The `PlantConstants` literals in the suites now name
+`variant: Upstream` explicitly; nothing else in them changed.~~ **CORRECTED
+2026-10-22:** the suites now build their constants with `PlantConstants::new`,
+which sets `Upstream` (pinned by
+`normal_operation::tests::constructor_is_upstream_and_matches_the_literal`);
+nothing else in them changed. Each `*_for`
 function calls the ported function itself under upstream readings.
 `tests/mhtgr_stoyer_workflow.rs::paper_variant_with_upstream_readings_is_upstream_bit_for_bit`
 pins `Atops2026Paper(PaperReadings::UPSTREAM_CODE)` equal to `Upstream`,

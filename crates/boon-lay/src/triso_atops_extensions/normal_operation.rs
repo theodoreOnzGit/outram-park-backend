@@ -152,17 +152,16 @@ mod tests {
     /// The ported module's own test plant (`normal_operation::tests::plant`).
     fn plant() -> PlantConstants {
         let yr = 3.155_76e7;
-        PlantConstants {
-            k_plate: Frequency::new::<hertz>(7.5e-4),
-            k_clean: Frequency::new::<hertz>(8.77e-5),
-            graphite_thickness: Length::new::<meter>(0.0045),
-            grain_size: Length::new::<meter>(1e-5),
-            sic_thickness: Length::new::<meter>(3.5e-5),
-            kernel_radius: Length::new::<meter>(0.000213),
-            run_time: Time::new::<second>(40.0 * yr),
-            irradiation_time: Time::new::<second>(3.0 * yr),
-            variant: crate::triso_atops_fork::TrisoAtopsVariant::Upstream,
-        }
+        PlantConstants::new(
+            Frequency::new::<hertz>(7.5e-4),
+            Frequency::new::<hertz>(8.77e-5),
+            Length::new::<meter>(0.0045),
+            Length::new::<meter>(1e-5),
+            Length::new::<meter>(3.5e-5),
+            Length::new::<meter>(0.000213),
+            Time::new::<second>(40.0 * yr),
+            Time::new::<second>(3.0 * yr),
+        )
     }
 
     fn node(c: f64) -> NodeState {
