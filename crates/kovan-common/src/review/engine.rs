@@ -68,6 +68,17 @@
 //! no review: it only shows as **review unreadable** when nothing else
 //! stands.
 //!
+//! **Novice reviewers need a second sign-off** (GitHub #1019, maintainer
+//! 2026-10-22: "for some novice reviewers. People need to earn their
+//! trust"). A valid stamp by a reviewer marked novice for the function's
+//! file on the stamp's date ([`Registry`]'s roster events,
+//! `ReviewerTrust::novice_at`) counts only beside a valid stamp by a
+//! trusted reviewer or a maintainer; alone it is
+//! [`StampState::AwaitingTrustedReviewer`] ("1 of 2: awaiting a trusted
+//! reviewer"), first in [`AGGREGATE_ORDER`]. Everyone is trusted until
+//! marked, so with no novice mark nothing changes. An agent justification
+//! is never a sign-off ([`super::review_md`]).
+//!
 //! **Rungs.** A stamp's rung is **derived, never chosen** (maintainer,
 //! #769, 2026-10-07; [`crate::review::wizard::derived_rung`]): 4 when the
 //! V&V answers qualify, the V&V case was written and verified by hand, and
@@ -146,8 +157,7 @@ use super::evidence::verdict::{reach_verdict, ReachVerdict};
 use super::index::{FolderIndex, FunctionIndex, Suite, TestRun};
 use super::ivv::{judge_function, record_warnings, IndependentVv, RecordList, RecordWarning, Rung5Miss, VvCaseProblem};
 use super::review_md::{DeletedFunction, FixStatus, ReviewDocument, ReviewEntry};
-use super::root::{ReviewRoot, Role};
-use super::scope::in_scope;
+use super::root::ReviewRoot;
 use super::signed_at::{plausibility, SignedAtProblem};
 use super::signing::registry::Registry;
 use super::signing::{verify_review, SignatureCheck, UnverifiedReason as SigReason};
@@ -469,6 +479,11 @@ pub enum StampState {
     /// The entry reads but contradicts what can be derived: shown, never
     /// counted (Leak Before Break).
     Invalid(InvalidReason),
+    /// A stamp that would be valid, by `novice`, a reviewer marked novice
+    /// for this function on the stamp's date, with no valid stamp by a
+    /// trusted reviewer or a maintainer beside it (GitHub #1019): "1 of 2,
+    /// awaiting a trusted reviewer". Not counted until one stamps it.
+    AwaitingTrustedReviewer { novice: String },
 }
 
 /// Why a readable review is invalid.
@@ -550,13 +565,15 @@ impl StampState {
             Self::Unreadable { .. } => StateKind::Unreadable,
             Self::PendingWorkspaceTest { .. } => StateKind::PendingWorkspaceTest,
             Self::Invalid(_) => StateKind::Invalid,
+            Self::AwaitingTrustedReviewer { .. } => StateKind::AwaitingTrustedReviewer,
         }
     }
 }
 
 /// When no review is valid, the function shows the first of these its
 /// reviews have.
-pub const AGGREGATE_ORDER: [StateKind; 11] = [
+pub const AGGREGATE_ORDER: [StateKind; 12] = [
+    StateKind::AwaitingTrustedReviewer,
     StateKind::DirectlyStale,
     StateKind::InheritedStale,
     StateKind::Moved,
@@ -609,6 +626,9 @@ pub struct ReviewReport {
     pub carried_forward: Option<CarriedForward>,
     /// Whether #783's reviewed-commit timing check ran (GitHub #1018).
     pub reviewed_commit_timing: ReviewedCommitTiming,
+    /// The reviewer was marked novice for this function on the stamp's
+    /// date (GitHub #1019); set on stamps that would be valid.
+    pub novice: bool,
 }
 
 /// One function, judged.
@@ -739,6 +759,8 @@ pub fn history_append_only(previous: &ReviewRoot, current: &ReviewRoot) -> Vec<H
         r.code_review.as_ref().map(|c| c.developing_organisation.clone()).unwrap_or_default()
     };
     records_append_only(&devs(previous), &devs(current), || RecordList::DevelopingOrganisation, &mut out);
+    let roster = |r: &ReviewRoot| r.code_review.as_ref().map(|c| c.roster_events.clone()).unwrap_or_default();
+    records_append_only(&roster(previous), &roster(current), || RecordList::RosterEvent, &mut out);
     for pr in &previous.reviewers {
         let Some(cr) = current.reviewer(&pr.id) else {
             out.push(HistoryWarning::ReviewerRemoved { reviewer: pr.id.clone() });
@@ -958,6 +980,7 @@ pub fn evaluate(
                 signed_at: b.signed_at.clone(),
                 carried_forward: None,
                 reviewed_commit_timing: ReviewedCommitTiming::NotLookedUp,
+                novice: false,
             };
             let is_port = fr.doc.upstream().is_some_and(|u| u.is_port);
             // 1. Find the function.
@@ -1099,6 +1122,7 @@ pub fn evaluate(
                     waived: Vec::new(),
                     carried_forward: None,
                     reviewed_commit_timing: ReviewedCommitTiming::NotLookedUp,
+                    novice: false,
                 }),
                 None => ev.orphan_unreadable.push(OrphanUnreadable {
                     dir: fr.dir.clone(),
@@ -1150,6 +1174,7 @@ pub fn evaluate(
     for (id, cur) in &current {
         let mut reviews = per_fn.remove(*id).unwrap_or_default();
         reviews.sort_by(|a, b| (&a.by, &a.artifact).cmp(&(&b.by, &b.artifact)));
+        second_sign_off(&mut reviews, &registry, &cur.location().file);
         let no_authors = BTreeSet::new();
         let authors = git.code_authors.get(*id).unwrap_or(&no_authors);
         let ivv = judge_function(id, &cur.index.krate, &reviews, authors, root, &registry, concepts, policy);
@@ -1305,8 +1330,9 @@ fn judge(
         None => {}
     }
     // 3. Scope, on the actual location (the registry's role and scope).
+    // (As in force on the stamp's date, GitHub #1019.)
     if let Some(rv) = registry.reviewer(&b.by) {
-        if rv.role == Role::Reviewer && !in_scope(&rv.scope, &here.file) {
+        if !rv.may_stamp(&b.date, &here.file) {
             return StampState::OutsideScope;
         }
     }
@@ -1416,6 +1442,27 @@ fn judge(
         }
     }
     StampState::Valid
+}
+
+/// The novice rule (GitHub #1019; maintainer: "People need to earn their
+/// trust"): mark each would-be-valid stamp whose reviewer was a novice for
+/// `file` on its date; when no valid stamp is by a trusted reviewer or a
+/// maintainer, each novice stamp becomes
+/// [`StampState::AwaitingTrustedReviewer`]. With a trusted one beside it
+/// the novice's stamp stays valid (co-signed). No novice mark anywhere:
+/// nothing changes.
+fn second_sign_off(reviews: &mut [ReviewReport], registry: &Registry, file: &str) {
+    for r in reviews.iter_mut().filter(|r| r.state.kind() == StateKind::Valid) {
+        let date = r.date.clone().unwrap_or_default();
+        r.novice = registry.reviewer(&r.by).is_some_and(|t| t.novice_at(&date, file));
+    }
+    let trusted = reviews.iter().any(|r| r.state.kind() == StateKind::Valid && !r.novice);
+    if trusted {
+        return;
+    }
+    for r in reviews.iter_mut().filter(|r| r.novice && r.state.kind() == StateKind::Valid) {
+        r.state = StampState::AwaitingTrustedReviewer { novice: r.by.clone() };
+    }
 }
 
 fn full_run_at_current_lock(run: Option<&TestRun>, git: &GitFacts) -> bool {

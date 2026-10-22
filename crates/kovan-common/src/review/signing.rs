@@ -35,7 +35,9 @@
 //! 3. a stamp `date` before the reviewer's revocation, and before the
 //!    compromise date of a compromised one; outside the key's retired window;
 //! 4. for a `reviewer` (not a `maintainer`), every path it certifies inside
-//!    its `scope` globs ([`super::scope`]).
+//!    its `scope` globs ([`super::scope`]), both as in force on the stamp's
+//!    date (the admitted role and scope, then the roster events dated on or
+//!    before it, GitHub #1019).
 //!
 //! **Time-bound stamps (#739 D6):** `commit` and `hash` are signed fields.
 //! Checking that the function's hash *at that commit* is `hash`, and that the
@@ -120,7 +122,10 @@
 //! [`reviewer_organisation_bytes`] (`kovan-reviewer-organisation-v1`,
 //! maintainer-signed) and [`separation_attestation_bytes`]
 //! (`kovan-separation-attestation-v1`, signed by the independent reviewer
-//! alone).
+//! alone). GitHub #1019 adds [`roster_event_bytes`]
+//! (`kovan-roster-event-v1`, maintainer-signed): a change of a reviewer's
+//! role or scope, a novice mark or a promotion, after the admission, which
+//! is never re-signed.
 
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
@@ -130,9 +135,8 @@ use serde::{Deserialize, Serialize};
 use super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::root::{
     DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, Revocation, Reviewer, ReviewerKey,
-    ReviewerOrganisation, Role, SeparationAttestation,
+    ReviewerOrganisation, Role, RosterEvent, SeparationAttestation,
 };
-use super::scope::in_scope;
 
 pub mod registry;
 
@@ -161,6 +165,10 @@ mod signed_at_tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 #[path = "signing/ivv_tests.rs"]
 mod ivv_tests;
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+#[path = "signing/roster_tests.rs"]
+mod roster_tests;
 
 use registry::{KeyStatus, Registry};
 
@@ -460,7 +468,25 @@ pub fn event_signed_bytes(
     key_event_bytes(owner, k, ev, retired_on, admission)
 }
 
-fn role_str(r: Role) -> &'static str {
+/// The bytes a maintainer signs for a `[[code_review.roster_event]]`
+/// (GitHub #1019): the reviewer, the event kind, its date, the new role
+/// (`""` when none), every scope glob in order, and the signer. Its own
+/// header, so no other statement's signature can be replayed as one; the
+/// kind is signed, so a novice mark cannot be replayed as a promotion.
+pub fn roster_event_bytes(e: &RosterEvent) -> Vec<u8> {
+    let mut s = String::from("kovan-roster-event-v1\n");
+    line(&mut s, "reviewer", &[&e.reviewer]);
+    line(&mut s, "event", &[e.event.as_str()]);
+    line(&mut s, "date", &[&e.date]);
+    line(&mut s, "role", &[e.role.map(role_str).unwrap_or("")]);
+    for g in &e.scope {
+        line(&mut s, "scope", &[g]);
+    }
+    signer_line(&mut s, e.signer.as_ref());
+    s.into_bytes()
+}
+
+pub(crate) fn role_str(r: Role) -> &'static str {
     match r {
         Role::Maintainer => "maintainer",
         Role::Reviewer => "reviewer",
@@ -693,11 +719,13 @@ fn check_stamp(
     if let Some(why) = key.inactive_at(date) {
         return Err(why);
     }
-    if reviewer.role == Role::Reviewer {
-        if paths.is_empty() {
+    // The role and scope in force on the stamp's date (GitHub #1019: a
+    // later roster event never changes an old stamp's verdict).
+    if reviewer.role_at(date) == Role::Reviewer || !reviewer.changes.is_empty() {
+        if paths.is_empty() && !reviewer.maintainer_on(date) {
             return Err(U::OutsideScope { reviewer: by.to_string(), path: String::new() });
         }
-        if let Some(p) = paths.iter().find(|p| !in_scope(&reviewer.scope, p)) {
+        if let Some(p) = paths.iter().find(|p| !reviewer.may_stamp(date, p)) {
             return Err(U::OutsideScope { reviewer: by.to_string(), path: p.to_string() });
         }
     }

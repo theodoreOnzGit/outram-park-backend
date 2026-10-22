@@ -171,3 +171,50 @@ fn key_events_are_refused_on_unknown_and_legacy_keys() {
         assert!(e.to_string().contains("already"));
     }
 }
+
+/// Methodology (GitHub #1019 phase 2): the founder appends a signed
+/// `[[code_review.roster_event]]` (a scope change for Alice, admitted
+/// first) to the commented fixture with [`append_roster_event`]. Pass:
+/// every original line kept, the event reads back at the end, the registry
+/// verifies it (Alice's current scope is the new one, no warning), an
+/// unknown reviewer is refused, and the engine's append-only check flags
+/// the event edited or removed in a later version of the file.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn roster_events_append_as_text_and_are_append_only() {
+    use crate::review::engine::{history_append_only, HistoryWarning};
+    use crate::review::ivv::RecordList;
+    use crate::review::root::{RosterEvent, RosterEventKind};
+    let (base, mk, _) = fixture();
+    let mut alice = ReviewRoot::parse(&base).unwrap().reviewer("github:a").unwrap().clone();
+    alice.scope = vec!["crates/x/**".into()];
+    alice.admitted = Some(DAY.into());
+    mk.admit(&mut alice).unwrap();
+    let t1 = record_admission(&base, &alice).unwrap();
+    let mut e = RosterEvent {
+        reviewer: "github:a".into(),
+        event: RosterEventKind::Scope,
+        date: LATER.into(),
+        role: None,
+        scope: vec!["crates/y/**".into(), "crates/z/**".into()],
+        signer: None,
+        signature: None,
+    };
+    mk.sign_roster_event(&mut e).unwrap();
+    let t2 = append_roster_event(&t1, &e).unwrap();
+    lines_kept(&t1, &t2, &[]);
+    let r2 = ReviewRoot::parse(&t2).unwrap();
+    let reg = Registry::build(&r2);
+    assert!(reg.warnings().is_empty(), "{:?}", reg.warnings());
+    assert_eq!(reg.reviewer("github:a").unwrap().current_scope(), ["crates/y/**", "crates/z/**"]);
+    let mut unknown = e.clone();
+    unknown.reviewer = "github:x".into();
+    assert_eq!(append_roster_event(&t1, &unknown), Err(AppendError::UnknownReviewer("github:x".into())));
+    let mut edited = r2.clone();
+    edited.code_review.as_mut().unwrap().roster_events[0].scope = vec!["**".into()];
+    assert_eq!(history_append_only(&r2, &edited), vec![HistoryWarning::RecordChanged { list: RecordList::RosterEvent, index: 0 }]);
+    let mut removed = r2.clone();
+    removed.code_review.as_mut().unwrap().roster_events.clear();
+    assert_eq!(history_append_only(&r2, &removed), vec![HistoryWarning::RecordRemoved { list: RecordList::RosterEvent, index: 0 }]);
+}

@@ -55,7 +55,7 @@ use zeroize::Zeroizing;
 use super::super::review_md::{ArchitectureEntry, ReviewEntry};
 use super::super::root::{
     ReviewRoot, DevelopingOrganisation, ReviewerOrganisation, SeparationAttestation,
-    KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey,
+    KeyEvent, KeyEventKind, KeySignature, KeySigner, Revocation, Reviewer, ReviewerKey, RosterEvent,
 };
 use super::super::signed_at::{now_local, parse_rfc3339};
 use super::super::types::{reviewer_id_kind, FieldError};
@@ -64,7 +64,7 @@ use super::super::ivv::{parse_audit_record, AuditRecordProblem};
 use super::{
     developing_organisation_bytes, reviewer_organisation_bytes, separation_attestation_bytes,
     architecture_signed_bytes, decode_fixed, encode_b64, is_date, key_event_bytes, line,
-    revocation_bytes, signed_bytes, Signature, ALG,
+    revocation_bytes, roster_event_bytes, signed_bytes, Signature, ALG,
 };
 
 /// `format` of a key file.
@@ -672,6 +672,24 @@ impl UnlockedKey {
         parse_audit_record(url).map_err(SignError::BadAuditRecord)?;
         a.key = Some(self.key.clone());
         a.signature = Some(self.sign(&separation_attestation_bytes(&self.reviewer, a)));
+        Ok(())
+    }
+
+    /// Sign a `[[code_review.roster_event]]` (GitHub #1019): sets `signer`
+    /// to this key and `signature` over [`roster_event_bytes`]. It counts
+    /// only if this key's reviewer is an admitted maintainer just before
+    /// the event and the key is trusted and active at `e.date` (checked by
+    /// the registry, not here). Refuses a malformed date and a `role`
+    /// event without a role.
+    pub fn sign_roster_event(&self, e: &mut RosterEvent) -> Result<(), SignError> {
+        if !is_date(&e.date) {
+            return Err(SignError::BadDate(e.date.clone()));
+        }
+        if e.event == super::super::root::RosterEventKind::Role && e.role.is_none() {
+            return Err(SignError::Missing("the new role"));
+        }
+        e.signer = Some(self.as_signer());
+        e.signature = Some(self.sign(&roster_event_bytes(e)));
         Ok(())
     }
 

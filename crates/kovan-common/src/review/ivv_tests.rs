@@ -241,6 +241,7 @@ fn order_report(by: &str, date: &str, signed_at: Option<&str>) -> ReviewReport {
         waived: Vec::new(),
         carried_forward: None,
         reviewed_commit_timing: Default::default(),
+        novice: false,
     }
 }
 

@@ -126,6 +126,7 @@ pub fn record_list(l: &RecordList) -> String {
         RecordList::SeparationAttestation { reviewer } => {
             format!("{reviewer}'s separation attestation")
         }
+        RecordList::RosterEvent => "roster event".into(),
     }
 }
 

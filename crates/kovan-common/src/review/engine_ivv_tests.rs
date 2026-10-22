@@ -26,6 +26,7 @@
 
 use super::tests::{eval, fid, folder, fun, git_for, review, reviews_in, D, F, M, R};
 use super::*;
+use crate::review::root::Role;
 use crate::review::ivv::{
     AttestationProblem, AuditRecordProblem, OrganisationProblem, OrganisationScope, RecordList,
     RecordProblem, Rung5Miss, VvCaseProblem, AUDIT_RECORD_LABEL,
