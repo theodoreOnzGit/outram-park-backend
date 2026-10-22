@@ -103,6 +103,7 @@ pub mod queue;
 pub mod recent;
 /// Re-confirming an inherited-stale review (#770, #740).
 pub mod reanchor;
+pub mod user_management;
 pub mod reanchor_flow;
 pub mod reconfirm;
 pub mod relocate;

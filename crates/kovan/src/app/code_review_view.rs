@@ -81,7 +81,18 @@ use super::review_mode_panel::PanelRequest;
 use crate::stamping::flow::{Purpose, StampFlow, StatesResult, Target, Worker};
 use crate::stamping::key_panel::{settings_file, status_line, try_lock, KeyPanel, KeySessionSettings};
 use crate::stamping::organisations::panel::OrgPanel;
+use crate::stamping::user_management::UserPanel;
 use super::key_window::KeyPick;
+
+/// Which of Code Review's tabs is shown (GitHub #1019).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum ReviewTab {
+    /// The code map and review mode.
+    #[default]
+    Map,
+    /// Every reviewer, key and agent ([`UserPanel`]).
+    Users,
+}
 
 /// What the worker found or built.
 type Prepared = Result<Option<BuildReport>, String>;
@@ -149,6 +160,10 @@ pub(crate) struct CodeReviewView {
     key_panel: Option<KeyPanel>,
     /// A file picker the window asked for, until the app takes it.
     key_pick: Option<KeyPick>,
+    /// The tab shown (GitHub #1019).
+    tab: ReviewTab,
+    /// Code Review ▸ User management, once opened.
+    users: Option<UserPanel>,
 }
 
 /// Check the data of `workspace` and build it when missing or stale (or
@@ -185,6 +200,7 @@ impl CodeReviewView {
                 key_session: self.key_session.clone(),
                 key_settings_loaded: self.key_settings_loaded,
                 key_status: self.key_status.take(),
+                tab: self.tab,
                 ..Self::default()
             };
         }
@@ -309,6 +325,24 @@ impl CodeReviewView {
                 self.key_panel = Some(KeyPanel::new(root, ks, self.key_session.clone(), settings_file()))
             }
             Err(e) => self.states_note = Some(format!("Cannot open the signing key window: {e}")),
+        }
+    }
+
+    /// Open Code Review ▸ User management (GitHub #1019) over the
+    /// workspace, with the same keystore rule as the stamp dialog, and the
+    /// Signing-key panel its "My keys on this machine" draws.
+    fn open_users(&mut self) {
+        let Some(root) = self.workspace.clone() else {
+            return;
+        };
+        match self.keystore() {
+            Ok(ks) => {
+                self.users = Some(UserPanel::new(root, ks, self.key_session.clone()));
+                if self.key_panel.is_none() {
+                    self.open_key_panel();
+                }
+            }
+            Err(e) => self.states_note = Some(format!("Cannot open User management: {e}")),
         }
     }
 
@@ -492,6 +526,9 @@ impl CodeReviewView {
         let mut walk_now = None;
         egui::Panel::top("code-review-strip").show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
+                ui.selectable_value(&mut self.tab, ReviewTab::Map, "Code map");
+                ui.selectable_value(&mut self.tab, ReviewTab::Users, "User management")
+                    .on_hover_text("Every reviewer and key, and the agents' justifications (GitHub #1019)");
                 match &self.workspace {
                     Some(dir) => ui.weak(dir.display().to_string()),
                     None => ui.weak("No workspace"),
@@ -650,6 +687,33 @@ impl CodeReviewView {
             if self.key_panel.is_none() {
                 self.open_key_panel();
             }
+        }
+        let users_tab = self.tab == ReviewTab::Users && self.workspace.is_some();
+        if users_tab && self.users.is_none() {
+            self.open_users();
+        }
+        if users_tab {
+            // The tab draws the Signing-key panel's body inline: no window.
+            if let Some(u) = self.users.as_mut() {
+                let mut pick = None;
+                let keys = self.key_panel.as_mut();
+                egui::CentralPanel::default().show(ui, |ui| {
+                    pick = super::user_management_view::show(ui, u, keys);
+                });
+                if pick.is_some() {
+                    self.key_pick = pick;
+                }
+                if u.take_changed() && self.review.is_some() {
+                    // Trust changed: every stamp may count differently.
+                    self.load_states();
+                }
+            }
+            if self.key_panel.as_mut().is_some_and(|p| p.take_imported()) {
+                if let Some(u) = self.users.as_mut() {
+                    u.load();
+                }
+            }
+            return;
         }
         if let Some(p) = self.key_panel.as_mut() {
             let (open, pick) = super::key_window::show(&ui.ctx().clone(), p);
@@ -1242,5 +1306,78 @@ mod tests {
         let _ = ctx.run_ui(Default::default(), |ui| v.ui(ui));
         assert!(v.key_panel.is_some());
         assert!(!v.dialog.as_ref().unwrap().wants_key_window);
+    }
+
+    /// Headless (GitHub #1019): Code Review ▸ User management, on the
+    /// stamp layer's git fixture with a temporary keystore. The founder
+    /// has stamped `twice`, an agent justified `other`, and Bob registered
+    /// a key and awaits admission. The tab opens its panel and the
+    /// Signing-key panel (drawn inline, no window), loads on workers, and
+    /// draws the list, the founder's page and Bob's page with the Admit
+    /// form, at desktop and phone width, without a display or a panic.
+    /// Each frame is rasterised in software
+    /// ([`super::super::headless_shot`]); with `KOVAN_SHOT_DIR` set the
+    /// PNGs are kept there for review.
+    ///
+    /// Result (2026-10-22): passes.
+    #[test]
+    fn user_management_tab_draws_headless_and_screenshots() {
+        use crate::stamping::justify::{justify, JustifyRequest};
+        use crate::stamping::tests::{founder_key, Repo, BY, LIB};
+        use crate::stamping::user_management::tests::{bob_registers, B};
+        use kovan_common::review::review_md::Verdict;
+
+        let r = Repo::new();
+        let store = tempfile::tempdir().unwrap();
+        let key = founder_key(&r, store.path());
+        r.stamp(&key, "twice", "");
+        justify(
+            r.path(),
+            &JustifyRequest {
+                function: format!("{LIB}::other"),
+                by: "agent:claude".into(),
+                verdict: Verdict::Ok,
+                evidence: vec!["cargo test --release: 3 passed".into()],
+            },
+        )
+        .unwrap();
+        r.commit("justify other");
+        bob_registers(&r, store.path(), "b1");
+        let mut v = CodeReviewView {
+            workspace: Some(r.path().to_path_buf()),
+            checked: true,
+            keystore: Some(Keystore::at(store.path())),
+            tab: ReviewTab::Users,
+            ..CodeReviewView::default()
+        };
+        let ctx = egui::Context::default();
+        let mut shots = super::super::headless_shot::Shooter::default();
+        let desk = egui::vec2(1100.0, 1000.0);
+        let _ = shots.frame(&ctx, desk, |ui| v.ui(ui));
+        assert!(v.users.is_some() && v.key_panel.is_some());
+        v.users.as_mut().unwrap().wait();
+        v.key_panel.as_mut().unwrap().wait();
+        let dir = std::env::var_os("KOVAN_SHOT_DIR").map(PathBuf::from);
+        let tmp = tempfile::tempdir().unwrap();
+        let out_dir = dir.unwrap_or_else(|| tmp.path().to_path_buf());
+        let bg = ctx.global_style().visuals.panel_fill;
+        for (name, sel, size) in [
+            ("1-roster-founder", BY, desk),
+            ("2-awaiting-admission", B, desk),
+            ("3-phone-width", B, egui::vec2(390.0, 1400.0)),
+        ] {
+            v.users.as_mut().unwrap().selected = Some(sel.to_string());
+            let _ = shots.frame(&ctx, size, |ui| v.ui(ui));
+            let out = shots.frame(&ctx, size, |ui| v.ui(ui));
+            shots.save(&ctx, out, size, bg, &out_dir.join(format!("{name}.png")));
+            assert!(out_dir.join(format!("{name}.png")).exists());
+        }
+        let u = v.users.as_ref().unwrap();
+        assert!(u.roster().unwrap().reviewer(B).is_some());
+        assert_eq!(u.roster().unwrap().agents.len(), 1);
+        assert!(v.key_panel.is_some(), "the inline Signing-key panel stays open");
+        // Back to the map: the tab is kept across a workspace re-set.
+        v.set_workspace(Some(r.path()));
+        assert_eq!(v.tab, ReviewTab::Users);
     }
 }
