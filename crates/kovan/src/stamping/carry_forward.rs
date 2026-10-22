@@ -46,7 +46,8 @@ use kovan_common::review::carry_forward::{
 use kovan_common::review::review_md::ReviewEntry;
 
 use super::git;
-use super::states::{certified_path, fn_at, FileCache};
+use super::git_batch::GitBatch;
+use super::states::{certified_path, fn_at};
 use super::{load_workspace, ROOT_FILE};
 
 /// Every record under `kovan_carry_forward/`, with the files that do not
@@ -79,45 +80,31 @@ pub fn load_records(root: &Path) -> (Vec<(String, CarryForward)>, Vec<(String, S
     (records, bad)
 }
 
-/// [`ChainGit`] over the `git` command line, answers kept per call.
+/// [`ChainGit`] over a [`GitBatch`] (GitHub #1023: `merge-base
+/// --is-ancestor` from one history walk, `cat-file -e` through the batch's
+/// `cat-file`), answers kept per batch.
 pub(crate) struct GitChain<'a> {
-    root: &'a Path,
+    git: &'a mut GitBatch,
     /// The history tip: `HEAD`, or the command's `to`.
     tip: String,
-    files: &'a mut FileCache,
-    history: BTreeMap<String, bool>,
-    clone: BTreeMap<String, bool>,
 }
 
 impl<'a> GitChain<'a> {
-    pub(crate) fn new(root: &'a Path, tip: &str, files: &'a mut FileCache) -> Self {
-        Self {
-            root,
-            tip: tip.to_string(),
-            files,
-            history: BTreeMap::new(),
-            clone: BTreeMap::new(),
-        }
+    pub(crate) fn new(git: &'a mut GitBatch, tip: &str) -> Self {
+        Self { git, tip: tip.to_string() }
     }
 }
 
 impl ChainGit for GitChain<'_> {
     fn in_history(&mut self, commit: &str) -> bool {
-        let (root, tip) = (self.root, self.tip.clone());
-        *self.history.entry(commit.to_string()).or_insert_with(|| {
-            git::git(root, &["merge-base", "--is-ancestor", commit, &tip]).is_ok()
-        })
+        self.git.is_ancestor(commit, &self.tip)
     }
     fn in_clone(&mut self, commit: &str) -> bool {
-        let root = self.root;
-        *self
-            .clone
-            .entry(commit.to_string())
-            .or_insert_with(|| git::git(root, &["cat-file", "-e", &format!("{commit}^{{commit}}")]).is_ok())
+        self.git.in_clone(commit)
     }
     fn hash_at(&mut self, commit: &str, path: &str) -> Option<String> {
         let (file, qual) = path.split_once(".rs::")?;
-        fn_at(self.files, self.root, commit, &format!("{file}.rs"), qual).map(|h| h.hashes.hash)
+        fn_at(self.git, commit, &format!("{file}.rs"), qual).map(|h| h.hashes.hash)
     }
 }
 
@@ -184,7 +171,7 @@ pub fn carry_forward(root: &Path, from: Option<&str>, to: Option<&str>) -> Resul
     let from = from.map(|f| resolve_or_fetch(root, f)).transpose()?;
     let (loaded, unreadable) = load_records(root);
     let records: Vec<CarryForward> = loaded.into_iter().map(|(_, r)| r).collect();
-    let mut files = FileCache::new();
+    let mut batch = GitBatch::new(root);
     let mut report = CarryForwardReport {
         to: to.clone(),
         unreadable,
@@ -195,7 +182,7 @@ pub fn carry_forward(root: &Path, from: Option<&str>, to: Option<&str>) -> Resul
             if r.review.signature.is_none() {
                 continue;
             }
-            let mut g = GitChain::new(root, &to, &mut files);
+            let mut g = GitChain::new(&mut batch, &to);
             let chain = chain_of(r, &records, &mut g);
             if g.in_history(&chain.key) {
                 report.in_history += 1;
@@ -290,8 +277,8 @@ pub fn check_records(root: &Path) -> Result<(Vec<RecordCheck>, Vec<(String, Stri
         .filter(|r| r.review.signature.is_some())
         .map(|r| (r.kovan.id.as_str(), r))
         .collect();
-    let mut files = FileCache::new();
-    let mut g = GitChain::new(root, "HEAD", &mut files);
+    let mut batch = GitBatch::new(root);
+    let mut g = GitChain::new(&mut batch, "HEAD");
     let mut out = Vec::new();
     for (file, record) in records {
         let verdict = stamps.get(record.stamp.as_str()).map(|e| {
