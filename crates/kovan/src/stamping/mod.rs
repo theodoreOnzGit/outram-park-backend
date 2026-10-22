@@ -103,6 +103,7 @@ pub mod queue;
 pub mod recent;
 /// Re-confirming an inherited-stale review (#770, #740).
 pub mod reanchor;
+pub mod refresh;
 pub mod user_management;
 pub mod reanchor_flow;
 pub mod reconfirm;
@@ -113,7 +114,7 @@ pub mod ws_cache;
 
 pub use states::{
     evaluate_loaded, evaluate_loaded_with, evaluate_workspace, evaluate_workspace_with, git_facts, stamp_states,
-    WorkspaceEvaluation,
+    stamp_states_timed, RefreshTimings, WorkspaceEvaluation,
 };
 
 /// `review.md`.
@@ -197,10 +198,31 @@ fn rust_files(root: &Path, dir: &str) -> BTreeMap<String, String> {
 /// `kovan_root.toml`. `Err` only when `kovan_root.toml` exists and does not
 /// parse (the registry cannot be built then).
 pub fn load_workspace(root: &Path) -> Result<Workspace, String> {
+    load_workspace_timed(root).map(|(ws, _)| ws)
+}
+
+/// How long a [`load_workspace`] took, by phase (GitHub #1018).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LoadPhases {
+    /// The walk, the `review.md` reads and the cache checks.
+    pub cache_check: std::time::Duration,
+    /// Refreshing the folders the cache could not reuse.
+    pub folder_refresh: std::time::Duration,
+    /// How many folders were refreshed.
+    pub folders_refreshed: usize,
+}
+
+/// [`load_workspace`], with its phases timed.
+pub fn load_workspace_timed(root: &Path) -> Result<(Workspace, LoadPhases), String> {
     let mut cache = ws_cache::take(root);
     let ws = load_workspace_with(root, &mut cache);
+    let phases = LoadPhases {
+        cache_check: cache.phases.0,
+        folder_refresh: cache.phases.1,
+        folders_refreshed: cache.refreshed_last,
+    };
     ws_cache::put(root, cache);
-    ws
+    ws.map(|w| (w, phases))
 }
 
 /// [`load_workspace`] computing everything, the cache neither read nor
@@ -213,6 +235,7 @@ pub fn load_workspace_uncached(root: &Path) -> Result<Workspace, String> {
 /// are unchanged is taken from it ([`ws_cache`]); everything else is read
 /// and refreshed, and stored back.
 fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<Workspace, String> {
+    let started = std::time::Instant::now();
     let head = git::rev_parse(root, "HEAD").unwrap_or_default();
     let now = std::time::SystemTime::now();
     // One walk for both file kinds.
@@ -277,6 +300,7 @@ fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<W
         .map(|(d, p, _)| (d.as_str(), p.as_path()))
         .collect();
     cache.refreshed_last = todo.len();
+    let checked = std::time::Instant::now();
     let threads = std::thread::available_parallelism()
         .map_or(1, |n| n.get().saturating_sub(2))
         .max(1);
@@ -323,6 +347,7 @@ fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<W
             .flat_map(|h| h.join().expect("a folder refresh does not panic"))
             .collect()
     });
+    cache.phases = (checked - started, checked.elapsed());
     let mut indexes = Vec::new();
     let mut kept = BTreeMap::new();
     for (dir, _, slot) in dirs {

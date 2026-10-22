@@ -511,7 +511,54 @@ pub fn evaluate_loaded(root: &Path, ws: &Workspace) -> WorkspaceEvaluation {
 
 /// [`evaluate_loaded`] with the function -> concept-area map given (#810).
 pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas) -> WorkspaceEvaluation {
+    evaluate_loaded_timed(root, ws, concepts).0
+}
+
+/// The phases of one state refresh, timed (GitHub #1018: "for windows,
+/// reviews do take long"; measure before optimising). Logged by kovan
+/// after each background refresh ([`RefreshTimings::line`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RefreshTimings {
+    pub load: super::LoadPhases,
+    /// Resolving the reviews' concept areas.
+    pub concepts: std::time::Duration,
+    /// [`git_facts`]: every `git` call.
+    pub git: std::time::Duration,
+    /// The staleness engine.
+    pub engine: std::time::Duration,
+    /// The permalinks (re-hashing reviewed code at its commit).
+    pub permalinks: std::time::Duration,
+    /// Mapping to the web's rows.
+    pub states: std::time::Duration,
+    pub total: std::time::Duration,
+}
+
+impl RefreshTimings {
+    /// One line for the log, seconds to the millisecond.
+    pub fn line(&self) -> String {
+        let s = |d: std::time::Duration| format!("{:.3} s", d.as_secs_f64());
+        format!(
+            "review-state refresh {}: cache check {}, folder refresh {} ({} folders), concepts {}, git {}, engine {}, permalinks {}, states {}",
+            s(self.total),
+            s(self.load.cache_check),
+            s(self.load.folder_refresh),
+            self.load.folders_refreshed,
+            s(self.concepts),
+            s(self.git),
+            s(self.engine),
+            s(self.permalinks),
+            s(self.states)
+        )
+    }
+}
+
+/// [`evaluate_loaded_with`], with its phases timed (`git`, `engine`,
+/// `permalinks` of [`RefreshTimings`]).
+pub fn evaluate_loaded_timed(root: &Path, ws: &Workspace, concepts: &ConceptAreas) -> (WorkspaceEvaluation, RefreshTimings) {
+    let mut t = RefreshTimings::default();
+    let clock = std::time::Instant::now();
     let git = git_facts(root, ws);
+    t.git = clock.elapsed();
     let krate_of = |dir: &str| {
         ws.indexes
             .iter()
@@ -528,6 +575,7 @@ pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas
             doc: m.doc.clone(),
         })
         .collect();
+    let clock = std::time::Instant::now();
     let evaluation = evaluate(
         &folders,
         &ws.indexes,
@@ -536,6 +584,8 @@ pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas
         concepts,
         SignaturePolicy::Enforce,
     );
+    t.engine = clock.elapsed();
+    let clock = std::time::Instant::now();
     let call_graph_ids = ws
         .indexes
         .iter()
@@ -578,12 +628,16 @@ pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas
             }
         }
     }
-    WorkspaceEvaluation {
-        evaluation,
-        call_graph_ids,
-        permalinks,
-        review_root: ws.review_root.clone(),
-    }
+    t.permalinks = clock.elapsed();
+    (
+        WorkspaceEvaluation {
+            evaluation,
+            call_graph_ids,
+            permalinks,
+            review_root: ws.review_root.clone(),
+        },
+        t,
+    )
 }
 
 /// A one-line reason for a state that is not valid.
@@ -625,7 +679,20 @@ fn describe(s: &StampState) -> String {
 /// recorded are left out (the web shows them as unreviewed). Plain
 /// function, no UI: call it off the UI thread.
 pub fn stamp_states(root: &Path) -> Result<Vec<WebStamp>, String> {
-    let we = evaluate_workspace(root)?;
+    stamp_states_timed(root).map(|(s, _)| s)
+}
+
+/// [`stamp_states`], with every phase timed ([`RefreshTimings`]).
+pub fn stamp_states_timed(root: &Path) -> Result<(Vec<WebStamp>, RefreshTimings), String> {
+    let start = std::time::Instant::now();
+    let (ws, load) = super::load_workspace_timed(root)?;
+    let clock = std::time::Instant::now();
+    let concepts = super::concepts::concept_areas(&ws);
+    let concepts_took = clock.elapsed();
+    let (we, mut t) = evaluate_loaded_timed(root, &ws, &concepts);
+    t.load = load;
+    t.concepts = concepts_took;
+    let clock = std::time::Instant::now();
     let mut out = Vec::new();
     for (id, fr) in &we.evaluation.functions {
         if fr.reviews.is_empty() && fr.state.kind() == StateKind::New {
@@ -669,5 +736,7 @@ pub fn stamp_states(root: &Path) -> Result<Vec<WebStamp>, String> {
         });
     }
     out.sort_by(|a, b| a.function.cmp(&b.function));
-    Ok(out)
+    t.states = clock.elapsed();
+    t.total = start.elapsed();
+    Ok((out, t))
 }
