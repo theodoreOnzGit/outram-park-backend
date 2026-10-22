@@ -498,8 +498,7 @@ fn types_and_constants_are_reviewed_bottom_up() {
     r.write(&toml, &idx.to_toml().unwrap());
     r.commit("record that twice uses Fractions");
     let head = r.git(&["rev-parse", "HEAD"]).trim().to_string();
-    let mut cache = states::FileCache::new();
-    let at_head = states::fn_at(&mut cache, r.path(), &head, LIB, "Fractions").unwrap();
+    let at_head = states::fn_at(&mut super::git_batch::GitBatch::new(r.path()), &head, LIB, "Fractions").unwrap();
     assert_eq!(at_head.hashes.hash, entry(&idx, "Fractions").hash);
 
     let stamp_with = |qual: &str, checklist: BTreeMap<String, String>| -> Result<WrittenEntry, String> {

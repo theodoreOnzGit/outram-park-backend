@@ -320,7 +320,7 @@ mod tests {
         assert!(first.iter().any(|s| s.function.ends_with("::twice") && s.state == Some(StateKind::Valid)));
         assert!(!first.iter().any(|s| s.state == Some(StateKind::Updating)), "optimistic row cleared");
         let line = r.last_timings.unwrap().line();
-        for phase in ["cache check", "folder refresh", "git", "engine", "permalinks"] {
+        for phase in ["cache check", "folder refresh", "cache copy", "git", "git processes", "engine", "permalinks", "other"] {
             assert!(line.contains(phase), "{line}");
         }
 
@@ -355,6 +355,13 @@ mod tests {
     /// 12.0, git 10.8, engine 0.61, permalinks 0.20); warm 6.1 s (folder
     /// refresh 0.001 s for 4 folders, git 4.5, engine 0.76, permalinks
     /// 0.19). The git facts dominate a refresh after a stamp.
+    ///
+    /// Result after batching the git calls (GitHub #1023, 2026-10-22, the
+    /// same workspace at develop `567aea7f0`, 3 runs): cold 20.1-20.5 s
+    /// (folder refresh 11.7-11.8, git 7.3-7.6 s with 256-271 git processes,
+    /// 245 of them the tests' per-file `log`, kept per process); warm
+    /// 1.6-1.9 s (git 0.43-0.46 s, **2 git processes**, was 316; cache copy
+    /// 0.41 s, engine 0.48-0.59). The per-kind tally is printed too.
     #[test]
     fn refresh_phases_are_timed_cold_and_warm() {
         let repo = Repo::new();
@@ -380,8 +387,9 @@ mod tests {
         println!("cold: {}\n  {}\nwarm: {}\n  {}", cold.line(), cold_calls.join("\n  "), warm.line(), warm_calls.join("\n  "));
         assert!(cold.line().contains("git processes"), "{}", cold.line());
         for t in [cold, warm] {
-            let parts = t.load.cache_check + t.load.folder_refresh + t.concepts + t.git + t.engine + t.permalinks + t.states;
+            let parts = t.load.cache_check + t.load.folder_refresh + t.load.cache_copy + t.concepts + t.git + t.engine + t.permalinks + t.states;
             assert!(parts <= t.total, "{}", t.line());
+            assert_eq!(parts + t.other(), t.total, "{}", t.line());
         }
         if given.is_none() {
             // (A real workspace may refresh a few folders warm: files
