@@ -87,5 +87,8 @@ jobs:
       # DO NOT add `--test-threads=1`. The TUAS natural-circulation cases are a
       # workspace HARD RULE: they must run in parallel, and serialising them
       # turns a long job into an impossible one.
+      # --no-fail-fast: without it cargo stops at the first failing test binary
+      # and every later crate is never run (run 39549698983 stopped at
+      # dhoby-ghaut and reported one failure for a suite of ~48 crates).
       - name: Full suite
-        run: cargo test --workspace --lib --tests --release
+        run: cargo test --workspace --lib --tests --release --no-fail-fast

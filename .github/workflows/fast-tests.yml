@@ -165,8 +165,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+
+      # rust-toolchain.toml (1.99.1, the workspace standard) overrides `stable`
+      # for every cargo command in the repo, so a target installed on `stable`
+      # by the action is invisible to cargo (E0463 "can't find crate for
+      # `core`", acceptance run 39511511476). `rustup target add` run inside
+      # the checkout resolves through the toolchain file and installs it on
+      # the toolchain cargo will actually use.
+      - name: Add target to the pinned toolchain
+        run: rustup target add ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -207,8 +214,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+
+      # rust-toolchain.toml (1.99.1, the workspace standard) overrides `stable`
+      # for every cargo command in the repo, so a target installed on `stable`
+      # by the action is invisible to cargo (E0463 "can't find crate for
+      # `core`", acceptance run 39511511476). `rustup target add` run inside
+      # the checkout resolves through the toolchain file and installs it on
+      # the toolchain cargo will actually use.
+      - name: Add target to the pinned toolchain
+        run: rustup target add ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
