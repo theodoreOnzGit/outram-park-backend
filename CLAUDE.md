@@ -551,6 +551,13 @@ specifically, not just human contributors:
   - The hook authorises *pushing*, nothing else. It does not authorise opening
     a pull request, merging, force-pushing, or bumping versions — those still
     need an explicit request.
+  - **`develop` requires a pull request, but the founder may bypass it**
+    (maintainer, 2026-10-22). Check which account is logged in with
+    `gh api user --jq .login`: as `theodoreOnzGit` (or another always-bypass
+    actor listed in [`AGENTS.md`](AGENTS.md)), push to `develop` directly;
+    GitHub's "Bypassed rule violations … must be made through a pull request"
+    is an expected notice, not an error — **do not report it or ask about
+    it**. Any other account opens a pull request instead.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when
   explicitly requested.
 - **Always build and test in release mode.** Use `--release` for all `cargo`
