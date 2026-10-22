@@ -22,6 +22,7 @@ mod key_window;
 mod need_you_view;
 mod box_handles;
 mod corpus_folder;
+mod download_progress_view;
 mod csv_preview;
 mod gfm_preview;
 mod home;
@@ -380,6 +381,10 @@ pub struct DigitiseApp {
     /// Work running off the GUI thread (cloning corpus repositories), each
     /// ending in a one-line status message.
     background_jobs: Vec<std::thread::JoinHandle<String>>,
+    /// The progress of every download running off the GUI thread, drawn as
+    /// bars at the bottom of the window (GitHub issue #1016); each is
+    /// dropped once its job no longer holds it.
+    downloads: Vec<crate::corpus_repos::DownloadProgress>,
     /// A Kovan repository being cloned into a new folder by the setup
     /// dialog; the folder is opened, and its corpora set up, when it lands.
     library_clone: Option<LibraryClone>,
@@ -648,6 +653,7 @@ impl Default for DigitiseApp {
             setup: setup::SetupDialog::default(),
             corpus_folder: corpus_folder::CorpusFolderDialog::default(),
             background_jobs: Vec::new(),
+            downloads: Vec::new(),
             library_clone: None,
             literature: None,
             recent: None,
@@ -3219,11 +3225,32 @@ impl DigitiseApp {
     }
 
     /// Clone or fast-forward the standard corpus at `dir` off the GUI thread
-    /// ([`crate::corpus_repos::update_standard_corpus`]).
+    /// ([`crate::corpus_repos::update_standard_corpus`]), with a progress bar
+    /// (#1016).
+    ///
+    /// Not reached by a test itself: it names the real network remote. Its
+    /// whole body is [`Self::refresh_standard_corpus_from`], which is.
     fn refresh_standard_corpus(&mut self, dir: std::path::PathBuf) {
-        self.spawn_job(move || {
+        self.refresh_standard_corpus_from(
+            dir,
+            crate::corpus::CORPUS_REPOSITORY_URL,
+            crate::corpus::CORPUS_REPOSITORY_BRANCH,
+        );
+    }
+
+    /// [`Self::refresh_standard_corpus`] from `remote`'s `branch`, so a test
+    /// can use a local repository.
+    fn refresh_standard_corpus_from(
+        &mut self,
+        dir: std::path::PathBuf,
+        remote: &str,
+        branch: &str,
+    ) {
+        let (remote, branch) = (remote.to_string(), branch.to_string());
+        self.spawn_download(move |progress| {
             use crate::save_push::CorpusPullOutcome as O;
-            match crate::corpus_repos::update_standard_corpus(&dir) {
+            match crate::corpus_repos::update_standard_corpus_in(&dir, &remote, &branch, progress)
+            {
                 Ok(O::Downloaded { .. }) => {
                     format!("standard corpus downloaded into {}", dir.display())
                 }
@@ -3279,12 +3306,29 @@ impl DigitiseApp {
         self.background_jobs.push(std::thread::spawn(job));
     }
 
+    /// [`Self::spawn_job`] for a download: `job` reports into a fresh
+    /// [`crate::corpus_repos::DownloadProgress`], which the window draws as a
+    /// bar until the job lets go of it (#1016).
+    fn spawn_download(
+        &mut self,
+        job: impl FnOnce(&crate::corpus_repos::DownloadProgress) -> String + Send + 'static,
+    ) -> crate::corpus_repos::DownloadProgress {
+        let progress = crate::corpus_repos::DownloadProgress::new();
+        self.downloads.push(progress.clone());
+        let held = progress.clone();
+        self.spawn_job(move || job(&held));
+        progress
+    }
+
     /// Show the message of every finished background job.
     fn poll_background_jobs(&mut self) {
         let (done, running): (Vec<_>, Vec<_>) = std::mem::take(&mut self.background_jobs)
             .into_iter()
             .partition(|j| j.is_finished());
         self.background_jobs = running;
+        // A download whose job has ended (or, for the Kovan repository's
+        // clone, been collected) no longer needs its bar.
+        self.downloads.retain(|d| d.is_held_elsewhere());
         for job in done {
             // A finished job may have downloaded or refreshed a corpus:
             // re-list the literature.
@@ -3349,11 +3393,19 @@ impl DigitiseApp {
             }
             let (dir, url) = (folder.to_path_buf(), url.to_string());
             self.set_status(format!("cloning your Kovan repository {url}…"));
+            let progress = crate::corpus_repos::DownloadProgress::new();
+            progress.set_subject("your Kovan repository");
+            self.downloads.push(progress.clone());
             self.library_clone = Some(LibraryClone {
                 job: std::thread::spawn(move || {
-                    crate::corpus_repos::ensure_repo(&dir, Some(&url), None)
-                        .map(|_| ())
-                        .map_err(|e| format!("your Kovan repository was not cloned: {e}"))
+                    crate::corpus_repos::ensure_repo_with_progress(
+                        &dir,
+                        Some(&url),
+                        None,
+                        &progress,
+                    )
+                    .map(|_| ())
+                    .map_err(|e| format!("your Kovan repository was not cloned: {e}"))
                 }),
                 folder: folder.to_path_buf(),
                 open_remote,
@@ -3394,7 +3446,11 @@ impl DigitiseApp {
     /// Open `folder` as a Kovan folder, or create one there; record the
     /// corpus remotes in its `kovan_root.toml`; and prepare its repositories
     /// in the background: `library_remote` as the folder's `origin` if it has
-    /// none, then the standard, open and closed corpora.
+    /// none, then the standard, open and closed corpora, with a progress bar
+    /// (#1016).
+    ///
+    /// Not reached by a test: it downloads the real standard corpus. Its
+    /// background work is [`set_up_repositories`], which is.
     fn open_and_set_up(
         &mut self,
         folder: &std::path::Path,
@@ -3402,7 +3458,6 @@ impl DigitiseApp {
         open_remote: Option<String>,
         proprietary_remote: Option<String>,
     ) -> Result<(), String> {
-        use crate::corpus_repos::RepoState;
         use crate::root::{CorporaConfig, KovanRoot, RootConfig};
         let mut root = match KovanRoot::open(folder) {
             Ok(root) => root,
@@ -3436,38 +3491,67 @@ impl DigitiseApp {
         }
         self.refresh_knowledge(&root);
         self.set_status("setting up your repositories…");
-        self.spawn_job(move || {
-            let describe = |name: &str, r: &Result<RepoState, _>| match r {
-                Ok(RepoState::Cloned) => format!("{name} downloaded"),
-                Ok(RepoState::Initialised) => {
-                    format!("{name} created locally (add a remote and push later)")
-                }
-                Ok(RepoState::Existing) => format!("{name} already present"),
-                Ok(RepoState::RemoteAdded) => format!("{name} connected to its GitHub repository"),
-                Ok(RepoState::SubmoduleAdded) => format!("{name} added as a submodule"),
-                Err(e) => format!("{name} not set up: {e}"),
-            };
-            let mut parts = Vec::new();
-            if let Some(url) = library_remote.as_deref() {
-                let r = if crate::corpus_repos::is_git_repo(root.path()) {
-                    crate::corpus_repos::ensure_repo(root.path(), Some(url), None)
-                } else {
-                    Ok(RepoState::Existing)
-                };
-                parts.push(describe("Kovan repository", &r));
-            }
-            let setup = crate::corpus_repos::ensure_library_corpora(&root);
-            parts.push(describe("standard corpus", &setup.standard));
-            parts.push(describe("open corpus", &setup.open));
-            parts.push(describe("proprietary corpus", &setup.proprietary));
-            for (tier, name, r) in &setup.others {
-                let what = format!("{} ({name})", tier.label().to_lowercase());
-                parts.push(describe(&what, r));
-            }
-            parts.join("; ")
+        self.spawn_download(move |progress| {
+            set_up_repositories(
+                &root,
+                library_remote.as_deref(),
+                crate::corpus::CORPUS_REPOSITORY_URL,
+                crate::corpus::CORPUS_REPOSITORY_BRANCH,
+                progress,
+            )
         });
         Ok(())
     }
+}
+
+/// Prepare the repositories of the Kovan folder `root` and describe what was
+/// done in one line: `library_remote` as the folder's `origin` if it has
+/// none, then every corpus ([`crate::corpus_repos::ensure_library_corpora_with_progress`],
+/// the built-in standard corpus from `standard_remote`'s `standard_branch`),
+/// reporting each download into `progress` (#1016). Run off the GUI thread
+/// by [`DigitiseApp::open_and_set_up`]; split out of it so a test can use
+/// local remotes.
+fn set_up_repositories(
+    root: &crate::root::KovanRoot,
+    library_remote: Option<&str>,
+    standard_remote: &str,
+    standard_branch: &str,
+    progress: &crate::corpus_repos::DownloadProgress,
+) -> String {
+    use crate::corpus_repos::RepoState;
+    let describe = |name: &str, r: &Result<RepoState, _>| match r {
+        Ok(RepoState::Cloned) => format!("{name} downloaded"),
+        Ok(RepoState::Initialised) => {
+            format!("{name} created locally (add a remote and push later)")
+        }
+        Ok(RepoState::Existing) => format!("{name} already present"),
+        Ok(RepoState::RemoteAdded) => format!("{name} connected to its GitHub repository"),
+        Ok(RepoState::SubmoduleAdded) => format!("{name} added as a submodule"),
+        Err(e) => format!("{name} not set up: {e}"),
+    };
+    let mut parts = Vec::new();
+    if let Some(url) = library_remote {
+        let r = if crate::corpus_repos::is_git_repo(root.path()) {
+            crate::corpus_repos::ensure_repo(root.path(), Some(url), None)
+        } else {
+            Ok(RepoState::Existing)
+        };
+        parts.push(describe("Kovan repository", &r));
+    }
+    let setup = crate::corpus_repos::ensure_library_corpora_with_progress(
+        root,
+        standard_remote,
+        standard_branch,
+        progress,
+    );
+    parts.push(describe("standard corpus", &setup.standard));
+    parts.push(describe("open corpus", &setup.open));
+    parts.push(describe("proprietary corpus", &setup.proprietary));
+    for (tier, name, r) in &setup.others {
+        let what = format!("{} ({name})", tier.label().to_lowercase());
+        parts.push(describe(&what, r));
+    }
+    parts.join("; ")
 }
 
 /// A clone of the user's Kovan repository in progress, with the corpus
@@ -3498,6 +3582,13 @@ impl eframe::App for DigitiseApp {
         // Mindmap: open it on the shared concept before it draws (#242).
         self.sync_shared_concept();
         self.poll_background_jobs();
+        if !self.downloads.is_empty() {
+            egui::Panel::bottom("downloads")
+                .show(ui, |ui| download_progress_view::ui(ui, &self.downloads));
+            // Git's progress arrives off the GUI thread: redraw to show it.
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(100));
+        }
         self.literature_finder_ui(ui.ctx());
         self.ingest_form_ui(ui);
         self.sort_form_ui(ui);
@@ -5440,5 +5531,105 @@ mod tests {
         app.save_into_project_then_read();
         assert!(app.message_is_error);
         assert_eq!(app.view, View::Digitiser);
+    }
+
+    /// A local `file://` repository with one commit on `main`, standing in
+    /// for a corpus remote (#1016 tests).
+    fn local_remote(dir: &std::path::Path) -> String {
+        std::fs::create_dir_all(dir.join("kovan-standard-open-corpus")).unwrap();
+        std::fs::write(dir.join("kovan-standard-open-corpus/a.pdf"), b"%PDF-1.4").unwrap();
+        for args in [
+            &["init", "-q", "-b", "main"][..],
+            &["add", "."],
+            &["commit", "-q", "-m", "x"],
+        ] {
+            let ok = std::process::Command::new("git")
+                .arg("-C")
+                .arg(dir)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "git {args:?}");
+        }
+        format!("file://{}", dir.display())
+    }
+
+    /// Poll the app's background jobs until none is left.
+    fn wait_for_jobs(app: &mut DigitiseApp) {
+        let start = std::time::Instant::now();
+        while !app.background_jobs.is_empty() {
+            assert!(start.elapsed().as_secs() < 120, "job never finished");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            app.poll_background_jobs();
+        }
+    }
+
+    /// GitHub issue #1016: the start-up download of the standard corpus
+    /// carries a progress bar while it runs, which goes when it ends, and
+    /// the finished message is shown as before.
+    #[test]
+    fn the_standard_corpus_download_shows_a_bar_until_it_ends() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let url = local_remote(&tmp.path().join("std"));
+        let dir = tmp.path().join("standard-corpus");
+        let mut app = DigitiseApp::default();
+        app.refresh_standard_corpus_from(dir.clone(), &url, "main");
+        assert_eq!(app.downloads.len(), 1, "a bar while it runs");
+        wait_for_jobs(&mut app);
+        assert!(app.downloads.is_empty(), "the bar goes when it ends");
+        assert!(app.message.starts_with("standard corpus downloaded into"), "{}", app.message);
+        assert!(dir.join("kovan-standard-open-corpus/a.pdf").exists());
+    }
+
+    /// "Set up corpora"'s background work reports into its progress and
+    /// still sums up in one line.
+    #[test]
+    fn setting_up_repositories_reports_progress() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let (_dir, root) = make_root();
+        let tmp = tempfile::tempdir().unwrap();
+        let url = local_remote(&tmp.path().join("std"));
+        let progress = crate::corpus_repos::DownloadProgress::new();
+        let summary = set_up_repositories(&root, None, &url, "main", &progress);
+        assert!(summary.contains("standard corpus downloaded"), "{summary}");
+        assert!(summary.contains("open corpus created locally"), "{summary}");
+        let s = progress.snapshot();
+        assert!(!s.active);
+        assert!(!s.subject.is_empty(), "each repository is named");
+    }
+
+    /// Cloning the user's Kovan repository from the setup dialog also shows
+    /// a bar, named for it.
+    #[test]
+    fn cloning_the_kovan_repository_shows_a_bar() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let url = local_remote(&tmp.path().join("mine"));
+        let folder = tmp.path().join("library");
+        let mut app = DigitiseApp::default();
+        app.set_up_library(&folder, Some(url), None, None).unwrap();
+        assert_eq!(app.downloads.len(), 1);
+        assert_eq!(app.downloads[0].snapshot().subject, "your Kovan repository");
+        let start = std::time::Instant::now();
+        while !app.library_clone.as_ref().unwrap().job.is_finished() {
+            assert!(start.elapsed().as_secs() < 120, "clone never finished");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        // Not polled further: opening the clone would set up the real
+        // standard corpus over the network.
+        let job = app.library_clone.take().unwrap().job;
+        assert!(job.join().unwrap().is_ok());
+        app.poll_background_jobs();
+        assert!(app.downloads.is_empty(), "the bar goes once the clone ends");
+        assert!(folder.join("kovan-standard-open-corpus/a.pdf").exists());
     }
 }

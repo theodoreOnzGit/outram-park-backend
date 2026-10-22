@@ -239,6 +239,8 @@ kovan-cli code-map --format svg -o code_map.svg
 kovan-cli code-map --format json -o code_map.json
 kovan-cli call-graph --crates outram-park-digital-twin-engine,boon-lay -o call_graph.json
 kovan-cli review ivv
+kovan-cli review justify crates/x/src/lib.rs::f --verdict ok --evidence "kovan-cli test: 3 passed"
+kovan-cli review justifications f
 ```
 
 Every command's own `--help` documents its flags; the summary below is the
@@ -725,6 +727,60 @@ reopening it (`src/stamping/review_mode/watch.rs`).
   rung 5.
 - One standing review per function and reviewer: a re-review replaces it in
   place, and the earlier one lives only in git history.
+
+### `review justify` / `review justifications` — agents' unsigned justifications (`stamping::justify`, GitHub #1019)
+
+`kovan-cli review justify <function> --verdict ok|not-ok|unsure --evidence
+"<text>" [--evidence …] [--by agent:<name>] [--workspace <dir>]` writes an
+AI agent's justification of one function, why it looks correct or not and
+the evidence, into the function's folder `review.md`. `<function>` is its
+`fn:` id or `file.rs::Type::name`; `--by` defaults to `agent:claude` and
+must be an `agent:` id (a human reviewer id is refused). The entry:
+
+````markdown
+# Justification (agent-drafted, unsigned): twice (agent:claude)
+
+```toml
+[kovan]
+id = "justification-twice-claude-3f2a9c0d"
+kind = "justification"
+origin = "agent"
+created = "2026-10-22T10:00:00+08:00"
+modified = "2026-10-22T10:00:00+08:00"
+target = "fn:3f2a9c0d1e4b5a67"
+
+[justification]
+path = "crates/demo/src/lib.rs::twice"
+by = "agent:claude"
+agent_drafted = true
+verdict = "ok"
+date = "2026-10-22"
+commit = "<HEAD, 40 hex>"
+hash = "sha256:<the function's hash at HEAD>"
+evidence = ["kovan-cli test: 3 passed"]
+```
+
+## Agent-drafted, unsigned
+…it never counts towards "reviewed", alone or as a second sign-off…
+## Verdict: ok
+## Evidence
+- kovan-cli test: 3 passed
+````
+
+It is **never signed**: kovan-cli has no key, no keystore and no signing
+command, and the entry type has no signature field. The staleness engine
+ignores the kind, so it never makes a function reviewed, never blocks it
+and is never a second sign-off; a human may cite it when signing their own
+stamp in desktop kovan. One standing justification per agent per function:
+a second call replaces the first, which lives on in git history. The
+function's file must be committed (the entry records `HEAD` and the hash
+there). It is its own kind rather than an unsigned `needs_fix`, because an
+open needs-fix blocks its function and is a human's
+(`kovan_common::review::review_md`, "Why `justification` is its own kind").
+
+`kovan-cli review justifications [<function>]` lists them, read-only, each
+labelled agent-drafted and unsigned, with whether the function's code
+changed since, and any unreadable justification with the parser's reason.
 
 ### `review ivv` — rung 5, independent V&V, per function (`commands::review_ivv`, GitHub #810)
 

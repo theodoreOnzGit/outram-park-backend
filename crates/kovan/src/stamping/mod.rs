@@ -58,6 +58,8 @@
 //!
 //! # AI agents never stamp
 //!
+//! Agents write **unsigned justifications** instead ([`justify`], GitHub
+//! #1019, `kovan-cli review justify`), which never count as review.
 //! Nothing here signs. [`write_review`] refuses an unsigned review, and a
 //! signature needs a key unlocked by its human owner's passphrase.
 
@@ -88,6 +90,8 @@ pub mod commit_push;
 /// Concept links, the finder, formulas and concept areas (#770, #810).
 pub mod concepts;
 pub mod flow;
+/// Agent justifications, unsigned (GitHub #1019).
+pub mod justify;
 /// The "Signing key" window: lock state, auto-lock, export and import
 /// (GitHub #1020).
 pub mod key_panel;

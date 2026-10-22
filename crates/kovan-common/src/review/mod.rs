@@ -44,6 +44,11 @@
 //! behalf, and the engine shows any stamp whose commit carries the agent
 //! attribution trailer as unverified.
 //!
+//! What an agent may write is an **unsigned justification**
+//! (`kind = "justification"`, GitHub #1019; [`review_md`],
+//! [`draft::draft_justification`], [`review_md_write::upsert_justification`]):
+//! a verdict and evidence, labelled agent-drafted, which the engine ignores.
+//!
 //! # Not here yet
 //!
 //! - ~~Signature cryptography (GitHub #762): [`signing`] defines the field and
