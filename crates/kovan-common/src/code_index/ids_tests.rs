@@ -174,3 +174,31 @@ fn claims_come_from_review_md_entries_of_their_own_folder() {
     );
     assert_eq!(claims[1].hash.as_deref(), Some(h('d').as_str()));
 }
+
+/// Methodology (GitHub #1019): an agent justification names its function
+/// like a needs-fix does, so it claims that function's id by path with the
+/// hash it was written at, keeping the id stable when `kovan.toml` is lost;
+/// one whose path is in another folder is ignored.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn justifications_claim_their_function() {
+    let j = |id: &str, path: &str| {
+        format!(
+            "# J\n\n```toml\n[kovan]\nid = \"j-{id}\"\nkind = \"justification\"\norigin = \"agent\"\ncreated = \"2026-10-22\"\nmodified = \"2026-10-22\"\ntarget = \"{id}\"\n\n[justification]\npath = \"{path}\"\nby = \"agent:claude\"\nagent_drafted = true\nverdict = \"ok\"\ndate = \"2026-10-22\"\ncommit = \"{C}\"\nhash = \"{}\"\nevidence = [\"tests pass\"]\n```\n\n",
+            h('e')
+        )
+    };
+    let md = format!(
+        "{}{}",
+        j("fn:00000000000000aa", "crates/x/src/a.rs::g"),
+        j("fn:00000000000000bb", "crates/y/src/q.rs::q")
+    );
+    let doc = parse_review_md(&md);
+    assert!(doc.unreadable.is_empty(), "{:?}", doc.unreadable);
+    let claims = claims_from_review_md("crates/x/src/review.md", &doc);
+    assert_eq!(claims.len(), 1, "{claims:?}");
+    assert_eq!(claims[0].id, "fn:00000000000000aa");
+    assert_eq!(claims[0].path.as_deref(), Some("crates/x/src/a.rs::g"));
+    assert_eq!(claims[0].hash.as_deref(), Some(h('e').as_str()));
+}

@@ -36,14 +36,37 @@ formats what it writes; a hand edit can silently break an anchor, a hash or
 a signature.
 
 - **If the command an agent needs does not exist,** do not hand-edit as a
-  workaround: say so in the hand-off and file an issue for the command
-  (e.g. agent justifications on the reviewer roster, GitHub #1019).
+  workaround: say so in the hand-off and file an issue for the command.
 - **`kovan-cli` makes unsigned review entries only** (maintainer,
-  2026-10-22: "kovan-cli should only make unsigned reviews"): agent
-  justifications, drafts and needs-fix entries, labelled agent-drafted. It
-  has no signing command, by design (#762), and must never gain one. A
-  signed stamp is made only in desktop kovan, by a human with their key; an
-  unsigned entry never counts as review (GitHub #1019).
+  2026-10-22: "kovan-cli should only make unsigned reviews"), labelled
+  agent-drafted. It has no signing command, by design (#762), and must
+  never gain one. A signed stamp is made only in desktop kovan, by a human
+  with their key; an unsigned entry never counts as review (GitHub #1019).
+  ~~agent justifications, drafts and needs-fix entries~~ **CORRECTED
+  2026-10-22**: `kovan-cli` has no draft or needs-fix command; the one
+  unsigned entry it writes is the agent justification below.
+- **Record why a function looks right or wrong with `kovan-cli review
+  justify`** (GitHub #1019):
+
+  ```bash
+  kovan-cli review justify <fn:id | file.rs::Type::name> \
+      --verdict ok|not-ok|unsure \
+      --evidence "cargo test --release -p x --lib: 41 passed" \
+      --evidence "matches <upstream file> L<a>-L<b> at commit <sha>" \
+      [--by agent:<name>]          # default agent:claude
+  kovan-cli review justifications [<function>]   # list them, read-only
+  ```
+
+  It appends an unsigned `kind = "justification"` entry, headed
+  "Justification (agent-drafted, unsigned)", to the function's folder
+  `review.md`, recording the `fn:` id, path, `HEAD`, the function's hash
+  there, the verdict and each `--evidence` (one line each, at least one).
+  A second call by the same agent on the same function replaces its
+  earlier entry. The function's file must be committed first. The entry
+  never makes a function reviewed, never blocks it, and is never a second
+  sign-off; a human may cite it when signing their own stamp. Evidence
+  must be something you actually ran or read: a justification is subject
+  to the same no-overclaiming rule as any other output.
 
 **KOPITIAM is no longer dogfooded here** (maintainer direction, 2026-09-21).
 It may still be used where it helps, but it is not mandated and its rough
