@@ -9,7 +9,7 @@
 //! (each id is given to at most one function, each function gets one id):
 //!
 //! 1. **Claims by path.** Every `review.md` entry that names a function
-//!    (`review`, `needs_fix`, `annotation`, and an unreadable one whose id
+//!    (`review`, `needs_fix`, `annotation`, `justification` (#1019), and an unreadable one whose id
 //!    can still be read) is a [`Claim`]: its id
 //!    ([`crate::review::review_md::ReviewEntry::function_id`]), its `path`
 //!    and its hash. A `review.md` speaks only for **its own folder**: an
@@ -125,6 +125,12 @@ pub fn claims_from_review_md(review_md: &str, doc: &ReviewDocument) -> Vec<Claim
                 let path = a.path();
                 if own(&path) {
                     push(a.function_id(), path, None);
+                }
+            }
+            Entry::Justification(j) => {
+                let path = j.path();
+                if own(&path) {
+                    push(j.function_id(), path, Some(&j.justification.hash));
                 }
             }
             _ => {}

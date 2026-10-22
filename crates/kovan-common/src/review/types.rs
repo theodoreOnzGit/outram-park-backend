@@ -30,6 +30,9 @@ pub enum FieldError {
     BadTarget(String),
     /// `field` is not an ISO date `YYYY-MM-DD` (Q9, #764, 2026-10-07).
     BadDate { field: String, value: String },
+    /// Not `agent:<name>`: the author of an agent justification (GitHub
+    /// #1019) is always an agent, never a human reviewer id.
+    BadAgentId(String),
 }
 
 impl std::fmt::Display for FieldError {
@@ -50,6 +53,10 @@ impl std::fmt::Display for FieldError {
             Self::UnpinnedUrl(e) => write!(f, "{e}"),
             Self::BadTarget(t) => write!(f, "function reference {t:?}: need target = \"fn:<id>\" and path = \"<file>.rs::<item>\""),
             Self::BadDate { field, value } => write!(f, "{field} = {value:?} is not an ISO date YYYY-MM-DD"),
+            Self::BadAgentId(v) => write!(
+                f,
+                "author {v:?} is not agent:<name> (letters, digits, - _ .): a justification is always agent-drafted"
+            ),
         }
     }
 }
@@ -171,6 +178,21 @@ pub fn reviewer_id_kind(id: &str) -> Result<ReviewerIdKind, FieldError> {
         }
         _ => Err(bad()),
     }
+}
+
+/// The prefix of an agent's id on an unsigned justification (GitHub #1019).
+pub const AGENT_ID_PREFIX: &str = "agent:";
+
+/// Check an agent id, `agent:<name>` with `<name>` made of ASCII letters,
+/// digits, `-`, `_` and `.` (GitHub #1019, maintainer 2026-10-22: agents
+/// appear on the roster as their own kind of entry, e.g. `agent:claude`).
+/// A human reviewer id (`github:…`, an email) is refused: an unsigned entry
+/// written by `kovan-cli` must never read as a human's.
+pub fn check_agent_id(id: &str) -> Result<(), FieldError> {
+    let ok = id.strip_prefix(AGENT_ID_PREFIX).is_some_and(|n| {
+        !n.is_empty() && n.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+    });
+    ok.then_some(()).ok_or_else(|| FieldError::BadAgentId(id.to_string()))
 }
 
 /// Who authored the change a review certifies, read from the commits'
@@ -488,6 +510,22 @@ mod tests {
         for bad in ["Theodore Ong", "github:", "orcid:123", "a@b", "github:a b"] {
             assert!(reviewer_id_kind(bad).is_err(), "{bad}");
         }
+    }
+
+    /// Methodology: agent ids for justifications (#1019): `agent:<name>`
+    /// passes; a human reviewer id, an empty name and a name with a space
+    /// are refused.
+    ///
+    /// Result (2026-10-22): passes.
+    #[test]
+    fn agent_ids() {
+        for ok in ["agent:claude", "agent:claude-code_2.x"] {
+            assert_eq!(check_agent_id(ok), Ok(()), "{ok}");
+        }
+        for bad in ["github:theodoreOnzGit", "a@b.org", "agent:", "agent:a b", "claude"] {
+            assert_eq!(check_agent_id(bad), Err(FieldError::BadAgentId(bad.into())), "{bad}");
+        }
+        assert!(FieldError::BadAgentId("x".into()).to_string().contains("agent:<name>"));
     }
 
     /// Methodology: authorship from trailers: all, none and some commits

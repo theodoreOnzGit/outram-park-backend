@@ -295,3 +295,148 @@ fn needs_fix_draft_blocks_the_function() {
         Err(DraftError::Field(_))
     ));
 }
+
+/// An agent justification of `f` (GitHub #1019), drafted at `SHA`.
+fn justification(f: &FunctionIndex, verdict: Verdict) -> JustificationEntry {
+    draft_justification(
+        f,
+        FILE,
+        "agent:claude",
+        "2026-10-22",
+        "2026-10-22T10:00:00+08:00",
+        SHA,
+        verdict,
+        &["cargo test --release -p x: 3 passed".to_string()],
+        None,
+    )
+    .unwrap()
+}
+
+/// Methodology (GitHub #1019): an agent justification never counts as
+/// review. Three engine runs with signatures enforced, each compared with
+/// the same run without the justification: (1) a signed, valid review of
+/// `twice` plus a `not_ok` justification; (2) an `ok` justification alone
+/// on `twice`, against an empty `review.md`; (3) an `ok` justification
+/// beside an open needs-fix. Pass: the whole [`Evaluation`] is equal with
+/// and without the justification each time (the reviewed state, the rung,
+/// the review list and every flag unchanged): it neither makes a function
+/// reviewed, nor blocks it, nor clears a needs-fix.
+///
+/// Result (2026-10-22): passes.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_justification_never_changes_the_engine_verdict() {
+    use crate::review::engine::Evaluation;
+    use crate::review::signing::keystore::generate;
+    let leaf = func("leaf", 'a', &[]);
+    let twice = func("twice", 'b', &["leaf"]);
+    let idx = [index(&[leaf.clone(), twice.clone()])];
+    let run = |entries: Vec<Entry>, root: &ReviewRoot, git: &GitFacts| -> Evaluation {
+        let reviews = [FolderReviews {
+            krate: "x".into(),
+            dir: "crates/x/src".into(),
+            doc: doc(entries),
+        }];
+        evaluate(&reviews, &idx, root, git, &BTreeMap::new(), SignaturePolicy::Enforce)
+    };
+
+    // (1) beside a signed, valid review.
+    let mut r = draft_review(&input(&twice, &leaf)).unwrap();
+    let (kf, key) = generate(BY, "k1", "2026-10-10", "test passphrase").unwrap();
+    key.sign_review_at(&mut r, "2026-10-10T10:00:00+08:00").unwrap();
+    let root = ReviewRoot {
+        code_review: Some(CodeReviewSettings {
+            founder: Some(BY.into()),
+            ..Default::default()
+        }),
+        reviewers: vec![founding_reviewer(BY, None, kf.reviewer_key(), "2026-10-10")],
+        deleted_crates: Vec::new(),
+    };
+    let git = git_for(&r);
+    let j = justification(&twice, Verdict::NotOk);
+    let without = run(vec![Entry::Review(r.clone())], &root, &git);
+    let with = run(vec![Entry::Review(r), Entry::Justification(j)], &root, &git);
+    assert_eq!(with.functions[&twice.id].state, StampState::Valid);
+    assert_eq!(with, without, "a not-ok justification changed the verdict");
+
+    // (2) alone: still no review.
+    let ok = justification(&twice, Verdict::Ok);
+    let none = run(Vec::new(), &ReviewRoot::default(), &GitFacts::default());
+    let alone = run(vec![Entry::Justification(ok.clone())], &ReviewRoot::default(), &GitFacts::default());
+    assert_eq!(alone, none, "an ok justification made the function reviewed");
+    assert_ne!(
+        alone.functions.get(&twice.id).map(|f| &f.state),
+        Some(&StampState::Valid)
+    );
+
+    // (3) beside an open needs-fix: still blocked.
+    let n = draft_needs_fix(&twice, FILE, BY, "2026-10-10", "2026-10-10T10:00:00+08:00", SHA, "off by one")
+        .unwrap();
+    let nf = run(vec![Entry::NeedsFix(n.clone())], &ReviewRoot::default(), &GitFacts::default());
+    let nf_j = run(
+        vec![Entry::NeedsFix(n), Entry::Justification(ok)],
+        &ReviewRoot::default(),
+        &GitFacts::default(),
+    );
+    assert!(matches!(nf_j.functions[&twice.id].state, StampState::NeedsFixOpen { .. }));
+    assert_eq!(nf_j, nf);
+}
+
+/// Methodology (GitHub #1019): the draft's fields and its refusals. Pass:
+/// the entry carries the index's `fn:` id, path and hash, the commit, the
+/// verdict, the evidence (trimmed), `origin = "agent"` and
+/// `agent_drafted = true`, and its TOML holds no `signature`; a human
+/// reviewer id, no evidence, a one-character or multi-line evidence item,
+/// a bad commit and a first-version id are refused; a re-justification
+/// keeps the earlier `[kovan] id` and `created`.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn justification_draft_fields_and_refusals() {
+    let twice = func("twice", 'b', &[]);
+    let j = justification(&twice, Verdict::Unsure);
+    assert_eq!(j.kovan.target.as_deref(), Some(twice.id.as_str()));
+    assert_eq!(j.kovan.kind, "justification");
+    assert_eq!(j.kovan.origin.as_deref(), Some("agent"));
+    assert!(j.kovan.id.starts_with("justification-twice-claude-"), "{}", j.kovan.id);
+    let b = &j.justification;
+    assert_eq!(b.path.as_deref(), Some("crates/x/src/lib.rs::twice"));
+    assert_eq!((b.hash.as_str(), b.commit.as_str()), (twice.hash.as_str(), SHA));
+    assert!(b.agent_drafted && b.verdict == Verdict::Unsure);
+    let toml = Entry::Justification(j.clone()).to_toml().unwrap();
+    assert!(!toml.contains("signature"), "{toml}");
+    assert!(toml.contains("agent_drafted = true") && toml.contains("verdict = \"unsure\""), "{toml}");
+
+    let draft = |by: &str, commit: &str, evidence: &[&str], f: &FunctionIndex| {
+        let ev: Vec<String> = evidence.iter().map(|s| s.to_string()).collect();
+        draft_justification(f, FILE, by, "2026-10-22", "now", commit, Verdict::Ok, &ev, None)
+    };
+    for (by, commit, ev) in [
+        ("github:theodoreOnzGit", SHA, &["tests pass"][..]),
+        ("agent:claude", SHA, &[][..]),
+        ("agent:claude", SHA, &["x"][..]),
+        ("agent:claude", SHA, &["line one\nline two"][..]),
+        ("agent:claude", "HEAD", &["tests pass"][..]),
+    ] {
+        assert!(matches!(draft(by, commit, ev, &twice), Err(DraftError::Field(_))), "{by} {commit} {ev:?}");
+    }
+    let mut old = twice.clone();
+    old.id = "crates/x/src/lib.rs::twice".into();
+    assert!(matches!(draft("agent:claude", SHA, &["ok"], &old), Err(DraftError::NotAFunctionId(_))));
+
+    let again = draft_justification(
+        &twice,
+        FILE,
+        "agent:claude",
+        "2026-10-23",
+        "2026-10-23T09:00:00+08:00",
+        SHA,
+        Verdict::Ok,
+        &["  re-checked  ".to_string()],
+        Some(&j.kovan),
+    )
+    .unwrap();
+    assert_eq!((again.kovan.id.as_str(), again.kovan.created.as_str()), (j.kovan.id.as_str(), j.kovan.created.as_str()));
+    assert_eq!(again.kovan.modified, "2026-10-23T09:00:00+08:00");
+    assert_eq!(again.justification.evidence, ["re-checked"]);
+}
