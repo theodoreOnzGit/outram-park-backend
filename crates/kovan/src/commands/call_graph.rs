@@ -269,16 +269,27 @@ pub fn generate_scip_controlled(root: &Path, ctl: &super::index_control::RunCont
     // indexed 31 of this workspace's 48 crates (GitHub #834).
     let plain_root = super::index_control::plain_path(root);
     let plain_out = super::index_control::plain_path(&out);
+    // `rust-analyzer scip` runs on its main thread, which overflowed
+    // Windows' 1 MB stack on this workspace (0xc00000fd, 2026-10-22); see
+    // `scip_stack`.
+    let (program, note) = super::scip_stack::scip_program(&plain_root, &dir);
+    if let Some(note) = note {
+        ctl.say(format!("call-graph: {note}"));
+    }
     let mut cmd = super::index_control::command(
-        "rust-analyzer",
+        program.as_os_str(),
         &["scip".as_ref(), plain_root.as_os_str(), "--output".as_ref(), plain_out.as_os_str()],
         ctl.nice,
     );
+    super::scip_stack::raise_child_stack_limit(&mut cmd);
     cmd.current_dir(&plain_root);
     let status = super::index_control::run_child(cmd, &log_path, "rust-analyzer scip", ctl)?;
     if !status.success() {
+        let why = super::scip_stack::stack_overflow_note(&log_path)
+            .map(|n| format!("; {n}"))
+            .unwrap_or_default();
         return Err(format!(
-            "rust-analyzer scip failed ({status}); see {}",
+            "rust-analyzer scip failed ({status}){why}; see {}",
             log_path.display()
         ));
     }

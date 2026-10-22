@@ -136,7 +136,7 @@ pub fn plain_path(path: &Path) -> std::path::PathBuf {
 /// run) it runs under `nice -n NICE_LEVEL` when a `nice` program exists
 /// (it `exec`s, so the child's process id is the program's own) and leads
 /// its own process group.
-pub fn command(program: &str, args: &[&std::ffi::OsStr], nice: bool) -> Command {
+pub fn command(program: impl AsRef<std::ffi::OsStr>, args: &[&std::ffi::OsStr], nice: bool) -> Command {
     let use_nice = nice && cfg!(unix) && which::which("nice").is_ok();
     let mut c = if use_nice {
         let mut c = Command::new("nice");

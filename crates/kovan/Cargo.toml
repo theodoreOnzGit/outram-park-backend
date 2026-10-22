@@ -293,6 +293,11 @@ kovan-web = { workspace = true, optional = true }
 # does not have; on Android a lookup reports "not available on this target".
 ureq = { workspace = true, optional = true }
 
+# `rust-analyzer scip` gets a 64 MB main-thread stack: on unix through
+# `setrlimit(RLIMIT_STACK)` before exec (`src/commands/scip_stack.rs`).
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
 [dev-dependencies]
 # `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests
 # (mirrors kovan-literature's private `test_pdf` helper, which isn't exported).
