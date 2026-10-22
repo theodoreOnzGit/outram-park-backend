@@ -26,9 +26,12 @@
 #   CLAUDE.md: never call a crate wasm-ready on the strength of it).
 # - Android and iOS, left out at the maintainer's direction.
 #
-# EXPECTED RED ON ARRIVAL: on 2026-10-10 six kovan lib tests and two
+# ~~EXPECTED RED ON ARRIVAL: on 2026-10-10 six kovan lib tests and two
 # kovan-common tests failed on the maintainer's Windows laptop (#820). They
-# are not excluded here; a red Windows leg is that record until each is fixed.
+# are not excluded here; a red Windows leg is that record until each is fixed.~~
+# CORRECTED 2026-10-22: run 39765547640 (develop 58f04af6a) passed on all
+# three OSes, Windows included, with every kovan, kovan-common and kovan-web
+# lib and integration test green. Nothing is excluded; a red leg is a finding.
 #
 # ── When it runs ─────────────────────────────────────────────────────────────
 #
