@@ -112,6 +112,16 @@ pub fn write_into_kovan_tomls(root: &Path, evidence: &TestEvidence) -> Result<us
     Ok(texts.len())
 }
 
+/// `cargo <args>` in `root`, with colour off: its output is parsed, and a
+/// `CARGO_TERM_COLOR=always` (as CI runners set) wrapped cargo's `Running`
+/// lines in escape codes, so no test was mapped to a binary and the run was
+/// recorded with nothing passed (kovan CI, macOS runner, 2026-10-22).
+fn cargo_command(args: &[String], root: &Path) -> Command {
+    let mut c = Command::new("cargo");
+    c.args(args).current_dir(root).env("CARGO_TERM_COLOR", "never");
+    c
+}
+
 /// Run `kovan-cli test` in workspace `root` with the user's `extra` cargo
 /// arguments.
 pub fn run(
@@ -148,9 +158,7 @@ pub fn run(
     // the parser in order, so both get the same pipe.
     let (reader, writer) = std::io::pipe().map_err(|e| format!("pipe: {e}"))?;
     let writer2 = writer.try_clone().map_err(|e| format!("pipe: {e}"))?;
-    let mut child = Command::new("cargo")
-        .args(&pl.args)
-        .current_dir(root)
+    let mut child = cargo_command(&pl.args, root)
         .stdin(Stdio::null())
         .stdout(writer)
         .stderr(writer2)
@@ -234,5 +242,20 @@ pub fn run(
             "cargo test exited with {status}; the results are recorded in {}",
             path.display()
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The parsed cargo run never gets colour, whatever the caller's
+    /// environment says.
+    #[test]
+    fn the_cargo_run_has_colour_off() {
+        let c = cargo_command(&["test".into(), "--release".into()], Path::new("."));
+        let color = c.get_envs().find(|(k, _)| *k == "CARGO_TERM_COLOR").and_then(|(_, v)| v);
+        assert_eq!(color, Some(std::ffi::OsStr::new("never")));
+        assert_eq!(c.get_args().collect::<Vec<_>>(), ["test", "--release"]);
     }
 }

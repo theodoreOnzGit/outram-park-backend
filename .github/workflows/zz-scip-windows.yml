@@ -53,7 +53,7 @@ jobs:
         id: fresh
         continue-on-error: true
         shell: bash
-        run: ./target/release/kovan-cli index --fresh
+        run: ./target/release/kovan-cli index --workspace . --fresh
       - name: Log of the kovan run
         if: always()
         shell: bash
