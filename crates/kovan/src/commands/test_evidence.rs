@@ -160,7 +160,12 @@ pub fn run(
     // the parser in order, so both get the same pipe.
     let (reader, writer) = std::io::pipe().map_err(|e| format!("pipe: {e}"))?;
     let writer2 = writer.try_clone().map_err(|e| format!("pipe: {e}"))?;
-    let mut child = cargo_command(&pl.args, root)
+    // cargo reports absolute source paths; `root` may be relative (`.`),
+    // or on Windows hold an 8.3 short name (`RUNNER~1`) that cargo would
+    // echo back while the canonical root is long. Run cargo in the
+    // canonical root so its paths and the parser's root are spelled alike.
+    let abs_root = dunce::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let mut child = cargo_command(&pl.args, &abs_root)
         .stdin(Stdio::null())
         .stdout(writer)
         .stderr(writer2)
@@ -168,8 +173,6 @@ pub fn run(
         .map_err(|e| format!("cargo: {e}"))?;
     // The parent's copies of the write end are moved into `Command` and
     // dropped with it, so the reader sees EOF when cargo exits.
-    // cargo reports absolute source paths; `root` may be relative (`.`).
-    let abs_root = dunce::canonicalize(&root).unwrap_or_else(|_| root.to_path_buf());
     let mut parser = OutputParser::new(&abs_root.to_string_lossy());
     let stdout = std::io::stdout();
     for line in BufReader::new(reader).lines() {

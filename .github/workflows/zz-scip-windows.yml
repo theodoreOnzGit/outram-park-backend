@@ -46,6 +46,9 @@ jobs:
         continue-on-error: true
         shell: bash
         run: cargo test --release --no-fail-fast -p "$KOVAN_PKG" -p kovan-common -p kovan-web --lib --tests
+      - name: Git configuration the tests inherit
+        shell: bash
+        run: git --version; git config --show-origin --list | grep -v -i "token\|extraheader" || true
       - name: Where rust-analyzer lives
         shell: bash
         run: ls -la "$(rustup which rust-analyzer)" "$(dirname "$(rustup which rust-analyzer)")" | head -40
@@ -58,6 +61,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          set +e
           ls -la target/kovan-scip || true
           RA="$(rustup which rust-analyzer)"
           BIG="$(dirname "$RA")/rust-analyzer-kovan-bigstack.exe"
@@ -76,6 +80,7 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
+          set +e
           rust-analyzer scip . --output control.scip > control.log 2>&1; echo "exit $?"
           tail -20 control.log
       - uses: actions/upload-artifact@v4

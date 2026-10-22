@@ -899,10 +899,11 @@ mod tests {
         std::fs::create_dir(ours.join("notes")).unwrap();
         write(&ours, "notes/a.md", "also never saved\n");
 
-        assert!(matches!(
-            pull_in(&ours, "origin", "main"),
-            Err(RemoteError::Conflict { .. })
-        ));
+        let pulled = pull_in(&ours, "origin", "main");
+        assert!(
+            matches!(pulled, Err(RemoteError::Conflict { .. })),
+            "{pulled:?}"
+        );
 
         force_pull_in(&ours, "origin", "main").unwrap();
 
