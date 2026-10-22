@@ -38,8 +38,12 @@ a signature.
 - **If the command an agent needs does not exist,** do not hand-edit as a
   workaround: say so in the hand-off and file an issue for the command
   (e.g. agent justifications on the reviewer roster, GitHub #1019).
-- Agents still never sign: `kovan-cli` has no signing command, by design
-  (#762). Signing stays in desktop kovan, by a human.
+- **`kovan-cli` makes unsigned review entries only** (maintainer,
+  2026-10-22: "kovan-cli should only make unsigned reviews"): agent
+  justifications, drafts and needs-fix entries, labelled agent-drafted. It
+  has no signing command, by design (#762), and must never gain one. A
+  signed stamp is made only in desktop kovan, by a human with their key; an
+  unsigned entry never counts as review (GitHub #1019).
 
 **KOPITIAM is no longer dogfooded here** (maintainer direction, 2026-09-21).
 It may still be used where it helps, but it is not mandated and its rough
