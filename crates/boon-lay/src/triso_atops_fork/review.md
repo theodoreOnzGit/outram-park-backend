@@ -58,3 +58,51 @@ value = "Gv3AujamjIerD5CB8MpnI93fO7aeFKN+1TuQWdEZuTmmQAGDA+QYZAlpnaUKWLnDFzUi3Zk
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-22, commit 70192c1757.
+
+# Review: ReleaseFraction (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-releasefraction-theodoreonzgit-20bea5a8"
+kind = "review"
+origin = "human"
+created = "2026-10-22T17:11:15+08:00"
+modified = "2026-10-22T17:11:15+08:00"
+target = "fn:20bea5a8b58e1368"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/mod.rs::ReleaseFraction"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-22"
+signed_at = "2026-10-22T17:11:15+08:00"
+commit = "a60e44780e6d5ad8c928833d29f6a44894f32292"
+hash = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+doc_hash = "sha256:8b6dabb95c5287228d80305314a2423990cc55c248e1a7edd2f2a3d722cb9ea0"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "x1DwmmXuep7jZPJ1ABJ26GN4sdA3gjGkE8SaQonoz0LTOVanoXLE2D8bOmSZU/MN93/Ffu2/xLW7ozEHRaR9CQ=="
+```
+
+Release fraction should be ratio, correct
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-22, commit a60e44780e.
