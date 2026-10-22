@@ -21,6 +21,16 @@
 //! | `previous_root` | `HEAD`'s `kovan_root.toml` when the working copy differs from it, else the version before the last commit that changed it |
 //! | `deleted_in`, `publish_records`, `tag_commits` | left empty: deleted functions show without a deleting commit, there is no #773 record yet, and tags show as unchecked (offline) |
 //!
+//! **Batched (GitHub #1023).** The commands above say what each answer
+//! *is*; since 2026-10-22 they are not run one process per question but put
+//! to a [`GitBatch`](super::git_batch) (one `cat-file --batch`, one
+//! `rev-list --parents HEAD`, one `log` per `review.md`, one `blame` per
+//! file, answers kept per `HEAD`), which gives the same answers or runs the
+//! command itself. The tests' `log` per test file is unchanged (kept per
+//! process for a full commit id, #856). Measured on this workspace (806
+//! folders, Linux): a refresh after a stamp started 316 `git` processes
+//! before and 2 after; its git phase went from 4.1 s to 0.45 s.
+//!
 //! ~~[`ConceptAreas`] is passed **empty** (resolving a function's concept
 //! areas from its reviews' `implements` relations is not built): no
 //! function reaches rung 5 here~~ **CORRECTED 2026-10-10** (#770, #810):
@@ -58,10 +68,7 @@ use super::{
     ROOT_FILE,
 };
 use super::git;
-
-/// (revision, file) -> the file's hashed functions there (`None`: absent or
-/// not Rust that parses).
-pub(crate) type FileCache = BTreeMap<(String, String), Option<Vec<HashedFn>>>;
+use super::git_batch::GitBatch;
 /// (revision, file) -> commit messages up to the revision touching it.
 pub(crate) type MessageCache = BTreeMap<(String, String), Vec<String>>;
 
@@ -79,17 +86,13 @@ fn split_qual(qual: &str) -> (String, Option<usize>) {
 
 /// The function, type or constant (#843) `qual` of `file` at `rev`, hashed as the index hashes it
 /// (the same `#k` rule as `kovan_common::call_graph::function_ids`).
-pub(crate) fn fn_at(
-    cache: &mut FileCache,
-    root: &Path,
-    rev: &str,
-    file: &str,
-    qual: &str,
-) -> Option<HashedFn> {
-    let fns = cache
-        .entry((rev.to_string(), file.to_string()))
-        .or_insert_with(|| git::show(root, rev, file).and_then(|t| hash_all(&t).ok()))
-        .as_ref()?;
+pub(crate) fn fn_at(git: &mut GitBatch, rev: &str, file: &str, qual: &str) -> Option<HashedFn> {
+    let key = (rev.to_string(), file.to_string());
+    if !git.files.contains_key(&key) {
+        let parsed = git.show(rev, file).and_then(|t| hash_all(&t).ok());
+        git.files.insert(key.clone(), parsed);
+    }
+    let fns = git.files.get(&key)?.as_ref()?;
     let (base, k) = split_qual(qual);
     let same: Vec<&HashedFn> = fns
         .iter()
@@ -187,13 +190,14 @@ fn messages(cache: &mut MessageCache, root: &Path, rev: &str, file: &str) -> Vec
 /// `kovan.toml` as committed then (module doc); `None` when it was not
 /// committed or does not list the function.
 pub(crate) fn tests_at(
-    root: &Path,
+    git: &mut GitBatch,
     commit: &str,
     dir: &str,
     id: &str,
     cache: &mut MessageCache,
 ) -> Option<TestsAtReview> {
-    let text = git::show(root, commit, &join(dir, KOVAN_TOML))?;
+    let text = git.show(commit, &join(dir, KOVAN_TOML))?;
+    let root = git.root();
     let idx = FolderIndex::parse(&text).ok()?;
     let f = idx.functions().find(|(_, f)| f.id == id)?.1.clone();
     let test_files: BTreeSet<String> =
@@ -219,49 +223,51 @@ fn needle(r: &ReviewEntry) -> Option<&str> {
     r.review.signature.as_ref().map(|s| s.value.as_str())
 }
 
-fn committer_time(root: &Path, rev: &str) -> Option<i64> {
-    git::git(root, &["show", "-s", "--format=%ct", rev])
-        .ok()?
-        .trim()
-        .parse()
-        .ok()
+/// The commit that added `r` to `review_md` (module doc), if committed:
+/// what `git log -1 -S<value> -- <review_md>` finds (GitHub #1023: one
+/// `log` per `review.md` instead of one pickaxe per stamp, kept per `HEAD`).
+///
+/// The pickaxe, as git runs it: walking the file's log (history simplified
+/// for the path) newest first, the first commit whose diff changes the
+/// number of occurrences of the value. A merge has no diff in `git log`
+/// (no `-m`), so it never matches; a root commit is diffed against nothing.
+/// Checked against git's own pickaxe on 116 values over the four signed
+/// `review.md` files of `human-audit-and-coding-theodore` (0 differ) and
+/// by `git_batch::tests`.
+fn added_in(git: &mut GitBatch, review_md: &str, r: &ReviewEntry) -> Option<StampCommit> {
+    let needle = needle(r)?;
+    let certified = &r.review.commit;
+    let key = (review_md.to_string(), needle.to_string(), certified.clone());
+    if let Some(kept) = git.kept_added(&key) {
+        return kept;
+    }
+    let found = stamp_commit(git, review_md, needle, certified);
+    git.keep_added(key, found.clone());
+    found
 }
 
-/// The commit that added `r` to `review_md` (module doc), if committed.
-fn added_in(root: &Path, review_md: &str, r: &ReviewEntry) -> Option<StampCommit> {
-    let needle = needle(r)?;
-    if !git::show(root, "HEAD", review_md)?.contains(needle) {
+/// [`added_in`], computed.
+pub(crate) fn stamp_commit(git: &mut GitBatch, review_md: &str, needle: &str, certified: &str) -> Option<StampCommit> {
+    if needle.is_empty() || !git.show("HEAD", review_md)?.contains(needle) {
         return None;
     }
-    let out = git::git(
-        root,
-        &[
-            "log",
-            "-1",
-            "--format=%H%x1f%ct%x1f%B",
-            &format!("-S{needle}"),
-            "--",
-            review_md,
-        ],
-    )
-    .ok()?;
-    let mut parts = out.splitn(3, '\x1f');
-    let commit = parts.next()?.trim().to_string();
-    let time = parts.next().and_then(|t| t.trim().parse().ok());
-    let body = parts.next().unwrap_or("");
-    if commit.is_empty() {
-        return None;
-    }
-    let certified = &r.review.commit;
-    let descendant = git::git(root, &["merge-base", "--is-ancestor", certified, &commit]).is_ok();
-    let same = git::rev_parse(root, certified).is_ok_and(|c| c == commit);
-    let in_history = git::git(root, &["merge-base", "--is-ancestor", certified, "HEAD"]).is_ok();
+    let log = git.file_log(review_md)?;
+    let mut count = |rev: &str| git.show(rev, review_md).map_or(0, |t| t.matches(needle).count());
+    let hit = log.iter().find(|c| match c.parents.as_slice() {
+        [] => count(&c.id) != 0,
+        [p] => count(&c.id) != count(p),
+        _ => false,
+    })?;
+    let commit = hit.id.clone();
+    let descendant = git.is_ancestor(certified, &commit);
+    let same = git.resolve(certified).is_some_and(|c| c == commit);
+    let in_history = git.is_ancestor(certified, "HEAD");
     Some(StampCommit {
         commit,
         after_certified: descendant && !same,
         certified_in_history: in_history,
-        agent_trailer: agent_trailer(body).0,
-        committer_time: time,
+        agent_trailer: agent_trailer(&hit.body).0,
+        committer_time: hit.time,
     })
 }
 
@@ -270,17 +276,16 @@ fn added_in(root: &Path, review_md: &str, r: &ReviewEntry) -> Option<StampCommit
 /// Then `added` is marked as in history (the effective key is), and whether
 /// the stamp arrived in a hop's own commit is recorded.
 fn carried_forward(
-    root: &Path,
+    git: &mut GitBatch,
     r: &ReviewEntry,
     records: &[CarryForward],
     added: Option<&mut StampCommit>,
-    files: &mut FileCache,
 ) -> Option<CarriedForward> {
     let added = added?;
     if added.certified_in_history || records.is_empty() {
         return None;
     }
-    let mut g = super::carry_forward::GitChain::new(root, "HEAD", files);
+    let mut g = super::carry_forward::GitChain::new(git, "HEAD");
     let chain = super::carry_forward::chain_of(r, records, &mut g);
     use kovan_common::review::carry_forward::ChainGit;
     if chain.hops.is_empty() || !g.in_history(&chain.key) {
@@ -317,31 +322,6 @@ fn author_ids(email: &str, root: &ReviewRoot) -> BTreeSet<String> {
     out
 }
 
-/// `git blame` author e-mails of `file` lines `a..=b` in the working tree.
-fn blame_authors(root: &Path, file: &str, a: u32, b: u32) -> Vec<String> {
-    let range = format!("{a},{b}");
-    let Ok(out) = git::git(
-        root,
-        &["blame", "--line-porcelain", "-L", &range, "--", file],
-    ) else {
-        return Vec::new();
-    };
-    let mut v: Vec<String> = out
-        .lines()
-        .filter_map(|l| l.strip_prefix("author-mail "))
-        .map(|m| {
-            m.trim()
-                .trim_start_matches('<')
-                .trim_end_matches('>')
-                .to_string()
-        })
-        .filter(|m| !m.is_empty() && m != "not.committed.yet")
-        .collect();
-    v.sort();
-    v.dedup();
-    v
-}
-
 /// Where the review's function was **at the commit it certifies**: the
 /// first acknowledged move's `from` (GitHub #771: an acknowledged move
 /// rewrites `path` to the new location, but the certified commit still
@@ -358,32 +338,39 @@ pub(crate) fn certified_path(r: &ReviewEntry) -> String {
 }
 
 /// The previous committed `kovan_root.toml` (module doc).
-fn previous_root(root: &Path) -> Option<ReviewRoot> {
-    let head = git::show(root, "HEAD", ROOT_FILE)?;
-    let now = std::fs::read_to_string(root.join(ROOT_FILE)).unwrap_or_default();
+fn previous_root(git: &mut GitBatch) -> Option<ReviewRoot> {
+    let head = git.show("HEAD", ROOT_FILE)?;
+    let now = std::fs::read_to_string(git.root().join(ROOT_FILE)).unwrap_or_default();
     let text = if now != head {
         head
     } else {
-        let last = git::git(root, &["log", "-1", "--format=%H", "--", ROOT_FILE]).ok()?;
-        git::show(root, &format!("{}^", last.trim()), ROOT_FILE)?
+        let last = git.last_change(ROOT_FILE)?;
+        git.show(&format!("{last}^"), ROOT_FILE)?
     };
     ReviewRoot::parse(&text).ok()
 }
 
 /// The workspace's [`GitFacts`] (module doc).
 pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
-    let mut files = FileCache::new();
+    git_facts_in(&mut GitBatch::new(root), ws)
+}
+
+/// [`git_facts`] over a [`GitBatch`] (GitHub #1023), which the permalinks
+/// then reuse.
+pub(crate) fn git_facts_in(git: &mut GitBatch, ws: &Workspace) -> GitFacts {
+    let root = git.root().to_path_buf();
+    let root = root.as_path();
     let mut msgs = MessageCache::new();
     let mut g = GitFacts {
         head: ws.head.clone(),
         cargo_lock: cargo_lock_hash(root).unwrap_or_default(),
-        previous_root: previous_root(root),
+        previous_root: previous_root(git),
         ..GitFacts::default()
     };
     for idx in &ws.indexes {
         if let Some(run) = &idx.test_run {
             for (file, f) in idx.functions() {
-                if let Some(h) = fn_at(&mut files, root, &run.commit, &idx.file_path(file), &f.qual)
+                if let Some(h) = fn_at(git, &run.commit, &idx.file_path(file), &f.qual)
                 {
                     g.hashes_at_test_run.insert(f.id.clone(), h.hashes.hash);
                 }
@@ -405,11 +392,13 @@ pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
                 .map(move |(file, f)| (f.id.as_str(), (i, file)))
         })
         .collect();
+    // Reviewed function ranges by file, blamed together after the loop.
+    let mut blames: BTreeMap<String, Vec<(String, [u32; 2])>> = BTreeMap::new();
     for (dir, m) in &ws.reviews {
         let review_md = join(dir, REVIEW_MD);
         for r in m.doc.reviews() {
-            let mut added = added_in(root, &review_md, r);
-            let carried = carried_forward(root, r, &records, added.as_mut(), &mut files);
+            let mut added = added_in(git, &review_md, r);
+            let carried = carried_forward(git, r, &records, added.as_mut());
             // Read at the effective key when carried forward, else at the
             // certified commit (#838, #1018).
             let (key, path) = match &carried {
@@ -417,7 +406,7 @@ pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
                 None => (r.review.commit.clone(), certified_path(r)),
             };
             let at = path.split_once(".rs::").and_then(|(file, qual)| {
-                fn_at(&mut files, root, &key, &format!("{file}.rs"), qual)
+                fn_at(git, &key, &format!("{file}.rs"), qual)
             });
             let dir_of = |p: &str| {
                 p.split_once(".rs::")
@@ -426,16 +415,16 @@ pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
             // The tests at the original commit when this clone holds it,
             // else at the effective key.
             let tests_at_review =
-                tests_at(root, &r.review.commit, &dir_of(&certified_path(r)), &r.function_id(), &mut msgs)
+                tests_at(git, &r.review.commit, &dir_of(&certified_path(r)), &r.function_id(), &mut msgs)
                     .or_else(|| {
-                        carried.as_ref().and_then(|c| tests_at(root, &c.key, &dir_of(&c.path), &r.function_id(), &mut msgs))
+                        carried.as_ref().and_then(|c| tests_at(git, &c.key, &dir_of(&c.path), &r.function_id(), &mut msgs))
                     });
             let facts = StampFacts {
                 hash_at_commit: at.map(|h| h.hashes.hash),
                 added_in: added,
                 // Always the original commit's time (#783, #1018): `None`
                 // when it is not in this clone, never `to`'s.
-                reviewed_commit_time: committer_time(root, &r.review.commit),
+                reviewed_commit_time: git.committer_time(&r.review.commit),
                 tests_at_review,
                 carried_forward: carried,
             };
@@ -452,14 +441,24 @@ pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
                     .find(|(_, f)| f.id == r.function_id())
                     .map(|(_, f)| f);
                 if let Some(f) = f {
-                    let ids: BTreeSet<String> =
-                        blame_authors(root, &idx.file_path(file), f.lines[0], f.lines[1])
-                            .iter()
-                            .flat_map(|e| author_ids(e, &ws.review_root))
-                            .collect();
-                    g.code_authors.entry(f.id.clone()).or_default().extend(ids);
+                    blames.entry(idx.file_path(file)).or_default().push((f.id.clone(), f.lines));
                 }
             }
+        }
+    }
+    // `git blame` author e-mails of each reviewed function's current lines:
+    // one `blame` per file (#1023).
+    for (file, wanted) in &blames {
+        let ranges: BTreeSet<[u32; 2]> = wanted.iter().map(|(_, l)| *l).collect();
+        let mails = git.blame(file, &ranges);
+        for (id, lines) in wanted {
+            let ids: BTreeSet<String> = mails
+                .get(lines)
+                .into_iter()
+                .flatten()
+                .flat_map(|e| author_ids(e, &ws.review_root))
+                .collect();
+            g.code_authors.entry(id.clone()).or_default().extend(ids);
         }
     }
     g
@@ -531,23 +530,47 @@ pub struct RefreshTimings {
     /// Mapping to the web's rows.
     pub states: std::time::Duration,
     pub total: std::time::Duration,
+    /// `git` processes started during the refresh (GitHub #1023;
+    /// [`super::git::spawns`], process-wide, so another thread's `git`
+    /// calls in the same window count too).
+    pub git_spawns: usize,
 }
 
 impl RefreshTimings {
-    /// One line for the log, seconds to the millisecond.
+    /// The total less every phase named: what no phase covers.
+    pub fn other(&self) -> std::time::Duration {
+        let named = self.load.cache_check
+            + self.load.folder_refresh
+            + self.load.cache_copy
+            + self.concepts
+            + self.git
+            + self.engine
+            + self.permalinks
+            + self.states;
+        self.total.saturating_sub(named)
+    }
+
+    /// One line for the log, seconds to the millisecond. The same line on
+    /// every system (kovan's log and the "Refresh states" tooltip), so a
+    /// Windows refresh reads against a Linux one phase by phase; "git
+    /// processes" is how many `git` processes the refresh started (GitHub
+    /// #1023), the cost that is much higher on Windows.
     pub fn line(&self) -> String {
         let s = |d: std::time::Duration| format!("{:.3} s", d.as_secs_f64());
         format!(
-            "review-state refresh {}: cache check {}, folder refresh {} ({} folders), concepts {}, git {}, engine {}, permalinks {}, states {}",
+            "review-state refresh {}: cache check {}, folder refresh {} ({} folders), cache copy {}, concepts {}, git {} ({} git processes), engine {}, permalinks {}, states {}, other {}",
             s(self.total),
             s(self.load.cache_check),
             s(self.load.folder_refresh),
             self.load.folders_refreshed,
+            s(self.load.cache_copy),
             s(self.concepts),
             s(self.git),
+            self.git_spawns,
             s(self.engine),
             s(self.permalinks),
-            s(self.states)
+            s(self.states),
+            s(self.other())
         )
     }
 }
@@ -557,7 +580,8 @@ impl RefreshTimings {
 pub fn evaluate_loaded_timed(root: &Path, ws: &Workspace, concepts: &ConceptAreas) -> (WorkspaceEvaluation, RefreshTimings) {
     let mut t = RefreshTimings::default();
     let clock = std::time::Instant::now();
-    let git = git_facts(root, ws);
+    let mut batch = GitBatch::new(root);
+    let git = git_facts_in(&mut batch, ws);
     t.git = clock.elapsed();
     let krate_of = |dir: &str| {
         ws.indexes
@@ -594,7 +618,7 @@ pub fn evaluate_loaded_timed(root: &Path, ws: &Workspace, concepts: &ConceptArea
                 .map(move |(file, f)| (f.id.clone(), call_graph_id(i, file, f)))
         })
         .collect();
-    let mut files = FileCache::new();
+    // The same batch: every file read for the facts is read again here.
     let mut permalinks = BTreeMap::new();
     for m in ws.reviews.values() {
         for r in m.doc.reviews() {
@@ -610,7 +634,7 @@ pub fn evaluate_loaded_timed(root: &Path, ws: &Workspace, concepts: &ConceptArea
             if let Some((file, qual)) = path.split_once(".rs::") {
                 let file = format!("{file}.rs");
                 let lines =
-                    fn_at(&mut files, root, &commit, &file, qual).map(|h| h.entry.lines);
+                    fn_at(&mut batch, &commit, &file, qual).map(|h| h.entry.lines);
                 let anchor = lines
                     .map(|[a, b]| format!("#L{a}-L{b}"))
                     .unwrap_or_default();
@@ -685,6 +709,7 @@ pub fn stamp_states(root: &Path) -> Result<Vec<WebStamp>, String> {
 /// [`stamp_states`], with every phase timed ([`RefreshTimings`]).
 pub fn stamp_states_timed(root: &Path) -> Result<(Vec<WebStamp>, RefreshTimings), String> {
     let start = std::time::Instant::now();
+    let spawned = super::git::spawns();
     let (ws, load) = super::load_workspace_timed(root)?;
     let clock = std::time::Instant::now();
     let concepts = super::concepts::concept_areas(&ws);
@@ -738,5 +763,6 @@ pub fn stamp_states_timed(root: &Path) -> Result<(Vec<WebStamp>, RefreshTimings)
     out.sort_by(|a, b| a.function.cmp(&b.function));
     t.states = clock.elapsed();
     t.total = start.elapsed();
+    t.git_spawns = super::git::spawns().saturating_sub(spawned);
     Ok((out, t))
 }

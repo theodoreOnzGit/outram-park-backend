@@ -84,6 +84,7 @@ use kovan_common::review::types::ChangeAuthorship;
 use kovan_common::review::wizard::{vv_case_author_prefill, Applicability, ReviewWizard};
 
 pub mod git;
+mod git_batch;
 
 pub mod authorship;
 pub mod carry_forward;
@@ -210,18 +211,27 @@ pub struct LoadPhases {
     pub folder_refresh: std::time::Duration,
     /// How many folders were refreshed.
     pub folders_refreshed: usize,
+    /// Copying the workspace cache in and storing it back
+    /// ([`ws_cache::take`], [`ws_cache::put`]; GitHub #1023, the part of a
+    /// load the two phases above leave out).
+    pub cache_copy: std::time::Duration,
 }
 
 /// [`load_workspace`], with its phases timed.
 pub fn load_workspace_timed(root: &Path) -> Result<(Workspace, LoadPhases), String> {
+    let clock = std::time::Instant::now();
     let mut cache = ws_cache::take(root);
+    let copied = clock.elapsed();
     let ws = load_workspace_with(root, &mut cache);
-    let phases = LoadPhases {
+    let mut phases = LoadPhases {
         cache_check: cache.phases.0,
         folder_refresh: cache.phases.1,
         folders_refreshed: cache.refreshed_last,
+        cache_copy: copied,
     };
+    let clock = std::time::Instant::now();
     ws_cache::put(root, cache);
+    phases.cache_copy += clock.elapsed();
     ws.map(|w| (w, phases))
 }
 
@@ -476,8 +486,7 @@ fn locate<'w>(
             "{path} has changes not committed: a stamp certifies HEAD, commit first"
         ));
     }
-    let mut cache = states::FileCache::new();
-    let at_head = states::fn_at(&mut cache, root, &ws.head, &path, &f.qual).map(|h| h.hashes.hash);
+    let at_head = states::fn_at(&mut git_batch::GitBatch::new(root), &ws.head, &path, &f.qual).map(|h| h.hashes.hash);
     if at_head.as_deref() != Some(f.hash.as_str()) {
         return Err(format!(
             "{path}::{}: the index hash is not the function's hash at HEAD",
@@ -550,7 +559,7 @@ fn applicability_for(
 ) -> (Applicability, Vec<String>) {
     let folder = ws.reviews.get(&idx.dir);
     let mut msgs = states::MessageCache::new();
-    let tests = states::tests_at(root, &ws.head, &idx.dir, &f.id, &mut msgs);
+    let tests = states::tests_at(&mut git_batch::GitBatch::new(root), &ws.head, &idx.dir, &f.id, &mut msgs);
     let applicability = Applicability {
         is_port: folder
             .and_then(|m| m.doc.upstream())
@@ -700,7 +709,7 @@ pub(crate) fn draft_stamp_loaded(
     });
     let now = now_local();
     let mut msgs = states::MessageCache::new();
-    let tests = states::tests_at(root, &ws.head, &idx.dir, &f.id, &mut msgs)
+    let tests = states::tests_at(&mut git_batch::GitBatch::new(root), &ws.head, &idx.dir, &f.id, &mut msgs)
         .map(|t| t.authorship())
         .unwrap_or_default();
     // The reviewed change's authorship, from the commit trailers (#771,
