@@ -62,6 +62,13 @@ env:
   CARGO_NET_RETRY: 2
   RUST_BACKTRACE: short
   KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+  # Maintainer direction, 2026-10-22: "let ci's pin the latest". This
+  # workflow runs the latest stable toolchain and its rust-analyzer
+  # (installed below), overriding the repository's rust-toolchain.toml pin.
+  # Before this, rustup obeyed the 1.99.1 pin, which had no rust-analyzer
+  # on a fresh runner, and every rust-analyzer test failed on all three OSes
+  # (run 39684921124, 2026-10-21).
+  RUSTUP_TOOLCHAIN: stable
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -89,6 +96,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rust-analyzer
+
+      - name: Toolchain and rust-analyzer versions
+        shell: bash
+        run: |
+          rustc --version
+          rust-analyzer --version
 
       - uses: Swatinem/rust-cache@v2
         with:

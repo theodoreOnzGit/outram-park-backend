@@ -639,3 +639,26 @@ fn the_cache_gives_what_a_full_load_gives() {
     ws_cache::forget(r.path());
     assert_eq!(same_as_full("forgotten"), 2);
 }
+
+/// Methodology: one `Cargo.lock` with LF and with CRLF line endings (a
+/// Linux and a Windows `core.autocrlf` checkout of one commit), written to
+/// two folders. Pass: both hash alike through [`cargo_lock_hash`], the LF
+/// form hashes exactly as the plain SHA-256 of its bytes (recorded stamps
+/// stay valid), a different lock hashes differently, and a non-UTF-8 lock
+/// still hashes (raw).
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn the_cargo_lock_hash_ignores_crlf_line_endings() {
+    let unix = "version = 4\n\n[[package]]\nname = \"a\"\n";
+    let windows = unix.replace('\n', "\r\n");
+    let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    std::fs::write(a.path().join("Cargo.lock"), unix).unwrap();
+    std::fs::write(b.path().join("Cargo.lock"), &windows).unwrap();
+    let ha = cargo_lock_hash(a.path()).unwrap();
+    assert_eq!(Some(ha.clone()), cargo_lock_hash(b.path()));
+    assert_eq!(ha, sha256_tagged(unix.as_bytes()));
+    assert_ne!(ha, lock_bytes_hash(b"version = 3\n"));
+    assert_eq!(lock_bytes_hash(&[0xff, b'\r', b'\n']), sha256_tagged(&[0xff, b'\r', b'\n']));
+    assert_eq!(cargo_lock_hash(&a.path().join("missing")), None);
+}

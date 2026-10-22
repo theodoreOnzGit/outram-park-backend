@@ -388,9 +388,10 @@ quote = { version = "1.0", default-features = false }
 # off + a curated feature set for build speed and to avoid the C zlib-ng backend
 # (`max-performance`): `revision` (rev-walk/log), `status` (working-tree status),
 # `blame` (per-line provenance; pulls blob-diff), `dirwalk`+`index` (tracked-file
-# listing). NOT the `gitoxide` binary crate — that is what `kovan setup` installs
+# listing), `attributes` (git's to-git filter pipeline: kovan's Save stores
+# what `git add` would, e.g. LF for a CRLF `core.autocrlf` checkout on Windows). NOT the `gitoxide` binary crate — that is what `kovan setup` installs
 # for the CLI fallback backend.
-gix = { version = "0.85", default-features = false, features = ["sha1", "revision", "status", "blame", "dirwalk", "index"] }
+gix = { version = "0.85", default-features = false, features = ["sha1", "revision", "status", "blame", "dirwalk", "index", "attributes"] }
 petgraph = "0.8"             # graph layer (module/dependency/literature graphs) -- bumped 0.6->0.8
                               # for egui_graphs 0.32.0 (op-jvjc), which requires petgraph "0.8"
                               # exactly; had no consumers at 0.6 (grepped workspace-wide, no

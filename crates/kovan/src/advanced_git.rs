@@ -677,7 +677,11 @@ mod tests {
     }
 
     /// A bare "remote" whose `main` holds `f.txt = theirs`, plus a clone
-    /// left one commit behind on `f.txt = base`.
+    /// left one commit behind on `f.txt = base`. Both clones are made with
+    /// `core.autocrlf = false`, so their worktrees hold the committed bytes
+    /// on every platform: these tests are about pulls, and Git for Windows'
+    /// system `core.autocrlf = true` would check `theirs\n` out as
+    /// `theirs\r\n` (kovan CI, Windows runner, 2026-10-22).
     fn diverging_pair() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
         let dir = tempfile::tempdir().unwrap();
         let remote = dir.path().join("remote.git");
@@ -691,7 +695,7 @@ mod tests {
             .unwrap()
             .success());
         assert!(StdCommand::new("git")
-            .args(["clone", "-q"])
+            .args(["clone", "-q", "-c", "core.autocrlf=false"])
             .arg(&remote)
             .arg(&theirs)
             .status()
@@ -703,7 +707,7 @@ mod tests {
         git(&theirs, &["push", "-q", "origin", "main"]);
 
         assert!(StdCommand::new("git")
-            .args(["clone", "-q"])
+            .args(["clone", "-q", "-c", "core.autocrlf=false"])
             .arg(&remote)
             .arg(&ours)
             .status()

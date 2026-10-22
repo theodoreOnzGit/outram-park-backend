@@ -8,6 +8,11 @@ on:
 env:
   CARGO_TERM_COLOR: always
   KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+  # Maintainer direction, 2026-10-22: "let ci's pin the latest". The kovan
+  # CI runs the latest stable toolchain and its rust-analyzer, overriding the
+  # repository's rust-toolchain.toml pin (1.99.1, which has no rust-analyzer
+  # component installed on a fresh runner).
+  RUSTUP_TOOLCHAIN: stable
 jobs:
   probe:
     name: probe / ${{ matrix.os }}
@@ -19,11 +24,14 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
-      - name: rust-analyzer for the pinned toolchain
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rust-analyzer
+      - name: Toolchain and rust-analyzer versions
         shell: bash
         run: |
           rustup show active-toolchain
-          rustup component add rust-analyzer
+          rustc --version
           rustup which rust-analyzer
           rust-analyzer --version
       - uses: Swatinem/rust-cache@v2

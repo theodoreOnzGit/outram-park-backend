@@ -370,11 +370,25 @@ pub fn call_graph_id(idx: &FolderIndex, file: &str, f: &FunctionIndex) -> String
 }
 
 /// `sha256:` of `<root>/Cargo.lock`, as `kovan-cli test` records it; `None`
-/// when there is no lock file.
+/// when there is no lock file. See [`lock_bytes_hash`] for line endings.
 pub fn cargo_lock_hash(root: &Path) -> Option<String> {
     std::fs::read(root.join("Cargo.lock"))
         .ok()
-        .map(|b| sha256_tagged(&b))
+        .map(|b| lock_bytes_hash(&b))
+}
+
+/// `sha256:` of a `Cargo.lock`'s bytes with every CRLF pair read as LF, as
+/// source files are hashed ([`kovan_common::code_index::links::text_hash`]).
+/// A Windows checkout with `core.autocrlf = true` holds the committed lock
+/// with CRLF; hashing it raw made every review stamped on Linux read
+/// "pending workspace test" there (kovan CI, Windows runner, 2026-10-22).
+/// A lock with no CRLF hashes exactly as before, so recorded stamps and
+/// test runs stay valid.
+pub fn lock_bytes_hash(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => kovan_common::code_index::links::text_hash(text),
+        Err(_) => sha256_tagged(bytes),
+    }
 }
 
 /// What the reviewer chose in the dialog.

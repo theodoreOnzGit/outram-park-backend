@@ -35,7 +35,6 @@ use std::process::{Command, Stdio};
 use kovan_common::review::evidence::args::plan;
 use kovan_common::review::evidence::output::{LineKind, OutputParser};
 use kovan_common::review::evidence::{dirty_build_inputs, TestEvidence};
-use kovan_common::review::hash::sha256_tagged;
 
 fn capture(root: &Path, program: &str, args: &[&str]) -> Result<String, String> {
     let out = Command::new(program)
@@ -66,7 +65,8 @@ fn dirty(root: &Path) -> Result<Vec<String>, String> {
 fn lock_hash(root: &Path) -> Result<String, String> {
     let bytes = std::fs::read(root.join("Cargo.lock"))
         .map_err(|e| format!("{}: {e}", root.join("Cargo.lock").display()))?;
-    Ok(sha256_tagged(&bytes))
+    // The same hash the stamps compare against (CRLF read as LF).
+    Ok(crate::stamping::lock_bytes_hash(&bytes))
 }
 
 /// Write a counted run into every code-folder `kovan.toml` of the workspace
