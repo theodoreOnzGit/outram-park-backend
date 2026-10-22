@@ -1,0 +1,65 @@
+# Disposable: reproduces `kovan-cli index --fresh` (rust-analyzer scip) on
+# Windows for the 0xc00000fd / 0xc00000be failures. Lives only on ci-scip/**.
+name: scip windows probe
+on:
+  push:
+    branches: ["ci-scip/**"]
+env:
+  CARGO_TERM_COLOR: always
+  KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - name: rust-analyzer for the pinned toolchain
+        shell: bash
+        run: |
+          rustup show active-toolchain
+          rustup component add rust-analyzer
+          rustup which rust-analyzer
+          rust-analyzer --version
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: scip-probe
+          cache-on-failure: true
+      - name: Build kovan-cli
+        shell: bash
+        run: cargo build --release -p "$KOVAN_PKG" --bin kovan-cli
+      - name: Patched copy starts (--version)
+        shell: bash
+        run: |
+          set -x
+          mkdir -p target/kovan-scip
+          ./target/release/kovan-cli --help >/dev/null
+          ls -la "$(rustup which rust-analyzer)" "$(dirname "$(rustup which rust-analyzer)")"
+      - name: kovan-cli index --fresh (the failing path)
+        id: fresh
+        continue-on-error: true
+        shell: bash
+        run: ./target/release/kovan-cli index --fresh
+      - name: Log of the kovan run
+        if: always()
+        shell: bash
+        run: |
+          ls -la target/kovan-scip || true
+          ./target/kovan-scip/rust-analyzer-bigstack.exe --version || echo "bigstack --version exit $?"
+          head -30 target/kovan-scip/rust-analyzer-scip.log || true
+          echo ....
+          tail -60 target/kovan-scip/rust-analyzer-scip.log || true
+          cp target/kovan-scip/rust-analyzer-scip.log kovan-run.log || true
+      - name: Control, plain rust-analyzer scip (expected to overflow)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          rust-analyzer scip . --output control.scip > control.log 2>&1; echo "exit $?"
+          tail -20 control.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scip-logs
+          path: |
+            kovan-run.log
+            control.log
