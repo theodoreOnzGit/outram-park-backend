@@ -406,6 +406,7 @@ lopdf = "0.42"               # low-level PDF object model (metadata + assets)
 clap = { version = "4.5", features = ["derive"] }  # kovan (agent-facing CLI binary)
 which = "8.0"          # kovan's `setup`: PATH-presence check for curated external tools (pure-Rust, Android-fine)
 dunce = "1.0"          # kovan: Windows paths without the `\\?\` prefix for child processes (gh #834); std only, already in Cargo.lock via egui-file-dialog and gix-discover
+libc = "0.2"           # kovan: raise `rust-analyzer scip`'s RLIMIT_STACK on unix (scip_stack.rs); already in Cargo.lock
 tempfile = "3.14"             # dev-dep: throwaway fixture trees for discovery/search tests (pure-Rust, Android-friendly)
 # Reading a Zotero data folder's zotero.sqlite (kovan-literature `zotero::local_library`,
 # GitHub #750). Since 2026-10-07 the reader is pure Rust: turso_core is Turso's Rust
