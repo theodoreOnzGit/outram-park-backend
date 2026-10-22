@@ -300,7 +300,20 @@
     ["kernel-burnup-oxygen.html", "Complication 6: burnup and the oxygen balance"],
     ["kernel-conductivity.html", "Complication 7: conductivity falls"],
     ["kernel-hbs.html", "Complication 8: the high-burnup structure"],
-    ["kernel-swelling.html", "Complication 9: the kernel swells"]
+    ["kernel-swelling.html", "Complication 9: the kernel swells"],
+    // Chapter 4, "TRISO layer migration and particle failure" (maintainer
+    // direction 2026-10-22: the planned Barriers and Fuel-failure chapters
+    // merged, with diffusion through the layers; TRISO only).
+    ["barriers-why.html", "Why layers?"],
+    ["barriers-migration.html", "Migration through the layers"],
+    ["barriers-sic.html", "Why SiC matters most, and silver gets through"],
+    ["barriers-whole.html", "Across the whole particle"],
+    ["failure-vessel.html", "A tiny pressure vessel"],
+    ["failure-weibull.html", "How strong is SiC? Weakest-link statistics"],
+    ["failure-thinning.html", "The wall gets thinner"],
+    ["failure-accident.html", "An accident, step by step"],
+    ["failure-release.html", "From failed particles to release"],
+    ["failure-leaves-out.html", "What the model leaves out"]
   ];
   var TRACKS = {
     neutronics: ["Neutronics", LESSONS, "glossary.html"],

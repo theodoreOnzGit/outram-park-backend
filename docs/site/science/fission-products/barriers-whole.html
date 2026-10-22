@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Across the whole particle</title>
+<meta name="description" content="Fission products, lesson 32: atoms walked from the kernel through buffer, IPyC, SiC and OPyC with the real per-layer diffusion coefficients, and the time they take to get out against temperature, checked against the exact mean of the diffusion equation; boon-lay's own walker could not finish the trip.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4, lesson 32. Page walk: barrier-physics.js
+     latticeWalk in barrier-worker.js, on the walker's D (barrier-data.js).
+     Check: the exact mean exit time (walk.rs exact_mean_exit, barrier-data.js
+     wos.exact). boon-lay's walker as a cost probe (wos.probes). P13-P15. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>Across the whole particle</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lessons 30 and 31 looked at one layer at a time. A real atom crosses all of them, and at every boundary it may bounce back. How long does it take to get out of the whole particle, and how does that change with temperature?</p>
+
+<section class="widget-card">
+  <h3>Atoms walking out of an HTR-10 particle</h3>
+  <div class="widget" id="whole">
+    <canvas aria-label="Top or left: the radius of five atoms against time on a log scale, over coloured bands for kernel, buffer, IPyC, SiC and OPyC; the atoms linger in some bands. Bottom or right: mean time to get out against temperature, a black line from the diffusion equation and coloured dots with error bars from the layered walk, with a dashed line at the half-life."></canvas>
+  </div>
+  <p class="note">Dots and traces: this page&rsquo;s layered walk, run in a Web Worker on boon-lay&rsquo;s per-layer <i>D</i> (lesson 30). Line: the exact mean time out of the diffusion equation with the same <i>D</i>. One temperature through the particle; no decay; HTR-10 radii.</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): the time out is set by the slowest layer. Caesium and silver are held by the SiC. Strontium, which barely moves in UO<sub>2</sub>, is held by the <b>kernel</b>.</p>
+
+<h2>The slowest layer sets the pace</h2>
+<p>Each atom walks the same way as in lesson 9. In each layer it hops at that layer&rsquo;s rate; at a boundary it crosses or bounces back. Where a slow layer meets a fast one it bounces back many times before it gets in (lesson 30&rsquo;s contrast).</p>
+<p>For this simple case the diffusion equation can be solved exactly for the <b>mean</b> time out. Count the flux through a sphere of radius r: it must carry everything born inside, so D(r)&nbsp;T&prime;(r) = &minus;r/3, and adding up the layers from the kernel outwards gives</p>
+<p class="eq-block">&lang;T&rang; = a&sup2;/(15 D<sub>kernel</sub>) + &Sigma;<sub>layers</sub> (r<sub>out</sub>&sup2; &minus; r<sub>in</sub>&sup2;)/(6 D<sub>layer</sub>)</p>
+<p>Each layer adds its own term, and the slowest one dwarfs the rest. At 1600 &deg;C the mean time out is <span data-bd="exCs1600">&hellip;</span> for caesium (<span data-bd="exCsSicShare">&hellip;</span> of it in the SiC term), <span data-bd="exAg1600">&hellip;</span> for silver, and <span data-bd="exSr1600">&hellip;</span> for strontium (<span data-bd="exSrKernelShare">&hellip;</span> of it in the <b>kernel</b> term). At 1000 &deg;C strontium would take <span data-bd="exSr1000">&hellip;</span>: the oxide kernel holds it, as Kugeler et al. (2017, p. 41) say of 1600 &deg;C heating tests.</p>
+<p>Compare each with the <b>half-life</b> (the dashed line). An atom that takes longer than its half-life to get out mostly decays inside: the particle has held it for good.</p>
+
+<h2>There is no multilayer diffusion solver here</h2>
+<p>The standard way to compute the full release over time, used by codes like FRESCO, solves the diffusion equation layer by layer on a mesh. <b>The workspace does not have such a solver</b> (theory book <a href="../../tutorials/fp-transport-theory/06-eulerian-fresco.html">step 9, &ldquo;FRESCO-style&rdquo;</a>). The formula above gives only the mean, for one temperature and no decay. So this page walks atoms instead.</p>
+
+<h2>And boon-lay&rsquo;s own walker?</h2>
+<p>boon-lay has a random walker that can carry atoms through every layer: <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::walk_until_released"><code>WoSWalker::<wbr>walk_<wbr>until_<wbr>released</code></a>, which calls <code>step_multilayer</code> over and over; at a boundary <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/interface.rs::does_transmit"><code>does_transmit</code></a> decides whether to cross. We ran it on this particle first. <b>It cannot get an atom out in practice.</b> The buffer&rsquo;s <i>D</i> is about a million times the inner PyC&rsquo;s, so the walker crosses from buffer to PyC about once in a million tries, and each try costs several hops. In <span data-bd="probeSteps">&hellip;</span> steps (<span data-bd="probeCsSec">&hellip;</span> of computing), a caesium atom at 1600 &deg;C spent <span data-bd="probeCsBuffer">&hellip;</span> of them in the buffer, got into the inner PyC <span data-bd="probeCsEntries">&hellip;</span> times, and never got further than <span data-bd="probeCsRmax">&hellip;</span> from the centre: it never reached the SiC.</p>
+<p>The page&rsquo;s walk avoids this by treating the buffer as one well-mixed shell, which its huge <i>D</i> makes it. It is checked against the exact mean: within 15 % at 1200&ndash;1800 &deg;C for all three elements (<code>check-fission.js</code>; the prediction was written before the run).</p>
+
+<h2>What this walk leaves out</h2>
+<ul>
+<li><b>No krypton.</b> boon-lay has no Kr coefficient in the buffer (<code>todo!()</code>, gh:#541). It is not walked.</li>
+<li><b>One temperature for the whole particle</b>, no decay, no chemistry at the boundaries (the partition ratio is 1), no fluence.</li>
+<li><b>Intact layers only.</b> A cracked or failed SiC is the rest of this chapter.</li>
+</ul>
+
+<p><b>Next:</b> so far the coatings were intact. What makes them fail? Lesson 33 starts with the gas pushing on them.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>This page&rsquo;s walk</h3>
+<p>The page splits the particle into thin shells (10 in the kernel, 1 for the buffer, 4 in each other layer). An atom hops between neighbouring shells at rates from the diffusion equation in a sphere, with the <i>D</i> at a boundary the harmonic mean of the two sides, and each hop takes a random, exponentially distributed time. It is a teaching model, verified against the exact mean, not against a measurement.</p>
+<h3>Why the mean formula works</h3>
+<p>The mean time out, T(r), from a starting radius r obeys &nabla;&middot;(D&nabla;T) = &minus;1, with T = 0 at the outer surface. In a sphere with concentration and flux continuous at each boundary, the flux D&nbsp;r&sup2;T&prime; at radius r equals &minus;r&sup3;/3, the volume inside. Integrating outward and averaging over the kernel gives the formula. A different partition ratio K at a boundary would change it.</p>
+<h3>The random walk and FRESCO in full</h3>
+<p>The theory book builds the walk from one hop up and costs it honestly (<a href="../../tutorials/fp-transport-theory/05-random-walk.html">step 8</a>; it notes the multilayer walk is exercised only qualitatively), and gives the mesh solution FRESCO uses and the Booth shortcut (<a href="../../tutorials/fp-transport-theory/06-eulerian-fresco.html">step 9</a>).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

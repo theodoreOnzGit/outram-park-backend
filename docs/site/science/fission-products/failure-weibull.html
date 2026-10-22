@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How strong is SiC?</title>
+<meta name="description" content="Fission products, lesson 34: ceramics fail at their worst flaw, so SiC strength is a spread, not a number. The Weibull law with the median as its scale gives the fraction of particles that fail at a given wall stress, in boon-lay fuel failure.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4, lesson 34. Weibull: barrier-physics.js
+     weibull(), checked against boon-lay's weibull_failure_fraction
+     (failure-data.js weibullCheck). Strength and modulus after irradiation:
+     irradiated_strength / irradiated_weibull_modulus on the HTR-10 stand-ins
+     (failure-data.js strengthVsFluence). Prediction P7. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>How strong is SiC? Weakest-link statistics</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lesson 33 gave the stress in the wall. Does the wall break? Not all at once. SiC is a ceramic, and a ceramic breaks where its worst flaw is. Every particle has different flaws, so every particle has a different strength. We cannot say whether <i>a</i> particle fails; we can say what <i>fraction</i> of them do.</p>
+
+<section class="widget-card">
+  <h3>The fraction that fails</h3>
+  <div class="widget" id="weibull">
+    <canvas aria-label="Fraction of particles failed against wall stress, log scale, rising steeply around the median strength; beside it, 400 particles drawn green or red as each one's random strength is above or below the chosen stress."></canvas>
+  </div>
+  <p class="note">boon-lay fuel failure&rsquo;s <a href="../../code-review/#crates/boon-lay/src/fuel_failure/weibull.rs::weibull_failure_fraction"><code>weibull_failure_fraction</code></a> (PANAMA-I Eq (1)), with strength and modulus after irradiation from <a href="../../code-review/#crates/boon-lay/src/fuel_failure/strength.rs::irradiated_strength"><code>irradiated_strength</code></a> and <code>irradiated_<wbr>weibull_<wbr>modulus</code> (Eqs (8a)&ndash;(9b)). Before irradiation: 834 MPa and m = 8.02, a <b>stand-in</b> (the report&rsquo;s HTR-Module SiC), not HTR-10 data.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> Set the stress exactly to the median strength &sigma;<sub>0</sub>. What fraction fails? Now raise m, the &ldquo;Weibull modulus&rdquo;. Does the curve get steeper or flatter?</p>
+
+<h2>The Weibull law</h2>
+<p class="eq-block">&phi;<sub>1</sub> = 1 &minus; exp[ &minus;ln 2 &middot; (&sigma; / &sigma;<sub>0</sub>)<sup>m</sup> ]</p>
+<ul>
+<li><b>&sigma;<sub>0</sub></b> is the <b>median</b> strength: at &sigma; = &sigma;<sub>0</sub> exactly half the particles fail, whatever m is. The ln 2 does that. (A textbook Weibull law has no ln 2 and puts 63 % there; mixing the two shifts the strength by a few per cent without any error message, and boon-lay pins it with a test.)</li>
+<li><b>m</b> says how much the strength scatters. A large m means the particles are nearly alike: almost none fail below &sigma;<sub>0</sub>, almost all above. A small m means a wide spread: some fail even at low stress.</li>
+</ul>
+<p>After irradiation at 776 &deg;C to the stand-in fluence, the code gives &sigma;<sub>0</sub> = <span data-bd="s0">&hellip;</span> and m = <span data-bd="m0">&hellip;</span>. Irradiation weakens SiC and widens its scatter (the fluence slider), down to floors of 196 MPa and m = 2 that the report sets.</p>
+
+<h2>Where it is in the code</h2>
+<p><code>AccidentHistory::<wbr>pressure_<wbr>vessel_<wbr>failure_<wbr>at</code> chains it all: pressure (lesson 33), then stress, then <code>weibull_failure_fraction</code>. When grain-boundary attack is on (lesson 35), it lowers m first.</p>
+
+<p><b>Next:</b> during an accident the wall does not stay the same. Lesson 35.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why weakest link?</h3>
+<p>A chain is as strong as its weakest link. A bigger piece of ceramic has more chances to hold a bad flaw, so it is weaker on average. A particle&rsquo;s tiny SiC shell has little volume to hold one. The report&rsquo;s law fixes the volume, as a particle&rsquo;s; it does not scale it.</p>
+<h3>What the report&rsquo;s choices are, and where they break</h3>
+<p>The theory book goes through each simplification of this chain (one thin SiC shell, strength as a distribution, irradiation as a fitted law) and says where each stops working: <a href="../../tutorials/fp-transport-theory/09-panama.html">step 7</a>. The deep dive goes equation by equation: <a href="../../deep-dives/triso-atops/fuel-failure.html">When the particle breaks</a>.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

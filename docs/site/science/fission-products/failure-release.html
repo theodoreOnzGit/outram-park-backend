@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>From failed particles to release</title>
+<meta name="description" content="Fission products, lesson 37: a failed particle releases what has already left its kernel. The released share of all the caesium, strontium or krypton is the failed fraction times the kernel's Booth release, along the same accident.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4, lesson 37. Failed fraction: lesson 36's
+     AccidentHistory rows. Kernel release: TRISO-ATOPS integrate_diffusion_over_time
+     (kernel) and booth_transient, a = 250 µm, along the same rows, via
+     failure-data.js (lesson_barriers). Prediction P11. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>From failed particles to release</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lesson 36 gave the fraction of particles that fail. A failed particle has lost its barrier, so whatever has already left its kernel can get out. How much has left the kernel? That is the Booth sphere of chapter 3 (lessons 16 and 17), now along a changing temperature.</p>
+
+<section class="widget-card">
+  <h3>Failed fraction times kernel release</h3>
+  <div class="widget" id="release">
+    <canvas aria-label="On a log scale against hours: the fraction that has left each kernel by diffusion, the fraction of particles failed, and their product, the released share of all the chosen element."></canvas>
+  </div>
+  <p class="note">Kernel release: TRISO-ATOPS&rsquo;s <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::booth_transient"><code>booth_transient</code></a> on the time integral of D/a&sup2; (<a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::integrate_diffusion_over_time"><code>integrate_<wbr>diffusion_<wbr>over_<wbr>time</code></a>, a = the 250 &micro;m kernel). Failed fraction: boon-lay fuel failure, lesson 36.</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): at 1600 &deg;C caesium leaves a kernel completely within 200 h, so the released share is just the failed fraction. Strontium, held by the oxide kernel (lesson 32), leaves only 5 to 15 % of it.</p>
+
+<h2>Release = failed &times; already out of the kernel</h2>
+<p>Inside a failed particle the atoms that have reached the buffer escape. Those still in the kernel keep diffusing out, at the Booth rate. So for each element</p>
+<p class="eq-block">released share = &phi;(t) &times; F<sub>Booth</sub>(t)</p>
+<p>where &phi; is the failed fraction and F<sub>Booth</sub> the share that has left the kernel by time t. Intact particles count as holding everything. At 1600 &deg;C after 200 h, F<sub>Booth</sub> is <span data-bd="csRelease1600">&hellip;</span> for caesium and <span data-bd="srRelease1600">&hellip;</span> for strontium. Both predictions held.</p>
+<p>The Booth release along a changing temperature uses the same series as lesson 16, with D&middot;t replaced by the time integral of D. That is how TRISO-ATOPS handles an accident, and chapter 5 takes it apart.</p>
+
+<h2>Where it is in the code</h2>
+<p>Two codes meet here. boon-lay fuel failure gives &phi; (lesson 36). TRISO-ATOPS&rsquo;s accident release integrates D over the history (<code>integrate_<wbr>diffusion_<wbr>over_<wbr>time</code>) and calls <code>booth_transient</code>. In the workspace the bridge between them is <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::with_fuel_failure_incremental"><code>FailureFractions::<wbr>with_<wbr>fuel_<wbr>failure_<wbr>incremental</code></a>: it hands TRISO-ATOPS an in-service failure fraction computed by boon-lay fuel failure. Chapter 5, lesson 43, shows where that number goes.</p>
+
+<h2>What this leaves out</h2>
+<ul>
+<li><b>Release through intact particles</b> (lessons 30&ndash;32): zero here. For silver at high temperature it is not zero.</li>
+<li><b>The graphite</b> around the particles, which holds metals back for a while (chapter 5).</li>
+<li><b>The kernel&rsquo;s own complications</b> of chapter 3: recoil, bursts, sweeping.</li>
+</ul>
+
+<p><b>Next:</b> the honest closing page: what boon-lay fuel failure leaves out.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why the product is exact here</h3>
+<p>A particle that fails at time t<sub>f</sub> releases what has left its kernel by then, and afterwards whatever keeps leaving. Either way, by time t it has released the kernel&rsquo;s F<sub>Booth</sub>(t). So the share released from all particles is &phi;(t)&nbsp;F<sub>Booth</sub>(t) exactly, as long as failed particles hold nothing and intact ones hold everything.</p>
+<h3>Booth on an accident</h3>
+<p>The theory book follows a loss-of-cooling accident and what TRISO-ATOPS does with it: <a href="../../tutorials/fp-transport-theory/15-dlofc.html">step 16</a>.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

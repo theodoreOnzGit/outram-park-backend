@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What the model leaves out</title>
+<meta name="description" content="Fission products, lesson 38: the honest closing page of chapter 4. What boon-lay fuel failure models, simplifies and leaves out: thin shell, ideal gas, stand-in strength, unverified decomposition, no oxidation, no palladium attack, no amoeba effect, and no validation.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4, lesson 38. The list is read from
+     crates/boon-lay/src/fuel_failure/ (module docs), crates/boon-lay/docs/
+     lessons/src/limitations.md and the open issues named. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>What the model leaves out</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>boon-lay fuel failure is inspired by PANAMA: a clean-room, agentic implementation of the equations published in the PANAMA-I report (Verfondern &amp; Nabielek, HTA-IB-03/90). It is not a port: the PANAMA source code was not available. It is a simple model on purpose. Here is everything it does, simplifies, or leaves out, drawn in one place so that the gaps are as visible as the physics.</p>
+
+<section class="widget-card">
+  <h3>In, simplified, out</h3>
+  <div class="widget" id="leaves">
+    <canvas aria-label="A list of boxes: green ticks for physics in the model, amber for physics that is simplified or unverified, grey dashed crosses for physics not modelled. Choosing one explains it."></canvas>
+  </div>
+  <p class="note">Read from boon-lay&rsquo;s <code>fuel_failure</code> module docs and <code>docs/lessons/src/limitations.md</code>, 2026-10-22.</p>
+</section>
+
+<h2>The model&rsquo;s own limits</h2>
+<ul>
+<li><b>Built for German TRISO over 1600&ndash;2500 &deg;C.</b> HTR-10&rsquo;s fuel is German-lineage, so applying it is defensible, but it is an <b>extrapolation</b>, and two of its inputs (SiC strength and fluence) are stand-ins from the report&rsquo;s HTR-Module case.</li>
+<li><b>Thin shell only.</b> One stress in the SiC; no thick-wall solution, no load shared with the PyC.</li>
+<li><b>Ideal gas.</b> The error at high gas density is not estimated.</li>
+<li><b>Decomposition is unverified</b> against any output of the report.</li>
+<li><b>Grain-boundary attack is off by default</b>, as in the report.</li>
+<li><b>As-manufactured defects are an input</b> (&phi;<sub>0</sub>); the 6&times;10<sup>&minus;5</sup> target is a named constant, never a default.</li>
+<li><b>Not for normal-operation failure</b> (lesson 36&rsquo;s note).</li>
+<li><b>Nothing is validated</b> against measured failure or release data.</li>
+</ul>
+
+<h2>What nothing in the workspace models yet</h2>
+<ul>
+<li><b>Oxidation failure.</b> Air or steam eating through the matrix, the PyC, the SiC and an exposed kernel: tracked as gh:#441, #443 and #444.</li>
+<li><b>Palladium and lanthanide attack on SiC.</b> The theory book (<a href="../../tutorials/fp-transport-theory/04-sic.html">step 4</a>) names sources that call palladium the fission product of greatest concern; nothing in the code models it. No open source in the corpus was read for this page: <b>source pending</b> here.</li>
+<li><b>The amoeba effect</b>: the kernel migrating up a temperature gradient through the buffer in UO<sub>2</sub> fuel. Not modelled; <b>source pending</b>.</li>
+<li><b>PyC creep, swelling, cracking and debonding</b>, which change how the load reaches the SiC (theory book <a href="../../tutorials/fp-transport-theory/08-pressure-stress.html">step 6</a>).</li>
+<li><b>A multilayer diffusion solver</b> for release through intact layers (lesson 32).</li>
+</ul>
+
+<h2>Why say all this</h2>
+<p>A model whose gaps are hidden looks more certain than it is. Each item above is a place where a real particle can do something the model cannot, and where a number from this chapter could be wrong. The next chapter shows how TRISO-ATOPS, the code that turns all this into a source term, makes its own, larger simplifications.</p>
+
+<p><b>Next:</b> chapter 5, &ldquo;Integrating it in TRISO-ATOPS&rdquo;.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Where each limit is argued</h3>
+<p>The theory book gives a justification for each simplification of the report&rsquo;s chain, says which kind it is (negligible, too expensive, conservative, or no data), and marks the ones it cannot justify as open: <a href="../../tutorials/fp-transport-theory/09-panama.html">step 7, &ldquo;Why each simplification is allowed&rdquo;</a>. The finite-element model that would remove most of them is described, not built, in <a href="../../tutorials/fp-transport-theory/05a-high-fidelity-fem.html">step 5</a>.</p>
+<h3>Naming</h3>
+<p>&ldquo;PANAMA-I&rdquo; means the report and the results it prints. &ldquo;boon-lay fuel failure&rdquo; means the code and every number it computes. A sentence like &ldquo;PANAMA gives this for HTR-10&rdquo; would be wrong twice: PANAMA was never run on HTR-10, and the number is boon-lay&rsquo;s.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
