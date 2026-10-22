@@ -68,12 +68,13 @@ use uom::si::f64::{Frequency, Length, ThermodynamicTemperature, Time};
 use uom::si::frequency::hertz;
 
 use crate::triso_atops_fork::activities::{
-    base_activities, circulating, clean_up, curies_from_becquerels, plate_out, release_rate,
-    FailureFractions,
+    base_activities_for, circulating, clean_up, curies_from_becquerels, plate_out,
+    release_rate_for, FailureFractions,
 };
-use crate::triso_atops_fork::diffusion::diffusion_coefficient;
+use crate::triso_atops_fork::diffusion::diffusion_coefficient_for;
 use crate::triso_atops_fork::nuclide_model::ElementGroup;
-use crate::triso_atops_fork::release_models::rb_fail;
+use crate::triso_atops_fork::release_models::rb_fail_for;
+use crate::triso_atops_fork::variant::TrisoAtopsVariant;
 use crate::triso_atops_fork::{Activity, DecayConstant, TrisoAtopsNuclide};
 
 /// Reactor-level constants shared by every node in a normal-operation run.
@@ -100,6 +101,12 @@ pub struct PlantConstants {
     /// Fuel irradiation time `t_irad` used for release/birth and diffusion
     /// ([`Time`], `s`).
     pub irradiation_time: Time,
+    /// Which model runs (gh:#1015): [`TrisoAtopsVariant::Upstream`], the
+    /// ported upstream code bit for bit, or
+    /// [`TrisoAtopsVariant::ATOPS2026PAPER`], the published paper's equations
+    /// (Stoyer, Raichart & Petti 2026, doi:10.1080/00295450.2026.2671624).
+    /// Set it explicitly; `TrisoAtopsVariant::default()` is `Upstream`.
+    pub variant: TrisoAtopsVariant,
 }
 
 /// The local temperature state of a single reactor node.
@@ -263,13 +270,15 @@ pub fn normal_operation_node(
 ) -> NodalActivities {
     let z = nuclide.z;
     let lam = nuclide.decay_constant();
-    let group = nuclide.element_group();
+    let v = plant.variant;
+    let group = nuclide.element_group_for(v);
 
     // 1. Diffusion coefficients at this node's temperatures.
-    let diff = diffusion_coefficient(z, node.core_temperature, node.graphite_temperature);
+    let diff = diffusion_coefficient_for(v, z, node.core_temperature, node.graphite_temperature);
 
     // 2. Release-to-birth-at-failure ratio.
-    let rb = rb_fail(
+    let rb = rb_fail_for(
+        v,
         z,
         short_lived,
         lam,
@@ -282,18 +291,21 @@ pub fn normal_operation_node(
     );
 
     // 3. Release rate R from the fuel.
-    let r = release_rate(
+    let r = release_rate_for(
+        v,
         rb,
         group,
         fractions,
         inventory,
         short_lived,
         plant.irradiation_time,
+        plant.run_time,
         lam,
     );
 
     // 4. Coolant source rate S and graphite hold-up G.
-    let sg = base_activities(
+    let sg = base_activities_for(
+        v,
         group,
         lam,
         plant.irradiation_time,
@@ -385,6 +397,7 @@ mod tests {
             kernel_radius: Length::new::<meter>(0.000213),
             run_time: Time::new::<second>(40.0 * yr),
             irradiation_time: Time::new::<second>(3.0 * yr),
+            variant: TrisoAtopsVariant::Upstream,
         }
     }
 

@@ -606,6 +606,7 @@ impl Htr10TrisoAtopsInputs {
                 // Overwritten per evaluation from the plant clock.
                 run_time: Time::new::<second>(0.0),
                 irradiation_time: Time::new::<second>(Self::IRRADIATION_TIME_S),
+                variant: boon_lay::triso_atops_fork::TrisoAtopsVariant::Upstream,
             },
             // The CLOSED-FORM pools' HPS switch. Off, because those pools are
             // not used (and with the zeroed k_plate/k_clean above the ported

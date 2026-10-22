@@ -53,6 +53,7 @@ pub fn case_a() -> PlantConstants {
         kernel_radius: m(2.13e-4),
         run_time: years(40.0),
         irradiation_time: years(3.0),
+        variant: boon_lay::triso_atops_fork::TrisoAtopsVariant::Upstream,
     }
 }
 /// MHTGR Case A failure fractions (constants.csv; paper Table 2, p. 7).

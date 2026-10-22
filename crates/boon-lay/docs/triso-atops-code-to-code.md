@@ -453,6 +453,23 @@ tuned away, under its own fixture group `coolant_release.knife_edge.*`, and
 asserted by `coolant_release_knife_edge_divergence_is_representation_noise` —
 which fails if the disagreement ever exceeds `3e-16` or disappears.
 
+## The `atops2026paper` variant does not move the default (gh:#1015, 2026-10-22)
+
+`TrisoAtopsVariant` (`triso_atops_fork::variant`) adds the published paper's
+equations as an opt-in model. **Every comparison in this document runs
+`TrisoAtopsVariant::Upstream`, the default, and was re-run unchanged after the
+variant landed.** The `PlantConstants` literals in the suites now name
+`variant: Upstream` explicitly; nothing else in them changed. Each `*_for`
+function calls the ported function itself under upstream readings.
+`tests/mhtgr_stoyer_workflow.rs::paper_variant_with_upstream_readings_is_upstream_bit_for_bit`
+pins `Atops2026Paper(PaperReadings::UPSTREAM_CODE)` equal to `Upstream`,
+exactly, on both MHTGR cases.
+
+The paper variant is **not** code-to-code verified, because it has no
+upstream counterpart. It is checked against hand values of the paper's
+equations, and against the paper's own printed releases in
+[`triso-atops-2026-paper-reproduction.md`](triso-atops-2026-paper-reproduction.md).
+
 ## What this does NOT establish
 
 This is **verification, not validation**. It shows the Rust port computes what

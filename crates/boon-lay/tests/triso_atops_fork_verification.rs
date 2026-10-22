@@ -222,6 +222,7 @@ fn normal_operation_node_i131_via_prelude() {
         kernel_radius: Length::new::<meter>(0.000213),
         run_time: Time::new::<second>(40.0 * yr),
         irradiation_time: Time::new::<second>(3.0 * yr),
+        variant: boon_lay::triso_atops_fork::TrisoAtopsVariant::Upstream,
     };
     let node = NodeState {
         core_temperature: ThermodynamicTemperature::new::<degree_celsius>(900.0),

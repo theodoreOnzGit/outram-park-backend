@@ -746,6 +746,7 @@ fn node_outputs(a: &[f64]) -> NodalActivities {
             kernel_radius: len_m(a[12]),
             run_time: t_s(a[13]),
             irradiation_time: t_s(a[14]),
+            variant: boon_lay::triso_atops_fork::TrisoAtopsVariant::Upstream,
         },
         NodeState {
             core_temperature: temp_c(a[4]),

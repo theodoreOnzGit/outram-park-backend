@@ -161,6 +161,7 @@ mod tests {
             kernel_radius: Length::new::<meter>(0.000213),
             run_time: Time::new::<second>(40.0 * yr),
             irradiation_time: Time::new::<second>(3.0 * yr),
+            variant: crate::triso_atops_fork::TrisoAtopsVariant::Upstream,
         }
     }
 

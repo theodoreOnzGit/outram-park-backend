@@ -377,6 +377,7 @@ fn normal_operation_pools(
         kernel_radius: plant.kernel_radius,
         run_time: op.run_time,
         irradiation_time: op.irradiation_time,
+        variant: boon_lay::triso_atops_fork::TrisoAtopsVariant::Upstream,
     };
     let f = plant.fractions;
     let fractions = FailureFractions {
