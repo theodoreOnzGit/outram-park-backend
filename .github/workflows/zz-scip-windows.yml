@@ -1,6 +1,7 @@
-# Disposable: reproduces `kovan-cli index --fresh` (rust-analyzer scip) on
-# Windows for the 0xc00000fd / 0xc00000be failures. Lives only on ci-scip/**.
-name: scip windows probe
+# Disposable: the kovan desktop build and tests, plus `kovan-cli index --fresh`
+# (rust-analyzer scip), on Windows, Linux and macOS. Chases the Windows
+# 0xc00000fd / 0xc00000be failures (2026-10-22). Lives only on ci-scip/**.
+name: kovan desktop + scip probe
 on:
   push:
     branches: ["ci-scip/**"]
@@ -9,8 +10,13 @@ env:
   KOVAN_PKG: knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan
 jobs:
   probe:
-    runs-on: windows-latest
-    timeout-minutes: 240
+    name: probe / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false # one platform's failure must not hide the others'
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - name: rust-analyzer for the pinned toolchain
@@ -22,18 +28,19 @@ jobs:
           rust-analyzer --version
       - uses: Swatinem/rust-cache@v2
         with:
-          key: scip-probe
+          key: scip-probe-${{ matrix.os }}
           cache-on-failure: true
-      - name: Build kovan-cli
+      - name: Build the desktop app, the CLI and the TUI
         shell: bash
-        run: cargo build --release -p "$KOVAN_PKG" --bin kovan-cli
-      - name: Patched copy starts (--version)
+        run: cargo build --release -p "$KOVAN_PKG" --bin kovan --bin kovan-cli --bin kovan-tui
+      - name: Test kovan, kovan-common and kovan-web
+        id: tests
+        continue-on-error: true
         shell: bash
-        run: |
-          set -x
-          mkdir -p target/kovan-scip
-          ./target/release/kovan-cli --help >/dev/null
-          ls -la "$(rustup which rust-analyzer)" "$(dirname "$(rustup which rust-analyzer)")"
+        run: cargo test --release --no-fail-fast -p "$KOVAN_PKG" -p kovan-common -p kovan-web --lib --tests
+      - name: Where rust-analyzer lives
+        shell: bash
+        run: ls -la "$(rustup which rust-analyzer)" "$(dirname "$(rustup which rust-analyzer)")" | head -40
       - name: kovan-cli index --fresh (the failing path)
         id: fresh
         continue-on-error: true
@@ -44,12 +51,12 @@ jobs:
         shell: bash
         run: |
           ls -la target/kovan-scip || true
-          ./target/kovan-scip/rust-analyzer-bigstack.exe --version || echo "bigstack --version exit $?"
+          if [ -f target/kovan-scip/rust-analyzer-bigstack.exe ]; then ./target/kovan-scip/rust-analyzer-bigstack.exe --version || echo "bigstack --version exit $?"; fi
           head -30 target/kovan-scip/rust-analyzer-scip.log || true
           echo ....
           tail -60 target/kovan-scip/rust-analyzer-scip.log || true
           cp target/kovan-scip/rust-analyzer-scip.log kovan-run.log || true
-      - name: Control, plain rust-analyzer scip (expected to overflow)
+      - name: Control, plain rust-analyzer scip (expected to overflow on Windows only)
         if: always()
         continue-on-error: true
         shell: bash
@@ -59,7 +66,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: scip-logs
+          name: scip-logs-${{ matrix.os }}
           path: |
             kovan-run.log
             control.log
+      - name: Fail the job if the tests or the index failed
+        if: always()
+        shell: bash
+        run: |
+          echo "tests: ${{ steps.tests.outcome }}, index --fresh: ${{ steps.fresh.outcome }}"
+          [ "${{ steps.tests.outcome }}" = success ] && [ "${{ steps.fresh.outcome }}" = success ]
