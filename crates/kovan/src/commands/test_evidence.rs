@@ -35,7 +35,6 @@ use std::process::{Command, Stdio};
 use kovan_common::review::evidence::args::plan;
 use kovan_common::review::evidence::output::{LineKind, OutputParser};
 use kovan_common::review::evidence::{dirty_build_inputs, TestEvidence};
-use kovan_common::review::hash::sha256_tagged;
 
 fn capture(root: &Path, program: &str, args: &[&str]) -> Result<String, String> {
     let out = Command::new(program)
@@ -66,7 +65,8 @@ fn dirty(root: &Path) -> Result<Vec<String>, String> {
 fn lock_hash(root: &Path) -> Result<String, String> {
     let bytes = std::fs::read(root.join("Cargo.lock"))
         .map_err(|e| format!("{}: {e}", root.join("Cargo.lock").display()))?;
-    Ok(sha256_tagged(&bytes))
+    // The same hash the stamps compare against (CRLF read as LF).
+    Ok(crate::stamping::lock_bytes_hash(&bytes))
 }
 
 /// Write a counted run into every code-folder `kovan.toml` of the workspace
@@ -112,6 +112,18 @@ pub fn write_into_kovan_tomls(root: &Path, evidence: &TestEvidence) -> Result<us
     Ok(texts.len())
 }
 
+/// `cargo <args>` in `root`, with colour off: its output is parsed, and a
+/// `CARGO_TERM_COLOR=always` (as CI runners set) wrapped cargo's `Running`
+/// lines in escape codes, so no test was mapped to a binary and the run was
+/// recorded with nothing passed (kovan CI, macOS runner, 2026-10-22).
+fn cargo_command(args: &[String], root: &Path) -> Command {
+    let mut c = Command::new("cargo");
+    c.args(args)
+        .current_dir(root)
+        .env("CARGO_TERM_COLOR", "never");
+    c
+}
+
 /// Run `kovan-cli test` in workspace `root` with the user's `extra` cargo
 /// arguments.
 pub fn run(
@@ -148,9 +160,12 @@ pub fn run(
     // the parser in order, so both get the same pipe.
     let (reader, writer) = std::io::pipe().map_err(|e| format!("pipe: {e}"))?;
     let writer2 = writer.try_clone().map_err(|e| format!("pipe: {e}"))?;
-    let mut child = Command::new("cargo")
-        .args(&pl.args)
-        .current_dir(root)
+    // cargo reports absolute source paths; `root` may be relative (`.`),
+    // or on Windows hold an 8.3 short name (`RUNNER~1`) that cargo would
+    // echo back while the canonical root is long. Run cargo in the
+    // canonical root so its paths and the parser's root are spelled alike.
+    let abs_root = dunce::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let mut child = cargo_command(&pl.args, &abs_root)
         .stdin(Stdio::null())
         .stdout(writer)
         .stderr(writer2)
@@ -158,8 +173,6 @@ pub fn run(
         .map_err(|e| format!("cargo: {e}"))?;
     // The parent's copies of the write end are moved into `Command` and
     // dropped with it, so the reader sees EOF when cargo exits.
-    // cargo reports absolute source paths; `root` may be relative (`.`).
-    let abs_root = dunce::canonicalize(&root).unwrap_or_else(|_| root.to_path_buf());
     let mut parser = OutputParser::new(&abs_root.to_string_lossy());
     let stdout = std::io::stdout();
     for line in BufReader::new(reader).lines() {
@@ -234,5 +247,23 @@ pub fn run(
             "cargo test exited with {status}; the results are recorded in {}",
             path.display()
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The parsed cargo run never gets colour, whatever the caller's
+    /// environment says.
+    #[test]
+    fn the_cargo_run_has_colour_off() {
+        let c = cargo_command(&["test".into(), "--release".into()], Path::new("."));
+        let color = c
+            .get_envs()
+            .find(|(k, _)| *k == "CARGO_TERM_COLOR")
+            .and_then(|(_, v)| v);
+        assert_eq!(color, Some(std::ffi::OsStr::new("never")));
+        assert_eq!(c.get_args().collect::<Vec<_>>(), ["test", "--release"]);
     }
 }

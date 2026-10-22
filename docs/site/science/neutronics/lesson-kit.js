@@ -300,7 +300,30 @@
     ["kernel-burnup-oxygen.html", "Complication 6: burnup and the oxygen balance"],
     ["kernel-conductivity.html", "Complication 7: conductivity falls"],
     ["kernel-hbs.html", "Complication 8: the high-burnup structure"],
-    ["kernel-swelling.html", "Complication 9: the kernel swells"]
+    ["kernel-swelling.html", "Complication 9: the kernel swells"],
+    // Chapter 4, "TRISO layer migration and particle failure" (maintainer
+    // direction 2026-10-22: the planned Barriers and Fuel-failure chapters
+    // merged, with diffusion through the layers; TRISO only).
+    ["barriers-why.html", "Why layers?"],
+    ["barriers-migration.html", "Migration through the layers"],
+    ["barriers-sic.html", "Why SiC matters most, and silver gets through"],
+    ["barriers-whole.html", "Across the whole particle"],
+    ["failure-vessel.html", "A tiny pressure vessel"],
+    ["failure-weibull.html", "How strong is SiC? Weakest-link statistics"],
+    ["failure-thinning.html", "The wall gets thinner"],
+    ["failure-accident.html", "An accident, step by step"],
+    ["failure-release.html", "From failed particles to release"],
+    ["failure-leaves-out.html", "What the model leaves out"],
+    // Chapter 5, "Integrating it in TRISO-ATOPS" (maintainer direction
+    // 2026-10-22: chapters 3 and 4 brought together inside TRISO-ATOPS).
+    ["atops-big-picture.html", "TRISO-ATOPS: the big picture"],
+    ["atops-groups.html", "84 nuclides, five groups"],
+    ["atops-diffusion.html", "One diffusion law per group"],
+    ["atops-release-models.html", "One release model per group"],
+    ["atops-normal-operation.html", "Normal operation, node by node"],
+    ["atops-coolant.html", "Into the coolant"],
+    ["atops-accident.html", "Accidents: Booth on the integral, and venting"],
+    ["atops-simplifications.html", "Simplifications, side by side"]
   ];
   var TRACKS = {
     neutronics: ["Neutronics", LESSONS, "glossary.html"],

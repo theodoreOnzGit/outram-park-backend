@@ -590,23 +590,23 @@ impl Htr10TrisoAtopsInputs {
         let unfuelled_shell = pebble.outer_radius - pebble.fuelled_zone_radius;
 
         Self {
-            plant: PlantConstants {
-                // The closed-form pools `normal_operation_node` also returns
-                // are NOT used: the live pools carry HTR-10's constants (see
-                // `htr10_pool_rates`). Zero here makes that visible -- the
-                // release rate, source rate and graphite hold-up this channel
-                // does use do not depend on them.
-                k_plate: Frequency::new::<hertz>(0.0),
-                k_clean: Frequency::new::<hertz>(0.0),
-                graphite_thickness: unfuelled_shell,
-                grain_size: Length::new::<meter>(Self::TRISO_ATOPS_GRAIN_SIZE_M),
-                sic_thickness: particle.silicon_carbide_outer_radius
-                    - particle.inner_pyc_outer_radius,
-                kernel_radius: particle.kernel_radius,
-                // Overwritten per evaluation from the plant clock.
-                run_time: Time::new::<second>(0.0),
-                irradiation_time: Time::new::<second>(Self::IRRADIATION_TIME_S),
-            },
+            plant: PlantConstants::new(
+                // k_plate, k_clean: the closed-form pools
+                // `normal_operation_node` also returns are NOT used: the live
+                // pools carry HTR-10's constants (see `htr10_pool_rates`).
+                // Zero here makes that visible -- the release rate, source
+                // rate and graphite hold-up this channel does use do not
+                // depend on them.
+                Frequency::new::<hertz>(0.0),
+                Frequency::new::<hertz>(0.0),
+                unfuelled_shell,
+                Length::new::<meter>(Self::TRISO_ATOPS_GRAIN_SIZE_M),
+                particle.silicon_carbide_outer_radius - particle.inner_pyc_outer_radius,
+                particle.kernel_radius,
+                // run_time: overwritten per evaluation from the plant clock.
+                Time::new::<second>(0.0),
+                Time::new::<second>(Self::IRRADIATION_TIME_S),
+            ),
             // The CLOSED-FORM pools' HPS switch. Off, because those pools are
             // not used (and with the zeroed k_plate/k_clean above the ported
             // `clean_up` is 0/0 when it is on). HTR-10's helium purification

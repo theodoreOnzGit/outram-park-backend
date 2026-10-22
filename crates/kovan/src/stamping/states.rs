@@ -14,6 +14,7 @@
 //! | `cargo_lock` | `sha256:` of `Cargo.lock` in the working tree |
 //! | `stamps[..].added_in` | the newest commit whose diff changes the number of occurrences of the stamp's signature value in its `review.md` (`git log -1 -S<value>`), taken only when `HEAD`'s `review.md` holds it (else not committed); `after_certified` is "not the certified commit and a descendant of it" (`git merge-base --is-ancestor`); `certified_in_history` is "the certified commit is an ancestor of `HEAD`" (the same command against `HEAD`; false after a squash or rebase, and in a shallow clone, #838); the trailer check is [`agent_trailer`] on its message |
 //! | `stamps[..].hash_at_commit` | the function at the review's recorded `path`, re-hashed from `git show <commit>:<file>` with the same `syn` hasher |
+//! | `stamps[..].carried_forward` | only when the certified commit is not in `HEAD`'s history: the stamp's chain through the verified `kovan_carry_forward/` records ([`super::carry_forward`], #838, #1018), when it ends in a commit in history. Then `certified_in_history` is true, `hash_at_commit`, the permalink and (when the original commit is not in this clone) `tests_at_review` are read at that effective key, and `reviewed_commit_time` stays the original commit's (`None` when absent: the #783 check is not checkable) |
 //! | `stamps[..].tests_at_review` | `reached_by` of the function in the folder's `kovan.toml` **as committed at the review commit**, and for each test the messages of the commits up to it that touched the test's file (file-level: coarser than the function, so an agent commit anywhere in the file counts, the conservative side) |
 //! | `hashes_at_test_run` | every function of a folder with `[test_run]`, re-hashed at the run's commit |
 //! | `code_authors` | for reviewed functions only: `git blame` author e-mails of the function's current lines, plus the reviewer ids they map to (the same e-mail, or `github:<user>` for a `users.noreply.github.com` address; matched case-insensitively against the registry) |
@@ -39,9 +40,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use kovan_common::call_graph::split::{StampState as WebStamp, StampVerdict};
+use kovan_common::review::carry_forward::CarryForward;
 use kovan_common::review::engine::{
-    evaluate, ConceptAreas, Evaluation, FolderReviews, GitFacts, ReviewKey, SignaturePolicy,
-    StampCommit, StampFacts, StampState, TestsAtReview, UnverifiedReason,
+    evaluate, CarriedForward, ConceptAreas, Evaluation, FolderReviews, GitFacts, ReviewKey,
+    SignaturePolicy, StampCommit, StampFacts, StampState, TestsAtReview, UnverifiedReason,
 };
 use kovan_common::review::hash::{hash_all, HashedFn};
 use kovan_common::review::index::FolderIndex;
@@ -263,6 +265,36 @@ fn added_in(root: &Path, review_md: &str, r: &ReviewEntry) -> Option<StampCommit
     })
 }
 
+/// The stamp's carry-forward (#838, #1018), when its certified commit is
+/// not in `HEAD`'s history and verified records lead to a commit that is.
+/// Then `added` is marked as in history (the effective key is), and whether
+/// the stamp arrived in a hop's own commit is recorded.
+fn carried_forward(
+    root: &Path,
+    r: &ReviewEntry,
+    records: &[CarryForward],
+    added: Option<&mut StampCommit>,
+    files: &mut FileCache,
+) -> Option<CarriedForward> {
+    let added = added?;
+    if added.certified_in_history || records.is_empty() {
+        return None;
+    }
+    let mut g = super::carry_forward::GitChain::new(root, "HEAD", files);
+    let chain = super::carry_forward::chain_of(r, records, &mut g);
+    use kovan_common::review::carry_forward::ChainGit;
+    if chain.hops.is_empty() || !g.in_history(&chain.key) {
+        return None;
+    }
+    added.certified_in_history = true;
+    Some(CarriedForward {
+        key: chain.key.clone(),
+        path: chain.path.clone().unwrap_or_default(),
+        stamp_arrived_in_hop: chain.hops.iter().any(|h| h.to == added.commit),
+        hops: chain.hops.iter().map(|h| (h.from.clone(), h.to.clone())).collect(),
+    })
+}
+
 /// Reviewer ids a git author e-mail stands for (module doc).
 fn author_ids(email: &str, root: &ReviewRoot) -> BTreeSet<String> {
     let mut out = BTreeSet::from([email.to_string()]);
@@ -358,6 +390,13 @@ pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
             }
         }
     }
+    // Carry-forward records (#838, #1018), consulted only for a stamp whose
+    // certified commit is not in HEAD's history.
+    let records: Vec<CarryForward> = super::carry_forward::load_records(root)
+        .0
+        .into_iter()
+        .map(|(_, r)| r)
+        .collect();
     let current: BTreeMap<&str, (&FolderIndex, &str)> = ws
         .indexes
         .iter()
@@ -369,30 +408,36 @@ pub fn git_facts(root: &Path, ws: &Workspace) -> GitFacts {
     for (dir, m) in &ws.reviews {
         let review_md = join(dir, REVIEW_MD);
         for r in m.doc.reviews() {
-            let path = certified_path(r);
+            let mut added = added_in(root, &review_md, r);
+            let carried = carried_forward(root, r, &records, added.as_mut(), &mut files);
+            // Read at the effective key when carried forward, else at the
+            // certified commit (#838, #1018).
+            let (key, path) = match &carried {
+                Some(c) => (c.key.clone(), c.path.clone()),
+                None => (r.review.commit.clone(), certified_path(r)),
+            };
             let at = path.split_once(".rs::").and_then(|(file, qual)| {
-                fn_at(
-                    &mut files,
-                    root,
-                    &r.review.commit,
-                    &format!("{file}.rs"),
-                    qual,
-                )
+                fn_at(&mut files, root, &key, &format!("{file}.rs"), qual)
             });
-            let reviewed_dir = path
-                .split_once(".rs::")
-                .map_or("", |(f, _)| f.rsplit_once('/').map_or("", |(d, _)| d));
+            let dir_of = |p: &str| {
+                p.split_once(".rs::")
+                    .map_or(String::new(), |(f, _)| f.rsplit_once('/').map_or(String::new(), |(d, _)| d.to_string()))
+            };
+            // The tests at the original commit when this clone holds it,
+            // else at the effective key.
+            let tests_at_review =
+                tests_at(root, &r.review.commit, &dir_of(&certified_path(r)), &r.function_id(), &mut msgs)
+                    .or_else(|| {
+                        carried.as_ref().and_then(|c| tests_at(root, &c.key, &dir_of(&c.path), &r.function_id(), &mut msgs))
+                    });
             let facts = StampFacts {
                 hash_at_commit: at.map(|h| h.hashes.hash),
-                added_in: added_in(root, &review_md, r),
+                added_in: added,
+                // Always the original commit's time (#783, #1018): `None`
+                // when it is not in this clone, never `to`'s.
                 reviewed_commit_time: committer_time(root, &r.review.commit),
-                tests_at_review: tests_at(
-                    root,
-                    &r.review.commit,
-                    reviewed_dir,
-                    &r.function_id(),
-                    &mut msgs,
-                ),
+                tests_at_review,
+                carried_forward: carried,
             };
             g.stamps.insert(
                 ReviewKey {
@@ -466,7 +511,54 @@ pub fn evaluate_loaded(root: &Path, ws: &Workspace) -> WorkspaceEvaluation {
 
 /// [`evaluate_loaded`] with the function -> concept-area map given (#810).
 pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas) -> WorkspaceEvaluation {
+    evaluate_loaded_timed(root, ws, concepts).0
+}
+
+/// The phases of one state refresh, timed (GitHub #1018: "for windows,
+/// reviews do take long"; measure before optimising). Logged by kovan
+/// after each background refresh ([`RefreshTimings::line`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RefreshTimings {
+    pub load: super::LoadPhases,
+    /// Resolving the reviews' concept areas.
+    pub concepts: std::time::Duration,
+    /// [`git_facts`]: every `git` call.
+    pub git: std::time::Duration,
+    /// The staleness engine.
+    pub engine: std::time::Duration,
+    /// The permalinks (re-hashing reviewed code at its commit).
+    pub permalinks: std::time::Duration,
+    /// Mapping to the web's rows.
+    pub states: std::time::Duration,
+    pub total: std::time::Duration,
+}
+
+impl RefreshTimings {
+    /// One line for the log, seconds to the millisecond.
+    pub fn line(&self) -> String {
+        let s = |d: std::time::Duration| format!("{:.3} s", d.as_secs_f64());
+        format!(
+            "review-state refresh {}: cache check {}, folder refresh {} ({} folders), concepts {}, git {}, engine {}, permalinks {}, states {}",
+            s(self.total),
+            s(self.load.cache_check),
+            s(self.load.folder_refresh),
+            self.load.folders_refreshed,
+            s(self.concepts),
+            s(self.git),
+            s(self.engine),
+            s(self.permalinks),
+            s(self.states)
+        )
+    }
+}
+
+/// [`evaluate_loaded_with`], with its phases timed (`git`, `engine`,
+/// `permalinks` of [`RefreshTimings`]).
+pub fn evaluate_loaded_timed(root: &Path, ws: &Workspace, concepts: &ConceptAreas) -> (WorkspaceEvaluation, RefreshTimings) {
+    let mut t = RefreshTimings::default();
+    let clock = std::time::Instant::now();
     let git = git_facts(root, ws);
+    t.git = clock.elapsed();
     let krate_of = |dir: &str| {
         ws.indexes
             .iter()
@@ -483,6 +575,7 @@ pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas
             doc: m.doc.clone(),
         })
         .collect();
+    let clock = std::time::Instant::now();
     let evaluation = evaluate(
         &folders,
         &ws.indexes,
@@ -491,6 +584,8 @@ pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas
         concepts,
         SignaturePolicy::Enforce,
     );
+    t.engine = clock.elapsed();
+    let clock = std::time::Instant::now();
     let call_graph_ids = ws
         .indexes
         .iter()
@@ -503,11 +598,19 @@ pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas
     let mut permalinks = BTreeMap::new();
     for m in ws.reviews.values() {
         for r in m.doc.reviews() {
-            let path = certified_path(r);
+            let key = ReviewKey {
+                function: r.function_id(),
+                by: r.review.by.clone(),
+            };
+            // At the effective key when carried forward (#838, #1018).
+            let (commit, path) = match git.stamps.get(&key).and_then(|f| f.carried_forward.as_ref()) {
+                Some(c) => (c.key.clone(), c.path.clone()),
+                None => (r.review.commit.clone(), certified_path(r)),
+            };
             if let Some((file, qual)) = path.split_once(".rs::") {
                 let file = format!("{file}.rs");
                 let lines =
-                    fn_at(&mut files, root, &r.review.commit, &file, qual).map(|h| h.entry.lines);
+                    fn_at(&mut files, root, &commit, &file, qual).map(|h| h.entry.lines);
                 let anchor = lines
                     .map(|[a, b]| format!("#L{a}-L{b}"))
                     .unwrap_or_default();
@@ -519,18 +622,22 @@ pub fn evaluate_loaded_with(root: &Path, ws: &Workspace, concepts: &ConceptAreas
                     format!(
                         "{}/blob/{}/{file}{anchor}",
                         crate::commands::code_walk::render::DEFAULT_REPO_URL.trim_end_matches('/'),
-                        r.review.commit
+                        commit
                     ),
                 );
             }
         }
     }
-    WorkspaceEvaluation {
-        evaluation,
-        call_graph_ids,
-        permalinks,
-        review_root: ws.review_root.clone(),
-    }
+    t.permalinks = clock.elapsed();
+    (
+        WorkspaceEvaluation {
+            evaluation,
+            call_graph_ids,
+            permalinks,
+            review_root: ws.review_root.clone(),
+        },
+        t,
+    )
 }
 
 /// A one-line reason for a state that is not valid.
@@ -552,8 +659,8 @@ fn describe(s: &StampState) -> String {
         StampState::Fixed { note, .. } => format!("fixed, awaiting re-review: {note}"),
         StampState::Unverified(UnverifiedReason::CertifiedCommitNotInHistory) => {
             "unverified: the commit this review certifies is not in this branch's history (a \
-             squash or rebase replaced it, or the clone is shallow); after a squash, re-anchor \
-             it in desktop kovan"
+             squash or rebase replaced it, or the clone is shallow); after a squash, run \
+             `kovan-cli review carry-forward` (or re-anchor it in desktop kovan)"
                 .into()
         }
         StampState::Unverified(why) => format!("unverified: {why:?}"),
@@ -572,7 +679,20 @@ fn describe(s: &StampState) -> String {
 /// recorded are left out (the web shows them as unreviewed). Plain
 /// function, no UI: call it off the UI thread.
 pub fn stamp_states(root: &Path) -> Result<Vec<WebStamp>, String> {
-    let we = evaluate_workspace(root)?;
+    stamp_states_timed(root).map(|(s, _)| s)
+}
+
+/// [`stamp_states`], with every phase timed ([`RefreshTimings`]).
+pub fn stamp_states_timed(root: &Path) -> Result<(Vec<WebStamp>, RefreshTimings), String> {
+    let start = std::time::Instant::now();
+    let (ws, load) = super::load_workspace_timed(root)?;
+    let clock = std::time::Instant::now();
+    let concepts = super::concepts::concept_areas(&ws);
+    let concepts_took = clock.elapsed();
+    let (we, mut t) = evaluate_loaded_timed(root, &ws, &concepts);
+    t.load = load;
+    t.concepts = concepts_took;
+    let clock = std::time::Instant::now();
     let mut out = Vec::new();
     for (id, fr) in &we.evaluation.functions {
         if fr.reviews.is_empty() && fr.state.kind() == StateKind::New {
@@ -616,5 +736,7 @@ pub fn stamp_states(root: &Path) -> Result<Vec<WebStamp>, String> {
         });
     }
     out.sort_by(|a, b| a.function.cmp(&b.function));
-    Ok(out)
+    t.states = clock.elapsed();
+    t.total = start.elapsed();
+    Ok((out, t))
 }

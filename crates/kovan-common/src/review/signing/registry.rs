@@ -89,15 +89,54 @@
 //!
 //! Trust is computed to a fixed point, so the order of entries does not
 //! matter, and an endorsement cycle never becomes trusted.
+//!
+//! # Standing after admission: the roster events (GitHub #1019)
+//!
+//! The admission is never rewritten. A reviewer's later changes of role and
+//! scope, novice marks and promotions are `[[code_review.roster_event]]`
+//! entries ([`RosterEvent`]), one list for every reviewer, appended in
+//! order and replayed in that order ([`ReviewerTrust::changes`]):
+//!
+//! ```text
+//!   admission (role, scope)  ─ scope ─ novice ─ role=maintainer ─ trusted …
+//!   role_at(d), scope_at(d), novice_at(d, path): the admitted values,
+//!   replayed through the verified events dated on or before d
+//! ```
+//!
+//! - **Signed by a maintainer just before the event:** an admitted
+//!   reviewer whose role, replayed through the events before this one, is
+//!   maintainer, with a trusted key active at the event's date, not
+//!   revoked by then ([`find_signer`]). So in a same-day handover, A signs
+//!   B's promotion and then A's own step-down, in that order.
+//! - **Unsigned, forged, out of order or by a non-maintainer:** no effect,
+//!   and a [`Warning::RosterEvent`]. (A novice mark only takes trust away,
+//!   but it is still not honoured unsigned: a mark anyone could add by hand
+//!   would let anyone stall another reviewer's stamps.)
+//! - **Judged on the stamp's date:** a stamp counts under the role and
+//!   scope in force on its date ([`ReviewerTrust::may_stamp`]; within one
+//!   date, the more permissive of its start and end, since events carry no
+//!   time), so widening or narrowing a scope later
+//!   never changes an old stamp's verdict, and a maintainer who steps down
+//!   keeps every stamp made while they were one. Admissions, resets and
+//!   revocations are likewise authorised by the signer's role on their own
+//!   date ([`maintainers`]).
+//! - **Novice** (maintainer, #1019, "People need to earn their trust"): a
+//!   reviewer is a novice for a path on a date when the last verified
+//!   `novice`/`trusted` event dated on or before it whose scope covers the
+//!   path (empty covers everything) is `novice`. Everyone starts trusted,
+//!   and a maintainer is never a novice. The staleness engine then needs a
+//!   second, trusted sign-off ([`crate::review::engine`]).
 
 use ed25519_dalek::VerifyingKey;
 
 use super::super::root::{
     KeyEvent, KeyEventKind, KeySigner, ReviewRoot, Reviewer, ReviewerKey, Revocation, Role,
+    RosterEvent, RosterEventKind,
 };
+use super::super::scope::in_scope;
 use super::{
-    decode_public, event_signed_bytes, is_date, revocation_bytes, verify_bytes, CryptoError,
-    UnverifiedReason, ALG,
+    decode_public, event_signed_bytes, is_date, revocation_bytes, roster_event_bytes, verify_bytes,
+    CryptoError, UnverifiedReason, ALG,
 };
 
 /// Why the registry has no founding maintainer (then nothing is trusted).
@@ -348,18 +387,162 @@ impl RevocationTrust {
     }
 }
 
+/// A verified roster event: a change to a reviewer's standing (module doc).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RosterChange {
+    /// Its position in `[[code_review.roster_event]]`.
+    pub index: usize,
+    pub date: String,
+    pub kind: RosterEventKind,
+    pub role: Option<Role>,
+    pub scope: Vec<String>,
+    /// The maintainer and key that signed it.
+    pub by: String,
+    pub key: String,
+}
+
+/// Why a roster event has no effect (listed as a warning).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RosterProblem {
+    /// It names no `[[reviewer]]`.
+    UnknownReviewer,
+    /// `date` is not `YYYY-MM-DD`.
+    BadDate(String),
+    /// Dated before the entry before it (the list is append-only).
+    OutOfOrder,
+    /// A `role` event without a role.
+    MissingRole,
+    /// The signature does not count: unsigned, forged, by someone who was
+    /// not a maintainer just before it, or by a key retired or revoked then.
+    Signer(SignerProblem),
+}
+
 /// One reviewer, judged.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReviewerTrust {
     pub id: String,
+    /// The **admitted** role (signed by the admission); the role in force
+    /// on a date is [`Self::role_at`].
     pub role: Role,
+    /// The **admitted** scope; the one in force is [`Self::scope_at`].
     pub scope: Vec<String>,
     pub admission: Admission,
     pub keys: Vec<KeyTrust>,
     pub revocation: Option<RevocationTrust>,
+    /// The verified roster events about this reviewer, in list order
+    /// (GitHub #1019; module doc).
+    pub changes: Vec<RosterChange>,
+}
+
+/// The role after replaying `changes` onto `base`.
+fn role_after<'c>(base: Role, changes: impl Iterator<Item = &'c RosterChange>) -> Role {
+    changes.fold(base, |r, c| match (c.kind, c.role) {
+        (RosterEventKind::Role, Some(n)) => n,
+        _ => r,
+    })
 }
 
 impl ReviewerTrust {
+    /// The role in force on `date`: the admitted one, replayed through the
+    /// verified events dated on or before it.
+    pub fn role_at(&self, date: &str) -> Role {
+        role_after(self.role, self.changes.iter().filter(|c| c.date.as_str() <= date))
+    }
+
+    /// The scope in force on `date` (the admitted one, then the last
+    /// `scope` event dated on or before it).
+    pub fn scope_at(&self, date: &str) -> &[String] {
+        self.changes
+            .iter()
+            .rev()
+            .find(|c| c.kind == RosterEventKind::Scope && c.date.as_str() <= date)
+            .map_or(self.scope.as_slice(), |c| c.scope.as_slice())
+    }
+
+    /// Whether a stamp dated `date` may certify `path` (GitHub #1019): a
+    /// maintainer anywhere, a reviewer within scope, under the role and
+    /// scope in force on that date. Events carry a date and no time, so a
+    /// stamp counts under the more permissive of the standing at the start
+    /// of its date (events dated before it) and at the end (events dated on
+    /// or before it): a change never voids a stamp made the same day, and
+    /// a widening counts from its own day. With no roster events both are
+    /// the admitted role and scope, as before.
+    pub fn may_stamp(&self, date: &str, path: &str) -> bool {
+        self.may_stamp_where(date, Some(path))
+    }
+
+    /// Whether the reviewer was a maintainer at the start or the end of
+    /// `date` (a maintainer may sign a node with no member paths).
+    pub fn maintainer_on(&self, date: &str) -> bool {
+        self.may_stamp_where(date, None)
+    }
+
+    fn may_stamp_where(&self, date: &str, path: Option<&str>) -> bool {
+        let ok = |role: Role, scope: &[String]| role == Role::Maintainer || path.is_some_and(|p| in_scope(scope, p));
+        let before: Vec<&RosterChange> = self.changes.iter().filter(|c| c.date.as_str() < date).collect();
+        let scope_before = before
+            .iter()
+            .rev()
+            .find(|c| c.kind == RosterEventKind::Scope)
+            .map_or(self.scope.as_slice(), |c| c.scope.as_slice());
+        ok(self.role_at(date), self.scope_at(date)) || ok(role_after(self.role, before.into_iter()), scope_before)
+    }
+
+    /// The role in force now (after every event).
+    pub fn current_role(&self) -> Role {
+        role_after(self.role, self.changes.iter())
+    }
+
+    /// The scope in force now.
+    pub fn current_scope(&self) -> &[String] {
+        self.changes
+            .iter()
+            .rev()
+            .find(|c| c.kind == RosterEventKind::Scope)
+            .map_or(self.scope.as_slice(), |c| c.scope.as_slice())
+    }
+
+    /// Whether the reviewer is a **novice** for `path` on `date` (module
+    /// doc): never as a maintainer then; else the last verified
+    /// `novice`/`trusted` event dated on or before `date` whose scope
+    /// covers `path` (empty: everywhere) decides; none: trusted.
+    pub fn novice_at(&self, date: &str, path: &str) -> bool {
+        if self.role_at(date) == Role::Maintainer {
+            return false;
+        }
+        self.changes
+            .iter()
+            .rev()
+            .filter(|c| c.date.as_str() <= date)
+            .filter(|c| matches!(c.kind, RosterEventKind::Novice | RosterEventKind::Trusted))
+            .find(|c| c.scope.is_empty() || in_scope(&c.scope, path))
+            .is_some_and(|c| c.kind == RosterEventKind::Novice)
+    }
+
+    /// The novice mark in force now, for the roster display (`novice_at`
+    /// is the rule): where the reviewer is a novice (empty: everywhere),
+    /// and where a later promotion made them trusted again; `None` when no
+    /// mark stands (or they are a maintainer now).
+    pub fn novice_now(&self) -> Option<(Vec<String>, Vec<String>)> {
+        if self.current_role() == Role::Maintainer {
+            return None;
+        }
+        let mut mark: Option<(Vec<String>, Vec<String>)> = None;
+        for c in &self.changes {
+            match c.kind {
+                RosterEventKind::Novice => mark = Some((c.scope.clone(), Vec::new())),
+                RosterEventKind::Trusted if c.scope.is_empty() => mark = None,
+                RosterEventKind::Trusted => {
+                    if let Some((_, except)) = mark.as_mut() {
+                        except.extend(c.scope.iter().cloned());
+                    }
+                }
+                RosterEventKind::Role | RosterEventKind::Scope => {}
+            }
+        }
+        mark
+    }
+
     /// The key with this id.
     pub fn key(&self, id: &str) -> Option<&KeyTrust> {
         self.keys.iter().find(|k| k.id == id)
@@ -384,6 +567,8 @@ pub enum Warning {
     KeyHistory { reviewer: String, key: String, problem: HistoryProblem },
     /// A reviewer revocation honoured although its signature does not count.
     RevocationUnverified { reviewer: String, problem: RevocationProblem },
+    /// Roster event `index` has no effect (GitHub #1019).
+    RosterEvent { index: usize, reviewer: String, problem: RosterProblem },
 }
 
 /// Why a lifecycle event cannot be appended ([`retire_key`],
@@ -449,6 +634,8 @@ pub fn retire_key(k: &mut ReviewerKey, date: &str) -> Result<(), LifecycleError>
 pub struct Registry {
     pub founder: Result<String, FounderProblem>,
     pub reviewers: Vec<ReviewerTrust>,
+    /// Roster events with no effect, and why (GitHub #1019).
+    pub roster_problems: Vec<(usize, String, RosterProblem)>,
 }
 
 impl Registry {
@@ -474,6 +661,7 @@ impl Registry {
                     by: rv.by.clone(),
                     signed: Err(RevocationProblem::Signer(SignerProblem::Unsigned)),
                 }),
+                changes: Vec::new(),
             })
             .collect();
         for c in &conflicts {
@@ -486,8 +674,24 @@ impl Registry {
             }
         }
         let founder_idx = founder.as_ref().ok().and_then(|id| state.iter().position(|r| &r.id == id));
+        let events = root.code_review.as_ref().map_or(&[][..], |c| c.roster_events.as_slice());
+        let mut roster_problems: Vec<(usize, String, RosterProblem)>;
+        // A role change can take authority away, so the fixed point is not
+        // monotone in general; it is bounded (a well-formed history settles
+        // in a few rounds), and the last round's result stands.
+        let mut rounds = 0usize;
+        let cap = 8 + 2 * (state.len() + events.len());
         loop {
+            rounds += 1;
             let mut changed = false;
+            let (changes, problems) = replay_roster(events, &state);
+            for (r, c) in state.iter_mut().zip(changes) {
+                if r.changes != c {
+                    r.changes = c;
+                    changed = true;
+                }
+            }
+            roster_problems = problems;
             for i in 0..state.len() {
                 if !state[i].is_admitted() {
                     let res = if founder_idx == Some(i) {
@@ -521,7 +725,7 @@ impl Registry {
                     };
                 }
             }
-            if !changed {
+            if !changed || rounds >= cap {
                 break;
             }
         }
@@ -548,7 +752,7 @@ impl Registry {
                 }
             }
         }
-        Registry { founder, reviewers: state }
+        Registry { founder, reviewers: state, roster_problems }
     }
 
     /// The reviewer registered under `id`.
@@ -592,6 +796,9 @@ impl Registry {
             if let Some(RevocationTrust { signed: Err(p), .. }) = &r.revocation {
                 out.push(Warning::RevocationUnverified { reviewer: r.id.clone(), problem: p.clone() });
             }
+        }
+        for (index, reviewer, problem) in &self.roster_problems {
+            out.push(Warning::RosterEvent { index: *index, reviewer: reviewer.clone(), problem: problem.clone() });
         }
         out
     }
@@ -830,11 +1037,63 @@ pub(crate) fn find_signer(
     }
 }
 
-/// Admitted maintainers other than `except`.
-pub(crate) fn maintainers(state: &[ReviewerTrust], except: Option<usize>) -> Vec<usize> {
+/// Admitted reviewers other than `except` whose role on `date` is
+/// maintainer ([`ReviewerTrust::role_at`]; with no roster events, the
+/// admitted role, as before GitHub #1019).
+pub(crate) fn maintainers(state: &[ReviewerTrust], except: Option<usize>, date: &str) -> Vec<usize> {
     (0..state.len())
-        .filter(|&m| Some(m) != except && state[m].role == Role::Maintainer && state[m].is_admitted())
+        .filter(|&m| Some(m) != except && state[m].role_at(date) == Role::Maintainer && state[m].is_admitted())
         .collect()
+}
+
+/// Replay the roster events in list order (module doc): each reviewer's
+/// verified changes, and every event with no effect.
+fn replay_roster(events: &[RosterEvent], state: &[ReviewerTrust]) -> (Vec<Vec<RosterChange>>, Vec<(usize, String, RosterProblem)>) {
+    let mut changes: Vec<Vec<RosterChange>> = vec![Vec::new(); state.len()];
+    let mut problems = Vec::new();
+    let mut prev: Option<&str> = None;
+    for (index, e) in events.iter().enumerate() {
+        let mut fail = |p: RosterProblem| problems.push((index, e.reviewer.clone(), p));
+        let Some(t) = state.iter().position(|r| r.id == e.reviewer) else {
+            fail(RosterProblem::UnknownReviewer);
+            continue;
+        };
+        if !is_date(&e.date) {
+            fail(RosterProblem::BadDate(e.date.clone()));
+            continue;
+        }
+        if prev.is_some_and(|p| e.date.as_str() < p) {
+            fail(RosterProblem::OutOfOrder);
+            continue;
+        }
+        prev = Some(&e.date);
+        if e.event == RosterEventKind::Role && e.role.is_none() {
+            fail(RosterProblem::MissingRole);
+            continue;
+        }
+        let (Some(sg), Some(sig)) = (&e.signer, &e.signature) else {
+            fail(RosterProblem::Signer(SignerProblem::Unsigned));
+            continue;
+        };
+        // Maintainers just before this event: the admitted role replayed
+        // through the events verified so far.
+        let eligible: Vec<usize> = (0..state.len())
+            .filter(|&m| state[m].is_admitted() && role_after(state[m].role, changes[m].iter()) == Role::Maintainer)
+            .collect();
+        match find_signer(state, &eligible, sg, sig, &roster_event_bytes(e), Some(&e.date), &e.date) {
+            Ok((by, key)) => changes[t].push(RosterChange {
+                index,
+                date: e.date.clone(),
+                kind: e.event,
+                role: e.role,
+                scope: e.scope.clone(),
+                by,
+                key,
+            }),
+            Err(p) => fail(RosterProblem::Signer(p)),
+        }
+    }
+    (changes, problems)
 }
 
 /// Verify one signed event (`None` for an event that carries no signature
@@ -865,16 +1124,16 @@ fn check_event(
             .and_then(|(sg, sig)| find_signer(state, &[i], sg, sig, &msg, None, &e.date)),
         KeyEventKind::Reset if is_founder && e.signature.is_none() => return None,
         KeyEventKind::Reset => signed().and_then(|(sg, sig)| {
-            find_signer(state, &maintainers(state, None), sg, sig, &msg, Some(&e.date), &e.date)
+            find_signer(state, &maintainers(state, None, &e.date), sg, sig, &msg, Some(&e.date), &e.date)
         }),
         KeyEventKind::Admitted => signed().and_then(|(sg, sig)| {
-            find_signer(state, &maintainers(state, Some(i)), sg, sig, &msg, Some(&e.date), &e.date)
+            find_signer(state, &maintainers(state, Some(i), &e.date), sg, sig, &msg, Some(&e.date), &e.date)
         }),
         KeyEventKind::Revoked | KeyEventKind::Compromised => signed().and_then(|(sg, sig)| {
             if check_self_signed(r, k, e, "", state[i].keys[j].public.as_ref().ok()).is_ok() {
                 return Ok((r.id.clone(), k.id.clone()));
             }
-            let mut c = maintainers(state, None);
+            let mut c = maintainers(state, None, &e.date);
             if !c.contains(&i) {
                 c.push(i);
             }
@@ -955,7 +1214,7 @@ fn check_revocation(
     }
     let by = state
         .iter()
-        .position(|m| m.id == rv.by && m.role == Role::Maintainer && m.is_admitted())
+        .position(|m| m.id == rv.by && m.role_at(&rv.date) == Role::Maintainer && m.is_admitted())
         .ok_or_else(|| RevocationProblem::SignerNotMaintainer(rv.by.clone()))?;
     let ks = rv.signature.as_ref().ok_or(RevocationProblem::Signer(SignerProblem::Unsigned))?;
     // A maintainer revoking someone must not be revoked by then; revoking

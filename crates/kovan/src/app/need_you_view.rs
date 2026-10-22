@@ -64,6 +64,9 @@ pub(crate) struct NeedYouView {
     /// The keystore the re-anchor window signs with: `None` is kovan's
     /// default location; tests inject a temporary one.
     pub keystore: Option<Keystore>,
+    /// The app's key session the re-anchor window signs through (GitHub
+    /// #1020); the Code Review view sets it.
+    pub key_session: kovan_common::review::signing::session::SharedKeySession,
     /// The module re-anchor window (GitHub #838), when open.
     reanchor: Option<ReanchorFlow>,
     build_job: Option<Worker<Built>>,
@@ -77,9 +80,11 @@ impl NeedYouView {
     pub(crate) fn set_root(&mut self, root: Option<&Path>) {
         if self.root.as_deref() != root {
             let (open, keystore) = (self.open, self.keystore.take());
+            let key_session = self.key_session.clone();
             *self = Self {
                 open,
                 keystore,
+                key_session,
                 root: root.map(Path::to_path_buf),
                 dirty: true,
                 ..Self::default()
@@ -157,7 +162,9 @@ impl NeedYouView {
             None => Keystore::default_location().map_err(|e| e.to_string()),
         };
         match (self.root.clone(), keystore) {
-            (Some(root), Ok(ks)) => self.reanchor = Some(ReanchorFlow::new(root, ks, module)),
+            (Some(root), Ok(ks)) => {
+                self.reanchor = Some(ReanchorFlow::new(root, ks, module).with_session(self.key_session.clone()))
+            }
             (_, Err(e)) => self.notes = vec![e],
             (None, _) => {}
         }
@@ -435,10 +442,8 @@ fn reanchor_window(ctx: &egui::Context, f: &mut ReanchorFlow) -> bool {
                         ui.colored_label(ui.visuals().warn_fg_color, why);
                     }
                 });
-            ui.horizontal_wrapped(|ui| {
-                ui.label("Passphrase");
-                ui.add(egui::TextEdit::singleline(&mut f.passphrase).password(true));
-            });
+            let unlocked = f.unlocked();
+            super::key_window::passphrase_row(ui, unlocked, &mut f.passphrase);
             if let Some(e) = &f.error {
                 ui.colored_label(ui.visuals().error_fg_color, e);
             }

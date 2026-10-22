@@ -33,7 +33,10 @@
 //!                            v
 //!                         WritingNeedsFix (worker: draft_needs_fix_for, write_needs_fix)
 //!                            v
-//!                          Done ── Refresh (worker: stamp_states) ──> the review bar
+//!                          Done ("Stamped ✓, written to …"; finished at once)
+//!                            └─ take_stamped() ──> the host's background refresh
+//!                               (`super::refresh::Refresher`, GitHub #1018): an
+//!                               optimistic "stamped, updating…" row, then the states
 //!
 //!  Reconfirm (added 2026-10-10, #770, #740 decision 8) ── key as for Stamp ──>
 //!  PreparingReconfirm (worker: reconfirm::prepare_reconfirm)
@@ -53,6 +56,12 @@
 //! uses them; they are zeroised after use and when a form is dropped, and
 //! never logged or put in an error.
 //!
+//! **One unlock per session (GitHub #1020).** Signing goes through the
+//! app's [`SharedKeySession`] ([`with_session_key`]): the first signing
+//! unlocks the key and the session keeps it in memory, so later stamps and
+//! re-confirms ask for no passphrase until it auto-locks or "Lock now" is
+//! pressed. [`StampFlow::unlocked`] says whether the form needs one.
+//!
 //! **What is signed.** A stamp is signed by the key's owner after typing
 //! the passphrase. A needs-fix entry carries no signature in the library
 //! (`NeedsFixEntry` has none), so none is asked for. AI agents never stamp:
@@ -66,6 +75,7 @@ use kovan_common::call_graph::split::StampState as WebStamp;
 use kovan_common::review::root::ReviewRoot;
 use kovan_common::review::signed_at::{date_of, now_local};
 use kovan_common::review::signing::keystore::{generate, Keystore, KeystoreError};
+use kovan_common::review::signing::session::{ensure_unlocked, with_session_key, SharedKeySession};
 use kovan_common::review::types::reviewer_id_kind;
 use kovan_common::review::wizard::{
     format_answer, parse_answer, Applicability, GateResult, Question, ReviewWizard,
@@ -153,6 +163,9 @@ pub struct KeyInfo {
     pub path: PathBuf,
     /// The root lists this reviewer with this public key.
     pub registered: bool,
+    /// The public key's fingerprint (`SHA256:…`, GitHub #1020), to compare
+    /// the same key on two machines; empty if the public key is malformed.
+    pub fingerprint: String,
 }
 
 /// The keystore and the root as the dialog opens.
@@ -181,6 +194,7 @@ pub fn find_keys(root: &Path, keystore: &Keystore) -> Result<KeysFound, String> 
                 .is_some_and(|r| r.keys.iter().any(|k| k.public == kf.public));
             KeyInfo {
                 path: keystore.path_for(&kf.reviewer, &kf.key),
+                fingerprint: kf.fingerprint().unwrap_or_default(),
                 reviewer: kf.reviewer,
                 key: kf.key,
                 registered,
@@ -487,6 +501,23 @@ pub enum SignFailure {
     Other(String),
 }
 
+/// A keystore or session error as a [`SignFailure`]; a locked session
+/// (auto-locked, or "Lock now" while the job ran) says to type the
+/// passphrase.
+pub fn sign_failure(e: KeystoreError) -> SignFailure {
+    match e {
+        KeystoreError::WrongPassphrase => SignFailure::WrongPassphrase,
+        other => SignFailure::Other(other.to_string()),
+    }
+}
+
+/// Whether `session` holds `key` unlocked now. Never blocks: a session
+/// being written this instant reads as locked (the form then shows the
+/// passphrase box for a frame).
+pub fn session_holds(session: &SharedKeySession, key: Option<&KeyInfo>) -> bool {
+    key.is_some_and(|k| session.try_read().is_ok_and(|s| s.holds(&k.reviewer, &k.key)))
+}
+
 /// A finished write.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Outcome {
@@ -550,6 +581,17 @@ enum Job {
 /// The states job's output.
 pub type StatesResult = Result<Vec<WebStamp>, String>;
 
+/// What a finished write tells the host (GitHub #1018): which function
+/// changed, by whom and when, for its optimistic "stamped, updating…" row
+/// and its background refresh.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stamped {
+    /// The call-graph id the dialog was opened on.
+    pub function: String,
+    pub reviewer: String,
+    pub date: String,
+}
+
 /// The dialog's whole state (module doc).
 pub struct StampFlow {
     root: PathBuf,
@@ -579,6 +621,8 @@ pub struct StampFlow {
     /// or nothing recorded for it).
     pub target_state: Option<WebStamp>,
     pub refresh_error: Option<String>,
+    /// The last write, until the host takes it ([`Self::take_stamped`]).
+    stamped: Option<Stamped>,
     /// The files this dialog wrote, workspace-relative (`review.md`, and
     /// `kovan_root.toml` after a key registration): what commit-and-push
     /// may commit (GitHub #771, `super::commit_push`).
@@ -590,6 +634,13 @@ pub struct StampFlow {
     pub reconfirm: Option<ReconfirmContext>,
     /// The re-confirm's passphrase (zeroised after use and on drop).
     pub reconfirm_passphrase: String,
+    /// The app's key session (GitHub #1020): the unlocked key, shared by
+    /// every signing window. A flow made with [`Self::new`] alone has its
+    /// own, empty one.
+    session: SharedKeySession,
+    /// "Import a key from another machine…" was pressed on the set-up step;
+    /// the host opens the signing-key window and clears it.
+    pub wants_key_window: bool,
 }
 
 impl Drop for StampFlow {
@@ -621,13 +672,41 @@ impl StampFlow {
             states: None,
             target_state: None,
             refresh_error: None,
+            stamped: None,
             wrote: BTreeSet::new(),
             comments_seed: String::new(),
             reconfirm: None,
             reconfirm_passphrase: String::new(),
+            session: SharedKeySession::default(),
+            wants_key_window: false,
         };
         f.load_keys();
         f
+    }
+
+    /// Sign through `session` (the app's, GitHub #1020) instead of a
+    /// session of this dialog's own.
+    pub fn with_session(mut self, session: SharedKeySession) -> StampFlow {
+        self.session = session;
+        self
+    }
+
+    /// The key session this dialog signs through.
+    pub fn session(&self) -> &SharedKeySession {
+        &self.session
+    }
+
+    /// The key in use is unlocked in the session: no passphrase is asked.
+    pub fn unlocked(&self) -> bool {
+        session_holds(&self.session, self.key())
+    }
+
+    /// Read the keystore again (after a key was imported on the set-up
+    /// step, GitHub #1020). Ignored while a job runs.
+    pub fn reload_keys(&mut self) {
+        if self.job.is_none() {
+            self.load_keys();
+        }
     }
 
     /// The workspace.
@@ -640,15 +719,17 @@ impl StampFlow {
         self.keystore.dir()
     }
 
-    /// A step's job is running (Close waits for it; a refresh does not
-    /// hold the dialog: [`Self::take_refresh`]).
+    /// A step's job is running (Close waits for it; a refresh never holds
+    /// the dialog: the host refreshes in the background, GitHub #1018).
     pub fn working(&self) -> bool {
         self.job.is_some()
     }
 
-    /// A job (or a refresh) is running.
+    /// A step's job is running. ~~A job (or a refresh) is running~~
+    /// **CORRECTED 2026-10-22** (GitHub #1018): a refresh never makes the
+    /// dialog busy; after a write the host refreshes in the background.
     pub fn busy(&self) -> bool {
-        self.job.is_some() || self.refresh.is_some()
+        self.job.is_some()
     }
 
     /// The key in use.
@@ -836,13 +917,17 @@ impl StampFlow {
         let (root, ks) = (self.root.clone(), self.keystore.clone());
         self.error = None;
         self.step = Step::Generating;
+        let session = self.session.clone();
         self.job = Some(Job::Generate(Worker::spawn(move || {
             let today = date_of(&now_local()).unwrap_or_default();
             let key_id = next_key_id(&root, &ks, &reviewer);
             let made = generate(&reviewer, &key_id, &today, &pass);
             pass.zeroize();
-            let (kf, _key) = made.map_err(|e| e.to_string())?;
+            let (kf, key) = made.map_err(|e| e.to_string())?;
             let path = ks.save(&kf).map_err(|e| e.to_string())?;
+            // The passphrase was just typed: hold the new key for the
+            // session rather than ask for it again at the first stamp.
+            session.write().unwrap_or_else(|p| p.into_inner()).hold(key);
             let name = (!name.is_empty()).then_some(name.as_str());
             let registration = register_key(&root, &kf, name, &today);
             Ok(Generated {
@@ -907,23 +992,25 @@ impl StampFlow {
     }
 
     /// Whether "Sign and write review.md" is allowed: on the wizard, the
-    /// gate open, a passphrase typed, no job running.
+    /// gate open, a passphrase typed or the key unlocked in the session,
+    /// no job running.
     pub fn can_sign(&self) -> bool {
+        let unlocked = self.unlocked();
         self.step == Step::Wizard
             && self.job.is_none()
             && self
                 .wizard
                 .as_ref()
                 .is_some_and(|w| {
-                    !w.passphrase.is_empty()
+                    (unlocked || !w.passphrase.is_empty())
                         && w.gate().stampable()
                         && w.concept_problem().is_none()
                 })
     }
 
-    /// Unlock the key, draft the stamp with the wizard's answers at `HEAD`,
-    /// sign and write it (worker). The passphrase is taken out of the form
-    /// and zeroised in the worker.
+    /// Unlock the key (unless the session holds it), draft the stamp with
+    /// the wizard's answers at `HEAD`, sign and write it (worker). The
+    /// passphrase is taken out of the form and zeroised in the worker.
     pub fn sign(&mut self) -> bool {
         if !self.can_sign() {
             return false;
@@ -938,10 +1025,11 @@ impl StampFlow {
         let no_concept = w.no_concept.stored();
         let relations = w.relations();
         let seen_hash = w.ctx.hash.clone();
-        let (root, ks, function) = (
+        let (root, ks, function, session) = (
             self.root.clone(),
             self.keystore.clone(),
             self.target.function.clone(),
+            self.session.clone(),
         );
         self.error = None;
         self.step = Step::Signing;
@@ -949,12 +1037,11 @@ impl StampFlow {
             let kf = ks
                 .load(&k.reviewer, &k.key)
                 .map_err(|e| SignFailure::Other(e.to_string()))?;
-            let unlocked = kf.unlock(&pass);
+            // Unlock first (or find it held), so a wrong passphrase is
+            // reported before anything is drafted.
+            let unlocked = ensure_unlocked(&session, &kf, &pass);
             pass.zeroize();
-            let key = unlocked.map_err(|e| match e {
-                KeystoreError::WrongPassphrase => SignFailure::WrongPassphrase,
-                other => SignFailure::Other(other.to_string()),
-            })?;
+            unlocked.map_err(sign_failure)?;
             let req = StampRequest {
                 function,
                 by: k.reviewer.clone(),
@@ -978,7 +1065,8 @@ impl StampFlow {
                     "the drafted checklist is not the answers given".into(),
                 ));
             }
-            key.sign_review(&mut d.entry)
+            with_session_key(&session, &kf, "", |key| key.sign_review(&mut d.entry))
+                .map_err(sign_failure)?
                 .map_err(|e| SignFailure::Other(e.to_string()))?;
             write_review(&root, &d.entry, comments.trim()).map_err(SignFailure::Other)
         })));
@@ -986,12 +1074,12 @@ impl StampFlow {
     }
 
     /// Whether "Sign the re-confirmation" is allowed: on the re-confirm
-    /// step, a passphrase typed, no job running.
+    /// step, a passphrase typed or the key unlocked, no job running.
     pub fn can_reconfirm(&self) -> bool {
         self.step == Step::Reconfirm
             && self.job.is_none()
             && self.reconfirm.is_some()
-            && !self.reconfirm_passphrase.is_empty()
+            && (self.unlocked() || !self.reconfirm_passphrase.is_empty())
     }
 
     /// Unlock the key and sign the re-confirmation (worker): the previous
@@ -1004,20 +1092,16 @@ impl StampFlow {
             return false;
         };
         let mut pass = std::mem::take(&mut self.reconfirm_passphrase);
-        let (root, ks) = (self.root.clone(), self.keystore.clone());
+        let (root, ks, session) = (self.root.clone(), self.keystore.clone(), self.session.clone());
         self.error = None;
         self.step = Step::Signing;
         self.job = Some(Job::Sign(Worker::spawn(move || {
             let kf = ks
                 .load(&k.reviewer, &k.key)
                 .map_err(|e| SignFailure::Other(e.to_string()))?;
-            let unlocked = kf.unlock(&pass);
+            let signed = with_session_key(&session, &kf, &pass, |key| sign_reconfirm(&root, &rc, key));
             pass.zeroize();
-            let key = unlocked.map_err(|e| match e {
-                KeystoreError::WrongPassphrase => SignFailure::WrongPassphrase,
-                other => SignFailure::Other(other.to_string()),
-            })?;
-            sign_reconfirm(&root, &rc, &key).map_err(SignFailure::Other)
+            signed.map_err(sign_failure)?.map_err(SignFailure::Other)
         })));
         true
     }
@@ -1095,11 +1179,24 @@ impl StampFlow {
             review_md,
             replaced: w.replaced,
         });
-        self.refresh();
+        // No refresh here (GitHub #1018): the host's background refresher
+        // takes this and coalesces it with other stamps.
+        self.stamped = Some(Stamped {
+            function: self.target.function.clone(),
+            reviewer: self.key().map(|k| k.reviewer.clone()).unwrap_or_default(),
+            date: date_of(&now_local()).unwrap_or_default(),
+        });
     }
 
-    /// Recompute every function's state from `review.md` (worker); the
-    /// result goes to the review bar through [`Self::take_states`].
+    /// The last write, once (GitHub #1018).
+    pub fn take_stamped(&mut self) -> Option<Stamped> {
+        self.stamped.take()
+    }
+
+    /// Recompute every function's state from `review.md` (worker), on
+    /// request only (tests and tools); the result goes to the review bar
+    /// through [`Self::take_states`]. The app refreshes after a write with
+    /// `super::refresh::Refresher` instead, in the background.
     pub fn refresh(&mut self) {
         if self.refresh.is_none() {
             let root = self.root.clone();
@@ -1112,17 +1209,11 @@ impl StampFlow {
         self.states.take()
     }
 
-    /// The refresh still running, for the host to keep polling after the
-    /// dialog closes.
-    pub fn take_refresh(&mut self) -> Option<Worker<StatesResult>> {
-        self.refresh.take()
-    }
-
     /// Poll until no job runs (tests only; the UI never waits).
     #[cfg(test)]
     pub fn wait(&mut self) {
         let start = std::time::Instant::now();
-        while self.busy() {
+        while self.busy() || self.refresh.is_some() {
             assert!(
                 start.elapsed() < std::time::Duration::from_secs(120),
                 "stamp flow job did not finish"

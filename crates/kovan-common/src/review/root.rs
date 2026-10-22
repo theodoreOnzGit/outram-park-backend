@@ -133,6 +133,86 @@ pub struct CodeReviewSettings {
     /// crate ([`DevelopingOrganisation`]). Additive: absent in older roots.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub developing_organisation: Vec<DevelopingOrganisation>,
+    /// `[[code_review.roster_event]]` (GitHub #1019, maintainer
+    /// 2026-10-22): changes to a reviewer's standing after admission
+    /// (role, scope, novice, trusted), append-only, each signed by an
+    /// admitted maintainer ([`RosterEvent`]). Additive: absent in older
+    /// roots, ignored by older readers.
+    #[serde(default, rename = "roster_event", skip_serializing_if = "Vec::is_empty")]
+    pub roster_events: Vec<RosterEvent>,
+}
+
+/// What a roster event changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RosterEventKind {
+    /// The reviewer's role from `date` is `role` (make maintainer, step
+    /// down; a handover is one of each).
+    Role,
+    /// The reviewer's scope from `date` is `scope` (replacing it).
+    Scope,
+    /// From `date` the reviewer is a **novice** where `scope` covers (empty:
+    /// everywhere): their stamp alone does not make a function reviewed.
+    Novice,
+    /// From `date` the reviewer is **trusted** where `scope` covers (empty:
+    /// everywhere): a promotion, ending a novice mark there.
+    Trusted,
+}
+
+impl RosterEventKind {
+    /// The wire name.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Role => "role",
+            Self::Scope => "scope",
+            Self::Novice => "novice",
+            Self::Trusted => "trusted",
+        }
+    }
+}
+
+/// `[[code_review.roster_event]]`: one change to a reviewer's standing
+/// after their admission (GitHub #1019).
+///
+/// ```toml
+/// [[code_review.roster_event]]
+/// reviewer = "github:bob"
+/// event = "scope"
+/// date = "2026-11-04"
+/// scope = ["crates/njoy-*/**", "crates/boon-lay/**"]
+/// signer = { reviewer = "github:theodoreOnzGit", key = "k1" }
+/// signature = "<base64>"
+/// ```
+///
+/// **The admission is never rewritten.** A reviewer's role and scope in
+/// force on a date are the admitted ones, replayed through the verified
+/// events dated on or before it, in file order
+/// ([`crate::review::signing::registry::ReviewerTrust::role_at`]); a stamp
+/// is judged by those of its own date, so a later change never alters an
+/// old stamp's verdict. **One list for every reviewer**, not one per
+/// reviewer: file order is then a total order, which a same-day handover
+/// needs (B's promotion is signed by A while A is still a maintainer, then
+/// A steps down). Signed by an admitted maintainer, a maintainer just
+/// before the event, over
+/// [`crate::review::signing::roster_event_bytes`] (`kovan-roster-event-v1`).
+/// Append-only ([`crate::review::engine::history_append_only`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RosterEvent {
+    pub reviewer: String,
+    pub event: RosterEventKind,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    /// For `event = "role"`: the new role.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<Role>,
+    /// For `scope`: the new scope; for `novice` and `trusted`: where it
+    /// applies (empty: everywhere).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scope: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<KeySigner>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
 }
 
 /// One `[[code_review.developing_organisation]]` entry (GitHub #809): from

@@ -19,6 +19,10 @@
 //!   application-data folder, shared by every Kovan folder.
 //! - [`open_corpus_pdfs`]: find the PDFs of an open corpus in either of the two
 //!   accepted layouts.
+//! - [`DownloadProgress`] (GitHub issue #1016): every clone and submodule
+//!   fetch here runs with `--progress` and reports Git's phase, percentage,
+//!   bytes and rate into a shared progress the GUI draws as a bar and
+//!   `kovan-cli` prints as one updating line ([`progress`]).
 //!
 //! # Safety rules
 //!
@@ -35,6 +39,11 @@
 //! - **Failures are values, never panics**, so a failed clone (offline, no
 //!   `git`, a bad URL) leaves the caller free to carry on: the built-in map
 //!   never depends on any of this (epic #247).
+//! - **A cancelled clone puts its folder back as it was** (#1016): only a
+//!   plain clone ([`clone`]) can be cancelled, and only into a folder that
+//!   was absent or empty, so removing what Git wrote restores it exactly,
+//!   as Git's own clean-up on an interrupt does. Submodule fetches inside a
+//!   Kovan folder cannot be cancelled.
 //!
 //! Network operations use the system `git` binary, as
 //! [`crate::advanced_git`]'s remote operations do (the workspace's `gix` is
@@ -44,6 +53,9 @@
 use crate::root::KovanRoot;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+pub mod progress;
+pub use progress::{run_reporting, CloneProgress, DownloadProgress};
 
 /// What [`ensure_repo`] found or did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,6 +90,9 @@ pub enum CorpusRepoError {
     Init(String),
     /// A filesystem error.
     Io(std::io::Error),
+    /// The user cancelled the download ([`DownloadProgress::request_cancel`]);
+    /// the folder was put back as it was before the clone.
+    Cancelled,
 }
 
 impl std::fmt::Display for CorpusRepoError {
@@ -94,6 +109,7 @@ impl std::fmt::Display for CorpusRepoError {
             Self::Clone { remote, stderr } => write!(f, "cloning {remote} failed: {stderr}"),
             Self::Init(e) => write!(f, "initialising a repository failed: {e}"),
             Self::Io(e) => write!(f, "{e}"),
+            Self::Cancelled => write!(f, "the download was cancelled"),
         }
     }
 }
@@ -124,6 +140,16 @@ pub fn ensure_repo(
     remote: Option<&str>,
     branch: Option<&str>,
 ) -> Result<RepoState, CorpusRepoError> {
+    ensure_repo_with_progress(dir, remote, branch, &DownloadProgress::new())
+}
+
+/// [`ensure_repo`], reporting a clone's progress into `progress` (#1016).
+pub fn ensure_repo_with_progress(
+    dir: &Path,
+    remote: Option<&str>,
+    branch: Option<&str>,
+    progress: &DownloadProgress,
+) -> Result<RepoState, CorpusRepoError> {
     if is_git_repo(dir) {
         if let Some(url) = remote {
             let has_origin = crate::advanced_git::list_remotes_in(dir)
@@ -147,7 +173,7 @@ pub fn ensure_repo(
             if has_files {
                 return Err(CorpusRepoError::NotEmpty(dir.to_path_buf()));
             }
-            clone(url, dir, branch)?;
+            clone(url, dir, branch, progress)?;
             Ok(RepoState::Cloned)
         }
         None => {
@@ -178,10 +204,22 @@ pub fn ensure_repo(
 /// blocking the background job on a credential prompt no GUI window can
 /// answer. Configured credential helpers (including GUI askpass) still run —
 /// this disables only Git's own terminal prompt.
-fn clone(url: &str, dir: &Path, branch: Option<&str>) -> Result<(), CorpusRepoError> {
+///
+/// **Progress (#1016):** `--progress` makes Git write its phases to stderr,
+/// which [`progress::run_git`] reads as they arrive into `progress`. The
+/// clone can be cancelled ([`DownloadProgress::request_cancel`]): Git is
+/// stopped and the folder put back as it was ([`undo_cancelled_clone`]),
+/// then [`CorpusRepoError::Cancelled`] is returned.
+fn clone(
+    url: &str,
+    dir: &Path,
+    branch: Option<&str>,
+    progress: &DownloadProgress,
+) -> Result<(), CorpusRepoError> {
     if !crate::advanced_git::system_git_available() {
         return Err(CorpusRepoError::GitUnavailable);
     }
+    let existed = dir.exists();
     if let Some(parent) = dir.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -191,20 +229,51 @@ fn clone(url: &str, dir: &Path, branch: Option<&str>) -> Result<(), CorpusRepoEr
     // Same reasoning as `submodule_git`.
     #[cfg(test)]
     cmd.args(["-c", "protocol.file.allow=always"]);
-    cmd.arg("clone").arg("--recurse-submodules");
+    cmd.arg("clone").arg("--progress").arg("--recurse-submodules");
     if let Some(b) = branch {
         cmd.args(["--branch", b]);
     }
     cmd.env("GIT_TERMINAL_PROMPT", "0");
-    let output = cmd.arg(url).arg(dir).output()?;
-    if output.status.success() || is_git_repo(dir) {
-        Ok(())
-    } else {
-        Err(CorpusRepoError::Clone {
+    cmd.arg(url).arg(dir);
+    match progress::run_git(cmd, progress, true)? {
+        None => {
+            undo_cancelled_clone(dir, existed)?;
+            Err(CorpusRepoError::Cancelled)
+        }
+        Some(run) if run.success || is_git_repo(dir) => Ok(()),
+        Some(run) => Err(CorpusRepoError::Clone {
             remote: url.to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
-        })
+            stderr: run.stderr,
+        }),
     }
+}
+
+/// Put `dir` back as it was before a cancelled [`clone`]: absent when it did
+/// not exist (`existed` false), else empty. [`ensure_repo_with_progress`]
+/// clones only into an absent or empty folder, so everything in it was
+/// written by the cancelled Git; this is what Git's own clean-up on an
+/// interrupt (`remove_junk` in `builtin/clone.c`) does, which a killed
+/// process cannot run. Without it the half-written `.git` would be taken
+/// for a finished clone at the next start.
+///
+/// The removal is retried briefly: a helper Git started (`index-pack`) can
+/// still be writing for a moment after the clone itself was stopped.
+fn undo_cancelled_clone(dir: &Path, existed: bool) -> Result<(), CorpusRepoError> {
+    let mut attempts = 0;
+    while dir.exists() {
+        match std::fs::remove_dir_all(dir) {
+            Ok(()) => {}
+            Err(_) if attempts < 10 => {
+                attempts += 1;
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+    if existed {
+        std::fs::create_dir(dir)?;
+    }
+    Ok(())
 }
 
 /// The outcome for each of a Kovan folder's corpus repositories: the first
@@ -243,11 +312,15 @@ pub struct CorporaSetup {
 ///
 /// Each is attempted independently; one failing does not stop the others.
 /// See [`ensure_corpus`] for how each is set up.
-pub fn ensure_library_corpora(root: &KovanRoot) -> CorporaSetup {
-    ensure_library_corpora_with(
+///
+/// Each download reports into `progress` (#1016), named by its tier and
+/// repository ([`DownloadProgress::set_subject`]).
+pub fn ensure_library_corpora(root: &KovanRoot, progress: &DownloadProgress) -> CorporaSetup {
+    ensure_library_corpora_with_progress(
         root,
         crate::corpus::CORPUS_REPOSITORY_URL,
         crate::corpus::CORPUS_REPOSITORY_BRANCH,
+        progress,
     )
 }
 
@@ -263,6 +336,22 @@ pub fn ensure_library_corpora_with(
     root: &KovanRoot,
     standard_remote: &str,
     standard_branch: &str,
+) -> CorporaSetup {
+    ensure_library_corpora_with_progress(
+        root,
+        standard_remote,
+        standard_branch,
+        &DownloadProgress::new(),
+    )
+}
+
+/// [`ensure_library_corpora_with`], reporting each download into `progress`
+/// (#1016).
+pub fn ensure_library_corpora_with_progress(
+    root: &KovanRoot,
+    standard_remote: &str,
+    standard_branch: &str,
+    progress: &DownloadProgress,
 ) -> CorporaSetup {
     use crate::corpus_tiers::{RepoOrigin, Tier};
     let missing = |tier: Tier| {
@@ -300,7 +389,18 @@ pub fn ensure_library_corpora_with(
             Ok(RepoState::Existing)
         } else {
             done.push(r.dir.clone());
-            ensure_corpus(root, &r.dir, remote.as_deref(), branch.as_deref())
+            progress.set_subject(format!(
+                "{} ({})",
+                r.tier.label().to_lowercase(),
+                r.name
+            ));
+            ensure_corpus_with_progress(
+                root,
+                &r.dir,
+                remote.as_deref(),
+                branch.as_deref(),
+                progress,
+            )
         };
         if firsts.contains(&r.tier) {
             setup.others.push((r.tier, r.name, result));
@@ -333,8 +433,22 @@ pub fn ensure_corpus(
     remote: Option<&str>,
     branch: Option<&str>,
 ) -> Result<RepoState, CorpusRepoError> {
+    ensure_corpus_with_progress(root, dir, remote, branch, &DownloadProgress::new())
+}
+
+/// [`ensure_corpus`], reporting the download into `progress` (#1016). The
+/// submodule commands run with `--progress` and cannot be cancelled: a
+/// half-added submodule would leave the Kovan folder's own repository to
+/// repair, which a plain clone's folder never does.
+pub fn ensure_corpus_with_progress(
+    root: &KovanRoot,
+    dir: &Path,
+    remote: Option<&str>,
+    branch: Option<&str>,
+    progress: &DownloadProgress,
+) -> Result<RepoState, CorpusRepoError> {
     let Some(url) = remote.filter(|_| root.has_git()) else {
-        return ensure_repo(dir, remote, branch);
+        return ensure_repo_with_progress(dir, remote, branch, progress);
     };
     let rel = dir.strip_prefix(root.path()).unwrap_or(dir);
     let rel_str = rel.to_string_lossy().replace('\\', "/");
@@ -344,18 +458,11 @@ pub fn ensure_corpus(
         }
         // Registered but not fetched, as after a plain clone of someone's
         // Kovan repository: fetch it now.
-        let output = submodule_git(root.path())
-            .args(["submodule", "update", "--init", "--", &rel_str])
-            .output()?;
-        return if output.status.success() {
-            attach_to_branch(dir);
-            Ok(RepoState::Cloned)
-        } else {
-            Err(CorpusRepoError::Clone {
-                remote: url.to_string(),
-                stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
-            })
-        };
+        let mut cmd = submodule_git(root.path());
+        cmd.args(["submodule", "update", "--init", "--progress", "--", &rel_str]);
+        run_submodule_git(cmd, progress, url)?;
+        attach_to_branch(dir);
+        return Ok(RepoState::Cloned);
     }
     let has_files = dir.is_dir() && std::fs::read_dir(dir)?.next().is_some();
     if has_files && !is_git_repo(dir) {
@@ -370,18 +477,30 @@ pub fn ensure_corpus(
         return Err(CorpusRepoError::GitUnavailable);
     }
     let mut cmd = submodule_git(root.path());
-    cmd.args(["submodule", "add", "--force"]);
+    cmd.args(["submodule", "add", "--progress", "--force"]);
     if let (Some(b), false) = (branch, is_git_repo(dir)) {
         cmd.args(["-b", b]);
     }
-    let output = cmd.arg(url).arg(&rel_str).output()?;
-    if output.status.success() {
-        Ok(RepoState::SubmoduleAdded)
-    } else {
-        Err(CorpusRepoError::Clone {
+    cmd.arg(url).arg(&rel_str);
+    run_submodule_git(cmd, progress, url)?;
+    Ok(RepoState::SubmoduleAdded)
+}
+
+/// Run a `git submodule` command fetching from `url`, reporting into
+/// `progress`; a failure is [`CorpusRepoError::Clone`] with Git's stderr
+/// (without its progress lines), as before #1016.
+fn run_submodule_git(
+    cmd: Command,
+    progress: &DownloadProgress,
+    url: &str,
+) -> Result<(), CorpusRepoError> {
+    match progress::run_git(cmd, progress, false)? {
+        Some(run) if run.success => Ok(()),
+        Some(run) => Err(CorpusRepoError::Clone {
             remote: url.to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
-        })
+            stderr: run.stderr,
+        }),
+        None => Err(CorpusRepoError::Cancelled),
     }
 }
 
@@ -565,13 +684,20 @@ pub fn ensure_standard_corpus() -> Result<RepoState, CorpusRepoError> {
 /// (those follow the folder's Pull and Save). It is fast-forwarded only when
 /// nothing local would be lost ([`crate::save_push::follow_branch`]); a
 /// clone with local changes is left alone and reported.
+///
+/// The download reports into `progress` (#1016) and can be cancelled there.
+/// The fast-forward's fetch has no byte progress of its own
+/// ([`crate::save_push::follow_branch`] runs it); it shows as a busy
+/// "checking for updates" step.
 pub fn update_standard_corpus(
     dir: &Path,
+    progress: &DownloadProgress,
 ) -> Result<crate::save_push::CorpusPullOutcome, CorpusRepoError> {
     update_standard_corpus_in(
         dir,
         crate::corpus::CORPUS_REPOSITORY_URL,
         crate::corpus::CORPUS_REPOSITORY_BRANCH,
+        progress,
     )
 }
 
@@ -581,9 +707,12 @@ pub fn update_standard_corpus_in(
     dir: &Path,
     remote: &str,
     branch: &str,
+    progress: &DownloadProgress,
 ) -> Result<crate::save_push::CorpusPullOutcome, CorpusRepoError> {
     use crate::save_push::CorpusPullOutcome;
-    if ensure_repo(dir, Some(remote), Some(branch))? == RepoState::Cloned {
+    progress.set_subject("standard corpus");
+    if ensure_repo_with_progress(dir, Some(remote), Some(branch), progress)? == RepoState::Cloned
+    {
         let head = Command::new("git")
             .arg("-C")
             .arg(dir)
@@ -599,11 +728,10 @@ pub fn update_standard_corpus_in(
     if !crate::advanced_git::system_git_available() {
         return Err(CorpusRepoError::GitUnavailable);
     }
-    Ok(crate::save_push::follow_branch(
-        dir,
-        "origin".to_string(),
-        branch.to_string(),
-    ))
+    progress.busy("checking for updates");
+    let outcome = crate::save_push::follow_branch(dir, "origin".to_string(), branch.to_string());
+    progress.finish();
+    Ok(outcome)
 }
 
 /// The local path of a hardcoded corpus entry's PDF
@@ -715,7 +843,12 @@ pub const WORKSPACE_CORPUS_PATH: &str = "crates/kovan-literature/reactor-literat
 ///   remote's default branch; `Ok(Some(`[`RepoState::Cloned`]`))`.
 ///
 /// Failures (offline, no `git`) are values, as everywhere in this module.
-pub fn ensure_workspace_corpus(workspace: &Path) -> Result<Option<RepoState>, CorpusRepoError> {
+/// The fetch reports into `progress` (#1016); `kovan-cli` prints it as one
+/// updating line ([`run_reporting`]).
+pub fn ensure_workspace_corpus(
+    workspace: &Path,
+    progress: &DownloadProgress,
+) -> Result<Option<RepoState>, CorpusRepoError> {
     if !is_submodule(workspace, WORKSPACE_CORPUS_PATH) {
         return Ok(None);
     }
@@ -726,18 +859,19 @@ pub fn ensure_workspace_corpus(workspace: &Path) -> Result<Option<RepoState>, Co
     if !crate::advanced_git::system_git_available() {
         return Err(CorpusRepoError::GitUnavailable);
     }
-    let output = submodule_git(workspace)
-        .args(["submodule", "update", "--init", "--", WORKSPACE_CORPUS_PATH])
-        .output()?;
-    if output.status.success() {
-        attach_to_branch(&dir);
-        Ok(Some(RepoState::Cloned))
-    } else {
-        Err(CorpusRepoError::Clone {
-            remote: crate::corpus::CORPUS_REPOSITORY_URL.to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
-        })
-    }
+    let mut cmd = submodule_git(workspace);
+    cmd.args([
+        "submodule",
+        "update",
+        "--init",
+        "--progress",
+        "--",
+        WORKSPACE_CORPUS_PATH,
+    ]);
+    progress.set_subject("literature");
+    run_submodule_git(cmd, progress, crate::corpus::CORPUS_REPOSITORY_URL)?;
+    attach_to_branch(&dir);
+    Ok(Some(RepoState::Cloned))
 }
 
 #[cfg(test)]
@@ -863,11 +997,11 @@ mod tests {
         let url = source_repo(&src, "kovan-standard-open-corpus/a.pdf");
         let clone = tmp.path().join("data/standard-corpus");
         assert!(matches!(
-            update_standard_corpus_in(&clone, &url, "main").unwrap(),
+            update_standard_corpus_in(&clone, &url, "main", &DownloadProgress::new()).unwrap(),
             CorpusPullOutcome::Downloaded { .. }
         ));
         assert!(matches!(
-            update_standard_corpus_in(&clone, &url, "main").unwrap(),
+            update_standard_corpus_in(&clone, &url, "main", &DownloadProgress::new()).unwrap(),
             CorpusPullOutcome::UpToDate { .. }
         ));
         // A document is added upstream; the next start picks it up.
@@ -885,7 +1019,7 @@ mod tests {
         git(&["add", "."]);
         git(&["commit", "-q", "-m", "b"]);
         assert!(matches!(
-            update_standard_corpus_in(&clone, &url, "main").unwrap(),
+            update_standard_corpus_in(&clone, &url, "main", &DownloadProgress::new()).unwrap(),
             CorpusPullOutcome::Updated { .. }
         ));
         assert!(clone.join("kovan-standard-open-corpus/b.pdf").exists());
@@ -895,7 +1029,7 @@ mod tests {
         git(&["add", "."]);
         git(&["commit", "-q", "-m", "c"]);
         assert!(matches!(
-            update_standard_corpus_in(&clone, &url, "main").unwrap(),
+            update_standard_corpus_in(&clone, &url, "main", &DownloadProgress::new()).unwrap(),
             CorpusPullOutcome::NeedsConfirmation { .. }
         ));
         assert!(clone.join("mine.pdf").exists());
@@ -917,7 +1051,7 @@ mod tests {
         std::fs::create_dir_all(&new).unwrap();
         assert!(check_standard_corpus_folder(&new, &url).is_ok());
         let clone = tmp.path().join("clone");
-        update_standard_corpus_in(&clone, &url, "main").unwrap();
+        update_standard_corpus_in(&clone, &url, "main", &DownloadProgress::new()).unwrap();
         assert!(check_standard_corpus_folder(&clone, &url).is_ok());
         let full = tmp.path().join("full");
         touch(&full.join("thesis.pdf"));
@@ -988,7 +1122,11 @@ mod tests {
             proprietary_remote: None,
         })
         .unwrap();
-        let setup = ensure_library_corpora_with(&root, &standard, "main");
+        let progress = DownloadProgress::new();
+        let setup = ensure_library_corpora_with_progress(&root, &standard, "main", &progress);
+        // #1016: each repository is named as it is set up.
+        assert!(!progress.snapshot().subject.is_empty());
+        assert!(!progress.snapshot().active);
         assert_eq!(setup.standard.unwrap(), RepoState::SubmoduleAdded);
         assert_eq!(setup.open.unwrap(), RepoState::SubmoduleAdded);
         assert_eq!(setup.proprietary.unwrap(), RepoState::Initialised);
@@ -1164,6 +1302,165 @@ mod tests {
         assert!(KovanRoot::open(&copy).is_ok());
     }
 
+    /// A `file://` superproject with one submodule, so Git transfers a pack
+    /// and prints its progress (a plain-path remote is copied locally,
+    /// without any). Returns the superproject's URL.
+    fn file_remote_with_submodule(t: &Path) -> String {
+        let sub = source_repo(&t.join("sub"), "kovan-standard-open-corpus/a.pdf");
+        let sup = t.join("sup");
+        touch(&sup.join("README.pdf"));
+        let git = |args: &[&str]| {
+            let out = Command::new("git")
+                .arg("-C")
+                .arg(&sup)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(["-c", "protocol.file.allow=always"])
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["submodule", "add", "-q", &format!("file://{sub}"), "lit"]);
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "x"]);
+        format!("file://{}", sup.display())
+    }
+
+    /// Every file under `dir` outside `.git`, relative and sorted, with its
+    /// contents.
+    fn tree(dir: &Path) -> Vec<(PathBuf, Vec<u8>)> {
+        fn walk(base: &Path, dir: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) {
+            for e in std::fs::read_dir(dir).unwrap().flatten() {
+                let path = e.path();
+                if e.file_name() == ".git" {
+                    continue;
+                }
+                if path.is_dir() {
+                    walk(base, &path, out);
+                } else {
+                    let rel = path.strip_prefix(base).unwrap().to_path_buf();
+                    out.push((rel, std::fs::read(&path).unwrap()));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(dir, dir, &mut out);
+        out.sort();
+        out
+    }
+
+    /// GitHub issue #1016: a clone reports Git's progress, its receive
+    /// phase reaches 100 %, the submodule being fetched is named, and the
+    /// clone it lands is the same as one made the old way (no `--progress`).
+    #[test]
+    fn a_clone_reports_progress_and_lands_the_same_clone() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let url = file_remote_with_submodule(tmp.path());
+        let progress = DownloadProgress::new();
+        progress.set_subject("standard corpus");
+        let dest = tmp.path().join("data/standard-corpus");
+        assert_eq!(
+            ensure_repo_with_progress(&dest, Some(&url), Some("main"), &progress).unwrap(),
+            RepoState::Cloned
+        );
+        let s = progress.snapshot();
+        assert!(!s.active, "finished");
+        assert_eq!(s.subject, "standard corpus");
+        assert!(
+            s.completed_phases.iter().any(|p| p == "Receiving objects"),
+            "{:?}",
+            s.completed_phases
+        );
+        assert_eq!(s.percent, Some(100), "{s:?}");
+        assert!(s.repository.ends_with("lit"), "the submodule was named: {s:?}");
+
+        let old = tmp.path().join("old");
+        let ok = Command::new("git")
+            .args(["-c", "protocol.file.allow=always", "clone", "-q"])
+            .args(["--recurse-submodules", "--branch", "main", &url])
+            .arg(&old)
+            .status()
+            .unwrap()
+            .success();
+        assert!(ok);
+        assert_eq!(tree(&dest), tree(&old));
+        assert!(dest.join("lit/kovan-standard-open-corpus/a.pdf").exists());
+        let head = |d: &Path| {
+            Command::new("git")
+                .arg("-C")
+                .arg(d)
+                .args(["rev-parse", "HEAD"])
+                .output()
+                .unwrap()
+                .stdout
+        };
+        assert_eq!(head(&dest), head(&old));
+        assert_eq!(head(&dest.join("lit")), head(&old.join("lit")));
+    }
+
+    /// A bad URL still fails as before #1016: [`CorpusRepoError::Clone`] with
+    /// Git's own message, and no progress lines in it.
+    #[test]
+    fn a_bad_url_still_fails_with_gits_message() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("x");
+        let bad = format!("file://{}", tmp.path().join("nowhere").display());
+        let progress = DownloadProgress::new();
+        match ensure_repo_with_progress(&dest, Some(&bad), None, &progress) {
+            Err(CorpusRepoError::Clone { remote, stderr }) => {
+                assert_eq!(remote, bad);
+                assert!(stderr.contains("fatal:"), "{stderr}");
+                assert!(!stderr.contains('%'), "no progress lines: {stderr}");
+            }
+            other => panic!("expected a clone error, got {other:?}"),
+        }
+        assert!(!progress.snapshot().active);
+        assert!(!is_git_repo(&dest));
+    }
+
+    /// Cancelling a clone stops Git and puts the folder back as it was: an
+    /// empty folder stays, empty; one that did not exist is not left behind.
+    #[test]
+    fn a_cancelled_clone_puts_the_folder_back() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let url = file_remote_with_submodule(tmp.path());
+        let dest = tmp.path().join("chosen");
+        std::fs::create_dir_all(&dest).unwrap();
+        let progress = DownloadProgress::new();
+        let result = std::thread::scope(|s| {
+            let watcher = progress.clone();
+            s.spawn(move || {
+                // Cancel as soon as the clone is running.
+                let start = std::time::Instant::now();
+                while !watcher.snapshot().cancellable {
+                    assert!(start.elapsed().as_secs() < 30, "clone never started");
+                    std::thread::yield_now();
+                }
+                watcher.request_cancel();
+            });
+            ensure_repo_with_progress(&dest, Some(&url), None, &progress)
+        });
+        assert!(matches!(result, Err(CorpusRepoError::Cancelled)), "{result:?}");
+        assert!(dest.is_dir());
+        assert_eq!(std::fs::read_dir(&dest).unwrap().count(), 0, "put back empty");
+        assert!(!progress.snapshot().active);
+
+        let absent = tmp.path().join("absent");
+        std::fs::create_dir_all(absent.join(".git/objects")).unwrap();
+        undo_cancelled_clone(&absent, false).unwrap();
+        assert!(!absent.exists(), "a folder the clone made is removed");
+    }
+
     /// Ingest goes to the user's own open-corpus folder, never the standard
     /// corpus's; to the root when there is no single one.
     #[test]
@@ -1245,13 +1542,16 @@ mod tests {
         let pdf = clone.join(WORKSPACE_CORPUS_PATH).join("kovan-standard-open-corpus/a.pdf");
         assert!(!pdf.exists(), "a plain clone should leave the mount empty");
 
-        assert_eq!(ensure_workspace_corpus(&clone).unwrap(), Some(RepoState::Cloned));
+        let progress = DownloadProgress::new();
+        assert_eq!(ensure_workspace_corpus(&clone, &progress).unwrap(), Some(RepoState::Cloned));
+        assert_eq!(progress.snapshot().subject, "literature");
+        assert!(!progress.snapshot().active);
         assert!(pdf.exists());
-        assert_eq!(ensure_workspace_corpus(&clone).unwrap(), Some(RepoState::Existing));
+        assert_eq!(ensure_workspace_corpus(&clone, &DownloadProgress::new()).unwrap(), Some(RepoState::Existing));
 
         let bare = t.join("no-mount");
         std::fs::create_dir_all(&bare).unwrap();
         git(&bare, &["init", "-q"]);
-        assert_eq!(ensure_workspace_corpus(&bare).unwrap(), None);
+        assert_eq!(ensure_workspace_corpus(&bare, &DownloadProgress::new()).unwrap(), None);
     }
 }

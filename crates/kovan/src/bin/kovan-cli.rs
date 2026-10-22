@@ -47,6 +47,8 @@
 //! kovan-cli test -j 1 -p bishan        # partial; the full suite is `kovan-cli test`
 //! kovan-cli lsp-daemon-stop --root .
 //! kovan-cli project regen /path/to/my-kovan-folder
+//! kovan-cli review justify crates/x/src/lib.rs::f --verdict ok --evidence "kovan-cli test: 3 passed"
+//! kovan-cli review justifications f
 //! ```
 //!
 //! `discover`, `search`, `scan`, and `methods` wrap `kovan-discovery` and
@@ -652,8 +654,11 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         cargo_args: Vec<String>,
     },
-    /// Read-only review reports from `review.md` (GitHub #810). Never signs
-    /// or writes: kovan-cli has no signing command.
+    /// Review reports from `review.md` (GitHub #810), agents' unsigned
+    /// justifications (GitHub #1019) and the unsigned carry-forward records
+    /// (#838). Never signs: kovan-cli has no signing command, and what it
+    /// writes (an agent-drafted justification, a carry-forward record) is
+    /// unsigned and never counts as review on its own.
     Review {
         #[command(subcommand)]
         command: ReviewCommand,
@@ -697,6 +702,86 @@ enum ReviewCommand {
         #[arg(long)]
         workspace: Option<PathBuf>,
     },
+    /// Write an agent's **unsigned, agent-drafted** justification of one
+    /// function into its folder's `review.md` (GitHub #1019): a verdict and
+    /// the evidence it rests on, recorded with the function's `fn:` id,
+    /// `HEAD` and its code hash there. Replaces the same agent's earlier
+    /// justification of the function. Never signs, needs no key, and never
+    /// counts as review (alone or as a second sign-off). The function's file
+    /// must have no uncommitted change.
+    Justify {
+        /// The function: its `fn:` id, or `file.rs::Type::name` (the
+        /// call-graph id, `#k` kept for twins).
+        function: String,
+        /// ok, not-ok or unsure.
+        #[arg(long, value_enum)]
+        verdict: VerdictArg,
+        /// One piece of evidence (tests run, upstream line compared, a V&V
+        /// result); one line, repeat for more. At least one.
+        #[arg(long, required = true)]
+        evidence: Vec<String>,
+        /// The agent, `agent:<name>`. A human reviewer id is refused.
+        #[arg(long, default_value = "agent:claude")]
+        by: String,
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+    },
+    /// After a squash, merge, rebase or cherry-pick (GitHub #838, #1018):
+    /// for every signed stamp whose commit is not in the history of `--to`,
+    /// write an unsigned carry-forward record to
+    /// kovan_carry_forward/<to>.toml when the function at `--to` hashes
+    /// exactly to the signed hash; the stamp's key moves there, and the
+    /// signed stamp is untouched. A function that changed gets no record
+    /// (it goes stale). Commit the file afterwards. `--check` re-verifies
+    /// every record instead and fails on any that does not verify.
+    CarryForward {
+        /// Where the reviewed code came from (the review branch, or
+        /// `refs/pull/<n>/head`); fetched from origin when missing. Limits
+        /// the run to stamps whose key is that commit or an ancestor.
+        #[arg(long)]
+        from: Option<String>,
+        /// The commit that brought the code in (default HEAD); must be HEAD
+        /// or an ancestor of it.
+        #[arg(long)]
+        to: Option<String>,
+        /// Re-check every record; write nothing.
+        #[arg(long, conflicts_with_all = ["from", "to"])]
+        check: bool,
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+    },
+    /// List agents' justifications (GitHub #1019), each labelled
+    /// agent-drafted and unsigned, with whether the code changed since.
+    /// Read-only.
+    Justifications {
+        /// Only functions whose `fn:` id or `file.rs::qual` path contains
+        /// this.
+        function: Option<String>,
+        /// Workspace root; found from the current directory when omitted.
+        #[arg(long)]
+        workspace: Option<PathBuf>,
+    },
+}
+
+/// `--verdict` of `review justify`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum VerdictArg {
+    Ok,
+    NotOk,
+    Unsure,
+}
+
+impl VerdictArg {
+    fn verdict(self) -> kovan_common::review::review_md::Verdict {
+        use kovan_common::review::review_md::Verdict;
+        match self {
+            Self::Ok => Verdict::Ok,
+            Self::NotOk => Verdict::NotOk,
+            Self::Unsure => Verdict::Unsure,
+        }
+    }
 }
 
 /// Shared arguments for the name-based semantic queries (`def`/`sig`/`refs`)
@@ -924,6 +1009,60 @@ fn run(command: Command) -> Result<(), String> {
             let (root, _) = commands::workspace::resolve(workspace.as_deref())
                 .map_err(|error| error.to_string())?;
             commands::review_ivv::run(&root, function.as_deref())
+        }
+        Command::Review {
+            command:
+                ReviewCommand::Justify {
+                    function,
+                    verdict,
+                    evidence,
+                    by,
+                    workspace,
+                },
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let req = kovan::stamping::justify::JustifyRequest {
+                function,
+                by,
+                verdict: verdict.verdict(),
+                evidence,
+            };
+            let (entry, w) = kovan::stamping::justify::justify(&root, &req)?;
+            println!(
+                "{} {} ({}): unsigned, agent-drafted justification, verdict {}; never counts as review",
+                if w.replaced { "replaced" } else { "wrote" },
+                w.review_md.display(),
+                entry.kovan.id,
+                entry.justification.verdict.as_str()
+            );
+            Ok(())
+        }
+        Command::Review {
+            command: ReviewCommand::Justifications { function, workspace },
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            print!(
+                "{}",
+                kovan::stamping::justify::render_justifications(&root, function.as_deref())?
+            );
+            Ok(())
+        }
+        Command::Review {
+            command:
+                ReviewCommand::CarryForward {
+                    from,
+                    to,
+                    check,
+                    workspace,
+                },
+        } => {
+            let (root, _) = commands::workspace::resolve(workspace.as_deref())
+                .map_err(|error| error.to_string())?;
+            let out = kovan::stamping::carry_forward::run(&root, from.as_deref(), to.as_deref(), check)?;
+            print!("{out}");
+            Ok(())
         }
         Command::Test {
             root,
@@ -1258,6 +1397,85 @@ mod tests {
             parse(&["review", "ivv"]).command,
             Command::Review {
                 command: ReviewCommand::Ivv { function: None, .. }
+            }
+        ));
+    }
+
+    /// `review carry-forward [--from] [--to] [--check]` parses (GitHub
+    /// #838); `--check` does not combine with `--from`/`--to`.
+    #[test]
+    fn review_carry_forward_parses() {
+        match parse(&["review", "carry-forward", "--from", "refs/pull/7/head", "--to", "HEAD~1"]).command {
+            Command::Review {
+                command: ReviewCommand::CarryForward { from, to, check, workspace },
+            } => {
+                assert_eq!(from.as_deref(), Some("refs/pull/7/head"));
+                assert_eq!(to.as_deref(), Some("HEAD~1"));
+                assert!(!check && workspace.is_none());
+            }
+            _ => panic!("wrong variant"),
+        }
+        assert!(matches!(
+            parse(&["review", "carry-forward", "--check"]).command,
+            Command::Review {
+                command: ReviewCommand::CarryForward { check: true, .. }
+            }
+        ));
+        assert!(Cli::try_parse_from(["kovan-cli", "review", "carry-forward", "--check", "--to", "x"]).is_err());
+    }
+
+    /// `review justify` parses its verdicts, repeated evidence and default
+    /// agent, and refuses a call without evidence or with an unknown
+    /// verdict; `review justifications` parses (GitHub #1019). There is no
+    /// signing flag to parse: `--key` and `--sign` are refused.
+    #[test]
+    fn review_justify_parses() {
+        match parse(&[
+            "review", "justify", "fn:0123456789abcdef", "--verdict", "not-ok", "--evidence", "a b",
+            "--evidence", "c d",
+        ])
+        .command
+        {
+            Command::Review {
+                command:
+                    ReviewCommand::Justify {
+                        function,
+                        verdict,
+                        evidence,
+                        by,
+                        workspace,
+                    },
+            } => {
+                assert_eq!(function, "fn:0123456789abcdef");
+                assert_eq!(verdict.verdict(), kovan_common::review::review_md::Verdict::NotOk);
+                assert_eq!(evidence, ["a b", "c d"]);
+                assert_eq!(by, "agent:claude");
+                assert_eq!(workspace, None);
+            }
+            _ => panic!("wrong variant"),
+        }
+        for (arg, v) in [("ok", "ok"), ("unsure", "unsure")] {
+            match parse(&["review", "justify", "f.rs::g", "--verdict", arg, "--evidence", "xy", "--by", "agent:other"])
+                .command
+            {
+                Command::Review {
+                    command: ReviewCommand::Justify { verdict, by, .. },
+                } => assert_eq!((verdict.verdict().as_str(), by.as_str()), (v, "agent:other")),
+                _ => panic!("wrong variant"),
+            }
+        }
+        for bad in [
+            &["review", "justify", "f.rs::g", "--verdict", "ok"][..],
+            &["review", "justify", "f.rs::g", "--verdict", "fine", "--evidence", "xy"],
+            &["review", "justify", "f.rs::g", "--verdict", "ok", "--evidence", "xy", "--key", "k1"],
+            &["review", "justify", "f.rs::g", "--verdict", "ok", "--evidence", "xy", "--sign"],
+        ] {
+            assert!(Cli::try_parse_from(std::iter::once("kovan-cli").chain(bad.iter().copied())).is_err(), "{bad:?}");
+        }
+        assert!(matches!(
+            parse(&["review", "justifications", "twice"]).command,
+            Command::Review {
+                command: ReviewCommand::Justifications { function: Some(_), .. }
             }
         ));
     }

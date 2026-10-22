@@ -49,6 +49,7 @@ use uom::si::frequency::hertz;
 use uom::si::time::second;
 
 use super::DecayConstant;
+use super::variant::{TrisoAtopsVariant, YttriumGroup};
 
 /// A single fission-product nuclide as modelled by TRISO-ATOPS.
 ///
@@ -126,6 +127,13 @@ impl TrisoAtopsNuclide {
     pub fn element_group(&self) -> ElementGroup {
         ElementGroup::from_atomic_number(self.z)
     }
+
+    /// The transport group under a model [`TrisoAtopsVariant`]. See
+    /// [`ElementGroup::from_atomic_number_for`].
+    #[must_use]
+    pub fn element_group_for(&self, variant: TrisoAtopsVariant) -> ElementGroup {
+        ElementGroup::from_atomic_number_for(self.z, variant)
+    }
 }
 
 /// The five transport groups TRISO-ATOPS sorts nuclides into.
@@ -189,6 +197,24 @@ impl ElementGroup {
             Self::Other
         }
     }
+
+    /// Classify `Z` under a model [`TrisoAtopsVariant`] (gh:#1015).
+    ///
+    /// [`TrisoAtopsVariant::Upstream`] is exactly
+    /// [`ElementGroup::from_atomic_number`]. The paper variant with
+    /// [`YttriumGroup::StrontiumGroup`] puts yttrium (`Z = 39`) in the
+    /// Sr/Ba/Eu group ([`ElementGroup::SpecialMetal`]): Table 1 (p. 6) of
+    /// Stoyer, Raichart & Petti (2026), doi:10.1080/00295450.2026.2671624,
+    /// lists Y-90, Y-91 and Y-92 in group 2, and p. 9 says "strontium's
+    /// diffusivities are used for barium, yttrium, and europium".
+    #[must_use]
+    pub fn from_atomic_number_for(z: u32, variant: TrisoAtopsVariant) -> Self {
+        if z == 39 && variant.readings().yttrium == YttriumGroup::StrontiumGroup {
+            Self::SpecialMetal
+        } else {
+            Self::from_atomic_number(z)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -214,6 +240,29 @@ mod tests {
         assert_eq!(ElementGroup::from_atomic_number(47), ElementGroup::Silver); // Ag
         assert_eq!(ElementGroup::from_atomic_number(46), ElementGroup::Silver); // Pd
         assert_eq!(ElementGroup::from_atomic_number(40), ElementGroup::Other); // Zr
+    }
+
+    /// gh:#1015 (c): yttrium is "other" upstream and in the Sr group under
+    /// the paper; nothing else moves.
+    #[test]
+    fn yttrium_joins_strontium_only_under_the_paper() {
+        let paper = TrisoAtopsVariant::ATOPS2026PAPER;
+        assert_eq!(
+            ElementGroup::from_atomic_number_for(39, TrisoAtopsVariant::Upstream),
+            ElementGroup::Other
+        );
+        assert_eq!(
+            ElementGroup::from_atomic_number_for(39, paper),
+            ElementGroup::SpecialMetal
+        );
+        for z in 1..100 {
+            if z != 39 {
+                assert_eq!(
+                    ElementGroup::from_atomic_number_for(z, paper),
+                    ElementGroup::from_atomic_number(z)
+                );
+            }
+        }
     }
 
     #[test]

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Into the coolant</title>
+<meta name="description" content="Fission products, lesson 44: what reaches the coolant is shared between the graphite, the circulating gas, the plated-out walls and the clean-up system by first-order rates, with zeros the model sets on purpose; and why boon-lay adds extensions that are not a port.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="atops-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 44.
+     Pools from normal_operation_node (MHTGR Case A, 900 °C node, 40 years), with and without clean-up; live_pools::step (NOT a port) reproducing them from empty (atops-data.js, lesson_triso_atops). Prediction Q7. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="ad-numbers" hidden></span>
+
+<h1>Into the coolant</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Once out of the fuel and the graphite, a fission product is in the helium. It can stay there, stick to a cool wall (plate out), be taken out by the purification system, or decay. TRISO-ATOPS keeps track of these as pools with simple first-order rates.</p>
+
+<section class="widget-card">
+  <h3>Where the activity ends up</h3>
+  <div class="widget" id="atops-pools">
+    <canvas aria-label="Bars of the activity in the graphite, circulating in the coolant, plated out and cleaned up, per curie of inventory, for the chosen nuclide; zero terms drawn as dashed boxes with the reason."></canvas>
+  </div>
+  <p class="note"><code>normal_<wbr>operation_<wbr>node</code>, one node at 900 &deg;C after Case A&rsquo;s 40-year run. Plate-out and clean-up rates: Case A&rsquo;s (Table 3, p. 7). Dashed boxes are zeros the model sets, drawn with the reason.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> Switch on the clean-up system. Does it take caesium out of the coolant?</p>
+
+<h2>Three pools and their zeros</h2>
+<p>The circulating pool is fed by the source and drained by decay, plate-out and clean-up; the plate-out and clean-up pools fill from it. Each is a one-line balance with a closed form. The model sets several terms to zero, and the picture draws them:</p>
+<ul>
+<li><b>Noble gases do not plate out</b>, being inert (p. 11).</li>
+<li><b>The clean-up system takes only gases and halogens.</b> Caesium and strontium plate out before it can reach them (p. 11). So the answer to the predict prompt is no.</li>
+<li><b>Gases and halogens are not held in the graphite</b> (p. 9).</li>
+</ul>
+<p>The theory book derives the balances and their numbers for HTR-10 (<a href="../../tutorials/fp-transport-theory/12-escape-and-removal.html">step 13</a>); they are not repeated here.</p>
+
+<h2>Not a port: why boon-lay adds to it</h2>
+<p>A port must agree with upstream, simplifications and all. Where boon-lay needs more, it puts it beside the port, labelled <b>not a port</b>, and tests that it reduces to the port when its addition is switched off:</p>
+<ul>
+<li><a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/live_pools.rs::step"><code>live_<wbr>pools::<wbr>step</code></a> steps the pools from any state, not only from empty, and adds a <b>leak</b>, so a transient can carry them forward. Stepped from empty with no leak over 40 years it reproduces the port&rsquo;s circulating pool exactly for all five nuclides here (predicted: to 10<sup>&minus;9</sup> for Cs-137).</li>
+<li><code>triso_<wbr>atops_<wbr>extensions</code> gives plate-out and clean-up rates per element instead of one per group. It exists because a picture of all 19 HTR-10 nuclides at once showed iodine, caesium, strontium and silver plating out at one rate, and no metal ever being purified, where HTR-10&rsquo;s own data differ (gh:#583).</li>
+</ul>
+
+<h2>Where it is in the code</h2>
+<p><code>normal_<wbr>operation_<wbr>node</code> routes the rates by group and calls the closed forms in <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/coolant_activity.rs::circulating"><code>coolant_<wbr>activity</code></a> (<code>circulating</code>, <code>plate_<wbr>out</code>, <code>clean_<wbr>up</code>).</p>
+
+<p><b>Next:</b> the accident: what leaves the core, and how.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The plate-out constant</h3>
+<p>The paper bases its plate-out rate on 1 % of the inventory per coolant cycle in a large gas-cooled reactor (p. 11), and the clean-up rate on a purification system taking 35 % of the coolant per hour at 90 % efficiency, after Fort St. Vrain&rsquo;s (p. 11). boon-lay&rsquo;s verification against the paper&rsquo;s printed pools found the printed plate-out constant matches only if it is ten times larger; the port keeps it as printed (theory book step 15).</p>
+<h3>The TRISO-ATOPS track</h3>
+<p>The <a href="../../tutorials/triso-atops/coolant.html">coolant rung</a> animates the same pools for HTR-10, with the gh:#583 picture.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

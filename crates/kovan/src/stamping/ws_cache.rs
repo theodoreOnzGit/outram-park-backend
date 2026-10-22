@@ -190,6 +190,10 @@ pub(super) struct RootCache {
     /// When it was last put back, as a count that only rises: the lowest
     /// is the one used longest ago.
     pub(super) used: u64,
+    /// The last load's time checking the cache (the walk, the `review.md`
+    /// reads, the folder checks) and refreshing the folders it could not
+    /// reuse (GitHub #1018's refresh timing).
+    pub(super) phases: (Duration, Duration),
 }
 
 /// Drop the roots used longest ago until fewer than `max` remain, so one
@@ -208,12 +212,17 @@ fn store() -> &'static Mutex<HashMap<PathBuf, RootCache>> {
     STORE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Take `root`'s cache out (empty when there is none). The lock is held
-/// only for the take, so loads of different workspaces do not wait for
-/// each other; two loads of one workspace at once both compute, and the
-/// later [`put`] wins.
+/// A copy of `root`'s cache (empty when there is none). The lock is held
+/// only for the copy, so loads never wait for each other; the later
+/// [`put`] wins.
+///
+/// ~~Take the cache out~~ **CORRECTED 2026-10-22** (GitHub #1018, "starting
+/// a stamp should not wait on refresh"): taking it out meant that a stamp
+/// prepared while a background refresh held the cache found it empty and
+/// refreshed every folder itself. Two loads of one workspace at once now
+/// both reuse it.
 pub(super) fn take(root: &Path) -> RootCache {
-    store().lock().map(|mut m| m.remove(root).unwrap_or_default()).unwrap_or_default()
+    store().lock().ok().and_then(|m| m.get(root).cloned()).unwrap_or_default()
 }
 
 /// Remember `cache` for `root`.

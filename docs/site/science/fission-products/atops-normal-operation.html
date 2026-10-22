@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Normal operation, node by node</title>
+<meta name="description" content="Fission products, lesson 43: in normal operation TRISO-ATOPS multiplies each group's release-to-birth ratio by the fraction of failed particles, an input. Chapter 4's boon-lay fuel failure can supply one of those fractions; here is what that does.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="atops-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 43.
+     normal_operation_node per nuclide at a 900 °C node, MHTGR Case A fractions, doubled fractions, and f_inc from boon-lay fuel failure through FailureFractions::with_fuel_failure_incremental (atops-data.js, lesson_triso_atops). Predictions Q5, Q6. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="ad-numbers" hidden></span>
+
+<h1>Normal operation, node by node</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lesson 42 gave the release from a <b>failed</b> particle. Chapter 4 asked how particles fail (lessons 33&ndash;36). TRISO-ATOPS does not ask: it takes the failed fractions as <b>inputs</b> and multiplies.</p>
+
+<section class="widget-card">
+  <h3>Release rate of one node</h3>
+  <div class="widget" id="atops-node">
+    <canvas aria-label="Release rate per curie of inventory against node temperature for the chosen nuclide, for the MHTGR Case A failure fractions (dashed) and for the fractions you set (solid)."></canvas>
+  </div>
+  <p class="note"><a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node"><code>normal_<wbr>operation_<wbr>node</code></a>, one node, 1 Ci of inventory, MHTGR Case A constants. The page rescales the code&rsquo;s rate by your fractions, which is exact because the rate is linear in them (checked below).</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): double every failure fraction and the release doubles exactly, for every group except silver, which does not change.</p>
+
+<h2>Four fractions, chosen by group</h2>
+<p>A fuel product line has particles with an <b>exposed kernel</b> from manufacture (f<sub>HM</sub>), particles with a <b>defective SiC</b> (f<sub>SiC</sub>), and particles that fail <b>in service</b>, whole (f<sub>inc</sub>) or SiC only (f<sub>inc,SiC</sub>). Which ones matter depends on the group (Stoyer et al. 2026, p. 5):</p>
+<ul>
+<li><b>Noble gases and halogens</b> need the whole particle broken: f<sub>HM</sub> + f<sub>inc</sub>. An intact pyrocarbon holds them even if the SiC is cracked (chapter 4, lesson 31).</li>
+<li><b>Metals</b> need only the SiC broken: all four fractions.</li>
+<li><b>Silver</b> gets out of intact particles too, so no fraction at all.</li>
+</ul>
+<p>The paper also assumes every failed particle sits at the edge of its fuel compact, so the graphite inside the compact holds nothing back (p. 5). The prediction held: doubling the fractions doubles the rate to twelve figures; silver&rsquo;s does not move.</p>
+
+<h2>Where a failed fraction comes from</h2>
+<p>Chapter 4 computed failure, but for <b>accidents</b>. At the end of normal irradiation at 776 &deg;C, boon-lay fuel failure gives a burst fraction of only <span data-ad="phi1">&hellip;</span> (lesson 36). The bridge <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::with_fuel_failure_incremental"><code>FailureFractions::<wbr>with_<wbr>fuel_<wbr>failure_<wbr>incremental</code></a> can put it in place of f<sub>inc</sub>. Try it in the panel: Kr-88&rsquo;s release falls to <span data-ad="bridgeKr">&hellip;</span> of Case A&rsquo;s (as predicted), Cs-137&rsquo;s to <span data-ad="bridgeCs">&hellip;</span>. That is not a better answer. In-service failure in real fuel comes from defects that the pressure-vessel model does not describe; the code&rsquo;s own docs say to use the bridge for a transient, and fuel-qualification data in normal operation.</p>
+
+<h2>Where it is in the code</h2>
+<p><code>normal_<wbr>operation_<wbr>node</code> calls <code>diffusion_<wbr>coefficient</code> (lesson 41), <code>rb_<wbr>fail</code> (lesson 42), then <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::release_rate"><code>release_<wbr>rate</code></a>, which picks the fractions by group, then <code>base_<wbr>activities</code> for the graphite, then the coolant pools (lesson 44). The core is many such nodes, each at one temperature.</p>
+
+<p><b>Next:</b> what reaches the coolant, and where it goes.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>One temperature per node</h3>
+<p>Each node has one fuel and one graphite temperature. Chapter 3 showed the kernel itself is nearly isothermal (lesson 17: about 2 K across it), so this is a fair lumping inside a particle; across a pebble or a core it is what the nodes are for.</p>
+<h3>Case A&rsquo;s fractions</h3>
+<p>f<sub>HM</sub> = 2&times;10<sup>&minus;5</sup>, f<sub>SiC</sub> = 10<sup>&minus;4</sup>, f<sub>inc</sub> = 2.3&times;10<sup>&minus;5</sup>, f<sub>inc,SiC</sub> = 3.6&times;10<sup>&minus;5</sup>: the paper&rsquo;s MHTGR specification and AGR-based values (Table 2, p. 7). They are not HTR-10&rsquo;s; the theory book compares them (<a href="../../tutorials/fp-transport-theory/14-triso-atops.html">step 15</a>).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

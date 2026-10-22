@@ -14,6 +14,22 @@
 //! | `upstream` | `[upstream]` | the folder-level upstream confirmation: is it a port, of what, at which commit |
 //! | `deleted_functions` | `[[deleted]]` | the deleted-functions history table (#740 U5) |
 //! | `architecture` | `[architecture]` | an architecture node, in a crate-level `review.md`: its member functions, the upstream it follows (commit-pinned) and the generic pattern it is (maintainer, #764, 2026-10-07); signed like a review. Members' reviews point at it with a `part_of` relation |
+//! | `justification` | `[justification]` | an **agent-drafted, unsigned** justification of why a function looks correct or not, with its evidence (GitHub #1019); written by `kovan-cli review justify`; at most one per (function, agent); **never counts as review** |
+//!
+//! ## Why `justification` is its own kind (GitHub #1019, 2026-10-22)
+//!
+//! The unsigned `needs_fix` entry was the model, but it does not fit: an
+//! open needs-fix **blocks** its function whatever its stamps, so an agent's
+//! "looks fine" or "unsure" cannot be one, and its `by` is a human reviewer
+//! id. A justification carries a verdict (`ok`, `not_ok`, `unsure`) and an
+//! evidence list, its `by` is always `agent:<name>`
+//! ([`super::types::check_agent_id`]), and its table has **no `signature`
+//! field at all**, so it can never be mistaken for a stamp. The staleness
+//! engine ignores the kind: a justification neither makes a function
+//! reviewed, nor blocks it, nor acts as a second sign-off (maintainer,
+//! 2026-10-22: "kovan-cli should only make unsigned reviews"; AI output is
+//! untrusted until a human reviews it). A human may cite one when signing
+//! their own stamp.
 //!
 //! Any other kind (a `note`, say) is kept as [`Entry::Other`] and ignored by
 //! review.
@@ -366,6 +382,61 @@ pub struct ArchitectureEntry {
     pub relations: Vec<RelationRecord>,
 }
 
+/// An agent's verdict on a function (GitHub #1019).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Verdict {
+    /// The function looks correct on the evidence given.
+    Ok,
+    /// The function looks wrong on the evidence given.
+    NotOk,
+    /// The evidence does not settle it.
+    Unsure,
+}
+
+impl Verdict {
+    /// The wire form, `ok` / `not_ok` / `unsure`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ok => "ok",
+            Self::NotOk => "not_ok",
+            Self::Unsure => "unsure",
+        }
+    }
+}
+
+/// `[justification]`: an agent-drafted, unsigned justification (GitHub
+/// #1019; module doc). Deliberately **no `signature` field**: a key in the
+/// file named `signature` is an unknown key, ignored, and never verified.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JustificationBody {
+    /// The function's current location, `file.rs::Type::name`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// Always `agent:<name>` ([`super::types::check_agent_id`]).
+    pub by: String,
+    /// Always `true`: the label a reader sees in the TOML itself.
+    pub agent_drafted: bool,
+    pub verdict: Verdict,
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    /// The commit and code hash the justification was written against
+    /// (`HEAD`, and the function's hash there).
+    pub commit: String,
+    pub hash: String,
+    /// What the verdict rests on, one item per line (tests run, upstream
+    /// line compared, a V&V result); at least one, each at least two
+    /// characters.
+    pub evidence: Vec<String>,
+}
+
+/// A `justification` entry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JustificationEntry {
+    pub kovan: EntryMeta,
+    pub justification: JustificationBody,
+}
+
 /// One readable entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Entry {
@@ -375,6 +446,9 @@ pub enum Entry {
     Upstream(UpstreamEntry),
     DeletedFunctions(DeletedFunctionsEntry),
     Architecture(ArchitectureEntry),
+    /// An agent-drafted, unsigned justification (GitHub #1019); never
+    /// counts as review.
+    Justification(JustificationEntry),
     /// Any other kind; ignored by review, kept verbatim.
     Other { kind: String, toml: String },
 }
@@ -389,6 +463,7 @@ impl Entry {
             Self::Upstream(_) => "upstream",
             Self::DeletedFunctions(_) => "deleted_functions",
             Self::Architecture(_) => "architecture",
+            Self::Justification(_) => "justification",
             Self::Other { kind, .. } => kind,
         }
     }
@@ -402,6 +477,7 @@ impl Entry {
             Self::Upstream(e) => toml::to_string_pretty(e),
             Self::DeletedFunctions(e) => toml::to_string_pretty(e),
             Self::Architecture(e) => toml::to_string_pretty(e),
+            Self::Justification(e) => toml::to_string_pretty(e),
             Self::Other { toml, .. } => return Ok(toml.clone()),
         };
         r.map_err(|e| ReviewMdError::Emit(e.to_string()))
@@ -459,6 +535,7 @@ macro_rules! function_ref {
 function_ref!(ReviewEntry, review);
 function_ref!(NeedsFixEntry, needs_fix);
 function_ref!(AnnotationEntry, annotation);
+function_ref!(JustificationEntry, justification);
 
 impl ReviewDocument {
     /// The review entries, in file order.
@@ -473,6 +550,14 @@ impl ReviewDocument {
     pub fn needs_fixes(&self) -> impl Iterator<Item = &NeedsFixEntry> {
         self.entries.iter().filter_map(|e| match &e.entry {
             Entry::NeedsFix(r) => Some(r),
+            _ => None,
+        })
+    }
+
+    /// The agent-drafted justifications (GitHub #1019), in file order.
+    pub fn justifications(&self) -> impl Iterator<Item = &JustificationEntry> {
+        self.entries.iter().filter_map(|e| match &e.entry {
+            Entry::Justification(j) => Some(j),
             _ => None,
         })
     }
@@ -615,6 +700,36 @@ pub fn validate_architecture(a: &ArchitectureEntry) -> Result<(), FieldError> {
     Ok(())
 }
 
+/// Field-level validation of an agent justification (GitHub #1019): the
+/// function reference, an `agent:` author, the `agent_drafted` label, an
+/// ISO date, a commit, a hash and at least one evidence line of two or more
+/// characters, none spanning lines.
+pub fn validate_justification(j: &JustificationEntry) -> Result<(), FieldError> {
+    let b = &j.justification;
+    check_function_ref(&j.kovan, &b.path)?;
+    super::types::check_agent_id(&b.by)?;
+    if !b.agent_drafted {
+        return Err(FieldError::BadAgentId(format!("{} (agent_drafted = false)", b.by)));
+    }
+    check_date("justification.date", &b.date)?;
+    check_commit("justification.commit", &b.commit)?;
+    check_hash("justification.hash", &b.hash)?;
+    if b.evidence.is_empty() {
+        return Err(FieldError::TooShort {
+            field: "justification.evidence".into(),
+        });
+    }
+    for e in &b.evidence {
+        check_text("justification.evidence", e)?;
+        if e.contains('\n') {
+            return Err(FieldError::TooShort {
+                field: "justification.evidence (one line per item)".into(),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// An [`Upstream`] used in review data must name its commit, and its `url`,
 /// when present, must be pinned (#764, 2026-10-07).
 pub fn validate_upstream_ref(u: &Upstream) -> Result<(), FieldError> {
@@ -678,6 +793,11 @@ fn read_entry(text: &str) -> Result<Entry, (String, toml::Value)> {
             validate_architecture(&e).map_err(|e| fail(e.to_string()))?;
             Entry::Architecture(e)
         }
+        "justification" => {
+            let e: JustificationEntry = toml::from_str(text).map_err(|e| fail(e.to_string()))?;
+            validate_justification(&e).map_err(|e| fail(e.to_string()))?;
+            Entry::Justification(e)
+        }
         "" => return Err(fail("[kovan] has no kind".into())),
         other => Entry::Other {
             kind: other.to_string(),
@@ -691,12 +811,12 @@ fn read_entry(text: &str) -> Result<Entry, (String, toml::Value)> {
 pub fn parse_review_md(markdown: &str) -> ReviewDocument {
     let scan = scan_blocks_with(markdown, UnparseableFence::Report, |heading, line, text| {
         read_entry(text).map_err(|(message, v)| {
-            let tables = ["review", "needs_fix", "annotation"];
+            let tables = ["review", "needs_fix", "annotation", "justification"];
             let function = str_at(&v, &["kovan", "target"])
                 .filter(|t| is_fn_id(t))
                 .or_else(|| tables.iter().find_map(|t| str_at(&v, &[t, "path"])))
                 .map(str::to_string);
-            let by = ["review", "needs_fix", "annotation"]
+            let by = tables
                 .iter()
                 .find_map(|t| str_at(&v, &[t, "by"]))
                 .map(str::to_string);

@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::review::id::mint_fn_id;
+use crate::review::root::Role;
 use crate::review::index::{FunctionIndex, ItemKind, ModuleIndex};
 use crate::review::review_md::{
     Entry, EntryMeta, NeedsFixBody, NeedsFixEntry, ParsedEntry, ReviewBody, Unreadable,
@@ -202,6 +203,7 @@ pub(super) fn git_for(rs: &[&FolderReviews]) -> GitFacts {
                     }),
                     tests_at_review: None,
                     reviewed_commit_time: None,
+                    carried_forward: None,
                 },
             );
         }
@@ -496,6 +498,67 @@ fn d6_time_bound_stamps() {
     assert_eq!(state_with(f), StampState::Unverified(UnverifiedReason::NotCommitted));
     let ev = eval(&revs, &idx, &root(), &GitFacts::default(), &ConceptAreas::new(), SignaturePolicy::NotChecked);
     assert_eq!(ev.functions[&fid(F)].state, StampState::Unverified(UnverifiedReason::NoGitFacts));
+}
+
+/// Methodology (GitHub #838, #1018): the time-bound fixture's good facts,
+/// then the facts a squash leaves (the stamp arrived in the squash commit,
+/// not after the certified commit, the squash message carrying the agent
+/// trailer), with and without a carry-forward to a commit in history; and
+/// the code changed with the anchor lost and no carry-forward.
+///
+/// Pass: carried forward, the stamp is valid even though it did not arrive
+/// after the original commit and the squash message has the trailer, and
+/// the review reports its hops and the #783 timing as not checkable
+/// (squashed) when the original commit's time is unknown, checked when it
+/// is; a trailer on a commit that is not a hop's (a rebased stamp commit)
+/// still makes it unverified; without the record it is unverified, not in
+/// history; with the code changed it is directly stale.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn carried_forward_stamps_are_judged_at_their_new_key() {
+    let revs = [reviews_in("x", D, vec![review(F, M, 'a', &[])])];
+    let refs: Vec<&FolderReviews> = revs.iter().collect();
+    let key = ReviewKey { function: fid(F), by: M.into() };
+    let run = |facts: StampFacts, now: char| {
+        let idx = [folder("x", D, &[("a.rs", vec![fun(F, now, &[], &[])])])];
+        let mut g = git_for(&refs);
+        g.stamps.insert(key.clone(), facts);
+        let ev = eval(&revs, &idx, &root(), &g, &ConceptAreas::new(), SignaturePolicy::NotChecked);
+        ev.functions[&fid(F)].clone()
+    };
+    let mut squashed = git_for(&refs).stamps[&key].clone();
+    let s1 = "5".repeat(40);
+    {
+        let a = squashed.added_in.as_mut().unwrap();
+        a.commit = s1.clone();
+        a.after_certified = false;
+        a.agent_trailer = true;
+    }
+    squashed.reviewed_commit_time = None;
+    let mut carried = squashed.clone();
+    carried.carried_forward = Some(CarriedForward {
+        key: s1.clone(),
+        path: "x/a.rs::f".into(),
+        hops: vec![("c".repeat(40), s1.clone())],
+        stamp_arrived_in_hop: true,
+    });
+    let fr = run(carried.clone(), 'a');
+    assert_eq!(fr.state, StampState::Valid);
+    assert_eq!(fr.reviews[0].carried_forward.as_ref().map(|c| c.key.as_str()), Some(s1.as_str()));
+    assert_eq!(fr.reviews[0].reviewed_commit_timing, ReviewedCommitTiming::NotCheckableSquashed);
+    let mut timed = carried.clone();
+    timed.reviewed_commit_time = Some(1);
+    assert_eq!(run(timed, 'a').reviews[0].reviewed_commit_timing, ReviewedCommitTiming::Checked);
+
+    let mut rebased = carried.clone();
+    rebased.carried_forward.as_mut().unwrap().stamp_arrived_in_hop = false;
+    assert_eq!(run(rebased, 'a').state, StampState::Unverified(UnverifiedReason::AgentTrailer));
+
+    let mut lost = squashed;
+    lost.added_in.as_mut().unwrap().certified_in_history = false;
+    assert_eq!(run(lost.clone(), 'a').state, StampState::Unverified(UnverifiedReason::CertifiedCommitNotInHistory));
+    assert_eq!(run(lost, 'b').state.kind(), StateKind::DirectlyStale);
 }
 
 /// Concern beats approval: an open needs-fix blocks a validly reviewed
@@ -1110,7 +1173,7 @@ fn enforced_signatures_map_onto_states() {
     let (rf, rk) = keystore::generate(R, "r1", "2026-10-07", pass).unwrap();
     let mut rt = root();
     rt.reviewers.retain(|r| r.id == M || r.id == R);
-    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()), rust_analyzer_used: vec![], developing_organisation: vec![] });
+    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()), rust_analyzer_used: vec![], developing_organisation: vec![], roster_events: vec![] });
     rt.reviewers[0].keys = vec![mf.reviewer_key()];
     rt.reviewers[1].keys = vec![rf.reviewer_key()];
     rt.reviewers[1].admitted = Some("2026-10-07".into());

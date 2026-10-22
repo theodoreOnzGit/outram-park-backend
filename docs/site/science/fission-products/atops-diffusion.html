@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One diffusion law per group</title>
+<meta name="description" content="Fission products, lesson 41: TRISO-ATOPS gives each group one Arrhenius diffusion law in the kernel and one in the graphite, holds some of them flat below their valid range, and extrapolates others. Read from the code's output.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="atops-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 41.
+     D(T): diffusion_coefficient and diffusion_coefficient_sic_ag on a 25 °C grid; the clamps found from the output alone (atops-data.js, lesson_triso_atops). Prediction Q2. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="ad-numbers" hidden></span>
+
+<h1>One diffusion law per group</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lesson 8 built the Arrhenius law from hops; lesson 30 used one for every element in every layer. TRISO-ATOPS keeps far fewer: one law per group for the kernel, one for the graphite, and one for silver in SiC. Nothing for the buffer or the pyrocarbon, because in this model a failed particle has lost them (lesson 39).</p>
+
+<section class="widget-card">
+  <h3>D against temperature, by group</h3>
+  <div class="widget" id="atops-d">
+    <canvas aria-label="Diffusion coefficient against temperature on a log scale for the krypton-like, caesium-like, strontium-like, silver-like and nominal classes, in the kernel or the graphite; shaded where the code holds the value flat below its valid range."></canvas>
+  </div>
+  <p class="note"><a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient"><code>diffusion_<wbr>coefficient</code></a> and <code>diffusion_<wbr>coefficient_<wbr>sic_<wbr>ag</code>; the shaded ranges are read from the output alone (where D stops changing as the temperature falls).</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): the output is flat below 700 &deg;C for the Cs and Sr kernel laws, below 550 &deg;C (Cs) and 800 &deg;C (Sr) in graphite, below about 490 &deg;C for Ag in graphite, and never for krypton&rsquo;s kernel law, silver&rsquo;s kernel law or silver in SiC.</p>
+
+<h2>Clamped, or extrapolated</h2>
+<p>Each law was fitted over a temperature range. Below it the code does one of two things. For some laws it <b>clamps</b>: it uses the value at the bottom of the range. The output shows the Cs kernel law flat below <span data-ad="csClampK">&hellip;</span> and in graphite below <span data-ad="csClampG">&hellip;</span>; Sr below <span data-ad="srClampK">&hellip;</span> and <span data-ad="srClampG">&hellip;</span>; Ag in graphite below <span data-ad="agClampG">&hellip;</span> on this 25 &deg;C grid (490 &deg;C in the code). For the others it <b>extrapolates</b> the Arrhenius law down. The prediction held.</p>
+<p>Here the paper and the code differ. The paper says that where the temperature falls below a range&rsquo;s lower bound, the nearest temperature in the range is used, to avoid extrapolating at low temperature (Stoyer et al. 2026, pp. 8&ndash;9). The code does that only for the laws above: krypton&rsquo;s (also used for Xe, I, Te and Se) and silver&rsquo;s are extrapolated. <del>The port follows upstream&rsquo;s code. Reported, not changed.</del> <b>Corrected 2026-10-22:</b> the port still follows upstream&rsquo;s code by default, and now offers the paper&rsquo;s rule as a named option, <code>atops2026paper</code> (see &ldquo;Learn more&rdquo; below).</p>
+<p>Krypton&rsquo;s kernel law also switches branch at 1500 &deg;C (the dotted line). boon-lay&rsquo;s random walker switches the same values at 700 &deg;C; which is right is gh:#974.</p>
+<p>Everything outside the four correlations gets 10<sup>&minus;19</sup> m&sup2;/s, in kernel and graphite alike: the paper&rsquo;s reasoning is that those elements have never been seen released from TRISO fuel (p. 9).</p>
+
+<h2>Where it is in the code</h2>
+<p><code>diffusion_<wbr>coefficient</code> is one <code>match</code> on the atomic number, with the clamps as <code>max(...)</code> on the temperature before the exponential. It is called by <code>normal_<wbr>operation_<wbr>node</code> for each node, and by <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::integrate_diffusion_over_time"><code>integrate_<wbr>diffusion_<wbr>over_<wbr>time</code></a> in an accident (lesson 45).</p>
+
+<p><b>Next:</b> from D to a release: one model per group.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why the kernel law is UO<sub>2</sub>&rsquo;s</h3>
+<p>The paper notes that the kernel diffusivities are for UO<sub>2</sub>, because no data exist for uranium oxycarbide (UCO), the kernel of the MHTGR fuel it models (p. 8).</p>
+<h3>The <code>atops2026paper</code> option</h3>
+<p>boon-lay&rsquo;s port runs upstream&rsquo;s code unless asked otherwise (<code>TrisoAtopsVariant::<wbr>Upstream</code>, the default). The option <code>TrisoAtopsVariant::<wbr>ATOPS2026PAPER</code> runs the paper&rsquo;s equations as written instead (gh:#1015). For the diffusion laws it changes two things:</p>
+<ul>
+<li><b>The low-temperature clamp.</b> Every law is held at the bottom of its range, as the paper says (pp. 8&ndash;9). That adds krypton&rsquo;s kernel law (so Kr, Xe, I, Te and Se) and silver in SiC, both held below 700 &deg;C. At 400 &deg;C krypton&rsquo;s D is then about 10<sup>3</sup> times the extrapolated value.</li>
+<li><b>Yttrium&rsquo;s group.</b> Yttrium joins Sr, Ba and Eu and takes strontium&rsquo;s diffusivities (Table 1, p. 6; p. 9), instead of the nominal 10<sup>&minus;19</sup> m&sup2;/s.</li>
+</ul>
+<p>The paper&rsquo;s own printed results were computed with upstream&rsquo;s code, so the default is the one that reproduces them. The tutorial case <a href="../../deep-dives/triso-atops/atops2026-paper.html">Reproducing the TRISO-ATOPS 2026 paper&rsquo;s release results</a> shows both side by side, with the code that runs them.</p>
+<h3>Compared with chapter 4</h3>
+<p>Chapter 4&rsquo;s per-layer coefficients (Jiang et al. 2023) and these (the NP-MHTGR compilation) are different data sets. They share the Kr kernel values but switch them at different temperatures (gh:#974).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

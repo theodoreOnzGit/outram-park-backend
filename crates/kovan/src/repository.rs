@@ -318,11 +318,19 @@ fn build_tree_from(
         }
     };
 
+    // What `git add` would store, not the raw worktree bytes: on a Windows
+    // checkout with `core.autocrlf = true` the files hold CRLF while their
+    // commits hold LF, and storing the raw bytes showed every text file as
+    // changed and committed CRLF (kovan CI, Windows runner, 2026-10-22).
+    let (mut pipeline, index) = repo
+        .filter_pipeline(None)
+        .map_err(|e| RepositoryError::Git(e.to_string()))?;
     for (abs, rel) in &files {
-        let bytes = std::fs::read(abs).map_err(|source| RepositoryError::Io {
+        let raw = std::fs::read(abs).map_err(|source| RepositoryError::Io {
             path: abs.clone(),
             source,
         })?;
+        let bytes = to_git_bytes(&mut pipeline, &index, rel, &raw)?;
         let oid = repo
             .write_blob(&bytes)
             .map_err(|e| RepositoryError::Git(e.to_string()))?
@@ -369,6 +377,27 @@ fn build_tree_from(
         .get(&PathBuf::new())
         .expect("root directory is always present");
     Ok((root_oid, blobs))
+}
+
+/// The bytes `git add` would store for the worktree file `rel` (relative to
+/// the repository's worktree) holding `raw`: git's to-git filters
+/// (`core.autocrlf`, `core.eol`, `.gitattributes` `text`/`eol`, and filter
+/// drivers), run by gix's pipeline exactly as for `git add`.
+fn to_git_bytes(
+    pipeline: &mut gix::filter::Pipeline<'_>,
+    index: &gix::index::State,
+    rel: &Path,
+    raw: &[u8],
+) -> Result<Vec<u8>, RepositoryError> {
+    use std::io::Read;
+    let git = |e: String| RepositoryError::Git(format!("{}: {e}", rel.display()));
+    let mut out = Vec::with_capacity(raw.len());
+    pipeline
+        .convert_to_git(raw, rel, index)
+        .map_err(|e| git(e.to_string()))?
+        .read_to_end(&mut out)
+        .map_err(|e| git(e.to_string()))?;
+    Ok(out)
 }
 
 /// Build a tree object representing `root`'s current (non-excluded)
@@ -1306,6 +1335,45 @@ mod tests {
             "corpus files flattened into the Kovan repository: {paths:?}"
         );
         assert!(paths.contains_key(".gitmodules"));
+    }
+
+    /// Methodology: a Kovan folder with the repository-local
+    /// `core.autocrlf = true` that Git for Windows sets system-wide, and a
+    /// note written with CRLF line endings, as that checkout holds it. Pass:
+    /// Save stores the note with LF (what `git add` stores), `git status`
+    /// agrees nothing is left to add, and Kovan's own status is then clean.
+    /// Before the fix Save stored the raw CRLF bytes, and a plain clone of
+    /// a saved folder on Windows showed every text file as changed.
+    ///
+    /// Result (2026-10-22): passes.
+    #[test]
+    fn save_stores_what_git_add_would_under_autocrlf() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let root = KovanRoot::create(&tmp.path().join("lib"), RootConfig::new("lib", "Lib"), true)
+            .unwrap();
+        git(root.path(), &["config", "core.autocrlf", "true"]);
+        std::fs::write(root.path().join("note.md"), "line one\r\nline two\r\n").unwrap();
+        save_repository(&root).unwrap().unwrap();
+
+        let repo = gix::open(root.path()).unwrap();
+        let oid = head_tree_paths(&root)["note.md"];
+        let blob = repo.find_object(oid).unwrap().data.clone();
+        assert_eq!(blob, b"line one\nline two\n");
+        assert!(status(&root).unwrap().is_empty());
+        let porcelain = std::process::Command::new("git")
+            .arg("-C")
+            .arg(root.path())
+            .args(["status", "--porcelain", "note.md"])
+            .output()
+            .unwrap();
+        assert!(
+            porcelain.stdout.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&porcelain.stdout)
+        );
     }
 
     /// Corpora registered but not downloaded (a plain clone, or a download

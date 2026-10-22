@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why layers?</title>
+<meta name="description" content="Fission products, lesson 29: defence in depth inside one particle. From a bare kernel to BISO to TRISO, with the job of each layer and the iodine each configuration let out in 1600 °C heating tests, all cited.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4 "TRISO layer migration and particle
+     failure", lesson 29. Radii: TrisoSpec::HTR10_LI2014 (barrier-data.js,
+     lesson_barriers generator). History and layer jobs: barrier-recorded.js
+     (Kugeler 2017, Fang 2021, read 2026-10-22). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>Why layers?</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Chapter 3 ended with a bare UO<sub>2</sub> kernel letting its fission products out. Some of them are radioactive for years, some keep making heat after shutdown, and some (caesium, iodine) are chemically active and volatile. So we do not want one wall between them and the outside: we want several, so that no single failure lets them out. That idea is called <b>defence in depth</b>. A TRISO particle puts it inside one grain of sand.</p>
+
+<section class="widget-card">
+  <h3>From a bare kernel to TRISO</h3>
+  <div class="widget" id="particle">
+    <canvas aria-label="A cut through a fuel particle: a red kernel, and around it the buffer, inner pyrocarbon, silicon carbide and outer pyrocarbon layers, drawn to the HTR-10 radii. Beside it, bars of the iodine-131 released in heating tests for a bare kernel, BISO-contaminated fuel and modern TRISO fuel."></canvas>
+  </div>
+  <p class="note">Radii: the HTR-10 particle, <code>TrisoSpec::HTR10_LI2014</code> (kernel radius <span data-bd="kernelR">&hellip;</span>; buffer <span data-bd="bufferT">&hellip;</span>, IPyC <span data-bd="ipycT">&hellip;</span>, SiC <span data-bd="sicT">&hellip;</span>, OPyC <span data-bd="opycT">&hellip;</span> thick). Bars: Kugeler et al. (2017), EUR 28712, p. 42. Layer jobs: the same report&rsquo;s Table 5, pp. 32&ndash;33.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> A bare kernel at 1600 &deg;C lets out nearly all its iodine-131. How much less does a modern TRISO particle let out: ten times, a thousand, or a billion?</p>
+
+<h2>First try: carbon only (BISO)</h2>
+<p>The first coated particles were <b>BISO</b>: a porous carbon buffer and one dense pyrocarbon shell. In Fang et al.&rsquo;s words (2021, p. 2): &ldquo;In the initial design, the coated fuel particle structure is of Bi-isotropic (BISO) type, i.e., a loose and a dense pyrolytic carbon layer on the outer coating of the active core.&rdquo;</p>
+<p>Carbon holds gases well, but BISO showed two weaknesses: &ldquo;the high level of heavy metal contamination during the coating deposition and the low retention ability for certain metal FPs (such as strontium)&rdquo; (Fang et al. 2021, p. 2). Kugeler et al. (2017, p. 28) put it this way: BISO particles &ldquo;are completely sufficient concerning fission-product release, however they are outperformed by the behaviour of TRISO-coated particles in case of hypothetical accident conditions, for example with core heat-up to temperatures &gt; 1 500 &deg;C.&rdquo;</p>
+<p class="note">Source pending: the year and programme in which SiC was first added, and which particles Dragon, Peach Bottom and Fort St. Vrain used. None of the three open sources read here says.</p>
+
+<h2>Add SiC: BISO becomes TRISO</h2>
+<p>TRISO adds a silicon carbide layer between two pyrocarbon layers. Tap a layer in the panel to read its job, quoted from Kugeler et al.&rsquo;s Table 5 (pp. 32&ndash;33). In short:</p>
+<ul>
+<li><b>Buffer</b> (porous carbon): room for gas and CO, room for the kernel to swell, and a cushion against recoiling fragments.</li>
+<li><b>Inner PyC</b>: holds gases, protects the kernel while the SiC is laid down, and gives the SiC something to grow on.</li>
+<li><b>SiC</b>: the main barrier, which the report says retains everything except silver below 1250 &deg;C in operation and up to 1600 &deg;C in accidents, and the layer that carries the pressure.</li>
+<li><b>Outer PyC</b>: holds gases, squeezes the SiC as it shrinks under irradiation, and bonds to the graphite around the particle.</li>
+</ul>
+<p>The bars show the result. In 1600 &deg;C heating tests, a bare kernel let out about all its <sup>131</sup>I; TRISO fuel contaminated by older BISO fuel in the AVR reactor let out about 10<sup>&minus;5</sup>; modern TRISO fuel 10<sup>&minus;9</sup> to 10<sup>&minus;8</sup>, &ldquo;nine orders of magnitude&rdquo; apart (Kugeler et al. 2017, pp. 42&ndash;43).</p>
+
+<p><b>Next:</b> why does each layer hold some fission products and not others? Lesson 30 measures how fast each element moves in each layer.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The same idea, at plant scale</h3>
+<p>A reactor plant stacks barriers too: fuel, cladding or coatings, the coolant boundary, the building. That comparison belongs to a later capstone chapter and is not drawn here. This chapter stays inside the TRISO particle.</p>
+<h3>Where the theory book goes deeper</h3>
+<p>The fission-product transport theory book covers the layers and their chemistry, with what the workspace can and cannot support (<a href="../../tutorials/fp-transport-theory/03-layers-chemistry.html">step 3, &ldquo;Through the layers&rdquo;</a>), and why SiC gets the credit (<a href="../../tutorials/fp-transport-theory/04-sic.html">step 4</a>). The TRISO-ATOPS track&rsquo;s <a href="../../tutorials/triso-atops/triso.html">rung 1</a> builds the particle geometry in boon-lay.</p>
+<h3>Sources</h3>
+<ul>
+<li>Kugeler, K., Nabielek, H. &amp; Buckthorpe, D. (2017), <i>The High Temperature Gas-cooled Reactor: Safety considerations of the (V)HTR-Modul</i>, EUR 28712 EN, JRC, doi:10.2760/270321 (open corpus).</li>
+<li>Fang, C. et al. (2021), &ldquo;Analysis of Fission Products&rsquo; Release in Pebble-Bed HTGR Fuel Elements Using a Modified FRESCO II Numerical Model&rdquo;, <i>Science and Technology of Nuclear Installations</i>, doi:10.1155/2021/6627789 (CC BY).</li>
+</ul>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

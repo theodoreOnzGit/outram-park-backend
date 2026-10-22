@@ -173,6 +173,7 @@ pub fn fresh_root_text(
             founder: founder.map(str::to_string),
             rust_analyzer_used: used.cloned().into_iter().collect(),
             developing_organisation: Vec::new(),
+            roster_events: Vec::new(),
         }),
         reviewers: Vec::new(),
         deleted_crates: Vec::new(),

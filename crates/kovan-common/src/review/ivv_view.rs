@@ -220,6 +220,7 @@ pub fn relevant_warnings(warnings: &[RecordWarning], reviewers: &BTreeSet<String
             RecordList::DevelopingOrganisation => true,
             RecordList::ReviewerOrganisation { reviewer }
             | RecordList::SeparationAttestation { reviewer } => reviewers.contains(reviewer),
+            RecordList::RosterEvent => false,
         })
         .map(record_warning)
         .collect()
@@ -386,7 +387,7 @@ pub fn ivv_queue(ev: &Evaluation) -> Vec<IvvQueueRow> {
     }
     for w in &ev.ivv_warnings {
         let reviewer = match &w.list {
-            RecordList::DevelopingOrganisation => None,
+            RecordList::DevelopingOrganisation | RecordList::RosterEvent => None,
             RecordList::ReviewerOrganisation { reviewer }
             | RecordList::SeparationAttestation { reviewer } => Some(reviewer.clone()),
         };

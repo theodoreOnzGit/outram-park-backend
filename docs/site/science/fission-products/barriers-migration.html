@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration through the layers</title>
+<meta name="description" content="Fission products, lesson 30: how fast caesium, strontium, silver and krypton move in each TRISO layer, from boon-lay's per-layer diffusion coefficients, and how long each layer takes to cross. With the gaps in the data shown as gaps.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4, lesson 30. D: boon-lay's walker
+     (try_get_diffusion_coeff_jiang) and TRISO-ATOPS's diffusion_coefficient /
+     diffusion_coefficient_sic_ag, via barrier-data.js (lesson_barriers).
+     Predictions P1-P3 in the generator's docs. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>Migration through the layers</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>An atom that leaves the kernel still has four layers to cross. In each one it does the same random walk as in the kernel (lessons 8 and 9), but at a different speed. One number sets that speed: the diffusion coefficient <i>D</i> of that element in that material, at that temperature.</p>
+
+<section class="widget-card">
+  <h3>D in every layer, and the time to cross it</h3>
+  <div class="widget" id="dlayers">
+    <canvas aria-label="Left or top: diffusion coefficient against temperature, log scale, one line per layer for the chosen element. Right or bottom: bars of the time to cross each layer at the chosen temperature, with lines at one year and at the HTR-10 fuel residence time."></canvas>
+  </div>
+  <p class="note">Solid: boon-lay&rsquo;s random-walk coefficients, <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs::try_get_diffusion_coeff_jiang"><code>try_<wbr>get_<wbr>diffusion_<wbr>coeff_<wbr>jiang</code></a> (Jiang et al. 2023). Dashed: TRISO-ATOPS&rsquo;s <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient"><code>diffusion_coefficient</code></a> (graphite) and <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient_sic_ag"><code>diffusion_<wbr>coefficient_<wbr>sic_<wbr>ag</code></a>. Thicknesses: HTR-10.</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): for Cs, Sr and Ag, crossing the SiC takes at least ten times longer than crossing the inner PyC, at every temperature from 800 to 1600 &deg;C. For krypton, even the inner PyC takes more than a year at 1000 &deg;C.</p>
+
+<h2>One law, many numbers</h2>
+<p>Hops need a borrowed energy from the lattice, so <i>D</i> grows steeply with temperature: the Arrhenius law of lesson 8, <span class="eq">D(T) = D<sub>1</sub> e<sup>&minus;Q<sub>1</sub>/RT</sup> + D<sub>2</sub> e<sup>&minus;Q<sub>2</sub>/RT</sup></span>, with constants for each element in each layer. The time to cross a layer of thickness <i>l</i> is about <span class="eq">l&sup2;/D</span>: double the layer, four times the time.</p>
+<p>At 1200 &deg;C, caesium needs <span data-bd="csIpyc1200">&hellip;</span> to cross the inner PyC and <span data-bd="csSic1200">&hellip;</span> to cross the SiC. Krypton needs <span data-bd="krIpyc1000">&hellip;</span> to cross the inner PyC at 1000 &deg;C. Both predictions held; the run is in the generator&rsquo;s docs and <code>check-fission.js</code>.</p>
+<p>Two things stand out. The <b>buffer</b> is not a barrier at all: it is porous, so atoms rush through its voids (<i>D</i> = 10<sup>&minus;8</sup> m&sup2;/s). And the layers differ by many orders of magnitude, element by element. That is the question of lesson 31.</p>
+
+<h2>Where it is in the code</h2>
+<p>Open the Code Review map at <a href="../../code-review/#crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry/mod.rs::try_get_diffusion_coefficient"><code>TrisoCell::<wbr>try_<wbr>get_<wbr>diffusion_<wbr>coefficient</code></a>: it finds which layer a point is in, then calls <code>try_<wbr>get_<wbr>diffusion_<wbr>coeff_<wbr>jiang</code>, which picks the element&rsquo;s constants (<code>get_d1_for_cs</code> and its neighbours in <code>diffusion_coeffs</code>). The map unfolds each call (&#9656;).</p>
+
+<h2>The gaps, shown as gaps</h2>
+<ul>
+<li><b>Only four elements have their own numbers:</b> Ag, Cs, Sr and Kr. Every other element is walked as if it were silver. That is a placeholder, not a model (gh:#541).</li>
+<li><b>Krypton in the buffer has no number.</b> The code there is a <code>todo!()</code>: asking for it would crash. This page never asks; the widget shows a &ldquo;?&rdquo;.</li>
+<li><b>The graphite around the particles has no number in the walker</b> (also <code>todo!()</code>). TRISO-ATOPS has its own graphite correlation, drawn dashed.</li>
+<li>Kr&rsquo;s kernel coefficient switches branch at 700 &deg;C in the walker but at 1500 &deg;C in TRISO-ATOPS (gh:#974, still open).</li>
+</ul>
+
+<p><b>Next:</b> SiC is the slowest solid layer for every metal shown. Why does that matter more than anything else, and which element gets through anyway?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The full table, and what the coefficients hide</h3>
+<p>The theory book tabulates the same lookup at 1000 and 1600 &deg;C, and says which chemistry is folded into each number and which is not supported by the repo: <a href="../../tutorials/fp-transport-theory/03-layers-chemistry.html">step 3, &ldquo;Through the layers&rdquo;</a>. The TRISO-ATOPS track&rsquo;s <a href="../../tutorials/triso-atops/layers.html">rung 4</a> has the same table and the interface rule. They are not repeated here.</p>
+<h3>Fluence</h3>
+<p>Jiang et al.&rsquo;s caesium-in-SiC coefficient grows with fast-neutron fluence. These curves are at zero fluence.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

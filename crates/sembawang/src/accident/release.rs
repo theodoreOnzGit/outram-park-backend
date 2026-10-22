@@ -368,16 +368,16 @@ fn normal_operation_pools(
     let names: Vec<&str> = owned.iter().map(String::as_str).collect();
     let (selected, _unknown) =
         select_nuclides(&names, op.irradiation_time, None, ParentDecayPolicy::UpstreamTableDefault);
-    let constants = PlantConstants {
-        k_plate: op.k_plate,
-        k_clean: op.k_clean,
-        graphite_thickness: plant.graphite_thickness,
-        grain_size: op.grain_size,
-        sic_thickness: plant.sic_thickness,
-        kernel_radius: plant.kernel_radius,
-        run_time: op.run_time,
-        irradiation_time: op.irradiation_time,
-    };
+    let constants = PlantConstants::new(
+        op.k_plate,
+        op.k_clean,
+        plant.graphite_thickness,
+        op.grain_size,
+        plant.sic_thickness,
+        plant.kernel_radius,
+        op.run_time,
+        op.irradiation_time,
+    );
     let f = plant.fractions;
     let fractions = FailureFractions {
         heavy_metal: f.heavy_metal,

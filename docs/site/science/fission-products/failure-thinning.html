@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The wall gets thinner</title>
+<meta name="description" content="Fission products, lesson 35: in an accident the SiC wall is eaten by corrosion, decomposes at very high temperature, and can be attacked along its grain boundaries. Each makes failure more likely, in boon-lay fuel failure.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4, lesson 35. Corrosion: advance_thinning_factor,
+     corrosion_rate (figure-consistent pre-factor) and corrosion_rate_with
+     (printed); decomposition: decomposition_rate_constant,
+     advance_action_integral, thermal_decomposition_failure_fraction (both
+     calibrations); grain boundary: grain_boundary_corrosion_rate,
+     corroded_weibull_modulus. All via failure-data.js (lesson_barriers). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>The wall gets thinner</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lessons 33 and 34 treated the SiC wall as fixed. In an accident it is not. Three things eat at it, and a thinner or weaker wall fails sooner.</p>
+
+<section class="widget-card">
+  <h3>Three ways to lose the wall</h3>
+  <div class="widget" id="thinning">
+    <canvas aria-label="Depending on the choice: the corrosion thinning factor against hours at five temperatures, with a bar of SiC left; or the fraction failed by decomposition against temperature for two calibrations, marked unverified; or the Weibull modulus after grain-boundary attack against temperature."></canvas>
+  </div>
+  <p class="note">boon-lay fuel failure: <a href="../../code-review/#crates/boon-lay/src/fuel_failure/corrosion.rs::advance_thinning_factor"><code>advance_thinning_factor</code></a>, <a href="../../code-review/#crates/boon-lay/src/fuel_failure/decomposition.rs::thermal_decomposition_failure_fraction"><code>thermal_<wbr>decomposition_<wbr>failure_<wbr>fraction</code></a>, <a href="../../code-review/#crates/boon-lay/src/fuel_failure/grain_boundary.rs::corroded_weibull_modulus"><code>corroded_weibull_modulus</code></a>. HTR-10&rsquo;s 35 &micro;m SiC; an extrapolation.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> After 200 h at 1600 &deg;C, has corrosion eaten 1 %, 10 % or half of the wall?</p>
+
+<h2>1. Corrosion: the wall is eaten from inside</h2>
+<p>Fission products attack the SiC at a rate that grows steeply with temperature (an Arrhenius law, PANAMA-I Eq (7)). The code tracks a thinning factor, FKOR = original thickness / thickness now, and multiplies the stress of lesson 33 by it. After 200 h at 1600 &deg;C, FKOR = <span data-bd="fkor1600">&hellip;</span>: about one per cent. It matters much more at 2000 &deg;C and above.</p>
+<p>An honest note from the code: the corrosion rate the report prints does not reproduce the report&rsquo;s own plot of the same equation; a pre-factor ten times smaller does, to digitising accuracy. boon-lay uses the smaller one and keeps the printed one beside it (<code>corrosion.rs</code>&rsquo;s docs).</p>
+
+<h2>2. Decomposition: the wall turns to vapour</h2>
+<p>Above about 2000 &deg;C the SiC decomposes into silicon vapour and graphite. The layer does not burst; it stops being a pressure vessel. The code accumulates how much decomposition has happened (an &ldquo;action integral&rdquo;) and reads a failure fraction &phi;<sub>2</sub> off it (Eqs (11)&ndash;(14b)). <b>This part is unverified:</b> no figure or table of the report checks it, and the code says so.</p>
+
+<h2>3. Grain-boundary attack: off by default</h2>
+<p>Fission products can also attack along the boundaries between SiC grains. That does not thin the wall; it widens the scatter in its strength, lowering the Weibull modulus m of lesson 34 (Eqs (10b), (10c)). The report does not take it into account by default, and neither does boon-lay. In lesson 36 you can switch it on and see what it does.</p>
+
+<h2>Where it is in the code</h2>
+<p>All three are stepped by <a href="../../code-review/#crates/boon-lay/src/fuel_failure/history.rs::step"><code>AccidentHistory::step</code></a>, one time interval at a time at that interval&rsquo;s temperature: <code>advance_thinning_factor</code>, <code>advance_action_integral</code>, and, if switched on, <code>advance_<wbr>grain_<wbr>boundary_<wbr>exposure</code>.</p>
+
+<p><b>Next:</b> put it all together and run an accident, hour by hour. Lesson 36.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Why the decomposition term is read, not added up</h3>
+<p>&phi;<sub>1</sub> is added up step by step from positive increments, so a burst particle stays burst when things cool. &phi;<sub>2</sub> is read straight off the action integral at each step. The two agree on a heat-up and differ on anything that cools. The theory book explains this and the two calibrations of the decomposition law (one for loose particles, one for particles inside a fuel sphere; the report&rsquo;s own Fig. 6 rules out the first): <a href="../../tutorials/fp-transport-theory/04-sic.html">step 4</a> and <a href="../../tutorials/fp-transport-theory/09-panama.html">step 7</a>.</p>
+<h3>Units the report does not print</h3>
+<p>The decomposition rate&rsquo;s 375 must be a speed in m/s for the equation to balance; the report does not say so. boon-lay records each such reading in <code>docs/panama-i-units-and-open-questions.md</code>.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

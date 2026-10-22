@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>84 nuclides, five groups</title>
+<meta name="description" content="Fission products, lesson 40: TRISO-ATOPS tracks 84 nuclides in five transport groups by chemistry. The lumping chapter 3 found from the code's diffusion coefficients sits exactly inside these groups.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="atops-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 40.
+     Nuclides and groups: nuclide_database::supported_nuclides and ElementGroup::from_atomic_number, chapter 3's diffusion classes recomputed from diffusion_coefficient (atops-data.js, lesson_triso_atops). Prediction Q1. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="ad-numbers" hidden></span>
+
+<h1>84 nuclides, five groups</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>In lesson 15 we lumped fission products by chemistry and volatility, and found from TRISO-ATOPS&rsquo;s own diffusion coefficients that it uses exactly five classes. Here is where those classes come from: the code&rsquo;s list of nuclides, each tagged with a transport group.</p>
+
+<section class="widget-card">
+  <h3>The nuclides, by group</h3>
+  <div class="widget" id="atops-groups">
+    <canvas aria-label="The 84 nuclide names as chips, grouped and coloured by transport group: noble gases, halogens with selenium and tellurium, special metals, silver and palladium, and other. The yttrium isotopes are outlined in red."></canvas>
+  </div>
+  <p class="note"><a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs::supported_nuclides"><code>supported_<wbr>nuclides</code></a> (half-lives as upstream tabulates them) and <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::from_atomic_number"><code>ElementGroup::<wbr>from_<wbr>atomic_<wbr>number</code></a>.</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): every nuclide&rsquo;s group and its chapter 3 diffusion class agree, with no exceptions.</p>
+
+<h2>Five groups</h2>
+<p>The code tracks <span data-ad="nNuclides">&hellip;</span> nuclides: <span data-ad="nNoble">&hellip;</span> noble gases, <span data-ad="nHalogen">&hellip;</span> halogens (TRISO-ATOPS counts selenium and tellurium as halogens), <span data-ad="nSpecial">&hellip;</span> special metals (Rb, Sr, Cs, Ba, Eu), <span data-ad="nSilver">&hellip;</span> in the silver group (Ag and Pd), and <span data-ad="nOther">&hellip;</span> &ldquo;other&rdquo;. The paper groups them by chemical similarity and by how they move through the coatings, because measured data exist for only a few of them (Stoyer et al. 2026, p. 5).</p>
+<p>The prediction held: the group (colour) decides which diffusion class a nuclide gets. Each group then gets one release model (lesson 42). That is the lumping: 84 nuclides, five behaviours.</p>
+<p>Within a group, nuclides still differ by half-life. A nuclide counts as <b>short-lived</b> if its half-life is under 20 % of the irradiation time; it then reaches a steady release-to-birth ratio (lesson 19) instead of a growing release fraction (p. 5; the port&rsquo;s <code>select_<wbr>nuclides</code>).</p>
+
+<h2>One disagreement between the paper and the code</h2>
+<p>The paper says strontium&rsquo;s diffusivities are used for barium, <b>yttrium</b> and europium (p. 9). The code gives Sr&rsquo;s coefficients to Sr, Ba and Eu only: yttrium falls into &ldquo;other&rdquo;, with the nominal 10<sup>&minus;19</sup> m&sup2;/s. The port reproduces upstream&rsquo;s code, so this is a difference between the paper and upstream, not a porting error. <del>It is reported, not changed.</del> <b>Corrected 2026-10-22:</b> upstream&rsquo;s grouping is still the default; the paper&rsquo;s, with yttrium in the Sr group, is now a named option, <code>atops2026paper</code> (lesson 41; gh:#1015).</p>
+
+<p><b>Next:</b> each group&rsquo;s diffusion law, and what the code does below its valid range.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Groups against chapter 3&rsquo;s families</h3>
+<p>Chapter 3&rsquo;s families (lesson 11) were by chemical state in the kernel. TRISO-ATOPS&rsquo;s groups are by release behaviour, much like the LWR source-term groups of NUREG-1465 that lesson 15 showed side by side. Iodine and tellurium move with xenon here because their release could not be measured separately in the AGR tests; the paper assumes they behave like xenon (p. 8).</p>
+<h3>A typo the port does not copy</h3>
+<p>One line of upstream&rsquo;s accident code tests for cadmium (Z = 48) where every other line tests for palladium (Z = 46). The port uses Ag and Pd everywhere, and keeps upstream&rsquo;s cadmium test behind a flag for code-to-code comparison (<code>release_<wbr>activity</code>&rsquo;s docs).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

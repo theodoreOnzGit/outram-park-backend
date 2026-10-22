@@ -79,7 +79,13 @@ impl OutputParser {
     /// relative to.
     pub fn new(workspace_root: &str) -> OutputParser {
         OutputParser {
-            root: workspace_root.trim_end_matches('/').to_string(),
+            // Separators normalised as `relative` normalises paths: a
+            // Windows root (`C:\ws`) never matched cargo's `src_path`
+            // after that (kovan CI, Windows runner, 2026-10-22).
+            root: workspace_root
+                .replace('\\', "/")
+                .trim_end_matches('/')
+                .to_string(),
             artifacts: BTreeMap::new(),
             binaries: Vec::new(),
             state: State::Outside,
@@ -368,5 +374,30 @@ mod tests {
         assert_eq!(b.failed, vec!["b"]);
         assert!(b.summary_matches());
         assert_eq!(b.expected, Some(2));
+    }
+
+    /// Methodology: a Windows run, a root spelled with backslashes as
+    /// `dunce::canonicalize` returns it, and cargo's JSON `src_path` the
+    /// same. Pass: the source is workspace-relative with `/`, as on Linux.
+    /// Before the fix the root never matched and the absolute path was
+    /// kept, so no test mapped (kovan CI, Windows runner, 2026-10-22).
+    ///
+    /// Result (2026-10-22): passes.
+    #[test]
+    fn a_windows_root_makes_sources_workspace_relative() {
+        let mut p = OutputParser::new(r"C:\ws\");
+        let json = r#"{"reason":"compiler-artifact","package_id":"path+file:///C:/ws/crates/k#0.1.0","target":{"kind":["lib"],"name":"k","src_path":"C:\\ws\\crates\\k\\src\\lib.rs"},"executable":"C:\\ws\\target\\release\\deps\\k-abc.exe"}"#;
+        assert_eq!(p.feed(json), LineKind::Json);
+        for l in [
+            r"     Running unittests src\lib.rs (target\release\deps\k-abc.exe)",
+            "running 1 test",
+            "test t_twice ... ok",
+            "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        ] {
+            p.feed(l);
+        }
+        let run = p.finish();
+        assert_eq!(run.binaries[0].src, "crates/k/src/lib.rs");
+        assert_eq!(run.binaries[0].passed, vec!["t_twice"]);
     }
 }

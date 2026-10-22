@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>An accident, step by step</title>
+<meta name="description" content="Fission products, lesson 36: boon-lay fuel failure's AccidentHistory steps a heat-up hour by hour: pressure, stress, thinning and the fraction of particles failed by bursting and by decomposition. HTR-10, as an extrapolation.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4, lesson 36. AccidentHistory::step on
+     fuel_failure::htr10::particle (T_B 776 °C), holds of 500 h in 5 h steps
+     with grain-boundary attack off and on, and four illustrative heat-ups,
+     via failure-data.js (lesson_barriers). Predictions P6, P8-P10. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>An accident, step by step</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Now put lessons 33 to 35 together. Cooling is lost, the fuel heats up for a while, then cools. Each hour the gas pressure changes, the wall thins, the strength is compared with the stress. What fraction of the particles has failed by the end?</p>
+
+<section class="widget-card">
+  <h3>The failure fraction through an accident</h3>
+  <div class="widget" id="accident">
+    <canvas aria-label="Top: temperature against hours. Bottom: fraction of particles failed against hours on a log scale, for the pressure-vessel mechanism, for decomposition, and their total. A play button draws them as the accident unfolds."></canvas>
+  </div>
+  <p class="note">boon-lay fuel failure&rsquo;s <a href="../../code-review/#crates/boon-lay/src/fuel_failure/history.rs::step"><code>AccidentHistory::step</code></a> in 5 h steps, starting from the end-of-irradiation value (<span data-bd="phi1Start">&hellip;</span>). The heat-ups are <b>illustrative</b> prescribed temperatures, not a plant calculation. <b>HTR-10 applied to the model is an extrapolation</b>: the report claims good agreement only for German TRISO over 1600&ndash;2500 &deg;C.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> In a heat-up that peaks and then cools, can the failure fraction ever go down again?</p>
+
+<h2>What happens, hour by hour</h2>
+<p>Play the heat-up to 1800 &deg;C. The burst fraction &phi;<sub>1</sub> climbs while the temperature climbs and stops when it cools: a particle that has burst does not un-burst. Decomposition &phi;<sub>2</sub> stays tiny unless the peak passes about 2000 &deg;C. The total combines them, and an as-manufactured defect fraction &phi;<sub>0</sub> if you add one, by multiplying survival chances: a particle survives only if it survives every route.</p>
+<p class="eq-block">&phi; = 1 &minus; (1 &minus; &phi;<sub>0</sub>)(1 &minus; &phi;<sub>1</sub>)(1 &minus; &phi;<sub>2</sub>)</p>
+<p>Hold 200 h at a fixed temperature (the hold options) and the code gives &phi;<sub>1</sub> = <span data-bd="phi1_1200">&hellip;</span> at 1200 &deg;C, <span data-bd="phi1_1600">&hellip;</span> at 1600 &deg;C and <span data-bd="phi1_2000">&hellip;</span> at 2000 &deg;C. At 2200 &deg;C decomposition takes over: &phi;<sub>2</sub> = <span data-bd="phi2_2200">&hellip;</span> against &phi;<sub>1</sub> = <span data-bd="phi1_2200">&hellip;</span>. These re-measure the table in boon-lay&rsquo;s <code>fuel_failure::htr10</code> docs, dated 2026-09-24, within the figures it prints (checked in <code>check-fission.js</code>; predicted before the run).</p>
+<p>Switch on grain-boundary attack: after 500 h at 1600 &deg;C the burst fraction is <span data-bd="gbRatio">&hellip;</span> times larger. The default leaves it off, as the report does.</p>
+<p><b>These are boon-lay fuel failure&rsquo;s numbers, never PANAMA&rsquo;s.</b> PANAMA was never run on HTR-10, and nothing here is compared with measured HTR-10 failure data: the workspace has none.</p>
+
+<h2>Where it is in the code</h2>
+<p>On the Code Review map, start at <code>AccidentHistory::step</code>. For one interval it advances the thinning factor and the action integral (lesson 35), evaluates <code>pressure_<wbr>vessel_<wbr>failure_<wbr>at</code> at both ends of the interval (lessons 33 and 34) and keeps the increase, reads &phi;<sub>2</sub> off the action integral, and combines them with <a href="../../code-review/#crates/boon-lay/src/fuel_failure/mod.rs::total_failure_fraction"><code>total_failure_fraction</code></a>. <code>AccidentHistory::run</code> loops it over a history.</p>
+
+<p><b>Next:</b> a failed particle is no longer a barrier. How much gets out? Lesson 37.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Not a normal-operation failure fraction</h3>
+<p>At the end of irradiation the model gives a burst fraction of about 10<sup>&minus;12</sup>. That is not the fraction of particles that fail in service. In-service failures come from manufacturing defects, which the model takes as an input (&phi;<sub>0</sub>; the report suggests 6&times;10<sup>&minus;5</sup> as a target, which boon-lay keeps as a named constant, never a default). The theory book discusses what this means for the HTR-10 digital twin: <a href="../../tutorials/fp-transport-theory/09-panama.html">step 7</a>, and the deep dive <a href="../../deep-dives/triso-atops/htr10.html">HTR-10: an extrapolation</a>.</p>
+<h3>Step size</h3>
+<p>At constant temperature the answer does not depend on how the time is cut into steps; boon-lay tests that to 2&times;10<sup>&minus;12</sup>. The 5 h steps here are for drawing.</p>
+<h3>The TRISO-ATOPS demo</h3>
+<p>The TRISO-ATOPS track has its own interactive version of this calculation, with sliders for the irradiation and hold temperatures: <a href="../../demos/triso-atops/?rung=failure">the failure rung</a> (rung 5, <a href="../../tutorials/triso-atops/failure.html">its lesson</a>).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

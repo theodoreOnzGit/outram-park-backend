@@ -44,6 +44,11 @@
 //! behalf, and the engine shows any stamp whose commit carries the agent
 //! attribution trailer as unverified.
 //!
+//! What an agent may write is an **unsigned justification**
+//! (`kind = "justification"`, GitHub #1019; [`review_md`],
+//! [`draft::draft_justification`], [`review_md_write::upsert_justification`]):
+//! a verdict and evidence, labelled agent-drafted, which the engine ignores.
+//!
 //! # Not here yet
 //!
 //! - ~~Signature cryptography (GitHub #762): [`signing`] defines the field and
@@ -81,9 +86,15 @@
 //! reviewer or key in `kovan_root.toml` as appended text. The gathering and
 //! file I/O are `kovan::stamping`.
 //!
+//! Carry-forward (GitHub #838, #1018, 2026-10-22): when reviewed code
+//! reaches a branch by a squash, merge, rebase or cherry-pick, an unsigned
+//! record that anyone can re-check moves a stamp's key to the new commit,
+//! and the signed stamp is never edited ([`carry_forward`]).
+//!
 //! Rung 5 is IV&V by a technically and managerially separate organisation
 //! (GitHub #809, NUREG/BR-0167 §3.1): [`crate::review::ivv`].
 
+pub mod carry_forward;
 pub mod draft;
 pub mod engine;
 pub mod evidence;

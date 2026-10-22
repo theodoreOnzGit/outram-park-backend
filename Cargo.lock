@@ -5740,6 +5740,7 @@ dependencies = [
  "kovan-metrics",
  "kovan-semantics",
  "kovan-web",
+ "libc",
  "lopdf",
  "petir",
  "pulldown-cmark",

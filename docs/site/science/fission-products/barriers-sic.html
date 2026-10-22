@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why SiC matters most</title>
+<meta name="description" content="Fission products, lesson 31: carbon holds gases but leaks metals, SiC holds metals but lets silver through. A matrix of layers against fission-product families, from the code's coefficients and cited statements, shows that no one layer holds everything.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="barrier-data.js" defer></script>
+<script src="failure-data.js" defer></script>
+<script src="barrier-recorded.js" defer></script>
+<script src="barrier-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="barrier-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 4, lesson 31. Matrix cells: boon-lay walker D
+     and HTR-10 thicknesses (barrier-data.js), the HTR-10 residence derived in
+     boon_lay::fuel_failure::htr10 (failure-data.js), and Kugeler Table 5
+     (barrier-recorded.js). Quotes: Wichner 1991 p. 13, Kugeler 2017 pp. 33,
+     41-43 (read 2026-10-22). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="bd-numbers" hidden></span>
+
+<h1>Why SiC matters most, and silver gets through</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Lesson 30 showed each layer is fast for some elements and slow for others. Put them side by side: which layer holds which family?</p>
+
+<section class="widget-card">
+  <h3>Layers against families</h3>
+  <div class="widget" id="matrix">
+    <canvas aria-label="A grid: rows are the buffer, inner PyC, SiC and outer PyC; columns are krypton, iodine, caesium, strontium, silver and palladium. Each cell is green (holds), amber (partly), red (leaks) or grey (no data and no citation)."></canvas>
+  </div>
+  <p class="note">Kr, Cs, Sr, Ag: boon-lay&rsquo;s coefficients and the HTR-10 thicknesses; a layer &ldquo;holds&rdquo; if crossing it alone takes more than ten times HTR-10&rsquo;s fuel residence (<span data-bd="residence">&hellip;</span>, derived in <a href="../../code-review/#crates/boon-lay/src/fuel_failure/htr10/mod.rs::particle"><code>fuel_failure::htr10</code></a>). This is a rule of thumb, not a release: lesson 32 walks the whole particle. Iodine and Pd: only Kugeler&rsquo;s Table 5 statement for SiC; everything else is <b>source pending</b>.</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> Slide the temperature up. Which column loses its last green cell first?</p>
+
+<h2>Carbon stops gases, not metals</h2>
+<p>Wichner (1991, NUREG/CR-5647, p. 13) puts it in one sentence: &ldquo;Diffusivities of metallic FPs through the PyC coatings, which completely stop the fission gases, are sufficiently high so that an intact SiC coating is required to prevent diffusive release of the metals from fuel particles.&rdquo; That is the BISO story of lesson 29, and the reason TRISO adds SiC. The matrix shows it: the PyC rows hold krypton up to about 1200 &deg;C, but leak caesium and strontium well below that.</p>
+
+<h2>SiC holds metals, except silver</h2>
+<p>In boon-lay&rsquo;s coefficients the SiC is the slowest solid layer for every metal. At 1200 &deg;C, caesium moves <span data-bd="csContrast1200">&hellip;</span> times faster in PyC than in SiC. Kugeler et al. (2017, Table 5, p. 33) say the SiC &ldquo;retains all gaseous and solid fission products (except Ag) at normal operating temperatures &lt; 1 250 &deg;C and in accidents up to 1 600 &deg;C&rdquo;. Wichner (p. 13) reports that &ldquo;intact Triso particles retain Cs and Sr to temperatures well above that expected in normal operation, but that silver is readily released above ~1423 K (1150&deg;C).&rdquo; Watch the Ag column go amber, then red.</p>
+<p>One surprise from the code: strontium is held best by the <b>kernel</b> itself. Kugeler et al. (p. 41) say the same: &ldquo;Only the fission product <sup>90</sup>Sr is strongly retained in the oxide kernels at this temperature&rdquo; (1600 &deg;C). Lesson 32 shows what that does to the release.</p>
+
+<h2>No magic material</h2>
+<p>There is no one material that holds back everything. Carbon holds the gases but leaks metals; SiC holds the metals but has its own weaknesses: silver gets through, palladium and the lanthanides attack it, and it decomposes at very high temperature (lesson 35). So we use several layers that cover each other&rsquo;s weaknesses. That is defence in depth again (lesson 29), now inside a single particle.</p>
+
+<h2>Where it is in the code</h2>
+<p>The coefficients are the same calls as lesson 30. TRISO-ATOPS, which lumps the layers away (chapter 5), keeps exactly one layer for silver: SiC, through <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::diffusion_coefficient_sic_ag"><code>diffusion_<wbr>coefficient_<wbr>sic_<wbr>ag</code></a>.</p>
+
+<p><b>Next:</b> these were one layer at a time. Lesson 32 walks atoms through all of them at once.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The PyC-to-SiC contrast is not a million</h3>
+<p>The crate once said SiC&rsquo;s <i>D</i> is &ldquo;about 10<sup>6</sup> times smaller&rdquo; than the pyrocarbon&rsquo;s. With the activation energies included, the contrast is 13 to 4100 over Cs, Sr, Ag and Kr at 1000&ndash;1600 &deg;C, and for Ag and Kr it shrinks as the temperature rises. The theory book records the correction and the transmission probability at the interface: <a href="../../tutorials/fp-transport-theory/04-sic.html">step 4, &ldquo;Silicon carbide&rdquo;</a>. It also names the sources for palladium and lanthanide attack, which are not in the open corpus.</p>
+<h3>Why silver?</h3>
+<p>How silver gets through intact SiC is not settled in the sources the workspace has; the theory book&rsquo;s step 3 quotes the open question. Wichner (p. 13) adds that silver&rsquo;s release through SiC &ldquo;is somewhat unpredictable, perhaps dependent on SiC coating quality&rdquo; (citing Nabielek et al. 1977).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

@@ -74,6 +74,11 @@ Checked against the repository's rulesets on 2026-10-16
 | protection for develop | `develop` | no deletion, no force-push, pull request required | `theodoreOnzGit` (the maintainer), `snrthyr`, Repository admin role |
 | Protection for main | `main` | no deletion, no force-push, no update, code quality | `theodoreOnzGit` |
 
+- **Check which account is logged in before pushing to `develop`**
+  (maintainer direction, 2026-10-22): run `gh api user --jq .login`. The
+  founder, `theodoreOnzGit`, may bypass the pull-request rule and push to
+  `develop` directly; so may the other always-bypass actors in the table.
+  Any other account opens a pull request into `develop` instead.
 - **A push to `develop` as `theodoreOnzGit` is allowed.** GitHub prints
   `Bypassed rule violations for refs/heads/develop … Changes must be made
   through a pull request` as a notice, not an error, and the push lands. Do not

@@ -44,6 +44,15 @@ pub enum StateKind {
     /// The entry reads but contradicts what is derived (e.g. a recorded
     /// rung the answers and git do not give): shown, never counted.
     Invalid,
+    /// "1 of 2: awaiting a trusted reviewer" (GitHub #1019): a valid
+    /// stamp by a reviewer marked novice there, with no valid stamp by a
+    /// trusted reviewer or a maintainer beside it. It does not count yet.
+    AwaitingTrustedReviewer,
+    /// "stamped, updating…" (GitHub #1018): desktop kovan's optimistic
+    /// state for a function just stamped, shown from the entry just
+    /// written until the background refresh gives the engine's verdict.
+    /// The engine never produces it, and it never counts.
+    Updating,
 }
 
 /// How a view should colour a state.
@@ -62,7 +71,7 @@ pub enum Tone {
 
 impl StateKind {
     /// Every kind, in declaration order.
-    pub const ALL: [StateKind; 14] = [
+    pub const ALL: [StateKind; 16] = [
         Self::Valid,
         Self::DirectlyStale,
         Self::DocChanged,
@@ -77,6 +86,8 @@ impl StateKind {
         Self::Unreadable,
         Self::PendingWorkspaceTest,
         Self::Invalid,
+        Self::AwaitingTrustedReviewer,
+        Self::Updating,
     ];
 
     /// Plain-English label.
@@ -96,6 +107,8 @@ impl StateKind {
             Self::Unreadable => "review unreadable",
             Self::PendingWorkspaceTest => "pending workspace test",
             Self::Invalid => "review invalid",
+            Self::AwaitingTrustedReviewer => "1 of 2: awaiting a trusted reviewer",
+            Self::Updating => "stamped, updating\u{2026}",
         }
     }
 
@@ -124,6 +137,7 @@ impl StateKind {
                 | Self::Fixed
                 | Self::Unreadable
                 | Self::Invalid
+                | Self::AwaitingTrustedReviewer
         )
     }
 
@@ -136,7 +150,9 @@ impl StateKind {
             | Self::InheritedStale
             | Self::Moved
             | Self::Fixed
-            | Self::PendingWorkspaceTest => Tone::Attention,
+            | Self::PendingWorkspaceTest
+            | Self::AwaitingTrustedReviewer
+            | Self::Updating => Tone::Attention,
             Self::Deleted
             | Self::NeedsFixOpen
             | Self::Unverified

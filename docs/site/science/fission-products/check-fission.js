@@ -473,5 +473,238 @@ for (const f of fs.readdirSync(__dirname).filter((f) => f.startsWith("kernel-") 
   check(`${f}: banner or "Learn more advanced stuff" missing`, html.includes("Research, education and V&amp;V only") && html.includes("Learn more advanced stuff") ? 0 : 1, 0);
 }
 
+// ─── Chapter 4, "TRISO layer migration and particle failure" (29-38) ─────
+// Data: barrier-data.js and failure-data.js (crates/dhoby-ghaut/examples/
+// lesson_barriers), barrier-recorded.js (cited / pending), barrier-physics.js
+// (the page models). The predictions P1-P15 were written in the generator's
+// docs BEFORE the runs they test; P4 and P5 could not be tested (boon-lay's
+// walker reached no release; see 38) and were replaced by P13-P14, written
+// before their own run. Results 2026-10-22 in the comments.
+for (const f of ["barrier-data.js", "failure-data.js", "barrier-recorded.js", "barrier-physics.js"]) eval(fs.readFileSync(path.join(__dirname, f), "utf8"));
+const BD = window.BARRIER_DATA, FD = window.FAILURE_DATA, BR = window.BARRIER_RECORDED, BP = window.BarrierPhysics;
+const wrow = (el, ly) => BD.walker.find((w) => w.el === el && w.layer === ly);
+const wD = (el, ly, t) => BP.dAt(t, BD.tC, wrow(el, ly).d);
+// 36. The gaps are where the code has todo!(): Kr in the buffer only, and
+//     every other (element, layer) pair has a full curve.
+{
+  let bad = 0;
+  BD.walker.forEach((w) => { const gap = w.el === "Kr" && w.layer === "buffer"; if (gap !== (w.d === null)) bad++; if (w.d && w.d.some((x) => !(x > 0))) bad++; });
+  check("36: walker gaps exactly at Kr/buffer, every other curve positive", bad, 0);
+}
+// 37. P1, P2. 2026-10-22: SiC/IPyC crossing-time ratio >= 16.7 (Cs, 800 °C)
+//     for Ag, Cs, Sr over 800-1600 °C; Kr IPyC at 1000 °C 4.79e10 s.
+{
+  const th = BD.thickness;
+  let worst = Infinity;
+  for (const el of ["Ag", "Cs", "Sr"]) for (let t = 800; t <= 1600; t += 50) worst = Math.min(worst, (th.SiC * th.SiC / wD(el, "SiC", t)) / (th.IPyC * th.IPyC / wD(el, "PyC", t)));
+  report("37 P1", `smallest SiC/IPyC crossing-time ratio ${worst.toFixed(1)}`);
+  check("37 P1: 10 / smallest SiC-over-IPyC ratio (Ag, Cs, Sr, 800-1600 °C)", 10 / worst, 1);
+  const kr = th.IPyC * th.IPyC / wD("Kr", "PyC", 1000);
+  report("37 P2", `Kr IPyC crossing at 1000 °C ${kr.toExponential(3)} s`);
+  check("37 P2: one year / Kr IPyC crossing time at 1000 °C", 3.15576e7 / kr, 1);
+}
+// 38. P15: boon-lay's own walker, 2e7 steps at 1600 °C, never reached the
+//     SiC. 2026-10-22: Cs 100.0 %, Ag 100.0 %, Sr 99.9 % of steps in the
+//     buffer; 8, 60 and 1558 entries into the IPyC; none released.
+BD.wos.probes.forEach((p) => {
+  const tot = p.perLayer.reduce((a, b) => a + b, 0);
+  report(`38 P15 ${p.el}`, `${(100 * p.perLayer[1] / tot).toFixed(2)} % in buffer, ${p.ipycEntries} IPyC entries, max r ${(p.rMax * 1e6).toFixed(1)} µm`);
+  check(`38 P15 ${p.el}: steps in SiC/OPyC or released`, p.perLayer[3] + p.perLayer[4] + (p.released ? 1 : 0), 0);
+  check(`38 P15 ${p.el}: 0.9 / buffer share of steps`, 0.9 / (p.perLayer[1] / tot), 1);
+});
+// 39. The exact mean exit time: the page's formula against the generator's
+//     (1e-12), and P13 (one layer carries more than half). 2026-10-22: SiC
+//     93-99 % for Cs and Ag, kernel 96-100 % for Sr, 1000-1800 °C.
+{
+  let wr = 0, low = 1;
+  BD.wos.exact.forEach((x) => {
+    const D = [wD(x.el, "kernel", x.tC), wD(x.el, "buffer", x.tC), wD(x.el, "PyC", x.tC), wD(x.el, "SiC", x.tC), wD(x.el, "PyC", x.tC)];
+    wr = Math.max(wr, Math.abs(BP.exactMean(BD.radii, D) - x.mean) / x.mean);
+    const want = x.el === "Sr" ? 0 : 3;
+    low = Math.min(low, x.terms[want] / x.mean);
+  });
+  check("39: |page exact mean − generator| / mean (worst)", wr, 1e-12);
+  report("39 P13", `smallest share of the predicted layer ${(100 * low).toFixed(1)} %`);
+  check("39 P13: 0.5 / smallest share of the predicted dominant layer", 0.5 / low, 1);
+}
+// 40. P14: the page's lattice walk against the exact mean, 400 atoms each.
+//     2026-10-22 (node): worst Ag 1200 °C −14.2 % (s.e. 3.6 %); others
+//     within 9.6 %.
+for (const el of ["Cs", "Ag", "Sr"]) for (const t of [1200, 1400, 1600, 1800]) {
+  const D = [wD(el, "kernel", t), wD(el, "buffer", t), wD(el, "PyC", t), wD(el, "SiC", t), wD(el, "PyC", t)];
+  const ex = BP.exactMean(BD.radii, D), r = BP.latticeWalk(BD.radii, D, 400, 14 + t, 1e9);
+  check(`40 P14 ${el} ${t} °C: atoms capped`, r.capped, 0);
+  check(`40 P14 ${el} ${t} °C: |lattice mean − exact| / exact`, Math.abs(BP.mean(r.times) - ex) / ex, 0.15);
+}
+// 41. P6: re-measure the fuel_failure::htr10 docs' tables (2026-09-24),
+//     within the figures they print. 2026-10-22: sigma 50.2/178.5/370.3/
+//     536.5 MPa; phi1 4.529e-9/3.103e-5/4.794e-3/6.069e-2; phi2 3.442e-15
+//     and 0.9770; end of irradiation 2.776e-15, 1.214e-12, 4.988e-9, 1.577e-6.
+{
+  const f = FD.rowFields, at = (t) => { const H = FD.holds.find((x) => x.tC === t && !x.gb); return H.rows.find((r) => r[0] === 200); };
+  const doc = [[1200, 50, 4.53e-9], [1600, 178, 3.10e-5], [2000, 370, 4.79e-3], [2200, 536, 6.07e-2]];
+  doc.forEach(([t, s, p]) => {
+    const r = at(t);
+    check(`41 P6 ${t} °C: |sigma − ${s} MPa| [MPa]`, Math.abs(r[f.indexOf("sigma")] / 1e6 - s), 0.6);
+    check(`41 P6 ${t} °C: |phi1 / ${p} − 1| (3 figures)`, Math.abs(r[f.indexOf("phi1")] / p - 1), 0.002);
+  });
+  check("41 P6 1600 °C: |phi2 / 3.4e-15 − 1| (2 figures)", Math.abs(at(1600)[f.indexOf("phi2")] / 3.4e-15 - 1), 0.02);
+  check("41 P6 2200 °C: |phi2 − 0.977|", Math.abs(at(2200)[f.indexOf("phi2")] - 0.977), 0.0005);
+  [[700, 2.8e-15], [776, 1.2e-12], [900, 5.0e-9], [1000, 1.6e-6]].forEach(([t, p], k) => check(`41 P6 end of irradiation T_B ${t} °C: |phi1 / ${p} − 1| (2 figures)`, Math.abs(FD.eoi.phi1[k] / p - 1), 0.03));
+}
+// 42. P7 and the page's ports. 2026-10-22: stress and Weibull exact to
+//     round-off; phi1(sigma_o) = 0.5 exactly; p_gas + p_CO = p to 1e-16.
+{
+  const g = FD.geometry;
+  let ws = 0, wsp = 0;
+  FD.pressure.rows.forEach((row) => row.p.forEach((p, i) => {
+    ws = Math.max(ws, Math.abs(BP.stress(p, g.rMean, g.d0, 1) - row.sigma[i]) / row.sigma[i]);
+    wsp = Math.max(wsp, Math.abs(row.pGas[i] + row.pCo[i] - p) / p);
+  }));
+  check("42: |page stress − induced_stress_with_thinning_factor| / sigma (worst)", ws, 1e-12);
+  check("42 P7: |p_gas + p_CO − p| / p (worst)", wsp, 1e-12);
+  let ww = 0;
+  FD.weibullCheck.forEach(([s, s0, m, phi]) => { ww = Math.max(ww, Math.abs(BP.weibull(s, s0, m) - phi) / Math.max(phi, 1e-300)); });
+  check("42: |page Weibull − weibull_failure_fraction| / phi (worst)", ww, 1e-12);
+  check("42 P7: |phi1(sigma_o) − 0.5|", Math.abs(FD.weibullCheck[0][3] - 0.5), 1e-12);
+  let wt = 0, f = FD.rowFields;
+  FD.holds.forEach((H) => H.rows.forEach((r) => { wt = Math.max(wt, Math.abs(BP.total(0, r[f.indexOf("phi1")], r[f.indexOf("phi2")]) - r[f.indexOf("total")])); }));
+  check("42: |page total(0, phi1, phi2) − total_failure_fraction| (worst)", wt, 1e-15);
+}
+// 43. P8-P12. 2026-10-22: GB on/off at 1600 °C, 500 h = 62.8; phi2 > phi1
+//     at 2200 and not at 2000 °C; heat-ups never fall; Cs Booth 0.9999996,
+//     Sr 0.0827 at 1600 °C, 200 h; P12 MISSED: p(0.12)/p(0.04) = 3.000
+//     exactly, because in this model neither the released gas fraction nor
+//     the CO depends on burnup, so the pressure is linear in it.
+{
+  const f = FD.rowFields, last = (t, gb) => { const H = FD.holds.find((x) => x.tC === t && x.gb === gb); return H.rows[H.rows.length - 1]; };
+  const gb = last(1600, true)[f.indexOf("phi1")] / last(1600, false)[f.indexOf("phi1")];
+  report("43 P8", `grain-boundary attack raises phi1 at 1600 °C, 500 h by ${gb.toFixed(1)}`);
+  check("43 P8: 3 / (GB on / GB off)", 3 / gb, 1);
+  const at = (t) => { const H = FD.holds.find((x) => x.tC === t && !x.gb); return H.rows.find((r) => r[0] === 200); };
+  check("43 P9: phi2 > phi1 at 2200 °C and not at 2000 °C", at(2200)[f.indexOf("phi2")] > at(2200)[f.indexOf("phi1")] && at(2000)[f.indexOf("phi2")] < at(2000)[f.indexOf("phi1")] ? 0 : 1, 0);
+  let falls = 0;
+  FD.ramps.forEach((R) => R.rows.forEach((r, k) => { if (k && (r[f.indexOf("phi1")] < R.rows[k - 1][f.indexOf("phi1")] || r[f.indexOf("phi2")] < R.rows[k - 1][f.indexOf("phi2")])) falls++; }));
+  check("43 P10: steps where phi1 or phi2 fall on the heat-ups", falls, 0);
+  const H = FD.holds.find((x) => x.tC === 1600 && !x.gb), j = H.rows.findIndex((r) => r[0] === 200);
+  report("43 P11", `Booth kernel release at 1600 °C, 200 h: Cs ${H.release.Cs[j].toPrecision(7)}, Sr ${H.release.Sr[j].toPrecision(4)}`);
+  check("43 P11: 1 − Cs Booth release (≤ 0.01)", 1 - H.release.Cs[j], 0.01);
+  check("43 P11: Sr Booth release outside 0.05-0.15", H.release.Sr[j] >= 0.05 && H.release.Sr[j] <= 0.15 ? 0 : 1, 0);
+  const b = FD.burnup, ratio = b.p1600at200h[5] / b.p1600at200h[1];
+  report("43 P12 (MISSED: predicted 3 < ratio < 6)", `p(0.12 FIMA) / p(0.04 FIMA) = ${ratio.toFixed(6)}: pressure is linear in burnup in this model`);
+}
+// 44. The chapter's pages: banner, folded section, nav entry; the required
+//     boon-lay fuel failure wording on lessons 33 and 38; no page attributes a
+//     number to PANAMA.
+{
+  const kit = fs.readFileSync(path.join(__dirname, "../neutronics/lesson-kit.js"), "utf8");
+  const ch4 = ["barriers-why.html", "barriers-migration.html", "barriers-sic.html", "barriers-whole.html", "failure-vessel.html", "failure-weibull.html", "failure-thinning.html", "failure-accident.html", "failure-release.html", "failure-leaves-out.html"];
+  const wording = "boon-lay fuel failure is inspired by PANAMA: a clean-room, agentic implementation of the equations published in the PANAMA-I report (Verfondern &amp; Nabielek, HTA-IB-03/90). It is not a port: the PANAMA source code was not available.";
+  ch4.forEach((f) => {
+    const html = fs.readFileSync(path.join(__dirname, f), "utf8");
+    check(`44 ${f}: banner or "Learn more advanced stuff" missing`, html.includes("Research, education and V&amp;V only") && html.includes("Learn more advanced stuff") ? 0 : 1, 0);
+    check(`44 ${f}: not in the lesson list`, kit.includes(`"${f}"`) ? 0 : 1, 0);
+    check(`44 ${f}: "PANAMA's" result or "PANAMA gives/computed"`, /PANAMA(&rsquo;|')s (number|result|value)|PANAMA (gives|computes|computed)/.test(html.replace("&ldquo;PANAMA gives this for HTR-10&rdquo;", "")) ? 1 : 0, 0);
+  });
+  ["failure-vessel.html", "failure-leaves-out.html"].forEach((f) => check(`44 ${f}: the required boon-lay fuel failure wording`, fs.readFileSync(path.join(__dirname, f), "utf8").includes(wording) ? 0 : 1, 0));
+  check("44: barrier-recorded.js cites Kugeler Table 5 on pp. 32-33", BR.layerJobs.page === "32-33" && BR.layerJobs.sic.length === 2 ? 0 : 1, 0);
+}
+
+// ─── Chapter 5, "Integrating it in TRISO-ATOPS" (lessons 39-46) ──────────
+// Data: atops-data.js (crates/dhoby-ghaut/examples/lesson_triso_atops),
+// atops-physics.js. Predictions Q1-Q9 written in the generator's docs
+// before the first run. Results 2026-10-22 in the comments.
+for (const f of ["atops-data.js", "atops-physics.js"]) eval(fs.readFileSync(path.join(__dirname, f), "utf8"));
+const AT = window.ATOPS_DATA, AP = window.AtopsPhysics;
+// 45. Q1: 84 nuclides, 5 groups, and each group sits in one diffusion class
+//     (special metals in Cs-like or Sr-like). 2026-10-22: no exception.
+{
+  check("45 Q1: number of nuclides vs 84", Math.abs(AT.nuclides.length - 84), 0);
+  const want = { NobleGas: [0], Halogen: [0], SpecialMetal: [1, 2], Silver: [3], Other: [4] };
+  check("45 Q1: number of groups vs 5", Math.abs(Object.keys(AT.nuclides.reduce((m, n) => (m[n.group] = 1, m), {})).length - 5), 0);
+  check("45 Q1: nuclides whose diffusion class is outside their group's", AT.nuclides.filter((n) => !want[n.group].includes(n.dClass)).length, 0);
+  check("45: the short-lived rule (t1/2 < 0.2 t_irrad)", AT.nuclides.filter((n) => n.short !== (n.t12 / AT.caseA.tIrrad < 0.2)).length, 0);
+}
+// 46. Q2: clamps read from the output. 2026-10-22: Cs 700/550, Sr 700/800,
+//     Ag graphite 475 on the 25 °C grid, none for Kr, the Ag kernel, Ag-SiC.
+{
+  const c = (z) => AT.dCurves.find((x) => x.z === z);
+  check("46 Q2: Cs clamps 700/550 °C", c(55).clampKernel === 700 && c(55).clampGraphite === 550 ? 0 : 1, 0);
+  check("46 Q2: Sr clamps 700/800 °C", c(38).clampKernel === 700 && c(38).clampGraphite === 800 ? 0 : 1, 0);
+  check("46 Q2: Ag graphite clamp 475-500 °C, no Ag kernel clamp", c(47).clampGraphite >= 475 && c(47).clampGraphite <= 500 && c(47).clampKernel === null ? 0 : 1, 0);
+  check("46 Q2: no clamp on the Kr kernel", c(36).clampKernel === null ? 0 : 1, 0);
+  let flat = 0; for (let i = 1; i < AT.dSicAg.length; i++) if (AT.dSicAg[i] === AT.dSicAg[0]) flat++;
+  check("46 Q2: Ag in SiC never flat", flat, 0);
+}
+// 47. Q3: the Booth floor. 2026-10-22: 1.215976e-4 from both, at 1e-16.
+//     The page's truncated series against the port's to 1e-12 (relative to
+//     the value, worst over the grid).
+{
+  const floor = 6 / (Math.PI * Math.PI) * (1 / 4999.5); // the tail sum_{n>=5000} 1/n^2 ~ 1/(N - 1/2)
+  report("47 Q3", `booth_longlived(1e-16) = ${AT.booth.long[0].toExponential(6)}, booth_transient = ${AT.booth.transient[0].toExponential(6)}, tail estimate ${floor.toExponential(6)}`);
+  check("47 Q3: |floor / 1.215976e-4 − 1|", Math.abs(AT.booth.long[0] / 1.215976e-4 - 1), 1e-3);
+  check("47 Q3: |transient floor / 1.215976e-4 − 1|", Math.abs(AT.booth.transient[0] / 1.215976e-4 - 1), 1e-3);
+  let w = 0; AT.booth.x.forEach((x, i) => { w = Math.max(w, Math.abs(AP.boothTrunc(x, AT.booth.terms) - AT.booth.long[i]) / Math.max(AT.booth.long[i], 1e-300)); });
+  check("47: |page truncated Booth − booth_longlived| / value (worst)", w, 1e-9);
+}
+// 48. Q4: the Booth radius sqrt(2 a_grain r). 2026-10-22: 6.5269e-5 m.
+check("48 Q4: |a_booth − sqrt(2 a_grain r)| / a_booth", Math.abs(AT.caseA.aBooth - Math.sqrt(2 * AT.caseA.aGrain * AT.caseA.r)) / AT.caseA.aBooth, 1e-15);
+check("48 Q4: |a_booth / 6.53e-5 − 1|", Math.abs(AT.caseA.aBooth / 6.53e-5 - 1), 0.001);
+// 49. Q5, Q6, and the page's rescaling against the code. 2026-10-22: ratio
+//     2.000000000000 (Ag 1); bridged Kr-88 0.465116, Cs-137 0.871508.
+{
+  const c = AT.caseA, f0 = { hm: c.fHM, sic: c.fSiC, inc: c.fInc, incSic: c.fIncSiC };
+  const f2 = { hm: 2 * c.fHM, sic: 2 * c.fSiC, inc: 2 * c.fInc, incSic: 2 * c.fIncSiC }, fb = { hm: c.fHM, sic: c.fSiC, inc: AT.phi1Eoi776, incSic: c.fIncSiC };
+  let wd = 0, wb = 0;
+  AT.nodes.forEach((n) => {
+    wd = Math.max(wd, Math.abs(n.doubled[0] / n.base[0] - AP.releaseScale(n.group, f2, f0)));
+    wb = Math.max(wb, Math.abs(n.bridged[0] / n.base[0] - AP.releaseScale(n.group, fb, f0)));
+  });
+  check("49 Q5: |doubled / base − page scale| (worst)", wd, 1e-12);
+  check("49: |bridged / base − page scale| (worst)", wb, 1e-12);
+  const kr = AT.nodes.find((n) => n.name === "Kr-88");
+  check("49 Q6: |Kr-88 bridged ratio − 0.465|", Math.abs(kr.bridged[0] / kr.base[0] - 0.465), 0.001);
+  check("49 Q5: Ag-110m unchanged by doubling", AT.nodes.find((n) => n.name === "Ag-110m").doubled[0] === AT.nodes.find((n) => n.name === "Ag-110m").base[0] ? 0 : 1, 0);
+}
+// 50. Q7: live pools (NOT a port) from empty reproduce the circulating pool.
+//     2026-10-22: relative difference 0 for all five.
+AT.nodes.forEach((n) => check(`50 Q7 ${n.name}: |live circulating − node| / node`, Math.abs(n.live[0] - n.base[3]) / n.base[3], 1e-9));
+// 51. Q8, Q9: venting and the accident. 2026-10-22: vent 0.356 at the end of
+//     the hold against 1 − T0/Tpeak = 0.374 (Q8 MISSED, half the first step
+//     dropped); never defined while cooling (as predicted); Cs kernel 0.9979.
+{
+  const a = AT.accidents.find((x) => x.peak === 1600), cs = a.nuclides.find((n) => n.name === "Cs-137");
+  const ideal = 1 - (900 + 273.15) / (1600 + 273.15);
+  report("51 Q8 (MISSED: predicted within 2 %)", `vent ${cs.vent[20].toFixed(4)} vs ideal ${ideal.toFixed(4)} (${(100 * (cs.vent[20] / ideal - 1)).toFixed(1)} %)`);
+  let cool = 0; a.nuclides.forEach((n) => n.vent.forEach((v, k) => { if (k > 20 && v !== null) cool++; }));
+  check("51 Q8: vent samples defined while cooling", cool, 0);
+  check("51 Q9: 0.99 / Cs kernel release at the end of the hold", 0.99 / cs.rfKernel[20], 1);
+  let bad = 0; AT.accidents.forEach((x) => x.nuclides.forEach((n) => { n.rfKernel.forEach((v, k) => { if (v < 0 || v > 1 || (k && v < n.rfKernel[k - 1] - 1e-15)) bad++; }); if ((n.group === "NobleGas" || n.group === "Halogen") && n.rfGraphite.some((v) => v !== 0)) bad++; }));
+  check("51: kernel release outside [0,1] or falling; gas held in graphite", bad, 0);
+}
+// 52. The chapter's pages: banner, folded section, nav entry, a Code Review
+//     link, and the paper cited, never quoted at length.
+{
+  const kit = fs.readFileSync(path.join(__dirname, "../neutronics/lesson-kit.js"), "utf8");
+  ["atops-big-picture.html", "atops-groups.html", "atops-diffusion.html", "atops-release-models.html", "atops-normal-operation.html", "atops-coolant.html", "atops-accident.html", "atops-simplifications.html"].forEach((f) => {
+    const html = fs.readFileSync(path.join(__dirname, f), "utf8");
+    check(`52 ${f}: banner or "Learn more advanced stuff" missing`, html.includes("Research, education and V&amp;V only") && html.includes("Learn more advanced stuff") ? 0 : 1, 0);
+    check(`52 ${f}: not in the lesson list`, kit.includes(`"${f}"`) ? 0 : 1, 0);
+    check(`52 ${f}: no Code Review link`, f === "atops-simplifications.html" || html.includes("../../code-review/#") ? 0 : 1, 0);
+    // A quotation from the restricted paper would sit in &ldquo;...&rdquo;; allow
+    // only single terms (at most three words), titles and the tool's name.
+    const quotes = (html.match(/&ldquo;([^&]*)&rdquo;/g) || []).filter((q) => q.split(" ").length > 3 && !/step|Through the layers|Simplify|TRISO-ATOPS: lumped|FRESCO-style|Levels of fidelity|Why each simplification|Getting out|PANAMA gives|Analysis Tool for Predictive|A Mechanistic Source Term Model/.test(q));
+    check(`52 ${f}: long quotations (restricted paper)`, quotes.length, 0);
+  });
+}
+
+// 53. gh:#1015 (maintainer, 2026-10-22: "mention the options pls"): lessons
+//     41, 42 and 45 name the `atops2026paper` option, say the default is
+//     upstream's code, and link the tutorial case that reproduces the paper.
+["atops-diffusion.html", "atops-release-models.html", "atops-accident.html"].forEach((f) => {
+  const html = fs.readFileSync(path.join(__dirname, f), "utf8");
+  check(`53 ${f}: atops2026paper option, Upstream default, tutorial link`, html.includes("ATOPS2026PAPER") && html.includes("TrisoAtopsVariant::<wbr>Upstream") && html.includes("../../deep-dives/triso-atops/atops2026-paper.html") ? 0 : 1, 0);
+});
+
 if (failed) { console.log(`${failed} check(s) failed`); process.exit(1); }
 console.log("all fission-products checks passed");

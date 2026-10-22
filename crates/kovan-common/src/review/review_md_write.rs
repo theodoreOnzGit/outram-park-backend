@@ -20,6 +20,12 @@
 //! - **A needs-fix** replaces the entry with the same `[kovan] id` (to
 //!   resolve it) and is otherwise appended: one reviewer may raise several.
 //!
+//! - **An agent justification** (GitHub #1019) replaces the same agent's
+//!   justification of the same function (same `fn:` target, same `by`),
+//!   else is appended: one standing justification per agent per function,
+//!   the earlier one living on in git history. Its body is generated
+//!   ([`justification_body`]) and says it never counts as review.
+//!
 //! An **unreadable** entry is never replaced (it counts as no review, so a
 //! new stamp is simply added beside it: "just redo", #764).
 //!
@@ -35,7 +41,8 @@
 use crate::artifact::{heading_span, render_block, ARTIFACT_LEVEL};
 
 use super::review_md::{
-    parse_review_md, sign_off, Entry, NeedsFixEntry, ReviewDocument, ReviewEntry, ReviewMdError,
+    parse_review_md, sign_off, Entry, JustificationEntry, NeedsFixEntry, ReviewDocument,
+    ReviewEntry, ReviewMdError,
 };
 
 /// Why an entry could not be written.
@@ -211,6 +218,61 @@ pub fn upsert_needs_fix(
     );
     let after = parse_review_md(&text);
     let back = after.needs_fixes().any(|n| n == entry);
+    if !back || after.unreadable.len() != before.unreadable.len() {
+        return Err(WriteError::NotReadBack(readback_problem(&after, &heading)));
+    }
+    Ok(Written {
+        text,
+        replaced: line.is_some(),
+    })
+}
+
+/// The generated Markdown under a justification's TOML block: the
+/// agent-drafted label, the verdict and the evidence as a list. The
+/// evidence is one line per item ([`super::review_md::validate_justification`]),
+/// so no item can open a `#` heading of its own.
+pub fn justification_body(entry: &JustificationEntry) -> String {
+    let j = &entry.justification;
+    let mut out = format!(
+        "## Agent-drafted, unsigned\n\nWritten by {} with `kovan-cli review justify` on {}, \
+         commit {}. It is not a review: it never counts towards \"reviewed\", \
+         alone or as a second sign-off (GitHub #1019).\n\n## Verdict: {}\n\n## Evidence\n\n",
+        j.by,
+        j.date,
+        j.commit.chars().take(10).collect::<String>(),
+        j.verdict.as_str()
+    );
+    for e in &j.evidence {
+        out.push_str(&format!("- {e}\n"));
+    }
+    out.trim_end().to_string()
+}
+
+/// Write an agent justification into `md` (module doc): replace this
+/// agent's justification of the same function, else append.
+pub fn upsert_justification(md: &str, entry: &JustificationEntry) -> Result<Written, WriteError> {
+    let before = parse_review_md(md);
+    let fid = entry.function_id();
+    let line = before.entries.iter().find_map(|e| match &e.entry {
+        Entry::Justification(j)
+            if j.function_id() == fid && j.justification.by == entry.justification.by =>
+        {
+            Some(e.line)
+        }
+        _ => None,
+    });
+    let qual = entry
+        .path()
+        .and_then(|p| p.split_once(".rs::").map(|(_, q)| q.to_string()))
+        .unwrap_or_else(|| fid.clone());
+    let heading = super::draft::justification_heading(&qual, &entry.justification.by);
+    let toml = Entry::Justification(entry.clone())
+        .to_toml()
+        .map_err(WriteError::Emit)?;
+    let body = checked_comments(&justification_body(entry))?;
+    let text = splice(md, line, &render_block(ARTIFACT_LEVEL, &heading, &toml, &body));
+    let after = parse_review_md(&text);
+    let back = after.justifications().any(|j| j == entry);
     if !back || after.unreadable.len() != before.unreadable.len() {
         return Err(WriteError::NotReadBack(readback_problem(&after, &heading)));
     }
