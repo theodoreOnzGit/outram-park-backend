@@ -299,7 +299,9 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   science/fission-products/{kernel-data,kernel-recorded,kernel-physics,kernel-worker,kernel-story}.js \
   science/fission-products/barriers-{why,migration,sic,whole}.html \
   science/fission-products/failure-{vessel,weibull,thinning,accident,release,leaves-out}.html \
-  science/fission-products/{barrier-data,failure-data,barrier-recorded,barrier-physics,barrier-worker,barrier-story}.js \
+  science/fission-products/{barrier-data,failure-data,barrier-recorded,barrier-physics,barrier-worker,barrier-story,plot-kit}.js \
+  science/fission-products/atops-{big-picture,groups,diffusion,release-models,normal-operation,coolant,accident,simplifications}.html \
+  science/fission-products/{atops-data,atops-physics,atops-story}.js \
   kovan-schema/index.html \
   code-map/code_map.json code-map/site_links.json \
   api/outram_mc_libs/index.html api/changi/index.html \

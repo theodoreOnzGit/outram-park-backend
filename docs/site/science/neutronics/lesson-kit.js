@@ -313,7 +313,17 @@
     ["failure-thinning.html", "The wall gets thinner"],
     ["failure-accident.html", "An accident, step by step"],
     ["failure-release.html", "From failed particles to release"],
-    ["failure-leaves-out.html", "What the model leaves out"]
+    ["failure-leaves-out.html", "What the model leaves out"],
+    // Chapter 5, "Integrating it in TRISO-ATOPS" (maintainer direction
+    // 2026-10-22: chapters 3 and 4 brought together inside TRISO-ATOPS).
+    ["atops-big-picture.html", "TRISO-ATOPS: the big picture"],
+    ["atops-groups.html", "84 nuclides, five groups"],
+    ["atops-diffusion.html", "One diffusion law per group"],
+    ["atops-release-models.html", "One release model per group"],
+    ["atops-normal-operation.html", "Normal operation, node by node"],
+    ["atops-coolant.html", "Into the coolant"],
+    ["atops-accident.html", "Accidents: Booth on the integral, and venting"],
+    ["atops-simplifications.html", "Simplifications, side by side"]
   ];
   var TRACKS = {
     neutronics: ["Neutronics", LESSONS, "glossary.html"],

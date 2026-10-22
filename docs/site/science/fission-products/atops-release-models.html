@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One release model per group</title>
+<meta name="description" content="Fission products, lesson 42: TRISO-ATOPS's release-to-birth ratio for a failed particle, one model per group: a gas correlation, Booth's equivalent sphere with its 5000-term floor, silver breakthrough through SiC, and a fixed value; plus the graphite hold-up.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="kernel-physics.js" defer></script>
+<script src="atops-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="atops-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 42.
+     rb_fail per group, booth_longlived / booth_transient on reduced time, breakthrough_model, attenuation_factor, with MHTGR Case A constants (atops-data.js, lesson_triso_atops). Predictions Q3, Q4. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="ad-numbers" hidden></span>
+
+<h1>One release model per group</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Chapter 3 gave us Booth&rsquo;s sphere (lessons 16 and 17), the R/B fingerprint of short-lived gases (lesson 19), and the two scales of grain and kernel (lesson 18). Chapter 4 showed silver getting through SiC (lesson 31). TRISO-ATOPS keeps one of these per group, for a particle that has already failed.</p>
+
+<section class="widget-card">
+  <h3>Release models, side by side</h3>
+  <div class="widget" id="atops-release">
+    <canvas aria-label="Release-to-birth ratio of a failed particle against fuel temperature for gas, halogen, caesium, strontium, silver and other nuclides; or the Booth release fraction against reduced time, exact and with TRISO-ATOPS's 5000 terms, which flattens at 1.2e-4; or the graphite attenuation factor against temperature."></canvas>
+  </div>
+  <p class="note"><a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::rb_fail"><code>rb_<wbr>fail</code></a> with MHTGR Case A&rsquo;s kernel radius, grain size, SiC thickness and 3-year irradiation (Stoyer et al. 2026, Table 3, p. 7, as <code>constants.csv</code> records it).</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did): as D&middot;t/a&sup2; goes to zero the release should go to zero. Does TRISO-ATOPS&rsquo;s Booth series?</p>
+
+<h2>Four models, chosen by group</h2>
+<ul>
+<li><b>Noble gases and halogens:</b> an empirical correlation in the decay constant and temperature. The paper fitted it to gas releases from &ldquo;designed-to-fail&rdquo; particles in the AGR-3/4 experiment (p. 6). It has the R/B slope of lesson 19 left as a fitted exponent. (<code>rb_<wbr>fail_<wbr>noble_<wbr>gases</code>)</li>
+<li><b>Special metals (Cs, Sr):</b> Booth&rsquo;s equivalent sphere, the long-time form for long-lived nuclides and the R/B form for short-lived ones. The sphere&rsquo;s radius is a single number between grain and kernel (lesson 18): the code uses &radic;(2&nbsp;a<sub>grain</sub>&nbsp;r) = <span data-ad="aBooth">&hellip;</span> for a <span data-ad="r">&hellip;</span> kernel and <span data-ad="aGrain">&hellip;</span> grains. (<code>booth_<wbr>longlived</code>, <code>booth_<wbr>shortlived_<wbr>fast_<wbr>diffuse</code>)</li>
+<li><b>Silver and palladium:</b> breakthrough through a flat SiC wall, the time-lag solution of a membrane, scaled by the kernel&rsquo;s surface to volume. Shorter-lived silver isotopes are scaled down by &radic;(&lambda;<sub>110m</sub>/&lambda;). (<code>breakthrough_<wbr>model</code>)</li>
+<li><b>Everything else:</b> a fixed 10<sup>&minus;5</sup>. (<code>OTHER_<wbr>METAL_<wbr>RB_<wbr>FAIL</code>)</li>
+</ul>
+<p>Metals then cross the graphite: the code divides their release by an <b>attenuation factor</b> from slab diffusion through the 4.5 mm between fuel and coolant, capped at 10<sup>8</sup> (the &ldquo;Graphite hold-up&rdquo; view). Gases pass through.</p>
+
+<h2>The floor that should not be there</h2>
+<p>Booth&rsquo;s series is an infinite sum; TRISO-ATOPS stops after <span data-ad="boothTerms">&hellip;</span> terms. At small D&middot;t/a&sup2; the missing tail does not vanish, so the release never falls below <span data-ad="boothFloor">&hellip;</span> (the &ldquo;Booth floor&rdquo; view; gh:#385, which measured this). For strontium at normal-operation temperatures that over-states the release: in the &ldquo;R/B by group&rdquo; view, the flat stretch of Sr-90&rsquo;s curve at low temperature is this floor, not physics. The port keeps it, because upstream has it and the port&rsquo;s contract is to agree with upstream.</p>
+
+<h2>Paper and code: the sphere&rsquo;s radius</h2>
+<p>The paper describes the Booth radius as the root-mean-square of the kernel size and the grain size (pp. 7&ndash;8). The code computes &radic;(2&nbsp;a<sub>grain</sub>&nbsp;r), the <b>geometric</b> mean of grain size and kernel diameter: <span data-ad="aBooth">&hellip;</span>, against <span data-ad="rmsR">&hellip;</span> for the root-mean-square of kernel radius and grain size, or <span data-ad="rmsD">&hellip;</span> of kernel and grain diameters. The smaller radius gives a larger release. In an accident (lesson 45) the code uses the kernel radius itself. All three follow upstream&rsquo;s code; the difference is reported, not changed. Lesson 18&rsquo;s note on the physical basis of this radius is still source-pending.</p>
+
+<h2>Where it is in the code</h2>
+<p>On the Code Review map, <code>rb_<wbr>fail</code> is one <code>match</code> on <code>ElementGroup</code>, calling the functions above in <code>release_<wbr>models::<wbr>steady_<wbr>state</code>. Its caller is <code>normal_<wbr>operation_<wbr>node</code>.</p>
+
+<p><b>Next:</b> these are ratios for a failed particle. How many particles have failed? Lesson 43.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The derivations</h3>
+<p>The Booth sphere, its steady state and the breakthrough and graphite closed forms are derived in the theory book (<a href="../../tutorials/fp-transport-theory/06-eulerian-fresco.html">step 9</a>) and in boon-lay&rsquo;s <code>TRISO_<wbr>ATOPS_<wbr>DERIVATION.md</code>. The deep dive <a href="../../deep-dives/triso-atops/release.html">Getting out</a> compares them with boon-lay&rsquo;s random walk.</p>
+<h3>Why silver ignores failure</h3>
+<p>The paper applies silver&rsquo;s ratio to every particle, failed or not, because the coatings are not effective barriers to silver at most reactor temperatures (p. 5). That is chapter 4&rsquo;s lesson 31, made into a rule.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

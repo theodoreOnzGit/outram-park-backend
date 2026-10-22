@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simplifications, side by side</title>
+<meta name="description" content="Fission products, lesson 46: every simplification of chapters 3 to 5 in one table, what each one costs, which earlier lesson showed the fuller physics, and the ladder from TRISO-ATOPS up to models the workspace does not have.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="atops-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 46.
+     Collected from lessons 10-45, crates/boon-lay/docs/lessons/src/limitations.md and the theory book's "Why each simplification is allowed" sections. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="ad-numbers" hidden></span>
+
+<h1>Simplifications, side by side</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Three chapters built the physics up; this one took it apart inside one code. Here is every simplification in one place, with the lesson that showed what was simplified away.</p>
+
+<section class="widget-card">
+  <h3>The fidelity ladder</h3>
+  <div class="widget" id="atops-ladder">
+    <canvas aria-label="A ladder of models from a finite-element particle at the top, through a multilayer diffusion mesh, a random walk through every layer, this site's layered walk, Booth's equivalent sphere, an empirical correlation, down to a fixed value. Rungs not built in the workspace are dashed."></canvas>
+  </div>
+  <p class="note">Dashed: not built in the workspace. The theory book walks the same ladder with its costs (<a href="../../tutorials/fp-transport-theory/19-levels-of-fidelity.html">step 20, &ldquo;Levels of fidelity&rdquo;</a>).</p>
+</section>
+
+<h2>The table</h2>
+<div class="table-wrap">
+<table>
+<thead><tr><th>Simplification</th><th>Where</th><th>What it costs</th><th>Fuller physics shown in</th></tr></thead>
+<tbody>
+<tr><td>Equivalent sphere per group</td><td data-label="Where">TRISO-ATOPS</td><td data-label="Costs">Grains, pores, bursts and recoil folded into one radius; that radius differs between paper and code (lesson 42)</td><td data-label="Shown in">lessons 16&ndash;28</td></tr>
+<tr><td>Lumped groups, one D per group</td><td data-label="Where">TRISO-ATOPS</td><td data-label="Costs">84 nuclides, five behaviours; Y treated as &ldquo;other&rdquo; against the paper (lesson 40)</td><td data-label="Shown in">lessons 11, 15</td></tr>
+<tr><td>Empirical correlations, fitted ranges</td><td data-label="Where">both codes</td><td data-label="Costs">Extrapolated outside the fit; some laws clamped, some not (lesson 41)</td><td data-label="Shown in">lessons 8, 30</td></tr>
+<tr><td>Intact layers hold everything but silver</td><td data-label="Where">TRISO-ATOPS</td><td data-label="Costs">No release through intact particles of Cs or Sr at high temperature</td><td data-label="Shown in">lessons 30&ndash;32</td></tr>
+<tr><td>No multilayer diffusion solver</td><td data-label="Where">the workspace</td><td data-label="Costs">No time-dependent release through the layers; only the exact mean (lesson 32)</td><td data-label="Shown in">lesson 32</td></tr>
+<tr><td>Thin shell, ideal gas</td><td data-label="Where">boon-lay fuel failure</td><td data-label="Costs">No load in the PyC, no real-gas pressure</td><td data-label="Shown in">lesson 33</td></tr>
+<tr><td>Failure fractions as inputs</td><td data-label="Where">TRISO-ATOPS</td><td data-label="Costs">Release scales linearly with numbers from outside the model</td><td data-label="Shown in">lessons 33&ndash;36, 43</td></tr>
+<tr><td>Built for German TRISO, 1600&ndash;2500 &deg;C</td><td data-label="Where">boon-lay fuel failure</td><td data-label="Costs">HTR-10 is an extrapolation; stand-in strength and fluence</td><td data-label="Shown in">lessons 34, 36</td></tr>
+<tr><td>One temperature per node</td><td data-label="Where">TRISO-ATOPS</td><td data-label="Costs">No gradient inside a pebble or a particle (small inside a kernel)</td><td data-label="Shown in">lesson 17</td></tr>
+<tr><td>Venting only</td><td data-label="Where">TRISO-ATOPS</td><td data-label="Costs">No release carried out while cooling or in a steady ingress flow</td><td data-label="Shown in">lesson 45</td></tr>
+<tr><td>A 5000-term Booth series</td><td data-label="Where">TRISO-ATOPS</td><td data-label="Costs">A 1.2&times;10<sup>&minus;4</sup> floor on small releases (gh:#385)</td><td data-label="Shown in">lesson 42</td></tr>
+<tr><td>No validation</td><td data-label="Where">both codes, for HTR-10</td><td data-label="Costs">Verified code to code and against printed results, not against measured release or failure</td><td data-label="Shown in">lessons 36, 39</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Why simplify at all</h2>
+<p>Because the top of the ladder cannot run for a core. A finite-element particle for every one of the roughly 2&times;10<sup>8</sup> particles of HTR-10 is out of reach (theory book step 6), and lesson 32 found that even a random walk through one particle&rsquo;s layers takes too long. Each rung down keeps less physics and costs less. A simplification is acceptable when what it drops does not change the answer you need, and every row above says what it drops.</p>
+<p>The next rung up that the workspace lacks is a <b>multilayer diffusion solver</b>, FRESCO-style: the diffusion equation solved through kernel, coatings and graphite on a mesh, with decay, along a temperature history (theory book <a href="../../tutorials/fp-transport-theory/06-eulerian-fresco.html">step 9</a>). It would replace the equivalent sphere and the &ldquo;intact holds everything&rdquo; rule, and it is the rung lesson 32&rsquo;s exact mean could check.</p>
+
+<p><b>Next:</b> this is the end of the TRISO chapters for now.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>Where each simplification is argued</h3>
+<p>Each theory-book step ends with a table, &ldquo;Why each simplification is allowed&rdquo;, saying which kind of justification each one has (negligible, too expensive, conservative, or no data) and marking the ones it cannot justify as open. The steps for these chapters: <a href="../../tutorials/fp-transport-theory/08-pressure-stress.html">6</a>, <a href="../../tutorials/fp-transport-theory/09-panama.html">7</a>, <a href="../../tutorials/fp-transport-theory/06-eulerian-fresco.html">9</a>, <a href="../../tutorials/fp-transport-theory/14-triso-atops.html">15</a> and <a href="../../tutorials/fp-transport-theory/15-dlofc.html">16</a>.</p>
+<h3>Not a safety comparison</h3>
+<p>These are teaching models with their gaps on show. They are not qualified for licensing, safety decisions or emergency planning, and nothing here ranks one reactor or fuel against another.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

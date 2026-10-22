@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRISO-ATOPS: the big picture</title>
+<meta name="description" content="Fission products, lesson 39: chapters 3 and 4 put together inside TRISO-ATOPS, INL's source-term tool, as boon-lay ports it: diffusion per group, a release model per group, failure fractions, graphite, coolant pools and the accident.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="atops-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 39.
+     The module map of boon_lay::triso_atops_fork (upstream de374c8). Paper: Stoyer, Raichart & Petti 2026 (restricted; cited by printed page, not reproduced). -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="ad-numbers" hidden></span>
+
+<h1>TRISO-ATOPS: the big picture</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Chapter 3 followed fission products out of a bare kernel. Chapter 4 added the coatings, and the ways they fail. A reactor holds hundreds of thousands of pebbles, each with thousands of particles. We cannot walk every atom through every particle. A source-term code has to <b>lump</b>: keep what matters for the release, drop the rest. This chapter takes apart one such code, TRISO-ATOPS, piece by piece, and asks of each piece: which lesson did we learn this in, and what does the code keep of it?</p>
+
+<section class="widget-card">
+  <h3>The chain, normal operation then accident</h3>
+  <div class="widget" id="atops-map">
+    <canvas aria-label="Eight boxes joined by arrows: inventory, diffusion coefficient per group, release-to-birth ratio per group, times the failed fraction, graphite hold-up, coolant pools, then for the accident the time-integrated diffusion and venting. Each box names the earlier lessons that taught its physics."></canvas>
+  </div>
+  <p class="note">The modules of <code>boon_lay::<wbr>triso_<wbr>atops_<wbr>fork</code>, a port of INL&rsquo;s TRISO-ATOPS (MIT licence, upstream commit de374c8), verified code to code against upstream (<code>crates/boon-lay/docs/triso-atops-code-to-code.md</code>).</p>
+</section>
+
+<p class="predict"><b>Predict first.</b> Chapter 4 walked one atom through five layers. How many layers do you think a whole-core source-term code keeps for each atom?</p>
+
+<h2>What TRISO-ATOPS is</h2>
+<p>TRISO-ATOPS (&ldquo;TRISO Analysis Tool for Predictive Source terms&rdquo;) is a Python tool from Idaho National Laboratory. Its paper says it calculates the release of the key fission products by diffusion through the kernel, the SiC and the graphite, from the fuel and graphite temperatures in normal operation, then their plate-out in the coolant, and then the release in an accident (Stoyer, Raichart &amp; Petti 2026, p. 1). Its equations come from a 1989 model by Petti for the New Production MHTGR, extended from one core node to many (p. 2).</p>
+<p>boon-lay carries a Rust port of it. The port is a <b>faithful translation</b>, simplifications included: every number it gives matches upstream&rsquo;s code (code-to-code verification). That makes it the right place to see what the lumping costs.</p>
+
+<h2>The chain, in one breath</h2>
+<p>For each fuel node and each nuclide: get the diffusion coefficient at the node&rsquo;s temperature (lesson 41); turn it into a release-to-birth ratio for a <b>failed</b> particle with one model per group (lesson 42); multiply by the fraction of particles that have failed, an input (lesson 43); let the graphite delay the metals; and share what reaches the coolant between circulating, plated out and cleaned up (lesson 44). Then, in an accident, integrate the diffusion over the heat-up and let the coolant gas carry it out while the core heats (lesson 45).</p>
+<p>To the predict prompt: <b>none</b>. Intact particles are counted as holding everything (except silver), and a failed particle is a bare kernel with one equivalent sphere. The layers of chapter 4 appear only through the failed fraction.</p>
+
+<h2>Where it is in the code</h2>
+<p>On the Code Review map, the normal-operation chain for one node starts at <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/normal_operation/mod.rs::normal_operation_node"><code>normal_<wbr>operation_<wbr>node</code></a>: it calls <code>diffusion_<wbr>coefficient</code>, <code>rb_<wbr>fail</code>, <code>release_<wbr>rate</code> and <code>base_<wbr>activities</code>, then the coolant pools. The accident pieces are in <code>accident</code> and <code>release_<wbr>models::<wbr>transient</code>; there is no single accident function in the port (gh:#447).</p>
+
+<p><b>Next:</b> the first lumping: which nuclides does it track, and in how many groups?</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The theory book&rsquo;s view</h3>
+<p>The theory book places TRISO-ATOPS on its fidelity ladder, from CFD down, and lists which constants the HTR-10 digital twin borrows from the MHTGR: <a href="../../tutorials/fp-transport-theory/14-triso-atops.html">step 15, &ldquo;TRISO-ATOPS: lumped transport&rdquo;</a>. The TRISO-ATOPS track has its own interactive rungs: <a href="../../tutorials/triso-atops/coolant.html">to the coolant</a> and <a href="../../tutorials/triso-atops/handoff.html">into the source term</a>. This chapter does not repeat them; it ties each piece back to chapters 3 and 4.</p>
+<h3>Sources</h3>
+<p>Stoyer, B., Raichart, A. &amp; Petti, D. (2026), &ldquo;TRISO-ATOPS: A Mechanistic Source Term Model for Gas-Cooled Reactors&rdquo;, <i>Nuclear Technology</i>, doi:10.1080/00295450.2026.2671624. Page numbers are the journal&rsquo;s printed ones. It is cited for facts and equations only; no text, figure or table of it is reproduced here. The port&rsquo;s own record: <code>crates/boon-lay/docs/triso-atops-fork.md</code>.</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>

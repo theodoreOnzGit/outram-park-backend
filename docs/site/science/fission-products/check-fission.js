@@ -610,5 +610,93 @@ for (const el of ["Cs", "Ag", "Sr"]) for (const t of [1200, 1400, 1600, 1800]) {
   check("44: barrier-recorded.js cites Kugeler Table 5 on pp. 32-33", BR.layerJobs.page === "32-33" && BR.layerJobs.sic.length === 2 ? 0 : 1, 0);
 }
 
+// ─── Chapter 5, "Integrating it in TRISO-ATOPS" (lessons 39-46) ──────────
+// Data: atops-data.js (crates/dhoby-ghaut/examples/lesson_triso_atops),
+// atops-physics.js. Predictions Q1-Q9 written in the generator's docs
+// before the first run. Results 2026-10-22 in the comments.
+for (const f of ["atops-data.js", "atops-physics.js"]) eval(fs.readFileSync(path.join(__dirname, f), "utf8"));
+const AT = window.ATOPS_DATA, AP = window.AtopsPhysics;
+// 45. Q1: 84 nuclides, 5 groups, and each group sits in one diffusion class
+//     (special metals in Cs-like or Sr-like). 2026-10-22: no exception.
+{
+  check("45 Q1: number of nuclides vs 84", Math.abs(AT.nuclides.length - 84), 0);
+  const want = { NobleGas: [0], Halogen: [0], SpecialMetal: [1, 2], Silver: [3], Other: [4] };
+  check("45 Q1: number of groups vs 5", Math.abs(Object.keys(AT.nuclides.reduce((m, n) => (m[n.group] = 1, m), {})).length - 5), 0);
+  check("45 Q1: nuclides whose diffusion class is outside their group's", AT.nuclides.filter((n) => !want[n.group].includes(n.dClass)).length, 0);
+  check("45: the short-lived rule (t1/2 < 0.2 t_irrad)", AT.nuclides.filter((n) => n.short !== (n.t12 / AT.caseA.tIrrad < 0.2)).length, 0);
+}
+// 46. Q2: clamps read from the output. 2026-10-22: Cs 700/550, Sr 700/800,
+//     Ag graphite 475 on the 25 °C grid, none for Kr, the Ag kernel, Ag-SiC.
+{
+  const c = (z) => AT.dCurves.find((x) => x.z === z);
+  check("46 Q2: Cs clamps 700/550 °C", c(55).clampKernel === 700 && c(55).clampGraphite === 550 ? 0 : 1, 0);
+  check("46 Q2: Sr clamps 700/800 °C", c(38).clampKernel === 700 && c(38).clampGraphite === 800 ? 0 : 1, 0);
+  check("46 Q2: Ag graphite clamp 475-500 °C, no Ag kernel clamp", c(47).clampGraphite >= 475 && c(47).clampGraphite <= 500 && c(47).clampKernel === null ? 0 : 1, 0);
+  check("46 Q2: no clamp on the Kr kernel", c(36).clampKernel === null ? 0 : 1, 0);
+  let flat = 0; for (let i = 1; i < AT.dSicAg.length; i++) if (AT.dSicAg[i] === AT.dSicAg[0]) flat++;
+  check("46 Q2: Ag in SiC never flat", flat, 0);
+}
+// 47. Q3: the Booth floor. 2026-10-22: 1.215976e-4 from both, at 1e-16.
+//     The page's truncated series against the port's to 1e-12 (relative to
+//     the value, worst over the grid).
+{
+  const floor = 6 / (Math.PI * Math.PI) * (1 / 4999.5); // the tail sum_{n>=5000} 1/n^2 ~ 1/(N - 1/2)
+  report("47 Q3", `booth_longlived(1e-16) = ${AT.booth.long[0].toExponential(6)}, booth_transient = ${AT.booth.transient[0].toExponential(6)}, tail estimate ${floor.toExponential(6)}`);
+  check("47 Q3: |floor / 1.215976e-4 − 1|", Math.abs(AT.booth.long[0] / 1.215976e-4 - 1), 1e-3);
+  check("47 Q3: |transient floor / 1.215976e-4 − 1|", Math.abs(AT.booth.transient[0] / 1.215976e-4 - 1), 1e-3);
+  let w = 0; AT.booth.x.forEach((x, i) => { w = Math.max(w, Math.abs(AP.boothTrunc(x, AT.booth.terms) - AT.booth.long[i]) / Math.max(AT.booth.long[i], 1e-300)); });
+  check("47: |page truncated Booth − booth_longlived| / value (worst)", w, 1e-9);
+}
+// 48. Q4: the Booth radius sqrt(2 a_grain r). 2026-10-22: 6.5269e-5 m.
+check("48 Q4: |a_booth − sqrt(2 a_grain r)| / a_booth", Math.abs(AT.caseA.aBooth - Math.sqrt(2 * AT.caseA.aGrain * AT.caseA.r)) / AT.caseA.aBooth, 1e-15);
+check("48 Q4: |a_booth / 6.53e-5 − 1|", Math.abs(AT.caseA.aBooth / 6.53e-5 - 1), 0.001);
+// 49. Q5, Q6, and the page's rescaling against the code. 2026-10-22: ratio
+//     2.000000000000 (Ag 1); bridged Kr-88 0.465116, Cs-137 0.871508.
+{
+  const c = AT.caseA, f0 = { hm: c.fHM, sic: c.fSiC, inc: c.fInc, incSic: c.fIncSiC };
+  const f2 = { hm: 2 * c.fHM, sic: 2 * c.fSiC, inc: 2 * c.fInc, incSic: 2 * c.fIncSiC }, fb = { hm: c.fHM, sic: c.fSiC, inc: AT.phi1Eoi776, incSic: c.fIncSiC };
+  let wd = 0, wb = 0;
+  AT.nodes.forEach((n) => {
+    wd = Math.max(wd, Math.abs(n.doubled[0] / n.base[0] - AP.releaseScale(n.group, f2, f0)));
+    wb = Math.max(wb, Math.abs(n.bridged[0] / n.base[0] - AP.releaseScale(n.group, fb, f0)));
+  });
+  check("49 Q5: |doubled / base − page scale| (worst)", wd, 1e-12);
+  check("49: |bridged / base − page scale| (worst)", wb, 1e-12);
+  const kr = AT.nodes.find((n) => n.name === "Kr-88");
+  check("49 Q6: |Kr-88 bridged ratio − 0.465|", Math.abs(kr.bridged[0] / kr.base[0] - 0.465), 0.001);
+  check("49 Q5: Ag-110m unchanged by doubling", AT.nodes.find((n) => n.name === "Ag-110m").doubled[0] === AT.nodes.find((n) => n.name === "Ag-110m").base[0] ? 0 : 1, 0);
+}
+// 50. Q7: live pools (NOT a port) from empty reproduce the circulating pool.
+//     2026-10-22: relative difference 0 for all five.
+AT.nodes.forEach((n) => check(`50 Q7 ${n.name}: |live circulating − node| / node`, Math.abs(n.live[0] - n.base[3]) / n.base[3], 1e-9));
+// 51. Q8, Q9: venting and the accident. 2026-10-22: vent 0.356 at the end of
+//     the hold against 1 − T0/Tpeak = 0.374 (Q8 MISSED, half the first step
+//     dropped); never defined while cooling (as predicted); Cs kernel 0.9979.
+{
+  const a = AT.accidents.find((x) => x.peak === 1600), cs = a.nuclides.find((n) => n.name === "Cs-137");
+  const ideal = 1 - (900 + 273.15) / (1600 + 273.15);
+  report("51 Q8 (MISSED: predicted within 2 %)", `vent ${cs.vent[20].toFixed(4)} vs ideal ${ideal.toFixed(4)} (${(100 * (cs.vent[20] / ideal - 1)).toFixed(1)} %)`);
+  let cool = 0; a.nuclides.forEach((n) => n.vent.forEach((v, k) => { if (k > 20 && v !== null) cool++; }));
+  check("51 Q8: vent samples defined while cooling", cool, 0);
+  check("51 Q9: 0.99 / Cs kernel release at the end of the hold", 0.99 / cs.rfKernel[20], 1);
+  let bad = 0; AT.accidents.forEach((x) => x.nuclides.forEach((n) => { n.rfKernel.forEach((v, k) => { if (v < 0 || v > 1 || (k && v < n.rfKernel[k - 1] - 1e-15)) bad++; }); if ((n.group === "NobleGas" || n.group === "Halogen") && n.rfGraphite.some((v) => v !== 0)) bad++; }));
+  check("51: kernel release outside [0,1] or falling; gas held in graphite", bad, 0);
+}
+// 52. The chapter's pages: banner, folded section, nav entry, a Code Review
+//     link, and the paper cited, never quoted at length.
+{
+  const kit = fs.readFileSync(path.join(__dirname, "../neutronics/lesson-kit.js"), "utf8");
+  ["atops-big-picture.html", "atops-groups.html", "atops-diffusion.html", "atops-release-models.html", "atops-normal-operation.html", "atops-coolant.html", "atops-accident.html", "atops-simplifications.html"].forEach((f) => {
+    const html = fs.readFileSync(path.join(__dirname, f), "utf8");
+    check(`52 ${f}: banner or "Learn more advanced stuff" missing`, html.includes("Research, education and V&amp;V only") && html.includes("Learn more advanced stuff") ? 0 : 1, 0);
+    check(`52 ${f}: not in the lesson list`, kit.includes(`"${f}"`) ? 0 : 1, 0);
+    check(`52 ${f}: no Code Review link`, f === "atops-simplifications.html" || html.includes("../../code-review/#") ? 0 : 1, 0);
+    // A quotation from the restricted paper would sit in &ldquo;...&rdquo;; allow
+    // only single terms (at most three words), titles and the tool's name.
+    const quotes = (html.match(/&ldquo;([^&]*)&rdquo;/g) || []).filter((q) => q.split(" ").length > 3 && !/step|Through the layers|Simplify|TRISO-ATOPS: lumped|FRESCO-style|Levels of fidelity|Why each simplification|Getting out|PANAMA gives|Analysis Tool for Predictive|A Mechanistic Source Term Model/.test(q));
+    check(`52 ${f}: long quotations (restricted paper)`, quotes.length, 0);
+  });
+}
+
 if (failed) { console.log(`${failed} check(s) failed`); process.exit(1); }
 console.log("all fission-products checks passed");

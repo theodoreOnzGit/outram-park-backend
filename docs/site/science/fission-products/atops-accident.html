@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accidents: Booth on the integral, and venting</title>
+<meta name="description" content="Fission products, lesson 45: in an accident TRISO-ATOPS replaces D·t by the time integral of D in its Booth and breakthrough models, and moves what is released out of the vessel only while the core heats and the gas expands.">
+<link rel="stylesheet" href="../../style.css">
+<script src="../neutronics/lesson-kit.js" defer></script>
+<script src="atops-data.js" defer></script>
+<script src="atops-physics.js" defer></script>
+<script src="plot-kit.js" defer></script>
+<script src="atops-story.js" defer></script>
+</head>
+<body class="lesson">
+<!-- Fission products, chapter 5 "Integrating it in TRISO-ATOPS", lesson 45.
+     integrate_diffusion_over_time, release_fraction_transient (kernel and graphite), mean_temperature_rate and coolant_release on one node through an illustrative heat-up (atops-data.js, lesson_triso_atops). Predictions Q8, Q9. -->
+<main class="lesson-body">
+<p class="banner" role="note"><strong>Research, education and V&amp;V only.</strong> Not for reactor operation, licensing, safety decisions or emergency response, and not a safety analysis. <strong>Review status:</strong> AI-assisted first draft (2026-10-22), not yet reviewed by a human.</p>
+<span id="ad-numbers" hidden></span>
+
+<h1>Accidents: Booth on the integral, and venting</h1>
+<p class="kicker lesson-progress">Fission products</p>
+
+<p>Chapter 4&rsquo;s lesson 37 released a failed particle&rsquo;s contents by Booth along a changing temperature. That was TRISO-ATOPS&rsquo;s own accident model, borrowed early. Here is the rest of it: the graphite gives up what it held, and the coolant gas carries the release out of the vessel, but only while it is being pushed out.</p>
+
+<section class="widget-card">
+  <h3>One node through a heat-up</h3>
+  <div class="widget" id="atops-accident">
+    <canvas aria-label="Top: temperature against hours, up to a peak, held, then down. Bottom: the fraction that has left the kernels, the fraction that has left the graphite, and the fraction of coolant vented, which stops when the core starts to cool; the cooling period is shaded."></canvas>
+  </div>
+  <p class="note"><a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/release_models/mod.rs::release_fraction_transient"><code>release_<wbr>fraction_<wbr>transient</code></a> on <code>integrate_<wbr>diffusion_<wbr>over_<wbr>time</code>, and <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::coolant_release"><code>coolant_<wbr>release</code></a>. The heat-up is an <b>illustrative</b> prescribed history, not a plant calculation. One node, MHTGR Case A geometry.</p>
+</section>
+
+<p class="predict"><b>Predict first</b> (we did, before running the code): the gas vented by the end of the hold is 1 &minus; T<sub>0</sub>/T<sub>peak</sub> (ideal gas in a fixed volume), within 2 %; and nothing more is vented once the core cools.</p>
+
+<h2>D&middot;t becomes the integral of D</h2>
+<p>Booth&rsquo;s series and the silver breakthrough depend on D&middot;t. When the temperature changes, the code replaces D&middot;t by &int;D&nbsp;dt, summed sample by sample (trapezoids). Kernel and graphite each get their own integral; noble gases and halogens are given nothing in the graphite. At the end of the hold of the 1600 &deg;C heat-up, <span data-ad="rfCs1600">&hellip;</span> of the caesium has left the kernels (predicted: at least 99 %).</p>
+<p>Two simplifications ride along. The accident uses the kernel radius as Booth&rsquo;s sphere, not normal operation&rsquo;s smaller &radic;(2&nbsp;a<sub>grain</sub>&nbsp;r) (lesson 42). And the 5000-term floor of lesson 42 is there too, snapped to zero only below 10<sup>&minus;6</sup>, which the floor is not.</p>
+
+<h2>Venting only</h2>
+<p>The release has to leave the vessel. In the model the only driver is the gas expanding as the core heats after a breach: the fraction of coolant pushed out follows the ideal gas law. When the core starts to cool, the gas contracts and draws air back in, and the release stops (Stoyer et al. 2026, pp. 4 and 13, which call this &ldquo;breathing&rdquo;). The black line ends there; the shaded part is release that stays in the core.</p>
+<p>By the end of the hold the code has vented <span data-ad="vent1600">&hellip;</span> of the coolant, against <span data-ad="ventIdeal">&hellip;</span> for an ideal gas. That <b>missed</b> the prediction: the code takes the temperature&rsquo;s rate of change as zero at the first sample, so its trapezoid sum drops half of the first 5 h step. The missing piece is half of the first step, so a finer time grid shrinks it. The spike to 1 at time zero is upstream&rsquo;s too: its first venting sample is set to 1 in the code, whatever the integral says (<code>coolant_<wbr>release</code>&rsquo;s docs list it as a preserved quirk).</p>
+<p>There is <b>no ingress transport</b>: no air or water flowing through and carrying the release out while the core cools or sits still. An isothermal hold once gave 0 Bq in the port; that was a porting defect, fixed (gh:#446): upstream vents fully when the temperature is uniform and constant. Ingress flow is added outside the port, by <code>sembawang</code>, and labelled not upstream.</p>
+
+<h2>Where it is in the code</h2>
+<p>The port has the accident&rsquo;s pieces, not one driver (gh:#447): <code>integrate_<wbr>diffusion_<wbr>over_<wbr>time</code>, <code>release_<wbr>fraction_<wbr>transient</code> (which calls <code>booth_<wbr>transient</code>, <code>breakthrough_<wbr>model_<wbr>transient</code> or <code>rf_<wbr>graph</code>), <a href="../../code-review/#crates/boon-lay/src/triso_atops_fork/accident/mod.rs::release_activity"><code>release_<wbr>activity</code></a> (what is left to release, after the failed fractions and what normal operation already moved), <code>mean_<wbr>temperature_<wbr>rate</code> and <code>coolant_<wbr>release</code>. <code>sembawang</code> assembles them.</p>
+
+<p><b>Next:</b> all the simplifications of chapters 3 to 5, side by side.</p>
+
+<details class="optional">
+<summary>Learn more advanced stuff</summary>
+<h3>The physical accident</h3>
+<p>The theory book follows a loss-of-cooling accident step by step and lists what TRISO-ATOPS does not simulate: <a href="../../tutorials/fp-transport-theory/15-dlofc.html">step 16</a>.</p>
+<h3>Other pieces of the accident</h3>
+<p>The circulating coolant is released at once when the boundary breaks, and a user-chosen fraction of the plated-out activity lifts off (pp. 4 and 12). Only nuclides with a half-life longer than 4 % of the accident are followed (p. 11).</p>
+</details>
+
+<nav class="lesson-nav" aria-label="Lessons"></nav>
+
+<footer class="lesson-foot">
+  <p>Found something that doesn't tally? <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/new">Open an issue</a> (a structured report form is coming, <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/511">#511</a>). Built from commit <a href="https://github.com/theodoreOnzGit/outram-park-backend/commit/@@COMMIT@@"><code>@@COMMIT_SHORT@@</code></a>, @@BUILD_DATE@@. AGPLv3. Written with AI assistance.</p>
+</footer>
+</main>
+</body>
+</html>
