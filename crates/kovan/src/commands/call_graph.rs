@@ -272,7 +272,7 @@ pub fn generate_scip_controlled(root: &Path, ctl: &super::index_control::RunCont
     // `rust-analyzer scip` runs on its main thread, which overflowed
     // Windows' 1 MB stack on this workspace (0xc00000fd, 2026-10-22); see
     // `scip_stack`.
-    let (program, note) = super::scip_stack::scip_program(&plain_root, &dir);
+    let (program, note) = super::scip_stack::scip_program(&plain_root);
     if let Some(note) = note {
         ctl.say(format!("call-graph: {note}"));
     }

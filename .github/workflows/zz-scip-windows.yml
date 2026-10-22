@@ -59,7 +59,14 @@ jobs:
         shell: bash
         run: |
           ls -la target/kovan-scip || true
-          if [ -f target/kovan-scip/rust-analyzer-bigstack.exe ]; then ./target/kovan-scip/rust-analyzer-bigstack.exe --version || echo "bigstack --version exit $?"; fi
+          RA="$(rustup which rust-analyzer)"
+          BIG="$(dirname "$RA")/rust-analyzer-kovan-bigstack.exe"
+          if [ -f "$BIG" ]; then "$BIG" --version; echo "bigstack beside the original: --version exit $?"; fi
+          if [ "$RUNNER_OS" = Windows ]; then
+            mkdir -p target/kovan-scip
+            cp "$RA" target/kovan-scip/ra-plain-copy.exe
+            ./target/kovan-scip/ra-plain-copy.exe --version; echo "plain copy in target/kovan-scip: --version exit $?"
+          fi
           head -30 target/kovan-scip/rust-analyzer-scip.log || true
           echo ....
           tail -60 target/kovan-scip/rust-analyzer-scip.log || true

@@ -118,7 +118,9 @@ pub fn write_into_kovan_tomls(root: &Path, evidence: &TestEvidence) -> Result<us
 /// recorded with nothing passed (kovan CI, macOS runner, 2026-10-22).
 fn cargo_command(args: &[String], root: &Path) -> Command {
     let mut c = Command::new("cargo");
-    c.args(args).current_dir(root).env("CARGO_TERM_COLOR", "never");
+    c.args(args)
+        .current_dir(root)
+        .env("CARGO_TERM_COLOR", "never");
     c
 }
 
@@ -254,7 +256,10 @@ mod tests {
     #[test]
     fn the_cargo_run_has_colour_off() {
         let c = cargo_command(&["test".into(), "--release".into()], Path::new("."));
-        let color = c.get_envs().find(|(k, _)| *k == "CARGO_TERM_COLOR").and_then(|(_, v)| v);
+        let color = c
+            .get_envs()
+            .find(|(k, _)| *k == "CARGO_TERM_COLOR")
+            .and_then(|(_, v)| v);
         assert_eq!(color, Some(std::ffi::OsStr::new("never")));
         assert_eq!(c.get_args().collect::<Vec<_>>(), ["test", "--release"]);
     }
