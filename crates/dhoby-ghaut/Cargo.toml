@@ -1,6 +1,6 @@
 [package]
 name = "dhoby-ghaut"
-version = "0.0.1"
+version = "0.0.2"
 authors.workspace = true
 edition.workspace = true
 # AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only): relicensed
@@ -76,6 +76,12 @@ sha2 = { workspace = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 egui = { workspace = true }
+# `web_demo::view` routes its transcendentals through PETIR (gh:#985), and the
+# web demos build this library for wasm32, where the `petir` entry above (in
+# the not-wasm32 table) does not reach. petir is no_std, so it is wasm-safe.
+# Added 2026-10-21: without it `cargo check -p dhoby-ghaut --lib --target
+# wasm32-unknown-unknown` failed with "cannot find crate `petir`".
+petir = { workspace = true }
 
 # The `dhoby-ghaut` BINARY (src/bin/dhoby-ghaut/): the guided high-fidelity
 # workbench (gh:#561). Maintainer, 2026-10-05: "dhoby-ghaut is to be a
