@@ -288,9 +288,14 @@ pub(crate) fn verdict_lines(ev: &kovan_common::review::engine::Evaluation, prefi
 /// and `KOVAN_STAMP_DUMP_OUT` set, the verdicts under
 /// `KOVAN_STAMP_DUMP_PREFIX` there are written to that file, so the same
 /// stamps can be judged before and after a change and the files compared.
+/// With `KOVAN_STAMP_DUMP_FACTS` set as well, every [`GitFacts`] field
+/// and every Code Review row (permalinks included) is written there
+/// (GitHub #1023: a change to how the git facts are gathered).
 ///
 /// Result (2026-10-22): passes; the boon-lay comparison is recorded on
-/// GitHub #1019.
+/// GitHub #1019, the #1023 one on #1023.
+///
+/// [`GitFacts`]: kovan_common::review::engine::GitFacts
 #[test]
 fn engine_verdicts_can_be_dumped_for_a_before_after_comparison() {
     let r = Repo::new();
@@ -304,6 +309,14 @@ fn engine_verdicts_can_be_dumped_for_a_before_after_comparison() {
         let prefix = std::env::var("KOVAN_STAMP_DUMP_PREFIX").unwrap_or_default();
         let ev = super::super::evaluate_workspace(Path::new(&root)).unwrap();
         std::fs::write(out, verdict_lines(&ev.evaluation, &prefix).join("\n")).unwrap();
+        // Every git fact and every row the Code Review shows (permalinks
+        // included), for a change to how the facts are gathered (#1023).
+        if let Some(facts) = std::env::var_os("KOVAN_STAMP_DUMP_FACTS") {
+            let ws = super::super::load_workspace(Path::new(&root)).unwrap();
+            let g = super::super::git_facts(Path::new(&root), &ws);
+            let rows = super::super::stamp_states(Path::new(&root)).unwrap();
+            std::fs::write(facts, format!("{g:#?}\n{rows:#?}\n")).unwrap();
+        }
     }
 }
 

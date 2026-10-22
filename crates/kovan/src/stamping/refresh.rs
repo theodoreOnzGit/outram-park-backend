@@ -361,9 +361,24 @@ mod tests {
         let given = std::env::var_os("KOVAN_REFRESH_TIMING_ROOT").map(PathBuf::from);
         let root = given.clone().unwrap_or_else(|| repo.path().to_path_buf());
         super::super::ws_cache::forget(&root);
+        let tally = super::super::git::spawn_tally;
+        let calls = |before: &BTreeMap<String, (usize, Duration)>| -> Vec<String> {
+            tally()
+                .into_iter()
+                .filter_map(|(k, (n, t))| {
+                    let (n0, t0) = before.get(&k).copied().unwrap_or_default();
+                    (n > n0).then(|| format!("{k}: {} calls, {:.3} s", n - n0, (t - t0).as_secs_f64()))
+                })
+                .collect()
+        };
+        let before = tally();
         let (_, cold) = stamp_states_timed(&root).unwrap();
+        let cold_calls = calls(&before);
+        let before = tally();
         let (_, warm) = stamp_states_timed(&root).unwrap();
-        println!("cold: {}\nwarm: {}", cold.line(), warm.line());
+        let warm_calls = calls(&before);
+        println!("cold: {}\n  {}\nwarm: {}\n  {}", cold.line(), cold_calls.join("\n  "), warm.line(), warm_calls.join("\n  "));
+        assert!(cold.line().contains("git processes"), "{}", cold.line());
         for t in [cold, warm] {
             let parts = t.load.cache_check + t.load.folder_refresh + t.concepts + t.git + t.engine + t.permalinks + t.states;
             assert!(parts <= t.total, "{}", t.line());

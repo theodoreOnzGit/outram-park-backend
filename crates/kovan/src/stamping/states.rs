@@ -531,6 +531,10 @@ pub struct RefreshTimings {
     /// Mapping to the web's rows.
     pub states: std::time::Duration,
     pub total: std::time::Duration,
+    /// `git` processes started during the refresh (GitHub #1023;
+    /// [`super::git::spawns`], process-wide, so another thread's `git`
+    /// calls in the same window count too).
+    pub git_spawns: usize,
 }
 
 impl RefreshTimings {
@@ -538,13 +542,14 @@ impl RefreshTimings {
     pub fn line(&self) -> String {
         let s = |d: std::time::Duration| format!("{:.3} s", d.as_secs_f64());
         format!(
-            "review-state refresh {}: cache check {}, folder refresh {} ({} folders), concepts {}, git {}, engine {}, permalinks {}, states {}",
+            "review-state refresh {}: cache check {}, folder refresh {} ({} folders), concepts {}, git {} ({} git processes), engine {}, permalinks {}, states {}",
             s(self.total),
             s(self.load.cache_check),
             s(self.load.folder_refresh),
             self.load.folders_refreshed,
             s(self.concepts),
             s(self.git),
+            self.git_spawns,
             s(self.engine),
             s(self.permalinks),
             s(self.states)
@@ -685,6 +690,7 @@ pub fn stamp_states(root: &Path) -> Result<Vec<WebStamp>, String> {
 /// [`stamp_states`], with every phase timed ([`RefreshTimings`]).
 pub fn stamp_states_timed(root: &Path) -> Result<(Vec<WebStamp>, RefreshTimings), String> {
     let start = std::time::Instant::now();
+    let spawned = super::git::spawns();
     let (ws, load) = super::load_workspace_timed(root)?;
     let clock = std::time::Instant::now();
     let concepts = super::concepts::concept_areas(&ws);
@@ -738,5 +744,6 @@ pub fn stamp_states_timed(root: &Path) -> Result<(Vec<WebStamp>, RefreshTimings)
     out.sort_by(|a, b| a.function.cmp(&b.function));
     t.states = clock.elapsed();
     t.total = start.elapsed();
+    t.git_spawns = super::git::spawns().saturating_sub(spawned);
     Ok((out, t))
 }
