@@ -735,6 +735,42 @@ reopening it (`src/stamping/review_mode/watch.rs`).
 - One standing review per function and reviewer: a re-review replaces it in
   place, and the earlier one lives only in git history.
 
+### Code Review ▸ User management: reviewers, keys, agents (GitHub #1019)
+
+A tab in Code Review, beside the code map, listing every reviewer and key
+in `kovan_root.toml` and every agent that wrote a justification.
+
+- **The list:** each reviewer's role, scope, keys and status, with a warnings
+  strip (`Registry::warnings`).
+- **One reviewer's page:** who admitted them and when; their standing
+  history; each key's fingerprint and replayed history; their stamps and
+  coverage.
+- **Agents** (`agent:…`) are listed apart and never count as review.
+- **My keys on this machine:** the Signing-key panel (#1020), drawn inline.
+
+Every action signs with the session key, and the passphrase is asked only
+while it is locked:
+
+- **Admit:** as Reviewer, Novice reviewer or Maintainer.
+- **Key actions:** endorse, retire, un-retire, revoke or mark compromised.
+- **Revoke** a reviewer.
+- **Change standing**, as signed `[[code_review.roster_event]]` entries
+  (`kovan-roster-event-v1`): edit scope, make maintainer or step down, hand
+  over maintainer (optionally stepping down), mark novice, promote to
+  trusted.
+
+The admission is never rewritten. A stamp is judged by the role and scope in
+force on its own date, so a later change never alters an old stamp's
+verdict. A novice's stamp alone shows **"1 of 2: awaiting a trusted
+reviewer"** until a trusted reviewer or a maintainer also stamps the
+function. The rules are in `kovan_common::review::signing::registry`'s module
+doc.
+
+**If no maintainer is available,** there is no bypass of the signatures. The
+repository owners' route is a reviewed commit declaring a new founder. That
+re-roots trust today; a founder-succession record that keeps the old chain
+valid is GitHub #1022.
+
 ### `review justify` / `review justifications` — agents' unsigned justifications (`stamping::justify`, GitHub #1019)
 
 `kovan-cli review justify <function> --verdict ok|not-ok|unsure --evidence

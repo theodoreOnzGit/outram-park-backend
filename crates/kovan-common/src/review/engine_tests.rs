@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::review::id::mint_fn_id;
+use crate::review::root::Role;
 use crate::review::index::{FunctionIndex, ItemKind, ModuleIndex};
 use crate::review::review_md::{
     Entry, EntryMeta, NeedsFixBody, NeedsFixEntry, ParsedEntry, ReviewBody, Unreadable,
@@ -1172,7 +1173,7 @@ fn enforced_signatures_map_onto_states() {
     let (rf, rk) = keystore::generate(R, "r1", "2026-10-07", pass).unwrap();
     let mut rt = root();
     rt.reviewers.retain(|r| r.id == M || r.id == R);
-    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()), rust_analyzer_used: vec![], developing_organisation: vec![] });
+    rt.code_review = Some(crate::review::root::CodeReviewSettings { rust_analyzer: None, founder: Some(M.into()), rust_analyzer_used: vec![], developing_organisation: vec![], roster_events: vec![] });
     rt.reviewers[0].keys = vec![mf.reviewer_key()];
     rt.reviewers[1].keys = vec![rf.reviewer_key()];
     rt.reviewers[1].admitted = Some("2026-10-07".into());

@@ -1314,7 +1314,9 @@ mod tests {
     /// a key and awaits admission. The tab opens its panel and the
     /// Signing-key panel (drawn inline, no window), loads on workers, and
     /// draws the list, the founder's page and Bob's page with the Admit
-    /// form, at desktop and phone width, without a display or a panic.
+    /// form, at desktop and phone width, then (phase 2) Bob admitted as a
+    /// novice with a widened scope, his standing history and the standing
+    /// controls, without a display or a panic.
     /// Each frame is rasterised in software
     /// ([`super::super::headless_shot`]); with `KOVAN_SHOT_DIR` set the
     /// PNGs are kept there for review.
@@ -1372,8 +1374,22 @@ mod tests {
             shots.save(&ctx, out, size, bg, &out_dir.join(format!("{name}.png")));
             assert!(out_dir.join(format!("{name}.png")).exists());
         }
+        // Phase 2: Bob admitted as a novice, then his scope widened; his
+        // page shows the standing history and the standing controls.
+        use crate::stamping::user_management::{apply_action, UserAction};
+        use kovan_common::review::root::Role;
+        let today = crate::stamping::user_management::today();
+        apply_action(r.path(), &key, &UserAction::Admit { reviewer: B.into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: true }, &today).unwrap();
+        apply_action(r.path(), &key, &UserAction::ChangeScope { reviewer: B.into(), scope: vec!["crates/demo/**".into(), "crates/njoy-*/**".into()] }, &today).unwrap();
+        v.users.as_mut().unwrap().load();
+        v.users.as_mut().unwrap().wait();
+        v.users.as_mut().unwrap().selected = Some(B.to_string());
+        let size = egui::vec2(1100.0, 1200.0);
+        let _ = shots.frame(&ctx, size, |ui| v.ui(ui));
+        let out = shots.frame(&ctx, size, |ui| v.ui(ui));
+        shots.save(&ctx, out, size, bg, &out_dir.join("4-novice-standing.png"));
         let u = v.users.as_ref().unwrap();
-        assert!(u.roster().unwrap().reviewer(B).is_some());
+        assert!(u.roster().unwrap().reviewer(B).unwrap().role_label.contains("novice"));
         assert_eq!(u.roster().unwrap().agents.len(), 1);
         assert!(v.key_panel.is_some(), "the inline Signing-key panel stays open");
         // Back to the map: the tab is kept across a workspace re-set.

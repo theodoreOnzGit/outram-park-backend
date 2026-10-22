@@ -18,14 +18,28 @@
 //! ```
 //!
 //! **Nothing here invents a trust rule.** Every status is read from the
-//! #762 [`Registry`]; every action is an existing signature
-//! (`UnlockedKey::{admit, endorse, unretire, revoke, revoke_key}`, or the
-//! unsigned [`retire_key`]) written by the `kovan_common::review::root_append`
-//! text appenders, which keep every byte and read the result back. Changing
-//! an admitted reviewer's role or scope, and maintainer handover, cannot be
-//! expressed by the registry without its old admission reading as
-//! tampered: those stay disabled and name GitHub #1021
-//! ([`DisabledAction`]).
+//! #762 [`Registry`]; every action is a registry signature
+//! (`UnlockedKey::{admit, endorse, unretire, revoke, revoke_key,
+//! sign_roster_event}`, or the unsigned [`retire_key`]) written by the
+//! `kovan_common::review::root_append` text appenders, which keep every
+//! byte and read the result back.
+//!
+//! **Phase 2 (GitHub #1019, #1021; maintainer: "Add missing feature
+//! lah").** Edit scope, Make maintainer / Step down, Hand over maintainer,
+//! Mark novice and Promote are appended, maintainer-signed
+//! `[[code_review.roster_event]]` entries; the admission is never
+//! rewritten. A handover is two events in one write, B's promotion then
+//! (optionally) A's step-down, both signed by A while A is a maintainer
+//! (why two and not one: each is a change to one reviewer's standing that
+//! the registry already replays; a dedicated two-party event would need its
+//! own rules for the same outcome).
+//!
+//! **No maintainer left?** There is no bypass of the signature rules. The
+//! repository owners' route is an ordinary reviewed commit: they declare a
+//! new founder (`[code_review] founder`, a maintainer entry with no
+//! admission, trusted on first use). Until a founder-succession record
+//! exists (GitHub #1022), that re-roots trust, and admissions signed by the
+//! old founder's chain then need re-signing by the new one.
 //!
 //! **No lag** (root `CLAUDE.md`, HARD RULE): loading (git facts, the
 //! engine) and acting (the KDF, signing, the write) run on [`Worker`]s;
@@ -35,14 +49,14 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use kovan_common::review::engine::Evaluation;
-use kovan_common::review::root::{KeyEventKind, ReviewRoot, ReviewerKey, Revocation, Role};
-use kovan_common::review::root_append::{append_key_event, append_revocation, record_admission};
+use kovan_common::review::root::{KeyEventKind, ReviewRoot, ReviewerKey, Revocation, Role, RosterEvent, RosterEventKind};
+use kovan_common::review::root_append::{append_key_event, append_revocation, append_roster_event, record_admission};
 use kovan_common::review::scope::in_scope;
 use kovan_common::review::signed_at::{date_of, now_local};
 use kovan_common::review::signing::keystore::{fingerprint, Keystore, UnlockedKey};
 use kovan_common::review::signing::registry::{
     retire_key, Admission, AdmissionProblem, FounderProblem, HistoryProblem, InactiveKind, KeyProblem,
-    KeyStatus, KeyTrust, Registry, ReviewerTrust, SignerProblem, Warning,
+    KeyStatus, KeyTrust, Registry, ReviewerTrust, RosterChange, RosterProblem, SignerProblem, Warning,
 };
 use kovan_common::review::signing::session::{with_session_key, SharedKeySession};
 use kovan_common::review::state::StateKind;
@@ -53,8 +67,6 @@ use super::flow::{find_keys, session_holds, sign_failure, KeyInfo, SignFailure, 
 use super::{write_text, Workspace, ROOT_FILE};
 
 /// The issue for what the registry cannot express yet.
-pub const REGISTRY_GAP_ISSUE: &str = "GitHub #1021";
-
 /// Today, `YYYY-MM-DD`, local.
 pub fn today() -> String {
     date_of(&now_local()).unwrap_or_default()
@@ -84,7 +96,7 @@ impl Status {
         }
     }
 
-    /// Plain words.
+    /// Plain words. (Novice marks show in the role label.)
     pub fn label(&self) -> String {
         match self {
             Self::Active => "active".into(),
@@ -184,6 +196,41 @@ pub fn warning_text(w: &Warning) -> String {
         Warning::RevocationUnverified { reviewer, problem } => {
             format!("{reviewer}'s revocation is honoured but its signature does not count ({problem:?}).")
         }
+        Warning::RosterEvent { index, reviewer, problem } => {
+            format!("Roster event {} about {reviewer} has no effect: {}.", index + 1, roster_problem_text(problem))
+        }
+    }
+}
+
+/// Plain words for a roster event with no effect.
+pub fn roster_problem_text(p: &RosterProblem) -> String {
+    match p {
+        RosterProblem::UnknownReviewer => "it names no reviewer".into(),
+        RosterProblem::BadDate(d) => format!("bad date {d:?}"),
+        RosterProblem::OutOfOrder => "dated before the event before it".into(),
+        RosterProblem::MissingRole => "a role change without a role".into(),
+        RosterProblem::Signer(s) => format!("its signature does not count ({})", signer_text(s)),
+    }
+}
+
+/// One line of a reviewer's standing history: a verified roster event.
+pub fn change_line(c: &RosterChange) -> String {
+    let what = match (c.kind, c.role) {
+        (RosterEventKind::Role, Some(Role::Maintainer)) => "made maintainer".to_string(),
+        (RosterEventKind::Role, _) => "role: reviewer".to_string(),
+        (RosterEventKind::Scope, _) if c.scope.is_empty() => "scope: none".to_string(),
+        (RosterEventKind::Scope, _) => format!("scope: {}", c.scope.join(", ")),
+        (RosterEventKind::Novice, _) => format!("marked novice ({})", where_(&c.scope)),
+        (RosterEventKind::Trusted, _) => format!("promoted to trusted ({})", where_(&c.scope)),
+    };
+    format!("{} {what} by {} key {} \u{2714}", c.date, c.by, c.key)
+}
+
+fn where_(scope: &[String]) -> String {
+    if scope.is_empty() {
+        "everywhere".into()
+    } else {
+        scope.join(", ")
     }
 }
 
@@ -303,7 +350,15 @@ pub struct JustificationRow {
 pub struct ReviewerRow {
     pub id: String,
     pub name: Option<String>,
+    /// The role in force now (after the roster events).
     pub role: Role,
+    /// The scope in force now.
+    pub scope: Vec<String>,
+    /// The novice mark in force now, in words ("novice everywhere except
+    /// crates/njoy-*/**"), if any.
+    pub novice: Option<String>,
+    /// The standing history: admission, then each verified roster event.
+    pub standing: Vec<String>,
     pub founder: bool,
     /// "Maintainer · founder", "Reviewer", …
     pub role_label: String,
@@ -378,16 +433,39 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
     let mut reviewers = Vec::new();
     for (r, t) in migrated.reviewers.iter().zip(&registry.reviewers) {
         let is_founder = founder == Some(&r.id);
-        let role_label = match (r.role, is_founder) {
+        let (role, scope) = (t.current_role(), t.current_scope().to_vec());
+        let novice = t.novice_now().map(|(at, except)| {
+            let mut s = format!("novice {}", where_(&at));
+            if !except.is_empty() {
+                s.push_str(&format!(", trusted on {}", except.join(", ")));
+            }
+            s
+        });
+        let mut role_label = match (role, is_founder) {
             (Role::Maintainer, true) => "Maintainer \u{b7} founder".to_string(),
             (Role::Maintainer, false) => "Maintainer".to_string(),
-            (Role::Reviewer, _) => "Reviewer".to_string(),
+            (Role::Reviewer, true) => "Reviewer \u{b7} founder (stepped down)".to_string(),
+            (Role::Reviewer, false) => "Reviewer".to_string(),
         };
-        let scope_label = match (r.role, r.scope.is_empty()) {
+        if let Some(n) = &novice {
+            role_label.push_str(&format!(" \u{b7} {n}"));
+        }
+        let scope_label = match (role, scope.is_empty()) {
             (Role::Maintainer, _) => "all crates".to_string(),
             (Role::Reviewer, true) => "no scope: stamps nowhere".to_string(),
-            (Role::Reviewer, false) => r.scope.join(", "),
+            (Role::Reviewer, false) => scope.join(", "),
         };
+        let mut standing = vec![match &t.admission {
+            Admission::Founder => format!("founder: {} (trusted on first use)", if r.role == Role::Maintainer { "maintainer" } else { "reviewer" }),
+            Admission::Admitted { by, .. } => format!(
+                "{} admitted as {}{} by {by} \u{2714}",
+                r.admitted.as_deref().unwrap_or("?"),
+                if r.role == Role::Maintainer { "maintainer" } else { "reviewer" },
+                if r.scope.is_empty() { String::new() } else { format!(", scope {}", r.scope.join(", ")) }
+            ),
+            Admission::NotAdmitted(_) => "registered, not admitted".to_string(),
+        }];
+        standing.extend(t.changes.iter().map(change_line));
         let admitted = match &t.admission {
             Admission::Founder => "founder, trusted on first use".to_string(),
             Admission::Admitted { by, key } => format!(
@@ -423,7 +501,7 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
                 for x in &mine {
                     stamps.push(StampRow { function: shown.clone(), date: x.date.clone().unwrap_or_default(), state: x.state.kind() });
                 }
-                if r.role == Role::Maintainer || in_scope(&r.scope, file) {
+                if role == Role::Maintainer || in_scope(&scope, file) {
                     in_scope_n += 1;
                     if mine.iter().any(|x| x.state.kind() == StateKind::Valid) {
                         valid += 1;
@@ -440,7 +518,10 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
         reviewers.push(ReviewerRow {
             id: r.id.clone(),
             name: r.name.clone(),
-            role: r.role,
+            role,
+            scope,
+            novice,
+            standing,
             founder: is_founder,
             role_label,
             scope_label,
@@ -486,8 +567,10 @@ pub fn build_roster(root: &ReviewRoot, eval: Option<&Evaluation>, ws: Option<&Wo
 /// What the tab can sign (or, for retirement, write unsigned).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UserAction {
-    /// Admit a registered reviewer with a role (and scope, for a reviewer).
-    Admit { reviewer: String, role: Role, scope: Vec<String> },
+    /// Admit a registered reviewer with a role (and scope, for a
+    /// reviewer); `novice`: marked novice everywhere from the same day (a
+    /// roster event in the same write).
+    Admit { reviewer: String, role: Role, scope: Vec<String>, novice: bool },
     /// Endorse a reviewer's new key with another of their own trusted keys.
     Endorse { reviewer: String, key: String },
     /// Retire a key (unsigned: it only takes trust away).
@@ -499,6 +582,20 @@ pub enum UserAction {
     /// Revoke a reviewer from today (`compromised`: their stamps from today
     /// are void too).
     RevokeReviewer { reviewer: String, compromised: bool },
+    /// Replace an admitted reviewer's scope from today (a roster event).
+    ChangeScope { reviewer: String, scope: Vec<String> },
+    /// Change an admitted reviewer's role from today: Make maintainer, or
+    /// Step down to reviewer (a roster event).
+    ChangeRole { reviewer: String, role: Role },
+    /// Hand maintainer to `to` from today; with `step_down`, the signer
+    /// steps down to reviewer right after (two roster events, one write).
+    HandOver { to: String, step_down: bool },
+    /// Mark a reviewer novice from today where `scope` covers (empty:
+    /// everywhere): their stamps there need a second, trusted sign-off.
+    MarkNovice { reviewer: String, scope: Vec<String> },
+    /// Promote a novice to trusted from today where `scope` covers (empty:
+    /// everywhere).
+    Promote { reviewer: String, scope: Vec<String> },
 }
 
 impl UserAction {
@@ -512,38 +609,13 @@ impl UserAction {
             Self::RevokeKey { compromised: false, .. } => "Revoke key",
             Self::RevokeKey { compromised: true, .. } => "Key compromised",
             Self::RevokeReviewer { .. } => "Revoke reviewer",
+            Self::ChangeScope { .. } => "Set scope",
+            Self::ChangeRole { role: Role::Maintainer, .. } => "Make maintainer",
+            Self::ChangeRole { role: Role::Reviewer, .. } => "Step down to reviewer",
+            Self::HandOver { .. } => "Hand over maintainer",
+            Self::MarkNovice { .. } => "Mark novice",
+            Self::Promote { .. } => "Promote to trusted",
         }
-    }
-}
-
-/// The roster changes the registry cannot express yet (GitHub #1021):
-/// shown disabled, with [`DisabledAction::reason`] as the tooltip.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DisabledAction {
-    EditScope,
-    MakeMaintainer,
-    HandOver,
-}
-
-impl DisabledAction {
-    pub const ALL: [DisabledAction; 3] = [Self::EditScope, Self::MakeMaintainer, Self::HandOver];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::EditScope => "Edit scope",
-            Self::MakeMaintainer => "Make maintainer",
-            Self::HandOver => "Hand over maintainer\u{2026}",
-        }
-    }
-
-    /// Why it is disabled, naming the issue.
-    pub fn reason(self) -> String {
-        format!(
-            "Not available yet ({REGISTRY_GAP_ISSUE}): an admission signs the reviewer's role and \
-             scope, and the registry re-checks every admission against the current ones, so \
-             changing them now would make the old admission read as tampered. It needs a new, \
-             signed roster event."
-        )
     }
 }
 
@@ -553,7 +625,7 @@ impl DisabledAction {
 pub fn maintainer_signer(registry: &Registry, signer: (&str, &str), date: &str) -> Result<(), String> {
     let (rid, kid) = signer;
     let r = registry.reviewer(rid).ok_or_else(|| format!("{rid} is not in kovan_root.toml."))?;
-    if r.role != Role::Maintainer || !r.is_admitted() {
+    if r.role_at(date) != Role::Maintainer || !r.is_admitted() {
         return Err(format!("Only an admitted maintainer can do this; {rid} is not one."));
     }
     own_key_active(r, kid, date)
@@ -591,7 +663,10 @@ pub fn action_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, action: 
         }
     };
     match action {
-        UserAction::Admit { reviewer, role, scope } => {
+        UserAction::Admit { reviewer, role, scope, novice } => {
+            if *novice && *role == Role::Maintainer {
+                need(Err("A maintainer is never a novice.".into()));
+            }
             need(maintainer_signer(&registry, signer, date));
             match target_of(reviewer) {
                 None => need(Err(format!("{reviewer} is not registered: they register their key from a Stamp first."))),
@@ -673,8 +748,79 @@ pub fn action_problems(root: &ReviewRoot, signer: Option<(&str, &str)>, action: 
                 Some(_) => {}
             }
         }
+        UserAction::ChangeScope { reviewer, scope } => {
+            need(maintainer_signer(&registry, signer, date));
+            need(standing_target(&registry, reviewer));
+            if let Some(t) = target_of(reviewer) {
+                if t.current_role() == Role::Maintainer {
+                    need(Err(format!("{reviewer} is a maintainer: a maintainer's scope is everywhere.")));
+                }
+                if t.current_scope() == scope.as_slice() {
+                    need(Err("That is the scope in force already.".into()));
+                }
+            }
+            if scope.iter().all(|g| g.trim().is_empty()) {
+                need(Err("Enter at least one glob (e.g. crates/njoy-*/**).".into()));
+            }
+        }
+        UserAction::ChangeRole { reviewer, role } => {
+            need(maintainer_signer(&registry, signer, date));
+            need(standing_target(&registry, reviewer));
+            if target_of(reviewer).is_some_and(|t| t.current_role() == *role) {
+                need(Err(format!("{reviewer} has that role already.")));
+            }
+        }
+        UserAction::HandOver { to, .. } => {
+            need(maintainer_signer(&registry, signer, date));
+            if to == signer.0 {
+                need(Err("Hand over to someone else.".into()));
+            }
+            need(standing_target(&registry, to));
+            if target_of(to).is_some_and(|t| t.current_role() == Role::Maintainer) {
+                need(Err(format!("{to} is a maintainer already.")));
+            }
+        }
+        UserAction::MarkNovice { reviewer, .. } => {
+            need(maintainer_signer(&registry, signer, date));
+            need(standing_target(&registry, reviewer));
+            if target_of(reviewer).is_some_and(|t| t.current_role() == Role::Maintainer) {
+                need(Err("A maintainer is never a novice.".into()));
+            }
+        }
+        UserAction::Promote { reviewer, .. } => {
+            need(maintainer_signer(&registry, signer, date));
+            need(standing_target(&registry, reviewer));
+            if target_of(reviewer).is_some_and(|t| t.novice_now().is_none()) {
+                need(Err(format!("{reviewer} is not a novice anywhere.")));
+            }
+        }
     }
     p
+}
+
+/// A roster event's subject: admitted and not revoked.
+fn standing_target(registry: &Registry, id: &str) -> Result<(), String> {
+    match registry.reviewer(id) {
+        None => Err(format!("{id} is not in kovan_root.toml.")),
+        Some(t) if !t.is_admitted() => Err(format!("{id} is not admitted: admit them first.")),
+        Some(t) if t.revocation.is_some() => Err(format!("{id} is revoked.")),
+        Some(_) => Ok(()),
+    }
+}
+
+/// A roster event about `reviewer`, signed by `key`.
+fn roster_event(key: &UnlockedKey, reviewer: &str, kind: RosterEventKind, date: &str, role: Option<Role>, scope: &[String]) -> Result<RosterEvent, String> {
+    let mut e = RosterEvent {
+        reviewer: reviewer.to_string(),
+        event: kind,
+        date: date.to_string(),
+        role,
+        scope: scope.iter().map(|g| g.trim().to_string()).filter(|g| !g.is_empty()).collect(),
+        signer: None,
+        signature: None,
+    };
+    key.sign_roster_event(&mut e).map_err(|x| x.to_string())?;
+    Ok(e)
 }
 
 /// Sign `action` with `key`, dated `date`, and append it to
@@ -698,7 +844,7 @@ pub fn apply_action(root: &Path, key: &UnlockedKey, action: &UserAction, date: &
             .ok_or_else(|| format!("{reviewer} has no key {kid}."))
     };
     let (new, notice) = match action {
-        UserAction::Admit { reviewer, role, scope } => {
+        UserAction::Admit { reviewer, role, scope, novice } => {
             let mut r = parsed.reviewer(reviewer).cloned().ok_or("unknown reviewer")?;
             r.role = *role;
             r.scope = if *role == Role::Reviewer {
@@ -708,8 +854,16 @@ pub fn apply_action(root: &Path, key: &UnlockedKey, action: &UserAction, date: &
             };
             r.admitted = Some(date.to_string());
             key.admit(&mut r).map_err(|e| err(&e))?;
-            let t = record_admission(&text, &r).map_err(|e| err(&e))?;
-            let role = if *role == Role::Maintainer { "maintainer" } else { "reviewer" };
+            let mut t = record_admission(&text, &r).map_err(|e| err(&e))?;
+            if *novice {
+                let e = roster_event(key, reviewer, RosterEventKind::Novice, date, None, &[])?;
+                t = append_roster_event(&t, &e).map_err(|e| err(&e))?;
+            }
+            let role = match (*role, *novice) {
+                (Role::Maintainer, _) => "maintainer",
+                (Role::Reviewer, true) => "novice reviewer",
+                (Role::Reviewer, false) => "reviewer",
+            };
             (t, format!("Admitted {reviewer} as {role} from {date}, signed with your key {}.", key.key_id()))
         }
         UserAction::Endorse { reviewer, key: kid } => {
@@ -748,6 +902,40 @@ pub fn apply_action(root: &Path, key: &UnlockedKey, action: &UserAction, date: &
             let t = append_revocation(&text, reviewer, &rev).map_err(|e| err(&e))?;
             (t, format!("Revoked {reviewer} from {date}; their stamps before it keep their standing."))
         }
+        UserAction::ChangeScope { reviewer, scope } => {
+            let e = roster_event(key, reviewer, RosterEventKind::Scope, date, None, scope)?;
+            let t = append_roster_event(&text, &e).map_err(|x| err(&x))?;
+            (t, format!("{reviewer}'s scope is {} from {date}; their earlier stamps are judged by the old one.", e.scope.join(", ")))
+        }
+        UserAction::ChangeRole { reviewer, role } => {
+            let e = roster_event(key, reviewer, RosterEventKind::Role, date, Some(*role), &[])?;
+            let t = append_roster_event(&text, &e).map_err(|x| err(&x))?;
+            let what = if *role == Role::Maintainer { "a maintainer" } else { "a reviewer" };
+            (t, format!("{reviewer} is {what} from {date}."))
+        }
+        UserAction::HandOver { to, step_down } => {
+            let e = roster_event(key, to, RosterEventKind::Role, date, Some(Role::Maintainer), &[])?;
+            let mut t = append_roster_event(&text, &e).map_err(|x| err(&x))?;
+            if *step_down {
+                let me = roster_event(key, key.reviewer(), RosterEventKind::Role, date, Some(Role::Reviewer), &[])?;
+                t = append_roster_event(&t, &me).map_err(|x| err(&x))?;
+            }
+            (t, format!(
+                "{} handed maintainer to {to} from {date}{}; earlier stamps keep their standing and trust marks carry over.",
+                key.reviewer(),
+                if *step_down { " and stepped down" } else { "" }
+            ))
+        }
+        UserAction::MarkNovice { reviewer, scope } => {
+            let e = roster_event(key, reviewer, RosterEventKind::Novice, date, None, scope)?;
+            let t = append_roster_event(&text, &e).map_err(|x| err(&x))?;
+            (t, format!("{reviewer} is a novice ({}) from {date}: their stamps there need a trusted second sign-off.", where_(&e.scope)))
+        }
+        UserAction::Promote { reviewer, scope } => {
+            let e = roster_event(key, reviewer, RosterEventKind::Trusted, date, None, scope)?;
+            let t = append_roster_event(&text, &e).map_err(|x| err(&x))?;
+            (t, format!("{reviewer} is trusted ({}) from {date}: their later stamps there count alone.", where_(&e.scope)))
+        }
     };
     write_text(&path, &new)?;
     Ok(notice)
@@ -769,28 +957,30 @@ enum Job {
     Act(Worker<Result<String, SignFailure>>),
 }
 
+/// Globs from a comma- or newline-separated field.
+pub fn globs(text: &str) -> Vec<String> {
+    text.split([',', '\n']).map(str::trim).filter(|g| !g.is_empty()).map(str::to_string).collect()
+}
+
 /// The Admit form.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdmitForm {
     pub role: Role,
+    /// Admit as a novice reviewer (a second sign-off is needed).
+    pub novice: bool,
     /// Globs, comma- or newline-separated.
     pub scope: String,
 }
 
 impl Default for AdmitForm {
     fn default() -> Self {
-        AdmitForm { role: Role::Reviewer, scope: String::new() }
+        AdmitForm { role: Role::Reviewer, novice: false, scope: String::new() }
     }
 }
 
 impl AdmitForm {
     pub fn globs(&self) -> Vec<String> {
-        self.scope
-            .split([',', '\n'])
-            .map(str::trim)
-            .filter(|g| !g.is_empty())
-            .map(str::to_string)
-            .collect()
+        globs(&self.scope)
     }
 }
 
@@ -808,6 +998,11 @@ pub struct UserPanel {
     /// The reviewer or agent whose page is open.
     pub selected: Option<String>,
     pub admit: AdmitForm,
+    /// The page's Edit scope / novice-scope / promote-scope fields (globs,
+    /// comma-separated), and Hand over's "and step down".
+    pub scope_edit: String,
+    pub novice_scope: String,
+    pub step_down: bool,
     /// Revocations as compromised.
     pub compromised: bool,
     pub passphrase: String,
@@ -839,6 +1034,9 @@ impl UserPanel {
             data: None,
             selected: None,
             admit: AdmitForm::default(),
+            scope_edit: String::new(),
+            novice_scope: String::new(),
+            step_down: true,
             compromised: false,
             passphrase: String::new(),
             notices: Vec::new(),

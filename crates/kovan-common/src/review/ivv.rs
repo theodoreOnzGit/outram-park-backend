@@ -294,7 +294,7 @@ fn maintainer_signature(
     let (Some(sg), Some(sig)) = (signer, signature) else {
         return Err(SignerProblem::Unsigned);
     };
-    let eligible = maintainers(&registry.reviewers, None);
+    let eligible = maintainers(&registry.reviewers, None, date);
     find_signer(
         &registry.reviewers,
         &eligible,
@@ -810,6 +810,8 @@ pub enum RecordList {
     ReviewerOrganisation { reviewer: String },
     /// `[[reviewer.separation]]` of this reviewer.
     SeparationAttestation { reviewer: String },
+    /// `[[code_review.roster_event]]` (GitHub #1019).
+    RosterEvent,
 }
 
 /// What is wrong with one registry record.

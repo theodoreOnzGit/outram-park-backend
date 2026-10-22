@@ -14,7 +14,7 @@ use kovan_common::review::root::Role;
 
 use super::key_window::{self, KeyPick};
 use crate::stamping::key_panel::KeyPanel;
-use crate::stamping::user_management::{DisabledAction, ReviewerRow, UserAction, UserPanel};
+use crate::stamping::user_management::{globs, ReviewerRow, UserAction, UserPanel};
 
 /// One action button: enabled only when the panel lists no problem; the
 /// problems are its tooltip. GUI drawing code (exempt; the preconditions
@@ -195,6 +195,42 @@ fn roster(ui: &mut egui::Ui, p: &mut UserPanel) {
         });
 }
 
+/// Role, scope, trust, handover and revocation of an admitted reviewer:
+/// each a signed roster event (GitHub #1019 phase 2). GUI drawing code
+/// (exempt; preconditions and writes are `UserPanel`'s, tested).
+fn standing_controls(ui: &mut egui::Ui, p: &mut UserPanel, r: &ReviewerRow) {
+    ui.group(|ui| {
+        ui.label(RichText::new("Change standing (signed, from today; earlier stamps keep their verdict)").strong());
+        if r.role == Role::Reviewer {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Edit scope");
+                ui.add(egui::TextEdit::singleline(&mut p.scope_edit).hint_text(r.scope.join(", ")));
+                let scope = globs(&p.scope_edit);
+                action_button(ui, p, UserAction::ChangeScope { reviewer: r.id.clone(), scope });
+            });
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Trust where (empty: everywhere)");
+                ui.add(egui::TextEdit::singleline(&mut p.novice_scope).hint_text("crates/njoy-*/**"));
+                let scope = globs(&p.novice_scope);
+                action_button(ui, p, UserAction::MarkNovice { reviewer: r.id.clone(), scope: scope.clone() });
+                action_button(ui, p, UserAction::Promote { reviewer: r.id.clone(), scope });
+            });
+        }
+        ui.horizontal_wrapped(|ui| {
+            let other = if r.role == Role::Maintainer { Role::Reviewer } else { Role::Maintainer };
+            action_button(ui, p, UserAction::ChangeRole { reviewer: r.id.clone(), role: other });
+            if r.role == Role::Reviewer {
+                action_button(ui, p, UserAction::HandOver { to: r.id.clone(), step_down: p.step_down });
+                ui.checkbox(&mut p.step_down, "and I step down");
+            }
+        });
+        ui.horizontal_wrapped(|ui| {
+            action_button(ui, p, UserAction::RevokeReviewer { reviewer: r.id.clone(), compromised: p.compromised });
+            ui.checkbox(&mut p.compromised, "compromised (void from today)");
+        });
+    });
+}
+
 /// One reviewer's page. GUI drawing code (exempt).
 fn reviewer_page(ui: &mut egui::Ui, p: &mut UserPanel, r: &ReviewerRow) {
     ui.label(RichText::new(match &r.name {
@@ -206,25 +242,37 @@ fn reviewer_page(ui: &mut egui::Ui, p: &mut UserPanel, r: &ReviewerRow) {
         ui.label(format!("Role: {}", r.role_label));
         ui.label(format!("\u{b7} Admitted: {}", r.admitted));
     });
-    ui.horizontal_wrapped(|ui| {
-        ui.label(format!("Scope: {}", r.scope_label));
-        for d in DisabledAction::ALL {
-            if d == DisabledAction::MakeMaintainer && r.role == Role::Maintainer {
-                continue;
-            }
-            ui.add_enabled(false, egui::Button::new(d.label())).on_disabled_hover_text(d.reason());
-        }
-        action_button(ui, p, UserAction::RevokeReviewer { reviewer: r.id.clone(), compromised: p.compromised });
-        ui.checkbox(&mut p.compromised, "compromised (void from today)");
-    });
+    ui.label(format!("Scope: {}", r.scope_label));
     ui.label(format!("Status: {}", r.status.label()));
+    egui::CollapsingHeader::new("Standing history (append-only)")
+        .id_salt(("users-standing", &r.id))
+        .default_open(true)
+        .show(ui, |ui| {
+            for l in &r.standing {
+                ui.weak(l);
+            }
+        });
+    if !r.admitted.starts_with("not admitted") {
+        standing_controls(ui, p, r);
+    }
     if r.admitted.starts_with("not admitted") {
         ui.group(|ui| {
             ui.label(RichText::new("Admit").strong());
             ui.horizontal_wrapped(|ui| {
                 ui.label("Role");
-                ui.radio_value(&mut p.admit.role, Role::Reviewer, "Reviewer");
-                ui.radio_value(&mut p.admit.role, Role::Maintainer, "Maintainer");
+                if ui.radio(p.admit.role == Role::Reviewer && !p.admit.novice, "Reviewer").clicked() {
+                    (p.admit.role, p.admit.novice) = (Role::Reviewer, false);
+                }
+                if ui
+                    .radio(p.admit.novice, "Novice reviewer")
+                    .on_hover_text("Their stamps need a second sign-off by a trusted reviewer or a maintainer until promoted")
+                    .clicked()
+                {
+                    (p.admit.role, p.admit.novice) = (Role::Reviewer, true);
+                }
+                if ui.radio(p.admit.role == Role::Maintainer, "Maintainer").clicked() {
+                    (p.admit.role, p.admit.novice) = (Role::Maintainer, false);
+                }
             });
             if p.admit.role == Role::Reviewer {
                 ui.horizontal_wrapped(|ui| {
@@ -237,7 +285,12 @@ fn reviewer_page(ui: &mut egui::Ui, p: &mut UserPanel, r: &ReviewerRow) {
             } else {
                 ui.weak("A maintainer stamps anywhere and can admit and revoke reviewers.");
             }
-            let action = UserAction::Admit { reviewer: r.id.clone(), role: p.admit.role, scope: p.admit.globs() };
+            let action = UserAction::Admit {
+                reviewer: r.id.clone(),
+                role: p.admit.role,
+                scope: p.admit.globs(),
+                novice: p.admit.novice,
+            };
             action_button(ui, p, action);
         });
     }

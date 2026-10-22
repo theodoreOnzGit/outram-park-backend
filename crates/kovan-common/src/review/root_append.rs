@@ -30,7 +30,9 @@
 //!   replacing only the `role`, `scope` and `admitted` lines of its own
 //!   table and appending the `admitted` event to its first key;
 //!   [`append_revocation`] adds `[reviewer.revoked]`, never over an
-//!   existing one.
+//!   existing one; [`append_roster_event`] adds a
+//!   `[[code_review.roster_event]]` (role, scope, novice, trusted) at the
+//!   end of the file, the admission untouched.
 //!
 //! No workspace member depends on `toml_edit` directly (checked
 //! 2026-10-10; it is only `toml`'s own dependency), so the splice is by line, and every result is **read back**: the
@@ -47,7 +49,7 @@ use serde::Serialize;
 
 use super::root::{
     DevelopingOrganisation, KeyEvent, KeyEventKind, KeySigner, ReviewRoot, Reviewer, ReviewerKey,
-    ReviewerOrganisation, Revocation, RootError, Role, SeparationAttestation,
+    ReviewerOrganisation, Revocation, RootError, Role, RosterEvent, SeparationAttestation,
 };
 
 /// Why a registration was refused. Nothing is changed on any refusal.
@@ -653,6 +655,47 @@ pub fn append_revocation(existing: &str, reviewer: &str, rev: &Revocation) -> Re
     expected.reviewers[pos].revoked = Some(rev.clone());
     if after != expected {
         return Err(AppendError::NotReadBack(format!("[reviewer.revoked] of {reviewer}")));
+    }
+    Ok(text)
+}
+
+/// `existing` with `e` appended as a new `[[code_review.roster_event]]` at
+/// the end (GitHub #1019): a change of a reviewer's role or scope, a
+/// novice mark or a promotion, signed by the caller
+/// (`UnlockedKey::sign_roster_event`) first. Refused for an unknown
+/// reviewer; the registry judges the signature.
+pub fn append_roster_event(existing: &str, e: &RosterEvent) -> Result<String, AppendError> {
+    let before = parse(existing)?;
+    if before.reviewer(&e.reviewer).is_none() {
+        return Err(AppendError::UnknownReviewer(e.reviewer.clone()));
+    }
+    let mut block = String::from("[[code_review.roster_event]]\n");
+    block.push_str(&kv("reviewer", &e.reviewer));
+    block.push_str(&kv("event", e.event.as_str()));
+    block.push_str(&kv("date", &e.date));
+    if let Some(r) = e.role {
+        block.push_str(&kv("role", role_name(r)));
+    }
+    if !e.scope.is_empty() {
+        let globs = toml::Value::Array(e.scope.iter().cloned().map(toml::Value::String).collect());
+        block.push_str(&format!("scope = {globs}\n"));
+    }
+    if let Some(sg) = &e.signer {
+        block.push_str(&signer_line(sg));
+    }
+    if let Some(sig) = &e.signature {
+        block.push_str(&kv("signature", sig));
+    }
+    let mut text = with_newline(existing);
+    if !text.is_empty() {
+        text.push('\n');
+    }
+    text.push_str(&block);
+    let after = parse(&text)?;
+    let mut expected = before.clone();
+    expected.code_review.get_or_insert_with(Default::default).roster_events.push(e.clone());
+    if after != expected {
+        return Err(AppendError::NotReadBack(format!("[[code_review.roster_event]] {} of {}", e.event.as_str(), e.reviewer)));
     }
     Ok(text)
 }

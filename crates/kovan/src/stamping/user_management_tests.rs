@@ -117,7 +117,7 @@ fn roster_lists_reviewers_keys_stamps_agents_and_warnings() {
 /// reads Bob admitted by the founder's `k1` with that scope, `b2`
 /// unendorsed then endorsed by `b1`, retired then not, and Bob's
 /// revocation signed by `k1`. The passphrase is asked once per key: the
-/// session holds the last key unlocked. The disabled actions name #1021.
+/// session holds the last key unlocked.
 ///
 /// Result (2026-10-22): passes.
 #[test]
@@ -129,14 +129,16 @@ fn admit_endorse_retire_unretire_and_revoke_through_the_panel() {
     let session = SharedKeySession::default();
     let mut p = UserPanel::new(r.path().into(), Keystore::at(store.path()), session.clone());
     p.wait();
-    let admit = UserAction::Admit { reviewer: B.into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()] };
+    let admit = UserAction::Admit { reviewer: B.into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: false };
     choose(&mut p, B, "b1");
     let probs = p.problems(&admit);
     assert!(probs.iter().any(|x| x.contains("admitted maintainer")), "{probs:?}");
     assert!(probs.iter().any(|x| x.contains("passphrase")), "{probs:?}");
     assert!(!p.submit(admit.clone()));
     choose(&mut p, BY, "k1");
-    let empty = UserAction::Admit { reviewer: B.into(), role: Role::Reviewer, scope: vec![" ".into()] };
+    let empty = UserAction::Admit { reviewer: B.into(), role: Role::Reviewer, scope: vec![" ".into()], novice: false };
+    let novice_maintainer = UserAction::Admit { reviewer: B.into(), role: Role::Maintainer, scope: vec![], novice: true };
+    assert!(p.problems(&novice_maintainer).iter().any(|x| x.contains("never a novice")));
     assert!(p.problems(&empty).iter().any(|x| x.contains("needs a scope")));
     p.passphrase = PASS.into();
     assert_eq!(p.problems(&admit), Vec::<String>::new());
@@ -199,10 +201,6 @@ fn admit_endorse_retire_unretire_and_revoke_through_the_panel() {
     let ro = p.roster().unwrap();
     assert!(matches!(ro.reviewer(B).unwrap().status, Status::Revoked { .. }));
     assert!(ro.reviewer(B).unwrap().keys[1].history.iter().any(|h| h.contains("unretired") && h.ends_with('\u{2714}')));
-    // The registry's gaps stay disabled and say why.
-    for d in DisabledAction::ALL {
-        assert!(d.reason().contains("#1021") && !d.label().is_empty());
-    }
     // A key revocation by the founder (compromised) on the founder's own
     // key would be self-inflicted; on Bob's b1 it is recorded.
     let rk = UserAction::RevokeKey { reviewer: B.into(), key: "b1".into(), compromised: true };
@@ -262,7 +260,7 @@ fn warnings_and_statuses_read_in_plain_words() {
     ] {
         assert!(!key_problem_text(&p).is_empty());
     }
-    assert_eq!(AdmitForm { role: Role::Reviewer, scope: "a/**, b/**\n c/**".into() }.globs(), vec!["a/**", "b/**", "c/**"]);
+    assert_eq!(AdmitForm { role: Role::Reviewer, novice: false, scope: "a/**, b/**\n c/**".into() }.globs(), vec!["a/**", "b/**", "c/**"]);
 }
 
 /// Every engine verdict for the functions under `prefix`, one line per
@@ -307,4 +305,152 @@ fn engine_verdicts_can_be_dumped_for_a_before_after_comparison() {
         let ev = super::super::evaluate_workspace(Path::new(&root)).unwrap();
         std::fs::write(out, verdict_lines(&ev.evaluation, &prefix).join("\n")).unwrap();
     }
+}
+
+/// Bob's key `id`, unlocked from the temporary keystore.
+pub(crate) fn bob_key(store: &Path, id: &str) -> kovan_common::review::signing::keystore::UnlockedKey {
+    Keystore::at(store).load(B, id).unwrap().unlock(PASS).unwrap()
+}
+
+/// Draft, sign as `by` with `key` and write a stamp of `qual`, dated
+/// `date` (`None`: today, as the dialog does), then commit.
+pub(crate) fn stamp_as(r: &Repo, key: &kovan_common::review::signing::keystore::UnlockedKey, by: &str, qual: &str, date: Option<&str>) {
+    use super::super::tests::clean;
+    use super::super::{draft_stamp, write_review, StampRequest};
+    let req = StampRequest { function: format!("{LIB}::{qual}"), by: by.into(), checklist: clean(), ..StampRequest::default() };
+    let mut d = draft_stamp(r.path(), &req).unwrap();
+    if let Some(dt) = date {
+        d.entry.review.date = dt.into();
+    }
+    key.sign_review(&mut d.entry).unwrap();
+    write_review(r.path(), &d.entry, "").unwrap();
+    r.commit(&format!("{by} stamps {qual}"));
+}
+
+/// Methodology (GitHub #1019 phase 2, the novice rule end to end, real git
+/// facts and signatures enforced): the founder admits Bob through the panel
+/// as a **novice** reviewer of `crates/demo/**` (admission plus a novice
+/// event, one write). Bob stamps `twice`; then the founder stamps it too.
+/// The founder promotes Bob from a later date (2099-01-01, written with
+/// `apply_action`: the stamp dialog always dates today), and Bob stamps
+/// `leaf` dated after it. Pass: Bob's stamp alone leaves `twice` at
+/// "1 of 2: awaiting a trusted reviewer" (not reviewed); with the
+/// founder's beside it `twice` is valid; Bob's `leaf` stamp dated after the
+/// promotion is valid alone; the roster shows Bob as a novice, then
+/// trusted, with each event in his standing history; a forged promotion
+/// (signed bytes edited by hand) leaves the mark in force.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn a_novice_needs_a_second_sign_off_until_promoted() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let fk = founder_key(&r, store.path());
+    bob_registers(&r, store.path(), "b1");
+    let mut p = UserPanel::new(r.path().into(), Keystore::at(store.path()), SharedKeySession::default());
+    p.wait();
+    choose(&mut p, BY, "k1");
+    p.passphrase = PASS.into();
+    assert!(p.submit(UserAction::Admit { reviewer: B.into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: true }));
+    p.wait();
+    assert!(p.error.is_none(), "{:?}", p.error);
+    assert!(p.notices[0].contains("novice reviewer"), "{:?}", p.notices);
+    r.commit("admit bob, novice");
+    let row = p.roster().unwrap().reviewer(B).unwrap().clone();
+    assert!(row.role_label.contains("novice everywhere"), "{}", row.role_label);
+    assert!(row.standing.iter().any(|l| l.contains("marked novice (everywhere)")), "{:?}", row.standing);
+
+    let bk = bob_key(store.path(), "b1");
+    stamp_as(&r, &bk, B, "twice", None);
+    let s = r.state("twice").unwrap();
+    assert_eq!(s.state, Some(StateKind::AwaitingTrustedReviewer), "{}", s.reason);
+    assert_eq!(StateKind::AwaitingTrustedReviewer.label(), "1 of 2: awaiting a trusted reviewer");
+    assert!(!StateKind::AwaitingTrustedReviewer.counts());
+    r.stamp(&fk, "twice", "");
+    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Valid), "novice plus trusted");
+
+    // Promotion from 2099-01-01; Bob's later stamp counts alone.
+    let later = "2099-01-01";
+    apply_action(r.path(), &fk, &UserAction::Promote { reviewer: B.into(), scope: vec![] }, later).unwrap();
+    r.commit("promote bob");
+    stamp_as(&r, &bk, B, "leaf", Some("2099-01-02"));
+    assert_eq!(r.state("leaf").unwrap().state, Some(StateKind::Valid), "a promoted reviewer's later stamp");
+    p.load();
+    p.wait();
+    let row = p.roster().unwrap().reviewer(B).unwrap().clone();
+    assert!(row.novice.is_none() && row.role_label == "Reviewer", "{}", row.role_label);
+    assert!(row.standing.iter().any(|l| l.starts_with("2099-01-01 promoted to trusted (everywhere)")), "{:?}", row.standing);
+
+    // A forged promotion: copy the real one, widen its scope by hand.
+    let text = r.read(ROOT_FILE);
+    let forged = text.replacen("event = \"trusted\"\ndate = \"2099-01-01\"", "event = \"trusted\"\ndate = \"2099-01-01\"\nscope = [\"crates/demo/**\"]", 1);
+    assert_ne!(forged, text);
+    r.write(ROOT_FILE, &forged);
+    let reg = registry(&r);
+    assert!(reg.reviewer(B).unwrap().novice_at("2099-01-02", "crates/demo/src/lib.rs"), "the forged promotion has no effect");
+    assert!(reg.warnings().iter().any(|w| matches!(w, kovan_common::review::signing::registry::Warning::RosterEvent { .. })));
+    r.write(ROOT_FILE, &text);
+}
+
+/// Methodology (GitHub #1019 phase 2, continuity, through the panel): the
+/// founder stamps `twice`; Bob is admitted as a reviewer; the founder
+/// sets Bob's scope, then hands maintainer to Bob and steps down (one
+/// write, two signed roster events); Bob then admits Carol. Pass: the
+/// preconditions refuse a scope equal to the one in force, a handover to
+/// oneself, and (after the handover) any roster action by the former
+/// founder; the founder's earlier stamp of `twice` is still valid; the
+/// roster shows Bob as Maintainer and the founder as "Reviewer · founder
+/// (stepped down)"; Bob's admission of Carol is verified.
+///
+/// Result (2026-10-22): passes.
+#[test]
+fn scope_change_and_handover_through_the_panel() {
+    let r = Repo::new();
+    let store = tempfile::tempdir().unwrap();
+    let fk = founder_key(&r, store.path());
+    r.stamp(&fk, "twice", "");
+    bob_registers(&r, store.path(), "b1");
+    let mut p = UserPanel::new(r.path().into(), Keystore::at(store.path()), SharedKeySession::default());
+    p.wait();
+    choose(&mut p, BY, "k1");
+    p.passphrase = PASS.into();
+    assert!(p.submit(UserAction::Admit { reviewer: B.into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: false }));
+    p.wait();
+    let same = UserAction::ChangeScope { reviewer: B.into(), scope: vec!["crates/demo/**".into()] };
+    assert!(p.problems(&same).iter().any(|x| x.contains("in force already")));
+    let widen = UserAction::ChangeScope { reviewer: B.into(), scope: globs("crates/demo/**, crates/other/**") };
+    assert!(p.submit(widen));
+    p.wait();
+    assert!(p.error.is_none(), "{:?}", p.error);
+    assert_eq!(registry(&r).reviewer(B).unwrap().current_scope(), ["crates/demo/**", "crates/other/**"]);
+    assert!(p.problems(&UserAction::HandOver { to: BY.into(), step_down: true }).iter().any(|x| x.contains("someone else")));
+    assert!(p.submit(UserAction::HandOver { to: B.into(), step_down: true }));
+    p.wait();
+    assert!(p.error.is_none(), "{:?}", p.error);
+    assert!(p.notices.last().unwrap().contains("stepped down"), "{:?}", p.notices);
+    r.commit("handover");
+    let ro = p.roster().unwrap().clone();
+    assert_eq!(ro.reviewer(B).unwrap().role_label, "Maintainer");
+    assert_eq!(ro.reviewer(BY).unwrap().role_label, "Reviewer \u{b7} founder (stepped down)");
+    assert_eq!(r.state("twice").unwrap().state, Some(StateKind::Valid), "A's past stamps keep their standing");
+    assert!(p.problems(&UserAction::MarkNovice { reviewer: B.into(), scope: vec![] }).iter().any(|x| x.contains("admitted maintainer")));
+    // Carol registers; Bob admits her.
+    let ks = Keystore::at(store.path());
+    let (cf, _) = generate("github:carol", "c1", &today(), PASS).unwrap();
+    ks.save(&cf).unwrap();
+    register_key(r.path(), &cf, Some("Carol"), &today()).unwrap();
+    r.commit("carol registers");
+    p.load();
+    p.wait();
+    choose(&mut p, B, "b1");
+    p.passphrase = PASS.into();
+    assert!(p.submit(UserAction::Admit { reviewer: "github:carol".into(), role: Role::Reviewer, scope: vec!["crates/demo/**".into()], novice: false }));
+    p.wait();
+    assert!(p.error.is_none(), "{:?}", p.error);
+    assert_eq!(
+        registry(&r).reviewer("github:carol").unwrap().admission,
+        Admission::Admitted { by: B.into(), key: "b1".into() }
+    );
+    assert!(p.problems(&UserAction::ChangeRole { reviewer: B.into(), role: Role::Maintainer }).iter().any(|x| x.contains("role already")));
+    assert_eq!(UserAction::ChangeRole { reviewer: B.into(), role: Role::Reviewer }.label(), "Step down to reviewer");
 }
