@@ -21,7 +21,7 @@ id = "review-gas-constant-j-per-mol-k-theodoreonzgit-1be0fd51"
 kind = "review"
 origin = "human"
 created = "2026-10-23T13:35:53+08:00"
-modified = "2026-10-23T13:35:53+08:00"
+modified = "2026-10-23T13:41:43+08:00"
 target = "fn:1be0fd5172d8041a"
 
 [review]
@@ -29,8 +29,8 @@ path = "crates/boon-lay/src/triso_atops_fork/diffusion/mod.rs::GAS_CONSTANT_J_PE
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-23"
-signed_at = "2026-10-23T13:35:54+08:00"
-commit = "1e1bc4a6465507676a8cb27c94b5f2190f9cde82"
+signed_at = "2026-10-23T13:41:43+08:00"
+commit = "48aeedb4e34ac9a042da2e79790c330259535f25"
 hash = "sha256:ed0d0d4925d660ad2532da5cfa6edc19abc8feee253f0058272b9883133e9485"
 doc_hash = "sha256:94af24af925a661046223097d03fb692a118724cea883b78d296b2be9ac6d840"
 cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
@@ -40,19 +40,15 @@ coding_standards = "yes"
 independence = "someone_else"
 item_matches_description = "yes"
 item_test_use = "used_and_checked"
-item_value_source = "cited"
+item_value_source = "original_code"
 maintainability = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "6+UxEE2eLWsAHceUBoJRjTn9gkKDHWa0jpLTQrnvdFzGk0e3OvUmg082//Mwhr4e2aUgnPI+vPjMw8pxT9t7Ag=="
+value = "jC883eT3ep0BphwcKiNOXsCifeLnp+jVbzZ/7KqeyVAYIJtc9LgDbTIeO2EievD0WFX0EFykvcyQMd359XRkDQ=="
 
 [[relation]]
 target = "concept:02-nuclear-safety/fuel-system-design/fuel-system-damage/rod-internal-gas-pressure"
@@ -63,4 +59,4 @@ From memory, 8.314 J/mol K, looks correct, sourced from upstream is ok
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 1e1bc4a646.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 48aeedb4e3.
