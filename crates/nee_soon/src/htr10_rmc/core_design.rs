@@ -179,15 +179,20 @@ mod tests {
     /// The default design builds the record's geometry: the counts the
     /// workbench fixture (`crates/dhoby-ghaut/tests/fixtures/
     /// dhoby_ghaut_geometry.csv`) pinned before this type existed, 14 x 12:
-    /// 43 445 cells, 22 974 tiles, 1 502 universes, 8335 particles per fuel
+    /// 43 452 cells, 22 974 tiles, 1 502 universes, 8335 particles per fuel
     /// zone, rods withdrawn at `z_T` = 119.2 cm.
+    ///
+    /// **Re-pinned 2026-10-22:** `cells` was 43 445 until the PETIR
+    /// conversion (gh:#985) moved it to 43 452; measured pre/post, see the
+    /// twin test in `dhoby-ghaut`
+    /// (`the_headless_geometry_matches_the_committed_fixture`).
     #[test]
     fn the_default_design_builds_the_geometry_unchanged() {
         use crate::htr10_rmc::core_model::{assemble_explicit_triso, assemble_explicit_triso_with};
         let a = assemble_explicit_triso(14, 12, 0);
         let b = assemble_explicit_triso_with(14, 12, 0, &Htr10CoreDesign::default());
         for c in [&a, &b] {
-            assert_eq!((c.cells, c.tiles, c.universes), (43_445, 22_974, 1_502));
+            assert_eq!((c.cells, c.tiles, c.universes), (43_452, 22_974, 1_502));
             assert_eq!(c.triso_particles, Some(8335));
             assert_eq!(c.rod_lower_end_zt_cm, Some(119.2));
         }

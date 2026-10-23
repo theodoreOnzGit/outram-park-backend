@@ -36,6 +36,8 @@
 //!
 //! **Result (2026-10-07, rust-analyzer 1.98.0):** passes.
 
+mod support;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -154,7 +156,7 @@ fn index_builds_heals_and_refreshes_without_rust_analyzer() {
     assert!(err.contains("--refresh"), "{err}");
     assert!(!root.join("crates/kern/src/kovan.toml").exists());
 
-    if which::which("rust-analyzer").is_err() || which::which("git").is_err() {
+    if !support::rust_analyzer_runs() || which::which("git").is_err() {
         eprintln!("SKIPPED steps 2-5: rust-analyzer or git is not on PATH");
         return;
     }

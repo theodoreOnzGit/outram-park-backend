@@ -709,6 +709,16 @@ mod tests {
     /// the fuel pebble the review gate zooms to. A change to the geometry
     /// builder shows up here (regenerate with `--headless-geometry` once the
     /// change is reviewed, with images).
+    ///
+    /// **Re-pinned 2026-10-22 (full CI run, run 39549698983):** `cells` moved
+    /// 43445 -> 43452 (+7 of 43452); tiles, universes, balls, extent and
+    /// pebble positions are unchanged. Measured: this test PASSES with 43445
+    /// at a8c3e6baa (the parent of the PETIR conversion, gh:#985) and FAILS
+    /// with 43452 on develop, on both the CI runner and a local host, so the
+    /// move is the deliberate libm -> PETIR change in `nee_soon`'s tile/ball
+    /// geometry (`cos`/`sin`/`atan2`/`hypot`), not a host difference. The
+    /// +7 cells were not individually inspected; that is the one thing a
+    /// reviewer should still look at.
     #[test]
     fn the_headless_geometry_matches_the_committed_fixture() {
         let got = super::headless::geometry_csv(&super::preset::htr10());

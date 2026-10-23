@@ -29,6 +29,8 @@
 //!
 //! **Result (2026-10-07, rust-analyzer 1.98.0):** passes.
 
+mod support;
+
 use std::path::Path;
 use std::process::Command;
 
@@ -77,7 +79,7 @@ const FILES: [&str; 6] = [
 
 #[test]
 fn index_fresh_on_a_single_crate_and_a_workspace() {
-    if which::which("rust-analyzer").is_err() {
+    if !support::rust_analyzer_runs() {
         eprintln!("rust-analyzer not installed: index --fresh not exercised");
         return;
     }

@@ -26,9 +26,12 @@
 #   CLAUDE.md: never call a crate wasm-ready on the strength of it).
 # - Android and iOS, left out at the maintainer's direction.
 #
-# EXPECTED RED ON ARRIVAL: on 2026-10-10 six kovan lib tests and two
+# ~~EXPECTED RED ON ARRIVAL: on 2026-10-10 six kovan lib tests and two
 # kovan-common tests failed on the maintainer's Windows laptop (#820). They
-# are not excluded here; a red Windows leg is that record until each is fixed.
+# are not excluded here; a red Windows leg is that record until each is fixed.~~
+# CORRECTED 2026-10-22: run 39765547640 (develop 58f04af6a) passed on all
+# three OSes, Windows included, with every kovan, kovan-common and kovan-web
+# lib and integration test green. Nothing is excluded; a red leg is a finding.
 #
 # ── When it runs ─────────────────────────────────────────────────────────────
 #
@@ -91,6 +94,10 @@ jobs:
           # A scheduled run starts from `main` (the default branch) and tests
           # `develop`; a push or a dispatch tests the ref it was started on.
           ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+          # Full history (maintainer, 2026-10-22, gh:#1024): the review-state
+          # refresh timed below asks git about each stamp's commits, and a
+          # shallow clone would hide that cost.
+          fetch-depth: 0
 
       # rust-analyzer: the SCIP and call-graph tests look for it on PATH.
       - uses: dtolnay/rust-toolchain@stable
@@ -115,6 +122,21 @@ jobs:
       # --no-fail-fast: a failing test binary must not hide the ones after it.
       # The first run (2026-10-11) stopped at kovan's lib tests on Windows, so
       # no integration test ran there.
+      # Review-state refresh timing on this checkout, cold then warm, per OS
+      # (maintainer, 2026-10-22, gh:#1023/#1024: compare Windows with Linux
+      # and macOS on the same runner class). Prints each phase and the git
+      # processes by kind; the lines go to the run's summary page. These are
+      # GitHub runners, not the maintainer's machine.
+      - name: Review-state refresh timing (cold and warm)
+        shell: bash
+        env:
+          KOVAN_REFRESH_TIMING_ROOT: ${{ github.workspace }}
+        run: |
+          echo "### Refresh timing on ${{ matrix.os }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cargo test --release -p "$KOVAN_PKG" --lib refresh_phases_are_timed_cold_and_warm -- --nocapture 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Test kovan, kovan-common and kovan-web
         shell: bash
         run: cargo test --release --no-fail-fast -p "$KOVAN_PKG" -p kovan-common -p kovan-web --lib --tests
