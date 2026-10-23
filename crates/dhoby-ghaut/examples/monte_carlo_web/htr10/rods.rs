@@ -715,14 +715,24 @@ pub fn benchmark_lines(curves: &[RecordedCurve]) -> Vec<String> {
     ]
 }
 
+/// Computed points further apart than this \[cm\] get a warning with their
+/// interpolation (about half the bed height: an S-curve is not straight over it).
+pub const WIDE_GAP_CM: f64 = 60.0;
+
 /// What [`lookup`] says, as the panel prints it.
 pub fn lookup_text(l: &Lookup) -> String {
     match l {
         Lookup::Exact { family, point } => format!("{} at z_T {:.1} cm: k = {:.5} ± {:.5} (a computed point).", family.label(), point.zt, point.k, point.sigma),
-        Lookup::Interpolated { family, zt, k, lo, hi } => format!(
-            "{} at z_T {zt:.1} cm: k ≈ {k:.5}, INTERPOLATED linearly between the computed points at {:.1} cm ({:.5} ± {:.5}) and {:.1} cm ({:.5} ± {:.5}); not a computed value.",
-            family.label(), lo.zt, lo.k, lo.sigma, hi.zt, hi.k, hi.sigma
-        ),
+        Lookup::Interpolated { family, zt, k, lo, hi } => {
+            let mut t = format!(
+                "{} at z_T {zt:.1} cm: k ≈ {k:.5}, INTERPOLATED linearly between the computed points at {:.1} cm ({:.5} ± {:.5}) and {:.1} cm ({:.5} ± {:.5}); not a computed value.",
+                family.label(), lo.zt, lo.k, lo.sigma, hi.zt, hi.k, hi.sigma
+            );
+            if hi.zt - lo.zt > WIDE_GAP_CM {
+                t.push_str(&format!(" The two points are {:.0} cm apart and the true curve is S-shaped, so the straight line between them is only a crude guide.", hi.zt - lo.zt));
+            }
+            t
+        }
         Lookup::None(m) => m.clone(),
     }
 }
@@ -918,7 +928,10 @@ mod tests {
         assert!(summary(&o).starts_with("custom: 2 rods"));
         let p = Point { zt: 119.2, k: 1.0, sigma: 0.001 };
         let q = Point { zt: 171.2, k: 0.99, sigma: 0.001 };
-        assert!(lookup_text(&Lookup::Interpolated { family: Family::Bank, zt: 150.0, k: 0.995, lo: p, hi: q }).contains("INTERPOLATED"));
+        let t = lookup_text(&Lookup::Interpolated { family: Family::Bank, zt: 150.0, k: 0.995, lo: p, hi: q });
+        assert!(t.contains("INTERPOLATED") && !t.contains("crude"));
+        let far = Point { zt: 394.2, k: 0.98, sigma: 0.002 };
+        assert!(lookup_text(&Lookup::Interpolated { family: Family::Bank, zt: 300.0, k: 0.985, lo: q, hi: far }).contains("223 cm apart"));
         assert!(lookup_text(&Lookup::Exact { family: Family::Bank, point: p }).contains("computed point"));
         let info = slice_info({ use crate::rungs::McRung; crate::htr10::Htr10::raster_info().expect("htr10 slices") });
         assert_eq!(info.ladder.len(), N + 1);
