@@ -1,7 +1,7 @@
 # AI DIGITISATION (Claude Code agent, 2026-10-23): not a human or kovan digitisation; untrusted until reviewed
 # method: automated colour segmentation of the embedded 304x192 px raster; see fig4_13_experiment_AI_digitised.md
-# IAEA-TECDOC-1382 (2003) Fig. 4.13 "Reactivity worth curve of one control rod", printed p. 251; digitised 2026-10-23
-# elevation_cm: rod lower-end height above z=3942 mm (fully-in position for the S3 experiment); worth_dk_k: reactivity worth, zero at lower end z=1712 mm (p. 252)
+# IAEA-TECDOC-1382 (2003) Fig. 4.13 "Reactivity worth curve of one control rod", printed p. 252 (CORRECTED 2026-10-23: was p. 251); digitised 2026-10-23
+# elevation_cm: rod lower-end height above z=3942 mm (fully-in position for the S3 experiment); worth_dk_k: reactivity worth, zero at lower end z=1712 mm (printed p. 253; CORRECTED 2026-10-23: was p. 252)
 # uncertainty from the 304x192 px source raster: +-1.2 cm (1 px) in elevation, +-0.00011 dk/k (1 px) in worth; see fig4_13_control_rod_worth.md
 digitiser,series,kind,elevation_cm,worth_dk_k,support_px,note
 ai:claude-code,experiment,marker_partial,2.7,0.01462,18,core eroded to 1 px; first-pass blob centroid; left edge clipped by y axis

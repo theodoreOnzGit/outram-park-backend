@@ -11,12 +11,12 @@ Data file: `fig4_13_experiment_AI_digitised.csv`. Extraction script: `fig4_13_ai
 | field | value |
 |---|---|
 | document | IAEA-TECDOC-1382, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10* (IAEA, Vienna, 2003) |
-| figure | Fig. 4.13, "Reactivity worth curve of one control rod", printed p. 251 (part 2 PDF, page 26) |
+| figure | Fig. 4.13, "Reactivity worth curve of one control rod", ~~printed p. 251~~ **printed p. 252** (part 2 PDF, page 26) |
 | series | **"Experiment"** only (magenta squares; the S3 rod-worth measurement) |
 | licence | openly published by the IAEA; no reuse licence was found in the document. Only digitised numbers are given here, with a citation. |
 | source raster | the embedded **304 × 192 px JPEG** in the PDF, at its original resolution |
 
-**Axes (TECDOC pp. 251–252):**
+**Axes (TECDOC ~~pp. 251–252~~ printed pp. 252–253: §4.2.1.5 and §4.2.1.6):**
 - **x:** the height of the rod lower end above z = 3942 mm, which is fully in for S3.
 - **y:** reactivity worth in Δk/k, zero at lower end z = 1712 mm, i.e. x = 223 cm.
 - The core was 17,000 balls with a loading height of 123.86 cm.
@@ -40,10 +40,12 @@ Data file: `fig4_13_experiment_AI_digitised.csv`. Extraction script: `fig4_13_ai
 
 | check | text | AI digitised | difference |
 |---|---|---|---|
-| integral worth (x ≈ 0) | 1.4693 % (p. 251) | 1.462 % at 2.7 cm | −0.5 %, within 1 px |
+| integral worth (x ≈ 0) | 1.4693 % (~~p. 251~~ printed p. 252, §4.2.1.5) | 1.462 % at 2.7 cm | −0.5 %, within 1 px |
 | zero crossing | x = 223 cm by definition | 222.3 cm | 0.7 cm, within 1 px |
 
-**A discrepancy in the source:** p. 252 gives the integral worth as **1.4369 %**. The digitised curve supports p. 251's **1.4693 %**. This is not confirmed.
+**A discrepancy in the source:** ~~p. 252~~ printed p. 253 (§4.2.1.6) gives the integral worth as **1.4369 %**. The digitised curve supports ~~p. 251's~~ printed p. 252's **1.4693 %**. This is not confirmed.
+
+**CORRECTED 2026-10-23:** every printed-page cite here was one page early. The cites were checked against the page footers of part 2 of the PDF (`pdftotext`). PDF p. 26 is printed p. 252 (§4.2.1.5, the 1.4693 % and Fig. 4.13), and PDF p. 27 is printed p. 253 (§4.2.1.6, the 1.4369 %, INET's 1.448 % and the axis conventions). The control-rods agent found the error; it was gh:#1025 work.
 
 ## Marker points
 
