@@ -122,3 +122,23 @@ model, loading (N = 12, 16 681 balls) and data as the bank.
    Points 3.6 cm apart (the B42 pairs) and the shape near the ends will NOT
    be resolved at the statistics affordable here; such differences will be
    reported as unresolved, not read.
+
+## Source-convergence criterion, stated 2026-10-23 before the probe traces were read
+
+After the S3 run at `z_T` 171.2 cm ended with a first-to-last entropy of
+5.512 → 5.462 bits (only those two values were kept), a probe records every
+cycle (2000 × [20 + 60], S3 at 394.2 and 171.2 cm, bank fully in). The
+inactive count for the re-runs is chosen from the traces by this rule, fixed
+now, before any trace is seen:
+
+- reference band: the mean and standard deviation σ_H of the single-cycle
+  entropy over the probe's last 40 cycles;
+- converged at cycle c: the 5-cycle moving average of the entropy is inside
+  mean ± 2σ_H at c and at every later cycle;
+- n_inactive for a case = max(20, 2 c), rounded up to a multiple of 10 (a
+  factor 2 margin, because the probe is one seed);
+- the active cycles are then checked for a trend: the entropy of the first
+  and second halves of the active cycles must agree within 3 standard errors.
+  A trend is reported, not cut away.
+
+The criterion is on the entropy (the source shape), never on k.
