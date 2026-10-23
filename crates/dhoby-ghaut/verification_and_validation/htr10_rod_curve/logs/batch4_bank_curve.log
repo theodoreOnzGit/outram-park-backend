@@ -7,3 +7,57 @@ HTR-10 k_eff vs control-rod position (gh:#1025): all ten rods together
   U_UO2    LEAPR 16.4s
   O_UO2    LEAPR 25.0s
   graphite S(a,b): tsl-reactor-graphite-30P.endf (MAT 32)
+  U235   154.3s
+  U238   125.6s
+  O16    4.9s
+  C12    1.4s
+  C12    1.3s
+  Si28   2.1s
+  B10    188.2ms
+  C12    1.2s
+  Si29   2.0s
+  Si30   1.7s
+  B11    1.5s
+  C13    227.1ms
+  C13    223.5ms
+  C13    229.2ms
+  He3    72.2ms
+  He4    42.7ms
+  Fe54   11.9s
+  Fe56   13.7s
+  Fe57   8.7s
+  Fe58   8.6s
+  Cr50   4.6s
+  Cr52   4.2s
+  Cr53   3.4s
+  Cr54   2.3s
+  Ni58   7.1s
+  Ni60   5.7s
+  Ni61   2.4s
+  Ni62   4.0s
+  Ni64   2.1s
+  Mn55   12.5s
+  Ti46   807.0ms
+  Ti47   487.4ms
+  Ti48   890.0ms
+  Ti49   456.8ms
+  Ti50   376.4ms
+  Si28   2.0s
+  Si29   2.1s
+  Si30   1.7s
+  data, materials and bed majorant: 533.3 s (38 nuclides)
+  case N = 12, z_T = 171.2 cm (insertion 0.189091): 43458 cells, rods at z_T Some([171.2, 171.2, 171.2, 171.2, 171.2, 171.2, 171.2, 171.2, 171.2, 171.2])
+  -> k = 0.98354 +/- 0.00354  (160000 histories, 0 lost, entropy 5.501 -> 5.478 bits, 798 s)
+  case N = 12, z_T = 230.318 cm (insertion 0.404065): 43464 cells, rods at z_T Some([230.318, 230.318, 230.318, 230.318, 230.318, 230.318, 230.318, 230.318, 230.318, 230.318])
+  -> k = 0.96591 +/- 0.00318  (160000 histories, 0 lost, entropy 5.496 -> 5.487 bits, 780 s)
+  case N = 12, z_T = 279.018 cm (insertion 0.581156): 43466 cells, rods at z_T Some([279.018, 279.018, 279.018, 279.018, 279.018, 279.018, 279.018, 279.018, 279.018, 279.018])
+  -> k = 0.92679 +/- 0.00354  (160000 histories, 0 lost, entropy 5.461 -> 5.495 bits, 742 s)
+  case N = 12, z_T = 282.618 cm (insertion 0.594247): 43466 cells, rods at z_T Some([282.618, 282.618, 282.618, 282.618, 282.618, 282.618, 282.618, 282.618, 282.618, 282.618])
+  -> k = 0.92497 +/- 0.00333  (160000 histories, 0 lost, entropy 5.465 -> 5.477 bits, 759 s)
+  case N = 12, z_T = 331.318 cm (insertion 0.771338): 43466 cells, rods at z_T Some([331.318, 331.318, 331.318, 331.318, 331.318, 331.318, 331.318, 331.318, 331.318, 331.318])
+  -> k = 0.86651 +/- 0.00349  (160000 histories, 0 lost, entropy 5.457 -> 5.469 bits, 731 s)
+  case N = 12, z_T = 334.918 cm (insertion 0.784429): 43466 cells, rods at z_T Some([334.918, 334.918, 334.918, 334.918, 334.918, 334.918, 334.918, 334.918, 334.918, 334.918])
+  -> k = 0.86989 +/- 0.00360  (160000 histories, 0 lost, entropy 5.444 -> 5.457 bits, 713 s)
+  case N = 12, z_T = 383.618 cm (insertion 0.961520): 43466 cells, rods at z_T Some([383.618, 383.618, 383.618, 383.618, 383.618, 383.618, 383.618, 383.618, 383.618, 383.618])
+  -> k = 0.84968 +/- 0.00358  (160000 histories, 0 lost, entropy 5.444 -> 5.463 bits, 700 s)
+2026-10-23T16:11:02Z
