@@ -34,7 +34,7 @@ or safety decisions.
     1.73 g/cm³ graphite with 1.3 ppm (`outram-mc-libs`
     `pebble_beds::htr10::RHO_GRAPHITE`), so the original column is the
     like-for-like one.
-- Worth is `rho = 1/k_out - 1/k_in`, in % Δk/k. TECDOC does not define its
+- Worth is ~~`rho = 1/k_out - 1/k_in`~~ **CORRECTED 2026-10-23 (a sign slip in the formula as typed, found when the panel printed a negative worth; the predicted magnitudes below are unchanged):** `rho = 1/k_in - 1/k_out`, positive for an insertion, in % Δk/k. TECDOC does not define its
   "reactivity worth" formula in the B4 section; this reading is stated, not
   sourced.
 - **Not compared:** B42 and the measured single-rod S3 worth (1.4693 %,

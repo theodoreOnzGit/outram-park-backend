@@ -304,10 +304,11 @@ pub fn lookup(curves: &[RecordedCurve], rods: &[f64; N]) -> Lookup {
     }
 }
 
-/// The reactivity worth `1/k_ref - 1/k` of a point against a reference, and
-/// its σ (independent runs, first order), in Δk/k.
+/// The reactivity worth `1/k - 1/k_ref` of a point `k` (rods further in)
+/// against a reference `k_ref` (rods further out), positive for an
+/// insertion, and its σ (independent runs, first order), in Δk/k.
 pub fn worth(k_ref: (f64, f64), k: (f64, f64)) -> (f64, f64) {
-    let w = 1.0 / k_ref.0 - 1.0 / k.0;
+    let w = 1.0 / k.0 - 1.0 / k_ref.0;
     let s = ((k_ref.1 / (k_ref.0 * k_ref.0)).r_powi(2) + (k.1 / (k.0 * k.0)).r_powi(2)).sqrt();
     (w, s)
 }
@@ -544,6 +545,12 @@ impl RodsView {
         ui.separator();
         ui.strong("Recorded k_eff (native runs)");
         ui.label(lookup_text(&lookup(&self.curves, &core.rods.rods)));
+        egui::CollapsingHeader::new("Against the HTR-10 benchmark (IAEA-TECDOC-1382)").default_open(false).show(ui, |ui| {
+            for l in benchmark_lines(&self.curves) {
+                ui.small(l);
+            }
+            ui.small("Calculations and the measurement are separate cases; none is fitted. Our bed holds 16 681 balls (N = 12); B4 asks for 126 cm (17 293 balls), the experiment had 17 000: a smaller core makes rods worth slightly more. \"S3\" is rod 3 (81°) by assumption.");
+        });
         ui.separator();
         ui.strong("Run live in this browser");
         ui.weak("On the whole-core worker pool, at the statistics below: lower than the record's, so wider error bars. The workers rebuild the core with your rods before each run.");
@@ -688,6 +695,24 @@ impl RodsView {
             full.galley(Pos2::new(plot.left() + 10.0, plot.top() + 2.0 * text + 8.0), g, Color32::from_rgb(250, 200, 80));
         }
     }
+}
+
+/// The recorded worths against IAEA-TECDOC-1382's values, one line each
+/// (calculations and the measurement kept apart, never mixed). Worth is
+/// `1/k_in - 1/k_out` in % Δk/k between two computed points of one curve;
+/// a line whose points are not computed yet says so.
+pub fn benchmark_lines(curves: &[RecordedCurve]) -> Vec<String> {
+    let at = |fam: Family, z: f64| curves.iter().find(|c| c.family == fam).and_then(|c| c.points.iter().find(|p| (p.zt - z).abs() < 1e-6)).map(|p| (p.k, p.sigma));
+    let w = |a: Option<(f64, f64)>, b: Option<(f64, f64)>| a.zip(b).map(|(a, b)| worth(a, b));
+    let fmt = |x: Option<(f64, f64)>| x.map_or("not yet computed".to_string(), |(w, s)| format!("{:.2} ± {:.2} % Δk/k", 100.0 * w, 100.0 * s));
+    let bank = w(at(Family::Bank, LOWER_END_WITHDRAWN_CM), at(Family::Bank, LOWER_END_INSERTED_CM));
+    let s3_exp = w(at(Family::Single(S3_ROD), 171.2), at(Family::Single(S3_ROD), LOWER_END_INSERTED_CM));
+    let s3_b42 = w(at(Family::Single(S3_ROD), LOWER_END_WITHDRAWN_CM), at(Family::Single(S3_ROD), LOWER_END_INSERTED_CM));
+    vec![
+        format!("All ten rods, 119.2 → 394.2 cm (B41): ours {} (N = 12, 123.6 cm). TECDOC-1382 Table 4-8 (printed p. 248, original benchmark; calculations at 126 cm): VSOP 18.27 %, MCNP 19.36 %.", fmt(bank)),
+        format!("Rod 3 \"S3\" alone, 171.2 → 394.2 cm: ours {}. MEASURED, rod S3, 17 000 balls, in air: 1.4693 % (p. 252; p. 253 prints 1.4369 % for the same quantity). INET's calculation for this travel: 1.448 % (p. 253).", fmt(s3_exp)),
+        format!("Rod 3 \"S3\" alone, 119.2 → 394.2 cm (B42's travel): ours {}. Table 4-8 (p. 248): VSOP 1.619 %, MCNP 1.793 % (calculations, 126 cm).", fmt(s3_b42)),
+    ]
 }
 
 /// What [`lookup`] says, as the panel prints it.
@@ -878,7 +903,7 @@ mod tests {
         assert_eq!(r.len(), 2);
         assert!(r.iter().all(|c| c.points.windows(2).all(|w| w[0].zt < w[1].zt)));
         let (w, s) = worth((1.0, 0.001), (0.9, 0.001));
-        assert!((w - (1.0 - 1.0 / 0.9)).abs() < 1e-12 && s > 0.0);
+        assert!((w - (1.0 / 0.9 - 1.0)).abs() < 1e-12 && w > 0.0 && s > 0.0);
     }
 
     /// The page's one-line summaries and the lookup text say what they are.
@@ -904,6 +929,17 @@ mod tests {
         assert!((info.ladder[S3_ROD].depth - 102.1 * 81f64.to_radians().r_sin_cos().1).abs() < 1e-9);
         assert_eq!(info.ladder[0].basis, crate::raster::Basis::Xz);
         assert!((info.ladder[0].depth - 102.1 * 9f64.to_radians().r_sin_cos().0).abs() < 1e-9);
+    }
+
+    /// The benchmark lines compute the worth from computed points only.
+    #[test]
+    fn the_benchmark_lines_use_computed_points() {
+        let bank = RecordedCurve { family: Family::Bank, label: "b", points: vec![Point { zt: 119.2, k: 0.99449, sigma: 0.00258 }, Point { zt: 394.2, k: 0.84624, sigma: 0.00285 }] };
+        let s3 = RecordedCurve { family: Family::Single(S3_ROD), label: "s", points: Vec::new() };
+        let l = benchmark_lines(&[bank, s3]);
+        assert!(l[0].contains("ours 17.62 ± 0.48 %"), "{}", l[0]);
+        assert!(l[1].contains("not yet computed") && l[1].contains("1.4693"));
+        assert!(l[2].contains("not yet computed"));
     }
 
     /// The bed marks are the built N = 12 core's, and S3 is rod 3 at 81°.
