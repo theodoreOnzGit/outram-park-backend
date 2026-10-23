@@ -76,3 +76,49 @@ or safety decisions.
    unresolved, i.e. within 2σ of each other.
 5. **Lost particles: 0** in every case; Shannon entropy flat after the
    inactive cycles.
+
+## Addendum, 2026-10-23, before any single-rod run: rod 3 ("S3") alone
+
+Added after the maintainer approved the per-rod model (gh:#1025). Written
+before any single-rod transport; the only result known at writing is the
+bank's withdrawn point (0.99449 ± 0.00258, which is also the single-rod
+reference: all ten withdrawn is one configuration).
+
+**The case.** Rod 3 (the channel at 81°) alone, the other nine withdrawn;
+"S3" is a label under the model's symmetry, not a source's placement. Same
+model, loading (N = 12, 16 681 balls) and data as the bank.
+
+**References, separate cases:**
+
+- **Experiment** (TECDOC-1382 § 4.2.1.5, printed p. 252): rod S3, 17 000
+  balls (123.86 cm), lower end 171.2 → 394.2 cm, air: integral worth
+  **1.4693 %** (p. 252); the same document prints **1.4369 %** for the same
+  quantity on p. 253. Both are quoted; neither is chosen.
+- **Fig. 4.13** (printed p. 252, part-2 PDF p. 26), the measured curve: AI digitisation on develop
+  (`crates/nee_soon/verification_and_validation/htr10_control_rod_worth_tecdoc1382_fig4_13/`),
+  `marker` rows only (the `trace` rows are the drawn curve, not
+  measurements). Elevation = 394.2 − `z_T`; worth zero at `z_T` 171.2.
+- **Calculation at the experiment's travel** (p. 253): INET's
+  1.448 % for 171.2 → 394.2 cm (initial core, 126 cm).
+- **B42** (one rod, 119.2 → 394.2 cm, 126 cm loading): VSOP 1.619 %, MCNP
+  1.793 % (original, Table 4-8, p. 248); VSOP differential values Table 4-9
+  (original, p. 248).
+
+**Predictions.**
+
+1. Integral worth 171.2 → 394.2 cm: **1.5 ± 0.4 % Δk/k**. Reasons: one rod
+   of ten in an annulus of ten interacting rods is worth more than a tenth of
+   the bank (shadowing), and TECDOC's own calculations and the measurement
+   all sit at 1.4-1.8 %; our bank-to-B41 comparison (pending) will tell
+   whether the model runs high or low. Our core is 319 balls smaller than the
+   experiment's (sign: slightly MORE worth).
+2. Integral worth 119.2 → 394.2 cm (B42's travel): 0.02-0.1 % above the
+   171.2 → 394.2 value (VSOP: 1.619 against INET's 1.448 at 171.2, i.e. the
+   top 52 cm of travel is worth ~0.17 %, an upper bound since our rod's
+   lowest 52 cm then still sit in the top reflector and cavity).
+3. Shape: the same S-curve in `z_T` as the bank, steepest across the bed.
+4. **Resolution, stated now:** a single-rod worth of ~1.5 % from two
+   independent runs needs σ_k ≈ 150 pcm per end point for a ±15 % integral.
+   Points 3.6 cm apart (the B42 pairs) and the shape near the ends will NOT
+   be resolved at the statistics affordable here; such differences will be
+   reported as unresolved, not read.

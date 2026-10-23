@@ -13,8 +13,10 @@
 //! - rod 3 ("S3", the channel at 81°) alone at the experiment's start
 //!   (`z_T` 171.2 cm), at B42's 282.618 cm and fully in (394.2 cm).
 //!
-//! For each: an x-z slice through rod 3's axis (`y` = rod 3's), the whole
-//! model height, 0.4 cm per pixel; and an x-y slice at bed mid-height.
+//! For each: a y-z slice through rod 3's axis (`x` = rod 3's; rod 3 at 81°
+//! is nearer the y axis, so this vertical plane through its axis also cuts
+//! the bed), the whole model height, 0.4 cm per pixel; and an x-y slice at
+//! bed mid-height.
 //!
 //! ```text
 //! OUTRAM_ROD_IMG_OUT=/some/dir cargo run --release -p nee_soon --example htr10_rod_images
@@ -41,8 +43,8 @@ fn main() {
     );
     std::fs::create_dir_all(&out).expect("create the output directory");
     let s3 = 2usize;
-    let (sn, _) = control_rod_azimuths_deg()[s3].to_radians().r_sin_cos();
-    let y3 = ROD_CHANNEL_CENTRE_RADIUS_CM * sn;
+    let (_, cs) = control_rod_azimuths_deg()[s3].to_radians().r_sin_cos();
+    let x3 = ROD_CHANNEL_CENTRE_RADIUS_CM * cs;
     let ins = Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm;
     let d = Htr10CoreDesign::default();
     let cases: [(&str, &str, Htr10CoreDesign); 6] = [
@@ -65,9 +67,9 @@ fn main() {
         let w = 2.0 * half_w;
         let h = z_hi - z_lo;
         let px = |l: f64| (l / 0.4).round() as usize;
-        let xz = SlicePlot::new(PlotBasis::Xz, Position::new(0.0, y3, 0.5 * (z_lo + z_hi)), [w, h], [px(w), px(h)]);
-        let (_, img) = render_material_slice(&core.geometry, &xz, &pal, &format!("HTR-10 14X12 {what}: X-Z AT Y = {y3:.2} (ROD 3 AXIS)"));
-        img.write_png(out.join(format!("rods_{name}_xz_through_rod3.png"))).expect("write png");
+        let yz = SlicePlot::new(PlotBasis::Yz, Position::new(x3, 0.0, 0.5 * (z_lo + z_hi)), [w, h], [px(w), px(h)]);
+        let (_, img) = render_material_slice(&core.geometry, &yz, &pal, &format!("HTR-10 14X12 {what}: Y-Z AT X = {x3:.2} (ROD 3 AXIS)"));
+        img.write_png(out.join(format!("rods_{name}_yz_through_rod3.png"))).expect("write png");
         let xy = SlicePlot::new(PlotBasis::Xy, Position::new(0.0, 0.0, 0.0), [w, w], [px(w), px(w)]);
         let (_, img) = render_material_slice(&core.geometry, &xy, &pal, &format!("HTR-10 14X12 {what}: X-Y AT BED MID-HEIGHT"));
         img.write_png(out.join(format!("rods_{name}_xy_bed_mid.png"))).expect("write png");
