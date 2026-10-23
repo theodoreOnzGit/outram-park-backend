@@ -25,7 +25,7 @@
 //!
 //! ## Results
 //!
-//! See the test's doc comment (filled from its run).
+//! See the test's doc comment.
 
 use nee_soon::htr10_rmc::core_design::Htr10CoreDesign;
 use nee_soon::htr10_rmc::core_model::assemble_explicit_triso_with;
@@ -39,9 +39,12 @@ const RECORD_N12: (f64, f64) = (0.995125, 0.001055);
 
 /// See the module docs for the methodology.
 ///
-/// # Results
+/// # Results (2026-10-23, 4 threads, 644 s with the data)
 ///
-/// PENDING (filled from the first run).
+/// Withdrawn 0.97237 ± 0.01000 (record 0.995125: −2.3σ combined, inside
+/// the 5σ gate; at 7 200 histories the run is a harness check, not a
+/// measurement); 282.618 cm 0.90813 ± 0.01370; fully in 0.84445 ± 0.01275.
+/// Each step falls by 3.8σ and 3.4σ combined; 0 lost. Pass.
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
