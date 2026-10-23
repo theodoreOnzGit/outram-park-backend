@@ -173,3 +173,50 @@ ported from upstream
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 59abbc96ca.
+
+# Review: TABLE_BITS (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-table-bits-theodoreonzgit-c37b7c27"
+kind = "review"
+origin = "human"
+created = "2026-10-23T13:46:56+08:00"
+modified = "2026-10-23T13:46:56+08:00"
+target = "fn:c37b7c2750f07a35"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::TABLE_BITS"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-23"
+signed_at = "2026-10-23T13:46:57+08:00"
+commit = "51fe89f0096052fc716349123a11829288e590a5"
+hash = "sha256:6f024d35ae524f68daf5fd03f3e6f079ac49777d0bf8fb7259f5c6fccfe01264"
+doc_hash = "sha256:0050c3331bd39f1798918f76f2a81e025dfb8de66f51ac742f7170bec736c768"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "ZggMUbWTsJyqsfDanxDl24+qU2dT47blspTNTGpYXZk8NtWEhHLppR0suSTwYpbJtrlXyRm/sgUgGHVPDXi8Aw=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 51fe89f009.
