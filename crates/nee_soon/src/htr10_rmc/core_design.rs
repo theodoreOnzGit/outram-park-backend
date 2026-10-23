@@ -111,6 +111,16 @@ impl Htr10CoreDesign {
         LOWER_END_WITHDRAWN_CM + f * (LOWER_END_INSERTED_CM - LOWER_END_WITHDRAWN_CM)
     }
 
+    /// [`Self::rod_insertion`] that puts the rods' lower end at `z_t_cm`
+    /// (TECDOC's axial coordinate, downward from the model top), the inverse
+    /// of [`Self::rod_lower_end_zt_cm`]. Not clamped: a position outside the
+    /// travel gives a fraction outside `[0, 1]`, which [`Self::check`]
+    /// refuses.
+    #[must_use]
+    pub fn rod_insertion_for_lower_end_zt_cm(z_t_cm: f64) -> f64 {
+        (z_t_cm - LOWER_END_WITHDRAWN_CM) / (LOWER_END_INSERTED_CM - LOWER_END_WITHDRAWN_CM)
+    }
+
     /// Why the builders would refuse this design, if they would: a fraction
     /// outside `[0, 1]`, radii that do not nest (kernel < ... < OPyC <
     /// fuel zone < ball), or no particles.
@@ -159,6 +169,13 @@ mod tests {
         assert!((full.rod_lower_end_zt_cm() - 394.2).abs() < 1e-12);
         let half = Htr10CoreDesign { rod_insertion: 0.5, ..d };
         assert!((half.rod_lower_end_zt_cm() - 256.7).abs() < 1e-12);
+        // The inverse maps every curve position back to itself (gh:#1025).
+        for z in super::super::control_rod::BANK_CURVE_ZT_CM {
+            let f = Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(z);
+            assert!((0.0..=1.0).contains(&f), "{z}");
+            assert!((Htr10CoreDesign { rod_insertion: f, ..d }.rod_lower_end_zt_cm() - z).abs() < 1e-9);
+        }
+        assert_eq!(Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(119.2), 0.0);
         // TrisoSpec::HTR10_LI2014 is the same particle.
         let s = outram_mc_libs::pebble_beds::fhr_pebble::TrisoSpec::HTR10_LI2014;
         assert_eq!(TRISO_RADII_CM, [s.kernel, s.buffer, s.ipyc, s.sic, s.opyc]);
