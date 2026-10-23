@@ -32,6 +32,12 @@
 //! `OUTRAM_HTR10_THREADS` (4), `OUTRAM_ROD_CSV` (output, default
 //! `htr10_rod_curve.csv` in the working directory).
 //!
+//! Every case also appends its per-cycle `k` and Shannon entropy to
+//! `<csv without .csv>_cycles.csv` (columns `layers,zt_cm,rod,cycle,active,k,entropy`;
+//! `rod` 0 for the bank), so source convergence and the stationarity of the
+//! active cycles can be checked, not assumed (added 2026-10-23 after an S3
+//! run's first-to-last entropy moved 5.512 -> 5.462 bits).
+//!
 //! `OUTRAM_ROD_SINGLE=<1..10>` (gh:#1025): move only that rod (numbered as
 //! `reflector_geometry::control_rod_azimuths_deg`), the other nine
 //! withdrawn; unset, all ten move together (the bank). The `insertion`
@@ -167,7 +173,20 @@ fn main() {
             "  case N = {n}, z_T = {z} cm (insertion {:.6}): {} cells, rods at z_T {:?}",
             design.rod_insertions[moving], core.cells, core.rod_lower_ends_zt_cm
         );
-        let (p, _res) = keff_vs_height::run_core(n, &core, &mats, &nucs, &maj, &stats, threads);
+        let (p, res) = keff_vs_height::run_core(n, &core, &mats, &nucs, &maj, &stats, threads);
+        {
+            let path = csv.strip_suffix(".csv").unwrap_or(&csv).to_string() + "_cycles.csv";
+            let fresh = std::fs::metadata(&path).is_err();
+            let mut t = std::fs::OpenOptions::new().create(true).append(true).open(&path).expect("open the cycle trace");
+            if fresh {
+                writeln!(t, "layers,zt_cm,rod,cycle,active,k,entropy").expect("write");
+            }
+            let rod = single.map_or(0, |i| i + 1);
+            for (c, k) in res.k_by_generation.iter().enumerate() {
+                let e = res.entropy.get(c).copied().unwrap_or(f64::NAN);
+                writeln!(t, "{n},{z},{rod},{},{},{k:.6},{e:.5}", c + 1, u8::from(c >= stats.inactive)).expect("write");
+            }
+        }
         let (e0, e1) = p.entropy_first_last.unwrap_or((f64::NAN, f64::NAN));
         let secs = p.transport_time.get::<uom::si::time::second>();
         println!(
