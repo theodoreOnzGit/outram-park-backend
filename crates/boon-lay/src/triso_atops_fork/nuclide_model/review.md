@@ -117,3 +117,56 @@ half life only lah to decay constant
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-22, commit 9c13a3e5c9.
+
+# Review: TrisoAtopsNuclide::from_seconds (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-from-seconds-theodoreonzgit-2604ea37"
+kind = "review"
+origin = "human"
+created = "2026-10-23T13:29:18+08:00"
+modified = "2026-10-23T13:29:18+08:00"
+target = "fn:2604ea3760303a76"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::TrisoAtopsNuclide::from_seconds"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-23"
+signed_at = "2026-10-23T13:29:19+08:00"
+commit = "a9cbcbde2790757a03de080636b0c499267cd9b4"
+hash = "sha256:1ac14b2abf0c3d3ad35432d1002e4daa625c86de476671a892de028aed1d67a1"
+doc_hash = "sha256:46cf54445ccd30af9eeda53e0695f5f8a18f80bc9f4cf02c24eccf056b7c1b2f"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:546333a5363bc5a2" = "sha256:601d879e0b2947c8c69562c0278d67beccee30a0999a8eb86181de5ebcd65549"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: research level, it's ok"
+independence = "someone_else"
+limits_and_guards = "guard_waived_research: it's simple enough to understand that we shouldn't put a negative number"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "55Xz+GTU62ybCLimti6awHcdvtHHxiVomX8SjF4eQusY8bQ4unuL9tvsZ6Xb+Ea1ZBA6/xZiXQqJdXI1qrkiCQ=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit a9cbcbde27.
