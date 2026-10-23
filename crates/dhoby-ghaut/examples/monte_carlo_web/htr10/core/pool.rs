@@ -240,6 +240,10 @@ pub struct PoolState {
     assemble_sent: Vec<bool>,
     pub assembled: Vec<Option<AssemblyReport>>,
     pub layers: usize,
+    /// Each control rod's insertion the workers' core is built with (gh:#1025),
+    /// `[0, 1]`, rod `i` as `Htr10CoreDesign::rod_insertions` numbers them.
+    /// All withdrawn until [`Self::set_rods`].
+    pub rods: [f64; super::random_bed::N_RODS],
     pub phase: PoolPhase,
     pub started_s: f64,
     pub data_ready_s: Option<f64>,
@@ -296,6 +300,7 @@ impl PoolState {
             assemble_sent: vec![false; workers],
             assembled: vec![None; workers],
             layers,
+            rods: super::random_bed::WITHDRAWN,
             phase: PoolPhase::Processing,
             started_s: now_s,
             data_ready_s: None,
@@ -741,6 +746,37 @@ impl PoolState {
         Ok(())
     }
 
+    /// **Rebuild every worker's core with the control rods at `rods`**
+    /// (gh:#1025; only between runs, like [`Self::set_layers`]). The pool is
+    /// assembling until every live worker has reported its rebuilt core.
+    /// Nothing changes, and nothing is sent, when the rods are already there.
+    ///
+    /// # Errors
+    /// The data are not ready, a run is going, or an insertion is outside
+    /// `[0, 1]`.
+    pub fn set_rods(&mut self, rods: [f64; super::random_bed::N_RODS]) -> Result<(), String> {
+        if self.phase != PoolPhase::Ready {
+            return Err("the data are not ready".into());
+        }
+        if self.run.as_ref().is_some_and(RunState::going) {
+            return Err("a run is going".into());
+        }
+        if let Some(f) = rods.iter().find(|f| !(0.0..=1.0).contains(*f)) {
+            return Err(format!("rod insertion {f} is not in [0, 1]"));
+        }
+        if rods.map(f64::to_bits) != self.rods.map(f64::to_bits) {
+            self.rods = rods;
+            self.phase = PoolPhase::Assembling;
+            for v in 0..self.workers {
+                self.assembled[v] = None;
+            }
+            for w in (0..self.workers).filter(|&w| self.alive[w]) {
+                self.out.push((w, CoreReq::Rods { rods }));
+            }
+        }
+        Ok(())
+    }
+
     /// The requests to send now: the first time, each worker's jobs; then
     /// relays (at most `word_budget` words, but always at least one), each
     /// worker's assembly once everything has reached it, and chunks to idle
@@ -1054,6 +1090,27 @@ mod tests {
                 .count(),
             3
         );
+        // Rods (gh:#1025): the same, with the rod positions; a second call
+        // with the same rods sends nothing.
+        for v in 0..3 {
+            p.on_event(v, CoreEv::Assembled(report(14)), 3.0);
+        }
+        assert_eq!(p.phase, PoolPhase::Ready);
+        let mut rods = super::super::random_bed::WITHDRAWN;
+        rods[2] = 1.0;
+        assert!(p.set_rods([1.5; 10]).is_err());
+        assert!(p.set_rods(rods).is_ok());
+        assert_eq!(p.phase, PoolPhase::Assembling);
+        assert_eq!(p.outbox(10).iter().filter(|(_, r)| matches!(r, CoreReq::Rods { rods: q } if *q == rods)).count(), 3);
+        for v in 0..3 {
+            assert_eq!(p.phase, PoolPhase::Assembling, "ready before worker {v} reported");
+            p.on_event(v, CoreEv::Assembled(report(14)), 4.0);
+        }
+        assert_eq!(p.phase, PoolPhase::Ready);
+        assert!(p.set_rods(rods).is_ok());
+        assert_eq!(p.phase, PoolPhase::Ready);
+        assert!(p.outbox(10).iter().all(|(_, r)| !matches!(r, CoreReq::Rods { .. })));
+        assert!(p.set_layers(12).is_ok());
         // A worker that fails while the data are being (re)built fails the
         // pool: its share is missing.
         p.on_error(1, "boom".into());

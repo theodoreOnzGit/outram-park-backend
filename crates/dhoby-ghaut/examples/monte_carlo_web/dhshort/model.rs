@@ -23,8 +23,7 @@
 use crate::raster::{Basis, RasterReq, OUTSIDE};
 use egui::Color32;
 use outram_mc_libs::dh_universe::{DhTreatment, DhUniverse, PebbleParams};
-use outram_mc_libs::geometry::plot::{PlotBasis, SlicePlot};
-use outram_mc_libs::geometry::position::Position;
+use outram_mc_libs::geometry::plot::SlicePlot;
 use outram_mc_libs::pebble_beds::keff_delta::MaterialQuery;
 
 /// The shared material table (compositions, temperature, nuclide order).
@@ -85,16 +84,7 @@ pub fn build(i: usize) -> Result<DhUniverse, String> {
 /// (`MaterialQuery::begin_history`, as transport does per history); CLS's
 /// sampler simply flies on from the previous row.
 pub fn raster(u: &DhUniverse, req: &RasterReq) -> Vec<u8> {
-    let origin = match req.basis {
-        Basis::Xy => Position::new(req.centre[0], req.centre[1], req.depth),
-        Basis::Xz => Position::new(req.centre[0], req.depth, req.centre[1]),
-    };
-    let basis = if req.basis == Basis::Xy {
-        PlotBasis::Xy
-    } else {
-        PlotBasis::Xz
-    };
-    let plot = SlicePlot::new(basis, origin, req.width, req.px);
+    let plot = SlicePlot::new(req.basis.plot(), req.basis.origin(req.centre, req.depth), req.width, req.px);
     let r_out = boundary_radius();
     let mut out = Vec::with_capacity(req.px[0] * req.px[1]);
     for y in 0..req.px[1] {
@@ -186,6 +176,7 @@ mod tests {
             width: [6.2, 6.2],
             px: [96, 96],
             param: 0.0,
+            rods: crate::raster::NO_RODS,
         };
         for i in 0..TREATMENTS.len() {
             let u = build(i).unwrap();
@@ -226,6 +217,7 @@ mod tests {
             width: [3.8, 3.8],
             px: [200, 200],
             param: 0.0,
+            rods: crate::raster::NO_RODS,
         };
         let seen = |i: usize| {
             let map = raster(&build(i).unwrap(), &req);

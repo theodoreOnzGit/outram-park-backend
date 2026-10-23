@@ -80,7 +80,11 @@
 //! their channels, in the top reflector, with their B4C, steel sleeves and
 //! iron joints as explicit geometry. **Since 2026-10-05 (gh:#580)** the same
 //! explicit rods can be built at any position of their published travel,
-//! all ten together (`core_design::Htr10CoreDesign::rod_insertion`; lower end
+//! ~~all ten together (`core_design::Htr10CoreDesign::rod_insertion`;~~
+//! **each rod at its own position since 2026-10-23 (gh:#1025,
+//! `core_design::Htr10CoreDesign::rod_insertions`, one rod universe per
+//! distinct position; `with_bank` is the old all-ten case, cell for cell;**
+//! lower end
 //! from `z_T` 119.2 cm withdrawn to 394.2 cm fully inserted); withdrawn stays
 //! the default and the benchmark's state. The absorber-ball system is a reserve
 //! shutdown system, so its channels are empty. The irradiation channels are

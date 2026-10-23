@@ -284,6 +284,32 @@ pub struct CoreScreen {
     pub speed: f64,
     autostart: bool,
     pub error: Option<String>,
+    /// The control rods the reader has set (gh:#1025; the "Control rods"
+    /// view's sliders). The pool's core follows them between runs.
+    pub rods: crate::htr10::rods::RodControls,
+    /// When the rods were last changed (the pool rebuilds once they rest).
+    pub rods_changed_s: f64,
+    /// A live run or worth curve over rod settings, in progress.
+    pub sweep: Option<crate::htr10::rods::LiveSweep>,
+    /// What the sweep is doing, for the page.
+    pub sweep_status: String,
+    /// Every finished live result, with the curve it belongs to.
+    pub live_results: Vec<(Option<crate::htr10::rods::Family>, crate::htr10::rods::LiveResult)>,
+}
+
+/// How long the rods must rest before the pool rebuilds its core with them,
+/// s (a rebuild costs every worker a geometry build).
+pub const RODS_SETTLE_S: f64 = 1.5;
+
+/// Whether the pool should rebuild with the reader's rods now: the data
+/// are ready, no run or sweep is going, the rods differ from the pool's and
+/// have rested [`RODS_SETTLE_S`].
+pub fn rods_resync_due(s: &PoolState, want: &[f64; 10], sweeping: bool, changed_s: f64, now: f64) -> bool {
+    !sweeping
+        && s.phase == PoolPhase::Ready
+        && !s.run.as_ref().is_some_and(RunState::going)
+        && want.map(f64::to_bits) != s.rods.map(f64::to_bits)
+        && now - changed_s >= RODS_SETTLE_S
 }
 
 impl CoreScreen {
@@ -326,6 +352,11 @@ impl CoreScreen {
             speed,
             autostart,
             error: None,
+            rods: Default::default(),
+            rods_changed_s: 0.0,
+            sweep: None,
+            sweep_status: String::new(),
+            live_results: Vec::new(),
         }
     }
 
@@ -347,6 +378,12 @@ impl CoreScreen {
             t.push_str(&format!(" · FAILED · {e}"));
         }
         t
+    }
+
+    /// The rods the pool's core is built with (the reader's, before a pool
+    /// exists): what the core view draws and runs.
+    pub fn pool_rods(&self) -> [f64; 10] {
+        self.pool.as_ref().map_or(self.rods.rods, |p| p.state.rods)
     }
 
     /// Start the workers.
@@ -398,6 +435,27 @@ impl CoreScreen {
             if self.autostart && p.state.phase == PoolPhase::Ready && p.state.run.is_none() {
                 let _ = p.state.start_run(self.cfg, now_s());
             }
+            // Rods (gh:#1025): a sweep drives the pool itself; otherwise the
+            // pool's core follows the reader's rods once they rest.
+            if let Some(sw) = self.sweep.as_mut() {
+                use crate::htr10::rods::SweepStep;
+                let step = sw.step(&mut p.state, now_s());
+                self.sweep_status = match &step {
+                    SweepStep::Waiting(w) => format!("waiting: {w}"),
+                    SweepStep::Running { i, n } => format!("running position {} of {n}", i + 1),
+                    SweepStep::Done => "done".into(),
+                    SweepStep::Failed(e) => format!("stopped: {e}"),
+                };
+                if sw.done() {
+                    let fam = sw.family;
+                    for r in sw.results.drain(..) {
+                        self.live_results.push((fam, r));
+                    }
+                    self.sweep = None;
+                }
+            } else if rods_resync_due(&p.state, &self.rods.rods, false, self.rods_changed_s, now_s()) {
+                let _ = p.state.set_rods(self.rods.rods);
+            }
             // A pool failure is shown once, by the pool's status line.
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
@@ -413,6 +471,7 @@ impl CoreScreen {
                 self.queue.pop_front()
             } else if !self.recorded.is_empty()
                 && (self.layers as usize) == super::super::LADDER_N as usize
+                && self.pool_rods() == super::random_bed::WITHDRAWN
             {
                 let h = self.recorded[self.next_recorded % self.recorded.len()].clone();
                 self.next_recorded += 1;
@@ -440,6 +499,7 @@ impl CoreScreen {
     ) {
         self.slicer.view.handle_input(ui, resp);
         self.slicer.param = self.layers;
+        self.slicer.rods = self.pool_rods();
         if let (Some(req), Some(l)) = (self.slicer.pump(rect), link) {
             l.send(crate::engine::Request::Raster(req));
         }
@@ -663,6 +723,8 @@ fn status_lines(p: &CorePool) -> Vec<(String, Color32)> {
             // Where the data came from (gh:#818, Leak Before Break).
             v.push((format!("Nuclear data: {}", s.data_source()), white));
             v.push((format!("Bed: {}", super::random_bed::label(s.layers)), white));
+            // gh:#1025: what the workers' core holds (set in "Control rods").
+            v.push((format!("Control rods: {}", crate::htr10::rods::summary(&s.rods)), white));
             if s.layers == super::random_bed::DEM_BED {
                 v.push((DEM_CAVEAT.to_string(), Color32::from_rgb(250, 200, 80)));
                 v.push((dem_record_line(), white));
@@ -1104,6 +1166,20 @@ pub const NOTES: &[&str] = &[
 mod tests {
     use super::*;
     use crate::htr10::core::{AssemblyReport, CoreEv};
+
+    /// The pool follows the reader's rods only between runs, once they
+    /// rest, and never while a sweep drives it (gh:#1025).
+    #[test]
+    fn the_pool_follows_the_rods_once_they_rest() {
+        let mut s = PoolState::new(1, Vec::new(), Vec::new(), 12, 0.0);
+        let want = [0.5; 10];
+        assert!(!rods_resync_due(&s, &want, false, 0.0, 10.0), "data not ready");
+        s.phase = PoolPhase::Ready;
+        assert!(rods_resync_due(&s, &want, false, 0.0, 10.0));
+        assert!(!rods_resync_due(&s, &want, false, 9.5, 10.0), "still moving");
+        assert!(!rods_resync_due(&s, &want, true, 0.0, 10.0), "a sweep drives the pool");
+        assert!(!rods_resync_due(&s, &s.rods.clone(), false, 0.0, 10.0), "already there");
+    }
 
     /// After a failed run the screen offers both restarts (on the live
     /// workers, and on one), says which workers stopped, and draws the

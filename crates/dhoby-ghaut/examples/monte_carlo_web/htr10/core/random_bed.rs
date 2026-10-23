@@ -22,8 +22,10 @@
 //! quantised bake), so a worker and the slice builder have it without a
 //! download.
 
-use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, AssembledCore};
-use nee_soon::htr10_rmc::explicit_bed::{assemble_explicit_triso_from_centres, paper_fuel_assignment};
+use nee_soon::htr10_rmc::control_rod::N_CONTROL_RODS;
+use nee_soon::htr10_rmc::core_design::Htr10CoreDesign;
+use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, assemble_explicit_triso_with, AssembledCore};
+use nee_soon::htr10_rmc::explicit_bed::{assemble_explicit_triso_from_centres_with, paper_fuel_assignment};
 use uom::si::f64::Length;
 use uom::si::length::meter;
 
@@ -73,19 +75,36 @@ pub fn dem_centres() -> Result<Vec<[Length; 3]>, String> {
     Ok(below.iter().map(|c| c.map(Length::new::<meter>)).collect())
 }
 
-/// The core for a bed code.
+/// The core for a bed code, rods withdrawn (the record's state).
 pub fn build_core(code: usize) -> Result<AssembledCore, String> {
+    build_core_with(code, &WITHDRAWN)
+}
+
+/// Number of control rods (`nee_soon`'s).
+pub const N_RODS: usize = N_CONTROL_RODS;
+
+/// Every rod withdrawn: the record's state and the default.
+pub const WITHDRAWN: [f64; N_CONTROL_RODS] = [0.0; N_CONTROL_RODS];
+
+/// The core for a bed code with each control rod at its own insertion
+/// (`rods[i]` in `[0, 1]`, rod `i` as `Htr10CoreDesign::rod_insertions`
+/// numbers them; gh:#1025). With [`WITHDRAWN`] it is [`build_core`]'s core
+/// exactly, since `Htr10CoreDesign::default()` is the record's design.
+///
+/// # Errors
+/// An insertion outside `[0, 1]`, or the DEM pour cannot be read.
+pub fn build_core_with(code: usize, rods: &[f64; N_CONTROL_RODS]) -> Result<AssembledCore, String> {
+    let mut design = Htr10CoreDesign::default();
+    design.rod_insertions = *rods;
+    design.check()?;
     if code == DEM_BED {
         let c = dem_centres()?;
         let fuel = paper_fuel_assignment(&c);
-        Ok(assemble_explicit_triso_from_centres(
-            &c,
-            &fuel,
-            super::RINGS,
-            0,
-        ))
-    } else {
+        Ok(assemble_explicit_triso_from_centres_with(&c, &fuel, super::RINGS, 0, &design))
+    } else if rods == &WITHDRAWN {
         Ok(assemble_explicit_triso(super::RINGS, code.clamp(10, 20), 0))
+    } else {
+        Ok(assemble_explicit_triso_with(super::RINGS, code.clamp(10, 20), 0, &design))
     }
 }
 

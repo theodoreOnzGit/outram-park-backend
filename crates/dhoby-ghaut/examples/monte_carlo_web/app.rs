@@ -519,6 +519,9 @@ enum Screen {
     /// [`McApp::core`], held by the app so its pool and processed data
     /// outlive a switch to another view or rung (gh:#818).
     Core,
+    /// The control rods (gh:#1025); rods, pool and live results are
+    /// [`McApp::core`]'s.
+    Rods(crate::htr10::rods::RodsView),
 }
 
 /// Send a rung demo's messages to the worker.
@@ -557,6 +560,8 @@ enum WatchView {
     Demo,
     /// Neutrons in the whole core, live on a worker pool (gh:#786).
     Core,
+    /// The control rods: sliders, slices, k against rod position (gh:#1025).
+    Rods,
 }
 
 impl WatchView {
@@ -571,10 +576,11 @@ impl WatchView {
             WatchView::Beds => "beds",
             WatchView::Demo => "demo",
             WatchView::Core => "core",
+            WatchView::Rods => "rods",
         }
     }
     fn parse(s: &str) -> Option<Self> {
-        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Demo, WatchView::Core];
+        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Demo, WatchView::Core, WatchView::Rods];
         // `fuel` is the htr10 rung's name for its k_inf view.
         if s == "fuel" {
             return Some(WatchView::Kinf);
@@ -593,6 +599,7 @@ impl WatchView {
             WatchView::Beds => rung.beds(),
             WatchView::Demo => rung.walk_demo().is_some(),
             WatchView::Core => rung.has_core_pool(),
+            WatchView::Rods => rung.has_core_pool() && rung.raster_info().is_some(),
         };
         if has(self) {
             return self;
@@ -615,7 +622,7 @@ fn job_done(l: &LoadState, index: usize) -> bool {
 
 /// The rung's Watch views, in tab order.
 fn watch_views(rung: Rung) -> Vec<WatchView> {
-    [WatchView::Neutrons, WatchView::Core, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
+    [WatchView::Neutrons, WatchView::Core, WatchView::Rods, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
         .into_iter()
         .filter(|&v| v.for_rung(rung) == v)
         .collect()
@@ -641,6 +648,7 @@ fn view_label(w: WatchView, kinf_tab: &str) -> String {
         WatchView::Beds => "Liberties: lattice vs random bed".into(),
         WatchView::Demo => "The demo".into(),
         WatchView::Core => "Whole core: live k_eff".into(),
+        WatchView::Rods => "Control rods: k vs rod position".into(),
     }
 }
 
@@ -1180,9 +1188,21 @@ impl McApp {
                     let info = self.rung.raster_info().expect("checked");
                     let mut c = crate::htr10::core::screen::CoreScreen::new(info, self.speed_at_1ev, self.autostart);
                     c.cfg = run_cfg_from_query(c.cfg, &self.startup_query);
+                    c.rods = crate::htr10::rods::RodControls::from_query(&self.startup_query);
                     self.core = Some(c);
                 }
                 Screen::Core
+            }
+            (Mode::Watch, WatchView::Rods, _) if self.rung.has_core_pool() && self.rung.raster_info().is_some() => {
+                let info = self.rung.raster_info().expect("checked");
+                if self.core.is_none() {
+                    let mut c = crate::htr10::core::screen::CoreScreen::new(info.clone(), self.speed_at_1ev, self.autostart);
+                    c.cfg = run_cfg_from_query(c.cfg, &self.startup_query);
+                    c.rods = crate::htr10::rods::RodControls::from_query(&self.startup_query);
+                    self.core = Some(c);
+                }
+                let sel = self.core.as_ref().map_or(crate::htr10::rods::S3_ROD, |c| c.rods.selected);
+                Screen::Rods(crate::htr10::rods::RodsView::new(info, sel))
             }
             (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
                 let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
@@ -1242,6 +1262,7 @@ impl McApp {
                         self.phase = Phase::Failed(e);
                     }
                 }
+                (Phase::Ready(Screen::Rods(v)), Event::Raster { req, map, secs }) => v.receive(ctx, req, map, secs),
                 (Phase::Ready(Screen::Core), Event::Raster { req, map, secs }) => {
                     if let Some(c) = self.core.as_mut() {
                         c.slicer.receive(ctx, req, map, secs);
@@ -1311,6 +1332,11 @@ impl McApp {
             Phase::Ready(Screen::Beds(_)) => format!("{name} · liberties: lattice vs random bed"),
             Phase::Ready(Screen::Walk(w)) => format!("{name} · {}", w.status()),
             Phase::Ready(Screen::Core) => format!("{name} · {}", self.core.as_ref().map(|c| c.title()).unwrap_or_default()),
+            Phase::Ready(Screen::Rods(_)) => format!(
+                "{name} · control rods · {}{}",
+                self.core.as_ref().map(|c| crate::htr10::rods::summary(&c.rods.rods)).unwrap_or_default(),
+                self.core.as_ref().filter(|c| c.sweep.is_some()).map(|c| format!(" · live: {}", c.sweep_status)).unwrap_or_default()
+            ),
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
         if t != self.title {
@@ -1370,7 +1396,7 @@ impl eframe::App for McApp {
                 // Raster requests go out from the main view, which knows its size.
                 Screen::Geometry(_) | Screen::Layers(_) | Screen::Beds(_) => {}
                 Screen::Walk(w) => send_walk(Some(link), w.pump()),
-                Screen::Core => {}
+                Screen::Core | Screen::Rods(_) => {}
             }
         }
         // The core's pool keeps working whatever is on screen (gh:#818): its
@@ -1447,6 +1473,11 @@ impl McApp {
             Phase::Ready(Screen::Core) => {
                 if let Some(c) = self.core.as_mut() {
                     c.panel(ui);
+                }
+            }
+            Phase::Ready(Screen::Rods(v)) => {
+                if let Some(c) = self.core.as_mut() {
+                    v.panel(ui, c);
                 }
             }
         }
@@ -2218,7 +2249,7 @@ impl McApp {
         // under it on a narrow (portrait) one.
         let xs_on = self.xs_on && !self.xs.is_empty() && matches!(self.phase, Phase::Ready(Screen::Tracks(_)));
         // The layers view splits the same way: the bed beside its plot.
-        let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_)));
+        let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_) | Screen::Rods(_)));
         let is_beds = matches!(self.phase, Phase::Ready(Screen::Beds(_)));
         let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_) | Screen::Core));
         // Run k_eff on a rung with tracks: the geometry and its neutrons
@@ -2381,6 +2412,11 @@ impl McApp {
                     c.canvas(ui, rect, &painter, &geo_resp, self.link.as_ref());
                 }
             }
+            Phase::Ready(Screen::Rods(v)) => {
+                if let Some(c) = self.core.as_ref() {
+                    v.canvas(ui, rect, xs_rect, &painter, &full_painter, &geo_resp, c, self.link.as_ref(), self.run_text);
+                }
+            }
             Phase::Ready(Screen::Layers(ly)) => {
                 Self::slice_view(ui, rect, &painter, &geo_resp, &mut ly.slicer, self.link.as_ref());
                 if let Some(pr) = xs_rect {
@@ -2430,6 +2466,7 @@ impl McApp {
         let (sview, sview_rect) = match &mut self.phase {
             Phase::Ready(Screen::Geometry(sl)) => (Some(&mut sl.view), rect),
             Phase::Ready(Screen::Layers(ly)) => (Some(&mut ly.slicer.view), rect),
+            Phase::Ready(Screen::Rods(v)) => (Some(&mut v.side.view), rect),
             Phase::Ready(Screen::Beds(b)) => (Some(&mut b.view), rect),
             Phase::Ready(Screen::Walk(w)) => (Some(w.view_mut()), zoom_rect),
             Phase::Ready(Screen::Core) => (self.core.as_mut().map(|c| &mut c.slicer.view), rect),
