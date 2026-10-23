@@ -4,4 +4,99 @@ HTR-10 k_eff vs control-rod position (gh:#1025): rod 3 alone, nine withdrawn
   carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
   coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
   rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
-  U_UO2    LEAPR 
+  U_UO2    LEAPR 17.1s
+  O_UO2    LEAPR 26.1s
+  graphite S(a,b): tsl-reactor-graphite-30P.endf (MAT 32)
+  U235   161.5s
+  U238   126.0s
+  O16    5.5s
+  C12    1.4s
+  C12    1.4s
+  Si28   2.2s
+  B10    176.3ms
+  C12    1.2s
+  Si29   2.3s
+  Si30   2.0s
+  B11    1.5s
+  C13    236.0ms
+  C13    258.8ms
+  C13    309.7ms
+  He3    112.6ms
+  He4    66.8ms
+  Fe54   12.4s
+  Fe56   14.7s
+  Fe57   9.6s
+  Fe58   9.9s
+  Cr50   4.6s
+  Cr52   3.9s
+  Cr53   4.0s
+  Cr54   2.2s
+  Ni58   6.4s
+  Ni60   5.7s
+  Ni61   2.6s
+  Ni62   4.1s
+  Ni64   2.1s
+  Mn55   13.0s
+  Ti46   947.3ms
+  Ti47   503.2ms
+  Ti48   1.1s
+  Ti49   577.3ms
+  Ti50   336.3ms
+  Si28   2.1s
+  Si29   2.3s
+  Si30   1.7s
+  data, materials and bed majorant: 553.3 s (38 nuclides)
+  case N = 12, z_T = 394.2 cm (insertion 1.000000): 43487 cells, rods at z_T Some([119.2, 119.2, 394.2, 119.2, 119.2, 119.2, 119.2, 119.2, 119.2, 119.2])
+  -> k = 0.97852 +/- 0.00324  (160000 histories, 0 lost, entropy 5.511 -> 5.489 bits, 861 s)
+  case N = 12, z_T = 171.2 cm (insertion 0.189091): 43479 cells, rods at z_T Some([119.2, 119.2, 171.2, 119.2, 119.2, 119.2, 119.2, 119.2, 119.2, 119.2])
+  -> k = 0.99063 +/- 0.00339  (160000 histories, 0 lost, entropy 5.512 -> 5.540 bits, 875 s)
+HTR-10 k_eff vs control-rod position (gh:#1025): all ten rods together
+  2000 x [20 + 60], seed 20260917, 4 threads, 1 case(s) to run, 0 already in /tmp/claude-0/-home-user-outram-park-backend/6576d53b-079b-534d-83ec-90a54264f820/scratchpad/wt-rods/crates/dhoby-ghaut/verification_and_validation/htr10_rod_curve/convergence/probe_bank.csv
+  carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+  coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  U_UO2    LEAPR 18.1s
+  O_UO2    LEAPR 25.8s
+  graphite S(a,b): tsl-reactor-graphite-30P.endf (MAT 32)
+  U235   160.2s
+  U238   133.3s
+  O16    5.1s
+  C12    1.4s
+  C12    1.3s
+  Si28   2.1s
+  B10    203.5ms
+  C12    1.2s
+  Si29   2.1s
+  Si30   1.7s
+  B11    1.4s
+  C13    244.1ms
+  C13    270.1ms
+  C13    302.5ms
+  He3    72.4ms
+  He4    42.9ms
+  Fe54   12.4s
+  Fe56   17.0s
+  Fe57   10.5s
+  Fe58   9.6s
+  Cr50   4.1s
+  Cr52   3.7s
+  Cr53   3.9s
+  Cr54   2.6s
+  Ni58   6.7s
+  Ni60   6.2s
+  Ni61   2.8s
+  Ni62   4.2s
+  Ni64   2.0s
+  Mn55   12.5s
+  Ti46   922.3ms
+  Ti47   423.6ms
+  Ti48   979.7ms
+  Ti49   481.3ms
+  Ti50   351.7ms
+  Si28   2.2s
+  Si29   2.1s
+  Si30   1.7s
+  data, materials and bed majorant: 561.1 s (38 nuclides)
+  case N = 12, z_T = 394.2 cm (insertion 1.000000): 43466 cells, rods at z_T Some([394.2, 394.2, 394.2, 394.2, 394.2, 394.2, 394.2, 394.2, 394.2, 394.2])
+  -> k = 0.84451 +/- 0.00344  (160000 histories, 0 lost, entropy 5.444 -> 5.419 bits, 744 s)
+2026-10-23T13:40:19Z

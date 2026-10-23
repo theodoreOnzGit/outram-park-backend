@@ -1,0 +1,8 @@
+2026-10-23T13:40:50Z
+HTR-10 k_eff vs control-rod position (gh:#1025): rod 3 alone, nine withdrawn
+  2000 x [20 + 250], seed 20260917, 4 threads, 1 case(s) to run, 1 already in /tmp/claude-0/-home-user-outram-park-backend/6576d53b-079b-534d-83ec-90a54264f820/scratchpad/wt-rods/crates/dhoby-ghaut/verification_and_validation/htr10_rod_curve/single_s3_n12.csv
+  carbon: natural, C-12 / C-13 at 98.93 / 1.07 at.% (IUPAC)
+  coolant: natural helium (He-3 1.343e-6 at.), ideal gas at 300.15 K and 101.33 kPa (pressure ASSUMED atmospheric, after Seker & Colak 2003 p.267)
+  rod metal: FULL: real Ni-58/60/61/62/64 and Fe-54/56/57/58
+  U_UO2    LEAPR 16.4s
+  O_UO2    LEAPR 
