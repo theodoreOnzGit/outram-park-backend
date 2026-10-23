@@ -115,3 +115,61 @@ i checked 128/Ln(2) = 128/0.693 and got the ans
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 73e455d404.
+
+# Review: pow_specialcase (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-pow-specialcase-theodoreonzgit-221a8042"
+kind = "review"
+origin = "human"
+created = "2026-10-23T13:44:11+08:00"
+modified = "2026-10-23T13:44:11+08:00"
+target = "fn:221a80421469781b"
+
+[review]
+path = "crates/petir/src/fast_pow.rs::pow_specialcase"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-23"
+signed_at = "2026-10-23T13:44:11+08:00"
+commit = "59abbc96caf96825dded57809a243e2e618c89ba"
+hash = "sha256:74922887dd1225f68dc946680ce707b306d0a14d5fdfe34d65198dbeba7e775e"
+doc_hash = "sha256:08ad6186dd53eaf2a361597681fb5d510ac3db3fcdef1eaa2ce47ffdbcd507f7"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:08f93c13acb0345f" = "sha256:a3d4e6a407d4118cd0e98290ff8806316c809244dc21016a4cb7f65811a98fd8"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_016EsuzTnVZavfdUSvUJ2KCn",
+    "https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Z0B6HiqYnsmaLWyWUG0nPv2PQ0t4MSon/u8qAoIlz2CJ9oTi8gTXqiMwSABGJdbwiXzsYi5czhmkjCO7BKBCDA=="
+```
+
+ported from upstream
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 59abbc96ca.
