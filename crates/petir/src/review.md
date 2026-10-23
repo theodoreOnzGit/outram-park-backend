@@ -220,3 +220,55 @@ value = "ZggMUbWTsJyqsfDanxDl24+qU2dT47blspTNTGpYXZk8NtWEhHLppR0suSTwYpbJtrlXyRm
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 51fe89f009.
+
+# Review: N (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-n-theodoreonzgit-104ad896"
+kind = "review"
+origin = "human"
+created = "2026-10-23T13:48:39+08:00"
+modified = "2026-10-23T13:48:39+08:00"
+target = "fn:104ad896f8302fa4"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::N"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-23"
+signed_at = "2026-10-23T13:48:40+08:00"
+commit = "8cf8775dd89c589b1c7c420343f3c2a6d94bfdf7"
+hash = "sha256:9556ffe87d3e41af541796a593d3dfcc850070777db20a942d2ce890393b5197"
+doc_hash = "sha256:a4d2d3d3000041803a763b362d5d7d5e3ba450aaa22fcc812b06a5ba10cff7e2"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:c37b7c2750f07a35" = "sha256:6f024d35ae524f68daf5fd03f3e6f079ac49777d0bf8fb7259f5c6fccfe01264"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "zoTL+s/C2fcR1Y/HNk1Nhsb+/b3+/v5Wlye8TrIEqJkZMumwagg4WzuJEvaFK0waq2naJfSUaNZegzzI7zaKAQ=="
+```
+
+Bit shifting movement, assume correct... because it is used in entire workspace and tests are fine
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 8cf8775dd8.
