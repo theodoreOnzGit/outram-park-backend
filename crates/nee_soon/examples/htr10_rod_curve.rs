@@ -99,7 +99,7 @@ fn main() {
     }
     for &(n, z) in &todo {
         let f = Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(z);
-        let d = Htr10CoreDesign { rod_insertion: f, ..Htr10CoreDesign::default() };
+        let d = Htr10CoreDesign::default().with_bank(f);
         if let Err(e) = d.check() {
             println!("REFUSED: case {n}:{z}: {e}");
             return;
@@ -137,14 +137,11 @@ fn main() {
         .expect("write");
     }
     for (n, z) in todo {
-        let design = Htr10CoreDesign {
-            rod_insertion: Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(z),
-            ..Htr10CoreDesign::default()
-        };
+        let design = Htr10CoreDesign::default().with_bank(Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(z));
         let core = assemble_explicit_triso_with(RINGS, n, 0, &design);
         println!(
             "  case N = {n}, z_T = {z} cm (insertion {:.6}): {} cells, rods at z_T {:?}",
-            design.rod_insertion, core.cells, core.rod_lower_end_zt_cm
+            design.rod_insertions[0], core.cells, core.rod_lower_end_zt_cm
         );
         let (p, _res) = keff_vs_height::run_core(n, &core, &mats, &nucs, &maj, &stats, threads);
         let (e0, e1) = p.entropy_first_last.unwrap_or((f64::NAN, f64::NAN));
@@ -156,7 +153,7 @@ fn main() {
         writeln!(
             out,
             "{n},{z},{:.9},{:.3},{},{:.6},{:.6},{},{},{},{},{threads},{},{},{e0:.4},{e1:.4},{secs:.1},{}",
-            design.rod_insertion,
+            design.rod_insertions[0],
             p.built_height_cm(),
             p.balls.map_or(String::new(), |b| b.to_string()),
             p.k,

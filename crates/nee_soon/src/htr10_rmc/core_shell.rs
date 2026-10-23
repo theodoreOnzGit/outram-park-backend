@@ -160,8 +160,9 @@ pub(super) struct CoreShell {
     pub cavity_top: f64,
     zone_map: bool,
     withdrawn_rods: bool,
-    /// `z_T` \[cm\] of the rods' lower end (gh:#580).
-    rod_lower_end_zt_cm: f64,
+    /// `z_T` \[cm\] of each rod's lower end (gh:#580; one per rod since
+    /// 2026-10-23, gh:#1025).
+    rod_lower_ends_zt_cm: [f64; super::control_rod::N_CONTROL_RODS],
     /// Whole particles the TRISO lattice holds per fuel zone.
     triso_particles: usize,
     triso_lattice: RectLattice,
@@ -189,7 +190,7 @@ impl CoreShell {
             panic!("HTR-10 design refused: {e}");
         }
         let r_fuel_zone = design.fuel_zone_radius_cm;
-        let rod_lower_end_zt_cm = design.rod_lower_end_zt_cm();
+        let rod_lower_ends_zt_cm = design.rod_lower_ends_zt_cm();
         let CoreFrame {
             bed_radius,
             bed_half_height,
@@ -487,7 +488,7 @@ impl CoreShell {
             cavity_top,
             zone_map,
             withdrawn_rods,
-            rod_lower_end_zt_cm,
+            rod_lower_ends_zt_cm,
             triso_particles: n_particles,
             triso_lattice,
             reflector_built: false,
@@ -501,7 +502,7 @@ impl CoreShell {
         self.reflector_built = true;
         let zone_map = self.zone_map;
         let withdrawn_rods = self.withdrawn_rods;
-        let rod_lower_end_zt_cm = self.rod_lower_end_zt_cm;
+        let rod_lower_ends_zt_cm = self.rod_lower_ends_zt_cm;
         let refl_top = self.frame.refl_top;
         let has_refl = self.frame.has_refl;
         let (surfaces, cells, universes) =
@@ -525,7 +526,7 @@ impl CoreShell {
                 ReflectorFrame { refl_top },
                 ReflectorOptions {
                     withdrawn_rods,
-                    rod_lower_end_zt_cm,
+                    rod_lower_ends_zt_cm,
                 },
                 ReflectorMaterials {
                     helium: mat::HELIUM,
@@ -559,7 +560,7 @@ impl CoreShell {
             cavity_top,
             triso_lattice,
             triso_particles,
-            rod_lower_end_zt_cm,
+            rod_lower_ends_zt_cm,
             withdrawn_rods,
             ..
         } = self;
@@ -594,7 +595,10 @@ impl CoreShell {
             refl_bottom,
             bed: Some(bed),
             triso_particles: Some(triso_particles),
-            rod_lower_end_zt_cm: (has_refl && withdrawn_rods).then_some(rod_lower_end_zt_cm),
+            rod_lower_end_zt_cm: (has_refl && withdrawn_rods)
+                .then_some(rod_lower_ends_zt_cm[0])
+                .filter(|z| rod_lower_ends_zt_cm.iter().all(|w| w.to_bits() == z.to_bits())),
+            rod_lower_ends_zt_cm: (has_refl && withdrawn_rods).then_some(rod_lower_ends_zt_cm),
         }
     }
 }

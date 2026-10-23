@@ -445,8 +445,14 @@ pub struct AssembledCore {
     /// TECDOC `z_T` \[cm\] (downward from the model top) of the ten control
     /// rods' lower end as built (gh:#580): 119.2 withdrawn to 394.2 fully
     /// inserted. `None` when no rods are built (no reflector, the
-    /// `OUTRAM_HTR10_NO_WITHDRAWN_RODS` ablation, or the one-ball [`assemble`]).
+    /// `OUTRAM_HTR10_NO_WITHDRAWN_RODS` ablation, or the one-ball [`assemble`])
+    /// **and, since 2026-10-23 (gh:#1025), when the rods are not all at one
+    /// position**: read [`Self::rod_lower_ends_zt_cm`] then.
     pub rod_lower_end_zt_cm: Option<f64>,
+    /// `z_T` \[cm\] of EACH rod's lower end as built, in the order of
+    /// [`super::reflector_geometry::control_rod_azimuths_deg`] (gh:#1025).
+    /// `None` exactly when no rods are built.
+    pub rod_lower_ends_zt_cm: Option<[f64; super::control_rod::N_CONTROL_RODS]>,
 }
 
 /// **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
@@ -908,6 +914,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         bed: None,
         triso_particles: None,
         rod_lower_end_zt_cm: None,
+        rod_lower_ends_zt_cm: None,
     }
 }
 

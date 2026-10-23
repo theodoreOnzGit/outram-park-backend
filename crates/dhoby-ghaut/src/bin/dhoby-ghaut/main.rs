@@ -483,7 +483,7 @@ mod headless {
                 "HTR-10 {}X{}{}: {}",
                 r.pebble_bed.rings,
                 r.pebble_bed.layers,
-                rods_label(a.design.rod_insertion),
+                rods_label(a.design.rod_insertions[0]),
                 p.name.to_uppercase()
             );
             let w = 2.0 * p.half_extent;
