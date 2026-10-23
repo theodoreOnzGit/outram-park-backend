@@ -1336,7 +1336,12 @@ impl McApp {
                 "{name} · control rods · {}{}",
                 self.core.as_ref().map(|c| crate::htr10::rods::summary(&c.rods.rods)).unwrap_or_default(),
                 self.core.as_ref().filter(|c| c.sweep.is_some()).map(|c| format!(" · live: {}", c.sweep_status)).unwrap_or_default()
-            ),
+            ) + &self
+                .core
+                .as_ref()
+                .and_then(|c| c.pool.as_ref())
+                .map(|p| format!(" · pool {:?} {:.0} %", p.state.phase, 100.0 * p.state.progress()))
+                .unwrap_or_default(),
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
         if t != self.title {

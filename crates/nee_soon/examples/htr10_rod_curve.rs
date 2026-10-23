@@ -32,6 +32,12 @@
 //! `OUTRAM_HTR10_THREADS` (4), `OUTRAM_ROD_CSV` (output, default
 //! `htr10_rod_curve.csv` in the working directory).
 //!
+//! `OUTRAM_ROD_SINGLE=<1..10>` (gh:#1025): move only that rod (numbered as
+//! `reflector_geometry::control_rod_azimuths_deg`), the other nine
+//! withdrawn; unset, all ten move together (the bank). The `insertion`
+//! column is the moving rod's, and `rod_lower_end_zt_cm` is empty for a
+//! single rod (the rods are not at one position).
+//!
 //! `main` is CLI glue (exempt from the reaching-test rule); the pieces it
 //! calls are tested where they live (`core_design`, `control_rod`,
 //! `keff_vs_height`).
@@ -66,7 +72,21 @@ fn cases() -> Vec<(usize, f64)> {
     }
 }
 
+/// The design for a case: rod insertion `f` on the bank, or on rod
+/// `single` (0-based) alone.
+fn design_for(f: f64, single: Option<usize>) -> Htr10CoreDesign {
+    match single {
+        None => Htr10CoreDesign::default().with_bank(f),
+        Some(i) => Htr10CoreDesign::default().with_rod(i, f),
+    }
+}
+
 fn main() {
+    let single: Option<usize> = std::env::var("OUTRAM_ROD_SINGLE").ok().map(|v| {
+        let n: usize = v.trim().parse().expect("OUTRAM_ROD_SINGLE is a rod number 1..10");
+        assert!((1..=10).contains(&n), "OUTRAM_ROD_SINGLE is a rod number 1..10, got {n}");
+        n - 1
+    });
     let stats = SweepStatistics {
         name: "rod-curve",
         particles: env_parse("OUTRAM_HTR10_HISTORIES", 2000),
@@ -89,7 +109,10 @@ fn main() {
         .into_iter()
         .filter(|&(n, z)| !done.iter().any(|&(dn, dz): &(usize, f64)| dn == n && (dz - z).abs() < 1e-6))
         .collect();
-    println!("HTR-10 k_eff vs control-rod position (gh:#1025)");
+    println!(
+        "HTR-10 k_eff vs control-rod position (gh:#1025): {}",
+        single.map_or("all ten rods together".to_string(), |i| format!("rod {} alone, nine withdrawn", i + 1))
+    );
     println!(
         "  {} x [{} + {}], seed {}, {threads} threads, {} case(s) to run, {} already in {csv}",
         stats.particles, stats.inactive, stats.active, stats.seed, todo.len(), done.len()
@@ -99,7 +122,7 @@ fn main() {
     }
     for &(n, z) in &todo {
         let f = Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(z);
-        let d = Htr10CoreDesign::default().with_bank(f);
+        let d = design_for(f, single);
         if let Err(e) = d.check() {
             println!("REFUSED: case {n}:{z}: {e}");
             return;
@@ -137,11 +160,12 @@ fn main() {
         .expect("write");
     }
     for (n, z) in todo {
-        let design = Htr10CoreDesign::default().with_bank(Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(z));
+        let design = design_for(Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(z), single);
+        let moving = single.unwrap_or(0);
         let core = assemble_explicit_triso_with(RINGS, n, 0, &design);
         println!(
             "  case N = {n}, z_T = {z} cm (insertion {:.6}): {} cells, rods at z_T {:?}",
-            design.rod_insertions[0], core.cells, core.rod_lower_end_zt_cm
+            design.rod_insertions[moving], core.cells, core.rod_lower_ends_zt_cm
         );
         let (p, _res) = keff_vs_height::run_core(n, &core, &mats, &nucs, &maj, &stats, threads);
         let (e0, e1) = p.entropy_first_last.unwrap_or((f64::NAN, f64::NAN));
@@ -153,7 +177,7 @@ fn main() {
         writeln!(
             out,
             "{n},{z},{:.9},{:.3},{},{:.6},{:.6},{},{},{},{},{threads},{},{},{e0:.4},{e1:.4},{secs:.1},{}",
-            design.rod_insertions[0],
+            design.rod_insertions[moving],
             p.built_height_cm(),
             p.balls.map_or(String::new(), |b| b.to_string()),
             p.k,
