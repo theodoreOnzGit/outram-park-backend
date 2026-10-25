@@ -29,6 +29,7 @@ use crate::raster::{Preset, RasterInfo, Slicer};
 use dhoby_ghaut::web_demo::platform::now_s;
 use dhoby_ghaut::web_demo::pool::{plan, Device, Plan};
 use egui::{Color32, Pos2, Rect, Vec2};
+use petir::mathf::RealMath;
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::physics::track_output::{Track, TrackEvent, TrackState};
 use std::collections::VecDeque;
@@ -559,7 +560,9 @@ impl CoreScreen {
         if let Some(e) = &self.error {
             lines.push((format!("FAILED: {e}"), Color32::from_rgb(255, 110, 110)));
         }
-        let mut y = rect.top() + 52.0;
+        // Below the top row of buttons, and on a narrow view below the
+        // folded Views tab too (`dhoby_ghaut::web_demo::dock`).
+        let mut y = rect.top() + if rect.width() < 560.0 { 108.0 } else { 52.0 };
         for (t, c) in lines {
             let g = painter.layout(
                 t,
@@ -855,11 +858,14 @@ impl CoreScreen {
                 l
             }
         };
-        let g = painter.layout(line, egui::FontId::proportional((text * 0.9).max(9.0)), Color32::from_rgb(210, 216, 226), rect.width());
-        let lh = g.size().y;
-        painter.galley(rect.min, g, Color32::from_rgb(210, 216, 226));
-        let ceiling = run.and_then(RunState::entropy_bins).map(|b| (b as f64).log2());
-        keffplot::draw_pair(painter, rect.with_min_y(rect.top() + lh + 4.0), &pts, shape, &refs, ceiling, (text * 0.92).max(9.0));
+        // The line goes in the strip the dock keeps clear along its bottom,
+        // left of the page's References button.
+        use dhoby_ghaut::web_demo::dock::{REFS_CLEAR_PX, REFS_W_PX};
+        let strip = Rect::from_min_max(Pos2::new(rect.left(), rect.bottom() - REFS_CLEAR_PX + 6.0), Pos2::new(rect.right() - REFS_W_PX - 8.0, rect.bottom()));
+        let g = painter.layout(line, egui::FontId::proportional((text * 0.85).max(9.0)), Color32::from_rgb(210, 216, 226), strip.width().max(80.0));
+        painter.galley(strip.min, g, Color32::from_rgb(210, 216, 226));
+        let ceiling = run.and_then(RunState::entropy_bins).map(|b| (b as f64).r_log2());
+        keffplot::draw_pair(painter, rect.with_max_y(rect.bottom() - REFS_CLEAR_PX), &pts, shape, &refs, ceiling, (text * 0.92).max(9.0));
     }
 }
 

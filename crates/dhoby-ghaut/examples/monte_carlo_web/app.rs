@@ -2182,9 +2182,14 @@ impl McApp {
         // The HTR-10 core: the right dock (top and rod views, reference
         // graphs) on the whole height, then the bottom dock (k, entropy).
         let views_split: Option<Split> = is_core.then(|| self.views_dock.split(full));
-        let keff_split: Option<Split> = (is_core || run_geo).then(|| self.keff_dock.split(views_split.map_or(full, |v| v.main)));
+        // Opened on a phone, the right dock covers the main view: nothing of
+        // it is drawn (no bottom dock, no buttons) until it is hidden.
+        let covered = views_split.is_some_and(|v| v.covers_main());
+        let keff_split: Option<Split> = (!covered && (is_core || run_geo)).then(|| self.keff_dock.split(views_split.map_or(full, |v| v.main)));
         let (rect, xs_rect) = if let Some(k) = keff_split {
             (k.main, None)
+        } else if let Some(v) = views_split.filter(|_| covered) {
+            (v.main, None)
         } else if !(xs_on || is_layers) {
             (full, None)
         } else if full.width() >= 700.0 && full.width() > full.height() {
@@ -2329,7 +2334,9 @@ impl McApp {
                     // The whole core with its neutrons on the main view; the
                     // top and rod views and the records in the right dock;
                     // k and entropy in the bottom one.
-                    c.canvas(ui, rect, &painter, &geo_resp, self.link.as_ref());
+                    if !covered {
+                        c.canvas(ui, rect, &painter, &geo_resp, self.link.as_ref());
+                    }
                     if let Some(body) = views_split.and_then(|d| d.body) {
                         v.dock(ui, body, &full_painter.with_clip_rect(body), c, self.link.as_ref(), self.run_text);
                     }
@@ -2414,6 +2421,9 @@ impl McApp {
             Phase::Ready(Screen::Core(_)) => (self.core.as_mut().map(|c| &mut c.slicer.view), rect),
             _ => (None, rect),
         };
+        if covered {
+            return;
+        }
         if let Some(v) = &sview {
             scale_bar(&painter, sview_rect, v);
         } else if (!is_run || run_geo) && !is_kinf {
@@ -2581,10 +2591,13 @@ impl McApp {
             crate::keff::plan_line(next, it.measured_rate().or(it.rate))
         };
         let colour = if note.starts_with('⚠') { Color32::from_rgb(250, 200, 80) } else { Color32::from_rgb(170, 176, 190) };
-        let galley = painter.layout(note, egui::FontId::proportional(12.0), colour, inner.width());
-        let note_h = galley.size().y;
-        painter.galley(inner.min, galley, colour);
-        let rest = inner.with_min_y(inner.top() + note_h + 4.0);
+        // The note in the strip a bottom dock keeps clear along its bottom,
+        // left of the page's References button; the plots and console above.
+        use dhoby_ghaut::web_demo::dock::{REFS_CLEAR_PX, REFS_W_PX};
+        let strip = Rect::from_min_max(Pos2::new(inner.left(), inner.bottom() - REFS_CLEAR_PX + 6.0), Pos2::new(inner.right() - REFS_W_PX - 8.0, inner.bottom()));
+        let galley = painter.layout(note, egui::FontId::proportional(12.0), colour, strip.width().max(80.0));
+        painter.galley(strip.min, galley, colour);
+        let rest = inner.with_max_y(inner.bottom() - REFS_CLEAR_PX);
         let (plots, console) = if rest.width() >= 900.0 {
             let (a, b) = rest.split_left_right_at_fraction(0.66);
             (a.with_max_x(a.right() - 4.0), b.with_min_x(b.left() + 4.0))

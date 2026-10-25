@@ -15,7 +15,11 @@
 //!   the run's own buttons.
 //! - [`Edge::Right`]: open by default only at [`WIDE_PX`] or wider; on a
 //!   narrower screen it opens over most of the main view, as the side panel
-//!   does on a phone. Folded, it takes no width: a "« title" tab sits below
+//!   does on a phone. (The width is the main view's: with the controls
+//!   panel open, a 1280 px desktop leaves about 920 px.) Opened on a narrow
+//!   screen it covers the main view entirely ([`Split::covers_main`]): the
+//!   caller then draws nothing of the main view, not even its buttons,
+//!   until it is hidden again. Folded, it takes no width: a "« title" tab sits below
 //!   the zoom buttons at the main view's top right.
 //!
 //! Lay out with [`Dock::split`] (right dock first, on the full rect, then
@@ -30,7 +34,14 @@ use egui::{Pos2, Rect, Vec2};
 /// (above Apple's 44 pt minimum target).
 pub const HEADER_PX: f32 = 44.0;
 /// Screens at least this wide open a right dock unfolded, px.
-pub const WIDE_PX: f32 = 1000.0;
+pub const WIDE_PX: f32 = 860.0;
+/// The strip a bottom dock's body leaves free along its bottom, px: the
+/// page's fixed "References" button (`web/*/index.html`, gh:#789) sits at
+/// the bottom-right corner, and a dock's content stays out from under it.
+/// A caller puts one line of text in its left part.
+pub const REFS_CLEAR_PX: f32 = 40.0;
+/// Width of the "References" button that strip leaves room for, px.
+pub const REFS_W_PX: f32 = 120.0;
 /// Width of a folded right dock's tab, px.
 pub const TAB_W: f32 = 132.0;
 /// How far below the main view's top a folded right dock's tab sits, px:
@@ -56,6 +67,14 @@ pub struct Split {
     pub header: Rect,
     /// The dock's body, `None` while folded.
     pub body: Option<Rect>,
+}
+
+impl Split {
+    /// The dock leaves the main view no width (a right dock open on a
+    /// phone): draw only the dock.
+    pub fn covers_main(&self) -> bool {
+        self.main.width() < 1.0
+    }
 }
 
 /// One dock.
@@ -101,7 +120,7 @@ impl Dock {
                 let w = (h.width() * 0.45).min(230.0);
                 let b = Rect::from_min_size(h.min, Vec2::new(w, h.height()));
                 let rest = Rect::from_min_max(Pos2::new(b.right() + 6.0, h.top()), h.max);
-                (b, rest, format!("{} {}", if open { "▾" } else { "▴" }, self.title))
+                (b, rest, format!("{} {}", if open { "⏷" } else { "⏶" }, self.title))
             }
             (Edge::Right, true) => (h, Rect::NOTHING, format!("Hide {} »", self.title)),
             (Edge::Right, false) => (h, Rect::NOTHING, format!("« {}", self.title)),
@@ -136,8 +155,11 @@ pub fn layout(edge: Edge, open: bool, full: Rect) -> Split {
             Split { main: full, header, body: None }
         }
         (Edge::Right, true) => {
-            // A phone gets most of the screen; a wide one a column.
-            let w = if full.width() < super::panel::NARROW_PX { full.width() * 0.88 } else { (full.width() * 0.38).clamp(300.0, 560.0) };
+            // A phone gets the whole screen (a sliver of main view beside it
+            // is too narrow to use: in the first build, 2026-10-25, the
+            // bottom dock's labels wrapped one letter per line there); a
+            // wide one a column.
+            let w = if full.width() < super::panel::NARROW_PX { full.width() } else { (full.width() * 0.38).clamp(300.0, 560.0) };
             let left = full.right() - w;
             let header = Rect::from_min_max(Pos2::new(left, full.top()), Pos2::new(full.right(), full.top() + HEADER_PX));
             Split { main: full.with_max_x(left), header, body: Some(Rect::from_min_max(Pos2::new(left, header.bottom()), full.max)) }
@@ -201,5 +223,14 @@ mod tests {
         let r = layout(Edge::Right, false, full);
         assert_eq!(r.main, full);
         assert!(r.header.top() >= 52.0 && r.header.left() >= 0.0 && r.header.height() >= 44.0);
+    }
+
+    /// Open on a phone, a right dock covers the main view; on a desktop it
+    /// is a column beside it.
+    #[test]
+    fn an_open_right_dock_covers_a_phone_only() {
+        assert!(layout(Edge::Right, true, screen(390.0, 844.0)).covers_main());
+        let wide = layout(Edge::Right, true, screen(920.0, 900.0));
+        assert!(!wide.covers_main() && wide.main.width() > 500.0);
     }
 }

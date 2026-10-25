@@ -15,7 +15,7 @@ const fs = require('fs');
   const cases = [
     { name: 'htr10_core', query: '?rung=htr10&mode=watch&view=core', ready: /whole core/ },
     { name: 'htr10_rods_link', query: '?rung=htr10&mode=watch&view=rods', ready: /whole core/ },
-    { name: 'godiva_run', query: '?rung=godiva&mode=run', ready: /Godiva/i },
+    { name: 'godiva_run', query: '?rung=godiva&mode=run', ready: /Godiva/i, wait: 600 },
   ];
   for (const c of cases) {
     for (const s of sizes) {
@@ -24,7 +24,7 @@ const fs = require('fs');
       page.on('console', m => { if (m.type() === 'error') console.log(`[${c.name} ${s.name}] console error: ${m.text()}`); });
       await page.goto(`${base}/${c.query}`);
       let title = '';
-      for (let i = 0; i < 120; i++) {
+      for (let i = 0; i < (c.wait || 120); i++) {
         await page.waitForTimeout(1000);
         title = await page.title();
         if (c.ready.test(title) && !/loading/i.test(title)) break;
@@ -37,12 +37,8 @@ const fs = require('fs');
         await page.mouse.click(s.w - 8 - 66, 56 + 22);
         await page.waitForTimeout(6000);
         await page.screenshot({ path: `${out}/${c.name}_${s.name}_views_open.png` });
-        // Its second half.
-        await page.mouse.click(s.w - Math.round(0.88 * s.w * 0.25), 44 + 22);
-        await page.waitForTimeout(3000);
-        await page.screenshot({ path: `${out}/${c.name}_${s.name}_views_graphs.png` });
-        // Hide it again, open the controls.
-        await page.mouse.click(s.w - Math.round(0.88 * s.w / 2), 22);
+        // Hide it again (its header spans the phone's width), open the controls.
+        await page.mouse.click(Math.round(s.w / 2), 22);
         await page.waitForTimeout(1500);
         await page.mouse.click(70, 30);
         await page.waitForTimeout(2500);
