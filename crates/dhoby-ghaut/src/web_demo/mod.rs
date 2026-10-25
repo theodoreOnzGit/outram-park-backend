@@ -11,7 +11,8 @@
 //!   [`view::zoom_buttons`] (+ / − / Reset, always on the main view),
 //!   [`panel::Panel`] (a side panel that folds, opens folded on a narrow
 //!   screen, with a "« Hide" button in it and a "Controls »" button on the
-//!   main view), [`view::scale_bar`].
+//!   main view), [`view::scale_bar`], and [`dock::Dock`] (a results or
+//!   companion-view panel on the bottom or right edge that folds to a tab).
 //! - **No lagging.** [`link`]: the UI thread only draws. Physics runs in a
 //!   background thread natively ([`link::NativeEngine`]) or a Web Worker in the
 //!   browser ([`link::WorkerEngine`]) running the SAME wasm module, and talks
@@ -56,6 +57,7 @@
 //! Gated off Android with the rest of the windowing stack.
 
 pub mod data_cache;
+pub mod dock;
 pub mod files;
 pub mod lesson;
 pub mod link;

@@ -266,6 +266,13 @@ impl Slicer {
     pub fn busy(&self) -> bool {
         self.pending.is_some()
     }
+    /// Whether `req` is the answer this slicer is waiting for: several
+    /// slicers on one screen (the HTR-10 core's main slice and its dock's
+    /// two) share one worker, and their ids are their own counters, so the
+    /// whole request is compared.
+    pub fn awaits(&self, req: &RasterReq) -> bool {
+        self.pending.as_ref() == Some(req)
+    }
     /// Whether the newest image answers the current window (no repaint needed).
     pub fn settled(&self) -> bool {
         self.shown.as_ref().zip(self.last_window.as_ref()).is_some_and(|((r, _, _), w)| same(r, w))

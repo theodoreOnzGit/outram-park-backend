@@ -15,6 +15,7 @@ use crate::keff::{
     clamp_to_caps, console_line, summary_lines, Generation, KeffConfig, KinfCase, KinfGeneration, LineStyle, CONSOLE_HEADER, MAX_GENERATIONS,
     MAX_PARTICLES, MIN_ACTIVE,
 };
+use crate::keffplot::{self, GenPoint, RefLine, RunShape};
 use crate::raster::Slicer;
 use crate::sweep::RecordedSweep;
 use crate::walkdemo::{Outgoing, WalkDemo};
@@ -22,6 +23,7 @@ use crate::xs::{self, XsCurve};
 use crate::rungs::Mode;
 use crate::table::Rung;
 use dhoby_ghaut::web_demo::data_cache::Source;
+use dhoby_ghaut::web_demo::dock::{Dock, Edge, Split};
 use dhoby_ghaut::web_demo::lesson::{self, Rung as _};
 use dhoby_ghaut::web_demo::link::Link;
 use dhoby_ghaut::web_demo::loading::Loading;
@@ -36,8 +38,6 @@ use std::collections::VecDeque;
 type McLink = Link<Request, Event>;
 
 const BG: Color32 = Color32::from_rgb(14, 16, 20);
-const K_COLOUR: Color32 = Color32::from_rgb(120, 170, 255);
-const MEAN_COLOUR: Color32 = Color32::from_rgb(255, 200, 80);
 
 // ─── Loading ─────────────────────────────────────────────────────────────────
 
@@ -361,6 +361,13 @@ impl Iteration {
     fn total_gens(&self) -> usize {
         self.cfg.n_inactive + self.cfg.n_active
     }
+    /// The generations as the shared plots take them.
+    fn points(&self) -> Vec<GenPoint> {
+        self.gens.iter().map(GenPoint::from).collect()
+    }
+    fn shape(&self) -> RunShape {
+        RunShape { n_inactive: self.cfg.n_inactive, total: self.total_gens() }
+    }
 }
 
 // ─── A small k_inf case (gh:#549) ────────────────────────────────────────────
@@ -515,13 +522,12 @@ enum Screen {
     Beds(crate::beds::BedsView),
     /// The rung's own demo (gh:#785, [`crate::walkdemo`]).
     Walk(WalkDemo),
-    /// The whole HTR-10 core on a worker pool (gh:#786). The view itself is
-    /// [`McApp::core`], held by the app so its pool and processed data
-    /// outlive a switch to another view or rung (gh:#818).
-    Core,
-    /// The control rods (gh:#1025); rods, pool and live results are
-    /// [`McApp::core`]'s.
-    Rods(crate::htr10::rods::RodsView),
+    /// The whole HTR-10 core on a worker pool (gh:#786), with its bed N and
+    /// its control rods (gh:#1025) set in one place (maintainer 2026-10-25).
+    /// The core itself (pool, rods, runs) is [`McApp::core`], held by the app
+    /// so its pool and processed data outlive a switch to another view or
+    /// rung (gh:#818); this holds the right dock's slices and records.
+    Core(crate::htr10::rods::RodsView),
 }
 
 /// Send a rung demo's messages to the worker.
@@ -558,10 +564,10 @@ enum WatchView {
     Beds,
     /// The rung's own demo (gh:#785).
     Demo,
-    /// Neutrons in the whole core, live on a worker pool (gh:#786).
+    /// The whole core, live on a worker pool (gh:#786): bed N and control
+    /// rods (gh:#1025) in one tab since 2026-10-25 (`?view=rods`, the old
+    /// "Control rods" tab, opens it too).
     Core,
-    /// The control rods: sliders, slices, k against rod position (gh:#1025).
-    Rods,
 }
 
 impl WatchView {
@@ -576,14 +582,16 @@ impl WatchView {
             WatchView::Beds => "beds",
             WatchView::Demo => "demo",
             WatchView::Core => "core",
-            WatchView::Rods => "rods",
         }
     }
     fn parse(s: &str) -> Option<Self> {
-        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Demo, WatchView::Core, WatchView::Rods];
-        // `fuel` is the htr10 rung's name for its k_inf view.
-        if s == "fuel" {
-            return Some(WatchView::Kinf);
+        let all = [WatchView::Neutrons, WatchView::Generations, WatchView::Kinf, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Demo, WatchView::Core];
+        // `fuel` is the htr10 rung's name for its k_inf view; `rods` was the
+        // control rods' own tab until it joined the whole core (2026-10-25).
+        match s {
+            "fuel" => return Some(WatchView::Kinf),
+            "rods" => return Some(WatchView::Core),
+            _ => {}
         }
         all.into_iter().find(|v| v.name() == s)
     }
@@ -599,7 +607,6 @@ impl WatchView {
             WatchView::Beds => rung.beds(),
             WatchView::Demo => rung.walk_demo().is_some(),
             WatchView::Core => rung.has_core_pool(),
-            WatchView::Rods => rung.has_core_pool() && rung.raster_info().is_some(),
         };
         if has(self) {
             return self;
@@ -622,7 +629,7 @@ fn job_done(l: &LoadState, index: usize) -> bool {
 
 /// The rung's Watch views, in tab order.
 fn watch_views(rung: Rung) -> Vec<WatchView> {
-    [WatchView::Neutrons, WatchView::Core, WatchView::Rods, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
+    [WatchView::Neutrons, WatchView::Core, WatchView::Geometry, WatchView::Layers, WatchView::Beds, WatchView::Generations, WatchView::Kinf, WatchView::Demo]
         .into_iter()
         .filter(|&v| v.for_rung(rung) == v)
         .collect()
@@ -647,8 +654,7 @@ fn view_label(w: WatchView, kinf_tab: &str) -> String {
         WatchView::Layers => "Layers (recorded k)".into(),
         WatchView::Beds => "Liberties: lattice vs random bed".into(),
         WatchView::Demo => "The demo".into(),
-        WatchView::Core => "Whole core: live k_eff".into(),
-        WatchView::Rods => "Control rods: k vs rod position".into(),
+        WatchView::Core => "Whole core: layers, rods, live k_eff".into(),
     }
 }
 
@@ -719,6 +725,12 @@ pub struct McApp {
     phase: Phase,
     view: View,
     panel: Panel,
+    /// The bottom dock of every run with a geometry: k_eff, entropy, the run's
+    /// buttons and its console (maintainer, 2026-10-25).
+    keff_dock: Dock,
+    /// The HTR-10 core's right dock: the top and control-rod views and the
+    /// reference graphs.
+    views_dock: Dock,
     title: String,
     load_timings: Vec<(&'static str, f64)>,
     load_total_s: f64,
@@ -797,6 +809,8 @@ impl McApp {
             phase: Phase::Failed(String::new()),
             view: View::new(rung.half_extent()),
             panel: Panel::default(),
+            keff_dock: Dock::new(Edge::Bottom, "k_eff · entropy"),
+            views_dock: Dock::new(Edge::Right, "Views"),
             title: String::new(),
             load_timings: Vec::new(),
             load_total_s: 0.0,
@@ -1184,16 +1198,6 @@ impl McApp {
             (Mode::Watch, WatchView::Core, _) if self.rung.has_core_pool() && self.rung.raster_info().is_some() => {
                 // Made once and kept (gh:#818): coming back to this view
                 // finds the pool, its data and any run as they were.
-                if self.core.is_none() {
-                    let info = self.rung.raster_info().expect("checked");
-                    let mut c = crate::htr10::core::screen::CoreScreen::new(info, self.speed_at_1ev, self.autostart);
-                    c.cfg = run_cfg_from_query(c.cfg, &self.startup_query);
-                    c.rods = crate::htr10::rods::RodControls::from_query(&self.startup_query);
-                    self.core = Some(c);
-                }
-                Screen::Core
-            }
-            (Mode::Watch, WatchView::Rods, _) if self.rung.has_core_pool() && self.rung.raster_info().is_some() => {
                 let info = self.rung.raster_info().expect("checked");
                 if self.core.is_none() {
                     let mut c = crate::htr10::core::screen::CoreScreen::new(info.clone(), self.speed_at_1ev, self.autostart);
@@ -1202,7 +1206,7 @@ impl McApp {
                     self.core = Some(c);
                 }
                 let sel = self.core.as_ref().map_or(crate::htr10::rods::S3_ROD, |c| c.rods.selected);
-                Screen::Rods(crate::htr10::rods::RodsView::new(info, sel))
+                Screen::Core(crate::htr10::rods::RodsView::new(info, sel, self.rung.sweep()))
             }
             (Mode::Watch, WatchView::Kinf, _) if self.rung.kinf_case().is_some() => {
                 let mut k = KinfRun::new(self.rung.kinf_case().expect("checked"));
@@ -1262,12 +1266,12 @@ impl McApp {
                         self.phase = Phase::Failed(e);
                     }
                 }
-                (Phase::Ready(Screen::Rods(v)), Event::Raster { req, map, secs }) => v.receive(ctx, req, map, secs),
-                (Phase::Ready(Screen::Core), Event::Raster { req, map, secs }) => {
-                    if let Some(c) = self.core.as_mut() {
-                        c.slicer.receive(ctx, req, map, secs);
-                    }
-                }
+                (Phase::Ready(Screen::Core(v)), Event::Raster { req, map, secs }) => match self.core.as_mut() {
+                    // Three slicers share the worker: the main slice, and the
+                    // dock's side and top slices.
+                    Some(c) if c.slicer.awaits(&req) => c.slicer.receive(ctx, req, map, secs),
+                    _ => v.receive(ctx, req, map, secs),
+                },
                 (_, Event::XsCurves(c)) => {
                     self.xs_shown = vec![true; c.len()];
                     self.xs = c;
@@ -1331,17 +1335,14 @@ impl McApp {
             }
             Phase::Ready(Screen::Beds(_)) => format!("{name} · liberties: lattice vs random bed"),
             Phase::Ready(Screen::Walk(w)) => format!("{name} · {}", w.status()),
-            Phase::Ready(Screen::Core) => format!("{name} · {}", self.core.as_ref().map(|c| c.title()).unwrap_or_default()),
-            Phase::Ready(Screen::Rods(_)) => format!(
-                "{name} · control rods · {}{}",
+            // What an unattended browser check reads: the core's state, its
+            // rods and any live sweep.
+            Phase::Ready(Screen::Core(_)) => format!(
+                "{name} · {} · control rods · {}{}",
+                self.core.as_ref().map(|c| c.title()).unwrap_or_default(),
                 self.core.as_ref().map(|c| crate::htr10::rods::summary(&c.rods.rods)).unwrap_or_default(),
                 self.core.as_ref().filter(|c| c.sweep.is_some()).map(|c| format!(" · live: {}", c.sweep_status)).unwrap_or_default()
-            ) + &self
-                .core
-                .as_ref()
-                .and_then(|c| c.pool.as_ref())
-                .map(|p| format!(" · pool {:?} {:.0} %", p.state.phase, 100.0 * p.state.progress()))
-                .unwrap_or_default(),
+            ),
             Phase::Failed(e) => format!("{name} · FAILED · {e}"),
         };
         if t != self.title {
@@ -1401,7 +1402,7 @@ impl eframe::App for McApp {
                 // Raster requests go out from the main view, which knows its size.
                 Screen::Geometry(_) | Screen::Layers(_) | Screen::Beds(_) => {}
                 Screen::Walk(w) => send_walk(Some(link), w.pump()),
-                Screen::Core | Screen::Rods(_) => {}
+                Screen::Core(_) => {}
             }
         }
         // The core's pool keeps working whatever is on screen (gh:#818): its
@@ -1475,14 +1476,9 @@ impl McApp {
             Phase::Ready(Screen::Layers(ly)) => Self::layers_panel(ui, ly),
             Phase::Ready(Screen::Beds(b)) => b.panel(ui),
             Phase::Ready(Screen::Walk(w)) => send_walk(link, w.panel(ui)),
-            Phase::Ready(Screen::Core) => {
+            Phase::Ready(Screen::Core(v)) => {
                 if let Some(c) = self.core.as_mut() {
-                    c.panel(ui);
-                }
-            }
-            Phase::Ready(Screen::Rods(v)) => {
-                if let Some(c) = self.core.as_mut() {
-                    v.panel(ui, c);
+                    c.panel(ui, &v.curves);
                 }
             }
         }
@@ -2149,98 +2145,18 @@ fn play_tracks(ui: &egui::Ui, painter: &egui::Painter, r: &mut Tracks, speed: f6
     }
 }
 
-/// A plot frame with linear axes.
-struct Axes {
-    rect: Rect,
-    x: (f64, f64),
-    y: (f64, f64),
+/// Run mode's entropy mesh is 5 x 5 x 5 on the bounding box: its ceiling
+/// is `log2(125)` bits.
+fn run_entropy_ceiling() -> f64 {
+    (125f64).r_log2()
 }
 
-impl Axes {
-    fn p(&self, x: f64, y: f64) -> Pos2 {
-        let fx = ((x - self.x.0) / (self.x.1 - self.x.0)) as f32;
-        let fy = ((y - self.y.0) / (self.y.1 - self.y.0)) as f32;
-        Pos2::new(self.rect.left() + fx * self.rect.width(), self.rect.bottom() - fy * self.rect.height())
-    }
-    fn frame(&self, painter: &egui::Painter, title: &str, fmt: impl Fn(f64) -> String) {
-        painter.rect_filled(self.rect, 4.0, Color32::from_rgb(20, 23, 30));
-        painter.rect_stroke(self.rect, 4.0, Stroke::new(1.0, Color32::from_rgb(60, 66, 80)), StrokeKind::Inside);
-        let f = egui::FontId::proportional(11.0);
-        let c = Color32::from_rgb(170, 176, 190);
-        painter.text(self.rect.left_top() + Vec2::new(6.0, 3.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(12.0), Color32::WHITE);
-        painter.text(self.rect.right_top() + Vec2::new(-4.0, 3.0), egui::Align2::RIGHT_TOP, fmt(self.y.1), f.clone(), c);
-        painter.text(self.rect.right_bottom() + Vec2::new(-4.0, -3.0), egui::Align2::RIGHT_BOTTOM, fmt(self.y.0), f, c);
-    }
-    /// Shade the inactive generations `[0.5, n_inactive + 0.5]`.
-    fn shade_inactive(&self, painter: &egui::Painter, n_inactive: usize) {
-        let a = self.p(0.5, self.y.1);
-        let b = self.p(n_inactive as f64 + 0.5, self.y.0);
-        let r = Rect::from_two_pos(a, b).intersect(self.rect);
-        painter.rect_filled(r, 0.0, Color32::from_rgba_unmultiplied(120, 120, 140, 40));
-        painter.text(r.center_bottom() + Vec2::new(0.0, -3.0), egui::Align2::CENTER_BOTTOM, "inactive", egui::FontId::proportional(10.0), Color32::from_rgb(150, 150, 170));
-    }
-}
-
-/// Entropy per generation, with the inactive generations shaded.
-fn draw_entropy(painter: &egui::Painter, rect: Rect, it: &Iteration) {
-    let n = it.total_gens().max(2) as f64;
-    // From just below the lowest value to the 5 x 5 x 5 mesh's ceiling,
-    // log2(125) bits, so the rise is visible.
-    let ceiling = (125f64).r_log2();
-    let lowest = it.gens.iter().filter_map(|g| g.entropy).fold(ceiling, f64::min);
-    let ax = Axes { rect, x: (0.5, n + 0.5), y: ((lowest - 0.5).floor().max(0.0), ceiling) };
-    ax.frame(painter, "Shannon entropy of the fission source (bits)", |v| format!("{v:.1}"));
-    ax.shade_inactive(painter, it.cfg.n_inactive);
-    let pts: Vec<Pos2> = it.gens.iter().filter_map(|g| g.entropy.map(|h| ax.p(g.index as f64 + 1.0, h))).collect();
-    if pts.len() > 1 {
-        painter.add(egui::Shape::line(pts.clone(), Stroke::new(1.5, Color32::from_rgb(120, 220, 160))));
-    }
-    for p in pts {
-        painter.circle_filled(p, 2.0, Color32::from_rgb(120, 220, 160));
-    }
-}
-
-/// `k` per generation (dots) and the running mean ± σ over the active ones,
-/// with the experiment's band when there is one.
-fn draw_k(painter: &egui::Painter, rect: Rect, it: &Iteration, experiment: Option<(f64, f64)>) {
-    let n = it.total_gens().max(2) as f64;
-    let mut lo = 0.98f64;
-    let mut hi = 1.02f64;
-    // The first generations come from the guessed source (on a bare sphere
-    // generation 1 leaks more than the settled source: k_1 = 0.897 for
-    // Godiva, seed 1, and 0.468 before gh:#527 was fixed) and would squash
-    // the rest: they are drawn clamped to the frame instead of setting its
-    // range.
-    for g in it.gens.iter().filter(|g| g.index >= 2) {
-        lo = lo.min(g.k);
-        hi = hi.max(g.k);
-    }
-    let pad = 0.1 * (hi - lo);
-    let ax = Axes { rect, x: (0.5, n + 0.5), y: (lo - pad, hi + pad) };
-    ax.frame(painter, "k per generation (dots) · running mean ± σ (band)", |v| format!("{v:.3}"));
-    ax.shade_inactive(painter, it.cfg.n_inactive);
-    if let Some((k, s)) = experiment {
-        let band = Rect::from_two_pos(ax.p(0.5, k + s), ax.p(n + 0.5, k - s)).intersect(rect);
-        painter.rect_filled(band, 0.0, Color32::from_rgba_unmultiplied(255, 255, 255, 18));
-        painter.line_segment([ax.p(0.5, k), ax.p(n + 0.5, k)], Stroke::new(1.0, Color32::from_rgb(200, 200, 200)));
-        painter.text(ax.p(0.5, k) + Vec2::new(4.0, -2.0), egui::Align2::LEFT_BOTTOM, format!("experiment {k:.4} ± {s:.4}"), egui::FontId::proportional(10.0), Color32::from_rgb(200, 200, 200));
-    }
-    let means: Vec<(f64, f64, f64)> =
-        it.gens.iter().filter_map(|g| g.k_mean.filter(|m| m.1 > 0.0).map(|(m, e)| (g.index as f64 + 1.0, m, e))).collect();
-    if means.len() > 1 {
-        let upper: Vec<Pos2> = means.iter().map(|&(x, m, e)| ax.p(x, m + e)).collect();
-        let lower: Vec<Pos2> = means.iter().map(|&(x, m, e)| ax.p(x, m - e)).collect();
-        for w in 0..means.len() - 1 {
-            let quad = vec![upper[w], upper[w + 1], lower[w + 1], lower[w]];
-            painter.add(egui::Shape::convex_polygon(quad, Color32::from_rgba_unmultiplied(255, 200, 80, 50), Stroke::NONE));
-        }
-        let line: Vec<Pos2> = means.iter().map(|&(x, m, _)| ax.p(x, m)).collect();
-        painter.add(egui::Shape::line(line, Stroke::new(2.0, MEAN_COLOUR)));
-    }
-    for g in &it.gens {
-        let c = if g.active { K_COLOUR } else { Color32::from_rgb(110, 115, 130) };
-        painter.circle_filled(ax.p(g.index as f64 + 1.0, g.k.clamp(ax.y.0, ax.y.1)), 2.2, c);
-    }
+/// The experiment's band as the k plot's reference line.
+fn experiment_refs(experiment: Option<(f64, f64)>) -> Vec<RefLine> {
+    experiment
+        .map(|(k, s)| RefLine { label: format!("experiment {k:.4} ± {s:.4}"), k, sigma: Some(s), colour: keffplot::REFERENCE_COLOUR })
+        .into_iter()
+        .collect()
 }
 
 impl McApp {
@@ -2254,18 +2170,21 @@ impl McApp {
         // under it on a narrow (portrait) one.
         let xs_on = self.xs_on && !self.xs.is_empty() && matches!(self.phase, Phase::Ready(Screen::Tracks(_)));
         // The layers view splits the same way: the bed beside its plot.
-        let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_) | Screen::Rods(_)));
+        let is_layers = matches!(self.phase, Phase::Ready(Screen::Layers(_)));
+        let is_core = matches!(self.phase, Phase::Ready(Screen::Core(_)));
         let is_beds = matches!(self.phase, Phase::Ready(Screen::Beds(_)));
-        let is_slice = is_layers || matches!(self.phase, Phase::Ready(Screen::Geometry(_) | Screen::Core));
-        // Run k_eff on a rung with tracks: the geometry and its neutrons
-        // beside the plots and the console (above them on a narrow screen).
+        let is_slice = is_layers || is_core || matches!(self.phase, Phase::Ready(Screen::Geometry(_)));
+        // Run k_eff on a rung with tracks: the geometry and its neutrons fill
+        // the main view, and k, entropy, the run's buttons and its console
+        // sit in the bottom dock (maintainer 2026-10-25, the same dock as the
+        // HTR-10 core's).
         let run_geo = is_run && self.run_tracks.is_some();
-        let (rect, xs_rect) = if run_geo && full.width() >= 700.0 && full.width() > full.height() {
-            let (a, b) = full.split_left_right_at_fraction(0.44);
-            (a, Some(b))
-        } else if run_geo {
-            let (a, b) = full.split_top_bottom_at_fraction(0.40);
-            (a, Some(b))
+        // The HTR-10 core: the right dock (top and rod views, reference
+        // graphs) on the whole height, then the bottom dock (k, entropy).
+        let views_split: Option<Split> = is_core.then(|| self.views_dock.split(full));
+        let keff_split: Option<Split> = (is_core || run_geo).then(|| self.keff_dock.split(views_split.map_or(full, |v| v.main)));
+        let (rect, xs_rect) = if let Some(k) = keff_split {
+            (k.main, None)
         } else if !(xs_on || is_layers) {
             (full, None)
         } else if full.width() >= 700.0 && full.width() > full.height() {
@@ -2339,7 +2258,7 @@ impl McApp {
                 }
                 let h = (rect.height() * 0.28).clamp(90.0, 180.0);
                 let plot = Rect::from_min_max(Pos2::new(rect.left() + 12.0, rect.bottom() - h - 30.0), Pos2::new(rect.right() - 12.0, rect.bottom() - 30.0));
-                draw_entropy(&painter, plot, it);
+                keffplot::draw_entropy(&painter, plot, &it.points(), it.shape(), Some(run_entropy_ceiling()), 12.0);
                 let label = match it.gens.last() {
                     Some(g) => format!("generation {} of {} · {} source neutrons shown (of {})", g.index + 1, it.total_gens(), it.sites.len(), it.cfg.n_particles),
                     None => format!("generation 0 · all {} neutrons start at the centre", it.cfg.n_particles),
@@ -2363,27 +2282,20 @@ impl McApp {
                 if it.pooled && !it.pool_line.is_empty() {
                     painter.text(rect.left_bottom() + Vec2::new(16.0, -76.0), egui::Align2::LEFT_BOTTOM, &it.pool_line, egui::FontId::proportional(12.0), Color32::from_rgb(200, 206, 120));
                 }
-                // Beside the geometry, the plots start at the pane's top; alone
-                // they leave room for the buttons over the main view.
-                let run_rect = xs_rect.unwrap_or(rect);
-                let top_pad = if run_rect.top() > full.top() + 1.0 { 6.0 } else { 52.0 };
-                match Self::run_view(ui, run_rect, &full_painter.with_clip_rect(run_rect), it, &self.run_cfg, self.run_text, experiment, top_pad) {
-                    RunAction::Start => {
-                        if let Some(link) = &self.link {
-                            it.cfg = self.run_cfg;
-                            it.start(link);
-                            if let Some(t) = self.run_tracks.as_mut() {
-                                *t = Tracks::for_run(t.keep > 0);
-                            }
+                match keff_split {
+                    // With a geometry: the plots and console in the bottom
+                    // dock (its buttons are drawn after, in its header).
+                    Some(k) => {
+                        if let Some(body) = k.body {
+                            Self::run_body(ui, body, &full_painter.with_clip_rect(body), it, &self.run_cfg, self.run_text, experiment);
                         }
                     }
-                    RunAction::Pause => it.state = RunState::Paused,
-                    RunAction::Resume => {
-                        it.state = RunState::Running;
-                        it.started_at = now_s() - it.elapsed;
+                    // Without one, the run fills the view, below the row of
+                    // buttons every demo keeps clear.
+                    None => {
+                        let action = Self::run_view(ui, full, &full_painter.with_clip_rect(full), it, &self.run_cfg, self.run_text, experiment, 52.0);
+                        Self::apply_run_action(action, it, self.link.as_ref(), &self.run_cfg, self.run_tracks.as_mut(), rung);
                     }
-                    RunAction::Stop => it.done(rung),
-                    RunAction::None => {}
                 }
             }
             Phase::Ready(Screen::Kinf(k)) => {
@@ -2412,14 +2324,18 @@ impl McApp {
                 }
             }
             Phase::Ready(Screen::Beds(b)) => b.draw(ui, rect, &painter, &geo_resp),
-            Phase::Ready(Screen::Core) => {
+            Phase::Ready(Screen::Core(v)) => {
                 if let Some(c) = self.core.as_mut() {
+                    // The whole core with its neutrons on the main view; the
+                    // top and rod views and the records in the right dock;
+                    // k and entropy in the bottom one.
                     c.canvas(ui, rect, &painter, &geo_resp, self.link.as_ref());
-                }
-            }
-            Phase::Ready(Screen::Rods(v)) => {
-                if let Some(c) = self.core.as_ref() {
-                    v.canvas(ui, rect, xs_rect, &painter, &full_painter, &geo_resp, c, self.link.as_ref(), self.run_text);
+                    if let Some(body) = views_split.and_then(|d| d.body) {
+                        v.dock(ui, body, &full_painter.with_clip_rect(body), c, self.link.as_ref(), self.run_text);
+                    }
+                    if let Some(body) = keff_split.and_then(|d| d.body) {
+                        c.keff_body(&full_painter.with_clip_rect(body), body, self.run_text, &v.curves);
+                    }
                 }
             }
             Phase::Ready(Screen::Layers(ly)) => {
@@ -2468,13 +2384,34 @@ impl McApp {
             }
         }
 
+        // The docks' toggles over their bodies, and in the bottom dock's
+        // header the run's own buttons (it shows them folded too, so a run
+        // starts and stops from the main view with every panel folded).
+        if let Some(d) = views_split {
+            self.views_dock.toggle(ui, &d);
+        }
+        if let Some(d) = keff_split {
+            let row = self.keff_dock.toggle(ui, &d);
+            let row = row.with_max_x(row.right() - 6.0);
+            match &mut self.phase {
+                Phase::Ready(Screen::Run(it)) => {
+                    let action = Self::run_buttons(ui, row, it, &self.run_cfg);
+                    Self::apply_run_action(action, it, self.link.as_ref(), &self.run_cfg, self.run_tracks.as_mut(), self.rung);
+                }
+                Phase::Ready(Screen::Core(_)) => {
+                    if let Some(c) = self.core.as_mut() {
+                        c.keff_buttons(ui, row);
+                    }
+                }
+                _ => {}
+            }
+        }
         let (sview, sview_rect) = match &mut self.phase {
             Phase::Ready(Screen::Geometry(sl)) => (Some(&mut sl.view), rect),
             Phase::Ready(Screen::Layers(ly)) => (Some(&mut ly.slicer.view), rect),
-            Phase::Ready(Screen::Rods(v)) => (Some(&mut v.side.view), rect),
             Phase::Ready(Screen::Beds(b)) => (Some(&mut b.view), rect),
             Phase::Ready(Screen::Walk(w)) => (Some(w.view_mut()), zoom_rect),
-            Phase::Ready(Screen::Core) => (self.core.as_mut().map(|c| &mut c.slicer.view), rect),
+            Phase::Ready(Screen::Core(_)) => (self.core.as_mut().map(|c| &mut c.slicer.view), rect),
             _ => (None, rect),
         };
         if let Some(v) = &sview {
@@ -2572,57 +2509,94 @@ impl McApp {
     /// `next` is the settings the next Run will use. GUI drawing code: no
     /// test (the estimate's text is `keff::eta_line` / `plan_line`, tested).
     #[allow(clippy::too_many_arguments)]
+    /// Run k_eff with no geometry to show: the button row along the top of
+    /// `rect`, then the note, the plots and the console.
     fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, next: &KeffConfig, text: f32, experiment: Option<(f64, f64)>, top_pad: f32) -> RunAction {
-        let top = rect.top() + top_pad;
-        let narrow = rect.width() < 700.0;
-        // Narrow: k above the entropy, so both are always on screen.
-        let plot_h = if narrow { ((rect.height() - 60.0) * 0.50).clamp(170.0, 340.0) } else { ((rect.height() - 60.0) * 0.36).clamp(110.0, 260.0) };
-        let plots = Rect::from_min_max(Pos2::new(rect.left() + 10.0, top), Pos2::new(rect.right() - 10.0, top + plot_h));
-        if narrow {
-            let (a, b) = plots.split_top_bottom_at_fraction(0.5);
-            draw_k(painter, a.with_max_y(a.bottom() - 3.0), it, experiment);
-            draw_entropy(painter, b.with_min_y(b.top() + 3.0), it);
-        } else {
-            let (a, b) = plots.split_left_right_at_fraction(0.62);
-            draw_k(painter, a, it, experiment);
-            draw_entropy(painter, b.translate(Vec2::new(8.0, 0.0)).with_max_x(plots.right()), it);
+        let row = Rect::from_min_size(Pos2::new(rect.left() + 10.0, rect.top() + top_pad), Vec2::new(rect.width() - 20.0, 36.0));
+        let action = Self::run_buttons(ui, row, it, next);
+        Self::run_body(ui, rect.with_min_y(row.bottom() + 4.0), painter, it, next, text, experiment);
+        action
+    }
+
+    /// Do what a run button asked.
+    fn apply_run_action(action: RunAction, it: &mut Iteration, link: Option<&McLink>, next: &KeffConfig, tracks: Option<&mut Tracks>, rung: Rung) {
+        match action {
+            RunAction::Start => {
+                if let Some(link) = link {
+                    it.cfg = *next;
+                    it.start(link);
+                    if let Some(t) = tracks {
+                        *t = Tracks::for_run(t.keep > 0);
+                    }
+                }
+            }
+            RunAction::Pause => it.state = RunState::Paused,
+            RunAction::Resume => {
+                it.state = RunState::Running;
+                it.started_at = now_s() - it.elapsed;
+            }
+            RunAction::Stop => it.done(rung),
+            RunAction::None => {}
         }
-        // One action button, between the plots and the console.
+    }
+
+    /// The run's one action button (Run / Pause / Resume / Run again), with
+    /// Stop beside it while a run is going: a phone's panel is folded, so the
+    /// run must be startable and stoppable from the main view. In `row`,
+    /// which is the bottom dock's header beside its toggle when there is a
+    /// geometry.
+    fn run_buttons(ui: &mut egui::Ui, row: Rect, it: &Iteration, next: &KeffConfig) -> RunAction {
         let mut action = RunAction::None;
-        let brow = Rect::from_min_size(Pos2::new(rect.left() + 10.0, plots.bottom() + 8.0), Vec2::new(rect.width() - 20.0, 36.0));
+        let h = row.height().min(44.0);
+        let narrow = row.width() < 300.0;
         let (label, act) = match it.state {
+            RunState::Idle if narrow => ("▶ Run k_eff".to_string(), RunAction::Start),
             RunState::Idle => (format!("▶ Run k_eff  ({} × [{} + {}])", next.n_particles, next.n_inactive, next.n_active), RunAction::Start),
-            RunState::Done => ("▶ Run again (settings in Controls »)".to_string(), RunAction::Start),
+            RunState::Done => ("▶ Run again".to_string(), RunAction::Start),
+            RunState::Running if narrow => (format!("⏸ {}/{}", it.gens.len(), it.total_gens()), RunAction::Pause),
             RunState::Running => (format!("⏸ Pause · gen {}/{} · {:.0} s", it.gens.len(), it.total_gens(), it.elapsed), RunAction::Pause),
             RunState::Paused => ("▶ Resume".to_string(), RunAction::Resume),
         };
         let going = matches!(it.state, RunState::Running | RunState::Paused);
-        // While a run is going, Stop sits beside Pause / Resume (a phone's
-        // panel is folded, so the main view must be able to end a long run).
         let stop_w = if going { 76.0 } else { 0.0 };
-        let bw = (brow.width() - stop_w).min(360.0);
-        if ui.put(Rect::from_min_size(brow.min, Vec2::new(bw, 36.0)), egui::Button::new(RichText::new(label).size(15.0))).clicked() {
+        let bw = (row.width() - stop_w).clamp(60.0, 360.0);
+        if ui.put(Rect::from_min_size(row.min, Vec2::new(bw, h)), egui::Button::new(RichText::new(label).size(15.0))).clicked() {
             action = act;
         }
-        if going && ui.put(Rect::from_min_size(brow.min + Vec2::new(bw + 6.0, 0.0), Vec2::new(stop_w - 6.0, 36.0)), egui::Button::new(RichText::new("■ Stop").size(15.0))).clicked() {
+        if going && ui.put(Rect::from_min_size(row.min + Vec2::new(bw + 6.0, 0.0), Vec2::new(stop_w - 6.0, h)), egui::Button::new(RichText::new("■ Stop").size(15.0))).clicked() {
             action = RunAction::Stop;
         }
-        // The run's size and, measured on this device, how long it takes.
+        action
+    }
+
+    /// The run's size and timing note, the k and entropy plots, and the
+    /// `openmc.run()`-style console, in `rect`: plots beside the console on a
+    /// wide box, above it on a narrow one.
+    fn run_body(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, next: &KeffConfig, text: f32, experiment: Option<(f64, f64)>) {
+        let going = matches!(it.state, RunState::Running | RunState::Paused);
+        let inner = rect.shrink2(Vec2::new(10.0, 4.0));
         let note = if going {
             crate::keff::eta_line(it.cfg.n_particles, it.total_gens(), it.gens.len(), it.elapsed).unwrap_or_else(|| "Timing the first generation…".to_string())
         } else {
             crate::keff::plan_line(next, it.measured_rate().or(it.rate))
         };
         let colour = if note.starts_with('⚠') { Color32::from_rgb(250, 200, 80) } else { Color32::from_rgb(170, 176, 190) };
-        let galley = painter.layout(note, egui::FontId::proportional(12.0), colour, brow.width());
-        let note_top = brow.bottom() + 4.0;
+        let galley = painter.layout(note, egui::FontId::proportional(12.0), colour, inner.width());
         let note_h = galley.size().y;
-        painter.galley(Pos2::new(brow.left(), note_top), galley, colour);
-        let console = Rect::from_min_max(Pos2::new(rect.left() + 10.0, note_top + note_h + 6.0), Pos2::new(rect.right() - 10.0, rect.bottom() - 10.0));
+        painter.galley(inner.min, galley, colour);
+        let rest = inner.with_min_y(inner.top() + note_h + 4.0);
+        let (plots, console) = if rest.width() >= 900.0 {
+            let (a, b) = rest.split_left_right_at_fraction(0.66);
+            (a.with_max_x(a.right() - 4.0), b.with_min_x(b.left() + 4.0))
+        } else {
+            let (a, b) = rest.split_top_bottom_at_fraction(if rest.width() < 640.0 { 0.66 } else { 0.6 });
+            (a.with_max_y(a.bottom() - 3.0), b.with_min_y(b.top() + 3.0))
+        };
+        keffplot::draw_pair(painter, plots, &it.points(), it.shape(), &experiment_refs(experiment), Some(run_entropy_ceiling()), 12.0);
         painter.rect_filled(console, 4.0, Color32::from_rgb(8, 9, 12));
         if it.lines.is_empty() {
             painter.text(console.center(), egui::Align2::CENTER_CENTER, "openmc.run()-style output appears here", egui::FontId::proportional(text), Color32::from_rgb(140, 146, 160));
-            return action;
+            return;
         }
         // Only the visible rows are laid out: a run of up to 5000
         // generations has a console line per generation, and laying out
@@ -2630,7 +2604,7 @@ impl McApp {
         let row_h = painter.layout_no_wrap("0".into(), egui::FontId::monospace(text), Color32::WHITE).size().y;
         let rows = it.lines.len() + usize::from(it.state == RunState::Running);
         ui.scope_builder(egui::UiBuilder::new().max_rect(console.shrink(6.0)), |ui| {
-            egui::ScrollArea::both().stick_to_bottom(true).auto_shrink([false, false]).show_rows(ui, row_h, rows, |ui, range| {
+            egui::ScrollArea::both().id_salt("run-console").stick_to_bottom(true).auto_shrink([false, false]).show_rows(ui, row_h, rows, |ui, range| {
                 for i in range {
                     match it.lines.get(i) {
                         Some(l) => ui.add(egui::Label::new(RichText::new(l).monospace().size(text).color(Color32::from_rgb(210, 216, 226))).extend()),
@@ -2639,7 +2613,6 @@ impl McApp {
                 }
             });
         });
-        action
     }
 }
 
@@ -2843,8 +2816,19 @@ mod tests {
             }
             assert_eq!(picker_shows(Mode::Run, views[0], &views), None);
         }
-        assert_eq!(view_label(WatchView::Core, "Fuel zone only: k∞"), "Whole core: live k_eff");
+        assert_eq!(view_label(WatchView::Core, "Fuel zone only: k∞"), "Whole core: layers, rods, live k_eff");
         assert_eq!(Rung::Htr10.kinf_case().map(|c| c.tab), Some("Fuel zone only: k∞"));
+    }
+
+    /// The bed N and the control rods are set in ONE tab (maintainer
+    /// 2026-10-25): there is no separate rods tab, and an old `?view=rods`
+    /// link opens the whole core, where the rods now are.
+    #[test]
+    fn layers_and_rods_share_the_whole_core_tab() {
+        let htr10 = watch_views(Rung::Htr10);
+        assert_eq!(htr10.iter().filter(|&&v| v == WatchView::Core).count(), 1, "{htr10:?}");
+        assert_eq!(WatchView::parse("rods"), Some(WatchView::Core));
+        assert_eq!(WatchView::parse("core"), Some(WatchView::Core));
     }
 
     /// gh:#876 item 2: with a run going or paused, a tap elsewhere is held
@@ -2863,7 +2847,7 @@ mod tests {
             assert_eq!(run_in_progress(&Phase::Ready(Screen::Generations(it))), busy, "{state:?}");
         }
         assert!(!run_in_progress(&Phase::Loading(LoadState::new(Rung::Godiva, Tier::Exact))));
-        assert!(!run_in_progress(&Phase::Ready(Screen::Core)));
+        assert!(!run_in_progress(&Phase::Ready(Screen::Core(crate::htr10::rods::RodsView::new(crate::htr10::Htr10::raster_info().expect("htr10 draws"), 0, None)))));
 
         let mut g = SwitchGuard::default();
         assert_eq!(g.request(to, false), Some(to), "nothing running: switch at once");

@@ -14,6 +14,12 @@
 //!   between two computed points it is interpolated and says so. Any other
 //!   combination has no recorded result, and the page says that instead of
 //!   guessing.
+//! - **Where they are on the page (since 2026-10-25):** the rod sliders are
+//!   in the whole-core tab's controls ([`controls_ui`]) beside the bed's N;
+//!   the side slice through the selected rod, the top slice, the rods'
+//!   depths and the recorded curves are in its right dock ([`RodsView`]);
+//!   k and entropy of the run in its bottom dock. ~~A "Control rods" tab of
+//!   its own~~ (2026-10-23 to 2026-10-25).
 //! - [`LiveSweep`]: k_eff at one setting, or a whole worth curve for the
 //!   bank or any one rod, run in this browser on the whole-core worker pool
 //!   ([`super::core::pool`]), one position after another: the pool rebuilds
@@ -448,16 +454,136 @@ pub fn summary(rods: &[f64; N]) -> String {
     }
 }
 
-// ─── the view ─────────────────────────────────────────────────────────────
+// ─── the controls ─────────────────────────────────────────────────────────
 
-/// The "Control rods" Watch view: a side slice through the selected rod, a
-/// top slice at bed mid-height, the ten rods' depths, the curves. The rods,
-/// the pool and the live results are the core view's
-/// ([`super::core::screen::CoreScreen`]), so both views show one state.
+/// The rods' part of the core's side panel: sync, the master and the ten
+/// rod sliders, "Withdraw all". GUI code, not reached by a test (exempt);
+/// its decisions are [`RodControls`]', which are.
+pub fn controls_ui(ui: &mut egui::Ui, rods: &mut RodControls) -> bool {
+    let before = rods.clone();
+    ui.label("Ten B4C rods in the side reflector (IAEA-TECDOC-1382 § 4.1.1.5): 0 % withdrawn (lower end z_T 119.2 cm, the benchmark state), 100 % fully in (394.2 cm).");
+    let mut sync = rods.sync;
+    if ui.checkbox(&mut sync, "Sync all rods").changed() {
+        rods.set_sync(sync);
+    }
+    ui.weak(if rods.sync {
+        "Synced: the master slider moves all ten together and every rod slider follows. Moving any rod slider moves them all."
+    } else {
+        "Not synced: each slider moves its own rod alone. Turning sync on puts every rod at the master slider's position."
+    });
+    let mut m = rods.master;
+    ui.add_enabled_ui(rods.sync, |ui| {
+        if ui.add(egui::Slider::new(&mut m, 0.0..=1.0).text("all rods").custom_formatter(|v, _| format!("{:.0} %", 100.0 * v))).changed() {
+            rods.set_master(m);
+        }
+    });
+    let az = nee_soon::htr10_rmc::reflector_geometry::control_rod_azimuths_deg();
+    egui::CollapsingHeader::new("Each rod").default_open(!rods.sync).show(ui, |ui| {
+        egui::Grid::new("rod-sliders").num_columns(2).spacing([6.0, 4.0]).show(ui, |ui| {
+            for i in 0..N {
+                let sel = rods.selected == i;
+                if ui.selectable_label(sel, format!("{} · {:.0}°", rod_label(i), az[i])).clicked() {
+                    rods.selected = i;
+                }
+                let mut f = rods.rods[i];
+                if ui.add(egui::Slider::new(&mut f, 0.0..=1.0).show_value(true).custom_formatter(|v, _| format!("{:.0} %", 100.0 * v))).changed() {
+                    rods.set_rod(i, f);
+                }
+                ui.end_row();
+            }
+        });
+        ui.weak("\"S3\" is a label: TECDOC Fig. 4.7 names the measured rod S3 but no source places it in a channel; rod 3 (81°) stands in for it under the model's symmetry. Tap a rod's name to cut the side view (in Views) through it.");
+    });
+    if ui.button("Withdraw all").clicked() {
+        rods.withdraw_all();
+    }
+    *rods != before
+}
+
+/// What the native records say about this setting, and the benchmark
+/// comparison. GUI code (exempt); the decisions are [`lookup`]'s and
+/// [`benchmark_lines`]'.
+pub fn recorded_ui(ui: &mut egui::Ui, curves: &[RecordedCurve], rods: &[f64; N]) {
+    ui.label(lookup_text(&lookup(curves, rods)));
+    egui::CollapsingHeader::new("Against the HTR-10 benchmark (IAEA-TECDOC-1382)").default_open(false).show(ui, |ui| {
+        for l in benchmark_lines(curves) {
+            ui.small(l);
+        }
+        ui.small("Calculations and the measurement are separate cases; none is fitted. Our bed holds 16 681 balls (N = 12); B4 asks for 126 cm (17 293 balls), the experiment had 17 000: a smaller core makes rods worth slightly more. \"S3\" is rod 3 (81°) by assumption.");
+    });
+}
+
+/// The worth-curve buttons, a sweep's progress and the live results, given
+/// the pool's state. GUI code (exempt); the decisions are [`LiveSweep`]'s.
+pub fn sweeps_ui(ui: &mut egui::Ui, core: &mut super::core::screen::CoreScreen) {
+    ui.weak("Several runs one after another on the worker pool, each at the statistics above: the workers rebuild the core with each position's rods first.");
+    let ready = core.pool.as_ref().is_some_and(|p| p.state.phase == super::core::pool::PoolPhase::Ready);
+    let busy = core.sweep.is_some() || core.pool.as_ref().and_then(|p| p.state.run.as_ref()).is_some_and(|r| r.going());
+    let sel = core.rods.selected;
+    ui.add_enabled_ui(ready && !busy, |ui| {
+        if ui.button("Worth curve: all ten rods (9 positions)").clicked() {
+            core.sweep = Some(LiveSweep::curve(Family::Bank, core.cfg));
+        }
+        if ui.button(format!("Worth curve: {} alone (9 positions)", rod_label(sel))).clicked() {
+            core.sweep = Some(LiveSweep::curve(Family::Single(sel), core.cfg));
+        }
+    });
+    if !ready {
+        ui.weak("Start the worker pool first (Run k_eff, above).");
+    }
+    if let Some(sw) = core.sweep.as_ref() {
+        let (d, n) = sw.progress();
+        let gen = core.pool.as_ref().and_then(|p| p.state.run.as_ref()).map(|r| (r.gens.len(), r.cfg.n_inactive + r.cfg.n_active));
+        ui.label(format!("{d} of {n} positions done · {}", core.sweep_status));
+        if let Some((g, t)) = gen {
+            ui.add(egui::ProgressBar::new((d as f32 + g as f32 / t.max(1) as f32) / n as f32).text(format!("generation {g} of {t}")));
+        }
+        if ui.button("■ Stop the sweep").clicked() {
+            if let Some(p) = core.pool.as_mut() {
+                p.state.stop_run();
+            }
+        }
+    }
+    if !core.live_results.is_empty() {
+        ui.label("Live results (yours, this page):");
+        let w0 = core.live_results.iter().find(|(_, r)| r.rods == [0.0; N]).map(|(_, r)| (r.k, r.sem));
+        for (_, r) in core.live_results.iter().rev().take(20) {
+            let mut line = format!("{}: k = {:.4} ± {:.4} ({} × [{} + {}], {:.0} s)", summary(&r.rods), r.k, r.sem, r.cfg.n_particles, r.cfg.n_inactive, r.cfg.n_active, r.wall_s);
+            if let (Some(w0), true) = (w0, r.rods != [0.0; N]) {
+                let (w, s) = worth(w0, (r.k, r.sem));
+                line.push_str(&format!("; worth against your all-out run {:.2} ± {:.2} % Δk/k", 100.0 * w, 100.0 * s));
+            }
+            ui.small(line);
+        }
+        if ui.small_button("Clear live results").clicked() {
+            core.live_results.clear();
+        }
+    }
+}
+
+// ─── the views dock ───────────────────────────────────────────────────────
+
+/// Which half of the views dock shows when it is too short for both.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DockTab {
+    Views,
+    Graphs,
+}
+
+/// The whole core's right dock (maintainer 2026-10-25: "the top view and
+/// control rod views with reference graphs should be a collapsible side
+/// panel"): a top slice at bed mid-height, a side slice through the
+/// selected rod, the ten rods' depths, the recorded k against rod position
+/// and the recorded k against loading height. The rods, the pool and the
+/// live results are the core's ([`super::core::screen::CoreScreen`]).
 pub struct RodsView {
     pub side: crate::raster::Slicer,
     pub top: crate::raster::Slicer,
     pub curves: Vec<RecordedCurve>,
+    /// The recorded k against loading height (the layers view's), if the
+    /// rung has it.
+    pub sweep: Option<crate::sweep::RecordedSweep>,
+    pub tab: DockTab,
     /// The rod the side slice is cut through.
     shown_rod: usize,
 }
@@ -482,14 +608,54 @@ pub fn slice_info(base: crate::raster::RasterInfo) -> crate::raster::RasterInfo 
     crate::raster::RasterInfo { ladder, start: S3_ROD, param: super::LADDER_N, ..base }
 }
 
+/// Where the dock puts each piece in `body`: `(top, side, bank, rod curves,
+/// k vs N)`, any of them `None` when the tab hides it. Both halves when the
+/// body is tall enough ([`DOCK_BOTH_PX`]), else the tab's half below a
+/// [`DOCK_TAB_PX`] row of tab buttons.
+pub fn dock_layout(body: Rect, tab: DockTab) -> [Option<Rect>; 5] {
+    let both = body.height() >= DOCK_BOTH_PX;
+    let area = if both { body } else { body.with_min_y(body.top() + DOCK_TAB_PX) };
+    let views = |r: Rect| {
+        let (slices, bank) = r.split_top_bottom_at_fraction(0.72);
+        let (top, side) = slices.split_left_right_at_fraction(0.5);
+        (top.shrink(3.0), side.shrink(3.0), bank.shrink(3.0))
+    };
+    let graphs = |r: Rect| {
+        let (a, b) = r.split_top_bottom_at_fraction(0.5);
+        (a.shrink(3.0), b.shrink(3.0))
+    };
+    if both {
+        let (v, g) = area.split_top_bottom_at_fraction(0.46);
+        let (t, s, b) = views(v);
+        let (c, n) = graphs(g);
+        [Some(t), Some(s), Some(b), Some(c), Some(n)]
+    } else {
+        match tab {
+            DockTab::Views => {
+                let (t, s, b) = views(area);
+                [Some(t), Some(s), Some(b), None, None]
+            }
+            DockTab::Graphs => {
+                let (c, n) = graphs(area);
+                [None, None, None, Some(c), Some(n)]
+            }
+        }
+    }
+}
+
+/// A dock body at least this tall shows the views and the graphs together, px.
+pub const DOCK_BOTH_PX: f32 = 640.0;
+/// The tab row of a shorter dock, px.
+pub const DOCK_TAB_PX: f32 = 40.0;
+
 impl RodsView {
-    pub fn new(base: crate::raster::RasterInfo, selected: usize) -> Self {
+    pub fn new(base: crate::raster::RasterInfo, selected: usize, sweep: Option<crate::sweep::RecordedSweep>) -> Self {
         let info = slice_info(base);
         let top = crate::raster::Slicer::new(info.clone(), N, super::LADDER_N);
-        Self { side: crate::raster::Slicer::new(info, selected, super::LADDER_N), top, curves: recorded(), shown_rod: selected }
+        Self { side: crate::raster::Slicer::new(info, selected, super::LADDER_N), top, curves: recorded(), sweep, tab: DockTab::Views, shown_rod: selected }
     }
 
-    /// A slice arrived (x-z for the side, x-y for the top).
+    /// A slice arrived (x-z or y-z for the side, x-y for the top).
     pub fn receive(&mut self, ctx: &egui::Context, req: crate::raster::RasterReq, map: Vec<u8>, secs: f64) {
         if req.basis == crate::raster::Basis::Xy {
             self.top.receive(ctx, req, map, secs);
@@ -498,202 +664,132 @@ impl RodsView {
         }
     }
 
-    /// The side panel: sync, the master and the ten rod sliders, what is
-    /// recorded for this setting, and the live runs. GUI code, not reached
-    /// by a test (exempt); its decisions are [`RodControls`]', [`lookup`]'s
-    /// and [`LiveSweep`]'s, which are.
-    pub fn panel(&mut self, ui: &mut egui::Ui, core: &mut super::core::screen::CoreScreen) {
-        let before = core.rods.clone();
-        ui.strong("Control rods");
-        ui.label("Ten B4C rods in the side reflector (IAEA-TECDOC-1382 § 4.1.1.5): 0 % withdrawn (lower end z_T 119.2 cm, the benchmark state), 100 % fully in (394.2 cm).");
-        let mut sync = core.rods.sync;
-        if ui.checkbox(&mut sync, "Sync all rods").changed() {
-            core.rods.set_sync(sync);
-        }
-        ui.weak(if core.rods.sync {
-            "Synced: the master slider moves all ten together and every rod slider follows. Moving any rod slider moves them all."
-        } else {
-            "Not synced: each slider moves its own rod alone. Turning sync on puts every rod at the master slider's position."
-        });
-        let mut m = core.rods.master;
-        ui.add_enabled_ui(core.rods.sync, |ui| {
-            if ui.add(egui::Slider::new(&mut m, 0.0..=1.0).text("all rods").custom_formatter(|v, _| format!("{:.0} %", 100.0 * v))).changed() {
-                core.rods.set_master(m);
-            }
-        });
-        let az = nee_soon::htr10_rmc::reflector_geometry::control_rod_azimuths_deg();
-        egui::Grid::new("rod-sliders").num_columns(2).spacing([6.0, 4.0]).show(ui, |ui| {
-            for i in 0..N {
-                let sel = core.rods.selected == i;
-                if ui.selectable_label(sel, format!("{} · {:.0}°", rod_label(i), az[i])).clicked() {
-                    core.rods.selected = i;
-                }
-                let mut f = core.rods.rods[i];
-                if ui.add(egui::Slider::new(&mut f, 0.0..=1.0).show_value(true).custom_formatter(|v, _| format!("{:.0} %", 100.0 * v))).changed() {
-                    core.rods.set_rod(i, f);
-                }
-                ui.end_row();
-            }
-        });
-        if ui.button("Withdraw all").clicked() {
-            core.rods.withdraw_all();
-        }
-        ui.weak("\"S3\" is a label: TECDOC Fig. 4.7 names the measured rod S3 but no source places it in a channel; rod 3 (81°) stands in for it under the model's symmetry. Tap a rod's name to cut the side view through it.");
-        if core.rods != before {
-            core.rods_changed_s = dhoby_ghaut::web_demo::platform::now_s();
-        }
-        ui.separator();
-        ui.strong("Recorded k_eff (native runs)");
-        ui.label(lookup_text(&lookup(&self.curves, &core.rods.rods)));
-        egui::CollapsingHeader::new("Against the HTR-10 benchmark (IAEA-TECDOC-1382)").default_open(false).show(ui, |ui| {
-            for l in benchmark_lines(&self.curves) {
-                ui.small(l);
-            }
-            ui.small("Calculations and the measurement are separate cases; none is fitted. Our bed holds 16 681 balls (N = 12); B4 asks for 126 cm (17 293 balls), the experiment had 17 000: a smaller core makes rods worth slightly more. \"S3\" is rod 3 (81°) by assumption.");
-        });
-        ui.separator();
-        ui.strong("Run live in this browser");
-        ui.weak("On the whole-core worker pool, at the statistics below: lower than the record's, so wider error bars. The workers rebuild the core with your rods before each run.");
-        ui.horizontal(|ui| {
-            ui.label("neutrons");
-            ui.add(egui::DragValue::new(&mut core.cfg.n_particles).range(200..=crate::keff::MAX_PARTICLES));
-            ui.label("skip");
-            ui.add(egui::DragValue::new(&mut core.cfg.n_inactive).range(2..=50));
-            ui.label("count");
-            ui.add(egui::DragValue::new(&mut core.cfg.n_active).range(crate::keff::MIN_ACTIVE..=200));
-        });
-        match core.pool.as_ref() {
-            None => {
-                ui.label("The pool is not started: it processes the core's nuclear data first (one to two minutes on a desktop, longer on a phone).");
-                if ui.button("Start the worker pool").clicked() {
-                    core.start_pool(ui.ctx());
-                }
-            }
-            Some(p) => {
-                ui.label(format!("Pool: {} workers, {:?}, {:.0} % of the data; core built with: {}.", p.state.live_workers(), p.state.phase, 100.0 * p.state.progress(), summary(&p.state.rods)));
-            }
-        }
-        let busy = core.sweep.is_some();
-        let sel = core.rods.selected;
-        ui.add_enabled_ui(core.pool.is_some() && !busy, |ui| {
-            if ui.button("Run k_eff at this setting").clicked() {
-                core.sweep = Some(LiveSweep::one(core.rods.rods, core.cfg));
-            }
-            if ui.button("Run a worth curve: all ten rods (9 positions)").clicked() {
-                core.sweep = Some(LiveSweep::curve(Family::Bank, core.cfg));
-            }
-            if ui.button(format!("Run a worth curve: {} alone (9 positions)", rod_label(sel))).clicked() {
-                core.sweep = Some(LiveSweep::curve(Family::Single(sel), core.cfg));
-            }
-        });
-        if let Some(sw) = core.sweep.as_ref() {
-            let (d, n) = sw.progress();
-            let gen = core.pool.as_ref().and_then(|p| p.state.run.as_ref()).map(|r| (r.gens.len(), r.cfg.n_inactive + r.cfg.n_active));
-            ui.label(format!("{d} of {n} positions done · {}", core.sweep_status));
-            if let Some((g, t)) = gen {
-                ui.add(egui::ProgressBar::new((d as f32 + g as f32 / t.max(1) as f32) / n as f32).text(format!("generation {g} of {t}")));
-            }
-            if ui.button("Stop").clicked() {
-                if let Some(p) = core.pool.as_mut() {
-                    p.state.stop_run();
-                }
-            }
-        }
-        if !core.live_results.is_empty() {
-            ui.label("Live results (yours, this page):");
-            let w0 = core.live_results.iter().find(|(_, r)| r.rods == [0.0; N]).map(|(_, r)| (r.k, r.sem));
-            for (fam, r) in core.live_results.iter().rev().take(20) {
-                let mut line = format!("{}: k = {:.4} ± {:.4} ({} × [{} + {}], {:.0} s)", summary(&r.rods), r.k, r.sem, r.cfg.n_particles, r.cfg.n_inactive, r.cfg.n_active, r.wall_s);
-                if let (Some(w0), true) = (w0, r.rods != [0.0; N]) {
-                    let (w, s) = worth(w0, (r.k, r.sem));
-                    line.push_str(&format!("; worth against your all-out run {:.2} ± {:.2} % Δk/k", 100.0 * w, 100.0 * s));
-                }
-                let _ = fam;
-                ui.small(line);
-            }
-            if ui.small_button("Clear live results").clicked() {
-                core.live_results.clear();
-            }
-        }
-    }
-
-    /// The main view: side slice in `rect` (zoomable), and in `aside` the
-    /// top slice, the ten rods' depths and the curves. GUI drawing, not
-    /// reached by a test (exempt).
-    pub fn canvas(
+    /// Draw the dock in `body`: the slices follow the pool's core (its N and
+    /// rods, what the run transports), the depths and the recorded lookup the
+    /// reader's rods. GUI drawing, not reached by a test (exempt); the layout
+    /// is [`dock_layout`]'s, which is.
+    pub fn dock(
         &mut self,
         ui: &mut egui::Ui,
-        rect: Rect,
-        aside: Option<Rect>,
+        body: Rect,
         painter: &egui::Painter,
-        full: &egui::Painter,
-        resp: &egui::Response,
         core: &crate::htr10::core::screen::CoreScreen,
         link: Option<&dhoby_ghaut::web_demo::link::Link<crate::engine::Request, crate::engine::Event>>,
         text: f32,
     ) {
-        let rods = core.rods.rods;
-        if core.rods.selected != self.shown_rod {
-            self.shown_rod = core.rods.selected;
-            self.side.go(self.shown_rod);
-        }
-        self.side.view.handle_input(ui, resp);
-        self.side.rods = rods;
-        self.top.rods = rods;
-        if let (Some(req), Some(l)) = (self.side.pump(rect), link) {
-            l.send(crate::engine::Request::Raster(req));
-        }
-        self.side.draw(painter, rect);
-        // The selected rod's channel, marked on the side slice (its
-        // horizontal coordinate in the slice's plane).
-        let az = nee_soon::htr10_rmc::reflector_geometry::control_rod_azimuths_deg()[self.shown_rod];
-        let (sn, cs) = az.to_radians().r_sin_cos();
-        let rc = nee_soon::htr10_rmc::reflector_geometry::ROD_CHANNEL_CENTRE_RADIUS_CM;
-        let x = if self.side.info.ladder[self.shown_rod].basis == crate::raster::Basis::Yz { rc * sn } else { rc * cs };
-        let p = self.side.view.to_screen(rect, x, 200.0);
-        painter.text(p - Vec2::new(0.0, 9.0), egui::Align2::CENTER_BOTTOM, rod_label(self.shown_rod), egui::FontId::proportional(text), Color32::WHITE);
-        painter.add(egui::Shape::convex_polygon(vec![p + Vec2::new(-5.0, -8.0), p + Vec2::new(5.0, -8.0), p], Color32::WHITE, Stroke::NONE));
-        painter.text(rect.left_top() + Vec2::new(10.0, 8.0), egui::Align2::LEFT_TOP, format!("Side slice through {} · {}", rod_label(self.shown_rod), summary(&rods)), egui::FontId::proportional(text * 0.9), Color32::from_rgb(210, 216, 226));
-        if self.side.busy() || !self.side.settled() || self.top.busy() || !self.top.settled() {
-            ui.ctx().request_repaint_after(std::time::Duration::from_millis(80));
-        }
-        let Some(a) = aside else { return };
-        let (upper, plot) = a.split_top_bottom_at_fraction(0.46);
-        let (topr, bank) = upper.split_left_right_at_fraction(0.5);
-        let topr = topr.shrink(3.0);
-        // Fitted to its box whenever the box changes size (no zoom on it).
-        if (self.top.view.fit_scale(topr) - self.top.view.scale).abs() > 1e-9 * self.top.view.scale.max(1e-9) {
-            self.top.view.fit(topr);
-        }
-        if let (Some(req), Some(l)) = (self.top.pump(topr), link) {
-            l.send(crate::engine::Request::Raster(req));
-        }
-        full.rect_filled(topr, 4.0, BG);
-        self.top.draw(&full.with_clip_rect(topr), topr);
-        let r = nee_soon::htr10_rmc::reflector_geometry::ROD_CHANNEL_CENTRE_RADIUS_CM;
-        let azs = nee_soon::htr10_rmc::reflector_geometry::control_rod_azimuths_deg();
-        let small = egui::FontId::proportional((text * 0.75).max(8.0));
-        for (i, a) in azs.iter().enumerate() {
-            let (sn, cs) = a.to_radians().r_sin_cos();
-            let q = self.top.view.to_screen(topr, (r + 14.0) * cs, (r + 14.0) * sn);
-            if topr.contains(q) {
-                full.text(q, egui::Align2::CENTER_CENTER, format!("{}:{:.0}%", i + 1, 100.0 * rods[i]), small.clone(), if i == self.shown_rod { Color32::WHITE } else { GREY });
+        painter.rect_filled(body, 0.0, BG);
+        if body.height() < DOCK_BOTH_PX {
+            let row = Rect::from_min_size(body.min + Vec2::new(4.0, 4.0), Vec2::new(body.width() - 8.0, DOCK_TAB_PX - 6.0));
+            let (a, b) = row.split_left_right_at_fraction(0.5);
+            for (r, t, label) in [(a, DockTab::Views, "Top & rod views"), (b, DockTab::Graphs, "Reference graphs")] {
+                if ui.put(r.shrink2(Vec2::new(2.0, 0.0)), egui::Button::selectable(self.tab == t, egui::RichText::new(label).size(14.0))).clicked() {
+                    self.tab = t;
+                }
             }
         }
-        full.text(topr.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, "top, bed mid-height (B4C shows where a rod reaches it)", small, GREY);
-        draw_bank(full, bank.shrink(3.0), &rods, self.shown_rod, text);
-        let live: Vec<(Family, Point)> = core
-            .live_results
-            .iter()
-            .filter_map(|(_, r)| Family::of(config_of(&r.rods)).map(|(fam, f)| (fam, Point { zt: zt(f), k: r.k, sigma: r.sem })))
-            .filter(|(fam, _)| Family::of(core.rods.config()).is_some_and(|(g, _)| g == *fam) || core.rods.config() == Config::Bank(0.0))
-            .collect();
-        let here = lookup(&self.curves, &rods);
-        draw_curves(full, plot.shrink(3.0), &self.curves, &live, &here, text);
-        if let Lookup::None(m) = &here {
-            let g = full.layout(m.clone(), egui::FontId::proportional(text * 0.85), Color32::from_rgb(250, 200, 80), plot.width() - 20.0);
-            full.galley(Pos2::new(plot.left() + 10.0, plot.top() + 2.0 * text + 8.0), g, Color32::from_rgb(250, 200, 80));
+        let [top, side, bank, curves, kvsn] = dock_layout(body, self.tab);
+        let small = egui::FontId::proportional((text * 0.75).max(8.0));
+        let built = core.pool_rods();
+        let reader = core.rods.rods;
+        let n = core.layers;
+        let fit_and_draw = |sl: &mut crate::raster::Slicer, r: Rect| {
+            // Fitted to its box whenever the box changes size (no zoom in the dock).
+            if (sl.view.fit_scale(r) - sl.view.scale).abs() > 1e-9 * sl.view.scale.max(1e-9) {
+                sl.view.fit(r);
+            }
+            sl.rods = built;
+            sl.param = if n as usize == super::core::random_bed::DEM_BED { super::LADDER_N } else { n };
+            if let (Some(req), Some(l)) = (sl.pump(r), link) {
+                l.send(crate::engine::Request::Raster(req));
+            }
+            painter.rect_filled(r, 4.0, Color32::from_rgb(10, 12, 16));
+            sl.draw(&painter.with_clip_rect(r), r);
+            if sl.busy() || !sl.settled() {
+                ui.ctx().request_repaint_after(std::time::Duration::from_millis(80));
+            }
+        };
+        if let Some(r) = top {
+            fit_and_draw(&mut self.top, r);
+            let rc = nee_soon::htr10_rmc::reflector_geometry::ROD_CHANNEL_CENTRE_RADIUS_CM;
+            let azs = nee_soon::htr10_rmc::reflector_geometry::control_rod_azimuths_deg();
+            for (i, a) in azs.iter().enumerate() {
+                let (sn, cs) = a.to_radians().r_sin_cos();
+                let q = self.top.view.to_screen(r, (rc + 14.0) * cs, (rc + 14.0) * sn);
+                if r.contains(q) {
+                    painter.text(q, egui::Align2::CENTER_CENTER, format!("{}:{:.0}%", i + 1, 100.0 * built[i]), small.clone(), if i == self.shown_rod { Color32::WHITE } else { GREY });
+                }
+            }
+            painter.text(r.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, "top, bed mid-height", small.clone(), Color32::WHITE);
         }
+        if let Some(r) = side {
+            if core.rods.selected != self.shown_rod {
+                self.shown_rod = core.rods.selected;
+                self.side.go(self.shown_rod);
+            }
+            fit_and_draw(&mut self.side, r);
+            // The selected rod's channel, marked (its horizontal coordinate
+            // in the slice's plane).
+            let az = nee_soon::htr10_rmc::reflector_geometry::control_rod_azimuths_deg()[self.shown_rod];
+            let (sn, cs) = az.to_radians().r_sin_cos();
+            let rc = nee_soon::htr10_rmc::reflector_geometry::ROD_CHANNEL_CENTRE_RADIUS_CM;
+            let x = if self.side.info.ladder[self.shown_rod].basis == crate::raster::Basis::Yz { rc * sn } else { rc * cs };
+            let p = self.side.view.to_screen(r, x, 200.0);
+            if r.contains(p) {
+                painter.add(egui::Shape::convex_polygon(vec![p + Vec2::new(-5.0, -8.0), p + Vec2::new(5.0, -8.0), p], Color32::WHITE, Stroke::NONE));
+            }
+            painter.text(r.left_top() + Vec2::new(4.0, 2.0), egui::Align2::LEFT_TOP, format!("side, through {}", rod_label(self.shown_rod)), small.clone(), Color32::WHITE);
+        }
+        if let Some(r) = bank {
+            draw_bank(painter, r, &reader, self.shown_rod, text);
+        }
+        if let Some(r) = curves {
+            let live: Vec<(Family, Point)> = core
+                .live_results
+                .iter()
+                .filter_map(|(_, res)| Family::of(config_of(&res.rods)).map(|(fam, f)| (fam, Point { zt: zt(f), k: res.k, sigma: res.sem })))
+                .filter(|(fam, _)| Family::of(core.rods.config()).is_some_and(|(g, _)| g == *fam) || core.rods.config() == Config::Bank(0.0))
+                .collect();
+            let here = lookup(&self.curves, &reader);
+            draw_curves(painter, r, &self.curves, &live, &here, text);
+            if let Lookup::None(m) = &here {
+                let g = painter.layout(m.clone(), egui::FontId::proportional(text * 0.8), Color32::from_rgb(250, 200, 80), r.width() - 20.0);
+                painter.galley(Pos2::new(r.left() + 10.0, r.top() + 2.0 * text + 8.0), g, Color32::from_rgb(250, 200, 80));
+            }
+        }
+        if let (Some(r), Some(sw)) = (kvsn, self.sweep.as_ref()) {
+            // Read at the reader's N (the lattice's N = 12 on the DEM bed);
+            // recorded with every rod withdrawn.
+            let at = if n as usize == super::core::random_bed::DEM_BED { super::LADDER_N } else { n };
+            crate::sweep::draw(painter, r, sw, at, text * 0.9);
+            if reader != [0.0; N] {
+                painter.text(r.right_bottom() + Vec2::new(-6.0, -4.0), egui::Align2::RIGHT_BOTTOM, "recorded with every rod withdrawn", small.clone(), Color32::from_rgb(250, 200, 80));
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod dock_tests {
+    use super::*;
+
+    /// A tall dock shows everything without overlap; a short one the tab's
+    /// half under its tab row.
+    #[test]
+    fn the_dock_shows_both_halves_when_tall_and_one_when_short() {
+        let tall = Rect::from_min_size(Pos2::ZERO, Vec2::new(460.0, 850.0));
+        let all = dock_layout(tall, DockTab::Views);
+        assert!(all.iter().all(Option::is_some));
+        let rs: Vec<Rect> = all.iter().flatten().copied().collect();
+        for i in 0..rs.len() {
+            for j in i + 1..rs.len() {
+                assert!(rs[i].intersect(rs[j]).area() <= 0.0, "{i} {j}");
+            }
+        }
+        let short = Rect::from_min_size(Pos2::ZERO, Vec2::new(340.0, 500.0));
+        let v = dock_layout(short, DockTab::Views);
+        assert!(v[0].is_some() && v[3].is_none() && v[0].unwrap().top() >= DOCK_TAB_PX);
+        let g = dock_layout(short, DockTab::Graphs);
+        assert!(g[0].is_none() && g[3].is_some() && g[4].is_some());
     }
 }
 

@@ -8,7 +8,12 @@
 //! - **layers**: the recorded k against loading height for N = 10–20 layers,
 //!   read with a slider, beside the bed at that N, against RMC and MCNP
 //!   ([`crate::sweep`]);
-//! - **control rods** (since 2026-10-23, gh:#1025, [`rods`]): the ten rods,
+//! - ~~**control rods** (its own tab)~~ **CHANGED 2026-10-25** (maintainer:
+//!   "change the number of stacks and control rod position under the same
+//!   tab"): the rods are set in the **whole core** tab beside the bed's N,
+//!   with k and entropy in its bottom dock and the views below in its right
+//!   dock (`?view=rods` still opens it). **Control rods** (since 2026-10-23,
+//!   gh:#1025, [`rods`]): the ten rods,
 //!   synced or one by one, drawn in a side slice through the selected rod and a
 //!   top slice; the recorded native k against rod position (all ten, and rod 3
 //!   "S3" alone) shown only for a setting on a recorded curve; any setting or a

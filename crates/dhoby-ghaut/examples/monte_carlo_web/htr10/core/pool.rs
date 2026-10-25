@@ -153,6 +153,11 @@ pub struct RunState {
 }
 
 impl RunState {
+    /// Bins of the run's entropy mesh, once the source has set it: the
+    /// entropy's ceiling is `log2` of this.
+    pub fn entropy_bins(&self) -> Option<usize> {
+        self.mesh.as_ref().map(|m| m.dimension.iter().product())
+    }
     fn new(cfg: KeffConfig, now_s: f64, epoch: u32, origin: RunOrigin, serial: Option<usize>) -> Self {
         Self {
             cfg,
