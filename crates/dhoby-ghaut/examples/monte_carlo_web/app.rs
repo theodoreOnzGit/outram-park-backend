@@ -2847,7 +2847,7 @@ mod tests {
             assert_eq!(run_in_progress(&Phase::Ready(Screen::Generations(it))), busy, "{state:?}");
         }
         assert!(!run_in_progress(&Phase::Loading(LoadState::new(Rung::Godiva, Tier::Exact))));
-        assert!(!run_in_progress(&Phase::Ready(Screen::Core(crate::htr10::rods::RodsView::new(crate::htr10::Htr10::raster_info().expect("htr10 draws"), 0, None)))));
+        assert!(!run_in_progress(&Phase::Ready(Screen::Core(crate::htr10::rods::RodsView::new(crate::table::Rung::Htr10.raster_info().expect("htr10 draws"), 0, None)))));
 
         let mut g = SwitchGuard::default();
         assert_eq!(g.request(to, false), Some(to), "nothing running: switch at once");
