@@ -44,6 +44,12 @@
 //! column is the moving rod's, and `rod_lower_end_zt_cm` is empty for a
 //! single rod (the rods are not at one position).
 //!
+//! `OUTRAM_ROD_STEEL_PIECES` (gh:#1027): `published` (default), `top_end_b4c`
+//! or `all_b4c`, the sensitivity variants of
+//! `control_rod::RodSteelPieces`, which make the rod's 2.3 cm top end, or
+//! every steel piece, B4C. Not a model of HTR-10. The CSV does not record
+//! the variant: give each variant its own `OUTRAM_ROD_CSV`.
+//!
 //! `main` is CLI glue (exempt from the reaching-test rule); the pieces it
 //! calls are tested where they live (`core_design`, `control_rod`,
 //! `keff_vs_height`).
@@ -51,7 +57,7 @@
 use std::io::Write;
 use std::time::Instant;
 
-use nee_soon::htr10_rmc::control_rod::BANK_CURVE_ZT_CM;
+use nee_soon::htr10_rmc::control_rod::{RodSteelPieces, BANK_CURVE_ZT_CM};
 use nee_soon::htr10_rmc::core_design::Htr10CoreDesign;
 use nee_soon::htr10_rmc::core_model::assemble_explicit_triso_with;
 use nee_soon::htr10_rmc::data::{load_htr10_nuclides, Htr10DataConfig, Htr10NuclideLayout};
@@ -81,9 +87,20 @@ fn cases() -> Vec<(usize, f64)> {
 /// The design for a case: rod insertion `f` on the bank, or on rod
 /// `single` (0-based) alone.
 fn design_for(f: f64, single: Option<usize>) -> Htr10CoreDesign {
+    let base = Htr10CoreDesign { rod_steel_pieces: steel_pieces(), ..Htr10CoreDesign::default() };
     match single {
-        None => Htr10CoreDesign::default().with_bank(f),
-        Some(i) => Htr10CoreDesign::default().with_rod(i, f),
+        None => base.with_bank(f),
+        Some(i) => base.with_rod(i, f),
+    }
+}
+
+/// The rod's steel pieces from `OUTRAM_ROD_STEEL_PIECES` (gh:#1027).
+fn steel_pieces() -> RodSteelPieces {
+    match std::env::var("OUTRAM_ROD_STEEL_PIECES").as_deref().map(str::trim) {
+        Err(_) | Ok("published") => RodSteelPieces::AsPublished,
+        Ok("top_end_b4c") => RodSteelPieces::TopEndB4c,
+        Ok("all_b4c") => RodSteelPieces::AllB4c,
+        Ok(v) => panic!("OUTRAM_ROD_STEEL_PIECES is published, top_end_b4c or all_b4c, got {v}"),
     }
 }
 
@@ -119,6 +136,7 @@ fn main() {
         "HTR-10 k_eff vs control-rod position (gh:#1025): {}",
         single.map_or("all ten rods together".to_string(), |i| format!("rod {} alone, nine withdrawn", i + 1))
     );
+    println!("  rod steel pieces: {:?} (gh:#1027)", steel_pieces());
     println!(
         "  {} x [{} + {}], seed {}, {threads} threads, {} case(s) to run, {} already in {csv}",
         stats.particles, stats.inactive, stats.active, stats.seed, todo.len(), done.len()

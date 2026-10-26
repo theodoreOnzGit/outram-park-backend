@@ -81,6 +81,38 @@ pub const AXIAL_IS_B4C: [bool; 11] = [
     false, true, false, true, false, true, false, true, false, true, false,
 ];
 
+/// **What the rod's steel pieces are built as** (gh:#1027): the two end
+/// pieces and the four joints between B4C sections, which TECDOC-1382
+/// § 4.1.1.5 gives as steel. Anything but [`RodSteelPieces::AsPublished`] is
+/// a **sensitivity variant**, not a model of HTR-10: it asks how much of k a
+/// steel piece carries by building it as a B4C section instead (B4C ring
+/// between the two steel sleeves, the B4C sections' radial build).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RodSteelPieces {
+    /// Steel, as published. The default.
+    #[default]
+    AsPublished,
+    /// The 2.3 cm top end piece as B4C; the rest as published.
+    TopEndB4c,
+    /// Every end piece and joint as B4C: one continuous absorber, an upper
+    /// bound on what the steel pieces carry.
+    AllB4c,
+}
+
+impl RodSteelPieces {
+    /// Whether section `i` of [`AXIAL_SECTIONS_CM`] (lower end first) is
+    /// built as B4C.
+    #[must_use]
+    pub fn is_b4c(self, i: usize) -> bool {
+        AXIAL_IS_B4C[i]
+            || match self {
+                Self::AsPublished => false,
+                Self::TopEndB4c => i + 1 == AXIAL_SECTIONS_CM.len(),
+                Self::AllB4c => true,
+            }
+    }
+}
+
 /// Axial coordinate of the rod lower end when **fully withdrawn** \[cm\].
 pub const LOWER_END_WITHDRAWN_CM: f64 = 119.2;
 /// Axial coordinate of the rod lower end when **fully inserted** \[cm\].

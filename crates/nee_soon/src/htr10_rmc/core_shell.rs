@@ -163,6 +163,8 @@ pub(super) struct CoreShell {
     /// `z_T` \[cm\] of each rod's lower end (gh:#580; one per rod since
     /// 2026-10-23, gh:#1025).
     rod_lower_ends_zt_cm: [f64; super::control_rod::N_CONTROL_RODS],
+    /// What the rods' steel pieces are built as (gh:#1027).
+    rod_steel_pieces: super::control_rod::RodSteelPieces,
     /// Whole particles the TRISO lattice holds per fuel zone.
     triso_particles: usize,
     triso_lattice: RectLattice,
@@ -489,6 +491,7 @@ impl CoreShell {
             zone_map,
             withdrawn_rods,
             rod_lower_ends_zt_cm,
+            rod_steel_pieces: design.rod_steel_pieces,
             triso_particles: n_particles,
             triso_lattice,
             reflector_built: false,
@@ -503,6 +506,7 @@ impl CoreShell {
         let zone_map = self.zone_map;
         let withdrawn_rods = self.withdrawn_rods;
         let rod_lower_ends_zt_cm = self.rod_lower_ends_zt_cm;
+        let rod_steel_pieces = self.rod_steel_pieces;
         let refl_top = self.frame.refl_top;
         let has_refl = self.frame.has_refl;
         let (surfaces, cells, universes) =
@@ -527,6 +531,7 @@ impl CoreShell {
                 ReflectorOptions {
                     withdrawn_rods,
                     rod_lower_ends_zt_cm,
+                    rod_steel_pieces,
                 },
                 ReflectorMaterials {
                     helium: mat::HELIUM,

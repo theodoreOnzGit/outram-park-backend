@@ -116,9 +116,7 @@ use outram_mc_libs::geometry::surface::{
 };
 use outram_mc_libs::geometry::universe::Universe;
 
-use super::control_rod::{
-    AXIAL_IS_B4C, AXIAL_SECTIONS_CM, N_CONTROL_RODS,
-};
+use super::control_rod::{AXIAL_SECTIONS_CM, N_CONTROL_RODS};
 
 /// First cell id of the reflector's cells, clear of the bed-tile id ranges.
 pub const REFLECTOR_CELL_ID_BASE: i32 = 100_000;
@@ -563,6 +561,9 @@ pub(super) struct ReflectorOptions {
     /// (`core_design::Htr10CoreDesign::rod_insertions`, gh:#580; one per rod
     /// since 2026-10-23, gh:#1025).
     pub rod_lower_ends_zt_cm: [f64; N_CONTROL_RODS],
+    /// What the rods' steel pieces are built as (gh:#1027; default the
+    /// published steel).
+    pub rod_steel_pieces: super::control_rod::RodSteelPieces,
 }
 
 /// Material slots the reflector needs, supplied by `core_model` so this module
@@ -751,7 +752,8 @@ pub(super) fn build_reflector(
             cells,
             Cell::material(new_id(), wall.clone().and(Rgn::ins(p_end)).0, he, 293.6),
         ));
-        for (&len, &is_b4c) in AXIAL_SECTIONS_CM.iter().zip(AXIAL_IS_B4C.iter()) {
+        for (i, &len) in AXIAL_SECTIONS_CM.iter().enumerate() {
+            let is_b4c = opts.rod_steel_pieces.is_b4c(i);
             let zt_hi = zt_lo - len;
             let lo = zplane(s, frame.lz(zt_lo));
             // A section that reaches the model top runs on up, unbounded: the
