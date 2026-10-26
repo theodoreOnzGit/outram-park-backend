@@ -124,3 +124,39 @@ consistency check of the page's bookkeeping, not a result.
 - A real phone (only an emulated viewport) and a real GPU.
 - The other rungs' Run mode beyond Godiva (they take the same code path).
 - The layout at 150 % browser zoom.
+
+## 2026-10-26: all run text in the bottom panel
+
+**Change** (maintainer: "the text tends to block out the reactor view ...
+except for the number of pebbles in the core and control rod state, all text
+should be in the bottom panel ... consistent for all keff simulation"):
+
+- HTR-10: the picture keeps two lines, the bed with its core pebbles
+  (`random_bed::LATTICE_CORE_BALLS`, N = 10..20: 14 021 to 27 321, pinned to
+  the built beds by `the_pebble_counts_are_the_beds`) and the rod state.
+  Everything else (live/recorded, data, workers, k line, time left, failures,
+  the per-generation console) is in the bottom panel's text pane; restart and
+  reprocess buttons are in its header.
+- Every rung's Run mode: the same panel layout (`keffplot::body_layout`:
+  plots, text pane, one-line strip); the pool line and the drawn-neutrons
+  note left the picture.
+
+Screenshots: `shots_2026_10_26/` (phone and desktop, and a live HTR-10 run
+on rods set to 75 %: compared with the recorded curve interpolated there).
+
+**Lag, A/B on one host the same day** (`lagcheck_ab_2026_10_26/`, the same
+`web/lagcheck.js`, headless software rendering, 2 workers), before the change
+(`530515e19`) and after:
+
+| | before | after |
+|---|---|---|
+| median frame while data process | 133 ms | 133 ms |
+| median frame during the run | 150 ms | 167 ms (one 16.7 ms step) |
+| title after a rod drag (median / max) | 134 / 206 ms | 136 / 282 ms |
+| worst p95 of a 3 s sample, processing | 350 ms | 567 ms (one sample) |
+| data ready | 752 s | 734 s |
+
+No regression. Both are slower than the 2026-10-25 table above because the
+host was (its worker-side data processing took 734–752 s against 575 s): the
+first single-arm re-measurement after the change read 133 / 175 ms and would
+have looked like a regression without this control.
