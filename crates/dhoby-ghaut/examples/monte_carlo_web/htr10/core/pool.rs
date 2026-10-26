@@ -150,6 +150,11 @@ pub struct RunState {
     pub serial: Option<usize>,
     /// Stopped by the reader: not going, not failed.
     pub stopped: bool,
+    /// The bed's layers and the rods the core held when the run started
+    /// (the pool may be rebuilt with others after it ends; what the run's
+    /// k is compared with follows these, not the pool's).
+    pub layers: usize,
+    pub rods: [f64; super::random_bed::N_RODS],
 }
 
 impl RunState {
@@ -177,6 +182,8 @@ impl RunState {
             origin,
             serial,
             stopped: false,
+            layers: 0,
+            rods: [0.0; super::random_bed::N_RODS],
         }
     }
 
@@ -658,7 +665,9 @@ impl PoolState {
             return Err("a run is already going (it may still be sampling its initial source); wait for it to finish".into());
         }
         let epoch = self.next_epoch();
-        self.run = Some(RunState::new(cfg, now_s, epoch, RunOrigin::Fresh, None));
+        let mut run = RunState::new(cfg, now_s, epoch, RunOrigin::Fresh, None);
+        (run.layers, run.rods) = (self.layers, self.rods);
+        self.run = Some(run);
         Ok(())
     }
 
@@ -684,7 +693,7 @@ impl PoolState {
         };
         let epoch = self.next_epoch();
         let busy = (0..self.workers).filter(|&v| self.busy[v]).count();
-        let run = RunState::new(
+        let mut run = RunState::new(
             cfg,
             now_s,
             epoch,
@@ -695,6 +704,7 @@ impl PoolState {
             },
             serial,
         );
+        (run.layers, run.rods) = (self.layers, self.rods);
         let line = format!(
             "{} (replacing run {}); {busy} worker{} still busy with the old run: their replies will be discarded",
             run.describe(),

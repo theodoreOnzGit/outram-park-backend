@@ -1096,5 +1096,13 @@ mod tests {
         assert_eq!(one.step(&mut s, 5.0), SweepStep::Running { i: 0, n: 1 });
         assert_eq!(one.progress(), (0, 1));
         assert!(!one.done());
+        // The run remembers the core it ran on (2026-10-25): rebuilding the
+        // pool with other rods afterwards does not change what its k is
+        // compared with.
+        assert_eq!(s.run.as_ref().map(|r| (r.layers, r.rods)), Some((12, [0.5; N])));
+        s.stop_run();
+        s.set_rods([1.0; N]).expect("between runs");
+        assert_eq!(s.rods, [1.0; N]);
+        assert_eq!(s.run.as_ref().map(|r| r.rods), Some([0.5; N]));
     }
 }

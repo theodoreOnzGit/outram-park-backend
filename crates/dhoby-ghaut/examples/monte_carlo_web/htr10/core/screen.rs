@@ -425,6 +425,7 @@ impl CoreScreen {
         if self.autostart && self.pool.is_none() {
             self.start_pool(ctx);
         }
+        let mut autostart_now = false;
         if let Some(p) = self.pool.as_mut() {
             for n in p.pump() {
                 match n {
@@ -444,9 +445,9 @@ impl CoreScreen {
                     Note::RunDone => {}
                 }
             }
-            if self.autostart && p.state.phase == PoolPhase::Ready && p.state.run.is_none() {
-                let _ = p.state.start_run(self.cfg, now_s());
-            }
+            // Autostart goes through the same door as the Start button, so
+            // it too runs on the reader's rods (a URL may set them).
+            autostart_now = self.autostart && p.state.phase == PoolPhase::Ready && p.state.run.is_none() && self.sweep.is_none();
             // Rods (gh:#1025): a sweep drives the pool itself; otherwise the
             // pool's core follows the reader's rods once they rest.
             if let Some(sw) = self.sweep.as_mut() {
@@ -470,6 +471,9 @@ impl CoreScreen {
             }
             // A pool failure is shown once, by the pool's status line.
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
+        }
+        if autostart_now {
+            self.start_run_here();
         }
         // The next neutron.
         if self.current.as_ref().is_none_or(Anim::finished) && self.playing {
@@ -826,9 +830,11 @@ impl CoreScreen {
         let cfg = run.map_or(self.cfg, |r| r.cfg);
         let pts: Vec<GenPoint> = run.map(|r| r.gens.iter().map(|g| GenPoint::from(&g.gen)).collect()).unwrap_or_default();
         let shape = RunShape { n_inactive: cfg.n_inactive, total: cfg.n_inactive + cfg.n_active };
-        let built = self.pool_rods();
-        let dem = self.layers as usize == super::random_bed::DEM_BED;
-        let n = if dem { super::super::LADDER_N as usize } else { self.layers as usize };
+        // What the run ran (the pool may have been rebuilt since), else what
+        // the next run will: its references follow that.
+        let (built, layers) = run.map_or((self.pool_rods(), self.layers as usize), |r| (r.rods, r.layers));
+        let dem = layers == super::random_bed::DEM_BED;
+        let n = if dem { super::super::LADDER_N as usize } else { layers };
         let mut refs = Vec::new();
         if built == super::random_bed::WITHDRAWN {
             if let Some((k, s, rmc)) = record_row(n) {
@@ -847,7 +853,7 @@ impl CoreScreen {
         let mean = pts.last().and_then(|g| g.k_mean);
         let line = match (run, mean) {
             (None, _) => format!("No run yet. Next: {} · bed {} · rods: {}", crate::keff::settings_line(&self.cfg), super::random_bed::label(self.layers as usize), crate::htr10::rods::summary(&self.rods.rods)),
-            (Some(_), None) => format!("Bed {} · rods: {} · inactive generations", super::random_bed::label(self.layers as usize), crate::htr10::rods::summary(&built)),
+            (Some(_), None) => format!("Bed {} · rods: {} · inactive generations", super::random_bed::label(layers), crate::htr10::rods::summary(&built)),
             (Some(_), Some((m, e))) => {
                 let mut l = format!("k = {m:.5} ± {e:.5} · rods: {}", crate::htr10::rods::summary(&built));
                 if let Some(r) = refs.iter().find(|r| r.sigma.is_some()) {
