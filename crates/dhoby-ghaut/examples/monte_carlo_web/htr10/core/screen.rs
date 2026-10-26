@@ -543,68 +543,65 @@ impl CoreScreen {
             draw_track(painter, to_screen, &a.hist, upto, 255, true, None);
             ui.ctx().request_repaint();
         }
-        // Status on the main view (it shows with the panel folded).
-        let mut lines: Vec<(String, Color32)> = Vec::new();
-        let label = if self.live {
-            "LIVE: neutrons of the k_eff run in this tab's workers"
-        } else {
-            "RECORDED: tracks baked natively from the same model, code and seed (2026-10-07)"
-        };
-        lines.push((
-            label.into(),
-            if self.live {
-                Color32::from_rgb(130, 230, 140)
-            } else {
-                Color32::from_rgb(250, 200, 80)
-            },
-        ));
-        if let Some(p) = &self.pool {
-            lines.extend(status_lines(p));
-        }
-        if let Some(e) = &self.error {
-            lines.push((format!("FAILED: {e}"), Color32::from_rgb(255, 110, 110)));
-        }
-        // Below the top row of buttons, and on a narrow view below the
-        // folded Views tab too (`dhoby_ghaut::web_demo::dock`).
+        // On the picture, only what it shows (maintainer 2026-10-26: "except
+        // for the number of pebbles in the core and control rod state, all
+        // text should be in the bottom panel"): the bed with its pebbles, and
+        // the rods the drawn core holds. The run's status, the pool's and any
+        // failure are in the bottom panel (`Self::status`).
         let mut y = rect.top() + if rect.width() < 560.0 { 108.0 } else { 52.0 };
-        for (t, c) in lines {
-            let g = painter.layout(
-                t,
-                egui::FontId::proportional(12.5),
-                c,
-                (rect.width() - 24.0).max(100.0),
-            );
-            let bg = Rect::from_min_size(
-                Pos2::new(rect.left() + 8.0, y - 2.0),
-                g.size() + Vec2::new(8.0, 4.0),
-            );
+        for t in self.picture_lines() {
+            let c = Color32::from_rgb(220, 226, 236);
+            let g = painter.layout(t, egui::FontId::proportional(12.5), c, (rect.width() - 24.0).max(100.0));
+            let bg = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y - 2.0), g.size() + Vec2::new(8.0, 4.0));
             painter.rect_filled(bg, 4.0, Color32::from_rgba_unmultiplied(14, 16, 20, 200));
             let h = g.size().y;
             painter.galley(Pos2::new(rect.left() + 12.0, y), g, c);
             y += h + 6.0;
         }
-        // The restart buttons on the main view too, so they show with the
-        // panel folded on a phone (gh:#817; the mobile-first rule's status
-        // on the main view).
-        let w = (rect.width() - 24.0).clamp(120.0, 340.0);
-        let mut reprocess = false;
-        if let Some(p) = self.pool.as_mut() {
-            if restart_wanted(&p.state) {
-                for (kind, label) in restart_labels(&p.state) {
-                    let b = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y), Vec2::new(w, 36.0));
-                    if ui.put(b, egui::Button::new(label)).clicked() {
-                        restart(&mut p.state, kind);
-                    }
-                    y += 42.0;
-                }
-            } else if matches!(p.state.phase, PoolPhase::Failed(_)) {
-                let b = Rect::from_min_size(Pos2::new(rect.left() + 8.0, y), Vec2::new(w, 36.0));
-                reprocess = ui.put(b, egui::Button::new("⟳ Reprocess the data (new workers)")).clicked();
-            }
+    }
+
+    /// The two lines the picture keeps: the bed drawn (with its core
+    /// pebbles) and the rods of the core drawn.
+    pub fn picture_lines(&self) -> [String; 2] {
+        [
+            format!("Bed: {}", super::random_bed::label(self.layers as usize)),
+            format!("Control rods: {}", crate::htr10::rods::summary(&self.pool_rods())),
+        ]
+    }
+
+    /// Everything the run says, for the bottom panel's text pane: whose
+    /// neutrons the picture shows, the pool (data, workers, failures), the
+    /// run's last generation and its time left. The picture's own two lines
+    /// ([`Self::picture_lines`]) are not repeated.
+    pub fn status(&self) -> Vec<(String, Color32)> {
+        let mut lines: Vec<(String, Color32)> = vec![if self.live {
+            ("LIVE: the picture shows neutrons of the k_eff run in this tab's workers".into(), crate::keffplot::LIVE)
+        } else {
+            ("RECORDED: the picture shows tracks baked natively from the same model, code and seed (2026-10-07)".into(), crate::keffplot::AMBER)
+        }];
+        if let Some(p) = &self.pool {
+            lines.extend(status_lines(p).into_iter().filter(|(t, _)| !t.starts_with("Bed: ") && !t.starts_with("Control rods: ")));
         }
-        if reprocess {
-            self.reprocess(ui.ctx());
+        if let Some(e) = &self.error {
+            lines.push((format!("FAILED: {e}"), crate::keffplot::RED));
         }
+        if self.sweep.is_some() {
+            lines.push((format!("Worth-curve sweep: {}", self.sweep_status), crate::keffplot::STATUS));
+        }
+        lines
+    }
+
+    /// The run's console: one row per generation, as the side panel's table
+    /// (`gen  k  H  mean ± σ  wall`).
+    pub fn console(&self) -> Vec<String> {
+        let Some(run) = self.pool.as_ref().and_then(|p| p.state.run.as_ref()) else { return Vec::new() };
+        let mut v = vec![format!("{} ({})", run.describe(), crate::keff::settings_line(&run.cfg)), " gen   k        H      mean ± σ             wall".to_string()];
+        v.extend(run.gens.iter().map(|g| {
+            let mean = g.gen.k_mean.map_or(String::new(), |(m, e)| format!("  {m:.5} ± {e:.5}"));
+            let h = g.gen.entropy.map_or("      ".to_string(), |h| format!("  {h:.3}"));
+            format!("{:>4}  {:.5}{h}{mean}  {:.1} s", g.gen.index + 1, g.gen.k, g.wall_s)
+        }));
+        v
     }
 
     /// Whether a run or a sweep is going (the bed and the rods the pool
@@ -778,10 +775,26 @@ impl CoreScreen {
             return;
         };
         let s = &mut p.state;
-        match &s.phase {
-            PoolPhase::Ready => {}
-            PoolPhase::Failed(_) => text = Some(note("Pool failed: see the main view".into(), Color32::from_rgb(255, 110, 110))),
-            _ => text = Some(note(format!("Preparing the data: {:.0} %", 100.0 * s.progress()), grey)),
+        // After a failure, its remedies take the Run button's place (gh:#817;
+        // they were on the picture until 2026-10-26).
+        if matches!(s.phase, PoolPhase::Failed(_)) {
+            if button(ui, one, if narrow { "⟳ Reprocess".into() } else { "⟳ Reprocess the data (new workers)".into() }) {
+                self.reprocess(ui.ctx());
+            }
+            return;
+        }
+        if restart_wanted(s) {
+            let half = Vec2::new(((row.width() - 6.0) / 2.0).min(260.0), h);
+            for (i, (kind, label)) in restart_labels(s).into_iter().enumerate() {
+                let label = if narrow { label.split(" (").next().unwrap_or(&label).to_string() } else { label };
+                if button(ui, Rect::from_min_size(row.min + Vec2::new(i as f32 * (half.x + 6.0), 0.0), half), label) {
+                    restart(s, kind);
+                }
+            }
+            return;
+        }
+        if s.phase != PoolPhase::Ready {
+            text = Some(note(format!("Preparing the data: {:.0} %", 100.0 * s.progress()), grey));
         }
         if text.is_none() {
             let run = s.run.as_ref();
@@ -823,7 +836,7 @@ impl CoreScreen {
     /// `crate::keffplot`) against what is recorded for the core it runs: the
     /// record and RMC at its N with every rod out, the recorded rod curve at
     /// its rods, else nothing. A line above says the run's mean against them.
-    pub fn keff_body(&self, painter: &egui::Painter, rect: Rect, text: f32, curves: &[crate::htr10::rods::RecordedCurve]) {
+    pub fn keff_body(&self, ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect, text: f32, curves: &[crate::htr10::rods::RecordedCurve]) {
         use crate::keffplot::{self, GenPoint, RefLine, RunShape};
         let rect = rect.shrink2(Vec2::new(8.0, 4.0));
         let run = self.pool.as_ref().and_then(|p| p.state.run.as_ref());
@@ -864,14 +877,13 @@ impl CoreScreen {
                 l
             }
         };
-        // The line goes in the strip the dock keeps clear along its bottom,
-        // left of the page's References button.
-        use dhoby_ghaut::web_demo::dock::{REFS_CLEAR_PX, REFS_W_PX};
-        let strip = Rect::from_min_max(Pos2::new(rect.left(), rect.bottom() - REFS_CLEAR_PX + 6.0), Pos2::new(rect.right() - REFS_W_PX - 8.0, rect.bottom()));
-        let g = painter.layout(line, egui::FontId::proportional((text * 0.85).max(9.0)), Color32::from_rgb(210, 216, 226), strip.width().max(80.0));
-        painter.galley(strip.min, g, Color32::from_rgb(210, 216, 226));
+        // Laid out as every k_eff run's bottom panel (`keffplot::body_layout`):
+        // plots, the text pane (status and console) and the one-line strip.
+        let (plots, pane, strip) = keffplot::body_layout(rect);
+        keffplot::draw_strip(painter, strip, line, Color32::from_rgb(210, 216, 226), text);
         let ceiling = run.and_then(RunState::entropy_bins).map(|b| (b as f64).r_log2());
-        keffplot::draw_pair(painter, rect.with_max_y(rect.bottom() - REFS_CLEAR_PX), &pts, shape, &refs, ceiling, (text * 0.92).max(9.0));
+        keffplot::draw_pair(painter, plots, &pts, shape, &refs, ceiling, (text * 0.92).max(9.0));
+        keffplot::draw_text_pane(ui, painter, pane, &self.status(), &self.console(), "", (text * 0.9).max(9.0), "core-console");
     }
 }
 
@@ -1253,6 +1265,22 @@ pub const NOTES: &[&str] = &[
 mod tests {
     use super::*;
     use crate::htr10::core::{AssemblyReport, CoreEv};
+
+    /// The picture keeps only the bed (with its pebbles) and the rods; every
+    /// other line is the bottom panel's, and it does not repeat those two
+    /// (maintainer 2026-10-26).
+    #[test]
+    fn the_picture_keeps_only_the_bed_and_the_rods() {
+        let info = crate::table::Rung::Htr10.raster_info().expect("raster");
+        let mut screen = CoreScreen::new(info, 1.0, false);
+        assert_eq!(screen.picture_lines(), ["Bed: Şeker lattice, N = 12 · 16 681 pebbles".to_string(), "Control rods: all ten withdrawn (the record's state)".to_string()]);
+        let status = screen.status();
+        assert!(status[0].0.starts_with("RECORDED"), "{status:?}");
+        assert!(status.iter().all(|(t, _)| !t.starts_with("Bed: ") && !t.starts_with("Control rods: ")));
+        assert!(screen.console().is_empty(), "no run, no console");
+        screen.layers = 20.0;
+        assert!(screen.picture_lines()[0].ends_with("27 321 pebbles"));
+    }
 
     /// The pool follows the reader's rods only between runs, once they
     /// rest, and never while a sweep drives it (gh:#1025).

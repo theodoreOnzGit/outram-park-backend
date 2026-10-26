@@ -214,6 +214,80 @@ pub fn pair_rects(rect: Rect) -> (Rect, Rect) {
     }
 }
 
+/// A status line in the text pane: what it says and its colour.
+pub type StatusLine = (String, Color32);
+
+/// Status text: white.
+pub const STATUS: Color32 = Color32::from_rgb(220, 226, 236);
+/// Live, good news: green.
+pub const LIVE: Color32 = Color32::from_rgb(130, 230, 140);
+/// Recorded or a caveat: amber.
+pub const AMBER: Color32 = Color32::from_rgb(250, 200, 80);
+/// Failure: red.
+pub const RED: Color32 = Color32::from_rgb(255, 110, 110);
+
+/// Where every run's bottom-dock body puts things (maintainer 2026-10-26:
+/// "all text should be in the bottom panel ... consistent for all keff
+/// simulation"): `(plots, text pane, one-line strip)`. The strip is the
+/// dock's clear band along its bottom, left of the page's References
+/// button; the text pane is beside the plots on a wide body, under them on
+/// a narrow one.
+pub fn body_layout(rect: Rect) -> (Rect, Rect, Rect) {
+    use dhoby_ghaut::web_demo::dock::{REFS_CLEAR_PX, REFS_W_PX};
+    let strip = Rect::from_min_max(Pos2::new(rect.left(), rect.bottom() - REFS_CLEAR_PX + 6.0), Pos2::new((rect.right() - REFS_W_PX - 8.0).max(rect.left() + 80.0), rect.bottom()));
+    let rest = rect.with_max_y(rect.bottom() - REFS_CLEAR_PX);
+    let (plots, pane) = if rest.width() >= 900.0 {
+        let (a, b) = rest.split_left_right_at_fraction(0.62);
+        (a.with_max_x(a.right() - 4.0), b.with_min_x(b.left() + 4.0))
+    } else {
+        let (a, b) = rest.split_top_bottom_at_fraction(if rest.width() < 640.0 { 0.62 } else { 0.58 });
+        (a.with_max_y(a.bottom() - 3.0), b.with_min_y(b.top() + 3.0))
+    };
+    (plots, pane, strip)
+}
+
+/// The text pane: the run's status lines (wrapped, coloured), then its
+/// console rows (monospace, newest at the bottom, scrolling), in one
+/// scroll area. Only the visible console rows are laid out: a run of up to
+/// 5000 generations has a row each, and laying out every one each frame
+/// would lag a phone. GUI drawing, not reached by a test (exempt); its
+/// place is [`body_layout`]'s, which is.
+pub fn draw_text_pane(ui: &mut egui::Ui, painter: &egui::Painter, rect: Rect, status: &[StatusLine], console: &[String], placeholder: &str, text: f32, id: &str) {
+    painter.rect_filled(rect, 4.0, Color32::from_rgb(8, 9, 12));
+    if status.is_empty() && console.is_empty() {
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER, placeholder, egui::FontId::proportional(text), Color32::from_rgb(140, 146, 160));
+        return;
+    }
+    let mono = egui::FontId::monospace(text);
+    let row_h = painter.layout_no_wrap("0".into(), mono, Color32::WHITE).size().y;
+    ui.scope_builder(egui::UiBuilder::new().max_rect(rect.shrink(6.0)), |ui| {
+        egui::ScrollArea::vertical().id_salt(id).stick_to_bottom(true).auto_shrink([false, false]).show(ui, |ui| {
+            for (t, c) in status {
+                ui.label(egui::RichText::new(t).size(text).color(*c));
+            }
+            if !console.is_empty() {
+                ui.add_space(4.0);
+                // Rows past the visible window are not laid out.
+                let first = ui.clip_rect().top();
+                let top = ui.cursor().top();
+                let skip = (((first - top) / row_h).floor().max(0.0) as usize).min(console.len());
+                let show = ((ui.clip_rect().height() / row_h).ceil() as usize + 2).min(console.len() - skip);
+                ui.add_space(skip as f32 * row_h);
+                for l in &console[skip..skip + show] {
+                    ui.add(egui::Label::new(egui::RichText::new(l).monospace().size(text).color(Color32::from_rgb(210, 216, 226))).extend());
+                }
+                ui.add_space((console.len() - skip - show) as f32 * row_h);
+            }
+        });
+    });
+}
+
+/// The one-line strip: wrapped to the strip's width.
+pub fn draw_strip(painter: &egui::Painter, strip: Rect, line: String, colour: Color32, text: f32) {
+    let g = painter.layout(line, egui::FontId::proportional((text * 0.85).max(9.0)), colour, strip.width().max(80.0));
+    painter.galley(strip.min, g, colour);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,6 +317,21 @@ mod tests {
         assert_eq!(entropy_range(&pts, Some(c)), (2.0, 6.0));
         let (lo, hi) = entropy_range(&pts, None);
         assert!(lo <= 3.2 && hi > 5.1);
+    }
+
+    /// The body: plots, text pane and strip do not overlap, the strip
+    /// clears the References button, and the pane is beside the plots only
+    /// on a wide body.
+    #[test]
+    fn the_body_has_room_for_plots_text_and_the_references_button() {
+        use dhoby_ghaut::web_demo::dock::{REFS_CLEAR_PX, REFS_W_PX};
+        for (w, wide) in [(380.0, false), (1000.0, true)] {
+            let body = Rect::from_min_size(Pos2::ZERO, Vec2::new(w, 320.0));
+            let (plots, pane, strip) = body_layout(body);
+            assert!(plots.intersect(pane).area() <= 0.0 && plots.bottom() <= strip.top() && pane.bottom() <= strip.top());
+            assert!(strip.right() <= w - REFS_W_PX && strip.top() >= 320.0 - REFS_CLEAR_PX);
+            assert_eq!(pane.left() > plots.left(), wide, "{w}");
+        }
     }
 
     /// Narrow: stacked; wide: side by side. Never overlapping.

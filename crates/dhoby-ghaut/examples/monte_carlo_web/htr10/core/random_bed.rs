@@ -108,12 +108,41 @@ pub fn build_core_with(code: usize, rods: &[f64; N_CONTROL_RODS]) -> Result<Asse
     }
 }
 
-/// What the bed code means, for the page.
-pub fn label(code: usize) -> String {
+/// Core pebbles (centred above the bed floor, `PebbleBed::core_balls`) of
+/// the lattice the core view builds, `assemble_explicit_triso(14, N, 0)`, for
+/// N = 10 ..= 20. Quoted so the page can show the count without building the
+/// bed; pinned to the model by `the_pebble_counts_are_the_beds`.
+pub const LATTICE_CORE_BALLS: [usize; 11] = [14_021, 15_351, 16_681, 18_011, 19_341, 20_671, 22_001, 23_331, 24_661, 25_991, 27_321];
+
+/// The core pebbles of a bed code: the DEM bed's, or the lattice's at N.
+pub fn core_pebbles(code: usize) -> Option<usize> {
     if code == DEM_BED {
-        format!("DEM random bed ({DEM_CORE_BALLS} core pebbles, as the lattice at N = 12)")
+        Some(DEM_CORE_BALLS)
     } else {
-        format!("Şeker lattice, N = {code}")
+        code.checked_sub(10).and_then(|i| LATTICE_CORE_BALLS.get(i)).copied()
+    }
+}
+
+/// A count with thin-space thousands, as the page prints it (16 681).
+pub fn grouped(n: usize) -> String {
+    let s = n.to_string();
+    let mut out = String::new();
+    for (i, c) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            out.push(' ');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// What the bed code means, for the page: the bed and its core pebbles.
+pub fn label(code: usize) -> String {
+    let pebbles = core_pebbles(code).map_or(String::new(), |n| format!(" · {} pebbles", grouped(n)));
+    if code == DEM_BED {
+        format!("DEM random bed{pebbles} (as the lattice at N = 12)")
+    } else {
+        format!("Şeker lattice, N = {code}{pebbles}")
     }
 }
 
@@ -170,6 +199,22 @@ pub fn render_review(dir: &std::path::Path) -> Result<(), String> {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// The page's pebble counts are the beds the workers build (2026-10-26,
+    /// the main view shows them), and the label carries them.
+    #[test]
+    fn the_pebble_counts_are_the_beds() {
+        let built: Vec<usize> = (10..=20)
+            .map(|n| assemble_explicit_triso(super::super::RINGS, n, 0).bed.as_ref().and_then(|b| b.core_balls()).expect("Şeker bed reports its balls"))
+            .collect();
+        println!("core balls N = 10..=20: {built:?}");
+        assert_eq!(built.as_slice(), LATTICE_CORE_BALLS.as_slice());
+        assert_eq!(LATTICE_CORE_BALLS[2], DEM_CORE_BALLS, "the DEM bed is cut to the lattice at N = 12");
+        assert_eq!(label(12), "Şeker lattice, N = 12 · 16 681 pebbles");
+        assert_eq!(grouped(999), "999");
+        assert_eq!(grouped(1000), "1 000");
+        assert_eq!(core_pebbles(9), None);
+    }
 
     /// The random bed is cut to the lattice's core count, keeps its conus and
     /// tube, builds, and puts fuel in the bed; the lattice codes build the

@@ -2272,27 +2272,24 @@ impl McApp {
             }
             Phase::Ready(Screen::Run(it)) => {
                 let experiment = rung.reference().and_then(|r| r.experiment).map(|(_, k, s)| (k, s));
-                if let Some(t) = self.run_tracks.as_mut() {
+                // The picture shows only the geometry and its neutrons; what
+                // they are, and the pool's state, go in the bottom panel
+                // with the rest of the run's text (maintainer 2026-10-26).
+                let drawn = self.run_tracks.as_mut().map(|t| {
                     play_tracks(ui, &painter, t, speed, to_screen);
-                    let note = match (it.state, it.pooled) {
-                        (RunState::Idle, _) => "the run's neutrons are drawn here once it starts",
+                    match (it.state, it.pooled) {
+                        (RunState::Idle, _) => "The run's neutrons are drawn on the picture once it starts.",
                         // The pool traces the first histories of every generation.
-                        (_, true) => "the run's own neutrons: the first 4 histories\nof each generation, counted in k",
-                        (_, false) => "real histories born at this run's fission sites\ndrawn extra, not counted in k",
-                    };
-                    painter.text(rect.left_bottom() + Vec2::new(16.0, -40.0), egui::Align2::LEFT_BOTTOM, note, egui::FontId::proportional(12.0), Color32::from_rgb(170, 176, 190));
-                }
-                // The pool's state on the main view, so it shows with the
-                // panel folded (mobile-first rule): loading, workers, errors.
-                if it.pooled && !it.pool_line.is_empty() {
-                    painter.text(rect.left_bottom() + Vec2::new(16.0, -76.0), egui::Align2::LEFT_BOTTOM, &it.pool_line, egui::FontId::proportional(12.0), Color32::from_rgb(200, 206, 120));
-                }
+                        (_, true) => "Drawn: the run's own neutrons, the first 4 histories of each generation, counted in k.",
+                        (_, false) => "Drawn: real histories born at this run's fission sites, extra, not counted in k.",
+                    }
+                });
                 match keff_split {
                     // With a geometry: the plots and console in the bottom
                     // dock (its buttons are drawn after, in its header).
                     Some(k) => {
                         if let Some(body) = k.body {
-                            Self::run_body(ui, body, &full_painter.with_clip_rect(body), it, &self.run_cfg, self.run_text, experiment);
+                            Self::run_body(ui, body, &full_painter.with_clip_rect(body), it, &self.run_cfg, self.run_text, experiment, drawn);
                         }
                     }
                     // Without one, the run fills the view, below the row of
@@ -2341,7 +2338,7 @@ impl McApp {
                         v.dock(ui, body, &full_painter.with_clip_rect(body), c, self.link.as_ref(), self.run_text);
                     }
                     if let Some(body) = keff_split.and_then(|d| d.body) {
-                        c.keff_body(&full_painter.with_clip_rect(body), body, self.run_text, &v.curves);
+                        c.keff_body(ui, &full_painter.with_clip_rect(body), body, self.run_text, &v.curves);
                     }
                 }
             }
@@ -2524,7 +2521,7 @@ impl McApp {
     fn run_view(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, next: &KeffConfig, text: f32, experiment: Option<(f64, f64)>, top_pad: f32) -> RunAction {
         let row = Rect::from_min_size(Pos2::new(rect.left() + 10.0, rect.top() + top_pad), Vec2::new(rect.width() - 20.0, 36.0));
         let action = Self::run_buttons(ui, row, it, next);
-        Self::run_body(ui, rect.with_min_y(row.bottom() + 4.0), painter, it, next, text, experiment);
+        Self::run_body(ui, rect.with_min_y(row.bottom() + 4.0), painter, it, next, text, experiment, None);
         action
     }
 
@@ -2579,53 +2576,30 @@ impl McApp {
         action
     }
 
-    /// The run's size and timing note, the k and entropy plots, and the
-    /// `openmc.run()`-style console, in `rect`: plots beside the console on a
-    /// wide box, above it on a narrow one.
-    fn run_body(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, next: &KeffConfig, text: f32, experiment: Option<(f64, f64)>) {
+    /// The run's status (the worker pool, what the drawn neutrons are), the
+    /// k and entropy plots, the `openmc.run()`-style console and the size
+    /// and timing note, in `rect` laid out as every k_eff run's bottom panel
+    /// is (`keffplot::body_layout`, maintainer 2026-10-26: all text in the
+    /// bottom panel, consistent for every k_eff simulation).
+    fn run_body(ui: &mut egui::Ui, rect: Rect, painter: &egui::Painter, it: &Iteration, next: &KeffConfig, text: f32, experiment: Option<(f64, f64)>, drawn: Option<&str>) {
         let going = matches!(it.state, RunState::Running | RunState::Paused);
-        let inner = rect.shrink2(Vec2::new(10.0, 4.0));
+        let (plots, pane, strip) = keffplot::body_layout(rect.shrink2(Vec2::new(10.0, 4.0)));
         let note = if going {
             crate::keff::eta_line(it.cfg.n_particles, it.total_gens(), it.gens.len(), it.elapsed).unwrap_or_else(|| "Timing the first generation…".to_string())
         } else {
             crate::keff::plan_line(next, it.measured_rate().or(it.rate))
         };
-        let colour = if note.starts_with('⚠') { Color32::from_rgb(250, 200, 80) } else { Color32::from_rgb(170, 176, 190) };
-        // The note in the strip a bottom dock keeps clear along its bottom,
-        // left of the page's References button; the plots and console above.
-        use dhoby_ghaut::web_demo::dock::{REFS_CLEAR_PX, REFS_W_PX};
-        let strip = Rect::from_min_max(Pos2::new(inner.left(), inner.bottom() - REFS_CLEAR_PX + 6.0), Pos2::new(inner.right() - REFS_W_PX - 8.0, inner.bottom()));
-        let galley = painter.layout(note, egui::FontId::proportional(12.0), colour, strip.width().max(80.0));
-        painter.galley(strip.min, galley, colour);
-        let rest = inner.with_max_y(inner.bottom() - REFS_CLEAR_PX);
-        let (plots, console) = if rest.width() >= 900.0 {
-            let (a, b) = rest.split_left_right_at_fraction(0.66);
-            (a.with_max_x(a.right() - 4.0), b.with_min_x(b.left() + 4.0))
-        } else {
-            let (a, b) = rest.split_top_bottom_at_fraction(if rest.width() < 640.0 { 0.66 } else { 0.6 });
-            (a.with_max_y(a.bottom() - 3.0), b.with_min_y(b.top() + 3.0))
-        };
+        let colour = if note.starts_with('⚠') { keffplot::AMBER } else { Color32::from_rgb(170, 176, 190) };
+        keffplot::draw_strip(painter, strip, note, colour, 13.0);
         keffplot::draw_pair(painter, plots, &it.points(), it.shape(), &experiment_refs(experiment), Some(run_entropy_ceiling()), 12.0);
-        painter.rect_filled(console, 4.0, Color32::from_rgb(8, 9, 12));
-        if it.lines.is_empty() {
-            painter.text(console.center(), egui::Align2::CENTER_CENTER, "openmc.run()-style output appears here", egui::FontId::proportional(text), Color32::from_rgb(140, 146, 160));
-            return;
+        let mut status: Vec<keffplot::StatusLine> = Vec::new();
+        if it.pooled && !it.pool_line.is_empty() {
+            status.push((it.pool_line.clone(), Color32::from_rgb(200, 206, 120)));
         }
-        // Only the visible rows are laid out: a run of up to 5000
-        // generations has a console line per generation, and laying out
-        // every one each frame would lag a phone.
-        let row_h = painter.layout_no_wrap("0".into(), egui::FontId::monospace(text), Color32::WHITE).size().y;
-        let rows = it.lines.len() + usize::from(it.state == RunState::Running);
-        ui.scope_builder(egui::UiBuilder::new().max_rect(console.shrink(6.0)), |ui| {
-            egui::ScrollArea::both().id_salt("run-console").stick_to_bottom(true).auto_shrink([false, false]).show_rows(ui, row_h, rows, |ui, range| {
-                for i in range {
-                    match it.lines.get(i) {
-                        Some(l) => ui.add(egui::Label::new(RichText::new(l).monospace().size(text).color(Color32::from_rgb(210, 216, 226))).extend()),
-                        None => ui.label(RichText::new(" …").monospace().size(text)),
-                    };
-                }
-            });
-        });
+        if let Some(d) = drawn {
+            status.push((d.to_string(), Color32::from_rgb(170, 176, 190)));
+        }
+        keffplot::draw_text_pane(ui, painter, pane, &status, &it.lines, "openmc.run()-style output appears here", text, "run-console");
     }
 }
 
