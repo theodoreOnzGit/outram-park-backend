@@ -4,7 +4,12 @@
 //! there. Included by `monte_carlo_web` (every rung loader, the htr10
 //! whole-core pool), `delta_tracking_web` and, since 2026-10-16 (gh:#923),
 //! `nuclear_data_web`: one store for every demo in a browser, Run k_eff or
-//! a single-stage rung.
+//! a single-stage rung. Since 2026-10-26 the nuclear-data demo's ACE
+//! generator reads and saves its RECONR stage here too, keyed by the
+//! covariance-stripped file the user chose (`acetools::build_ace`). Every
+//! demo page of the site opens the one IndexedDB database
+//! (`data_cache::DB_NAME`); the other demos (dispersion, DEM, TRISO-ATOPS,
+//! the lessons) process no nuclear data.
 //!
 //! **Stages (gh:#923).** Besides each nuclide's product, the store keeps
 //! its slow first stage under its own key: RECONR at 0 K
