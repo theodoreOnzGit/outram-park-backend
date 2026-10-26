@@ -81,7 +81,18 @@ The rods tab's own record under the same harness
 (`../htr10_rod_curve/web/lagcheck_with_pool.txt`) had median frames of
 150–400 ms: the merged tab is not slower.
 
-LAG_RERUN_PLACEHOLDER
+**Lag (re-run after the fix, 2026-10-26, `lagcheck/lagcheck.txt`):**
+
+| phase | samples | median frame (median of 3 s medians) | worst p95 | worst frame | title after a rod drag |
+|---|---|---|---|---|---|
+| data processing (575 s) | 115 | 83 ms | 200 ms | 200 ms | median 88 ms, max 169 ms |
+| k_eff run | 11 | 117 ms | 167 ms | 183 ms | (rods locked) |
+
+The rods the check dragged to 100 % during processing are the rods the run
+ran on (the fix in item 5 below): `lagcheck/lagcheck_run_done.png` shows k =
+0.85327 ± 0.03762 (300 × [2 + 6], a demonstration size) against the
+recorded 0.84624 ± 0.00285 at those rods, +703 ± 3772 pcm. This is a
+consistency check of the page's bookkeeping, not a result.
 
 ## Found and fixed while checking
 
