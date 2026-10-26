@@ -96,10 +96,6 @@ pub struct Htr10CoreDesign {
     /// ~~`rod_insertion: f64`, all ten rods together~~ **CHANGED 2026-10-23
     /// (gh:#1025)**: [`Self::with_bank`] is that case.
     pub rod_insertions: [f64; N_CONTROL_RODS],
-    /// What the rods' steel end pieces and joints are built as (gh:#1027).
-    /// Default [`super::control_rod::RodSteelPieces::AsPublished`], the
-    /// published steel; the others are sensitivity variants.
-    pub rod_steel_pieces: super::control_rod::RodSteelPieces,
 }
 
 impl Default for Htr10CoreDesign {
@@ -111,7 +107,6 @@ impl Default for Htr10CoreDesign {
             triso_radii_cm: TRISO_RADII_CM,
             particles_per_pebble: PARTICLES_PER_PEBBLE,
             rod_insertions: [0.0; N_CONTROL_RODS],
-            rod_steel_pieces: super::control_rod::RodSteelPieces::AsPublished,
         }
     }
 }
@@ -353,34 +348,6 @@ mod tests {
         }
         let length = b4c.len() as f64 * step;
         assert!((length - 243.5).abs() < 6.0 * step, "B4C length {length:.1} cm");
-    }
-
-    /// **The steel-piece variants build what they say** (gh:#1027).
-    ///
-    /// # Methodology
-    /// 14 x 12 core. Withdrawn, the rod's top end is 145.5 cm above the model
-    /// top, so `TopEndB4c` must build the published geometry exactly (its
-    /// `Debug` text). Fully inserted, the B4C sampled up one channel's B4C
-    /// ring (600 points, as `inserted_rods_are_in_the_assembled_geometry`)
-    /// must be 243.5 cm published, 245.8 cm with the 2.3 cm top end as B4C,
-    /// and the whole 264.7 cm rod with every steel piece as B4C, to the
-    /// sampling step; and the published variant is the default.
-    #[test]
-    fn the_steel_piece_variants_build_what_they_say() {
-        use crate::htr10_rmc::control_rod::RodSteelPieces;
-        use crate::htr10_rmc::core_model::{assemble_explicit_triso_with, mat};
-        let d = Htr10CoreDesign::default();
-        assert_eq!(d.rod_steel_pieces, RodSteelPieces::AsPublished);
-        let top = Htr10CoreDesign { rod_steel_pieces: RodSteelPieces::TopEndB4c, ..d };
-        let all = Htr10CoreDesign { rod_steel_pieces: RodSteelPieces::AllB4c, ..d };
-        let geo = |x: &Htr10CoreDesign| format!("{:?}", assemble_explicit_triso_with(14, 12, 0, x).geometry);
-        assert_eq!(geo(&d), geo(&top), "withdrawn, the top end piece is outside the model");
-        for (design, want) in [(d, 243.5), (top, 245.8), (all, 264.7)] {
-            let c = assemble_explicit_triso_with(14, 12, 0, &design.with_bank(1.0));
-            let step = (c.refl_top - c.refl_bottom) / 600.0;
-            let b4c = rod_column(&c).iter().filter(|p| p.1 == Some(mat::ROD_B4C)).count() as f64 * step;
-            assert!((b4c - want).abs() < 6.0 * step, "{:?}: B4C {b4c:.1} cm, want {want}", design.rod_steel_pieces);
-        }
     }
 
     /// **The bank is ten equal rods, and one rod moves alone** (gh:#1025).
