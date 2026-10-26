@@ -865,10 +865,12 @@ impl CoreScreen {
         // One line: what is running and the mean against the first reference.
         let mean = pts.last().and_then(|g| g.k_mean);
         let line = match (run, mean) {
-            (None, _) => format!("No run yet. Next: {} · bed {} · rods: {}", crate::keff::settings_line(&self.cfg), super::random_bed::label(self.layers as usize), crate::htr10::rods::summary(&self.rods.rods)),
-            (Some(_), None) => format!("Bed {} · rods: {} · inactive generations", super::random_bed::label(layers), crate::htr10::rods::summary(&built)),
+            // The bed and the rods are on the picture; the strip says only
+            // what the run is (it must fit two lines on a phone).
+            (None, _) => format!("No run yet. Next: {}", crate::keff::settings_line(&self.cfg)),
+            (Some(_), None) => "Inactive generations: the source is settling; k is not averaged yet".to_string(),
             (Some(_), Some((m, e))) => {
-                let mut l = format!("k = {m:.5} ± {e:.5} · rods: {}", crate::htr10::rods::summary(&built));
+                let mut l = format!("k = {m:.5} ± {e:.5}");
                 if let Some(r) = refs.iter().find(|r| r.sigma.is_some()) {
                     let d = (m - r.k) * 1e5;
                     let sd = (e * e + r.sigma.unwrap_or(0.0).powi(2)).sqrt() * 1e5;
