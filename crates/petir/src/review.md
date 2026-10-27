@@ -1148,3 +1148,51 @@ I'm not reviewing this in depth, this was ported, but one can see if behaviour i
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 208c51c706.
+
+# Review: TABLE_BITS (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-table-bits-theodoreonzgit-70b3047a"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:25:37+08:00"
+modified = "2026-10-27T10:26:10+08:00"
+target = "fn:70b3047a2e010694"
+
+[review]
+path = "crates/petir/src/fast_log.rs::TABLE_BITS"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:26:10+08:00"
+commit = "fedd77e8d1b5c5f60a3ebe9b275c4557a50d8347"
+hash = "sha256:0ff679b66db05902f416dbd4f3aed3348e0606394b6db8e60b0864a63dc967c9"
+doc_hash = "sha256:acb365202338dbcd9a8c82b22a5413c67630a248b50b1ebde592794964ce779c"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "vy6U/vAUlndkOsMqSn99+TsaENX6Xq6veCJCovsNcaNEwnrKbKzdu5LdHBhxdOi9OKf4PhkCQkqxFEiwFt0NAQ=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit fedd77e8d1.
