@@ -648,3 +648,51 @@ i didn't check it thoroughly, cos these are numerical implementations for expone
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 62138e0e2d.
+
+# Review: TAB (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-tab-theodoreonzgit-cf5d9f86"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:11:01+08:00"
+modified = "2026-10-27T10:11:34+08:00"
+target = "fn:cf5d9f8646da487f"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::TAB"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:11:34+08:00"
+commit = "ec310448870e5498c8314366d7160ce53ffa4a3e"
+hash = "sha256:faeacadcc7eaa20fa65ecdba4cdff63c38953e439f4a72492ed5dd7803f3e7dd"
+doc_hash = "sha256:7ce028f3e8656d6adf8644555f5bc5b8fbb57017b4c32d5c10095b2512e3cb44"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "LV3xdmkKO4em6ExxzlyWkgepRAqBTZ0DY4gP+NILVBuKs7OzVj1gtYt+NpYS6nY+rpYDUSWA3/1a3//mlT6rBg=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+i didn't check it thoroughly, cos these are numerical implementations for exponentials. But i only know the integration tests pass. So by that I know it works. Easy way to check is to check ln, exp etc... against std manually via tests and assert low error
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit ec31044887.
