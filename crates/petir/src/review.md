@@ -1960,3 +1960,61 @@ ln can be tested against other libraries, i think it was
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit af02f81620.
+
+# Review: f64::r_ln (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-r-ln-theodoreonzgit-7d2c37be"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:21:30+08:00"
+modified = "2026-10-27T12:21:30+08:00"
+target = "fn:7d2c37be6eb3e8f3"
+
+[review]
+path = "crates/petir/src/mathf.rs::f64::r_ln"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:21:32+08:00"
+commit = "4f22149e71cde284d031a2668a76591df4444a38"
+hash = "sha256:e03a479bf5c1837af8e2aef9589eb6759382a67e74340d003406d4abfac2caa0"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:f420940c421868d5" = "sha256:c77682df9fcfb54754c3495c5f4273e55c29db18b1e3932c70896aadd3831928"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "FWvHeH8FB30LOayucj+lpwnC864jpaS6wy9W7rccHjcAo/0l2H34AtsnLHRLDfYSTdqsjStQsKIf0mcJNL8AAQ=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+ln is not going to be tested manually now, can be tested against std::f64 in some other crates perhaps
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 4f22149e71.
