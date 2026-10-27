@@ -170,3 +170,64 @@ value = "55Xz+GTU62ybCLimti6awHcdvtHHxiVomX8SjF4eQusY8bQ4unuL9tvsZ6Xb+Ea1ZBA6/xZ
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit a9cbcbde27.
+
+# Review: supported_nuclides (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-supported-nuclides-theodoreonzgit-521d4591"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:50:32+08:00"
+modified = "2026-10-27T13:50:32+08:00"
+target = "fn:521d4591f6090c64"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs::supported_nuclides"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:50:33+08:00"
+commit = "2a1f858701e671cc4bfd4e0469e68ccad87656bd"
+hash = "sha256:c1b5eab6019b4dca2762a7ff8deab0138105f6c7bbb60f7b2e91c1bb9aeb341e"
+doc_hash = "sha256:07a941c96e165f4994f5ca69ea6aa56b7cdc63b64753b21398d8f8c128bcc043"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:2604ea3760303a76" = "sha256:1ac14b2abf0c3d3ad35432d1002e4daa625c86de476671a892de028aed1d67a1"
+"fn:546333a5363bc5a2" = "sha256:601d879e0b2947c8c69562c0278d67beccee30a0999a8eb86181de5ebcd65549"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: ports upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: ports upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "qbvy10nHhx+MN4nMsAlqlYJqn3mCHDA1VEaaLtiuLtHv4R61MnPt+p7tp4lWKTNWyy8RTn1PxTR7S3mLa/wiBw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+check against upstream, ports bugs for Tc99, ermm looks correct lei ( is there something wrong in comment)
+
+Checked members, not A,Z and halflife (probabbly works, but not checking... tooo many numbers to check...) If numbers match upstream, i think is good enough
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 2a1f858701.
