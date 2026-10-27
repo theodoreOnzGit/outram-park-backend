@@ -2128,3 +2128,55 @@ wrapper for powi
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 3d16ba96c8.
+
+# Review: tanh (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-tanh-theodoreonzgit-ae9c1b20"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:17:16+08:00"
+modified = "2026-10-27T13:17:16+08:00"
+target = "fn:ae9c1b20206a5813"
+
+[review]
+path = "crates/petir/src/real.rs::tanh"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:17:18+08:00"
+commit = "1c62efd104f13e93a7f5090e84d033ff4ac88211"
+hash = "sha256:332f68239f8b5cac73d4ed60a248ab908cf56cf7c14eda019fc00f8097199975"
+doc_hash = "sha256:ee5ecc062a7a849b7e82bd40ad3ed21aaf582c39388f13101b016f6d0ced7034"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream, just a wrapper"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream, just a wrapper"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "YEAm7RD+Ubyj5AABInIuJDFH1gSZ+mLB0OF/8BsRmlvtkmI41ZWlPpyEW/u8oEkz9FhsxeITlv0xywpOe+2dDQ=="
+```
+
+follow upstream, just a wrapper
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 1c62efd104.
