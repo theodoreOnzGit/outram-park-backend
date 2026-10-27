@@ -324,3 +324,58 @@ value = "GM5aul8g6H01sbm9LfBKrbi6kgEhuF0PydZ0SJBzYrp9JuMSATCsVXjQ6hoQ1a3xxalhoPV
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 0e67011269.
+
+# Review: top12 (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-top12-theodoreonzgit-aa59d6d2"
+kind = "review"
+origin = "human"
+created = "2026-10-27T09:45:00+08:00"
+modified = "2026-10-27T09:45:00+08:00"
+target = "fn:aa59d6d2a0e034f8"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::top12"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T09:45:01+08:00"
+commit = "ae2ba8e205e490f9ae5e5f0773933f2fb63af6f1"
+hash = "sha256:0860c4f93f25a1cab7481aba968f6a1de2d52761085beb74e1f23756d3b270de"
+doc_hash = "sha256:101946cad876a981493041bd181797de728fa1f95bfac6eca37970c4cb054cae"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "9RZaNTMMsC3Mrqdb2bHr6IFJiCJ+TJoTvgXPWK7Z3CQ4iq38YZbJCxwOBkv/PLokmETaYyZMcNMy9o5UY9VKAA=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+i didn't check it thoroughly, cos these are numerical implementations for exponentials. But i only know the integration tests pass. So by that I know it works. Easy way to check is to check ln, exp etc... against std manually via tests and assert low error
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit ae2ba8e205.
