@@ -348,7 +348,7 @@ const PLACE_CLEARANCE: f64 = 1.0e-4;
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
-    ignore = "long test: 27 554 pebbles, pre-settle plus 28 recirculation batches. \
+    ignore = "long test: 27 554 pebbles, pre-settle plus 12 recirculation batches (BATCHES; was mis-stated as 28). \
               Runs by default; skipped under --no-default-features"
 )]
 fn slow_recirculation_through_the_discharge_system() {
