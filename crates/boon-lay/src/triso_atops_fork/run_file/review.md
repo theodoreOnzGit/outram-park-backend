@@ -340,3 +340,56 @@ unit conversion, that's all
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 1f76da59b4.
+
+# Review: RunFile (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-runfile-theodoreonzgit-72d8fa4b"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:48:44+08:00"
+modified = "2026-10-27T14:48:44+08:00"
+target = "fn:72d8fa4bc6abed85"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::RunFile"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:48:45+08:00"
+commit = "c599144516112b151d0e9229a4b0f466432f8a0a"
+hash = "sha256:8207b7d66b9e7c72ce2320dddc75f66c09cb93a737d1cfa5d29d19a16d7e0ca3"
+doc_hash = "sha256:b7dcc6360eb96dd2e5efba8ecd91ee88ce8746ecb39137d7bce14ebf81ae32c6"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR",
+    "https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "tT5MRwheAVSjRHVse/qEWmM5ezBmXDgMkGgGPIjkYMQheUAf1hEiyuqXBW51YREc6zKoXRaQ176uc0F0JIP0CA=="
+```
+
+contains well documented structs that a read run file converts into
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit c599144516.
