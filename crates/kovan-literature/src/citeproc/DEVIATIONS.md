@@ -331,6 +331,9 @@ been found yet. Until decided, **the port reproduces citeproc-js**.
   printed for a missing ordinal suffix or term (C12), falsy `Stack.push`
   storing `""` (C13), the misspelt `build_layout_locale_flag` (C14), cyclic
   gender terms in the locale merge (C15). Details and port locations in #807.
+  **Decided 2026-10-27 (maintainer, #811):** C8 and C10 stay as upstream has
+  them, as known quirks with no deviation registered; no fixture shows a wrong
+  result from either (collation already matches node on 576,128 comparisons).
 
 ~~Update to C3 (#802), 2026-10-08: the unbound-`this` TypeError is reached by
 **any `locale` attribute on `cs:layout`, `cs:if` or a condition**, which CSL
@@ -363,6 +366,8 @@ Locations are the port's files; the JS locations are in the names.
   (util_transform.js:477 and :502; `state.opt.multi_layout` is the assigned
   one), so the branches are dead. Port: `util_transform.rs`
   (`run_output_function`).
+  **Decided 2026-10-27 (maintainer, #811):** kept as upstream, no deviation;
+  the branches are dead code with nothing to port.
 - **C24 (#808) — `localesets[0] === "locale-orig"` dead branch** in the same
   closure. Port: `util_transform.rs`.
 - ~~**C25 (#808) — The authority/committee split indexes a string** and takes one
@@ -385,6 +390,8 @@ Locations are the port's files; the JS locations are in the names.
 - **C31 (#808) — `_composeOneInstitutionPart`: `citeAffixes[slot.primary]` is never
   defined**, so the italic block is dead (util_names_render.js). Port:
   `util_names_render.rs`.
+  **Decided 2026-10-27 (maintainer, #811):** kept as upstream, no deviation;
+  the italic block is dead code with nothing to port.
 - ~~**C32 (#808) — `_droppingParticle` overwrites `etal_spec[pos]`** (an array) with
   `1` or `2` (util_names_*.js). Port: `util_names_*.rs`.~~ **-> registered as D10 on 2026-10-08.**
 - **C33 (#808) — `truncatePersonalNameLists` keeps a stale `v` and discards the
