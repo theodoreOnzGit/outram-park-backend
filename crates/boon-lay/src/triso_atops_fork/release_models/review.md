@@ -301,3 +301,71 @@ Booth series terms, 5000 upstreamm verified under def booth_longlived in TRISO-A
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 798ad7ebbe.
+
+# Review: booth_longlived (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-booth-longlived-theodoreonzgit-2fc35c22"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:15:11+08:00"
+modified = "2026-10-27T13:15:11+08:00"
+target = "fn:2fc35c224f3db467"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::booth_longlived"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:15:13+08:00"
+commit = "a28510a13ae6a0555d8f0b6630e52ece9ad34ec6"
+hash = "sha256:f575c1def404f9f91f00739d3fb8df45e0f45b53f3442d34bce903ecdba88881"
+doc_hash = "sha256:2c96cfaec1309abe3c0037ead175529a6691daa3e45b221b415d14830ed328cb"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:20bea5a8b58e1368" = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+"fn:4b22abf19474b4fd" = "sha256:f105945f85a7fe9030aebd3d9209c60f17da6afab1486f0cec92f932329a775f"
+"fn:5b6ec8acc1bbca98" = "sha256:2b661d8344b964b3aa9ccc0e424f5da346fe9e35269728c9c2e5800e0b9757f1"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream behaviour, no guards"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "j2WarC9g9YPUyyF27ztNacKZoavKWftWMytRX36oHoszUM1pmvU2EnHIcHFAuwRJBQiMX/STPqsaFhYaX/+KBA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+slightly different form from booth_longlived in python, pow(-2) vs 1/pow(2)
+
+release fraction is otherwise the same,
+up to 5000 terms, matches upstream directly, but returns a ratio.
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit a28510a13a.
