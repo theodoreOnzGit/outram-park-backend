@@ -369,3 +369,68 @@ up to 5000 terms, matches upstream directly, but returns a ratio.
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit a28510a13a.
+
+# Review: booth_shortlived_fast_diffuse (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-booth-shortlived-fast-diffuse-theodoreonzgit-ba1b5c74"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:20:55+08:00"
+modified = "2026-10-27T13:20:55+08:00"
+target = "fn:ba1b5c7454e73103"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::booth_shortlived_fast_diffuse"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:20:56+08:00"
+commit = "510148ba3474e9122a160701f88e5fdde5b91738"
+hash = "sha256:a9f6b2311983f00f4945e0cbbc3a56a3737330d0540708d0490c52ae282bf5c2"
+doc_hash = "sha256:a5e3cd6bab355f1f9070bae28827c26d0377271456b185d01c769d0ecd0989f7"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:20bea5a8b58e1368" = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+"fn:633a3996c8a68876" = "sha256:606d6687c54f107831c1155d56e9e021894f6289dc8e7f613e320167925e270c"
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Xy+k/7jcuzLFwNNepqJPdQoG34aWvIZGawnvyI/SbJg5LsaLAEkg4yN5z043Vh4ekN/LCYptLDzSCVThcs+5CA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+checked against upstream 
+def booth_shortlived_fastdiffuse in INL TRISO-ATOPS
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 510148ba34.
