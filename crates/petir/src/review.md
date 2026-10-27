@@ -1715,3 +1715,73 @@ I'm not reviewing this in depth, this was ported, but one can see if behaviour i
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 3168572d40.
+
+# Review: ln_inner (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-ln-inner-theodoreonzgit-a582eca0"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:53:47+08:00"
+modified = "2026-10-27T10:53:47+08:00"
+target = "fn:a582eca0da7ab3eb"
+
+[review]
+path = "crates/petir/src/fast_log.rs::ln_inner"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:53:48+08:00"
+commit = "e8a3ed28bbebe120c9c44488610eaa9ff5a8bb5e"
+hash = "sha256:4eba12e0784d5d24c29e6a8876cee433dcb90c78abd35902000d5154b304a021"
+doc_hash = "sha256:504a3234f9b9e290630377248667f7801df933ed634b5b42561989efc9721d32"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:08f93c13acb0345f" = "sha256:a3d4e6a407d4118cd0e98290ff8806316c809244dc21016a4cb7f65811a98fd8"
+"fn:1d314ac39142cca5" = "sha256:eb823a8426d05ee336eddd6289d681d14780401beec0088474b57a8b4e720d75"
+"fn:22cb4bc6a2a77661" = "sha256:8ff28653083fc3a6803bd690320f169af860616c1dd7930ccd01d5c24845c4ca"
+"fn:25fe3d3decf7ce49" = "sha256:201dddfd92068ea32bea7667272258723820625d19c6c5b1931d3f6dafd29cda"
+"fn:29e331bfde2a9f99" = "sha256:6f63ce511aa945c00619b63706054e156343b83b1fa95170719eccb0699a825d"
+"fn:2f2a1115e8ad0d6b" = "sha256:c465535d58459eb43465c178ef42189077d7d38cc05567278e44005829fbb2f9"
+"fn:55f5867c7efea93a" = "sha256:944a61c34d62f4032d260fb1b08e3ff8b0a07b896fc503d1f1244ec1fb1ead72"
+"fn:70b3047a2e010694" = "sha256:0ff679b66db05902f416dbd4f3aed3348e0606394b6db8e60b0864a63dc967c9"
+"fn:73252081d22789bd" = "sha256:74c491b1f00f48a95a42c7359a920aa2ca7289166f69d0d6a3dd347995bc9012"
+"fn:8f9dcf7fdeb05d87" = "sha256:34adebb4cb4886461e81049bfe15739e9d7ee3dca133f41077c3921b1537fb19"
+"fn:aa6160a4a299a109" = "sha256:e70799c146f2a442f8fcf13ad2a2f2f18c8a8d282bf80cc2ca82355dd18d9bc4"
+"fn:c273ee3b6bd4de00" = "sha256:a82d55590b31c265a749a5721db003fd70d22024f2e46399262069e8e3730211"
+"fn:e3223da1526eb451" = "sha256:6d4b1ce530888897af78e644e7b5b2b3654f2d4974698f3562e4c34cd60bbc06"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_016EsuzTnVZavfdUSvUJ2KCn"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "sQIY6aoLyzdCkCF+FapcyA0Qm1H8j36PtDrrVypzEpWHlNINvc8QaMOxHWtm34cmMPmhVppcov4y17W+iXgwAA=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit e8a3ed28bb.
