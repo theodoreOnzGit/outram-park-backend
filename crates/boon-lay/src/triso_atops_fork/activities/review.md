@@ -63,3 +63,52 @@ value = "Ub/efGCZas6U7tEvBkKDs9Ht0ePyIgCowgpq0CIN2CBBazLp0AyuVTQFT1VCaI87J46/zFy
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 1e1bc4a646.
+
+# Review: OTHER_ATTENUATION_FACTOR (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-other-attenuation-factor-theodoreonzgit-a3654ef9"
+kind = "review"
+origin = "human"
+created = "2026-10-27T16:41:14+08:00"
+modified = "2026-10-27T16:41:14+08:00"
+target = "fn:a3654ef9ead0b08e"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::OTHER_ATTENUATION_FACTOR"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T16:41:15+08:00"
+commit = "6d57915a171dd6bbe3a9578daa7f343b945048cc"
+hash = "sha256:592d21c9d20158f91f15be8cb7044e39664a0b092598e6c8f8976a45bc511129"
+doc_hash = "sha256:34bb960b406d9eaa334e3b1389de2fad1ae2d5dad2e5df14fe7ee9c39096a2a6"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "+wjoTn79ieWzKQX6chC7pi/xr/JFGG2gbrRV44El9ONMQZfZ3E1upuUM/T7rBQN4eXdS3syg4cy+RKd4MQuIAg=="
+```
+
+attenuation factor is defined inline for base_activities upstream, checked to be 1e8
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 6d57915a17.
