@@ -612,3 +612,55 @@ code checked to follow usptream triso atops behaviour
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 8fbad382d7.
+
+# Review: BOOTH_TRANSIENT_ZERO_FLOOR (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-booth-transient-zero-floor-theodoreonzgit-6759d46f"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:16:59+08:00"
+modified = "2026-10-27T14:16:59+08:00"
+target = "fn:6759d46f6358435b"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::BOOTH_TRANSIENT_ZERO_FLOOR"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:17:00+08:00"
+commit = "561d019e0cdb6fdbc33d041eb52fc410c9cc0bdc"
+hash = "sha256:355cacaab1be201475f63cc9d8c56c23b0fe518729a9ee61fe1cf75c7e8bd032"
+doc_hash = "sha256:52b89567d62a3e0d6ef75453f8d47e5ce6f3b0173d26176b0506e391c4c7623e"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "75F+BJRsRnDnVz/e3KF4n+BX+B4/P6o6IxJmKVfc7wV4uF8JR94WRVeQ/7DFUv2mC0azF5dJrWRO63ed1vGKCg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+checked against upstream def booth_transient
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 561d019e0c.
