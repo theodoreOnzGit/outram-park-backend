@@ -984,3 +984,56 @@ just a trait wrapper
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 7b6156000c.
+
+# Review: f64::r_exp (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-r-exp-theodoreonzgit-d2f19c5a"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:20:34+08:00"
+modified = "2026-10-27T10:20:34+08:00"
+target = "fn:d2f19c5ac1bd0c10"
+
+[review]
+path = "crates/petir/src/mathf.rs::f64::r_exp"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:20:34+08:00"
+commit = "fc5ce0aaaf2b68b819236482e3b1aea9d7d04b12"
+hash = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:20504b494388607e" = "sha256:7301788b66338921d1071bb4aaf5c29a93fbc5fa48ec86024a794384a20cdd53"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour similar to std library"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour similar to std library"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "hJ3W894TdtC/VXXWHCLnJCNYMI/9/3pdnCgpJnIHnE8SJ3/jZ0SyYCBSURYcau3jE1BX3+x8JqSvaW0nm7ONBQ=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit fc5ce0aaaf.
