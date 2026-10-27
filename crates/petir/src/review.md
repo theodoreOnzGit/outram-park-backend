@@ -1093,3 +1093,58 @@ value = "WaC78nTxiKB86M+z2XynUCnkYB94gLT10juz6uJ2qdrd+ZbP7WFViZsS05uOMWeEyQwqCXu
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 32ba57a9cf.
+
+# Review: top16 (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-top16-theodoreonzgit-2f2a1115"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:24:04+08:00"
+modified = "2026-10-27T10:24:04+08:00"
+target = "fn:2f2a1115e8ad0d6b"
+
+[review]
+path = "crates/petir/src/fast_log.rs::top16"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:24:05+08:00"
+commit = "208c51c70608805f96f94cf41745dbbfc24780cf"
+hash = "sha256:c465535d58459eb43465c178ef42189077d7d38cc05567278e44005829fbb2f9"
+doc_hash = "sha256:4de149d7e354b6bf70c3821f5cb57c964388f15d0b7513c5161ee27363554172"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "6kjIK+xKVVEfUYDuFRdhayYPT1VVPhPwMa3Wdp8G719ClKf9QjPIuM0+qRFRjNwTVXhIX8EujGZQszlK4nwYBg=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 208c51c706.
