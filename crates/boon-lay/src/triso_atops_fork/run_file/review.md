@@ -490,3 +490,62 @@ enum for error
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit c79d0f5541.
+
+# Review: RunFile::to_config (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-to-config-theodoreonzgit-88b7dd99"
+kind = "review"
+origin = "human"
+created = "2026-10-27T16:35:56+08:00"
+modified = "2026-10-27T16:35:56+08:00"
+target = "fn:88b7dd996a2dac5b"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::RunFile::to_config"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T16:35:58+08:00"
+commit = "94f5ddb954737e46b6b721580fe774829bd03266"
+hash = "sha256:5a0cbc48ac0c59c6d6a09d3a9aef8ea910cbc3f7a176c0ff45aef1e016be1dfd"
+doc_hash = "sha256:9a41f505d71d33810b9b22abd462f6d122713623e687be8bf73175f0ace7e820"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:7211ef55974ed7bc" = "sha256:3b9fff3ac196256b5f0eb77c152443f93ebc5236d4c9a444e8922e2f4b63f60f"
+"fn:72d8fa4bc6abed85" = "sha256:8207b7d66b9e7c72ce2320dddc75f66c09cb93a737d1cfa5d29d19a16d7e0ca3"
+"fn:becf4414924ea48c" = "sha256:03911392642a949e6715c830c43ffabcc8361ce6a997327a99d69f0fecf923c5"
+"fn:eed943d26b55606f" = "sha256:3307dbb791136310a0d59eaff533c204489b79140b582fe41747ffad75008b11"
+"fn:fca9138d7d203340" = "sha256:530a1d93326283c1aae3eb344ff52025409ee276d36989f0933c6c8cb6d2a96d"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "no_limits: this is a helper function or type conversion function"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "3cv6i/CLC3tCQOFsmJCmE+boISxhJxHxFwl8VEUL8WhE34kP95Lnuy1zyK+YTK4VjRg8cXovYdxb25OFNLpgDQ=="
+```
+
+constructor
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 94f5ddb954.
