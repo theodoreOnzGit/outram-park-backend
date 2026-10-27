@@ -981,6 +981,7 @@ const FIELD_MARCH_DT_S: f64 = crate::physics::PLANT_TIMESTEP_S;
 /// moment the release rate moved. A puff's contribution is `rate(t_emit) x
 /// puff_dt x kernel`; summing that needs the rate inside the sum, which is
 /// what this selects. `ChiOverQ` is the unit-rate case and is unchanged.
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FieldWeighting {
     /// Unit release rate: the sum is `chi/Q` \[s/m^3\].
@@ -1195,8 +1196,8 @@ pub struct AtmosphericDispersionChannel {
     grid_key: Option<FieldKey>,
     /// Wall-clock time [`Self::refresh_field`] last actually recomputed the
     /// field, for the [`FIELD_REFRESH_INTERVAL_S`] rate limit. Deliberately
-    /// `std::time::Instant`, not plant time -- see that constant's doc.
-    last_field_refresh: Option<std::time::Instant>,
+    /// `web_time::Instant`, not plant time -- see that constant's doc.
+    last_field_refresh: Option<web_time::Instant>,
     /// The live **Lagrangian** puff population the map field is drawn from.
     ///
     /// This is the channel's only genuinely path-dependent state: everything
@@ -1392,7 +1393,7 @@ impl AtmosphericDispersionChannel {
         // whole interval instead, so the plume stays on the clock even when the
         // field is drawn less often than 10 Hz. See
         // `Self::advance_population` on the wind this catch-up uses.
-        let now = std::time::Instant::now();
+        let now = web_time::Instant::now();
         if let Some(last) = self.last_field_refresh {
             if now.duration_since(last).as_secs_f64() < FIELD_REFRESH_INTERVAL_S {
                 return false;
@@ -1438,7 +1439,7 @@ impl AtmosphericDispersionChannel {
         // constant's doc describes -- "keeps a dragged slider from triggering a
         // field evaluation per frame" -- and makes the test independent of host
         // speed. Since 2026-09-27 that interval is one 60 fps frame, not 100 ms.
-        self.last_field_refresh = Some(std::time::Instant::now());
+        self.last_field_refresh = Some(web_time::Instant::now());
         // So a snapshot written before the next `update()` picks up the fresh
         // field rather than the one `latest` was built with.
         //
@@ -2677,7 +2678,7 @@ mod tests {
             "inside the interval, even a changed meteorology must be refused"
         );
         channel.last_field_refresh = Some(
-            std::time::Instant::now()
+            web_time::Instant::now()
                 - std::time::Duration::from_secs_f64(FIELD_REFRESH_INTERVAL_S + 0.05),
         );
         assert!(
@@ -2712,7 +2713,7 @@ mod tests {
             plume_time_s: 300.0,
             weighting: FieldWeighting::ChiOverQ,
         });
-        channel.last_field_refresh = Some(std::time::Instant::now());
+        channel.last_field_refresh = Some(web_time::Instant::now());
         assert!(
             !channel.refresh_field(300.0),
             "a refresh inside FIELD_REFRESH_INTERVAL_S must be refused even \
@@ -2722,7 +2723,7 @@ mod tests {
         // Once the interval has genuinely elapsed, the same stale cache must
         // be allowed to refresh.
         channel.last_field_refresh = Some(
-            std::time::Instant::now()
+            web_time::Instant::now()
                 - std::time::Duration::from_secs_f64(FIELD_REFRESH_INTERVAL_S + 0.05),
         );
         assert!(
@@ -2744,7 +2745,7 @@ mod tests {
         // Step past the wall-clock rate limit, which is not what is under
         // test here.
         channel.last_field_refresh = Some(
-            std::time::Instant::now()
+            web_time::Instant::now()
                 - std::time::Duration::from_secs_f64(FIELD_REFRESH_INTERVAL_S + 0.05),
         );
         assert!(
@@ -3354,7 +3355,7 @@ mod tests {
         let mut samples = Vec::new();
         for i in 0..5 {
             let target = 600.0 + i as f64 * FIELD_REFRESH_INTERVAL_S;
-            let t = std::time::Instant::now();
+            let t = web_time::Instant::now();
             channel.advance_population(&config, target);
             let grid = channel.compute_field(&config, &key);
             let live = channel.instantaneous_chi_over_q_at_ring(&config);
@@ -3456,7 +3457,7 @@ mod tests {
 
         let mut samples = Vec::new();
         for i in 0..5 {
-            let t = std::time::Instant::now();
+            let t = web_time::Instant::now();
             let result = channel.evaluate(60.0 * (i + 1) as f64, &release);
             samples.push(t.elapsed().as_secs_f64() * 1.0e3);
             // Use the result so nothing can be optimised away.
@@ -4060,7 +4061,7 @@ mod tests {
             let out = f();
             let mut t: Vec<f64> = (0..5)
                 .map(|_| {
-                    let start = std::time::Instant::now();
+                    let start = web_time::Instant::now();
                     std::hint::black_box(f());
                     start.elapsed().as_secs_f64() * 1e3
                 })

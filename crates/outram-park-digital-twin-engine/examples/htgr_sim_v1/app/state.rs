@@ -23,10 +23,15 @@ const MAX_PLOT_SAMPLES: usize = 4000;
 ///
 /// Plain `Copy` scalars so the snapshot stays cheap to clone every frame --
 /// the same reason the rest of [`HtgrSnapshot`] is flat.
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(target_arch = "wasm32", serde(bound(deserialize = "")))]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NuclideReleaseSnapshot {
     /// Canonical TRISO-ATOPS name, e.g. `"Cs-137"`. Empty before the first
     /// evaluation.
+    // See `HtgrSnapshot::stability_class`: skipped on the wire both ways and
+    // carried beside the snapshot in `app::Wire`.
+    #[cfg_attr(target_arch = "wasm32", serde(skip))]
     pub name: &'static str,
     /// Release rate `R` out of the fuel \[Ci/s per Ci of core inventory\].
     pub release_rate: f64,
@@ -61,6 +66,7 @@ pub const TRACKED_RELEASE_NUCLIDES: usize = 5;
 /// quantity of any kind**~~ (**CHANGED 2026-09-29**: the per-nuclide fields
 /// feed the Map tab's INDICATIVE dose rate, computed by `buangkok` in
 /// `crate::physics::dose_rate` -- never a dose to any real person).
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ReceptorSnapshot {
     /// Compass bearing from the release point, degrees clockwise from north.
@@ -139,6 +145,8 @@ pub fn reactivity_pcm(dollars: f64, beta: f64) -> f64 {
 /// Scalar snapshot of the HTGR plant, shared between the physics thread (which
 /// writes the output fields) and the GUI thread (which writes the control-input
 /// fields and reads everything for display).
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(target_arch = "wasm32", serde(bound(deserialize = "")))]
 #[derive(Clone, Debug)]
 pub struct HtgrSnapshot {
     // --- Control inputs: written by the GUI, read by the physics thread ---
@@ -493,6 +501,13 @@ pub struct HtgrSnapshot {
     pub wind_from_deg: f64,
     /// Pasquill stability class letter that ran, empty before the first
     /// evaluation.
+    // `&'static str` cannot be deserialised: serde would need the borrow to
+    // outlive the input, and changing the type to `Cow` would cost `Copy` on
+    // the arrays that hold these. The browser demo therefore skips it on the
+    // wire BOTH ways and carries the value beside the snapshot, in
+    // `app::Wire`. Skipping only one direction would desync postcard, which
+    // is not self-describing.
+    #[cfg_attr(target_arch = "wasm32", serde(skip))]
     pub stability_class: &'static str,
     /// Plant time of the most recent dispersion evaluation, seconds; `NAN`
     /// before the first.
@@ -1050,6 +1065,7 @@ impl Default for HtgrSnapshot {
 
 /// Bounded time-history buffers for the plot panel. Each entry is an
 /// `[t_seconds, value]` pair suitable for `egui_plot`.
+#[cfg_attr(target_arch = "wasm32", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, Default)]
 pub struct HtgrPlotData {
     /// Total reactor power \[MW\] vs time \[s\].
@@ -1275,3 +1291,5 @@ mod tests {
         assert!(plots.to_rows().is_empty());
     }
 }
+
+

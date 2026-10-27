@@ -68,18 +68,22 @@ fn main() {}
 
 #[cfg(not(target_os = "android"))]
 mod app;
-#[cfg(not(target_os = "android"))]
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 mod headless;
 #[cfg(not(target_os = "android"))]
 mod physics;
 #[cfg(not(target_os = "android"))]
 mod runtime;
+/// The browser platform layer: the canvas, the physics Web Worker and the
+/// messages between them (gh:#1030). No model lives here.
+#[cfg(all(not(target_os = "android"), target_arch = "wasm32"))]
+mod web;
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 use app::HtgrSimApp;
 
 /// Launch the HTGR simulator window.
-#[cfg(not(target_os = "android"))]
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn main() -> eframe::Result<()> {
     env_logger::init(); // `RUST_LOG=debug` for logs.
 
@@ -133,4 +137,15 @@ fn main() -> eframe::Result<()> {
             Ok(Box::new(HtgrSimApp::new(cc)))
         }),
     )
+}
+
+/// In the browser the same module starts twice: once on the page, which
+/// draws the egui widgets, and once in a Web Worker, which steps the plant.
+/// [`web::start`] tells them apart by whether a `window` exists.
+///
+/// There is no headless mode and no command line here; both are the native
+/// binary's, and `--headless` remains the way to get a CSV trace.
+#[cfg(all(not(target_os = "android"), target_arch = "wasm32"))]
+fn main() {
+    web::start();
 }

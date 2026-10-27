@@ -393,6 +393,7 @@ struct SimulationRun {
 /// returns from its loop at the next iteration, and the old `Arc`s are freed
 /// when the last of them drops its handle, so blocking the GUI thread on a join
 /// would buy nothing but a stutter.
+#[cfg(not(target_arch = "wasm32"))]
 fn start_simulation() -> SimulationRun {
     let physics = SharedState::new(HtgrSnapshot::default());
     let plots = SharedState::new(HtgrPlotData::default());
@@ -536,6 +537,39 @@ fn start_simulation() -> SimulationRun {
         physics,
         plots,
         thread_health,
+    }
+}
+
+/// The browser's `start_simulation`: the same shared state, and **no thread**.
+///
+/// `wasm32` has no `std::thread`, and the no-lag rule forbids stepping the
+/// plant on the thread that draws. So the browser demo runs the physics in a
+/// **Web Worker** running this same wasm module, and the worker posts each
+/// snapshot to the page, which writes it into exactly the shared state the
+/// physics thread would have written natively. Every widget downstream is
+/// untouched and cannot tell the difference.
+///
+/// The pacing, the substeps and the plot sampling move to the worker with the
+/// loop; `runtime.rs` was already written to own none of them, which is what
+/// makes this possible without touching the model.
+#[cfg(target_arch = "wasm32")]
+fn start_simulation() -> SimulationRun {
+    SimulationRun {
+        physics: SharedState::new(HtgrSnapshot::default()),
+        plots: SharedState::new(HtgrPlotData::default()),
+        thread_health: ThreadHealth::new(),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl HtgrSimApp {
+    /// The shared plant state the Web Worker's snapshots are written into.
+    pub fn physics_handle(&self) -> SharedState<HtgrSnapshot> {
+        self.physics.clone()
+    }
+    /// The shared plot buffers the worker's samples are written into.
+    pub fn plots_handle(&self) -> SharedState<HtgrPlotData> {
+        self.plots.clone()
     }
 }
 
@@ -1204,5 +1238,188 @@ mod tests {
     fn the_gui_substep_matches_the_tested_substep() {
         assert!((PHYSICS_DT_S - crate::physics::PLANT_TIMESTEP_S).abs() < 1e-12);
         assert!((PHYSICS_DT_S - 0.1).abs() < 1e-12);
+    }
+}
+
+// ─── The browser demo's physics, for the Web Worker (gh:#1030) ───────────────
+
+/// The physics loop of [`start_simulation`], without the thread.
+///
+/// Natively the plant is stepped by `spawn_physics_thread_monitored`, which
+/// owns a thread, an `Instant` clock and a `thread::sleep`. A browser has
+/// none of those: `wasm32` has no `std::thread`, `Instant` panics, and the
+/// no-lag rule forbids stepping the plant on the thread that draws. So the
+/// browser demo puts this in a **Web Worker** and lets JavaScript own the
+/// clock — `setTimeout` paces the ticks, exactly the split `runtime.rs` was
+/// written for ("it does not own a thread, a clock, a pacing policy or a
+/// substep count").
+///
+/// **This is the same plant and the same step.** It is not a reduced model:
+/// `HtgrPlant::step` is called with the same `dt` and the same commands the
+/// desktop simulator uses, and the snapshot it publishes is the one every
+/// widget already reads. What is missing is the pacer's wall-clock feedback,
+/// which the caller supplies as a measured tick length instead.
+#[cfg(target_arch = "wasm32")]
+pub struct WebPhysics {
+    plant: HtgrPlant,
+    state: HtgrSnapshot,
+    plots: HtgrPlotData,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Default for WebPhysics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WebPhysics {
+    /// A fresh plant at its default operating point, with the Map tab's live
+    /// field enabled (as the GUI path does natively).
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            plant: HtgrPlant::new().with_live_map_field(),
+            state: HtgrSnapshot::default(),
+            plots: HtgrPlotData::default(),
+        }
+    }
+
+    /// Adopt the page's control inputs.
+    ///
+    /// The page sends the whole [`HtgrSnapshot`], as the native GUI *writes*
+    /// the whole shared snapshot: the control fields are the page's to set
+    /// and every output field is overwritten by [`Self::tick`] before the
+    /// next message goes back, so adopting it wholesale reproduces the
+    /// native "one shared snapshot, two writers" arrangement rather than
+    /// requiring this code to keep a hand-maintained list of which fields
+    /// belong to whom — a list that would rot the first time a control was
+    /// added.
+    pub fn apply_page_state(&mut self, bytes: &[u8]) -> Result<(), String> {
+        let wire: Wire = postcard::from_bytes(bytes).map_err(|e| e.to_string())?;
+        self.state = wire.snap;
+        Ok(())
+    }
+
+    /// One tick: the body of the native physics closure.
+    ///
+    /// `wall_ms` is how long the previous tick actually took, measured by the
+    /// worker's JavaScript; it stands in for the pacer's `Instant` and feeds
+    /// the real-time ratio the GUI displays. Pass `0.0` on the first tick.
+    pub fn tick(&mut self, wall_ms: f64) {
+        let dt = Time::new::<second>(PHYSICS_DT_S);
+        let commands = plant_commands_from(&self.state);
+        let (reset_requested, rps_enabled, fast_forward) = (
+            self.state.trip_reset_requested,
+            self.state.rps_enabled,
+            self.state.fast_forward_enabled,
+        );
+
+        if self.plant.protection.is_enabled() != rps_enabled {
+            self.plant.protection.set_enabled(rps_enabled);
+        }
+        if reset_requested {
+            self.plant.protection.reset();
+            self.state.trip_reset_requested = false;
+        }
+        if self.state.peak_fuel_reset_requested {
+            self.plant.reset_peak_fuel_to_current();
+            self.state.peak_fuel_reset_requested = false;
+        }
+
+        // Fast-forward removes the pacing sleep, never grows `dt` and never
+        // skips a step, exactly as natively. The browser's budget is the
+        // worker's tick, so the burst is a fixed multiple rather than a
+        // wall-clock race the worker cannot time precisely.
+        let steps_this_tick = if fast_forward {
+            const WEB_FAST_FORWARD_STEPS: usize = 20;
+            for _ in 0..WEB_FAST_FORWARD_STEPS {
+                self.plant.step(dt, commands);
+            }
+            WEB_FAST_FORWARD_STEPS
+        } else {
+            for _ in 0..SUBSTEPS_PER_TICK {
+                self.plant.step(dt, commands);
+            }
+            SUBSTEPS_PER_TICK
+        };
+
+        let rho = self
+            .plant
+            .external_reactivity_dollars(commands.control_rod_insertion_fraction);
+        let achieved_feed_flow = self
+            .plant
+            .secondary
+            .mass_flow()
+            .get::<kilogram_per_second>();
+
+        self.plant.write_snapshot(&mut self.state);
+        self.state.external_reactivity_dollars = rho;
+        if !self.state.feedwater_manual {
+            self.state.feedwater_manual_flow_kg_per_s = achieved_feed_flow;
+        }
+        // Simulated seconds advanced per wall second, from the worker's own
+        // measured tick. Natively this is the pacer's; here JavaScript holds
+        // the clock, so it is measured rather than scheduled.
+        let simulated_s = steps_this_tick as f64 * PHYSICS_DT_S;
+        if wall_ms > 0.0 {
+            let ratio = simulated_s / (wall_ms / 1000.0);
+            self.state.real_time_ratio = Some(ratio);
+            self.state.behind_real_time = ratio < 0.95 && !fast_forward;
+        }
+
+        self.plots.push_sample(&self.state);
+    }
+
+    /// The plant snapshot, for the page, as postcard bytes.
+    ///
+    /// The plot buffers are **not** sent: the page rebuilds them from the
+    /// snapshots it receives, with the same `push_sample` the native
+    /// plot-sampler thread uses, so sending them would be sending the same
+    /// numbers twice.
+    #[must_use]
+    pub fn to_wire(&self) -> Vec<u8> {
+        postcard::to_allocvec(&Wire::from_snapshot(&self.state)).unwrap_or_default()
+    }
+}
+
+/// What crosses the worker boundary, in both directions.
+///
+/// [`HtgrSnapshot`] plus the two `&'static str` fields that cannot travel
+/// inside it. serde can serialise a `&'static str` but not deserialise one,
+/// and giving those fields an owned type would cost `Copy` on the arrays
+/// holding them, which the desktop simulator relies on — so they are
+/// `serde(skip)`ped there and carried here as owned strings instead.
+///
+/// **The format is postcard, not JSON, and that is not a preference.**
+/// `HtgrSnapshot` uses `f64::NAN` deliberately in a dozen fields to mean
+/// "not available" — peak kernel before the first evaluation, the DLOFC and
+/// water-ingress readouts before those accidents run. JSON has no NaN: it
+/// writes `null`, which will not read back into an `f64`, so the first
+/// message would be rejected and every control would stop working. postcard
+/// writes the bits, so a NaN arrives as a NaN and the readouts still say
+/// "unavailable" rather than lying with a number.
+#[cfg(target_arch = "wasm32")]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Wire {
+    /// The plant, minus the two string fields.
+    pub snap: HtgrSnapshot,
+    /// [`HtgrSnapshot::stability_class`].
+    pub stability_class: String,
+    /// One per tracked nuclide, in `release` order.
+    pub nuclide_names: Vec<String>,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Wire {
+    /// Lift a snapshot onto the wire, copying the two string fields out.
+    #[must_use]
+    pub fn from_snapshot(s: &HtgrSnapshot) -> Self {
+        Self {
+            snap: s.clone(),
+            stability_class: s.stability_class.to_owned(),
+            nuclide_names: s.release.iter().map(|r| r.name.to_owned()).collect(),
+        }
     }
 }

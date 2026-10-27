@@ -71,7 +71,12 @@
 //! - This is a diagnostic, not a benchmark: the numbers depend on window size,
 //!   which panel is open, compositor, and display refresh rate.
 
-use std::time::Instant;
+// `web_time::Instant` and not `std::time::Instant`: the std one PANICS on
+// wasm32-unknown-unknown ("time not implemented on this platform") and this
+// timer runs on every frame, so in a browser it took the whole GUI down on
+// the first paint. `web_time` is `std`'s type everywhere except the web,
+// where it reads `performance.now()`, so nothing changes natively.
+use web_time::Instant;
 
 /// Rolling GUI-thread frame timings, owned by the app and updated once per
 /// repaint.

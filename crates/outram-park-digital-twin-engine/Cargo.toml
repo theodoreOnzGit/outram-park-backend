@@ -126,6 +126,9 @@ thiserror.workspace = true
 # drop out on Android and the crate still `cargo check`s there. Desktop builds
 # are unchanged.
 [target.'cfg(not(target_os = "android"))'.dependencies]
+# The GUI frame timer needs a clock that exists in a browser; see the root
+# Cargo.toml's note on `web-time`.
+web-time.workspace = true
 egui.workspace = true
 eframe.workspace = true
 egui_plot.workspace = true
@@ -309,6 +312,19 @@ path = "examples/ciet_web/main.rs"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { workspace = true }
+# The browser demos' Web Worker plumbing (htgr_sim_v1 on the web, gh:#1030).
+# Example-only: the library has no browser face, and a consumer of the crate
+# pays nothing for these.
+wasm-bindgen-futures = { workspace = true }
+js-sys = { workspace = true }
+serde_json = { workspace = true }
+postcard = { workspace = true }
+log = { workspace = true }
+web-sys = { workspace = true, features = [
+  "Window", "Document", "Element", "HtmlCanvasElement",
+  "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
+  "DedicatedWorkerGlobalScope", "MessageEvent", "Performance",
+] }
 
 # ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────
 # None of this can work in a browser: async-opcua and tokio want sockets,

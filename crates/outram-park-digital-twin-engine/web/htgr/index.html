@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HTGR Simulator · OUTRAM PARK</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="A pebble-bed high-temperature gas-cooled reactor (HTR-10 arrangement) simulated in your browser, with the physics on a Web Worker. Research and education only; a demo model, not validated.">
+<style>
+  :root { --bg: #0e1014; --fg: #d8dce4; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+               font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  /* The canvas fills the viewport; egui draws the whole UI, including the
+     folding side panel the mobile-first rule asks for. */
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+             text-align: center; padding: 24px; }
+  #loading .box { max-width: 34em; }
+</style>
+</head>
+<body>
+<canvas id="htgr_canvas"></canvas>
+<div id="loading" hidden><div class="box">
+  <p><b>HTGR Simulator</b>: loading…</p>
+  <p>The plant steps on a Web Worker, so this page stays responsive while it runs.
+     Research and education only; a demo model, not validated.</p>
+</div></div>
+
+<script type="module">
+  // The gate first: no wasm is fetched until the reader is through it. That
+  // is a courtesy, not a protection — see gate.js, which says so at length.
+  import { unlock } from "./gate.js";
+  await unlock("HTGR Simulator");
+  document.getElementById("loading").hidden = false;
+  const init = (await import("./htgr_sim_v1.js")).default;
+  await init({ module_or_path: "./htgr_sim_v1_bg.wasm" });
+</script>
+</body>
+</html>

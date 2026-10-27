@@ -7534,7 +7534,9 @@ dependencies = [
  "egui_extras",
  "egui_plot",
  "env_logger",
+ "js-sys",
  "local-ip-address",
+ "log",
  "mdns-sd",
  "ndarray",
  "nee_soon",
@@ -7547,8 +7549,10 @@ dependencies = [
  "outram-park-fork-dwsim-libs",
  "outram-park-fork-offbeat",
  "petir",
+ "postcard",
  "sembawang",
  "serde",
+ "serde_json",
  "tampines",
  "tampines-steam-tables",
  "teh-o-prke",
@@ -7557,6 +7561,9 @@ dependencies = [
  "tuas_boussinesq_solver",
  "uom",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "web-time",
 ]
 
 [[package]]
