@@ -2287,3 +2287,58 @@ wrapper for libm sin
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit e2014bc692.
+
+# Review: f64::r_sin (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-r-sin-theodoreonzgit-d76bd3ba"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:24:35+08:00"
+modified = "2026-10-27T13:24:35+08:00"
+target = "fn:d76bd3ba0e568fb8"
+
+[review]
+path = "crates/petir/src/mathf.rs::f64::r_sin"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:24:37+08:00"
+commit = "d0a5baa57b2d78ec80293f3866ccb1573c2e009c"
+hash = "sha256:4137e7fe123572c33ffc4fb51dc372d0b228b82cfdc2b8cbef8a21fee12fc462"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:ee036a3f5ba51d83" = "sha256:26c7a0f7c0936131b9003698084872beb67ca8c5476be576ec008fd1283e8217"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: wrapper for libm sine"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: wrapper for libm sine"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01HxmCueofxcJNMntRMmjqoW"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "tXzMnkBAz32VlRK1AS4i7yxQbe4FR+dVa/Fsi7S5reFvmqgaFD3tLhqrXYpAPqQD8QSBAEkAoMqihjAbHSQ5BQ=="
+```
+
+wrapper for libm sine under the hood
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit d0a5baa57b.
