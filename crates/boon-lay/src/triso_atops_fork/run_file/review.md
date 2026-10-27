@@ -283,3 +283,60 @@ unit conversion, matches upstream
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 0898522286.
+
+# Review: TimeUnit::to_time (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-to-time-theodoreonzgit-fca9138d"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:46:53+08:00"
+modified = "2026-10-27T14:46:53+08:00"
+target = "fn:fca9138d7d203340"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::TimeUnit::to_time"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:46:54+08:00"
+commit = "1f76da59b4ee1a4e25144af65430a9b65d4f0c08"
+hash = "sha256:530a1d93326283c1aae3eb344ff52025409ee276d36989f0933c6c8cb6d2a96d"
+doc_hash = "sha256:b57e0d3bf8b29ddd0f90b76e4406a00ef616ab68032a37a47a0099c838965335"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:7211ef55974ed7bc" = "sha256:3b9fff3ac196256b5f0eb77c152443f93ebc5236d4c9a444e8922e2f4b63f60f"
+"fn:f5caa9d482058451" = "sha256:3593bac03a446b265a57636ccde1593a5a95861ffe005d72b0b74a42291220fa"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: a conversion factor utility"
+independence = "someone_else"
+limits_and_guards = "no_limits: just a helper to convert to uom"
+maintainability = "yes"
+numerical_hazards = "other: people expected not to mess this up"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "dvVfpsd7fhMp3pgLC3gNptlH1LtHRzcpPtsZzABMDNoSsj1X05pkDcs2zn7PYp5jYXjKjHMYZCxT9vSGwxCrAw=="
+```
+
+unit conversion, that's all
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 1f76da59b4.
