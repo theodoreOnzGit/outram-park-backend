@@ -210,15 +210,17 @@ done
 # The HTGR simulator in the browser (gh:#986): htgr_sim_v1's own widgets as
 # wasm, the plant on a Web Worker. PASSWORD-GATED by web/gate.js, which is a
 # sign and not a lock -- everything published here is readable by anyone who
-# loads it, and gate.js says so. Not linked from any index page, so the only
-# way in is to be given the URL; `noindex` keeps it out of search.
+# loads it, and gate.js says so. ~~Not linked from any index page, so the only
+# way in is to be given the URL~~ CHANGED 2026-10-27 (maintainer: "Can I have
+# the demos on the demos page"): listed under Plant simulators on demos/;
+# `noindex` still keeps it out of search.
 bash crates/outram-park-digital-twin-engine/web/htgr/build.sh "$OUT/demos/htgr"
 for f in index.html htgr_worker.js gate.js htgr_sim_v1.js htgr_sim_v1_bg.wasm; do
   [[ -f "$OUT/demos/htgr/$f" ]] || { echo "missing demos/htgr/$f" >&2; exit 1; }
 done
 # The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986), moved here
 # from the outram-park repository on 2026-10-27: dhoby-ghaut's fukushima_web
-# example, the plant on three Web Workers. Gated and unlisted exactly like the
+# example, the plant on three Web Workers. Gated and listed exactly like the
 # HTGR demo above, by the same gate.js.
 bash crates/dhoby-ghaut/web/fukushima/build.sh "$OUT/demos/fukushima"
 for f in index.html fukushima_worker.js gate.js fukushima_web.js fukushima_web_bg.wasm; do
@@ -330,6 +332,8 @@ for f in index.html site-nav.js code-map-bar.js code-map/index.html code-map/cod
   tutorials/monte-carlo/index.html tutorials/monte-carlo/godiva.html \
   tutorials/monte-carlo/ugraphite.html tutorials/monte-carlo/lumped.html \
   demos/dispersion/index.html demos/dispersion/dispersion_web_bg.wasm \
+  demos/htgr/index.html demos/htgr/htgr_sim_v1_bg.wasm \
+  demos/fukushima/index.html demos/fukushima/fukushima_web_bg.wasm \
   api/sembawang/index.html \
   deep-dives/nuclear-data/index.html api/njoy_outram_park_fork/index.html \
   demos/nuclear-data/index.html demos/nuclear-data/nuclear_data_web_bg.wasm \

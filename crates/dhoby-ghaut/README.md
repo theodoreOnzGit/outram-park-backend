@@ -49,7 +49,7 @@ each built on `web_demo` (Monte Carlo, dispersion, nuclear data, TRISO-ATOPS):
 | `dispersion_web` | **The dispersion track's demo** (gh:#530): seven rungs, buangkok's Gaussian plume and changi's puff train computed in a Web Worker; the capstone recorded. Published at `demos/dispersion/` |
 | `nuclear_data_web` | **The nuclear data track's demo** (gh:#529): real ENDF/B-VIII.0 processed by `njoy-outram-park-fork` in the browser, one NJOY module per rung. Published at `demos/nuclear-data/` |
 | `triso_atops_web` | **The TRISO-ATOPS and fuel failure track's demo** (gh:#540): eight rungs, every number a call into `boon-lay` (the slice from region lookups, decay chains, the CRP-6 Case 1 walk against Crank, D(T) per layer, PANAMA-I fuel failure, chemistry, release into the coolant pools); the source term recorded. Published at `demos/triso-atops/` |
-| `fukushima_web` | **Fukushima Daiichi Unit 1 station blackout** (GE BWR/3, Mark I; gh:#986; moved from the `outram-park` repository 2026-10-27): the recorded sequence or the reader's own actions, on three Web Workers (plant, core, containment), with a `--headless` CSV mode and a committed fixture. AI draft, not validated. Published, password-gated and unlisted, at `demos/fukushima/` |
+| `fukushima_web` | **Fukushima Daiichi Unit 1 station blackout** (GE BWR/3, Mark I; gh:#986; moved from the `outram-park` repository 2026-10-27): the recorded sequence or the reader's own actions, on three Web Workers (plant, core, containment), with a `--headless` CSV mode and a committed fixture. AI draft, not validated. Published, password-gated, at `demos/fukushima/` (listed under Plant simulators on the demos page) |
 
 ```bash
 cargo run -p dhoby-ghaut --example mc_studio --release
