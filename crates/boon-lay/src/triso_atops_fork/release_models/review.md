@@ -664,3 +664,55 @@ checked against upstream def booth_transient
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 561d019e0c.
+
+# Review: RF_GRAPH_SERIES_TERMS (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-rf-graph-series-terms-theodoreonzgit-b16fbb3a"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:19:16+08:00"
+modified = "2026-10-27T14:19:16+08:00"
+target = "fn:b16fbb3a2a858910"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::RF_GRAPH_SERIES_TERMS"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:19:17+08:00"
+commit = "7de448b1b70e7ad2b3aeae22ff38f77c61610479"
+hash = "sha256:2b661d8344b964b3aa9ccc0e424f5da346fe9e35269728c9c2e5800e0b9757f1"
+doc_hash = "sha256:c03d037a872f7c0f6b4c356c588d6e198c19f89477f97abd8758e8d3051cfe04"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "+/FqSnyrJc2KsK3J1IdV0R1IJH1kQ92PIT94315Ht16cHcR8HoiPP4Pqrzz2WEwY1jMNCL8peSfj2nGk/cxDBQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+checked against upstream that 5000 terms is the default used, users can supply terms themselves otherwise
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 7de448b1b7.
