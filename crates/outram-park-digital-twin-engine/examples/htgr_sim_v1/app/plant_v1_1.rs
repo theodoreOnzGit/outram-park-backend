@@ -484,7 +484,8 @@ mod tests {
         let mut z = PlantZoom::default();
         ZoomAction::In.apply(&mut z, 200.0);
         assert_eq!(z.vessel_width, Some(200.0 * ZOOM_STEP));
-        ZoomAction::Out.apply(&mut z, z.vessel_width.unwrap());
+        let zoomed_in = z.vessel_width.unwrap();
+        ZoomAction::Out.apply(&mut z, zoomed_in);
         assert!((z.vessel_width.unwrap() - 200.0).abs() < 1e-4);
         z.recentre_frames = 0;
         ZoomAction::Fit.apply(&mut z, 200.0);
