@@ -402,7 +402,7 @@ id = "review-runconfig-theodoreonzgit-eed943d2"
 kind = "review"
 origin = "human"
 created = "2026-10-27T14:53:35+08:00"
-modified = "2026-10-27T14:53:35+08:00"
+modified = "2026-10-27T15:51:42+08:00"
 target = "fn:eed943d26b55606f"
 
 [review]
@@ -410,8 +410,8 @@ path = "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::RunConfig"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-27"
-signed_at = "2026-10-27T14:53:36+08:00"
-commit = "502a790b8d1e83ec8f5198dbbcb675d36c3ee3c8"
+signed_at = "2026-10-27T15:51:44+08:00"
+commit = "84ab93aebdae374e9013d0a9b00445cc6514b8b1"
 hash = "sha256:3307dbb791136310a0d59eaff533c204489b79140b582fe41747ffad75008b11"
 doc_hash = "sha256:f882ef36296dedb25d00a4dd7260ea7eca61ee57b0c24a1ad2fe4b8dbe1a3ea0"
 cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
@@ -428,18 +428,14 @@ maintainability = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "reference_code_to_code"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "dOXoKJrWg4CAThNgElgHe4WcAk+F35TtRi6d2RVjcI8fuHr5EI0I1aiNjfoevUaWaVSR0TpUORS5KK78In4rCA=="
+value = "7pfe6P2ZSz3nlT9zBgEvaB4BAuTjcVfUJTjeMbZvNW1aO/I3LSFMsxSnhhEMVPqdXmngSJvC1NgT2h80CF1tCg=="
 ```
 
 have to check this inline with process_run_file
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 502a790b8d.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 84ab93aebd.
