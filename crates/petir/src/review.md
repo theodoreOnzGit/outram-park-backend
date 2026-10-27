@@ -483,3 +483,107 @@ i didn't check it thoroughly, cos these are numerical implementations for expone
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 4078d90230.
+
+# Review: POLY (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-poly-theodoreonzgit-b493e81f"
+kind = "review"
+origin = "human"
+created = "2026-10-27T09:49:28+08:00"
+modified = "2026-10-27T09:49:28+08:00"
+target = "fn:b493e81f2c32888f"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::POLY"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T09:49:29+08:00"
+commit = "b537f424f037c969843541b6fd67138d1338d620"
+hash = "sha256:8250add97cd5ef8e683017359d20da471e248af973c6c66cf554ea8f862678b6"
+doc_hash = "sha256:465c84d1cdafe22e0a4b528bdf8c4f8b1d9fae70542263c3c436a67f14cdf44b"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "2lsd8hbyO0jGLfxYMHShN1/A95vo09KTZDMgB+cp+5Hefcj3F/kpwqHCg/97nKiXwDuvDBygmGS+9iOlXvCTDA=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+i didn't check it thoroughly, cos these are numerical implementations for exponentials. But i only know the integration tests pass. So by that I know it works. Easy way to check is to check ln, exp etc... against std manually via tests and assert low error
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit b537f424f0.
+
+# Review: SHIFT (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-shift-theodoreonzgit-8a8edbd2"
+kind = "review"
+origin = "human"
+created = "2026-10-27T09:50:11+08:00"
+modified = "2026-10-27T09:50:11+08:00"
+target = "fn:8a8edbd25eb705a5"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::SHIFT"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T09:50:12+08:00"
+commit = "b537f424f037c969843541b6fd67138d1338d620"
+hash = "sha256:0cb43d27a403e21c0cbe885498aa83e066aa063ef9ab4d7816f3ba812f4e7fbc"
+doc_hash = "sha256:1b0d6a5eb3b3a11dd0066c914bd93bd6d97959a1ddd6b36ff1eabab7ff094220"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "80o4EFzdgUe/ptlY0cgiWVIXqh6xSIq4HBvs27q/n2NKQz7hMPC0K/dDOVKgSg4USGpBXjZou7dONeUaUTLnBg=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+i didn't check it thoroughly, cos these are numerical implementations for exponentials. But i only know the integration tests pass. So by that I know it works. Easy way to check is to check ln, exp etc... against std manually via tests and assert low error
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit b537f424f0.
