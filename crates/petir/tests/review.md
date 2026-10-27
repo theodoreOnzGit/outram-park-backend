@@ -73,7 +73,7 @@ id = "review-n-theodoreonzgit-9cf36e64"
 kind = "review"
 origin = "human"
 created = "2026-10-27T12:15:46+08:00"
-modified = "2026-10-27T12:15:46+08:00"
+modified = "2026-10-27T12:18:43+08:00"
 target = "fn:9cf36e64e030ef91"
 
 [review]
@@ -81,8 +81,8 @@ path = "crates/petir/tests/fast_math_speed.rs::N"
 by = "github:theodoreOnzGit"
 rung = 3
 date = "2026-10-27"
-signed_at = "2026-10-27T12:15:47+08:00"
-commit = "9d32fc93faeaa6c3dda3b4685a36bad6306c528b"
+signed_at = "2026-10-27T12:18:44+08:00"
+commit = "7fc2d1fbd6aff282f4b5ed3a02cde7b9cf6f7355"
 hash = "sha256:19371d7f41d14bbec41cebee0f79e060722040542d2075dfee55e519f592d9c9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
@@ -97,14 +97,10 @@ maintainability = "yes"
 vv_case_author = "agent_wrote_or_cowrote"
 vv_evidence = "is_a_test"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "jEaArWXHElQ7B5vps5U68KtpCQowWUFshY4Z6G0f0099FeMMGEm0dc/AHPwGh/JCm24iydBh0+G0qFbCXzj8DA=="
+value = "3bIuQFOpJ/bN8iA2ZljC6nL8aK4ptnhUCAF/tcLaQjlqKjqGRQyNW4ES3e7ujWaXopyNBX6BUgJz0E2GCVSnBg=="
 
 [[relation]]
 target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
@@ -115,4 +111,4 @@ ported from upstream
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 9d32fc93fa.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 7fc2d1fbd6.
