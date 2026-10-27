@@ -132,3 +132,52 @@ implements equation 6a as a whole.
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 4fde2ff417.
+
+# Review: BREAKTHROUGH_SERIES_TERMS (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-breakthrough-series-terms-theodoreonzgit-458e6cb0"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:36:36+08:00"
+modified = "2026-10-27T12:36:36+08:00"
+target = "fn:458e6cb04d771957"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::BREAKTHROUGH_SERIES_TERMS"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:36:37+08:00"
+commit = "f7829f27b797b85bbc291f5aa47070f5ccf5227e"
+hash = "sha256:84b0d72ed966e1d0418f1dfb8b271b755b7005929796a62ebed91a2ea2d2e967"
+doc_hash = "sha256:ac613ced7d811d964024825c53d6c742dc7ea4d515f27370aeef3e3059928f70"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "FHtFdIcjeNClfcrGqiyI7t8gPks/C0H1lHxrUyUXH9hJJMC171imXZiJwHKEgT6nG5x4kf5OvcqWWuknHiMlAA=="
+```
+
+normally this helps with equation 6c, and the code claims upstream is 1000 terms. I compared directly with the breakthrough_model in upstream trisoatops, therein, the num_terms is 1000 by default, but user can specify
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit f7829f27b7.
