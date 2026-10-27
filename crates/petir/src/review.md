@@ -1664,3 +1664,54 @@ I'm not reviewing this in depth, this was ported, but one can see if behaviour i
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 39c36dd154.
+
+# Review: N (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-n-theodoreonzgit-1d314ac3"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:51:10+08:00"
+modified = "2026-10-27T10:52:01+08:00"
+target = "fn:1d314ac39142cca5"
+
+[review]
+path = "crates/petir/src/fast_log.rs::N"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:52:02+08:00"
+commit = "3168572d4064756f6112e6a5bac2c88ead4296f4"
+hash = "sha256:eb823a8426d05ee336eddd6289d681d14780401beec0088474b57a8b4e720d75"
+doc_hash = "sha256:5a3c80fbe7dc0e9fe5a6fe49c9f1964cd61bde4c7df2b0acc3900e1a84b8db1c"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:70b3047a2e010694" = "sha256:0ff679b66db05902f416dbd4f3aed3348e0606394b6db8e60b0864a63dc967c9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "KSloGM5EtRCYdybxeWmG3/4NhhoXIjaDb0qfWARQLOWzQeLCmTrT3L3xvpWfVG+VOvfmES29b1aN1M+7PRGACA=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 3168572d40.
