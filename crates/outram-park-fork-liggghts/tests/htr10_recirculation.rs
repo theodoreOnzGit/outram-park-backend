@@ -150,6 +150,11 @@ const SETTLE_STEPS: usize = 8_000;
 /// (V&V § 4.9). Twelve batches is enough to exercise every code path several
 /// times over, and keeps the gate inside the workspace's middle runtime tier
 /// rather than pushing an ordinary `cargo test` past an hour.
+///
+/// **Measured 2026-10-27:** 3919 s (65.3 min) for this test alone, release,
+/// on an otherwise idle 4-core cloud container. So on that hardware it does
+/// not stay under the hour, and under a parallel `cargo test --workspace` it
+/// ran past 2 h. Not re-checked on the maintainer's machine.
 const BATCHES: usize = 12;
 
 fn data_path(name: &str) -> std::path::PathBuf {
