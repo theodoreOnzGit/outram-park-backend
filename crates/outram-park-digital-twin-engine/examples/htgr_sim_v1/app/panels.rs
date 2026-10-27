@@ -783,16 +783,31 @@ pub fn draw_schematic_panel(
     tracers: &SchematicTracers,
     display_unit: LegendUnit,
 ) {
-    // The version title, drawn large and first so it is always on screen.
-    // On a phone the top bar already shows it, and drawing it again pushed
-    // the plant a further 40 px below the fold, so it is skipped there.
-    if ui.available_width() >= 700.0 {
-        ui.label(
-            egui::RichText::new("HTGR Simulator v1.1")
-                .size(26.0)
-                .strong(),
-        );
+    // On a phone (2026-10-27, maintainer: the plant "shld take most of the
+    // screen real estate"): only the peak-fuel readout, on one line, above
+    // the plant. The top bar already says "offline demonstration, not
+    // validated", and the plant's zoom buttons sit over the drawing.
+    if ui.available_width() < 700.0 {
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new("Peak fuel, live").strong())
+                .on_hover_text(PEAK_FUEL_HOVER);
+            ui.label(
+                egui::RichText::new(peak_fuel_text(display_unit, snapshot.peak_kernel_temperature_k))
+                    .size(18.0)
+                    .strong()
+                    .color(egui::Color32::from_rgb(220, 120, 40)),
+            )
+            .on_hover_text(PEAK_FUEL_HOVER);
+        });
+        draw_plant_v1_1(ui, snapshot, tracers);
+        return;
     }
+    // The version title, drawn large and first so it is always on screen.
+    ui.label(
+        egui::RichText::new("HTGR Simulator v1.1")
+            .size(26.0)
+            .strong(),
+    );
     ui.label(
         "HTR-10-style helium-cooled pebble-bed plant, driven by the running model \
          -- offline demonstration only",
@@ -800,11 +815,9 @@ pub fn draw_schematic_panel(
     // egui's built-in whole-window zoom (Options::zoom_with_keyboard,
     // default on) -- not schematic-specific, but this heading is the first
     // thing a reader sees, so it is the natural place to mention it.
-    // A keyboard tip, so only where there is likely to be a keyboard: on a
-    // phone it is advice the reader cannot follow.
-    if ui.available_width() >= 700.0 {
-        ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
-    }
+    // A keyboard tip, so only where there is likely to be a keyboard (the
+    // phone layout above leaves it out).
+    ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
     ui.separator();
     // The headline readout (gh:#964, maintainer 2026-10-19: on the MAIN page,
     // the screen the simulator opens on, no tab switch needed).

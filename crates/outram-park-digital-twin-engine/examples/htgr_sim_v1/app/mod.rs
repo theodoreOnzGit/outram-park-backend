@@ -143,7 +143,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
 use outram_park_digital_twin_engine::app_scaffold::{
-    panel_selector_ui, show_crash_modal_with_restart, spawn_physics_thread_monitored,
+    panel_selector_compact, panel_selector_ui, show_crash_modal_with_restart, spawn_physics_thread_monitored,
     CrashModalOutcome, RealTimePacer, SharedState, ThreadHealth,
 };
 use outram_park_digital_twin_engine::components::LegendUnit;
@@ -821,22 +821,43 @@ impl eframe::App for HtgrSimApp {
         // wrapped onto a dozen lines at 390 px and the tab row ran off the
         // right edge, so the plant started below the fold (seen in Chromium
         // at phone width, gh:#986). The desktop keeps the full title.
+        //
+        // CHANGED 2026-10-27 (maintainer, from a phone screenshot: "the HTGR
+        // itself shld take most of the screen real estate"): on a phone the
+        // whole top is ONE row -- "Controls »" while the panel is folded, the
+        // tabs as a drop-down, the theme as one toggle, and a short title.
+        // The wrapped tab list, the three theme buttons and the separate
+        // Controls row took ~40 % of a 390 x 844 screen above the plant.
         let narrow = ui.max_rect().width() < NARROW_PX;
         egui::Panel::top("htgr_top").show(ui, |ui| {
             if narrow {
-                ui.heading("HTGR Simulator v1.1");
-                ui.small("Demo, not validated");
+                ui.horizontal(|ui| {
+                    #[cfg(target_arch = "wasm32")]
+                    if !self.web_panel.open
+                        && ui
+                            .add(
+                                egui::Button::new(egui::RichText::new("Controls »").strong())
+                                    .min_size(egui::vec2(0.0, 36.0)),
+                            )
+                            .clicked()
+                    {
+                        self.web_panel.open = true;
+                    }
+                    panel_selector_compact(ui, &mut self.open_panel);
+                    egui::global_theme_preference_switch(ui);
+                });
+                ui.small("HTGR Simulator v1.1 · offline demonstration, not validated");
             } else {
                 ui.heading(
                     "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
                 );
-            }
-            ui.horizontal_wrapped(|ui| {
-                egui::global_theme_preference_buttons(ui);
+                ui.horizontal_wrapped(|ui| {
+                    egui::global_theme_preference_buttons(ui);
+                    ui.separator();
+                    panel_selector_ui(ui, &mut self.open_panel);
+                });
                 ui.separator();
-                panel_selector_ui(ui, &mut self.open_panel);
-            });
-            ui.separator();
+            }
         });
 
         // Snapshotted once, up front, and shared by both the right panel
@@ -876,8 +897,9 @@ impl eframe::App for HtgrSimApp {
         egui::CentralPanel::default().show(ui, |ui| {
             // Folded on a phone: keep the row the "Controls »" button sits in
             // clear, as every dhoby-ghaut demo does, and draw the button.
+            // On a phone the button is in the top row instead (above).
             #[cfg(target_arch = "wasm32")]
-            if !self.web_panel.open {
+            if !self.web_panel.open && !narrow {
                 let rect = ui.max_rect();
                 self.web_panel.reopen_button(ui, rect);
                 ui.add_space(REOPEN_ROW_PX);

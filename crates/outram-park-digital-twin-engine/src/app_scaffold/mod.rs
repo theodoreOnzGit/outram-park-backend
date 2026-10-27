@@ -182,6 +182,21 @@ pub fn panel_selector_ui<P: PanelSet>(ui: &mut egui::Ui, current: &mut P) {
     });
 }
 
+/// The tab picker as one drop-down showing the current tab, for a phone,
+/// where [`panel_selector_ui`]'s row wrapped onto four lines above the
+/// content (htgr_sim_v1 at 390 px, 2026-10-27). It offers `P::ALL`, as
+/// [`panel_selector_ui`] does.
+pub fn panel_selector_compact<P: PanelSet>(ui: &mut egui::Ui, current: &mut P) {
+    egui::ComboBox::from_id_salt("panel_selector_compact")
+        .selected_text(current.label())
+        .width(ui.available_width().clamp(120.0, 220.0))
+        .show_ui(ui, |ui| {
+            for panel in P::ALL {
+                ui.selectable_value(current, *panel, panel.label());
+            }
+        });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -274,5 +289,18 @@ mod tests {
                 panel_selector_ui(ui, &mut current);
             });
         });
+    }
+
+    /// The drop-down draws, closed, without touching the selection.
+    #[test]
+    fn panel_selector_compact_renders_without_panicking() {
+        let ctx = egui::Context::default();
+        let mut current = MockPanel::Diagnostics;
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
+                panel_selector_compact(ui, &mut current);
+            });
+        });
+        assert_eq!(current, MockPanel::Diagnostics);
     }
 }

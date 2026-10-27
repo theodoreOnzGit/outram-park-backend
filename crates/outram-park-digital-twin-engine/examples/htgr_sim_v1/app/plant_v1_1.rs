@@ -195,8 +195,36 @@ fn content_layout(plant: egui::Vec2, viewport: egui::Vec2) -> (egui::Vec2, egui:
 }
 
 /// Below this viewport width the zoom buttons grow to a thumb-sized 44 px and
-/// the pointer-only hints are replaced by a touch one.
+/// float over the drawing, and the pointer-only hints are left out.
 const NARROW_VIEW_PX: f32 = 700.0;
+
+/// The four zoom controls, shared by the desktop row and the phone overlay.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ZoomAction {
+    Out,
+    In,
+    Fit,
+    Nominal,
+}
+
+impl ZoomAction {
+    /// Button text and action, in screen order.
+    const BUTTONS: [(&'static str, ZoomAction); 4] =
+        [(" - ", ZoomAction::Out), (" + ", ZoomAction::In), ("Fit", ZoomAction::Fit), ("100 %", ZoomAction::Nominal)];
+
+    /// Apply to `zoom`, the plant being drawn at vessel width `current`.
+    fn apply(self, zoom: &mut PlantZoom, current: f32) {
+        match self {
+            ZoomAction::Out => zoom.vessel_width = Some(current / ZOOM_STEP),
+            ZoomAction::In => zoom.vessel_width = Some(current * ZOOM_STEP),
+            ZoomAction::Fit => {
+                zoom.vessel_width = None;
+                zoom.recentre_frames = RECENTRE_FRAMES;
+            }
+            ZoomAction::Nominal => zoom.vessel_width = Some(NOMINAL_VESSEL_WIDTH),
+        }
+    }
+}
 
 /// Draw the v1.1 plant from this frame's `snapshot`, with the application's
 /// tracer trains, in a pan-and-zoom viewport.
@@ -218,39 +246,24 @@ pub fn draw_plant_v1_1(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &Schematic
         // Estimated before the controls are drawn, then corrected below.
         fitted_vessel_width(ui.available_size(), zoom.canvas_per_vessel_width)
     });
-    // Thumb-sized on a phone (the mobile-first rule: on-screen zoom buttons a
-    // finger can hit, 44 px being the usual minimum target). Natural size on a
-    // desktop, where they are clicked with a pointer.
+    // On a desktop the zoom controls are a row above the viewport. On a phone
+    // (CHANGED 2026-10-27, maintainer: the plant "shld take most of the
+    // screen real estate") they float over the drawing's top-right corner,
+    // thumb-sized (44 px, the mobile-first rule), as on every dhoby-ghaut
+    // demo, so the viewport is everything below the readout.
     let narrow = ui.available_width() < NARROW_VIEW_PX;
-    let target = if narrow { egui::vec2(44.0, 44.0) } else { egui::Vec2::ZERO };
-    let zoom_button = |ui: &mut Ui, text: &str| {
-        let label = if narrow { egui::RichText::new(text).size(18.0).strong() } else { egui::RichText::new(text) };
-        ui.add(egui::Button::new(label).min_size(target)).clicked()
-    };
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Plant zoom:");
-        if zoom_button(ui, " - ") {
-            zoom.vessel_width = Some(current / ZOOM_STEP);
-        }
-        if zoom_button(ui, " + ") {
-            zoom.vessel_width = Some(current * ZOOM_STEP);
-        }
-        if zoom_button(ui, "Fit") {
-            zoom.vessel_width = None;
-            zoom.recentre_frames = RECENTRE_FRAMES;
-        }
-        if zoom_button(ui, "100 %") {
-            zoom.vessel_width = Some(NOMINAL_VESSEL_WIDTH);
-        }
-        ui.label(format!("{:.0} %", 100.0 * current / NOMINAL_VESSEL_WIDTH));
-        if !narrow {
+    if !narrow {
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Plant zoom:");
+            for (text, action) in ZoomAction::BUTTONS {
+                if ui.button(text).clicked() {
+                    action.apply(&mut zoom, current);
+                }
+            }
+            ui.label(format!("{:.0} %", 100.0 * current / NOMINAL_VESSEL_WIDTH));
             ui.separator();
             ui.small("Drag or use the scroll bars to pan; Ctrl + scroll over the plant to zoom.");
-        }
-    });
-    if narrow {
-        // Said once, plainly: on a touch screen there is no Ctrl key.
-        ui.small("Drag to pan; pinch or use the buttons to zoom.");
+        });
     }
 
     let viewport = ui.available_size();
@@ -305,6 +318,30 @@ pub fn draw_plant_v1_1(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &Schematic
         ui.add_space(content.y - margin.y - canvas.height());
         canvas
     });
+    if narrow {
+        let shown = zoom.vessel_width.unwrap_or(vessel_width);
+        let r = output.inner_rect;
+        let mut x = r.right() - 8.0;
+        for (text, action) in ZoomAction::BUTTONS.iter().rev() {
+            // "Fit" and "100 %" are words, not glyphs: wide enough for one
+            // line at 18 pt ("100 %" wrapped at 56 px).
+            let w = match text.trim().len() { 1 => 44.0, 2..=3 => 56.0, _ => 76.0 };
+            x -= w;
+            let at = egui::Rect::from_min_size(egui::pos2(x, r.top() + 8.0), egui::vec2(w, 44.0));
+            if ui.put(at, egui::Button::new(egui::RichText::new(text.trim()).size(18.0).strong())).clicked() {
+                action.apply(&mut zoom, shown);
+                ui.ctx().request_repaint();
+            }
+            x -= 6.0;
+        }
+        ui.painter().text(
+            egui::pos2(r.right() - 8.0, r.top() + 58.0),
+            egui::Align2::RIGHT_TOP,
+            format!("{:.0} %", 100.0 * shown / NOMINAL_VESSEL_WIDTH),
+            egui::FontId::proportional(13.0),
+            ui.visuals().weak_text_color(),
+        );
+    }
     zoom.canvas_per_vessel_width = output.inner.size() / vessel_width;
     zoom.last_vessel_width = vessel_width;
     zoom.last_offset = output.state.offset;
@@ -449,6 +486,24 @@ fn draw_plant_at(
 mod tests {
     use super::*;
     use egui::Vec2;
+
+    /// Each zoom control does what its label says, from either layout: the
+    /// steps are inverse, Fit hands back to the fit and re-centres, 100 %
+    /// is the nominal width.
+    #[test]
+    fn the_zoom_controls_step_fit_and_reset() {
+        let mut z = PlantZoom::default();
+        ZoomAction::In.apply(&mut z, 200.0);
+        assert_eq!(z.vessel_width, Some(200.0 * ZOOM_STEP));
+        ZoomAction::Out.apply(&mut z, z.vessel_width.unwrap());
+        assert!((z.vessel_width.unwrap() - 200.0).abs() < 1e-4);
+        z.recentre_frames = 0;
+        ZoomAction::Fit.apply(&mut z, 200.0);
+        assert_eq!((z.vessel_width, z.recentre_frames), (None, RECENTRE_FRAMES));
+        ZoomAction::Nominal.apply(&mut z, 77.0);
+        assert_eq!(z.vessel_width, Some(NOMINAL_VESSEL_WIDTH));
+        assert_eq!(ZoomAction::BUTTONS.map(|b| b.1), [ZoomAction::Out, ZoomAction::In, ZoomAction::Fit, ZoomAction::Nominal]);
+    }
 
     /// The feed pump follows the feedwater flow by the affinity law: rated
     /// speed at the published nominal flow, half speed at half flow, stopped
