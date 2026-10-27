@@ -618,6 +618,12 @@ Applied Energy (IAE), Japan. Supplied by the maintainer and catalogued
   (GRS 13.1 PBq, WSPEEDI 14.5 PBq Cs-137 for three units) can validate
   anything; the report itself judges the predicted MCCI progression
   "overestimated and unrealistic" against plant inspection.
+- *Derived dataset (2):* **`derived/nea7525-bsaf-cs137-release-rates/`** — the
+  per-participant Cs-137 release-rate histories digitised from Figures 5.1–5.4
+  (21 series, 10 403 points) with `kovan-cli digitise`, plus the pipeline and a
+  per-series quality grading. Verified by integrating each curve against
+  Table 5.1: median ratio 0.93, 17 of 21 within a factor of two. Committed
+  (coordinates are facts); the figure rasters are not.
 - *Derived dataset:* **`derived/nea7525-bsaf-fukushima-daiichi-bands.md`** —
   every numeric table transcribed cell-for-cell, the figure bands read by eye
   and marked as such, the modelling gaps the study names, and a tiering of

@@ -389,6 +389,14 @@ Note how badly the forward codes split the total: IRSN puts **43.1 of its
 43.2 PBq** on unit 3, while GRS puts the bulk on **unit 2**. The three-unit
 total is far better constrained than any single unit's share.
 
+**Time-dependent release.** The per-participant release-rate histories behind
+this table (Figures 5.1–5.4) are digitised in
+[`nea7525-bsaf-cs137-release-rates/`](nea7525-bsaf-cs137-release-rates) — the
+curves a plume model needs, as opposed to the totals above. Read that folder's
+quality table before using any series: a column-wise trace cannot integrate a
+near-vertical spike, so the spike-dominated series (PSI on unit 3, IRSN on
+unit 1) are lower bounds on magnitude and usable for shape only.
+
 Deposition patterns (Fig. 5.5) were computed with HYSPLIT by SNL from each
 participant's source term. Common features of the land-depositing cases:
 **> 3 MBq/m² out to 10–20 km to the north-west**, and a peninsula of deposition
@@ -470,6 +478,12 @@ than from the band.
 - The **full Phase II report** that this summary condenses. Several bands here
   (notably the unit 2 pedestal-mass inconsistency in §2.2) could only be
   resolved there.
-- Figures 5.1–5.4 (per-participant Cs-137 release-rate time histories, Bq/hr
+- ~~Figures 5.1–5.4 (per-participant Cs-137 release-rate time histories, Bq/hr
   over 20 days). These would be needed to drive a time-dependent atmospheric
-  release and are available only as log-scale plots.
+  release and are available only as log-scale plots.~~ **DONE — 2026-10-27:**
+  digitised, 21 series and 10 403 points, in
+  [`nea7525-bsaf-cs137-release-rates/`](nea7525-bsaf-cs137-release-rates).
+  Verified by integrating each curve against Table 5.1 (median ratio 0.93;
+  17 of 21 within a factor of two; 9 within 5 %). Per-series grades and the
+  four **D/C** series whose magnitude must not be trusted are in that
+  folder's README.
