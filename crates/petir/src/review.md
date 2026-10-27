@@ -696,3 +696,71 @@ i didn't check it thoroughly, cos these are numerical implementations for expone
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit ec31044887.
+
+# Review: exp_inner (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-exp-inner-theodoreonzgit-a35dd137"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:12:52+08:00"
+modified = "2026-10-27T10:12:52+08:00"
+target = "fn:a35dd137eb82556b"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::exp_inner"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:12:53+08:00"
+commit = "ce7b25865e1ecccb6d7292a82120e9e3bc435ef4"
+hash = "sha256:3f1324f589067609d28cf9b149e2c704be0f4333667ea2953e45f76dabe875db"
+doc_hash = "sha256:1d78b1bcc841b924753e7073450d28c6923621bfbcbf4bee927e6878a42fe6e6"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:02e95b98499e5027" = "sha256:3ddac486044f19eec634ab31f2bdc5e9a54b88c29e8a1c456c7d931355002699"
+"fn:08f93c13acb0345f" = "sha256:a3d4e6a407d4118cd0e98290ff8806316c809244dc21016a4cb7f65811a98fd8"
+"fn:104ad896f8302fa4" = "sha256:9556ffe87d3e41af541796a593d3dfcc850070777db20a942d2ce890393b5197"
+"fn:35ce846190fc2d4b" = "sha256:5b0b66e99ef3f6d6ed1118dfda21ed9df6f6e2b19c0e6d0e237c91492bf5e486"
+"fn:8a8edbd25eb705a5" = "sha256:0cb43d27a403e21c0cbe885498aa83e066aa063ef9ab4d7816f3ba812f4e7fbc"
+"fn:aa59d6d2a0e034f8" = "sha256:0860c4f93f25a1cab7481aba968f6a1de2d52761085beb74e1f23756d3b270de"
+"fn:b493e81f2c32888f" = "sha256:8250add97cd5ef8e683017359d20da471e248af973c6c66cf554ea8f862678b6"
+"fn:c37b7c2750f07a35" = "sha256:6f024d35ae524f68daf5fd03f3e6f079ac49777d0bf8fb7259f5c6fccfe01264"
+"fn:cf5d9f8646da487f" = "sha256:faeacadcc7eaa20fa65ecdba4cdff63c38953e439f4a72492ed5dd7803f3e7dd"
+"fn:f009da1c1cd251a0" = "sha256:39b33641d4c056510e8a960182c30aadd5f1b21b56c6c9ae57904e5611efb74b"
+"fn:fecfbd2664f9ee23" = "sha256:db3244c3ed0b3c2c380bca7af80ee826dbe5b7f1d1a1bae8e712e44dc7751e78"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_016EsuzTnVZavfdUSvUJ2KCn"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "h3C5+yIMbBKQmkG84ZSY3hnEMUsGdrzpK0jwHNJRHBWTvkYeT8KG3nmLDr9zbf4mKeFRBLasTDK9E3zDjSltAQ=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+i didn't check it thoroughly, cos these are numerical implementations for exponentials. But i only know the integration tests pass. So by that I know it works. Easy way to check is to check ln, exp etc... against std manually via tests and assert low error
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit ce7b25865e.
