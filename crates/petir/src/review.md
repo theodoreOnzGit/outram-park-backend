@@ -2180,3 +2180,58 @@ follow upstream, just a wrapper
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 1c62efd104.
+
+# Review: f64::r_tanh (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-r-tanh-theodoreonzgit-633a3996"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:18:49+08:00"
+modified = "2026-10-27T13:18:49+08:00"
+target = "fn:633a3996c8a68876"
+
+[review]
+path = "crates/petir/src/mathf.rs::f64::r_tanh"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:18:50+08:00"
+commit = "17e72c3699e73c10656bffadb433242b7cd2a187"
+hash = "sha256:606d6687c54f107831c1155d56e9e021894f6289dc8e7f613e320167925e270c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:ae9c1b20206a5813" = "sha256:332f68239f8b5cac73d4ed60a248ab908cf56cf7c14eda019fc00f8097199975"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream, just a wrapper"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream, just a wrapper"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream, just a wrapper"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01HxmCueofxcJNMntRMmjqoW"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "1PXF6Me/6ugErGfCnVyXJpC/ijzIH3G2DeC1V+PbtXYXKNbPrB7x9HoTKwXyKQsEDQuwXjb49v84vkBKgdpdBw=="
+```
+
+follow upstream, just a wrapper
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 17e72c3699.
