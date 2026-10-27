@@ -22,7 +22,7 @@
 //! | [`fuel_zone_radius_cm`](Htr10CoreDesign::fuel_zone_radius_cm) | the fuelled-zone sphere of every fuel ball, and the TRISO lattice clipped to it | Li (2014) Table 2, 2.5 cm |
 //! | [`triso_radii_cm`](Htr10CoreDesign::triso_radii_cm) | the five TRISO shells | TECDOC-1382 / Li Table 2, as adjudicated (op-867c.12) |
 //! | [`particles_per_pebble`](Htr10CoreDesign::particles_per_pebble) | the TRISO lattice pitch, solved so the zone holds exactly this many whole particles | Li Table 2 and Şeker & Çolak (2003) p. 266, 8335 |
-//! | [`rod_insertion`](Htr10CoreDesign::rod_insertion) | the axial position of the ten explicit control rods | TECDOC-1382 § 4.1.1.5: withdrawn (0) is the benchmark state |
+//! | [`rod_insertions`](Htr10CoreDesign::rod_insertions) | the axial position of EACH of the ten explicit control rods (since 2026-10-23, gh:#1025; one shared value before) | TECDOC-1382 § 4.1.1.5: withdrawn (0) is the benchmark state |
 //!
 //! # What it cannot change, stated plainly
 //!
@@ -32,12 +32,18 @@
 //! - **Fertile or poison pebbles.** Every ball is fuel or graphite (dummy).
 //! - **Materials** (kernel composition, enrichment, matrix, coolant): those are
 //!   [`super::materials`]' and [`super::data`]'s, fixed to the benchmark.
-//! - **Rod insertion is one position for all ten rods.** A single rod (the
-//!   B32 / B42 problems) is not representable.
+//! - ~~**Rod insertion is one position for all ten rods.** A single rod (the
+//!   B32 / B42 problems) is not representable.~~ **CHANGED 2026-10-23
+//!   (gh:#1025, maintainer: "move all rods individually, or sync their
+//!   movements together"):** each rod has its own insertion,
+//!   [`Htr10CoreDesign::rod_insertions`], indexed as
+//!   [`super::reflector_geometry::control_rod_azimuths_deg`] orders the
+//!   rods; [`Htr10CoreDesign::with_bank`] puts all ten at one position and
+//!   builds, cell for cell, the geometry the single shared value built.
 //!
 //! # Rod insertion, defined
 //!
-//! `rod_insertion` is the fraction of the published travel, linear in the
+//! Each entry of `rod_insertions` is the fraction of the published travel, linear in the
 //! position of the rod's lower end: 0 puts it at
 //! [`LOWER_END_WITHDRAWN_CM`] (`z_T` = 119.2 cm, in the top reflector, the
 //! benchmark's state), 1 at [`LOWER_END_INSERTED_CM`] (`z_T` = 394.2 cm),
@@ -54,7 +60,7 @@
 //! geometry in its last bit (measured 2026-10-05 by
 //! `the_default_design_builds_the_geometry_unchanged`).
 
-use super::control_rod::{LOWER_END_INSERTED_CM, LOWER_END_WITHDRAWN_CM};
+use super::control_rod::{LOWER_END_INSERTED_CM, LOWER_END_WITHDRAWN_CM, N_CONTROL_RODS};
 use super::explicit_bed::{FUEL_ZONE_RADIUS_CM, PEBBLE_RADIUS_CM};
 
 /// The TRISO shell radii of the record's model \[cm\], kernel outward:
@@ -83,9 +89,13 @@ pub struct Htr10CoreDesign {
     /// Whole TRISO particles in each fuel zone; the lattice pitch is solved
     /// to give exactly this count. Default [`PARTICLES_PER_PEBBLE`].
     pub particles_per_pebble: usize,
-    /// Control-rod insertion, fraction \[-\] of the published travel, `[0, 1]`:
-    /// 0 withdrawn (the benchmark), 1 fully inserted. All ten rods together.
-    pub rod_insertion: f64,
+    /// Control-rod insertion of each rod, fraction \[-\] of the published
+    /// travel, `[0, 1]`: 0 withdrawn (the benchmark), 1 fully inserted. Rod
+    /// `i` sits in the channel at
+    /// [`super::reflector_geometry::control_rod_azimuths_deg`]`()[i]`.
+    /// ~~`rod_insertion: f64`, all ten rods together~~ **CHANGED 2026-10-23
+    /// (gh:#1025)**: [`Self::with_bank`] is that case.
+    pub rod_insertions: [f64; N_CONTROL_RODS],
 }
 
 impl Default for Htr10CoreDesign {
@@ -96,19 +106,65 @@ impl Default for Htr10CoreDesign {
             fuel_zone_radius_cm: FUEL_ZONE_RADIUS_CM,
             triso_radii_cm: TRISO_RADII_CM,
             particles_per_pebble: PARTICLES_PER_PEBBLE,
-            rod_insertion: 0.0,
+            rod_insertions: [0.0; N_CONTROL_RODS],
         }
     }
 }
 
 impl Htr10CoreDesign {
-    /// TECDOC axial coordinate `z_T` \[cm\] of the rods' lower end (it runs
-    /// downward from the model top), for [`Self::rod_insertion`] clamped to
-    /// `[0, 1]`: 119.2 cm withdrawn to 394.2 cm fully inserted.
+    /// This design with **all ten rods at insertion `f`** (the bank, synced):
+    /// the case the single shared `rod_insertion` described until
+    /// 2026-10-23, and the geometry it built, cell for cell (pinned by
+    /// `the_bank_is_ten_equal_rods`).
     #[must_use]
-    pub fn rod_lower_end_zt_cm(&self) -> f64 {
-        let f = self.rod_insertion.clamp(0.0, 1.0);
+    pub fn with_bank(self, f: f64) -> Self {
+        Self { rod_insertions: [f; N_CONTROL_RODS], ..self }
+    }
+
+    /// This design with rod `rod` alone moved to insertion `f`, the other
+    /// nine unchanged.
+    ///
+    /// # Panics
+    /// If `rod >= N_CONTROL_RODS`.
+    #[must_use]
+    pub fn with_rod(mut self, rod: usize, f: f64) -> Self {
+        self.rod_insertions[rod] = f;
+        self
+    }
+
+    /// The bank insertion when every rod sits at the same position, `None`
+    /// when they differ (bit-for-bit comparison: positions that differ in
+    /// the last bit are different positions).
+    #[must_use]
+    pub fn bank_insertion(&self) -> Option<f64> {
+        let f = self.rod_insertions[0];
+        self.rod_insertions.iter().all(|g| g.to_bits() == f.to_bits()).then_some(f)
+    }
+
+    /// TECDOC axial coordinate `z_T` \[cm\] (downward from the model top)
+    /// of an insertion fraction `f` clamped to `[0, 1]`: 119.2 cm withdrawn
+    /// to 394.2 cm fully inserted.
+    #[must_use]
+    pub fn lower_end_zt_cm_of(f: f64) -> f64 {
+        let f = f.clamp(0.0, 1.0);
         LOWER_END_WITHDRAWN_CM + f * (LOWER_END_INSERTED_CM - LOWER_END_WITHDRAWN_CM)
+    }
+
+    /// `z_T` \[cm\] of each rod's lower end, [`Self::lower_end_zt_cm_of`]
+    /// of each of [`Self::rod_insertions`].
+    #[must_use]
+    pub fn rod_lower_ends_zt_cm(&self) -> [f64; N_CONTROL_RODS] {
+        self.rod_insertions.map(Self::lower_end_zt_cm_of)
+    }
+
+    /// The insertion fraction that puts a rod's lower end at `z_t_cm`
+    /// (TECDOC's axial coordinate, downward from the model top), the inverse
+    /// of [`Self::lower_end_zt_cm_of`]. Not clamped: a position outside the
+    /// travel gives a fraction outside `[0, 1]`, which [`Self::check`]
+    /// refuses.
+    #[must_use]
+    pub fn rod_insertion_for_lower_end_zt_cm(z_t_cm: f64) -> f64 {
+        (z_t_cm - LOWER_END_WITHDRAWN_CM) / (LOWER_END_INSERTED_CM - LOWER_END_WITHDRAWN_CM)
     }
 
     /// Why the builders would refuse this design, if they would: a fraction
@@ -121,8 +177,8 @@ impl Htr10CoreDesign {
         if !(0.0..=1.0).contains(&self.fuel_ball_fraction) {
             return Err(format!("fuel ball fraction {} is not in [0, 1]", self.fuel_ball_fraction));
         }
-        if !(0.0..=1.0).contains(&self.rod_insertion) {
-            return Err(format!("rod insertion {} is not in [0, 1]", self.rod_insertion));
+        if let Some((i, f)) = self.rod_insertions.iter().enumerate().find(|(_, f)| !(0.0..=1.0).contains(*f)) {
+            return Err(format!("rod {} insertion {f} is not in [0, 1]", i + 1));
         }
         let r = self.triso_radii_cm;
         if r[0] <= 0.0 || r.windows(2).any(|w| w[1] <= w[0]) {
@@ -154,11 +210,25 @@ mod tests {
         assert!(d.check().is_ok());
         assert_eq!(d.fuel_ball_fraction, 0.57);
         assert_eq!(d.particles_per_pebble, 8335);
-        assert_eq!(d.rod_lower_end_zt_cm(), 119.2);
-        let full = Htr10CoreDesign { rod_insertion: 1.0, ..d };
-        assert!((full.rod_lower_end_zt_cm() - 394.2).abs() < 1e-12);
-        let half = Htr10CoreDesign { rod_insertion: 0.5, ..d };
-        assert!((half.rod_lower_end_zt_cm() - 256.7).abs() < 1e-12);
+        assert_eq!(d.rod_lower_ends_zt_cm(), [119.2; 10]);
+        assert_eq!(d.bank_insertion(), Some(0.0));
+        let full = d.with_bank(1.0);
+        assert!(full.rod_lower_ends_zt_cm().iter().all(|z| (z - 394.2).abs() < 1e-12));
+        let half = d.with_bank(0.5);
+        assert!((Htr10CoreDesign::lower_end_zt_cm_of(0.5) - 256.7).abs() < 1e-12);
+        assert_eq!(half.bank_insertion(), Some(0.5));
+        // One rod moved: no longer a bank, the others untouched.
+        let one = d.with_rod(2, 1.0);
+        assert_eq!(one.bank_insertion(), None);
+        assert_eq!(one.rod_lower_ends_zt_cm()[2], 394.2);
+        assert_eq!(one.rod_lower_ends_zt_cm()[3], 119.2);
+        // The inverse maps every curve position back to itself (gh:#1025).
+        for z in super::super::control_rod::BANK_CURVE_ZT_CM {
+            let f = Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(z);
+            assert!((0.0..=1.0).contains(&f), "{z}");
+            assert!((Htr10CoreDesign::lower_end_zt_cm_of(f) - z).abs() < 1e-9);
+        }
+        assert_eq!(Htr10CoreDesign::rod_insertion_for_lower_end_zt_cm(119.2), 0.0);
         // TrisoSpec::HTR10_LI2014 is the same particle.
         let s = outram_mc_libs::pebble_beds::fhr_pebble::TrisoSpec::HTR10_LI2014;
         assert_eq!(TRISO_RADII_CM, [s.kernel, s.buffer, s.ipyc, s.sic, s.opyc]);
@@ -173,7 +243,9 @@ mod tests {
         radii.swap(1, 2);
         assert!(Htr10CoreDesign { triso_radii_cm: radii, ..d }.check().is_err());
         assert!(Htr10CoreDesign { fuel_ball_fraction: 1.2, ..d }.check().is_err());
-        assert!(Htr10CoreDesign { rod_insertion: -0.1, ..d }.check().is_err());
+        assert!(d.with_bank(-0.1).check().is_err());
+        let e = d.with_rod(9, 1.5).check().unwrap_err();
+        assert!(e.contains("rod 10"), "{e}");
     }
 
     /// The default design builds the record's geometry: the counts the
@@ -247,7 +319,7 @@ mod tests {
         use crate::htr10_rmc::core_model::{assemble_explicit_triso_with, mat};
         let d = Htr10CoreDesign::default();
         let out = assemble_explicit_triso_with(14, 12, 0, &d);
-        let inn = assemble_explicit_triso_with(14, 12, 0, &Htr10CoreDesign { rod_insertion: 1.0, ..d });
+        let inn = assemble_explicit_triso_with(14, 12, 0, &d.with_bank(1.0));
         assert!((inn.rod_lower_end_zt_cm.expect("rods") - 394.2).abs() < 1e-12);
         let zt = |c: &crate::htr10_rmc::core_model::AssembledCore, z: f64| c.refl_top - z;
         let step = (out.refl_top - out.refl_bottom) / 600.0;
@@ -276,6 +348,59 @@ mod tests {
         }
         let length = b4c.len() as f64 * step;
         assert!((length - 243.5).abs() < 6.0 * step, "B4C length {length:.1} cm");
+    }
+
+    /// **The bank is ten equal rods, and one rod moves alone** (gh:#1025).
+    ///
+    /// # Methodology
+    /// 14 x 12 core. (a) `with_bank(x)` against setting each of the ten rods
+    /// to `x` one at a time with `with_rod`, at x = 0, 0.37 and 1: the same
+    /// design, and the assembled geometry's `Debug` text identical. (b) The
+    /// default (withdrawn) core keeps the record's counts (43 452 cells,
+    /// 1 502 universes). (c) Rod 3 alone fully inserted: one extra rod
+    /// universe (two distinct positions), and at bed mid-height (z = 0) the
+    /// B4C ring of rod 3's channel holds B4C while every other rod channel is
+    /// helium there.
+    ///
+    /// # Results (2026-10-23)
+    /// (a) identical at all three x; (b) 43 452 cells, 1 502 universes;
+    /// (c) 1 503 universes; B4C at z = 0 in rod 3 only.
+    #[test]
+    fn the_bank_is_ten_equal_rods() {
+        use crate::htr10_rmc::core_model::{assemble_explicit_triso_with, mat};
+        use crate::htr10_rmc::reflector_geometry::control_rod_azimuths_deg;
+        use outram_mc_libs::geometry::cell::SurfaceToken;
+        use outram_mc_libs::geometry::position::{Direction, Position};
+        use petir::mathf::RealMath;
+        let d = Htr10CoreDesign::default();
+        for x in [0.0, 0.37, 1.0] {
+            let bank = d.with_bank(x);
+            let one_by_one = (0..10).fold(d, |a, i| a.with_rod(i, x));
+            assert_eq!(bank, one_by_one);
+            assert_eq!(bank.bank_insertion(), Some(x));
+            let a = assemble_explicit_triso_with(14, 12, 0, &bank);
+            let b = assemble_explicit_triso_with(14, 12, 0, &one_by_one);
+            assert_eq!(format!("{:?}", a.geometry), format!("{:?}", b.geometry), "x = {x}");
+            assert_eq!(a.rod_lower_end_zt_cm, Some(Htr10CoreDesign::lower_end_zt_cm_of(x)));
+        }
+        let out = assemble_explicit_triso_with(14, 12, 0, &d);
+        assert_eq!((out.cells, out.universes), (43_452, 1_502));
+        let rod3 = assemble_explicit_triso_with(14, 12, 0, &d.with_rod(2, 1.0));
+        assert_eq!(rod3.universes, 1_503);
+        assert_eq!(rod3.rod_lower_end_zt_cm, None, "not a bank");
+        let ends = rod3.rod_lower_ends_zt_cm.expect("rods built");
+        assert!((ends[2] - 394.2).abs() < 1e-12 && ends[0] == 119.2);
+        for (i, az) in control_rod_azimuths_deg().into_iter().enumerate() {
+            let (sn, cs) = az.to_radians().r_sin_cos();
+            // 4.1 cm outward of the rod axis: inside the B4C ring.
+            let r = super::super::reflector_geometry::ROD_CHANNEL_CENTRE_RADIUS_CM + 4.1;
+            let m = rod3
+                .geometry
+                .locate(Position::new(r * cs, r * sn, 0.0), Direction::new(0.0, 0.0, 1.0), SurfaceToken::NONE)
+                .and_then(|p| p.material);
+            let want = if i == 2 { mat::ROD_B4C } else { mat::HELIUM };
+            assert_eq!(m, Some(want), "rod {} at {az} deg", i + 1);
+        }
     }
 
     /// The design's fuel fraction and TRISO count are what gets built

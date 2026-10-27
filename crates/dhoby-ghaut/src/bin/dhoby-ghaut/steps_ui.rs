@@ -922,7 +922,8 @@ fn monte_carlo(app: &mut App, ui: &mut egui::Ui) -> bool {
         "Fraction of the published travel, all ten rods together: 0 = withdrawn (lower end at z_T 119.2 cm, \
          the benchmark state), 1 = fully inserted (394.2 cm), TECDOC-1382 § 4.1.1.5. It moves the explicit \
          rods in the geometry, so a change re-assembles the core and the review gate is passed again \
-         (gh:#580). One rod alone is not representable.",
+         (gh:#580). The workbench moves all ten together; one rod alone (the model can build it since gh:#1025) \
+         is in the web demo's Control rods view.",
     );
     ui.separator();
     ui.label(RichText::new("Statistics").strong());

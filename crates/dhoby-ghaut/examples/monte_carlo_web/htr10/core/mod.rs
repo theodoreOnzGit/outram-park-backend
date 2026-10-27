@@ -173,6 +173,9 @@ pub enum CoreReq {
     Assemble { layers: usize },
     /// Rebuild the core at another layer count (nothing else changes).
     Layers { layers: usize },
+    /// Rebuild the core with the control rods at these insertions (gh:#1025;
+    /// nothing else changes).
+    Rods { rods: [f64; random_bed::N_RODS] },
     /// Sample a run's initial source. `epoch` is the run's (gh:#817): the
     /// reply carries it back, so a reply to a replaced run is recognised.
     Source { cfg: KeffConfig, epoch: u32 },
@@ -276,6 +279,8 @@ pub struct CoreModel {
     pub majorant: Majorant,
     pub core: AssembledCore,
     pub layers: usize,
+    /// The control rods' insertions the core is built with (gh:#1025).
+    pub rods: [f64; random_bed::N_RODS],
 }
 
 /// One worker's state.
@@ -433,6 +438,7 @@ impl CoreWorker {
             majorant,
             core,
             layers,
+            rods: random_bed::WITHDRAWN,
         });
         Ok(AssemblyReport {
             layers,
@@ -449,8 +455,22 @@ impl CoreWorker {
     pub fn set_layers(&mut self, layers: usize) -> Result<(), String> {
         let m = self.model.as_mut().ok_or("the model is not built")?;
         if m.layers != layers {
-            m.core = random_bed::build_core(layers)?;
+            m.core = random_bed::build_core_with(layers, &m.rods)?;
             m.layers = layers;
+        }
+        Ok(())
+    }
+
+    /// Rebuild the core with the control rods at `rods` (gh:#1025), the bed
+    /// unchanged. Nothing is rebuilt when they are already there.
+    ///
+    /// # Errors
+    /// The model is not built, or an insertion is outside `[0, 1]`.
+    pub fn set_rods(&mut self, rods: [f64; random_bed::N_RODS]) -> Result<(), String> {
+        let m = self.model.as_mut().ok_or("the model is not built")?;
+        if m.rods.map(f64::to_bits) != rods.map(f64::to_bits) {
+            m.core = random_bed::build_core_with(m.layers, &rods)?;
+            m.rods = rods;
         }
         Ok(())
     }
@@ -581,6 +601,19 @@ pub fn serve_native(w: &mut CoreWorker, req: CoreReq, post: &mut impl FnMut(crat
                 rep.nuclides_s -= tapes_s;
                 send(CoreEv::Assembled(rep));
             }
+            CoreReq::Rods { rods } => {
+                w.set_rods(rods)?;
+                if let Some(m) = &w.model {
+                    send(CoreEv::Assembled(AssemblyReport {
+                        layers: m.layers,
+                        tapes_s: 0.0,
+                        nuclides_s: 0.0,
+                        geometry_s: 0.0,
+                        majorant_s: 0.0,
+                        memory_mb: f64::NAN,
+                    }));
+                }
+            }
             CoreReq::Layers { layers } => {
                 w.set_layers(layers)?;
                 if let Some(m) = &w.model {
@@ -674,6 +707,10 @@ pub mod web {
                     js::set(o, "kind", "core_layers");
                     js::set(o, "layers", *layers as f64);
                 }
+                CoreReq::Rods { rods } => {
+                    js::set(o, "kind", "core_rods");
+                    js::set(o, "rods", js::f64s(rods));
+                }
                 CoreReq::Source { cfg, epoch } => {
                     js::set(o, "kind", "core_source");
                     js::set(o, "cfg", js::f64s(&cfg_words(cfg)));
@@ -708,6 +745,9 @@ pub mod web {
                 "core_layers" => Ok(CoreReq::Layers {
                     layers: n("layers"),
                 }),
+                "core_rods" => <[f64; random_bed::N_RODS]>::try_from(js::get_f64s(v, "rods").as_slice())
+                    .map(|rods| CoreReq::Rods { rods })
+                    .map_err(|_| "core_rods: not ten insertions".to_string()),
                 "core_source" => cfg_from(&js::get_f64s(v, "cfg")).map(|cfg| CoreReq::Source {
                     cfg,
                     epoch: n("epoch") as u32,
@@ -957,6 +997,24 @@ pub mod web {
                 },
                 Err(_) => fail("worker state poisoned".into()),
             },
+            CoreReq::Rods { rods } => match core.write() {
+                Ok(mut w) => match w.set_rods(rods) {
+                    Ok(()) => {
+                        let layers = w.model.as_ref().map_or(0, |m| m.layers);
+                        send(CoreEv::Assembled(AssemblyReport {
+                            layers,
+                            tapes_s: 0.0,
+                            nuclides_s: 0.0,
+                            geometry_s: 0.0,
+                            majorant_s: 0.0,
+                            memory_mb: dhoby_ghaut::web_demo::pool::wasm_memory_mb()
+                                .unwrap_or(f64::NAN),
+                        }))
+                    }
+                    Err(e) => fail(e),
+                },
+                Err(_) => fail("worker state poisoned".into()),
+            },
             CoreReq::Source { cfg, epoch } => match core
                 .read()
                 .map_err(|_| "poisoned".to_string())
@@ -987,6 +1045,38 @@ pub mod web {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    /// **A worker rebuilds its core with the rods asked for** (gh:#1025):
+    /// a model on the lattice at N = 12 (no nuclear data needed to build
+    /// geometry), `set_rods` with rod 3 alone fully in, then `set_layers`.
+    /// Pass: the core's per-rod lower ends follow the rods, a layer change
+    /// keeps them, and withdrawn rods give `build_core`'s core exactly.
+    #[test]
+    fn a_worker_rebuilds_its_core_with_the_rods() {
+        let mut w = CoreWorker::default();
+        assert!(w.set_rods(random_bed::WITHDRAWN).is_err(), "no model yet");
+        w.model = Some(CoreModel {
+            nuclides: Vec::new(),
+            materials: Vec::new(),
+            majorant: Majorant::uniform(1.0),
+            core: random_bed::build_core(12).expect("lattice"),
+            layers: 12,
+            rods: random_bed::WITHDRAWN,
+        });
+        let mut rods = random_bed::WITHDRAWN;
+        rods[2] = 1.0;
+        w.set_rods(rods).expect("rods");
+        let ends = |w: &CoreWorker| w.model.as_ref().unwrap().core.rod_lower_ends_zt_cm.expect("rods built");
+        assert_eq!(ends(&w)[2], 394.2);
+        assert_eq!(ends(&w)[0], 119.2);
+        w.set_layers(13).expect("layers");
+        assert_eq!(ends(&w)[2], 394.2, "a layer change keeps the rods");
+        assert!(w.set_rods([2.0; random_bed::N_RODS]).is_err());
+        w.set_rods(random_bed::WITHDRAWN).expect("withdraw");
+        let a = &w.model.as_ref().unwrap().core;
+        let b = random_bed::build_core(13).unwrap();
+        assert_eq!(format!("{:?}", a.geometry), format!("{:?}", b.geometry));
+    }
 
     /// **A cached job is the processed job, bit for bit** (gh:#818): the
     /// cheapest tape job and the Si-in-SiC law (THERMR, tens of seconds) are

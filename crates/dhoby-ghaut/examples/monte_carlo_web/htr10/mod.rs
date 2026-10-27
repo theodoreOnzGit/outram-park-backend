@@ -8,6 +8,16 @@
 //! - **layers**: the recorded k against loading height for N = 10–20 layers,
 //!   read with a slider, beside the bed at that N, against RMC and MCNP
 //!   ([`crate::sweep`]);
+//! - ~~**control rods** (its own tab)~~ **CHANGED 2026-10-25** (maintainer:
+//!   "change the number of stacks and control rod position under the same
+//!   tab"): the rods are set in the **whole core** tab beside the bed's N,
+//!   with k and entropy in its bottom dock and the views below in its right
+//!   dock (`?view=rods` still opens it). **Control rods** (since 2026-10-23,
+//!   gh:#1025, [`rods`]): the ten rods,
+//!   synced or one by one, drawn in a side slice through the selected rod and a
+//!   top slice; the recorded native k against rod position (all ten, and rod 3
+//!   "S3" alone) shown only for a setting on a recorded curve; any setting or a
+//!   whole worth curve for any rod run live on the core's worker pool;
 //! - **fuel-zone k∞**: a real, streamed power iteration of the record's fuel-zone
 //!   cube with the kernels resolved or homogenised (#549's `kinf_case`), the
 //!   double-heterogeneity worth by hand.
@@ -28,6 +38,7 @@
 
 pub mod core;
 pub mod model;
+pub mod rods;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod render;
 
@@ -122,6 +133,7 @@ impl McRung for Htr10 {
             "Geometry: the HTR-10 core exactly as nee_soon assembles it for the recorded runs (assemble_explicit_triso, 14 rings, N Şeker layers): every slice is the material Geometry::locate finds at each pixel, drawn in this tab's worker. Nothing is re-modelled for the picture.",
             "Layers: recorded results only (ENDF/B-VIII.0 and VII.0: 10 000 × [5 + 135] per point, all 22 points measured 2026-10-07 on the bounded delta-tracking majorant, #589) against RMC (Li, Yu & Wei 2014) and MCNP (Şeker & Çolak 2003). Nothing is computed in this tab. All 22 points are within ±1000 pcm of RMC, 19 of 22 within ±500; the 6 points at N = 10–12 sit 3 to 8σ low. The earlier record (2026-10-01), measured on a majorant under-bound 14× at 661 eV, read 233 ± 45 pcm (VIII.0) and 310 ± 44 pcm (VII.0) higher on average; it is superseded and not shown.",
             "Fuel-zone k∞: a real single-threaded power iteration in this tab's worker, on ENDF/B-VIII.0 processed here at NJOY's tolerance, with delta tracking. A fuel-zone cube, not the reactor.",
+            "Control rods (since 2026-10-23, gh:#1025): move all ten together or each alone; the recorded native k against rod position is shown only when your setting lies on a recorded curve (all ten equal, or rod 3 \"S3\" alone); anything else can be run live on the whole-core worker pool, at lower statistics.",
             "Whole core (since 2026-10-08, gh:#786): every core material's data processed on a pool of Web Workers, then k_eff of the whole core at the statistics you set, with its neutrons drawn (σ about 1000 pcm at the default 1000 neutrons per generation). The recorded settings (10 000 × [5 + 135], seed 20260917) are one tap away; the time-left line says how long they take on your device.",
             "Education and research only. Not for reactor operation, licensing or safety decisions.",
         ]
@@ -290,8 +302,8 @@ pub struct FuelRun {
 }
 
 pub struct Loaded {
-    /// The core at the layer count last asked for.
-    pub core: Option<(usize, nee_soon::htr10_rmc::core_model::AssembledCore)>,
+    /// The core at the layer count and rod insertions last asked for.
+    pub core: Option<(usize, nee_soon::htr10_rmc::core_model::AssembledCore, [f64; crate::raster::RODS])>,
     pub fuel: Option<model::FuelZone>,
     pub run: Option<FuelRun>,
     /// The arm a pooled `k_inf` run transports ([`LoadedRung::pool_arm`]):
@@ -335,12 +347,21 @@ impl LoadedRung for Loaded {
     fn raster(&mut self, req: &RasterReq) -> Result<Vec<u8>, String> {
         // The parameter is the core view's bed code (gh:#786): N layers of
         // the lattice, or 0 for the DEM random bed.
+        // Since gh:#1025 the request also carries each control rod's
+        // insertion, so the slice is the core with the rods where the page
+        // has them.
         let code = req.param.round() as usize;
         let n = if code == core::random_bed::DEM_BED { code } else { code.clamp(10, 20) };
-        if self.core.as_ref().is_none_or(|c| c.0 != n) {
-            self.core = Some((n, if n == core::random_bed::DEM_BED { core::random_bed::build_core(n)? } else { model::core(n) }));
+        let rods = req.rods;
+        if self.core.as_ref().is_none_or(|c| c.0 != n || c.2.map(f64::to_bits) != rods.map(f64::to_bits)) {
+            let built = if rods == crate::raster::NO_RODS && n != core::random_bed::DEM_BED {
+                model::core(n)
+            } else {
+                core::random_bed::build_core_with(n, &rods)?
+            };
+            self.core = Some((n, built, rods));
         }
-        let (_, core) = self.core.as_ref().expect("built above");
+        let (_, core, _) = self.core.as_ref().expect("built above");
         Ok(crate::raster::raster(&core.geometry, req))
     }
     /// Start the fuel-zone cube with the kernels resolved (`param` 1) or
@@ -489,7 +510,7 @@ mod tests {
         assert_eq!(m, Some(nee_soon::htr10_rmc::core_model::mat::KERNEL));
         // A raster of the kernel step has kernel at its centre.
         let mut l = Loaded { core: None, fuel: None, run: None, pool_resolved: true };
-        let req = RasterReq { id: 1, basis: Basis::Xy, centre: PARTICLE_XY, depth: LADDER_Z, width: [0.07, 0.07], px: [21, 21], param: LADDER_N };
+        let req = RasterReq { id: 1, basis: Basis::Xy, centre: PARTICLE_XY, depth: LADDER_Z, width: [0.07, 0.07], px: [21, 21], param: LADDER_N, rods: crate::raster::NO_RODS };
         let map = l.raster(&req).unwrap();
         assert_eq!(map.len(), 441);
         assert_eq!(map[10 * 21 + 10] as usize, nee_soon::htr10_rmc::core_model::mat::KERNEL);

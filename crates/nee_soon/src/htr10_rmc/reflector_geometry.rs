@@ -80,7 +80,11 @@
 //! their channels, in the top reflector, with their B4C, steel sleeves and
 //! iron joints as explicit geometry. **Since 2026-10-05 (gh:#580)** the same
 //! explicit rods can be built at any position of their published travel,
-//! all ten together (`core_design::Htr10CoreDesign::rod_insertion`; lower end
+//! ~~all ten together (`core_design::Htr10CoreDesign::rod_insertion`;~~
+//! **each rod at its own position since 2026-10-23 (gh:#1025,
+//! `core_design::Htr10CoreDesign::rod_insertions`, one rod universe per
+//! distinct position; `with_bank` is the old all-ten case, cell for cell;**
+//! lower end
 //! from `z_T` 119.2 cm withdrawn to 394.2 cm fully inserted); withdrawn stays
 //! the default and the benchmark's state. The absorber-ball system is a reserve
 //! shutdown system, so its channels are empty. The irradiation channels are
@@ -296,6 +300,27 @@ pub fn reflector_channels() -> Vec<ReflectorChannel> {
         });
     }
     v
+}
+
+/// Azimuth \[deg\] of each control rod's channel, in the order the rods are
+/// numbered everywhere in this model (`Htr10CoreDesign::rod_insertions`,
+/// `AssembledCore::rod_lower_ends_zt_cm`, the web demo's "rod 1" to "rod 10"):
+/// the order of [`reflector_channels`], i.e. increasing azimuth from 9°.
+///
+/// **Not TECDOC's names.** IAEA-TECDOC-1382 Fig. 4.7 (printed p. 234) labels
+/// one rod, "Control Rod S3", by a leader line in a 416 x 233 px raster; no
+/// source in reach names the other nine or fixes which of these channels S3
+/// is (checked 2026-10-23, gh:#1025). Source pending.
+#[must_use]
+pub fn control_rod_azimuths_deg() -> [f64; N_CONTROL_RODS] {
+    let mut out = [0.0; N_CONTROL_RODS];
+    for (o, c) in out
+        .iter_mut()
+        .zip(reflector_channels().into_iter().filter(|c| c.kind == ChannelKind::ControlRod))
+    {
+        *o = c.azimuth_deg;
+    }
+    out
 }
 
 /// One rectangle of the Fig. 4.10 zone map, in `(r, z_T)`.
@@ -531,11 +556,13 @@ pub(super) struct ReflectorOptions {
     /// leaves the rod channels empty). The name is historical: until
     /// 2026-10-05 the rods could only be withdrawn.
     pub withdrawn_rods: bool,
-    /// `z_T` \[cm\] of the rods' lower end: [`super::control_rod::LOWER_END_WITHDRAWN_CM`]
+    /// `z_T` \[cm\] of each rod's lower end, in the order of
+    /// [`control_rod_azimuths_deg`]: [`super::control_rod::LOWER_END_WITHDRAWN_CM`]
     /// (119.2) withdrawn, the benchmark's state, up to
     /// `LOWER_END_INSERTED_CM` (394.2) fully inserted
-    /// (`core_design::Htr10CoreDesign::rod_insertion`, gh:#580).
-    pub rod_lower_end_zt_cm: f64,
+    /// (`core_design::Htr10CoreDesign::rod_insertions`, gh:#580; one per rod
+    /// since 2026-10-23, gh:#1025).
+    pub rod_lower_ends_zt_cm: [f64; N_CONTROL_RODS],
 }
 
 /// Material slots the reflector needs, supplied by `core_model` so this module
@@ -685,7 +712,17 @@ pub(super) fn build_reflector(
     // (264.7 cm above its lower end) is inside the model, the channel above it
     // is helium. The rod's surfaces and cells are those of the withdrawn rod
     // translated in z, nothing else changes.
-    let rod_universe = if opts.withdrawn_rods {
+    //
+    // One rod universe per DISTINCT lower-end position (gh:#1025), built in
+    // order of first appearance over the rods; a bank (all ten equal) builds
+    // exactly the one universe it built before per-rod positions existed, so
+    // its geometry is unchanged cell for cell.
+    let mut rod_universe_at: Vec<(u64, usize)> = Vec::new();
+    let mut build_rod_universe = |s: &mut Vec<SurfaceKind>,
+                                  cells: &mut Vec<Cell>,
+                                  universes: &mut Vec<Universe>,
+                                  rod_lower_end_zt_cm: f64|
+     -> usize {
         // Surfaces pushed fresh, never shared with the root frame: a
         // rod-local cylinder is a different physical surface for every rod.
         let mut cyl = |r: f64| {
@@ -706,7 +743,7 @@ pub(super) fn build_reflector(
         idx.push(push(cells, Cell::material(new_id(), Rgn::out(c550).0, he, 293.6)));
         idx.push(push(cells, Cell::material(new_id(), Rgn::ins(c275).0, he, 293.6)));
         // Sections from the lower end up: z_T of each section's lower end.
-        let mut zt_lo = opts.rod_lower_end_zt_cm;
+        let mut zt_lo = rod_lower_end_zt_cm;
         let wall = Rgn::out(c275).and(Rgn::ins(c550));
         // Below the rod: empty channel.
         let p_end = zplane(s, frame.lz(zt_lo));
@@ -762,10 +799,20 @@ pub(super) fn build_reflector(
             id: universes.len() as i32,
             cell_indices: idx,
         });
-        Some(universes.len() - 1)
-    } else {
-        None
+        universes.len() - 1
     };
+    let rod_universes: Option<[usize; N_CONTROL_RODS]> = opts.withdrawn_rods.then(|| {
+        opts.rod_lower_ends_zt_cm.map(|z| {
+            if let Some(&(_, u)) = rod_universe_at.iter().find(|(b, _)| *b == z.to_bits()) {
+                u
+            } else {
+                let u = build_rod_universe(s, cells, universes, z);
+                rod_universe_at.push((z.to_bits(), u));
+                u
+            }
+        })
+    });
+    let mut next_rod = 0usize;
 
     // --- channel cells --------------------------------------------------
     for b in &built {
@@ -783,14 +830,16 @@ pub(super) fn build_reflector(
                     root.push(push(cells, Cell::material(new_id(), r.0, mats.helium, 293.6)));
                 }
             }
-            ChannelKind::ControlRod if rod_universe.is_some() => {
+            ChannelKind::ControlRod if rod_universes.is_some() => {
+                let u = rod_universes.expect("checked")[next_rod];
+                next_rod += 1;
                 let r = Rgn::ins(b.round).and(frame.slab(s, zt0, zt1));
                 root.push(push(
                     cells,
                     Cell::fill(
                         new_id(),
                         r.0,
-                        CellFill::Universe(rod_universe.expect("checked")),
+                        CellFill::Universe(u),
                         Position::new(x, y, 0.0),
                     ),
                 ));
@@ -912,6 +961,10 @@ mod channel_layout_tests {
             }
         }
         assert_eq!(rods.len(), N_CONTROL_RODS);
+        // The rod numbering (gh:#1025) is this order: 9, 45, ..., 333 deg.
+        let az = control_rod_azimuths_deg();
+        assert_eq!(az.to_vec(), rods);
+        assert!(az.iter().enumerate().all(|(i, a)| (a - (9.0 + 36.0 * i as f64)).abs() < 1e-9), "{az:?}");
         rods.sort_by(f64::total_cmp);
         for w in rods.windows(2) {
             assert!((w[1] - w[0] - 36.0).abs() < 1e-9, "rods not evenly spaced: {rods:?}");

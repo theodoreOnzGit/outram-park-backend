@@ -62,6 +62,8 @@ mod history;
 #[cfg(not(target_os = "android"))]
 mod keff;
 #[cfg(not(target_os = "android"))]
+mod keffplot;
+#[cfg(not(target_os = "android"))]
 #[macro_use]
 mod rungs;
 #[cfg(not(target_os = "android"))]

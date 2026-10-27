@@ -86,6 +86,35 @@ pub const LOWER_END_WITHDRAWN_CM: f64 = 119.2;
 /// Axial coordinate of the rod lower end when **fully inserted** \[cm\].
 pub const LOWER_END_INSERTED_CM: f64 = 394.2;
 
+/// The rod lower-end positions `z_T` \[cm\] at which TECDOC-1382's problem
+/// B42 asks for the differential worth of one rod (§ 4.1.2.4, printed
+/// p. 243; the same list again with Table 4-9, p. 248), in increasing
+/// insertion. The bank curve of gh:#1025 is computed at these positions too,
+/// so it can be read beside any single-rod curve on the same axis; it is NOT
+/// a B42 result (B42 moves one rod, the bank model moves ten).
+pub const B42_LOWER_END_ZT_CM: [f64; 7] = [230.318, 279.018, 282.618, 331.318, 334.918, 383.618, 394.2];
+
+/// The rod lower-end position `z_T` \[cm\] the measured rod-worth
+/// calibration started from: "moved from z = 1712mm to z = 3942mm"
+/// (TECDOC-1382 § 4.2.1.5, printed p. 252; restricted source, cited only).
+pub const EXPERIMENT_START_ZT_CM: f64 = 171.2;
+
+/// The bank positions of the gh:#1025 k-vs-position curve \[cm\], lower end
+/// `z_T`, increasing insertion: withdrawn, the experiment's start, then
+/// [`B42_LOWER_END_ZT_CM`]. Every entry is a position a source states;
+/// none was chosen from a result.
+pub const BANK_CURVE_ZT_CM: [f64; 9] = [
+    LOWER_END_WITHDRAWN_CM,
+    EXPERIMENT_START_ZT_CM,
+    B42_LOWER_END_ZT_CM[0],
+    B42_LOWER_END_ZT_CM[1],
+    B42_LOWER_END_ZT_CM[2],
+    B42_LOWER_END_ZT_CM[3],
+    B42_LOWER_END_ZT_CM[4],
+    B42_LOWER_END_ZT_CM[5],
+    B42_LOWER_END_ZT_CM[6],
+];
+
 /// Molar mass of natural boron \[g/mol\].
 const M_BORON: f64 = 10.811;
 /// Molar mass of carbon \[g/mol\].
@@ -242,6 +271,17 @@ mod tests {
             full.natural_boron,
             "over-insertion must clamp, not extrapolate"
         );
+    }
+
+    /// The curve's positions are the sources' (gh:#1025): withdrawn first,
+    /// fully inserted last, strictly increasing, all inside the travel.
+    #[test]
+    fn bank_curve_positions_are_the_published_ones() {
+        assert_eq!(BANK_CURVE_ZT_CM[0], LOWER_END_WITHDRAWN_CM);
+        assert_eq!(BANK_CURVE_ZT_CM[8], LOWER_END_INSERTED_CM);
+        assert_eq!(BANK_CURVE_ZT_CM[1], 171.2);
+        assert_eq!(&BANK_CURVE_ZT_CM[2..], &B42_LOWER_END_ZT_CM);
+        assert!(BANK_CURVE_ZT_CM.windows(2).all(|w| w[1] > w[0]));
     }
 
     /// The published travel is 275 cm, and the two ends are ordered.

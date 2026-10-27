@@ -1,0 +1,3 @@
+layers,zt_cm,insertion,built_height_cm,balls,k,sigma,particles,inactive,active,seed,threads,histories,lost,entropy_first,entropy_last,transport_s,rod_lower_end_zt_cm
+12,119.2,0.000000000,123.576,16681,0.994491,0.002576,2000,20,100,20260917,4,240000,0,5.5127,5.5150,2118.7,119.200
+12,394.2,1.000000000,123.576,16681,0.846240,0.002849,2000,20,100,20260917,4,240000,0,5.4443,5.3671,1982.5,394.200

@@ -28,11 +28,48 @@ pub const SETTLE_S: f64 = 0.25;
 /// Largest raster side, px (a phone-sized view is ~400 × 450).
 pub const MAX_PX: usize = 520;
 
-/// Which plane: x-y at height `z`, or x-z at `y`.
+/// Which plane: x-y at height `z`, x-z at `y`, or (since gh:#1025, for a
+/// cut through a control rod near the y axis) y-z at `x`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Basis {
     Xy,
     Xz,
+    Yz,
+}
+
+impl Basis {
+    fn code(self) -> f64 {
+        match self {
+            Basis::Xy => 0.0,
+            Basis::Xz => 1.0,
+            Basis::Yz => 2.0,
+        }
+    }
+    fn from_code(c: f64) -> Self {
+        match c as i64 {
+            0 => Basis::Xy,
+            2 => Basis::Yz,
+            _ => Basis::Xz,
+        }
+    }
+    /// The point at window centre `centre` (horizontal, vertical) and
+    /// `depth` along the third axis.
+    pub fn origin(self, centre: [f64; 2], depth: f64) -> outram_mc_libs::geometry::position::Position {
+        use outram_mc_libs::geometry::position::Position;
+        match self {
+            Basis::Xy => Position::new(centre[0], centre[1], depth),
+            Basis::Xz => Position::new(centre[0], depth, centre[1]),
+            Basis::Yz => Position::new(depth, centre[0], centre[1]),
+        }
+    }
+    pub fn plot(self) -> outram_mc_libs::geometry::plot::PlotBasis {
+        use outram_mc_libs::geometry::plot::PlotBasis;
+        match self {
+            Basis::Xy => PlotBasis::Xy,
+            Basis::Xz => PlotBasis::Xz,
+            Basis::Yz => PlotBasis::Yz,
+        }
+    }
 }
 
 /// What to rasterise.
@@ -50,13 +87,21 @@ pub struct RasterReq {
     pub px: [usize; 2],
     /// A rung parameter that changes the geometry (`htr10`: bed layers N).
     pub param: f64,
+    /// Control-rod insertions that change the geometry (`htr10`, gh:#1025:
+    /// each of the ten rods, `[0, 1]`); [`NO_RODS`] elsewhere.
+    pub rods: [f64; RODS],
 }
 
+/// Rod entries a raster request carries (the HTR-10's ten).
+pub const RODS: usize = 10;
+/// Every rod withdrawn: the record's geometry, and every other rung's.
+pub const NO_RODS: [f64; RODS] = [0.0; RODS];
+
 impl RasterReq {
-    pub fn encode(&self) -> [f64; 10] {
-        [
+    pub fn encode(&self) -> Vec<f64> {
+        let mut v = vec![
             self.id as f64,
-            if self.basis == Basis::Xy { 0.0 } else { 1.0 },
+            self.basis.code(),
             self.centre[0],
             self.centre[1],
             self.depth,
@@ -65,20 +110,25 @@ impl RasterReq {
             self.px[0] as f64,
             self.px[1] as f64,
             self.param,
-        ]
+        ];
+        v.extend_from_slice(&self.rods);
+        v
     }
     pub fn decode(v: &[f64]) -> Result<Self, String> {
-        if v.len() != 10 {
+        if v.len() != 10 + RODS {
             return Err(format!("raster request: {} values", v.len()));
         }
+        let mut rods = NO_RODS;
+        rods.copy_from_slice(&v[10..]);
         Ok(Self {
             id: v[0] as u32,
-            basis: if v[1] == 0.0 { Basis::Xy } else { Basis::Xz },
+            basis: Basis::from_code(v[1]),
             centre: [v[2], v[3]],
             depth: v[4],
             width: [v[5], v[6]],
             px: [v[7] as usize, v[8] as usize],
             param: v[9],
+            rods,
         })
     }
 }
@@ -113,6 +163,7 @@ fn same(a: &RasterReq, b: &RasterReq) -> bool {
     a.basis == b.basis
         && a.depth == b.depth
         && a.param == b.param
+        && a.rods == b.rods
         && a.px == b.px
         && (a.centre[0] - b.centre[0]).abs() < 1e-9 * a.width[0].max(1e-9)
         && (a.centre[1] - b.centre[1]).abs() < 1e-9 * a.width[1].max(1e-9)
@@ -121,15 +172,10 @@ fn same(a: &RasterReq, b: &RasterReq) -> bool {
 
 /// Rasterise `req` on `geom` (worker side): one byte per pixel, row 0 on top.
 pub fn raster(geom: &outram_mc_libs::geometry::geometry::Geometry, req: &RasterReq) -> Vec<u8> {
-    use outram_mc_libs::geometry::plot::{PlotBasis, SliceHit, SlicePlot};
-    use outram_mc_libs::geometry::position::Position;
-    let origin = match req.basis {
-        Basis::Xy => Position::new(req.centre[0], req.centre[1], req.depth),
-        Basis::Xz => Position::new(req.centre[0], req.depth, req.centre[1]),
-    };
+    use outram_mc_libs::geometry::plot::{SliceHit, SlicePlot};
     let plot = SlicePlot {
-        origin,
-        basis: if req.basis == Basis::Xy { PlotBasis::Xy } else { PlotBasis::Xz },
+        origin: req.basis.origin(req.centre, req.depth),
+        basis: req.basis.plot(),
         width: req.width,
         pixels: req.px,
         level: None,
@@ -157,6 +203,8 @@ pub struct Slicer {
     pub preset: usize,
     pub view: View,
     pub param: f64,
+    /// Control-rod insertions the slice is drawn with (gh:#1025).
+    pub rods: [f64; RODS],
     next_id: u32,
     /// The request in flight, if any.
     pending: Option<RasterReq>,
@@ -171,7 +219,7 @@ pub struct Slicer {
 impl Slicer {
     pub fn new(info: RasterInfo, preset: usize, param: f64) -> Self {
         let view = View::new(info.ladder[preset].half).with_home(info.ladder[preset].centre);
-        Self { info, preset, view, param, next_id: 1, pending: None, shown: None, last_window: None, still_since: now_s(), last_secs: 0.0 }
+        Self { info, preset, view, param, rods: NO_RODS, next_id: 1, pending: None, shown: None, last_window: None, still_since: now_s(), last_secs: 0.0 }
     }
 
     /// Go to ladder step `i` (centred and fitted on the next frame).
@@ -193,6 +241,7 @@ impl Slicer {
             width: w,
             px: [((rect.width() as f64 * k) as usize).max(8), ((rect.height() as f64 * k) as usize).max(8)],
             param: self.param,
+            rods: self.rods,
         }
     }
 
@@ -216,6 +265,13 @@ impl Slicer {
 
     pub fn busy(&self) -> bool {
         self.pending.is_some()
+    }
+    /// Whether `req` is the answer this slicer is waiting for: several
+    /// slicers on one screen (the HTR-10 core's main slice and its dock's
+    /// two) share one worker, and their ids are their own counters, so the
+    /// whole request is compared.
+    pub fn awaits(&self, req: &RasterReq) -> bool {
+        self.pending.as_ref() == Some(req)
     }
     /// Whether the newest image answers the current window (no repaint needed).
     pub fn settled(&self) -> bool {
@@ -279,7 +335,16 @@ mod tests {
 
     #[test]
     fn a_raster_request_crosses_the_worker_boundary() {
-        let r = RasterReq { id: 7, basis: Basis::Xz, centre: [1.5, -2.0], depth: 0.25, width: [3.0, 4.5], px: [300, 450], param: 12.0 };
+        let mut rods = NO_RODS;
+        rods[3] = 0.25;
+        for b in [Basis::Xy, Basis::Xz, Basis::Yz] {
+            let r = RasterReq { id: 1, basis: b, centre: [1.0, 2.0], depth: 3.0, width: [1.0, 1.0], px: [8, 8], param: 0.0, rods: NO_RODS };
+            assert_eq!(RasterReq::decode(&r.encode()).unwrap(), r);
+        }
+        let p = Basis::Yz.origin([1.0, 2.0], 3.0);
+        assert_eq!((p.x, p.y, p.z), (3.0, 1.0, 2.0));
+        let r = RasterReq { id: 7, basis: Basis::Xz, centre: [1.5, -2.0], depth: 0.25, width: [3.0, 4.5], px: [300, 450], param: 12.0, rods };
         assert_eq!(RasterReq::decode(&r.encode()).unwrap(), r);
+        assert!(RasterReq::decode(&r.encode()[..10]).is_err());
     }
 }
