@@ -1785,3 +1785,120 @@ I'm not reviewing this in depth, this was ported, but one can see if behaviour i
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit e8a3ed28bb.
+
+# Review: ln (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-ln-theodoreonzgit-fcdb6720"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:00:46+08:00"
+modified = "2026-10-27T12:00:46+08:00"
+target = "fn:fcdb672040f501d8"
+
+[review]
+path = "crates/petir/src/fast_log.rs::ln"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:00:47+08:00"
+commit = "d448f29da64bf901f1d7f46c516844bd0147f428"
+hash = "sha256:3cfa21da8f0bd9f0a82b91879d385df46108849fb4aaa7f0e3adcc8232ca98f0"
+doc_hash = "sha256:d977e09ece2a88de58902a2242f2aa2716f616b862b1a89b82dfa08b725e95d0"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:a582eca0da7ab3eb" = "sha256:4eba12e0784d5d24c29e6a8876cee433dcb90c78abd35902000d5154b304a021"
+"fn:d617fbdffd394aec" = "sha256:820f8eea66f7155cce3213bde598d9463a70f3894b16ae9ca952687c719bd9d8"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "90G/+/HbhmvMBab/lgw2liPi12wWlx9qNyLTXBbxj9OwBy/wK2xxeQnHdzHUNzxVqsNy5hvQGn62Xar4+O+OBw=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit d448f29da6.
+
+# Review: ln_ieee (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-ln-ieee-theodoreonzgit-ef0af16c"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:05:39+08:00"
+modified = "2026-10-27T12:05:39+08:00"
+target = "fn:ef0af16c3f734b81"
+
+[review]
+path = "crates/petir/src/fast_log.rs::ln_ieee"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:05:42+08:00"
+commit = "d448f29da64bf901f1d7f46c516844bd0147f428"
+hash = "sha256:7f04b7bd8596eaee5f6d5a6e7b694a8aafd95cdbf92f00b1ab2f50a7634b0a9b"
+doc_hash = "sha256:61aa0eeb30b62fd390a0f13e7e81ad4f61e8ba23ac0cf3f92c95f8a5a586da4b"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:a582eca0da7ab3eb" = "sha256:4eba12e0784d5d24c29e6a8876cee433dcb90c78abd35902000d5154b304a021"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "PRf+uqdPh69yhSgLcdM92Jbw2AxoQm8t076w4HlHF/EToEUQP7ePabQ7HV2GGke7hmeVE07JN5CtzUs/LGcdDw=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+ln not to be tested now, in future can manually compare with std::f64::ln, but testing has been automated already. doesn't break workspace behaviour.
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit d448f29da6.
