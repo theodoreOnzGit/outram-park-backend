@@ -2073,3 +2073,58 @@ code is pretty straightforward, multiply by number of times m is given
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit d0d8c2f708.
+
+# Review: f64::r_powi (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-r-powi-theodoreonzgit-4b22abf1"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:30:11+08:00"
+modified = "2026-10-27T12:30:11+08:00"
+target = "fn:4b22abf19474b4fd"
+
+[review]
+path = "crates/petir/src/mathf.rs::f64::r_powi"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:30:12+08:00"
+commit = "3d16ba96c84a685e7124903a3f3778746bec25f3"
+hash = "sha256:f105945f85a7fe9030aebd3d9209c60f17da6afab1486f0cec92f932329a775f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:1f2f25c2acab772b" = "sha256:c7d13752b9737868073c7a5ed58ec60fd5ccadee97da86fcd6e29723031574f4"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01HxmCueofxcJNMntRMmjqoW"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "VNFPo18v1BpG0qWpUdEZsvqHLOZoe6ZbKVXl8abkU0mrt2sXS+Ob5XWl0FqG+6wWBvW8S+2+S2N29kmlqAAoCw=="
+```
+
+wrapper for powi
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 3d16ba96c8.
