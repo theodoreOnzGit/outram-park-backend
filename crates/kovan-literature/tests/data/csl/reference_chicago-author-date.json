@@ -1,7 +1,7 @@
 {
  "meta": {
   "engine": "citeproc-js 2.4.63",
-  "node": "v26.12.0",
+  "node": "v22.22.0",
   "style": "kovan-literature/data/csl/chicago-author-date.csl",
   "locale": "kovan-literature/data/csl/locales-en-US.xml"
  },
@@ -59,6 +59,7 @@
   "Fabioetal2013",
   "FabricioLiang2013",
   "fan2020escaping",
+  "fang2021analysis",
   "feng2024far",
   "ferreira2021femfvm",
   "fiorina2015gen",
@@ -83,6 +84,7 @@
   "guo2025thermal",
   "gupta2025legacy",
   "hackbarth2010assessing",
+  "hales2013multidimensional",
   "hales2020bison",
   "hall1978marviken",
   "ham1958",
@@ -96,19 +98,25 @@
   "huang2025survey",
   "HullermeierRifqi2009",
   "imda_aixtech_2026",
+  "iaeatecdoc978",
   "iaeatecdoc1382",
+  "iaeatecdoc1645",
+  "iaeatecdoc1674",
   "jasak1996openfoamthesisphd",
   "jasak2009openfoam",
   "jasak2007openfoam",
+  "jiang2021triso",
   "jiang2023fission",
   "kabach2021intercomparison",
   "kailasa2022mostly",
+  "kasselmann2018hcp",
   "kieffer1977sound",
   "kim2008simulating",
   "kim2005elimination",
   "kloss2012models",
   "koning2026talys",
   "krane1987introductory",
+  "kugeler2017htgr",
   "LancichinettiFortunato2009",
   "Lancichinettietal2008",
   "lane1958rmatrix",
@@ -190,6 +198,7 @@
   "sapkota2025vibe",
   "scarlat2012design",
   "schappel2018modeling",
+  "schappel2021debonding",
   "schmidt_hrmfoam_github",
   "schmidt2010hrmfoam",
   "sears1992neutron",
@@ -227,6 +236,7 @@
   "doe1993hdbk1017v1",
   "doe1993hdbk1017v2",
   "doe1993hdbk1019v1",
+  "nuregcr6844",
   "nrc2024ai",
   "van2009astec",
   "Vehlowetal2013",
@@ -237,7 +247,9 @@
   "Wangetal2013",
   "WangLi2013",
   "wang2018coupled",
+  "wells2021pnnl31427",
   "wendt2026delta",
+  "wichner1991nureg5647",
   "wigner1947higher",
   "wong_singapore_budget_2026_ai",
   "wong2024effects",
@@ -655,6 +667,11 @@
    "narrative": "Fan et al. (2020)",
    "bibliography": "<div class=\"csl-entry\">Fan, Gang, Chengpeng Wang, Rongxin Wu, Xiao Xiao, Qingkai Shi, and Charles Zhang. 2020. “Escaping Dependency Hell: Finding Build Dependency Errors with the Unified Dependency Graph.” <i>Proceedings of the 29th ACM SIGSOFT International Symposium on Software Testing and Analysis</i>, 463–74.</div>"
   },
+  "fang2021analysis": {
+   "parenthetical": "(Fang et al. 2021)",
+   "narrative": "Fang et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Fang, Chao, Chuan Li, Jianzhu Cao, Ke Liu, and Sheng Fang. 2021. “Analysis of Fission Products’ Release in Pebble-Bed High-Temperature Gas-Cooled Reactor Fuel Elements Using a Modified FRESCO II Numerical Model.” <i>Science and Technology of Nuclear Installations</i>, ahead of print. https://doi.org/10.1155/2021/6627789.</div>"
+  },
   "feng2024far": {
    "parenthetical": "(Feng et al. 2024)",
    "narrative": "Feng et al. (2024)",
@@ -760,10 +777,15 @@
    "narrative": "Hackbarth et al. (2010)",
    "bibliography": "<div class=\"csl-entry\">Hackbarth, Randy L., Audris Mockus, John Douglas Palframan, and David M. Weiss. 2010. “Assessing the State of Software in a Large Enterprise.” <i>Empirical Software Engineering</i> 15 (3): 219–49.</div>"
   },
+  "hales2013multidimensional": {
+   "parenthetical": "(J. D. Hales et al. 2013)",
+   "narrative": "J. D. Hales et al. (2013)",
+   "bibliography": "<div class=\"csl-entry\">Hales, J. D., R. L. Williamson, S. R. Novascone, D. M. Perez, B. W. Spencer, and G. Pastore. 2013. “Multidimensional Multiphysics Simulation of TRISO Particle Fuel.” <i>Journal of Nuclear Materials</i> 443 (1–3). https://doi.org/10.1016/j.jnucmat.2013.07.070.</div>"
+  },
   "hales2020bison": {
-   "parenthetical": "(Hales et al. 2020)",
-   "narrative": "Hales et al. (2020)",
-   "bibliography": "<div class=\"csl-entry\">Hales, Jason D., Wen Jiang, Aysenur Toptan, and Kyle A. Gamble. 2020. <i>BISON TRISO Modeling Advancements and Validation to AGR-1 Data</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</div>"
+   "parenthetical": "(Jason D Hales et al. 2020)",
+   "narrative": "Jason D Hales et al. (2020)",
+   "bibliography": "<div class=\"csl-entry\">Hales, Jason D, Wen Jiang, Aysenur Toptan, and Kyle A. Gamble. 2020. <i>BISON TRISO Modeling Advancements and Validation to AGR-1 Data</i>. Idaho National Lab.(INL), Idaho Falls, ID (United States).</div>"
   },
   "hall1978marviken": {
    "parenthetical": "(Hall and Ericson 1978)",
@@ -815,6 +837,21 @@
    "narrative": "International Atomic Energy Agency (2003)",
    "bibliography": "<div class=\"csl-entry\">International Atomic Energy Agency. 2003. <i>Evaluation of High Temperature Gas Cooled Reactor Performance</i>. IAEA-TECDOC-1382. International Atomic Energy Agency.</div>"
   },
+  "iaeatecdoc1645": {
+   "parenthetical": "(International Atomic Energy Agency 2010)",
+   "narrative": "International Atomic Energy Agency (2010)",
+   "bibliography": "<div class=\"csl-entry\">International Atomic Energy Agency. 2010. <i>High Temperature Gas Cooled Reactor Fuels and Materials</i>. IAEA-TECDOC-1645. International Atomic Energy Agency.</div>"
+  },
+  "iaeatecdoc1674": {
+   "parenthetical": "(International Atomic Energy Agency 2012)",
+   "narrative": "International Atomic Energy Agency (2012)",
+   "bibliography": "<div class=\"csl-entry\">International Atomic Energy Agency. 2012. <i>Advances in High Temperature Gas Cooled Reactor Fuel Technology</i>. IAEA-TECDOC-1674. International Atomic Energy Agency.</div>"
+  },
+  "iaeatecdoc978": {
+   "parenthetical": "(International Atomic Energy Agency 1997)",
+   "narrative": "International Atomic Energy Agency (1997)",
+   "bibliography": "<div class=\"csl-entry\">International Atomic Energy Agency. 1997. <i>Fuel Performance and Fission Product Behaviour in Gas Cooled Reactors</i>. IAEA-TECDOC-978. International Atomic Energy Agency.</div>"
+  },
   "imda_aixtech_2026": {
    "parenthetical": "(Infocomm Media Development Authority 2026)",
    "narrative": "Infocomm Media Development Authority (2026)",
@@ -840,6 +877,11 @@
    "narrative": "Jasak (2009)",
    "bibliography": "<div class=\"csl-entry\">Jasak, Hrvoje. 2009. “OpenFOAM: Open Source CFD in Research and Industry.” <i>International Journal of Naval Architecture and Ocean Engineering</i> 1 (2): 89–94.</div>"
   },
+  "jiang2021triso": {
+   "parenthetical": "(Jiang et al. 2021)",
+   "narrative": "Jiang et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Jiang, Wen, Jason D. Hales, Benjamin W. Spencer, et al. 2021. “TRISO Particle Fuel Performance and Failure Analysis with BISON.” <i>Journal of Nuclear Materials</i> 548: 152795. https://doi.org/10.1016/j.jnucmat.2021.152795.</div>"
+  },
   "jiang2023fission": {
    "parenthetical": "(Jiang et al. 2023)",
    "narrative": "Jiang et al. (2023)",
@@ -854,6 +896,11 @@
    "parenthetical": "(Kailasa and Betcke 2022)",
    "narrative": "Kailasa and Betcke (2022)",
    "bibliography": "<div class=\"csl-entry\">Kailasa, Srinath, and Timo Betcke. 2022. “Mostly Painless Scientific Computing with Rust.” <i>SC ACM Student Research Competition Posters. The International Conference for High Performance Computing, Networking, Storage, and Analysis</i>.</div>"
+  },
+  "kasselmann2018hcp": {
+   "parenthetical": "(Kasselmann et al. 2018)",
+   "narrative": "Kasselmann et al. (2018)",
+   "bibliography": "<div class=\"csl-entry\">Kasselmann, S., A. Xhonneux, F. Tantillo, A. Trabadela, D. Lambertz, and H. J. Allelein. 2018. “Verification of the HTR Code Package (HCP) as a Comprehensive HTR Steady State and Transient Safety Analysis Framework.” <i>Nuclear Engineering and Design</i> 329: 167–76.</div>"
   },
   "kieffer1977sound": {
    "parenthetical": "(Kieffer 1977)",
@@ -884,6 +931,11 @@
    "parenthetical": "(Krane 1987)",
    "narrative": "Krane (1987)",
    "bibliography": "<div class=\"csl-entry\">Krane, Kenneth S. 1987. <i>Introductory Nuclear Physics</i>. Wiley.</div>"
+  },
+  "kugeler2017htgr": {
+   "parenthetical": "(Kugeler et al. 2017)",
+   "narrative": "Kugeler et al. (2017)",
+   "bibliography": "<div class=\"csl-entry\">Kugeler, K., H. Nabielek, and D. Buckthorpe. 2017. <i>The High Temperature Gas-Cooled Reactor: Safety Considerations of the (V)HTR-Modul</i>. Edited by W. Scheuermann, N. Haneklaus, and M. Fütterer. Publications Office of the European Union. https://doi.org/10.2760/270321.</div>"
   },
   "lane1958rmatrix": {
    "parenthetical": "(Lane and Thomas 1958)",
@@ -1085,6 +1137,11 @@
    "narrative": "U.S. Nuclear Regulatory Commission (2024)",
    "bibliography": "<div class=\"csl-entry\">U.S. Nuclear Regulatory Commission. 2024. <i>Advancing the Use of Artificial Intelligence at the U.S. Nuclear Regulatory Commission</i>. SECY-24-0035. U.S. Nuclear Regulatory Commission. https://www.nrc.gov/docs/ML2408/ML24086A002.pdf.</div>"
   },
+  "nuregcr6844": {
+   "parenthetical": "(U.S. Nuclear Regulatory Commission 2004)",
+   "narrative": "U.S. Nuclear Regulatory Commission (2004)",
+   "bibliography": "<div class=\"csl-entry\">U.S. Nuclear Regulatory Commission. 2004. <i>TRISO-Coated Particle Fuel Phenomenon Identification and Ranking Tables (PIRTs) for Fission Product Transport Due to Manufacturing, Operations, and Accidents, Main Report</i>. NUREG/CR-6844, Vol. 1. U.S. Nuclear Regulatory Commission, Office of Nuclear Regulatory Research.</div>"
+  },
   "oktavian2025optimization": {
    "parenthetical": "(Oktavian et al. 2025)",
    "narrative": "Oktavian et al. (2025)",
@@ -1241,9 +1298,14 @@
    "bibliography": "<div class=\"csl-entry\">Scarlat, Raluca Olga. 2012. <i>Design of Complex Systems to Achieve Passive Safety: Natural Circulation Cooling of Liquid Salt Pebble Bed Reactors</i>. University of California, Berkeley.</div>"
   },
   "schappel2018modeling": {
-   "parenthetical": "(Schappel et al. 2018)",
-   "narrative": "Schappel et al. (2018)",
-   "bibliography": "<div class=\"csl-entry\">Schappel, D., K. Terrani, JJ Powers, LL Snead, and BD Wirth. 2018. “Modeling the Performance of TRISO-Based Fully Ceramic Matrix (FCM) Fuel in an LWR Environment Using BISON.” <i>Nuclear Engineering and Design</i> 335: 116–27.</div>"
+   "parenthetical": "(D Schappel et al. 2018)",
+   "narrative": "D Schappel et al. (2018)",
+   "bibliography": "<div class=\"csl-entry\">Schappel, D, K. Terrani, JJ Powers, LL Snead, and BD Wirth. 2018. “Modeling the Performance of TRISO-Based Fully Ceramic Matrix (FCM) Fuel in an LWR Environment Using BISON.” <i>Nuclear Engineering and Design</i> 335: 116–27.</div>"
+  },
+  "schappel2021debonding": {
+   "parenthetical": "(Daniel Schappel et al. 2022)",
+   "narrative": "Daniel Schappel et al. (2022)",
+   "bibliography": "<div class=\"csl-entry\">Schappel, Daniel, Giovanni Pastore, and Kurt A. Terrani. 2022. “Modeling Interface Debonding in Coated Fuel Particles with BISON.” <i>Nuclear Science and Engineering</i> 196 (3): 276–84. https://doi.org/10.1080/00295639.2021.1955590.</div>"
   },
   "schmidt2010hrmfoam": {
    "parenthetical": "(Schmidt et al. 2010)",
@@ -1425,10 +1487,20 @@
    "narrative": "Xin Wang (2018)",
    "bibliography": "<div class=\"csl-entry\">Wang, Xin. 2018. <i>Coupled Neutronics and Thermal-Hydraulics Modeling for Pebble-Bed Fluoride-Salt-Cooled, High-Temperature Reactor (FHR)</i>. University of California, Berkeley.</div>"
   },
+  "wells2021pnnl31427": {
+   "parenthetical": "(Wells et al. 2021)",
+   "narrative": "Wells et al. (2021)",
+   "bibliography": "<div class=\"csl-entry\">Wells, B. E., N. R. Phillips, and K. J. Geelhood. 2021. <i>TRISO Fuel: Properties and Failure Modes</i>. PNNL-31427. Pacific Northwest National Laboratory.</div>"
+  },
   "wendt2026delta": {
    "parenthetical": "(Wendt 2026)",
    "narrative": "Wendt (2026)",
    "bibliography": "<div class=\"csl-entry\">Wendt, Kevin. 2026. “Delta Tracking.” https://github.com/openmc-dev/openmc/pull/3971.</div>"
+  },
+  "wichner1991nureg5647": {
+   "parenthetical": "(Wichner 1991)",
+   "narrative": "Wichner (1991)",
+   "bibliography": "<div class=\"csl-entry\">Wichner, R. P. 1991. <i>Fission Product Plateout and Liftoff in the MHTGR Primary System: A Review</i>. Report NUREG/CR-5647 (ORNL/TM-11685). Oak Ridge National Laboratory, for the U.S. Nuclear Regulatory Commission.</div>"
   },
   "wigner1947higher": {
    "parenthetical": "(Wigner and Eisenbud 1947)",
