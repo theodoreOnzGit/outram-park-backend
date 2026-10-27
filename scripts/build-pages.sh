@@ -207,6 +207,15 @@ bash crates/outram-park-digital-twin-engine/web/ciet/build.sh "$OUT/demos/ciet"
 for f in index.html app.js plant-worker.js flow-worker.js ciet_web.js ciet_web_bg.wasm; do
   [[ -f "$OUT/demos/ciet/$f" ]] || { echo "missing demos/ciet/$f" >&2; exit 1; }
 done
+# The HTGR simulator in the browser (gh:#1030): htgr_sim_v1's own widgets as
+# wasm, the plant on a Web Worker. PASSWORD-GATED by web/gate.js, which is a
+# sign and not a lock -- everything published here is readable by anyone who
+# loads it, and gate.js says so. Not linked from any index page, so the only
+# way in is to be given the URL; `noindex` keeps it out of search.
+bash crates/outram-park-digital-twin-engine/web/htgr/build.sh "$OUT/demos/htgr"
+for f in index.html htgr_worker.js gate.js htgr_sim_v1.js htgr_sim_v1_bg.wasm; do
+  [[ -f "$OUT/demos/htgr/$f" ]] || { echo "missing demos/htgr/$f" >&2; exit 1; }
+done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \

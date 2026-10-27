@@ -171,7 +171,11 @@ pub trait PanelSet: Copy + PartialEq + 'static {
 /// half of `fhr_sim_v2`'s `ui.horizontal(|ui| { ui.selectable_value(&mut
 /// self.open_panel, Panel::X, "X"); ... })` top-bar row.
 pub fn panel_selector_ui<P: PanelSet>(ui: &mut egui::Ui, current: &mut P) {
-    ui.horizontal(|ui| {
+    // Wrapped, not a plain `horizontal`: on a phone a five-tab row ran off
+    // the right edge ("Time-Histo…" cut off at 390 px, gh:#1030), hiding the
+    // tabs past it. Where the row fits, as on every desktop, a wrapped row
+    // draws exactly as a plain one did.
+    ui.horizontal_wrapped(|ui| {
         for panel in P::ALL {
             ui.selectable_value(current, *panel, panel.label());
         }

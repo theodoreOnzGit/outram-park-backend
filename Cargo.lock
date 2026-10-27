@@ -7528,6 +7528,7 @@ dependencies = [
  "changi",
  "chem-eng-real-time-process-control-simulator",
  "csv",
+ "dhoby-ghaut",
  "directories 5.0.1",
  "eframe",
  "egui",

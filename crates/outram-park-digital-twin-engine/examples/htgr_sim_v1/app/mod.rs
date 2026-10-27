@@ -321,6 +321,13 @@ pub struct HtgrSimApp {
     /// The plant clock's current rate, measured between snapshots, which sets
     /// how fast the tracers advance per frame -- see [`PlantClockRate`].
     plant_clock_rate: PlantClockRate,
+    /// The browser demo's controls panel: `dhoby_ghaut::web_demo`'s folding
+    /// side panel, which opens **folded on a screen under 700 px** and puts a
+    /// "Controls »" button on the main view (the mobile-first HARD RULE).
+    /// The desktop build keeps its always-open right-hand panel; a phone only
+    /// ever runs the browser build.
+    #[cfg(target_arch = "wasm32")]
+    web_panel: dhoby_ghaut::web_demo::panel::Panel,
     /// The Map tab's own retained state: the `chi/Q` field texture and the
     /// key it was built for.
     ///
@@ -600,6 +607,8 @@ impl HtgrSimApp {
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             plant_clock_rate: PlantClockRate::default(),
+            #[cfg(target_arch = "wasm32")]
+            web_panel: dhoby_ghaut::web_demo::panel::Panel::default(),
         }
     }
 
@@ -728,6 +737,47 @@ impl PlantClockRate {
     }
 }
 
+/// Below this width the browser build folds the controls and shortens the
+/// title. dhoby-ghaut's panel uses the same 700 px, so the two agree.
+const NARROW_PX: f32 = 700.0;
+/// Height kept clear at the top of the main view for "Controls »" (44 px
+/// button + 8 px inset), matching every dhoby-ghaut demo.
+#[cfg(target_arch = "wasm32")]
+const REOPEN_ROW_PX: f32 = 52.0;
+
+impl HtgrSimApp {
+    /// The controls panel's body: the reactor controls, or on the plots tab
+    /// the choice of controls and CSV. Shared by the desktop's right-hand
+    /// panel and the browser's folding one, so the two cannot drift.
+    fn draw_side_controls(&mut self, ui: &mut egui::Ui, snapshot: &HtgrSnapshot, plots: &HtgrPlotData) {
+        if self.open_panel == Panel::Plots {
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.plots_side_panel,
+                    panels::PlotsSidePanel::ReactorControls,
+                    "Controls",
+                );
+                ui.selectable_value(&mut self.plots_side_panel, panels::PlotsSidePanel::Csv, "CSV");
+            });
+            ui.separator();
+            match self.plots_side_panel {
+                panels::PlotsSidePanel::ReactorControls => {
+                    scrollable_controls(ui, |ui| {
+                        draw_controls(ui, &self.physics, snapshot, &mut self.display_unit)
+                    });
+                }
+                panels::PlotsSidePanel::Csv => {
+                    draw_plots_csv_panel(ui, &mut self.plots_csv_panel, plots);
+                }
+            }
+        } else {
+            scrollable_controls(ui, |ui| {
+                draw_controls(ui, &self.physics, snapshot, &mut self.display_unit)
+            });
+        }
+    }
+}
+
 impl eframe::App for HtgrSimApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // If a physics/plot thread panicked, show the crash modal and stop --
@@ -767,11 +817,21 @@ impl eframe::App for HtgrSimApp {
         self.tracers
             .advance(Time::new::<second>(frame_dt * rate), &snapshot);
 
+        // A phone gets a short title and a tab row that wraps: the full title
+        // wrapped onto a dozen lines at 390 px and the tab row ran off the
+        // right edge, so the plant started below the fold (seen in Chromium
+        // at phone width, gh:#1030). The desktop keeps the full title.
+        let narrow = ui.max_rect().width() < NARROW_PX;
         egui::Panel::top("htgr_top").show(ui, |ui| {
-            ui.heading(
-                "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
-            );
-            ui.horizontal(|ui| {
+            if narrow {
+                ui.heading("HTGR Simulator v1.1");
+                ui.small("Demo, not validated");
+            } else {
+                ui.heading(
+                    "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
+                );
+            }
+            ui.horizontal_wrapped(|ui| {
                 egui::global_theme_preference_buttons(ui);
                 ui.separator();
                 panel_selector_ui(ui, &mut self.open_panel);
@@ -786,37 +846,26 @@ impl eframe::App for HtgrSimApp {
         // places at once.
         let plots = self.plots.snapshot();
 
+        // The controls. Desktop: the always-open right-hand panel it has
+        // always had. Browser: dhoby-ghaut's folding panel, folded under
+        // 700 px, so a phone opens on the plant rather than on a wall of
+        // sliders (which is what the first browser build showed at 390 px).
+        // The body is the same function either way.
+        #[cfg(not(target_arch = "wasm32"))]
         egui::Panel::right("htgr_controls").show(ui, |ui| {
-            if self.open_panel == Panel::Plots {
-                ui.horizontal(|ui| {
-                    ui.selectable_value(
-                        &mut self.plots_side_panel,
-                        panels::PlotsSidePanel::ReactorControls,
-                        "Controls",
-                    );
-                    ui.selectable_value(
-                        &mut self.plots_side_panel,
-                        panels::PlotsSidePanel::Csv,
-                        "CSV",
-                    );
-                });
-                ui.separator();
-                match self.plots_side_panel {
-                    panels::PlotsSidePanel::ReactorControls => {
-                        scrollable_controls(ui, |ui| {
-                            draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit)
-                        });
-                    }
-                    panels::PlotsSidePanel::Csv => {
-                        draw_plots_csv_panel(ui, &mut self.plots_csv_panel, &plots);
-                    }
-                }
-            } else {
-                scrollable_controls(ui, |ui| {
-                    draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit)
-                });
-            }
+            self.draw_side_controls(ui, &snapshot, &plots);
         });
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Taken out for the call so the closure can borrow the rest of
+            // `self`; put straight back.
+            let mut panel = std::mem::take(&mut self.web_panel);
+            // The panel heading names the demo, as the Monte Carlo demo's
+            // names its rung: `draw_controls` already heads its own section
+            // "Controls", and passing that here drew it twice.
+            panel.show(ui, "HTGR Simulator", |ui| self.draw_side_controls(ui, &snapshot, &plots));
+            self.web_panel = panel;
+        }
 
         // Copied out before the closures below borrow `self` -- the unit is a
         // `Copy` display setting, so the panels take it by value.
@@ -825,6 +874,14 @@ impl eframe::App for HtgrSimApp {
         // closure releases its borrow of `self` (gh:#400).
         let mut map_action = map_tab::MapAction::None;
         egui::CentralPanel::default().show(ui, |ui| {
+            // Folded on a phone: keep the row the "Controls »" button sits in
+            // clear, as every dhoby-ghaut demo does, and draw the button.
+            #[cfg(target_arch = "wasm32")]
+            if !self.web_panel.open {
+                let rect = ui.max_rect();
+                self.web_panel.reopen_button(ui, rect);
+                ui.add_space(REOPEN_ROW_PX);
+            }
             // The schematic tab brings its own pan-and-zoom viewport, so it is
             // kept out of the outer scroll area (nesting two two-axis scroll
             // areas would leave the inner one unbounded).

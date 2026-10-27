@@ -104,7 +104,17 @@ const NOMINAL_VESSEL_WIDTH: f32 =
     outram_park_digital_twin_engine::components::htr10_reactor_schematic::LABEL_REFERENCE_VESSEL_WIDTH;
 /// Zoom limits, as drawn vessel width in points. Below the minimum the labels
 /// crowd the artwork; above the maximum the canvas gets unwieldy to pan.
-const MIN_VESSEL_WIDTH: f32 = 120.0;
+///
+/// ~~`MIN_VESSEL_WIDTH = 120`~~ **CHANGED 2026-10-27 (gh:#1030)** to 60. At
+/// 120 the plant could not fit a phone: in Chromium at 390 px, Fit stopped
+/// at exactly 120 (the "55 %" readout) with the plant clipped on both
+/// sides, so the reader could not see the whole machine without panning —
+/// and the mobile-first rule requires Reset to *centre and fit*. The labels
+/// do crowd below 120, which is the trade: on a phone the whole plant comes
+/// first and the thumb-sized `+` makes the labels readable, whereas a plant
+/// that will not fit cannot be fixed by the reader at all. On a desktop Fit
+/// never comes near this floor, so only small screens see the change.
+const MIN_VESSEL_WIDTH: f32 = 60.0;
 const MAX_VESSEL_WIDTH: f32 = 1500.0;
 /// Factor one press of the zoom buttons changes the scale by.
 const ZOOM_STEP: f32 = 1.25;
@@ -184,6 +194,10 @@ fn content_layout(plant: egui::Vec2, viewport: egui::Vec2) -> (egui::Vec2, egui:
     (pad + extra, content + 2.0 * extra)
 }
 
+/// Below this viewport width the zoom buttons grow to a thumb-sized 44 px and
+/// the pointer-only hints are replaced by a touch one.
+const NARROW_VIEW_PX: f32 = 700.0;
+
 /// Draw the v1.1 plant from this frame's `snapshot`, with the application's
 /// tracer trains, in a pan-and-zoom viewport.
 ///
@@ -204,25 +218,40 @@ pub fn draw_plant_v1_1(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &Schematic
         // Estimated before the controls are drawn, then corrected below.
         fitted_vessel_width(ui.available_size(), zoom.canvas_per_vessel_width)
     });
-    ui.horizontal(|ui| {
+    // Thumb-sized on a phone (the mobile-first rule: on-screen zoom buttons a
+    // finger can hit, 44 px being the usual minimum target). Natural size on a
+    // desktop, where they are clicked with a pointer.
+    let narrow = ui.available_width() < NARROW_VIEW_PX;
+    let target = if narrow { egui::vec2(44.0, 44.0) } else { egui::Vec2::ZERO };
+    let zoom_button = |ui: &mut Ui, text: &str| {
+        let label = if narrow { egui::RichText::new(text).size(18.0).strong() } else { egui::RichText::new(text) };
+        ui.add(egui::Button::new(label).min_size(target)).clicked()
+    };
+    ui.horizontal_wrapped(|ui| {
         ui.label("Plant zoom:");
-        if ui.button(" - ").clicked() {
+        if zoom_button(ui, " - ") {
             zoom.vessel_width = Some(current / ZOOM_STEP);
         }
-        if ui.button(" + ").clicked() {
+        if zoom_button(ui, " + ") {
             zoom.vessel_width = Some(current * ZOOM_STEP);
         }
-        if ui.button("Fit").clicked() {
+        if zoom_button(ui, "Fit") {
             zoom.vessel_width = None;
             zoom.recentre_frames = RECENTRE_FRAMES;
         }
-        if ui.button("100 %").clicked() {
+        if zoom_button(ui, "100 %") {
             zoom.vessel_width = Some(NOMINAL_VESSEL_WIDTH);
         }
         ui.label(format!("{:.0} %", 100.0 * current / NOMINAL_VESSEL_WIDTH));
-        ui.separator();
-        ui.small("Drag or use the scroll bars to pan; Ctrl + scroll over the plant to zoom.");
+        if !narrow {
+            ui.separator();
+            ui.small("Drag or use the scroll bars to pan; Ctrl + scroll over the plant to zoom.");
+        }
     });
+    if narrow {
+        // Said once, plainly: on a touch screen there is no Ctrl key.
+        ui.small("Drag to pan; pinch or use the buttons to zoom.");
+    }
 
     let viewport = ui.available_size();
     // A resized window re-centres a fitted view; a zoomed one keeps its place.

@@ -784,11 +784,15 @@ pub fn draw_schematic_panel(
     display_unit: LegendUnit,
 ) {
     // The version title, drawn large and first so it is always on screen.
-    ui.label(
-        egui::RichText::new("HTGR Simulator v1.1")
-            .size(26.0)
-            .strong(),
-    );
+    // On a phone the top bar already shows it, and drawing it again pushed
+    // the plant a further 40 px below the fold, so it is skipped there.
+    if ui.available_width() >= 700.0 {
+        ui.label(
+            egui::RichText::new("HTGR Simulator v1.1")
+                .size(26.0)
+                .strong(),
+        );
+    }
     ui.label(
         "HTR-10-style helium-cooled pebble-bed plant, driven by the running model \
          -- offline demonstration only",
@@ -796,7 +800,11 @@ pub fn draw_schematic_panel(
     // egui's built-in whole-window zoom (Options::zoom_with_keyboard,
     // default on) -- not schematic-specific, but this heading is the first
     // thing a reader sees, so it is the natural place to mention it.
-    ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
+    // A keyboard tip, so only where there is likely to be a keyboard: on a
+    // phone it is advice the reader cannot follow.
+    if ui.available_width() >= 700.0 {
+        ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
+    }
     ui.separator();
     // The headline readout (gh:#964, maintainer 2026-10-19: on the MAIN page,
     // the screen the simulator opens on, no tab switch needed).

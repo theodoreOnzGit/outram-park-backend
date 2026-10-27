@@ -320,6 +320,19 @@ js-sys = { workspace = true }
 serde_json = { workspace = true }
 postcard = { workspace = true }
 log = { workspace = true }
+# The mobile-first layer of every OUTRAM PARK browser demo: the side panel
+# that folds (opens folded under 700 px) and its "Controls »" button. Reused,
+# not copied, per dhoby-ghaut's CLAUDE.md ("Build on it; do not copy").
+# wasm32-ONLY on purpose: on wasm dhoby-ghaut is egui + petir, its heavy stack
+# (kovan, nee_soon, NJOY, outram-mc-libs, the foam crates) being gated
+# not(wasm32) in its own Cargo.toml, so this costs the native build and the
+# 290 native htgr tests nothing. No cycle: dhoby-ghaut does not depend on this
+# crate. Licence: both are AGPL-3.0-only, so nothing is inherited that this
+# crate does not already carry.
+# A PATH dependency, not `workspace = true`: dhoby-ghaut is deliberately kept
+# out of the root [workspace.dependencies] (as kovan is) so no crate picks it
+# up by accident, and this follows that boundary rather than widening it.
+dhoby-ghaut = { path = "../dhoby-ghaut" }
 web-sys = { workspace = true, features = [
   "Window", "Document", "Element", "HtmlCanvasElement",
   "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
