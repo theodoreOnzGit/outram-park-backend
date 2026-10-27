@@ -62,3 +62,55 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit a3b9d1a896.
+
+# Review: CONSTANT_NAMES (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-constant-names-theodoreonzgit-77eb4548"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:35:15+08:00"
+modified = "2026-10-27T14:35:15+08:00"
+target = "fn:77eb4548b2a8440f"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/upstream.rs::CONSTANT_NAMES"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:35:17+08:00"
+commit = "90031329500c0070eee25b6b688590cbb0466031"
+hash = "sha256:eb30dd38df4a20a378104a599f92bd158fb892e9ac79b8aaaf60be81c15abe5f"
+doc_hash = "sha256:987b52d7e172661f690e20bd54cf32941112490854b6079fa654f935ceb36db8"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_012qgX47fwybgAuf2wEiRvBu"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "yyzvTKSi0VI8NtMh4ArVsOb+61jnnpEhlwE2bgnTSg/3gXS2qpkd9NaA1W2r4Wv4ff3ZWc9D1RKFEjrakbjPBg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+combines const_names and accident_constants, concatenated, verified
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 9003132950.
