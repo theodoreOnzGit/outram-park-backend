@@ -75,7 +75,7 @@ mod physics;
 #[cfg(not(target_os = "android"))]
 mod runtime;
 /// The browser platform layer: the canvas, the physics Web Worker and the
-/// messages between them (gh:#1030). No model lives here.
+/// messages between them (gh:#986). No model lives here.
 #[cfg(all(not(target_os = "android"), target_arch = "wasm32"))]
 mod web;
 

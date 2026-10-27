@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build the HTGR simulator browser demo (gh:#1030) into an output directory
+# Build the HTGR simulator browser demo (gh:#986) into an output directory
 # (default web/htgr/dist/). Mirrors web/ciet/build.sh, which this is modelled
 # on, so the two demos are built and published the same way.
 #

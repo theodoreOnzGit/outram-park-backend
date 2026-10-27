@@ -177,7 +177,7 @@ nee_soon = { workspace = true }
 # the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
 # crate (its `wasm_par` shim stands in for rayon).
 outram-park-fork-liggghts = { workspace = true }
-# The Fukushima Daiichi Unit 1 demo (gh:#1030; moved here from the
+# The Fukushima Daiichi Unit 1 demo (gh:#986; moved here from the
 # outram-park repository 2026-10-27 so this site can publish it): the
 # digital-twin engine's widget library for the plant drawing, IAPWS-IF97 for
 # the vessel, teh-o-prke's decay heat, tampines' correlations, and the DWSIM
@@ -248,7 +248,7 @@ web-sys = { workspace = true, features = [
     # The physics Web Worker that keeps the page live while ENDF data process.
     "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
     "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
-    # The Fukushima demo's solver workers time each step (gh:#1030).
+    # The Fukushima demo's solver workers time each step (gh:#986).
     "Performance",
 ] }
 
@@ -330,7 +330,7 @@ path = "examples/nuclear_data_web/main.rs"
 name = "dem_web"
 path = "examples/dem_web/main.rs"
 
-# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#1030): a GE BWR/3
+# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986): a GE BWR/3
 # with isolation condensers in a Mark I containment, from the scram through
 # core damage, hydrogen, venting and the reactor-building explosion. Built on
 # `dhoby_ghaut::web_demo` and the digital-twin engine's widgets; the plant,

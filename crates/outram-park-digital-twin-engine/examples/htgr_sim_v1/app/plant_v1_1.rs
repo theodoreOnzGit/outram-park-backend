@@ -105,7 +105,7 @@ const NOMINAL_VESSEL_WIDTH: f32 =
 /// Zoom limits, as drawn vessel width in points. Below the minimum the labels
 /// crowd the artwork; above the maximum the canvas gets unwieldy to pan.
 ///
-/// ~~`MIN_VESSEL_WIDTH = 120`~~ **CHANGED 2026-10-27 (gh:#1030)** to 60. At
+/// ~~`MIN_VESSEL_WIDTH = 120`~~ **CHANGED 2026-10-27 (gh:#986)** to 60. At
 /// 120 the plant could not fit a phone: in Chromium at 390 px, Fit stopped
 /// at exactly 120 (the "55 %" readout) with the plant clipped on both
 /// sides, so the reader could not see the whole machine without panning —

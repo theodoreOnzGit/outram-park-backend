@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build the Fukushima Daiichi Unit 1 browser demo (gh:#1030) into an output
+# Build the Fukushima Daiichi Unit 1 browser demo (gh:#986) into an output
 # directory (default web/fukushima/dist/). scripts/build-pages.sh calls this
 # to publish it on the backend GitHub Pages site under demos/fukushima/.
 #

@@ -312,7 +312,7 @@ path = "examples/ciet_web/main.rs"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { workspace = true }
-# The browser demos' Web Worker plumbing (htgr_sim_v1 on the web, gh:#1030).
+# The browser demos' Web Worker plumbing (htgr_sim_v1 on the web, gh:#986).
 # Example-only: the library has no browser face, and a consumer of the crate
 # pays nothing for these.
 wasm-bindgen-futures = { workspace = true }

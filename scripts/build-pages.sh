@@ -207,7 +207,7 @@ bash crates/outram-park-digital-twin-engine/web/ciet/build.sh "$OUT/demos/ciet"
 for f in index.html app.js plant-worker.js flow-worker.js ciet_web.js ciet_web_bg.wasm; do
   [[ -f "$OUT/demos/ciet/$f" ]] || { echo "missing demos/ciet/$f" >&2; exit 1; }
 done
-# The HTGR simulator in the browser (gh:#1030): htgr_sim_v1's own widgets as
+# The HTGR simulator in the browser (gh:#986): htgr_sim_v1's own widgets as
 # wasm, the plant on a Web Worker. PASSWORD-GATED by web/gate.js, which is a
 # sign and not a lock -- everything published here is readable by anyone who
 # loads it, and gate.js says so. Not linked from any index page, so the only
@@ -216,7 +216,7 @@ bash crates/outram-park-digital-twin-engine/web/htgr/build.sh "$OUT/demos/htgr"
 for f in index.html htgr_worker.js gate.js htgr_sim_v1.js htgr_sim_v1_bg.wasm; do
   [[ -f "$OUT/demos/htgr/$f" ]] || { echo "missing demos/htgr/$f" >&2; exit 1; }
 done
-# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#1030), moved here
+# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#986), moved here
 # from the outram-park repository on 2026-10-27: dhoby-ghaut's fukushima_web
 # example, the plant on three Web Workers. Gated and unlisted exactly like the
 # HTGR demo above, by the same gate.js.

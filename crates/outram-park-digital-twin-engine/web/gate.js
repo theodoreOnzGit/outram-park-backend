@@ -1,4 +1,4 @@
-// A shared password gate for the OUTRAM PARK browser demos (gh:#1030).
+// A shared password gate for the OUTRAM PARK browser demos (gh:#986).
 //
 // ─────────────────────────────────────────────────────────────────────────
 //  THIS IS NOT SECURITY. Read this before relying on it for anything.

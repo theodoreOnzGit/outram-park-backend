@@ -1,4 +1,4 @@
-// The HTGR demo's physics worker (gh:#1030).
+// The HTGR demo's physics worker (gh:#986).
 //
 // It loads the SAME wasm module as the page. A worker has no `window`, so
 // the module's entry point runs the plant instead of the GUI — the trick the

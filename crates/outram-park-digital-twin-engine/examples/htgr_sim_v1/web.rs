@@ -1,4 +1,4 @@
-//! `htgr_sim_v1` in the browser (gh:#1030).
+//! `htgr_sim_v1` in the browser (gh:#986).
 //!
 //! The same simulator, the same widgets and the same physics as the desktop
 //! example — only the platform layer differs. This module is that layer, and

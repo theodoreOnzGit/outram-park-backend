@@ -8,7 +8,7 @@
 //!
 //! ~~**Built against the `outram-park` metacrate only**: every backend crate is
 //! reached through `outram_park::backend::*` (feature `fukushima`).~~
-//! **MOVED 2026-10-27 (gh:#1030, maintainer's choice)** from the `outram-park`
+//! **MOVED 2026-10-27 (gh:#986, maintainer's choice)** from the `outram-park`
 //! repository (`outram-park/src/fukushima_sim/`) to this crate, as the
 //! `fukushima_web` example, so the backend's Pages site can publish it: the
 //! `outram-park` repository has no Pages site. Every `outram_park::backend::`

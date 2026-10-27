@@ -820,7 +820,7 @@ impl eframe::App for HtgrSimApp {
         // A phone gets a short title and a tab row that wraps: the full title
         // wrapped onto a dozen lines at 390 px and the tab row ran off the
         // right edge, so the plant started below the fold (seen in Chromium
-        // at phone width, gh:#1030). The desktop keeps the full title.
+        // at phone width, gh:#986). The desktop keeps the full title.
         let narrow = ui.max_rect().width() < NARROW_PX;
         egui::Panel::top("htgr_top").show(ui, |ui| {
             if narrow {
@@ -1298,7 +1298,7 @@ mod tests {
     }
 }
 
-// ─── The browser demo's physics, for the Web Worker (gh:#1030) ───────────────
+// ─── The browser demo's physics, for the Web Worker (gh:#986) ───────────────
 
 /// The physics loop of [`start_simulation`], without the thread.
 ///
