@@ -815,3 +815,117 @@ Just an alias
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 48134bf39f.
+
+# Review: exp_ieee (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-exp-ieee-theodoreonzgit-736bf673"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:16:17+08:00"
+modified = "2026-10-27T10:16:17+08:00"
+target = "fn:736bf673e39f3a8c"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::exp_ieee"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:16:18+08:00"
+commit = "749c168f0a6dc6ec9c3d64eedec2aa7c8b9ecffb"
+hash = "sha256:232800c8f5eec8f0bfa11d66de5b1c233dca169736ce729d12e206e76890f1e8"
+doc_hash = "sha256:8b7fef71b15fdbb95f073c6bcf6f433b5f3ebee74838112ccfdb7beb28623da4"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:a35dd137eb82556b" = "sha256:3f1324f589067609d28cf9b149e2c704be0f4333667ea2953e45f76dabe875db"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream behaviour, even f64 exp does not do checks on boundedness"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream behaviour, even f64 exp does not do checks on boundedness"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "h/VCDpuWokiGq1/KPyg8p9786tEeg1ZulpH3f/Gw/2LLNe3k0sWn6+MK9I1cYVC2zEMXPDAqPNb9PNtq7ufvAQ=="
+```
+
+just to unwrap the result for convenience
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 749c168f0a.
+
+# Review: exp (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-exp-theodoreonzgit-821b9ab2"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:17:08+08:00"
+modified = "2026-10-27T10:17:08+08:00"
+target = "fn:821b9ab2fcd8a610"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::exp"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:17:09+08:00"
+commit = "749c168f0a6dc6ec9c3d64eedec2aa7c8b9ecffb"
+hash = "sha256:74a51af43189b1073897cb6a0a2ef417cb633f01654ca0ca90cc036cf7996d46"
+doc_hash = "sha256:47a8344f1d47d98e0ebdf7ac53c4ae98c3c470fba860609fc962e45705c468b5"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:a35dd137eb82556b" = "sha256:3f1324f589067609d28cf9b149e2c704be0f4333667ea2953e45f76dabe875db"
+"fn:d617fbdffd394aec" = "sha256:820f8eea66f7155cce3213bde598d9463a70f3894b16ae9ca952687c719bd9d8"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_016EsuzTnVZavfdUSvUJ2KCn",
+    "https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "l2KGg5xUZprkq+Ak2KzrHvQEEdcTKPcKOAmmm+OjVzGvlE5xPWfBwuI5753A1tUNRn/BauSYkCLBhUKJg/yiAQ=="
+```
+
+just returns result, plumbing
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 749c168f0a.
