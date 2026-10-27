@@ -589,6 +589,42 @@ Catalogued 2026-09-30; the copy is in the private repository as `2002iaeatecdoc9
 - *Good for:* Chapter 5, water and air ingress. §5.4 has the JAERI burning tests (Table 5-6), KORA (Table 5-7, the same data as Kugeler 2017 Table 9), Nabielek's air-ingress failure model (Eqs. 5-9 to 5-11, two-mechanism constants) and the SiC active/passive oxidation discussion. Eq. 5-2 is the kernel-hydrolysis burst already in `boon_lay::chemistry::kernel_hydrolysis`. Transcribed in **`derived/tecdoc978-air-oxidation-particle-failure.md`**.
 - *Used by:* `boon_lay::chemistry::kernel_hydrolysis`; #435, #441, #443.
 
+**`nea2021bsaf7525`** — OECD Nuclear Energy Agency (2021). *Benchmark Study of
+the Accident at the Fukushima Daiichi Nuclear Power Plant (BSAF Project) —
+Phase II: Summary Report.* NEA No. 7525, 68 pp. Operating agent: Institute of
+Applied Energy (IAE), Japan. Supplied by the maintainer and catalogued
+2026-10-27; the copy is in the private repository as
+`reports/nea-7525-bsaf-fukushima-daiichi-summary-report.pdf`.
+- *Tier rationale:* **proprietary.** The copyright page permits copying "for
+  your own use" and "excerpts … provided that suitable acknowledgement of the
+  OECD as source and copyright owner is given", but directs "all requests for
+  public or commercial use and translation rights" to `neapub@oecd-nea.org`.
+  Redistribution in a public repository is public use; permission has not been
+  sought. The PDF and its extracted full text therefore stay private.
+- *Good for:* the **validation target for OUTRAM PARK's Fukushima Daiichi
+  accident simulator** (#1028, `crates/sembawang`). Fourteen organisations,
+  eight severe-accident codes (MELCOR, ASTEC, MAAP, SAMPSON, SOCRAT, THALES,
+  TOLBIAC, plus GRS and WSPEEDI inverse analyses), units 1–3, out to 500 hours.
+  Carries per-participant RPV lower-head failure times and modes, debris mass
+  in the pedestal, RCS/PCV leak paths and timings, integral Cs-137 releases,
+  and the measured RPV/PCV pressure and CAMS dose-rate histories the codes were
+  judged against.
+- *Does NOT contain:* the per-participant time-history data behind its figures
+  (hydrogen mass, concrete erosion, release fractions and release rates are
+  published only as plots), nor the detail of the full Phase II report it
+  condenses.
+- *Citation caution:* code-to-code spread, not measurement. Only the plant
+  measurements and the two inverse source-term reconstructions
+  (GRS 13.1 PBq, WSPEEDI 14.5 PBq Cs-137 for three units) can validate
+  anything; the report itself judges the predicted MCCI progression
+  "overestimated and unrealistic" against plant inspection.
+- *Derived dataset:* **`derived/nea7525-bsaf-fukushima-daiichi-bands.md`** —
+  every numeric table transcribed cell-for-cell, the figure bands read by eye
+  and marked as such, the modelling gaps the study names, and a tiering of
+  which quantities can actually validate a model. Committed (facts and
+  numbers, with acknowledgement) though the PDF it came from is not.
+- *Used by:* #1028.
+
 ## Proprietary tier — theses (`proprietary/theses/`)
 
 > **2026-09-22:** these three, and `zhu2014thermal` (NC State MS thesis, "©
