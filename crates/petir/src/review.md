@@ -587,3 +587,64 @@ i didn't check it thoroughly, cos these are numerical implementations for expone
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit b537f424f0.
+
+# Review: specialcase (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-specialcase-theodoreonzgit-35ce8461"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:09:26+08:00"
+modified = "2026-10-27T10:09:26+08:00"
+target = "fn:35ce846190fc2d4b"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::specialcase"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:09:28+08:00"
+commit = "62138e0e2d7729558db82c00b0fa7b281ec4c758"
+hash = "sha256:5b0b66e99ef3f6d6ed1118dfda21ed9df6f6e2b19c0e6d0e237c91492bf5e486"
+doc_hash = "sha256:6fe0ba7b748f63731ddd2c0556d58312453ddcd4c8f5a05ac677f17aed840fbe"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:08f93c13acb0345f" = "sha256:a3d4e6a407d4118cd0e98290ff8806316c809244dc21016a4cb7f65811a98fd8"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_016EsuzTnVZavfdUSvUJ2KCn",
+    "https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "47xlUe2hikUZZmy9hkKZlEqVXUXjypzoHv0yv8IGltb0ErH5VGR1M8OZ7H/lj3mLSZVHdwBomauASnaU/7rrDw=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+i didn't check it thoroughly, cos these are numerical implementations for exponentials. But i only know the integration tests pass. So by that I know it works. Easy way to check is to check ln, exp etc... against std manually via tests and assert low error
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 62138e0e2d.
