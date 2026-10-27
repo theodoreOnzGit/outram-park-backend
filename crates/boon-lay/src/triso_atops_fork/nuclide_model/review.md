@@ -337,3 +337,71 @@ counted number of nuclide count, by pasting the entire
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit b2f644f8e9.
+
+# Review: ElementGroup (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-elementgroup-theodoreonzgit-d9fc661a"
+kind = "review"
+origin = "human"
+created = "2026-10-27T17:02:05+08:00"
+modified = "2026-10-27T17:02:05+08:00"
+target = "fn:d9fc661a522b11ce"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::ElementGroup"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T17:02:06+08:00"
+commit = "316f8d5dcc886414aef8f3839548a7fcf318f0c1"
+hash = "sha256:6c96657ab13ce5ab01b09a4dc4e3d249d08ce5d01102fa98aa74fdf096fb8faa"
+doc_hash = "sha256:0d8a131009e4412be3d482d06de66038eb43c49d7f7accca39221d4b35e7d51a"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "Av7UvOGa8s850+g+K4/bzc95n75WSRxT9NlW/jKa2PJ+4GbU5iK/NhgS32nYuri8umJdALgWfoNIWuJvTI1VDQ=="
+```
+
+Has all the relevant types of elements available in different chemical structures
+Te and Se are halogen-like for transport. (similar to upstream port) 
+
+Halogens release like Noble Gas, but then they plate out. 
+
+Noble gases don't plate out
+
+So for the sake of release, noble gases and halogens are grouped in Stoyer's paper under Table 1 as group 1
+
+Special metals are Rn Sr Cs Ba and Eu - under Table 1 as Group 2 and 3
+
+Silver group are 46 and 47 (silver or Pd) - Table 1 Group 4
+This is used in base_activities
+
+Other also exists as Other in table 1,
+
+but do take note this grouping does not correspond 1:1 to Table 1,
+rather it is just for convenient grouping and matching of cases within the base_activities and such
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 316f8d5dcc.
