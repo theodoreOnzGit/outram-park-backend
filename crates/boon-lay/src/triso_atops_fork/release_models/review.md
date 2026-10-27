@@ -487,3 +487,58 @@ def attenuation_factor(Optional[int]=500)
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit d6a4078bac.
+
+# Review: ATTENUATION_FACTOR_CAP (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-attenuation-factor-cap-theodoreonzgit-40ae7325"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:30:07+08:00"
+modified = "2026-10-27T13:30:07+08:00"
+target = "fn:40ae7325634a6cb2"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::ATTENUATION_FACTOR_CAP"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:30:08+08:00"
+commit = "277b869b3a66fae044fc445883c6329a07314ae6"
+hash = "sha256:592d21c9d20158f91f15be8cb7044e39664a0b092598e6c8f8976a45bc511129"
+doc_hash = "sha256:02243111470ebd87edad81143aa5ca197290634fe6b35b93e86a21cd7590bfda"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "sS6RlxdIUlM0UjmZf2tuVZNTsgMtD/Gq9rJImRyiAzwMcpQJc8k3/ZBtLBHOyWBjnVHDXnkGTHUpsH6Z3HwRCQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+the comments said to ask dave lol, in the python
+
+but otherwise okay, it is 1e8, checked against Eq 8 and 9 
+verified in python and in TRISO ATOPS paper
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 277b869b3a.
