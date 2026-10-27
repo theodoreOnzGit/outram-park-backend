@@ -434,3 +434,56 @@ def booth_shortlived_fastdiffuse in INL TRISO-ATOPS
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 510148ba34.
+
+# Review: ATTENUATION_SERIES_TERMS (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-attenuation-series-terms-theodoreonzgit-d81841c8"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:26:56+08:00"
+modified = "2026-10-27T13:26:56+08:00"
+target = "fn:d81841c86e868358"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::ATTENUATION_SERIES_TERMS"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:26:57+08:00"
+commit = "d6a4078bacaac8819d51d47b02d0ee7ef4415a03"
+hash = "sha256:89b67ee54c7ccbea118e032ed164b3cd210d3f66004ab934765ffbd2dee12a56"
+doc_hash = "sha256:fe4e23180a5249882f19884fe74b1d66c6a730539962ac0c4071d1666b8eef11"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "0ZyAO7j4GDkrZrOn6XkX8er1O1y+Gy440W1Euo3enIW+yqMl8TAPIrGikyHEP97u4nH1rx804koTicoNIC2yBQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+checked against upstream in
+def attenuation_factor(Optional[int]=500)
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit d6a4078bac.
