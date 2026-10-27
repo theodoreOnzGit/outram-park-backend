@@ -231,3 +231,59 @@ Checked members, not A,Z and halflife (probabbly works, but not checking... tooo
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 2a1f858701.
+
+# Review: find_nuclide (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-find-nuclide-theodoreonzgit-e1cb570a"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:52:28+08:00"
+modified = "2026-10-27T13:52:28+08:00"
+target = "fn:e1cb570a455c31b8"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs::find_nuclide"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:52:29+08:00"
+commit = "dc8e7dd83f33712ab85cbe4e171cd98706674837"
+hash = "sha256:06a9c12470b244d22d5415441b5b842edce0c43e867d9a1bbc36b9c1b69988ca"
+doc_hash = "sha256:ce1c4e21313978a2797e4790adfcf6bbd1f932b9787285236fe888a7b955e53d"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:521d4591f6090c64" = "sha256:c1b5eab6019b4dca2762a7ff8deab0138105f6c7bbb60f7b2e91c1bb9aeb341e"
+"fn:546333a5363bc5a2" = "sha256:601d879e0b2947c8c69562c0278d67beccee30a0999a8eb86181de5ebcd65549"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "dKAlzaBb605MAjFs0yWeWDyAAUnCPFNlBHeA/08q6zGS76XnFY1gNessDdLe0UzTmbUW5fbHYjRQrqof6swnDg=="
+```
+
+helper function for nuclides
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit dc8e7dd83f.
