@@ -66,3 +66,69 @@ value = "F4GtcfC1IKJrYABisatdw9CBT4XZW6tgC8a72qZklJWh6bKRZKB0rIZuT23OEJld1pefPXO
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 91934eeb01.
+
+# Review: rb_fail_noble_gases (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-rb-fail-noble-gases-theodoreonzgit-353a07bd"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:24:58+08:00"
+modified = "2026-10-27T12:24:58+08:00"
+target = "fn:353a07bd52f264c2"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::rb_fail_noble_gases"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:24:59+08:00"
+commit = "4fde2ff41781eafd127968a6ae472ceccfb98fed"
+hash = "sha256:5ec0f06f3819a0691018bc1695ae96980e0752ef79094cfc66d0a499457191e0"
+doc_hash = "sha256:73c2cd155a32f7056b02e1550fb4b06c3b773af52d3e7cdaee94f83c512215f1"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:20bea5a8b58e1368" = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+"fn:7d2c37be6eb3e8f3" = "sha256:e03a479bf5c1837af8e2aef9589eb6759382a67e74340d003406d4abfac2caa0"
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: probably follow upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: probably follow upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "/v+bORLkTAsm8PcByUDCmw4OUKQdAhl6RGDP++viT8+LQilxokoVVI/igXkWtVgGI/2KANWrEmDyQpqlqotGBg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+I see table 4 from the triso atops paper (Stoyer 2026), providing n, b and c, numbers checked by eye
+implements equation 6a as a whole.
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 4fde2ff417.
