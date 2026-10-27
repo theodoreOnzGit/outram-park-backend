@@ -716,3 +716,68 @@ checked against upstream that 5000 terms is the default used, users can supply t
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 7de448b1b7.
+
+# Review: rf_graph (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-rf-graph-theodoreonzgit-fffbbf11"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:22:26+08:00"
+modified = "2026-10-27T14:22:26+08:00"
+target = "fn:fffbbf11526a97b3"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::rf_graph"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:22:27+08:00"
+commit = "e21630c96dcf9b85c8a025a985d8db06d8bfdd72"
+hash = "sha256:dfe628eecc32532c8ef23b1b136bdae0fc2b5f0a2ddb69de9a51b87f2aecd9fc"
+doc_hash = "sha256:3ae40407cbe207216f7eca32da2e01a4bda48242450d56f051ac26ba00bd00e6"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:20bea5a8b58e1368" = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+"fn:4b22abf19474b4fd" = "sha256:f105945f85a7fe9030aebd3d9209c60f17da6afab1486f0cec92f932329a775f"
+"fn:b16fbb3a2a858910" = "sha256:2b661d8344b964b3aa9ccc0e424f5da346fe9e35269728c9c2e5800e0b9757f1"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: copies upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: copies upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "epCMJaULamz91IQcj3wH5peERGLgYsVG2fvlz0tcKghk61cSolRsihcOVxuV8UILFQayh8CemGElGPHO7FQeAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+verified to copy upstream behaviour, visually checked against Python source code
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit e21630c96d.
