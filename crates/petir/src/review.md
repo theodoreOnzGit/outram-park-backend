@@ -1300,3 +1300,55 @@ I'm not reviewing this in depth, this was ported, but one can see if behaviour i
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 352ea14410.
+
+# Review: HI (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-hi-theodoreonzgit-22cb4bc6"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:29:33+08:00"
+modified = "2026-10-27T10:29:33+08:00"
+target = "fn:22cb4bc6a2a77661"
+
+[review]
+path = "crates/petir/src/fast_log.rs::HI"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:29:34+08:00"
+commit = "33254d3a59f178eba9fa8d8c85ef9c63796ebdd9"
+hash = "sha256:8ff28653083fc3a6803bd690320f169af860616c1dd7930ccd01d5c24845c4ca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "B1UwizKyfnG9sp8C5C7IGTUyk3oadiIhk3/lUsT3JQXxQnPcmAYK3OTgyf3CH0v+sztsPOXesX9jUWAxfxaZDw=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 33254d3a59.
