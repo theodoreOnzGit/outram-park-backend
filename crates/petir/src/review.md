@@ -1902,3 +1902,61 @@ ln not to be tested now, in future can manually compare with std::f64::ln, but t
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit d448f29da6.
+
+# Review: ln (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-ln-theodoreonzgit-f420940c"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:10:27+08:00"
+modified = "2026-10-27T12:10:27+08:00"
+target = "fn:f420940c421868d5"
+
+[review]
+path = "crates/petir/src/real.rs::ln"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:10:28+08:00"
+commit = "af02f81620b60bea5e5ea05fa77f3e7b26d95ada"
+hash = "sha256:c77682df9fcfb54754c3495c5f4273e55c29db18b1e3932c70896aadd3831928"
+doc_hash = "sha256:c1c2b7e19b0eec592045469ad8310cd28ff851613cff2b3a6da0f60246b37ef2"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:ef0af16c3f734b81" = "sha256:7f04b7bd8596eaee5f6d5a6e7b694a8aafd95cdbf92f00b1ab2f50a7634b0a9b"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "lAncSGNR7L4fCgRaHTDILCM5s0mNeAKMyBSDAPRlkm7iDxgxXuEicX/NmFO643jLMMpWyEyCqXGx1NJPupssCQ=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+ln can be tested against other libraries, i think it was
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit af02f81620.
