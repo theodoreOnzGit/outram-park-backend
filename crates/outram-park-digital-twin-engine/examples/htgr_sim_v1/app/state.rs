@@ -818,6 +818,15 @@ pub struct HtgrSnapshot {
     /// that has quietly dropped to half speed while still reading "seconds" on
     /// its clock is misleading.
     pub behind_real_time: bool,
+    /// Wall time the last tick's WORK took \[s\]: the plant step(s), not the
+    /// sleep after them. `NAN` until a tick has been measured. With
+    /// [`Self::tick_simulated_s`] it says how fast the model COULD run, the
+    /// CIET simulator's "could run at" (2026-10-27, maintainer: "put the
+    /// realtime indicator like the ciet educational simulator").
+    pub tick_compute_s: f64,
+    /// Plant time the last tick advanced \[s\]: one 0.1 s step, or a
+    /// fast-forward burst's total.
+    pub tick_simulated_s: f64,
 
     /// Operator request to run the plant clock faster than real time --
     /// written by the GUI, read by the physics thread each tick.
@@ -1058,6 +1067,8 @@ impl Default for HtgrSnapshot {
             real_time_ratio: None,
             real_time_deficit_s: 0.0,
             behind_real_time: false,
+            tick_compute_s: f64::NAN,
+            tick_simulated_s: 0.0,
             fast_forward_enabled: false,
         }
     }

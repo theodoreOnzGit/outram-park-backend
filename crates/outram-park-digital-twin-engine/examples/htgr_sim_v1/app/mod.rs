@@ -513,7 +513,8 @@ fn start_simulation() -> SimulationRun {
             // one -- when the work already used the budget up.
             pacer
                 .set_simulated_per_tick(Time::new::<second>(steps_this_tick as f64 * PHYSICS_DT_S));
-            let pacing = pacer.pace(tick_start.elapsed(), loop_start.elapsed());
+            let compute = tick_start.elapsed();
+            let pacing = pacer.pace(compute, loop_start.elapsed());
             state.update(|s| {
                 plant.write_snapshot(s);
                 s.external_reactivity_dollars = rho;
@@ -523,6 +524,8 @@ fn start_simulation() -> SimulationRun {
                 s.real_time_ratio = pacer.measured_real_time_ratio();
                 s.real_time_deficit_s = pacer.real_time_deficit().as_secs_f64();
                 s.behind_real_time = pacer.is_behind_real_time();
+                s.tick_compute_s = compute.as_secs_f64();
+                s.tick_simulated_s = steps_this_tick as f64 * PHYSICS_DT_S;
             });
             thread::sleep(pacing.sleep_for);
         },
@@ -1391,6 +1394,11 @@ pub struct WebPhysics {
     plant: HtgrPlant,
     state: HtgrSnapshot,
     plots: HtgrPlotData,
+    /// The desktop's pacer, fed the worker's measured times: the same
+    /// deadline arithmetic, ratio and deficit as natively.
+    pacer: RealTimePacer,
+    /// Steps the last [`Self::tick`] took (1, or the fast-forward burst).
+    last_steps: usize,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1410,6 +1418,8 @@ impl WebPhysics {
             plant: HtgrPlant::new().with_live_map_field(),
             state: HtgrSnapshot::default(),
             plots: HtgrPlotData::default(),
+            pacer: RealTimePacer::new(plant_time_per_tick(), PHYSICS_TICK),
+            last_steps: SUBSTEPS_PER_TICK,
         }
     }
 
@@ -1429,12 +1439,10 @@ impl WebPhysics {
         Ok(())
     }
 
-    /// One tick: the body of the native physics closure.
-    ///
-    /// `wall_ms` is how long the previous tick actually took, measured by the
-    /// worker's JavaScript; it stands in for the pacer's `Instant` and feeds
-    /// the real-time ratio the GUI displays. Pass `0.0` on the first tick.
-    pub fn tick(&mut self, wall_ms: f64) {
+    /// One tick: the body of the native physics closure, without the
+    /// pacing, which the worker asks [`Self::pace`] for once it has timed
+    /// this call.
+    pub fn tick(&mut self) {
         let dt = Time::new::<second>(PHYSICS_DT_S);
         let commands = plant_commands_from(&self.state);
         let (reset_requested, rps_enabled, fast_forward) = (
@@ -1486,17 +1494,30 @@ impl WebPhysics {
         if !self.state.feedwater_manual {
             self.state.feedwater_manual_flow_kg_per_s = achieved_feed_flow;
         }
-        // Simulated seconds advanced per wall second, from the worker's own
-        // measured tick. Natively this is the pacer's; here JavaScript holds
-        // the clock, so it is measured rather than scheduled.
-        let simulated_s = steps_this_tick as f64 * PHYSICS_DT_S;
-        if wall_ms > 0.0 {
-            let ratio = simulated_s / (wall_ms / 1000.0);
-            self.state.real_time_ratio = Some(ratio);
-            self.state.behind_real_time = ratio < 0.95 && !fast_forward;
-        }
-
+        self.last_steps = steps_this_tick;
         self.plots.push_sample(&self.state);
+    }
+
+    /// Pace the tick just taken, as the native loop does, and return how long
+    /// the worker should wait before the next one, ms.
+    ///
+    /// `compute_ms` is how long [`Self::tick`] took; `wall_ms` is wall clock
+    /// since the worker started. CHANGED 2026-10-27: the worker used to wait
+    /// a fixed 100 ms AFTER each 0.1 s step, so a tick cost 100 ms plus its
+    /// work and the plant could never reach real time however fast the step
+    /// was (the maintainer saw it running slow). This is the desktop's
+    /// deadline instead: sleep what is left of the 100 ms, or catch up.
+    pub fn pace(&mut self, compute_ms: f64, wall_ms: f64) -> f64 {
+        let dur = |ms: f64| std::time::Duration::from_secs_f64((ms.max(0.0)) / 1000.0);
+        let simulated_s = self.last_steps as f64 * PHYSICS_DT_S;
+        self.pacer.set_simulated_per_tick(Time::new::<second>(simulated_s));
+        let pacing = self.pacer.pace(dur(compute_ms), dur(wall_ms));
+        self.state.real_time_ratio = self.pacer.measured_real_time_ratio();
+        self.state.real_time_deficit_s = self.pacer.real_time_deficit().as_secs_f64();
+        self.state.behind_real_time = self.pacer.is_behind_real_time();
+        self.state.tick_compute_s = compute_ms / 1000.0;
+        self.state.tick_simulated_s = simulated_s;
+        pacing.sleep_for.as_secs_f64() * 1000.0
     }
 
     /// The plant snapshot, for the page, as postcard bytes.

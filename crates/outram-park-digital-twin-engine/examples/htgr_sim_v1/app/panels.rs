@@ -280,6 +280,49 @@ fn draw_max_fuel_indicator(
 /// (kopi-beans `op-qpgw`). It is taken by `&mut` because the toggle that sets
 /// it is drawn here; it is written back into [`crate::app::HtgrSimApp`], never
 /// into `physics`. See [`temperature_display`].
+/// The real-time indicator's two lines and whether real time is reachable,
+/// as the CIET educational simulator's browser demo words them (2026-10-27,
+/// maintainer: "put the realtime indicator like the ciet educational
+/// simulator in the side panel"). Line 1: the plant clock's measured rate and,
+/// past the pacer's tolerance, how far behind wall clock it is. Line 2: how
+/// long a tick's work takes against its 0.1 s of plant time, and what rate
+/// that would allow. `None` for line 2 before the first tick is measured.
+pub(crate) fn real_time_lines(s: &HtgrSnapshot) -> (String, Option<(String, bool)>) {
+    let mut first = match s.real_time_ratio {
+        Some(r) if s.fast_forward_enabled => format!("Fast forward: running at {r:.2}× real time"),
+        Some(r) => format!("Running at {r:.2}× real time"),
+        None => "Real time: measuring…".to_string(),
+    };
+    if s.behind_real_time {
+        first.push_str(&format!(" · behind the clock by {:.1} s", s.real_time_deficit_s));
+    }
+    let second = (s.tick_compute_s.is_finite() && s.tick_compute_s > 0.0 && s.tick_simulated_s > 0.0).then(|| {
+        let capacity = s.tick_simulated_s / s.tick_compute_s;
+        let ms = 1000.0 * s.tick_compute_s;
+        let per = 1000.0 * s.tick_simulated_s;
+        if capacity >= 1.0 {
+            (format!("{ms:.1} ms per {per:.0} ms step: real time reachable ({capacity:.1}×)"), true)
+        } else {
+            (format!("{ms:.1} ms per {per:.0} ms step: slower than real time ({capacity:.2}×)"), false)
+        }
+    });
+    (first, second)
+}
+
+/// The real-time indicator at the top of the controls.
+fn draw_real_time_indicator(ui: &mut Ui, snapshot: &HtgrSnapshot) {
+    let (first, second) = real_time_lines(snapshot);
+    ui.label(egui::RichText::new(first).strong());
+    if let Some((text, reachable)) = second {
+        let colour = if reachable { egui::Color32::from_rgb(60, 170, 90) } else { egui::Color32::from_rgb(220, 80, 60) };
+        ui.colored_label(colour, text).on_hover_text(
+            "How long one tick of the plant model takes to compute, against the plant time it \
+             advances. Under 1x the model cannot keep up with the wall clock on this device, and \
+             the plant clock falls behind.",
+        );
+    }
+}
+
 pub fn draw_controls(
     ui: &mut Ui,
     physics: &SharedState<HtgrSnapshot>,
@@ -287,6 +330,7 @@ pub fn draw_controls(
     display_unit: &mut LegendUnit,
 ) {
     ui.heading("Controls");
+    draw_real_time_indicator(ui, snapshot);
     ui.separator();
 
     // Trip banner first: if the reactor has scrammed, that is the single most
@@ -354,13 +398,8 @@ pub fn draw_controls(
     {
         physics.update(|s| s.fast_forward_enabled = fast_forward);
     }
-    if fast_forward {
-        let ratio_text = match snapshot.real_time_ratio {
-            Some(ratio) => format!("achieved {ratio:.2}x real time"),
-            None => "measuring...".to_string(),
-        };
-        ui.colored_label(egui::Color32::from_rgb(80, 160, 220), ratio_text);
-    }
+    // The achieved rate under fast forward is the real-time indicator's
+    // first line, at the top of the panel (2026-10-27).
     ui.separator();
 
     let mut rod_insertion = snapshot.control_rod_insertion_fraction;
@@ -1230,6 +1269,31 @@ fn draw_reactivity_budget(ui: &mut egui::Ui, snapshot: &HtgrSnapshot) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The real-time indicator reads the pacer's numbers as the CIET demo
+    /// words them: measuring before the first tick, the measured rate after,
+    /// the deficit only when behind, and reachable vs slower from the tick's
+    /// compute time against its plant time.
+    #[test]
+    fn the_real_time_indicator_says_whether_real_time_is_reachable() {
+        let mut s = HtgrSnapshot::default();
+        assert_eq!(real_time_lines(&s), ("Real time: measuring…".to_string(), None));
+
+        s.real_time_ratio = Some(0.999);
+        s.tick_compute_s = 0.012;
+        s.tick_simulated_s = 0.1;
+        let (first, second) = real_time_lines(&s);
+        assert_eq!(first, "Running at 1.00× real time");
+        assert_eq!(second, Some(("12.0 ms per 100 ms step: real time reachable (8.3×)".to_string(), true)));
+
+        s.real_time_ratio = Some(0.62);
+        s.behind_real_time = true;
+        s.real_time_deficit_s = 4.25;
+        s.tick_compute_s = 0.16;
+        let (first, second) = real_time_lines(&s);
+        assert_eq!(first, "Running at 0.62× real time · behind the clock by 4.2 s");
+        assert_eq!(second, Some(("160.0 ms per 100 ms step: slower than real time (0.62×)".to_string(), false)));
+    }
 
     /// V&V: **the display-unit toggle changes only the presentation**, and the
     /// number it presents is the `uom` conversion rather than a hand-rolled one.

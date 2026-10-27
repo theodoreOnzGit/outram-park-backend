@@ -59,10 +59,12 @@ use outram_park_digital_twin_engine::app_scaffold::SharedState;
 /// The script each worker starts from; it loads this same module.
 pub const WORKER_JS: &str = "./htgr_worker.js";
 
-/// Milliseconds between physics ticks in the worker.
+/// The worker's tick budget, ms: the longest it waits between ticks.
 ///
-/// The desktop `PHYSICS_TICK` is 100 ms and this matches it, so the browser
-/// paces the plant the same way the desktop does.
+/// ~~Milliseconds between physics ticks in the worker.~~ CHANGED 2026-10-27:
+/// it is the budget the pacer sleeps out the REST of after each tick's work
+/// (`WebPhysics::pace`), as the desktop `PHYSICS_TICK` (100 ms) is, not a
+/// fixed wait added on top of the work.
 const TICK_MS: i32 = 100;
 
 /// Milliseconds between the page's control messages to the worker.
@@ -114,41 +116,38 @@ fn worker_main() {
     }
 
     // The tick. `setTimeout` rather than `setInterval` so a slow tick delays
-    // the next one instead of queueing up behind it.
-    let last = Rc::new(RefCell::new(0.0_f64));
+    // the next one instead of queueing up behind it. The wait is what the
+    // pacer says is left of the 100 ms after this tick's work (the desktop's
+    // deadline arithmetic), not a fixed 100 ms on top of it: the fixed wait
+    // made each 0.1 s step cost 100 ms PLUS its work, so the browser plant
+    // ran slower than real time by construction (CHANGED 2026-10-27).
+    let start = scope.performance().map_or(0.0, |p| p.now());
     let tick: Rc<RefCell<Option<Closure<dyn FnMut()>>>> = Rc::new(RefCell::new(None));
     let tick_clone = tick.clone();
     let scope_for_tick = scope.clone();
     *tick.borrow_mut() = Some(Closure::<dyn FnMut()>::new(move || {
-        let now = scope_for_tick
-            .performance()
-            .map_or(0.0, |p| p.now());
-        let wall_ms = {
-            let mut last = last.borrow_mut();
-            let d = if *last > 0.0 { now - *last } else { 0.0 };
-            *last = now;
-            d
-        };
-
-        {
+        let now = || scope_for_tick.performance().map_or(0.0, |p| p.now());
+        let wait_ms = {
             let mut p = physics.borrow_mut();
-            p.tick(wall_ms);
+            let t0 = now();
+            p.tick();
+            let t1 = now();
+            let wait = p.pace(t1 - t0, t1 - start);
             let bytes = p.to_wire();
             let _ = scope_for_tick.post_message(&js_sys::Uint8Array::from(&bytes[..]));
-        }
+            wait
+        };
 
         if let Some(cb) = tick_clone.borrow().as_ref() {
             let _ = scope_for_tick.set_timeout_with_callback_and_timeout_and_arguments_0(
                 cb.as_ref().unchecked_ref(),
-                TICK_MS,
+                wait_ms.round().clamp(0.0, f64::from(TICK_MS)) as i32,
             );
         }
     }));
+    // The first tick at once, so the plant clock and `start` begin together.
     if let Some(cb) = tick.borrow().as_ref() {
-        let _ = scope.set_timeout_with_callback_and_timeout_and_arguments_0(
-            cb.as_ref().unchecked_ref(),
-            TICK_MS,
-        );
+        let _ = scope.set_timeout_with_callback_and_timeout_and_arguments_0(cb.as_ref().unchecked_ref(), 0);
     }
     // The closures outlive this function by design: the worker's whole life
     // is these callbacks.
