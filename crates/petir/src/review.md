@@ -272,3 +272,55 @@ Bit shifting movement, assume correct... because it is used in entire workspace 
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 8cf8775dd8.
+
+# Review: RealMath (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-realmath-theodoreonzgit-f6bc6d74"
+kind = "review"
+origin = "human"
+created = "2026-10-27T09:39:11+08:00"
+modified = "2026-10-27T09:39:11+08:00"
+target = "fn:f6bc6d7498804074"
+
+[review]
+path = "crates/petir/src/mathf.rs::RealMath"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T09:39:12+08:00"
+commit = "0e67011269b864c98a2d99a4bfef02f5901791df"
+hash = "sha256:9b3a11b0dae65fba1c5d1bc0ebee78a344fb6f8708cfff381d9a28c24ca29eac"
+doc_hash = "sha256:e00f74428f8a03c7035cc98ee0d7efa5128088879d4b533b2c9846f5bc02d969"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_contract_stated = "yes"
+item_holds_extra = "no"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_011e2yBmXPEcU1DJXBj1rVXK",
+    "https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe",
+    "https://claude.ai/code/session_01HxmCueofxcJNMntRMmjqoW",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "GM5aul8g6H01sbm9LfBKrbi6kgEhuF0PydZ0SJBzYrp9JuMSATCsVXjQ6hoQ1a3xxalhoPVjt/o7oNkYJyTLDQ=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 0e67011269.
