@@ -405,3 +405,61 @@ rather it is just for convenient grouping and matching of cases within the base_
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 316f8d5dcc.
+
+# Review: ElementGroup::from_atomic_number (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-from-atomic-number-theodoreonzgit-2e610cfd"
+kind = "review"
+origin = "human"
+created = "2026-10-27T17:06:40+08:00"
+modified = "2026-10-27T17:06:40+08:00"
+target = "fn:2e610cfd767d4eb5"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::ElementGroup::from_atomic_number"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T17:06:41+08:00"
+commit = "3a24fbd37422275412362342379820e210664894"
+hash = "sha256:54c7941e23ca22131751599433e7cd9fd539c9953a45f91a3f68435ad803b55c"
+doc_hash = "sha256:69cb7f1046df411fedaf388edc42d0db1cd8e0b2139cc60b64fc57e6841da9b1"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:d9fc661a522b11ce" = "sha256:6c96657ab13ce5ab01b09a4dc4e3d249d08ce5d01102fa98aa74fdf096fb8faa"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: just by default falls to other even if number is negative lol, but upstream port is like that"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: ports upstream behaviour, just assigns everything else to other"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "8BP6AYxpvg5bArd3oEWG4wN1KTFrw5pJP0wEZ80zsFPyJqeshfFr20/0P4oiDMTqvwi+tRnAxGpd1No/yvdvAA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+Z numbers ported verbatim from TRISO-ATOPS where, numbers are copied over. into consts, and then grouped into element grps
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 3a24fbd374.
