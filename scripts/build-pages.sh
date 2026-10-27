@@ -216,6 +216,14 @@ bash crates/outram-park-digital-twin-engine/web/htgr/build.sh "$OUT/demos/htgr"
 for f in index.html htgr_worker.js gate.js htgr_sim_v1.js htgr_sim_v1_bg.wasm; do
   [[ -f "$OUT/demos/htgr/$f" ]] || { echo "missing demos/htgr/$f" >&2; exit 1; }
 done
+# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#1030), moved here
+# from the outram-park repository on 2026-10-27: dhoby-ghaut's fukushima_web
+# example, the plant on three Web Workers. Gated and unlisted exactly like the
+# HTGR demo above, by the same gate.js.
+bash crates/dhoby-ghaut/web/fukushima/build.sh "$OUT/demos/fukushima"
+for f in index.html fukushima_worker.js gate.js fukushima_web.js fukushima_web_bg.wasm; do
+  [[ -f "$OUT/demos/fukushima/$f" ]] || { echo "missing demos/fukushima/$f" >&2; exit 1; }
+done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
 printf '%s\n' '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' \

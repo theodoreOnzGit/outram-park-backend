@@ -177,13 +177,28 @@ nee_soon = { workspace = true }
 # the browser's worker, and the `htr10` rung's baked DEM bed. A wasm in-scope
 # crate (its `wasm_par` shim stands in for rayon).
 outram-park-fork-liggghts = { workspace = true }
+# The Fukushima Daiichi Unit 1 demo (gh:#1030; moved here from the
+# outram-park repository 2026-10-27 so this site can publish it): the
+# digital-twin engine's widget library for the plant drawing, IAPWS-IF97 for
+# the vessel, teh-o-prke's decay heat, tampines' correlations, and the DWSIM
+# port's property routines. All five are wasm in-scope; the demo built for
+# wasm32 against exactly these before it moved. No cycle: none of them
+# depends on dhoby-ghaut.
+outram-park-digital-twin-engine = { workspace = true }
+tampines-steam-tables = { workspace = true }
+teh-o-prke = { workspace = true }
+tampines = { workspace = true }
+outram-park-fork-dwsim-libs = { workspace = true }
+# ~~Native only (in the table below)~~ MOVED here 2026-10-27: the Fukushima
+# demo's page draws its time histories with egui_plot in the browser, and
+# egui_plot is wasm-safe (it is egui widgets and nothing else).
+egui_plot = { workspace = true }
 
 # Native only: the two studios' stacks. Gated off wasm32 because dev-deps
 # resolve for EVERY example in the package, and outram-blender's `gpu` feature
 # has no business in the browser build of the pebble demo. (~~and nee_soon~~:
 # moved to the shared table 2026-10-05 for the `htr10` rung, gh:#528.)
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
-egui_plot = { workspace = true }
 env_logger = { workspace = true }
 # Authoring frontend (math/mesh/primitives) plus its volume-meshing bridge.
 #
@@ -216,10 +231,15 @@ path = "examples/mc_studio/main.rs"
 name = "mesh_studio"
 path = "examples/mesh_studio/main.rs"
 
-# Browser-side extras for the Monte Carlo web demo. `glow` (WebGL2) is added
-# because WebGPU is still not universal; the app selects it at start-up.
+# Browser-side extras for the Monte Carlo web demo. ~~`glow` (WebGL2) is added because WebGPU is still not universal; the app
+# selects it at start-up.~~ **CHANGED 2026-10-27 (maintainer: "get glow out,
+# let's use wgpu only")**: eframe's wgpu, one renderer on every target. The
+# concern glow answered still holds -- WebGPU is not universal -- and wgpu
+# answers it itself: its `webgl` backend (enabled on wasm by eframe's `wgpu`
+# feature; confirmed with `cargo tree -e features -i wgpu`) falls back to
+# WebGL2 where WebGPU is missing. Coverage is unchanged.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-eframe = { workspace = true, features = ["glow"] }
+eframe = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
@@ -228,6 +248,8 @@ web-sys = { workspace = true, features = [
     # The physics Web Worker that keeps the page live while ENDF data process.
     "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
     "DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "console",
+    # The Fukushima demo's solver workers time each step (gh:#1030).
+    "Performance",
 ] }
 
 # The Monte Carlo demo -- one app, a rung of the tutorial ladder at a time
@@ -307,3 +329,15 @@ path = "examples/nuclear_data_web/main.rs"
 [[example]]
 name = "dem_web"
 path = "examples/dem_web/main.rs"
+
+# The Fukushima Daiichi Unit 1 station-blackout demo (gh:#1030): a GE BWR/3
+# with isolation condensers in a Mark I containment, from the scram through
+# core damage, hydrogen, venting and the reactor-building explosion. Built on
+# `dhoby_ghaut::web_demo` and the digital-twin engine's widgets; the plant,
+# core and containment step on three Web Workers (web/fukushima/). Moved from
+# the outram-park repository on 2026-10-27. AI draft, not validated.
+#
+#   cargo run -p dhoby-ghaut --example fukushima_web --release [-- --headless 108000 600]
+[[example]]
+name = "fukushima_web"
+path = "examples/fukushima_web/main.rs"

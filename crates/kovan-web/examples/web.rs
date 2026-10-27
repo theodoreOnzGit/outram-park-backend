@@ -29,7 +29,7 @@ fn main() -> eframe::Result<()> {
 #[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
-    let web_options = eframe::WebOptions { renderer: eframe::Renderer::Glow, ..Default::default() };
+    let web_options = eframe::WebOptions { renderer: eframe::Renderer::Wgpu, ..Default::default() };
     wasm_bindgen_futures::spawn_local(async move {
         let document = web_sys::window().expect("no window").document().expect("no document");
         let canvas = document

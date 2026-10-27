@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fukushima Unit 1 · OUTRAM PARK</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Fukushima Daiichi Unit 1 (GE BWR/3, Mark I) after the 11 March 2011 earthquake: station blackout, core damage, hydrogen and venting, simulated in your browser on three Web Workers. Research and education only; an AI draft, not validated.">
+<style>
+  :root { --bg: #0e1014; --fg: #d8dce4; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+               font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+             text-align: center; padding: 24px; }
+  #loading .box { max-width: 34em; }
+</style>
+</head>
+<body>
+<canvas id="fukushima_canvas"></canvas>
+<div id="loading" hidden><div class="box">
+  <p><b>Fukushima Daiichi Unit 1</b>: loading…</p>
+  <p>The physics runs in three Web Workers (the plant, the core, the containment), so this page stays responsive.
+     Research and education only; an AI draft, not validated.</p>
+</div></div>
+
+<script type="module">
+  // The gate first: no wasm is fetched until the reader is through it. A
+  // courtesy, not a protection: see gate.js, which says so at length.
+  import { unlock } from "./gate.js";
+  await unlock("Fukushima Daiichi Unit 1");
+  document.getElementById("loading").hidden = false;
+  const init = (await import("./fukushima_web.js")).default;
+  await init({ module_or_path: "./fukushima_web_bg.wasm" });
+</script>
+</body>
+</html>

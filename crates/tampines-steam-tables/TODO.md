@@ -61,6 +61,10 @@ ring ← rustls ← ureq ← ehttp ← egui_extras (all_loaders feature)
   1920×1080 viewport and mouse-oriented layout; it will *run* on a phone but be
   unusable until the layout is made responsive. Separate follow-up.
 
-Consider `wgpu` vs `glow`: `wgpu` (current) targets Vulkan on Android and
+~~Consider `wgpu` vs `glow`: `wgpu` (current) targets Vulkan on Android and
 compiles fine; `glow` (GLES) is sometimes more robust on older devices. Revisit
-only if runtime surface/resume issues appear.
+only if runtime surface/resume issues appear.~~ **DECIDED 2026-10-27 — wgpu
+only.** The workspace has a hard rule (root `CLAUDE.md`, "wgpu only, never
+glow"): no crate selects glow, on any target. A runtime surface or resume
+problem on an older device is now a wgpu issue to fix or report, not a reason
+to switch renderer.
