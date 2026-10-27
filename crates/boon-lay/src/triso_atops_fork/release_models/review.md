@@ -781,3 +781,70 @@ verified to copy upstream behaviour, visually checked against Python source code
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit e21630c96d.
+
+# Review: booth_transient (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-booth-transient-theodoreonzgit-7b3031e1"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:26:02+08:00"
+modified = "2026-10-27T14:26:02+08:00"
+target = "fn:7b3031e11dc9b5cf"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::booth_transient"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:26:03+08:00"
+commit = "ff2a2e70c429c1da908fabc7da75c02b902b39c2"
+hash = "sha256:c627628d5efbd84722c393487a8d27f59f0ef9f21931477acabe25d2ec1d44fd"
+doc_hash = "sha256:53a474d9e1ce66bdffa4f7455e0adbf1aaab9a9d577f11ee3810b8a31422b6ac"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:20bea5a8b58e1368" = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+"fn:4b22abf19474b4fd" = "sha256:f105945f85a7fe9030aebd3d9209c60f17da6afab1486f0cec92f932329a775f"
+"fn:5b6ec8acc1bbca98" = "sha256:2b661d8344b964b3aa9ccc0e424f5da346fe9e35269728c9c2e5800e0b9757f1"
+"fn:6759d46f6358435b" = "sha256:355cacaab1be201475f63cc9d8c56c23b0fe518729a9ee61fe1cf75c7e8bd032"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follows upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follows upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "UgIe0OJE0NH9Yu6S92pQNlJqj+k9FH4ULILOVqD+Clp66/wkpv7SkKQ77teTPdxR7XrXMwuH2lohXe7Dn7LsCQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+follows upstream behaviour, checked against 
+def booth_transient: ...
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit ff2a2e70c4.
