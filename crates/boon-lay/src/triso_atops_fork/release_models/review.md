@@ -542,3 +542,73 @@ verified in python and in TRISO ATOPS paper
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 277b869b3a.
+
+# Review: attenuation_factor (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-attenuation-factor-theodoreonzgit-40683b29"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:33:49+08:00"
+modified = "2026-10-27T13:33:49+08:00"
+target = "fn:40683b291bd14f34"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::attenuation_factor"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:33:50+08:00"
+commit = "8fbad382d7dacd664706063742127aa3be235d63"
+hash = "sha256:b6a7153f4139fde336fffa0b6a41deb9fcf210521ddf9c60576c08fdc0a36f5b"
+doc_hash = "sha256:292ca6588e9badf739e610d59844bfb1637956f9205210b7efb2c7132c130762"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:40ae7325634a6cb2" = "sha256:592d21c9d20158f91f15be8cb7044e39664a0b092598e6c8f8976a45bc511129"
+"fn:4b22abf19474b4fd" = "sha256:f105945f85a7fe9030aebd3d9209c60f17da6afab1486f0cec92f932329a775f"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+"fn:d76bd3ba0e568fb8" = "sha256:4137e7fe123572c33ffc4fb51dc372d0b228b82cfdc2b8cbef8a21fee12fc462"
+"fn:d81841c86e868358" = "sha256:89b67ee54c7ccbea118e032ed164b3cd210d3f66004ab934765ffbd2dee12a56"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: ports upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: ports upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "o/vcxDHVC6B8wvRn2VlkJ4ilEx2V4pYuISVc8SPXA0bG/V47/JLGsFY1WZpel5cORL78BmzxNB9SAVQUOY4TAQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+ports upstream behaviour, including the ask dave part that if sum of terms is 1, then return the cap,
+ask dave 
+inside the TRISO-ATOPS code, totally dunno why
+
+code checked to follow usptream triso atops behaviour
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 8fbad382d7.
