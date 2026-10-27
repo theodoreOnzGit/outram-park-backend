@@ -249,3 +249,55 @@ verfied to port upstream behaviour by inspecting via neovim
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit cda8e50526.
+
+# Review: BOOTH_SERIES_TERMS (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-booth-series-terms-theodoreonzgit-5b6ec8ac"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:44:36+08:00"
+modified = "2026-10-27T12:44:36+08:00"
+target = "fn:5b6ec8acc1bbca98"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::BOOTH_SERIES_TERMS"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:44:38+08:00"
+commit = "798ad7ebbe6de4775293b3f0743e0c0249bc196c"
+hash = "sha256:2b661d8344b964b3aa9ccc0e424f5da346fe9e35269728c9c2e5800e0b9757f1"
+doc_hash = "sha256:9d6feba7dc7a8b5e98f51b077eacaeffe76178080dc06c63cb25f45bb3fb8f9c"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "rLsWgJ/igEQ+D3rgbGoygdeaRHcMVKCUWioAoeOFV3afQAj1Q8sze72XD+Wb1dWlaMFkOhSzaa/42JjovdguCA=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+Booth series terms, 5000 upstreamm verified under def booth_longlived in TRISO-ATOPS github repo
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 798ad7ebbe.
