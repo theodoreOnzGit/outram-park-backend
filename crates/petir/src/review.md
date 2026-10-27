@@ -2235,3 +2235,55 @@ follow upstream, just a wrapper
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 17e72c3699.
+
+# Review: sin (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-sin-theodoreonzgit-ee036a3f"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:22:29+08:00"
+modified = "2026-10-27T13:22:29+08:00"
+target = "fn:ee036a3f5ba51d83"
+
+[review]
+path = "crates/petir/src/real.rs::sin"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:22:30+08:00"
+commit = "e2014bc692a87745484a2ee7cb259b016702d7fd"
+hash = "sha256:26c7a0f7c0936131b9003698084872beb67ca8c5476be576ec008fd1283e8217"
+doc_hash = "sha256:f1bb59c83b2db372fc6b70165ca2c6970b4d404342016ae715ab11cc81676701"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: wrapper"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: wrapper"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "/98McSohVFszvh/zyjer9xmmQgJqkoWgOttnEBnboztzBf6EOUSCI+819qcNYd9UEQhNNds3wf6tr9V9VtMZAg=="
+```
+
+wrapper for libm sin
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit e2014bc692.
