@@ -114,3 +114,59 @@ combines const_names and accident_constants, concatenated, verified
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 9003132950.
+
+# Review: TimeUnit (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-timeunit-theodoreonzgit-7211ef55"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:39:26+08:00"
+modified = "2026-10-27T14:39:26+08:00"
+target = "fn:7211ef55974ed7bc"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::TimeUnit"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:39:26+08:00"
+commit = "b7b65613294e991744911b058c2c5b708d728e81"
+hash = "sha256:3b9fff3ac196256b5f0eb77c152443f93ebc5236d4c9a444e8922e2f4b63f60f"
+doc_hash = "sha256:b44b50d8469e189e6d814e4dedbfd4013c4c500df7ab6f72cb312746914245e3"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_cases_complete = "yes"
+item_holds_extra = "no"
+item_impossible_values = "no_checked_when_built"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "JKle1BUdef3JIx1F7yiQF4uxGYa1mBHXtdVbbReRc62Bl+MVFpAGyQOL1XcHDVC/Db9Ha3enY8NiJXDm0GJ4CQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+Confirmed to be okay, follows upstream 
+
+under def: convert time
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit b7b6561329.
