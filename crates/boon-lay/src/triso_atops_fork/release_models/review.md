@@ -848,3 +848,72 @@ def booth_transient: ...
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit ff2a2e70c4.
+
+# Review: breakthrough_model_transient (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-breakthrough-model-transient-theodoreonzgit-f5b5a929"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:30:16+08:00"
+modified = "2026-10-27T14:30:16+08:00"
+target = "fn:f5b5a929974c73b5"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/transient.rs::breakthrough_model_transient"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:30:17+08:00"
+commit = "ba83522c85c9cb6cb1b2b6045f5b3605fe282de0"
+hash = "sha256:59ea489b3bf31f24b6959d29acb77d3d93a09bf580c7318115afc0cbc382c578"
+doc_hash = "sha256:4091bb258d79d23cb56fb5b1aff3f10da19937ebe837adf1c2030ba0dd97db7a"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:20bea5a8b58e1368" = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+"fn:458e6cb04d771957" = "sha256:84b0d72ed966e1d0418f1dfb8b271b755b7005929796a62ebed91a2ea2d2e967"
+"fn:4b22abf19474b4fd" = "sha256:f105945f85a7fe9030aebd3d9209c60f17da6afab1486f0cec92f932329a775f"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: ports upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: ports upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "usG3nQFa0T2YodLxEixdoZjia55CUEp3NYD/r+ElGb/gzpJ6Q7ZttCMJO+kHzhwZyv3LqkH2TEYDwaJ8WODlCQ=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+checked against upstream breakthrough_model_transient,
+code differs slightly in form, like the line, cst and ser are now summed inline (slightly less readable
+than upstream, but it is recognisable when comparing translation)
+
+but meaning is well preserved
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit ba83522c85.
