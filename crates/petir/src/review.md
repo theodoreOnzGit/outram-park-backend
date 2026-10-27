@@ -1037,3 +1037,59 @@ value = "hJ3W894TdtC/VXXWHCLnJCNYMI/9/3pdnCgpJnIHnE8SJ3/jZ0SyYCBSURYcau3jE1BX3+x
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit fc5ce0aaaf.
+
+# Review: RealMath::r_ln (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-r-ln-theodoreonzgit-f65fbba1"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:21:39+08:00"
+modified = "2026-10-27T10:21:39+08:00"
+target = "fn:f65fbba1c5e66aca"
+
+[review]
+path = "crates/petir/src/mathf.rs::RealMath::r_ln"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:21:40+08:00"
+commit = "32ba57a9cfdacdbc81f6be69dfee5aad411411bc"
+hash = "sha256:0b939b6d08ab806ef4167f8e713e246f0932e482b6f636961bd3cd0cd571bedb"
+doc_hash = "sha256:badcd6631f8f876045674c57af48b8a91828d0de29c24d73ba8a2241618b297a"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:f6bc6d7498804074" = "sha256:9b3a11b0dae65fba1c5d1bc0ebee78a344fb6f8708cfff381d9a28c24ca29eac"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "other: trait"
+independence = "someone_else"
+limits_and_guards = "other: trait"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_011e2yBmXPEcU1DJXBj1rVXK",
+    "https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "WaC78nTxiKB86M+z2XynUCnkYB94gLT10juz6uJ2qdrd+ZbP7WFViZsS05uOMWeEyQwqCXuVjfLMUh8Ou9iAAg=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 32ba57a9cf.
