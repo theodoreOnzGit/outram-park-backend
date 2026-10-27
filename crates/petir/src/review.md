@@ -929,3 +929,58 @@ just returns result, plumbing
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 749c168f0a.
+
+# Review: exp (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-exp-theodoreonzgit-20504b49"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:18:52+08:00"
+modified = "2026-10-27T10:18:52+08:00"
+target = "fn:20504b494388607e"
+
+[review]
+path = "crates/petir/src/real.rs::exp"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:18:53+08:00"
+commit = "7b6156000c47a9fb28d2448de55180dcad640314"
+hash = "sha256:7301788b66338921d1071bb4aaf5c29a93fbc5fa48ec86024a794384a20cdd53"
+doc_hash = "sha256:6e097fce0133e9dc352b422a35bddad06f56628d0c27682f4dff85fd64f83dd0"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:736bf673e39f3a8c" = "sha256:232800c8f5eec8f0bfa11d66de5b1c233dca169736ce729d12e206e76890f1e8"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "oMqMkL67BlQlG92vGe8CHC9ouB/oAjd3wyNjrgHQ7CVBXZmMFM2clKZehdmY3QZDW0qrluJ1INKwZADHUu8yDw=="
+```
+
+just a trait wrapper
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 7b6156000c.
