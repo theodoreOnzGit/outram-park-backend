@@ -287,3 +287,53 @@ helper function for nuclides
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit dc8e7dd83f.
+
+# Review: TRISO_ATOPS_NUCLIDE_COUNT (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-triso-atops-nuclide-count-theodoreonzgit-26e142a3"
+kind = "review"
+origin = "human"
+created = "2026-10-27T13:54:51+08:00"
+modified = "2026-10-27T13:54:51+08:00"
+target = "fn:26e142a3e0e9a27f"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/nuclide_database.rs::TRISO_ATOPS_NUCLIDE_COUNT"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T13:54:52+08:00"
+commit = "b2f644f8e9461dcf504fc4a2f21afe0a69fcac83"
+hash = "sha256:ab2bfea2e83dfbf5804aa9f93f1af3c66fd2c1d6e6e2639fc74def842a6ed3f7"
+doc_hash = "sha256:57a2dc7e89a67a535a954352e8b08ab98c057e3a9c2086470af16978dd96eab7"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "other: just a count of nuclides"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "l7Y28fKiaxXxFMMlXa2dCF2H2vEj8WvBmnemDSrYi0S7NWoS5aq0uHxQcxpEIc/RR+hjwAX+VjoO52zMuBpfCw=="
+```
+
+counted number of nuclide count, by pasting the entire
+ python nuclides in libreoffice calc, counted that we have 84 nuclides
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit b2f644f8e9.
