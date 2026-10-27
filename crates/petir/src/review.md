@@ -431,3 +431,55 @@ i didn't check it thoroughly, cos these are numerical implementations for expone
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit b4650c15d6.
+
+# Review: NEG_LN2_LO_N (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-neg-ln2-lo-n-theodoreonzgit-fecfbd26"
+kind = "review"
+origin = "human"
+created = "2026-10-27T09:47:49+08:00"
+modified = "2026-10-27T09:47:49+08:00"
+target = "fn:fecfbd2664f9ee23"
+
+[review]
+path = "crates/petir/src/fast_exp.rs::NEG_LN2_LO_N"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T09:47:50+08:00"
+commit = "4078d902303444a14e12e71ea331c29fedc82902"
+hash = "sha256:db3244c3ed0b3c2c380bca7af80ee826dbe5b7f1d1a1bae8e712e44dc7751e78"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "FdD3wNd3NBrrQlYnza3Fw6oLjGQTWMUR0+C+PHziO86pD9UfTlymZFKjqNR10bZ79nrmEX3sqfWlsaRRgm5dBg=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+i didn't check it thoroughly, cos these are numerical implementations for exponentials. But i only know the integration tests pass. So by that I know it works. Easy way to check is to check ln, exp etc... against std manually via tests and assert low error
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 4078d90230.
