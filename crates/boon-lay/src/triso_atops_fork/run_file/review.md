@@ -170,3 +170,61 @@ under def: convert time
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit b7b6561329.
+
+# Review: TimeUnit::seconds (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-seconds-theodoreonzgit-f5caa9d4"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:41:58+08:00"
+modified = "2026-10-27T14:41:58+08:00"
+target = "fn:f5caa9d482058451"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::TimeUnit::seconds"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:41:59+08:00"
+commit = "1b030b00e61afaad2fe98d4137e1d93bba926a59"
+hash = "sha256:3593bac03a446b265a57636ccde1593a5a95861ffe005d72b0b74a42291220fa"
+doc_hash = "sha256:638390792b9e563fbe5b74e29a803315376272909cc035eba0063a36aa227717"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:7211ef55974ed7bc" = "sha256:3b9fff3ac196256b5f0eb77c152443f93ebc5236d4c9a444e8922e2f4b63f60f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "cannot_happen: enum conversion, if matched correctly, supplies a number straight"
+independence = "someone_else"
+limits_and_guards = "no_limits: this is a conversion factor, that's all"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "ENNy1B9dTZ1ofPS+k+GZzcR5CUHKPt+dQFJOlYAPb3wSA9GUxxkIrcL4XrxARrtvShjp/rSlhaDK653ZcwqnDg=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+Time unit conversion, matches convert_time numerics via enum, much cleaner
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 1b030b00e6.
