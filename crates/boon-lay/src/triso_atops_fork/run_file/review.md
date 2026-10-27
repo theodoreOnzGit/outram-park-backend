@@ -228,3 +228,58 @@ Time unit conversion, matches convert_time numerics via enum, much cleaner
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 1b030b00e6.
+
+# Review: TimeUnit::parse (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-parse-theodoreonzgit-bb3bb965"
+kind = "review"
+origin = "human"
+created = "2026-10-27T14:43:34+08:00"
+modified = "2026-10-27T14:43:34+08:00"
+target = "fn:bb3bb965bdd5e28b"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/run_file/mod.rs::TimeUnit::parse"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T14:43:35+08:00"
+commit = "089852228616056d5b5a37429c6babdd117133bf"
+hash = "sha256:48a765403379e66dd4a8549e3e096079126eab35e691976607ba056dd88822b6"
+doc_hash = "sha256:8d8f43ef3615f0c40f54794faa82366734540966e5b65f5b88cecc2df637a0ed"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "generic_numerics"
+
+[review.callees]
+"fn:7211ef55974ed7bc" = "sha256:3b9fff3ac196256b5f0eb77c152443f93ebc5236d4c9a444e8922e2f4b63f60f"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "returns_result"
+independence = "someone_else"
+limits_and_guards = "guarded_returns_result"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_0129hXi6YzsN9yjw2A3YAEXR"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "lJvx7WwjHQFbDeyCiHXzU9LzPrp4apGSWzMx5SQxcb78P/Thcz3gn62H0YgVwJyDDaxZRXzQJCfXCvqS81v3Aw=="
+```
+
+unit conversion, matches upstream
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 0898522286.
