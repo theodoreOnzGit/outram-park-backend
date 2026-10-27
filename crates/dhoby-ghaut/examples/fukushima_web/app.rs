@@ -109,7 +109,8 @@ impl App {
         Self {
             link,
             panel: Panel::default(),
-            view: View::new(17.0).with_home([0.0, 9.0]),
+            // The reactor building's outline, y = -8.2 to 27 m, plus a margin.
+            view: View::new(17.9).with_home([0.0, 9.4]),
             tab: Tab::Plant,
             frame: None,
             history: Vec::new(),
@@ -279,7 +280,7 @@ impl App {
         let painter = ui.painter_at(rect);
         let stroke = Stroke::new(2.0, Color32::from_gray(200));
         // Reactor building outline (operating floor at the top).
-        let rb = Rect::from_two_pos(to(-13.0, -6.0), to(13.0, 27.0));
+        let rb = Rect::from_two_pos(to(-13.0, -8.2), to(13.0, 27.0));
         let rb_col = if f.containment.rb_exploded {
             Color32::from_rgb(120, 40, 20)
         } else if f.containment.rb_flammable {
@@ -289,6 +290,39 @@ impl App {
         };
         painter.rect(rb, 0.0, rb_col, Stroke::new(1.5, Color32::from_gray(90)), StrokeKind::Inside);
         painter.text(to(-12.6, 26.6), Align2::LEFT_TOP, format!("Reactor building · H2 {:.2} %{}", 100.0 * f.containment.rb_h2_fraction, if f.containment.rb_exploded { " · EXPLODED" } else { "" }), FontId::proportional(13.0), Color32::WHITE);
+        // Torus: the Mark I suppression chamber, drawn as a donut seen from
+        // above at an angle and cut open along its mid-plane, so the pool
+        // shows (`torus` below has the geometry). The drywell is drawn after
+        // it, so it stands in the donut's hole as it does in the plant.
+        let tor = torus::Torus::DRAWN;
+        let ring = |rho: f64, y: f64, fill: Color32, line: Stroke| {
+            let pts: Vec<Pos2> = tor.ellipse(rho, y).into_iter().map(|(x, y)| to(x, y)).collect();
+            painter.add(egui::Shape::convex_polygon(pts, fill, line));
+        };
+        let shell = Color32::from_gray(58);
+        let inside = Color32::from_gray(34);
+        let (cy, rt) = (tor.centre_y, tor.tube_radius);
+        // The body: the tube's round cross-section swept around the ring,
+        // whose outline is the centre-line ellipse pushed out by the tube
+        // radius. This is what makes it a donut and not a pan.
+        let body: Vec<Pos2> = tor.outline().into_iter().map(|(x, y)| to(x, y)).collect();
+        painter.add(egui::Shape::convex_polygon(body, shell, stroke));
+        let bottom = cy - tor.major_radius * torus::ELEVATION_DEG.to_radians().sin() - rt;
+        // The cut face: the tube's inner wall, then the pool surface.
+        ring(tor.major_radius + rt, cy, inside, stroke);
+        let (y_w, half) = tor.water_surface(POOL_WATER_M3 / (POOL_WATER_M3 + WETWELL_GAS_M3));
+        ring(tor.major_radius + half, y_w, colour(f.containment.t_pool_k), Stroke::NONE);
+        ring(tor.major_radius - half, y_w, inside, Stroke::NONE);
+        // The hole.
+        ring(tor.major_radius - rt, cy, rb_col, stroke);
+        painter.text(
+            // On the torus's front skin, below the pool's near edge.
+            to(0.0, 0.5 * (bottom + y_w - (tor.major_radius + half) * torus::ELEVATION_DEG.to_radians().sin())),
+            Align2::CENTER_CENTER,
+            format!("Wetwell (torus) {:.2} MPa · pool {:.0} °C", f.containment.p_ww_pa / 1e6, f.containment.t_pool_k - 273.15),
+            FontId::proportional(13.0),
+            Color32::WHITE,
+        );
         // Drywell: a light bulb around the vessel.
         let dw_col = colour(f.containment.t_dw_k);
         let bulb_c = to(0.0, 5.0);
@@ -296,15 +330,14 @@ impl App {
         let neck = Rect::from_two_pos(to(-4.0, 10.0), to(4.0, 23.0));
         painter.rect(neck, 0.0, dw_col.gamma_multiply(0.35), stroke, StrokeKind::Inside);
         painter.text(to(-6.3, 9.6), Align2::LEFT_BOTTOM, format!("Drywell {:.2} MPa (design {:.2})", f.containment.p_dw_pa / 1e6, CONTAINMENT_DESIGN_PA / 1e6), FontId::proportional(13.0), Color32::WHITE);
-        // Torus (cross-section below), pool coloured by its temperature.
-        let torus = Rect::from_two_pos(to(-11.0, -5.5), to(11.0, -2.0));
-        painter.rect(torus, px(1.7), Color32::from_gray(45), stroke, StrokeKind::Inside);
-        let pool = Rect::from_two_pos(to(-11.0, -5.5), to(11.0, -3.9));
-        painter.rect_filled(pool, px(1.0), colour(f.containment.t_pool_k));
-        painter.text(to(0.0, -2.3), Align2::CENTER_TOP, format!("Wetwell {:.2} MPa · pool {:.0} °C", f.containment.p_ww_pa / 1e6, f.containment.t_pool_k - 273.15), FontId::proportional(13.0), Color32::WHITE);
-        // Downcomers.
-        for x in [-3.5, 3.5] {
-            painter.line_segment([to(x, 0.0), to(x, -4.6)], Stroke::new(3.0, Color32::from_gray(150)));
+        // Vent lines: from low on the drywell, out and down at
+        // `VENT_FROM_VERTICAL_DEG` from the vertical into the pool
+        // (maintainer, 2026-10-27: "diagonal ... 60 from vertical, so it shld
+        // be more flat, similar to GE designs online"). Their ends sit on the
+        // pool surface's centre line, on the near side.
+        for side in [-1.0, 1.0] {
+            let (a, b) = tor.vent_line(side, (0.0, 5.0), 6.5, y_w);
+            painter.line_segment([to(a.0, a.1), to(b.0, b.1)], Stroke::new(px(0.9).clamp(3.0, 9.0), Color32::from_gray(150)));
         }
         // The vessel: steam above the collapsed level, water below.
         let r = RPV_RADIUS_M;
@@ -460,13 +493,16 @@ impl eframe::App for App {
             let bar = Rect::from_min_size(Pos2::new(rect.center().x - 110.0, rect.bottom() - 48.0), Vec2::new(220.0, 40.0));
             if self.tab == Tab::Plant {
                 let resp = ui.interact(rect, ui.id().with("plant"), egui::Sense::click_and_drag());
-                if !self.view.fitted || (!self.view.touched && self.view.fit_size != rect.size()) {
-                    self.view.fit(rect);
+                // Fit between the button row and the tab bar, which take the
+                // same height top and bottom, so the centre is unchanged.
+                let fit_rect = rect.shrink2(Vec2::new(0.0, 56.0));
+                if !self.view.fitted || (!self.view.touched && self.view.fit_size != fit_rect.size()) {
+                    self.view.fit(fit_rect);
                 }
                 self.view.handle_input(ui, &resp);
                 self.plant(ui, rect);
                 if let Some(z) = zoom_buttons(ui, rect) {
-                    apply_zoom(&mut self.view, rect, z);
+                    apply_zoom(&mut self.view, fit_rect, z);
                 }
             } else {
                 let inner = Rect::from_min_max(rect.min + Vec2::new(8.0, 56.0), rect.max - Vec2::new(8.0, 56.0));
@@ -488,5 +524,200 @@ impl eframe::App for App {
             });
             self.panel.reopen_button(ui, rect);
         });
+    }
+}
+
+/// The torus as drawn: a donut viewed from above at `ELEVATION_DEG`, cut
+/// along its horizontal mid-plane. Plain geometry in plant metres, no egui,
+/// so it is tested on its own.
+///
+/// **Indicative drawing dimensions, not plant data.** A Mark I torus is far
+/// bigger than this (major diameter around 30 m); it is drawn to fit the
+/// reactor building's 26 m outline in this schematic. What IS from the model
+/// is the pool's share of the tube: `water_surface` is given the fraction
+/// `POOL_WATER_M3 / (POOL_WATER_M3 + WETWELL_GAS_M3)` (1750 and 2620 m^3,
+/// `physics::params`), which the containment model holds fixed, so the drawn
+/// level is fixed too.
+mod torus {
+    /// The vent lines' angle from the vertical (maintainer, 2026-10-27), so
+    /// 30 degrees below the horizontal.
+    pub const VENT_FROM_VERTICAL_DEG: f64 = 60.0;
+    /// Where they leave the drywell: this far below its horizontal
+    /// mid-line, measured round the bulb from its centre. Low on the bulb, as
+    /// on GE's Mark I drawings, so a line that flat still reaches the pool.
+    /// A drawing choice.
+    pub const VENT_EXIT_DEG: f64 = 60.0;
+    /// The viewing angle above the horizontal. A drawing choice.
+    pub const ELEVATION_DEG: f64 = 20.0;
+
+    #[derive(Clone, Copy, Debug)]
+    pub struct Torus {
+        pub centre_y: f64,
+        pub major_radius: f64,
+        pub tube_radius: f64,
+    }
+
+    impl Torus {
+        pub const DRAWN: Torus = Torus { centre_y: -2.4, major_radius: 8.2, tube_radius: 2.4 };
+
+        pub fn cos_elevation(&self) -> f64 {
+            ELEVATION_DEG.to_radians().cos()
+        }
+
+        /// A horizontal circle of radius `rho` at drawn height `y`, as the
+        /// ellipse the viewer sees (the far side higher), 64 points.
+        pub fn ellipse(&self, rho: f64, y: f64) -> Vec<(f64, f64)> {
+            let k = ELEVATION_DEG.to_radians().sin();
+            (0..64)
+                .map(|i| {
+                    let th = std::f64::consts::TAU * i as f64 / 64.0;
+                    (rho * th.cos(), y + k * rho * th.sin())
+                })
+                .collect()
+        }
+
+        /// The body's silhouette: every point of the tube's centre-line
+        /// ellipse (radius `major_radius`, drawn at `centre_y`) moved out
+        /// along its normal by `tube_radius`, i.e. the envelope of the tube's
+        /// round cross-sections. Convex, as the offset of a convex curve.
+        pub fn outline(&self) -> Vec<(f64, f64)> {
+            let k = ELEVATION_DEG.to_radians().sin();
+            let (a, b) = (self.major_radius, k * self.major_radius);
+            (0..96)
+                .map(|i| {
+                    let th = std::f64::consts::TAU * i as f64 / 96.0;
+                    let (nx, ny) = (b * th.cos(), a * th.sin());
+                    let n = nx.hypot(ny);
+                    (a * th.cos() + self.tube_radius * nx / n, self.centre_y + b * th.sin() + self.tube_radius * ny / n)
+                })
+                .collect()
+        }
+
+        /// The pool surface for a tube `fill` full by cross-section area:
+        /// its drawn height and its half-width across the tube (the surface
+        /// is the annulus `major_radius ± half`).
+        pub fn water_surface(&self, fill: f64) -> (f64, f64) {
+            let depth = segment_depth(fill.clamp(0.0, 1.0)) * self.tube_radius;
+            let h = depth - self.tube_radius;
+            let half = (self.tube_radius * self.tube_radius - h * h).max(0.0).sqrt();
+            (self.centre_y + h * self.cos_elevation(), half)
+        }
+
+        /// A vent line leaving a drywell of radius `r` centred at `c` at
+        /// `VENT_EXIT_DEG` round the bulb, on the `side` (-1 left, +1 right),
+        /// running out and down at `VENT_FROM_VERTICAL_DEG` from the vertical
+        /// until it meets the near half of the pool surface's centre line
+        /// (the ellipse of radius `major_radius` at height `y_w`).
+        pub fn vent_line(&self, side: f64, c: (f64, f64), r: f64, y_w: f64) -> ((f64, f64), (f64, f64)) {
+            let e = VENT_EXIT_DEG.to_radians();
+            let a = (c.0 + side * r * e.cos(), c.1 - r * e.sin());
+            let v = VENT_FROM_VERTICAL_DEG.to_radians();
+            let d = (side * v.sin(), -v.cos());
+            let k = ELEVATION_DEG.to_radians().sin();
+            // Inside the ellipse: (x/R)^2 + ((y - y_w)/(k R))^2 < 1.
+            let outside = |t: f64| {
+                let (x, y) = (a.0 + t * d.0, a.1 + t * d.1);
+                (x / self.major_radius).powi(2) + ((y - y_w) / (k * self.major_radius)).powi(2) - 1.0
+            };
+            // March to the first crossing below the far side, then bisect.
+            let (mut lo, mut hi) = (0.0, 0.0);
+            let mut t = 0.0;
+            let mut was_inside = outside(0.0) < 0.0;
+            while t < 40.0 {
+                t += 0.05;
+                let ins = outside(t) < 0.0;
+                if was_inside && !ins {
+                    (lo, hi) = (t - 0.05, t);
+                    break;
+                }
+                was_inside = ins;
+            }
+            for _ in 0..50 {
+                let m = 0.5 * (lo + hi);
+                if outside(m) < 0.0 {
+                    lo = m;
+                } else {
+                    hi = m;
+                }
+            }
+            let t = 0.5 * (lo + hi);
+            (a, (a.0 + t * d.0, a.1 + t * d.1))
+        }
+    }
+
+    /// The depth of a circular segment, as a fraction of the radius (0 to 2),
+    /// that holds `fill` of the circle's area: bisection on
+    /// `A(d) = acos(1 - d) - (1 - d) sqrt(2d - d^2)` over `pi`.
+    pub fn segment_depth(fill: f64) -> f64 {
+        let area = |d: f64| ((1.0 - d).acos() - (1.0 - d) * (2.0 * d - d * d).max(0.0).sqrt()) / std::f64::consts::PI;
+        let (mut lo, mut hi) = (0.0, 2.0);
+        for _ in 0..60 {
+            let m = 0.5 * (lo + hi);
+            if area(m) < fill {
+                lo = m;
+            } else {
+                hi = m;
+            }
+        }
+        0.5 * (lo + hi)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// Half full is the mid-plane; empty and full are the bottom and top;
+        /// the segment area is monotone.
+        #[test]
+        fn the_segment_depth_inverts_the_segment_area() {
+            assert!((segment_depth(0.5) - 1.0).abs() < 1e-12);
+            // 1e-9, not 1e-12: at the top of the tube dA/dd -> 0, so round-off
+            // in acos near -1 leaves the full-tube depth 3e-11 short of 2
+            // (measured 2026-10-27). Far below a pixel.
+            assert!(segment_depth(0.0) < 1e-9 && (segment_depth(1.0) - 2.0).abs() < 1e-9);
+            // The model's pool, 1750 of 4370 m^3: just under half, so below the mid-plane.
+            let d = segment_depth(1750.0 / 4370.0);
+            assert!(d > 0.8 && d < 1.0, "{d}");
+        }
+
+        /// The silhouette reaches exactly one tube radius past the ring at
+        /// its sides and below its nearest point.
+        #[test]
+        fn the_outline_is_the_ring_widened_by_the_tube() {
+            let t = Torus::DRAWN;
+            let o = t.outline();
+            let k = ELEVATION_DEG.to_radians().sin();
+            let right = o.iter().map(|p| p.0).fold(f64::MIN, f64::max);
+            let lowest = o.iter().map(|p| p.1).fold(f64::MAX, f64::min);
+            assert!((right - (t.major_radius + t.tube_radius)).abs() < 1e-12, "{right}");
+            assert!((lowest - (t.centre_y - k * t.major_radius - t.tube_radius)).abs() < 1e-12, "{lowest}");
+        }
+
+        /// The pool surface sits below the tube's centre for a 40 % fill and
+        /// is narrower than the tube.
+        #[test]
+        fn the_drawn_pool_is_below_the_mid_plane() {
+            let t = Torus::DRAWN;
+            let (y, half) = t.water_surface(0.4);
+            assert!(y < t.centre_y && half < t.tube_radius && half > 0.9 * t.tube_radius, "{y} {half}");
+        }
+
+        /// The vent line runs at the asked 60 degrees from the vertical,
+        /// outward and down, and ends on the near half of the pool's
+        /// centre-line ellipse, mirrored left and right.
+        #[test]
+        fn the_vent_lines_run_60_degrees_from_vertical_into_the_pool() {
+            let t = Torus::DRAWN;
+            let (y_w, _) = t.water_surface(0.4);
+            let (a, b) = t.vent_line(1.0, (0.0, 5.0), 6.5, y_w);
+            let from_vertical = ((b.0 - a.0) / (a.1 - b.1)).atan().to_degrees();
+            assert!((from_vertical - 60.0).abs() < 1e-9, "{from_vertical}");
+            assert!(b.1 < y_w, "ends on the near side: {b:?}");
+            let k = ELEVATION_DEG.to_radians().sin();
+            let on = (b.0 / t.major_radius).powi(2) + ((b.1 - y_w) / (k * t.major_radius)).powi(2);
+            assert!((on - 1.0).abs() < 1e-6, "{on}");
+            let (a2, b2) = t.vent_line(-1.0, (0.0, 5.0), 6.5, y_w);
+            assert!((a2.0 + a.0).abs() < 1e-12 && (b2.0 + b.0).abs() < 1e-9 && (b2.1 - b.1).abs() < 1e-9);
+        }
     }
 }
