@@ -1404,3 +1404,55 @@ I'm not reviewing this in depth, this was ported, but one can see if behaviour i
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 7111eb6275.
+
+# Review: LN2_LO (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-ln2-lo-theodoreonzgit-73252081"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:34:21+08:00"
+modified = "2026-10-27T10:34:21+08:00"
+target = "fn:73252081d22789bd"
+
+[review]
+path = "crates/petir/src/fast_log.rs::LN2_LO"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:34:22+08:00"
+commit = "843f0965152e08ff1c53a4ba25d40e8dc1c110e7"
+hash = "sha256:74c491b1f00f48a95a42c7359a920aa2ca7289166f69d0d6a3dd347995bc9012"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "M3SvMqGPl7HqSda4DFtzMJOQ8Cg7FzocQp80k8K0Kj5nnvMd47FBML7Hx/McbQn4AudrDjp6oGCq3n3/mat7Aw=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 843f096515.
