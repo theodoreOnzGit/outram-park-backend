@@ -1196,3 +1196,107 @@ I'm not reviewing this in depth, this was ported, but one can see if behaviour i
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit fedd77e8d1.
+
+# Review: OFF (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-off-theodoreonzgit-c273ee3b"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:27:35+08:00"
+modified = "2026-10-27T10:27:35+08:00"
+target = "fn:c273ee3b6bd4de00"
+
+[review]
+path = "crates/petir/src/fast_log.rs::OFF"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:27:35+08:00"
+commit = "352ea14410c66b273c662cb9fb49d933f9e628de"
+hash = "sha256:a82d55590b31c265a749a5721db003fd70d22024f2e46399262069e8e3730211"
+doc_hash = "sha256:0b9f27d561ce0144ba7e00d08e0274c83230fd6962a10d46d3de4c5754a2f136"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "C7LgK+n99zx0sWLsna+Pl4h9DttvmYwgKzqX9QOz36NsNSrTwfiMPU2gI+3V15DnA4dTihlfI3aWATjDhS4YDw=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 352ea14410.
+
+# Review: LO (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-lo-theodoreonzgit-25fe3d3d"
+kind = "review"
+origin = "human"
+created = "2026-10-27T10:28:21+08:00"
+modified = "2026-10-27T10:28:21+08:00"
+target = "fn:25fe3d3decf7ce49"
+
+[review]
+path = "crates/petir/src/fast_log.rs::LO"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T10:28:22+08:00"
+commit = "352ea14410c66b273c662cb9fb49d933f9e628de"
+hash = "sha256:201dddfd92068ea32bea7667272258723820625d19c6c5b1931d3f6dafd29cda"
+doc_hash = "sha256:7fc48369fb6f9cd369b7e932ca9d9589fd788905cda701e3131e325be7b1014b"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+item_value_source = "original_code"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01AhE6XBx3nRd81aHLQrciQe"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "4ceppxVIL7CmJRuArGtaXZ221SJ3c+XrjqH34qCLmGSKWvO5fat4p1aZw8wA/BsayGZyP/iCYVBW6KdUJyJ7AA=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+I'm not reviewing this in depth, this was ported, but one can see if behaviour is similar to ln in an integration test. Easy to check
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 352ea14410.
