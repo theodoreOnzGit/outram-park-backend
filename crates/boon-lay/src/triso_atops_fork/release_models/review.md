@@ -181,3 +181,71 @@ normally this helps with equation 6c, and the code claims upstream is 1000 terms
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit f7829f27b7.
+
+# Review: breakthrough_model (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-breakthrough-model-theodoreonzgit-18f13088"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:41:43+08:00"
+modified = "2026-10-27T12:41:43+08:00"
+target = "fn:18f130883edf5867"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/release_models/steady_state.rs::breakthrough_model"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:41:45+08:00"
+commit = "cda8e50526000d514165b5be10d7b678e2d2b3ea"
+hash = "sha256:16ede897131c661b82088042b31556fe0f4fce43be03f667f09d8dcc336aeefb"
+doc_hash = "sha256:1414f7e3e353f22d6dc195aff9f34678360d6b726afb626ab1795b03e9cf354f"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.callees]
+"fn:20bea5a8b58e1368" = "sha256:ae6e39a6895555ffce440e4e034714a793db30baf969406c1922ae501add0404"
+"fn:458e6cb04d771957" = "sha256:84b0d72ed966e1d0418f1dfb8b271b755b7005929796a62ebed91a2ea2d2e967"
+"fn:4b22abf19474b4fd" = "sha256:f105945f85a7fe9030aebd3d9209c60f17da6afab1486f0cec92f932329a775f"
+"fn:d2f19c5ac1bd0c10" = "sha256:af2237946440613f528ad2ab3ad403cdd3a337ec2bdcfa588745954b7ee7a98f"
+"fn:f6be716e9120f882" = "sha256:2f5d2accd5ec7c03eba0b3cc142650142421730e7e9ddbb6b09b20232d4a76ff"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: port upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: port upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = [
+    "https://claude.ai/code/session_01AxCVfsESPWrowa6mMV5skq",
+    "https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7",
+]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "tZrXm96jj1vqmKknL/qKsUEX4v4jNAr39GcJ8RR7t5BGQU+tisLJodIDKVs5XthpFzQkQ66pFOGGkWsAgiFGCw=="
+
+[[relation]]
+target = "concept:02-nuclear-safety/fuel-system-design/triso-coated-particle-fuel/triso-fission-product-release"
+kind = "implements"
+```
+
+checked d_prime against upstream Dp,
+
+verfied to port upstream behaviour by inspecting via neovim
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit cda8e50526.
