@@ -194,13 +194,10 @@ fn content_layout(plant: egui::Vec2, viewport: egui::Vec2) -> (egui::Vec2, egui:
     (pad + extra, content + 2.0 * extra)
 }
 
-/// Below this viewport width the zoom buttons grow to a thumb-sized 44 px and
-/// float over the drawing, and the pointer-only hints are left out.
-const NARROW_VIEW_PX: f32 = 700.0;
-
-/// The four zoom controls, shared by the desktop row and the phone overlay.
+/// The four zoom controls: the desktop row's buttons, and what the browser's
+/// + / − / Reset overlay maps onto (Reset = Fit).
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum ZoomAction {
+pub enum ZoomAction {
     Out,
     In,
     Fit,
@@ -238,6 +235,22 @@ impl ZoomAction {
 /// the -/+ buttons, Ctrl + scroll over the drawing, Fit (the whole plant in
 /// view, centred) and 100 %. Labels keep a constant size at every zoom.
 pub fn draw_plant_v1_1(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers) {
+    draw_plant_with(ui, snapshot, tracers, None);
+}
+
+/// The plant's pan-and-zoom viewport over everything `ui` has left, with no
+/// zoom controls of its own: the browser demo draws dhoby-ghaut's + / − /
+/// Reset over it, as every web demo does (2026-10-27, maintainer: "a similar
+/// UI to the htr10 keff demo"), and passes the button pressed last frame as
+/// `action` (Reset is [`ZoomAction::Fit`]).
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+pub fn draw_plant_viewport(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers, action: Option<ZoomAction>) {
+    draw_plant_with(ui, snapshot, tracers, Some(action));
+}
+
+/// `external`: `None` draws the zoom row above the viewport (the desktop);
+/// `Some(action)` leaves the controls to the caller and applies `action`.
+fn draw_plant_with(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers, external: Option<Option<ZoomAction>>) {
     let zoom_id = ui.id().with("htr10_plant_zoom");
     let mut zoom: PlantZoom = ui.ctx().data(|d| d.get_temp(zoom_id)).unwrap_or_default();
 
@@ -246,24 +259,24 @@ pub fn draw_plant_v1_1(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &Schematic
         // Estimated before the controls are drawn, then corrected below.
         fitted_vessel_width(ui.available_size(), zoom.canvas_per_vessel_width)
     });
-    // On a desktop the zoom controls are a row above the viewport. On a phone
-    // (CHANGED 2026-10-27, maintainer: the plant "shld take most of the
-    // screen real estate") they float over the drawing's top-right corner,
-    // thumb-sized (44 px, the mobile-first rule), as on every dhoby-ghaut
-    // demo, so the viewport is everything below the readout.
-    let narrow = ui.available_width() < NARROW_VIEW_PX;
-    if !narrow {
-        ui.horizontal_wrapped(|ui| {
-            ui.label("Plant zoom:");
-            for (text, action) in ZoomAction::BUTTONS {
-                if ui.button(text).clicked() {
-                    action.apply(&mut zoom, current);
+    // The desktop's zoom row sits above the viewport; the browser draws its
+    // own buttons over the drawing and hands in what was pressed.
+    match external {
+        None => {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Plant zoom:");
+                for (text, action) in ZoomAction::BUTTONS {
+                    if ui.button(text).clicked() {
+                        action.apply(&mut zoom, current);
+                    }
                 }
-            }
-            ui.label(format!("{:.0} %", 100.0 * current / NOMINAL_VESSEL_WIDTH));
-            ui.separator();
-            ui.small("Drag or use the scroll bars to pan; Ctrl + scroll over the plant to zoom.");
-        });
+                ui.label(format!("{:.0} %", 100.0 * current / NOMINAL_VESSEL_WIDTH));
+                ui.separator();
+                ui.small("Drag or use the scroll bars to pan; Ctrl + scroll over the plant to zoom.");
+            });
+        }
+        Some(Some(action)) => action.apply(&mut zoom, current),
+        Some(None) => {}
     }
 
     let viewport = ui.available_size();
@@ -318,30 +331,6 @@ pub fn draw_plant_v1_1(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &Schematic
         ui.add_space(content.y - margin.y - canvas.height());
         canvas
     });
-    if narrow {
-        let shown = zoom.vessel_width.unwrap_or(vessel_width);
-        let r = output.inner_rect;
-        let mut x = r.right() - 8.0;
-        for (text, action) in ZoomAction::BUTTONS.iter().rev() {
-            // "Fit" and "100 %" are words, not glyphs: wide enough for one
-            // line at 18 pt ("100 %" wrapped at 56 px).
-            let w = match text.trim().len() { 1 => 44.0, 2..=3 => 56.0, _ => 76.0 };
-            x -= w;
-            let at = egui::Rect::from_min_size(egui::pos2(x, r.top() + 8.0), egui::vec2(w, 44.0));
-            if ui.put(at, egui::Button::new(egui::RichText::new(text.trim()).size(18.0).strong())).clicked() {
-                action.apply(&mut zoom, shown);
-                ui.ctx().request_repaint();
-            }
-            x -= 6.0;
-        }
-        ui.painter().text(
-            egui::pos2(r.right() - 8.0, r.top() + 58.0),
-            egui::Align2::RIGHT_TOP,
-            format!("{:.0} %", 100.0 * shown / NOMINAL_VESSEL_WIDTH),
-            egui::FontId::proportional(13.0),
-            ui.visuals().weak_text_color(),
-        );
-    }
     zoom.canvas_per_vessel_width = output.inner.size() / vessel_width;
     zoom.last_vessel_width = vessel_width;
     zoom.last_offset = output.state.offset;

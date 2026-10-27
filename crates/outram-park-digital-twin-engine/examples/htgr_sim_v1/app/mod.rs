@@ -328,6 +328,9 @@ pub struct HtgrSimApp {
     /// ever runs the browser build.
     #[cfg(target_arch = "wasm32")]
     web_panel: dhoby_ghaut::web_demo::panel::Panel,
+    /// The browser's + / − / Reset pressed last frame, for the plant viewport.
+    #[cfg(target_arch = "wasm32")]
+    web_zoom: Option<plant_v1_1::ZoomAction>,
     /// The Map tab's own retained state: the `chi/Q` field texture and the
     /// key it was built for.
     ///
@@ -609,6 +612,8 @@ impl HtgrSimApp {
             plant_clock_rate: PlantClockRate::default(),
             #[cfg(target_arch = "wasm32")]
             web_panel: dhoby_ghaut::web_demo::panel::Panel::default(),
+            #[cfg(target_arch = "wasm32")]
+            web_zoom: None,
         }
     }
 
@@ -822,43 +827,36 @@ impl eframe::App for HtgrSimApp {
         // right edge, so the plant started below the fold (seen in Chromium
         // at phone width, gh:#986). The desktop keeps the full title.
         //
-        // CHANGED 2026-10-27 (maintainer, from a phone screenshot: "the HTGR
-        // itself shld take most of the screen real estate"): on a phone the
-        // whole top is ONE row -- "Controls »" while the panel is folded, the
-        // tabs as a drop-down, the theme as one toggle, and a short title.
-        // The wrapped tab list, the three theme buttons and the separate
-        // Controls row took ~40 % of a 390 x 844 screen above the plant.
-        let narrow = ui.max_rect().width() < NARROW_PX;
-        egui::Panel::top("htgr_top").show(ui, |ui| {
-            if narrow {
-                ui.horizontal(|ui| {
-                    #[cfg(target_arch = "wasm32")]
-                    if !self.web_panel.open
-                        && ui
-                            .add(
-                                egui::Button::new(egui::RichText::new("Controls »").strong())
-                                    .min_size(egui::vec2(0.0, 36.0)),
-                            )
-                            .clicked()
-                    {
-                        self.web_panel.open = true;
-                    }
-                    panel_selector_compact(ui, &mut self.open_panel);
-                    egui::global_theme_preference_switch(ui);
-                });
-                ui.small("HTGR Simulator v1.1 · offline demonstration, not validated");
-            } else {
-                ui.heading(
-                    "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
-                );
-                ui.horizontal_wrapped(|ui| {
-                    egui::global_theme_preference_buttons(ui);
+        // CHANGED 2026-10-27 (maintainer: "Can we have a similar UI to the
+        // htr10 keff demo"): the BROWSER build has no top bar at all, like
+        // dhoby-ghaut's Monte Carlo demo. The title, theme and tabs are at the
+        // top of the folding side panel, and the Plant tab is the drawing edge
+        // to edge with "Controls »" and + / − / Reset over it (below). (An
+        // intermediate one-row phone top bar, earlier the same day, is kept
+        // for a narrow desktop window only.)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let narrow = ui.max_rect().width() < NARROW_PX;
+            egui::Panel::top("htgr_top").show(ui, |ui| {
+                if narrow {
+                    ui.horizontal(|ui| {
+                        panel_selector_compact(ui, &mut self.open_panel);
+                        egui::global_theme_preference_switch(ui);
+                    });
+                    ui.small("HTGR Simulator v1.1 · offline demonstration, not validated");
+                } else {
+                    ui.heading(
+                        "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
+                    );
+                    ui.horizontal_wrapped(|ui| {
+                        egui::global_theme_preference_buttons(ui);
+                        ui.separator();
+                        panel_selector_ui(ui, &mut self.open_panel);
+                    });
                     ui.separator();
-                    panel_selector_ui(ui, &mut self.open_panel);
-                });
-                ui.separator();
-            }
-        });
+                }
+            });
+        }
 
         // Snapshotted once, up front, and shared by both the right panel
         // (when Panel::Plots + PlotsSidePanel::Csv) and the central panel
@@ -884,7 +882,16 @@ impl eframe::App for HtgrSimApp {
             // The panel heading names the demo, as the Monte Carlo demo's
             // names its rung: `draw_controls` already heads its own section
             // "Controls", and passing that here drew it twice.
-            panel.show(ui, "HTGR Simulator", |ui| self.draw_side_controls(ui, &snapshot, &plots));
+            panel.show(ui, "HTGR Simulator v1.1", |ui| {
+                // What the desktop's top bar holds, at the top of the panel,
+                // as the Monte Carlo demo puts its rung and mode pickers.
+                ui.small("Offline demonstration, not validated");
+                egui::global_theme_preference_buttons(ui);
+                ui.separator();
+                panel_selector_ui(ui, &mut self.open_panel);
+                ui.separator();
+                self.draw_side_controls(ui, &snapshot, &plots);
+            });
             self.web_panel = panel;
         }
 
@@ -894,12 +901,53 @@ impl eframe::App for HtgrSimApp {
         // What the Map tab asked for this frame, acted on after the panel
         // closure releases its borrow of `self` (gh:#400).
         let mut map_action = map_tab::MapAction::None;
-        egui::CentralPanel::default().show(ui, |ui| {
-            // Folded on a phone: keep the row the "Controls »" button sits in
-            // clear, as every dhoby-ghaut demo does, and draw the button.
-            // On a phone the button is in the top row instead (above).
+        // The browser's Plant tab is drawn edge to edge, with no panel margin.
+        #[cfg(target_arch = "wasm32")]
+        let central = if self.open_panel == Panel::Schematic {
+            egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().panel_fill))
+        } else {
+            egui::CentralPanel::default()
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        let central = egui::CentralPanel::default();
+        central.show(ui, |ui| {
+            // The browser's Plant tab, as the Monte Carlo demo's main view:
+            // the plant fills the view; "Controls »" top left, the live
+            // peak-fuel readout under it, + / − / Reset top right.
             #[cfg(target_arch = "wasm32")]
-            if !self.web_panel.open && !narrow {
+            if self.open_panel == Panel::Schematic {
+                let rect = ui.max_rect();
+                plant_v1_1::draw_plant_viewport(ui, &snapshot, &self.tracers, self.web_zoom.take());
+                let top = if self.web_panel.open { 10.0 } else { 62.0 };
+                let text = format!(
+                    "Peak fuel, live  {}",
+                    panels::peak_fuel_text(display_unit, snapshot.peak_kernel_temperature_k)
+                );
+                let painter = ui.painter_at(rect);
+                let galley = painter.layout_no_wrap(text, egui::FontId::proportional(16.0), egui::Color32::from_rgb(230, 130, 50));
+                let at = rect.left_top() + egui::vec2(10.0, top);
+                painter.rect_filled(
+                    egui::Rect::from_min_size(at, galley.size()).expand(5.0),
+                    4.0,
+                    ui.visuals().extreme_bg_color.gamma_multiply(0.85),
+                );
+                painter.galley(at, galley, egui::Color32::WHITE);
+                self.web_panel.reopen_button(ui, rect);
+                if let Some(z) = dhoby_ghaut::web_demo::view::zoom_buttons(ui, rect) {
+                    use dhoby_ghaut::web_demo::view::Zoom;
+                    self.web_zoom = Some(match z {
+                        Zoom::In => plant_v1_1::ZoomAction::In,
+                        Zoom::Out => plant_v1_1::ZoomAction::Out,
+                        Zoom::Reset => plant_v1_1::ZoomAction::Fit,
+                    });
+                    ui.ctx().request_repaint();
+                }
+                return;
+            }
+            // Folded: keep the row the "Controls »" button sits in clear, as
+            // every dhoby-ghaut demo does, and draw the button.
+            #[cfg(target_arch = "wasm32")]
+            if !self.web_panel.open {
                 let rect = ui.max_rect();
                 self.web_panel.reopen_button(ui, rect);
                 ui.add_space(REOPEN_ROW_PX);
