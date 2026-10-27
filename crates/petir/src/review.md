@@ -2018,3 +2018,58 @@ ln is not going to be tested manually now, can be tested against std::f64 in som
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 4f22149e71.
+
+# Review: powi (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-powi-theodoreonzgit-1f2f25c2"
+kind = "review"
+origin = "human"
+created = "2026-10-27T12:27:42+08:00"
+modified = "2026-10-27T12:27:42+08:00"
+target = "fn:1f2f25c2acab772b"
+
+[review]
+path = "crates/petir/src/real.rs::powi"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T12:27:43+08:00"
+commit = "d0d8c2f70865c36b8adf60df03ef128ae0e50fca"
+hash = "sha256:c7d13752b9737868073c7a5ed58ec60fd5ccadee97da86fcd6e29723031574f4"
+doc_hash = "sha256:5b2758505aee0f2d69e9077e1fcc749d6cdba6d43952a9aa5cd18ab92b3896f1"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follow upstream"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follow upstream"
+maintainability = "yes"
+numerical_hazards = "other: follow upstream (powi functions also ok lah, no guards present)"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01NDXAowF1MThMfLpQdgWxvh"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "kItbb2wkc1KtB7QW6tojxpMoqwL+X4HXQ9fY9Wara4KWwBZenXIOt1GTeUHFG95vd0b+mai0833ryPr8OE3NCw=="
+
+[[relation]]
+target = "concept:07-regulatory-framework/quality-assurance/software-quality-assurance/software-properties/numerical-robustness"
+kind = "implements"
+```
+
+code is pretty straightforward, multiply by number of times m is given
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit d0d8c2f708.
