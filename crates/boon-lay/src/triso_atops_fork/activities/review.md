@@ -112,3 +112,54 @@ attenuation factor is defined inline for base_activities upstream, checked to be
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 6d57915a17.
+
+# Review: SourceAndGraphite (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-sourceandgraphite-theodoreonzgit-ee87ae97"
+kind = "review"
+origin = "human"
+created = "2026-10-27T16:43:35+08:00"
+modified = "2026-10-27T16:43:35+08:00"
+target = "fn:ee87ae9710c2fa05"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/source_terms.rs::SourceAndGraphite"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-27"
+signed_at = "2026-10-27T16:43:36+08:00"
+commit = "c1bf1b3cbe7b7a743f4b5c8e0c48ed521648d9db"
+hash = "sha256:9d7ee874d9552f077202594f2437fd8a72a3d2c0b37446ecad11026af97edd94"
+doc_hash = "sha256:c9fdcb596cfd2b0a8a12bca63109756297b74ed9cda0b60da56ceedc304671dd"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.checklist]
+coding_standards = "yes"
+independence = "someone_else"
+item_holds_extra = "no"
+item_impossible_values = "other: just datastructure, not guarding cos it copies upstream"
+item_matches_description = "yes"
+item_test_use = "used_and_checked"
+maintainability = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "other: data structure utility"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "5zrHmidghv4ppuYuaAahhE43xv9gt4tWHhkvbXgu3E07BuKpi9ol7PXUGru9GwL52pAOSKyUp9rpNS40MQYVDQ=="
+```
+
+python returns (S,G) for source rate and graphite activity. 
+We are returning a struct rather than a tuple in Python. Acceptable
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit c1bf1b3cbe.
