@@ -483,7 +483,10 @@ than from the band.
   release and are available only as log-scale plots.~~ **DONE — 2026-10-27:**
   digitised, 21 series and 10 403 points, in
   [`nea7525-bsaf-cs137-release-rates/`](nea7525-bsaf-cs137-release-rates).
-  Verified by integrating each curve against Table 5.1 (median ratio 0.93;
-  17 of 21 within a factor of two; 9 within 5 %). Per-series grades and the
-  four **D/C** series whose magnitude must not be trusted are in that
-  folder's README.
+  Verified by integrating each curve against Table 5.1 (median ratio
+  **0.928**; 17 of 21 within a factor of two; ~~9~~ **7** within 5 % —
+  **CORRECTED 2026-10-27**, the 9 was the A-grade count, a wider band, and the
+  slip was caught by `tests/bsaf_cs137_release_rates.rs`, which recomputes the
+  published table from the committed CSVs). Per-series grades and the four
+  **D/C** series whose magnitude must not be trusted are in that folder's
+  README.

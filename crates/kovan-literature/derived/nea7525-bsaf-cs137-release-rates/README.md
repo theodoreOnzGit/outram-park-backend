@@ -128,30 +128,38 @@ curve-crossing artefacts).
 
 | Fig | Series | N | INT | TBL | Ratio | Spikes | Grade |
 |---|---|---:|---:|---:|---:|---:|---|
-| 5.1 | CIEMAT MELCOR | 744 | 5.60 | 5.60 | 1.00 | 0 | **A** |
-| 5.1 | IAE SAMPSON | 159 | 4.26 | 4.40 | 0.97 | 1 | **A** |
-| 5.1 | IRSN ASTEC | 120 | 0.04 | 0.10 | 0.43 | 0 | **C** |
-| 5.1 | KAERI MELCOR | 761 | 14.87 | 18.90 | 0.79 | 0 | **B** |
-| 5.1 | SNL MELCOR | 568 | 2.81 | 2.80 | 1.00 | 0 | **A** |
-| 5.2 | CNL MELCOR | 628 | 8.18 | 8.10 | 1.01 | 0 | **A** |
-| 5.2 | CRIEPI MAAP | 477 | 6.52 | 6.70 | 0.97 | 0 | **A** |
+| 5.1 | CIEMAT MELCOR | 744 | 5.5953 | 5.60 | 0.999 | 0 | **A** |
+| 5.1 | IAE SAMPSON | 159 | 4.2594 | 4.40 | 0.968 | 1 | **A** |
+| 5.1 | IRSN ASTEC | 120 | 0.0433 | 0.10 | 0.433 | 0 | **C** |
+| 5.1 | KAERI MELCOR | 761 | 14.8740 | 18.90 | 0.787 | 0 | **B** |
+| 5.1 | SNL MELCOR | 568 | 2.8134 | 2.80 | 1.005 | 0 | **A** |
+| 5.2 | CNL MELCOR | 628 | 8.1851 | 8.10 | 1.011 | 0 | **A** |
+| 5.2 | CRIEPI MAAP | 477 | 6.5240 | 6.70 | 0.974 | 0 | **A** |
 | 5.2 | IAE SAMPSON | 0 | 0.00 | 0.00 | — | 0 | **A** (no curve; table says 0.0) |
-| 5.2 | IRSN ASTEC | 26 | 0.06 | 0.10 | 0.60 | 0 | **C** |
-| 5.2 | KAERI MELCOR | 611 | 7.09 | 5.80 | 1.22 | 7 | **B** |
-| 5.2 | SNL MELCOR | 515 | 8.51 | 12.30 | 0.69 | 0 | **C** |
-| 5.3 | CRIEPI MAAP | 425 | 0.17 | 0.80 | 0.21 | 0 | **D** |
-| 5.3 | IAE SAMPSON | 229 | 0.42 | 1.10 | 0.38 | 3 | **C** |
-| 5.3 | IRSN ASTEC | 688 | 33.45 | 43.10 | 0.78 | 1 | **B** |
-| 5.3 | KAERI MELCOR | 659 | 15.96 | 10.90 | 1.46 | 5 | **B** |
-| 5.3 | PSI MELCOR | 13 | 0.02 | 0.20 | 0.10 | 0 | **D** |
-| 5.3 | SNL MELCOR | 599 | 9.72 | 10.60 | 0.92 | 0 | **A** |
-| 5.4 | GRS Backwards Calculation | 473 | 12.78 | 13.10 | 0.98 | 2 | **A** |
-| 5.4 | IAE SAMPSON | 386 | 5.71 | 5.50 | 1.04 | 5 | **B** |
-| 5.4 | IRSN ASTEC | 810 | 34.34 | 43.20 | 0.79 | 0 | **B** |
-| 5.4 | KAERI MELCOR | 829 | 32.96 | 35.50 | 0.93 | 1 | **A** |
-| 5.4 | SNL MELCOR | 683 | 27.72 | 25.70 | 1.08 | 1 | **A** |
+| 5.2 | IRSN ASTEC | 26 | 0.0604 | 0.10 | 0.604 | 0 | **C** |
+| 5.2 | KAERI MELCOR | 611 | 7.0890 | 5.80 | 1.222 | 7 | **B** |
+| 5.2 | SNL MELCOR | 515 | 8.5132 | 12.30 | 0.692 | 0 | **C** |
+| 5.3 | CRIEPI MAAP | 425 | 0.1688 | 0.80 | 0.211 | 0 | **D** |
+| 5.3 | IAE SAMPSON | 229 | 0.4216 | 1.10 | 0.383 | 3 | **C** |
+| 5.3 | IRSN ASTEC | 688 | 33.4540 | 43.10 | 0.776 | 1 | **B** |
+| 5.3 | KAERI MELCOR | 659 | 15.9631 | 10.90 | 1.465 | 5 | **B** |
+| 5.3 | PSI MELCOR | 13 | 0.0198 | 0.20 | 0.099 | 0 | **D** |
+| 5.3 | SNL MELCOR | 599 | 9.7176 | 10.60 | 0.917 | 0 | **A** |
+| 5.4 | GRS Backwards Calculation | 473 | 12.7819 | 13.10 | 0.976 | 2 | **A** |
+| 5.4 | IAE SAMPSON | 386 | 5.7094 | 5.50 | 1.038 | 5 | **B** |
+| 5.4 | IRSN ASTEC | 810 | 34.3391 | 43.20 | 0.795 | 0 | **B** |
+| 5.4 | KAERI MELCOR | 829 | 32.9561 | 35.50 | 0.928 | 1 | **A** |
+| 5.4 | SNL MELCOR | 683 | 27.7237 | 25.70 | 1.079 | 1 | **A** |
 
-**Median ratio 0.93; 17 of 21 within a factor of two; 9 within 5 %.**
+**Median ratio 0.928; 17 of 21 within a factor of two; 7 within 5 %, and 9 graded A.**
+
+> ~~"9 within 5 %"~~ **CORRECTED 2026-10-27** — that conflated the
+> **A-grade count** (ratio 0.85-1.20 and at most 2 spikes, which 9 series
+> meet) with a 5 % band, which only **7** meet. Caught by
+> `tests/bsaf_cs137_release_rates.rs` in `kovan-literature`, which now
+> recomputes this table from the committed CSVs on every run. The integral
+> column was also reprinted to 4 decimals: at 2 decimals the small series
+> (IRSN on unit 1, 0.0433 PBq) rounded to a value the data does not give.
 
 Grades: **A** ratio 0.85–1.20 and ≤2 spikes · **B** 0.70–1.50 and ≤8 spikes ·
 **C** 0.30–3.00, magnitude unreliable · **D** outside that, **do not use for
