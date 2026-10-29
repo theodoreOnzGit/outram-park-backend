@@ -180,6 +180,10 @@ pub struct CoreResult {
     /// Fraction of the core's nodes relocated, and debris temperature.
     pub relocated: f64,
     pub debris_k: f64,
+    /// The debris's UO2 and metallic Zr, kg: once the head has failed, what
+    /// lies on the drywell floor (`Mechanisms::mcci`).
+    pub debris_uo2_kg: f64,
+    pub debris_zr_metal_kg: f64,
     pub lower_head_failed: bool,
     /// Decay power of the debris that has left through the failed lower
     /// head, W: it goes to the drywell floor.
@@ -1379,6 +1383,8 @@ impl Core {
             h2_total_kg: self.h2_total_kg,
             relocated,
             debris_k,
+            debris_uo2_kg: self.debris_mf,
+            debris_zr_metal_kg: (self.debris_mc - self.debris_zr_ox).max(0.0),
             lower_head_failed: self.lower_head_failed,
             ex_vessel_w: ex_vessel,
             head_inner_k: self.head.t_k[0],
@@ -1512,6 +1518,8 @@ impl CoreResult {
             self.h2_total_kg,
             self.relocated,
             self.debris_k,
+            self.debris_uo2_kg,
+            self.debris_zr_metal_kg,
             if self.lower_head_failed { 1.0 } else { 0.0 },
             self.ex_vessel_w,
             self.head_inner_k,
@@ -1536,6 +1544,8 @@ impl CoreResult {
             h2_total_kg: r.f(),
             relocated: r.f(),
             debris_k: r.f(),
+            debris_uo2_kg: r.f(),
+            debris_zr_metal_kg: r.f(),
             lower_head_failed: r.f() != 0.0,
             ex_vessel_w: r.f(),
             head_inner_k: r.f(),

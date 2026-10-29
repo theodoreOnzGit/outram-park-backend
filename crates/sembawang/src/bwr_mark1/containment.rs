@@ -54,6 +54,7 @@ use super::vapour::{BulkGas, FpClass};
 use super::iodine;
 use super::sparc;
 use super::pool_surface;
+use super::cavity::Cavity;
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
 
@@ -179,6 +180,13 @@ pub struct ContainmentSnapshot {
     /// Heat through the RPV's insulation into the drywell gas, W
     /// (`Mechanisms::rpv_wall`).
     pub rpv_wall_w: f64,
+    /// Molten core-concrete interaction on the drywell floor
+    /// (`Mechanisms::mcci`), and the debris there: the core's UO2 and
+    /// metallic Zr, kg, and their temperature, K.
+    pub mcci: bool,
+    pub cav_uo2_kg: f64,
+    pub cav_zr_kg: f64,
+    pub cav_debris_k: f64,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -222,6 +230,13 @@ pub struct ContainmentResult {
     /// All the tellurium that has reached the containment, kg (in it,
     /// vented and leaked): for its conservation check.
     pub te_kg: f64,
+    /// The cavity (`mcci`): concrete ablated, kg; H2 and CO made there, kg;
+    /// the debris temperature, K, and its metallic Zr, kg.
+    pub cav_ablated_kg: f64,
+    pub cav_h2_kg: f64,
+    pub cav_co_kg: f64,
+    pub cav_debris_k: f64,
+    pub cav_zr_kg: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -293,6 +308,8 @@ pub struct Containment {
     /// Whether this step carries the drywell structures' surface model (not
     /// state).
     dw_hs: bool,
+    /// The debris on the drywell floor (`mcci`).
+    cavity: Cavity,
 }
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
@@ -360,6 +377,7 @@ impl Containment {
             ww_shell_t: prm.initial_pool_k,
             ww_atm: false,
             dw_hs: false,
+            cavity: Cavity::default(),
         }
     }
 
@@ -411,6 +429,23 @@ impl Containment {
         let e = self.ww_energy(tv) - q;
         self.set_ww_energy(e, tv);
         self.ww_shell_t += q / prm.ww_shell_c;
+    }
+    /// `q` J into the pedestal's water: it heats to saturation at the
+    /// drywell's pressure, then boils, the steam into the drywell gas.
+    fn boil_pedestal(&mut self, prm: &Params, tv: bool, q: f64) {
+        let t_boil = t_sat(self.p_dw(prm));
+        let to_boil = ((t_boil - self.pedestal_t) * self.pedestal_kg * CP_WATER).max(0.0);
+        if q <= to_boil {
+            self.pedestal_t += q / (self.pedestal_kg * CP_WATER);
+        } else {
+            self.pedestal_t = t_boil;
+            let h_fg = 2.257e6;
+            let m = ((q - to_boil) / h_fg).min(self.pedestal_kg);
+            self.pedestal_kg -= m;
+            let e = self.dw_energy(tv) + m * (steam_u(t_boil) + R_GAS / M_H2O * t_boil);
+            self.dw_steam_kg += m;
+            self.set_dw_energy(e, tv);
+        }
     }
     /// Water arriving on the drywell floor, `kg` at `t_k`, mixed into the
     /// pedestal's pool (one pool for the floor and the pedestal, stated).
@@ -679,22 +714,40 @@ impl Containment {
             self.pedestal_kg += m_in;
             self.pedestal_t = e / self.pedestal_kg;
         }
+        if s.mcci && s.ex_vessel_w > 0.0 {
+            self.cavity.arrive(prm, s.cav_uo2_kg, s.cav_zr_kg, s.cav_debris_k);
+        }
         if s.ex_vessel_w > 0.0 {
             let q = s.ex_vessel_w * dt;
-            if self.pedestal_kg > 0.0 {
-                let t_boil = t_sat(self.p_dw(prm));
-                let to_boil = ((t_boil - self.pedestal_t) * self.pedestal_kg * CP_WATER).max(0.0);
-                if q <= to_boil {
-                    self.pedestal_t += q / (self.pedestal_kg * CP_WATER);
+            if s.mcci {
+                // The debris attacks the concrete (`cavity`): its top boils
+                // the water over it, or radiates to the structures when dry;
+                // the concrete's gases enter the drywell at the ablation
+                // temperature, CO and CO2 carried as nitrogen-like
+                // non-condensables (stated, until F8's species).
+                let water = (self.pedestal_kg > 0.0).then(|| {
+                    let p = self.p_dw(prm);
+                    (t_sat(p), p)
+                });
+                let f = self.cavity.step(prm, s.ex_vessel_w, self.dw_wall_t, water, dt);
+                if water.is_some() {
+                    self.boil_pedestal(prm, tv, f.q_up_w * dt);
                 } else {
-                    self.pedestal_t = t_boil;
-                    let h_fg = 2.257e6;
-                    let m = ((q - to_boil) / h_fg).min(self.pedestal_kg);
-                    self.pedestal_kg -= m;
-                    let e = self.dw_energy(tv) + m * (steam_u(t_boil) + R_GAS / M_H2O * t_boil);
-                    self.dw_steam_kg += m;
-                    self.set_dw_energy(e, tv);
+                    self.dw_wall_t += f.q_up_w * dt / prm.dw_wall_c;
                 }
+                let t = f.gas_k;
+                let n_c = f.co_mol + f.co2_mol;
+                let e = self.dw_energy(tv)
+                    + f.steam_kg * (steam_u(t) + R_GAS / M_H2O * t)
+                    + f.h2_mol * h2_molar_enthalpy(t, tv)
+                    + ncg_u(n_c, 0.0, t, tv)
+                    + n_c * R_GAS * t;
+                self.dw_steam_kg += f.steam_kg;
+                self.dw_h2 += f.h2_mol;
+                self.dw_n2 += n_c;
+                self.set_dw_energy(e, tv);
+            } else if self.pedestal_kg > 0.0 {
+                self.boil_pedestal(prm, tv, q);
             } else {
                 self.dw_wall_t += q / prm.dw_wall_c;
             }
@@ -1121,6 +1174,11 @@ impl Containment {
             i_vented_kg: self.i_vented_kg,
             i_building_kg: self.i_building_kg,
             te_kg: self.dw_rn.total_kg(TE) + self.ww_rn.total_kg(TE) + self.pool_scrubbed[TE] + self.te_out_kg,
+            cav_ablated_kg: self.cavity.ablated_kg,
+            cav_h2_kg: self.cavity.h2_kg,
+            cav_co_kg: self.cavity.co_kg,
+            cav_debris_k: self.cavity.t_k,
+            cav_zr_kg: self.cavity.zr_kg,
         }
     }
 }
@@ -1325,6 +1383,15 @@ impl Containment {
             self.ww_steam_kg,
             self.ww_t,
             self.ww_shell_t,
+            self.cavity.uo2_kg,
+            self.cavity.zr_kg,
+            self.cavity.oxide_kg,
+            self.cavity.t_k,
+            self.cavity.seen_uo2_kg,
+            self.cavity.seen_zr_kg,
+            self.cavity.ablated_kg,
+            self.cavity.h2_kg,
+            self.cavity.co_kg,
         ]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
@@ -1373,6 +1440,17 @@ impl Containment {
             ww_shell_t: r.f(),
             ww_atm: false,
             dw_hs: false,
+            cavity: Cavity {
+                uo2_kg: r.f(),
+                zr_kg: r.f(),
+                oxide_kg: r.f(),
+                t_k: r.f(),
+                seen_uo2_kg: r.f(),
+                seen_zr_kg: r.f(),
+                ablated_kg: r.f(),
+                h2_kg: r.f(),
+                co_kg: r.f(),
+            },
         };
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = std::array::from_fn(|_| r.f());
@@ -1429,6 +1507,10 @@ impl ContainmentSnapshot {
             self.srv_gas_k,
             b(self.condensate_to_floor),
             self.rpv_wall_w,
+            b(self.mcci),
+            self.cav_uo2_kg,
+            self.cav_zr_kg,
+            self.cav_debris_k,
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1479,6 +1561,10 @@ impl ContainmentSnapshot {
             srv_gas_k: r.f(),
             condensate_to_floor: r.f() != 0.0,
             rpv_wall_w: r.f(),
+            mcci: r.f() != 0.0,
+            cav_uo2_kg: r.f(),
+            cav_zr_kg: r.f(),
+            cav_debris_k: r.f(),
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),
@@ -1517,6 +1603,11 @@ impl ContainmentResult {
             self.i_vented_kg,
             self.i_building_kg,
             self.te_kg,
+            self.cav_ablated_kg,
+            self.cav_h2_kg,
+            self.cav_co_kg,
+            self.cav_debris_k,
+            self.cav_zr_kg,
         ]);
     }
     pub fn read(r: &mut Reader) -> Self {
@@ -1549,6 +1640,11 @@ impl ContainmentResult {
             i_vented_kg: r.f(),
             i_building_kg: r.f(),
             te_kg: r.f(),
+            cav_ablated_kg: r.f(),
+            cav_h2_kg: r.f(),
+            cav_co_kg: r.f(),
+            cav_debris_k: r.f(),
+            cav_zr_kg: r.f(),
         }
     }
 }

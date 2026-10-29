@@ -2956,6 +2956,357 @@ bulk gas density and `rho_sat` the saturated vapour density, kg/m^3.
 pub fn diffusiophoretic_velocity(w_cond: f64, x_steam: f64, m_steam: f64, m_nc: f64, rho_bulk: f64, rho_sat: f64) -> f64 { /* ... */ }
 ```
 
+## Module `cavity`
+
+Molten core-concrete interaction on the drywell floor, a reduced form of
+MELCOR's CAV package (CORCON-Mod3; Vol. 2, CAV RM §3; 2026-10-29,
+`Mechanisms::mcci`, plan item F8). AI draft, clean room: written from the
+manuals' description, never from MELCOR or CORCON source.
+
+- **One debris layer**, lumped: UO2, metallic Zr and oxides (ZrO2 and the
+  ablated concrete's oxides) at one temperature, heated by its decay
+  power and by the oxidation of its Zr. No phase change, no layering
+  (MELCOR stratifies and mixes layers, §3.2), no crust (stated).
+- **Downward**, MELCOR's quasi-steady ablation (§3.3, 3.4): while the
+  debris is above the concrete's ablation temperature, the heat to the
+  concrete is `h A (T - T_a)` and it ablates `q / h_a` kg/s, the preheated
+  region neglected, as MELCOR neglects it. `h` is \[A\]: CORCON's gas-film
+  and bubbling correlations are not held.
+- **Upward**, with no water above (§3.3: "radiation and convection in the
+  absence of overlying water"): from the debris's interior to its top
+  surface by the same `h`, and from the surface by gray radiation to the
+  drywell's structures at MELCOR's default emissivities; the surface
+  temperature from the continuity of the two fluxes.
+- **Chemistry** (§3.5): the concrete's H2O and CO2 pass through the debris
+  and oxidise its metallic Zr to H2 and CO, completely while Zr lasts
+  (equilibrium favours it; MELCOR's default suppresses coking, so no
+  condensed carbon), the reaction heat staying in the debris; the
+  concrete's other constituents join the oxides. Reduction of the
+  concrete's oxides by Zr is not modelled. The gases leave at the
+  ablation temperature (stated: MELCOR equilibrates them with the layers
+  they pass).
+
+- **Under water** (§3.3: "a complete pool boiling curve"): the top
+  surface in film boiling, Berenson's horizontal-surface correlation
+  (J. Heat Transfer 83, 1961) with the vapour's properties at the film
+  temperature, plus radiation across the vapour film to the water at
+  the debris's emissivity; the surface temperature again from the
+  continuity of the fluxes. The nucleate and transition regimes are not
+  separated (stated: the debris surface here stays far above
+  saturation). The concrete ablates beneath, as CORCON's does.
+
+```rust
+pub mod cavity { /* ... */ }
+```
+
+### Types
+
+#### Struct `Cavity`
+
+The debris on the drywell floor.
+
+```rust
+pub struct Cavity {
+    pub uo2_kg: f64,
+    pub zr_kg: f64,
+    pub oxide_kg: f64,
+    pub t_k: f64,
+    pub seen_uo2_kg: f64,
+    pub seen_zr_kg: f64,
+    pub ablated_kg: f64,
+    pub h2_kg: f64,
+    pub co_kg: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `uo2_kg` | `f64` | UO2, metallic Zr and oxides, kg, and the debris temperature, K. |
+| `zr_kg` | `f64` |  |
+| `oxide_kg` | `f64` |  |
+| `t_k` | `f64` |  |
+| `seen_uo2_kg` | `f64` | The core's debris inventory last seen (what has arrived), kg. |
+| `seen_zr_kg` | `f64` |  |
+| `ablated_kg` | `f64` | Concrete ablated, kg, and the H2 and CO made, kg. |
+| `h2_kg` | `f64` |  |
+| `co_kg` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn arrive(self: &mut Self, prm: &Params, uo2_kg: f64, zr_kg: f64, t_k: f64) { /* ... */ }
+  ```
+  Debris arriving: the core's inventory now is `uo2_kg` and `zr_kg`
+
+- ```rust
+  pub fn step(self: &mut Self, prm: &Params, q_w: f64, t_wall_k: f64, water: Option<(f64, f64)>, dt: f64) -> CavityFlows { /* ... */ }
+  ```
+  One step of `dt` s with decay power `q_w` and the drywell's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `CavityFlows`
+
+What one step of the cavity sends to the drywell.
+
+```rust
+pub struct CavityFlows {
+    pub q_up_w: f64,
+    pub steam_kg: f64,
+    pub h2_mol: f64,
+    pub co_mol: f64,
+    pub co2_mol: f64,
+    pub gas_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `q_up_w` | `f64` | Radiated up to the drywell's structures, W. |
+| `steam_kg` | `f64` | Gases released, at `gas_k`: steam kg, H2, CO and CO2 mol. |
+| `h2_mol` | `f64` |  |
+| `co_mol` | `f64` |  |
+| `co2_mol` | `f64` |  |
+| `gas_k` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `compare`
 
 The Unit 1 comparison against BSAF Phase II, and the ablation table
@@ -4070,6 +4421,10 @@ pub struct ContainmentSnapshot {
     pub srv_gas_k: f64,
     pub condensate_to_floor: bool,
     pub rpv_wall_w: f64,
+    pub mcci: bool,
+    pub cav_uo2_kg: f64,
+    pub cav_zr_kg: f64,
+    pub cav_debris_k: f64,
     pub prm: Params,
 }
 ```
@@ -4123,6 +4478,10 @@ pub struct ContainmentSnapshot {
 | `srv_gas_k` | `f64` |  |
 | `condensate_to_floor` | `bool` | Water condensed in the drywell drains to its floor, the pedestal's<br>pool (`Mechanisms::condensate_to_floor`); false is it leaving the<br>model. |
 | `rpv_wall_w` | `f64` | Heat through the RPV's insulation into the drywell gas, W<br>(`Mechanisms::rpv_wall`). |
+| `mcci` | `bool` | Molten core-concrete interaction on the drywell floor<br>(`Mechanisms::mcci`), and the debris there: the core's UO2 and<br>metallic Zr, kg, and their temperature, K. |
+| `cav_uo2_kg` | `f64` |  |
+| `cav_zr_kg` | `f64` |  |
+| `cav_debris_k` | `f64` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4284,6 +4643,11 @@ pub struct ContainmentResult {
     pub i_vented_kg: f64,
     pub i_building_kg: f64,
     pub te_kg: f64,
+    pub cav_ablated_kg: f64,
+    pub cav_h2_kg: f64,
+    pub cav_co_kg: f64,
+    pub cav_debris_k: f64,
+    pub cav_zr_kg: f64,
 }
 ```
 
@@ -4319,6 +4683,11 @@ pub struct ContainmentResult {
 | `i_vented_kg` | `f64` |  |
 | `i_building_kg` | `f64` |  |
 | `te_kg` | `f64` | All the tellurium that has reached the containment, kg (in it,<br>vented and leaked): for its conservation check. |
+| `cav_ablated_kg` | `f64` | The cavity (`mcci`): concrete ablated, kg; H2 and CO made there, kg;<br>the debris temperature, K, and its metallic Zr, kg. |
+| `cav_h2_kg` | `f64` |  |
+| `cav_co_kg` | `f64` |  |
+| `cav_debris_k` | `f64` |  |
+| `cav_zr_kg` | `f64` |  |
 
 ##### Implementations
 
@@ -4895,6 +5264,8 @@ pub struct CoreResult {
     pub h2_total_kg: f64,
     pub relocated: f64,
     pub debris_k: f64,
+    pub debris_uo2_kg: f64,
+    pub debris_zr_metal_kg: f64,
     pub lower_head_failed: bool,
     pub ex_vessel_w: f64,
     pub head_inner_k: f64,
@@ -4922,6 +5293,8 @@ pub struct CoreResult {
 | `h2_total_kg` | `f64` |  |
 | `relocated` | `f64` | Fraction of the core's nodes relocated, and debris temperature. |
 | `debris_k` | `f64` |  |
+| `debris_uo2_kg` | `f64` | The debris's UO2 and metallic Zr, kg: once the head has failed, what<br>lies on the drywell floor (`Mechanisms::mcci`). |
+| `debris_zr_metal_kg` | `f64` |  |
 | `lower_head_failed` | `bool` |  |
 | `ex_vessel_w` | `f64` | Decay power of the debris that has left through the failed lower<br>head, W: it goes to the drywell floor. |
 | `head_inner_k` | `f64` | The lower-head wall's inner temperature, K, and its creep strain<br>(gh:#1034; zero strain and the initial temperature until debris<br>arrives, and in the ablation). |
@@ -6982,6 +7355,16 @@ pub struct Params {
     pub rpv_height_m: f64,
     pub rpv_wall_m: f64,
     pub internals_envelope_m2: f64,
+    pub concrete_density: f64,
+    pub concrete_ablation_k: f64,
+    pub concrete_h2o_fraction: f64,
+    pub concrete_co2_fraction: f64,
+    pub concrete_cp: f64,
+    pub concrete_ablation_j_per_kg: f64,
+    pub cavity_area_m2: f64,
+    pub cavity_h: f64,
+    pub cavity_emissivity: f64,
+    pub zr_co2_heat_j_per_kg: f64,
     pub baf_m: f64,
     pub lower_plenum_free: f64,
     pub upper_free: f64,
@@ -7134,6 +7517,16 @@ pub struct Params {
 | `rpv_height_m` | `f64` |  |
 | `rpv_wall_m` | `f64` |  |
 | `internals_envelope_m2` | `f64` |  |
+| `concrete_density` | `f64` |  |
+| `concrete_ablation_k` | `f64` |  |
+| `concrete_h2o_fraction` | `f64` |  |
+| `concrete_co2_fraction` | `f64` |  |
+| `concrete_cp` | `f64` |  |
+| `concrete_ablation_j_per_kg` | `f64` |  |
+| `cavity_area_m2` | `f64` |  |
+| `cavity_h` | `f64` |  |
+| `cavity_emissivity` | `f64` |  |
+| `zr_co2_heat_j_per_kg` | `f64` |  |
 | `baf_m` | `f64` |  |
 | `lower_plenum_free` | `f64` |  |
 | `upper_free` | `f64` |  |
@@ -7631,6 +8024,96 @@ cylinder at the vessel's radius with its top: `2 pi r 4 + pi r^2`.
 
 ```rust
 pub const INTERNALS_ENVELOPE_M2: f64 = 78.4;
+```
+
+#### Constant `CONCRETE_DENSITY`
+
+The concrete: MELCOR's standard CORCON basaltic aggregate concrete (CAV
+UG Tables 2.1, 2.2): density, kg/m^3, ablation temperature, K, and the
+mass fractions of water (evaporable 3.86 % plus chemically bound 2.00
+%) and of CO2 (1.50 %). That Unit 1's basemat is of this type is \[A\]
+(not in a held source; limestone/common sand, with far more CO2, is
+the alternative); the values are MELCOR's defaults, \[P\].
+
+```rust
+pub const CONCRETE_DENSITY: f64 = 2340.0;
+```
+
+#### Constant `CONCRETE_ABLATION_K`
+
+```rust
+pub const CONCRETE_ABLATION_K: f64 = 1450.0;
+```
+
+#### Constant `CONCRETE_H2O_FRACTION`
+
+```rust
+pub const CONCRETE_H2O_FRACTION: f64 = 0.0586;
+```
+
+#### Constant `CONCRETE_CO2_FRACTION`
+
+```rust
+pub const CONCRETE_CO2_FRACTION: f64 = 0.0150;
+```
+
+#### Constant `CONCRETE_CP`
+
+Concrete's heat capacity, J/(kg K), and its ablation enthalpy, J/kg:
+heating from 303 K to the ablation temperature (1.147 MJ/kg) plus
+evaporating its free water (0.0386 x 2.257 MJ/kg = 0.087), releasing its
+bound water (Ca(OH)2 -> CaO + H2O, 109 kJ/mol: 0.121), its CO2 (CaCO3 ->
+CaO + CO2, 178 kJ/mol: 0.061) and melting (0.4 MJ/kg). \[A\] the heat
+capacity and the heat of fusion, typical values; the reaction heats are
+standard thermochemistry. Derived, not fitted: 1.82 MJ/kg.
+
+```rust
+pub const CONCRETE_CP: f64 = 1000.0;
+```
+
+#### Constant `CONCRETE_ABLATION_J_PER_KG`
+
+```rust
+pub const CONCRETE_ABLATION_J_PER_KG: f64 = _;
+```
+
+#### Constant `CAVITY_AREA_M2`
+
+The cavity: the debris's contact area with the floor, m^2 (the
+pedestal, about 5.2 m across), and the heat-transfer coefficient from
+the debris's interior to its bottom and to its top surface, W/(m^2 K).
+\[A\] both. MELCOR's CORCON-Mod3 computes the coefficient from its gas-
+film and bubbling correlations (CAV RM §3.3, not held); 1000 is their
+order for an oxidic pool stirred by concrete gas.
+
+```rust
+pub const CAVITY_AREA_M2: f64 = 21.2;
+```
+
+#### Constant `CAVITY_H`
+
+```rust
+pub const CAVITY_H: f64 = 1000.0;
+```
+
+#### Constant `CAVITY_EMISSIVITY`
+
+Emissivity of the debris surface and of the drywell surroundings it
+radiates to: MELCOR's CAV defaults EMISS.OX and EMISS.SUR (0.9; CAV UG,
+the 2.0 defaults). \[P\]
+
+```rust
+pub const CAVITY_EMISSIVITY: f64 = 0.9;
+```
+
+#### Constant `ZR_CO2_HEAT_J_PER_KG`
+
+Heat of Zr + 2 CO2 -> ZrO2 + 2 CO, J per kg of Zr: -(-1100.6 + 2 x
+(-110.53) - 2 x (-393.51)) kJ/mol over 0.091224 kg/mol (NIST standard
+enthalpies of formation at 298 K). \[P\]
+
+```rust
+pub const ZR_CO2_HEAT_J_PER_KG: f64 = _;
 ```
 
 #### Constant `BAF_M`
@@ -12040,6 +12523,7 @@ pub struct Mechanisms {
     pub internals_radiation: bool,
     pub core_top_radiation: bool,
     pub see_through: bool,
+    pub mcci: bool,
 }
 ```
 
@@ -12095,6 +12579,7 @@ pub struct Mechanisms {
 | `internals_radiation` | `bool` | The dome internals radiate to the RPV wall (MELCOR's gray pair, HS<br>RM Eq 2-96, with its default steel emissivity; 2026-10-29; needs<br>`rpv_wall`). Off is the internals with no heat path once the gas<br>stops flowing past them. |
 | `core_top_radiation` | `bool` | The top of the core radiates to the dome internals above it, its<br>axial boundary structure (MELCOR COR RM §2.1.2, `Fcell,a` =<br>`axial_exchange`; 2026-10-29; needs `core_radiation`). Off is the top<br>of the core exchanging nothing. |
 | `see_through` | `bool` | The core's radiation looks through emptied cells to the next<br>standing component, radially (or to the shroud) and axially, as<br>MELCOR's does (COR RM §2.1.2; 2026-10-29). Off is no view across an<br>emptied cell. |
+| `mcci` | `bool` | Molten core-concrete interaction on the drywell floor: a reduced<br>form of MELCOR's CAV package ([`cavity`]; CORCON basaltic concrete,<br>quasi-steady ablation, the concrete's H2O and CO2 reduced by the<br>debris's Zr; 2026-10-29, F8). Off is the dry debris's heat going<br>straight into the drywell's structures. |
 
 ##### Implementations
 
@@ -12334,6 +12819,11 @@ pub struct Mechanisms {
   pub fn without_see_through(self: Self) -> Self { /* ... */ }
   ```
   No view across an emptied cell: before 2026-10-29.
+
+- ```rust
+  pub fn without_mcci(self: Self) -> Self { /* ... */ }
+  ```
+  No core-concrete interaction: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

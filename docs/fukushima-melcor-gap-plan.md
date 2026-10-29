@@ -163,6 +163,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Unit 1 Cs-137 release to the environment against BSAF Fig 5.1 and Table 5.1 (instrument, output only; Cs-137 share 0.3167 from the ENDF/B-VIII summation, biased low by its missing capture) | F9, #1040 | 4.623 | 226.81 | missed (predicted 0.1-1.3 PBq, envelope 20-60 %): **0.080 PBq** by 500 h, nearly all in the vent's first hours, below every code (0.1-18.9) and a tenth of GRS's 0.79; rate inside the envelope 7.3 %. After the vent the pool holds the cesium; the codes keep releasing (building leaks, F12's late leakage, revaporisation carried out by flows; here revaporisation is modelled but limited by the failed vessel's slow gas outflow) |
 | Unit 1 release as a `changi` source term (`bwr_mark1::source`): hourly windows of Cs-137, I-131, Xe-133 from the summation's inventories (Cs-137 scaled to BSAF's cesium mass; I-131, Xe-133 at equilibrium), padded by `chain::pad_for_dispersion` | F9, #1040 | 4.623 | 226.81 | hand-off only (the dispersion run needs Fukushima meteorology, not held). Inventories 1.565e17, 1.358e18, 2.895e18 Bq; released by 30 h 7.96e13, 5.54e15, 2.53e18 Bq |
 | Core radiation looks through emptied cells to the next standing component (MELCOR COR RM §2.1.2) | F6, #1037 | 4.623 | 226.85 | held (head +0.0003 h, H2 +0.04 kg, peak -0.00006 MPa); UO2 6.17 -> 6.60 kg (no prediction written); Cs-137 to the environment 0.0797 -> 0.0785 PBq |
+| Molten core-concrete interaction: reduced MELCOR CAV (CORCON basaltic concrete \[A\] as Unit 1's, quasi-steady ablation at 1450 K, h = 1000 W/m²K over 21.2 m² \[A\], H2O and CO2 reduced by the debris's Zr, film boiling under water, radiation when dry) | F8, #1039 | 4.623 | 226.85 | held (predicted peak +0.05 to +0.2 MPa): peak 0.568 -> **0.774 MPa**, flange leak opens ~23 h; 41 t ablated, 271 kg H2 and 395 kg CO by 25 h; measured drywell mean miss **0.276 -> 0.153 MPa**; Cs-137 at 500 h 0.08 -> 17 PBq through the open flange, driven by the drywell structures' missing outer heat path (pre-existing: the drywell gas reaches 1000 K by 480 h with or without MCCI) |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently
@@ -252,10 +253,16 @@ envelope 94 % of the time.
   the fuel's release held in the gap until 1173 K clad failure is at most
   1.6e-5 of the inventory per hour below 1173 K (CORSOR-M), so it moves
   the release by under 1e-5.
-- **F11 can change nothing yet.** No hydrogen reaches the building, because
+- ~~**F11 can change nothing yet.** No hydrogen reaches the building, because
   the drywell (0.56 MPa) never reaches the flange-leak pressure (0.75 MPa \[A\]).
   The upstream lever is drywell pressure, F8 (MCCI gas). That needs a heat of
-  ablation and Unit 1's concrete, neither of which is held.
+  ablation and Unit 1's concrete, neither of which is held.~~ **CORRECTED
+  2026-10-29:** neither is a blocker. MELCOR's CAV package ships standard
+  concretes (CORCON basaltic is used, \[A\] as Unit 1's) and the ablation
+  enthalpy is derived from its composition (1.82 MJ/kg). With the reduced
+  CAV (`mcci`) the drywell reaches 0.774 MPa and the flange leak opens at
+  about 23 h, so hydrogen now reaches the building (0.04 % by 25 h): F11
+  can act.
 
 ## 3. Issues
 

@@ -173,6 +173,12 @@ fn model() -> Histories {
 /// (`internals_radiation`, `core_top_radiation`): drywell 0.274/0.400 ->
 /// 0.276/0.402 MPa; RPV 3.549/6.651 -> 3.550/6.652 MPa; envelopes the same.
 ///
+/// **Moved 2026-10-29 by core-concrete interaction** (`mcci`, a reduced
+/// MELCOR CAV; 41 t of basaltic concrete ablated by 25 h, 271 kg of H2 and
+/// 395 kg of CO): drywell **0.276/0.402 -> 0.153/0.375 MPa** (much
+/// closer); RPV 3.550/6.652 -> 3.526/6.631 MPa; envelopes RPV 3.3 -> 8.8
+/// %, drywell 25.3 -> 33.0 %, the rest the same.
+///
 /// The measured series are the validation; the envelopes are a
 /// differential test against other codes, none of which is the truth.
 #[test]
@@ -190,10 +196,10 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // Pinned to the first run: a change to the model moves these, and the
     // move is then recorded here with its old and new value.
     assert_eq!((rpv.n, dw.n), (2, 33));
-    assert!((rpv.mean_abs - 3.5504).abs() < 1e-3 && (rpv.max_abs - 6.6516).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.2763).abs() < 1e-3 && (dw.max_abs - 0.4020).abs() < 1e-3, "{dw:?}");
+    assert!((rpv.mean_abs - 3.5256).abs() < 1e-3 && (rpv.max_abs - 6.6305).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.1528).abs() < 1e-3 && (dw.max_abs - 0.3750).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.0330) && near(e_dw, 0.2527) && near(e_h2, 0.0920) && near(e_xe, 0.8333) && near(e_i, 0.8750));
+    assert!(near(e_rpv, 0.0879) && near(e_dw, 0.3297) && near(e_h2, 0.0920) && near(e_xe, 0.8333) && near(e_i, 0.8750));
 }
 
 
@@ -240,8 +246,8 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     // Max 0.6265 -> 0.6212 with tellurium transport, and mean 0.1670 ->
     // 0.1660, max 0.6219 with candling; mean 0.1672, max 0.6224 with the
     // lower head under water; mean 0.1677, max 0.6245 with the wetwell
-    // atmosphere (2026-10-29).
-    assert!((a.mean_abs - 0.1677).abs() < 1e-3 && (a.max_abs - 0.6245).abs() < 1e-3, "{a:?}");
+    // atmosphere; mean 0.1659, max 0.6239 with MCCI (2026-10-29).
+    assert!((a.mean_abs - 0.1659).abs() < 1e-3 && (a.max_abs - 0.6239).abs() < 1e-3, "{a:?}");
 }
 
 
@@ -376,7 +382,7 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// water 95.5 -> 96.6 %, structures unchanged. Then by the drywell
 /// structures' MELCOR surface (condensation on them carries Cs there by
 /// diffusiophoresis): structures 80.0 -> 82.7 %. Then by the RPV wall:
-/// structures 82.7 -> 81.3 %.
+/// structures 82.7 -> 81.3 %. Then by MCCI: structures 81.3 -> 93.3 %.
 ///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
@@ -389,11 +395,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.8133).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.9333).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -454,7 +460,7 @@ fn cesium_against_fig_2_6() {
 /// default; CsI and pool re-evolution are not modelled).
 ///
 /// **Moved 2026-10-29 by the lower head under water**: inside 4.5 % ->
-/// 6.7 %; by the RPV wall, 6.7 -> 7.9 %.
+/// 6.7 %; by the RPV wall, 6.7 -> 7.9 %; by MCCI, 7.9 -> 6.7 %.
 #[test]
 fn iodine_against_fig_2_6() {
     let m = model();
@@ -463,9 +469,9 @@ fn iodine_against_fig_2_6() {
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
     assert_eq!(b, (0.0, 76));
-    assert!((d.0 - 0.0787).abs() < 1e-3 && d.1 == 89, "{d:?}");
+    assert!((d.0 - 0.0674).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -510,7 +516,21 @@ fn read_release(code: &str) -> Vec<(f64, f64)> {
 ///
 /// **Results (2026-10-29):** 0.0795 PBq of Cs-137 reaches the environment
 /// by 26 h, 0.0797 by 100 h and by 500 h (0.0783 and 0.0785 since
-/// `see_through`, the same day) (5.1e-4 of the 1.57e17 Bq
+/// `see_through`, the same day)
+///
+/// **Moved 2026-10-29 by MCCI, by a factor of 200, for a reason that is
+/// not MCCI's: 16.97 PBq by 500 h**, 0.064 at 26 h, 0.089 at 100 h;
+/// inside the envelope 28.9 % (was 7.3 %). The drywell, with the dry
+/// debris radiating into structures that are one lumped, outwardly
+/// adiabatic heat sink (`dw_wall_c`, \[A\]), heats without bound in the
+/// long run (its gas 558 K at 30 h, 1008 K at 480 h; 1099 K at 480 h
+/// without MCCI too), so the 29 kg of cesium on its structures
+/// revaporises (CsOH holds about 3 kg airborne at 850 K). MCCI's gas
+/// opens the flange leak at about 23 h, and the leak, once open, never
+/// closes (\[A\]), so that cesium reaches the building: 16.6 kg between
+/// 120 and 260 h. Without MCCI the same revaporised cesium returns to the
+/// pool. The defect is the structures' missing outer heat path, the next
+/// step; this number is recorded as measured, and is not a result. (5.1e-4 of the 1.57e17 Bq
 /// inventory this share implies): below every code (IRSN 0.1, SNL 2.8,
 /// IAE 4.4, CIEMAT 5.6, KAERI 18.9 PBq) and a tenth of GRS's 0.79 PBq. The
 /// rate is inside the codes' envelope at 7.3 % of 454 counted hours.
@@ -549,6 +569,6 @@ fn cesium_137_release_against_fig_5_1() {
     println!("Cs-137 to the environment: {:.4} PBq at 26 h, {:.4} PBq at 100 h, {total_pbq:.4} PBq at 500 h; rate inside the Fig 5.1 envelope {env:?}", at(26.0), at(100.0));
     // Pinned to the first run (2026-10-29); a model change moves these and
     // records the move here.
-    assert!((total_pbq - 0.0785).abs() < 1e-3 && (at(26.0) - 0.0783).abs() < 1e-3, "{total_pbq}");
-    assert!((env.0 - 0.0727).abs() < 1e-3 && env.1 == 454, "{env:?}");
+    assert!((total_pbq - 16.966).abs() < 1e-2 && (at(26.0) - 0.0644).abs() < 1e-3, "{total_pbq}");
+    assert!((env.0 - 0.2885).abs() < 1e-3 && env.1 == 454, "{env:?}");
 }

@@ -130,7 +130,7 @@ impl Pool {
         let p = Pressure::new::<pascal>(self.p_surface_pa.max(p_sat_pa(self.t_k.min(640.0)) * 1.0001));
         1.0 / v_tp_1(t, p).get::<cubic_meter_per_kilogram>()
     }
-    fn sigma(&self) -> f64 {
+    pub(crate) fn sigma(&self) -> f64 {
         water_surf_tension(ThermodynamicTemperature::new::<kelvin>(self.t_k.min(640.0))).get::<joule_per_square_meter>()
     }
     /// Pressure at height `x` above the vent exit, Pa.

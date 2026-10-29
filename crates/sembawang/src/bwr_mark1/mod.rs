@@ -37,6 +37,7 @@
 //! decisions or emergency response.
 
 pub mod aerosol;
+pub mod cavity;
 pub mod compare;
 pub mod containment;
 pub mod core;
@@ -319,6 +320,12 @@ pub struct Mechanisms {
     /// MELCOR's does (COR RM §2.1.2; 2026-10-29). Off is no view across an
     /// emptied cell.
     pub see_through: bool,
+    /// Molten core-concrete interaction on the drywell floor: a reduced
+    /// form of MELCOR's CAV package ([`cavity`]; CORCON basaltic concrete,
+    /// quasi-steady ablation, the concrete's H2O and CO2 reduced by the
+    /// debris's Zr; 2026-10-29, F8). Off is the dry debris's heat going
+    /// straight into the drywell's structures.
+    pub mcci: bool,
 }
 
 impl Default for Mechanisms {
@@ -372,6 +379,7 @@ impl Default for Mechanisms {
             internals_radiation: true,
             core_top_radiation: true,
             see_through: true,
+            mcci: true,
         }
     }
 }
@@ -684,6 +692,12 @@ impl Mechanisms {
     /// No view across an emptied cell: before 2026-10-29.
     pub fn without_see_through(mut self) -> Self {
         self.see_through = false;
+        self
+    }
+
+    /// No core-concrete interaction: before 2026-10-29.
+    pub fn without_mcci(mut self) -> Self {
+        self.mcci = false;
         self
     }
 
@@ -1422,6 +1436,10 @@ impl Plant {
                 srv_gas_k: v.sat.t_k,
                 condensate_to_floor: self.mechanisms.condensate_to_floor,
                 rpv_wall_w: self.pending.rpv_out_w,
+                mcci: self.mechanisms.mcci,
+                cav_uo2_kg: if self.last_core.lower_head_failed { self.last_core.debris_uo2_kg } else { 0.0 },
+                cav_zr_kg: if self.last_core.lower_head_failed { self.last_core.debris_zr_metal_kg } else { 0.0 },
+                cav_debris_k: self.last_core.debris_k,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
@@ -2176,13 +2194,15 @@ mod tests {
         // containment), 5.39e-5 and 3.55e-5.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 8e-5 && k.xe_ww < 8e-5 && k.xe_building == 0.0, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 8e-5 && k.xe_ww < 8e-5 && (k.xe_building - 0.00117).abs() < 2e-5, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
         // 0.9911 since candling; 0.9978 since MELCOR's quench; 0.9955
-        // since the head's wet contact; 0.9960 since the RPV wall.)
-        assert!((k.xe_vented - 0.9960).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // since the head's wet contact; 0.9960 since the RPV wall; 0.9949
+        // since MCCI, which opens the flange leak and sends 0.0012 to the
+        // building.)
+        assert!((k.xe_vented - 0.9949).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

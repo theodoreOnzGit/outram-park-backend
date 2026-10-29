@@ -90,6 +90,43 @@ pub const RPV_WALL_M: f64 = 0.16;
 /// radiation to it (`Mechanisms::internals_radiation`). \[A\] a 4 m tall
 /// cylinder at the vessel's radius with its top: `2 pi r 4 + pi r^2`.
 pub const INTERNALS_ENVELOPE_M2: f64 = 78.4;
+
+// ── Molten core-concrete interaction (`Mechanisms::mcci`) ─────────────────
+/// The concrete: MELCOR's standard CORCON basaltic aggregate concrete (CAV
+/// UG Tables 2.1, 2.2): density, kg/m^3, ablation temperature, K, and the
+/// mass fractions of water (evaporable 3.86 % plus chemically bound 2.00
+/// %) and of CO2 (1.50 %). That Unit 1's basemat is of this type is \[A\]
+/// (not in a held source; limestone/common sand, with far more CO2, is
+/// the alternative); the values are MELCOR's defaults, \[P\].
+pub const CONCRETE_DENSITY: f64 = 2340.0;
+pub const CONCRETE_ABLATION_K: f64 = 1450.0;
+pub const CONCRETE_H2O_FRACTION: f64 = 0.0586;
+pub const CONCRETE_CO2_FRACTION: f64 = 0.0150;
+/// Concrete's heat capacity, J/(kg K), and its ablation enthalpy, J/kg:
+/// heating from 303 K to the ablation temperature (1.147 MJ/kg) plus
+/// evaporating its free water (0.0386 x 2.257 MJ/kg = 0.087), releasing its
+/// bound water (Ca(OH)2 -> CaO + H2O, 109 kJ/mol: 0.121), its CO2 (CaCO3 ->
+/// CaO + CO2, 178 kJ/mol: 0.061) and melting (0.4 MJ/kg). \[A\] the heat
+/// capacity and the heat of fusion, typical values; the reaction heats are
+/// standard thermochemistry. Derived, not fitted: 1.82 MJ/kg.
+pub const CONCRETE_CP: f64 = 1000.0;
+pub const CONCRETE_ABLATION_J_PER_KG: f64 = 1.147e6 + 0.087e6 + 0.121e6 + 0.061e6 + 0.4e6;
+/// The cavity: the debris's contact area with the floor, m^2 (the
+/// pedestal, about 5.2 m across), and the heat-transfer coefficient from
+/// the debris's interior to its bottom and to its top surface, W/(m^2 K).
+/// \[A\] both. MELCOR's CORCON-Mod3 computes the coefficient from its gas-
+/// film and bubbling correlations (CAV RM §3.3, not held); 1000 is their
+/// order for an oxidic pool stirred by concrete gas.
+pub const CAVITY_AREA_M2: f64 = 21.2;
+pub const CAVITY_H: f64 = 1000.0;
+/// Emissivity of the debris surface and of the drywell surroundings it
+/// radiates to: MELCOR's CAV defaults EMISS.OX and EMISS.SUR (0.9; CAV UG,
+/// the 2.0 defaults). \[P\]
+pub const CAVITY_EMISSIVITY: f64 = 0.9;
+/// Heat of Zr + 2 CO2 -> ZrO2 + 2 CO, J per kg of Zr: -(-1100.6 + 2 x
+/// (-110.53) - 2 x (-393.51)) kJ/mol over 0.091224 kg/mol (NIST standard
+/// enthalpies of formation at 298 K). \[P\]
+pub const ZR_CO2_HEAT_J_PER_KG: f64 = (1100.6 + 2.0 * 110.53 - 2.0 * 393.51) * 1000.0 / 0.091224;
 /// Bottom of active fuel above the vessel bottom, m. \[A\]
 pub const BAF_M: f64 = 5.0;
 /// Fraction of the vessel's cross-section free for water below the core
@@ -619,6 +656,16 @@ params! {
     rpv_height_m = RPV_HEIGHT_M, U,
     rpv_wall_m = RPV_WALL_M, A,
     internals_envelope_m2 = INTERNALS_ENVELOPE_M2, A,
+    concrete_density = CONCRETE_DENSITY, P,
+    concrete_ablation_k = CONCRETE_ABLATION_K, P,
+    concrete_h2o_fraction = CONCRETE_H2O_FRACTION, P,
+    concrete_co2_fraction = CONCRETE_CO2_FRACTION, P,
+    concrete_cp = CONCRETE_CP, A,
+    concrete_ablation_j_per_kg = CONCRETE_ABLATION_J_PER_KG, A,
+    cavity_area_m2 = CAVITY_AREA_M2, A,
+    cavity_h = CAVITY_H, A,
+    cavity_emissivity = CAVITY_EMISSIVITY, P,
+    zr_co2_heat_j_per_kg = ZR_CO2_HEAT_J_PER_KG, P,
     baf_m = BAF_M, A,
     lower_plenum_free = LOWER_PLENUM_FREE, A,
     upper_free = UPPER_FREE, A,
@@ -830,7 +877,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 144);
+        assert_eq!(Params::INPUTS.len(), 154);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

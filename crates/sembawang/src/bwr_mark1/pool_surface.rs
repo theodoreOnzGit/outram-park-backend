@@ -388,6 +388,15 @@ pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64
     (h, h_d * rho_v * ((atm.p_pa - p_srf) / (atm.p_pa - p_stm)).r_ln())
 }
 
+/// Steam's conductivity, W/(m K), and viscosity, Pa s: MELCOR's default
+/// tables (above), for other modules' film correlations.
+pub(crate) fn steam_conductivity(t_k: f64) -> f64 {
+    table(t_k, &K_STEAM)
+}
+pub(crate) fn steam_viscosity(t_k: f64) -> f64 {
+    table(t_k, &MU_STEAM)
+}
+
 /// Steam's specific enthalpy as the containment carries it, J/kg: `u + R T
 /// / M` with the constant `c_v` from IF97's saturated vapour at 100 degC.
 pub(crate) fn steam_h(t: f64) -> f64 {
