@@ -823,7 +823,7 @@ impl Plant {
         let prm = self.prm;
         let d = self.pending;
         let v = self.vessel;
-        let h_g = v.sat.h_g;
+        let h_g = self.steam_out_h();
         let h_inj = 4186.0 * (prm.injection_temperature_k - 273.15);
         let gas_out = d.w_relief + d.w_leak;
         let steam_out = gas_out - d.h2_out + d.w_bypass;
@@ -865,6 +865,22 @@ impl Plant {
         // inside is a few tonnes of steam and gas).
         if self.last_core.lower_head_failed {
             self.vessel.p_pa = self.last_containment.p_dw_pa;
+        }
+    }
+
+    /// Specific enthalpy of the steam leaving the vessel (and taken by
+    /// oxidation), J/kg: saturated vapour's while there is water; once dry,
+    /// the superheated gas's own, `u/m + p_steam V/m`. ~~h_g always~~
+    /// **Corrected 2026-10-29**: steam leaving a dry vessel at h_g left the
+    /// superheat behind, so the specific energy grew without bound as a
+    /// break drained it (found when a perturbed input sent the pressure to
+    /// infinity).
+    fn steam_out_h(&self) -> f64 {
+        let v = &self.vessel;
+        if v.dry {
+            self.u / self.m + v.sat.p_pa * volume_below(&self.prm, self.prm.rpv_height_m) / self.m
+        } else {
+            v.sat.h_g
         }
     }
 
@@ -1201,7 +1217,7 @@ mod tests {
         let (m0, u0) = (p.m, p.u);
         let (mut dm, mut du) = (0.0, 0.0);
         for _ in 0..3600 {
-            let h_g = p.vessel.sat.h_g;
+            let h_g = p.steam_out_h();
             let s = p.begin();
             let d = p.pending;
             let cr = c.step(&s.core);
@@ -1252,6 +1268,34 @@ mod tests {
         let kr = k.step(&s.containment);
         p.finish(cr, kr);
         assert!(p.m > 0.0 && p.vessel.p_pa.is_finite(), "{} {}", p.m, p.vessel.p_pa);
+    }
+
+    /// A dry vessel blowing down through a break loses its energy with its
+    /// mass (found 2026-10-29: steam leaving at h_g left the superheat
+    /// behind, and the pressure ran to infinity as the mass drained). From
+    /// the state that failed (28.5 kg holding 4.58e8 J, the steam line
+    /// ruptured), 60 s of blowdown keep the pressure finite and never above
+    /// where it started, and the steam leaves at `u/m + p V/m`.
+    #[test]
+    fn a_dry_vessel_blows_down_with_its_energy() {
+        let mut p = Plant::new(Mode::Historical);
+        let (mut c, mut k) = p.parts();
+        for _ in 0..10 {
+            p.step_inline(&mut c, &mut k);
+        }
+        p.m = 28.5;
+        p.u = 4.58e8;
+        p.h2 = 0.43;
+        p.vessel = p.solve_vessel();
+        p.msl.failed = true;
+        assert!(p.vessel.dry, "{:?}", p.vessel);
+        let v_total = volume_below(&p.prm, p.prm.rpv_height_m);
+        assert_eq!(p.steam_out_h(), p.u / p.m + p.vessel.sat.p_pa * v_total / p.m);
+        let p0 = p.vessel.p_pa;
+        for _ in 0..60 {
+            p.step_inline(&mut c, &mut k);
+            assert!(p.vessel.p_pa.is_finite() && p.vessel.p_pa <= p0 * (1.0 + 1e-9), "{} vs {p0}", p.vessel.p_pa);
+        }
     }
 
     /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J

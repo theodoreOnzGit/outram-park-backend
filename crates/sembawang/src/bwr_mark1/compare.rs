@@ -529,6 +529,17 @@ mod tests {
     /// unchanged. Runs without a steam-line rupture never bind the cap and
     /// do not move.
     ///
+    /// **Corrected again 2026-10-29** (a second defect: steam leaving a dry
+    /// vessel left at saturated-vapour enthalpy, leaving its superheat
+    /// behind, so a draining vessel's specific energy grew without bound;
+    /// now it leaves at `u/m + p V/m`, `Plant::steam_out_h`): the baseline
+    /// moves only in its drywell peak, 0.54685193 -> 0.54684943 MPa. Every
+    /// run whose vessel boils dry is touched, so **the "previous baseline,
+    /// exactly" ablations below now reproduce the earlier models with this
+    /// fix applied, not their historical numbers**: each pin below carries
+    /// its old and new value (lower head by at most 0.012 h, H2 by at most
+    /// 1.4 kg).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -539,18 +550,22 @@ mod tests {
         assert!(near(m.lower_head_h, 5.4492, 0.001), "{m:?}");
         assert!(near(m.depressurised_h, 4.3583, 0.001), "{m:?}");
         assert!((m.h2_25h_kg - 191.43).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.54685193).abs() < 1e-8, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.54684943).abs() < 1e-8, "{m:?}");
         assert!(m.vent_h.is_none() && m.explosion_h.is_none(), "{m:?}");
-        // No steam-line creep: the previous baseline, exactly.
+        // No steam-line creep: the previous baseline, exactly (with the
+        // dry-vessel enthalpy fix: 5.3925 -> 5.3806 h, 193.97 -> 192.59 kg,
+        // 0.53474702 -> 0.53460139 MPa).
         let ml = measure(Mechanisms::default().without_msl_creep());
-        assert!(near(ml.lower_head_h, 5.3925, 0.001) && near(ml.depressurised_h, 5.3925, 0.001), "{ml:?}");
-        assert!((ml.h2_25h_kg - 193.97).abs() < 0.01, "{ml:?}");
-        assert!((ml.p_dw_peak_mpa - 0.53474702).abs() < 1e-8, "{ml:?}");
-        // Constant hydrogen c_p: the previous baseline, exactly.
+        assert!(near(ml.lower_head_h, 5.3806, 0.001) && near(ml.depressurised_h, 5.3806, 0.001), "{ml:?}");
+        assert!((ml.h2_25h_kg - 192.59).abs() < 0.01, "{ml:?}");
+        assert!((ml.p_dw_peak_mpa - 0.53460139).abs() < 1e-8, "{ml:?}");
+        // Constant hydrogen c_p: the previous baseline, exactly (with the
+        // dry-vessel enthalpy fix: 5.390 -> 5.3808 h, 192.11 -> 190.95 kg,
+        // 0.53414290 -> 0.53396739 MPa).
         let hc = measure(Mechanisms::default().without_hydrogen_cp_t().without_msl_creep());
-        assert!(near(hc.lower_head_h, 5.390, 0.001), "{hc:?}");
-        assert!((hc.h2_25h_kg - 192.11).abs() < 0.01, "{hc:?}");
-        assert!((hc.p_dw_peak_mpa - 0.53414290).abs() < 1e-8, "{hc:?}");
+        assert!(near(hc.lower_head_h, 5.3808, 0.001), "{hc:?}");
+        assert!((hc.h2_25h_kg - 190.95).abs() < 0.01, "{hc:?}");
+        assert!((hc.p_dw_peak_mpa - 0.53396739).abs() < 1e-8, "{hc:?}");
         // The 1000 K cutoff: the previous baseline, exactly. The ablations
         // pinned as "the model before" run on it.
         let mut old = Params::default();
@@ -558,19 +573,23 @@ mod tests {
         let o = measure_with(Mechanisms::default().without_hydrogen_cp_t().without_msl_creep(), old);
         assert!(near(o.lower_head_h, 4.4844, 0.001), "{o:?}");
         assert!((o.h2_25h_kg - 292.44).abs() < 0.01, "{o:?}");
-        assert!((o.p_dw_peak_mpa - 0.56407062).abs() < 1e-8, "{o:?}");
+        // (Dry-vessel enthalpy fix: drywell 0.56407062 -> 0.56405052 MPa.)
+        assert!((o.p_dw_peak_mpa - 0.56405052).abs() < 1e-8, "{o:?}");
         // ~~No vent, no explosion~~: since gh:#1036 the wetwell vent flows,
         // at ~~25.12 h~~ 23.73 h since gh:#1041 (BSAF: 23.5-24.68 h, Tier A);
         // since the 1100 K cutoff, not at all (above).
         assert!(near(o.vent_h, 23.7336, 0.001) && o.explosion_h.is_none(), "{o:?}");
         // Without the diffusion limit: the baseline before that, exactly.
         let dl = measure_with(Mechanisms::default().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep(), old);
-        assert!(near(dl.lower_head_h, 4.5089, 0.001), "{dl:?}");
+        // (Dry-vessel enthalpy fix: 4.5089 -> 4.5075 h, 0.56293122 ->
+        // 0.56289635 MPa.)
+        assert!(near(dl.lower_head_h, 4.5075, 0.001), "{dl:?}");
         assert!((dl.h2_25h_kg - 287.47).abs() < 0.01, "{dl:?}");
-        assert!((dl.p_dw_peak_mpa - 0.56293122).abs() < 1e-8, "{dl:?}");
+        assert!((dl.p_dw_peak_mpa - 0.56289635).abs() < 1e-8, "{dl:?}");
         // And constant gas c_v as well: the one before that.
         let gc = measure_with(Mechanisms::default().without_diffusion_limit().without_gas_cv_t().without_hydrogen_cp_t().without_msl_creep(), old);
-        assert!((gc.p_dw_peak_mpa - 0.56292285).abs() < 1e-8, "{gc:?}");
+        // (Dry-vessel enthalpy fix: 0.56292285 -> 0.56285187 MPa.)
+        assert!((gc.p_dw_peak_mpa - 0.56285187).abs() < 1e-8, "{gc:?}");
         assert_eq!((gc.lower_head_h, gc.h2_25h_kg, gc.vent_h), (dl.lower_head_h, dl.h2_25h_kg, dl.vent_h));
         // The steam-only choking ablation is the model before the mixture
         // correction, exactly.
@@ -586,7 +605,8 @@ mod tests {
         );
         assert!(near(od.lower_head_h, 4.6678, 0.001), "{od:?}");
         assert!((od.h2_25h_kg - 283.76).abs() < 0.01, "{od:?}");
-        assert!(near(od.vent_h, 25.1231, 0.001), "{od:?}");
+        // (Dry-vessel enthalpy fix: vent 25.1231 -> 25.1256 h.)
+        assert!(near(od.vent_h, 25.1256, 0.001), "{od:?}");
         // The no-swell ablation. With the ZrO2-melting collapse (in the
         // same change) it differs from the model before gh:#1036 only if a
         // node's cladding reaches 2990 K, which it does not without swell.
@@ -620,10 +640,11 @@ mod tests {
         // Since H2 c_p(T): 5.332 -> 5.326 h, 147.15 -> 151.38 kg.
         // Since MSL creep: 5.326 -> 5.366 h, 151.38 -> 147.08 kg.
         // Since the dry-vessel outflow cap: 5.366 -> 5.374 h, 147.08 -> 148.02 kg.
+        // Since the dry-vessel enthalpy fix: 148.02 -> 147.63 kg.
         let nc = measure(Mechanisms::default().without_rod_collapse());
         assert!(near(nc.lower_head_h, 5.374, 0.001), "{nc:?}");
-        assert!((nc.h2_25h_kg - 148.02).abs() < 0.01, "{nc:?}");
-        assert!((nc.p_dw_peak_mpa - 0.5292).abs() < 0.0001, "{nc:?}");
+        assert!((nc.h2_25h_kg - 147.63).abs() < 0.01, "{nc:?}");
+        assert!((nc.p_dw_peak_mpa - 0.5285).abs() < 0.0001, "{nc:?}");
         // The no-wall ablation. ~~The model before gh:#1034, exactly (5.399 h,
         // 120.73 kg, 0.4746 MPa).~~ Since Zr's heat of fusion (gh:#1035) it
         // carries that too, so it isolates the wall alone. Since the
@@ -650,10 +671,11 @@ mod tests {
         // Since H2 c_p(T): 5.344 -> 5.331 h, 159.33 -> 167.34 kg.
         // Since MSL creep: 5.331 -> 5.329 h, 167.34 -> 164.24 kg.
         // Since the dry-vessel outflow cap: 5.329 -> 5.333 h, 164.24 -> 164.83 kg.
+        // Since the dry-vessel enthalpy fix: 164.83 -> 164.71 kg.
         let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
         assert!(near(cp.lower_head_h, 5.333, 0.001), "{cp:?}");
-        assert!((cp.h2_25h_kg - 164.83).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.5358).abs() < 0.0001, "{cp:?}");
+        assert!((cp.h2_25h_kg - 164.71).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.5353).abs() < 0.0001, "{cp:?}");
     }
 
     /// The elasticity of an input that only the demo draws is zero, of one
