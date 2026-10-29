@@ -185,6 +185,13 @@ pub const INTERNALS_LOSS_H: f64 = 5.0;
 pub const CS_INVENTORY_KG: f64 = 154.0;
 /// Unit 1's iodine inventory, kg (the same source: "11.98 kg"). \[P\]
 pub const I_INVENTORY_KG: f64 = 11.98;
+/// Unit 1's tellurium inventory, kg. \[A\] derived, no published value
+/// held: the ENDF/B-VIII summation's Te/Cs mass ratio at the scram
+/// (`fp_decay`, 9.508/95.008 kg) times the specification's 154.0 kg Cs.
+/// The summation's own Cs is low (95 kg) because MELCOR's default 584-day
+/// history is shorter than Unit 1's fuel residence; the ratio is the
+/// part used.
+pub const TE_INVENTORY_KG: f64 = 154.0 * 9.508261 / 95.00829;
 /// Deposition areas not otherwise in the model: the drywell floor, m^2,
 /// and the torus pool's free surface, m^2. \[A\] both: not in a held source.
 /// The floor is about a third of a 3410 m^3 light-bulb drywell's footprint;
@@ -608,6 +615,7 @@ params! {
     corsor_uo2_q_kcal_per_mol = CORSOR_UO2_Q_KCAL_PER_MOL, P,
     cs_inventory_kg = CS_INVENTORY_KG, P,
     i_inventory_kg = I_INVENTORY_KG, P,
+    te_inventory_kg = TE_INVENTORY_KG, A,
     dw_floor_m2 = DW_FLOOR_M2, A,
     ww_pool_surface_m2 = WW_POOL_SURFACE_M2, A,
     head_failure_wall_k = HEAD_FAILURE_WALL_K, A,
@@ -764,7 +772,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 132);
+        assert_eq!(Params::INPUTS.len(), 133);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

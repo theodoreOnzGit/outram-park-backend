@@ -1,6 +1,7 @@
 //! One control volume's fission products and aerosol: the sectional aerosol
-//! (`aerosol`), each condensable class (cesium as CsOH and iodine as I2, in
-//! [`CLASSES`]) as vapour, on the airborne aerosol and on each surface, and
+//! (`aerosol`), each condensable class (cesium as CsOH, iodine as I2 and,
+//! since 2026-10-29, tellurium, in [`CLASSES`]) as vapour, on the airborne
+//! aerosol and on each surface, and
 //! the transfers between them in one step (gh:#1047).
 //!
 //! The step follows MELCOR's order and coupling (Vol. 2, SAND2023-10994 O,
@@ -33,14 +34,18 @@ use super::wire::{Reader, Writer};
 use super::vapour::{condense, BulkGas, CondensingSurface, FpClass};
 
 /// The condensable classes tracked, in the order of every per-class array.
-pub const CLASSES: [FpClass; 2] = [FpClass::Cs, FpClass::I2];
+pub const CLASSES: [FpClass; N_CLASSES] = [FpClass::Cs, FpClass::I2, FpClass::Te];
+/// How many classes are tracked: cesium (as CsOH), iodine (as I2) and,
+/// since 2026-10-29, tellurium (elemental, MELCOR's class 5).
+pub const N_CLASSES: usize = 3;
 /// Index of cesium and of iodine in the per-class arrays.
 pub const CS: usize = 0;
 pub const IODINE: usize = 1;
+pub const TE: usize = 2;
 /// Per-class masses, kg.
-pub type PerClass = [f64; 2];
+pub type PerClass = [f64; N_CLASSES];
 /// Per-class masses by aerosol section, kg (`[class][section]`).
-pub type PerClassSection = [Vec<f64>; 2];
+pub type PerClassSection = [Vec<f64>; N_CLASSES];
 
 /// What a flow carries from one volume to another (`RnVolume::take`):
 /// particle volume per section, m^3, each class's vapour, kg, and each
@@ -59,21 +64,21 @@ impl RnFlow {
         RnFlow {
             moved: self.moved.iter().map(|m| m * f).collect(),
             vapour_kg: self.vapour_kg.map(|x| x * f),
-            on_aerosol_kg: [0, 1].map(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>()),
+            on_aerosol_kg: std::array::from_fn(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>()),
         }
     }
     pub fn write(&self, w: &mut Writer) {
         w.vec(&self.moved);
         w.f(&self.vapour_kg);
-        w.vec(&self.on_aerosol_kg[0]);
-        w.vec(&self.on_aerosol_kg[1]);
+        for c in &self.on_aerosol_kg {
+            w.vec(c);
+        }
     }
     pub fn read(r: &mut Reader) -> Self {
         let moved = r.vec();
-        let vapour_kg = [r.f(), r.f()];
-        let a = r.vec();
-        let b = r.vec();
-        RnFlow { moved, vapour_kg, on_aerosol_kg: [a, b] }
+        let vapour_kg = std::array::from_fn(|_| r.f());
+        let on_aerosol_kg = std::array::from_fn(|_| r.vec());
+        RnFlow { moved, vapour_kg, on_aerosol_kg }
     }
 }
 
@@ -120,11 +125,11 @@ impl RnVolume {
         Self {
             volume_m3,
             sections,
-            vapour_kg: [0.0; 2],
-            on_aerosol_kg: [vec![0.0; n], vec![0.0; n]],
+            vapour_kg: [0.0; N_CLASSES],
+            on_aerosol_kg: std::array::from_fn(|_| vec![0.0; n]),
             lumped: false,
             condensate_mass: false,
-            on_surface_kg: vec![[0.0; 2]; n_surfaces],
+            on_surface_kg: vec![[0.0; N_CLASSES]; n_surfaces],
             aerosol_on_surface_kg: vec![0.0; n_surfaces],
         }
     }
@@ -165,7 +170,7 @@ impl RnVolume {
         if !self.lumped || total <= 0.0 {
             return;
         }
-        for c in 0..2 {
+        for c in 0..N_CLASSES {
             let m = self.on_aerosol(c);
             for (x, v) in self.on_aerosol_kg[c].iter_mut().zip(&self.sections.conc) {
                 *x = m * v / total;
@@ -194,8 +199,8 @@ impl RnVolume {
             *c *= 1.0 - f;
         }
         let vap = self.vapour_kg.map(|x| x * f);
-        let aer: PerClassSection = [0, 1].map(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>());
-        for k in 0..2 {
+        let aer: PerClassSection = std::array::from_fn(|c| self.on_aerosol_kg[c].iter().map(|x| x * f).collect::<Vec<f64>>());
+        for k in 0..N_CLASSES {
             self.vapour_kg[k] -= vap[k];
             for (x, a) in self.on_aerosol_kg[k].iter_mut().zip(&aer[k]) {
                 *x -= a;
@@ -209,7 +214,7 @@ impl RnVolume {
         for (c, m) in self.sections.conc.iter_mut().zip(moved) {
             *c += m / self.volume_m3;
         }
-        for k in 0..2 {
+        for k in 0..N_CLASSES {
             self.vapour_kg[k] += vapour_kg[k];
             for (x, a) in self.on_aerosol_kg[k].iter_mut().zip(&on_aerosol_kg[k]) {
                 *x += a;
@@ -223,8 +228,9 @@ impl RnVolume {
         w.f(&self.sections.conc);
         w.f(&[self.sections.fallout]);
         w.f(&self.vapour_kg);
-        w.f(&self.on_aerosol_kg[0]);
-        w.f(&self.on_aerosol_kg[1]);
+        for c in &self.on_aerosol_kg {
+            w.f(c);
+        }
         for x in &self.on_surface_kg {
             w.f(x);
         }
@@ -237,14 +243,14 @@ impl RnVolume {
             *c = r.f();
         }
         self.sections.fallout = r.f();
-        self.vapour_kg = [r.f(), r.f()];
-        for c in 0..2 {
+        self.vapour_kg = std::array::from_fn(|_| r.f());
+        for c in 0..N_CLASSES {
             for x in self.on_aerosol_kg[c].iter_mut() {
                 *x = r.f();
             }
         }
         for x in self.on_surface_kg.iter_mut() {
-            *x = [r.f(), r.f()];
+            *x = std::array::from_fn(|_| r.f());
         }
         for x in self.aerosol_on_surface_kg.iter_mut() {
             *x = r.f();
@@ -327,7 +333,7 @@ impl RnVolume {
         let d: Vec<f64> = (0..n).map(|k| self.sections.diameter(k)).collect();
         let before: f64 = self.sections.conc.iter().sum();
         let fallout_before = self.sections.fallout;
-        let mut fallout_c = vec![0.0; 2];
+        let mut fallout_c = vec![0.0; N_CLASSES];
         if before > 0.0 {
             let table = medium.kernel_table(&d);
             fallout_c = self.sections.coagulate_with(dt, |i, j| table[i][j], &mut self.on_aerosol_kg);
@@ -344,7 +350,7 @@ impl RnVolume {
                 shares[i] += fallout / before;
             }
             for (i, share) in shares.iter().enumerate() {
-                for c in 0..2 {
+                for c in 0..N_CLASSES {
                     self.on_surface_kg[i][c] += deposited_c[c][i] + if Some(i) == floor { fallout_c[c] } else { 0.0 };
                 }
                 self.aerosol_on_surface_kg[i] += share * before * v * medium.rho_p;
@@ -430,7 +436,7 @@ mod tests {
         let (mut cs_in, mut cs_out, mut aer_in, mut aer_out) = (0.0, 0.0, 0.0, 0.0);
         for step in 0..7200 {
             if step < 600 {
-                vol.add(1e-3, medium.rho_p, [2e-3, 0.0]);
+                vol.add(1e-3, medium.rho_p, [2e-3, 0.0, 0.0]);
                 cs_in += 2e-3;
                 aer_in += 1e-3;
             }
@@ -479,7 +485,7 @@ mod tests {
             vol.lumped = lumped;
             vol.sections.conc[0] = 1e-9;
             vol.sections.conc[15] = 1e-9;
-            vol.vapour_kg = [1e-6, 0.0];
+            vol.vapour_kg = [1e-6, 0.0, 0.0];
             vol.step(&cold, &gases, &floor, 1e-3);
             // A step this short barely agglomerates: compare the two loaded
             // sections' cesium per aerosol volume.
@@ -508,7 +514,7 @@ mod tests {
         vol.condensate_mass = true;
         vol.sections.conc[3] = 1e-9;
         let uo2 = vol.aerosol_kg(cold.rho_p);
-        vol.vapour_kg = [1e-4, 0.0];
+        vol.vapour_kg = [1e-4, 0.0, 0.0];
         vol.step(&cold, &gases, &[], 1e-3);
         let on = vol.on_aerosol(CS);
         assert!(on > 1e-8, "{on}");

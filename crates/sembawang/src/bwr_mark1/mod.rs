@@ -229,6 +229,12 @@ pub struct Mechanisms {
     /// not transported, so their heat stays in the core (stated). Off is all
     /// decay heat in the core.
     pub fp_decay_follows: bool,
+    /// Tellurium (MELCOR's chalcogen class) released with the volatiles
+    /// and transported like cesium and iodine, with its own vapour pressure
+    /// (RN 7110), its decay heat following it (2026-10-29; needs
+    /// `vessel_aerosol`). Off is tellurium staying in the core, heat and
+    /// all.
+    pub te_transport: bool,
 }
 
 impl Default for Mechanisms {
@@ -265,6 +271,7 @@ impl Default for Mechanisms {
             vessel_aerosol: true,
             condensate_mass: true,
             fp_decay_follows: true,
+            te_transport: true,
         }
     }
 }
@@ -470,6 +477,12 @@ impl Mechanisms {
     /// All decay heat stays in the core: the model before 2026-10-29.
     pub fn without_fp_decay_follows(mut self) -> Self {
         self.fp_decay_follows = false;
+        self
+    }
+
+    /// No tellurium transport: the model before 2026-10-29.
+    pub fn without_te_transport(mut self) -> Self {
+        self.te_transport = false;
         self
     }
 
@@ -1065,20 +1078,22 @@ impl Plant {
         // gases, alkali metals and halogens (`fp_decay_follows`): their
         // classes' share of the fission products' heat, times the
         // fraction released.
-        let (q_noble_w, q_alkali_w, q_halogen_w) = if self.mechanisms.fp_decay_follows {
+        let (q_noble_w, q_alkali_w, q_halogen_w, q_chalcogen_w) = if self.mechanisms.fp_decay_follows {
             let (p_fp, t) = (self.decay.fp_power_w(), self.decay.t_s());
             let sh = &self.fp_shares;
-            (p_fp * sh.share(&["Xe", "Kr"], t), p_fp * sh.share(&["Cs", "Rb"], t), p_fp * sh.share(&["I", "Br"], t))
+            let te = if self.mechanisms.te_transport && self.mechanisms.vessel_aerosol { p_fp * sh.share(&["Te", "Se"], t) } else { 0.0 };
+            (p_fp * sh.share(&["Xe", "Kr"], t), p_fp * sh.share(&["Cs", "Rb"], t), p_fp * sh.share(&["I", "Br"], t), te)
         } else {
-            (0.0, 0.0, 0.0)
+            (0.0, 0.0, 0.0, 0.0)
         };
         let released = self.last_core.fp_volatile_released;
-        let decay_w = self.decay.power_w() - released * (q_noble_w + q_alkali_w + q_halogen_w);
+        let decay_w = self.decay.power_w() - released * (q_noble_w + q_alkali_w + q_halogen_w + q_chalcogen_w);
         // The vessel's own share: its gas's noble gas, and the cesium and
         // iodine in its gas and on its internals.
         let vessel_fp_w = self.xe_vessel * q_noble_w
             + (self.cs_vessel_kg + self.on_internals_kg[0]) / prm.cs_inventory_kg * q_alkali_w
-            + (self.i_vessel_kg + self.on_internals_kg[1]) / prm.i_inventory_kg * q_halogen_w;
+            + (self.i_vessel_kg + self.on_internals_kg[1]) / prm.i_inventory_kg * q_halogen_w
+            + self.vessel_rn.total_kg(rn_volume::TE) / prm.te_inventory_kg * q_chalcogen_w;
         // Before the MSIVs close, the pressure regulator passes steam to the
         // turbine bypass.
         let w_bypass = if self.t_s < prm.msiv_closure_s && !v.dry {
@@ -1168,6 +1183,7 @@ impl Plant {
                 q_noble_w,
                 q_alkali_w,
                 q_halogen_w,
+                q_chalcogen_w,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
@@ -1193,7 +1209,10 @@ impl Plant {
         self.vessel_rn.set_volume(gas_m3);
         self.vessel_rn.condensate_mass = self.mechanisms.condensate_mass;
         let new = core.fp_volatile_released - self.fp_seen;
-        self.vessel_rn.add(core.uo2_released_kg - self.uo2_seen_kg, rho_p, [new * prm.cs_inventory_kg, new * prm.i_inventory_kg]);
+        // Tellurium shares the row too (`te_transport`; off, none is
+        // carried and its heat stays in the core).
+        let te = if self.mechanisms.te_transport { new * prm.te_inventory_kg } else { 0.0 };
+        self.vessel_rn.add(core.uo2_released_kg - self.uo2_seen_kg, rho_p, [new * prm.cs_inventory_kg, new * prm.i_inventory_kg, te]);
         self.vessel_rn_clock_s += DT_S;
         if self.vessel_rn_clock_s >= containment::RN_STEP_S {
             let h = self.vessel_rn_clock_s;
@@ -1226,9 +1245,10 @@ impl Plant {
         self.i_vessel_kg = r.vapour_kg[rn_volume::IODINE] + r.on_aerosol(rn_volume::IODINE);
         // The particles' mass less the condensed classes on them (zero
         // without `condensate_mass`, the condensate being weightless).
-        let condensed = if r.condensate_mass { r.on_aerosol(rn_volume::CS) + r.on_aerosol(rn_volume::IODINE) } else { 0.0 };
+        let condensed = if r.condensate_mass { (0..rn_volume::N_CLASSES).map(|c| r.on_aerosol(c)).sum() } else { 0.0 };
         self.uo2_vessel_kg = (r.aerosol_kg(rho_p) - condensed).max(0.0);
         self.on_internals_kg = [0, 1].map(|c| r.on_surface_kg.iter().map(|x| x[c]).sum::<f64>());
+        // (Tellurium is not mirrored into the frame; it is in `vessel_rn`.)
     }
 
     /// Finish the step with the core's and the containment's results.
@@ -1853,8 +1873,9 @@ mod tests {
         let k = &f.containment;
         assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-9 && k.xe_ww < 1e-7 && k.xe_building == 0.0, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
-        // them, which moves the release: 0.7967 since.)
-        assert!((k.xe_vented - 0.7967).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // them, which moves the release: 0.7967 since; 0.7977 since
+        // tellurium is transported.)
+        assert!((k.xe_vented - 0.7977).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
@@ -1862,7 +1883,7 @@ mod tests {
     /// drywell's structures, in the wetwell pool, vented and leaked to the
     /// building add up to the released fraction times the inventory, to
     /// 1e-9 of it (with the dome internals' deposits since in-vessel
-    /// deposition).
+    /// deposition). Iodine and, since 2026-10-29, tellurium likewise.
     #[test]
     fn cesium_is_conserved_from_fuel_to_stack() {
         let mut p = Plant::new(Mode::Historical);
@@ -1877,6 +1898,12 @@ mod tests {
             let total_i = f.i_vessel_kg + f.on_internals_kg[1] + k.i_airborne_kg + k.i_dw_structures_kg + k.i_ww_pool_kg + k.i_vented_kg + k.i_building_kg;
             let released_i = f.core.fp_volatile_released * I_INVENTORY_KG;
             assert!((total_i - released_i).abs() < 1e-9 * I_INVENTORY_KG, "I {total_i} vs {released_i} at {}", f.t_s);
+            // Tellurium likewise (since `te_transport`): the vessel's
+            // aerosol volume and everything that has reached the
+            // containment.
+            let total_te = p.vessel_rn.total_kg(rn_volume::TE) + k.te_kg;
+            let released_te = f.core.fp_volatile_released * TE_INVENTORY_KG;
+            assert!((total_te - released_te).abs() < 1e-9 * TE_INVENTORY_KG, "Te {total_te} vs {released_te} at {}", f.t_s);
         }
         let f = p.frame();
         let k = &f.containment;

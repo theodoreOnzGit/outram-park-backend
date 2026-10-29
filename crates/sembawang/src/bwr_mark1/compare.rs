@@ -194,6 +194,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without vessel aerosol", all.without_vessel_aerosol()),
         ("without condensate mass", all.without_condensate_mass()),
         ("without FP decay following", all.without_fp_decay_follows()),
+        ("without Te transport", all.without_te_transport()),
     ]
 }
 
@@ -775,6 +776,17 @@ mod tests {
     /// H2. `without_fp_decay_follows` reproduces the previous baseline
     /// exactly (pinned below).
     ///
+    /// **Moved again 2026-10-29** (tellurium transported, MELCOR's chalcogen
+    /// class, 15.4 kg \[A\] from the summation's Te/Cs ratio, its decay heat
+    /// following it, `te_transport`): lower head 4.5239 -> 4.5172 h,
+    /// depressurised 4.4361 -> 4.4497 h, H2 304.26 -> 305.64 kg, drywell
+    /// peak 0.61280 -> 0.60869 MPa, release 0.7967 -> 0.7977, UO2 3.327 ->
+    /// 3.645 kg. **No prediction was written before this run** (a lapse of
+    /// the rule, recorded): taking more heat out of the core would be
+    /// expected to delay the lower head, and it came 0.007 h earlier,
+    /// within the run's regime noise. `without_te_transport` reproduces the
+    /// previous baseline exactly (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -785,12 +797,17 @@ mod tests {
         // products' decay heat left in the core, as it was then.
         let base = Mechanisms::default().without_fp_decay_follows();
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 4.5239, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 4.4361, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 304.26).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.61279710).abs() < 1e-8, "{m:?}");
+        assert!(near(m.lower_head_h, 4.5172, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.4497, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 305.64).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.60869364).abs() < 1e-8, "{m:?}");
         assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
-        assert!((m.fp_released_25h - 0.7967).abs() < 1e-4 && (m.uo2_released_25h_kg - 3.327).abs() < 0.01, "{m:?}");
+        assert!((m.fp_released_25h - 0.7977).abs() < 1e-4 && (m.uo2_released_25h_kg - 3.645).abs() < 0.01, "{m:?}");
+        // No tellurium transport: the previous baseline, exactly.
+        let te = measure(Mechanisms::default().without_te_transport());
+        assert!(near(te.lower_head_h, 4.5239, 0.001) && near(te.depressurised_h, 4.4361, 0.001), "{te:?}");
+        assert!((te.h2_25h_kg - 304.26).abs() < 0.01 && (te.p_dw_peak_mpa - 0.61279710).abs() < 1e-8, "{te:?}");
+        assert!((te.fp_released_25h - 0.7967).abs() < 1e-4 && (te.uo2_released_25h_kg - 3.327).abs() < 0.01, "{te:?}");
         // Fission products' decay heat left in the core: the previous
         // baseline, exactly.
         let fd = measure(base);
@@ -996,7 +1013,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 32);
+        assert_eq!(runs.len(), 33);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -1037,6 +1054,7 @@ mod tests {
         assert!(!ablations()[29].1.vessel_aerosol && ablations()[29].1.iodine_swarm);
         assert!(!ablations()[30].1.condensate_mass && ablations()[30].1.vessel_aerosol);
         assert!(!ablations()[31].1.fp_decay_follows && ablations()[31].1.condensate_mass);
+        assert!(!ablations()[32].1.te_transport && ablations()[32].1.fp_decay_follows);
     }
 
     /// The verdict reads a value against its band.

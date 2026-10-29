@@ -4040,6 +4040,7 @@ pub struct ContainmentSnapshot {
     pub q_noble_w: f64,
     pub q_alkali_w: f64,
     pub q_halogen_w: f64,
+    pub q_chalcogen_w: f64,
     pub prm: Params,
 }
 ```
@@ -4082,6 +4083,7 @@ pub struct ContainmentSnapshot {
 | `q_noble_w` | `f64` | Decay heat of the noble-gas, alkali and halogen classes for the<br>whole core inventory, W (`fp_decay`; zero without<br>`Mechanisms::fp_decay_follows`): each location takes its share of the<br>class's inventory. |
 | `q_alkali_w` | `f64` |  |
 | `q_halogen_w` | `f64` |  |
+| `q_chalcogen_w` | `f64` | And the chalcogens' (Te/Se), when tellurium is transported<br>(`Mechanisms::te_transport`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4242,6 +4244,7 @@ pub struct ContainmentResult {
     pub i_airborne_kg: f64,
     pub i_vented_kg: f64,
     pub i_building_kg: f64,
+    pub te_kg: f64,
 }
 ```
 
@@ -4276,6 +4279,7 @@ pub struct ContainmentResult {
 | `i_airborne_kg` | `f64` |  |
 | `i_vented_kg` | `f64` |  |
 | `i_building_kg` | `f64` |  |
+| `te_kg` | `f64` | All the tellurium that has reached the containment, kg (in it,<br>vented and leaked): for its conservation check. |
 
 ##### Implementations
 
@@ -5606,6 +5610,109 @@ pub mod fp_decay { /* ... */ }
 
 ### Types
 
+#### Struct `Summation`
+
+The summation's results: each element's fission-product decay heat, W,
+at [`table_times`] (descendants credited to the element born in
+fission), and each element's mass at the scram, kg (by the element the
+atoms are then, stable isotopes included).
+
+```rust
+pub struct Summation {
+    pub heat_w: Vec<Vec<f64>>,
+    pub mass_kg: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heat_w` | `Vec<Vec<f64>>` |  |
+| `mass_kg` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `ElementShares`
 
 The committed table, read: times, s, and each element's share of the
@@ -5763,12 +5870,10 @@ pub fn table_times() -> Vec<f64> { /* ... */ }
 
 #### Function `compute`
 
-The summation: each element's fission-product decay heat, W, at
-[`table_times`], with descendants credited to the element born in
-fission.
+The summation (see the module doc).
 
 ```rust
-pub fn compute(prm: &super::params::Params) -> Vec<Vec<f64>> { /* ... */ }
+pub fn compute(prm: &super::params::Params) -> Summation { /* ... */ }
 ```
 
 #### Function `table_csv`
@@ -5777,7 +5882,24 @@ The committed table as CSV text: a header of element symbols, then per
 time its value and each element's share of the total.
 
 ```rust
-pub fn table_csv(prm: &super::params::Params) -> String { /* ... */ }
+pub fn table_csv(sum: &Summation) -> String { /* ... */ }
+```
+
+#### Function `inventory_csv`
+
+The element masses at the scram as CSV text: symbol, kg.
+
+```rust
+pub fn inventory_csv(sum: &Summation) -> String { /* ... */ }
+```
+
+#### Function `inventory_kg`
+
+An element's mass at the scram from the committed inventory, kg (0 if
+absent).
+
+```rust
+pub fn inventory_kg(symbol: &str) -> f64 { /* ... */ }
 ```
 
 ## Module `gas`
@@ -6806,6 +6928,7 @@ pub struct Params {
     pub corsor_uo2_q_kcal_per_mol: f64,
     pub cs_inventory_kg: f64,
     pub i_inventory_kg: f64,
+    pub te_inventory_kg: f64,
     pub dw_floor_m2: f64,
     pub ww_pool_surface_m2: f64,
     pub head_failure_wall_k: f64,
@@ -6946,6 +7069,7 @@ pub struct Params {
 | `corsor_uo2_q_kcal_per_mol` | `f64` |  |
 | `cs_inventory_kg` | `f64` |  |
 | `i_inventory_kg` | `f64` |  |
+| `te_inventory_kg` | `f64` |  |
 | `dw_floor_m2` | `f64` |  |
 | `ww_pool_surface_m2` | `f64` |  |
 | `head_failure_wall_k` | `f64` |  |
@@ -7655,6 +7779,19 @@ Unit 1's iodine inventory, kg (the same source: "11.98 kg"). \[P\]
 
 ```rust
 pub const I_INVENTORY_KG: f64 = 11.98;
+```
+
+#### Constant `TE_INVENTORY_KG`
+
+Unit 1's tellurium inventory, kg. \[A\] derived, no published value
+held: the ENDF/B-VIII summation's Te/Cs mass ratio at the scram
+(`fp_decay`, 9.508/95.008 kg) times the specification's 154.0 kg Cs.
+The summation's own Cs is low (95 kg) because MELCOR's default 584-day
+history is shorter than Unit 1's fuel residence; the ratio is the
+part used.
+
+```rust
+pub const TE_INVENTORY_KG: f64 = _;
 ```
 
 #### Constant `DW_FLOOR_M2`
@@ -8394,7 +8531,7 @@ pub mod rn_volume { /* ... */ }
 Per-class masses, kg.
 
 ```rust
-pub type PerClass = [f64; 2];
+pub type PerClass = [f64; 3];
 ```
 
 #### Type Alias `PerClassSection`
@@ -8402,7 +8539,7 @@ pub type PerClass = [f64; 2];
 Per-class masses by aerosol section, kg (`[class][section]`).
 
 ```rust
-pub type PerClassSection = [Vec<f64>; 2];
+pub type PerClassSection = [Vec<f64>; 3];
 ```
 
 #### Struct `RnFlow`
@@ -8899,7 +9036,16 @@ pub struct RnVolume {
 The condensable classes tracked, in the order of every per-class array.
 
 ```rust
-pub const CLASSES: [super::vapour::FpClass; 2] = _;
+pub const CLASSES: [super::vapour::FpClass; 3] = _;
+```
+
+#### Constant `N_CLASSES`
+
+How many classes are tracked: cesium (as CsOH), iodine (as I2) and,
+since 2026-10-29, tellurium (elemental, MELCOR's class 5).
+
+```rust
+pub const N_CLASSES: usize = 3;
 ```
 
 #### Constant `CS`
@@ -8914,6 +9060,12 @@ pub const CS: usize = 0;
 
 ```rust
 pub const IODINE: usize = 1;
+```
+
+#### Constant `TE`
+
+```rust
+pub const TE: usize = 2;
 ```
 
 ## Module `sparc`
@@ -10943,6 +11095,7 @@ pub struct Mechanisms {
     pub vessel_aerosol: bool,
     pub condensate_mass: bool,
     pub fp_decay_follows: bool,
+    pub te_transport: bool,
 }
 ```
 
@@ -10981,6 +11134,7 @@ pub struct Mechanisms {
 | `vessel_aerosol` | `bool` | The vessel's gas as a sectional aerosol volume (`rn_volume`;<br>2026-10-29): the released aerosol and vapour agglomerate, condense<br>and deposit on the dome internals (at their temperature, with<br>thermophoresis from their heat flux) and settle on a floor of the<br>vessel's cross-section; what leaves carries its size distribution<br>into the containment. Off is the aerosol passing straight through<br>and the vapour condensing on the internals alone. |
 | `condensate_mass` | `bool` | Cesium and iodine condensed on the aerosol add to their section's<br>particle mass, as MELCOR's sectional mass does (RN §2.5.2; the area,<br>the agglomeration and the deposition follow the section's total;<br>2026-10-29). Off is the condensate riding weightless on the UO2<br>particles. |
 | `fp_decay_follows` | `bool` | The decay heat of the released noble gases, alkali metals and<br>halogens leaves the core with them and heats wherever they are: the<br>vessel, the drywell's gas and structures, the pool; what is vented<br>or leaked takes its heat away (MELCOR's DCH by class, the shares from<br>`fp_decay`'s summation; 2026-10-29). Chalcogens (Te) are released but<br>not transported, so their heat stays in the core (stated). Off is all<br>decay heat in the core. |
+| `te_transport` | `bool` | Tellurium (MELCOR's chalcogen class) released with the volatiles<br>and transported like cesium and iodine, with its own vapour pressure<br>(RN 7110), its decay heat following it (2026-10-29; needs<br>`vessel_aerosol`). Off is tellurium staying in the core, heat and<br>all. |
 
 ##### Implementations
 
@@ -11135,6 +11289,11 @@ pub struct Mechanisms {
   pub fn without_fp_decay_follows(self: Self) -> Self { /* ... */ }
   ```
   All decay heat stays in the core: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_te_transport(self: Self) -> Self { /* ... */ }
+  ```
+  No tellurium transport: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

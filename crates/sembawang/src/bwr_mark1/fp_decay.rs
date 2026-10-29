@@ -53,6 +53,8 @@ const ELEMENTS: [(u32, &str); 47] = [
 struct Nuc {
     name: String,
     element: usize,
+    /// Mass number.
+    a: u32,
     lambda: f64,
     energy_j: f64,
     /// Decay branches to nuclides in the set: (index, branching ratio).
@@ -187,6 +189,7 @@ fn graph() -> Vec<Nuc> {
             Nuc {
                 name: r.0.clone(),
                 element: z_of[symbol(&r.0)],
+                a: r.0[symbol(&r.0).len()..].split('_').next().and_then(|x| x.parse().ok()).unwrap_or(0),
                 lambda,
                 energy_j: r.2.unwrap_or(0.0) * 1.602176634e-19,
                 branches: r.3.iter().filter_map(|(t, b)| idx.get(t).map(|&j| (pos[j], *b))).collect(),
@@ -224,10 +227,17 @@ pub fn table_times() -> Vec<f64> {
     (0..61).map(|i| 10.0 * (2.16e6f64 / 10.0).r_powf(i as f64 / 60.0)).collect()
 }
 
-/// The summation: each element's fission-product decay heat, W, at
-/// [`table_times`], with descendants credited to the element born in
-/// fission.
-pub fn compute(prm: &Params) -> Vec<Vec<f64>> {
+/// The summation's results: each element's fission-product decay heat, W,
+/// at [`table_times`] (descendants credited to the element born in
+/// fission), and each element's mass at the scram, kg (by the element the
+/// atoms are then, stable isotopes included).
+pub struct Summation {
+    pub heat_w: Vec<Vec<f64>>,
+    pub mass_kg: Vec<f64>,
+}
+
+/// The summation (see the module doc).
+pub fn compute(prm: &Params) -> Summation {
     let nucs = graph();
     let s = sources(prm, &nucs);
     let ne = ELEMENTS.len();
@@ -270,6 +280,10 @@ pub fn compute(prm: &Params) -> Vec<Vec<f64>> {
         step(&mut atoms, t - t_prev, true);
         t_prev = t;
     }
+    let mut mass_kg = vec![0.0; ne];
+    for (i, nu) in nucs.iter().enumerate() {
+        mass_kg[nu.element] += atoms[i].iter().sum::<f64>() * nu.a as f64 * 1.66053907e-27;
+    }
     // Decay: 10 sub-steps between table times, from the scram.
     let heat = |atoms: &Vec<Vec<f64>>| (0..ne).map(|e| nucs.iter().enumerate().map(|(i, nu)| nu.lambda * nu.energy_j * atoms[i][e]).sum()).collect::<Vec<f64>>();
     let mut out = Vec::new();
@@ -289,20 +303,20 @@ pub fn compute(prm: &Params) -> Vec<Vec<f64>> {
         t = tt;
         out.push(heat(&atoms));
     }
-    out
+    Summation { heat_w: out, mass_kg }
 }
 
 /// The committed table as CSV text: a header of element symbols, then per
 /// time its value and each element's share of the total.
-pub fn table_csv(prm: &Params) -> String {
-    let heat = compute(prm);
+pub fn table_csv(sum: &Summation) -> String {
+    let heat = &sum.heat_w;
     let mut s = String::from("t_s,total_w");
     for (_, sym) in ELEMENTS {
         s.push(',');
         s.push_str(sym);
     }
     s.push('\n');
-    for (t, h) in table_times().iter().zip(&heat) {
+    for (t, h) in table_times().iter().zip(heat) {
         let total: f64 = h.iter().sum();
         s.push_str(&format!("{t:.6e},{total:.6e}"));
         for x in h {
@@ -311,6 +325,27 @@ pub fn table_csv(prm: &Params) -> String {
         s.push('\n');
     }
     s
+}
+
+/// The element masses at the scram as CSV text: symbol, kg.
+pub fn inventory_csv(sum: &Summation) -> String {
+    let mut s = String::from("element,kg\n");
+    for ((_, sym), m) in ELEMENTS.iter().zip(&sum.mass_kg) {
+        s.push_str(&format!("{sym},{m:.6e}\n"));
+    }
+    s
+}
+
+/// The committed inventory (`inventory_csv` at the default inputs).
+const COMMITTED_INVENTORY: &str = include_str!("../../verification_and_validation/bwr_mark1/fp_inventory_by_element.csv");
+
+/// An element's mass at the scram from the committed inventory, kg (0 if
+/// absent).
+pub fn inventory_kg(symbol: &str) -> f64 {
+    COMMITTED_INVENTORY.lines().skip(1).find_map(|l| {
+        let mut it = l.split(',');
+        (it.next() == Some(symbol)).then(|| it.next().and_then(|x| x.parse().ok())).flatten()
+    }).unwrap_or(0.0)
 }
 
 /// The committed table (`table_csv` at the default inputs).
@@ -393,12 +428,17 @@ mod tests {
     fn the_element_table_is_the_summation_and_matches_ans() {
         use super::super::decay::{DecayParts, PlantDecay};
         let prm = Params::default();
-        let csv = table_csv(&prm);
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/fp_decay_by_element.csv");
+        let sum = compute(&prm);
+        let csv = table_csv(&sum);
+        let inv = inventory_csv(&sum);
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/");
         if std::env::var("FUKUSHIMA_BLESS").is_ok() {
-            std::fs::write(path, &csv).unwrap();
+            std::fs::write(format!("{dir}fp_decay_by_element.csv"), &csv).unwrap();
+            std::fs::write(format!("{dir}fp_inventory_by_element.csv"), &inv).unwrap();
         }
         assert_eq!(csv, COMMITTED, "regenerate with FUKUSHIMA_BLESS=1");
+        assert_eq!(inv, COMMITTED_INVENTORY, "regenerate with FUKUSHIMA_BLESS=1");
+        eprintln!("INVENTORY Cs {} I {} Te {} Xe {} Rb {} Br {} Kr {}", inventory_kg("Cs"), inventory_kg("I"), inventory_kg("Te"), inventory_kg("Xe"), inventory_kg("Rb"), inventory_kg("Br"), inventory_kg("Kr"));
         let table = ElementShares::committed();
         let mut d = PlantDecay::new(&prm, DecayParts { mixed_finite: true, capture: false, actinides: false });
         let mut t = 0.0;

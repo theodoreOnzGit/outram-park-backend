@@ -111,6 +111,10 @@ fn model() -> Histories {
 /// drywell 20.9 -> 22.0 %, H2 9.2 % (same), Xe 43.8 -> 41.7 %, I 95.8 %
 /// (same).
 ///
+/// **Moved 2026-10-29 by tellurium transport** (`te_transport`): RPV
+/// 3.579/6.664 -> 3.578/6.662 MPa; drywell 0.274/0.448 -> 0.274/0.446
+/// MPa; envelopes RPV 4.4 -> 3.3 %, H2 9.2 -> 10.3 %, the rest the same.
+///
 /// The measured series are the validation; the envelopes are a
 /// differential test against other codes, none of which is the truth.
 #[test]
@@ -128,10 +132,10 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // Pinned to the first run: a change to the model moves these, and the
     // move is then recorded here with its old and new value.
     assert_eq!((rpv.n, dw.n), (2, 33));
-    assert!((rpv.mean_abs - 3.5792).abs() < 1e-3 && (rpv.max_abs - 6.6635).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.2743).abs() < 1e-3 && (dw.max_abs - 0.4477).abs() < 1e-3, "{dw:?}");
+    assert!((rpv.mean_abs - 3.5778).abs() < 1e-3 && (rpv.max_abs - 6.6624).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.2736).abs() < 1e-3 && (dw.max_abs - 0.4460).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.0440) && near(e_dw, 0.2198) && near(e_h2, 0.0920) && near(e_xe, 0.4167) && near(e_i, 0.9583));
+    assert!(near(e_rpv, 0.0330) && near(e_dw, 0.2198) && near(e_h2, 0.1034) && near(e_xe, 0.4167) && near(e_i, 0.9583));
 }
 
 
@@ -175,7 +179,8 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     let a = against_measured(&m.t_h, &m.p_dw_mpa, &read_series("fig2.3a-measurement.csv"));
     println!("0-500 h drywell against Fig 2.3a: {a:?}");
     assert_eq!(a.n, 94);
-    assert!((a.mean_abs - 0.1670).abs() < 1e-3 && (a.max_abs - 0.6265).abs() < 1e-3, "{a:?}");
+    // Max 0.6265 -> 0.6212 with tellurium transport (2026-10-29).
+    assert!((a.mean_abs - 0.1670).abs() < 1e-3 && (a.max_abs - 0.6212).abs() < 1e-3, "{a:?}");
 }
 
 
@@ -301,6 +306,10 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// -> 96.6 %. Each location now takes its share of the cesium class's
 /// decay heat, and the thermal history moved with it.
 ///
+/// **Moved 2026-10-29 by tellurium transport** (its heat now leaves the
+/// core too; the drywell's history moves): Cs on drywell structures
+/// inside **37.3 % -> 50.7 %**, S/C water unchanged.
+///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
 /// missing in-vessel deposition and pool scrubbing.
@@ -312,11 +321,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.3733).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.5067).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport(),
         Params::default(),
         60.0,
         26.0 * 3600.0,

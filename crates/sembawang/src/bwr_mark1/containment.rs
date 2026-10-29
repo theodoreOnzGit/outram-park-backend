@@ -36,7 +36,7 @@
 use super::params::*;
 use super::aerosol::{diffusiophoretic_velocity, Facing, Medium, Sections, Surface};
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
-use super::rn_volume::{RnFlow, RnSurface, RnVolume, CS, IODINE};
+use super::rn_volume::{RnFlow, RnSurface, RnVolume, CS, IODINE, N_CLASSES, TE};
 use super::vapour::{BulkGas, FpClass};
 use super::iodine;
 use super::sparc;
@@ -130,6 +130,9 @@ pub struct ContainmentSnapshot {
     pub q_noble_w: f64,
     pub q_alkali_w: f64,
     pub q_halogen_w: f64,
+    /// And the chalcogens' (Te/Se), when tellurium is transported
+    /// (`Mechanisms::te_transport`).
+    pub q_chalcogen_w: f64,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -170,6 +173,9 @@ pub struct ContainmentResult {
     pub i_airborne_kg: f64,
     pub i_vented_kg: f64,
     pub i_building_kg: f64,
+    /// All the tellurium that has reached the containment, kg (in it,
+    /// vented and leaked): for its conservation check.
+    pub te_kg: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -206,6 +212,8 @@ pub struct Containment {
     cs_building_kg: f64,
     i_vented_kg: f64,
     i_building_kg: f64,
+    /// Tellurium vented or leaked to the building, kg.
+    te_out_kg: f64,
     /// The swarm-rise pass fractions per section at the downcomers, and
     /// their age, s: recomputed at most once per aerosol step (`sparc`
     /// costs about 0.1 ms a call), from the conditions of the step that
@@ -225,7 +233,7 @@ pub struct Containment {
     dw_condensed_kg: f64,
     /// Scrubbed into the pool water at the vent exits (SPARC-90's DF_EC),
     /// kg: cesium, iodine, aerosol.
-    pool_scrubbed: [f64; 3],
+    pool_scrubbed: [f64; N_CLASSES + 1],
 }
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
@@ -280,13 +288,14 @@ impl Containment {
             cs_building_kg: 0.0,
             i_vented_kg: 0.0,
             i_building_kg: 0.0,
+            te_out_kg: 0.0,
             swarm_pass: vec![1.0; rn_sections().v.len()],
             swarm_age_s: RN_STEP_S,
             iodine_h: iodine::partition(INITIAL_POOL_K, 0.0, 0.0, 0.0),
             dw_condensed_kg: 0.0,
             iodine_swarm_pass: 1.0,
             iodine_swarm_age_s: RN_STEP_S,
-            pool_scrubbed: [0.0; 3],
+            pool_scrubbed: [0.0; N_CLASSES + 1],
         }
     }
 
@@ -345,16 +354,18 @@ impl Containment {
         //    (`fp_decay`): airborne in the drywell, into its gas; on its
         //    structures, into its walls; in the wetwell gas and the pool,
         //    into the pool.
-        if s.q_noble_w + s.q_alkali_w + s.q_halogen_w > 0.0 {
+        if s.q_noble_w + s.q_alkali_w + s.q_halogen_w + s.q_chalcogen_w > 0.0 {
             let cs = |kg: f64| kg / prm.cs_inventory_kg * s.q_alkali_w;
             let io = |kg: f64| kg / prm.i_inventory_kg * s.q_halogen_w;
+            let te = |kg: f64| kg / prm.te_inventory_kg * s.q_chalcogen_w;
             let air = |v: &RnVolume, c: usize| v.vapour_kg[c] + v.on_aerosol(c);
             let held = |v: &RnVolume, c: usize| v.on_surface_kg.iter().map(|x| x[c]).sum::<f64>();
-            let dw_gas = self.xe_dw * s.q_noble_w + cs(air(&self.dw_rn, CS)) + io(air(&self.dw_rn, IODINE));
-            let dw_wall = cs(held(&self.dw_rn, CS)) + io(held(&self.dw_rn, IODINE));
+            let dw_gas = self.xe_dw * s.q_noble_w + cs(air(&self.dw_rn, CS)) + io(air(&self.dw_rn, IODINE)) + te(air(&self.dw_rn, TE));
+            let dw_wall = cs(held(&self.dw_rn, CS)) + io(held(&self.dw_rn, IODINE)) + te(held(&self.dw_rn, TE));
             let pool = self.xe_ww * s.q_noble_w
                 + cs(air(&self.ww_rn, CS) + held(&self.ww_rn, CS) + self.pool_scrubbed[CS])
-                + io(air(&self.ww_rn, IODINE) + held(&self.ww_rn, IODINE) + self.pool_scrubbed[IODINE]);
+                + io(air(&self.ww_rn, IODINE) + held(&self.ww_rn, IODINE) + self.pool_scrubbed[IODINE])
+                + te(air(&self.ww_rn, TE) + held(&self.ww_rn, TE) + self.pool_scrubbed[TE]);
             let e = self.dw_energy(tv) + dw_gas * dt;
             self.set_dw_energy(e, tv);
             self.dw_wall_t += dw_wall * dt / prm.dw_wall_c;
@@ -392,11 +403,11 @@ impl Containment {
         let relief_m3 = (s.srv_h2_kg_s / M_H2 + s.srv_steam_kg_s / M_H2O) * dt * R_GAS * self.pool_t / (self.p_ww(prm) + prm.vent_submergence_pa);
         if s.rn_relief.moved.is_empty() {
             let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, s.i_relief_kg, relief_m3);
-            self.pool_scrubbed[0] += s.cs_relief_kg * (1.0 - pass);
-            self.pool_scrubbed[1] += s.i_relief_kg * (1.0 - pass_i);
-            self.pool_scrubbed[2] += s.uo2_relief_kg * (1.0 - pass);
-            self.ww_rn.add(s.uo2_relief_kg * pass, rho_p, [s.cs_relief_kg * pass, s.i_relief_kg * pass_i]);
-            self.dw_rn.add(s.uo2_leak_kg, rho_p, [s.cs_leak_kg, s.i_leak_kg]);
+            self.pool_scrubbed[CS] += s.cs_relief_kg * (1.0 - pass);
+            self.pool_scrubbed[IODINE] += s.i_relief_kg * (1.0 - pass_i);
+            self.pool_scrubbed[AEROSOL] += s.uo2_relief_kg * (1.0 - pass);
+            self.ww_rn.add(s.uo2_relief_kg * pass, rho_p, [s.cs_relief_kg * pass, s.i_relief_kg * pass_i, 0.0]);
+            self.dw_rn.add(s.uo2_leak_kg, rho_p, [s.cs_leak_kg, s.i_leak_kg, 0.0]);
         } else {
             // The vessel's aerosol arrives with its size distribution
             // (`vessel_aerosol`): the relief flow's is scrubbed section by
@@ -404,14 +415,14 @@ impl Containment {
             // within the partition limit); the leaks' enters the drywell.
             let rf = &s.rn_relief;
             let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, rf.vapour_kg[IODINE], relief_m3);
-            let pass_v = [pass, pass_i];
-            for k in 0..2 {
+            let pass_v = [pass, pass_i, pass];
+            for k in 0..N_CLASSES {
                 self.pool_scrubbed[k] += rf.vapour_kg[k] * (1.0 - pass_v[k]) + rf.on_aerosol_kg[k].iter().sum::<f64>() * (1.0 - pass);
             }
-            self.pool_scrubbed[2] += rf.moved.iter().sum::<f64>() * rho_p * (1.0 - pass);
+            self.pool_scrubbed[AEROSOL] += rf.moved.iter().sum::<f64>() * rho_p * (1.0 - pass);
             let moved: Vec<f64> = rf.moved.iter().map(|m| m * pass).collect();
-            let ca = [0, 1].map(|k| rf.on_aerosol_kg[k].iter().map(|m| m * pass).collect::<Vec<f64>>());
-            self.ww_rn.receive(&moved, [rf.vapour_kg[0] * pass, rf.vapour_kg[1] * pass_i], &ca);
+            let ca: [Vec<f64>; N_CLASSES] = std::array::from_fn(|k| rf.on_aerosol_kg[k].iter().map(|m| m * pass).collect());
+            self.ww_rn.receive(&moved, std::array::from_fn(|k| rf.vapour_kg[k] * pass_v[k]), &ca);
             let lk = &s.rn_leak;
             if !lk.moved.is_empty() {
                 self.dw_rn.receive(&lk.moved, lk.vapour_kg, &lk.on_aerosol_kg);
@@ -556,15 +567,15 @@ impl Containment {
             if s.pool_scrubbing && s.iodine_swarm && cv[IODINE] > 0.0 && n_nc > 0.0 {
                 pass_i *= self.iodine_swarm_pass;
             }
-            let pass_v = [pass, pass_i];
-            for k in 0..2 {
+            let pass_v = [pass, pass_i, pass];
+            for k in 0..N_CLASSES {
                 self.pool_scrubbed[k] += cv[k] * (1.0 - pass_v[k]) + ca[k].iter().zip(&swarm).map(|(m, p)| m * (1.0 - pass * p)).sum::<f64>();
             }
-            self.pool_scrubbed[2] += moved.iter().sum::<f64>() * rho_p * (1.0 - pass)
+            self.pool_scrubbed[AEROSOL] += moved.iter().sum::<f64>() * rho_p * (1.0 - pass)
                 + moved.iter().zip(&swarm).map(|(m, p)| m * pass * (1.0 - p)).sum::<f64>() * rho_p;
             let moved: Vec<f64> = moved.iter().zip(&swarm).map(|(m, p)| m * pass * p).collect();
-            let ca = [0, 1].map(|k| ca[k].iter().zip(&swarm).map(|(m, p)| m * pass * p).collect::<Vec<f64>>());
-            self.ww_rn.receive(&moved, [cv[0] * pass, cv[1] * pass_i], &ca);
+            let ca: [Vec<f64>; N_CLASSES] = std::array::from_fn(|k| ca[k].iter().zip(&swarm).map(|(m, p)| m * pass * p).collect());
+            self.ww_rn.receive(&moved, std::array::from_fn(|k| cv[k] * pass_v[k]), &ca);
             let e_dw = self.dw_energy(tv);
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
@@ -654,6 +665,7 @@ impl Containment {
             let (_, cv, ca) = self.ww_rn.take(f_gas);
             self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
             self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
+            self.te_out_kg += cv[TE] + ca[TE].iter().sum::<f64>();
             self.vented_h2_kg += dh2 * M_H2;
             vented_kg_s = (self.ww_n2 * f * M_N2 + dh2 * M_H2 + m_s) / dt;
             self.ww_n2 -= self.ww_n2 * f;
@@ -683,6 +695,7 @@ impl Containment {
             let (_, cv, ca) = self.ww_rn.take(f);
             self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
             self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
+            self.te_out_kg += cv[TE] + ca[TE].iter().sum::<f64>();
             self.vented_h2_kg += dh2 * M_H2;
             vented_kg_s = (self.ww_n2 * f * M_N2 + dh2 * M_H2) / dt;
             self.ww_n2 -= self.ww_n2 * f;
@@ -717,6 +730,7 @@ impl Containment {
             let (_, cv, ca) = self.dw_rn.take(f);
             self.cs_building_kg += cv[CS] + ca[CS].iter().sum::<f64>();
             self.i_building_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
+            self.te_out_kg += cv[TE] + ca[TE].iter().sum::<f64>();
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
             self.dw_steam_kg -= self.dw_steam_kg * f;
@@ -772,6 +786,7 @@ impl Containment {
             i_airborne_kg: self.dw_rn.vapour_kg[IODINE] + self.dw_rn.on_aerosol(IODINE) + self.ww_rn.vapour_kg[IODINE] + self.ww_rn.on_aerosol(IODINE),
             i_vented_kg: self.i_vented_kg,
             i_building_kg: self.i_building_kg,
+            te_kg: self.dw_rn.total_kg(TE) + self.ww_rn.total_kg(TE) + self.pool_scrubbed[TE] + self.te_out_kg,
         }
     }
 }
@@ -824,6 +839,9 @@ impl Containment {
 fn condensation_pass(x_i: f64, x_o: f64) -> f64 {
     if x_i >= x_o { 1.0 } else { x_i / x_o }
 }
+
+/// Index of the particle mass in `pool_scrubbed`, after the classes.
+const AEROSOL: usize = N_CLASSES;
 
 /// Aerosol step, s (the transport steps every plant step).
 pub(crate) const RN_STEP_S: f64 = 10.0;
@@ -962,6 +980,7 @@ impl Containment {
             self.cs_building_kg,
             self.i_vented_kg,
             self.i_building_kg,
+            self.te_out_kg,
             self.swarm_age_s,
             self.iodine_h,
             self.dw_condensed_kg,
@@ -1002,16 +1021,17 @@ impl Containment {
             cs_building_kg: r.f(),
             i_vented_kg: r.f(),
             i_building_kg: r.f(),
+            te_out_kg: r.f(),
             swarm_pass: vec![],
             swarm_age_s: r.f(),
             iodine_h: r.f(),
             dw_condensed_kg: r.f(),
             iodine_swarm_pass: r.f(),
             iodine_swarm_age_s: r.f(),
-            pool_scrubbed: [0.0; 3],
+            pool_scrubbed: [0.0; N_CLASSES + 1],
         };
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
-        c.pool_scrubbed = [r.f(), r.f(), r.f()];
+        c.pool_scrubbed = std::array::from_fn(|_| r.f());
         c.dw_rn.read_into(r);
         c.ww_rn.read_into(r);
         c
@@ -1054,6 +1074,7 @@ impl ContainmentSnapshot {
             self.q_noble_w,
             self.q_alkali_w,
             self.q_halogen_w,
+            self.q_chalcogen_w,
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1093,6 +1114,7 @@ impl ContainmentSnapshot {
             q_noble_w: r.f(),
             q_alkali_w: r.f(),
             q_halogen_w: r.f(),
+            q_chalcogen_w: r.f(),
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),
@@ -1130,6 +1152,7 @@ impl ContainmentResult {
             self.i_airborne_kg,
             self.i_vented_kg,
             self.i_building_kg,
+            self.te_kg,
         ]);
     }
     pub fn read(r: &mut Reader) -> Self {
@@ -1161,6 +1184,7 @@ impl ContainmentResult {
             i_airborne_kg: r.f(),
             i_vented_kg: r.f(),
             i_building_kg: r.f(),
+            te_kg: r.f(),
         }
     }
 }

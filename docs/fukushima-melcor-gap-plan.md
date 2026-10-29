@@ -145,6 +145,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Aerosol dynamics in the vessel (sectional volume, internals and floor as surfaces; output only) | F9, #1047 | 4.469 | 295.45 | missed: predicted retention in the vessel, but the in-vessel aerosol takes the CsOH vapour and carries it out; internals hold 0.05 kg at 26 h (was 11.3); Cs in pool 114 kg (was 102); Fig 2.6a inside 41 % (was 39 %) |
 | Condensed Cs and I add to their aerosol section's mass (MELCOR RN §2.5.2; output only) | F9, #1047 | 4.469 | 295.45 | mostly held: vessel keeps 5.8 kg, vented Cs 8.8 -> 0.4 kg, dw structures 60 kg at 12 h (overshoot); pool up (missed); Fig 2.6a inside 23 % (was 41 %) |
 | Decay heat of released noble gases, alkali metals and halogens follows them (class shares from an ENDF/B-VIII summation, 0.96-0.99 of ANS) | F10, #1041 | **4.524** | **304.26** | lower head 0.055 h later (held); drywell peak 0.595 -> 0.613 MPa; measured drywell mean miss 0.289 -> 0.274 MPa; Fig 2.6a inside 37 % (was 23 %) |
+| Tellurium transported (MELCOR class 5, 15.4 kg \[A\] from the summation's Te/Cs ratio), its heat following it | F9/F10, #1041 | **4.517** | **305.64** | no prediction written (lapse, recorded); lower head 0.007 h earlier; drywell peak 0.613 -> 0.609 MPa; Fig 2.6a inside 51 % (was 37 %) |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently
@@ -216,7 +217,13 @@ envelope 94 % of the time.
     would pass part of the steam into the wetwell gas.
 
   This matters for the post-vent wetwell and vent flow and for F12 (runs to
-  500 h). It is not built yet.
+  500 h). It is not built yet. **Scoped 2026-10-29:** MELCOR's form is `epsilon = epsilon_z
+  epsilon_T`, `epsilon_T = (T_sat(P_junction) - T_pool - 0.1 K) / 5 K`
+  clamped to [0, 1] (CVH/FL RM §6, Eqs 6-1 to 6-3, C4405); below 1 the
+  steam passes partly to the wetwell atmosphere. Here the wetwell gas has
+  no temperature or steam inventory of its own (it is always at the
+  pool's temperature and saturation pressure), so any passed steam would
+  recondense at once. It needs a wetwell atmosphere first.
 - **F11 can change nothing yet.** No hydrogen reaches the building, because
   the drywell (0.56 MPa) never reaches the flange-leak pressure (0.75 MPa \[A\]).
   The upstream lever is drywell pressure, F8 (MCCI gas). That needs a heat of
