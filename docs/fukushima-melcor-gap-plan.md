@@ -130,6 +130,8 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Noble-gas (Xe) transport, fuel to stack (output only) | F9, #1040 | 5.452 | 215.36 | conserved to 1e-12 every step; all 0.85 in the wetwell gas at 26 h (no vent or flange leak opens) |
 | A failed vessel's gas leaves through the breach | — | **5.452** | **215.36** | drywell +1.5e-5 MPa; predicted +0.01 from post-failure H2, missed: almost no H2 is made after failure |
 | Cesium and aerosol through the containment (sectional aerosol, TRAP-MELT2; output only) | F9, #1047 | 5.452 | 215.36 | conserved to 1e-9; Cs in S/C water inside the 9-code envelope 85 % of the time, on drywell structures 47 % (deposit re-evaporates) |
+| Iodine through the containment (output only) | F9, #1047 | 5.452 | 215.36 | all I2 stays airborne; inside the Fig 2.6b/d envelopes 0 % |
+| Pool scrubbing by steam condensation (SPARC-90's DF_EC; output only) | F9, #1047 | 5.452 | 215.36 | I in S/C water inside 54 % (was 0 %); Cs 61 % (was 85 %, reaching the pool earlier); predictions held |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

@@ -91,6 +91,9 @@ pub struct ContainmentSnapshot {
     /// Iodine (as I2 vapour) likewise, kg.
     pub i_relief_kg: f64,
     pub i_leak_kg: f64,
+    /// Pool scrubbing by steam condensation at the vent exits (SPARC-90's
+    /// DF_EC; `Mechanisms::pool_scrubbing`).
+    pub pool_scrubbing: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -167,6 +170,9 @@ pub struct Containment {
     cs_building_kg: f64,
     i_vented_kg: f64,
     i_building_kg: f64,
+    /// Scrubbed into the pool water at the vent exits (SPARC-90's DF_EC),
+    /// kg: cesium, iodine, aerosol.
+    pool_scrubbed: [f64; 3],
 }
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
@@ -221,6 +227,7 @@ impl Containment {
             cs_building_kg: 0.0,
             i_vented_kg: 0.0,
             i_building_kg: 0.0,
+            pool_scrubbed: [0.0; 3],
         }
     }
 
@@ -284,7 +291,18 @@ impl Containment {
         // gas (MELCOR's default with pool interaction off: gas below a pool
         // surface passes unchanged), the leaks' into the drywell.
         let rho_p = Medium::air(300.0, P_ATM, 1.8e-5).rho_p;
-        self.ww_rn.add(s.uo2_relief_kg, rho_p, [s.cs_relief_kg, s.i_relief_kg]);
+        // The relief flow enters the pool at the quenchers: with scrubbing,
+        // only the non-condensable share of its volume passes (SPARC-90's
+        // DF_EC: "aerosol particles and iodine vapors are removed in
+        // proportion to the reduction in the volumetric flow rate" as the
+        // steam condenses; Vol. 2 RN §2.7.1). The other factors of its
+        // Eq 2-113 (impaction, swarm rise) are not built, so this is a
+        // lower bound on the scrubbing.
+        let pass = if s.pool_scrubbing { nc_share(s.srv_h2_kg_s / M_H2, 0.0, s.srv_steam_kg_s / M_H2O) } else { 1.0 };
+        self.pool_scrubbed[0] += s.cs_relief_kg * (1.0 - pass);
+        self.pool_scrubbed[1] += s.i_relief_kg * (1.0 - pass);
+        self.pool_scrubbed[2] += s.uo2_relief_kg * (1.0 - pass);
+        self.ww_rn.add(s.uo2_relief_kg * pass, rho_p, [s.cs_relief_kg * pass, s.i_relief_kg * pass]);
         self.dw_rn.add(s.uo2_leak_kg, rho_p, [s.cs_leak_kg, s.i_leak_kg]);
         // 2. RPV leak into the drywell.
         let m = s.leak_steam_kg_s * dt;
@@ -368,7 +386,15 @@ impl Containment {
             self.xe_dw -= dxe;
             self.xe_ww += dxe;
             let (moved, cv, ca) = self.dw_rn.take(f);
-            self.ww_rn.receive(&moved, cv, ca);
+            // Through the downcomers into the pool: scrubbed likewise.
+            let pass = if s.pool_scrubbing { nc_share(dh2, dn2, dsteam / M_H2O) } else { 1.0 };
+            let rho_p = Medium::air(300.0, P_ATM, 1.8e-5).rho_p;
+            for k in 0..2 {
+                self.pool_scrubbed[k] += (cv[k] + ca[k]) * (1.0 - pass);
+            }
+            self.pool_scrubbed[2] += moved.iter().sum::<f64>() * rho_p * (1.0 - pass);
+            let moved: Vec<f64> = moved.iter().map(|m| m * pass).collect();
+            self.ww_rn.receive(&moved, cv.map(|x| x * pass), ca.map(|x| x * pass));
             let e_dw = self.dw_energy(tv);
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
@@ -509,17 +535,25 @@ impl Containment {
             xe_vented: self.xe_vented,
             xe_building: self.xe_building,
             cs_dw_structures_kg: self.dw_rn.on_surface_kg.iter().map(|x| x[CS]).sum(),
-            cs_ww_pool_kg: self.ww_rn.on_surface_kg[0][CS],
+            cs_ww_pool_kg: self.ww_rn.on_surface_kg[0][CS] + self.pool_scrubbed[CS],
             cs_airborne_kg: self.dw_rn.vapour_kg[CS] + self.dw_rn.on_aerosol_kg[CS] + self.ww_rn.vapour_kg[CS] + self.ww_rn.on_aerosol_kg[CS],
             cs_vented_kg: self.cs_vented_kg,
             cs_building_kg: self.cs_building_kg,
             i_dw_structures_kg: self.dw_rn.on_surface_kg.iter().map(|x| x[IODINE]).sum(),
-            i_ww_pool_kg: self.ww_rn.on_surface_kg[0][IODINE],
+            i_ww_pool_kg: self.ww_rn.on_surface_kg[0][IODINE] + self.pool_scrubbed[IODINE],
             i_airborne_kg: self.dw_rn.vapour_kg[IODINE] + self.dw_rn.on_aerosol_kg[IODINE] + self.ww_rn.vapour_kg[IODINE] + self.ww_rn.on_aerosol_kg[IODINE],
             i_vented_kg: self.i_vented_kg,
             i_building_kg: self.i_building_kg,
         }
     }
+}
+
+/// The non-condensable share of a gas's moles (H2, N2, steam), the share of
+/// its volume that survives the steam's condensation in the pool (SPARC-90's
+/// DF_EC is its inverse). No gas, nothing scrubbed.
+fn nc_share(h2_mol: f64, n2_mol: f64, steam_mol: f64) -> f64 {
+    let total = h2_mol + n2_mol + steam_mol;
+    if total > 0.0 { (h2_mol + n2_mol) / total } else { 1.0 }
 }
 
 /// Aerosol step, s (the transport steps every plant step).
@@ -627,6 +661,7 @@ impl Containment {
             self.i_vented_kg,
             self.i_building_kg,
         ]);
+        w.f(&self.pool_scrubbed);
         self.dw_rn.write(w);
         self.ww_rn.write(w);
     }
@@ -659,7 +694,9 @@ impl Containment {
             cs_building_kg: r.f(),
             i_vented_kg: r.f(),
             i_building_kg: r.f(),
+            pool_scrubbed: [0.0; 3],
         };
+        c.pool_scrubbed = [r.f(), r.f(), r.f()];
         c.dw_rn.read_into(r);
         c.ww_rn.read_into(r);
         c
@@ -690,6 +727,7 @@ impl ContainmentSnapshot {
             self.uo2_leak_kg,
             self.i_relief_kg,
             self.i_leak_kg,
+            b(self.pool_scrubbing),
         ]);
         self.prm.write(w);
     }
@@ -715,6 +753,7 @@ impl ContainmentSnapshot {
             uo2_leak_kg: r.f(),
             i_relief_kg: r.f(),
             i_leak_kg: r.f(),
+            pool_scrubbing: r.f() != 0.0,
             prm: Params::read(r),
         }
     }

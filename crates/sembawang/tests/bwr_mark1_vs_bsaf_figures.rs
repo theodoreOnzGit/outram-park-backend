@@ -153,7 +153,11 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// stated), through the containment by the sectional aerosol and
 /// TRAP-MELT2 condensation (`rn_volume`); no pool scrubbing (SPARC-90 not
 /// built; MELCOR's default with pool interaction off), so the S/C water's
-/// cesium is what settles onto the pool surface. Fractions of the
+/// cesium is what settles onto the pool surface. ~~no pool scrubbing~~
+/// Since 2026-10-29 the gas entering the pool (relief quenchers,
+/// downcomers) is scrubbed by its steam's condensation, SPARC-90's DF_EC
+/// (a lower bound on SPARC's scrubbing); the S/C water's cesium is the
+/// scrubbed plus the settled. Fractions of the
 /// inventory against the nine codes' envelope, 0-25 h in 0.25 h steps.
 ///
 /// Results, 2026-10-29:
@@ -167,6 +171,13 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 ///   drywell structures heat (the ex-vessel debris's heat goes into them),
 ///   which five of BSAF's nine codes also show as remobilisation.
 ///
+/// **Moved 2026-10-29 by the pool scrubbing (DF_EC):** Cs in the S/C water
+/// 0.807 -> 0.830 at 26 h (predicted about unchanged, +-0.05: held), but
+/// inside the envelope 85.4 % -> 60.7 % of times, because the scrubbed
+/// cesium reaches the pool earlier and runs above the codes sooner. Drywell
+/// structures unchanged. `without_pool_scrubbing` reproduces the earlier
+/// numbers exactly (pinned below).
+///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
 /// missing in-vessel deposition and pool scrubbing.
@@ -178,7 +189,10 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.4667).abs() < 1e-3 && (c.0 - 0.8539).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.4667).abs() < 1e-3 && (c.0 - 0.6067).abs() < 1e-3, "{a:?} {c:?}");
+    let off = histories(Mechanisms::default().without_pool_scrubbing(), Params::default(), 60.0, 26.0 * 3600.0);
+    let c_off = inside_envelope(&off.t_h, &off.cs_sc_water, &family("2.6c"), &grid);
+    assert!((c_off.0 - 0.8539).abs() < 1e-3, "{c_off:?}");
 }
 
 
@@ -196,6 +210,14 @@ fn cesium_against_fig_2_6() {
 /// what MELCOR's defaults give without SPARC (released iodine is I2; CsI
 /// forms only when requested): iodine's retention in the codes comes from
 /// pool scrubbing (SPARC-90 scrubs I2 vapour) and chemistry, neither built.
+///
+/// **Moved 2026-10-29 by the pool scrubbing (DF_EC):** iodine in the S/C
+/// water is inside the envelope **53.9 %** of the times (was 0 %); 7.98 of
+/// the 10.19 kg released is in the pool at 26 h (0.666 of inventory, just
+/// above the highest code, CIEMAT's about 0.62, at the end). Predicted
+/// before the run: rising to 0.3-0.6, inside much of the time: held,
+/// roughly. Drywell structures still 0 %. `without_pool_scrubbing`
+/// reproduces 0 % (pinned).
 #[test]
 fn iodine_against_fig_2_6() {
     let m = model();
@@ -203,5 +225,8 @@ fn iodine_against_fig_2_6() {
     let b = inside_envelope(&m.t_h, &m.i_dw_structures, &family("2.6b"), &grid);
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
-    assert_eq!((b, d), ((0.0, 76), (0.0, 89)));
+    assert_eq!(b, (0.0, 76));
+    assert!((d.0 - 0.5393).abs() < 1e-3 && d.1 == 89, "{d:?}");
+    let off = histories(Mechanisms::default().without_pool_scrubbing(), Params::default(), 60.0, 26.0 * 3600.0);
+    assert_eq!(inside_envelope(&off.t_h, &off.i_sc_water, &family("2.6d"), &grid), (0.0, 89));
 }

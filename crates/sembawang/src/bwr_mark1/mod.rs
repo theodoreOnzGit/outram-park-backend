@@ -156,6 +156,11 @@ pub struct Mechanisms {
     /// pressure (2026-10-29); off is the vessel sealed at the drywell's
     /// pressure, nothing leaving.
     pub failed_vessel_outflow: bool,
+    /// Pool scrubbing of aerosol and iodine where gas enters the pool (the
+    /// relief valves' quenchers, the downcomers), by the steam's
+    /// condensation: SPARC-90's DF_EC (2026-10-29). Off is MELCOR's
+    /// default with pool interaction off: everything passes.
+    pub pool_scrubbing: bool,
 }
 
 impl Default for Mechanisms {
@@ -179,6 +184,7 @@ impl Default for Mechanisms {
             dome_internals: true,
             penetrations: true,
             failed_vessel_outflow: true,
+            pool_scrubbing: true,
         }
     }
 }
@@ -296,6 +302,14 @@ impl Mechanisms {
     /// 2026-10-29.
     pub fn without_failed_vessel_outflow(mut self) -> Self {
         self.failed_vessel_outflow = false;
+        self
+    }
+
+    /// No pool scrubbing: everything entering the pool passes to the
+    /// wetwell gas (the model before 2026-10-29, and MELCOR's default with
+    /// pool interaction off).
+    pub fn without_pool_scrubbing(mut self) -> Self {
+        self.pool_scrubbing = false;
         self
     }
 
@@ -935,6 +949,7 @@ impl Plant {
                 uo2_leak_kg: self.uo2_vessel_kg * self.pending.share_leak,
                 i_relief_kg: self.i_vessel_kg * self.pending.share_relief,
                 i_leak_kg: self.i_vessel_kg * self.pending.share_leak,
+                pool_scrubbing: self.mechanisms.pool_scrubbing,
                 prm,
             },
         }

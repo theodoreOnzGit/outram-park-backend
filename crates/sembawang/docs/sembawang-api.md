@@ -4016,6 +4016,7 @@ pub struct ContainmentSnapshot {
     pub uo2_leak_kg: f64,
     pub i_relief_kg: f64,
     pub i_leak_kg: f64,
+    pub pool_scrubbing: bool,
     pub prm: Params,
 }
 ```
@@ -4044,6 +4045,7 @@ pub struct ContainmentSnapshot {
 | `uo2_leak_kg` | `f64` |  |
 | `i_relief_kg` | `f64` | Iodine (as I2 vapour) likewise, kg. |
 | `i_leak_kg` | `f64` |  |
+| `pool_scrubbing` | `bool` | Pool scrubbing by steam condensation at the vent exits (SPARC-90's<br>DF_EC; `Mechanisms::pool_scrubbing`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -9470,6 +9472,7 @@ pub struct Mechanisms {
     pub dome_internals: bool,
     pub penetrations: bool,
     pub failed_vessel_outflow: bool,
+    pub pool_scrubbing: bool,
 }
 ```
 
@@ -9495,6 +9498,7 @@ pub struct Mechanisms {
 | `dome_internals` | `bool` | The steam dome's internals as a heat structure between the core and<br>the steam lines, leaks and containment ([`internals`], 2026-10-29);<br>off passes the core's exit gas straight through. |
 | `penetrations` | `bool` | Lower-head penetration failure at the wall's temperature limit<br>(`core::HeadWall`, MELCOR §6.3, 2026-10-29); off is the wall alone. |
 | `failed_vessel_outflow` | `bool` | After lower-head failure the vessel's gas (the hydrogen and steam<br>made after it) leaves through the breach on the vessel's own<br>pressure (2026-10-29); off is the vessel sealed at the drywell's<br>pressure, nothing leaving. |
+| `pool_scrubbing` | `bool` | Pool scrubbing of aerosol and iodine where gas enters the pool (the<br>relief valves' quenchers, the downcomers), by the steam's<br>condensation: SPARC-90's DF_EC (2026-10-29). Off is MELCOR's<br>default with pool interaction off: everything passes. |
 
 ##### Implementations
 
@@ -9584,6 +9588,11 @@ pub struct Mechanisms {
   pub fn without_failed_vessel_outflow(self: Self) -> Self { /* ... */ }
   ```
   A failed vessel passes nothing to the drywell: the model before
+
+- ```rust
+  pub fn without_pool_scrubbing(self: Self) -> Self { /* ... */ }
+  ```
+  No pool scrubbing: everything entering the pool passes to the
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
