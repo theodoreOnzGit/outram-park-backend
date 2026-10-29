@@ -28,7 +28,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::call_graph::{CallGraphDoc, TargetKind};
 
 use super::super::index::{Suite, TestRun};
-use super::{NotCounted, TestEvidence};
+use super::{NotCounted, Scope, TestEvidence};
 
 /// How one libtest name maps.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -146,10 +146,14 @@ pub fn to_test_run(
         TestRun {
             commit: evidence.commit.clone(),
             cargo_lock: evidence.cargo_lock.clone(),
-            suite: Suite::Full,
+            suite: match evidence.scope {
+                Scope::Targeted => Suite::Targeted,
+                _ => Suite::Full,
+            },
             passed,
             failed: failed.into_iter().collect(),
             edited: Vec::new(),
+            targets: evidence.targets.clone(),
         },
         unmapped,
     ))
@@ -171,5 +175,6 @@ pub fn restrict(run: &TestRun, wanted: &BTreeSet<&str>) -> TestRun {
         passed: keep(&run.passed),
         failed: keep(&run.failed),
         edited: keep(&run.edited),
+        targets: keep(&run.targets),
     }
 }

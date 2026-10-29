@@ -28,13 +28,18 @@
 //! `<workspace>/target/kovan/test_evidence_last.toml` (`--out` overrides
 //! it), so a partial, dirty or incomplete run never touches `kovan.toml`.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use kovan_common::review::evidence::args::plan;
+use kovan_common::review::evidence::args::{plan, Plan};
+use kovan_common::review::index::FolderIndex;
+use kovan_common::review::state::StateKind;
 use kovan_common::review::evidence::output::{LineKind, OutputParser};
 use kovan_common::review::evidence::{dirty_build_inputs, TestEvidence};
+
+use super::index_control::{RunControl, CANCELLED};
 
 fn capture(root: &Path, program: &str, args: &[&str]) -> Result<String, String> {
     let out = Command::new(program)
@@ -125,14 +130,186 @@ fn cargo_command(args: &[String], root: &Path) -> Command {
 }
 
 /// Run `kovan-cli test` in workspace `root` with the user's `extra` cargo
-/// arguments.
+/// arguments, echoing to stdout.
 pub fn run(
     root: &Path,
     extra: &[String],
     allow_dirty: bool,
     out: Option<PathBuf>,
 ) -> Result<(), String> {
+    run_with(root, extra, allow_dirty, out, &RunControl::default(), print_line)
+}
+
+/// [`run`], with every line it would print handed to `say` (the CLI prints
+/// it; Code Review's "Run workspace test" logs it, `app::workspace_test`).
+/// Cancel on `ctl` kills cargo at its next output line and records
+/// nothing: a cancelled run is not evidence.
+pub fn run_with<F: FnMut(&str)>(
+    root: &Path,
+    extra: &[String],
+    allow_dirty: bool,
+    out: Option<PathBuf>,
+    ctl: &RunControl,
+    mut say: F,
+) -> Result<(), String> {
     let pl = plan(extra).map_err(|e| e.to_string())?;
+    execute(root, pl, None, allow_dirty, out, ctl, &mut say)
+}
+
+/// Prints a line to stdout (the CLI's `say`).
+fn print_line(l: &str) {
+    let mut o = std::io::stdout().lock();
+    let _ = writeln!(o, "{l}");
+    let _ = o.flush();
+}
+
+/// `kovan-cli test --pending-stamps` (GitHub #1052): evaluate the
+/// workspace's stamps, then run only the reaching tests of those pending a
+/// workspace test ([`targeted_plan`]) and record the run as targeted.
+/// `extra` must be empty: a targeted run chooses its own arguments.
+pub fn run_pending_stamps(
+    root: &Path,
+    extra: &[String],
+    allow_dirty: bool,
+    out: Option<PathBuf>,
+) -> Result<(), String> {
+    run_pending_stamps_with(root, extra, allow_dirty, out, &RunControl::default(), print_line)
+}
+
+/// [`run_pending_stamps`], with every line handed to `say` and cancel on
+/// `ctl`, as [`run_with`] (Code Review's "Run pending stamps' tests",
+/// `app::workspace_test`).
+pub fn run_pending_stamps_with<F: FnMut(&str)>(
+    root: &Path,
+    extra: &[String],
+    allow_dirty: bool,
+    out: Option<PathBuf>,
+    ctl: &RunControl,
+    mut say: F,
+) -> Result<(), String> {
+    if !extra.is_empty() {
+        return Err(format!(
+            "--pending-stamps takes no cargo arguments (got: {})",
+            extra.join(" ")
+        ));
+    }
+    let ws = crate::stamping::load_workspace(root)?;
+    let eval = crate::stamping::evaluate_loaded(root, &ws);
+    let pending: BTreeSet<String> = eval
+        .evaluation
+        .functions
+        .values()
+        .filter(|f| {
+            f.reviews
+                .iter()
+                .any(|r| r.state.kind() == StateKind::PendingWorkspaceTest)
+        })
+        .map(|f| f.id.clone())
+        .collect();
+    let Some(tp) = targeted_plan(&ws.indexes, &pending) else {
+        say("kovan-cli test --pending-stamps: no stamp is pending a workspace test with a reaching test; nothing to run");
+        return Ok(());
+    };
+    say(&format!(
+        "kovan-cli test --pending-stamps: {} pending function(s), {} reaching test(s) in {} package(s)",
+        pending.len(),
+        tp.targets.len(),
+        tp.packages.len()
+    ));
+    let pl = Plan {
+        args: tp.args(),
+        partial_reasons: Vec::new(),
+    };
+    execute(root, pl, Some(tp.targets), allow_dirty, out, ctl, &mut say)
+}
+
+/// What a targeted run runs (GitHub #1052): the test ids to cover, the
+/// packages holding them and the libtest name filters (each test's
+/// function name, so the run is a superset of the targets, never fewer).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TargetedPlan {
+    pub targets: Vec<String>,
+    pub packages: Vec<String>,
+    pub filters: Vec<String>,
+}
+
+impl TargetedPlan {
+    /// The arguments after `cargo`: the full run's flags over the
+    /// packages, filtered by name.
+    pub fn args(&self) -> Vec<String> {
+        let mut a: Vec<String> = [
+            "test",
+            "--lib",
+            "--tests",
+            "--release",
+            "--no-fail-fast",
+            "--message-format=json-render-diagnostics",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        for p in &self.packages {
+            a.push("-p".into());
+            a.push(p.clone());
+        }
+        a.push("--".into());
+        a.extend(self.filters.iter().cloned());
+        a
+    }
+}
+
+/// The reaching tests of the functions in `pending` (by function id), with
+/// the package and libtest name filter of each, from the folder indexes;
+/// `None` when they have none. A reaching test no index lists as a test
+/// function stays a target but adds no filter: it is not run, so the
+/// engine sees it not run.
+pub fn targeted_plan(indexes: &[FolderIndex], pending: &BTreeSet<String>) -> Option<TargetedPlan> {
+    let mut targets: BTreeSet<String> = BTreeSet::new();
+    let mut tests: BTreeMap<String, (String, String)> = BTreeMap::new();
+    for idx in indexes {
+        for (file, f) in idx.functions() {
+            if pending.contains(&f.id) {
+                targets.extend(f.reached_by.iter().cloned());
+            }
+            if f.test {
+                let name = f.qual.rsplit("::").next().unwrap_or(&f.qual);
+                let name = name.split('#').next().unwrap_or(name);
+                tests.insert(
+                    format!("{}::{}", idx.file_path(file), f.qual),
+                    (idx.krate.clone(), name.to_string()),
+                );
+            }
+        }
+    }
+    if targets.is_empty() {
+        return None;
+    }
+    let mut packages = BTreeSet::new();
+    let mut filters = BTreeSet::new();
+    for t in &targets {
+        if let Some((k, n)) = tests.get(t) {
+            packages.insert(k.clone());
+            filters.insert(n.clone());
+        }
+    }
+    Some(TargetedPlan {
+        targets: targets.into_iter().collect(),
+        packages: packages.into_iter().collect(),
+        filters: filters.into_iter().collect(),
+    })
+}
+
+/// Run the planned `cargo test` and record it (module doc); `targets` makes
+/// it a targeted run (GitHub #1052).
+fn execute<F: FnMut(&str)>(
+    root: &Path,
+    pl: Plan,
+    targets: Option<Vec<String>>,
+    allow_dirty: bool,
+    out: Option<PathBuf>,
+    ctl: &RunControl,
+    say: &mut F,
+) -> Result<(), String> {
     let mut dirty_paths = dirty(root)?;
     if !dirty_paths.is_empty() && !allow_dirty {
         return Err(format!(
@@ -149,12 +326,14 @@ pub fn run(
     let date = crate::digitiser::dataset::utc_now_iso8601();
     let mut command = vec!["cargo".to_string()];
     command.extend(pl.args.iter().cloned());
-    let scope = if pl.partial_reasons.is_empty() {
+    let scope = if targets.is_some() {
+        "targeted: pending stamps' reaching tests".to_string()
+    } else if pl.partial_reasons.is_empty() {
         "full suite".to_string()
     } else {
         format!("PARTIAL ({})", pl.partial_reasons.join(", "))
     };
-    println!("kovan-cli test: {} [{scope}]", command.join(" "));
+    say(&format!("kovan-cli test: {} [{scope}]", command.join(" ")));
 
     // cargo's stderr (`Running …`) and the test binaries' stdout must reach
     // the parser in order, so both get the same pipe.
@@ -174,13 +353,15 @@ pub fn run(
     // The parent's copies of the write end are moved into `Command` and
     // dropped with it, so the reader sees EOF when cargo exits.
     let mut parser = OutputParser::new(&abs_root.to_string_lossy());
-    let stdout = std::io::stdout();
     for line in BufReader::new(reader).lines() {
         let line = line.map_err(|e| format!("reading cargo output: {e}"))?;
+        if ctl.cancelled() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(CANCELLED.to_string());
+        }
         if parser.feed(&line) == LineKind::Text {
-            let mut o = stdout.lock();
-            let _ = writeln!(o, "{line}");
-            let _ = o.flush();
+            say(&line);
         }
     }
     let status = child.wait().map_err(|e| format!("cargo: {e}"))?;
@@ -204,6 +385,10 @@ pub fn run(
         run.build_ok,
         run.binaries,
     );
+    let evidence = match targets {
+        Some(t) => evidence.into_targeted(t),
+        None => evidence,
+    };
     let path = out.unwrap_or_else(|| root.join(evidence.destination()));
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
@@ -212,7 +397,7 @@ pub fn run(
     std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
 
     let t = evidence.totals;
-    println!(
+    say(&format!(
         "kovan-cli test: {} binaries, {} passed, {} failed, {} ignored at {} (Cargo.lock {})",
         evidence.binaries.len(),
         t.passed,
@@ -220,26 +405,29 @@ pub fn run(
         t.ignored,
         &evidence.commit[..evidence.commit.len().min(10)],
         &evidence.cargo_lock[..evidence.cargo_lock.len().min(19)],
-    );
+    ));
     match evidence.counted() {
         Ok(()) => {
-            println!("kovan-cli test: COUNTED as full-suite evidence");
+            say(&format!(
+                "kovan-cli test: COUNTED as {} evidence",
+                if evidence.targets.is_empty() { "full-suite" } else { "targeted" }
+            ));
             let n = write_into_kovan_tomls(root, &evidence)?;
             if n == 0 {
-                println!(
+                say(&format!(
                     "kovan-cli test: no code-folder kovan.toml found to record it in: run \
                      `kovan-cli index` first; the raw record is in {}",
                     path.display()
-                );
+                ));
             }
         }
         Err(why) => {
             for w in why {
-                println!("kovan-cli test: NOT counted: {w}");
+                say(&format!("kovan-cli test: NOT counted: {w}"));
             }
         }
     }
-    println!("kovan-cli test: wrote {}", path.display());
+    say(&format!("kovan-cli test: wrote {}", path.display()));
     if status.success() {
         Ok(())
     } else {
@@ -253,6 +441,67 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kovan_common::review::index::{FunctionIndex, ItemKind, ModuleIndex};
+
+    fn func(id: &str, qual: &str, reached_by: &[&str], test: bool) -> FunctionIndex {
+        FunctionIndex {
+            id: id.into(),
+            name: qual.rsplit("::").next().unwrap().into(),
+            qual: qual.into(),
+            item: ItemKind::Fn,
+            shape: None,
+            lines: [1, 2],
+            hash: format!("sha256:{}", "a".repeat(64)),
+            doc_hash: format!("sha256:{}", "d".repeat(64)),
+            callees: Vec::new(),
+            uses: Vec::new(),
+            reached_by: reached_by.iter().map(|s| s.to_string()).collect(),
+            test,
+            index_out_of_date: false,
+            physical_interface: false,
+        }
+    }
+
+    fn folder(krate: &str, dir: &str, file: &str, fns: Vec<FunctionIndex>) -> FolderIndex {
+        let mut idx = FolderIndex::new(krate, dir);
+        idx.modules.insert(file.into(), ModuleIndex { path: "crate".into(), functions: fns });
+        idx
+    }
+
+    /// GitHub #1052: the targeted plan runs the union of the pending
+    /// functions' reaching tests, over the packages that hold them, filtered
+    /// by each test's function name (`#k` stripped); a function not pending
+    /// adds nothing; a reaching test no index knows stays a target with no
+    /// filter; nothing pending gives no plan.
+    #[test]
+    fn the_targeted_plan_covers_the_pending_functions_reaching_tests() {
+        let it = "crates/b/tests/it.rs::checks_flash";
+        let unit = "crates/a/src/lib.rs::tests::unit#2";
+        let gone = "crates/z/tests/gone.rs::gone";
+        let indexes = vec![
+            folder(
+                "a",
+                "crates/a/src",
+                "lib.rs",
+                vec![
+                    func("fn:p", "flash", &[it, unit, gone], false),
+                    func("fn:q", "other", &["crates/c/tests/c.rs::c"], false),
+                    func("fn:u", "tests::unit#2", &[], true),
+                ],
+            ),
+            folder("b-pkg", "crates/b/tests", "it.rs", vec![func("fn:t", "checks_flash", &[], true)]),
+            folder("c", "crates/c/tests", "c.rs", vec![func("fn:c", "c", &[], true)]),
+        ];
+        let pending: BTreeSet<String> = ["fn:p".to_string()].into();
+        let tp = targeted_plan(&indexes, &pending).unwrap();
+        assert_eq!(tp.targets, vec![unit.to_string(), it.to_string(), gone.to_string()]);
+        assert_eq!(tp.packages, vec!["a", "b-pkg"]);
+        assert_eq!(tp.filters, vec!["checks_flash", "unit"]);
+        let args = tp.args();
+        assert_eq!(&args[..6], ["test", "--lib", "--tests", "--release", "--no-fail-fast", "--message-format=json-render-diagnostics"]);
+        assert_eq!(&args[6..], ["-p", "a", "-p", "b-pkg", "--", "checks_flash", "unit"]);
+        assert!(targeted_plan(&indexes, &BTreeSet::new()).is_none());
+    }
 
     /// The parsed cargo run never gets colour, whatever the caller's
     /// environment says.
