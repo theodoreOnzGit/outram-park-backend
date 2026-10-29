@@ -94,6 +94,32 @@ wall. That points at the items the digest ranks next:
 - the lower-plenum quench and its dryout limit;
 - in-core radiation (F6).
 
+### Checked and rejected for now: the lower-plenum dryout cap (2026-10-29)
+
+After the rod-collapse change (gh:#1035), three changes in a row moved
+lower-head failure with plenum dryout. The digest's next candidate was
+MELCOR's falling-debris quench plus the Lipinski 0-D dryout cap (Vol. 2
+§2.3.8, Eqs 2-112 to 2-115; Vol. 1 COR_LP). It was evaluated by hand before
+building it. MELCOR has no default particle diameter (DHYPD = −1.1 means "copy
+the reference cell"), so d = 5 mm was used, the value in V1's example deck,
+with porosity 0.4.
+
+| Conditions | Lipinski dryout flux | Over the 18 m² plenum |
+|---|---|---|
+| 7 MPa (ρl 740 kg/m³, ρv 36 kg/m³, h_lv 1.5 MJ/kg) | about 6 MW/m² | about 110 MW |
+| 0.1 MPa | about 2.2 MW/m² | about 40 MW |
+
+The debris's decay power is about 6 MW, so the cap cannot bind in this run.
+MELCOR's quench coefficient (100 W/m²K over the particle area 6V/d, about
+0.5 MW/K for this debris) quenches on the same seconds-to-minutes scale as the
+model's 120 s. **Porting it would change almost nothing here, so it is not
+built yet.** What sets dryout is boil-off of the plenum water. The remaining
+in-vessel levers are:
+
+- debris held in the core until the support fails. This needs the core
+  plate's dimensions (plan L4);
+- in-core radiation and heat structures (F6).
+
 Stated simplifications:
 
 - One column stands for the whole wetted wall.
