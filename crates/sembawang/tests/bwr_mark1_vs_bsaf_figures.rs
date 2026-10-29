@@ -257,6 +257,14 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// unchanged at 97.8 %. `without_sectional_classes` reproduces the lumped
 /// numbers to ten digits.
 ///
+/// **Moved 2026-10-29 by phoresis** (thermophoresis from the drywell
+/// walls' heat flux, diffusiophoresis from the steam condensing on them;
+/// MELCOR's defaults): Cs on drywell structures inside **33.3 % -> 38.7
+/// %**. Predicted: more on the structures. Held while there is a deposit
+/// (4 h 0.67 against 0.10 kg, 8 h 5.49 against 3.99, 12 h 6.76 against
+/// 6.39); both runs re-evaporate it by 16 h as the drywell heats. S/C
+/// water unchanged.
+///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
 /// missing in-vessel deposition and pool scrubbing.
@@ -268,11 +276,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.3333).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.3867).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis(),
         Params::default(),
         60.0,
         26.0 * 3600.0,

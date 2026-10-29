@@ -34,7 +34,7 @@
 //! itself (the explosion is a threshold, not a calculation).
 
 use super::params::*;
-use super::aerosol::{Facing, Medium, Sections, Surface};
+use super::aerosol::{diffusiophoretic_velocity, Facing, Medium, Sections, Surface};
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
 use super::rn_volume::{RnSurface, RnVolume, CS, IODINE};
 use super::vapour::BulkGas;
@@ -109,6 +109,9 @@ pub struct ContainmentSnapshot {
     pub iodine_partition: bool,
     /// The wetwell vent passes the gas mixture (`Mechanisms::mixture_vent`).
     pub mixture_vent: bool,
+    /// Thermophoresis and diffusiophoresis onto the drywell's structures
+    /// (`Mechanisms::phoresis`).
+    pub phoresis: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -194,6 +197,9 @@ pub struct Containment {
     /// The pool's partition coefficient for I2 (`iodine::partition`),
     /// updated at each aerosol step.
     iodine_h: f64,
+    /// Steam condensed in the drywell since the last aerosol step, kg: on
+    /// its walls, for their diffusiophoresis.
+    dw_condensed_kg: f64,
     /// Scrubbed into the pool water at the vent exits (SPARC-90's DF_EC),
     /// kg: cesium, iodine, aerosol.
     pool_scrubbed: [f64; 3],
@@ -254,6 +260,7 @@ impl Containment {
             swarm_pass: vec![1.0; rn_sections().v.len()],
             swarm_age_s: RN_STEP_S,
             iodine_h: iodine::partition(INITIAL_POOL_K, 0.0, 0.0, 0.0),
+            dw_condensed_kg: 0.0,
             pool_scrubbed: [0.0; 3],
         }
     }
@@ -403,6 +410,7 @@ impl Containment {
             }
             let keep = p_sat * prm.drywell_volume_m3 * M_H2O / (R_GAS * self.dw_t);
             let cond = self.dw_steam_kg - keep;
+            self.dw_condensed_kg += cond;
             let e = self.dw_energy(tv) - cond * CP_WATER * (self.dw_t - 273.15);
             self.dw_steam_kg = keep;
             self.set_dw_energy(e, tv);
@@ -628,7 +636,7 @@ impl Containment {
         if self.rn_clock_s >= RN_STEP_S {
             let h = self.rn_clock_s;
             self.rn_clock_s = 0.0;
-            self.step_rn(prm, h);
+            self.step_rn(prm, h, s.phoresis);
         }
         let n_rb = P_ATM * prm.reactor_building_m3 / (R_GAS * T_RB);
         let y_rb = self.rb_h2 / n_rb;
@@ -727,6 +735,15 @@ fn rn_sections() -> Sections {
     Sections::new(0.1e-6, 27, 2.0)
 }
 
+/// Air's thermal conductivity, W/(m K), by Sutherland's law with White's
+/// constants for air (k0 = 0.0241 W/(m K) at T0 = 273 K, S = 194 K; F. M.
+/// White, *Viscous Fluid Flow*, 3rd ed., Table 1-3). MELCOR evaluates
+/// thermophoresis with air's conductivity at the surface (RN §2.4.2.2).
+fn air_conductivity(t_k: f64) -> f64 {
+    let r = t_k / 273.0;
+    0.0241 * r * r.sqrt() * (273.0 + 194.0) / (t_k + 194.0)
+}
+
 /// Air's viscosity, Pa s, by Sutherland's law (1.458e-6 T^1.5/(T + 110.4),
 /// the standard constants): MELCOR evaluates its aerosol coefficients with
 /// air's properties (Vol. 2, RN §2.4.2.3, constraint c).
@@ -748,7 +765,7 @@ impl Containment {
     /// `k = h/(rho c_p)` (Lewis number about 1, stated). Wetwell: the pool
     /// surface (a floor, at the pool temperature); its shell is not a
     /// deposition surface yet (stated). No phoretic deposition yet.
-    fn step_rn(&mut self, prm: &Params, dt: f64) {
+    fn step_rn(&mut self, prm: &Params, dt: f64, phoresis: bool) {
         let n = self.dw_rn.sections.v.len();
         // Drywell gas.
         let n_s = self.dw_steam_kg / M_H2O;
@@ -760,9 +777,28 @@ impl Containment {
         let cp = (self.dw_steam_kg * CP_STEAM_GAS + self.dw_n2 * M_N2 * CP_N2_GAS + self.dw_h2 * M_H2 * CP_H2_GAS) / mass.max(1e-30);
         let rho = mass / prm.drywell_volume_m3;
         let k_w = prm.dw_wall_h / (rho * cp);
+        // Phoresis onto the drywell's structures (MELCOR RN §2.4.2.2):
+        // thermophoresis from the gradient of their heat flux, `grad T =
+        // q'' / k_air` at the surface temperature (Eq 2-43 and the text
+        // after it), and diffusiophoresis from the steam condensed on them
+        // since the last aerosol step (Eqs 2-45, 2-46), spread over their
+        // area. Both surfaces are at the wall's temperature.
+        let phoretic = if phoresis {
+            let q = prm.dw_wall_h * (self.dw_t - self.dw_wall_t);
+            let grad_t = q / air_conductivity(self.dw_wall_t);
+            let w_cond = self.dw_condensed_kg / (dt * (prm.dw_floor_m2 + prm.dw_wall_area_m2));
+            let n_nc = (self.dw_n2 + self.dw_h2).max(1e-30);
+            let m_nc = (self.dw_n2 * M_N2 + self.dw_h2 * M_H2) / n_nc;
+            let rho_sat = p_sat_pa(self.dw_t.min(640.0)) * M_H2O / (R_GAS * self.dw_t);
+            let v_dp = diffusiophoretic_velocity(w_cond, n_s / n_tot, M_H2O, m_nc, rho, rho_sat);
+            (0..n).map(|k| m_dw.thermophoretic_velocity(self.dw_rn.sections.diameter(k), grad_t, self.dw_wall_t) + v_dp).collect()
+        } else {
+            vec![0.0; n]
+        };
+        self.dw_condensed_kg = 0.0;
         let dw_surfaces = [
-            RnSurface { surface: Surface { area: prm.dw_floor_m2, facing: Facing::Floor, phoretic: vec![0.0; n] }, t_k: self.dw_wall_t, k_vapour: k_w },
-            RnSurface { surface: Surface { area: prm.dw_wall_area_m2, facing: Facing::Wall, phoretic: vec![0.0; n] }, t_k: self.dw_wall_t, k_vapour: k_w },
+            RnSurface { surface: Surface { area: prm.dw_floor_m2, facing: Facing::Floor, phoretic: phoretic.clone() }, t_k: self.dw_wall_t, k_vapour: k_w },
+            RnSurface { surface: Surface { area: prm.dw_wall_area_m2, facing: Facing::Wall, phoretic }, t_k: self.dw_wall_t, k_vapour: k_w },
         ];
         self.dw_rn.step(&m_dw, &gases_dw, &dw_surfaces, dt);
         // The pool's iodine partition (`iodine`), for the scrubbing until
@@ -828,6 +864,7 @@ impl Containment {
             self.i_building_kg,
             self.swarm_age_s,
             self.iodine_h,
+            self.dw_condensed_kg,
         ]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
@@ -866,6 +903,7 @@ impl Containment {
             swarm_pass: vec![],
             swarm_age_s: r.f(),
             iodine_h: r.f(),
+            dw_condensed_kg: r.f(),
             pool_scrubbed: [0.0; 3],
         };
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
@@ -906,6 +944,7 @@ impl ContainmentSnapshot {
             b(self.sectional_classes),
             b(self.iodine_partition),
             b(self.mixture_vent),
+            b(self.phoresis),
         ]);
         self.prm.write(w);
     }
@@ -937,6 +976,7 @@ impl ContainmentSnapshot {
             sectional_classes: r.f() != 0.0,
             iodine_partition: r.f() != 0.0,
             mixture_vent: r.f() != 0.0,
+            phoresis: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1033,5 +1073,14 @@ mod tests {
         let s = ContainmentSnapshot { dt_s: 1.0, srv_steam_kg_s: 50.0, srv_h: 2.77e6, ..Default::default() };
         c.step(&s);
         assert!((c.pool_energy() - e0 - 50.0 * 2.77e6).abs() < 1.0, "{}", c.pool_energy() - e0);
+    }
+
+    /// Air's conductivity by White's Sutherland constants against the
+    /// tabulated values (Incropera's Table A.4: 0.0263 W/(m K) at 300 K,
+    /// 0.0667 at 1000 K): 0.02625 and 0.06612, within 1 %.
+    #[test]
+    fn air_conductivity_matches_the_tables() {
+        assert!((air_conductivity(300.0) / 0.0263 - 1.0).abs() < 0.01, "{}", air_conductivity(300.0));
+        assert!((air_conductivity(1000.0) / 0.0667 - 1.0).abs() < 0.01, "{}", air_conductivity(1000.0));
     }
 }

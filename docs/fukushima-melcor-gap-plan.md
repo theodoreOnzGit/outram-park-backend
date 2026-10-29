@@ -140,6 +140,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Iodine partition limit on condensation scrubbing (SPARC-90 pool chemistry, Eq D-7; output only) | F9, #1047 | 4.469 | 295.45 | held: binds almost nowhere (CsOH keeps the pool alkaline); I in pool -0.0006 kg (-0.008 %) |
 | Wetwell vent 0/0 once its non-condensables are gone (defect) | #1053 | 4.469 | 295.45 | NaN wetwell from 73.5 h of the 500 h run; guarded, no metric moves; the steam-free vent itself is #1053 |
 | Wetwell vent passes the gas mixture at its density; boiled-off water takes its sensible heat (defect) | #1053 | 4.469 | 295.45 | 26 h metrics unmoved; drywell +0.021 MPa at 24 h, then converges; 0-500 h against Fig 2.3a mean 0.662 -> 0.167 MPa (the 0.97 MPa plateau was this defect, not a missing leak) |
+| Thermophoresis and diffusiophoresis onto the drywell structures (MELCOR defaults; output only) | F9, #1047 | 4.469 | 295.45 | held: more Cs on dw structures while a deposit exists; inside the Fig 2.6a envelope 39 % (was 33 %) |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

@@ -4032,6 +4032,7 @@ pub struct ContainmentSnapshot {
     pub sectional_classes: bool,
     pub iodine_partition: bool,
     pub mixture_vent: bool,
+    pub phoresis: bool,
     pub prm: Params,
 }
 ```
@@ -4066,6 +4067,7 @@ pub struct ContainmentSnapshot {
 | `sectional_classes` | `bool` | Fission-product classes on the aerosol tracked by section<br>(`Mechanisms::sectional_classes`). |
 | `iodine_partition` | `bool` | The iodine partition limit on the condensation scrubbing<br>(`Mechanisms::iodine_partition`). |
 | `mixture_vent` | `bool` | The wetwell vent passes the gas mixture (`Mechanisms::mixture_vent`). |
+| `phoresis` | `bool` | Thermophoresis and diffusiophoresis onto the drywell's structures<br>(`Mechanisms::phoresis`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -10364,6 +10366,7 @@ pub struct Mechanisms {
     pub sectional_classes: bool,
     pub iodine_partition: bool,
     pub mixture_vent: bool,
+    pub phoresis: bool,
 }
 ```
 
@@ -10397,6 +10400,7 @@ pub struct Mechanisms {
 | `sectional_classes` | `bool` | Cesium and iodine on the aerosol tracked by size section: condensed<br>in proportion to each section's mass transfer, carried through<br>agglomeration and deposited with their section (`rn_volume`;<br>2026-10-29). Off is the lumped model: each class shares the aerosol's<br>volume distribution. |
 | `iodine_partition` | `bool` | The condensation scrubbing of iodine vapour limited by the pool's<br>partition coefficient for I2, from SPARC-90's equilibrium chemistry<br>with the pool's dissolved CsOH (MELCOR Eq D-7, Appendix F; [`iodine`];<br>2026-10-29). Off is iodine vapour scrubbed like the gas. |
 | `mixture_vent` | `bool` | The wetwell vent passes the wetwell's gas mixture through its<br>orifice, the pool boiling to supply the steam, and the boiled-off<br>water takes its sensible heat too (gh:#1053; 2026-10-29). Off is the<br>vent sized for the non-condensables alone, with steam added in<br>proportion and only latent heat leaving the pool. |
+| `phoresis` | `bool` | Thermophoresis (from the walls' heat flux) and diffusiophoresis<br>(from the steam condensing on them) onto the drywell's structures,<br>MELCOR's defaults (RN §2.4.2.2; 2026-10-29). Off is gravity and<br>Brownian diffusion alone. |
 
 ##### Implementations
 
@@ -10526,6 +10530,11 @@ pub struct Mechanisms {
   pub fn without_mixture_vent(self: Self) -> Self { /* ... */ }
   ```
   The vent sized for the non-condensables alone: the model before
+
+- ```rust
+  pub fn without_phoresis(self: Self) -> Self { /* ... */ }
+  ```
+  No phoresis onto the drywell's structures: the model before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

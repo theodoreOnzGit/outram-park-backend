@@ -196,6 +196,11 @@ pub struct Mechanisms {
     /// vent sized for the non-condensables alone, with steam added in
     /// proportion and only latent heat leaving the pool.
     pub mixture_vent: bool,
+    /// Thermophoresis (from the walls' heat flux) and diffusiophoresis
+    /// (from the steam condensing on them) onto the drywell's structures,
+    /// MELCOR's defaults (RN §2.4.2.2; 2026-10-29). Off is gravity and
+    /// Brownian diffusion alone.
+    pub phoresis: bool,
 }
 
 impl Default for Mechanisms {
@@ -227,6 +232,7 @@ impl Default for Mechanisms {
             sectional_classes: true,
             iodine_partition: true,
             mixture_vent: true,
+            phoresis: true,
         }
     }
 }
@@ -400,6 +406,13 @@ impl Mechanisms {
     /// 2026-10-29.
     pub fn without_mixture_vent(mut self) -> Self {
         self.mixture_vent = false;
+        self
+    }
+
+    /// No phoresis onto the drywell's structures: the model before
+    /// 2026-10-29.
+    pub fn without_phoresis(mut self) -> Self {
+        self.phoresis = false;
         self
     }
 
@@ -1051,6 +1064,7 @@ impl Plant {
                 sectional_classes: self.mechanisms.sectional_classes,
                 iodine_partition: self.mechanisms.iodine_partition,
                 mixture_vent: self.mechanisms.mixture_vent,
+                phoresis: self.mechanisms.phoresis,
                 prm,
             },
         }
