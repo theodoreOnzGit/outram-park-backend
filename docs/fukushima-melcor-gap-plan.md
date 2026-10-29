@@ -130,6 +130,18 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Noble-gas (Xe) transport, fuel to stack (output only) | F9, #1040 | 5.452 | 215.36 | conserved to 1e-12 every step; all 0.85 in the wetwell gas at 26 h (no vent or flange leak opens) |
 | A failed vessel's gas leaves through the breach | — | **5.452** | **215.36** | drywell +1.5e-5 MPa; predicted +0.01 from post-failure H2, missed: almost no H2 is made after failure |
 
+**F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
+MELCOR gives **no default size** for a released aerosol source ("currently
+there is no default", Vol. 1 RN1_AS01): the size emerges from MAEROS's
+condensation and agglomeration (sections 0.1–50 µm, RN1_ASP). A reduced model
+with one assumed size would let that \[A\] size decide drywell deposition and
+pool scrubbing, the same trap as choosing Unit 1's concrete. Doing it
+properly means porting a sectional aerosol model (MAEROS-type) and SPARC-90;
+reuse to check first: `changi::flexpart::aerosol` (Cunningham slip, settling).
+Gap release needs nothing: MELCOR's default gap inventory is zero (RN1_GAP
+`NMGAP` = 0), which is the model's. Reference curves are digitised (Figs
+2.6a–d).
+
 BSAF bands: lower head 7.45–17.16 h (B); H2 400–1310 kg (C). ~~The vent now
 flows at 23.73 h, inside its Tier A band (23.5–24.68 h), as a by-product of
 F10.~~ **CORRECTED 2026-10-29:** since the 1100 K oxidation cutoff the run is
