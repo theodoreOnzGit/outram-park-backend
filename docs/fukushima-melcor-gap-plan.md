@@ -33,9 +33,18 @@ written from the public document it cites.
 
 These are the root `CLAUDE.md` rules, restated where they bite hardest here.
 
-1. **The baseline is uncalibrated, and stays so.** No item tunes a coefficient
-   toward a BSAF band. The bands are the check; the moment one becomes an input
-   the check is gone. An honestly-derived miss is a result.
+1. **Right physics first; calibration only as the LAST step** (maintainer,
+   2026-10-29: "focus on right physics rather than right results, u shldnt
+   calibrate until the last step"). ~~The baseline is uncalibrated, and stays
+   so.~~ Until every physics item (F3–F12, F14) and the input check (F13) are
+   in, no item tunes a coefficient toward a BSAF band. The bands are the check;
+   the moment one becomes an input the check is gone. An honestly-derived miss
+   is a result. **Calibration, if it comes at all, is a separate final step**
+   under the root `CLAUDE.md` model hierarchy:
+   - the uncalibrated result is recorded first;
+   - each adjusted parameter, its range and the dataset are named;
+   - each calibrated parameter is ablated back to its derived value, one at a
+     time, to show how much of the agreement it carries.
 2. **Prediction before measurement.** Each item states, before it is run, which
    way it should move each Unit 1 metric and roughly how far. A change that
    moves a metric the wrong way means the hypothesis is wrong; stop and re-read
