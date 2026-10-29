@@ -150,6 +150,9 @@ pub struct CoreSnapshot {
     /// Radiation looks through emptied cells to the next standing
     /// component, radially and axially (`Mechanisms::see_through`).
     pub see_through: bool,
+    /// Relocating material is held on the core plate until the plate fails
+    /// (`Mechanisms::core_plate`).
+    pub core_plate: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -272,6 +275,8 @@ pub struct Core {
     /// MELCOR's quench decay factor (`debris_quench`): 1 while debris is
     /// arriving, decaying with `quench_tau_s` once it stops.
     quench_f: f64,
+    /// The core plate and the debris it holds (`core_plate`).
+    plate: Plate,
     uo2_released: f64,
 }
 
@@ -593,6 +598,88 @@ impl Core {
     }
 }
 
+/// The BWR core plate and the debris resting on it (MELCOR's PLATEB, COR
+/// RM §5.2.3, §5.3; `Mechanisms::core_plate`).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Plate {
+    /// The plate's temperature, K, and whether it has failed.
+    t_k: f64,
+    failed: bool,
+    /// The debris it holds: UO2 and Zr, kg, enthalpy above `H_REF_K`, J, Zr
+    /// already oxidised, kg, its share of the decay power, and its volatile
+    /// fission products and UO2, fractions of the core's.
+    mf: f64,
+    mc: f64,
+    h: f64,
+    zr_ox: f64,
+    share: f64,
+    fp: f64,
+    uo2: f64,
+}
+
+/// MELCOR's yield stress of the core's steel, Pa (COR RM Eq 5-16, 304
+/// stainless): `260e6 ((1 + (T/800)^3)^-1 - (1 + (1700/800)^3)^-1)`, zero
+/// from 1700 K.
+pub(crate) fn steel_yield_pa(t_k: f64) -> f64 {
+    let f = |t: f64| 1.0 / (1.0 + (t / 800.0).r_powi(3));
+    (260.0e6 * (f(t_k) - f(1700.0))).max(0.0)
+}
+
+impl Core {
+    /// One step of the core plate (`core_plate`): the debris it holds
+    /// takes its decay-power share and gives heat to the plate by contact
+    /// (`debris_to_head_w_m2_k`, the head's) and, while the level covers the
+    /// plate, to the water by boiling (`boiling_h`); the plate is cooled by
+    /// boiling from below while the lower plenum's water reaches it. It
+    /// fails when the stress of its own weight and the debris's (Eq 5-3 with
+    /// PLATEB's `K = 0.0833`, Eq 5-13: `6 K x^2 W / (A h^2)`) passes the yield
+    /// stress (Eq 5-16), and the debris then falls to the lower plenum.
+    /// Returns the heat to the water, W. Simplifications, stated: one plate
+    /// for the whole core (MELCOR fails it ring by ring), no oxidation of the
+    /// debris on it, no creep.
+    fn plate_step(&mut self, prm: &Params, s: &CoreSnapshot, dt: f64) -> f64 {
+        if self.plate.failed || self.plate.mf + self.plate.mc <= 0.0 {
+            return 0.0;
+        }
+        let rc = core_radius(prm);
+        let area = std::f64::consts::PI * rc * rc;
+        let m_plate = area * prm.core_plate_m * steel_rho();
+        let p = &mut self.plate;
+        let t_d = debris_temperature(p.mf, p.mc, p.h);
+        let q_c = prm.debris_to_head_w_m2_k * area * (t_d - p.t_k);
+        let q_top = if s.level_m > 0.0 { prm.boiling_h * area * (t_d - s.t_sat_k).max(0.0) } else { 0.0 };
+        p.h += (s.decay_w * p.share - q_c - q_top) * dt;
+        let q_bottom = if s.level_m >= -prm.core_plate_m { prm.boiling_h * area * (p.t_k - s.t_sat_k).max(0.0) } else { 0.0 };
+        p.t_k = steel_t(steel_h(p.t_k) + (q_c - q_bottom) * dt / m_plate);
+        // Release from the held debris, at its temperature.
+        let t_d = debris_temperature(p.mf, p.mc, p.h);
+        let keep = (-volatile_release_rate(prm, t_d) * dt).r_exp();
+        self.fp_released += p.fp * (1.0 - keep);
+        p.fp *= keep;
+        let keep_u = (-uo2_release_rate(prm, t_d) * dt).r_exp();
+        self.uo2_released += p.uo2 * (1.0 - keep_u);
+        p.uo2 *= keep_u;
+        let w = (m_plate + p.mf + p.mc) * 9.81;
+        let x = prm.core_plate_beam_m;
+        let stress = 6.0 * 0.0833 * x * x / (area * prm.core_plate_m * prm.core_plate_m) * w;
+        if stress >= steel_yield_pa(p.t_k) {
+            p.failed = true;
+            let v_before = self.debris_mf / prm.uo2_density + self.debris_mc / prm.zr_density;
+            self.debris_mf += p.mf;
+            self.debris_mc += p.mc;
+            self.debris_h += p.h;
+            self.debris_zr_ox += p.zr_ox;
+            self.debris_power_share += p.share;
+            self.debris_fp += p.fp;
+            self.debris_uo2 += p.uo2;
+            let v_after = self.debris_mf / prm.uo2_density + self.debris_mc / prm.zr_density;
+            self.quench_f = (self.quench_f + (v_after - v_before) / v_after.max(1e-12)).min(1.0);
+            *p = Plate { t_k: p.t_k, failed: true, ..Default::default() };
+        }
+        q_top + q_bottom
+    }
+}
+
 /// kg of ZrO2 per kg of Zr oxidised (123.22 / 91.224 g/mol).
 const ZRO2_PER_ZR: f64 = 123.222 / 91.224;
 
@@ -906,6 +993,7 @@ impl Core {
             debris_zr_ox: 0.0,
             quench_f: 0.0,
             uo2_released: 0.0,
+            plate: Plate { t_k: t_sat_k, ..Default::default() },
         }
     }
 
@@ -1069,6 +1157,11 @@ impl Core {
                     self.lower_head_failed = true;
                 }
             }
+        }
+        // The core plate and what it holds (`core_plate`), with
+        // temperature-dependent properties only.
+        if s.core_plate && tdp {
+            q_quench += self.plate_step(prm, s, dt);
         }
         q_fluid += q_quench;
         q_pool += q_quench.max(0.0);
@@ -1264,6 +1357,11 @@ impl Core {
                                 tn.zr_kg += metal;
                             }
                         }
+                        None if s.core_plate && tdp && !self.plate.failed => {
+                            // Through the bottom onto the core plate.
+                            self.plate.mc += metal;
+                            self.plate.h += metal * h_src;
+                        }
                         None => {
                             self.debris_mc += metal;
                             if tdp {
@@ -1281,10 +1379,25 @@ impl Core {
         // the share of the plenum's debris that arrives (MELCOR's
         // `V_cor / V_LP`, held at most 1).
         let v_before = self.debris_mf / prm.uo2_density + self.debris_mc / prm.zr_density;
-        let arriving = !newly_relocated.is_empty();
+        let to_plate = s.core_plate && tdp && !self.plate.failed;
+        let arriving = !newly_relocated.is_empty() && !to_plate;
         for (idx, share) in newly_relocated {
             let n = &mut self.nodes[idx];
             n.relocated = true;
+            if to_plate {
+                // Onto the core plate, which holds it until it fails.
+                let p = &mut self.plate;
+                p.mf += g.m_fuel;
+                p.mc += n.zr_kg;
+                p.zr_ox += (n.w_ox * g.a_zr).min(n.zr_kg);
+                p.h += g.m_fuel * uo2_enthalpy().at(n.t_fuel) + n.zr_kg * zr_enthalpy().at(n.t_clad);
+                p.share += share;
+                p.fp += share * n.fp_left;
+                n.fp_left = 0.0;
+                p.uo2 += n.uo2_left / NODES as f64;
+                n.uo2_left = 0.0;
+                continue;
+            }
             // Masses in both property paths: the lower-head wall's bed
             // geometry needs them (gh:#1034).
             self.debris_mf += g.m_fuel;
@@ -1418,6 +1531,8 @@ impl Core {
         w.f(&[self.head.strain, self.head.pen_k]);
         w.f(&self.shroud_k);
         w.f(&[self.debris_fp, self.fp_released, self.debris_uo2, self.uo2_released, self.debris_zr_ox, self.quench_f]);
+        let p = &self.plate;
+        w.f(&[p.t_k, if p.failed { 1.0 } else { 0.0 }, p.mf, p.mc, p.h, p.zr_ox, p.fp, p.uo2, p.share]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
         let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f(), zr_kg: r.f() }).collect();
@@ -1440,6 +1555,7 @@ impl Core {
             uo2_released: r.f(),
             debris_zr_ox: r.f(),
             quench_f: r.f(),
+            plate: Plate { t_k: r.f(), failed: r.f() != 0.0, mf: r.f(), mc: r.f(), h: r.f(), zr_ox: r.f(), fp: r.f(), uo2: r.f(), share: r.f() },
         }
     }
 }
@@ -1470,6 +1586,7 @@ impl CoreSnapshot {
             if self.core_top_radiation { 1.0 } else { 0.0 },
             self.upper_k,
             if self.see_through { 1.0 } else { 0.0 },
+            if self.core_plate { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1497,6 +1614,7 @@ impl CoreSnapshot {
             core_top_radiation: r.f() != 0.0,
             upper_k: r.f(),
             see_through: r.f() != 0.0,
+            core_plate: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1620,7 +1738,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1646,7 +1764,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1675,7 +1793,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -1772,6 +1890,25 @@ mod tests {
         assert!((full - 2.0 * std::f64::consts::PI * r * r).abs() < 1e-9 && h2 == r);
     }
 
+    /// The core plate's yield stress (MELCOR Eq 5-16) by hand: at 1000 K
+    /// `260e6 (1/(1 + 1.953) - 1/(1 + 9.596))` = 63.5 MPa, zero at 1700 K;
+    /// and its stress under 100 t of debris (Eq 5-3 with PLATEB's K): with
+    /// the default plate, 9.29 m^2 by `core_radius`, 0.05 m on 0.3 m beams,
+    /// `6 x 0.0833 x 0.09 / (9.29 x 0.0025) x 1.0e6 N` = 1.94 MPa, which
+    /// the yield stress falls to between 1600 and 1700 K.
+    #[test]
+    fn the_core_plate_yields_where_melcor_says() {
+        assert!((steel_yield_pa(1000.0) / 63.5e6 - 1.0).abs() < 2e-3, "{}", steel_yield_pa(1000.0));
+        assert_eq!(steel_yield_pa(1700.0), 0.0);
+        let prm = Params::default();
+        let rc = core_radius(&prm);
+        let area = std::f64::consts::PI * rc * rc;
+        assert!((area - 9.29).abs() < 0.05, "{area}");
+        let sigma = 6.0 * 0.0833 * 0.09 / (area * 0.0025) * 1.0e6;
+        assert!((sigma - 1.94e6).abs() < 0.02e6, "{sigma}");
+        assert!(steel_yield_pa(1600.0) > sigma && steel_yield_pa(1690.0) < sigma);
+    }
+
     /// Radiation (gh:#1037): MELCOR's Zircaloy emissivity points (0.325
     /// bare, 0.808 at 3.88 um, 0.759 at 1 mm), its degradation above 1500 K
     /// floored at 0.325, steel's linear law at 616.48 K, and the gray-body
@@ -1836,7 +1973,7 @@ mod tests {
         for _ in 0..(8 * 3600) {
             p.step_inline(&mut c, &mut k);
             let in_nodes: f64 = c.nodes.iter().filter(|n| !n.relocated).map(|n| n.zr_kg).sum();
-            let sum = in_nodes + c.debris_mc;
+            let sum = in_nodes + c.debris_mc + c.plate.mc;
             assert!((sum - total).abs() < 1e-9 * total, "{sum} vs {total}");
             candled |= c.nodes.iter().any(|n| !n.relocated && n.zr_kg > g.zr_kg * (1.0 + 1e-9));
         }

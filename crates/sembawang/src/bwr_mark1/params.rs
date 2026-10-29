@@ -282,6 +282,12 @@ pub const LOWER_HEAD_THICKNESS_M: f64 = 0.22;
 /// default HDBLH (Vol. 1, COR_LHF), which its manual calls an
 /// order-of-magnitude value for sensitivity studies.
 pub const DEBRIS_TO_HEAD_W_M2_K: f64 = 1000.0;
+/// The BWR core plate (`Mechanisms::core_plate`, MELCOR's PLATEB): its
+/// thickness and the spacing of the beams that carry it, m. \[A\] both: a
+/// few centimetres of stainless plate on beams about two fuel-cell
+/// pitches apart (Unit 1's core plate is not in a held source).
+pub const CORE_PLATE_M: f64 = 0.05;
+pub const CORE_PLATE_BEAM_M: f64 = 0.3;
 /// Wall thickness of a lower-head penetration (instrument or control-rod
 /// drive housing), m: its steel per unit heated area. \[A\] Unit 1's
 /// housings are not in a held source. The debris heats it with
@@ -719,6 +725,8 @@ params! {
     quench_tau_s = QUENCH_TAU_S, P,
     lower_head_thickness_m = LOWER_HEAD_THICKNESS_M, A,
     debris_to_head_w_m2_k = DEBRIS_TO_HEAD_W_M2_K, A,
+    core_plate_m = CORE_PLATE_M, A,
+    core_plate_beam_m = CORE_PLATE_BEAM_M, A,
     penetration_wall_m = PENETRATION_WALL_M, A,
     corsor_k0_per_min = CORSOR_K0_PER_MIN, P,
     corsor_q_kcal_per_mol = CORSOR_Q_KCAL_PER_MOL, P,
@@ -895,7 +903,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 159);
+        assert_eq!(Params::INPUTS.len(), 161);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

@@ -5087,6 +5087,7 @@ pub struct CoreSnapshot {
     pub core_top_radiation: bool,
     pub upper_k: f64,
     pub see_through: bool,
+    pub core_plate: bool,
     pub prm: Params,
 }
 ```
@@ -5117,6 +5118,7 @@ pub struct CoreSnapshot {
 | `core_top_radiation` | `bool` | The topmost component of each ring radiates up to the dome<br>internals at `upper_k`, K (`Mechanisms::core_top_radiation`). |
 | `upper_k` | `f64` |  |
 | `see_through` | `bool` | Radiation looks through emptied cells to the next standing<br>component, radially and axially (`Mechanisms::see_through`). |
+| `core_plate` | `bool` | Relocating material is held on the core plate until the plate fails<br>(`Mechanisms::core_plate`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -7407,6 +7409,8 @@ pub struct Params {
     pub quench_tau_s: f64,
     pub lower_head_thickness_m: f64,
     pub debris_to_head_w_m2_k: f64,
+    pub core_plate_m: f64,
+    pub core_plate_beam_m: f64,
     pub penetration_wall_m: f64,
     pub corsor_k0_per_min: f64,
     pub corsor_q_kcal_per_mol: f64,
@@ -7574,6 +7578,8 @@ pub struct Params {
 | `quench_tau_s` | `f64` |  |
 | `lower_head_thickness_m` | `f64` |  |
 | `debris_to_head_w_m2_k` | `f64` |  |
+| `core_plate_m` | `f64` |  |
+| `core_plate_beam_m` | `f64` |  |
 | `penetration_wall_m` | `f64` |  |
 | `corsor_k0_per_min` | `f64` |  |
 | `corsor_q_kcal_per_mol` | `f64` |  |
@@ -8528,6 +8534,23 @@ order-of-magnitude value for sensitivity studies.
 
 ```rust
 pub const DEBRIS_TO_HEAD_W_M2_K: f64 = 1000.0;
+```
+
+#### Constant `CORE_PLATE_M`
+
+The BWR core plate (`Mechanisms::core_plate`, MELCOR's PLATEB): its
+thickness and the spacing of the beams that carry it, m. \[A\] both: a
+few centimetres of stainless plate on beams about two fuel-cell
+pitches apart (Unit 1's core plate is not in a held source).
+
+```rust
+pub const CORE_PLATE_M: f64 = 0.05;
+```
+
+#### Constant `CORE_PLATE_BEAM_M`
+
+```rust
+pub const CORE_PLATE_BEAM_M: f64 = 0.3;
 ```
 
 #### Constant `PENETRATION_WALL_M`
@@ -12576,6 +12599,7 @@ pub struct Mechanisms {
     pub see_through: bool,
     pub mcci: bool,
     pub dw_wall_outer: bool,
+    pub core_plate: bool,
 }
 ```
 
@@ -12633,6 +12657,7 @@ pub struct Mechanisms {
 | `see_through` | `bool` | The core's radiation looks through emptied cells to the next<br>standing component, radially (or to the shroud) and axially, as<br>MELCOR's does (COR RM §2.1.2; 2026-10-29). Off is no view across an<br>emptied cell. |
 | `mcci` | `bool` | Molten core-concrete interaction on the drywell floor: a reduced<br>form of MELCOR's CAV package ([`cavity`]; CORCON basaltic concrete,<br>quasi-steady ablation, the concrete's H2O and CO2 reduced by the<br>debris's Zr; 2026-10-29, F8). Off is the dry debris's heat going<br>straight into the drywell's structures. |
 | `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, a 1-D conduction slab to the reactor building<br>(2026-10-29; MELCOR's heat structures conduct). Off is the lumped<br>structures adiabatic outside. |
+| `core_plate` | `bool` | Relocating material rests on the BWR core plate until the plate<br>yields (MELCOR's PLATEB, COR RM §5.2.3, Eqs 5-3, 5-13, 5-16;<br>2026-10-29); thickness and beam spacing \[A\]. Off is relocation<br>straight to the lower plenum. |
 
 ##### Implementations
 
@@ -12882,6 +12907,11 @@ pub struct Mechanisms {
   pub fn without_dw_wall_outer(self: Self) -> Self { /* ... */ }
   ```
   The drywell structures adiabatic outside: before 2026-10-29.
+
+- ```rust
+  pub fn without_core_plate(self: Self) -> Self { /* ... */ }
+  ```
+  No core-plate holdup: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
