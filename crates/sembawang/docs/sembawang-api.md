@@ -8070,6 +8070,14 @@ SAND2023-10994 O, RN §2.5.2, Eqs 2-96 to 2-101): each surface `i` takes
 concentration. This module does not limit evaporation to what a
 surface holds; the caller must (stated).
 
+**Vapour diffusivity** is Chapman-Enskog's (Vol. 2, RN §2.5.2, Eqs 2-104,
+2-105, after Bird, Stewart and Lightfoot), with the Lennard-Jones
+parameters of the classes (Vol. 1, RN coefficients 7111) and of the bulk
+gases (Vol. 2, NCG/H2O §5.2), and the collision integral of Vol. 2's
+NCG/H2O Table 6.1 with its extrapolations. An aerosol section takes
+vapour with the mass-transfer coefficient of Sherwood number 2 (RN
+§2.5.2).
+
 ```rust
 pub mod vapour { /* ... */ }
 ```
@@ -8104,6 +8112,16 @@ pub enum FpClass {
 ###### Methods
 
 - ```rust
+  pub fn diffusivity(self: Self, gases: &[(BulkGas, f64)], t_k: f64, p_pa: f64) -> f64 { /* ... */ }
+  ```
+  Diffusivity of this vapour (a trace) in a gas of the mole fractions
+
+- ```rust
+  pub fn aerosol_mass_transfer(self: Self, gases: &[(BulkGas, f64)], t_k: f64, p_pa: f64, d: f64) -> f64 { /* ... */ }
+  ```
+  Mass-transfer coefficient of the vapour onto an aerosol particle of
+
+- ```rust
   pub fn molar_mass(self: Self) -> f64 { /* ... */ }
   ```
   Molar mass of the released compound, kg/mol (C7120: CsOH, I2, TeO).
@@ -8117,6 +8135,149 @@ pub enum FpClass {
   pub fn saturation_concentration(self: Self, t_k: f64) -> f64 { /* ... */ }
   ```
   Saturation concentration at `t_k`, kg/m^3 (ideal gas).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `BulkGas`
+
+A bulk gas of the containment or vessel atmosphere.
+
+```rust
+pub enum BulkGas {
+    Steam,
+    H2,
+    N2,
+}
+```
+
+##### Variants
+
+###### `Steam`
+
+###### `H2`
+
+###### `N2`
+
+##### Implementations
 
 ###### Trait Implementations
 
@@ -8375,6 +8536,16 @@ pub struct CondensingSurface {
 - **WasmNotSendSync**
 - **WasmNotSync**
 ### Functions
+
+#### Function `binary_diffusivity`
+
+Binary diffusivity of molecule A in B, m^2/s (Eq 2-105, cm^2/s with P
+in atm, converted), from their Lennard-Jones parameters (sigma A,
+epsilon/k K, molar mass g/mol).
+
+```rust
+pub fn binary_diffusivity(a: (f64, f64, f64), b: (f64, f64, f64), t_k: f64, p_pa: f64) -> f64 { /* ... */ }
+```
 
 #### Function `condense`
 
