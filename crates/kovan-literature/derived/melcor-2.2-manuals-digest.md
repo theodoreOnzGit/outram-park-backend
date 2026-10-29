@@ -463,6 +463,9 @@ Each value used must cite the volume it comes from.
 These are predictions to test. Signs come from the readers and are not
 measured.
 
+**Status, 2026-10-29 evening.** Each item is marked below. The measured
+movements and predictions are in `docs/fukushima-melcor-gap-plan.md` §2a.
+
 1. **Lower-head failure on a wall node, not the debris temperature.**
    - Use a wall with a 1000 W/m²K debris coefficient and 10 W/m²K outside.
      Fail at TPFAIL 1273.15 K, or by Larson-Miller creep with dP plus the
@@ -476,20 +479,37 @@ measured.
      lower-head time. So in the baseline run the threshold does decide:
      debris lands in water, is quenched, and then heats to 1500 K after
      the plenum dries.
+   - **Implemented (gh:#1034):** inner node at TPFAIL, plus Larson-Miller
+     creep. Lower head later by 0.14 h. The outer face is adiabatic rather
+     than 10 W/m²K.
 2. **Hold collapsed material in the core until the support fails**, and
    replace the 2100 K whole-node slump with 2400 K cladding breach, 2500 K
    or 3100 K fuel collapse, and time-at-temperature damage.
    - Effect: lower head **later**, H2 **up** (Zr stays longer in the fastest
      oxidation band).
+   - **Partly implemented (gh:#1035):** breach, collapse and damage are in,
+     plus Zr fusion heat and a ZrO2-melting collapse. H2 went up as
+     predicted, but the lower head did not move later. **Support holdup is
+     blocked** on the core plate's dimensions (L4).
 3. **In-core radiation** (radial and axial 0.1, to a shroud heat structure)
    **and RPV internals heat structures.**
    - Effect: lower head **later**, H2 likely **up**.
+   - **Radiation implemented (gh:#1037):** lower head later by 0.19 h, H2
+     −15 %. The RPV internals heat structures are still open.
 4. **Lower-plenum quench** at 100 W/m²K, with the Lipinski dryout cap.
    - Effect: lower head **earlier** (debris heats while still wet).
+   - **Checked and rejected for now:** the cap is about 40–110 MW against
+     about 6 MW of debris power, so it cannot bind here
+     (`crates/sembawang/verification_and_validation/bwr_mark1/lower-head-wall.md`).
 5. **Swollen-level coverage**, v0 = 0.3 m/s, void cap 0.4.
    - Effect: uncovery **later**.
+   - **Implemented (gh:#1036).** The swell is centimetres, but it tipped the
+     run into an early regime. The prediction missed; see the plan's §2a on
+     regime fragility.
 6. **Decay heat:** mixed-nuclide, finite irradiation, `G(t)`, actinides.
    - Effect: lower head **earlier**, H2 **up**.
+   - **Implemented (gh:#1041):** decay power +6 to +11 % over 3–25 h, lower
+     head earlier by 0.16 h, H2 +1 %. As predicted.
 7. **Fission products:** release (CORSOR-M), with decay heat leaving with
    the volatiles.
    - Effect: lower head **later**. New output: Cs and I release.
@@ -497,6 +517,9 @@ measured.
    O2 and diluent tracking.
    - Effect: explosion **less** reachable, unless the building is split
      into floors or CO is added.
+   - **Deferred:** no hydrogen reaches the building at all yet. The drywell
+     peaks at 0.56 MPa, below the 0.75 MPa \[A\] flange-leak threshold, so
+     this cannot change anything until drywell pressure does (item 10).
 9. **Pool condensation efficiency.**
    - Effect: drywell peak **up** once the pool nears saturation.
 10. **MCCI gas, `c_v(T)`, mixture choked flow, oxidation cutoff 1100 K, a
