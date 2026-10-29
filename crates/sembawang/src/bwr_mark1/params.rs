@@ -268,6 +268,15 @@ pub const DEBRIS_PARTICLE_M: f64 = 0.01;
 /// Time over which debris in a wet lower plenum gives up its stored heat,
 /// s. \[A\] (quench of a debris bed takes minutes).
 pub const DEBRIS_QUENCH_S: f64 = 120.0;
+/// Falling-debris quench heat-transfer coefficient, W/(m^2 K). \[P\]
+/// MELCOR's default (Vol. 1, COR_LP HDBH2O, 100), used over the particle
+/// area (`debris_quench`).
+pub const QUENCH_H: f64 = 100.0;
+/// Time constant of the quench decay factor, s. \[P\] MELCOR's radial
+/// spreading time for solid debris (Vol. 2, COR §2.3.8 and §3.2.5: "an ad
+/// hoc default value of 360 s", C1020(1)). The coefficient table lists
+/// §3.2.5 against C1020(2) = 60 s; the text is followed (stated).
+pub const QUENCH_TAU_S: f64 = 360.0;
 
 /// Zircaloy relocation in the `without_rod_collapse` ablation: a node whose
 /// cladding reaches this, K, slumps whole to the lower plenum. \[U\]
@@ -610,6 +619,8 @@ params! {
     lower_head_failure_k = LOWER_HEAD_FAILURE_K, A,
     breach_m2 = BREACH_M2, A,
     debris_quench_s = DEBRIS_QUENCH_S, A,
+    quench_h = QUENCH_H, P,
+    quench_tau_s = QUENCH_TAU_S, P,
     lower_head_thickness_m = LOWER_HEAD_THICKNESS_M, A,
     debris_to_head_w_m2_k = DEBRIS_TO_HEAD_W_M2_K, A,
     penetration_wall_m = PENETRATION_WALL_M, A,
@@ -777,7 +788,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 134);
+        assert_eq!(Params::INPUTS.len(), 136);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

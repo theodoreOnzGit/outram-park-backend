@@ -4667,6 +4667,7 @@ pub struct CoreSnapshot {
     pub penetrations: bool,
     pub debris_oxidation: bool,
     pub candling: bool,
+    pub debris_quench: bool,
     pub prm: Params,
 }
 ```
@@ -4691,6 +4692,7 @@ pub struct CoreSnapshot {
 | `penetrations` | `bool` | Lower-head penetration failure (the default) or the wall alone<br>(`Mechanisms`). |
 | `debris_oxidation` | `bool` | Oxidation of the lower-plenum debris (`Mechanisms::debris_oxidation`). |
 | `candling` | `bool` | Molten Zr candles down the rods (`Mechanisms::candling`). |
+| `debris_quench` | `bool` | MELCOR's falling-debris quench and dryout limit<br>(`Mechanisms::debris_quench`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -5148,6 +5150,18 @@ pub struct Core {
 - **WasmNotSendSync**
 - **WasmNotSync**
 ### Functions
+
+#### Function `lipinski_dryout_flux`
+
+Lipinski's zero-dimensional dryout heat flux of a particulate bed under
+water, W/m^2 (MELCOR Vol. 2, COR §2.3.8, Eqs 2-114, 2-115; C1244: the
+constant 0.756, the nominal capillary head 0.089 m for 0.5 mm particles,
+scaled as `1/d`, and a minimum porosity of 0.15), at pressure `p_pa`
+for a bed `height` m deep.
+
+```rust
+pub fn lipinski_dryout_flux(prm: &Params, p_pa: f64, height: f64) -> f64 { /* ... */ }
+```
 
 #### Function `oxidation_rate`
 
@@ -6926,6 +6940,8 @@ pub struct Params {
     pub lower_head_failure_k: f64,
     pub breach_m2: f64,
     pub debris_quench_s: f64,
+    pub quench_h: f64,
+    pub quench_tau_s: f64,
     pub lower_head_thickness_m: f64,
     pub debris_to_head_w_m2_k: f64,
     pub penetration_wall_m: f64,
@@ -7068,6 +7084,8 @@ pub struct Params {
 | `lower_head_failure_k` | `f64` |  |
 | `breach_m2` | `f64` |  |
 | `debris_quench_s` | `f64` |  |
+| `quench_h` | `f64` |  |
+| `quench_tau_s` | `f64` |  |
 | `lower_head_thickness_m` | `f64` |  |
 | `debris_to_head_w_m2_k` | `f64` |  |
 | `penetration_wall_m` | `f64` |  |
@@ -7984,6 +8002,27 @@ s. \[A\] (quench of a debris bed takes minutes).
 
 ```rust
 pub const DEBRIS_QUENCH_S: f64 = 120.0;
+```
+
+#### Constant `QUENCH_H`
+
+Falling-debris quench heat-transfer coefficient, W/(m^2 K). \[P\]
+MELCOR's default (Vol. 1, COR_LP HDBH2O, 100), used over the particle
+area (`debris_quench`).
+
+```rust
+pub const QUENCH_H: f64 = 100.0;
+```
+
+#### Constant `QUENCH_TAU_S`
+
+Time constant of the quench decay factor, s. \[P\] MELCOR's radial
+spreading time for solid debris (Vol. 2, COR §2.3.8 and §3.2.5: "an ad
+hoc default value of 360 s", C1020(1)). The coefficient table lists
+§3.2.5 against C1020(2) = 60 s; the text is followed (stated).
+
+```rust
+pub const QUENCH_TAU_S: f64 = 360.0;
 ```
 
 #### Constant `ZR_MELT_K`
@@ -11118,6 +11157,7 @@ pub struct Mechanisms {
     pub te_transport: bool,
     pub debris_oxidation: bool,
     pub candling: bool,
+    pub debris_quench: bool,
 }
 ```
 
@@ -11159,6 +11199,7 @@ pub struct Mechanisms {
 | `te_transport` | `bool` | Tellurium (MELCOR's chalcogen class) released with the volatiles<br>and transported like cesium and iodine, with its own vapour pressure<br>(RN 7110), its decay heat following it (2026-10-29; needs<br>`vessel_aerosol`). Off is tellurium staying in the core, heat and<br>all. |
 | `debris_oxidation` | `bool` | The lower-plenum debris oxidises while it is quenched, by the<br>parabolic law over MELCOR's particulate area (COR §3.2.1,<br>2026-10-29). Off is debris that never oxidises. |
 | `candling` | `bool` | Molten Zr candles down the rods once the oxide shell breaches and<br>refreezes in the first cooler node below, or reaches the debris<br>(MELCOR COR §3.1, simplified; 2026-10-29). Off is the metal staying<br>in its node until the rod falls. |
+| `debris_quench` | `bool` | MELCOR's falling-debris quench: the debris in the wet lower plenum<br>gives the water `h A_p (T - T_sat)` at COR_LP's 100 W/(m^2 K) over<br>its particle area, with the decay factor, and is then limited by<br>Lipinski's dryout flux (COR §2.3.8; 2026-10-29). Off is the excess<br>heat released over a 120 s time constant \[A\]. |
 
 ##### Implementations
 
@@ -11328,6 +11369,11 @@ pub struct Mechanisms {
   pub fn without_candling(self: Self) -> Self { /* ... */ }
   ```
   No candling: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_debris_quench(self: Self) -> Self { /* ... */ }
+  ```
+  The 120 s quench: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

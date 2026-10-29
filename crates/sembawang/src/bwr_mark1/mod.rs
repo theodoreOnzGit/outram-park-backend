@@ -244,6 +244,12 @@ pub struct Mechanisms {
     /// (MELCOR COR §3.1, simplified; 2026-10-29). Off is the metal staying
     /// in its node until the rod falls.
     pub candling: bool,
+    /// MELCOR's falling-debris quench: the debris in the wet lower plenum
+    /// gives the water `h A_p (T - T_sat)` at COR_LP's 100 W/(m^2 K) over
+    /// its particle area, with the decay factor, and is then limited by
+    /// Lipinski's dryout flux (COR §2.3.8; 2026-10-29). Off is the excess
+    /// heat released over a 120 s time constant \[A\].
+    pub debris_quench: bool,
 }
 
 impl Default for Mechanisms {
@@ -283,6 +289,7 @@ impl Default for Mechanisms {
             te_transport: true,
             debris_oxidation: true,
             candling: true,
+            debris_quench: true,
         }
     }
 }
@@ -506,6 +513,12 @@ impl Mechanisms {
     /// No candling: the model before 2026-10-29.
     pub fn without_candling(mut self) -> Self {
         self.candling = false;
+        self
+    }
+
+    /// The 120 s quench: the model before 2026-10-29.
+    pub fn without_debris_quench(mut self) -> Self {
+        self.debris_quench = false;
         self
     }
 
@@ -1172,7 +1185,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -1898,8 +1911,8 @@ mod tests {
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
-        // 0.9911 since candling.)
-        assert!((k.xe_vented - 0.9911).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // 0.9911 since candling; 0.9978 since MELCOR's quench.)
+        assert!((k.xe_vented - 0.9978).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

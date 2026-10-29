@@ -130,6 +130,9 @@ pub struct CoreSnapshot {
     pub debris_oxidation: bool,
     /// Molten Zr candles down the rods (`Mechanisms::candling`).
     pub candling: bool,
+    /// MELCOR's falling-debris quench and dryout limit
+    /// (`Mechanisms::debris_quench`).
+    pub debris_quench: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -242,6 +245,9 @@ pub struct Core {
     /// relocated nodes' oxide, and what the debris oxidises since
     /// (`debris_oxidation`).
     debris_zr_ox: f64,
+    /// MELCOR's quench decay factor (`debris_quench`): 1 while debris is
+    /// arriving, decaying with `quench_tau_s` once it stops.
+    quench_f: f64,
     uo2_released: f64,
 }
 
@@ -632,6 +638,22 @@ fn steam_enthalpy_above_298(t_k: f64, p_pa: f64) -> f64 {
     above - *H_298.get_or_init(|| h(T_298_K, Pressure::new::<pascal>(1.0e3)))
 }
 
+/// Lipinski's zero-dimensional dryout heat flux of a particulate bed under
+/// water, W/m^2 (MELCOR Vol. 2, COR §2.3.8, Eqs 2-114, 2-115; C1244: the
+/// constant 0.756, the nominal capillary head 0.089 m for 0.5 mm particles,
+/// scaled as `1/d`, and a minimum porosity of 0.15), at pressure `p_pa`
+/// for a bed `height` m deep.
+pub fn lipinski_dryout_flux(prm: &Params, p_pa: f64, height: f64) -> f64 {
+    let sat = super::steam::sat_from_tables(p_pa.clamp(super::steam::P_MIN_PA, super::steam::P_MAX_PA));
+    let (rho_l, rho_v, h_lv) = (1.0 / sat.v_f, 1.0 / sat.v_g, sat.h_g - sat.h_f);
+    let d = prm.debris_particle_m;
+    let eps = prm.debris_porosity.max(0.15);
+    let lambda_c = 0.089 * 5.0e-4 / d;
+    let num = rho_v * (rho_l - rho_v) * 9.81 * d * eps.r_powi(3) * (1.0 + lambda_c / height.max(1e-3));
+    let den = (1.0 - eps) * (1.0 + (rho_v / rho_l).r_powf(0.25)).r_powi(4);
+    0.756 * h_lv * (num / den).sqrt()
+}
+
 /// Urbanic-Heidrick parabolic rate constant, (kg Zr/m^2)^2/s.
 pub fn oxidation_rate(prm: &Params, t_k: f64) -> f64 {
     if t_k < prm.oxidation_min_k {
@@ -758,6 +780,7 @@ impl Core {
             fp_released: 0.0,
             debris_uo2: 0.0,
             debris_zr_ox: 0.0,
+            quench_f: 0.0,
             uo2_released: 0.0,
         }
     }
@@ -789,6 +812,8 @@ impl Core {
         let p_debris = s.decay_w * self.debris_power_share;
         let mut q_quench = 0.0;
         let (mut debris_steam_used, mut debris_h2) = (0.0, 0.0);
+        // The quench decay factor decays in time (wet or dry).
+        self.quench_f *= (-dt / prm.quench_tau_s).r_exp();
         let mut ex_vessel = 0.0;
         let tdp = s.t_dependent_props;
         if tdp && self.debris_mf + self.debris_mc > 0.0 {
@@ -796,10 +821,33 @@ impl Core {
                 ex_vessel = p_debris;
             } else if s.level_m > -prm.baf_m {
                 let h_sat = self.debris_mf * uo2_enthalpy().at(s.t_sat_k) + self.debris_mc * zr_enthalpy().at(s.t_sat_k);
-                let excess = (self.debris_h - h_sat).max(0.0);
-                let release = excess * (1.0 - (-dt / prm.debris_quench_s).r_exp());
-                self.debris_h -= release;
-                q_quench = p_debris + release / dt;
+                if s.debris_quench {
+                    // MELCOR's falling-debris quench (COR §2.3.8): the decay
+                    // heat stays in the debris, which gives the water
+                    // h f A_p (T_d - T_sat) over the particle area, f the
+                    // decay factor; once f < 0.01 the bed is limited by
+                    // Lipinski's dryout flux over the plenum's
+                    // cross-section. It cannot cool below saturation.
+                    let t_d = debris_temperature(self.debris_mf, self.debris_mc, self.debris_h);
+                    let v_solid = self.debris_mf / prm.uo2_density + self.debris_mc / prm.zr_density;
+                    let a_p = 6.0 * v_solid / prm.debris_particle_m;
+                    let conv = prm.quench_h * a_p * (t_d - s.t_sat_k).max(0.0);
+                    let mut q = if self.quench_f >= 0.01 {
+                        self.quench_f * conv
+                    } else {
+                        let (_, height, _) = debris_cap(prm, self.debris_mf, self.debris_mc);
+                        let a_cs = std::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m;
+                        conv.min(lipinski_dryout_flux(prm, s.p_pa, height) * a_cs)
+                    };
+                    q = q.min(p_debris + (self.debris_h - h_sat).max(0.0) / dt).max(0.0);
+                    self.debris_h += (p_debris - q) * dt;
+                    q_quench = q;
+                } else {
+                    let excess = (self.debris_h - h_sat).max(0.0);
+                    let release = excess * (1.0 - (-dt / prm.debris_quench_s).r_exp());
+                    self.debris_h -= release;
+                    q_quench = p_debris + release / dt;
+                }
                 // The debris oxidises while the water it boils gives it
                 // steam (MELCOR COR §3.2.1: particulate debris oxidises by
                 // the same parabolic law over `6 V / D` times its Zr volume
@@ -1078,7 +1126,11 @@ impl Core {
                 }
             }
         }
-        // Relocation to the lower plenum.
+        // Relocation to the lower plenum. The quench decay factor rises by
+        // the share of the plenum's debris that arrives (MELCOR's
+        // `V_cor / V_LP`, held at most 1).
+        let v_before = self.debris_mf / prm.uo2_density + self.debris_mc / prm.zr_density;
+        let arriving = !newly_relocated.is_empty();
         for (idx, share) in newly_relocated {
             let n = &mut self.nodes[idx];
             n.relocated = true;
@@ -1103,6 +1155,10 @@ impl Core {
             // The fuel's UO2 by mass (each node's share of it).
             self.debris_uo2 += n.uo2_left / NODES as f64;
             n.uo2_left = 0.0;
+        }
+        if arriving {
+            let v_after = self.debris_mf / prm.uo2_density + self.debris_mc / prm.zr_density;
+            self.quench_f = (self.quench_f + (v_after - v_before) / v_after.max(1e-12)).min(1.0);
         }
         let debris_k = if tdp && self.debris_mf + self.debris_mc > 0.0 {
             debris_temperature(self.debris_mf, self.debris_mc, self.debris_h)
@@ -1207,7 +1263,7 @@ impl Core {
         w.f(&self.head.t_k);
         w.f(&[self.head.strain, self.head.pen_k]);
         w.f(&self.shroud_k);
-        w.f(&[self.debris_fp, self.fp_released, self.debris_uo2, self.uo2_released, self.debris_zr_ox]);
+        w.f(&[self.debris_fp, self.fp_released, self.debris_uo2, self.uo2_released, self.debris_zr_ox, self.quench_f]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
         let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f(), zr_kg: r.f() }).collect();
@@ -1229,6 +1285,7 @@ impl Core {
             debris_uo2: r.f(),
             uo2_released: r.f(),
             debris_zr_ox: r.f(),
+            quench_f: r.f(),
         }
     }
 }
@@ -1253,6 +1310,7 @@ impl CoreSnapshot {
             if self.penetrations { 1.0 } else { 0.0 },
             if self.debris_oxidation { 1.0 } else { 0.0 },
             if self.candling { 1.0 } else { 0.0 },
+            if self.debris_quench { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1274,6 +1332,7 @@ impl CoreSnapshot {
             penetrations: r.f() != 0.0,
             debris_oxidation: r.f() != 0.0,
             candling: r.f() != 0.0,
+            debris_quench: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1391,7 +1450,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1417,7 +1476,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1446,7 +1505,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -1612,5 +1671,25 @@ mod tests {
             candled |= c.nodes.iter().any(|n| !n.relocated && n.zr_kg > g.zr_kg * (1.0 + 1e-9));
         }
         assert!(candled);
+    }
+
+    /// Lipinski's dryout flux against a hand value (2026-10-29): at 0.5 MPa
+    /// (rho_l 915, rho_v 2.67 kg/m^3, h_lv 2.108 MJ/kg), d = 1 cm, eps =
+    /// 0.4 and a 1 m bed, 0.756 h_lv sqrt(15.36 / 1.384) = 5.31 MW/m^2. It
+    /// rises with the particle diameter (as sqrt(d)), and the porosity is
+    /// held at least 0.15.
+    #[test]
+    fn lipinski_dryout_matches_a_hand_value() {
+        let prm = Params::default();
+        let q = lipinski_dryout_flux(&prm, 0.5e6, 1.0);
+        assert!((q / 5.31e6 - 1.0).abs() < 0.02, "{q}");
+        let mut big = prm;
+        big.debris_particle_m = 0.04;
+        assert!(lipinski_dryout_flux(&big, 0.5e6, 1.0) / q > 1.9, "{}", lipinski_dryout_flux(&big, 0.5e6, 1.0) / q);
+        let mut tight = prm;
+        tight.debris_porosity = 0.05;
+        let mut floor = prm;
+        floor.debris_porosity = 0.15;
+        assert_eq!(lipinski_dryout_flux(&tight, 0.5e6, 1.0), lipinski_dryout_flux(&floor, 0.5e6, 1.0));
     }
 }

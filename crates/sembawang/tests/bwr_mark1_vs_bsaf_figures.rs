@@ -125,6 +125,12 @@ fn model() -> Histories {
 /// MPa; envelopes RPV 3.3 -> 6.6 %, drywell 23.1 -> 26.4 %, **H2 10.3 ->
 /// 98.9 %**, Xe 58.3 -> 89.6 %, I 95.8 -> 91.7 %.
 ///
+/// **Moved 2026-10-29 by MELCOR's falling-debris quench**
+/// (`debris_quench`): drywell 0.189/0.368 -> **0.158/0.332 MPa**; RPV
+/// 3.505/6.596 -> 3.468/6.558 MPa; envelopes **RPV 6.6 -> 35.2 %**,
+/// drywell 26.4 -> 48.4 %, H2 98.9 -> 18.4 % (H2 at 25 h is now just
+/// below its band), Xe 89.6 -> 83.3 %, I 91.7 % (same).
+///
 /// The measured series are the validation; the envelopes are a
 /// differential test against other codes, none of which is the truth.
 #[test]
@@ -142,10 +148,10 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // Pinned to the first run: a change to the model moves these, and the
     // move is then recorded here with its old and new value.
     assert_eq!((rpv.n, dw.n), (2, 33));
-    assert!((rpv.mean_abs - 3.5054).abs() < 1e-3 && (rpv.max_abs - 6.5956).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.1888).abs() < 1e-3 && (dw.max_abs - 0.3683).abs() < 1e-3, "{dw:?}");
+    assert!((rpv.mean_abs - 3.4683).abs() < 1e-3 && (rpv.max_abs - 6.5580).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.1583).abs() < 1e-3 && (dw.max_abs - 0.3317).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.0659) && near(e_dw, 0.2637) && near(e_h2, 0.9885) && near(e_xe, 0.8958) && near(e_i, 0.9167));
+    assert!(near(e_rpv, 0.3516) && near(e_dw, 0.4835) && near(e_h2, 0.1839) && near(e_xe, 0.8333) && near(e_i, 0.9167));
 }
 
 
@@ -321,7 +327,8 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// core too; the drywell's history moves): Cs on drywell structures
 /// inside **37.3 % -> 50.7 %**, S/C water unchanged. Then by debris
 /// oxidation: 50.7 % -> 49.3 %. Then by candling: **49.3 % -> 80.0 %**,
-/// S/C water 96.6 -> 94.4 %.
+/// S/C water 96.6 -> 94.4 %. Then by MELCOR's quench: S/C water 94.4 ->
+/// 95.5 %, structures unchanged.
 ///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
@@ -334,11 +341,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.8000).abs() < 1e-3 && (c.0 - 0.9438).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.8000).abs() < 1e-3 && (c.0 - 0.9551).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -407,7 +414,7 @@ fn iodine_against_fig_2_6() {
     assert_eq!(b, (0.0, 76));
     assert!((d.0 - 0.0449).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
