@@ -90,11 +90,15 @@ pub struct Mechanisms {
     /// MATPRO temperature-dependent fuel and cladding heat capacities
     /// (OFFBEAT, gh:#1038); off is the constant `UO2_CP`/`ZR_CP` model.
     pub temperature_dependent_properties: bool,
+    /// The lower-head wall: heated by the debris, failing on its inner
+    /// temperature or by creep (gh:#1034); off is the debris-temperature
+    /// criterion `LOWER_HEAD_FAILURE_K`.
+    pub lower_head_wall: bool,
 }
 
 impl Default for Mechanisms {
     fn default() -> Self {
-        Self { hot_leak: true, ic_h2_blanketing: true, temperature_dependent_properties: true }
+        Self { hot_leak: true, ic_h2_blanketing: true, temperature_dependent_properties: true, lower_head_wall: true }
     }
 }
 
@@ -110,6 +114,13 @@ impl Mechanisms {
     /// `[A]`): the model before gh:#1038.
     pub fn without_temperature_dependent_properties(mut self) -> Self {
         self.temperature_dependent_properties = false;
+        self
+    }
+
+    /// The lower head fails when dry debris exceeds `LOWER_HEAD_FAILURE_K`
+    /// (`[A]`), with no wall: the model before gh:#1034.
+    pub fn without_lower_head_wall(mut self) -> Self {
+        self.lower_head_wall = false;
         self
     }
 
@@ -579,7 +590,7 @@ impl Plant {
         };
         let h_gas = v.sat.h_g;
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),

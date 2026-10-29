@@ -147,10 +147,44 @@ pub const INJECTION_TEMPERATURE_K: f64 = 293.15;
 /// [`HOT_LEAK_GAS_K`] with throat [`HOT_LEAK_M2`].
 pub const HOT_LEAK_GAS_K: f64 = 1000.0;
 pub const HOT_LEAK_M2: f64 = 3.0e-4;
-/// Lower-head failure: debris in the dry lower plenum above this, K, opens a
-/// breach of this throat, m^2. \[A\] both.
+/// Lower-head failure in the `without_lower_head_wall` ablation: debris in
+/// the dry lower plenum above this, K (a debris temperature, not MELCOR's
+/// wall-node TPFAIL; see `HEAD_FAILURE_WALL_K`), opens a breach of this
+/// throat, m^2. \[A\] both. MELCOR's default opening is 0.1 m diameter,
+/// 7.9e-3 m^2 (MELCOR 2.2 Vol. 2, COR §6.3).
 pub const LOWER_HEAD_FAILURE_K: f64 = 1500.0;
 pub const BREACH_M2: f64 = 0.01;
+
+// ── Lower-head wall (gh:#1034) ───────────────────────────────────────────────
+//
+// The head heats from the debris, and it fails on the WALL, not on the debris
+// temperature. This follows the public description of MELCOR's COR lower-head
+// model (MELCOR 2.2 Vol. 2, SAND2023-10994 O, §6.1 and §6.3; Vol. 1,
+// SAND2017-0455 O, COR_LHF and COR_VP). No MELCOR source is used.
+
+/// Lower-head wall thickness, m. \[A\] MELCOR's generic BWR default DZLH
+/// (Vol. 1, COR_VP table), which is for a 3.34 m vessel; Unit 1's vessel is
+/// 2.4 m, and its own value needs a plant source (plan L4).
+pub const LOWER_HEAD_THICKNESS_M: f64 = 0.22;
+/// Debris-to-wall heat transfer coefficient, W/(m^2 K). \[A\] MELCOR's
+/// default HDBLH (Vol. 1, COR_LHF), which its manual calls an
+/// order-of-magnitude value for sensitivity studies.
+pub const DEBRIS_TO_HEAD_W_M2_K: f64 = 1000.0;
+/// Inner-wall temperature that fails the head, K. \[A\] MELCOR's default
+/// TPFAIL (Vol. 1, COR_LHF), described as roughly where steel turns plastic.
+pub const HEAD_FAILURE_WALL_K: f64 = 1273.15;
+/// Larson-Miller creep rupture of the head, SA533B1 (NUREG/CR-5582, as MELCOR
+/// Vol. 2, COR §6.3, Eqs 6-23 to 6-25 and C1601 give it): time to rupture
+/// `10^(P/T - C)` s with `P = P0 - slope log10(sigma [Pa])`; plastic strain
+/// grows by `fail_strain dt / t_R` and the head fails at `fail_strain`.
+/// \[P\] V2's slope, 4725 (Vol. 1's control-function table prints 4730).
+pub const LM_P0: f64 = 4.812e4;
+pub const LM_SLOPE: f64 = 4.725e3;
+pub const LM_C: f64 = 7.042;
+pub const CREEP_FAIL_STRAIN: f64 = 0.18;
+/// Porosity of the debris bed in the lower head, which sets how high it
+/// stands and so the wall area it touches. \[A\]
+pub const DEBRIS_POROSITY: f64 = 0.4;
 
 /// Time over which debris in a wet lower plenum gives up its stored heat,
 /// s. \[A\] (quench of a debris bed takes minutes).
@@ -368,6 +402,14 @@ params! {
     lower_head_failure_k = LOWER_HEAD_FAILURE_K, A,
     breach_m2 = BREACH_M2, A,
     debris_quench_s = DEBRIS_QUENCH_S, A,
+    lower_head_thickness_m = LOWER_HEAD_THICKNESS_M, A,
+    debris_to_head_w_m2_k = DEBRIS_TO_HEAD_W_M2_K, A,
+    head_failure_wall_k = HEAD_FAILURE_WALL_K, A,
+    lm_p0 = LM_P0, P,
+    lm_slope = LM_SLOPE, P,
+    lm_c = LM_C, P,
+    creep_fail_strain = CREEP_FAIL_STRAIN, P,
+    debris_porosity = DEBRIS_POROSITY, A,
     zr_melt_k = ZR_MELT_K, U,
     uh_low_a = UH_LOW_A, P,
     uh_low_b_k = UH_LOW_B_K, P,
@@ -485,7 +527,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 73);
+        assert_eq!(Params::INPUTS.len(), 81);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

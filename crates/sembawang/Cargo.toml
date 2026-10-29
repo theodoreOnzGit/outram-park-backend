@@ -71,6 +71,12 @@ outram-mc-libs = { workspace = true }
 tampines-steam-tables    = { workspace = true }
 teh-o-prke               = { workspace = true }
 outram-park-fork-offbeat = { workspace = true }
+# bwr_mark1's lower-head wall (gh:#1034): Type 304L stainless steel
+# properties to 1700 K (Kim, ANL-75-55, public), reused from tuas's solid
+# database. Stainless steel is MELCOR's default lower-head layer material
+# (MELCOR 2.2 Vol. 2, COR §6.1). Light (petir, uom, ndarray, csv, approx,
+# thiserror), wasm in-scope, already built by dhoby-ghaut; no cycle.
+tuas_boussinesq_solver = { workspace = true }
 uom       = { workspace = true }
 thiserror = { workspace = true }
 

@@ -2678,6 +2678,163 @@ pub struct Metrics {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `Elasticity`
+
+How one input moves the metrics: elasticities `(dm/m) / (dp/p)` by
+central difference, the input scaled by `1 - rel` and `1 + rel` about
+its default with every mechanism on.
+
+**A ranking instrument, not an uncertainty analysis.** It is local (a
+derivative at the defaults), and a relative step is not an input's real
+uncertainty: 1 % of an activation energy is a large change, 1 % of a
+valve area a small one. It says which unverified inputs the answer leans
+on hardest, i.e. which to check first against the sources (plan item
+F13). It is never used to choose a value (plan rule 1).
+
+```rust
+pub struct Elasticity {
+    pub name: &'static str,
+    pub tag: super::params::Tag,
+    pub default: f64,
+    pub lower_head: Option<f64>,
+    pub h2: f64,
+    pub p_dw: f64,
+    pub event_appears: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `&'static str` |  |
+| `tag` | `super::params::Tag` |  |
+| `default` | `f64` |  |
+| `lower_head` | `Option<f64>` | `None` when the lower head does not fail in all three runs. |
+| `h2` | `f64` |  |
+| `p_dw` | `f64` |  |
+| `event_appears` | `bool` | The vent or the explosion happens in a perturbed run (neither does<br>at the defaults). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn largest(self: &Self) -> f64 { /* ... */ }
+  ```
+  The largest of the three magnitudes, for ranking.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `measure`
@@ -2689,12 +2846,38 @@ quantity. Deterministic, like the headless mode.
 pub fn measure(mechanisms: super::Mechanisms) -> Metrics { /* ... */ }
 ```
 
+#### Function `measure_with`
+
+[`measure`] with the plant's inputs set to `prm` (gh:#1033).
+
+```rust
+pub fn measure_with(mechanisms: super::Mechanisms, prm: super::params::Params) -> Metrics { /* ... */ }
+```
+
 #### Function `ablations`
 
 The ablation runs: the baseline, then each mechanism off alone.
 
 ```rust
 pub fn ablations() -> Vec<(&'static str, super::Mechanisms)> { /* ... */ }
+```
+
+#### Function `elasticity`
+
+The [`Elasticity`] of the input `name` (from [`Params::INPUTS`]) for a
+relative step `rel`, given the default run `base`. `None` for an unknown
+name. Runs the sequence twice.
+
+```rust
+pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasticity> { /* ... */ }
+```
+
+#### Function `sensitivity_report`
+
+The elasticity table as Markdown, largest effect first.
+
+```rust
+pub fn sensitivity_report(rows: &[Elasticity]) -> String { /* ... */ }
 ```
 
 #### Function `report`
@@ -3285,11 +3468,19 @@ Zircaloy (cladding plus its share of the channel boxes), with
   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
 - oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
   into the cladding, limited by the steam that reaches the node (steam
-  starvation); the steam it uses and the hydrogen it makes travel up;
+  starvation); the steam it uses and the hydrogen it makes travel up.
+  The heat is Hess's law at the node (gh:#1046): the 298 K heat of
+  reaction, plus the consumed steam's enthalpy above 298 K vapour, minus
+  heating the new hydrogen to the stream, which then carries it (steam
+  plus hydrogen heat capacity). A steam-starved node does not heat the
+  hydrogen passing it;
 - a node whose cladding reaches [`ZR_MELT_K`] relocates: its mass, energy
   and decay power move to a debris lump in the lower plenum, quenched
-  while water is there; dry debris above [`LOWER_HEAD_FAILURE_K`] fails
-  the lower head.
+  while water is there; ~~dry debris above [`LOWER_HEAD_FAILURE_K`] fails
+  the lower head~~ (since gh:#1034 that is only the
+  `without_lower_head_wall` ablation): dry debris heats the lower-head
+  wall (`HeadWall`), which fails on its inner node reaching
+  [`HEAD_FAILURE_WALL_K`] or by Larson-Miller creep.
 
 **Not in the model** (each would change the answer): radiation between
 rods, to the shroud and upwards (it spreads heat across the core above
@@ -3320,6 +3511,8 @@ pub struct CoreSnapshot {
     pub level_m: f64,
     pub decay_w: f64,
     pub t_dependent_props: bool,
+    pub p_dw_pa: f64,
+    pub lower_head_wall: bool,
     pub prm: Params,
 }
 ```
@@ -3335,6 +3528,8 @@ pub struct CoreSnapshot {
 | `level_m` | `f64` | Collapsed water level above the bottom of active fuel, m (negative:<br>below the core; below `-BAF_M` the lower plenum is dry). |
 | `decay_w` | `f64` | Decay power of the whole core, W. |
 | `t_dependent_props` | `bool` | Temperature-dependent heat capacities on (the default) or the<br>constant-property ablation (`Mechanisms`). |
+| `p_dw_pa` | `f64` | Drywell pressure, Pa: the outside of the lower head, for its creep<br>stress (gh:#1034). |
+| `lower_head_wall` | `bool` | The lower-head wall on (the default) or the debris-temperature<br>ablation (`Mechanisms`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -3483,6 +3678,8 @@ pub struct CoreResult {
     pub debris_k: f64,
     pub lower_head_failed: bool,
     pub ex_vessel_w: f64,
+    pub head_inner_k: f64,
+    pub head_strain: f64,
     pub clad_k: Vec<f64>,
 }
 ```
@@ -3503,6 +3700,8 @@ pub struct CoreResult {
 | `debris_k` | `f64` |  |
 | `lower_head_failed` | `bool` |  |
 | `ex_vessel_w` | `f64` | Decay power of the debris that has left through the failed lower<br>head, W: it goes to the drywell floor. |
+| `head_inner_k` | `f64` | The lower-head wall's inner temperature, K, and its creep strain<br>(gh:#1034; zero strain and the initial temperature until debris<br>arrives, and in the ablation). |
+| `head_strain` | `f64` |  |
 | `clad_k` | `Vec<f64>` | Cladding temperature of every node, ring-major, bottom to top, K<br>(relocated nodes: NaN). |
 
 ##### Implementations
@@ -3803,6 +4002,14 @@ pub const RINGS: usize = 3;
 pub const NODES: usize = _;
 ```
 
+#### Constant `WALL_NODES`
+
+Through-wall nodes of the lower-head wall (inner face first).
+
+```rust
+pub const WALL_NODES: usize = 5;
+```
+
 ## Module `params`
 
 Fukushima Daiichi Unit 1 (GE BWR/3, Mark I containment): every number the
@@ -3833,6 +4040,156 @@ pub mod params { /* ... */ }
 
 ### Types
 
+#### Enum `Tag`
+
+Where an input's default comes from (the module docs' marks).
+
+```rust
+pub enum Tag {
+    P,
+    U,
+    A,
+}
+```
+
+##### Variants
+
+###### `P`
+
+A published figure from a named source, not yet checked against the
+primary document.
+
+###### `U`
+
+Unverified (from memory, or an ambiguous excerpt).
+
+###### `A`
+
+An assumption or placeholder of this model's, with no source.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `Params`
 
 Every scalar input of the model, as one value (gh:#1033): what a
@@ -3894,6 +4251,14 @@ pub struct Params {
     pub lower_head_failure_k: f64,
     pub breach_m2: f64,
     pub debris_quench_s: f64,
+    pub lower_head_thickness_m: f64,
+    pub debris_to_head_w_m2_k: f64,
+    pub head_failure_wall_k: f64,
+    pub lm_p0: f64,
+    pub lm_slope: f64,
+    pub lm_c: f64,
+    pub creep_fail_strain: f64,
+    pub debris_porosity: f64,
     pub zr_melt_k: f64,
     pub uh_low_a: f64,
     pub uh_low_b_k: f64,
@@ -3975,6 +4340,14 @@ pub struct Params {
 | `lower_head_failure_k` | `f64` |  |
 | `breach_m2` | `f64` |  |
 | `debris_quench_s` | `f64` |  |
+| `lower_head_thickness_m` | `f64` |  |
+| `debris_to_head_w_m2_k` | `f64` |  |
+| `head_failure_wall_k` | `f64` |  |
+| `lm_p0` | `f64` |  |
+| `lm_slope` | `f64` |  |
+| `lm_c` | `f64` |  |
+| `creep_fail_strain` | `f64` |  |
+| `debris_porosity` | `f64` |  |
 | `zr_melt_k` | `f64` |  |
 | `uh_low_a` | `f64` |  |
 | `uh_low_b_k` | `f64` |  |
@@ -4016,6 +4389,16 @@ pub struct Params {
 - ```rust
   pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
   ```
+
+- ```rust
+  pub fn get(self: &Self, name: &str) -> Option<f64> { /* ... */ }
+  ```
+  The input named `name` (a field name from [`Params::INPUTS`]).
+
+- ```rust
+  pub fn set(self: &mut Self, name: &str, value: f64) -> bool { /* ... */ }
+  ```
+  Sets the input named `name`; `false` if there is none.
 
 - ```rust
   pub fn core_uo2_kg(self: &Self) -> f64 { /* ... */ }
@@ -4542,8 +4925,11 @@ pub const HOT_LEAK_M2: f64 = 3.0e-4;
 
 #### Constant `LOWER_HEAD_FAILURE_K`
 
-Lower-head failure: debris in the dry lower plenum above this, K, opens a
-breach of this throat, m^2. \[A\] both.
+Lower-head failure in the `without_lower_head_wall` ablation: debris in
+the dry lower plenum above this, K (a debris temperature, not MELCOR's
+wall-node TPFAIL; see `HEAD_FAILURE_WALL_K`), opens a breach of this
+throat, m^2. \[A\] both. MELCOR's default opening is 0.1 m diameter,
+7.9e-3 m^2 (MELCOR 2.2 Vol. 2, COR §6.3).
 
 ```rust
 pub const LOWER_HEAD_FAILURE_K: f64 = 1500.0;
@@ -4553,6 +4939,74 @@ pub const LOWER_HEAD_FAILURE_K: f64 = 1500.0;
 
 ```rust
 pub const BREACH_M2: f64 = 0.01;
+```
+
+#### Constant `LOWER_HEAD_THICKNESS_M`
+
+Lower-head wall thickness, m. \[A\] MELCOR's generic BWR default DZLH
+(Vol. 1, COR_VP table), which is for a 3.34 m vessel; Unit 1's vessel is
+2.4 m, and its own value needs a plant source (plan L4).
+
+```rust
+pub const LOWER_HEAD_THICKNESS_M: f64 = 0.22;
+```
+
+#### Constant `DEBRIS_TO_HEAD_W_M2_K`
+
+Debris-to-wall heat transfer coefficient, W/(m^2 K). \[A\] MELCOR's
+default HDBLH (Vol. 1, COR_LHF), which its manual calls an
+order-of-magnitude value for sensitivity studies.
+
+```rust
+pub const DEBRIS_TO_HEAD_W_M2_K: f64 = 1000.0;
+```
+
+#### Constant `HEAD_FAILURE_WALL_K`
+
+Inner-wall temperature that fails the head, K. \[A\] MELCOR's default
+TPFAIL (Vol. 1, COR_LHF), described as roughly where steel turns plastic.
+
+```rust
+pub const HEAD_FAILURE_WALL_K: f64 = 1273.15;
+```
+
+#### Constant `LM_P0`
+
+Larson-Miller creep rupture of the head, SA533B1 (NUREG/CR-5582, as MELCOR
+Vol. 2, COR §6.3, Eqs 6-23 to 6-25 and C1601 give it): time to rupture
+`10^(P/T - C)` s with `P = P0 - slope log10(sigma [Pa])`; plastic strain
+grows by `fail_strain dt / t_R` and the head fails at `fail_strain`.
+\[P\] V2's slope, 4725 (Vol. 1's control-function table prints 4730).
+
+```rust
+pub const LM_P0: f64 = 4.812e4;
+```
+
+#### Constant `LM_SLOPE`
+
+```rust
+pub const LM_SLOPE: f64 = 4.725e3;
+```
+
+#### Constant `LM_C`
+
+```rust
+pub const LM_C: f64 = 7.042;
+```
+
+#### Constant `CREEP_FAIL_STRAIN`
+
+```rust
+pub const CREEP_FAIL_STRAIN: f64 = 0.18;
+```
+
+#### Constant `DEBRIS_POROSITY`
+
+Porosity of the debris bed in the lower head, which sets how high it
+stands and so the wall area it touches. \[A\]
+
+```rust
+pub const DEBRIS_POROSITY: f64 = 0.4;
 ```
 
 #### Constant `DEBRIS_QUENCH_S`
@@ -4798,15 +5252,17 @@ pub const REACTOR_BUILDING_M3: f64 = 26_000.0;
 
 #### Constant `H2_FLAMMABLE`
 
-Hydrogen in air: lower flammability limit (upward propagation) and a mole
-fraction above which a deflagration is strong enough to wreck the
-building's upper floor. \[P\] 4 % (Shapiro diagram); \[A\] 8 %.
+Hydrogen in air: lower flammability limit (upward propagation).
+\[P\] 4 % (Shapiro diagram).
 
 ```rust
 pub const H2_FLAMMABLE: f64 = 0.04;
 ```
 
 #### Constant `H2_EXPLOSION`
+
+Hydrogen mole fraction above which a deflagration is strong enough to
+wreck the building's upper floor. \[A\] 8 %.
 
 ```rust
 pub const H2_EXPLOSION: f64 = 0.08;
@@ -5572,6 +6028,7 @@ pub struct Mechanisms {
     pub hot_leak: bool,
     pub ic_h2_blanketing: bool,
     pub temperature_dependent_properties: bool,
+    pub lower_head_wall: bool,
 }
 ```
 
@@ -5582,6 +6039,7 @@ pub struct Mechanisms {
 | `hot_leak` | `bool` | The RPV hot-gas leak to the drywell ([`HOT_LEAK_M2`], `[A]`). |
 | `ic_h2_blanketing` | `bool` | Hydrogen blanketing of the isolation-condenser tubes (`[A]`). |
 | `temperature_dependent_properties` | `bool` | MATPRO temperature-dependent fuel and cladding heat capacities<br>(OFFBEAT, gh:#1038); off is the constant `UO2_CP`/`ZR_CP` model. |
+| `lower_head_wall` | `bool` | The lower-head wall: heated by the debris, failing on its inner<br>temperature or by creep (gh:#1034); off is the debris-temperature<br>criterion `LOWER_HEAD_FAILURE_K`. |
 
 ##### Implementations
 
@@ -5596,6 +6054,11 @@ pub struct Mechanisms {
   pub fn without_temperature_dependent_properties(self: Self) -> Self { /* ... */ }
   ```
   Constant fuel and cladding heat capacities (`UO2_CP`, `ZR_CP`, both
+
+- ```rust
+  pub fn without_lower_head_wall(self: Self) -> Self { /* ... */ }
+  ```
+  The lower head fails when dry debris exceeds `LOWER_HEAD_FAILURE_K`
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

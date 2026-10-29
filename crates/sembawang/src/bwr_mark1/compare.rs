@@ -157,6 +157,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without hot leak", all.without_hot_leak()),
         ("without IC H2 blanketing", all.without_ic_h2_blanketing()),
         ("without T-dependent c_p", all.without_temperature_dependent_properties()),
+        ("without lower-head wall", all.without_lower_head_wall()),
     ]
 }
 
@@ -276,9 +277,9 @@ mod tests {
     ///
     /// | Quantity | Model | BSAF band (tier) | Verdict |
     /// |---|---|---|---|
-    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ 5.40 h | 7.45-17.16 h (B) | early |
-    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ 5.40 h | 5-12 h (A) | inside, for the wrong reason |
-    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ 120.73 kg | 400-1310 kg (C) | low |
+    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ 5.54 h | 7.45-17.16 h (B) | early |
+    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ 5.54 h | 5-12 h (A) | inside, for the wrong reason |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ 119.95 kg | 400-1310 kg (C) | low |
     /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ 0.475 MPa | 0.8-1.0 MPa (C) | low |
     /// | wetwell vent | never | ~24 h (A) | missed |
     /// | building explosion | never | 24.83 h (A) | missed |
@@ -321,6 +322,17 @@ mod tests {
     /// lower. All three held. A conservation fix, not a mechanism, so it
     /// has no ablation.
     ///
+    /// **Moved again 2026-10-29 by gh:#1034** (the lower-head wall: the head
+    /// fails on its inner node or by creep, after MELCOR's public COR model,
+    /// instead of on the debris temperature): lower head 5.399 -> 5.543 h,
+    /// H2 120.73 -> 119.95 kg, drywell peak 0.4746 -> 0.4753 MPa. Predicted
+    /// before the run: later by 0.3-1.5 h. **Missed**: later by 0.14 h.
+    /// The estimate heated the whole wall as one lump; the criterion is the
+    /// inner node, a 2.75 cm half-cell that tracks the debris about 80 K
+    /// behind. See `verification_and_validation/bwr_mark1/lower-head-wall.md`,
+    /// with its mesh study. The ablation `without_lower_head_wall`
+    /// reproduces the previous baseline exactly (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -328,20 +340,27 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 5.399, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 5.399, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 120.73).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.4746).abs() < 0.0001, "{m:?}");
+        assert!(near(m.lower_head_h, 5.543, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 5.543, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 119.95).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.4753).abs() < 0.0001, "{m:?}");
+        // The no-wall ablation is the model before gh:#1034, exactly.
+        let nw = measure(Mechanisms::default().without_lower_head_wall());
+        assert!(near(nw.lower_head_h, 5.399, 0.001), "{nw:?}");
+        assert!((nw.h2_25h_kg - 120.73).abs() < 0.01, "{nw:?}");
+        assert!((nw.p_dw_peak_mpa - 0.4746).abs() < 0.0001, "{nw:?}");
         assert_eq!((m.vent_h, m.explosion_h), (None, None), "{m:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
         // correction it carries 6.763 MJ/kg too, so it isolates c_p alone.
         // Since gh:#1046: 5.371 -> 5.386 h, 122.96 -> 118.02 kg (H2 at 25 h
-        // is not smooth in the inputs: input-sensitivity.md).
+        // is not smooth in the inputs: input-sensitivity.md). Since gh:#1034
+        // (the wall in both property paths): 5.386 -> 5.535 h, 118.02 ->
+        // 116.27 kg.
         let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
-        assert!(near(cp.lower_head_h, 5.386, 0.001), "{cp:?}");
-        assert!((cp.h2_25h_kg - 118.02).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.4724).abs() < 0.0001, "{cp:?}");
+        assert!(near(cp.lower_head_h, 5.535, 0.001), "{cp:?}");
+        assert!((cp.h2_25h_kg - 116.27).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.4741).abs() < 0.0001, "{cp:?}");
     }
 
     /// The elasticity of an input that only the demo draws is zero, of one
@@ -351,12 +370,12 @@ mod tests {
         let base = measure(Mechanisms::default());
         let none = elasticity("containment_design_pa", 0.01, &base).unwrap();
         assert_eq!((none.lower_head, none.h2, none.p_dw, none.event_appears), (Some(0.0), 0.0, 0.0, false));
-        let lh = elasticity("lower_head_failure_k", 0.01, &base).unwrap();
+        let lh = elasticity("head_failure_wall_k", 0.01, &base).unwrap();
         assert!(lh.lower_head.is_some_and(|e| e > 0.0), "{lh:?}");
         assert_eq!(lh.tag, Tag::A);
         assert!(elasticity("no_such_input", 0.01, &base).is_none());
         let table = sensitivity_report(&[none, lh]);
-        assert!(table.find("lower_head_failure_k").unwrap() < table.find("containment_design_pa").unwrap(), "{table}");
+        assert!(table.find("head_failure_wall_k").unwrap() < table.find("containment_design_pa").unwrap(), "{table}");
     }
 
     /// Each ablation runs, differs from the baseline in the mechanism it
@@ -365,7 +384,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 4);
+        assert_eq!(runs.len(), 5);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -378,6 +397,7 @@ mod tests {
         assert!(!ablations()[1].1.hot_leak && ablations()[1].1.ic_h2_blanketing);
         assert!(ablations()[2].1.hot_leak && !ablations()[2].1.ic_h2_blanketing);
         assert!(!ablations()[3].1.temperature_dependent_properties && ablations()[3].1.hot_leak);
+        assert!(!ablations()[4].1.lower_head_wall && ablations()[4].1.temperature_dependent_properties);
     }
 
     /// The verdict reads a value against its band.

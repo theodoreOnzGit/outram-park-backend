@@ -34,8 +34,11 @@
 //!   hydrogen passing it;
 //! - a node whose cladding reaches [`ZR_MELT_K`] relocates: its mass, energy
 //!   and decay power move to a debris lump in the lower plenum, quenched
-//!   while water is there; dry debris above [`LOWER_HEAD_FAILURE_K`] fails
-//!   the lower head.
+//!   while water is there; ~~dry debris above [`LOWER_HEAD_FAILURE_K`] fails
+//!   the lower head~~ (since gh:#1034 that is only the
+//!   `without_lower_head_wall` ablation): dry debris heats the lower-head
+//!   wall (`HeadWall`), which fails on its inner node reaching
+//!   [`HEAD_FAILURE_WALL_K`] or by Larson-Miller creep.
 //!
 //! **Not in the model** (each would change the answer): radiation between
 //! rods, to the shroud and upwards (it spreads heat across the core above
@@ -51,6 +54,9 @@ use petir::mathf::RealMath;
 use super::params::*;
 use outram_park_fork_offbeat::materials::properties::heat_capacity::HeatCapacityModel;
 use outram_park_fork_offbeat::materials::MaterialState;
+use tuas_boussinesq_solver::boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp as ss304;
+use uom::si::f64::AvailableEnergy;
+use uom::si::mass_density::kilogram_per_cubic_meter;
 use std::sync::OnceLock;
 use super::wire::{Reader, Writer};
 use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_single_phase;
@@ -82,6 +88,12 @@ pub struct CoreSnapshot {
     /// Temperature-dependent heat capacities on (the default) or the
     /// constant-property ablation (`Mechanisms`).
     pub t_dependent_props: bool,
+    /// Drywell pressure, Pa: the outside of the lower head, for its creep
+    /// stress (gh:#1034).
+    pub p_dw_pa: f64,
+    /// The lower-head wall on (the default) or the debris-temperature
+    /// ablation (`Mechanisms`).
+    pub lower_head_wall: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -108,6 +120,11 @@ pub struct CoreResult {
     /// Decay power of the debris that has left through the failed lower
     /// head, W: it goes to the drywell floor.
     pub ex_vessel_w: f64,
+    /// The lower-head wall's inner temperature, K, and its creep strain
+    /// (gh:#1034; zero strain and the initial temperature until debris
+    /// arrives, and in the ablation).
+    pub head_inner_k: f64,
+    pub head_strain: f64,
     /// Cladding temperature of every node, ring-major, bottom to top, K
     /// (relocated nodes: NaN).
     pub clad_k: Vec<f64>,
@@ -150,6 +167,121 @@ pub struct Core {
     lower_head_failed: bool,
     zr_oxidised_kg: f64,
     h2_total_kg: f64,
+    head: HeadWall,
+}
+
+/// Through-wall nodes of the lower-head wall (inner face first).
+pub const WALL_NODES: usize = 5;
+
+/// The lower head under the debris (gh:#1034), after the public description
+/// of MELCOR's COR lower-head model (MELCOR 2.2 Vol. 2, §6.1 and §6.3): one
+/// representative 1-D column of the wall, `WALL_NODES` nodes through
+/// `lower_head_thickness_m` of Type 304L steel (Kim, ANL-75-55, via tuas),
+/// explicit conduction, the debris on the inner face through
+/// `debris_to_head_w_m2_k` (water instead while the plenum is wet), the
+/// outer face adiabatic. It fails when the inner node reaches
+/// `head_failure_wall_k` or its Larson-Miller creep strain reaches
+/// `creep_fail_strain`.
+///
+/// Simplified, and stated: one column stands for the whole wetted wall (the
+/// wall the debris spreads onto later is taken as already that hot); the
+/// outer face loses nothing (MELCOR's dry-cavity default is 10 W/(m^2 K),
+/// about 4 % of the debris power here); no penetrations; the wall stays at
+/// its initial temperature until debris arrives; no wall melting.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct HeadWall {
+    t_k: [f64; WALL_NODES],
+    strain: f64,
+}
+
+fn steel_h(t_k: f64) -> f64 {
+    ss304::steel_304_l_high_temp_specific_enthalpy_kim(ThermodynamicTemperature::new::<kelvin>(t_k)).get::<joule_per_kilogram>()
+}
+
+fn steel_t(h: f64) -> f64 {
+    ss304::steel_304_l_high_temp_temp_from_specific_enthalpy_kim(AvailableEnergy::new::<joule_per_kilogram>(h)).get::<kelvin>()
+}
+
+/// Thermal conductivity, W/(m K), held at the correlation's 1700 K ceiling
+/// above it (the wall fails well below).
+fn steel_k(t_k: f64) -> f64 {
+    let t = ThermodynamicTemperature::new::<kelvin>(t_k.min(1700.0));
+    ss304::steel_304_l_high_temp_thermal_conductivity_kim(t).map_or(f64::NAN, |k| k.get::<watt_per_meter_kelvin>())
+}
+
+/// Density at 300 K, kg/m^3: the wall's mass is fixed at it.
+fn steel_rho() -> f64 {
+    ss304::steel_304_l_high_temp_density_kim(ThermodynamicTemperature::new::<kelvin>(300.0)).map_or(f64::NAN, |r| r.get::<kilogram_per_cubic_meter>())
+}
+
+/// The debris bed in the hemispherical head: the wall area it touches, m^2,
+/// its height, m, and its bulk density, kg/m^3. A spherical cap of radius
+/// `rpv_radius_m` holding the UO2 and Zr at their densities with
+/// `debris_porosity`; full when it would overflow the hemisphere.
+fn debris_cap(prm: &Params, mf: f64, mc: f64) -> (f64, f64, f64) {
+    let r = prm.rpv_radius_m;
+    let v = (mf / prm.uo2_density + mc / prm.zr_density) / (1.0 - prm.debris_porosity);
+    let cap = |h: f64| std::f64::consts::PI * h * h * (3.0 * r - h) / 3.0;
+    let (mut a, mut b) = (0.0, r);
+    if cap(b) <= v {
+        a = r;
+    } else {
+        for _ in 0..60 {
+            let m = 0.5 * (a + b);
+            if cap(m) > v {
+                b = m;
+            } else {
+                a = m;
+            }
+        }
+    }
+    let h = if a == r { r } else { 0.5 * (a + b) };
+    (2.0 * std::f64::consts::PI * r * h, h, if v > 0.0 { (mf + mc) / v } else { 0.0 })
+}
+
+impl HeadWall {
+    fn new(t_k: f64) -> Self {
+        Self { t_k: [t_k; WALL_NODES], strain: 0.0 }
+    }
+
+    /// Advance the wall one step with its inner face exchanging with a
+    /// medium at `t_in` through `h_in`, W/(m^2 K), over `area`; returns the
+    /// heat taken from that medium, W.
+    fn step(&mut self, prm: &Params, t_in: f64, h_in: f64, area: f64, dt: f64) -> f64 {
+        let dx = prm.lower_head_thickness_m / (WALL_NODES - 1) as f64;
+        let rho = steel_rho();
+        let q_in = h_in * (t_in - self.t_k[0]);
+        let mut flux = [0.0; WALL_NODES];
+        flux[0] += q_in;
+        for i in 0..WALL_NODES - 1 {
+            let k = 0.5 * (steel_k(self.t_k[i]) + steel_k(self.t_k[i + 1]));
+            let f = k * (self.t_k[i] - self.t_k[i + 1]) / dx;
+            flux[i] -= f;
+            flux[i + 1] += f;
+        }
+        for i in 0..WALL_NODES {
+            let m = rho * dx * if i == 0 || i == WALL_NODES - 1 { 0.5 } else { 1.0 };
+            self.t_k[i] = steel_t(steel_h(self.t_k[i]) + flux[i] * dt / m);
+        }
+        q_in * area
+    }
+
+    /// Accumulate Larson-Miller creep strain over `dt` under a pressure
+    /// difference `dp` plus the debris's own head, Pa, and say whether the
+    /// head has failed (inner node or strain). Stress from the thick-sphere
+    /// relation MELCOR's 0-D option uses (Vol. 2, Eq 6-26); temperature the
+    /// wall's mean; skipped below 1000 Pa effective (its C1600(3)).
+    fn failed(&mut self, prm: &Params, dp: f64, dt: f64) -> bool {
+        let (ri, ro) = (prm.rpv_radius_m, prm.rpv_radius_m + prm.lower_head_thickness_m);
+        if dp >= 1000.0 {
+            let sigma = dp * ri * ri / (ro * ro - ri * ri);
+            let t_mean = self.t_k.iter().sum::<f64>() / WALL_NODES as f64;
+            let p_lm = prm.lm_p0 - prm.lm_slope * sigma.r_log10();
+            let t_rupture = ((p_lm / t_mean - prm.lm_c) * std::f64::consts::LN_10).r_exp();
+            self.strain += prm.creep_fail_strain * dt / t_rupture;
+        }
+        self.t_k[0] >= prm.head_failure_wall_k || self.strain >= prm.creep_fail_strain
+    }
 }
 
 fn geom(prm: &Params) -> NodeGeom {
@@ -340,6 +472,7 @@ impl Core {
             lower_head_failed: false,
             zr_oxidised_kg: 0.0,
             h2_total_kg: 0.0,
+            head: HeadWall::new(t_sat_k),
         }
     }
 
@@ -376,9 +509,22 @@ impl Core {
                 let release = excess * (1.0 - (-dt / prm.debris_quench_s).r_exp());
                 self.debris_h -= release;
                 q_quench = p_debris + release / dt;
+                if s.lower_head_wall {
+                    // Under water the wall boils against the plenum.
+                    let (area, _, _) = debris_cap(prm, self.debris_mf, self.debris_mc);
+                    q_quench -= self.head.step(prm, s.t_sat_k, prm.boiling_h, area, dt);
+                }
             } else {
                 self.debris_h += p_debris * dt;
-                if debris_temperature(self.debris_mf, self.debris_mc, self.debris_h) > prm.lower_head_failure_k {
+                if s.lower_head_wall {
+                    let (area, height, rho_bed) = debris_cap(prm, self.debris_mf, self.debris_mc);
+                    let t_d = debris_temperature(self.debris_mf, self.debris_mc, self.debris_h);
+                    self.debris_h -= self.head.step(prm, t_d, prm.debris_to_head_w_m2_k, area, dt) * dt;
+                    let dp = (s.p_pa - s.p_dw_pa).max(0.0) + rho_bed * 9.81 * height;
+                    if self.head.failed(prm, dp, dt) {
+                        self.lower_head_failed = true;
+                    }
+                } else if debris_temperature(self.debris_mf, self.debris_mc, self.debris_h) > prm.lower_head_failure_k {
                     self.lower_head_failed = true;
                 }
             }
@@ -390,9 +536,21 @@ impl Core {
                 let release = excess * (1.0 - (-dt / prm.debris_quench_s).r_exp());
                 self.debris_e -= release;
                 q_quench = p_debris + release / dt;
+                if s.lower_head_wall {
+                    let (area, _, _) = debris_cap(prm, self.debris_mf, self.debris_mc);
+                    q_quench -= self.head.step(prm, s.t_sat_k, prm.boiling_h, area, dt);
+                }
             } else {
                 self.debris_e += p_debris * dt;
-                if self.debris_e / self.debris_c > prm.lower_head_failure_k {
+                if s.lower_head_wall {
+                    let (area, height, rho_bed) = debris_cap(prm, self.debris_mf, self.debris_mc);
+                    let t_d = self.debris_e / self.debris_c;
+                    self.debris_e -= self.head.step(prm, t_d, prm.debris_to_head_w_m2_k, area, dt) * dt;
+                    let dp = (s.p_pa - s.p_dw_pa).max(0.0) + rho_bed * 9.81 * height;
+                    if self.head.failed(prm, dp, dt) {
+                        self.lower_head_failed = true;
+                    }
+                } else if self.debris_e / self.debris_c > prm.lower_head_failure_k {
                     self.lower_head_failed = true;
                 }
             }
@@ -514,9 +672,11 @@ impl Core {
         for (idx, share) in newly_relocated {
             let n = &mut self.nodes[idx];
             n.relocated = true;
+            // Masses in both property paths: the lower-head wall's bed
+            // geometry needs them (gh:#1034).
+            self.debris_mf += g.m_fuel;
+            self.debris_mc += g.zr_kg;
             if tdp {
-                self.debris_mf += g.m_fuel;
-                self.debris_mc += g.zr_kg;
                 self.debris_h += g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad);
             } else {
                 self.debris_c += g.c_fuel + g.c_clad;
@@ -546,6 +706,8 @@ impl Core {
             debris_k,
             lower_head_failed: self.lower_head_failed,
             ex_vessel_w: ex_vessel,
+            head_inner_k: self.head.t_k[0],
+            head_strain: self.head.strain,
             clad_k: self.nodes.iter().map(|n| if n.relocated { f64::NAN } else { n.t_clad }).collect(),
         }
     }
@@ -569,6 +731,8 @@ impl Core {
             self.zr_oxidised_kg,
             self.h2_total_kg,
         ]);
+        w.f(&self.head.t_k);
+        w.f(&[self.head.strain]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
         let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0 }).collect();
@@ -583,6 +747,7 @@ impl Core {
             lower_head_failed: r.f() != 0.0,
             zr_oxidised_kg: r.f(),
             h2_total_kg: r.f(),
+            head: HeadWall { t_k: std::array::from_fn(|_| r.f()), strain: r.f() },
         }
     }
 }
@@ -590,7 +755,17 @@ impl Core {
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // used by the browser's solver workers (and the tests)
 impl CoreSnapshot {
     pub fn write(&self, w: &mut Writer) {
-        w.f(&[self.dt_s, self.p_pa, self.t_sat_k, self.h_fg, self.level_m, self.decay_w, if self.t_dependent_props { 1.0 } else { 0.0 }]);
+        w.f(&[
+            self.dt_s,
+            self.p_pa,
+            self.t_sat_k,
+            self.h_fg,
+            self.level_m,
+            self.decay_w,
+            if self.t_dependent_props { 1.0 } else { 0.0 },
+            self.p_dw_pa,
+            if self.lower_head_wall { 1.0 } else { 0.0 },
+        ]);
         self.prm.write(w);
     }
     pub fn read(r: &mut Reader) -> Self {
@@ -602,6 +777,8 @@ impl CoreSnapshot {
             level_m: r.f(),
             decay_w: r.f(),
             t_dependent_props: r.f() != 0.0,
+            p_dw_pa: r.f(),
+            lower_head_wall: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -622,6 +799,8 @@ impl CoreResult {
             self.debris_k,
             if self.lower_head_failed { 1.0 } else { 0.0 },
             self.ex_vessel_w,
+            self.head_inner_k,
+            self.head_strain,
         ]);
         w.vec(&self.clad_k);
     }
@@ -639,6 +818,8 @@ impl CoreResult {
             debris_k: r.f(),
             lower_head_failed: r.f() != 0.0,
             ex_vessel_w: r.f(),
+            head_inner_k: r.f(),
+            head_strain: r.f(),
             clad_k: r.vec(),
         }
     }
@@ -662,7 +843,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -683,7 +864,7 @@ mod tests {
         }
         let g = geom(&Params::default());
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum();
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -709,7 +890,7 @@ mod tests {
             c.nodes.iter().map(|n| g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad)).sum()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -734,6 +915,58 @@ mod tests {
         assert!(cp_matpro(HeatCapacityModel::MatproUo2, 1500.0) > cp_matpro(HeatCapacityModel::MatproUo2, 600.0));
         let t = debris_temperature(2.0, 1.0, 2.0 * uo2_enthalpy().at(1400.0) + zr_enthalpy().at(1400.0));
         assert!((t - 1400.0).abs() < 1e-6, "{t}");
+    }
+
+    /// The lower-head wall (gh:#1034). Methodology:
+    /// - **Energy:** heat a wall from 560 K against 2000 K debris for 600
+    ///   one-second steps; the heat it reports taking equals its enthalpy
+    ///   rise (Kim 304L), to round-off.
+    /// - **Creep:** at 10 MPa effective stress and 1273 K, the time to
+    ///   rupture from the Larson-Miller constants is about 6.0e4 s, as
+    ///   MELCOR's Eqs 6-23 and 6-24 give by hand. So one 600 s step adds
+    ///   about 0.18 x 600 / 6.0e4 of strain.
+    /// - **Bed:** a whole core's debris (about 19.8 m^3 at 0.4 porosity)
+    ///   sits as a spherical cap of exactly that volume inside the 29 m^3
+    ///   hemisphere, wetting `2 pi R h`; twice that overflows it and wets
+    ///   all of it, `2 pi R^2`.
+    ///
+    /// Results (2026-10-29):
+    /// - energy matches to 1e-9 relative;
+    /// - t_R is within 10 % of 6.0e4 s;
+    /// - the cap volume matches to 1e-9 relative, and the overflowing bed's
+    ///   area is `2 pi R^2`.
+    #[test]
+    fn the_lower_head_wall_conserves_energy_and_creeps_by_larson_miller() {
+        let prm = Params::default();
+        let mut w = HeadWall::new(560.0);
+        let rho = steel_rho();
+        let dx = prm.lower_head_thickness_m / (WALL_NODES - 1) as f64;
+        let mass = |i: usize| rho * dx * if i == 0 || i == WALL_NODES - 1 { 0.5 } else { 1.0 };
+        let e0: f64 = (0..WALL_NODES).map(|i| mass(i) * steel_h(w.t_k[i])).sum();
+        let mut taken = 0.0;
+        for _ in 0..600 {
+            taken += w.step(&prm, 2000.0, prm.debris_to_head_w_m2_k, 1.0, 1.0);
+        }
+        let e1: f64 = (0..WALL_NODES).map(|i| mass(i) * steel_h(w.t_k[i])).sum();
+        assert!(((e1 - e0) - taken).abs() <= 1e-9 * taken, "{} vs {taken}", e1 - e0);
+        assert!(w.t_k[0] > w.t_k[WALL_NODES - 1], "{:?}", w.t_k);
+        // Larson-Miller: sigma 10 MPa at 1273 K.
+        let (ri, ro) = (prm.rpv_radius_m, prm.rpv_radius_m + prm.lower_head_thickness_m);
+        let dp = 10.0e6 * (ro * ro - ri * ri) / (ri * ri);
+        let mut c = HeadWall::new(1273.0);
+        assert!(!c.failed(&prm, dp, 600.0));
+        let t_rupture = prm.creep_fail_strain * 600.0 / c.strain;
+        assert!((t_rupture / 6.0e4 - 1.0).abs() < 0.1, "{t_rupture}");
+        // A whole core is a cap of its own volume; twice that overflows.
+        let (mf, mc) = (prm.core_uo2_kg(), prm.core_zr_kg());
+        let (area, h, rho_bed) = debris_cap(&prm, mf, mc);
+        let r = prm.rpv_radius_m;
+        let v = (mf + mc) / rho_bed;
+        let cap = std::f64::consts::PI * h * h * (3.0 * r - h) / 3.0;
+        assert!((cap - v).abs() <= 1e-9 * v && h < r, "{cap} vs {v}, h {h}");
+        assert!((area - 2.0 * std::f64::consts::PI * r * h).abs() < 1e-9);
+        let (full, h2, _) = debris_cap(&prm, 2.0 * mf, 2.0 * mc);
+        assert!((full - 2.0 * std::f64::consts::PI * r * r).abs() < 1e-9 && h2 == r);
     }
 
     /// The steam term of Hess's law (gh:#1046): saturated steam at 7 MPa
