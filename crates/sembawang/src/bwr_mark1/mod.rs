@@ -303,6 +303,11 @@ pub struct Mechanisms {
     /// contents while they hold water, and loses heat through its
     /// insulation to the drywell (2026-10-29, gh:#1037). Off is no wall.
     pub rpv_wall: bool,
+    /// The dome internals radiate to the RPV wall (MELCOR's gray pair, HS
+    /// RM Eq 2-96, with its default steel emissivity; 2026-10-29; needs
+    /// `rpv_wall`). Off is the internals with no heat path once the gas
+    /// stops flowing past them.
+    pub internals_radiation: bool,
 }
 
 impl Default for Mechanisms {
@@ -353,6 +358,7 @@ impl Default for Mechanisms {
             relief_h2_enthalpy: true,
             condensate_to_floor: true,
             rpv_wall: true,
+            internals_radiation: true,
         }
     }
 }
@@ -647,6 +653,12 @@ impl Mechanisms {
     /// No RPV wall: the model before 2026-10-29.
     pub fn without_rpv_wall(mut self) -> Self {
         self.rpv_wall = false;
+        self
+    }
+
+    /// The internals do not radiate to the wall: before 2026-10-29.
+    pub fn without_internals_radiation(mut self) -> Self {
+        self.internals_radiation = false;
         self
     }
 
@@ -1520,6 +1532,22 @@ impl Plant {
                 self.u += q * DT_S;
                 self.q_rpv_wall_w = q;
             }
+            // The internals radiate to the wall (`internals_radiation`):
+            // MELCOR's gray pair (HS RM Eq 2-96, view factor 1, equal
+            // areas), each surface at MELCOR's default steel emissivity
+            // (COR C1102), at most what brings the two to one temperature
+            // in the step.
+            if self.mechanisms.internals_radiation {
+                let (ti, tw) = (self.internals.t_k, self.rpv_wall_k);
+                let e = 1.0 / (1.0 / steel_emissivity(ti) + 1.0 / steel_emissivity(tw) - 1.0);
+                let q = 5.670_374e-8 * e * prm.internals_envelope_m2 * (ti.r_powi(4) - tw.r_powi(4));
+                let ci = prm.internals_kg * (core::steel_h(ti + 0.5) - core::steel_h(ti - 0.5));
+                let cw = mass * (core::steel_h(tw + 0.5) - core::steel_h(tw - 0.5));
+                let q_max = (ti - tw).abs() / (1.0 / ci + 1.0 / cw) / DT_S;
+                let q = q.clamp(-q_max, q_max);
+                self.internals.heat(&prm, -q, DT_S);
+                self.rpv_wall_k = core::steel_t(core::steel_h(self.rpv_wall_k) + q * DT_S / mass);
+            }
         }
         // Onto the internals, which hold the vessel's deposit: heat put in
         // a dry vessel's few kilograms of gas would drive its pressure up
@@ -1543,12 +1571,17 @@ impl Plant {
         // coefficient by the heat-mass analogy, `k = h/(rho c_p)` (Lewis
         // number about 1, steam's c_p, stated). The aerosol passes through
         // the vessel without dynamics, so vapour onto in-vessel aerosol is
-        // not modelled (stated). Result (2026-10-29): the internals hold up
+        // not modelled (stated). ~~Result (2026-10-29): the internals hold up
         // to 19.4 kg of cesium (5.45 h), then reach 1005 K and the deposit
         // re-evaporates and leaves; by 26 h none remains. The internals
         // lump has no heat-loss path once gas stops flowing past it (no
         // radiation to the vessel wall, no conduction): a stated artefact
-        // that keeps them hot, and real internals would keep part of it.
+        // that keeps them hot, and real internals would keep part of it.~~
+        // **CORRECTED 2026-10-29:** on the current model the internals hold
+        // 19.4 kg of cesium from about 8 h to 26 h and none re-evaporates;
+        // since `internals_radiation` they also radiate to the RPV wall and
+        // settle at about 812 K at 26 h (1332 K without it), where the
+        // radiation balances their deposit's decay heat.
         if self.mechanisms.in_vessel_deposition {
             let gas_m3 = v.gas_m3.max(1.0);
             let rho = (v.x * self.m + self.h2).max(1e-9) / gas_m3;
@@ -1766,6 +1799,12 @@ impl Frame {
 }
 
 /// The CSV the headless mode prints: a stable header, fixed precision.
+/// MELCOR's default emissivity of steel (COR C1102, from MELCOR 1.8.5):
+/// `0.25617 + 0.0003474 (T - 616.4833 K)`, bounded to [0.0001, 0.9999].
+fn steel_emissivity(t_k: f64) -> f64 {
+    (0.25617 + 0.000_347_4 * (t_k - 616.4833)).clamp(0.0001, 0.9999)
+}
+
 /// The RPV wall's inner area above the lower head, m^2: the cylinder and
 /// a hemispherical top head (`rpv_wall`).
 fn rpv_wall_area_m2(prm: &Params) -> f64 {

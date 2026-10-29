@@ -6942,6 +6942,7 @@ pub struct Params {
     pub rpv_radius_m: f64,
     pub rpv_height_m: f64,
     pub rpv_wall_m: f64,
+    pub internals_envelope_m2: f64,
     pub baf_m: f64,
     pub lower_plenum_free: f64,
     pub upper_free: f64,
@@ -7093,6 +7094,7 @@ pub struct Params {
 | `rpv_radius_m` | `f64` |  |
 | `rpv_height_m` | `f64` |  |
 | `rpv_wall_m` | `f64` |  |
+| `internals_envelope_m2` | `f64` |  |
 | `baf_m` | `f64` |  |
 | `lower_plenum_free` | `f64` |  |
 | `upper_free` | `f64` |  |
@@ -7580,6 +7582,16 @@ RPV wall thickness, m, for its heat capacity (`Mechanisms::rpv_wall`).
 
 ```rust
 pub const RPV_WALL_M: f64 = 0.16;
+```
+
+#### Constant `INTERNALS_ENVELOPE_M2`
+
+The dome internals' envelope facing the RPV wall, m^2, for their
+radiation to it (`Mechanisms::internals_radiation`). \[A\] a 4 m tall
+cylinder at the vessel's radius with its top: `2 pi r 4 + pi r^2`.
+
+```rust
+pub const INTERNALS_ENVELOPE_M2: f64 = 78.4;
 ```
 
 #### Constant `BAF_M`
@@ -11923,6 +11935,7 @@ pub struct Mechanisms {
     pub relief_h2_enthalpy: bool,
     pub condensate_to_floor: bool,
     pub rpv_wall: bool,
+    pub internals_radiation: bool,
 }
 ```
 
@@ -11975,6 +11988,7 @@ pub struct Mechanisms {
 | `relief_h2_enthalpy` | `bool` | The relief valves' hydrogen reaches the wetwell with its enthalpy<br>at the vessel's saturation temperature, closing the energy the<br>vessel gives up with it (2026-10-29; needs `ww_atmosphere`). Off is<br>the hydrogen at the pool's temperature. |
 | `condensate_to_floor` | `bool` | Water condensed in the drywell (on its structures, and steam above<br>saturation) drains to the floor, the pedestal's pool, where debris<br>can boil it again (2026-10-29; MELCOR drains a structure's film to<br>its volume's pool). Off is the condensate leaving the model. |
 | `rpv_wall` | `bool` | The RPV wall (cylinder and top head, 0.16 m of steel \[A\]) as a<br>lumped heat structure: it exchanges with the vessel's saturated<br>contents while they hold water, and loses heat through its<br>insulation to the drywell (2026-10-29, gh:#1037). Off is no wall. |
+| `internals_radiation` | `bool` | The dome internals radiate to the RPV wall (MELCOR's gray pair, HS<br>RM Eq 2-96, with its default steel emissivity; 2026-10-29; needs<br>`rpv_wall`). Off is the internals with no heat path once the gas<br>stops flowing past them. |
 
 ##### Implementations
 
@@ -12199,6 +12213,11 @@ pub struct Mechanisms {
   pub fn without_rpv_wall(self: Self) -> Self { /* ... */ }
   ```
   No RPV wall: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_internals_radiation(self: Self) -> Self { /* ... */ }
+  ```
+  The internals do not radiate to the wall: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

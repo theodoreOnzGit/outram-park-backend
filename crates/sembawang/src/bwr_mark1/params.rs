@@ -86,6 +86,10 @@ pub const RPV_HEIGHT_M: f64 = 20.0;
 /// RPV wall thickness, m, for its heat capacity (`Mechanisms::rpv_wall`).
 /// \[A\] about 6 in, typical of a BWR/3 shell; not in a held source.
 pub const RPV_WALL_M: f64 = 0.16;
+/// The dome internals' envelope facing the RPV wall, m^2, for their
+/// radiation to it (`Mechanisms::internals_radiation`). \[A\] a 4 m tall
+/// cylinder at the vessel's radius with its top: `2 pi r 4 + pi r^2`.
+pub const INTERNALS_ENVELOPE_M2: f64 = 78.4;
 /// Bottom of active fuel above the vessel bottom, m. \[A\]
 pub const BAF_M: f64 = 5.0;
 /// Fraction of the vessel's cross-section free for water below the core
@@ -614,6 +618,7 @@ params! {
     rpv_radius_m = RPV_RADIUS_M, U,
     rpv_height_m = RPV_HEIGHT_M, U,
     rpv_wall_m = RPV_WALL_M, A,
+    internals_envelope_m2 = INTERNALS_ENVELOPE_M2, A,
     baf_m = BAF_M, A,
     lower_plenum_free = LOWER_PLENUM_FREE, A,
     upper_free = UPPER_FREE, A,
@@ -825,7 +830,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 143);
+        assert_eq!(Params::INPUTS.len(), 144);
     }
 
     /// The derived core inventories are the right size for a 400-bundle
