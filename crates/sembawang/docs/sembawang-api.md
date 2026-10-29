@@ -4033,6 +4033,7 @@ pub struct ContainmentSnapshot {
     pub iodine_partition: bool,
     pub mixture_vent: bool,
     pub phoresis: bool,
+    pub iodine_swarm: bool,
     pub prm: Params,
 }
 ```
@@ -4068,6 +4069,7 @@ pub struct ContainmentSnapshot {
 | `iodine_partition` | `bool` | The iodine partition limit on the condensation scrubbing<br>(`Mechanisms::iodine_partition`). |
 | `mixture_vent` | `bool` | The wetwell vent passes the gas mixture (`Mechanisms::mixture_vent`). |
 | `phoresis` | `bool` | Thermophoresis and diffusiophoresis onto the drywell's structures<br>(`Mechanisms::phoresis`). |
+| `iodine_swarm` | `bool` | The swarm rise's scrubbing of I2 vapour (`Mechanisms::iodine_swarm`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -8984,6 +8986,141 @@ pub struct Injection {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `IodineVapour`
+
+The pool's side of iodine-vapour scrubbing: I2's diffusivity in the
+bubble gas and in the water, m^2/s, the pool's partition coefficient
+(`iodine::partition`), its dissolved iodine, mol of I2 per litre, and
+the entering gas's I2 concentration at the vent exit, mol per litre of
+gas.
+
+```rust
+pub struct IodineVapour {
+    pub d_gas: f64,
+    pub d_liquid: f64,
+    pub h: f64,
+    pub sum_aq: f64,
+    pub c_gas: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `d_gas` | `f64` |  |
+| `d_liquid` | `f64` |  |
+| `h` | `f64` |  |
+| `sum_aq` | `f64` |  |
+| `c_gas` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `bubble_axes`
@@ -9041,6 +9178,33 @@ and density `rho_p` injected through one vent into `pool`.
 
 ```rust
 pub fn pass_fractions(pool: &Pool, inj: &Injection, d: &[f64], rho_p: f64) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `i2_liquid_diffusivity`
+
+I2's diffusivity in water, m^2/s, at `t_k`: 1.2e-9 at 298.15 K \[A\],
+scaled by Stokes-Einstein (`T / mu`) with water's viscosity from the
+steam tables. The manual gives no value; with the pool's partition
+large (CsOH), the gas side controls and this barely matters (test).
+
+```rust
+pub fn i2_liquid_diffusivity(t_k: f64, p_pa: f64) -> f64 { /* ... */ }
+```
+
+#### Function `iodine_pass`
+
+The swarm rise's pass fraction for I2 vapour through one vent (MELCOR
+Appendix F): in each step and on each strip of the bubble, the
+gas-side penetration velocity `sqrt(D_g / (pi tau_e))` brings I2 to the
+interface, whose concentration balances it against the liquid side
+with the partition (Eq F.2); the net velocity is hindered by the
+evaporation as for particles (Eq F.1) and integrated as Eq E.13. The
+bubble's I2 concentration is updated after each step (diluted as the
+bubble expands and scrubbed). No scrubbing where the pool's iodine over
+the partition is at least the bubble's.
+
+```rust
+pub fn iodine_pass(pool: &Pool, inj: &Injection, iv: &IodineVapour) -> f64 { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -10367,6 +10531,7 @@ pub struct Mechanisms {
     pub iodine_partition: bool,
     pub mixture_vent: bool,
     pub phoresis: bool,
+    pub iodine_swarm: bool,
 }
 ```
 
@@ -10401,6 +10566,7 @@ pub struct Mechanisms {
 | `iodine_partition` | `bool` | The condensation scrubbing of iodine vapour limited by the pool's<br>partition coefficient for I2, from SPARC-90's equilibrium chemistry<br>with the pool's dissolved CsOH (MELCOR Eq D-7, Appendix F; [`iodine`];<br>2026-10-29). Off is iodine vapour scrubbed like the gas. |
 | `mixture_vent` | `bool` | The wetwell vent passes the wetwell's gas mixture through its<br>orifice, the pool boiling to supply the steam, and the boiled-off<br>water takes its sensible heat too (gh:#1053; 2026-10-29). Off is the<br>vent sized for the non-condensables alone, with steam added in<br>proportion and only latent heat leaving the pool. |
 | `phoresis` | `bool` | Thermophoresis (from the walls' heat flux) and diffusiophoresis<br>(from the steam condensing on them) onto the drywell's structures,<br>MELCOR's defaults (RN §2.4.2.2; 2026-10-29). Off is gravity and<br>Brownian diffusion alone. |
+| `iodine_swarm` | `bool` | The swarm rise past the downcomers scrubs I2 vapour by diffusion to<br>the bubbles' walls, limited by the pool's partition (MELCOR Appendix<br>F; [`sparc::iodine_pass`]; 2026-10-29). Off is iodine vapour scrubbed<br>by condensation alone. |
 
 ##### Implementations
 
@@ -10535,6 +10701,11 @@ pub struct Mechanisms {
   pub fn without_phoresis(self: Self) -> Self { /* ... */ }
   ```
   No phoresis onto the drywell's structures: the model before
+
+- ```rust
+  pub fn without_iodine_swarm(self: Self) -> Self { /* ... */ }
+  ```
+  No swarm scrubbing of iodine vapour: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

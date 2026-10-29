@@ -68,8 +68,10 @@ use super::aerosol::Medium;
 use super::steam::p_sat_pa;
 use petir::mathf::RealMath;
 use std::f64::consts::PI;
+use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_single_phase;
 use tampines_steam_tables::region_1_subcooled_liquid::intensive_properties::v_tp_1;
 use tampines_steam_tables::surface_tension::water_surf_tension;
+use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
 use uom::si::pressure::pascal;
 use uom::si::radiant_exposure::joule_per_square_meter;
@@ -277,16 +279,27 @@ impl Surface {
     }
 }
 
-/// Pass fractions `1 / (DF_II DF_SR)` for particles of diameters `d` (m)
-/// and density `rho_p` injected through one vent into `pool`.
-pub fn pass_fractions(pool: &Pool, inj: &Injection, d: &[f64], rho_p: f64) -> Vec<f64> {
+/// One step of the rise: its pressure, the time spent in it, the share of
+/// the gas still in the globule, the bubble's surface, and the evaporative
+/// velocity into the bubble.
+struct RiseStep {
+    p: f64,
+    dt: f64,
+    f_gl: f64,
+    surf: Surface,
+    v_v: f64,
+}
+
+/// The march through the rise (Appendix E), shared by the particles and
+/// the iodine vapour: the steps, and the vent's exit velocity. `None` with
+/// no gas or no depth.
+fn rise(pool: &Pool, inj: &Injection) -> Option<(Vec<RiseStep>, f64)> {
     if inj.nc_mol_s <= 0.0 || pool.depth_m <= 0.0 {
-        return vec![1.0; d.len()];
+        return None;
     }
     let rho_l = pool.rho_l();
     let sigma = pool.sigma();
     let p_sat = p_sat_pa(pool.t_k.min(640.0));
-    let mu = air_viscosity(pool.t_k);
     // Equilibrium gas flow (non-condensable plus saturated vapour), m^3/s.
     let q_at = |x: f64| {
         let p = pool.p_at(rho_l, x);
@@ -295,28 +308,117 @@ pub fn pass_fractions(pool: &Pool, inj: &Injection, d: &[f64], rho_p: f64) -> Ve
     let d_g0 = globule_diameter(inj.vent, inj.diameter_m, q_at(0.0), sigma, rho_l);
     let v_sw = swarm_velocity(q_at(0.5 * pool.depth_m) * 1e3, pool.depth_m);
     let v_e = inj.q_exit_m3_s / (0.25 * PI * inj.diameter_m * inj.diameter_m);
-    let mut pass: Vec<f64> = d.iter().map(|&di| 1.0 / impaction_df(di, rho_p, mu, v_e, inj.diameter_m)).collect();
     let dx = pool.depth_m / N_RISE as f64;
     let dt = dx / v_sw;
-    for k in 0..N_RISE {
-        let x = (k as f64 + 0.5) * dx;
-        let p = pool.p_at(rho_l, x);
-        let x_nc = (1.0 - p_sat / p).max(0.0);
-        let (a, b) = bubble_axes(x_nc);
-        let d_cm = 2.0 * (a * a * b).r_powf(1.0 / 3.0) * 100.0;
-        let surf = Surface::new(a, b, rise_velocity(d_cm, sigma, rho_l));
-        // Evaporation that keeps the expanding bubble saturated, per unit
-        // of its surface, m/s (the vapour volume added as the static head
-        // falls by rho_l g v_sw each second).
-        let v_v = surf.volume / surf.area() * p_sat * rho_l * G * v_sw / (p * (p - p_sat).max(1.0));
-        let f_gl = (1.0 - x / (12.0 * d_g0)).max(0.0).r_powf(3.0);
-        let mut medium = Medium::air(pool.t_k, p, mu);
+    let steps = (0..N_RISE)
+        .map(|k| {
+            let x = (k as f64 + 0.5) * dx;
+            let p = pool.p_at(rho_l, x);
+            let x_nc = (1.0 - p_sat / p).max(0.0);
+            let (a, b) = bubble_axes(x_nc);
+            let d_cm = 2.0 * (a * a * b).r_powf(1.0 / 3.0) * 100.0;
+            let surf = Surface::new(a, b, rise_velocity(d_cm, sigma, rho_l));
+            // Evaporation that keeps the expanding bubble saturated, per
+            // unit of its surface, m/s (the vapour volume added as the
+            // static head falls by rho_l g v_sw each second).
+            let v_v = surf.volume / surf.area() * p_sat * rho_l * G * v_sw / (p * (p - p_sat).max(1.0));
+            let f_gl = (1.0 - x / (12.0 * d_g0)).max(0.0).r_powf(3.0);
+            RiseStep { p, dt, f_gl, surf, v_v }
+        })
+        .collect();
+    Some((steps, v_e))
+}
+
+/// Pass fractions `1 / (DF_II DF_SR)` for particles of diameters `d` (m)
+/// and density `rho_p` injected through one vent into `pool`.
+pub fn pass_fractions(pool: &Pool, inj: &Injection, d: &[f64], rho_p: f64) -> Vec<f64> {
+    let Some((steps, v_e)) = rise(pool, inj) else {
+        return vec![1.0; d.len()];
+    };
+    let mu = air_viscosity(pool.t_k);
+    let mut pass: Vec<f64> = d.iter().map(|&di| 1.0 / impaction_df(di, rho_p, mu, v_e, inj.diameter_m)).collect();
+    for st in &steps {
+        let mut medium = Medium::air(pool.t_k, st.p, mu);
         medium.rho_p = rho_p;
         for (i, &di) in d.iter().enumerate() {
-            let rate = surf.removal_rate(medium.settling_velocity(di), medium.diffusivity(di), v_v);
-            let df_bb = (rate * dt).r_exp();
-            pass[i] *= f_gl + (1.0 - f_gl) / df_bb;
+            let rate = st.surf.removal_rate(medium.settling_velocity(di), medium.diffusivity(di), st.v_v);
+            let df_bb = (rate * st.dt).r_exp();
+            pass[i] *= st.f_gl + (1.0 - st.f_gl) / df_bb;
         }
+    }
+    pass
+}
+
+/// The pool's side of iodine-vapour scrubbing: I2's diffusivity in the
+/// bubble gas and in the water, m^2/s, the pool's partition coefficient
+/// (`iodine::partition`), its dissolved iodine, mol of I2 per litre, and
+/// the entering gas's I2 concentration at the vent exit, mol per litre of
+/// gas.
+#[derive(Clone, Copy, Debug)]
+pub struct IodineVapour {
+    pub d_gas: f64,
+    pub d_liquid: f64,
+    pub h: f64,
+    pub sum_aq: f64,
+    pub c_gas: f64,
+}
+
+/// I2's diffusivity in water, m^2/s, at `t_k`: 1.2e-9 at 298.15 K \[A\],
+/// scaled by Stokes-Einstein (`T / mu`) with water's viscosity from the
+/// steam tables. The manual gives no value; with the pool's partition
+/// large (CsOH), the gas side controls and this barely matters (test).
+pub fn i2_liquid_diffusivity(t_k: f64, p_pa: f64) -> f64 {
+    let mu = |t: f64| {
+        let t = ThermodynamicTemperature::new::<kelvin>(t.min(640.0));
+        let p = Pressure::new::<pascal>(p_pa.max(p_sat_pa(t.get::<kelvin>()) * 1.0001));
+        mu_tp_eqm_single_phase(t, p).get::<pascal_second>()
+    };
+    1.2e-9 * (t_k / 298.15) * (mu(298.15) / mu(t_k))
+}
+
+/// The swarm rise's pass fraction for I2 vapour through one vent (MELCOR
+/// Appendix F): in each step and on each strip of the bubble, the
+/// gas-side penetration velocity `sqrt(D_g / (pi tau_e))` brings I2 to the
+/// interface, whose concentration balances it against the liquid side
+/// with the partition (Eq F.2); the net velocity is hindered by the
+/// evaporation as for particles (Eq F.1) and integrated as Eq E.13. The
+/// bubble's I2 concentration is updated after each step (diluted as the
+/// bubble expands and scrubbed). No scrubbing where the pool's iodine over
+/// the partition is at least the bubble's.
+pub fn iodine_pass(pool: &Pool, inj: &Injection, iv: &IodineVapour) -> f64 {
+    let Some((steps, _)) = rise(pool, inj) else {
+        return 1.0;
+    };
+    if iv.c_gas <= 0.0 {
+        return 1.0;
+    }
+    let p_sat = p_sat_pa(pool.t_k.min(640.0));
+    let p0 = pool.p_at(pool.rho_l(), 0.0);
+    let mut pass = 1.0;
+    for st in &steps {
+        // The bubble's concentration: the entering gas's, diluted by the
+        // expansion (non-condensable moles fixed, volume as 1/(p - p_sat))
+        // and by what earlier steps removed.
+        let c = iv.c_gas * (st.p - p_sat).max(1.0) / (p0 - p_sat).max(1.0) * pass;
+        if iv.sum_aq / iv.h >= c {
+            continue;
+        }
+        let s = &st.surf;
+        let mut sum = 0.0;
+        for j in 0..s.da.len() {
+            let vg = (iv.d_gas / (PI * s.tau_e[j])).sqrt();
+            let vl = (iv.d_liquid / (PI * s.tau_e[j])).sqrt();
+            let c_i = (vg * c + vl * iv.sum_aq) / (vg + vl * iv.h);
+            let v_d = vg * (c - c_i) / c;
+            if v_d <= 0.0 {
+                continue;
+            }
+            let phi = st.v_v / v_d;
+            let xi = if phi < 7.0 { (-phi * phi).r_exp() / (2.0 - (-1.85 * phi).r_exp()) } else { 0.0 };
+            sum += xi * v_d * s.da[j];
+        }
+        let df_bb = (sum / s.volume * st.dt).r_exp();
+        pass *= st.f_gl + (1.0 - st.f_gl) / df_bb;
     }
     pass
 }
@@ -424,5 +526,35 @@ mod tests {
         // p_sat(375 K) = 108.0 kPa and rho = 957 kg/m^3: 0.653.
         let xo = pool.x_o();
         assert!((xo - (1.0 - 108_000.0 / (3.0e5 + 957.0 * G * 1.2))).abs() < 2e-3, "{xo}");
+    }
+
+    /// Iodine vapour in the swarm (2026-10-29), at the downcomer case
+    /// above with D_g = 1e-5 m^2/s and 1e-6 mol/L entering. Predicted: in an
+    /// alkaline pool (H = 2e4) the gas side controls and the bubbles lose
+    /// nearly all their I2, so the factor is set by the globule, of order
+    /// tens; a neutral pool (H = 16) is limited by the liquid side and
+    /// scrubs much less; a pool whose iodine over H exceeds the gas's does
+    /// not scrub. Measured: alkaline 0.0860 (DF 11.6; complete removal in
+    /// the bubbles would be the product of the globule shares, 0.0364:
+    /// the evaporation's hindrance takes the rest); neutral 0.773
+    /// (1e-5 M dissolved) and 0.394 (none); saturated 1; doubling the
+    /// \[A\] liquid diffusivity moves the alkaline case by 1e-4
+    /// (0.08598 -> 0.08591). I2's liquid diffusivity at 375 K is
+    /// 4.86e-9 m^2/s.
+    #[test]
+    fn the_swarm_scrubs_iodine_vapour_by_its_partition() {
+        let pool = Pool { t_k: 375.0, p_surface_pa: 3.0e5, depth_m: 1.2 };
+        let inj = Injection { vent: Vent::Downcomer, diameter_m: 0.515, nc_mol_s: 50.0, q_exit_m3_s: 2.0 };
+        let dl = i2_liquid_diffusivity(375.0, 3.0e5);
+        assert!((dl / 4.862e-9 - 1.0).abs() < 1e-3, "{dl}");
+        let at = |h: f64, sum: f64, dl: f64| iodine_pass(&pool, &inj, &IodineVapour { d_gas: 1e-5, d_liquid: dl, h, sum_aq: sum, c_gas: 1e-6 });
+        let near = |x: f64, w: f64| (x - w).abs() < 1e-4;
+        assert!(near(at(2e4, 1e-5, dl), 0.08598), "{}", at(2e4, 1e-5, dl));
+        assert!(near(at(16.0, 1e-5, dl), 0.77294) && near(at(16.0, 0.0, dl), 0.39395), "{} {}", at(16.0, 1e-5, dl), at(16.0, 0.0, dl));
+        assert_eq!(at(16.0, 1e-3, dl), 1.0);
+        assert!(near(at(2e4, 1e-5, 2.0 * dl), 0.08591));
+        let (steps, _) = rise(&pool, &inj).unwrap();
+        let globule: f64 = steps.iter().map(|s| s.f_gl).product();
+        assert!(at(2e4, 0.0, dl) > globule && (globule - 0.0364).abs() < 1e-4, "{globule}");
     }
 }

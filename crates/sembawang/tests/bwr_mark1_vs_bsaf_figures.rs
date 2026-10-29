@@ -319,7 +319,16 @@ fn cesium_against_fig_2_6() {
 /// kg, vented 1.634 -> 1.786 kg. Predicted: less scrubbing, so less in the
 /// pool and more vented: held. The swarm rise (`swarm_scrubbing`) moves no
 /// iodine: it is all vapour, and the vapour's swarm scrubbing (MELCOR
-/// Appendix F) is not built.
+/// Appendix F) ~~is not built~~ is built since (below).
+///
+/// **Moved 2026-10-29 by the swarm's scrubbing of I2 vapour** (Appendix
+/// F, `iodine_swarm`): inside **55.1 % -> 52.8 %**; iodine in the pool at
+/// 26 h 7.785 -> 9.410 kg (0.786 of the inventory), vented 1.787 -> 0.161
+/// kg. Predicted: more in the pool, less vented, with a downcomer factor
+/// of order tens (the unit test gives 11.6): held. The pool's fraction
+/// moves further above the highest code's (about 0.62); the fit worsens
+/// and is recorded, not tuned. The relief valves' quenchers get no swarm
+/// scrubbing, their geometry not being known.
 #[test]
 fn iodine_against_fig_2_6() {
     let m = model();
@@ -328,7 +337,7 @@ fn iodine_against_fig_2_6() {
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
     assert_eq!(b, (0.0, 76));
-    assert!((d.0 - 0.5506).abs() < 1e-3 && d.1 == 89, "{d:?}");
+    assert!((d.0 - 0.5281).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
         Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss(),
         Params::default(),

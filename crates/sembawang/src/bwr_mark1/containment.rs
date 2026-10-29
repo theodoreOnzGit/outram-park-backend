@@ -37,7 +37,7 @@ use super::params::*;
 use super::aerosol::{diffusiophoretic_velocity, Facing, Medium, Sections, Surface};
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
 use super::rn_volume::{RnSurface, RnVolume, CS, IODINE};
-use super::vapour::BulkGas;
+use super::vapour::{BulkGas, FpClass};
 use super::iodine;
 use super::sparc;
 use super::steam::p_sat_pa;
@@ -112,6 +112,8 @@ pub struct ContainmentSnapshot {
     /// Thermophoresis and diffusiophoresis onto the drywell's structures
     /// (`Mechanisms::phoresis`).
     pub phoresis: bool,
+    /// The swarm rise's scrubbing of I2 vapour (`Mechanisms::iodine_swarm`).
+    pub iodine_swarm: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -197,6 +199,11 @@ pub struct Containment {
     /// The pool's partition coefficient for I2 (`iodine::partition`),
     /// updated at each aerosol step.
     iodine_h: f64,
+    /// The swarm rise's pass fraction for I2 vapour at the downcomers, and
+    /// its age, s: recomputed at most once per aerosol step, as the
+    /// particles' are.
+    iodine_swarm_pass: f64,
+    iodine_swarm_age_s: f64,
     /// Steam condensed in the drywell since the last aerosol step, kg: on
     /// its walls, for their diffusiophoresis.
     dw_condensed_kg: f64,
@@ -261,6 +268,8 @@ impl Containment {
             swarm_age_s: RN_STEP_S,
             iodine_h: iodine::partition(INITIAL_POOL_K, 0.0, 0.0, 0.0),
             dw_condensed_kg: 0.0,
+            iodine_swarm_pass: 1.0,
+            iodine_swarm_age_s: RN_STEP_S,
             pool_scrubbed: [0.0; 3],
         }
     }
@@ -311,6 +320,7 @@ impl Containment {
         let dt = s.dt_s;
         let tv = s.gas_cv_t;
         self.swarm_age_s += dt;
+        self.iodine_swarm_age_s += dt;
         self.dw_rn.lumped = !s.sectional_classes;
         self.ww_rn.lumped = !s.sectional_classes;
         // 1. Relief valves into the pool.
@@ -455,7 +465,38 @@ impl Containment {
             } else {
                 vec![1.0; moved.len()]
             };
-            let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, cv[IODINE], n * R_GAS * self.dw_t / p_dw);
+            let mut pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, cv[IODINE], n * R_GAS * self.dw_t / p_dw);
+            // The swarm rise scrubs the I2 vapour too (MELCOR Appendix F;
+            // `sparc::iodine_pass`), from the bubble's concentration once
+            // the gas is in equilibrium with the pool at the vent exit.
+            let n_nc = dn2 + dh2;
+            if s.pool_scrubbing && s.iodine_swarm && cv[IODINE] > 0.0 && n_nc > 0.0 && self.iodine_swarm_age_s >= RN_STEP_S {
+                let n_v = prm.downcomer_count;
+                let inj = sparc::Injection {
+                    vent: sparc::Vent::Downcomer,
+                    diameter_m: (4.0 * prm.downcomer_area_m2 / (n_v * std::f64::consts::PI)).sqrt(),
+                    nc_mol_s: n_nc / dt / n_v,
+                    q_exit_m3_s: n * R_GAS * self.dw_t / p_dw / dt / n_v,
+                };
+                let p0 = p_ww + prm.vent_submergence_pa;
+                let p_s = p_sat_pa(self.pool_t);
+                let x_s = (p_s / p0).min(1.0);
+                let gas_l = n_nc * R_GAS * self.pool_t / (p0 - p_s).max(1.0) * 1e3;
+                let gases = [(BulkGas::Steam, x_s), (BulkGas::N2, (1.0 - x_s) * dn2 / n_nc), (BulkGas::H2, (1.0 - x_s) * dh2 / n_nc)];
+                let (_, sum_aq, _) = self.pool_chemistry(&pool);
+                let iv = sparc::IodineVapour {
+                    d_gas: FpClass::I2.diffusivity(&gases, self.pool_t, p0),
+                    d_liquid: sparc::i2_liquid_diffusivity(self.pool_t, p0),
+                    h: self.iodine_h,
+                    sum_aq,
+                    c_gas: cv[IODINE] * pass_i / iodine::M_I2 / gas_l,
+                };
+                self.iodine_swarm_pass = sparc::iodine_pass(&pool, &inj, &iv);
+                self.iodine_swarm_age_s = 0.0;
+            }
+            if s.pool_scrubbing && s.iodine_swarm && cv[IODINE] > 0.0 && n_nc > 0.0 {
+                pass_i *= self.iodine_swarm_pass;
+            }
             let pass_v = [pass, pass_i];
             for k in 0..2 {
                 self.pool_scrubbed[k] += cv[k] * (1.0 - pass_v[k]) + ca[k].iter().zip(&swarm).map(|(m, p)| m * (1.0 - pass * p)).sum::<f64>();
@@ -865,6 +906,8 @@ impl Containment {
             self.swarm_age_s,
             self.iodine_h,
             self.dw_condensed_kg,
+            self.iodine_swarm_pass,
+            self.iodine_swarm_age_s,
         ]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
@@ -904,6 +947,8 @@ impl Containment {
             swarm_age_s: r.f(),
             iodine_h: r.f(),
             dw_condensed_kg: r.f(),
+            iodine_swarm_pass: r.f(),
+            iodine_swarm_age_s: r.f(),
             pool_scrubbed: [0.0; 3],
         };
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
@@ -945,6 +990,7 @@ impl ContainmentSnapshot {
             b(self.iodine_partition),
             b(self.mixture_vent),
             b(self.phoresis),
+            b(self.iodine_swarm),
         ]);
         self.prm.write(w);
     }
@@ -977,6 +1023,7 @@ impl ContainmentSnapshot {
             iodine_partition: r.f() != 0.0,
             mixture_vent: r.f() != 0.0,
             phoresis: r.f() != 0.0,
+            iodine_swarm: r.f() != 0.0,
             prm: Params::read(r),
         }
     }

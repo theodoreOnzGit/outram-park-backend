@@ -201,6 +201,11 @@ pub struct Mechanisms {
     /// MELCOR's defaults (RN §2.4.2.2; 2026-10-29). Off is gravity and
     /// Brownian diffusion alone.
     pub phoresis: bool,
+    /// The swarm rise past the downcomers scrubs I2 vapour by diffusion to
+    /// the bubbles' walls, limited by the pool's partition (MELCOR Appendix
+    /// F; [`sparc::iodine_pass`]; 2026-10-29). Off is iodine vapour scrubbed
+    /// by condensation alone.
+    pub iodine_swarm: bool,
 }
 
 impl Default for Mechanisms {
@@ -233,6 +238,7 @@ impl Default for Mechanisms {
             iodine_partition: true,
             mixture_vent: true,
             phoresis: true,
+            iodine_swarm: true,
         }
     }
 }
@@ -413,6 +419,12 @@ impl Mechanisms {
     /// 2026-10-29.
     pub fn without_phoresis(mut self) -> Self {
         self.phoresis = false;
+        self
+    }
+
+    /// No swarm scrubbing of iodine vapour: the model before 2026-10-29.
+    pub fn without_iodine_swarm(mut self) -> Self {
+        self.iodine_swarm = false;
         self
     }
 
@@ -1065,6 +1077,7 @@ impl Plant {
                 iodine_partition: self.mechanisms.iodine_partition,
                 mixture_vent: self.mechanisms.mixture_vent,
                 phoresis: self.mechanisms.phoresis,
+                iodine_swarm: self.mechanisms.iodine_swarm,
                 prm,
             },
         }
