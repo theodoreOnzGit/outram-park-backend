@@ -293,7 +293,7 @@ mod tests {
     /// |---|---|---|---|
     /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ ~~4.67 h~~ ~~4.51 h~~ ~~4.48 h~~ ~~5.39 h~~ 5.45 h | 7.45-17.16 h (B) | early, regime-fragile |
     /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ ~~4.67 h~~ ~~4.51 h~~ ~~4.48 h~~ ~~5.39 h~~ 4.36 h | 5-12 h (A) | ~~inside~~ ~~below,~~ ~~inside, for the wrong reason~~ early: a main steam line ruptures by creep (the BSAF analyses' 3-4 h RCS leak, §1.1) |
-    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ ~~180.57 kg~~ ~~216.06 kg~~ ~~182.90 kg~~ ~~283.76 kg~~ ~~286.63 kg~~ ~~287.47 kg~~ ~~292.44 kg~~ ~~192.11 kg~~ ~~193.97 kg~~ 191.47 kg | 400-1310 kg (C) | low |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ ~~180.57 kg~~ ~~216.06 kg~~ ~~182.90 kg~~ ~~283.76 kg~~ ~~286.63 kg~~ ~~287.47 kg~~ ~~292.44 kg~~ ~~192.11 kg~~ ~~193.97 kg~~ ~~191.47 kg~~ 191.43 kg | 400-1310 kg (C) | low |
     /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ ~~0.475 MPa~~ ~~0.508 MPa~~ ~~0.532 MPa~~ ~~0.510 MPa~~ ~~0.559 MPa~~ ~~0.562 MPa~~ ~~0.564 MPa~~ ~~0.534 MPa~~ ~~0.535 MPa~~ 0.547 MPa | 0.8-1.0 MPa (C) | low |
     /// | wetwell vent | ~~never~~ ~~25.12 h~~ ~~23.73 h~~ never | ~24 h (23.5-24.68 h) (A) | ~~missed~~ ~~late~~ ~~inside, regime-fragile~~ missed (regime flip, 1100 K cutoff) |
     /// | building explosion | never | 24.83 h (A) | missed |
@@ -520,6 +520,15 @@ mod tests {
     /// (5-12 h). `without_msl_creep` reproduces the previous baseline
     /// exactly (pinned below).
     ///
+    /// **Corrected 2026-10-29** (a defect, not physics: a dry vessel's
+    /// outflow is now capped at the isothermal equalising amount, the
+    /// containment's rule for stiff paths; without it a large break could
+    /// empty the vessel in one step, found when a perturbed input sent the
+    /// pressure to infinity): lower head 5.4544 -> 5.4492 h, H2 191.47 ->
+    /// 191.43 kg, drywell 0.54734 -> 0.54685 MPa, depressurisation
+    /// unchanged. Runs without a steam-line rupture never bind the cap and
+    /// do not move.
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -527,10 +536,10 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 5.4544, 0.001), "{m:?}");
+        assert!(near(m.lower_head_h, 5.4492, 0.001), "{m:?}");
         assert!(near(m.depressurised_h, 4.3583, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 191.47).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.54734062).abs() < 1e-8, "{m:?}");
+        assert!((m.h2_25h_kg - 191.43).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.54685193).abs() < 1e-8, "{m:?}");
         assert!(m.vent_h.is_none() && m.explosion_h.is_none(), "{m:?}");
         // No steam-line creep: the previous baseline, exactly.
         let ml = measure(Mechanisms::default().without_msl_creep());
@@ -585,9 +594,10 @@ mod tests {
         // 5.132 h, 190.59 -> 242.08 kg, 0.5341 -> 0.5608 MPa; it now vents.
         // Since H2 c_p(T): 5.132 -> 5.136 h, 242.08 -> 244.74 kg.
         // Since MSL creep: 5.136 -> 5.177 h, 244.74 -> 234.07 kg.
+        // Since the dry-vessel outflow cap: 5.177 -> 5.169 h, 234.07 -> 233.73 kg.
         let ns = measure(Mechanisms::default().without_level_swell());
-        assert!(near(ns.lower_head_h, 5.177, 0.001), "{ns:?}");
-        assert!((ns.h2_25h_kg - 234.07).abs() < 0.01, "{ns:?}");
+        assert!(near(ns.lower_head_h, 5.169, 0.001), "{ns:?}");
+        assert!((ns.h2_25h_kg - 233.73).abs() < 0.01, "{ns:?}");
         assert!((ns.p_dw_peak_mpa - 0.5608).abs() < 0.0001, "{ns:?}");
         // The no-radiation ablation. ~~The model before gh:#1037, exactly
         // (5.3953 h, 216.06 kg, 0.5319 MPa).~~ Since gh:#1036 it carries
@@ -609,10 +619,11 @@ mod tests {
         // 0.5094 -> 0.5148 MPa.
         // Since H2 c_p(T): 5.332 -> 5.326 h, 147.15 -> 151.38 kg.
         // Since MSL creep: 5.326 -> 5.366 h, 151.38 -> 147.08 kg.
+        // Since the dry-vessel outflow cap: 5.366 -> 5.374 h, 147.08 -> 148.02 kg.
         let nc = measure(Mechanisms::default().without_rod_collapse());
-        assert!(near(nc.lower_head_h, 5.366, 0.001), "{nc:?}");
-        assert!((nc.h2_25h_kg - 147.08).abs() < 0.01, "{nc:?}");
-        assert!((nc.p_dw_peak_mpa - 0.5282).abs() < 0.0001, "{nc:?}");
+        assert!(near(nc.lower_head_h, 5.374, 0.001), "{nc:?}");
+        assert!((nc.h2_25h_kg - 148.02).abs() < 0.01, "{nc:?}");
+        assert!((nc.p_dw_peak_mpa - 0.5292).abs() < 0.0001, "{nc:?}");
         // The no-wall ablation. ~~The model before gh:#1034, exactly (5.399 h,
         // 120.73 kg, 0.4746 MPa).~~ Since Zr's heat of fusion (gh:#1035) it
         // carries that too, so it isolates the wall alone. Since the
@@ -621,9 +632,10 @@ mod tests {
         // 0.5608 -> 0.5307 MPa.
         // Since H2 c_p(T): 5.054 -> 5.054 h, 190.58 -> 192.68 kg.
         // Since MSL creep: 5.054 -> 5.166 h, 192.68 -> 191.86 kg.
+        // Since the dry-vessel outflow cap: 5.166 -> 5.167 h, 191.86 -> 191.89 kg.
         let nw = measure(Mechanisms::default().without_lower_head_wall());
-        assert!(near(nw.lower_head_h, 5.166, 0.001), "{nw:?}");
-        assert!((nw.h2_25h_kg - 191.86).abs() < 0.01, "{nw:?}");
+        assert!(near(nw.lower_head_h, 5.167, 0.001), "{nw:?}");
+        assert!((nw.h2_25h_kg - 191.89).abs() < 0.01, "{nw:?}");
         assert!((nw.p_dw_peak_mpa - 0.5479).abs() < 0.0001, "{nw:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
@@ -637,10 +649,11 @@ mod tests {
         // Since the 1100 K cutoff: 5.327 -> 5.344 h, 162.16 -> 159.33 kg.
         // Since H2 c_p(T): 5.344 -> 5.331 h, 159.33 -> 167.34 kg.
         // Since MSL creep: 5.331 -> 5.329 h, 167.34 -> 164.24 kg.
+        // Since the dry-vessel outflow cap: 5.329 -> 5.333 h, 164.24 -> 164.83 kg.
         let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
-        assert!(near(cp.lower_head_h, 5.329, 0.001), "{cp:?}");
-        assert!((cp.h2_25h_kg - 164.24).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.5350).abs() < 0.0001, "{cp:?}");
+        assert!(near(cp.lower_head_h, 5.333, 0.001), "{cp:?}");
+        assert!((cp.h2_25h_kg - 164.83).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.5358).abs() < 0.0001, "{cp:?}");
     }
 
     /// The elasticity of an input that only the demo draws is zero, of one

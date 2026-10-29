@@ -760,7 +760,18 @@ impl Plant {
         let h2_share = self.h2 / (self.h2 + steam_gas);
         // Cannot remove more gas than there is.
         let out = (w_relief + w_leak) * DT_S;
-        let scale = if out > 0.0 { ((steam_gas + self.h2) / out).min(1.0) } else { 1.0 };
+        let mut scale = if out > 0.0 { ((steam_gas + self.h2) / out).min(1.0) } else { 1.0 };
+        // A dry vessel is all gas, with no water flashing to hold its
+        // pressure up, so a path that could pass more in a step than
+        // equalises it with the drywell passes the equalising amount
+        // (isothermal), the containment's rule for its own stiff paths.
+        // Without it a large break emptied the vessel in one step (m = 0,
+        // infinite pressure; found 2026-10-29 with a ruptured steam line
+        // and a perturbed input).
+        if v.dry && out > 0.0 && p > p_dw && p_dw > 0.0 {
+            let equalising = (steam_gas + self.h2) * (p - p_dw) / p;
+            scale = scale.min(equalising / out);
+        }
         let (w_relief, w_leak) = (w_relief * scale, w_leak * scale);
         let decay_w = self.decay.power_w();
         // Before the MSIVs close, the pressure regulator passes steam to the
@@ -1211,6 +1222,36 @@ mod tests {
         }
         assert!(((p.m - m0) - dm).abs() <= 1e-9 * m0, "mass {} vs {}", p.m - m0, dm);
         assert!(((p.u - u0) - du).abs() <= 1e-9 * u0.abs(), "energy {} vs {}", p.u - u0, du);
+    }
+
+    /// A dry vessel with a large break is not emptied in one step (found
+    /// 2026-10-29: m reached 0 and the pressure went infinite). With the
+    /// steam line ruptured (0.20 m^2) a dry vessel of 80 kg at 5.7 MJ/kg
+    /// (about 0.31 MPa, the state that failed) could pass about 81 kg in
+    /// 1 s, more than it holds; the step passes at most
+    /// the isothermal equalising amount, `n (p - p_dw) / p`, so the vessel
+    /// keeps its mass and stays at or above the drywell.
+    #[test]
+    fn a_dry_vessel_is_not_emptied_by_a_large_break() {
+        let mut p = Plant::new(Mode::Historical);
+        let (mut c, mut k) = p.parts();
+        for _ in 0..10 {
+            p.step_inline(&mut c, &mut k);
+        }
+        p.m = 80.0;
+        p.u = 80.0 * 5.7e6;
+        p.h2 = 0.0;
+        p.vessel = p.solve_vessel();
+        p.msl.failed = true;
+        let (p0, p_dw) = (p.vessel.p_pa, p.last_containment.p_dw_pa);
+        assert!(p.vessel.dry && p0 > p_dw, "{:?} p_dw {p_dw}", p.vessel);
+        let s = p.begin();
+        let out = (p.pending.w_relief + p.pending.w_leak) * DT_S;
+        assert!(out <= 80.0 * (p0 - p_dw) / p0 * (1.0 + 1e-12), "{out}");
+        let cr = c.step(&s.core);
+        let kr = k.step(&s.containment);
+        p.finish(cr, kr);
+        assert!(p.m > 0.0 && p.vessel.p_pa.is_finite(), "{} {}", p.m, p.vessel.p_pa);
     }
 
     /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J
