@@ -26,7 +26,12 @@
 //!   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
 //! - oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
 //!   into the cladding, limited by the steam that reaches the node (steam
-//!   starvation); the steam it uses and the hydrogen it makes travel up;
+//!   starvation); the steam it uses and the hydrogen it makes travel up.
+//!   The heat is Hess's law at the node (gh:#1046): the 298 K heat of
+//!   reaction, plus the consumed steam's enthalpy above 298 K vapour, minus
+//!   heating the new hydrogen to the stream, which then carries it (steam
+//!   plus hydrogen heat capacity). A steam-starved node does not heat the
+//!   hydrogen passing it;
 //! - a node whose cladding reaches [`ZR_MELT_K`] relocates: its mass, energy
 //!   and decay power move to a debris lump in the lower plenum, quenched
 //!   while water is there; dry debris above [`LOWER_HEAD_FAILURE_K`] fails
@@ -49,7 +54,8 @@ use outram_park_fork_offbeat::materials::MaterialState;
 use std::sync::OnceLock;
 use super::wire::{Reader, Writer};
 use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_single_phase;
-use tampines_steam_tables::prelude::cp_tp_eqm_single_phase;
+use tampines_steam_tables::prelude::{cp_tp_eqm_single_phase, h_tp_eqm_single_phase};
+use uom::si::available_energy::joule_per_kilogram;
 use tampines_steam_tables::thermal_conductivity::lambda_tp_eqm_single_phase;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::{Pressure, ThermodynamicTemperature};
@@ -253,6 +259,28 @@ fn debris_temperature(mf: f64, mc: f64, h: f64) -> f64 {
     0.5 * (a + b)
 }
 
+/// The reference temperature of the heat of reaction
+/// ([`Params::oxidation_heat_j_per_kg_zr`], a 298.15 K standard value), K.
+pub(crate) const T_298_K: f64 = 298.15;
+
+/// Hydrogen's heat capacity, J/(kg K): the containment's constant molar
+/// `c_v` 20.5 J/(mol K) plus R, so the two parts agree (`containment.rs`).
+/// MELCOR's NCG library fit gives `c_v` 20.5-21.9 J/(mol K) over 300-1000 K
+/// (Vol. 2, NCG/H2O-RM-33 to 37), so a constant is within about 5 %.
+pub(crate) const CP_H2_J_PER_KG_K: f64 = (20.5 + R_GAS) / M_H2;
+
+/// Steam's enthalpy at `t_k` and `p_pa` above water vapour at 298.15 K
+/// (IAPWS-IF97 at 1 kPa, below its 3.17 kPa saturation pressure), J/kg: what
+/// steam consumed by oxidation brings into the reaction beyond the standard
+/// state (gh:#1046). Call it with `t_k` above saturation at `p_pa`.
+fn steam_enthalpy_above_298(t_k: f64, p_pa: f64) -> f64 {
+    static H_298: OnceLock<f64> = OnceLock::new();
+    let h = |t: f64, p: f64| {
+        h_tp_eqm_single_phase(ThermodynamicTemperature::new::<kelvin>(t), Pressure::new::<pascal>(p)).get::<joule_per_kilogram>()
+    };
+    h(t_k, p_pa) - *H_298.get_or_init(|| h(T_298_K, 1.0e3))
+}
+
 /// Urbanic-Heidrick parabolic rate constant, (kg Zr/m^2)^2/s.
 pub fn oxidation_rate(prm: &Params, t_k: f64) -> f64 {
     if t_k < prm.oxidation_min_k {
@@ -377,6 +405,9 @@ impl Core {
             // its covered nodes.
             let mut w_steam = w_below;
             let mut t_steam = s.t_sat_k;
+            // Hydrogen made lower in this ring, kg/s: it rides in the gas
+            // stream and is heated with it (gh:#1046).
+            let mut w_h2 = 0.0;
             for j in 0..AXIAL_NODES {
                 let idx = ring * AXIAL_NODES + j;
                 let node = self.nodes[idx];
@@ -399,22 +430,32 @@ impl Core {
                         dzr = dzr.min(dzr_steam);
                         let n = &mut self.nodes[idx];
                         n.w_ox += dzr / g.a_zr;
-                        q_ox = dzr * prm.oxidation_heat_j_per_kg_zr / dt;
                         let used = dzr * steam_per_zr / dt;
+                        let made = dzr * 2.0 * M_H2 / M_ZR / dt;
+                        // Hess's law at the node (gh:#1046): the 298 K heat
+                        // of reaction, plus the enthalpy the consumed steam
+                        // brings above 298 K vapour, minus heating the new
+                        // hydrogen from 298 K to the stream it joins.
+                        q_ox = dzr * prm.oxidation_heat_j_per_kg_zr / dt
+                            + used * steam_enthalpy_above_298(t_steam.max(s.t_sat_k + 0.5), s.p_pa)
+                            - made * CP_H2_J_PER_KG_K * (t_steam - T_298_K);
                         w_steam -= used;
+                        w_h2 += made;
                         steam_used += used;
-                        h2 += dzr * 2.0 * M_H2 / M_ZR / dt;
+                        h2 += made;
                         self.zr_oxidised_kg += dzr;
                     }
                 }
                 q_ox_total += q_ox;
                 // Clad-to-coolant conductance and coolant temperature.
-                let (ha, t_cool, cp) = if covered {
+                let (ha, t_cool, c_rate) = if covered {
                     (prm.boiling_h * g.a_rod, s.t_sat_k, 0.0)
                 } else if w_steam > 0.0 {
                     let (h, cp) = steam_htc(prm, w_steam, 0.5 * (node.t_clad + t_steam), s.p_pa);
-                    let ntu = h * g.a_rod / (w_steam * cp);
-                    (w_steam * cp * (1.0 - (-ntu).r_exp()), t_steam, cp)
+                    // The stream's heat capacity rate, steam and hydrogen.
+                    let c_rate = w_steam * cp + w_h2 * CP_H2_J_PER_KG_K;
+                    let ntu = h * g.a_rod / c_rate;
+                    (c_rate * (1.0 - (-ntu).r_exp()), t_steam, c_rate)
                 } else {
                     (0.0, t_steam, 0.0)
                 };
@@ -444,8 +485,8 @@ impl Core {
                 q_fluid += q_out;
                 if covered {
                     w_steam += q_out.max(0.0) / s.h_fg;
-                } else if w_steam > 0.0 && cp > 0.0 {
-                    t_steam += q_out / (w_steam * cp);
+                } else if w_steam > 0.0 && c_rate > 0.0 {
+                    t_steam += q_out / c_rate;
                 }
                 // With temperature-dependent properties, advance each lump's
                 // enthalpy by the heat the solve moved and invert for its
@@ -693,6 +734,19 @@ mod tests {
         assert!(cp_matpro(HeatCapacityModel::MatproUo2, 1500.0) > cp_matpro(HeatCapacityModel::MatproUo2, 600.0));
         let t = debris_temperature(2.0, 1.0, 2.0 * uo2_enthalpy().at(1400.0) + zr_enthalpy().at(1400.0));
         assert!((t - 1400.0).abs() < 1e-6, "{t}");
+    }
+
+    /// The steam term of Hess's law (gh:#1046): saturated steam at 7 MPa
+    /// carries about 0.23 MJ/kg above 298 K vapour (IF97: h_g at 7 MPa is
+    /// 2772 kJ/kg, vapour at 298 K 2547 kJ/kg), and superheating adds about
+    /// c_p per kelvin.
+    #[test]
+    fn steam_brings_its_enthalpy_above_298_k_into_the_reaction() {
+        let sat = steam_enthalpy_above_298(560.0, 7.0e6);
+        assert!((0.15e6..0.30e6).contains(&sat), "{sat}");
+        let hot = steam_enthalpy_above_298(1500.0, 7.0e6);
+        assert!(hot > sat + 1.5e6 && hot < sat + 3.0e6, "{hot}");
+        assert!(CP_H2_J_PER_KG_K > 14.0e3 && CP_H2_J_PER_KG_K < 14.6e3);
     }
 
     /// The oxidation rate is continuous across its branches and rises with T.

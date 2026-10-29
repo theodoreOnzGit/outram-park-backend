@@ -124,9 +124,13 @@ relocating Zr, #1035), which would replace the abrupt node-wise stop.
    are zero, as predicted. Also zero, not predicted:
    - `uo2_cp` and `zr_cp`, which only the constant-c_p ablation uses;
    - `relief_open_pa` and `relief_close_pa`. The relief path never acts, and
-     the safety valves do (`safety_close_pa` is nonzero). Whether that is
-     intended (relief mode needs DC power, lost at the blackout) is **not
-     checked here**; it goes to F13;
+     the safety valves do (`safety_close_pa` is nonzero). ~~Whether that is
+     intended is **not checked here**.~~ **Checked 2026-10-29: intended.**
+     `Plant::begin` uses the relief set points only while `dc_power` holds,
+     and the spring safety valves' set points after DC is lost
+     (`mod.rs`, the `open_at`/`close_at` choice), as `params.rs` documents.
+     Before the blackout, the isolation condensers keep the vessel below the
+     relief set point;
    - `msiv_closure_s`, plausibly because ±0.6 s rounds to the same 1 s step;
    - the vent, flange, vacuum-breaker, building and downcomer inputs, whose
      paths never open.

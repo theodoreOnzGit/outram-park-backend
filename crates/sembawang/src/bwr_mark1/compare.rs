@@ -276,9 +276,9 @@ mod tests {
     ///
     /// | Quantity | Model | BSAF band (tier) | Verdict |
     /// |---|---|---|---|
-    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ 5.39 h | 7.45-17.16 h (B) | early |
-    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ 5.39 h | 5-12 h (A) | inside, for the wrong reason |
-    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ 122.31 kg | 400-1310 kg (C) | low |
+    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ 5.40 h | 7.45-17.16 h (B) | early |
+    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ 5.40 h | 5-12 h (A) | inside, for the wrong reason |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ 120.73 kg | 400-1310 kg (C) | low |
     /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ 0.475 MPa | 0.8-1.0 MPa (C) | low |
     /// | wetwell vent | never | ~24 h (A) | missed |
     /// | building explosion | never | 24.83 h (A) | missed |
@@ -312,6 +312,15 @@ mod tests {
     /// the constant-`c_p` ablation below now carries the new reaction heat
     /// too, so it no longer reproduces the pre-gh:#1038 model.
     ///
+    /// **Moved again 2026-10-29 by gh:#1046** (energy conservation:
+    /// Hess's law at the oxidising node, the new hydrogen heated in the gas
+    /// stream, and the vessel paying for the hydrogen it sends out): lower
+    /// head 5.386 -> 5.399 h, H2 122.31 -> 120.73 kg, drywell peak 0.4749
+    /// -> 0.4746 MPa. Predicted on the issue before the run: lower head
+    /// later and small, H2 small with an uncertain sign, drywell slightly
+    /// lower. All three held. A conservation fix, not a mechanism, so it
+    /// has no ablation.
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -319,18 +328,20 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 5.386, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 5.386, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 122.31).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.4749).abs() < 0.0001, "{m:?}");
+        assert!(near(m.lower_head_h, 5.399, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 5.399, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 120.73).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.4746).abs() < 0.0001, "{m:?}");
         assert_eq!((m.vent_h, m.explosion_h), (None, None), "{m:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
         // correction it carries 6.763 MJ/kg too, so it isolates c_p alone.
+        // Since gh:#1046: 5.371 -> 5.386 h, 122.96 -> 118.02 kg (H2 at 25 h
+        // is not smooth in the inputs: input-sensitivity.md).
         let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
-        assert!(near(cp.lower_head_h, 5.371, 0.001), "{cp:?}");
-        assert!((cp.h2_25h_kg - 122.96).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.4753).abs() < 0.0001, "{cp:?}");
+        assert!(near(cp.lower_head_h, 5.386, 0.001), "{cp:?}");
+        assert!((cp.h2_25h_kg - 118.02).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.4724).abs() < 0.0001, "{cp:?}");
     }
 
     /// The elasticity of an input that only the demo draws is zero, of one

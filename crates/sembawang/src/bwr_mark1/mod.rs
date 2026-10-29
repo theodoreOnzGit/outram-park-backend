@@ -610,7 +610,17 @@ impl Plant {
         // breach onto the drywell floor (the containment's pedestal).
         let w_inj_rpv = if self.last_core.lower_head_failed { 0.0 } else { d.w_inj };
         self.m += (w_inj_rpv - steam_out - core.steam_used_kg_s) * DT_S;
-        self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g) * DT_S;
+        // Hydrogen leaving takes the enthalpy above 298 K that the core's
+        // gas stream gave it, which reached the water through `q_fluid_w`
+        // (gh:#1046): at saturation through the relief valves, at the core
+        // exit gas temperature through the leak (as the containment
+        // receives it). Wetwell gas has no energy equation, so the relief
+        // path's share is not delivered there (stated limitation).
+        let to_relief = if gas_out > 0.0 { d.w_relief / gas_out } else { 0.0 };
+        let h2_enthalpy_out = d.h2_out
+            * self::core::CP_H2_J_PER_KG_K
+            * (to_relief * (v.sat.t_k - self::core::T_298_K) + (1.0 - to_relief) * (self.last_core.exit_gas_k - self::core::T_298_K));
+        self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g - h2_enthalpy_out) * DT_S;
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
         self.injected_kg += d.w_inj * DT_S;
         for i in 0..IC_TRAINS {
@@ -967,7 +977,11 @@ mod tests {
             let steam_out = d.w_relief + d.w_leak - d.h2_out + d.w_bypass + cr.steam_used_kg_s;
             let w_inj = if p.last_core.lower_head_failed { 0.0 } else { d.w_inj };
             dm += (w_inj - steam_out) * DT_S;
-            du += (cr.q_fluid_w - d.q_ic_w + w_inj * 4186.0 * (INJECTION_TEMPERATURE_K - 273.15) - steam_out * h_g) * DT_S;
+            let gas = d.w_relief + d.w_leak;
+            let share = if gas > 0.0 { d.w_relief / gas } else { 0.0 };
+            let t_sat = p.vessel.sat.t_k;
+            let h2_out = d.h2_out * self::core::CP_H2_J_PER_KG_K * (share * (t_sat - 298.15) + (1.0 - share) * (p.last_core.exit_gas_k - 298.15));
+            du += (cr.q_fluid_w - d.q_ic_w + w_inj * 4186.0 * (INJECTION_TEMPERATURE_K - 273.15) - steam_out * h_g - h2_out) * DT_S;
             p.finish(cr, kr);
         }
         assert!(((p.m - m0) - dm).abs() <= 1e-9 * m0, "mass {} vs {}", p.m - m0, dm);
