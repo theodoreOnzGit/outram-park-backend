@@ -51,3 +51,48 @@ fig	panel	image	ax_col	ax_right	ax_top	ax_row	xpx0	xval0	xpx1	xval1	ypx0	yval0	y
 2.3b	Alternative water injection	u1-022-004.png	161	1352	75	956	226.86	50	1351.64	500	956.90	0	76.50	20	1078,1330,100,535	injection_kg_per_s	JAEA	0	236	0
 2.3b	Alternative water injection	u1-022-004.png	161	1352	75	956	226.86	50	1351.64	500	956.90	0	76.50	20	1078,1330,100,535	injection_kg_per_s	NRA	105	0	219
 2.3b	Alternative water injection	u1-022-004.png	161	1352	75	956	226.86	50	1351.64	500	956.90	0	76.50	20	1078,1330,100,535	injection_kg_per_s	VTT	102	34	0
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	CIEMAT	238	199	68
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	IAE	0	0	213
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	IBRAE	0	66	0
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	IRSN	227	0	228
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	JAEA	0	230	0
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	KAERI	0	221	218
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	NRA	102	1	215
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	SNL	0	0	0
+2.3a	Drywell pressure 0-500 h	u1-022-003.png	170	1385	52	954	238.84	50	1384.86	500	954.27	0	135.17	1	1025,1340,66,552	drywell_pressure_mpa_abs	VTT	105	32	0
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	CIEMAT	249	201	55
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	IAE	0	0	216
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	IBRAE	1	66	0
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	IRSN	230	0	231
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	JAEA	1	240	0
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	KAERI	0	216	213
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	NRA	109	1	226
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	SNL	0	0	0
+2.6a	Cs deposited on D/W structures	u1-024-002.png	165	1359	34	1043	404.60	100	1120.40	400	754.40	0.2	177.40	0.6	1042,1332,60,564	cs_dw_deposited_fraction	VTT	111	42	0
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	CIEMAT	249	201	55
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	IAE	0	0	216
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	IBRAE	1	66	0
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	IRSN	230	0	231
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	JAEA	1	240	0
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	KAERI	0	216	213
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	NRA	109	1	226
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	SNL	0	0	0
+2.6b	I deposited on D/W structures	u1-024-003.png	163	1347	45	1047	400.80	100	1346.47	500	864.80	0.1	138.60	0.5	1029,1318,70,573	i_dw_deposited_fraction	VTT	111	42	0
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	CIEMAT	243	199	48
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	IAE	0	1	207
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	IBRAE	0	62	0
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	IRSN	226	0	230
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	JAEA	2	234	0
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	KAERI	0	213	211
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	NRA	106	0	219
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	SNL	0	0	0
+2.6c	Cs dissolved in S/C water	u1-024-004.png	165	1364	54	941	336.76	5	1191.90	30	830.83	0.1	59.67	0.8	1084,1340,78,519	cs_sc_water_fraction	VTT	106	36	0
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	CIEMAT	240	199	47
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	IAE	0	0	209
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	IBRAE	0	62	0
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	IRSN	229	0	230
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	JAEA	1	235	0
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	KAERI	0	211	212
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	NRA	107	0	218
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	SNL	0	0	0
+2.6d	I dissolved in S/C water	u1-024-005.png	170	1387	38	940	343.90	5	1212.76	30	805.90	0.1	136.76	0.6	1103,1363,62,510	i_sc_water_fraction	VTT	106	38	0

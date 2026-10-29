@@ -35,7 +35,7 @@ only entries that can validate anything.
 | Sections used | Table 1.1 (p.16); Ch. 2 and Tables 2.1–2.2, Figs 2.1–2.8 (pp.17–23); Ch. 3 and Table 3.1, Figs 3.1–3.8 (pp.25–32); Ch. 4 and Tables 4.1–4.2, Figs 4.1–4.8 (pp.35–42); Ch. 5 and Table 5.1 (pp.43–47); Ch. 7 (pp.57–62); Executive summary (pp.11–14) |
 | Copy held | the maintainer's private repository, `propreitrary-literature-theodore`, `reports/nea-7525-bsaf-fukushima-daiichi-summary-report.pdf` (added 2026-10-27) |
 | Access tier | **Proprietary.** "© OECD 2021 … You can copy, download or print OECD content for your own use, and you can include excerpts … provided that suitable acknowledgement of the OECD as source and copyright owner is given. All requests for public or commercial use and translation rights should be submitted to neapub@oecd-nea.org" (copyright page). Permission for public use has not been sought, so **the PDF and its extracted full text stay in the private repository**. This record holds facts, figures and numbers — not copyrightable — with acknowledgement, which those terms allow |
-| Processing | Tables transcribed cell-for-cell from the rendered pages by an AI agent, 2026-10-27. Figure values read **by eye** off the plotted curves and marked *figure-read*. No digitiser was used. **Not reviewed by a human.** **Update 2026-10-29:** Figs 2.1, 2.2, 2.3b and 2.5 have since been digitised ([`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures)); the eye-read values in §1.4, §1.5, §1.6 and §1.8 that the digitisation contradicted are struck through and marked *CORRECTED 2026-10-29 (digitised)* |
+| Processing | Tables transcribed cell-for-cell from the rendered pages by an AI agent, 2026-10-27. Figure values read **by eye** off the plotted curves and marked *figure-read*. No digitiser was used. **Not reviewed by a human.** **Update 2026-10-29:** Figs 2.1, 2.2, 2.3a, 2.3b, 2.5 and 2.6 have since been digitised ([`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures)); the eye-read values in §1.4, §1.5, §1.6 and §1.8 that the digitisation contradicted are struck through and marked *CORRECTED 2026-10-29 (digitised)* |
 
 **Acknowledgement.** Source and copyright owner: OECD Nuclear Energy Agency,
 *Benchmark Study of the Accident at the Fukushima Daiichi Nuclear Power Plant*,
@@ -165,11 +165,22 @@ IBRAE 1 315 kg (the eye-read lowest/highest stand). Full curves: [`nea7525-bsaf-
   settling to a common ~~**≈0.75–0.8 MPa**~~ **0.735–0.77 MPa** plateau by
   20 h (CORRECTED 2026-10-29, digitised). Full curves and the measured
   envelope: [`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures).
-- Over 0–500 h the measured trace is dense and well reproduced: a fall from
+- Over 0–500 h the measured trace is ~~dense and well reproduced: a fall from
   ≈0.8 MPa to **≈0.15–0.2 MPa** by 250 h, a rise to ≈0.4 MPa near 300 h, then
-  a slow decline. All calculations impose a **variable-cross-section
+  a slow decline~~ **CORRECTED 2026-10-29 (digitised, Fig 2.3a envelope)** —
+  not dense throughout: **no markers at all between 76 and 168 h**. Measured
+  marker centres: **0.76 MPa** at 20–22 h (marker tips reach 0.78; the eye-read
+  "≈0.8" was the tips), falling to ≈0.51–0.52 MPa by 25–29 h (the S/C vent),
+  **rising again to 0.60 MPa at ≈54 h** (the report's "pressure rise in the PCV
+  until 50 hours", p.19, which the eye-read omitted), then falling to
+  **0.153–0.183 MPa at 230–270 h**, rising from ≈275 h to a peak of **0.41 MPa
+  at ≈302 h**, 0.27–0.30 MPa at 330–420 h, and **0.17–0.21 MPa** at 480–500 h.
+  "Well reproduced" holds for about half the codes: code means within the
+  measured range ±0.02 MPa for **4 of 8** visible codes at 170–260 h (CIEMAT,
+  IBRAE, IRSN, JAEA) and **3 of 7** at 330–420 h (IBRAE, IRSN, SNL). All calculations impose a **variable-cross-section
   containment leak from 50 h on** to follow it — except JAEA, which postulates
-  venting from the S/C instead. *figure-read.*
+  venting from the S/C instead. Curves and the measured envelope:
+  [`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures).
 - Three participants attribute the leak to a penetration; the other five to
   **MCCI erosion of the drywell liner**, consistent with TEPCO's observation of
   water leaking into the torus room from the sand-cushion region outside the
@@ -211,8 +222,9 @@ Most institutes model instantaneous corium spreading in the pedestal or sump
 | Release **from fuel** (Xe, Cs, I), asymptotic | generally **> 80 %** of initial inventory; most reach 0.9–1.0 (digitised 2026-10-29: Xe 9 of 9 above 0.96; I 8 of 9 above 0.90, SNL 0.775 at 15 h) | code prediction, *figure-read* (Fig. 2.5); curves in [`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures) |
 | Onset of release from fuel | ~~**3–6 h**~~ **CORRECTED 2026-10-29 (digitised)** — fraction >0.05 at **2.9 h (JAEA) to 5.2 h (KAERI)**, except **IBRAE Xe at 7.0 h** (a single step) | *figure-read*, then digitised |
 | Airborne fraction in PCV | typically **< 10 %** | code prediction |
-| Cs and I scrubbed into S/C water by 35 h | **≈10 – 80 %** | code prediction, *figure-read* (Fig. 2.6c,d) |
-| Cs deposited on D/W structures | ≈0.02 – 0.7 (JAEA highest) | *figure-read* (Fig. 2.6a) |
+| Cs and I scrubbed into S/C water by 35 h | **≈10 – 80 %** (the report's own words, p.21; digitised 2026-10-29: Cs **0.079–0.787**, JAEA highest, IAE 0.079 below 10 %; I **0.138–0.620**, CIEMAT highest; **IBRAE scrubs nothing, 0.000 Cs and 0.001 I**) | code prediction, *figure-read*, then digitised (Fig. 2.6c,d) |
+| Cs deposited on D/W structures | ~~≈0.02 – 0.7 (JAEA highest)~~ **CORRECTED 2026-10-29 (digitised)** — at 500 h **≈0 to 0.70, IBRAE highest** (0.70, along the top of the axis, so possibly clipped; IRSN 0.154, IAE 0.101, SNL 0.061, CIEMAT ≈0.06, JAEA ≈0.06, NRA 0.003; KAERI falls below 0.003 at 176 h and VTT at 69 h). **JAEA is not the highest** (its maximum is 0.073). Peaks before decay: IAE 0.315 at 15.5 h, SNL 0.266 at 21 h, KAERI 0.215 at 23 h | *figure-read*, then digitised (Fig. 2.6a) |
+| I deposited on D/W structures | digitised 2026-10-29 (not eye-read before): at 500 h IBRAE **0.552** (top of axis), IRSN 0.191, JAEA 0.135, CIEMAT 0.107, IAE 0.064, NRA 0.004, KAERI, SNL and VTT fall to ≈0 (KAERI 0.010 at 179 h and SNL 0.019 at 112 h, the last traced points before their curves reach the axis; VTT below 0.003 at 76 h); peaks KAERI 0.363 at 28 h, SNL 0.286 at 45 h, JAEA 0.251 | digitised (Fig. 2.6b) |
 | First release to **environment** | **≈10 h**, when the PCV head flange is predicted to start leaking | code prediction, consistent across almost all calculations |
 | Integral release after PCV venting at **24.7 h** | **6×10¹³ – 5×10¹⁵ Bq** (about two orders of magnitude spread) | code prediction vs GRS/WSPEEDI inverse estimate |
 | Cs released to environment | most calculations **< 2 %**; best fit to the inverse calculations is **0.5 – 1.0 %** | code prediction / inverse analysis |

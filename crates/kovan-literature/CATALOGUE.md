@@ -630,7 +630,11 @@ Applied Energy (IAE), Japan. Supplied by the maintainer and catalogued
   2.5 (Xe and I released from fuel): 52 code series plus the two measured
   series, 21 303 points, with the pipeline, tick calibration (residuals
   ≤ 1.1 px), checks against Tables 2.1/2.2 and the text, and a per-series
-  grade. It corrected several eye-read values in the bands file. Committed
+  grade. **Extended the same day** with Figure 2.3a (drywell pressure 0–500 h,
+  nine codes **plus the measured envelope**) and Figure 2.6 A–D (Cs and I
+  deposited on D/W structures and dissolved in S/C water, nine codes each):
+  now 100 series, 41 568 points, calibration residuals ≤ 1.17 px (Fig 2.6 from
+  its gridlines), with cross-figure checks against Figs 2.1b, 2.3b and 2.5b. It corrected several eye-read values in the bands file. Committed
   (coordinates are facts); the figure rasters and overlays stay private.
 - *Derived dataset:* **`derived/nea7525-bsaf-fukushima-daiichi-bands.md`** —
   every numeric table transcribed cell-for-cell, the figure bands read by eye

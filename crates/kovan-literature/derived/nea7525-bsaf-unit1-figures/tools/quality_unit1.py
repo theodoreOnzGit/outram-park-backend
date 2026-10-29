@@ -21,14 +21,24 @@ Grades (fixed before looking at the numbers, mirroring the Cs-137 grades'
 intent, with coverage standing in for the integral check these figures
 lack): A  COV >= 0.85 and SPK <= 2;  B  COV >= 0.60 and SPK <= 6;  C  else.
 
-usage: quality_unit1.py TSV IMGDIR CLEAN
+usage: quality_unit1.py TSV IMGDIR CLEAN   (FIGS=2.3a,... restricts it)
 """
 import csv, math, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # python3 -I drops it
 from calib import load, px
 
 TOL = 30.0
-FULL = {'2.1a': 8.0, '2.1b': 1.0, '2.2': 1400.0, '2.5a': 1.0, '2.5b': 1.0, '2.3b': 20.0}
+FULL = {'2.1a': 8.0, '2.1b': 1.0, '2.2': 1400.0, '2.5a': 1.0, '2.5b': 1.0, '2.3b': 20.0,
+        # added 2026-10-29: full scale = the axis top
+        '2.3a': 1.1, '2.6a': 0.7, '2.6b': 0.55, '2.6c': 0.8, '2.6d': 0.67}
+# Fig 2.6b is traced with a 90-unit cap (run_unit1.py MAXD_FIG); the round
+# trip uses the same tolerance the tracer used, as for every other figure.
+TOL_FIG = {'2.6b': 90.0}
+# Series whose curve visibly stops before the axis end (simulation ended),
+# read off the figures before grading: VTT ends at ~120 h on Figs 2.3a,
+# 2.6a and 2.6b. Their coverage runs to the last traced point, as on 2.3b.
+SHORT = {('2.3a', 'VTT'), ('2.6a', 'VTT'), ('2.6b', 'VTT')}
+ONLY = [f for f in os.environ.get('FIGS', '').split(',') if f]
 
 def slug(fig, series):
     return f'fig{fig}-{series}'.lower().replace(' ', '-')
@@ -41,6 +51,8 @@ def main():
     out = []
     for r in rows:
         fig = r['fig']
+        if ONLY and fig not in ONLY: continue
+        tol = TOL_FIG.get(fig, TOL)
         if r['image'] not in cache: cache[r['image']] = load(os.path.join(imgdir, r['image']))
         w, h, raw = cache[r['image']]
         x0p, x0v, x1p, x1v = (float(r[k]) for k in ('xpx0', 'xval0', 'xpx1', 'xval1'))
@@ -61,13 +73,13 @@ def main():
                        for dx in (-1, 0, 1) for dy in (-1, 0, 1))
             ds.append(best)
         ds.sort()
-        rt = 100.0 * sum(d <= TOL for d in ds) / len(ds)
+        rt = 100.0 * sum(d <= tol for d in ds) / len(ds)
         cols = sorted(set(int(round(tox(x))) for x, _ in pts))
         # Figs 2.1, 2.2, 2.5: every code curve is drawn to the axis end
         # (checked by eye on the figure). Fig 2.3b: curves visibly stop
         # early (simulations ended: VTT ~120 h, JAEA/IRSN ~305 h, NRA ~380 h),
         # so there coverage runs to the last traced point.
-        end = int(r['ax_right']) if fig != '2.3b' else cols[-1]
+        end = int(r['ax_right']) if fig != '2.3b' and (fig, r['series']) not in SHORT else cols[-1]
         span = end - cols[0] + 1
         covered = sum(1 for c in range(cols[0], end + 1)
                       if any(abs(c - k) <= 2 for k in cols[max(0, bisect(cols, c) - 1):bisect(cols, c) + 1]))

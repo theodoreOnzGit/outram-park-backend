@@ -16,7 +16,12 @@ usage: axes.py IMAGE XVALS YVALS [x0] [y0]
   is a curve, not a tick (e.g. 0,5,10,15,20  and 0,1,2,3,4,5,6,7,8).
 No PIL/numpy: reads raw RGB from ImageMagick.
 """
-import subprocess, sys
+import os, subprocess, sys
+
+# Axis-line darkness threshold. 150 suits Figs 2.1-2.5; Fig 2.3a's x axis is
+# drawn mid-grey (~163) after JPEG, so it is raised there with DARK=180
+# (added 2026-10-29 for Figs 2.3a and 2.6; the default is unchanged).
+DARK = int(os.environ.get('DARK', '150'))
 
 def load(path):
     wh = subprocess.run(['convert', path, '-format', '%w %h', 'info:'],
@@ -26,7 +31,8 @@ def load(path):
                          capture_output=True, check=True).stdout
     return w, h, raw
 
-def dark(raw, w, x, y, t=150):
+def dark(raw, w, x, y, t=None):
+    t = DARK if t is None else t
     i = (y * w + x) * 3
     r, g, b = raw[i], raw[i+1], raw[i+2]
     return max(r, g, b) < t and max(r, g, b) - min(r, g, b) < 40
