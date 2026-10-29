@@ -35,13 +35,26 @@ and not open source. Obtaining it for translation would breach both its
 distribution terms and `RESEARCH_INTEGRITY_AND_PROVENANCE.md`.
 
 **MELCOR's reference manuals are public**, and that is the legitimate route.
-The unlimited-release SAND reports are on the NRC ADAMS public library:
+~~The unlimited-release SAND reports are on the NRC ADAMS public library:~~
+**CORRECTED 2026-10-29**: the SAND reports are *readable* on the NRC ADAMS
+public library, but they are **not marked unlimited release**. Vol. 1
+(SAND2017-0455 O, ML17040A429) and the 2023 Vol. 2 (SAND2023-10994 O,
+ML23116A100) were checked: neither has a public-release marking or a
+copyright or licence statement, and both are Sandia contractor reports, not
+NRC NUREG publications. So reading and citing them is fine, but they have no
+redistribution basis. Both are kept in the **private** literature repository
+(`propreitrary-literature-theodore`, `reports/`, commit 98298ab), as
+NUREG/CR-7041 and 7289 are, and never in the public `reactor-literature`.
+Clean-room re-implementation citing them is unaffected. The reports:
 
 - *MELCOR Computer Code Manuals Vol. 2: Reference Manual*, SAND2017-0876 O —
   [ML17040A420](https://www.nrc.gov/docs/ML1704/ML17040A420.pdf)
 - *Vol. 1: Primer and Users' Guide*, SAND2017-0455 O —
   [ML17040A429](https://www.nrc.gov/docs/ML1704/ML17040A429.pdf)
 - Later revisions (SAND2021-0726 O, ML21042B319/ML21042B324) likewise public.
+- *Vol. 2: Reference Manual, Version 2.2 r2023.0*, SAND2023-10994 O —
+  [ML23116A100](https://www.nrc.gov/docs/ML2311/ML23116A100.pdf) (added
+  2026-10-29; held privately, see above).
 
 The same holds for the codes MELCOR absorbed: **CORCON-Mod3** (MCCI),
 **VANESA** (MCCI aerosol release), **CONTAIN 2.0**, **SPARC-90** (pool
