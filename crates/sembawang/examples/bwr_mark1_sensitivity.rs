@@ -5,10 +5,11 @@
 //! the methodology, the predictions and the results.
 //!
 //! ```text
-//! cargo run --release -p sembawang --example bwr_mark1_sensitivity [-- <rel>]
+//! cargo run --release -p sembawang --example bwr_mark1_sensitivity [-- <rel> [<input> ...]]
 //! ```
 //!
-//! `<rel>` is the relative step, default 0.01. The runs are independent and
+//! `<rel>` is the relative step, default 0.01; naming inputs restricts the
+//! study to them (for checking how an elasticity depends on the step). The runs are independent and
 //! deterministic, so they are spread over the machine's threads; the table
 //! does not depend on how many. Research, education and V&V only.
 
@@ -21,7 +22,9 @@ use sembawang::bwr_mark1::Mechanisms;
 fn main() {
     let rel: f64 = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(0.01);
     let base = measure(Mechanisms::default());
-    let names: Vec<&'static str> = Params::INPUTS.iter().map(|(n, _)| *n).collect();
+    let only: Vec<String> = std::env::args().skip(2).collect();
+    let names: Vec<&'static str> =
+        Params::INPUTS.iter().map(|(n, _)| *n).filter(|n| only.is_empty() || only.iter().any(|o| o == n)).collect();
     let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
     let chunk = names.len().div_ceil(threads);
     let rows: Vec<Elasticity> = std::thread::scope(|s| {
