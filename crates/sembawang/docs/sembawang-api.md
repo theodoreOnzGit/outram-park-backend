@@ -2915,7 +2915,8 @@ The Mark I containment and the reactor building. This is what the
 
 - **Drywell**: nitrogen, hydrogen and steam at one temperature, ideal
   gases (steam's energy referenced to IF97's saturated vapour at
-  100 degC with a constant `c_v`); a lumped wall heat sink (steel and
+  100 degC with a constant `c_v`; N2 and H2 with MELCOR's `c_v(T)`
+  fits, [`super::gas`], since 2026-10-29); a lumped wall heat sink (steel and
   concrete) takes heat by convection, **implicitly**; steam above its
   saturation pressure at the gas temperature condenses to the sump.
 - **Wetwell (torus)**: the pool, one temperature; the gas space above it
@@ -2963,6 +2964,7 @@ pub struct ContainmentSnapshot {
     pub vent_ordered: bool,
     pub ex_vessel_w: f64,
     pub pedestal_inflow_kg_s: f64,
+    pub gas_cv_t: bool,
     pub prm: Params,
 }
 ```
@@ -2982,6 +2984,7 @@ pub struct ContainmentSnapshot {
 | `vent_ordered` | `bool` | Operators' order to open the wetwell vent (the disk must still burst). |
 | `ex_vessel_w` | `f64` | After the lower head fails: the debris's decay power on the drywell<br>floor, W, and the injected water that now pours through, kg/s (at<br>the injection temperature). |
 | `pedestal_inflow_kg_s` | `f64` |  |
+| `gas_cv_t` | `bool` | MELCOR's `c_v(T)` for N2 and H2 ([`super::gas`]); false is the<br>constant `c_v` ablation. |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4357,6 +4360,88 @@ pub struct PlantDecay {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `gas`
+
+Heat capacities of the non-condensable gases, N2 and H2.
+
+Each has its own `c_v(T)`, from MELCOR 2.2's NCG library fits (Vol. 2,
+SAND2023-10994 O, NCG/H2O-RM-33/34; the form is Vol. 1, SAND2017-0455 O,
+NCG-UG-2, Eq 1.1; no source used):
+
+```text
+c_v(T) = cv0 + cv1 T + cv2 T^2 + cv3 T^3 + cvsqrt/sqrt(T) + cvm1/T + cvm2/T^2
+```
+
+The coefficients are mass-specific and apply inside `T_low..=T_up`. Outside
+that range `c_v` is held at its boundary value. Internal energy is
+measured from 0 K, the containment's existing convention, so it is
+`c_v(T_low) T` below `T_low`, the integral of the fit inside the range,
+and linear in `c_v(T_up)` above `T_up`. Before 2026-10-29 these were
+constants, 20.8 (N2) and 20.5 (H2) J/(mol K), and the
+`without_gas_cv_t` ablation restores them.
+
+```rust
+pub mod gas { /* ... */ }
+```
+
+### Functions
+
+#### Function `cv_n2`
+
+Molar `c_v` of N2 and of H2, J/(mol K); `t_dependent` false is the
+constant-value ablation.
+
+```rust
+pub fn cv_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `cv_h2`
+
+```rust
+pub fn cv_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `u_n2`
+
+Molar internal energy of N2 and of H2 from 0 K, J/mol.
+
+```rust
+pub fn u_n2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `u_h2`
+
+```rust
+pub fn u_h2(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `ncg_u`
+
+Internal energy of `n2` and `h2` moles at `t`, J. The ablation keeps the
+operation order of the code before 2026-10-29, so it reproduces it bit
+for bit.
+
+```rust
+pub fn ncg_u(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `ncg_c`
+
+Heat capacity of `n2` and `h2` moles at `t`, J/K.
+
+```rust
+pub fn ncg_c(n2: f64, h2: f64, t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
+#### Function `h2_molar_enthalpy`
+
+Hydrogen's molar enthalpy from 0 K, `u + R T`, J/mol (the ablation as
+before: `(c_v + R) T`).
+
+```rust
+pub fn h2_molar_enthalpy(t: f64, t_dependent: bool) -> f64 { /* ... */ }
+```
+
 ## Module `params`
 
 Fukushima Daiichi Unit 1 (GE BWR/3, Mark I containment): every number the
@@ -6663,6 +6748,8 @@ pub struct Mechanisms {
     pub decay_mix: bool,
     pub capture_correction: bool,
     pub actinide_decay: bool,
+    pub mixture_choking: bool,
+    pub gas_cv_t: bool,
 }
 ```
 
@@ -6680,6 +6767,8 @@ pub struct Mechanisms {
 | `decay_mix` | `bool` | Decay heat from U-235, Pu-239 and U-238 fission products after a<br>finite irradiation (gh:#1041); off is U-235 alone at equilibrium. |
 | `capture_correction` | `bool` | The ANS neutron-capture correction G(t) (gh:#1041). |
 | `actinide_decay` | `bool` | U-239 and Np-239 decay heat (gh:#1041). |
+| `mixture_choking` | `bool` | Choked flow of the vessel's hydrogen-steam gas from its own molar<br>mass (gh:#1037); off is the steam-only flux for any gas. |
+| `gas_cv_t` | `bool` | MELCOR's temperature-dependent `c_v` for the containment's N2 and H2<br>([`gas`], 2026-10-29); off is the constant 20.8 / 20.5 J/(mol K). |
 
 ##### Implementations
 
@@ -6729,6 +6818,16 @@ pub struct Mechanisms {
   pub fn without_actinide_decay(self: Self) -> Self { /* ... */ }
   ```
   No U-239 or Np-239 decay heat.
+
+- ```rust
+  pub fn without_mixture_choking(self: Self) -> Self { /* ... */ }
+  ```
+  The steam-only choked flux for the vessel gas, however much hydrogen
+
+- ```rust
+  pub fn without_gas_cv_t(self: Self) -> Self { /* ... */ }
+  ```
+  Constant `c_v` for the containment's N2 (20.8) and H2 (20.5 J/(mol
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
@@ -7902,6 +8001,16 @@ pub struct Snapshots {
 - **WasmNotSendSync**
 - **WasmNotSync**
 ### Functions
+
+#### Function `mixture_flux_factor`
+
+Choked mass flux of a hydrogen-steam gas with hydrogen mole fraction
+`x_h2`, relative to pure steam at the same pressure and temperature:
+`sqrt(M_mix / M_H2O)` (ideal gas, fixed gamma).
+
+```rust
+pub fn mixture_flux_factor(x_h2: f64) -> f64 { /* ... */ }
+```
 
 #### Function `swollen_level`
 

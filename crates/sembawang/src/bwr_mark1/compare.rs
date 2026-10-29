@@ -165,6 +165,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without capture correction", all.without_capture_correction()),
         ("without actinide decay", all.without_actinide_decay()),
         ("without mixture choking", all.without_mixture_choking()),
+        ("without gas c_v(T)", all.without_gas_cv_t()),
     ]
 }
 
@@ -435,6 +436,18 @@ mod tests {
     /// Held. `without_mixture_choking` reproduces the previous baseline
     /// exactly (pinned below).
     ///
+    /// **Moved below these pins' precision 2026-10-29** (MELCOR's NCG
+    /// `c_v(T)` for the containment's N2 and H2, [`super::gas`], replacing
+    /// constant 20.8 / 20.5 J/(mol K)): drywell peak 0.56292285 ->
+    /// 0.56293122 MPa (+1.5e-5 relative); lower head, H2 and vent unchanged
+    /// to every printed digit. Predicted: drywell peak slightly *down*,
+    /// under 1 %. **The sign was wrong**: N2's fitted `c_v` dips to about
+    /// 20.5 J/(mol K) near 400 K, below the old constant, so the drywell
+    /// gas warms slightly more, not less. The magnitude was right: steam
+    /// carries the drywell's heat capacity. `without_gas_cv_t` reproduces
+    /// the previous fixture byte for byte (checked by running it as the
+    /// default), and both drywell values are pinned below.
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -446,18 +459,22 @@ mod tests {
         assert!(near(m.depressurised_h, 4.5089, 0.001), "{m:?}");
         assert!((m.h2_25h_kg - 287.47).abs() < 0.01, "{m:?}");
         assert!((m.p_dw_peak_mpa - 0.5629).abs() < 0.0001, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.56293122).abs() < 1e-8, "{m:?}");
+        let gc = measure(Mechanisms::default().without_gas_cv_t());
+        assert!((gc.p_dw_peak_mpa - 0.56292285).abs() < 1e-8, "{gc:?}");
+        assert_eq!((gc.lower_head_h, gc.h2_25h_kg, gc.vent_h), (m.lower_head_h, m.h2_25h_kg, m.vent_h));
         // ~~No vent, no explosion~~: since gh:#1036 the wetwell vent flows,
         // at ~~25.12 h~~ 23.73 h since gh:#1041 (BSAF: 23.5-24.68 h, Tier A).
         assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
         // The steam-only choking ablation is the model before the mixture
         // correction, exactly.
-        let mc = measure(Mechanisms::default().without_mixture_choking());
+        let mc = measure(Mechanisms::default().without_mixture_choking().without_gas_cv_t());
         assert!(near(mc.lower_head_h, 4.5092, 0.001), "{mc:?}");
         assert!((mc.h2_25h_kg - 286.63).abs() < 0.01, "{mc:?}");
         assert!((mc.p_dw_peak_mpa - 0.5622).abs() < 0.0001, "{mc:?}");
         // All three decay switches off (with steam-only choking) is the
         // decay heat before gh:#1041, so the model before it, exactly.
-        let od = measure(Mechanisms::default().without_decay_mix().without_capture_correction().without_actinide_decay().without_mixture_choking());
+        let od = measure(Mechanisms::default().without_decay_mix().without_capture_correction().without_actinide_decay().without_mixture_choking().without_gas_cv_t());
         assert!(near(od.lower_head_h, 4.6678, 0.001), "{od:?}");
         assert!((od.h2_25h_kg - 283.76).abs() < 0.01, "{od:?}");
         assert!(near(od.vent_h, 25.1231, 0.001), "{od:?}");
@@ -525,7 +542,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 12);
+        assert_eq!(runs.len(), 13);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -546,6 +563,7 @@ mod tests {
         assert!(!ablations()[9].1.capture_correction && ablations()[9].1.actinide_decay);
         assert!(!ablations()[10].1.actinide_decay && ablations()[10].1.decay_mix);
         assert!(!ablations()[11].1.mixture_choking && ablations()[11].1.actinide_decay);
+        assert!(!ablations()[12].1.gas_cv_t && ablations()[12].1.mixture_choking);
     }
 
     /// The verdict reads a value against its band.

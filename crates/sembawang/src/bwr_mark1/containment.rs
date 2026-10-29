@@ -5,7 +5,8 @@
 //!
 //! - **Drywell**: nitrogen, hydrogen and steam at one temperature, ideal
 //!   gases (steam's energy referenced to IF97's saturated vapour at
-//!   100 degC with a constant `c_v`); a lumped wall heat sink (steel and
+//!   100 degC with a constant `c_v`; N2 and H2 with MELCOR's `c_v(T)`
+//!   fits, [`super::gas`], since 2026-10-29); a lumped wall heat sink (steel and
 //!   concrete) takes heat by convection, **implicitly**; steam above its
 //!   saturation pressure at the gas temperature condenses to the sump.
 //! - **Wetwell (torus)**: the pool, one temperature; the gas space above it
@@ -33,13 +34,10 @@
 //! itself (the explosion is a threshold, not a calculation).
 
 use super::params::*;
+use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
 
-/// Ideal-gas molar heat capacities, J/(mol K). \[A\] constant.
-const CV_N2: f64 = 20.8;
-const CV_H2: f64 = 20.5;
-const CP_H2: f64 = CV_H2 + R_GAS;
 /// Steam: constant `c_v`, J/(kg K), and IF97 saturated-vapour internal
 /// energy at 373.15 K, J/kg. \[A\] constant `c_v`.
 const CV_STEAM: f64 = 1500.0;
@@ -76,6 +74,9 @@ pub struct ContainmentSnapshot {
     /// the injection temperature).
     pub ex_vessel_w: f64,
     pub pedestal_inflow_kg_s: f64,
+    /// MELCOR's `c_v(T)` for N2 and H2 ([`super::gas`]); false is the
+    /// constant `c_v` ablation.
+    pub gas_cv_t: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -171,14 +172,29 @@ impl Containment {
     pub fn p_ww(&self, prm: &Params) -> f64 {
         (self.ww_n2 + self.ww_h2) * R_GAS * self.pool_t / prm.wetwell_gas_m3 + p_sat_pa(self.pool_t)
     }
-    fn dw_energy(&self) -> f64 {
-        (self.dw_n2 * CV_N2 + self.dw_h2 * CV_H2) * self.dw_t + self.dw_steam_kg * steam_u(self.dw_t)
+    fn dw_energy(&self, tv: bool) -> f64 {
+        ncg_u(self.dw_n2, self.dw_h2, self.dw_t, tv) + self.dw_steam_kg * steam_u(self.dw_t)
     }
-    /// Drywell gas temperature from its energy (linear in T: solved exactly).
-    fn set_dw_energy(&mut self, e: f64) {
-        let c = self.dw_n2 * CV_N2 + self.dw_h2 * CV_H2 + self.dw_steam_kg * CV_STEAM;
-        let e0 = self.dw_steam_kg * (U_STEAM_REF - CV_STEAM * T_REF);
-        self.dw_t = (e - e0) / c;
+    fn dw_heat_capacity(&self, tv: bool) -> f64 {
+        ncg_c(self.dw_n2, self.dw_h2, self.dw_t, tv) + self.dw_steam_kg * CV_STEAM
+    }
+    /// Drywell gas temperature from its energy. With constant `c_v` it is
+    /// linear in T and solved exactly; with `c_v(T)`, by Newton from the
+    /// current temperature (the energy is monotonic, `c_v > 0`).
+    fn set_dw_energy(&mut self, e: f64, tv: bool) {
+        if !tv {
+            let c = self.dw_heat_capacity(false);
+            let e0 = self.dw_steam_kg * (U_STEAM_REF - CV_STEAM * T_REF);
+            self.dw_t = (e - e0) / c;
+            return;
+        }
+        for _ in 0..50 {
+            let dt = (e - self.dw_energy(true)) / self.dw_heat_capacity(true);
+            self.dw_t += dt;
+            if dt.abs() < 1e-9 * self.dw_t {
+                break;
+            }
+        }
     }
     fn pool_energy(&self) -> f64 {
         self.pool_kg * CP_WATER * (self.pool_t - 273.15)
@@ -191,6 +207,7 @@ impl Containment {
     pub fn step(&mut self, s: &ContainmentSnapshot) -> ContainmentResult {
         let prm = &s.prm;
         let dt = s.dt_s;
+        let tv = s.gas_cv_t;
         // 1. Relief valves into the pool.
         let m = s.srv_steam_kg_s * dt;
         let e = self.pool_energy() + m * s.srv_h;
@@ -200,10 +217,10 @@ impl Containment {
         // 2. RPV leak into the drywell.
         let m = s.leak_steam_kg_s * dt;
         let nh = s.leak_h2_kg_s * dt / M_H2;
-        let e = self.dw_energy() + m * s.leak_h + nh * CP_H2 * s.leak_gas_k;
+        let e = self.dw_energy(tv) + m * s.leak_h + nh * h2_molar_enthalpy(s.leak_gas_k, tv);
         self.dw_steam_kg += m;
         self.dw_h2 += nh;
-        self.set_dw_energy(e);
+        self.set_dw_energy(e, tv);
         // 2b. Debris on the drywell floor: it heats and boils the water
         //     poured onto it; dry, its heat goes into the floor and walls
         //     (molten-core-concrete interaction is not modelled).
@@ -225,9 +242,9 @@ impl Containment {
                     let h_fg = 2.257e6;
                     let m = ((q - to_boil) / h_fg).min(self.pedestal_kg);
                     self.pedestal_kg -= m;
-                    let e = self.dw_energy() + m * (steam_u(t_boil) + R_GAS / M_H2O * t_boil);
+                    let e = self.dw_energy(tv) + m * (steam_u(t_boil) + R_GAS / M_H2O * t_boil);
                     self.dw_steam_kg += m;
-                    self.set_dw_energy(e);
+                    self.set_dw_energy(e, tv);
                 }
             } else {
                 self.dw_wall_t += q / DW_WALL_C;
@@ -235,12 +252,19 @@ impl Containment {
         }
         // 3. Drywell wall heat sink, implicit in the two temperatures.
         let ha = DW_WALL_AREA_M2 * DW_WALL_H;
-        let c_gas = self.dw_n2 * CV_N2 + self.dw_h2 * CV_H2 + self.dw_steam_kg * CV_STEAM;
+        let c_gas = self.dw_heat_capacity(tv);
         let (tg, tw) = (self.dw_t, self.dw_wall_t);
         // q = ha (Tg' - Tw'); c_gas (Tg' - Tg) = -q dt; C_w (Tw' - Tw) = q dt.
         let k = ha * dt;
         let q = k * (tg - tw) / (1.0 + k / c_gas + k / DW_WALL_C);
-        self.dw_t = tg - q / c_gas;
+        if tv {
+            // c_gas is the slope at Tg: take the heat from the energy, so
+            // the gas loses exactly what the wall gains.
+            let e = self.dw_energy(tv) - q;
+            self.set_dw_energy(e, tv);
+        } else {
+            self.dw_t = tg - q / c_gas;
+        }
         self.dw_wall_t = tw + q / DW_WALL_C;
         // 4. Condensation of supersaturated steam (latent heat stays in the
         //    gas until the wall takes it): a few fixed-point passes.
@@ -252,9 +276,9 @@ impl Containment {
             }
             let keep = p_sat * prm.drywell_volume_m3 * M_H2O / (R_GAS * self.dw_t);
             let cond = self.dw_steam_kg - keep;
-            let e = self.dw_energy() - cond * CP_WATER * (self.dw_t - 273.15);
+            let e = self.dw_energy(tv) - cond * CP_WATER * (self.dw_t - 273.15);
             self.dw_steam_kg = keep;
-            self.set_dw_energy(e);
+            self.set_dw_energy(e, tv);
         }
         // 5. Downcomers (drywell -> pool) and vacuum breakers (wetwell -> drywell).
         let (p_dw, p_ww) = (self.p_dw(prm), self.p_ww(prm));
@@ -268,14 +292,14 @@ impl Containment {
             let n = orifice.min(n_dw * push / p_dw);
             let f = n / n_dw;
             let (dn2, dh2, dsteam) = (self.dw_n2 * f, self.dw_h2 * f, self.dw_steam_kg * f);
-            let e_dw = self.dw_energy();
+            let e_dw = self.dw_energy(tv);
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
             self.dw_steam_kg -= dsteam;
             // The drywell gas keeps its temperature; the moved gas's energy
             // goes to the pool (steam condenses, N2/H2 cool to the pool).
-            let e_moved = e_dw - self.dw_energy();
-            let e_pool = self.pool_energy() + e_moved - (dn2 * CV_N2 + dh2 * CV_H2) * self.pool_t;
+            let e_moved = e_dw - self.dw_energy(tv);
+            let e_pool = self.pool_energy() + e_moved - ncg_u(dn2, dh2, self.pool_t, tv);
             self.pool_kg += dsteam;
             self.set_pool_energy(e_pool);
             self.ww_n2 += dn2;
@@ -294,10 +318,10 @@ impl Containment {
             let (dn2, dh2) = (self.ww_n2 * f, self.ww_h2 * f);
             self.ww_n2 -= dn2;
             self.ww_h2 -= dh2;
-            let e = self.dw_energy() + (dn2 * CV_N2 + dh2 * CV_H2) * self.pool_t;
+            let e = self.dw_energy(tv) + ncg_u(dn2, dh2, self.pool_t, tv);
             self.dw_n2 += dn2;
             self.dw_h2 += dh2;
-            self.set_dw_energy(e);
+            self.set_dw_energy(e, tv);
         }
         // 6. Wetwell vent through the rupture disk.
         let p_ww = self.p_ww(prm);
@@ -452,6 +476,7 @@ impl ContainmentSnapshot {
             b(self.vent_ordered),
             self.ex_vessel_w,
             self.pedestal_inflow_kg_s,
+            b(self.gas_cv_t),
         ]);
         self.prm.write(w);
     }
@@ -468,6 +493,7 @@ impl ContainmentSnapshot {
             vent_ordered: r.f() != 0.0,
             ex_vessel_w: r.f(),
             pedestal_inflow_kg_s: r.f(),
+            gas_cv_t: r.f() != 0.0,
             prm: Params::read(r),
         }
     }

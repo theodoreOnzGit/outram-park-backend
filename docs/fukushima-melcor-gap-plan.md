@@ -115,7 +115,9 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Rod collapse | F4, #1035 | 5.395 | 216.06 | H2 held, lower head missed |
 | In-core radiation, shroud | F6, #1037 | 5.589 | 182.90 | held |
 | Swollen level, ZrO2 melting | F5, #1036 | 4.668 | 283.76 | missed: regime change |
-| ANS-1979 decay heat | F10, #1041 | **4.509** | **286.63** | held |
+| ANS-1979 decay heat | F10, #1041 | 4.509 | 286.63 | held |
+| H2-steam mixture choking | #1037 | 4.509 | 287.47 | held |
+| N2 and H2 `c_v(T)` (MELCOR NCG fits) | F8, #1039 | **4.509** | **287.47** | drywell sign missed (+1.5e-5 relative, predicted down) |
 
 BSAF bands: lower head 7.45–17.16 h (B); H2 400–1310 kg (C). The vent now
 flows at 23.73 h, inside its Tier A band (23.5–24.68 h), as a by-product of

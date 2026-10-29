@@ -40,6 +40,7 @@ pub mod compare;
 pub mod containment;
 pub mod core;
 pub mod decay;
+pub mod gas;
 pub mod params;
 pub mod steam;
 pub mod wire;
@@ -113,6 +114,9 @@ pub struct Mechanisms {
     /// Choked flow of the vessel's hydrogen-steam gas from its own molar
     /// mass (gh:#1037); off is the steam-only flux for any gas.
     pub mixture_choking: bool,
+    /// MELCOR's temperature-dependent `c_v` for the containment's N2 and H2
+    /// ([`gas`], 2026-10-29); off is the constant 20.8 / 20.5 J/(mol K).
+    pub gas_cv_t: bool,
 }
 
 impl Default for Mechanisms {
@@ -129,6 +133,7 @@ impl Default for Mechanisms {
             capture_correction: true,
             actinide_decay: true,
             mixture_choking: true,
+            gas_cv_t: true,
         }
     }
 }
@@ -198,6 +203,13 @@ impl Mechanisms {
     /// it holds: the model before 2026-10-29.
     pub fn without_mixture_choking(mut self) -> Self {
         self.mixture_choking = false;
+        self
+    }
+
+    /// Constant `c_v` for the containment's N2 (20.8) and H2 (20.5 J/(mol
+    /// K)): the model before 2026-10-29.
+    pub fn without_gas_cv_t(mut self) -> Self {
+        self.gas_cv_t = false;
         self
     }
 
@@ -726,6 +738,7 @@ impl Plant {
                 vent_ordered: self.controls.vent_ordered,
                 ex_vessel_w: self.last_core.ex_vessel_w,
                 pedestal_inflow_kg_s: if self.last_core.lower_head_failed { w_inj } else { 0.0 },
+                gas_cv_t: self.mechanisms.gas_cv_t,
                 prm,
             },
         }
