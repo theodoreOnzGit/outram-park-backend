@@ -463,3 +463,58 @@ Z numbers ported verbatim from TRISO-ATOPS where, numbers are copied over. into 
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit 3a24fbd374.
+
+# Review: TrisoAtopsNuclide::element_group (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-element-group-theodoreonzgit-d51049d0"
+kind = "review"
+origin = "human"
+created = "2026-10-29T09:47:29+08:00"
+modified = "2026-10-29T09:47:29+08:00"
+target = "fn:d51049d00f066bb6"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/nuclide_model/mod.rs::TrisoAtopsNuclide::element_group"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-29"
+signed_at = "2026-10-29T09:47:32+08:00"
+commit = "0eea3ba24fe3bbe72206e37a6c82943c902a64b8"
+hash = "sha256:ff7c2f25c315760fdbba88555df6b56f2a3a231db834f895c31ea8c24df76dfa"
+doc_hash = "sha256:f190c4721a621427b7ac5d59edec28e50cd808a4e583cbfb875e3255682e3b74"
+cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+no_concept = "plumbing"
+
+[review.callees]
+"fn:2e610cfd767d4eb5" = "sha256:54c7941e23ca22131751599433e7cd9fd539c9953a45f91a3f68435ad803b55c"
+"fn:546333a5363bc5a2" = "sha256:601d879e0b2947c8c69562c0278d67beccee30a0999a8eb86181de5ebcd65549"
+"fn:d9fc661a522b11ce" = "sha256:6c96657ab13ce5ab01b09a4dc4e3d249d08ce5d01102fa98aa74fdf096fb8faa"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: wrapper"
+independence = "someone_else"
+limits_and_guards = "no_limits: wrapper"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "IdRHlxL5HZwaNJf9V+Ap/fCxvpGe6ZSx3uu7g39kMTNmm/OYoNigovtickFzn/X7TRfWkcG86mp/muNTCPcJCA=="
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit 0eea3ba24f.
