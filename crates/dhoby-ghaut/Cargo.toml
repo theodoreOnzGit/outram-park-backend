@@ -189,6 +189,11 @@ tampines-steam-tables = { workspace = true }
 teh-o-prke = { workspace = true }
 tampines = { workspace = true }
 outram-park-fork-dwsim-libs = { workspace = true }
+# The Fukushima demo's fuel and cladding heat capacities (gh:#1038): OFFBEAT's
+# MATPRO UO2 and Zircaloy correlations, reused rather than re-entered. Pure
+# Rust (petir, uom, thiserror, outram-foam-basic-lib); htgr_sim_v1 already
+# builds it for wasm. No cycle: it does not depend on dhoby-ghaut.
+outram-park-fork-offbeat = { workspace = true }
 # ~~Native only (in the table below)~~ MOVED here 2026-10-27: the Fukushima
 # demo's page draws its time histories with egui_plot in the browser, and
 # egui_plot is wasm-safe (it is egui widgets and nothing else).

@@ -17,6 +17,13 @@
 //!   past the cladding: the second law holds by construction, no guard;
 //! - both lumps advanced **implicitly** together (a 2x2 solve per node), so
 //!   any time step is stable;
+//! - **temperature-dependent heat capacities** (gh:#1038): OFFBEAT's MATPRO
+//!   UO2 and MATPRO Zircaloy correlations, reused, not re-entered. The 2x2
+//!   solve takes the heat capacities at the start of the step; each lump's
+//!   energy is then advanced by the heat that solve moved, and its
+//!   temperature found by inverting the correlation's enthalpy, so energy is
+//!   conserved exactly. `Mechanisms::without_temperature_dependent_properties`
+//!   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
 //! - oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
 //!   into the cladding, limited by the steam that reaches the node (steam
 //!   starvation); the steam it uses and the hydrogen it makes travel up;
@@ -29,11 +36,16 @@
 //! rods, to the shroud and upwards (it spreads heat across the core above
 //! about 1200 K); the two-phase swell of the mixture level (the collapsed
 //! level uncovers the fuel early); candling, blockages, and molten-pool
-//! physics; temperature-dependent fuel properties; the decay heat that
+//! physics; ~~temperature-dependent fuel properties~~ (heat capacities added
+//! 2026-10-29, gh:#1038; UO2 conductivity is still constant, waiting for a
+//! cited Unit 1 burnup, which MATPRO's conductivity depends on); the decay heat that
 //! leaves with volatile fission products; boron carbide control-blade
 //! reactions. Debris after the lower head fails leaves the model.
 
 use super::params::*;
+use outram_park_fork_offbeat::materials::properties::heat_capacity::HeatCapacityModel;
+use outram_park_fork_offbeat::materials::MaterialState;
+use std::sync::OnceLock;
 use super::wire::{Reader, Writer};
 use tampines_steam_tables::dynamic_viscosity::mu_tp_eqm_single_phase;
 use tampines_steam_tables::prelude::cp_tp_eqm_single_phase;
@@ -60,6 +72,9 @@ pub struct CoreSnapshot {
     pub level_m: f64,
     /// Decay power of the whole core, W.
     pub decay_w: f64,
+    /// Temperature-dependent heat capacities on (the default) or the
+    /// constant-property ablation (`Mechanisms`).
+    pub t_dependent_props: bool,
 }
 
 /// What the core hands back.
@@ -103,6 +118,7 @@ struct Node {
 struct NodeGeom {
     c_fuel: f64,
     c_clad: f64,
+    m_fuel: f64,
     g_fc: f64,
     a_rod: f64,
     a_zr: f64,
@@ -112,8 +128,15 @@ struct NodeGeom {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Core {
     nodes: Vec<Node>,
+    /// Debris in the constant-property ablation: heat capacity, J/K, and
+    /// energy `c T`, J.
     debris_c: f64,
     debris_e: f64,
+    /// Debris with temperature-dependent properties: UO2 and Zr masses, kg,
+    /// and enthalpy above [`H_REF_K`], J.
+    debris_mf: f64,
+    debris_mc: f64,
+    debris_h: f64,
     debris_power_share: f64,
     lower_head_failed: bool,
     zr_oxidised_kg: f64,
@@ -127,6 +150,7 @@ fn geom() -> NodeGeom {
     NodeGeom {
         c_fuel: core_uo2_kg() / n * UO2_CP,
         c_clad: core_zr_kg() / n * ZR_CP,
+        m_fuel: core_uo2_kg() / n,
         g_fc: fuel_to_clad_w_per_m_k() * rod_length,
         a_rod: core_rod_area_m2() / n,
         a_zr: core_zr_area_m2() / n,
@@ -146,6 +170,84 @@ fn axial_shape() -> Vec<f64> {
         .collect();
     let s: f64 = raw.iter().sum();
     raw.iter().map(|r| r / s).collect()
+}
+
+/// Reference temperature of the enthalpy tables, K.
+const H_REF_K: f64 = 250.0;
+/// Top of the enthalpy tables, K: above UO2's melting point (3120 K).
+const H_TOP_K: f64 = 3200.0;
+/// Table step, K.
+const H_STEP_K: f64 = 1.0;
+
+/// Specific heat capacity, J/(kg K), of one of the two core materials at
+/// `t_k`, from OFFBEAT's MATPRO correlation. Outside a correlation's
+/// stated window the value at the nearer edge is held: an extrapolation of
+/// this model's (MATPRO Zircaloy is stated to 2099 K; a node relocates at
+/// [`ZR_MELT_K`] = 2100 K, so the hold only matters in the debris).
+fn cp_matpro(model: HeatCapacityModel, t_k: f64) -> f64 {
+    let (lo, hi) = model.temperature_range();
+    model.value(&MaterialState::fresh(t_k.clamp(lo, hi)))
+}
+
+/// Enthalpy above [`H_REF_K`], J/kg, tabulated every [`H_STEP_K`] by the
+/// trapezoid rule on [`cp_matpro`]. Built once per worker.
+struct Enthalpy {
+    h: Vec<f64>,
+}
+
+impl Enthalpy {
+    fn new(model: HeatCapacityModel) -> Self {
+        let n = ((H_TOP_K - H_REF_K) / H_STEP_K) as usize + 1;
+        let mut h = Vec::with_capacity(n);
+        h.push(0.0);
+        for i in 1..n {
+            let (t0, t1) = (H_REF_K + (i - 1) as f64 * H_STEP_K, H_REF_K + i as f64 * H_STEP_K);
+            h.push(h[i - 1] + 0.5 * (cp_matpro(model, t0) + cp_matpro(model, t1)) * H_STEP_K);
+        }
+        Self { h }
+    }
+    /// h(T), J/kg, linear between table points; clamped to the table.
+    fn at(&self, t_k: f64) -> f64 {
+        let x = ((t_k - H_REF_K) / H_STEP_K).clamp(0.0, (self.h.len() - 1) as f64);
+        let i = (x.floor() as usize).min(self.h.len() - 2);
+        self.h[i] + (x - i as f64) * (self.h[i + 1] - self.h[i])
+    }
+    /// T(h), K: the inverse of [`Enthalpy::at`] (h rises strictly with T).
+    fn temperature(&self, h: f64) -> f64 {
+        let i = match self.h.binary_search_by(|v| v.total_cmp(&h)) {
+            Ok(i) => i.min(self.h.len() - 2),
+            Err(0) => 0,
+            Err(i) => (i - 1).min(self.h.len() - 2),
+        };
+        let w = ((h - self.h[i]) / (self.h[i + 1] - self.h[i])).clamp(0.0, 1.0);
+        H_REF_K + (i as f64 + w) * H_STEP_K
+    }
+}
+
+fn uo2_enthalpy() -> &'static Enthalpy {
+    static T: OnceLock<Enthalpy> = OnceLock::new();
+    T.get_or_init(|| Enthalpy::new(HeatCapacityModel::MatproUo2))
+}
+
+fn zr_enthalpy() -> &'static Enthalpy {
+    static T: OnceLock<Enthalpy> = OnceLock::new();
+    T.get_or_init(|| Enthalpy::new(HeatCapacityModel::MatproZircaloy))
+}
+
+/// Temperature of debris holding `mf` kg of UO2 and `mc` kg of Zr with
+/// enthalpy `h` J above [`H_REF_K`]: bisection on the mixture's h(T).
+fn debris_temperature(mf: f64, mc: f64, h: f64) -> f64 {
+    let (fu, zr) = (uo2_enthalpy(), zr_enthalpy());
+    let (mut a, mut b) = (H_REF_K, H_TOP_K);
+    for _ in 0..60 {
+        let m = 0.5 * (a + b);
+        if mf * fu.at(m) + mc * zr.at(m) < h {
+            a = m;
+        } else {
+            b = m;
+        }
+    }
+    0.5 * (a + b)
 }
 
 /// Urbanic-Heidrick parabolic rate constant, (kg Zr/m^2)^2/s.
@@ -200,6 +302,9 @@ impl Core {
             nodes,
             debris_c: 0.0,
             debris_e: 0.0,
+            debris_mf: 0.0,
+            debris_mc: 0.0,
+            debris_h: 0.0,
             debris_power_share: 0.0,
             lower_head_failed: false,
             zr_oxidised_kg: 0.0,
@@ -229,7 +334,23 @@ impl Core {
         let p_debris = s.decay_w * self.debris_power_share;
         let mut q_quench = 0.0;
         let mut ex_vessel = 0.0;
-        if self.debris_c > 0.0 {
+        let tdp = s.t_dependent_props;
+        if tdp && self.debris_mf + self.debris_mc > 0.0 {
+            if self.lower_head_failed {
+                ex_vessel = p_debris;
+            } else if s.level_m > -BAF_M {
+                let h_sat = self.debris_mf * uo2_enthalpy().at(s.t_sat_k) + self.debris_mc * zr_enthalpy().at(s.t_sat_k);
+                let excess = (self.debris_h - h_sat).max(0.0);
+                let release = excess * (1.0 - (-dt / DEBRIS_QUENCH_S).exp());
+                self.debris_h -= release;
+                q_quench = p_debris + release / dt;
+            } else {
+                self.debris_h += p_debris * dt;
+                if debris_temperature(self.debris_mf, self.debris_mc, self.debris_h) > LOWER_HEAD_FAILURE_K {
+                    self.lower_head_failed = true;
+                }
+            }
+        } else if !tdp && self.debris_c > 0.0 {
             if self.lower_head_failed {
                 ex_vessel = p_debris;
             } else if s.level_m > -BAF_M {
@@ -297,7 +418,15 @@ impl Core {
                 //   cf (Tf' - Tf) = dt [q - G (Tf' - Tc')]
                 //   cc (Tc' - Tc) = dt [G (Tf' - Tc') - hA (Tc' - Tcool) + q_ox]
                 let n = self.nodes[idx];
-                let (cf, cc, gfc) = (g.c_fuel, g.c_clad, g.g_fc);
+                let (cf, cc, gfc) = if tdp {
+                    (
+                        g.m_fuel * cp_matpro(HeatCapacityModel::MatproUo2, n.t_fuel),
+                        g.zr_kg * cp_matpro(HeatCapacityModel::MatproZircaloy, n.t_clad),
+                        g.g_fc,
+                    )
+                } else {
+                    (g.c_fuel, g.c_clad, g.g_fc)
+                };
                 let a11 = cf / dt + gfc;
                 let a12 = -gfc;
                 let b1 = cf / dt * n.t_fuel + q;
@@ -314,6 +443,17 @@ impl Core {
                 } else if w_steam > 0.0 && cp > 0.0 {
                     t_steam += q_out / (w_steam * cp);
                 }
+                // With temperature-dependent properties, advance each lump's
+                // enthalpy by the heat the solve moved and invert for its
+                // temperature (exact energy conservation); otherwise the
+                // solve's temperatures are the answer.
+                let (tf, tc) = if tdp {
+                    let ef = g.m_fuel * uo2_enthalpy().at(n.t_fuel) + dt * (q - gfc * (tf - tc));
+                    let ec = g.zr_kg * zr_enthalpy().at(n.t_clad) + dt * (gfc * (tf - tc) - q_out + q_ox);
+                    (uo2_enthalpy().temperature(ef / g.m_fuel), zr_enthalpy().temperature(ec / g.zr_kg))
+                } else {
+                    (tf, tc)
+                };
                 let m = &mut self.nodes[idx];
                 m.t_fuel = tf;
                 m.t_clad = tc;
@@ -329,11 +469,23 @@ impl Core {
         for (idx, share) in newly_relocated {
             let n = &mut self.nodes[idx];
             n.relocated = true;
-            self.debris_c += g.c_fuel + g.c_clad;
-            self.debris_e += g.c_fuel * n.t_fuel + g.c_clad * n.t_clad;
+            if tdp {
+                self.debris_mf += g.m_fuel;
+                self.debris_mc += g.zr_kg;
+                self.debris_h += g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad);
+            } else {
+                self.debris_c += g.c_fuel + g.c_clad;
+                self.debris_e += g.c_fuel * n.t_fuel + g.c_clad * n.t_clad;
+            }
             self.debris_power_share += share;
         }
-        let debris_k = if self.debris_c > 0.0 { self.debris_e / self.debris_c } else { s.t_sat_k };
+        let debris_k = if tdp && self.debris_mf + self.debris_mc > 0.0 {
+            debris_temperature(self.debris_mf, self.debris_mc, self.debris_h)
+        } else if !tdp && self.debris_c > 0.0 {
+            self.debris_e / self.debris_c
+        } else {
+            s.t_sat_k
+        };
         self.h2_total_kg += h2 * dt;
         let relocated = self.nodes.iter().filter(|n| n.relocated).count() as f64 / NODES as f64;
         CoreResult {
@@ -364,6 +516,9 @@ impl Core {
         w.f(&[
             self.debris_c,
             self.debris_e,
+            self.debris_mf,
+            self.debris_mc,
+            self.debris_h,
             self.debris_power_share,
             if self.lower_head_failed { 1.0 } else { 0.0 },
             self.zr_oxidised_kg,
@@ -376,6 +531,9 @@ impl Core {
             nodes,
             debris_c: r.f(),
             debris_e: r.f(),
+            debris_mf: r.f(),
+            debris_mc: r.f(),
+            debris_h: r.f(),
             debris_power_share: r.f(),
             lower_head_failed: r.f() != 0.0,
             zr_oxidised_kg: r.f(),
@@ -387,10 +545,10 @@ impl Core {
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))] // used by the browser's solver workers (and the tests)
 impl CoreSnapshot {
     pub fn write(&self, w: &mut Writer) {
-        w.f(&[self.dt_s, self.p_pa, self.t_sat_k, self.h_fg, self.level_m, self.decay_w]);
+        w.f(&[self.dt_s, self.p_pa, self.t_sat_k, self.h_fg, self.level_m, self.decay_w, if self.t_dependent_props { 1.0 } else { 0.0 }]);
     }
     pub fn read(r: &mut Reader) -> Self {
-        Self { dt_s: r.f(), p_pa: r.f(), t_sat_k: r.f(), h_fg: r.f(), level_m: r.f(), decay_w: r.f() }
+        Self { dt_s: r.f(), p_pa: r.f(), t_sat_k: r.f(), h_fg: r.f(), level_m: r.f(), decay_w: r.f(), t_dependent_props: r.f() != 0.0 }
     }
 }
 
@@ -449,7 +607,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6 };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -470,13 +628,57 @@ mod tests {
         }
         let g = geom();
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum();
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6 };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
         }
         let e1: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum();
         assert!(((e1 - e0) - 10.0e6 * 100.0).abs() < 1e-6 * 1e9, "{}", e1 - e0);
+    }
+
+    /// The same dry, steamless heat-up with temperature-dependent heat
+    /// capacities: the core's enthalpy (from the MATPRO tables) rises by
+    /// exactly the decay power times the time. The enthalpy update and its
+    /// inversion are what make this exact; a temperature-only update with
+    /// varying `c_p` would not be.
+    #[test]
+    fn a_dry_core_conserves_enthalpy_with_temperature_dependent_properties() {
+        let mut c = Core::new(560.0);
+        for n in c.nodes.iter_mut() {
+            n.t_fuel = 560.0;
+            n.t_clad = 560.0;
+        }
+        let g = geom();
+        let h = |c: &Core| -> f64 {
+            c.nodes.iter().map(|n| g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad)).sum()
+        };
+        let e0 = h(&c);
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true };
+        for _ in 0..100 {
+            c.step(&s);
+        }
+        let gained = h(&c) - e0;
+        // Bound: the table inversion is linear between 1 K points, so the
+        // round trip is exact to round-off; 1e-9 relative.
+        assert!((gained - 1.0e9).abs() < 1e-9 * 1.0e9 * 10.0, "{gained}");
+    }
+
+    /// MATPRO's heat capacities as reused: positive over the core's range,
+    /// UO2 rising with temperature, and the enthalpy table inverting.
+    #[test]
+    fn the_matpro_tables_are_positive_and_invert() {
+        for t in (300..3100).step_by(50) {
+            let t = t as f64;
+            assert!(cp_matpro(HeatCapacityModel::MatproUo2, t) > 0.0);
+            assert!(cp_matpro(HeatCapacityModel::MatproZircaloy, t) > 0.0);
+            for e in [uo2_enthalpy(), zr_enthalpy()] {
+                assert!((e.temperature(e.at(t)) - t).abs() < 1e-9, "{t}");
+            }
+        }
+        assert!(cp_matpro(HeatCapacityModel::MatproUo2, 1500.0) > cp_matpro(HeatCapacityModel::MatproUo2, 600.0));
+        let t = debris_temperature(2.0, 1.0, 2.0 * uo2_enthalpy().at(1400.0) + zr_enthalpy().at(1400.0));
+        assert!((t - 1400.0).abs() < 1e-6, "{t}");
     }
 
     /// The oxidation rate is continuous across its branches and rises with T.

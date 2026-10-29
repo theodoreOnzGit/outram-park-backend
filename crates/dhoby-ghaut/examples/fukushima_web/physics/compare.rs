@@ -150,6 +150,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("baseline (all on)", all),
         ("without hot leak", all.without_hot_leak()),
         ("without IC H2 blanketing", all.without_ic_h2_blanketing()),
+        ("without T-dependent c_p", all.without_temperature_dependent_properties()),
     ]
 }
 
@@ -187,10 +188,10 @@ mod tests {
     ///
     /// | Quantity | Model | BSAF band (tier) | Verdict |
     /// |---|---|---|---|
-    /// | lower-head failure | 5.39 h | 7.45-17.16 h (B) | early |
-    /// | RPV depressurised < 2 MPa | 5.39 h | 5-12 h (A) | inside, for the wrong reason |
-    /// | in-vessel H2 at 25 h | 126.62 kg | 400-1310 kg (C) | low |
-    /// | drywell peak 0-25 h | 0.477 MPa | 0.8-1.0 MPa (C) | low |
+    /// | lower-head failure | ~~5.39 h~~ 5.41 h | 7.45-17.16 h (B) | early |
+    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ 5.41 h | 5-12 h (A) | inside, for the wrong reason |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ 124.15 kg | 400-1310 kg (C) | low |
+    /// | drywell peak 0-25 h | ~~0.477 MPa~~ 0.476 MPa | 0.8-1.0 MPa (C) | low |
     /// | wetwell vent | never | ~24 h (A) | missed |
     /// | building explosion | never | 24.83 h (A) | missed |
     ///
@@ -198,11 +199,20 @@ mod tests {
     /// the pressure go. Most BSAF analyses have an RCS leak at 3-4 h doing
     /// it (§1.1), so "inside" here is not agreement on the mechanism.
     ///
-    /// Ablations, same date: without the `[A]` hot leak, H2 falls to
-    /// 118.04 kg (the leak carries 8.6 kg of it) and the lower head fails
-    /// 0.01 h earlier; without IC hydrogen blanketing, **no change at all**,
+    /// Ablations, measured with constant `c_p` (before gh:#1038): without
+    /// the `[A]` hot leak, H2 fell to 118.04 kg (the leak carried 8.6 kg of
+    /// it; 2.5 kg with MATPRO `c_p`, 124.15 -> 121.64) and the lower head
+    /// failed 0.01-0.04 h earlier; without IC hydrogen blanketing, **no change at all**,
     /// because both condensers stop at the station blackout (0.85 h), long
     /// before any hydrogen exists. Both are recorded results, not defects.
+    ///
+    /// **Moved 2026-10-29 by gh:#1038** (MATPRO temperature-dependent fuel
+    /// and cladding heat capacities, from OFFBEAT): lower head 5.391 ->
+    /// 5.409 h, H2 126.62 -> 124.15 kg, drywell peak 0.4767 -> 0.4761 MPa.
+    /// Predicted "small, of either sign"; it was. The struck values are the
+    /// constant-`c_p` model, which the
+    /// `without_temperature_dependent_properties` ablation still reproduces
+    /// exactly (pinned below).
     ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
@@ -211,11 +221,16 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 5.391, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 5.391, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 126.62).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.4767).abs() < 0.0001, "{m:?}");
+        assert!(near(m.lower_head_h, 5.409, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 5.409, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 124.15).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.4761).abs() < 0.0001, "{m:?}");
         assert_eq!((m.vent_h, m.explosion_h), (None, None), "{m:?}");
+        // The constant-c_p ablation is the model before gh:#1038, exactly.
+        let old = measure(Mechanisms::default().without_temperature_dependent_properties());
+        assert!(near(old.lower_head_h, 5.391, 0.001), "{old:?}");
+        assert!((old.h2_25h_kg - 126.62).abs() < 0.01, "{old:?}");
+        assert!((old.p_dw_peak_mpa - 0.4767).abs() < 0.0001, "{old:?}");
     }
 
     /// Each ablation runs, differs from the baseline in the mechanism it
@@ -224,7 +239,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 3);
+        assert_eq!(runs.len(), 4);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -236,6 +251,7 @@ mod tests {
         assert_eq!(ablations()[0].1, Mechanisms::default());
         assert!(!ablations()[1].1.hot_leak && ablations()[1].1.ic_h2_blanketing);
         assert!(ablations()[2].1.hot_leak && !ablations()[2].1.ic_h2_blanketing);
+        assert!(!ablations()[3].1.temperature_dependent_properties && ablations()[3].1.hot_leak);
     }
 
     /// The verdict reads a value against its band.

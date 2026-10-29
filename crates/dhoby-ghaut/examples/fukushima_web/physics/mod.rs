@@ -67,19 +67,22 @@ pub enum Mode {
 /// measure how much of each miss against BSAF a mechanism carries
 /// (gh:#1032).
 ///
-/// Only plant-side mechanisms so far, so nothing crosses the worker wire.
-/// A core or containment mechanism would travel in its snapshot.
+/// A core mechanism travels to the core worker in its snapshot
+/// (`CoreSnapshot::t_dependent_props`); the others act in the plant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Mechanisms {
     /// The RPV hot-gas leak to the drywell ([`HOT_LEAK_M2`], `[A]`).
     pub hot_leak: bool,
     /// Hydrogen blanketing of the isolation-condenser tubes (`[A]`).
     pub ic_h2_blanketing: bool,
+    /// MATPRO temperature-dependent fuel and cladding heat capacities
+    /// (OFFBEAT, gh:#1038); off is the constant `UO2_CP`/`ZR_CP` model.
+    pub temperature_dependent_properties: bool,
 }
 
 impl Default for Mechanisms {
     fn default() -> Self {
-        Self { hot_leak: true, ic_h2_blanketing: true }
+        Self { hot_leak: true, ic_h2_blanketing: true, temperature_dependent_properties: true }
     }
 }
 
@@ -88,6 +91,13 @@ impl Mechanisms {
     /// valves (and the breach once the lower head fails).
     pub fn without_hot_leak(mut self) -> Self {
         self.hot_leak = false;
+        self
+    }
+
+    /// Constant fuel and cladding heat capacities (`UO2_CP`, `ZR_CP`, both
+    /// `[A]`): the model before gh:#1038.
+    pub fn without_temperature_dependent_properties(mut self) -> Self {
+        self.temperature_dependent_properties = false;
         self
     }
 
@@ -539,7 +549,7 @@ impl Plant {
         };
         let h_gas = v.sat.h_g;
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
