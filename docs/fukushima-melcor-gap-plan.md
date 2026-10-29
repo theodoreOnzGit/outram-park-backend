@@ -151,6 +151,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | MELCOR falling-debris quench (100 W/m²K over the particle area, 360 s decay factor, Lipinski dryout) replaces the 120 s \[A\] quench | F3/F4, #1034 | **4.736** | **395.54** | missed (predicted within 0.1 h): lower head 0.58 h earlier, the debris keeping its decay heat under water; measured drywell mean miss 0.189 -> 0.158 MPa; RPV envelope 7 -> 35 %; H2 just below its band |
 | Lower head conducts from the debris it touches under water (MELCOR COR §6.1); penetrations heated only over the debris-covered part of their height (`dz_d / dz_1`, 0.5 m bottom level \[A\]) | F3/F4, #1034 | **4.556** | **253.13** | held (predicted the head earlier by up to 0.3 h: 0.18 h); no H2 prediction written; without the coverage the head fails at the first debris (3.55 h). Measured with the drain below: drywell mean miss 0.158 -> 0.263 MPa (worse), RPV envelope 35 -> 4 %, H2 envelope 18 -> 9 %. Leans on the missing core-plate holdup (L4) |
 | A failed vessel's water drains through the breach (0.1 m \[A\]) to the pedestal; a node candled bare no longer divides 0/0 (defect) | F3, #1034 | 4.556 | 253.13 | missed (predicted drywell peak up 0.02-0.1 MPa): 0.58922 -> 0.58863 MPa; the no-radiation ablation no longer goes NaN after a wet failure |
+| Wetwell atmosphere with its own temperature and steam: MELCOR's pool-surface exchange (CVH/FL RM §5.1) and bubble model (ε_z ε_T, §6.1), NCG/H2O default properties | F12, #1053 | 4.556 | 253.13 | missed (predicted drywell peak within 0.01 MPa): 0.58863 -> 0.56194 MPa; with no gas bubbling after about 8 h the gas lags the pool (RH about 0.87 at 22 h), wetwell 22 kPa lower; measured drywell mean miss 0.263 -> 0.275 MPa; 0-500 h mean 0.1672 -> 0.1677 MPa |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently
@@ -228,7 +229,12 @@ envelope 94 % of the time.
   steam passes partly to the wetwell atmosphere. Here the wetwell gas has
   no temperature or steam inventory of its own (it is always at the
   pool's temperature and saturation pressure), so any passed steam would
-  recondense at once. It needs a wetwell atmosphere first.
+  recondense at once. It needs a wetwell atmosphere first. **Built 2026-10-29**
+  (`ww_atmosphere`, `pool_surface.rs`): the wetwell atmosphere has its own
+  temperature and steam; the pool surface follows CVH/FL RM §5.1 (Eqs
+  5-1 to 5-23) and the bubbles §6.1 (ε_z ε_T, 0.99 relative humidity),
+  with MELCOR's NCG/H2O default properties. The torus shell is still not
+  a heat structure.
 - **F11 can change nothing yet.** No hydrogen reaches the building, because
   the drywell (0.56 MPa) never reaches the flange-leak pressure (0.75 MPa \[A\]).
   The upstream lever is drywell pressure, F8 (MCCI gas). That needs a heat of

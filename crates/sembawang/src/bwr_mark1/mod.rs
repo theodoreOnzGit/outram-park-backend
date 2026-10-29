@@ -47,6 +47,7 @@ pub mod internals;
 pub mod iodine;
 pub mod msl;
 pub mod params;
+pub mod pool_surface;
 pub mod rn_volume;
 pub mod sparc;
 pub mod steam;
@@ -264,6 +265,12 @@ pub struct Mechanisms {
     /// pedestal (2026-10-29; MELCOR opens a lower-plenum flow path at
     /// failure). Off is the water kept in the failed vessel.
     pub failed_vessel_drain: bool,
+    /// The wetwell atmosphere has its own temperature and steam: MELCOR's
+    /// pool-surface exchange (CVH/FL RM §5.1) and bubble model at the vents
+    /// (§6.1, the efficiency `epsilon_z epsilon_T`), flashing, and the vent
+    /// and vacuum breakers passing the atmosphere as it is (2026-10-29). Off
+    /// is the gas at the pool's temperature, saturated.
+    pub ww_atmosphere: bool,
 }
 
 impl Default for Mechanisms {
@@ -307,6 +314,7 @@ impl Default for Mechanisms {
             wet_head_contact: true,
             penetration_coverage: true,
             failed_vessel_drain: true,
+            ww_atmosphere: true,
         }
     }
 }
@@ -556,6 +564,13 @@ impl Mechanisms {
     /// A failed vessel keeps its water: the model before 2026-10-29.
     pub fn without_failed_vessel_drain(mut self) -> Self {
         self.failed_vessel_drain = false;
+        self
+    }
+
+    /// The wetwell gas at the pool's temperature and saturated: the model
+    /// before 2026-10-29.
+    pub fn without_ww_atmosphere(mut self) -> Self {
+        self.ww_atmosphere = false;
         self
     }
 
@@ -1276,6 +1291,7 @@ impl Plant {
                 q_alkali_w,
                 q_halogen_w,
                 q_chalcogen_w,
+                ww_atmosphere: self.mechanisms.ww_atmosphere,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
@@ -1960,10 +1976,13 @@ mod tests {
         // where it peaked before the vent opened. Since the mixture vent
         // (gh:#1053), which no longer passes about 20 times its orifice's
         // capacity, 1.4e-8 is still in the wetwell gas at 26 h (was under
-        // 1e-9).
+        // 1e-9). Since the wetwell atmosphere (2026-10-29) the vent passes
+        // only the gas the atmosphere holds (the pool no longer boils on
+        // demand to feed it): at 26 h 9.9e-6 is still in the drywell and
+        // 1.3e-5 in the wetwell gas (were under 1e-9 and 1.4e-8).
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-9 && k.xe_ww < 1e-7 && k.xe_building == 0.0, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 2e-5 && k.xe_ww < 2e-5 && k.xe_building == 0.0, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;

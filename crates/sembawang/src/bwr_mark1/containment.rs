@@ -9,13 +9,19 @@
 //!   fits, [`super::gas`], since 2026-10-29); a lumped wall heat sink (steel and
 //!   concrete) takes heat by convection, **implicitly**; steam above its
 //!   saturation pressure at the gas temperature condenses to the sump.
-//! - **Wetwell (torus)**: the pool, one temperature; the gas space above it
+//! - **Wetwell (torus)**: the pool, one temperature; ~~the gas space above it
 //!   at the pool temperature, saturated with steam (an equilibrium
-//!   assumption).
+//!   assumption)~~ **since 2026-10-29** (`Mechanisms::ww_atmosphere`) the gas
+//!   space has its own temperature and steam, exchanging mass and energy
+//!   with the pool at its surface and with the bubbles leaving it
+//!   ([`super::pool_surface`]: MELCOR CVH/FL RM §5.1 and §6.1); the old
+//!   equilibrium is the ablation. The torus shell is not a heat structure
+//!   (stated). Cost: the 30 h headless run 7.8 -> 11.1 s.
 //! - **Downcomers**: drywell gas pushed into the pool once the drywell
 //!   exceeds the wetwell by the submergence head; the steam condenses in the
 //!   pool, the nitrogen and hydrogen bubble through into the wetwell gas at
-//!   the pool's temperature. **Vacuum breakers** the other way.
+//!   the pool's temperature. (With the wetwell atmosphere, by MELCOR's bubble model: below
+//!   about 5 K of subcooling part of the steam passes uncondensed.) **Vacuum breakers** the other way.
 //! - **Relief-valve discharge** goes into the pool (quenchers), its hydrogen
 //!   into the wetwell gas.
 //! - **Wetwell vent** to the stack through a rupture disk, when the operators
@@ -40,6 +46,7 @@ use super::rn_volume::{RnFlow, RnSurface, RnVolume, CS, IODINE, N_CLASSES, TE};
 use super::vapour::{BulkGas, FpClass};
 use super::iodine;
 use super::sparc;
+use super::pool_surface;
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
 
@@ -137,6 +144,10 @@ pub struct ContainmentSnapshot {
     /// And the chalcogens' (Te/Se), when tellurium is transported
     /// (`Mechanisms::te_transport`).
     pub q_chalcogen_w: f64,
+    /// The wetwell atmosphere has its own temperature and steam, and
+    /// exchanges mass and energy with the pool at its surface and with the
+    /// bubbles leaving the pool (`Mechanisms::ww_atmosphere`).
+    pub ww_atmosphere: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -238,6 +249,14 @@ pub struct Containment {
     /// Scrubbed into the pool water at the vent exits (SPARC-90's DF_EC),
     /// kg: cesium, iodine, aerosol.
     pool_scrubbed: [f64; N_CLASSES + 1],
+    /// The wetwell atmosphere's steam, kg, and temperature, K
+    /// (`ww_atmosphere`); without it the gas is at the pool's temperature,
+    /// saturated, and these are unused.
+    ww_steam_kg: f64,
+    ww_t: f64,
+    /// Whether this step carries the wetwell atmosphere (not state: set
+    /// from the snapshot at each step).
+    ww_atm: bool,
 }
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
@@ -300,6 +319,9 @@ impl Containment {
             iodine_swarm_pass: 1.0,
             iodine_swarm_age_s: RN_STEP_S,
             pool_scrubbed: [0.0; N_CLASSES + 1],
+            ww_steam_kg: p_sat_pa(prm.initial_pool_k) * prm.wetwell_gas_m3 * M_H2O / (R_GAS * prm.initial_pool_k),
+            ww_t: prm.initial_pool_k,
+            ww_atm: false,
         }
     }
 
@@ -310,7 +332,111 @@ impl Containment {
         self.dw_moles() * R_GAS * self.dw_t / prm.drywell_volume_m3
     }
     pub fn p_ww(&self, prm: &Params) -> f64 {
+        if self.ww_atm {
+            return self.ww_moles() * R_GAS * self.ww_t / prm.wetwell_gas_m3;
+        }
         (self.ww_n2 + self.ww_h2) * R_GAS * self.pool_t / prm.wetwell_gas_m3 + p_sat_pa(self.pool_t)
+    }
+    fn ww_moles(&self) -> f64 {
+        self.ww_n2 + self.ww_h2 + self.ww_steam_kg / M_H2O
+    }
+    /// The wetwell atmosphere's energy and heat capacity (as the drywell's).
+    fn ww_energy(&self, tv: bool) -> f64 {
+        ncg_u(self.ww_n2, self.ww_h2, self.ww_t, tv) + self.ww_steam_kg * steam_u(self.ww_t)
+    }
+    fn ww_heat_capacity(&self, tv: bool) -> f64 {
+        ncg_c(self.ww_n2, self.ww_h2, self.ww_t, tv) + self.ww_steam_kg * CV_STEAM
+    }
+    /// The wetwell atmosphere's temperature from its energy, by Newton (the
+    /// energy is monotonic in T).
+    fn set_ww_energy(&mut self, e: f64, tv: bool) {
+        for _ in 0..50 {
+            let dt = (e - self.ww_energy(tv)) / self.ww_heat_capacity(tv);
+            self.ww_t += dt;
+            if dt.abs() < 1e-9 * self.ww_t {
+                break;
+            }
+        }
+    }
+    /// Gas entering the pool below its surface (relief valves, downcomers),
+    /// `dn2`, `dh2` mol and `m_s` kg of steam carrying `e_in` J, by MELCOR's
+    /// bubble model (CVH/FL RM §6.1): with efficiency `epsilon`
+    /// ([`pool_surface::bubble_efficiency`]) between no interaction
+    /// (everything joins the atmosphere unchanged) and full interaction
+    /// (the non-condensables leave at the pool's temperature with vapour at
+    /// 0.99 of its saturation pressure; the rest of the steam and the energy
+    /// stay in the pool), linearly.
+    fn bubble_through(&mut self, prm: &Params, tv: bool, dn2: f64, dh2: f64, m_s: f64, e_in: f64) {
+        let p_ww = self.p_ww(prm);
+        let rho_l = sparc::Pool::submerged(self.pool_t, p_ww, prm.vent_submergence_pa).rho_l();
+        let depth = prm.vent_submergence_pa / (rho_l * 9.81);
+        let opening = (4.0 * prm.downcomer_area_m2 / (prm.downcomer_count * std::f64::consts::PI)).sqrt();
+        let eps = pool_surface::bubble_efficiency(depth, opening, p_ww + prm.vent_submergence_pa, self.pool_t);
+        let p_v = (0.99 * p_sat_pa(self.pool_t)).min(0.99 * p_ww);
+        let m_v = (dn2 + dh2) * p_v / (p_ww - p_v) * M_H2O;
+        let e_full = ncg_u(dn2, dh2, self.pool_t, tv) + m_v * steam_u(self.pool_t);
+        let to_atm_steam = eps * m_v + (1.0 - eps) * m_s;
+        let to_atm_e = eps * e_full + (1.0 - eps) * e_in;
+        let e_a = self.ww_energy(tv) + to_atm_e;
+        self.ww_n2 += dn2;
+        self.ww_h2 += dh2;
+        self.ww_steam_kg += to_atm_steam;
+        self.set_ww_energy(e_a, tv);
+        let e_p = self.pool_energy() + (e_in - to_atm_e);
+        self.pool_kg += m_s - to_atm_steam;
+        self.set_pool_energy(e_p);
+    }
+    /// The pool surface (MELCOR CVH/FL RM §5.1), flashing of a pool above
+    /// the atmosphere's saturation temperature (its vapour leaving at
+    /// once, as saturated steam: MELCOR holds bubbles up to a 0.4 void,
+    /// not modelled), and rain-out of vapour above saturation in the
+    /// atmosphere (its latent heat staying in the gas, as the drywell's).
+    fn pool_surface_step(&mut self, prm: &Params, tv: bool, dt: f64) {
+        let p_ww = self.p_ww(prm);
+        let t_s = pool_surface::t_sat(p_ww);
+        if self.pool_t > t_s {
+            let h_fg = pool_surface::steam_h(t_s) - CP_WATER * (t_s - 273.15);
+            let m = self.pool_kg * CP_WATER * (self.pool_t - t_s) / h_fg;
+            let e_a = self.ww_energy(tv) + m * pool_surface::steam_h(t_s);
+            self.ww_steam_kg += m;
+            self.set_ww_energy(e_a, tv);
+            self.pool_kg -= m;
+            self.pool_t = t_s;
+        }
+        let rho = sparc::Pool::submerged(self.pool_t, p_ww, 0.0).rho_l();
+        let ex = pool_surface::exchange(
+            &pool_surface::Pool { t_k: self.pool_t, kg: self.pool_kg, rho, cp: CP_WATER },
+            &pool_surface::Atmosphere { t_k: self.ww_t, p_pa: self.p_ww(prm), n_steam: self.ww_steam_kg / M_H2O, n_n2: self.ww_n2, n_h2: self.ww_h2 },
+            &pool_surface::Surface {
+                area_m2: prm.ww_pool_surface_m2,
+                pool_depth_m: self.pool_kg / rho / prm.ww_pool_surface_m2,
+                gas_depth_m: prm.wetwell_gas_m3 / prm.ww_pool_surface_m2,
+            },
+            dt,
+        );
+        let m = ex.evaporation_kg_s * dt;
+        let h_f = CP_WATER * (self.pool_t - 273.15);
+        let h_g = pool_surface::steam_h(self.ww_t);
+        let e_p = self.pool_energy() - (m * h_f + ex.q_pool_w * dt);
+        let e_a = self.ww_energy(tv) + (m * h_g - ex.q_atm_w * dt);
+        self.pool_kg -= m;
+        self.set_pool_energy(e_p);
+        self.ww_steam_kg += m;
+        self.set_ww_energy(e_a, tv);
+        for _ in 0..4 {
+            let keep = p_sat_pa(self.ww_t.min(640.0)) * prm.wetwell_gas_m3 * M_H2O / (R_GAS * self.ww_t);
+            if self.ww_steam_kg <= keep {
+                break;
+            }
+            let cond = self.ww_steam_kg - keep;
+            let h_l = CP_WATER * (self.ww_t - 273.15);
+            let e_a = self.ww_energy(tv) - cond * h_l;
+            self.ww_steam_kg = keep;
+            self.set_ww_energy(e_a, tv);
+            let e_p = self.pool_energy() + cond * h_l;
+            self.pool_kg += cond;
+            self.set_pool_energy(e_p);
+        }
     }
     fn dw_energy(&self, tv: bool) -> f64 {
         ncg_u(self.dw_n2, self.dw_h2, self.dw_t, tv) + self.dw_steam_kg * steam_u(self.dw_t)
@@ -348,6 +474,7 @@ impl Containment {
         let prm = &s.prm;
         let dt = s.dt_s;
         let tv = s.gas_cv_t;
+        self.ww_atm = s.ww_atmosphere;
         self.swarm_age_s += dt;
         self.iodine_swarm_age_s += dt;
         self.dw_rn.lumped = !s.sectional_classes;
@@ -376,12 +503,20 @@ impl Containment {
             let e = self.pool_energy() + pool * dt;
             self.set_pool_energy(e);
         }
-        // 1. Relief valves into the pool.
+        // 1. Relief valves into the pool. With the wetwell atmosphere, by
+        //    the bubble model (the hydrogen at the pool's temperature, as
+        //    before: its exit enthalpy is not delivered, stated in `finish`).
         let m = s.srv_steam_kg_s * dt;
-        let e = self.pool_energy() + m * s.srv_h;
-        self.pool_kg += m;
-        self.set_pool_energy(e);
-        self.ww_h2 += s.srv_h2_kg_s * dt / M_H2;
+        if self.ww_atm {
+            let nh2 = s.srv_h2_kg_s * dt / M_H2;
+            let e_in = m * s.srv_h + ncg_u(0.0, nh2, self.pool_t, tv);
+            self.bubble_through(prm, tv, 0.0, nh2, m, e_in);
+        } else {
+            let e = self.pool_energy() + m * s.srv_h;
+            self.pool_kg += m;
+            self.set_pool_energy(e);
+            self.ww_h2 += s.srv_h2_kg_s * dt / M_H2;
+        }
         // Noble gas is a trace non-condensable: it rides with the gas it
         // arrives in and moves in the same fraction as N2 and H2 on every
         // path below (gh:#1040).
@@ -593,15 +728,44 @@ impl Containment {
             // The drywell gas keeps its temperature; the moved gas's energy
             // goes to the pool (steam condenses, N2/H2 cool to the pool).
             let e_moved = e_dw - self.dw_energy(tv);
-            let e_pool = self.pool_energy() + e_moved - ncg_u(dn2, dh2, self.pool_t, tv);
-            self.pool_kg += dsteam;
-            self.set_pool_energy(e_pool);
-            self.ww_n2 += dn2;
-            self.ww_h2 += dh2;
+            if self.ww_atm {
+                self.bubble_through(prm, tv, dn2, dh2, dsteam, e_moved);
+            } else {
+                let e_pool = self.pool_energy() + e_moved - ncg_u(dn2, dh2, self.pool_t, tv);
+                self.pool_kg += dsteam;
+                self.set_pool_energy(e_pool);
+                self.ww_n2 += dn2;
+                self.ww_h2 += dh2;
+            }
         }
         let (p_dw, p_ww) = (self.p_dw(prm), self.p_ww(prm));
         let suck = p_ww - p_dw - prm.vacuum_breaker_pa;
-        if suck > 0.0 {
+        if suck > 0.0 && self.ww_atm {
+            // The atmosphere's mixture, steam with it, at its temperature;
+            // it leaves with its enthalpy.
+            let n_ww = self.ww_moles();
+            let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2 + self.ww_steam_kg) / n_ww;
+            let rho = p_ww * molar / (R_GAS * self.ww_t);
+            let orifice = prm.discharge_coefficient * prm.vacuum_breaker_m2 * (2.0 * rho * suck).sqrt() * dt / molar;
+            let f = (orifice / n_ww).min(suck / p_ww);
+            let (dn2, dh2, dsteam) = (self.ww_n2 * f, self.ww_h2 * f, self.ww_steam_kg * f);
+            let e_out = f * (self.ww_energy(tv) + n_ww * R_GAS * self.ww_t);
+            let dxe = self.xe_ww * f;
+            self.xe_ww -= dxe;
+            self.xe_dw += dxe;
+            let (moved, cv, ca) = self.ww_rn.take(f);
+            self.dw_rn.receive(&moved, cv, &ca);
+            let e_a = self.ww_energy(tv) - e_out;
+            self.ww_n2 -= dn2;
+            self.ww_h2 -= dh2;
+            self.ww_steam_kg -= dsteam;
+            self.set_ww_energy(e_a, tv);
+            let e = self.dw_energy(tv) + e_out;
+            self.dw_n2 += dn2;
+            self.dw_h2 += dh2;
+            self.dw_steam_kg += dsteam;
+            self.set_dw_energy(e, tv);
+        } else if suck > 0.0 {
             let n_ww = self.ww_n2 + self.ww_h2;
             let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2) / n_ww;
             let rho = p_ww * molar / (R_GAS * self.pool_t);
@@ -623,6 +787,10 @@ impl Containment {
             self.dw_h2 += dh2;
             self.set_dw_energy(e, tv);
         }
+        // 5c. The pool surface (`ww_atmosphere`).
+        if self.ww_atm {
+            self.pool_surface_step(prm, tv, dt);
+        }
         // 6. Wetwell vent through the rupture disk.
         let p_ww = self.p_ww(prm);
         if s.vent_ordered && p_ww >= prm.vent_rupture_disk_pa {
@@ -630,7 +798,32 @@ impl Containment {
         }
         let mut vented_kg_s = 0.0;
         let vent_flowing = s.vent_ordered && self.disk_burst && p_ww > P_ATM;
-        if vent_flowing && s.mixture_vent {
+        if vent_flowing && self.ww_atm {
+            // The atmosphere as it is, through the orifice at its density,
+            // at most the equalising amount; it leaves with its enthalpy,
+            // and the pool gives steam only through its surface (and by
+            // flashing) at the next step.
+            let n_all = self.ww_moles();
+            let molar = (self.ww_n2 * M_N2 + self.ww_h2 * M_H2 + self.ww_steam_kg) / n_all;
+            let rho = p_ww * molar / (R_GAS * self.ww_t);
+            let n_flow = prm.discharge_coefficient * prm.vent_area_m2 * (2.0 * rho * (p_ww - P_ATM)).sqrt() * dt / molar;
+            let f = (n_flow / n_all).min((p_ww - P_ATM) / p_ww);
+            let dh2 = self.ww_h2 * f;
+            let dxe = self.xe_ww * f;
+            self.xe_ww -= dxe;
+            self.xe_vented += dxe;
+            let (_, cv, ca) = self.ww_rn.take(f);
+            self.cs_vented_kg += cv[CS] + ca[CS].iter().sum::<f64>();
+            self.i_vented_kg += cv[IODINE] + ca[IODINE].iter().sum::<f64>();
+            self.te_out_kg += cv[TE] + ca[TE].iter().sum::<f64>();
+            self.vented_h2_kg += dh2 * M_H2;
+            vented_kg_s = f * (self.ww_n2 * M_N2 + self.ww_h2 * M_H2 + self.ww_steam_kg) / dt;
+            let e_a = self.ww_energy(tv) - f * (self.ww_energy(tv) + n_all * R_GAS * self.ww_t);
+            self.ww_n2 -= self.ww_n2 * f;
+            self.ww_h2 -= dh2;
+            self.ww_steam_kg -= self.ww_steam_kg * f;
+            self.set_ww_energy(e_a, tv);
+        } else if vent_flowing && s.mixture_vent {
             // The vent passes the wetwell gas as it is, steam and
             // non-condensables, through its orifice at the mixture's
             // density, split by mole fraction; the pool boils to supply the
@@ -934,12 +1127,13 @@ impl Containment {
         let pool = sparc::Pool::submerged(self.pool_t, self.p_ww(prm), prm.vent_submergence_pa);
         let (_, s_i, oh) = self.pool_chemistry(&pool);
         self.iodine_h = iodine::partition(self.pool_t, s_i, oh, 0.0);
-        // Wetwell gas, saturated with steam at the pool temperature.
+        // Wetwell gas, saturated with steam at the pool temperature (or the
+        // atmosphere's own, with `ww_atmosphere`).
         let p_ww = self.p_ww(prm);
-        let x_s = (p_sat_pa(self.pool_t) / p_ww).min(1.0);
+        let (x_s, t_gas) = if self.ww_atm { (self.ww_steam_kg / M_H2O / self.ww_moles(), self.ww_t) } else { ((p_sat_pa(self.pool_t) / p_ww).min(1.0), self.pool_t) };
         let n_nc = (self.ww_n2 + self.ww_h2).max(1e-30);
         let gases_ww = [(BulkGas::Steam, x_s), (BulkGas::N2, (1.0 - x_s) * self.ww_n2 / n_nc), (BulkGas::H2, (1.0 - x_s) * self.ww_h2 / n_nc)];
-        let m_ww = Medium::air(self.pool_t, p_ww, air_viscosity(self.pool_t));
+        let m_ww = Medium::air(t_gas, p_ww, air_viscosity(t_gas));
         let ww_surfaces = [RnSurface {
             surface: Surface { area: prm.ww_pool_surface_m2, facing: Facing::Floor, phoretic: vec![0.0; n] },
             t_k: self.pool_t,
@@ -996,6 +1190,8 @@ impl Containment {
             self.dw_condensed_kg,
             self.iodine_swarm_pass,
             self.iodine_swarm_age_s,
+            self.ww_steam_kg,
+            self.ww_t,
         ]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
@@ -1039,6 +1235,9 @@ impl Containment {
             iodine_swarm_pass: r.f(),
             iodine_swarm_age_s: r.f(),
             pool_scrubbed: [0.0; N_CLASSES + 1],
+            ww_steam_kg: r.f(),
+            ww_t: r.f(),
+            ww_atm: false,
         };
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = std::array::from_fn(|_| r.f());
@@ -1087,6 +1286,7 @@ impl ContainmentSnapshot {
             self.q_alkali_w,
             self.q_halogen_w,
             self.q_chalcogen_w,
+            b(self.ww_atmosphere),
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1129,6 +1329,7 @@ impl ContainmentSnapshot {
             q_alkali_w: r.f(),
             q_halogen_w: r.f(),
             q_chalcogen_w: r.f(),
+            ww_atmosphere: r.f() != 0.0,
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),
