@@ -66,7 +66,8 @@ These are the root `CLAUDE.md` rules, restated where they bite hardest here.
 ## 2. The items, in dependency order
 
 The issue numbers are in §3. "Expected effect" is the predicted sign on the
-Unit 1 metrics; none is measured yet.
+Unit 1 metrics. ~~none is measured yet~~: since 2026-10-29 several are; see
+§2a for what each step measured against its prediction.
 
 | Item | What | Expected effect | Needs |
 |---|---|---|---|
@@ -79,7 +80,7 @@ Unit 1 metrics; none is measured yet.
 | **F7** | Temperature-dependent fuel and clad properties from OFFBEAT; one cited Zr–steam reaction heat | small, either sign; removes `[A]` constants | L13, L14 |
 | **F8** | Multi-non-condensable containment (CO, CO₂, O₂) and MCCI gas generation | drywell pressure **up** after breach | L1/L3, L15 |
 | **F9** | Fission products: release from UO₂, transport, pool scrubbing, aerosol settling; wired to `changi` | new output: Cs-137 against BSAF | L1/L3, L16, L17 |
-| **F10** | Decay heat: actinide mix, irradiation history, decay heat leaving with fission products | small; decay power **lower** later | L17, L18 |
+| **F10** | Decay heat: actinide mix, irradiation history, decay heat leaving with fission products | ~~small; decay power **lower** later~~ **measured +6 to +11 % over 3–25 h** for the parts landed (§2a); the part that leaves with fission products, still to come with F9, lowers it | L17, L18 |
 | **F11** | Hydrogen to the building, and combustion computed (flammability, steam inerting, deflagration) | building explosion becomes reachable | L19 |
 | **F12** | Injection that bypasses the core, long-term containment leak, runs to 500 h | debris hotter, drywell pressure **up** | L9 |
 | **F13** | Check every `[U]`/`[A]` design value and event time against open sources | corrects inputs; either sign | L4, L5, L6, L7, L9 |
@@ -95,6 +96,48 @@ F3–F12 can be prototyped in the reduced model first. That says which mechanism
 carry the misses before the long `sembawang` programme starts. ~~If F2 is
 approved, they land in `sembawang` directly.~~ F2 was approved 2026-10-29: they
 land in `sembawang::bwr_mark1` directly.
+
+## 2a. Progress, measured (2026-10-29)
+
+Each step was predicted before its run, and an ablation reproduces the model
+before it exactly. Inputs come from the MELCOR 2.2 manuals' public
+description (`crates/kovan-literature/derived/melcor-2.2-manuals-digest.md`),
+MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
+
+| Step | Item, issue | Lower head (h) | H2 at 25 h (kg) | Prediction |
+|---|---|---|---|---|
+| Baseline (F1) | #1032 | 5.391 | 126.62 | — |
+| MATPRO c_p | F7, #1038 | 5.409 | 124.15 | held |
+| Reaction heat 6.763 MJ/kg | F7, #1038 | 5.386 | 122.31 | held |
+| H2 sensible heat paid | #1046 | 5.399 | 120.73 | held |
+| Lower-head wall | F3, #1034 | 5.543 | 119.95 | sign held, size missed |
+| Zr fusion heat | F4, #1035 | 5.413 | 180.57 | lower-head sign missed |
+| Rod collapse | F4, #1035 | 5.395 | 216.06 | H2 held, lower head missed |
+| In-core radiation, shroud | F6, #1037 | 5.589 | 182.90 | held |
+| Swollen level, ZrO2 melting | F5, #1036 | 4.668 | 283.76 | missed: regime change |
+| ANS-1979 decay heat | F10, #1041 | **4.509** | **286.63** | held |
+
+BSAF bands: lower head 7.45–17.16 h (B); H2 400–1310 kg (C). The vent now
+flows at 23.73 h, inside its Tier A band (23.5–24.68 h), as a by-product of
+F10.
+
+**What the run showed:**
+- Three changes running, lower-head failure followed **plenum dryout**.
+- Since F5 the outcome is **regime-fragile**. A large debris slug quenching in
+  the wet plenum flips the run between an early regime (about 4.6 h) and a
+  late one (about 5.6 h). The flip happens under small changes (bubble-rise
+  scan, ablations).
+- So no lower-head comparison is robust until the slug's size stops deciding
+  the run: candling and support holdup (F4), which need the core plate's
+  dimensions (L4).
+- **H2 at 25 h is not smooth in the inputs**
+  (`verification_and_validation/bwr_mark1/input-sensitivity.md`).
+- The Lipinski dryout cap was **checked and rejected for now**: it cannot bind
+  here (`lower-head-wall.md`).
+- **F11 can change nothing yet.** No hydrogen reaches the building, because
+  the drywell (0.56 MPa) never reaches the flange-leak pressure (0.75 MPa \[A\]).
+  The upstream lever is drywell pressure, F8 (MCCI gas). That needs a heat of
+  ablation and Unit 1's concrete, neither of which is held.
 
 ## 3. Issues
 
