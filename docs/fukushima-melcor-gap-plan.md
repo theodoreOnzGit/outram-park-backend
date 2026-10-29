@@ -156,6 +156,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Torus shell above the pool as a heat structure on the wetwell atmosphere (1353 m², 7.96e7 J/K \[A\], adiabatic outside) | F6, #1037 | 4.556 | 253.13 | peak held (set by the rupture disk: unchanged to 1e-6 MPa); vent 23.89 -> 24.01 h (predicted within 0.1 h: missed by 0.03 h); measured drywell mean miss 0.278 -> 0.282 MPa |
 | Gas leaving the drywell (downcomers, flange leak) takes its enthalpy, MELCOR's donor convention (CVH/FL RM Eq 6-6) (defect) | F12, #1053 | 4.556 | 253.13 | missed (predicted peak within 0.002 MPa, vent later): peak 0.56080 -> 0.56641 MPa, vent 24.01 -> 23.73 h (the order's time); the pool gets each mole's `R T`, 2 K warmer; drywell gas 43 K cooler; measured drywell mean miss 0.282 -> 0.279 MPa |
 | Relief valves' hydrogen reaches the wetwell with its enthalpy at the vessel's saturation temperature (energy closure, defect) | F12, #1053 | 4.556 | 253.13 | held (predicted +0 to +0.002 MPa): peak 0.56641 -> 0.56659 MPa; BSAF figures unmoved within their pins |
+| Water condensed in the drywell drains to its floor (the pedestal's pool) instead of leaving the model (defect) | F12, #1053 | 4.556 | 253.13 | held (predicted +0.02 MPa): peak 0.56659 -> 0.58660 MPa; 12 t on the floor at head failure, walls 60 K cooler at 22 h; measured drywell mean miss 0.279 -> **0.263 MPa** |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

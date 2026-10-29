@@ -172,6 +172,10 @@ pub struct ContainmentSnapshot {
     /// false is at the pool's temperature.
     pub relief_h2_enthalpy: bool,
     pub srv_gas_k: f64,
+    /// Water condensed in the drywell drains to its floor, the pedestal's
+    /// pool (`Mechanisms::condensate_to_floor`); false is it leaving the
+    /// model.
+    pub condensate_to_floor: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -404,6 +408,13 @@ impl Containment {
         let e = self.ww_energy(tv) - q;
         self.set_ww_energy(e, tv);
         self.ww_shell_t += q / prm.ww_shell_c;
+    }
+    /// Water arriving on the drywell floor, `kg` at `t_k`, mixed into the
+    /// pedestal's pool (one pool for the floor and the pedestal, stated).
+    fn to_pedestal(&mut self, kg: f64, t_k: f64) {
+        let e = self.pedestal_kg * self.pedestal_t + kg * t_k;
+        self.pedestal_kg += kg;
+        self.pedestal_t = e / self.pedestal_kg;
     }
     fn ww_moles(&self) -> f64 {
         self.ww_n2 + self.ww_h2 + self.ww_steam_kg / M_H2O
@@ -696,6 +707,9 @@ impl Containment {
                 self.set_dw_energy(e, tv);
                 self.dw_wall_t += m * (h_g - CP_WATER * (self.dw_wall_t - 273.15)) / prm.dw_wall_c;
                 self.dw_condensed_kg += m;
+                if s.condensate_to_floor {
+                    self.to_pedestal(m, self.dw_wall_t);
+                }
             }
             prm.dw_wall_area_m2 * h
         } else {
@@ -727,6 +741,9 @@ impl Containment {
             let cond = self.dw_steam_kg - keep;
             self.dw_condensed_kg += cond;
             let e = self.dw_energy(tv) - cond * CP_WATER * (self.dw_t - 273.15);
+            if s.condensate_to_floor {
+                self.to_pedestal(cond, self.dw_t);
+            }
             self.dw_steam_kg = keep;
             self.set_dw_energy(e, tv);
         }
@@ -1402,6 +1419,7 @@ impl ContainmentSnapshot {
             b(self.outflow_enthalpy),
             b(self.relief_h2_enthalpy),
             self.srv_gas_k,
+            b(self.condensate_to_floor),
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1450,6 +1468,7 @@ impl ContainmentSnapshot {
             outflow_enthalpy: r.f() != 0.0,
             relief_h2_enthalpy: r.f() != 0.0,
             srv_gas_k: r.f(),
+            condensate_to_floor: r.f() != 0.0,
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),

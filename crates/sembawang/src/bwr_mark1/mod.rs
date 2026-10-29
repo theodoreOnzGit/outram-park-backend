@@ -293,6 +293,11 @@ pub struct Mechanisms {
     /// vessel gives up with it (2026-10-29; needs `ww_atmosphere`). Off is
     /// the hydrogen at the pool's temperature.
     pub relief_h2_enthalpy: bool,
+    /// Water condensed in the drywell (on its structures, and steam above
+    /// saturation) drains to the floor, the pedestal's pool, where debris
+    /// can boil it again (2026-10-29; MELCOR drains a structure's film to
+    /// its volume's pool). Off is the condensate leaving the model.
+    pub condensate_to_floor: bool,
 }
 
 impl Default for Mechanisms {
@@ -341,6 +346,7 @@ impl Default for Mechanisms {
             ww_shell: true,
             outflow_enthalpy: true,
             relief_h2_enthalpy: true,
+            condensate_to_floor: true,
         }
     }
 }
@@ -623,6 +629,12 @@ impl Mechanisms {
     /// before 2026-10-29.
     pub fn without_relief_h2_enthalpy(mut self) -> Self {
         self.relief_h2_enthalpy = false;
+        self
+    }
+
+    /// The drywell's condensate leaves the model: before 2026-10-29.
+    pub fn without_condensate_to_floor(mut self) -> Self {
+        self.condensate_to_floor = false;
         self
     }
 
@@ -1349,6 +1361,7 @@ impl Plant {
                 outflow_enthalpy: self.mechanisms.outflow_enthalpy,
                 relief_h2_enthalpy: self.mechanisms.relief_h2_enthalpy,
                 srv_gas_k: v.sat.t_k,
+                condensate_to_floor: self.mechanisms.condensate_to_floor,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,

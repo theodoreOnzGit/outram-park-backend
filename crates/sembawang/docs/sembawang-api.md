@@ -4062,6 +4062,7 @@ pub struct ContainmentSnapshot {
     pub outflow_enthalpy: bool,
     pub relief_h2_enthalpy: bool,
     pub srv_gas_k: f64,
+    pub condensate_to_floor: bool,
     pub prm: Params,
 }
 ```
@@ -4113,6 +4114,7 @@ pub struct ContainmentSnapshot {
 | `outflow_enthalpy` | `bool` | Gas leaving the drywell (downcomers, flange leak) takes its enthalpy<br>(`Mechanisms::outflow_enthalpy`); false is its internal energy, the<br>drywell keeping its temperature. |
 | `relief_h2_enthalpy` | `bool` | The relief valves' hydrogen arrives with its enthalpy at<br>`srv_gas_k`, the vessel's saturation temperature, as the vessel gave<br>it up (`Mechanisms::relief_h2_enthalpy`; needs `ww_atmosphere`);<br>false is at the pool's temperature. |
 | `srv_gas_k` | `f64` |  |
+| `condensate_to_floor` | `bool` | Water condensed in the drywell drains to its floor, the pedestal's<br>pool (`Mechanisms::condensate_to_floor`); false is it leaving the<br>model. |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -11906,6 +11908,7 @@ pub struct Mechanisms {
     pub ww_shell: bool,
     pub outflow_enthalpy: bool,
     pub relief_h2_enthalpy: bool,
+    pub condensate_to_floor: bool,
 }
 ```
 
@@ -11956,6 +11959,7 @@ pub struct Mechanisms {
 | `ww_shell` | `bool` | The torus shell above the pool as a heat structure on the wetwell<br>atmosphere: MELCOR's natural convection and condensation, its outer<br>face adiabatic (2026-10-29; needs `ww_atmosphere`). Off is no<br>structure in the wetwell gas. |
 | `outflow_enthalpy` | `bool` | Gas leaving the drywell through the downcomers and the flange leak<br>takes its enthalpy, so the drywell cools as it blows down and the<br>pool receives the flow work (MELCOR CVH/FL RM Eqs 6-5, 6-6;<br>2026-10-29). Off is the internal energy only, the drywell keeping its<br>temperature. |
 | `relief_h2_enthalpy` | `bool` | The relief valves' hydrogen reaches the wetwell with its enthalpy<br>at the vessel's saturation temperature, closing the energy the<br>vessel gives up with it (2026-10-29; needs `ww_atmosphere`). Off is<br>the hydrogen at the pool's temperature. |
+| `condensate_to_floor` | `bool` | Water condensed in the drywell (on its structures, and steam above<br>saturation) drains to the floor, the pedestal's pool, where debris<br>can boil it again (2026-10-29; MELCOR drains a structure's film to<br>its volume's pool). Off is the condensate leaving the model. |
 
 ##### Implementations
 
@@ -12170,6 +12174,11 @@ pub struct Mechanisms {
   pub fn without_relief_h2_enthalpy(self: Self) -> Self { /* ... */ }
   ```
   The relief valves' hydrogen at the pool's temperature: the model
+
+- ```rust
+  pub fn without_condensate_to_floor(self: Self) -> Self { /* ... */ }
+  ```
+  The drywell's condensate leaves the model: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
