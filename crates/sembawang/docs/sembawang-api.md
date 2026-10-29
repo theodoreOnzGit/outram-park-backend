@@ -5094,6 +5094,7 @@ pub struct CoreSnapshot {
     pub core_plate: bool,
     pub bottom_radiation: bool,
     pub ring_plates: bool,
+    pub plate_oxidation: bool,
     pub prm: Params,
 }
 ```
@@ -5127,6 +5128,7 @@ pub struct CoreSnapshot {
 | `core_plate` | `bool` | Relocating material is held on the core plate until the plate fails<br>(`Mechanisms::core_plate`). |
 | `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (`Mechanisms::bottom_radiation`). |
 | `ring_plates` | `bool` | One core plate per radial ring, each failing on its own load<br>(`Mechanisms::ring_plates`); off is one plate under the whole core. |
+| `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it<br>(`Mechanisms::plate_oxidation`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -12817,6 +12819,7 @@ pub struct Mechanisms {
     pub bottom_radiation: bool,
     pub ring_plates: bool,
     pub pool_layers: bool,
+    pub plate_oxidation: bool,
 }
 ```
 
@@ -12878,6 +12881,7 @@ pub struct Mechanisms {
 | `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (MELCOR COR RM §2.1.2, `FLPUP` = 0.25; 2026-10-29; needs<br>`core_radiation`); the steam it raises rises through the core. Off is<br>the bottom of the core exchanging nothing. |
 | `ring_plates` | `bool` | One core plate per radial ring, each holding its ring's relocating<br>material and failing on its own load (MELCOR COR RM §5.2.3: the<br>supporting structure is a component of each ring's cell; 2026-10-29;<br>needs `core_plate`). Off is one plate under the whole core. |
 | `pool_layers` | `bool` | The torus pool in two layers split at the downcomers' exits: the<br>downcomers (and every surface process) act on the water above them,<br>the relief valves' quenchers on the water below; the layers mix when<br>the lower is the hotter (2026-10-29; PPOOLEX, Li and Kudinov). Off is<br>one well-mixed pool. |
+| `plate_oxidation` | `bool` | The debris held on a core plate oxidises in the steam rising past it,<br>which then no longer reaches its ring's core (MELCOR COR §3.2.1,<br>particulate debris; 2026-10-29; needs `core_plate` and<br>`debris_oxidation`). Off is the held debris inert. |
 
 ##### Implementations
 
@@ -13147,6 +13151,11 @@ pub struct Mechanisms {
   pub fn without_pool_layers(self: Self) -> Self { /* ... */ }
   ```
   One well-mixed torus pool: before 2026-10-29.
+
+- ```rust
+  pub fn without_plate_oxidation(self: Self) -> Self { /* ... */ }
+  ```
+  The debris on the core plate inert: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
