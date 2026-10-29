@@ -624,6 +624,14 @@ Applied Energy (IAE), Japan. Supplied by the maintainer and catalogued
   per-series quality grading. Verified by integrating each curve against
   Table 5.1: median ratio 0.93, 17 of 21 within a factor of two. Committed
   (coordinates are facts); the figure rasters are not.
+- *Derived dataset (3):* **`derived/nea7525-bsaf-unit1-figures/`** — unit 1
+  curves digitised 2026-10-29 from Figures 2.1 (RPV and drywell pressure,
+  **with the measured points**), 2.2 (in-vessel H2), 2.3b (water injection) and
+  2.5 (Xe and I released from fuel): 52 code series plus the two measured
+  series, 21 303 points, with the pipeline, tick calibration (residuals
+  ≤ 1.1 px), checks against Tables 2.1/2.2 and the text, and a per-series
+  grade. It corrected several eye-read values in the bands file. Committed
+  (coordinates are facts); the figure rasters and overlays stay private.
 - *Derived dataset:* **`derived/nea7525-bsaf-fukushima-daiichi-bands.md`** —
   every numeric table transcribed cell-for-cell, the figure bands read by eye
   and marked as such, the modelling gaps the study names, and a tiering of

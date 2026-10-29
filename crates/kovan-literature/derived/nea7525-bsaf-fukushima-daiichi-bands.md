@@ -35,7 +35,7 @@ only entries that can validate anything.
 | Sections used | Table 1.1 (p.16); Ch. 2 and Tables 2.1–2.2, Figs 2.1–2.8 (pp.17–23); Ch. 3 and Table 3.1, Figs 3.1–3.8 (pp.25–32); Ch. 4 and Tables 4.1–4.2, Figs 4.1–4.8 (pp.35–42); Ch. 5 and Table 5.1 (pp.43–47); Ch. 7 (pp.57–62); Executive summary (pp.11–14) |
 | Copy held | the maintainer's private repository, `propreitrary-literature-theodore`, `reports/nea-7525-bsaf-fukushima-daiichi-summary-report.pdf` (added 2026-10-27) |
 | Access tier | **Proprietary.** "© OECD 2021 … You can copy, download or print OECD content for your own use, and you can include excerpts … provided that suitable acknowledgement of the OECD as source and copyright owner is given. All requests for public or commercial use and translation rights should be submitted to neapub@oecd-nea.org" (copyright page). Permission for public use has not been sought, so **the PDF and its extracted full text stay in the private repository**. This record holds facts, figures and numbers — not copyrightable — with acknowledgement, which those terms allow |
-| Processing | Tables transcribed cell-for-cell from the rendered pages by an AI agent, 2026-10-27. Figure values read **by eye** off the plotted curves and marked *figure-read*. No digitiser was used. **Not reviewed by a human.** |
+| Processing | Tables transcribed cell-for-cell from the rendered pages by an AI agent, 2026-10-27. Figure values read **by eye** off the plotted curves and marked *figure-read*. No digitiser was used. **Not reviewed by a human.** **Update 2026-10-29:** Figs 2.1, 2.2, 2.3b and 2.5 have since been digitised ([`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures)); the eye-read values in §1.4, §1.5, §1.6 and §1.8 that the digitisation contradicted are struck through and marked *CORRECTED 2026-10-29 (digitised)* |
 
 **Acknowledgement.** Source and copyright owner: OECD Nuclear Energy Agency,
 *Benchmark Study of the Accident at the Fukushima Daiichi Nuclear Power Plant*,
@@ -141,17 +141,30 @@ Integrated H₂ at 25 h from scram, read by eye off the plotted plateaux
 | Band | Value |
 |---|---|
 | Lowest (JAEA) | **≈ 400 kg** |
-| Bulk of participants | **≈ 600 – 1 000 kg** |
+| Bulk of participants | ~~**≈ 600 – 1 000 kg**~~ **CORRECTED 2026-10-29 (digitised)** — six codes **604–943 kg** (KAERI 604, CIEMAT 623, NRA 694, VTT 717, SNL 796, IRSN 943); **IAE 1 122 kg** lies outside the eye-read bulk |
 | Highest (IBRAE) | **≈ 1 310 kg** |
 
-Sharp generation begins at **3–5 h** in all calculations and is essentially
-complete by 10–15 h, with a small second step near 15 h in several.
+Sharp generation begins at **3–5 h** in all calculations (digitised: >20 kg
+at 3.05 h, JAEA, to 4.65 h, KAERI; JAEA creeps from ≈2.6 h) ~~and is essentially
+complete by 10–15 h, with a small second step near 15 h in several~~
+**CORRECTED 2026-10-29 (digitised)** — 95 % of each plateau is reached between
+**7.1 h (JAEA) and 15.0 h (NRA)**; the late steps are CIEMAT and VTT at
+≈12.6 h and **NRA alone** at 14.5–15.3 h. Digitised plateaux at 25 h: JAEA 398,
+IBRAE 1 315 kg (the eye-read lowest/highest stand). Full curves: [`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures).
 
 ### 1.5 Containment pressure (Figs 2.1b, 2.3a) — has measured counterpart
 
-- Drywell pressure over 0–25 h: measurements (two points plotted) against nine
-  calculations; calculated peaks reach **≈0.8–1.0 MPa(abs)** around 10–16 h,
-  settling to a common **≈0.75–0.8 MPa** plateau by 20 h. *figure-read.*
+- Drywell pressure over 0–25 h: ~~measurements (two points plotted)~~
+  **CORRECTED 2026-10-29 (digitised)** — **dozens of measured markers**, one
+  at 10.3 h (0.605 MPa), a cluster at 11.7–12.3 h (**0.85 MPa**, the largest),
+  0.77–0.79 MPa at 13.5–14 h and a dense band of **0.74–0.78 MPa** from 15 h to
+  23 h; against nine calculations; calculated peaks reach ~~**≈0.8–1.0
+  MPa(abs)** around 10–16 h~~ **CORRECTED 2026-10-29 (digitised)** —
+  **0.75 MPa (SNL, no peak) to 1.02 MPa (KAERI, 15.0 h)**, at 11.5–15.7 h
+  (IAE 0.92, IBRAE 0.86, IRSN 0.85, VTT 0.85, JAEA 0.78, CIEMAT 0.77),
+  settling to a common ~~**≈0.75–0.8 MPa**~~ **0.735–0.77 MPa** plateau by
+  20 h (CORRECTED 2026-10-29, digitised). Full curves and the measured
+  envelope: [`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures).
 - Over 0–500 h the measured trace is dense and well reproduced: a fall from
   ≈0.8 MPa to **≈0.15–0.2 MPa** by 250 h, a rise to ≈0.4 MPa near 300 h, then
   a slow decline. All calculations impose a **variable-cross-section
@@ -165,8 +178,14 @@ complete by 10–15 h, with a small second step near 15 h in several.
 ### 1.6 Alternative water injection (Fig. 2.3b)
 
 All calculations that captured the 270 h pressure change agree the effective
-injection rate is **below 4.5 kg/s**, but differ on the profile. Prior to this
-time the injection is **taken to be 0**.
+injection rate is **below 4.5 kg/s**, but differ on the profile (the report's
+wording; digitised maxima from 275 h: IAE 4.15, JAEA 3.70, IBRAE 2.89, CIEMAT
+1.92, IRSN 0.95 kg/s, but **NRA 9.24 kg/s** at 275–294 h). ~~Prior to this
+time the injection is **taken to be 0**.~~ **CORRECTED 2026-10-29
+(digitised)** — not for every calculation: NRA injects ≈1.7 kg/s at 77–102 h
+and **11.8, 15.3 then 18.4 kg/s from 198 to 272 h**, JAEA ≈0.1 kg/s at
+77–100 h, and IBRAE from ≈252 h (a ≈6.6 kg/s spike near 255 h on the figure, clipped to 3.6 kg/s by the column trace). Curves:
+[`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures).
 
 ### 1.7 Concrete erosion depth (Fig. 2.4, p.20) — *figure-read*
 
@@ -189,8 +208,8 @@ Most institutes model instantaneous corium spreading in the pedestal or sump
 
 | Quantity | Value | Kind |
 |---|---|---|
-| Release **from fuel** (Xe, Cs, I), asymptotic | generally **> 80 %** of initial inventory; most reach 0.9–1.0 | code prediction, *figure-read* (Fig. 2.5) |
-| Onset of release from fuel | **3–6 h** | *figure-read* |
+| Release **from fuel** (Xe, Cs, I), asymptotic | generally **> 80 %** of initial inventory; most reach 0.9–1.0 (digitised 2026-10-29: Xe 9 of 9 above 0.96; I 8 of 9 above 0.90, SNL 0.775 at 15 h) | code prediction, *figure-read* (Fig. 2.5); curves in [`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures) |
+| Onset of release from fuel | ~~**3–6 h**~~ **CORRECTED 2026-10-29 (digitised)** — fraction >0.05 at **2.9 h (JAEA) to 5.2 h (KAERI)**, except **IBRAE Xe at 7.0 h** (a single step) | *figure-read*, then digitised |
 | Airborne fraction in PCV | typically **< 10 %** | code prediction |
 | Cs and I scrubbed into S/C water by 35 h | **≈10 – 80 %** | code prediction, *figure-read* (Fig. 2.6c,d) |
 | Cs deposited on D/W structures | ≈0.02 – 0.7 (JAEA highest) | *figure-read* (Fig. 2.6a) |
@@ -490,3 +509,9 @@ than from the band.
   published table from the committed CSVs). Per-series grades and the four
   **D/C** series whose magnitude must not be trusted are in that folder's
   README.
+- Unit 1 Figs 2.3a (PCV pressure, 0–500 h) and 2.6 (FP deposition / S/C
+  water) were **not** digitised. Figs 2.1, 2.2, 2.3b and 2.5 **were**,
+  2026-10-29: 52 code series and the measured RPV and drywell pressures, in
+  [`nea7525-bsaf-unit1-figures/`](nea7525-bsaf-unit1-figures) (calibration
+  residuals ≤ 1.1 px; checks against Tables 2.1/2.2 and the text in that
+  README).
