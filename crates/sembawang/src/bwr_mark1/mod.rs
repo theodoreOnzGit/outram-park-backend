@@ -341,6 +341,11 @@ pub struct Mechanisms {
     /// `core_radiation`); the steam it raises rises through the core. Off is
     /// the bottom of the core exchanging nothing.
     pub bottom_radiation: bool,
+    /// One core plate per radial ring, each holding its ring's relocating
+    /// material and failing on its own load (MELCOR COR RM §5.2.3: the
+    /// supporting structure is a component of each ring's cell; 2026-10-29;
+    /// needs `core_plate`). Off is one plate under the whole core.
+    pub ring_plates: bool,
 }
 
 impl Default for Mechanisms {
@@ -398,6 +403,7 @@ impl Default for Mechanisms {
             dw_wall_outer: true,
             core_plate: true,
             bottom_radiation: true,
+            ring_plates: true,
         }
     }
 }
@@ -734,6 +740,12 @@ impl Mechanisms {
     /// The bottom of the core exchanging nothing: before 2026-10-29.
     pub fn without_bottom_radiation(mut self) -> Self {
         self.bottom_radiation = false;
+        self
+    }
+
+    /// One core plate under the whole core: before 2026-10-29.
+    pub fn without_ring_plates(mut self) -> Self {
+        self.ring_plates = false;
         self
     }
 
@@ -1427,7 +1439,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, ring_plates: self.mechanisms.ring_plates, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -2228,10 +2240,14 @@ mod tests {
         // 1.3e-5 in the wetwell gas (were under 1e-9 and 1.4e-8); with the
         // torus shell, which opens the vent 0.13 h later, 2.65e-5 and
         // 2.39e-5; with the core-top radiation (less heat reaching the
-        // containment), 5.39e-5 and 3.55e-5.
+        // containment), 5.39e-5 and 3.55e-5. With a core plate per ring
+        // (2026-10-29) the drywell peaks at 0.755 MPa, past the flange
+        // leak's 0.75 MPa, and 9.15e-4 reaches the reactor building (7.6e-5
+        // in the drywell, 4.1e-5 in the wetwell gas).
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 5e-4 && k.xe_ww < 4e-4 && k.xe_building == 0.0, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 5e-4 && k.xe_ww < 4e-4, "{f:?}");
+        assert!((k.xe_building - 9.15e-4).abs() < 1e-5, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -2242,8 +2258,8 @@ mod tests {
         // closed again, with 2.5e-4 still in the drywell and 1.5e-4 in the
         // wetwell gas at 26 h; 0.9958 since the core plate, with 3.8e-4 and
         // 2.6e-4; 0.9960 since the bottom of the core radiates, with 2.7e-4
-        // and 2.6e-4.)
-        assert!((k.xe_vented - 0.9960).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // and 2.6e-4; 0.9937 with a plate per ring, the flange open.)
+        assert!((k.xe_vented - 0.9937).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

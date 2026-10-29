@@ -5089,6 +5089,7 @@ pub struct CoreSnapshot {
     pub see_through: bool,
     pub core_plate: bool,
     pub bottom_radiation: bool,
+    pub ring_plates: bool,
     pub prm: Params,
 }
 ```
@@ -5121,6 +5122,7 @@ pub struct CoreSnapshot {
 | `see_through` | `bool` | Radiation looks through emptied cells to the next standing<br>component, radially and axially (`Mechanisms::see_through`). |
 | `core_plate` | `bool` | Relocating material is held on the core plate until the plate fails<br>(`Mechanisms::core_plate`). |
 | `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (`Mechanisms::bottom_radiation`). |
+| `ring_plates` | `bool` | One core plate per radial ring, each failing on its own load<br>(`Mechanisms::ring_plates`); off is one plate under the whole core. |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -12809,6 +12811,7 @@ pub struct Mechanisms {
     pub dw_wall_outer: bool,
     pub core_plate: bool,
     pub bottom_radiation: bool,
+    pub ring_plates: bool,
 }
 ```
 
@@ -12868,6 +12871,7 @@ pub struct Mechanisms {
 | `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, a 1-D conduction slab to the reactor building<br>(2026-10-29; MELCOR's heat structures conduct). Off is the lumped<br>structures adiabatic outside. |
 | `core_plate` | `bool` | Relocating material rests on the BWR core plate until the plate<br>yields (MELCOR's PLATEB, COR RM §5.2.3, Eqs 5-3, 5-13, 5-16;<br>2026-10-29); thickness and beam spacing \[A\]. Off is relocation<br>straight to the lower plenum. |
 | `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (MELCOR COR RM §2.1.2, `FLPUP` = 0.25; 2026-10-29; needs<br>`core_radiation`); the steam it raises rises through the core. Off is<br>the bottom of the core exchanging nothing. |
+| `ring_plates` | `bool` | One core plate per radial ring, each holding its ring's relocating<br>material and failing on its own load (MELCOR COR RM §5.2.3: the<br>supporting structure is a component of each ring's cell; 2026-10-29;<br>needs `core_plate`). Off is one plate under the whole core. |
 
 ##### Implementations
 
@@ -13127,6 +13131,11 @@ pub struct Mechanisms {
   pub fn without_bottom_radiation(self: Self) -> Self { /* ... */ }
   ```
   The bottom of the core exchanging nothing: before 2026-10-29.
+
+- ```rust
+  pub fn without_ring_plates(self: Self) -> Self { /* ... */ }
+  ```
+  One core plate under the whole core: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
