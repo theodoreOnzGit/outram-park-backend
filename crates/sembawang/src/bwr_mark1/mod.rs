@@ -110,6 +110,9 @@ pub struct Mechanisms {
     pub capture_correction: bool,
     /// U-239 and Np-239 decay heat (gh:#1041).
     pub actinide_decay: bool,
+    /// Choked flow of the vessel's hydrogen-steam gas from its own molar
+    /// mass (gh:#1037); off is the steam-only flux for any gas.
+    pub mixture_choking: bool,
 }
 
 impl Default for Mechanisms {
@@ -125,6 +128,7 @@ impl Default for Mechanisms {
             decay_mix: true,
             capture_correction: true,
             actinide_decay: true,
+            mixture_choking: true,
         }
     }
 }
@@ -187,6 +191,13 @@ impl Mechanisms {
     /// No U-239 or Np-239 decay heat.
     pub fn without_actinide_decay(mut self) -> Self {
         self.actinide_decay = false;
+        self
+    }
+
+    /// The steam-only choked flux for the vessel gas, however much hydrogen
+    /// it holds: the model before 2026-10-29.
+    pub fn without_mixture_choking(mut self) -> Self {
+        self.mixture_choking = false;
         self
     }
 
@@ -353,6 +364,14 @@ impl ChokedTable {
         let w = ((l - self.ln_p[i]) / step).min(1.0);
         self.flux[i] + w * (self.flux[i + 1] - self.flux[i])
     }
+}
+
+/// Choked mass flux of a hydrogen-steam gas with hydrogen mole fraction
+/// `x_h2`, relative to pure steam at the same pressure and temperature:
+/// `sqrt(M_mix / M_H2O)` (ideal gas, fixed gamma).
+pub fn mixture_flux_factor(x_h2: f64) -> f64 {
+    let x = x_h2.clamp(0.0, 1.0);
+    ((x * M_H2 + (1.0 - x) * M_H2O) / M_H2O).sqrt()
 }
 
 /// The swollen two-phase mixture level above the bottom of active fuel, m,
@@ -643,7 +662,13 @@ impl Plant {
             self.relief_open = false;
         }
         let p_dw = self.last_containment.p_dw_pa;
-        let flux = self.choked.at(p);
+        // The steam tables' choked flux, scaled to the hydrogen-steam
+        // mixture (2026-10-29, after MELCOR's gas choking: G = rho c
+        // f(gamma) from the mixture's own density and sound speed, gamma
+        // fixed; MELCOR 2.2 Vol. 2 CVH/FL §6.3). At the same p, T and gamma,
+        // G goes as sqrt(M), so by sqrt(M_mix / M_H2O); gamma's change with
+        // the mixture is not followed (stated).
+        let flux = self.choked.at(p) * if self.mechanisms.mixture_choking { mixture_flux_factor(v.h2_fraction) } else { 1.0 };
         let w_relief = if self.relief_open { flux * prm.relief_throat_m2 * prm.relief_valves } else { 0.0 };
         if self.mechanisms.hot_leak && self.last_core.exit_gas_k >= prm.hot_leak_gas_k {
             self.hot_leak_open = true;
@@ -1120,6 +1145,15 @@ mod tests {
         assert!((volume_below(&prm, swollen) - volume_below(&prm, z) / 0.9).abs() < 1e-6 * volume_below(&prm, z));
         let capped = swollen_level(&prm, level, 100.0 * q, h_fg, v_g) + prm.baf_m;
         assert!((volume_below(&prm, capped) - volume_below(&prm, z) / 0.6).abs() < 1e-6 * volume_below(&prm, z));
+    }
+
+    /// The mixture's choked-flux factor: 1 for steam, `sqrt(M_H2/M_H2O)`
+    /// (about 0.335) for hydrogen, falling between.
+    #[test]
+    fn hydrogen_lowers_the_choked_mass_flux() {
+        assert_eq!(mixture_flux_factor(0.0), 1.0);
+        assert!((mixture_flux_factor(1.0) - (M_H2 / M_H2O).sqrt()).abs() < 1e-12);
+        assert!(mixture_flux_factor(0.5) < 1.0 && mixture_flux_factor(0.5) > mixture_flux_factor(0.9));
     }
 
     /// The level-volume map inverts.
