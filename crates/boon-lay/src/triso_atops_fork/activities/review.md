@@ -217,3 +217,64 @@ kind = "implements"
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit ead303e96d.
+
+# Review: atom_count_from_activity (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-atom-count-from-activity-theodoreonzgit-cef7daa7"
+kind = "review"
+origin = "human"
+created = "2026-10-29T15:15:08+08:00"
+modified = "2026-10-29T15:15:08+08:00"
+target = "fn:cef7daa77e029e71"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/mod.rs::atom_count_from_activity"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-29"
+signed_at = "2026-10-29T15:15:08+08:00"
+commit = "a1d3a93e1aa5f7098a210aaef1383ed5999126bd"
+hash = "sha256:ac2db408ddbe78a00dbef118ac3cf96734e5998abd38409cd602473c3a347010"
+doc_hash = "sha256:60e2c9e7ecab0d92480008c5ef4a399aff576371f0eda497f14a3b9f8ca0f0bc"
+cargo_lock = "sha256:f98236dd033e5a874219475b1066e85b1068ae8fb68882c2c9732d8f6bc0f51e"
+
+[review.callees]
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:e6c95a55e6568166" = "sha256:ea14821948029f3e6fad9e6158fe9078d576f804d7c111f2f14856b0c0fc6605"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: wrapper, follows upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: wrapper, follows upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "E9Z1QPT/A0734nxlYV759ymh5xrivOwSk+4wHopnoPhN+C+AAMaAs3Sk1HShM0HLhn3r08cLV9ouBU6sFDm6BA=="
+
+[[relation]]
+target = "concept:16-nuclear-fuel-cycle/fuel-depletion/decay-data"
+kind = "implements"
+```
+
+basic equations, make sense. 
+Numbers are unitless, f64 is ok
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit a1d3a93e1a.
