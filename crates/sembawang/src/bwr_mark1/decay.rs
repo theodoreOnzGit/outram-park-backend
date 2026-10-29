@@ -132,6 +132,19 @@ impl PlantDecay {
         self.t_s += dt_s;
     }
 
+    /// Time since the scram, s.
+    pub fn t_s(&self) -> f64 {
+        self.t_s
+    }
+
+    /// The fission products' part of the decay power now, W: the power
+    /// less U-239 and Np-239.
+    pub fn fp_power_w(&self) -> f64 {
+        let fp: f64 = self.fp.iter().map(|d| d.total_decay_heat_power().get::<watt>()).sum();
+        let g = if self.parts.capture { self.capture_factor() } else { 1.0 };
+        g * fp
+    }
+
     /// Decay power now, W.
     pub fn power_w(&self) -> f64 {
         let fp: f64 = self.fp.iter().map(|d| d.total_decay_heat_power().get::<watt>()).sum();

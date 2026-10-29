@@ -123,6 +123,13 @@ pub struct ContainmentSnapshot {
     /// Condensed classes add to their aerosol section's mass
     /// (`Mechanisms::condensate_mass`).
     pub condensate_mass: bool,
+    /// Decay heat of the noble-gas, alkali and halogen classes for the
+    /// whole core inventory, W (`fp_decay`; zero without
+    /// `Mechanisms::fp_decay_follows`): each location takes its share of the
+    /// class's inventory.
+    pub q_noble_w: f64,
+    pub q_alkali_w: f64,
+    pub q_halogen_w: f64,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -334,6 +341,26 @@ impl Containment {
         self.ww_rn.lumped = !s.sectional_classes;
         self.dw_rn.condensate_mass = s.condensate_mass;
         self.ww_rn.condensate_mass = s.condensate_mass;
+        // 0. Decay heat of the fission products the containment holds
+        //    (`fp_decay`): airborne in the drywell, into its gas; on its
+        //    structures, into its walls; in the wetwell gas and the pool,
+        //    into the pool.
+        if s.q_noble_w + s.q_alkali_w + s.q_halogen_w > 0.0 {
+            let cs = |kg: f64| kg / prm.cs_inventory_kg * s.q_alkali_w;
+            let io = |kg: f64| kg / prm.i_inventory_kg * s.q_halogen_w;
+            let air = |v: &RnVolume, c: usize| v.vapour_kg[c] + v.on_aerosol(c);
+            let held = |v: &RnVolume, c: usize| v.on_surface_kg.iter().map(|x| x[c]).sum::<f64>();
+            let dw_gas = self.xe_dw * s.q_noble_w + cs(air(&self.dw_rn, CS)) + io(air(&self.dw_rn, IODINE));
+            let dw_wall = cs(held(&self.dw_rn, CS)) + io(held(&self.dw_rn, IODINE));
+            let pool = self.xe_ww * s.q_noble_w
+                + cs(air(&self.ww_rn, CS) + held(&self.ww_rn, CS) + self.pool_scrubbed[CS])
+                + io(air(&self.ww_rn, IODINE) + held(&self.ww_rn, IODINE) + self.pool_scrubbed[IODINE]);
+            let e = self.dw_energy(tv) + dw_gas * dt;
+            self.set_dw_energy(e, tv);
+            self.dw_wall_t += dw_wall * dt / prm.dw_wall_c;
+            let e = self.pool_energy() + pool * dt;
+            self.set_pool_energy(e);
+        }
         // 1. Relief valves into the pool.
         let m = s.srv_steam_kg_s * dt;
         let e = self.pool_energy() + m * s.srv_h;
@@ -1024,6 +1051,9 @@ impl ContainmentSnapshot {
             b(self.phoresis),
             b(self.iodine_swarm),
             b(self.condensate_mass),
+            self.q_noble_w,
+            self.q_alkali_w,
+            self.q_halogen_w,
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1060,6 +1090,9 @@ impl ContainmentSnapshot {
             phoresis: r.f() != 0.0,
             iodine_swarm: r.f() != 0.0,
             condensate_mass: r.f() != 0.0,
+            q_noble_w: r.f(),
+            q_alkali_w: r.f(),
+            q_halogen_w: r.f(),
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),

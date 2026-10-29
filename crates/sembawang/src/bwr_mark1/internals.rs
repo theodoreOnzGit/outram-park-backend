@@ -75,6 +75,17 @@ impl DomeInternals {
     /// (negative when the internals are below `t_sat`), which the vessel
     /// takes back.
     pub fn lose(&mut self, prm: &Params, t_sat: f64, dt: f64) -> f64 {
+        self.lose_inner(prm, t_sat, dt)
+    }
+
+    /// Heat `q_w` W deposited in the internals for `dt` s (the decay heat
+    /// of the fission products the vessel holds, `fp_decay_follows`): their
+    /// enthalpy rises by `q dt`.
+    pub fn heat(&mut self, prm: &Params, q_w: f64, dt: f64) {
+        self.t_k = steel_t(steel_h(self.t_k) + q_w * dt / prm.internals_kg);
+    }
+
+    fn lose_inner(&mut self, prm: &Params, t_sat: f64, dt: f64) -> f64 {
         let ha = prm.internals_loss_h * prm.internals_area_m2;
         let c = prm.internals_kg * (steel_h(self.t_k + 0.5) - steel_h(self.t_k - 0.5));
         let t_new = (c * self.t_k + dt * ha * t_sat) / (c + dt * ha);

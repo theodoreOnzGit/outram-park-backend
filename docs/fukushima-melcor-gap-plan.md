@@ -80,7 +80,7 @@ Unit 1 metrics. ~~none is measured yet~~: since 2026-10-29 several are; see
 | **F7** | Temperature-dependent fuel and clad properties from OFFBEAT; one cited Zr–steam reaction heat | small, either sign; removes `[A]` constants | L13, L14 |
 | **F8** | Multi-non-condensable containment (CO, CO₂, O₂) and MCCI gas generation | drywell pressure **up** after breach | L1/L3, L15 |
 | **F9** | Fission products: release from UO₂, transport, pool scrubbing, aerosol settling; wired to `changi` | new output: Cs-137 against BSAF | L1/L3, L16, L17 |
-| **F10** | Decay heat: actinide mix, irradiation history, decay heat leaving with fission products | ~~small; decay power **lower** later~~ **measured +6 to +11 % over 3–25 h** for the parts landed (§2a); the part that leaves with fission products, still to come with F9, lowers it | L17, L18 |
+| **F10** | Decay heat: actinide mix, irradiation history, decay heat leaving with fission products | ~~small; decay power **lower** later~~ **measured +6 to +11 % over 3–25 h** for the parts landed (§2a); ~~the part that leaves with fission products, still to come with F9, lowers it~~ landed 2026-10-29: lower head 0.055 h later, drywell peak up (§2a) | L17, L18 |
 | **F11** | Hydrogen to the building, and combustion computed (flammability, steam inerting, deflagration) | building explosion becomes reachable | L19 |
 | **F12** | Injection that bypasses the core, long-term containment leak, runs to 500 h | debris hotter, drywell pressure **up** | L9 |
 | **F13** | Check every `[U]`/`[A]` design value and event time against open sources | corrects inputs; either sign | L4, L5, L6, L7, L9 |
@@ -144,6 +144,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Swarm-rise scrubbing of I2 vapour at the downcomers (SPARC-90 App. F; output only) | F9, #1047 | 4.469 | 295.45 | held: I in pool 7.79 -> 9.41 kg, vented 1.79 -> 0.16 kg; Fig 2.6d inside 53 % (was 55 %): further above the highest code |
 | Aerosol dynamics in the vessel (sectional volume, internals and floor as surfaces; output only) | F9, #1047 | 4.469 | 295.45 | missed: predicted retention in the vessel, but the in-vessel aerosol takes the CsOH vapour and carries it out; internals hold 0.05 kg at 26 h (was 11.3); Cs in pool 114 kg (was 102); Fig 2.6a inside 41 % (was 39 %) |
 | Condensed Cs and I add to their aerosol section's mass (MELCOR RN §2.5.2; output only) | F9, #1047 | 4.469 | 295.45 | mostly held: vessel keeps 5.8 kg, vented Cs 8.8 -> 0.4 kg, dw structures 60 kg at 12 h (overshoot); pool up (missed); Fig 2.6a inside 23 % (was 41 %) |
+| Decay heat of released noble gases, alkali metals and halogens follows them (class shares from an ENDF/B-VIII summation, 0.96-0.99 of ANS) | F10, #1041 | **4.524** | **304.26** | lower head 0.055 h later (held); drywell peak 0.595 -> 0.613 MPa; measured drywell mean miss 0.289 -> 0.274 MPa; Fig 2.6a inside 37 % (was 23 %) |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

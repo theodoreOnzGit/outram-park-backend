@@ -4037,6 +4037,9 @@ pub struct ContainmentSnapshot {
     pub rn_relief: super::rn_volume::RnFlow,
     pub rn_leak: super::rn_volume::RnFlow,
     pub condensate_mass: bool,
+    pub q_noble_w: f64,
+    pub q_alkali_w: f64,
+    pub q_halogen_w: f64,
     pub prm: Params,
 }
 ```
@@ -4076,6 +4079,9 @@ pub struct ContainmentSnapshot {
 | `rn_relief` | `super::rn_volume::RnFlow` | The vessel's aerosol and fission products leaving this step through<br>the relief valves and the leaks, by section (`Mechanisms::<br>vessel_aerosol`); empty, the scalar `*_relief_kg` and `*_leak_kg`<br>above carry them instead. |
 | `rn_leak` | `super::rn_volume::RnFlow` |  |
 | `condensate_mass` | `bool` | Condensed classes add to their aerosol section's mass<br>(`Mechanisms::condensate_mass`). |
+| `q_noble_w` | `f64` | Decay heat of the noble-gas, alkali and halogen classes for the<br>whole core inventory, W (`fp_decay`; zero without<br>`Mechanisms::fp_decay_follows`): each location takes its share of the<br>class's inventory. |
+| `q_alkali_w` | `f64` |  |
+| `q_halogen_w` | `f64` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -5426,6 +5432,16 @@ pub struct PlantDecay {
   Advance by `dt_s` seconds with no fission.
 
 - ```rust
+  pub fn t_s(self: &Self) -> f64 { /* ... */ }
+  ```
+  Time since the scram, s.
+
+- ```rust
+  pub fn fp_power_w(self: &Self) -> f64 { /* ... */ }
+  ```
+  The fission products' part of the decay power now, W: the power
+
+- ```rust
   pub fn power_w(self: &Self) -> f64 { /* ... */ }
   ```
   Decay power now, W.
@@ -5935,6 +5951,11 @@ pub struct DomeInternals {
   pub fn lose(self: &mut Self, prm: &Params, t_sat: f64, dt: f64) -> f64 { /* ... */ }
   ```
   Natural convection from the internals to the vessel's saturated
+
+- ```rust
+  pub fn heat(self: &mut Self, prm: &Params, q_w: f64, dt: f64) { /* ... */ }
+  ```
+  Heat `q_w` W deposited in the internals for `dt` s (the decay heat
 
 ###### Trait Implementations
 
@@ -10921,6 +10942,7 @@ pub struct Mechanisms {
     pub iodine_swarm: bool,
     pub vessel_aerosol: bool,
     pub condensate_mass: bool,
+    pub fp_decay_follows: bool,
 }
 ```
 
@@ -10958,6 +10980,7 @@ pub struct Mechanisms {
 | `iodine_swarm` | `bool` | The swarm rise past the downcomers scrubs I2 vapour by diffusion to<br>the bubbles' walls, limited by the pool's partition (MELCOR Appendix<br>F; [`sparc::iodine_pass`]; 2026-10-29). Off is iodine vapour scrubbed<br>by condensation alone. |
 | `vessel_aerosol` | `bool` | The vessel's gas as a sectional aerosol volume (`rn_volume`;<br>2026-10-29): the released aerosol and vapour agglomerate, condense<br>and deposit on the dome internals (at their temperature, with<br>thermophoresis from their heat flux) and settle on a floor of the<br>vessel's cross-section; what leaves carries its size distribution<br>into the containment. Off is the aerosol passing straight through<br>and the vapour condensing on the internals alone. |
 | `condensate_mass` | `bool` | Cesium and iodine condensed on the aerosol add to their section's<br>particle mass, as MELCOR's sectional mass does (RN §2.5.2; the area,<br>the agglomeration and the deposition follow the section's total;<br>2026-10-29). Off is the condensate riding weightless on the UO2<br>particles. |
+| `fp_decay_follows` | `bool` | The decay heat of the released noble gases, alkali metals and<br>halogens leaves the core with them and heats wherever they are: the<br>vessel, the drywell's gas and structures, the pool; what is vented<br>or leaked takes its heat away (MELCOR's DCH by class, the shares from<br>`fp_decay`'s summation; 2026-10-29). Chalcogens (Te) are released but<br>not transported, so their heat stays in the core (stated). Off is all<br>decay heat in the core. |
 
 ##### Implementations
 
@@ -11107,6 +11130,11 @@ pub struct Mechanisms {
   pub fn without_condensate_mass(self: Self) -> Self { /* ... */ }
   ```
   Condensate weightless on the particles: the model before
+
+- ```rust
+  pub fn without_fp_decay_follows(self: Self) -> Self { /* ... */ }
+  ```
+  All decay heat stays in the core: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

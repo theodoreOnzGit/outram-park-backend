@@ -221,6 +221,14 @@ pub struct Mechanisms {
     /// 2026-10-29). Off is the condensate riding weightless on the UO2
     /// particles.
     pub condensate_mass: bool,
+    /// The decay heat of the released noble gases, alkali metals and
+    /// halogens leaves the core with them and heats wherever they are: the
+    /// vessel, the drywell's gas and structures, the pool; what is vented
+    /// or leaked takes its heat away (MELCOR's DCH by class, the shares from
+    /// `fp_decay`'s summation; 2026-10-29). Chalcogens (Te) are released but
+    /// not transported, so their heat stays in the core (stated). Off is all
+    /// decay heat in the core.
+    pub fp_decay_follows: bool,
 }
 
 impl Default for Mechanisms {
@@ -256,6 +264,7 @@ impl Default for Mechanisms {
             iodine_swarm: true,
             vessel_aerosol: true,
             condensate_mass: true,
+            fp_decay_follows: true,
         }
     }
 }
@@ -455,6 +464,12 @@ impl Mechanisms {
     /// 2026-10-29.
     pub fn without_condensate_mass(mut self) -> Self {
         self.condensate_mass = false;
+        self
+    }
+
+    /// All decay heat stays in the core: the model before 2026-10-29.
+    pub fn without_fp_decay_follows(mut self) -> Self {
+        self.fp_decay_follows = false;
         self
     }
 
@@ -718,6 +733,9 @@ pub struct Plant {
     u: f64,
     h2: f64,
     decay: PlantDecay,
+    /// Each element's share of the fission products' decay heat
+    /// (`fp_decay`, the committed table).
+    fp_shares: fp_decay::ElementShares,
     ic_shell_k: [f64; IC_TRAINS],
     ic_shell_kg: [f64; IC_TRAINS],
     ic_autostarted: bool,
@@ -778,6 +796,9 @@ struct Pending {
     /// and the leaks this step (what carries every trace species).
     share_relief: f64,
     share_leak: f64,
+    /// Decay heat of the fission products the vessel holds, W
+    /// (`fp_decay_follows`).
+    vessel_fp_w: f64,
 }
 
 /// The core and containment snapshots of one step.
@@ -825,6 +846,7 @@ impl Plant {
             u: m_l * s.u_f + m_g * s.u_g,
             h2: 0.0,
             decay,
+            fp_shares: fp_decay::ElementShares::committed(),
             ic_shell_k: [prm.initial_pool_k; IC_TRAINS],
             ic_shell_kg: [prm.ic_shell_water_kg; IC_TRAINS],
             ic_autostarted: false,
@@ -1039,7 +1061,24 @@ impl Plant {
             scale = scale.min(equalising / out);
         }
         let (w_relief, w_leak) = (w_relief * scale, w_leak * scale);
-        let decay_w = self.decay.power_w();
+        // The decay heat that has left the core with the released noble
+        // gases, alkali metals and halogens (`fp_decay_follows`): their
+        // classes' share of the fission products' heat, times the
+        // fraction released.
+        let (q_noble_w, q_alkali_w, q_halogen_w) = if self.mechanisms.fp_decay_follows {
+            let (p_fp, t) = (self.decay.fp_power_w(), self.decay.t_s());
+            let sh = &self.fp_shares;
+            (p_fp * sh.share(&["Xe", "Kr"], t), p_fp * sh.share(&["Cs", "Rb"], t), p_fp * sh.share(&["I", "Br"], t))
+        } else {
+            (0.0, 0.0, 0.0)
+        };
+        let released = self.last_core.fp_volatile_released;
+        let decay_w = self.decay.power_w() - released * (q_noble_w + q_alkali_w + q_halogen_w);
+        // The vessel's own share: its gas's noble gas, and the cesium and
+        // iodine in its gas and on its internals.
+        let vessel_fp_w = self.xe_vessel * q_noble_w
+            + (self.cs_vessel_kg + self.on_internals_kg[0]) / prm.cs_inventory_kg * q_alkali_w
+            + (self.i_vessel_kg + self.on_internals_kg[1]) / prm.i_inventory_kg * q_halogen_w;
         // Before the MSIVs close, the pressure regulator passes steam to the
         // turbine bypass.
         let w_bypass = if self.t_s < prm.msiv_closure_s && !v.dry {
@@ -1064,6 +1103,7 @@ impl Plant {
             w_leak,
             w_inj,
             h2_out: (w_relief + w_leak) * h2_share,
+            vessel_fp_w,
             // The gas leaving takes the noble gas in its share of the gas
             // space (well mixed): that share by mass is the share by
             // moles, the composition being uniform.
@@ -1125,6 +1165,9 @@ impl Plant {
                 phoresis: self.mechanisms.phoresis,
                 iodine_swarm: self.mechanisms.iodine_swarm,
                 condensate_mass: self.mechanisms.condensate_mass,
+                q_noble_w,
+                q_alkali_w,
+                q_halogen_w,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
@@ -1228,6 +1271,12 @@ impl Plant {
             self.q_internals_w = q - q_loss;
             self.u -= (q - q_loss) * DT_S;
         }
+        // Onto the internals, which hold the vessel's deposit: heat put in
+        // a dry vessel's few kilograms of gas would drive its pressure up
+        // and drain it through the leak (the #1051 artefact; found when this
+        // first went into the vessel's fluid). The gas takes it from the
+        // internals by their coupling.
+        self.internals.heat(&prm, d.vessel_fp_w, DT_S);
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
         // Noble gas: out with the gas, in from the fuel.
         let out = (d.share_relief + d.share_leak).min(1.0);
@@ -1803,7 +1852,9 @@ mod tests {
         let f = p.frame();
         let k = &f.containment;
         assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-9 && k.xe_ww < 1e-7 && k.xe_building == 0.0, "{f:?}");
-        assert!((k.xe_vented - 0.7989).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // (0.7989 until the fission products' decay heat left the core with
+        // them, which moves the release: 0.7967 since.)
+        assert!((k.xe_vented - 0.7967).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

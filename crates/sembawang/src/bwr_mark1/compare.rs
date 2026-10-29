@@ -193,6 +193,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without iodine swarm", all.without_iodine_swarm()),
         ("without vessel aerosol", all.without_vessel_aerosol()),
         ("without condensate mass", all.without_condensate_mass()),
+        ("without FP decay following", all.without_fp_decay_follows()),
     ]
 }
 
@@ -761,26 +762,48 @@ mod tests {
     /// it (gh:#1051). `without_internals_heat_loss` reproduces the
     /// previous baseline exactly (pinned below).
     ///
+    /// **Moved again 2026-10-29** (the decay heat of the released noble
+    /// gases, alkali metals and halogens leaves the core with them,
+    /// `fp_decay_follows`, the class shares from `fp_decay`'s ENDF/B-VIII
+    /// summation; the vessel's share onto the dome internals, which hold its
+    /// deposit): lower head 4.4692 -> 4.5239 h, depressurised 4.4061 ->
+    /// 4.4361 h, H2 295.45 -> 304.26 kg, drywell peak 0.59493 -> 0.61280
+    /// MPa, UO2 released 2.634 -> 3.327 kg, vent unchanged. Predicted: lower
+    /// head 0-0.3 h later (held: 0.055 h); the drywell cooler late (the
+    /// peak, before the vent, rose instead: the heat reaches the
+    /// containment with the fission products). No sign was predicted for
+    /// H2. `without_fp_decay_follows` reproduces the previous baseline
+    /// exactly (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
     #[test]
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
+        // The earlier models below are reproduced with the fission
+        // products' decay heat left in the core, as it was then.
+        let base = Mechanisms::default().without_fp_decay_follows();
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 4.4692, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 4.4061, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 295.45).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.59492996).abs() < 1e-8, "{m:?}");
+        assert!(near(m.lower_head_h, 4.5239, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.4361, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 304.26).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.61279710).abs() < 1e-8, "{m:?}");
         assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
-        assert!((m.fp_released_25h - 0.7989).abs() < 1e-4 && (m.uo2_released_25h_kg - 2.634).abs() < 0.01, "{m:?}");
+        assert!((m.fp_released_25h - 0.7967).abs() < 1e-4 && (m.uo2_released_25h_kg - 3.327).abs() < 0.01, "{m:?}");
+        // Fission products' decay heat left in the core: the previous
+        // baseline, exactly.
+        let fd = measure(base);
+        assert!(near(fd.lower_head_h, 4.4692, 0.001) && near(fd.depressurised_h, 4.4061, 0.001), "{fd:?}");
+        assert!((fd.h2_25h_kg - 295.45).abs() < 0.01 && (fd.p_dw_peak_mpa - 0.59492996).abs() < 1e-8, "{fd:?}");
+        assert!((fd.fp_released_25h - 0.7989).abs() < 1e-4 && (fd.uo2_released_25h_kg - 2.634).abs() < 0.01, "{fd:?}");
         // No internals heat loss: the previous baseline, exactly.
-        let il = measure(Mechanisms::default().without_internals_heat_loss());
+        let il = measure(base.without_internals_heat_loss());
         assert!(near(il.lower_head_h, 5.4517, 0.001) && near(il.depressurised_h, 4.7769, 0.001), "{il:?}");
         assert!((il.h2_25h_kg - 215.36).abs() < 0.01, "{il:?}");
         assert!((il.p_dw_peak_mpa - 0.55680172).abs() < 1e-8, "{il:?}");
         // No failed-vessel outflow: the previous baseline, exactly.
-        let fo = measure(Mechanisms::default().without_failed_vessel_outflow().without_internals_heat_loss());
+        let fo = measure(base.without_failed_vessel_outflow().without_internals_heat_loss());
         assert!((fo.p_dw_peak_mpa - 0.55678708).abs() < 1e-8 && fo.lower_head_h == il.lower_head_h, "{fo:?}");
         // Volatile fission products released from the fuel, in-vessel
         // (CORSOR-M, gh:#1040; output only, the fixture did not move):
@@ -798,27 +821,27 @@ mod tests {
         // about 5-10x: few nodes hold near 2500 K for long.
         assert!((il.uo2_released_25h_kg - 3.346).abs() < 0.01, "{il:?}");
         // No penetrations: the previous baseline, exactly.
-        let np = measure(Mechanisms::default().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
+        let np = measure(base.without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
         assert!(near(np.lower_head_h, 5.6392, 0.001) && near(np.depressurised_h, 4.7769, 0.001), "{np:?}");
         assert!((np.h2_25h_kg - 215.36).abs() < 0.01, "{np:?}");
         assert!((np.p_dw_peak_mpa - 0.55625090).abs() < 1e-8, "{np:?}");
         assert!(il.vent_h.is_none() && il.explosion_h.is_none(), "{il:?}");
         // No dome internals: the previous baseline, exactly.
-        let di = measure(Mechanisms::default().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
+        let di = measure(base.without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
         assert!(near(di.lower_head_h, 5.4492, 0.001) && near(di.depressurised_h, 4.3583, 0.001), "{di:?}");
         assert!((di.h2_25h_kg - 191.43).abs() < 0.01, "{di:?}");
         assert!((di.p_dw_peak_mpa - 0.54684943).abs() < 1e-8, "{di:?}");
         // No steam-line creep: the previous baseline, exactly (with the
         // dry-vessel enthalpy fix: 5.3925 -> 5.3806 h, 193.97 -> 192.59 kg,
         // 0.53474702 -> 0.53460139 MPa).
-        let ml = measure(Mechanisms::default().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
+        let ml = measure(base.without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
         assert!(near(ml.lower_head_h, 5.3806, 0.001) && near(ml.depressurised_h, 5.3806, 0.001), "{ml:?}");
         assert!((ml.h2_25h_kg - 192.59).abs() < 0.01, "{ml:?}");
         assert!((ml.p_dw_peak_mpa - 0.53460139).abs() < 1e-8, "{ml:?}");
         // Constant hydrogen c_p: the previous baseline, exactly (with the
         // dry-vessel enthalpy fix: 5.390 -> 5.3808 h, 192.11 -> 190.95 kg,
         // 0.53414290 -> 0.53396739 MPa).
-        let hc = measure(Mechanisms::default().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
+        let hc = measure(base.without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss());
         assert!(near(hc.lower_head_h, 5.3808, 0.001), "{hc:?}");
         assert!((hc.h2_25h_kg - 190.95).abs() < 0.01, "{hc:?}");
         assert!((hc.p_dw_peak_mpa - 0.53396739).abs() < 1e-8, "{hc:?}");
@@ -826,7 +849,7 @@ mod tests {
         // pinned as "the model before" run on it.
         let mut old = Params::default();
         old.oxidation_min_k = 1000.0;
-        let o = measure_with(Mechanisms::default().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
+        let o = measure_with(base.without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
         assert!(near(o.lower_head_h, 4.4844, 0.001), "{o:?}");
         assert!((o.h2_25h_kg - 292.44).abs() < 0.01, "{o:?}");
         // (Dry-vessel enthalpy fix: drywell 0.56407062 -> 0.56405052 MPa.)
@@ -836,27 +859,27 @@ mod tests {
         // since the 1100 K cutoff, not at all (above).
         assert!(near(o.vent_h, 23.7336, 0.001) && o.explosion_h.is_none(), "{o:?}");
         // Without the diffusion limit: the baseline before that, exactly.
-        let dl = measure_with(Mechanisms::default().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
+        let dl = measure_with(base.without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
         // (Dry-vessel enthalpy fix: 4.5089 -> 4.5075 h, 0.56293122 ->
         // 0.56289635 MPa.)
         assert!(near(dl.lower_head_h, 4.5075, 0.001), "{dl:?}");
         assert!((dl.h2_25h_kg - 287.47).abs() < 0.01, "{dl:?}");
         assert!((dl.p_dw_peak_mpa - 0.56289635).abs() < 1e-8, "{dl:?}");
         // And constant gas c_v as well: the one before that.
-        let gc = measure_with(Mechanisms::default().without_diffusion_limit().without_gas_cv_t().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
+        let gc = measure_with(base.without_diffusion_limit().without_gas_cv_t().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
         // (Dry-vessel enthalpy fix: 0.56292285 -> 0.56285187 MPa.)
         assert!((gc.p_dw_peak_mpa - 0.56285187).abs() < 1e-8, "{gc:?}");
         assert_eq!((gc.lower_head_h, gc.h2_25h_kg, gc.vent_h), (dl.lower_head_h, dl.h2_25h_kg, dl.vent_h));
         // The steam-only choking ablation is the model before the mixture
         // correction, exactly.
-        let mc = measure_with(Mechanisms::default().without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
+        let mc = measure_with(base.without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(), old);
         assert!(near(mc.lower_head_h, 4.5092, 0.001), "{mc:?}");
         assert!((mc.h2_25h_kg - 286.63).abs() < 0.01, "{mc:?}");
         assert!((mc.p_dw_peak_mpa - 0.5622).abs() < 0.0001, "{mc:?}");
         // All three decay switches off (with steam-only choking) is the
         // decay heat before gh:#1041, so the model before it, exactly.
         let od = measure_with(
-            Mechanisms::default().without_decay_mix().without_capture_correction().without_actinide_decay().without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(),
+            base.without_decay_mix().without_capture_correction().without_actinide_decay().without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals().without_penetrations().without_failed_vessel_outflow().without_internals_heat_loss(),
             old,
         );
         assert!(near(od.lower_head_h, 4.6678, 0.001), "{od:?}");
@@ -875,7 +898,7 @@ mod tests {
         // Since penetrations: 5.439 -> 5.264 h.
         // Since failed-vessel outflow: drywell 0.5472 -> 0.5542 MPa.
         // Since internals heat loss: 5.264 -> 5.248 h, 211.16 -> 175.23 kg.
-        let ns = measure(Mechanisms::default().without_level_swell());
+        let ns = measure(base.without_level_swell());
         assert!(near(ns.lower_head_h, 5.248, 0.001), "{ns:?}");
         assert!((ns.h2_25h_kg - 175.23).abs() < 0.01, "{ns:?}");
         assert!((ns.p_dw_peak_mpa - 0.5371).abs() < 0.0001, "{ns:?}");
@@ -891,7 +914,7 @@ mod tests {
         // Since the dome internals: 4.796 -> 5.088 h, 252.49 -> 264.51 kg.
         // Since penetrations: 5.088 -> 4.903 h.
         // Since internals heat loss: 4.903 -> 5.025 h, 264.51 -> 235.69 kg.
-        let nr = measure(Mechanisms::default().without_core_radiation());
+        let nr = measure(base.without_core_radiation());
         assert!(near(nr.lower_head_h, 5.025, 0.001), "{nr:?}");
         assert!((nr.h2_25h_kg - 235.69).abs() < 0.01, "{nr:?}");
         assert!((nr.p_dw_peak_mpa - 0.5608).abs() < 0.0001, "{nr:?}");
@@ -908,7 +931,7 @@ mod tests {
         // Since penetrations: 5.699 -> 5.590 h, 162.62 -> 161.17 kg.
         // Since failed-vessel outflow: drywell 0.5163 -> 0.5294 MPa.
         // Since internals heat loss: 5.590 -> 5.610 h, 161.17 -> 128.65 kg.
-        let nc = measure(Mechanisms::default().without_rod_collapse());
+        let nc = measure(base.without_rod_collapse());
         assert!(near(nc.lower_head_h, 5.610, 0.001), "{nc:?}");
         assert!((nc.h2_25h_kg - 128.65).abs() < 0.01, "{nc:?}");
         assert!((nc.p_dw_peak_mpa - 0.5146).abs() < 0.0001, "{nc:?}");
@@ -924,7 +947,7 @@ mod tests {
         // Since the dome internals: 5.167 -> 5.459 h, 191.89 -> 199.63 kg.
         // Since failed-vessel outflow: drywell 0.5334 -> 0.5460 MPa.
         // Since internals heat loss: 5.459 -> 4.569 h, 199.63 -> 297.01 kg.
-        let nw = measure(Mechanisms::default().without_lower_head_wall());
+        let nw = measure(base.without_lower_head_wall());
         assert!(near(nw.lower_head_h, 4.569, 0.001), "{nw:?}");
         assert!((nw.h2_25h_kg - 297.01).abs() < 0.01, "{nw:?}");
         assert!((nw.p_dw_peak_mpa - 0.5952).abs() < 0.0001, "{nw:?}");
@@ -946,7 +969,7 @@ mod tests {
         // Since penetrations: 5.670 -> 5.493 h.
         // Since failed-vessel outflow: drywell 0.5134 -> 0.5277 MPa.
         // Since internals heat loss: 5.493 -> 5.506 h, 159.62 -> 159.56 kg.
-        let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
+        let cp = measure(base.without_temperature_dependent_properties());
         assert!(near(cp.lower_head_h, 5.506, 0.001), "{cp:?}");
         assert!((cp.h2_25h_kg - 159.56).abs() < 0.01, "{cp:?}");
         assert!((cp.p_dw_peak_mpa - 0.5286).abs() < 0.0001, "{cp:?}");
@@ -973,7 +996,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 31);
+        assert_eq!(runs.len(), 32);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -1013,6 +1036,7 @@ mod tests {
         assert!(!ablations()[28].1.iodine_swarm && ablations()[28].1.phoresis);
         assert!(!ablations()[29].1.vessel_aerosol && ablations()[29].1.iodine_swarm);
         assert!(!ablations()[30].1.condensate_mass && ablations()[30].1.vessel_aerosol);
+        assert!(!ablations()[31].1.fp_decay_follows && ablations()[31].1.condensate_mass);
     }
 
     /// The verdict reads a value against its band.
