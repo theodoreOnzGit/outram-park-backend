@@ -161,6 +161,10 @@ pub struct Mechanisms {
     /// condensation: SPARC-90's DF_EC (2026-10-29). Off is MELCOR's
     /// default with pool interaction off: everything passes.
     pub pool_scrubbing: bool,
+    /// Cesium and iodine vapour condensing on the dome internals in the
+    /// vessel (2026-10-29); off is everything leaving the core reaching the
+    /// containment.
+    pub in_vessel_deposition: bool,
 }
 
 impl Default for Mechanisms {
@@ -185,6 +189,7 @@ impl Default for Mechanisms {
             penetrations: true,
             failed_vessel_outflow: true,
             pool_scrubbing: true,
+            in_vessel_deposition: true,
         }
     }
 }
@@ -310,6 +315,12 @@ impl Mechanisms {
     /// pool interaction off).
     pub fn without_pool_scrubbing(mut self) -> Self {
         self.pool_scrubbing = false;
+        self
+    }
+
+    /// No in-vessel deposition: the model before 2026-10-29.
+    pub fn without_in_vessel_deposition(mut self) -> Self {
+        self.in_vessel_deposition = false;
         self
     }
 
@@ -440,6 +451,8 @@ pub struct Frame {
     /// Cesium in the vessel's gas, kg (gh:#1047).
     pub cs_vessel_kg: f64,
     pub i_vessel_kg: f64,
+    /// Cesium and iodine on the dome internals, kg.
+    pub on_internals_kg: [f64; 2],
     pub core: CoreResult,
     pub containment: ContainmentResult,
 }
@@ -594,6 +607,9 @@ pub struct Plant {
     cs_vessel_kg: f64,
     i_vessel_kg: f64,
     uo2_vessel_kg: f64,
+    /// Cesium and iodine condensed on the dome internals, kg
+    /// (`in_vessel_deposition`).
+    on_internals_kg: [f64; 2],
     uo2_seen_kg: f64,
     /// The vessel's own solved pressure, Pa, before a failed head pins the
     /// shown pressure to the drywell's.
@@ -686,6 +702,7 @@ impl Plant {
             cs_vessel_kg: 0.0,
             i_vessel_kg: 0.0,
             uo2_vessel_kg: 0.0,
+            on_internals_kg: [0.0; 2],
             uo2_seen_kg: 0.0,
             p_solved: 0.0,
             injected_kg: 0.0,
@@ -993,6 +1010,43 @@ impl Plant {
         // Iodine shares cesium's CORSOR-M row (Xe, Cs, I2, Te: one row).
         self.i_vessel_kg = self.i_vessel_kg * (1.0 - out) + (core.fp_volatile_released - self.fp_seen) * prm.i_inventory_kg;
         self.uo2_vessel_kg = self.uo2_vessel_kg * (1.0 - out) + (core.uo2_released_kg - self.uo2_seen_kg);
+        // Cesium and iodine vapour condense on the dome internals at their
+        // temperature (TRAP-MELT2's step, `vapour::condense`): the internals'
+        // area, and a mass-transfer coefficient from their heat-transfer
+        // coefficient by the heat-mass analogy, `k = h/(rho c_p)` (Lewis
+        // number about 1, steam's c_p, stated). The aerosol passes through
+        // the vessel without dynamics, so vapour onto in-vessel aerosol is
+        // not modelled (stated). Result (2026-10-29): the internals hold up
+        // to 19.4 kg of cesium (5.45 h), then reach 1005 K and the deposit
+        // re-evaporates and leaves; by 26 h none remains. The internals
+        // lump has no heat-loss path once gas stops flowing past it (no
+        // radiation to the vessel wall, no conduction): a stated artefact
+        // that keeps them hot, and real internals would keep part of it.
+        if self.mechanisms.in_vessel_deposition {
+            let gas_m3 = v.gas_m3.max(1.0);
+            let rho = (v.x * self.m + self.h2).max(1e-9) / gas_m3;
+            let k = prm.internals_h / (rho * 2000.0);
+            let t_s = self.internals.t_k;
+            for (c, class) in [vapour::FpClass::Cs, vapour::FpClass::I2].iter().enumerate() {
+                let vap = if c == 0 { self.cs_vessel_kg } else { self.i_vessel_kg };
+                let mut surf = [vapour::CondensingSurface { ak: prm.internals_area_m2 * k, c_sat: class.saturation_concentration(t_s), mass: self.on_internals_kg[c] }];
+                // An empty surface above the gas's concentration takes no part.
+                let mut left = vap;
+                if surf[0].mass > 0.0 || surf[0].c_sat < vap / gas_m3 {
+                    left = vapour::condense(vap / gas_m3, gas_m3, &mut surf, DT_S) * gas_m3;
+                    if surf[0].mass < 0.0 {
+                        left += surf[0].mass;
+                        surf[0].mass = 0.0;
+                    }
+                }
+                self.on_internals_kg[c] = surf[0].mass;
+                if c == 0 {
+                    self.cs_vessel_kg = left;
+                } else {
+                    self.i_vessel_kg = left;
+                }
+            }
+        }
         self.uo2_seen_kg = core.uo2_released_kg;
         self.xe_vessel = (self.xe_vessel - d.xe_relief - d.xe_leak).max(0.0) + (core.fp_volatile_released - self.fp_seen);
         self.fp_seen = core.fp_volatile_released;
@@ -1086,6 +1140,7 @@ impl Plant {
             xe_vessel: self.xe_vessel,
             cs_vessel_kg: self.cs_vessel_kg,
             i_vessel_kg: self.i_vessel_kg,
+            on_internals_kg: self.on_internals_kg,
             core: self.last_core.clone(),
             containment: self.last_containment,
         }
@@ -1139,6 +1194,8 @@ impl Frame {
             self.xe_vessel,
             self.cs_vessel_kg,
             self.i_vessel_kg,
+            self.on_internals_kg[0],
+            self.on_internals_kg[1],
         ]);
         self.core.write(w);
         self.containment.write(w);
@@ -1173,6 +1230,7 @@ impl Frame {
             xe_vessel: r.f(),
             cs_vessel_kg: r.f(),
             i_vessel_kg: r.f(),
+            on_internals_kg: [r.f(), r.f()],
             core: CoreResult::read(r),
             containment: ContainmentResult::read(r),
         }
@@ -1517,7 +1575,8 @@ mod tests {
     /// every step of 26 h, the vessel's, the containment's airborne, on the
     /// drywell's structures, in the wetwell pool, vented and leaked to the
     /// building add up to the released fraction times the inventory, to
-    /// 1e-9 of it.
+    /// 1e-9 of it (with the dome internals' deposits since in-vessel
+    /// deposition).
     #[test]
     fn cesium_is_conserved_from_fuel_to_stack() {
         let mut p = Plant::new(Mode::Historical);
@@ -1526,18 +1585,18 @@ mod tests {
             p.step_inline(&mut c, &mut k);
             let f = p.frame();
             let k = &f.containment;
-            let total = f.cs_vessel_kg + k.cs_airborne_kg + k.cs_dw_structures_kg + k.cs_ww_pool_kg + k.cs_vented_kg + k.cs_building_kg;
+            let total = f.cs_vessel_kg + f.on_internals_kg[0] + k.cs_airborne_kg + k.cs_dw_structures_kg + k.cs_ww_pool_kg + k.cs_vented_kg + k.cs_building_kg;
             let released = f.core.fp_volatile_released * CS_INVENTORY_KG;
             assert!((total - released).abs() < 1e-9 * CS_INVENTORY_KG, "{total} vs {released} at {}", f.t_s);
-            let total_i = f.i_vessel_kg + k.i_airborne_kg + k.i_dw_structures_kg + k.i_ww_pool_kg + k.i_vented_kg + k.i_building_kg;
+            let total_i = f.i_vessel_kg + f.on_internals_kg[1] + k.i_airborne_kg + k.i_dw_structures_kg + k.i_ww_pool_kg + k.i_vented_kg + k.i_building_kg;
             let released_i = f.core.fp_volatile_released * I_INVENTORY_KG;
             assert!((total_i - released_i).abs() < 1e-9 * I_INVENTORY_KG, "I {total_i} vs {released_i} at {}", f.t_s);
         }
         let f = p.frame();
         let k = &f.containment;
         println!(
-            "CS 26h vessel {:.2} airborne {:.2} dw structures {:.2} ww pool {:.2} vented {:.2} building {:.2} of released {:.2} kg",
-            f.cs_vessel_kg, k.cs_airborne_kg, k.cs_dw_structures_kg, k.cs_ww_pool_kg, k.cs_vented_kg, k.cs_building_kg, f.core.fp_volatile_released * CS_INVENTORY_KG
+            "CS 26h internals {:.2} vessel {:.2} airborne {:.2} dw structures {:.2} ww pool {:.2} vented {:.2} building {:.2} of released {:.2} kg",
+            f.on_internals_kg[0], f.cs_vessel_kg, k.cs_airborne_kg, k.cs_dw_structures_kg, k.cs_ww_pool_kg, k.cs_vented_kg, k.cs_building_kg, f.core.fp_volatile_released * CS_INVENTORY_KG
         );
         println!(
             "I 26h vessel {:.3} airborne {:.3} dw structures {:.3} ww pool {:.3} of released {:.3} kg",

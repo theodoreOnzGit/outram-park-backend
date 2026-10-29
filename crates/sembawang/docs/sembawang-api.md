@@ -9473,6 +9473,7 @@ pub struct Mechanisms {
     pub penetrations: bool,
     pub failed_vessel_outflow: bool,
     pub pool_scrubbing: bool,
+    pub in_vessel_deposition: bool,
 }
 ```
 
@@ -9499,6 +9500,7 @@ pub struct Mechanisms {
 | `penetrations` | `bool` | Lower-head penetration failure at the wall's temperature limit<br>(`core::HeadWall`, MELCOR §6.3, 2026-10-29); off is the wall alone. |
 | `failed_vessel_outflow` | `bool` | After lower-head failure the vessel's gas (the hydrogen and steam<br>made after it) leaves through the breach on the vessel's own<br>pressure (2026-10-29); off is the vessel sealed at the drywell's<br>pressure, nothing leaving. |
 | `pool_scrubbing` | `bool` | Pool scrubbing of aerosol and iodine where gas enters the pool (the<br>relief valves' quenchers, the downcomers), by the steam's<br>condensation: SPARC-90's DF_EC (2026-10-29). Off is MELCOR's<br>default with pool interaction off: everything passes. |
+| `in_vessel_deposition` | `bool` | Cesium and iodine vapour condensing on the dome internals in the<br>vessel (2026-10-29); off is everything leaving the core reaching the<br>containment. |
 
 ##### Implementations
 
@@ -9593,6 +9595,11 @@ pub struct Mechanisms {
   pub fn without_pool_scrubbing(self: Self) -> Self { /* ... */ }
   ```
   No pool scrubbing: everything entering the pool passes to the
+
+- ```rust
+  pub fn without_in_vessel_deposition(self: Self) -> Self { /* ... */ }
+  ```
+  No in-vessel deposition: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
@@ -10339,6 +10346,7 @@ pub struct Frame {
     pub xe_vessel: f64,
     pub cs_vessel_kg: f64,
     pub i_vessel_kg: f64,
+    pub on_internals_kg: [f64; 2],
     pub core: self::core::CoreResult,
     pub containment: containment::ContainmentResult,
 }
@@ -10370,6 +10378,7 @@ pub struct Frame {
 | `xe_vessel` | `f64` | Noble gas (Xe) in the vessel's gas, fraction of inventory (the<br>containment's shares are in `containment`). |
 | `cs_vessel_kg` | `f64` | Cesium in the vessel's gas, kg (gh:#1047). |
 | `i_vessel_kg` | `f64` |  |
+| `on_internals_kg` | `[f64; 2]` | Cesium and iodine on the dome internals, kg. |
 | `core` | `self::core::CoreResult` |  |
 | `containment` | `containment::ContainmentResult` |  |
 

@@ -178,6 +178,14 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// structures unchanged. `without_pool_scrubbing` reproduces the earlier
 /// numbers exactly (pinned below).
 ///
+/// **Moved again 2026-10-29 by in-vessel deposition** (cesium vapour onto
+/// the dome internals): Cs in the S/C water inside 60.7 % -> 64.0 %.
+/// Predicted before the run: the S/C water's cesium falling to 0.4-0.7
+/// and spending more time inside. **Missed on the value**: the internals
+/// hold up to 19.4 kg (5.45 h), then reach 1005 K, and with no heat-loss
+/// path (a stated artefact) the deposit re-evaporates and reaches the
+/// containment after all. Iodine does not condense on them.
+///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
 /// missing in-vessel deposition and pool scrubbing.
@@ -189,8 +197,8 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.4667).abs() < 1e-3 && (c.0 - 0.6067).abs() < 1e-3, "{a:?} {c:?}");
-    let off = histories(Mechanisms::default().without_pool_scrubbing(), Params::default(), 60.0, 26.0 * 3600.0);
+    assert!((a.0 - 0.4667).abs() < 1e-3 && (c.0 - 0.6404).abs() < 1e-3, "{a:?} {c:?}");
+    let off = histories(Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition(), Params::default(), 60.0, 26.0 * 3600.0);
     let c_off = inside_envelope(&off.t_h, &off.cs_sc_water, &family("2.6c"), &grid);
     assert!((c_off.0 - 0.8539).abs() < 1e-3, "{c_off:?}");
 }
@@ -227,6 +235,6 @@ fn iodine_against_fig_2_6() {
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
     assert_eq!(b, (0.0, 76));
     assert!((d.0 - 0.5393).abs() < 1e-3 && d.1 == 89, "{d:?}");
-    let off = histories(Mechanisms::default().without_pool_scrubbing(), Params::default(), 60.0, 26.0 * 3600.0);
+    let off = histories(Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition(), Params::default(), 60.0, 26.0 * 3600.0);
     assert_eq!(inside_envelope(&off.t_h, &off.i_sc_water, &family("2.6d"), &grid), (0.0, 89));
 }
