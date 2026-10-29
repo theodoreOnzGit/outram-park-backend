@@ -160,7 +160,7 @@ section, equation or table, and page label.
 | `oxidation_min_k` 1000 K \[A\] | TOXMIN 1100 K | Yes. **[inferred]** the 1000–1100 K band adds under 1 % of the H2 |
 | `zr_melt_k` 2100 K: the whole node slumps to the lower plenum | 2098 K melting, but cladding holds to 2400 K, fuel stands to 2500 or 3100 K or time-at-temperature, and debris is held in-core by the support | **Partly.** Same melting point; different consequence |
 | `oxidation_heat_j_per_kg_zr` 6.763 MJ/kg (298 K standard, OFFBEAT) | 5,797 kJ/kg at MELCOR's references, temperature-corrected | **No** (different reference). Ours is now booked by Hess's law at the node, gh:#1046 |
-| ~~No gaseous-diffusion limit;~~ no oxidation of relocated Zr | Both present | Gap (relocated Zr). **The diffusion limit is implemented, 2026-10-29** (`core::diffusion_limited_rate`): it binds only at steam mole fractions under about 3 %, yet H2 at 25 h rose 1.7 % |
+| ~~No gaseous-diffusion limit;~~ no oxidation of relocated Zr | Both present | Gap (relocated Zr), **checked and rejected for now, 2026-10-29**: collapsed nodes go straight to the lower plenum, quenched to T_sat (below the 1100 K cutoff) while water is there, and a dry plenum has no steam source, so Eq 3-28's particulate oxidation would act on nothing until in-core holdup exists (blocked on L4). **The diffusion limit is implemented, 2026-10-29** (`core::diffusion_limited_rate`): it binds only at steam mole fractions under about 3 %, yet H2 at 25 h rose 1.7 % |
 
 ---
 

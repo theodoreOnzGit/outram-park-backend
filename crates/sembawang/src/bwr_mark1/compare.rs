@@ -487,8 +487,15 @@ mod tests {
     /// 5.3900 -> 5.3925 h, H2 192.11 -> 193.97 kg (+1.0 %), drywell 0.53414
     /// -> 0.53475 MPa. Predicted: H2 down a few percent, lower head later.
     /// **Lower head held** (later, but by 0.0025 h); **the H2 sign missed**.
-    /// Not traced; one candidate is that a cooler stream delays rod collapse
-    /// and keeps Zr in the oxidising core longer. `without_hydrogen_cp_t`
+    /// ~~Not traced; one candidate is that a cooler stream delays rod
+    /// collapse and keeps Zr in the oxidising core longer.~~ **Traced the
+    /// same day, candidate refuted:** the two fixtures relocate identically
+    /// at every 10-minute sample; the 1.9 kg builds up in the 4.0-4.5 h
+    /// burst, during which the new run's peak clad is *hotter* (2508
+    /// against 2460 K at 4.33 h), not cooler. A first-order argument for
+    /// the sign of H2 at 25 h does not survive the burst's dynamics; three
+    /// sign misses in a row (diffusion limit, cutoff, this) say the same.
+    /// `without_hydrogen_cp_t`
     /// reproduces the previous baseline exactly (pinned below).
     ///
     /// When a plan item moves these numbers, this test changes in the same
