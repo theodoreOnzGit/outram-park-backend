@@ -41,6 +41,9 @@
 //! failed = []
 //! edited = []                       # tests edited in the change: never count
 //!
+//! [targeted_run]                    # last `kovan-cli test --pending-stamps` (#1052)
+//! suite = "targeted"                # same fields, plus `targets`
+//!
 //! [upstream]                        # cached from review.md
 //! …
 //!
@@ -233,6 +236,13 @@ pub enum Suite {
     Full,
     /// `cargo quick-test`: recorded, never counted.
     Quick,
+    /// `kovan-cli test --pending-stamps` (GitHub #1052): only the reaching
+    /// tests of the stamps pending a workspace test, listed in
+    /// [`TestRun::targets`]. Kept in `[targeted_run]`, never in
+    /// `[test_run]`; it clears a pending stamp only when every reaching test
+    /// of the function is among its targets
+    /// ([`super::engine`], the `Cargo.lock` step).
+    Targeted,
 }
 
 /// `[test_run]`: the evidence `kovan-cli test` recorded (D4), mapped onto
@@ -254,6 +264,19 @@ pub struct TestRun {
     /// Tests edited in the change under test: never counted as evidence.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub edited: Vec<String>,
+    /// The test ids a [`Suite::Targeted`] run set out to run (GitHub #1052);
+    /// empty for a full or quick run. `passed` and `failed` may hold more:
+    /// the run filters by test name, a superset of the targets.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<String>,
+}
+
+impl TestRun {
+    /// The test-id lists (`passed`, `failed`, `edited`, `targets`), for the
+    /// on-disk `test_ids` table and sorting.
+    fn lists_mut(&mut self) -> [&mut Vec<String>; 4] {
+        [&mut self.passed, &mut self.failed, &mut self.edited, &mut self.targets]
+    }
 }
 
 /// `[[review]]`: the cached list of `review.md`'s reviews, so a deleted
@@ -295,6 +318,12 @@ pub struct FolderIndex {
     pub modules: BTreeMap<String, ModuleIndex>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub test_run: Option<TestRun>,
+    /// Added 2026-10-29 (GitHub #1052, additive): the last
+    /// `kovan-cli test --pending-stamps` run ([`Suite::Targeted`]). Separate
+    /// from `test_run`, so a targeted run never replaces a full run's
+    /// evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub targeted_run: Option<TestRun>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upstream: Option<UpstreamTable>,
     #[serde(default, rename = "review", skip_serializing_if = "Vec::is_empty")]
@@ -372,6 +401,7 @@ impl FolderIndex {
             commit: None,
             modules: BTreeMap::new(),
             test_run: None,
+            targeted_run: None,
             upstream: None,
             reviews: Vec::new(),
             deleted_folders: Vec::new(),
@@ -405,8 +435,8 @@ impl FolderIndex {
                 expand(&mut f.reached_by)?;
             }
         }
-        if let Some(r) = &mut idx.test_run {
-            for v in [&mut r.passed, &mut r.failed, &mut r.edited] {
+        for r in idx.test_run.iter_mut().chain(idx.targeted_run.iter_mut()) {
+            for v in r.lists_mut() {
                 expand(v)?;
             }
         }
@@ -421,6 +451,10 @@ impl FolderIndex {
         if let Some(r) = &idx.test_run {
             check_commit("test_run.commit", &r.commit).map_err(IndexError::Field)?;
             check_hash("test_run.cargo_lock", &r.cargo_lock).map_err(IndexError::Field)?;
+        }
+        if let Some(r) = &idx.targeted_run {
+            check_commit("targeted_run.commit", &r.commit).map_err(IndexError::Field)?;
+            check_hash("targeted_run.cargo_lock", &r.cargo_lock).map_err(IndexError::Field)?;
         }
         Ok(idx)
     }
@@ -455,8 +489,8 @@ impl FolderIndex {
                 f.reached_by.dedup();
             }
         }
-        if let Some(r) = &mut self.test_run {
-            for v in [&mut r.passed, &mut r.failed, &mut r.edited] {
+        for r in self.test_run.iter_mut().chain(self.targeted_run.iter_mut()) {
+            for v in r.lists_mut() {
                 v.sort();
                 v.dedup();
             }
@@ -481,8 +515,8 @@ impl FolderIndex {
                 all.extend(f.reached_by.iter().cloned());
             }
         }
-        if let Some(r) = &c.test_run {
-            all.extend(r.passed.iter().chain(&r.failed).chain(&r.edited).cloned());
+        for r in c.test_run.iter().chain(c.targeted_run.iter()) {
+            all.extend(r.passed.iter().chain(&r.failed).chain(&r.edited).chain(&r.targets).cloned());
         }
         let table: Vec<String> = all.into_iter().collect();
         let refer = |v: &mut Vec<String>| {
@@ -497,8 +531,8 @@ impl FolderIndex {
                 refer(&mut f.reached_by);
             }
         }
-        if let Some(r) = &mut c.test_run {
-            for v in [&mut r.passed, &mut r.failed, &mut r.edited] {
+        for r in c.test_run.iter_mut().chain(c.targeted_run.iter_mut()) {
+            for v in r.lists_mut() {
                 refer(v);
             }
         }
@@ -548,6 +582,16 @@ mod tests {
             passed: vec!["crates/tampines/tests/t.rs::t".into()],
             failed: vec![],
             edited: vec![],
+            targets: vec![],
+        });
+        idx.targeted_run = Some(TestRun {
+            commit: "89abcdef0123456789abcdef0123456789abcdef".into(),
+            cargo_lock: h('d'),
+            suite: Suite::Targeted,
+            passed: vec!["crates/tampines/tests/t.rs::t".into()],
+            failed: vec![],
+            edited: vec![],
+            targets: vec!["crates/tampines/tests/t.rs::t".into()],
         });
         idx
     }

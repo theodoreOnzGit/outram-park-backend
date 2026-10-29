@@ -1,6 +1,6 @@
-# kovan nightly tests: `kovan-cli test` over the whole workspace on `develop`,
-# its result committed into the `kovan.toml` files, then the Pages site
-# republished. Maintainer request, 2026-10-29: "every day or so, at 12am
+# kovan nightly tests: `kovan-cli test --pending-stamps` on `develop` (the
+# reaching tests of every stamp pending a workspace test), its result
+# committed into the `kovan.toml` files, then the Pages site republished. Maintainer request, 2026-10-29: "every day or so, at 12am
 # Singapore time, the kovan-cli test and webpage publish should be run so
 # that stamps don't show as (awaiting workspace tests) on kovan web".
 #
@@ -13,14 +13,26 @@
 # every `Cargo.lock` change left the site's stamps pending until someone ran
 # the multi-hour suite by hand.
 #
+# WHY TARGETED, NOT THE FULL SUITE (maintainer, 2026-10-29, GitHub #1052).
+# The full suite (about 2.5 h locally) may not fit in a GitHub runner's 6 h
+# job cap. A targeted run (`[targeted_run]`, Suite::Targeted) also clears a
+# pending stamp, but only when it ran EVERY reaching test of the function at
+# the current `Cargo.lock`, none failed, and the function is unchanged since
+# (`targeted_verdict`, kovan-common/src/review/engine.rs). A stamp on a
+# function no test reaches is not cleared by it; only a full run does that.
+# Tests that reach no pending stamp are not run here.
+#
 # ── What it runs ─────────────────────────────────────────────────────────────
 #
-# 1. `kovan-cli test` on `develop`'s tip: `cargo test --workspace --lib
-#    --tests --release --no-fail-fast`, long tests included. It refuses a
-#    dirty tree, so nothing is edited before it runs. A full, clean run is
-#    written into every code folder's `kovan.toml` (`[test_run]`: commit,
-#    Cargo.lock hash, passed and failed tests); the raw record is uploaded as
-#    an artifact either way.
+# 1. `kovan-cli test --pending-stamps` on `develop`'s tip: it evaluates the
+#    stamps, collects the reaching tests of those pending a workspace test,
+#    and runs `cargo test --lib --tests --release --no-fail-fast` over the
+#    packages holding them, filtered by their names (a superset of the
+#    targets). It refuses a dirty tree, so nothing is edited before it runs,
+#    and runs nothing when no stamp is pending. A clean run is written into
+#    every code folder's `kovan.toml` (`[targeted_run]`: commit, Cargo.lock
+#    hash, targets, passed and failed tests; `[test_run]` is untouched); the
+#    raw record is uploaded as an artifact either way.
 # 2. The changed `kovan.toml` files are committed by github-actions[bot] and
 #    pushed to `develop`, rebased onto whatever landed during the run. If the
 #    rebase conflicts the job fails and nothing is pushed; the artifact keeps
@@ -51,11 +63,10 @@
 #
 #     git push -f origin develop:ci-kovan-nightly/develop
 #
-# RUNTIME IS NOT YET MEASURED on a GitHub runner. The suite took about 2.5 h
-# on the maintainer's machine (kovan/src/commands/test_evidence.rs); the
-# runner's job limit is 6 h. The one full-suite CI run on record
-# (manual-tests.yml, 2026-09-20) failed after 77 min, before finishing.
-# Replace this paragraph with the measured time after the first runs.
+# RUNTIME IS NOT YET MEASURED on a GitHub runner; it depends on how many
+# stamps are pending and which packages their reaching tests live in. The
+# runner's job limit is 6 h. Replace this paragraph with measured times
+# after the first runs.
 #
 # RELEASE MODE, as everywhere in this workspace.
 
@@ -133,12 +144,12 @@ jobs:
       - name: Build kovan-cli
         run: cargo build --release -p "$KOVAN_PKG" --bin kovan-cli
 
-      - name: Run kovan-cli test (full workspace suite)
+      - name: Run kovan-cli test --pending-stamps
         id: test
         run: |
           set +e
           start=$(date +%s)
-          target/release/kovan-cli test
+          target/release/kovan-cli test --pending-stamps
           code=$?
           echo "code=$code" >> "$GITHUB_OUTPUT"
           mins=$(( ($(date +%s) - start) / 60 ))
@@ -165,8 +176,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- ':(glob)**/kovan.toml'
-          git commit -q -m "kovan nightly: record the workspace test run at $tested" \
-            -m "kovan-cli test on develop $tested, written into each folder's kovan.toml [test_run] (.github/workflows/kovan-nightly-tests.yml, run ${{ github.run_id }})."
+          git commit -q -m "kovan nightly: record the pending stamps' reaching tests at $tested" \
+            -m "kovan-cli test --pending-stamps on develop $tested, written into each folder's kovan.toml [targeted_run] (.github/workflows/kovan-nightly-tests.yml, run ${{ github.run_id }}; GitHub #1052)."
           git fetch -q origin develop
           if ! git rebase origin/develop; then
             git rebase --abort

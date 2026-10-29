@@ -11,7 +11,9 @@
 //!    counts (#739 decision 12).
 //! 4. The run's `Cargo.lock` hash differs from the current one → pending
 //!    ([`Pending::CargoLockChanged`]): "pending workspace test" until a full
-//!    pass at the new lock (#739, external dependency updates).
+//!    pass at the new lock (#739, external dependency updates), or since
+//!    2026-10-29 a targeted run that ran every reaching test of the
+//!    function at that lock (GitHub #1052, `engine::targeted_verdict`).
 //! 5. Any reaching test failed → [`ReachVerdict::Failed`] (the engine makes
 //!    the function inherited-stale and blocks re-confirm).
 //! 6. At least one reaching test passed → [`ReachVerdict::Passed`], listing
@@ -121,6 +123,7 @@ mod tests {
             passed: vec!["t.rs::p1".into(), "t.rs::p2".into(), "t.rs::e".into()],
             failed: vec!["t.rs::f".into()],
             edited: vec!["t.rs::e".into()],
+            targets: Vec::new(),
         }
     }
 

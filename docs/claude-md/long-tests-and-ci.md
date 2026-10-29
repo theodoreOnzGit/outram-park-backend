@@ -116,7 +116,7 @@ maintainer disabled it on 2026-09-29 and chose this design (#414–#417):
 | `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release`, ~~**never registered, never run**~~ **CORRECTED 2026-10-29**: registered 2026-10-21, when the squash merge put `.github/workflows/` on `main` (GitHub's workflow list); its runs not re-checked | on |
 | *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input | selectable |
 | daily, or a push to `ci-kovan/**` | `.github/workflows/kovan-daily.yml` (added 2026-10-11, #834) | kovan's three binaries built and the `--lib --tests` of `kovan`, `kovan-common` and `kovan-web`, on ubuntu, windows and macos; `kovan-web` built for wasm32. ~~**The daily schedule does not start until the file is on `main`.**~~ **CORRECTED 2026-10-29**: the file is on `main` and the schedule runs (scheduled runs 9–11, 2026-10-26 to 28, all failed; not investigated here) | on (default features) |
-| daily 00:00 Singapore, or a push to `ci-kovan-nightly/**` | `.github/workflows/kovan-nightly-tests.yml` (added 2026-10-29) | `kovan-cli test` (the full workspace suite) on `develop`, its `[test_run]` record committed to `develop` by github-actions[bot], then `pages.yml` dispatched, so stamps stop showing "pending workspace test". **Starts on schedule only once the file is on `main`; the push to `develop` needs GitHub Actions on the `develop` ruleset's bypass list.** Runtime on a GitHub runner not yet measured (6 h job cap) | on |
+| daily 00:00 Singapore, or a push to `ci-kovan-nightly/**` | `.github/workflows/kovan-nightly-tests.yml` (added 2026-10-29) | ~~`kovan-cli test` (the full workspace suite)~~ `kovan-cli test --pending-stamps` (only the reaching tests of the stamps pending a workspace test; maintainer, 2026-10-29, #1052) on `develop`, its `[targeted_run]` record committed to `develop` by github-actions[bot], then `pages.yml` dispatched, so stamps stop showing "pending workspace test". **Starts on schedule only once the file is on `main`; the push to `develop` needs GitHub Actions on the `develop` ruleset's bypass list.** Runtime on a GitHub runner not yet measured (6 h job cap) | on |
 
 **Checked 2026-10-11:** `gh workflow list --all` reports `fast tests` as
 `disabled_manually`, so the two `develop` rows above describe a workflow that
@@ -136,8 +136,10 @@ is not running. A push to `develop` starts only `pages`.
   green.
 - ~~**Nothing on CI runs the long tests** (#293). Whether to add a nightly full
   run on `develop` is open on #417.~~ **CORRECTED 2026-10-29**: the
-  maintainer asked for a nightly full run on `develop`;
-  `kovan-nightly-tests.yml` (row above) is it, not yet run.
+  maintainer asked for a nightly run on `develop`;
+  `kovan-nightly-tests.yml` (row above) is it, not yet run. It runs only
+  the pending stamps' reaching tests (#1052), so the long tests are still
+  not run on CI as a whole.
 
 `manual-tests.yml` fills that gap: it runs the FULL suite against `develop`
 on demand. It has **two** triggers because GitHub exposes
