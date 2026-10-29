@@ -5544,6 +5544,226 @@ pub struct PlantDecay {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `fp_decay`
+
+Fission-product decay heat by element, for decay heat that follows the
+fission products out of the core (gh:#1041, plan item F10).
+
+MELCOR's DCH package gives each radionuclide class its own decay heat,
+and the package holding a class's mass gets its heat. It weights ORIGEN
+elemental decay heats into the classes (MELCOR 2.2 Vol. 2, DCH §2,
+Table 2.1). Daughters are "assumed to remain with the parents", so an
+element's heat includes its descendants'. MELCOR's elemental tables come
+from SAND reports that are not held, so they are **computed here**: a
+summation calculation on ENDF/B-VIII data already in the workspace.
+
+- **Decay data**: half-lives, mean decay energies and branches from
+  `openmc-endf-8-depletion-lib-a`/`-b` (OpenMC's ENDF/B-VIII chain), for
+  the elements Ti to Er.
+- **Yields**: ENDF/B-VIII independent fission yields
+  (`fission-yields-data`): U-235 and Pu-239 thermal (0.0253 eV), U-238
+  fast (500 keV).
+- **History**: constant power for `operating_time_s` at the fission
+  shares of `decay.rs` (MELCOR's BWR defaults), then decay.
+- **Method**: every nuclide's atoms obey `dN/dt = S + sum_p lambda_p b_p
+  N_p - lambda N`. The decay graph is acyclic, so one pass in topological
+  order per time step suffices. Each step uses the exponential
+  integrator, exact for a constant feed, with the parents' feed averaged
+  over the step. **Attribution**: each nuclide born in fission is credited
+  to its own element, and so are all its descendants, which is MELCOR's
+  daughters-stay-with-parents rule.
+
+Not modelled (stated): neutron capture on fission products during
+irradiation (the ANS standard's `G` factor covers it for the total), and
+delayed-neutron emission is followed only as far as the decay library's
+branches give it.
+
+The table is costly to compute (about 0.2 s), so it is committed:
+`verification_and_validation/bwr_mark1/fp_decay_by_element.csv`, with
+one row per time and each element's share of the fission-product decay
+heat. A test regenerates it and compares it byte for byte; re-bless with
+`FUKUSHIMA_BLESS=1`.
+
+```rust
+pub mod fp_decay { /* ... */ }
+```
+
+### Types
+
+#### Struct `ElementShares`
+
+The committed table, read: times, s, and each element's share of the
+fission-product decay heat at each.
+
+```rust
+pub struct ElementShares {
+    pub times_s: Vec<f64>,
+    pub symbols: Vec<String>,
+    pub shares: Vec<Vec<f64>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `times_s` | `Vec<f64>` |  |
+| `symbols` | `Vec<String>` |  |
+| `shares` | `Vec<Vec<f64>>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn committed() -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn share(self: &Self, symbols: &[&str], t_s: f64) -> f64 { /* ... */ }
+  ```
+  The share of the fission-product decay heat carried by the elements
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `table_times`
+
+The times of the committed table, s after the scram: 10 s to 600 h,
+61 points evenly spaced in the logarithm.
+
+```rust
+pub fn table_times() -> Vec<f64> { /* ... */ }
+```
+
+#### Function `compute`
+
+The summation: each element's fission-product decay heat, W, at
+[`table_times`], with descendants credited to the element born in
+fission.
+
+```rust
+pub fn compute(prm: &super::params::Params) -> Vec<Vec<f64>> { /* ... */ }
+```
+
+#### Function `table_csv`
+
+The committed table as CSV text: a header of element symbols, then per
+time its value and each element's share of the total.
+
+```rust
+pub fn table_csv(prm: &super::params::Params) -> String { /* ... */ }
+```
+
 ## Module `gas`
 
 Heat capacities of the non-condensable gases, N2 and H2.

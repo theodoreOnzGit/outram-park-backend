@@ -41,6 +41,7 @@ pub mod compare;
 pub mod containment;
 pub mod core;
 pub mod decay;
+pub mod fp_decay;
 pub mod gas;
 pub mod internals;
 pub mod iodine;

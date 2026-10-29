@@ -71,6 +71,12 @@ outram-mc-libs = { workspace = true }
 tampines-steam-tables    = { workspace = true }
 teh-o-prke               = { workspace = true }
 outram-park-fork-offbeat = { workspace = true }
+# bwr_mark1's decay heat by radionuclide class (gh:#1041): ENDF/B-VIII decay
+# data and fission yields, the same crates outram-mc-libs already depends on
+# (so nothing new enters the tree; both on uom 0.38).
+openmc-endf-8-depletion-lib-a = { workspace = true }
+openmc-endf-8-depletion-lib-b = { workspace = true }
+fission-yields-data           = { workspace = true }
 # bwr_mark1's lower-head wall (gh:#1034): Type 304L stainless steel
 # properties to 1700 K (Kim, ANL-75-55, public), reused from tuas's solid
 # database. Stainless steel is MELCOR's default lower-head layer material
