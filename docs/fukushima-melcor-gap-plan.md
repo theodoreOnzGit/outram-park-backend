@@ -243,6 +243,11 @@ envelope 94 % of the time.
   with MELCOR's NCG/H2O default properties. ~~The torus shell is still not
   a heat structure.~~ The shell above the pool is one since 2026-10-29
   (`ww_shell`, geometry \[A\]).
+- **The gap inventory's burst release (RN1_GAP, RN1_GAP00): checked and
+  rejected 2026-10-29.** MELCOR's initial gap fraction defaults to zero, and
+  the fuel's release held in the gap until 1173 K clad failure is at most
+  1.6e-5 of the inventory per hour below 1173 K (CORSOR-M), so it moves
+  the release by under 1e-5.
 - **F11 can change nothing yet.** No hydrogen reaches the building, because
   the drywell (0.56 MPa) never reaches the flange-leak pressure (0.75 MPa \[A\]).
   The upstream lever is drywell pressure, F8 (MCCI gas). That needs a heat of

@@ -742,7 +742,14 @@ pub fn diffusion_limited_rate(prm: &Params, w_steam: f64, w_h2: f64, t_film: f64
 /// minute. Xe, Cs, I2 and Te share one row of its table, so one fraction
 /// serves the three tracked here; Te's retention by unoxidised cladding is
 /// not modelled and Te is not tracked. Not modelled either: the gap
-/// inventory's burst release at cladding failure (RN1_GAP00).
+/// inventory's burst release at cladding failure (RN1_GAP00). **Checked and
+/// rejected 2026-10-29:** with MELCOR's defaults it changes nothing
+/// measurable. The initial gap inventory defaults to zero (RN1_GAP is
+/// optional, NMGAP default 0; RN UG), so what remains is the fuel's release
+/// held in the gap until the ring's cladding fails at 1173 K (RN RM
+/// §2.3.2). Below 1173 K this rate releases at most 1.6e-5 of the
+/// inventory per hour (2.6e-7 /min at 1173 K), so the holdup moves the
+/// release by under 1e-5.
 pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 {
     const CAL: f64 = 4.184;
     prm.corsor_k0_per_min / 60.0 * (-prm.corsor_q_kcal_per_mol * 1000.0 * CAL / (R_GAS * t_k)).r_exp()

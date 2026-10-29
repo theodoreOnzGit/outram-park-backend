@@ -5244,7 +5244,14 @@ from fuel at `t_k`, 1/s: MELCOR's CORSOR-M (Vol. 2, SAND2023-10994 O, RN
 minute. Xe, Cs, I2 and Te share one row of its table, so one fraction
 serves the three tracked here; Te's retention by unoxidised cladding is
 not modelled and Te is not tracked. Not modelled either: the gap
-inventory's burst release at cladding failure (RN1_GAP00).
+inventory's burst release at cladding failure (RN1_GAP00). **Checked and
+rejected 2026-10-29:** with MELCOR's defaults it changes nothing
+measurable. The initial gap inventory defaults to zero (RN1_GAP is
+optional, NMGAP default 0; RN UG), so what remains is the fuel's release
+held in the gap until the ring's cladding fails at 1173 K (RN RM
+§2.3.2). Below 1173 K this rate releases at most 1.6e-5 of the
+inventory per hour (2.6e-7 /min at 1173 K), so the holdup moves the
+release by under 1e-5.
 
 ```rust
 pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
