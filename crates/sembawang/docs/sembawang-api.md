@@ -5636,7 +5636,12 @@ gives up (`Plant::finish`). When the gas is cooler than the structure,
 the same exchange gives the heat back. The structure's enthalpy is
 304L's (`core::steel_h`), as for the steam lines.
 
-Its mass, area and heat transfer coefficient are all \[A\]
+With no gas flowing past them they still lose heat to the saturated dome
+by natural convection (`lose`, since 2026-10-29; before, nothing cooled
+them once the flow stopped, which kept them hot and re-evaporated the
+cesium they held).
+
+Its mass, area and heat transfer coefficients are all \[A\]
 (`params::INTERNALS_*`): Unit 1's internals are not in a held source.
 The ablation,
 [`Mechanisms::without_dome_internals`](super::Mechanisms), passes the
@@ -5676,6 +5681,11 @@ pub struct DomeInternals {
   pub fn step(self: &mut Self, prm: &Params, w_steam: f64, w_h2: f64, cp_h2: f64, t_in: f64, p: f64, dt: f64) -> (f64, f64) { /* ... */ }
   ```
   Pass a gas of `w_steam` and `w_h2` kg/s at `t_in` K (vessel pressure
+
+- ```rust
+  pub fn lose(self: &mut Self, prm: &Params, t_sat: f64, dt: f64) -> f64 { /* ... */ }
+  ```
+  Natural convection from the internals to the vessel's saturated
 
 ###### Trait Implementations
 
@@ -6257,6 +6267,7 @@ pub struct Params {
     pub internals_kg: f64,
     pub internals_area_m2: f64,
     pub internals_h: f64,
+    pub internals_loss_h: f64,
     pub lower_head_failure_k: f64,
     pub breach_m2: f64,
     pub debris_quench_s: f64,
@@ -6395,6 +6406,7 @@ pub struct Params {
 | `internals_kg` | `f64` |  |
 | `internals_area_m2` | `f64` |  |
 | `internals_h` | `f64` |  |
+| `internals_loss_h` | `f64` |  |
 | `lower_head_failure_k` | `f64` |  |
 | `breach_m2` | `f64` |  |
 | `debris_quench_s` | `f64` |  |
@@ -7086,6 +7098,17 @@ pub const INTERNALS_AREA_M2: f64 = 2500.0;
 
 ```rust
 pub const INTERNALS_H: f64 = 10.0;
+```
+
+#### Constant `INTERNALS_LOSS_H`
+
+The internals' natural-convection coefficient to the saturated dome when
+no gas flows past them, W/(m^2 K). \[A\] an order of magnitude for
+natural convection in steam (time constant about 2000 s with the mass
+and area above).
+
+```rust
+pub const INTERNALS_LOSS_H: f64 = 5.0;
 ```
 
 #### Constant `CS_INVENTORY_KG`
@@ -9474,6 +9497,7 @@ pub struct Mechanisms {
     pub failed_vessel_outflow: bool,
     pub pool_scrubbing: bool,
     pub in_vessel_deposition: bool,
+    pub internals_heat_loss: bool,
 }
 ```
 
@@ -9501,6 +9525,7 @@ pub struct Mechanisms {
 | `failed_vessel_outflow` | `bool` | After lower-head failure the vessel's gas (the hydrogen and steam<br>made after it) leaves through the breach on the vessel's own<br>pressure (2026-10-29); off is the vessel sealed at the drywell's<br>pressure, nothing leaving. |
 | `pool_scrubbing` | `bool` | Pool scrubbing of aerosol and iodine where gas enters the pool (the<br>relief valves' quenchers, the downcomers), by the steam's<br>condensation: SPARC-90's DF_EC (2026-10-29). Off is MELCOR's<br>default with pool interaction off: everything passes. |
 | `in_vessel_deposition` | `bool` | Cesium and iodine vapour condensing on the dome internals in the<br>vessel (2026-10-29); off is everything leaving the core reaching the<br>containment. |
+| `internals_heat_loss` | `bool` | The dome internals lose heat to the saturated dome by natural<br>convection (2026-10-29); off is no heat loss once the flow stops. |
 
 ##### Implementations
 
@@ -9600,6 +9625,11 @@ pub struct Mechanisms {
   pub fn without_in_vessel_deposition(self: Self) -> Self { /* ... */ }
   ```
   No in-vessel deposition: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_internals_heat_loss(self: Self) -> Self { /* ... */ }
+  ```
+  The dome internals lose no heat once the flow past them stops: the
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

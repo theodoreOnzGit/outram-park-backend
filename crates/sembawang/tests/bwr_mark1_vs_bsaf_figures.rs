@@ -100,6 +100,11 @@ fn model() -> Histories {
 /// - **Release from fuel** sits inside the I envelope 94 % of the time
 ///   and the Xe envelope 54 %.
 ///
+/// **Moved 2026-10-29, by the internals-heat-loss regime flip** (the run
+/// now in the early regime): RPV 3.634/6.712 -> 3.591/6.675 MPa; drywell
+/// 0.338/0.509 -> 0.289/0.458 MPa; envelopes RPV 3.3 % (same), drywell
+/// 17.6 -> 20.9 %, H2 9.2 % (same), Xe 54.2 -> 43.8 %, I 93.8 -> 95.8 %.
+///
 /// The measured series are the validation; the envelopes are a
 /// differential test against other codes, none of which is the truth.
 #[test]
@@ -117,10 +122,10 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // Pinned to the first run: a change to the model moves these, and the
     // move is then recorded here with its old and new value.
     assert_eq!((rpv.n, dw.n), (2, 33));
-    assert!((rpv.mean_abs - 3.6344).abs() < 1e-3 && (rpv.max_abs - 6.7123).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.3379).abs() < 1e-3 && (dw.max_abs - 0.5092).abs() < 1e-3, "{dw:?}");
+    assert!((rpv.mean_abs - 3.5905).abs() < 1e-3 && (rpv.max_abs - 6.6753).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.2893).abs() < 1e-3 && (dw.max_abs - 0.4583).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.0330) && near(e_dw, 0.1758) && near(e_h2, 0.0920) && near(e_xe, 0.5417) && near(e_i, 0.9375));
+    assert!(near(e_rpv, 0.0330) && near(e_dw, 0.2088) && near(e_h2, 0.0920) && near(e_xe, 0.4375) && near(e_i, 0.9583));
 }
 
 
@@ -128,8 +133,9 @@ fn the_model_against_the_digitised_bsaf_figures() {
 /// **Beyond the model's window: 0-500 h against Fig 2.3a's measured
 /// drywell pressure** (the same instrument; diagnostic, pinned so F12 has a
 /// baseline). Results, 2026-10-29: 94 measured points, mean 0.653 MPa, max
-/// ~~0.818~~ 0.915 MPa (since the failed vessel's gas leaves to the drywell,
-/// the same day: mean 0.6535 -> 0.6539). The model's drywell, vented on the recorded order near 24 h,
+/// ~~0.818~~ ~~0.915~~ 0.835 MPa (since the failed vessel's gas leaves to the
+/// drywell, the same day: mean 0.6535 -> 0.6539; since the internals heat
+/// loss: mean 0.6539 -> 0.6616, max 0.915 -> 0.835). The model's drywell, vented on the recorded order near 24 h,
 /// falls to 0.16 MPa at 30 h, then with no long-term leak path rises to a
 /// 0.97 MPa plateau held from about 100 h to 500 h; the plant fell to 0.15
 /// MPa by about 257 h. Every BSAF code followed the measurement by
@@ -142,7 +148,7 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     let a = against_measured(&m.t_h, &m.p_dw_mpa, &read_series("fig2.3a-measurement.csv"));
     println!("0-500 h drywell against Fig 2.3a: {a:?}");
     assert_eq!(a.n, 94);
-    assert!((a.mean_abs - 0.6539).abs() < 1e-3 && (a.max_abs - 0.9145).abs() < 1e-3, "{a:?}");
+    assert!((a.mean_abs - 0.6616).abs() < 1e-3 && (a.max_abs - 0.8350).abs() < 1e-3, "{a:?}");
 }
 
 
@@ -186,6 +192,10 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// path (a stated artefact) the deposit re-evaporates and reaches the
 /// containment after all. Iodine does not condense on them.
 ///
+/// **Moved again 2026-10-29 by the internals heat loss** (and its regime
+/// flip): the internals now keep 11.3 kg of cesium at 26 h; Cs in the S/C
+/// water inside 64.0 % -> 97.8 %, on drywell structures 46.7 % -> 36.0 %.
+///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
 /// missing in-vessel deposition and pool scrubbing.
@@ -197,8 +207,13 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.4667).abs() < 1e-3 && (c.0 - 0.6404).abs() < 1e-3, "{a:?} {c:?}");
-    let off = histories(Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition(), Params::default(), 60.0, 26.0 * 3600.0);
+    assert!((a.0 - 0.36).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
+    let off = histories(
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss(),
+        Params::default(),
+        60.0,
+        26.0 * 3600.0,
+    );
     let c_off = inside_envelope(&off.t_h, &off.cs_sc_water, &family("2.6c"), &grid);
     assert!((c_off.0 - 0.8539).abs() < 1e-3, "{c_off:?}");
 }
@@ -235,6 +250,11 @@ fn iodine_against_fig_2_6() {
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
     assert_eq!(b, (0.0, 76));
     assert!((d.0 - 0.5393).abs() < 1e-3 && d.1 == 89, "{d:?}");
-    let off = histories(Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition(), Params::default(), 60.0, 26.0 * 3600.0);
+    let off = histories(
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss(),
+        Params::default(),
+        60.0,
+        26.0 * 3600.0,
+    );
     assert_eq!(inside_envelope(&off.t_h, &off.i_sc_water, &family("2.6d"), &grid), (0.0, 89));
 }

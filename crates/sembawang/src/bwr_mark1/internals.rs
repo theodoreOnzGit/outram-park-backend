@@ -19,7 +19,12 @@
 //! the same exchange gives the heat back. The structure's enthalpy is
 //! 304L's (`core::steel_h`), as for the steam lines.
 //!
-//! Its mass, area and heat transfer coefficient are all \[A\]
+//! With no gas flowing past them they still lose heat to the saturated dome
+//! by natural convection (`lose`, since 2026-10-29; before, nothing cooled
+//! them once the flow stopped, which kept them hot and re-evaporated the
+//! cesium they held).
+//!
+//! Its mass, area and heat transfer coefficients are all \[A\]
 //! (`params::INTERNALS_*`): Unit 1's internals are not in a held source.
 //! The ablation,
 //! [`Mechanisms::without_dome_internals`](super::Mechanisms), passes the
@@ -63,6 +68,20 @@ impl DomeInternals {
         self.t_k = steel_t(steel_h(self.t_k) + q * dt / prm.internals_kg);
         (t_out, q)
     }
+
+    /// Natural convection from the internals to the vessel's saturated
+    /// contents at `t_sat` over `dt` s, implicit at the start-of-step heat
+    /// capacity, then set from the enthalpy. Returns the heat given up, W
+    /// (negative when the internals are below `t_sat`), which the vessel
+    /// takes back.
+    pub fn lose(&mut self, prm: &Params, t_sat: f64, dt: f64) -> f64 {
+        let ha = prm.internals_loss_h * prm.internals_area_m2;
+        let c = prm.internals_kg * (steel_h(self.t_k + 0.5) - steel_h(self.t_k - 0.5));
+        let t_new = (c * self.t_k + dt * ha * t_sat) / (c + dt * ha);
+        let q = ha * (t_new - t_sat);
+        self.t_k = steel_t(steel_h(self.t_k) - q * dt / prm.internals_kg);
+        q
+    }
 }
 
 #[cfg(test)]
@@ -86,5 +105,12 @@ mod tests {
         let before = s;
         assert_eq!(s.step(&prm, 0.0, 0.0, 0.0, 1500.0, 7.0e6, 1.0), (1500.0, 0.0));
         assert_eq!(s, before);
+        // Natural convection: from 1000 K toward a 560 K dome, energy
+        // conserved, cooling toward (never past) saturation.
+        let mut hot = DomeInternals::new(1000.0);
+        let h_hot = steel_h(1000.0);
+        let q = hot.lose(&prm, 560.0, 10.0);
+        assert!(q > 0.0 && hot.t_k < 1000.0 && hot.t_k > 560.0, "{q} {hot:?}");
+        assert!(((h_hot - steel_h(hot.t_k)) * prm.internals_kg - q * 10.0).abs() < 1e-6 * q * 10.0);
     }
 }

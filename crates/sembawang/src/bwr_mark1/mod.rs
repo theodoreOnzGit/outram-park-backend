@@ -165,6 +165,9 @@ pub struct Mechanisms {
     /// vessel (2026-10-29); off is everything leaving the core reaching the
     /// containment.
     pub in_vessel_deposition: bool,
+    /// The dome internals lose heat to the saturated dome by natural
+    /// convection (2026-10-29); off is no heat loss once the flow stops.
+    pub internals_heat_loss: bool,
 }
 
 impl Default for Mechanisms {
@@ -190,6 +193,7 @@ impl Default for Mechanisms {
             failed_vessel_outflow: true,
             pool_scrubbing: true,
             in_vessel_deposition: true,
+            internals_heat_loss: true,
         }
     }
 }
@@ -321,6 +325,13 @@ impl Mechanisms {
     /// No in-vessel deposition: the model before 2026-10-29.
     pub fn without_in_vessel_deposition(mut self) -> Self {
         self.in_vessel_deposition = false;
+        self
+    }
+
+    /// The dome internals lose no heat once the flow past them stops: the
+    /// model before 2026-10-29.
+    pub fn without_internals_heat_loss(mut self) -> Self {
+        self.internals_heat_loss = false;
         self
     }
 
@@ -1000,8 +1011,15 @@ impl Plant {
             let cp_h2 = gas::cp_h2_per_kg(core.exit_gas_k, self.mechanisms.hydrogen_cp_t);
             let (t_out, q) = self.internals.step(&prm, core.exit_steam_kg_s, core.h2_kg_s, cp_h2, core.exit_gas_k, v.p_pa, DT_S);
             self.dome_gas_k = t_out;
-            self.q_internals_w = q;
-            self.u -= q * DT_S;
+            // And their natural convection to the saturated dome, which the
+            // vessel takes back (`internals_heat_loss`).
+            // Only while the vessel holds water: a dry dome is a trace of
+            // superheated gas that takes almost no heat (and an emptied
+            // vessel, found 2026-10-29 in the no-radiation ablation, has
+            // nothing to give it to: its pressure ran to 227 MPa).
+            let q_loss = if self.mechanisms.internals_heat_loss && !v.dry { self.internals.lose(&prm, v.sat.t_k, DT_S) } else { 0.0 };
+            self.q_internals_w = q - q_loss;
+            self.u -= (q - q_loss) * DT_S;
         }
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
         // Noble gas: out with the gas, in from the fuel.
@@ -1561,14 +1579,17 @@ mod tests {
             peak_ww = peak_ww.max(k.xe_ww);
         }
         // And it does move: most of it ends up in the wetwell gas.
-        // Where it is at 26 h (2026-10-29): all 0.8505 in the wetwell gas,
-        // carried there by the downcomers; nothing vented and nothing in the
+        // Where it is at 26 h: ~~all 0.8505 in the wetwell gas, carried
+        // there by the downcomers; nothing vented and nothing in the
         // building, as neither the vent nor the flange leak opens in this
-        // run; the wetwell peaks at the end.
+        // run~~ (true until the internals heat loss, 2026-10-29, flipped the
+        // run into the early regime, where the vent flows at 23.73 h): all
+        // 0.7989 released is vented to the stack, through the wetwell gas,
+        // where it peaked before the vent opened.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-6 && k.xe_vented == 0.0 && k.xe_building == 0.0, "{f:?}");
-        assert!((k.xe_ww - 0.8505).abs() < 1e-4 && (peak_ww - k.xe_ww).abs() < 1e-9, "{k:?}");
+        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-9 && k.xe_ww < 1e-9 && k.xe_building == 0.0, "{f:?}");
+        assert!((k.xe_vented - 0.7989).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
