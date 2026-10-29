@@ -26,7 +26,7 @@
 //!   Zr at 2098 K), so energy is
 //!   conserved exactly. `Mechanisms::without_temperature_dependent_properties`
 //!   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
-//! - oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
+//! - oxidation by the parabolic Urbanic-Heidrick law above ~~1000 K~~ 1100 K (MELCOR's TOXMIN), its heat
 //!   into the cladding, limited by the steam that reaches the node (steam
 //!   starvation) and, since 2026-10-29, by MELCOR's gaseous diffusion of
 //!   that steam through the hydrogen (`diffusion_limited_rate`); the steam it uses and the hydrogen it makes travel up.
@@ -539,10 +539,14 @@ fn debris_temperature(mf: f64, mc: f64, h: f64) -> f64 {
 /// ([`Params::oxidation_heat_j_per_kg_zr`], a 298.15 K standard value), K.
 pub(crate) const T_298_K: f64 = 298.15;
 
-/// Hydrogen's heat capacity, J/(kg K): the containment's constant molar
-/// `c_v` 20.5 J/(mol K) plus R, so the two parts agree (`containment.rs`).
+/// Hydrogen's heat capacity, J/(kg K): a constant molar `c_v` 20.5 J/(mol K)
+/// plus R. ~~the containment's constant molar `c_v`, so the two parts agree
+/// (`containment.rs`)~~ **CORRECTED 2026-10-29**: the containment now uses
+/// MELCOR's `c_v(T)` ([`super::gas`]), so the two parts no longer agree.
 /// MELCOR's NCG library fit gives `c_v` 20.5-21.9 J/(mol K) over 300-1000 K
-/// (Vol. 2, NCG/H2O-RM-33 to 37), so a constant is within about 5 %.
+/// (Vol. 2, NCG/H2O-RM-33 to 37), so a constant is within about 5 % there,
+/// ~~.~~ but the core's gas reaches 2000 K and more, where the fit is
+/// higher still: not checked here, and a gap.
 pub(crate) const CP_H2_J_PER_KG_K: f64 = (20.5 + R_GAS) / M_H2;
 
 /// Steam's enthalpy at `t_k` and `p_pa` above water vapour at 298.15 K

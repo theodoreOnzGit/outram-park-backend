@@ -118,11 +118,18 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | ANS-1979 decay heat | F10, #1041 | 4.509 | 286.63 | held |
 | H2-steam mixture choking | #1037 | 4.509 | 287.47 | held |
 | N2 and H2 `c_v(T)` (MELCOR NCG fits) | F8, #1039 | 4.509 | 287.47 | drywell sign missed (+1.5e-5 relative, predicted down) |
-| Gaseous-diffusion limit on oxidation (COR Eq 2-168) | F4, #1035 | **4.484** | **292.44** | where it binds held (steam fraction < 3 %); H2 sign missed (predicted slightly down) |
+| Gaseous-diffusion limit on oxidation (COR Eq 2-168) | F4, #1035 | 4.484 | 292.44 | where it binds held (steam fraction < 3 %); H2 sign missed (predicted slightly down) |
+| Oxidation cutoff 1000 K \[A\] -> MELCOR TOXMIN 1100 K \[P\] | F13, #1044 | **5.390** | **192.11** | missed: regime flip (late regime, no vent); bimodal in the cutoff |
 
-BSAF bands: lower head 7.45–17.16 h (B); H2 400–1310 kg (C). The vent now
+BSAF bands: lower head 7.45–17.16 h (B); H2 400–1310 kg (C). ~~The vent now
 flows at 23.73 h, inside its Tier A band (23.5–24.68 h), as a by-product of
-F10.
+F10.~~ **CORRECTED 2026-10-29:** since the 1100 K oxidation cutoff the run is
+in the late regime and the vent is not reached. A diagnostic scan of the
+cutoff (not a tuning run; the value is MELCOR's, chosen before the scan) is
+bimodal, with flips both ways: 1000–1025 K early (4.48–4.51 h, 287–292 kg,
+vent at 23.7 h), 1050–1125 K late (5.35–5.40 h, 188–193 kg, no vent), 1150 K
+early again. The vent's earlier agreement was a property of the regime, not
+of the vent physics.
 
 **What the run showed:**
 - Three changes running, lower-head failure followed **plenum dryout**.

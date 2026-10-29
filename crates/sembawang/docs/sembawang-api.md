@@ -3471,7 +3471,7 @@ Zircaloy (cladding plus its share of the channel boxes), with
   Zr at 2098 K), so energy is
   conserved exactly. `Mechanisms::without_temperature_dependent_properties`
   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
-- oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
+- oxidation by the parabolic Urbanic-Heidrick law above ~~1000 K~~ 1100 K (MELCOR's TOXMIN), its heat
   into the cladding, limited by the steam that reaches the node (steam
   starvation) and, since 2026-10-29, by MELCOR's gaseous diffusion of
   that steam through the hydrogen (`diffusion_limited_rate`); the steam it uses and the hydrogen it makes travel up.
@@ -5788,10 +5788,15 @@ pub const UH_HIGH_MIN_K: f64 = 1873.0;
 
 #### Constant `OXIDATION_MIN_K`
 
-Below this the oxidation is negligible on the accident's time scale. \[A\]
+No oxidation below this temperature, K. ~~Below this the oxidation is
+negligible on the accident's time scale. \[A\] 1000 K~~ **CORRECTED
+2026-10-29**: MELCOR's TOXMIN for steam, 1100 K (Vol. 1, SAND2017-0455
+O, C1004(1); Vol. 2, COR §2.5.4), which is also the lower end of the
+Urbanic-Heidrick low branch's stated range (1100-1853 K, Table 2-6), so
+the rate is no longer extrapolated below its fit. \[P\]
 
 ```rust
-pub const OXIDATION_MIN_K: f64 = 1000.0;
+pub const OXIDATION_MIN_K: f64 = 1100.0;
 ```
 
 #### Constant `H2O_H2_DIFFUSIVITY_A`
