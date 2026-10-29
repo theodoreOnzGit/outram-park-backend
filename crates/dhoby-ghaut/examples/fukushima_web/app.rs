@@ -250,7 +250,11 @@ impl App {
                 row("Core relocated", format!("{:.0} %", 100.0 * f.core.relocated));
                 row("Drywell", format!("{:.3} MPa · {:.0} °C", f.containment.p_dw_pa / 1e6, f.containment.t_dw_k - 273.15));
                 row("Wetwell", format!("{:.3} MPa · pool {:.0} °C", f.containment.p_ww_pa / 1e6, f.containment.t_pool_k - 273.15));
+                row("Pool surface layer", format!("{:.0} °C (above the downcomer exits)", f.containment.t_pool_top_k - 273.15));
+                row("Leak paths", format!("steam line {} · drywell head flange {}", if f.msl.failed { "ruptured" } else { "intact" }, if f.containment.flange_leaking { "leaking" } else { "closed" }));
                 row("Building H2", format!("{:.2} %", 100.0 * f.containment.rb_h2_fraction));
+                row("Concrete ablated", format!("{:.1} t", f.containment.cav_ablated_kg / 1e3));
+                row("Cesium released", format!("{:.2} kg vented · {:.2} kg to the building", f.containment.cs_vented_kg, f.containment.cs_building_kg));
             });
             ui.separator();
             ui.heading("The recorded sequence");
@@ -262,8 +266,8 @@ impl App {
         }
         ui.separator();
         egui::CollapsingHeader::new("What this is, and is not").show(ui, |ui| {
-            ui.label("Three lumped models stepped together each second: the pressure vessel's water and steam (IAPWS-IF97 steam tables), the core (3 rings × 12 axial nodes: heat-up, Urbanic-Heidrick zirconium oxidation, hydrogen, relocation) and the Mark I containment with the reactor building.");
-            ui.label("Not in the model: two-phase level swell, molten-pool physics and candling, fission products, combustion. In-core radiation is simplified (rings, levels and the shroud only). Many plant numbers are placeholders; each is marked in sembawang's bwr_mark1 params.rs with its tag and what would replace it.");
+            ui.label("Three lumped models stepped together each second: the pressure vessel's water and steam (IAPWS-IF97 steam tables, with the two-phase level swell), the core (3 rings × 12 axial nodes: heat-up, Urbanic-Heidrick zirconium oxidation, hydrogen, candling, rod collapse, a core plate per ring holding the relocating debris, the lower head) and the Mark I containment (drywell and torus with MELCOR's heat-structure and pool-surface models, the torus pool in two layers, fission products, core-concrete interaction) with the reactor building.");
+            ui.label("Not in the model: molten-pool physics; combustion as a calculation (the building explodes at a hydrogen threshold); CO and CO2 as their own gases. In-core radiation is simplified (rings, levels, the shroud and the boundaries above and below). Many plant numbers are placeholders; each is marked in sembawang's bwr_mark1 params.rs with its tag and what would replace it. The head-failure time is a knife edge: inputs changed by 1 % move it by about an hour (gh:#1044).");
             ui.label("Physics runs off the page: a plant worker plus a core worker and a containment worker that step from the same start-of-step snapshot, as the CIET simulator's browser demo does. 1 and 3 workers give the same numbers bit for bit.");
         });
     }
