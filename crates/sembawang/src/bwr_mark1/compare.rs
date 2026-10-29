@@ -741,10 +741,15 @@ mod tests {
     /// steam lines runs cooler, the line ruptures later or not at all.
     /// **Missed**: the run flipped into the early regime and depressurises
     /// earlier. Found on the way: in the no-radiation ablation the vessel
-    /// empties (its mass reaches 0 before the head fails, oxidation still
+    /// ~~empties (its mass reaches 0 before the head fails, oxidation still
     /// drawing steam from it), and the heat loss then sent its pressure to
     /// 227 MPa; the loss is now limited to a wet vessel, and the emptying is
-    /// filed as its own defect. `without_internals_heat_loss` reproduces the
+    /// filed as its own defect~~ **CORRECTED the same day**: the emptying
+    /// was caused by the heat loss itself (into a dry vessel, its heat kept
+    /// the pressure above the drywell's and the gas drained out through the
+    /// leak; oxidation drew nothing); with the heat loss off the vessel
+    /// never goes below 180 kg. Limiting the loss to a wet vessel removes
+    /// it (gh:#1051). `without_internals_heat_loss` reproduces the
     /// previous baseline exactly (pinned below).
     ///
     /// When a plan item moves these numbers, this test changes in the same

@@ -1014,9 +1014,11 @@ impl Plant {
             // And their natural convection to the saturated dome, which the
             // vessel takes back (`internals_heat_loss`).
             // Only while the vessel holds water: a dry dome is a trace of
-            // superheated gas that takes almost no heat (and an emptied
-            // vessel, found 2026-10-29 in the no-radiation ablation, has
-            // nothing to give it to: its pressure ran to 227 MPa).
+            // superheated gas that takes almost no heat. Without this limit
+            // (found 2026-10-29 in the no-radiation ablation) the internals'
+            // heat kept a dry vessel's pressure above the drywell's, its gas
+            // drained out through the leak until its mass reached zero, and
+            // its pressure then ran to 227 MPa (gh:#1051).
             let q_loss = if self.mechanisms.internals_heat_loss && !v.dry { self.internals.lose(&prm, v.sat.t_k, DT_S) } else { 0.0 };
             self.q_internals_w = q - q_loss;
             self.u -= (q - q_loss) * DT_S;
@@ -1623,6 +1625,25 @@ mod tests {
             "I 26h vessel {:.3} airborne {:.3} dw structures {:.3} ww pool {:.3} of released {:.3} kg",
             f.i_vessel_kg, k.i_airborne_kg, k.i_dw_structures_kg, k.i_ww_pool_kg, f.core.fp_volatile_released * I_INVENTORY_KG
         );
+    }
+
+    /// A dry vessel is not emptied by the dome internals' heat (gh:#1051):
+    /// in the no-radiation ablation, where the vessel boils dry before its
+    /// head fails, its mass stays above 100 kg through 26 h (2026-10-29:
+    /// 188.8 kg at its lowest; 180.1 kg with the heat loss off; it reached
+    /// zero, and then 227 MPa, before the heat loss was limited to a wet
+    /// vessel).
+    #[test]
+    fn a_dry_vessel_is_not_emptied_by_the_internals() {
+        let mut p = Plant::with_mechanisms(Mode::Historical, Mechanisms::default().without_core_radiation());
+        let (mut c, mut k) = p.parts();
+        let mut min_m = f64::INFINITY;
+        for _ in 0..(26 * 3600) {
+            p.step_inline(&mut c, &mut k);
+            min_m = min_m.min(p.m);
+            assert!(p.vessel.p_pa.is_finite() && p.vessel.p_pa < 2.0e7, "{} at {}", p.vessel.p_pa, p.t_s);
+        }
+        assert!(min_m > 100.0, "{min_m}");
     }
 
     /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J
