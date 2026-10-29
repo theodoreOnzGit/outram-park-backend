@@ -45,12 +45,9 @@ const U_STEAM_REF: f64 = 2.5060e6;
 const T_REF: f64 = 373.15;
 /// Liquid water: constant `c_p`, J/(kg K). \[A\]
 const CP_WATER: f64 = 4186.0;
-/// Drywell structures: area, m^2, convective coefficient, W/(m^2 K), heat
-/// capacity, J/K. \[A\] all three placeholders (steel shell, concrete, the
-/// pedestal); the real heat-sink inventory is in SAND2012-6173.
-const DW_WALL_AREA_M2: f64 = 4000.0;
-const DW_WALL_H: f64 = 20.0;
-const DW_WALL_C: f64 = 5.0e8;
+/// Drywell structures: area, convective coefficient and heat capacity are
+/// inputs since 2026-10-29 (`Params::dw_wall_area_m2`, `dw_wall_h`,
+/// `dw_wall_c`; still \[A\] placeholders).
 const T_RB: f64 = 303.15;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -247,16 +244,16 @@ impl Containment {
                     self.set_dw_energy(e, tv);
                 }
             } else {
-                self.dw_wall_t += q / DW_WALL_C;
+                self.dw_wall_t += q / prm.dw_wall_c;
             }
         }
         // 3. Drywell wall heat sink, implicit in the two temperatures.
-        let ha = DW_WALL_AREA_M2 * DW_WALL_H;
+        let ha = prm.dw_wall_area_m2 * prm.dw_wall_h;
         let c_gas = self.dw_heat_capacity(tv);
         let (tg, tw) = (self.dw_t, self.dw_wall_t);
         // q = ha (Tg' - Tw'); c_gas (Tg' - Tg) = -q dt; C_w (Tw' - Tw) = q dt.
         let k = ha * dt;
-        let q = k * (tg - tw) / (1.0 + k / c_gas + k / DW_WALL_C);
+        let q = k * (tg - tw) / (1.0 + k / c_gas + k / prm.dw_wall_c);
         if tv {
             // c_gas is the slope at Tg: take the heat from the energy, so
             // the gas loses exactly what the wall gains.
@@ -265,7 +262,7 @@ impl Containment {
         } else {
             self.dw_t = tg - q / c_gas;
         }
-        self.dw_wall_t = tw + q / DW_WALL_C;
+        self.dw_wall_t = tw + q / prm.dw_wall_c;
         // 4. Condensation of supersaturated steam (latent heat stays in the
         //    gas until the wall takes it): a few fixed-point passes.
         for _ in 0..4 {

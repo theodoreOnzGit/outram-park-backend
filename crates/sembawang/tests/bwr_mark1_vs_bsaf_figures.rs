@@ -77,10 +77,23 @@ fn model() -> Histories {
 ///   leak depressurises it. Both leak paths need plant sources (F13).
 /// - **The drywell is 0.24-0.51 MPa low over 10-23 h** (0.34 against
 ///   0.85 MPa at 11.7 h; 0.53 against 0.77 MPa at 22.9 h), with or without
-///   the steam-line rupture. Candidates, to test, not to tune: the
+///   the steam-line rupture. ~~Candidates, to test, not to tune: the
 ///   drywell heat sink is three \[A\] placeholders (4000 m^2, 20 W/(m^2
 ///   K), 5e8 J/K); no MCCI gas; the pool over-condenses once near
-///   saturation.
+///   saturation.~~ **Tested the same day** (diagnostic runs, nothing
+///   adopted): the drywell rides the wetwell (0.342 against 0.330 MPa at
+///   11.7 h; the downcomers pass anything above the submergence head),
+///   and the pool is at 344 K, about 100 K subcooled, so every kilogram of
+///   steam condenses and the containment pressure is the non-condensable
+///   gas alone. Hence: the **heat sink** cannot carry it (a tenth of its
+///   area raises the drywell 0.02-0.03 MPa); **pool over-condensation**
+///   cannot act before the pool nears saturation (about 20 h); what is
+///   missing is **about 6e5 mol of non-condensable gas** (0.4 MPa over
+///   about 6000 m^3 of containment gas near 500 K: about 1.2 t of H2 or
+///   16 t of CO). BSAF's text says the codes held the 15-24 h plateau by
+///   balancing **MCCI gas** against a drywell-head flange leak (NEA No.
+///   7525, p.19), and the model has no MCCI (F8, blocked on Unit 1's
+///   concrete).
 /// - **H2** is inside the codes' spread only 9 % of the time: it is
 ///   lower than all nine codes from about 5 h on (215 kg at 25 h against
 ///   398-1315 kg).

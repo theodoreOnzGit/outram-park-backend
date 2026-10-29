@@ -5512,6 +5512,9 @@ pub struct Params {
     pub h2o_h2_diffusivity_b: f64,
     pub oxidation_heat_j_per_kg_zr: f64,
     pub drywell_volume_m3: f64,
+    pub dw_wall_area_m2: f64,
+    pub dw_wall_h: f64,
+    pub dw_wall_c: f64,
     pub wetwell_gas_m3: f64,
     pub pool_water_m3: f64,
     pub containment_design_pa: f64,
@@ -5641,6 +5644,9 @@ pub struct Params {
 | `h2o_h2_diffusivity_b` | `f64` |  |
 | `oxidation_heat_j_per_kg_zr` | `f64` |  |
 | `drywell_volume_m3` | `f64` |  |
+| `dw_wall_area_m2` | `f64` |  |
+| `dw_wall_h` | `f64` |  |
+| `dw_wall_c` | `f64` |  |
 | `wetwell_gas_m3` | `f64` |  |
 | `pool_water_m3` | `f64` |  |
 | `containment_design_pa` | `f64` |  |
@@ -6743,6 +6749,30 @@ pub const M_N2: f64 = 0.028_014;
 
 ```rust
 pub const R_GAS: f64 = 8.314_462;
+```
+
+#### Constant `DW_WALL_AREA_M2`
+
+Drywell structures (steel shell, concrete, the pedestal) as one lumped
+heat sink: area, m^2, convective coefficient, W/(m^2 K), and heat
+capacity, J/K. \[A\] all three placeholders, moved here from
+`containment.rs` 2026-10-29 unchanged; the real heat-sink inventory is in
+SAND2012-6173 (not held).
+
+```rust
+pub const DW_WALL_AREA_M2: f64 = 4000.0;
+```
+
+#### Constant `DW_WALL_H`
+
+```rust
+pub const DW_WALL_H: f64 = 20.0;
+```
+
+#### Constant `DW_WALL_C`
+
+```rust
+pub const DW_WALL_C: f64 = 5.0e8;
 ```
 
 #### Constant `DRYWELL_VOLUME_M3`

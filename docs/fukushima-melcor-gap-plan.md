@@ -143,7 +143,12 @@ of the vent physics.
 measured at 7.00 MPa at 5.34 h, where the model, its steam line already
 ruptured by creep at 4.78 h, is at 0.29 MPa: the measurement contradicts the
 rupture's timing, which rests on \[A\] inputs. The drywell runs 0.24–0.51 MPa
-below the 33 measured points over 10–23 h, with or without that rupture. H2
+below the 33 measured points over 10–23 h, with or without that rupture. Diagnosed the same day: the drywell rides
+the wetwell, whose 344 K pool (about 100 K subcooled) condenses all steam, so
+the pressure is the non-condensable gas alone; a heat sink a tenth the size
+moves it 0.02–0.03 MPa; about 6e5 mol of non-condensable gas is missing, the
+size of the MCCI gas BSAF's codes relied on (p.19). **F8 (MCCI) is therefore
+the lever on the drywell**, and it stays blocked on Unit 1's concrete. H2
 is below all nine codes from about 5 h; fuel release is inside the iodine
 envelope 94 % of the time.
 
