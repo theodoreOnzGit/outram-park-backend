@@ -162,6 +162,10 @@ pub struct ContainmentSnapshot {
     /// The torus shell above the pool as a heat structure on the wetwell
     /// atmosphere (`Mechanisms::ww_shell`; needs `ww_atmosphere`).
     pub ww_shell: bool,
+    /// Gas leaving the drywell (downcomers, flange leak) takes its enthalpy
+    /// (`Mechanisms::outflow_enthalpy`); false is its internal energy, the
+    /// drywell keeping its temperature.
+    pub outflow_enthalpy: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -800,12 +804,20 @@ impl Containment {
             let ca: [Vec<f64>; N_CLASSES] = std::array::from_fn(|k| ca[k].iter().zip(&swarm).map(|(m, p)| m * pass * p).collect());
             self.ww_rn.receive(&moved, std::array::from_fn(|k| cv[k] * pass_v[k]), &ca);
             let e_dw = self.dw_energy(tv);
+            let t_dw = self.dw_t;
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
             self.dw_steam_kg -= dsteam;
             // The drywell gas keeps its temperature; the moved gas's energy
             // goes to the pool (steam condenses, N2/H2 cool to the pool).
-            let e_moved = e_dw - self.dw_energy(tv);
+            // With `outflow_enthalpy` it takes its flow work `n R T` too
+            // (MELCOR's donor loses the enthalpy it moves, CVH/FL RM Eq
+            // 6-6), and the drywell cools by it.
+            let mut e_moved = e_dw - self.dw_energy(tv);
+            if s.outflow_enthalpy {
+                e_moved += n * R_GAS * t_dw;
+                self.set_dw_energy(e_dw - e_moved, tv);
+            }
             if self.ww_atm {
                 self.bubble_through(prm, tv, dn2, dh2, dsteam, e_moved);
             } else {
@@ -1019,6 +1031,10 @@ impl Containment {
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
             self.dw_steam_kg -= self.dw_steam_kg * f;
+            if s.outflow_enthalpy {
+                let e = self.dw_energy(tv) - n * R_GAS * self.dw_t;
+                self.set_dw_energy(e, tv);
+            }
             // The building is well mixed at atmospheric pressure: incoming
             // non-condensables push out building air at its mixture fraction
             // (the steam condenses on the cold building).
@@ -1375,6 +1391,7 @@ impl ContainmentSnapshot {
             b(self.ww_atmosphere),
             b(self.dw_wall_hs),
             b(self.ww_shell),
+            b(self.outflow_enthalpy),
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1420,6 +1437,7 @@ impl ContainmentSnapshot {
             ww_atmosphere: r.f() != 0.0,
             dw_wall_hs: r.f() != 0.0,
             ww_shell: r.f() != 0.0,
+            outflow_enthalpy: r.f() != 0.0,
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),

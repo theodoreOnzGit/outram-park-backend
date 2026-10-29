@@ -204,6 +204,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without wetwell atmosphere", all.without_ww_atmosphere()),
         ("without drywell HS surface", all.without_dw_wall_hs()),
         ("without torus shell", all.without_ww_shell()),
+        ("without outflow enthalpy", all.without_outflow_enthalpy()),
     ]
 }
 
@@ -910,6 +911,22 @@ mod tests {
     /// lowering the peak. `without_ww_shell` reproduces the previous
     /// baseline exactly (pinned below).
     ///
+    /// **Moved again 2026-10-29** (gas leaving the drywell through the
+    /// downcomers and the flange leak takes its enthalpy, MELCOR's donor
+    /// convention, CVH/FL RM Eq 6-6, `outflow_enthalpy`): drywell peak
+    /// 0.56080 -> 0.56641 MPa, vent 24.013 -> 23.734 h (back to the order's
+    /// time); lower head, H2 and release unchanged. Predicted the peak
+    /// within 0.002 MPa and the vent 0-0.1 h later: **both missed**. After
+    /// the head fails the downcomers push hot gas continuously, and each
+    /// mole now carries `R T` more (about 40 % more energy at 700 K) into
+    /// the pool: 2 K warmer at 23.7 h, the wetwell higher, past the rupture
+    /// disk's pressure by the order's time, so the vent opens at the order;
+    /// the drywell gas is 43 K cooler (696 against 739 K) but higher, a
+    /// submergence head above the wetwell. (So the torus shell's note above
+    /// holds only when the disk, not the order, sets the vent.)
+    /// `without_outflow_enthalpy` reproduces the previous baseline exactly
+    /// (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -918,34 +935,37 @@ mod tests {
         let m = measure(Mechanisms::default());
         // The earlier models below are reproduced with the fission
         // products' decay heat left in the core, as it was then.
-        let base = Mechanisms::default().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell();
+        let base = Mechanisms::default().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy();
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
         assert!(near(m.lower_head_h, 4.5558, 0.001), "{m:?}");
         assert!(near(m.depressurised_h, 4.5558, 0.001), "{m:?}");
         assert!((m.h2_25h_kg - 253.13).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.56079765).abs() < 1e-8, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.56640504).abs() < 1e-8, "{m:?}");
+        // Drywell outflows at internal energy: the previous baseline, exactly.
+        let of = measure(Mechanisms::default().without_outflow_enthalpy());
+        assert!((of.p_dw_peak_mpa - 0.56079765).abs() < 1e-8 && near(of.vent_h, 24.0133, 0.001), "{of:?}");
         // No torus shell: the previous baseline, exactly.
-        let sh = measure(Mechanisms::default().without_ww_shell());
+        let sh = measure(Mechanisms::default().without_ww_shell().without_outflow_enthalpy());
         assert!((sh.p_dw_peak_mpa - 0.56079836).abs() < 1e-8 && near(sh.vent_h, 23.8872, 0.001), "{sh:?}");
         // The drywell structures with the fixed coefficient: the previous
         // baseline, exactly.
-        let hs = measure(Mechanisms::default().without_dw_wall_hs().without_ww_shell());
+        let hs = measure(Mechanisms::default().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy());
         assert!((hs.p_dw_peak_mpa - 0.56194352).abs() < 1e-8 && near(hs.vent_h, 23.7336, 0.001), "{hs:?}");
         // The wetwell gas at the pool's temperature, saturated: the previous
         // baseline, exactly.
-        let wa = measure(Mechanisms::default().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell());
+        let wa = measure(Mechanisms::default().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy());
         assert!(near(wa.lower_head_h, 4.5558, 0.001) && (wa.h2_25h_kg - 253.13).abs() < 0.01, "{wa:?}");
         assert!((wa.p_dw_peak_mpa - 0.58862947).abs() < 1e-8 && near(wa.vent_h, 23.7336, 0.001), "{wa:?}");
         // The failed vessel keeping its water: the previous baseline, exactly.
-        let dr = measure(Mechanisms::default().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell());
+        let dr = measure(Mechanisms::default().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy());
         assert!(near(dr.lower_head_h, 4.5558, 0.001) && (dr.h2_25h_kg - 253.13).abs() < 0.01, "{dr:?}");
         assert!((dr.p_dw_peak_mpa - 0.58922450).abs() < 1e-8 && (dr.fp_released_25h - 0.9955).abs() < 1e-4, "{dr:?}");
-        assert!(near(m.vent_h, 24.0133, 0.001) && m.explosion_h.is_none(), "{m:?}");
+        assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
         assert!((m.fp_released_25h - 0.9955).abs() < 1e-4 && (m.uo2_released_25h_kg - 4.891).abs() < 0.01, "{m:?}");
         // No wet head contact: the previous baseline, exactly (penetration
         // coverage then binds nowhere: the bed is deeper than the bottom
         // level by the time the plenum dries).
-        let wh = measure(Mechanisms::default().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell());
+        let wh = measure(Mechanisms::default().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy());
         assert!(near(wh.lower_head_h, 4.7364, 0.001) && near(wh.depressurised_h, 4.6206, 0.001), "{wh:?}");
         assert!((wh.h2_25h_kg - 395.54).abs() < 0.01 && (wh.p_dw_peak_mpa - 0.72921107).abs() < 1e-8, "{wh:?}");
         assert!((wh.fp_released_25h - 0.9978).abs() < 1e-4 && (wh.uo2_released_25h_kg - 3.949).abs() < 0.01, "{wh:?}");
@@ -954,22 +974,22 @@ mod tests {
         let nc = measure(Mechanisms::default().without_penetration_coverage());
         assert!(near(nc.lower_head_h, 3.5539, 0.001) && (nc.h2_25h_kg - 88.73).abs() < 0.01 && nc.vent_h.is_none(), "{nc:?}");
         // MELCOR's quench off: the baseline before it, exactly.
-        let dq = measure(Mechanisms::default().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell());
+        let dq = measure(Mechanisms::default().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy());
         assert!(near(dq.lower_head_h, 5.3144, 0.001) && near(dq.depressurised_h, 4.5206, 0.001), "{dq:?}");
         assert!((dq.h2_25h_kg - 441.97).abs() < 0.01 && (dq.p_dw_peak_mpa - 0.70450517).abs() < 1e-8, "{dq:?}");
         assert!((dq.fp_released_25h - 0.9911).abs() < 1e-4 && (dq.uo2_released_25h_kg - 2.780).abs() < 0.01, "{dq:?}");
         // No candling: the baseline before it, exactly.
-        let cd = measure(Mechanisms::default().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell());
+        let cd = measure(Mechanisms::default().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy());
         assert!(near(cd.lower_head_h, 4.4831, 0.001) && near(cd.depressurised_h, 4.4489, 0.001), "{cd:?}");
         assert!((cd.h2_25h_kg - 313.43).abs() < 0.01 && (cd.p_dw_peak_mpa - 0.62303386).abs() < 1e-8, "{cd:?}");
         assert!((cd.fp_released_25h - 0.8109).abs() < 1e-4 && (cd.uo2_released_25h_kg - 3.516).abs() < 0.01, "{cd:?}");
         // No debris oxidation: the baseline before it, exactly.
-        let dox = measure(Mechanisms::default().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell());
+        let dox = measure(Mechanisms::default().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy());
         assert!(near(dox.lower_head_h, 4.5172, 0.001) && near(dox.depressurised_h, 4.4497, 0.001), "{dox:?}");
         assert!((dox.h2_25h_kg - 305.64).abs() < 0.01 && (dox.p_dw_peak_mpa - 0.60869364).abs() < 1e-8, "{dox:?}");
         assert!((dox.fp_released_25h - 0.7977).abs() < 1e-4 && (dox.uo2_released_25h_kg - 3.645).abs() < 0.01, "{dox:?}");
         // No tellurium transport: the baseline before it, exactly.
-        let te = measure(Mechanisms::default().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell());
+        let te = measure(Mechanisms::default().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy());
         assert!(near(te.lower_head_h, 4.5239, 0.001) && near(te.depressurised_h, 4.4361, 0.001), "{te:?}");
         assert!((te.h2_25h_kg - 304.26).abs() < 0.01 && (te.p_dw_peak_mpa - 0.61279710).abs() < 1e-8, "{te:?}");
         assert!((te.fp_released_25h - 0.7967).abs() < 1e-4 && (te.uo2_released_25h_kg - 3.327).abs() < 0.01, "{te:?}");
@@ -1178,7 +1198,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 42);
+        assert_eq!(runs.len(), 43);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -1229,6 +1249,7 @@ mod tests {
         assert!(!ablations()[39].1.ww_atmosphere && ablations()[39].1.failed_vessel_drain);
         assert!(!ablations()[40].1.dw_wall_hs && ablations()[40].1.ww_atmosphere);
         assert!(!ablations()[41].1.ww_shell && ablations()[41].1.dw_wall_hs);
+        assert!(!ablations()[42].1.outflow_enthalpy && ablations()[42].1.ww_shell);
     }
 
     /// The verdict reads a value against its band.

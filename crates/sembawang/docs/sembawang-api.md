@@ -4059,6 +4059,7 @@ pub struct ContainmentSnapshot {
     pub ww_atmosphere: bool,
     pub dw_wall_hs: bool,
     pub ww_shell: bool,
+    pub outflow_enthalpy: bool,
     pub prm: Params,
 }
 ```
@@ -4107,6 +4108,7 @@ pub struct ContainmentSnapshot {
 | `ww_atmosphere` | `bool` | The wetwell atmosphere has its own temperature and steam, and<br>exchanges mass and energy with the pool at its surface and with the<br>bubbles leaving the pool (`Mechanisms::ww_atmosphere`). |
 | `dw_wall_hs` | `bool` | The drywell structures as MELCOR's heat-structure surface: natural<br>convection and diffusion-limited condensation (`Mechanisms::<br>dw_wall_hs`); false is the fixed coefficient `dw_wall_h`. |
 | `ww_shell` | `bool` | The torus shell above the pool as a heat structure on the wetwell<br>atmosphere (`Mechanisms::ww_shell`; needs `ww_atmosphere`). |
+| `outflow_enthalpy` | `bool` | Gas leaving the drywell (downcomers, flange leak) takes its enthalpy<br>(`Mechanisms::outflow_enthalpy`); false is its internal energy, the<br>drywell keeping its temperature. |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -11898,6 +11900,7 @@ pub struct Mechanisms {
     pub ww_atmosphere: bool,
     pub dw_wall_hs: bool,
     pub ww_shell: bool,
+    pub outflow_enthalpy: bool,
 }
 ```
 
@@ -11946,6 +11949,7 @@ pub struct Mechanisms {
 | `ww_atmosphere` | `bool` | The wetwell atmosphere has its own temperature and steam: MELCOR's<br>pool-surface exchange (CVH/FL RM §5.1) and bubble model at the vents<br>(§6.1, the efficiency `epsilon_z epsilon_T`), flashing, and the vent<br>and vacuum breakers passing the atmosphere as it is (2026-10-29). Off<br>is the gas at the pool's temperature, saturated. |
 | `dw_wall_hs` | `bool` | The drywell structures as MELCOR's heat-structure surface (HS RM<br>§2.6.1, §2.7): natural convection and condensation by diffusion<br>through the non-condensables, its latent heat into the wall<br>(2026-10-29). Off is the fixed 20 W/(m^2 K) \[A\] and condensation<br>only of supersaturated steam. |
 | `ww_shell` | `bool` | The torus shell above the pool as a heat structure on the wetwell<br>atmosphere: MELCOR's natural convection and condensation, its outer<br>face adiabatic (2026-10-29; needs `ww_atmosphere`). Off is no<br>structure in the wetwell gas. |
+| `outflow_enthalpy` | `bool` | Gas leaving the drywell through the downcomers and the flange leak<br>takes its enthalpy, so the drywell cools as it blows down and the<br>pool receives the flow work (MELCOR CVH/FL RM Eqs 6-5, 6-6;<br>2026-10-29). Off is the internal energy only, the drywell keeping its<br>temperature. |
 
 ##### Implementations
 
@@ -12150,6 +12154,11 @@ pub struct Mechanisms {
   pub fn without_ww_shell(self: Self) -> Self { /* ... */ }
   ```
   No structure in the wetwell gas: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_outflow_enthalpy(self: Self) -> Self { /* ... */ }
+  ```
+  Drywell outflows at internal energy: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

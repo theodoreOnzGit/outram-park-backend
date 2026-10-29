@@ -282,6 +282,12 @@ pub struct Mechanisms {
     /// face adiabatic (2026-10-29; needs `ww_atmosphere`). Off is no
     /// structure in the wetwell gas.
     pub ww_shell: bool,
+    /// Gas leaving the drywell through the downcomers and the flange leak
+    /// takes its enthalpy, so the drywell cools as it blows down and the
+    /// pool receives the flow work (MELCOR CVH/FL RM Eqs 6-5, 6-6;
+    /// 2026-10-29). Off is the internal energy only, the drywell keeping its
+    /// temperature.
+    pub outflow_enthalpy: bool,
 }
 
 impl Default for Mechanisms {
@@ -328,6 +334,7 @@ impl Default for Mechanisms {
             ww_atmosphere: true,
             dw_wall_hs: true,
             ww_shell: true,
+            outflow_enthalpy: true,
         }
     }
 }
@@ -597,6 +604,12 @@ impl Mechanisms {
     /// No structure in the wetwell gas: the model before 2026-10-29.
     pub fn without_ww_shell(mut self) -> Self {
         self.ww_shell = false;
+        self
+    }
+
+    /// Drywell outflows at internal energy: the model before 2026-10-29.
+    pub fn without_outflow_enthalpy(mut self) -> Self {
+        self.outflow_enthalpy = false;
         self
     }
 
@@ -1320,6 +1333,7 @@ impl Plant {
                 ww_atmosphere: self.mechanisms.ww_atmosphere,
                 dw_wall_hs: self.mechanisms.dw_wall_hs,
                 ww_shell: self.mechanisms.ww_shell,
+                outflow_enthalpy: self.mechanisms.outflow_enthalpy,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
