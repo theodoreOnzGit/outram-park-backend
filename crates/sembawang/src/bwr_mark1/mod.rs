@@ -178,6 +178,12 @@ pub struct Mechanisms {
     /// (SPARC-90's `DF_II` and `DF_SR`, [`sparc`]; 2026-10-29). Off is
     /// condensation scrubbing alone.
     pub swarm_scrubbing: bool,
+    /// Cesium and iodine on the aerosol tracked by size section: condensed
+    /// in proportion to each section's mass transfer, carried through
+    /// agglomeration and deposited with their section (`rn_volume`;
+    /// 2026-10-29). Off is the lumped model: each class shares the aerosol's
+    /// volume distribution.
+    pub sectional_classes: bool,
 }
 
 impl Default for Mechanisms {
@@ -206,6 +212,7 @@ impl Default for Mechanisms {
             internals_heat_loss: true,
             scrubbing_saturation: true,
             swarm_scrubbing: true,
+            sectional_classes: true,
         }
     }
 }
@@ -357,6 +364,14 @@ impl Mechanisms {
     /// No impaction or swarm-rise scrubbing: the model before 2026-10-29.
     pub fn without_swarm_scrubbing(mut self) -> Self {
         self.swarm_scrubbing = false;
+        self
+    }
+
+    /// Each class on the aerosol lumped over its volume distribution: the
+    /// model before 2026-10-29 (to round-off: the lumped operations are
+    /// done section by section).
+    pub fn without_sectional_classes(mut self) -> Self {
+        self.sectional_classes = false;
         self
     }
 
@@ -1005,6 +1020,7 @@ impl Plant {
                 pool_scrubbing: self.mechanisms.pool_scrubbing,
                 scrubbing_saturation: self.mechanisms.scrubbing_saturation,
                 swarm_scrubbing: self.mechanisms.swarm_scrubbing,
+                sectional_classes: self.mechanisms.sectional_classes,
                 prm,
             },
         }

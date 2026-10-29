@@ -2813,9 +2813,19 @@ pub struct Sections {
   One semi-implicit coagulation step of `dt` s with the kernel
 
 - ```rust
+  pub fn coagulate_with<F: Fn(usize, usize) -> f64>(self: &mut Self, dt: f64, beta: F, tracers: &mut [Vec<f64>]) -> Vec<f64> { /* ... */ }
+  ```
+  [`Self::coagulate`], carrying `tracers` with the particles: each is
+
+- ```rust
   pub fn deposit(self: &mut Self, medium: &Medium, surfaces: &[Surface], volume: f64, dt: f64) -> Vec<f64> { /* ... */ }
   ```
   Deposition for `dt` s onto `surfaces` of a volume of `volume` m^3:
+
+- ```rust
+  pub fn deposit_with(self: &mut Self, medium: &Medium, surfaces: &[Surface], volume: f64, dt: f64, tracers: &mut [Vec<f64>]) -> (Vec<f64>, Vec<Vec<f64>>) { /* ... */ }
+  ```
+  [`Self::deposit`], carrying per-section `tracers` with the
 
 - ```rust
   pub fn settle(self: &mut Self, medium: &Medium, area: f64, volume: f64, dt: f64) -> f64 { /* ... */ }
@@ -4019,6 +4029,7 @@ pub struct ContainmentSnapshot {
     pub pool_scrubbing: bool,
     pub scrubbing_saturation: bool,
     pub swarm_scrubbing: bool,
+    pub sectional_classes: bool,
     pub prm: Params,
 }
 ```
@@ -4050,6 +4061,7 @@ pub struct ContainmentSnapshot {
 | `pool_scrubbing` | `bool` | Pool scrubbing by steam condensation at the vent exits (SPARC-90's<br>DF_EC; `Mechanisms::pool_scrubbing`). |
 | `scrubbing_saturation` | `bool` | MELCOR's `X_o` in that scrubbing, and the impaction and swarm-rise<br>factors past the downcomers (`Mechanisms::scrubbing_saturation`,<br>`Mechanisms::swarm_scrubbing`). |
 | `swarm_scrubbing` | `bool` |  |
+| `sectional_classes` | `bool` | Fission-product classes on the aerosol tracked by section<br>(`Mechanisms::sectional_classes`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -7844,10 +7856,20 @@ the aerosol sections (Sherwood number 2) and onto the surfaces at their
 own temperatures by TRAP-MELT2's analytic step; the aerosol agglomerates
 and deposits.
 
-**Simplification, stated:** each class on the airborne aerosol is tracked
-as one mass, sharing the aerosol's size distribution, which is MELCOR's rule
-for classes assigned to one component (RN §2.4.1). MELCOR's default puts
-the volatiles in a component of their own; that is not followed here.
+~~**Simplification, stated:** each class on the airborne aerosol is
+tracked as one mass, sharing the aerosol's size distribution, which is
+MELCOR's rule for classes assigned to one component (RN §2.4.1). MELCOR's
+default puts the volatiles in a component of their own; that is not
+followed here.~~ **Changed 2026-10-29:** each class on the airborne
+aerosol is tracked **by section**. It condenses onto each section in
+proportion to that section's mass-transfer coefficient (MELCOR's
+condensation onto the aerosol is per section, RN §2.5.2). It moves
+through agglomeration by the same coefficients as the particle volume
+(Jacobson et al.'s multicomponent scheme) and deposits with its
+section. The condensed mass still does not change the particles' size,
+which MELCOR's separate volatile component would. The lumped model
+before survives as the ablation (`lumped`).
+
 Evaporation from a surface is limited to what it holds (TRAP-MELT2's
 step does not limit it; the excess returns to the vapour).
 
@@ -7863,6 +7885,14 @@ Per-class masses, kg.
 
 ```rust
 pub type PerClass = [f64; 2];
+```
+
+#### Type Alias `PerClassSection`
+
+Per-class masses by aerosol section, kg (`[class][section]`).
+
+```rust
+pub type PerClassSection = [Vec<f64>; 2];
 ```
 
 #### Struct `RnSurface`
@@ -8008,7 +8038,8 @@ pub struct RnVolume {
     pub volume_m3: f64,
     pub sections: super::aerosol::Sections,
     pub vapour_kg: PerClass,
-    pub on_aerosol_kg: PerClass,
+    pub on_aerosol_kg: PerClassSection,
+    pub lumped: bool,
     pub on_surface_kg: Vec<PerClass>,
     pub aerosol_on_surface_kg: Vec<f64>,
 }
@@ -8021,7 +8052,8 @@ pub struct RnVolume {
 | `volume_m3` | `f64` |  |
 | `sections` | `super::aerosol::Sections` |  |
 | `vapour_kg` | `PerClass` | Each class in the gas as vapour, and on the airborne aerosol, kg. |
-| `on_aerosol_kg` | `PerClass` |  |
+| `on_aerosol_kg` | `PerClassSection` |  |
+| `lumped` | `bool` | The ablation (not state; set by the owner before each use): each<br>class on the aerosol is spread over the sections in proportion to<br>the aerosol's volume before every operation, which is the lumped<br>model before 2026-10-29 to round-off. |
 | `on_surface_kg` | `Vec<PerClass>` | Per surface: each class on it, kg (by deposition and by<br>condensation), and aerosol deposited on it, kg. |
 | `aerosol_on_surface_kg` | `Vec<f64>` |  |
 
@@ -8044,17 +8076,22 @@ pub struct RnVolume {
   One class's mass everywhere in the volume (vapour, on aerosol, on
 
 - ```rust
+  pub fn on_aerosol(self: &Self, class: usize) -> f64 { /* ... */ }
+  ```
+  One class's mass on the airborne aerosol, all sections, kg.
+
+- ```rust
   pub fn add(self: &mut Self, aerosol_kg: f64, rho_p: f64, vapour_kg: PerClass) { /* ... */ }
   ```
   Add released aerosol, kg, into the smallest section, and vapour of
 
 - ```rust
-  pub fn take(self: &mut Self, f: f64) -> (Vec<f64>, PerClass, PerClass) { /* ... */ }
+  pub fn take(self: &mut Self, f: f64) -> (Vec<f64>, PerClass, PerClassSection) { /* ... */ }
   ```
   Take the fraction `f` of the volume's gas (with its aerosol and what
 
 - ```rust
-  pub fn receive(self: &mut Self, moved: &[f64], vapour_kg: PerClass, on_aerosol_kg: PerClass) { /* ... */ }
+  pub fn receive(self: &mut Self, moved: &[f64], vapour_kg: PerClass, on_aerosol_kg: &PerClassSection) { /* ... */ }
   ```
   Receive what `take` returned from another volume (same sections).
 
@@ -10064,6 +10101,7 @@ pub struct Mechanisms {
     pub internals_heat_loss: bool,
     pub scrubbing_saturation: bool,
     pub swarm_scrubbing: bool,
+    pub sectional_classes: bool,
 }
 ```
 
@@ -10094,6 +10132,7 @@ pub struct Mechanisms {
 | `internals_heat_loss` | `bool` | The dome internals lose heat to the saturated dome by natural<br>convection (2026-10-29); off is no heat loss once the flow stops. |
 | `scrubbing_saturation` | `bool` | The condensation scrubbing stops where the pool is near saturation:<br>MELCOR's `DF_EC = X_o / X_i` with `X_o` the non-condensable fraction<br>of the gas in equilibrium with the pool at the vent depth (Eqs D-5,<br>D-6; 2026-10-29). Off is `X_o = 1`: all the steam condenses. |
 | `swarm_scrubbing` | `bool` | Inertial impaction and swarm-rise scrubbing past the downcomer exits<br>(SPARC-90's `DF_II` and `DF_SR`, [`sparc`]; 2026-10-29). Off is<br>condensation scrubbing alone. |
+| `sectional_classes` | `bool` | Cesium and iodine on the aerosol tracked by size section: condensed<br>in proportion to each section's mass transfer, carried through<br>agglomeration and deposited with their section (`rn_volume`;<br>2026-10-29). Off is the lumped model: each class shares the aerosol's<br>volume distribution. |
 
 ##### Implementations
 
@@ -10208,6 +10247,11 @@ pub struct Mechanisms {
   pub fn without_swarm_scrubbing(self: Self) -> Self { /* ... */ }
   ```
   No impaction or swarm-rise scrubbing: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_sectional_classes(self: Self) -> Self { /* ... */ }
+  ```
+  Each class on the aerosol lumped over its volume distribution: the
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

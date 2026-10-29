@@ -203,12 +203,32 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// **The swarm's sign on the vented cesium is a miss** (predicted: less
 /// aerosol into the wetwell, so less vented). It removes more at the
 /// downcomers (pool 53.85 against 50.01 kg at 12 h), but by 23 h more is
-/// airborne (6.95 against 4.50 kg). The leading hypothesis, untested: the
-/// cesium on aerosol is not tracked by section but lumped, so it leaves
+/// airborne (6.95 against 4.50 kg). The leading hypothesis~~, untested~~:
+/// the cesium on aerosol is not tracked by section but lumped, so it leaves
 /// the wetwell gas at the aerosol's *mass-weighted* settling rate. Without
 /// the swarm, the large particles kept that rate high; once they are
 /// scrubbed at the vent, the rate falls and the lumped cesium stays
 /// airborne. Tracking each class by section, as MELCOR does, is the test.
+///
+/// **Tested the same day, partly confirmed** (`sectional_classes`: each
+/// class condensed onto each section by its mass transfer, carried through
+/// agglomeration and deposited with its section). Vented cesium at 26 h:
+///
+/// | | without swarm | with swarm | swarm's effect |
+/// |---|---|---|---|
+/// | lumped | 3.906 kg | 6.369 kg | +2.463 kg |
+/// | sectional | 6.994 kg | 7.930 kg | +0.936 kg |
+///
+/// Lumping carried 62 % of the swarm's effect, but the sign survives.
+/// Predicted "at most 0": **missed**. Remaining candidate, untested: with
+/// the large particles scrubbed at the vent, less coagulation scavenges
+/// the small cesium-bearing ones in the wetwell. Predicted for sectional
+/// tracking itself: more cesium airborne, since condensation by area puts
+/// it on the slow-settling small particles. **Held**: vented cesium 6.37
+/// -> 7.93 kg; Cs in the pool at 26 h 103.52 -> 101.96 kg; Cs on drywell
+/// structures inside the envelope **36.0 % -> 33.3 %**, S/C water
+/// unchanged at 97.8 %. `without_sectional_classes` reproduces the lumped
+/// numbers to ten digits.
 ///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
@@ -221,9 +241,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.36).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.3333).abs() < 1e-3 && (c.0 - 0.9775).abs() < 1e-3, "{a:?} {c:?}");
+    // The earlier model: also lumped (sectional classes alone move this
+    // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes(),
         Params::default(),
         60.0,
         26.0 * 3600.0,

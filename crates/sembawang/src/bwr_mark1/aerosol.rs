@@ -308,6 +308,16 @@ impl Sections {
     /// `beta(i, j)`, m^3/s (Jacobson et al. 1994, their Eq 8): volume is
     /// conserved to round-off and the step is stable for any `dt`.
     pub fn coagulate<F: Fn(usize, usize) -> f64>(&mut self, dt: f64, beta: F) {
+        self.coagulate_with(dt, beta, &mut []);
+    }
+
+    /// [`Self::coagulate`], carrying `tracers` with the particles: each is
+    /// a per-section amount (a fission-product class's mass on the aerosol)
+    /// moved by the same coefficients as the volume, which is Jacobson et
+    /// al.'s treatment of every component of a multicomponent aerosol
+    /// (their Eq 8 applied per component). Returns each tracer's amount
+    /// that left the top section with the fallout.
+    pub fn coagulate_with<F: Fn(usize, usize) -> f64>(&mut self, dt: f64, beta: F, tracers: &mut [Vec<f64>]) -> Vec<f64> {
         let n = self.v.len();
         let mut ext = self.v.clone();
         ext.push(self.v[n - 1] * self.v[n - 1] / self.v[n - 2]);
@@ -335,6 +345,7 @@ impl Sections {
             }
         }
         let mut new = vec![0.0; n];
+        let mut new_t: Vec<Vec<f64>> = tracers.iter().map(|_| vec![0.0; n]).collect();
         for k in 0..n {
             let gain: f64 = gains[k].iter().map(|&(i, j, f)| f * b[i][j] * new[i] * n_old[j]).sum();
             let mut loss = 0.0;
@@ -342,10 +353,20 @@ impl Sections {
                 loss += (1.0 - Self::fraction(&ext, self.v[k] + self.v[j], k)) * b[k][j] * n_old[j];
             }
             new[k] = (self.conc[k] + dt * gain) / (1.0 + dt * loss);
+            for (t, nt) in tracers.iter().zip(new_t.iter_mut()) {
+                let gain_t: f64 = gains[k].iter().map(|&(i, j, f)| f * b[i][j] * nt[i] * n_old[j]).sum();
+                nt[k] = (t[k] + dt * gain_t) / (1.0 + dt * loss);
+            }
         }
         // What left the real sections went to the virtual one: fallout.
         self.fallout += old - new.iter().sum::<f64>();
         self.conc = new;
+        let mut out = Vec::with_capacity(tracers.len());
+        for (t, nt) in tracers.iter_mut().zip(new_t) {
+            out.push(t.iter().sum::<f64>() - nt.iter().sum::<f64>());
+            *t = nt;
+        }
+        out
     }
 
     /// Deposition for `dt` s onto `surfaces` of a volume of `volume` m^3:
@@ -355,7 +376,16 @@ impl Sections {
     /// exactly. Returns the particle volume deposited on each surface, m^3
     /// per m^3 of gas.
     pub fn deposit(&mut self, medium: &Medium, surfaces: &[Surface], volume: f64, dt: f64) -> Vec<f64> {
+        self.deposit_with(medium, surfaces, volume, dt, &mut []).0
+    }
+
+    /// [`Self::deposit`], carrying per-section `tracers` with the
+    /// particles: each section's tracer deposits in the same fraction as its
+    /// volume, onto the surfaces in the same shares. Returns the volume per
+    /// surface and, per tracer, the amount per surface.
+    pub fn deposit_with(&mut self, medium: &Medium, surfaces: &[Surface], volume: f64, dt: f64, tracers: &mut [Vec<f64>]) -> (Vec<f64>, Vec<Vec<f64>>) {
         let mut out = vec![0.0; surfaces.len()];
+        let mut out_t: Vec<Vec<f64>> = tracers.iter().map(|_| vec![0.0; surfaces.len()]).collect();
         for k in 0..self.v.len() {
             let d = self.diameter(k);
             let (vg, vd) = (medium.settling_velocity(d), medium.diffusion_velocity(d));
@@ -374,13 +404,21 @@ impl Sections {
             if total <= 0.0 {
                 continue;
             }
-            let gone = self.conc[k] * (1.0 - (-total * dt).r_exp());
+            let frac = 1.0 - (-total * dt).r_exp();
+            let gone = self.conc[k] * frac;
             for (o, r) in out.iter_mut().zip(&rates) {
                 *o += gone * r / total;
             }
             self.conc[k] -= gone;
+            for (t, ot) in tracers.iter_mut().zip(out_t.iter_mut()) {
+                let gone_t = t[k] * frac;
+                for (o, r) in ot.iter_mut().zip(&rates) {
+                    *o += gone_t * r / total;
+                }
+                t[k] -= gone_t;
+            }
         }
-        out
+        (out, out_t)
     }
 
     /// Gravitational settling for `dt` s onto a floor of `area` m^2 under a
@@ -522,5 +560,45 @@ mod tests {
         let out = big.deposit(&m, &surfaces, 100.0, 60.0);
         assert!(out[2] == 0.0 && out[0] > out[1] && out[1] > 0.0, "{out:?}");
         assert!((out.iter().sum::<f64>() + big.conc[0] - 1.0).abs() < 1e-12);
+    }
+
+    /// Tracers ride with the particles (2026-10-29): one proportional to
+    /// the volume stays proportional through agglomeration and deposition
+    /// (the operations are linear, the same coefficients); one put in the
+    /// smallest section spreads upward as its particles agglomerate; both
+    /// are conserved with their fallout and what they deposit.
+    #[test]
+    fn tracers_move_with_the_particles() {
+        let m = air();
+        let mut s = Sections::new(0.1e-6, 12, 2.0);
+        s.conc = (0..12).map(|k| 1e-9 * (1.0 + k as f64)).collect();
+        let d: Vec<f64> = (0..12).map(|k| s.diameter(k)).collect();
+        let table = m.kernel_table(&d);
+        let mut t = vec![s.conc.iter().map(|c| 3.0 * c).collect::<Vec<f64>>(), {
+            let mut v = vec![0.0; 12];
+            v[0] = 1.0;
+            v
+        }];
+        let mut fall = vec![0.0; 2];
+        for _ in 0..200 {
+            let f = s.coagulate_with(60.0, |i, j| table[i][j] * 1e6, &mut t);
+            fall[0] += f[0];
+            fall[1] += f[1];
+        }
+        for k in 0..12 {
+            assert!((t[0][k] / (3.0 * s.conc[k]) - 1.0).abs() < 1e-9, "{k} {} {}", t[0][k], s.conc[k]);
+        }
+        assert!((fall[0] / (3.0 * s.fallout) - 1.0).abs() < 1e-9, "{fall:?} {}", s.fallout);
+        assert!((t[1].iter().sum::<f64>() + fall[1] - 1.0).abs() < 1e-12, "{:?}", t[1]);
+        assert!(t[1][0] < 0.9 && t[1][3..].iter().sum::<f64>() > 0.0, "{:?}", t[1]);
+        let surfaces = [Surface { area: 10.0, facing: Facing::Floor, phoretic: vec![0.0; 12] }, Surface { area: 30.0, facing: Facing::Wall, phoretic: vec![0.0; 12] }];
+        let before: Vec<f64> = t.iter().map(|x| x.iter().sum()).collect();
+        let (out, out_t) = s.deposit_with(&m, &surfaces, 100.0, 600.0, &mut t);
+        for i in 0..2 {
+            assert!((out_t[0][i] / (3.0 * out[i]) - 1.0).abs() < 1e-9, "{out:?} {out_t:?}");
+        }
+        for (c, b) in before.iter().enumerate() {
+            assert!((t[c].iter().sum::<f64>() + out_t[c].iter().sum::<f64>() - b).abs() < 1e-12 * b.max(1.0));
+        }
     }
 }
