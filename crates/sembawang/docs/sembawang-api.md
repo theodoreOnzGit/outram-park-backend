@@ -4063,6 +4063,7 @@ pub struct ContainmentSnapshot {
     pub relief_h2_enthalpy: bool,
     pub srv_gas_k: f64,
     pub condensate_to_floor: bool,
+    pub rpv_wall_w: f64,
     pub prm: Params,
 }
 ```
@@ -4115,6 +4116,7 @@ pub struct ContainmentSnapshot {
 | `relief_h2_enthalpy` | `bool` | The relief valves' hydrogen arrives with its enthalpy at<br>`srv_gas_k`, the vessel's saturation temperature, as the vessel gave<br>it up (`Mechanisms::relief_h2_enthalpy`; needs `ww_atmosphere`);<br>false is at the pool's temperature. |
 | `srv_gas_k` | `f64` |  |
 | `condensate_to_floor` | `bool` | Water condensed in the drywell drains to its floor, the pedestal's<br>pool (`Mechanisms::condensate_to_floor`); false is it leaving the<br>model. |
+| `rpv_wall_w` | `f64` | Heat through the RPV's insulation into the drywell gas, W<br>(`Mechanisms::rpv_wall`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -6939,6 +6941,7 @@ pub struct Params {
     pub cosine_extrapolation: f64,
     pub rpv_radius_m: f64,
     pub rpv_height_m: f64,
+    pub rpv_wall_m: f64,
     pub baf_m: f64,
     pub lower_plenum_free: f64,
     pub upper_free: f64,
@@ -7089,6 +7092,7 @@ pub struct Params {
 | `cosine_extrapolation` | `f64` |  |
 | `rpv_radius_m` | `f64` |  |
 | `rpv_height_m` | `f64` |  |
+| `rpv_wall_m` | `f64` |  |
 | `baf_m` | `f64` |  |
 | `lower_plenum_free` | `f64` |  |
 | `upper_free` | `f64` |  |
@@ -7567,6 +7571,15 @@ RPV inner height, m. \[U\] about 20 m.
 
 ```rust
 pub const RPV_HEIGHT_M: f64 = 20.0;
+```
+
+#### Constant `RPV_WALL_M`
+
+RPV wall thickness, m, for its heat capacity (`Mechanisms::rpv_wall`).
+\[A\] about 6 in, typical of a BWR/3 shell; not in a held source.
+
+```rust
+pub const RPV_WALL_M: f64 = 0.16;
 ```
 
 #### Constant `BAF_M`
@@ -11909,6 +11922,7 @@ pub struct Mechanisms {
     pub outflow_enthalpy: bool,
     pub relief_h2_enthalpy: bool,
     pub condensate_to_floor: bool,
+    pub rpv_wall: bool,
 }
 ```
 
@@ -11960,6 +11974,7 @@ pub struct Mechanisms {
 | `outflow_enthalpy` | `bool` | Gas leaving the drywell through the downcomers and the flange leak<br>takes its enthalpy, so the drywell cools as it blows down and the<br>pool receives the flow work (MELCOR CVH/FL RM Eqs 6-5, 6-6;<br>2026-10-29). Off is the internal energy only, the drywell keeping its<br>temperature. |
 | `relief_h2_enthalpy` | `bool` | The relief valves' hydrogen reaches the wetwell with its enthalpy<br>at the vessel's saturation temperature, closing the energy the<br>vessel gives up with it (2026-10-29; needs `ww_atmosphere`). Off is<br>the hydrogen at the pool's temperature. |
 | `condensate_to_floor` | `bool` | Water condensed in the drywell (on its structures, and steam above<br>saturation) drains to the floor, the pedestal's pool, where debris<br>can boil it again (2026-10-29; MELCOR drains a structure's film to<br>its volume's pool). Off is the condensate leaving the model. |
+| `rpv_wall` | `bool` | The RPV wall (cylinder and top head, 0.16 m of steel \[A\]) as a<br>lumped heat structure: it exchanges with the vessel's saturated<br>contents while they hold water, and loses heat through its<br>insulation to the drywell (2026-10-29, gh:#1037). Off is no wall. |
 
 ##### Implementations
 
@@ -12179,6 +12194,11 @@ pub struct Mechanisms {
   pub fn without_condensate_to_floor(self: Self) -> Self { /* ... */ }
   ```
   The drywell's condensate leaves the model: before 2026-10-29.
+
+- ```rust
+  pub fn without_rpv_wall(self: Self) -> Self { /* ... */ }
+  ```
+  No RPV wall: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
@@ -13453,8 +13473,6 @@ pub const EVENTS: [Event; 9] = _;
 ```
 
 #### Constant `CSV_HEADER`
-
-The CSV the headless mode prints: a stable header, fixed precision.
 
 ```rust
 pub const CSV_HEADER: &str = "t_s,p_rpv_mpa,level_m,decay_mw,q_ic_mw,w_relief_kg_s,w_injection_kg_s,peak_clad_k,exit_gas_k,h2_kg,relocated,p_dw_mpa,p_ww_mpa,t_pool_k,rb_h2_fraction,flags";

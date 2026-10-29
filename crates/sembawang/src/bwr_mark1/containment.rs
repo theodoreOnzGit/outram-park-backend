@@ -176,6 +176,9 @@ pub struct ContainmentSnapshot {
     /// pool (`Mechanisms::condensate_to_floor`); false is it leaving the
     /// model.
     pub condensate_to_floor: bool,
+    /// Heat through the RPV's insulation into the drywell gas, W
+    /// (`Mechanisms::rpv_wall`).
+    pub rpv_wall_w: f64,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -582,6 +585,11 @@ impl Containment {
             self.dw_wall_t += dw_wall * dt / prm.dw_wall_c;
             let e = self.pool_energy() + pool * dt;
             self.set_pool_energy(e);
+        }
+        // 0b. The RPV's insulation heats the drywell gas (`rpv_wall`).
+        if s.rpv_wall_w != 0.0 {
+            let e = self.dw_energy(tv) + s.rpv_wall_w * dt;
+            self.set_dw_energy(e, tv);
         }
         // 1. Relief valves into the pool. With the wetwell atmosphere, by
         //    the bubble model; the hydrogen with its enthalpy at the
@@ -1420,6 +1428,7 @@ impl ContainmentSnapshot {
             b(self.relief_h2_enthalpy),
             self.srv_gas_k,
             b(self.condensate_to_floor),
+            self.rpv_wall_w,
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1469,6 +1478,7 @@ impl ContainmentSnapshot {
             relief_h2_enthalpy: r.f() != 0.0,
             srv_gas_k: r.f(),
             condensate_to_floor: r.f() != 0.0,
+            rpv_wall_w: r.f(),
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),

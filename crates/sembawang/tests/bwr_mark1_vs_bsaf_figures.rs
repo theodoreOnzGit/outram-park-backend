@@ -164,6 +164,11 @@ fn model() -> Histories {
 /// 0.279/0.403 -> **0.263/0.390 MPa** (closer); RPV 3.548/6.645 ->
 /// 3.541/6.646 MPa; envelopes the same.
 ///
+/// **Moved 2026-10-29 by the RPV wall** (`rpv_wall`; the head fails 0.07 h
+/// later, 25 kg less H2): drywell 0.263/0.390 -> 0.274/0.400 MPa; RPV
+/// 3.541/6.646 -> 3.549/6.651 MPa; envelopes RPV 4.4 -> 3.3 %, drywell
+/// 23.1 -> 25.3 %, the rest the same.
+///
 /// The measured series are the validation; the envelopes are a
 /// differential test against other codes, none of which is the truth.
 #[test]
@@ -181,10 +186,10 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // Pinned to the first run: a change to the model moves these, and the
     // move is then recorded here with its old and new value.
     assert_eq!((rpv.n, dw.n), (2, 33));
-    assert!((rpv.mean_abs - 3.5414).abs() < 1e-3 && (rpv.max_abs - 6.6458).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.2629).abs() < 1e-3 && (dw.max_abs - 0.3898).abs() < 1e-3, "{dw:?}");
+    assert!((rpv.mean_abs - 3.5492).abs() < 1e-3 && (rpv.max_abs - 6.6508).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.2735).abs() < 1e-3 && (dw.max_abs - 0.4004).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.0440) && near(e_dw, 0.2308) && near(e_h2, 0.0920) && near(e_xe, 0.8333) && near(e_i, 0.8750));
+    assert!(near(e_rpv, 0.0330) && near(e_dw, 0.2527) && near(e_h2, 0.0920) && near(e_xe, 0.8333) && near(e_i, 0.8750));
 }
 
 
@@ -366,7 +371,8 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// 95.5 %, structures unchanged. Then by the lower head under water: S/C
 /// water 95.5 -> 96.6 %, structures unchanged. Then by the drywell
 /// structures' MELCOR surface (condensation on them carries Cs there by
-/// diffusiophoresis): structures 80.0 -> 82.7 %.
+/// diffusiophoresis): structures 80.0 -> 82.7 %. Then by the RPV wall:
+/// structures 82.7 -> 81.3 %.
 ///
 /// These are a differential test against codes, not a validation. The
 /// result rests on \[A\] areas (drywell floor, pool surface) and on the
@@ -379,11 +385,11 @@ fn cesium_against_fig_2_6() {
     let c = inside_envelope(&m.t_h, &m.cs_sc_water, &family("2.6c"), &grid);
     println!("Cs on drywell structures {a:?}; Cs in S/C water {c:?}");
     assert_eq!((a.1, c.1), (75, 89));
-    assert!((a.0 - 0.8267).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
+    assert!((a.0 - 0.8133).abs() < 1e-3 && (c.0 - 0.9663).abs() < 1e-3, "{a:?} {c:?}");
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -444,7 +450,7 @@ fn cesium_against_fig_2_6() {
 /// default; CsI and pool re-evolution are not modelled).
 ///
 /// **Moved 2026-10-29 by the lower head under water**: inside 4.5 % ->
-/// 6.7 %.
+/// 6.7 %; by the RPV wall, 6.7 -> 7.9 %.
 #[test]
 fn iodine_against_fig_2_6() {
     let m = model();
@@ -453,9 +459,9 @@ fn iodine_against_fig_2_6() {
     let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
     println!("I on drywell structures {b:?}; I in S/C water {d:?}");
     assert_eq!(b, (0.0, 76));
-    assert!((d.0 - 0.0674).abs() < 1e-3 && d.1 == 89, "{d:?}");
+    assert!((d.0 - 0.0787).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall(),
         Params::default(),
         60.0,
         26.0 * 3600.0,

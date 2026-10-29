@@ -83,6 +83,9 @@ pub const COSINE_EXTRAPOLATION: f64 = 1.3;
 pub const RPV_RADIUS_M: f64 = 2.4;
 /// RPV inner height, m. \[U\] about 20 m.
 pub const RPV_HEIGHT_M: f64 = 20.0;
+/// RPV wall thickness, m, for its heat capacity (`Mechanisms::rpv_wall`).
+/// \[A\] about 6 in, typical of a BWR/3 shell; not in a held source.
+pub const RPV_WALL_M: f64 = 0.16;
 /// Bottom of active fuel above the vessel bottom, m. \[A\]
 pub const BAF_M: f64 = 5.0;
 /// Fraction of the vessel's cross-section free for water below the core
@@ -610,6 +613,7 @@ params! {
     cosine_extrapolation = COSINE_EXTRAPOLATION, A,
     rpv_radius_m = RPV_RADIUS_M, U,
     rpv_height_m = RPV_HEIGHT_M, U,
+    rpv_wall_m = RPV_WALL_M, A,
     baf_m = BAF_M, A,
     lower_plenum_free = LOWER_PLENUM_FREE, A,
     upper_free = UPPER_FREE, A,
@@ -821,7 +825,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 142);
+        assert_eq!(Params::INPUTS.len(), 143);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

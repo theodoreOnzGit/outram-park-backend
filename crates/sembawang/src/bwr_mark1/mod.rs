@@ -298,6 +298,11 @@ pub struct Mechanisms {
     /// can boil it again (2026-10-29; MELCOR drains a structure's film to
     /// its volume's pool). Off is the condensate leaving the model.
     pub condensate_to_floor: bool,
+    /// The RPV wall (cylinder and top head, 0.16 m of steel \[A\]) as a
+    /// lumped heat structure: it exchanges with the vessel's saturated
+    /// contents while they hold water, and loses heat through its
+    /// insulation to the drywell (2026-10-29, gh:#1037). Off is no wall.
+    pub rpv_wall: bool,
 }
 
 impl Default for Mechanisms {
@@ -347,6 +352,7 @@ impl Default for Mechanisms {
             outflow_enthalpy: true,
             relief_h2_enthalpy: true,
             condensate_to_floor: true,
+            rpv_wall: true,
         }
     }
 }
@@ -638,6 +644,12 @@ impl Mechanisms {
         self
     }
 
+    /// No RPV wall: the model before 2026-10-29.
+    pub fn without_rpv_wall(mut self) -> Self {
+        self.rpv_wall = false;
+        self
+    }
+
     /// Isolation-condenser condensation unaffected by hydrogen in the vessel.
     pub fn without_ic_h2_blanketing(mut self) -> Self {
         self.ic_h2_blanketing = false;
@@ -909,6 +921,10 @@ pub struct Plant {
     hot_leak_open: bool,
     msl: msl::SteamLine,
     internals: internals::DomeInternals,
+    /// The RPV wall's temperature, K, and the heat it gave the vessel's
+    /// contents in the last step, W (`rpv_wall`).
+    rpv_wall_k: f64,
+    q_rpv_wall_w: f64,
     /// The gas temperature after the internals, K, and the heat they took
     /// in the last step, W.
     dome_gas_k: f64,
@@ -967,6 +983,8 @@ struct Pending {
     /// Water draining through a failed lower head, kg/s
     /// (`failed_vessel_drain`).
     w_drain: f64,
+    /// Heat through the RPV's insulation to the drywell, W (`rpv_wall`).
+    rpv_out_w: f64,
 }
 
 /// The core and containment snapshots of one step.
@@ -1023,6 +1041,8 @@ impl Plant {
             hot_leak_open: false,
             msl: msl::SteamLine::new(s.t_k),
             internals: internals::DomeInternals::new(s.t_k),
+            rpv_wall_k: s.t_k,
+            q_rpv_wall_w: 0.0,
             dome_gas_k: s.t_k,
             q_internals_w: 0.0,
             xe_vessel: 0.0,
@@ -1258,6 +1278,7 @@ impl Plant {
         } else {
             0.0
         };
+        let rpv_out_w = if self.mechanisms.rpv_wall { prm.msl_insulation_h * rpv_wall_area_m2(&prm) * (self.rpv_wall_k - self.last_containment.t_dw_k) } else { 0.0 };
         let vessel_fp_w = self.xe_vessel * q_noble_w
             + (self.cs_vessel_kg + self.on_internals_kg[0]) / prm.cs_inventory_kg * q_alkali_w
             + (self.i_vessel_kg + self.on_internals_kg[1]) / prm.i_inventory_kg * q_halogen_w
@@ -1288,6 +1309,7 @@ impl Plant {
             h2_out: (w_relief + w_leak) * h2_share,
             vessel_fp_w,
             w_drain,
+            rpv_out_w,
             // The gas leaving takes the noble gas in its share of the gas
             // space (well mixed): that share by mass is the share by
             // moles, the composition being uniform.
@@ -1362,6 +1384,7 @@ impl Plant {
                 relief_h2_enthalpy: self.mechanisms.relief_h2_enthalpy,
                 srv_gas_k: v.sat.t_k,
                 condensate_to_floor: self.mechanisms.condensate_to_floor,
+                rpv_wall_w: self.pending.rpv_out_w,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
@@ -1470,6 +1493,33 @@ impl Plant {
             let q_loss = if self.mechanisms.internals_heat_loss && !v.dry { self.internals.lose(&prm, v.sat.t_k, DT_S) } else { 0.0 };
             self.q_internals_w = q - q_loss;
             self.u -= (q - q_loss) * DT_S;
+        }
+        // The RPV wall (`rpv_wall`): its insulation loses heat to the
+        // drywell; inside, while the vessel holds water, it exchanges with
+        // the saturated contents, by boiling (`boiling_h`) below the level
+        // and above it when the wall is colder than the steam (condensing),
+        // by natural convection (`internals_loss_h`) above it otherwise;
+        // implicit, as the internals' loss. A dry vessel's gas takes nothing
+        // from it (the #1051 limit the internals carry, stated).
+        self.q_rpv_wall_w = 0.0;
+        if self.mechanisms.rpv_wall {
+            let area = rpv_wall_area_m2(&prm);
+            let mass = area * prm.rpv_wall_m * 7850.0;
+            let mut h = core::steel_h(self.rpv_wall_k) - d.rpv_out_w * DT_S / mass;
+            self.rpv_wall_k = core::steel_t(h);
+            if !v.dry {
+                let wet = ((v.level_m + prm.baf_m) / prm.rpv_height_m).clamp(0.0, 1.0);
+                let h_above = if self.rpv_wall_k < v.sat.t_k { prm.boiling_h } else { prm.internals_loss_h };
+                let ha = area * (wet * prm.boiling_h + (1.0 - wet) * h_above);
+                let t = self.rpv_wall_k;
+                let c = mass * (core::steel_h(t + 0.5) - core::steel_h(t - 0.5));
+                let t_new = (c * t + DT_S * ha * v.sat.t_k) / (c + DT_S * ha);
+                let q = ha * (t_new - v.sat.t_k);
+                h -= q * DT_S / mass;
+                self.rpv_wall_k = core::steel_t(h);
+                self.u += q * DT_S;
+                self.q_rpv_wall_w = q;
+            }
         }
         // Onto the internals, which hold the vessel's deposit: heat put in
         // a dry vessel's few kilograms of gas would drive its pressure up
@@ -1716,6 +1766,13 @@ impl Frame {
 }
 
 /// The CSV the headless mode prints: a stable header, fixed precision.
+/// The RPV wall's inner area above the lower head, m^2: the cylinder and
+/// a hemispherical top head (`rpv_wall`).
+fn rpv_wall_area_m2(prm: &Params) -> f64 {
+    let r = prm.rpv_radius_m;
+    2.0 * std::f64::consts::PI * r * prm.rpv_height_m + 2.0 * std::f64::consts::PI * r * r
+}
+
 pub const CSV_HEADER: &str = "t_s,p_rpv_mpa,level_m,decay_mw,q_ic_mw,w_relief_kg_s,w_injection_kg_s,peak_clad_k,exit_gas_k,h2_kg,relocated,p_dw_mpa,p_ww_mpa,t_pool_k,rb_h2_fraction,flags";
 
 pub fn csv_row(f: &Frame) -> String {
@@ -1929,6 +1986,7 @@ mod tests {
     /// entered (relief and bypass steam at h_g, IC heat, core heat, injection,
     /// oxidation steam) and compare with the vessel's own mass and energy.
     /// Result (2026-10-21): equal to round-off; the bound is 1e-9 relative.
+    /// (The RPV wall's exchange is counted since it landed, 2026-10-29.)
     #[test]
     fn the_vessel_conserves_mass_and_energy() {
         let mut p = Plant::new(Mode::Historical);
@@ -1955,6 +2013,7 @@ mod tests {
             du += (cr.q_fluid_w - d.q_ic_w + w_inj * 4186.0 * (INJECTION_TEMPERATURE_K - 273.15) - steam_out * h_g - h2_out) * DT_S;
             p.finish(cr, kr);
             du -= p.q_internals_w * DT_S;
+            du += p.q_rpv_wall_w * DT_S;
         }
         assert!(((p.m - m0) - dm).abs() <= 1e-9 * m0, "mass {} vs {}", p.m - m0, dm);
         assert!(((p.u - u0) - du).abs() <= 1e-9 * u0.abs(), "energy {} vs {}", p.u - u0, du);
@@ -2061,8 +2120,8 @@ mod tests {
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
         // 0.9911 since candling; 0.9978 since MELCOR's quench; 0.9955
-        // since the head's wet contact.)
-        assert!((k.xe_vented - 0.9955).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // since the head's wet contact; 0.9960 since the RPV wall.)
+        assert!((k.xe_vented - 0.9960).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
