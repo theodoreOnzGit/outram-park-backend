@@ -344,6 +344,11 @@ rust-mqtt = "0.5.1"
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
 serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
+# Worker wire format for the browser demos (gh:#986). JSON cannot carry a
+# non-finite f64 -- it writes NaN as `null`, which will not read back as f64 --
+# and `HtgrSnapshot` uses NaN deliberately, in a dozen fields, to mean "not
+# available". postcard writes the bits, so NaN survives the trip.
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }
 # CSL citation formatting (kovan-literature `csl`, GitHub #789): Typst's CSL
 # engine, MIT OR Apache-2.0, pure Rust. Default features (BibLaTeX input,
 # bundled style archive) off; the items come from our own Zotero import as
@@ -502,6 +507,11 @@ egui_extras = { version = "0.36.1", features = ["all_loaders"] }
 wasm-bindgen = "0.2.127"
 wasm-bindgen-futures = "0.4.77"
 web-sys = "0.3.104"
+# `std::time::Instant` PANICS on wasm32-unknown-unknown ("time not implemented
+# on this platform"), and the GUI's own frame timer calls it every frame. This
+# is the drop-in that reads `performance.now()` there and `Instant` everywhere
+# else. Already in Cargo.lock beneath eframe, so declaring it moves nothing.
+web-time = "1.1"
 js-sys = "0.3.104"
 # In-app file/directory picker widget (pure egui, no GTK/native-dialog
 # backend). 0.15.0 is the first version pinned to egui 0.36.

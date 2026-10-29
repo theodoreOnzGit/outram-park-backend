@@ -126,6 +126,9 @@ thiserror.workspace = true
 # drop out on Android and the crate still `cargo check`s there. Desktop builds
 # are unchanged.
 [target.'cfg(not(target_os = "android"))'.dependencies]
+# The GUI frame timer needs a clock that exists in a browser; see the root
+# Cargo.toml's note on `web-time`.
+web-time.workspace = true
 egui.workspace = true
 eframe.workspace = true
 egui_plot.workspace = true
@@ -309,6 +312,32 @@ path = "examples/ciet_web/main.rs"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { workspace = true }
+# The browser demos' Web Worker plumbing (htgr_sim_v1 on the web, gh:#986).
+# Example-only: the library has no browser face, and a consumer of the crate
+# pays nothing for these.
+wasm-bindgen-futures = { workspace = true }
+js-sys = { workspace = true }
+serde_json = { workspace = true }
+postcard = { workspace = true }
+log = { workspace = true }
+# The mobile-first layer of every OUTRAM PARK browser demo: the side panel
+# that folds (opens folded under 700 px) and its "Controls »" button. Reused,
+# not copied, per dhoby-ghaut's CLAUDE.md ("Build on it; do not copy").
+# wasm32-ONLY on purpose: on wasm dhoby-ghaut is egui + petir, its heavy stack
+# (kovan, nee_soon, NJOY, outram-mc-libs, the foam crates) being gated
+# not(wasm32) in its own Cargo.toml, so this costs the native build and the
+# 290 native htgr tests nothing. No cycle: dhoby-ghaut does not depend on this
+# crate. Licence: both are AGPL-3.0-only, so nothing is inherited that this
+# crate does not already carry.
+# A PATH dependency, not `workspace = true`: dhoby-ghaut is deliberately kept
+# out of the root [workspace.dependencies] (as kovan is) so no crate picks it
+# up by accident, and this follows that boundary rather than widening it.
+dhoby-ghaut = { path = "../dhoby-ghaut" }
+web-sys = { workspace = true, features = [
+  "Window", "Document", "Element", "HtmlCanvasElement",
+  "Worker", "WorkerOptions", "WorkerType", "WorkerGlobalScope",
+  "DedicatedWorkerGlobalScope", "MessageEvent", "Performance",
+] }
 
 # ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────
 # None of this can work in a browser: async-opcua and tokio want sockets,

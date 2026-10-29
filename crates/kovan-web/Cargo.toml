@@ -64,8 +64,15 @@ web-sys = { workspace = true, features = [
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
 eframe = { workspace = true }
 
+# ~~`glow` (WebGL2) is added because WebGPU is still not universal; the app
+# selects it at start-up.~~ **CHANGED 2026-10-27 (maintainer: "get glow out,
+# let's use wgpu only")**: eframe's wgpu, one renderer on every target. The
+# concern glow answered still holds -- WebGPU is not universal -- and wgpu
+# answers it itself: its `webgl` backend (enabled on wasm by eframe's `wgpu`
+# feature; confirmed with `cargo tree -e features -i wgpu`) falls back to
+# WebGL2 where WebGPU is missing. Coverage is unchanged.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-eframe = { workspace = true, features = ["glow"] }
+eframe = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 web-sys = { workspace = true, features = ["Window", "Document", "Element", "HtmlCanvasElement"] }

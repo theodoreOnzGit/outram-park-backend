@@ -222,7 +222,7 @@ highest-uncertainty item (COR) is attempted only once its foundations are real.
 
 | Phase | Content | Depends on | Notes |
 |---|---|---|---|
-| **0** | Architecture decision: a new lumped-parameter crate (working name `outram-park-severe-accident`), deliberately **not** mesh-based, alongside `tampines` | — | Consumes `tampines-steam-tables` + `coolprop` for EOS, `tuas` for CV/FL primitives, `teh-o-prke` for kinetics. |
+| **0** | ~~Architecture decision: a new lumped-parameter crate (working name `outram-park-severe-accident`)~~ **DONE — CORRECTED 2026-10-27 (gh:#1028): the crate exists as [`crates/sembawang`](../crates/sembawang)** (*Severe-accident Evolution and Melt Behaviour Analysis Workbench*), confirmed by the maintainer as the home for this work. Deliberately **not** mesh-based, alongside `tampines`. | — | Consumes `tampines-steam-tables` + `coolprop` for EOS, `tuas` for CV/FL primitives, `teh-o-prke` for kinetics. |
 | **1** | **CVH / FL / HS core** — two-phase multi-component CV EOS, flow-path network momentum solver, heat structures with NCG-degraded condensation | 0 | **The big one.** Roughly TUAS-sized on its own. Everything downstream is blocked on §3.1. |
 | **2** | **DCH + RN inventory & release** — fix `decay_heat.rs`, add ANS-5.1, wire ONIX inventory, CORSOR-Booth release from public correlations | 1 | Cheapest real capability; `boon-lay` already carries Lagrangian FP transport. |
 | **3** | **Aerosol + pool scrubbing** — port AeroSolved's sectional/moment methods, adapt to lumped CVs; SPARC-90 from documentation; iodine chemistry via PHREEQC-style aqueous model | 2 | Verify against PartMC. |

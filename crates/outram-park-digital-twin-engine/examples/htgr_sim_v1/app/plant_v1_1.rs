@@ -104,7 +104,17 @@ const NOMINAL_VESSEL_WIDTH: f32 =
     outram_park_digital_twin_engine::components::htr10_reactor_schematic::LABEL_REFERENCE_VESSEL_WIDTH;
 /// Zoom limits, as drawn vessel width in points. Below the minimum the labels
 /// crowd the artwork; above the maximum the canvas gets unwieldy to pan.
-const MIN_VESSEL_WIDTH: f32 = 120.0;
+///
+/// ~~`MIN_VESSEL_WIDTH = 120`~~ **CHANGED 2026-10-27 (gh:#986)** to 60. At
+/// 120 the plant could not fit a phone: in Chromium at 390 px, Fit stopped
+/// at exactly 120 (the "55 %" readout) with the plant clipped on both
+/// sides, so the reader could not see the whole machine without panning —
+/// and the mobile-first rule requires Reset to *centre and fit*. The labels
+/// do crowd below 120, which is the trade: on a phone the whole plant comes
+/// first and the thumb-sized `+` makes the labels readable, whereas a plant
+/// that will not fit cannot be fixed by the reader at all. On a desktop Fit
+/// never comes near this floor, so only small screens see the change.
+const MIN_VESSEL_WIDTH: f32 = 60.0;
 const MAX_VESSEL_WIDTH: f32 = 1500.0;
 /// Factor one press of the zoom buttons changes the scale by.
 const ZOOM_STEP: f32 = 1.25;
@@ -184,6 +194,35 @@ fn content_layout(plant: egui::Vec2, viewport: egui::Vec2) -> (egui::Vec2, egui:
     (pad + extra, content + 2.0 * extra)
 }
 
+/// The four zoom controls: the desktop row's buttons, and what the browser's
+/// + / − / Reset overlay maps onto (Reset = Fit).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ZoomAction {
+    Out,
+    In,
+    Fit,
+    Nominal,
+}
+
+impl ZoomAction {
+    /// Button text and action, in screen order.
+    const BUTTONS: [(&'static str, ZoomAction); 4] =
+        [(" - ", ZoomAction::Out), (" + ", ZoomAction::In), ("Fit", ZoomAction::Fit), ("100 %", ZoomAction::Nominal)];
+
+    /// Apply to `zoom`, the plant being drawn at vessel width `current`.
+    fn apply(self, zoom: &mut PlantZoom, current: f32) {
+        match self {
+            ZoomAction::Out => zoom.vessel_width = Some(current / ZOOM_STEP),
+            ZoomAction::In => zoom.vessel_width = Some(current * ZOOM_STEP),
+            ZoomAction::Fit => {
+                zoom.vessel_width = None;
+                zoom.recentre_frames = RECENTRE_FRAMES;
+            }
+            ZoomAction::Nominal => zoom.vessel_width = Some(NOMINAL_VESSEL_WIDTH),
+        }
+    }
+}
+
 /// Draw the v1.1 plant from this frame's `snapshot`, with the application's
 /// tracer trains, in a pan-and-zoom viewport.
 ///
@@ -196,6 +235,22 @@ fn content_layout(plant: egui::Vec2, viewport: egui::Vec2) -> (egui::Vec2, egui:
 /// the -/+ buttons, Ctrl + scroll over the drawing, Fit (the whole plant in
 /// view, centred) and 100 %. Labels keep a constant size at every zoom.
 pub fn draw_plant_v1_1(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers) {
+    draw_plant_with(ui, snapshot, tracers, None);
+}
+
+/// The plant's pan-and-zoom viewport over everything `ui` has left, with no
+/// zoom controls of its own: the browser demo draws dhoby-ghaut's + / − /
+/// Reset over it, as every web demo does (2026-10-27, maintainer: "a similar
+/// UI to the htr10 keff demo"), and passes the button pressed last frame as
+/// `action` (Reset is [`ZoomAction::Fit`]).
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+pub fn draw_plant_viewport(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers, action: Option<ZoomAction>) {
+    draw_plant_with(ui, snapshot, tracers, Some(action));
+}
+
+/// `external`: `None` draws the zoom row above the viewport (the desktop);
+/// `Some(action)` leaves the controls to the caller and applies `action`.
+fn draw_plant_with(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &SchematicTracers, external: Option<Option<ZoomAction>>) {
     let zoom_id = ui.id().with("htr10_plant_zoom");
     let mut zoom: PlantZoom = ui.ctx().data(|d| d.get_temp(zoom_id)).unwrap_or_default();
 
@@ -204,25 +259,25 @@ pub fn draw_plant_v1_1(ui: &mut Ui, snapshot: &HtgrSnapshot, tracers: &Schematic
         // Estimated before the controls are drawn, then corrected below.
         fitted_vessel_width(ui.available_size(), zoom.canvas_per_vessel_width)
     });
-    ui.horizontal(|ui| {
-        ui.label("Plant zoom:");
-        if ui.button(" - ").clicked() {
-            zoom.vessel_width = Some(current / ZOOM_STEP);
+    // The desktop's zoom row sits above the viewport; the browser draws its
+    // own buttons over the drawing and hands in what was pressed.
+    match external {
+        None => {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Plant zoom:");
+                for (text, action) in ZoomAction::BUTTONS {
+                    if ui.button(text).clicked() {
+                        action.apply(&mut zoom, current);
+                    }
+                }
+                ui.label(format!("{:.0} %", 100.0 * current / NOMINAL_VESSEL_WIDTH));
+                ui.separator();
+                ui.small("Drag or use the scroll bars to pan; Ctrl + scroll over the plant to zoom.");
+            });
         }
-        if ui.button(" + ").clicked() {
-            zoom.vessel_width = Some(current * ZOOM_STEP);
-        }
-        if ui.button("Fit").clicked() {
-            zoom.vessel_width = None;
-            zoom.recentre_frames = RECENTRE_FRAMES;
-        }
-        if ui.button("100 %").clicked() {
-            zoom.vessel_width = Some(NOMINAL_VESSEL_WIDTH);
-        }
-        ui.label(format!("{:.0} %", 100.0 * current / NOMINAL_VESSEL_WIDTH));
-        ui.separator();
-        ui.small("Drag or use the scroll bars to pan; Ctrl + scroll over the plant to zoom.");
-    });
+        Some(Some(action)) => action.apply(&mut zoom, current),
+        Some(None) => {}
+    }
 
     let viewport = ui.available_size();
     // A resized window re-centres a fitted view; a zoomed one keeps its place.
@@ -420,6 +475,25 @@ fn draw_plant_at(
 mod tests {
     use super::*;
     use egui::Vec2;
+
+    /// Each zoom control does what its label says, from either layout: the
+    /// steps are inverse, Fit hands back to the fit and re-centres, 100 %
+    /// is the nominal width.
+    #[test]
+    fn the_zoom_controls_step_fit_and_reset() {
+        let mut z = PlantZoom::default();
+        ZoomAction::In.apply(&mut z, 200.0);
+        assert_eq!(z.vessel_width, Some(200.0 * ZOOM_STEP));
+        let zoomed_in = z.vessel_width.unwrap();
+        ZoomAction::Out.apply(&mut z, zoomed_in);
+        assert!((z.vessel_width.unwrap() - 200.0).abs() < 1e-4);
+        z.recentre_frames = 0;
+        ZoomAction::Fit.apply(&mut z, 200.0);
+        assert_eq!((z.vessel_width, z.recentre_frames), (None, RECENTRE_FRAMES));
+        ZoomAction::Nominal.apply(&mut z, 77.0);
+        assert_eq!(z.vessel_width, Some(NOMINAL_VESSEL_WIDTH));
+        assert_eq!(ZoomAction::BUTTONS.map(|b| b.1), [ZoomAction::Out, ZoomAction::In, ZoomAction::Fit, ZoomAction::Nominal]);
+    }
 
     /// The feed pump follows the feedwater flow by the affinity law: rated
     /// speed at the published nominal flow, half speed at half flow, stopped

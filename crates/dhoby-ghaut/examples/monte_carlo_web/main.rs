@@ -331,7 +331,7 @@ fn main() {
     }
     let web_options = eframe::WebOptions {
         // WebGL2 rather than WebGPU, which is still not universal.
-        renderer: eframe::Renderer::Glow,
+        renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
     let (rung, mode) = rungs::start(&dhoby_ghaut::web_demo::platform::query_pairs());

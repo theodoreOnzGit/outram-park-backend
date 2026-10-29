@@ -725,6 +725,21 @@ Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/
 
 Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md).
 
+## GUI rendering is wgpu only, never glow (HARD RULE)
+
+**Maintainer direction, 2026-10-27: "refactor glow out completely, just use
+WGPU in all crates at all times … this will be a hard rule for this
+workspace".** Every crate, every target, native and browser:
+
+- **No crate asks for glow**: no `features = ["glow"]` on `eframe` (or
+  anything else), no direct `glow` dependency, no `eframe::Renderer::Glow`.
+  Web demos set `renderer: eframe::Renderer::Wgpu`.
+- **Browser fallback is wgpu's own.** The `glow` crate stays in `Cargo.lock`
+  on wasm32 under `wgpu-hal`: that is how wgpu drives WebGL2 where a browser
+  has no WebGPU. It is not a crate here choosing glow; leave it.
+- **Pinned by** `crates/outram-park-digital-twin-engine/tests/wgpu_only_renderer.rs`,
+  which scans every `Cargo.toml` and `.rs` file and fails on a violation.
+
 ## Portability — three hard build rules (summary)
 
 - **Every non-GUI library must compile on Android/Termux**

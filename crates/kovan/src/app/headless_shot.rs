@@ -7,7 +7,7 @@
 //! colours interpolated barycentrically, premultiplied-alpha "over"
 //! blending in sRGB space (as egui's own renderers blend), the clip
 //! rectangle honoured, one pixel per point. It is a faithful picture of the
-//! layout and the text, not a pixel match of the glow/wgpu backends.
+//! layout and the text, not a pixel match of the wgpu backend.
 
 use std::collections::HashMap;
 use std::path::Path;

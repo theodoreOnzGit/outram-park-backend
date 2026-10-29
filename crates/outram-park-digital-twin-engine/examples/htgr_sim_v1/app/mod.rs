@@ -143,7 +143,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
 use outram_park_digital_twin_engine::app_scaffold::{
-    panel_selector_ui, show_crash_modal_with_restart, spawn_physics_thread_monitored,
+    panel_selector_compact, panel_selector_ui, show_crash_modal_with_restart, spawn_physics_thread_monitored,
     CrashModalOutcome, RealTimePacer, SharedState, ThreadHealth,
 };
 use outram_park_digital_twin_engine::components::LegendUnit;
@@ -321,6 +321,16 @@ pub struct HtgrSimApp {
     /// The plant clock's current rate, measured between snapshots, which sets
     /// how fast the tracers advance per frame -- see [`PlantClockRate`].
     plant_clock_rate: PlantClockRate,
+    /// The browser demo's controls panel: `dhoby_ghaut::web_demo`'s folding
+    /// side panel, which opens **folded on a screen under 700 px** and puts a
+    /// "Controls »" button on the main view (the mobile-first HARD RULE).
+    /// The desktop build keeps its always-open right-hand panel; a phone only
+    /// ever runs the browser build.
+    #[cfg(target_arch = "wasm32")]
+    web_panel: dhoby_ghaut::web_demo::panel::Panel,
+    /// The browser's + / − / Reset pressed last frame, for the plant viewport.
+    #[cfg(target_arch = "wasm32")]
+    web_zoom: Option<plant_v1_1::ZoomAction>,
     /// The Map tab's own retained state: the `chi/Q` field texture and the
     /// key it was built for.
     ///
@@ -393,6 +403,7 @@ struct SimulationRun {
 /// returns from its loop at the next iteration, and the old `Arc`s are freed
 /// when the last of them drops its handle, so blocking the GUI thread on a join
 /// would buy nothing but a stutter.
+#[cfg(not(target_arch = "wasm32"))]
 fn start_simulation() -> SimulationRun {
     let physics = SharedState::new(HtgrSnapshot::default());
     let plots = SharedState::new(HtgrPlotData::default());
@@ -502,7 +513,8 @@ fn start_simulation() -> SimulationRun {
             // one -- when the work already used the budget up.
             pacer
                 .set_simulated_per_tick(Time::new::<second>(steps_this_tick as f64 * PHYSICS_DT_S));
-            let pacing = pacer.pace(tick_start.elapsed(), loop_start.elapsed());
+            let compute = tick_start.elapsed();
+            let pacing = pacer.pace(compute, loop_start.elapsed());
             state.update(|s| {
                 plant.write_snapshot(s);
                 s.external_reactivity_dollars = rho;
@@ -512,6 +524,8 @@ fn start_simulation() -> SimulationRun {
                 s.real_time_ratio = pacer.measured_real_time_ratio();
                 s.real_time_deficit_s = pacer.real_time_deficit().as_secs_f64();
                 s.behind_real_time = pacer.is_behind_real_time();
+                s.tick_compute_s = compute.as_secs_f64();
+                s.tick_simulated_s = steps_this_tick as f64 * PHYSICS_DT_S;
             });
             thread::sleep(pacing.sleep_for);
         },
@@ -536,6 +550,39 @@ fn start_simulation() -> SimulationRun {
         physics,
         plots,
         thread_health,
+    }
+}
+
+/// The browser's `start_simulation`: the same shared state, and **no thread**.
+///
+/// `wasm32` has no `std::thread`, and the no-lag rule forbids stepping the
+/// plant on the thread that draws. So the browser demo runs the physics in a
+/// **Web Worker** running this same wasm module, and the worker posts each
+/// snapshot to the page, which writes it into exactly the shared state the
+/// physics thread would have written natively. Every widget downstream is
+/// untouched and cannot tell the difference.
+///
+/// The pacing, the substeps and the plot sampling move to the worker with the
+/// loop; `runtime.rs` was already written to own none of them, which is what
+/// makes this possible without touching the model.
+#[cfg(target_arch = "wasm32")]
+fn start_simulation() -> SimulationRun {
+    SimulationRun {
+        physics: SharedState::new(HtgrSnapshot::default()),
+        plots: SharedState::new(HtgrPlotData::default()),
+        thread_health: ThreadHealth::new(),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl HtgrSimApp {
+    /// The shared plant state the Web Worker's snapshots are written into.
+    pub fn physics_handle(&self) -> SharedState<HtgrSnapshot> {
+        self.physics.clone()
+    }
+    /// The shared plot buffers the worker's samples are written into.
+    pub fn plots_handle(&self) -> SharedState<HtgrPlotData> {
+        self.plots.clone()
     }
 }
 
@@ -566,6 +613,10 @@ impl HtgrSimApp {
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             plant_clock_rate: PlantClockRate::default(),
+            #[cfg(target_arch = "wasm32")]
+            web_panel: dhoby_ghaut::web_demo::panel::Panel::default(),
+            #[cfg(target_arch = "wasm32")]
+            web_zoom: None,
         }
     }
 
@@ -694,6 +745,47 @@ impl PlantClockRate {
     }
 }
 
+/// Below this width the browser build folds the controls and shortens the
+/// title. dhoby-ghaut's panel uses the same 700 px, so the two agree.
+const NARROW_PX: f32 = 700.0;
+/// Height kept clear at the top of the main view for "Controls »" (44 px
+/// button + 8 px inset), matching every dhoby-ghaut demo.
+#[cfg(target_arch = "wasm32")]
+const REOPEN_ROW_PX: f32 = 52.0;
+
+impl HtgrSimApp {
+    /// The controls panel's body: the reactor controls, or on the plots tab
+    /// the choice of controls and CSV. Shared by the desktop's right-hand
+    /// panel and the browser's folding one, so the two cannot drift.
+    fn draw_side_controls(&mut self, ui: &mut egui::Ui, snapshot: &HtgrSnapshot, plots: &HtgrPlotData) {
+        if self.open_panel == Panel::Plots {
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.plots_side_panel,
+                    panels::PlotsSidePanel::ReactorControls,
+                    "Controls",
+                );
+                ui.selectable_value(&mut self.plots_side_panel, panels::PlotsSidePanel::Csv, "CSV");
+            });
+            ui.separator();
+            match self.plots_side_panel {
+                panels::PlotsSidePanel::ReactorControls => {
+                    scrollable_controls(ui, |ui| {
+                        draw_controls(ui, &self.physics, snapshot, &mut self.display_unit)
+                    });
+                }
+                panels::PlotsSidePanel::Csv => {
+                    draw_plots_csv_panel(ui, &mut self.plots_csv_panel, plots);
+                }
+            }
+        } else {
+            scrollable_controls(ui, |ui| {
+                draw_controls(ui, &self.physics, snapshot, &mut self.display_unit)
+            });
+        }
+    }
+}
+
 impl eframe::App for HtgrSimApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // If a physics/plot thread panicked, show the crash modal and stop --
@@ -733,17 +825,41 @@ impl eframe::App for HtgrSimApp {
         self.tracers
             .advance(Time::new::<second>(frame_dt * rate), &snapshot);
 
-        egui::Panel::top("htgr_top").show(ui, |ui| {
-            ui.heading(
-                "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
-            );
-            ui.horizontal(|ui| {
-                egui::global_theme_preference_buttons(ui);
-                ui.separator();
-                panel_selector_ui(ui, &mut self.open_panel);
+        // A phone gets a short title and a tab row that wraps: the full title
+        // wrapped onto a dozen lines at 390 px and the tab row ran off the
+        // right edge, so the plant started below the fold (seen in Chromium
+        // at phone width, gh:#986). The desktop keeps the full title.
+        //
+        // CHANGED 2026-10-27 (maintainer: "Can we have a similar UI to the
+        // htr10 keff demo"): the BROWSER build has no top bar at all, like
+        // dhoby-ghaut's Monte Carlo demo. The title, theme and tabs are at the
+        // top of the folding side panel, and the Plant tab is the drawing edge
+        // to edge with "Controls »" and + / − / Reset over it (below). (An
+        // intermediate one-row phone top bar, earlier the same day, is kept
+        // for a narrow desktop window only.)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let narrow = ui.max_rect().width() < NARROW_PX;
+            egui::Panel::top("htgr_top").show(ui, |ui| {
+                if narrow {
+                    ui.horizontal(|ui| {
+                        panel_selector_compact(ui, &mut self.open_panel);
+                        egui::global_theme_preference_switch(ui);
+                    });
+                    ui.small("HTGR Simulator v1.1 · offline demonstration, not validated");
+                } else {
+                    ui.heading(
+                        "HTGR Educational Simulator v1.1 -- demo, not validated (OUTRAM PARK digital-twin engine)",
+                    );
+                    ui.horizontal_wrapped(|ui| {
+                        egui::global_theme_preference_buttons(ui);
+                        ui.separator();
+                        panel_selector_ui(ui, &mut self.open_panel);
+                    });
+                    ui.separator();
+                }
             });
-            ui.separator();
-        });
+        }
 
         // Snapshotted once, up front, and shared by both the right panel
         // (when Panel::Plots + PlotsSidePanel::Csv) and the central panel
@@ -752,37 +868,35 @@ impl eframe::App for HtgrSimApp {
         // places at once.
         let plots = self.plots.snapshot();
 
+        // The controls. Desktop: the always-open right-hand panel it has
+        // always had. Browser: dhoby-ghaut's folding panel, folded under
+        // 700 px, so a phone opens on the plant rather than on a wall of
+        // sliders (which is what the first browser build showed at 390 px).
+        // The body is the same function either way.
+        #[cfg(not(target_arch = "wasm32"))]
         egui::Panel::right("htgr_controls").show(ui, |ui| {
-            if self.open_panel == Panel::Plots {
-                ui.horizontal(|ui| {
-                    ui.selectable_value(
-                        &mut self.plots_side_panel,
-                        panels::PlotsSidePanel::ReactorControls,
-                        "Controls",
-                    );
-                    ui.selectable_value(
-                        &mut self.plots_side_panel,
-                        panels::PlotsSidePanel::Csv,
-                        "CSV",
-                    );
-                });
-                ui.separator();
-                match self.plots_side_panel {
-                    panels::PlotsSidePanel::ReactorControls => {
-                        scrollable_controls(ui, |ui| {
-                            draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit)
-                        });
-                    }
-                    panels::PlotsSidePanel::Csv => {
-                        draw_plots_csv_panel(ui, &mut self.plots_csv_panel, &plots);
-                    }
-                }
-            } else {
-                scrollable_controls(ui, |ui| {
-                    draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit)
-                });
-            }
+            self.draw_side_controls(ui, &snapshot, &plots);
         });
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Taken out for the call so the closure can borrow the rest of
+            // `self`; put straight back.
+            let mut panel = std::mem::take(&mut self.web_panel);
+            // The panel heading names the demo, as the Monte Carlo demo's
+            // names its rung: `draw_controls` already heads its own section
+            // "Controls", and passing that here drew it twice.
+            panel.show(ui, "HTGR Simulator v1.1", |ui| {
+                // What the desktop's top bar holds, at the top of the panel,
+                // as the Monte Carlo demo puts its rung and mode pickers.
+                ui.small("Offline demonstration, not validated");
+                egui::global_theme_preference_buttons(ui);
+                ui.separator();
+                panel_selector_ui(ui, &mut self.open_panel);
+                ui.separator();
+                self.draw_side_controls(ui, &snapshot, &plots);
+            });
+            self.web_panel = panel;
+        }
 
         // Copied out before the closures below borrow `self` -- the unit is a
         // `Copy` display setting, so the panels take it by value.
@@ -790,7 +904,57 @@ impl eframe::App for HtgrSimApp {
         // What the Map tab asked for this frame, acted on after the panel
         // closure releases its borrow of `self` (gh:#400).
         let mut map_action = map_tab::MapAction::None;
-        egui::CentralPanel::default().show(ui, |ui| {
+        // The browser's Plant tab is drawn edge to edge, with no panel margin.
+        #[cfg(target_arch = "wasm32")]
+        let central = if self.open_panel == Panel::Schematic {
+            egui::CentralPanel::default().frame(egui::Frame::NONE.fill(ui.visuals().panel_fill))
+        } else {
+            egui::CentralPanel::default()
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        let central = egui::CentralPanel::default();
+        central.show(ui, |ui| {
+            // The browser's Plant tab, as the Monte Carlo demo's main view:
+            // the plant fills the view; "Controls »" top left, the live
+            // peak-fuel readout under it, + / − / Reset top right.
+            #[cfg(target_arch = "wasm32")]
+            if self.open_panel == Panel::Schematic {
+                let rect = ui.max_rect();
+                plant_v1_1::draw_plant_viewport(ui, &snapshot, &self.tracers, self.web_zoom.take());
+                let top = if self.web_panel.open { 10.0 } else { 62.0 };
+                let text = format!(
+                    "Peak fuel, live  {}",
+                    panels::peak_fuel_text(display_unit, snapshot.peak_kernel_temperature_k)
+                );
+                let painter = ui.painter_at(rect);
+                let galley = painter.layout_no_wrap(text, egui::FontId::proportional(16.0), egui::Color32::from_rgb(230, 130, 50));
+                let at = rect.left_top() + egui::vec2(10.0, top);
+                painter.rect_filled(
+                    egui::Rect::from_min_size(at, galley.size()).expand(5.0),
+                    4.0,
+                    ui.visuals().extreme_bg_color.gamma_multiply(0.85),
+                );
+                painter.galley(at, galley, egui::Color32::WHITE);
+                self.web_panel.reopen_button(ui, rect);
+                if let Some(z) = dhoby_ghaut::web_demo::view::zoom_buttons(ui, rect) {
+                    use dhoby_ghaut::web_demo::view::Zoom;
+                    self.web_zoom = Some(match z {
+                        Zoom::In => plant_v1_1::ZoomAction::In,
+                        Zoom::Out => plant_v1_1::ZoomAction::Out,
+                        Zoom::Reset => plant_v1_1::ZoomAction::Fit,
+                    });
+                    ui.ctx().request_repaint();
+                }
+                return;
+            }
+            // Folded: keep the row the "Controls »" button sits in clear, as
+            // every dhoby-ghaut demo does, and draw the button.
+            #[cfg(target_arch = "wasm32")]
+            if !self.web_panel.open {
+                let rect = ui.max_rect();
+                self.web_panel.reopen_button(ui, rect);
+                ui.add_space(REOPEN_ROW_PX);
+            }
             // The schematic tab brings its own pan-and-zoom viewport, so it is
             // kept out of the outer scroll area (nesting two two-axis scroll
             // areas would leave the inner one unbounded).
@@ -1204,5 +1368,206 @@ mod tests {
     fn the_gui_substep_matches_the_tested_substep() {
         assert!((PHYSICS_DT_S - crate::physics::PLANT_TIMESTEP_S).abs() < 1e-12);
         assert!((PHYSICS_DT_S - 0.1).abs() < 1e-12);
+    }
+}
+
+// ─── The browser demo's physics, for the Web Worker (gh:#986) ───────────────
+
+/// The physics loop of [`start_simulation`], without the thread.
+///
+/// Natively the plant is stepped by `spawn_physics_thread_monitored`, which
+/// owns a thread, an `Instant` clock and a `thread::sleep`. A browser has
+/// none of those: `wasm32` has no `std::thread`, `Instant` panics, and the
+/// no-lag rule forbids stepping the plant on the thread that draws. So the
+/// browser demo puts this in a **Web Worker** and lets JavaScript own the
+/// clock — `setTimeout` paces the ticks, exactly the split `runtime.rs` was
+/// written for ("it does not own a thread, a clock, a pacing policy or a
+/// substep count").
+///
+/// **This is the same plant and the same step.** It is not a reduced model:
+/// `HtgrPlant::step` is called with the same `dt` and the same commands the
+/// desktop simulator uses, and the snapshot it publishes is the one every
+/// widget already reads. What is missing is the pacer's wall-clock feedback,
+/// which the caller supplies as a measured tick length instead.
+#[cfg(target_arch = "wasm32")]
+pub struct WebPhysics {
+    plant: HtgrPlant,
+    state: HtgrSnapshot,
+    plots: HtgrPlotData,
+    /// The desktop's pacer, fed the worker's measured times: the same
+    /// deadline arithmetic, ratio and deficit as natively.
+    pacer: RealTimePacer,
+    /// Steps the last [`Self::tick`] took (1, or the fast-forward burst).
+    last_steps: usize,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Default for WebPhysics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WebPhysics {
+    /// A fresh plant at its default operating point, with the Map tab's live
+    /// field enabled (as the GUI path does natively).
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            plant: HtgrPlant::new().with_live_map_field(),
+            state: HtgrSnapshot::default(),
+            plots: HtgrPlotData::default(),
+            pacer: RealTimePacer::new(plant_time_per_tick(), PHYSICS_TICK),
+            last_steps: SUBSTEPS_PER_TICK,
+        }
+    }
+
+    /// Adopt the page's control inputs.
+    ///
+    /// The page sends the whole [`HtgrSnapshot`], as the native GUI *writes*
+    /// the whole shared snapshot: the control fields are the page's to set
+    /// and every output field is overwritten by [`Self::tick`] before the
+    /// next message goes back, so adopting it wholesale reproduces the
+    /// native "one shared snapshot, two writers" arrangement rather than
+    /// requiring this code to keep a hand-maintained list of which fields
+    /// belong to whom — a list that would rot the first time a control was
+    /// added.
+    pub fn apply_page_state(&mut self, bytes: &[u8]) -> Result<(), String> {
+        let wire: Wire = postcard::from_bytes(bytes).map_err(|e| e.to_string())?;
+        self.state = wire.snap;
+        Ok(())
+    }
+
+    /// One tick: the body of the native physics closure, without the
+    /// pacing, which the worker asks [`Self::pace`] for once it has timed
+    /// this call.
+    pub fn tick(&mut self) {
+        let dt = Time::new::<second>(PHYSICS_DT_S);
+        let commands = plant_commands_from(&self.state);
+        let (reset_requested, rps_enabled, fast_forward) = (
+            self.state.trip_reset_requested,
+            self.state.rps_enabled,
+            self.state.fast_forward_enabled,
+        );
+
+        if self.plant.protection.is_enabled() != rps_enabled {
+            self.plant.protection.set_enabled(rps_enabled);
+        }
+        if reset_requested {
+            self.plant.protection.reset();
+            self.state.trip_reset_requested = false;
+        }
+        if self.state.peak_fuel_reset_requested {
+            self.plant.reset_peak_fuel_to_current();
+            self.state.peak_fuel_reset_requested = false;
+        }
+
+        // Fast-forward removes the pacing sleep, never grows `dt` and never
+        // skips a step, exactly as natively. The browser's budget is the
+        // worker's tick, so the burst is a fixed multiple rather than a
+        // wall-clock race the worker cannot time precisely.
+        let steps_this_tick = if fast_forward {
+            const WEB_FAST_FORWARD_STEPS: usize = 20;
+            for _ in 0..WEB_FAST_FORWARD_STEPS {
+                self.plant.step(dt, commands);
+            }
+            WEB_FAST_FORWARD_STEPS
+        } else {
+            for _ in 0..SUBSTEPS_PER_TICK {
+                self.plant.step(dt, commands);
+            }
+            SUBSTEPS_PER_TICK
+        };
+
+        let rho = self
+            .plant
+            .external_reactivity_dollars(commands.control_rod_insertion_fraction);
+        let achieved_feed_flow = self
+            .plant
+            .secondary
+            .mass_flow()
+            .get::<kilogram_per_second>();
+
+        self.plant.write_snapshot(&mut self.state);
+        self.state.external_reactivity_dollars = rho;
+        if !self.state.feedwater_manual {
+            self.state.feedwater_manual_flow_kg_per_s = achieved_feed_flow;
+        }
+        self.last_steps = steps_this_tick;
+        self.plots.push_sample(&self.state);
+    }
+
+    /// Pace the tick just taken, as the native loop does, and return how long
+    /// the worker should wait before the next one, ms.
+    ///
+    /// `compute_ms` is how long [`Self::tick`] took; `wall_ms` is wall clock
+    /// since the worker started. CHANGED 2026-10-27: the worker used to wait
+    /// a fixed 100 ms AFTER each 0.1 s step, so a tick cost 100 ms plus its
+    /// work and the plant could never reach real time however fast the step
+    /// was (the maintainer saw it running slow). This is the desktop's
+    /// deadline instead: sleep what is left of the 100 ms, or catch up.
+    pub fn pace(&mut self, compute_ms: f64, wall_ms: f64) -> f64 {
+        let dur = |ms: f64| std::time::Duration::from_secs_f64((ms.max(0.0)) / 1000.0);
+        let simulated_s = self.last_steps as f64 * PHYSICS_DT_S;
+        self.pacer.set_simulated_per_tick(Time::new::<second>(simulated_s));
+        let pacing = self.pacer.pace(dur(compute_ms), dur(wall_ms));
+        self.state.real_time_ratio = self.pacer.measured_real_time_ratio();
+        self.state.real_time_deficit_s = self.pacer.real_time_deficit().as_secs_f64();
+        self.state.behind_real_time = self.pacer.is_behind_real_time();
+        self.state.tick_compute_s = compute_ms / 1000.0;
+        self.state.tick_simulated_s = simulated_s;
+        pacing.sleep_for.as_secs_f64() * 1000.0
+    }
+
+    /// The plant snapshot, for the page, as postcard bytes.
+    ///
+    /// The plot buffers are **not** sent: the page rebuilds them from the
+    /// snapshots it receives, with the same `push_sample` the native
+    /// plot-sampler thread uses, so sending them would be sending the same
+    /// numbers twice.
+    #[must_use]
+    pub fn to_wire(&self) -> Vec<u8> {
+        postcard::to_allocvec(&Wire::from_snapshot(&self.state)).unwrap_or_default()
+    }
+}
+
+/// What crosses the worker boundary, in both directions.
+///
+/// [`HtgrSnapshot`] plus the two `&'static str` fields that cannot travel
+/// inside it. serde can serialise a `&'static str` but not deserialise one,
+/// and giving those fields an owned type would cost `Copy` on the arrays
+/// holding them, which the desktop simulator relies on — so they are
+/// `serde(skip)`ped there and carried here as owned strings instead.
+///
+/// **The format is postcard, not JSON, and that is not a preference.**
+/// `HtgrSnapshot` uses `f64::NAN` deliberately in a dozen fields to mean
+/// "not available" — peak kernel before the first evaluation, the DLOFC and
+/// water-ingress readouts before those accidents run. JSON has no NaN: it
+/// writes `null`, which will not read back into an `f64`, so the first
+/// message would be rejected and every control would stop working. postcard
+/// writes the bits, so a NaN arrives as a NaN and the readouts still say
+/// "unavailable" rather than lying with a number.
+#[cfg(target_arch = "wasm32")]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Wire {
+    /// The plant, minus the two string fields.
+    pub snap: HtgrSnapshot,
+    /// [`HtgrSnapshot::stability_class`].
+    pub stability_class: String,
+    /// One per tracked nuclide, in `release` order.
+    pub nuclide_names: Vec<String>,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Wire {
+    /// Lift a snapshot onto the wire, copying the two string fields out.
+    #[must_use]
+    pub fn from_snapshot(s: &HtgrSnapshot) -> Self {
+        Self {
+            snap: s.clone(),
+            stability_class: s.stability_class.to_owned(),
+            nuclide_names: s.release.iter().map(|r| r.name.to_owned()).collect(),
+        }
     }
 }

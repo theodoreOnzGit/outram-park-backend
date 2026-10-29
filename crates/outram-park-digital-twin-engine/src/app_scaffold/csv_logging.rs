@@ -47,7 +47,11 @@
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+// `web_time::Instant`, not `std`'s: the std one panics on wasm32-unknown-unknown
+// ("time not implemented on this platform"), which took the browser demo down.
+// Identical to `std` off the web.
+use std::time::Duration;
+use web_time::Instant;
 
 /// Things that can go wrong creating or writing a [`CsvLogger`]'s file.
 ///

@@ -97,6 +97,7 @@ mod porous_core;
 mod spatial;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod spatial_draw;
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod meshing;
 #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 mod mgxs_run;

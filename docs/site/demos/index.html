@@ -29,6 +29,7 @@
       <a class="chip" href="#particle-fuel">Particle &amp; fuel physics</a>
       <a class="chip" href="#dispersion">Dispersion</a>
       <a class="chip" href="#multiphysics">Multiphysics</a>
+      <a class="chip" href="#plant-simulators">Plant simulators</a>
     </div>
   </nav>
 
@@ -80,7 +81,7 @@
 
   <section class="lib" id="thermal-hydraulics">
     <h2>Thermal hydraulics</h2>
-    <p>The CIET loop, computed by the CIET Educational Simulator v2's own physics (<code>tuas_boussinesq_solver</code>) on three background workers, in real time. More thermal-hydraulics and GeN-Foam demos are tracked in <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/891">#891</a>, and the HTGR plant simulator's browser build in <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/149">#149</a>.</p>
+    <p>The CIET loop, computed by the CIET Educational Simulator v2's own physics (<code>tuas_boussinesq_solver</code>) on three background workers, in real time. More thermal-hydraulics and GeN-Foam demos are tracked in <a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/891">#891</a>. Whole-plant transients are under <a href="#plant-simulators">Plant simulators</a>.</p>
     <div class="chips">
       <a class="demo" href="ciet/" data-kind="demo" data-terms="CIET Compact Integral Effects Test natural circulation DRACS DHX CTAH TCHX heater Dowtherm FHR real time educational simulator">CIET loop (educational simulator)</a>
     </div>
@@ -127,6 +128,15 @@
       <a class="demo" href="triso-atops/?rung=source-term" data-kind="demo" data-terms="source term fission products">Into the source term</a>
       <a class="demo" href="dispersion/?rung=capstone" data-kind="demo" data-terms="HTR-10 air ingress bounding dose capstone">HTR-10 air ingress, to dose</a>
       <a class="demo" href="monte-carlo/?rung=htr10" data-kind="demo" data-terms="HTR-10 core neutronics pebble bed">HTR-10 core</a>
+    </div>
+  </section>
+
+  <section class="lib" id="plant-simulators">
+    <h2>Plant simulators</h2>
+    <p>Whole plants in transient, with the physics on background workers so the page stays responsive. Both are password-protected (ask the maintainer); the password keeps casual visitors out and is not security. AI drafts, not validated (<a href="https://github.com/theodoreOnzGit/outram-park-backend/issues/986">#986</a>).</p>
+    <div class="chips">
+      <a class="demo" href="htgr/" data-kind="demo" data-terms="HTGR HTR-10 pebble bed plant simulator real time steam generator decay heat source term">HTGR plant simulator (HTR-10)</a>
+      <a class="demo" href="fukushima/" data-kind="demo" data-terms="Fukushima Daiichi Unit 1 BWR Mark I station blackout isolation condenser core damage hydrogen venting torus wetwell">Fukushima Daiichi Unit 1 station blackout</a>
     </div>
   </section>
 

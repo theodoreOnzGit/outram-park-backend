@@ -37,7 +37,12 @@
 //!
 //! A layer of zirconia (ZrO2) therefore grows on the outer surface over the
 //! rod's four-to-six-year life. It is not a cosmetic effect; it matters for
-//! three separate reasons, and this module computes all three.
+//! ~~three separate reasons, and this module computes all three.~~
+//! **CORRECTED 2026-10-27 — four, and the fourth was added here, not ported:**
+//! upstream OFFBEAT computes the first three, which are the ones that matter
+//! to a fuel-performance calculation at operating temperature. The reaction's
+//! own **heat** (reason 4) is negligible there and dominant in an accident, so
+//! this port adds it; see [`exotherm`].
 //!
 //! 1. **The oxide is a thermal insulator.** ZrO2 conducts about 2 W/(m·K)
 //!    against Zircaloy's ~15 W/(m·K), so every micron of oxide adds thermal
@@ -56,6 +61,13 @@
 //!    zirconium hydride platelets. Hydrides are brittle, so hydrogen pickup is
 //!    the mechanism by which corrosion turns into a **cladding-failure**
 //!    problem rather than merely a heat-transfer one. See [`hydrogen`].
+//! 4. **The reaction releases heat** — 6.76 MJ per kg of zirconium consumed.
+//!    At 600 K that is 3.8e-9 of a rod's decay heat and rightly ignored; by
+//!    1500 K it is 2.25 times it, and because the rate rises with temperature
+//!    and the heat raises the temperature, it runs away. This is the term that
+//!    turns a loss of cooling into a melt, and the reason this module is of
+//!    any use outside normal operation. **Not from upstream** — see
+//!    [`exotherm`] for why upstream is right not to have it.
 //!
 //! # Sub-transition and post-transition kinetics
 //!
@@ -169,6 +181,7 @@
 //! [`AccelerationScheme`]: acceleration::AccelerationScheme
 
 pub mod acceleration;
+pub mod exotherm;
 pub mod hydrogen;
 pub mod kinetics;
 pub mod model;
