@@ -142,6 +142,16 @@ fn the_model_against_the_digitised_bsaf_figures() {
 /// imposing a variable-area containment leak from 50 h (NEA No. 7525,
 /// p.19); that leak, and the injection that bypasses the core, are F12,
 /// and imposing an area to follow the curve would be fitting it.
+///
+/// **A defect underneath, found 2026-10-29 (gh:#1047 work):** the wetwell's
+/// pressure went NaN at 73.48 h. The vent had taken all of its
+/// non-condensable gas, and the vent's share `n / n_g` was then 0/0.
+/// Guarded since, with no change to these numbers: by then the
+/// pool, at 466 K, held the wetwell at its steam pressure (about 1.4 MPa),
+/// level with the drywell, so no downcomer would have flowed either way. A
+/// pool that hot under a vented wetwell is itself a gap: with no
+/// non-condensable left, the vent carries no steam, because its steam is
+/// tied to the gas it carries (gh:#1053, with F12).
 #[test]
 fn the_model_beyond_its_window_against_fig_2_3a() {
     let m = histories(Mechanisms::default(), Params::default(), 600.0, 500.0 * 3600.0);

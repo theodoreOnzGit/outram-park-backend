@@ -123,7 +123,7 @@ impl Pool {
         pool.depth_m = head_pa / (pool.rho_l() * G);
         pool
     }
-    fn rho_l(&self) -> f64 {
+    pub(crate) fn rho_l(&self) -> f64 {
         let t = ThermodynamicTemperature::new::<kelvin>(self.t_k.min(640.0));
         let p = Pressure::new::<pascal>(self.p_surface_pa.max(p_sat_pa(self.t_k.min(640.0)) * 1.0001));
         1.0 / v_tp_1(t, p).get::<cubic_meter_per_kilogram>()

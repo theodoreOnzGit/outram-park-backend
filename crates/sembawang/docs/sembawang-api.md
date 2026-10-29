@@ -4030,6 +4030,7 @@ pub struct ContainmentSnapshot {
     pub scrubbing_saturation: bool,
     pub swarm_scrubbing: bool,
     pub sectional_classes: bool,
+    pub iodine_partition: bool,
     pub prm: Params,
 }
 ```
@@ -4062,6 +4063,7 @@ pub struct ContainmentSnapshot {
 | `scrubbing_saturation` | `bool` | MELCOR's `X_o` in that scrubbing, and the impaction and swarm-rise<br>factors past the downcomers (`Mechanisms::scrubbing_saturation`,<br>`Mechanisms::swarm_scrubbing`). |
 | `swarm_scrubbing` | `bool` |  |
 | `sectional_classes` | `bool` | Fission-product classes on the aerosol tracked by section<br>(`Mechanisms::sectional_classes`). |
+| `iodine_partition` | `bool` | The iodine partition limit on the condensation scrubbing<br>(`Mechanisms::iodine_partition`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -5819,6 +5821,262 @@ pub struct DomeInternals {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+## Module `iodine`
+
+Iodine in the suppression pool: SPARC-90's equilibrium chemistry and
+the partition limit on its scrubbing, as MELCOR describes them (gh:#1047;
+no source used; MELCOR 2.2 Vol. 2, SAND2023-10994 O, RN §2.7.1,
+Appendix D Eq D-7 and Appendix F).
+
+The pool's dissolved iodine is in fast equilibrium among five reactions
+(Eq F.6):
+
+```text
+I2(g)          <-> I2(aq)             [I2aq] = K1 [I2g]
+I2(aq) + I-    <-> I3-                [I3-] = K2 [I2aq][I-]
+I2(aq) + H2O   <-> H+ + I- + HIO      [H+][I-][HIO] = K3 [I2aq]
+I2(aq) + H2O   <-> H2OI+ + I-         [H2OI+][I-] = K4 [I2aq]
+H2O            <-> H+ + OH-           [H+][OH-] = K5
+```
+
+with the total (Eq F.3, as I2 equivalents) `S = 0.5[I-] + 1.5[I3-] +
+[I2aq] + 0.5[HIO] + 0.5[H2OI+]` and the charge balance (Eq F.15)
+`([I-] - [I-]_p) + [I3-] - [H2OI+] - [HIO] = 0`. Here `[I-]_p` is the
+iodide of dissolved CsI and `[OH-]_p` the hydroxide of dissolved CsOH.
+The pool's partition coefficient for I2 is then `H = K1 S / [I2aq]`
+(Eq F.5).
+
+**The proton balance is derived here, not copied.** From F.16, `[HIO] =
+a / [H+]` with `a = K3 [I2aq] / [I-]`; put into F.18, `[H+]^2 -
+([HIO] - [OH-]_p)[H+] - K5 = 0`, it gives `[H+]^2 + [OH-]_p [H+] -
+(a + K5) = 0`. That is the content of the manual's F.19 to F.21, whose
+printed form did not survive extraction.
+
+**The equilibrium constants' forms are inferred.** The manual lists
+C7159's coefficients and their units (`moles^-1`, `K`, `K^2`) but not
+the functions. `K_i = a_i exp(b_i / T)`, and for water `K5 = a exp(b/T +
+c/T^2)`, reproduce the textbook values at 298 K (the test): K1 = 83.6
+(I2's water-to-gas ratio, about 80 to 90), K2 = 769 (I3- formation,
+about 700 to 770), K3 = 4.0e-13 (I2 hydrolysis, about 5e-13), and Kw =
+1.0e-14 (pKw 14.0).
+
+**Where it acts.** MELCOR limits the condensation scrubbing of iodine
+vapour by the partition (Eq D-7):
+
+```text
+DF_EC,vap = 1 + min(H rho_v / rho_l, 1) (DF_EC - 1)
+```
+
+The condensate cannot hold more iodine than the partition allows. And it
+stops vapour scrubbing altogether when the pool's own iodine, over H,
+exceeds the entering gas's (RN §2.7.1).
+
+```rust
+pub mod iodine { /* ... */ }
+```
+
+### Types
+
+#### Struct `Equilibrium`
+
+The equilibrium species, mol/L.
+
+```rust
+pub struct Equilibrium {
+    pub i2_aq: f64,
+    pub iodide: f64,
+    pub hio: f64,
+    pub h_plus: f64,
+    pub tri_iodide: f64,
+    pub h2oi: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `i2_aq` | `f64` |  |
+| `iodide` | `f64` |  |
+| `hio` | `f64` |  |
+| `h_plus` | `f64` |  |
+| `tri_iodide` | `f64` |  |
+| `h2oi` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `constants`
+
+The five equilibrium constants at `t_k` (C7159, forms inferred; see the
+module doc): K1 dimensionless, K2 L/mol, K3 mol^2/L^2, K4 mol/L, K5
+mol^2/L^2.
+
+```rust
+pub fn constants(t_k: f64) -> [f64; 5] { /* ... */ }
+```
+
+#### Function `equilibrium`
+
+The pool's equilibrium for a total dissolved iodine `s` (mol of I2
+equivalents per litre, Eq F.3), CsOH hydroxide `oh_p` and CsI iodide
+`i_p` (mol/L), at `t_k`. Solved as the manual does: for an assumed
+`[I2aq]`, the charge balance gives `[I-]`; `[I2aq]` is then adjusted
+until the total matches (both by bisection, every function monotone).
+
+```rust
+pub fn equilibrium(t_k: f64, s: f64, oh_p: f64, i_p: f64) -> Equilibrium { /* ... */ }
+```
+
+#### Function `partition`
+
+The pool's partition coefficient for I2, `H = K1 S / [I2aq]` (Eq F.5):
+dissolved iodine (all forms, as I2) per gaseous I2 at equilibrium. With
+no dissolved iodine it is the hydrolysis limit at vanishing load, taken
+at 1e-15 mol/L.
+
+```rust
+pub fn partition(t_k: f64, s: f64, oh_p: f64, i_p: f64) -> f64 { /* ... */ }
+```
+
+#### Function `vapour_condensation_df`
+
+MELCOR's Eq D-7: the condensation factor for iodine vapour, from the
+gas's `df_ec`, the partition `h` and the vapour-to-liquid density
+ratio.
+
+```rust
+pub fn vapour_condensation_df(df_ec: f64, h: f64, rho_v_over_rho_l: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `M_I2`
+
+Molar masses, kg/mol: I2, and Cs (as CsOH, one hydroxide per atom).
+
+```rust
+pub const M_I2: f64 = 0.25381;
+```
+
+#### Constant `M_CS`
+
+```rust
+pub const M_CS: f64 = 0.13291;
+```
+
 ## Module `msl`
 
 Creep rupture of a main steam line (gh:#1037, plan item F6).
@@ -10102,6 +10360,7 @@ pub struct Mechanisms {
     pub scrubbing_saturation: bool,
     pub swarm_scrubbing: bool,
     pub sectional_classes: bool,
+    pub iodine_partition: bool,
 }
 ```
 
@@ -10133,6 +10392,7 @@ pub struct Mechanisms {
 | `scrubbing_saturation` | `bool` | The condensation scrubbing stops where the pool is near saturation:<br>MELCOR's `DF_EC = X_o / X_i` with `X_o` the non-condensable fraction<br>of the gas in equilibrium with the pool at the vent depth (Eqs D-5,<br>D-6; 2026-10-29). Off is `X_o = 1`: all the steam condenses. |
 | `swarm_scrubbing` | `bool` | Inertial impaction and swarm-rise scrubbing past the downcomer exits<br>(SPARC-90's `DF_II` and `DF_SR`, [`sparc`]; 2026-10-29). Off is<br>condensation scrubbing alone. |
 | `sectional_classes` | `bool` | Cesium and iodine on the aerosol tracked by size section: condensed<br>in proportion to each section's mass transfer, carried through<br>agglomeration and deposited with their section (`rn_volume`;<br>2026-10-29). Off is the lumped model: each class shares the aerosol's<br>volume distribution. |
+| `iodine_partition` | `bool` | The condensation scrubbing of iodine vapour limited by the pool's<br>partition coefficient for I2, from SPARC-90's equilibrium chemistry<br>with the pool's dissolved CsOH (MELCOR Eq D-7, Appendix F; [`iodine`];<br>2026-10-29). Off is iodine vapour scrubbed like the gas. |
 
 ##### Implementations
 
@@ -10252,6 +10512,11 @@ pub struct Mechanisms {
   pub fn without_sectional_classes(self: Self) -> Self { /* ... */ }
   ```
   Each class on the aerosol lumped over its volume distribution: the
+
+- ```rust
+  pub fn without_iodine_partition(self: Self) -> Self { /* ... */ }
+  ```
+  Iodine vapour scrubbed like the gas, no partition limit: the model
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

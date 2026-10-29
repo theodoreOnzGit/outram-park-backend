@@ -43,6 +43,7 @@ pub mod core;
 pub mod decay;
 pub mod gas;
 pub mod internals;
+pub mod iodine;
 pub mod msl;
 pub mod params;
 pub mod rn_volume;
@@ -184,6 +185,11 @@ pub struct Mechanisms {
     /// 2026-10-29). Off is the lumped model: each class shares the aerosol's
     /// volume distribution.
     pub sectional_classes: bool,
+    /// The condensation scrubbing of iodine vapour limited by the pool's
+    /// partition coefficient for I2, from SPARC-90's equilibrium chemistry
+    /// with the pool's dissolved CsOH (MELCOR Eq D-7, Appendix F; [`iodine`];
+    /// 2026-10-29). Off is iodine vapour scrubbed like the gas.
+    pub iodine_partition: bool,
 }
 
 impl Default for Mechanisms {
@@ -213,6 +219,7 @@ impl Default for Mechanisms {
             scrubbing_saturation: true,
             swarm_scrubbing: true,
             sectional_classes: true,
+            iodine_partition: true,
         }
     }
 }
@@ -372,6 +379,13 @@ impl Mechanisms {
     /// done section by section).
     pub fn without_sectional_classes(mut self) -> Self {
         self.sectional_classes = false;
+        self
+    }
+
+    /// Iodine vapour scrubbed like the gas, no partition limit: the model
+    /// before 2026-10-29.
+    pub fn without_iodine_partition(mut self) -> Self {
+        self.iodine_partition = false;
         self
     }
 
@@ -1021,6 +1035,7 @@ impl Plant {
                 scrubbing_saturation: self.mechanisms.scrubbing_saturation,
                 swarm_scrubbing: self.mechanisms.swarm_scrubbing,
                 sectional_classes: self.mechanisms.sectional_classes,
+                iodine_partition: self.mechanisms.iodine_partition,
                 prm,
             },
         }

@@ -38,6 +38,7 @@ use super::aerosol::{Facing, Medium, Sections, Surface};
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
 use super::rn_volume::{RnSurface, RnVolume, CS, IODINE};
 use super::vapour::BulkGas;
+use super::iodine;
 use super::sparc;
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
@@ -103,6 +104,9 @@ pub struct ContainmentSnapshot {
     /// Fission-product classes on the aerosol tracked by section
     /// (`Mechanisms::sectional_classes`).
     pub sectional_classes: bool,
+    /// The iodine partition limit on the condensation scrubbing
+    /// (`Mechanisms::iodine_partition`).
+    pub iodine_partition: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -185,6 +189,9 @@ pub struct Containment {
     /// recomputes them.
     swarm_pass: Vec<f64>,
     swarm_age_s: f64,
+    /// The pool's partition coefficient for I2 (`iodine::partition`),
+    /// updated at each aerosol step.
+    iodine_h: f64,
     /// Scrubbed into the pool water at the vent exits (SPARC-90's DF_EC),
     /// kg: cesium, iodine, aerosol.
     pool_scrubbed: [f64; 3],
@@ -244,6 +251,7 @@ impl Containment {
             i_building_kg: 0.0,
             swarm_pass: vec![1.0; rn_sections().v.len()],
             swarm_age_s: RN_STEP_S,
+            iodine_h: iodine::partition(INITIAL_POOL_K, 0.0, 0.0, 0.0),
             pool_scrubbed: [0.0; 3],
         }
     }
@@ -324,10 +332,12 @@ impl Containment {
         let pool = sparc::Pool::submerged(self.pool_t, self.p_ww(prm), prm.vent_submergence_pa);
         let x_o = if s.scrubbing_saturation { pool.x_o() } else { 1.0 };
         let pass = if s.pool_scrubbing { condensation_pass(nc_share(s.srv_h2_kg_s / M_H2, 0.0, s.srv_steam_kg_s / M_H2O), x_o) } else { 1.0 };
+        let relief_m3 = (s.srv_h2_kg_s / M_H2 + s.srv_steam_kg_s / M_H2O) * dt * R_GAS * self.pool_t / (self.p_ww(prm) + prm.vent_submergence_pa);
+        let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, s.i_relief_kg, relief_m3);
         self.pool_scrubbed[0] += s.cs_relief_kg * (1.0 - pass);
-        self.pool_scrubbed[1] += s.i_relief_kg * (1.0 - pass);
+        self.pool_scrubbed[1] += s.i_relief_kg * (1.0 - pass_i);
         self.pool_scrubbed[2] += s.uo2_relief_kg * (1.0 - pass);
-        self.ww_rn.add(s.uo2_relief_kg * pass, rho_p, [s.cs_relief_kg * pass, s.i_relief_kg * pass]);
+        self.ww_rn.add(s.uo2_relief_kg * pass, rho_p, [s.cs_relief_kg * pass, s.i_relief_kg * pass_i]);
         self.dw_rn.add(s.uo2_leak_kg, rho_p, [s.cs_leak_kg, s.i_leak_kg]);
         // 2. RPV leak into the drywell.
         let m = s.leak_steam_kg_s * dt;
@@ -435,14 +445,16 @@ impl Containment {
             } else {
                 vec![1.0; moved.len()]
             };
+            let pass_i = self.iodine_vapour_pass(&pool, s.pool_scrubbing && s.iodine_partition, pass, cv[IODINE], n * R_GAS * self.dw_t / p_dw);
+            let pass_v = [pass, pass_i];
             for k in 0..2 {
-                self.pool_scrubbed[k] += cv[k] * (1.0 - pass) + ca[k].iter().zip(&swarm).map(|(m, p)| m * (1.0 - pass * p)).sum::<f64>();
+                self.pool_scrubbed[k] += cv[k] * (1.0 - pass_v[k]) + ca[k].iter().zip(&swarm).map(|(m, p)| m * (1.0 - pass * p)).sum::<f64>();
             }
             self.pool_scrubbed[2] += moved.iter().sum::<f64>() * rho_p * (1.0 - pass)
                 + moved.iter().zip(&swarm).map(|(m, p)| m * pass * (1.0 - p)).sum::<f64>() * rho_p;
             let moved: Vec<f64> = moved.iter().zip(&swarm).map(|(m, p)| m * pass * p).collect();
             let ca = [0, 1].map(|k| ca[k].iter().zip(&swarm).map(|(m, p)| m * pass * p).collect::<Vec<f64>>());
-            self.ww_rn.receive(&moved, cv.map(|x| x * pass), &ca);
+            self.ww_rn.receive(&moved, [cv[0] * pass, cv[1] * pass_i], &ca);
             let e_dw = self.dw_energy(tv);
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
@@ -465,7 +477,8 @@ impl Containment {
             let orifice = prm.discharge_coefficient * prm.vacuum_breaker_m2 * (2.0 * rho * suck).sqrt() * dt / molar;
             // At most the isothermal equalising amount of the non-condensables.
             let n = orifice.min(n_ww * suck / p_ww);
-            let f = (n / n_ww).min(1.0);
+            // An empty wetwell gas moves nothing (0/0 otherwise; gh:#1047).
+            let f = if n_ww > 0.0 { (n / n_ww).min(1.0) } else { 0.0 };
             let (dn2, dh2) = (self.ww_n2 * f, self.ww_h2 * f);
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
@@ -495,7 +508,10 @@ impl Containment {
             // Equalising amount of non-condensables, the steam partial
             // pressure being held by the pool.
             let n = orifice.min(n_g * ((p_ww - P_ATM) / p_nc).min(1.0));
-            let f = n / n_g;
+            // Once the non-condensables are all vented this was 0/0, and
+            // the NaN took the wetwell's pressure with it: found 2026-10-29
+            // at 73.5 h of the 500 h run, after which no downcomer flowed.
+            let f = if n_g > 0.0 { n / n_g } else { 0.0 };
             let dh2 = self.ww_h2 * f;
             let dxe = self.xe_ww * f;
             self.xe_ww -= dxe;
@@ -604,6 +620,39 @@ fn nc_share(h2_mol: f64, n2_mol: f64, steam_mol: f64) -> f64 {
     if total > 0.0 { (h2_mol + n2_mol) / total } else { 1.0 }
 }
 
+impl Containment {
+    /// The pool water, L, and its dissolved iodine (as I2) and cesium (as
+    /// CsOH), mol/L: what was scrubbed into it and what deposited on its
+    /// surface from the wetwell gas.
+    fn pool_chemistry(&self, pool: &sparc::Pool) -> (f64, f64, f64) {
+        let litres = self.pool_kg / pool.rho_l() * 1e3;
+        let i_kg = self.pool_scrubbed[IODINE] + self.ww_rn.on_surface_kg[0][IODINE];
+        let cs_kg = self.pool_scrubbed[CS] + self.ww_rn.on_surface_kg[0][CS];
+        (litres, i_kg / iodine::M_I2 / litres, cs_kg / iodine::M_CS / litres)
+    }
+
+    /// The share of iodine vapour (`i_kg` in `gas_m3` of entering gas) that
+    /// passes the condensation, given the gas's share `pass`: MELCOR's
+    /// partition limit (Eq D-7, with the pool's `iodine_h`), and no
+    /// scrubbing at all when the pool's own iodine over the partition is
+    /// at least the gas's (RN §2.7.1). `on` false is the gas's share.
+    fn iodine_vapour_pass(&self, pool: &sparc::Pool, on: bool, pass: f64, i_kg: f64, gas_m3: f64) -> f64 {
+        if !on || pass >= 1.0 || gas_m3 <= 0.0 {
+            return pass;
+        }
+        let (_, s_pool, _) = self.pool_chemistry(pool);
+        let c_in = i_kg / iodine::M_I2 / (gas_m3 * 1e3);
+        if s_pool / self.iodine_h >= c_in {
+            return 1.0;
+        }
+        let rho_v = p_sat_pa(self.pool_t) * M_H2O / (R_GAS * self.pool_t);
+        let m = (self.iodine_h * rho_v / pool.rho_l()).min(1.0);
+        // 1 / DF_EC,vap with DF_EC = 1 / pass, written without dividing
+        // by `pass` (which is 0 for pure steam).
+        if m >= 1.0 { pass } else { pass / (pass + m * (1.0 - pass)) }
+    }
+}
+
 /// The share of a gas's volume that passes the condensation at a vent
 /// exit: `1 / DF_EC = X_i / X_o` (Eqs D-5, D-6), `X_i` the gas's
 /// non-condensable mole fraction and `X_o` the fraction once it is in
@@ -660,6 +709,11 @@ impl Containment {
             RnSurface { surface: Surface { area: prm.dw_wall_area_m2, facing: Facing::Wall, phoretic: vec![0.0; n] }, t_k: self.dw_wall_t, k_vapour: k_w },
         ];
         self.dw_rn.step(&m_dw, &gases_dw, &dw_surfaces, dt);
+        // The pool's iodine partition (`iodine`), for the scrubbing until
+        // the next aerosol step.
+        let pool = sparc::Pool::submerged(self.pool_t, self.p_ww(prm), prm.vent_submergence_pa);
+        let (_, s_i, oh) = self.pool_chemistry(&pool);
+        self.iodine_h = iodine::partition(self.pool_t, s_i, oh, 0.0);
         // Wetwell gas, saturated with steam at the pool temperature.
         let p_ww = self.p_ww(prm);
         let x_s = (p_sat_pa(self.pool_t) / p_ww).min(1.0);
@@ -717,6 +771,7 @@ impl Containment {
             self.i_vented_kg,
             self.i_building_kg,
             self.swarm_age_s,
+            self.iodine_h,
         ]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
@@ -754,6 +809,7 @@ impl Containment {
             i_building_kg: r.f(),
             swarm_pass: vec![],
             swarm_age_s: r.f(),
+            iodine_h: r.f(),
             pool_scrubbed: [0.0; 3],
         };
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
@@ -792,6 +848,7 @@ impl ContainmentSnapshot {
             b(self.scrubbing_saturation),
             b(self.swarm_scrubbing),
             b(self.sectional_classes),
+            b(self.iodine_partition),
         ]);
         self.prm.write(w);
     }
@@ -821,6 +878,7 @@ impl ContainmentSnapshot {
             scrubbing_saturation: r.f() != 0.0,
             swarm_scrubbing: r.f() != 0.0,
             sectional_classes: r.f() != 0.0,
+            iodine_partition: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
