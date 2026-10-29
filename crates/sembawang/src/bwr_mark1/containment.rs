@@ -9,6 +9,11 @@
 //!   fits, [`super::gas`], since 2026-10-29); a lumped wall heat sink (steel and
 //!   concrete) takes heat by convection, **implicitly**; steam above its
 //!   saturation pressure at the gas temperature condenses to the sump.
+//!   **Since 2026-10-29** (`Mechanisms::dw_wall_hs`) the wall's coefficient
+//!   is MELCOR's natural convection and steam condenses on it by diffusion
+//!   through the non-condensables, its latent heat into the wall
+//!   ([`super::pool_surface::structure_surface`]); the fixed coefficient is
+//!   the ablation. The wall's area and heat capacity are still \[A\].
 //! - **Wetwell (torus)**: the pool, one temperature; ~~the gas space above it
 //!   at the pool temperature, saturated with steam (an equilibrium
 //!   assumption)~~ **since 2026-10-29** (`Mechanisms::ww_atmosphere`) the gas
@@ -148,6 +153,10 @@ pub struct ContainmentSnapshot {
     /// exchanges mass and energy with the pool at its surface and with the
     /// bubbles leaving the pool (`Mechanisms::ww_atmosphere`).
     pub ww_atmosphere: bool,
+    /// The drywell structures as MELCOR's heat-structure surface: natural
+    /// convection and diffusion-limited condensation (`Mechanisms::
+    /// dw_wall_hs`); false is the fixed coefficient `dw_wall_h`.
+    pub dw_wall_hs: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -257,6 +266,9 @@ pub struct Containment {
     /// Whether this step carries the wetwell atmosphere (not state: set
     /// from the snapshot at each step).
     ww_atm: bool,
+    /// Whether this step carries the drywell structures' surface model (not
+    /// state).
+    dw_hs: bool,
 }
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
@@ -322,6 +334,7 @@ impl Containment {
             ww_steam_kg: p_sat_pa(prm.initial_pool_k) * prm.wetwell_gas_m3 * M_H2O / (R_GAS * prm.initial_pool_k),
             ww_t: prm.initial_pool_k,
             ww_atm: false,
+            dw_hs: false,
         }
     }
 
@@ -336,6 +349,13 @@ impl Containment {
             return self.ww_moles() * R_GAS * self.ww_t / prm.wetwell_gas_m3;
         }
         (self.ww_n2 + self.ww_h2) * R_GAS * self.pool_t / prm.wetwell_gas_m3 + p_sat_pa(self.pool_t)
+    }
+    /// The drywell structures' convective coefficient, W/(m^2 K), and
+    /// condensation flux, kg/(m^2 s), by MELCOR's heat-structure surface
+    /// ([`pool_surface::structure_surface`]).
+    fn dw_wall_surface(&self, prm: &Params) -> (f64, f64) {
+        let atm = pool_surface::Atmosphere { t_k: self.dw_t, p_pa: self.p_dw(prm), n_steam: self.dw_steam_kg / M_H2O, n_n2: self.dw_n2, n_h2: self.dw_h2 };
+        pool_surface::structure_surface(&atm, self.dw_wall_t, prm.dw_wall_height_m)
     }
     fn ww_moles(&self) -> f64 {
         self.ww_n2 + self.ww_h2 + self.ww_steam_kg / M_H2O
@@ -475,6 +495,7 @@ impl Containment {
         let dt = s.dt_s;
         let tv = s.gas_cv_t;
         self.ww_atm = s.ww_atmosphere;
+        self.dw_hs = s.dw_wall_hs;
         self.swarm_age_s += dt;
         self.iodine_swarm_age_s += dt;
         self.dw_rn.lumped = !s.sectional_classes;
@@ -609,8 +630,27 @@ impl Containment {
                 self.dw_wall_t += q / prm.dw_wall_c;
             }
         }
-        // 3. Drywell wall heat sink, implicit in the two temperatures.
-        let ha = prm.dw_wall_area_m2 * prm.dw_wall_h;
+        // 3. Drywell wall heat sink, implicit in the two temperatures. With
+        //    `dw_wall_hs`, MELCOR's surface: its coefficient and its
+        //    condensation from the start-of-step state; the condensate's
+        //    latent heat goes into the wall, the water to the sump (no film
+        //    is kept, stated), at most 90 % of the steam in a step (HS
+        //    §2.7.3).
+        let ha = if self.dw_hs {
+            let (h, m_flux) = self.dw_wall_surface(prm);
+            let m = (m_flux * prm.dw_wall_area_m2 * dt).min(0.9 * self.dw_steam_kg);
+            if m > 0.0 {
+                let h_g = pool_surface::steam_h(self.dw_t);
+                let e = self.dw_energy(tv) - m * h_g;
+                self.dw_steam_kg -= m;
+                self.set_dw_energy(e, tv);
+                self.dw_wall_t += m * (h_g - CP_WATER * (self.dw_wall_t - 273.15)) / prm.dw_wall_c;
+                self.dw_condensed_kg += m;
+            }
+            prm.dw_wall_area_m2 * h
+        } else {
+            prm.dw_wall_area_m2 * prm.dw_wall_h
+        };
         let c_gas = self.dw_heat_capacity(tv);
         let (tg, tw) = (self.dw_t, self.dw_wall_t);
         // q = ha (Tg' - Tw'); c_gas (Tg' - Tg) = -q dt; C_w (Tw' - Tw) = q dt.
@@ -1097,7 +1137,8 @@ impl Containment {
         let mass = self.dw_steam_kg + self.dw_n2 * M_N2 + self.dw_h2 * M_H2;
         let cp = (self.dw_steam_kg * CP_STEAM_GAS + self.dw_n2 * M_N2 * CP_N2_GAS + self.dw_h2 * M_H2 * CP_H2_GAS) / mass.max(1e-30);
         let rho = mass / prm.drywell_volume_m3;
-        let k_w = prm.dw_wall_h / (rho * cp);
+        let h_wall = if self.dw_hs { self.dw_wall_surface(prm).0 } else { prm.dw_wall_h };
+        let k_w = h_wall / (rho * cp);
         // Phoresis onto the drywell's structures (MELCOR RN §2.4.2.2):
         // thermophoresis from the gradient of their heat flux, `grad T =
         // q'' / k_air` at the surface temperature (Eq 2-43 and the text
@@ -1105,7 +1146,7 @@ impl Containment {
         // since the last aerosol step (Eqs 2-45, 2-46), spread over their
         // area. Both surfaces are at the wall's temperature.
         let phoretic = if phoresis {
-            let q = prm.dw_wall_h * (self.dw_t - self.dw_wall_t);
+            let q = h_wall * (self.dw_t - self.dw_wall_t);
             let grad_t = q / air_conductivity(self.dw_wall_t);
             let w_cond = self.dw_condensed_kg / (dt * (prm.dw_floor_m2 + prm.dw_wall_area_m2));
             let n_nc = (self.dw_n2 + self.dw_h2).max(1e-30);
@@ -1238,6 +1279,7 @@ impl Containment {
             ww_steam_kg: r.f(),
             ww_t: r.f(),
             ww_atm: false,
+            dw_hs: false,
         };
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = std::array::from_fn(|_| r.f());
@@ -1287,6 +1329,7 @@ impl ContainmentSnapshot {
             self.q_halogen_w,
             self.q_chalcogen_w,
             b(self.ww_atmosphere),
+            b(self.dw_wall_hs),
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1330,6 +1373,7 @@ impl ContainmentSnapshot {
             q_halogen_w: r.f(),
             q_chalcogen_w: r.f(),
             ww_atmosphere: r.f() != 0.0,
+            dw_wall_hs: r.f() != 0.0,
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),

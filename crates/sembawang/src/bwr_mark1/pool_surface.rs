@@ -165,7 +165,7 @@ impl Atmosphere {
     }
     /// Molar mass, kg/mol, density, kg/m^3, and `c_p`, J/(kg K) (steam
     /// `c_v` as the containment's, plus `R/M`; N2 and H2 MELCOR's `c_v(T)`).
-    fn mass_properties(&self) -> (f64, f64, f64) {
+    pub(crate) fn mass_properties(&self) -> (f64, f64, f64) {
         let n = self.n_steam + self.n_n2 + self.n_h2;
         let mass = self.n_steam * M_H2O + self.n_n2 * M_N2 + self.n_h2 * M_H2;
         let molar = mass / n;
@@ -176,7 +176,7 @@ impl Atmosphere {
     /// steam-air (Eq 6-1, used for N2, stated) and steam-hydrogen (Eq 6-2)
     /// correlations, combined by Blanc's law over the non-condensables'
     /// mole fractions. `None` with no non-condensables.
-    fn steam_diffusivity(&self) -> Option<f64> {
+    pub(crate) fn steam_diffusivity(&self) -> Option<f64> {
         let n_nc = self.n_n2 + self.n_h2;
         if n_nc <= 0.0 {
             return None;
@@ -334,6 +334,60 @@ pub fn exchange(pool: &Pool, atm: &Atmosphere, surface: &Surface, dt: f64) -> Ex
     Exchange { evaporation_kg_s: m, q_pool_w: q_p, q_atm_w: q_a, t_surface_k: t_l }
 }
 
+/// MELCOR's heat-structure surface facing an atmosphere (HS RM §2.6.1,
+/// §2.7): natural convection on an external rectangular surface of height
+/// `l_c`, `Nu = 0.59 Ra^1/4` below `Ra = 1e9`, `0.10 Ra^1/3` above `1e10`,
+/// linear in `Ra` between (Table 2.3, Eqs 2-82, 2-85 to 2-87), with the
+/// Grashof number from the density difference while condensing; and
+/// condensation below the dew point by diffusion through the
+/// non-condensables, `m = h_D rho_v ln((P - P_srf) / (P - P_stm))` with
+/// `h_D = Nu Sc^1/3 Pr^-1/3 D / l_c` (Eqs 2-134 to 2-136; `rho_v` the
+/// vapour's density at `T_sat(P)`); above `VPFRAC = 0.9995` of steam the
+/// steam fraction is held at it (stated: MELCOR then lets the
+/// structure's conduction limit it). Transport properties at the film
+/// temperature, density at the bulk. Returns the convective coefficient,
+/// W/(m^2 K), and the condensation flux, kg/(m^2 s) (zero above the dew
+/// point: no film is kept to evaporate, stated).
+pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) {
+    let t_f = 0.5 * (atm.t_k + t_wall_k);
+    let (mu, k) = Atmosphere { t_k: t_f, ..*atm }.viscosity_and_conductivity();
+    let (_, rho, cp) = atm.mass_properties();
+    let pr = mu * cp / k;
+    let n = atm.n_steam + atm.n_n2 + atm.n_h2;
+    let p_stm = (atm.n_steam / n).min(0.9995) * atm.p_pa;
+    let p_srf = p_sat_pa(t_wall_k.min(640.0));
+    let condensing = t_wall_k < 647.2 && p_srf < p_stm && atm.n_n2 + atm.n_h2 > 0.0;
+    let gr = if condensing {
+        // The gas at the surface: saturated at the wall's temperature.
+        let y_s = p_srf / atm.p_pa;
+        let n_nc = atm.n_n2 + atm.n_h2;
+        let m_srf = y_s * M_H2O + (1.0 - y_s) * (atm.n_n2 * M_N2 + atm.n_h2 * M_H2) / n_nc;
+        let rho_srf = atm.p_pa * m_srf / (R_GAS * t_wall_k);
+        G * (rho_srf - rho).abs() * l_c * l_c * l_c * rho / (mu * mu)
+    } else {
+        G * (atm.t_k - t_wall_k).abs() / t_f * l_c * l_c * l_c * rho * rho / (mu * mu)
+    };
+    let ra = gr * pr;
+    let lam = 0.59 * ra.r_powf(0.25);
+    let tur = 0.10 * ra.r_powf(1.0 / 3.0);
+    let nu = if ra <= 1e9 {
+        lam
+    } else if ra >= 1e10 {
+        tur
+    } else {
+        lam + (ra - 1e9) / 9e9 * (tur - lam)
+    };
+    let h = nu * k / l_c;
+    if !condensing {
+        return (h, 0.0);
+    }
+    let d = atm.steam_diffusivity().unwrap_or(0.0);
+    let sc = mu / (rho * d);
+    let h_d = nu * (sc / pr).r_powf(1.0 / 3.0) * d / l_c;
+    let rho_v = atm.p_pa * M_H2O / (R_GAS * t_sat(atm.p_pa));
+    (h, h_d * rho_v * ((atm.p_pa - p_srf) / (atm.p_pa - p_stm)).r_ln())
+}
+
 /// Steam's specific enthalpy as the containment carries it, J/kg: `u + R T
 /// / M` with the constant `c_v` from IF97's saturated vapour at 100 degC.
 pub(crate) fn steam_h(t: f64) -> f64 {
@@ -391,6 +445,24 @@ mod tests {
         let steam = Atmosphere { n_n2: 0.0, ..humid };
         let e = exchange(&pool, &Atmosphere { p_pa: p_s, ..steam }, &surface, 1.0);
         assert!((e.t_surface_k - 380.0).abs() < 0.01 && e.evaporation_kg_s < 0.0, "{e:?}");
+    }
+
+    /// A 400 K wall under 0.4 MPa of gas at 600 K, 30 % steam, 10 % H2:
+    /// turbulent natural convection, by hand `0.10 k (g beta dT rho^2 Pr /
+    /// mu^2)^1/3` with beta at the 500 K film, rho 1.80, mu 2.8e-5, Pr 0.8
+    /// and k about 0.05 gives about 12 W/(m^2 K), independent of height.
+    /// The dew point at 0.12 MPa of steam is 378 K, so that wall stays dry;
+    /// a 350 K wall condenses.
+    #[test]
+    fn a_cold_wall_convects_and_condenses() {
+        let n = 0.4e6 * 3410.0 / (R_GAS * 600.0);
+        let atm = Atmosphere { t_k: 600.0, p_pa: 0.4e6, n_steam: 0.3 * n, n_n2: 0.6 * n, n_h2: 0.1 * n };
+        let (h, m) = structure_surface(&atm, 400.0, 20.0);
+        let (h2, _) = structure_surface(&atm, 400.0, 40.0);
+        assert!(h > 9.0 && h < 16.0 && m == 0.0, "{h} {m}");
+        assert!((h - h2).abs() < 0.02 * h, "{h} {h2}");
+        let (_, m) = structure_surface(&atm, 350.0, 20.0);
+        assert!(m > 0.0, "{m}");
     }
 
     /// Eq 6-2's subcooling term: 0 at saturation, 1 from 5.1 K below it; the

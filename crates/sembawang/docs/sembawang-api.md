@@ -3972,6 +3972,11 @@ The Mark I containment and the reactor building. This is what the
   fits, [`super::gas`], since 2026-10-29); a lumped wall heat sink (steel and
   concrete) takes heat by convection, **implicitly**; steam above its
   saturation pressure at the gas temperature condenses to the sump.
+  **Since 2026-10-29** (`Mechanisms::dw_wall_hs`) the wall's coefficient
+  is MELCOR's natural convection and steam condenses on it by diffusion
+  through the non-condensables, its latent heat into the wall
+  ([`super::pool_surface::structure_surface`]); the fixed coefficient is
+  the ablation. The wall's area and heat capacity are still \[A\].
 - **Wetwell (torus)**: the pool, one temperature; ~~the gas space above it
   at the pool temperature, saturated with steam (an equilibrium
   assumption)~~ **since 2026-10-29** (`Mechanisms::ww_atmosphere`) the gas
@@ -4050,6 +4055,7 @@ pub struct ContainmentSnapshot {
     pub q_halogen_w: f64,
     pub q_chalcogen_w: f64,
     pub ww_atmosphere: bool,
+    pub dw_wall_hs: bool,
     pub prm: Params,
 }
 ```
@@ -4096,6 +4102,7 @@ pub struct ContainmentSnapshot {
 | `q_halogen_w` | `f64` |  |
 | `q_chalcogen_w` | `f64` | And the chalcogens' (Te/Se), when tellurium is transported<br>(`Mechanisms::te_transport`). |
 | `ww_atmosphere` | `bool` | The wetwell atmosphere has its own temperature and steam, and<br>exchanges mass and energy with the pool at its surface and with the<br>bubbles leaving the pool (`Mechanisms::ww_atmosphere`). |
+| `dw_wall_hs` | `bool` | The drywell structures as MELCOR's heat-structure surface: natural<br>convection and diffusion-limited condensation (`Mechanisms::<br>dw_wall_hs`); false is the fixed coefficient `dw_wall_h`. |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -7019,6 +7026,7 @@ pub struct Params {
     pub dw_wall_area_m2: f64,
     pub dw_wall_h: f64,
     pub dw_wall_c: f64,
+    pub dw_wall_height_m: f64,
     pub wetwell_gas_m3: f64,
     pub pool_water_m3: f64,
     pub containment_design_pa: f64,
@@ -7165,6 +7173,7 @@ pub struct Params {
 | `dw_wall_area_m2` | `f64` |  |
 | `dw_wall_h` | `f64` |  |
 | `dw_wall_c` | `f64` |  |
+| `dw_wall_height_m` | `f64` |  |
 | `wetwell_gas_m3` | `f64` |  |
 | `pool_water_m3` | `f64` |  |
 | `containment_design_pa` | `f64` |  |
@@ -8405,6 +8414,9 @@ heat sink: area, m^2, convective coefficient, W/(m^2 K), and heat
 capacity, J/K. \[A\] all three placeholders, moved here from
 `containment.rs` 2026-10-29 unchanged; the real heat-sink inventory is in
 SAND2012-6173 (not held).
+Since 2026-10-29 the coefficient is used only by the
+`without_dw_wall_hs` ablation: the default computes it (MELCOR's
+heat-structure surface).
 
 ```rust
 pub const DW_WALL_AREA_M2: f64 = 4000.0;
@@ -8420,6 +8432,17 @@ pub const DW_WALL_H: f64 = 20.0;
 
 ```rust
 pub const DW_WALL_C: f64 = 5.0e8;
+```
+
+#### Constant `DW_WALL_HEIGHT_M`
+
+Height of the drywell structures, m: the characteristic length of their
+natural convection (`Mechanisms::dw_wall_hs`). \[A\] about the height
+of a light-bulb drywell's cylinder; in the turbulent regime that applies
+here it cancels.
+
+```rust
+pub const DW_WALL_HEIGHT_M: f64 = 20.0;
 ```
 
 #### Constant `DRYWELL_VOLUME_M3`
@@ -9188,6 +9211,27 @@ and condensation to 90 % of the atmosphere's vapour (C4407).
 
 ```rust
 pub fn exchange(pool: &Pool, atm: &Atmosphere, surface: &Surface, dt: f64) -> Exchange { /* ... */ }
+```
+
+#### Function `structure_surface`
+
+MELCOR's heat-structure surface facing an atmosphere (HS RM §2.6.1,
+§2.7): natural convection on an external rectangular surface of height
+`l_c`, `Nu = 0.59 Ra^1/4` below `Ra = 1e9`, `0.10 Ra^1/3` above `1e10`,
+linear in `Ra` between (Table 2.3, Eqs 2-82, 2-85 to 2-87), with the
+Grashof number from the density difference while condensing; and
+condensation below the dew point by diffusion through the
+non-condensables, `m = h_D rho_v ln((P - P_srf) / (P - P_stm))` with
+`h_D = Nu Sc^1/3 Pr^-1/3 D / l_c` (Eqs 2-134 to 2-136; `rho_v` the
+vapour's density at `T_sat(P)`); above `VPFRAC = 0.9995` of steam the
+steam fraction is held at it (stated: MELCOR then lets the
+structure's conduction limit it). Transport properties at the film
+temperature, density at the bulk. Returns the convective coefficient,
+W/(m^2 K), and the condensation flux, kg/(m^2 s) (zero above the dew
+point: no film is kept to evaporate, stated).
+
+```rust
+pub fn structure_surface(atm: &Atmosphere, t_wall_k: f64, l_c: f64) -> (f64, f64) { /* ... */ }
 ```
 
 #### Function `bubble_efficiency`
@@ -11817,6 +11861,7 @@ pub struct Mechanisms {
     pub penetration_coverage: bool,
     pub failed_vessel_drain: bool,
     pub ww_atmosphere: bool,
+    pub dw_wall_hs: bool,
 }
 ```
 
@@ -11863,6 +11908,7 @@ pub struct Mechanisms {
 | `penetration_coverage` | `bool` | The penetrations take the debris's heat over the part of their<br>height it covers (MELCOR's `dz_d / dz_1`, COR §6.1), the rest<br>cooled by the plenum's water while there is any (2026-10-29). Off is<br>the penetration heated by the debris over all of it. |
 | `failed_vessel_drain` | `bool` | A failed vessel's water drains through the breach into the<br>pedestal (2026-10-29; MELCOR opens a lower-plenum flow path at<br>failure). Off is the water kept in the failed vessel. |
 | `ww_atmosphere` | `bool` | The wetwell atmosphere has its own temperature and steam: MELCOR's<br>pool-surface exchange (CVH/FL RM §5.1) and bubble model at the vents<br>(§6.1, the efficiency `epsilon_z epsilon_T`), flashing, and the vent<br>and vacuum breakers passing the atmosphere as it is (2026-10-29). Off<br>is the gas at the pool's temperature, saturated. |
+| `dw_wall_hs` | `bool` | The drywell structures as MELCOR's heat-structure surface (HS RM<br>§2.6.1, §2.7): natural convection and condensation by diffusion<br>through the non-condensables, its latent heat into the wall<br>(2026-10-29). Off is the fixed 20 W/(m^2 K) \[A\] and condensation<br>only of supersaturated steam. |
 
 ##### Implementations
 
@@ -12057,6 +12103,11 @@ pub struct Mechanisms {
   pub fn without_ww_atmosphere(self: Self) -> Self { /* ... */ }
   ```
   The wetwell gas at the pool's temperature and saturated: the model
+
+- ```rust
+  pub fn without_dw_wall_hs(self: Self) -> Self { /* ... */ }
+  ```
+  The drywell structures with the fixed coefficient: the model before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

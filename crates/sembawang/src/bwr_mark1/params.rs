@@ -443,9 +443,17 @@ pub const R_GAS: f64 = 8.314_462;
 /// capacity, J/K. \[A\] all three placeholders, moved here from
 /// `containment.rs` 2026-10-29 unchanged; the real heat-sink inventory is in
 /// SAND2012-6173 (not held).
+/// Since 2026-10-29 the coefficient is used only by the
+/// `without_dw_wall_hs` ablation: the default computes it (MELCOR's
+/// heat-structure surface).
 pub const DW_WALL_AREA_M2: f64 = 4000.0;
 pub const DW_WALL_H: f64 = 20.0;
 pub const DW_WALL_C: f64 = 5.0e8;
+/// Height of the drywell structures, m: the characteristic length of their
+/// natural convection (`Mechanisms::dw_wall_hs`). \[A\] about the height
+/// of a light-bulb drywell's cylinder; in the turbulent regime that applies
+/// here it cancels.
+pub const DW_WALL_HEIGHT_M: f64 = 20.0;
 
 /// Drywell free volume, m^3. \[U\] about 3410 (KTH slides, simplyinfo).
 pub const DRYWELL_VOLUME_M3: f64 = 3410.0;
@@ -692,6 +700,7 @@ params! {
     dw_wall_area_m2 = DW_WALL_AREA_M2, A,
     dw_wall_h = DW_WALL_H, A,
     dw_wall_c = DW_WALL_C, A,
+    dw_wall_height_m = DW_WALL_HEIGHT_M, A,
     wetwell_gas_m3 = WETWELL_GAS_M3, P,
     pool_water_m3 = POOL_WATER_M3, P,
     containment_design_pa = CONTAINMENT_DESIGN_PA, P,
@@ -800,7 +809,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 138);
+        assert_eq!(Params::INPUTS.len(), 139);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

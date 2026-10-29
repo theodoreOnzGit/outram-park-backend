@@ -271,6 +271,12 @@ pub struct Mechanisms {
     /// and vacuum breakers passing the atmosphere as it is (2026-10-29). Off
     /// is the gas at the pool's temperature, saturated.
     pub ww_atmosphere: bool,
+    /// The drywell structures as MELCOR's heat-structure surface (HS RM
+    /// §2.6.1, §2.7): natural convection and condensation by diffusion
+    /// through the non-condensables, its latent heat into the wall
+    /// (2026-10-29). Off is the fixed 20 W/(m^2 K) \[A\] and condensation
+    /// only of supersaturated steam.
+    pub dw_wall_hs: bool,
 }
 
 impl Default for Mechanisms {
@@ -315,6 +321,7 @@ impl Default for Mechanisms {
             penetration_coverage: true,
             failed_vessel_drain: true,
             ww_atmosphere: true,
+            dw_wall_hs: true,
         }
     }
 }
@@ -571,6 +578,13 @@ impl Mechanisms {
     /// before 2026-10-29.
     pub fn without_ww_atmosphere(mut self) -> Self {
         self.ww_atmosphere = false;
+        self
+    }
+
+    /// The drywell structures with the fixed coefficient: the model before
+    /// 2026-10-29.
+    pub fn without_dw_wall_hs(mut self) -> Self {
+        self.dw_wall_hs = false;
         self
     }
 
@@ -1292,6 +1306,7 @@ impl Plant {
                 q_halogen_w,
                 q_chalcogen_w,
                 ww_atmosphere: self.mechanisms.ww_atmosphere,
+                dw_wall_hs: self.mechanisms.dw_wall_hs,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
