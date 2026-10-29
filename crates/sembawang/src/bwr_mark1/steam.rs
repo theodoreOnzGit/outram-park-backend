@@ -24,10 +24,36 @@ use uom::si::pressure::pascal;
 use uom::si::specific_volume::cubic_meter_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
 
-/// Lowest and highest pressure in the table, Pa.
+/// Lowest and highest pressure the table covers, Pa. ~~9.5e6~~ **Raised
+/// 2026-10-29** to 20 MPa: a rapid debris quench can push the vessel past
+/// 9.5 MPa, and above the table [`SatTable::mixture`] found no state, which
+/// the plant took for "boiled dry" (level at the bottom, the superheated
+/// branch): a wrong state, not physics. 20 MPa stays below the critical
+/// point (22.064 MPa), as MELCOR advises for its own vessel-failure
+/// pressure (MELCOR 2.2 Vol. 2, COR §2.3.8).
 pub const P_MIN_PA: f64 = 2.0e4;
-pub const P_MAX_PA: f64 = 9.5e6;
-const N: usize = 500;
+pub const P_MAX_PA: f64 = 2.0e7;
+/// The grid: `N_GRID` points log-spaced over `P_MIN_PA` to `P_GRID_TOP_PA`
+/// (the original table), continued at the same step up to `P_MAX_PA`, so
+/// every original point is unchanged bit for bit.
+pub const P_GRID_TOP_PA: f64 = 9.5e6;
+const N_GRID: usize = 500;
+
+/// `n` log-spaced points from `lo`, with the step of `n_grid` points over
+/// `lo..=grid_top`, continued until past `top` (gh:#1036 follow-up).
+pub fn log_grid(lo: f64, grid_top: f64, n_grid: usize, top: f64) -> Vec<f64> {
+    let (a, b) = (lo.r_ln(), grid_top.r_ln());
+    let mut out = Vec::new();
+    let mut i = 0usize;
+    loop {
+        let l = a + (b - a) * i as f64 / (n_grid - 1) as f64;
+        out.push(l);
+        if l.r_exp() >= top {
+            return out;
+        }
+        i += 1;
+    }
+}
 
 /// Saturated-water properties at one pressure.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -68,8 +94,7 @@ pub struct SatTable {
 
 impl SatTable {
     pub fn new() -> Self {
-        let (a, b) = (P_MIN_PA.r_ln(), P_MAX_PA.r_ln());
-        let ln_p: Vec<f64> = (0..N).map(|i| a + (b - a) * i as f64 / (N - 1) as f64).collect();
+        let ln_p = log_grid(P_MIN_PA, P_GRID_TOP_PA, N_GRID, P_MAX_PA);
         let rows = ln_p.iter().map(|l| sat_from_tables(l.r_exp())).collect();
         Self { ln_p, rows }
     }
@@ -78,7 +103,7 @@ impl SatTable {
     pub fn at(&self, p_pa: f64) -> Sat {
         let l = p_pa.clamp(P_MIN_PA, P_MAX_PA).r_ln();
         let step = self.ln_p[1] - self.ln_p[0];
-        let i = (((l - self.ln_p[0]) / step).floor() as usize).min(N - 2);
+        let i = (((l - self.ln_p[0]) / step).floor() as usize).min(self.ln_p.len() - 2);
         let w = (l - self.ln_p[i]) / step;
         let (r0, r1) = (&self.rows[i], &self.rows[i + 1]);
         let mix = |a: f64, b: f64| a + w * (b - a);
@@ -162,22 +187,31 @@ mod tests {
     /// rows (the worst place for linear interpolation) with a direct
     /// steam-table evaluation, between 0.05 and 9 MPa. Result (2026-10-21):
     /// worst relative error below 3e-4 on every property; the bound is the
-    /// assertion.
+    /// assertion. Extended 2026-10-29 to the table's new 20 MPa top: worst
+    /// 2.0e-5 over 0.05-9 MPa and 1.9e-4 over 9-20 MPa (the saturation line
+    /// steepens toward the critical point), both under the same bound.
     #[test]
     fn the_table_matches_the_steam_tables_between_its_points() {
         let t = SatTable::new();
         let mut worst: f64 = 0.0;
-        for i in 0..N - 1 {
+        let mut worst_high: f64 = 0.0;
+        for i in 0..t.ln_p.len() - 1 {
             let p = (0.5 * (t.ln_p[i] + t.ln_p[i + 1])).r_exp();
-            if !(5.0e4..=9.0e6).contains(&p) {
+            if !(5.0e4..=P_MAX_PA).contains(&p) {
                 continue;
             }
             let (a, b) = (t.at(p), sat_from_tables(p));
             for (x, y) in [(a.t_k, b.t_k), (a.v_f, b.v_f), (a.v_g, b.v_g), (a.h_f, b.h_f), (a.h_g, b.h_g), (a.u_f, b.u_f), (a.u_g, b.u_g)] {
-                worst = worst.max(((x - y) / y).abs());
+                let e = ((x - y) / y).abs();
+                if p <= 9.0e6 {
+                    worst = worst.max(e);
+                } else {
+                    worst_high = worst_high.max(e);
+                }
             }
         }
-        assert!(worst < 3e-4, "worst relative interpolation error {worst:e}");
+        println!("worst relative interpolation error: {worst:e} (0.05-9 MPa), {worst_high:e} (9-20 MPa)");
+        assert!(worst < 3e-4 && worst_high < 3e-4, "worst relative interpolation error {worst:e}, {worst_high:e}");
     }
 
     /// A mixture built at a known pressure and quality is found again.

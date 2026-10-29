@@ -284,9 +284,9 @@ struct ChokedTable {
 
 impl ChokedTable {
     fn new(sat: &SatTable) -> Self {
-        let n = 80;
-        let (a, b) = ((2.0e5f64).r_ln(), steam::P_MAX_PA.r_ln());
-        let ln_p: Vec<f64> = (0..n).map(|i| a + (b - a) * i as f64 / (n - 1) as f64).collect();
+        // 80 points over 0.2 MPa to the original 9.5 MPa top, continued at
+        // the same step to the saturation table's 20 MPa (see steam.rs).
+        let ln_p = steam::log_grid(2.0e5, steam::P_GRID_TOP_PA, 80, steam::P_MAX_PA);
         let flux = ln_p
             .iter()
             .map(|l| {
