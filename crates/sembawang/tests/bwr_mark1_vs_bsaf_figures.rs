@@ -220,9 +220,15 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
 /// | sectional | 6.994 kg | 7.930 kg | +0.936 kg |
 ///
 /// Lumping carried 62 % of the swarm's effect, but the sign survives.
-/// Predicted "at most 0": **missed**. Remaining candidate, untested: with
-/// the large particles scrubbed at the vent, less coagulation scavenges
-/// the small cesium-bearing ones in the wetwell. Predicted for sectional
+/// Predicted "at most 0": **missed**. Remaining candidate~~, untested~~:
+/// with the large particles scrubbed at the vent, less coagulation
+/// scavenges the small cesium-bearing ones in the wetwell. **Confirmed the
+/// same day** by a scratch run with the wetwell's agglomeration switched
+/// off (not committed): vented cesium 10.634 kg without the swarm, 9.122
+/// with it. The swarm then *lowers* the vent's cesium by 1.51 kg. So the
+/// +0.94 kg is the model's physics, not an artefact: the drywell's large
+/// particles, which the swarm removes, would have swept up the small ones
+/// in the wetwell. Predicted for sectional
 /// tracking itself: more cesium airborne, since condensation by area puts
 /// it on the slow-settling small particles. **Held**: vented cesium 6.37
 /// -> 7.93 kg; Cs in the pool at 26 h 103.52 -> 101.96 kg; Cs on drywell
