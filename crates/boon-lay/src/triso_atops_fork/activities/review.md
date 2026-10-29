@@ -330,3 +330,63 @@ ported from TRISO-ATOPS, also from memory, this is correct
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit 8e840bfb8d.
+
+# Review: curies_from_becquerels (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-curies-from-becquerels-theodoreonzgit-4e747b96"
+kind = "review"
+origin = "human"
+created = "2026-10-29T15:16:54+08:00"
+modified = "2026-10-29T15:16:54+08:00"
+target = "fn:4e747b96b31630e2"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/mod.rs::curies_from_becquerels"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-29"
+signed_at = "2026-10-29T15:16:54+08:00"
+commit = "7a372a7c7f48dc44aaef70239c5e141ee7799846"
+hash = "sha256:684872ed9862c8116c6c7c0d3a5e67c1706f30a9a55d31b4d03b2f1ba1c8232d"
+doc_hash = "sha256:3dcf2bcbc290ad731dbf8faeaf3a37a29d3dfe86ed30f81cf713fd517b41892b"
+cargo_lock = "sha256:f98236dd033e5a874219475b1066e85b1068ae8fb68882c2c9732d8f6bc0f51e"
+
+[review.callees]
+"fn:672b140fc503762f" = "sha256:7cdec66678905becb105d95cc0922974e31363d078e8e18357228304ad8bce5f"
+"fn:e6c95a55e6568166" = "sha256:ea14821948029f3e6fad9e6158fe9078d576f804d7c111f2f14856b0c0fc6605"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: wrapper, follows upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: wrapper, follows upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "CynMhxKHMOMZa+Ex6mSKiA0AliirVSSdZLkvrEQ1yx3hJRqlpz3qXW8K6lKz9rFdGJcw/DZMpBRI9ySksRRRDw=="
+
+[[relation]]
+target = "concept:16-nuclear-fuel-cycle/fuel-depletion/decay-data"
+kind = "implements"
+```
+
+wrapper, follows upstream behaviour
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit 7a372a7c7f.
