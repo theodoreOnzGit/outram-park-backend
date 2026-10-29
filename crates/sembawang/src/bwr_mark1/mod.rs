@@ -279,34 +279,34 @@ impl ChokedTable {
 }
 
 /// Free volume of the vessel below height `z` above its bottom, m^3.
-pub fn volume_below(z: f64) -> f64 {
-    let a = std::f64::consts::PI * RPV_RADIUS_M * RPV_RADIUS_M;
-    let a_core = a - core_rod_area_per_height() - CORE_OTHER_AREA_M2;
-    let taf = BAF_M + ACTIVE_LENGTH_M;
-    let z = z.clamp(0.0, RPV_HEIGHT_M);
-    let lower = z.min(BAF_M) * a * LOWER_PLENUM_FREE;
-    let core = (z.min(taf) - BAF_M).max(0.0) * a_core;
-    let upper = (z - taf).max(0.0) * a * UPPER_FREE;
+pub fn volume_below(prm: &Params, z: f64) -> f64 {
+    let a = std::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m;
+    let a_core = a - core_rod_area_per_height(prm) - prm.core_other_area_m2;
+    let taf = prm.baf_m + prm.active_length_m;
+    let z = z.clamp(0.0, prm.rpv_height_m);
+    let lower = z.min(prm.baf_m) * a * prm.lower_plenum_free;
+    let core = (z.min(taf) - prm.baf_m).max(0.0) * a_core;
+    let upper = (z - taf).max(0.0) * a * prm.upper_free;
     lower + core + upper
 }
 
 /// Cross-section of fuel rods and channel walls, m^2.
-fn core_rod_area_per_height() -> f64 {
-    ASSEMBLIES * (RODS_PER_ASSEMBLY * std::f64::consts::PI * CLAD_OUTER_R_M * CLAD_OUTER_R_M + 4.0 * (CHANNEL_INNER_WIDTH_M + CHANNEL_WALL_M) * CHANNEL_WALL_M)
+fn core_rod_area_per_height(prm: &Params) -> f64 {
+    prm.assemblies * (prm.rods_per_assembly * std::f64::consts::PI * prm.clad_outer_r_m * prm.clad_outer_r_m + 4.0 * (prm.channel_inner_width_m + prm.channel_wall_m) * prm.channel_wall_m)
 }
 
 /// Height (above the vessel bottom) at which the free volume below is `v`.
-pub fn height_of_volume(v: f64) -> f64 {
-    let (mut a, mut b) = (0.0, RPV_HEIGHT_M);
+pub fn height_of_volume(prm: &Params, v: f64) -> f64 {
+    let (mut a, mut b) = (0.0, prm.rpv_height_m);
     if v <= 0.0 {
         return 0.0;
     }
-    if v >= volume_below(b) {
+    if v >= volume_below(prm, b) {
         return b;
     }
     for _ in 0..60 {
         let m = 0.5 * (a + b);
-        if volume_below(m) > v {
+        if volume_below(prm, m) > v {
             b = m;
         } else {
             a = m;
@@ -323,6 +323,8 @@ pub struct Plant {
     pub mode: Mode,
     pub mechanisms: Mechanisms,
     pub controls: Controls,
+    /// The inputs this plant runs with ([`Params`]); fixed at construction.
+    prm: Params,
     t_s: f64,
     /// Vessel water and steam: mass, kg, internal energy, J; hydrogen, kg.
     m: f64,
@@ -368,26 +370,35 @@ impl Plant {
 
     /// A fresh plant with some mechanisms ablated (see [`Mechanisms`]).
     pub fn with_mechanisms(mode: Mode, mechanisms: Mechanisms) -> Self {
+        Self::with_params(mode, mechanisms, Params::default())
+    }
+
+    /// A fresh plant with its own inputs (gh:#1033), for a corrected or
+    /// perturbed input without recompiling. [`Plant::parts`] then builds the
+    /// core and containment from the same inputs, and every snapshot carries
+    /// them to the workers.
+    pub fn with_params(mode: Mode, mechanisms: Mechanisms, prm: Params) -> Self {
         let sat = SatTable::new();
         let choked = ChokedTable::new(&sat);
-        let s = sat.at(INITIAL_PRESSURE_PA);
-        let v_total = volume_below(RPV_HEIGHT_M);
-        let v_liq = volume_below(BAF_M + ACTIVE_LENGTH_M + NORMAL_LEVEL_ABOVE_TAF_M);
+        let s = sat.at(prm.initial_pressure_pa);
+        let v_total = volume_below(&prm, prm.rpv_height_m);
+        let v_liq = volume_below(&prm, prm.baf_m + prm.active_length_m + prm.normal_level_above_taf_m);
         let (m_l, m_g) = (v_liq / s.v_f, (v_total - v_liq) / s.v_g);
-        let decay = DecayHeat::new_at_equilibrium(FissioningNuclide::U235Thermal, Power::new::<watt>(THERMAL_POWER_W));
+        let decay = DecayHeat::new_at_equilibrium(FissioningNuclide::U235Thermal, Power::new::<watt>(prm.thermal_power_w));
         let mut p = Self {
             sat,
             choked,
             mode,
             mechanisms,
             controls: Controls::default(),
+            prm,
             t_s: 0.0,
             m: m_l + m_g,
             u: m_l * s.u_f + m_g * s.u_g,
             h2: 0.0,
             decay,
-            ic_shell_k: [INITIAL_POOL_K; IC_TRAINS],
-            ic_shell_kg: [IC_SHELL_WATER_KG; IC_TRAINS],
+            ic_shell_k: [prm.initial_pool_k; IC_TRAINS],
+            ic_shell_kg: [prm.ic_shell_water_kg; IC_TRAINS],
             ic_autostarted: false,
             ic_a_cycling: false,
             relief_open: false,
@@ -405,16 +416,21 @@ impl Plant {
         p.last_core.peak_clad_k = t_sat;
         p.last_core.debris_k = t_sat;
         p.last_core.clad_k = vec![t_sat; self::core::NODES];
-        p.last_containment.p_dw_pa = INITIAL_CONTAINMENT_PA;
-        p.last_containment.p_ww_pa = INITIAL_CONTAINMENT_PA;
-        p.last_containment.t_dw_k = INITIAL_DRYWELL_K;
-        p.last_containment.t_pool_k = INITIAL_POOL_K;
+        p.last_containment.p_dw_pa = prm.initial_containment_pa;
+        p.last_containment.p_ww_pa = prm.initial_containment_pa;
+        p.last_containment.t_dw_k = prm.initial_drywell_k;
+        p.last_containment.t_pool_k = prm.initial_pool_k;
         p
     }
 
     /// A fresh core and containment matching a fresh plant.
     pub fn parts(&self) -> (Core, Containment) {
-        (Core::new(self.vessel.sat.t_k), Containment::new())
+        (Core::new(self.vessel.sat.t_k, &self.prm), Containment::new(&self.prm))
+    }
+
+    /// The inputs this plant runs with.
+    pub fn params(&self) -> &Params {
+        &self.prm
     }
 
     pub fn time_s(&self) -> f64 {
@@ -422,7 +438,8 @@ impl Plant {
     }
 
     fn solve_vessel(&self) -> Vessel {
-        let v_total = volume_below(RPV_HEIGHT_M);
+        let prm = self.prm;
+        let v_total = volume_below(&prm, prm.rpv_height_m);
         let v = v_total / self.m;
         let u = self.u / self.m;
         match self.sat.mixture(v, u) {
@@ -436,7 +453,7 @@ impl Plant {
                     sat: s,
                     x,
                     p_pa: s.p_pa + p_h2,
-                    level_m: height_of_volume(v_liq) - BAF_M,
+                    level_m: height_of_volume(&prm, v_liq) - prm.baf_m,
                     gas_m3: gas,
                     h2_fraction: h2_mol / (h2_mol + steam_mol).max(1e-30),
                     dry: false,
@@ -451,7 +468,7 @@ impl Plant {
                 let s = self.sat.at(p_steam.min(steam::P_MAX_PA));
                 let p_h2 = self.h2 / M_H2 * R_GAS * t / v_total;
                 let mol = self.m / M_H2O + self.h2 / M_H2;
-                Vessel { sat: s, x: 1.0, p_pa: p_steam + p_h2, level_m: -BAF_M, gas_m3: v_total, h2_fraction: (self.h2 / M_H2) / mol, dry: true }
+                Vessel { sat: s, x: 1.0, p_pa: p_steam + p_h2, level_m: -prm.baf_m, gas_m3: v_total, h2_fraction: (self.h2 / M_H2) / mol, dry: true }
             }
         }
     }
@@ -494,6 +511,7 @@ impl Plant {
     /// Start a step: decide the flows from the start-of-step state and hand
     /// out the snapshots.
     pub fn begin(&mut self) -> Snapshots {
+        let prm = self.prm;
         if self.mode == Mode::Historical {
             self.apply_history();
         }
@@ -501,7 +519,7 @@ impl Plant {
         let p = v.p_pa;
         let t_sat = v.sat.t_k;
         // Isolation condensers: automatic start on high pressure (needs DC).
-        if self.controls.dc_power && !self.ic_autostarted && p >= IC_AUTOSTART_PA {
+        if self.controls.dc_power && !self.ic_autostarted && p >= prm.ic_autostart_pa {
             self.ic_autostarted = true;
             self.controls.ic_open = [true; IC_TRAINS];
         }
@@ -511,12 +529,12 @@ impl Plant {
                 // Hydrogen blankets the tubes: condensation scaled by the
                 // steam's share of the gas. [A]
                 let blanket = if self.mechanisms.ic_h2_blanketing { 1.0 - v.h2_fraction } else { 1.0 };
-                *q = (IC_UA_W_PER_K * (t_sat - self.ic_shell_k[i])).max(0.0) * blanket;
+                *q = (prm.ic_ua_w_per_k * (t_sat - self.ic_shell_k[i])).max(0.0) * blanket;
             }
         }
         // Relief valves: relief set points with DC, spring safety set points
         // without; held open by hand (needs DC).
-        let (open_at, close_at) = if self.controls.dc_power { (RELIEF_OPEN_PA, RELIEF_CLOSE_PA) } else { (SAFETY_OPEN_PA, SAFETY_CLOSE_PA) };
+        let (open_at, close_at) = if self.controls.dc_power { (prm.relief_open_pa, prm.relief_close_pa) } else { (prm.safety_open_pa, prm.safety_close_pa) };
         if p >= open_at || (self.controls.dc_power && self.controls.relief_held_open) {
             self.relief_open = true;
         } else if p <= close_at {
@@ -524,14 +542,14 @@ impl Plant {
         }
         let p_dw = self.last_containment.p_dw_pa;
         let flux = self.choked.at(p);
-        let w_relief = if self.relief_open { flux * RELIEF_THROAT_M2 * RELIEF_VALVES } else { 0.0 };
-        if self.mechanisms.hot_leak && self.last_core.exit_gas_k >= HOT_LEAK_GAS_K {
+        let w_relief = if self.relief_open { flux * prm.relief_throat_m2 * prm.relief_valves } else { 0.0 };
+        if self.mechanisms.hot_leak && self.last_core.exit_gas_k >= prm.hot_leak_gas_k {
             self.hot_leak_open = true;
         }
-        let leak_area = if self.hot_leak_open { HOT_LEAK_M2 } else { 0.0 } + if self.last_core.lower_head_failed { BREACH_M2 } else { 0.0 };
+        let leak_area = if self.hot_leak_open { prm.hot_leak_m2 } else { 0.0 } + if self.last_core.lower_head_failed { prm.breach_m2 } else { 0.0 };
         let w_leak = if p > p_dw { flux * leak_area } else { 0.0 };
-        let w_inj = if self.controls.injection && p < FIRE_ENGINE_SHUTOFF_PA {
-            FIRE_ENGINE_MAX_KG_S * (1.0 - (p - P_ATM).max(0.0) / (FIRE_ENGINE_SHUTOFF_PA - P_ATM)).sqrt()
+        let w_inj = if self.controls.injection && p < prm.fire_engine_shutoff_pa {
+            prm.fire_engine_max_kg_s * (1.0 - (p - P_ATM).max(0.0) / (prm.fire_engine_shutoff_pa - P_ATM)).sqrt()
         } else {
             0.0
         };
@@ -545,8 +563,8 @@ impl Plant {
         let decay_w = self.decay.total_decay_heat_power().get::<watt>();
         // Before the MSIVs close, the pressure regulator passes steam to the
         // turbine bypass.
-        let w_bypass = if self.t_s < MSIV_CLOSURE_S && !v.dry {
-            (BYPASS_GAIN_KG_S_PA * (p - INITIAL_PRESSURE_PA)).clamp(0.0, steam_gas / DT_S)
+        let w_bypass = if self.t_s < prm.msiv_closure_s && !v.dry {
+            (prm.bypass_gain_kg_s_pa * (p - prm.initial_pressure_pa)).clamp(0.0, steam_gas / DT_S)
         } else {
             0.0
         };
@@ -561,7 +579,7 @@ impl Plant {
         };
         let h_gas = v.sat.h_g;
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -574,16 +592,18 @@ impl Plant {
                 vent_ordered: self.controls.vent_ordered,
                 ex_vessel_w: self.last_core.ex_vessel_w,
                 pedestal_inflow_kg_s: if self.last_core.lower_head_failed { w_inj } else { 0.0 },
+                prm,
             },
         }
     }
 
     /// Finish the step with the core's and the containment's results.
     pub fn finish(&mut self, core: CoreResult, containment: ContainmentResult) {
+        let prm = self.prm;
         let d = self.pending;
         let v = self.vessel;
         let h_g = v.sat.h_g;
-        let h_inj = 4186.0 * (INJECTION_TEMPERATURE_K - 273.15);
+        let h_inj = 4186.0 * (prm.injection_temperature_k - 273.15);
         let gas_out = d.w_relief + d.w_leak;
         let steam_out = gas_out - d.h2_out + d.w_bypass;
         // After the lower head fails the injected water pours through the
@@ -791,11 +811,40 @@ mod tests {
     /// every field of the frame after every step with `==` on the f64s.
     #[test]
     fn three_workers_are_one_worker() {
-        let mut a = Plant::new(Mode::Historical);
+        one_worker_against_three(Params::default(), 2000);
+    }
+
+    /// Changed inputs (gh:#1033) reach every part: a plant built with
+    /// [`Plant::with_params`] reports them, they cross the wire unchanged,
+    /// one worker still equals three with them, and the run differs from
+    /// the default one (one input per part: the core's boiling coefficient,
+    /// the containment's initial pressure, the plant's IC conductance). Not
+    /// the drywell volume: in the first 2000 s nothing enters the drywell,
+    /// and its nitrogen is set from the initial pressure, so its pressure
+    /// does not depend on the volume (checked; correct, not a defect).
+    #[test]
+    fn changed_inputs_reach_every_part() {
+        let d = Params::default();
+        let prm = Params { boiling_h: 0.9 * d.boiling_h, initial_containment_pa: 1.05 * d.initial_containment_pa, ic_ua_w_per_k: 0.8 * d.ic_ua_w_per_k, ..d };
+        let mut w = Writer::default();
+        prm.write(&mut w);
+        assert_eq!(Params::read(&mut Reader::new(&w.0)), prm);
+        assert_eq!(Plant::with_params(Mode::Historical, Mechanisms::default(), prm).params(), &prm);
+        let changed = one_worker_against_three(prm, 2000);
+        let default = one_worker_against_three(d, 2000);
+        assert_ne!(changed.core.peak_clad_k, default.core.peak_clad_k);
+        assert_ne!(changed.containment.p_dw_pa, default.containment.p_dw_pa);
+        assert_ne!(changed.vessel.p_pa, default.vessel.p_pa); // the ICs are off by 2000 s; their effect is in the vessel
+    }
+
+    /// Steps a plant inline and a second one through the worker wire, frame
+    /// for frame bit-identical, and returns the last frame.
+    fn one_worker_against_three(prm: Params, steps: usize) -> Frame {
+        let mut a = Plant::with_params(Mode::Historical, Mechanisms::default(), prm);
         let (mut ca, mut ka) = a.parts();
-        let mut b = Plant::new(Mode::Historical);
+        let mut b = Plant::with_params(Mode::Historical, Mechanisms::default(), prm);
         let (mut cb, mut kb) = b.parts();
-        for _ in 0..2000 {
+        for _ in 0..steps {
             a.step_inline(&mut ca, &mut ka);
             let s = b.begin();
             let mut w = Writer::default();
@@ -816,6 +865,7 @@ mod tests {
             fb.write(&mut wb);
             assert!(wa.0.iter().zip(&wb.0).all(|(x, y)| x.to_bits() == y.to_bits()), "diverged at t = {}", fa.t_s);
         }
+        a.frame()
     }
 
     fn remote_core(c: &Core, s: &CoreSnapshot) -> (Core, CoreResult) {
@@ -927,8 +977,9 @@ mod tests {
     /// The level-volume map inverts.
     #[test]
     fn the_level_map_inverts() {
+        let prm = Params::default();
         for z in [0.5, 4.9, 6.0, 8.6, 12.0, 19.0] {
-            assert!((height_of_volume(volume_below(z)) - z).abs() < 1e-9, "{z}");
+            assert!((height_of_volume(&prm, volume_below(&prm, z)) - z).abs() < 1e-9, "{z}");
         }
     }
 }

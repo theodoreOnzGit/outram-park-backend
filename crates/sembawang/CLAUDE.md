@@ -96,3 +96,9 @@ in the demo.
 - **Transcendentals through PETIR** (`.r_exp()` etc., gh:#985), never the
   platform's `.exp()`; converted 2026-10-29 with the effect measured in
   `verification_and_validation/bwr_mark1/petir-conversion.md`.
+- **Inputs are `params::Params`** (gh:#1033): every scalar input as one
+  `Copy` value, defaulting to the documented constants (whose tags and
+  sources stay the record). Run a corrected or perturbed plant with
+  `Plant::with_params`; a new input goes in the `params!` list (which fixes
+  its wire order) with its constant, tag and source. Model code reads
+  `prm.field`, never the constant.

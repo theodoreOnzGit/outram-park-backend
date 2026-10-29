@@ -21,6 +21,7 @@
 //! is restricted and is **not** used.
 
 use petir::mathf::RealMath;
+use super::wire::{Reader, Writer};
 
 // ── Reactor ────────────────────────────────────────────────────────────────
 
@@ -239,49 +240,169 @@ pub const H2_EXPLOSION: f64 = 0.08;
 /// Atmosphere, Pa.
 pub const P_ATM: f64 = 1.013e5;
 
-// ── Derived core geometry ───────────────────────────────────────────────────
+// ── The inputs as one value ─────────────────────────────────────────────────
 
-/// UO2 mass of the whole core, kg (from the pellet geometry).
-pub fn core_uo2_kg() -> f64 {
-    ASSEMBLIES * RODS_PER_ASSEMBLY * std::f64::consts::PI * PELLET_R_M.r_powi(2) * ACTIVE_LENGTH_M * UO2_DENSITY
+/// Declares [`Params`] from one list, so its fields, their defaults (the
+/// documented constants above) and the order they cross the worker wire in
+/// cannot drift apart.
+macro_rules! params {
+    ($($field:ident = $default:ident,)*) => {
+        /// Every scalar input of the model, as one value (gh:#1033): what a
+        /// caller changes to run the plant with a corrected or perturbed
+        /// input, without recompiling. [`Params::default`] is the constants
+        /// above, field for field (`thermal_power_w` is [`THERMAL_POWER_W`],
+        /// and so on), so their tags and sources are the defaults'. Left as
+        /// constants: the node and train counts, which size arrays
+        /// ([`AXIAL_NODES`], [`IC_TRAINS`]), and physical constants (molar
+        /// masses, [`R_GAS`], [`P_ATM`]).
+        ///
+        /// It travels whole in each part's snapshot, so a worker steps with
+        /// the plant's inputs and one worker still equals three.
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        pub struct Params {
+            $(pub $field: f64,)*
+            /// [`RING_FACTORS`].
+            pub ring_factors: [f64; 3],
+        }
+
+        impl Default for Params {
+            fn default() -> Self {
+                Self { $($field: $default,)* ring_factors: RING_FACTORS }
+            }
+        }
+
+        impl Params {
+            pub fn write(&self, w: &mut Writer) {
+                w.f(&[$(self.$field,)*]);
+                w.f(&self.ring_factors);
+            }
+            pub fn read(r: &mut Reader) -> Self {
+                Self { $($field: r.f(),)* ring_factors: [r.f(), r.f(), r.f()] }
+            }
+        }
+    };
 }
 
-/// Zircaloy mass of the whole core (cladding over the active length plus
-/// channel boxes), kg.
-pub fn core_zr_kg() -> f64 {
-    let ri = CLAD_OUTER_R_M - CLAD_WALL_M;
-    let clad = ASSEMBLIES * RODS_PER_ASSEMBLY * std::f64::consts::PI * (CLAD_OUTER_R_M.r_powi(2) - ri.r_powi(2)) * ACTIVE_LENGTH_M * ZR_DENSITY;
-    let channel = ASSEMBLIES * 4.0 * (CHANNEL_INNER_WIDTH_M + CHANNEL_WALL_M) * CHANNEL_WALL_M * CHANNEL_LENGTH_M * ZR_DENSITY;
-    clad + channel
+params! {
+    thermal_power_w = THERMAL_POWER_W,
+    assemblies = ASSEMBLIES,
+    rods_per_assembly = RODS_PER_ASSEMBLY,
+    active_length_m = ACTIVE_LENGTH_M,
+    clad_outer_r_m = CLAD_OUTER_R_M,
+    clad_wall_m = CLAD_WALL_M,
+    pellet_r_m = PELLET_R_M,
+    uo2_density = UO2_DENSITY,
+    zr_density = ZR_DENSITY,
+    channel_inner_width_m = CHANNEL_INNER_WIDTH_M,
+    channel_wall_m = CHANNEL_WALL_M,
+    channel_length_m = CHANNEL_LENGTH_M,
+    uo2_cp = UO2_CP,
+    zr_cp = ZR_CP,
+    uo2_k = UO2_K,
+    gap_h = GAP_H,
+    boiling_h = BOILING_H,
+    cosine_extrapolation = COSINE_EXTRAPOLATION,
+    rpv_radius_m = RPV_RADIUS_M,
+    rpv_height_m = RPV_HEIGHT_M,
+    baf_m = BAF_M,
+    lower_plenum_free = LOWER_PLENUM_FREE,
+    upper_free = UPPER_FREE,
+    core_other_area_m2 = CORE_OTHER_AREA_M2,
+    normal_level_above_taf_m = NORMAL_LEVEL_ABOVE_TAF_M,
+    initial_pressure_pa = INITIAL_PRESSURE_PA,
+    msiv_closure_s = MSIV_CLOSURE_S,
+    bypass_gain_kg_s_pa = BYPASS_GAIN_KG_S_PA,
+    relief_valves = RELIEF_VALVES,
+    relief_open_pa = RELIEF_OPEN_PA,
+    relief_close_pa = RELIEF_CLOSE_PA,
+    safety_open_pa = SAFETY_OPEN_PA,
+    safety_close_pa = SAFETY_CLOSE_PA,
+    relief_throat_m2 = RELIEF_THROAT_M2,
+    ic_autostart_pa = IC_AUTOSTART_PA,
+    ic_ua_w_per_k = IC_UA_W_PER_K,
+    ic_shell_water_kg = IC_SHELL_WATER_KG,
+    fire_engine_shutoff_pa = FIRE_ENGINE_SHUTOFF_PA,
+    fire_engine_max_kg_s = FIRE_ENGINE_MAX_KG_S,
+    injection_temperature_k = INJECTION_TEMPERATURE_K,
+    hot_leak_gas_k = HOT_LEAK_GAS_K,
+    hot_leak_m2 = HOT_LEAK_M2,
+    lower_head_failure_k = LOWER_HEAD_FAILURE_K,
+    breach_m2 = BREACH_M2,
+    debris_quench_s = DEBRIS_QUENCH_S,
+    zr_melt_k = ZR_MELT_K,
+    uh_low_a = UH_LOW_A,
+    uh_low_b_k = UH_LOW_B_K,
+    uh_high_a = UH_HIGH_A,
+    uh_high_b_k = UH_HIGH_B_K,
+    uh_low_max_k = UH_LOW_MAX_K,
+    uh_high_min_k = UH_HIGH_MIN_K,
+    oxidation_min_k = OXIDATION_MIN_K,
+    oxidation_heat_j_per_kg_zr = OXIDATION_HEAT_J_PER_KG_ZR,
+    drywell_volume_m3 = DRYWELL_VOLUME_M3,
+    wetwell_gas_m3 = WETWELL_GAS_M3,
+    pool_water_m3 = POOL_WATER_M3,
+    containment_design_pa = CONTAINMENT_DESIGN_PA,
+    initial_containment_pa = INITIAL_CONTAINMENT_PA,
+    initial_drywell_k = INITIAL_DRYWELL_K,
+    initial_pool_k = INITIAL_POOL_K,
+    vent_submergence_pa = VENT_SUBMERGENCE_PA,
+    downcomer_area_m2 = DOWNCOMER_AREA_M2,
+    discharge_coefficient = DISCHARGE_COEFFICIENT,
+    vacuum_breaker_pa = VACUUM_BREAKER_PA,
+    vacuum_breaker_m2 = VACUUM_BREAKER_M2,
+    vent_rupture_disk_pa = VENT_RUPTURE_DISK_PA,
+    vent_area_m2 = VENT_AREA_M2,
+    flange_leak_pa = FLANGE_LEAK_PA,
+    flange_leak_m2 = FLANGE_LEAK_M2,
+    reactor_building_m3 = REACTOR_BUILDING_M3,
+    h2_flammable = H2_FLAMMABLE,
+    h2_explosion = H2_EXPLOSION,
 }
 
-/// Zircaloy surface exposed to steam over the active length, m^2: the rods'
-/// outer surface and both faces of the channel walls.
-pub fn core_zr_area_m2() -> f64 {
-    let rods = ASSEMBLIES * RODS_PER_ASSEMBLY * 2.0 * std::f64::consts::PI * CLAD_OUTER_R_M * ACTIVE_LENGTH_M;
-    let channel = ASSEMBLIES * 2.0 * 4.0 * CHANNEL_INNER_WIDTH_M * ACTIVE_LENGTH_M;
-    rods + channel
-}
+/// Derived core geometry.
+impl Params {
+    /// UO2 mass of the whole core, kg (from the pellet geometry).
+    pub fn core_uo2_kg(&self) -> f64 {
+        self.assemblies * self.rods_per_assembly * std::f64::consts::PI * self.pellet_r_m.r_powi(2) * self.active_length_m * self.uo2_density
+    }
 
-/// Rod surface over the active length, m^2 (the heat-transfer surface).
-pub fn core_rod_area_m2() -> f64 {
-    ASSEMBLIES * RODS_PER_ASSEMBLY * 2.0 * std::f64::consts::PI * CLAD_OUTER_R_M * ACTIVE_LENGTH_M
-}
+    /// Zircaloy mass of the whole core (cladding over the active length plus
+    /// channel boxes), kg.
+    pub fn core_zr_kg(&self) -> f64 {
+        let ri = self.clad_outer_r_m - self.clad_wall_m;
+        let clad = self.assemblies * self.rods_per_assembly * std::f64::consts::PI * (self.clad_outer_r_m.r_powi(2) - ri.r_powi(2)) * self.active_length_m * self.zr_density;
+        let channel = self.assemblies * 4.0 * (self.channel_inner_width_m + self.channel_wall_m) * self.channel_wall_m * self.channel_length_m * self.zr_density;
+        clad + channel
+    }
 
-/// Coolant flow area inside the channels, m^2, and their hydraulic diameter, m.
-pub fn core_flow_area_m2() -> f64 {
-    ASSEMBLIES * (CHANNEL_INNER_WIDTH_M.r_powi(2) - RODS_PER_ASSEMBLY * std::f64::consts::PI * CLAD_OUTER_R_M.r_powi(2))
-}
-pub fn hydraulic_diameter_m() -> f64 {
-    let a = CHANNEL_INNER_WIDTH_M.r_powi(2) - RODS_PER_ASSEMBLY * std::f64::consts::PI * CLAD_OUTER_R_M.r_powi(2);
-    let wet = RODS_PER_ASSEMBLY * 2.0 * std::f64::consts::PI * CLAD_OUTER_R_M + 4.0 * CHANNEL_INNER_WIDTH_M;
-    4.0 * a / wet
-}
+    /// Zircaloy surface exposed to steam over the active length, m^2: the rods'
+    /// outer surface and both faces of the channel walls.
+    pub fn core_zr_area_m2(&self) -> f64 {
+        let rods = self.assemblies * self.rods_per_assembly * 2.0 * std::f64::consts::PI * self.clad_outer_r_m * self.active_length_m;
+        let channel = self.assemblies * 2.0 * 4.0 * self.channel_inner_width_m * self.active_length_m;
+        rods + channel
+    }
 
-/// Fuel-to-clad conductance per unit rod length, W/(m K): the pellet's
-/// volume-average-to-surface resistance `1/(8 pi k)` plus the gap.
-pub fn fuel_to_clad_w_per_m_k() -> f64 {
-    1.0 / (1.0 / (8.0 * std::f64::consts::PI * UO2_K) + 1.0 / (2.0 * std::f64::consts::PI * PELLET_R_M * GAP_H))
+    /// Rod surface over the active length, m^2 (the heat-transfer surface).
+    pub fn core_rod_area_m2(&self) -> f64 {
+        self.assemblies * self.rods_per_assembly * 2.0 * std::f64::consts::PI * self.clad_outer_r_m * self.active_length_m
+    }
+
+    /// Coolant flow area inside the channels, m^2, and their hydraulic diameter, m.
+    pub fn core_flow_area_m2(&self) -> f64 {
+        self.assemblies * (self.channel_inner_width_m.r_powi(2) - self.rods_per_assembly * std::f64::consts::PI * self.clad_outer_r_m.r_powi(2))
+    }
+    pub fn hydraulic_diameter_m(&self) -> f64 {
+        let a = self.channel_inner_width_m.r_powi(2) - self.rods_per_assembly * std::f64::consts::PI * self.clad_outer_r_m.r_powi(2);
+        let wet = self.rods_per_assembly * 2.0 * std::f64::consts::PI * self.clad_outer_r_m + 4.0 * self.channel_inner_width_m;
+        4.0 * a / wet
+    }
+
+    /// Fuel-to-clad conductance per unit rod length, W/(m K): the pellet's
+    /// volume-average-to-surface resistance `1/(8 pi k)` plus the gap.
+    pub fn fuel_to_clad_w_per_m_k(&self) -> f64 {
+        1.0 / (1.0 / (8.0 * std::f64::consts::PI * self.uo2_k) + 1.0 / (2.0 * std::f64::consts::PI * self.pellet_r_m * self.gap_h))
+    }
 }
 
 #[cfg(test)]
@@ -294,11 +415,11 @@ mod tests {
     /// A harness check on the arithmetic, not a validation.
     #[test]
     fn the_derived_core_is_the_right_size() {
-        let uo2 = core_uo2_kg();
+        let uo2 = Params::default().core_uo2_kg();
         assert!((70e3..82e3).contains(&uo2), "{uo2}");
-        let zr = core_zr_kg();
+        let zr = Params::default().core_zr_kg();
         assert!((25e3..35e3).contains(&zr), "{zr}");
-        let dh = hydraulic_diameter_m();
+        let dh = Params::default().hydraulic_diameter_m();
         assert!((0.012..0.016).contains(&dh), "{dh}");
     }
 }

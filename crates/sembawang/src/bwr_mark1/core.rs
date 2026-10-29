@@ -76,6 +76,8 @@ pub struct CoreSnapshot {
     /// Temperature-dependent heat capacities on (the default) or the
     /// constant-property ablation (`Mechanisms`).
     pub t_dependent_props: bool,
+    /// The plant's inputs (gh:#1033).
+    pub prm: Params,
 }
 
 /// What the core hands back.
@@ -144,25 +146,25 @@ pub struct Core {
     h2_total_kg: f64,
 }
 
-fn geom() -> NodeGeom {
+fn geom(prm: &Params) -> NodeGeom {
     let n = NODES as f64;
-    let dz = ACTIVE_LENGTH_M / AXIAL_NODES as f64;
-    let rod_length = ASSEMBLIES * RODS_PER_ASSEMBLY * dz / RINGS as f64;
+    let dz = prm.active_length_m / AXIAL_NODES as f64;
+    let rod_length = prm.assemblies * prm.rods_per_assembly * dz / RINGS as f64;
     NodeGeom {
-        c_fuel: core_uo2_kg() / n * UO2_CP,
-        c_clad: core_zr_kg() / n * ZR_CP,
-        m_fuel: core_uo2_kg() / n,
-        g_fc: fuel_to_clad_w_per_m_k() * rod_length,
-        a_rod: core_rod_area_m2() / n,
-        a_zr: core_zr_area_m2() / n,
-        zr_kg: core_zr_kg() / n,
+        c_fuel: prm.core_uo2_kg() / n * prm.uo2_cp,
+        c_clad: prm.core_zr_kg() / n * prm.zr_cp,
+        m_fuel: prm.core_uo2_kg() / n,
+        g_fc: prm.fuel_to_clad_w_per_m_k() * rod_length,
+        a_rod: prm.core_rod_area_m2() / n,
+        a_zr: prm.core_zr_area_m2() / n,
+        zr_kg: prm.core_zr_kg() / n,
     }
 }
 
 /// Chopped-cosine axial shape, normalised to sum to 1.
-fn axial_shape() -> Vec<f64> {
-    let l = ACTIVE_LENGTH_M;
-    let le = COSINE_EXTRAPOLATION * l;
+fn axial_shape(prm: &Params) -> Vec<f64> {
+    let l = prm.active_length_m;
+    let le = prm.cosine_extrapolation * l;
     let raw: Vec<f64> = (0..AXIAL_NODES)
         .map(|j| {
             let z = (j as f64 + 0.5) / AXIAL_NODES as f64 * l;
@@ -252,32 +254,32 @@ fn debris_temperature(mf: f64, mc: f64, h: f64) -> f64 {
 }
 
 /// Urbanic-Heidrick parabolic rate constant, (kg Zr/m^2)^2/s.
-pub fn oxidation_rate(t_k: f64) -> f64 {
-    if t_k < OXIDATION_MIN_K {
+pub fn oxidation_rate(prm: &Params, t_k: f64) -> f64 {
+    if t_k < prm.oxidation_min_k {
         return 0.0;
     }
-    let low = |t: f64| UH_LOW_A * (-UH_LOW_B_K / t).r_exp();
-    let high = |t: f64| UH_HIGH_A * (-UH_HIGH_B_K / t).r_exp();
-    if t_k <= UH_LOW_MAX_K {
+    let low = |t: f64| prm.uh_low_a * (-prm.uh_low_b_k / t).r_exp();
+    let high = |t: f64| prm.uh_high_a * (-prm.uh_high_b_k / t).r_exp();
+    if t_k <= prm.uh_low_max_k {
         low(t_k)
-    } else if t_k >= UH_HIGH_MIN_K {
+    } else if t_k >= prm.uh_high_min_k {
         high(t_k)
     } else {
-        let w = (t_k - UH_LOW_MAX_K) / (UH_HIGH_MIN_K - UH_LOW_MAX_K);
-        low(UH_LOW_MAX_K) + w * (high(UH_HIGH_MIN_K) - low(UH_LOW_MAX_K))
+        let w = (t_k - prm.uh_low_max_k) / (prm.uh_high_min_k - prm.uh_low_max_k);
+        low(prm.uh_low_max_k) + w * (high(prm.uh_high_min_k) - low(prm.uh_low_max_k))
     }
 }
 
 /// Dittus-Boelter heat transfer coefficient for steam at `t_film` and `p`,
 /// for a ring's steam flow `w` (kg/s) through its share of the flow area.
-fn steam_htc(w: f64, t_film: f64, p_pa: f64) -> (f64, f64) {
+fn steam_htc(prm: &Params, w: f64, t_film: f64, p_pa: f64) -> (f64, f64) {
     let t = ThermodynamicTemperature::new::<kelvin>(t_film.clamp(300.0, 2200.0));
     let p = Pressure::new::<pascal>(p_pa);
     let cp = cp_tp_eqm_single_phase(t, p).get::<joule_per_kilogram_kelvin>();
     let k = lambda_tp_eqm_single_phase(t, p).get::<watt_per_meter_kelvin>();
     let mu = mu_tp_eqm_single_phase(t, p).get::<pascal_second>();
-    let dh = hydraulic_diameter_m();
-    let area = core_flow_area_m2() / RINGS as f64;
+    let dh = prm.hydraulic_diameter_m();
+    let area = prm.core_flow_area_m2() / RINGS as f64;
     let re = (w / area) * dh / mu;
     let pr = mu * cp / k;
     // Laminar floor Nu = 4.36 (fully developed, uniform flux).
@@ -288,14 +290,14 @@ fn steam_htc(w: f64, t_film: f64, p_pa: f64) -> (f64, f64) {
 impl Core {
     /// The core just after the scram: fuel at its full-power average
     /// temperature over the coolant, so the stored heat is in it.
-    pub fn new(t_sat_k: f64) -> Self {
-        let g = geom();
-        let axial = axial_shape();
+    pub fn new(t_sat_k: f64, prm: &Params) -> Self {
+        let g = geom(prm);
+        let axial = axial_shape(prm);
         let mut nodes = Vec::with_capacity(NODES);
         for ring in 0..RINGS {
             for j in 0..AXIAL_NODES {
-                let q = THERMAL_POWER_W / RINGS as f64 * RING_FACTORS[ring] * axial[j];
-                let t_clad = t_sat_k + q / (BOILING_H * g.a_rod);
+                let q = prm.thermal_power_w / RINGS as f64 * prm.ring_factors[ring] * axial[j];
+                let t_clad = t_sat_k + q / (prm.boiling_h * g.a_rod);
                 nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false });
             }
         }
@@ -315,10 +317,11 @@ impl Core {
 
     /// Advance one step. Pure function of `self` and `s`.
     pub fn step(&mut self, s: &CoreSnapshot) -> CoreResult {
-        let g = geom();
-        let axial = axial_shape();
+        let prm = &s.prm;
+        let g = geom(prm);
+        let axial = axial_shape(prm);
         let dt = s.dt_s;
-        let dz = ACTIVE_LENGTH_M / AXIAL_NODES as f64;
+        let dz = prm.active_length_m / AXIAL_NODES as f64;
         let mut q_fluid = 0.0;
         let mut steam_used = 0.0;
         let mut h2 = 0.0;
@@ -339,29 +342,29 @@ impl Core {
         if tdp && self.debris_mf + self.debris_mc > 0.0 {
             if self.lower_head_failed {
                 ex_vessel = p_debris;
-            } else if s.level_m > -BAF_M {
+            } else if s.level_m > -prm.baf_m {
                 let h_sat = self.debris_mf * uo2_enthalpy().at(s.t_sat_k) + self.debris_mc * zr_enthalpy().at(s.t_sat_k);
                 let excess = (self.debris_h - h_sat).max(0.0);
-                let release = excess * (1.0 - (-dt / DEBRIS_QUENCH_S).r_exp());
+                let release = excess * (1.0 - (-dt / prm.debris_quench_s).r_exp());
                 self.debris_h -= release;
                 q_quench = p_debris + release / dt;
             } else {
                 self.debris_h += p_debris * dt;
-                if debris_temperature(self.debris_mf, self.debris_mc, self.debris_h) > LOWER_HEAD_FAILURE_K {
+                if debris_temperature(self.debris_mf, self.debris_mc, self.debris_h) > prm.lower_head_failure_k {
                     self.lower_head_failed = true;
                 }
             }
         } else if !tdp && self.debris_c > 0.0 {
             if self.lower_head_failed {
                 ex_vessel = p_debris;
-            } else if s.level_m > -BAF_M {
+            } else if s.level_m > -prm.baf_m {
                 let excess = (self.debris_e - self.debris_c * s.t_sat_k).max(0.0);
-                let release = excess * (1.0 - (-dt / DEBRIS_QUENCH_S).r_exp());
+                let release = excess * (1.0 - (-dt / prm.debris_quench_s).r_exp());
                 self.debris_e -= release;
                 q_quench = p_debris + release / dt;
             } else {
                 self.debris_e += p_debris * dt;
-                if self.debris_e / self.debris_c > LOWER_HEAD_FAILURE_K {
+                if self.debris_e / self.debris_c > prm.lower_head_failure_k {
                     self.lower_head_failed = true;
                 }
             }
@@ -380,13 +383,13 @@ impl Core {
                 if node.relocated {
                     continue;
                 }
-                let q = s.decay_w / RINGS as f64 * RING_FACTORS[ring] * axial[j];
+                let q = s.decay_w / RINGS as f64 * prm.ring_factors[ring] * axial[j];
                 let z_mid = (j as f64 + 0.5) * dz;
                 let covered = s.level_m >= z_mid;
                 // Oxidation (explicit in T, uncovered only, steam-limited).
                 let mut q_ox = 0.0;
                 if !covered {
-                    let k = oxidation_rate(node.t_clad);
+                    let k = oxidation_rate(prm, node.t_clad);
                     if k > 0.0 && w_steam > 0.0 {
                         let w_max = g.zr_kg / g.a_zr;
                         let w_new = (node.w_ox * node.w_ox + k * dt).sqrt().min(w_max);
@@ -396,7 +399,7 @@ impl Core {
                         dzr = dzr.min(dzr_steam);
                         let n = &mut self.nodes[idx];
                         n.w_ox += dzr / g.a_zr;
-                        q_ox = dzr * OXIDATION_HEAT_J_PER_KG_ZR / dt;
+                        q_ox = dzr * prm.oxidation_heat_j_per_kg_zr / dt;
                         let used = dzr * steam_per_zr / dt;
                         w_steam -= used;
                         steam_used += used;
@@ -407,9 +410,9 @@ impl Core {
                 q_ox_total += q_ox;
                 // Clad-to-coolant conductance and coolant temperature.
                 let (ha, t_cool, cp) = if covered {
-                    (BOILING_H * g.a_rod, s.t_sat_k, 0.0)
+                    (prm.boiling_h * g.a_rod, s.t_sat_k, 0.0)
                 } else if w_steam > 0.0 {
-                    let (h, cp) = steam_htc(w_steam, 0.5 * (node.t_clad + t_steam), s.p_pa);
+                    let (h, cp) = steam_htc(prm, w_steam, 0.5 * (node.t_clad + t_steam), s.p_pa);
                     let ntu = h * g.a_rod / (w_steam * cp);
                     (w_steam * cp * (1.0 - (-ntu).r_exp()), t_steam, cp)
                 } else {
@@ -459,7 +462,7 @@ impl Core {
                 m.t_fuel = tf;
                 m.t_clad = tc;
                 peak = peak.max(tc);
-                if tc >= ZR_MELT_K {
+                if tc >= prm.zr_melt_k {
                     newly_relocated.push((idx, q / s.decay_w.max(1.0)));
                 }
             }
@@ -547,9 +550,19 @@ impl Core {
 impl CoreSnapshot {
     pub fn write(&self, w: &mut Writer) {
         w.f(&[self.dt_s, self.p_pa, self.t_sat_k, self.h_fg, self.level_m, self.decay_w, if self.t_dependent_props { 1.0 } else { 0.0 }]);
+        self.prm.write(w);
     }
     pub fn read(r: &mut Reader) -> Self {
-        Self { dt_s: r.f(), p_pa: r.f(), t_sat_k: r.f(), h_fg: r.f(), level_m: r.f(), decay_w: r.f(), t_dependent_props: r.f() != 0.0 }
+        Self {
+            dt_s: r.f(),
+            p_pa: r.f(),
+            t_sat_k: r.f(),
+            h_fg: r.f(),
+            level_m: r.f(),
+            decay_w: r.f(),
+            t_dependent_props: r.f() != 0.0,
+            prm: Params::read(r),
+        }
     }
 }
 
@@ -597,7 +610,7 @@ mod tests {
     /// The axial shape sums to one and peaks mid-core.
     #[test]
     fn the_axial_shape_is_normalised_and_peaked() {
-        let a = axial_shape();
+        let a = axial_shape(&Params::default());
         assert!((a.iter().sum::<f64>() - 1.0).abs() < 1e-12);
         assert!(a[AXIAL_NODES / 2] > a[0] && a[AXIAL_NODES / 2] > a[AXIAL_NODES - 1]);
     }
@@ -607,8 +620,8 @@ mod tests {
     /// few kelvin of saturation.
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
-        let mut c = Core::new(560.0);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false };
+        let mut c = Core::new(560.0, &Params::default());
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -621,15 +634,15 @@ mod tests {
     /// gains is the decay power times the time (no oxidation without steam).
     #[test]
     fn a_dry_core_without_steam_heats_adiabatically() {
-        let mut c = Core::new(560.0);
+        let mut c = Core::new(560.0, &Params::default());
         // Start from equilibrium at saturation so the stored heat is gone.
         for n in c.nodes.iter_mut() {
             n.t_fuel = 560.0;
             n.t_clad = 560.0;
         }
-        let g = geom();
+        let g = geom(&Params::default());
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum();
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -645,17 +658,17 @@ mod tests {
     /// varying `c_p` would not be.
     #[test]
     fn a_dry_core_conserves_enthalpy_with_temperature_dependent_properties() {
-        let mut c = Core::new(560.0);
+        let mut c = Core::new(560.0, &Params::default());
         for n in c.nodes.iter_mut() {
             n.t_fuel = 560.0;
             n.t_clad = 560.0;
         }
-        let g = geom();
+        let g = geom(&Params::default());
         let h = |c: &Core| -> f64 {
             c.nodes.iter().map(|n| g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad)).sum()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -687,12 +700,12 @@ mod tests {
     fn the_oxidation_rate_is_continuous_and_rising() {
         let mut last = 0.0;
         for t in (1000..2500).step_by(5) {
-            let k = oxidation_rate(t as f64);
+            let k = oxidation_rate(&Params::default(), t as f64);
             assert!(k >= last, "{t}");
             last = k;
         }
-        let a = oxidation_rate(UH_LOW_MAX_K);
-        let b = oxidation_rate(UH_LOW_MAX_K + 1e-9);
+        let a = oxidation_rate(&Params::default(), UH_LOW_MAX_K);
+        let b = oxidation_rate(&Params::default(), UH_LOW_MAX_K + 1e-9);
         assert!((a - b).abs() < 1e-9 * a);
     }
 }

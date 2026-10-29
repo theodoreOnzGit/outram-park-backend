@@ -2780,6 +2780,7 @@ pub struct ContainmentSnapshot {
     pub vent_ordered: bool,
     pub ex_vessel_w: f64,
     pub pedestal_inflow_kg_s: f64,
+    pub prm: Params,
 }
 ```
 
@@ -2798,6 +2799,7 @@ pub struct ContainmentSnapshot {
 | `vent_ordered` | `bool` | Operators' order to open the wetwell vent (the disk must still burst). |
 | `ex_vessel_w` | `f64` | After the lower head fails: the debris's decay power on the drywell<br>floor, W, and the injected water that now pours through, kg/s (at<br>the injection temperature). |
 | `pedestal_inflow_kg_s` | `f64` |  |
+| `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
 
@@ -3112,15 +3114,15 @@ pub struct Containment {
 ###### Methods
 
 - ```rust
-  pub fn new() -> Self { /* ... */ }
+  pub fn new(prm: &Params) -> Self { /* ... */ }
   ```
 
 - ```rust
-  pub fn p_dw(self: &Self) -> f64 { /* ... */ }
+  pub fn p_dw(self: &Self, prm: &Params) -> f64 { /* ... */ }
   ```
 
 - ```rust
-  pub fn p_ww(self: &Self) -> f64 { /* ... */ }
+  pub fn p_ww(self: &Self, prm: &Params) -> f64 { /* ... */ }
   ```
 
 - ```rust
@@ -3174,6 +3176,7 @@ pub struct Containment {
   - ```rust
     fn default() -> Self { /* ... */ }
     ```
+    The containment with the default inputs ([`Params::default`]).
 
 - **Downcast**
   - ```rust
@@ -3317,6 +3320,7 @@ pub struct CoreSnapshot {
     pub level_m: f64,
     pub decay_w: f64,
     pub t_dependent_props: bool,
+    pub prm: Params,
 }
 ```
 
@@ -3331,6 +3335,7 @@ pub struct CoreSnapshot {
 | `level_m` | `f64` | Collapsed water level above the bottom of active fuel, m (negative:<br>below the core; below `-BAF_M` the lower plenum is dry). |
 | `decay_w` | `f64` | Decay power of the whole core, W. |
 | `t_dependent_props` | `bool` | Temperature-dependent heat capacities on (the default) or the<br>constant-property ablation (`Mechanisms`). |
+| `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
 
@@ -3646,7 +3651,7 @@ pub struct Core {
 ###### Methods
 
 - ```rust
-  pub fn new(t_sat_k: f64) -> Self { /* ... */ }
+  pub fn new(t_sat_k: f64, prm: &Params) -> Self { /* ... */ }
   ```
   The core just after the scram: fuel at its full-power average
 
@@ -3781,7 +3786,7 @@ pub struct Core {
 Urbanic-Heidrick parabolic rate constant, (kg Zr/m^2)^2/s.
 
 ```rust
-pub fn oxidation_rate(t_k: f64) -> f64 { /* ... */ }
+pub fn oxidation_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -3826,65 +3831,342 @@ is restricted and is **not** used.
 pub mod params { /* ... */ }
 ```
 
-### Functions
+### Types
 
-#### Function `core_uo2_kg`
+#### Struct `Params`
 
-UO2 mass of the whole core, kg (from the pellet geometry).
+Every scalar input of the model, as one value (gh:#1033): what a
+caller changes to run the plant with a corrected or perturbed
+input, without recompiling. [`Params::default`] is the constants
+above, field for field (`thermal_power_w` is [`THERMAL_POWER_W`],
+and so on), so their tags and sources are the defaults'. Left as
+constants: the node and train counts, which size arrays
+([`AXIAL_NODES`], [`IC_TRAINS`]), and physical constants (molar
+masses, [`R_GAS`], [`P_ATM`]).
 
-```rust
-pub fn core_uo2_kg() -> f64 { /* ... */ }
-```
-
-#### Function `core_zr_kg`
-
-Zircaloy mass of the whole core (cladding over the active length plus
-channel boxes), kg.
-
-```rust
-pub fn core_zr_kg() -> f64 { /* ... */ }
-```
-
-#### Function `core_zr_area_m2`
-
-Zircaloy surface exposed to steam over the active length, m^2: the rods'
-outer surface and both faces of the channel walls.
+It travels whole in each part's snapshot, so a worker steps with
+the plant's inputs and one worker still equals three.
 
 ```rust
-pub fn core_zr_area_m2() -> f64 { /* ... */ }
+pub struct Params {
+    pub thermal_power_w: f64,
+    pub assemblies: f64,
+    pub rods_per_assembly: f64,
+    pub active_length_m: f64,
+    pub clad_outer_r_m: f64,
+    pub clad_wall_m: f64,
+    pub pellet_r_m: f64,
+    pub uo2_density: f64,
+    pub zr_density: f64,
+    pub channel_inner_width_m: f64,
+    pub channel_wall_m: f64,
+    pub channel_length_m: f64,
+    pub uo2_cp: f64,
+    pub zr_cp: f64,
+    pub uo2_k: f64,
+    pub gap_h: f64,
+    pub boiling_h: f64,
+    pub cosine_extrapolation: f64,
+    pub rpv_radius_m: f64,
+    pub rpv_height_m: f64,
+    pub baf_m: f64,
+    pub lower_plenum_free: f64,
+    pub upper_free: f64,
+    pub core_other_area_m2: f64,
+    pub normal_level_above_taf_m: f64,
+    pub initial_pressure_pa: f64,
+    pub msiv_closure_s: f64,
+    pub bypass_gain_kg_s_pa: f64,
+    pub relief_valves: f64,
+    pub relief_open_pa: f64,
+    pub relief_close_pa: f64,
+    pub safety_open_pa: f64,
+    pub safety_close_pa: f64,
+    pub relief_throat_m2: f64,
+    pub ic_autostart_pa: f64,
+    pub ic_ua_w_per_k: f64,
+    pub ic_shell_water_kg: f64,
+    pub fire_engine_shutoff_pa: f64,
+    pub fire_engine_max_kg_s: f64,
+    pub injection_temperature_k: f64,
+    pub hot_leak_gas_k: f64,
+    pub hot_leak_m2: f64,
+    pub lower_head_failure_k: f64,
+    pub breach_m2: f64,
+    pub debris_quench_s: f64,
+    pub zr_melt_k: f64,
+    pub uh_low_a: f64,
+    pub uh_low_b_k: f64,
+    pub uh_high_a: f64,
+    pub uh_high_b_k: f64,
+    pub uh_low_max_k: f64,
+    pub uh_high_min_k: f64,
+    pub oxidation_min_k: f64,
+    pub oxidation_heat_j_per_kg_zr: f64,
+    pub drywell_volume_m3: f64,
+    pub wetwell_gas_m3: f64,
+    pub pool_water_m3: f64,
+    pub containment_design_pa: f64,
+    pub initial_containment_pa: f64,
+    pub initial_drywell_k: f64,
+    pub initial_pool_k: f64,
+    pub vent_submergence_pa: f64,
+    pub downcomer_area_m2: f64,
+    pub discharge_coefficient: f64,
+    pub vacuum_breaker_pa: f64,
+    pub vacuum_breaker_m2: f64,
+    pub vent_rupture_disk_pa: f64,
+    pub vent_area_m2: f64,
+    pub flange_leak_pa: f64,
+    pub flange_leak_m2: f64,
+    pub reactor_building_m3: f64,
+    pub h2_flammable: f64,
+    pub h2_explosion: f64,
+    pub ring_factors: [f64; 3],
+}
 ```
 
-#### Function `core_rod_area_m2`
+##### Fields
 
-Rod surface over the active length, m^2 (the heat-transfer surface).
+| Name | Type | Documentation |
+|------|------|---------------|
+| `thermal_power_w` | `f64` |  |
+| `assemblies` | `f64` |  |
+| `rods_per_assembly` | `f64` |  |
+| `active_length_m` | `f64` |  |
+| `clad_outer_r_m` | `f64` |  |
+| `clad_wall_m` | `f64` |  |
+| `pellet_r_m` | `f64` |  |
+| `uo2_density` | `f64` |  |
+| `zr_density` | `f64` |  |
+| `channel_inner_width_m` | `f64` |  |
+| `channel_wall_m` | `f64` |  |
+| `channel_length_m` | `f64` |  |
+| `uo2_cp` | `f64` |  |
+| `zr_cp` | `f64` |  |
+| `uo2_k` | `f64` |  |
+| `gap_h` | `f64` |  |
+| `boiling_h` | `f64` |  |
+| `cosine_extrapolation` | `f64` |  |
+| `rpv_radius_m` | `f64` |  |
+| `rpv_height_m` | `f64` |  |
+| `baf_m` | `f64` |  |
+| `lower_plenum_free` | `f64` |  |
+| `upper_free` | `f64` |  |
+| `core_other_area_m2` | `f64` |  |
+| `normal_level_above_taf_m` | `f64` |  |
+| `initial_pressure_pa` | `f64` |  |
+| `msiv_closure_s` | `f64` |  |
+| `bypass_gain_kg_s_pa` | `f64` |  |
+| `relief_valves` | `f64` |  |
+| `relief_open_pa` | `f64` |  |
+| `relief_close_pa` | `f64` |  |
+| `safety_open_pa` | `f64` |  |
+| `safety_close_pa` | `f64` |  |
+| `relief_throat_m2` | `f64` |  |
+| `ic_autostart_pa` | `f64` |  |
+| `ic_ua_w_per_k` | `f64` |  |
+| `ic_shell_water_kg` | `f64` |  |
+| `fire_engine_shutoff_pa` | `f64` |  |
+| `fire_engine_max_kg_s` | `f64` |  |
+| `injection_temperature_k` | `f64` |  |
+| `hot_leak_gas_k` | `f64` |  |
+| `hot_leak_m2` | `f64` |  |
+| `lower_head_failure_k` | `f64` |  |
+| `breach_m2` | `f64` |  |
+| `debris_quench_s` | `f64` |  |
+| `zr_melt_k` | `f64` |  |
+| `uh_low_a` | `f64` |  |
+| `uh_low_b_k` | `f64` |  |
+| `uh_high_a` | `f64` |  |
+| `uh_high_b_k` | `f64` |  |
+| `uh_low_max_k` | `f64` |  |
+| `uh_high_min_k` | `f64` |  |
+| `oxidation_min_k` | `f64` |  |
+| `oxidation_heat_j_per_kg_zr` | `f64` |  |
+| `drywell_volume_m3` | `f64` |  |
+| `wetwell_gas_m3` | `f64` |  |
+| `pool_water_m3` | `f64` |  |
+| `containment_design_pa` | `f64` |  |
+| `initial_containment_pa` | `f64` |  |
+| `initial_drywell_k` | `f64` |  |
+| `initial_pool_k` | `f64` |  |
+| `vent_submergence_pa` | `f64` |  |
+| `downcomer_area_m2` | `f64` |  |
+| `discharge_coefficient` | `f64` |  |
+| `vacuum_breaker_pa` | `f64` |  |
+| `vacuum_breaker_m2` | `f64` |  |
+| `vent_rupture_disk_pa` | `f64` |  |
+| `vent_area_m2` | `f64` |  |
+| `flange_leak_pa` | `f64` |  |
+| `flange_leak_m2` | `f64` |  |
+| `reactor_building_m3` | `f64` |  |
+| `h2_flammable` | `f64` |  |
+| `h2_explosion` | `f64` |  |
+| `ring_factors` | `[f64; 3]` | [`RING_FACTORS`]. |
 
-```rust
-pub fn core_rod_area_m2() -> f64 { /* ... */ }
-```
+##### Implementations
 
-#### Function `core_flow_area_m2`
+###### Methods
 
-Coolant flow area inside the channels, m^2, and their hydraulic diameter, m.
+- ```rust
+  pub fn write(self: &Self, w: &mut Writer) { /* ... */ }
+  ```
 
-```rust
-pub fn core_flow_area_m2() -> f64 { /* ... */ }
-```
+- ```rust
+  pub fn read(r: &mut Reader<''_>) -> Self { /* ... */ }
+  ```
 
-#### Function `hydraulic_diameter_m`
+- ```rust
+  pub fn core_uo2_kg(self: &Self) -> f64 { /* ... */ }
+  ```
+  UO2 mass of the whole core, kg (from the pellet geometry).
 
-```rust
-pub fn hydraulic_diameter_m() -> f64 { /* ... */ }
-```
+- ```rust
+  pub fn core_zr_kg(self: &Self) -> f64 { /* ... */ }
+  ```
+  Zircaloy mass of the whole core (cladding over the active length plus
 
-#### Function `fuel_to_clad_w_per_m_k`
+- ```rust
+  pub fn core_zr_area_m2(self: &Self) -> f64 { /* ... */ }
+  ```
+  Zircaloy surface exposed to steam over the active length, m^2: the rods'
 
-Fuel-to-clad conductance per unit rod length, W/(m K): the pellet's
-volume-average-to-surface resistance `1/(8 pi k)` plus the gap.
+- ```rust
+  pub fn core_rod_area_m2(self: &Self) -> f64 { /* ... */ }
+  ```
+  Rod surface over the active length, m^2 (the heat-transfer surface).
 
-```rust
-pub fn fuel_to_clad_w_per_m_k() -> f64 { /* ... */ }
-```
+- ```rust
+  pub fn core_flow_area_m2(self: &Self) -> f64 { /* ... */ }
+  ```
+  Coolant flow area inside the channels, m^2, and their hydraulic diameter, m.
 
+- ```rust
+  pub fn hydraulic_diameter_m(self: &Self) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn fuel_to_clad_w_per_m_k(self: &Self) -> f64 { /* ... */ }
+  ```
+  Fuel-to-clad conductance per unit rod length, W/(m K): the pellet's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Constants and Statics
 
 #### Constant `THERMAL_POWER_W`
@@ -4337,11 +4619,20 @@ pub const OXIDATION_MIN_K: f64 = 1000.0;
 
 #### Constant `OXIDATION_HEAT_J_PER_KG_ZR`
 
-Zr + 2 H2O -> ZrO2 + 2 H2: heat released per kg Zr, J/kg. \[U\] about
-586 kJ/mol, 6.45 MJ/kg Zr.
+Zr + 2 H2O(g) -> ZrO2 + 2 H2: heat released per kg Zr, J/kg.
+~~\[U\] about 586 kJ/mol, 6.45 MJ/kg Zr~~ (`6.45e6`; also inconsistent with
+itself: 586 kJ/mol / 91.224 g/mol is 6.42 MJ/kg). **CORRECTED 2026-10-29
+(gh:#1038):** OFFBEAT's
+`corrosion::exotherm::ENERGY_PER_KG_ZIRCONIUM`, reused, derived from the
+standard formation enthalpies of monoclinic ZrO2 (-1100.6 kJ/mol) and
+water vapour (-241.826 kJ/mol) at 298.15 K: 616.95 kJ/mol, **6.763 MJ/kg**.
+\[P\] for the formation enthalpies; the derivation is that module's, not
+fitted to anything. Not modelled: the drift of the reaction enthalpy with
+temperature (Kirchhoff), which that module puts at a few per cent over
+300-2000 K (not measured here).
 
 ```rust
-pub const OXIDATION_HEAT_J_PER_KG_ZR: f64 = 6.45e6;
+pub const OXIDATION_HEAT_J_PER_KG_ZR: f64 = outram_park_fork_offbeat::corrosion::exotherm::ENERGY_PER_KG_ZIRCONIUM;
 ```
 
 #### Constant `M_ZR`
@@ -6236,9 +6527,19 @@ pub struct Plant {
   A fresh plant with some mechanisms ablated (see [`Mechanisms`]).
 
 - ```rust
+  pub fn with_params(mode: Mode, mechanisms: Mechanisms, prm: Params) -> Self { /* ... */ }
+  ```
+  A fresh plant with its own inputs (gh:#1033), for a corrected or
+
+- ```rust
   pub fn parts(self: &Self) -> (Core, Containment) { /* ... */ }
   ```
   A fresh core and containment matching a fresh plant.
+
+- ```rust
+  pub fn params(self: &Self) -> &Params { /* ... */ }
+  ```
+  The inputs this plant runs with.
 
 - ```rust
   pub fn time_s(self: &Self) -> f64 { /* ... */ }
@@ -6474,7 +6775,7 @@ pub struct Snapshots {
 Free volume of the vessel below height `z` above its bottom, m^3.
 
 ```rust
-pub fn volume_below(z: f64) -> f64 { /* ... */ }
+pub fn volume_below(prm: &Params, z: f64) -> f64 { /* ... */ }
 ```
 
 #### Function `height_of_volume`
@@ -6482,7 +6783,7 @@ pub fn volume_below(z: f64) -> f64 { /* ... */ }
 Height (above the vessel bottom) at which the free volume below is `v`.
 
 ```rust
-pub fn height_of_volume(v: f64) -> f64 { /* ... */ }
+pub fn height_of_volume(prm: &Params, v: f64) -> f64 { /* ... */ }
 ```
 
 #### Function `csv_row`

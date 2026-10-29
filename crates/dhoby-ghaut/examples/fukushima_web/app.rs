@@ -245,7 +245,7 @@ impl App {
                 row("Relief valves", format!("{} · {:.0} kg/s", if f.relief_open { "open" } else { "closed" }, f.w_relief_kg_s));
                 row("Injection", format!("{:.1} kg/s · {:.0} t so far", f.w_injection_kg_s, f.injected_kg / 1e3));
                 row("Peak cladding", format!("{:.0} K", f.core.peak_clad_k));
-                row("Zr oxidised", format!("{:.0} kg ({:.1} %)", f.core.zr_oxidised_kg, 100.0 * f.core.zr_oxidised_kg / core_zr_kg()));
+                row("Zr oxidised", format!("{:.0} kg ({:.1} %)", f.core.zr_oxidised_kg, 100.0 * f.core.zr_oxidised_kg / Params::default().core_zr_kg()));
                 row("Hydrogen made", format!("{:.0} kg", f.core.h2_total_kg));
                 row("Core relocated", format!("{:.0} %", 100.0 * f.core.relocated));
                 row("Drywell", format!("{:.3} MPa · {:.0} °C", f.containment.p_dw_pa / 1e6, f.containment.t_dw_k - 273.15));
