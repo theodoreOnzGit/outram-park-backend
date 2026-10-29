@@ -277,10 +277,10 @@ mod tests {
     ///
     /// | Quantity | Model | BSAF band (tier) | Verdict |
     /// |---|---|---|---|
-    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ 5.54 h | 7.45-17.16 h (B) | early |
-    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ 5.54 h | 5-12 h (A) | inside, for the wrong reason |
-    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ 119.95 kg | 400-1310 kg (C) | low |
-    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ 0.475 MPa | 0.8-1.0 MPa (C) | low |
+    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ 5.41 h | 7.45-17.16 h (B) | early |
+    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ 5.41 h | 5-12 h (A) | inside, for the wrong reason |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ 180.57 kg | 400-1310 kg (C) | low |
+    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ ~~0.475 MPa~~ 0.508 MPa | 0.8-1.0 MPa (C) | low |
     /// | wetwell vent | never | ~24 h (A) | missed |
     /// | building explosion | never | 24.83 h (A) | missed |
     ///
@@ -333,6 +333,21 @@ mod tests {
     /// with its mesh study. The ablation `without_lower_head_wall`
     /// reproduces the previous baseline exactly (pinned below).
     ///
+    /// **Moved again 2026-10-29 by gh:#1035** (Zircaloy's heat of fusion,
+    /// 2.25e5 J/kg at 2098 K, and UO2's, from MELCOR's MP tables citing
+    /// MATPRO; the enthalpy tables had none): lower head 5.543 -> 5.413 h,
+    /// H2 119.95 -> 180.57 kg (+51 %), drywell 0.4753 -> 0.5080 MPa.
+    /// Predicted before the run: lower head slightly later, H2 slightly
+    /// up. **The lower-head sign was wrong, and H2 was far larger.** Traced:
+    /// - node-steps on the 2098 K plateau went from 138 to 12 666, and
+    ///   Urbanic-Heidrick oxidation is fast there (H2 at 4 h, 83 -> 141 kg);
+    /// - the extra oxidation heat, and the fusion heat the quenched debris
+    ///   gives the water, dry the plenum 464 s sooner (16 989 -> 16 525 s),
+    ///   so the wall heats sooner.
+    ///
+    /// The constant-`c_p` ablation has no fusion (it is the old property
+    /// model) and does not move.
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -340,15 +355,17 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 5.543, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 5.543, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 119.95).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.4753).abs() < 0.0001, "{m:?}");
-        // The no-wall ablation is the model before gh:#1034, exactly.
+        assert!(near(m.lower_head_h, 5.4125, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 5.4125, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 180.57).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.5080).abs() < 0.0001, "{m:?}");
+        // The no-wall ablation. ~~The model before gh:#1034, exactly (5.399 h,
+        // 120.73 kg, 0.4746 MPa).~~ Since Zr's heat of fusion (gh:#1035) it
+        // carries that too, so it isolates the wall alone.
         let nw = measure(Mechanisms::default().without_lower_head_wall());
-        assert!(near(nw.lower_head_h, 5.399, 0.001), "{nw:?}");
-        assert!((nw.h2_25h_kg - 120.73).abs() < 0.01, "{nw:?}");
-        assert!((nw.p_dw_peak_mpa - 0.4746).abs() < 0.0001, "{nw:?}");
+        assert!(near(nw.lower_head_h, 5.230, 0.001), "{nw:?}");
+        assert!((nw.h2_25h_kg - 179.30).abs() < 0.01, "{nw:?}");
+        assert!((nw.p_dw_peak_mpa - 0.5062).abs() < 0.0001, "{nw:?}");
         assert_eq!((m.vent_h, m.explosion_h), (None, None), "{m:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat

@@ -21,7 +21,9 @@
 //!   UO2 and MATPRO Zircaloy correlations, reused, not re-entered. The 2x2
 //!   solve takes the heat capacities at the start of the step; each lump's
 //!   energy is then advanced by the heat that solve moved, and its
-//!   temperature found by inverting the correlation's enthalpy, so energy is
+//!   temperature found by inverting the correlation's enthalpy (which since
+//!   gh:#1035 includes the heats of fusion, so a node pays 225 kJ per kg of
+//!   Zr at 2098 K), so energy is
 //!   conserved exactly. `Mechanisms::without_temperature_dependent_properties`
 //!   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
 //! - oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
@@ -337,13 +339,17 @@ struct Enthalpy {
 }
 
 impl Enthalpy {
-    fn new(model: HeatCapacityModel) -> Self {
+    /// The table for `model`, with its heat of fusion `(melting point K,
+    /// J/kg)` added across the one-kelvin step that starts at the melting
+    /// point, so h(T) still rises strictly and inverts.
+    fn new(model: HeatCapacityModel, fusion: (f64, f64)) -> Self {
         let n = ((H_TOP_K - H_REF_K) / H_STEP_K) as usize + 1;
         let mut h = Vec::with_capacity(n);
         h.push(0.0);
         for i in 1..n {
             let (t0, t1) = (H_REF_K + (i - 1) as f64 * H_STEP_K, H_REF_K + i as f64 * H_STEP_K);
-            h.push(h[i - 1] + 0.5 * (cp_matpro(model, t0) + cp_matpro(model, t1)) * H_STEP_K);
+            let melt = if t0 <= fusion.0 && fusion.0 < t1 { fusion.1 } else { 0.0 };
+            h.push(h[i - 1] + 0.5 * (cp_matpro(model, t0) + cp_matpro(model, t1)) * H_STEP_K + melt);
         }
         Self { h }
     }
@@ -365,14 +371,22 @@ impl Enthalpy {
     }
 }
 
+/// Melting points, K, and heats of fusion, J/kg (gh:#1035): MELCOR 2.2
+/// Vol. 2, MP package Tables 7 and 8 (MP-RM-49/50), which cite MATPRO for
+/// both. Material properties, not plant inputs, so constants rather than
+/// [`Params`]. Before 2026-10-29 the tables had no heat of fusion: a node
+/// crossed 2098 K without paying it.
+const ZR_FUSION: (f64, f64) = (2098.0, 2.25e5);
+const UO2_FUSION: (f64, f64) = (3113.0, 2.74e5);
+
 fn uo2_enthalpy() -> &'static Enthalpy {
     static T: OnceLock<Enthalpy> = OnceLock::new();
-    T.get_or_init(|| Enthalpy::new(HeatCapacityModel::MatproUo2))
+    T.get_or_init(|| Enthalpy::new(HeatCapacityModel::MatproUo2, UO2_FUSION))
 }
 
 fn zr_enthalpy() -> &'static Enthalpy {
     static T: OnceLock<Enthalpy> = OnceLock::new();
-    T.get_or_init(|| Enthalpy::new(HeatCapacityModel::MatproZircaloy))
+    T.get_or_init(|| Enthalpy::new(HeatCapacityModel::MatproZircaloy, ZR_FUSION))
 }
 
 /// Temperature of debris holding `mf` kg of UO2 and `mc` kg of Zr with
@@ -915,6 +929,12 @@ mod tests {
         assert!(cp_matpro(HeatCapacityModel::MatproUo2, 1500.0) > cp_matpro(HeatCapacityModel::MatproUo2, 600.0));
         let t = debris_temperature(2.0, 1.0, 2.0 * uo2_enthalpy().at(1400.0) + zr_enthalpy().at(1400.0));
         assert!((t - 1400.0).abs() < 1e-6, "{t}");
+        // The heat of fusion (gh:#1035) is the one-kelvin step at 2098 K:
+        // 2.25e5 J/kg plus about c_p.
+        let step = zr_enthalpy().at(2099.0) - zr_enthalpy().at(2098.0);
+        let sensible = zr_enthalpy().at(2098.0) - zr_enthalpy().at(2097.0);
+        assert!((step - sensible - ZR_FUSION.1).abs() < 1.0, "{step} {sensible}");
+        assert!((zr_enthalpy().temperature(zr_enthalpy().at(2098.5)) - 2098.5).abs() < 1e-6);
     }
 
     /// The lower-head wall (gh:#1034). Methodology:
