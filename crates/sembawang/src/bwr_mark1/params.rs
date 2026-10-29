@@ -252,6 +252,39 @@ pub const ZRO2_DENSITY: f64 = 5600.0;
 pub const BUBBLE_RISE_M_S: f64 = 0.3;
 pub const MAX_POOL_VOID: f64 = 0.4;
 
+// ── Decay heat (gh:#1041, plan item F10) ─────────────────────────────────────
+//
+// The ANS-5.1-1979 form as MELCOR's DCH package applies it (MELCOR 2.2 Vol. 2,
+// DCH §3.2; Vol. 1, DCH_FPW, DCH_OPT, DCH_NFA, 3201, 3205). See `decay.rs`.
+
+/// Shares of the rated power from U-235 thermal and Pu-239 thermal fission
+/// (U-238 fast is the rest). \[A\] MELCOR's BWR defaults, 2.316e9,
+/// 1.1114e9 and 1.506e8 W of 3578 MW, from a Sandia-ORIGEN equilibrium cycle
+/// (Vol. 1, DCH_FPW); Unit 1's own cycle needs a plant source (plan L4).
+pub const FISSION_SHARE_U235: f64 = 2.316 / 3.5780;
+pub const FISSION_SHARE_PU239: f64 = 1.1114 / 3.5780;
+/// Irradiation time at constant power, s. \[A\] MELCOR's default, 584 days
+/// (2 years at 80 % capacity; Vol. 1, DCH_OPT).
+pub const OPERATING_TIME_S: f64 = 5.05e7;
+/// Fissions per initial fissile atom, for the capture correction. \[A\]
+/// MELCOR's default from Sandia-ORIGEN (Vol. 1, DCH_NFA).
+pub const FISSIONS_PER_FISSILE_ATOM: f64 = 0.713;
+/// Energy per fission, MeV, fission plus decay. \[A\] MELCOR's defaults
+/// from Sandia-ORIGEN (Vol. 1, 3201).
+pub const Q_U235_MEV: f64 = 199.0;
+pub const Q_PU239_MEV: f64 = 210.2;
+pub const Q_U238_MEV: f64 = 199.3;
+/// U-239 atoms made per fission at shutdown. \[A\] MELCOR's default, fitted
+/// so the standard's equation matches ORIGEN (Vol. 1, 3205(1)).
+pub const U239_PER_FISSION: f64 = 0.526;
+/// Mean decay energy of U-239 and Np-239, MeV, and their decay constants,
+/// 1/s. \[P\] the ANS-5.1-1979 standard's values (page 5), as MELCOR's
+/// defaults give them (Vol. 1, 3205(2..5)).
+pub const E_U239_MEV: f64 = 0.474;
+pub const E_NP239_MEV: f64 = 0.419;
+pub const U239_DECAY_PER_S: f64 = 4.91e-4;
+pub const NP239_DECAY_PER_S: f64 = 3.41e-6;
+
 // ── Zirconium-steam oxidation ───────────────────────────────────────────────
 //
 // Parabolic: d(W^2)/dt = K(T), W = mass of Zr oxidised per unit area,
@@ -482,6 +515,18 @@ params! {
     zro2_density = ZRO2_DENSITY, P,
     bubble_rise_m_s = BUBBLE_RISE_M_S, A,
     max_pool_void = MAX_POOL_VOID, A,
+    fission_share_u235 = FISSION_SHARE_U235, A,
+    fission_share_pu239 = FISSION_SHARE_PU239, A,
+    operating_time_s = OPERATING_TIME_S, A,
+    fissions_per_fissile_atom = FISSIONS_PER_FISSILE_ATOM, A,
+    q_u235_mev = Q_U235_MEV, A,
+    q_pu239_mev = Q_PU239_MEV, A,
+    q_u238_mev = Q_U238_MEV, A,
+    u239_per_fission = U239_PER_FISSION, A,
+    e_u239_mev = E_U239_MEV, P,
+    e_np239_mev = E_NP239_MEV, P,
+    u239_decay_per_s = U239_DECAY_PER_S, P,
+    np239_decay_per_s = NP239_DECAY_PER_S, P,
     uh_low_a = UH_LOW_A, P,
     uh_low_b_k = UH_LOW_B_K, P,
     uh_high_a = UH_HIGH_A, P,
@@ -598,7 +643,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 94);
+        assert_eq!(Params::INPUTS.len(), 106);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

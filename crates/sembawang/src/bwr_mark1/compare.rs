@@ -161,6 +161,9 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without rod collapse", all.without_rod_collapse()),
         ("without core radiation", all.without_core_radiation()),
         ("without level swell", all.without_level_swell()),
+        ("without decay mix", all.without_decay_mix()),
+        ("without capture correction", all.without_capture_correction()),
+        ("without actinide decay", all.without_actinide_decay()),
     ]
 }
 
@@ -282,11 +285,11 @@ mod tests {
     ///
     /// | Quantity | Model | BSAF band (tier) | Verdict |
     /// |---|---|---|---|
-    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ 4.67 h | 7.45-17.16 h (B) | early |
-    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ 4.67 h | 5-12 h (A) | ~~inside~~ below, for the wrong reason |
-    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ ~~180.57 kg~~ ~~216.06 kg~~ ~~182.90 kg~~ 283.76 kg | 400-1310 kg (C) | low |
-    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ ~~0.475 MPa~~ ~~0.508 MPa~~ ~~0.532 MPa~~ ~~0.510 MPa~~ 0.559 MPa | 0.8-1.0 MPa (C) | low |
-    /// | wetwell vent | ~~never~~ 25.12 h | ~24 h (23.5-24.68 h) (A) | ~~missed~~ late |
+    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ ~~4.67 h~~ 4.51 h | 7.45-17.16 h (B) | early |
+    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ ~~4.67 h~~ 4.51 h | 5-12 h (A) | ~~inside~~ below, for the wrong reason |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ ~~180.57 kg~~ ~~216.06 kg~~ ~~182.90 kg~~ ~~283.76 kg~~ 286.63 kg | 400-1310 kg (C) | low |
+    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ ~~0.475 MPa~~ ~~0.508 MPa~~ ~~0.532 MPa~~ ~~0.510 MPa~~ ~~0.559 MPa~~ 0.562 MPa | 0.8-1.0 MPa (C) | low |
+    /// | wetwell vent | ~~never~~ ~~25.12 h~~ 23.73 h | ~24 h (23.5-24.68 h) (A) | ~~missed~~ ~~late~~ inside, regime-fragile |
     /// | building explosion | never | 24.83 h (A) | missed |
     ///
     /// The RPV depressurises *at* the lower-head failure: the breach lets
@@ -408,6 +411,21 @@ mod tests {
     /// 25.106 -> 25.123 h, the regime unchanged; the figures above are with
     /// it.
     ///
+    /// **Moved again 2026-10-29 by gh:#1041** (decay heat in the ANS-1979
+    /// form as MELCOR applies it: U-235, Pu-239 and U-238 fission products
+    /// after 5.05e7 s at MELCOR's BWR shares, the capture correction G(t),
+    /// U-239 and Np-239). Decay power, measured before any plant run, against
+    /// the old U-235-equilibrium source: x1.007 at 1 h, 1.058 at 3 h, 1.078
+    /// at 5 h, 1.101 at 10 h, 1.108 at 25 h (predicted +5 to +10 % over
+    /// 3-25 h; slightly over at 25 h). Plant: lower head 4.668 -> 4.509 h,
+    /// H2 283.76 -> 286.63 kg, drywell 0.5585 -> 0.5622 MPa, and the vent
+    /// 25.12 -> 23.73 h, **now inside its Tier A band**. Predicted: lower
+    /// head earlier by 0-0.5 h, H2 up 0-20 %. Both held. The vent landing in
+    /// its band was not predicted and nothing was tuned toward it; given the
+    /// regime fragility above it is reported as inside, not as agreement.
+    /// All three decay switches off reproduces the previous baseline exactly
+    /// (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -415,41 +433,47 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 4.6678, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 4.6678, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 283.76).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.5585).abs() < 0.0001, "{m:?}");
+        assert!(near(m.lower_head_h, 4.5092, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.5092, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 286.63).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.5622).abs() < 0.0001, "{m:?}");
         // ~~No vent, no explosion~~: since gh:#1036 the wetwell vent flows,
-        // at 25.12 h (BSAF: 23.5-24.68 h, Tier A).
-        assert!(near(m.vent_h, 25.1231, 0.001) && m.explosion_h.is_none(), "{m:?}");
+        // at ~~25.12 h~~ 23.73 h since gh:#1041 (BSAF: 23.5-24.68 h, Tier A).
+        assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
+        // All three decay switches off is the decay heat before gh:#1041,
+        // so the model before it, exactly.
+        let od = measure(Mechanisms::default().without_decay_mix().without_capture_correction().without_actinide_decay());
+        assert!(near(od.lower_head_h, 4.6678, 0.001), "{od:?}");
+        assert!((od.h2_25h_kg - 283.76).abs() < 0.01, "{od:?}");
+        assert!(near(od.vent_h, 25.1231, 0.001), "{od:?}");
         // The no-swell ablation. With the ZrO2-melting collapse (in the
         // same change) it differs from the model before gh:#1036 only if a
         // node's cladding reaches 2990 K, which it does not without swell.
         let ns = measure(Mechanisms::default().without_level_swell());
-        assert!(near(ns.lower_head_h, 5.5892, 0.001), "{ns:?}");
-        assert!((ns.h2_25h_kg - 182.90).abs() < 0.01, "{ns:?}");
-        assert!((ns.p_dw_peak_mpa - 0.5104).abs() < 0.0001, "{ns:?}");
+        assert!(near(ns.lower_head_h, 5.262, 0.001), "{ns:?}");
+        assert!((ns.h2_25h_kg - 175.79).abs() < 0.01, "{ns:?}");
+        assert!((ns.p_dw_peak_mpa - 0.5310).abs() < 0.0001, "{ns:?}");
         // The no-radiation ablation. ~~The model before gh:#1037, exactly
         // (5.3953 h, 216.06 kg, 0.5319 MPa).~~ Since gh:#1036 it carries
         // the swell too, so it isolates radiation.
         let nr = measure(Mechanisms::default().without_core_radiation());
-        assert!(near(nr.lower_head_h, 5.3261, 0.001), "{nr:?}");
-        assert!((nr.h2_25h_kg - 241.88).abs() < 0.01, "{nr:?}");
-        assert!((nr.p_dw_peak_mpa - 0.5440).abs() < 0.0001, "{nr:?}");
+        assert!(near(nr.lower_head_h, 4.618, 0.001), "{nr:?}");
+        assert!((nr.h2_25h_kg - 274.96).abs() < 0.01, "{nr:?}");
+        assert!((nr.p_dw_peak_mpa - 0.5608).abs() < 0.0001, "{nr:?}");
         // The no-collapse ablation. ~~The model before gh:#1035's collapse
         // step, exactly (5.4125 h, 180.57 kg, 0.5080 MPa).~~ Since
         // gh:#1037 it carries radiation too, so it isolates the collapse.
         let nc = measure(Mechanisms::default().without_rod_collapse());
-        assert!(near(nc.lower_head_h, 5.565, 0.001), "{nc:?}");
-        assert!((nc.h2_25h_kg - 162.05).abs() < 0.01, "{nc:?}");
-        assert!((nc.p_dw_peak_mpa - 0.4988).abs() < 0.0001, "{nc:?}");
+        assert!(near(nc.lower_head_h, 5.413, 0.001), "{nc:?}");
+        assert!((nc.h2_25h_kg - 138.47).abs() < 0.01, "{nc:?}");
+        assert!((nc.p_dw_peak_mpa - 0.5103).abs() < 0.0001, "{nc:?}");
         // The no-wall ablation. ~~The model before gh:#1034, exactly (5.399 h,
         // 120.73 kg, 0.4746 MPa).~~ Since Zr's heat of fusion (gh:#1035) it
         // carries that too, so it isolates the wall alone.
         let nw = measure(Mechanisms::default().without_lower_head_wall());
-        assert!(near(nw.lower_head_h, 4.435, 0.001), "{nw:?}");
-        assert!((nw.h2_25h_kg - 290.33).abs() < 0.01, "{nw:?}");
-        assert!((nw.p_dw_peak_mpa - 0.5561).abs() < 0.0001, "{nw:?}");
+        assert!(near(nw.lower_head_h, 4.333, 0.001), "{nw:?}");
+        assert!((nw.h2_25h_kg - 287.06).abs() < 0.01, "{nw:?}");
+        assert!((nw.p_dw_peak_mpa - 0.5608).abs() < 0.0001, "{nw:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
         // correction it carries 6.763 MJ/kg too, so it isolates c_p alone.
@@ -460,9 +484,9 @@ mod tests {
         // 116.27 -> 157.33 kg. Since core radiation (gh:#1037): 5.521 ->
         // 5.653 h, 157.33 -> 135.62 kg.
         let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
-        assert!(near(cp.lower_head_h, 5.637, 0.001), "{cp:?}");
-        assert!((cp.h2_25h_kg - 143.22).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.4889).abs() < 0.0001, "{cp:?}");
+        assert!(near(cp.lower_head_h, 5.345, 0.001), "{cp:?}");
+        assert!((cp.h2_25h_kg - 163.99).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.5209).abs() < 0.0001, "{cp:?}");
     }
 
     /// The elasticity of an input that only the demo draws is zero, of one
@@ -486,7 +510,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 8);
+        assert_eq!(runs.len(), 11);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -503,6 +527,9 @@ mod tests {
         assert!(!ablations()[5].1.rod_collapse && ablations()[5].1.lower_head_wall);
         assert!(!ablations()[6].1.core_radiation && ablations()[6].1.rod_collapse);
         assert!(!ablations()[7].1.level_swell && ablations()[7].1.core_radiation);
+        assert!(!ablations()[8].1.decay_mix && ablations()[8].1.capture_correction);
+        assert!(!ablations()[9].1.capture_correction && ablations()[9].1.actinide_decay);
+        assert!(!ablations()[10].1.actinide_decay && ablations()[10].1.decay_mix);
     }
 
     /// The verdict reads a value against its band.

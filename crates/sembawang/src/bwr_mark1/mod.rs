@@ -39,6 +39,7 @@
 pub mod compare;
 pub mod containment;
 pub mod core;
+pub mod decay;
 pub mod params;
 pub mod steam;
 pub mod wire;
@@ -47,16 +48,14 @@ use petir::mathf::RealMath;
 use containment::{Containment, ContainmentResult, ContainmentSnapshot};
 use self::core::{Core, CoreResult, CoreSnapshot};
 use tampines_steam_tables::prelude::get_choked_flow_massrate_and_state_from_stagnation_properties_and_area;
-use teh_o_prke::decay_heat::{DecayHeat, FissioningNuclide};
+use self::decay::{DecayParts, PlantDecay};
 use params::*;
 use steam::{Sat, SatTable};
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::{Area, AvailableEnergy, Power, Pressure, Time};
+use uom::si::f64::{Area, AvailableEnergy, Pressure};
 use uom::si::mass_rate::kilogram_per_second;
-use uom::si::power::watt;
 use uom::si::pressure::pascal;
-use uom::si::time::second;
 use wire::{Reader, Writer};
 
 /// The plant's time step, s.
@@ -104,6 +103,13 @@ pub struct Mechanisms {
     /// The core sees the swollen two-phase mixture level, not the collapsed
     /// one (gh:#1036); off is the collapsed level.
     pub level_swell: bool,
+    /// Decay heat from U-235, Pu-239 and U-238 fission products after a
+    /// finite irradiation (gh:#1041); off is U-235 alone at equilibrium.
+    pub decay_mix: bool,
+    /// The ANS neutron-capture correction G(t) (gh:#1041).
+    pub capture_correction: bool,
+    /// U-239 and Np-239 decay heat (gh:#1041).
+    pub actinide_decay: bool,
 }
 
 impl Default for Mechanisms {
@@ -116,6 +122,9 @@ impl Default for Mechanisms {
             rod_collapse: true,
             core_radiation: true,
             level_swell: true,
+            decay_mix: true,
+            capture_correction: true,
+            actinide_decay: true,
         }
     }
 }
@@ -159,6 +168,25 @@ impl Mechanisms {
     /// The core sees the collapsed level: the model before gh:#1036.
     pub fn without_level_swell(mut self) -> Self {
         self.level_swell = false;
+        self
+    }
+
+    /// U-235 fission products alone, at equilibrium: the decay heat before
+    /// gh:#1041 (with the other two switches, the whole of it).
+    pub fn without_decay_mix(mut self) -> Self {
+        self.decay_mix = false;
+        self
+    }
+
+    /// No neutron-capture correction (G = 1).
+    pub fn without_capture_correction(mut self) -> Self {
+        self.capture_correction = false;
+        self
+    }
+
+    /// No U-239 or Np-239 decay heat.
+    pub fn without_actinide_decay(mut self) -> Self {
+        self.actinide_decay = false;
         self
     }
 
@@ -399,7 +427,7 @@ pub struct Plant {
     m: f64,
     u: f64,
     h2: f64,
-    decay: DecayHeat,
+    decay: PlantDecay,
     ic_shell_k: [f64; IC_TRAINS],
     ic_shell_kg: [f64; IC_TRAINS],
     ic_autostarted: bool,
@@ -453,7 +481,12 @@ impl Plant {
         let v_total = volume_below(&prm, prm.rpv_height_m);
         let v_liq = volume_below(&prm, prm.baf_m + prm.active_length_m + prm.normal_level_above_taf_m);
         let (m_l, m_g) = (v_liq / s.v_f, (v_total - v_liq) / s.v_g);
-        let decay = DecayHeat::new_at_equilibrium(FissioningNuclide::U235Thermal, Power::new::<watt>(prm.thermal_power_w));
+        let parts = DecayParts {
+            mixed_finite: mechanisms.decay_mix,
+            capture: mechanisms.capture_correction,
+            actinides: mechanisms.actinide_decay,
+        };
+        let decay = PlantDecay::new(&prm, parts);
         let mut p = Self {
             sat,
             choked,
@@ -629,7 +662,7 @@ impl Plant {
         let out = (w_relief + w_leak) * DT_S;
         let scale = if out > 0.0 { ((steam_gas + self.h2) / out).min(1.0) } else { 1.0 };
         let (w_relief, w_leak) = (w_relief * scale, w_leak * scale);
-        let decay_w = self.decay.total_decay_heat_power().get::<watt>();
+        let decay_w = self.decay.power_w();
         // Before the MSIVs close, the pressure regulator passes steam to the
         // turbine bypass.
         let w_bypass = if self.t_s < prm.msiv_closure_s && !v.dry {
@@ -712,7 +745,7 @@ impl Plant {
                 self.ic_shell_kg[i] = (self.ic_shell_kg[i] - (q - to_boil) / 2.257e6).max(0.0);
             }
         }
-        self.decay.advance_timestep(Power::new::<watt>(0.0), Time::new::<second>(DT_S));
+        self.decay.advance(DT_S);
         self.t_s += DT_S;
         self.last_core = core;
         self.last_containment = containment;
@@ -741,7 +774,7 @@ impl Plant {
             mode_free: self.mode == Mode::FreePlay,
             controls: self.controls,
             vessel: self.vessel,
-            decay_w: self.decay.total_decay_heat_power().get::<watt>(),
+            decay_w: self.decay.power_w(),
             q_ic_w: self.pending.q_ic_w,
             ic_shell_k: self.ic_shell_k,
             ic_shell_kg: self.ic_shell_kg,

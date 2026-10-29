@@ -4028,6 +4028,335 @@ Through-wall nodes of the lower-head wall (inner face first).
 pub const WALL_NODES: usize = 5;
 ```
 
+## Module `decay`
+
+Whole-core decay heat after the scram (gh:#1041, plan item F10).
+
+The form is that of the ANS-5.1-1979 standard, as MELCOR's DCH package
+applies it (MELCOR 2.2 Vol. 2, SAND2023-10994 O, DCH §3.2, Eqs 3-1 to 3-5
+and Table 3.1; Vol. 1, SAND2017-0455 O, DCH_FPW, DCH_OPT, DCH_NFA, 3201,
+3205). No MELCOR source is used:
+
+```text
+P(t) = G(t) sum_i P_FP,i(t) + (sum_i P_i / Q_i) [F_U239(t, T) + F_Np239(t, T)]
+```
+
+- `P_FP,i` is the fission-product decay heat of fissioning nuclide `i`
+  (U-235 thermal, Pu-239 thermal, U-238 fast) after `T` seconds at its
+  share `P_i` of the rated power. It comes from `teh-o-prke`'s 23-group
+  fit, the 1978 draft ANS standard (reused, not re-entered), integrated
+  analytically over the irradiation. MELCOR interpolates the 1979
+  standard's tables instead; the two rest on the same England et al.
+  evaluation, and the difference is not measured here.
+- `G(t)` is the neutron-capture correction. Below 1e4 s it is the
+  standard's formula (Eq 3-5). Above, it is the standard's Table 10,
+  `G_max(t)`, which is an **upper bound**, i.e. conservative, as MELCOR
+  uses it. The step at 1e4 s is the standard's own.
+- `F_U239`, `F_Np239` are the decay heat of U-239 and Np-239 (Eqs 3-3,
+  3-4).
+
+Each part is a [`Mechanisms`](super::Mechanisms) switch, default on. The
+ablation of the first is the model before gh:#1041: U-235 only, at
+equilibrium (infinite irradiation).
+
+```rust
+pub mod decay { /* ... */ }
+```
+
+### Types
+
+#### Struct `DecayParts`
+
+Which parts of the decay heat are on (from `Mechanisms`).
+
+```rust
+pub struct DecayParts {
+    pub mixed_finite: bool,
+    pub capture: bool,
+    pub actinides: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `mixed_finite` | `bool` | U-235, Pu-239 and U-238 fission products after a finite irradiation;<br>off is U-235 alone at equilibrium. |
+| `capture` | `bool` | The capture correction `G(t)`. |
+| `actinides` | `bool` | U-239 and Np-239. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PlantDecay`
+
+The core's decay heat source, advanced with the plant.
+
+```rust
+pub struct PlantDecay {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(prm: &Params, parts: DecayParts) -> Self { /* ... */ }
+  ```
+  The decay source just after the scram from rated power.
+
+- ```rust
+  pub fn advance(self: &mut Self, dt_s: f64) { /* ... */ }
+  ```
+  Advance by `dt_s` seconds with no fission.
+
+- ```rust
+  pub fn power_w(self: &Self) -> f64 { /* ... */ }
+  ```
+  Decay power now, W.
+
+- ```rust
+  pub fn capture_factor(self: &Self) -> f64 { /* ... */ }
+  ```
+  `G(t)`: the standard's formula below 1e4 s (MELCOR Eq 3-5), then
+
+- ```rust
+  pub fn actinide_power_w(self: &Self) -> f64 { /* ... */ }
+  ```
+  U-239 and Np-239 decay heat, W (MELCOR Eqs 3-2 to 3-4).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `params`
 
 Fukushima Daiichi Unit 1 (GE BWR/3, Mark I containment): every number the
@@ -4291,6 +4620,18 @@ pub struct Params {
     pub zro2_density: f64,
     pub bubble_rise_m_s: f64,
     pub max_pool_void: f64,
+    pub fission_share_u235: f64,
+    pub fission_share_pu239: f64,
+    pub operating_time_s: f64,
+    pub fissions_per_fissile_atom: f64,
+    pub q_u235_mev: f64,
+    pub q_pu239_mev: f64,
+    pub q_u238_mev: f64,
+    pub u239_per_fission: f64,
+    pub e_u239_mev: f64,
+    pub e_np239_mev: f64,
+    pub u239_decay_per_s: f64,
+    pub np239_decay_per_s: f64,
     pub uh_low_a: f64,
     pub uh_low_b_k: f64,
     pub uh_high_a: f64,
@@ -4393,6 +4734,18 @@ pub struct Params {
 | `zro2_density` | `f64` |  |
 | `bubble_rise_m_s` | `f64` |  |
 | `max_pool_void` | `f64` |  |
+| `fission_share_u235` | `f64` |  |
+| `fission_share_pu239` | `f64` |  |
+| `operating_time_s` | `f64` |  |
+| `fissions_per_fissile_atom` | `f64` |  |
+| `q_u235_mev` | `f64` |  |
+| `q_pu239_mev` | `f64` |  |
+| `q_u238_mev` | `f64` |  |
+| `u239_per_fission` | `f64` |  |
+| `e_u239_mev` | `f64` |  |
+| `e_np239_mev` | `f64` |  |
+| `u239_decay_per_s` | `f64` |  |
+| `np239_decay_per_s` | `f64` |  |
 | `uh_low_a` | `f64` |  |
 | `uh_low_b_k` | `f64` |  |
 | `uh_high_a` | `f64` |  |
@@ -5182,6 +5535,99 @@ pub const BUBBLE_RISE_M_S: f64 = 0.3;
 
 ```rust
 pub const MAX_POOL_VOID: f64 = 0.4;
+```
+
+#### Constant `FISSION_SHARE_U235`
+
+Shares of the rated power from U-235 thermal and Pu-239 thermal fission
+(U-238 fast is the rest). \[A\] MELCOR's BWR defaults, 2.316e9,
+1.1114e9 and 1.506e8 W of 3578 MW, from a Sandia-ORIGEN equilibrium cycle
+(Vol. 1, DCH_FPW); Unit 1's own cycle needs a plant source (plan L4).
+
+```rust
+pub const FISSION_SHARE_U235: f64 = _;
+```
+
+#### Constant `FISSION_SHARE_PU239`
+
+```rust
+pub const FISSION_SHARE_PU239: f64 = _;
+```
+
+#### Constant `OPERATING_TIME_S`
+
+Irradiation time at constant power, s. \[A\] MELCOR's default, 584 days
+(2 years at 80 % capacity; Vol. 1, DCH_OPT).
+
+```rust
+pub const OPERATING_TIME_S: f64 = 5.05e7;
+```
+
+#### Constant `FISSIONS_PER_FISSILE_ATOM`
+
+Fissions per initial fissile atom, for the capture correction. \[A\]
+MELCOR's default from Sandia-ORIGEN (Vol. 1, DCH_NFA).
+
+```rust
+pub const FISSIONS_PER_FISSILE_ATOM: f64 = 0.713;
+```
+
+#### Constant `Q_U235_MEV`
+
+Energy per fission, MeV, fission plus decay. \[A\] MELCOR's defaults
+from Sandia-ORIGEN (Vol. 1, 3201).
+
+```rust
+pub const Q_U235_MEV: f64 = 199.0;
+```
+
+#### Constant `Q_PU239_MEV`
+
+```rust
+pub const Q_PU239_MEV: f64 = 210.2;
+```
+
+#### Constant `Q_U238_MEV`
+
+```rust
+pub const Q_U238_MEV: f64 = 199.3;
+```
+
+#### Constant `U239_PER_FISSION`
+
+U-239 atoms made per fission at shutdown. \[A\] MELCOR's default, fitted
+so the standard's equation matches ORIGEN (Vol. 1, 3205(1)).
+
+```rust
+pub const U239_PER_FISSION: f64 = 0.526;
+```
+
+#### Constant `E_U239_MEV`
+
+Mean decay energy of U-239 and Np-239, MeV, and their decay constants,
+1/s. \[P\] the ANS-5.1-1979 standard's values (page 5), as MELCOR's
+defaults give them (Vol. 1, 3205(2..5)).
+
+```rust
+pub const E_U239_MEV: f64 = 0.474;
+```
+
+#### Constant `E_NP239_MEV`
+
+```rust
+pub const E_NP239_MEV: f64 = 0.419;
+```
+
+#### Constant `U239_DECAY_PER_S`
+
+```rust
+pub const U239_DECAY_PER_S: f64 = 4.91e-4;
+```
+
+#### Constant `NP239_DECAY_PER_S`
+
+```rust
+pub const NP239_DECAY_PER_S: f64 = 3.41e-6;
 ```
 
 #### Constant `UH_LOW_A`
@@ -6214,6 +6660,9 @@ pub struct Mechanisms {
     pub rod_collapse: bool,
     pub core_radiation: bool,
     pub level_swell: bool,
+    pub decay_mix: bool,
+    pub capture_correction: bool,
+    pub actinide_decay: bool,
 }
 ```
 
@@ -6228,6 +6677,9 @@ pub struct Mechanisms {
 | `rod_collapse` | `bool` | MELCOR's rod collapse (gh:#1035): breach at `CLAD_BREACH_K`,<br>collapse at `ROD_COLLAPSE_K` or by time-at-temperature damage; off<br>is the 2100 K whole-node slump `ZR_MELT_K`. |
 | `core_radiation` | `bool` | In-core radiation between rings and levels, and from the outer ring<br>to the shroud (gh:#1037); off is no radiation at all. |
 | `level_swell` | `bool` | The core sees the swollen two-phase mixture level, not the collapsed<br>one (gh:#1036); off is the collapsed level. |
+| `decay_mix` | `bool` | Decay heat from U-235, Pu-239 and U-238 fission products after a<br>finite irradiation (gh:#1041); off is U-235 alone at equilibrium. |
+| `capture_correction` | `bool` | The ANS neutron-capture correction G(t) (gh:#1041). |
+| `actinide_decay` | `bool` | U-239 and Np-239 decay heat (gh:#1041). |
 
 ##### Implementations
 
@@ -6262,6 +6714,21 @@ pub struct Mechanisms {
   pub fn without_level_swell(self: Self) -> Self { /* ... */ }
   ```
   The core sees the collapsed level: the model before gh:#1036.
+
+- ```rust
+  pub fn without_decay_mix(self: Self) -> Self { /* ... */ }
+  ```
+  U-235 fission products alone, at equilibrium: the decay heat before
+
+- ```rust
+  pub fn without_capture_correction(self: Self) -> Self { /* ... */ }
+  ```
+  No neutron-capture correction (G = 1).
+
+- ```rust
+  pub fn without_actinide_decay(self: Self) -> Self { /* ... */ }
+  ```
+  No U-239 or Np-239 decay heat.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
