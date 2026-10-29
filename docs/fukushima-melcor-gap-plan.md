@@ -127,7 +127,8 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Steam dome internals as a heat structure | F6, #1037 | 5.639 | 215.36 | missed: predicted no rupture; the line ruptures at 4.78 h. Rupture rests on \[A\] inputs (none at 3x area) |
 | Lower-head penetrations fail at TPFAIL | F3, #1034 | 5.452 | 215.36 | held: 0.19 h earlier (predicted 0.1-0.3 h) |
 | Volatile fission-product release, CORSOR-M (output only) | F9, #1040 | 5.452 | 215.36 | in-vessel release 0.85 at 25 h; predicted 0.4-0.7, missed high (BSAF: most codes > 0.8) |
-| Noble-gas (Xe) transport, fuel to stack (output only) | F9, #1040 | **5.452** | **215.36** | conserved to 1e-12 every step; all 0.85 in the wetwell gas at 26 h (no vent or flange leak opens) |
+| Noble-gas (Xe) transport, fuel to stack (output only) | F9, #1040 | 5.452 | 215.36 | conserved to 1e-12 every step; all 0.85 in the wetwell gas at 26 h (no vent or flange leak opens) |
+| A failed vessel's gas leaves through the breach | — | **5.452** | **215.36** | drywell +1.5e-5 MPa; predicted +0.01 from post-failure H2, missed: almost no H2 is made after failure |
 
 BSAF bands: lower head 7.45–17.16 h (B); H2 400–1310 kg (C). ~~The vent now
 flows at 23.73 h, inside its Tier A band (23.5–24.68 h), as a by-product of

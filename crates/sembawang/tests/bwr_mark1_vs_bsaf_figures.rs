@@ -128,7 +128,8 @@ fn the_model_against_the_digitised_bsaf_figures() {
 /// **Beyond the model's window: 0-500 h against Fig 2.3a's measured
 /// drywell pressure** (the same instrument; diagnostic, pinned so F12 has a
 /// baseline). Results, 2026-10-29: 94 measured points, mean 0.653 MPa, max
-/// 0.818 MPa. The model's drywell, vented on the recorded order near 24 h,
+/// ~~0.818~~ 0.915 MPa (since the failed vessel's gas leaves to the drywell,
+/// the same day: mean 0.6535 -> 0.6539). The model's drywell, vented on the recorded order near 24 h,
 /// falls to 0.16 MPa at 30 h, then with no long-term leak path rises to a
 /// 0.97 MPa plateau held from about 100 h to 500 h; the plant fell to 0.15
 /// MPa by about 257 h. Every BSAF code followed the measurement by
@@ -141,5 +142,5 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     let a = against_measured(&m.t_h, &m.p_dw_mpa, &read_series("fig2.3a-measurement.csv"));
     println!("0-500 h drywell against Fig 2.3a: {a:?}");
     assert_eq!(a.n, 94);
-    assert!((a.mean_abs - 0.6535).abs() < 1e-3 && (a.max_abs - 0.8179).abs() < 1e-3, "{a:?}");
+    assert!((a.mean_abs - 0.6539).abs() < 1e-3 && (a.max_abs - 0.9145).abs() < 1e-3, "{a:?}");
 }

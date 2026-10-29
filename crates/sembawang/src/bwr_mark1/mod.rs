@@ -148,6 +148,11 @@ pub struct Mechanisms {
     /// Lower-head penetration failure at the wall's temperature limit
     /// (`core::HeadWall`, MELCOR §6.3, 2026-10-29); off is the wall alone.
     pub penetrations: bool,
+    /// After lower-head failure the vessel's gas (the hydrogen and steam
+    /// made after it) leaves through the breach on the vessel's own
+    /// pressure (2026-10-29); off is the vessel sealed at the drywell's
+    /// pressure, nothing leaving.
+    pub failed_vessel_outflow: bool,
 }
 
 impl Default for Mechanisms {
@@ -170,6 +175,7 @@ impl Default for Mechanisms {
             msl_creep: true,
             dome_internals: true,
             penetrations: true,
+            failed_vessel_outflow: true,
         }
     }
 }
@@ -280,6 +286,13 @@ impl Mechanisms {
     /// before 2026-10-29.
     pub fn without_penetrations(mut self) -> Self {
         self.penetrations = false;
+        self
+    }
+
+    /// A failed vessel passes nothing to the drywell: the model before
+    /// 2026-10-29.
+    pub fn without_failed_vessel_outflow(mut self) -> Self {
+        self.failed_vessel_outflow = false;
         self
     }
 
@@ -554,6 +567,9 @@ pub struct Plant {
     /// and the core's released fraction at the last step (gh:#1040).
     xe_vessel: f64,
     fp_seen: f64,
+    /// The vessel's own solved pressure, Pa, before a failed head pins the
+    /// shown pressure to the drywell's.
+    p_solved: f64,
     injected_kg: f64,
     vessel: Vessel,
     last_core: CoreResult,
@@ -635,6 +651,7 @@ impl Plant {
             q_internals_w: 0.0,
             xe_vessel: 0.0,
             fp_seen: 0.0,
+            p_solved: 0.0,
             injected_kg: 0.0,
             vessel: Vessel::default(),
             last_core: CoreResult::default(),
@@ -797,7 +814,15 @@ impl Plant {
         let leak_area = if self.hot_leak_open { prm.hot_leak_m2 } else { 0.0 }
             + if self.last_core.lower_head_failed { prm.breach_m2 } else { 0.0 }
             + if self.msl.failed { msl::SteamLine::break_area_m2(&prm) } else { 0.0 };
-        let w_leak = if p > p_dw { flux * leak_area } else { 0.0 };
+        // After the lower head fails the vessel shows the drywell's
+        // pressure, but its gas still leaves through the breach on its own
+        // (solved) pressure (`failed_vessel_outflow`).
+        let p_leak = if self.mechanisms.failed_vessel_outflow && self.last_core.lower_head_failed { self.p_solved } else { p };
+        let w_leak = if p_leak > p_dw {
+            if p_leak == p { flux * leak_area } else { self.choked.at(p_leak) * leak_area }
+        } else {
+            0.0
+        };
         let w_inj = if self.controls.injection && p < prm.fire_engine_shutoff_pa {
             prm.fire_engine_max_kg_s * (1.0 - (p - P_ATM).max(0.0) / (prm.fire_engine_shutoff_pa - P_ATM)).sqrt()
         } else {
@@ -816,8 +841,8 @@ impl Plant {
         // Without it a large break emptied the vessel in one step (m = 0,
         // infinite pressure; found 2026-10-29 with a ruptured steam line
         // and a perturbed input).
-        if v.dry && out > 0.0 && p > p_dw && p_dw > 0.0 {
-            let equalising = (steam_gas + self.h2) * (p - p_dw) / p;
+        if v.dry && out > 0.0 && p_leak > p_dw && p_dw > 0.0 {
+            let equalising = (steam_gas + self.h2) * (p_leak - p_dw) / p_leak;
             scale = scale.min(equalising / out);
         }
         let (w_relief, w_leak) = (w_relief * scale, w_leak * scale);
@@ -934,9 +959,15 @@ impl Plant {
         self.last_core = core;
         self.last_containment = containment;
         self.vessel = self.solve_vessel();
+        self.p_solved = self.vessel.p_pa;
         // Once the lower head has failed the vessel is open to the drywell:
         // its pressure is the drywell's (no back-flow model; what is left
-        // inside is a few tonnes of steam and gas).
+        // inside is a few tonnes of steam and gas). ~~Nothing leaves it
+        // then.~~ Since 2026-10-29 its gas leaves through the breach on the
+        // pressure it would have (`p_solved`), held at the drywell's by the
+        // dry vessel's equalising cap; before, the gas made after the
+        // failure (its steam; almost no hydrogen is made then) stayed in
+        // the vessel.
         if self.last_core.lower_head_failed {
             self.vessel.p_pa = self.last_containment.p_dw_pa;
         }

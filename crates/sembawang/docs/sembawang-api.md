@@ -7733,6 +7733,7 @@ pub struct Mechanisms {
     pub msl_creep: bool,
     pub dome_internals: bool,
     pub penetrations: bool,
+    pub failed_vessel_outflow: bool,
 }
 ```
 
@@ -7757,6 +7758,7 @@ pub struct Mechanisms {
 | `msl_creep` | `bool` | Creep rupture of a main steam line under the relief flow's hot gas<br>([`msl`], MELCOR's PIPE-STR and LM-CREEP, 2026-10-29); off is no<br>steam-line failure. |
 | `dome_internals` | `bool` | The steam dome's internals as a heat structure between the core and<br>the steam lines, leaks and containment ([`internals`], 2026-10-29);<br>off passes the core's exit gas straight through. |
 | `penetrations` | `bool` | Lower-head penetration failure at the wall's temperature limit<br>(`core::HeadWall`, MELCOR §6.3, 2026-10-29); off is the wall alone. |
+| `failed_vessel_outflow` | `bool` | After lower-head failure the vessel's gas (the hydrogen and steam<br>made after it) leaves through the breach on the vessel's own<br>pressure (2026-10-29); off is the vessel sealed at the drywell's<br>pressure, nothing leaving. |
 
 ##### Implementations
 
@@ -7841,6 +7843,11 @@ pub struct Mechanisms {
   pub fn without_penetrations(self: Self) -> Self { /* ... */ }
   ```
   The lower head fails by its wall alone, no penetration: the model
+
+- ```rust
+  pub fn without_failed_vessel_outflow(self: Self) -> Self { /* ... */ }
+  ```
+  A failed vessel passes nothing to the drywell: the model before
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
