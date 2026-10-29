@@ -21,19 +21,19 @@ id = "review-activity-theodoreonzgit-e6c95a55"
 kind = "review"
 origin = "human"
 created = "2026-10-23T13:31:59+08:00"
-modified = "2026-10-23T13:31:59+08:00"
+modified = "2026-10-29T15:00:54+08:00"
 target = "fn:e6c95a55e6568166"
 
 [review]
 path = "crates/boon-lay/src/triso_atops_fork/activities/mod.rs::Activity"
 by = "github:theodoreOnzGit"
 rung = 3
-date = "2026-10-23"
-signed_at = "2026-10-23T13:32:00+08:00"
-commit = "1e1bc4a6465507676a8cb27c94b5f2190f9cde82"
+date = "2026-10-29"
+signed_at = "2026-10-29T15:00:54+08:00"
+commit = "58fc040a0b0b71200b9427aee1f74d65bf986b00"
 hash = "sha256:ea14821948029f3e6fad9e6158fe9078d576f804d7c111f2f14856b0c0fc6605"
 doc_hash = "sha256:f6248642edc573217e7d25f7f668e2940a034f99f8e7b6305ef26a68d7da0440"
-cargo_lock = "sha256:e64692c3b7ae29e78a10dec21f6ba0c5502e037c0755dfdeb220d8c2f3bc37a9"
+cargo_lock = "sha256:f98236dd033e5a874219475b1066e85b1068ae8fb68882c2c9732d8f6bc0f51e"
 no_concept = "generic_numerics"
 
 [review.checklist]
@@ -50,19 +50,15 @@ rung4_wrong_quantity_by_accident = "no_named_and_unit_carrying"
 vv_case_author = "human_wrote_and_verified"
 vv_evidence = "unit_tests_only"
 
-[review.authorship]
-kind = "agent"
-sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
-
 [review.signature]
 key = "k1"
 alg = "ed25519"
-value = "Ub/efGCZas6U7tEvBkKDs9Ht0ePyIgCowgpq0CIN2CBBazLp0AyuVTQFT1VCaI87J46/zFyYJYu71cXdb8RfAA=="
+value = "c977fMH5hq8DjfFpBc3CT9Xj+2KS6ysIfltTGjgPbP5IeDDCznnxXWt4MzW4JDROVlC1ra1wiwLHYsVfn4KKBg=="
 ```
 
 ## Sign-off
 
-Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-23, commit 1e1bc4a646.
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit 58fc040a0b.
 
 # Review: OTHER_ATTENUATION_FACTOR (github:theodoreOnzGit)
 
