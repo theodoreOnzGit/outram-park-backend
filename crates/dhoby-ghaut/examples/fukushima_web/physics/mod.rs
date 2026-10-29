@@ -25,6 +25,7 @@
 //! Research, education and V&V only: never for operation, licensing, safety
 //! decisions or emergency response.
 
+pub mod compare;
 pub mod containment;
 pub mod core;
 pub mod params;
@@ -60,6 +61,43 @@ pub enum Mode {
     FreePlay,
 }
 
+/// Which modelled mechanisms are on. Every one is **on by default**: the
+/// correct-physics-default rule (root `CLAUDE.md`). Turning one off is an
+/// explicit ablation through a `without_*` builder, used by [`compare`] to
+/// measure how much of each miss against BSAF a mechanism carries
+/// (gh:#1032).
+///
+/// Only plant-side mechanisms so far, so nothing crosses the worker wire.
+/// A core or containment mechanism would travel in its snapshot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Mechanisms {
+    /// The RPV hot-gas leak to the drywell ([`HOT_LEAK_M2`], `[A]`).
+    pub hot_leak: bool,
+    /// Hydrogen blanketing of the isolation-condenser tubes (`[A]`).
+    pub ic_h2_blanketing: bool,
+}
+
+impl Default for Mechanisms {
+    fn default() -> Self {
+        Self { hot_leak: true, ic_h2_blanketing: true }
+    }
+}
+
+impl Mechanisms {
+    /// No RPV hot-gas leak: the vessel loses gas only through the relief
+    /// valves (and the breach once the lower head fails).
+    pub fn without_hot_leak(mut self) -> Self {
+        self.hot_leak = false;
+        self
+    }
+
+    /// Isolation-condenser condensation unaffected by hydrogen in the vessel.
+    pub fn without_ic_h2_blanketing(mut self) -> Self {
+        self.ic_h2_blanketing = false;
+        self
+    }
+}
+
 /// What the operators (or the historical sequence) have set.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Controls {
@@ -80,6 +118,19 @@ impl Default for Controls {
 /// One recorded moment of the Unit 1 accident, seconds after the scram
 /// (14:46 JST, 11 March 2011). [U] Times are from the INPO 11-005 timeline
 /// as recalled, not yet checked against the report.
+///
+/// **Partly checked 2026-10-29 (gh:#1044)** against the observed anchors in
+/// BSAF Phase II (`crates/kovan-literature/derived/nea7525-bsaf-fukushima-daiichi-bands.md`
+/// §1.1; NEA No. 7525, © OECD 2021, cited with acknowledgement):
+/// - the reactor-building explosion, 15:36 on 12 March = 24.83 h, **agrees**
+///   with BSAF's observed 24.83 h;
+/// - the wetwell vent order, 14:30 = 23.73 h, is **consistent** with BSAF's
+///   "manually vented ≈24 h" (vent closure 24.68 h, a BSAF boundary
+///   condition this sequence does not have).
+///
+/// The other five times (IC stop, IC cycling, station blackout, the three
+/// injection changes) have no BSAF anchor and stay `[U]` until checked
+/// against INPO 11-005, IAEA TV1 or the Japanese government report (#1031).
 #[derive(Clone, Copy, Debug)]
 pub struct Event {
     pub t_s: f64,
@@ -248,6 +299,7 @@ pub struct Plant {
     sat: SatTable,
     choked: ChokedTable,
     pub mode: Mode,
+    pub mechanisms: Mechanisms,
     pub controls: Controls,
     t_s: f64,
     /// Vessel water and steam: mass, kg, internal energy, J; hydrogen, kg.
@@ -289,6 +341,11 @@ pub struct Snapshots {
 
 impl Plant {
     pub fn new(mode: Mode) -> Self {
+        Self::with_mechanisms(mode, Mechanisms::default())
+    }
+
+    /// A fresh plant with some mechanisms ablated (see [`Mechanisms`]).
+    pub fn with_mechanisms(mode: Mode, mechanisms: Mechanisms) -> Self {
         let sat = SatTable::new();
         let choked = ChokedTable::new(&sat);
         let s = sat.at(INITIAL_PRESSURE_PA);
@@ -300,6 +357,7 @@ impl Plant {
             sat,
             choked,
             mode,
+            mechanisms,
             controls: Controls::default(),
             t_s: 0.0,
             m: m_l + m_g,
@@ -430,7 +488,8 @@ impl Plant {
             if self.controls.ic_open[i] && self.ic_shell_kg[i] > 0.0 && !v.dry {
                 // Hydrogen blankets the tubes: condensation scaled by the
                 // steam's share of the gas. [A]
-                *q = (IC_UA_W_PER_K * (t_sat - self.ic_shell_k[i])).max(0.0) * (1.0 - v.h2_fraction);
+                let blanket = if self.mechanisms.ic_h2_blanketing { 1.0 - v.h2_fraction } else { 1.0 };
+                *q = (IC_UA_W_PER_K * (t_sat - self.ic_shell_k[i])).max(0.0) * blanket;
             }
         }
         // Relief valves: relief set points with DC, spring safety set points
@@ -444,7 +503,7 @@ impl Plant {
         let p_dw = self.last_containment.p_dw_pa;
         let flux = self.choked.at(p);
         let w_relief = if self.relief_open { flux * RELIEF_THROAT_M2 * RELIEF_VALVES } else { 0.0 };
-        if self.last_core.exit_gas_k >= HOT_LEAK_GAS_K {
+        if self.mechanisms.hot_leak && self.last_core.exit_gas_k >= HOT_LEAK_GAS_K {
             self.hot_leak_open = true;
         }
         let leak_area = if self.hot_leak_open { HOT_LEAK_M2 } else { 0.0 } + if self.last_core.lower_head_failed { BREACH_M2 } else { 0.0 };

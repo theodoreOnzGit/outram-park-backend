@@ -18,6 +18,7 @@
 //! ```text
 //! cargo run --release -p dhoby-ghaut --example fukushima_web
 //! cargo run --release -p dhoby-ghaut --example fukushima_web -- --headless 108000 600
+//! cargo run --release -p dhoby-ghaut --example fukushima_web -- --compare   # BSAF table (gh:#1032)
 //! crates/dhoby-ghaut/web/fukushima/build.sh      # the browser demo, into dist/
 //! ```
 //!
@@ -59,6 +60,12 @@ fn main() {
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 fn main() -> Result<(), String> {
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--compare") {
+        let runs: Vec<(&str, physics::compare::Metrics)> =
+            physics::compare::ablations().into_iter().map(|(n, m)| (n, physics::compare::measure(m))).collect();
+        print!("{}", physics::compare::report(&runs));
+        return Ok(());
+    }
     if let Some(i) = args.iter().position(|a| a == "--headless") {
         let steps = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(3600);
         let every = args.get(i + 2).and_then(|s| s.parse().ok()).unwrap_or(60);
