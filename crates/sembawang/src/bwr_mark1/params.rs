@@ -240,6 +240,18 @@ pub const SHROUD_THICKNESS_M: f64 = 0.05;
 /// emissivity. \[P\] MELCOR's MP default (Vol. 2, MP Table 6.1).
 pub const ZRO2_DENSITY: f64 = 5600.0;
 
+// ── Two-phase mixture level (gh:#1036, plan item F5) ────────────────────────
+//
+// After the public description of MELCOR's CVH pool model (MELCOR 2.2 Vol. 2,
+// CVH/FL §5.1.3, Eqs 5-26 to 5-30; C4407). No MELCOR source is used.
+
+/// Bubble rise velocity in the pool, m/s, and the largest mean pool void.
+/// \[A\] MELCOR's defaults C4407(1) and C4407(11); its manual says other
+/// assumptions change the answer by about a factor of 2, and calls 0.4
+/// roughly the upper limit of bubbly flow.
+pub const BUBBLE_RISE_M_S: f64 = 0.3;
+pub const MAX_POOL_VOID: f64 = 0.4;
+
 // ── Zirconium-steam oxidation ───────────────────────────────────────────────
 //
 // Parabolic: d(W^2)/dt = K(T), W = mass of Zr oxidised per unit area,
@@ -468,6 +480,8 @@ params! {
     axial_exchange = AXIAL_EXCHANGE, A,
     shroud_thickness_m = SHROUD_THICKNESS_M, A,
     zro2_density = ZRO2_DENSITY, P,
+    bubble_rise_m_s = BUBBLE_RISE_M_S, A,
+    max_pool_void = MAX_POOL_VOID, A,
     uh_low_a = UH_LOW_A, P,
     uh_low_b_k = UH_LOW_B_K, P,
     uh_high_a = UH_HIGH_A, P,
@@ -584,7 +598,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 92);
+        assert_eq!(Params::INPUTS.len(), 94);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

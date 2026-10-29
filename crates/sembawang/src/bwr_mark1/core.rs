@@ -143,6 +143,10 @@ pub struct CoreResult {
     /// arrives, and in the ablation).
     pub head_inner_k: f64,
     pub head_strain: f64,
+    /// Heat into the water this step, W: covered nodes and the debris
+    /// quench. The vapour it raises inside the pool sets the swell of the
+    /// mixture level (gh:#1036).
+    pub q_pool_w: f64,
     /// Cladding temperature of every node, ring-major, bottom to top, K
     /// (relocated nodes: NaN).
     pub clad_k: Vec<f64>,
@@ -497,6 +501,8 @@ impl Enthalpy {
 /// [`Params`]. Before 2026-10-29 the tables had no heat of fusion: a node
 /// crossed 2098 K without paying it.
 const ZR_FUSION: (f64, f64) = (2098.0, 2.25e5);
+/// ZrO2's melting point, K: the same MP Table 7 (MP-RM-49).
+const ZRO2_MELT_K: f64 = 2990.0;
 const UO2_FUSION: (f64, f64) = (3113.0, 2.74e5);
 
 fn uo2_enthalpy() -> &'static Enthalpy {
@@ -629,6 +635,7 @@ impl Core {
         let dt = s.dt_s;
         let dz = prm.active_length_m / AXIAL_NODES as f64;
         let mut q_fluid = 0.0;
+        let mut q_pool = 0.0;
         let mut steam_used = 0.0;
         let mut h2 = 0.0;
         let mut q_ox_total = 0.0;
@@ -704,6 +711,7 @@ impl Core {
             }
         }
         q_fluid += q_quench;
+        q_pool += q_quench.max(0.0);
         // Steam from below the core, when the level is below it.
         let w_below = if s.level_m <= 0.0 { q_quench / s.h_fg / RINGS as f64 } else { 0.0 };
         for ring in 0..RINGS {
@@ -791,6 +799,7 @@ impl Core {
                 q_fluid += q_out;
                 if covered {
                     w_steam += q_out.max(0.0) / s.h_fg;
+                    q_pool += q_out.max(0.0);
                 } else if w_steam > 0.0 && c_rate > 0.0 {
                     t_steam += q_out / c_rate;
                 }
@@ -821,7 +830,15 @@ impl Core {
                     if bare {
                         m.damage += dt * prm.damage_a * (prm.damage_b * tf).r_exp();
                     }
-                    tf >= prm.rod_collapse_max_k || (bare && (tf >= prm.rod_collapse_k || m.damage >= 1.0))
+                    // And the shell itself: once the cladding reaches ZrO2's
+                    // melting point the oxide that holds the rod melts.
+                    // MELCOR candles it down; this model cannot move it, so
+                    // the rod falls (stated simplification). Without this the
+                    // cladding, heated by its own oxidation, ran past the
+                    // enthalpy tables' 3200 K top (found 2026-10-29).
+                    tf >= prm.rod_collapse_max_k
+                        || tc >= ZRO2_MELT_K
+                        || (bare && (tf >= prm.rod_collapse_k || m.damage >= 1.0))
                 } else {
                     tc >= prm.zr_melt_k
                 };
@@ -886,6 +903,7 @@ impl Core {
             ex_vessel_w: ex_vessel,
             head_inner_k: self.head.t_k[0],
             head_strain: self.head.strain,
+            q_pool_w: q_pool,
             clad_k: self.nodes.iter().map(|n| if n.relocated { f64::NAN } else { n.t_clad }).collect(),
         }
     }
@@ -985,6 +1003,7 @@ impl CoreResult {
             self.ex_vessel_w,
             self.head_inner_k,
             self.head_strain,
+            self.q_pool_w,
         ]);
         w.vec(&self.clad_k);
     }
@@ -1004,6 +1023,7 @@ impl CoreResult {
             ex_vessel_w: r.f(),
             head_inner_k: r.f(),
             head_strain: r.f(),
+            q_pool_w: r.f(),
             clad_k: r.vec(),
         }
     }

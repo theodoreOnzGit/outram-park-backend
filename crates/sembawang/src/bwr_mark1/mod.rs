@@ -101,6 +101,9 @@ pub struct Mechanisms {
     /// In-core radiation between rings and levels, and from the outer ring
     /// to the shroud (gh:#1037); off is no radiation at all.
     pub core_radiation: bool,
+    /// The core sees the swollen two-phase mixture level, not the collapsed
+    /// one (gh:#1036); off is the collapsed level.
+    pub level_swell: bool,
 }
 
 impl Default for Mechanisms {
@@ -112,6 +115,7 @@ impl Default for Mechanisms {
             lower_head_wall: true,
             rod_collapse: true,
             core_radiation: true,
+            level_swell: true,
         }
     }
 }
@@ -149,6 +153,12 @@ impl Mechanisms {
     /// before gh:#1037.
     pub fn without_core_radiation(mut self) -> Self {
         self.core_radiation = false;
+        self
+    }
+
+    /// The core sees the collapsed level: the model before gh:#1036.
+    pub fn without_level_swell(mut self) -> Self {
+        self.level_swell = false;
         self
     }
 
@@ -315,6 +325,26 @@ impl ChokedTable {
         let w = ((l - self.ln_p[i]) / step).min(1.0);
         self.flux[i] + w * (self.flux[i + 1] - self.flux[i])
     }
+}
+
+/// The swollen two-phase mixture level above the bottom of active fuel, m,
+/// from the collapsed one (gh:#1036), after MELCOR's CVH pool model (MELCOR
+/// 2.2 Vol. 2, CVH/FL §5.1.3, Eqs 5-26 to 5-30): bubbles rise at
+/// `bubble_rise_m_s`, so with the vapour flux through the pool top `J` the
+/// mean void is `J / (2 v0)`, capped at `max_pool_void`, and the swollen pool
+/// fills `V_liquid / (1 - alpha)`. `q_pool_w` W raise vapour of specific
+/// volume `v_g` with latent heat `h_fg`; `J` is over the free cross-section
+/// at the collapsed level.
+pub fn swollen_level(prm: &Params, level_m: f64, q_pool_w: f64, h_fg: f64, v_g: f64) -> f64 {
+    let z = level_m + prm.baf_m;
+    let dz = 0.01;
+    let area = (volume_below(prm, z + dz) - volume_below(prm, z - dz)) / (2.0 * dz);
+    if area <= 0.0 || q_pool_w <= 0.0 {
+        return level_m;
+    }
+    let j = q_pool_w / h_fg * v_g / area;
+    let alpha = (j / (2.0 * prm.bubble_rise_m_s)).min(prm.max_pool_void);
+    height_of_volume(prm, volume_below(prm, z) / (1.0 - alpha)) - prm.baf_m
 }
 
 /// Free volume of the vessel below height `z` above its bottom, m^3.
@@ -617,8 +647,15 @@ impl Plant {
             h2_out: (w_relief + w_leak) * h2_share,
         };
         let h_gas = v.sat.h_g;
+        // The level the core sees (gh:#1036): swollen by the vapour the last
+        // step raised in the pool, or the collapsed level.
+        let core_level = if self.mechanisms.level_swell && !v.dry {
+            swollen_level(&prm, v.level_m, self.last_core.q_pool_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
+        } else {
+            v.level_m
+        };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -977,7 +1014,11 @@ mod tests {
         for _ in 0..108_000 {
             p.step_inline(&mut c, &mut k);
             let f = p.frame();
-            assert!(f.vessel.p_pa > 5.0e4 && f.vessel.p_pa < 9.5e6, "p {} at {}", f.vessel.p_pa, f.t_s);
+            // ~~below 9.5 MPa~~: since 2026-10-29 a debris quench can push
+            // the vessel past the safety valves' capacity to about 10 MPa
+            // (there is no vessel overpressure failure); the bound is the
+            // saturation table's top, 20 MPa.
+            assert!(f.vessel.p_pa > 5.0e4 && f.vessel.p_pa < steam::P_MAX_PA, "p {} at {}", f.vessel.p_pa, f.t_s);
             // ~~2600 K~~: since gh:#1035 rods stand to MELCOR's collapse
             // temperatures (ROD_COLLAPSE_MAX_K 3100 K), so the bound is the
             // enthalpy tables' 3200 K top.
@@ -1028,6 +1069,24 @@ mod tests {
         }
         assert!(((p.m - m0) - dm).abs() <= 1e-9 * m0, "mass {} vs {}", p.m - m0, dm);
         assert!(((p.u - u0) - du).abs() <= 1e-9 * u0.abs(), "energy {} vs {}", p.u - u0, du);
+    }
+
+    /// The swollen level (gh:#1036): no vapour, no swell; a vapour flux J
+    /// gives a mean void J/(2 v0), so the pool's volume grows by 1/(1 -
+    /// alpha); and the void stops at 0.4 however hard the pool boils.
+    #[test]
+    fn the_swollen_level_follows_bubble_rise_and_its_cap() {
+        let prm = Params::default();
+        let (h_fg, v_g) = (1.5e6, 0.027);
+        let level = 2.0;
+        assert_eq!(swollen_level(&prm, level, 0.0, h_fg, v_g), level);
+        let z = level + prm.baf_m;
+        let area = (volume_below(&prm, z + 0.01) - volume_below(&prm, z - 0.01)) / 0.02;
+        let q = 0.06 * area / v_g * h_fg; // J = 0.06 m/s, alpha = 0.1
+        let swollen = swollen_level(&prm, level, q, h_fg, v_g) + prm.baf_m;
+        assert!((volume_below(&prm, swollen) - volume_below(&prm, z) / 0.9).abs() < 1e-6 * volume_below(&prm, z));
+        let capped = swollen_level(&prm, level, 100.0 * q, h_fg, v_g) + prm.baf_m;
+        assert!((volume_below(&prm, capped) - volume_below(&prm, z) / 0.6).abs() < 1e-6 * volume_below(&prm, z));
     }
 
     /// The level-volume map inverts.

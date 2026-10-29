@@ -160,6 +160,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without lower-head wall", all.without_lower_head_wall()),
         ("without rod collapse", all.without_rod_collapse()),
         ("without core radiation", all.without_core_radiation()),
+        ("without level swell", all.without_level_swell()),
     ]
 }
 
@@ -182,9 +183,10 @@ pub struct Elasticity {
     pub lower_head: Option<f64>,
     pub h2: f64,
     pub p_dw: f64,
-    /// The vent or the explosion happens in a perturbed run (neither does
-    /// at the defaults).
-    pub event_appears: bool,
+    /// Whether the vent or the explosion happens differs between a perturbed
+    /// run and the default one (~~appears; neither happened at the
+    /// defaults~~: since gh:#1036 the vent does).
+    pub event_changes: bool,
 }
 
 impl Elasticity {
@@ -212,7 +214,8 @@ pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasti
         (Some(l), Some(h), Some(b)) => Some(e(l, h, b)),
         _ => None,
     };
-    let event_appears = [lo, hi].iter().any(|m| m.vent_h.is_some() || m.explosion_h.is_some());
+    let happens = |m: &Metrics| (m.vent_h.is_some(), m.explosion_h.is_some());
+    let event_changes = [lo, hi].iter().any(|m| happens(m) != happens(base));
     Some(Elasticity {
         name,
         tag,
@@ -220,7 +223,7 @@ pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasti
         lower_head,
         h2: e(lo.h2_25h_kg, hi.h2_25h_kg, base.h2_25h_kg),
         p_dw: e(lo.p_dw_peak_mpa, hi.p_dw_peak_mpa, base.p_dw_peak_mpa),
-        event_appears,
+        event_changes,
     })
 }
 
@@ -228,7 +231,7 @@ pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasti
 pub fn sensitivity_report(rows: &[Elasticity]) -> String {
     let mut rows = rows.to_vec();
     rows.sort_by(|a, b| b.largest().total_cmp(&a.largest()).then(a.name.cmp(b.name)));
-    let mut out = String::from("| Input | Tag | Default | lower-head time | H2 at 25 h | drywell peak | vent or explosion appears |\n|---|---|---|---|---|---|---|\n");
+    let mut out = String::from("| Input | Tag | Default | lower-head time | H2 at 25 h | drywell peak | vent or explosion changes |\n|---|---|---|---|---|---|---|\n");
     for r in rows {
         let lh = r.lower_head.map_or("no failure".to_string(), |x| format!("{x:+.3}"));
         out.push_str(&format!(
@@ -239,7 +242,7 @@ pub fn sensitivity_report(rows: &[Elasticity]) -> String {
             lh,
             r.h2,
             r.p_dw,
-            if r.event_appears { "yes" } else { "no" }
+            if r.event_changes { "yes" } else { "no" }
         ));
     }
     out
@@ -279,11 +282,11 @@ mod tests {
     ///
     /// | Quantity | Model | BSAF band (tier) | Verdict |
     /// |---|---|---|---|
-    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ 5.59 h | 7.45-17.16 h (B) | early |
-    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ 5.59 h | 5-12 h (A) | inside, for the wrong reason |
-    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ ~~180.57 kg~~ ~~216.06 kg~~ 182.90 kg | 400-1310 kg (C) | low |
-    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ ~~0.475 MPa~~ ~~0.508 MPa~~ ~~0.532 MPa~~ 0.510 MPa | 0.8-1.0 MPa (C) | low |
-    /// | wetwell vent | never | ~24 h (A) | missed |
+    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ 4.67 h | 7.45-17.16 h (B) | early |
+    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ 4.67 h | 5-12 h (A) | ~~inside~~ below, for the wrong reason |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ ~~180.57 kg~~ ~~216.06 kg~~ ~~182.90 kg~~ 283.76 kg | 400-1310 kg (C) | low |
+    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ ~~0.475 MPa~~ ~~0.508 MPa~~ ~~0.532 MPa~~ ~~0.510 MPa~~ 0.559 MPa | 0.8-1.0 MPa (C) | low |
+    /// | wetwell vent | ~~never~~ 25.12 h | ~24 h (23.5-24.68 h) (A) | ~~missed~~ late |
     /// | building explosion | never | 24.83 h (A) | missed |
     ///
     /// The RPV depressurises *at* the lower-head failure: the breach lets
@@ -374,6 +377,37 @@ mod tests {
     /// ablation `without_core_radiation` reproduces the previous baseline
     /// exactly (pinned below).
     ///
+    /// **Moved again 2026-10-29 by gh:#1036** (the core sees the swollen
+    /// two-phase level, after MELCOR's CVH pool model: bubble rise 0.3 m/s,
+    /// mean void J/(2 v0) capped at 0.4): lower head 5.589 -> 4.647 h, H2
+    /// 182.90 -> 285.20 kg, drywell 0.5104 -> 0.5588 MPa, and the wetwell
+    /// vent now flows at 25.11 h. Predicted before the run: lower head later
+    /// by 0.05-0.5 h, H2 little changed. **Missed, sign and size.** The
+    /// swell itself is centimetres; it tips the run into a different
+    /// **regime**. Traced: a large debris slug collapses into the still-wet
+    /// plenum at once, the quench pushes the vessel to 10 MPa, and the
+    /// quench steam feeds an oxidation burst in nodes that were
+    /// steam-starved. The regime is not a knife-edge at the default: a scan
+    /// of the bubble rise velocity gave lower head 4.63-4.75 h and H2
+    /// 280-318 kg for every value from 0.20 to 0.35 m/s, and 5.59 h and
+    /// 191 kg at 0.40 m/s (the no-swell regime). The ablations split across
+    /// the two regimes too (no wall: early; no rod collapse, constant c_p:
+    /// late). **The lower-head time is regime-fragile**, so no comparison
+    /// with its band is robust until the slug's size stops deciding the run
+    /// (candling, support holdup). The swell stays on: it is MELCOR's
+    /// default physics, and the fragility is a finding about the model.
+    /// The no-swell ablation reproduces the previous baseline exactly
+    /// (pinned below).
+    ///
+    /// The early regime also took a node's cladding past the enthalpy
+    /// tables' 3200 K top (the cladding, heated by its own oxidation, above
+    /// its fuel). Fixed in the same change: a rod also falls when its
+    /// cladding reaches ZrO2's melting point, 2990 K (MELCOR MP Table 7),
+    /// since this model cannot candle the molten oxide away. That moved
+    /// the swollen-level run 4.647 -> 4.668 h, H2 285.20 -> 283.76 kg, vent
+    /// 25.106 -> 25.123 h, the regime unchanged; the figures above are with
+    /// it.
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -381,30 +415,41 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 5.5892, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 5.5892, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 182.90).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.5104).abs() < 0.0001, "{m:?}");
-        // The no-radiation ablation is the model before gh:#1037, exactly.
+        assert!(near(m.lower_head_h, 4.6678, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.6678, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 283.76).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.5585).abs() < 0.0001, "{m:?}");
+        // ~~No vent, no explosion~~: since gh:#1036 the wetwell vent flows,
+        // at 25.12 h (BSAF: 23.5-24.68 h, Tier A).
+        assert!(near(m.vent_h, 25.1231, 0.001) && m.explosion_h.is_none(), "{m:?}");
+        // The no-swell ablation. With the ZrO2-melting collapse (in the
+        // same change) it differs from the model before gh:#1036 only if a
+        // node's cladding reaches 2990 K, which it does not without swell.
+        let ns = measure(Mechanisms::default().without_level_swell());
+        assert!(near(ns.lower_head_h, 5.5892, 0.001), "{ns:?}");
+        assert!((ns.h2_25h_kg - 182.90).abs() < 0.01, "{ns:?}");
+        assert!((ns.p_dw_peak_mpa - 0.5104).abs() < 0.0001, "{ns:?}");
+        // The no-radiation ablation. ~~The model before gh:#1037, exactly
+        // (5.3953 h, 216.06 kg, 0.5319 MPa).~~ Since gh:#1036 it carries
+        // the swell too, so it isolates radiation.
         let nr = measure(Mechanisms::default().without_core_radiation());
-        assert!(near(nr.lower_head_h, 5.3953, 0.001), "{nr:?}");
-        assert!((nr.h2_25h_kg - 216.06).abs() < 0.01, "{nr:?}");
-        assert!((nr.p_dw_peak_mpa - 0.5319).abs() < 0.0001, "{nr:?}");
+        assert!(near(nr.lower_head_h, 5.3261, 0.001), "{nr:?}");
+        assert!((nr.h2_25h_kg - 241.88).abs() < 0.01, "{nr:?}");
+        assert!((nr.p_dw_peak_mpa - 0.5440).abs() < 0.0001, "{nr:?}");
         // The no-collapse ablation. ~~The model before gh:#1035's collapse
         // step, exactly (5.4125 h, 180.57 kg, 0.5080 MPa).~~ Since
         // gh:#1037 it carries radiation too, so it isolates the collapse.
         let nc = measure(Mechanisms::default().without_rod_collapse());
-        assert!(near(nc.lower_head_h, 5.5089, 0.001), "{nc:?}");
-        assert!((nc.h2_25h_kg - 159.86).abs() < 0.01, "{nc:?}");
-        assert!((nc.p_dw_peak_mpa - 0.4955).abs() < 0.0001, "{nc:?}");
+        assert!(near(nc.lower_head_h, 5.565, 0.001), "{nc:?}");
+        assert!((nc.h2_25h_kg - 162.05).abs() < 0.01, "{nc:?}");
+        assert!((nc.p_dw_peak_mpa - 0.4988).abs() < 0.0001, "{nc:?}");
         // The no-wall ablation. ~~The model before gh:#1034, exactly (5.399 h,
         // 120.73 kg, 0.4746 MPa).~~ Since Zr's heat of fusion (gh:#1035) it
         // carries that too, so it isolates the wall alone.
         let nw = measure(Mechanisms::default().without_lower_head_wall());
-        assert!(near(nw.lower_head_h, 5.337, 0.001), "{nw:?}");
-        assert!((nw.h2_25h_kg - 177.24).abs() < 0.01, "{nw:?}");
-        assert!((nw.p_dw_peak_mpa - 0.5051).abs() < 0.0001, "{nw:?}");
-        assert_eq!((m.vent_h, m.explosion_h), (None, None), "{m:?}");
+        assert!(near(nw.lower_head_h, 4.435, 0.001), "{nw:?}");
+        assert!((nw.h2_25h_kg - 290.33).abs() < 0.01, "{nw:?}");
+        assert!((nw.p_dw_peak_mpa - 0.5561).abs() < 0.0001, "{nw:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
         // correction it carries 6.763 MJ/kg too, so it isolates c_p alone.
@@ -415,9 +460,9 @@ mod tests {
         // 116.27 -> 157.33 kg. Since core radiation (gh:#1037): 5.521 ->
         // 5.653 h, 157.33 -> 135.62 kg.
         let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
-        assert!(near(cp.lower_head_h, 5.653, 0.001), "{cp:?}");
-        assert!((cp.h2_25h_kg - 135.62).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.4842).abs() < 0.0001, "{cp:?}");
+        assert!(near(cp.lower_head_h, 5.637, 0.001), "{cp:?}");
+        assert!((cp.h2_25h_kg - 143.22).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.4889).abs() < 0.0001, "{cp:?}");
     }
 
     /// The elasticity of an input that only the demo draws is zero, of one
@@ -426,7 +471,7 @@ mod tests {
     fn elasticities_rank_inputs_by_their_effect() {
         let base = measure(Mechanisms::default());
         let none = elasticity("containment_design_pa", 0.01, &base).unwrap();
-        assert_eq!((none.lower_head, none.h2, none.p_dw, none.event_appears), (Some(0.0), 0.0, 0.0, false));
+        assert_eq!((none.lower_head, none.h2, none.p_dw, none.event_changes), (Some(0.0), 0.0, 0.0, false));
         let lh = elasticity("head_failure_wall_k", 0.01, &base).unwrap();
         assert!(lh.lower_head.is_some_and(|e| e > 0.0), "{lh:?}");
         assert_eq!(lh.tag, Tag::A);
@@ -441,7 +486,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 7);
+        assert_eq!(runs.len(), 8);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -457,6 +502,7 @@ mod tests {
         assert!(!ablations()[4].1.lower_head_wall && ablations()[4].1.temperature_dependent_properties);
         assert!(!ablations()[5].1.rod_collapse && ablations()[5].1.lower_head_wall);
         assert!(!ablations()[6].1.core_radiation && ablations()[6].1.rod_collapse);
+        assert!(!ablations()[7].1.level_swell && ablations()[7].1.core_radiation);
     }
 
     /// The verdict reads a value against its band.

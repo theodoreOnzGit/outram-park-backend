@@ -2699,7 +2699,7 @@ pub struct Elasticity {
     pub lower_head: Option<f64>,
     pub h2: f64,
     pub p_dw: f64,
-    pub event_appears: bool,
+    pub event_changes: bool,
 }
 ```
 
@@ -2713,7 +2713,7 @@ pub struct Elasticity {
 | `lower_head` | `Option<f64>` | `None` when the lower head does not fail in all three runs. |
 | `h2` | `f64` |  |
 | `p_dw` | `f64` |  |
-| `event_appears` | `bool` | The vent or the explosion happens in a perturbed run (neither does<br>at the defaults). |
+| `event_changes` | `bool` | Whether the vent or the explosion happens differs between a perturbed<br>run and the default one (~~appears; neither happened at the<br>defaults~~: since gh:#1036 the vent does). |
 
 ##### Implementations
 
@@ -3696,6 +3696,7 @@ pub struct CoreResult {
     pub ex_vessel_w: f64,
     pub head_inner_k: f64,
     pub head_strain: f64,
+    pub q_pool_w: f64,
     pub clad_k: Vec<f64>,
 }
 ```
@@ -3718,6 +3719,7 @@ pub struct CoreResult {
 | `ex_vessel_w` | `f64` | Decay power of the debris that has left through the failed lower<br>head, W: it goes to the drywell floor. |
 | `head_inner_k` | `f64` | The lower-head wall's inner temperature, K, and its creep strain<br>(gh:#1034; zero strain and the initial temperature until debris<br>arrives, and in the ablation). |
 | `head_strain` | `f64` |  |
+| `q_pool_w` | `f64` | Heat into the water this step, W: covered nodes and the debris<br>quench. The vapour it raises inside the pool sets the swell of the<br>mixture level (gh:#1036). |
 | `clad_k` | `Vec<f64>` | Cladding temperature of every node, ring-major, bottom to top, K<br>(relocated nodes: NaN). |
 
 ##### Implementations
@@ -4287,6 +4289,8 @@ pub struct Params {
     pub axial_exchange: f64,
     pub shroud_thickness_m: f64,
     pub zro2_density: f64,
+    pub bubble_rise_m_s: f64,
+    pub max_pool_void: f64,
     pub uh_low_a: f64,
     pub uh_low_b_k: f64,
     pub uh_high_a: f64,
@@ -4387,6 +4391,8 @@ pub struct Params {
 | `axial_exchange` | `f64` |  |
 | `shroud_thickness_m` | `f64` |  |
 | `zro2_density` | `f64` |  |
+| `bubble_rise_m_s` | `f64` |  |
+| `max_pool_void` | `f64` |  |
 | `uh_low_a` | `f64` |  |
 | `uh_low_b_k` | `f64` |  |
 | `uh_high_a` | `f64` |  |
@@ -5161,6 +5167,23 @@ emissivity. \[P\] MELCOR's MP default (Vol. 2, MP Table 6.1).
 pub const ZRO2_DENSITY: f64 = 5600.0;
 ```
 
+#### Constant `BUBBLE_RISE_M_S`
+
+Bubble rise velocity in the pool, m/s, and the largest mean pool void.
+\[A\] MELCOR's defaults C4407(1) and C4407(11); its manual says other
+assumptions change the answer by about a factor of 2, and calls 0.4
+roughly the upper limit of bubbly flow.
+
+```rust
+pub const BUBBLE_RISE_M_S: f64 = 0.3;
+```
+
+#### Constant `MAX_POOL_VOID`
+
+```rust
+pub const MAX_POOL_VOID: f64 = 0.4;
+```
+
 #### Constant `UH_LOW_A`
 
 ```rust
@@ -5734,6 +5757,15 @@ pub struct SatTable {
 - **WasmNotSync**
 ### Functions
 
+#### Function `log_grid`
+
+`n` log-spaced points from `lo`, with the step of `n_grid` points over
+`lo..=grid_top`, continued until past `top` (gh:#1036 follow-up).
+
+```rust
+pub fn log_grid(lo: f64, grid_top: f64, n_grid: usize, top: f64) -> Vec<f64> { /* ... */ }
+```
+
 #### Function `sat_from_tables`
 
 One saturation point straight from the steam tables.
@@ -5754,7 +5786,13 @@ pub fn p_sat_pa(t_k: f64) -> f64 { /* ... */ }
 
 #### Constant `P_MIN_PA`
 
-Lowest and highest pressure in the table, Pa.
+Lowest and highest pressure the table covers, Pa. ~~9.5e6~~ **Raised
+2026-10-29** to 20 MPa: a rapid debris quench can push the vessel past
+9.5 MPa, and above the table [`SatTable::mixture`] found no state, which
+the plant took for "boiled dry" (level at the bottom, the superheated
+branch): a wrong state, not physics. 20 MPa stays below the critical
+point (22.064 MPa), as MELCOR advises for its own vessel-failure
+pressure (MELCOR 2.2 Vol. 2, COR §2.3.8).
 
 ```rust
 pub const P_MIN_PA: f64 = 2.0e4;
@@ -5763,7 +5801,17 @@ pub const P_MIN_PA: f64 = 2.0e4;
 #### Constant `P_MAX_PA`
 
 ```rust
-pub const P_MAX_PA: f64 = 9.5e6;
+pub const P_MAX_PA: f64 = 2.0e7;
+```
+
+#### Constant `P_GRID_TOP_PA`
+
+The grid: `N_GRID` points log-spaced over `P_MIN_PA` to `P_GRID_TOP_PA`
+(the original table), continued at the same step up to `P_MAX_PA`, so
+every original point is unchanged bit for bit.
+
+```rust
+pub const P_GRID_TOP_PA: f64 = 9.5e6;
 ```
 
 ## Module `wire`
@@ -6165,6 +6213,7 @@ pub struct Mechanisms {
     pub lower_head_wall: bool,
     pub rod_collapse: bool,
     pub core_radiation: bool,
+    pub level_swell: bool,
 }
 ```
 
@@ -6178,6 +6227,7 @@ pub struct Mechanisms {
 | `lower_head_wall` | `bool` | The lower-head wall: heated by the debris, failing on its inner<br>temperature or by creep (gh:#1034); off is the debris-temperature<br>criterion `LOWER_HEAD_FAILURE_K`. |
 | `rod_collapse` | `bool` | MELCOR's rod collapse (gh:#1035): breach at `CLAD_BREACH_K`,<br>collapse at `ROD_COLLAPSE_K` or by time-at-temperature damage; off<br>is the 2100 K whole-node slump `ZR_MELT_K`. |
 | `core_radiation` | `bool` | In-core radiation between rings and levels, and from the outer ring<br>to the shroud (gh:#1037); off is no radiation at all. |
+| `level_swell` | `bool` | The core sees the swollen two-phase mixture level, not the collapsed<br>one (gh:#1036); off is the collapsed level. |
 
 ##### Implementations
 
@@ -6207,6 +6257,11 @@ pub struct Mechanisms {
   pub fn without_core_radiation(self: Self) -> Self { /* ... */ }
   ```
   No radiation inside the core and no shroud heat structure: the model
+
+- ```rust
+  pub fn without_level_swell(self: Self) -> Self { /* ... */ }
+  ```
+  The core sees the collapsed level: the model before gh:#1036.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
@@ -7380,6 +7435,21 @@ pub struct Snapshots {
 - **WasmNotSendSync**
 - **WasmNotSync**
 ### Functions
+
+#### Function `swollen_level`
+
+The swollen two-phase mixture level above the bottom of active fuel, m,
+from the collapsed one (gh:#1036), after MELCOR's CVH pool model (MELCOR
+2.2 Vol. 2, CVH/FL §5.1.3, Eqs 5-26 to 5-30): bubbles rise at
+`bubble_rise_m_s`, so with the vapour flux through the pool top `J` the
+mean void is `J / (2 v0)`, capped at `max_pool_void`, and the swollen pool
+fills `V_liquid / (1 - alpha)`. `q_pool_w` W raise vapour of specific
+volume `v_g` with latent heat `h_fg`; `J` is over the free cross-section
+at the collapsed level.
+
+```rust
+pub fn swollen_level(prm: &Params, level_m: f64, q_pool_w: f64, h_fg: f64, v_g: f64) -> f64 { /* ... */ }
+```
 
 #### Function `volume_below`
 
