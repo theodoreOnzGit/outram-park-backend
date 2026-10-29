@@ -3262,6 +3262,7 @@ pub struct Metrics {
     pub vent_h: Option<f64>,
     pub explosion_h: Option<f64>,
     pub fp_released_25h: f64,
+    pub uo2_released_25h_kg: f64,
 }
 ```
 
@@ -3276,6 +3277,7 @@ pub struct Metrics {
 | `vent_h` | `Option<f64>` |  |
 | `explosion_h` | `Option<f64>` |  |
 | `fp_released_25h` | `f64` | Volatile fission products (Xe, Cs, I) released from the fuel by<br>25 h, fraction of inventory (gh:#1040). Not a BSAF band: BSAF<br>reports only that most codes' releases reached an asymptote above<br>0.8 (code-to-code, figure-read; NEA No. 7525 §2, Fig. 2.5). |
+| `uo2_released_25h_kg` | `f64` | UO2 released from the fuel by 25 h, kg: the seed aerosol (gh:#1047). |
 
 ##### Implementations
 
@@ -4740,6 +4742,7 @@ pub struct CoreResult {
     pub exit_gas_k: f64,
     pub exit_steam_kg_s: f64,
     pub fp_volatile_released: f64,
+    pub uo2_released_kg: f64,
     pub zr_oxidised_kg: f64,
     pub h2_total_kg: f64,
     pub relocated: f64,
@@ -4765,6 +4768,7 @@ pub struct CoreResult {
 | `exit_gas_k` | `f64` |  |
 | `exit_steam_kg_s` | `f64` | Steam leaving the top of the core, kg/s (with the hydrogen,<br>`h2_kg_s`, at `exit_gas_k`). |
 | `fp_volatile_released` | `f64` | Volatile fission products (Xe, Cs, I) released from the fuel so<br>far, fraction of the core inventory (gh:#1040). |
+| `uo2_released_kg` | `f64` | UO2 released from the fuel so far, kg: the seed aerosol (gh:#1047). |
 | `zr_oxidised_kg` | `f64` | Zirconium oxidised so far, kg; hydrogen made so far, kg. |
 | `h2_total_kg` | `f64` |  |
 | `relocated` | `f64` | Fraction of the core's nodes relocated, and debris temperature. |
@@ -5100,6 +5104,17 @@ inventory's burst release at cladding failure (RN1_GAP00).
 
 ```rust
 pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
+```
+
+#### Function `uo2_release_rate`
+
+Fractional release rate of UO2 itself from fuel at `t_k`, 1/s: CORSOR-M's
+row for La and UO2 (Vol. 2, RN §2.3.1, C7102), `k0 exp(-Q/(R T))` per
+minute. The released UO2 is the aerosol the vapours condense on
+(gh:#1047); its inventory is the fuel's UO2.
+
+```rust
+pub fn uo2_release_rate(prm: &Params, t_k: f64) -> f64 { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -6203,6 +6218,8 @@ pub struct Params {
     pub penetration_wall_m: f64,
     pub corsor_k0_per_min: f64,
     pub corsor_q_kcal_per_mol: f64,
+    pub corsor_uo2_k0_per_min: f64,
+    pub corsor_uo2_q_kcal_per_mol: f64,
     pub head_failure_wall_k: f64,
     pub lm_p0: f64,
     pub lm_slope: f64,
@@ -6335,6 +6352,8 @@ pub struct Params {
 | `penetration_wall_m` | `f64` |  |
 | `corsor_k0_per_min` | `f64` |  |
 | `corsor_q_kcal_per_mol` | `f64` |  |
+| `corsor_uo2_k0_per_min` | `f64` |  |
+| `corsor_uo2_q_kcal_per_mol` | `f64` |  |
 | `head_failure_wall_k` | `f64` |  |
 | `lm_p0` | `f64` |  |
 | `lm_slope` | `f64` |  |
@@ -7028,6 +7047,21 @@ pub const CORSOR_K0_PER_MIN: f64 = 2.0e5;
 
 ```rust
 pub const CORSOR_Q_KCAL_PER_MOL: f64 = 63.8;
+```
+
+#### Constant `CORSOR_UO2_K0_PER_MIN`
+
+CORSOR-M's row for La and UO2 (same source): `k0`, per minute, `Q`,
+kcal/mol. \[P\]
+
+```rust
+pub const CORSOR_UO2_K0_PER_MIN: f64 = 1.46e7;
+```
+
+#### Constant `CORSOR_UO2_Q_KCAL_PER_MOL`
+
+```rust
+pub const CORSOR_UO2_Q_KCAL_PER_MOL: f64 = 143.1;
 ```
 
 #### Constant `HOT_LEAK_GAS_K`

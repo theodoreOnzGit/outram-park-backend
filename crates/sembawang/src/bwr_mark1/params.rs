@@ -179,6 +179,10 @@ pub const INTERNALS_H: f64 = 10.0;
 /// C7102): `k0`, per minute, and `Q`, kcal/mol. \[P\]
 pub const CORSOR_K0_PER_MIN: f64 = 2.0e5;
 pub const CORSOR_Q_KCAL_PER_MOL: f64 = 63.8;
+/// CORSOR-M's row for La and UO2 (same source): `k0`, per minute, `Q`,
+/// kcal/mol. \[P\]
+pub const CORSOR_UO2_K0_PER_MIN: f64 = 1.46e7;
+pub const CORSOR_UO2_Q_KCAL_PER_MOL: f64 = 143.1;
 
 /// RPV leak to the drywell once the core-exit gas is hot (instrument lines,
 /// SRV gaskets; the BSAF Unit 1 analyses needed such a path). \[A\] Opens above
@@ -575,6 +579,8 @@ params! {
     penetration_wall_m = PENETRATION_WALL_M, A,
     corsor_k0_per_min = CORSOR_K0_PER_MIN, P,
     corsor_q_kcal_per_mol = CORSOR_Q_KCAL_PER_MOL, P,
+    corsor_uo2_k0_per_min = CORSOR_UO2_K0_PER_MIN, P,
+    corsor_uo2_q_kcal_per_mol = CORSOR_UO2_Q_KCAL_PER_MOL, P,
     head_failure_wall_k = HEAD_FAILURE_WALL_K, A,
     lm_p0 = LM_P0, P,
     lm_slope = LM_SLOPE, P,
@@ -728,7 +734,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 124);
+        assert_eq!(Params::INPUTS.len(), 126);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

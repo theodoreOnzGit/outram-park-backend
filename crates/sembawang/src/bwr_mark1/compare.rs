@@ -88,6 +88,8 @@ pub struct Metrics {
     /// reports only that most codes' releases reached an asymptote above
     /// 0.8 (code-to-code, figure-read; NEA No. 7525 §2, Fig. 2.5).
     pub fp_released_25h: f64,
+    /// UO2 released from the fuel by 25 h, kg: the seed aerosol (gh:#1047).
+    pub uo2_released_25h_kg: f64,
 }
 
 impl Metrics {
@@ -130,6 +132,7 @@ pub fn measure_with(mechanisms: Mechanisms, prm: Params) -> Metrics {
             m.h2_25h_kg = f.core.h2_total_kg;
             m.p_dw_peak_mpa = m.p_dw_peak_mpa.max(f.containment.p_dw_pa / 1e6);
             m.fp_released_25h = f.core.fp_volatile_released;
+            m.uo2_released_25h_kg = f.core.uo2_released_kg;
         }
         if f.containment.vent_flowing && m.vent_h.is_none() {
             m.vent_h = Some(h);
@@ -737,6 +740,11 @@ mod tests {
         // fall. BSAF reports only that most codes exceeded 0.8 (Fig. 2.5,
         // code-to-code), which this is consistent with.
         assert!((m.fp_released_25h - 0.8505).abs() < 1e-4, "{m:?}");
+        // UO2 released from the fuel (CORSOR-M's UO2 row; the seed aerosol,
+        // gh:#1047; output only): 3.35 kg by 25 h (0.03 kg by 5 h, 2.5 kg
+        // by 8 h). Predicted before the run: tens of kg. **Missed, low**, by
+        // about 5-10x: few nodes hold near 2500 K for long.
+        assert!((m.uo2_released_25h_kg - 3.346).abs() < 0.01, "{m:?}");
         // No penetrations: the previous baseline, exactly.
         let np = measure(Mechanisms::default().without_penetrations().without_failed_vessel_outflow());
         assert!(near(np.lower_head_h, 5.6392, 0.001) && near(np.depressurised_h, 4.7769, 0.001), "{np:?}");

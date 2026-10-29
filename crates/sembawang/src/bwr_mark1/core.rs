@@ -145,6 +145,8 @@ pub struct CoreResult {
     /// Volatile fission products (Xe, Cs, I) released from the fuel so
     /// far, fraction of the core inventory (gh:#1040).
     pub fp_volatile_released: f64,
+    /// UO2 released from the fuel so far, kg: the seed aerosol (gh:#1047).
+    pub uo2_released_kg: f64,
     /// Zirconium oxidised so far, kg; hydrogen made so far, kg.
     pub zr_oxidised_kg: f64,
     pub h2_total_kg: f64,
@@ -181,6 +183,9 @@ struct Node {
     /// Fraction of the node's volatile fission products (Xe, Cs, I) still
     /// in its fuel (gh:#1040, `volatile_release_rate`).
     fp_left: f64,
+    /// Fraction of the node's UO2 still in its fuel (CORSOR-M's UO2 row;
+    /// the aerosol seed, gh:#1047).
+    uo2_left: f64,
 }
 
 /// Constants of one node (every node in a ring is the same size).
@@ -219,6 +224,10 @@ pub struct Core {
     /// (gh:#1040).
     debris_fp: f64,
     fp_released: f64,
+    /// UO2 in the in-vessel debris and released so far, fractions of the
+    /// core's UO2.
+    debris_uo2: f64,
+    uo2_released: f64,
 }
 
 /// Through-wall nodes of the lower-head wall (inner face first).
@@ -678,6 +687,15 @@ pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 {
     prm.corsor_k0_per_min / 60.0 * (-prm.corsor_q_kcal_per_mol * 1000.0 * CAL / (R_GAS * t_k)).r_exp()
 }
 
+/// Fractional release rate of UO2 itself from fuel at `t_k`, 1/s: CORSOR-M's
+/// row for La and UO2 (Vol. 2, RN §2.3.1, C7102), `k0 exp(-Q/(R T))` per
+/// minute. The released UO2 is the aerosol the vapours condense on
+/// (gh:#1047); its inventory is the fuel's UO2.
+pub fn uo2_release_rate(prm: &Params, t_k: f64) -> f64 {
+    const CAL: f64 = 4.184;
+    prm.corsor_uo2_k0_per_min / 60.0 * (-prm.corsor_uo2_q_kcal_per_mol * 1000.0 * CAL / (R_GAS * t_k)).r_exp()
+}
+
 /// Dittus-Boelter heat transfer coefficient for steam at `t_film` and `p`,
 /// for a ring's steam flow `w` (kg/s) through its share of the flow area.
 fn steam_htc(prm: &Params, w: f64, t_film: f64, p_pa: f64) -> (f64, f64) {
@@ -706,7 +724,7 @@ impl Core {
             for j in 0..AXIAL_NODES {
                 let q = prm.thermal_power_w / RINGS as f64 * prm.ring_factors[ring] * axial[j];
                 let t_clad = t_sat_k + q / (prm.boiling_h * g.a_rod);
-                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0, fp_left: 1.0 });
+                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0, fp_left: 1.0, uo2_left: 1.0 });
             }
         }
         Self {
@@ -724,6 +742,8 @@ impl Core {
             shroud_k: [t_sat_k; AXIAL_NODES],
             debris_fp: 0.0,
             fp_released: 0.0,
+            debris_uo2: 0.0,
+            uo2_released: 0.0,
         }
     }
 
@@ -979,6 +999,9 @@ impl Core {
             // proportional to power, [A]).
             self.debris_fp += share * n.fp_left;
             n.fp_left = 0.0;
+            // The fuel's UO2 by mass (each node's share of it).
+            self.debris_uo2 += n.uo2_left / NODES as f64;
+            n.uo2_left = 0.0;
         }
         let debris_k = if tdp && self.debris_mf + self.debris_mc > 0.0 {
             debris_temperature(self.debris_mf, self.debris_mc, self.debris_h)
@@ -1002,6 +1025,9 @@ impl Core {
                 let share = prm.ring_factors[ring] / RINGS as f64 * axial_r[j];
                 self.fp_released += share * n.fp_left * (1.0 - keep);
                 n.fp_left *= keep;
+                let keep_u = (-uo2_release_rate(prm, n.t_fuel) * dt).r_exp();
+                self.uo2_released += n.uo2_left / NODES as f64 * (1.0 - keep_u);
+                n.uo2_left *= keep_u;
             }
         }
         // In-vessel only: once the lower head fails the debris is on the
@@ -1013,6 +1039,11 @@ impl Core {
             let keep = (-k_rel(debris_k) * dt).r_exp();
             self.fp_released += self.debris_fp * (1.0 - keep);
             self.debris_fp *= keep;
+        }
+        if self.debris_uo2 > 0.0 && !self.lower_head_failed {
+            let keep = (-uo2_release_rate(prm, debris_k) * dt).r_exp();
+            self.uo2_released += self.debris_uo2 * (1.0 - keep);
+            self.debris_uo2 *= keep;
         }
         // The shroud: held at saturation where the collapsed level covers it
         // (water on both faces), otherwise heated by the outer ring's
@@ -1039,6 +1070,7 @@ impl Core {
             exit_gas_k: if exit_w > 0.0 { exit_sum / exit_w } else { s.t_sat_k },
             exit_steam_kg_s: exit_w,
             fp_volatile_released: self.fp_released,
+            uo2_released_kg: self.uo2_released * prm.core_uo2_kg(),
             zr_oxidised_kg: self.zr_oxidised_kg,
             h2_total_kg: self.h2_total_kg,
             relocated,
@@ -1058,7 +1090,7 @@ impl Core {
     /// The whole state, for a stateless worker to step.
     pub fn write_state(&self, w: &mut Writer) {
         for n in &self.nodes {
-            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage, n.fp_left]);
+            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage, n.fp_left, n.uo2_left]);
         }
         w.f(&[
             self.debris_c,
@@ -1074,10 +1106,10 @@ impl Core {
         w.f(&self.head.t_k);
         w.f(&[self.head.strain, self.head.pen_k]);
         w.f(&self.shroud_k);
-        w.f(&[self.debris_fp, self.fp_released]);
+        w.f(&[self.debris_fp, self.fp_released, self.debris_uo2, self.uo2_released]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
-        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f() }).collect();
+        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f() }).collect();
         Self {
             nodes,
             debris_c: r.f(),
@@ -1093,6 +1125,8 @@ impl Core {
             shroud_k: std::array::from_fn(|_| r.f()),
             debris_fp: r.f(),
             fp_released: r.f(),
+            debris_uo2: r.f(),
+            uo2_released: r.f(),
         }
     }
 }
@@ -1150,6 +1184,7 @@ impl CoreResult {
             self.exit_gas_k,
             self.exit_steam_kg_s,
             self.fp_volatile_released,
+            self.uo2_released_kg,
             self.zr_oxidised_kg,
             self.h2_total_kg,
             self.relocated,
@@ -1172,6 +1207,7 @@ impl CoreResult {
             exit_gas_k: r.f(),
             exit_steam_kg_s: r.f(),
             fp_volatile_released: r.f(),
+            uo2_released_kg: r.f(),
             zr_oxidised_kg: r.f(),
             h2_total_kg: r.f(),
             relocated: r.f(),
@@ -1202,6 +1238,15 @@ mod tests {
         let cold = volatile_release_rate(&prm, 1000.0);
         assert!((cold / 3.8e-11 - 1.0).abs() < 0.02, "{cold}");
     }
+    /// CORSOR-M's UO2 row against a hand value: `Q = 143.1 x 4184 = 598.7
+    /// kJ/mol`, so at 2500 K `exp(-28.80) = 3.1e-13` times 1.46e7/60 gives
+    /// 7.6e-8 /s.
+    #[test]
+    fn uo2_release_follows_corsor_m() {
+        let k = uo2_release_rate(&Params::default(), 2500.0);
+        assert!((k / 7.6e-8 - 1.0).abs() < 0.03, "{k}");
+    }
+
 
     /// The gaseous-diffusion limit (MELCOR COR Eq 2-168) against hand
     /// values, in the laminar floor (a small steam flow, Sh = 4.36):
