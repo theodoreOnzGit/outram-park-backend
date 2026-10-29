@@ -288,6 +288,11 @@ pub struct Mechanisms {
     /// 2026-10-29). Off is the internal energy only, the drywell keeping its
     /// temperature.
     pub outflow_enthalpy: bool,
+    /// The relief valves' hydrogen reaches the wetwell with its enthalpy
+    /// at the vessel's saturation temperature, closing the energy the
+    /// vessel gives up with it (2026-10-29; needs `ww_atmosphere`). Off is
+    /// the hydrogen at the pool's temperature.
+    pub relief_h2_enthalpy: bool,
 }
 
 impl Default for Mechanisms {
@@ -335,6 +340,7 @@ impl Default for Mechanisms {
             dw_wall_hs: true,
             ww_shell: true,
             outflow_enthalpy: true,
+            relief_h2_enthalpy: true,
         }
     }
 }
@@ -610,6 +616,13 @@ impl Mechanisms {
     /// Drywell outflows at internal energy: the model before 2026-10-29.
     pub fn without_outflow_enthalpy(mut self) -> Self {
         self.outflow_enthalpy = false;
+        self
+    }
+
+    /// The relief valves' hydrogen at the pool's temperature: the model
+    /// before 2026-10-29.
+    pub fn without_relief_h2_enthalpy(mut self) -> Self {
+        self.relief_h2_enthalpy = false;
         self
     }
 
@@ -1334,6 +1347,8 @@ impl Plant {
                 dw_wall_hs: self.mechanisms.dw_wall_hs,
                 ww_shell: self.mechanisms.ww_shell,
                 outflow_enthalpy: self.mechanisms.outflow_enthalpy,
+                relief_h2_enthalpy: self.mechanisms.relief_h2_enthalpy,
+                srv_gas_k: v.sat.t_k,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
@@ -1418,8 +1433,10 @@ impl Plant {
         // gas stream gave it, which reached the water through `q_fluid_w`
         // (gh:#1046): at saturation through the relief valves, at the core
         // exit gas temperature through the leak (as the containment
-        // receives it). Wetwell gas has no energy equation, so the relief
-        // path's share is not delivered there (stated limitation).
+        // receives it). ~~Wetwell gas has no energy equation, so the relief
+        // path's share is not delivered there (stated limitation).~~ Since
+        // 2026-10-29 the wetwell atmosphere receives it
+        // (`relief_h2_enthalpy`, with `ww_atmosphere`).
         let to_relief = if gas_out > 0.0 { d.w_relief / gas_out } else { 0.0 };
         let h2_enthalpy_out = h2_exit_enthalpy(d.h2_out, to_relief, v.sat.t_k, self.gas_out_k(), self.mechanisms.hydrogen_cp_t);
         self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g - h2_enthalpy_out - d.w_drain * v.sat.h_f) * DT_S;

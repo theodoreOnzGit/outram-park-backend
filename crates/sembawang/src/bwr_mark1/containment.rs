@@ -166,6 +166,12 @@ pub struct ContainmentSnapshot {
     /// (`Mechanisms::outflow_enthalpy`); false is its internal energy, the
     /// drywell keeping its temperature.
     pub outflow_enthalpy: bool,
+    /// The relief valves' hydrogen arrives with its enthalpy at
+    /// `srv_gas_k`, the vessel's saturation temperature, as the vessel gave
+    /// it up (`Mechanisms::relief_h2_enthalpy`; needs `ww_atmosphere`);
+    /// false is at the pool's temperature.
+    pub relief_h2_enthalpy: bool,
+    pub srv_gas_k: f64,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -567,12 +573,14 @@ impl Containment {
             self.set_pool_energy(e);
         }
         // 1. Relief valves into the pool. With the wetwell atmosphere, by
-        //    the bubble model (the hydrogen at the pool's temperature, as
-        //    before: its exit enthalpy is not delivered, stated in `finish`).
+        //    the bubble model; the hydrogen with its enthalpy at the
+        //    vessel's saturation temperature (`relief_h2_enthalpy`), or at
+        //    the pool's temperature without it.
         let m = s.srv_steam_kg_s * dt;
         if self.ww_atm {
             let nh2 = s.srv_h2_kg_s * dt / M_H2;
-            let e_in = m * s.srv_h + ncg_u(0.0, nh2, self.pool_t, tv);
+            let e_h2 = if s.relief_h2_enthalpy { nh2 * h2_molar_enthalpy(s.srv_gas_k, tv) } else { ncg_u(0.0, nh2, self.pool_t, tv) };
+            let e_in = m * s.srv_h + e_h2;
             self.bubble_through(prm, tv, 0.0, nh2, m, e_in);
         } else {
             let e = self.pool_energy() + m * s.srv_h;
@@ -1392,6 +1400,8 @@ impl ContainmentSnapshot {
             b(self.dw_wall_hs),
             b(self.ww_shell),
             b(self.outflow_enthalpy),
+            b(self.relief_h2_enthalpy),
+            self.srv_gas_k,
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1438,6 +1448,8 @@ impl ContainmentSnapshot {
             dw_wall_hs: r.f() != 0.0,
             ww_shell: r.f() != 0.0,
             outflow_enthalpy: r.f() != 0.0,
+            relief_h2_enthalpy: r.f() != 0.0,
+            srv_gas_k: r.f(),
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),
