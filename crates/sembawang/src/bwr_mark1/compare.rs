@@ -21,6 +21,7 @@
 //! Accident at the Fukushima Daiichi Nuclear Power Plant*, NEA No. 7525,
 //! © OECD 2021. Facts and numbers only, cited with acknowledgement.
 
+use super::params::{Params, Tag};
 use super::{Mechanisms, Mode, Plant, DT_S};
 
 /// What a band can mean (see the module docs).
@@ -101,7 +102,12 @@ impl Metrics {
 /// Run the recorded sequence with `mechanisms` and measure every band's
 /// quantity. Deterministic, like the headless mode.
 pub fn measure(mechanisms: Mechanisms) -> Metrics {
-    let mut plant = Plant::with_mechanisms(Mode::Historical, mechanisms);
+    measure_with(mechanisms, Params::default())
+}
+
+/// [`measure`] with the plant's inputs set to `prm` (gh:#1033).
+pub fn measure_with(mechanisms: Mechanisms, prm: Params) -> Metrics {
+    let mut plant = Plant::with_params(Mode::Historical, mechanisms, prm);
     let (mut core, mut cont) = plant.parts();
     let mut m = Metrics::default();
     let steps = (COMPARE_END_S / DT_S).round() as usize;
@@ -152,6 +158,88 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without IC H2 blanketing", all.without_ic_h2_blanketing()),
         ("without T-dependent c_p", all.without_temperature_dependent_properties()),
     ]
+}
+
+/// How one input moves the metrics: elasticities `(dm/m) / (dp/p)` by
+/// central difference, the input scaled by `1 - rel` and `1 + rel` about
+/// its default with every mechanism on.
+///
+/// **A ranking instrument, not an uncertainty analysis.** It is local (a
+/// derivative at the defaults), and a relative step is not an input's real
+/// uncertainty: 1 % of an activation energy is a large change, 1 % of a
+/// valve area a small one. It says which unverified inputs the answer leans
+/// on hardest, i.e. which to check first against the sources (plan item
+/// F13). It is never used to choose a value (plan rule 1).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Elasticity {
+    pub name: &'static str,
+    pub tag: Tag,
+    pub default: f64,
+    /// `None` when the lower head does not fail in all three runs.
+    pub lower_head: Option<f64>,
+    pub h2: f64,
+    pub p_dw: f64,
+    /// The vent or the explosion happens in a perturbed run (neither does
+    /// at the defaults).
+    pub event_appears: bool,
+}
+
+impl Elasticity {
+    /// The largest of the three magnitudes, for ranking.
+    pub fn largest(&self) -> f64 {
+        self.lower_head.unwrap_or(0.0).abs().max(self.h2.abs()).max(self.p_dw.abs())
+    }
+}
+
+/// The [`Elasticity`] of the input `name` (from [`Params::INPUTS`]) for a
+/// relative step `rel`, given the default run `base`. `None` for an unknown
+/// name. Runs the sequence twice.
+pub fn elasticity(name: &'static str, rel: f64, base: &Metrics) -> Option<Elasticity> {
+    let &(_, tag) = Params::INPUTS.iter().find(|(n, _)| *n == name)?;
+    let d = Params::default();
+    let default = d.get(name)?;
+    let run = |f: f64| {
+        let mut p = d;
+        p.set(name, default * f);
+        measure_with(Mechanisms::default(), p)
+    };
+    let (lo, hi) = (run(1.0 - rel), run(1.0 + rel));
+    let e = |l: f64, h: f64, b: f64| if b == 0.0 { 0.0 } else { (h - l) / (2.0 * rel * b) };
+    let lower_head = match (lo.lower_head_h, hi.lower_head_h, base.lower_head_h) {
+        (Some(l), Some(h), Some(b)) => Some(e(l, h, b)),
+        _ => None,
+    };
+    let event_appears = [lo, hi].iter().any(|m| m.vent_h.is_some() || m.explosion_h.is_some());
+    Some(Elasticity {
+        name,
+        tag,
+        default,
+        lower_head,
+        h2: e(lo.h2_25h_kg, hi.h2_25h_kg, base.h2_25h_kg),
+        p_dw: e(lo.p_dw_peak_mpa, hi.p_dw_peak_mpa, base.p_dw_peak_mpa),
+        event_appears,
+    })
+}
+
+/// The elasticity table as Markdown, largest effect first.
+pub fn sensitivity_report(rows: &[Elasticity]) -> String {
+    let mut rows = rows.to_vec();
+    rows.sort_by(|a, b| b.largest().total_cmp(&a.largest()).then(a.name.cmp(b.name)));
+    let mut out = String::from("| Input | Tag | Default | lower-head time | H2 at 25 h | drywell peak | vent or explosion appears |\n|---|---|---|---|---|---|---|\n");
+    for r in rows {
+        let lh = r.lower_head.map_or("no failure".to_string(), |x| format!("{x:+.3}"));
+        out.push_str(&format!(
+            "| `{}` | {:?} | {:.6e} | {} | {:+.3} | {:+.3} | {} |\n",
+            r.name,
+            r.tag,
+            r.default,
+            lh,
+            r.h2,
+            r.p_dw,
+            if r.event_appears { "yes" } else { "no" }
+        ));
+    }
+    out
 }
 
 /// The comparison and ablation tables, as Markdown.
@@ -243,6 +331,21 @@ mod tests {
         assert!(near(cp.lower_head_h, 5.371, 0.001), "{cp:?}");
         assert!((cp.h2_25h_kg - 122.96).abs() < 0.01, "{cp:?}");
         assert!((cp.p_dw_peak_mpa - 0.4753).abs() < 0.0001, "{cp:?}");
+    }
+
+    /// The elasticity of an input that only the demo draws is zero, of one
+    /// that sets the lower-head failure is not, and the report ranks them.
+    #[test]
+    fn elasticities_rank_inputs_by_their_effect() {
+        let base = measure(Mechanisms::default());
+        let none = elasticity("containment_design_pa", 0.01, &base).unwrap();
+        assert_eq!((none.lower_head, none.h2, none.p_dw, none.event_appears), (Some(0.0), 0.0, 0.0, false));
+        let lh = elasticity("lower_head_failure_k", 0.01, &base).unwrap();
+        assert!(lh.lower_head.is_some_and(|e| e > 0.0), "{lh:?}");
+        assert_eq!(lh.tag, Tag::A);
+        assert!(elasticity("no_such_input", 0.01, &base).is_none());
+        let table = sensitivity_report(&[none, lh]);
+        assert!(table.find("lower_head_failure_k").unwrap() < table.find("containment_design_pa").unwrap(), "{table}");
     }
 
     /// Each ablation runs, differs from the baseline in the mechanism it

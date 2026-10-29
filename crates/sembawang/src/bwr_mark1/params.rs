@@ -232,21 +232,35 @@ pub const FLANGE_LEAK_M2: f64 = 5.0e-4;
 /// Reactor building free volume, m^3. \[A\] placeholder (about 38,000 is
 /// quoted for Unit 3).
 pub const REACTOR_BUILDING_M3: f64 = 26_000.0;
-/// Hydrogen in air: lower flammability limit (upward propagation) and a mole
-/// fraction above which a deflagration is strong enough to wreck the
-/// building's upper floor. \[P\] 4 % (Shapiro diagram); \[A\] 8 %.
+/// Hydrogen in air: lower flammability limit (upward propagation).
+/// \[P\] 4 % (Shapiro diagram).
 pub const H2_FLAMMABLE: f64 = 0.04;
+/// Hydrogen mole fraction above which a deflagration is strong enough to
+/// wreck the building's upper floor. \[A\] 8 %.
 pub const H2_EXPLOSION: f64 = 0.08;
 /// Atmosphere, Pa.
 pub const P_ATM: f64 = 1.013e5;
 
 // ── The inputs as one value ─────────────────────────────────────────────────
 
+/// Where an input's default comes from (the module docs' marks).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Tag {
+    /// A published figure from a named source, not yet checked against the
+    /// primary document.
+    P,
+    /// Unverified (from memory, or an ambiguous excerpt).
+    U,
+    /// An assumption or placeholder of this model's, with no source.
+    A,
+}
+
 /// Declares [`Params`] from one list, so its fields, their defaults (the
-/// documented constants above) and the order they cross the worker wire in
-/// cannot drift apart.
+/// documented constants above), their tags and the order they cross the
+/// worker wire in cannot drift apart. A test checks each tag against the
+/// constant's doc comment.
 macro_rules! params {
-    ($($field:ident = $default:ident,)*) => {
+    ($($field:ident = $default:ident, $tag:ident,)*) => {
         /// Every scalar input of the model, as one value (gh:#1033): what a
         /// caller changes to run the plant with a corrected or perturbed
         /// input, without recompiling. [`Params::default`] is the constants
@@ -279,84 +293,104 @@ macro_rules! params {
             pub fn read(r: &mut Reader) -> Self {
                 Self { $($field: r.f(),)* ring_factors: [r.f(), r.f(), r.f()] }
             }
+
+            /// Every scalar input by field name, with its tag (the
+            /// default's, from its doc comment), in declaration order.
+            pub const INPUTS: &[(&str, Tag)] = &[$((stringify!($field), Tag::$tag),)*];
+
+            /// The input named `name` (a field name from [`Params::INPUTS`]).
+            pub fn get(&self, name: &str) -> Option<f64> {
+                match name {
+                    $(stringify!($field) => Some(self.$field),)*
+                    _ => None,
+                }
+            }
+
+            /// Sets the input named `name`; `false` if there is none.
+            pub fn set(&mut self, name: &str, value: f64) -> bool {
+                match name {
+                    $(stringify!($field) => { self.$field = value; true })*
+                    _ => false,
+                }
+            }
         }
     };
 }
 
 params! {
-    thermal_power_w = THERMAL_POWER_W,
-    assemblies = ASSEMBLIES,
-    rods_per_assembly = RODS_PER_ASSEMBLY,
-    active_length_m = ACTIVE_LENGTH_M,
-    clad_outer_r_m = CLAD_OUTER_R_M,
-    clad_wall_m = CLAD_WALL_M,
-    pellet_r_m = PELLET_R_M,
-    uo2_density = UO2_DENSITY,
-    zr_density = ZR_DENSITY,
-    channel_inner_width_m = CHANNEL_INNER_WIDTH_M,
-    channel_wall_m = CHANNEL_WALL_M,
-    channel_length_m = CHANNEL_LENGTH_M,
-    uo2_cp = UO2_CP,
-    zr_cp = ZR_CP,
-    uo2_k = UO2_K,
-    gap_h = GAP_H,
-    boiling_h = BOILING_H,
-    cosine_extrapolation = COSINE_EXTRAPOLATION,
-    rpv_radius_m = RPV_RADIUS_M,
-    rpv_height_m = RPV_HEIGHT_M,
-    baf_m = BAF_M,
-    lower_plenum_free = LOWER_PLENUM_FREE,
-    upper_free = UPPER_FREE,
-    core_other_area_m2 = CORE_OTHER_AREA_M2,
-    normal_level_above_taf_m = NORMAL_LEVEL_ABOVE_TAF_M,
-    initial_pressure_pa = INITIAL_PRESSURE_PA,
-    msiv_closure_s = MSIV_CLOSURE_S,
-    bypass_gain_kg_s_pa = BYPASS_GAIN_KG_S_PA,
-    relief_valves = RELIEF_VALVES,
-    relief_open_pa = RELIEF_OPEN_PA,
-    relief_close_pa = RELIEF_CLOSE_PA,
-    safety_open_pa = SAFETY_OPEN_PA,
-    safety_close_pa = SAFETY_CLOSE_PA,
-    relief_throat_m2 = RELIEF_THROAT_M2,
-    ic_autostart_pa = IC_AUTOSTART_PA,
-    ic_ua_w_per_k = IC_UA_W_PER_K,
-    ic_shell_water_kg = IC_SHELL_WATER_KG,
-    fire_engine_shutoff_pa = FIRE_ENGINE_SHUTOFF_PA,
-    fire_engine_max_kg_s = FIRE_ENGINE_MAX_KG_S,
-    injection_temperature_k = INJECTION_TEMPERATURE_K,
-    hot_leak_gas_k = HOT_LEAK_GAS_K,
-    hot_leak_m2 = HOT_LEAK_M2,
-    lower_head_failure_k = LOWER_HEAD_FAILURE_K,
-    breach_m2 = BREACH_M2,
-    debris_quench_s = DEBRIS_QUENCH_S,
-    zr_melt_k = ZR_MELT_K,
-    uh_low_a = UH_LOW_A,
-    uh_low_b_k = UH_LOW_B_K,
-    uh_high_a = UH_HIGH_A,
-    uh_high_b_k = UH_HIGH_B_K,
-    uh_low_max_k = UH_LOW_MAX_K,
-    uh_high_min_k = UH_HIGH_MIN_K,
-    oxidation_min_k = OXIDATION_MIN_K,
-    oxidation_heat_j_per_kg_zr = OXIDATION_HEAT_J_PER_KG_ZR,
-    drywell_volume_m3 = DRYWELL_VOLUME_M3,
-    wetwell_gas_m3 = WETWELL_GAS_M3,
-    pool_water_m3 = POOL_WATER_M3,
-    containment_design_pa = CONTAINMENT_DESIGN_PA,
-    initial_containment_pa = INITIAL_CONTAINMENT_PA,
-    initial_drywell_k = INITIAL_DRYWELL_K,
-    initial_pool_k = INITIAL_POOL_K,
-    vent_submergence_pa = VENT_SUBMERGENCE_PA,
-    downcomer_area_m2 = DOWNCOMER_AREA_M2,
-    discharge_coefficient = DISCHARGE_COEFFICIENT,
-    vacuum_breaker_pa = VACUUM_BREAKER_PA,
-    vacuum_breaker_m2 = VACUUM_BREAKER_M2,
-    vent_rupture_disk_pa = VENT_RUPTURE_DISK_PA,
-    vent_area_m2 = VENT_AREA_M2,
-    flange_leak_pa = FLANGE_LEAK_PA,
-    flange_leak_m2 = FLANGE_LEAK_M2,
-    reactor_building_m3 = REACTOR_BUILDING_M3,
-    h2_flammable = H2_FLAMMABLE,
-    h2_explosion = H2_EXPLOSION,
+    thermal_power_w = THERMAL_POWER_W, P,
+    assemblies = ASSEMBLIES, P,
+    rods_per_assembly = RODS_PER_ASSEMBLY, U,
+    active_length_m = ACTIVE_LENGTH_M, U,
+    clad_outer_r_m = CLAD_OUTER_R_M, U,
+    clad_wall_m = CLAD_WALL_M, U,
+    pellet_r_m = PELLET_R_M, U,
+    uo2_density = UO2_DENSITY, A,
+    zr_density = ZR_DENSITY, P,
+    channel_inner_width_m = CHANNEL_INNER_WIDTH_M, U,
+    channel_wall_m = CHANNEL_WALL_M, U,
+    channel_length_m = CHANNEL_LENGTH_M, U,
+    uo2_cp = UO2_CP, A,
+    zr_cp = ZR_CP, A,
+    uo2_k = UO2_K, A,
+    gap_h = GAP_H, A,
+    boiling_h = BOILING_H, A,
+    cosine_extrapolation = COSINE_EXTRAPOLATION, A,
+    rpv_radius_m = RPV_RADIUS_M, U,
+    rpv_height_m = RPV_HEIGHT_M, U,
+    baf_m = BAF_M, A,
+    lower_plenum_free = LOWER_PLENUM_FREE, A,
+    upper_free = UPPER_FREE, A,
+    core_other_area_m2 = CORE_OTHER_AREA_M2, A,
+    normal_level_above_taf_m = NORMAL_LEVEL_ABOVE_TAF_M, U,
+    initial_pressure_pa = INITIAL_PRESSURE_PA, P,
+    msiv_closure_s = MSIV_CLOSURE_S, U,
+    bypass_gain_kg_s_pa = BYPASS_GAIN_KG_S_PA, A,
+    relief_valves = RELIEF_VALVES, U,
+    relief_open_pa = RELIEF_OPEN_PA, U,
+    relief_close_pa = RELIEF_CLOSE_PA, U,
+    safety_open_pa = SAFETY_OPEN_PA, U,
+    safety_close_pa = SAFETY_CLOSE_PA, U,
+    relief_throat_m2 = RELIEF_THROAT_M2, A,
+    ic_autostart_pa = IC_AUTOSTART_PA, P,
+    ic_ua_w_per_k = IC_UA_W_PER_K, A,
+    ic_shell_water_kg = IC_SHELL_WATER_KG, A,
+    fire_engine_shutoff_pa = FIRE_ENGINE_SHUTOFF_PA, A,
+    fire_engine_max_kg_s = FIRE_ENGINE_MAX_KG_S, A,
+    injection_temperature_k = INJECTION_TEMPERATURE_K, A,
+    hot_leak_gas_k = HOT_LEAK_GAS_K, A,
+    hot_leak_m2 = HOT_LEAK_M2, A,
+    lower_head_failure_k = LOWER_HEAD_FAILURE_K, A,
+    breach_m2 = BREACH_M2, A,
+    debris_quench_s = DEBRIS_QUENCH_S, A,
+    zr_melt_k = ZR_MELT_K, U,
+    uh_low_a = UH_LOW_A, U,
+    uh_low_b_k = UH_LOW_B_K, U,
+    uh_high_a = UH_HIGH_A, U,
+    uh_high_b_k = UH_HIGH_B_K, U,
+    uh_low_max_k = UH_LOW_MAX_K, U,
+    uh_high_min_k = UH_HIGH_MIN_K, U,
+    oxidation_min_k = OXIDATION_MIN_K, A,
+    oxidation_heat_j_per_kg_zr = OXIDATION_HEAT_J_PER_KG_ZR, P,
+    drywell_volume_m3 = DRYWELL_VOLUME_M3, U,
+    wetwell_gas_m3 = WETWELL_GAS_M3, P,
+    pool_water_m3 = POOL_WATER_M3, P,
+    containment_design_pa = CONTAINMENT_DESIGN_PA, P,
+    initial_containment_pa = INITIAL_CONTAINMENT_PA, A,
+    initial_drywell_k = INITIAL_DRYWELL_K, A,
+    initial_pool_k = INITIAL_POOL_K, A,
+    vent_submergence_pa = VENT_SUBMERGENCE_PA, A,
+    downcomer_area_m2 = DOWNCOMER_AREA_M2, A,
+    discharge_coefficient = DISCHARGE_COEFFICIENT, A,
+    vacuum_breaker_pa = VACUUM_BREAKER_PA, A,
+    vacuum_breaker_m2 = VACUUM_BREAKER_M2, A,
+    vent_rupture_disk_pa = VENT_RUPTURE_DISK_PA, A,
+    vent_area_m2 = VENT_AREA_M2, A,
+    flange_leak_pa = FLANGE_LEAK_PA, A,
+    flange_leak_m2 = FLANGE_LEAK_M2, A,
+    reactor_building_m3 = REACTOR_BUILDING_M3, A,
+    h2_flammable = H2_FLAMMABLE, P,
+    h2_explosion = H2_EXPLOSION, A,
 }
 
 /// Derived core geometry.
@@ -408,6 +442,46 @@ impl Params {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Each input's tag in [`Params::INPUTS`] is the one its constant's doc
+    /// comment gives: the last mark on the nearest marked doc line above
+    /// it (a constant with no doc of its own shares the block above). A
+    /// harness check that the table and the docs cannot drift apart.
+    #[test]
+    fn every_input_carries_its_documented_tag() {
+        let src: Vec<&str> = include_str!("params.rs").lines().collect();
+        for &(name, tag) in Params::INPUTS {
+            let konst = format!("pub const {}: f64", name.to_uppercase());
+            let at = src.iter().position(|l| l.starts_with(&konst)).unwrap_or_else(|| panic!("{konst}"));
+            let documented = src[..at]
+                .iter()
+                .rev()
+                .take_while(|l| l.starts_with("//") || l.starts_with("pub const"))
+                .find_map(|l| {
+                    let marks: Vec<Tag> = l
+                        .match_indices('[')
+                        .filter_map(|(i, _)| {
+                            // `[U]` in a plain comment, `\[U\]` in a doc.
+                            let rest = &l[i + 1..];
+                            let closed = rest.get(1..2).is_some_and(|c| c == "]" || c == "\\");
+                            match rest.chars().next() {
+                                Some('P') if closed => Some(Tag::P),
+                                Some('U') if closed => Some(Tag::U),
+                                Some('A') if closed => Some(Tag::A),
+                                _ => None,
+                            }
+                        })
+                        .collect();
+                    marks.last().copied()
+                });
+            assert_eq!(documented, Some(tag), "{name}");
+        }
+        // Get and set by name reach the fields.
+        let mut p = Params::default();
+        assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
+        assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
+        assert_eq!(Params::INPUTS.len(), 73);
+    }
 
     /// The derived core inventories are the right size for a 400-bundle
     /// BWR/3: about 76 t of UO2 (about 67 t of uranium) and about 30 t of
