@@ -94,11 +94,15 @@ pub struct Mechanisms {
     /// temperature or by creep (gh:#1034); off is the debris-temperature
     /// criterion `LOWER_HEAD_FAILURE_K`.
     pub lower_head_wall: bool,
+    /// MELCOR's rod collapse (gh:#1035): breach at `CLAD_BREACH_K`,
+    /// collapse at `ROD_COLLAPSE_K` or by time-at-temperature damage; off
+    /// is the 2100 K whole-node slump `ZR_MELT_K`.
+    pub rod_collapse: bool,
 }
 
 impl Default for Mechanisms {
     fn default() -> Self {
-        Self { hot_leak: true, ic_h2_blanketing: true, temperature_dependent_properties: true, lower_head_wall: true }
+        Self { hot_leak: true, ic_h2_blanketing: true, temperature_dependent_properties: true, lower_head_wall: true, rod_collapse: true }
     }
 }
 
@@ -121,6 +125,13 @@ impl Mechanisms {
     /// (`[A]`), with no wall: the model before gh:#1034.
     pub fn without_lower_head_wall(mut self) -> Self {
         self.lower_head_wall = false;
+        self
+    }
+
+    /// A node slumps whole to the lower plenum when its cladding reaches
+    /// `ZR_MELT_K` (`[U]`): the model before gh:#1035.
+    pub fn without_rod_collapse(mut self) -> Self {
+        self.rod_collapse = false;
         self
     }
 
@@ -590,7 +601,7 @@ impl Plant {
         };
         let h_gas = v.sat.h_g;
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: v.level_m, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -950,7 +961,10 @@ mod tests {
             p.step_inline(&mut c, &mut k);
             let f = p.frame();
             assert!(f.vessel.p_pa > 5.0e4 && f.vessel.p_pa < 9.5e6, "p {} at {}", f.vessel.p_pa, f.t_s);
-            assert!(f.core.peak_clad_k < 2600.0, "clad {} at {}", f.core.peak_clad_k, f.t_s);
+            // ~~2600 K~~: since gh:#1035 rods stand to MELCOR's collapse
+            // temperatures (ROD_COLLAPSE_MAX_K 3100 K), so the bound is the
+            // enthalpy tables' 3200 K top.
+            assert!(f.core.peak_clad_k < 3200.0, "clad {} at {}", f.core.peak_clad_k, f.t_s);
             assert!(f.vessel.level_m >= -BAF_M - 1e-9 && f.vessel.level_m <= RPV_HEIGHT_M, "level {}", f.vessel.level_m);
             assert!(f.containment.p_dw_pa > 5.0e4 && f.containment.p_ww_pa > 5.0e4);
             assert!(f.containment.t_pool_k > 273.0 && f.containment.t_pool_k < 450.0);

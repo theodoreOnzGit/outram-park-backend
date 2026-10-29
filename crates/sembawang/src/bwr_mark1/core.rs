@@ -34,7 +34,14 @@
 //!   heating the new hydrogen to the stream, which then carries it (steam
 //!   plus hydrogen heat capacity). A steam-starved node does not heat the
 //!   hydrogen passing it;
-//! - a node whose cladding reaches [`ZR_MELT_K`] relocates: its mass, energy
+//! - a node collapses by MELCOR's criteria (gh:#1035): once its metal is
+//!   gone (oxidised below [`MIN_METAL_M`], or its shell breached at
+//!   [`CLAD_BREACH_K`]) it accumulates time-at-temperature damage and falls
+//!   at [`ROD_COLLAPSE_K`] or when the damage reaches 1; any rod falls at
+//!   [`ROD_COLLAPSE_MAX_K`]. Molten Zr that MELCOR would candle downward
+//!   stays in the node and keeps oxidising (stated simplification). ~~a
+//!   node whose cladding reaches [`ZR_MELT_K`] relocates~~ (that is the
+//!   `without_rod_collapse` ablation). A fallen node relocates: its mass, energy
 //!   and decay power move to a debris lump in the lower plenum, quenched
 //!   while water is there; ~~dry debris above [`LOWER_HEAD_FAILURE_K`] fails
 //!   the lower head~~ (since gh:#1034 that is only the
@@ -96,6 +103,9 @@ pub struct CoreSnapshot {
     /// The lower-head wall on (the default) or the debris-temperature
     /// ablation (`Mechanisms`).
     pub lower_head_wall: bool,
+    /// MELCOR's rod-collapse criteria (the default) or the 2100 K
+    /// whole-node slump (`Mechanisms`).
+    pub rod_collapse: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -139,6 +149,8 @@ struct Node {
     /// Zr oxidised per unit area, kg/m^2 (the parabolic law's W).
     w_ox: f64,
     relocated: bool,
+    /// Time-at-temperature damage of the rod, `sum dt/L` (gh:#1035).
+    damage: f64,
 }
 
 /// Constants of one node (every node in a ring is the same size).
@@ -419,12 +431,22 @@ pub(crate) const CP_H2_J_PER_KG_K: f64 = (20.5 + R_GAS) / M_H2;
 /// (IAPWS-IF97 at 1 kPa, below its 3.17 kPa saturation pressure), J/kg: what
 /// steam consumed by oxidation brings into the reaction beyond the standard
 /// state (gh:#1046). Call it with `t_k` above saturation at `p_pa`.
+///
+/// Above IF97's ceiling, 2273.15 K (region 5), it **extrapolates** linearly
+/// with c_p taken at the ceiling: outside IF97, stated. The stream reaches
+/// that only when rods stand to MELCOR's collapse temperatures (gh:#1035).
 fn steam_enthalpy_above_298(t_k: f64, p_pa: f64) -> f64 {
     static H_298: OnceLock<f64> = OnceLock::new();
-    let h = |t: f64, p: f64| {
-        h_tp_eqm_single_phase(ThermodynamicTemperature::new::<kelvin>(t), Pressure::new::<pascal>(p)).get::<joule_per_kilogram>()
+    const IF97_TOP_K: f64 = 2273.15;
+    let t_of = |t: f64| ThermodynamicTemperature::new::<kelvin>(t);
+    let p = Pressure::new::<pascal>(p_pa);
+    let h = |t: f64, p: Pressure| h_tp_eqm_single_phase(t_of(t), p).get::<joule_per_kilogram>();
+    let above = if t_k > IF97_TOP_K {
+        h(IF97_TOP_K, p) + cp_tp_eqm_single_phase(t_of(IF97_TOP_K), p).get::<joule_per_kilogram_kelvin>() * (t_k - IF97_TOP_K)
+    } else {
+        h(t_k, p)
     };
-    h(t_k, p_pa) - *H_298.get_or_init(|| h(T_298_K, 1.0e3))
+    above - *H_298.get_or_init(|| h(T_298_K, Pressure::new::<pascal>(1.0e3)))
 }
 
 /// Urbanic-Heidrick parabolic rate constant, (kg Zr/m^2)^2/s.
@@ -472,7 +494,7 @@ impl Core {
             for j in 0..AXIAL_NODES {
                 let q = prm.thermal_power_w / RINGS as f64 * prm.ring_factors[ring] * axial[j];
                 let t_clad = t_sat_k + q / (prm.boiling_h * g.a_rod);
-                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false });
+                nodes.push(Node { t_fuel: t_clad + q / g.g_fc, t_clad, w_ox: 0.0, relocated: false, damage: 0.0 });
             }
         }
         Self {
@@ -675,7 +697,23 @@ impl Core {
                 m.t_fuel = tf;
                 m.t_clad = tc;
                 peak = peak.max(tc);
-                if tc >= prm.zr_melt_k {
+                let falls = if s.rod_collapse {
+                    // MELCOR's rod collapse (gh:#1035): a rod whose metal is
+                    // gone (oxidised below MIN_METAL_M, or candled away once
+                    // the shell breaches) accumulates time-at-temperature
+                    // damage and collapses at ROD_COLLAPSE_K or when the
+                    // damage reaches 1; any rod at ROD_COLLAPSE_MAX_K.
+                    let w_max = g.zr_kg / g.a_zr;
+                    let metal_m = (1.0 - m.w_ox / w_max).max(0.0) * prm.clad_wall_m;
+                    let bare = metal_m < prm.min_metal_m || tc >= prm.clad_breach_k;
+                    if bare {
+                        m.damage += dt * prm.damage_a * (prm.damage_b * tf).r_exp();
+                    }
+                    tf >= prm.rod_collapse_max_k || (bare && (tf >= prm.rod_collapse_k || m.damage >= 1.0))
+                } else {
+                    tc >= prm.zr_melt_k
+                };
+                if falls {
                     newly_relocated.push((idx, q / s.decay_w.max(1.0)));
                 }
             }
@@ -732,7 +770,7 @@ impl Core {
     /// The whole state, for a stateless worker to step.
     pub fn write_state(&self, w: &mut Writer) {
         for n in &self.nodes {
-            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }]);
+            w.f(&[n.t_fuel, n.t_clad, n.w_ox, if n.relocated { 1.0 } else { 0.0 }, n.damage]);
         }
         w.f(&[
             self.debris_c,
@@ -749,7 +787,7 @@ impl Core {
         w.f(&[self.head.strain]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
-        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0 }).collect();
+        let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f() }).collect();
         Self {
             nodes,
             debris_c: r.f(),
@@ -779,6 +817,7 @@ impl CoreSnapshot {
             if self.t_dependent_props { 1.0 } else { 0.0 },
             self.p_dw_pa,
             if self.lower_head_wall { 1.0 } else { 0.0 },
+            if self.rod_collapse { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -793,6 +832,7 @@ impl CoreSnapshot {
             t_dependent_props: r.f() != 0.0,
             p_dw_pa: r.f(),
             lower_head_wall: r.f() != 0.0,
+            rod_collapse: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -857,7 +897,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -878,7 +918,7 @@ mod tests {
         }
         let g = geom(&Params::default());
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum();
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -904,7 +944,7 @@ mod tests {
             c.nodes.iter().map(|n| g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad)).sum()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -1000,6 +1040,10 @@ mod tests {
         let hot = steam_enthalpy_above_298(1500.0, 7.0e6);
         assert!(hot > sat + 1.5e6 && hot < sat + 3.0e6, "{hot}");
         assert!(CP_H2_J_PER_KG_K > 14.0e3 && CP_H2_J_PER_KG_K < 14.6e3);
+        // Past IF97's 2273.15 K ceiling it extrapolates, continuously.
+        let below = steam_enthalpy_above_298(2273.0, 1.0e6);
+        let past = steam_enthalpy_above_298(2400.0, 1.0e6);
+        assert!(past > below && past - below < 127.0 * 4.0e3, "{below} {past}");
     }
 
     /// The oxidation rate is continuous across its branches and rises with T.

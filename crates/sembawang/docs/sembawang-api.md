@@ -3463,7 +3463,9 @@ Zircaloy (cladding plus its share of the channel boxes), with
   UO2 and MATPRO Zircaloy correlations, reused, not re-entered. The 2x2
   solve takes the heat capacities at the start of the step; each lump's
   energy is then advanced by the heat that solve moved, and its
-  temperature found by inverting the correlation's enthalpy, so energy is
+  temperature found by inverting the correlation's enthalpy (which since
+  gh:#1035 includes the heats of fusion, so a node pays 225 kJ per kg of
+  Zr at 2098 K), so energy is
   conserved exactly. `Mechanisms::without_temperature_dependent_properties`
   is the ablation (the constant `UO2_CP`/`ZR_CP` path, unchanged);
 - oxidation by the parabolic Urbanic-Heidrick law above 1000 K, its heat
@@ -3474,7 +3476,14 @@ Zircaloy (cladding plus its share of the channel boxes), with
   heating the new hydrogen to the stream, which then carries it (steam
   plus hydrogen heat capacity). A steam-starved node does not heat the
   hydrogen passing it;
-- a node whose cladding reaches [`ZR_MELT_K`] relocates: its mass, energy
+- a node collapses by MELCOR's criteria (gh:#1035): once its metal is
+  gone (oxidised below [`MIN_METAL_M`], or its shell breached at
+  [`CLAD_BREACH_K`]) it accumulates time-at-temperature damage and falls
+  at [`ROD_COLLAPSE_K`] or when the damage reaches 1; any rod falls at
+  [`ROD_COLLAPSE_MAX_K`]. Molten Zr that MELCOR would candle downward
+  stays in the node and keeps oxidising (stated simplification). ~~a
+  node whose cladding reaches [`ZR_MELT_K`] relocates~~ (that is the
+  `without_rod_collapse` ablation). A fallen node relocates: its mass, energy
   and decay power move to a debris lump in the lower plenum, quenched
   while water is there; ~~dry debris above [`LOWER_HEAD_FAILURE_K`] fails
   the lower head~~ (since gh:#1034 that is only the
@@ -3513,6 +3522,7 @@ pub struct CoreSnapshot {
     pub t_dependent_props: bool,
     pub p_dw_pa: f64,
     pub lower_head_wall: bool,
+    pub rod_collapse: bool,
     pub prm: Params,
 }
 ```
@@ -3530,6 +3540,7 @@ pub struct CoreSnapshot {
 | `t_dependent_props` | `bool` | Temperature-dependent heat capacities on (the default) or the<br>constant-property ablation (`Mechanisms`). |
 | `p_dw_pa` | `f64` | Drywell pressure, Pa: the outside of the lower head, for its creep<br>stress (gh:#1034). |
 | `lower_head_wall` | `bool` | The lower-head wall on (the default) or the debris-temperature<br>ablation (`Mechanisms`). |
+| `rod_collapse` | `bool` | MELCOR's rod-collapse criteria (the default) or the 2100 K<br>whole-node slump (`Mechanisms`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4260,6 +4271,12 @@ pub struct Params {
     pub creep_fail_strain: f64,
     pub debris_porosity: f64,
     pub zr_melt_k: f64,
+    pub clad_breach_k: f64,
+    pub min_metal_m: f64,
+    pub rod_collapse_k: f64,
+    pub rod_collapse_max_k: f64,
+    pub damage_a: f64,
+    pub damage_b: f64,
     pub uh_low_a: f64,
     pub uh_low_b_k: f64,
     pub uh_high_a: f64,
@@ -4349,6 +4366,12 @@ pub struct Params {
 | `creep_fail_strain` | `f64` |  |
 | `debris_porosity` | `f64` |  |
 | `zr_melt_k` | `f64` |  |
+| `clad_breach_k` | `f64` |  |
+| `min_metal_m` | `f64` |  |
+| `rod_collapse_k` | `f64` |  |
+| `rod_collapse_max_k` | `f64` |  |
+| `damage_a` | `f64` |  |
+| `damage_b` | `f64` |  |
 | `uh_low_a` | `f64` |  |
 | `uh_low_b_k` | `f64` |  |
 | `uh_high_a` | `f64` |  |
@@ -5020,11 +5043,64 @@ pub const DEBRIS_QUENCH_S: f64 = 120.0;
 
 #### Constant `ZR_MELT_K`
 
-Zircaloy relocation: a node whose cladding reaches this, K, melts and
-slumps to the lower plenum. \[U\] Zircaloy-4 melts near 2100 K.
+Zircaloy relocation in the `without_rod_collapse` ablation: a node whose
+cladding reaches this, K, slumps whole to the lower plenum. \[U\]
+Zircaloy melts at 2098 K (MELCOR 2.2 Vol. 2, MP Table 7, citing MATPRO),
+but MELCOR does not relocate anything at it (`CLAD_BREACH_K`).
 
 ```rust
 pub const ZR_MELT_K: f64 = 2100.0;
+```
+
+#### Constant `CLAD_BREACH_K`
+
+Cladding temperature at which molten Zr breaches its oxide shell, K.
+\[A\] MELCOR's default for cladding (C1131(2)).
+
+```rust
+pub const CLAD_BREACH_K: f64 = 2400.0;
+```
+
+#### Constant `MIN_METAL_M`
+
+Unoxidised metal below which a rod counts as oxidised, m. \[A\]
+MELCOR's default (DRZRMN).
+
+```rust
+pub const MIN_METAL_M: f64 = 1.0e-4;
+```
+
+#### Constant `ROD_COLLAPSE_K`
+
+An oxidised rod collapses at this fuel temperature, K, and any rod at
+the second. \[A\] MELCOR's defaults TRDFAI (2800 K in 1.8.4, lowered on
+Phebus evidence for irradiated fuel) and TRDMAX (C1132(1..2)).
+
+```rust
+pub const ROD_COLLAPSE_K: f64 = 2500.0;
+```
+
+#### Constant `ROD_COLLAPSE_MAX_K`
+
+```rust
+pub const ROD_COLLAPSE_MAX_K: f64 = 3100.0;
+```
+
+#### Constant `DAMAGE_A`
+
+Time-at-temperature damage of an oxidised rod: lifetime
+`1/L = A exp(B T)`, failure when `sum dt/L` reaches 1. \[P\] MELCOR's
+50th-percentile fit to VERCORS and the SOARCA uncertainty elicitation,
+A in 1/s, B in 1/K (Vol. 2, Eq. 3-29).
+
+```rust
+pub const DAMAGE_A: f64 = 2.16e-11;
+```
+
+#### Constant `DAMAGE_B`
+
+```rust
+pub const DAMAGE_B: f64 = 7.0e-3;
 ```
 
 #### Constant `UH_LOW_A`
@@ -6029,6 +6105,7 @@ pub struct Mechanisms {
     pub ic_h2_blanketing: bool,
     pub temperature_dependent_properties: bool,
     pub lower_head_wall: bool,
+    pub rod_collapse: bool,
 }
 ```
 
@@ -6040,6 +6117,7 @@ pub struct Mechanisms {
 | `ic_h2_blanketing` | `bool` | Hydrogen blanketing of the isolation-condenser tubes (`[A]`). |
 | `temperature_dependent_properties` | `bool` | MATPRO temperature-dependent fuel and cladding heat capacities<br>(OFFBEAT, gh:#1038); off is the constant `UO2_CP`/`ZR_CP` model. |
 | `lower_head_wall` | `bool` | The lower-head wall: heated by the debris, failing on its inner<br>temperature or by creep (gh:#1034); off is the debris-temperature<br>criterion `LOWER_HEAD_FAILURE_K`. |
+| `rod_collapse` | `bool` | MELCOR's rod collapse (gh:#1035): breach at `CLAD_BREACH_K`,<br>collapse at `ROD_COLLAPSE_K` or by time-at-temperature damage; off<br>is the 2100 K whole-node slump `ZR_MELT_K`. |
 
 ##### Implementations
 
@@ -6059,6 +6137,11 @@ pub struct Mechanisms {
   pub fn without_lower_head_wall(self: Self) -> Self { /* ... */ }
   ```
   The lower head fails when dry debris exceeds `LOWER_HEAD_FAILURE_K`
+
+- ```rust
+  pub fn without_rod_collapse(self: Self) -> Self { /* ... */ }
+  ```
+  A node slumps whole to the lower plenum when its cladding reaches
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

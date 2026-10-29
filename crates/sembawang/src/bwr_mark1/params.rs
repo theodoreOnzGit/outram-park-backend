@@ -190,9 +190,35 @@ pub const DEBRIS_POROSITY: f64 = 0.4;
 /// s. \[A\] (quench of a debris bed takes minutes).
 pub const DEBRIS_QUENCH_S: f64 = 120.0;
 
-/// Zircaloy relocation: a node whose cladding reaches this, K, melts and
-/// slumps to the lower plenum. \[U\] Zircaloy-4 melts near 2100 K.
+/// Zircaloy relocation in the `without_rod_collapse` ablation: a node whose
+/// cladding reaches this, K, slumps whole to the lower plenum. \[U\]
+/// Zircaloy melts at 2098 K (MELCOR 2.2 Vol. 2, MP Table 7, citing MATPRO),
+/// but MELCOR does not relocate anything at it (`CLAD_BREACH_K`).
 pub const ZR_MELT_K: f64 = 2100.0;
+
+// ── Rod collapse (gh:#1035) ──────────────────────────────────────────────────
+//
+// After the public description of MELCOR's COR model (MELCOR 2.2 Vol. 2,
+// §3.1.3 and §3.2.1, Eq. 3-29; Vol. 1, C1131 and C1132 and COR_ROD). No
+// MELCOR source is used.
+
+/// Cladding temperature at which molten Zr breaches its oxide shell, K.
+/// \[A\] MELCOR's default for cladding (C1131(2)).
+pub const CLAD_BREACH_K: f64 = 2400.0;
+/// Unoxidised metal below which a rod counts as oxidised, m. \[A\]
+/// MELCOR's default (DRZRMN).
+pub const MIN_METAL_M: f64 = 1.0e-4;
+/// An oxidised rod collapses at this fuel temperature, K, and any rod at
+/// the second. \[A\] MELCOR's defaults TRDFAI (2800 K in 1.8.4, lowered on
+/// Phebus evidence for irradiated fuel) and TRDMAX (C1132(1..2)).
+pub const ROD_COLLAPSE_K: f64 = 2500.0;
+pub const ROD_COLLAPSE_MAX_K: f64 = 3100.0;
+/// Time-at-temperature damage of an oxidised rod: lifetime
+/// `1/L = A exp(B T)`, failure when `sum dt/L` reaches 1. \[P\] MELCOR's
+/// 50th-percentile fit to VERCORS and the SOARCA uncertainty elicitation,
+/// A in 1/s, B in 1/K (Vol. 2, Eq. 3-29).
+pub const DAMAGE_A: f64 = 2.16e-11;
+pub const DAMAGE_B: f64 = 7.0e-3;
 
 // ── Zirconium-steam oxidation ───────────────────────────────────────────────
 //
@@ -411,6 +437,12 @@ params! {
     creep_fail_strain = CREEP_FAIL_STRAIN, P,
     debris_porosity = DEBRIS_POROSITY, A,
     zr_melt_k = ZR_MELT_K, U,
+    clad_breach_k = CLAD_BREACH_K, A,
+    min_metal_m = MIN_METAL_M, A,
+    rod_collapse_k = ROD_COLLAPSE_K, A,
+    rod_collapse_max_k = ROD_COLLAPSE_MAX_K, A,
+    damage_a = DAMAGE_A, P,
+    damage_b = DAMAGE_B, P,
     uh_low_a = UH_LOW_A, P,
     uh_low_b_k = UH_LOW_B_K, P,
     uh_high_a = UH_HIGH_A, P,
@@ -527,7 +559,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 81);
+        assert_eq!(Params::INPUTS.len(), 87);
     }
 
     /// The derived core inventories are the right size for a 400-bundle
