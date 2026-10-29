@@ -36,7 +36,7 @@
 use super::params::*;
 use super::aerosol::{Facing, Medium, Sections, Surface};
 use super::gas::{h2_molar_enthalpy, ncg_c, ncg_u};
-use super::rn_volume::{RnSurface, RnVolume};
+use super::rn_volume::{RnSurface, RnVolume, CS, IODINE};
 use super::vapour::BulkGas;
 use super::steam::p_sat_pa;
 use super::wire::{Reader, Writer};
@@ -88,6 +88,9 @@ pub struct ContainmentSnapshot {
     pub cs_leak_kg: f64,
     pub uo2_relief_kg: f64,
     pub uo2_leak_kg: f64,
+    /// Iodine (as I2 vapour) likewise, kg.
+    pub i_relief_kg: f64,
+    pub i_leak_kg: f64,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -122,6 +125,12 @@ pub struct ContainmentResult {
     pub cs_airborne_kg: f64,
     pub cs_vented_kg: f64,
     pub cs_building_kg: f64,
+    /// Iodine likewise, kg.
+    pub i_dw_structures_kg: f64,
+    pub i_ww_pool_kg: f64,
+    pub i_airborne_kg: f64,
+    pub i_vented_kg: f64,
+    pub i_building_kg: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -156,6 +165,8 @@ pub struct Containment {
     rn_clock_s: f64,
     cs_vented_kg: f64,
     cs_building_kg: f64,
+    i_vented_kg: f64,
+    i_building_kg: f64,
 }
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
@@ -208,6 +219,8 @@ impl Containment {
             rn_clock_s: 0.0,
             cs_vented_kg: 0.0,
             cs_building_kg: 0.0,
+            i_vented_kg: 0.0,
+            i_building_kg: 0.0,
         }
     }
 
@@ -271,8 +284,8 @@ impl Containment {
         // gas (MELCOR's default with pool interaction off: gas below a pool
         // surface passes unchanged), the leaks' into the drywell.
         let rho_p = Medium::air(300.0, P_ATM, 1.8e-5).rho_p;
-        self.ww_rn.add(s.uo2_relief_kg, rho_p, s.cs_relief_kg);
-        self.dw_rn.add(s.uo2_leak_kg, rho_p, s.cs_leak_kg);
+        self.ww_rn.add(s.uo2_relief_kg, rho_p, [s.cs_relief_kg, s.i_relief_kg]);
+        self.dw_rn.add(s.uo2_leak_kg, rho_p, [s.cs_leak_kg, s.i_leak_kg]);
         // 2. RPV leak into the drywell.
         let m = s.leak_steam_kg_s * dt;
         let nh = s.leak_h2_kg_s * dt / M_H2;
@@ -414,7 +427,8 @@ impl Containment {
             self.xe_ww -= dxe;
             self.xe_vented += dxe;
             let (_, cv, ca) = self.ww_rn.take(f);
-            self.cs_vented_kg += cv + ca;
+            self.cs_vented_kg += cv[CS] + ca[CS];
+            self.i_vented_kg += cv[IODINE] + ca[IODINE];
             self.vented_h2_kg += dh2 * M_H2;
             vented_kg_s = (self.ww_n2 * f * M_N2 + dh2 * M_H2) / dt;
             self.ww_n2 -= self.ww_n2 * f;
@@ -447,7 +461,8 @@ impl Containment {
             self.xe_dw -= dxe;
             self.xe_building += dxe;
             let (_, cv, ca) = self.dw_rn.take(f);
-            self.cs_building_kg += cv + ca;
+            self.cs_building_kg += cv[CS] + ca[CS];
+            self.i_building_kg += cv[IODINE] + ca[IODINE];
             self.dw_n2 -= dn2;
             self.dw_h2 -= dh2;
             self.dw_steam_kg -= self.dw_steam_kg * f;
@@ -493,11 +508,16 @@ impl Containment {
             xe_ww: self.xe_ww,
             xe_vented: self.xe_vented,
             xe_building: self.xe_building,
-            cs_dw_structures_kg: self.dw_rn.cs_on_surface_kg.iter().sum(),
-            cs_ww_pool_kg: self.ww_rn.cs_on_surface_kg[0],
-            cs_airborne_kg: self.dw_rn.cs_vapour_kg + self.dw_rn.cs_on_aerosol_kg + self.ww_rn.cs_vapour_kg + self.ww_rn.cs_on_aerosol_kg,
+            cs_dw_structures_kg: self.dw_rn.on_surface_kg.iter().map(|x| x[CS]).sum(),
+            cs_ww_pool_kg: self.ww_rn.on_surface_kg[0][CS],
+            cs_airborne_kg: self.dw_rn.vapour_kg[CS] + self.dw_rn.on_aerosol_kg[CS] + self.ww_rn.vapour_kg[CS] + self.ww_rn.on_aerosol_kg[CS],
             cs_vented_kg: self.cs_vented_kg,
             cs_building_kg: self.cs_building_kg,
+            i_dw_structures_kg: self.dw_rn.on_surface_kg.iter().map(|x| x[IODINE]).sum(),
+            i_ww_pool_kg: self.ww_rn.on_surface_kg[0][IODINE],
+            i_airborne_kg: self.dw_rn.vapour_kg[IODINE] + self.dw_rn.on_aerosol_kg[IODINE] + self.ww_rn.vapour_kg[IODINE] + self.ww_rn.on_aerosol_kg[IODINE],
+            i_vented_kg: self.i_vented_kg,
+            i_building_kg: self.i_building_kg,
         }
     }
 }
@@ -604,6 +624,8 @@ impl Containment {
             self.rn_clock_s,
             self.cs_vented_kg,
             self.cs_building_kg,
+            self.i_vented_kg,
+            self.i_building_kg,
         ]);
         self.dw_rn.write(w);
         self.ww_rn.write(w);
@@ -635,6 +657,8 @@ impl Containment {
             rn_clock_s: r.f(),
             cs_vented_kg: r.f(),
             cs_building_kg: r.f(),
+            i_vented_kg: r.f(),
+            i_building_kg: r.f(),
         };
         c.dw_rn.read_into(r);
         c.ww_rn.read_into(r);
@@ -664,6 +688,8 @@ impl ContainmentSnapshot {
             self.cs_leak_kg,
             self.uo2_relief_kg,
             self.uo2_leak_kg,
+            self.i_relief_kg,
+            self.i_leak_kg,
         ]);
         self.prm.write(w);
     }
@@ -687,6 +713,8 @@ impl ContainmentSnapshot {
             cs_leak_kg: r.f(),
             uo2_relief_kg: r.f(),
             uo2_leak_kg: r.f(),
+            i_relief_kg: r.f(),
+            i_leak_kg: r.f(),
             prm: Params::read(r),
         }
     }
@@ -717,6 +745,11 @@ impl ContainmentResult {
             self.cs_airborne_kg,
             self.cs_vented_kg,
             self.cs_building_kg,
+            self.i_dw_structures_kg,
+            self.i_ww_pool_kg,
+            self.i_airborne_kg,
+            self.i_vented_kg,
+            self.i_building_kg,
         ]);
     }
     pub fn read(r: &mut Reader) -> Self {
@@ -743,6 +776,11 @@ impl ContainmentResult {
             cs_airborne_kg: r.f(),
             cs_vented_kg: r.f(),
             cs_building_kg: r.f(),
+            i_dw_structures_kg: r.f(),
+            i_ww_pool_kg: r.f(),
+            i_airborne_kg: r.f(),
+            i_vented_kg: r.f(),
+            i_building_kg: r.f(),
         }
     }
 }

@@ -425,6 +425,7 @@ pub struct Frame {
     pub xe_vessel: f64,
     /// Cesium in the vessel's gas, kg (gh:#1047).
     pub cs_vessel_kg: f64,
+    pub i_vessel_kg: f64,
     pub core: CoreResult,
     pub containment: ContainmentResult,
 }
@@ -577,6 +578,7 @@ pub struct Plant {
     /// deposition (stated: this overestimates what reaches the
     /// containment).
     cs_vessel_kg: f64,
+    i_vessel_kg: f64,
     uo2_vessel_kg: f64,
     uo2_seen_kg: f64,
     /// The vessel's own solved pressure, Pa, before a failed head pins the
@@ -668,6 +670,7 @@ impl Plant {
             xe_vessel: 0.0,
             fp_seen: 0.0,
             cs_vessel_kg: 0.0,
+            i_vessel_kg: 0.0,
             uo2_vessel_kg: 0.0,
             uo2_seen_kg: 0.0,
             p_solved: 0.0,
@@ -930,6 +933,8 @@ impl Plant {
                 cs_leak_kg: self.cs_vessel_kg * self.pending.share_leak,
                 uo2_relief_kg: self.uo2_vessel_kg * self.pending.share_relief,
                 uo2_leak_kg: self.uo2_vessel_kg * self.pending.share_leak,
+                i_relief_kg: self.i_vessel_kg * self.pending.share_relief,
+                i_leak_kg: self.i_vessel_kg * self.pending.share_leak,
                 prm,
             },
         }
@@ -970,6 +975,8 @@ impl Plant {
         // Noble gas: out with the gas, in from the fuel.
         let out = (d.share_relief + d.share_leak).min(1.0);
         self.cs_vessel_kg = self.cs_vessel_kg * (1.0 - out) + (core.fp_volatile_released - self.fp_seen) * prm.cs_inventory_kg;
+        // Iodine shares cesium's CORSOR-M row (Xe, Cs, I2, Te: one row).
+        self.i_vessel_kg = self.i_vessel_kg * (1.0 - out) + (core.fp_volatile_released - self.fp_seen) * prm.i_inventory_kg;
         self.uo2_vessel_kg = self.uo2_vessel_kg * (1.0 - out) + (core.uo2_released_kg - self.uo2_seen_kg);
         self.uo2_seen_kg = core.uo2_released_kg;
         self.xe_vessel = (self.xe_vessel - d.xe_relief - d.xe_leak).max(0.0) + (core.fp_volatile_released - self.fp_seen);
@@ -1063,6 +1070,7 @@ impl Plant {
             dome_gas_k: self.gas_out_k(),
             xe_vessel: self.xe_vessel,
             cs_vessel_kg: self.cs_vessel_kg,
+            i_vessel_kg: self.i_vessel_kg,
             core: self.last_core.clone(),
             containment: self.last_containment,
         }
@@ -1115,6 +1123,7 @@ impl Frame {
             self.dome_gas_k,
             self.xe_vessel,
             self.cs_vessel_kg,
+            self.i_vessel_kg,
         ]);
         self.core.write(w);
         self.containment.write(w);
@@ -1148,6 +1157,7 @@ impl Frame {
             dome_gas_k: r.f(),
             xe_vessel: r.f(),
             cs_vessel_kg: r.f(),
+            i_vessel_kg: r.f(),
             core: CoreResult::read(r),
             containment: ContainmentResult::read(r),
         }
@@ -1504,12 +1514,19 @@ mod tests {
             let total = f.cs_vessel_kg + k.cs_airborne_kg + k.cs_dw_structures_kg + k.cs_ww_pool_kg + k.cs_vented_kg + k.cs_building_kg;
             let released = f.core.fp_volatile_released * CS_INVENTORY_KG;
             assert!((total - released).abs() < 1e-9 * CS_INVENTORY_KG, "{total} vs {released} at {}", f.t_s);
+            let total_i = f.i_vessel_kg + k.i_airborne_kg + k.i_dw_structures_kg + k.i_ww_pool_kg + k.i_vented_kg + k.i_building_kg;
+            let released_i = f.core.fp_volatile_released * I_INVENTORY_KG;
+            assert!((total_i - released_i).abs() < 1e-9 * I_INVENTORY_KG, "I {total_i} vs {released_i} at {}", f.t_s);
         }
         let f = p.frame();
         let k = &f.containment;
         println!(
             "CS 26h vessel {:.2} airborne {:.2} dw structures {:.2} ww pool {:.2} vented {:.2} building {:.2} of released {:.2} kg",
             f.cs_vessel_kg, k.cs_airborne_kg, k.cs_dw_structures_kg, k.cs_ww_pool_kg, k.cs_vented_kg, k.cs_building_kg, f.core.fp_volatile_released * CS_INVENTORY_KG
+        );
+        println!(
+            "I 26h vessel {:.3} airborne {:.3} dw structures {:.3} ww pool {:.3} of released {:.3} kg",
+            f.i_vessel_kg, k.i_airborne_kg, k.i_dw_structures_kg, k.i_ww_pool_kg, f.core.fp_volatile_released * I_INVENTORY_KG
         );
     }
 

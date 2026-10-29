@@ -3582,6 +3582,8 @@ pub struct Histories {
     pub fp_released: Vec<f64>,
     pub cs_dw_structures: Vec<f64>,
     pub cs_sc_water: Vec<f64>,
+    pub i_dw_structures: Vec<f64>,
+    pub i_sc_water: Vec<f64>,
 }
 ```
 
@@ -3596,6 +3598,8 @@ pub struct Histories {
 | `fp_released` | `Vec<f64>` |  |
 | `cs_dw_structures` | `Vec<f64>` | Cesium on the drywell's structures and in the wetwell pool,<br>fractions of the inventory (gh:#1047). |
 | `cs_sc_water` | `Vec<f64>` |  |
+| `i_dw_structures` | `Vec<f64>` | Iodine likewise. |
+| `i_sc_water` | `Vec<f64>` |  |
 
 ##### Implementations
 
@@ -4010,6 +4014,8 @@ pub struct ContainmentSnapshot {
     pub cs_leak_kg: f64,
     pub uo2_relief_kg: f64,
     pub uo2_leak_kg: f64,
+    pub i_relief_kg: f64,
+    pub i_leak_kg: f64,
     pub prm: Params,
 }
 ```
@@ -4036,6 +4042,8 @@ pub struct ContainmentSnapshot {
 | `cs_leak_kg` | `f64` |  |
 | `uo2_relief_kg` | `f64` |  |
 | `uo2_leak_kg` | `f64` |  |
+| `i_relief_kg` | `f64` | Iodine (as I2 vapour) likewise, kg. |
+| `i_leak_kg` | `f64` |  |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -4192,6 +4200,11 @@ pub struct ContainmentResult {
     pub cs_airborne_kg: f64,
     pub cs_vented_kg: f64,
     pub cs_building_kg: f64,
+    pub i_dw_structures_kg: f64,
+    pub i_ww_pool_kg: f64,
+    pub i_airborne_kg: f64,
+    pub i_vented_kg: f64,
+    pub i_building_kg: f64,
 }
 ```
 
@@ -4221,6 +4234,11 @@ pub struct ContainmentResult {
 | `cs_airborne_kg` | `f64` |  |
 | `cs_vented_kg` | `f64` |  |
 | `cs_building_kg` | `f64` |  |
+| `i_dw_structures_kg` | `f64` | Iodine likewise, kg. |
+| `i_ww_pool_kg` | `f64` |  |
+| `i_airborne_kg` | `f64` |  |
+| `i_vented_kg` | `f64` |  |
+| `i_building_kg` | `f64` |  |
 
 ##### Implementations
 
@@ -6248,6 +6266,7 @@ pub struct Params {
     pub corsor_uo2_k0_per_min: f64,
     pub corsor_uo2_q_kcal_per_mol: f64,
     pub cs_inventory_kg: f64,
+    pub i_inventory_kg: f64,
     pub dw_floor_m2: f64,
     pub ww_pool_surface_m2: f64,
     pub head_failure_wall_k: f64,
@@ -6385,6 +6404,7 @@ pub struct Params {
 | `corsor_uo2_k0_per_min` | `f64` |  |
 | `corsor_uo2_q_kcal_per_mol` | `f64` |  |
 | `cs_inventory_kg` | `f64` |  |
+| `i_inventory_kg` | `f64` |  |
 | `dw_floor_m2` | `f64` |  |
 | `ww_pool_surface_m2` | `f64` |  |
 | `head_failure_wall_k` | `f64` |  |
@@ -7076,6 +7096,14 @@ value (OECD/NEA No. 7525, 2021, p.20-21: "154.0 kg" Cs and 11.98 kg I,
 pub const CS_INVENTORY_KG: f64 = 154.0;
 ```
 
+#### Constant `I_INVENTORY_KG`
+
+Unit 1's iodine inventory, kg (the same source: "11.98 kg"). \[P\]
+
+```rust
+pub const I_INVENTORY_KG: f64 = 11.98;
+```
+
 #### Constant `DW_FLOOR_M2`
 
 Deposition areas not otherwise in the model: the drywell floor, m^2,
@@ -7762,9 +7790,9 @@ pub const P_ATM: f64 = 1.013e5;
 ## Module `rn_volume`
 
 One control volume's fission products and aerosol: the sectional aerosol
-(`aerosol`), cesium as vapour, on the airborne aerosol and on each
-surface, and the transfers between them in one step (gh:#1047, third
-deliverable; not yet wired into the plant).
+(`aerosol`), each condensable class (cesium as CsOH and iodine as I2, in
+[`CLASSES`]) as vapour, on the airborne aerosol and on each surface, and
+the transfers between them in one step (gh:#1047).
 
 The step follows MELCOR's order and coupling (Vol. 2, SAND2023-10994 O,
 RN §2.4 and §2.5.2; no source used): released aerosol enters the
@@ -7774,8 +7802,8 @@ the aerosol sections (Sherwood number 2) and onto the surfaces at their
 own temperatures by TRAP-MELT2's analytic step; the aerosol agglomerates
 and deposits.
 
-**Simplification, stated:** cesium on the airborne aerosol is tracked as
-one mass, sharing the aerosol's size distribution, which is MELCOR's rule
+**Simplification, stated:** each class on the airborne aerosol is tracked
+as one mass, sharing the aerosol's size distribution, which is MELCOR's rule
 for classes assigned to one component (RN §2.4.1). MELCOR's default puts
 the volatiles in a component of their own; that is not followed here.
 Evaporation from a surface is limited to what it holds (TRAP-MELT2's
@@ -7786,6 +7814,14 @@ pub mod rn_volume { /* ... */ }
 ```
 
 ### Types
+
+#### Type Alias `PerClass`
+
+Per-class masses, kg.
+
+```rust
+pub type PerClass = [f64; 2];
+```
 
 #### Struct `RnSurface`
 
@@ -7929,9 +7965,9 @@ What is in the volume.
 pub struct RnVolume {
     pub volume_m3: f64,
     pub sections: super::aerosol::Sections,
-    pub cs_vapour_kg: f64,
-    pub cs_on_aerosol_kg: f64,
-    pub cs_on_surface_kg: Vec<f64>,
+    pub vapour_kg: PerClass,
+    pub on_aerosol_kg: PerClass,
+    pub on_surface_kg: Vec<PerClass>,
     pub aerosol_on_surface_kg: Vec<f64>,
 }
 ```
@@ -7942,9 +7978,9 @@ pub struct RnVolume {
 |------|------|---------------|
 | `volume_m3` | `f64` |  |
 | `sections` | `super::aerosol::Sections` |  |
-| `cs_vapour_kg` | `f64` | Cesium (as CsOH) in the gas as vapour, and on the airborne aerosol,<br>kg. |
-| `cs_on_aerosol_kg` | `f64` |  |
-| `cs_on_surface_kg` | `Vec<f64>` | Per surface: cesium on it, kg (by deposition and by condensation),<br>and aerosol deposited on it, kg. |
+| `vapour_kg` | `PerClass` | Each class in the gas as vapour, and on the airborne aerosol, kg. |
+| `on_aerosol_kg` | `PerClass` |  |
+| `on_surface_kg` | `Vec<PerClass>` | Per surface: each class on it, kg (by deposition and by<br>condensation), and aerosol deposited on it, kg. |
 | `aerosol_on_surface_kg` | `Vec<f64>` |  |
 
 ##### Implementations
@@ -7961,17 +7997,22 @@ pub struct RnVolume {
   Airborne aerosol mass, kg, at material density `rho_p`.
 
 - ```rust
-  pub fn add(self: &mut Self, aerosol_kg: f64, rho_p: f64, cs_vapour_kg: f64) { /* ... */ }
+  pub fn total_kg(self: &Self, class: usize) -> f64 { /* ... */ }
   ```
-  Add released aerosol, kg, into the smallest section, and cesium
+  One class's mass everywhere in the volume (vapour, on aerosol, on
 
 - ```rust
-  pub fn take(self: &mut Self, f: f64) -> (Vec<f64>, f64, f64) { /* ... */ }
+  pub fn add(self: &mut Self, aerosol_kg: f64, rho_p: f64, vapour_kg: PerClass) { /* ... */ }
   ```
-  Take the fraction `f` of the volume's gas (with its aerosol, the
+  Add released aerosol, kg, into the smallest section, and vapour of
 
 - ```rust
-  pub fn receive(self: &mut Self, moved: &[f64], cs_vapour_kg: f64, cs_on_aerosol_kg: f64) { /* ... */ }
+  pub fn take(self: &mut Self, f: f64) -> (Vec<f64>, PerClass, PerClass) { /* ... */ }
+  ```
+  Take the fraction `f` of the volume's gas (with its aerosol and what
+
+- ```rust
+  pub fn receive(self: &mut Self, moved: &[f64], vapour_kg: PerClass, on_aerosol_kg: PerClass) { /* ... */ }
   ```
   Receive what `take` returned from another volume (same sections).
 
@@ -7988,7 +8029,7 @@ pub struct RnVolume {
 - ```rust
   pub fn step(self: &mut Self, medium: &Medium, gases: &[(BulkGas, f64)], surfaces: &[RnSurface], dt: f64) { /* ... */ }
   ```
-  One step of `dt` s: condensation, agglomeration, deposition.
+  One step of `dt` s: condensation of each class, agglomeration,
 
 ###### Trait Implementations
 
@@ -8100,6 +8141,30 @@ pub struct RnVolume {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+### Constants and Statics
+
+#### Constant `CLASSES`
+
+The condensable classes tracked, in the order of every per-class array.
+
+```rust
+pub const CLASSES: [super::vapour::FpClass; 2] = _;
+```
+
+#### Constant `CS`
+
+Index of cesium and of iodine in the per-class arrays.
+
+```rust
+pub const CS: usize = 0;
+```
+
+#### Constant `IODINE`
+
+```rust
+pub const IODINE: usize = 1;
+```
+
 ## Module `steam`
 
 Water and steam properties for the plant model, all from IAPWS-IF97 as
@@ -10264,6 +10329,7 @@ pub struct Frame {
     pub dome_gas_k: f64,
     pub xe_vessel: f64,
     pub cs_vessel_kg: f64,
+    pub i_vessel_kg: f64,
     pub core: self::core::CoreResult,
     pub containment: containment::ContainmentResult,
 }
@@ -10294,6 +10360,7 @@ pub struct Frame {
 | `dome_gas_k` | `f64` |  |
 | `xe_vessel` | `f64` | Noble gas (Xe) in the vessel's gas, fraction of inventory (the<br>containment's shares are in `containment`). |
 | `cs_vessel_kg` | `f64` | Cesium in the vessel's gas, kg (gh:#1047). |
+| `i_vessel_kg` | `f64` |  |
 | `core` | `self::core::CoreResult` |  |
 | `containment` | `containment::ContainmentResult` |  |
 

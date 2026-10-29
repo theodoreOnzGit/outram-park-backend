@@ -180,3 +180,28 @@ fn cesium_against_fig_2_6() {
     assert_eq!((a.1, c.1), (75, 89));
     assert!((a.0 - 0.4667).abs() < 1e-3 && (c.0 - 0.8539).abs() < 1e-3, "{a:?} {c:?}");
 }
+
+
+/// **Iodine against Fig 2.6b and 2.6d** (gh:#1047; same method as cesium,
+/// 11.98 kg inventory, the benchmark specification's; released by the same
+/// CORSOR-M row, as I2 vapour).
+///
+/// Results, 2026-10-29: **inside the codes' envelope 0 % of the time** for
+/// both iodine on drywell structures (76 times counted) and in the S/C water
+/// (89): the model keeps all 10.19 kg of released iodine airborne. At the
+/// 344 K wetwell I2's saturation concentration is about 0.19 kg/m^3 against
+/// a loading of about 0.004, so it never condenses. Predicted before the
+/// run: near zero, inside only where the lowest codes are near zero;
+/// consistent (every code keeps some iodine at every counted time). This is
+/// what MELCOR's defaults give without SPARC (released iodine is I2; CsI
+/// forms only when requested): iodine's retention in the codes comes from
+/// pool scrubbing (SPARC-90 scrubs I2 vapour) and chemistry, neither built.
+#[test]
+fn iodine_against_fig_2_6() {
+    let m = model();
+    let grid: Vec<f64> = (0..=100).map(|i| i as f64 * 0.25).collect();
+    let b = inside_envelope(&m.t_h, &m.i_dw_structures, &family("2.6b"), &grid);
+    let d = inside_envelope(&m.t_h, &m.i_sc_water, &family("2.6d"), &grid);
+    println!("I on drywell structures {b:?}; I in S/C water {d:?}");
+    assert_eq!((b, d), ((0.0, 76), (0.0, 89)));
+}
