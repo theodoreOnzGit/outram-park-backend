@@ -141,7 +141,9 @@ mod tests {
     /// gas nearly all vented, less its decay). (Moved by `see_through` the
     /// same day; by MCCI then to Cs-137 6.43e13 and I-131 6.08e15 Bq; by the
     /// drywell's outer heat path to 5.90e13 and 5.67e15 Bq; by the core
-    /// plate to 6.49e13 and 9.06e15 Bq.)
+    /// plate to 6.49e13 and 9.06e15 Bq; by the bottom of the core's
+    /// radiation to 7.77e13 and 2.57e16 Bq, the I-131 nearly tripled by the
+    /// later, dry head failure, 2026-10-29.)
     #[test]
     fn the_model_release_hands_off_to_changi() {
         let prm = Params::default();
@@ -160,7 +162,9 @@ mod tests {
         let f = h.cs_released[h.cs_released.len() - 1];
         assert!((total(&st, 0) / (f * cs) - 1.0).abs() < 1e-4, "{} vs {}", total(&st, 0), f * cs);
         assert!((i / 1.358e18 - 1.0).abs() < 1e-3 && (xe / 2.895e18 - 1.0).abs() < 1e-3, "{i:e} {xe:e}");
-        assert!((total(&st, 0) / 6.489e13 - 1.0).abs() < 1e-3 && (total(&st, 1) / 9.055e15 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
-        assert!((total(&st, 2) / 2.533e18 - 1.0).abs() < 1e-3, "{:e}", total(&st, 2));
+        assert!((total(&st, 0) / 7.774e13 - 1.0).abs() < 1e-3 && (total(&st, 1) / 2.573e16 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
+        // Xe-133 2.533e18 -> 2.521e18 Bq with the bottom of the core's
+        // radiation (2026-10-29).
+        assert!((total(&st, 2) / 2.521e18 - 1.0).abs() < 1e-3, "{:e}", total(&st, 2));
     }
 }

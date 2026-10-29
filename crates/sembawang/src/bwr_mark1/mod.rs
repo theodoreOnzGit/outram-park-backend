@@ -336,6 +336,11 @@ pub struct Mechanisms {
     /// 2026-10-29); thickness and beam spacing \[A\]. Off is relocation
     /// straight to the lower plenum.
     pub core_plate: bool,
+    /// The lowest uncovered core cell radiates down to the lower plenum's
+    /// water (MELCOR COR RM §2.1.2, `FLPUP` = 0.25; 2026-10-29; needs
+    /// `core_radiation`); the steam it raises rises through the core. Off is
+    /// the bottom of the core exchanging nothing.
+    pub bottom_radiation: bool,
 }
 
 impl Default for Mechanisms {
@@ -392,6 +397,7 @@ impl Default for Mechanisms {
             mcci: true,
             dw_wall_outer: true,
             core_plate: true,
+            bottom_radiation: true,
         }
     }
 }
@@ -722,6 +728,12 @@ impl Mechanisms {
     /// No core-plate holdup: before 2026-10-29.
     pub fn without_core_plate(mut self) -> Self {
         self.core_plate = false;
+        self
+    }
+
+    /// The bottom of the core exchanging nothing: before 2026-10-29.
+    pub fn without_bottom_radiation(mut self) -> Self {
+        self.bottom_radiation = false;
         self
     }
 
@@ -1415,7 +1427,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, candling: self.mechanisms.candling, debris_quench: self.mechanisms.debris_quench, wet_head_contact: self.mechanisms.wet_head_contact, penetration_coverage: self.mechanisms.penetration_coverage, core_top_radiation: self.mechanisms.core_top_radiation, upper_k: self.internals.t_k, see_through: self.mechanisms.see_through, core_plate: self.mechanisms.core_plate, bottom_radiation: self.mechanisms.bottom_radiation, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -2229,8 +2241,9 @@ mod tests {
         // building; 0.9957 since the drywell's outer heat path, the flange
         // closed again, with 2.5e-4 still in the drywell and 1.5e-4 in the
         // wetwell gas at 26 h; 0.9958 since the core plate, with 3.8e-4 and
-        // 2.6e-4.)
-        assert!((k.xe_vented - 0.9958).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // 2.6e-4; 0.9960 since the bottom of the core radiates, with 2.7e-4
+        // and 2.6e-4.)
+        assert!((k.xe_vented - 0.9960).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

@@ -288,6 +288,13 @@ pub const DEBRIS_TO_HEAD_W_M2_K: f64 = 1000.0;
 /// pitches apart (Unit 1's core plate is not in a held source).
 pub const CORE_PLATE_M: f64 = 0.05;
 pub const CORE_PLATE_BEAM_M: f64 = 0.3;
+/// The lower plenum water's emissivity, for the radiation from the lowest
+/// uncovered core cell down to it (`Mechanisms::bottom_radiation`): the
+/// common infrared value (Incropera's tables give 0.95-0.96), \[A\].
+pub const WATER_EMISSIVITY: f64 = 0.95;
+/// That radiation's exchange factor over the cell's area: MELCOR's `FLPUP`
+/// (COR UG, COR_RF default 0.25), \[P\].
+pub const FLPUP: f64 = 0.25;
 /// Wall thickness of a lower-head penetration (instrument or control-rod
 /// drive housing), m: its steel per unit heated area. \[A\] Unit 1's
 /// housings are not in a held source. The debris heats it with
@@ -727,6 +734,8 @@ params! {
     debris_to_head_w_m2_k = DEBRIS_TO_HEAD_W_M2_K, A,
     core_plate_m = CORE_PLATE_M, A,
     core_plate_beam_m = CORE_PLATE_BEAM_M, A,
+    water_emissivity = WATER_EMISSIVITY, A,
+    flpup = FLPUP, P,
     penetration_wall_m = PENETRATION_WALL_M, A,
     corsor_k0_per_min = CORSOR_K0_PER_MIN, P,
     corsor_q_kcal_per_mol = CORSOR_Q_KCAL_PER_MOL, P,
@@ -903,7 +912,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 161);
+        assert_eq!(Params::INPUTS.len(), 163);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

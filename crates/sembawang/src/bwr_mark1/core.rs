@@ -153,6 +153,9 @@ pub struct CoreSnapshot {
     /// Relocating material is held on the core plate until the plate fails
     /// (`Mechanisms::core_plate`).
     pub core_plate: bool,
+    /// The lowest uncovered core cell radiates down to the lower plenum's
+    /// water (`Mechanisms::bottom_radiation`).
+    pub bottom_radiation: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -572,6 +575,38 @@ impl Core {
 }
 
 impl Core {
+    /// Radiation from the lowest uncovered core cell of each ring down to
+    /// the lower plenum's water at `t_sat` (MELCOR COR RM §2.1.2: `Flp,up`
+    /// over the cell's area, here `flpup` times the ring's cross-section):
+    /// the lowest standing node of a ring, when its middle is above the
+    /// `level`, sees the water through the emptied cells below it. A ring
+    /// over debris held on the core plate sees the debris instead, which is
+    /// not modelled (stated: it is skipped). Returns the source on each
+    /// node's cladding, W, and the heat into the water, W.
+    fn bottom_radiation(&self, prm: &Params, level_m: f64, t_sat: f64, dz: f64) -> ([f64; NODES], f64) {
+        let mut q = [0.0; NODES];
+        let mut down = 0.0;
+        if self.plate.mf + self.plate.mc > 0.0 && !self.plate.failed {
+            return (q, down);
+        }
+        let g = geom(prm);
+        let rc = core_radius(prm);
+        let area = std::f64::consts::PI * rc * rc / RINGS as f64 * prm.flpup;
+        for k in 0..RINGS {
+            if let Some(j) = (0..AXIAL_NODES).find(|&j| !self.nodes[k * AXIAL_NODES + j].relocated) {
+                if (j as f64 + 0.5) * dz <= level_m {
+                    continue;
+                }
+                let n = &self.nodes[k * AXIAL_NODES + j];
+                let oxide = n.w_ox.min(n.zr_kg / g.a_zr) * (ZRO2_PER_ZR / prm.zro2_density);
+                let x = gray_exchange(area, zr_emissivity(oxide, n.t_clad), prm.water_emissivity, n.t_clad, t_sat);
+                q[k * AXIAL_NODES + j] -= x;
+                down += x;
+            }
+        }
+        (q, down)
+    }
+
     /// Radiation from the top of the core to the axial boundary structure
     /// above it, the dome internals at `t_up` (MELCOR COR RM §2.1.2: the
     /// outermost cell holding a component radiates to the boundary heat
@@ -1017,6 +1052,14 @@ impl Core {
         // a source on each node's cladding, and on each shroud level.
         let (mut q_rad, q_shroud) = if s.core_radiation { self.radiation(prm, dz, s.see_through) } else { ([0.0; NODES], [0.0; AXIAL_NODES]) };
         let mut q_upper_w = 0.0;
+        let mut q_bottom_w = 0.0;
+        if s.core_radiation && s.bottom_radiation && s.level_m > -prm.baf_m {
+            let (q, down) = self.bottom_radiation(prm, s.level_m, s.t_sat_k, dz);
+            for (a, b) in q_rad.iter_mut().zip(q) {
+                *a += b;
+            }
+            q_bottom_w = down;
+        }
         if s.core_radiation && s.core_top_radiation {
             let (q, up) = self.top_radiation(prm, s.upper_k);
             for (a, b) in q_rad.iter_mut().zip(q) {
@@ -1158,6 +1201,9 @@ impl Core {
                 }
             }
         }
+        // The bottom of the core's radiation boils the lower plenum's water
+        // (`bottom_radiation`).
+        q_quench += q_bottom_w;
         // The core plate and what it holds (`core_plate`), with
         // temperature-dependent properties only.
         if s.core_plate && tdp {
@@ -1587,6 +1633,7 @@ impl CoreSnapshot {
             self.upper_k,
             if self.see_through { 1.0 } else { 0.0 },
             if self.core_plate { 1.0 } else { 0.0 },
+            if self.bottom_radiation { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1615,6 +1662,7 @@ impl CoreSnapshot {
             upper_k: r.f(),
             see_through: r.f() != 0.0,
             core_plate: r.f() != 0.0,
+            bottom_radiation: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1738,7 +1786,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1764,7 +1812,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * (n.zr_kg / g.zr_kg) * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1793,7 +1841,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, candling: true, debris_quench: true, wet_head_contact: true, penetration_coverage: true, core_top_radiation: false, upper_k: 560.0, see_through: false, core_plate: false, bottom_radiation: false, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -1907,6 +1955,36 @@ mod tests {
         let sigma = 6.0 * 0.0833 * 0.09 / (area * 0.0025) * 1.0e6;
         assert!((sigma - 1.94e6).abs() < 0.02e6, "{sigma}");
         assert!(steel_yield_pa(1600.0) > sigma && steel_yield_pa(1690.0) < sigma);
+    }
+
+    /// The bottom of the core's radiation (`bottom_radiation`) by hand:
+    /// fresh cladding at 1500 K (emissivity 0.325) over water at 560 K
+    /// (0.95), across `FLPUP` 0.25 of the 9.29 m^2 core, gives
+    /// `0.25 x 9.29 x 5.6704e-8 (1500^4 - 560^4) / (1/0.325 + 1/0.95 - 1)`
+    /// = 0.2089 MW. A ring whose lowest node is relocated radiates from the
+    /// next node up instead; a ring whose lowest standing node is covered
+    /// radiates nothing; debris held on the plate blocks the view.
+    #[test]
+    fn the_bottom_of_the_core_radiates_to_the_lower_plenum() {
+        let prm = Params::default();
+        let mut c = Core::new(560.0, &prm);
+        for n in c.nodes.iter_mut() {
+            n.t_clad = 1500.0;
+        }
+        let dz = prm.active_length_m / AXIAL_NODES as f64;
+        let (q, down) = c.bottom_radiation(&prm, -1.0, 560.0, dz);
+        assert!((down / 0.2089e6 - 1.0).abs() < 1e-3, "{down}");
+        assert!((q.iter().sum::<f64>() + down).abs() < 1e-6 * down);
+        assert!(q[0] < 0.0 && q[1] == 0.0);
+        c.nodes[0].relocated = true;
+        let (q, again) = c.bottom_radiation(&prm, -1.0, 560.0, dz);
+        assert!((again - down).abs() < 1e-6 * down && q[0] == 0.0 && q[1] < 0.0);
+        // The level over the first nodes' middles: rings 2 and 3 are
+        // covered, and ring 1 (its first node gone) radiates from node 2.
+        let (_, covered) = c.bottom_radiation(&prm, 0.6 * dz, 560.0, dz);
+        assert!((covered / down - 1.0 / 3.0).abs() < 1e-9, "{covered}");
+        c.plate.mf = 1000.0;
+        assert_eq!(c.bottom_radiation(&prm, -1.0, 560.0, dz).1, 0.0);
     }
 
     /// Radiation (gh:#1037): MELCOR's Zircaloy emissivity points (0.325

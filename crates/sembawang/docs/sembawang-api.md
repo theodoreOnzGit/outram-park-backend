@@ -5088,6 +5088,7 @@ pub struct CoreSnapshot {
     pub upper_k: f64,
     pub see_through: bool,
     pub core_plate: bool,
+    pub bottom_radiation: bool,
     pub prm: Params,
 }
 ```
@@ -5119,6 +5120,7 @@ pub struct CoreSnapshot {
 | `upper_k` | `f64` |  |
 | `see_through` | `bool` | Radiation looks through emptied cells to the next standing<br>component, radially and axially (`Mechanisms::see_through`). |
 | `core_plate` | `bool` | Relocating material is held on the core plate until the plate fails<br>(`Mechanisms::core_plate`). |
+| `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (`Mechanisms::bottom_radiation`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -7411,6 +7413,8 @@ pub struct Params {
     pub debris_to_head_w_m2_k: f64,
     pub core_plate_m: f64,
     pub core_plate_beam_m: f64,
+    pub water_emissivity: f64,
+    pub flpup: f64,
     pub penetration_wall_m: f64,
     pub corsor_k0_per_min: f64,
     pub corsor_q_kcal_per_mol: f64,
@@ -7580,6 +7584,8 @@ pub struct Params {
 | `debris_to_head_w_m2_k` | `f64` |  |
 | `core_plate_m` | `f64` |  |
 | `core_plate_beam_m` | `f64` |  |
+| `water_emissivity` | `f64` |  |
+| `flpup` | `f64` |  |
 | `penetration_wall_m` | `f64` |  |
 | `corsor_k0_per_min` | `f64` |  |
 | `corsor_q_kcal_per_mol` | `f64` |  |
@@ -8551,6 +8557,25 @@ pub const CORE_PLATE_M: f64 = 0.05;
 
 ```rust
 pub const CORE_PLATE_BEAM_M: f64 = 0.3;
+```
+
+#### Constant `WATER_EMISSIVITY`
+
+The lower plenum water's emissivity, for the radiation from the lowest
+uncovered core cell down to it (`Mechanisms::bottom_radiation`): the
+common infrared value (Incropera's tables give 0.95-0.96), \[A\].
+
+```rust
+pub const WATER_EMISSIVITY: f64 = 0.95;
+```
+
+#### Constant `FLPUP`
+
+That radiation's exchange factor over the cell's area: MELCOR's `FLPUP`
+(COR UG, COR_RF default 0.25), \[P\].
+
+```rust
+pub const FLPUP: f64 = 0.25;
 ```
 
 #### Constant `PENETRATION_WALL_M`
@@ -12600,6 +12625,7 @@ pub struct Mechanisms {
     pub mcci: bool,
     pub dw_wall_outer: bool,
     pub core_plate: bool,
+    pub bottom_radiation: bool,
 }
 ```
 
@@ -12658,6 +12684,7 @@ pub struct Mechanisms {
 | `mcci` | `bool` | Molten core-concrete interaction on the drywell floor: a reduced<br>form of MELCOR's CAV package ([`cavity`]; CORCON basaltic concrete,<br>quasi-steady ablation, the concrete's H2O and CO2 reduced by the<br>debris's Zr; 2026-10-29, F8). Off is the dry debris's heat going<br>straight into the drywell's structures. |
 | `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, a 1-D conduction slab to the reactor building<br>(2026-10-29; MELCOR's heat structures conduct). Off is the lumped<br>structures adiabatic outside. |
 | `core_plate` | `bool` | Relocating material rests on the BWR core plate until the plate<br>yields (MELCOR's PLATEB, COR RM §5.2.3, Eqs 5-3, 5-13, 5-16;<br>2026-10-29); thickness and beam spacing \[A\]. Off is relocation<br>straight to the lower plenum. |
+| `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (MELCOR COR RM §2.1.2, `FLPUP` = 0.25; 2026-10-29; needs<br>`core_radiation`); the steam it raises rises through the core. Off is<br>the bottom of the core exchanging nothing. |
 
 ##### Implementations
 
@@ -12912,6 +12939,11 @@ pub struct Mechanisms {
   pub fn without_core_plate(self: Self) -> Self { /* ... */ }
   ```
   No core-plate holdup: before 2026-10-29.
+
+- ```rust
+  pub fn without_bottom_radiation(self: Self) -> Self { /* ... */ }
+  ```
+  The bottom of the core exchanging nothing: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
