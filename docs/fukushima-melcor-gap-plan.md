@@ -121,7 +121,10 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Gaseous-diffusion limit on oxidation (COR Eq 2-168) | F4, #1035 | 4.484 | 292.44 | where it binds held (steam fraction < 3 %); H2 sign missed (predicted slightly down) |
 | Oxidation cutoff 1000 K \[A\] -> MELCOR TOXMIN 1100 K \[P\] | F13, #1044 | 5.390 | 192.11 | missed: regime flip (late regime, no vent); bimodal in the cutoff |
 | H2 `c_p(T)` in the core and vessel (MELCOR NCG fit) | F7, #1038 | 5.393 | 193.97 | lower head held (later, slightly); H2 sign missed (predicted down) |
-| Main-steam-line creep rupture (PIPE-STR, LM-CREEP) | F6, #1037 | **5.454** | **191.47** | held: ruptures 4.36 h, RPV depressurised at it (was at the lower head); drywell +2.4 %, less than predicted |
+| Main-steam-line creep rupture (PIPE-STR, LM-CREEP) | F6, #1037 | 5.454 | 191.47 | held: ruptures 4.36 h, RPV depressurised at it (was at the lower head); drywell +2.4 %, less than predicted |
+| Dry-vessel outflow capped at the equalising amount (defect) | — | 5.449 | 191.43 | defect fix, found by a crash |
+| Dry-vessel steam leaves at its own enthalpy (defect) | — | 5.449 | 191.43 | defect fix, found by the same crash; drywell only moves |
+| Steam dome internals as a heat structure | F6, #1037 | **5.639** | **215.36** | missed: predicted no rupture; the line ruptures at 4.78 h. Rupture rests on \[A\] inputs (none at 3x area) |
 
 BSAF bands: lower head 7.45–17.16 h (B); H2 400–1310 kg (C). ~~The vent now
 flows at 23.73 h, inside its Tier A band (23.5–24.68 h), as a by-product of

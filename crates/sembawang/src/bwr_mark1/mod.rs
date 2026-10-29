@@ -41,6 +41,7 @@ pub mod containment;
 pub mod core;
 pub mod decay;
 pub mod gas;
+pub mod internals;
 pub mod msl;
 pub mod params;
 pub mod steam;
@@ -140,6 +141,10 @@ pub struct Mechanisms {
     /// ([`msl`], MELCOR's PIPE-STR and LM-CREEP, 2026-10-29); off is no
     /// steam-line failure.
     pub msl_creep: bool,
+    /// The steam dome's internals as a heat structure between the core and
+    /// the steam lines, leaks and containment ([`internals`], 2026-10-29);
+    /// off passes the core's exit gas straight through.
+    pub dome_internals: bool,
 }
 
 impl Default for Mechanisms {
@@ -160,6 +165,7 @@ impl Default for Mechanisms {
             diffusion_limit: true,
             hydrogen_cp_t: true,
             msl_creep: true,
+            dome_internals: true,
         }
     }
 }
@@ -256,6 +262,13 @@ impl Mechanisms {
     /// No main-steam-line creep rupture: the model before 2026-10-29.
     pub fn without_msl_creep(mut self) -> Self {
         self.msl_creep = false;
+        self
+    }
+
+    /// No dome internals: the core's exit gas reaches the steam lines, the
+    /// leaks and the containment unchanged (the model before 2026-10-29).
+    pub fn without_dome_internals(mut self) -> Self {
+        self.dome_internals = false;
         self
     }
 
@@ -377,6 +390,9 @@ pub struct Frame {
     /// The main steam line's wall temperature, K, creep damage, and whether
     /// it has ruptured.
     pub msl: msl::SteamLine,
+    /// The dome internals' temperature and the gas leaving them, K.
+    pub internals_k: f64,
+    pub dome_gas_k: f64,
     pub core: CoreResult,
     pub containment: ContainmentResult,
 }
@@ -515,6 +531,11 @@ pub struct Plant {
     relief_open: bool,
     hot_leak_open: bool,
     msl: msl::SteamLine,
+    internals: internals::DomeInternals,
+    /// The gas temperature after the internals, K, and the heat they took
+    /// in the last step, W.
+    dome_gas_k: f64,
+    q_internals_w: f64,
     injected_kg: f64,
     vessel: Vessel,
     last_core: CoreResult,
@@ -587,6 +608,9 @@ impl Plant {
             relief_open: false,
             hot_leak_open: false,
             msl: msl::SteamLine::new(s.t_k),
+            internals: internals::DomeInternals::new(s.t_k),
+            dome_gas_k: s.t_k,
+            q_internals_w: 0.0,
             injected_kg: 0.0,
             vessel: Vessel::default(),
             last_core: CoreResult::default(),
@@ -743,7 +767,7 @@ impl Plant {
             } else {
                 (prm.initial_containment_pa, prm.initial_drywell_k)
             };
-            let t_gas = if self.last_core.exit_gas_k > 0.0 { self.last_core.exit_gas_k } else { v.sat.t_k };
+            let t_gas = if self.last_core.exit_gas_k > 0.0 { self.gas_out_k() } else { v.sat.t_k };
             self.msl.step(&prm, w_relief, t_gas, p, p_dw_now, t_dw, DT_S);
         }
         let leak_area = if self.hot_leak_open { prm.hot_leak_m2 } else { 0.0 }
@@ -808,7 +832,7 @@ impl Plant {
                 leak_steam_kg_s: w_leak * (1.0 - h2_share),
                 leak_h: h_gas,
                 leak_h2_kg_s: w_leak * h2_share,
-                leak_gas_k: self.last_core.exit_gas_k,
+                leak_gas_k: self.gas_out_k(),
                 vent_ordered: self.controls.vent_ordered,
                 ex_vessel_w: self.last_core.ex_vessel_w,
                 pedestal_inflow_kg_s: if self.last_core.lower_head_failed { w_inj } else { 0.0 },
@@ -838,8 +862,17 @@ impl Plant {
         // receives it). Wetwell gas has no energy equation, so the relief
         // path's share is not delivered there (stated limitation).
         let to_relief = if gas_out > 0.0 { d.w_relief / gas_out } else { 0.0 };
-        let h2_enthalpy_out = h2_exit_enthalpy(d.h2_out, to_relief, v.sat.t_k, self.last_core.exit_gas_k, self.mechanisms.hydrogen_cp_t);
+        let h2_enthalpy_out = h2_exit_enthalpy(d.h2_out, to_relief, v.sat.t_k, self.gas_out_k(), self.mechanisms.hydrogen_cp_t);
         self.u += (core.q_fluid_w - d.q_ic_w + w_inj_rpv * h_inj - steam_out * h_g - core.steam_used_kg_s * h_g - h2_enthalpy_out) * DT_S;
+        // The dome internals take heat from (or give it back to) the gas
+        // leaving the core, out of the vessel's energy.
+        if self.mechanisms.dome_internals {
+            let cp_h2 = gas::cp_h2_per_kg(core.exit_gas_k, self.mechanisms.hydrogen_cp_t);
+            let (t_out, q) = self.internals.step(&prm, core.exit_steam_kg_s, core.h2_kg_s, cp_h2, core.exit_gas_k, v.p_pa, DT_S);
+            self.dome_gas_k = t_out;
+            self.q_internals_w = q;
+            self.u -= q * DT_S;
+        }
         self.h2 = (self.h2 + (core.h2_kg_s - d.h2_out) * DT_S).max(0.0);
         self.injected_kg += d.w_inj * DT_S;
         for i in 0..IC_TRAINS {
@@ -884,6 +917,13 @@ impl Plant {
         }
     }
 
+    /// The temperature of the gas leaving the vessel through the steam
+    /// lines and leaks, K: after the dome internals, or the core's exit gas
+    /// without them.
+    pub fn gas_out_k(&self) -> f64 {
+        if self.mechanisms.dome_internals { self.dome_gas_k } else { self.last_core.exit_gas_k }
+    }
+
     /// One whole step with the core and containment advanced here, in
     /// order: what the one-worker mode (and natively, the engine thread)
     /// runs.
@@ -913,6 +953,8 @@ impl Plant {
             rpv_h2_kg: self.h2,
             hot_leak_open: self.hot_leak_open,
             msl: self.msl,
+            internals_k: self.internals.t_k,
+            dome_gas_k: self.gas_out_k(),
             core: self.last_core.clone(),
             containment: self.last_containment,
         }
@@ -961,6 +1003,8 @@ impl Frame {
             self.msl.wall_k,
             self.msl.damage,
             b(self.msl.failed),
+            self.internals_k,
+            self.dome_gas_k,
         ]);
         self.core.write(w);
         self.containment.write(w);
@@ -990,6 +1034,8 @@ impl Frame {
             rpv_h2_kg: r.f(),
             hot_leak_open: r.f() != 0.0,
             msl: msl::SteamLine { wall_k: r.f(), damage: r.f(), failed: r.f() != 0.0 },
+            internals_k: r.f(),
+            dome_gas_k: r.f(),
             core: CoreResult::read(r),
             containment: ContainmentResult::read(r),
         }
@@ -1229,12 +1275,13 @@ mod tests {
             let share = if gas > 0.0 { d.w_relief / gas } else { 0.0 };
             let t_sat = p.vessel.sat.t_k;
             let h2_out = if p.mechanisms.hydrogen_cp_t {
-                d.h2_out * (share * gas::h2_enthalpy_above_298(t_sat) + (1.0 - share) * gas::h2_enthalpy_above_298(p.last_core.exit_gas_k))
+                d.h2_out * (share * gas::h2_enthalpy_above_298(t_sat) + (1.0 - share) * gas::h2_enthalpy_above_298(p.gas_out_k()))
             } else {
-                d.h2_out * self::core::CP_H2_J_PER_KG_K * (share * (t_sat - 298.15) + (1.0 - share) * (p.last_core.exit_gas_k - 298.15))
+                d.h2_out * self::core::CP_H2_J_PER_KG_K * (share * (t_sat - 298.15) + (1.0 - share) * (p.gas_out_k() - 298.15))
             };
             du += (cr.q_fluid_w - d.q_ic_w + w_inj * 4186.0 * (INJECTION_TEMPERATURE_K - 273.15) - steam_out * h_g - h2_out) * DT_S;
             p.finish(cr, kr);
+            du -= p.q_internals_w * DT_S;
         }
         assert!(((p.m - m0) - dm).abs() <= 1e-9 * m0, "mass {} vs {}", p.m - m0, dm);
         assert!(((p.u - u0) - du).abs() <= 1e-9 * u0.abs(), "energy {} vs {}", p.u - u0, du);

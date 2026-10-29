@@ -169,6 +169,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without diffusion limit", all.without_diffusion_limit()),
         ("without H2 c_p(T)", all.without_hydrogen_cp_t()),
         ("without MSL creep", all.without_msl_creep()),
+        ("without dome internals", all.without_dome_internals()),
     ]
 }
 
@@ -287,14 +288,14 @@ mod tests {
     ///
     /// Results (2026-10-29, measured on branch `claude/digital-twin-engine-vfseuf`
     /// ~~at the physics of `28ff10e31`~~ re-measured at the physics of the
-    /// commit adding main-steam-line creep; `--compare` prints the same table):
+    /// commit adding the dome internals; `--compare` prints the same table):
     ///
     /// | Quantity | Model | BSAF band (tier) | Verdict |
     /// |---|---|---|---|
-    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ ~~4.67 h~~ ~~4.51 h~~ ~~4.48 h~~ ~~5.39 h~~ 5.45 h | 7.45-17.16 h (B) | early, regime-fragile |
-    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ ~~4.67 h~~ ~~4.51 h~~ ~~4.48 h~~ ~~5.39 h~~ 4.36 h | 5-12 h (A) | ~~inside~~ ~~below,~~ ~~inside, for the wrong reason~~ early: a main steam line ruptures by creep (the BSAF analyses' 3-4 h RCS leak, §1.1) |
-    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ ~~180.57 kg~~ ~~216.06 kg~~ ~~182.90 kg~~ ~~283.76 kg~~ ~~286.63 kg~~ ~~287.47 kg~~ ~~292.44 kg~~ ~~192.11 kg~~ ~~193.97 kg~~ ~~191.47 kg~~ 191.43 kg | 400-1310 kg (C) | low |
-    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ ~~0.475 MPa~~ ~~0.508 MPa~~ ~~0.532 MPa~~ ~~0.510 MPa~~ ~~0.559 MPa~~ ~~0.562 MPa~~ ~~0.564 MPa~~ ~~0.534 MPa~~ ~~0.535 MPa~~ 0.547 MPa | 0.8-1.0 MPa (C) | low |
+    /// | lower-head failure | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ ~~4.67 h~~ ~~4.51 h~~ ~~4.48 h~~ ~~5.39 h~~ ~~5.45 h~~ 5.64 h | 7.45-17.16 h (B) | early, regime-fragile |
+    /// | RPV depressurised < 2 MPa | ~~5.39 h~~ ~~5.41 h~~ ~~5.39 h~~ ~~5.40 h~~ ~~5.54 h~~ ~~5.41 h~~ ~~5.40 h~~ ~~5.59 h~~ ~~4.67 h~~ ~~4.51 h~~ ~~4.48 h~~ ~~5.39 h~~ ~~4.36 h~~ 4.78 h | 5-12 h (A) | ~~inside~~ ~~below,~~ ~~inside, for the wrong reason~~ early: a main steam line ruptures by creep (the BSAF analyses' 3-4 h RCS leak, §1.1), resting on \[A\] inputs |
+    /// | in-vessel H2 at 25 h | ~~126.62 kg~~ ~~124.15 kg~~ ~~122.31 kg~~ ~~120.73 kg~~ ~~119.95 kg~~ ~~180.57 kg~~ ~~216.06 kg~~ ~~182.90 kg~~ ~~283.76 kg~~ ~~286.63 kg~~ ~~287.47 kg~~ ~~292.44 kg~~ ~~192.11 kg~~ ~~193.97 kg~~ ~~191.47 kg~~ ~~191.43 kg~~ 215.36 kg | 400-1310 kg (C) | low |
+    /// | drywell peak 0-25 h | ~~0.477 MPa~~ ~~0.476 MPa~~ ~~0.475 MPa~~ ~~0.508 MPa~~ ~~0.532 MPa~~ ~~0.510 MPa~~ ~~0.559 MPa~~ ~~0.562 MPa~~ ~~0.564 MPa~~ ~~0.534 MPa~~ ~~0.535 MPa~~ ~~0.547 MPa~~ 0.556 MPa | 0.8-1.0 MPa (C) | low |
     /// | wetwell vent | ~~never~~ ~~25.12 h~~ ~~23.73 h~~ never | ~24 h (23.5-24.68 h) (A) | ~~missed~~ ~~late~~ ~~inside, regime-fragile~~ missed (regime flip, 1100 K cutoff) |
     /// | building explosion | never | 24.83 h (A) | missed |
     ///
@@ -302,7 +303,7 @@ mod tests {
     /// the pressure go. Most BSAF analyses have an RCS leak at 3-4 h doing
     /// it (§1.1), so "inside" here is not agreement on the mechanism.~~
     /// **Since 2026-10-29** the RPV depressurises through a main steam line
-    /// that fails by creep at 4.36 h, the kind of RCS leak most BSAF
+    /// that fails by creep at ~~4.36 h~~ 4.78 h, the kind of RCS leak most BSAF
     /// analyses have at 3-4 h (§1.1); it is now before the band.
     ///
     /// Ablations, measured with constant `c_p` (before gh:#1038): without
@@ -513,10 +514,13 @@ mod tests {
     /// heats the wall past about 1050 K, the vessel depressurising at it,
     /// the drywell peak up "substantially". **Held** on the rupture time
     /// and the depressurisation; the drywell rose 2.4 %, less than
-    /// "substantially". Every one-mechanism ablation also ruptures
+    /// "substantially". ~~Every one-mechanism ablation also ruptures
     /// (3.68-4.36 h), including the one without the \[A\] hot leak (4.28
     /// h): the physics now supplies the early RPV leak the BSAF analyses
-    /// needed (§1.1). The depressurisation is now *before* its BSAF band
+    /// needed (§1.1).~~ **CORRECTED the same day**: that held only with the
+    /// gas reaching the line at the core's exit temperature. With the dome
+    /// internals (below) four of the five one-mechanism ablations do not
+    /// rupture, so the early leak is **not** robust. The depressurisation is now *before* its BSAF band
     /// (5-12 h). `without_msl_creep` reproduces the previous baseline
     /// exactly (pinned below).
     ///
@@ -540,6 +544,25 @@ mod tests {
     /// its old and new value (lower head by at most 0.012 h, H2 by at most
     /// 1.4 kg).
     ///
+    /// **Moved again 2026-10-29** (the steam dome's internals as one heat
+    /// structure, [`super::internals`]: 50 t, 2500 m^2, 10 W/(m^2 K), all
+    /// \[A\]; the gas reaching the steam lines, the leaks and the
+    /// containment is cooled by them): the steam line still ruptures, but
+    /// at 4.78 h, not 4.36; lower head 5.4492 -> 5.6392 h, H2 191.43 ->
+    /// 215.36 kg (+12.5 %), drywell 0.54685 -> 0.55625 MPa. Predicted
+    /// before the run: NTU about 3, so **no rupture** before the lower
+    /// head. **Missed**: the internals warm (to about 840 K) and the gas
+    /// they pass stays hot enough. A diagnostic scan of the \[A\] area (not
+    /// tuning; the default was fixed first): 0.03x and 0.1x rupture at
+    /// about 4.3 h and flip to the early regime (lower head 4.74-4.81 h, H2
+    /// 297-318 kg); 0.3x ruptures at 4.36 h; 1x at 4.78 h; 3x does not
+    /// rupture (depressurised at the lower head, 5.71 h). Of the
+    /// one-mechanism ablations only no-radiation still ruptures (4.34 h).
+    /// So **whether and when the line fails rests on \[A\] inputs**, the
+    /// internals' area and mass among them: a first-order finding for
+    /// F13. `without_dome_internals` reproduces the previous baseline
+    /// exactly (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -547,22 +570,27 @@ mod tests {
     fn the_uncalibrated_baseline_is_pinned() {
         let m = measure(Mechanisms::default());
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 5.4492, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 4.3583, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 191.43).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.54684943).abs() < 1e-8, "{m:?}");
+        assert!(near(m.lower_head_h, 5.6392, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.7769, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 215.36).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.55625090).abs() < 1e-8, "{m:?}");
         assert!(m.vent_h.is_none() && m.explosion_h.is_none(), "{m:?}");
+        // No dome internals: the previous baseline, exactly.
+        let di = measure(Mechanisms::default().without_dome_internals());
+        assert!(near(di.lower_head_h, 5.4492, 0.001) && near(di.depressurised_h, 4.3583, 0.001), "{di:?}");
+        assert!((di.h2_25h_kg - 191.43).abs() < 0.01, "{di:?}");
+        assert!((di.p_dw_peak_mpa - 0.54684943).abs() < 1e-8, "{di:?}");
         // No steam-line creep: the previous baseline, exactly (with the
         // dry-vessel enthalpy fix: 5.3925 -> 5.3806 h, 193.97 -> 192.59 kg,
         // 0.53474702 -> 0.53460139 MPa).
-        let ml = measure(Mechanisms::default().without_msl_creep());
+        let ml = measure(Mechanisms::default().without_msl_creep().without_dome_internals());
         assert!(near(ml.lower_head_h, 5.3806, 0.001) && near(ml.depressurised_h, 5.3806, 0.001), "{ml:?}");
         assert!((ml.h2_25h_kg - 192.59).abs() < 0.01, "{ml:?}");
         assert!((ml.p_dw_peak_mpa - 0.53460139).abs() < 1e-8, "{ml:?}");
         // Constant hydrogen c_p: the previous baseline, exactly (with the
         // dry-vessel enthalpy fix: 5.390 -> 5.3808 h, 192.11 -> 190.95 kg,
         // 0.53414290 -> 0.53396739 MPa).
-        let hc = measure(Mechanisms::default().without_hydrogen_cp_t().without_msl_creep());
+        let hc = measure(Mechanisms::default().without_hydrogen_cp_t().without_msl_creep().without_dome_internals());
         assert!(near(hc.lower_head_h, 5.3808, 0.001), "{hc:?}");
         assert!((hc.h2_25h_kg - 190.95).abs() < 0.01, "{hc:?}");
         assert!((hc.p_dw_peak_mpa - 0.53396739).abs() < 1e-8, "{hc:?}");
@@ -570,7 +598,7 @@ mod tests {
         // pinned as "the model before" run on it.
         let mut old = Params::default();
         old.oxidation_min_k = 1000.0;
-        let o = measure_with(Mechanisms::default().without_hydrogen_cp_t().without_msl_creep(), old);
+        let o = measure_with(Mechanisms::default().without_hydrogen_cp_t().without_msl_creep().without_dome_internals(), old);
         assert!(near(o.lower_head_h, 4.4844, 0.001), "{o:?}");
         assert!((o.h2_25h_kg - 292.44).abs() < 0.01, "{o:?}");
         // (Dry-vessel enthalpy fix: drywell 0.56407062 -> 0.56405052 MPa.)
@@ -580,27 +608,27 @@ mod tests {
         // since the 1100 K cutoff, not at all (above).
         assert!(near(o.vent_h, 23.7336, 0.001) && o.explosion_h.is_none(), "{o:?}");
         // Without the diffusion limit: the baseline before that, exactly.
-        let dl = measure_with(Mechanisms::default().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep(), old);
+        let dl = measure_with(Mechanisms::default().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals(), old);
         // (Dry-vessel enthalpy fix: 4.5089 -> 4.5075 h, 0.56293122 ->
         // 0.56289635 MPa.)
         assert!(near(dl.lower_head_h, 4.5075, 0.001), "{dl:?}");
         assert!((dl.h2_25h_kg - 287.47).abs() < 0.01, "{dl:?}");
         assert!((dl.p_dw_peak_mpa - 0.56289635).abs() < 1e-8, "{dl:?}");
         // And constant gas c_v as well: the one before that.
-        let gc = measure_with(Mechanisms::default().without_diffusion_limit().without_gas_cv_t().without_hydrogen_cp_t().without_msl_creep(), old);
+        let gc = measure_with(Mechanisms::default().without_diffusion_limit().without_gas_cv_t().without_hydrogen_cp_t().without_msl_creep().without_dome_internals(), old);
         // (Dry-vessel enthalpy fix: 0.56292285 -> 0.56285187 MPa.)
         assert!((gc.p_dw_peak_mpa - 0.56285187).abs() < 1e-8, "{gc:?}");
         assert_eq!((gc.lower_head_h, gc.h2_25h_kg, gc.vent_h), (dl.lower_head_h, dl.h2_25h_kg, dl.vent_h));
         // The steam-only choking ablation is the model before the mixture
         // correction, exactly.
-        let mc = measure_with(Mechanisms::default().without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep(), old);
+        let mc = measure_with(Mechanisms::default().without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals(), old);
         assert!(near(mc.lower_head_h, 4.5092, 0.001), "{mc:?}");
         assert!((mc.h2_25h_kg - 286.63).abs() < 0.01, "{mc:?}");
         assert!((mc.p_dw_peak_mpa - 0.5622).abs() < 0.0001, "{mc:?}");
         // All three decay switches off (with steam-only choking) is the
         // decay heat before gh:#1041, so the model before it, exactly.
         let od = measure_with(
-            Mechanisms::default().without_decay_mix().without_capture_correction().without_actinide_decay().without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep(),
+            Mechanisms::default().without_decay_mix().without_capture_correction().without_actinide_decay().without_mixture_choking().without_gas_cv_t().without_diffusion_limit().without_hydrogen_cp_t().without_msl_creep().without_dome_internals(),
             old,
         );
         assert!(near(od.lower_head_h, 4.6678, 0.001), "{od:?}");
@@ -615,10 +643,11 @@ mod tests {
         // Since H2 c_p(T): 5.132 -> 5.136 h, 242.08 -> 244.74 kg.
         // Since MSL creep: 5.136 -> 5.177 h, 244.74 -> 234.07 kg.
         // Since the dry-vessel outflow cap: 5.177 -> 5.169 h, 234.07 -> 233.73 kg.
+        // Since the dome internals: 5.169 -> 5.439 h, 233.73 -> 211.16 kg.
         let ns = measure(Mechanisms::default().without_level_swell());
-        assert!(near(ns.lower_head_h, 5.169, 0.001), "{ns:?}");
-        assert!((ns.h2_25h_kg - 233.73).abs() < 0.01, "{ns:?}");
-        assert!((ns.p_dw_peak_mpa - 0.5608).abs() < 0.0001, "{ns:?}");
+        assert!(near(ns.lower_head_h, 5.439, 0.001), "{ns:?}");
+        assert!((ns.h2_25h_kg - 211.16).abs() < 0.01, "{ns:?}");
+        assert!((ns.p_dw_peak_mpa - 0.5476).abs() < 0.0001, "{ns:?}");
         // The no-radiation ablation. ~~The model before gh:#1037, exactly
         // (5.3953 h, 216.06 kg, 0.5319 MPa).~~ Since gh:#1036 it carries
         // the swell too, so it isolates radiation. Since the diffusion
@@ -628,10 +657,11 @@ mod tests {
         // Since the 1100 K cutoff: 4.600 -> 4.730 h, 274.33 -> 259.20 kg.
         // Since H2 c_p(T): 4.730 -> 4.723 h, 259.20 -> 252.24 kg.
         // Since MSL creep: 4.723 -> 4.796 h, 252.24 -> 252.49 kg.
+        // Since the dome internals: 4.796 -> 5.088 h, 252.49 -> 264.51 kg.
         let nr = measure(Mechanisms::default().without_core_radiation());
-        assert!(near(nr.lower_head_h, 4.796, 0.001), "{nr:?}");
-        assert!((nr.h2_25h_kg - 252.49).abs() < 0.01, "{nr:?}");
-        assert!((nr.p_dw_peak_mpa - 0.5716).abs() < 0.0001, "{nr:?}");
+        assert!(near(nr.lower_head_h, 5.088, 0.001), "{nr:?}");
+        assert!((nr.h2_25h_kg - 264.51).abs() < 0.01, "{nr:?}");
+        assert!((nr.p_dw_peak_mpa - 0.5758).abs() < 0.0001, "{nr:?}");
         // The no-collapse ablation. ~~The model before gh:#1035's collapse
         // step, exactly (5.4125 h, 180.57 kg, 0.5080 MPa).~~ Since
         // gh:#1037 it carries radiation too, so it isolates the collapse.
@@ -641,10 +671,11 @@ mod tests {
         // Since MSL creep: 5.326 -> 5.366 h, 151.38 -> 147.08 kg.
         // Since the dry-vessel outflow cap: 5.366 -> 5.374 h, 147.08 -> 148.02 kg.
         // Since the dry-vessel enthalpy fix: 148.02 -> 147.63 kg.
+        // Since the dome internals: 5.374 -> 5.699 h, 147.63 -> 162.62 kg.
         let nc = measure(Mechanisms::default().without_rod_collapse());
-        assert!(near(nc.lower_head_h, 5.374, 0.001), "{nc:?}");
-        assert!((nc.h2_25h_kg - 147.63).abs() < 0.01, "{nc:?}");
-        assert!((nc.p_dw_peak_mpa - 0.5285).abs() < 0.0001, "{nc:?}");
+        assert!(near(nc.lower_head_h, 5.699, 0.001), "{nc:?}");
+        assert!((nc.h2_25h_kg - 162.62).abs() < 0.01, "{nc:?}");
+        assert!((nc.p_dw_peak_mpa - 0.5175).abs() < 0.0001, "{nc:?}");
         // The no-wall ablation. ~~The model before gh:#1034, exactly (5.399 h,
         // 120.73 kg, 0.4746 MPa).~~ Since Zr's heat of fusion (gh:#1035) it
         // carries that too, so it isolates the wall alone. Since the
@@ -654,10 +685,11 @@ mod tests {
         // Since H2 c_p(T): 5.054 -> 5.054 h, 190.58 -> 192.68 kg.
         // Since MSL creep: 5.054 -> 5.166 h, 192.68 -> 191.86 kg.
         // Since the dry-vessel outflow cap: 5.166 -> 5.167 h, 191.86 -> 191.89 kg.
+        // Since the dome internals: 5.167 -> 5.459 h, 191.89 -> 199.63 kg.
         let nw = measure(Mechanisms::default().without_lower_head_wall());
-        assert!(near(nw.lower_head_h, 5.167, 0.001), "{nw:?}");
-        assert!((nw.h2_25h_kg - 191.89).abs() < 0.01, "{nw:?}");
-        assert!((nw.p_dw_peak_mpa - 0.5479).abs() < 0.0001, "{nw:?}");
+        assert!(near(nw.lower_head_h, 5.459, 0.001), "{nw:?}");
+        assert!((nw.h2_25h_kg - 199.63).abs() < 0.01, "{nw:?}");
+        assert!((nw.p_dw_peak_mpa - 0.5334).abs() < 0.0001, "{nw:?}");
         // The constant-c_p ablation. ~~The model before gh:#1038, exactly
         // (5.391 h, 126.62 kg, 0.4767 MPa).~~ Since the reaction-heat
         // correction it carries 6.763 MJ/kg too, so it isolates c_p alone.
@@ -672,10 +704,11 @@ mod tests {
         // Since MSL creep: 5.331 -> 5.329 h, 167.34 -> 164.24 kg.
         // Since the dry-vessel outflow cap: 5.329 -> 5.333 h, 164.24 -> 164.83 kg.
         // Since the dry-vessel enthalpy fix: 164.83 -> 164.71 kg.
+        // Since the dome internals: 5.333 -> 5.670 h, 164.71 -> 159.62 kg.
         let cp = measure(Mechanisms::default().without_temperature_dependent_properties());
-        assert!(near(cp.lower_head_h, 5.333, 0.001), "{cp:?}");
-        assert!((cp.h2_25h_kg - 164.71).abs() < 0.01, "{cp:?}");
-        assert!((cp.p_dw_peak_mpa - 0.5353).abs() < 0.0001, "{cp:?}");
+        assert!(near(cp.lower_head_h, 5.670, 0.001), "{cp:?}");
+        assert!((cp.h2_25h_kg - 159.62).abs() < 0.01, "{cp:?}");
+        assert!((cp.p_dw_peak_mpa - 0.5155).abs() < 0.0001, "{cp:?}");
     }
 
     /// The elasticity of an input that only the demo draws is zero, of one
@@ -699,7 +732,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 16);
+        assert_eq!(runs.len(), 17);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -724,6 +757,7 @@ mod tests {
         assert!(!ablations()[13].1.diffusion_limit && ablations()[13].1.gas_cv_t);
         assert!(!ablations()[14].1.hydrogen_cp_t && ablations()[14].1.diffusion_limit);
         assert!(!ablations()[15].1.msl_creep && ablations()[15].1.hydrogen_cp_t);
+        assert!(!ablations()[16].1.dome_internals && ablations()[16].1.msl_creep);
     }
 
     /// The verdict reads a value against its band.

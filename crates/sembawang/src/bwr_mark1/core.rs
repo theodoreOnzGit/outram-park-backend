@@ -136,6 +136,9 @@ pub struct CoreResult {
     pub q_ox_w: f64,
     pub peak_clad_k: f64,
     pub exit_gas_k: f64,
+    /// Steam leaving the top of the core, kg/s (with the hydrogen,
+    /// `h2_kg_s`, at `exit_gas_k`).
+    pub exit_steam_kg_s: f64,
     /// Zirconium oxidised so far, kg; hydrogen made so far, kg.
     pub zr_oxidised_kg: f64,
     pub h2_total_kg: f64,
@@ -960,6 +963,7 @@ impl Core {
             q_ox_w: q_ox_total,
             peak_clad_k: peak,
             exit_gas_k: if exit_w > 0.0 { exit_sum / exit_w } else { s.t_sat_k },
+            exit_steam_kg_s: exit_w,
             zr_oxidised_kg: self.zr_oxidised_kg,
             h2_total_kg: self.h2_total_kg,
             relocated,
@@ -1064,6 +1068,7 @@ impl CoreResult {
             self.q_ox_w,
             self.peak_clad_k,
             self.exit_gas_k,
+            self.exit_steam_kg_s,
             self.zr_oxidised_kg,
             self.h2_total_kg,
             self.relocated,
@@ -1084,6 +1089,7 @@ impl CoreResult {
             q_ox_w: r.f(),
             peak_clad_k: r.f(),
             exit_gas_k: r.f(),
+            exit_steam_kg_s: r.f(),
             zr_oxidised_kg: r.f(),
             h2_total_kg: r.f(),
             relocated: r.f(),

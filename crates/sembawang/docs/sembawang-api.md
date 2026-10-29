@@ -3696,6 +3696,7 @@ pub struct CoreResult {
     pub q_ox_w: f64,
     pub peak_clad_k: f64,
     pub exit_gas_k: f64,
+    pub exit_steam_kg_s: f64,
     pub zr_oxidised_kg: f64,
     pub h2_total_kg: f64,
     pub relocated: f64,
@@ -3719,6 +3720,7 @@ pub struct CoreResult {
 | `q_ox_w` | `f64` | Oxidation heat, W (already inside the core's balance; for display). |
 | `peak_clad_k` | `f64` |  |
 | `exit_gas_k` | `f64` |  |
+| `exit_steam_kg_s` | `f64` | Steam leaving the top of the core, kg/s (with the hydrogen,<br>`h2_kg_s`, at `exit_gas_k`). |
 | `zr_oxidised_kg` | `f64` | Zirconium oxidised so far, kg; hydrogen made so far, kg. |
 | `h2_total_kg` | `f64` |  |
 | `relocated` | `f64` | Fraction of the core's nodes relocated, and debris temperature. |
@@ -4491,6 +4493,186 @@ pub fn cp_h2_per_kg(t: f64, t_dependent: bool) -> f64 { /* ... */ }
 pub fn h2_enthalpy_above_298(t: f64) -> f64 { /* ... */ }
 ```
 
+## Module `internals`
+
+The steam dome's internals as a heat structure (gh:#1037, plan item F6).
+
+The gas leaving the top of the core passes the shroud head, the steam
+separators and the dryer before it reaches the steam lines, the leak
+paths and the containment. Those structures are tens of tonnes of steel
+at saturation temperature, and they cool a superheated gas. MELCOR
+models them as heat structures in the upper-plenum and dome volumes
+(Vol. 2, SAND2023-10994 O, HS package; no source used); here they are one
+lumped node.
+
+The gas (steam and hydrogen, heat-capacity rate `C_g`) leaves at
+
+```text
+T_out = T_s + (T_in - T_s) exp(-NTU),   NTU = h A / C_g
+```
+
+and the structure takes `C_g (T_in - T_out)`, which the vessel's energy
+gives up (`Plant::finish`). When the gas is cooler than the structure,
+the same exchange gives the heat back. The structure's enthalpy is
+304L's (`core::steel_h`), as for the steam lines.
+
+Its mass, area and heat transfer coefficient are all \[A\]
+(`params::INTERNALS_*`): Unit 1's internals are not in a held source.
+The ablation,
+[`Mechanisms::without_dome_internals`](super::Mechanisms), passes the
+core's exit gas straight through: the model before 2026-10-29.
+
+```rust
+pub mod internals { /* ... */ }
+```
+
+### Types
+
+#### Struct `DomeInternals`
+
+The internals' temperature, K.
+
+```rust
+pub struct DomeInternals {
+    pub t_k: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(t_k: f64) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn step(self: &mut Self, prm: &Params, w_steam: f64, w_h2: f64, cp_h2: f64, t_in: f64, p: f64, dt: f64) -> (f64, f64) { /* ... */ }
+  ```
+  Pass a gas of `w_steam` and `w_h2` kg/s at `t_in` K (vessel pressure
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `msl`
 
 Creep rupture of a main steam line (gh:#1037, plan item F6).
@@ -4952,6 +5134,9 @@ pub struct Params {
     pub msl_lm_a1: f64,
     pub msl_lm_b1: f64,
     pub msl_lm_c: f64,
+    pub internals_kg: f64,
+    pub internals_area_m2: f64,
+    pub internals_h: f64,
     pub lower_head_failure_k: f64,
     pub breach_m2: f64,
     pub debris_quench_s: f64,
@@ -5075,6 +5260,9 @@ pub struct Params {
 | `msl_lm_a1` | `f64` |  |
 | `msl_lm_b1` | `f64` |  |
 | `msl_lm_c` | `f64` |  |
+| `internals_kg` | `f64` |  |
+| `internals_area_m2` | `f64` |  |
+| `internals_h` | `f64` |  |
 | `lower_head_failure_k` | `f64` |  |
 | `breach_m2` | `f64` |  |
 | `debris_quench_s` | `f64` |  |
@@ -5728,6 +5916,32 @@ pub const MSL_LM_B1: f64 = 62291.3;
 
 ```rust
 pub const MSL_LM_C: f64 = 16.44;
+```
+
+#### Constant `INTERNALS_KG`
+
+The steam dome's internals as one heat structure (gh:#1037,
+`internals.rs`): steel mass, kg, wetted area, m^2, and gas-side heat
+transfer coefficient, W/(m^2 K). \[A\] all three: Unit 1's internals are
+not in a held source. The mass is the dryer, separators and shroud head
+scaled from public BWR/4 dryer masses (about 45 t) to a 460 MWe plant;
+the area is that steel at 3 mm (dryer vanes) to 10 mm (separators),
+both faces; h is low-velocity forced convection.
+
+```rust
+pub const INTERNALS_KG: f64 = 5.0e4;
+```
+
+#### Constant `INTERNALS_AREA_M2`
+
+```rust
+pub const INTERNALS_AREA_M2: f64 = 2500.0;
+```
+
+#### Constant `INTERNALS_H`
+
+```rust
+pub const INTERNALS_H: f64 = 10.0;
 ```
 
 #### Constant `HOT_LEAK_GAS_K`
@@ -7116,6 +7330,7 @@ pub struct Mechanisms {
     pub diffusion_limit: bool,
     pub hydrogen_cp_t: bool,
     pub msl_creep: bool,
+    pub dome_internals: bool,
 }
 ```
 
@@ -7138,6 +7353,7 @@ pub struct Mechanisms {
 | `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on Zr oxidation<br>([`core::diffusion_limited_rate`], 2026-10-29); off is the parabolic<br>rate limited only by the steam supply. |
 | `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` in the core and the vessel (MELCOR's fit,<br>[`gas`], 2026-10-29); off is the constant `core::CP_H2_J_PER_KG_K`. |
 | `msl_creep` | `bool` | Creep rupture of a main steam line under the relief flow's hot gas<br>([`msl`], MELCOR's PIPE-STR and LM-CREEP, 2026-10-29); off is no<br>steam-line failure. |
+| `dome_internals` | `bool` | The steam dome's internals as a heat structure between the core and<br>the steam lines, leaks and containment ([`internals`], 2026-10-29);<br>off passes the core's exit gas straight through. |
 
 ##### Implementations
 
@@ -7212,6 +7428,11 @@ pub struct Mechanisms {
   pub fn without_msl_creep(self: Self) -> Self { /* ... */ }
   ```
   No main-steam-line creep rupture: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_dome_internals(self: Self) -> Self { /* ... */ }
+  ```
+  No dome internals: the core's exit gas reaches the steam lines, the
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
@@ -7953,6 +8174,8 @@ pub struct Frame {
     pub rpv_h2_kg: f64,
     pub hot_leak_open: bool,
     pub msl: msl::SteamLine,
+    pub internals_k: f64,
+    pub dome_gas_k: f64,
     pub core: self::core::CoreResult,
     pub containment: containment::ContainmentResult,
 }
@@ -7979,6 +8202,8 @@ pub struct Frame {
 | `rpv_h2_kg` | `f64` |  |
 | `hot_leak_open` | `bool` |  |
 | `msl` | `msl::SteamLine` | The main steam line's wall temperature, K, creep damage, and whether<br>it has ruptured. |
+| `internals_k` | `f64` | The dome internals' temperature and the gas leaving them, K. |
+| `dome_gas_k` | `f64` |  |
 | `core` | `self::core::CoreResult` |  |
 | `containment` | `containment::ContainmentResult` |  |
 
@@ -8172,6 +8397,11 @@ pub struct Plant {
   pub fn finish(self: &mut Self, core: CoreResult, containment: ContainmentResult) { /* ... */ }
   ```
   Finish the step with the core's and the containment's results.
+
+- ```rust
+  pub fn gas_out_k(self: &Self) -> f64 { /* ... */ }
+  ```
+  The temperature of the gas leaving the vessel through the steam
 
 - ```rust
   pub fn step_inline(self: &mut Self, core: &mut Core, containment: &mut Containment) { /* ... */ }

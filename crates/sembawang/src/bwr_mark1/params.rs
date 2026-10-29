@@ -163,6 +163,17 @@ pub const MSL_LM_A1: f64 = -5335.0;
 pub const MSL_LM_B1: f64 = 62291.3;
 pub const MSL_LM_C: f64 = 16.44;
 
+/// The steam dome's internals as one heat structure (gh:#1037,
+/// `internals.rs`): steel mass, kg, wetted area, m^2, and gas-side heat
+/// transfer coefficient, W/(m^2 K). \[A\] all three: Unit 1's internals are
+/// not in a held source. The mass is the dryer, separators and shroud head
+/// scaled from public BWR/4 dryer masses (about 45 t) to a 460 MWe plant;
+/// the area is that steel at 3 mm (dryer vanes) to 10 mm (separators),
+/// both faces; h is low-velocity forced convection.
+pub const INTERNALS_KG: f64 = 5.0e4;
+pub const INTERNALS_AREA_M2: f64 = 2500.0;
+pub const INTERNALS_H: f64 = 10.0;
+
 /// RPV leak to the drywell once the core-exit gas is hot (instrument lines,
 /// SRV gaskets; the BSAF Unit 1 analyses needed such a path). \[A\] Opens above
 /// [`HOT_LEAK_GAS_K`] with throat [`HOT_LEAK_M2`].
@@ -531,6 +542,9 @@ params! {
     msl_lm_a1 = MSL_LM_A1, P,
     msl_lm_b1 = MSL_LM_B1, P,
     msl_lm_c = MSL_LM_C, P,
+    internals_kg = INTERNALS_KG, A,
+    internals_area_m2 = INTERNALS_AREA_M2, A,
+    internals_h = INTERNALS_H, A,
     lower_head_failure_k = LOWER_HEAD_FAILURE_K, A,
     breach_m2 = BREACH_M2, A,
     debris_quench_s = DEBRIS_QUENCH_S, A,
@@ -686,7 +700,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 115);
+        assert_eq!(Params::INPUTS.len(), 118);
     }
 
     /// The derived core inventories are the right size for a 400-bundle
