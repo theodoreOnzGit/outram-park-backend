@@ -78,7 +78,12 @@ nightly on `develop` (`.github/workflows/kovan-nightly-tests.yml`) or the
 suite is run when `develop` is merged into `main`:** run `kovan-cli test`
 (or Code Review's "Run workspace test") on the `develop` commit being
 merged, commit the `[test_run]` it writes into the `kovan.toml` files to
-`develop`, and merge that commit. A full run also clears what a targeted
+`develop`, and merge that commit. **No fail-fast** (maintainer,
+2026-10-29): every merge-to-`main` test run goes on past a failure, so one
+failing binary cannot hide the rest. `kovan-cli test` always passes
+`--no-fail-fast`, as do `full-tests.yml` and
+`scripts/njoy-ace-leapr-tests.sh`; the k-eff acceptance script runs every
+case whatever an earlier one gave. A full run also clears what a targeted
 run cannot: stamps on functions no test reaches.
 
 > Full opt-in policy, the historian's replacement history and the reasoning:
