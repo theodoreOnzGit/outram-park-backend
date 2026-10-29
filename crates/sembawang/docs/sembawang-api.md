@@ -2219,6 +2219,404 @@ pub mod bwr_mark1 { /* ... */ }
 
 ### Modules
 
+## Module `aerosol`
+
+Sectional aerosol dynamics for one well-mixed volume: agglomeration and
+gravitational settling (gh:#1047, first deliverable; not yet wired into
+the plant).
+
+**Kernels** are MELCOR's MAEROS kernels, from the description in its
+manual (Vol. 2, SAND2023-10994 O, RN §2.4.2 and Appendix B, which takes
+them from Powers, Sprung and Leigh; no source used):
+- Brownian, Fuchs' interpolation (Eqs B-1 to B-12);
+- gravitational, with the collision efficiency `1.5 d_j^2/(d_i+d_j)^2`
+  (Eqs B-13 to B-15, 2-38);
+- turbulent shear and inertial, combined in quadrature (B-16 to B-18);
+- their sum (Eq 2-40), all with MELCOR's defaults: shape factors 1,
+  sticking 1, slip 1.257, dissipation 0.001 m^2/s^3.
+
+Two lines of the extracted manual text are garbled and are pinned here
+by their limits instead of being trusted: Fuchs' factor `F` (B-4) is the
+**inverse** of its bracket, the only reading that gives the continuum
+limit `8kT/(3 mu)` for equal particles and the free-molecular limit
+`pi (d_i+d_j)^2 v_ij / 4`; and the mean free path (B-11) is
+`nu sqrt(1.89e-4 M_w / T)`, whose constant is `4 pi/(8 R 1000)` (about
+0.064 um in air at 298 K, the manual's text quoting about 0.069 um).
+The slip correction (B-3) is the form `changi::flexpart::aerosol::part0`
+also uses, computed inline there, so not reusable as a function.
+
+**Discretisation is not MAEROS's.** MAEROS uses Gelbard and Seinfeld's
+sectional coefficients, which the manual describes but does not give.
+This uses the open-literature semi-implicit, volume-conserving sectional
+scheme of Jacobson, Turco, Jensen and Toon (1994, *Atmos. Environ.* 28,
+1327), with representative volumes in a fixed ratio of at least 2 (the
+analogue of MAEROS's constraint `m_(i+1)/m_i > 2`, Eq 2-37). As in that
+scheme, particles that outgrow the top section stay in it; MELCOR's
+fallout of particles above the largest size is not built (stated).
+
+**Settling** (RN §2.4.2.2) removes each section at `v_grav A/V`, the
+Stokes velocity with the slip correction over the volume's floor area.
+Brownian diffusion to walls, thermophoresis and diffusiophoresis are not
+built yet.
+
+```rust
+pub mod aerosol { /* ... */ }
+```
+
+### Types
+
+#### Struct `Medium`
+
+The gas and the aerosol's material, and MELCOR's model constants.
+
+```rust
+pub struct Medium {
+    pub t_k: f64,
+    pub p_pa: f64,
+    pub molar_mass_g: f64,
+    pub mu_pa_s: f64,
+    pub rho_p: f64,
+    pub gamma: f64,
+    pub chi: f64,
+    pub sticking: f64,
+    pub slip: f64,
+    pub dissipation: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `t_k` | `f64` | Gas temperature, K, pressure, Pa, molar mass, g/mol, viscosity,<br>Pa s. |
+| `p_pa` | `f64` |  |
+| `molar_mass_g` | `f64` |  |
+| `mu_pa_s` | `f64` |  |
+| `rho_p` | `f64` | Particle material density, kg/m^3 (MELCOR's RHONOM default 1000). |
+| `gamma` | `f64` | Agglomeration and dynamic shape factors, sticking coefficient,<br>slip coefficient, turbulent dissipation, m^2/s^3 (MELCOR defaults:<br>1, 1, 1, 1.257, 0.001). |
+| `chi` | `f64` |  |
+| `sticking` | `f64` |  |
+| `slip` | `f64` |  |
+| `dissipation` | `f64` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn air(t_k: f64, p_pa: f64, mu_pa_s: f64) -> Self { /* ... */ }
+  ```
+  Air at `t_k` and `p_pa`, with MELCOR's default aerosol constants.
+
+- ```rust
+  pub fn rho_gas(self: &Self) -> f64 { /* ... */ }
+  ```
+  Gas density, kg/m^3 (Eq B-12).
+
+- ```rust
+  pub fn mean_free_path(self: &Self) -> f64 { /* ... */ }
+  ```
+  Mean free path, m (Eq B-11, read as `nu sqrt(1.89e-4 M/T)`).
+
+- ```rust
+  pub fn slip_correction(self: &Self, d: f64) -> f64 { /* ... */ }
+  ```
+  Slip correction of a particle of diameter `d` (Eq B-3).
+
+- ```rust
+  pub fn settling_velocity(self: &Self, d: f64) -> f64 { /* ... */ }
+  ```
+  Stokes terminal velocity with slip, m/s (Eq B-14, and the settling
+
+- ```rust
+  pub fn brownian(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
+  ```
+  Brownian kernel, m^3/s (Fuchs; Eqs B-1 to B-10).
+
+- ```rust
+  pub fn gravitational(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
+  ```
+  Gravitational kernel, m^3/s (Eqs B-13 to B-15).
+
+- ```rust
+  pub fn turbulent(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
+  ```
+  Turbulent kernel, shear and inertial in quadrature, m^3/s (Eqs B-16
+
+- ```rust
+  pub fn kernel(self: &Self, di: f64, dj: f64) -> f64 { /* ... */ }
+  ```
+  The total kernel (Eq 2-40).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Sections`
+
+A sectional size distribution in one well-mixed volume: representative
+particle volumes `v_k` (fixed ratio), and the aerosol volume
+concentration in each, m^3 of particle per m^3 of gas.
+
+```rust
+pub struct Sections {
+    pub v: Vec<f64>,
+    pub conc: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `v` | `Vec<f64>` |  |
+| `conc` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(d_min: f64, n: usize, ratio: f64) -> Self { /* ... */ }
+  ```
+  `n` sections from diameter `d_min` with particle-volume ratio
+
+- ```rust
+  pub fn diameter(self: &Self, k: usize) -> f64 { /* ... */ }
+  ```
+
+- ```rust
+  pub fn number(self: &Self, k: usize) -> f64 { /* ... */ }
+  ```
+  Number concentration in section `k`, 1/m^3.
+
+- ```rust
+  pub fn coagulate<F: Fn(usize, usize) -> f64>(self: &mut Self, dt: f64, beta: F) { /* ... */ }
+  ```
+  One semi-implicit coagulation step of `dt` s with the kernel
+
+- ```rust
+  pub fn settle(self: &mut Self, medium: &Medium, area: f64, volume: f64, dt: f64) -> f64 { /* ... */ }
+  ```
+  Gravitational settling for `dt` s onto a floor of `area` m^2 under a
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `compare`
 
 The Unit 1 comparison against BSAF Phase II, and the ablation table

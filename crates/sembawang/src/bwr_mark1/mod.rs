@@ -36,6 +36,7 @@
 //! Research, education and V&V only: never for operation, licensing, safety
 //! decisions or emergency response.
 
+pub mod aerosol;
 pub mod compare;
 pub mod containment;
 pub mod core;
