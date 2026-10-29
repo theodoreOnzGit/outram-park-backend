@@ -390,3 +390,64 @@ wrapper, follows upstream behaviour
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit 7a372a7c7f.
+
+# Review: becquerels_from_curies (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-becquerels-from-curies-theodoreonzgit-44fd31aa"
+kind = "review"
+origin = "human"
+created = "2026-10-29T15:17:45+08:00"
+modified = "2026-10-29T15:17:45+08:00"
+target = "fn:44fd31aa536c0e7c"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/mod.rs::becquerels_from_curies"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-29"
+signed_at = "2026-10-29T15:17:45+08:00"
+commit = "fb50ebbb8ccc6eafce4d692132c8c07c352471a9"
+hash = "sha256:7104d2332e8fdac8384e558146e0fd17ddc6de5ff99c23c6ad619fc88331a963"
+doc_hash = "sha256:c7acc82a7b4053df3285cd66c7b4e794961b5d2fe94123b6238faad24b398804"
+cargo_lock = "sha256:f98236dd033e5a874219475b1066e85b1068ae8fb68882c2c9732d8f6bc0f51e"
+
+[review.callees]
+"fn:672b140fc503762f" = "sha256:7cdec66678905becb105d95cc0922974e31363d078e8e18357228304ad8bce5f"
+"fn:e6c95a55e6568166" = "sha256:ea14821948029f3e6fad9e6158fe9078d576f804d7c111f2f14856b0c0fc6605"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: follows upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "guarded_panics_justified: follows upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "reference_code_to_code"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "F9XCLmNAsqpy33hoQLpG3Ac2gLibOVKG65xZ07q0BX2h9tbbzeRraAqTh+0paY/0KvQRkhXyFyJi5F6elDLOBw=="
+
+[[relation]]
+target = "concept:16-nuclear-fuel-cycle/fuel-depletion/decay-data"
+kind = "implements"
+```
+
+follows upstream behaviour,
+physically correct, basic decay
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit fb50ebbb8c.
