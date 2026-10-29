@@ -454,6 +454,15 @@ pub const DW_WALL_C: f64 = 5.0e8;
 /// of a light-bulb drywell's cylinder; in the turbulent regime that applies
 /// here it cancels.
 pub const DW_WALL_HEIGHT_M: f64 = 20.0;
+/// The torus shell above the pool (`Mechanisms::ww_shell`): area, m^2,
+/// heat capacity, J/K, and height, m. \[A\] all three, derived from the
+/// same assumed torus as `WW_POOL_SURFACE_M2` (15 m major radius, 4.15 m
+/// minor, 40 % full by volume, so 55 % of its 2458 m^2 above the water), a
+/// 15 mm carbon-steel shell (7850 kg/m^3, 500 J/(kg K)), and the gas
+/// space's height; the height cancels in the turbulent regime.
+pub const WW_SHELL_AREA_M2: f64 = 1353.0;
+pub const WW_SHELL_C: f64 = 7.96e7;
+pub const WW_SHELL_HEIGHT_M: f64 = 5.0;
 
 /// Drywell free volume, m^3. \[U\] about 3410 (KTH slides, simplyinfo).
 pub const DRYWELL_VOLUME_M3: f64 = 3410.0;
@@ -701,6 +710,9 @@ params! {
     dw_wall_h = DW_WALL_H, A,
     dw_wall_c = DW_WALL_C, A,
     dw_wall_height_m = DW_WALL_HEIGHT_M, A,
+    ww_shell_area_m2 = WW_SHELL_AREA_M2, A,
+    ww_shell_c = WW_SHELL_C, A,
+    ww_shell_height_m = WW_SHELL_HEIGHT_M, A,
     wetwell_gas_m3 = WETWELL_GAS_M3, P,
     pool_water_m3 = POOL_WATER_M3, P,
     containment_design_pa = CONTAINMENT_DESIGN_PA, P,
@@ -809,7 +821,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 139);
+        assert_eq!(Params::INPUTS.len(), 142);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

@@ -151,6 +151,10 @@ fn model() -> Histories {
 /// (`dw_wall_hs`): drywell 0.275/0.398 -> 0.278/0.400 MPa; RPV 3.535/6.624
 /// -> 3.540/6.632 MPa; envelopes the same.
 ///
+/// **Moved 2026-10-29 by the torus shell** (`ww_shell`; the vent 0.13 h
+/// later): drywell 0.278/0.400 -> 0.282/0.404 MPa; RPV 3.540/6.632 ->
+/// 3.547/6.642 MPa; drywell envelope 23.1 -> 22.0 %.
+///
 /// The measured series are the validation; the envelopes are a
 /// differential test against other codes, none of which is the truth.
 #[test]
@@ -168,10 +172,10 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // Pinned to the first run: a change to the model moves these, and the
     // move is then recorded here with its old and new value.
     assert_eq!((rpv.n, dw.n), (2, 33));
-    assert!((rpv.mean_abs - 3.5399).abs() < 1e-3 && (rpv.max_abs - 6.6318).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.2780).abs() < 1e-3 && (dw.max_abs - 0.4002).abs() < 1e-3, "{dw:?}");
+    assert!((rpv.mean_abs - 3.5468).abs() < 1e-3 && (rpv.max_abs - 6.6418).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.2820).abs() < 1e-3 && (dw.max_abs - 0.4042).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.0440) && near(e_dw, 0.2308) && near(e_h2, 0.0920) && near(e_xe, 0.8333) && near(e_i, 0.8750));
+    assert!(near(e_rpv, 0.0440) && near(e_dw, 0.2198) && near(e_h2, 0.0920) && near(e_xe, 0.8333) && near(e_i, 0.8750));
 }
 
 
@@ -370,7 +374,7 @@ fn cesium_against_fig_2_6() {
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -442,7 +446,7 @@ fn iodine_against_fig_2_6() {
     assert_eq!(b, (0.0, 76));
     assert!((d.0 - 0.0674).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell(),
         Params::default(),
         60.0,
         26.0 * 3600.0,

@@ -153,6 +153,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | A failed vessel's water drains through the breach (0.1 m \[A\]) to the pedestal; a node candled bare no longer divides 0/0 (defect) | F3, #1034 | 4.556 | 253.13 | missed (predicted drywell peak up 0.02-0.1 MPa): 0.58922 -> 0.58863 MPa; the no-radiation ablation no longer goes NaN after a wet failure |
 | Wetwell atmosphere with its own temperature and steam: MELCOR's pool-surface exchange (CVH/FL RM §5.1) and bubble model (ε_z ε_T, §6.1), NCG/H2O default properties | F12, #1053 | 4.556 | 253.13 | missed (predicted drywell peak within 0.01 MPa): 0.58863 -> 0.56194 MPa; with no gas bubbling after about 8 h the gas lags the pool (RH about 0.87 at 22 h), wetwell 22 kPa lower; measured drywell mean miss 0.263 -> 0.275 MPa; 0-500 h mean 0.1672 -> 0.1677 MPa |
 | Drywell structures as MELCOR's heat-structure surface: natural convection (HS Table 2.3) and diffusion-limited condensation (Eq 2-136), latent heat into the wall, replacing a fixed 20 W/m²K \[A\] | F6, #1037 | 4.556 | 253.13 | inside the predicted range (-0.02 to +0.06 MPa), sign missed: drywell peak 0.56194 -> 0.56080 MPa, vent 23.73 -> 23.89 h; measured drywell mean miss 0.275 -> 0.278 MPa; Cs on dw structures inside 80 -> 83 % |
+| Torus shell above the pool as a heat structure on the wetwell atmosphere (1353 m², 7.96e7 J/K \[A\], adiabatic outside) | F6, #1037 | 4.556 | 253.13 | peak held (set by the rupture disk: unchanged to 1e-6 MPa); vent 23.89 -> 24.01 h (predicted within 0.1 h: missed by 0.03 h); measured drywell mean miss 0.278 -> 0.282 MPa |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently
@@ -234,8 +235,9 @@ envelope 94 % of the time.
   (`ww_atmosphere`, `pool_surface.rs`): the wetwell atmosphere has its own
   temperature and steam; the pool surface follows CVH/FL RM §5.1 (Eqs
   5-1 to 5-23) and the bubbles §6.1 (ε_z ε_T, 0.99 relative humidity),
-  with MELCOR's NCG/H2O default properties. The torus shell is still not
-  a heat structure.
+  with MELCOR's NCG/H2O default properties. ~~The torus shell is still not
+  a heat structure.~~ The shell above the pool is one since 2026-10-29
+  (`ww_shell`, geometry \[A\]).
 - **F11 can change nothing yet.** No hydrogen reaches the building, because
   the drywell (0.56 MPa) never reaches the flange-leak pressure (0.75 MPa \[A\]).
   The upstream lever is drywell pressure, F8 (MCCI gas). That needs a heat of

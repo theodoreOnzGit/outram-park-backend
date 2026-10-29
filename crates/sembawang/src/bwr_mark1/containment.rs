@@ -20,8 +20,10 @@
 //!   space has its own temperature and steam, exchanging mass and energy
 //!   with the pool at its surface and with the bubbles leaving it
 //!   ([`super::pool_surface`]: MELCOR CVH/FL RM §5.1 and §6.1); the old
-//!   equilibrium is the ablation. The torus shell is not a heat structure
-//!   (stated). Cost: the 30 h headless run 7.8 -> 11.1 s.
+//!   equilibrium is the ablation. ~~The torus shell is not a heat structure
+//!   (stated).~~ The torus shell above the pool is a heat structure on it
+//!   since 2026-10-29 (`Mechanisms::ww_shell`, its geometry \[A\], its outer
+//!   face adiabatic). Cost: the 30 h headless run 7.8 -> 11.1 s.
 //! - **Downcomers**: drywell gas pushed into the pool once the drywell
 //!   exceeds the wetwell by the submergence head; the steam condenses in the
 //!   pool, the nitrogen and hydrogen bubble through into the wetwell gas at
@@ -157,6 +159,9 @@ pub struct ContainmentSnapshot {
     /// convection and diffusion-limited condensation (`Mechanisms::
     /// dw_wall_hs`); false is the fixed coefficient `dw_wall_h`.
     pub dw_wall_hs: bool,
+    /// The torus shell above the pool as a heat structure on the wetwell
+    /// atmosphere (`Mechanisms::ww_shell`; needs `ww_atmosphere`).
+    pub ww_shell: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -263,6 +268,8 @@ pub struct Containment {
     /// saturated, and these are unused.
     ww_steam_kg: f64,
     ww_t: f64,
+    /// The torus shell's temperature above the pool, K (`ww_shell`).
+    ww_shell_t: f64,
     /// Whether this step carries the wetwell atmosphere (not state: set
     /// from the snapshot at each step).
     ww_atm: bool,
@@ -333,6 +340,7 @@ impl Containment {
             pool_scrubbed: [0.0; N_CLASSES + 1],
             ww_steam_kg: p_sat_pa(prm.initial_pool_k) * prm.wetwell_gas_m3 * M_H2O / (R_GAS * prm.initial_pool_k),
             ww_t: prm.initial_pool_k,
+            ww_shell_t: prm.initial_pool_k,
             ww_atm: false,
             dw_hs: false,
         }
@@ -356,6 +364,36 @@ impl Containment {
     fn dw_wall_surface(&self, prm: &Params) -> (f64, f64) {
         let atm = pool_surface::Atmosphere { t_k: self.dw_t, p_pa: self.p_dw(prm), n_steam: self.dw_steam_kg / M_H2O, n_n2: self.dw_n2, n_h2: self.dw_h2 };
         pool_surface::structure_surface(&atm, self.dw_wall_t, prm.dw_wall_height_m)
+    }
+    /// The torus shell above the pool as MELCOR's heat-structure surface
+    /// ([`pool_surface::structure_surface`]): steam condenses on it by
+    /// diffusion, its latent heat into the shell, the condensate draining
+    /// to the pool at the shell's temperature (no film kept), at most 90 %
+    /// of the steam in a step; then the shell and the gas exchange heat by
+    /// natural convection, implicitly in the two temperatures (as the
+    /// drywell's wall). Its outer face is adiabatic (stated: the torus room
+    /// is not modelled).
+    fn ww_shell_step(&mut self, prm: &Params, tv: bool, dt: f64) {
+        let atm = pool_surface::Atmosphere { t_k: self.ww_t, p_pa: self.p_ww(prm), n_steam: self.ww_steam_kg / M_H2O, n_n2: self.ww_n2, n_h2: self.ww_h2 };
+        let (h, m_flux) = pool_surface::structure_surface(&atm, self.ww_shell_t, prm.ww_shell_height_m);
+        let m = (m_flux * prm.ww_shell_area_m2 * dt).min(0.9 * self.ww_steam_kg);
+        if m > 0.0 {
+            let h_g = pool_surface::steam_h(self.ww_t);
+            let h_l = CP_WATER * (self.ww_shell_t - 273.15);
+            let e = self.ww_energy(tv) - m * h_g;
+            self.ww_steam_kg -= m;
+            self.set_ww_energy(e, tv);
+            self.ww_shell_t += m * (h_g - h_l) / prm.ww_shell_c;
+            let e_p = self.pool_energy() + m * h_l;
+            self.pool_kg += m;
+            self.set_pool_energy(e_p);
+        }
+        let k = prm.ww_shell_area_m2 * h * dt;
+        let c_gas = self.ww_heat_capacity(tv);
+        let q = k * (self.ww_t - self.ww_shell_t) / (1.0 + k / c_gas + k / prm.ww_shell_c);
+        let e = self.ww_energy(tv) - q;
+        self.set_ww_energy(e, tv);
+        self.ww_shell_t += q / prm.ww_shell_c;
     }
     fn ww_moles(&self) -> f64 {
         self.ww_n2 + self.ww_h2 + self.ww_steam_kg / M_H2O
@@ -827,9 +865,13 @@ impl Containment {
             self.dw_h2 += dh2;
             self.set_dw_energy(e, tv);
         }
-        // 5c. The pool surface (`ww_atmosphere`).
+        // 5c. The pool surface (`ww_atmosphere`), and the torus shell
+        //     above it (`ww_shell`).
         if self.ww_atm {
             self.pool_surface_step(prm, tv, dt);
+            if s.ww_shell {
+                self.ww_shell_step(prm, tv, dt);
+            }
         }
         // 6. Wetwell vent through the rupture disk.
         let p_ww = self.p_ww(prm);
@@ -1233,6 +1275,7 @@ impl Containment {
             self.iodine_swarm_age_s,
             self.ww_steam_kg,
             self.ww_t,
+            self.ww_shell_t,
         ]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
@@ -1278,6 +1321,7 @@ impl Containment {
             pool_scrubbed: [0.0; N_CLASSES + 1],
             ww_steam_kg: r.f(),
             ww_t: r.f(),
+            ww_shell_t: r.f(),
             ww_atm: false,
             dw_hs: false,
         };
@@ -1330,6 +1374,7 @@ impl ContainmentSnapshot {
             self.q_chalcogen_w,
             b(self.ww_atmosphere),
             b(self.dw_wall_hs),
+            b(self.ww_shell),
         ]);
         self.rn_relief.write(w);
         self.rn_leak.write(w);
@@ -1374,6 +1419,7 @@ impl ContainmentSnapshot {
             q_chalcogen_w: r.f(),
             ww_atmosphere: r.f() != 0.0,
             dw_wall_hs: r.f() != 0.0,
+            ww_shell: r.f() != 0.0,
             rn_relief: RnFlow::read(r),
             rn_leak: RnFlow::read(r),
             prm: Params::read(r),

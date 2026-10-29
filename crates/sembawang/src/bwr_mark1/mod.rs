@@ -277,6 +277,11 @@ pub struct Mechanisms {
     /// (2026-10-29). Off is the fixed 20 W/(m^2 K) \[A\] and condensation
     /// only of supersaturated steam.
     pub dw_wall_hs: bool,
+    /// The torus shell above the pool as a heat structure on the wetwell
+    /// atmosphere: MELCOR's natural convection and condensation, its outer
+    /// face adiabatic (2026-10-29; needs `ww_atmosphere`). Off is no
+    /// structure in the wetwell gas.
+    pub ww_shell: bool,
 }
 
 impl Default for Mechanisms {
@@ -322,6 +327,7 @@ impl Default for Mechanisms {
             failed_vessel_drain: true,
             ww_atmosphere: true,
             dw_wall_hs: true,
+            ww_shell: true,
         }
     }
 }
@@ -585,6 +591,12 @@ impl Mechanisms {
     /// 2026-10-29.
     pub fn without_dw_wall_hs(mut self) -> Self {
         self.dw_wall_hs = false;
+        self
+    }
+
+    /// No structure in the wetwell gas: the model before 2026-10-29.
+    pub fn without_ww_shell(mut self) -> Self {
+        self.ww_shell = false;
         self
     }
 
@@ -1307,6 +1319,7 @@ impl Plant {
                 q_chalcogen_w,
                 ww_atmosphere: self.mechanisms.ww_atmosphere,
                 dw_wall_hs: self.mechanisms.dw_wall_hs,
+                ww_shell: self.mechanisms.ww_shell,
                 rn_relief: rn_relief.clone(),
                 rn_leak: rn_leak.clone(),
                 prm,
@@ -1994,10 +2007,12 @@ mod tests {
         // 1e-9). Since the wetwell atmosphere (2026-10-29) the vent passes
         // only the gas the atmosphere holds (the pool no longer boils on
         // demand to feed it): at 26 h 9.9e-6 is still in the drywell and
-        // 1.3e-5 in the wetwell gas (were under 1e-9 and 1.4e-8).
+        // 1.3e-5 in the wetwell gas (were under 1e-9 and 1.4e-8); with the
+        // torus shell, which opens the vent 0.13 h later, 2.65e-5 and
+        // 2.39e-5.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 2e-5 && k.xe_ww < 2e-5 && k.xe_building == 0.0, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 4e-5 && k.xe_ww < 4e-5 && k.xe_building == 0.0, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;

@@ -3983,8 +3983,10 @@ The Mark I containment and the reactor building. This is what the
   space has its own temperature and steam, exchanging mass and energy
   with the pool at its surface and with the bubbles leaving it
   ([`super::pool_surface`]: MELCOR CVH/FL RM §5.1 and §6.1); the old
-  equilibrium is the ablation. The torus shell is not a heat structure
-  (stated). Cost: the 30 h headless run 7.8 -> 11.1 s.
+  equilibrium is the ablation. ~~The torus shell is not a heat structure
+  (stated).~~ The torus shell above the pool is a heat structure on it
+  since 2026-10-29 (`Mechanisms::ww_shell`, its geometry \[A\], its outer
+  face adiabatic). Cost: the 30 h headless run 7.8 -> 11.1 s.
 - **Downcomers**: drywell gas pushed into the pool once the drywell
   exceeds the wetwell by the submergence head; the steam condenses in the
   pool, the nitrogen and hydrogen bubble through into the wetwell gas at
@@ -4056,6 +4058,7 @@ pub struct ContainmentSnapshot {
     pub q_chalcogen_w: f64,
     pub ww_atmosphere: bool,
     pub dw_wall_hs: bool,
+    pub ww_shell: bool,
     pub prm: Params,
 }
 ```
@@ -4103,6 +4106,7 @@ pub struct ContainmentSnapshot {
 | `q_chalcogen_w` | `f64` | And the chalcogens' (Te/Se), when tellurium is transported<br>(`Mechanisms::te_transport`). |
 | `ww_atmosphere` | `bool` | The wetwell atmosphere has its own temperature and steam, and<br>exchanges mass and energy with the pool at its surface and with the<br>bubbles leaving the pool (`Mechanisms::ww_atmosphere`). |
 | `dw_wall_hs` | `bool` | The drywell structures as MELCOR's heat-structure surface: natural<br>convection and diffusion-limited condensation (`Mechanisms::<br>dw_wall_hs`); false is the fixed coefficient `dw_wall_h`. |
+| `ww_shell` | `bool` | The torus shell above the pool as a heat structure on the wetwell<br>atmosphere (`Mechanisms::ww_shell`; needs `ww_atmosphere`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -7027,6 +7031,9 @@ pub struct Params {
     pub dw_wall_h: f64,
     pub dw_wall_c: f64,
     pub dw_wall_height_m: f64,
+    pub ww_shell_area_m2: f64,
+    pub ww_shell_c: f64,
+    pub ww_shell_height_m: f64,
     pub wetwell_gas_m3: f64,
     pub pool_water_m3: f64,
     pub containment_design_pa: f64,
@@ -7174,6 +7181,9 @@ pub struct Params {
 | `dw_wall_h` | `f64` |  |
 | `dw_wall_c` | `f64` |  |
 | `dw_wall_height_m` | `f64` |  |
+| `ww_shell_area_m2` | `f64` |  |
+| `ww_shell_c` | `f64` |  |
+| `ww_shell_height_m` | `f64` |  |
 | `wetwell_gas_m3` | `f64` |  |
 | `pool_water_m3` | `f64` |  |
 | `containment_design_pa` | `f64` |  |
@@ -8443,6 +8453,31 @@ here it cancels.
 
 ```rust
 pub const DW_WALL_HEIGHT_M: f64 = 20.0;
+```
+
+#### Constant `WW_SHELL_AREA_M2`
+
+The torus shell above the pool (`Mechanisms::ww_shell`): area, m^2,
+heat capacity, J/K, and height, m. \[A\] all three, derived from the
+same assumed torus as `WW_POOL_SURFACE_M2` (15 m major radius, 4.15 m
+minor, 40 % full by volume, so 55 % of its 2458 m^2 above the water), a
+15 mm carbon-steel shell (7850 kg/m^3, 500 J/(kg K)), and the gas
+space's height; the height cancels in the turbulent regime.
+
+```rust
+pub const WW_SHELL_AREA_M2: f64 = 1353.0;
+```
+
+#### Constant `WW_SHELL_C`
+
+```rust
+pub const WW_SHELL_C: f64 = 7.96e7;
+```
+
+#### Constant `WW_SHELL_HEIGHT_M`
+
+```rust
+pub const WW_SHELL_HEIGHT_M: f64 = 5.0;
 ```
 
 #### Constant `DRYWELL_VOLUME_M3`
@@ -11862,6 +11897,7 @@ pub struct Mechanisms {
     pub failed_vessel_drain: bool,
     pub ww_atmosphere: bool,
     pub dw_wall_hs: bool,
+    pub ww_shell: bool,
 }
 ```
 
@@ -11909,6 +11945,7 @@ pub struct Mechanisms {
 | `failed_vessel_drain` | `bool` | A failed vessel's water drains through the breach into the<br>pedestal (2026-10-29; MELCOR opens a lower-plenum flow path at<br>failure). Off is the water kept in the failed vessel. |
 | `ww_atmosphere` | `bool` | The wetwell atmosphere has its own temperature and steam: MELCOR's<br>pool-surface exchange (CVH/FL RM §5.1) and bubble model at the vents<br>(§6.1, the efficiency `epsilon_z epsilon_T`), flashing, and the vent<br>and vacuum breakers passing the atmosphere as it is (2026-10-29). Off<br>is the gas at the pool's temperature, saturated. |
 | `dw_wall_hs` | `bool` | The drywell structures as MELCOR's heat-structure surface (HS RM<br>§2.6.1, §2.7): natural convection and condensation by diffusion<br>through the non-condensables, its latent heat into the wall<br>(2026-10-29). Off is the fixed 20 W/(m^2 K) \[A\] and condensation<br>only of supersaturated steam. |
+| `ww_shell` | `bool` | The torus shell above the pool as a heat structure on the wetwell<br>atmosphere: MELCOR's natural convection and condensation, its outer<br>face adiabatic (2026-10-29; needs `ww_atmosphere`). Off is no<br>structure in the wetwell gas. |
 
 ##### Implementations
 
@@ -12108,6 +12145,11 @@ pub struct Mechanisms {
   pub fn without_dw_wall_hs(self: Self) -> Self { /* ... */ }
   ```
   The drywell structures with the fixed coefficient: the model before
+
+- ```rust
+  pub fn without_ww_shell(self: Self) -> Self { /* ... */ }
+  ```
+  No structure in the wetwell gas: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
