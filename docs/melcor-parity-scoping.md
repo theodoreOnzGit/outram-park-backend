@@ -231,7 +231,7 @@ Tier key, used throughout:
 | **COR** | Rod heatup, Zr–steam oxidation + H2 + exotherm, candling, relocation, rubble, molten pool, eutectics, support failure | `outram-park-fork-offbeat` | **A** for two oxidation branches only, **C** for everything degraded | ~5 % |
 | **BH** (1.8.x) / lower head | Penetration failure, creep rupture, vessel breach | `offbeat::rheology::aster` | **B** — laws exist, unwired, no vessel steels | ~15 % |
 | **RN** | FP release (CORSOR/Booth), 17 RN classes, MAEROS aerosol dynamics, vapour condensation, chemisorption, pool scrubbing, iodine chemistry | `boon-lay` (TRISO Booth release), `outram-park-fork-onix` (CRAM) | **A** for Booth release + CRAM solver, **C** for all transport | ~10 % |
-| **DCH** | ANS-5.1 curve + isotopic decay power | `teh-o-prke/src/decay_heat.rs` | **B** — present and self-flagged buggy | ~10 % |
+| **DCH** | ANS-5.1 curve + isotopic decay power | `teh-o-prke/src/decay_heat.rs` | ~~**B** — present and self-flagged buggy~~ **CORRECTED 2026-10-29 (gh:#1041): A** for the 1978 draft ANS 23-group fit (rewritten 2026-08-11, `734a53075`, 7 tests incl. the published integral equation), **C** for ANS-5.1 proper and isotopic decay power | ~~~10 %~~ ~30 % |
 | **CAV** | CORCON concrete ablation, crust, gas release; VANESA melt aerosol release | `outram-park-fork-thermochimica` (minimiser skeleton) | **C** | ~2 % |
 | **BUR** | H2/CO deflagration, ignition criteria, flame speed, burn propagation between volumes, DDT | one global Arrhenius source in `reacting_two_phase_euler_foam` | **C** | ~1 % |
 | **FDI** | Fuel dispersal, debris quench, FCI energetics | `outram-foam-multiphase` (CHF, wall boiling, dryout, drift flux, two-fluid — 7 kLOC), `genfoam` two-phase closures | **B** | ~15 % |
@@ -560,8 +560,19 @@ covering **every** `MatrixGraphite` and `StructuralGraphite` arm. Any transport
 of a fission product out of a pebble and into the coolant panics. Two more are
 self-flagged: `get_decay_info/mod.rs:140,230` — `todo!("code is buggy!")`.
 
-**DCH — present, self-flagged buggy, confirmed verbatim.**
-`crates/teh-o-prke/src/decay_heat.rs:12-14`:
+~~**DCH — present, self-flagged buggy, confirmed verbatim.**~~
+
+> **CORRECTED 2026-10-29 (gh:#1041).** True on 2026-08-07, superseded four
+> days later. `734a53075` (2026-08-11) rewrote `decay_heat.rs` as the
+> **23-group 1978 draft ANS Standard** fit (U-235 thermal, U-238 fast and
+> Pu-239 thermal cases; mixtures by summing instances), with **7 tests**,
+> including one against the published constant-irradiation integral
+> equation. The "slightly buggy" comment is gone. Checked against the file
+> on the date above. Still true below: ANS-5.1 proper (a purchased
+> standard, §1.7) and nuclide-by-nuclide decay power are not implemented.
+> The original evidence follows, kept as the record.
+
+`crates/teh-o-prke/src/decay_heat.rs:12-14` (as of 2026-08-07):
 
 ```
 /// i think this is slightly buggy, need to change code
@@ -1079,7 +1090,7 @@ parallel with anything.
 |---|---|---|---|
 | **0** | Decide the crate. A new lumped-parameter crate — deliberately **not** mesh-based — consuming `tampines-steam-tables` + `coolprop` for EOS and `teh-o-prke` for kinetics. Ingest the public manuals via `kovan`. File the epic and child issues. | — | Also: settle the `uom`-at-the-boundary / scaled-residual-inside pattern (§4.1) *before* writing the solver |
 | **1** | **CVH/CVT/FL/HS core** + **the executive, restart and plot files** | 0 | The big one. Read CFAST (§1.5). **First task: evaluate `dwsim-libs`'s flash as the CVH thermodynamic kernel** rather than writing one (§4.1). Restart is not a phase-2 item |
-| **2** | **DCH** — fix `decay_heat.rs`, add ANS-5.1, add open decay/yield data, wire ONIX | 1 | Cheapest real capability |
+| **2** | **DCH** — ~~fix `decay_heat.rs`,~~ (done 2026-08-11, `734a53075`) add ANS-5.1, add open decay/yield data, wire ONIX | 1 | Cheapest real capability |
 | **3** | **COR-lite** — heatup, oxidation with H2 and exotherm, no relocation. Fix `kinetics.rs:684-703` | 1 | Delivers MELCOR-lite together with phase 4 |
 | **4** | **BUR-lite + ESF-lite** | 1 | Cantera-backed. **MELCOR-lite is complete here** |
 | **5** | **RN** — release correlations, classes, then port AeroSolved's sectional method onto lumped CVs; verify against PartMC | 2 | The largest tractable block |
