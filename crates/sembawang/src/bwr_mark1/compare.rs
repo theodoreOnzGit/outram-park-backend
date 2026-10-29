@@ -212,6 +212,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without core-top radiation", all.without_core_top_radiation()),
         ("without see-through radiation", all.without_see_through()),
         ("without MCCI", all.without_mcci()),
+        ("without drywell outer heat path", all.without_dw_wall_outer()),
     ]
 }
 
@@ -1036,6 +1037,15 @@ mod tests {
     /// predicted 100-500 kg of extra H2 held (271). `without_mcci`
     /// reproduces the previous baseline exactly (pinned below).
     ///
+    /// **Moved again 2026-10-29** (the drywell structures' outer heat path:
+    /// across the shell-to-concrete gap by gas conduction and gray
+    /// radiation into a 1-D, 1.5 m concrete slab to the reactor building,
+    /// `dw_wall_outer`, all \[A\]): drywell peak 0.77351 -> 0.68843 MPa, the
+    /// flange leak no longer opens; lower head 4.6231 -> 4.6225 h, H2 226.85
+    /// -> 226.71 kg. Predicted the peak down 0.03-0.10 MPa: **held**
+    /// (-0.085). `without_dw_wall_outer` reproduces the previous baseline
+    /// exactly (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -1044,55 +1054,58 @@ mod tests {
         let m = measure(Mechanisms::default());
         // The earlier models below are reproduced with the fission
         // products' decay heat left in the core, as it was then.
-        let base = Mechanisms::default().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci();
+        let base = Mechanisms::default().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer();
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 4.6231, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 4.6231, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 226.85).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.77350757).abs() < 1e-8, "{m:?}");
+        assert!(near(m.lower_head_h, 4.6225, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.6225, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 226.71).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.68842913).abs() < 1e-8, "{m:?}");
+        // The structures adiabatic outside: the previous baseline, exactly.
+        let wo = measure(Mechanisms::default().without_dw_wall_outer());
+        assert!((wo.p_dw_peak_mpa - 0.77350757).abs() < 1e-8 && (wo.h2_25h_kg - 226.85).abs() < 0.01, "{wo:?}");
         // No core-concrete interaction: the previous baseline, exactly.
-        let mc = measure(Mechanisms::default().without_mcci());
+        let mc = measure(Mechanisms::default().without_mcci().without_dw_wall_outer());
         assert!((mc.p_dw_peak_mpa - 0.56765688).abs() < 1e-8 && (mc.uo2_released_25h_kg - 6.598).abs() < 0.01, "{mc:?}");
         // No view across emptied cells: the previous baseline, exactly.
-        let st = measure(Mechanisms::default().without_see_through().without_mcci());
+        let st = measure(Mechanisms::default().without_see_through().without_mcci().without_dw_wall_outer());
         assert!((st.h2_25h_kg - 226.81).abs() < 0.01 && (st.p_dw_peak_mpa - 0.56772094).abs() < 1e-8, "{st:?}");
         // The top of the core exchanging nothing: the previous baseline,
         // exactly.
-        let tr = measure(Mechanisms::default().without_core_top_radiation().without_see_through().without_mcci());
+        let tr = measure(Mechanisms::default().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!((tr.h2_25h_kg - 227.86).abs() < 0.01 && (tr.p_dw_peak_mpa - 0.57458213).abs() < 1e-8, "{tr:?}");
         // The internals not radiating: the previous baseline, exactly.
-        let ir = measure(Mechanisms::default().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let ir = measure(Mechanisms::default().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(ir.lower_head_h, 4.6236, 0.001) && (ir.h2_25h_kg - 228.61).abs() < 0.01, "{ir:?}");
         assert!((ir.p_dw_peak_mpa - 0.57523829).abs() < 1e-8, "{ir:?}");
         // No RPV wall: the previous baseline, exactly.
-        let rw = measure(Mechanisms::default().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let rw = measure(Mechanisms::default().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(rw.lower_head_h, 4.5558, 0.001) && (rw.h2_25h_kg - 253.13).abs() < 0.01, "{rw:?}");
         assert!((rw.p_dw_peak_mpa - 0.58660172).abs() < 1e-8 && (rw.uo2_released_25h_kg - 4.891).abs() < 0.01, "{rw:?}");
         // The drywell's condensate leaving the model: the previous
         // baseline, exactly.
-        let cf = measure(Mechanisms::default().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let cf = measure(Mechanisms::default().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!((cf.p_dw_peak_mpa - 0.56658590).abs() < 1e-8, "{cf:?}");
         // The relief valves' hydrogen at the pool's temperature: the
         // previous baseline, exactly.
-        let rh = measure(Mechanisms::default().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let rh = measure(Mechanisms::default().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!((rh.p_dw_peak_mpa - 0.56640504).abs() < 1e-8, "{rh:?}");
         // Drywell outflows at internal energy: the previous baseline, exactly.
-        let of = measure(Mechanisms::default().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let of = measure(Mechanisms::default().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!((of.p_dw_peak_mpa - 0.56079765).abs() < 1e-8 && near(of.vent_h, 24.0133, 0.001), "{of:?}");
         // No torus shell: the previous baseline, exactly.
-        let sh = measure(Mechanisms::default().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let sh = measure(Mechanisms::default().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!((sh.p_dw_peak_mpa - 0.56079836).abs() < 1e-8 && near(sh.vent_h, 23.8872, 0.001), "{sh:?}");
         // The drywell structures with the fixed coefficient: the previous
         // baseline, exactly.
-        let hs = measure(Mechanisms::default().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let hs = measure(Mechanisms::default().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!((hs.p_dw_peak_mpa - 0.56194352).abs() < 1e-8 && near(hs.vent_h, 23.7336, 0.001), "{hs:?}");
         // The wetwell gas at the pool's temperature, saturated: the previous
         // baseline, exactly.
-        let wa = measure(Mechanisms::default().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let wa = measure(Mechanisms::default().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(wa.lower_head_h, 4.5558, 0.001) && (wa.h2_25h_kg - 253.13).abs() < 0.01, "{wa:?}");
         assert!((wa.p_dw_peak_mpa - 0.58862947).abs() < 1e-8 && near(wa.vent_h, 23.7336, 0.001), "{wa:?}");
         // The failed vessel keeping its water: the previous baseline, exactly.
-        let dr = measure(Mechanisms::default().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let dr = measure(Mechanisms::default().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(dr.lower_head_h, 4.5558, 0.001) && (dr.h2_25h_kg - 253.13).abs() < 0.01, "{dr:?}");
         assert!((dr.p_dw_peak_mpa - 0.58922450).abs() < 1e-8 && (dr.fp_released_25h - 0.9955).abs() < 1e-4, "{dr:?}");
         assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
@@ -1100,7 +1113,7 @@ mod tests {
         // No wet head contact: the previous baseline, exactly (penetration
         // coverage then binds nowhere: the bed is deeper than the bottom
         // level by the time the plenum dries).
-        let wh = measure(Mechanisms::default().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let wh = measure(Mechanisms::default().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(wh.lower_head_h, 4.7364, 0.001) && near(wh.depressurised_h, 4.6206, 0.001), "{wh:?}");
         assert!((wh.h2_25h_kg - 395.54).abs() < 0.01 && (wh.p_dw_peak_mpa - 0.72921107).abs() < 1e-8, "{wh:?}");
         assert!((wh.fp_released_25h - 0.9978).abs() < 1e-4 && (wh.uo2_released_25h_kg - 3.949).abs() < 0.01, "{wh:?}");
@@ -1110,26 +1123,27 @@ mod tests {
         // and 77.33 kg since the internals radiate; 3.6358 h and 77.38 kg on
         // the one steel emissivity; 3.6356 h and 77.20 kg since the top of
         // the core radiates; with MCCI it vents at the order, 23.73 h, where
-        // it did not vent before).
+        // it did not vent before; 3.6353 h and 77.10 kg with the drywell's
+        // outer heat path).
         let nc = measure(Mechanisms::default().without_penetration_coverage());
-        assert!(near(nc.lower_head_h, 3.6356, 0.001) && (nc.h2_25h_kg - 77.20).abs() < 0.01 && near(nc.vent_h, 23.7336, 0.001), "{nc:?}");
+        assert!(near(nc.lower_head_h, 3.6353, 0.001) && (nc.h2_25h_kg - 77.10).abs() < 0.01 && near(nc.vent_h, 23.7336, 0.001), "{nc:?}");
         // MELCOR's quench off: the baseline before it, exactly.
-        let dq = measure(Mechanisms::default().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let dq = measure(Mechanisms::default().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(dq.lower_head_h, 5.3144, 0.001) && near(dq.depressurised_h, 4.5206, 0.001), "{dq:?}");
         assert!((dq.h2_25h_kg - 441.97).abs() < 0.01 && (dq.p_dw_peak_mpa - 0.70450517).abs() < 1e-8, "{dq:?}");
         assert!((dq.fp_released_25h - 0.9911).abs() < 1e-4 && (dq.uo2_released_25h_kg - 2.780).abs() < 0.01, "{dq:?}");
         // No candling: the baseline before it, exactly.
-        let cd = measure(Mechanisms::default().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let cd = measure(Mechanisms::default().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(cd.lower_head_h, 4.4831, 0.001) && near(cd.depressurised_h, 4.4489, 0.001), "{cd:?}");
         assert!((cd.h2_25h_kg - 313.43).abs() < 0.01 && (cd.p_dw_peak_mpa - 0.62303386).abs() < 1e-8, "{cd:?}");
         assert!((cd.fp_released_25h - 0.8109).abs() < 1e-4 && (cd.uo2_released_25h_kg - 3.516).abs() < 0.01, "{cd:?}");
         // No debris oxidation: the baseline before it, exactly.
-        let dox = measure(Mechanisms::default().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let dox = measure(Mechanisms::default().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(dox.lower_head_h, 4.5172, 0.001) && near(dox.depressurised_h, 4.4497, 0.001), "{dox:?}");
         assert!((dox.h2_25h_kg - 305.64).abs() < 0.01 && (dox.p_dw_peak_mpa - 0.60869364).abs() < 1e-8, "{dox:?}");
         assert!((dox.fp_released_25h - 0.7977).abs() < 1e-4 && (dox.uo2_released_25h_kg - 3.645).abs() < 0.01, "{dox:?}");
         // No tellurium transport: the baseline before it, exactly.
-        let te = measure(Mechanisms::default().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci());
+        let te = measure(Mechanisms::default().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer());
         assert!(near(te.lower_head_h, 4.5239, 0.001) && near(te.depressurised_h, 4.4361, 0.001), "{te:?}");
         assert!((te.h2_25h_kg - 304.26).abs() < 0.01 && (te.p_dw_peak_mpa - 0.61279710).abs() < 1e-8, "{te:?}");
         assert!((te.fp_released_25h - 0.7967).abs() < 1e-4 && (te.uo2_released_25h_kg - 3.327).abs() < 0.01, "{te:?}");
@@ -1338,7 +1352,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 50);
+        assert_eq!(runs.len(), 51);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -1397,6 +1411,7 @@ mod tests {
         assert!(!ablations()[47].1.core_top_radiation && ablations()[47].1.internals_radiation);
         assert!(!ablations()[48].1.see_through && ablations()[48].1.core_top_radiation);
         assert!(!ablations()[49].1.mcci && ablations()[49].1.see_through);
+        assert!(!ablations()[50].1.dw_wall_outer && ablations()[50].1.mcci);
     }
 
     /// The verdict reads a value against its band.

@@ -498,6 +498,19 @@ pub const DW_WALL_C: f64 = 5.0e8;
 /// of a light-bulb drywell's cylinder; in the turbulent regime that applies
 /// here it cancels.
 pub const DW_WALL_HEIGHT_M: f64 = 20.0;
+/// The drywell structures' outer heat path (`Mechanisms::dw_wall_outer`):
+/// the gap between the steel shell and the concrete around it, m, and the
+/// emissivity of its two faces; the concrete's thickness, m, and
+/// conductivity, W/(m K); and the coefficient from its outer face to the
+/// reactor building's air, W/(m^2 K). \[A\] all five: a Mark I shell
+/// stands a few centimetres off its concrete; oxidised steel and concrete
+/// near 0.8; 1.5 m of biological shield; ordinary concrete's
+/// conductivity; natural convection to still air.
+pub const DW_GAP_M: f64 = 0.05;
+pub const DW_GAP_EMISSIVITY: f64 = 0.8;
+pub const DW_CONCRETE_M: f64 = 1.5;
+pub const CONCRETE_K: f64 = 1.4;
+pub const RB_WALL_H: f64 = 5.0;
 /// The torus shell above the pool (`Mechanisms::ww_shell`): area, m^2,
 /// heat capacity, J/K, and height, m. \[A\] all three, derived from the
 /// same assumed torus as `WW_POOL_SURFACE_M2` (15 m major radius, 4.15 m
@@ -766,6 +779,11 @@ params! {
     dw_wall_h = DW_WALL_H, A,
     dw_wall_c = DW_WALL_C, A,
     dw_wall_height_m = DW_WALL_HEIGHT_M, A,
+    dw_gap_m = DW_GAP_M, A,
+    dw_gap_emissivity = DW_GAP_EMISSIVITY, A,
+    dw_concrete_m = DW_CONCRETE_M, A,
+    concrete_k = CONCRETE_K, A,
+    rb_wall_h = RB_WALL_H, A,
     ww_shell_area_m2 = WW_SHELL_AREA_M2, A,
     ww_shell_c = WW_SHELL_C, A,
     ww_shell_height_m = WW_SHELL_HEIGHT_M, A,
@@ -877,7 +895,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 154);
+        assert_eq!(Params::INPUTS.len(), 159);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

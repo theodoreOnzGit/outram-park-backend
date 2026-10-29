@@ -184,6 +184,10 @@ pub struct ContainmentSnapshot {
     /// (`Mechanisms::mcci`), and the debris there: the core's UO2 and
     /// metallic Zr, kg, and their temperature, K.
     pub mcci: bool,
+    /// The drywell structures lose heat across the gap to the concrete
+    /// around them, which conducts it to the reactor building
+    /// (`Mechanisms::dw_wall_outer`).
+    pub dw_wall_outer: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -310,7 +314,13 @@ pub struct Containment {
     dw_hs: bool,
     /// The debris on the drywell floor (`mcci`).
     cavity: Cavity,
+    /// The concrete around the drywell, K, inner face first
+    /// (`dw_wall_outer`).
+    dw_slab: [f64; DW_SLAB_CELLS],
 }
+
+/// Cells of the concrete slab around the drywell (`dw_wall_outer`).
+const DW_SLAB_CELLS: usize = 10;
 
 /// Saturation temperature at `p`, K (bisection on the IF97 saturation
 /// pressure).
@@ -378,6 +388,7 @@ impl Containment {
             ww_atm: false,
             dw_hs: false,
             cavity: Cavity::default(),
+            dw_slab: [prm.initial_drywell_k; DW_SLAB_CELLS],
         }
     }
 
@@ -446,6 +457,41 @@ impl Containment {
             self.dw_steam_kg += m;
             self.set_dw_energy(e, tv);
         }
+    }
+    /// The drywell structures' outer heat path (`dw_wall_outer`), explicit
+    /// and stable at the plant step (the cells' diffusion time is hours):
+    /// from the lumped structures across the gap, by the gap's gas
+    /// conduction plus gray radiation between its faces, into a 1-D concrete
+    /// slab of `DW_SLAB_CELLS` cells, and from its outer face to the reactor
+    /// building's air at `T_RB`; each face resistance includes half a cell.
+    fn dw_slab_step(&mut self, prm: &Params, dt: f64) {
+        let n = DW_SLAB_CELLS;
+        let dx = prm.dw_concrete_m / n as f64;
+        let area = prm.dw_wall_area_m2;
+        let (tw, t0) = (self.dw_wall_t, self.dw_slab[0]);
+        let tm = 0.5 * (tw + t0);
+        let h_gap = air_conductivity(tm) / prm.dw_gap_m + 4.0 * 5.670_374e-8 * tm * tm * tm / (2.0 / prm.dw_gap_emissivity - 1.0);
+        let half = 0.5 * dx / prm.concrete_k;
+        let q_in = area * (tw - t0) / (1.0 / h_gap + half);
+        let q_out = area * (self.dw_slab[n - 1] - T_RB) / (1.0 / prm.rb_wall_h + half);
+        let c_cell = prm.concrete_density * prm.concrete_cp * dx * area;
+        let g = prm.concrete_k / dx * area;
+        let old = self.dw_slab;
+        for i in 0..n {
+            let mut q = 0.0;
+            if i == 0 {
+                q += q_in;
+            } else {
+                q += g * (old[i - 1] - old[i]);
+            }
+            if i == n - 1 {
+                q -= q_out;
+            } else {
+                q -= g * (old[i] - old[i + 1]);
+            }
+            self.dw_slab[i] = old[i] + q * dt / c_cell;
+        }
+        self.dw_wall_t -= q_in * dt / prm.dw_wall_c;
     }
     /// Water arriving on the drywell floor, `kg` at `t_k`, mixed into the
     /// pedestal's pool (one pool for the floor and the pedestal, stated).
@@ -790,6 +836,10 @@ impl Containment {
             self.dw_t = tg - q / c_gas;
         }
         self.dw_wall_t = tw + q / prm.dw_wall_c;
+        // 3b. The structures' outer heat path (`dw_wall_outer`).
+        if s.dw_wall_outer {
+            self.dw_slab_step(prm, dt);
+        }
         // 4. Condensation of supersaturated steam (latent heat stays in the
         //    gas until the wall takes it): a few fixed-point passes.
         for _ in 0..4 {
@@ -1393,6 +1443,7 @@ impl Containment {
             self.cavity.h2_kg,
             self.cavity.co_kg,
         ]);
+        w.f(&self.dw_slab);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
         self.dw_rn.write(w);
@@ -1451,7 +1502,9 @@ impl Containment {
                 h2_kg: r.f(),
                 co_kg: r.f(),
             },
+            dw_slab: [0.0; DW_SLAB_CELLS],
         };
+        c.dw_slab = std::array::from_fn(|_| r.f());
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = std::array::from_fn(|_| r.f());
         c.dw_rn.read_into(r);
@@ -1508,6 +1561,7 @@ impl ContainmentSnapshot {
             b(self.condensate_to_floor),
             self.rpv_wall_w,
             b(self.mcci),
+            b(self.dw_wall_outer),
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
@@ -1562,6 +1616,7 @@ impl ContainmentSnapshot {
             condensate_to_floor: r.f() != 0.0,
             rpv_wall_w: r.f(),
             mcci: r.f() != 0.0,
+            dw_wall_outer: r.f() != 0.0,
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),

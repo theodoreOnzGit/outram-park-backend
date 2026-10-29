@@ -4422,6 +4422,7 @@ pub struct ContainmentSnapshot {
     pub condensate_to_floor: bool,
     pub rpv_wall_w: f64,
     pub mcci: bool,
+    pub dw_wall_outer: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4479,6 +4480,7 @@ pub struct ContainmentSnapshot {
 | `condensate_to_floor` | `bool` | Water condensed in the drywell drains to its floor, the pedestal's<br>pool (`Mechanisms::condensate_to_floor`); false is it leaving the<br>model. |
 | `rpv_wall_w` | `f64` | Heat through the RPV's insulation into the drywell gas, W<br>(`Mechanisms::rpv_wall`). |
 | `mcci` | `bool` | Molten core-concrete interaction on the drywell floor<br>(`Mechanisms::mcci`), and the debris there: the core's UO2 and<br>metallic Zr, kg, and their temperature, K. |
+| `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, which conducts it to the reactor building<br>(`Mechanisms::dw_wall_outer`). |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -7465,6 +7467,11 @@ pub struct Params {
     pub dw_wall_h: f64,
     pub dw_wall_c: f64,
     pub dw_wall_height_m: f64,
+    pub dw_gap_m: f64,
+    pub dw_gap_emissivity: f64,
+    pub dw_concrete_m: f64,
+    pub concrete_k: f64,
+    pub rb_wall_h: f64,
     pub ww_shell_area_m2: f64,
     pub ww_shell_c: f64,
     pub ww_shell_height_m: f64,
@@ -7627,6 +7634,11 @@ pub struct Params {
 | `dw_wall_h` | `f64` |  |
 | `dw_wall_c` | `f64` |  |
 | `dw_wall_height_m` | `f64` |  |
+| `dw_gap_m` | `f64` |  |
+| `dw_gap_emissivity` | `f64` |  |
+| `dw_concrete_m` | `f64` |  |
+| `concrete_k` | `f64` |  |
+| `rb_wall_h` | `f64` |  |
 | `ww_shell_area_m2` | `f64` |  |
 | `ww_shell_c` | `f64` |  |
 | `ww_shell_height_m` | `f64` |  |
@@ -9008,6 +9020,45 @@ here it cancels.
 
 ```rust
 pub const DW_WALL_HEIGHT_M: f64 = 20.0;
+```
+
+#### Constant `DW_GAP_M`
+
+The drywell structures' outer heat path (`Mechanisms::dw_wall_outer`):
+the gap between the steel shell and the concrete around it, m, and the
+emissivity of its two faces; the concrete's thickness, m, and
+conductivity, W/(m K); and the coefficient from its outer face to the
+reactor building's air, W/(m^2 K). \[A\] all five: a Mark I shell
+stands a few centimetres off its concrete; oxidised steel and concrete
+near 0.8; 1.5 m of biological shield; ordinary concrete's
+conductivity; natural convection to still air.
+
+```rust
+pub const DW_GAP_M: f64 = 0.05;
+```
+
+#### Constant `DW_GAP_EMISSIVITY`
+
+```rust
+pub const DW_GAP_EMISSIVITY: f64 = 0.8;
+```
+
+#### Constant `DW_CONCRETE_M`
+
+```rust
+pub const DW_CONCRETE_M: f64 = 1.5;
+```
+
+#### Constant `CONCRETE_K`
+
+```rust
+pub const CONCRETE_K: f64 = 1.4;
+```
+
+#### Constant `RB_WALL_H`
+
+```rust
+pub const RB_WALL_H: f64 = 5.0;
 ```
 
 #### Constant `WW_SHELL_AREA_M2`
@@ -12524,6 +12575,7 @@ pub struct Mechanisms {
     pub core_top_radiation: bool,
     pub see_through: bool,
     pub mcci: bool,
+    pub dw_wall_outer: bool,
 }
 ```
 
@@ -12580,6 +12632,7 @@ pub struct Mechanisms {
 | `core_top_radiation` | `bool` | The top of the core radiates to the dome internals above it, its<br>axial boundary structure (MELCOR COR RM §2.1.2, `Fcell,a` =<br>`axial_exchange`; 2026-10-29; needs `core_radiation`). Off is the top<br>of the core exchanging nothing. |
 | `see_through` | `bool` | The core's radiation looks through emptied cells to the next<br>standing component, radially (or to the shroud) and axially, as<br>MELCOR's does (COR RM §2.1.2; 2026-10-29). Off is no view across an<br>emptied cell. |
 | `mcci` | `bool` | Molten core-concrete interaction on the drywell floor: a reduced<br>form of MELCOR's CAV package ([`cavity`]; CORCON basaltic concrete,<br>quasi-steady ablation, the concrete's H2O and CO2 reduced by the<br>debris's Zr; 2026-10-29, F8). Off is the dry debris's heat going<br>straight into the drywell's structures. |
+| `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, a 1-D conduction slab to the reactor building<br>(2026-10-29; MELCOR's heat structures conduct). Off is the lumped<br>structures adiabatic outside. |
 
 ##### Implementations
 
@@ -12824,6 +12877,11 @@ pub struct Mechanisms {
   pub fn without_mcci(self: Self) -> Self { /* ... */ }
   ```
   No core-concrete interaction: before 2026-10-29.
+
+- ```rust
+  pub fn without_dw_wall_outer(self: Self) -> Self { /* ... */ }
+  ```
+  The drywell structures adiabatic outside: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }
