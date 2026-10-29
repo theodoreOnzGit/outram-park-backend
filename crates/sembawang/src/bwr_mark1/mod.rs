@@ -235,6 +235,10 @@ pub struct Mechanisms {
     /// `vessel_aerosol`). Off is tellurium staying in the core, heat and
     /// all.
     pub te_transport: bool,
+    /// The lower-plenum debris oxidises while it is quenched, by the
+    /// parabolic law over MELCOR's particulate area (COR §3.2.1,
+    /// 2026-10-29). Off is debris that never oxidises.
+    pub debris_oxidation: bool,
 }
 
 impl Default for Mechanisms {
@@ -272,6 +276,7 @@ impl Default for Mechanisms {
             condensate_mass: true,
             fp_decay_follows: true,
             te_transport: true,
+            debris_oxidation: true,
         }
     }
 }
@@ -483,6 +488,12 @@ impl Mechanisms {
     /// No tellurium transport: the model before 2026-10-29.
     pub fn without_te_transport(mut self) -> Self {
         self.te_transport = false;
+        self
+    }
+
+    /// Debris that never oxidises: the model before 2026-10-29.
+    pub fn without_debris_oxidation(mut self) -> Self {
+        self.debris_oxidation = false;
         self
     }
 
@@ -1149,7 +1160,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, debris_oxidation: self.mechanisms.debris_oxidation, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
@@ -1874,8 +1885,8 @@ mod tests {
         assert!(f.xe_vessel < 1e-9 && k.xe_dw < 1e-9 && k.xe_ww < 1e-7 && k.xe_building == 0.0, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
-        // tellurium is transported.)
-        assert!((k.xe_vented - 0.7977).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // tellurium is transported; 0.8109 since the debris oxidises.)
+        assert!((k.xe_vented - 0.8109).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

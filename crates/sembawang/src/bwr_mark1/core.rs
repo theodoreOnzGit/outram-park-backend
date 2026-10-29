@@ -123,6 +123,8 @@ pub struct CoreSnapshot {
     /// Lower-head penetration failure (the default) or the wall alone
     /// (`Mechanisms`).
     pub penetrations: bool,
+    /// Oxidation of the lower-plenum debris (`Mechanisms::debris_oxidation`).
+    pub debris_oxidation: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -227,6 +229,10 @@ pub struct Core {
     /// UO2 in the in-vessel debris and released so far, fractions of the
     /// core's UO2.
     debris_uo2: f64,
+    /// Zr in the lower-plenum debris already oxidised, kg (as Zr): the
+    /// relocated nodes' oxide, and what the debris oxidises since
+    /// (`debris_oxidation`).
+    debris_zr_ox: f64,
     uo2_released: f64,
 }
 
@@ -743,6 +749,7 @@ impl Core {
             debris_fp: 0.0,
             fp_released: 0.0,
             debris_uo2: 0.0,
+            debris_zr_ox: 0.0,
             uo2_released: 0.0,
         }
     }
@@ -773,6 +780,7 @@ impl Core {
         // fails; after that its power leaves the vessel (ex-vessel).
         let p_debris = s.decay_w * self.debris_power_share;
         let mut q_quench = 0.0;
+        let (mut debris_steam_used, mut debris_h2) = (0.0, 0.0);
         let mut ex_vessel = 0.0;
         let tdp = s.t_dependent_props;
         if tdp && self.debris_mf + self.debris_mc > 0.0 {
@@ -784,6 +792,36 @@ impl Core {
                 let release = excess * (1.0 - (-dt / prm.debris_quench_s).r_exp());
                 self.debris_h -= release;
                 q_quench = p_debris + release / dt;
+                // The debris oxidises while the water it boils gives it
+                // steam (MELCOR COR §3.2.1: particulate debris oxidises by
+                // the same parabolic law over `6 V / D` times its Zr volume
+                // fraction). Simplifications, stated: the steam is the
+                // steam this debris raises this step; dry, it has none (no
+                // flow through a dried plenum); no gaseous-diffusion limit.
+                if s.debris_oxidation {
+                    let t_d = debris_temperature(self.debris_mf, self.debris_mc, self.debris_h);
+                    let k = oxidation_rate(prm, t_d);
+                    let a_zr = 6.0 * self.debris_mc / prm.zr_density / prm.debris_particle_m;
+                    if k > 0.0 && a_zr > 0.0 {
+                        let w = self.debris_zr_ox / a_zr;
+                        let w_new = (w * w + k * dt).sqrt().min(self.debris_mc / a_zr);
+                        let steam_per_zr = 2.0 * M_H2O / M_ZR;
+                        let steam = (q_quench * dt / s.h_fg).max(0.0);
+                        let dzr = ((w_new - w) * a_zr).min(steam / steam_per_zr).max(0.0);
+                        let used = dzr * steam_per_zr / dt;
+                        let made = dzr * 2.0 * M_H2 / M_ZR / dt;
+                        // Hess's law with reactants and products at the
+                        // water's temperature: the reaction heat goes to
+                        // the debris and is given up by the quench.
+                        let q_ox = dzr * prm.oxidation_heat_j_per_kg_zr / dt + used * steam_enthalpy_above_298(s.t_sat_k + 0.5, s.p_pa)
+                            - made * h2_enthalpy_above_298(s.t_sat_k);
+                        self.debris_h += q_ox * dt;
+                        self.debris_zr_ox += dzr;
+                        self.zr_oxidised_kg += dzr;
+                        debris_steam_used += used;
+                        debris_h2 += made;
+                    }
+                }
                 if s.lower_head_wall {
                     // Under water the wall boils against the plenum.
                     let (area, _, _) = debris_cap(prm, self.debris_mf, self.debris_mc);
@@ -988,6 +1026,7 @@ impl Core {
             // geometry needs them (gh:#1034).
             self.debris_mf += g.m_fuel;
             self.debris_mc += g.zr_kg;
+            self.debris_zr_ox += (n.w_ox * g.a_zr).min(g.zr_kg);
             if tdp {
                 self.debris_h += g.m_fuel * uo2_enthalpy().at(n.t_fuel) + g.zr_kg * zr_enthalpy().at(n.t_clad);
             } else {
@@ -1063,8 +1102,8 @@ impl Core {
         let relocated = self.nodes.iter().filter(|n| n.relocated).count() as f64 / NODES as f64;
         CoreResult {
             q_fluid_w: q_fluid,
-            steam_used_kg_s: steam_used,
-            h2_kg_s: h2,
+            steam_used_kg_s: steam_used + debris_steam_used,
+            h2_kg_s: h2 + debris_h2,
             q_ox_w: q_ox_total,
             peak_clad_k: peak,
             exit_gas_k: if exit_w > 0.0 { exit_sum / exit_w } else { s.t_sat_k },
@@ -1106,7 +1145,7 @@ impl Core {
         w.f(&self.head.t_k);
         w.f(&[self.head.strain, self.head.pen_k]);
         w.f(&self.shroud_k);
-        w.f(&[self.debris_fp, self.fp_released, self.debris_uo2, self.uo2_released]);
+        w.f(&[self.debris_fp, self.fp_released, self.debris_uo2, self.uo2_released, self.debris_zr_ox]);
     }
     pub fn read_state(r: &mut Reader) -> Self {
         let nodes = (0..NODES).map(|_| Node { t_fuel: r.f(), t_clad: r.f(), w_ox: r.f(), relocated: r.f() != 0.0, damage: r.f(), fp_left: r.f(), uo2_left: r.f() }).collect();
@@ -1127,6 +1166,7 @@ impl Core {
             fp_released: r.f(),
             debris_uo2: r.f(),
             uo2_released: r.f(),
+            debris_zr_ox: r.f(),
         }
     }
 }
@@ -1149,6 +1189,7 @@ impl CoreSnapshot {
             if self.diffusion_limit { 1.0 } else { 0.0 },
             if self.hydrogen_cp_t { 1.0 } else { 0.0 },
             if self.penetrations { 1.0 } else { 0.0 },
+            if self.debris_oxidation { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1168,6 +1209,7 @@ impl CoreSnapshot {
             diffusion_limit: r.f() != 0.0,
             hydrogen_cp_t: r.f() != 0.0,
             penetrations: r.f() != 0.0,
+            debris_oxidation: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1285,7 +1327,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1311,7 +1353,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1340,7 +1382,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, debris_oxidation: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }

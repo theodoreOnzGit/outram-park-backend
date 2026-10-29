@@ -146,6 +146,7 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Condensed Cs and I add to their aerosol section's mass (MELCOR RN §2.5.2; output only) | F9, #1047 | 4.469 | 295.45 | mostly held: vessel keeps 5.8 kg, vented Cs 8.8 -> 0.4 kg, dw structures 60 kg at 12 h (overshoot); pool up (missed); Fig 2.6a inside 23 % (was 41 %) |
 | Decay heat of released noble gases, alkali metals and halogens follows them (class shares from an ENDF/B-VIII summation, 0.96-0.99 of ANS) | F10, #1041 | **4.524** | **304.26** | lower head 0.055 h later (held); drywell peak 0.595 -> 0.613 MPa; measured drywell mean miss 0.289 -> 0.274 MPa; Fig 2.6a inside 37 % (was 23 %) |
 | Tellurium transported (MELCOR class 5, 15.4 kg \[A\] from the summation's Te/Cs ratio), its heat following it | F9/F10, #1041 | **4.517** | **305.64** | no prediction written (lapse, recorded); lower head 0.007 h earlier; drywell peak 0.613 -> 0.609 MPa; Fig 2.6a inside 51 % (was 37 %) |
+| Lower-plenum debris oxidises while quenched (MELCOR particulate area 6V/D, D = 1 cm \[A\]) | F4, #1035 | **4.483** | **313.43** | H2 +2.5 % (predicted +10-40 %, missed); lower head 0.034 h earlier (held); D sweep non-monotonic (0.5 cm 246 kg, 2 cm 305 kg): H2 at 25 h is set by timing; measured drywell mean miss 0.274 -> 0.260 MPa |
 
 **F9 beyond noble gas, scoped 2026-10-29.** Cs and I travel as aerosol.
 MELCOR gives **no default size** for a released aerosol source ("currently

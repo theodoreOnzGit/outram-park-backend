@@ -260,6 +260,10 @@ pub const CREEP_FAIL_STRAIN: f64 = 0.18;
 /// Porosity of the debris bed in the lower head, which sets how high it
 /// stands and so the wall area it touches. \[A\]
 pub const DEBRIS_POROSITY: f64 = 0.4;
+/// Particulate debris diameter, m, for its oxidation area `6 V / D`
+/// (MELCOR COR §3.2.1, Eq 3-28). \[A\] MELCOR has no default (COR_EDR
+/// DHYPD is required input); 1 cm, the order of a pellet.
+pub const DEBRIS_PARTICLE_M: f64 = 0.01;
 
 /// Time over which debris in a wet lower plenum gives up its stored heat,
 /// s. \[A\] (quench of a debris bed takes minutes).
@@ -624,6 +628,7 @@ params! {
     lm_c = LM_C, P,
     creep_fail_strain = CREEP_FAIL_STRAIN, P,
     debris_porosity = DEBRIS_POROSITY, A,
+    debris_particle_m = DEBRIS_PARTICLE_M, A,
     zr_melt_k = ZR_MELT_K, U,
     clad_breach_k = CLAD_BREACH_K, A,
     min_metal_m = MIN_METAL_M, A,
@@ -772,7 +777,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 133);
+        assert_eq!(Params::INPUTS.len(), 134);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

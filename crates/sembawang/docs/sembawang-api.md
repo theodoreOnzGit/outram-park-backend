@@ -4662,6 +4662,7 @@ pub struct CoreSnapshot {
     pub diffusion_limit: bool,
     pub hydrogen_cp_t: bool,
     pub penetrations: bool,
+    pub debris_oxidation: bool,
     pub prm: Params,
 }
 ```
@@ -4684,6 +4685,7 @@ pub struct CoreSnapshot {
 | `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on oxidation (the default) or the<br>parabolic rate limited only by steam supply (`Mechanisms`). |
 | `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` from MELCOR's fit (the default) or the constant<br>[`CP_H2_J_PER_KG_K`] (`Mechanisms`). |
 | `penetrations` | `bool` | Lower-head penetration failure (the default) or the wall alone<br>(`Mechanisms`). |
+| `debris_oxidation` | `bool` | Oxidation of the lower-plenum debris (`Mechanisms::debris_oxidation`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -6937,6 +6939,7 @@ pub struct Params {
     pub lm_c: f64,
     pub creep_fail_strain: f64,
     pub debris_porosity: f64,
+    pub debris_particle_m: f64,
     pub zr_melt_k: f64,
     pub clad_breach_k: f64,
     pub min_metal_m: f64,
@@ -7078,6 +7081,7 @@ pub struct Params {
 | `lm_c` | `f64` |  |
 | `creep_fail_strain` | `f64` |  |
 | `debris_porosity` | `f64` |  |
+| `debris_particle_m` | `f64` |  |
 | `zr_melt_k` | `f64` |  |
 | `clad_breach_k` | `f64` |  |
 | `min_metal_m` | `f64` |  |
@@ -7958,6 +7962,16 @@ stands and so the wall area it touches. \[A\]
 pub const DEBRIS_POROSITY: f64 = 0.4;
 ```
 
+#### Constant `DEBRIS_PARTICLE_M`
+
+Particulate debris diameter, m, for its oxidation area `6 V / D`
+(MELCOR COR §3.2.1, Eq 3-28). \[A\] MELCOR has no default (COR_EDR
+DHYPD is required input); 1 cm, the order of a pellet.
+
+```rust
+pub const DEBRIS_PARTICLE_M: f64 = 0.01;
+```
+
 #### Constant `DEBRIS_QUENCH_S`
 
 Time over which debris in a wet lower plenum gives up its stored heat,
@@ -8491,8 +8505,9 @@ pub const P_ATM: f64 = 1.013e5;
 ## Module `rn_volume`
 
 One control volume's fission products and aerosol: the sectional aerosol
-(`aerosol`), each condensable class (cesium as CsOH and iodine as I2, in
-[`CLASSES`]) as vapour, on the airborne aerosol and on each surface, and
+(`aerosol`), each condensable class (cesium as CsOH, iodine as I2 and,
+since 2026-10-29, tellurium, in [`CLASSES`]) as vapour, on the airborne
+aerosol and on each surface, and
 the transfers between them in one step (gh:#1047).
 
 The step follows MELCOR's order and coupling (Vol. 2, SAND2023-10994 O,
@@ -11096,6 +11111,7 @@ pub struct Mechanisms {
     pub condensate_mass: bool,
     pub fp_decay_follows: bool,
     pub te_transport: bool,
+    pub debris_oxidation: bool,
 }
 ```
 
@@ -11135,6 +11151,7 @@ pub struct Mechanisms {
 | `condensate_mass` | `bool` | Cesium and iodine condensed on the aerosol add to their section's<br>particle mass, as MELCOR's sectional mass does (RN §2.5.2; the area,<br>the agglomeration and the deposition follow the section's total;<br>2026-10-29). Off is the condensate riding weightless on the UO2<br>particles. |
 | `fp_decay_follows` | `bool` | The decay heat of the released noble gases, alkali metals and<br>halogens leaves the core with them and heats wherever they are: the<br>vessel, the drywell's gas and structures, the pool; what is vented<br>or leaked takes its heat away (MELCOR's DCH by class, the shares from<br>`fp_decay`'s summation; 2026-10-29). Chalcogens (Te) are released but<br>not transported, so their heat stays in the core (stated). Off is all<br>decay heat in the core. |
 | `te_transport` | `bool` | Tellurium (MELCOR's chalcogen class) released with the volatiles<br>and transported like cesium and iodine, with its own vapour pressure<br>(RN 7110), its decay heat following it (2026-10-29; needs<br>`vessel_aerosol`). Off is tellurium staying in the core, heat and<br>all. |
+| `debris_oxidation` | `bool` | The lower-plenum debris oxidises while it is quenched, by the<br>parabolic law over MELCOR's particulate area (COR §3.2.1,<br>2026-10-29). Off is debris that never oxidises. |
 
 ##### Implementations
 
@@ -11294,6 +11311,11 @@ pub struct Mechanisms {
   pub fn without_te_transport(self: Self) -> Self { /* ... */ }
   ```
   No tellurium transport: the model before 2026-10-29.
+
+- ```rust
+  pub fn without_debris_oxidation(self: Self) -> Self { /* ... */ }
+  ```
+  Debris that never oxidises: the model before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

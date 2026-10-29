@@ -195,6 +195,7 @@ pub fn ablations() -> Vec<(&'static str, Mechanisms)> {
         ("without condensate mass", all.without_condensate_mass()),
         ("without FP decay following", all.without_fp_decay_follows()),
         ("without Te transport", all.without_te_transport()),
+        ("without debris oxidation", all.without_debris_oxidation()),
     ]
 }
 
@@ -787,6 +788,19 @@ mod tests {
     /// within the run's regime noise. `without_te_transport` reproduces the
     /// previous baseline exactly (pinned below).
     ///
+    /// **Moved again 2026-10-29** (the lower-plenum debris oxidises while
+    /// quenched, MELCOR's particulate area `6 V / D` with D = 1 cm \[A\],
+    /// the steam it raises as its supply, `debris_oxidation`): lower head
+    /// 4.5172 -> 4.4831 h, depressurised 4.4497 -> 4.4489 h, H2 305.64 ->
+    /// 313.43 kg, drywell peak 0.60869 -> 0.62303 MPa, release 0.7977 ->
+    /// 0.8109, UO2 3.645 -> 3.516 kg. Predicted: H2 +10-40 % (**missed**:
+    /// +2.5 %), lower head 0-0.3 h earlier (held: 0.034 h). A diagnostic of
+    /// the \[A\] diameter (not tuning; 1 cm was fixed first): 0.5 cm gives H2
+    /// 245.55 kg, 2 cm 305.27 kg. Non-monotonic in the area, so H2 at 25 h
+    /// here is carried by the run's timing (dryout, failure), not by the
+    /// debris chemistry. `without_debris_oxidation` reproduces the previous
+    /// baseline exactly (pinned below).
+    ///
     /// When a plan item moves these numbers, this test changes in the same
     /// commit with the old value, the new one and why (never a quiet
     /// repair).
@@ -795,16 +809,21 @@ mod tests {
         let m = measure(Mechanisms::default());
         // The earlier models below are reproduced with the fission
         // products' decay heat left in the core, as it was then.
-        let base = Mechanisms::default().without_fp_decay_follows();
+        let base = Mechanisms::default().without_fp_decay_follows().without_te_transport().without_debris_oxidation();
         let near = |a: Option<f64>, b: f64, tol: f64| a.is_some_and(|x| (x - b).abs() <= tol);
-        assert!(near(m.lower_head_h, 4.5172, 0.001), "{m:?}");
-        assert!(near(m.depressurised_h, 4.4497, 0.001), "{m:?}");
-        assert!((m.h2_25h_kg - 305.64).abs() < 0.01, "{m:?}");
-        assert!((m.p_dw_peak_mpa - 0.60869364).abs() < 1e-8, "{m:?}");
+        assert!(near(m.lower_head_h, 4.4831, 0.001), "{m:?}");
+        assert!(near(m.depressurised_h, 4.4489, 0.001), "{m:?}");
+        assert!((m.h2_25h_kg - 313.43).abs() < 0.01, "{m:?}");
+        assert!((m.p_dw_peak_mpa - 0.62303386).abs() < 1e-8, "{m:?}");
         assert!(near(m.vent_h, 23.7336, 0.001) && m.explosion_h.is_none(), "{m:?}");
-        assert!((m.fp_released_25h - 0.7977).abs() < 1e-4 && (m.uo2_released_25h_kg - 3.645).abs() < 0.01, "{m:?}");
-        // No tellurium transport: the previous baseline, exactly.
-        let te = measure(Mechanisms::default().without_te_transport());
+        assert!((m.fp_released_25h - 0.8109).abs() < 1e-4 && (m.uo2_released_25h_kg - 3.516).abs() < 0.01, "{m:?}");
+        // No debris oxidation: the previous baseline, exactly.
+        let dox = measure(Mechanisms::default().without_debris_oxidation());
+        assert!(near(dox.lower_head_h, 4.5172, 0.001) && near(dox.depressurised_h, 4.4497, 0.001), "{dox:?}");
+        assert!((dox.h2_25h_kg - 305.64).abs() < 0.01 && (dox.p_dw_peak_mpa - 0.60869364).abs() < 1e-8, "{dox:?}");
+        assert!((dox.fp_released_25h - 0.7977).abs() < 1e-4 && (dox.uo2_released_25h_kg - 3.645).abs() < 0.01, "{dox:?}");
+        // No tellurium transport: the baseline before it, exactly.
+        let te = measure(Mechanisms::default().without_te_transport().without_debris_oxidation());
         assert!(near(te.lower_head_h, 4.5239, 0.001) && near(te.depressurised_h, 4.4361, 0.001), "{te:?}");
         assert!((te.h2_25h_kg - 304.26).abs() < 0.01 && (te.p_dw_peak_mpa - 0.61279710).abs() < 1e-8, "{te:?}");
         assert!((te.fp_released_25h - 0.7967).abs() < 1e-4 && (te.uo2_released_25h_kg - 3.327).abs() < 0.01, "{te:?}");
@@ -1013,7 +1032,7 @@ mod tests {
     #[test]
     fn the_ablation_table_has_every_run_and_band() {
         let runs: Vec<(&str, Metrics)> = ablations().into_iter().map(|(n, mech)| (n, measure(mech))).collect();
-        assert_eq!(runs.len(), 33);
+        assert_eq!(runs.len(), 34);
         let t = report(&runs);
         for b in BANDS {
             assert!(t.contains(b.name), "{t}");
@@ -1055,6 +1074,7 @@ mod tests {
         assert!(!ablations()[30].1.condensate_mass && ablations()[30].1.vessel_aerosol);
         assert!(!ablations()[31].1.fp_decay_follows && ablations()[31].1.condensate_mass);
         assert!(!ablations()[32].1.te_transport && ablations()[32].1.fp_decay_follows);
+        assert!(!ablations()[33].1.debris_oxidation && ablations()[33].1.te_transport);
     }
 
     /// The verdict reads a value against its band.
