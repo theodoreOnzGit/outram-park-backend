@@ -124,7 +124,8 @@ MATPRO and ANS-5.1-1979, as each commit cites. **Nothing was tuned.**
 | Main-steam-line creep rupture (PIPE-STR, LM-CREEP) | F6, #1037 | 5.454 | 191.47 | held: ruptures 4.36 h, RPV depressurised at it (was at the lower head); drywell +2.4 %, less than predicted |
 | Dry-vessel outflow capped at the equalising amount (defect) | — | 5.449 | 191.43 | defect fix, found by a crash |
 | Dry-vessel steam leaves at its own enthalpy (defect) | — | 5.449 | 191.43 | defect fix, found by the same crash; drywell only moves |
-| Steam dome internals as a heat structure | F6, #1037 | **5.639** | **215.36** | missed: predicted no rupture; the line ruptures at 4.78 h. Rupture rests on \[A\] inputs (none at 3x area) |
+| Steam dome internals as a heat structure | F6, #1037 | 5.639 | 215.36 | missed: predicted no rupture; the line ruptures at 4.78 h. Rupture rests on \[A\] inputs (none at 3x area) |
+| Lower-head penetrations fail at TPFAIL | F3, #1034 | **5.452** | **215.36** | held: 0.19 h earlier (predicted 0.1-0.3 h) |
 
 BSAF bands: lower head 7.45–17.16 h (B); H2 400–1310 kg (C). ~~The vent now
 flows at 23.73 h, inside its Tier A band (23.5–24.68 h), as a by-product of

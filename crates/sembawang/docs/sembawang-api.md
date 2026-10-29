@@ -3533,6 +3533,7 @@ pub struct CoreSnapshot {
     pub core_radiation: bool,
     pub diffusion_limit: bool,
     pub hydrogen_cp_t: bool,
+    pub penetrations: bool,
     pub prm: Params,
 }
 ```
@@ -3554,6 +3555,7 @@ pub struct CoreSnapshot {
 | `core_radiation` | `bool` | In-core radiation and the shroud (the default) or none<br>(`Mechanisms`). |
 | `diffusion_limit` | `bool` | MELCOR's gaseous-diffusion limit on oxidation (the default) or the<br>parabolic rate limited only by steam supply (`Mechanisms`). |
 | `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` from MELCOR's fit (the default) or the constant<br>[`CP_H2_J_PER_KG_K`] (`Mechanisms`). |
+| `penetrations` | `bool` | Lower-head penetration failure (the default) or the wall alone<br>(`Mechanisms`). |
 | `prm` | `Params` | The plant's inputs (gh:#1033). |
 
 ##### Implementations
@@ -5142,6 +5144,7 @@ pub struct Params {
     pub debris_quench_s: f64,
     pub lower_head_thickness_m: f64,
     pub debris_to_head_w_m2_k: f64,
+    pub penetration_wall_m: f64,
     pub head_failure_wall_k: f64,
     pub lm_p0: f64,
     pub lm_slope: f64,
@@ -5268,6 +5271,7 @@ pub struct Params {
 | `debris_quench_s` | `f64` |  |
 | `lower_head_thickness_m` | `f64` |  |
 | `debris_to_head_w_m2_k` | `f64` |  |
+| `penetration_wall_m` | `f64` |  |
 | `head_failure_wall_k` | `f64` |  |
 | `lm_p0` | `f64` |  |
 | `lm_slope` | `f64` |  |
@@ -5996,6 +6000,19 @@ order-of-magnitude value for sensitivity studies.
 
 ```rust
 pub const DEBRIS_TO_HEAD_W_M2_K: f64 = 1000.0;
+```
+
+#### Constant `PENETRATION_WALL_M`
+
+Wall thickness of a lower-head penetration (instrument or control-rod
+drive housing), m: its steel per unit heated area. \[A\] Unit 1's
+housings are not in a held source. The debris heats it with
+`debris_to_head_w_m2_k` (MELCOR's HDBPN default is the same 1000
+W/(m^2 K)), and it fails at `head_failure_wall_k` (MELCOR's TPFAIL
+applies to penetrations and the inner wall node alike).
+
+```rust
+pub const PENETRATION_WALL_M: f64 = 0.01;
 ```
 
 #### Constant `HEAD_FAILURE_WALL_K`
@@ -7331,6 +7348,7 @@ pub struct Mechanisms {
     pub hydrogen_cp_t: bool,
     pub msl_creep: bool,
     pub dome_internals: bool,
+    pub penetrations: bool,
 }
 ```
 
@@ -7354,6 +7372,7 @@ pub struct Mechanisms {
 | `hydrogen_cp_t` | `bool` | Hydrogen's `c_p(T)` in the core and the vessel (MELCOR's fit,<br>[`gas`], 2026-10-29); off is the constant `core::CP_H2_J_PER_KG_K`. |
 | `msl_creep` | `bool` | Creep rupture of a main steam line under the relief flow's hot gas<br>([`msl`], MELCOR's PIPE-STR and LM-CREEP, 2026-10-29); off is no<br>steam-line failure. |
 | `dome_internals` | `bool` | The steam dome's internals as a heat structure between the core and<br>the steam lines, leaks and containment ([`internals`], 2026-10-29);<br>off passes the core's exit gas straight through. |
+| `penetrations` | `bool` | Lower-head penetration failure at the wall's temperature limit<br>(`core::HeadWall`, MELCOR §6.3, 2026-10-29); off is the wall alone. |
 
 ##### Implementations
 
@@ -7433,6 +7452,11 @@ pub struct Mechanisms {
   pub fn without_dome_internals(self: Self) -> Self { /* ... */ }
   ```
   No dome internals: the core's exit gas reaches the steam lines, the
+
+- ```rust
+  pub fn without_penetrations(self: Self) -> Self { /* ... */ }
+  ```
+  The lower head fails by its wall alone, no penetration: the model
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

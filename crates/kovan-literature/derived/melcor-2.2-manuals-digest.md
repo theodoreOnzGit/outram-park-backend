@@ -490,6 +490,9 @@ movements and predictions are in `docs/fukushima-melcor-gap-plan.md` §2a.
    - **Implemented (gh:#1034):** inner node at TPFAIL, plus Larson-Miller
      creep. Lower head later by 0.14 h. The outer face is adiabatic rather
      than 10 W/m²K.
+   - **Penetrations added 2026-10-29:** one lumped node (10 mm steel
+     \[A\]) at the same 1000 W/m²K, failing at TPFAIL. Lower head 0.19 h
+     earlier.
 2. **Hold collapsed material in the core until the support fails**, and
    replace the 2100 K whole-node slump with 2400 K cladding breach, 2500 K
    or 3100 K fuel collapse, and time-at-temperature damage.

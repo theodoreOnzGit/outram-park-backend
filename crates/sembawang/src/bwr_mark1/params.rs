@@ -202,6 +202,13 @@ pub const LOWER_HEAD_THICKNESS_M: f64 = 0.22;
 /// default HDBLH (Vol. 1, COR_LHF), which its manual calls an
 /// order-of-magnitude value for sensitivity studies.
 pub const DEBRIS_TO_HEAD_W_M2_K: f64 = 1000.0;
+/// Wall thickness of a lower-head penetration (instrument or control-rod
+/// drive housing), m: its steel per unit heated area. \[A\] Unit 1's
+/// housings are not in a held source. The debris heats it with
+/// `debris_to_head_w_m2_k` (MELCOR's HDBPN default is the same 1000
+/// W/(m^2 K)), and it fails at `head_failure_wall_k` (MELCOR's TPFAIL
+/// applies to penetrations and the inner wall node alike).
+pub const PENETRATION_WALL_M: f64 = 0.01;
 /// Inner-wall temperature that fails the head, K. \[A\] MELCOR's default
 /// TPFAIL (Vol. 1, COR_LHF), described as roughly where steel turns plastic.
 pub const HEAD_FAILURE_WALL_K: f64 = 1273.15;
@@ -550,6 +557,7 @@ params! {
     debris_quench_s = DEBRIS_QUENCH_S, A,
     lower_head_thickness_m = LOWER_HEAD_THICKNESS_M, A,
     debris_to_head_w_m2_k = DEBRIS_TO_HEAD_W_M2_K, A,
+    penetration_wall_m = PENETRATION_WALL_M, A,
     head_failure_wall_k = HEAD_FAILURE_WALL_K, A,
     lm_p0 = LM_P0, P,
     lm_slope = LM_SLOPE, P,
@@ -700,7 +708,7 @@ mod tests {
         let mut p = Params::default();
         assert!(p.set("zr_melt_k", 2000.0) && !p.set("no_such_input", 1.0));
         assert_eq!((p.get("zr_melt_k"), p.zr_melt_k, p.get("no_such_input")), (Some(2000.0), 2000.0, None));
-        assert_eq!(Params::INPUTS.len(), 118);
+        assert_eq!(Params::INPUTS.len(), 119);
     }
 
     /// The derived core inventories are the right size for a 400-bundle

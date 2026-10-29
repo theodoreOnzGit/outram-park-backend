@@ -120,6 +120,9 @@ pub struct CoreSnapshot {
     /// Hydrogen's `c_p(T)` from MELCOR's fit (the default) or the constant
     /// [`CP_H2_J_PER_KG_K`] (`Mechanisms`).
     pub hydrogen_cp_t: bool,
+    /// Lower-head penetration failure (the default) or the wall alone
+    /// (`Mechanisms`).
+    pub penetrations: bool,
     /// The plant's inputs (gh:#1033).
     pub prm: Params,
 }
@@ -229,6 +232,10 @@ pub const WALL_NODES: usize = 5;
 struct HeadWall {
     t_k: [f64; WALL_NODES],
     strain: f64,
+    /// A lower-head penetration (instrument or control-rod-drive housing),
+    /// one lumped node heated by the same medium as the wall's inner face,
+    /// K (gh:#1034, MELCOR's penetration failure).
+    pen_k: f64,
 }
 
 pub(crate) fn steel_h(t_k: f64) -> f64 {
@@ -278,7 +285,7 @@ fn debris_cap(prm: &Params, mf: f64, mc: f64) -> (f64, f64, f64) {
 
 impl HeadWall {
     fn new(t_k: f64) -> Self {
-        Self { t_k: [t_k; WALL_NODES], strain: 0.0 }
+        Self { t_k: [t_k; WALL_NODES], strain: 0.0, pen_k: t_k }
     }
 
     /// Advance the wall one step with its inner face exchanging with a
@@ -300,6 +307,14 @@ impl HeadWall {
             let m = rho * dx * if i == 0 || i == WALL_NODES - 1 { 0.5 } else { 1.0 };
             self.t_k[i] = steel_t(steel_h(self.t_k[i]) + flux[i] * dt / m);
         }
+        // The penetration: per unit area, its wall's steel, heated from the
+        // medium alone (implicit at the start-of-step heat capacity, then
+        // set from its enthalpy). Its heat is not taken from the medium:
+        // the penetrations' area is small beside the head's (stated).
+        let m_pen = rho * prm.penetration_wall_m;
+        let c_pen = m_pen * (steel_h(self.pen_k + 0.5) - steel_h(self.pen_k - 0.5));
+        let t_new = (c_pen * self.pen_k + dt * h_in * t_in) / (c_pen + dt * h_in);
+        self.pen_k = steel_t(steel_h(self.pen_k) + h_in * (t_in - t_new) * dt / m_pen);
         q_in * area
     }
 
@@ -307,8 +322,11 @@ impl HeadWall {
     /// difference `dp` plus the debris's own head, Pa, and say whether the
     /// head has failed (inner node or strain). Stress from the thick-sphere
     /// relation MELCOR's 0-D option uses (Vol. 2, Eq 6-26); temperature the
-    /// wall's mean; skipped below 1000 Pa effective (its C1600(3)).
-    fn failed(&mut self, prm: &Params, dp: f64, dt: f64) -> bool {
+    /// wall's mean; skipped below 1000 Pa effective (its C1600(3)). With
+    /// `penetrations`, a penetration at the same temperature limit fails it
+    /// too, as in MELCOR (Vol. 2, §6.3: a penetration or the innermost head
+    /// node at TPFAIL).
+    fn failed(&mut self, prm: &Params, dp: f64, dt: f64, penetrations: bool) -> bool {
         let (ri, ro) = (prm.rpv_radius_m, prm.rpv_radius_m + prm.lower_head_thickness_m);
         if dp >= 1000.0 {
             let sigma = dp * ri * ri / (ro * ro - ri * ri);
@@ -317,7 +335,7 @@ impl HeadWall {
             let t_rupture = ((p_lm / t_mean - prm.lm_c) * std::f64::consts::LN_10).r_exp();
             self.strain += prm.creep_fail_strain * dt / t_rupture;
         }
-        self.t_k[0] >= prm.head_failure_wall_k || self.strain >= prm.creep_fail_strain
+        self.t_k[0] >= prm.head_failure_wall_k || self.strain >= prm.creep_fail_strain || (penetrations && self.pen_k >= prm.head_failure_wall_k)
     }
 }
 
@@ -733,7 +751,7 @@ impl Core {
                     let t_d = debris_temperature(self.debris_mf, self.debris_mc, self.debris_h);
                     self.debris_h -= self.head.step(prm, t_d, prm.debris_to_head_w_m2_k, area, dt) * dt;
                     let dp = (s.p_pa - s.p_dw_pa).max(0.0) + rho_bed * 9.81 * height;
-                    if self.head.failed(prm, dp, dt) {
+                    if self.head.failed(prm, dp, dt, s.penetrations) {
                         self.lower_head_failed = true;
                     }
                 } else if debris_temperature(self.debris_mf, self.debris_mc, self.debris_h) > prm.lower_head_failure_k {
@@ -759,7 +777,7 @@ impl Core {
                     let t_d = self.debris_e / self.debris_c;
                     self.debris_e -= self.head.step(prm, t_d, prm.debris_to_head_w_m2_k, area, dt) * dt;
                     let dp = (s.p_pa - s.p_dw_pa).max(0.0) + rho_bed * 9.81 * height;
-                    if self.head.failed(prm, dp, dt) {
+                    if self.head.failed(prm, dp, dt, s.penetrations) {
                         self.lower_head_failed = true;
                     }
                 } else if self.debris_e / self.debris_c > prm.lower_head_failure_k {
@@ -997,7 +1015,7 @@ impl Core {
             self.h2_total_kg,
         ]);
         w.f(&self.head.t_k);
-        w.f(&[self.head.strain]);
+        w.f(&[self.head.strain, self.head.pen_k]);
         w.f(&self.shroud_k);
     }
     pub fn read_state(r: &mut Reader) -> Self {
@@ -1013,7 +1031,7 @@ impl Core {
             lower_head_failed: r.f() != 0.0,
             zr_oxidised_kg: r.f(),
             h2_total_kg: r.f(),
-            head: HeadWall { t_k: std::array::from_fn(|_| r.f()), strain: r.f() },
+            head: HeadWall { t_k: std::array::from_fn(|_| r.f()), strain: r.f(), pen_k: r.f() },
             shroud_k: std::array::from_fn(|_| r.f()),
         }
     }
@@ -1036,6 +1054,7 @@ impl CoreSnapshot {
             if self.core_radiation { 1.0 } else { 0.0 },
             if self.diffusion_limit { 1.0 } else { 0.0 },
             if self.hydrogen_cp_t { 1.0 } else { 0.0 },
+            if self.penetrations { 1.0 } else { 0.0 },
         ]);
         self.prm.write(w);
     }
@@ -1054,6 +1073,7 @@ impl CoreSnapshot {
             core_radiation: r.f() != 0.0,
             diffusion_limit: r.f() != 0.0,
             hydrogen_cp_t: r.f() != 0.0,
+            penetrations: r.f() != 0.0,
             prm: Params::read(r),
         }
     }
@@ -1145,7 +1165,7 @@ mod tests {
     #[test]
     fn a_covered_core_hands_its_decay_heat_to_the_water() {
         let mut c = Core::new(560.0, &Params::default());
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: 8.0, decay_w: 20.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, prm: Params::default() };
         let mut r = c.step(&s);
         for _ in 0..3000 {
             r = c.step(&s);
@@ -1171,7 +1191,7 @@ mod tests {
         let m_sh = shroud_mass_per_level(&Params::default(), dz);
         let shroud = |c: &Core| -> f64 { c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum() };
         let e0: f64 = c.nodes.iter().map(|n| g.c_fuel * n.t_fuel + g.c_clad * n.t_clad).sum::<f64>() + shroud(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: false, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, prm: Params::default() };
         for _ in 0..100 {
             let r = c.step(&s);
             assert_eq!(r.h2_kg_s, 0.0);
@@ -1200,7 +1220,7 @@ mod tests {
                 + c.shroud_k.iter().map(|t| m_sh * steel_h(*t)).sum::<f64>()
         };
         let e0 = h(&c);
-        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, prm: Params::default() };
+        let s = CoreSnapshot { dt_s: 1.0, p_pa: 7.0e6, t_sat_k: 560.0, h_fg: 1.5e6, level_m: -1.0, decay_w: 10.0e6, t_dependent_props: true, p_dw_pa: 1.0e5, lower_head_wall: true, rod_collapse: true, core_radiation: true, diffusion_limit: true, hydrogen_cp_t: true, penetrations: true, prm: Params::default() };
         for _ in 0..100 {
             c.step(&s);
         }
@@ -1266,11 +1286,23 @@ mod tests {
         let e1: f64 = (0..WALL_NODES).map(|i| mass(i) * steel_h(w.t_k[i])).sum();
         assert!(((e1 - e0) - taken).abs() <= 1e-9 * taken, "{} vs {taken}", e1 - e0);
         assert!(w.t_k[0] > w.t_k[WALL_NODES - 1], "{:?}", w.t_k);
+        // The penetration (10 mm of steel, about 42 kJ/(m^2 K) at 560 K)
+        // rises about 1440 x 1000 / (42e3 + 1000) = 33 K in the first 1 s
+        // at 2000 K, so its time constant is about 40 s: after 600 s it is
+        // at the medium, far ahead of the wall's inner node. At the
+        // temperature limit it fails the head only with `penetrations`.
+        let mut pw = HeadWall::new(560.0);
+        pw.step(&prm, 2000.0, prm.debris_to_head_w_m2_k, 1.0, 1.0);
+        assert!((pw.pen_k - 560.0 - 33.0).abs() < 4.0, "{}", pw.pen_k);
+        assert!(w.pen_k > 1990.0 && w.pen_k > w.t_k[0] + 300.0, "{} {:?}", w.pen_k, w.t_k);
+        let mut q = HeadWall::new(560.0);
+        q.pen_k = prm.head_failure_wall_k;
+        assert!(q.failed(&prm, 0.0, 1.0, true) && !q.failed(&prm, 0.0, 1.0, false));
         // Larson-Miller: sigma 10 MPa at 1273 K.
         let (ri, ro) = (prm.rpv_radius_m, prm.rpv_radius_m + prm.lower_head_thickness_m);
         let dp = 10.0e6 * (ro * ro - ri * ri) / (ri * ri);
         let mut c = HeadWall::new(1273.0);
-        assert!(!c.failed(&prm, dp, 600.0));
+        assert!(!c.failed(&prm, dp, 600.0, false));
         let t_rupture = prm.creep_fail_strain * 600.0 / c.strain;
         assert!((t_rupture / 6.0e4 - 1.0).abs() < 0.1, "{t_rupture}");
         // A whole core is a cap of its own volume; twice that overflows.

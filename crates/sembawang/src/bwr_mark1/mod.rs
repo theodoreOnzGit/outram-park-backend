@@ -145,6 +145,9 @@ pub struct Mechanisms {
     /// the steam lines, leaks and containment ([`internals`], 2026-10-29);
     /// off passes the core's exit gas straight through.
     pub dome_internals: bool,
+    /// Lower-head penetration failure at the wall's temperature limit
+    /// (`core::HeadWall`, MELCOR §6.3, 2026-10-29); off is the wall alone.
+    pub penetrations: bool,
 }
 
 impl Default for Mechanisms {
@@ -166,6 +169,7 @@ impl Default for Mechanisms {
             hydrogen_cp_t: true,
             msl_creep: true,
             dome_internals: true,
+            penetrations: true,
         }
     }
 }
@@ -269,6 +273,13 @@ impl Mechanisms {
     /// leaks and the containment unchanged (the model before 2026-10-29).
     pub fn without_dome_internals(mut self) -> Self {
         self.dome_internals = false;
+        self
+    }
+
+    /// The lower head fails by its wall alone, no penetration: the model
+    /// before 2026-10-29.
+    pub fn without_penetrations(mut self) -> Self {
+        self.penetrations = false;
         self
     }
 
@@ -823,7 +834,7 @@ impl Plant {
             v.level_m
         };
         Snapshots {
-            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, prm },
+            core: CoreSnapshot { dt_s: DT_S, p_pa: v.sat.p_pa, t_sat_k: t_sat, h_fg: v.sat.h_g - v.sat.h_f, level_m: core_level, decay_w, t_dependent_props: self.mechanisms.temperature_dependent_properties, p_dw_pa: self.last_containment.p_dw_pa, lower_head_wall: self.mechanisms.lower_head_wall, rod_collapse: self.mechanisms.rod_collapse, core_radiation: self.mechanisms.core_radiation, diffusion_limit: self.mechanisms.diffusion_limit, hydrogen_cp_t: self.mechanisms.hydrogen_cp_t, penetrations: self.mechanisms.penetrations, prm },
             containment: ContainmentSnapshot {
                 dt_s: DT_S,
                 srv_steam_kg_s: w_relief * (1.0 - h2_share),
