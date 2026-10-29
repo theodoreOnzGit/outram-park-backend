@@ -346,6 +346,12 @@ pub struct Mechanisms {
     /// supporting structure is a component of each ring's cell; 2026-10-29;
     /// needs `core_plate`). Off is one plate under the whole core.
     pub ring_plates: bool,
+    /// The torus pool in two layers split at the downcomers' exits: the
+    /// downcomers (and every surface process) act on the water above them,
+    /// the relief valves' quenchers on the water below; the layers mix when
+    /// the lower is the hotter (2026-10-29; PPOOLEX, Li and Kudinov). Off is
+    /// one well-mixed pool.
+    pub pool_layers: bool,
 }
 
 impl Default for Mechanisms {
@@ -404,6 +410,7 @@ impl Default for Mechanisms {
             core_plate: true,
             bottom_radiation: true,
             ring_plates: true,
+            pool_layers: true,
         }
     }
 }
@@ -746,6 +753,12 @@ impl Mechanisms {
     /// One core plate under the whole core: before 2026-10-29.
     pub fn without_ring_plates(mut self) -> Self {
         self.ring_plates = false;
+        self
+    }
+
+    /// One well-mixed torus pool: before 2026-10-29.
+    pub fn without_pool_layers(mut self) -> Self {
+        self.pool_layers = false;
         self
     }
 
@@ -1486,6 +1499,7 @@ impl Plant {
                 rpv_wall_w: self.pending.rpv_out_w,
                 mcci: self.mechanisms.mcci,
                 dw_wall_outer: self.mechanisms.dw_wall_outer,
+                pool_layers: self.mechanisms.pool_layers,
                 cav_uo2_kg: if self.last_core.lower_head_failed { self.last_core.debris_uo2_kg } else { 0.0 },
                 cav_zr_kg: if self.last_core.lower_head_failed { self.last_core.debris_zr_metal_kg } else { 0.0 },
                 cav_debris_k: self.last_core.debris_k,
@@ -2243,11 +2257,14 @@ mod tests {
         // containment), 5.39e-5 and 3.55e-5. With a core plate per ring
         // (2026-10-29) the drywell peaks at 0.755 MPa, past the flange
         // leak's 0.75 MPa, and 9.15e-4 reaches the reactor building (7.6e-5
-        // in the drywell, 4.1e-5 in the wetwell gas).
+        // in the drywell, 4.1e-5 in the wetwell gas). With the pool in two
+        // layers the flange opens about 17.5 h: 4.00e-3 in the building,
+        // 7.85e-4 in the drywell (past the 5e-4 this test held, which was a
+        // record of the earlier runs, not a bound), 9.2e-6 in the wetwell.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && k.xe_dw < 5e-4 && k.xe_ww < 4e-4, "{f:?}");
-        assert!((k.xe_building - 9.15e-4).abs() < 1e-5, "{f:?}");
+        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 7.85e-4).abs() < 1e-5 && k.xe_ww < 4e-4, "{f:?}");
+        assert!((k.xe_building - 4.00e-3).abs() < 1e-5, "{f:?}");
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -2258,8 +2275,9 @@ mod tests {
         // closed again, with 2.5e-4 still in the drywell and 1.5e-4 in the
         // wetwell gas at 26 h; 0.9958 since the core plate, with 3.8e-4 and
         // 2.6e-4; 0.9960 since the bottom of the core radiates, with 2.7e-4
-        // and 2.6e-4; 0.9937 with a plate per ring, the flange open.)
-        assert!((k.xe_vented - 0.9937).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // and 2.6e-4; 0.9937 with a plate per ring, the flange open; 0.9898
+        // with the pool in two layers.)
+        assert!((k.xe_vented - 0.9898).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at

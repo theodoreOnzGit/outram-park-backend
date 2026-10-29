@@ -4423,6 +4423,7 @@ pub struct ContainmentSnapshot {
     pub rpv_wall_w: f64,
     pub mcci: bool,
     pub dw_wall_outer: bool,
+    pub pool_layers: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -4481,6 +4482,7 @@ pub struct ContainmentSnapshot {
 | `rpv_wall_w` | `f64` | Heat through the RPV's insulation into the drywell gas, W<br>(`Mechanisms::rpv_wall`). |
 | `mcci` | `bool` | Molten core-concrete interaction on the drywell floor<br>(`Mechanisms::mcci`), and the debris there: the core's UO2 and<br>metallic Zr, kg, and their temperature, K. |
 | `dw_wall_outer` | `bool` | The drywell structures lose heat across the gap to the concrete<br>around them, which conducts it to the reactor building<br>(`Mechanisms::dw_wall_outer`). |
+| `pool_layers` | `bool` | The torus pool in two layers, split at the downcomers' exits<br>(`Mechanisms::pool_layers`). |
 | `cav_uo2_kg` | `f64` |  |
 | `cav_zr_kg` | `f64` |  |
 | `cav_debris_k` | `f64` |  |
@@ -4621,6 +4623,7 @@ pub struct ContainmentResult {
     pub p_ww_pa: f64,
     pub t_dw_k: f64,
     pub t_pool_k: f64,
+    pub t_pool_top_k: f64,
     pub dw_h2_kg: f64,
     pub ww_h2_kg: f64,
     pub rb_h2_fraction: f64,
@@ -4660,7 +4663,8 @@ pub struct ContainmentResult {
 | `p_dw_pa` | `f64` |  |
 | `p_ww_pa` | `f64` |  |
 | `t_dw_k` | `f64` |  |
-| `t_pool_k` | `f64` |  |
+| `t_pool_k` | `f64` | The pool's temperature, K: its mean over both layers with<br>`pool_layers`. |
+| `t_pool_top_k` | `f64` | The pool's surface layer (above the downcomers' exits), K; the<br>whole pool without `pool_layers`. |
 | `dw_h2_kg` | `f64` |  |
 | `ww_h2_kg` | `f64` |  |
 | `rb_h2_fraction` | `f64` |  |
@@ -12812,6 +12816,7 @@ pub struct Mechanisms {
     pub core_plate: bool,
     pub bottom_radiation: bool,
     pub ring_plates: bool,
+    pub pool_layers: bool,
 }
 ```
 
@@ -12872,6 +12877,7 @@ pub struct Mechanisms {
 | `core_plate` | `bool` | Relocating material rests on the BWR core plate until the plate<br>yields (MELCOR's PLATEB, COR RM §5.2.3, Eqs 5-3, 5-13, 5-16;<br>2026-10-29); thickness and beam spacing \[A\]. Off is relocation<br>straight to the lower plenum. |
 | `bottom_radiation` | `bool` | The lowest uncovered core cell radiates down to the lower plenum's<br>water (MELCOR COR RM §2.1.2, `FLPUP` = 0.25; 2026-10-29; needs<br>`core_radiation`); the steam it raises rises through the core. Off is<br>the bottom of the core exchanging nothing. |
 | `ring_plates` | `bool` | One core plate per radial ring, each holding its ring's relocating<br>material and failing on its own load (MELCOR COR RM §5.2.3: the<br>supporting structure is a component of each ring's cell; 2026-10-29;<br>needs `core_plate`). Off is one plate under the whole core. |
+| `pool_layers` | `bool` | The torus pool in two layers split at the downcomers' exits: the<br>downcomers (and every surface process) act on the water above them,<br>the relief valves' quenchers on the water below; the layers mix when<br>the lower is the hotter (2026-10-29; PPOOLEX, Li and Kudinov). Off is<br>one well-mixed pool. |
 
 ##### Implementations
 
@@ -13136,6 +13142,11 @@ pub struct Mechanisms {
   pub fn without_ring_plates(self: Self) -> Self { /* ... */ }
   ```
   One core plate under the whole core: before 2026-10-29.
+
+- ```rust
+  pub fn without_pool_layers(self: Self) -> Self { /* ... */ }
+  ```
+  One well-mixed torus pool: before 2026-10-29.
 
 - ```rust
   pub fn without_ic_h2_blanketing(self: Self) -> Self { /* ... */ }

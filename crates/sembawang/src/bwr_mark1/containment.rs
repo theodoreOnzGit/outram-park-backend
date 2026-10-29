@@ -188,6 +188,9 @@ pub struct ContainmentSnapshot {
     /// around them, which conducts it to the reactor building
     /// (`Mechanisms::dw_wall_outer`).
     pub dw_wall_outer: bool,
+    /// The torus pool in two layers, split at the downcomers' exits
+    /// (`Mechanisms::pool_layers`).
+    pub pool_layers: bool,
     pub cav_uo2_kg: f64,
     pub cav_zr_kg: f64,
     pub cav_debris_k: f64,
@@ -200,7 +203,12 @@ pub struct ContainmentResult {
     pub p_dw_pa: f64,
     pub p_ww_pa: f64,
     pub t_dw_k: f64,
+    /// The pool's temperature, K: its mean over both layers with
+    /// `pool_layers`.
     pub t_pool_k: f64,
+    /// The pool's surface layer (above the downcomers' exits), K; the
+    /// whole pool without `pool_layers`.
+    pub t_pool_top_k: f64,
     pub dw_h2_kg: f64,
     pub ww_h2_kg: f64,
     pub rb_h2_fraction: f64,
@@ -317,6 +325,12 @@ pub struct Containment {
     /// The concrete around the drywell, K, inner face first
     /// (`dw_wall_outer`).
     dw_slab: [f64; DW_SLAB_CELLS],
+    /// The pool's water below the downcomers' exits, kg and K, once it is
+    /// split off (`pool_layers`); `pool_kg` and `pool_t` are then the water
+    /// above them.
+    deep_kg: f64,
+    deep_t: f64,
+    layered: bool,
 }
 
 /// Cells of the concrete slab around the drywell (`dw_wall_outer`).
@@ -389,6 +403,9 @@ impl Containment {
             dw_hs: false,
             cavity: Cavity::default(),
             dw_slab: [prm.initial_drywell_k; DW_SLAB_CELLS],
+            deep_kg: 0.0,
+            deep_t: prm.initial_pool_k,
+            layered: false,
         }
     }
 
@@ -628,6 +645,37 @@ impl Containment {
     fn pool_energy(&self) -> f64 {
         self.pool_kg * CP_WATER * (self.pool_t - 273.15)
     }
+    /// Exchange the two layers of the pool (`pool_layers`), so that what
+    /// acts on "the pool" acts on the deep one, and back.
+    fn swap_layers(&mut self) {
+        std::mem::swap(&mut self.pool_kg, &mut self.deep_kg);
+        std::mem::swap(&mut self.pool_t, &mut self.deep_t);
+    }
+    /// The torus pool in two layers (`pool_layers`): split, once, at the
+    /// downcomers' exits (their submergence, `vent_submergence_pa`, as a
+    /// depth, over the pool's surface area: a prismatic pool, stated); and
+    /// mixed back to one temperature whenever the deep layer is the hotter
+    /// (lighter) one, the stratification then being unstable. Between the
+    /// layers nothing else passes (stated: conduction and entrainment
+    /// neglected). The physics: steam condensing at a vent's exit heats and
+    /// stirs the water above the exit while the water below stays cold
+    /// (the PPOOLEX experiments; Li and Kudinov's effective heat and
+    /// momentum source models of the Mark I torus).
+    fn layer_pool(&mut self, prm: &Params) {
+        if !self.layered {
+            let depth = prm.vent_submergence_pa / (995.0 * 9.81);
+            let top = (prm.ww_pool_surface_m2 * depth * 995.0).min(self.pool_kg);
+            self.deep_kg = self.pool_kg - top;
+            self.deep_t = self.pool_t;
+            self.pool_kg = top;
+            self.layered = true;
+        }
+        if self.deep_t > self.pool_t {
+            let t = (self.pool_kg * self.pool_t + self.deep_kg * self.deep_t) / (self.pool_kg + self.deep_kg);
+            self.pool_t = t;
+            self.deep_t = t;
+        }
+    }
     fn set_pool_energy(&mut self, e: f64) {
         self.pool_t = 273.15 + e / (self.pool_kg * CP_WATER);
     }
@@ -638,6 +686,9 @@ impl Containment {
         let dt = s.dt_s;
         let tv = s.gas_cv_t;
         self.ww_atm = s.ww_atmosphere;
+        if s.pool_layers {
+            self.layer_pool(prm);
+        }
         self.dw_hs = s.dw_wall_hs;
         self.swarm_age_s += dt;
         self.iodine_swarm_age_s += dt;
@@ -676,6 +727,11 @@ impl Containment {
         //    the bubble model; the hydrogen with its enthalpy at the
         //    vessel's saturation temperature (`relief_h2_enthalpy`), or at
         //    the pool's temperature without it.
+        // With `pool_layers` the relief valves' quenchers, near the pool's
+        // bottom, discharge into the deep layer.
+        if self.layered {
+            self.swap_layers();
+        }
         let m = s.srv_steam_kg_s * dt;
         if self.ww_atm {
             let nh2 = s.srv_h2_kg_s * dt / M_H2;
@@ -687,6 +743,9 @@ impl Containment {
             self.pool_kg += m;
             self.set_pool_energy(e);
             self.ww_h2 += s.srv_h2_kg_s * dt / M_H2;
+        }
+        if self.layered {
+            self.swap_layers();
         }
         // Noble gas is a trace non-condensable: it rides with the gas it
         // arrives in and moves in the same fraction as N2 and H2 on every
@@ -1195,11 +1254,15 @@ impl Containment {
             self.exploded = true;
             self.rb_h2 = 0.0;
         }
+        if s.pool_layers {
+            self.layer_pool(prm);
+        }
         ContainmentResult {
             p_dw_pa: self.p_dw(prm),
             p_ww_pa: self.p_ww(prm),
             t_dw_k: self.dw_t,
-            t_pool_k: self.pool_t,
+            t_pool_k: if self.layered { (self.pool_kg * self.pool_t + self.deep_kg * self.deep_t) / (self.pool_kg + self.deep_kg) } else { self.pool_t },
+            t_pool_top_k: self.pool_t,
             dw_h2_kg: self.dw_h2 * M_H2,
             ww_h2_kg: self.ww_h2 * M_H2,
             rb_h2_fraction: self.rb_h2 / n_rb,
@@ -1246,7 +1309,7 @@ impl Containment {
     /// CsOH), mol/L: what was scrubbed into it and what deposited on its
     /// surface from the wetwell gas.
     fn pool_chemistry(&self, pool: &sparc::Pool) -> (f64, f64, f64) {
-        let litres = self.pool_kg / pool.rho_l() * 1e3;
+        let litres = (self.pool_kg + self.deep_kg) / pool.rho_l() * 1e3;
         let i_kg = self.pool_scrubbed[IODINE] + self.ww_rn.on_surface_kg[0][IODINE];
         let cs_kg = self.pool_scrubbed[CS] + self.ww_rn.on_surface_kg[0][CS];
         (litres, i_kg / iodine::M_I2 / litres, cs_kg / iodine::M_CS / litres)
@@ -1444,6 +1507,7 @@ impl Containment {
             self.cavity.co_kg,
         ]);
         w.f(&self.dw_slab);
+        w.f(&[self.deep_kg, self.deep_t, b(self.layered)]);
         w.f(&self.swarm_pass);
         w.f(&self.pool_scrubbed);
         self.dw_rn.write(w);
@@ -1503,8 +1567,14 @@ impl Containment {
                 co_kg: r.f(),
             },
             dw_slab: [0.0; DW_SLAB_CELLS],
+            deep_kg: 0.0,
+            deep_t: 0.0,
+            layered: false,
         };
         c.dw_slab = std::array::from_fn(|_| r.f());
+        c.deep_kg = r.f();
+        c.deep_t = r.f();
+        c.layered = r.f() != 0.0;
         c.swarm_pass = (0..rn_sections().v.len()).map(|_| r.f()).collect();
         c.pool_scrubbed = std::array::from_fn(|_| r.f());
         c.dw_rn.read_into(r);
@@ -1562,6 +1632,7 @@ impl ContainmentSnapshot {
             self.rpv_wall_w,
             b(self.mcci),
             b(self.dw_wall_outer),
+            b(self.pool_layers),
             self.cav_uo2_kg,
             self.cav_zr_kg,
             self.cav_debris_k,
@@ -1617,6 +1688,7 @@ impl ContainmentSnapshot {
             rpv_wall_w: r.f(),
             mcci: r.f() != 0.0,
             dw_wall_outer: r.f() != 0.0,
+            pool_layers: r.f() != 0.0,
             cav_uo2_kg: r.f(),
             cav_zr_kg: r.f(),
             cav_debris_k: r.f(),
@@ -1634,6 +1706,7 @@ impl ContainmentResult {
             self.p_ww_pa,
             self.t_dw_k,
             self.t_pool_k,
+            self.t_pool_top_k,
             self.dw_h2_kg,
             self.ww_h2_kg,
             self.rb_h2_fraction,
@@ -1671,6 +1744,7 @@ impl ContainmentResult {
             p_ww_pa: r.f(),
             t_dw_k: r.f(),
             t_pool_k: r.f(),
+            t_pool_top_k: r.f(),
             dw_h2_kg: r.f(),
             ww_h2_kg: r.f(),
             rb_h2_fraction: r.f(),

@@ -224,7 +224,8 @@ mod tests {
     /// plate to 6.49e13 and 9.06e15 Bq; by the bottom of the core's
     /// radiation to 7.77e13 and 2.57e16 Bq, the I-131 nearly tripled by the
     /// later, dry head failure, 2026-10-29; by a plate per ring to 5.99e13
-    /// and 9.07e15 Bq, the early branch again.)
+    /// and 9.07e15 Bq, the early branch again; by the pool in two layers to
+    /// 1.54e14 and 1.07e16 Bq, the flange leak open from about 17.5 h.)
     #[test]
     fn the_model_release_hands_off_to_changi() {
         let prm = Params::default();
@@ -243,7 +244,7 @@ mod tests {
         let f = h.cs_released[h.cs_released.len() - 1];
         assert!((total(&st, 0) / (f * cs) - 1.0).abs() < 1e-4, "{} vs {}", total(&st, 0), f * cs);
         assert!((i / 1.358e18 - 1.0).abs() < 1e-3 && (xe / 2.895e18 - 1.0).abs() < 1e-3, "{i:e} {xe:e}");
-        assert!((total(&st, 0) / 5.986e13 - 1.0).abs() < 1e-3 && (total(&st, 1) / 9.073e15 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
+        assert!((total(&st, 0) / 1.5416e14 - 1.0).abs() < 1e-3 && (total(&st, 1) / 1.0735e16 - 1.0).abs() < 1e-3, "{:e} {:e}", total(&st, 0), total(&st, 1));
         // Xe-133 2.533e18 -> 2.521e18 Bq with the bottom of the core's
         // radiation, -> 2.530e18 with a plate per ring (2026-10-29).
         assert!((total(&st, 2) / 2.530e18 - 1.0).abs() < 1e-3, "{:e}", total(&st, 2));
@@ -294,8 +295,9 @@ mod tests {
         // Moved by a plate per ring (2026-10-29, the release's own change):
         // Xe-133 1.286e11 -> 1.291e11 at 1 km, 4.338e12 -> 4.353e12 at
         // 4 km; Cs-137 1.340e8 -> 1.032e8; deposited I-131 4.428e8 ->
-        // 1.562e8 Bq/m^2.
+        // 1.562e8 Bq/m^2. By the pool in two layers: Cs-137 at 4 km 1.032e8
+        // -> 2.658e8, deposited I-131 1.562e8 -> 1.848e8 Bq/m^2.
         assert!((air(0, 2) / 1.291e11 - 1.0).abs() < 1e-3 && (air(3, 2) / 4.353e12 - 1.0).abs() < 1e-3, "{:e} {:e}", air(0, 2), air(3, 2));
-        assert!((air(3, 0) / 1.032e8 - 1.0).abs() < 1e-3 && (ground(3, 1) / 1.562e8 - 1.0).abs() < 1e-3, "{:e} {:e}", air(3, 0), ground(3, 1));
+        assert!((air(3, 0) / 2.658e8 - 1.0).abs() < 1e-3 && (ground(3, 1) / 1.848e8 - 1.0).abs() < 1e-3, "{:e} {:e}", air(3, 0), ground(3, 1));
     }
 }

@@ -217,11 +217,14 @@ fn the_model_against_the_digitised_bsaf_figures() {
     // 0.9167. With a core plate per ring (2026-10-29): RPV mean 3.5577 ->
     // 3.5090, max 6.6805 -> 6.6246 MPa; drywell mean 0.2640 -> 0.1476, max
     // 0.3860 -> 0.3468 MPa; envelopes RPV 0.0549 -> 0.2308, drywell 0.2747
-    // -> 0.4945, H2 0.0920, Xe 0.8333 -> 0.7708, I 0.9167 -> 0.8542.
-    assert!((rpv.mean_abs - 3.5090).abs() < 1e-3 && (rpv.max_abs - 6.6246).abs() < 1e-3, "{rpv:?}");
-    assert!((dw.mean_abs - 0.1476).abs() < 1e-3 && (dw.max_abs - 0.3468).abs() < 1e-3, "{dw:?}");
+    // -> 0.4945, H2 0.0920, Xe 0.8333 -> 0.7708, I 0.9167 -> 0.8542. With
+    // the pool in two layers: RPV 3.5090/6.6246 -> 3.4653/6.6211 MPa;
+    // drywell 0.1476/0.3468 -> 0.1186/0.2657 MPa; envelopes RPV 0.2308 ->
+    // 0.5055, drywell 0.4945 -> 0.5714, the rest the same.
+    assert!((rpv.mean_abs - 3.4653).abs() < 1e-3 && (rpv.max_abs - 6.6211).abs() < 1e-3, "{rpv:?}");
+    assert!((dw.mean_abs - 0.1186).abs() < 1e-3 && (dw.max_abs - 0.2657).abs() < 1e-3, "{dw:?}");
     let near = |(f, _): (f64, usize), x: f64| (f - x).abs() < 1e-3;
-    assert!(near(e_rpv, 0.2308) && near(e_dw, 0.4945) && near(e_h2, 0.0920) && near(e_xe, 0.7708) && near(e_i, 0.8542));
+    assert!(near(e_rpv, 0.5055) && near(e_dw, 0.5714) && near(e_h2, 0.0920) && near(e_xe, 0.7708) && near(e_i, 0.8542));
 }
 
 
@@ -270,8 +273,9 @@ fn the_model_beyond_its_window_against_fig_2_3a() {
     // lower head under water; mean 0.1677, max 0.6245 with the wetwell
     // atmosphere; mean 0.1659, max 0.6239 with MCCI; mean 0.1664, max
     // 0.6251 with the drywell's outer heat path; mean 0.1677, max 0.6255
-    // with the bottom of the core's radiation (2026-10-29).
-    assert!((a.mean_abs - 0.1677).abs() < 1e-3 && (a.max_abs - 0.6255).abs() < 1e-3, "{a:?}");
+    // with the bottom of the core's radiation; mean 0.1714, max 0.6265 with
+    // the pool in two layers (2026-10-29).
+    assert!((a.mean_abs - 0.1714).abs() < 1e-3 && (a.max_abs - 0.6265).abs() < 1e-3, "{a:?}");
 }
 
 
@@ -427,7 +431,7 @@ fn cesium_against_fig_2_6() {
     // The earlier model: also lumped (sectional classes alone move this
     // ablation's 0.8539 to 0.9213).
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_sectional_classes().without_phoresis().without_vessel_aerosol().without_condensate_mass().without_fp_decay_follows().without_te_transport().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -501,7 +505,7 @@ fn iodine_against_fig_2_6() {
     // 0.0787 -> 0.0674 with the bottom of the core's radiation (2026-10-29).
     assert!((d.0 - 0.0674).abs() < 1e-3 && d.1 == 89, "{d:?}");
     let off = histories(
-        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates(),
+        Mechanisms::default().without_pool_scrubbing().without_in_vessel_deposition().without_internals_heat_loss().without_fp_decay_follows().without_debris_oxidation().without_candling().without_debris_quench().without_wet_head_contact().without_failed_vessel_drain().without_ww_atmosphere().without_dw_wall_hs().without_ww_shell().without_outflow_enthalpy().without_relief_h2_enthalpy().without_condensate_to_floor().without_rpv_wall().without_internals_radiation().without_core_top_radiation().without_see_through().without_mcci().without_dw_wall_outer().without_core_plate().without_bottom_radiation().without_ring_plates().without_pool_layers(),
         Params::default(),
         60.0,
         26.0 * 3600.0,
@@ -608,7 +612,10 @@ fn cesium_137_release_against_fig_5_1() {
     // records the move here.
     // 0.0649 -> 0.0778 PBq with the bottom of the core's radiation, ->
     // 0.0599 with a plate per ring, the rate inside the envelope 0.0044 ->
-    // 0.0000 (2026-10-29).
-    assert!((total_pbq - 0.0599).abs() < 1e-3 && (at(26.0) - 0.0599).abs() < 1e-3, "{total_pbq}");
-    assert!(env.0 < 1e-3 && env.1 == 454, "{env:?}");
+    // 0.0000; -> 0.1543 PBq (0.1542 at 26 h) with the pool in two layers,
+    // the flange open from about 17.5 h: inside the codes' 0.1-18.9 PBq
+    // for the first time, the rate inside the envelope 0.0110
+    // (2026-10-29).
+    assert!((total_pbq - 0.1543).abs() < 1e-3 && (at(26.0) - 0.1542).abs() < 1e-3, "{total_pbq}");
+    assert!((env.0 - 0.0110).abs() < 1e-3 && env.1 == 454, "{env:?}");
 }
