@@ -7698,6 +7698,337 @@ Atmosphere, Pa.
 pub const P_ATM: f64 = 1.013e5;
 ```
 
+## Module `rn_volume`
+
+One control volume's fission products and aerosol: the sectional aerosol
+(`aerosol`), cesium as vapour, on the airborne aerosol and on each
+surface, and the transfers between them in one step (gh:#1047, third
+deliverable; not yet wired into the plant).
+
+The step follows MELCOR's order and coupling (Vol. 2, SAND2023-10994 O,
+RN §2.4 and §2.5.2; no source used): released aerosol enters the
+**smallest section** (RN §2.4.3: "consistent with the production of
+small particles by gas-to-particle conversion"); vapour condenses onto
+the aerosol sections (Sherwood number 2) and onto the surfaces at their
+own temperatures by TRAP-MELT2's analytic step; the aerosol agglomerates
+and deposits.
+
+**Simplification, stated:** cesium on the airborne aerosol is tracked as
+one mass, sharing the aerosol's size distribution, which is MELCOR's rule
+for classes assigned to one component (RN §2.4.1). MELCOR's default puts
+the volatiles in a component of their own; that is not followed here.
+Evaporation from a surface is limited to what it holds (TRAP-MELT2's
+step does not limit it; the excess returns to the vapour).
+
+```rust
+pub mod rn_volume { /* ... */ }
+```
+
+### Types
+
+#### Struct `RnSurface`
+
+A deposition surface as this volume sees it: the aerosol surface (area,
+facing, phoretic velocities) and, for the vapour, its temperature, K,
+and mass-transfer coefficient, m/s.
+
+```rust
+pub struct RnSurface {
+    pub surface: super::aerosol::Surface,
+    pub t_k: f64,
+    pub k_vapour: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface` | `super::aerosol::Surface` |  |
+| `t_k` | `f64` |  |
+| `k_vapour` | `f64` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RnVolume`
+
+What is in the volume.
+
+```rust
+pub struct RnVolume {
+    pub volume_m3: f64,
+    pub sections: super::aerosol::Sections,
+    pub cs_vapour_kg: f64,
+    pub cs_on_aerosol_kg: f64,
+    pub cs_on_surface_kg: Vec<f64>,
+    pub aerosol_on_surface_kg: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `volume_m3` | `f64` |  |
+| `sections` | `super::aerosol::Sections` |  |
+| `cs_vapour_kg` | `f64` | Cesium (as CsOH) in the gas as vapour, and on the airborne aerosol,<br>kg. |
+| `cs_on_aerosol_kg` | `f64` |  |
+| `cs_on_surface_kg` | `Vec<f64>` | Per surface: cesium on it, kg (by deposition and by condensation),<br>and aerosol deposited on it, kg. |
+| `aerosol_on_surface_kg` | `Vec<f64>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(volume_m3: f64, sections: Sections, n_surfaces: usize) -> Self { /* ... */ }
+  ```
+
+- ```rust
+  pub fn aerosol_kg(self: &Self, rho_p: f64) -> f64 { /* ... */ }
+  ```
+  Airborne aerosol mass, kg, at material density `rho_p`.
+
+- ```rust
+  pub fn add(self: &mut Self, aerosol_kg: f64, rho_p: f64, cs_vapour_kg: f64) { /* ... */ }
+  ```
+  Add released aerosol, kg, into the smallest section, and cesium
+
+- ```rust
+  pub fn take(self: &mut Self, f: f64) -> (Vec<f64>, f64, f64) { /* ... */ }
+  ```
+  Take the fraction `f` of the volume's gas (with its aerosol, the
+
+- ```rust
+  pub fn receive(self: &mut Self, moved: &[f64], cs_vapour_kg: f64, cs_on_aerosol_kg: f64) { /* ... */ }
+  ```
+  Receive what `take` returned from another volume (same sections).
+
+- ```rust
+  pub fn step(self: &mut Self, medium: &Medium, gases: &[(BulkGas, f64)], surfaces: &[RnSurface], dt: f64) { /* ... */ }
+  ```
+  One step of `dt` s: condensation, agglomeration, deposition.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ## Module `steam`
 
 Water and steam properties for the plant model, all from IAPWS-IF97 as

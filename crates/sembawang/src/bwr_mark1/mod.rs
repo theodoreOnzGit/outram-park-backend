@@ -45,6 +45,7 @@ pub mod gas;
 pub mod internals;
 pub mod msl;
 pub mod params;
+pub mod rn_volume;
 pub mod steam;
 pub mod vapour;
 pub mod wire;
