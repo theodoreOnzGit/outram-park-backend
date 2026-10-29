@@ -159,3 +159,61 @@ We are returning a struct rather than a tuple in Python. Acceptable
 ## Sign-off
 
 Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-27, commit c1bf1b3cbe.
+
+# Review: activity_from_atom_count (github:theodoreOnzGit)
+
+```toml
+[kovan]
+id = "review-activity-from-atom-count-theodoreonzgit-19e5783b"
+kind = "review"
+origin = "human"
+created = "2026-10-29T15:14:07+08:00"
+modified = "2026-10-29T15:14:07+08:00"
+target = "fn:19e5783b37ef814f"
+
+[review]
+path = "crates/boon-lay/src/triso_atops_fork/activities/mod.rs::activity_from_atom_count"
+by = "github:theodoreOnzGit"
+rung = 3
+date = "2026-10-29"
+signed_at = "2026-10-29T15:14:07+08:00"
+commit = "ead303e96d468032a5d9d350add9da2e95667838"
+hash = "sha256:ad68db54587104e69bd653cfadd3f834f3d65ded6a28ca0be769331eadbc74e2"
+doc_hash = "sha256:b5bf22b5fd7181c754fecaca6efd9b7c08fa418127ded5124eed314f36d2f596"
+cargo_lock = "sha256:f98236dd033e5a874219475b1066e85b1068ae8fb68882c2c9732d8f6bc0f51e"
+
+[review.callees]
+"fn:ba64fcae0172d25c" = "sha256:0196f4e99e8ef64c6a3357865c16449940fa6b65552c3b83369cff84cf21db0b"
+"fn:e6c95a55e6568166" = "sha256:ea14821948029f3e6fad9e6158fe9078d576f804d7c111f2f14856b0c0fc6605"
+
+[review.checklist]
+coding_standards = "yes"
+doc_matches_behaviour = "yes"
+error_handling = "panics_justified: wrapper, follows upstream behaviour"
+independence = "someone_else"
+limits_and_guards = "no_limits: wrapper, follows upstream behaviour"
+maintainability = "yes"
+numerical_hazards = "none_found"
+test_reach = "reached_and_checked"
+unintended_function = "no"
+units_documented = "yes"
+vv_case_author = "agent_wrote_or_cowrote"
+vv_evidence = "unit_tests_only"
+
+[review.authorship]
+kind = "agent"
+sessions = ["https://claude.ai/code/session_01CyNsZF5YyFwvCf1QyrSya7"]
+
+[review.signature]
+key = "k1"
+alg = "ed25519"
+value = "s0eIHqyuU2DwjfsTVVYcWIvDwATTTUijF6ZLe1twKQK2+x5dz9O1m9npZU5UQedLSTSiLdKhowAhoD/9LYeeBw=="
+
+[[relation]]
+target = "concept:16-nuclear-fuel-cycle/fuel-depletion/decay-data"
+kind = "implements"
+```
+
+## Sign-off
+
+Reviewed by github:theodoreOnzGit at rung 3 on 2026-10-29, commit ead303e96d.
